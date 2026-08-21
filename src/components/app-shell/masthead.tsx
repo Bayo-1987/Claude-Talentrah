@@ -53,9 +53,12 @@ export function Masthead({ creditsBalance, initials }: MastheadProps) {
           <span className="inline-flex min-h-10 items-center border border-line px-2.5 text-[12.5px] text-ink-soft">
             EN
           </span>
-          <span className="inline-flex min-h-10 items-center bg-rust-soft px-3.5 text-[13px] font-bold text-rust">
-            {creditsBalance} credits
-          </span>
+          <Link
+            href="/billing"
+            className="inline-flex min-h-10 items-center bg-rust-soft px-3.5 text-[13px] font-bold text-rust no-underline hover:bg-[oklch(87%_0.04_40)]"
+          >
+            {creditsBalance} credits · Top up
+          </Link>
           <div className="flex h-[34px] w-[34px] items-center justify-center rounded-full bg-ink font-display text-[12px] font-bold text-paper">
             {initials}
           </div>

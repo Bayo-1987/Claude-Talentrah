@@ -92,12 +92,12 @@ export function JobCard({ job, score, isSaved, applicationStage }: JobCardProps)
               <path d="M7 8.8 L13 6.2 M7 11.2 L13 13.8" stroke="currentColor" strokeWidth="1.4" />
             </svg>
           </IconButton>
-          <span
-            title="Coming soon"
-            className="cursor-not-allowed text-[13px] font-semibold text-ink-soft underline underline-offset-2 opacity-60"
+          <a
+            href={`/tailor?jobId=${job.id}`}
+            className="text-[13px] font-semibold text-ink-soft underline underline-offset-2 hover:text-rust"
           >
             Ask Farah
-          </span>
+          </a>
 
           {alreadyApplied ? (
             <span className="inline-flex min-h-10 items-center px-4 text-[13.5px] font-semibold text-green">

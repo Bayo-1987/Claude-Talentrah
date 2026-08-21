@@ -1,11 +1,11 @@
 import { EyebrowLabel } from "@/components/ui";
 
 const QUICK_ACTIONS = [
-  "Resume Builder",
-  "Interview Prep",
-  "Career Advisor",
-  "Cover Letter",
-  "Salary Negotiation",
+  { label: "Resume Builder", href: "/resume-builder" },
+  { label: "Interview Prep", href: null },
+  { label: "Career Advisor", href: null },
+  { label: "Cover Letter", href: "/tailor" },
+  { label: "Salary Negotiation", href: null },
 ];
 
 export interface FarahPanelProps {
@@ -39,16 +39,26 @@ export function FarahPanel({ firstName }: FarahPanelProps) {
       </div>
 
       <div className="flex flex-col border-t border-dashed border-line pt-4">
-        {QUICK_ACTIONS.map((action) => (
-          <span
-            key={action}
-            aria-disabled
-            title="Coming soon"
-            className="flex min-h-10 cursor-not-allowed items-center py-1 font-body text-[13.5px] font-semibold text-ink underline decoration-line underline-offset-2 opacity-60"
-          >
-            {action}
-          </span>
-        ))}
+        {QUICK_ACTIONS.map((action) =>
+          action.href ? (
+            <a
+              key={action.label}
+              href={action.href}
+              className="flex min-h-10 items-center py-1 font-body text-[13.5px] font-semibold text-ink underline underline-offset-2 hover:text-rust"
+            >
+              {action.label}
+            </a>
+          ) : (
+            <span
+              key={action.label}
+              aria-disabled
+              title="Coming soon"
+              className="flex min-h-10 cursor-not-allowed items-center py-1 font-body text-[13.5px] font-semibold text-ink underline decoration-line underline-offset-2 opacity-60"
+            >
+              {action.label}
+            </span>
+          ),
+        )}
       </div>
 
       <div
