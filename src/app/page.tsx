@@ -24,6 +24,14 @@ export default function Home() {
           Newsreader for display, Source Sans 3 for body/UI. No border-radius
           anywhere except circular affordances.
         </p>
+        <div className="mt-2 flex gap-4 text-[13.5px]">
+          <a href="/signup" className="underline">
+            Signup page →
+          </a>
+          <a href="/login" className="underline">
+            Login page →
+          </a>
+        </div>
       </div>
 
       <section className="flex flex-col gap-4">

@@ -38,43 +38,52 @@
   --font-body: var(--font-source-sans), Georgia, serif;
 }
 
-* {
-  box-sizing: border-box;
-}
+/*
+ * @layer base so these lose to utility classes like text-paper — plain
+ * (unlayered) rules after @import "tailwindcss" would otherwise beat
+ * Tailwind's utility layer in the cascade and silently override things like
+ * `<h1 className="text-paper">` back to --ink. Bit us once already; keep
+ * every bare-selector default in here, not loose in this file.
+ */
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
 
-body {
-  background: var(--paper);
-  color: var(--ink);
-  font-family: var(--font-body);
-  -webkit-font-smoothing: antialiased;
-}
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+  }
 
-h1,
-h2,
-h3 {
-  font-family: var(--font-display);
-  font-weight: 500;
-  color: var(--ink);
-  text-wrap: pretty;
-  margin: 0;
-}
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    font-weight: 500;
+    color: var(--ink);
+    text-wrap: pretty;
+    margin: 0;
+  }
 
-p {
-  margin: 0;
-  line-height: 1.65;
-}
+  p {
+    margin: 0;
+    line-height: 1.65;
+  }
 
-a {
-  color: var(--rust);
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
+  a {
+    color: var(--rust);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
 
-a:hover {
-  color: var(--ink);
-}
+  a:hover {
+    color: var(--ink);
+  }
 
-button {
-  font-family: inherit;
-  cursor: pointer;
+  button {
+    font-family: inherit;
+    cursor: pointer;
+  }
 }
