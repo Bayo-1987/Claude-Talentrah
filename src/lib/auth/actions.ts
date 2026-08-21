@@ -98,7 +98,7 @@ export async function signInAction(
     return { error: "Incorrect email or password." };
   }
 
-  redirect("/dashboard");
+  redirect("/jobs");
 }
 
 export async function signOutAction() {

@@ -1,0 +1,74 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { cn } from "@/lib/cn";
+import { signOutAction } from "@/lib/auth/actions";
+
+const NAV_LINKS = [
+  { href: "/jobs", label: "Jobs" },
+  { href: "/tracker", label: "Job Tracker" },
+  { href: "/resume-builder", label: "Resume Builder" },
+  { href: "/refer", label: "Refer a Friend" },
+];
+
+export interface MastheadProps {
+  creditsBalance: number;
+  initials: string;
+}
+
+export function Masthead({ creditsBalance, initials }: MastheadProps) {
+  const pathname = usePathname();
+
+  return (
+    <div className="border-b-[2.5px] border-ink bg-paper">
+      <div className="flex h-[68px] items-center justify-between px-8">
+        <div className="flex items-center gap-9">
+          <Link
+            href="/jobs"
+            className="font-display text-[24px] font-medium tracking-tight text-ink no-underline"
+          >
+            Talentrah
+          </Link>
+          <nav className="flex items-center gap-5.5">
+            {NAV_LINKS.map((link) => {
+              const active = pathname?.startsWith(link.href);
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className={cn(
+                    "flex min-h-10 items-center border-b-[2.5px] border-transparent font-body text-[14.5px] font-semibold text-ink no-underline",
+                    active ? "border-rust text-rust" : "hover:text-rust-hover",
+                  )}
+                >
+                  {link.label}
+                </Link>
+              );
+            })}
+          </nav>
+        </div>
+
+        <div className="flex items-center gap-3.5">
+          <span className="inline-flex min-h-10 items-center border border-line px-2.5 text-[12.5px] text-ink-soft">
+            EN
+          </span>
+          <span className="inline-flex min-h-10 items-center bg-rust-soft px-3.5 text-[13px] font-bold text-rust">
+            {creditsBalance} credits
+          </span>
+          <div className="flex h-[34px] w-[34px] items-center justify-center rounded-full bg-ink font-display text-[12px] font-bold text-paper">
+            {initials}
+          </div>
+          <form action={signOutAction}>
+            <button
+              type="submit"
+              className="text-[13px] font-semibold text-ink-soft underline underline-offset-2 hover:text-rust"
+            >
+              Sign out
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+}

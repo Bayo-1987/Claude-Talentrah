@@ -52,14 +52,19 @@ const SKILL_VOCABULARY = [
   "tableau",
 ];
 
+/**
+ * Some source HTML is double-escaped (`&amp;nbsp;` for a literal `&nbsp;`) —
+ * decoding &amp; first unmasks those before the other entities run, so a
+ * single pass catches both single- and double-escaped forms.
+ */
 function decodeHtmlEntities(text: string): string {
   return text
+    .replace(/&amp;/g, "&")
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&");
+    .replace(/&nbsp;/g, " ");
 }
 
 /**

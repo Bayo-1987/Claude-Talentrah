@@ -12,6 +12,14 @@ Static source for exact markup/spacing: `Main-Editorial.dc.html` (landing page) 
 
 **Name:** "Editorial" — a newspaper/magazine metaphor, deliberately *not* a rounded, blue, card-heavy SaaS look. No border-radius anywhere except small circular affordances (avatars, notification dots, toggle switches). No drop shadows except one deliberate soft lift on the hero's input box.
 
+**Brand mark:** a geometric "T" built from two interlocking rounded blocks — a vertical stem + horizontal bar in `--ink`, with a smaller block in `--rust` offset at the top-right corner (the one asymmetric detail that makes it more than a plain T). Source files are in `logo/`:
+- `talentrah-mark.svg` — icon alone, ink + rust, transparent background, for light/paper surfaces.
+- `talentrah-mark-reversed.svg` — same shape in `--paper` + rust, for placing on `--ink` or other dark surfaces.
+- `talentrah-horizontal.svg` — mark + "Talentrah" wordmark lockup (Newsreader, same treatment as the masthead) for headers/nav bars.
+- `talentrah-mark-{16,32,48,180,512}.png` and `favicon.ico` — rasterized icon-only versions for browser tabs and app icons.
+
+Usage rules: never recolor the mark outside `--ink`/`--rust`/`--paper`, never stretch it non-uniformly, keep clear space around it roughly equal to the offset block's width, and below ~24px only the icon (not the horizontal lockup) is legible — use `talentrah-mark.svg` alone at small sizes. This mark was deliberately redrawn to fit the Editorial palette after an earlier reference happened to be blue — if a future asset shows up in blue, that's a drift from spec, not a variant to match.
+
 ## 2. Color tokens
 
 Defined as CSS custom properties in oklch(). Use these values directly if your stack supports oklch (Tailwind v4, modern CSS); convert to hex/hsl if it doesn't.

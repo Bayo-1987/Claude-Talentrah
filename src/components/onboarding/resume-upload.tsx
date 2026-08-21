@@ -55,7 +55,7 @@ export function ResumeUpload() {
           {confidence === "low" &&
             " Some sections weren't clear — you can fill in the gaps later in the Resume Builder."}
         </p>
-        <Button onClick={() => router.push("/dashboard")}>
+        <Button onClick={() => router.push("/jobs")}>
           Continue to your dashboard
         </Button>
       </div>
@@ -91,7 +91,7 @@ export function ResumeUpload() {
         </Button>
         <button
           type="button"
-          onClick={() => router.push("/dashboard")}
+          onClick={() => router.push("/jobs")}
           className="text-[13.5px] font-semibold text-ink-soft underline underline-offset-2 hover:text-rust"
         >
           Skip for now

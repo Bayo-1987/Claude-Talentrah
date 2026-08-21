@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 80" width="320" height="80">
+  <g transform="translate(0, 14)">
+    <rect x="7.28" y="7.28" width="23.92" height="10.4" rx="2.6" fill="#1d140f"/>
+    <rect x="20.8" y="17.68" width="10.4" height="27.04" rx="2.6" fill="#1d140f"/>
+    <rect x="28.08" y="4.16" width="13.52" height="13.52" rx="2.6" fill="#a94620"/>
+  </g>
+  <text x="76" y="54" font-family="Newsreader, Georgia, 'Times New Roman', serif" font-weight="500" font-size="42" letter-spacing="-0.4" fill="#1d140f">Talentrah</text>
+</svg>
