@@ -1,0 +1,80 @@
+@import "tailwindcss";
+
+/*
+ * Talentrah "Editorial" design tokens.
+ * Source of truth: talentrah-editorial-design-handoff.md + Main-Editorial.dc.html /
+ * JobFeed-Editorial.dc.html. Copy exact values from those files — do not re-derive.
+ */
+:root {
+  --paper: oklch(97% 0.014 85);
+  --paper-alt: oklch(94.5% 0.018 80);
+  --ink: oklch(20% 0.018 50);
+  --ink-soft: oklch(38% 0.02 50);
+  --ink-line: oklch(30% 0.02 50);
+  --rust: oklch(52% 0.14 40);
+  --rust-hover: oklch(45% 0.14 40);
+  --rust-soft: oklch(91% 0.03 40);
+  --line: oklch(78% 0.02 60);
+  --green: oklch(48% 0.1 152);
+  --amber: oklch(52% 0.12 70);
+  --card: oklch(99% 0.006 85);
+}
+
+@theme inline {
+  --color-paper: var(--paper);
+  --color-paper-alt: var(--paper-alt);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-ink-line: var(--ink-line);
+  --color-rust: var(--rust);
+  --color-rust-hover: var(--rust-hover);
+  --color-rust-soft: var(--rust-soft);
+  --color-line: var(--line);
+  --color-green: var(--green);
+  --color-amber: var(--amber);
+  --color-card: var(--card);
+
+  --font-display: var(--font-newsreader), Georgia, "Times New Roman", serif;
+  --font-body: var(--font-source-sans), Georgia, serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  font-weight: 500;
+  color: var(--ink);
+  text-wrap: pretty;
+  margin: 0;
+}
+
+p {
+  margin: 0;
+  line-height: 1.65;
+}
+
+a {
+  color: var(--rust);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+a:hover {
+  color: var(--ink);
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}

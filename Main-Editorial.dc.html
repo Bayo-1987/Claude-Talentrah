@@ -1,0 +1,417 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500&family=Source+Sans+3:wght@400;500;600;700&display=swap">
+  <style>
+    :root {
+      --paper: oklch(97% 0.014 85);
+      --paper-alt: oklch(94.5% 0.018 80);
+      --ink: oklch(20% 0.018 50);
+      --ink-soft: oklch(38% 0.02 50);
+      --ink-line: oklch(30% 0.02 50);
+      --rust: oklch(52% 0.14 40);
+      --rust-hover: oklch(45% 0.14 40);
+      --rust-soft: oklch(91% 0.03 40);
+      --line: oklch(78% 0.02 60);
+      --green: oklch(48% 0.1 152);
+      --amber: oklch(52% 0.12 70);
+      --card: oklch(99% 0.006 85);
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      background: var(--paper);
+      color: var(--ink);
+      font-family: 'Source Sans 3', Georgia, serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    h1, h2, h3 {
+      font-family: 'Newsreader', Georgia, 'Times New Roman', serif;
+      font-weight: 500; margin: 0; text-wrap: pretty; color: var(--ink);
+    }
+    p { margin: 0; line-height: 1.65; }
+    a { color: var(--rust); text-decoration: underline; text-underline-offset: 3px; }
+    a:hover { color: var(--ink); }
+    button { font-family: inherit; cursor: pointer; }
+    .container { max-width: 1120px; margin: 0 auto; padding: 0 40px; }
+    .eyebrow { font-size: 12px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--rust); font-family: 'Source Sans 3', sans-serif; }
+    .btn-primary {
+      background: var(--ink); color: var(--paper); border: none; border-radius: 0;
+      padding: 15px 30px; font-size: 15px; font-weight: 600; min-height: 48px;
+      display: inline-flex; align-items: center; justify-content: center; font-family: 'Source Sans 3', sans-serif; letter-spacing: 0.01em;
+    }
+    .btn-primary:hover { background: var(--rust); }
+    .btn-secondary {
+      background: transparent; color: var(--ink); border: 1.5px solid var(--ink); border-radius: 0;
+      padding: 13px 28px; font-size: 15px; font-weight: 600; min-height: 44px;
+      display: inline-flex; align-items: center; justify-content: center; font-family: 'Source Sans 3', sans-serif;
+    }
+    .btn-secondary:hover { border-color: var(--rust); color: var(--rust); }
+    .btn-ghost {
+      background: transparent; color: var(--ink); border: none; padding: 10px 6px;
+      font-size: 15px; font-weight: 600; min-height: 44px; display: inline-flex; align-items: center; font-family: 'Source Sans 3', sans-serif;
+    }
+    .btn-ghost:hover { color: var(--rust); }
+    .nav-link { color: var(--ink); font-size: 14.5px; font-weight: 600; padding: 10px 4px; min-height: 44px; display: inline-flex; align-items: center; font-family: 'Source Sans 3', sans-serif; }
+    .nav-link:hover { color: var(--rust); }
+    .footer-link { color: oklch(80% 0.015 60); font-size: 14.5px; font-weight: 500; text-decoration: none; }
+    .footer-link:hover { color: var(--paper); text-decoration: underline; }
+    .hero-grid { display: flex; flex-direction: column; align-items: center; gap: 30px; }
+    .demo-panels { display: flex; gap: 0; align-items: stretch; }
+    .farah-grid { display: grid; grid-template-columns: 300px 1fr; gap: 64px; align-items: center; }
+    .problem-row { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 40px; }
+    .steps-row { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 32px; }
+    .footer-cols { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 40px; }
+    .submit-box {
+      border: 1.5px solid var(--ink);
+      box-shadow: 0 24px 48px -28px oklch(20% 0.018 50 / 0.3);
+    }
+    @media (max-width: 900px) {
+      .demo-panels { flex-direction: column; }
+      .farah-grid { grid-template-columns: 1fr; gap: 32px; text-align: center; }
+      .farah-grid .avatar-wrap { justify-content: center; }
+      .problem-row { grid-template-columns: 1fr; }
+      .steps-row { grid-template-columns: repeat(2, minmax(0,1fr)); }
+      .footer-cols { grid-template-columns: repeat(2, minmax(0,1fr)); }
+      .nav-links { display: none; }
+    }
+  </style>
+</helmet>
+
+<!-- MASTHEAD / NAV -->
+<div style="position: sticky; top: 0; z-index: 20; background: oklch(97% 0.014 85 / 0.94); backdrop-filter: blur(6px); border-bottom: 2.5px solid var(--ink);">
+  <div class="container" style="display: flex; align-items: center; justify-content: space-between; height: 78px;">
+    <div style="display: flex; align-items: baseline; gap: 12px;">
+      <a href="#top" style="font-family: 'Newsreader', serif; font-weight: 500; font-size: 24px; letter-spacing: -0.01em; color: var(--ink); text-decoration: none;">Talentrah</a>
+      <span style="font-size: 12px; color: var(--ink-soft); font-style: italic; font-family: 'Newsreader', serif; display: none;" class="tagline-desktop">The Nigerian &amp; African job seeker's daily companion</span>
+    </div>
+    <div class="nav-links" style="display: flex; align-items: center; gap: 8px;">
+      <a href="#jobs" class="nav-link">Browse Jobs</a>
+      <a href="#farah" class="nav-link">Meet Farah</a>
+      <a href="#how-it-works" class="nav-link">How it works</a>
+      <a href="#faqs" class="nav-link">FAQs</a>
+    </div>
+    <div style="display: flex; align-items: center; gap: 16px;">
+      <a href="#" class="btn-ghost">Log in</a>
+      <button class="btn-primary" style="padding: 11px 22px; min-height: 44px; font-size: 14px;">Get started for free</button>
+    </div>
+  </div>
+</div>
+
+<!-- HERO -->
+<div id="top" style="padding: 72px 0 84px;">
+  <div class="container hero-grid">
+    <div style="max-width: 680px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 8px;">
+      <span class="eyebrow" style="margin-bottom: 6px;">AI-Powered Job Matching</span>
+      <h1 style="font-size: 50px; line-height: 1.12; letter-spacing: -0.01em;">Talk to Farah. See exactly how well you match a job.</h1>
+      <p style="font-size: 17px; color: var(--ink-soft); max-width: 540px; margin-top: 10px;">Paste a job link or description and Farah returns your match score, what's missing, and a tailored resume — free, no account needed.</p>
+    </div>
+
+    <!-- FARAH INPUT — classified-ad style submission box -->
+    <div style="width: 100%; max-width: 680px; display: flex; flex-direction: column; align-items: center; gap: 16px;">
+      <div class="submit-box" style="width: 100%; background: var(--card); padding: 20px;">
+        <div class="eyebrow" style="margin-bottom: 12px;">Paste a job listing</div>
+        <div style="display: flex; align-items: center; gap: 14px; border-bottom: 1px dashed var(--line); padding-bottom: 16px; margin-bottom: 16px;">
+          <span style="flex: 1; text-align: left; font-size: 15.5px; color: var(--ink-soft); font-style: italic; font-family: 'Newsreader', serif;">Paste a job link or description for Farah to tailor your resume to…</span>
+          <button aria-label="Send to Farah" style="flex-shrink: 0; background: var(--ink); border: none; color: var(--paper); width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;">
+            <svg width="17" height="17" viewBox="0 0 20 20" fill="none"><path d="M3 10 L17 3 L11 17 L9 11 L3 10Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" fill="none"/></svg>
+          </button>
+        </div>
+        <div style="display: flex; align-items: center; justify-content: center; gap: 22px; flex-wrap: wrap;">
+          <span style="font-size: 13.5px; font-weight: 700; color: var(--rust); text-decoration: underline; text-underline-offset: 3px; cursor: pointer;">Tailor my resume to a job</span>
+          <span style="font-size: 13.5px; font-weight: 600; color: var(--ink-soft); cursor: pointer;">Check my match score</span>
+          <span style="font-size: 13.5px; font-weight: 600; color: var(--ink-soft); cursor: pointer;">Build a resume</span>
+          <span style="font-size: 13.5px; font-weight: 600; color: var(--ink-soft); cursor: pointer;">Talk to a mentor</span>
+          <a href="#jobs" style="font-size: 13.5px; font-weight: 600; color: var(--ink-soft); text-decoration: underline; text-underline-offset: 3px;">Browse jobs instead →</a>
+        </div>
+      </div>
+      <div style="font-size: 12.5px; color: var(--ink-soft); font-style: italic;">No account needed to see your match score</div>
+    </div>
+
+    <!-- DEMO WIDGET (result) — report excerpt style -->
+    <div style="width: 100%; max-width: 860px; margin-top: 12px; border: 1.5px solid var(--ink); background: var(--card);">
+      <div style="display: flex; align-items: center; gap: 10px; padding: 14px 24px; border-bottom: 1px solid var(--line);">
+        <span class="eyebrow">What Farah sends back — this is a live example</span>
+      </div>
+      <div class="demo-panels" style="padding: 30px;">
+        <!-- LEFT: match + gaps -->
+        <div style="flex: 1; display: flex; flex-direction: column; gap: 18px; padding-right: 30px;">
+          <div>
+            <div class="eyebrow" style="margin-bottom: 10px;">Your match — Senior Product Manager, Fintech</div>
+            <div style="display: flex; align-items: baseline; gap: 12px; margin-bottom: 4px;">
+              <span style="font-family: 'Newsreader', serif; font-size: 46px; line-height: 1; color: var(--ink);">87<span style="font-size: 20px;">%</span></span>
+              <span style="font-size: 13px; font-weight: 700; color: var(--rust); font-style: italic; font-family: 'Newsreader', serif;">Excellent</span>
+            </div>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 12px; border-top: 1px dashed var(--line); padding-top: 14px;">
+            <div style="display: flex; gap: 10px; align-items: flex-start;">
+              <span style="font-family: 'Newsreader', serif; font-style: italic; color: var(--green); flex-shrink: 0;">✓</span>
+              <span style="font-size: 13.5px; color: var(--ink-soft);">Agile product delivery — strong match</span>
+            </div>
+            <div style="display: flex; gap: 10px; align-items: flex-start;">
+              <span style="font-family: 'Newsreader', serif; font-style: italic; color: var(--amber); flex-shrink: 0;">△</span>
+              <span style="font-size: 13.5px; color: var(--ink-soft);">"Stakeholder management" — appears 3x in this JD, 0x in your resume</span>
+            </div>
+            <div style="display: flex; gap: 10px; align-items: flex-start;">
+              <span style="font-family: 'Newsreader', serif; font-style: italic; color: var(--amber); flex-shrink: 0;">△</span>
+              <span style="font-size: 13.5px; color: var(--ink-soft);">Fintech domain experience — consider a specific example</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- DIVIDER -->
+        <div style="width: 1px; background: var(--line);"></div>
+
+        <!-- RIGHT: tailored resume -->
+        <div style="flex: 1; display: flex; flex-direction: column; gap: 14px; justify-content: center; padding-left: 30px;">
+          <div style="border: 1px solid var(--line); padding: 16px; background: var(--paper);">
+            <div class="eyebrow" style="margin-bottom: 8px;">Tailored resume preview</div>
+            <div style="font-size: 13.5px; line-height: 1.65; color: var(--ink-soft);">Led cross-functional squads across product, design, and engineering to ship three consumer fintech features in emerging markets, <span style="background: var(--rust-soft); color: var(--rust-hover); padding: 1px 5px; font-weight: 600;">driving stakeholder alignment</span> across compliance, ops, and executive leadership.</div>
+          </div>
+          <div style="font-size: 12.5px; color: var(--ink-soft); font-style: italic;">Preview only — create a free account to export, save, and apply.</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- JOB BOARD PREVIEW -->
+<div id="jobs" style="padding: 88px 0; border-top: 1px solid var(--line);">
+  <div class="container">
+    <div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 40px; flex-wrap: wrap;">
+      <div style="max-width: 620px; display: flex; flex-direction: column; gap: 16px;">
+        <span class="eyebrow">On the board today</span>
+        <h2 style="font-size: 32px; line-height: 1.25;">Talentrah is a live job board, too — not just a matching tool.</h2>
+        <p style="font-size: 16px; color: var(--ink-soft);">Real openings from Flutterwave, Paystack, Andela and hundreds of other companies hiring across Nigeria and Africa, updated daily and scored against your resume once you create a free account.</p>
+      </div>
+      <a href="#" class="btn-secondary" style="flex-shrink: 0;">Browse all jobs →</a>
+    </div>
+
+    <!-- listings, classifieds-row style -->
+    <div style="display: flex; flex-direction: column; border-top: 1px solid var(--line);">
+
+      <div style="display: flex; gap: 24px; padding: 20px 0; border-bottom: 1px solid var(--line); align-items: baseline;">
+        <span style="font-family: 'Newsreader', serif; font-size: 26px; color: var(--ink); flex-shrink: 0; width: 60px;">92%</span>
+        <div style="flex: 1;">
+          <span style="font-family: 'Newsreader', serif; font-weight: 600; font-size: 17px; color: var(--ink);">Senior Product Manager</span>
+          <span style="font-size: 13.5px; color: var(--ink-soft);"> — Flutterwave · Lagos, Nigeria · Remote</span>
+        </div>
+        <span class="eyebrow" style="color: var(--green); flex-shrink: 0;">Excellent</span>
+      </div>
+
+      <div style="display: flex; gap: 24px; padding: 20px 0; border-bottom: 1px solid var(--line); align-items: baseline;">
+        <span style="font-family: 'Newsreader', serif; font-size: 26px; color: var(--ink); flex-shrink: 0; width: 60px;">78%</span>
+        <div style="flex: 1;">
+          <span style="font-family: 'Newsreader', serif; font-weight: 600; font-size: 17px; color: var(--ink);">Product Manager, Growth</span>
+          <span style="font-size: 13.5px; color: var(--ink-soft);"> — Paystack · Lagos, Nigeria · Hybrid</span>
+        </div>
+        <span class="eyebrow" style="color: var(--rust); flex-shrink: 0;">Good</span>
+      </div>
+
+      <div style="display: flex; gap: 24px; padding: 20px 0; align-items: baseline;">
+        <span style="font-family: 'Newsreader', serif; font-size: 26px; color: var(--ink); flex-shrink: 0; width: 60px;">63%</span>
+        <div style="flex: 1;">
+          <span style="font-family: 'Newsreader', serif; font-weight: 600; font-size: 17px; color: var(--ink);">Product Manager</span>
+          <span style="font-size: 13.5px; color: var(--ink-soft);"> — Andela · Remote · sourced externally</span>
+        </div>
+        <span class="eyebrow" style="color: var(--amber); flex-shrink: 0;">Fair</span>
+      </div>
+
+    </div>
+    <p style="font-size: 13px; color: var(--ink-soft); font-style: italic; margin-top: 18px;">Match scores shown are calculated against a sample resume — yours will be scored against your own once you create a free account.</p>
+  </div>
+</div>
+
+<!-- PROBLEM -->
+<div id="problem" style="background: var(--paper-alt); padding: 88px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);">
+  <div class="container">
+    <div style="max-width: 640px; display: flex; flex-direction: column; gap: 16px; margin-bottom: 56px;">
+      <span class="eyebrow">The problem</span>
+      <h2 style="font-size: 32px; line-height: 1.25;">Job searching shouldn't mean rewriting your resume from scratch, for every single role.</h2>
+      <p style="font-size: 16px; color: var(--ink-soft);">Tailoring for each application is repetitive and easy to get wrong. Tracking where you've applied gets messy fast. And most "AI career advice" reads the same for every job seeker — which means it doesn't really apply to you.</p>
+    </div>
+    <div class="problem-row">
+      <div style="border-top: 2.5px solid var(--ink); padding-top: 18px; display: flex; flex-direction: column; gap: 8px;">
+        <span style="font-family: 'Newsreader', serif; font-size: 22px; color: var(--rust); font-style: italic;">01</span>
+        <p style="font-size: 15px; color: var(--ink-soft);">Rewriting your resume for every application takes hours you don't have.</p>
+      </div>
+      <div style="border-top: 2.5px solid var(--ink); padding-top: 18px; display: flex; flex-direction: column; gap: 8px;">
+        <span style="font-family: 'Newsreader', serif; font-size: 22px; color: var(--rust); font-style: italic;">02</span>
+        <p style="font-size: 15px; color: var(--ink-soft);">Generic AI advice reads the same for every job seeker, in every market.</p>
+      </div>
+      <div style="border-top: 2.5px solid var(--ink); padding-top: 18px; display: flex; flex-direction: column; gap: 8px;">
+        <span style="font-family: 'Newsreader', serif; font-size: 22px; color: var(--rust); font-style: italic;">03</span>
+        <p style="font-size: 15px; color: var(--ink-soft);">Tracking applications across spreadsheets and job boards falls apart fast.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- HOW IT WORKS -->
+<div id="how-it-works" style="padding: 96px 0;">
+  <div class="container">
+    <div style="max-width: 560px; display: flex; flex-direction: column; gap: 16px; margin-bottom: 56px;">
+      <span class="eyebrow">How it works</span>
+      <h2 style="font-size: 32px; line-height: 1.25;">From job posting to tailored application, in four steps.</h2>
+    </div>
+    <div class="steps-row">
+      <div style="display: flex; flex-direction: column; gap: 12px; border-top: 1px solid var(--line); padding-top: 16px;">
+        <span style="font-family: 'Newsreader', serif; font-size: 28px; color: var(--line); font-style: italic;">01</span>
+        <h3 style="font-size: 17px; font-family: 'Newsreader', serif; font-weight: 600; color: var(--ink);">Paste a job link or description</h3>
+        <p style="font-size: 14.5px; color: var(--ink-soft);">Talentrah reads the real requirements — not just keywords.</p>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 12px; border-top: 1px solid var(--line); padding-top: 16px;">
+        <span style="font-family: 'Newsreader', serif; font-size: 28px; color: var(--line); font-style: italic;">02</span>
+        <h3 style="font-size: 17px; font-family: 'Newsreader', serif; font-weight: 600; color: var(--ink);">Farah analyzes the gap</h3>
+        <p style="font-size: 14.5px; color: var(--ink-soft);">See exactly what's matched and what's missing from your resume.</p>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 12px; border-top: 1px solid var(--line); padding-top: 16px;">
+        <span style="font-family: 'Newsreader', serif; font-size: 28px; color: var(--line); font-style: italic;">03</span>
+        <h3 style="font-size: 17px; font-family: 'Newsreader', serif; font-weight: 600; color: var(--ink);">Get a tailored resume + match score</h3>
+        <p style="font-size: 14.5px; color: var(--ink-soft);">Editable, exportable, ready to send.</p>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 12px; border-top: 1px solid var(--line); padding-top: 16px;">
+        <span style="font-family: 'Newsreader', serif; font-size: 28px; color: var(--line); font-style: italic;">04</span>
+        <h3 style="font-size: 17px; font-family: 'Newsreader', serif; font-weight: 600; color: var(--ink);">Apply with confidence</h3>
+        <p style="font-size: 14.5px; color: var(--ink-soft);">Manually, or let Farah apply on your behalf with your review.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MEET FARAH -->
+<div id="farah" style="background: var(--paper-alt); padding: 96px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);">
+  <div class="container farah-grid">
+    <div class="avatar-wrap" style="display: flex; justify-content: flex-start;">
+      <svg width="200" height="200" viewBox="0 0 220 220" fill="none">
+        <circle cx="110" cy="110" r="108" fill="var(--rust-soft)"/>
+        <circle cx="88" cy="96" r="46" stroke="var(--rust)" stroke-width="2.2" fill="none"/>
+        <circle cx="132" cy="128" r="46" stroke="var(--ink)" stroke-width="2.2" fill="none"/>
+        <circle cx="110" cy="112" r="5" fill="var(--rust)"/>
+      </svg>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 18px;">
+      <span class="eyebrow">Your co-pilot</span>
+      <h2 style="font-size: 34px;">Meet Farah.</h2>
+      <p style="font-size: 16px; color: var(--ink-soft); max-width: 560px;">Farah is the AI behind every match, tailored resume, and interview-prep session on Talentrah — encouraging, direct, and specific, never generic filler. She'll benchmark your salary expectations, help you practice for interviews, and tell you exactly what's missing before you apply.</p>
+      <p style="font-size: 16px; color: var(--ink-soft); max-width: 560px;">For the moments that matter most — negotiating a real offer, or getting live feedback before a final-round interview — Farah connects you with a real human mentor instead. Some things are still worth a human's judgment.</p>
+    </div>
+  </div>
+</div>
+
+<!-- FAQ -->
+<div id="faqs" style="padding: 96px 0; border-top: 1px solid var(--line);">
+  <div class="container">
+    <div style="max-width: 560px; display: flex; flex-direction: column; gap: 16px; margin-bottom: 48px;">
+      <span class="eyebrow">Frequently asked</span>
+      <h2 style="font-size: 32px; line-height: 1.25;">Questions, answered plainly.</h2>
+    </div>
+    <div style="display: flex; flex-direction: column; border-top: 1px solid var(--line); max-width: 760px;">
+      <div style="padding: 24px 0; border-bottom: 1px solid var(--line); display: flex; gap: 32px;">
+        <h3 style="font-size: 17px; flex: 0 0 260px;">Is Talentrah free to use?</h3>
+        <p style="font-size: 15px; color: var(--ink-soft); flex: 1;">Checking your match score and previewing a tailored resume needs no account. Deeper AI actions — full tailoring, applying, interview prep — use credits: you get a free allotment when you create a free account, with more available if you need them.</p>
+      </div>
+      <div style="padding: 24px 0; border-bottom: 1px solid var(--line); display: flex; gap: 32px;">
+        <h3 style="font-size: 17px; flex: 0 0 260px;">What's the difference between Farah and a human mentor?</h3>
+        <p style="font-size: 15px; color: var(--ink-soft); flex: 1;">Day-to-day, Farah handles the matching, tailoring, and coaching. When the stakes are highest — negotiating pay, or prepping for a final round — you're handed off to a real mentor who's done it before.</p>
+      </div>
+      <div style="padding: 24px 0; border-bottom: 1px solid var(--line); display: flex; gap: 32px;">
+        <h3 style="font-size: 17px; flex: 0 0 260px;">Do I have to pay for a mentor session?</h3>
+        <p style="font-size: 15px; color: var(--ink-soft); flex: 1;">Many mentors offer free or volunteer sessions. Paid sessions are priced by the mentor and paid directly — never through credits.</p>
+      </div>
+      <div style="padding: 24px 0; display: flex; gap: 32px;">
+        <h3 style="font-size: 17px; flex: 0 0 260px;">Can employers post jobs on Talentrah?</h3>
+        <p style="font-size: 15px; color: var(--ink-soft); flex: 1;">Yes — employers can post roles directly, or work with our team on recruitment and staffing through Talentrah's business services.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- FINAL CTA -->
+<div style="padding: 96px 0; text-align: center;">
+  <div class="container" style="display: flex; flex-direction: column; align-items: center; gap: 22px;">
+    <h2 style="font-size: 36px; max-width: 620px;">Try it with your next job application.</h2>
+    <p style="font-size: 16px; color: var(--ink-soft); max-width: 480px;">Paste a job description above, or create a free account to save your tailored resumes and start tracking applications.</p>
+    <button class="btn-primary" style="padding: 17px 36px; font-size: 16px;">Get started for free</button>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<div style="background: var(--ink); padding: 64px 0 32px;">
+  <div class="container">
+    <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 24px; padding-bottom: 40px; flex-wrap: wrap;">
+      <div style="display: flex; align-items: baseline; gap: 12px;">
+        <span style="font-family: 'Newsreader', serif; font-weight: 500; font-size: 21px; color: var(--paper);">Talentrah</span>
+        <span style="font-size: 14px; color: oklch(70% 0.015 60); margin-left: 6px; font-style: italic; font-family: 'Newsreader', serif;">AI-powered career platform for job seekers in Nigeria and across Africa.</span>
+      </div>
+    </div>
+
+    <div class="footer-cols" style="padding-bottom: 40px; border-top: 1px solid var(--ink-line); border-bottom: 1px solid var(--ink-line); padding-top: 40px;">
+      <div style="display: flex; flex-direction: column; gap: 14px;">
+        <div style="font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: oklch(60% 0.02 60);">Product</div>
+        <a href="#" class="footer-link">Job Matching</a>
+        <a href="#" class="footer-link">Resume Builder</a>
+        <a href="#" class="footer-link">Resume Tailoring</a>
+        <a href="#" class="footer-link">Auto-Apply</a>
+        <a href="#" class="footer-link">Job Tracker</a>
+        <a href="#" class="footer-link">Mentorship</a>
+        <a href="#" class="footer-link">Refer &amp; Earn</a>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 14px;">
+        <div style="font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: oklch(60% 0.02 60);">For Employers</div>
+        <a href="#" class="footer-link">Post a Job</a>
+        <a href="#" class="footer-link">Advertise with Us</a>
+        <a href="#" class="footer-link">Employer Login</a>
+        <a href="#" class="footer-link">Business Services</a>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 14px;">
+        <div style="font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: oklch(60% 0.02 60);">Company &amp; Support</div>
+        <a href="#" class="footer-link">About</a>
+        <a href="#" class="footer-link">Contact</a>
+        <a href="#" class="footer-link">Blog</a>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 14px;">
+        <div style="font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: oklch(60% 0.02 60);">Legal &amp; Trust</div>
+        <a href="#" class="footer-link">Privacy Policy</a>
+        <a href="#" class="footer-link">Terms of Service</a>
+        <a href="#" class="footer-link">Data &amp; Cookie Notice</a>
+      </div>
+    </div>
+
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 28px 0; border-bottom: 1px solid var(--ink-line); flex-wrap: wrap;">
+      <span style="font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: oklch(60% 0.02 60);">Join the community</span>
+      <div style="display: flex; align-items: center; gap: 28px;">
+        <a href="#" class="footer-link" style="display: flex; align-items: center; gap: 8px; text-decoration: none;">
+          <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M4 4h12v9H8l-4 3V4Z" stroke="oklch(75% 0.015 60)" stroke-width="1.4" stroke-linejoin="round" fill="none"/></svg>
+          WhatsApp Community
+        </a>
+        <a href="#" class="footer-link" style="display: flex; align-items: center; gap: 8px; text-decoration: none;">
+          <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M3 10.5 L17 4 L13 17 L9.5 11.5 L3 10.5Z" stroke="oklch(75% 0.015 60)" stroke-width="1.3" stroke-linejoin="round" fill="none"/></svg>
+          Telegram Channel
+        </a>
+      </div>
+    </div>
+
+    <div style="padding-top: 24px; display: flex; align-items: center; justify-content: space-between;">
+      <span style="font-size: 13px; color: oklch(60% 0.02 60);">© 2026 Talentrah. All rights reserved.</span>
+      <span style="font-size: 13px; color: oklch(60% 0.02 60); font-style: italic; font-family: 'Newsreader', serif;">Built for job seekers in Nigeria and beyond.</span>
+    </div>
+  </div>
+</div>
+
+</x-dc>
+</body>
+</html>

@@ -1,0 +1,426 @@
+# Talentrah — End-to-End Build Prompt
+
+> **How to use this document:** Paste this entire document to Claude (Claude Code, Claude in a dev environment, or Lovable) as the starting brief for building Talentrah. It defines product strategy, scope, information architecture, feature specs, data model, monetization, and build phasing. Sections marked **[DECIDE]** are open product calls the building agent should either make a sensible default choice on and state the assumption, or ask you about — they are not blocking.
+
+---
+
+## 1. Product Summary
+
+Build **Talentrah**, an AI-powered career platform that helps job seekers find, tailor for, and land jobs faster, while giving employers a self-serve way to post jobs and promote their brand. The product's AI copilot, **Farah**, is a persistent assistant woven throughout the job seeker experience — not a bolted-on chat widget, but the primary voice of the product's intelligence (matching, tailoring, coaching, negotiating).
+
+Talentrah has two sides:
+- **Job seekers**: discover AI-matched jobs, import a job link/description to get an instantly tailored resume and cover letter, track applications, build a resume from industry-specific templates, refer friends for rewards, and book sessions with real human mentors.
+- **Organizations/employers**: post jobs, manage a company profile, and run self-serve ad campaigns (sponsored listings, banner placements, featured employer profiles) through a dedicated ads dashboard.
+
+A note on competitive positioning: category leaders like Jobright center their "coaching" entirely inside their AI copilot (personalized job-search plans, skill-gap insights) — there's no real human involved. Talentrah's **Mentorship** feature (§6.11) is a deliberate point of difference: real people, not just AI-generated advice. Don't collapse it back into Farah's chat — it's a separate marketplace feature.
+
+This spec is grounded in the founder's own Figma designs (referenced throughout as "the reference design"), not in any competitor's product. Where this document describes UI structure, it reflects screens the founder has already designed — treat those as ground truth, not inspiration to deviate from. Where it's silent on visual detail, invent an original visual system rather than defaulting to generic SaaS patterns.
+
+---
+
+## 2. Product Strategy & Prioritization
+
+This section exists to prevent a common failure mode: treating every differentiation idea below as equally urgent and trying to build all of them at once. Read this before touching §6.
+
+### 2.1 The core strategic bet — and its evidence gap
+Talentrah's reference design defaults to Nigeria (country field, "Lagos, Nigeria" location tags on sample jobs). That's a real signal worth acting on: Jobright and similar competitors are built for a US-centric market — US ATS integrations, US salary data, US resume conventions — and haven't prioritized African job seekers or employers. That gap is a legitimate structural opportunity, not just a cosmetic one.
+
+But treat this as a **hypothesis to validate, not a settled fact.** Local incumbents (Jobberman, MyJobMag, LinkedIn's existing Nigerian presence) already have brand trust and employer relationships — "underserved by Jobright" doesn't automatically mean "underserved, full stop." Before committing significant engineering time to deep localization, get real evidence: conversations with Nigerian job seekers and employers, a waitlist, or a lightweight pilot — not just an inference from a Figma default value. **[DECIDE]** Founder should validate this assumption with at least informal user research before Phase 1 locks in scope.
+
+### 2.2 Prioritization discipline — pick the load-bearing bets, defer the rest
+Across this document and the strategy conversation that produced it, at least six distinct differentiation ideas surfaced: localization, a human mentor marketplace, an aggregation-based job supply pipeline, a redesigned "quality over volume" auto-apply, shareable/viral growth mechanics, and a long-term outcome-data moat. Trying to execute all six simultaneously is how a small team ends up with six half-finished bets instead of one or two that actually land.
+
+**What's load-bearing for launch** (the product doesn't work without these):
+- Localization validation + execution (§2.1) — the actual differentiation thesis.
+- Job supply/liquidity via aggregation (§6.12) — the product is empty and useless without real jobs in it, regardless of any other feature.
+- The core AI tailoring loop (§6.3–6.4) — this is the actual "aha moment" and needs to work well before anything else matters.
+
+**What's explicitly deferred until the core loop proves retention:**
+- The human mentor marketplace (§6.11) — a second, unrelated two-sided marketplace with its own cold-start problem. Don't start building this until job-matching retention is proven. If forced to choose which major post-launch bet to build first, prioritize the Talent Directory & Verification layer (§6.13) over Mentorship — it monetizes on both the local and global employer side simultaneously and doesn't require bootstrapping an entirely separate marketplace from zero.
+- Deep virality/shareable-artifact mechanics — job search is often confidential (people don't want their current employer seeing a public "match score" card); this needs careful, private-by-default design, not an early growth-hack push.
+- The outcome-data moat (tracking interview/offer rates to improve matching) — a genuine long-term advantage, but with a small early user base the data will be too noisy to trust; don't let this justify under-investing in near-term product-market fit.
+
+### 2.3 Auto-apply: a trust feature, not a volume feature
+Jobright's own "AI Fraud Detection" feature exists because their auto-apply drives spray-and-pray behavior that recruiters flag as spam. Don't copy that dynamic. Talentrah's Auto-Apply (§6.2) should default to a **review-before-submit** posture and a conservative match-score threshold, positioned to employers as "pre-qualified, tailored candidates" rather than "more applications, faster." This is also a genuine B2B pitch: it's a reason for employers to post organically rather than only via paid ads, because Talentrah applicants arrive higher-signal than a typical job board's.
+
+### 2.4 Diaspora & global-currency expansion
+There are two genuinely different ways to read "go global," and they have opposite implications for the roadmap — keep them distinct.
+
+**What to avoid**: competing head-on for US/UK job-seeker subscriptions. That market belongs to Jobright, LinkedIn, and Indeed, with every structural advantage (funding, brand, years of US-specific ATS integrations, English-language SEO dominance). Chasing it abandons the entire localization thesis this spec is built around, in exchange for a fight Talentrah has no differentiated way to win.
+
+**What to pursue instead — the African diaspora (UK, US, Canada) as the natural Tier 1 hard-currency market.** This isn't a compromise of the localization bet, it's an extension of it: diaspora users are the same target customer archetype (Nigerian/African, culturally aligned with the product), just earning in GBP/USD/CAD instead of naira. Two distinct diaspora use cases matter, and they should be scoped differently:
+- **Diaspora users searching for jobs back home** (family ties, return plans, remote roles at African/Nigerian companies) — a clean extension of the existing Nigerian job-aggregation pipeline (§6.12); low additional build cost.
+- **Diaspora users searching for jobs in their host country** — explicitly **out of scope** for the near term. Serving this well means building US/UK job aggregation from scratch, which is scope creep straight back into the crowded battlefield §2.4 opens by warning against. **[DECIDE]** Confirm this scope boundary explicitly before any diaspora-facing marketing implies broader coverage than "African jobs, accessible from anywhere."
+
+**Why this resolves cleanly rather than conflicting with the mobile-money-first monetization design (§6.9)**: the "Africans rarely subscribe" dynamic is a home-market phenomenon rooted in mobile money's push-not-pull mechanics and income volatility — neither applies to a UK-based user with a normal UK bank card. Monetization should therefore be **market-segment-aware, not one-size-fits-all**: mobile-money-native Credits/Passes for home-market users, and a true auto-renewing card subscription is a perfectly reasonable option for diaspora users specifically (already flagged as a [DECIDE] item in §6.9 — this section is the reasoning behind it).
+
+**Recommended diaspora subscription price: $9.99/month.** Global competitor pricing for equivalent AI job-search copilots clusters at $24–$40/month (Jobright $39.99, LinkedIn Premium Career $29.99, Teal+ $29, Rezi Pro $29, Kickresume $24) — pricing under a third of that turns "we're cheaper" into a genuine acquisition angle against Jobright/LinkedIn for price-sensitive diaspora users, rather than leaning on localization alone. This is a researched anchor, not a validated price — worth confirming with a real pricing test before Phase 2 billing goes live (see §10).
+
+**Product implications beyond pricing:**
+- **Geo/currency-aware billing**: the payment layer needs to detect or let the user select market segment and route to the appropriate rail (mobile money for home-market, card/Stripe for diaspora) — this is a day-one architecture decision, not a later retrofit (already reflected in §8's payment-rail requirement).
+- **Dual-format resume/CV support**: Farah's tailoring engine (§6.3) needs to distinguish resume/CV conventions by destination market, not assume a single format — a diaspora user applying to a Nigerian company and one applying to a UK company need different outputs.
+- **Distinct acquisition channels**: diaspora growth loops run through diaspora community groups, professional associations abroad, and diaspora-specific WhatsApp/Facebook networks — worth noting as a separate marketing motion from home-market acquisition, not a detail for this build spec to solve, but relevant context for whoever owns growth.
+- **Added compliance surface, stated plainly**: multi-currency, multi-jurisdiction billing raises tax treatment, KYC, and cross-border payment compliance questions, and UK/EU diaspora users bring GDPR into scope. This isn't a reason to avoid the strategy, but it shouldn't be treated as a footnote either — **[DECIDE]** get this reviewed before diaspora billing goes live, not after.
+
+The global/diaspora employer side of this (companies abroad paying USD to source vetted African remote talent) is the sharper, higher-ceiling FOREX play — that's covered in full as the **Talent Directory & Verification** design (§6.13). Diaspora job-seeker expansion described here is the lower-risk, lower-ceiling companion move: same product, same brand, different currency and payment rail.
+
+### 2.5 Retention & lifecycle strategy — stickiness after acquisition
+Name the structural problem honestly before reaching for engagement features: a job search has a built-in expiration date. The moment a user gets hired, they no longer need Talentrah — this is true of every competitor in this category too, and it's a harder retention problem than most consumer products face. A stickiness plan that doesn't account for this will default to generic engagement tricks that don't hold up against an inherently episodic use case.
+
+**The core idea: design an explicit lifecycle graduation, not just engagement features bolted onto a bounded activity.** Refer & Earn (§6.7), Mentorship (§6.11), and the Talent Directory (§6.13) shouldn't function as unrelated features — they should form a deliberate post-success flywheel. The moment a user marks a job "Hired" in the Job Tracker (§6.6) is the highest-trust, highest-goodwill moment in their relationship with Talentrah, and it's exactly when most job platforms lose the user. Instead of letting that be the exit:
+- Prompt a **referrer** invitation right there — a warmer ask immediately after success than at signup.
+- Once Mentorship is live, prompt a **mentor** invitation — someone who just succeeded is well-positioned to help others where they just were.
+- The product graduates the user into a new role in the ecosystem instead of running out of relevance for them.
+
+**Retention during an active search is about reducing dropoff, not manufacturing habit.** The Job Tracker (§6.6) already creates a real switching cost once a user has logged several applications there. Farah's full proactive-nudge system stays deferred per §2.2's prioritization discipline, but a much lighter version is worth pulling forward early: a scheduled email/WhatsApp digest (matching the channel already prioritized in §6.7) summarizing new high-match jobs and application status changes — a scheduled touchpoint that doesn't depend on the user remembering to open the app, without needing the full nudge infrastructure.
+
+**Retention beyond active search is about giving Talentrah a reason to exist for someone who isn't currently looking.** The Talent Directory & Verification layer (§6.13) already does more retention work than it gets credit for — a verified profile with an attached portfolio is an ongoing professional asset worth maintaining, not a one-time resume-tailoring session. Add a lightweight **passive market-watching mode**: notifications only for genuinely exceptional matches for users who aren't actively applying, so Talentrah stays relevant as a background presence rather than demanding attention it doesn't deserve from someone who just isn't job-hunting right now.
+
+**What to explicitly avoid: generic gamification as the retention strategy.** Completion-bar/checklist mechanics of the kind flagged in §3's visual density principle can read as manipulative rather than useful, which cuts against this spec's trust positioning. Retention here should come from genuine utility — a tracked pipeline worth returning to, a digest worth reading, a verified profile worth keeping current, a graduated role worth staying for — not engineered compulsion loops.
+
+**[DECIDE]** None of this is measurable without the retention metric flagged as missing in earlier product discussion — define a concrete number (e.g., 90-day active rate, or share of hired users who return as referrers/mentors within 6 months) before treating any of the above as more than directional intent.
+
+---
+
+## 3. Differentiation Mandate
+
+Talentrah competes in the same category as other AI job-matching tools, but must not read as a reskin of any of them. Apply these rules:
+
+- **Invent Talentrah's own visual identity**: typography, spacing rhythm, iconography, illustration style, and motion/interaction details are original. The reference design establishes structure and a blue/white/navy palette direction — refine and extend that into a full design system (tints, shades, semantic colors for match-score bands, dark mode if in scope) rather than copying any other product's exact component styling.
+- **Own the terminology.** Use Talentrah-specific language consistently: "Farah" (never "the AI" or "the bot"), "Match Score," "Auto-Apply," "Talentrah Credits," "Refer & Earn," "Job Tracker." Avoid copying another product's exact feature names or microcopy.
+- **Farah has a personality.** She should feel like a named co-pilot with a consistent voice (encouraging, direct, practical) across every touchpoint she appears in — the job feed panel, the resume builder, onboarding, and any career-coaching surfaces.
+- **No lookalike layouts of any specific competitor tool.** Build from this spec and the reference design, not from screenshots of other products.
+- **Visual density is a deliberate choice, not a default — and it should be lower than a typical incumbent's.** A direct comparison of two real competitor job feeds makes the tradeoff concrete: Jobright's job cards stack multiple badges (posting age, "early applicant," "reposted," "public company," alumni signals), two full-width CTAs, a large circular match-score visualization, and a gamified activation checklist in the sidebar — dense because it's actively selling an upgrade and cross-selling features on every screen. Lenny's Jobs, by contrast, keeps one CTA per card and minimal badging, reading as calm and editorial rather than sales-driven. Talentrah should land closer to Lenny's restraint: fewer simultaneous badges/filter chips per screen, and real skepticism toward gamified nudges that add visual weight without proportional value. This isn't just an aesthetic preference — it connects directly to the target market's device/bandwidth reality (see §8's accessibility note): a visually heavy, JS-dense dashboard is a real cost on a lower-end Android device with expensive mobile data, not just a style choice.
+
+---
+
+## 4. Users & Personas
+
+1. **Job Seeker** — the primary user. Ranges from active job hunters to passive browsers. Wants speed (auto-apply, tailored resumes) and confidence (match scores, ATS optimization feedback).
+2. **Employer / Organization Admin** — posts jobs, manages a company profile, and runs ad campaigns. Wants visibility for open roles and employer brand.
+3. **Talentrah Ops/Admin** *(internal, lightweight in v1)* — moderates job posts and ads, manages credit/coupon issuance, handles referral payouts.
+
+---
+
+## 5. Information Architecture
+
+### Job seeker primary navigation (left sidebar, per reference design)
+- **Jobs** — the AI-matched job feed (home)
+- **Job Tracker** — applications in progress, saved, applied, interviewing, offers
+- **Resume Builder** — template gallery → editor → preview/finalize → cover letter generator
+- **Refer a Friend** — referral program
+- **Mentorship** — browse/book real human mentors for 1:1 sessions (see §6.11) — *deferred past initial launch, see §2.2*
+- **Feedback** — lightweight in-app feedback capture
+- **Settings** — account, preferences, job alert criteria, subscription/credits
+
+Persistent elements: top bar with global job search, notifications, language selector, "Post Job" shortcut (for users who are also hiring), an upgrade/top-up CTA, and user profile menu. A **Farah panel** is docked on the right side of key screens (job feed, resume builder) with quick-action shortcuts: *CV Builder, Job Interview Prep, Career Advisor, Cover Letter Builder, Salary Negotiation* — plus a free-text chat input ("Ask me anything").
+
+### Employer/organization navigation
+- **Jobs Posted** — manage listings, status, applicant pipeline
+- **Company Profile** — logo, description, culture content, media
+- **Ad Campaigns** — self-serve ads dashboard (see §6.8)
+- **Billing** — payment methods, invoices, spend history
+- **Analytics** — impressions, clicks, applies, cost-per-application for both organic posts and paid campaigns
+
+---
+
+## 6. Core Feature Specs
+
+### 6.1 Public Landing Page & Onboarding
+
+**Public landing page (pre-signup).** Talentrah launches as cold traffic with no inherited audience and no earned track record — neither a Lenny's-style "skip straight to the listings" page (which only works because visitors already trust the brand walking in) nor a Jobright-style page leaning on trust badges and user-count stats (which Talentrah cannot honestly claim yet) is the right model to copy directly. Build instead around a principle unique to what Talentrah can actually offer:
+- **Let the visitor prove the product to themselves before asking them to sign up.** Embed a real, interactive version of the JD-import/tailoring flow (§6.3) directly on the landing page — a visitor pastes a job link or description and sees Farah's gap analysis and a preview of a tailored resume, no account required. This does more convincing work than a demo video or marketing copy, and extends the "don't gate the moment that proves value" principle (§6.9) one step earlier than post-signup onboarding. **Rate-limit this to one free run per session/IP** (§6.9) — it's a real LLM API call with no signup or revenue guaranteed, so it draws from the same bounded free-trial budget as the post-signup first tailoring run, not an unlimited allowance.
+- **No invented or borrowed social proof.** Don't display placeholder user counts, aspirational stats, or trust badges Talentrah hasn't earned — this would directly undercut the trust positioning this entire spec is built around. If there's nothing honest to show yet, show nothing; add real numbers (live job count, actual users) once they exist.
+- **Skip the hero-video requirement for v1.** It's production-heavy and the interactive demo above does more convincing work anyway — a nice-to-have to revisit later, not a launch blocker.
+- A clear, single headline and CTA, written in Talentrah's own voice per §3 — not reproducing either competitor's specific tone or layout.
+
+**Footer.** The header nav is seeker-facing only (Home/Features/How it works/FAQs), which leaves no path in for organizations or for the trust/legal infrastructure a cold-traffic product needs — the footer is where that gets covered:
+- **Legal & trust**: Privacy Policy, Terms of Service, and a Data Processing/Cookie notice — real, linked, and current from launch, not placeholders. Per the "no invented social proof" principle above, honest infrastructure is the trust signal here, not a stat.
+- **For Employers**: a dedicated column — Post a Job, Advertise with Us, Employer Login, Business Services — linking into §6.8's organizations/ad platform and §6.14's managed services (recruitment/staffing/outsourcing) page. Without this, the footer is the only place an employer visiting the seeker-facing homepage would discover Talentrah has a B2B side at all.
+- **Product**: short links to Job Matching, Resume Builder, JD Tailoring, Job Tracker, Mentorship, and Refer & Earn — secondary navigation for a visitor who scrolled past the hero demo, and real internal-linking value for SEO.
+- **Company & support**: About, Contact/Support, and a Blog link (a natural home for the career-advice content tied to the affiliate/course placements in §6.9).
+- **Community channels — WhatsApp and Telegram**: a "Join our WhatsApp community" and a "Join our Telegram channel" link, both real and checkable by any visitor — the honest alternative to an unverifiable user-count badge, and a channel to nurture visitors who aren't ready to sign up yet. Consistent with §6.7/§6.10's WhatsApp prioritization, but Telegram is added alongside it as a second channel some segments (particularly diaspora and more technical job seekers) prefer over WhatsApp.
+- **Explicitly out of scope for v1**: a region/currency selector. Diaspora/global expansion (§2.4) is real but belongs to the phase-2/3 window per §9's phasing discipline — a footer region switcher before the product actually differentiates by region overpromises. Same reasoning applies to a "Careers" link before there's a team to staff it.
+
+**Signup & first-session onboarding.**
+- Split-screen signup: left panel is a branded hero (headline + supporting copy + rotating testimonial card with a fictional persona — see §10 for a flagged issue in the reference design), right panel is the form (first/last name, email, country, password with live strength meter and requirement checklist, terms checkbox, "Create account," OAuth via Google and LinkedIn, login link).
+- Post-signup welcome modal introduces Farah and prompts resume upload: *"Ready to land your dream job? Apply for jobs with confidence by uploading your resume and letting our AI analyze and optimize it for the best match."*
+- Resume upload triggers parsing → profile pre-fill (name, title, skills, experience) so the user doesn't re-enter data Farah can already extract.
+- **[DECIDE]** Whether email verification is required before browsing jobs, or only before applying/importing.
+
+### 6.2 AI Job Matching Feed ("Jobs")
+- Tabs: **Recommended**, **External Jobs**, **Most Recent**, **Saved Jobs**.
+- Filter chips (removable): role, seniority, work type (remote/hybrid/onsite), employment type, location, plus an "Advanced Filters" panel for salary range, company size, posted-date window, etc.
+- **Auto-Apply toggle**: "Turn on auto-apply, and Farah will submit applications for you based on your job preferences — saving you time and effort." Per §2.3, default to a conservative posture: a daily/weekly cap, a review queue before submission (v1 default: require confirmation, not silent submission), and an activity log.
+- **Job cards** show: company logo, title, location, work type, seniority, years of experience, a 2–3 line description snippet, a **Match Score** bar with banded coloring (e.g., orange/amber under ~70% = "Fair match," blue ~70–89% = "Good match," green 90%+ = "Excellent match" — confirm exact thresholds with founder, this mirrors the reference design's banding), post-age, applicant count, save (heart) and share icons, and an **Apply** button.
+- **Card design principle**: foreground the Match Score prominently — it's core to Talentrah's value proposition, so it should read clearly at a glance, not be an afterthought — and add an **"Ask Farah"** quick action alongside Apply, giving contextual AI input right where the application decision is being made rather than only inside the docked panel. Beyond those two elements, keep badge and metadata density restrained (see §3's visual density principle) rather than stacking numerous simultaneous tags per card.
+- Right-side panel: user's mini profile card ("View Profile") above the Farah assistant panel.
+- Distinguish clearly between **Recommended/internal** jobs (posted directly on Talentrah — support full in-app apply and tracking) and **External Jobs** (aggregated — see §6.12; "apply" typically redirects to the source, or autofills the external application form if the underlying ATS is integrated).
+
+### 6.3 Job Link/Description Import → AI Resume Tailoring
+This is a headline differentiator and must be frictionless:
+1. User pastes a job posting URL **or** pastes/uploads raw job description text.
+2. System parses the JD into structured fields: title, seniority, required/preferred skills, responsibilities, keywords, company (if determinable from URL).
+3. Farah runs a gap analysis against the user's base resume: highlights matched keywords, missing/underrepresented skills, and suggested rewrites per bullet.
+4. Output: a **tailored resume** (built from the user's existing resume/template, not a generic rewrite) plus an optional **tailored cover letter**, both editable before export.
+5. Show an **ATS compatibility score** and a short list of specific fixes (e.g., "add 'stakeholder management' — appears 3x in this JD, 0x in your resume").
+6. User can export as PDF/DOCX, save the tailored version as a named variant in their resume library, and jump straight to Apply (manual) or queue for Auto-Apply.
+- The first tailoring run (and first cover letter) should be available with minimal friction as a one-time free trial, not a hard paywall (see §6.9) — this is the moment that proves the product's value. Every tailoring run after that draws from purchased credits (§6.9) rather than a renewable free allotment, since this action calls the LLM API and carries real variable cost per use.
+- **[DECIDE]** Import support scope for v1: plain-text paste always works; scraping arbitrary job-board URLs reliably (LinkedIn, Indeed, company ATS pages) is inconsistent across sites — plan a URL-fetch-with-fallback-to-paste UX rather than promising universal scraping.
+
+### 6.4 Resume Builder
+- Step flow: **1. Choose a template → 2. Edit template → 3. Preview/Finalize**, with a "Generate cover letter" shortcut available from the builder.
+- Template gallery is browsable by **industry category** (per reference design: Accounting/Finance, Administration, Art/Design, Automotive, Banking, Bartending, Business, and more), searchable, paginated.
+- Free tier exposes a limited set of templates; additional templates are unlocked via credits or a prepaid pass (§6.9) (padlock treatment on cards, consistent with reference design).
+- Editor: structured sections (contact, summary, experience, education, skills, projects, certifications) with drag-to-reorder, AI-assisted bullet rewriting ("make this more impact-driven," "quantify this"), and live preview.
+- Users can maintain multiple resume variants (e.g., a base resume plus JD-tailored variants from §6.3).
+
+### 6.5 Farah — AI Copilot
+Farah is not confined to one screen. Define her as a consistent service layer with contextual surfaces:
+- **Docked chat panel** on the job feed and resume builder — free-text Q&A plus quick-action shortcuts: CV Builder, Job Interview Prep, Career Advisor, Cover Letter Builder, Salary Negotiation.
+- **Inline actions**: JD gap analysis (§6.3), resume bullet rewriting (§6.4), match-score explanations ("why is this 82%?").
+- **Proactive nudges** (deferred, see §2.2): e.g., "Your saved job at Acme closes in 2 days and you haven't applied."
+- Maintain a consistent voice in all Farah copy: encouraging, specific, never generic filler.
+- **Scope Farah's coaching/negotiation shortcuts to the scalable, informational layer — not a replacement for §6.11's human mentors.** As specced, "Salary Negotiation" and "Career Advisor" risk being the exact same feature Mentorship charges for, which undercuts the "real people, not just AI-generated advice" differentiation this product is built on. Keep Farah's version to what an AI genuinely does better than a person: market-rate benchmarking pulled from Talentrah's own aggregated job data (a data advantage a human mentor doesn't have), a negotiation talking-points generator, and interview-prep practice Q&A — informational, always-available, free or credit-gated, no live human involved. When a user's situation is high-stakes and judgment-dependent (an actual offer in hand, a specific interview coming up, a real negotiation with a specific hiring manager), Farah should actively route them to Mentorship rather than attempt to close that out herself — e.g., "Want to work through this specific offer with someone who's negotiated dozens of these? Book a mentor," feeding the lifecycle flywheel in §2.5. Farah is the on-ramp into Mentorship, not a competitor to it.
+
+### 6.6 Job Tracker
+- Kanban or list view across stages: Saved → Applied → Interviewing → Offer → Rejected/Archived.
+- Each entry links back to the tailored resume/cover letter version used, application date, and any notes.
+- Manual entries allowed for jobs applied to outside Talentrah, so the tracker stays the single source of truth.
+- Marking a job "Hired" is the trigger point for the post-success lifecycle flywheel (§2.5) — the referrer/mentor graduation prompt should fire from this event, not a generic "come back later" notification.
+
+### 6.7 Refer & Earn
+- Unique referral link/code per user, shareable via link, email, WhatsApp (a dominant sharing channel in the target market — prioritize a WhatsApp share shortcut, not just generic link copy), or social.
+- Beyond standalone use, this is a core leg of the post-success lifecycle flywheel (§2.5) — surface the referral prompt specifically when a user marks a job "Hired" (§6.6), not only as a generic, always-available sidebar link.
+- Track referral funnel: invited → signed up → activated (e.g., completed profile or first application) → reward triggered.
+- **[DECIDE]** Reward structure: e.g., referrer earns N Talentrah Credits when a referred user signs up, plus a larger reward (credits, additional pass duration, or cash) when the referred user reaches "activated." Prefer credit/in-product rewards over cash payouts for v1 — cash requires KYC/payout infrastructure that's added scope (see §6.9's payment-rail discussion for why this is more complex in this market than a simple Stripe Connect integration).
+- Referral dashboard: invites sent, conversions, rewards earned/pending, and a leaderboard **[DECIDE — optional, adds gamification]**.
+- Anti-abuse basics: cap rewards per user, detect self-referral (same device/IP/email pattern), require activation (not just signup) before payout.
+- **Lightweight "share a job" extension**: reuse the same share-sheet/WhatsApp-priority mechanism above to let users share a job listing they know about, not just an invite link — tagged distinctly (e.g., "Community" or "Shared by a friend") once it reaches the feed, per §6.12's UI-distinction requirement, and routed through the same moderation queue already planned for employer/ad content (§6.8). This is deliberately scoped as a small extension of existing infrastructure, not a standalone submission portal — it costs almost nothing on top of what's already being built, but it will not generate meaningful job supply until Talentrah has a real, engaged user base to draw on. Build it early and cheaply; don't rely on it as a near-term supply channel.
+
+### 6.8 Organizations & Self-Serve Ad Platform
+Full self-serve model, but sequence it deliberately (see §6.9's monetization sequencing) — don't build the whole ad platform before there's seeker traffic worth advertising against:
+- **Company onboarding**: business verification (lightweight in v1 — e.g., work email domain + company profile fields), logo/brand assets, company description.
+- **Job posting**: standard listing form; keep organic posting free early to build supply and liquidity, rather than gating it — see §6.9.
+- **Ad Campaign Manager**:
+  - Campaign types: **Sponsored/Featured Job Listings** (boosted placement + badge in the feed — build this first, it's the lightest lift), **Banner/Display Ads** (defined placements — e.g., feed interstitial, sidebar), **Featured Employer Profile** (spotlight placement, e.g., on a "Top Companies" surface).
+  - Campaign setup: objective, target audience (role, location, seniority — reuse job-seeker filter taxonomy), budget (daily/total cap), schedule (start/end or continuous), creative upload for banners.
+  - Pricing model **[DECIDE]**: choose one primary model to build first — flat-rate placement fee is the simplest to ship; CPC next; CPA (cost-per-application) is the most differentiated for a job platform but the most complex to build correctly (requires reliable, deduplicated application-event tracking) — defer it until the simpler models are proven.
+  - Real-time (or near-real-time) analytics: impressions, clicks, applies, spend, CPA/CPC, campaign status.
+- **Billing**: payment method management, invoices, spend history. Employer billing can reasonably stay card/bank-transfer-based via a provider like Paystack or Flutterwave (unlike consumer billing, discussed in §6.9, B2B invoicing is a familiar pattern regardless of market) — don't over-engineer this side.
+- **Ad placement rules & moderation**: basic review queue before an ad goes live; content policy for job posts and creatives; a way to pause/reject non-compliant campaigns.
+
+### 6.9 Monetization: Credits, Prepaid Passes & Employer Revenue
+
+**A note on why this section doesn't lead with a subscription — and where auto-renewal still fits.** The default instinct for this category (and Jobright's own model) is a recurring monthly subscription. That's a weaker fit for a Nigeria/Africa-first product than it looks for *wallet-initiated* mobile money — the dominant payment method in the target market — because it requires the user to actively re-approve each charge (a "push" model), unlike card tokenization's silent "pull" renewal. Combined with income volatility, locked recurring commitments carry real risk for users paying this way. But this isn't a blanket "Nigerians don't do subscriptions" rule — Netflix (₦2,500–₦8,500/mo) and Spotify (₦1,600/mo) both run as real auto-renewing subscriptions in Nigeria today, billed via tokenized card through Paystack/Flutterwave. The distinction that matters is the **rail**, not the market: card-token billing supports reliable silent renewal locally, wallet-initiated mobile money does not. Design the Pass around that distinction rather than avoiding auto-renewal altogether.
+
+**Primary B2C model — free tier scoped to zero-AI-cost actions, paid credits for everything AI-backed:**
+- **Free, uncapped, no credits needed**: job browsing/search/filtering/saving, the Job Tracker, algorithmic (non-LLM) match scoring, base resume templates without AI rewriting, referral program participation, and a rule-based ATS keyword check. None of this touches the LLM API, so none of it needs to be metered or subsidized — give it away without worrying about variable cost scaling with signups.
+- **One-time free AI trial, not a renewable free-credits pool**: a single free JD tailoring run (and, per §6.3, one free cover letter) on signup — this is what preserves the "prove the product to yourself" principle in §6.1/§6.3, but as a bounded, explicitly one-time grant rather than an ongoing allotment. The landing page's pre-signup interactive demo (§6.1) draws from this same bounded budget and needs a hard rate limit (e.g., one free tailoring run per session/IP) — it's currently specced as unlimited and account-free, which is an open-ended LLM-cost liability with no revenue or signup guarantee attached to it.
+- **Talentrah Credits**: every AI-backed action beyond the one-time trial — additional tailoring runs, cover letters, bullet rewriting, unlocking a premium template, an auto-apply submission beyond the free cap — draws from purchased credits, not a free allotment. This is a deliberate shift from giving away AI-cost actions for free at signup: it keeps Talentrah's variable cost per free user small and bounded instead of scaling openly with signups. **Mentor sessions (§6.11) are explicitly not a credits action** — a mentor session is a real cash pass-through to a third party at a price an order of magnitude above what the credit packs are sized for (₦10,000–100,000+ vs. ₦2,500–12,500 packs), so it's booked and paid directly (card or mobile money, same multi-rail infra as everything else) rather than drawn from the Credits wallet.
+- **Passes — auto-renewing where the rail supports it, prepaid where it doesn't**: a fixed-duration pass (7-day or 30-day) for unlimited/higher-cap access to premium actions. Paid by card (via Paystack/Flutterwave token, the same mechanism Netflix/Spotify already use locally, or Stripe for diaspora) → **auto-renews by default** on the billing date, clearly disclosed at checkout, cancelable anytime, with a renewal-reminder notification before each charge (per §6.10's notification framework — add "Pass renewal reminder" as a transactional, in-app + email notification type). Paid by mobile money wallet → stays **prepaid and non-renewing**, matching the prepaid-airtime mental model, since that rail doesn't reliably support silent re-approval. The payment method chosen at purchase determines which behavior applies — this isn't a single global on/off switch.
+- **Payment rails**: prioritize mobile-money-native providers (Paystack, Flutterwave, or Moniepoint are the standard choices for Nigeria) over a card-only Stripe integration for the consumer side. Card support (which is what enables Pass auto-renewal) can and should coexist, but shouldn't be the only option.
+
+**Recommended pricing anchors (researched, not yet validated — see §10).** Global AI job-search copilot pricing ($24–$40/month — Jobright, LinkedIn Premium Career, Teal+, Rezi, Kickresume) is unaffordable at parity here: even the cheapest of those is ~13% of Nigeria's average monthly income (₦339,000/~$220) and over half of minimum wage (₦70,000/~$52). The right benchmark instead is what this market already pays for an optional digital subscription — Spotify Premium at ₦1,600/month and Netflix at ₦2,500–₦8,500/month depending on tier. Career tools are higher-stakes than entertainment, so Talentrah's ceiling should sit near Netflix Premium, not above it:
+  - **Credit unit**: ~₦150 (~$0.11) per credit.
+  - **Packs**: Starter — 20 credits for ₦2,500 (~$1.85, anchored near Netflix Mobile); Popular — 60 credits for ₦6,000 (~$4.45, ~20% off unit price); Power — 150 credits for ₦12,500 (~$9.30, ~33% off unit price).
+  - **Credit costs per action**: AI resume tailoring run — 5 credits (₦750); cover letter generation — 3 credits (₦450); premium template unlock — 10 credits one-time (₦1,500); auto-apply submission beyond the free cap — 2 credits each (₦300); Talent Directory verification (§6.13) — 25 credits (₦3,750), reflecting its higher one-time value to the user.
+  - **Passes**: 7-Day Sprint Pass at ₦2,000 (~$1.50, near Netflix Basic) for users in an active application blitz; 30-Day Pass at ₦6,500 (~$4.80), deliberately landed on the Netflix Premium price point — the pitch is literally "less than your Netflix subscription, but this one can pay you back."
+  - These numbers are directionally grounded (Jobberman, Netflix, Spotify, and direct competitor pricing were all pulled from current sources), but the credit-cost-per-action figures specifically are reasoned estimates, not tested ones — validate with a real pricing test (e.g., a Van Westendorp survey or a soft-launch price experiment) before locking them in. See §10.
+
+**Employer/B2B revenue — the more durable long-term engine:**
+The subscription-aversion dynamic above is largely a consumer/personal-wallet phenomenon; it doesn't apply the same way to employers, who operate on invoices and budgeted spend regardless of geography. For reference: LinkedIn's own revenue is roughly 49% Talent Solutions (employer/recruiter tools) and only ~10% individual Premium subscriptions — the durable money in this category is on the B2B side, not the consumer side. Sequence accordingly:
+- **Near-term**: flat-fee featured/boosted listings (§6.8) — cheap to build, doesn't need full ad infrastructure, starts the employer billing relationship early. Jobberman is the most useful benchmark here, since it's a real local price rather than a hypothetical one: free basic listings, ₦100,000 for a featured "Standard" listing. Recommend launching Talentrah's featured listing at ₦35,000–₦50,000 (~$26–$37) — meaningfully under Jobberman's price to win adoption while liquidity is still building, with room to move toward parity once traffic justifies it.
+- **Mid-term**: full self-serve ad platform (§6.8) once there's seeker traffic worth selling against.
+- **Long-term**: the **Talent Directory & Verification** layer (§6.13) — a searchable, verified talent pool employers pay to source from directly, monetized via recruiter-seat subscriptions and/or placement fees. Structurally similar to LinkedIn's Talent Solutions and the biggest revenue opportunity in this category at scale. Notably, this is also the primary **FOREX-earning surface** for Talentrah: global/diaspora employers hiring remote African talent pay in USD for verified sourcing access, without requiring Talentrah to compete for US job-seeker subscriptions on Jobright's home turf. Not a launch feature, but should stay on the roadmap explicitly rather than being an afterthought — see §6.13 for full design and §2.2 for why it's prioritized above Mentorship as the next major bet.
+- **Longer-term, gated on proven match quality**: pay-per-qualified-candidate or outcome-based pricing — highest revenue per employer, but only credible once Talentrah can demonstrate its matching actually works.
+
+**Mentor marketplace revenue** (§6.11, deferred per §2.2): a revenue-share model fits this market's proven pattern better than subscription does, but it's gated on the marketplace having real liquidity first, not a near-term lever. Full session pricing and commission structure are specced in §6.11.
+
+**Affiliate commissions on skill-building content.** When Farah's JD gap analysis (§6.3) flags a missing or underrepresented skill, surface a course recommendation at that exact moment — high-intent, contextual, not a generic upsell — and earn an affiliate commission on the referral. Very low engineering lift (an affiliate link plus attribution tracking), genuinely useful to the user, and small but real incremental revenue. Offer **tiered options by affordability** rather than a single provider, since price sensitivity varies a lot across the user base:
+- **AltSchool Africa** — the strongest near-term partner: a confirmed, real affiliate program (10% commission on referred course fees, paid to a Nigerian bank account once the balance hits ₦20,000 or $10), covering exactly the skill categories Farah's gap analysis would realistically flag (Fullstack Engineering, Cloud Engineering, Cybersecurity, Product Management, Data Analysis/Engineering/Science, Digital Marketing, UI/UX, JavaScript, SQL). Locally priced, locally payable — the easiest integration and the best fit for the primary market.
+- **Udemy** — the lower-cost global option, useful for users for whom even locally-priced training is a stretch; commission is modest (roughly 9–15% per sale depending on network/course) but Udemy's frequent steep discounting keeps the course price itself accessible.
+- **Coursera** — the higher-cost, higher-credential global option (up to 45% commission per sale, 30-day attribution window), better suited to users who want an internationally recognized credential and can afford it — useful in particular for diaspora-segment users (§2.4) or roles where a global certification carries more weight than for the general local user base.
+- **Broader local tail**: Nigerian digital-course marketplaces (Selar, Expertnaire, Learnoflix) each run their own affiliate programs with local payout rails and cover a long tail of business/career/digital-skills content beyond formal tech bootcamps — useful for softer or more niche skill gaps AltSchool's catalog doesn't cover.
+- **[DECIDE]** Selective talent-accelerator programs (Utiva, Decagon, Semicolon, HNG, and similar) do not appear to run public affiliate programs — they operate closer to a fellowship/staffing model than an open course marketplace. Treat these as a **direct-partnership outreach track**, not an affiliate integration: a formal partnership here is also a natural feed into the Talent Directory's credential-verification design (§6.13) — "completed X program" as a verified credential — which is a stronger relationship than a standard affiliate link would provide.
+- **Presentation note**: label these clearly as partner/affiliate recommendations rather than implying Farah independently discovered them (see §3's differentiation mandate and §6.9's broader trust framing) — the modest revenue here isn't worth risking Farah's credibility as a genuine advisor.
+
+### 6.10 Notifications & Feedback
+- **Channel map — transactional (immediate, single-event) vs digest (batched, scheduled):**
+
+  | Notification type | Trigger | Channel(s) | Timing |
+  |---|---|---|---|
+  | Application status change (e.g. "Hired," interview requested, rejected) | Transactional | In-app + email | Immediate |
+  | New match above score threshold | Digest (default) or transactional if user opts up | In-app always; email/WhatsApp per §2.5's scheduled digest | Batched (e.g. daily/weekly digest) unless user raises frequency |
+  | Referral conversion (someone signs up or gets hired via your link) | Transactional | In-app + WhatsApp (same channel prioritized for sharing in §6.7) | Immediate |
+  | Ad campaign milestone (employer side) | Transactional | In-app + email | Immediate |
+  | Passive market-watching alert for exceptional matches (§2.5, non-active searchers) | Transactional but rate-limited | In-app + email | Immediate, capped in frequency |
+  | Pass renewal reminder (§6.9, card-billed auto-renewing Passes only) | Transactional | In-app + email | A few days before each auto-renewal charge |
+
+  This is the same email/WhatsApp digest referenced in §2.5 and the WhatsApp channel already prioritized for sharing in §6.7 — this table is where those become a concrete per-notification-type spec rather than separate mentions.
+- **User-facing channel preferences**: a settings page lets the user turn each channel on/off independently (in-app is always on and cannot be disabled; email and WhatsApp are opt-in/opt-out per channel) and set digest frequency (e.g. daily vs weekly) for non-transactional notification types. Transactional notifications (status changes, referral conversions) are not user-suppressible below in-app — they're tied to actions the user needs to know about to use the product.
+- WhatsApp requires a verified phone number and explicit opt-in at signup or in settings — don't default users into WhatsApp without consent. (Nigeria Data Protection Act compliance for this kind of consent isn't yet specced in this document — flagged as an open gap, not resolved here.)
+- Lightweight in-app **Feedback** entry point (per reference nav) — a simple form/widget, routed to an internal queue.
+
+**Notification voice & copy framework.** This doc doesn't script every message verbatim (that's a content decision, better kept editable via a templating system than frozen into a build spec) — but the voice rules below are build decisions, since they shape the templating architecture and prevent tone drifting inconsistently across notification types as different people fill in copy later.
+
+- **Voice by sender**: notifications tied to the user's relationship with Farah (new match digest, passive market-watching alerts, referral conversions) are voiced *as Farah* — first person, warm, specific, consistent with the Farah voice guidance in §6.5. Notifications that are factual system events or B2B/employer-facing (application status changes, ad campaign milestones) use a neutral system voice, not Farah — mixing these in makes Farah feel like a label slapped on every alert rather than a real copilot relationship.
+- **Voice by channel**: in-app notifications are terse, single-line, action-oriented, no personality flourishes (users are already in the product — get out of the way). Email carries more structure: subject line, one-line preview text, short body, single primary CTA button; this is where Farah's voice (when applicable) has room to sound like an assistant rather than a system log. WhatsApp reads like a text an actual person would send — short, plain, conversational — consistent with the sharing tone already prioritized for WhatsApp in §6.7.
+- **Templating variables**: engineering should build each notification as a template with variables (e.g. `{{first_name}}`, `{{job_title}}`, `{{company}}`, `{{match_score}}`, `{{status}}`, `{{referrer_name}}`, `{{credits_earned}}`, `{{campaign_name}}`, `{{metric_value}}`) rather than hardcoded copy per instance — this is what makes the copy editable post-launch without a code change.
+- **Worked examples** (pattern to extend, not a finished copy deck):
+  - *Application status change* (system voice) — In-app: "Status update: [Job Title] at [Company] — now Interview Requested." Email subject: "Your application status changed: [Company]." Body: "Your application for [Job Title] at [Company] just moved to [Status]. Open your Job Tracker to see next steps." CTA: "View in Job Tracker."
+  - *New match digest* (Farah voice) — In-app: "Farah found 3 new matches above 85% this week." Email subject: "Farah found 3 strong matches for you this week." WhatsApp: "Hey [First Name] — Farah found 3 new jobs that match your profile this week. Take a look: [link]."
+  - *Referral conversion* (Farah voice, celebratory) — In-app: "[Name] just joined Talentrah through your invite — credits added to your account." WhatsApp: "Nice — [Name] just signed up using your Talentrah link. You've earned [X] credits."
+  - *Ad campaign milestone* (system/B2B voice) — In-app: "Your campaign '[Campaign Name]' passed 1,000 impressions." Email subject: "Campaign milestone: [Campaign Name]." Body: factual stats summary. CTA: "View campaign dashboard."
+  - *Passive market-watching alert* (Farah voice, rate-limited) — In-app: "Farah spotted an exceptional match for you — even though you're not actively searching." Email subject: "Farah found something worth a look." Body includes a line reinforcing the rarity so it doesn't read as spam: "You'll only hear from Farah like this for matches this strong."
+
+### 6.11 Mentorship — Human Mentor Marketplace *(deferred, see §2.2)*
+A deliberate differentiator from AI-only "coaching" competitors: real mentors, not just Farah-generated advice. **Do not start building this until the core job-matching loop has proven retention** — it's a second, independent cold-start problem stacked on top of the first. Once live, this is also a primary destination in the post-success lifecycle flywheel (§2.5) — hired users graduating into mentors is a large part of how this marketplace's mentor-side cold-start actually gets solved organically, not just an unrelated engagement feature.
+- **Draw a clear line against Farah's coaching shortcuts (§6.5), not just in positioning copy but in what each session type actually delivers.** Mentor sessions are the high-stakes, judgment-dependent, personalized layer — live mock interviews with real feedback, and negotiation strategy for an actual offer with a specific hiring manager and specific leverage in play — the things a mentor's own experience is worth paying for. Farah's shortcuts stay one level up: benchmarking, practice, and general prep. If a mentor session type would just replicate what Farah already gives away free, that's a signal the session needs sharper scoping, not that Farah's shortcut should be cut.
+- **Mentor profiles**: bio, expertise tags (role/industry/seniority), years of experience, rating, price per session (or "free" if a mentor opts to volunteer), availability calendar.
+- **Discovery**: browse/search/filter mentors by expertise tag, industry, price, and rating — reuse the same role/industry taxonomy as job filters and resume template categories for consistency.
+- **Booking flow**: pick an available slot → confirm session type (e.g., resume review, live mock interview, career strategy, negotiation strategy for a specific offer) → pay (if paid) → calendar hold + video-call link generated automatically.
+- **Session lifecycle**: upcoming/past sessions view for both mentee and mentor, post-session rating/review, optional session notes.
+- **Mentor onboarding & vetting**: application form, credential/experience verification step, admin approval queue before a mentor is publicly listed (quality control matters — a marketplace with bad mentors erodes trust fast).
+- **Payments**: mentor sessions are booked and paid directly (card or mobile money) rather than drawn from the AI-Credits wallet (§6.9) — a mentor session is a real cash pass-through to a third party, not an AI-infra-cost offset. Mentors need a payout mechanism to receive earnings. Free/volunteer mentors skip payment entirely — recommended for the initial launch of this feature to avoid building payout infrastructure before it's needed, and this should stay a **permanent mentor choice, not just a bootstrap phase**: GrowthMentor, a real comparable, reports roughly 85% of its mentors mentor for free even on a platform built to support paid sessions, for reputation/community reasons rather than payment.
+- **Session pricing (researched anchors, not yet validated — see §10)**: global career-coaching rates ($75–150/hour, mock interview coaching specifically $150–500/session) are unaffordable at parity here, so local Nigerian career-coaching rates are the real anchor, not global ones — same logic already applied to B2C pricing in §6.9. Use shorter 30–45 minute sessions rather than the 1–2hr sessions those local rates typically describe, keeping price points down and matching the "quick, actionable" design ethos elsewhere in the product:
+  - **Entry/junior mentor**: ₦10,000–₦15,000 (~$7–$11) per session.
+  - **Mid-level/experienced mentor**: ₦20,000–₦40,000 (~$15–$30) per session.
+  - **Senior/executive mentor**: ₦50,000–₦100,000 (~$37–$74) per session, matching the local "experienced coach" rate directly.
+  - **Quick Question** (15 min, flat fee, modeled on MentorCruise's real one-off-session pattern): ₦5,000–₦8,000 (~$4–$6) — a low-friction, low-commitment entry point distinct from a full structured session.
+  - **Mock interview and negotiation-strategy-for-a-specific-offer sessions carry a +20–30% premium** over the mentor's base tier price — these are the two session types §6.5 already scopes as high-stakes/human-only, and mock-interview coaching specifically commands a real premium globally, not just locally.
+- **Platform commission: 15% flat**, replacing the earlier "15–20%" placeholder with a firm launch number. This matches Topmate/Loki exactly and sits close to MentorCruise's real blended average (16.6%) — low enough to stay attractive to mentors while the marketplace is still cold-starting supply (the risk already flagged above), with room to test upward once mentor switching cost is higher. Real comparables span 10% (Talkspresso) to 25–30% (Intro.co); 15% is a deliberate mid-pack choice, not the cheapest or the steepest.
+- **[DECIDE]** Cold-start strategy: recommend seeding an initial mentor pool manually/by invitation (a small founding cohort recruited directly) rather than opening mentor applications to the public.
+- **[DECIDE]** Video call integration: integrate an existing scheduling/video provider rather than building native video.
+
+### 6.12 Job Supply & Liquidity Strategy
+The product is only as useful as the jobs in it, and manual employer postings won't reach useful volume for a long time on their own. Aggregate first; convert employers into direct accounts later — this is the same playbook Indeed, Glassdoor, and Google for Jobs used, and it's consistent with Jobright's own "External Jobs" pattern.
+
+- **ATS job-board APIs** (highest-value, lowest-risk source): Greenhouse, Lever, Workday, SmartRecruiters, iCIMS, and BambooHR all expose open or semi-open per-company job-board endpoints (e.g., Greenhouse's `boards-api.greenhouse.io`). Build an ingestion pipeline against these first.
+- **schema.org JobPosting structured data**: most career pages and ATS pages embed this markup for Google for Jobs indexing. It's published for machine consumption, making it safer ground than scraping a platform that prohibits it — but get legal review before assuming reuse/rehosting this data commercially is automatically fine; the markup is intended for indexing, not necessarily for third-party redistribution.
+- **Regional job board partnerships**: Jobberman, MyJobMag, Fuzu, and similar boards have deep Nigerian/African supply that global competitors don't prioritize. A data-sharing or feed partnership here reinforces the localization bet directly.
+- **Avoid scraping platforms whose ToS prohibits it** (e.g., LinkedIn, Indeed direct scraping) — real legal precedent exists here; prefer official APIs and structured data.
+- **"Claim your listing" flow**: when an aggregated employer's job gets meaningful seeker engagement, invite them to claim and verify a direct employer profile — this is the organic employer-acquisition funnel, converting aggregated content into direct relationships without a sales team.
+- **Freshness & dedup pipeline**: canonicalize by company + title + location fingerprint, and periodically re-check listings to mark them closed. This is necessary infrastructure, not an afterthought — stale aggregated listings erode trust fast.
+- **UI distinction**: clearly label aggregated vs. directly-posted jobs (per §6.2), since apply behavior and application tracking differ between them.
+
+### 6.13 Talent Directory & Verification *(deferred — the recommended first major post-launch bet, see §2.2)*
+Where §6.2/§6.3 are built around jobs flowing to seekers (post → apply), this is the inverse: a searchable, verified talent pool that employers query directly — the LinkedIn Recruiter / Andela / Toptal sourcing model layered on top of the same profile data Talentrah already collects. It's a single piece of infrastructure that sells to three distinct buyers, which is why it's prioritized above Mentorship as the next major initiative. It also does real retention work beyond the launch-era monetization case: a verified profile with an attached portfolio is an ongoing professional asset worth maintaining even between active job searches — a key leg of the retention strategy in §2.5, not just an employer-facing feature.
+
+1. **Global/diaspora employers hiring remote African talent** — pay because they can't easily verify a foreign credential, work history, or claimed skill themselves. This is the primary FOREX-earning surface for Talentrah: USD-billed, B2B, and doesn't require competing with Jobright/LinkedIn/Indeed for US job-seeker subscriptions.
+2. **Local employers** — face the same trust problem for different reasons (credential fraud and embellished experience are well-documented pain points in the Nigerian hiring market). "Verified by Talentrah" is a direct extension of the "quality over volume" trust positioning already established for Auto-Apply (§2.3) — one consistent brand story across both local and global employers, not two separate pitches.
+3. **Job seekers themselves** — verification is something a candidate wants for their own competitive advantage, and is a natural Talentrah Credits spend (§6.9), not a new monetization mechanism. This also helps cold-start the pool: seekers self-select into getting verified for personal benefit before employer demand for the directory exists.
+
+**Core components:**
+- **Skills verification**, tiered by cost/trust: AI-graded assessments (technical tests, domain quizzes, English-proficiency checks) for scale, with human review as a paid premium layer for higher-stakes roles. The existing mentor network (§6.11, once live) is a plausible pool of paid human assessors — domain experts already being compensated for their time — but this needs explicit conflict-of-interest and quality-consistency rules before relying on it.
+- **Portfolio/work-sample surfacing**: structured, beyond-the-resume evidence (code repositories, design portfolios, writing samples) attached to a profile.
+- **Availability & remote-readiness metadata**: timezone, working-hours overlap, notice period, prior remote-work experience, async-communication signals — data a standard resume was never designed to carry, and specifically what remote-hiring employers filter on.
+- **Searchable talent directory**: employers query by skill, verification status, availability, and (for local employers) the same role/industry taxonomy used elsewhere in the product.
+
+**Monetization** (ties into §6.9, replacing the earlier placeholder "recruiter subscription seats" bullet with this full design):
+- Global employers: recruiter-seat subscription for directory access at **$99–$149/month per seat** — well under LinkedIn Recruiter Lite's $1,680/year (~$140/mo), justified since Talentrah's network is unproven relative to LinkedIn's at launch — and/or a placement fee on a successful hire. For the placement fee, adopt the staffing industry's real tiered standard rather than a flat guess: **18% of first-year compensation for entry-level placements, 22% mid-level, 27% senior, up to 30% for executive** — the placement fee has a much higher ceiling per hire and is the stronger long-term model once match quality is demonstrated.
+- Local employers: a premium sourcing tier (search access to the verified pool) at **₦150,000–₦250,000/month**, positioned between a single Jobberman listing (₦100,000) and full outsourcing (§6.14) — sold alongside, not instead of, the existing job-posting and ad products (§6.8).
+- Job seekers: one-time credit spend to get verified, per candidate profile — 25 credits (~₦3,750) per §6.9's credit-cost table.
+- These figures are researched anchors (LinkedIn Recruiter, Jobberman, and staffing-industry fee-structure data), not validated prices — see §10.
+
+**Risks and sequencing, to flag explicitly rather than assume away:**
+- **Cold-start, again**: employers won't pay for directory access until the verified pool is large enough to be useful; seekers won't bother verifying until it visibly helps them get hired. Plan an initial free-verification cohort to seed the pool before charging for access to it.
+- **Cross-border payment/compliance complexity**: if this extends into actually handling payment or worker classification for a cross-border hire (the Deel/Remote.com territory — tax withholding, contractor-vs-employee risk), that's a heavily regulated, capital-intensive business. **[DECIDE]** Partner with an existing Employer-of-Record provider via API rather than building this in-house, at least until there's real volume to justify it.
+- **Operational cost of human-reviewed verification**: doesn't scale cheaply — needs a clear, documented line between what's AI-assisted and what's human-reviewed, not an open-ended promise of "verified" for everything.
+- This is still a third major initiative on top of the unproven core loop and the job-supply pipeline — per §2.2, don't pull engineering resources into this until job-matching retention is proven. It's the recommended *next* bet, not a launch feature.
+
+### 6.14 Managed Services — Recruitment, Staffing & Outsourcing *(deferred, sequenced after §6.13; own page, not the seeker landing page — see §6.1's footer)*
+A founder-level scope call on the seven managed-services lines under consideration: most of this is commercial packaging on top of the Talent Directory asset (§6.13), not new product infrastructure — sequence it as monetization layered onto a pool that already exists, don't build it in parallel with the pool itself. One line is a genuinely different business and is cut outright. This entire section lives on its own "Business Services" page (service menu + a request-a-quote / contact-sales form, no self-serve tooling at launch), reached from the footer's "For Employers" column (§6.1) — not the job-seeker landing page, which is built around a completely different funnel and voice.
+
+- **Cut from Talentrah's roadmap entirely: project outsourcing to an in-house software development team.** This is not a feature — it's a second company. Delivering client dev projects requires delivery teams, project management, SLAs, and code-quality accountability: an entirely different operating model from building and running a marketplace product, competing for the same limited founding-team attention. If this is worth pursuing, it should be a separate venture with its own team, not a line item in Talentrah's build prompt.
+- **First wave — ships once §6.13's verified pool has real, sellable supply**: tech team recruitment for companies (already the placement-fee mechanic in §6.13, just formalized as its own offering) and vetted talent outsourcing, client-managed (same directory; the client handles employment, so no new payroll/compliance build is required — a clean answer to the EOR question flagged in §6.13). Don't launch either before the directory has enough verified profiles to be worth selling access to.
+- **Rides along after the first wave**: general HR staffing — the same placement mechanic widened past tech roles. The marginal build cost is low; the real cost is pool breadth across non-tech roles, which is an operational/content question, not a new system.
+- **Elevated ahead of the rest — cheap to add, does real cold-start work**: internships. This is close to free to build — an internship is just a job type and an early-career candidate filter on infrastructure already being built for §6.2/§6.13, not a new system. It's also a genuine cold-start lever for the Talent Directory: early-career candidates are the segment most motivated to get verified for free, and internships open a plausible channel into university/bootcamp partnerships. This can start alongside Phase 3's Talent Directory work rather than waiting for the rest of this section.
+- **Partner, don't build: vetted talent outsourcing, in-house managed, and trainings.** Being the actual Employer of Record (in-house-managed outsourcing) means payroll, tax withholding, and labor-law compliance, plausibly across multiple jurisdictions once diaspora clients are involved — regulatory surface area, not a sprint. Integrate an existing EOR provider (Deel, Remote, or a local Nigerian PEO) rather than build this in-house, consistent with the open decision already flagged in §6.13 (see §10, item 12). Pricing structure: pass through the EOR partner's all-inclusive monthly contractor rate plus a **10–15% Talentrah sourcing margin** on top. Andela's own model — $6,000–$14,000/month per developer plus a $50,000 direct-hire conversion fee — is a useful reference ceiling, but Talentrah should price meaningfully under it at launch as a newer, unproven entrant. Tech team recruitment and client-managed outsourcing (the first wave, above) use the same tiered placement-fee structure as §6.13's global-employer model (18–30% of first-year compensation by seniority) rather than a separate pricing scheme. Trainings should route through the affiliate/training-partner relationships already established in §6.9 (AltSchool, Coursera, Udemy) rather than Talentrah building and running its own curriculum and instruction — that's its own operating business, the same objection as the cut dev-outsourcing line, just smaller in scope.
+- **v1 commercial surface is a lead-capture page only.** Delivery and account management for every line in this section happen manually (direct sales, a small ops function) until volume justifies further product investment — don't build self-serve tooling for any of this before the core product and Talent Directory have proven traction.
+
+---
+
+## 7. Data Model (core entities)
+
+- **User** (job seeker): profile, contact, base resume(s), preferences, credits balance, active pass (type + expiry), referral code, referred-by, market segment (home vs. diaspora), locale/currency preference. *(market segment and locale fields needed from Phase 2, see §2.4)*
+- **Resume**: versions (base + tailored variants), template reference, structured content sections, export history.
+- **JobPosting**: source (internal org post vs. external aggregated), structured JD fields, company reference, status, source-freshness/last-checked timestamp.
+- **Application**: user ↔ job link, resume/cover-letter version used, stage, timestamps, source (manual vs. auto-apply).
+- **MatchScore**: computed score + explanation breakdown per user↔job pair.
+- **Organization**: profile, verified domain, members/admins, billing customer reference.
+- **AdCampaign**: type, targeting, budget, schedule, creative assets, status, linked to Organization and billing.
+- **AdEvent**: impression/click/apply event log for analytics and CPA/CPC billing.
+- **Referral**: referrer, referred user, status (invited/signed up/activated), reward record.
+- **CreditLedger**: per-user transaction log of credit grants/spends (auditable — needed for support and abuse investigation).
+- **PaymentTransaction**: payment rail used (mobile money provider, card, bank transfer), amount, linked product (credit pack, pass, employer campaign), status — track rail separately from product, since this market needs multi-rail support from day one. For Pass purchases specifically, also track auto-renewal state (enabled/canceled), next renewal date, and card-token reference where applicable (§6.9) — mobile-money-paid Passes carry none of this, since they don't auto-renew.
+- **Mentor**: profile, expertise tags, rate, availability, verification/approval status, payout account reference. *(Phase 2+, see §6.11)*
+- **MentorshipSession**: mentor ↔ mentee link, session type, scheduled time, video-call link, status (booked/completed/cancelled), payment reference, post-session rating/review. *(Phase 2+, see §6.11)*
+- **VerificationCredential**: user reference, assessment type, method (AI-graded vs. human-reviewed), reviewer reference (if human), score/result, issue date, status. *(Phase 3+, see §6.13)*
+- **PortfolioItem**: user reference, type (repo link, design work, writing sample, etc.), URL/asset reference, display order. *(Phase 3+, see §6.13)*
+- **TalentDirectoryAccess**: organization reference, access tier (local sourcing vs. global/diaspora sourcing), billing model (subscription seat vs. placement-fee agreement), status. *(Phase 3+, see §6.13)*
+- User profile extended with remote-readiness metadata: timezone, working-hours overlap, notice period, remote-work history flag. *(Phase 3+, see §6.13)*
+
+---
+
+## 8. Technical Architecture & Non-Functional Requirements
+
+Stack choice is left to the building agent's judgment; a sensible default is a modern full-stack setup (e.g., React/Next.js frontend, Postgres-backed backend with an auth/storage layer such as Supabase, background job processing for AI calls and JD parsing, and a queue for auto-apply, aggregation, and ad-event processing). Whatever is chosen, the build must satisfy:
+
+- **Resume/PII handling**: resumes and JDs contain personal data — encrypt at rest, restrict access by ownership, support account/data deletion (basic privacy compliance posture even pre-launch).
+- **AI cost/latency management**: resume tailoring and JD parsing are LLM-backed — cache parsed JDs, avoid redundant calls, show loading/progress states for anything over ~2s.
+- **Auto-apply safety**: never silently submit applications without a clear opt-in and an auditable log of what was submitted, where, and when.
+- **Ad billing accuracy**: click/impression/apply events must be reliably attributed and deduplicated before they touch billing — this is where trust with paying employers is won or lost.
+- **Multi-rail payments**: the payment layer needs to support mobile money providers (via Paystack/Flutterwave/Moniepoint) alongside cards from the start on the consumer side — this isn't a "we'll add it later" item given §6.9's reasoning; retrofitting payment rails after launch is expensive.
+- **Job aggregation pipeline**: separable from the request path — ingestion, dedup, and freshness-checking should run as background jobs, not block user-facing performance.
+- **Scalability posture**: don't over-engineer for v1 scale, but keep the data model and job-processing layer separable from the request path so background AI and aggregation work doesn't block the UI.
+- **Device and bandwidth accessibility**: the target market skews toward lower-end Android devices and expensive mobile data — don't assume the high-bandwidth, high-end-device defaults common in US-first product design. Keep payloads light (image compression, avoid unnecessary JS weight), and treat visual density on high-traffic screens like the job feed (§6.2, §3) as a real performance and cost concern for the user, not just an aesthetic one.
+
+---
+
+## 9. Build Phasing
+
+**Phase 1 — MVP**
+- Auth/onboarding, resume upload/parse, job supply via aggregation pipeline (§6.12 — ATS APIs + schema.org crawling, focused on the target market/vertical rather than global coverage), base job feed with match scoring (algorithmic, not necessarily ML-tuned yet), manual apply, Job Tracker, Resume Builder (subset of templates), JD import + tailoring (paste-text path), Farah chat panel (core Q&A + tailoring integration), basic org job posting (free, no ads yet), Refer & Earn (credits-only reward), Credits + Prepaid Passes with mobile-money-native payment rails (§6.9 — build this in from the start, not retrofitted).
+
+**Phase 2**
+- Auto-apply (review-before-submit default), full template library with locked/premium tiers, Ad Campaign Manager (flat-rate placement first, CPC next), employer billing integration, campaign analytics, URL-based JD import with scraping for major job boards, "claim your listing" employer conversion flow, **diaspora currency & billing support** (§2.4 — geo-aware pricing, card/Stripe rail + optional true subscription for diaspora users, dual-format resume conventions in Farah's tailoring output) — lighter lift than the Talent Directory since it extends existing product surfaces rather than building a new one.
+
+**Phase 3**
+- **Talent Directory & Verification** (§6.13) — the recommended first major post-launch bet once Phase 1/2 retention data supports it: AI-graded skills verification, portfolio surfacing, and a searchable talent pool, seeded with a free-verification cohort before charging for directory access. **Internships** (§6.14) can start here too — a low-lift job-type/filter extension that also helps seed the directory with early-career verified candidates. Mentorship marketplace (§6.11) — only once Phase 1/2 retention data supports it, and after (or alongside, if resources allow) the Talent Directory — starting with free/volunteer sessions and a hand-seeded mentor cohort before adding payments. CPA billing, referral leaderboard, proactive Farah nudges, advanced employer analytics, notification system expansion, outcome-data-informed matching (§2.2) once there's enough volume for it to be statistically meaningful.
+
+**Phase 4**
+- **Managed Services commercial launch** (§6.14): tech recruitment and client-managed talent outsourcing, once the Talent Directory has real, verified supply to sell access to — launched as a lead-capture page with manual/direct-sales delivery, not self-serve tooling. General HR staffing follows once the first wave is proven. In-house-managed outsourcing and Trainings launch only behind an external EOR and training-partner integration respectively — not an in-house build. Project outsourcing to an in-house dev team is explicitly not part of this or any phase (§6.14).
+
+---
+
+## 10. Open Product Decisions — Flag These, Don't Silently Assume
+
+1. **Localization validation**: get real evidence (user conversations, a waitlist, a pilot) that the African/Nigerian market gap is real before committing significant engineering time to deep localization (§2.1).
+2. **Testimonial content**: the reference design's signup screen uses a real, identifiable public figure's name as a testimonial author. Replace this with a clearly fictional persona in the actual build — using a real person's name/likeness in a testimonial they didn't give implies a false endorsement and is a legal/IP risk, not just a design placeholder to keep.
+3. **Auto-apply default behavior**: default to "review before submit" rather than fully silent submission, at least for v1 (§2.3).
+4. **Referral reward mechanics**: pick and document the exact trigger/value (see §6.7) rather than leaving it abstract.
+5. **Ad pricing model**: pick one primary model to build first (see §6.8) rather than building CPC/CPA/flat-rate simultaneously.
+6. **Employer verification depth**: how strict company verification needs to be before an org can post/pay for ads (fraud/spam prevention vs. friction).
+7. **Payment rail scope for v1**: which specific mobile money providers/countries to support at launch (see §6.9) — don't try to cover all of Africa on day one; match the initial market focus.
+8. **Whether to offer a true subscription option at all** alongside credits/passes, and for which user segment (see §6.9).
+9. **Mentor cold-start seeding**: how the initial mentor pool gets seeded (recommend a small, directly-recruited founding cohort) — relevant only once Phase 3 begins. Session pricing and commission are now specced in §6.11; cold-start seeding mechanics remain open.
+10. **schema.org data reuse**: get legal review on redistributing/rehosting crawled job data commercially before relying on it as a primary supply source (see §6.12).
+11. **Verification review model**: exact split between AI-graded and human-reviewed verification, and whether/how the mentor network is used as paid assessors (see §6.13).
+12. **Build vs. partner on cross-border payment/compliance**: recommend partnering with an existing Employer-of-Record provider rather than building this in-house (see §6.13).
+13. **Global employer pricing model**: recruiter-seat subscription vs. placement fee vs. both, for Talent Directory access (see §6.13).
+14. **Diaspora scope boundary**: confirm diaspora support is explicitly scoped to "African jobs, accessible from anywhere," not host-country job search, before any marketing implies broader coverage (see §2.4).
+15. **Diaspora market prioritization**: which markets to support first at launch of diaspora billing — UK, US, and Canada are the most likely candidates given existing Nigerian diaspora concentration, but confirm rather than assume (see §2.4).
+16. **Managed Services scope**: project outsourcing to an in-house software development team is explicitly cut from Talentrah's product roadmap, not deferred — confirm before any go-to-market or fundraising material implies otherwise (see §6.14). Training delivery under Managed Services should route through an external training partner rather than an in-house curriculum build, consistent with §6.9's existing affiliate relationships.
+17. **Multi-jurisdiction compliance review**: get tax, KYC, and (for UK/EU users) GDPR implications reviewed before diaspora billing goes live, not after (see §2.4).
+18. **Pricing validation**: the credit-pack prices, per-action credit costs, Pass prices, diaspora subscription price, ad/listing prices, Talent Directory/Managed Services fee tiers, and mentor session prices/commission (§6.9, §6.11, §6.13, §6.14) are researched anchors grounded in real comparables (Jobberman, Netflix, Spotify, direct AI-copilot competitors, staffing-industry fee data, mentorship-marketplace commission structures, and local Nigerian career-coaching rates) — not tested prices. Run a real pricing test (e.g., a Van Westendorp survey or a soft-launch price experiment) before locking any of them in.
+
+---
+
+## 11. Deliverable Expectations
+
+The building agent should produce:
+- A working full-stack application (or, if using a builder like Lovable, a live preview) covering at minimum the Phase 1 MVP scope.
+- A clear README describing setup, environment variables, and architecture decisions made where this spec left something to the agent's judgment.
+- Seed/demo data (fake job postings — including a mix of "internal" and "external/aggregated" to demonstrate the distinction in §6.2/§6.12 — a fake org, and a demo user) so the product is reviewable without manual data entry.
+- A short summary at the end of the build noting: what was built vs. deferred to Phase 2/3, and which **[DECIDE]** items were assumed vs. still need founder input.

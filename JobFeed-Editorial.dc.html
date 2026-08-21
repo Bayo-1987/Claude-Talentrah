@@ -1,0 +1,236 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=Source+Sans+3:wght@400;500;600;700&display=swap">
+  <style>
+    :root {
+      --paper: oklch(97% 0.014 85);
+      --paper-alt: oklch(94.5% 0.018 80);
+      --ink: oklch(20% 0.018 50);
+      --ink-soft: oklch(38% 0.02 50);
+      --rust: oklch(52% 0.14 40);
+      --rust-hover: oklch(45% 0.14 40);
+      --rust-soft: oklch(91% 0.03 40);
+      --line: oklch(78% 0.02 60);
+      --green: oklch(48% 0.1 152);
+      --amber: oklch(52% 0.12 70);
+      --card: oklch(99% 0.006 85);
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; height: 100%; }
+    body { background: var(--paper); color: var(--ink); font-family: 'Source Sans 3', Georgia, serif; -webkit-font-smoothing: antialiased; }
+    h1, h2, h3 { font-family: 'Newsreader', Georgia, serif; font-weight: 500; margin: 0; color: var(--ink); }
+    p { margin: 0; }
+    a { color: var(--rust); text-decoration: underline; text-underline-offset: 2px; }
+    a:hover { color: var(--ink); }
+    button { font-family: inherit; cursor: pointer; }
+    .eyebrow { font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--rust); font-family: 'Source Sans 3', sans-serif; }
+    .btn-primary { background: var(--ink); color: var(--paper); border: none; border-radius: 0; padding: 10px 18px; font-size: 13.5px; font-weight: 600; min-height: 40px; font-family: 'Source Sans 3', sans-serif; }
+    .btn-primary:hover { background: var(--rust); }
+    .btn-text { background: none; border: none; padding: 8px 2px; font-size: 13px; font-weight: 600; color: var(--ink-soft); min-height: 40px; text-decoration: underline; text-underline-offset: 2px; font-family: 'Source Sans 3', sans-serif; display: inline-flex; align-items: center; }
+    .btn-text:hover { color: var(--rust); }
+    .masthead-link { color: var(--ink); font-size: 14.5px; font-weight: 600; padding: 10px 4px; min-height: 40px; display: inline-flex; align-items: center; border-bottom: 2.5px solid transparent; font-family: 'Source Sans 3', sans-serif; text-decoration: none; }
+    .masthead-link.active { color: var(--rust); border-bottom-color: var(--rust); }
+    .masthead-link:hover:not(.active) { color: var(--rust-hover); }
+    .tab { font-size: 13.5px; font-weight: 700; color: var(--ink-soft); padding: 8px 2px; border-bottom: 2.5px solid transparent; min-height: 40px; display: flex; align-items: center; font-family: 'Source Sans 3', sans-serif; }
+    .tab.active { color: var(--ink); border-bottom-color: var(--rust); }
+    .filter-tag { font-size: 12.5px; font-weight: 600; color: var(--ink-soft); border: 1px solid var(--line); padding: 6px 12px; min-height: 40px; box-sizing: border-box; display: inline-flex; align-items: center; gap: 6px; }
+    .quick-link { font-size: 13.5px; font-weight: 600; color: var(--ink); text-decoration: underline; text-underline-offset: 2px; display: flex; align-items: center; min-height: 40px; padding: 4px 0; }
+    .quick-link:hover { color: var(--rust); }
+    .row-link { font-size: 13px; font-weight: 600; color: var(--rust); text-decoration: underline; text-underline-offset: 2px; display: inline-flex; align-items: center; min-height: 40px; padding: 4px 2px; }
+    .row-link:hover { color: var(--ink); }
+    .name-link { color: var(--ink); text-decoration: none; }
+    .name-link:hover { color: var(--rust); }
+    .icon-btn { width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--line); background: none; color: var(--ink-soft); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .icon-btn:hover { border-color: var(--rust); color: var(--rust); }
+  </style>
+</helmet>
+
+<div style="width: 100%; min-height: 1000px; background: var(--paper); display: flex; flex-direction: column;">
+
+  <!-- MASTHEAD — replaces the old icon+label sidebar; same component as the marketing site -->
+  <div style="border-bottom: 2.5px solid var(--ink); background: var(--paper);">
+    <div style="display: flex; align-items: center; justify-content: space-between; padding: 0 32px; height: 68px;">
+      <div style="display: flex; align-items: center; gap: 36px;">
+        <a href="#" style="font-family: 'Newsreader', serif; font-weight: 500; font-size: 24px; letter-spacing: -0.01em; color: var(--ink); text-decoration: none;">Talentrah</a>
+        <div style="display: flex; align-items: center; gap: 22px;">
+          <a href="#" class="masthead-link active">Jobs</a>
+          <a href="#" class="masthead-link">Job Tracker</a>
+          <a href="#" class="masthead-link">Resume Builder</a>
+          <a href="#" class="masthead-link">Mentorship</a>
+          <a href="#" class="masthead-link">Refer a Friend</a>
+        </div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 14px;">
+        <span style="font-size: 12.5px; color: var(--ink-soft); border: 1px solid var(--line); padding: 6px 9px; min-height: 40px; box-sizing: border-box; display: inline-flex; align-items: center;">EN</span>
+        <button aria-label="Notifications" class="icon-btn" style="position: relative;">
+          <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M5 8a5 5 0 0 1 10 0c0 3 1 4.5 1.5 5H3.5C4 12.5 5 11 5 8Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M8.2 15.5a1.8 1.8 0 0 0 3.6 0" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+          <span style="position: absolute; top: 6px; right: 6px; width: 6px; height: 6px; border-radius: 50%; background: var(--rust);"></span>
+        </button>
+        <button class="btn-text" style="text-decoration: none; border: 1px solid var(--line); padding: 8px 14px;">Post a job</button>
+        <span style="font-size: 13px; font-weight: 700; color: var(--rust); background: var(--rust-soft); padding: 8px 14px; min-height: 40px; box-sizing: border-box; display: inline-flex; align-items: center;">24 credits · Top up</span>
+        <div style="width: 34px; height: 34px; border-radius: 50%; background: var(--ink); display: flex; align-items: center; justify-content: center; color: var(--paper); font-size: 12px; font-weight: 700; font-family: 'Newsreader', serif;">AO</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BODY: content column + Farah marginalia column -->
+  <div style="flex: 1; display: flex; max-width: 1360px; margin: 0 auto; width: 100%;">
+
+    <!-- MAIN COLUMN -->
+    <div style="flex: 1; min-width: 0; padding: 32px 40px 40px 0; display: flex; flex-direction: column; gap: 20px;">
+
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 20px;">
+        <div>
+          <span class="eyebrow">Today's board</span>
+          <div style="display: flex; align-items: center; gap: 24px; margin-top: 8px;">
+            <div class="tab active">Recommended</div>
+            <div class="tab">External Jobs</div>
+            <div class="tab">Most Recent</div>
+            <div class="tab">Saved Jobs</div>
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px; border: 1px solid var(--line); padding: 0 12px; min-height: 40px; box-sizing: border-box; min-width: 220px;">
+          <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><circle cx="8.5" cy="8.5" r="5.5" stroke="var(--ink-soft)" stroke-width="1.5"/><line x1="16" y1="16" x2="12.5" y2="12.5" stroke="var(--ink-soft)" stroke-width="1.5" stroke-linecap="round"/></svg>
+          <span style="font-size: 13px; color: var(--ink-soft); font-style: italic; font-family: 'Newsreader', serif;">Search jobs, companies…</span>
+        </div>
+      </div>
+
+      <!-- FILTERS -->
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 4px 0;">
+        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+          <span class="filter-tag">Product <svg width="9" height="9" viewBox="0 0 20 20" fill="none"><path d="M4 4 L16 16 M16 4 L4 16" stroke="var(--ink-soft)" stroke-width="2" stroke-linecap="round"/></svg></span>
+          <span class="filter-tag">Senior <svg width="9" height="9" viewBox="0 0 20 20" fill="none"><path d="M4 4 L16 16 M16 4 L4 16" stroke="var(--ink-soft)" stroke-width="2" stroke-linecap="round"/></svg></span>
+          <span class="filter-tag">Remote <svg width="9" height="9" viewBox="0 0 20 20" fill="none"><path d="M4 4 L16 16 M16 4 L4 16" stroke="var(--ink-soft)" stroke-width="2" stroke-linecap="round"/></svg></span>
+          <span class="filter-tag">Lagos, Nigeria <svg width="9" height="9" viewBox="0 0 20 20" fill="none"><path d="M4 4 L16 16 M16 4 L4 16" stroke="var(--ink-soft)" stroke-width="2" stroke-linecap="round"/></svg></span>
+        </div>
+        <button class="btn-text" style="text-decoration: none;">Advanced Filters →</button>
+      </div>
+
+      <!-- AUTO-APPLY -->
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 10px 0; border-bottom: 1px dashed var(--line);">
+        <span style="font-size: 13.5px; color: var(--ink-soft); max-width: 700px;"><strong style="color: var(--ink);">Auto-Apply</strong> — turn this on and Farah submits applications for you based on your preferences, with your review before anything sends.</span>
+        <button aria-label="Toggle Auto-Apply" style="background: none; border: none; padding: 11px 8px; min-height: 40px; min-width: 40px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+          <span style="width: 40px; height: 22px; border-radius: 999px; background: var(--line); position: relative; display: block;">
+            <span style="width: 16px; height: 16px; border-radius: 50%; background: var(--card); position: absolute; top: 3px; left: 3px;"></span>
+          </span>
+        </button>
+      </div>
+
+      <!-- LISTINGS — bordered cards with company badges, matching the original job-board design -->
+      <div style="display: flex; flex-direction: column; gap: 16px; margin-top: 4px;">
+
+        <div style="border: 1.5px solid var(--ink); background: var(--card); padding: 20px 22px; display: flex; flex-direction: column; gap: 14px;">
+          <div style="display: flex; align-items: flex-start; gap: 16px;">
+            <div style="width: 44px; height: 44px; flex-shrink: 0; background: var(--ink); color: var(--paper); display: flex; align-items: center; justify-content: center; font-family: 'Newsreader', serif; font-weight: 700; font-size: 15px;">FW</div>
+            <div style="flex: 1; min-width: 0;">
+              <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 16px;">
+                <h3 style="font-size: 17px;">Senior Product Manager</h3>
+                <span class="eyebrow" style="color: var(--green); flex-shrink: 0;">92% · Excellent</span>
+              </div>
+              <div style="font-size: 13px; color: var(--ink-soft); margin-top: 3px;">Flutterwave · Lagos, Nigeria · Remote · Senior · 5+ yrs</div>
+            </div>
+          </div>
+          <p style="font-size: 14px; color: var(--ink-soft); line-height: 1.6;">Own the roadmap for Flutterwave's savings product, working closely with engineering, design, compliance, and executive stakeholders across three markets.</p>
+          <div style="display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--line); padding-top: 14px;">
+            <span style="font-size: 12.5px; color: var(--ink-soft);">Posted 2 days ago · 34 applicants</span>
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <button aria-label="Save" class="icon-btn"><svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M10 16.5 C6 13.5 2.5 10.8 2.5 7.3 A3.8 3.8 0 0 1 10 5.3 A3.8 3.8 0 0 1 17.5 7.3 C17.5 10.8 14 13.5 10 16.5Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg></button>
+              <button aria-label="Share" class="icon-btn"><svg width="16" height="16" viewBox="0 0 20 20" fill="none"><circle cx="15" cy="5" r="2.2" stroke="currentColor" stroke-width="1.4"/><circle cx="5" cy="10" r="2.2" stroke="currentColor" stroke-width="1.4"/><circle cx="15" cy="15" r="2.2" stroke="currentColor" stroke-width="1.4"/><path d="M7 8.8 L13 6.2 M7 11.2 L13 13.8" stroke="currentColor" stroke-width="1.4"/></svg></button>
+              <button class="btn-text" style="text-decoration: none;">Ask Farah</button>
+              <button class="btn-primary">Apply</button>
+            </div>
+          </div>
+        </div>
+
+        <div style="border: 1.5px solid var(--ink); background: var(--card); padding: 20px 22px; display: flex; flex-direction: column; gap: 14px;">
+          <div style="display: flex; align-items: flex-start; gap: 16px;">
+            <div style="width: 44px; height: 44px; flex-shrink: 0; background: var(--ink); color: var(--paper); display: flex; align-items: center; justify-content: center; font-family: 'Newsreader', serif; font-weight: 700; font-size: 15px;">PS</div>
+            <div style="flex: 1; min-width: 0;">
+              <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 16px;">
+                <h3 style="font-size: 17px;">Product Manager, Growth</h3>
+                <span class="eyebrow" style="color: var(--rust); flex-shrink: 0;">78% · Good</span>
+              </div>
+              <div style="font-size: 13px; color: var(--ink-soft); margin-top: 3px;">Paystack · Lagos, Nigeria · Hybrid · Mid-Senior · 4+ yrs</div>
+            </div>
+          </div>
+          <p style="font-size: 14px; color: var(--ink-soft); line-height: 1.6;">Drive activation and retention experiments for Paystack's merchant dashboard, partnering with data and engineering on a weekly ship cadence.</p>
+          <div style="display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--line); padding-top: 14px;">
+            <span style="font-size: 12.5px; color: var(--ink-soft);">Posted 5 days ago · 61 applicants</span>
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <button aria-label="Save" class="icon-btn"><svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M10 16.5 C6 13.5 2.5 10.8 2.5 7.3 A3.8 3.8 0 0 1 10 5.3 A3.8 3.8 0 0 1 17.5 7.3 C17.5 10.8 14 13.5 10 16.5Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg></button>
+              <button aria-label="Share" class="icon-btn"><svg width="16" height="16" viewBox="0 0 20 20" fill="none"><circle cx="15" cy="5" r="2.2" stroke="currentColor" stroke-width="1.4"/><circle cx="5" cy="10" r="2.2" stroke="currentColor" stroke-width="1.4"/><circle cx="15" cy="15" r="2.2" stroke="currentColor" stroke-width="1.4"/><path d="M7 8.8 L13 6.2 M7 11.2 L13 13.8" stroke="currentColor" stroke-width="1.4"/></svg></button>
+              <button class="btn-text" style="text-decoration: none;">Ask Farah</button>
+              <button class="btn-primary">Apply</button>
+            </div>
+          </div>
+        </div>
+
+        <div style="border: 1.5px solid var(--ink); background: var(--card); padding: 20px 22px; display: flex; flex-direction: column; gap: 14px;">
+          <div style="display: flex; align-items: flex-start; gap: 16px;">
+            <div style="width: 44px; height: 44px; flex-shrink: 0; background: var(--ink); color: var(--paper); display: flex; align-items: center; justify-content: center; font-family: 'Newsreader', serif; font-weight: 700; font-size: 15px;">AN</div>
+            <div style="flex: 1; min-width: 0;">
+              <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 16px;">
+                <h3 style="font-size: 17px;">Product Manager <span style="font-size: 10.5px; font-weight: 700; color: var(--ink-soft); border: 1px solid var(--line); padding: 2px 8px; font-style: italic; font-family: 'Newsreader', serif;">sourced externally</span></h3>
+                <span class="eyebrow" style="color: var(--amber); flex-shrink: 0;">63% · Fair</span>
+              </div>
+              <div style="font-size: 13px; color: var(--ink-soft); margin-top: 3px;">Andela · Remote · Senior</div>
+            </div>
+          </div>
+          <p style="font-size: 14px; color: var(--ink-soft); line-height: 1.6;">Aggregated from Andela's careers page. Applying will take you to Andela's own application form.</p>
+          <div style="display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--line); padding-top: 14px;">
+            <span style="font-size: 12.5px; color: var(--ink-soft);">Posted 1 week ago · Applicant count unavailable</span>
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <button aria-label="Save" class="icon-btn"><svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M10 16.5 C6 13.5 2.5 10.8 2.5 7.3 A3.8 3.8 0 0 1 10 5.3 A3.8 3.8 0 0 1 17.5 7.3 C17.5 10.8 14 13.5 10 16.5Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg></button>
+              <button class="btn-text" style="text-decoration: none;">Ask Farah</button>
+              <button class="btn-primary">Apply on company site</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- FARAH — marginalia column, not a boxed chat app widget -->
+    <div style="width: 280px; flex-shrink: 0; border-left: 1px solid var(--line); padding: 32px 0 40px 28px; display: flex; flex-direction: column; gap: 22px;">
+
+      <div>
+        <a href="#" class="name-link" style="font-size: 13px; font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; min-height: 40px;">Adaeze O.</a>
+        <div><a href="#" class="row-link" style="font-size: 12.5px; padding-left: 0;">View profile</a></div>
+      </div>
+
+      <div style="border-top: 1px solid var(--line); padding-top: 18px;">
+        <span class="eyebrow">Farah — your co-pilot</span>
+        <p style="font-size: 14.5px; line-height: 1.6; color: var(--ink-soft); font-style: italic; font-family: 'Newsreader', serif; margin-top: 10px;">"Hi Adaeze — I can tailor your resume to any of these roles, or help you prep. What do you need?"</p>
+      </div>
+
+      <div style="border-top: 1px dashed var(--line); padding-top: 16px; display: flex; flex-direction: column;">
+        <a href="#" class="quick-link">Resume Builder</a>
+        <a href="#" class="quick-link">Interview Prep</a>
+        <a href="#" class="quick-link">Career Advisor</a>
+        <a href="#" class="quick-link">Cover Letter</a>
+        <a href="#" class="quick-link">Salary Negotiation</a>
+      </div>
+
+      <div style="margin-top: auto; display: flex; align-items: center; gap: 8px; border: 1px solid var(--line); padding: 8px 10px; background: var(--card);">
+        <span style="flex: 1; font-size: 12.5px; color: var(--ink-soft); font-style: italic; font-family: 'Newsreader', serif;">Ask me anything…</span>
+        <button aria-label="Send" style="width: 44px; height: 44px; background: var(--ink); border: none; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--paper);">
+          <svg width="15" height="15" viewBox="0 0 20 20" fill="none"><path d="M3 10 L17 3 L11 17 L9 11 L3 10Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" fill="none"/></svg>
+        </button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+</x-dc>
+</body>
+</html>
