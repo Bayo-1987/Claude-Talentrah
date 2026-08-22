@@ -1,0 +1,92 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch: {}
+
+env:
+  NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+  SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+  ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+  PAYSTACK_SECRET_KEY: ${{ secrets.PAYSTACK_SECRET_KEY }}
+  NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY: ${{ secrets.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY }}
+
+jobs:
+  checks:
+    name: Typecheck, lint, unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests (Vitest)
+        run: npm run test
+
+  e2e:
+    name: Playwright e2e
+    needs: checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Build app
+        run: npm run build
+
+      - name: Start app
+        run: npm run start &
+
+      - name: Wait for app to respond
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:3000 > /dev/null; then
+              echo "App is up."
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "App never came up." >&2
+          exit 1
+
+      - name: Seed demo data
+        env:
+          SEED_APP_URL: http://localhost:3000
+        run: npm run seed
+
+      - name: Run Playwright suite
+        env:
+          E2E_BASE_URL: http://localhost:3000
+        run: npm run test:e2e
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
