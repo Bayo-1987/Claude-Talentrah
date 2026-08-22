@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { signUpAction, type AuthActionState } from "@/lib/auth/actions";
 import { SIGNUP_COUNTRIES } from "@/lib/auth/schemas";
 import { TextField, SelectField, Button } from "@/components/ui";
@@ -19,20 +19,34 @@ export function SignupForm({ referredByCode }: { referredByCode?: string }) {
     termsAccepted: false,
   });
 
-  // React's own controlled-value state for the select/checkbox below stays
-  // correct across a failed submission (verified directly) — but the
-  // browser's native form reset that fires after a <form action={fn}>
-  // submission clobbers *their DOM value/checked* afterward, and since
-  // React sees no state change on that render it never re-asserts them
-  // (text inputs don't have this problem — React's controlled-input value
-  // tracker corrects them regardless). Remounting on every completed
-  // submission sidesteps it: a fresh element always gets its value from
-  // current props, so the native reset has nothing stale to leave behind.
-  //
+  // A <form action={fn}> using React 19 Actions resets the native form
+  // *after* the action's result commits — including on a validation-error
+  // "failure", not just success — which clobbers a <select>/checkbox's DOM
+  // value/checked even though React's own controlled state for them stays
+  // correct (verified directly). Text inputs are immune: React's
+  // controlled-input value tracker corrects them regardless of when the
+  // native reset fires. A key-based remount alone isn't reliable here —
+  // proved out with a real Playwright test, not just manual clicking — since
+  // the freshly remounted node still catches the same reset if it lands
+  // after the remount's own paint. A ref + effect that unconditionally
+  // re-asserts the DOM value on every render is what actually wins that
+  // race, since effects run after all commits (including whatever timing
+  // the native reset call is on) — this is the actual fix; the key is kept
+  // too since a remount is a stronger reset than in-place correction and
+  // adds no risk.
+  const countryRef = useRef<HTMLSelectElement>(null);
+  const termsRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (countryRef.current && countryRef.current.value !== fields.country) {
+      countryRef.current.value = fields.country;
+    }
+    if (termsRef.current && termsRef.current.checked !== fields.termsAccepted) {
+      termsRef.current.checked = fields.termsAccepted;
+    }
+  });
+
   // Deriving submitCount during render (rather than in a useEffect) is the
-  // React-documented pattern for "adjust state when a prop/value changes" —
-  // it re-runs the component with the new value before committing, instead
-  // of committing stale UI and fixing it up a tick later.
+  // React-documented pattern for "adjust state when a prop/value changes".
   const [prevState, setPrevState] = useState(state);
   const [submitCount, setSubmitCount] = useState(0);
   if (state !== prevState) {
@@ -91,11 +105,12 @@ export function SignupForm({ referredByCode }: { referredByCode?: string }) {
 
       <SelectField
         key={submitCount}
+        ref={countryRef}
         label="Country"
         name="country"
         options={SIGNUP_COUNTRIES}
         required
-        value={fields.country}
+        defaultValue={fields.country}
         onChange={set("country")}
         error={state.fieldErrors?.country?.[0]}
       />
@@ -117,10 +132,11 @@ export function SignupForm({ referredByCode }: { referredByCode?: string }) {
       <label className="flex items-start gap-2.5 text-[13px] text-ink-soft">
         <input
           key={submitCount}
+          ref={termsRef}
           type="checkbox"
           name="termsAccepted"
           required
-          checked={fields.termsAccepted}
+          defaultChecked={fields.termsAccepted}
           onChange={(e) =>
             setFields((prev) => ({ ...prev, termsAccepted: e.target.checked }))
           }
