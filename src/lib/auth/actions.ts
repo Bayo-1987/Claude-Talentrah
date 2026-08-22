@@ -108,11 +108,10 @@ export async function signOutAction() {
 }
 
 /**
- * Google/LinkedIn sign-in. Providers must be configured with real OAuth app
- * credentials in the Supabase dashboard (Authentication > Providers) before
- * this works — that's an external, credential-gated setup step, not
- * something this code can do on its own. Until then these buttons will
- * redirect to a Supabase error page.
+ * Google/LinkedIn sign-in. Both providers are configured in the Supabase
+ * dashboard (Authentication > Providers — client IDs/secrets and redirect
+ * URLs live there, not in this app's env) — this call is provider-agnostic
+ * on purpose, so enabling a new provider is a Supabase-side change only.
  */
 export async function signInWithOAuthAction(formData: FormData) {
   const provider = formData.get("provider");
