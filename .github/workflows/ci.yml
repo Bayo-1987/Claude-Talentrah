@@ -29,6 +29,20 @@ jobs:
 
       - run: npm ci
 
+      - name: Verify required secrets are present
+        run: |
+          missing=0
+          for var in NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY ANTHROPIC_API_KEY PAYSTACK_SECRET_KEY NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY; do
+            val="${!var}"
+            if [ -z "$val" ]; then
+              echo "::error::$var is missing or empty — add it under Settings > Secrets and variables > Actions."
+              missing=1
+            else
+              echo "$var: present (length ${#val})"
+            fi
+          done
+          exit $missing
+
       - name: Generate Next.js route types
         run: npx next typegen
 
@@ -54,6 +68,20 @@ jobs:
           cache: npm
 
       - run: npm ci
+
+      - name: Verify required secrets are present
+        run: |
+          missing=0
+          for var in NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY ANTHROPIC_API_KEY PAYSTACK_SECRET_KEY NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY; do
+            val="${!var}"
+            if [ -z "$val" ]; then
+              echo "::error::$var is missing or empty — add it under Settings > Secrets and variables > Actions."
+              missing=1
+            else
+              echo "$var: present (length ${#val})"
+            fi
+          done
+          exit $missing
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
