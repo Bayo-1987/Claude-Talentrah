@@ -17,7 +17,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Not signed in." }, { status: 401 });
   }
 
-  const body = await request.json();
+  let body: Record<string, unknown>;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Malformed request body." }, { status: 400 });
+  }
+
   const jdText = typeof body.jdText === "string" ? body.jdText.trim() : "";
   const jobPostingId = typeof body.jobPostingId === "string" ? body.jobPostingId : null;
   const includeCoverLetter = !!body.includeCoverLetter;
