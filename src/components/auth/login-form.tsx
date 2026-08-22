@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { signInAction, type AuthActionState } from "@/lib/auth/actions";
 import { TextField, Button } from "@/components/ui";
 
@@ -8,6 +8,11 @@ const initialState: AuthActionState = { error: null };
 
 export function LoginForm() {
   const [state, formAction, pending] = useActionState(signInAction, initialState);
+  // Only email is controlled — React resets uncontrolled fields after every
+  // form action completes (success or failure), which is what we want for
+  // password (never re-show a failed password) but not for email (a typo'd
+  // password shouldn't also force retyping the email).
+  const [email, setEmail] = useState("");
 
   return (
     <form action={formAction} className="flex flex-col gap-5">
@@ -23,6 +28,8 @@ export function LoginForm() {
         type="email"
         autoComplete="email"
         required
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
         error={state.fieldErrors?.email?.[0]}
       />
       <TextField

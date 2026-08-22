@@ -16,7 +16,29 @@ export function SignupForm({ referredByCode }: { referredByCode?: string }) {
     email: "",
     country: "",
     password: "",
+    termsAccepted: false,
   });
+
+  // React's own controlled-value state for the select/checkbox below stays
+  // correct across a failed submission (verified directly) — but the
+  // browser's native form reset that fires after a <form action={fn}>
+  // submission clobbers *their DOM value/checked* afterward, and since
+  // React sees no state change on that render it never re-asserts them
+  // (text inputs don't have this problem — React's controlled-input value
+  // tracker corrects them regardless). Remounting on every completed
+  // submission sidesteps it: a fresh element always gets its value from
+  // current props, so the native reset has nothing stale to leave behind.
+  //
+  // Deriving submitCount during render (rather than in a useEffect) is the
+  // React-documented pattern for "adjust state when a prop/value changes" —
+  // it re-runs the component with the new value before committing, instead
+  // of committing stale UI and fixing it up a tick later.
+  const [prevState, setPrevState] = useState(state);
+  const [submitCount, setSubmitCount] = useState(0);
+  if (state !== prevState) {
+    setPrevState(state);
+    setSubmitCount((c) => c + 1);
+  }
 
   function set<K extends keyof typeof fields>(key: K) {
     return (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
@@ -68,6 +90,7 @@ export function SignupForm({ referredByCode }: { referredByCode?: string }) {
       />
 
       <SelectField
+        key={submitCount}
         label="Country"
         name="country"
         options={SIGNUP_COUNTRIES}
@@ -93,9 +116,14 @@ export function SignupForm({ referredByCode }: { referredByCode?: string }) {
 
       <label className="flex items-start gap-2.5 text-[13px] text-ink-soft">
         <input
+          key={submitCount}
           type="checkbox"
           name="termsAccepted"
           required
+          checked={fields.termsAccepted}
+          onChange={(e) =>
+            setFields((prev) => ({ ...prev, termsAccepted: e.target.checked }))
+          }
           className="mt-0.5 h-4 w-4 flex-shrink-0 accent-[var(--ink)]"
         />
         I agree to Talentrah&apos;s{" "}

@@ -28,7 +28,6 @@ export function SelectField({
       </label>
       <select
         id={selectId}
-        defaultValue={props.value === undefined ? "" : undefined}
         className={cn(
           "min-h-11 border-[1.5px] border-ink bg-card px-3.5 py-2.5 font-body text-[15px] text-ink outline-none focus:border-rust",
           error && "border-rust",
