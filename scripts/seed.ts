@@ -130,14 +130,34 @@ async function main() {
   }
 
   console.log("→ Seeding base resume…");
-  await supabase.from("resumes").delete().eq("user_id", userId).eq("is_base", true);
-  await supabase.from("resumes").insert({
-    user_id: userId,
-    is_base: true,
-    title: "My resume",
-    source: "builder",
-    structured_content: DEMO_RESUME,
-  });
+  // Mirrors src/lib/resume/upsert-base-resume.ts's replace-in-place logic —
+  // can't import that module directly, since it (like the rest of
+  // src/lib/resume) is "server-only"-guarded and this script runs via plain
+  // tsx/node, not Next's runtime (same constraint noted above for the
+  // ingestion pipeline). The DB's unique partial index on
+  // resumes(user_id) where is_base=true is what actually guarantees this
+  // can't produce a duplicate either way.
+  const { data: existingBase } = await supabase
+    .from("resumes")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("is_base", true)
+    .maybeSingle();
+
+  if (existingBase) {
+    await supabase
+      .from("resumes")
+      .update({ title: "My resume", source: "builder", structured_content: DEMO_RESUME })
+      .eq("id", existingBase.id);
+  } else {
+    await supabase.from("resumes").insert({
+      user_id: userId,
+      is_base: true,
+      title: "My resume",
+      source: "builder",
+      structured_content: DEMO_RESUME,
+    });
+  }
 
   console.log("→ Seeding demo organization…");
   const ORG_NAME = "Zaria Digital";

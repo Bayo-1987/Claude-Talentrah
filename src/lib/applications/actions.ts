@@ -38,12 +38,19 @@ export async function toggleSaveAction(jobId: string) {
 export async function applyInAppAction(jobId: string) {
   const { supabase, userId } = await getAuthedUserId();
 
-  const { data: baseResume } = await supabase
+  const { data: baseResume, error: baseResumeError } = await supabase
     .from("resumes")
     .select("id")
     .eq("user_id", userId)
     .eq("is_base", true)
     .maybeSingle();
+
+  // A missing resume is a legitimate state (resume_id just stays null below)
+  // — a query error is not, and applying anyway would silently record the
+  // wrong thing (QA audit bug #1). Fail loudly instead.
+  if (baseResumeError) {
+    throw new Error(`Couldn't look up your resume: ${baseResumeError.message}`);
+  }
 
   const { data: existing } = await supabase
     .from("applications")

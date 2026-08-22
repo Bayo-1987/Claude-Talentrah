@@ -33,7 +33,7 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
     : undefined;
   const supabase = await createClient();
 
-  const [{ data: baseResume }, { data: applications }] = await Promise.all([
+  const [{ data: baseResume, error: baseResumeError }, { data: applications }] = await Promise.all([
     supabase
       .from("resumes")
       .select("structured_content")
@@ -46,6 +46,16 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
       .eq("user_id", user.id),
   ]);
 
+  // Only fall back to an empty resume when there genuinely isn't one yet
+  // (a real, expected state for a new user). A query error is a different
+  // situation — silently scoring against an empty resume there would look
+  // identical to "no resume" but actually mean something is broken (this is
+  // exactly how QA audit bug #1 went unnoticed: a duplicate is_base row
+  // made this query error, and match scores quietly went wrong with no
+  // visible sign anything was off). The DB now also structurally prevents
+  // that specific duplicate (migration 0010), but this distinction stays
+  // worth keeping regardless of cause.
+  const hasBaseResume = !baseResumeError && !!baseResume;
   const resume = (baseResume?.structured_content as StructuredResume | null) ?? EMPTY_RESUME;
   const applicationByJobId = new Map(
     (applications ?? []).map((a) => [a.job_posting_id, a.stage]),
@@ -83,6 +93,27 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
       </div>
 
       <FilterBar tab={tab} workType={workType} seniority={seniority} />
+
+      {baseResumeError && (
+        <p className="border-[1.5px] border-rust bg-rust-soft px-4 py-3 text-[13.5px] text-rust">
+          Couldn&apos;t load your resume, so match scores below aren&apos;t
+          reliable right now. Try reloading — if this keeps happening,{" "}
+          <a href="/resume-builder" className="underline">
+            check your Resume Builder
+          </a>
+          .
+        </p>
+      )}
+      {!baseResumeError && !hasBaseResume && (
+        <p className="border-[1.5px] border-line bg-card px-4 py-3 text-[13.5px] text-ink-soft">
+          You don&apos;t have a resume yet, so match scores below are just a
+          neutral placeholder.{" "}
+          <a href="/resume-builder" className="underline">
+            Add one in the Resume Builder
+          </a>{" "}
+          to get real ones.
+        </p>
+      )}
 
       {scored.length === 0 ? (
         <p className="py-12 text-center text-[14.5px] text-ink-soft">

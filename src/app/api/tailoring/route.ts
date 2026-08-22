@@ -29,12 +29,19 @@ export async function POST(request: Request) {
     );
   }
 
-  const { data: baseResumeRow } = await supabase
+  const { data: baseResumeRow, error: baseResumeError } = await supabase
     .from("resumes")
     .select("structured_content")
     .eq("user_id", user.id)
     .eq("is_base", true)
     .maybeSingle();
+
+  if (baseResumeError) {
+    return NextResponse.json(
+      { error: "Couldn't load your resume — try again in a moment." },
+      { status: 500 },
+    );
+  }
 
   if (!baseResumeRow) {
     return NextResponse.json(

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { parseResumeFile } from "@/lib/resume/parse";
+import { upsertBaseResume } from "@/lib/resume/upsert-base-resume";
 
 const MAX_SIZE_BYTES = 5 * 1024 * 1024;
 const ALLOWED_TYPES = new Set([
@@ -35,6 +36,9 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   }
+  if (file.size === 0) {
+    return NextResponse.json({ error: "That file appears to be empty." }, { status: 400 });
+  }
 
   const buffer = Buffer.from(await file.arrayBuffer());
 
@@ -48,27 +52,21 @@ export async function POST(request: Request) {
     );
   }
 
-  const { data: resume, error: insertError } = await supabase
-    .from("resumes")
-    .insert({
-      user_id: user.id,
-      is_base: true,
-      title: "My resume",
-      source: "uploaded",
-      structured_content: JSON.parse(JSON.stringify(result.resume)),
-    })
-    .select("id")
-    .single();
-
-  if (insertError || !resume) {
+  let resumeId: string;
+  try {
+    // Replaces any existing base resume in place — see upsert-base-resume.ts
+    // for why this can't be a plain insert (QA audit bug #1).
+    const resume = await upsertBaseResume(supabase, user.id, result.resume, "uploaded");
+    resumeId = resume.id;
+  } catch (err) {
     return NextResponse.json(
-      { error: "Couldn't save your resume — try again." },
+      { error: err instanceof Error ? err.message : "Couldn't save your resume — try again." },
       { status: 500 },
     );
   }
 
   return NextResponse.json({
-    resumeId: resume.id,
+    resumeId,
     resume: result.resume,
     confidence: result.confidence,
   });
