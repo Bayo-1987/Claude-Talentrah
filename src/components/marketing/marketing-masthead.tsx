@@ -2,10 +2,10 @@ import Link from "next/link";
 import { buttonClasses } from "@/components/ui";
 
 const NAV_LINKS = [
-  { href: "#jobs", label: "Browse Jobs" },
-  { href: "#farah", label: "Meet Farah" },
-  { href: "#how-it-works", label: "How it works" },
-  { href: "#faqs", label: "FAQs" },
+  { href: "/#jobs", label: "Browse Jobs" },
+  { href: "/#farah", label: "Meet Farah" },
+  { href: "/#how-it-works", label: "How it works" },
+  { href: "/#faqs", label: "FAQs" },
 ];
 
 /**
@@ -19,7 +19,7 @@ export function MarketingMasthead() {
   return (
     <div className="sticky top-0 z-20 border-b-[2.5px] border-ink bg-paper/95 backdrop-blur-sm">
       <div className="mx-auto flex h-[78px] max-w-[1120px] items-center justify-between px-10">
-        <Link href="#top" className="flex flex-shrink-0 items-center no-underline">
+        <Link href="/" className="flex flex-shrink-0 items-center no-underline">
           {/* eslint-disable-next-line @next/next/no-img-element -- static brand SVG, next/image's optimizer needs SVG allow-listing for no real benefit here */}
           <img
             src="/talentrah-horizontal.svg"
