@@ -18,13 +18,53 @@ export type Database = {
   }
   public: {
     Tables: {
+      application_stage_events: {
+        Row: {
+          application_id: string
+          changed_at: string
+          id: string
+          stage: Database["public"]["Enums"]["application_stage"]
+          user_id: string
+        }
+        Insert: {
+          application_id: string
+          changed_at?: string
+          id?: string
+          stage: Database["public"]["Enums"]["application_stage"]
+          user_id: string
+        }
+        Update: {
+          application_id?: string
+          changed_at?: string
+          id?: string
+          stage?: Database["public"]["Enums"]["application_stage"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "application_stage_events_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "applications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "application_stage_events_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       applications: {
         Row: {
           applied_at: string | null
           cover_letter_id: string | null
           created_at: string
           id: string
-          job_posting_id: string
+          job_posting_id: string | null
+          manual_job_snapshot: Json | null
           notes: string | null
           resume_id: string | null
           source: Database["public"]["Enums"]["application_source"]
@@ -37,7 +77,8 @@ export type Database = {
           cover_letter_id?: string | null
           created_at?: string
           id?: string
-          job_posting_id: string
+          job_posting_id?: string | null
+          manual_job_snapshot?: Json | null
           notes?: string | null
           resume_id?: string | null
           source?: Database["public"]["Enums"]["application_source"]
@@ -50,7 +91,8 @@ export type Database = {
           cover_letter_id?: string | null
           created_at?: string
           id?: string
-          job_posting_id?: string
+          job_posting_id?: string | null
+          manual_job_snapshot?: Json | null
           notes?: string | null
           resume_id?: string | null
           source?: Database["public"]["Enums"]["application_source"]
@@ -798,12 +840,13 @@ export type Database = {
       generate_referral_code: { Args: never; Returns: string }
     }
     Enums: {
-      application_source: "in_app" | "manual"
+      application_source: "internal_apply" | "manual" | "auto_apply"
       application_stage:
         | "saved"
         | "applied"
         | "interviewing"
         | "offer"
+        | "hired"
         | "rejected"
         | "archived"
       credit_reason:
@@ -955,12 +998,13 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      application_source: ["in_app", "manual"],
+      application_source: ["internal_apply", "manual", "auto_apply"],
       application_stage: [
         "saved",
         "applied",
         "interviewing",
         "offer",
+        "hired",
         "rejected",
         "archived",
       ],

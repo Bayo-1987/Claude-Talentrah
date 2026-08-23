@@ -34,7 +34,11 @@ export function JobCard({ job, score, isSaved, applicationStage }: JobCardProps)
   ].filter(Boolean);
 
   const isExternal = job.source_type === "external";
-  const alreadyApplied = applicationStage === "applied" || applicationStage === "interviewing" || applicationStage === "offer";
+  const alreadyApplied =
+    applicationStage === "applied" ||
+    applicationStage === "interviewing" ||
+    applicationStage === "offer" ||
+    applicationStage === "hired";
 
   return (
     <BorderedCard className="flex flex-col gap-3.5 p-5">

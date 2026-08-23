@@ -67,8 +67,8 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
   if (seniority) query = query.eq("seniority", seniority);
   if (tab === "saved") {
     const savedIds = [...applicationByJobId.entries()]
-      .filter(([, stage]) => stage === "saved")
-      .map(([id]) => id);
+      .filter(([id, stage]) => id !== null && stage === "saved")
+      .map(([id]) => id as string);
     query = query.in("id", savedIds.length ? savedIds : ["00000000-0000-0000-0000-000000000000"]);
   }
 
