@@ -4,17 +4,18 @@ import { EyebrowLabel } from "@/components/ui";
 import { StageFilterBar } from "@/components/tracker/stage-filter-bar";
 import { ManualEntryForm } from "@/components/tracker/manual-entry-form";
 import { TrackerCard, type TrackerEntry } from "@/components/tracker/tracker-card";
+import { HiredReferralBanner } from "@/components/tracker/hired-referral-banner";
 import { Constants, type Enums } from "@/lib/supabase/types";
 
 export const metadata = { title: "Job Tracker — Talentrah" };
 
-type SearchParams = Promise<{ stage?: string; sort?: string }>;
+type SearchParams = Promise<{ stage?: string; sort?: string; justHired?: string }>;
 type ApplicationStage = Enums<"application_stage">;
 
 const VALID_STAGES: readonly string[] = Constants.public.Enums.application_stage;
 
 export default async function TrackerPage({ searchParams }: { searchParams: SearchParams }) {
-  const { user } = await requireUser();
+  const { user, profile } = await requireUser();
   const params = await searchParams;
   const stage = VALID_STAGES.includes(params.stage ?? "")
     ? (params.stage as ApplicationStage)
@@ -73,12 +74,20 @@ export default async function TrackerPage({ searchParams }: { searchParams: Sear
     return sort === "newest" ? bTime - aTime : aTime - bTime;
   });
 
+  const justHiredEntry = params.justHired
+    ? entries.find((e) => e.id === params.justHired && e.stage === "hired")
+    : undefined;
+
   return (
     <div className="flex flex-col gap-5">
       <div>
         <EyebrowLabel>Every job, one place</EyebrowLabel>
         <h1 className="mt-1.5 text-[26px]">Job Tracker</h1>
       </div>
+
+      {justHiredEntry && (
+        <HiredReferralBanner jobTitle={justHiredEntry.title} referralCode={profile.referral_code} />
+      )}
 
       <ManualEntryForm />
 

@@ -311,6 +311,87 @@ async function main() {
     "Didn't move forward after the technical screen.",
   );
 
+  console.log("→ Seeding Refer & Earn demo data…");
+  const { data: demoProfile } = await supabase
+    .from("profiles")
+    .select("referral_code")
+    .eq("id", userId)
+    .single();
+
+  if (!demoProfile) throw new Error("Demo profile not found — seed the demo user first");
+  const demoReferralCode = demoProfile.referral_code;
+
+  async function upsertReferredFriend(email: string, firstName: string) {
+    const { data: existingUsers } = await supabase.auth.admin.listUsers();
+    const existingFriend = existingUsers.users.find((u) => u.email === email);
+    if (existingFriend) return existingFriend.id;
+
+    // Goes through the exact same handle_new_user() trigger a real signup
+    // does — referral row + signup-bonus grant happen for real here, not
+    // scripted, so this also verifies the M8 reward pipeline end-to-end.
+    const { data, error } = await supabase.auth.admin.createUser({
+      email,
+      password: "TalentrahDemoFriend123!",
+      email_confirm: true,
+      user_metadata: {
+        first_name: firstName,
+        last_name: "Friend",
+        country: "Nigeria",
+        referred_by_code: demoReferralCode,
+      },
+    });
+    if (error || !data.user) throw error ?? new Error(`Failed to create ${email}`);
+    return data.user.id;
+  }
+
+  // Friend #1: signed up via the demo user's link, hasn't activated yet.
+  await upsertReferredFriend("amaka.friend@talentrah.dev", "Amaka");
+
+  // Friend #2: signed up AND activated (gets a base resume below, which
+  // fires resumes_check_activation → the 20-credit activation bonus).
+  const activatedFriendId = await upsertReferredFriend("chidi.friend@talentrah.dev", "Chidi");
+  const { data: friendHasResume } = await supabase
+    .from("resumes")
+    .select("id")
+    .eq("user_id", activatedFriendId)
+    .eq("is_base", true)
+    .maybeSingle();
+  if (!friendHasResume) {
+    await supabase.from("resumes").insert({
+      user_id: activatedFriendId,
+      is_base: true,
+      title: "My resume",
+      source: "builder",
+      structured_content: {
+        contact: { name: "Chidi Friend", email: "chidi.friend@talentrah.dev" },
+        summary: "Early-career operations coordinator exploring fintech and logistics roles.",
+        experience: [],
+        education: [],
+        skills: ["customer support", "logistics", "excel"],
+        projects: [],
+        certifications: [],
+      },
+    });
+  }
+
+  // Invited-only entry: no live flow in this build creates a pre-signup
+  // "invited" referral row (share surfaces are copy-link/WhatsApp/email/
+  // social, none of which are a tracked send-on-your-behalf flow) — this
+  // one row is seeded directly purely so the dashboard's full funnel is
+  // reviewable. See build summary for the honest scope note on this.
+  const { count: invitedCount } = await supabase
+    .from("referrals")
+    .select("id", { count: "exact", head: true })
+    .eq("referrer_id", userId)
+    .eq("status", "invited");
+  if (!invitedCount) {
+    await supabase.from("referrals").insert({
+      referrer_id: userId,
+      referred_user_id: null,
+      status: "invited",
+    });
+  }
+
   console.log("→ Running real ingestion pipeline for external jobs…");
   const devServerUrl = process.env.SEED_APP_URL ?? "http://localhost:3000";
   const ingestRes = await fetch(`${devServerUrl}/api/admin/ingest-jobs`, {

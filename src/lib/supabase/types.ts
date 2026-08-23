@@ -642,35 +642,67 @@ export type Database = {
           },
         ]
       }
+      referral_shares: {
+        Row: {
+          channel: string
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          channel: string
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          channel?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "referral_shares_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       referrals: {
         Row: {
           activated_at: string | null
           created_at: string
           id: string
-          referred_user_id: string
+          referred_user_id: string | null
           referrer_id: string
           reward_credits_referred: number
           reward_credits_referrer: number
+          signed_up_at: string | null
           status: Database["public"]["Enums"]["referral_status"]
         }
         Insert: {
           activated_at?: string | null
           created_at?: string
           id?: string
-          referred_user_id: string
+          referred_user_id?: string | null
           referrer_id: string
           reward_credits_referred?: number
           reward_credits_referrer?: number
+          signed_up_at?: string | null
           status?: Database["public"]["Enums"]["referral_status"]
         }
         Update: {
           activated_at?: string | null
           created_at?: string
           id?: string
-          referred_user_id?: string
+          referred_user_id?: string | null
           referrer_id?: string
           reward_credits_referred?: number
           reward_credits_referrer?: number
+          signed_up_at?: string | null
           status?: Database["public"]["Enums"]["referral_status"]
         }
         Relationships: [
@@ -837,7 +869,24 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      check_and_activate_referral: {
+        Args: { p_user_id: string }
+        Returns: undefined
+      }
+      count_rewarded_referrals_last_30d: {
+        Args: { p_exclude_referral_id?: string; p_referrer_id: string }
+        Returns: number
+      }
       generate_referral_code: { Args: never; Returns: string }
+      grant_referral_reward: {
+        Args: {
+          p_amount: number
+          p_reason: Database["public"]["Enums"]["credit_reason"]
+          p_referral_id: string
+          p_referrer_id: string
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       application_source: "internal_apply" | "manual" | "auto_apply"
@@ -858,6 +907,8 @@ export type Database = {
         | "referral_reward_referrer"
         | "referral_reward_referred"
         | "admin_adjustment"
+        | "referral_signup_bonus"
+        | "referral_activation_bonus"
       employment_type: "full_time" | "part_time" | "contract" | "internship"
       farah_message_role: "user" | "farah"
       job_source_type: "internal" | "external"
@@ -1017,6 +1068,8 @@ export const Constants = {
         "referral_reward_referrer",
         "referral_reward_referred",
         "admin_adjustment",
+        "referral_signup_bonus",
+        "referral_activation_bonus",
       ],
       employment_type: ["full_time", "part_time", "contract", "internship"],
       farah_message_role: ["user", "farah"],

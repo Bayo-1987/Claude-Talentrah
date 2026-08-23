@@ -5,13 +5,11 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/cn";
 import { signOutAction } from "@/lib/auth/actions";
 
-// Refer a Friend is M9 — not built yet. Re-add it here once that route
-// actually exists (QA audit bug #6: it was linking to a generic, unbranded
-// 404).
 const NAV_LINKS = [
   { href: "/jobs", label: "Jobs" },
   { href: "/tracker", label: "Job Tracker" },
   { href: "/resume-builder", label: "Resume Builder" },
+  { href: "/refer", label: "Refer a Friend" },
 ];
 
 export interface MastheadProps {
