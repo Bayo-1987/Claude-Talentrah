@@ -1,7 +1,7 @@
 import "server-only";
 import { extractResumeText } from "./extract-text";
 import { heuristicParseResume } from "./heuristic-parse";
-import { parseResumeWithClaude } from "./llm-fallback";
+import { parseResumeWithGemini } from "./llm-fallback";
 import type { ParseResult } from "./types";
 
 export async function parseResumeFile(
@@ -16,7 +16,7 @@ export async function parseResumeFile(
   }
 
   try {
-    const llmResume = await parseResumeWithClaude(rawText);
+    const llmResume = await parseResumeWithGemini(rawText);
     return { resume: llmResume, confidence: "high", usedFallback: true };
   } catch {
     // No API key configured yet, or the call failed — fall back to whatever
