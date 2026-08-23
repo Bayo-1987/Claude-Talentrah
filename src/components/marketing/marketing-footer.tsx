@@ -113,9 +113,19 @@ export function MarketingFooter() {
   return (
     <div className="bg-ink pb-8 pt-16">
       <div className="mx-auto max-w-[1120px] px-10">
-        <div className="flex flex-wrap items-baseline justify-between gap-6 pb-10">
-          <div className="flex flex-wrap items-baseline gap-3">
-            <span className="font-display text-[21px] font-medium text-paper">Talentrah</span>
+        <div className="flex flex-wrap items-center justify-between gap-6 pb-10">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2.5">
+              {/* eslint-disable-next-line @next/next/no-img-element -- static brand SVG, next/image's optimizer needs SVG allow-listing for no real benefit here */}
+              <img
+                src="/talentrah-mark-reversed.svg"
+                alt=""
+                width={100}
+                height={100}
+                className="h-7 w-7"
+              />
+              <span className="font-display text-[21px] font-medium text-paper">Talentrah</span>
+            </div>
             <span className="ml-1.5 font-display text-[14px] italic text-[oklch(70%_0.015_60)]">
               AI-powered career platform for job seekers in Nigeria and across Africa.
             </span>

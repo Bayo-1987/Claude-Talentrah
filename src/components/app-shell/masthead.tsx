@@ -25,11 +25,15 @@ export function Masthead({ creditsBalance, initials }: MastheadProps) {
     <div className="border-b-[2.5px] border-ink bg-paper">
       <div className="flex h-[68px] items-center justify-between px-8">
         <div className="flex items-center gap-9">
-          <Link
-            href="/jobs"
-            className="font-display text-[24px] font-medium tracking-tight text-ink no-underline"
-          >
-            Talentrah
+          <Link href="/jobs" className="flex flex-shrink-0 items-center no-underline">
+            {/* eslint-disable-next-line @next/next/no-img-element -- static brand SVG, next/image's optimizer needs SVG allow-listing for no real benefit here */}
+            <img
+              src="/talentrah-horizontal.svg"
+              alt="Talentrah"
+              width={320}
+              height={80}
+              className="h-6 w-auto flex-shrink-0 min-[480px]:h-8"
+            />
           </Link>
           <nav className="flex items-center gap-5.5">
             {NAV_LINKS.map((link) => {

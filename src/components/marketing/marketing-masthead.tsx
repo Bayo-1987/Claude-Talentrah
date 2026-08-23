@@ -19,11 +19,15 @@ export function MarketingMasthead() {
   return (
     <div className="sticky top-0 z-20 border-b-[2.5px] border-ink bg-paper/95 backdrop-blur-sm">
       <div className="mx-auto flex h-[78px] max-w-[1120px] items-center justify-between px-10">
-        <Link
-          href="#top"
-          className="font-display text-[24px] font-medium tracking-tight text-ink no-underline"
-        >
-          Talentrah
+        <Link href="#top" className="flex flex-shrink-0 items-center no-underline">
+          {/* eslint-disable-next-line @next/next/no-img-element -- static brand SVG, next/image's optimizer needs SVG allow-listing for no real benefit here */}
+          <img
+            src="/talentrah-horizontal.svg"
+            alt="Talentrah"
+            width={320}
+            height={80}
+            className="h-6 w-auto flex-shrink-0 min-[480px]:h-8"
+          />
         </Link>
 
         <nav className="flex items-center gap-2 max-[900px]:hidden">
