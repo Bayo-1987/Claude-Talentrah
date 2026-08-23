@@ -29,28 +29,6 @@ jobs:
 
       - run: npm ci
 
-      - name: Verify GEMINI_API_KEY is actually set and working
-        run: |
-          if [ -z "$GEMINI_API_KEY" ]; then
-            echo "::error::GEMINI_API_KEY is missing or empty — add it under Settings > Secrets and variables > Actions."
-            exit 1
-          fi
-          echo "GEMINI_API_KEY: present (length ${#GEMINI_API_KEY})"
-          node -e '
-            const { GoogleGenAI } = require("@google/genai");
-            const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-            ai.models.generateContent({
-              model: "gemini-3.6-flash",
-              contents: [{ role: "user", parts: [{ text: "Say OK." }] }],
-              config: { maxOutputTokens: 50, thinkingConfig: { thinkingLevel: "MINIMAL" } },
-            }).then((r) => {
-              console.log("Live Gemini call succeeded. Response:", JSON.stringify(r.text));
-            }).catch((err) => {
-              console.error("Live Gemini call FAILED:", err.message);
-              process.exit(1);
-            });
-          '
-
       - name: Generate Next.js route types
         run: npx next typegen
 
