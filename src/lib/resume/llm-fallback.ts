@@ -1,5 +1,5 @@
 import "server-only";
-import { getGeminiClient, GEMINI_MODEL, THINKING_CONFIG } from "@/lib/farah/client";
+import { getLLMProvider } from "@/lib/llm";
 import { EMPTY_RESUME, type StructuredResume } from "./types";
 import { sanitizeStructuredResume, wasDegenerate } from "./sanitize";
 
@@ -57,32 +57,20 @@ const EXTRACTION_SCHEMA = {
   required: ["contact", "experience", "education", "skills"],
 };
 
-async function callGeminiRaw(rawText: string): Promise<string> {
-  const client = getGeminiClient();
-
-  const response = await client.models.generateContent({
-    model: GEMINI_MODEL,
-    contents: [
+async function callLLMRaw(rawText: string): Promise<string> {
+  const text = await getLLMProvider().generateText({
+    turns: [
       {
         role: "user",
-        parts: [
-          {
-            text: `Extract structured fields from this resume text. Leave fields empty/omitted rather than guessing when the text doesn't clearly say so.\n\n---\n${rawText.slice(0, 15000)}`,
-          },
-        ],
+        content: `Extract structured fields from this resume text. Leave fields empty/omitted rather than guessing when the text doesn't clearly say so.\n\n---\n${rawText.slice(0, 15000)}`,
       },
     ],
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: EXTRACTION_SCHEMA,
-      maxOutputTokens: 2048,
-      thinkingConfig: THINKING_CONFIG,
-    },
+    maxOutputTokens: 2048,
+    jsonSchema: EXTRACTION_SCHEMA,
   });
 
-  const text = response.text;
   if (!text) {
-    throw new Error("Gemini did not return structured resume data.");
+    throw new Error("The LLM fallback did not return structured resume data.");
   }
   return text;
 }
@@ -93,7 +81,7 @@ interface ExtractionAttempt {
 }
 
 async function attemptExtraction(rawText: string): Promise<ExtractionAttempt | null> {
-  const text = await callGeminiRaw(rawText);
+  const text = await callLLMRaw(rawText);
 
   let parsed: Partial<StructuredResume>;
   try {
@@ -122,7 +110,7 @@ async function attemptExtraction(rawText: string): Promise<ExtractionAttempt | n
  * retry is enough in practice; sanitizeStructuredResume is the backstop
  * either way. See src/lib/tailoring/tailor.ts for the fuller note.
  */
-export async function parseResumeWithGemini(
+export async function parseResumeWithLLM(
   rawText: string,
 ): Promise<StructuredResume> {
   let attempt = await attemptExtraction(rawText);
@@ -134,7 +122,7 @@ export async function parseResumeWithGemini(
   }
 
   if (!attempt) {
-    throw new Error("Gemini did not return structured resume data.");
+    throw new Error("The LLM fallback did not return structured resume data.");
   }
   return attempt.resume;
 }

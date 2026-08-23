@@ -1,5 +1,5 @@
 import "server-only";
-import { getGeminiClient, GEMINI_MODEL, THINKING_CONFIG } from "@/lib/farah/client";
+import { getLLMProvider } from "@/lib/llm";
 import { FARAH_SYSTEM_PROMPT } from "@/lib/farah/system-prompt";
 import { EMPTY_RESUME, type StructuredResume } from "@/lib/resume/types";
 import { sanitizeStructuredResume, wasDegenerate } from "@/lib/resume/sanitize";
@@ -132,35 +132,23 @@ interface RawTailoringInput {
   atsFixes: string[];
 }
 
-async function callGeminiRaw(
+async function callLLMRaw(
   baseResume: StructuredResume,
   jdText: string,
   includeCoverLetter: boolean,
 ): Promise<string> {
-  const client = getGeminiClient();
-
-  const response = await client.models.generateContent({
-    model: GEMINI_MODEL,
-    contents: [
+  const text = await getLLMProvider().generateText({
+    systemPrompt: FARAH_SYSTEM_PROMPT,
+    turns: [
       {
         role: "user",
-        parts: [
-          {
-            text: `Here is my base resume as JSON:\n${JSON.stringify(baseResume)}\n\nHere is the job description I want to tailor it to:\n${jdText.slice(0, 8000)}\n\n${includeCoverLetter ? "Include a cover letter." : "Do not include a cover letter."}`,
-          },
-        ],
+        content: `Here is my base resume as JSON:\n${JSON.stringify(baseResume)}\n\nHere is the job description I want to tailor it to:\n${jdText.slice(0, 8000)}\n\n${includeCoverLetter ? "Include a cover letter." : "Do not include a cover letter."}`,
       },
     ],
-    config: {
-      systemInstruction: FARAH_SYSTEM_PROMPT,
-      responseMimeType: "application/json",
-      responseSchema: TAILOR_RESPONSE_SCHEMA,
-      maxOutputTokens: 4096,
-      thinkingConfig: THINKING_CONFIG,
-    },
+    maxOutputTokens: 4096,
+    jsonSchema: TAILOR_RESPONSE_SCHEMA,
   });
 
-  const text = response.text;
   if (!text) {
     throw new Error("Farah didn't return a structured tailoring result.");
   }
@@ -179,7 +167,7 @@ async function attemptTailoring(
   jdText: string,
   includeCoverLetter: boolean,
 ): Promise<TailoringAttempt | null> {
-  const text = await callGeminiRaw(baseResume, jdText, includeCoverLetter);
+  const text = await callLLMRaw(baseResume, jdText, includeCoverLetter);
 
   let input: RawTailoringInput;
   try {
@@ -189,6 +177,16 @@ async function attemptTailoring(
     // wasDegenerate() catches, just severe enough to break JSON structure
     // itself before we ever get a value to sanitize. Not retry-able within
     // this attempt; the caller retries the whole call.
+    return null;
+  }
+
+  // Gemini's native responseSchema does real constrained decoding — a
+  // missing required field can't happen. Groq's json_object mode only
+  // guarantees valid JSON *syntax*, not schema compliance (confirmed
+  // live: a real response parsed fine but omitted tailoredResume
+  // entirely under token pressure) — so the same "not retry-able within
+  // this attempt" treatment applies here too, not just to a parse failure.
+  if (!input.tailoredResume || typeof input.tailoredResume !== "object") {
     return null;
   }
 
