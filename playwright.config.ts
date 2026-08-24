@@ -1,4 +1,10 @@
 import { defineConfig } from "@playwright/test";
+import { config as loadEnv } from "dotenv";
+
+// The upload spec talks to Supabase directly to mint a test user, so it
+// needs the same credentials the app does. CI injects these as workflow env;
+// locally they live in .env.local, which Playwright does not read on its own.
+loadEnv({ path: ".env.local" });
 
 export default defineConfig({
   testDir: "./e2e",
