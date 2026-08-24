@@ -13,6 +13,14 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
   ]),
+  {
+    // Playwright fixtures take a callback argument named `use`, which the
+    // React hooks rule reads as a hook called outside a component. It isn't
+    // React at all — these files never run in the browser bundle. Scoped to
+    // the fixtures directory so the rule keeps its teeth everywhere else.
+    files: ["e2e/fixtures/**/*.ts"],
+    rules: { "react-hooks/rules-of-hooks": "off" },
+  },
 ]);
 
 export default eslintConfig;

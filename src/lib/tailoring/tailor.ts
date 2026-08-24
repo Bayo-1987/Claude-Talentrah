@@ -3,7 +3,9 @@ import { getLLMProvider } from "@/lib/llm";
 import { FARAH_SYSTEM_PROMPT } from "@/lib/farah/system-prompt";
 import { EMPTY_RESUME, type StructuredResume } from "@/lib/resume/types";
 import { sanitizeStructuredResume, wasDegenerate } from "@/lib/resume/sanitize";
-import type { TailoringResult } from "./types";
+import { JD_MAX_CHARS, type TailoringResult } from "./types";
+
+export { JD_MAX_CHARS };
 
 // Applied to every optional field below. Observed live (gemini-3.6-flash):
 // without this, a field the base resume simply doesn't have (e.g. no phone
@@ -131,39 +133,6 @@ interface RawTailoringInput {
   atsScore: number;
   atsFixes: string[];
 }
-
-/**
- * How much of a pasted job description reaches the model.
- *
- * Was 8,000 with no recorded reason anywhere — not in the commit that
- * introduced it (M5), not in a comment, not in the plan doc or build
- * prompt. It was written when the planned provider was Anthropic Claude and
- * survived two provider migrations untouched, so whatever sized it no
- * longer describes the models actually in use.
- *
- * 24,000 is sized from two real bounds rather than picked as a round number:
- *
- *  1. Product reality. Across the 140 ingested postings: median 4,909
- *     chars, p95 8,488, p99 11,163, longest 20,805. The old cap truncated
- *     18 of those 140 — roughly one job description in eight, which is not
- *     an edge case. 24,000 clears the longest real posting with ~15% room.
- *
- *  2. Model headroom, against the *tighter* of the two providers. Groq's
- *     gpt-oss-120b has a 131,072-token window (confirmed from its own
- *     /models endpoint); Gemini 3.6 Flash has ~1,048,576. 24,000 chars is
- *     roughly 6,000 tokens — about 5% of the usable Groq budget after
- *     reserving the 4,096 output tokens and prompt overhead. Nowhere near
- *     either limit.
- *
- * Deliberately not "as much as the model allows": an unbounded paste is a
- * real cost tail (a novel-length input would push a single ₦750 tailoring
- * run toward ₦120 of spend). This keeps the worst case above 97% margin
- * while comfortably covering every genuine JD.
- *
- * If this changes again, update the reasoning with it — the whole problem
- * was a bare number nobody could justify.
- */
-export const JD_MAX_CHARS = 24_000;
 
 async function callLLMRaw(
   baseResume: StructuredResume,
