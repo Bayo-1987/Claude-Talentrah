@@ -1,36 +1,78 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Talentrah
 
-## Getting Started
+An AI-powered career platform for job seekers in Nigeria and across Africa. Job matching, resume tailoring, a resume builder, application tracking, scholarship discovery, and **Farah** — a named AI copilot threaded through the seeker experience.
 
-First, run the development server:
+Product spec: [`talentrah-build-prompt.md`](talentrah-build-prompt.md). Design system: [`talentrah-editorial-design-handoff.md`](talentrah-editorial-design-handoff.md) plus the two `.dc.html` reference files, which are the literal source of truth for spacing, colour and type. Working context for AI sessions: [`CLAUDE.md`](CLAUDE.md).
+
+## Setup
 
 ```bash
+npm ci
+cp .env.example .env.local   # then fill it in — see below
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Then seed demo data (needs the dev server running — the seed drives the real ingestion routes over HTTP rather than importing them, so it doubles as a check that those routes work):
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm run seed
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+That creates a demo account, `demo@talentrah.dev` / `TalentrahDemo123!`, with a base resume, tracker entries, referral data, real ingested jobs, and scholarships.
 
-## Learn More
+## Environment variables
 
-To learn more about Next.js, take a look at the following resources:
+Every variable is documented inline in [`.env.example`](.env.example); this is the short version of what you actually need.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| Variable | Needed for | Notes |
+|---|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` | everything | Project `nytwbbzfpytctjsoczzq`. Free tier pauses when idle — restore it before running migrations. |
+| `SUPABASE_SERVICE_ROLE_KEY` | seed, ingestion, ledger writes | Bypasses RLS. Server-side only, never in a client bundle. |
+| `LLM_PROVIDER` | Farah, tailoring | `gemini` (default) or `groq`. **Use `groq` locally and in CI** — Gemini's free tier is 20 requests/day *shared*, and exhausting it blocks everyone. |
+| `GEMINI_API_KEY` | production LLM | ⚠️ The key in use is **free-tier** (20 req/day). A billed key is required before launch or AI features hard-fail. |
+| `GROQ_API_KEY` | dev/CI LLM | Free. |
+| `PAYSTACK_SECRET_KEY` / `NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY` | credits, passes | Use `sk_test_` keys locally. |
+| `CRON_SECRET` | scheduled jobs | Name is fixed by Vercel — it sends this automatically as `Authorization: Bearer …` on cron invocations. Must be set in Vercel Production or the crons 401. |
+| `INGEST_SECRET` | admin routes | Guards the manual `POST` triggers. |
+| `RESEND_API_KEY` | contact form, reminders | Optional; email silently no-ops without it. |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Commands
 
-## Deploy on Vercel
+```bash
+npm run dev            # dev server
+npm run build          # production build
+npm run seed           # demo data (dev server must be running)
+npm run test           # Vitest — includes the RLS cross-user security gate
+npm run test:e2e       # Playwright (app must be running)
+npm run lint
+npm run estimate-costs # real LLM unit-economics measurement; spends live API budget
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Architecture decisions
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+**Next.js App Router + Server Components by default.** The target market skews low-end Android on expensive mobile data, so shipping less JavaScript is a product requirement, not a preference. Filters, tabs and pagination are plain links that rewrite the URL and re-render on the server; client components are used only where interaction genuinely demands them.
+
+**No component kit.** The Editorial design system forbids border-radius and shadows; shadcn/ui and friends default to both. Six primitives were hand-built to the reference HTML's exact values instead of fighting a kit's defaults.
+
+**Supabase with RLS as the actual authorization boundary.** Ownership is enforced by database policy, not by application code remembering to filter. Two consequences worth knowing:
+- Privileged writes (credit ledger, payments, scholarship moderation) go through the service-role client, and the corresponding tables deliberately have **no** owner write policy — a user cannot grant themselves credits or publish an unreviewed listing even by crafting a request.
+- The scholarship moderation gate lives in RLS, *not* as a `.eq("moderation_status", "verified")` filter in page code. A query-layer filter is one forgotten call site away from leaking an unreviewed listing.
+
+This is verified, not assumed: [`tests/rls/cross-user.test.ts`](tests/rls/cross-user.test.ts) runs two real authenticated users against each other on every CI run.
+
+**One `LLMProvider` abstraction, two implementations.** Gemini and Groq sit behind a single interface; no call site knows which is active. Provider choice is a deploy-time env var.
+
+**Scheduled jobs are Vercel Cron → authenticated route handlers.** Vercel invokes crons with `GET` and its own `Authorization: Bearer <CRON_SECRET>` header — both fixed by the platform, neither configurable. Jobs are written to tolerate missed *and* duplicated runs, since Vercel delivery is best-effort and never retried. This deviates from the original plan's Postgres-queue + Edge Functions design, which was more infrastructure than Phase 1 needs.
+
+**Aggregation is curated, not a general crawler.** Job ingestion uses Greenhouse/Lever public APIs; scholarships are a hand-curated set. Broad scraping waits on legal review of source reuse terms (build-prompt §10 items 10 and 19) — the accuracy stakes are real, since a wrong scholarship deadline costs someone a once-a-year opportunity.
+
+## Project state
+
+Phase 1 is largely shipped. Known gaps, tracked rather than hidden:
+
+- **M8 — employer side is not built.** No org onboarding, job-posting form, or employer login. Legal and marketing copy has been corrected so it no longer implies otherwise.
+- **M2 — the schema.org/JSON-LD crawler was never built.** Greenhouse/Lever ingestion works; the crawler half does not exist.
+- **No golden-path e2e test.** The Playwright suite covers form-reset behaviour and nav, not the signup → tailor → track journey.
+- **JD text over 8,000 characters is silently truncated** in the tailoring path, with no user-visible indication.
+
+See [`docs/phase-1-summary.md`](docs/phase-1-summary.md) for the full shipped-vs-deferred accounting.
