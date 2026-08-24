@@ -89,8 +89,11 @@ export async function POST(request: Request) {
   try {
     result = await tailorResumeToJob(baseResume, jdText, coverLetterAllowance !== null);
   } catch (err) {
+    // Never surface a raw provider/parse error to the client — see the
+    // same fix in src/app/api/farah/chat/route.ts for why.
+    console.error("Tailoring: Gemini call failed", err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Farah couldn't tailor this one — try again." },
+      { error: "Farah couldn't tailor this one — try again in a moment." },
       { status: 502 },
     );
   }

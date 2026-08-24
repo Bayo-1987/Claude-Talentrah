@@ -28,11 +28,19 @@ const FOOTER_COLUMNS = [
   },
   {
     heading: "Company & Support",
-    links: ["About", "Contact", "Blog"],
+    links: [
+      { label: "About", href: "/about" },
+      { label: "Contact", href: "/contact" },
+      { label: "Blog", href: "/blog" },
+    ],
   },
   {
     heading: "Legal & Trust",
-    links: ["Privacy Policy", "Terms of Service", "Data & Cookie Notice"],
+    links: [
+      { label: "Privacy Policy", href: "/legal/privacy" },
+      { label: "Terms of Service", href: "/legal/terms" },
+      { label: "Data & Cookie Notice", href: "/legal/data-cookie-notice" },
+    ],
   },
 ];
 
@@ -138,11 +146,15 @@ export function MarketingFooter() {
               <div className="font-body text-[12px] font-bold uppercase tracking-[0.1em] text-[oklch(60%_0.02_60)]">
                 {col.heading}
               </div>
-              {col.links.map((label) => (
-                <a key={label} href="#" className={footerLinkClass}>
-                  {label}
-                </a>
-              ))}
+              {col.links.map((link) => {
+                const label = typeof link === "string" ? link : link.label;
+                const href = typeof link === "string" ? "#" : link.href;
+                return (
+                  <a key={label} href={href} className={footerLinkClass}>
+                    {label}
+                  </a>
+                );
+              })}
             </div>
           ))}
         </div>

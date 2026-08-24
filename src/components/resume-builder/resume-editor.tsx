@@ -92,7 +92,7 @@ export function ResumeEditor({ resumeId, initialTitle, initialContent }: ResumeE
       next[index] = { ...next[index], description: rewritten };
       update("experience", next);
     } catch {
-      // ANTHROPIC_API_KEY likely isn't configured yet — leave the text as-is.
+      // GEMINI_API_KEY likely isn't configured yet — leave the text as-is.
     } finally {
       setRewritingKey(null);
     }
