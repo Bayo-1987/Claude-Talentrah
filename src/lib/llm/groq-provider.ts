@@ -1,7 +1,7 @@
 import "server-only";
 import OpenAI, { APIError } from "openai";
 import { LLMProviderError } from "./errors";
-import type { LLMProvider, LLMGenerateOptions } from "./types";
+import type { LLMProvider, LLMGenerateOptions, LLMResult } from "./types";
 
 const GROQ_BASE_URL = "https://api.groq.com/openai/v1";
 
@@ -47,12 +47,19 @@ function getGroqClient(): OpenAI {
 export class GroqProvider implements LLMProvider {
   readonly name = "groq" as const;
 
-  async generateText({
+  readonly model = GROQ_MODEL;
+
+  /** Thin wrapper — one request path, generateWithUsage does the work. */
+  async generateText(options: LLMGenerateOptions): Promise<string> {
+    return (await this.generateWithUsage(options)).text;
+  }
+
+  async generateWithUsage({
     systemPrompt,
     turns,
     maxOutputTokens,
     jsonSchema,
-  }: LLMGenerateOptions): Promise<string> {
+  }: LLMGenerateOptions): Promise<LLMResult> {
     const client = getGroqClient();
 
     // Groq's OpenAI-compatible API only offers response_format:"json_object"
@@ -88,7 +95,22 @@ export class GroqProvider implements LLMProvider {
       if (!text) {
         throw new LLMProviderError("groq", "unknown", "Groq returned an empty response.");
       }
-      return text;
+      const u = response.usage;
+      return {
+        text,
+        usage: u
+          ? {
+              inputTokens: u.prompt_tokens ?? 0,
+              outputTokens: u.completion_tokens ?? 0,
+              totalTokens: u.total_tokens ?? 0,
+              // Groq bills reasoning tokens as completion tokens; they're
+              // already inside completion_tokens, so this is reported for
+              // visibility only and must not be added on top.
+              reasoningTokens:
+                u.completion_tokens_details?.reasoning_tokens ?? null,
+            }
+          : null,
+      };
     } catch (err) {
       if (err instanceof LLMProviderError) throw err;
       if (err instanceof APIError) {

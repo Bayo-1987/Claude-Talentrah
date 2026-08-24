@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { CREDIT_COSTS } from "@/lib/credits/costs";
 import { spendCredits } from "@/lib/credits/spend";
+import { logCreditGateEvent } from "@/lib/credits/gate-events";
 import { EMPTY_RESUME, type StructuredResume } from "@/lib/resume/types";
 import { checkEligibility, draftPersonalStatement, type EligibilityCheckResult } from "./farah";
 import type { SaveStatus } from "./types";
@@ -132,8 +133,24 @@ export async function runEligibilityCheckAction(
 
   const balance = await getBalance(supabase, userId);
   if (balance < cost) {
+    await logCreditGateEvent({
+      userId,
+      reason: "scholarship_eligibility_check",
+      creditsRequired: cost,
+      creditsAvailable: balance,
+      outcome: "blocked_insufficient_credits",
+      relatedEntityId: scholarshipId,
+    });
     return { error: `Not enough credits — this needs ${cost}, you have ${balance}.` };
   }
+  await logCreditGateEvent({
+    userId,
+    reason: "scholarship_eligibility_check",
+    creditsRequired: cost,
+    creditsAvailable: balance,
+    outcome: "proceeded",
+    relatedEntityId: scholarshipId,
+  });
 
   const [resume, { data: profile }] = await Promise.all([
     loadBaseResume(supabase, userId),
@@ -169,8 +186,24 @@ export async function draftSopAction(
 
   const balance = await getBalance(supabase, userId);
   if (balance < cost) {
+    await logCreditGateEvent({
+      userId,
+      reason: "scholarship_sop_draft",
+      creditsRequired: cost,
+      creditsAvailable: balance,
+      outcome: "blocked_insufficient_credits",
+      relatedEntityId: scholarshipId,
+    });
     return { error: `Not enough credits — this needs ${cost}, you have ${balance}.` };
   }
+  await logCreditGateEvent({
+    userId,
+    reason: "scholarship_sop_draft",
+    creditsRequired: cost,
+    creditsAvailable: balance,
+    outcome: "proceeded",
+    relatedEntityId: scholarshipId,
+  });
 
   const resume = await loadBaseResume(supabase, userId);
 

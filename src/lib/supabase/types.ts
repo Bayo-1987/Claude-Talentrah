@@ -131,6 +131,47 @@ export type Database = {
           },
         ]
       }
+      credit_gate_events: {
+        Row: {
+          created_at: string
+          credits_available: number
+          credits_required: number
+          id: string
+          outcome: Database["public"]["Enums"]["credit_gate_outcome"]
+          reason: Database["public"]["Enums"]["credit_reason"]
+          related_entity_id: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          credits_available: number
+          credits_required: number
+          id?: string
+          outcome: Database["public"]["Enums"]["credit_gate_outcome"]
+          reason: Database["public"]["Enums"]["credit_reason"]
+          related_entity_id?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          credits_available?: number
+          credits_required?: number
+          id?: string
+          outcome?: Database["public"]["Enums"]["credit_gate_outcome"]
+          reason?: Database["public"]["Enums"]["credit_reason"]
+          related_entity_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credit_gate_events_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       credit_ledger: {
         Row: {
           balance_after: number
@@ -1106,6 +1147,7 @@ export type Database = {
         | "hired"
         | "rejected"
         | "archived"
+      credit_gate_outcome: "proceeded" | "blocked_insufficient_credits"
       credit_reason:
         | "signup_grant"
         | "tailoring_run"
@@ -1280,6 +1322,7 @@ export const Constants = {
         "rejected",
         "archived",
       ],
+      credit_gate_outcome: ["proceeded", "blocked_insufficient_credits"],
       credit_reason: [
         "signup_grant",
         "tailoring_run",
