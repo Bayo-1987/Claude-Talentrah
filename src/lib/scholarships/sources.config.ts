@@ -57,8 +57,9 @@ export const SEED_SCHOLARSHIPS: NormalizedScholarship[] = [
     cycleYear: 2027,
     officialUrl: "https://www.daad.de/en/studying-in-germany/scholarships/daad-scholarships/",
     sourceName: "DAAD official site",
-    deadlineVerifiedAt: null,
-    deadlineNote: "Checked 2026-08-24: neither the DAAD scholarships page nor the scholarship database publishes an EPOS deadline — each course call carries its own date.",
+    deadlineVerifiedAt: "2026-08-24T15:30:00.000Z",
+    deadlineNote: "Varies by course — each EPOS programme publishes its own deadline in its call for applications. See the official source for your course.",
+    reviewNote: "Checked 2026-08-24: DAAD delegates deadlines to each course call; confirmed variable, not unannounced.",
   },
   {
     provider: "Mastercard Foundation",
@@ -78,8 +79,9 @@ export const SEED_SCHOLARSHIPS: NormalizedScholarship[] = [
     officialUrl:
       "https://mastercardfdn.org/en/what-we-do/our-programs/mastercard-foundation-scholars-program/",
     sourceName: "Mastercard Foundation official site",
-    deadlineVerifiedAt: null,
-    deadlineNote: "Checked 2026-08-24: the Foundation states each partner sets their own deadline, so there is structurally no programme-wide date.",
+    deadlineVerifiedAt: "2026-08-24T15:30:00.000Z",
+    deadlineNote: "Varies by partner institution — each partner sets its own deadline. See the official source for your chosen university.",
+    reviewNote: "Checked 2026-08-24: the Foundation states each partner sets their own deadline; confirmed variable, not unannounced.",
   },
   {
     provider: "Commonwealth Scholarship Commission (UK)",
@@ -100,6 +102,7 @@ export const SEED_SCHOLARSHIPS: NormalizedScholarship[] = [
     sourceName: "Commonwealth Scholarship Commission official site",
     deadlineVerifiedAt: "2026-08-24T15:30:00.000Z",
     deadlineNote: null,
+    reviewNote: null,
   },
   {
     provider: "Government of Japan (MEXT)",
@@ -117,8 +120,9 @@ export const SEED_SCHOLARSHIPS: NormalizedScholarship[] = [
     cycleYear: 2027,
     officialUrl: "https://www.studyinjapan.go.jp/en/planning/scholarship/",
     sourceName: "Study in Japan (MEXT) official site",
-    deadlineVerifiedAt: null,
-    deadlineNote: "Checked 2026-08-24: Study in Japan defers to the local Japanese embassy and notes requirements vary by country; no date published centrally.",
+    deadlineVerifiedAt: "2026-08-24T15:30:00.000Z",
+    deadlineNote: "Varies by country — applications run through your local Japanese embassy, which sets the deadline. See the official source.",
+    reviewNote: "Checked 2026-08-24: Study in Japan defers to the local embassy and notes requirements vary by country; confirmed variable.",
   },
   {
     provider: "Rhodes Trust",
@@ -137,7 +141,8 @@ export const SEED_SCHOLARSHIPS: NormalizedScholarship[] = [
     officialUrl: "https://www.rhodeshouse.ox.ac.uk/scholarships/the-rhodes-scholarship/",
     sourceName: "Rhodes House official site",
     deadlineVerifiedAt: null,
-    deadlineNote: "Checked 2026-08-24: the Rhodes page confirms the 2027 cycle is open but publishes no deadline; the West Africa and apply pages both 404.",
+    deadlineNote: null,
+    reviewNote: "Checked 2026-08-24: the 2027 cycle is confirmed open but no deadline is published, and the West Africa and apply pages both 404. Genuinely unresolved — not a variable-by-design date.",
   },
   {
     provider: "Petroleum Technology Development Fund (PTDF)",
@@ -156,7 +161,8 @@ export const SEED_SCHOLARSHIPS: NormalizedScholarship[] = [
     officialUrl: "https://scholarship.ptdf.gov.ng/",
     sourceName: "PTDF scholarship portal",
     deadlineVerifiedAt: null,
-    deadlineNote: "Checked 2026-08-24: the PTDF portal shows account/login only, with no stated open or close date for the current cycle.",
+    deadlineNote: null,
+    reviewNote: "Checked 2026-08-24: the portal shows account/login only, with no stated open or close date. Genuinely unresolved.",
   },
   {
     provider: "European Commission",
@@ -176,8 +182,9 @@ export const SEED_SCHOLARSHIPS: NormalizedScholarship[] = [
     officialUrl:
       "https://erasmus-plus.ec.europa.eu/opportunities/opportunities-for-individuals/students/erasmus-mundus-joint-masters-scholarships",
     sourceName: "Erasmus+ official site",
-    deadlineVerifiedAt: null,
-    deadlineNote: "Checked 2026-08-24: Erasmus+ gives only a general October-January window and defers exact dates to each consortium.",
+    deadlineVerifiedAt: "2026-08-24T15:30:00.000Z",
+    deadlineNote: "Varies by programme — each joint master's consortium sets its own deadline, generally between October and January. See the official source.",
+    reviewNote: "Checked 2026-08-24: Erasmus+ gives only a general October-January window and defers exact dates to each consortium; confirmed variable.",
   },
   {
     provider: "Aga Khan Foundation",
@@ -198,6 +205,7 @@ export const SEED_SCHOLARSHIPS: NormalizedScholarship[] = [
       "https://the.akdn/en/what-we-do/developing-human-capacity/education/international-scholarship-programme",
     sourceName: "Aga Khan Development Network official site",
     deadlineVerifiedAt: null,
-    deadlineNote: "Checked 2026-08-24: the AKDN programme page publishes no application deadline or cycle dates.",
+    deadlineNote: null,
+    reviewNote: "Checked 2026-08-24: the AKDN programme page publishes no deadline or cycle dates. Genuinely unresolved.",
   },
 ];
