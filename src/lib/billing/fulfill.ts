@@ -12,8 +12,23 @@ export interface FulfillResult {
  * checkout callback page (so local dev, where Paystack can't reach a
  * localhost webhook, still works). Whichever runs first wins; the other is
  * a no-op once payment_transactions.status is no longer "pending".
+ *
+ * `expectedUserId` scopes the call to one user and MUST be passed by any
+ * caller that has a session. It exists because this function runs on the
+ * service-role client, which bypasses RLS: the reference alone decides which
+ * row is acted on, and on the callback path that reference arrives as a URL
+ * query parameter — i.e. client-supplied input.
+ *
+ * The webhook deliberately passes nothing. It has no session to scope to,
+ * and it is already authenticated by HMAC signature over the raw body.
+ *
+ * A mismatch returns `not_found` rather than a distinct error, so this can't
+ * be used to probe whether a given reference exists.
  */
-export async function fulfillPayment(reference: string): Promise<FulfillResult> {
+export async function fulfillPayment(
+  reference: string,
+  expectedUserId?: string,
+): Promise<FulfillResult> {
   const supabase = createServiceRoleClient();
 
   const { data: transaction } = await supabase
@@ -23,6 +38,15 @@ export async function fulfillPayment(reference: string): Promise<FulfillResult> 
     .single();
 
   if (!transaction) return { status: "not_found" };
+  // Checked before anything else touches the row — in particular before the
+  // Paystack verify below, whose failure path writes status "failed"
+  // permanently. Without this, a signed-in user holding someone else's
+  // reference could burn that transaction into a terminal state, and the
+  // owner's later real payment would then land on a row that is no longer
+  // "pending" and grant them nothing.
+  if (expectedUserId && transaction.user_id !== expectedUserId) {
+    return { status: "not_found" };
+  }
   if (transaction.status !== "pending") return { status: "already_processed" };
 
   const verified = await verifyTransaction(reference);
