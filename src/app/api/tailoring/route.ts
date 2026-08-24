@@ -90,8 +90,11 @@ export async function POST(request: Request) {
     result = await tailorResumeToJob(baseResume, jdText, coverLetterAllowance !== null);
   } catch (err) {
     // Never surface a raw provider/parse error to the client — see the
-    // same fix in src/app/api/farah/chat/route.ts for why.
-    console.error("Tailoring: Gemini call failed", err);
+    // same fix in src/app/api/farah/chat/route.ts for why. Log which
+    // provider/kind of failure server-side (src/lib/llm/errors.ts) rather
+    // than a generic "Gemini failed" — the LLM call now goes through
+    // whichever provider LLM_PROVIDER selects, not always Gemini.
+    console.error("Tailoring: LLM call failed", err);
     return NextResponse.json(
       { error: "Farah couldn't tailor this one — try again in a moment." },
       { status: 502 },

@@ -99,12 +99,13 @@ export async function POST(request: Request) {
   try {
     reply = await askFarahChat(turns, extraContext);
   } catch (err) {
-    // Never surface the raw provider error to the client — the Gemini SDK's
-    // error .message can embed the full JSON response body (internal
+    // Never surface the raw provider error to the client — a provider
+    // SDK's error .message can embed the full JSON response body (internal
     // request details, account-billing detail, etc.), which is both leaky
-    // and useless to a user. Log server-side for debugging, return a clean,
-    // Farah-voiced message instead.
-    console.error("Farah chat: Gemini call failed", err);
+    // and useless to a user. Log server-side for debugging (LLMProviderError
+    // — src/lib/llm/errors.ts — carries which provider and what kind of
+    // failure), return a clean, Farah-voiced message instead.
+    console.error("Farah chat: LLM call failed", err);
     return NextResponse.json(
       { error: "Farah couldn't respond just now — try again in a moment." },
       { status: 502 },
