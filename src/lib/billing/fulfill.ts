@@ -44,15 +44,6 @@ export async function fulfillPayment(reference: string): Promise<FulfillResult> 
   const isReusableCard = channel === "card" && !!authorization?.reusable;
   const authorizationCode = isReusableCard ? authorization!.authorization_code : null;
 
-  await supabase
-    .from("payment_transactions")
-    .update({
-      status: "success",
-      channel,
-      authorization_code: authorizationCode,
-    })
-    .eq("id", transaction.id);
-
   if (transaction.product_type === "credit_pack") {
     const { data: pack } = await supabase
       .from("credit_packs")
@@ -90,6 +81,21 @@ export async function fulfillPayment(reference: string): Promise<FulfillResult> 
       });
     }
   }
+
+  // Marked success only after the grant above has run. Ordering matches the
+  // original code deliberately: flipping status first would close the
+  // webhook/callback double-grant race but replace it with a worse one — a
+  // crash in between would leave the user charged, unfulfilled, and unable to
+  // retry (the "pending" guard above would short-circuit). Making this
+  // genuinely atomic is out of scope here.
+  await supabase
+    .from("payment_transactions")
+    .update({
+      status: "success",
+      channel,
+      authorization_code: authorizationCode,
+    })
+    .eq("id", transaction.id);
 
   return { status: "success" };
 }
