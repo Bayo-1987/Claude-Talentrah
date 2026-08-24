@@ -56,6 +56,22 @@ export function TailorForm({ jobId, initialJdText }: { jobId?: string; initialJd
             : `${creditsSpent} credits used.`}
         </p>
 
+        {/*
+          Truncation used to be silent, which meant a weaker result from a
+          long JD read as Farah being bad rather than as us having dropped
+          part of the input. Shown above the results, not buried under them,
+          because it changes how everything below should be read.
+        */}
+        {result.jdTruncation && (
+          <p className="border-[1.5px] border-rust bg-rust-soft px-4 py-3 text-[13.5px] text-ink">
+            <span className="font-semibold">Heads up — that job description was shortened.</span>{" "}
+            It was {result.jdTruncation.originalChars.toLocaleString()} characters and Farah used
+            the first {result.jdTruncation.usedChars.toLocaleString()}. Everything below is based
+            on that opening section. If the parts that matter most sit further down, paste just
+            that section and run it again.
+          </p>
+        )}
+
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
           <div className="flex flex-col gap-6">
             <div>
