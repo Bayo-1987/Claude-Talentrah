@@ -529,6 +529,8 @@ export type Database = {
       payment_transactions: {
         Row: {
           amount: number
+          authorization_code: string | null
+          channel: string | null
           created_at: string
           currency: string
           id: string
@@ -537,11 +539,14 @@ export type Database = {
           product_id: string
           product_type: Database["public"]["Enums"]["payment_product_type"]
           rail: string
+          renewal_for_pass_id: string | null
           status: Database["public"]["Enums"]["payment_status"]
           user_id: string
         }
         Insert: {
           amount: number
+          authorization_code?: string | null
+          channel?: string | null
           created_at?: string
           currency?: string
           id?: string
@@ -550,11 +555,14 @@ export type Database = {
           product_id: string
           product_type: Database["public"]["Enums"]["payment_product_type"]
           rail?: string
+          renewal_for_pass_id?: string | null
           status?: Database["public"]["Enums"]["payment_status"]
           user_id: string
         }
         Update: {
           amount?: number
+          authorization_code?: string | null
+          channel?: string | null
           created_at?: string
           currency?: string
           id?: string
@@ -563,6 +571,7 @@ export type Database = {
           product_id?: string
           product_type?: Database["public"]["Enums"]["payment_product_type"]
           rail?: string
+          renewal_for_pass_id?: string | null
           status?: Database["public"]["Enums"]["payment_status"]
           user_id?: string
         }
@@ -572,6 +581,13 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_transactions_renewal_for_pass_id_fkey"
+            columns: ["renewal_for_pass_id"]
+            isOneToOne: false
+            referencedRelation: "user_passes"
             referencedColumns: ["id"]
           },
           {
@@ -818,34 +834,55 @@ export type Database = {
       }
       user_passes: {
         Row: {
+          authorization_code: string | null
           auto_renew: boolean
+          auto_renew_status:
+            | Database["public"]["Enums"]["pass_auto_renew_status"]
+            | null
           created_at: string
           expires_at: string
           id: string
+          next_renewal_date: string | null
           pass_id: string
           payment_method: Database["public"]["Enums"]["pass_payment_method"]
+          payment_transaction_id: string | null
+          renewal_reminder_sent_at: string | null
           started_at: string
           status: string
           user_id: string
         }
         Insert: {
+          authorization_code?: string | null
           auto_renew?: boolean
+          auto_renew_status?:
+            | Database["public"]["Enums"]["pass_auto_renew_status"]
+            | null
           created_at?: string
           expires_at: string
           id?: string
+          next_renewal_date?: string | null
           pass_id: string
           payment_method: Database["public"]["Enums"]["pass_payment_method"]
+          payment_transaction_id?: string | null
+          renewal_reminder_sent_at?: string | null
           started_at?: string
           status?: string
           user_id: string
         }
         Update: {
+          authorization_code?: string | null
           auto_renew?: boolean
+          auto_renew_status?:
+            | Database["public"]["Enums"]["pass_auto_renew_status"]
+            | null
           created_at?: string
           expires_at?: string
           id?: string
+          next_renewal_date?: string | null
           pass_id?: string
           payment_method?: Database["public"]["Enums"]["pass_payment_method"]
+          payment_transaction_id?: string | null
+          renewal_reminder_sent_at?: string | null
           started_at?: string
           status?: string
           user_id?: string
@@ -856,6 +893,13 @@ export type Database = {
             columns: ["pass_id"]
             isOneToOne: false
             referencedRelation: "passes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_passes_payment_transaction_id_fkey"
+            columns: ["payment_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "payment_transactions"
             referencedColumns: ["id"]
           },
           {
@@ -948,6 +992,7 @@ export type Database = {
       job_status: "open" | "closed"
       market_segment: "home" | "diaspora"
       org_member_role: "owner" | "admin"
+      pass_auto_renew_status: "active" | "canceled" | "lapsed"
       pass_payment_method: "card" | "mobile_money"
       payment_product_type: "credit_pack" | "pass"
       payment_status: "pending" | "success" | "failed"
@@ -1111,6 +1156,7 @@ export const Constants = {
       job_status: ["open", "closed"],
       market_segment: ["home", "diaspora"],
       org_member_role: ["owner", "admin"],
+      pass_auto_renew_status: ["active", "canceled", "lapsed"],
       pass_payment_method: ["card", "mobile_money"],
       payment_product_type: ["credit_pack", "pass"],
       payment_status: ["pending", "success", "failed"],
