@@ -731,6 +731,7 @@ export type Database = {
           name: string
           preview_asset_url: string | null
           structure_schema: Json
+          unlock_cost_credits: number
         }
         Insert: {
           created_at?: string
@@ -740,6 +741,7 @@ export type Database = {
           name: string
           preview_asset_url?: string | null
           structure_schema?: Json
+          unlock_cost_credits?: number
         }
         Update: {
           created_at?: string
@@ -749,6 +751,7 @@ export type Database = {
           name?: string
           preview_asset_url?: string | null
           structure_schema?: Json
+          unlock_cost_credits?: number
         }
         Relationships: []
       }
@@ -864,6 +867,35 @@ export type Database = {
           },
         ]
       }
+      user_template_unlocks: {
+        Row: {
+          id: string
+          template_id: string
+          unlocked_at: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          template_id: string
+          unlocked_at?: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          template_id?: string
+          unlocked_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_template_unlocks_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "resume_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -909,6 +941,7 @@ export type Database = {
         | "admin_adjustment"
         | "referral_signup_bonus"
         | "referral_activation_bonus"
+        | "bullet_rewrite"
       employment_type: "full_time" | "part_time" | "contract" | "internship"
       farah_message_role: "user" | "farah"
       job_source_type: "internal" | "external"
@@ -1070,6 +1103,7 @@ export const Constants = {
         "admin_adjustment",
         "referral_signup_bonus",
         "referral_activation_bonus",
+        "bullet_rewrite",
       ],
       employment_type: ["full_time", "part_time", "contract", "internship"],
       farah_message_role: ["user", "farah"],
