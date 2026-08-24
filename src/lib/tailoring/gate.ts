@@ -2,6 +2,10 @@ import "server-only";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { CREDIT_COSTS } from "@/lib/credits/costs";
 import { spendCredits, InsufficientCreditsError } from "@/lib/credits/spend";
+import { logCreditGateEvent } from "@/lib/credits/gate-events";
+import type { Database } from "@/lib/supabase/types";
+
+type CreditReason = Database["public"]["Enums"]["credit_reason"];
 
 export { InsufficientCreditsError };
 
@@ -35,14 +39,42 @@ export async function checkTailoringAllowance(
 
   if (!profile) throw new Error("Profile not found.");
 
+  const reason: CreditReason = kind === "tailoring" ? "tailoring_run" : "cover_letter_run";
+  const cost = kind === "tailoring" ? CREDIT_COSTS.tailoringRun : CREDIT_COSTS.coverLetterRun;
+
   if (!profile[freeFlagField]) {
+    // A free-trial run is still a gate evaluation, and it's the one that
+    // most often *precedes* the first real paywall — logging it with
+    // creditsRequired 0 keeps the funnel continuous rather than starting
+    // mid-story at the first block.
+    await logCreditGateEvent({
+      userId,
+      reason,
+      creditsRequired: 0,
+      creditsAvailable: profile.credits_balance,
+      outcome: "proceeded",
+    });
     return { isFreeTrial: true, creditsSpent: 0 };
   }
 
-  const cost = kind === "tailoring" ? CREDIT_COSTS.tailoringRun : CREDIT_COSTS.coverLetterRun;
   if (profile.credits_balance < cost) {
+    await logCreditGateEvent({
+      userId,
+      reason,
+      creditsRequired: cost,
+      creditsAvailable: profile.credits_balance,
+      outcome: "blocked_insufficient_credits",
+    });
     throw new InsufficientCreditsError(cost, profile.credits_balance);
   }
+
+  await logCreditGateEvent({
+    userId,
+    reason,
+    creditsRequired: cost,
+    creditsAvailable: profile.credits_balance,
+    outcome: "proceeded",
+  });
   return { isFreeTrial: false, creditsSpent: cost };
 }
 

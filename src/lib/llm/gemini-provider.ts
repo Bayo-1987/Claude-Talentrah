@@ -1,7 +1,7 @@
 import "server-only";
 import { GoogleGenAI, ApiError, ThinkingLevel, type ThinkingConfig } from "@google/genai";
 import { LLMProviderError } from "./errors";
-import type { LLMProvider, LLMGenerateOptions } from "./types";
+import type { LLMProvider, LLMGenerateOptions, LLMResult } from "./types";
 
 /**
  * Shared across every Gemini call Farah makes — chat, tailoring/gap
@@ -37,12 +37,19 @@ function getGeminiClient(): GoogleGenAI {
 export class GeminiProvider implements LLMProvider {
   readonly name = "gemini" as const;
 
-  async generateText({
+  readonly model = GEMINI_MODEL;
+
+  /** Thin wrapper — one request path, generateWithUsage does the work. */
+  async generateText(options: LLMGenerateOptions): Promise<string> {
+    return (await this.generateWithUsage(options)).text;
+  }
+
+  async generateWithUsage({
     systemPrompt,
     turns,
     maxOutputTokens,
     jsonSchema,
-  }: LLMGenerateOptions): Promise<string> {
+  }: LLMGenerateOptions): Promise<LLMResult> {
     const client = getGeminiClient();
 
     try {
@@ -71,7 +78,19 @@ export class GeminiProvider implements LLMProvider {
       if (!text) {
         throw new LLMProviderError("gemini", "unknown", "Gemini returned an empty response.");
       }
-      return text;
+      const u = response.usageMetadata;
+      return {
+        text,
+        usage: u
+          ? {
+              inputTokens: u.promptTokenCount ?? 0,
+              outputTokens: u.candidatesTokenCount ?? 0,
+              totalTokens: u.totalTokenCount ?? 0,
+              // Billed as output even though it never appears in `text`.
+              reasoningTokens: u.thoughtsTokenCount ?? null,
+            }
+          : null,
+      };
     } catch (err) {
       if (err instanceof LLMProviderError) throw err;
       if (err instanceof ApiError) {

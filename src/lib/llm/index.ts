@@ -3,7 +3,7 @@ import { GeminiProvider } from "./gemini-provider";
 import { GroqProvider } from "./groq-provider";
 import type { LLMProvider } from "./types";
 
-export type { LLMProvider, LLMGenerateOptions, LLMChatTurn } from "./types";
+export type { LLMProvider, LLMGenerateOptions, LLMChatTurn, LLMUsage, LLMResult } from "./types";
 export { LLMProviderError } from "./errors";
 
 /**

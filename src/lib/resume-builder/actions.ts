@@ -8,6 +8,7 @@ import { EMPTY_RESUME, type StructuredResume } from "@/lib/resume/types";
 import { rewriteBullet, type BulletInstruction } from "@/lib/farah/rewrite-bullet";
 import { CREDIT_COSTS } from "@/lib/credits/costs";
 import { spendCredits, InsufficientCreditsError } from "@/lib/credits/spend";
+import { logCreditGateEvent } from "@/lib/credits/gate-events";
 
 async function getAuthedUserId() {
   const supabase = await createClient();
@@ -47,8 +48,28 @@ export async function unlockTemplateAction(
 
   try {
     await spendCredits(userId, template.unlock_cost_credits, "template_unlock", templateId);
+    // Logged after the spend rather than before it: unlike the other gates,
+    // this one's affordability check lives inside spendCredits, so reaching
+    // this line IS the "proceeded" signal. Non-LLM, but still a paywall the
+    // funnel needs to see.
+    await logCreditGateEvent({
+      userId,
+      reason: "template_unlock",
+      creditsRequired: template.unlock_cost_credits,
+      creditsAvailable: template.unlock_cost_credits,
+      outcome: "proceeded",
+      relatedEntityId: templateId,
+    });
   } catch (err) {
     if (err instanceof InsufficientCreditsError) {
+      await logCreditGateEvent({
+        userId,
+        reason: "template_unlock",
+        creditsRequired: err.required,
+        creditsAvailable: err.available,
+        outcome: "blocked_insufficient_credits",
+        relatedEntityId: templateId,
+      });
       return {
         ok: false,
         error: `Not enough credits — this template needs ${err.required}, you have ${err.available}.`,
@@ -146,11 +167,25 @@ export async function rewriteBulletAction(
     .single();
   const balance = profile?.credits_balance ?? 0;
   if (balance < CREDIT_COSTS.bulletRewrite) {
+    await logCreditGateEvent({
+      userId,
+      reason: "bullet_rewrite",
+      creditsRequired: CREDIT_COSTS.bulletRewrite,
+      creditsAvailable: balance,
+      outcome: "blocked_insufficient_credits",
+    });
     return {
       text,
       error: `Not enough credits — this needs ${CREDIT_COSTS.bulletRewrite}, you have ${balance}.`,
     };
   }
+  await logCreditGateEvent({
+    userId,
+    reason: "bullet_rewrite",
+    creditsRequired: CREDIT_COSTS.bulletRewrite,
+    creditsAvailable: balance,
+    outcome: "proceeded",
+  });
 
   let rewritten: string;
   try {
