@@ -153,12 +153,16 @@ Newspaper/magazine metaphor — deliberately not rounded/blue/card-heavy SaaS. *
 
 ## Open decisions still needing founder input
 
-See build-prompt §10 for the full numbered list (18 items). Highlights not to silently assume:
+See build-prompt §10 for the full numbered list (20 items). Highlights not to silently assume:
 - Real user validation of the Nigeria/Africa localization bet before heavy investment.
 - Replace the reference design's real-public-figure testimonial with a fictional persona (legal/IP risk as-is).
 - Exact referral reward trigger/value, ad pricing model choice, mobile-money provider/country scope for v1, whether a true subscription exists and for which segment.
 - All pricing (credits, passes, ads, mentor sessions, Talent Directory fees) is researched-anchor only, not tested — needs a real pricing experiment before launch lock-in.
 - Legal review needed: schema.org data redistribution, multi-jurisdiction (tax/KYC/GDPR) compliance before diaspora billing.
+- Still open: scholarship source legal review (§10 item 19) — required before any *scraped* scholarship source is relied on commercially. M10 ships a hand-curated set precisely to avoid this.
+
+**Resolved, don't re-litigate:**
+- **§10 item 20, scholarship geographic scope** — settled: listing scope is *eligibility-relevant, not geography-restricted*. A programme belongs in the catalog if it's realistically open to and relevant for Nigerian/African applicants, wherever it's hosted (DAAD/MEXT/Erasmus/Commonwealth all qualify). Per-applicant filtering lives in the eligibility-check Farah action; the catalog is **not** an enforcement layer and no geographic filter exists in ingestion or browse — deliberately. Chosen as the cheapest-to-reverse default; revisit on real user signal rather than on a schedule.
 
 ## Deliverable expectations for a build
 

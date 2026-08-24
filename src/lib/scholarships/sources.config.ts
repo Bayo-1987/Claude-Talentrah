@@ -33,12 +33,20 @@ import type { NormalizedScholarship } from "./types";
  * and the seed's moderation step, which key off deadlineVerifiedAt rather
  * than a hand-maintained list.
  *
- * Geographic scope (§10 item 20, UNRESOLVED — assumption only): seeded
- * toward programs open to Nigerian/African applicants, consistent with the
- * product's market thesis. This stands in for a founder decision that has
- * not been made. Note the listing scope is deliberately NOT used to exclude
- * anyone: per §6.15's own suggested resolution, fine-grained eligibility is
- * the eligibility-check action's job, not the catalog's.
+ * Geographic scope (§10 item 20 — RESOLVED): listing scope is
+ * eligibility-relevant, not geography-restricted. A programme belongs in
+ * this catalog if it is realistically open to and relevant for
+ * Nigerian/African applicants, regardless of where it is hosted or
+ * administered — Germany, Japan, the UK and the pan-EU programmes below all
+ * qualify on exactly that basis. Being headquartered or delivered in Africa
+ * is not a requirement and never was; this rule just makes explicit what
+ * the seed set already reflected.
+ *
+ * Fine-grained "is this actually right for *this* applicant" filtering
+ * stays where it already lives: the eligibility-check Farah action, run
+ * per-user against the listing's stated criteria. The catalog is not the
+ * enforcement layer, and no geographic filter exists in the ingestion or
+ * browse query — deliberately, not by omission.
  */
 export const SEED_SCHOLARSHIPS: NormalizedScholarship[] = [
   {
