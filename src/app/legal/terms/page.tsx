@@ -9,9 +9,17 @@ export const metadata: Metadata = {
 /**
  * DRAFT — see the note in src/app/legal/privacy/page.tsx. Same caveat
  * applies here: grounded in the actual product (credits system, Paystack
- * billing, auto-apply, mentor marketplace) but needs a legal review pass
- * before launch, particularly the liability/disclaimer and Nigeria-specific
- * consumer-protection sections.
+ * billing) but needs a legal review pass before launch, particularly the
+ * liability/disclaimer and Nigeria-specific consumer-protection sections.
+ *
+ * These Terms describe only what has actually shipped. Auto-apply (Phase 2)
+ * and the mentor marketplace (Phase 3) were previously written up here as
+ * live, enableable capabilities — they don't exist and can't be enabled, so
+ * they're gone rather than reworded. A contract shouldn't govern features
+ * that aren't there: it misleads users about what they're agreeing to, and
+ * on the auto-apply clause specifically it described Talentrah acting on a
+ * user's behalf in a way it currently cannot. When either ships, add its
+ * section back at that point.
  */
 export default function TermsOfServicePage() {
   return (
@@ -25,10 +33,10 @@ export default function TermsOfServicePage() {
       <h2>The service</h2>
       <p>
         Talentrah is a career platform: job matching, an AI resume-tailoring
-        and coaching assistant (&quot;Farah&quot;), a job application tracker, and
-        (where enabled) an optional auto-apply feature and a mentor
-        marketplace. Some features are free; deeper AI actions and premium
-        features draw from purchased credits or passes.
+        and coaching assistant (&quot;Farah&quot;), a resume builder, a job
+        application tracker, and scholarship discovery. Some features are
+        free; deeper AI actions and premium templates draw from purchased
+        credits or passes.
       </p>
 
       <h2>Your account</h2>
@@ -47,12 +55,12 @@ export default function TermsOfServicePage() {
         submit under your name.
       </p>
 
-      <h2>Auto-apply</h2>
+      <h2>Applying to jobs</h2>
       <p>
-        If you enable auto-apply, Talentrah submits applications on your
-        behalf based on preferences you set, up to any caps and review steps
-        described in the feature itself. You can turn auto-apply off, and
-        review or cancel a pending submission, at any time before it&apos;s sent.
+        You apply to jobs yourself — Talentrah never submits an application
+        on your behalf. Applying to a role listed by an external employer
+        takes you to that employer&apos;s own site, where their terms and
+        privacy practices apply, not ours.
       </p>
 
       <h2>Credits, passes, and payments</h2>
@@ -60,9 +68,10 @@ export default function TermsOfServicePage() {
         Credits and passes are purchased in Naira through Paystack and are
         consumed as described at the time of purchase. Purchases are
         generally non-refundable once a credit-consuming action has been
-        performed, except where required by law. Mentor sessions are booked
-        and paid separately from the credits system, directly with the
-        mentor.
+        performed, except where required by law. A pass paid for by card
+        renews automatically until you cancel it, which you can do at any
+        time from your billing page; a pass paid for by any other method is
+        one-time and does not renew.
       </p>
 
       <h2>Acceptable use</h2>
