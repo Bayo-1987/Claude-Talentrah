@@ -526,37 +526,45 @@ async function main() {
     `  ✓ fetched ${schSummary.fetched}, upserted ${schSummary.upserted}, expired ${schSummary.staleMarked}`,
   );
 
-  // Leave these two `pending` so the browse surface demonstrably hides them.
-  const LEAVE_PENDING = ["Erasmus Mundus Joint Masters Scholarships", "MEXT Japanese Government Scholarship"];
+  // Publish rule keys off deadline verification, not a hand-maintained list:
+  // a listing is only publishable if its deadline was actually confirmed
+  // against the provider's own page (deadline_verified_at). That keeps the
+  // gate honest and reproducible — re-running the seed can't quietly
+  // publish something whose date nobody checked.
   const { data: allScholarships } = await supabase
     .from("scholarships")
-    .select("id, program_name, application_deadline");
+    .select("id, program_name, deadline_verified_at, moderation_note");
 
+  let verifiedCount = 0;
+  let pendingCount = 0;
   for (const row of allScholarships ?? []) {
-    if (LEAVE_PENDING.includes(row.program_name)) continue;
+    const publishable = row.deadline_verified_at !== null;
     await supabase
       .from("scholarships")
       .update({
-        moderation_status: "verified",
-        moderation_note: "Provider, deadline and eligibility reviewed against the official page (seed review).",
+        moderation_status: publishable ? "verified" : "pending",
+        moderation_note: publishable
+          ? "Provider, deadline and eligibility confirmed against the official page."
+          : (row.moderation_note ?? "Deadline not confirmed against the official source."),
         moderated_at: new Date().toISOString(),
       })
       .eq("id", row.id);
+    if (publishable) verifiedCount++;
+    else pendingCount++;
   }
-  console.log(
-    `  ✓ moderated: ${(allScholarships ?? []).length - LEAVE_PENDING.length} verified, ${LEAVE_PENDING.length} left pending`,
-  );
+  console.log(`  ✓ moderated: ${verifiedCount} verified, ${pendingCount} left pending (unconfirmed deadline)`);
 
-  // One save per tracker stage for the demo user, so every stage renders.
-  const verified = (allScholarships ?? []).filter((r) => !LEAVE_PENDING.includes(r.program_name));
+  // One save per tracker stage for the demo user. Verified listings first so
+  // the visible ones get used before the gated ones — a save pointing at a
+  // `pending` listing is valid data but renders nothing, since RLS hides the
+  // scholarship it joins to.
+  const ordered = [...(allScholarships ?? [])].sort(
+    (a, b) => (a.deadline_verified_at ? 0 : 1) - (b.deadline_verified_at ? 0 : 1),
+  );
   const STAGES = ["saved", "applying", "submitted", "outcome"] as const;
-  for (let i = 0; i < STAGES.length && i < verified.length; i++) {
+  for (let i = 0; i < STAGES.length && i < ordered.length; i++) {
     await supabase.from("scholarship_saves").upsert(
-      {
-        user_id: userId,
-        scholarship_id: verified[i].id,
-        status: STAGES[i],
-      },
+      { user_id: userId, scholarship_id: ordered[i].id, status: STAGES[i] },
       { onConflict: "user_id,scholarship_id" },
     );
   }

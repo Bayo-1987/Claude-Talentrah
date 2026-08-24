@@ -30,6 +30,16 @@ export interface NormalizedScholarship {
   /** §6.15: non-negotiable — every listing must point at its primary source. */
   officialUrl: string;
   sourceName: string;
+  /**
+   * ISO timestamp of when applicationDeadline was last confirmed against
+   * officialUrl, or null when it couldn't be. Deliberately separate from
+   * moderation_status: a reviewer can look at a listing and still find no
+   * confirmable date, which is the common case — most providers delegate
+   * deadlines to partner institutions, embassies or per-course calls.
+   */
+  deadlineVerifiedAt: string | null;
+  /** Why the deadline is null/unverified, shown to the reviewer, not the user. */
+  deadlineNote: string | null;
 }
 
 export const DEGREE_LEVEL_LABEL: Record<DegreeLevel, string> = {

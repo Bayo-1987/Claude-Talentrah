@@ -886,6 +886,7 @@ export type Database = {
           created_at: string
           cycle_year: number | null
           dedup_fingerprint: string
+          deadline_verified_at: string | null
           degree_levels: Database["public"]["Enums"]["scholarship_degree_level"][]
           eligibility_age: string | null
           eligibility_nationalities: string[]
@@ -911,6 +912,7 @@ export type Database = {
           created_at?: string
           cycle_year?: number | null
           dedup_fingerprint: string
+          deadline_verified_at?: string | null
           degree_levels?: Database["public"]["Enums"]["scholarship_degree_level"][]
           eligibility_age?: string | null
           eligibility_nationalities?: string[]
@@ -936,6 +938,7 @@ export type Database = {
           created_at?: string
           cycle_year?: number | null
           dedup_fingerprint?: string
+          deadline_verified_at?: string | null
           degree_levels?: Database["public"]["Enums"]["scholarship_degree_level"][]
           eligibility_age?: string | null
           eligibility_nationalities?: string[]

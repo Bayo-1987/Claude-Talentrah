@@ -4,6 +4,10 @@
     {
       "path": "/api/admin/renew-passes",
       "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/admin/ingest-scholarships",
+      "schedule": "0 7 * * *"
     }
   ]
 }

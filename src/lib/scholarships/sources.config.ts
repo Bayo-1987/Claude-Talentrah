@@ -16,14 +16,22 @@ import type { NormalizedScholarship } from "./types";
  * Provider names, program names and officialUrl values below are real, and
  * every URL was checked to resolve (HTTP 200) at build time.
  *
- * IMPORTANT: the `applicationDeadline` values are ILLUSTRATIVE DEMO DATA. They have
- * not been field-verified against each provider's current published cycle,
- * and they must not be treated as authoritative — which is exactly the
- * failure mode §6.15's moderation gate exists to catch. Before any of this
- * goes in front of real users, a reviewer has to confirm provider, deadline
- * and eligibility against the official page and only then flip the row to
- * `verified`. Every listing links out to its official source precisely so
- * Talentrah never has to be the authority on a date it hasn't checked.
+ * DEADLINES — field-verified 2026-08-24, replacing the earlier illustrative
+ * placeholders. Each officialUrl was revisited and read for the current
+ * cycle's date. The result is worth stating plainly because it shapes the
+ * catalog: only ONE of the eight (Commonwealth) publishes a single
+ * programme-wide deadline. The rest either delegate dates to partner
+ * institutions, embassies or per-course calls (Mastercard, MEXT, Erasmus,
+ * DAAD) or simply publish none (Rhodes, PTDF, Aga Khan).
+ *
+ * So applicationDeadline is null wherever a date could not be confirmed,
+ * rather than carrying forward a plausible guess — a wrong deadline is the
+ * one error this feature can make that costs a user a once-a-year
+ * opportunity (§6.15). deadlineVerifiedAt records when the date was
+ * actually confirmed; deadlineNote records what was found when it wasn't.
+ * A listing with no verified deadline is not publishable — see ingest.ts
+ * and the seed's moderation step, which key off deadlineVerifiedAt rather
+ * than a hand-maintained list.
  *
  * Geographic scope (§10 item 20, UNRESOLVED — assumption only): seeded
  * toward programs open to Nigerian/African applicants, consistent with the
@@ -45,10 +53,12 @@ export const SEED_SCHOLARSHIPS: NormalizedScholarship[] = [
     eligibilityPriorDegree: "Bachelor's degree (min. 4 years) plus at least 2 years' professional experience",
     eligibilityAge: null,
     eligibilityOther: "Degree completed no more than 6 years before application.",
-    applicationDeadline: "2026-10-15",
+    applicationDeadline: null,
     cycleYear: 2027,
     officialUrl: "https://www.daad.de/en/studying-in-germany/scholarships/daad-scholarships/",
     sourceName: "DAAD official site",
+    deadlineVerifiedAt: null,
+    deadlineNote: "Checked 2026-08-24: neither the DAAD scholarships page nor the scholarship database publishes an EPOS deadline — each course call carries its own date.",
   },
   {
     provider: "Mastercard Foundation",
@@ -63,11 +73,13 @@ export const SEED_SCHOLARSHIPS: NormalizedScholarship[] = [
     eligibilityAge: "Typically under 29 at entry",
     eligibilityOther:
       "Demonstrated academic talent and financial need; commitment to giving back to the community.",
-    applicationDeadline: "2026-09-05",
+    applicationDeadline: null,
     cycleYear: 2027,
     officialUrl:
       "https://mastercardfdn.org/en/what-we-do/our-programs/mastercard-foundation-scholars-program/",
     sourceName: "Mastercard Foundation official site",
+    deadlineVerifiedAt: null,
+    deadlineNote: "Checked 2026-08-24: the Foundation states each partner sets their own deadline, so there is structurally no programme-wide date.",
   },
   {
     provider: "Commonwealth Scholarship Commission (UK)",
@@ -82,10 +94,12 @@ export const SEED_SCHOLARSHIPS: NormalizedScholarship[] = [
     eligibilityAge: null,
     eligibilityOther:
       "Must be unable to afford study in the UK without this scholarship; nominated via a recognised nominating body.",
-    applicationDeadline: "2026-12-18",
+    applicationDeadline: "2026-10-20",
     cycleYear: 2027,
     officialUrl: "https://cscuk.fcdo.gov.uk/scholarships/commonwealth-masters-scholarships/",
     sourceName: "Commonwealth Scholarship Commission official site",
+    deadlineVerifiedAt: "2026-08-24T15:30:00.000Z",
+    deadlineNote: null,
   },
   {
     provider: "Government of Japan (MEXT)",
@@ -99,10 +113,12 @@ export const SEED_SCHOLARSHIPS: NormalizedScholarship[] = [
     eligibilityPriorDegree: "Varies by track — secondary completion (undergraduate) or a Bachelor's degree (research)",
     eligibilityAge: "Under 35 for the research track",
     eligibilityOther: "Applications are made through the Japanese Embassy or a nominating university.",
-    applicationDeadline: "2026-09-01",
+    applicationDeadline: null,
     cycleYear: 2027,
     officialUrl: "https://www.studyinjapan.go.jp/en/planning/scholarship/",
     sourceName: "Study in Japan (MEXT) official site",
+    deadlineVerifiedAt: null,
+    deadlineNote: "Checked 2026-08-24: Study in Japan defers to the local Japanese embassy and notes requirements vary by country; no date published centrally.",
   },
   {
     provider: "Rhodes Trust",
@@ -116,10 +132,12 @@ export const SEED_SCHOLARSHIPS: NormalizedScholarship[] = [
     eligibilityPriorDegree: "Completed undergraduate degree with strong academic standing",
     eligibilityAge: "Typically 18–23 at application (extended for some routes)",
     eligibilityOther: "Evidence of leadership, service, and commitment to the common good.",
-    applicationDeadline: "2026-08-31",
+    applicationDeadline: null,
     cycleYear: 2027,
     officialUrl: "https://www.rhodeshouse.ox.ac.uk/scholarships/the-rhodes-scholarship/",
     sourceName: "Rhodes House official site",
+    deadlineVerifiedAt: null,
+    deadlineNote: "Checked 2026-08-24: the Rhodes page confirms the 2027 cycle is open but publishes no deadline; the West Africa and apply pages both 404.",
   },
   {
     provider: "Petroleum Technology Development Fund (PTDF)",
@@ -133,10 +151,12 @@ export const SEED_SCHOLARSHIPS: NormalizedScholarship[] = [
     eligibilityPriorDegree: "Minimum of Second Class Upper for MSc; Master's degree for PhD",
     eligibilityAge: null,
     eligibilityOther: "Open to Nigerian citizens; oil-and-gas-relevant disciplines prioritised.",
-    applicationDeadline: "2026-11-30",
+    applicationDeadline: null,
     cycleYear: 2027,
     officialUrl: "https://scholarship.ptdf.gov.ng/",
     sourceName: "PTDF scholarship portal",
+    deadlineVerifiedAt: null,
+    deadlineNote: "Checked 2026-08-24: the PTDF portal shows account/login only, with no stated open or close date for the current cycle.",
   },
   {
     provider: "European Commission",
@@ -156,6 +176,8 @@ export const SEED_SCHOLARSHIPS: NormalizedScholarship[] = [
     officialUrl:
       "https://erasmus-plus.ec.europa.eu/opportunities/opportunities-for-individuals/students/erasmus-mundus-joint-masters-scholarships",
     sourceName: "Erasmus+ official site",
+    deadlineVerifiedAt: null,
+    deadlineNote: "Checked 2026-08-24: Erasmus+ gives only a general October-January window and defers exact dates to each consortium.",
   },
   {
     provider: "Aga Khan Foundation",
@@ -170,10 +192,12 @@ export const SEED_SCHOLARSHIPS: NormalizedScholarship[] = [
     eligibilityAge: "Preference for candidates under 30",
     eligibilityOther:
       "Awarded on a 50% grant / 50% loan basis — this is deliberately a partial award, not a full ride.",
-    applicationDeadline: "2027-03-31",
+    applicationDeadline: null,
     cycleYear: 2027,
     officialUrl:
       "https://the.akdn/en/what-we-do/developing-human-capacity/education/international-scholarship-programme",
     sourceName: "Aga Khan Development Network official site",
+    deadlineVerifiedAt: null,
+    deadlineNote: "Checked 2026-08-24: the AKDN programme page publishes no application deadline or cycle dates.",
   },
 ];
