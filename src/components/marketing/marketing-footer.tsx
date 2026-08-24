@@ -9,6 +9,19 @@ import {
 } from "react-icons/fa6";
 import type { IconType } from "react-icons";
 
+/*
+ * Every entry here must be something that actually exists. Anything without
+ * a real href renders as a dead `#` anchor, which for an unbuilt feature
+ * means the footer advertises a product we don't have — "Auto-Apply",
+ * "Mentorship", "Post a Job", "Advertise with Us" and "Employer Login" all
+ * did exactly that. "Employer Login" was the worst of them: it implies an
+ * employer account system exists to log into. Removed rather than reworded;
+ * add each back when the feature ships, with a real href.
+ *
+ * The employer column keeps its place — §6.1 wants employers addressed in
+ * the footer — but now points at the only route that can actually serve one
+ * today, which is Contact.
+ */
 const FOOTER_COLUMNS = [
   {
     heading: "Product",
@@ -16,15 +29,14 @@ const FOOTER_COLUMNS = [
       "Job Matching",
       "Resume Builder",
       "Resume Tailoring",
-      "Auto-Apply",
       "Job Tracker",
-      "Mentorship",
+      "Scholarships",
       "Refer & Earn",
     ],
   },
   {
     heading: "For Employers",
-    links: ["Post a Job", "Advertise with Us", "Employer Login", "Business Services"],
+    links: [{ label: "Hire through Talentrah", href: "/contact" }],
   },
   {
     heading: "Company & Support",

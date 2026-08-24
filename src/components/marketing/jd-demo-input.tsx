@@ -4,11 +4,13 @@ import { useState } from "react";
 import Link from "next/link";
 import { EyebrowLabel } from "@/components/ui";
 
+// Shipped surfaces only — "Talk to a mentor" sat here alongside three real
+// actions, which read as parity with them. Mentorship is Phase 3.
 const QUICK_ACTIONS = [
   "Tailor my resume to a job",
   "Check my match score",
   "Build a resume",
-  "Talk to a mentor",
+  "Find a scholarship",
 ];
 
 /**
