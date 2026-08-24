@@ -502,6 +502,66 @@ async function main() {
     }
   }
 
+  // --- M10: scholarships (build-prompt §6.15) -----------------------------
+  // Same shape as the job ingestion above: drive the real authenticated
+  // route rather than importing the pipeline, so this doubles as a check
+  // that the route works. Ingestion always lands rows as `pending` — the
+  // moderation gate is what publishes them, so the seed explicitly reviews
+  // most of them and deliberately leaves a couple unpublished so the gate
+  // is visibly exercised rather than just asserted.
+  console.log("\nIngesting scholarships...");
+  const schRes = await fetch(`${devServerUrl}/api/admin/ingest-scholarships`, {
+    method: "POST",
+    headers: process.env.INGEST_SECRET
+      ? { "x-ingest-secret": process.env.INGEST_SECRET }
+      : {},
+  });
+  if (!schRes.ok) {
+    throw new Error(`Scholarship ingestion returned ${schRes.status}.`);
+  }
+  const { summary: schSummary } = (await schRes.json()) as {
+    summary: { fetched: number; upserted: number; staleMarked: number };
+  };
+  console.log(
+    `  ✓ fetched ${schSummary.fetched}, upserted ${schSummary.upserted}, expired ${schSummary.staleMarked}`,
+  );
+
+  // Leave these two `pending` so the browse surface demonstrably hides them.
+  const LEAVE_PENDING = ["Erasmus Mundus Joint Masters Scholarships", "MEXT Japanese Government Scholarship"];
+  const { data: allScholarships } = await supabase
+    .from("scholarships")
+    .select("id, program_name, application_deadline");
+
+  for (const row of allScholarships ?? []) {
+    if (LEAVE_PENDING.includes(row.program_name)) continue;
+    await supabase
+      .from("scholarships")
+      .update({
+        moderation_status: "verified",
+        moderation_note: "Provider, deadline and eligibility reviewed against the official page (seed review).",
+        moderated_at: new Date().toISOString(),
+      })
+      .eq("id", row.id);
+  }
+  console.log(
+    `  ✓ moderated: ${(allScholarships ?? []).length - LEAVE_PENDING.length} verified, ${LEAVE_PENDING.length} left pending`,
+  );
+
+  // One save per tracker stage for the demo user, so every stage renders.
+  const verified = (allScholarships ?? []).filter((r) => !LEAVE_PENDING.includes(r.program_name));
+  const STAGES = ["saved", "applying", "submitted", "outcome"] as const;
+  for (let i = 0; i < STAGES.length && i < verified.length; i++) {
+    await supabase.from("scholarship_saves").upsert(
+      {
+        user_id: userId,
+        scholarship_id: verified[i].id,
+        status: STAGES[i],
+      },
+      { onConflict: "user_id,scholarship_id" },
+    );
+  }
+  console.log(`  ✓ demo saves: one in each of ${STAGES.join(", ")}`);
+
   console.log("\nDone. Demo login:");
   console.log(`  email:    ${DEMO_EMAIL}`);
   console.log(`  password: ${DEMO_PASSWORD}`);

@@ -9,6 +9,7 @@ const NAV_LINKS = [
   { href: "/jobs", label: "Jobs" },
   { href: "/tracker", label: "Job Tracker" },
   { href: "/resume-builder", label: "Resume Builder" },
+  { href: "/scholarships", label: "Scholarships" },
   { href: "/refer", label: "Refer a Friend" },
 ];
 
