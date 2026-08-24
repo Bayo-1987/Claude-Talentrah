@@ -19,5 +19,8 @@ export async function POST(request: Request) {
   }
 
   const summary = await runPassRenewalJob();
-  return NextResponse.json({ summary });
+  // A stage whose work-list query failed skipped an unknown number of
+  // Passes, so the zero counters aren't a clean run — answer 500 so a
+  // scheduler's failure alerting actually fires instead of seeing 200.
+  return NextResponse.json({ summary }, { status: summary.ok ? 200 : 500 });
 }

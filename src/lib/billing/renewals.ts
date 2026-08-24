@@ -18,10 +18,20 @@ function addDaysDateOnly(days: number): string {
 }
 
 export interface RenewalJobSummary {
+  /**
+   * False if any stage failed to even read its work-list. Distinct from
+   * per-Pass `errors`: a query failure means an unknown number of Passes
+   * were never looked at, so zero counters below do NOT mean "nothing was
+   * due". Callers (and the cron monitor) must treat this as a failed run.
+   */
+  ok: boolean;
   remindersSent: number;
   renewed: number;
   lapsed: number;
+  /** Per-Pass failures — the Pass was found, but processing it failed. */
   errors: Array<{ userPassId: string; message: string }>;
+  /** Stage-level failures — the work-list query itself failed. */
+  queryErrors: Array<{ stage: "reminders" | "charges"; message: string }>;
 }
 
 /**
@@ -42,10 +52,12 @@ export interface RenewalJobSummary {
  */
 export async function runPassRenewalJob(): Promise<RenewalJobSummary> {
   const summary: RenewalJobSummary = {
+    ok: true,
     remindersSent: 0,
     renewed: 0,
     lapsed: 0,
     errors: [],
+    queryErrors: [],
   };
 
   await sendReminders(summary);
@@ -54,15 +66,37 @@ export async function runPassRenewalJob(): Promise<RenewalJobSummary> {
   return summary;
 }
 
+/**
+ * A work-list query failed. Without this the job would fall through to
+ * `data ?? []`, iterate zero rows, and report a clean run — making a broken
+ * query indistinguishable from "nothing was due" to both the cron monitor
+ * and anyone reading the response. Loud in the logs, and `ok: false` so the
+ * admin route can answer with a non-2xx.
+ */
+function recordQueryFailure(
+  summary: RenewalJobSummary,
+  stage: "reminders" | "charges",
+  message: string,
+) {
+  console.error(`[pass-renewal] ${stage} query failed, stage skipped: ${message}`);
+  summary.ok = false;
+  summary.queryErrors.push({ stage, message });
+}
+
 async function sendReminders(summary: RenewalJobSummary) {
   const supabase = createServiceRoleClient();
-  const { data: dueSoon } = await supabase
+  const { data: dueSoon, error } = await supabase
     .from("user_passes")
     .select("id, next_renewal_date, profiles!user_passes_user_id_fkey(email, first_name), passes(name, price_ngn)")
     .eq("auto_renew_status", "active")
     .is("renewal_reminder_sent_at", null)
     .lte("next_renewal_date", addDaysDateOnly(REMINDER_WINDOW_DAYS))
     .gte("next_renewal_date", todayDateOnly());
+
+  if (error) {
+    recordQueryFailure(summary, "reminders", error.message);
+    return;
+  }
 
   for (const row of dueSoon ?? []) {
     try {
@@ -109,13 +143,18 @@ async function sendReminderEmail(row: {
 
 async function chargeDueRenewals(summary: RenewalJobSummary) {
   const supabase = createServiceRoleClient();
-  const { data: due } = await supabase
+  const { data: due, error } = await supabase
     .from("user_passes")
     .select(
       "id, user_id, pass_id, authorization_code, expires_at, profiles!user_passes_user_id_fkey(email), passes(duration_days, price_ngn)",
     )
     .eq("auto_renew_status", "active")
     .lte("next_renewal_date", todayDateOnly());
+
+  if (error) {
+    recordQueryFailure(summary, "charges", error.message);
+    return;
+  }
 
   for (const row of due ?? []) {
     try {
