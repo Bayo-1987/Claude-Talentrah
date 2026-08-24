@@ -64,7 +64,7 @@ export async function applyInAppAction(jobId: string) {
     job_posting_id: jobId,
     resume_id: baseResume?.id ?? null,
     stage: "applied" as const,
-    source: "in_app" as const,
+    source: "internal_apply" as const,
     applied_at: new Date().toISOString(),
   };
 

@@ -215,6 +215,102 @@ async function main() {
     );
   }
 
+  console.log("→ Seeding Job Tracker demo entries…");
+  const daysAgo = (n: number) => new Date(Date.now() - n * 24 * 60 * 60 * 1000).toISOString();
+
+  const { data: internalJobs } = await supabase
+    .from("job_postings")
+    .select("id, title")
+    .eq("organization_id", org.id);
+  const jobIdByTitle = new Map((internalJobs ?? []).map((j) => [j.title, j.id]));
+
+  async function upsertLinkedApplication(
+    title: string,
+    stage: Database["public"]["Enums"]["application_stage"],
+    source: "manual" | "internal_apply",
+    appliedDaysAgo: number | null,
+  ) {
+    const jobId = jobIdByTitle.get(title);
+    if (!jobId) return;
+    const { data: existing } = await supabase
+      .from("applications")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("job_posting_id", jobId)
+      .maybeSingle();
+    const payload = {
+      user_id: userId,
+      job_posting_id: jobId,
+      stage,
+      source,
+      applied_at: appliedDaysAgo === null ? null : daysAgo(appliedDaysAgo),
+    };
+    if (existing) {
+      await supabase.from("applications").update(payload).eq("id", existing.id);
+    } else {
+      await supabase.from("applications").insert(payload);
+    }
+  }
+
+  async function upsertManualApplication(
+    companyName: string,
+    title: string,
+    location: string,
+    stage: Database["public"]["Enums"]["application_stage"],
+    appliedDaysAgo: number,
+    notes: string,
+  ) {
+    const { data: existing } = await supabase
+      .from("applications")
+      .select("id")
+      .eq("user_id", userId)
+      .is("job_posting_id", null)
+      .eq("manual_job_snapshot->>title", title)
+      .maybeSingle();
+    const payload = {
+      user_id: userId,
+      job_posting_id: null,
+      manual_job_snapshot: { companyName, title, location },
+      stage,
+      source: "manual" as const,
+      applied_at: daysAgo(appliedDaysAgo),
+      notes,
+    };
+    if (existing) {
+      await supabase.from("applications").update(payload).eq("id", existing.id);
+    } else {
+      await supabase.from("applications").insert(payload);
+    }
+  }
+
+  await upsertLinkedApplication("Customer Success Associate", "saved", "manual", null);
+  await upsertLinkedApplication("Backend Engineer (Node.js)", "applied", "internal_apply", 10);
+  await upsertLinkedApplication("Senior Product Manager", "interviewing", "internal_apply", 15);
+  await upsertManualApplication(
+    "Flutterwave",
+    "Growth Product Manager",
+    "Lagos, Nigeria",
+    "offer",
+    20,
+    "Final round went well — awaiting paperwork.",
+  );
+  await upsertManualApplication(
+    "Paystack",
+    "Backend Engineer",
+    "Lagos, Nigeria",
+    "hired",
+    40,
+    "Accepted! Starts next month.",
+  );
+  await upsertManualApplication(
+    "Interswitch",
+    "Software Engineer",
+    "Lagos, Nigeria",
+    "rejected",
+    25,
+    "Didn't move forward after the technical screen.",
+  );
+
   console.log("→ Running real ingestion pipeline for external jobs…");
   const devServerUrl = process.env.SEED_APP_URL ?? "http://localhost:3000";
   const ingestRes = await fetch(`${devServerUrl}/api/admin/ingest-jobs`, {

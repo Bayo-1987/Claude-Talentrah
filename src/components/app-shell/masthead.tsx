@@ -5,11 +5,12 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/cn";
 import { signOutAction } from "@/lib/auth/actions";
 
-// Job Tracker and Refer a Friend are M7/M9 — not built yet. Re-add them here
-// once those routes actually exist (QA audit bug #6: they were linking to a
-// generic, unbranded 404).
+// Refer a Friend is M9 — not built yet. Re-add it here once that route
+// actually exists (QA audit bug #6: it was linking to a generic, unbranded
+// 404).
 const NAV_LINKS = [
   { href: "/jobs", label: "Jobs" },
+  { href: "/tracker", label: "Job Tracker" },
   { href: "/resume-builder", label: "Resume Builder" },
 ];
 
