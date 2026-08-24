@@ -1,11 +1,13 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { randomUUID } from "node:crypto";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
-import { initializeTransaction } from "@/lib/paystack/client";
+import { initializeTransaction, NGN_CHANNELS } from "@/lib/paystack/client";
+import { cancelPassAutoRenewal } from "@/lib/billing/renewals";
 
 async function getOrigin() {
   const h = await headers();
@@ -54,6 +56,10 @@ export async function initiatePurchaseAction(
       reference,
       callbackUrl: `${origin}/billing/callback`,
       metadata: { productType, productId, userId: user.id },
+      // Real, selectable rails for an NGN checkout — see NGN_CHANNELS for
+      // why "mobile_money" isn't in this list despite being the product
+      // concept this app calls mobile money.
+      channels: NGN_CHANNELS,
     });
     authorizationUrl = init.authorization_url;
   } catch {
@@ -68,4 +74,35 @@ export async function initiatePurchaseAction(
   }
 
   redirect(authorizationUrl);
+}
+
+/**
+ * Cancel-anytime (fix-prompt §1) — stops future renewal charges on an
+ * active card-paid Pass without affecting the currently-active period.
+ * Ownership check happens here (authenticated client, RLS-scoped) before
+ * handing off to the service-role write in cancelPassAutoRenewal.
+ */
+export async function cancelAutoRenewAction(userPassId: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const { data: userPass } = await supabase
+    .from("user_passes")
+    .select("id, user_id, auto_renew_status")
+    .eq("id", userPassId)
+    .single();
+
+  if (!userPass || userPass.user_id !== user.id) {
+    throw new Error("Pass not found.");
+  }
+  if (userPass.auto_renew_status !== "active") {
+    // Already canceled/lapsed/never-was-renewing — nothing to do.
+    return;
+  }
+
+  await cancelPassAutoRenewal(userPassId);
+  revalidatePath("/billing");
 }
