@@ -135,9 +135,15 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
         </div>
       )}
 
+      {/*
+        Same nullable-first_name trap as the onboarding headline: this
+        rendered "— profile: ." for any user without a name. The whole
+        clause is only meaningful when there IS a name, so it's dropped
+        rather than left dangling.
+      */}
       <p className="text-[12px] italic text-ink-soft">
-        Match scores are calculated against your saved resume — profile:{" "}
-        {profile.first_name}.
+        Match scores are calculated against your saved resume
+        {profile.first_name?.trim() ? ` — profile: ${profile.first_name.trim()}` : ""}.
       </p>
     </div>
   );

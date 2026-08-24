@@ -1,10 +1,10 @@
 import { defineConfig } from "@playwright/test";
 import { config as loadEnv } from "dotenv";
 
-// The authed fixture talks to Supabase directly to mint test users, so it
-// needs the same credentials the app does. CI injects these as workflow
-// env; locally they live in .env.local, which Playwright — unlike Vitest's
-// tests/setup.ts — does not read on its own.
+// Both the authed fixture and the upload spec talk to Supabase directly to
+// mint test users, so they need the same credentials the app does. CI
+// injects these as workflow env; locally they live in .env.local, which
+// Playwright — unlike Vitest's tests/setup.ts — does not read on its own.
 loadEnv({ path: ".env.local" });
 
 export default defineConfig({
