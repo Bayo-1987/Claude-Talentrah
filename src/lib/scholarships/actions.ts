@@ -3,7 +3,6 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { CREDIT_COSTS } from "@/lib/credits/costs";
 import { spendCredits } from "@/lib/credits/spend";
 import { logCreditGateEvent } from "@/lib/credits/gate-events";
@@ -222,48 +221,13 @@ export async function draftSopAction(
   return { statement };
 }
 
-/* ---------------------------------------------------------------------- *
- * Deadline reminders (§6.10 / §6.15).
- * ---------------------------------------------------------------------- */
-
-/**
- * §6.15 asks for deadline reminders "riding the same digest/WhatsApp
- * infrastructure already built for job matches". Checked against the repo
- * at build time: that infrastructure does not exist. There is no digest
- * scheduler anywhere, and WhatsApp appears only as static share/community
- * links (src/components/referrals/share-buttons.tsx, marketing-footer.tsx),
- * never as a delivery channel. Resend is wired to the Contact form and the
- * Pass-renewal reminder, nothing else.
+/*
+ * Deadline reminders (§6.10 / §6.15) are in-app only, on /scholarships.
  *
- * So rather than inventing a delivery pipeline as a side effect of this
- * milestone, this mirrors the Pass renewal job's honest minimum: the
- * guaranteed surface is in-app (the deadline section on /scholarships), and
- * email is best-effort via the existing client if configured. When a real
- * digest/WhatsApp pipeline is built, this is the call site to route through
- * it.
+ * A sendDeadlineReminderEmail() helper lived here and was never called by
+ * anything. Removed rather than left dormant: it took a userId parameter and
+ * read a profile through the service-role client, which is precisely the
+ * shape of the scoping bug found in fulfillPayment — a dead function
+ * pre-wired to leak if someone later hands it a request-supplied id. When a
+ * real notification pipeline is built, write it then, scoped deliberately.
  */
-export async function sendDeadlineReminderEmail(
-  userId: string,
-  subject: string,
-  body: string,
-): Promise<boolean> {
-  const { getResendClient } = await import("@/lib/resend/client");
-  const resend = getResendClient();
-  if (!resend) return false;
-
-  const supabase = createServiceRoleClient();
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("email")
-    .eq("id", userId)
-    .single();
-  if (!profile?.email) return false;
-
-  await resend.emails.send({
-    from: "Talentrah <scholarships@talentrah.com>",
-    to: profile.email,
-    subject,
-    text: body,
-  });
-  return true;
-}

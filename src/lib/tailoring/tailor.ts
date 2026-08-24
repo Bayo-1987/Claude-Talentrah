@@ -132,6 +132,39 @@ interface RawTailoringInput {
   atsFixes: string[];
 }
 
+/**
+ * How much of a pasted job description reaches the model.
+ *
+ * Was 8,000 with no recorded reason anywhere — not in the commit that
+ * introduced it (M5), not in a comment, not in the plan doc or build
+ * prompt. It was written when the planned provider was Anthropic Claude and
+ * survived two provider migrations untouched, so whatever sized it no
+ * longer describes the models actually in use.
+ *
+ * 24,000 is sized from two real bounds rather than picked as a round number:
+ *
+ *  1. Product reality. Across the 140 ingested postings: median 4,909
+ *     chars, p95 8,488, p99 11,163, longest 20,805. The old cap truncated
+ *     18 of those 140 — roughly one job description in eight, which is not
+ *     an edge case. 24,000 clears the longest real posting with ~15% room.
+ *
+ *  2. Model headroom, against the *tighter* of the two providers. Groq's
+ *     gpt-oss-120b has a 131,072-token window (confirmed from its own
+ *     /models endpoint); Gemini 3.6 Flash has ~1,048,576. 24,000 chars is
+ *     roughly 6,000 tokens — about 5% of the usable Groq budget after
+ *     reserving the 4,096 output tokens and prompt overhead. Nowhere near
+ *     either limit.
+ *
+ * Deliberately not "as much as the model allows": an unbounded paste is a
+ * real cost tail (a novel-length input would push a single ₦750 tailoring
+ * run toward ₦120 of spend). This keeps the worst case above 97% margin
+ * while comfortably covering every genuine JD.
+ *
+ * If this changes again, update the reasoning with it — the whole problem
+ * was a bare number nobody could justify.
+ */
+export const JD_MAX_CHARS = 24_000;
+
 async function callLLMRaw(
   baseResume: StructuredResume,
   jdText: string,
@@ -142,7 +175,7 @@ async function callLLMRaw(
     turns: [
       {
         role: "user",
-        content: `Here is my base resume as JSON:\n${JSON.stringify(baseResume)}\n\nHere is the job description I want to tailor it to:\n${jdText.slice(0, 8000)}\n\n${includeCoverLetter ? "Include a cover letter." : "Do not include a cover letter."}`,
+        content: `Here is my base resume as JSON:\n${JSON.stringify(baseResume)}\n\nHere is the job description I want to tailor it to:\n${jdText.slice(0, JD_MAX_CHARS)}\n\n${includeCoverLetter ? "Include a cover letter." : "Do not include a cover letter."}`,
       },
     ],
     maxOutputTokens: 4096,
@@ -211,6 +244,13 @@ export async function tailorResumeToJob(
   // retry is enough in practice. sanitizeStructuredResume is the backstop
   // either way (a still-bad retry is used anyway, just with degenerate
   // fields sanitized out, rather than failing the whole request).
+  // Computed once here, from the caller's original text, so the notice
+  // reflects what the user actually pasted rather than anything a retry saw.
+  const jdTruncation =
+    jdText.length > JD_MAX_CHARS
+      ? { originalChars: jdText.length, usedChars: JD_MAX_CHARS }
+      : null;
+
   let attempt = await attemptTailoring(baseResume, jdText, includeCoverLetter);
   if (!attempt || attempt.bad) {
     const retry = await attemptTailoring(baseResume, jdText, includeCoverLetter);
@@ -231,5 +271,6 @@ export async function tailorResumeToJob(
     coverLetter: includeCoverLetter ? (input.coverLetter ?? null) : null,
     atsScore: Math.max(0, Math.min(100, Math.round(input.atsScore ?? 0))),
     atsFixes: input.atsFixes ?? [],
+    jdTruncation,
   };
 }
