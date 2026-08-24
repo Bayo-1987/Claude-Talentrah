@@ -68,6 +68,13 @@ jobs:
         run: npm run build
 
       - name: Start app
+        env:
+          # The golden path drives the real routes, gating, ledger and UI —
+          # only the model itself is swapped out (src/lib/llm/stub-provider.ts).
+          # Without this the suite would make real LLM calls on every PR:
+          # slow, billable, and flaky on a shared rate limit. The suite
+          # asserts this is active and refuses to run otherwise.
+          LLM_PROVIDER: stub
         run: npm run start &
 
       - name: Wait for app to respond
