@@ -87,6 +87,11 @@ export async function ingestScholarships(): Promise<ScholarshipIngestSummary> {
     cycle_year: listing.cycleYear,
     official_url: listing.officialUrl,
     source_name: listing.sourceName,
+    deadline_verified_at: listing.deadlineVerifiedAt,
+    // deadlineNote is reviewer-facing context for why a date is missing;
+    // it rides on moderation_note so it lands where a reviewer looks,
+    // without adding a second near-identical column.
+    ...(listing.deadlineNote ? { moderation_note: listing.deadlineNote } : {}),
     dedup_fingerprint: fingerprint,
     // §6.15's freshness requirement: every pass records that the listing
     // was seen again, so a reviewer can tell a re-confirmed listing from
