@@ -53,19 +53,32 @@ jobs:
       - name: TEMP — re-verify GROQ_API_KEY works live post-rebase
         run: |
           echo "GROQ_API_KEY: present (length ${#GROQ_API_KEY})"
+          # max_tokens=20 (the first pass here) turned out too tight — this
+          # model's reasoning-token spend at "low" effort varies run to run
+          # (6-12 tokens observed), and at 20 total budget that occasionally
+          # starves the visible answer to empty content with finish_reason:
+          # length, even though the HTTP call itself succeeds. Confirmed via
+          # 5 live retries at max_tokens=20 (1 empty out of 5) vs 5/5 clean
+          # at max_tokens=1536 (Farah chat's real budget, finish_reason:
+          # stop every time) — not a rebase regression, just an undersized
+          # smoke-test budget. Using 100 here for real margin, and actually
+          # failing the step (not just logging) if content comes back empty.
           curl -sf https://api.groq.com/openai/v1/chat/completions \
             -H "Authorization: Bearer $GROQ_API_KEY" \
             -H "Content-Type: application/json" \
-            -d '{"model":"openai/gpt-oss-120b","messages":[{"role":"user","content":"Say OK."}],"max_tokens":20,"reasoning_effort":"low"}' \
+            -d '{"model":"openai/gpt-oss-120b","messages":[{"role":"user","content":"Say OK."}],"max_tokens":100,"reasoning_effort":"low"}' \
             -o /tmp/groq-verify.json
           echo "Response:"
           cat /tmp/groq-verify.json
           python3 -c "
-          import json
+          import json, sys
           with open('/tmp/groq-verify.json') as f:
               d = json.load(f)
           content = d['choices'][0]['message']['content']
           print()
+          if not content:
+              print('FAILED: Groq returned empty content.')
+              sys.exit(1)
           print('Live Groq call succeeded post-rebase. Content:', repr(content))
           "
 
