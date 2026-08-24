@@ -21,11 +21,19 @@ export function daysUntil(deadline: string | null): number | null {
   return Math.round((target.getTime() - today.getTime()) / 86_400_000);
 }
 
-/** Date-only column, so build it in local time — a bare new Date() would shift it a day back west of UTC. */
+/**
+ * Date-only column, so build it in local time — a bare new Date() would
+ * shift it a day back west of UTC. Guards the malformed case explicitly
+ * rather than letting an unparseable value reach toLocaleDateString and
+ * render the string "Invalid Date" at the user.
+ */
 export function formatDeadline(deadline: string | null): string {
   if (!deadline) return "Not published yet";
   const [y, m, d] = deadline.split("-").map(Number);
-  return new Date(y, m - 1, d).toLocaleDateString();
+  if (!y || !m || !d) return "Not published yet";
+  const parsed = new Date(y, m - 1, d);
+  if (Number.isNaN(parsed.getTime())) return "Not published yet";
+  return parsed.toLocaleDateString();
 }
 
 export function ScholarshipCard({ scholarship, save, creditsBalance }: ScholarshipCardProps) {
@@ -70,7 +78,15 @@ export function ScholarshipCard({ scholarship, save, creditsBalance }: Scholarsh
         <span>
           <span className="font-semibold">Deadline:</span>{" "}
           <span className={urgent ? "font-semibold text-rust" : undefined}>
-            {formatDeadline(scholarship.application_deadline)}
+            {/*
+              A provider with no single deadline (per-partner, per-embassy,
+              per-consortium) is verified, not unknown — so show the sourced
+              explanation rather than an empty gap or a bare "Not published
+              yet", which reads like missing data.
+            */}
+            {scholarship.application_deadline
+              ? formatDeadline(scholarship.application_deadline)
+              : (scholarship.deadline_note ?? "Not published yet")}
             {left !== null && left >= 0 && ` · ${left} ${left === 1 ? "day" : "days"} left`}
           </span>
         </span>

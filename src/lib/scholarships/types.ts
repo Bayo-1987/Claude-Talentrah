@@ -38,8 +38,15 @@ export interface NormalizedScholarship {
    * deadlines to partner institutions, embassies or per-course calls.
    */
   deadlineVerifiedAt: string | null;
-  /** Why the deadline is null/unverified, shown to the reviewer, not the user. */
+  /**
+   * User-facing copy shown in place of a date when the provider genuinely
+   * has no single deadline (per-partner, per-embassy, per-consortium). Set
+   * alongside a non-null deadlineVerifiedAt: "varies by design" is a
+   * verified finding, not a missing one.
+   */
   deadlineNote: string | null;
+  /** Reviewer-facing context — what the source check actually turned up. */
+  reviewNote: string | null;
 }
 
 export const DEGREE_LEVEL_LABEL: Record<DegreeLevel, string> = {
