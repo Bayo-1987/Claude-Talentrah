@@ -75,5 +75,35 @@ export function sanitizeStructuredResume(resume: StructuredResume): StructuredRe
  * fields now empty) result.
  */
 export function wasDegenerate(raw: StructuredResume, cleaned: StructuredResume): boolean {
-  return JSON.stringify(raw) !== JSON.stringify(cleaned);
+  return stableStringify(raw) !== stableStringify(cleaned);
+}
+
+/**
+ * JSON.stringify with object keys sorted, so comparison is by content rather
+ * than by key insertion order. Array order is preserved — it's semantic
+ * (experience entries are chronological); only object key order is noise.
+ *
+ * This existed as a plain JSON.stringify comparison and fired on EVERY
+ * tailoring call, doubling the LLM spend and latency of the single
+ * most expensive credit action:
+ *
+ *   raw     = { ...EMPTY_RESUME, ...modelOutput }
+ *   cleaned = sanitizeStructuredResume(raw)
+ *
+ * EMPTY_RESUME has no `summary` key, so spreading the model's output
+ * appended `summary` LAST, while sanitizeStructuredResume rebuilds the
+ * object with `summary` SECOND. Two objects with byte-identical values
+ * therefore serialized differently, wasDegenerate() returned true, and the
+ * caller retried — on good output, every time. Nothing to do with the
+ * model, the prompt, or the provider: it was pure key ordering.
+ */
+function stableStringify(value: unknown): string {
+  if (value === null || typeof value !== "object") return JSON.stringify(value) ?? "null";
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
+  const entries = Object.entries(value as Record<string, unknown>)
+    // Match JSON.stringify's own behaviour: a key whose value is undefined
+    // is omitted entirely, not serialized as null.
+    .filter(([, v]) => v !== undefined)
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+  return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${stableStringify(v)}`).join(",")}}`;
 }

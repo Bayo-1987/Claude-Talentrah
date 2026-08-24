@@ -87,4 +87,68 @@ describe("wasDegenerate", () => {
     const cleaned = sanitizeStructuredResume(raw);
     expect(wasDegenerate(raw, cleaned)).toBe(false);
   });
+
+  /*
+   * Regression: this fired on EVERY tailoring call and doubled the LLM spend
+   * and latency of the most expensive credit action.
+   *
+   * EMPTY_RESUME has no `summary` key, so spreading a model response appends
+   * `summary` LAST, while sanitizeStructuredResume rebuilds the object with
+   * it SECOND. The old JSON.stringify comparison saw two different strings
+   * for byte-identical values and reported degeneracy.
+   *
+   * The case above misses it precisely because its fixture has no summary —
+   * which is why the bug survived. This one uses the shape the tailoring
+   * path actually produces.
+   */
+  it("returns false for clean output that includes a summary (key order is not degeneracy)", () => {
+    const modelOutput = {
+      contact: { name: "Ada Obi", email: "ada@example.com" },
+      summary: "Backend engineer with six years building payment systems.",
+      experience: [
+        {
+          title: "Senior Engineer",
+          company: "Paystack",
+          location: "Lagos",
+          startDate: "2021",
+          endDate: "2026",
+          description: "Built payment APIs.",
+        },
+      ],
+      education: [],
+      skills: ["Node.js", "Postgres"],
+      projects: [],
+      certifications: [],
+    };
+    const raw: StructuredResume = {
+      ...EMPTY_RESUME,
+      ...modelOutput,
+      contact: { ...EMPTY_RESUME.contact, ...modelOutput.contact },
+    };
+    const cleaned = sanitizeStructuredResume(raw);
+
+    // Guard the premise: raw and cleaned genuinely differ in key order.
+    expect(Object.keys(raw)).not.toEqual(Object.keys(cleaned));
+    expect(wasDegenerate(raw, cleaned)).toBe(false);
+  });
+
+  it("still detects a real drop even when key order also differs", () => {
+    const modelOutput = {
+      contact: { name: "Ada Obi", phone: DEGENERATE_PHONE },
+      summary: "Backend engineer.",
+      experience: [],
+      education: [],
+      skills: [],
+      projects: [],
+      certifications: [],
+    };
+    const raw: StructuredResume = {
+      ...EMPTY_RESUME,
+      ...modelOutput,
+      contact: { ...EMPTY_RESUME.contact, ...modelOutput.contact },
+    };
+    const cleaned = sanitizeStructuredResume(raw);
+    expect(cleaned.contact.phone).toBeUndefined();
+    expect(wasDegenerate(raw, cleaned)).toBe(true);
+  });
 });
