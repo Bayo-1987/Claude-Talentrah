@@ -5,6 +5,19 @@ import { EyebrowLabel, BorderedCard, Button } from "@/components/ui";
 
 export const metadata = { title: "Credits & Passes — Talentrah" };
 
+/**
+ * next_renewal_date is a date-only column ("2026-08-31"), so it can't go
+ * through `new Date(...).toLocaleDateString()` the way the timestamptz
+ * expires_at does — that parses as UTC midnight and renders the previous
+ * day for any viewer behind UTC. Build the date in local time from its
+ * parts so both dates on this card read the same way.
+ */
+function formatDateOnly(value: string | null): string {
+  if (!value) return "";
+  const [year, month, day] = value.split("-").map(Number);
+  return new Date(year, month - 1, day).toLocaleDateString();
+}
+
 export default async function BillingPage({
   searchParams,
 }: {
@@ -64,7 +77,7 @@ export default async function BillingPage({
                 {userPass.auto_renew_status === "active" && (
                   <>
                     <p className="text-[13.5px] text-ink-soft">
-                      Auto-renews on {userPass.next_renewal_date}. You&apos;ll get a reminder
+                      Auto-renews on {formatDateOnly(userPass.next_renewal_date)}. You&apos;ll get a reminder
                       before you&apos;re charged.
                     </p>
                     <form action={cancelAutoRenewAction.bind(null, userPass.id)}>
