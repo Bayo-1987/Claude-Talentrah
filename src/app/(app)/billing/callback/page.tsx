@@ -10,13 +10,17 @@ export default async function BillingCallbackPage({
 }: {
   searchParams: Promise<{ reference?: string }>;
 }) {
-  await requireUser();
+  // The session user is passed through, not just required. `reference`
+  // arrives as a URL query parameter, and fulfillPayment runs on the
+  // service-role client (which bypasses RLS), so without scoping this to
+  // the signed-in user any reference would be actionable by anyone.
+  const { user } = await requireUser();
   const { reference } = await searchParams;
 
   let outcome: "success" | "already_processed" | "failed" | "not_found" | "error" = "error";
   if (reference) {
     try {
-      const result = await fulfillPayment(reference);
+      const result = await fulfillPayment(reference, user.id);
       outcome = result.status;
     } catch {
       outcome = "error";
