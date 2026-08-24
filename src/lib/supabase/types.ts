@@ -832,6 +832,132 @@ export type Database = {
           },
         ]
       }
+      scholarship_saves: {
+        Row: {
+          created_at: string
+          id: string
+          notes: string | null
+          outcome_note: string | null
+          scholarship_id: string
+          status: Database["public"]["Enums"]["scholarship_save_status"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          outcome_note?: string | null
+          scholarship_id: string
+          status?: Database["public"]["Enums"]["scholarship_save_status"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          outcome_note?: string | null
+          scholarship_id?: string
+          status?: Database["public"]["Enums"]["scholarship_save_status"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scholarship_saves_scholarship_id_fkey"
+            columns: ["scholarship_id"]
+            isOneToOne: false
+            referencedRelation: "scholarships"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scholarship_saves_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      scholarships: {
+        Row: {
+          application_deadline: string | null
+          created_at: string
+          cycle_year: number | null
+          dedup_fingerprint: string
+          degree_levels: Database["public"]["Enums"]["scholarship_degree_level"][]
+          eligibility_age: string | null
+          eligibility_nationalities: string[]
+          eligibility_other: string | null
+          eligibility_prior_degree: string | null
+          field_tags: string[]
+          funding_covers: string[]
+          funding_type: Database["public"]["Enums"]["scholarship_funding_type"]
+          host_institution: string | null
+          id: string
+          last_checked_at: string
+          moderated_at: string | null
+          moderation_note: string | null
+          moderation_status: Database["public"]["Enums"]["scholarship_moderation_status"]
+          official_url: string
+          program_name: string
+          provider: string
+          source_name: string | null
+          updated_at: string
+        }
+        Insert: {
+          application_deadline?: string | null
+          created_at?: string
+          cycle_year?: number | null
+          dedup_fingerprint: string
+          degree_levels?: Database["public"]["Enums"]["scholarship_degree_level"][]
+          eligibility_age?: string | null
+          eligibility_nationalities?: string[]
+          eligibility_other?: string | null
+          eligibility_prior_degree?: string | null
+          field_tags?: string[]
+          funding_covers?: string[]
+          funding_type: Database["public"]["Enums"]["scholarship_funding_type"]
+          host_institution?: string | null
+          id?: string
+          last_checked_at?: string
+          moderated_at?: string | null
+          moderation_note?: string | null
+          moderation_status?: Database["public"]["Enums"]["scholarship_moderation_status"]
+          official_url: string
+          program_name: string
+          provider: string
+          source_name?: string | null
+          updated_at?: string
+        }
+        Update: {
+          application_deadline?: string | null
+          created_at?: string
+          cycle_year?: number | null
+          dedup_fingerprint?: string
+          degree_levels?: Database["public"]["Enums"]["scholarship_degree_level"][]
+          eligibility_age?: string | null
+          eligibility_nationalities?: string[]
+          eligibility_other?: string | null
+          eligibility_prior_degree?: string | null
+          field_tags?: string[]
+          funding_covers?: string[]
+          funding_type?: Database["public"]["Enums"]["scholarship_funding_type"]
+          host_institution?: string | null
+          id?: string
+          last_checked_at?: string
+          moderated_at?: string | null
+          moderation_note?: string | null
+          moderation_status?: Database["public"]["Enums"]["scholarship_moderation_status"]
+          official_url?: string
+          program_name?: string
+          provider?: string
+          source_name?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_passes: {
         Row: {
           authorization_code: string | null
@@ -986,6 +1112,8 @@ export type Database = {
         | "referral_signup_bonus"
         | "referral_activation_bonus"
         | "bullet_rewrite"
+        | "scholarship_eligibility_check"
+        | "scholarship_sop_draft"
       employment_type: "full_time" | "part_time" | "contract" | "internship"
       farah_message_role: "user" | "farah"
       job_source_type: "internal" | "external"
@@ -998,6 +1126,15 @@ export type Database = {
       payment_status: "pending" | "success" | "failed"
       referral_status: "invited" | "signed_up" | "activated"
       resume_source: "uploaded" | "builder" | "tailored"
+      scholarship_degree_level:
+        | "bsc"
+        | "msc"
+        | "phd"
+        | "postgraduate_diploma"
+        | "other"
+      scholarship_funding_type: "full" | "partial"
+      scholarship_moderation_status: "pending" | "verified" | "rejected"
+      scholarship_save_status: "saved" | "applying" | "submitted" | "outcome"
       seniority_level: "entry" | "mid" | "senior" | "lead" | "executive"
       work_type: "remote" | "hybrid" | "onsite"
     }
@@ -1149,6 +1286,8 @@ export const Constants = {
         "referral_signup_bonus",
         "referral_activation_bonus",
         "bullet_rewrite",
+        "scholarship_eligibility_check",
+        "scholarship_sop_draft",
       ],
       employment_type: ["full_time", "part_time", "contract", "internship"],
       farah_message_role: ["user", "farah"],
@@ -1162,6 +1301,16 @@ export const Constants = {
       payment_status: ["pending", "success", "failed"],
       referral_status: ["invited", "signed_up", "activated"],
       resume_source: ["uploaded", "builder", "tailored"],
+      scholarship_degree_level: [
+        "bsc",
+        "msc",
+        "phd",
+        "postgraduate_diploma",
+        "other",
+      ],
+      scholarship_funding_type: ["full", "partial"],
+      scholarship_moderation_status: ["pending", "verified", "rejected"],
+      scholarship_save_status: ["saved", "applying", "submitted", "outcome"],
       seniority_level: ["entry", "mid", "senior", "lead", "executive"],
       work_type: ["remote", "hybrid", "onsite"],
     },

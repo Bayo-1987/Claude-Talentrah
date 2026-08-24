@@ -10,4 +10,9 @@ export const CREDIT_COSTS = {
   autoApplySubmission: 2,
   talentDirectoryVerification: 25,
   bulletRewrite: 1,
+  // §6.15 / §6.9 — both are stated anchors on the decided price list, not
+  // proposals: eligibility check 2 credits (₦300), SOP drafting 4 credits
+  // (₦600, a tier above cover letters for a longer piece).
+  scholarshipEligibilityCheck: 2,
+  scholarshipSopDraft: 4,
 } as const;
