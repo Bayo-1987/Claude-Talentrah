@@ -20,6 +20,24 @@ import { extractStructuredJd } from "../src/lib/jobs/extract-jd";
 const DEMO_EMAIL = "demo@talentrah.dev";
 const DEMO_PASSWORD = "TalentrahDemo123!";
 
+// Mirrors the 7 templates already live in the "Talentrah" Supabase project
+// (industry_category/is_premium/unlock_cost_credits) — reproduced here so a
+// fresh project seeds the same real catalog rather than inventing a new one.
+const RESUME_TEMPLATES: {
+  name: string;
+  industry_category: string;
+  is_premium: boolean;
+  unlock_cost_credits: number;
+}[] = [
+  { name: "Clean Professional", industry_category: "Business", is_premium: false, unlock_cost_credits: 0 },
+  { name: "Structured Admin", industry_category: "Administration", is_premium: false, unlock_cost_credits: 0 },
+  { name: "Product & Tech", industry_category: "Technology", is_premium: false, unlock_cost_credits: 0 },
+  { name: "Portfolio Grid", industry_category: "Design", is_premium: true, unlock_cost_credits: 10 },
+  { name: "Field Notes", industry_category: "Customer Success", is_premium: false, unlock_cost_credits: 0 },
+  { name: "Ledger", industry_category: "Banking & Finance", is_premium: false, unlock_cost_credits: 0 },
+  { name: "Pipeline", industry_category: "Sales & Marketing", is_premium: true, unlock_cost_credits: 10 },
+];
+
 const INTERNAL_JOBS = [
   {
     title: "Senior Product Manager",
@@ -158,6 +176,72 @@ async function main() {
       structured_content: DEMO_RESUME,
     });
   }
+
+  console.log("→ Seeding resume templates…");
+  const templateIdByName = new Map<string, string>();
+  for (const t of RESUME_TEMPLATES) {
+    const { data: existingTemplate } = await supabase
+      .from("resume_templates")
+      .select("id")
+      .eq("name", t.name)
+      .maybeSingle();
+    if (existingTemplate) {
+      templateIdByName.set(t.name, existingTemplate.id);
+      continue;
+    }
+    const { data: newTemplate, error: templateError } = await supabase
+      .from("resume_templates")
+      .insert(t)
+      .select("id")
+      .single();
+    if (templateError || !newTemplate) throw templateError ?? new Error(`Failed to create template ${t.name}`);
+    templateIdByName.set(t.name, newTemplate.id);
+  }
+
+  console.log("→ Seeding Resume Builder demo resumes (in-progress + finalized)…");
+  const inProgressTemplateId = templateIdByName.get("Product & Tech");
+  const finalizedTemplateId = templateIdByName.get("Clean Professional");
+
+  async function upsertBuilderResume(
+    title: string,
+    templateId: string | undefined,
+    content: typeof DEMO_RESUME | Record<string, unknown>,
+  ) {
+    const { data: existing } = await supabase
+      .from("resumes")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("title", title)
+      .eq("is_base", false)
+      .maybeSingle();
+    const payload = {
+      user_id: userId,
+      is_base: false,
+      template_id: templateId ?? null,
+      title,
+      source: "builder" as const,
+      structured_content: JSON.parse(JSON.stringify(content)),
+    };
+    if (existing) {
+      await supabase.from("resumes").update(payload).eq("id", existing.id);
+    } else {
+      await supabase.from("resumes").insert(payload);
+    }
+  }
+
+  // In-progress: a draft that's barely started — only contact info filled in.
+  await upsertBuilderResume("Product Manager — draft", inProgressTemplateId, {
+    contact: { name: "Demo Seeker", email: DEMO_EMAIL, location: "Lagos, Nigeria" },
+    summary: "",
+    experience: [],
+    education: [],
+    skills: [],
+    projects: [],
+    certifications: [],
+  });
+
+  // Finalized: fully fleshed out and ready to export.
+  await upsertBuilderResume("Product Manager — Clean Professional", finalizedTemplateId, DEMO_RESUME);
 
   console.log("→ Seeding demo organization…");
   const ORG_NAME = "Zaria Digital";

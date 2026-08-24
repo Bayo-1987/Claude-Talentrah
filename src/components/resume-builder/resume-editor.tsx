@@ -19,27 +19,35 @@ function moveItem<T>(arr: T[], from: number, to: number): T[] {
   return copy;
 }
 
-function ReorderControls({
-  onUp,
-  onDown,
-  onRemove,
-}: {
-  onUp: () => void;
-  onDown: () => void;
-  onRemove: () => void;
-}) {
+function DragHandle() {
   return (
-    <div className="flex items-center gap-1">
-      <button type="button" onClick={onUp} aria-label="Move up" className="flex h-9 w-9 items-center justify-center text-ink-soft hover:text-rust">
-        ↑
-      </button>
-      <button type="button" onClick={onDown} aria-label="Move down" className="flex h-9 w-9 items-center justify-center text-ink-soft hover:text-rust">
-        ↓
-      </button>
-      <button type="button" onClick={onRemove} aria-label="Remove" className="flex h-9 w-9 items-center justify-center text-ink-soft hover:text-rust">
-        ×
-      </button>
+    <div
+      aria-label="Drag to reorder"
+      title="Drag to reorder"
+      className="flex h-9 w-9 shrink-0 cursor-grab items-center justify-center text-ink-soft active:cursor-grabbing"
+    >
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true">
+        <circle cx="4" cy="3" r="1.3" />
+        <circle cx="10" cy="3" r="1.3" />
+        <circle cx="4" cy="7" r="1.3" />
+        <circle cx="10" cy="7" r="1.3" />
+        <circle cx="4" cy="11" r="1.3" />
+        <circle cx="10" cy="11" r="1.3" />
+      </svg>
     </div>
+  );
+}
+
+function RemoveControl({ onRemove }: { onRemove: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onRemove}
+      aria-label="Remove"
+      className="flex h-9 w-9 shrink-0 items-center justify-center text-ink-soft hover:text-rust"
+    >
+      ×
+    </button>
   );
 }
 
@@ -74,8 +82,12 @@ export function ResumeEditor({ resumeId, initialTitle, initialContent }: ResumeE
   const [title, setTitle] = useState(initialTitle);
   const [content, setContent] = useState<StructuredResume>(initialContent);
   const [rewritingKey, setRewritingKey] = useState<string | null>(null);
+  const [rewriteError, setRewriteError] = useState<string | null>(null);
+  const [rewriteErrorKey, setRewriteErrorKey] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [pending, startTransition] = useTransition();
+  const [dragExperienceIndex, setDragExperienceIndex] = useState<number | null>(null);
+  const [dragEducationIndex, setDragEducationIndex] = useState<number | null>(null);
   const router = useRouter();
 
   function update<K extends keyof StructuredResume>(key: K, value: StructuredResume[K]) {
@@ -86,13 +98,21 @@ export function ResumeEditor({ resumeId, initialTitle, initialContent }: ResumeE
   async function handleRewrite(index: number, instruction: "impact" | "quantify" | "concise") {
     const key = `${index}`;
     setRewritingKey(key);
+    setRewriteError(null);
+    setRewriteErrorKey(null);
     try {
-      const rewritten = await rewriteBulletAction(content.experience[index].description ?? "", instruction);
+      const { text, error } = await rewriteBulletAction(
+        content.experience[index].description ?? "",
+        instruction,
+      );
+      if (error) {
+        setRewriteError(error);
+        setRewriteErrorKey(key);
+        return;
+      }
       const next = [...content.experience];
-      next[index] = { ...next[index], description: rewritten };
+      next[index] = { ...next[index], description: text };
       update("experience", next);
-    } catch {
-      // GEMINI_API_KEY likely isn't configured yet — leave the text as-is.
     } finally {
       setRewritingKey(null);
     }
@@ -110,6 +130,18 @@ export function ResumeEditor({ resumeId, initialTitle, initialContent }: ResumeE
     next[index] = { ...next[index], ...patch };
     update("experience", next);
   };
+
+  function handleExperienceDrop(targetIndex: number) {
+    if (dragExperienceIndex === null || dragExperienceIndex === targetIndex) return;
+    update("experience", moveItem(content.experience, dragExperienceIndex, targetIndex));
+    setDragExperienceIndex(null);
+  }
+
+  function handleEducationDrop(targetIndex: number) {
+    if (dragEducationIndex === null || dragEducationIndex === targetIndex) return;
+    update("education", moveItem(content.education, dragEducationIndex, targetIndex));
+    setDragEducationIndex(null);
+  }
 
   const updateEducation = (index: number, patch: Partial<ResumeEducationEntry>) => {
     const next = [...content.education];
@@ -202,19 +234,24 @@ export function ResumeEditor({ resumeId, initialTitle, initialContent }: ResumeE
         </div>
         <div className="flex flex-col gap-4">
           {content.experience.map((entry, i) => (
-            <BorderedCard key={i} className="flex flex-col gap-3 p-4">
+            <BorderedCard
+              key={i}
+              draggable
+              onDragStart={() => setDragExperienceIndex(i)}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={() => handleExperienceDrop(i)}
+              onDragEnd={() => setDragExperienceIndex(null)}
+              className={`flex flex-col gap-3 p-4 ${dragExperienceIndex === i ? "opacity-40" : ""}`}
+            >
               <div className="flex items-start justify-between">
+                <DragHandle />
                 <div className="grid flex-1 grid-cols-2 gap-3">
                   <TextField label="Title" value={entry.title} onChange={(e) => updateExperience(i, { title: e.target.value })} />
                   <TextField label="Company" value={entry.company} onChange={(e) => updateExperience(i, { company: e.target.value })} />
                   <TextField label="Start date" value={entry.startDate ?? ""} onChange={(e) => updateExperience(i, { startDate: e.target.value })} />
                   <TextField label="End date" value={entry.endDate ?? ""} onChange={(e) => updateExperience(i, { endDate: e.target.value })} />
                 </div>
-                <ReorderControls
-                  onUp={() => update("experience", moveItem(content.experience, i, i - 1))}
-                  onDown={() => update("experience", moveItem(content.experience, i, i + 1))}
-                  onRemove={() => update("experience", content.experience.filter((_, j) => j !== i))}
-                />
+                <RemoveControl onRemove={() => update("experience", content.experience.filter((_, j) => j !== i))} />
               </div>
               <textarea
                 value={entry.description ?? ""}
@@ -224,6 +261,9 @@ export function ResumeEditor({ resumeId, initialTitle, initialContent }: ResumeE
               />
               <RewriteButtons onRewrite={(instr) => handleRewrite(i, instr)} />
               {rewritingKey === `${i}` && <span className="text-[12px] text-ink-soft">Farah is rewriting…</span>}
+              {rewritingKey === null && rewriteErrorKey === `${i}` && rewriteError && (
+                <span className="text-[12px] text-rust">{rewriteError}</span>
+              )}
             </BorderedCard>
           ))}
         </div>
@@ -243,16 +283,21 @@ export function ResumeEditor({ resumeId, initialTitle, initialContent }: ResumeE
         </div>
         <div className="flex flex-col gap-3">
           {content.education.map((entry, i) => (
-            <div key={i} className="flex items-start gap-3">
+            <div
+              key={i}
+              draggable
+              onDragStart={() => setDragEducationIndex(i)}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={() => handleEducationDrop(i)}
+              onDragEnd={() => setDragEducationIndex(null)}
+              className={`flex items-start gap-3 ${dragEducationIndex === i ? "opacity-40" : ""}`}
+            >
+              <DragHandle />
               <div className="grid flex-1 grid-cols-2 gap-3">
                 <TextField label="School" value={entry.school} onChange={(e) => updateEducation(i, { school: e.target.value })} />
                 <TextField label="Degree" value={entry.degree ?? ""} onChange={(e) => updateEducation(i, { degree: e.target.value })} />
               </div>
-              <ReorderControls
-                onUp={() => update("education", moveItem(content.education, i, i - 1))}
-                onDown={() => update("education", moveItem(content.education, i, i + 1))}
-                onRemove={() => update("education", content.education.filter((_, j) => j !== i))}
-              />
+              <RemoveControl onRemove={() => update("education", content.education.filter((_, j) => j !== i))} />
             </div>
           ))}
         </div>
