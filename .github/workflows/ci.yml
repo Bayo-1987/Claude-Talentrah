@@ -46,6 +46,31 @@ jobs:
       - name: Unit tests (Vitest)
         run: npm run test
 
+      # TEMPORARY — no existing test actually calls the LLM provider (the
+      # closest one, tests/tailoring/malformed-body.test.ts, returns before
+      # ever reaching it), so a green run above only proves the app builds,
+      # not that GROQ_API_KEY actually works from inside CI's environment.
+      # Same verification gap as GEMINI_API_KEY hit earlier in this project
+      # — same fix. Remove this step once confirmed.
+      - name: TEMP — verify GROQ_API_KEY works live
+        run: |
+          echo "GROQ_API_KEY: present (length ${#GROQ_API_KEY})"
+          curl -sf https://api.groq.com/openai/v1/chat/completions \
+            -H "Authorization: Bearer $GROQ_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{"model":"openai/gpt-oss-120b","messages":[{"role":"user","content":"Say OK."}],"max_tokens":20,"reasoning_effort":"low"}' \
+            -o /tmp/groq-verify.json
+          echo "Response:"
+          cat /tmp/groq-verify.json
+          python3 -c "
+          import json
+          with open('/tmp/groq-verify.json') as f:
+              d = json.load(f)
+          content = d['choices'][0]['message']['content']
+          print()
+          print('Live Groq call succeeded. Content:', repr(content))
+          "
+
   e2e:
     name: Playwright e2e
     needs: checks
