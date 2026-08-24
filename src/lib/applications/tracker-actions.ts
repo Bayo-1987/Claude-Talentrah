@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { Enums } from "@/lib/supabase/types";
 
@@ -74,6 +75,18 @@ export async function updateStageAction(applicationId: string, formData: FormDat
     .eq("user_id", userId);
 
   revalidatePath("/tracker");
+
+  // M8's referral prompt hooks off this exact transition (build-prompt §2.5,
+  // M8 spec §2/§5) — redirecting with the application id lets the Tracker
+  // page show a one-time, personalized banner rather than a disruptive
+  // interstitial. The credit-ledger side of "Hired" (if this application was
+  // itself how the referred user got activated) is handled independently by
+  // the applications_check_activation DB trigger — this redirect is purely
+  // about prompting *this* user to refer someone, not about them having been
+  // referred themselves.
+  if (stage === "hired") {
+    redirect(`/tracker?justHired=${applicationId}`);
+  }
 }
 
 export async function updateNotesAction(applicationId: string, formData: FormData) {
