@@ -174,7 +174,12 @@ The test carries a positive control, so "nothing ever closes" cannot satisfy it.
    `schema-org:workable-nigeria` rows, zero bare `schema-org`**, greenhouse
    untouched at 127 open / 10 closed.
 4. **Full suite green in CI** on the merged head `215f69f`: **21/21 files, 267/267
-   tests**, plus **Playwright 13/13**. All four checks passed.
+   tests**, plus **Playwright 13/13**. All four checks passed. Independently
+   re-run locally against merged `main` (`c79f177`) once CI had finished and
+   nothing was contending for the database: **21/21 files, 267/267, exit 0**.
+   Two uncontended runs agreeing is also what rules out the alternative reading
+   of the flakiness below — that the raised `hookTimeout` is masking a real
+   problem rather than absorbing contention.
 
 ### The suite's own flakiness was self-inflicted — worth remembering
 
