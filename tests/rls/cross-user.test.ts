@@ -230,6 +230,19 @@ afterAll(async () => {
  * Every table holding data private to one user. This list is the coverage
  * claim — if a table with user-owned data is added and not listed here, this
  * suite silently stops covering it, so add it at the same time.
+ *
+ * Two user-scoped tables deliberately live outside this list because the
+ * read-your-own-row shape cannot express what they need checked:
+ * `organization_members` (a grant, so the risk is creating one, not reading
+ * one) and `referrals` (scoped by referrer_id/referred_user_id, no user_id
+ * column). Both are covered by tests/rls/org-and-referral-scoping.test.ts —
+ * which exists because the omission hid a real escalation for the whole of
+ * Phase 1.
+ *
+ * Note that beforeAll seeds a `referrals` row that nothing here asserts on.
+ * It is left in place (it is cleaned up with A), but it is not coverage —
+ * a seeded row can read like one at a glance, which is part of how the gap
+ * stayed invisible.
  */
 const OWNED_TABLES = [
   "resumes",

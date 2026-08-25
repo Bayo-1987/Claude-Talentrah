@@ -14,6 +14,19 @@ This repo root is also the Next.js app root (App Router + TypeScript + Tailwind,
 
 Supabase backend: project **"Talentrah"** already exists in the connected Supabase org (`Bayo-1987's Org`), project id `nytwbbzfpytctjsoczzq`, region `eu-north-1`. Reuse it — don't create a new project. It free-tier-pauses when idle; `restore_project` before running migrations/queries if `get_project` shows `INACTIVE`.
 
+**Migrations 0001–0025 are not in this repo** — they were applied straight to the project through the MCP connector, so the project's own `schema_migrations` table is the only history. From 0026 on, write the SQL into `supabase/migrations/` **first** so a policy change can be reviewed in a diff, then apply it. See [supabase/migrations/README.md](supabase/migrations/README.md).
+
+**There is no separate test/staging database.** The RLS suites, Playwright and `npm run seed` all run against the live project. They namespace and clean up their own throwaway users, but assume nothing else about isolation.
+
+## Current build state
+
+Phase 1 is feature-complete except for the employer side. Read [docs/phase-1-summary.md](docs/phase-1-summary.md) before assuming any feature's status — it is kept current and lists what shipped, what is deferred, and the open defects with their evidence. Two that shape most decisions:
+
+- **M8 (employer side) has zero product surface.** The tables and their RLS policies exist and were never exercised — which is exactly where the one live security defect was found. Don't describe the employer product as shipped anywhere user-facing.
+- **Production runs Gemini on a free-tier key** (20 req/day, shared). A billed key is a founder/account action, not a code change.
+
+Verification convention this repo holds itself to, visible throughout its PR history: **check real current state before building; prove a fix by first proving the test catches the bug.** Several milestones caught real defects specifically by re-testing what earlier work had assumed — an RLS policy that had never been run, a retry heuristic that looked like model behaviour, an OAuth name mapping where the intuitive fix would have repaired the wrong provider, and an org-membership policy that read as safe and was not.
+
 ---
 
 ## What Talentrah is
