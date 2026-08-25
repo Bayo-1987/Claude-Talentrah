@@ -33,6 +33,80 @@ both served stale content in this project's history. Don't rely on either.
 
 ---
 
+## Merged 2026-08-25 — PR #43, CI serialized against the shared database
+
+| PR | Branch | Merged at (UTC) | Merge SHA |
+|----|--------|-----------------|-----------|
+| [#43](https://github.com/Bayo-1987/Claude-Talentrah/pull/43) | `fix/ci-serialize-shared-database` | 20:11:39 | `658565e` |
+
+**The `e2e/employer.spec.ts` flake brief is CLOSED as root-caused, not patched.
+The spec needed no change of its own** — the mechanism that broke it is gone.
+
+`ci.yml` had no `concurrency:` block, so every push and every PR run started
+immediately with nothing sequencing them, while all of them read and write the
+one live Supabase project. Three separate failures in this run were that single
+mechanism:
+
+* `e2e/employer.spec.ts` on merge commit `5d65e0d` — a docs push started a
+  second `main` run at 19:40:12 while the merge run (19:36:52–19:41:41) was
+  mid-suite; the employer publish failed at 19:41:07 and the page never left
+  `/employer/jobs/new`. **The identical tree passed Playwright minutes later**
+  once nothing overlapped, which is what finally identified it as contention
+  rather than a defect.
+* Supabase Auth rate-limit exhaustion during the PR #42 review, which surfaces
+  as unrelated assertion failures in other files rather than as a rate-limit
+  error.
+* The `hookTimeout: 60000` bump in `vitest.config.ts` — local runs competing
+  with CI, every failure pinned at exactly the 10s hook budget.
+
+**The group key is a constant, not `${{ github.ref }}`.** The usual idiom keys
+on the ref so a branch queues only against itself; that models the wrong
+resource. Contention here is over the Supabase project, not git history, so a
+PR's run and a push to `main` must queue against *each other*. A per-ref key
+would have prevented none of the three failures above — each involved two
+different refs, or a local run versus CI.
+
+**`cancel-in-progress: false`** — queue, never cancel. Killing a run mid-suite
+skips the `afterAll`/`afterEach` cleanup, so its throwaway users, orgs and
+job_postings survive; with no staging database that debris lands in the real
+project and breaks the *next* run's fixtures. Cancelling does not save time, it
+converts one slow run into a later failing one.
+
+### Verified by demonstration, not by reading the docs
+
+A second commit was pushed ~45s after the first to force contention:
+
+```
+20:00:21   c847a72a  pending       created=19:59:03   <- queued
+           df0980fe  in_progress   created=19:58:17   <- running
+
+20:04:35   df0980fe  completed/success   ended  20:04:08
+           c847a72a  in_progress         started 20:04:11   <- 3s later
+```
+
+The three-second handoff is the proof. Under the previous config both would have
+been executing against the same project from 19:59:03. That the queued run
+*ran* rather than being superseded also confirms `cancel-in-progress: false` —
+had it cancelled, `c847a72a` would have gone straight from `pending` to
+`completed/cancelled`. Both finished green.
+
+### A practical rule this earned
+
+**Do not push to `main` while its CI is still running, and do not run the full
+suite locally while CI is running.** The concurrency group now handles the
+first case automatically; the second is still on the operator, because a local
+`vitest` run is invisible to GitHub Actions.
+
+### Note on PR #42's verification
+
+The standard says "CI green on the merge commit". For #42 that was **not** met on
+the merge commit itself — Playwright failed there, for the contention reason
+above — but all checks were green on `main` HEAD (`490220c`) immediately after,
+on the same tree. Recorded as "green at HEAD with one attributed failure on the
+intermediate commit" rather than rounded up, since rounding it up would be false.
+
+---
+
 ## Merged 2026-08-25 — PR #42, Paystack timeout / decline ambiguity (0043)
 
 | PR | Branch | Merged at (UTC) | Merge SHA |
@@ -799,9 +873,9 @@ rules. Those need the real files.
      and fixed; the sweep also found and fixed the Farah rate-limit bypass.
    - A zero-width character defeating the "no name yet" guard, reopening the
      PR #21 bug through a character class `.trim()` does not cover.
-   - `e2e/employer.spec.ts` flake — the concrete lead is a live-shared-database
-     race between concurrent CI runs, not Playwright parallelism (the config
-     already rules that out).
+   - ~~`e2e/employer.spec.ts` flake~~ — **closed**, PR #43. Root-caused to
+     concurrent CI runs sharing one Supabase project and fixed with a
+     constant-key concurrency group; the spec itself needed no change.
 
 Items already closed that these briefs still describe as open — confirm, don't
 re-diagnose: the ingestion trigger's fail-open (#37), the `spendCredits` race
