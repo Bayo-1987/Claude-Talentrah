@@ -266,7 +266,6 @@ describe("the daily cap holds under concurrency, not just in sequence", () => {
      */
     await resetUserState();
     const attempts = AUTO_APPLY_DAILY_SUBMIT_CAP + 3;
-    let throwawayOrgId: string | undefined;
 
     /*
      * Creates its own organisation rather than borrowing whichever one
@@ -291,7 +290,7 @@ describe("the daily cap holds under concurrency, not just in sequence", () => {
       .select("id, name")
       .single();
     if (orgError || !org) throw new Error(`Could not create test org: ${orgError?.message}`);
-    throwawayOrgId = org.id;
+    const throwawayOrgId = org.id;
 
     while (jobIds.length < attempts) {
       const { data: job, error: jobError } = await admin
@@ -338,7 +337,7 @@ describe("the daily cap holds under concurrency, not just in sequence", () => {
       await admin.from("auto_apply_queue").delete().eq("user_id", user.id);
       await admin.from("applications").delete().eq("user_id", user.id);
       for (const id of throwaway) await admin.from("job_postings").delete().eq("id", id);
-      if (throwawayOrgId) await admin.from("organizations").delete().eq("id", throwawayOrgId);
+      await admin.from("organizations").delete().eq("id", throwawayOrgId);
     }
   });
 });
