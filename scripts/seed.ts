@@ -18,7 +18,24 @@ import { computeDedupFingerprint } from "../src/lib/jobs/dedup";
 import { extractStructuredJd } from "../src/lib/jobs/extract-jd";
 
 const DEMO_EMAIL = "demo@talentrah.dev";
-const DEMO_PASSWORD = "TalentrahDemo123!";
+
+/*
+ * Read from the environment, never committed. This password used to be a
+ * literal here — and in the README and an e2e spec — in a PUBLIC repo, while
+ * the account it unlocks is the verified owner of the demo organisation whose
+ * job postings appear in every user's feed. Anyone could sign in and rewrite
+ * them. Rotated 2026-08-25; set DEMO_PASSWORD in .env.local and as a CI secret.
+ *
+ * No fallback default on purpose: a default would quietly become the new
+ * shared secret the moment someone forgot to set the variable.
+ */
+const DEMO_PASSWORD = process.env.DEMO_PASSWORD;
+if (!DEMO_PASSWORD) {
+  throw new Error(
+    "DEMO_PASSWORD is not set. Add it to .env.local (and to CI secrets for the e2e job). " +
+      "It is deliberately not committed — see the note above this check.",
+  );
+}
 
 // Mirrors the 7 templates already live in the "Talentrah" Supabase project
 // (industry_category/is_premium/unlock_cost_credits) — reproduced here so a
@@ -130,7 +147,15 @@ async function main() {
 
   if (existingUser) {
     userId = existingUser.id;
-    console.log(`  already exists (${userId})`);
+    // Re-assert the password rather than leaving whatever the account already
+    // had. Without this, rotating DEMO_PASSWORD would change the docs and the
+    // tests but not the live account, and the old published password would go
+    // on working — which is the entire point of the rotation.
+    const { error: pwErr } = await supabase.auth.admin.updateUserById(userId, {
+      password: DEMO_PASSWORD,
+    });
+    if (pwErr) throw pwErr;
+    console.log(`  already exists (${userId}) — password re-asserted from DEMO_PASSWORD`);
   } else {
     const { data, error } = await supabase.auth.admin.createUser({
       email: DEMO_EMAIL,
@@ -572,7 +597,10 @@ async function main() {
 
   console.log("\nDone. Demo login:");
   console.log(`  email:    ${DEMO_EMAIL}`);
-  console.log(`  password: ${DEMO_PASSWORD}`);
+  // Not echoed. This output lands in CI logs, and the whole point of the
+  // rotation was to stop the password being readable by anyone who can read
+  // this project. It is whatever DEMO_PASSWORD was set to.
+  console.log("  password: (whatever you set DEMO_PASSWORD to)");
 }
 
 main().catch((err) => {

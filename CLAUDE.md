@@ -22,10 +22,12 @@ Supabase backend: project **"Talentrah"** already exists in the connected Supaba
 
 Phase 1 is feature-complete except for the employer side. Read [docs/phase-1-summary.md](docs/phase-1-summary.md) before assuming any feature's status — it is kept current and lists what shipped, what is deferred, and the open defects with their evidence. Two that shape most decisions:
 
-- **M8 (employer side) has zero product surface.** The tables and their RLS policies exist and were never exercised — which is exactly where the one live security defect was found. Don't describe the employer product as shipped anywhere user-facing.
+- **M8 (employer side) has zero product surface.** The tables and their RLS policies exist and were never exercised — which is exactly where three live security defects were found (0026, 0027). Don't describe the employer product as shipped anywhere user-facing.
+- **An organisation's job postings only reach the public feed once `organizations.verified` is true** (0027). Anything that surfaces internal postings must not work around that gate.
+- **The demo account's password is not in the repo.** It comes from `DEMO_PASSWORD`; the seed re-asserts it on every run. This repo is public — never commit a working credential back into it.
 - **Production runs Gemini on a free-tier key** (20 req/day, shared). A billed key is a founder/account action, not a code change.
 
-Verification convention this repo holds itself to, visible throughout its PR history: **check real current state before building; prove a fix by first proving the test catches the bug.** Several milestones caught real defects specifically by re-testing what earlier work had assumed — an RLS policy that had never been run, a retry heuristic that looked like model behaviour, an OAuth name mapping where the intuitive fix would have repaired the wrong provider, and an org-membership policy that read as safe and was not.
+Verification convention this repo holds itself to, visible throughout its PR history: **check real current state before building; prove a fix by first proving the test catches the bug.** Several milestones caught real defects specifically by re-testing what earlier work had assumed — an RLS policy that had never been run, a retry heuristic that looked like model behaviour, an OAuth name mapping where the intuitive fix would have repaired the wrong provider, and an org-membership policy that read as safe and was not. That last one is also the standing example of a second habit: after fixing a policy, ask what *else* grants the same privilege — the first fix closed one route and, in doing so, opened a second.
 
 ---
 

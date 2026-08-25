@@ -15,12 +15,18 @@ import { test, expect } from "@playwright/test";
  * left to assert is *omitted*; this now just confirms all four expected
  * nav links render.
  *
- * Requires the demo user seeded by `npm run seed` (scripts/seed.ts).
+ * Requires the demo user seeded by `npm run seed` (scripts/seed.ts), and
+ * DEMO_PASSWORD — the demo account's password is no longer a literal in this
+ * repo (it is public; see the note in scripts/seed.ts).
  */
+const DEMO_PASSWORD = process.env.DEMO_PASSWORD;
+
 test("masthead nav shows all four links once Job Tracker (M7) and Refer a Friend (M8) have shipped", async ({ page }) => {
+  test.skip(!DEMO_PASSWORD, "DEMO_PASSWORD is not set — see scripts/seed.ts");
+
   await page.goto("/login");
   await page.getByLabel("Email").fill("demo@talentrah.dev");
-  await page.getByLabel("Password").fill("TalentrahDemo123!");
+  await page.getByLabel("Password").fill(DEMO_PASSWORD!);
   await page.getByRole("button", { name: "Log in" }).click();
 
   await page.waitForURL("**/jobs");
