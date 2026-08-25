@@ -1,0 +1,34 @@
+{
+  "_fixture_note": "Real JobPosting JSON-LD captured live from https://jobs.workable.com/view/qEpz2EVGN5H6PonWuAKcoB/remote-associate-product-manager-in-nigeria-at-reliance-health on 2026-08-25 (see sources.config.ts's schema-org comment for the source diligence trail). Structural fields (title, hiringOrganization, datePosted, employmentType, jobLocation, jobLocationType, applicantLocationRequirements) are verbatim. Only the long free-text HTML fields (description, benefitsSection, requirementsSection) are shortened for fixture size, marked inline where truncated -- none of those fields are asserted on structurally by the fetcher, only stripped to plain text.",
+  "@context": "https://schema.org/",
+  "@type": "JobPosting",
+  "title": "Associate Product Manager",
+  "description": "About Reliance Health<p>We're a healthcare technology company of 400+ people using technology to make healthcare affordable, accessible, and delightful in emerging markets. We operate across Nigeria, Egypt, Senegal, and Côte d'Ivoire, with 300,000 people depending on us for their healthcare.</p><p>...[truncated for fixture size; real field is longer HTML]</p>",
+  "identifier": {
+    "@type": "PropertyValue",
+    "name": "id",
+    "value": "c7b81dc5-a333-417a-b4fa-fc9420c4da03"
+  },
+  "datePosted": "2026-02-18T15:37:35.838Z",
+  "employmentType": "FULL_TIME",
+  "hiringOrganization": {
+    "@type": "Organization",
+    "name": "Reliance Health",
+    "logo": "https://workablehr.s3.amazonaws.com/uploads/account/logo/581188/logo",
+    "url": "http://getreliancehealth.com",
+    "sameAs": "https://jobs.workable.com/company/gEpnCt8LVeoiioRg2UbNL5/jobs-at-reliance-health"
+  },
+  "jobLocation": {
+    "@type": "Place"
+  },
+  "jobLocationType": "TELECOMMUTE",
+  "applicantLocationRequirements": {
+    "@type": "Country",
+    "name": "Nigeria"
+  },
+  "directApply": true,
+  "id": "c7b81dc5-a333-417a-b4fa-fc9420c4da03",
+  "benefitsSection": "<p>At Reliance Health, we prioritize our people and their well-being. Our benefits package is designed...[truncated]</p>",
+  "requirementsSection": "What You'll Bring<ul><li>2+ years of work experience</li><li>A University degree</li><li>Comfortable...[truncated]</li></ul>",
+  "url": "https://jobs.workable.com/view/qEpz2EVGN5H6PonWuAKcoB/remote-associate-product-manager-in-nigeria-at-reliance-health"
+}

@@ -17,6 +17,12 @@ import { createClient } from "@supabase/supabase-js";
 import type { Database } from "../src/lib/supabase/types";
 import { computeDedupFingerprint } from "../src/lib/jobs/dedup";
 import { extractStructuredJd } from "../src/lib/jobs/extract-jd";
+// Type-only, so the "server-only" guard in ingest.ts is never evaluated —
+// but it means this script can no longer drift from the route's real
+// response shape, which is exactly what just happened: the field was
+// renamed token -> identifier and the hand-written type below kept
+// compiling while every log line printed "greenhouse/undefined".
+import type { IngestSourceResult } from "../src/lib/jobs/ingest";
 
 const DEMO_EMAIL = "demo@talentrah.dev";
 
@@ -575,15 +581,14 @@ async function main() {
         : `Ingestion route returned ${ingestRes.status} — is \`npm run dev\` running at ${devServerUrl}?`,
     );
   }
-  const { results } = (await ingestRes.json()) as {
-    results: { source: string; token: string; fetched: number; upserted: number; closed: number; error?: string }[];
-  };
+  const { results } = (await ingestRes.json()) as { results: IngestSourceResult[] };
   for (const r of results) {
     if (r.error) {
-      console.log(`  ✗ ${r.source}/${r.token}: ${r.error}`);
+      console.log(`  ✗ ${r.source}/${r.identifier}: ${r.error}`);
     } else {
+      const skipped = r.skipped ? `, skipped ${r.skipped}` : "";
       console.log(
-        `  ✓ ${r.source}/${r.token}: fetched ${r.fetched}, upserted ${r.upserted}, closed ${r.closed}`,
+        `  ✓ ${r.source}/${r.identifier}: fetched ${r.fetched}, upserted ${r.upserted}, closed ${r.closed}${skipped}`,
       );
     }
   }

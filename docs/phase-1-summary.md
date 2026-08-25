@@ -13,7 +13,7 @@ Milestone names below follow **the plan doc** (`~/.claude/plans/adaptive-gigglin
 |---|---|---|
 | **M0** Foundation & design system | done | Next.js/TS/Tailwind v4; six hand-built primitives; 22 tables, RLS enabled on every one |
 | **M1** Auth & onboarding | done | Email/password + Google + LinkedIn OIDC; fictional testimonial persona (open decision #2 is a legal requirement, not polish) |
-| **M2** Job supply & aggregation | **partial** | Greenhouse + Lever live, with dedup and freshness sweep. **schema.org/JSON-LD crawler never built** |
+| **M2** Job supply & aggregation | **partial** | Greenhouse + Lever + one schema.org/JSON-LD source (Workable's aggregated search) live, with dedup and freshness sweep. Still one pilot source, not broad crawling — see *schema.org ingestion* below |
 | **M3** Job feed & matching | done | Algorithmic match scoring, cached; server-rendered feed; manual apply both paths |
 | **M4** Resume Builder | done | 7 templates, drag-reorder, credit-gated AI bullet rewriting, print-to-PDF |
 | **M5** JD tailoring + Credits/Passes | done | Paste-text tailoring, one-time free trial, Paystack checkout + webhook, pass auto-renewal |
@@ -35,7 +35,7 @@ The employer side deliberately did **not** take a new milestone number. "M8" alr
 ## Deferred, deliberately
 
 - **The Phase 2 half of the employer product** — Ad Campaign Manager, employer billing, analytics, and the "claim your listing" flow. Phase 1's free job posting has now shipped; everything priced or measured has not.
-- **schema.org crawler** (M2) — blocked on legal review of source reuse terms (§10 item 10).
+- **Broader schema.org reliance** (M2) — one pilot source shipped (see below); relying on this mechanism as a *primary* supply source, or adding more sources without the same per-source diligence, is still blocked on the legal review §10 item 10 names.
 - **Auto-apply, ad campaigns, URL-based JD import, mentorship, talent directory** — Phase 2/3 by design.
 
 ## Assumptions made where the founder hasn't decided
@@ -403,3 +403,82 @@ Confirmed on production rather than from the docs alone — `GET`, `PUT`,
 `DELETE`, `PATCH` on `/api/admin/ingest-jobs` all returned 405 before any
 change. `/api/e2e/llm-provider` likewise already self-gates correctly, 404 on
 production. Both are covered by tests now, but neither needed a code change.
+
+## schema.org/JobPosting ingestion — one pilot source, per source-eligibility diligence
+
+The second half of M2/§6.12, per `schema-org-job-ingestion-prompt.md`. Four
+candidates were checked directly (`robots.txt` plus a real live page, the same
+diligence Moniepoint's Greenhouse board got), not assumed from documentation:
+
+| Source | Verdict | Why |
+|---|---|---|
+| `hotnigerianjobs.com` | disqualified | `robots.txt` names ClaudeBot/GPTBot/CCBot explicitly, `ai-train=no, use=reference` |
+| `jobberman.com` | disqualified | `robots.txt` disallows `/job/`, the individual-posting path |
+| `myjobmag.com` | disqualified | not blocked by `robots.txt`, but a real listing page has no `JobPosting` JSON-LD at all |
+| `fuzu.com` | **disqualified, on a check the brief didn't name** | Passed both the `robots.txt` check (no AI-crawler block) *and* the JSON-LD check (real `title`/`hiringOrganization`/`datePosted` verified live on `/nigeria/jobs/<slug>`) — but its Terms of Service explicitly prohibit "automated tools to scrape... platform data" and "redistributing, or aggregating [Candidate or Employer data] without authorisation." `robots.txt` governs crawler *access*; it is not a redistribution license, and Fuzu's ToS withholds that license in as many words. Don't reopen without a real authorisation conversation with Fuzu — see `sources.config.ts` for the full evidence trail. |
+| `jobs.workable.com` (search-by-country) | **qualifies, shipped** | `robots.txt` carries `Content-Signal: search=yes, ai-input=yes, ai-train=no` — explicit AI-input permission, only model-training withheld, a materially better signal than either a named-bot block or Fuzu's silence-plus-ToS-ban. No path disallow on `/search/*` or `/view/*`. Its Terms of Service (checked directly) have no scraping/redistribution prohibition anywhere in them. Verified live on two real Nigeria-market postings. |
+
+Shipped: `src/lib/jobs/sources/schema-org.ts` (two-step crawl — a listing
+page's `ItemList` JSON-LD to individual job URLs, each job's own `JobPosting`
+block mapped to `NormalizedJobPosting`), wired into `ingest.ts`'s existing
+dispatch/dedup/freshness pipeline, one config entry in `sources.config.ts`
+(`jobs.workable.com/search/nigeria`). `JobSourceConfig` and
+`NormalizedJobPosting.externalSource` are now a three-way discriminated union
+(`greenhouse | lever | schema-org`) — see `types.ts`.
+
+**Built in from the start, not retrofitted:** a shape-validation guard
+(`validateJobPosting` in `schema-org.ts`) that skips and logs a malformed
+`JobPosting` block instead of throwing — the exact contract-drift gap
+`test-scenarios-external-api-integrations-prompt.md` §1 already names as
+missing from `greenhouse.ts`/`lever.ts`. This fetcher is greenfield, so there
+was no reason to repeat it. `IngestSourceResult.skipped` surfaces the count.
+
+**The freshness/closure sweep changed shape for this.** Greenhouse/Lever are
+single-company boards, so scoping stale-closure by `(external_source,
+company_name)` from the static config was always right and is unchanged. A
+schema.org source has no such single company — Workable's aggregated search
+spans many hiring organisations in one fetch — so its closure scope is the
+whole source, checked against every fingerprint seen anywhere in that fetch.
+Verified directly against the live database (`tests/jobs/ingest-schema-org.test.ts`,
+plus a manual rolled-back transaction against the live project during
+development): a company's posting that drops off the listing closes; a
+still-listed company's does not.
+
+**The closure scope is per-source, not per-mechanism.** A schema.org source
+writes `external_source` as `schema-org:<label>` (e.g.
+`schema-org:workable-nigeria`), and its freshness sweep scopes to that same
+qualified value — one function, `schemaOrgSourceKey` in `types.ts`, produces
+both so they cannot drift.
+
+The bare `'schema-org'` this replaced was shared by every schema.org row in the
+table, and greenhouse/lever's second predicate (`company_name`) has no
+equivalent for a multi-employer source. So **any** schema.org ingest closed
+**every** schema.org row it hadn't just seen — not only a hypothetical second
+source. That was caught the hard way: running
+`tests/jobs/ingest-schema-org-multi-source.test.ts` against the unfixed code
+closed all 20 real Workable postings in the live project, because the test's
+mocked sources have no real postings of their own and everything else looked
+stale to them. There is no staging database, which is exactly why that
+mattered. Migrations `0039` (re-label) and `0040` (reopen the 20, all verified
+still live on the listing) repaired it.
+
+**What "shipped" does not mean here.** This is one well-vetted pilot source,
+not a green light to add every schema.org-emitting board found the same way,
+and not "relying on this mechanism as a primary supply source" — §10 item 10's
+legal review is still the gate for that, unchanged by this pilot. Read
+`sources.config.ts`'s comment before adding a second schema-org source.
+
+**Test suite note:** `tests/jobs/schema-org.test.ts` (network-mocked, no DB —
+7 tests, all passing, including the real captured fixture in
+`tests/jobs/fixtures/workable-job-posting.json`) ran clean in the environment
+this was built in. `tests/jobs/ingest-schema-org.test.ts` (the live-database
+half — upsert shape and the closure-sweep behaviour above) could **not** be
+executed in that same environment: `SUPABASE_SERVICE_ROLE_KEY` isn't available
+there, the same pre-existing gap that also blocks all 12 other DB-backed test
+files in this repo from running outside CI (confirmed — every one fails with
+the identical "not set" error, not something this change introduced). The
+closure-query semantics were checked by hand against the live project in a
+rolled-back SQL transaction instead (see commit), but the new test itself
+still needs a real CI run — the same "typecheck, lint, unit tests" gate every
+other PR in this repo goes through — before this is treated as fully verified
+by this project's own four-point standard.
