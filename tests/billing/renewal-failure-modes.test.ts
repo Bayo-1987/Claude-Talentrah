@@ -253,6 +253,52 @@ describe("an indeterminate failure must NOT end the subscription", () => {
     ).toBe("lapsed");
   });
 
+  it("when it finally gives up, it leaves the trail back to the money", async () => {
+    /*
+     * The one genuinely bad outcome this design cannot rule out: we stop
+     * retrying while a charge of unknown outcome is outstanding, so the
+     * customer may have been debited and lapsed anyway. Nothing can resolve
+     * that automatically — Paystack never answered, three times.
+     *
+     * What CAN be guaranteed is that the evidence survives. Clearing
+     * `pending_renewal_reference` to leave a tidy row, or "correcting" the
+     * transaction to `failed`, would destroy the only thread back to a refund
+     * someone may be owed.
+     */
+    const { MAX_INDETERMINATE_RENEWAL_ATTEMPTS } = await import("@/lib/billing/renewals");
+    charge.mockRejectedValue(timeoutError());
+    verify.mockRejectedValue(timeoutError());
+
+    const { runPassRenewalJob } = await import("@/lib/billing/renewals");
+    let summary;
+    for (let i = 0; i < MAX_INDETERMINATE_RENEWAL_ATTEMPTS; i++) {
+      summary = await runPassRenewalJob();
+    }
+
+    const { data: state } = await admin
+      .from("user_passes")
+      .select("auto_renew_status, pending_renewal_reference, renewal_attempt_count")
+      .eq("id", userPassId)
+      .single();
+
+    expect(state!.auto_renew_status).toBe("lapsed");
+    expect(
+      state!.pending_renewal_reference,
+      "the reference must survive the lapse — it is the only thread back to a possible charge",
+    ).not.toBeNull();
+
+    const txns = await transactionsForPass();
+    expect(
+      txns.every((x) => x.status === "pending"),
+      "an unresolved charge must never be retroactively relabelled 'failed'",
+    ).toBe(true);
+
+    expect(
+      summary!.errors.some((e) => e.message.includes("NEEDS RECONCILIATION")),
+      "the run must say out loud that a human has to reconcile this",
+    ).toBe(true);
+  });
+
   it("a retry verifies the previous attempt before charging again", async () => {
     /*
      * Double-charge prevention. If the first attempt timed out AFTER Paystack

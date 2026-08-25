@@ -362,9 +362,24 @@ async function recordIndeterminate(
   }
 
   if (attempts >= MAX_INDETERMINATE_RENEWAL_ATTEMPTS) {
-    // Bounded, not infinite. Past this point the failure is no longer
-    // plausibly transient, and promising a renewal that never happens is its
-    // own dishonesty.
+    /*
+     * Bounded, not infinite. Past this point the failure is no longer
+     * plausibly transient, and promising a renewal that never happens is its
+     * own dishonesty.
+     *
+     * This is the one genuinely bad outcome the whole design cannot rule out:
+     * we give up while a charge of UNKNOWN outcome is still outstanding, so it
+     * is possible the customer was debited and has now been lapsed anyway.
+     * Nothing here can resolve that automatically — Paystack never answered,
+     * three times.
+     *
+     * So `pending_renewal_reference` is deliberately NOT cleared. It is the
+     * only thread back to the money: `user_passes_pending_renewal_idx` (0043)
+     * makes those rows findable, the `payment_transactions` row stays
+     * `pending` rather than being falsely marked failed, and the message below
+     * says plainly that a human has to reconcile it. Clearing it to leave a
+     * tidy row would destroy the evidence that someone may be owed a refund.
+     */
     await markLapsed(supabase, row.id);
     await supabase
       .from("user_passes")
@@ -373,7 +388,10 @@ async function recordIndeterminate(
     summary.lapsed++;
     summary.errors.push({
       userPassId: row.id,
-      message: `Lapsed after ${attempts} unresolved renewal attempts — Paystack never confirmed an outcome.`,
+      message:
+        `NEEDS RECONCILIATION: lapsed after ${attempts} unresolved renewal attempts — Paystack never ` +
+        `confirmed an outcome for reference ${reference}. The customer may have been charged. The ` +
+        `payment_transactions row is still 'pending' and pending_renewal_reference is retained.`,
     });
     return;
   }
