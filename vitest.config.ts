@@ -7,6 +7,27 @@ export default defineConfig({
     setupFiles: ["./tests/setup.ts"],
     include: ["src/**/*.test.ts", "tests/**/*.test.ts"],
     testTimeout: 20000,
+    /*
+     * Hooks get the same budget as tests, not vitest's 10s default.
+     *
+     * Every DB-backed suite here creates auth users in beforeAll/beforeEach
+     * against the shared live Supabase project — there is no staging database
+     * (CLAUDE.md). A single createUser is ~750ms idle, but the suite runs 21
+     * files in parallel and CI runs against the same project, so under
+     * contention those hooks routinely cross 10s. The symptom is misleading:
+     * the FILE is reported failed with "Hook timed out in 10000ms" while every
+     * test in it passed, or its tests are all marked skipped.
+     *
+     * Three files had already been patched individually with `, 60_000` —
+     * spend-race, rate-limit and referrals — which is the same fix applied
+     * three times and still leaves every other suite exposed. This is the
+     * class fix; the per-file overrides are now redundant but harmless, and
+     * are left in place because each documents why its own hook is slow.
+     *
+     * A raised ceiling does not hide a hang: a genuinely stuck hook still
+     * fails, just at 60s. What it stops doing is failing healthy runs.
+     */
+    hookTimeout: 60000,
   },
   resolve: {
     alias: {
