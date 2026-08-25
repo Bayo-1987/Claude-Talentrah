@@ -406,6 +406,15 @@ production. Both are covered by tests now, but neither needed a code change.
 
 ## A Paystack outage could cancel a paying subscription (0043)
 
+> **A different kind of entry from the ones above it.** 0041 was an
+> unauthorized bypass and 0042's premium-template gap was a product-integrity
+> defect — both had an unambiguous right answer once the facts were established.
+> This one did not. The bug was clear-cut, but the *remedy* required three
+> financial-policy judgment calls with real trade-offs in both directions, and
+> the reasoning behind each is recorded below because a future reader changing
+> one of them needs to know what was weighed, not just what was chosen.
+
+
 **A real money-affecting defect, live until this shipped.** `chargeOne` in
 `src/lib/billing/renewals.ts` caught every failure from `chargeAuthorization` in
 one branch whose comment asserted a single cause — *"Paystack rejected the
@@ -476,6 +485,65 @@ somewhere new — still fell through to cancelling the customer. That is the
 original bug wearing a new shape. Asking instead "do we have positive evidence
 the card was refused?" makes evidence-of-nothing safe by default, and makes
 reintroducing the old behaviour require an explicit, visible decision.
+
+### The three judgment calls, and what was weighed
+
+**1. Three attempts, not one and not unlimited.** One attempt is what caused the
+bug. Unlimited leaves a Pass promising a renewal that never arrives, against an
+endpoint that never answers — a different lie to the customer, and one with no
+natural end. Three daily attempts is roughly three days of grace: Paystack
+incidents run minutes to hours, so a failure still unresolved after three is no
+longer plausibly transient. The number is a judgment, not a derivation, and it
+is a single exported constant (`MAX_INDETERMINATE_RENEWAL_ATTEMPTS`) precisely
+so changing it is a one-line, visible decision.
+
+**2. Verify before re-charging.** The non-obvious risk in "just retry" is that a
+timeout can happen *after* Paystack has debited the card. A naive retry would
+bill the customer twice for one period — strictly worse than the original bug,
+because the original at least only withheld a service, where this takes money.
+So an indeterminate attempt stores its reference and the next run verifies that
+reference before charging. If the verify is itself indeterminate the run backs
+off entirely rather than gamble.
+
+**3. Safe-by-default classification — `isDecline`, not `isIndeterminate`.** The
+predicate asks "do we have positive evidence the card was refused?" rather than
+"does this error look like a network problem?". The direction is the whole
+point: under the second phrasing, an error the code has never seen falls through
+to cancelling the customer, which is the original bug wearing a new shape. Under
+the first, evidence-of-nothing is safe and reintroducing the old behaviour
+requires an explicit, visible change.
+
+This was not theoretical. The first implementation used the `isIndeterminate`
+phrasing and **the timeout test still failed** — the fix was wrong in exactly
+the direction it was meant to correct, and only the test caught it.
+
+### Two bugs found in the work itself, not in the product
+
+Recorded rather than folded into the fix, because both are recurring classes in
+this repo rather than one-offs:
+
+* **A test fixture that silently retargeted its assertions.** The suite minted a
+  fresh auth user per test with a raw `admin.auth.admin.createUser`. Under
+  full-suite load that call trips Supabase Auth's rate limit, and when it threw,
+  the module-level `userPassId` kept the *previous* test's value — so assertions
+  ran against the wrong Pass, producing "expected 1 transaction, got 2" and a
+  missing retry reference. Intermittent, passing in isolation, and it looked
+  exactly like a product bug. This is the **third** fixture bug of the
+  looks-like-a-product-bug-but-isn't class in this run, after PR #38's `afterAll`
+  that leaked the accounts it existed to delete and PR #39 review's `ledgerFor`
+  reporting a failed query as an empty result. The shared, retrying helper in
+  `tests/support/auth.ts` exists for exactly this; the fixture now uses it, holds
+  one account for the whole file instead of seven, and resets its target to a
+  sentinel so a partial setup fails loudly.
+* **The CI secret scanner reported its own tooling failure as a leak.** gitleaks
+  failed to download (a 403 from GitHub's release CDN), the step exited non-zero,
+  and a bare `if: failure()` printed *"A secret-shaped value was found in this
+  change."* That was untrue. The message is now scoped to the scan step, the
+  download retries, and a separate notice states the thing that actually matters
+  when the tool cannot run: **nothing was scanned, so nothing was cleared** — a
+  green PR must not be read as evidence the change was checked. A security check
+  that cries wolf on its own infrastructure is one people learn to dismiss, which
+  is a problem independent of this PR.
 
 ### Also fixed: the last untimed external call in the repo
 

@@ -33,22 +33,31 @@ both served stale content in this project's history. Don't rely on either.
 
 ---
 
-## In flight — Paystack timeout / decline ambiguity (0043)
+## Merged 2026-08-25 — PR #42, Paystack timeout / decline ambiguity (0043)
 
-Branch `fix/paystack-timeout-decline-ambiguity`, migration `0043` applied.
-The highest-value item left on the test-coverage backlog, and a real
-money-affecting defect rather than a hypothetical.
+| PR | Branch | Merged at (UTC) | Merge SHA |
+|----|--------|-----------------|-----------|
+| [#42](https://github.com/Bayo-1987/Claude-Talentrah/pull/42) | `fix/paystack-timeout-decline-ambiguity` | 19:36:49 | `5d65e0d` |
+
+4 commits, 9 files, +1038/−66.
+
+**The first entry in this run driven by financial-policy judgment rather than a
+clear-cut defect.** 0041 was an unauthorized bypass; 0042's premium-template gap
+was a product-integrity failure. Both had one right answer once the facts were
+in. Here the *bug* was unambiguous but the *remedy* was not — three calls with
+real trade-offs either way, recorded below so anyone changing one knows what was
+weighed.
 
 ### The bug
 
 `chargeOne` caught every failure from `chargeAuthorization` in one branch whose
 comment asserted a single cause — "Paystack rejected the charge outright" — for
-every possible one. Timeout, DNS failure, reset connection, 502 from Paystack's
-own edge, and a genuine card decline all reached the same `markLapsed`, which
-sets `next_renewal_date = null`. The job selects on `next_renewal_date <= today`,
-so that is what makes the lapse permanent — the Pass is never looked at again,
-and the design deliberately has no dunning. **One dropped connection ended a
-subscription the customer was paying for.**
+all of them. Timeout, DNS failure, reset connection, a 502 from Paystack's own
+edge, and a genuine decline all reached `markLapsed`, which sets
+`next_renewal_date = null`. The job selects on `next_renewal_date <= today`, so
+that is what made it permanent: the Pass is never seen again, and the design
+deliberately has no dunning. **One dropped connection ended a subscription the
+customer was paying for.**
 
 Proven before fixing, real job against the real database, only the Paystack
 client mocked:
@@ -59,60 +68,97 @@ client mocked:
   paying customer's Pass: expected 'lapsed' to be 'active'
 ```
 
-### Two corrections to the brief's description
+Two corrections to the brief's framing: `markLapsed` does **not** clear
+`authorization_code` (only `cancelPassAutoRenewal` does) — the token survived and
+`next_renewal_date` was the casualty. But it was understated elsewhere: the run
+also wrote `payment_transactions.status = 'failed'`, **a claim Talentrah cannot
+support**, since a timeout can follow a successful debit. Those now record
+`pending`.
 
-* `markLapsed` does **not** clear `authorization_code` — only
-  `cancelPassAutoRenewal` does. The token survived; `next_renewal_date` was the
-  casualty, and that is what removed the Pass from the job forever.
-* Understated in the other direction: the run also wrote a
-  `payment_transactions` row as `failed`, which is **unsupportable** — a timeout
-  can occur after Paystack debited the card, so "failed" may be false, and it is
-  the record a human would reconcile from.
+### The three decisions
 
-### Policy decided and written down
+**1 — Three attempts.** One is what caused the bug. Unlimited leaves a Pass
+promising a renewal that never comes, with no natural end. Three daily attempts
+≈ three days of grace; Paystack incidents run minutes to hours, so beyond that
+the failure is no longer plausibly transient. A judgment, not a derivation —
+hence one exported constant (`MAX_INDETERMINATE_RENEWAL_ATTEMPTS`) so changing
+it is visible and deliberate.
 
-| Case | Behaviour | Why |
-|---|---|---|
-| Genuine decline | lapses on first attempt — **unchanged** | A reasoned call from the original build; reversing it while fixing something else would be a bigger change than asked for. Pinned by a positive-control test so declines cannot become unkillable. |
-| Indeterminate | does **not** lapse; retried next daily run | Says nothing about the customer. Keeps `active`, its token, and `next_renewal_date` — retrying *is* the recovery mechanism. |
-| Indeterminate ×3 | finally lapses | Bounded, not infinite. Paystack incidents run minutes to hours; still failing after three daily attempts is no longer plausibly transient, and promising a renewal that never happens is its own dishonesty. |
-| Pending reference | verified **before** re-charging | A timeout can happen after the card was debited. Charging again would bill twice for one period — strictly worse than the bug. |
+**2 — Verify before re-charging.** The non-obvious risk in "just retry": a
+timeout can occur *after* the card was debited, so a naive retry bills twice for
+one period — worse than the original bug, which only withheld a service where
+this takes money. An indeterminate attempt stores its reference; the next run
+verifies it before charging, and if the verify is itself indeterminate the run
+backs off rather than gamble.
 
-### The predicate is `isDecline`, not `isIndeterminate`
+**3 — Safe-by-default classification.** The predicate is `isDecline`, asking "do
+we have positive evidence the card was refused?", not `isIndeterminate` asking
+"does this look like a network problem?". Under the second phrasing an
+unrecognised error falls through to cancelling the customer — the original bug in
+a new shape. **This was not theoretical: the first implementation used that
+phrasing and the timeout test still failed.** The fix was wrong in the exact
+direction it was meant to correct, and only the test caught it.
 
-Worth recording as a design correction found mid-fix. The first version asked
-"does this look like a network problem?", so an unrecognised error still fell
-through to cancelling the customer — the original bug in a new shape. Asking
-"do we have positive evidence the card was refused?" makes evidence-of-nothing
-safe by default and makes reintroducing the old behaviour an explicit,
-visible decision.
+Also recorded: on the final give-up the design cannot rule out having stopped
+while a charge of unknown outcome is outstanding. `pending_renewal_reference` is
+therefore deliberately **not** cleared, the transaction stays `pending`, and the
+run reports `NEEDS RECONCILIATION` naming the reference. Tidying that away would
+destroy the only thread back to a refund someone may be owed.
 
-### The repo's last untimed external call is closed
+### Backlog item closed outright
 
-All three `fetch` calls in `paystack/client.ts` had no timeout — a hung
-connection blocked until the platform killed the function, leaving the rest of
-the renewal batch unprocessed. They now share one `paystackFetch` with
-`AbortSignal.timeout(15_000)`, the budget PR #39 set in `schema-org.ts`. **This
-closes the "no external call anywhere sets a timeout" backlog item** — these
-were the last ones. Callers checked and unchanged: `billing/actions.ts` already
-catches everything, `fulfill.ts` already leaves the transaction `pending` when
-verify throws.
+All three `fetch` calls in `paystack/client.ts` now share one `paystackFetch`
+with `AbortSignal.timeout(15_000)`. **These were the last untimed external calls
+in the repo** — the "no external call anywhere sets a timeout" item is done, not
+narrowed.
 
-### Operational change — recorded in CLAUDE.md
+### Two bugs found in the work itself
 
-**The daily cron is now load-bearing for recovery.** Retrying is the only
-mechanism; there is no dunning queue and no alert, so a cron that silently stops
-firing means indeterminate Passes never resolve. A `payment_transactions` row
-with `status = 'pending'` plus a `user_passes.pending_renewal_reference` is a
-**charge of unknown outcome**, not a failure. `RenewalJobSummary.indeterminate`
-is a new counter so a monitor can see an outage building rather than reading
-zero lapses as "all well".
+* **A fixture that silently retargeted its assertions.** A raw
+  `admin.auth.admin.createUser` per test lost to Supabase Auth's rate limit under
+  full-suite load; when it threw, the module-level `userPassId` kept the previous
+  test's value and assertions ran against the wrong Pass. Symptoms — "expected 1
+  transaction, got 2", a missing retry reference, intermittent, passing in
+  isolation — looked exactly like a product bug. **Third of this class in this
+  run**, after PR #38's `afterAll` that leaked the accounts it existed to delete
+  and PR #39 review's `ledgerFor` reporting a failed query as an empty result.
+  Now uses the retrying helper in `tests/support/auth.ts`, one account per file
+  instead of seven, and a sentinel so partial setup fails loudly.
+* **The CI secret scanner cried wolf on itself.** gitleaks 403'd on download, the
+  step exited non-zero, and a bare `if: failure()` printed *"A secret-shaped
+  value was found in this change."* Untrue. Now scoped to the scan step, with
+  retries, and a separate notice saying what matters when the tool cannot run:
+  **nothing was scanned, so nothing was cleared** — a green PR is not evidence
+  the change was checked. Independent of this PR, and worth its own line: a
+  security check that cries wolf on its own infrastructure is one people learn to
+  dismiss.
 
-### Not a 0041-class column addition
+### Verified
 
-Checked, not assumed: `user_passes` has RLS enabled with exactly one `SELECT`
-policy and no write policy, so a client cannot write the three new columns
-regardless of the table-wide grant — the row policy refuses first.
+1. **PR API** — `merged: true`, `merged_at 2026-08-25T19:36:49Z`,
+   `merge_commit_sha 5d65e0d764a6a62ff79c943574a2af93cc05709d`.
+2. **Fresh shallow clone of `main`** — merge commit `5d65e0d`, two parents
+   (`0e9b3cc` + `5b59851`). Present and confirmed: `0043_renewal_indeterminate_failures.sql`
+   with its three `add column`s and the index; `PaystackDeclineError` (client.ts:34),
+   `PaystackUnavailableError` (:46), `isDecline` (:75) and `AbortSignal.timeout` (:99);
+   `MAX_INDETERMINATE_RENEWAL_ATTEMPTS = 3` (renewals.ts:18); and the CI fix
+   (`steps.scan.outcome`, "Tooling failure notice").
+3. **Live schema** — all three columns exist with the right types
+   (`renewal_attempt_count:integer NOT NULL`, `pending_renewal_reference:text`,
+   `last_renewal_failure_at:timestamptz`) and the partial index is live:
+   `CREATE INDEX user_passes_pending_renewal_idx ON public.user_passes USING btree (pending_renewal_reference) WHERE (pending_renewal_reference IS NOT NULL)`.
+4. **CI green on the merge commit** — unit and Playwright. On the PR head:
+   24/24 files, **310/310 tests**, Playwright 13/13.
+
+> **This one could not be probed against real data, unlike #39–#41 — and that is
+> a gap in evidence, not a step that was skipped.** Production currently holds
+> **zero** `user_passes` rows (0 total, 0 with auto-renew active, 0 mid-retry), so
+> there is no Pass to exercise the renewal path against. What was verified live is
+> the schema; the behaviour is covered by 7 tests driving the real
+> `runPassRenewalJob` against the real database with only the Paystack client
+> mocked. **The first real Pass with auto-renew active is the first opportunity
+> for an actual live probe** — worth taking at the next verification pass rather
+> than assuming this is settled.
 
 ---
 
