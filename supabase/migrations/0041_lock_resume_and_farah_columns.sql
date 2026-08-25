@@ -1,0 +1,112 @@
+-- 0041 — The fifth and sixth findings in the class 0028/0030/0031 opened.
+--
+-- THE CLASS, once more: an RLS policy decides which ROWS you may touch. It says
+-- nothing about which COLUMNS. Supabase grants `UPDATE ON ALL TABLES` to
+-- `authenticated`, so an owner-only policy hands the owner every column on
+-- their own row — including the ones that represent money, trust or identity.
+--
+-- ---------------------------------------------------------------------------
+-- 1. resumes.template_id — the premium-template paywall
+-- ---------------------------------------------------------------------------
+-- `resumes` carries
+--
+--     for all using (auth.uid() = user_id) with check (auth.uid() = user_id)
+--
+-- and has never had a column grant. `template_id` references `resume_templates`,
+-- whose `is_premium` rows cost credits: `unlockTemplateAction`
+-- (src/lib/resume-builder/actions.ts) checks `user_template_unlocks`, then
+-- calls `spendCredits`. A client that writes the column reaches none of that.
+--
+-- CONFIRMED LIVE against the production project with a real authenticated
+-- session before this migration, not inferred from the schema:
+--
+--     premium template: Portfolio Grid (costs 10 credits)
+--     unlocks owned: 0   credits: 0
+--     update error: none
+--     template_id now: 7704054a-6c90-40b6-a977-ef6e2e1c404f
+--     => BYPASSED — premium template applied, 0 credits spent
+--     credits after: 0 (unchanged = never paid)
+--
+-- Every premium template was free to anyone willing to open the network tab.
+-- This was a live, exploitable gap in production, not a theoretical one.
+--
+-- `is_base` and `user_id` are locked by the same grant. `is_base` decides which
+-- resume every tailoring, auto-apply and scholarship path reads; `user_id` is
+-- identity. Neither belongs to the client either.
+--
+-- THE GRANT LIST is exactly what the app's three UPDATE paths write, verified
+-- against the code rather than assumed:
+--   * saveResumeAction (actions.ts:137)      — title, structured_content, updated_at
+--   * upsertBaseResume (two paths, :47, :80) — title, source, structured_content, updated_at
+-- `template_id` is legitimately set only on INSERT (actions.ts:113), which this
+-- does not touch and which already gates on an existing unlock. scripts/seed.ts
+-- updates `template_id` but runs as `service_role`, which column grants do not
+-- constrain.
+--
+-- ---------------------------------------------------------------------------
+-- 2. farah_messages.created_at / role — the LLM spend cap
+-- ---------------------------------------------------------------------------
+-- Found by the "what else grants the same privilege" sweep CLAUDE.md makes
+-- standard after a policy fix. `resumes` was the reported bug; this was sitting
+-- next to it.
+--
+-- /api/farah/chat caps a user at 30 messages an hour purely as a cost safety
+-- net on unbounded authenticated LLM spend, and it counts its own rows:
+--
+--     .eq("user_id", ...).eq("role", "user").gte("created_at", oneHourAgo)
+--
+-- Under the same owner-only-with-no-column-grant shape, the counter was
+-- writable by the thing being counted. CONFIRMED LIVE, same session:
+--
+--     counted toward the 30/hr cap: 1
+--     backdate error: none
+--     counted after backdating: 0
+--     => BYPASSED — quota reset, unlimited paid LLM calls
+--
+-- Nothing under src/ ever UPDATEs this table — messages are append-only — so
+-- the privilege is revoked outright rather than narrowed, the same call 0031
+-- made for the derived tables. INSERT, SELECT and DELETE are untouched, so the
+-- chat panel and the owner's ability to clear their history still work.
+--
+-- ---------------------------------------------------------------------------
+-- 3. referral_shares — hardening, not a found exploit
+-- ---------------------------------------------------------------------------
+-- Included for completeness and labelled honestly: the sweep found no way to
+-- turn it into money. It has no value column (`channel`, `created_at`), and
+-- referral rewards are computed from `referrals`, not from this table. But
+-- nothing under src/ updates it either, so leaving a blanket UPDATE grant on an
+-- append-only table preserves the exact shape this migration exists to remove.
+--
+-- ---------------------------------------------------------------------------
+-- Swept and deliberately left alone
+-- ---------------------------------------------------------------------------
+--   * job_postings — has an UPDATE policy and a table-wide grant, but its
+--     WITH CHECK pins `source_type = 'internal' AND is_org_member(...)`, so a
+--     member cannot flip a posting to 'external' to duck 0027's verification
+--     gate, nor move it to an org they don't belong to. The policy carries the
+--     column constraint itself. Correct as written.
+--   * applications — `stage` is the trust-bearing column and is already
+--     governed by 0037's transition trigger. The rest (notes, applied_at,
+--     resume_id, manual_job_snapshot) is the user's own record, and CLAUDE.md
+--     is explicit that blocking mis-click corrections there is a worse product
+--     than the bug.
+--   * scholarship_saves — `status`/`notes`/`outcome_note` are the user's own
+--     record with no gate attached; setScholarshipSaveStatus legitimately
+--     writes `status`.
+--
+-- ORDER MATTERS, and it is the reason this class keeps recurring: a table-level
+-- grant overrides a column-level one, so the revoke must come first. Granting
+-- columns without revoking the table first changes nothing at all.
+
+-- 1. resumes ---------------------------------------------------------------
+revoke update on public.resumes from anon, authenticated;
+
+grant update (title, source, structured_content, updated_at)
+  on public.resumes
+  to authenticated;
+
+-- 2. farah_messages --------------------------------------------------------
+revoke update on public.farah_messages from anon, authenticated;
+
+-- 3. referral_shares -------------------------------------------------------
+revoke update on public.referral_shares from anon, authenticated;

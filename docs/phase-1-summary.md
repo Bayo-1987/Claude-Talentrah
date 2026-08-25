@@ -404,6 +404,67 @@ Confirmed on production rather than from the docs alone — `GET`, `PUT`,
 change. `/api/e2e/llm-provider` likewise already self-gates correctly, 404 on
 production. Both are covered by tests now, but neither needed a code change.
 
+## Premium-template paywall was bypassable in production (0041)
+
+**This reached production as a live, exploitable gap.** Until 0041 landed, any
+signed-in user could apply any premium resume template for free, and separately
+could reset their own Farah LLM spend cap. Both were confirmed against the
+production project with a real authenticated session before being fixed — not
+reasoned from the schema.
+
+The fifth and sixth findings in the class 0028/0030/0031 opened: an RLS policy
+decides which *rows* you may touch and says nothing about which *columns*, while
+Supabase grants `UPDATE ON ALL TABLES` to `authenticated` by default.
+
+**`resumes.template_id`.** The table carries a correct owner-only policy
+(`for all using (auth.uid() = user_id) with check (...)`) and had never had a
+column grant applied. `template_id` points at `resume_templates`, whose
+`is_premium` rows cost credits via `unlockTemplateAction` — which checks
+`user_template_unlocks` and calls `spendCredits`. A client writing the column
+directly reaches none of it:
+
+```
+premium template: Portfolio Grid (costs 10 credits)
+unlocks owned: 0   credits: 0
+update error: none
+template_id now: 7704054a-6c90-40b6-a977-ef6e2e1c404f
+=> BYPASSED — premium template applied, 0 credits spent
+credits after: 0 (unchanged = never paid)
+```
+
+**`farah_messages.created_at` / `role`.** Found by the "what else grants the
+same privilege" sweep this repo makes standard after a policy fix. `/api/farah/chat`
+caps a user at 30 messages an hour as a cost safety net on unbounded LLM spend,
+and counts its own rows by `role='user'` and `created_at`. Both columns sat
+inside the same unrestricted owner-only grant, so the counter was writable by
+the thing being counted:
+
+```
+counted toward the 30/hr cap: 1
+backdate error: none
+counted after backdating: 0
+=> BYPASSED — quota reset, unlimited paid LLM calls
+```
+
+**Fixed in `0041`**, mirroring 0030 exactly — revoke the table-level grant
+first (a table grant overrides a column grant; getting that order wrong is why
+this class keeps recurring), then grant back only what the app writes. For
+`resumes` that is `title, source, structured_content, updated_at`, verified
+against all three UPDATE call sites rather than assumed. `template_id` is set
+only on INSERT, which already gates on an existing unlock. `farah_messages` and
+`referral_shares` are never updated by app code at all, so their UPDATE is
+revoked outright, as 0031 did for the derived tables.
+
+Post-fix, the same probe returns `42501 permission denied` for both, and the
+legitimate save path still works. `tests/rls/column-privileges.test.ts` covers
+all of it, including a positive control — a fix that also broke
+`saveResumeAction` would have been worse than the bug.
+
+**Swept and deliberately left alone:** `job_postings` (its `WITH CHECK` already
+pins `source_type='internal' AND is_org_member(...)`, so 0027's verification
+gate cannot be ducked), `applications` (`stage` is governed by 0037's trigger;
+the rest is the user's own record), `scholarship_saves` (no gated column).
+
 ## schema.org/JobPosting ingestion — one pilot source, per source-eligibility diligence
 
 The second half of M2/§6.12, per `schema-org-job-ingestion-prompt.md`. Four
