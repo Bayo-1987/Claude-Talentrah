@@ -560,3 +560,203 @@ describe("auto-apply tables: the user owns the switch, the server owns the rest 
     }
   });
 });
+
+describe("resumes: the premium-template paywall is not the user's to set (0041)", () => {
+  /**
+   * The fifth finding in this class, and the one the suite's own header
+   * predicted: "add a value-bearing column to a user-writable table and this
+   * fails until you decide, deliberately, which side of the line it is on."
+   * `resumes` was never swept. Its policy is
+   *
+   *     for all using (auth.uid() = user_id) with check (auth.uid() = user_id)
+   *
+   * — correctly ownership-scoped, and silent about columns. `template_id`
+   * points at `resume_templates`, where `is_premium` rows cost credits through
+   * `unlockTemplateAction`. That action checks `user_template_unlocks` and
+   * calls `spendCredits`. None of it is reachable by a client that simply
+   * writes the column.
+   *
+   * CONFIRMED LIVE before the fix, with a real authenticated session against
+   * the production project — not reasoned from the schema:
+   *
+   *     premium template: Portfolio Grid (costs 10 credits)
+   *     unlocks owned: 0   credits: 0
+   *     update error: none
+   *     template_id now: 7704054a-6c90-40b6-a977-ef6e2e1c404f
+   *     => BYPASSED — premium template applied, 0 credits spent
+   *     credits after: 0 (unchanged = never paid)
+   *
+   * A user with no credits and no unlocks applied a paid template. Every
+   * premium template was free to anyone who opened the network tab.
+   */
+  let resumeId: string;
+  let premiumTemplateId: string;
+
+  beforeAll(async () => {
+    const { data: premium, error } = await admin
+      .from("resume_templates")
+      .select("id")
+      .eq("is_premium", true)
+      .limit(1)
+      .single();
+    if (error || !premium) throw new Error("No premium template seeded — run `npm run seed`.");
+    premiumTemplateId = premium.id;
+
+    const { data: resume, error: insErr } = await admin
+      .from("resumes")
+      .insert({
+        user_id: user.id,
+        is_base: false,
+        title: "column-privilege fixture",
+        source: "builder",
+        structured_content: {},
+        template_id: null,
+      })
+      .select("id")
+      .single();
+    if (insErr) throw insErr;
+    resumeId = resume.id;
+  });
+
+  it("MONEY: cannot apply a premium template by writing template_id directly", async () => {
+    const { error } = await user.client
+      .from("resumes")
+      .update({ template_id: premiumTemplateId })
+      .eq("id", resumeId);
+
+    expect(error, "the column-level grant should refuse this outright").not.toBeNull();
+
+    // Re-read with the service role: a column denial errors, but a row-policy
+    // denial silently affects zero rows, and only this tells them apart.
+    const { data } = await admin.from("resumes").select("template_id").eq("id", resumeId).single();
+    expect(
+      data?.template_id,
+      "PAYWALL BYPASS: a premium template was applied without an unlock or a credit spend",
+    ).toBeNull();
+
+    // And no unlock or ledger entry was fabricated on the way.
+    const { data: unlocks } = await admin
+      .from("user_template_unlocks")
+      .select("id")
+      .eq("user_id", user.id);
+    expect(unlocks ?? []).toHaveLength(0);
+  });
+
+  it("cannot reassign a resume to another user, or promote it to the base resume", async () => {
+    // The other trust/identity columns on the same row. `is_base` decides
+    // which resume every tailoring and auto-apply path reads.
+    for (const patch of [{ is_base: true }, { user_id: randomUUID() }]) {
+      const { error } = await user.client.from("resumes").update(patch).eq("id", resumeId);
+      expect(error, `writing ${Object.keys(patch)[0]} should be refused`).not.toBeNull();
+    }
+
+    const { data } = await admin
+      .from("resumes")
+      .select("is_base, user_id")
+      .eq("id", resumeId)
+      .single();
+    expect(data?.is_base).toBe(false);
+    expect(data?.user_id).toBe(user.id);
+  });
+
+  it("POSITIVE CONTROL: the real save path still works", async () => {
+    /*
+     * Load-bearing. A fix that also breaks saveResumeAction is worse than the
+     * bug — the builder's save would fail for every user. These are exactly
+     * the columns src/lib/resume-builder/actions.ts:137 and
+     * src/lib/resume/upsert-base-resume.ts write, and they must stay writable.
+     */
+    const { error } = await user.client
+      .from("resumes")
+      .update({
+        title: "renamed by the owner",
+        structured_content: { summary: "edited" },
+        source: "builder",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", resumeId);
+
+    expect(error, "the legitimate save path must not be collateral damage").toBeNull();
+
+    const { data } = await admin
+      .from("resumes")
+      .select("title, structured_content")
+      .eq("id", resumeId)
+      .single();
+    expect(data?.title).toBe("renamed by the owner");
+    expect(data?.structured_content).toEqual({ summary: "edited" });
+  });
+});
+
+describe("farah_messages: the LLM rate limit is not the user's to reset (0041)", () => {
+  /**
+   * Found by the "what else grants the same privilege" sweep that CLAUDE.md
+   * makes standard after a policy fix — `resumes` was the reported bug, this
+   * was next to it.
+   *
+   * /api/farah/chat caps a user at 30 messages an hour purely as a cost
+   * safety net on unbounded authenticated LLM spend. It counts its own rows:
+   *
+   *     .eq("user_id", user.id).eq("role", "user").gte("created_at", oneHourAgo)
+   *
+   * Both `role` and `created_at` sat inside an owner-only `FOR ALL` policy
+   * with no column grant, so the counter was writable by the thing being
+   * counted. CONFIRMED LIVE before the fix:
+   *
+   *     counted toward the 30/hr cap: 1
+   *     backdate error: none
+   *     counted after backdating: 0
+   *     => BYPASSED — quota reset, unlimited paid LLM calls
+   *
+   * Nothing in src/ ever UPDATEs this table, so the grant is revoked outright
+   * rather than narrowed — same reasoning as 0031's derived tables.
+   */
+  beforeAll(async () => {
+    await admin.from("farah_messages").insert({ user_id: user.id, role: "user", content: "hi" });
+  });
+
+  it("COST: cannot backdate its own messages to clear the hourly quota", async () => {
+    const hourAgo = new Date(Date.now() - 3600_000).toISOString();
+    const countNow = async () =>
+      (
+        await admin
+          .from("farah_messages")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", user.id)
+          .eq("role", "user")
+          .gte("created_at", hourAgo)
+      ).count ?? 0;
+
+    expect(await countNow(), "fixture message should be inside the window").toBeGreaterThan(0);
+
+    const { error } = await user.client
+      .from("farah_messages")
+      .update({ created_at: "2020-01-01T00:00:00.000Z" })
+      .eq("user_id", user.id);
+    expect(error, "backdating should be refused").not.toBeNull();
+
+    expect(
+      await countNow(),
+      "RATE-LIMIT BYPASS: the user cleared their own quota and can spend unbounded LLM budget",
+    ).toBeGreaterThan(0);
+  });
+
+  it("cannot relabel its own messages as Farah's to duck the counter", async () => {
+    // `farah`, the real enum value — not a made-up one. An invalid enum would
+    // be rejected by the type check rather than the grant, and would pass this
+    // test for entirely the wrong reason.
+    const { error } = await user.client
+      .from("farah_messages")
+      .update({ role: "farah" })
+      .eq("user_id", user.id);
+    expect(error).not.toBeNull();
+
+    const { data } = await admin
+      .from("farah_messages")
+      .select("role")
+      .eq("user_id", user.id)
+      .limit(1)
+      .single();
+    expect(data?.role).toBe("user");
+  });
+});
