@@ -439,3 +439,124 @@ describe("signed-out reach (0032)", () => {
     }
   });
 });
+
+describe("auto-apply tables: the user owns the switch, the server owns the rest (0033)", () => {
+  it("a user can create their settings row and flip `enabled` on it", async () => {
+    /*
+     * POSITIVE CONTROL: `enabled` is the one Auto-Apply value that is genuinely
+     * the user's, and locking it would break the feature.
+     *
+     * Written as insert-then-update rather than an upsert on purpose, and the
+     * distinction is worth recording. `upsert({ user_id, enabled })` fails with
+     * 42501 here, because ON CONFLICT DO UPDATE sets every column in the
+     * payload — including the primary key — and 0033 grants UPDATE on
+     * (enabled, updated_at) only. That is the grant behaving exactly as
+     * intended; it is the upsert asking for more than it needs. The production
+     * toggle goes through the service role and is unaffected.
+     */
+    const { error: insertError } = await user.client
+      .from("auto_apply_settings")
+      .insert({ user_id: user.id, enabled: false });
+    expect(insertError, "a user must be able to create their own settings row").toBeNull();
+
+    const { error: updateError } = await user.client
+      .from("auto_apply_settings")
+      .update({ enabled: true })
+      .eq("user_id", user.id);
+    expect(updateError, "a user must be able to turn their own Auto-Apply on").toBeNull();
+
+    const { data } = await admin
+      .from("auto_apply_settings")
+      .select("enabled")
+      .eq("user_id", user.id)
+      .single();
+    expect(data?.enabled).toBe(true);
+  });
+
+  it("but cannot backdate when it was switched on", async () => {
+    // `enabled_at` is a server observation, not a field — it is what a support
+    // question about an unexpected application reads to establish "since when".
+    const forged = "2020-01-01T00:00:00.000Z";
+    await user.client
+      .from("auto_apply_settings")
+      .update({ enabled_at: forged })
+      .eq("user_id", user.id);
+    const { data } = await admin
+      .from("auto_apply_settings")
+      .select("enabled_at")
+      .eq("user_id", user.id)
+      .single();
+    expect(data?.enabled_at).not.toBe(forged);
+  });
+
+  it("cannot forge the queue that decides what gets applied to", async () => {
+    /*
+     * The queue is the instruction list for applications sent under the user's
+     * name. If a user can write it, the match threshold is decorative — queue
+     * anything, at any score, and confirm it.
+     */
+    const { data: job } = await admin
+      .from("job_postings")
+      .select("id")
+      .eq("status", "open")
+      .limit(1)
+      .single();
+
+    const { error } = await user.client.from("auto_apply_queue").insert({
+      user_id: user.id,
+      job_posting_id: job!.id,
+      match_score: 100,
+      tier: "excellent",
+      source_type: "internal",
+    });
+    expect(error, "a user queued their own Auto-Apply candidate").not.toBeNull();
+
+    const { data: rows } = await admin
+      .from("auto_apply_queue")
+      .select("id")
+      .eq("user_id", user.id);
+    expect(rows ?? []).toHaveLength(0);
+  });
+
+  it("cannot rewrite what the activity log says happened", async () => {
+    // The log is the record of applications sent on their behalf and credits
+    // charged. Editable history is not an audit trail (build-prompt §8).
+    const { data: job } = await admin
+      .from("job_postings")
+      .select("id, source_type")
+      .eq("status", "open")
+      .limit(1)
+      .single();
+    const { data: row } = await admin
+      .from("auto_apply_queue")
+      .insert({
+        user_id: user.id,
+        job_posting_id: job!.id,
+        match_score: 95,
+        tier: "excellent",
+        source_type: job!.source_type,
+        status: "submitted",
+        decided_at: new Date().toISOString(),
+        credits_spent: 2,
+      })
+      .select("id")
+      .single();
+
+    try {
+      await user.client
+        .from("auto_apply_queue")
+        .update({ status: "dismissed", credits_spent: 0 })
+        .eq("id", row!.id);
+
+      const { data: after } = await admin
+        .from("auto_apply_queue")
+        .select("status, credits_spent")
+        .eq("id", row!.id)
+        .single();
+      expect(after?.status, "a user edited their own Auto-Apply history").toBe("submitted");
+      expect(after?.credits_spent, "a user zeroed a recorded credit charge").toBe(2);
+    } finally {
+      await admin.from("auto_apply_queue").delete().eq("id", row!.id);
+    }
+  });
+});

@@ -131,6 +131,102 @@ export type Database = {
           },
         ]
       }
+      auto_apply_queue: {
+        Row: {
+          application_id: string | null
+          credits_spent: number
+          decided_at: string | null
+          id: string
+          job_posting_id: string
+          match_score: number
+          queued_at: string
+          source_type: Database["public"]["Enums"]["job_source_type"]
+          status: Database["public"]["Enums"]["auto_apply_status"]
+          tier: string
+          user_id: string
+        }
+        Insert: {
+          application_id?: string | null
+          credits_spent?: number
+          decided_at?: string | null
+          id?: string
+          job_posting_id: string
+          match_score: number
+          queued_at?: string
+          source_type: Database["public"]["Enums"]["job_source_type"]
+          status?: Database["public"]["Enums"]["auto_apply_status"]
+          tier: string
+          user_id: string
+        }
+        Update: {
+          application_id?: string | null
+          credits_spent?: number
+          decided_at?: string | null
+          id?: string
+          job_posting_id?: string
+          match_score?: number
+          queued_at?: string
+          source_type?: Database["public"]["Enums"]["job_source_type"]
+          status?: Database["public"]["Enums"]["auto_apply_status"]
+          tier?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "auto_apply_queue_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "applications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "auto_apply_queue_job_posting_id_fkey"
+            columns: ["job_posting_id"]
+            isOneToOne: false
+            referencedRelation: "job_postings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "auto_apply_queue_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      auto_apply_settings: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          enabled_at: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          enabled_at?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          enabled_at?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "auto_apply_settings_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       credit_gate_events: {
         Row: {
           created_at: string
@@ -1118,6 +1214,23 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      auto_apply_claim_submission: {
+        Args: {
+          p_credit_cost: number
+          p_daily_cap: number
+          p_free_per_week: number
+          p_min_score: number
+          p_queue_id: string
+          p_user_id: string
+        }
+        Returns: {
+          charge: number
+          job_posting_id: string
+          ok: boolean
+          reason: string
+          source_type: Database["public"]["Enums"]["job_source_type"]
+        }[]
+      }
       check_and_activate_referral: {
         Args: { p_user_id: string }
         Returns: undefined
@@ -1147,6 +1260,12 @@ export type Database = {
     }
     Enums: {
       application_source: "internal_apply" | "manual" | "auto_apply"
+      auto_apply_status:
+        | "pending"
+        | "submitted"
+        | "handed_off"
+        | "dismissed"
+        | "expired"
       application_stage:
         | "saved"
         | "applied"
@@ -1170,6 +1289,7 @@ export type Database = {
         | "bullet_rewrite"
         | "scholarship_eligibility_check"
         | "scholarship_sop_draft"
+        | "auto_apply_run"
       employment_type: "full_time" | "part_time" | "contract" | "internship"
       farah_message_role: "user" | "farah"
       job_source_type: "internal" | "external"
@@ -1321,6 +1441,13 @@ export const Constants = {
   public: {
     Enums: {
       application_source: ["internal_apply", "manual", "auto_apply"],
+      auto_apply_status: [
+        "pending",
+        "submitted",
+        "handed_off",
+        "dismissed",
+        "expired",
+      ],
       application_stage: [
         "saved",
         "applied",
@@ -1345,6 +1472,7 @@ export const Constants = {
         "bullet_rewrite",
         "scholarship_eligibility_check",
         "scholarship_sop_draft",
+        "auto_apply_run",
       ],
       employment_type: ["full_time", "part_time", "contract", "internship"],
       farah_message_role: ["user", "farah"],
