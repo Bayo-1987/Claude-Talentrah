@@ -64,14 +64,14 @@ This is verified, not assumed: [`tests/rls/cross-user.test.ts`](tests/rls/cross-
 
 **Scheduled jobs are Vercel Cron → authenticated route handlers.** Vercel invokes crons with `GET` and its own `Authorization: Bearer <CRON_SECRET>` header — both fixed by the platform, neither configurable. Jobs are written to tolerate missed *and* duplicated runs, since Vercel delivery is best-effort and never retried. This deviates from the original plan's Postgres-queue + Edge Functions design, which was more infrastructure than Phase 1 needs.
 
-**Aggregation is curated, not a general crawler.** Job ingestion uses Greenhouse/Lever public APIs; scholarships are a hand-curated set. Broad scraping waits on legal review of source reuse terms (build-prompt §10 items 10 and 19) — the accuracy stakes are real, since a wrong scholarship deadline costs someone a once-a-year opportunity.
+**Aggregation is curated, not a general crawler.** Job ingestion uses Greenhouse/Lever public APIs plus one vetted schema.org/JobPosting source (Workable's aggregated job search — see `docs/phase-1-summary.md`'s *schema.org ingestion* section for the per-source diligence trail, including why three other candidates were disqualified); scholarships are a hand-curated set. Broader scraping, or relying on schema.org as a primary supply channel, waits on legal review of source reuse terms (build-prompt §10 items 10 and 19) — the accuracy stakes are real, since a wrong scholarship deadline costs someone a once-a-year opportunity.
 
 ## Project state
 
 Phase 1 is largely shipped. Known gaps, tracked rather than hidden:
 
 - **M8 — employer side is not built.** No org onboarding, job-posting form, or employer login. Legal and marketing copy has been corrected so it no longer implies otherwise.
-- **M2 — the schema.org/JSON-LD crawler was never built.** Greenhouse/Lever ingestion works; the crawler half does not exist.
+- **M2 — schema.org/JSON-LD ingestion is a single pilot source, not a general crawler.** Greenhouse/Lever plus Workable's aggregated job search are live; broader reliance on this mechanism is still gated on legal review (build-prompt §10 item 10).
 - **No golden-path e2e test.** The Playwright suite covers form-reset behaviour and nav, not the signup → tailor → track journey.
 - **JD text over 8,000 characters is silently truncated** in the tailoring path, with no user-visible indication.
 
