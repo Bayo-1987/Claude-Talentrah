@@ -1,5 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { computeMatchScore } from "./score";
 import { getMatchTier } from "@/lib/match-tier";
 import type { Database, Tables } from "@/lib/supabase/types";
@@ -19,6 +20,18 @@ export interface ScoredJob {
  * explanation breakdown per user↔job pair"). Cheap enough to run on every
  * feed load at Phase 1 scale — recomputing is the source of truth, the table
  * is a cache other reads (e.g. the Job Tracker) can use without recomputing.
+ *
+ * The CACHE WRITE goes through the service role, not the caller's client
+ * (migration 0031). The score is this server's conclusion about a user, not
+ * something the user supplies — and while the caller's client could write it
+ * under the owner-only policy, so could the user, directly. Phase 2's
+ * Auto-Apply is specced to gate on a match threshold, so a user-writable
+ * score would be a user-writable trigger for applications sent in their name.
+ *
+ * The caller still passes its own client: it is what READ the jobs, and
+ * keeping the read path on the user's session means RLS still decides which
+ * postings they can be scored against (0027's verification gate, for one).
+ * Only the write is elevated.
  */
 export async function computeAndStoreMatchScores(
   supabase: SupabaseClient<Database>,
@@ -42,7 +55,8 @@ export async function computeAndStoreMatchScores(
   });
 
   if (scored.length > 0) {
-    await supabase.from("match_scores").upsert(
+    const admin = createServiceRoleClient();
+    await admin.from("match_scores").upsert(
       scored.map((s) => ({
         user_id: userId,
         job_posting_id: s.job.id,

@@ -1,0 +1,57 @@
+-- 0031 — Close the two the 0030 sweep named and left open.
+--
+-- Both are the same shape as 0028/0030: a table the user owns rows in, where
+-- the ROWS are legitimately theirs but the VALUES are supposed to be the
+-- server's conclusion, not their input. Neither was exploitable for money
+-- today, and both are locked anyway — "not exploitable yet" is how the four
+-- previous findings all started.
+--
+-- ---------------------------------------------------------------------------
+-- match_scores — the one with a future in it
+-- ---------------------------------------------------------------------------
+-- A user could write their own `score` and `tier`. Cosmetic today: nothing but
+-- their own feed ordering reads it.
+--
+-- It stops being cosmetic the moment Auto-Apply ships. Build-prompt §6.2 specs
+-- Auto-Apply as gated on a conservative match threshold, and CLAUDE.md names
+-- that gate as one of the three things separating Talentrah from spam
+-- auto-apply competitors — a trust feature. A user-writable score is a
+-- user-writable trigger for automated applications sent under their name. This
+-- is cheap to fix now and would be a fifth reactive finding later.
+--
+-- ---------------------------------------------------------------------------
+-- job_tailoring_requests — checked before locking, rather than assumed
+-- ---------------------------------------------------------------------------
+-- The question worth answering was whether anything downstream re-trusts
+-- `is_free_trial` or `credits_spent` from this table. Traced through the code:
+-- the ONLY statement touching it anywhere is one INSERT in
+-- src/app/api/tailoring/route.ts. Nothing reads it back — not the free-trial
+-- gate, not the credit gate, not the cost estimator.
+--
+-- Free-trial eligibility is decided in src/lib/tailoring/gate.ts, which reads
+-- `profiles.free_trial_tailoring_used` and `profiles.credits_balance` through
+-- the service role — and 0030 locked both. So manufacturing free-trial
+-- eligibility here is NOT possible: this table is a log, and nothing believes
+-- it.
+--
+-- Locked regardless, on the same principle as the rest of the sweep. A log the
+-- subject can rewrite is not evidence, and the next person to add a
+-- "you've used N free runs" check will reach for this table precisely because
+-- it looks like the record of exactly that.
+--
+-- ---------------------------------------------------------------------------
+-- Mechanism
+-- ---------------------------------------------------------------------------
+-- Different from 0028/0030: there is no subset of columns to keep writable
+-- here, because the whole ROW is derived. So this revokes the write verbs
+-- outright and leaves SELECT, which the owner-only RLS policies still scope to
+-- the user's own rows. The FOR ALL policies stay as they are — a policy that
+-- permits what no privilege allows is inert, and rewriting them would make the
+-- diff about something other than the fix.
+--
+-- Both writers move to the service role in the same change
+-- (src/lib/matching/compute-and-store.ts, src/app/api/tailoring/route.ts).
+-- Applying this without those edits breaks the job feed and tailoring.
+
+revoke insert, update, delete on public.match_scores from anon, authenticated;
+revoke insert, update, delete on public.job_tailoring_requests from anon, authenticated;

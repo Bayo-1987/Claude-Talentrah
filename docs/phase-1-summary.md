@@ -201,8 +201,8 @@ session against the live project:
 |---|---|
 | **`profiles`** | **WAS EXPOSED — fixed in `0030`.** `credits_balance`, both `free_trial_*` flags, `referral_code`, `referred_by`, `email`, `market_segment` were all user-writable. |
 | **`organizations`** | Already fixed (`0028`). Re-asserted by the standing suite. |
-| `match_scores` | **Open, accepted for now.** A user can write their own `score`/`tier`. Affects only their own feed ordering — but see the caveat below. |
-| `job_tailoring_requests` | **Open, accepted for now.** A user can fabricate rows and set `is_free_trial`/`credits_spent`. Distorts unit-economics and funnel analytics; grants nothing. |
+| `match_scores` | **Closed (`0031`).** A user could write their own `score`/`tier`; writes now go through the service role. |
+| `job_tailoring_requests` | **Closed (`0031`).** Traced first: nothing reads `is_free_trial`/`credits_spent` back, so it was never exploitable — locked anyway, since a log its subject can rewrite is not evidence. |
 | `applications`, `resumes`, `farah_messages`, `referral_shares`, `scholarship_saves` | Correct — these are the user's own content, and every column on them genuinely is theirs. |
 | `job_postings` | Correct — the 0027 `WITH CHECK` pins `source_type` and org membership on both sides of an update. |
 | `credit_ledger`, `payment_transactions`, `user_passes`, `referrals`, `organization_members`, `application_stage_events`, `credit_gate_events` | Correct — **no UPDATE policy at all**, so RLS denies before column privileges are consulted. Verified live, not inferred: a user could not rewrite a ledger entry, mark their own payment successful, reactivate an expired pass, inflate a referral reward, or promote their own org role. |
@@ -218,10 +218,66 @@ as nothing.
 positive controls that a user can still edit their own name and an employer can
 still edit their own company profile.
 
-**The `match_scores` caveat, stated so it isn't lost:** self-set scores are
-cosmetic *today* because nothing but the feed reads them. Phase 2's Auto-Apply
-gates on a match threshold. Whoever builds it must move scoring behind the
-service role first, or Auto-Apply inherits a user-controlled trigger.
+Both open items were closed in `0031`, in the pass immediately after. The
+`match_scores` one mattered more than its impact suggested: self-set scores are
+cosmetic while only the feed reads them, but Phase 2's Auto-Apply is specced to
+gate on a match threshold — CLAUDE.md names that gate as one of the three things
+separating Talentrah from spam auto-apply competitors. A user-writable score
+would have been a user-writable trigger for applications sent under their name.
+Fixed while it was cheap rather than discovered when Auto-Apply shipped.
+
+## Grants sweep: `anon` reach and SECURITY DEFINER functions — 2026-08-25
+
+The second mechanism the column audit named as unexercised. Enumerated every
+function and then tested what a signed-out client can actually do, rather than
+reading grants and reasoning about them. **Two wrong grants, in opposite
+directions.**
+
+**A live regression, introduced by `0027` and fixed in `0032`.** That migration
+revoked `EXECUTE` on `is_org_member` from `anon` as tidy-up — reasoning about
+who should *benefit* from the function, and missing who has to *evaluate* it.
+Its own policy is:
+
+```sql
+create policy "job postings are publicly readable" ... for select
+  using ( source_type = 'external' or <org verified> or is_org_member(...) )
+```
+
+No `TO` clause, so it applies to `public` — anon included — and Postgres
+evaluates the whole expression as the calling role. Measured:
+
+```
+anon select from job_postings         -> ERROR: permission denied for function is_org_member
+anon select from organization_members -> ERROR: permission denied for function is_org_member
+```
+
+Two tables RLS declares publicly readable, erroring outright for the public.
+Nothing user-facing broke only because the landing page's job preview is
+hardcoded sample copy rather than a query — so it would have surfaced as a 500
+on the first public job page, sitemap or "claim your listing" flow. Restored,
+and `tests/rls/column-privileges.test.ts` now has the regression guard that
+would have caught it, asserting on the *error* and not just the row count.
+
+**The generalisable rule, since this one is easy to repeat:** if an RLS policy
+calls a function, every role that evaluates that policy needs `EXECUTE` on it —
+including `anon`. Revoking looks like hardening and is a denial-of-service on
+your own public surface.
+
+`generate_referral_code` was the other direction: the one function still
+carrying Supabase's default `PUBLIC, anon, authenticated` grant. `SECURITY
+INVOKER`, so it leaks nothing, but it is an unauthenticated RPC endpoint that
+loops a query against `profiles` until it finds an unused code, and nothing in
+the app calls it. Revoked; signup still works, because its only caller
+(`handle_new_user`) is `SECURITY DEFINER` and runs as its owner.
+
+Everything else came back correct: all eight other definer functions are
+`postgres, service_role` only, `org_application_counts` is `authenticated` as
+intended, and a signed-out client sees **zero rows on every owner-scoped
+table** while the public catalogs (`credit_packs`, `passes`,
+`resume_templates`, `job_postings`, `organizations`) stay readable. The
+advisor's GraphQL-exposure warnings on all 22 tables are discoverability of the
+schema, not data: the owner-scoped policies compare `auth.uid()`, which is null
+for anon, so they return nothing.
 
 ## Referral activation — a real payout for an invented job
 

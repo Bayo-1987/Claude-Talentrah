@@ -41,6 +41,8 @@ Via the Supabase MCP connector's `apply_migration` (pass the name without the
 | `0028_lock_organization_verification.sql` | applied 2026-08-25 |
 | `0029_org_application_counts.sql` | applied 2026-08-25 |
 | `0030_lock_profile_value_columns.sql` | applied 2026-08-25 |
+| `0031_lock_derived_user_tables.sql` | applied 2026-08-25 |
+| `0032_fix_anon_execute_grants.sql` | applied 2026-08-25 |
 
 ## Still missing
 
