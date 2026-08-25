@@ -1250,6 +1250,10 @@ export type Database = {
         Returns: undefined
       }
       is_org_member: { Args: { p_organization_id: string }; Returns: boolean }
+      normalize_email_for_self_referral: {
+        Args: { p_email: string }
+        Returns: string
+      }
       spend_credits_atomic: {
         Args: {
           p_amount: number
