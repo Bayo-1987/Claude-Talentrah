@@ -108,11 +108,21 @@ beforeAll(async () => {
    *
    * Going posting-first makes the pair self-consistent by construction: the
    * org is, by definition, the one that owns the posting this suite uses.
+   *
+   * AND it must be a VERIFIED org's posting, which is not a detail. This suite
+   * asserts an outsider CAN see the posting, and 0027 correctly hides an
+   * unverified organisation's jobs — so "earliest internal posting" was only
+   * ever right by accident. It stopped being right the moment a real employer
+   * signed up through the employer surface and posted a job before verifying:
+   * their posting sorted first, the assertion failed, and nothing was wrong
+   * with the product. Filtering on verified states what this fixture actually
+   * needs instead of relying on what happens to be in the table.
    */
   const { data: posting, error: postErr } = await admin
     .from("job_postings")
-    .select("id, title, organization_id")
+    .select("id, title, organization_id, organizations!inner(verified)")
     .eq("source_type", "internal")
+    .eq("organizations.verified", true)
     .not("organization_id", "is", null)
     .order("posted_at", { ascending: true })
     .limit(1)

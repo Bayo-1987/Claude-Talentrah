@@ -7,7 +7,7 @@
  * flipping someone else's entry to `hired` fires their referral payout, and
  * blanking their notes destroys data — so it is tested first and directly.
  */
-import { afterAll, afterEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
 import type { Database } from "@/lib/supabase/types";
@@ -32,6 +32,17 @@ const admin: DB = createClient<Database>(URL, SERVICE, {
 });
 
 let created: string[] = [];
+
+/*
+ * One account reused by every test that only needs "some signed-in owner".
+ *
+ * Auth budget is a shared, limited resource across the whole suite — Supabase
+ * rate-limits admin account creation, and a burst from several files running in
+ * parallel surfaces as an unrelated assertion failure elsewhere rather than as
+ * a rate-limit error. Tests that genuinely need two distinct principals (the
+ * cross-user cases) still mint their own; nothing else does.
+ */
+let sharedOwner: { id: string; client: DB };
 
 async function makeAuthedUser(label: string) {
   // Goes through the shared helper so a transient Supabase Auth rate limit is
@@ -60,17 +71,31 @@ async function manualEntry(userId: string, stage: Database["public"]["Enums"]["a
   return data!.id;
 }
 
+/** Clears the shared owner's rows so reuse can't leak state between tests. */
+async function clearSharedOwnerData() {
+  if (!sharedOwner) return;
+  await admin.from("applications").delete().eq("user_id", sharedOwner.id);
+  await admin.from("farah_messages").delete().eq("user_id", sharedOwner.id);
+}
+
 async function stageOf(id: string) {
   const { data } = await admin.from("applications").select("stage, notes").eq("id", id).single();
   return data;
 }
 
+beforeAll(async () => {
+  const user = await createAuthedTestUser("trk-shared");
+  sharedOwner = { id: user.id, client: user.client };
+}, 60_000);
+
 afterEach(async () => {
+  await clearSharedOwnerData();
   await Promise.all(created.map((id) => admin.auth.admin.deleteUser(id).catch(() => {})));
   created = [];
 }, 60_000);
 
 afterAll(async () => {
+  if (sharedOwner) await admin.auth.admin.deleteUser(sharedOwner.id).catch(() => {});
   const { data } = await admin.auth.admin.listUsers();
   for (const u of data.users.filter((x) => x.email?.startsWith("trk-"))) {
     await admin.auth.admin.deleteUser(u.id).catch(() => {});
@@ -118,7 +143,7 @@ describe("user B cannot mutate user A's tracker entries", () => {
   });
 
   it("POSITIVE CONTROL: A can update their own entry", async () => {
-    const a = await makeAuthedUser("a4");
+    const a = sharedOwner;
     const appId = await manualEntry(a.id, "applied");
     const { error } = await a.client
       .from("applications")
@@ -157,7 +182,7 @@ describe("user B cannot mutate user A's Farah history", () => {
   });
 
   it("POSITIVE CONTROL: A can delete their own messages", async () => {
-    const a = await makeAuthedUser("fc");
+    const a = sharedOwner;
     const msgId = await seedMessage(a.id, "mine");
     await a.client.from("farah_messages").delete().eq("id", msgId);
     const { data } = await admin
@@ -182,7 +207,7 @@ describe("a hired application cannot be silently un-hired (0037)", () => {
      * own session. This test therefore goes through the user's client, not the
      * action, so it proves the rule where it actually has to hold.
      */
-    const a = await makeAuthedUser("hired1");
+    const a = sharedOwner;
     const appId = await manualEntry(a.id, "hired");
 
     const { error } = await a.client
@@ -199,7 +224,7 @@ describe("a hired application cannot be silently un-hired (0037)", () => {
   it("refuses hired -> every other non-archived stage", async () => {
     // One account, four entries — rather than four accounts. Auth budget is a
     // shared, limited resource across the whole suite; see tests/support/auth.ts.
-    const a = await makeAuthedUser("hired-many");
+    const a = sharedOwner;
     for (const target of ["applied", "interviewing", "offer", "rejected"] as const) {
       const appId = await manualEntry(a.id, "hired");
       await a.client.from("applications").update({ stage: target }).eq("id", appId);
@@ -208,7 +233,7 @@ describe("a hired application cannot be silently un-hired (0037)", () => {
   });
 
   it("ALLOWS hired -> archived, the one legitimate exit", async () => {
-    const a = await makeAuthedUser("hired-arch");
+    const a = sharedOwner;
     const appId = await manualEntry(a.id, "hired");
     const { error } = await a.client
       .from("applications")
@@ -225,7 +250,7 @@ describe("a hired application cannot be silently un-hired (0037)", () => {
      * mis-clicked dropdown is legitimate. Forbidding backwards moves in general
      * would trade one real bug for a stream of "why won't it let me fix this".
      */
-    const a = await makeAuthedUser("corrections");
+    const a = sharedOwner;
     const appId = await manualEntry(a.id, "offer");
 
     for (const target of ["applied", "saved", "interviewing", "rejected"] as const) {
@@ -248,7 +273,7 @@ describe("a hired application cannot be silently un-hired (0037)", () => {
      * check or policy would have stopped it — the trigger is the only thing
      * standing between the product surface and a silently un-hired row.
      */
-    const a = await makeAuthedUser("bypass");
+    const a = sharedOwner;
     const appId = await manualEntry(a.id, "hired");
 
     const { error: userError } = await a.client
@@ -266,7 +291,7 @@ describe("a hired application cannot be silently un-hired (0037)", () => {
   });
 
   it("saved -> offer is allowed: people start tracking a job late", async () => {
-    const a = await makeAuthedUser("skip");
+    const a = sharedOwner;
     const appId = await manualEntry(a.id, "saved");
     const { error } = await a.client
       .from("applications")
@@ -370,7 +395,7 @@ describe("what a manual entry does to the referral ledger", () => {
 describe("manual entry integrity", () => {
   it("an entry whose posting is later closed still renders its data", async () => {
     // Soft-delete safety: closing a posting must not orphan a tracker row.
-    const a = await makeAuthedUser("closed");
+    const a = sharedOwner;
     const { data: job } = await admin
       .from("job_postings")
       .select("id, title, company_name")
@@ -406,13 +431,20 @@ describe("manual entry integrity", () => {
      * branch on, not an opaque failure — no current code path catches insert
      * errors on the save action.
      */
-    const a = await makeAuthedUser("dupe");
+    const a = sharedOwner;
     const { data: job } = await admin
       .from("job_postings")
       .select("id")
       .eq("status", "open")
       .limit(1)
       .single();
+
+    // Shared owner, so clear any prior row for this pair first.
+    await admin
+      .from("applications")
+      .delete()
+      .eq("user_id", a.id)
+      .eq("job_posting_id", job!.id);
 
     await a.client
       .from("applications")
@@ -427,7 +459,7 @@ describe("manual entry integrity", () => {
   it("every stage renders with null resume and cover-letter ids", async () => {
     // True of every manual entry. The card has per-stage branching, so this is
     // checked at all seven rather than only at "saved".
-    const a = await makeAuthedUser("allstages");
+    const a = sharedOwner;
     for (const stage of [
       "saved",
       "applied",
@@ -456,7 +488,7 @@ describe("manual entry integrity", () => {
      * will visually break the fixed-width tracker card. Low severity; recorded
      * so that a future decision to cap it is deliberate.
      */
-    const a = await makeAuthedUser("longtitle");
+    const a = sharedOwner;
     const longTitle = "X".repeat(5000);
     const { data, error } = await a.client
       .from("applications")
@@ -490,7 +522,9 @@ describe("Farah's rate limit and message bounds", () => {
      * user's messages must not either — both are ways the limit could silently
      * become wrong.
      */
-    const [a, b] = await Promise.all([makeAuthedUser("rl-a"), makeAuthedUser("rl-b")]);
+    const a = sharedOwner;
+    const b = await makeAuthedUser("rl-b");
+    await admin.from("farah_messages").delete().eq("user_id", a.id);
     const hourAgo = new Date(Date.now() - 61 * 60 * 1000).toISOString();
 
     /*
@@ -522,7 +556,7 @@ describe("Farah's rate limit and message bounds", () => {
   it("the message-length bound is 2000 characters", async () => {
     // Exact boundary, since an off-by-one here is invisible until a user hits
     // it. 2000 is accepted by the schema, 2001 is what the route rejects.
-    const a = await makeAuthedUser("len");
+    const a = sharedOwner;
     const { error: ok } = await a.client
       .from("farah_messages")
       .insert({ user_id: a.id, role: "user", content: "x".repeat(2000) });
