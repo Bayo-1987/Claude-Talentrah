@@ -18,6 +18,35 @@ export type Database = {
   }
   public: {
     Tables: {
+      api_rate_limits: {
+        Row: {
+          bucket: string
+          request_count: number
+          user_id: string
+          window_start: string
+        }
+        Insert: {
+          bucket: string
+          request_count?: number
+          user_id: string
+          window_start: string
+        }
+        Update: {
+          bucket?: string
+          request_count?: number
+          user_id?: string
+          window_start?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "api_rate_limits_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       application_stage_events: {
         Row: {
           application_id: string
@@ -1022,9 +1051,9 @@ export type Database = {
           application_deadline: string | null
           created_at: string
           cycle_year: number | null
-          dedup_fingerprint: string
           deadline_note: string | null
           deadline_verified_at: string | null
+          dedup_fingerprint: string
           degree_levels: Database["public"]["Enums"]["scholarship_degree_level"][]
           eligibility_age: string | null
           eligibility_nationalities: string[]
@@ -1049,9 +1078,9 @@ export type Database = {
           application_deadline?: string | null
           created_at?: string
           cycle_year?: number | null
-          dedup_fingerprint: string
           deadline_note?: string | null
           deadline_verified_at?: string | null
+          dedup_fingerprint: string
           degree_levels?: Database["public"]["Enums"]["scholarship_degree_level"][]
           eligibility_age?: string | null
           eligibility_nationalities?: string[]
@@ -1076,9 +1105,9 @@ export type Database = {
           application_deadline?: string | null
           created_at?: string
           cycle_year?: number | null
-          dedup_fingerprint?: string
           deadline_note?: string | null
           deadline_verified_at?: string | null
+          dedup_fingerprint?: string
           degree_levels?: Database["public"]["Enums"]["scholarship_degree_level"][]
           eligibility_age?: string | null
           eligibility_nationalities?: string[]
@@ -1235,6 +1264,19 @@ export type Database = {
         Args: { p_user_id: string }
         Returns: undefined
       }
+      consume_rate_limit: {
+        Args: {
+          p_bucket: string
+          p_limit: number
+          p_user_id: string
+          p_window_seconds: number
+        }
+        Returns: {
+          allowed: boolean
+          resets_at: string
+          used: number
+        }[]
+      }
       count_rewarded_referrals_last_30d: {
         Args: { p_exclude_referral_id?: string; p_referrer_id: string }
         Returns: number
@@ -1250,6 +1292,17 @@ export type Database = {
         Returns: undefined
       }
       is_org_member: { Args: { p_organization_id: string }; Returns: boolean }
+      normalize_email_for_self_referral: {
+        Args: { p_email: string }
+        Returns: string
+      }
+      org_application_counts: {
+        Args: { p_organization_id: string }
+        Returns: {
+          application_count: number
+          job_posting_id: string
+        }[]
+      }
       spend_credits_atomic: {
         Args: {
           p_amount: number
@@ -1262,22 +1315,9 @@ export type Database = {
           ok: boolean
         }[]
       }
-      org_application_counts: {
-        Args: { p_organization_id: string }
-        Returns: {
-          application_count: number
-          job_posting_id: string
-        }[]
-      }
     }
     Enums: {
       application_source: "internal_apply" | "manual" | "auto_apply"
-      auto_apply_status:
-        | "pending"
-        | "submitted"
-        | "handed_off"
-        | "dismissed"
-        | "expired"
       application_stage:
         | "saved"
         | "applied"
@@ -1286,6 +1326,12 @@ export type Database = {
         | "hired"
         | "rejected"
         | "archived"
+      auto_apply_status:
+        | "pending"
+        | "submitted"
+        | "handed_off"
+        | "dismissed"
+        | "expired"
       credit_gate_outcome: "proceeded" | "blocked_insufficient_credits"
       credit_reason:
         | "signup_grant"
@@ -1453,13 +1499,6 @@ export const Constants = {
   public: {
     Enums: {
       application_source: ["internal_apply", "manual", "auto_apply"],
-      auto_apply_status: [
-        "pending",
-        "submitted",
-        "handed_off",
-        "dismissed",
-        "expired",
-      ],
       application_stage: [
         "saved",
         "applied",
@@ -1468,6 +1507,13 @@ export const Constants = {
         "hired",
         "rejected",
         "archived",
+      ],
+      auto_apply_status: [
+        "pending",
+        "submitted",
+        "handed_off",
+        "dismissed",
+        "expired",
       ],
       credit_gate_outcome: ["proceeded", "blocked_insufficient_credits"],
       credit_reason: [

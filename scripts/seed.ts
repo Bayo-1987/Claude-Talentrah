@@ -548,15 +548,31 @@ async function main() {
 
   console.log("→ Running real ingestion pipeline for external jobs…");
   const devServerUrl = process.env.SEED_APP_URL ?? "http://localhost:3000";
+  /*
+   * The admin routes fail closed — unset INGEST_SECRET means every one of
+   * them answers 401. That is deliberate (they were all reachable
+   * unauthenticated on the deployment before it), but it makes this script a
+   * caller that must present a credential, so check for it up front rather
+   * than reporting the resulting 401 as "is the dev server running?".
+   */
+  if (!process.env.INGEST_SECRET && !process.env.ADMIN_API_SECRET) {
+    throw new Error(
+      "Seeding needs INGEST_SECRET (or ADMIN_API_SECRET) set — it drives the real " +
+        "ingestion routes over HTTP, and those fail closed without one. Set the same " +
+        "value the dev server is running with.",
+    );
+  }
+  const adminSecret = (process.env.ADMIN_API_SECRET || process.env.INGEST_SECRET)!;
+
   const ingestRes = await fetch(`${devServerUrl}/api/admin/ingest-jobs`, {
     method: "POST",
-    headers: process.env.INGEST_SECRET
-      ? { "x-ingest-secret": process.env.INGEST_SECRET }
-      : {},
+    headers: { "x-admin-secret": adminSecret },
   });
   if (!ingestRes.ok) {
     throw new Error(
-      `Ingestion route returned ${ingestRes.status} — is \`npm run dev\` running at ${devServerUrl}?`,
+      ingestRes.status === 401
+        ? `Ingestion route returned 401 — INGEST_SECRET here doesn't match the one the server at ${devServerUrl} was started with.`
+        : `Ingestion route returned ${ingestRes.status} — is \`npm run dev\` running at ${devServerUrl}?`,
     );
   }
   const { results } = (await ingestRes.json()) as {
@@ -582,9 +598,7 @@ async function main() {
   console.log("\nIngesting scholarships...");
   const schRes = await fetch(`${devServerUrl}/api/admin/ingest-scholarships`, {
     method: "POST",
-    headers: process.env.INGEST_SECRET
-      ? { "x-ingest-secret": process.env.INGEST_SECRET }
-      : {},
+    headers: { "x-admin-secret": adminSecret },
   });
   if (!schRes.ok) {
     throw new Error(`Scholarship ingestion returned ${schRes.status}.`);

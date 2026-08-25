@@ -1,58 +1,52 @@
 import { NextResponse } from "next/server";
 import { runPassRenewalJob } from "@/lib/billing/renewals";
+import { requireAdminSecret, requireCronSecret, internalError } from "@/lib/api/admin-auth";
 
 /**
- * Trigger for the Pass auto-renewal job. Not on any user-facing request
- * path. Two ways in:
+ * Trigger for the Pass auto-renewal job. Not on any user-facing request path.
+ * Two ways in:
  *
- *  GET  — Vercel Cron. Verified against Vercel's docs rather than assumed:
- *         Vercel triggers a cron by making an HTTP *GET* request to the
- *         production deployment, and when a CRON_SECRET env var is set it
- *         sends that value automatically as `Authorization: Bearer <secret>`.
- *         The header name and env var name are both fixed by Vercel — they
- *         are not configurable — which is why this doesn't reuse the
- *         x-renewal-secret scheme below. Schedule lives in vercel.json.
- *  POST — manual/admin on-demand run, kept from the original
- *         implementation so the job stays runnable without waiting for the
- *         cron window (same x-renewal-secret pattern as
- *         /api/admin/ingest-jobs).
+ *  GET  — Vercel Cron, verified against Vercel's docs rather than assumed:
+ *         Vercel triggers a cron by making an HTTP *GET* to the production
+ *         deployment, and when CRON_SECRET is set it sends that value as
+ *         `Authorization: Bearer <secret>`. Header and env var names are both
+ *         fixed by Vercel. Schedule lives in vercel.json.
+ *  POST — manual/admin on-demand run.
+ *
+ * THE POST PATH SPENDS REAL MONEY — it charges saved Paystack tokens. It used
+ * to be gated on `PASS_RENEWAL_SECRET`, a fourth env var that nothing else in
+ * the codebase used and that .env.example did not document, and it was
+ * fail-open: unset variable meant no check at all. Of the five admin routes,
+ * the one that moves money was the one most likely to be left open by an
+ * operator who had configured the documented secret. It now shares the single
+ * fail-closed guard in admin-auth.ts with everything else.
  *
  * Vercel does not retry a failed cron invocation, and cron delivery is
- * best-effort (a run can be missed or duplicated). runPassRenewalJob is
- * safe under both: it selects on `next_renewal_date <= today`, so a missed
- * day is picked up by the next run, and a successful charge pushes
- * next_renewal_date into the future so a same-day duplicate run finds
- * nothing to charge.
+ * best-effort. runPassRenewalJob is safe under both: it selects on
+ * `next_renewal_date <= today`, so a missed day is picked up by the next run,
+ * and a successful charge pushes next_renewal_date forward so a same-day
+ * duplicate run finds nothing to charge.
  */
 
 export async function GET(request: Request) {
-  const cronSecret = process.env.CRON_SECRET;
-  const authHeader = request.headers.get("authorization");
-
-  // Fail closed — unlike the POST path below, an unset secret here means
-  // misconfiguration, not "local dev with no secret". This endpoint spends
-  // real money; it should never be publicly triggerable in production.
-  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
+  const denied = requireCronSecret(request);
+  if (denied) return denied;
   return runAndRespond("cron");
 }
 
 export async function POST(request: Request) {
-  const secret = process.env.PASS_RENEWAL_SECRET;
-  if (secret) {
-    const provided = request.headers.get("x-renewal-secret");
-    if (provided !== secret) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-  }
-
+  const denied = requireAdminSecret(request);
+  if (denied) return denied;
   return runAndRespond("manual");
 }
 
 async function runAndRespond(trigger: "cron" | "manual") {
-  const summary = await runPassRenewalJob();
+  let summary;
+  try {
+    summary = await runPassRenewalJob();
+  } catch (err) {
+    return internalError("pass-renewal", err);
+  }
 
   console.log(
     `[pass-renewal] ${trigger} run: ok=${summary.ok} reminders=${summary.remindersSent} renewed=${summary.renewed} lapsed=${summary.lapsed} errors=${summary.errors.length} queryErrors=${summary.queryErrors.length}`,

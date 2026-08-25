@@ -33,7 +33,7 @@ Every variable is documented inline in [`.env.example`](.env.example); this is t
 | `GROQ_API_KEY` | dev/CI LLM | Free. |
 | `PAYSTACK_SECRET_KEY` / `NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY` | credits, passes | Use `sk_test_` keys locally. |
 | `CRON_SECRET` | scheduled jobs | Name is fixed by Vercel — it sends this automatically as `Authorization: Bearer …` on cron invocations. Must be set in Vercel Production or the crons 401. |
-| `INGEST_SECRET` | admin routes | Guards the manual `POST` triggers. |
+| `INGEST_SECRET` | admin routes, **seeding** | The one credential for every manual admin `POST` trigger, sent as `x-admin-secret`. **Required, including locally** — these routes fail closed, so unset means the whole admin surface answers 401 and `npm run seed` cannot run the ingestion step. (They used to skip the check when it was unset, which left all five reachable unauthenticated in production.) `PASS_RENEWAL_SECRET` is retired; `ADMIN_API_SECRET` is an optional alias checked first. |
 | `RESEND_API_KEY` | contact form, reminders | Optional; email silently no-ops without it. |
 
 ## Commands
@@ -41,7 +41,7 @@ Every variable is documented inline in [`.env.example`](.env.example); this is t
 ```bash
 npm run dev            # dev server
 npm run build          # production build
-npm run seed           # demo data (dev server must be running)
+npm run seed           # demo data (dev server must be running, with the same INGEST_SECRET)
 npm run test           # Vitest — includes the RLS cross-user security gate
 npm run test:e2e       # Playwright (app must be running)
 npm run lint
