@@ -1136,6 +1136,14 @@ export type Database = {
         }
         Returns: undefined
       }
+      is_org_member: { Args: { p_organization_id: string }; Returns: boolean }
+      org_application_counts: {
+        Args: { p_organization_id: string }
+        Returns: {
+          application_count: number
+          job_posting_id: string
+        }[]
+      }
     }
     Enums: {
       application_source: "internal_apply" | "manual" | "auto_apply"

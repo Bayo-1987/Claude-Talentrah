@@ -38,6 +38,8 @@ Via the Supabase MCP connector's `apply_migration` (pass the name without the
 | `0000_baseline_schema.sql` | snapshot only — describes the project as it already is; do **not** run it against it |
 | `0026_fix_org_membership_rls.sql` | applied 2026-08-24 |
 | `0027_gate_internal_postings_on_org_verification.sql` | applied 2026-08-25 |
+| `0028_lock_organization_verification.sql` | applied 2026-08-25 |
+| `0029_org_application_counts.sql` | applied 2026-08-25 |
 
 ## Still missing
 

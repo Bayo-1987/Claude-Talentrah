@@ -55,6 +55,18 @@ export function Masthead({ creditsBalance, initials }: MastheadProps) {
         </div>
 
         <div className="flex items-center gap-3.5">
+          {/*
+            CLAUDE.md §5 lists a persistent "Post Job" shortcut in the seeker
+            masthead. Until the employer surface existed there was nothing to
+            point it at; now there is, and without it /employer is reachable
+            only by typing the URL.
+          */}
+          <Link
+            href="/employer"
+            className="hidden min-h-10 items-center text-[13px] font-semibold text-ink-soft no-underline underline-offset-2 hover:text-rust hover:underline min-[900px]:inline-flex"
+          >
+            Post a job
+          </Link>
           <span className="inline-flex min-h-10 items-center border border-line px-2.5 text-[12.5px] text-ink-soft">
             EN
           </span>

@@ -1,0 +1,385 @@
+"use server";
+
+import { createHash } from "node:crypto";
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { requireEmployer } from "@/lib/employer/membership";
+import {
+  emailDomain,
+  evaluateDomainVerification,
+  isConsumerEmailDomain,
+  normalizeDomain,
+} from "@/lib/employer/verification";
+import { Constants, type Enums } from "@/lib/supabase/types";
+
+/**
+ * useActionState's contract: every action takes the previous state first. The
+ * `_prev` parameters below are unused by design — they exist so the client
+ * components can show an error inline instead of throwing, which for a form
+ * an employer just spent two minutes filling in is the difference between a
+ * fixable mistake and a lost draft.
+ */
+export type EmployerActionState = { error: string } | { ok: true } | null;
+
+async function getAuthedUser() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not signed in.");
+  return { supabase, user };
+}
+
+/**
+ * Dedup key for a posting an employer typed in, rather than one the
+ * aggregation pipeline ingested.
+ *
+ * job_postings.dedup_fingerprint is UNIQUE across the whole table, and
+ * src/lib/jobs/dedup.ts keys on company+title+location — fine for aggregated
+ * jobs, where the company name IS the identity. It is wrong here: anyone can
+ * create an organisation called "Paystack", so two unrelated orgs posting
+ * "Backend Engineer, Lagos" would collide, and the second employer would be
+ * refused for a reason that has nothing to do with them.
+ *
+ * Keying on the organisation id instead keeps the check that matters — the
+ * same org can't post the same role twice — and drops the one that doesn't.
+ * Aggregated rows keep their existing scheme; the two never meet, because a
+ * sha256 of a different key space cannot collide by construction.
+ */
+function internalDedupFingerprint(orgId: string, title: string, location: string): string {
+  const normalize = (v: string) =>
+    v.toLowerCase().normalize("NFKD").replace(/[^\w\s]/g, "").replace(/\s+/g, " ").trim();
+  return createHash("sha256")
+    .update(["internal", orgId, normalize(title), normalize(location)].join("|"))
+    .digest("hex");
+}
+
+function str(form: FormData, key: string): string {
+  return (form.get(key) as string | null)?.trim() ?? "";
+}
+
+function optionalEnum<T extends string>(
+  form: FormData,
+  key: string,
+  allowed: readonly T[],
+): T | null {
+  const value = str(form, key);
+  return allowed.includes(value as T) ? (value as T) : null;
+}
+
+/* -------------------------------------------------------------------------- *
+ * Onboarding
+ * -------------------------------------------------------------------------- */
+
+export async function createOrganizationAction(
+  _prev: EmployerActionState,
+  form: FormData,
+): Promise<EmployerActionState> {
+  const { supabase, user } = await getAuthedUser();
+
+  const name = str(form, "name");
+  if (!name) return { error: "Company name is required." };
+
+  const outcome = evaluateDomainVerification({
+    userEmail: user.email,
+    emailConfirmed: !!user.email_confirmed_at,
+    claimedDomain: str(form, "domain"),
+  });
+
+  // Created through the USER's client: the RLS policy (created_by = auth.uid())
+  // is what authorises this, so the employer surface exercises the real gate
+  // rather than routing around it with the service role.
+  const { data: org, error } = await supabase
+    .from("organizations")
+    .insert({
+      name,
+      domain: outcome.domain,
+      description: str(form, "description") || null,
+      created_by: user.id,
+    })
+    .select("id")
+    .single();
+
+  if (error || !org) {
+    return { error: `Couldn't create the organisation: ${error?.message ?? "unknown error"}` };
+  }
+
+  const { error: memberError } = await supabase
+    .from("organization_members")
+    .insert({ organization_id: org.id, user_id: user.id, role: "owner" });
+
+  if (memberError) {
+    // Roll back rather than leave an org nobody belongs to: 0026 only lets its
+    // creator join, so an orphaned org here would be permanently unreachable
+    // AND would occupy its domain for the join path below.
+    await supabase.from("organizations").delete().eq("id", org.id);
+    return { error: `Couldn't set you up as the owner: ${memberError.message}` };
+  }
+
+  // `verified` is deliberately not writable by any client (migration 0028), so
+  // this is the one step that needs elevated rights. Note what decides it: the
+  // outcome computed above from the SESSION user's own confirmed email, never
+  // anything submitted in the form.
+  if (outcome.verified) {
+    const admin = createServiceRoleClient();
+    const { error: verifyError } = await admin
+      .from("organizations")
+      .update({ verified: true, updated_at: new Date().toISOString() })
+      .eq("id", org.id);
+    if (verifyError) {
+      // Not fatal — the org exists and simply stays unverified, which is the
+      // safe direction. Surfacing it beats a silent downgrade the employer
+      // cannot explain.
+      return {
+        error: `Organisation created, but verification didn't complete: ${verifyError.message}. Your jobs stay private until it does.`,
+      };
+    }
+  }
+
+  revalidatePath("/employer", "layout");
+  redirect("/employer/jobs");
+}
+
+/**
+ * Join an organisation someone else created.
+ *
+ * This cannot go through the user's client: 0026 narrowed the membership
+ * INSERT policy to organisations you created yourself, precisely because the
+ * old policy let anyone join anything. So joining is a server-side decision,
+ * and the rule it enforces is the same one that grants verification — your
+ * confirmed work email is at the organisation's verified domain.
+ *
+ * Service-role scoping, per the PR #18 audit: the user id comes from the
+ * session, never from the form. The org id does come from input, but it is not
+ * what authorises anything — the domain comparison is, and a caller who passes
+ * an org id they have no email relationship to gets refused.
+ */
+export async function joinOrganizationAction(
+  _prev: EmployerActionState,
+  form: FormData,
+): Promise<EmployerActionState> {
+  const { user } = await getAuthedUser();
+
+  const organizationId = str(form, "organizationId");
+  if (!organizationId) return { error: "Pick an organisation to join." };
+  if (!user.email_confirmed_at) {
+    return { error: "Confirm your email address before joining a company." };
+  }
+
+  const userDomain = emailDomain(user.email);
+  if (!userDomain || isConsumerEmailDomain(userDomain)) {
+    return {
+      error: "Joining a company requires a work email address, not a personal one.",
+    };
+  }
+
+  const admin = createServiceRoleClient();
+  const { data: org, error: orgError } = await admin
+    .from("organizations")
+    .select("id, domain, verified")
+    .eq("id", organizationId)
+    .maybeSingle();
+
+  if (orgError) return { error: `Couldn't look up that company: ${orgError.message}` };
+  // Same not-found answer for "no such org" and "not your domain", so this
+  // can't be used to probe which organisations exist.
+  if (!org || !org.verified || org.domain !== userDomain) {
+    return { error: "That company isn't open for you to join with this email address." };
+  }
+
+  const { error: joinError } = await admin
+    .from("organization_members")
+    .insert({ organization_id: org.id, user_id: user.id, role: "admin" });
+
+  if (joinError) return { error: `Couldn't add you to that company: ${joinError.message}` };
+
+  revalidatePath("/employer", "layout");
+  redirect("/employer/jobs");
+}
+
+/* -------------------------------------------------------------------------- *
+ * Company profile
+ * -------------------------------------------------------------------------- */
+
+export async function updateCompanyProfileAction(
+  _prev: EmployerActionState,
+  form: FormData,
+): Promise<EmployerActionState> {
+  const { supabase, user } = await getAuthedUser();
+  const { organization } = await requireEmployer();
+
+  const name = str(form, "name");
+  if (!name) return { error: "Company name is required." };
+
+  const claimedDomain = normalizeDomain(str(form, "domain"));
+
+  // Editing goes through the user's client, so migration 0028's column grants
+  // are what stop `verified` being smuggled in — not a hand-written allow-list
+  // here that a future refactor could widen without noticing.
+  const { error } = await supabase
+    .from("organizations")
+    .update({
+      name,
+      domain: claimedDomain,
+      description: str(form, "description") || null,
+      logo_url: str(form, "logoUrl") || null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", organization.id);
+
+  if (error) return { error: `Couldn't save your profile: ${error.message}` };
+
+  // Changing the domain re-runs verification in BOTH directions. Only lowering
+  // it would let an employer verify with their real domain and then rename to
+  // someone else's while keeping the badge.
+  const outcome = evaluateDomainVerification({
+    userEmail: user.email,
+    emailConfirmed: !!user.email_confirmed_at,
+    claimedDomain,
+  });
+
+  if (outcome.verified !== organization.verified) {
+    const admin = createServiceRoleClient();
+    await admin
+      .from("organizations")
+      .update({ verified: outcome.verified, updated_at: new Date().toISOString() })
+      .eq("id", organization.id);
+  }
+
+  revalidatePath("/employer/profile");
+  revalidatePath("/employer/jobs");
+  return { ok: true };
+}
+
+/* -------------------------------------------------------------------------- *
+ * Job postings
+ * -------------------------------------------------------------------------- */
+
+function readJobForm(form: FormData) {
+  return {
+    title: str(form, "title"),
+    location: str(form, "location"),
+    description: str(form, "description"),
+    work_type: optionalEnum<Enums<"work_type">>(form, "workType", Constants.public.Enums.work_type),
+    employment_type: optionalEnum<Enums<"employment_type">>(
+      form,
+      "employmentType",
+      Constants.public.Enums.employment_type,
+    ),
+    seniority: optionalEnum<Enums<"seniority_level">>(
+      form,
+      "seniority",
+      Constants.public.Enums.seniority_level,
+    ),
+    years_experience_min: str(form, "yearsExperienceMin")
+      ? Number(str(form, "yearsExperienceMin"))
+      : null,
+  };
+}
+
+export async function postJobAction(
+  _prev: EmployerActionState,
+  form: FormData,
+): Promise<EmployerActionState> {
+  const { supabase } = await getAuthedUser();
+  const { organization } = await requireEmployer();
+  const fields = readJobForm(form);
+
+  if (!fields.title) return { error: "Job title is required." };
+  if (fields.description.length < 40) {
+    return { error: "Add a real job description — at least a couple of sentences." };
+  }
+
+  // Inserted through the user's client on purpose. The 0027 policy
+  // (`source_type = 'internal' and is_org_member(organization_id)`) is what
+  // authorises it, so a regression in that policy breaks posting loudly here
+  // instead of being silently bypassed by a service-role write.
+  const { error } = await supabase.from("job_postings").insert({
+    source_type: "internal",
+    organization_id: organization.id,
+    company_name: organization.name,
+    title: fields.title,
+    location: fields.location || null,
+    description: fields.description,
+    work_type: fields.work_type,
+    employment_type: fields.employment_type,
+    seniority: fields.seniority,
+    years_experience_min: Number.isFinite(fields.years_experience_min)
+      ? fields.years_experience_min
+      : null,
+    status: "open",
+    dedup_fingerprint: internalDedupFingerprint(organization.id, fields.title, fields.location),
+  });
+
+  if (error) {
+    if (error.code === "23505") {
+      return { error: "You've already posted this role in this location." };
+    }
+    return { error: `Couldn't publish the job: ${error.message}` };
+  }
+
+  revalidatePath("/employer/jobs");
+  revalidatePath("/jobs");
+  redirect("/employer/jobs");
+}
+
+export async function updateJobAction(
+  jobId: string,
+  _prev: EmployerActionState,
+  form: FormData,
+): Promise<EmployerActionState> {
+  const { supabase } = await getAuthedUser();
+  const { organization } = await requireEmployer();
+  const fields = readJobForm(form);
+
+  if (!fields.title) return { error: "Job title is required." };
+  if (fields.description.length < 40) {
+    return { error: "Add a real job description — at least a couple of sentences." };
+  }
+
+  // .eq("organization_id") is belt-and-braces on top of the RLS UPDATE policy.
+  // Both must agree; neither is trusted alone.
+  const { error } = await supabase
+    .from("job_postings")
+    .update({
+      title: fields.title,
+      location: fields.location || null,
+      description: fields.description,
+      work_type: fields.work_type,
+      employment_type: fields.employment_type,
+      seniority: fields.seniority,
+      years_experience_min: Number.isFinite(fields.years_experience_min)
+        ? fields.years_experience_min
+        : null,
+      dedup_fingerprint: internalDedupFingerprint(organization.id, fields.title, fields.location),
+    })
+    .eq("id", jobId)
+    .eq("organization_id", organization.id);
+
+  if (error) {
+    if (error.code === "23505") {
+      return { error: "Another of your postings already uses this title and location." };
+    }
+    return { error: `Couldn't save the job: ${error.message}` };
+  }
+
+  revalidatePath("/employer/jobs");
+  revalidatePath("/jobs");
+  redirect("/employer/jobs");
+}
+
+export async function setJobStatusAction(jobId: string, status: Enums<"job_status">) {
+  const { supabase } = await getAuthedUser();
+  const { organization } = await requireEmployer();
+
+  await supabase
+    .from("job_postings")
+    .update({ status })
+    .eq("id", jobId)
+    .eq("organization_id", organization.id);
+
+  revalidatePath("/employer/jobs");
+  revalidatePath("/jobs");
+}
