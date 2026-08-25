@@ -58,11 +58,21 @@ beforeEach(async () => {
 });
 
 afterAll(async () => {
+  /*
+   * Deleted in parallel, with an explicit hook timeout.
+   *
+   * Serially, this is one round-trip to Supabase Auth per account created by
+   * the suite — two per test, sixteen of them here — inside vitest's default 10s hook budget. It
+   * fit until it didn't: a slow afternoon against the live project blew the
+   * budget and the whole FILE was reported as failed while all 8 of its
+   * tests had passed. Worse, the timeout aborts the loop partway, so it leaks
+   * exactly the throwaway accounts it exists to remove — into the shared
+   * project, because there is no staging database.
+   */
   const { data } = await admin.auth.admin.listUsers();
-  for (const u of data.users.filter((x) => x.email?.startsWith("rate-limit-"))) {
-    await admin.auth.admin.deleteUser(u.id);
-  }
-});
+  const mine = data.users.filter((x) => x.email?.startsWith("rate-limit-"));
+  await Promise.all(mine.map((u) => admin.auth.admin.deleteUser(u.id)));
+}, 60_000);
 
 describe("the counter is atomic", () => {
   it("twenty concurrent calls against a limit of five: exactly five are allowed", async () => {
