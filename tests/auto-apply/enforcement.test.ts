@@ -267,18 +267,38 @@ describe("the daily cap holds under concurrency, not just in sequence", () => {
     await resetUserState();
     const attempts = AUTO_APPLY_DAILY_SUBMIT_CAP + 3;
 
-    // The seed has 3 internal postings; top up with throwaway ones so there are
-    // more distinct jobs than the cap allows.
+    /*
+     * Creates its own organisation rather than borrowing whichever one
+     * `.limit(1)` happens to return.
+     *
+     * The borrowing version failed in CI with "Cannot read properties of null
+     * (reading 'id')" while passing locally — the seeded org exists, so the
+     * lookup had returned null transiently under parallel load, and the
+     * unchecked `!` turned that into a confusing TypeError rather than a clear
+     * failure. Owning the fixture removes the shared-state dependency entirely;
+     * the same lesson as the org lookup in org-and-referral-scoping.test.ts.
+     */
     const jobIds = [...internalJobIds];
     const throwaway: string[] = [];
-    const { data: org } = await admin.from("organizations").select("id, name").limit(1).single();
+    const { data: org, error: orgError } = await admin
+      .from("organizations")
+      .insert({
+        name: `AUTOAPPLY-TEST Org ${randomUUID().slice(0, 8)}`,
+        created_by: user.id,
+        verified: true,
+      })
+      .select("id, name")
+      .single();
+    if (orgError || !org) throw new Error(`Could not create test org: ${orgError?.message}`);
+    const throwawayOrgId = org.id;
+
     while (jobIds.length < attempts) {
-      const { data: job } = await admin
+      const { data: job, error: jobError } = await admin
         .from("job_postings")
         .insert({
           source_type: "internal",
-          organization_id: org!.id,
-          company_name: org!.name,
+          organization_id: org.id,
+          company_name: org.name,
           title: `AUTOAPPLY-TEST Role ${jobIds.length}`,
           description: "Throwaway posting for the concurrency test.",
           status: "open",
@@ -286,8 +306,9 @@ describe("the daily cap holds under concurrency, not just in sequence", () => {
         })
         .select("id")
         .single();
-      jobIds.push(job!.id);
-      throwaway.push(job!.id);
+      if (jobError || !job) throw new Error(`Could not create test posting: ${jobError?.message}`);
+      jobIds.push(job.id);
+      throwaway.push(job.id);
     }
 
     try {
@@ -316,6 +337,7 @@ describe("the daily cap holds under concurrency, not just in sequence", () => {
       await admin.from("auto_apply_queue").delete().eq("user_id", user.id);
       await admin.from("applications").delete().eq("user_id", user.id);
       for (const id of throwaway) await admin.from("job_postings").delete().eq("id", id);
+      await admin.from("organizations").delete().eq("id", throwawayOrgId);
     }
   });
 });

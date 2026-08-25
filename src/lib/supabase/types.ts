@@ -1250,6 +1250,18 @@ export type Database = {
         Returns: undefined
       }
       is_org_member: { Args: { p_organization_id: string }; Returns: boolean }
+      spend_credits_atomic: {
+        Args: {
+          p_amount: number
+          p_reason: Database["public"]["Enums"]["credit_reason"]
+          p_related_entity_id?: string
+          p_user_id: string
+        }
+        Returns: {
+          balance_after: number
+          ok: boolean
+        }[]
+      }
       org_application_counts: {
         Args: { p_organization_id: string }
         Returns: {

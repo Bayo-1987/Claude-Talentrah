@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { CREDIT_COSTS } from "@/lib/credits/costs";
-import { spendCredits } from "@/lib/credits/spend";
+import { spendCredits, InsufficientCreditsError } from "@/lib/credits/spend";
 import { logCreditGateEvent } from "@/lib/credits/gate-events";
 import { EMPTY_RESUME, type StructuredResume } from "@/lib/resume/types";
 import { checkEligibility, draftPersonalStatement, type EligibilityCheckResult } from "./farah";
@@ -163,7 +163,26 @@ export async function runEligibilityCheckAction(
     return { error: "Farah couldn't run that check just now — try again." };
   }
 
-  await spendCredits(userId, cost, "scholarship_eligibility_check", scholarshipId);
+  /*
+   * Wrapped the way src/app/api/tailoring/route.ts already wraps its spend —
+   * this was the one credit-gated pair in the app that didn't.
+   *
+   * The pre-check above reads the balance and the spend re-validates it under
+   * a lock (0035), so the two can legitimately disagree: another tab spending
+   * concurrently is enough. That is exactly when this throws, and an uncaught
+   * throw here is an unhandled Server Action error AFTER the LLM has already
+   * run and been paid for. The user still gets the answer they were charged
+   * nothing for; they just also get told the balance moved.
+   */
+  try {
+    await spendCredits(userId, cost, "scholarship_eligibility_check", scholarshipId);
+  } catch (err) {
+    if (err instanceof InsufficientCreditsError) {
+      return { error: "Your credit balance changed while that ran — top up and try again." };
+    }
+    throw err;
+  }
+
   revalidatePath("/scholarships");
   return { result };
 }
@@ -216,7 +235,16 @@ export async function draftSopAction(
     return { error: "Farah came back empty on that one — try again." };
   }
 
-  await spendCredits(userId, cost, "scholarship_sop_draft", scholarshipId);
+  // Same reasoning as the eligibility check above.
+  try {
+    await spendCredits(userId, cost, "scholarship_sop_draft", scholarshipId);
+  } catch (err) {
+    if (err instanceof InsufficientCreditsError) {
+      return { error: "Your credit balance changed while that ran — top up and try again." };
+    }
+    throw err;
+  }
+
   revalidatePath("/scholarships");
   return { statement };
 }
