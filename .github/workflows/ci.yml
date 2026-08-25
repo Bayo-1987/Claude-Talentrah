@@ -40,6 +40,7 @@ jobs:
           fetch-depth: 0
 
       - name: Install gitleaks
+        id: install
         env:
           GITLEAKS_VERSION: 8.30.1
           # sha256 of gitleaks_8.30.1_linux_x64.tar.gz from the release's own
@@ -50,7 +51,21 @@ jobs:
         run: |
           set -euo pipefail
           url="https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
-          curl -sSfL "$url" -o gitleaks.tar.gz
+          # Retry: this download 403'd once on a PR and the job reported it as
+          # "a secret-shaped value was found", which was false and alarming.
+          # GitHub's release CDN rate-limits, so a transient failure here is
+          # expected occasionally and is not a finding.
+          for attempt in 1 2 3; do
+            if curl -sSfL --retry 2 --retry-delay 3 "$url" -o gitleaks.tar.gz; then
+              break
+            fi
+            echo "gitleaks download attempt $attempt failed; retrying"
+            sleep $((attempt * 5))
+          done
+          if [ ! -s gitleaks.tar.gz ]; then
+            echo "::error::Could not download gitleaks after 3 attempts. This is a TOOLING failure, not a leak."
+            exit 1
+          fi
           echo "${GITLEAKS_SHA256}  gitleaks.tar.gz" | sha256sum -c -
           tar xzf gitleaks.tar.gz gitleaks
           ./gitleaks version
@@ -72,6 +87,7 @@ jobs:
           echo "Scanning $range"
 
       - name: Scan for secrets
+        id: scan
         run: |
           set -euo pipefail
           # --redact matters more than it looks: Actions logs on a PUBLIC repo
@@ -84,8 +100,15 @@ jobs:
             --no-banner \
             --verbose
 
+      # Scoped to the SCAN step, not the whole job.
+      #
+      # This used to be a bare `if: failure()`, so ANY failure in the job —
+      # including gitleaks failing to download — printed "A secret-shaped value
+      # was found in this change." That happened, and the message was simply
+      # untrue. A security check that cries wolf on its own tooling failures is
+      # one people learn to dismiss, which costs more than the false alarm.
       - name: What to do if this failed
-        if: failure()
+        if: failure() && steps.scan.outcome == 'failure'
         run: |
           echo "::error::A secret-shaped value was found in this change."
           echo "Do NOT just delete the line and force-push. This repo is public:"
@@ -94,6 +117,14 @@ jobs:
           echo "If it is genuinely not a secret, add it to the allowlist in"
           echo ".gitleaks.toml WITH a comment saying why — an undocumented"
           echo "allowlist entry is how the next real one gets waved through."
+
+      - name: Tooling failure notice
+        if: failure() && steps.install.outcome == 'failure'
+        run: |
+          echo "::error::The secret scan could not RUN — gitleaks failed to install."
+          echo "This is NOT a finding. Nothing was scanned, so nothing was cleared"
+          echo "either: re-run the job before merging, and do not read a green"
+          echo "PR as evidence this change was scanned."
 
   checks:
     name: Typecheck, lint, unit tests

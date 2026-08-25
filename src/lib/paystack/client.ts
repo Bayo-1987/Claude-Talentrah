@@ -2,12 +2,131 @@ import "server-only";
 
 const PAYSTACK_BASE_URL = "https://api.paystack.co";
 
+/**
+ * Same 15s budget as the schema.org fetcher (src/lib/jobs/sources/schema-org.ts),
+ * which was the only timed-out external call in this repo until now. Every
+ * other `fetch` here had none, so a hung connection blocked until the platform
+ * killed the function — on the renewal cron that means the remaining Passes in
+ * the batch are never processed at all.
+ */
+const PAYSTACK_TIMEOUT_MS = 15_000;
+
+/**
+ * ── Why two error types and not one ───────────────────────────────────────
+ *
+ * Every failure in this module used to throw a bare `Error`, so the only
+ * caller that acts on failure — `chargeOne` in src/lib/billing/renewals.ts —
+ * could not tell these apart:
+ *
+ *   * Paystack ANSWERED and said no. The card was declined, the authorization
+ *     was revoked, the account has insufficient funds. This is a fact about
+ *     the customer, and lapsing their Pass on it is correct and intentional.
+ *
+ *   * Paystack NEVER ANSWERED. Timeout, DNS failure, connection reset, or a
+ *     5xx from Paystack's own infrastructure. This says nothing whatsoever
+ *     about the customer, and Talentrah cannot attribute it to them.
+ *
+ * Collapsing the second into the first is how a network blip cancelled a
+ * paying subscription. A 5xx counts as indeterminate deliberately: Paystack
+ * returning 502 is Paystack failing, not the customer's card failing, and the
+ * charge may still have been processed upstream before the error surfaced.
+ */
+export class PaystackDeclineError extends Error {
+  readonly kind = "decline" as const;
+  constructor(
+    message: string,
+    /** Paystack's own HTTP status, when it gave one. */
+    readonly status?: number,
+  ) {
+    super(message);
+    this.name = "PaystackDeclineError";
+  }
+}
+
+export class PaystackUnavailableError extends Error {
+  readonly kind = "unavailable" as const;
+  constructor(
+    message: string,
+    readonly cause?: unknown,
+  ) {
+    super(message);
+    this.name = "PaystackUnavailableError";
+  }
+}
+
+/**
+ * True only when Paystack AFFIRMATIVELY declined — it answered, and the answer
+ * was no.
+ *
+ * The test is deliberately this way round rather than `isIndeterminate`.
+ * Callers act on failure by deciding whether to punish the customer, and the
+ * question that decision hangs on is "do we have positive evidence the card was
+ * refused?", not "does this error look like a network problem?". An error this
+ * module has never seen before — a bug in a future call path, a wrapper that
+ * forgot to classify, a raw `TimeoutError` escaping from somewhere new — is
+ * evidence of nothing, and the safe default for evidence of nothing is to leave
+ * the customer's subscription alone and retry.
+ *
+ * Written the other way round it fails open in the expensive direction: any
+ * unrecognised throw cancels a paying subscription. That IS the bug this
+ * module was changed to fix, and phrasing the predicate as `isDecline` makes
+ * reintroducing it require an explicit, visible decision.
+ */
+export function isDecline(err: unknown): err is PaystackDeclineError {
+  return err instanceof PaystackDeclineError;
+}
+
 function getSecretKey(): string {
   const key = process.env.PAYSTACK_SECRET_KEY;
   if (!key) {
     throw new Error("PAYSTACK_SECRET_KEY is not set — configure it in .env.local to take payments.");
   }
   return key;
+}
+
+/**
+ * One place that turns a `fetch` into either a parsed body, a decline, or an
+ * unavailability — so no call site can accidentally reintroduce the
+ * one-error-for-everything shape.
+ */
+async function paystackFetch(
+  url: string,
+  init: RequestInit,
+  operation: string,
+): Promise<Record<string, unknown>> {
+  let res: Response;
+  try {
+    res = await fetch(url, { ...init, signal: AbortSignal.timeout(PAYSTACK_TIMEOUT_MS) });
+  } catch (err) {
+    // Aborts, DNS failures, resets — Paystack was never reached, or never
+    // replied in time. Never a statement about the card.
+    throw new PaystackUnavailableError(
+      `Paystack ${operation} did not complete: ${err instanceof Error ? err.message : String(err)}`,
+      err,
+    );
+  }
+
+  // Paystack's own failure is not the customer's failure.
+  if (res.status >= 500) {
+    throw new PaystackUnavailableError(`Paystack ${operation} returned ${res.status}`);
+  }
+
+  let data: Record<string, unknown>;
+  try {
+    data = (await res.json()) as Record<string, unknown>;
+  } catch (err) {
+    // A 2xx with an unparseable body means we genuinely do not know what
+    // happened — treat it as unavailability, not as a decline.
+    throw new PaystackUnavailableError(`Paystack ${operation} returned an unreadable body`, err);
+  }
+
+  if (!res.ok || !data.status) {
+    throw new PaystackDeclineError(
+      typeof data.message === "string" ? data.message : `Paystack ${operation} failed.`,
+      res.status,
+    );
+  }
+  return data;
 }
 
 /**
@@ -34,27 +153,26 @@ interface InitializeParams {
 }
 
 export async function initializeTransaction(params: InitializeParams) {
-  const res = await fetch(`${PAYSTACK_BASE_URL}/transaction/initialize`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${getSecretKey()}`,
-      "Content-Type": "application/json",
+  const data = await paystackFetch(
+    `${PAYSTACK_BASE_URL}/transaction/initialize`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${getSecretKey()}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        email: params.email,
+        amount: Math.round(params.amountNgn * 100), // Paystack expects kobo
+        reference: params.reference,
+        callback_url: params.callbackUrl,
+        metadata: params.metadata,
+        plan: params.plan,
+        channels: params.channels,
+      }),
     },
-    body: JSON.stringify({
-      email: params.email,
-      amount: Math.round(params.amountNgn * 100), // Paystack expects kobo
-      reference: params.reference,
-      callback_url: params.callbackUrl,
-      metadata: params.metadata,
-      plan: params.plan,
-      channels: params.channels,
-    }),
-  });
-
-  const data = await res.json();
-  if (!res.ok || !data.status) {
-    throw new Error(data.message ?? "Paystack initialization failed.");
-  }
+    "initialization",
+  );
   return data.data as { authorization_url: string; access_code: string; reference: string };
 }
 
@@ -75,14 +193,11 @@ export interface VerifyResult {
 }
 
 export async function verifyTransaction(reference: string): Promise<VerifyResult> {
-  const res = await fetch(`${PAYSTACK_BASE_URL}/transaction/verify/${encodeURIComponent(reference)}`, {
-    headers: { Authorization: `Bearer ${getSecretKey()}` },
-  });
-
-  const data = await res.json();
-  if (!res.ok || !data.status) {
-    throw new Error(data.message ?? "Paystack verification failed.");
-  }
+  const data = await paystackFetch(
+    `${PAYSTACK_BASE_URL}/transaction/verify/${encodeURIComponent(reference)}`,
+    { headers: { Authorization: `Bearer ${getSecretKey()}` } },
+    "verification",
+  );
   return data.data as VerifyResult;
 }
 
@@ -107,23 +222,22 @@ export async function chargeAuthorization(params: {
   authorizationCode: string;
   reference: string;
 }): Promise<ChargeAuthorizationResult> {
-  const res = await fetch(`${PAYSTACK_BASE_URL}/transaction/charge_authorization`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${getSecretKey()}`,
-      "Content-Type": "application/json",
+  const data = await paystackFetch(
+    `${PAYSTACK_BASE_URL}/transaction/charge_authorization`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${getSecretKey()}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        email: params.email,
+        amount: Math.round(params.amountNgn * 100),
+        authorization_code: params.authorizationCode,
+        reference: params.reference,
+      }),
     },
-    body: JSON.stringify({
-      email: params.email,
-      amount: Math.round(params.amountNgn * 100),
-      authorization_code: params.authorizationCode,
-      reference: params.reference,
-    }),
-  });
-
-  const data = await res.json();
-  if (!res.ok || !data.status) {
-    throw new Error(data.message ?? "Paystack charge_authorization failed.");
-  }
+    "charge_authorization",
+  );
   return data.data as ChargeAuthorizationResult;
 }
