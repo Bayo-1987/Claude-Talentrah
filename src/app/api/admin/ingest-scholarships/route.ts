@@ -1,20 +1,17 @@
 import { NextResponse } from "next/server";
 import { ingestScholarships } from "@/lib/scholarships/ingest";
+import { requireAdminSecret, requireCronSecret, internalError } from "@/lib/api/admin-auth";
 
 /**
  * Trigger for the scholarship aggregation pipeline. Not on any user-facing
- * request path. Two ways in, mirroring /api/admin/renew-passes exactly
- * rather than inventing a second auth scheme:
+ * request path. Two ways in:
  *
- *  GET  — Vercel Cron. Vercel triggers crons with an HTTP *GET* and sends
- *         the project's CRON_SECRET automatically as
- *         `Authorization: Bearer <secret>`. Both the header and the env var
- *         name are fixed by Vercel and not configurable, which is why this
- *         path can't reuse the INGEST_SECRET scheme below. Schedule lives
- *         in vercel.json.
- *  POST — manual/admin on-demand run, kept from the original
- *         implementation, still gated by INGEST_SECRET via x-ingest-secret
- *         (the same scheme /api/admin/ingest-jobs uses).
+ *  GET  — Vercel Cron. Vercel triggers crons with an HTTP *GET* and sends the
+ *         project's CRON_SECRET automatically as `Authorization: Bearer
+ *         <secret>`. Both the header and the env var name are fixed by Vercel
+ *         and not configurable, which is why this path can't reuse the admin
+ *         secret scheme below. Schedule lives in vercel.json.
+ *  POST — manual/admin on-demand run.
  *
  * Cron delivery is best-effort and never retried, so a run can be missed or
  * duplicated. ingestScholarships is safe under both: it upserts on a stable
@@ -23,33 +20,24 @@ import { ingestScholarships } from "@/lib/scholarships/ingest";
  */
 
 export async function GET(request: Request) {
-  const cronSecret = process.env.CRON_SECRET;
-  const authHeader = request.headers.get("authorization");
-
-  // Fail closed — unlike POST below, an unset secret here means
-  // misconfiguration rather than "local dev with no secret", and this route
-  // writes to the public catalog.
-  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
+  const denied = requireCronSecret(request);
+  if (denied) return denied;
   return runAndRespond("cron");
 }
 
 export async function POST(request: Request) {
-  const secret = process.env.INGEST_SECRET;
-  if (secret) {
-    const provided = request.headers.get("x-ingest-secret");
-    if (provided !== secret) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-  }
-
+  const denied = requireAdminSecret(request);
+  if (denied) return denied;
   return runAndRespond("manual");
 }
 
 async function runAndRespond(trigger: "cron" | "manual") {
-  const summary = await ingestScholarships();
+  let summary;
+  try {
+    summary = await ingestScholarships();
+  } catch (err) {
+    return internalError("scholarship-ingest", err);
+  }
 
   console.log(
     `[scholarship-ingest] ${trigger} run: ok=${summary.ok} fetched=${summary.fetched} upserted=${summary.upserted} staleMarked=${summary.staleMarked} errors=${summary.errors.length}`,

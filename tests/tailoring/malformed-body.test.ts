@@ -19,6 +19,21 @@ vi.mock("@/lib/supabase/server", () => ({
   }),
 }));
 
+/*
+ * The route now consumes a rate-limit slot BEFORE parsing the body, so a flood
+ * of malformed requests is counted rather than being free. That ordering is
+ * deliberate, but it means an unmocked limiter answers this test's request
+ * with 429 (the fake user id isn't a real profile, the counter errors, and the
+ * limiter fails closed) long before the JSON parse under test runs. Stubbed to
+ * always allow, so this stays a test of the parse guard.
+ * The limiter's own behaviour is covered in tests/api/rate-limit.test.ts.
+ */
+vi.mock("@/lib/api/rate-limit", () => ({
+  consumeRateLimit: async () => ({ allowed: true, used: 1, resetsAt: null }),
+  rateLimited: () => new Response(null, { status: 429 }),
+  RATE_LIMITS: { tailoring: { limit: 10, windowSeconds: 3600 } },
+}));
+
 const { POST } = await import("@/app/api/tailoring/route");
 
 describe("POST /api/tailoring — malformed request body", () => {
