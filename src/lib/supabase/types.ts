@@ -1,7 +1,6 @@
 // Generated via the Supabase MCP `generate_typescript_types` tool against the
 // "Talentrah" project (nytwbbzfpytctjsoczzq). Regenerate after every schema
 // migration — do not hand-edit.
-
 export type Json =
   | string
   | number
@@ -14,7 +13,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "13.0.5"
+    PostgrestVersion: "14.17"
   }
   public: {
     Tables: {
@@ -912,6 +911,7 @@ export type Database = {
           is_premium: boolean
           name: string
           preview_asset_url: string | null
+          slug: string
           structure_schema: Json
           unlock_cost_credits: number
         }
@@ -922,6 +922,7 @@ export type Database = {
           is_premium?: boolean
           name: string
           preview_asset_url?: string | null
+          slug: string
           structure_schema?: Json
           unlock_cost_credits?: number
         }
@@ -932,6 +933,7 @@ export type Database = {
           is_premium?: boolean
           name?: string
           preview_asset_url?: string | null
+          slug?: string
           structure_schema?: Json
           unlock_cost_credits?: number
         }

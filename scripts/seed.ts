@@ -65,19 +65,33 @@ if (!DEMO_PASSWORD) {
 // Mirrors the 7 templates already live in the "Talentrah" Supabase project
 // (industry_category/is_premium/unlock_cost_credits) — reproduced here so a
 // fresh project seeds the same real catalog rather than inventing a new one.
+/**
+ * `slug` is the join key the component registry
+ * (src/components/resume-builder/templates/index.ts) reads — NOT `name`, which
+ * is editable catalog copy. Keep these in step with migration 0042's backfill;
+ * a slug that exists here but has no registered component renders as
+ * clean-professional and fails tests/resume-builder/template-registry.test.ts.
+ */
 const RESUME_TEMPLATES: {
   name: string;
+  slug: string;
   industry_category: string;
   is_premium: boolean;
   unlock_cost_credits: number;
 }[] = [
-  { name: "Clean Professional", industry_category: "Business", is_premium: false, unlock_cost_credits: 0 },
-  { name: "Structured Admin", industry_category: "Administration", is_premium: false, unlock_cost_credits: 0 },
-  { name: "Product & Tech", industry_category: "Technology", is_premium: false, unlock_cost_credits: 0 },
-  { name: "Portfolio Grid", industry_category: "Design", is_premium: true, unlock_cost_credits: 10 },
-  { name: "Field Notes", industry_category: "Customer Success", is_premium: false, unlock_cost_credits: 0 },
-  { name: "Ledger", industry_category: "Banking & Finance", is_premium: false, unlock_cost_credits: 0 },
-  { name: "Pipeline", industry_category: "Sales & Marketing", is_premium: true, unlock_cost_credits: 10 },
+  { name: "Clean Professional", slug: "clean-professional", industry_category: "Business", is_premium: false, unlock_cost_credits: 0 },
+  { name: "Structured Admin", slug: "structured-admin", industry_category: "Administration", is_premium: false, unlock_cost_credits: 0 },
+  { name: "Product & Tech", slug: "product-tech", industry_category: "Technology", is_premium: false, unlock_cost_credits: 0 },
+  { name: "Portfolio Grid", slug: "portfolio-grid", industry_category: "Design", is_premium: true, unlock_cost_credits: 10 },
+  { name: "Field Notes", slug: "field-notes", industry_category: "Customer Success", is_premium: false, unlock_cost_credits: 0 },
+  { name: "Ledger", slug: "ledger", industry_category: "Banking & Finance", is_premium: false, unlock_cost_credits: 0 },
+  { name: "Pipeline", slug: "pipeline", industry_category: "Sales & Marketing", is_premium: true, unlock_cost_credits: 10 },
+  // Phase 2 — the full-library additions. Categories taken from Resume-Now's
+  // and Enhancv's real taxonomies and deduped against the seven above.
+  { name: "Clinical", slug: "clinical", industry_category: "Healthcare", is_premium: false, unlock_cost_credits: 0 },
+  { name: "Statute", slug: "statute", industry_category: "Legal", is_premium: true, unlock_cost_credits: 10 },
+  { name: "Critical Path", slug: "critical-path", industry_category: "Project Management", is_premium: true, unlock_cost_credits: 10 },
+  { name: "Public Record", slug: "public-record", industry_category: "Government & Public Sector", is_premium: true, unlock_cost_credits: 10 },
 ];
 
 const INTERNAL_JOBS = [
@@ -231,15 +245,31 @@ async function main() {
   }
 
   console.log("→ Seeding resume templates…");
-  const templateIdByName = new Map<string, string>();
+  /*
+   * Keyed on `slug`, not `name`. `slug` is the column with the unique
+   * constraint (0042), so it is the only one that can be matched on safely —
+   * matching on `name` would create a duplicate row the moment catalog copy
+   * was edited, and duplicates are what the constraint exists to prevent.
+   */
+  const templateIdBySlug = new Map<string, string>();
   for (const t of RESUME_TEMPLATES) {
     const { data: existingTemplate } = await supabase
       .from("resume_templates")
       .select("id")
-      .eq("name", t.name)
+      .eq("slug", t.slug)
       .maybeSingle();
     if (existingTemplate) {
-      templateIdByName.set(t.name, existingTemplate.id);
+      // Keep catalog copy current on re-seed; slug itself never changes.
+      await supabase
+        .from("resume_templates")
+        .update({
+          name: t.name,
+          industry_category: t.industry_category,
+          is_premium: t.is_premium,
+          unlock_cost_credits: t.unlock_cost_credits,
+        })
+        .eq("id", existingTemplate.id);
+      templateIdBySlug.set(t.slug, existingTemplate.id);
       continue;
     }
     const { data: newTemplate, error: templateError } = await supabase
@@ -248,12 +278,12 @@ async function main() {
       .select("id")
       .single();
     if (templateError || !newTemplate) throw templateError ?? new Error(`Failed to create template ${t.name}`);
-    templateIdByName.set(t.name, newTemplate.id);
+    templateIdBySlug.set(t.slug, newTemplate.id);
   }
 
   console.log("→ Seeding Resume Builder demo resumes (in-progress + finalized)…");
-  const inProgressTemplateId = templateIdByName.get("Product & Tech");
-  const finalizedTemplateId = templateIdByName.get("Clean Professional");
+  const inProgressTemplateId = templateIdBySlug.get("product-tech");
+  const finalizedTemplateId = templateIdBySlug.get("clean-professional");
 
   async function upsertBuilderResume(
     title: string,

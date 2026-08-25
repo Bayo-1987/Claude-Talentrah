@@ -760,3 +760,76 @@ describe("farah_messages: the LLM rate limit is not the user's to reset (0041)",
     expect(data?.role).toBe("user");
   });
 });
+
+describe("resume_templates is catalog data, not user input (0042)", () => {
+  /**
+   * Added alongside the template library, which put a new column (`slug`) on
+   * this table. The concern was reasonable — 0028/0030/0031/0041 are all the
+   * same story of a new column landing on a user-writable table — so this
+   * records the answer as a standing check instead of a one-off observation.
+   *
+   * `resume_templates` is different in kind from those tables: it is a catalog
+   * every user READS and nobody owns. It has RLS enabled with exactly one
+   * policy, `SELECT`, and no write policy at all. That means the row policy
+   * refuses a write before the table-wide grant is ever consulted — the
+   * opposite arrangement to `resumes`, where a permissive `FOR ALL` policy let
+   * the default grant through.
+   *
+   * `is_premium` and `unlock_cost_credits` are the money columns here. If a
+   * write policy is ever added to this table, these assertions fail, which is
+   * the point.
+   */
+  it("an authenticated user cannot rewrite the catalog's price or its slugs", async () => {
+    const { data: template } = await admin
+      .from("resume_templates")
+      .select("id, slug, is_premium, unlock_cost_credits")
+      .eq("is_premium", true)
+      .limit(1)
+      .single();
+    if (!template) throw new Error("No premium template seeded — run `npm run seed`.");
+
+    for (const patch of [
+      { is_premium: false },
+      { unlock_cost_credits: 0 },
+      { slug: "hijacked-slug" },
+    ]) {
+      const { error } = await user.client
+        .from("resume_templates")
+        .update(patch)
+        .eq("id", template.id);
+      // A row-policy denial silently affects zero rows rather than erroring,
+      // so the re-read below is what actually proves it, not this.
+      void error;
+    }
+
+    const { data: after } = await admin
+      .from("resume_templates")
+      .select("slug, is_premium, unlock_cost_credits")
+      .eq("id", template.id)
+      .single();
+
+    expect(after?.is_premium, "MONEY: a user turned a paid template free").toBe(true);
+    expect(after?.unlock_cost_credits, "MONEY: a user zeroed a template's price").toBe(
+      template.unlock_cost_credits,
+    );
+    expect(after?.slug, "a user rewrote the key the component registry joins on").toBe(
+      template.slug,
+    );
+  });
+
+  it("the catalog carries no write policy at all", async () => {
+    // The structural reason the above holds. Stated separately so that adding
+    // a write policy fails loudly here with an explanation, rather than only
+    // showing up as a surprising data change in the test above.
+    const { data } = await admin
+      .from("resume_templates")
+      .select("id")
+      .limit(1);
+    expect(data ?? [], "catalog should be readable").not.toHaveLength(0);
+
+    const { error } = await user.client
+      .from("resume_templates")
+      .insert({ name: "x", slug: "x", industry_category: "x" });
+    expect(error, "a user must not be able to add catalog rows either").not.toBeNull();
+  });
+});
