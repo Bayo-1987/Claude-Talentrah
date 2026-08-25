@@ -4,6 +4,7 @@ import { fetchGreenhouseJobs } from "./sources/greenhouse";
 import { fetchLeverJobs } from "./sources/lever";
 import { fetchSchemaOrgJobs } from "./sources/schema-org";
 import { JOB_SOURCES } from "./sources.config";
+import { disambiguateFingerprint } from "./dedup";
 import { externalSourceKey } from "./types";
 import type { JobSourceConfig, NormalizedJobPosting } from "./types";
 
@@ -15,6 +16,17 @@ export interface IngestSourceResult {
   fetched: number;
   upserted: number;
   closed: number;
+  /**
+   * Postings in this fetch whose canonical key collided with another's and
+   * were given a disambiguated fingerprint so both survive. Zero is the
+   * expected value; a non-zero one means the source is publishing several
+   * requisitions that look identical on company + title + location.
+   *
+   * Surfaced because the previous behaviour was to drop them silently and
+   * still report `upserted` as if nothing had happened — the count looked
+   * right no matter how many apply links had been lost.
+   */
+  collided?: number;
   /** schema-org only: listings that were fetched but couldn't be mapped
    * (missing hiringOrganization, unparseable JSON-LD, etc.) — see
    * sources/schema-org.ts's contract-drift guard. Not a failure: the rest of
@@ -55,12 +67,26 @@ export async function ingestAllSources(): Promise<IngestSourceResult[]> {
     try {
       const { jobs: fetchedJobs, skipped: skippedCount } = await fetchSource(config);
 
-      // Some boards list the same role twice (e.g. duplicate postings across
-      // teams) which would otherwise collide within a single upsert batch —
-      // ON CONFLICT DO UPDATE can't touch the same row twice in one command.
-      const jobs = Array.from(
-        new Map(fetchedJobs.map((j) => [j.dedupFingerprint, j])).values(),
-      );
+      /*
+       * Two postings in one fetch cannot share a fingerprint — ON CONFLICT DO
+       * UPDATE can't touch the same row twice in one command. This used to be
+       * resolved by `new Map(...)`, which is last-one-wins: every colliding
+       * posting but one was discarded, silently, including its `external_url`.
+       * That URL is the apply link, so the cost of a collision was a real job
+       * the seeker could see but never reach.
+       *
+       * Now they are disambiguated instead of dropped. See
+       * `disambiguateFingerprint` for why that is safe for cross-source dedup
+       * and what it trades away.
+       */
+      const { jobs, collided } = resolveFingerprintCollisions(fetchedJobs);
+      if (collided > 0) {
+        console.warn(
+          `[ingest:${config.source}/${configIdentifier(config)}] ${collided} posting(s) shared a canonical ` +
+            `key (company+title+location) with another in the same fetch and were disambiguated by URL. ` +
+            `Previously these were dropped silently.`,
+        );
+      }
 
       const rows = jobs.map((job) => ({
         source_type: "external" as const,
@@ -138,6 +164,7 @@ export async function ingestAllSources(): Promise<IngestSourceResult[]> {
         fetched: jobs.length,
         upserted,
         closed,
+        collided,
         skipped: skippedCount,
       });
     } catch (err) {
@@ -162,4 +189,42 @@ export async function ingestAllSources(): Promise<IngestSourceResult[]> {
   }
 
   return results;
+}
+
+/**
+ * Keeps every posting in a fetch, giving a unique fingerprint to any that
+ * collide on the canonical company+title+location key.
+ *
+ * Returns the collision count so the caller can report it. The first posting
+ * with a given fingerprint keeps it unchanged, so the common case — no
+ * collisions — produces byte-identical fingerprints to before this existed and
+ * no row churn on the next ingest.
+ */
+function resolveFingerprintCollisions(fetched: NormalizedJobPosting[]): {
+  jobs: NormalizedJobPosting[];
+  collided: number;
+} {
+  const seen = new Set<string>();
+  const jobs: NormalizedJobPosting[] = [];
+  let collided = 0;
+
+  for (const job of fetched) {
+    if (!seen.has(job.dedupFingerprint)) {
+      seen.add(job.dedupFingerprint);
+      jobs.push(job);
+      continue;
+    }
+
+    const unique = disambiguateFingerprint(job.dedupFingerprint, job.externalUrl);
+    if (seen.has(unique)) {
+      // Same canonical key AND the same URL — genuinely the same posting listed
+      // twice by the source. Nothing is lost by keeping one.
+      continue;
+    }
+    seen.add(unique);
+    jobs.push({ ...job, dedupFingerprint: unique });
+    collided++;
+  }
+
+  return { jobs, collided };
 }
