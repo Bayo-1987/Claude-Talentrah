@@ -11,17 +11,19 @@ import { afterAll, afterEach, describe, expect, it } from "vitest";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
 import type { Database } from "@/lib/supabase/types";
+import { createAuthedTestUser } from "../support/auth";
 
 for (const key of [
   "NEXT_PUBLIC_SUPABASE_URL",
   "NEXT_PUBLIC_SUPABASE_ANON_KEY",
   "SUPABASE_SERVICE_ROLE_KEY",
 ] as const) {
+  // ANON is read by tests/support/auth.ts rather than here, but a missing one
+  // must still fail loudly at load, not halfway through a run.
   if (!process.env[key]) throw new Error(`Tracker test cannot run: ${key} is not set.`);
 }
 
 const URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 type DB = SupabaseClient<Database>;
 
@@ -32,24 +34,12 @@ const admin: DB = createClient<Database>(URL, SERVICE, {
 let created: string[] = [];
 
 async function makeAuthedUser(label: string) {
-  const email = `trk-${label}-${randomUUID()}@talentrah.test`;
-  const { data, error } = await admin.auth.admin.createUser({ email, email_confirm: true });
-  if (error) throw error;
-  created.push(data.user!.id);
-  const { data: link, error: linkErr } = await admin.auth.admin.generateLink({
-    type: "magiclink",
-    email,
-  });
-  if (linkErr || !link) throw linkErr ?? new Error("no magic link");
-  const client = createClient<Database>(URL, ANON, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
-  const { error: otpErr } = await client.auth.verifyOtp({
-    token_hash: link.properties.hashed_token,
-    type: "magiclink",
-  });
-  if (otpErr) throw otpErr;
-  return { id: data.user!.id, client };
+  // Goes through the shared helper so a transient Supabase Auth rate limit is
+  // retried, rather than surfacing as a nonsense assertion failure in whichever
+  // suite happens to run next — see tests/support/auth.ts.
+  const user = await createAuthedTestUser(`trk-${label}`);
+  created.push(user.id);
+  return { id: user.id, client: user.client };
 }
 
 /** A manual tracker entry — no job_posting_id, exactly as the UI creates one. */
@@ -206,15 +196,16 @@ describe("a hired application cannot be silently un-hired (0037)", () => {
     );
   });
 
-  it.each(["applied", "interviewing", "offer", "rejected"] as const)(
-    "refuses hired -> %s",
-    async (target) => {
-      const a = await makeAuthedUser(`hired-${target}`);
+  it("refuses hired -> every other non-archived stage", async () => {
+    // One account, four entries — rather than four accounts. Auth budget is a
+    // shared, limited resource across the whole suite; see tests/support/auth.ts.
+    const a = await makeAuthedUser("hired-many");
+    for (const target of ["applied", "interviewing", "offer", "rejected"] as const) {
       const appId = await manualEntry(a.id, "hired");
       await a.client.from("applications").update({ stage: target }).eq("id", appId);
-      expect((await stageOf(appId))?.stage).toBe("hired");
-    },
-  );
+      expect((await stageOf(appId))?.stage, `hired -> ${target} was allowed`).toBe("hired");
+    }
+  });
 
   it("ALLOWS hired -> archived, the one legitimate exit", async () => {
     const a = await makeAuthedUser("hired-arch");
