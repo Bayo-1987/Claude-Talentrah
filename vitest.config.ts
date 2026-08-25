@@ -5,7 +5,15 @@ export default defineConfig({
   test: {
     environment: "node",
     setupFiles: ["./tests/setup.ts"],
-    include: ["src/**/*.test.ts", "tests/**/*.test.ts"],
+    /*
+     * `.tsx` as well as `.ts`. The template suite renders real components with
+     * react-dom/server, which needs JSX — and a file that does not match this
+     * glob is not reported as skipped, it is simply never collected. The
+     * rendering tests were silently absent from a green run before this was
+     * widened, which is the failure mode worth naming: an uncollected test
+     * file looks exactly like a passing one.
+     */
+    include: ["src/**/*.test.{ts,tsx}", "tests/**/*.test.{ts,tsx}"],
     testTimeout: 20000,
     /*
      * Hooks get the same budget as tests, not vitest's 10s default.
