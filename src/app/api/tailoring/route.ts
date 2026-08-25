@@ -8,6 +8,7 @@ import {
   commitTailoringAllowance,
   InsufficientCreditsError,
 } from "@/lib/tailoring/gate";
+import { consumeRateLimit, rateLimited } from "@/lib/api/rate-limit";
 
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -17,6 +18,22 @@ export async function POST(request: Request) {
   if (!user) {
     return NextResponse.json({ error: "Not signed in." }, { status: 401 });
   }
+
+  /*
+   * Frequency limit, separate from and prior to the credit gate.
+   *
+   * The credit gate constrains SPEND, not BURST — and it is not the first
+   * thing this route does either. A user with credits, or one still inside
+   * the free trial before it flips, can fire concurrent requests as fast as
+   * the network allows, and each one reaches a paid model call. Farah's chat
+   * route has had a per-hour cap since it shipped; the two routes that
+   * actually generate documents had none.
+   *
+   * Checked before parsing the body so a flood of malformed requests is
+   * counted too.
+   */
+  const quota = await consumeRateLimit(user.id, "tailoring");
+  if (!quota.allowed) return rateLimited(quota);
 
   let body: Record<string, unknown>;
   try {

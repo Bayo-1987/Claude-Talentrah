@@ -341,3 +341,65 @@ Re-run together on `main` on 2026-08-24, not just per-PR in isolation:
 
 - **The LinkedIn half of the OAuth name fix is unverified against a real account.** It was built from LinkedIn's published OIDC userinfo schema and a test fixture, because no LinkedIn account exists in this project. Google's half came from this project's own real `auth.users` metadata. Check the LinkedIn path the first time a genuine LinkedIn signup happens — the two providers really do send different shapes, so a Google-only confirmation proves nothing about it.
 - **Tests run against the live Supabase project.** There is no separate test project. The suites create namespaced throwaway users and clean up after themselves, but a dedicated project or Supabase branch is worth setting up before this repo has more contributors.
+
+## Internal API contract layer (0038 + `src/lib/api/`)
+
+Five admin routes each rolled their own auth guard and the guards disagreed.
+All five used the fail-open shape `if (secret) { ...check... }`, so an unset
+env var meant no check at all. `INGEST_SECRET` was not set on the deployment,
+which made every one of them reachable unauthenticated on the public internet.
+Verified against production before the fix, not inferred:
+
+```
+$ curl https://claude-talentrah.vercel.app/api/admin/moderate-scholarship
+{"count":3,"scholarships":[{…"moderation_status":"pending"}…]}   HTTP 200
+
+$ curl -X POST '…/api/admin/estimate-llm-costs?group=bogus'
+{"error":"group must be one of tailoring, bullet, scholarship"}  HTTP 400
+```
+
+The second is the proof: argument validation sits behind the auth check, so a
+400 rather than a 401 means the guard never ran.
+
+Exposed by that: the scholarship moderation queue (GET listed unpublished
+rows; POST could publish any listing to the public catalog), the job-ingestion
+trigger, and the LLM-cost probe, which spends real model budget per call.
+
+`/api/admin/renew-passes` POST — the one route that charges saved Paystack
+tokens — was gated on a **fourth** env var, `PASS_RENEWAL_SECRET`, that nothing
+else read and that `.env.example` documented only in passing. An operator who
+set the documented `INGEST_SECRET` would have secured four routes and left the
+money-spending one open. It was **not** probed: there is no safe request to
+make against it, so its state in production is inference, not measurement.
+
+Now: one fail-closed, timing-safe guard in `src/lib/api/admin-auth.ts`,
+`PASS_RENEWAL_SECRET` retired, `x-admin-secret` the header going forward with
+the two legacy names still accepted. **Unset `INGEST_SECRET` now 401s the whole
+admin surface** — that is the point, and it means the variable has to be set on
+the deployment before the manual triggers work again.
+
+Also in this pass:
+
+- **Rate limits on the two paid routes.** `/api/farah/chat` had a per-hour cap
+  since it shipped; `/api/tailoring` and `/api/resume/parse` had none. The
+  credit gate bounds spend, not burst. Migration 0038 adds an atomic counter
+  (`consume_rate_limit`) — proven necessary: a read-then-increment variant let
+  **20 of 20 concurrent requests through a limit of 5**, the real one lets
+  exactly 5.
+- **Raw `err.message` no longer reaches any response body.** Four handlers
+  echoed driver text; one returned a Postgres constraint name verbatim
+  (captured in the test file's header).
+- **`await request.formData()` guarded** in `/api/resume/parse`. It rejects on
+  a truncated multipart body, which a dropped mobile connection produces
+  routinely on this app's target network.
+- **Job ingestion is now actually scheduled** (`0 5 * * *`). Its own comment
+  said "point a Vercel Cron job at this" and nothing ever did. Ingestion is
+  heuristic-only — no LLM call anywhere under `src/lib/jobs/` — so a daily run
+  costs no model budget.
+
+**Not a finding, checked and dismissed:** the "no 405 on unsupported methods"
+concern. Next.js already returns 405 for a method a route doesn't export.
+Confirmed on production rather than from the docs alone — `GET`, `PUT`,
+`DELETE`, `PATCH` on `/api/admin/ingest-jobs` all returned 405 before any
+change. `/api/e2e/llm-provider` likewise already self-gates correctly, 404 on
+production. Both are covered by tests now, but neither needed a code change.
