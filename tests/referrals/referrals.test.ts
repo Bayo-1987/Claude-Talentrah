@@ -118,12 +118,21 @@ afterEach(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  // Belt-and-braces: anything this file leaked despite afterEach.
+  /*
+   * Belt-and-braces: anything this file leaked despite afterEach.
+   *
+   * Parallel, with an explicit hook timeout — the third instance of the shape
+   * PR #38 fixed in spend-race and rate-limit, missed there only because this
+   * file arrived on a different branch. Serially it is one round-trip per
+   * leaked account inside vitest's default 10s budget, and it blew that here:
+   * all 267 tests passed while the FILE was reported failed. The timeout
+   * aborts the loop partway, so the hook leaks exactly the accounts it exists
+   * to remove, into the shared project — there is no staging database.
+   */
   const { data } = await admin.auth.admin.listUsers();
-  for (const u of data.users.filter((x) => x.email?.startsWith("reftest-"))) {
-    await admin.auth.admin.deleteUser(u.id).catch(() => {});
-  }
-});
+  const mine = data.users.filter((x) => x.email?.startsWith("reftest-"));
+  await Promise.all(mine.map((u) => admin.auth.admin.deleteUser(u.id).catch(() => {})));
+}, 60_000);
 
 /* ========================================================================== *
  * §0 — self-referral detection
