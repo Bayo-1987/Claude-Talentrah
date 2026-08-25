@@ -33,6 +33,187 @@ both served stale content in this project's history. Don't rely on either.
 
 ---
 
+## Merged 2026-08-25 — PR #39, schema.org/JobPosting ingestion
+
+Closes the second half of M2/§6.12. Arrived as a patch file (`git am`, authorship
+preserved: `Claude <noreply@anthropic.com>`), then four follow-up commits from
+review.
+
+| PR | Branch | Merged at (UTC) | Merge SHA |
+|----|--------|-----------------|-----------|
+| [#39](https://github.com/Bayo-1987/Claude-Talentrah/pull/39) | `feat/schema-org-job-ingestion` | 17:10:04 | `6326d72` |
+
+7 commits, 16 files, +1288/−35.
+
+### What shipped
+
+`src/lib/jobs/sources/schema-org.ts` — a two-step fetcher (a listing page's
+`ItemList` JSON-LD → each job's own `JobPosting` block) wired into `ingest.ts`'s
+existing dispatch/dedup/freshness pipeline. One vetted pilot source:
+`jobs.workable.com/search/nigeria`. `JobSourceConfig` and
+`NormalizedJobPosting.externalSource` became a three-way discriminated union.
+
+It also carries **the only timeout on any external call in this repo**
+(`AbortSignal.timeout`, 15s). The "no external call anywhere sets a timeout"
+gap in the backlog is otherwise untouched.
+
+### Source eligibility — the part that carries legal weight
+
+Four candidates were checked and rejected before Workable qualified. Three were
+taken on the patch's word; **Fuzu was re-verified independently**, because the
+whole disqualification rests on it and it is the one claim with real legal
+consequence if wrong.
+
+`fuzu.com/legal/terms` sits behind a Cloudflare challenge (HTTP 403). No attempt
+was made to defeat bot-detection; the page was read in an ordinary browser.
+**§12 "Acceptable use", Global Terms v2, last updated 1 June 2026** — both
+phrases present verbatim, not paraphrased:
+
+> ...use automated tools to scrape or misuse platform data...
+
+> ...misuse Candidate or Employer data, including by selling, redistributing, or
+> aggregating it without authorisation; scrape, harvest, mine, or extract
+> platform data without authorisation, or train any third-party AI System on
+> Content obtained from the Service without authorisation...
+
+The actual text is **broader than the patch claimed**: the patch framed the ban
+as scoped to Candidate/Employer data, but there is a standalone prohibition on
+scraping or extracting *platform data*, plus an explicit ban on training
+third-party AI on Fuzu content. Job listings are squarely inside it. Fuzu's
+`robots.txt` carries no AI-crawler restriction at all — which is the point:
+robots.txt permissiveness is not a redistribution licence.
+
+Workable's `robots.txt` was re-verified too:
+`Content-Signal: search=yes, ai-input=yes, ai-train=no`, `Allow: /search/*`, no
+disallow covering `/view/*`. A live posting was confirmed to carry every field
+the fetcher requires.
+
+### The closure-discriminator bug — a real live defect, not a design nit
+
+**This one reached production during review and closed 20 real job postings.**
+Recorded in full because smoothing it into "review found some improvements"
+would misrepresent what happened.
+
+The freshness sweep scoped a schema.org source's closure by
+`external_source = 'schema-org'` — the bare discriminator, shared by *every*
+schema.org row in the table. greenhouse/lever get a second predicate
+(`company_name`) that scopes them to their own board; a multi-employer
+schema.org source has no such column and got nothing.
+
+It was first written up as latent — "fine with one source, breaks the moment a
+second is added." **That was wrong.** Any schema.org ingest closed every
+schema.org row it had not just seen, and *a test counts as an ingest*. Running
+the new `tests/jobs/ingest-schema-org-multi-source.test.ts` against the unfixed
+code closed all 20 real Workable postings in the live project, because its
+mocked sources have no real postings of their own so every genuine row looked
+stale to their sweep. There is no staging database; that is why a test reached
+real data.
+
+Fix: `external_source` is now `schema-org:<label>`, produced by one function
+(`schemaOrgSourceKey` in `types.ts`) that both the upsert and the closure query
+call, so writer and sweep cannot drift apart. Before changing it, every reader
+of the column was re-checked against then-current `main`: the only ones are
+`ingest.ts`'s own write and closure query. The UI branches on
+`source_type === "external"` (`src/components/jobs/job-card.tsx:36`), never on
+`external_source`'s value. No RLS policy, index or constraint references it —
+plain nullable `text`.
+
+Proof, both directions:
+
+```
+pre-fix   × CROSS-SOURCE CLOSURE: source B closed 2 of source A's postings
+          × A's still-listed posting must stay open: expected 'closed' to be 'open'
+          live project: 20 real Workable rows → all closed by a test ingest
+
+post-fix  11/11 jobs tests pass
+          live project: 20 real Workable rows → all still open
+```
+
+The test carries a positive control, so "nothing ever closes" cannot satisfy it.
+
+### Three other defects found and fixed during review
+
+- **The DB test could never have passed.** `tests/jobs/ingest-schema-org.test.ts`
+  stubbed the *global* `fetch`, which supabase-js also uses, so its mock threw
+  on Supabase's own REST calls — contradicting the file's own docblock ("Network
+  is mocked; Supabase is not"). The patch flagged it as unrun for lack of
+  `SUPABASE_SERVICE_ROLE_KEY`; the key was available here, the file ran for the
+  first time, and failed immediately. Now passes through to the real fetch for
+  anything that is not a test-owned URL.
+- **`scripts/seed.ts` would have logged `greenhouse/undefined`.** It re-declared
+  the route's response shape inline, so the `token` → `identifier` rename kept
+  compiling. Replaced with a type-only import of the real `IngestSourceResult`.
+- **`ledgerFor` in the referrals suite reported failed queries as empty
+  results** (`data ?? []`), which produced one false assertion failure. Now
+  throws. A helper that cannot tell "no rows" from "the question was never
+  answered" will eventually blame the code for the network.
+
+### Migrations 0039 and 0040 (both applied, both in `list_migrations`)
+
+- **`0039_qualify_schema_org_source_key`** (`20260825162806`) — re-labels
+  pre-existing bare `schema-org` rows. Guarded: raises rather than mislabel
+  anything that is not a `jobs.workable.com` URL. Needed because a row already
+  delisted is never re-upserted, so it would never match the new sweep and would
+  sit `open` forever. A permanently live listing for a dead job is worse than a
+  missing one — someone spends an application on it.
+- **`0040_reopen_test_closed_workable_rows`** (`20260825163103`) — reopens the 20
+  the pre-fix test run closed. All 20 were re-checked against the live listing
+  first; all 20 still there.
+
+### Verified, four-point standard
+
+1. **PR API** — `merged: true`, `merged_at 2026-08-25T17:10:04Z`,
+   `merge_commit_sha 6326d722cfe61f1b28c833309dfa12ec009d88fb`.
+2. **Fresh shallow clone of `main`** — merge commit `6326d72` with two parents
+   (`e373aa3` + `215f69f`), matching this repo's merge-commit style. All new
+   files present; `externalSourceKey(config)` confirmed in the merged
+   `ingest.ts:120`, `schemaOrgSourceKey` in `types.ts:64`, `hookTimeout: 60000`
+   in `vitest.config.ts:30`.
+3. **Live probe** — `/` 200, `/login` 200, `/signup` 200, and the admin surface
+   still fail-closed at 401. Database: exactly **20 open
+   `schema-org:workable-nigeria` rows, zero bare `schema-org`**, greenhouse
+   untouched at 127 open / 10 closed.
+4. **Full suite green in CI** on the merged head `215f69f`: **21/21 files, 267/267
+   tests**, plus **Playwright 13/13**. All four checks passed.
+
+### The suite's own flakiness was self-inflicted — worth remembering
+
+Two local full-suite runs failed with 14 tests across 9 files, every failure
+pinned at exactly the hook timeout (`10008ms`, `10002ms`, `10512ms`). It was
+first blamed on Supabase's auth rate limit. **That was wrong** — a direct probe
+on a quiet database measured `createUser` at ~750ms and a plain select at 234ms.
+
+The real cause: 21 test files run in parallel against the shared live project,
+**and CI runs against that same project at the same time**. The CI record shows
+it — commits whose local runs overlapped CI failed the unit job, and the
+Playwright failure on `aa44e1c` was literally `AuthRetryableFetchError: Gateway
+Timeout` at 16:52, mid-way through a local run.
+
+Two consequences, both kept:
+
+- `vitest.config.ts` now sets `hookTimeout: 60000`. Three files had already been
+  patched with a per-hook `, 60_000` — one fix applied three times while leaving
+  every other suite exposed. A raised ceiling does not hide a hang; a genuinely
+  stuck hook still fails, just at 60s.
+- **Do not run the full suite locally while CI is running on the same branch.**
+  There is one database and both will fight for it.
+
+Related, and not an anomaly: a real ingest against the live project at
+`16:20:07` (127 greenhouse rows re-checked, 20 Workable rows created) was **CI's
+own `npm run seed` step** — a CI run on this PR ran 16:16:10Z–16:22:16Z, which
+brackets it. Per CLAUDE.md, `seed` drives real ingestion over HTTP precisely
+because there is no staging database. The 20 rows are genuine, currently-live
+postings and were deliberately kept rather than deleted and re-ingested.
+
+### Still one pilot source, not a green light
+
+Workable is one well-vetted source. Adding more via the same mechanism, or
+relying on schema.org as a *primary* supply channel, remains gated on the legal
+review build-prompt §10 item 10 names. Read `sources.config.ts`'s comment before
+adding a second.
+
+---
+
 ## Merged 2026-08-25 — PRs #35, #36, #37
 
 All three verified by the four-step standard above.
@@ -174,13 +355,11 @@ rules. Those need the real files.
 ## Open backlog
 
 1. ~~Merge #35, #36, #37~~ — **done**, verified above.
-2. **schema.org/JobPosting ingestion** — not started. Blocked on the missing
-   brief: three candidate sources were already ruled out and the reasons live
-   in that file. Known from prior session context: `hotnigerianjobs.com` is
-   disqualified outright (`robots.txt` names ClaudeBot/GPTBot/CCBot,
-   `ai-train=no, use=reference`), `jobberman.com` disallows `/job/`, and
-   `myjobmag.com` serves no JSON-LD. A fourth source has to be found and
-   cleared first.
+2. ~~schema.org/JobPosting ingestion~~ — **done**, PR #39, see above. Arrived
+   as a patch rather than being built here. One pilot source
+   (`jobs.workable.com/search/nigeria`); `hotnigerianjobs.com`, `jobberman.com`,
+   `myjobmag.com` and `fuzu.com` all checked and rejected, Fuzu's ToS
+   independently re-verified. Broader reliance still gated on §10 item 10.
 3. **Six remaining test-coverage briefs**, in the backlog's severity order.
    Also blocked on missing files, though the one-line summaries name the
    defects. Highest-value leads from those summaries:
