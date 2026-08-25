@@ -12,6 +12,7 @@
 import { config } from "dotenv";
 config({ path: ".env.local" });
 
+import { randomBytes } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "../src/lib/supabase/types";
 import { computeDedupFingerprint } from "../src/lib/jobs/dedup";
@@ -430,17 +431,38 @@ async function main() {
   if (!demoProfile) throw new Error("Demo profile not found — seed the demo user first");
   const demoReferralCode = demoProfile.referral_code;
 
+  /*
+   * These two accounts exist only as referral-funnel demo data — nothing, in
+   * the app or the tests, ever logs in as them. So they get a fresh random
+   * password on every seed run, which is never stored, printed or committed.
+   *
+   * They previously shared a literal password committed to this PUBLIC repo,
+   * and they are real accounts on the live project — the same mistake as the
+   * demo user's, missed when that one was rotated. An unguessable password
+   * nobody holds is stronger here than another env var to manage, precisely
+   * because no one needs to log in.
+   */
+  const throwawayPassword = () => `seed-${randomBytes(24).toString("base64url")}`;
+
   async function upsertReferredFriend(email: string, firstName: string) {
     const { data: existingUsers } = await supabase.auth.admin.listUsers();
     const existingFriend = existingUsers.users.find((u) => u.email === email);
-    if (existingFriend) return existingFriend.id;
+    if (existingFriend) {
+      // Re-assert, so re-seeding actually retires the old published password
+      // rather than only changing what a fresh project would get.
+      const { error: pwErr } = await supabase.auth.admin.updateUserById(existingFriend.id, {
+        password: throwawayPassword(),
+      });
+      if (pwErr) throw pwErr;
+      return existingFriend.id;
+    }
 
     // Goes through the exact same handle_new_user() trigger a real signup
     // does — referral row + signup-bonus grant happen for real here, not
     // scripted, so this also verifies the M8 reward pipeline end-to-end.
     const { data, error } = await supabase.auth.admin.createUser({
       email,
-      password: "TalentrahDemoFriend123!",
+      password: throwawayPassword(),
       email_confirm: true,
       user_metadata: {
         first_name: firstName,
