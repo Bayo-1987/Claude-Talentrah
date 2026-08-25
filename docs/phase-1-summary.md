@@ -71,6 +71,7 @@ Each stands in for an open `[DECIDE]` item and should be revisited, not inherite
 - OAuth signups left with a permanently `NULL` name (#22).
 - Golden-path e2e — plan-doc M10's outstanding item — now standing in CI (#20).
 - **Any signed-in user could publish a job into every user's feed under an invented company name** (`0027`, 2026-08-25). See *Second route to the same privilege* below.
+- **A user could grant themselves unlimited credits** (`0030`, 2026-08-25). `profiles` is self-updatable with no column restriction, so `update profiles set credits_balance = 999999` succeeded — and that column is exactly what the credit gate reads before every paid AI action. Same for both free-trial flags, `referral_code`, `referred_by` and `email`. Found by the systematic pass that followed 0028; fixed the same way, verified the same way.
 - **An organisation could mark itself verified** (`0028`, 2026-08-25). 0027 made `organizations.verified` the gate deciding whether an internal posting reaches the public feed, but never restricted who may *write* that column — and the `organizations` UPDATE policy is member-scoped with no column restriction. So one call (`update organizations set verified = true`) made the gate decorative, and the posting went public. Measured against the live project before the employer UI existed; found precisely because this was the first product code that would have walked through it. Fixed with column-level grants (table UPDATE revoked, then re-granted on the profile columns only) — note that revoking only the column would have looked right and changed nothing, because a table-level grant overrides it.
 - **The demo account's password was committed in a public repo** while owning the org whose postings are live in the feed (2026-08-25). See *Published demo credentials* below.
 - **A second published credential**, shared by the two seeded referral accounts, found by the follow-up history-wide sweep and still live at the time — rotated, old value confirmed dead. Full results in [docs/secrets-audit.md](secrets-audit.md).
@@ -184,6 +185,83 @@ Two things make it load-bearing rather than cosmetic: an unverified company's
 postings never reach the public feed (0027), and a company cannot mark itself
 verified (0028). Verification only ever happens server-side, from the session
 user's own confirmed email.
+
+## Column-privilege audit — 2026-08-25
+
+The systematic version of what 0028 found by accident. **RLS row policies decide
+which rows you may touch; they say nothing about which columns.** Supabase grants
+`ALL ON ALL TABLES` to `authenticated` by default, so every table with a
+permissive UPDATE policy let its owner rewrite *every* column on their own row.
+The row being yours does not make every column on it yours.
+
+Every table where RLS permits an authenticated UPDATE, probed with a real
+session against the live project:
+
+| Table | Verdict |
+|---|---|
+| **`profiles`** | **WAS EXPOSED — fixed in `0030`.** `credits_balance`, both `free_trial_*` flags, `referral_code`, `referred_by`, `email`, `market_segment` were all user-writable. |
+| **`organizations`** | Already fixed (`0028`). Re-asserted by the standing suite. |
+| `match_scores` | **Open, accepted for now.** A user can write their own `score`/`tier`. Affects only their own feed ordering — but see the caveat below. |
+| `job_tailoring_requests` | **Open, accepted for now.** A user can fabricate rows and set `is_free_trial`/`credits_spent`. Distorts unit-economics and funnel analytics; grants nothing. |
+| `applications`, `resumes`, `farah_messages`, `referral_shares`, `scholarship_saves` | Correct — these are the user's own content, and every column on them genuinely is theirs. |
+| `job_postings` | Correct — the 0027 `WITH CHECK` pins `source_type` and org membership on both sides of an update. |
+| `credit_ledger`, `payment_transactions`, `user_passes`, `referrals`, `organization_members`, `application_stage_events`, `credit_gate_events` | Correct — **no UPDATE policy at all**, so RLS denies before column privileges are consulted. Verified live, not inferred: a user could not rewrite a ledger entry, mark their own payment successful, reactivate an expired pass, inflate a referral reward, or promote their own org role. |
+
+`credits_balance` was the serious one. `src/lib/credits/spend.ts` reads it as the
+authoritative balance before every paid AI action, so one `PATCH` bought
+unlimited tailoring, cover letters and bullet rewrites — real model spend. The
+schema comment on that column already said *"do not write to this column
+directly"*, which is the whole lesson: it was documented as a rule and enforced
+as nothing.
+
+`tests/rls/column-privileges.test.ts` now asserts each of these per column, with
+positive controls that a user can still edit their own name and an employer can
+still edit their own company profile.
+
+**The `match_scores` caveat, stated so it isn't lost:** self-set scores are
+cosmetic *today* because nothing but the feed reads them. Phase 2's Auto-Apply
+gates on a match threshold. Whoever builds it must move scoring behind the
+service role first, or Auto-Apply inherits a user-controlled trigger.
+
+## Referral activation — a real payout for an invented job
+
+Tested directly, because the question was whether server code re-verifies
+anything before a referral reward is granted. **It does not.**
+
+What actually happens: a referred user logged a manual Job Tracker entry for
+*"Entirely Invented Ltd — Chief Nobody"*, a company and role that do not exist,
+marked it hired, and the referrer's ledger went from
+
+```
+[ referral_signup_bonus +5 ]        ->        [ referral_signup_bonus +5, referral_activation_bonus +20 ]
+```
+
+Two corrections to the obvious reading, both from the code rather than the
+symptom:
+
+1. **`stage = 'hired'` is not the trigger.** The `applications_check_activation`
+   trigger fires on `INSERT OR UPDATE OF applied_at`, and
+   `check_and_activate_referral` treats activation as *"has a base resume OR has
+   an application with `applied_at` set"*. Any stage above `saved` sets
+   `applied_at`. `hired` only drives a UI banner (`tracker-actions.ts`). The
+   exploit is therefore **cheaper** than the hypothesis — uploading a résumé
+   alone is enough.
+2. **This is the documented rule, correctly implemented** — the plan doc defines
+   activation as *"completed profile OR first application"*. It is a weak
+   definition, not a broken gate. Nothing verifies a real `job_posting_id`, a
+   real employer, or a non-manual `source`.
+
+What actually limits it: self-referral detection (email normalised for dots and
+`+` suffixes) and a **cap of 10 rewarded referrals per referrer per 30 days**
+inside `grant_referral_reward`. So the ceiling is 10 × 20 + 10 × 5 = **250
+credits per referrer per 30 days** — roughly ₦37,500 at the researched anchor —
+for the cost of ten confirmable email addresses.
+
+**Left open deliberately, and named:** tightening this means changing what
+"activated" means, which is a referral-economics decision (open item #4), not a
+privilege fix. The narrow version, if wanted, is to require the activating
+application to have a real `job_posting_id` — that keeps the documented rule
+while making the application half mean a real job.
 
 ## Verification actually performed
 

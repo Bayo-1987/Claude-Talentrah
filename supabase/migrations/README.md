@@ -40,6 +40,7 @@ Via the Supabase MCP connector's `apply_migration` (pass the name without the
 | `0027_gate_internal_postings_on_org_verification.sql` | applied 2026-08-25 |
 | `0028_lock_organization_verification.sql` | applied 2026-08-25 |
 | `0029_org_application_counts.sql` | applied 2026-08-25 |
+| `0030_lock_profile_value_columns.sql` | applied 2026-08-25 |
 
 ## Still missing
 
