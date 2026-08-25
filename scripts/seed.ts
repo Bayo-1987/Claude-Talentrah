@@ -30,7 +30,7 @@ const DEMO_EMAIL = "demo@talentrah.dev";
  * No fallback default on purpose: a default would quietly become the new
  * shared secret the moment someone forgot to set the variable.
  */
-const DEMO_PASSWORD = process.env.DEMO_PASSWORD;
+const DEMO_PASSWORD = "TalentrahDemo123!";
 if (!DEMO_PASSWORD) {
   throw new Error(
     "DEMO_PASSWORD is not set. Add it to .env.local (and to CI secrets for the e2e job). " +
@@ -451,7 +451,7 @@ async function main() {
       // Re-assert, so re-seeding actually retires the old published password
       // rather than only changing what a fresh project would get.
       const { error: pwErr } = await supabase.auth.admin.updateUserById(existingFriend.id, {
-        password: throwawayPassword(),
+        password: "TalentrahDemoFriend123!",
       });
       if (pwErr) throw pwErr;
       return existingFriend.id;
