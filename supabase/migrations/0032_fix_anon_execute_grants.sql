@@ -1,0 +1,57 @@
+-- 0032 — Fix the anon EXECUTE grants, in both directions.
+--
+-- Found by sweeping the second mechanism the 0030 audit named as unexercised:
+-- SECURITY DEFINER function grants and anon reach. Enumerating every function
+-- and then testing what a signed-out client can actually do found one grant
+-- wrongly removed and one wrongly present.
+--
+-- ---------------------------------------------------------------------------
+-- 1. is_org_member — RESTORE to anon. This is a regression I introduced.
+-- ---------------------------------------------------------------------------
+-- 0027 revoked EXECUTE from `anon` as tidy-up, on the reasoning that anon has
+-- no organisation to be a member of. That reasoning was about who should
+-- *benefit* from the function and missed who has to *evaluate* it.
+--
+-- The same migration's own policy is:
+--
+--     create policy "job postings are publicly readable" ... for select
+--       using ( source_type = 'external' or <org verified> or is_org_member(...) )
+--
+-- with no TO clause, so it applies to `public` — anon included. Postgres
+-- evaluates the whole expression as the calling role, so a signed-out visitor
+-- reading job_postings hits the function it may not execute. Measured live:
+--
+--     anon select from job_postings        -> ERROR: permission denied for function is_org_member
+--     anon select from organization_members -> ERROR: permission denied for function is_org_member
+--
+-- Two tables that RLS declares publicly readable, erroring outright for the
+-- public. Nothing user-facing broke — the landing page's job preview is
+-- hardcoded sample copy, not a query — so this was latent, and would have
+-- surfaced as a 500 on the first public job page, sitemap, or "claim your
+-- listing" flow. It is exactly the "documented but never exercised" shape the
+-- audit was looking for, and 0027 is the thing that made it true.
+--
+-- Restoring the grant is safe and is what the function was designed for:
+-- auth.uid() is null for anon, so `is_org_member` can only ever return false,
+-- and the policy correctly falls through to the verified-org branch.
+grant execute on function public.is_org_member(uuid) to anon;
+
+-- ---------------------------------------------------------------------------
+-- 2. generate_referral_code — REVOKE from the world.
+-- ---------------------------------------------------------------------------
+-- The one function in the schema still carrying Supabase's default
+-- `PUBLIC, anon, authenticated` EXECUTE grant. It is SECURITY INVOKER, so it
+-- leaks nothing directly — its uniqueness check reads `profiles` under the
+-- caller's own RLS, which for anon and for any user returns nothing they
+-- couldn't already see.
+--
+-- Revoked anyway, because it is callable at /rest/v1/rpc/generate_referral_code
+-- by anyone on the internet and it LOOPS: each call runs a query against
+-- profiles until it finds an unused code. An unauthenticated, unmetered,
+-- database-touching endpoint is a cheap thing to hammer and serves no caller.
+--
+-- Safe to revoke: nothing in the application calls it. Its only caller is
+-- handle_new_user, which is SECURITY DEFINER and therefore runs as its owner,
+-- not as the signing-up user — so signup is unaffected. Verified live after
+-- applying: a fresh signup still gets a referral code.
+revoke execute on function public.generate_referral_code() from public, anon, authenticated;

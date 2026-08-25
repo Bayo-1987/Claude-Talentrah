@@ -95,27 +95,42 @@ beforeAll(async () => {
     createAuthedUser("referred"),
   ]);
 
+  /*
+   * Find the SEEDED org by way of a seeded internal posting, rather than
+   * taking the first organisation in the table.
+   *
+   * The old `.from("organizations").limit(1).single()` was fine when the seed
+   * org was the only one that ever existed. It is not any more: the employer
+   * and column-privilege suites both create and delete throwaway orgs, vitest
+   * runs files in parallel, and this would intermittently latch onto one of
+   * those — which has no internal posting, so the next query failed with
+   * "run npm run seed first" on a database that was seeded perfectly well.
+   *
+   * Going posting-first makes the pair self-consistent by construction: the
+   * org is, by definition, the one that owns the posting this suite uses.
+   */
+  const { data: posting, error: postErr } = await admin
+    .from("job_postings")
+    .select("id, title, organization_id")
+    .eq("source_type", "internal")
+    .not("organization_id", "is", null)
+    .order("posted_at", { ascending: true })
+    .limit(1)
+    .single();
+  if (postErr || !posting) {
+    throw new Error("No internal posting seeded — run `npm run seed` first.");
+  }
+  internalPostingId = posting.id;
+  internalPostingTitle = posting.title;
+
   const { data: org, error: orgErr } = await admin
     .from("organizations")
     .select("id, description")
-    .limit(1)
+    .eq("id", posting.organization_id!)
     .single();
   if (orgErr || !org) throw new Error("No organisation seeded — run `npm run seed` first.");
   orgId = org.id;
   orgDescription = org.description;
-
-  const { data: posting, error: postErr } = await admin
-    .from("job_postings")
-    .select("id, title")
-    .eq("organization_id", orgId)
-    .eq("source_type", "internal")
-    .limit(1)
-    .single();
-  if (postErr || !posting) {
-    throw new Error("No internal posting seeded for that organisation — run `npm run seed` first.");
-  }
-  internalPostingId = posting.id;
-  internalPostingTitle = posting.title;
 
   const { data: referral, error: refErr } = await admin
     .from("referrals")

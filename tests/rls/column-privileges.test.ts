@@ -311,3 +311,131 @@ describe("tables with no UPDATE policy stay unwritable", () => {
     }
   });
 });
+
+describe("derived tables are the server's conclusion, not the user's input (0031)", () => {
+  it("a user cannot write their own match score, but can still read it", async () => {
+    /*
+     * Cosmetic today — only their own feed ordering reads it. It stops being
+     * cosmetic when Auto-Apply ships: build-prompt §6.2 gates it on a match
+     * threshold, so a user-writable score is a user-writable trigger for
+     * applications sent under their name.
+     */
+    const { data: job } = await admin
+      .from("job_postings")
+      .select("id")
+      .eq("status", "open")
+      .limit(1)
+      .single();
+
+    const { error: insertError } = await user.client
+      .from("match_scores")
+      .insert({ user_id: user.id, job_posting_id: job!.id, score: 100, tier: "Excellent" });
+    expect(insertError, "a user authored their own match score").not.toBeNull();
+
+    const { data: rows } = await admin
+      .from("match_scores")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("job_posting_id", job!.id);
+    expect(rows ?? []).toHaveLength(0);
+
+    const { error: readError } = await user.client
+      .from("match_scores")
+      .select("id")
+      .eq("user_id", user.id);
+    expect(readError, "users must still be able to read their own scores").toBeNull();
+  });
+
+  it("a user cannot fabricate their own tailoring history", async () => {
+    // Traced before locking: nothing reads is_free_trial or credits_spent back
+    // — eligibility comes from profiles, which 0030 locked. So this is a log,
+    // and a log its subject can rewrite is not evidence.
+    const { error } = await user.client
+      .from("job_tailoring_requests")
+      .insert({ user_id: user.id, source_jd_text: "fabricated", is_free_trial: true, credits_spent: 0 });
+    expect(error, "a user wrote their own tailoring log entry").not.toBeNull();
+
+    const { error: readError } = await user.client
+      .from("job_tailoring_requests")
+      .select("id")
+      .eq("user_id", user.id);
+    expect(readError, "users must still be able to read their own tailoring history").toBeNull();
+  });
+});
+
+describe("signed-out reach (0032)", () => {
+  const anonClient: DB = createClient<Database>(URL, ANON, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+
+  it("REGRESSION GUARD: a signed-out visitor can read the public job board", async () => {
+    /*
+     * This is the test that would have caught 0027.
+     *
+     * 0027 revoked is_org_member from anon as tidy-up, but its own
+     * "job postings are publicly readable" policy calls that function and has
+     * no TO clause — so it applies to anon, which then could not execute it.
+     * Result: a table RLS declares publicly readable returned
+     * "permission denied for function is_org_member" to the public. Nothing
+     * user-facing broke only because the landing page's job preview is
+     * hardcoded sample copy. Restored in 0032.
+     *
+     * Asserting on the ERROR, not just the row count: a policy that silently
+     * returns zero rows and one that errors outright are different failures,
+     * and only the second one was happening.
+     */
+    const { data, error } = await anonClient.from("job_postings").select("id").limit(5);
+    expect(error, "the public job board errors for the public").toBeNull();
+    expect((data ?? []).length, "a signed-out visitor should see external postings").toBeGreaterThan(0);
+  });
+
+  it("but still cannot see an unverified company's postings", async () => {
+    // The 0032 fix must not have re-opened 0027's gate.
+    const { data: internal } = await anonClient
+      .from("job_postings")
+      .select("organization_id")
+      .eq("source_type", "internal");
+    const orgIds = [...new Set((internal ?? []).map((r) => r.organization_id).filter(Boolean))] as string[];
+    if (orgIds.length > 0) {
+      const { data: orgs } = await admin.from("organizations").select("verified").in("id", orgIds);
+      expect(
+        (orgs ?? []).every((o) => o.verified),
+        "LEAK: a signed-out visitor saw an unverified company's job",
+      ).toBe(true);
+    }
+  });
+
+  it("sees nothing on any owner-scoped table", async () => {
+    for (const table of [
+      "profiles",
+      "resumes",
+      "applications",
+      "credit_ledger",
+      "payment_transactions",
+      "user_passes",
+      "referrals",
+      "farah_messages",
+      "match_scores",
+    ] as const) {
+      const { data } = await anonClient.from(table).select("*").limit(1);
+      expect(data ?? [], `LEAK: anon read ${table}`).toHaveLength(0);
+    }
+  });
+
+  it("cannot call generate_referral_code", async () => {
+    // The last function still carrying Supabase's default PUBLIC grant. It
+    // leaks nothing, but it is an unauthenticated endpoint that loops over a
+    // query, and nothing in the app calls it.
+    const { error } = await anonClient.rpc("generate_referral_code");
+    expect(error, "an unauthenticated caller could run a database loop on demand").not.toBeNull();
+  });
+
+  it("POSITIVE CONTROL: the public catalogs stay public", async () => {
+    // Pricing and templates are meant to be readable before signup.
+    for (const table of ["credit_packs", "passes", "resume_templates"] as const) {
+      const { data, error } = await anonClient.from(table).select("id").limit(1);
+      expect(error, `${table} should be publicly readable`).toBeNull();
+      expect((data ?? []).length, `${table} returned nothing to the public`).toBeGreaterThan(0);
+    }
+  });
+});

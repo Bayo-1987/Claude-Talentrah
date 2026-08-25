@@ -151,17 +151,24 @@ beforeAll(async () => {
     source: "manual",
     notes: "A-private-note",
   });
+  // Seeded with the service role: migration 0031 removed the authenticated
+  // INSERT on match_scores, because a score is the server's conclusion about a
+  // user rather than something they supply. The row is still A-owned, so every
+  // ownership assertion below is unchanged.
   await ins("match_scores", {
     user_id: A.id,
     job_posting_id: jobPostingId,
     score: 77,
     tier: "good",
-  });
-  await ins("job_tailoring_requests", {
-    user_id: A.id,
-    source_jd_text: "A-private-jd",
-    gap_analysis: {},
-  });
+  }, admin);
+  // Service role for the same reason as match_scores above (0031): this row is
+  // the server's record of a tailoring run it performed and charged for, so
+  // `authenticated` no longer holds INSERT on it.
+  await ins(
+    "job_tailoring_requests",
+    { user_id: A.id, source_jd_text: "A-private-jd", gap_analysis: {} },
+    admin,
+  );
   await ins("farah_messages", { user_id: A.id, role: "user", content: "A-private-message" });
   await ins("referral_shares", { user_id: A.id, channel: "whatsapp" });
   await ins("scholarship_saves", {

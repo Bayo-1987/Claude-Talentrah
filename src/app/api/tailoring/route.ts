@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { EMPTY_RESUME, type StructuredResume } from "@/lib/resume/types";
 import { tailorResumeToJob } from "@/lib/tailoring/tailor";
 import {
@@ -146,7 +147,10 @@ export async function POST(request: Request) {
   const totalCreditsSpent = tailoringAllowance.creditsSpent + (coverLetterAllowance?.creditsSpent ?? 0);
   const isFreeTrial = tailoringAllowance.isFreeTrial || (coverLetterAllowance?.isFreeTrial ?? false);
 
-  await supabase.from("job_tailoring_requests").insert({
+  // Service role (migration 0031): this row is the server's record of what it
+  // just did and charged for. `authenticated` no longer holds INSERT on the
+  // table, so a user cannot fabricate their own tailoring history.
+  await createServiceRoleClient().from("job_tailoring_requests").insert({
     user_id: user.id,
     source_job_posting_id: jobPostingId,
     source_jd_text: jdText,
