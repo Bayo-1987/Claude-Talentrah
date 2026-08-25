@@ -15,7 +15,7 @@ Milestone names below follow **the plan doc** (`~/.claude/plans/adaptive-gigglin
 | **M1** Auth & onboarding | done | Email/password + Google + LinkedIn OIDC; fictional testimonial persona (open decision #2 is a legal requirement, not polish) |
 | **M2** Job supply & aggregation | **partial** | Greenhouse + Lever + one schema.org/JSON-LD source (Workable's aggregated search) live, with dedup and freshness sweep. Still one pilot source, not broad crawling — see *schema.org ingestion* below |
 | **M3** Job feed & matching | done | Algorithmic match scoring, cached; server-rendered feed; manual apply both paths |
-| **M4** Resume Builder | done | 7 templates, drag-reorder, credit-gated AI bullet rewriting, print-to-PDF |
+| **M4** Resume Builder | done | 11 templates, drag-reorder, credit-gated AI bullet rewriting, print-to-PDF. **Until Phase 2's template library, all 7 original templates rendered identically** — see *Full template library* below |
 | **M5** JD tailoring + Credits/Passes | done | Paste-text tailoring, one-time free trial, Paystack checkout + webhook, pass auto-renewal |
 | **M6** Farah chat panel | done | Docked marginalia panel, quick actions, persisted history, one shared voice module |
 | **M7** Job Tracker | done | Stage tracking, manual entries, Hired → referral prompt |
@@ -403,6 +403,59 @@ Confirmed on production rather than from the docs alone — `GET`, `PUT`,
 `DELETE`, `PATCH` on `/api/admin/ingest-jobs` all returned 405 before any
 change. `/api/e2e/llm-provider` likewise already self-gates correctly, 404 on
 production. Both are covered by tests now, but neither needed a code change.
+
+## Full template library — templates used to be visually identical (0042)
+
+**Stated plainly because the previous state was worse than "unfinished":** until
+this shipped, choosing a template changed nothing you could see. All seven rows
+in `resume_templates` differed only in `name`, `industry_category`, `is_premium`
+and `unlock_cost_credits`. Every resume rendered through the single
+`ResumeDocument` component — `resume-builder/preview/page.tsx` did not even
+`select` `template_id`. The gallery was selling a label.
+
+Two of those seven were **premium at 10 credits** (Portfolio Grid, Pipeline).
+A user could spend credits to unlock a template and receive precisely the free
+layout. That is not a missing feature, it is a paid product delivering nothing,
+and it is fixed here rather than deferred: both now have real layouts, and
+`tests/resume-builder/template-registry.test.ts` fails if any premium template
+ever resolves to the free default again.
+
+**What shipped**
+
+- **`slug` as the join key** (migration `0042`) — `text not null unique`,
+  backfilled for the original seven. The component registry keys off `slug` and
+  nothing else: `name` is editable catalog copy with no unique constraint, so
+  keying on it means a rename silently unmaps a layout with no error anywhere;
+  `id` is a per-environment uuid and could not be committed to source.
+- **A component-per-template registry** at
+  `src/components/resume-builder/templates/`. Visual-only differentiation —
+  layout, density and typography change per profession, the `StructuredResume`
+  shape does not. A resume saved under one template renders unchanged under any
+  other, which makes switching a reversible choice rather than a data
+  migration. This is also how Resume-Now and Enhancv actually differentiate.
+- **Four new templates**, deduped against the existing seven and taken from
+  those competitors' real category taxonomies: Clinical (Healthcare), Statute
+  (Legal), Critical Path (Project Management — Enhancv's most popular category),
+  and Public Record (Government & Public Sector — deliberately chosen as a large
+  segment neither competitor targets, and a natural fit for a Nigeria-first
+  product). Three of the four are premium; the catalog was 5-of-7 free, which
+  left the credit-unlock mechanic with almost nothing to sell.
+- **Preview wired through** — the page now selects `template_id`, joins
+  `resume_templates(slug)`, and renders the matched component. The editor has no
+  preview pane (only a link), so it needed no change.
+
+**Known and bounded:** four *free* templates (Structured Admin, Product & Tech,
+Field Notes, Ledger) still render as clean-professional. That list lives in
+`KNOWN_UNSTYLED_FREE_SLUGS` in the registry test, which enforces that it may
+only shrink and may never contain a premium template.
+
+**Not an instance of the 0028/0030/0031/0041 column class**, checked rather than
+assumed: `resume_templates` is catalog data with RLS enabled, exactly one
+`SELECT` policy and no write policy at all — so a write is refused by the row
+policy before the table-wide grant is consulted, the opposite arrangement to
+`resumes`. `slug` carries no trust, money or identity. `column-privileges.test.ts`
+now asserts this directly: a user cannot flip `is_premium`, zero
+`unlock_cost_credits`, rewrite a `slug`, or insert a catalog row.
 
 ## Premium-template paywall was bypassable in production (0041)
 
