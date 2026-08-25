@@ -46,6 +46,7 @@ Via the Supabase MCP connector's `apply_migration` (pass the name without the
 | `0033_auto_apply.sql` | applied 2026-08-25 |
 | `0034_auto_apply_claim.sql` | applied 2026-08-25 (re-applied after the alias fix) |
 | `0035_atomic_credit_spend.sql` | applied 2026-08-25 |
+| `0036_self_referral_dot_normalisation.sql` | applied 2026-08-25 |
 
 ## Still missing
 
