@@ -32,6 +32,12 @@ export function StageSelect({
       action={updateStageAction.bind(null, applicationId)}
       className="inline-flex"
     >
+      {/*
+        The stage this control was rendered with. updateStageAction uses it as
+        an optimistic lock so a double-click or a second tab can't silently
+        clobber the other's change.
+      */}
+      <input type="hidden" name="expectedStage" value={stage} />
       <select
         ref={selectRef}
         name="stage"

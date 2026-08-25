@@ -108,19 +108,18 @@ beforeAll(async () => {
    *
    * Going posting-first makes the pair self-consistent by construction: the
    * org is, by definition, the one that owns the posting this suite uses.
+   *
+   * AND it must be a VERIFIED org's posting, which is not a detail. This suite
+   * asserts an outsider CAN see the posting, and 0027 correctly hides an
+   * unverified organisation's jobs — so "earliest internal posting" was only
+   * ever right by accident. It stopped being right the moment a real employer
+   * signed up through the employer surface and posted a job before verifying:
+   * their posting sorted first, the assertion failed, and nothing was wrong
+   * with the product. Filtering on verified states what this fixture actually
+   * needs instead of relying on what happens to be in the table.
    */
   const { data: posting, error: postErr } = await admin
     .from("job_postings")
-    /*
-     * `organizations!inner(verified)` + eq true is load-bearing, not tidiness.
-     * Without it this picks the earliest internal posting by posted_at, which
-     * is whatever real org happens to exist in the shared project — there is
-     * no staging database. It started picking a genuine unverified org's
-     * posting, and the "a verified org's posting must stay publicly visible"
-     * case below then failed while 0027's gate was working exactly as
-     * designed: a fixture reporting a correct security control as a
-     * regression. Same `.limit(1)` trap this suite has hit before.
-     */
     .select("id, title, organization_id, organizations!inner(verified)")
     .eq("source_type", "internal")
     .eq("organizations.verified", true)

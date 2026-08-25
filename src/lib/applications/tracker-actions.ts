@@ -57,15 +57,34 @@ export async function addManualEntryAction(formData: FormData) {
 export async function updateStageAction(applicationId: string, formData: FormData) {
   const { supabase, userId } = await getAuthedUserId();
   const stage = String(formData.get("stage") ?? "") as Enums<"application_stage">;
+  const expectedStage = String(formData.get("expectedStage") ?? "");
 
   const { data: existing } = await supabase
     .from("applications")
-    .select("applied_at")
+    .select("applied_at, stage")
     .eq("id", applicationId)
     .eq("user_id", userId)
     .single();
 
-  await supabase
+  /*
+   * Optimistic lock on the stage the page was rendered with.
+   *
+   * Without it this is a read-then-write: two near-simultaneous changes (a
+   * double-click before the select disables, or two open tabs) both read the
+   * same starting stage and the later UPDATE wins outright — while
+   * `applications_log_stage_change` still records BOTH as history, so the
+   * stage-history string ends up describing a transition the row no longer
+   * reflects.
+   *
+   * `expectedStage` comes from the rendered form. Falling back to the value
+   * just read keeps older callers working, but that fallback is the racy path
+   * and every caller in the app sends it.
+   */
+  const guardStage = (expectedStage || existing?.stage) as
+    | Enums<"application_stage">
+    | undefined;
+
+  let query = supabase
     .from("applications")
     .update({
       stage,
@@ -73,6 +92,28 @@ export async function updateStageAction(applicationId: string, formData: FormDat
     })
     .eq("id", applicationId)
     .eq("user_id", userId);
+  if (guardStage) query = query.eq("stage", guardStage);
+
+  const { data: updated, error } = await query.select("id");
+
+  if (error) {
+    // The stage-transition trigger (0037) raises check_violation when a hired
+    // application is moved anywhere but archived. Surface it as itself rather
+    // than as a generic failure.
+    throw new Error(
+      error.code === "23514" || /hired application/.test(error.message)
+        ? "A hired application can only be archived."
+        : `Couldn't update that application: ${error.message}`,
+    );
+  }
+
+  // Zero rows means the guard didn't match: someone else already moved this
+  // entry, or it was deleted in another tab. Revalidating shows the truth
+  // instead of leaving a stale select claiming otherwise.
+  if (!updated?.length) {
+    revalidatePath("/tracker");
+    return;
+  }
 
   revalidatePath("/tracker");
 
