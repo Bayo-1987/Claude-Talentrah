@@ -20,6 +20,15 @@ Supabase backend: project **"Talentrah"** already exists in the connected Supaba
 
 ## Current build state
 
+**Phase 2 has started.** Auto-Apply shipped as its first milestone — review-queue
+gated, Excellent-only, server-capped, credits beyond a free weekly allowance.
+Read [docs/auto-apply.md](docs/auto-apply.md) before touching it; the two things
+most likely to be got wrong are that its threshold is re-read live at confirm
+time (not from the queue row's snapshot) and that its cap is atomic in Postgres
+because a read-then-act cap is not a cap. **Auto-Apply never submits to external
+postings** — there is no ATS integration, so external matches are handed off to
+the source site and marked `handed_off`, never `applied`.
+
 Phase 1 is feature-complete except for the employer side. Read [docs/phase-1-summary.md](docs/phase-1-summary.md) before assuming any feature's status — it is kept current and lists what shipped, what is deferred, and the open defects with their evidence. Two that shape most decisions:
 
 - **The employer side now exists, in its Phase 1 subset only**: org onboarding, Company Profile, free job posting, Jobs Posted. Ad Campaigns, billing and analytics are Phase 2 and are deliberately **absent from the employer nav** rather than stubbed — don't add placeholder pages for them, and don't describe them as shipped. Building this surface is what exercised the org RLS policies for the first time and found the third hole in them (0028).

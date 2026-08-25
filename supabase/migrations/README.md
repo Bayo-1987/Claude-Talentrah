@@ -43,6 +43,8 @@ Via the Supabase MCP connector's `apply_migration` (pass the name without the
 | `0030_lock_profile_value_columns.sql` | applied 2026-08-25 |
 | `0031_lock_derived_user_tables.sql` | applied 2026-08-25 |
 | `0032_fix_anon_execute_grants.sql` | applied 2026-08-25 |
+| `0033_auto_apply.sql` | applied 2026-08-25 |
+| `0034_auto_apply_claim.sql` | applied 2026-08-25 (re-applied after the alias fix) |
 
 ## Still missing
 

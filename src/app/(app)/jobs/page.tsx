@@ -1,6 +1,8 @@
 import { requireUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
 import { computeAndStoreMatchScores } from "@/lib/matching/compute-and-store";
+import { scanAndQueue } from "@/lib/auto-apply/queue";
+import { AutoApplyToggle } from "@/components/jobs/auto-apply-toggle";
 import { EMPTY_RESUME, type StructuredResume } from "@/lib/resume/types";
 import { EyebrowLabel } from "@/components/ui";
 import { FeedTabs } from "@/components/jobs/feed-tabs";
@@ -79,6 +81,31 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
   }
 
   const scored = await computeAndStoreMatchScores(supabase, user.id, resume, jobs);
+
+  /*
+   * Auto-Apply scans AFTER scoring, on purpose: the scan reads `match_scores`,
+   * so running it first would queue against last visit's scores. It is also
+   * why this lives on the feed rather than a cron — the scores it depends on
+   * are recomputed here, and nowhere else.
+   *
+   * Failure is swallowed deliberately. Auto-Apply is an accessory to the feed;
+   * a queueing error must not take the job board down with it.
+   */
+  const [{ data: autoApplySettings }, pendingQueue] = await Promise.all([
+    supabase.from("auto_apply_settings").select("enabled").eq("user_id", user.id).maybeSingle(),
+    (async () => {
+      try {
+        await scanAndQueue(user.id);
+      } catch {
+        /* non-fatal — see above */
+      }
+      return supabase
+        .from("auto_apply_queue")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", user.id)
+        .eq("status", "pending");
+    })(),
+  ]);
   if (tab !== "recent") {
     scored.sort((a, b) => b.score - a.score);
   }
@@ -91,6 +118,11 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
           <FeedTabs active={tab} />
         </div>
       </div>
+
+      <AutoApplyToggle
+        enabled={!!autoApplySettings?.enabled}
+        pendingCount={pendingQueue.count ?? 0}
+      />
 
       <FilterBar tab={tab} workType={workType} seniority={seniority} />
 
