@@ -70,10 +70,31 @@ async function referralCodeOf(userId: string): Promise<string> {
 }
 
 async function ledgerFor(userId: string) {
-  const { data } = await admin
+  /*
+   * Throws rather than `data ?? []`.
+   *
+   * The swallowing version turned a transient query failure into "this user
+   * has no ledger rows", which reads as a genuine assertion failure. It caused
+   * exactly one: a full-suite run reported
+   *
+   *   × leaves the referrer's credits intact but drops the referral row
+   *     AssertionError: the ledger entry survives, which is why the derived
+   *     figure under-reports: expected +0 to be 1
+   *
+   * while the same test passed 3/3 in isolation and the assertion two lines
+   * earlier had just read the referrer's balance as 5 — which is the signup
+   * bonus, so the ledger row provably existed a moment before. There is no FK
+   * from credit_ledger to referrals (checked against the live schema), so
+   * nothing could have deleted it. The query simply failed and said "empty".
+   *
+   * A test helper that cannot distinguish "no rows" from "the question was
+   * never answered" will eventually blame the code for the network.
+   */
+  const { data, error } = await admin
     .from("credit_ledger")
     .select("reason, delta, related_entity_id, created_at")
     .eq("user_id", userId);
+  if (error) throw new Error(`ledgerFor(${userId}) failed: ${error.message}`);
   return data ?? [];
 }
 
