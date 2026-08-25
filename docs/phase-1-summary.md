@@ -444,6 +444,24 @@ plus a manual rolled-back transaction against the live project during
 development): a company's posting that drops off the listing closes; a
 still-listed company's does not.
 
+**The closure scope is per-source, not per-mechanism.** A schema.org source
+writes `external_source` as `schema-org:<label>` (e.g.
+`schema-org:workable-nigeria`), and its freshness sweep scopes to that same
+qualified value — one function, `schemaOrgSourceKey` in `types.ts`, produces
+both so they cannot drift.
+
+The bare `'schema-org'` this replaced was shared by every schema.org row in the
+table, and greenhouse/lever's second predicate (`company_name`) has no
+equivalent for a multi-employer source. So **any** schema.org ingest closed
+**every** schema.org row it hadn't just seen — not only a hypothetical second
+source. That was caught the hard way: running
+`tests/jobs/ingest-schema-org-multi-source.test.ts` against the unfixed code
+closed all 20 real Workable postings in the live project, because the test's
+mocked sources have no real postings of their own and everything else looked
+stale to them. There is no staging database, which is exactly why that
+mattered. Migrations `0039` (re-label) and `0040` (reopen the 20, all verified
+still live on the listing) repaired it.
+
 **What "shipped" does not mean here.** This is one well-vetted pilot source,
 not a green light to add every schema.org-emitting board found the same way,
 and not "relying on this mechanism as a primary supply source" — §10 item 10's

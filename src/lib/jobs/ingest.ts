@@ -4,6 +4,7 @@ import { fetchGreenhouseJobs } from "./sources/greenhouse";
 import { fetchLeverJobs } from "./sources/lever";
 import { fetchSchemaOrgJobs } from "./sources/schema-org";
 import { JOB_SOURCES } from "./sources.config";
+import { externalSourceKey } from "./types";
 import type { JobSourceConfig, NormalizedJobPosting } from "./types";
 
 export interface IngestSourceResult {
@@ -111,7 +112,12 @@ export async function ingestAllSources(): Promise<IngestSourceResult[]> {
       let closeQuery = supabase
         .from("job_postings")
         .update({ status: "closed", last_checked_at: new Date().toISOString() })
-        .eq("external_source", config.source)
+        // `externalSourceKey`, not `config.source` — for schema-org that is
+        // `schema-org:<label>`, the same value the fetcher wrote. Matching on
+        // the bare discriminator here scoped every schema-org config to the
+        // same set of rows, so a second source closed the first's postings
+        // (and vice versa) on every run. See types.ts for the full note.
+        .eq("external_source", externalSourceKey(config))
         .eq("status", "open");
       if (config.source !== "schema-org") {
         closeQuery = closeQuery.eq("company_name", config.companyName);

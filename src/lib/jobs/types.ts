@@ -19,7 +19,12 @@ export interface NormalizedJobPosting {
   description: string;
   structuredJd: StructuredJD;
   externalUrl: string;
-  externalSource: "greenhouse" | "lever" | "schema-org";
+  /**
+   * Which configured source produced this row. Greenhouse/Lever use the bare
+   * discriminator; a schema.org source uses `schema-org:<label>` — see
+   * `schemaOrgSourceKey` below for why the label is part of the value.
+   */
+  externalSource: "greenhouse" | "lever" | `schema-org:${string}`;
   postedAt: string;
   dedupFingerprint: string;
 }
@@ -38,3 +43,30 @@ export type JobSourceConfig =
   | { source: "greenhouse"; token: string; companyName: string }
   | { source: "lever"; token: string; companyName: string }
   | { source: "schema-org"; url: string; label: string };
+
+/**
+ * The `external_source` value written for a schema.org source, and the value
+ * its freshness sweep scopes to. One function so the writer and the closure
+ * query cannot drift apart — they are the two halves of the same contract, and
+ * a mismatch is silent: rows simply stop being closable.
+ *
+ * WHY THE LABEL IS IN THE VALUE. greenhouse/lever get scoped by a second
+ * predicate, `company_name`, because a board token maps to exactly one
+ * company. A schema.org source has no such column to scope by — one listing
+ * can span many hiring organisations — so the sweep originally matched on the
+ * bare `"schema-org"`, which is identical for every schema.org config.
+ * Correct with one source; with two, each run closed the other's rows (A's
+ * fingerprints are absent from B's seen list and vice versa), so the feed lost
+ * half its external postings on every ingest, silently. Putting the label in
+ * `external_source` gives each source its own namespace in the column it is
+ * already scoped by. Proven by tests/jobs/ingest-schema-org-multi-source.test.ts.
+ */
+export function schemaOrgSourceKey(label: string): `schema-org:${string}` {
+  return `schema-org:${label}`;
+}
+
+/** The `external_source` a given config owns — the single source of truth for
+ * both the upsert and the closure sweep. */
+export function externalSourceKey(config: JobSourceConfig): string {
+  return config.source === "schema-org" ? schemaOrgSourceKey(config.label) : config.source;
+}

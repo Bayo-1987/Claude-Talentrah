@@ -1,6 +1,7 @@
 import "server-only";
 import { computeDedupFingerprint } from "../dedup";
 import { extractStructuredJd, inferSeniority, stripHtml } from "../extract-jd";
+import { schemaOrgSourceKey } from "../types";
 import type { EmploymentType, NormalizedJobPosting, WorkType } from "../types";
 
 const FETCH_TIMEOUT_MS = 15_000;
@@ -139,7 +140,11 @@ function formatLocation(block: ValidJobPostingBlock): string | undefined {
   return parts.join(", ");
 }
 
-function toNormalizedJobPosting(block: ValidJobPostingBlock, fallbackUrl: string): NormalizedJobPosting {
+function toNormalizedJobPosting(
+  block: ValidJobPostingBlock,
+  fallbackUrl: string,
+  sourceLabel: string,
+): NormalizedJobPosting {
   const description = block.description ? stripHtml(block.description) : "";
   const location = formatLocation(block);
   const companyName = block.hiringOrganization.name;
@@ -156,7 +161,7 @@ function toNormalizedJobPosting(block: ValidJobPostingBlock, fallbackUrl: string
     description,
     structuredJd: extractStructuredJd(description),
     externalUrl,
-    externalSource: "schema-org" as const,
+    externalSource: schemaOrgSourceKey(sourceLabel),
     postedAt: block.datePosted ?? new Date().toISOString(),
     dedupFingerprint: computeDedupFingerprint(companyName, block.title, location),
   };
@@ -233,7 +238,7 @@ export async function fetchSchemaOrgJobs(
       skipped.push({ url: listingUrl, reason: validated.error });
       continue;
     }
-    jobs.push(toNormalizedJobPosting(validated, listingUrl));
+    jobs.push(toNormalizedJobPosting(validated, listingUrl, sourceLabel));
   }
 
   const detailResults = await mapWithConcurrency(linkedUrls, DETAIL_FETCH_CONCURRENCY, async (jobUrl) => {
@@ -246,7 +251,7 @@ export async function fetchSchemaOrgJobs(
       }
       const validated = validateJobPosting(postings[0]);
       if ("error" in validated) return { skip: { url: jobUrl, reason: validated.error } };
-      return { job: toNormalizedJobPosting(validated, jobUrl) };
+      return { job: toNormalizedJobPosting(validated, jobUrl, sourceLabel) };
     } catch (err) {
       return { skip: { url: jobUrl, reason: err instanceof Error ? err.message : String(err) } };
     }

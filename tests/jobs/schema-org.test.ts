@@ -91,7 +91,10 @@ describe("fetchSchemaOrgJobs", () => {
     const job = jobs[0];
     expect(job.title).toBe("Associate Product Manager");
     expect(job.companyName).toBe("Reliance Health");
-    expect(job.externalSource).toBe("schema-org");
+    // Qualified with the source label so two schema.org sources occupy
+    // different namespaces in external_source — see types.ts and
+    // tests/jobs/ingest-schema-org-multi-source.test.ts.
+    expect(job.externalSource).toBe("schema-org:workable-nigeria");
     expect(job.externalUrl).toBe(jobUrl);
     expect(job.postedAt).toBe("2026-02-18T15:37:35.838Z");
     expect(job.workType).toBe("remote"); // jobLocationType: TELECOMMUTE

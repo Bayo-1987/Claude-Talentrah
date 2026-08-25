@@ -5,7 +5,8 @@
  *
  * Two things this proves that the unit tests in schema-org.test.ts can't:
  *   1. rows actually land in `job_postings` with `source_type: 'external'`
- *      and `external_source: 'schema-org'`, through the real upsert path.
+ *      and `external_source: 'schema-org:<label>'`, through the real upsert
+ *      path.
  *   2. the freshness/closure sweep in ingest.ts — for a schema-org source,
  *      scoped to the whole source (not a single company, since one listing
  *      URL can span many hiring organizations) — closes a posting that
@@ -151,7 +152,7 @@ describe("ingestAllSources — schema-org source", () => {
     expect(rows).toHaveLength(2);
     for (const row of rows!) {
       expect(row.source_type).toBe("external");
-      expect(row.external_source).toBe("schema-org");
+      expect(row.external_source).toBe(`schema-org:test-${RUN_ID}`);
       expect(row.status).toBe("open");
     }
   });
