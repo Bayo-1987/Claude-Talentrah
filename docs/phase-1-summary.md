@@ -19,7 +19,7 @@ Milestone names below follow **the plan doc** (`~/.claude/plans/adaptive-gigglin
 | **M5** JD tailoring + Credits/Passes | done | Paste-text tailoring, one-time free trial, Paystack checkout + webhook, pass auto-renewal |
 | **M6** Farah chat panel | done | Docked marginalia panel, quick actions, persisted history, one shared voice module |
 | **M7** Job Tracker | done | Stage tracking, manual entries, Hired → referral prompt |
-| **M8** Employer side | **not started** | Tables exist; **zero product surface**. Their RLS policies had never been exercised, which is where the org-membership escalation was found and fixed (0026) |
+| **M8** Employer side | done (Phase 1 subset) | Org onboarding (create + join), Company Profile, job posting form, Jobs Posted with application counts. Free posting only — Ad Campaigns, billing and analytics are Phase 2 and are **omitted from the nav**, not stubbed. Building it surfaced a third policy hole (0028) |
 | **M9** Refer & Earn | done | Two-step reward, share surfaces, anti-abuse |
 | **M10** Cross-cutting polish | done | RLS verification, service-role audit, README, golden-path e2e all landed. Mobile/low-bandwidth payload check still not done |
 | *(added later)* Scholarship Discovery | done | Not in the plan doc; added to build-prompt §6.15 mid-build |
@@ -30,9 +30,11 @@ The repo's PR labels stopped matching the plan doc partway through: "M8" shipped
 
 That collision is why two whole milestones went unnoticed as unbuilt: something called "M10" shipped, so the list looked finished. Worth fixing the labels or the plan doc before Phase 2 repeats it.
 
+The employer side deliberately did **not** take a new milestone number. "M8" already means two different things in this repo, and a third label would make the drift worse rather than better; its branch is `feat/employer-side` and this document refers to it as *plan-doc M8* wherever it needs a name.
+
 ## Deferred, deliberately
 
-- **M8, employer side.** The whole self-serve employer product. Legal/marketing copy has been corrected so it no longer claims otherwise.
+- **The Phase 2 half of the employer product** — Ad Campaign Manager, employer billing, analytics, and the "claim your listing" flow. Phase 1's free job posting has now shipped; everything priced or measured has not.
 - **schema.org crawler** (M2) — blocked on legal review of source reuse terms (§10 item 10).
 - **Auto-apply, ad campaigns, URL-based JD import, mentorship, talent directory** — Phase 2/3 by design.
 
@@ -44,7 +46,7 @@ Each stands in for an open `[DECIDE]` item and should be revisited, not inherite
 |---|---|
 | Email verification gates Apply/Tailor, not browsing | §6.1 |
 | Referral rewards: +20 signup / +50 activation / +20 welcome | #4 |
-| Employer verification = work-email domain only | — |
+| Employer verification = work-email domain only | — (now **implemented as such**, see below) |
 | 7 resume template categories | plan M4 |
 | Paystack as the only rail | #7 |
 | All pricing is a researched anchor, never tested | #18 |
@@ -69,6 +71,7 @@ Each stands in for an open `[DECIDE]` item and should be revisited, not inherite
 - OAuth signups left with a permanently `NULL` name (#22).
 - Golden-path e2e — plan-doc M10's outstanding item — now standing in CI (#20).
 - **Any signed-in user could publish a job into every user's feed under an invented company name** (`0027`, 2026-08-25). See *Second route to the same privilege* below.
+- **An organisation could mark itself verified** (`0028`, 2026-08-25). 0027 made `organizations.verified` the gate deciding whether an internal posting reaches the public feed, but never restricted who may *write* that column — and the `organizations` UPDATE policy is member-scoped with no column restriction. So one call (`update organizations set verified = true`) made the gate decorative, and the posting went public. Measured against the live project before the employer UI existed; found precisely because this was the first product code that would have walked through it. Fixed with column-level grants (table UPDATE revoked, then re-granted on the profile columns only) — note that revoking only the column would have looked right and changed nothing, because a table-level grant overrides it.
 - **The demo account's password was committed in a public repo** while owning the org whose postings are live in the feed (2026-08-25). See *Published demo credentials* below.
 - **A second published credential**, shared by the two seeded referral accounts, found by the follow-up history-wide sweep and still live at the time — rotated, old value confirmed dead. Full results in [docs/secrets-audit.md](secrets-audit.md).
 - **Organisation-membership RLS, two defects, both live until 2026-08-24** (`0026`). Any authenticated user could `INSERT` themselves into **any** organisation with a caller-chosen role of `owner` — the policy checked only `user_id = auth.uid()` and never asked whether the caller had any relationship to the org (verified against the live project: HTTP 201, real row). Separately, the `organization_members` SELECT policy referenced its own table, so it — and every policy resolving membership through it (`organizations` UPDATE, `job_postings` INSERT/UPDATE) — failed with "infinite recursion detected in policy". The second masked the first: the escalation could not go anywhere because the downstream rules crashed before they could allow anything, so fixing the recursion alone would have switched it on. Both fixed together in one migration, with `tests/rls/org-and-referral-scoping.test.ts` proven to fail twice against the unfixed database and a positive control proving the legitimate path (create org → join → read → edit → post) still works.
@@ -149,6 +152,39 @@ docs), and the value is set in `.env.local` and as a CI secret. Verified: the
 previously published password is now rejected by the live project, and the
 masthead-nav e2e still logs in with the new one.
 
+## Seed data for the employer side — deliberately unchanged
+
+`scripts/seed.ts` was **not touched** by the employer build. It already creates
+everything the surface needs: the demo organisation (Zaria Digital, verified),
+a membership row making the demo user its owner, three internal job postings
+under it, and applications against those postings — so application counts are
+non-zero on first run. Signing in as the demo account and opening `/employer`
+is a complete working employer, with no new seed writes.
+
+That is the outcome to want, not a gap: CI runs `npm run seed` against the live
+project (there is no staging database), so every line added there is a write to
+production on every pull request. The safest employer seed was the one that did
+not need to exist.
+
+## Employer verification — what the badge actually means
+
+Implemented exactly as CLAUDE.md's assumptions table records it, and no further:
+a company is verified when the person who created it has a **confirmed** email
+address at the domain they claimed, and that domain is not a consumer mailbox
+provider. Nothing else — no DNS proof, no postmaster round-trip, no manual
+review.
+
+**This is still an assumption standing in for an open founder decision, not a
+decision that was made.** It proves someone can receive mail at that domain. It
+does not prove they speak for the company — any employee, or anyone who can get
+an address there, clears it. The Company Profile page says so in those words
+rather than letting a green badge imply more.
+
+Two things make it load-bearing rather than cosmetic: an unverified company's
+postings never reach the public feed (0027), and a company cannot mark itself
+verified (0028). Verification only ever happens server-side, from the session
+user's own confirmed email.
+
 ## Verification actually performed
 
 Re-run together on `main` on 2026-08-24, not just per-PR in isolation:
@@ -157,6 +193,7 @@ Re-run together on `main` on 2026-08-24, not just per-PR in isolation:
 - **Vitest — 86 tests across 8 files on `main`** — all passing. Includes the RLS cross-user gate (`tests/rls/cross-user.test.ts`: two real authenticated users, 13 owned tables, reads *and* writes, proven to fail when RLS is weakened), the new org-membership/referral suite, the `fulfillPayment` scoping regression, resume sanitisation, and the tailoring retry heuristic.
 - **Playwright, 8 e2e specs** — all passing, including the golden path (browse → apply → track → tailor → spend credits → refer) against the real routes with only the model stubbed.
 - **Service-role scoping** — all 17 `createServiceRoleClient()` call sites re-inventoried on current `main`. No new call site since the #18 audit; one site *removed* (a dead `sendDeadlineReminderEmail` that took a `userId` and was pre-shaped for the same bug). Every `userId` reaching a service-role query is still derived from `auth.getUser()` or `getAuthedUserId()`.
+- **Employer surface** — `tests/employer/employer-flow.test.ts` (two real authenticated users) covers create org → join → post → the 0027 feed gate → self-verification refused → outsider cannot join, escalate, post, edit or read member lists → application counts scoped to members and aggregate-only. `tests/employer/verification.test.ts` covers the domain rule without a database. `e2e/employer.spec.ts` drives the real screens. Positive controls throughout, including that the gate *opens* once verified — every negative assertion here would also pass under a system that refuses everyone, which is exactly what 0026's recursion bug looked like.
 - **Table coverage** — all 22 public tables have RLS enabled, and every user-scoped table now has a standing test. 14 carry a `user_id`; 13 are in the cross-user suite's `OWNED_TABLES`. The fourteenth is `organization_members`, and `referrals` is user-scoped through `referrer_id`/`referred_user_id` with no `user_id` column — the two gaps that hid the org escalation. Both are covered by `tests/rls/org-and-referral-scoping.test.ts`.
 - **Secrets sweep across the whole git object database** (not just `HEAD`, and including blobs orphaned by amends) — 414 blobs, provider key shapes plus a high-entropy pass. Two real live credentials found and rotated; no `.env` file was ever committed; nothing else in history is currently valid. See [docs/secrets-audit.md](secrets-audit.md).
 - **Schema in version control** — `supabase/migrations/0000_baseline_schema.sql` snapshots the live schema (tables, indexes, functions, grants, triggers, RLS, every policy) so future policy changes are reviewable in a diff. Migrations 0001–0025 had never been committed, which is how two broken policies survived Phase 1 without appearing in any review.
