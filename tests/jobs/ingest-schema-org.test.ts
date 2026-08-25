@@ -76,14 +76,46 @@ vi.mock("@/lib/jobs/sources.config", () => ({
 
 let fetchMock: ReturnType<typeof vi.fn>;
 
+/**
+ * The real fetch, captured before anything stubs it.
+ *
+ * `vi.stubGlobal("fetch", ...)` replaces the ONE global that supabase-js also
+ * uses, so a mock that throws on any unrecognised URL intercepts Supabase's
+ * own REST calls, not just the fetcher's. That is what happened here: both
+ * cases failed with
+ *
+ *   unexpected fetch in test: https://<project>.supabase.co/rest/v1/job_postings
+ *     ?on_conflict=dedup_fingerprint&columns=...
+ *     at Module.ingestAllSources (src/lib/jobs/ingest.ts:86)   <- the upsert
+ *
+ * which contradicts this file's own stated contract at the top: "Network is
+ * mocked (no real HTTP to Workable); Supabase is not." Anything that is not
+ * one of this test's own throwaway URLs is therefore passed through to the
+ * real implementation, so Supabase reaches the live project as intended while
+ * Workable is never contacted.
+ */
+const realFetch = globalThis.fetch;
+
 function mockListing(urls: string[], postingsByUrl: Record<string, unknown>) {
-  fetchMock = vi.fn(async (url: string) => {
+  fetchMock = vi.fn(async (input: unknown, init?: unknown) => {
+    const url = typeof input === "string" ? input : String((input as { url?: string })?.url ?? input);
+
     if (url === LISTING_URL) {
       return { ok: true, status: 200, text: async () => htmlWithJsonLd(itemList(urls)) };
     }
     const posting = postingsByUrl[url];
-    if (!posting) throw new Error(`unexpected fetch in test: ${url}`);
-    return { ok: true, status: 200, text: async () => htmlWithJsonLd(posting) };
+    if (posting) {
+      return { ok: true, status: 200, text: async () => htmlWithJsonLd(posting) };
+    }
+
+    // A URL this test owns but did not stub for this run is a genuine test
+    // bug — surface it rather than silently letting it hit the network.
+    if (url.startsWith(`https://jobs.workable.test/${RUN_ID}/`)) {
+      throw new Error(`unexpected fetch of a test-owned URL: ${url}`);
+    }
+
+    // Everything else — Supabase — goes to the real thing.
+    return realFetch(input as Parameters<typeof fetch>[0], init as Parameters<typeof fetch>[1]);
   });
   vi.stubGlobal("fetch", fetchMock);
 }
