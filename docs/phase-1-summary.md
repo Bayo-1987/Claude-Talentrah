@@ -406,6 +406,20 @@ production. Both are covered by tests now, but neither needed a code change.
 
 ## Premium-template paywall was bypassable in production (0041)
 
+> **Running count: this is the sixth and seventh instance of the same class.**
+> 0028 (`organizations.verified`), 0030 (`profiles.credits_balance` and the
+> other value columns), 0031 (`match_scores`, `job_tailoring_requests`), and now
+> 0041 (`resumes.template_id`, `farah_messages.created_at`/`role`). Every one was
+> found by the same sweep, and every one had been sitting in production
+> unnoticed. The pattern is not "we keep making this mistake" so much as
+> "Supabase's default `GRANT UPDATE ON ALL TABLES` makes it the default state,
+> and only an explicit column grant takes a table out of it." At this point the
+> prior should be that **any new user-writable table is exposed until proven
+> otherwise** — `tests/rls/column-privileges.test.ts` is the standing check, and
+> adding a value-bearing column to a user-writable table should fail it until
+> someone decides, deliberately, which side of the line that column is on.
+
+
 **This reached production as a live, exploitable gap.** Until 0041 landed, any
 signed-in user could apply any premium resume template for free, and separately
 could reset their own Farah LLM spend cap. Both were confirmed against the

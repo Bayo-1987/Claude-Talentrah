@@ -33,6 +33,140 @@ both served stale content in this project's history. Don't rely on either.
 
 ---
 
+## Merged 2026-08-25 — PR #40, resumes/Farah column privileges (0041)
+
+| PR | Branch | Merged at (UTC) | Merge SHA |
+|----|--------|-----------------|-----------|
+| [#40](https://github.com/Bayo-1987/Claude-Talentrah/pull/40) | `fix/resumes-column-privileges` | 18:05:42 | `a0925ab` |
+
+3 files, +373/−0. **Two live, exploitable gaps in production — not design nits.**
+Both were confirmed with a real authenticated session against the production
+project *before* being fixed, and both are stated plainly here because
+"review found some improvements" would misrepresent what was actually open.
+
+### 1. Any user could unlock every premium template for free — the reported issue
+
+`resumes` carries a correct owner-only policy —
+`for all using (auth.uid() = user_id) with check (auth.uid() = user_id)` — and,
+unlike `profiles`/`organizations`, had **never** had a column grant applied.
+Supabase grants `UPDATE ON ALL TABLES` to `authenticated`, so the owner owned
+every column on their own row. `template_id` points at `resume_templates`, whose
+`is_premium` rows cost credits through `unlockTemplateAction` (checks
+`user_template_unlocks`, then calls `spendCredits`). A client writing the column
+reaches none of that:
+
+```
+premium template: Portfolio Grid (costs 10 credits)
+unlocks owned: 0   credits: 0
+update error: none
+template_id now: 7704054a-6c90-40b6-a977-ef6e2e1c404f
+=> BYPASSED — premium template applied, 0 credits spent
+credits after: 0 (unchanged = never paid)
+```
+
+A user with no credits and no unlocks applied a paid template. Anyone who opened
+the network tab had the entire premium library, and had done for as long as the
+feature has shipped.
+
+### 2. The sweep's own find — the Farah LLM spend cap was self-resettable
+
+Found by the "what else grants the same privilege" pass CLAUDE.md makes standard
+after a policy fix. `resumes` was what was reported; this was sitting next to it
+and nobody had asked about it.
+
+`/api/farah/chat` caps a user at 30 messages an hour purely as a cost safety net
+on unbounded authenticated LLM spend, and counts its own rows —
+`.eq("role","user").gte("created_at", oneHourAgo)`. Both columns sat inside the
+same unrestricted owner-only grant, so **the counter was writable by the thing
+being counted**:
+
+```
+counted toward the 30/hr cap: 1
+backdate error: none
+counted after backdating: 0
+=> BYPASSED — quota reset, unlimited paid LLM calls
+```
+
+Of the two, this is arguably the larger exposure: the template bypass costs
+Talentrah a template unlock, this one costs uncapped model spend on a free-tier
+key.
+
+### The sweep, in full
+
+Six tables had the exploitable shape (owner/member UPDATE policy + table-wide
+grant). What each turned out to be:
+
+| Table | Verdict |
+|---|---|
+| `resumes` | **fixed** — `template_id` paywall bypass, plus `is_base`/`user_id` locked |
+| `farah_messages` | **fixed** — UPDATE revoked outright; nothing in `src/` ever updates it |
+| `referral_shares` | **revoked** — hardening, labelled as such; no exploit found, but nothing updates it either |
+| `job_postings` | left alone — its `WITH CHECK` already pins `source_type='internal' AND is_org_member(...)`, so 0027's verification gate cannot be ducked and a posting cannot move orgs. The policy carries the column constraint itself. |
+| `applications` | left alone — `stage` is governed by 0037's trigger; the rest is the user's own record, and CLAUDE.md is explicit that blocking mis-click corrections is a worse product than the bug |
+| `scholarship_saves` | left alone — no gated column |
+
+### The fix
+
+Mirrors `0030` exactly, including the ordering that makes this class recur:
+**revoke the table grant first**, because a table-level grant overrides a
+column-level one — granting columns without revoking first changes nothing.
+
+The grant list was re-verified against the code rather than accepted: all three
+UPDATE call sites (`saveResumeAction` at `actions.ts:137`; `upsertBaseResume`'s
+two paths at `:47`/`:80`) write only `title`, `source`, `structured_content`,
+`updated_at`. `template_id` is legitimately set only on **INSERT**
+(`actions.ts:113`), which the migration does not touch and which already gates on
+an existing unlock. `scripts/seed.ts:279` does update `template_id`, but runs as
+`service_role`, which column grants do not constrain. `deleteResumeAction`
+(`actions.ts:203`) uses DELETE, also untouched.
+
+### Verified, four-point standard
+
+1. **PR API** — `merged: true`, `merged_at 2026-08-25T18:05:42Z`,
+   `merge_commit_sha a0925ab7b0938ea6742a5311eef7f2c79c0037c0`.
+2. **Fresh shallow clone of `main`** — merge commit `a0925ab`, two parents
+   (`a86bd1b` + `2a1dcc1`). `supabase/migrations/0041_lock_resume_and_farah_columns.sql`
+   present, and its four executable statements confirmed in the clone: the
+   `revoke update on public.resumes`, the
+   `grant update (title, source, structured_content, updated_at)`, and the two
+   revokes on `farah_messages` and `referral_shares`. The new tests are on `main`
+   too (`column-privileges.test.ts:621`, `:718`).
+3. **Live probe** — both bypass queries re-run against production from a real
+   authenticated session (0 credits, 0 unlocks):
+   ```
+   BYPASS 1  resumes.template_id write        -> 42501 permission denied for table resumes
+             template_id: null (unchanged)
+   BYPASS 2  farah_messages.created_at backdate -> 42501 permission denied for table farah_messages
+             quota count: 1 before, 1 after
+   CONTROL   saveResumeAction's columns        -> works
+   ```
+   The control is load-bearing: a fix that also broke the builder's save would
+   have been worse than the bug.
+4. **CI green** — 21/21 files, **272/272 tests** (up from 267; the five new
+   column-privilege cases), `column-privileges.test.ts` 25/25, Playwright 13/13.
+   All four checks passed on the PR head and on the merge commit.
+
+### Proof the tests catch it
+
+Against unfixed code four fail — `MONEY: cannot apply a premium template by
+writing template_id directly`, the `is_base`/`user_id` case, `COST: cannot
+backdate its own messages to clear the hourly quota`, and the `role` relabel.
+One of those caught a subtlety worth keeping: the enum is `"user" | "farah"`,
+not `"assistant"`, so the first draft of the relabel test was passing because
+Postgres rejected an invalid enum value rather than because the grant refused it
+— passing for entirely the wrong reason.
+
+### The class now has a running count
+
+This is the **sixth and seventh** instance: 0028, 0030, 0031, and now 0041 twice
+over. Every one was found by this same sweep and every one had been live in
+production. The working prior should now be that **any new user-writable table is
+exposed until proven otherwise** — Supabase's default `GRANT UPDATE ON ALL
+TABLES` makes exposure the default state, and only an explicit column grant takes
+a table out of it.
+
+---
+
 ## Merged 2026-08-25 — PR #39, schema.org/JobPosting ingestion
 
 Closes the second half of M2/§6.12. Arrived as a patch file (`git am`, authorship
@@ -375,9 +509,9 @@ rules. Those need the real files.
      a timeout**.
    - Duplicate org names/domains unguarded — the second owner's org becomes
      permanently unmanageable.
-   - Premium-template gate bypassable via a direct `PATCH` to
-     `resumes.template_id` — the same privilege-boundary class as 0028/0030/0031,
-     and `resumes` was never swept for it.
+   - ~~Premium-template gate bypassable via a direct `PATCH` to
+     `resumes.template_id`~~ — **done**, PR #40 / migration 0041. Confirmed live
+     and fixed; the sweep also found and fixed the Farah rate-limit bypass.
    - A zero-width character defeating the "no name yet" guard, reopening the
      PR #21 bug through a character class `.trim()` does not cover.
    - `e2e/employer.spec.ts` flake — the concrete lead is a live-shared-database
