@@ -25,6 +25,76 @@ env:
   NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY: ${{ secrets.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY }}
 
 jobs:
+  secrets:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    # No `needs:` — this is cheap and must report even when the build is
+    # broken. It fails the job on any match, which fails the PR; a scanner
+    # that only warns is a scanner people learn to scroll past, and this
+    # repo's own history is the argument for that not being optional.
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Needed to resolve base..head below. A shallow clone has no merge
+          # base, and gitleaks would silently scan nothing.
+          fetch-depth: 0
+
+      - name: Install gitleaks
+        env:
+          GITLEAKS_VERSION: 8.30.1
+          # sha256 of gitleaks_8.30.1_linux_x64.tar.gz from the release's own
+          # checksums file. Pinned and verified: this step downloads a binary
+          # and runs it over the repo, so an unpinned URL would be a supply
+          # chain hole opened by the very job meant to close one.
+          GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+        run: |
+          set -euo pipefail
+          url="https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl -sSfL "$url" -o gitleaks.tar.gz
+          echo "${GITLEAKS_SHA256}  gitleaks.tar.gz" | sha256sum -c -
+          tar xzf gitleaks.tar.gz gitleaks
+          ./gitleaks version
+
+      - name: Determine commit range
+        id: range
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            # Everything this PR adds on top of its base.
+            range="origin/${{ github.base_ref }}..HEAD"
+          elif [ "${{ github.event.before }}" = "0000000000000000000000000000000000000000" ]; then
+            # First push of a new branch — no previous SHA to diff against.
+            range="${{ github.sha }}~1..${{ github.sha }}"
+          else
+            range="${{ github.event.before }}..${{ github.sha }}"
+          fi
+          echo "range=$range" >> "$GITHUB_OUTPUT"
+          echo "Scanning $range"
+
+      - name: Scan for secrets
+        run: |
+          set -euo pipefail
+          # --redact matters more than it looks: Actions logs on a PUBLIC repo
+          # are public, so a scanner that prints the value it found would leak
+          # it a second time, in a place nobody thinks to rotate.
+          ./gitleaks git . \
+            --config .gitleaks.toml \
+            --log-opts "${{ steps.range.outputs.range }}" \
+            --redact \
+            --no-banner \
+            --verbose
+
+      - name: What to do if this failed
+        if: failure()
+        run: |
+          echo "::error::A secret-shaped value was found in this change."
+          echo "Do NOT just delete the line and force-push. This repo is public:"
+          echo "anything pushed must be assumed captured, so ROTATE the credential"
+          echo "first, then remove it. See docs/secrets-audit.md."
+          echo "If it is genuinely not a secret, add it to the allowlist in"
+          echo ".gitleaks.toml WITH a comment saying why — an undocumented"
+          echo "allowlist entry is how the next real one gets waved through."
+
   checks:
     name: Typecheck, lint, unit tests
     runs-on: ubuntu-latest

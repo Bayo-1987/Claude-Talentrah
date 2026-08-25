@@ -94,9 +94,56 @@ under the repo's **Security → Secret scanning** tab. The scan here is
 pattern-based and covers the shapes listed above; a provider-issued key in a
 format not on that list would not have matched.
 
-## Recommendation, not done here
+## Standing check — added 2026-08-25
 
-There is no standing check. A secret scan in CI (`gitleaks` has a GitHub
-Action) would turn this from a thing found twice by accident into a thing that
-cannot land. Not added in this pass because it is a new CI dependency and that
-is the founder's call.
+`gitleaks` now runs on every pull request and every push to `main`, scanning
+the commits the change introduces, and **fails the build** on a match. Config
+and reasoning live in [`.gitleaks.toml`](../.gitleaks.toml).
+
+The part worth knowing: **gitleaks' default rules would have caught neither of
+this repo's two real leaks.** Measured against all three known secrets —
+
+| Secret | Default config | With `.gitleaks.toml` |
+|---|---|---|
+| `DIAG_TOKEN = "957ad72…"` | caught | caught |
+| `DEMO_PASSWORD = "TalentrahDemo123!"` | **missed** | caught |
+| `password: "TalentrahDemoFriend123!"` | **missed** | caught |
+
+The defaults are tuned for machine-generated provider keys — long, high
+entropy, known prefixes. Both real leaks here were human-chosen passwords,
+which clear none of those bars. A custom rule with no entropy floor closes
+that, and the two documented false positives from this audit are allowlisted
+by exact value with the reason written down.
+
+Proven, not assumed: a throwaway branch reintroducing both real credentials was
+opened as a PR, and the Secret scan job failed with exit 1, values redacted.
+The branch was closed and deleted.
+
+### What it does not cover
+
+- **Diff only, not full history.** Each run scans the commits the change adds.
+  History is already covered by this one-off audit; re-scanning it every CI run
+  would fail every build forever on the rotated values recorded above.
+- Pattern-based, so a credential in a format not matched by gitleaks' defaults
+  or the custom rule still gets through. It narrows the gap; it does not close it.
+- Nothing stops a secret reaching a **Vercel preview deployment** or an Actions
+  log from a source other than the repo.
+
+## CI seeds the production database — found while proving the scanner
+
+The throwaway branch above reintroduced the old literals, and CI ran
+`npm run seed` against the live project as it always does. The seed re-asserted
+passwords on every run, so **all three live accounts were reset to the
+published passwords** by that one PR. Caught immediately (the e2e login failed),
+re-rotated, and re-verified dead.
+
+That was a real hole, not just an accident of the test: with CI seeding the
+live project, *any* pull request could set the demo account's password to a
+value of its choosing by editing `scripts/seed.ts`. Now gated — the seed
+creates missing accounts but never rewrites an existing password unless
+`SEED_ROTATE_PASSWORDS=1` is set, which CI never sets. Verified both ways: a
+CI-style seed reports `password left as-is`, and rotation still works when the
+flag is passed.
+
+The underlying cause is the one already on the known-defects list: there is no
+staging database, so CI writes to production.

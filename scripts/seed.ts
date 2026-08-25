@@ -30,6 +30,24 @@ const DEMO_EMAIL = "demo@talentrah.dev";
  * No fallback default on purpose: a default would quietly become the new
  * shared secret the moment someone forgot to set the variable.
  */
+/*
+ * Re-asserting a password on an ALREADY-EXISTING account is gated behind an
+ * explicit opt-in, and that gate is load-bearing.
+ *
+ * CI runs `npm run seed` against the live project before the e2e job — there
+ * is no separate database. Without this flag, the password of every seeded
+ * account is whatever the seed script says on the branch being tested, so ANY
+ * pull request could silently set the live demo account's password to a value
+ * of its choosing just by editing this file. That is not hypothetical: a
+ * throwaway branch opened on 2026-08-25 to prove the secret scanner works
+ * reintroduced the old literals, and CI dutifully reset all three live
+ * accounts back to the published passwords.
+ *
+ * So: creating a NEW account always sets a password (it must). Changing an
+ * existing one is a deliberate local act — `SEED_ROTATE_PASSWORDS=1 npm run seed`.
+ */
+const ROTATE_PASSWORDS = process.env.SEED_ROTATE_PASSWORDS === "1";
+
 const DEMO_PASSWORD = process.env.DEMO_PASSWORD;
 if (!DEMO_PASSWORD) {
   throw new Error(
@@ -148,15 +166,18 @@ async function main() {
 
   if (existingUser) {
     userId = existingUser.id;
-    // Re-assert the password rather than leaving whatever the account already
-    // had. Without this, rotating DEMO_PASSWORD would change the docs and the
-    // tests but not the live account, and the old published password would go
-    // on working — which is the entire point of the rotation.
-    const { error: pwErr } = await supabase.auth.admin.updateUserById(userId, {
-      password: DEMO_PASSWORD,
-    });
-    if (pwErr) throw pwErr;
-    console.log(`  already exists (${userId}) — password re-asserted from DEMO_PASSWORD`);
+    if (ROTATE_PASSWORDS) {
+      // Rotating DEMO_PASSWORD has to actually reach the live account,
+      // otherwise the docs and tests change and the old published password
+      // goes on working — which was the whole point of the rotation.
+      const { error: pwErr } = await supabase.auth.admin.updateUserById(userId, {
+        password: DEMO_PASSWORD,
+      });
+      if (pwErr) throw pwErr;
+      console.log(`  already exists (${userId}) — password re-asserted from DEMO_PASSWORD`);
+    } else {
+      console.log(`  already exists (${userId}) — password left as-is (set SEED_ROTATE_PASSWORDS=1 to rotate)`);
+    }
   } else {
     const { data, error } = await supabase.auth.admin.createUser({
       email: DEMO_EMAIL,
@@ -448,12 +469,14 @@ async function main() {
     const { data: existingUsers } = await supabase.auth.admin.listUsers();
     const existingFriend = existingUsers.users.find((u) => u.email === email);
     if (existingFriend) {
-      // Re-assert, so re-seeding actually retires the old published password
-      // rather than only changing what a fresh project would get.
-      const { error: pwErr } = await supabase.auth.admin.updateUserById(existingFriend.id, {
-        password: throwawayPassword(),
-      });
-      if (pwErr) throw pwErr;
+      if (ROTATE_PASSWORDS) {
+        // Re-assert, so re-seeding actually retires the old published password
+        // rather than only changing what a fresh project would get.
+        const { error: pwErr } = await supabase.auth.admin.updateUserById(existingFriend.id, {
+          password: throwawayPassword(),
+        });
+        if (pwErr) throw pwErr;
+      }
       return existingFriend.id;
     }
 

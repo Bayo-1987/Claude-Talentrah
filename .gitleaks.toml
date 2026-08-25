@@ -1,0 +1,107 @@
+# gitleaks configuration for Talentrah.
+#
+# WHY THIS FILE EXISTS AT ALL, rather than just running gitleaks with its
+# defaults: the defaults would not have caught either of the two real
+# credentials this repo actually leaked.
+#
+# Measured, not assumed — gitleaks 8.30.1, default config, against the three
+# real secrets from the #24/#25 sweeps:
+#
+#   const DIAG_TOKEN = "957ad72…"        -> CAUGHT (generic-api-key)
+#   const DEMO_PASSWORD = "TalentrahDemo123!"   -> MISSED
+#   password: "TalentrahDemoFriend123!"         -> MISSED
+#
+# The default rules are tuned for machine-generated provider keys: long,
+# high-entropy, recognisable prefixes. A human-chosen password clears none of
+# those bars. Both of this repo's real leaks were human-chosen passwords, and
+# the second one survived a manual sweep, so the whole point of adding a
+# scanner is lost if it only looks for the shape we never leaked.
+#
+# `useDefault = true` keeps every upstream rule; the rule below adds the shape
+# we actually get wrong.
+
+title = "Talentrah"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "talentrah-hardcoded-credential"
+description = "Password, secret, token or key assigned to a string literal"
+# Deliberately no entropy threshold. "TalentrahDemo123!" is low-entropy by
+# design — it was typed by a person — and an entropy floor is exactly what let
+# the defaults through. False positives are handled by the allowlist below,
+# which is cheaper than missing a real one.
+#
+# Excludes `$` inside the literal so interpolated values don't match:
+# `password: `seed-${randomBytes(24)…`` is a generated value, not a secret.
+# Values assigned from process.env have no quotes and never match.
+#
+# The name is matched with `[A-Za-z0-9_]*` on both sides rather than `\b`,
+# which is not a nitpick — it is the difference between catching this repo's
+# first leak and not. `\b` does not match between `_` and `P`, because `_` is
+# a word character, so a `\bpassword` rule sails straight past
+# `const DEMO_PASSWORD = "…"`. Verified: with `\b`, 1 of the 3 known real
+# secrets is caught; with this, all 3 are.
+#
+# `auth` is deliberately NOT in the name list. It was, and it matched `author:`
+# in every blog post's frontmatter — four false positives on prose. Fixed in
+# the rule rather than allowlisted, because "allowlist each author's name" is a
+# list that only ever grows. `token` already covers authToken / auth_token; the
+# one thing genuinely given up is a bare `authorization_code = "…"`, which this
+# codebase only ever reads from the database.
+regex = '''(?i)(?:^|[^A-Za-z0-9_])([A-Za-z0-9_]*(?:pass(?:word|wd)?|secret|token|api[_-]?key|apikey|credential)[A-Za-z0-9_]*)\s*[:=]\s*["'`]([^"'`\n$]{8,})["'`]'''
+secretGroup = 2
+keywords = [
+  "password",
+  "passwd",
+  "secret",
+  "token",
+  "apikey",
+  "api_key",
+  "api-key",
+  "credential",
+]
+
+# ---------------------------------------------------------------------------
+# Allowlist.
+#
+# Every entry here is a documented decision, not a silence. An unhandled false
+# positive is how a check stops being taken seriously — the first time it cries
+# wolf on a fixture string, someone adds `--no-verify` and the check is over.
+# So: allowlist narrowly, by exact value, with the reason written down.
+#
+# Both entries below were classified as false positives by the full-history
+# sweep in docs/secrets-audit.md. Neither is a credential.
+# ---------------------------------------------------------------------------
+[allowlist]
+description = "Documented false positives — see docs/secrets-audit.md"
+
+regexes = [
+  # tests/rls/cross-user.test.ts — the string user A stores in a resume so the
+  # suite can prove user B cannot read it. Its whole purpose is to be a
+  # recognisable marker in an assertion. Not a credential.
+  '''A-private-resume''',
+
+  # src/lib/jobs/sources.config.ts — Greenhouse's public job-board slug for
+  # Moniepoint. It is a path segment in a public URL
+  # (boards-api.greenhouse.io/v1/boards/moniepoint/jobs), not a token, despite
+  # the field being named `token` by Greenhouse's own API.
+  '''moniepoint''',
+]
+
+paths = [
+  # A structural snapshot of the live schema: policy expressions, column
+  # defaults, function bodies. It contains no values — by construction, since
+  # it was generated from the catalog, not from data. It does contain the word
+  # "secret" in policy prose and would otherwise churn on every schema change.
+  '''supabase/migrations/0000_baseline_schema\.sql''',
+
+  # Documents the leaked values on purpose, so the next person can recognise
+  # them. They are all rotated and confirmed dead; re-flagging them here would
+  # make the audit unpublishable.
+  '''docs/secrets-audit\.md''',
+
+  # This file's own header quotes the leaked shapes as evidence.
+  '''\.gitleaks\.toml''',
+]
