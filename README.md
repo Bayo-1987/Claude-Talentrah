@@ -18,7 +18,7 @@ Then seed demo data (needs the dev server running — the seed drives the real i
 npm run seed
 ```
 
-That creates a demo account, `demo@talentrah.dev`, with a base resume, tracker entries, referral data, real ingested jobs, and scholarships. Its password comes from `DEMO_PASSWORD` and is **not** committed — this repo is public, and that account owns the demo organisation whose postings appear in the job feed, so a published password meant anyone could sign in and rewrite them. Set `DEMO_PASSWORD` in `.env.local` before seeding; re-running the seed re-asserts it on the existing account.
+That creates a demo account, `demo@talentrah.dev`, with a base resume, tracker entries, referral data, real ingested jobs, and scholarships. Its password comes from `DEMO_PASSWORD` and is **not** committed — this repo is public, and that account owns the demo organisation whose postings appear in the job feed, so a published password meant anyone could sign in and rewrite them. Set `DEMO_PASSWORD` in `.env.local` before seeding. Re-running the seed will *not* change an existing account's password — rotating one is deliberate: `SEED_ROTATE_PASSWORDS=1 npm run seed`.
 
 ## Environment variables
 
