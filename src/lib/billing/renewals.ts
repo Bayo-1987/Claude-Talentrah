@@ -242,9 +242,7 @@ async function chargeOne(
     }
 
     if (settled?.status === "success") {
-      await extendPass(supabase, row, pass, row.pending_renewal_reference, settled.channel, {
-        transactionAlreadyRecorded: false,
-      });
+      await extendPass(supabase, row, pass, row.pending_renewal_reference, settled.channel);
       summary.renewed++;
       return;
     }
@@ -320,9 +318,7 @@ async function chargeOne(
     return;
   }
 
-  await extendPass(supabase, row, pass, reference, result.channel, {
-    transactionAlreadyRecorded: false,
-  });
+  await extendPass(supabase, row, pass, reference, result.channel);
   summary.renewed++;
 }
 
@@ -419,38 +415,39 @@ async function extendPass(
   pass: { duration_days: number; price_ngn: number },
   reference: string,
   channel: string,
-  opts: { transactionAlreadyRecorded: boolean },
 ) {
-  if (!opts.transactionAlreadyRecorded) {
-    // Upsert on the reference: a recovered pending attempt already has a row
-    // from the run that timed out, and it must be updated to `success` rather
-    // than duplicated.
-    const { data: existing } = await supabase
-      .from("payment_transactions")
-      .select("id")
-      .eq("paystack_reference", reference)
-      .maybeSingle();
+  /*
+   * Update-or-insert on the reference rather than a plain insert. A recovered
+   * pending attempt already has a row from the run that timed out, and that row
+   * must be moved to `success` — inserting a second one would show the customer
+   * two charges for a period they were billed for once, which is the same
+   * misleading record this fix exists to avoid, just in the opposite direction.
+   */
+  const { data: existing } = await supabase
+    .from("payment_transactions")
+    .select("id")
+    .eq("paystack_reference", reference)
+    .maybeSingle();
 
-    if (existing) {
-      await supabase
-        .from("payment_transactions")
-        .update({ status: "success", channel, authorization_code: row.authorization_code })
-        .eq("id", existing.id);
-    } else {
-      await supabase.from("payment_transactions").insert({
-        user_id: row.user_id,
-        rail: "paystack",
-        amount: pass.price_ngn,
-        currency: "NGN",
-        product_type: "pass",
-        product_id: row.pass_id,
-        paystack_reference: reference,
-        status: "success",
-        channel,
-        authorization_code: row.authorization_code,
-        renewal_for_pass_id: row.id,
-      });
-    }
+  if (existing) {
+    await supabase
+      .from("payment_transactions")
+      .update({ status: "success", channel, authorization_code: row.authorization_code })
+      .eq("id", existing.id);
+  } else {
+    await supabase.from("payment_transactions").insert({
+      user_id: row.user_id,
+      rail: "paystack",
+      amount: pass.price_ngn,
+      currency: "NGN",
+      product_type: "pass",
+      product_id: row.pass_id,
+      paystack_reference: reference,
+      status: "success",
+      channel,
+      authorization_code: row.authorization_code,
+      renewal_for_pass_id: row.id,
+    });
   }
 
   const newExpiry = new Date(new Date(row.expires_at).getTime() + pass.duration_days * 24 * 60 * 60 * 1000);

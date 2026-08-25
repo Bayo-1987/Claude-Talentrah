@@ -31,10 +31,10 @@
  * the Pass mutation are all real. Verified before writing them that production
  * holds zero `user_passes` rows, so the job has no real card to touch.
  */
-import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { randomUUID } from "node:crypto";
 import type { Database } from "@/lib/supabase/types";
+import { createTestUser, deleteTestUsers } from "../support/auth";
 
 for (const key of ["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"] as const) {
   if (!process.env[key]) throw new Error(`Renewal failure-mode test cannot run: ${key} is not set.`);
@@ -62,18 +62,31 @@ vi.mock("@/lib/resend/client", () => ({ getResendClient: () => null }));
 
 let userId: string;
 let passId: string;
-let userPassId: string;
-const createdUsers: string[] = [];
+/**
+ * The Pass under test. Reset to a sentinel at the START of every setup, and
+ * that is load-bearing rather than tidiness.
+ *
+ * The first version of this fixture minted a fresh auth user per test with a
+ * raw `admin.auth.admin.createUser`. Under full-suite load that call is the one
+ * that trips Supabase Auth's rate limit — and when it threw, `userPassId` kept
+ * the PREVIOUS test's value, so the assertions silently ran against the last
+ * test's Pass. That produced exactly the symptoms seen in CI: "expected 1
+ * transaction, got 2" and a `pending_renewal_reference` that was never set,
+ * both intermittent and both passing in isolation. The failure looked like a
+ * product bug and was a fixture bug.
+ *
+ * Two fixes, both needed: the sentinel below turns a partial setup into an
+ * obvious error instead of a wrong-target assertion, and the suite now creates
+ * ONE user for the whole file via the retrying helper rather than seven raw
+ * ones — the mitigation `tests/support/auth.ts` exists for.
+ */
+let userPassId = "NOT_SET";
 
-async function setUpDuePass() {
-  const email = `renewfail-${randomUUID()}@talentrah.test`;
-  const { data: created, error } = await admin.auth.admin.createUser({
-    email,
-    email_confirm: true,
-  });
-  if (error) throw error;
-  userId = created.user!.id;
-  createdUsers.push(userId);
+/** One account for the file. No test here needs isolation between users — the
+ *  thing under test is a Pass, and each test gets a fresh one. */
+async function setUpSharedUser() {
+  const user = await createTestUser("renewfail");
+  userId = user.id;
 
   const { data: pass, error: passErr } = await admin
     .from("passes")
@@ -82,6 +95,10 @@ async function setUpDuePass() {
     .single();
   if (passErr || !pass) throw new Error("No passes seeded — run `npm run seed`.");
   passId = pass.id;
+}
+
+async function setUpDuePass() {
+  userPassId = "NOT_SET";
 
   const yesterday = new Date(Date.now() - 86_400_000).toISOString();
   const { data: up, error: upErr } = await admin
@@ -120,21 +137,32 @@ async function transactionsForPass() {
   return data ?? [];
 }
 
+beforeAll(setUpSharedUser);
+
 beforeEach(async () => {
   charge.mockReset();
   verify.mockReset();
   await setUpDuePass();
+  // If setup failed we must not assert against a stale target.
+  expect(userPassId, "fixture did not create a Pass for this test").not.toBe("NOT_SET");
 });
 
 afterEach(async () => {
+  if (userPassId === "NOT_SET") return;
   await admin.from("payment_transactions").delete().eq("renewal_for_pass_id", userPassId);
   await admin.from("user_passes").delete().eq("id", userPassId);
 });
 
 afterAll(async () => {
-  await Promise.all(createdUsers.map((id) => admin.auth.admin.deleteUser(id).catch(() => {})));
+  // Belt and braces: any Pass this file leaked would otherwise stay DUE, and
+  // runPassRenewalJob is global — a stray due Pass would be picked up by a
+  // later run and mutated out from under whatever created it.
+  if (userId) {
+    await admin.from("user_passes").delete().eq("user_id", userId);
+    await deleteTestUsers([userId]);
+  }
   vi.restoreAllMocks();
-});
+}, 60_000);
 
 /** A network-level failure: Paystack never answered. */
 function timeoutError() {
