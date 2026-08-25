@@ -15,7 +15,7 @@ Milestone names below follow **the plan doc** (`~/.claude/plans/adaptive-gigglin
 | **M1** Auth & onboarding | done | Email/password + Google + LinkedIn OIDC; fictional testimonial persona (open decision #2 is a legal requirement, not polish) |
 | **M2** Job supply & aggregation | **partial** | Greenhouse + Lever + one schema.org/JSON-LD source (Workable's aggregated search) live, with dedup and freshness sweep. Still one pilot source, not broad crawling — see *schema.org ingestion* below |
 | **M3** Job feed & matching | done | Algorithmic match scoring, cached; server-rendered feed; manual apply both paths |
-| **M4** Resume Builder | done | 11 templates, drag-reorder, credit-gated AI bullet rewriting, print-to-PDF. **Until Phase 2's template library, all 7 original templates rendered identically** — see *Full template library* below |
+| **M4** Resume Builder | done | **11 templates across 11 industry categories**, drag-reorder, credit-gated AI bullet rewriting, print-to-PDF. **Template choice now genuinely changes the resume's appearance** — until Phase 2's template library all 7 original templates rendered identically, whichever was picked. See *Full template library* below |
 | **M5** JD tailoring + Credits/Passes | done | Paste-text tailoring, one-time free trial, Paystack checkout + webhook, pass auto-renewal |
 | **M6** Farah chat panel | done | Docked marginalia panel, quick actions, persisted history, one shared voice module |
 | **M7** Job Tracker | done | Stage tracking, manual entries, Hired → referral prompt |
@@ -413,12 +413,46 @@ and `unlock_cost_credits`. Every resume rendered through the single
 `ResumeDocument` component — `resume-builder/preview/page.tsx` did not even
 `select` `template_id`. The gallery was selling a label.
 
-Two of those seven were **premium at 10 credits** (Portfolio Grid, Pipeline).
-A user could spend credits to unlock a template and receive precisely the free
-layout. That is not a missing feature, it is a paid product delivering nothing,
-and it is fixed here rather than deferred: both now have real layouts, and
-`tests/resume-builder/template-registry.test.ts` fails if any premium template
-ever resolves to the free default again.
+Two of those seven were **premium at 10 credits** (Portfolio Grid, Pipeline). A
+user could spend credits to unlock one and receive precisely the free layout.
+
+**This is a product-integrity defect, and deliberately not described in the
+language used for 0041.** The two are different failure modes and conflating
+their severity would be misleading in both directions:
+
+* **0041** was an *unauthorized bypass* — a user taking something they had not
+  paid for and were not entitled to, by writing a column the server never
+  intended them to touch. The wronged party was Talentrah.
+* **This** is the inverse. The unlock worked exactly as designed: credits were
+  spent, `user_template_unlocks` was written, the entitlement was real and
+  correctly recorded. What the user received was a template that was
+  *contractually theirs* but **visually indistinguishable from the free ones**.
+  Nothing was bypassed and no control failed. The wronged party was the user,
+  who paid for a difference that did not exist.
+
+It is not a security finding and does not belong in the 0028/0030/0031/0041
+running count. It is a promise the product did not keep, which is why it was
+fixed in this pass rather than deferred: both templates now have real layouts,
+and `tests/resume-builder/template-registry.test.ts` fails if any premium
+template ever resolves to the free default again — an assertion with no
+exemption list, unlike the free-template one.
+
+**The catalog is now 11 templates across 11 industry categories** — one per
+category, no overlaps. The seven originals cover Business, Administration,
+Technology, Design, Customer Success, Banking & Finance and Sales & Marketing.
+The four new ones:
+
+| Template | Category | Why this category |
+|---|---|---|
+| Clinical | **Healthcare** | Present on both Resume-Now's and Enhancv's real category lists; the largest professional segment the catalog had no entry for |
+| Statute | **Legal** | Same — a standard category on both, and one where layout convention carries real signal |
+| Critical Path | **Project Management** | **Enhancv's single most-popular category.** If one addition is going to be used, it is this one |
+| Public Record | **Government & Public Sector** | The deliberate pick: **a large segment neither competitor targets.** Public-sector hiring is a major employer in Nigeria, so this is a fit for a Nigeria-first product that a US-centric taxonomy would not suggest |
+
+Categories were taken from Resume-Now's and Enhancv's actual published
+taxonomies and deduped against the existing seven, rather than invented — the
+point was to add categories real job seekers already look for, with one
+deliberate departure where the competitor lists have a gap our market does not.
 
 **What shipped**
 

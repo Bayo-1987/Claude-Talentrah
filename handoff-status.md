@@ -33,6 +33,162 @@ both served stale content in this project's history. Don't rely on either.
 
 ---
 
+## Merged 2026-08-25 — PR #41, full template library (0042)
+
+| PR | Branch | Merged at (UTC) | Merge SHA |
+|----|--------|-----------------|-----------|
+| [#41](https://github.com/Bayo-1987/Claude-Talentrah/pull/41) | `feat/full-template-library` | 18:48:15 | `e120fce` |
+
+17 files, +1557/−20. Phase 2's full-template-library milestone.
+
+### What the previous state was
+
+**Choosing a template changed nothing you could see.** All seven
+`resume_templates` rows differed only in `name`, `industry_category`,
+`is_premium` and `unlock_cost_credits`. Every resume rendered through the single
+`ResumeDocument` component — `resume-builder/preview/page.tsx` did not even
+`select` `template_id`. The gallery was selling a label.
+
+### The Portfolio Grid / Pipeline fix — a product-integrity defect, NOT a 0041-class exploit
+
+Recorded separately and in different language on purpose, because the two are
+different failure modes and the severity vocabulary should not be shared:
+
+* **0041** was an **unauthorized bypass**. A user took something they had not
+  paid for and were not entitled to, by writing a column the server never meant
+  them to touch. A control failed. The wronged party was Talentrah.
+* **This** is the inverse. Portfolio Grid and Pipeline were premium at 10
+  credits and rendered the free layout. The unlock worked *exactly as designed*
+  — credits were spent, `user_template_unlocks` was written, the entitlement was
+  real and correctly recorded. What the user received was a template that was
+  **contractually theirs but visually indistinguishable from free**. Nothing was
+  bypassed and no control failed. The wronged party was the **user**, who paid
+  for a difference that did not exist.
+
+So it is **not** a security finding and does **not** belong in the
+0028/0030/0031/0041 running count. It is a promise the product did not keep.
+It was outside the brief's four-new-templates scope and was fixed anyway,
+because shipping a milestone that leaves paid templates empty is not a
+defensible place to stop. Surfaced by the registry test:
+
+```
+× every premium template renders something distinct from the free default
+  AssertionError: PAID FOR NOTHING: these premium templates render exactly
+  like the free default: expected [ …(2) ] to deeply equal []
+```
+
+That assertion has **no exemption list**, unlike the free-template one below.
+
+### What shipped
+
+- **`slug` as the join key** (`0042`) — `text not null unique`, backfilled for
+  the original seven with fixed values, not a `slugify(name)`. The registry keys
+  off `slug` and nothing else: `name` is editable catalog copy with no unique
+  constraint, so keying on it means a rename silently unmaps a layout with no
+  error anywhere; `id` is a per-environment uuid and could not be committed to
+  source. The migration raises a clear exception if any row lacks a mapping,
+  rather than failing later on the `not null` with no indication of which row.
+- **A component-per-slug registry**, visual-only differentiation — layout,
+  density and typography change per profession; the `StructuredResume` shape
+  does not, so a resume renders unchanged under any template and switching stays
+  a reversible choice rather than a data migration.
+- **Four new templates** — Clinical (Healthcare), Statute (Legal), Critical Path
+  (Project Management, Enhancv's most popular category), Public Record
+  (Government & Public Sector, deliberately chosen as a large segment neither
+  competitor targets and a fit for a Nigeria-first product). Categories taken
+  from Resume-Now's and Enhancv's real taxonomies, deduped against the existing
+  seven. Three of the four premium; the catalog was 5-of-7 free.
+- **Two premium templates rebuilt** — Portfolio Grid, Pipeline, per the above.
+- **Preview wired through** the `resume_templates(slug)` join. `edit/page.tsx`
+  was checked and has only a link, no preview pane, so needed no change.
+
+Catalog is now **11 templates across 11 industry categories**, one per category.
+
+### Bounded and visible, not silent
+
+Four *free* templates (Structured Admin, Product & Tech, Field Notes, Ledger)
+still render as clean-professional — the brief's stated fallback behaviour.
+Encoded as `KNOWN_UNSTYLED_FREE_SLUGS` with two enforced rules: **it may only
+shrink**, and **nothing premium may appear in it**. Stale entries and entries
+that gain a component also fail. A documented list that can only shrink is the
+opposite of the undocumented allowlist this repo has been right to distrust.
+
+### The 0041 guard did not collide — checked, not assumed
+
+`resume_templates` is catalog data: RLS enabled, exactly one `SELECT` policy,
+**no write policy at all**. A write is refused by the row policy before the
+table-wide grant is ever consulted — the opposite arrangement to `resumes`,
+where a permissive `FOR ALL` policy let the default grant through. `slug`
+carries no trust, money or identity.
+
+Reconfirmed **live, post-merge**, with a real authenticated session:
+
+```
+update {"is_premium":false}       -> no error (row policy matched 0 rows)
+update {"unlock_cost_credits":0}  -> no error (row policy matched 0 rows)
+update {"slug":"hijacked"}        -> no error (row policy matched 0 rows)
+insert new catalog row            -> 42501 new row violates row-level security policy
+re-read: slug=statute is_premium=true cost=10
+=> UNCHANGED — RLS refused first
+```
+
+The silent zero-row updates are exactly why the re-read matters: a column-level
+denial errors, a row-policy denial does not, and only re-reading with the
+service role tells those apart from success. `column-privileges.test.ts` now
+asserts this as a standing check (27 → included in the 303).
+
+### Verified
+
+1. **PR API** — `merged: true`, `merged_at 2026-08-25T18:48:15Z`,
+   `merge_commit_sha e120fce5ba8f7df87727a39364a405b0ee19f666`.
+2. **Fresh shallow clone of `main`** — merge commit `e120fce`, two parents
+   (`99751a7` + `6720409`). `0042_template_slugs_and_library.sql` present with
+   its statements; all six template components present
+   (`clinical`, `statute`, `critical-path`, `public-record`, `portfolio-grid`,
+   `pipeline`) plus `index.tsx`; `vitest.config.ts` glob confirmed widened to
+   `["src/**/*.test.{ts,tsx}", "tests/**/*.test.{ts,tsx}"]`.
+3. **Live production check** — all **11 rows have a non-null slug**; the four
+   new rows match the migration exactly (Clinical/Healthcare/free/0,
+   Statute/Legal/premium/10, Critical Path/Project Management/premium/10,
+   Public Record/Government & Public Sector/premium/10); catalog unwritable as
+   above.
+4. **Premium render spot-check** — a real resume was created on the **Statute**
+   template (premium, 10 credits) and the preview page's *exact* query run
+   through a real RLS-scoped authenticated session against production returned
+   `joined slug: statute`, which resolves to `StatuteTemplate`, **not** the free
+   default. See the honest limit on this below.
+5. **CI green** — 23/23 files, **303/303 tests** (up from 272: `template-registry`
+   10, `template-rendering` 19), Playwright 13/13, all four checks on the PR head.
+
+**Honest limit on point 4.** The chain query → joined slug → matched component
+is verified against production *data* through a real session. What is *not*
+verified is the deployed server rendering those pixels in a browser: the
+`/auth/callback` route requires a PKCE `code` and calls
+`exchangeCodeForSession`, so an admin-generated magic link cannot establish a
+browser session through it — correct app behaviour, not a defect — and entering
+a password is not something to do here. The route is confirmed deployed and
+auth-gating (`307 → /login`), and CI's Playwright exercises the real app. State
+it that way rather than claiming a production screenshot that was not taken.
+
+### Two defects found in this work's own tests
+
+- **The tests proved mapping, not rendering.** The registry suite asserted
+  component *identity* — broken markup, a crash on an empty section, or a
+  copy-paste rendering the same DOM as its neighbour would all have passed.
+  `template-rendering.test.tsx` now renders each template with
+  `react-dom/server` and asserts content survives, `EMPTY_RESUME` renders (what
+  a user sees immediately after picking a template), no two produce identical
+  markup, and two concrete layout claims. Proven non-vacuous by pointing
+  `statute` at `ResumeDocument`, which fails with *"statute renders
+  byte-identical markup to clean-professional"*.
+- **`vitest.config.ts`'s glob excluded `.tsx`**, so that entire suite was never
+  collected. An uncollected file is **not reported as skipped** — it looks
+  exactly like a clean run, and the only tell was the test count not moving.
+  Glob widened; confirmed no other `.tsx` test file existed, so nothing
+  previously-failing was hidden by it.
+
+---
+
 ## Merged 2026-08-25 — PR #40, resumes/Farah column privileges (0041)
 
 | PR | Branch | Merged at (UTC) | Merge SHA |
