@@ -33,6 +33,89 @@ both served stale content in this project's history. Don't rely on either.
 
 ---
 
+## In flight — Paystack timeout / decline ambiguity (0043)
+
+Branch `fix/paystack-timeout-decline-ambiguity`, migration `0043` applied.
+The highest-value item left on the test-coverage backlog, and a real
+money-affecting defect rather than a hypothetical.
+
+### The bug
+
+`chargeOne` caught every failure from `chargeAuthorization` in one branch whose
+comment asserted a single cause — "Paystack rejected the charge outright" — for
+every possible one. Timeout, DNS failure, reset connection, 502 from Paystack's
+own edge, and a genuine card decline all reached the same `markLapsed`, which
+sets `next_renewal_date = null`. The job selects on `next_renewal_date <= today`,
+so that is what makes the lapse permanent — the Pass is never looked at again,
+and the design deliberately has no dunning. **One dropped connection ended a
+subscription the customer was paying for.**
+
+Proven before fixing, real job against the real database, only the Paystack
+client mocked:
+
+```
+× a timeout leaves the Pass renewable and retries on the next run
+  AssertionError: SUBSCRIPTION KILLED BY A NETWORK BLIP: a timeout lapsed a
+  paying customer's Pass: expected 'lapsed' to be 'active'
+```
+
+### Two corrections to the brief's description
+
+* `markLapsed` does **not** clear `authorization_code` — only
+  `cancelPassAutoRenewal` does. The token survived; `next_renewal_date` was the
+  casualty, and that is what removed the Pass from the job forever.
+* Understated in the other direction: the run also wrote a
+  `payment_transactions` row as `failed`, which is **unsupportable** — a timeout
+  can occur after Paystack debited the card, so "failed" may be false, and it is
+  the record a human would reconcile from.
+
+### Policy decided and written down
+
+| Case | Behaviour | Why |
+|---|---|---|
+| Genuine decline | lapses on first attempt — **unchanged** | A reasoned call from the original build; reversing it while fixing something else would be a bigger change than asked for. Pinned by a positive-control test so declines cannot become unkillable. |
+| Indeterminate | does **not** lapse; retried next daily run | Says nothing about the customer. Keeps `active`, its token, and `next_renewal_date` — retrying *is* the recovery mechanism. |
+| Indeterminate ×3 | finally lapses | Bounded, not infinite. Paystack incidents run minutes to hours; still failing after three daily attempts is no longer plausibly transient, and promising a renewal that never happens is its own dishonesty. |
+| Pending reference | verified **before** re-charging | A timeout can happen after the card was debited. Charging again would bill twice for one period — strictly worse than the bug. |
+
+### The predicate is `isDecline`, not `isIndeterminate`
+
+Worth recording as a design correction found mid-fix. The first version asked
+"does this look like a network problem?", so an unrecognised error still fell
+through to cancelling the customer — the original bug in a new shape. Asking
+"do we have positive evidence the card was refused?" makes evidence-of-nothing
+safe by default and makes reintroducing the old behaviour an explicit,
+visible decision.
+
+### The repo's last untimed external call is closed
+
+All three `fetch` calls in `paystack/client.ts` had no timeout — a hung
+connection blocked until the platform killed the function, leaving the rest of
+the renewal batch unprocessed. They now share one `paystackFetch` with
+`AbortSignal.timeout(15_000)`, the budget PR #39 set in `schema-org.ts`. **This
+closes the "no external call anywhere sets a timeout" backlog item** — these
+were the last ones. Callers checked and unchanged: `billing/actions.ts` already
+catches everything, `fulfill.ts` already leaves the transaction `pending` when
+verify throws.
+
+### Operational change — recorded in CLAUDE.md
+
+**The daily cron is now load-bearing for recovery.** Retrying is the only
+mechanism; there is no dunning queue and no alert, so a cron that silently stops
+firing means indeterminate Passes never resolve. A `payment_transactions` row
+with `status = 'pending'` plus a `user_passes.pending_renewal_reference` is a
+**charge of unknown outcome**, not a failure. `RenewalJobSummary.indeterminate`
+is a new counter so a monitor can see an outage building rather than reading
+zero lapses as "all well".
+
+### Not a 0041-class column addition
+
+Checked, not assumed: `user_passes` has RLS enabled with exactly one `SELECT`
+policy and no write policy, so a client cannot write the three new columns
+regardless of the table-wide grant — the row policy refuses first.
+
+---
+
 ## Merged 2026-08-25 — PR #41, full template library (0042)
 
 | PR | Branch | Merged at (UTC) | Merge SHA |

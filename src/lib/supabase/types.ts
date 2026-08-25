@@ -1142,10 +1142,13 @@ export type Database = {
           created_at: string
           expires_at: string
           id: string
+          last_renewal_failure_at: string | null
           next_renewal_date: string | null
           pass_id: string
           payment_method: Database["public"]["Enums"]["pass_payment_method"]
           payment_transaction_id: string | null
+          pending_renewal_reference: string | null
+          renewal_attempt_count: number
           renewal_reminder_sent_at: string | null
           started_at: string
           status: string
@@ -1160,10 +1163,13 @@ export type Database = {
           created_at?: string
           expires_at: string
           id?: string
+          last_renewal_failure_at?: string | null
           next_renewal_date?: string | null
           pass_id: string
           payment_method: Database["public"]["Enums"]["pass_payment_method"]
           payment_transaction_id?: string | null
+          pending_renewal_reference?: string | null
+          renewal_attempt_count?: number
           renewal_reminder_sent_at?: string | null
           started_at?: string
           status?: string
@@ -1178,10 +1184,13 @@ export type Database = {
           created_at?: string
           expires_at?: string
           id?: string
+          last_renewal_failure_at?: string | null
           next_renewal_date?: string | null
           pass_id?: string
           payment_method?: Database["public"]["Enums"]["pass_payment_method"]
           payment_transaction_id?: string | null
+          pending_renewal_reference?: string | null
+          renewal_attempt_count?: number
           renewal_reminder_sent_at?: string | null
           started_at?: string
           status?: string

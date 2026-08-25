@@ -40,6 +40,20 @@ Phase 1 is feature-complete except for the employer side. Read [docs/phase-1-sum
 - **An organisation's job postings only reach the public feed once `organizations.verified` is true** (0027), and **no client can write `verified`** (0028) — it is set server-side from the session user's confirmed work-email domain, and nowhere else. Anything that surfaces internal postings must not work around that gate, and anything that grants verification must not do it from user input.
 - **Self-referral detection normalises Gmail dots and `+suffix`, and deliberately does NOT strip dots elsewhere** (0036) — at a company domain `j.doe@` and `jdoe@` are usually two different people, and blocking that would deny two colleagues a real reward. Three referral decisions are open and written up in [docs/referrals-open-questions.md](docs/referrals-open-questions.md); each is pinned by a test, so don't change one by accident.
 - **This repo is PUBLIC. Never commit a working credential, and never assume deleting one later undoes it** — anything pushed is permanently exposed, so rotation is the only real fix. The demo account's password comes from `DEMO_PASSWORD`; the seeded referral accounts get a random password per run. Both are re-asserted on every seed run, so rotating the source actually retires the old value. A full history sweep is written up in [docs/secrets-audit.md](docs/secrets-audit.md).
+- **A renewal failure Paystack never confirmed is now retried, not lapsed** (0043).
+  This changes operational behaviour: a Pass whose charge times out stays
+  `auto_renew_status = 'active'` with its `next_renewal_date` intact and is
+  retried on the **next daily cron run**, up to
+  `MAX_INDETERMINATE_RENEWAL_ATTEMPTS` (3) before finally lapsing. Two
+  consequences worth knowing: **the daily cron is now load-bearing for recovery**
+  — retrying is the only mechanism, there is no dunning queue and no alert, so a
+  cron that silently stops firing means these Passes never resolve; and a
+  `payment_transactions` row with `status = 'pending'` and a
+  `user_passes.pending_renewal_reference` set is a **charge of unknown outcome**,
+  not a failure — the next run verifies that reference with Paystack before
+  charging again, precisely so a timeout that happened after the card was
+  debited never becomes a double charge. A genuine decline still lapses on the
+  first attempt, unchanged.
 - **Production runs Gemini on a free-tier key** (20 req/day, shared). A billed key is a founder/account action, not a code change.
 
 Verification convention this repo holds itself to, visible throughout its PR history: **check real current state before building; prove a fix by first proving the test catches the bug.** Several milestones caught real defects specifically by re-testing what earlier work had assumed — an RLS policy that had never been run, a retry heuristic that looked like model behaviour, an OAuth name mapping where the intuitive fix would have repaired the wrong provider, and an org-membership policy that read as safe and was not. That last one is also the standing example of a second habit: after fixing a policy, ask what *else* grants the same privilege — the first fix closed one route and, in doing so, opened a second.

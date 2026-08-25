@@ -1,8 +1,21 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
-import { chargeAuthorization } from "@/lib/paystack/client";
+import { chargeAuthorization, verifyTransaction, isDecline } from "@/lib/paystack/client";
 import { getResendClient } from "@/lib/resend/client";
+
+/**
+ * How many consecutive INDETERMINATE failures a Pass tolerates before it
+ * finally lapses.
+ *
+ * The cron runs daily, so three is roughly three days of grace. Chosen rather
+ * than derived: Paystack incidents are typically minutes to hours, so a
+ * failure still unresolved after three daily attempts is no longer plausibly
+ * transient, and continuing to promise a renewal that never happens is its own
+ * dishonesty. A genuine decline does NOT consume an attempt — it lapses
+ * immediately, as it always has.
+ */
+export const MAX_INDETERMINATE_RENEWAL_ATTEMPTS = 3;
 
 /** How far ahead of the actual renewal date to send the reminder. */
 const REMINDER_WINDOW_DAYS = 3;
@@ -28,6 +41,13 @@ export interface RenewalJobSummary {
   remindersSent: number;
   renewed: number;
   lapsed: number;
+  /**
+   * Passes whose renewal outcome Paystack never confirmed this run. NOT
+   * failures and NOT lapses — they keep auto-renew on and are retried next
+   * run. Surfaced separately so a monitor can see an outage building rather
+   * than reading zero-lapses as "all well".
+   */
+  indeterminate: number;
   /** Per-Pass failures — the Pass was found, but processing it failed. */
   errors: Array<{ userPassId: string; message: string }>;
   /** Stage-level failures — the work-list query itself failed. */
@@ -56,6 +76,7 @@ export async function runPassRenewalJob(): Promise<RenewalJobSummary> {
     remindersSent: 0,
     renewed: 0,
     lapsed: 0,
+    indeterminate: 0,
     errors: [],
     queryErrors: [],
   };
@@ -146,7 +167,7 @@ async function chargeDueRenewals(summary: RenewalJobSummary) {
   const { data: due, error } = await supabase
     .from("user_passes")
     .select(
-      "id, user_id, pass_id, authorization_code, expires_at, profiles!user_passes_user_id_fkey(email), passes(duration_days, price_ngn)",
+      "id, user_id, pass_id, authorization_code, expires_at, renewal_attempt_count, pending_renewal_reference, profiles!user_passes_user_id_fkey(email), passes(duration_days, price_ngn)",
     )
     .eq("auto_renew_status", "active")
     .lte("next_renewal_date", todayDateOnly());
@@ -176,6 +197,8 @@ async function chargeOne(
     pass_id: string;
     authorization_code: string | null;
     expires_at: string;
+    renewal_attempt_count: number;
+    pending_renewal_reference: string | null;
     profiles: { email: string } | null;
     passes: { duration_days: number; price_ngn: number } | null;
   },
@@ -192,6 +215,46 @@ async function chargeOne(
     return;
   }
 
+  /*
+   * Before charging: if a previous run left an attempt whose outcome we never
+   * learned, settle THAT first.
+   *
+   * A timeout can happen after Paystack has already debited the card. Charging
+   * again without checking would bill the customer twice for one period, which
+   * is strictly worse than the bug this whole path exists to fix. If the
+   * verify itself is indeterminate we cannot resolve it this run either, so we
+   * back off rather than risk the double charge.
+   */
+  if (row.pending_renewal_reference) {
+    let settled;
+    try {
+      settled = await verifyTransaction(row.pending_renewal_reference);
+    } catch (err) {
+      if (!isDecline(err)) {
+        // Could not learn this reference's fate. Backing off is the only safe
+        // move: charging again might be the second charge for one period.
+        await recordIndeterminate(supabase, row, summary, row.pending_renewal_reference, null);
+        return;
+      }
+      // Paystack answered about this reference and it was not a success —
+      // a real, attributable outcome. Fall through and charge afresh.
+      settled = null;
+    }
+
+    if (settled?.status === "success") {
+      await extendPass(supabase, row, pass, row.pending_renewal_reference, settled.channel, {
+        transactionAlreadyRecorded: false,
+      });
+      summary.renewed++;
+      return;
+    }
+    // Not a success — clear it so the fresh attempt below owns the state.
+    await supabase
+      .from("user_passes")
+      .update({ pending_renewal_reference: null })
+      .eq("id", row.id);
+  }
+
   const reference = `pass_renewal_${randomUUID()}`;
   let result;
   try {
@@ -201,9 +264,28 @@ async function chargeOne(
       authorizationCode: row.authorization_code,
       reference,
     });
-  } catch {
-    // Paystack rejected the charge outright (invalid/revoked authorization,
-    // insufficient funds reported synchronously, etc).
+  } catch (err) {
+    if (!isDecline(err)) {
+      /*
+       * Anything that is not an affirmative decline. Paystack never answered,
+       * or answered in a way this code cannot interpret — either way it says
+       * nothing about the customer and must not be treated as their card
+       * failing. Keep the Pass renewable, keep its token, keep
+       * next_renewal_date so tomorrow's run retries, and record the attempt as
+       * `pending` rather than `failed`, because the charge may in fact have
+       * gone through.
+       *
+       * Note the direction of the test: only a KNOWN decline lapses. An
+       * unrecognised error is evidence of nothing, and defaulting to "cancel
+       * the paying customer" on evidence of nothing is precisely the bug.
+       */
+      await recordIndeterminate(supabase, row, summary, reference, pass.price_ngn);
+      return;
+    }
+
+    // Paystack answered and said no — invalid/revoked authorization,
+    // insufficient funds reported synchronously. Attributable to the customer,
+    // so the original single-attempt lapse stands.
     await supabase.from("payment_transactions").insert({
       user_id: row.user_id,
       rail: "paystack",
@@ -238,19 +320,120 @@ async function chargeOne(
     return;
   }
 
-  await supabase.from("payment_transactions").insert({
-    user_id: row.user_id,
-    rail: "paystack",
-    amount: pass.price_ngn,
-    currency: "NGN",
-    product_type: "pass",
-    product_id: row.pass_id,
-    paystack_reference: reference,
-    status: "success",
-    channel: result.channel,
-    authorization_code: row.authorization_code,
-    renewal_for_pass_id: row.id,
+  await extendPass(supabase, row, pass, reference, result.channel, {
+    transactionAlreadyRecorded: false,
   });
+  summary.renewed++;
+}
+
+/**
+ * Records an attempt Paystack never resolved.
+ *
+ * Deliberately does NOT touch `auto_renew`, `auto_renew_status` or
+ * `next_renewal_date` — leaving `next_renewal_date` intact is the entire
+ * recovery mechanism, because the job's work-list query is
+ * `next_renewal_date <= today`. Null it and the Pass is never seen again.
+ *
+ * The transaction row is `pending`, not `failed`: Paystack may have debited the
+ * card before the connection dropped, and "failed" is a claim we cannot
+ * support. It is also the record a human uses when reconciling.
+ */
+async function recordIndeterminate(
+  supabase: ReturnType<typeof createServiceRoleClient>,
+  row: { id: string; user_id: string; pass_id: string; renewal_attempt_count: number },
+  summary: RenewalJobSummary,
+  reference: string,
+  amountNgn: number | null,
+) {
+  const attempts = row.renewal_attempt_count + 1;
+
+  if (amountNgn !== null) {
+    await supabase.from("payment_transactions").insert({
+      user_id: row.user_id,
+      rail: "paystack",
+      amount: amountNgn,
+      currency: "NGN",
+      product_type: "pass",
+      product_id: row.pass_id,
+      paystack_reference: reference,
+      status: "pending",
+      renewal_for_pass_id: row.id,
+    });
+  }
+
+  if (attempts >= MAX_INDETERMINATE_RENEWAL_ATTEMPTS) {
+    // Bounded, not infinite. Past this point the failure is no longer
+    // plausibly transient, and promising a renewal that never happens is its
+    // own dishonesty.
+    await markLapsed(supabase, row.id);
+    await supabase
+      .from("user_passes")
+      .update({ renewal_attempt_count: attempts, last_renewal_failure_at: new Date().toISOString() })
+      .eq("id", row.id);
+    summary.lapsed++;
+    summary.errors.push({
+      userPassId: row.id,
+      message: `Lapsed after ${attempts} unresolved renewal attempts — Paystack never confirmed an outcome.`,
+    });
+    return;
+  }
+
+  await supabase
+    .from("user_passes")
+    .update({
+      renewal_attempt_count: attempts,
+      pending_renewal_reference: reference,
+      last_renewal_failure_at: new Date().toISOString(),
+    })
+    .eq("id", row.id);
+
+  summary.indeterminate++;
+  summary.errors.push({
+    userPassId: row.id,
+    message: `Renewal outcome unknown (attempt ${attempts}/${MAX_INDETERMINATE_RENEWAL_ATTEMPTS}) — will retry on the next run.`,
+  });
+}
+
+/** Success path, shared by a fresh charge and a recovered pending one. */
+async function extendPass(
+  supabase: ReturnType<typeof createServiceRoleClient>,
+  row: { id: string; user_id: string; pass_id: string; expires_at: string; authorization_code: string | null },
+  pass: { duration_days: number; price_ngn: number },
+  reference: string,
+  channel: string,
+  opts: { transactionAlreadyRecorded: boolean },
+) {
+  if (!opts.transactionAlreadyRecorded) {
+    // Upsert on the reference: a recovered pending attempt already has a row
+    // from the run that timed out, and it must be updated to `success` rather
+    // than duplicated.
+    const { data: existing } = await supabase
+      .from("payment_transactions")
+      .select("id")
+      .eq("paystack_reference", reference)
+      .maybeSingle();
+
+    if (existing) {
+      await supabase
+        .from("payment_transactions")
+        .update({ status: "success", channel, authorization_code: row.authorization_code })
+        .eq("id", existing.id);
+    } else {
+      await supabase.from("payment_transactions").insert({
+        user_id: row.user_id,
+        rail: "paystack",
+        amount: pass.price_ngn,
+        currency: "NGN",
+        product_type: "pass",
+        product_id: row.pass_id,
+        paystack_reference: reference,
+        status: "success",
+        channel,
+        authorization_code: row.authorization_code,
+        renewal_for_pass_id: row.id,
+      });
+    }
+  }
 
   const newExpiry = new Date(new Date(row.expires_at).getTime() + pass.duration_days * 24 * 60 * 60 * 1000);
   const newExpiryIso = newExpiry.toISOString();
@@ -261,10 +444,12 @@ async function chargeOne(
       status: "active",
       next_renewal_date: newExpiryIso.slice(0, 10),
       renewal_reminder_sent_at: null,
+      // A resolved outcome clears the retry state, so an unrelated blip months
+      // later starts from a clean count rather than inheriting an old one.
+      renewal_attempt_count: 0,
+      pending_renewal_reference: null,
     })
     .eq("id", row.id);
-
-  summary.renewed++;
 }
 
 async function markLapsed(supabase: ReturnType<typeof createServiceRoleClient>, userPassId: string) {

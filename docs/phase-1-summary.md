@@ -404,6 +404,100 @@ Confirmed on production rather than from the docs alone — `GET`, `PUT`,
 change. `/api/e2e/llm-provider` likewise already self-gates correctly, 404 on
 production. Both are covered by tests now, but neither needed a code change.
 
+## A Paystack outage could cancel a paying subscription (0043)
+
+**A real money-affecting defect, live until this shipped.** `chargeOne` in
+`src/lib/billing/renewals.ts` caught every failure from `chargeAuthorization` in
+one branch whose comment asserted a single cause — *"Paystack rejected the
+charge outright"* — for every possible one. A timeout, a DNS failure, a reset
+connection and a 502 from Paystack's own edge all landed in the same place as a
+genuine "card declined", and that branch calls `markLapsed`:
+
+```
+auto_renew: false, auto_renew_status: 'lapsed', next_renewal_date: null
+```
+
+`next_renewal_date: null` is what makes it permanent — the job's work-list query
+is `next_renewal_date <= today`, so a lapsed Pass is never looked at again, and
+the design deliberately has no dunning to undo it. **One dropped connection
+ended a subscription the customer was paying for and had done nothing to lose.**
+
+Demonstrated before it was fixed, driving the real job against the real
+database with only the Paystack client mocked:
+
+```
+× a timeout leaves the Pass renewable and retries on the next run
+  AssertionError: SUBSCRIPTION KILLED BY A NETWORK BLIP: a timeout lapsed a
+  paying customer's Pass: expected 'lapsed' to be 'active'
+```
+
+**Two corrections to how this was originally described**, both of which change
+what the fix had to preserve:
+
+* `markLapsed` does **not** clear `authorization_code` — only
+  `cancelPassAutoRenewal` does. The stored token survives a false lapse, so
+  recovery was possible in principle; what was destroyed was
+  `next_renewal_date`, which is what removed the Pass from the job forever.
+* But the run also wrote a `payment_transactions` row with `status: 'failed'`,
+  and **that is a claim Talentrah cannot support.** A timeout can happen after
+  Paystack has already debited the card. Recording "failed" for a charge that
+  may have succeeded is how a customer gets debited and cancelled in the same
+  run, and it is the record a human would later use to decide what happened.
+
+### The policy, and why
+
+* **A genuine decline still lapses on the first attempt.** Unchanged and
+  deliberately so — a reasoned call from the original renewal build ("no
+  retry/dunning, a single failed attempt is enough"). Reversing it while fixing
+  something else would be a larger change than the one needed. A positive
+  control test pins this so declines cannot accidentally become unkillable.
+* **An indeterminate failure does not lapse.** The Pass keeps
+  `auto_renew_status = 'active'`, its `authorization_code`, and a non-null
+  `next_renewal_date`, so the next daily run retries. Retrying *is* the recovery
+  mechanism; there is no dunning queue and no operator alert, so if the next run
+  does not pick it up, nothing ever will.
+* **Bounded, not infinite** — `MAX_INDETERMINATE_RENEWAL_ATTEMPTS = 3`, roughly
+  three days of grace at a daily cron. Paystack incidents run minutes to hours,
+  so a failure unresolved after three daily attempts is no longer plausibly
+  transient, and continuing to promise a renewal that never happens is its own
+  dishonesty.
+* **Double-charge prevention, which matters most.** An indeterminate attempt
+  stores its `pending_renewal_reference`. The next run **verifies that reference
+  before charging again** — if the timed-out charge actually succeeded, the Pass
+  is extended from it and no second charge is made. Billing a customer twice for
+  one period would be strictly worse than the bug being fixed.
+
+### The predicate is `isDecline`, not `isIndeterminate` — deliberately
+
+Only an **affirmative** decline lapses. The first version of this fix asked "does
+this error look like a network problem?", which meant an error the module had
+never seen — a bug in a future call path, a raw `TimeoutError` escaping from
+somewhere new — still fell through to cancelling the customer. That is the
+original bug wearing a new shape. Asking instead "do we have positive evidence
+the card was refused?" makes evidence-of-nothing safe by default, and makes
+reintroducing the old behaviour require an explicit, visible decision.
+
+### Also fixed: the last untimed external call in the repo
+
+All three `fetch` calls in `src/lib/paystack/client.ts` (`initializeTransaction`,
+`verifyTransaction`, `chargeAuthorization`) had **no timeout**, so a hung
+connection blocked until the platform killed the function — on the renewal cron
+that means every remaining Pass in the batch goes unprocessed. They now route
+through a single `paystackFetch` with `AbortSignal.timeout(15_000)`, the same
+budget PR #39 established in `src/lib/jobs/sources/schema-org.ts`. **That closes
+the "no external call anywhere sets a timeout" gap the backlog named** — these
+were the last ones.
+
+`initializeTransaction`'s and `verifyTransaction`'s callers were checked and
+needed no change: `billing/actions.ts` already catches everything (and no charge
+has happened at initialize time), and `fulfill.ts` leaves the transaction
+`pending` when verify throws, which was already correct.
+
+**Not a 0041-class column addition**, checked rather than assumed: `user_passes`
+has RLS enabled with exactly one `SELECT` policy and no write policy, so a client
+cannot write the three new columns regardless of the table-wide grant — the row
+policy refuses first.
+
 ## Full template library — templates used to be visually identical (0042)
 
 **Stated plainly because the previous state was worse than "unfinished":** until
