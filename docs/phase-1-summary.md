@@ -1,8 +1,9 @@
 # Talentrah Phase 1 — end-of-build summary
 
 Required by build-prompt §11 and the plan doc's M10. First written 2026-08-24;
-**re-verified against `main` on 2026-08-24 after PRs #17–#22**, which is when
-several of the "known defects" below stopped being true.
+re-verified against `main` after PRs #17–#22; **last updated 2026-08-25 after a
+forensic audit of the org-membership escalation** (see *Forensic audit* below),
+which is also when the second route to the same privilege was found.
 
 Milestone names below follow **the plan doc** (`~/.claude/plans/adaptive-giggling-ember.md`), not the PR labels — those diverged partway through, which is itself worth knowing (see *Numbering drift*).
 
@@ -54,7 +55,7 @@ Each stands in for an open `[DECIDE]` item and should be revisited, not inherite
 
 1. **`GEMINI_API_KEY` is a free-tier key** — 20 requests/day, and production is intended to run Gemini. A billed key is required before launch or AI features hard-fail almost immediately. Founder/account action, not a code change.
 2. **`CRON_SECRET` presence in Vercel Production is unconfirmed**, and **no scheduled cron has ever fired**. Production runtime logs over the last 7 days contain three requests (`/` ×2, `/signup`), and no cron invocation at all — expected, since the crons were added mid-day and both run in the early-morning UTC window. First real opportunity is 06:00 UTC (`renew-passes`) / 07:00 UTC (`ingest-scholarships`) the following day. Confirm by looking for `[scholarship-ingest] cron run: ok=true` — a 401 or silence means it is still not working.
-3. **The database schema is not in version control.** Migrations 0001–0025 were applied straight to the Supabase project through the MCP connector; the project's own `schema_migrations` table is the only history. A policy change therefore cannot be reviewed in a diff, and a fresh project cannot be rebuilt from this repo. `supabase/migrations/` starts fixing this going forward; backfilling the first 25 is a separate job.
+3. **There is no test or staging database, and no write-audit trail.** Every suite, plus `npm run seed`, runs against the one project that is also production. The suites clean up after themselves by convention, not isolation. Relatedly, there is no audit trigger on grant-shaped tables and no PITR, which is why the forensic question above can be answered strongly but not definitively. `0000_baseline_schema.sql` now makes a second project buildable; standing one up is the next step. (The schema-not-in-version-control half of this is fixed — see that file.)
 4. **Six footer links are dead `#` anchors** for features that *do* exist. Not a truthfulness problem; a UX/SEO one.
 5. **Groq's JSON mode intermittently 400s** on the largest JDs. Dev-only now — CI's e2e job runs the stub provider, and the large-JD path is exercised by `tests/tailoring/jd-truncation.test.ts` and a golden-path case.
 
@@ -67,17 +68,96 @@ Each stands in for an open `[DECIDE]` item and should be revisited, not inherite
 - The pdf.js worker bug that fully blocked resume upload, plus the blank onboarding greeting (#21).
 - OAuth signups left with a permanently `NULL` name (#22).
 - Golden-path e2e — plan-doc M10's outstanding item — now standing in CI (#20).
+- **Any signed-in user could publish a job into every user's feed under an invented company name** (`0027`, 2026-08-25). See *Second route to the same privilege* below.
+- **The demo account's password was committed in a public repo** while owning the org whose postings are live in the feed (2026-08-25). See *Published demo credentials* below.
 - **Organisation-membership RLS, two defects, both live until 2026-08-24** (`0026`). Any authenticated user could `INSERT` themselves into **any** organisation with a caller-chosen role of `owner` — the policy checked only `user_id = auth.uid()` and never asked whether the caller had any relationship to the org (verified against the live project: HTTP 201, real row). Separately, the `organization_members` SELECT policy referenced its own table, so it — and every policy resolving membership through it (`organizations` UPDATE, `job_postings` INSERT/UPDATE) — failed with "infinite recursion detected in policy". The second masked the first: the escalation could not go anywhere because the downstream rules crashed before they could allow anything, so fixing the recursion alone would have switched it on. Both fixed together in one migration, with `tests/rls/org-and-referral-scoping.test.ts` proven to fail twice against the unfixed database and a positive control proving the legitimate path (create org → join → read → edit → post) still works.
+
+## Forensic audit — was the org-membership escalation ever used?
+
+Run 2026-08-25, after 0026 closed it. The question the fix cannot answer by
+itself: the hole was open for the entire life of the `organization_members`
+policy, so was it *used* before it closed?
+
+**Finding: no evidence it was ever exploited, and the evidence available is
+strong enough to say so — with one honest limit, stated below.**
+
+What was checked, against the live project:
+
+| Check | Result |
+|---|---|
+| Every `organization_members` row | Exactly **one**: the demo user, `owner` of Zaria Digital, an org that same user created 0.3s earlier. The seed script's signature, timestamp for timestamp. |
+| Every `organizations` row | One — the seeded Zaria Digital, `updated_at` still equal to `created_at`, so never edited after creation. |
+| Every internal `job_postings` row | Three, all created within 1.1s of the org, in the same seed run. The other 137 are external Greenhouse rows from the ingestion pipeline. |
+| Lifetime table counters (`pg_stat_user_tables`, never reset) | `organizations`: 5 inserts / 4 deletes / 1 live — **reconciles exactly** (1 seed + 4 runs of the 0026 positive-control test). `organization_members`: 9 inserts / 8 deletes / 1 live, attributable to the seed row plus this session's own probes and test runs. |
+| Every account that has ever existed | Seven. Demo seed user; the founder's Google account; two seeded referral personas; one disposable-email signup; two throwaway CI users. Only two ever had a session at all — `last_sign_in_at` is null for the rest, so they could not have made an authenticated request. |
+| `auth.audit_log_entries` | Retained from the project's **first day** (2026-08-21 19:57) with no pruning — 1,275 entries. Every actor is accounted for as founder, demo, seeded, or test-harness. No unknown actor appears. |
+
+**The honest limit.** There was never a write-audit trail on this table: no
+audit trigger, no PITR on this plan, and Supabase's API logs retain one day. A
+row inserted and then deleted leaves no record of itself. So the argument is
+not "the log shows nobody did it" — it is that the current state is clean, the
+lifetime insert counter is small enough to attribute, no organisation or
+posting exists that does not trace to the seed, and the set of accounts that
+ever held a session is fully known. A single detail slightly weakens the
+counter argument: the audit log records *authentication*, not data writes, and
+IP addresses are not captured (the field is empty for every entry), so a
+stranger who signed in as the demo account would be indistinguishable from the
+founder doing so. That mattered, because the demo password was published — see
+below. Nothing in the data suggests it happened; it simply cannot be excluded
+by log evidence alone.
+
+**What would make a future answer definitive:** an audit trigger on grant-
+shaped tables, or PITR. Both are worth having before the directory or employer
+products carry anything valuable.
+
+## Second route to the same privilege — found, and closed
+
+0026 fixed one policy. Asking what *else* grants the same effective privilege
+found a second route, reproduced end to end against the live project:
+
+1. Any authenticated user creates an organisation named, say, "Paystack" → `201`, `verified: false`
+2. Joins it as `owner` — legitimate, they created it → `201`
+3. Inserts an `internal` job posting under it → `201`
+4. A **different** signed-in user reads it back with the feed's own query → visible, company "Paystack"
+
+Every step allowed by design; no policy bypassed. The gap was that
+`organizations.verified` existed, defaulted to false, and was **read by
+nothing**. So the feed would carry a posting — a phishing lure in the
+reproduction — under a real company's name.
+
+Worth stating plainly: **0026 is what made this reachable.** Before it, steps 2
+and 3 died on the recursion bug. The recursion fix was correct and necessary,
+and it removed the accident that had been standing in for a rule nobody had
+written. `0027` is that rule: internal postings are visible to their own org's
+members and, publicly, only once the organisation is verified — the same shape
+as the existing scholarships moderation gate, enforced at the RLS layer so it
+covers every reader rather than one page.
+
+## Published demo credentials — rotated
+
+This repo is **public**, and `demo@talentrah.dev`'s password was a literal in
+`README.md`, `scripts/seed.ts` and an e2e spec. That account is the verified
+owner of Zaria Digital, whose postings appear in every user's feed — so anyone
+on the internet could sign in and rewrite them. 0027 does not touch this,
+because the demo account is the *legitimate* owner; only rotation does.
+
+Rotated 2026-08-25: `DEMO_PASSWORD` now comes from the environment with no
+fallback default, the seed re-asserts it on the existing account on every run
+(so rotating the variable actually rotates the account, rather than only the
+docs), and the value is set in `.env.local` and as a CI secret. Verified: the
+previously published password is now rejected by the live project, and the
+masthead-nav e2e still logs in with the new one.
 
 ## Verification actually performed
 
 Re-run together on `main` on 2026-08-24, not just per-PR in isolation:
 
 - **Typecheck + lint** — clean.
-- **Vitest — 63 tests on `main`, 75 on the 0026 branch, 84 once PR #22 also merges** — all passing. Includes the RLS cross-user gate (`tests/rls/cross-user.test.ts`: two real authenticated users, 13 owned tables, reads *and* writes, proven to fail when RLS is weakened), the new org-membership/referral suite, the `fulfillPayment` scoping regression, resume sanitisation, and the tailoring retry heuristic.
+- **Vitest — 86 tests across 8 files on `main`** — all passing. Includes the RLS cross-user gate (`tests/rls/cross-user.test.ts`: two real authenticated users, 13 owned tables, reads *and* writes, proven to fail when RLS is weakened), the new org-membership/referral suite, the `fulfillPayment` scoping regression, resume sanitisation, and the tailoring retry heuristic.
 - **Playwright, 8 e2e specs** — all passing, including the golden path (browse → apply → track → tailor → spend credits → refer) against the real routes with only the model stubbed.
 - **Service-role scoping** — all 17 `createServiceRoleClient()` call sites re-inventoried on current `main`. No new call site since the #18 audit; one site *removed* (a dead `sendDeadlineReminderEmail` that took a `userId` and was pre-shaped for the same bug). Every `userId` reaching a service-role query is still derived from `auth.getUser()` or `getAuthedUserId()`.
-- **Table coverage** — all 22 public tables have RLS enabled. 14 carry a `user_id`; 13 are in the cross-user suite's `OWNED_TABLES`. The fourteenth is `organization_members`, and `referrals` is user-scoped through `referrer_id`/`referred_user_id` with no `user_id` column — the two gaps that hid the org escalation. Both are now covered by `tests/rls/org-and-referral-scoping.test.ts`, so every user-scoped table has a standing test.
+- **Table coverage** — all 22 public tables have RLS enabled, and every user-scoped table now has a standing test. 14 carry a `user_id`; 13 are in the cross-user suite's `OWNED_TABLES`. The fourteenth is `organization_members`, and `referrals` is user-scoped through `referrer_id`/`referred_user_id` with no `user_id` column — the two gaps that hid the org escalation. Both are covered by `tests/rls/org-and-referral-scoping.test.ts`.
+- **Schema in version control** — `supabase/migrations/0000_baseline_schema.sql` snapshots the live schema (tables, indexes, functions, grants, triggers, RLS, every policy) so future policy changes are reviewable in a diff. Migrations 0001–0025 had never been committed, which is how two broken policies survived Phase 1 without appearing in any review.
 - Live end-to-end payment verification: real Paystack test-mode purchases on card and bank rails, plus a real scheduled pass renewal.
 - Real measured LLM unit economics (`npm run estimate-costs`) — every credit action clears ~98–99% margin.
 - Moderation gate verified at the database layer, and again through an authenticated client in the RLS suite.

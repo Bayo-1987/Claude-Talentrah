@@ -234,6 +234,91 @@ describe("RLS: organisation membership is a grant, not a self-service row", () =
   });
 });
 
+describe("RLS: an unverified organisation cannot reach the public feed", () => {
+  /*
+   * The sibling of the 0026 escalation, and the reason "one policy is fixed"
+   * is not "this class is closed".
+   *
+   * Creating an organisation is open to any authenticated user by design, and
+   * after 0026 the creator can legitimately join it and post internal jobs
+   * under it. Nothing gated those postings on `organizations.verified` — the
+   * column exists, defaults to false, and was read by nothing — so an invented
+   * "Paystack" could put a posting into every other user's feed.
+   *
+   * Reproduced against the live project before 0027 existed, all four steps
+   * returning success. Fixed in 0027 at the RLS layer rather than in the feed
+   * query, because the feed is only one of several readers.
+   */
+  it("a job posted under an unverified org is invisible to other users", async () => {
+    const attacker = await createAuthedUser("unverified-org");
+    const bystander = await createAuthedUser("bystander");
+    const fingerprint = `rls-test-${randomUUID()}`;
+    let attackerOrgId: string | undefined;
+
+    try {
+      const { data: org } = await attacker.client
+        .from("organizations")
+        .insert({ name: "RLS-TEST-Impersonated Co", created_by: attacker.id })
+        .select("id, verified")
+        .single();
+      attackerOrgId = org!.id;
+      expect(org!.verified, "a self-created org must not start out verified").toBe(false);
+
+      await attacker.client
+        .from("organization_members")
+        .insert({ organization_id: attackerOrgId!, user_id: attacker.id, role: "owner" });
+
+      await attacker.client.from("job_postings").insert({
+        source_type: "internal",
+        organization_id: attackerOrgId!,
+        title: "RLS-TEST-UNVERIFIED-POSTING",
+        company_name: "RLS-TEST-Impersonated Co",
+        description: "Should never reach another user's feed.",
+        status: "open",
+        dedup_fingerprint: fingerprint,
+      });
+
+      // Exactly the feed's own query — src/app/(app)/jobs/page.tsx.
+      const { data: seenByOther } = await bystander.client
+        .from("job_postings")
+        .select("*")
+        .eq("status", "open")
+        .eq("dedup_fingerprint", fingerprint);
+
+      expect(
+        seenByOther ?? [],
+        "LEAK: anyone signed in could publish a job into every user's feed under a company name they invented",
+      ).toHaveLength(0);
+
+      // Positive control: the poster still sees their own draft, so this is a
+      // visibility gate and not a write that silently failed.
+      const { data: seenByOwner } = await attacker.client
+        .from("job_postings")
+        .select("id")
+        .eq("dedup_fingerprint", fingerprint);
+      expect(seenByOwner ?? [], "an org member should still see their own unverified posting").toHaveLength(1);
+    } finally {
+      await admin.from("job_postings").delete().eq("dedup_fingerprint", fingerprint);
+      for (const u of [attacker, bystander]) {
+        await admin.from("organization_members").delete().eq("user_id", u.id);
+      }
+      if (attackerOrgId) await admin.from("organizations").delete().eq("id", attackerOrgId);
+      for (const u of [attacker, bystander]) await admin.auth.admin.deleteUser(u.id);
+    }
+  });
+
+  it("the seeded verified org's postings stay in the feed", async () => {
+    // The other half of the gate: 0027 must not hide legitimate internal jobs.
+    // Zaria Digital is verified, and the golden-path e2e applies to one of its
+    // postings — if this fails, that suite fails too.
+    const outsiderSees = await outsider.client
+      .from("job_postings")
+      .select("id")
+      .eq("id", internalPostingId);
+    expect(outsiderSees.data ?? [], "a verified org's posting must stay publicly visible").toHaveLength(1);
+  });
+});
+
 describe("RLS: the legitimate organisation path still works", () => {
   /*
    * Positive control for the whole block above. Every negative result there

@@ -1,26 +1,48 @@
 # Migrations
 
-Until 0025, migrations were applied straight to the Supabase project (`nytwbbzfpytctjsoczzq`)
-through the MCP connector and never written down here. The project's own
-`supabase_migrations.schema_migrations` table is therefore the only complete
-history — `list_migrations` reproduces it, `0001_extensions_and_enums` onward.
+Migrations 0001–0025 were applied straight to the Supabase project
+(`nytwbbzfpytctjsoczzq`) through the MCP connector and were never written down
+here. The project's own `supabase_migrations.schema_migrations` table is the
+only record that they happened; `list_migrations` reproduces the list.
 
-That is a real gap, not a convention: the schema is not in version control, so
-a policy change cannot be code-reviewed in a diff, and a fresh project cannot
-be rebuilt from this repo. `scripts/seed.ts` fills data, not structure.
+That was a real gap, not a convention: with no SQL in the repo, a policy change
+could not be reviewed in a diff, and a fresh project could not be rebuilt from
+this repo at all. It is how `organization_members` carried a privilege
+escalation and a self-recursive policy for the whole of Phase 1 without either
+ever appearing in a code review.
 
-This directory starts fixing it going forward. New migrations are written here
-**first**, reviewed as part of the PR, and applied to the project after the SQL
-itself has been read. Backfilling 0001–0025 out of the project is worth doing
-before Phase 2, but it is a separate job from any one fix.
+**[`0000_baseline_schema.sql`](0000_baseline_schema.sql) closes that going
+forward.** It is a snapshot of the live schema — tables, indexes, functions,
+grants, triggers, RLS and every policy — reconstructed from the catalog as of
+2026-08-25. It is not a migration to run against the existing project; it is
+the diff baseline, and the way to stand up a fresh database. Read its header
+before relying on it: it is faithful to structure, not byte-exact to pg_dump,
+because there is no Postgres connection string in this repo and the Supabase
+CLI is not installed here.
 
-Naming follows the existing sequence: `NNNN_snake_case_description.sql`.
+Backfilling 0001–0025 individually is a separate job and may never be worth
+doing. The goal here is that every *future* change is reviewable.
+
+## Working rule
+
+Write the SQL into this directory **first**, review it in the PR, then apply
+it. Naming continues the existing sequence: `NNNN_snake_case_description.sql`.
 
 ## Applying one
 
-Via the Supabase MCP connector's `apply_migration` (name without the `.sql`
-suffix), or `supabase db push` if the CLI is ever linked to the project.
+Via the Supabase MCP connector's `apply_migration` (pass the name without the
+`.sql` suffix), or `supabase db push` if the CLI is ever linked to the project.
 
-| Migration | Applied to the project? |
+| Migration | Status |
 |---|---|
+| `0000_baseline_schema.sql` | snapshot only — describes the project as it already is; do **not** run it against it |
 | `0026_fix_org_membership_rls.sql` | applied 2026-08-24 |
+| `0027_gate_internal_postings_on_org_verification.sql` | applied 2026-08-25 |
+
+## Still missing
+
+There is no separate test or staging database. Every suite — the RLS tests,
+Playwright, `npm run seed` — runs against this one project, which is also
+production. The suites namespace and clean up their own throwaway users, but
+that is a convention, not an isolation boundary. `0000_baseline_schema.sql`
+makes a second project buildable; standing one up is the next step.

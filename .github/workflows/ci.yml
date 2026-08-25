@@ -18,6 +18,9 @@ env:
   # call real Gemini, even by accident; it's Vercel-only.
   GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
   LLM_PROVIDER: groq
+  # Demo-account password for scripts/seed.ts and the masthead-nav e2e spec.
+  # Not a literal in the repo any more — see scripts/seed.ts.
+  DEMO_PASSWORD: ${{ secrets.DEMO_PASSWORD }}
   PAYSTACK_SECRET_KEY: ${{ secrets.PAYSTACK_SECRET_KEY }}
   NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY: ${{ secrets.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY }}
 
