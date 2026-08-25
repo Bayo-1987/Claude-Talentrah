@@ -103,13 +103,23 @@ async function main() {
   // Node's fetch headers timeout. Sequential, so LLM rate limits are hit
   // gently rather than all at once.
   type Report = { provider: string; model: string; samples: ProbeSample[]; fixtureNotes: string[] };
+  // The probe route fails closed, so an unset secret is a 401, not an open
+  // door. Say so here rather than letting the 401 read as "server not up".
+  const adminSecret = process.env.ADMIN_API_SECRET || process.env.INGEST_SECRET;
+  if (!adminSecret) {
+    throw new Error(
+      "This probe needs INGEST_SECRET (or ADMIN_API_SECRET) set to the same value " +
+        "the dev server is running with — /api/admin/estimate-llm-costs fails closed.",
+    );
+  }
+
   const groups = ["tailoring", "bullet", "scholarship"];
   const reports: Report[] = [];
   for (const group of groups) {
     process.stdout.write(`  probing ${group}…`);
     const res = await postJson(
       `${appUrl}/api/admin/estimate-llm-costs?group=${group}`,
-      process.env.INGEST_SECRET ? { "x-ingest-secret": process.env.INGEST_SECRET } : {},
+      { "x-admin-secret": adminSecret },
     );
     if (res.status !== 200) {
       throw new Error(

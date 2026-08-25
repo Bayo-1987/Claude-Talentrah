@@ -111,8 +111,19 @@ beforeAll(async () => {
    */
   const { data: posting, error: postErr } = await admin
     .from("job_postings")
-    .select("id, title, organization_id")
+    /*
+     * `organizations!inner(verified)` + eq true is load-bearing, not tidiness.
+     * Without it this picks the earliest internal posting by posted_at, which
+     * is whatever real org happens to exist in the shared project — there is
+     * no staging database. It started picking a genuine unverified org's
+     * posting, and the "a verified org's posting must stay publicly visible"
+     * case below then failed while 0027's gate was working exactly as
+     * designed: a fixture reporting a correct security control as a
+     * regression. Same `.limit(1)` trap this suite has hit before.
+     */
+    .select("id, title, organization_id, organizations!inner(verified)")
     .eq("source_type", "internal")
+    .eq("organizations.verified", true)
     .not("organization_id", "is", null)
     .order("posted_at", { ascending: true })
     .limit(1)

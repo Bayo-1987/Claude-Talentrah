@@ -140,6 +140,15 @@ jobs:
       - name: Build app
         run: npm run build
 
+      # The admin routes fail closed: with no INGEST_SECRET configured they
+      # answer 401, which is the point of the guard. `npm run seed` drives the
+      # real ingestion route over HTTP, so this job has to present a
+      # credential. Generated per-run rather than stored as a repository
+      # secret: the value only has to match between the server started below
+      # and the seed step, and a throwaway value cannot leak anything.
+      - name: Generate a per-run admin secret
+        run: echo "INGEST_SECRET=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+
       - name: Start app
         env:
           # The golden path drives the real routes, gating, ledger and UI —
