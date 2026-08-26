@@ -13,7 +13,7 @@ import { config } from "dotenv";
 config({ path: ".env.local" });
 
 import { randomBytes } from "node:crypto";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "../src/lib/supabase/types";
 import { computeDedupFingerprint } from "../src/lib/jobs/dedup";
 import { extractStructuredJd } from "../src/lib/jobs/extract-jd";
@@ -175,14 +175,52 @@ async function main() {
     );
   }
 
+/**
+ * Find an auth user by email, across ALL pages.
+ *
+ * `listUsers()` with no arguments returns only the FIRST PAGE — GoTrue's
+ * default is 50 — ordered newest-first. Both lookups in this script used it
+ * with a plain `.find()`, which works right up until the project has more
+ * than 50 auth users, and then silently stops finding the accounts it is
+ * meant to be re-using. `createUser` is called instead and fails with
+ * "A user with this email address has already been registered", which is a
+ * confusing way for a paging bug to present.
+ *
+ * This is not hypothetical and it is not a race, though it looks like one:
+ * the seeded accounts are the OLDEST rows in the project, so a newest-first
+ * page puts them LAST. Measured on the live project 2026-08-26:
+ *
+ *     listUsers() with no args returned: 47 users
+ *     position of demo in the page: 47 of 47
+ *
+ * Three accounts from the cliff. Every suite run creates throwaway auth users
+ * (there is no staging database — CLAUDE.md), so the count crosses 50 during
+ * CI and drops back after cleanup. That is why it failed on one push to main
+ * and passed on the next with identical code.
+ */
+async function findUserByEmail(
+  supabase: SupabaseClient<Database>,
+  email: string,
+): Promise<{ id: string } | null> {
+  const perPage = 200;
+  for (let page = 1; ; page += 1) {
+    const { data, error } = await supabase.auth.admin.listUsers({ page, perPage });
+    if (error) throw error;
+    const hit = data.users.find((u) => u.email === email);
+    if (hit) return hit;
+    // A short page is the last page. Checking the page length rather than a
+    // total avoids depending on a count GoTrue does not always return.
+    if (data.users.length < perPage) return null;
+  }
+}
+
   const supabase = createClient<Database>(url, serviceKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
   console.log("→ Creating demo user…");
   let userId: string;
-  const { data: existing } = await supabase.auth.admin.listUsers();
-  const existingUser = existing.users.find((u) => u.email === DEMO_EMAIL);
+  const existingUser = await findUserByEmail(supabase, DEMO_EMAIL);
 
   if (existingUser) {
     userId = existingUser.id;
@@ -502,8 +540,7 @@ async function main() {
   const throwawayPassword = () => `seed-${randomBytes(24).toString("base64url")}`;
 
   async function upsertReferredFriend(email: string, firstName: string) {
-    const { data: existingUsers } = await supabase.auth.admin.listUsers();
-    const existingFriend = existingUsers.users.find((u) => u.email === email);
+    const existingFriend = await findUserByEmail(supabase, email);
     if (existingFriend) {
       if (ROTATE_PASSWORDS) {
         // Re-assert, so re-seeding actually retires the old published password
