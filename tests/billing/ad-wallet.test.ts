@@ -283,3 +283,120 @@ describe("the balance is not the client's to write", () => {
     expect(error, "MONEY: a client credited its own wallet via RPC").not.toBeNull();
   });
 });
+
+/**
+ * Wallet TOP-UPS, and the one thing that stops a duplicate webhook becoming a
+ * second credit.
+ *
+ * `fulfillPayment`'s "already processed" guard is a read-then-act check on
+ * `payment_transactions.status`, and its own comment records that the
+ * webhook/callback double-grant race is open and out of scope. That race is
+ * ordinary, not exotic: the Paystack webhook and the top-up callback page both
+ * fulfil the same reference, and a user landing on the callback while the
+ * webhook is in flight is the normal case.
+ *
+ * So for a top-up, the only thing standing between that race and a
+ * double-credited wallet is `ad_wallet_ledger_topup_reference_idx` — UNIQUE on
+ * `paystack_reference` WHERE paystack_reference IS NOT NULL. These tests pin
+ * that, and pin the two ways it can be defeated.
+ */
+describe("wallet top-ups are idempotent on the Paystack reference", () => {
+  it("MONEY: the same reference credits once, however many times it arrives", async () => {
+    const org = await makeWalletOrg();
+    const reference = `ad_wallet_topup_${randomUUID()}`;
+
+    await fund(org, 25_000, reference);
+    const afterFirst = await balanceOf(org);
+    expect(afterFirst).toBe(25_000);
+
+    // Four more deliveries — webhook retries plus the callback page.
+    for (let i = 0; i < 4; i += 1) await fund(org, 25_000, reference);
+
+    expect(await balanceOf(org), "a duplicate delivery credited the wallet again").toBe(25_000);
+
+    const { data: ledger } = await admin
+      .from("ad_wallet_ledger")
+      .select("id")
+      .eq("paystack_reference", reference);
+    expect(ledger, "the unique partial index let a second ledger row through").toHaveLength(1);
+  });
+
+  it("distinct references still credit separately — the guard is not just 'once ever'", async () => {
+    const org = await makeWalletOrg();
+    await fund(org, 10_000, `ad_wallet_topup_${randomUUID()}`);
+    await fund(org, 10_000, `ad_wallet_topup_${randomUUID()}`);
+    expect(await balanceOf(org)).toBe(20_000);
+  });
+
+  it("MONEY: a NULL reference defeats the index entirely — which is why 0050 forbids one", async () => {
+    /*
+     * The index is PARTIAL: `WHERE paystack_reference IS NOT NULL`. A null does
+     * not collide with anything, including another null, so two deliveries both
+     * insert and the wallet is credited twice.
+     *
+     * This test asserts the BROKEN behaviour on purpose. It is the reason
+     * `payment_transactions` now CHECKs that an `ad_wallet_topup` row carries a
+     * reference, and the reason fulfill.ts passes the transaction's own
+     * reference rather than minting a fresh id. If someone later "tidies up"
+     * either of those, this test explains what they cost.
+     */
+    const org = await makeWalletOrg();
+    // The argument is OMITTED rather than passed as null. Its SQL default is
+    // NULL, so this is the same call the database sees — and typegen renders a
+    // defaulted parameter as optional-not-nullable, so omitting is also the
+    // only way to express it that typechecks. Worth naming, because "we never
+    // pass null" is exactly the false comfort this test exists to puncture:
+    // the default supplies one.
+    for (let i = 0; i < 2; i += 1) {
+      await admin.rpc("credit_ad_wallet", {
+        p_organization_id: org,
+        p_amount_ngn: 5_000,
+        p_reason: "topup",
+      });
+    }
+
+    expect(
+      await balanceOf(org),
+      "a null reference no longer double-credits — if this fails the index was made total, " +
+        "and the 0050 CHECK plus fulfill.ts's reference plumbing may now be redundant",
+    ).toBe(10_000);
+  });
+
+  it("payment_transactions refuses a top-up row that could not be deduped", async () => {
+    const org = await makeWalletOrg();
+
+    // No reference: nothing downstream could dedupe it.
+    const noRef = await admin.from("payment_transactions").insert({
+      user_id: owner.id,
+      organization_id: org,
+      amount: 5_000,
+      product_type: "ad_wallet_topup",
+      product_id: null,
+      paystack_reference: null,
+      status: "pending",
+    });
+    expect(noRef.error?.code, "a top-up with no reference was accepted").toBe("23514");
+
+    // No organisation: nothing to credit.
+    const noOrg = await admin.from("payment_transactions").insert({
+      user_id: owner.id,
+      organization_id: null,
+      amount: 5_000,
+      product_type: "ad_wallet_topup",
+      product_id: null,
+      paystack_reference: `ad_wallet_topup_${randomUUID()}`,
+      status: "pending",
+    });
+    expect(noOrg.error?.code, "a top-up with no organisation was accepted").toBe("23514");
+
+    // The existing product types must still require product_id.
+    const packNoProduct = await admin.from("payment_transactions").insert({
+      user_id: owner.id,
+      amount: 5_000,
+      product_type: "credit_pack",
+      product_id: null,
+      status: "pending",
+    });
+    expect(packNoProduct.error?.code, "credit_pack no longer requires product_id").toBe("23514");
+  });
+});
