@@ -33,6 +33,96 @@ both served stale content in this project's history. Don't rely on either.
 
 ---
 
+## Investigated 2026-08-26 — "the production crons aren't running". They are.
+
+Recorded in full because **this file carried the wrong conclusion for part of
+the afternoon**, and because the way it went wrong is more reusable than the
+answer.
+
+### The claim, and why it was wrong
+
+I reported that Vercel crons were not firing, so the billing loop was "closed in
+code and open in production". The evidence was that
+`job_postings.last_checked_at` showed no batch at the 05:00 cron hour across
+eight days.
+
+**`last_checked_at` is LAST-WRITE-WINS PER ROW, not an audit log.** Every ingest
+overwrites all 146 external postings with the current timestamp, so at any
+moment exactly ONE batch timestamp exists — the latest run — plus stragglers
+from tests that touched single rows. CI runs the ingest against production
+constantly, so the 05:00 cron's timestamps were overwritten later the same day,
+every day. The absence of an 05:xx batch was not evidence of anything.
+
+Demonstrated rather than argued: running the pipeline moved all 146 rows to
+`14:12`, and the `13:30` batch that had been there minutes earlier was simply
+gone.
+
+### What is actually true, from the Vercel dashboard
+
+| Cron | Schedule | Invocations (12h) | Status | Real work |
+|---|---|---|---|---|
+| `ingest-jobs` | `0 5 * * *` | 1 | **2XX**, 0% error | workable ×21, greenhouse ×1, supabase ×4 |
+| `renew-passes` | `0 6 * * *` | 1 | — | 2.69s |
+| `ingest-scholarships` | `0 7 * * *` | 1 | — | 2.59s |
+| `charge-campaigns` | `0 8 * * *` | 5 | **4XX** | none — these are manual curls |
+
+Cron Jobs is **Enabled**; all four registered. `ingest-jobs` returning 2XX means
+`requireCronSecret` PASSED, so **`CRON_SECRET` is set and correct** — closing a
+carried-forward founder item that had been open since the API contract work.
+
+`charge-campaigns` merged at ~11:30 UTC, after that day's 08:00 slot, so its 5
+invocations are all 4XX from manual probes and its first scheduled run is the
+following 08:00 UTC. The mechanism and the secret are proven on a sibling route,
+so **the billing loop is closed in production too**.
+
+### Two hypotheses that were wrong, and one retraction
+
+* **Plan cap.** Ruled out: Vercel lifted Hobby's cron limit to 100/project on
+  2026-01-20 and this project declares four.
+* **SSO / deployment protection.** `ssoProtection` IS enabled at
+  `all_except_custom_domains` and the project has no custom domain, so this was
+  a reasonable read — but the primary production alias is exempt in practice.
+  `claude-talentrah.vercel.app/` serves the app (200) and
+  `/api/admin/charge-campaigns` returns the app's OWN
+  `401 {"error":"Unauthorized"}`, while the two team-scoped aliases 302 to
+  `vercel.com/sso-api`. Crons hit the exempt one.
+* **RETRACTED: "zero runtime log entries in 24h".** Worthless as evidence.
+  **Hobby runtime log retention is ONE HOUR** — the Logs timeline offers only
+  "Last 30 minutes" and "Last hour", with "Last 12 hours" and "Last day" gated
+  behind Pro. Cron-hour logs were never retrievable. This was presented as
+  supporting evidence and should not have been.
+
+### Where cron history actually lives on this plan
+
+Not in Logs. **Observability → Cron Jobs** (`/observability/cron-jobs`) keeps
+invocation counts and status classes for 12 hours, and each route drills into
+per-route external-API calls. That is the only view on Hobby that answers "did
+this cron run and what happened", and it is worth going to first next time.
+
+### What did come out of it
+
+[PR #59](https://github.com/Bayo-1987/Claude-Talentrah/pull/59) — `ingestAllSources` catches per source and records the reason in
+`results[].error`, correctly, so one dead board cannot stop the others. But the
+reason travelled only in a **200 response body**, and nothing reads a body:
+Vercel records the status code, so a run where EVERY source failed was
+indistinguishable from a quiet day. Same shape as the four cleanup bugs found
+the same day — resolves without throwing, result never checked, failure reads as
+success. Nothing had gone wrong; the route simply could not have told us either
+way, which is why this took a dashboard rather than a log line. Total failure now
+answers 500, partial stays 200.
+
+### The lesson worth keeping
+
+The repo's standard is to verify against live state. That was followed — and
+still produced a confident wrong answer, because **the instrument was
+misunderstood rather than the state misread**. A column that is overwritten in
+place cannot answer a question about history, however carefully it is queried.
+Before treating a measurement as evidence, check that it can distinguish the two
+outcomes being tested: `last_checked_at` looks identical whether the 05:00 cron
+ran and was overwritten, or never ran at all.
+
+---
+
 ## Merged 2026-08-26 — PR #58, every listUsers() reads all pages (and #53 was under-fixed)
 
 | PR | Branch | Merged at (UTC) | Merge SHA |
