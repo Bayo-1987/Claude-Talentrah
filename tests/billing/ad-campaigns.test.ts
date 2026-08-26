@@ -476,6 +476,37 @@ describe("the batch runner — the caller charge_ad_campaign_day never had", () 
     expect(second.charged).toBe(0);
   });
 
+  it("MONEY: crossing the day boundary charges a second day, exactly once", async () => {
+    /*
+     * The duplicate-delivery test above proves the SAME day is not charged
+     * twice. This is the other half, and it is the half that fails silently:
+     * a work-list filter that excluded a campaign too eagerly would look
+     * identical to a correctly idempotent one on a single day's run, and only
+     * show up as a campaign that never bills again after its first day —
+     * which is the original defect wearing a different hat.
+     *
+     * Driven through the runner's own `on` rather than by backdating the row,
+     * so what is exercised is the filter the cron actually runs with.
+     */
+    await fund(DAILY * 5);
+    const id = await makeCampaign("active");
+
+    expect((await run()).charged).toBe(1);
+    expect((await campaign(id)).spent_ngn).toBe(DAILY);
+
+    const tomorrow = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
+    const next = await runCampaignChargeJob({ on: tomorrow, organizationId: orgId });
+
+    expect(next.considered, "yesterday's campaign was not picked up the next day").toBe(1);
+    expect(next.charged).toBe(1);
+
+    const c = await campaign(id);
+    expect(c.spent_ngn, "should be two days in, not one and not three").toBe(DAILY * 2);
+    expect(c.last_charged_on).toBe(tomorrow);
+    expect(c.status).toBe("active");
+    expect(await walletBalance()).toBe(DAILY * 3);
+  });
+
   it("does not touch campaigns that are not active", async () => {
     await fund(DAILY * 5);
     const drafted = await makeCampaign("draft");
