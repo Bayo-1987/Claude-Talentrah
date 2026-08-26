@@ -33,6 +33,92 @@ both served stale content in this project's history. Don't rely on either.
 
 ---
 
+## Merged 2026-08-26 — PR #49, ad campaign schema and review gate (0047 + 0048)
+
+| PR | Branch | Merged at (UTC) | Merge SHA |
+|----|--------|-----------------|-----------|
+| [#49](https://github.com/Bayo-1987/Claude-Talentrah/pull/49) | `feat/ad-campaigns-schema` | 10:49:10 | `db79c8a` |
+
+The second half of the employer billing surface: the wallet (0046) held money,
+this holds the thing that spends it. Schema only — no UI in this PR.
+
+**What it is.** `ad_campaigns`, an `ad_campaign_status` enum of seven states
+(`draft, pending_review, rejected, active, paused_by_employer,
+paused_insufficient_funds, completed`), a trigger enforcing the legal
+transitions between them, and four SECURITY DEFINER functions:
+`submit_ad_campaign_for_review`, `set_ad_campaign_review`,
+`resume_ad_campaign`, `pause_ad_campaign`, plus `charge_ad_campaign_day` for
+the daily cron.
+
+**Two design calls worth keeping written down.**
+
+*Daily rate, not CPC.* §6.8 says flat-rate first, CPC later. That is also the
+only model that can be charged honestly right now: CPC needs deduplicated,
+attributable click events, and this project has no such pipeline. Billing per
+day charges for something the system can actually observe — that the campaign
+was eligible to serve on a given date — rather than for a count it would be
+guessing at. `last_charged_on` plus a unique index makes the daily charge
+idempotent, so a cron that runs twice does not bill twice.
+
+*Approval lands PAUSED, never ACTIVE.* An approved campaign moves to
+`paused_by_employer`, and only `resume_ad_campaign` makes it live. This looks
+like an extra click and is deliberate: approval is a statement about the ad's
+content, and going live is a statement about money. Merging them would mean a
+reviewer's click debits an employer's wallet — and would create a second path
+from not-running to running, which is a second place to forget the charge.
+There is exactly one, and it always charges.
+
+**The defect this PR found in itself.** 0047 as first written permitted
+`draft → pending_review` in the trigger but did not include `status` in the
+column grant, so the branch was unreachable — the test failed with the row
+still at `draft`. The fix (0048) resolved it toward the *stricter* side:
+the trigger now rejects **every** client status write, and submission goes
+through an RPC. Worth noting because the tempting fix was the other one —
+adding `status` to the grant would have made the test pass and handed clients
+the ability to write `active` directly.
+
+### Verified, four-point standard
+
+1. **PR API** — `merged: true`, `merged_at 2026-08-26T10:49:10Z`,
+   `merge_commit_sha db79c8a8c62a99a09f54fa71ac52384d2be7435b`.
+2. **Fresh shallow clone of `main`** — merge commit `db79c8a`, two parents
+   (`15d36c0` + `68f0f6e`). `0047_ad_campaigns.sql`,
+   `0048_ad_campaign_submit_for_review.sql` and `tests/billing/ad-campaigns.test.ts`
+   all present in the clone.
+3. **Live probe** against production, the part that actually matters:
+   ```
+   enum ad_campaign_status  -> draft,pending_review,rejected,active,
+                               paused_by_employer,paused_insufficient_funds,completed
+   functions present        -> charge_ad_campaign_day, pause_ad_campaign,
+                               resume_ad_campaign, set_ad_campaign_review,
+                               submit_ad_campaign_for_review
+   trigger                  -> enforce_ad_campaign_transition
+   authenticated UPDATE     -> daily_rate_ngn, ends_on, name, starts_on,
+                               target_employment_type, target_locations,
+                               target_seniority, total_budget_ngn, updated_at
+   status writable?         -> no
+   table-level UPDATE grant -> (none)
+   RPC execute grants       -> postgres, service_role
+   ```
+   The column list is the check that counts: `spent_ngn`, `last_charged_on`,
+   `reviewed_by`, `review_note`, `organization_id` and `job_posting_id` are all
+   absent from it. A client can say what it wants to spend and cannot say what
+   it has spent, cannot retarget a live campaign at a different job, and cannot
+   approve itself. This is the 0026/0027/0028/0030/0041/0045 lesson applied
+   before shipping rather than after — RLS policies do not restrict columns, so
+   the grant is the control.
+4. **CI green on the merged head** — 5/5 checks (typecheck/lint/unit,
+   Playwright e2e, secret scan, Vercel build, preview comments).
+
+**Not in this PR, deliberately.** The owner/admin spend check. It was raised as
+a possible inconsistency with the wallet's and is not one: the wallet's
+equivalent also lives in the Server Action layer, and this PR is schema-only.
+It lands with the actions, which is the only layer holding a real session — a
+role check inside a SECURITY DEFINER function would be checking an argument
+the function cannot verify.
+
+---
+
 ## Merged 2026-08-26 — PR #48, employer ad wallet (0046)
 
 | PR | Branch | Merged at (UTC) | Merge SHA |

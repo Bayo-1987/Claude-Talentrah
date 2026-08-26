@@ -30,6 +30,7 @@ import { signOutAction } from "@/lib/auth/actions";
 const NAV_LINKS = [
   { href: "/employer/jobs", label: "Jobs Posted" },
   { href: "/employer/profile", label: "Company Profile" },
+  { href: "/employer/campaigns", label: "Ad Campaigns" },
 ];
 
 export function EmployerMasthead({ orgInitials, orgName }: { orgInitials: string; orgName: string }) {

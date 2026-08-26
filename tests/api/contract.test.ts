@@ -60,6 +60,8 @@ const ranCostProbe = vi.fn();
 const ranPassRenewal = vi.fn();
 const ranModeration = vi.fn();
 const listedScholarships = vi.fn();
+const listedCampaigns = vi.fn();
+const decidedCampaign = vi.fn();
 
 vi.mock("@/lib/jobs/ingest", () => ({
   ingestAllSources: (...a: unknown[]) => {
@@ -94,22 +96,30 @@ vi.mock("@/lib/billing/renewals", () => ({
 }));
 vi.mock("@/lib/supabase/service-role", () => ({
   createServiceRoleClient: () => ({
-    from: () => ({
+    from: (table: string) => ({
       select: () => ({
         eq: () => ({
           order: () => {
-            listedScholarships();
+            // Both admin list surfaces read the same shape; the spy that fires
+            // says WHICH one leaked, which is the useful thing when one does.
+            if (table === "ad_campaigns") listedCampaigns();
+            else listedScholarships();
             return Promise.resolve({ data: [], error: null });
           },
         }),
       }),
     }),
+    rpc: (...a: unknown[]) => {
+      decidedCampaign(...a);
+      return Promise.resolve({ data: "rejected", error: null });
+    },
   }),
 }));
 
 const SPIES = [
   ranJobIngest, ranScholarshipIngest, ranCostProbe,
   ranPassRenewal, ranModeration, listedScholarships,
+  listedCampaigns, decidedCampaign,
 ];
 
 beforeEach(() => {
@@ -151,6 +161,23 @@ const ADMIN_ENDPOINTS: Array<{
     url: "http://t/api/admin/estimate-llm-costs?group=tailoring",
     method: "POST",
     load: async () => (await import("@/app/api/admin/estimate-llm-costs/route")).POST,
+    sideEffecting: true,
+  },
+  {
+    name: "moderate-campaign GET",
+    url: "http://t/api/admin/moderate-campaign",
+    method: "GET",
+    load: async () => (await import("@/app/api/admin/moderate-campaign/route")).GET,
+    // Listing is not destructive, but it is every pending advertiser's name,
+    // spend and targeting — the same class of leak as the scholarship queue.
+    sideEffecting: false,
+  },
+  {
+    name: "moderate-campaign POST",
+    url: "http://t/api/admin/moderate-campaign",
+    method: "POST",
+    load: async () => (await import("@/app/api/admin/moderate-campaign/route")).POST,
+    // Approving an ad on someone else's behalf, from outside the company.
     sideEffecting: true,
   },
   {

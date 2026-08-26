@@ -302,3 +302,85 @@ money. That is a deliberate widening versus owner-only, and if it turns out to
 be wrong the fix is a narrowing, which is easy — the RPC takes the actor and can
 add a role check without a schema change.
 
+
+---
+
+## 8. What was actually built (2026-08-26)
+
+The plan above was written before any migration. This section records what
+shipped against it, including where the build differed from the plan and why.
+
+| Layer | Where | PR |
+|---|---|---|
+| Wallet, atomic debit/credit | `0046_ad_wallets.sql` | [#48](https://github.com/Bayo-1987/Claude-Talentrah/pull/48) |
+| Campaign state machine, review + charge functions | `0047_ad_campaigns.sql`, `0048_ad_campaign_submit_for_review.sql` | [#49](https://github.com/Bayo-1987/Claude-Talentrah/pull/49) |
+| Server Actions, employer UI, review gate | `src/lib/employer/campaign-actions.ts`, `src/app/employer/campaigns/**`, `src/app/api/admin/moderate-campaign/route.ts` | [#50](https://github.com/Bayo-1987/Claude-Talentrah/pull/50) |
+
+### 8.1 Billing unit — per day, not per click
+
+§6.8 of the build prompt says flat-rate first and CPC later. That ordering is
+usually read as a commercial choice; it is also the only honest one available
+right now. **CPC requires deduplicated, attributable click events, and this
+project has no such pipeline** — §8 of the build prompt lists that dedup work
+as a prerequisite for ad billing, and it has not been done. Charging per click
+today would mean charging for a number the system is guessing at.
+
+Charging per day charges for something observable: that the campaign was
+eligible to serve on a given date. `last_charged_on` plus a unique constraint
+makes it idempotent, so a cron that fires twice does not bill twice — verified
+by `ad-campaigns.test.ts`, "is idempotent — a duplicate cron run does not
+charge twice".
+
+### 8.2 Approval never starts a campaign
+
+`set_ad_campaign_review(approve => true)` lands the campaign in
+`paused_by_employer`, not `active`. The employer then calls
+`resume_ad_campaign`, which debits.
+
+This is one extra click and it buys two things. Approval is a judgement about
+the ad's *content*; going live is a decision about *money*, and they belong to
+different people — merging them would mean a reviewer's click debits an
+employer's wallet. It also leaves exactly **one** code path from not-running to
+running, and that path always charges. Two paths would be two places to forget
+the charge, which is the shape of most billing bugs.
+
+### 8.3 Where the owner/admin check lives
+
+§7.4 decided owner and admin may both spend. That check is
+`requireSpendAuthority` in `campaign-actions.ts` — the **Server Action layer**,
+not the database.
+
+That placement is deliberate rather than convenient. The money functions are
+`SECURITY DEFINER` and take `p_actor_user_id` as an *argument they cannot
+verify*; a role check inside one would be checking a claim made by the caller.
+The Server Action is the only layer holding a real session, so it is the only
+layer where the check means anything.
+
+It restricts nobody today — `org_member_role` is exactly `owner, admin`, and
+both may spend — and its comment says so plainly rather than letting it read as
+a live control. It exists as the seam where a third role would land: a future
+`viewer` must not inherit spend authority by default.
+
+### 8.4 What the review route does not record
+
+`/api/admin/moderate-campaign` authenticates with a shared admin secret. That
+proves *an* operator acted, not *which* operator, so `reviewed_by` is written
+as null and the route **refuses to accept a reviewer id from the caller**. A
+self-asserted id would make the column look like attribution while being
+unverifiable — an honest null is visibly missing, a wrong name is not. Real
+per-reviewer attribution needs admin sessions, which is a larger change than
+this route.
+
+A rejection without a note is refused outright: the employer has no way to act
+on it, and the next reviewer has no way to know what was wrong.
+
+### 8.5 Still open
+
+- **§7.3's 20% low-balance threshold remains a PLACEHOLDER.** Nobody has
+  deliberated on it. It is not implemented, so nothing depends on it yet.
+- **No top-up UI.** `credit_ad_wallet` exists and is idempotent on
+  `paystack_reference`, but the employer-facing Paystack flow that calls it is
+  not built — wallets can currently only be funded server-side.
+- **The daily charge cron is not wired.** `charge_ad_campaign_day` exists and
+  is tested; nothing calls it on a schedule yet. Until it is scheduled, an
+  active campaign runs without being billed.
