@@ -11,7 +11,8 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
 import type { Database } from "@/lib/supabase/types";
-import { createAuthedTestUser } from "../support/auth";
+import { createAuthedTestUser, deleteTestUsers } from "../support/auth";
+import { deleteOrgsCascade } from "../support/delete-orgs";
 
 for (const key of [
   "NEXT_PUBLIC_SUPABASE_URL",
@@ -145,6 +146,7 @@ async function makeOwnPosting(): Promise<{ id: string; title: string }> {
     .select("id, title")
     .single();
   if (error) throw error;
+  // Tracked for readability; deleteOrgsCascade removes them via the org.
   createdPostings.push(data.id);
   return data;
 }
@@ -164,14 +166,36 @@ afterEach(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  if (createdPostings.length) await admin.from("job_postings").delete().in("id", createdPostings);
-  // Deleting the org cascades any posting the line above missed.
-  if (fixtureOrgId) await admin.from("organizations").delete().eq("id", fixtureOrgId);
-  if (sharedOwner) await admin.auth.admin.deleteUser(sharedOwner.id).catch(() => {});
-  const { data } = await admin.auth.admin.listUsers();
-  for (const u of data.users.filter((x) => x.email?.startsWith("trk-"))) {
-    await admin.auth.admin.deleteUser(u.id).catch(() => {});
+  /*
+   * Via deleteOrgsCascade, which throws on failure.
+   *
+   * The comment previously here said "deleting the org cascades any posting
+   * the line above missed". That is FALSE, and it is the exact misconception
+   * that let test organisations pile up in production:
+   * `job_postings_organization_id_fkey` is NO ACTION, and `job_postings` has
+   * NO ACTION children of its own (`applications`, which this suite creates).
+   * Both deletes were also unchecked, so either failing would have been
+   * invisible. This teardown worked only because afterEach happens to clear
+   * applications first.
+   */
+  if (fixtureOrgId) await deleteOrgsCascade(admin, [fixtureOrgId]);
+
+  const trkUserIds: string[] = [];
+  if (sharedOwner) trkUserIds.push(sharedOwner.id);
+  /*
+   * PAGINATED. `listUsers()` with no arguments returns only the first page —
+   * GoTrue's default is 50, ordered newest-first — so this swept whichever
+   * `trk-` accounts happened to land on page one and silently left the rest.
+   * Same defect as the seed's, fixed in #53; it lived here too.
+   */
+  for (let page = 1; ; page += 1) {
+    const { data } = await admin.auth.admin.listUsers({ page, perPage: 200 });
+    trkUserIds.push(
+      ...data.users.filter((x) => x.email?.startsWith("trk-")).map((x) => x.id),
+    );
+    if (data.users.length < 200) break;
   }
+  await deleteTestUsers([...new Set(trkUserIds)]);
 });
 
 /* ========================================================================== *
