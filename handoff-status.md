@@ -33,6 +33,106 @@ both served stale content in this project's history. Don't rely on either.
 
 ---
 
+## Merged 2026-08-26 — PR #57, a PR could carry no CI and still be mergeable
+
+| PR | Branch | Merged at (UTC) | Merge SHA |
+|----|--------|-----------------|-----------|
+| [#57](https://github.com/Bayo-1987/Claude-Talentrah/pull/57) | `fix/ci-never-lose-a-run` | 13:01:30 | `53286ee` |
+
+**Read this before trusting any "CI green" claim written above it.** For most of
+this session that evidence was weaker than it looked.
+
+`ci.yml` used `concurrency: { group: talentrah-shared-supabase,
+cancel-in-progress: false }`. The *reasoning* was right and is preserved — what
+runs contend over is the one shared Supabase project, not git history. The
+*mechanism* was not: GitHub keeps only ONE pending run per concurrency group
+and cancels the rest, and never re-creates them. With one group across every
+ref, a PR's queued run is discarded the moment anything else queues behind it.
+
+Observed three times in one afternoon: #53's first run (`32963733680`) cancelled
+after 1m14s when a push to main queued behind it; #51 initially showed no run at
+all; #50 carries a `cancelled` run.
+
+The failure mode is worse than a lost run. `gh pr checks` then lists only the
+Vercel entries, all of which pass, so **the PR reads green and is mergeable with
+no CI having run**.
+
+The fix keeps `cancel-in-progress: false` — killing a run mid-suite leaves
+debris, which was the original and still-correct argument — and scopes the group
+per-ref. Cross-ref serialisation moves to
+`.github/scripts/wait-for-ci-lock.sh`, which BLOCKS instead of discarding. It
+cannot deadlock: a run only waits for strictly LOWER run numbers, so the oldest
+waits for nobody. It waits for whole runs to complete rather than the matching
+job, because `checks` and `e2e` both touch the database and `e2e` follows
+`checks`. It gives up after 25 minutes rather than letting one hung run take CI
+down. Only `checks` waits; `secrets` is DB-free and should keep reporting fast.
+
+Verified against the live API, both paths: acquire (`lock acquired after 0s`)
+and block (correctly listing runs 185 and 181 as unfinished).
+
+`workflow_dispatch` is not available for recovering a discarded run — the token
+answers `403 Resource not accessible by personal access token`. The manual
+workaround is an empty commit.
+
+---
+
+## Merged 2026-08-26 — PR #55, test teardown that never worked
+
+| PR | Branch | Merged at (UTC) | Merge SHA |
+|----|--------|-----------------|-----------|
+| [#55](https://github.com/Bayo-1987/Claude-Talentrah/pull/55) | `fix/test-org-teardown` | 12:54:39 | `61fbce7` |
+
+Test organisations had been accumulating in production. **Two diagnoses were
+tested and rejected before the real one**, and both rejections were measured
+rather than argued:
+
+* *Auth rate limiting during cleanup* — replaying the exact `Promise.all` burst
+  against 48 leaked accounts deleted all 48, zero failures.
+* *Broken `afterAll` hooks* — counted accounts, ran a suite, counted again:
+  34 before, 34 after.
+
+The actual cause: of the six FKs pointing at `organizations`, four CASCADE and
+**two do not** — `job_postings_organization_id_fkey` and
+`payment_transactions_organization_id_fkey` are `NO ACTION`. Nearly every suite
+that creates an org also creates a posting, so `organizations.delete()` is
+refused `23503`; supabase-js **resolves rather than throws**, so an unchecked
+`await` swallows it whole. The hook reported success and the org survived.
+Measured mid-diagnosis: 20 `Campaign Co %` orgs present, 22 of 23 orgs carrying
+a posting.
+
+Deliberately NOT fixed by adding cascades. `NO ACTION` is correct for
+production — deleting an organisation must not silently vaporise live job
+postings.
+
+**Two sessions built this concurrently.** This session's #56 and the other's #55
+found the same root cause independently. #56 was closed: #55 maps the *second*
+level of the FK graph (`job_postings` itself has NO ACTION children —
+`applications`, `job_tailoring_requests`), which #56's helper did not handle and
+would have failed on. #55 had already adopted #56's age gate, and #56's
+`deleteTestUsers` reporting fix was ported across, so nothing was lost.
+
+### Verified, four-point standard
+
+1. **PR API** — `merged: true`, `merged_at 2026-08-26T12:54:39Z`,
+   `merge_commit_sha 61fbce7250ab04287694a4912a149666ebfd8c1d`.
+2. **Fresh shallow clone of `main`** — parents `a2bb980` + `f87858f`. All six
+   support files present; the ported `deleteTestUsers` reporting confirmed in
+   the merged `tests/support/auth.ts`.
+3. **Live probe** — the leaked rows are gone: `Campaign Co %` orgs and their
+   `Campaign Role %` postings cleared, and the campaign suite now finishes
+   **net zero** where it previously finished +20.
+4. **CI green on the merged head** — 5/5.
+
+### Follow-up it needed
+
+`fixture-orgs.ts` warns that its three consumers must agree on the patterns.
+PR #54's `Tracker Fixture Co` / `trkfix-%.example` fixture was registered with
+none of them, so the sweep would never have backstopped it — the per-suite
+teardown alone, which is exactly the part that does not run when a process is
+killed. Fixed in #58.
+
+---
+
 ## Merged 2026-08-26 — PR #54, ad wallet top-up (0049 + 0050)
 
 | PR | Branch | Merged at (UTC) | Merge SHA |
@@ -205,8 +305,9 @@ tree reports errors CI never sees in files nobody touched.
 
 ## Standing CI defect found 2026-08-26 — a PR can have NO CI and still be mergeable
 
-Not yet fixed; recorded because it undermines every other verification in this
-file.
+**FIXED by [PR #57](https://github.com/Bayo-1987/Claude-Talentrah/pull/57)** (merged 13:01:30, `53286ee`) — see that entry above. Left here in full
+because it explains why any "CI green" claim recorded EARLIER in this session
+is weaker evidence than it appears.
 
 `ci.yml` uses `concurrency: { group: talentrah-shared-supabase,
 cancel-in-progress: false }` — a constant key, correct in intent, since what
