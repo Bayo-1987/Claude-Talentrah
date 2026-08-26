@@ -62,10 +62,26 @@ export async function teardown(): Promise<void> {
   const stragglers = await selectFixtureOrgs(db as never);
   if (!stragglers.length) return;
 
+  /*
+   * Grouped by fixture kind, because "21 organisations survived" does not tell
+   * you which suite to go and fix — and that was the first question asked of
+   * this message the first time it fired.
+   */
+  const byKind = new Map<string, number>();
+  for (const o of stragglers) {
+    const kind = o.name.replace(/[0-9a-f]{6,}$/i, "").trim() || o.name;
+    byKind.set(kind, (byKind.get(kind) ?? 0) + 1);
+  }
+  const breakdown = [...byKind]
+    .sort((a, b) => b[1] - a[1])
+    .map(([kind, n]) => `${n}x ${kind}`)
+    .join(", ");
+
   console.warn(
     `\n[global-teardown] ${stragglers.length} fixture organisation(s) survived their suite's afterAll ` +
-      `— sweeping. This is expected after an interrupted or rate-limited run; ` +
-      `if it happens on a clean run, a suite is missing deleteTestOrgs.`,
+      `— sweeping. Breakdown: ${breakdown}. ` +
+      `Expected after an interrupted or rate-limited run; on a CLEAN run it means ` +
+      `that suite's teardown is not doing its job.`,
   );
 
   await deleteOrgsCascade(db, stragglers.map((o) => o.id));
