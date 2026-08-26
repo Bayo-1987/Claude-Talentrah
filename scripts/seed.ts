@@ -617,8 +617,9 @@ async function main() {
       console.log(`  ✗ ${r.source}/${r.identifier}: ${r.error}`);
     } else {
       const skipped = r.skipped ? `, skipped ${r.skipped}` : "";
+      const collided = r.collided ? `, collided ${r.collided}` : "";
       console.log(
-        `  ✓ ${r.source}/${r.identifier}: fetched ${r.fetched}, upserted ${r.upserted}, closed ${r.closed}${skipped}`,
+        `  ✓ ${r.source}/${r.identifier}: fetched ${r.fetched}, upserted ${r.upserted}, closed ${r.closed}${collided}${skipped}`,
       );
     }
   }
