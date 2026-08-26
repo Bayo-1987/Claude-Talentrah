@@ -64,10 +64,17 @@ const listedScholarships = vi.fn();
 const listedCampaigns = vi.fn();
 const decidedCampaign = vi.fn();
 
+/**
+ * `ingestResults` is mutable so a test can make every source fail. The default
+ * is one healthy source, which is what the guard tests above expect.
+ */
+const ingestResults: { value: Array<Record<string, unknown>> } = {
+  value: [{ source: "stub", upserted: 0 }],
+};
 vi.mock("@/lib/jobs/ingest", () => ({
   ingestAllSources: (...a: unknown[]) => {
     ranJobIngest(...a);
-    return Promise.resolve([{ source: "stub", upserted: 0 }]);
+    return Promise.resolve(ingestResults.value);
   },
 }));
 vi.mock("@/lib/scholarships/ingest", () => ({
@@ -395,6 +402,50 @@ describe("§2 — cron GETs fail closed too", () => {
         `${cron.path} is scheduled in vercel.json but exports no GET — Vercel's cron would 405 and the job would never run`,
       ).toBe("function");
     }
+  });
+});
+
+describe("§2b — an ingest run that failed entirely says so in the status code", () => {
+  /*
+   * ingestAllSources catches per source and records the reason in
+   * results[].error, so one dead board cannot stop the others. But that reason
+   * used to travel only in a 200 response body, and nothing reads a body: the
+   * cron dashboard shows the status code, so a totally failed ingest looked
+   * exactly like a quiet day with no new postings.
+   *
+   * Same shape as the four cleanup bugs found the same day — resolves without
+   * throwing, result never checked, failure reads as success. In this case
+   * nothing had actually gone wrong; the instrument simply could not have told
+   * us either way, which is the defect being fixed.
+   */
+  afterEach(() => {
+    ingestResults.value = [{ source: "stub", upserted: 0 }];
+  });
+
+  it("every source failing answers 500, not 200", async () => {
+    ingestResults.value = [
+      { source: "greenhouse", identifier: "moniepoint", fetched: 0, upserted: 0, closed: 0, error: "fetch failed" },
+      { source: "schema-org", identifier: "workable", fetched: 0, upserted: 0, closed: 0, error: "503" },
+    ];
+    vi.stubEnv("ADMIN_API_SECRET", ADMIN_SECRET);
+    const { POST } = await import("@/app/api/admin/ingest-jobs/route");
+    const res = await POST(
+      req("http://t/api/admin/ingest-jobs", "POST", { "x-admin-secret": ADMIN_SECRET }),
+    );
+    expect(res.status, "a wholly failed ingest still reported success").toBe(500);
+  });
+
+  it("a PARTIAL failure still answers 200 — the run did real work", async () => {
+    ingestResults.value = [
+      { source: "greenhouse", identifier: "moniepoint", fetched: 126, upserted: 126, closed: 0 },
+      { source: "schema-org", identifier: "workable", fetched: 0, upserted: 0, closed: 0, error: "503" },
+    ];
+    vi.stubEnv("ADMIN_API_SECRET", ADMIN_SECRET);
+    const { POST } = await import("@/app/api/admin/ingest-jobs/route");
+    const res = await POST(
+      req("http://t/api/admin/ingest-jobs", "POST", { "x-admin-secret": ADMIN_SECRET }),
+    );
+    expect(res.status, "one dead board must not fail the whole run").toBe(200);
   });
 });
 
