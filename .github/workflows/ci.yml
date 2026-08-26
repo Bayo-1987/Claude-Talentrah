@@ -204,6 +204,21 @@ jobs:
       - name: Generate Next.js route types
         run: npx next typegen
 
+      # Reference data before the unit tests, deliberately.
+      #
+      # `npm run seed` needs a dev server (it drives the real ingestion routes)
+      # so it lives in the Playwright job, which is `needs: checks`. On a
+      # database that has never been seeded the unit tests therefore run first,
+      # fail on a missing catalog, and skip the job that would have fixed it.
+      # That deadlock cost a red run the first time this suite was pointed at
+      # the CI project.
+      #
+      # This step is catalog only — templates, packs, passes, scholarships —
+      # writes straight to the database with no app involved, and is idempotent,
+      # so running it on every job is cheap and safe.
+      - name: Seed reference data
+        run: npm run seed:catalog
+
       - name: Typecheck
         run: npx tsc --noEmit
 
