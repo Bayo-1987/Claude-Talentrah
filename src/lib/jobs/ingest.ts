@@ -27,6 +27,16 @@ export interface IngestSourceResult {
    * right no matter how many apply links had been lost.
    */
   collided?: number;
+  /**
+   * True when the freshness sweep was deliberately NOT run because the fetch
+   * returned zero postings while the source still had open ones.
+   *
+   * Not an error and not a failure — but it does mean this source may now be
+   * serving postings that are no longer live, so it must be visible in the
+   * summary rather than inferred from `closed: 0`, which is also what a
+   * perfectly healthy run looks like.
+   */
+  closureSkipped?: boolean;
   /** schema-org only: listings that were fetched but couldn't be mapped
    * (missing hiringOrganization, unparseable JSON-LD, etc.) — see
    * sources/schema-org.ts's contract-drift guard. Not a failure: the rest of
@@ -117,23 +127,76 @@ export async function ingestAllSources(): Promise<IngestSourceResult[]> {
         upserted = count ?? rows.length;
       }
 
-      // Freshness: anything from this source we didn't just see is stale.
-      // Greenhouse/Lever are single-company boards, so scoping by the static
-      // `config.companyName` (unchanged from before this source was added)
-      // is exactly right — it also means a totally empty fetch closes that
-      // one company's rows, same known behaviour as always (the "transient
-      // empty-200 mass-closes a source's live postings" risk this shares is
-      // tracked separately in test-scenarios-job-feed-matching-prompt.md,
-      // not fixed here). A schema-org source has no such single company —
-      // one listing URL can span many hiring organizations (Workable's
-      // aggregated search is exactly this) — so its closure scope is the
-      // *source*, not a company, checked against every fingerprint seen
-      // anywhere in this fetch. That correctly closes a company's posting
-      // that drops off the listing (normal turnover) while a still-listed
-      // company's postings are untouched, and it carries the same
-      // whole-source blast radius as the greenhouse/lever case if the
-      // listing page itself glitches empty — worth the same fix, whenever
-      // that prompt's mitigation lands, applied here too.
+      /*
+       * Freshness: anything from this source we didn't just see is stale.
+       *
+       * SCOPE. Greenhouse/Lever are single-company boards, so scoping by the
+       * static `config.companyName` is exactly right. A schema-org source has
+       * no single company — one listing URL can span many hiring organisations
+       * — so it scopes to the source instead, via `externalSourceKey`.
+       *
+       * THE EMPTY-FETCH GUARD. "Anything I did not just see" means
+       * *everything* when the fetch returned nothing, so a board answering 200
+       * with an empty array — a deploy, a rate limit answered politely, a
+       * markup change on a listing page — used to close every posting for that
+       * source. The next run reopens them, so the damage is a window rather
+       * than permanent, but during it the feed is missing real jobs and
+       * nothing said so. This was documented in a comment here for months
+       * pointing at a brief that does not exist in this repo, which is a fair
+       * part of why it stayed unfixed.
+       *
+       * The rule is ANY, not a threshold. "Refuse to close when the fetch is
+       * empty but open postings exist" — deliberately not "…but MANY open
+       * postings exist", because the two cases a threshold would try to
+       * separate are not actually distinguishable from here. A source that
+       * genuinely emptied and a source that glitched both return zero, and the
+       * only difference is what we already hold. Withholding closure when we
+       * hold one posting costs one stale listing until the next run; picking a
+       * threshold to close it faster buys nothing and adds a number nobody can
+       * justify. A source that is *supposed* to be empty simply has nothing
+       * open, hits the `openBefore === 0` branch, and is a silent no-op.
+       *
+       * An empty fetch is not evidence. A non-empty one is: normal turnover —
+       * two postings become one — still closes the one that went away, because
+       * the source affirmatively told us what is live.
+       */
+      const sourceKey = externalSourceKey(config);
+      let closureSkipped = false;
+
+      if (jobs.length === 0) {
+        let openQuery = supabase
+          .from("job_postings")
+          .select("id", { count: "exact", head: true })
+          .eq("external_source", sourceKey)
+          .eq("status", "open");
+        if (config.source !== "schema-org") {
+          openQuery = openQuery.eq("company_name", config.companyName);
+        }
+        const { count: openBefore, error: openError } = await openQuery;
+        if (openError) throw openError;
+
+        if ((openBefore ?? 0) > 0) {
+          closureSkipped = true;
+          console.warn(
+            `[ingest:${config.source}/${configIdentifier(config)}] fetch returned 0 postings while ` +
+              `${openBefore} are still open — SKIPPING the freshness sweep. An empty response is not ` +
+              `evidence those jobs ended. This source may now be serving stale postings; if it repeats ` +
+              `across runs, the source itself needs looking at.`,
+          );
+          results.push({
+            source: config.source,
+            identifier: configIdentifier(config),
+            fetched: 0,
+            upserted,
+            closed: 0,
+            collided,
+            closureSkipped: true,
+            skipped: skippedCount,
+          });
+          continue;
+        }
+      }
+
       const seenFingerprints = jobs.map((j) => j.dedupFingerprint);
       let closeQuery = supabase
         .from("job_postings")
@@ -143,7 +206,7 @@ export async function ingestAllSources(): Promise<IngestSourceResult[]> {
         // the bare discriminator here scoped every schema-org config to the
         // same set of rows, so a second source closed the first's postings
         // (and vice versa) on every run. See types.ts for the full note.
-        .eq("external_source", externalSourceKey(config))
+        .eq("external_source", sourceKey)
         .eq("status", "open");
       if (config.source !== "schema-org") {
         closeQuery = closeQuery.eq("company_name", config.companyName);
@@ -165,6 +228,7 @@ export async function ingestAllSources(): Promise<IngestSourceResult[]> {
         upserted,
         closed,
         collided,
+        closureSkipped,
         skipped: skippedCount,
       });
     } catch (err) {
