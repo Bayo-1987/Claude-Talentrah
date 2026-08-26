@@ -33,6 +33,102 @@ both served stale content in this project's history. Don't rely on either.
 
 ---
 
+## Merged 2026-08-26 — PR #50, campaign Server Actions, UI and the review gate
+
+| PR | Branch | Merged at (UTC) | Merge SHA |
+|----|--------|-----------------|-----------|
+| [#50](https://github.com/Bayo-1987/Claude-Talentrah/pull/50) | `feat/ad-campaign-actions-ui` | 11:08:21 | `a55550c` |
+
+0047/0048 gave campaigns a state machine nobody could reach. This is the layer
+that reaches it: `/employer/campaigns` (list, create, edit, detail), the
+lifecycle controls, and `/api/admin/moderate-campaign` for the §6.8 review gate.
+
+**Where each check lives, and why there.**
+
+| Operation | Client used | Reason |
+|---|---|---|
+| Create / edit draft | the **user's** client | RLS policies are the gate; a regression breaks creation loudly instead of being bypassed by a service-role write |
+| Submit, pause, resume, review | service-role RPC | those functions are `service_role`-only and move money |
+| Ownership, before any RPC | user's client re-read | the RPCs take a campaign id they cannot vouch for |
+
+`requireSpendAuthority` is §7.4's owner/admin check. It is in the Server Action
+layer because **that is the only layer holding a real session** — the money
+functions take `p_actor_user_id` as an argument they cannot verify, so a role
+check inside one would be checking a claim rather than a fact. It restricts
+nobody today (`org_member_role` is exactly `owner, admin`) and its comment says
+so, so it does not read as a live control. It exists as the seam a future
+`viewer` role must not slip through by default.
+
+Cross-org isolation is already pinned by `tests/billing/ad-campaigns.test.ts:328`.
+That is what makes `assertCampaignBelongsToOrg` effective rather than
+decorative, so it was not re-tested.
+
+**Two deliberate refusals in the review route.** It does not accept a reviewer
+id: the route authenticates with a shared secret, which proves *an* operator
+and not *which* operator, so a caller-supplied id would make `reviewed_by` look
+like attribution while being self-asserted — an honest null is visibly missing,
+a wrong name is not. And a rejection without a note is refused, because the
+employer cannot act on it and the next reviewer cannot tell what was wrong.
+
+### Verified, four-point standard
+
+1. **PR API** — `merged: true`, `merged_at 2026-08-26T11:08:21Z`,
+   `merge_commit_sha a55550c559a56e5abb03830923ec9dff81314f6c`.
+2. **Fresh shallow clone of `main`** — merge commit `a55550c`, two parents
+   (`db79c8a` + `11aa528`). All six new source files present; `requireAdminSecret`
+   appears 3× in the merged review route; both handlers registered in
+   `contract.test.ts:167` and `:176`; `Ad Campaigns` in the masthead at
+   `employer-masthead.tsx:33`.
+3. **Live probe** against production:
+   ```
+   GET  /api/admin/moderate-campaign  (no credential)   -> 401 {"error":"Unauthorized"}
+   POST /api/admin/moderate-campaign  (wrong secret)    -> 401 {"error":"Unauthorized"}
+   GET  /employer/campaigns                             -> 307  (same as /jobs)
+   GET  /employer/campaigns/new                         -> 307
+   GET  /                                               -> 200
+   ```
+   The preview deployment could **not** be probed — Vercel SSO intercepts at
+   `302 → vercel.com/sso-api` before the app runs, so nothing about the
+   handlers was observable there. Recorded because a preview 302 is easy to
+   mistake for a passing check.
+4. **CI green on the merged head** — 5/5.
+
+### The guard test was proved, not assumed
+
+`tests/api/contract.test.ts` claims to cover every admin entry point, so both
+handlers were added to it. Rather than trust that a passing test means a
+working guard, the historical fail-open shape was reintroduced on the GET:
+
+```
+× moderate-campaign GET: 401 when no admin secret is configured
+  AssertionError: OPEN ADMIN ROUTE: moderate-campaign GET answered 200
+  with no secret configured and no credential presented
+× moderate-campaign GET: 401 on a wrong credential
+Tests  2 failed | 40 passed (42)
+```
+
+Restored: 42/42.
+
+### Found while writing the docs, NOT fixed here
+
+Checking the "still open" claims in `docs/employer-billing-plan.md` §8.5
+against the code rather than asserting them turned up a live money defect.
+
+`resume_ad_campaign` debits for the day it is called and sets `active`.
+**Nothing charges it again.** `charge_ad_campaign_day` shipped in 0047 with
+three passing tests and no caller — `grep -rn charge_ad_campaign_day src/`
+matches only the generated type — and `vercel.json` declares three crons
+(`renew-passes` 06:00, `ingest-scholarships` 07:00, `ingest-jobs` 05:00), none
+of them this one.
+
+Effect: **an employer pays one day's rate and advertises until their end date.**
+Left out of this PR because scheduling a job that debits real wallets daily is
+outward-facing and was not in the brief; it is the next piece of work, ahead of
+the missing top-up UI, because that is a completeness gap and this is a
+correctness one.
+
+---
+
 ## Merged 2026-08-26 — PR #49, ad campaign schema and review gate (0047 + 0048)
 
 | PR | Branch | Merged at (UTC) | Merge SHA |
