@@ -88,6 +88,41 @@ export async function createOrganizationAction(
     claimedDomain: str(form, "domain"),
   });
 
+  /*
+   * Refuse to create a second organisation on a domain a VERIFIED one already
+   * holds — the person should be joining their colleagues, not starting a
+   * parallel company.
+   *
+   * Checked against verified orgs only, and that scoping is the whole design
+   * (see migration 0044). An unverified org has no claim on a domain:
+   * production contains one created by a gmail.com user claiming a company's
+   * domain, which can never verify and would otherwise lock the real employer
+   * out permanently. Verification is what establishes the claim, so only a
+   * verified org can block.
+   *
+   * Read with the service role deliberately. The user's own client can see
+   * `organizations` (it is publicly readable), but routing this through the
+   * admin client keeps the answer independent of any future tightening of that
+   * policy — a check that silently stops finding rows would reopen the gap.
+   */
+  if (outcome.domain) {
+    const admin = createServiceRoleClient();
+    const { data: existing } = await admin
+      .from("organizations")
+      .select("id, name")
+      .eq("domain", outcome.domain)
+      .eq("verified", true)
+      .maybeSingle();
+
+    if (existing) {
+      return {
+        error:
+          `${existing.name} is already registered on ${outcome.domain}. ` +
+          `Go back and choose it from the list to join your colleagues, rather than creating a second company.`,
+      };
+    }
+  }
+
   // Created through the USER's client: the RLS policy (created_by = auth.uid())
   // is what authorises this, so the employer surface exercises the real gate
   // rather than routing around it with the service role.
@@ -129,6 +164,23 @@ export async function createOrganizationAction(
       .update({ verified: true, updated_at: new Date().toISOString() })
       .eq("id", org.id);
     if (verifyError) {
+      /*
+       * 23505 here is the 0044 index, and it means a genuine race: someone
+       * else at this domain verified between the pre-check above and this
+       * update. Their org is the real one, so roll this one back rather than
+       * leave a duplicate sitting unverified on the domain forever — that is
+       * exactly the debris the index exists to prevent, and an unverified
+       * leftover would also be invisible to the joinable list.
+       */
+      if (verifyError.code === "23505") {
+        await supabase.from("organization_members").delete().eq("organization_id", org.id);
+        await supabase.from("organizations").delete().eq("id", org.id);
+        return {
+          error:
+            `Someone else at ${outcome.domain} registered your company while you were filling this in. ` +
+            `Go back and choose it from the list to join them.`,
+        };
+      }
       // Not fatal — the org exists and simply stays unverified, which is the
       // safe direction. Surfacing it beats a silent downgrade the employer
       // cannot explain.
