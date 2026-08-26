@@ -33,6 +33,149 @@ both served stale content in this project's history. Don't rely on either.
 
 ---
 
+## Merged 2026-08-26 — PR #62, ad serving schema: ad_events and promoted_jobs (0052)
+
+| PR | Branch | Merged at (UTC) | Merge SHA |
+|----|--------|-----------------|-----------|
+| [#62](https://github.com/Bayo-1987/Claude-Talentrah/pull/62) | `feat/ad-events-and-promoted-jobs` | 18:21:27 | `0a62327` |
+
+Campaigns had been chargeable since 0047 and readable by nobody outside the
+employer surface since 0047. This is the half that makes the charge correspond
+to something.
+
+**`promoted_jobs` TAKES NO USER ID, and that is the whole security design.**
+The obvious signature had `p_user_id` and would have been a data leak: it is
+SECURITY DEFINER and executable by `authenticated`, so any signed-in caller
+could have passed someone else's id and read their match scores back. The
+seeker comes from `auth.uid()`, which a caller cannot forge. Called as
+service_role, `auth.uid()` is null and it returns nothing — the right answer,
+since there is no promoted set without a seeker to promote to.
+
+It exists at all because `ad_campaigns`' only SELECT policy is
+`is_org_member(organization_id)`, so a job seeker sees nothing — correctly,
+since that table holds budgets, spend and review notes. The function is the
+narrow hole through it: job ids and campaign ids, not one money column.
+
+`p_user_id` DOES still appear in 0052, on `record_ad_event`, which is
+service_role-only and takes the user as data. Noted because a future reader
+will grep, find it, and wonder whether the leak above was really closed.
+
+**D1** — a promoted job must clear the seeker's own filters and the same match
+threshold as an organic result. The filters are arguments to the function
+rather than something the feed applies afterwards: filtering after the fact
+would return a job and then hide it, billing an impression for a card nobody
+saw.
+
+**D3 / dedup** — §8 requires ad events to be deduplicated before billing
+touches them. Billing is per-day today and does not read `ad_events` at all,
+but CPC is the stated next step and a log that was never dedupable cannot be
+made billable afterwards. The bucket is computed inside `record_ad_event` so no
+caller can disable dedup for its own events: impressions and applies by day,
+clicks by minute. `user_id` is NOT NULL because a nullable column would need a
+sentinel to dedup anonymous rows, and a sentinel that never occurs is a hole
+waiting for the day it does.
+
+### Verified, four-point standard
+
+1. **PR API** — `merged: true`, `merged_at 2026-08-26T18:21:27Z`,
+   `merge_commit_sha 0a62327fd054b4884b00922ce8efd55a50bab772`.
+2. **Fresh clone of `main`** — 0052 and `ad-serving.test.ts` present;
+   `auth.uid()` appears 4× in the merged migration.
+3. **Live probe** — 0052 applied to production at merge time. Both projects
+   then verified identical: 29 tables, 37 policies, 27 functions, 26 public
+   enums; `ad_events` not writable by anon/authenticated; `promoted_jobs`
+   executable by `authenticated,postgres,service_role`; `record_ad_event` by
+   `postgres,service_role` only. `promoted_jobs()` as service role returns 0.
+   The path is inert in production — 0 active campaigns, 0 events.
+4. **CI green on the merged head** — 5/5.
+
+### Verified by impersonating sessions in SQL
+
+Rather than trusting the `auth.uid()` derivation, it was exercised:
+
+```
+seeker sees own promoted job          1  expect 1
+D1 work_type filter binds             0  expect 0
+D1 score threshold binds (score 95)   0  expect 0
+D1 employer targeting binds           0  expect 0
+SECURITY other user sees nothing      0  expect 0
+service role (auth.uid null)          0  expect 0
+paused campaign not served            0  expect 0
+```
+
+That probe incidentally confirmed 0048's transition trigger refuses a status
+write even from a superuser session — it keys on `auth.role()`, not the
+database role.
+
+### The fifth instance of the unchecked-write bug, this time mine
+
+CI failed the first run on `a campaign past its end date is not promoted`.
+The test did a bare `admin.from("ad_campaigns").update({ends_on})`, which
+`ad_campaigns_ends_after_starts` REJECTED because `starts_on` defaults to
+today — and because the error was never read, the test proceeded believing its
+own setup. Measured:
+
+```
+old form: ends_on only          REJECTED 23514
+  ends_on after old form        NULL — setup silently did nothing
+new form: starts_on + ends_on   accepted
+```
+
+In a PR whose commit message argues for checking errors. The habit held in the
+code under test and lapsed in the scaffolding around it, which is where it
+lapsed the previous four times too. Every campaign mutation in that file now
+goes through a helper that throws with the code.
+
+---
+
+## Merged 2026-08-26 — PR #61, seed owns the paid catalog (0051)
+
+| PR | Branch | Merged at (UTC) | Merge SHA |
+|----|--------|-----------------|-----------|
+| [#61](https://github.com/Bayo-1987/Claude-Talentrah/pull/61) | `feat/seed-owns-the-catalog` | 18:20:16 | `bc560df` |
+
+Standing up the CI project found `credit_packs` and `passes` EMPTY with nothing
+able to fill them. They exist in production only because one of the uncommitted
+0001–0025 migrations inserted them once. `scripts/seed.ts` owned every other
+catalog and did not know these two existed.
+
+**The brief for this PR contained a false premise, and saying so was the work.**
+It asked to "backfill the other resume templates" — but `RESUME_TEMPLATES`
+already lists all eleven including 0042's four. The CI project lacked them
+because seed had never run there, which is an ORDERING problem, not a gap in
+the seed. No change was made there rather than a no-op dressed up as a fix.
+
+0051 adds unique constraints on `credit_packs.name` and `passes.name`. The seed
+upserts every other catalog against a stable key — `resume_templates` got
+`slug` in 0042 for exactly this reason — and these two had only `id`, which the
+seed does not know. Verified no duplicate names existed in either project
+first. `is_active` is written on insert but deliberately not on update:
+deactivating a pack is an operational decision, and a re-seed must not quietly
+switch it back on.
+
+Verified the constraint does the work rather than the test's optimism —
+dropping it on the CI project and retrying the duplicate returned
+`ACCEPTED both`, then it was restored with no probe rows left behind.
+
+### Verified, four-point standard
+
+1. **PR API** — `merged: true`, `merged_at 2026-08-26T18:20:16Z`,
+   `merge_commit_sha bc560dff0f4416e5d81858e31a274a9eede9cc17`.
+2. **Fresh clone of `main`** — 0051, the seed catalog constants and
+   `tests/seed/catalog.test.ts` all present.
+3. **Live probe** — production catalog intact: 3 credit packs, 2 passes,
+   11 templates, 8 scholarships; `credit_packs_name_key` present.
+4. **CI green on the merged head** — 5/5.
+
+### Still open
+
+Unit tests run BEFORE `npm run seed` in CI — seed lives in the Playwright job,
+which is `needs: checks` — so a fresh project still fails its first run until
+its reference data is bootstrapped out of band. An ordering problem in the
+workflow, not a gap in the seed.
+
+---
+
 ## Set up 2026-08-26 — CI runs against a second Supabase project
 
 Not a PR. Infrastructure, recorded because it changes what every entry below
