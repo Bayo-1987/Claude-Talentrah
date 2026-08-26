@@ -33,6 +33,89 @@ both served stale content in this project's history. Don't rely on either.
 
 ---
 
+## Merged 2026-08-26 — PR #58, every listUsers() reads all pages (and #53 was under-fixed)
+
+| PR | Branch | Merged at (UTC) | Merge SHA |
+|----|--------|-----------------|-----------|
+| [#58](https://github.com/Bayo-1987/Claude-Talentrah/pull/58) | `fix/tracker-teardown-uses-cascade` | 13:23:54 | `a8ce5d2` |
+
+**This entry exists because PR #53's entry above overstates what was done.** That
+verification was genuine, but its SCOPE was not: it fixed the one unpaginated
+`listUsers()` it was handed and never asked what else called it the same way.
+Four more did. The repo's own stated habit — *after fixing a policy, ask what
+else grants the same privilege* — was applied to RLS policies this session and
+not to this.
+
+`listUsers()` with no arguments returns only the first page (GoTrue default 50,
+newest-first). The four survivors failed in two distinct ways:
+
+* **Three cleanup hooks** (rate-limit, spend-race, referrals) swept by email
+  prefix and silently left behind whatever had fallen past page one. Older
+  accounts sort last, so the survivors are exactly the accounts accumulating
+  longest — the hook looked like it worked while preserving the rows it existed
+  to delete.
+* **One find-or-create**, `upsert-base-resume`, was the seed bug verbatim: miss
+  the account past page one, call `createUser`, get *"A user with this email
+  address has already been registered"*. That is the failure that took main's CI
+  down and was mistaken for contention. It was waiting for the account count to
+  cross the boundary.
+
+Now one shared `tests/support/list-users.ts` (`listAllUsers`,
+`listUsersWithPrefix`, `findUserByEmail`), terminating on a SHORT PAGE rather
+than a total, because GoTrue does not reliably return one.
+
+### Three defects in this session's own PR #54, found by reviewing it against #55
+
+1. **A comment was false.** It said deleting the org cascades any posting the
+   line above missed. It does not — `job_postings` is NO ACTION, the entire
+   finding #55 rests on. A false comment is worse than none: the next reader
+   stops checking.
+2. **Both deletes were unchecked**, so failure was invisible. It worked only
+   because `afterEach` happens to clear applications first. `deleteOrgsCascade`
+   throws, so **the suite passing is now itself evidence the teardown ran** —
+   something the unchecked version could never give.
+3. **`Tracker Fixture Co` / `trkfix-%.example` was registered with none of
+   `fixture-orgs.ts`'s pattern lists**, whose header warns that a pattern added
+   to one and not the others is how residue starts accumulating. Only the
+   per-suite teardown removed it — the part that does not run when a process is
+   killed, which is the whole reason the sweep exists.
+
+### Verified, four-point standard
+
+1. **PR API** — `merged: true`, `merged_at 2026-08-26T13:23:54Z`,
+   `merge_commit_sha a8ce5d2996eede6d7b447f38d99400a4f2dd2715`.
+2. **Fresh shallow clone of `main`** — parents `5719299` + `cae95e0`.
+   `list-users.ts` present with its three exports; `git grep "listUsers()"`
+   matches **only comment text** in four places, all of which explain the bug;
+   both fixture patterns registered at `fixture-orgs.ts:15` and `:23`.
+3. **Live probe** — not applicable: nothing here is reachable from production.
+   Recorded as not-applicable rather than silently skipped.
+4. **CI green on the merged head** — 5/5.
+
+### A false alarm worth recording
+
+The first run failed with seven tracker failures and
+`Key (user_id)=… is not present in table "profiles"`. Two wrong causes were
+suspected before checking: #55's new sweep deleting the fixture (it matched no
+pattern — which was itself a real bug, fixed here), and this branch's widened
+`trk-` sweep (delete order unchanged). What settled it in one command was
+`main`'s own history: run `32971144631` failed at 12:57 with the same tracker
+test plus referrals, and the next main run passed on identical code. Both runs
+carry the Supabase Auth `Request rate limit reached` signature CLAUDE.md
+documents as not a real failure. After a cooldown the run passed unchanged.
+
+The cheap check was available first. It was reached for last.
+
+### PR #57 confirmed working in real CI
+
+This PR's run is the first under the new concurrency, and the wait step engaged:
+
+```
+##[notice]Shared-Supabase lock acquired after 0s (run #192).
+```
+
+---
+
 ## Merged 2026-08-26 — PR #57, a PR could carry no CI and still be mergeable
 
 | PR | Branch | Merged at (UTC) | Merge SHA |
