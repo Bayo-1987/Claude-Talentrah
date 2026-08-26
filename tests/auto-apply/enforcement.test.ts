@@ -77,21 +77,60 @@ async function claim(userId: string, queueId: string) {
 }
 
 let user: Awaited<ReturnType<typeof createAuthedUser>>;
-let internalJobIds: string[] = [];
+const internalJobIds: string[] = [];
+let fixtureOrgId: string | null = null;
 let externalJobId: string;
 
 beforeAll(async () => {
   user = await createAuthedUser("owner");
 
-  const { data: internal } = await admin
-    .from("job_postings")
-    .select("id")
-    .eq("source_type", "internal")
-    .eq("status", "open")
-    .limit(3);
-  internalJobIds = (internal ?? []).map((j) => j.id);
-  if (internalJobIds.length < 3) {
-    throw new Error("Need 3 open internal postings — run `npm run seed` first.");
+  /*
+   * OWNS ITS POSTINGS. This used to take whatever `job_postings` returned first
+   * for `source_type = internal AND status = open`, with `limit(3)`, no
+   * ordering and no ownership — then hold those ids for the whole file.
+   *
+   * With up to 33 files in parallel against one production project, a borrowed
+   * row can be deleted by its owner between this hook and the test that uses
+   * it. The upsert below then fails 23503, inserts nothing, and the assertion
+   * reports `expected 0 to be greater than or equal to 3` — which reads like a
+   * missing seed, not like a deleted row.
+   *
+   * That is exactly what happened once the tracker suite began creating its own
+   * internal, open fixture postings: transient rows of precisely the shape this
+   * query grabs. Same defect the tracker suite had, in the suite that was left
+   * borrowing.
+   */
+  const { data: fixtureOrg, error: fixtureOrgError } = await admin
+    .from("organizations")
+    .insert({
+      // Matches FIXTURE_NAME_PATTERNS, so the global sweep backstops it.
+      name: `AUTOAPPLY-TEST Org ${randomUUID().slice(0, 8)}`,
+      created_by: user.id,
+      verified: true,
+    })
+    .select("id, name")
+    .single();
+  if (fixtureOrgError || !fixtureOrg) {
+    throw new Error(`Could not create fixture org: ${fixtureOrgError?.message}`);
+  }
+  fixtureOrgId = fixtureOrg.id;
+
+  for (let i = 0; i < 3; i += 1) {
+    const { data: job, error: jobError } = await admin
+      .from("job_postings")
+      .insert({
+        source_type: "internal",
+        organization_id: fixtureOrgId,
+        company_name: fixtureOrg.name,
+        title: `AUTOAPPLY-TEST Seed Role ${i}`,
+        description: "Fixture posting owned by tests/auto-apply.",
+        status: "open",
+        dedup_fingerprint: `autoapply-seed-${randomUUID()}`,
+      })
+      .select("id")
+      .single();
+    if (jobError || !job) throw new Error(`Could not create fixture posting: ${jobError?.message}`);
+    internalJobIds.push(job.id);
   }
 
   const { data: external } = await admin
@@ -105,6 +144,9 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  // Org first: deleteOrgsCascade removes the fixture postings with it, and
+  // job_postings.organization_id is NO ACTION so the order matters.
+  if (fixtureOrgId) await deleteTestOrgs([fixtureOrgId]);
   if (user) await admin.auth.admin.deleteUser(user.id);
 });
 
@@ -362,10 +404,15 @@ describe("credits: the free line, then real spend", () => {
     }));
     // Only one row per (user, job) is allowed, so insert distinct jobs.
     for (let i = 0; i < Math.min(filler.length, internalJobIds.length); i++) {
-      await admin.from("auto_apply_queue").upsert(
+      // Error CHECKED. Unchecked, a 23503 from a posting deleted by another
+      // suite inserted nothing and surfaced two assertions later as
+      // "not enough seeded internal postings" — a misleading message pointing
+      // at the seed rather than at the real cause.
+      const { error } = await admin.from("auto_apply_queue").upsert(
         { ...filler[i], job_posting_id: internalJobIds[i] },
         { onConflict: "user_id,job_posting_id" },
       );
+      if (error) throw new Error(`could not seed the free allowance: ${error.message}`);
     }
 
     const { data: used } = await admin
