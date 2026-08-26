@@ -13,6 +13,7 @@ import { randomUUID } from "node:crypto";
 import type { Database } from "@/lib/supabase/types";
 import { createAuthedTestUser, deleteTestUsers } from "../support/auth";
 import { deleteOrgsCascade } from "../support/delete-orgs";
+import { listUsersWithPrefix } from "../support/list-users";
 
 for (const key of [
   "NEXT_PUBLIC_SUPABASE_URL",
@@ -188,13 +189,7 @@ afterAll(async () => {
    * `trk-` accounts happened to land on page one and silently left the rest.
    * Same defect as the seed's, fixed in #53; it lived here too.
    */
-  for (let page = 1; ; page += 1) {
-    const { data } = await admin.auth.admin.listUsers({ page, perPage: 200 });
-    trkUserIds.push(
-      ...data.users.filter((x) => x.email?.startsWith("trk-")).map((x) => x.id),
-    );
-    if (data.users.length < 200) break;
-  }
+  trkUserIds.push(...(await listUsersWithPrefix(admin, "trk-")).map((u) => u.id));
   await deleteTestUsers([...new Set(trkUserIds)]);
 });
 

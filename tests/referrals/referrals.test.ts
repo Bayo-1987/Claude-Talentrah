@@ -13,6 +13,7 @@ import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
 import type { Database } from "@/lib/supabase/types";
+import { listUsersWithPrefix } from "../support/list-users";
 
 for (const key of [
   "NEXT_PUBLIC_SUPABASE_URL",
@@ -150,8 +151,7 @@ afterAll(async () => {
    * aborts the loop partway, so the hook leaks exactly the accounts it exists
    * to remove, into the shared project — there is no staging database.
    */
-  const { data } = await admin.auth.admin.listUsers();
-  const mine = data.users.filter((x) => x.email?.startsWith("reftest-"));
+  const mine = await listUsersWithPrefix(admin, "reftest-");
   await Promise.all(mine.map((u) => admin.auth.admin.deleteUser(u.id).catch(() => {})));
 }, 60_000);
 
