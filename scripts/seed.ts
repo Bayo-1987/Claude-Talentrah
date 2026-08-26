@@ -94,6 +94,29 @@ const RESUME_TEMPLATES: {
   { name: "Public Record", slug: "public-record", industry_category: "Government & Public Sector", is_premium: true, unlock_cost_credits: 10 },
 ];
 
+/*
+ * The paid catalogs. Prices are build-prompt §6.9's researched anchors —
+ * credit ≈ ₦150, packs ₦2,500/₦6,000/₦12,500, passes ₦2,000 (7-day) and
+ * ₦6,500 (30-day) — and per CLAUDE.md they are anchors, NOT validated prices.
+ * Changing them here changes what checkout charges, so treat this as pricing
+ * config, not fixture data.
+ *
+ * These existed in production only because an uncommitted migration
+ * (0001–0025) inserted them once. Every other catalog the seed owns survived
+ * the move to a fresh Supabase project; these two did not, because nothing
+ * could recreate them — which is the bug this list closes.
+ */
+const CREDIT_PACKS: { name: string; credits: number; price_ngn: number }[] = [
+  { name: "Starter", credits: 20, price_ngn: 2500 },
+  { name: "Popular", credits: 60, price_ngn: 6000 },
+  { name: "Power", credits: 150, price_ngn: 12500 },
+];
+
+const PASSES: { name: string; duration_days: number; price_ngn: number }[] = [
+  { name: "7-Day Sprint Pass", duration_days: 7, price_ngn: 2000 },
+  { name: "30-Day Pass", duration_days: 30, price_ngn: 6500 },
+];
+
 const INTERNAL_JOBS = [
   {
     title: "Senior Product Manager",
@@ -281,6 +304,36 @@ async function findUserByEmail(
       structured_content: DEMO_RESUME,
     });
   }
+
+  console.log("→ Seeding credit packs and passes…");
+  /*
+   * Keyed on `name`, which 0051 made unique for exactly this reason — the same
+   * argument as `slug` for resume_templates. Without that constraint the only
+   * available match key was an unconstrained string, and re-seeding after a
+   * copy edit would have duplicated the row rather than updated it.
+   *
+   * Upserted rather than inserted so a re-seed keeps prices current instead of
+   * failing or duplicating. `is_active` is deliberately NOT written on update:
+   * deactivating a pack is an operational decision made in the database, and
+   * the seed should not silently switch it back on.
+   */
+  for (const pack of CREDIT_PACKS) {
+    const { error } = await supabase
+      .from("credit_packs")
+      .upsert({ ...pack, is_active: true }, { onConflict: "name", ignoreDuplicates: false })
+      .select("id")
+      .single();
+    if (error) throw new Error(`Failed to seed credit pack ${pack.name}: ${error.message}`);
+  }
+  for (const pass of PASSES) {
+    const { error } = await supabase
+      .from("passes")
+      .upsert({ ...pass, is_active: true }, { onConflict: "name", ignoreDuplicates: false })
+      .select("id")
+      .single();
+    if (error) throw new Error(`Failed to seed pass ${pass.name}: ${error.message}`);
+  }
+  console.log(`  ✓ ${CREDIT_PACKS.length} credit pack(s), ${PASSES.length} pass(es)`);
 
   console.log("→ Seeding resume templates…");
   /*
