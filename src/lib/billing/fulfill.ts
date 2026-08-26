@@ -68,7 +68,16 @@ export async function fulfillPayment(
   const isReusableCard = channel === "card" && !!authorization?.reusable;
   const authorizationCode = isReusableCard ? authorization!.authorization_code : null;
 
-  if (transaction.product_type === "credit_pack") {
+  /*
+   * `product_id` became nullable in 0050 so a wallet top-up — which has no
+   * product row — could be recorded without inventing one. A CHECK constraint
+   * keeps it REQUIRED for credit_pack and pass, so these two branches cannot
+   * see a null in practice; the guards are here because the type is now
+   * honestly nullable and skipping the grant is the right behaviour if the
+   * constraint is ever loosened. Silently doing nothing beats crashing a
+   * webhook, which Paystack would then retry forever.
+   */
+  if (transaction.product_type === "credit_pack" && transaction.product_id) {
     const { data: pack } = await supabase
       .from("credit_packs")
       .select("credits")
@@ -77,7 +86,7 @@ export async function fulfillPayment(
     if (pack) {
       await grantCredits(transaction.user_id, pack.credits, "purchase", transaction.id);
     }
-  } else if (transaction.product_type === "pass") {
+  } else if (transaction.product_type === "pass" && transaction.product_id) {
     const { data: pass } = await supabase
       .from("passes")
       .select("duration_days")
@@ -102,6 +111,39 @@ export async function fulfillPayment(
         authorization_code: authorizationCode,
         payment_transaction_id: transaction.id,
         status: "active",
+      });
+    }
+  } else if (transaction.product_type === "ad_wallet_topup") {
+    /*
+     * The organisation's ad wallet.
+     *
+     * IT PASSES THE PAYSTACK REFERENCE AS THE IDEMPOTENCY KEY, and that is not
+     * decoration. `credit_ad_wallet` dedupes on
+     * `ad_wallet_ledger_topup_reference_idx`, which is UNIQUE on
+     * `paystack_reference` WHERE paystack_reference IS NOT NULL — a PARTIAL
+     * index. Pass null, or pass a freshly minted id instead of the real
+     * reference, and the index stops applying: nothing collides, and a second
+     * delivery credits the wallet again. 0050 makes `payment_transactions`
+     * refuse a top-up row with a null reference precisely so this argument
+     * cannot be null by the time it reaches here.
+     *
+     * WHY THAT CARRIES REAL WEIGHT. The `status !== "pending"` guard at the top
+     * of this function is a read-then-act check, and the comment below records
+     * that the webhook/callback double-grant race is open and out of scope.
+     * It is not theoretical: the Paystack webhook and the top-up callback page
+     * both call this function for the same reference, and a user landing on
+     * the callback while the webhook is in flight is the ordinary case. For
+     * credit packs and passes nothing closes that race. For a wallet top-up
+     * the unique index does — it is the only defence, so it is spelled out
+     * rather than assumed.
+     */
+    if (transaction.organization_id && transaction.paystack_reference) {
+      await supabase.rpc("credit_ad_wallet", {
+        p_organization_id: transaction.organization_id,
+        p_amount_ngn: transaction.amount,
+        p_reason: "topup",
+        p_paystack_reference: transaction.paystack_reference,
+        p_actor_user_id: transaction.user_id,
       });
     }
   }

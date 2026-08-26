@@ -3,6 +3,8 @@ import { requireEmployer } from "@/lib/employer/membership";
 import { listCampaigns, getWalletBalance } from "@/lib/employer/campaign-queries";
 import { BorderedCard, Button, EyebrowLabel } from "@/components/ui";
 import { CampaignStatusBadge, type CampaignStatus } from "@/components/employer/campaign-controls";
+import { WalletTopUp } from "@/components/employer/wallet-topup";
+import { topUpWalletAction } from "@/lib/employer/wallet-actions";
 
 export const metadata = { title: "Ad Campaigns — Talentrah" };
 
@@ -29,12 +31,14 @@ export default async function CampaignsPage() {
         </Link>
       </div>
 
-      <div className="mt-6 flex flex-wrap items-baseline gap-x-2 border-y border-line py-4">
-        <span className="font-body text-[13px] font-semibold text-ink-soft">Ad wallet</span>
-        <span className="font-display text-[22px] font-medium text-ink">{naira(balance)}</span>
-        <span className="font-body text-[13px] text-ink-soft">
-          — campaigns draw from this, separately from your Talentrah credits.
-        </span>
+      <div className="mt-6">
+        <WalletTopUp
+          action={topUpWalletAction}
+          balanceNgn={balance}
+          dailyCommitmentNgn={campaigns
+            .filter((c) => c.status === "active")
+            .reduce((sum, c) => sum + c.daily_rate_ngn, 0)}
+        />
       </div>
 
       {campaigns.length === 0 ? (

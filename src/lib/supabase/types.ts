@@ -1,6 +1,3 @@
-// Generated via the Supabase MCP `generate_typescript_types` tool against the
-// "Talentrah" project (nytwbbzfpytctjsoczzq). Regenerate after every schema
-// migration — do not hand-edit.
 export type Json =
   | string
   | number
@@ -903,7 +900,7 @@ export type Database = {
           id: string
           organization_id: string | null
           paystack_reference: string | null
-          product_id: string
+          product_id: string | null
           product_type: Database["public"]["Enums"]["payment_product_type"]
           rail: string
           renewal_for_pass_id: string | null
@@ -919,7 +916,7 @@ export type Database = {
           id?: string
           organization_id?: string | null
           paystack_reference?: string | null
-          product_id: string
+          product_id?: string | null
           product_type: Database["public"]["Enums"]["payment_product_type"]
           rail?: string
           renewal_for_pass_id?: string | null
@@ -935,7 +932,7 @@ export type Database = {
           id?: string
           organization_id?: string | null
           paystack_reference?: string | null
-          product_id?: string
+          product_id?: string | null
           product_type?: Database["public"]["Enums"]["payment_product_type"]
           rail?: string
           renewal_for_pass_id?: string | null
@@ -1644,7 +1641,7 @@ export type Database = {
       org_member_role: "owner" | "admin"
       pass_auto_renew_status: "active" | "canceled" | "lapsed"
       pass_payment_method: "card" | "mobile_money"
-      payment_product_type: "credit_pack" | "pass"
+      payment_product_type: "credit_pack" | "pass" | "ad_wallet_topup"
       payment_status: "pending" | "success" | "failed"
       referral_status: "invited" | "signed_up" | "activated"
       resume_source: "uploaded" | "builder" | "tailored"
@@ -1843,7 +1840,7 @@ export const Constants = {
       org_member_role: ["owner", "admin"],
       pass_auto_renew_status: ["active", "canceled", "lapsed"],
       pass_payment_method: ["card", "mobile_money"],
-      payment_product_type: ["credit_pack", "pass"],
+      payment_product_type: ["credit_pack", "pass", "ad_wallet_topup"],
       payment_status: ["pending", "success", "failed"],
       referral_status: ["invited", "signed_up", "activated"],
       resume_source: ["uploaded", "builder", "tailored"],
