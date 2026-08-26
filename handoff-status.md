@@ -33,6 +33,66 @@ both served stale content in this project's history. Don't rely on either.
 
 ---
 
+## Merged 2026-08-26 — PR #63, ad serving reaches the feed. Arc complete.
+
+| PR | Branch | Merged at (UTC) | Merge SHA |
+|----|--------|-----------------|-----------|
+| [#63](https://github.com/Bayo-1987/Claude-Talentrah/pull/63) | `feat/ad-serving-feed` | 18:59:09 | `ee56800` |
+
+The last piece. An employer can now fund a wallet, create a campaign, have it
+reviewed, start it, be charged daily — and a seeker actually sees it, labelled,
+in a position that still respects their own filters and match tier.
+
+**Recommended only (D4).** External, Saved and Recent are user intents, not
+discovery surfaces; Recommended is the only tab whose ordering Talentrah
+chooses, so it is the only one where selling a position in that ordering is
+coherent.
+
+**It reorders rather than appends.** A promoted job already satisfies the tab's
+filters, so it is already in `scored`. Any promoted row NOT present there is
+dropped before impressions are recorded — billing for a card that never
+rendered is the one failure this could not have. Verified in the merged file:
+the `scoredIds.has(...)` filter at `page.tsx:148` runs before
+`recordPromotedImpressions` at `:167`.
+
+**The floor is passed explicitly (60)** rather than inherited from
+`promoted_jobs`' default, so the reason sits next to the number: 60 is the
+bottom of the match-tier system, and below it a card would show a score the
+design has no word for.
+
+**The badge is solid `--ink`**, like the company badge and for the same reason —
+the three match tiers own green, rust and amber, and a fourth coloured pill
+would read as a fourth tier.
+
+**D3 is recorded in the data**: the surface is `job_feed_render`, so whoever
+bills on these later reads the counting method off the row instead of inferring
+it. These over-count deliberately — the card was emitted, not necessarily seen.
+
+### Verified, four-point standard
+
+1. **PR API** — `merged: true`, `merged_at 2026-08-26T18:59:09Z`,
+   `merge_commit_sha ee5680077fdc442fee38eef8ac5a666b78862897`.
+2. **Fresh clone of `main`** — `src/lib/ads/promoted.ts` and
+   `ad-serving-feed.test.ts` present; the visible-before-impression ordering
+   confirmed in the merged page, not the diff.
+3. **Live probe** — production serving: `/` 200, `/jobs` 307,
+   `/employer/campaigns` 307. No migration needed; 0052 went to production when
+   #62 merged.
+4. **CI green on the merged head** — 5/5, both new suites passing on the first
+   run.
+
+### The impression write stays on the critical path, knowingly
+
+It is awaited inside the Recommended render. Dedup makes it a no-op after the
+day's first hit and it can never fail the page, but it is a round trip on the
+busiest surface in the app. Deferred deliberately: moving it off-path correctly
+needs Next.js's `after()`, not merely dropping the `await` — a floating promise
+in a server component may be killed when the response finishes, which would
+lose events silently. Not worth doing until a real campaign makes the latency
+measurable.
+
+---
+
 ## Merged 2026-08-26 — PR #62, ad serving schema: ad_events and promoted_jobs (0052)
 
 | PR | Branch | Merged at (UTC) | Merge SHA |
