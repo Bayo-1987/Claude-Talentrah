@@ -12,6 +12,7 @@
 export const FIXTURE_DOMAIN_PATTERNS = [
   "camp-%.example", // tests/billing/ad-campaigns.test.ts, tests/support/cleanup.test.ts
   "out-%.example", // tests/billing/ad-campaigns.test.ts (the outsider org)
+  "trkfix-%.example", // tests/tracker/tracker-and-farah.test.ts
 ] as const;
 
 export const FIXTURE_NAME_PATTERNS = [
@@ -19,6 +20,7 @@ export const FIXTURE_NAME_PATTERNS = [
   "Outsider Co %", // tests/billing/ad-campaigns.test.ts
   "Teardown Co %", // tests/support/cleanup.test.ts
   "Wallet Test Co %", // tests/billing/ad-wallet.test.ts
+  "Tracker Fixture Co %", // tests/tracker/tracker-and-farah.test.ts
   "COLPRIV-TEST %", // tests/rls/column-privileges.test.ts
   "COLPRIV-ROLE %", // tests/rls/column-privileges.test.ts
   "EMPLOYER-TEST%", // tests/employer/employer-flow.test.ts
