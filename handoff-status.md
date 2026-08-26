@@ -33,6 +33,87 @@ both served stale content in this project's history. Don't rely on either.
 
 ---
 
+## Merged 2026-08-26 — PR #59, a totally failed ingest answers 500 (and one regression I caused)
+
+| PR | Branch | Merged at (UTC) | Merge SHA |
+|----|--------|-----------------|-----------|
+| [#59](https://github.com/Bayo-1987/Claude-Talentrah/pull/59) | `fix/ingest-route-reports-source-failures` | 14:36:28 | `c7c534d` |
+
+Came out of chasing "2XX with real external calls but zero rows written" on the
+05:00 ingest cron. **There was no such bug** — see the cron investigation entry
+above for why the measurement was invalid. Two real things came out of it
+anyway.
+
+### 1. The route could not have told us either way
+
+`ingestAllSources` catches per source and records the reason in
+`results[].error` — correct, since one dead board must not stop the others. But
+that reason travelled only in a **200 response body**, and nothing reads a body:
+Vercel records the status code, so a run where EVERY source failed was
+indistinguishable from a quiet day with no new postings.
+
+Total failure now answers **500**; partial stays **200**, because the run did
+real work and one dead board is exactly what the per-source catch exists for.
+Failing sources and reasons are logged rather than left in the body. Both
+behaviours pinned in `contract.test.ts` §2b.
+
+### 2. A regression this session caused, in a suite it had not touched
+
+CI failed with:
+
+```
+AssertionError: not enough seeded internal postings to exhaust the
+free allowance: expected 0 to be greater than or equal to 3
+```
+
+The message blames the seed. The seed was fine — 4 open internal postings, both
+real organisations present, verified by SQL. `tests/auto-apply/enforcement.test.ts`'s
+`beforeAll` took whatever `job_postings` returned first for
+`source_type = internal AND status = open` with `limit(3)` — no ordering, no
+ownership — then held those ids for the whole file.
+
+**PR #54/#58 is what started tripping it.** Giving the tracker suite its own
+internal, open fixture postings created transient rows of exactly the shape this
+query grabs. Fixing one borrowed fixture by creating a real one made the *other*
+borrower fail. Worth remembering: converting a suite from borrowing to owning
+adds rows that other borrowers can pick up.
+
+Auto-apply now creates an `AUTOAPPLY-TEST Org` (already in
+`FIXTURE_NAME_PATTERNS`) with three postings of its own, cleaned up via
+`deleteOrgsCascade`, org first. Its filler upsert now checks its error — the
+fifth instance today of resolves-without-throwing.
+
+### Verified, four-point standard
+
+1. **PR API** — `merged: true`, `merged_at 2026-08-26T14:36:28Z`,
+   `merge_commit_sha c7c534dd62e77814261b7ec772fdeb4f21fdc1ba`.
+2. **Fresh shallow clone of `main`** — parents `f558b98` + `2d87191`. The
+   total-failure guard confirmed at `ingest-jobs/route.ts:69`; the owned fixture
+   postings and the checked filler upsert both present in the merged test file.
+3. **Live probe** — the route still fails closed on production
+   (`GET` and `POST` with no credential both `401 {"error":"Unauthorized"}`).
+   The healthy path was proven before merge by running the pipeline directly:
+   greenhouse/moniepoint 126 upserted, schema-org/workable 20 upserted, 0
+   errors, and SQL confirming all 146 rows moved.
+4. **CI green on the merged head** — 5/5.
+
+### Still borrowing — chipped, not fixed
+
+The sweep for other instances of this pattern (the one PR #53 failed to do for
+`listUsers()`) found two more:
+
+* `tests/rls/cross-user.test.ts:105` — `.limit(1).single()` on `job_postings`,
+  held for the whole file, applications created against it. Highest remaining
+  risk.
+* `tests/auto-apply/enforcement.test.ts` — the `externalJobId` lookup. Lower
+  risk, since external rows come from the ingest pipeline rather than fixtures,
+  but still unowned.
+
+Deliberately not folded into this PR: restarting a nearly-green CI run to carry
+an unrelated fix is what consumed several cycles earlier in the session.
+
+---
+
 ## Investigated 2026-08-26 — "the production crons aren't running". They are.
 
 Recorded in full because **this file carried the wrong conclusion for part of
