@@ -404,6 +404,34 @@ Confirmed on production rather than from the docs alone — `GET`, `PUT`,
 change. `/api/e2e/llm-provider` likewise already self-gates correctly, 404 on
 production. Both are covered by tests now, but neither needed a code change.
 
+## Names must render at least one visible character (0045)
+
+`signUpSchema` validated `firstName`/`lastName` with
+`z.string().trim().min(1)`. Two problems, and only the second mattered.
+
+`.trim()` strips the ECMAScript WhiteSpace production — spaces, tabs, NBSP and
+U+FEFF — but not the zero-width FORMAT characters (category Cf, not Zs). A lone
+U+200B passed `.min(1)`, satisfied every `first_name?.trim() ? …` guard, and
+rendered as blank everywhere, reopening the defect PR #21 fixed. *(The brief's
+U+FEFF example was already handled; the real offenders are U+200B/200C/200D,
+U+2060, U+180E.)*
+
+**But the schema was never on the write path.** `0030` grants
+`update (first_name, last_name, …)` to `authenticated`, so a client PATCHes the
+column and never runs application code — confirmed live: U+200B, U+2060 and a
+plain space all wrote successfully. Same class as 0028/0030/0031/0041.
+
+The gate is therefore `0045`'s CHECK constraint, with NULL allowed explicitly
+(the normal pre-onboarding state) and a fail-loud pre-check naming any row that
+would violate it. Six call sites now share one helper — three of them never
+trimmed at all, including the Pass renewal email sent to paying customers.
+
+The JS and SQL character classes are **deliberately asymmetric**: Postgres `\s`
+does not cover U+FEFF while JS `.trim()` does, and the first version disagreed
+on exactly that, accepting a BOM-only name the JS helper rejected. The invariant
+is identical accept/reject behaviour, asserted case by case, not literal list
+equality.
+
 ## Two organisations could split one company's domain (0044)
 
 `createOrganizationAction` inserted with no check for an existing org at the

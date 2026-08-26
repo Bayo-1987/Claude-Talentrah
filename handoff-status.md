@@ -33,6 +33,134 @@ both served stale content in this project's history. Don't rely on either.
 
 ---
 
+## The 2026-08-26 sweep — what it was actually about
+
+Four items closed in one pass (#44 dedup, #45 org-domain, #46 name-guard, plus
+0041 re-confirmed). Read as four tickets they look unrelated. They are not, and
+the two things they share are the part worth carrying forward.
+
+### 1. Verify against live data BEFORE designing the fix — it changed the answer twice
+
+Not a process nicety. In two of the four it changed what got built:
+
+* **#44 dedup.** Ranked highest on impact *on the assumption it was firing*.
+  Measured: 127 postings, 127 distinct fingerprints, **0 dropped**, and no
+  company under two sources. Real mechanism, no live instance. That reframed
+  the deliverable from "fix an outage" to "make an invisible failure
+  discoverable", and the ranking that drove the ordering of work was simply
+  wrong.
+* **#45 org-domain.** The brief offered two fixes and **both would have
+  failed**. `Fatishcakes` claims `fatishcakes.com` from a **gmail.com**
+  address, so it can never verify and holds the domain permanently. A bare
+  `unique (domain)` would have locked the genuine employer out of *both* paths
+  — create rejected by the index, join rejected because
+  `joinOrganizationAction` gates on `verified` server-side — and made domain
+  squatting a one-line attack. The naive fix was worse than the bug, and only
+  the live row showed it.
+
+The counter-case matters too: **#46 and #41 both checked clean** (no polluted
+names in production; 0041's grants intact through four later migrations). The
+check is cheap and worth running even when it confirms rather than overturns.
+
+### 2. The recurring root cause is a Postgres grant the app layer forgot about
+
+CLAUDE.md already names this — *"RLS row policies do not restrict columns"* —
+and #45 and #46 are both fresh instances of it, from opposite directions:
+
+* **#46** is the textbook case. `signUpSchema` validated names, but `0030`
+  grants `update (first_name, last_name, …)` to `authenticated`, so a client
+  PATCHes the column and **never executes the validation**. Confirmed live:
+  U+200B, U+2060 and a plain space all wrote successfully. The Zod fix alone
+  would have changed nothing for anyone not using the signup form.
+* **#45** is the same lesson worn differently: `createOrganizationAction` had
+  no uniqueness check *and* no constraint behind it, so nothing anywhere
+  enforced one-org-per-domain.
+
+The rule that keeps proving itself: **if a client holds a grant on a column,
+application validation is UX, not a gate.** The gate has to be in the database
+— a CHECK, a constraint, a column grant, or an atomic statement. Every fix in
+this sweep that mattered put it there and left the app-layer check in place
+only for the error message.
+
+### 3. Two bugs found in the tooling, not the product
+
+Worth their own line because both would have kept costing time:
+
+* **The CI secret scanner reported its own download failure as a leak** (#43).
+  Fixed and then *validated by contrast*: on #46 gitleaks genuinely ran and
+  genuinely found a hardcoded test password. The two cases are now tellable
+  apart from the message alone.
+* **The `e2e/employer.spec.ts` flake was concurrent CI runs sharing one
+  Supabase project** (#43), not the spec. Root-caused rather than patched.
+
+---
+
+## Merged 2026-08-26 — PR #46, names must render something visible (0045)
+
+| PR | Branch | Merged at (UTC) | Merge SHA |
+|----|--------|-----------------|-----------|
+| [#46](https://github.com/Bayo-1987/Claude-Talentrah/pull/46) | `fix/zero-width-name-guard` | 08:51:04 | `03dfdd3` |
+
+**Correction to the brief:** `.trim()` *does* strip U+FEFF, so the BOM example
+was already handled. The real offenders are U+200B/200C/200D, U+2060, U+180E —
+category Cf, which the ECMAScript WhiteSpace production does not cover.
+
+**Six call sites, three of which never trimmed at all** — `layout.tsx`'s avatar
+initials and Farah greeting, and `renewals.ts`, which puts the blank straight
+into a paying customer's renewal email. A literal space defeated those; zero
+width was not even required.
+
+**The JS/SQL drift was real, not hypothetical.** The rule is expressed twice
+because a regex cannot cross the boundary, and the first version disagreed:
+`has_visible_characters(U+FEFF)` returned TRUE while `hasVisibleName` returned
+false — Postgres `\s` does not cover U+FEFF, JS `.trim()` does. That is the
+SQL-accepts-what-JS-rejects direction, which puts the blank name back in the
+table. Caught by running the same inputs through both rather than assuming they
+agreed. The two character lists are **deliberately asymmetric**; the invariant
+is identical accept/reject *behaviour*, asserted case by case.
+
+**NULL allowed explicitly, not incidentally**, and the migration refuses to
+apply while naming offending rows rather than letting `ALTER TABLE` fail bare.
+
+### Verified
+
+1. **PR API** — `merged: true`, `merge_commit_sha 03dfdd3c0fb3e96404f2f78130267edfbc7b06b3`.
+2. **Fresh shallow clone of `main`** — merge commit `03dfdd3`, two parents
+   (`e641cf7` + `0d5f2f7`). Migration, helper and test file present; the CHECK's
+   `IS NULL` branches confirmed in the committed SQL; all six call sites
+   confirmed routed through `visibleName`/`hasVisibleName`.
+3. **Live, post-merge — both directions.** Happy path intact: `Adaeze Okonkwo`
+   writes, greeting renders *"Ready to land your dream job, Adaeze?"*, initials
+   `AO`, Farah `Adaeze`, renewal email *"Hi Adaeze,"*. `Ọlá`, `  Ada  `,
+   `Jean-Luc`, `O'Brien` all accepted and display correctly. Rejection holds:
+   U+200B, plain space and U+FEFF all `23514`. NULL still writable.
+4. **CI** — 27/27 files, **349/349 tests**, Playwright 13/13; all four checks
+   green on the PR head, and the secret scan verified as a genuine run
+   (`1 commits scanned, no leaks found`) rather than a vacuous pass.
+
+Proven by removal: dropping the constraint fails 9 tests, every invisible
+character accepted exactly as in production.
+
+---
+
+## Confirm-only 2026-08-26 — premium-template gate (0041) still closed
+
+Re-checked rather than re-diagnosed, per the brief. `0041`'s grants survive four
+subsequent migrations: `resumes` has **no table-wide UPDATE** and only
+`title, structured_content, source, updated_at` granted, so `template_id`
+remains unwritable — the gate itself. Its regression suite passes **27/27**,
+including `MONEY: cannot apply a premium template by writing template_id
+directly`. The companion revokes on `farah_messages` and `referral_shares` are
+also intact with no column grants.
+
+One thing that looks alarming and is not: `resume_templates` still reports
+`table_wide_update = true`. It has RLS enabled with a single `SELECT` policy and
+**no write policy**, so the row policy refuses before the grant is consulted —
+the inverse arrangement to `resumes`, established and pinned by tests in 0042.
+Do not "fix" it.
+
+---
+
 ## Merged 2026-08-26 — PR #45, one verified org per domain (0044)
 
 | PR | Branch | Merged at (UTC) | Merge SHA |
@@ -961,24 +1089,34 @@ rules. Those need the real files.
    (`jobs.workable.com/search/nigeria`); `hotnigerianjobs.com`, `jobberman.com`,
    `myjobmag.com` and `fuzu.com` all checked and rejected, Fuzu's ToS
    independently re-verified. Broader reliance still gated on §10 item 10.
-3. **Six remaining test-coverage briefs**, in the backlog's severity order.
-   Also blocked on missing files, though the one-line summaries name the
-   defects. Highest-value leads from those summaries:
+3. **Test-coverage briefs — all closed except one.** The 2026-08-26 sweep took
+   the five that were scoped to it (dedup, org-domain, premium-template,
+   zero-width, employer flake) plus Paystack earlier. One remains, flagged
+   below; it was never part of the sweep's scope and is stated as open rather
+   than rounded into "done":
    - ~~Cross-source dedup hash collisions destroying a posting's apply link~~
      — **done**, PR #44. Mechanism real but not firing; fixed and made
      discoverable via `IngestSourceResult.collided`.
-   - A transient empty-200 ingest response mass-closing a source's live postings.
-   - A Paystack blip being indistinguishable from a real decline, permanently
-     killing a paying customer's auto-renewal; **no external call anywhere sets
-     a timeout**.
+   - **STILL OPEN — a transient empty-200 ingest response mass-closing a
+     source's live postings.** The only item from the original ten not closed
+     by this sweep, and it was never in the five the sweep scoped. It is real
+     and named in `ingest.ts`'s own comment: an empty fetch produces an empty
+     `seenFingerprints`, so the freshness sweep closes every posting for that
+     source. PR #39 widened the blast radius from one company to a whole
+     schema-org source and said so at the time rather than fixing it. Not
+     currently firing, but it is the last known way the feed can silently empty
+     itself.
+   - ~~A Paystack blip being indistinguishable from a real decline~~ — **done**,
+     PR #42 / migration 0043. Also closed the "no external call anywhere sets a
+     timeout" item outright: those were the last untimed calls in the repo.
    - ~~Duplicate org names/domains unguarded~~ — **done**, PR #45 / migration
      0044. Scoped to VERIFIED orgs only; a bare unique index would have locked
      real employers out behind unverifiable squatters.
    - ~~Premium-template gate bypassable via a direct `PATCH` to
      `resumes.template_id`~~ — **done**, PR #40 / migration 0041. Confirmed live
      and fixed; the sweep also found and fixed the Farah rate-limit bypass.
-   - A zero-width character defeating the "no name yet" guard, reopening the
-     PR #21 bug through a character class `.trim()` does not cover.
+   - ~~A zero-width character defeating the "no name yet" guard~~ — **done**,
+     PR #46 / migration 0045.
    - ~~`e2e/employer.spec.ts` flake~~ — **closed**, PR #43. Root-caused to
      concurrent CI runs sharing one Supabase project and fixed with a
      constant-key concurrency group; the spec itself needed no change.
