@@ -17,6 +17,119 @@ export type Database = {
   }
   public: {
     Tables: {
+      ad_campaigns: {
+        Row: {
+          created_at: string
+          created_by: string
+          daily_rate_ngn: number
+          ends_on: string | null
+          id: string
+          job_posting_id: string
+          last_charged_on: string | null
+          name: string
+          organization_id: string
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          spent_ngn: number
+          starts_on: string
+          status: Database["public"]["Enums"]["ad_campaign_status"]
+          submitted_at: string | null
+          target_employment_type:
+            | Database["public"]["Enums"]["employment_type"][]
+            | null
+          target_locations: string[] | null
+          target_seniority:
+            | Database["public"]["Enums"]["seniority_level"][]
+            | null
+          total_budget_ngn: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          daily_rate_ngn: number
+          ends_on?: string | null
+          id?: string
+          job_posting_id: string
+          last_charged_on?: string | null
+          name: string
+          organization_id: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          spent_ngn?: number
+          starts_on?: string
+          status?: Database["public"]["Enums"]["ad_campaign_status"]
+          submitted_at?: string | null
+          target_employment_type?:
+            | Database["public"]["Enums"]["employment_type"][]
+            | null
+          target_locations?: string[] | null
+          target_seniority?:
+            | Database["public"]["Enums"]["seniority_level"][]
+            | null
+          total_budget_ngn: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          daily_rate_ngn?: number
+          ends_on?: string | null
+          id?: string
+          job_posting_id?: string
+          last_charged_on?: string | null
+          name?: string
+          organization_id?: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          spent_ngn?: number
+          starts_on?: string
+          status?: Database["public"]["Enums"]["ad_campaign_status"]
+          submitted_at?: string | null
+          target_employment_type?:
+            | Database["public"]["Enums"]["employment_type"][]
+            | null
+          target_locations?: string[] | null
+          target_seniority?:
+            | Database["public"]["Enums"]["seniority_level"][]
+            | null
+          total_budget_ngn?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ad_campaigns_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ad_campaigns_job_posting_id_fkey"
+            columns: ["job_posting_id"]
+            isOneToOne: false
+            referencedRelation: "job_postings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ad_campaigns_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ad_campaigns_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ad_wallet_ledger: {
         Row: {
           actor_user_id: string | null
@@ -1360,6 +1473,14 @@ export type Database = {
           source_type: Database["public"]["Enums"]["job_source_type"]
         }[]
       }
+      charge_ad_campaign_day: {
+        Args: { p_campaign_id: string; p_on_date?: string }
+        Returns: {
+          balance_after_ngn: number
+          ok: boolean
+          status: Database["public"]["Enums"]["ad_campaign_status"]
+        }[]
+      }
       check_and_activate_referral: {
         Args: { p_user_id: string }
         Returns: undefined
@@ -1432,6 +1553,27 @@ export type Database = {
           job_posting_id: string
         }[]
       }
+      pause_ad_campaign: {
+        Args: { p_campaign_id: string }
+        Returns: Database["public"]["Enums"]["ad_campaign_status"]
+      }
+      resume_ad_campaign: {
+        Args: { p_actor_user_id?: string; p_campaign_id: string }
+        Returns: {
+          balance_after_ngn: number
+          ok: boolean
+          status: Database["public"]["Enums"]["ad_campaign_status"]
+        }[]
+      }
+      set_ad_campaign_review: {
+        Args: {
+          p_approve: boolean
+          p_campaign_id: string
+          p_note?: string
+          p_reviewer_id: string
+        }
+        Returns: Database["public"]["Enums"]["ad_campaign_status"]
+      }
       spend_credits_atomic: {
         Args: {
           p_amount: number
@@ -1444,8 +1586,20 @@ export type Database = {
           ok: boolean
         }[]
       }
+      submit_ad_campaign_for_review: {
+        Args: { p_actor_user_id: string; p_campaign_id: string }
+        Returns: Database["public"]["Enums"]["ad_campaign_status"]
+      }
     }
     Enums: {
+      ad_campaign_status:
+        | "draft"
+        | "pending_review"
+        | "rejected"
+        | "active"
+        | "paused_by_employer"
+        | "paused_insufficient_funds"
+        | "completed"
       ad_wallet_reason:
         | "topup"
         | "campaign_charge"
@@ -1632,6 +1786,15 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      ad_campaign_status: [
+        "draft",
+        "pending_review",
+        "rejected",
+        "active",
+        "paused_by_employer",
+        "paused_insufficient_funds",
+        "completed",
+      ],
       ad_wallet_reason: [
         "topup",
         "campaign_charge",
