@@ -21,15 +21,18 @@
  *     holds for an authenticated B, not just anonymously.
  *
  * NOTE ON ENVIRONMENT: this runs against the real Supabase project — there
- * is no separate test project. It creates two namespaced throwaway users and
- * deletes them (cascading their rows) in afterAll. It only ever touches rows
- * it created. A dedicated test project or Supabase branch would be safer and
+ * is no separate test project. It creates two namespaced throwaway users, plus
+ * its own organisation and job posting, and deletes them all in afterAll. It
+ * only ever touches rows it created — which was NOT true until 2026-08-26: it
+ * borrowed an arbitrary `job_postings` row and wrote against it for the whole
+ * file. A dedicated test project or Supabase branch would be safer and
  * is worth doing before this repo has more contributors.
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
 import type { Database } from "@/lib/supabase/types";
+import { deleteOrgsCascade } from "../support/delete-orgs";
 
 /*
  * Fail loudly on a missing secret rather than letting the suite die inside
@@ -92,6 +95,7 @@ let B: Awaited<ReturnType<typeof createAuthedUser>>;
 /** A's row id in each user-owned table. The list IS the coverage claim. */
 const ids: Record<string, string> = {};
 let jobPostingId: string;
+let fixtureOrgId: string | null = null;
 let verifiedScholarshipId: string;
 let pendingScholarshipId: string;
 let templateId: string;
@@ -101,9 +105,56 @@ beforeAll(async () => {
   A = await createAuthedUser("a");
   B = await createAuthedUser("b");
 
-  // Shared catalog rows the owned rows point at.
-  const { data: job } = await admin.from("job_postings").select("id").limit(1).single();
-  jobPostingId = job!.id;
+  /*
+   * A posting this suite OWNS.
+   *
+   * This used to be `.select("id").limit(1).single()` — no ordering, no
+   * ownership — with the id then held for the whole file and applications and
+   * match_scores created against it. Up to 33 files run in parallel against one
+   * production project, so a borrowed row can be deleted by its owning suite
+   * between this hook and the test that uses it; the insert then fails 23503.
+   *
+   * It also made this file's own header claim ("It only ever touches rows it
+   * created") untrue, which is the more corrosive part: the next reader trusts
+   * it and stops checking.
+   */
+  const { data: fixtureOrg, error: fixtureOrgError } = await admin
+    .from("organizations")
+    .insert({
+      // Matches FIXTURE_NAME_PATTERNS, so the global sweep backstops this if a
+      // run dies before afterAll.
+      name: `RLS-CROSSUSER Org ${randomUUID().slice(0, 8)}`,
+      domain: `crossuser-${randomUUID().slice(0, 8)}.example`,
+      created_by: A.id,
+      // Verified: 0027 gates the authenticated SELECT on job_postings behind
+      // organizations.verified, and B must be able to SEE the posting for the
+      // public-surface assertions below to mean anything.
+      verified: true,
+    })
+    .select("id")
+    .single();
+  if (fixtureOrgError || !fixtureOrg) {
+    throw new Error(`Could not create fixture org: ${fixtureOrgError?.message}`);
+  }
+  fixtureOrgId = fixtureOrg.id;
+
+  const { data: job, error: jobError } = await admin
+    .from("job_postings")
+    .insert({
+      source_type: "internal",
+      organization_id: fixtureOrgId,
+      company_name: "RLS-CROSSUSER Co",
+      title: "RLS-CROSSUSER Role",
+      description: "Fixture posting owned by tests/rls/cross-user.",
+      structured_jd: {},
+      status: "open",
+      posted_at: new Date().toISOString(),
+      dedup_fingerprint: randomUUID(),
+    })
+    .select("id")
+    .single();
+  if (jobError || !job) throw new Error(`Could not create fixture posting: ${jobError?.message}`);
+  jobPostingId = job.id;
   const { data: verified } = await admin
     .from("scholarships")
     .select("id")
@@ -231,6 +282,13 @@ afterAll(async () => {
   for (const u of [A, B]) {
     if (u?.id) await admin.auth.admin.deleteUser(u.id);
   }
+  /*
+   * Then the fixture organisation and its posting. Users first is not required
+   * — deleteOrgsCascade removes applications and match_scores itself — but it
+   * keeps the cascade doing the work it already does, and leaves this call with
+   * nothing to clean up in the ordinary case.
+   */
+  if (fixtureOrgId) await deleteOrgsCascade(admin, [fixtureOrgId]);
 }, 60_000);
 
 /**

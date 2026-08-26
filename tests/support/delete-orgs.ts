@@ -112,6 +112,46 @@ async function del(
 }
 
 /**
+ * Deletes job postings and everything blocking them.
+ *
+ * Split out of deleteOrgsCascade so a suite that owns a posting WITHOUT an
+ * organisation can reuse it — an external fixture posting has
+ * `organization_id = null`, so no org delete reaches it and the global sweep,
+ * which works from the organisation allowlist, cannot see it either.
+ *
+ * The FK facts live here and only here, which is the point: the first attempt
+ * to hand-roll this elsewhere used `job_tailoring_requests.job_posting_id`
+ * (the column is `source_job_posting_id`) and would have deleted resumes that
+ * merely reference the posting instead of unlinking them.
+ *
+ *   job_postings ← CASCADE:   ad_campaigns, auto_apply_queue, match_scores
+ *   job_postings ← NO ACTION: applications.job_posting_id,
+ *                             job_tailoring_requests.source_job_posting_id,
+ *                             resumes.tailored_for_job_id
+ *
+ * `resumes` is NULLed rather than deleted: a resume belongs to a user, not to
+ * the posting it was tailored for.
+ */
+export async function deletePostingsCascade(
+  db: OrgDeletingClient,
+  postingIds: string[],
+): Promise<void> {
+  const ids = [...new Set(postingIds.filter(Boolean))];
+  if (!ids.length) return;
+
+  await del(db, "applications", "job_posting_id", ids);
+  await del(db, "job_tailoring_requests", "source_job_posting_id", ids);
+  for (let i = 0; i < ids.length; i += 100) {
+    const { error } = await db
+      .from("resumes")
+      .update({ tailored_for_job_id: null })
+      .in("tailored_for_job_id", ids.slice(i, i + 100));
+    if (error) throw new Error(`test teardown failed unlinking resumes: ${error.message}`);
+  }
+  await del(db, "job_postings", "id", ids);
+}
+
+/**
  * Deletes organisations and everything blocking them. Throws on any failure,
  * so a broken teardown fails the suite instead of quietly filling production.
  */
@@ -132,19 +172,7 @@ export async function deleteOrgsCascade(
     postingIds.push(...(data ?? []).map((r) => r.id));
   }
 
-  if (postingIds.length) {
-    // Depth 2 — the NO ACTION children of job_postings.
-    await del(db, "applications", "job_posting_id", postingIds);
-    await del(db, "job_tailoring_requests", "source_job_posting_id", postingIds);
-    for (let i = 0; i < postingIds.length; i += 100) {
-      const { error } = await db
-        .from("resumes")
-        .update({ tailored_for_job_id: null })
-        .in("tailored_for_job_id", postingIds.slice(i, i + 100));
-      if (error) throw new Error(`test teardown failed unlinking resumes: ${error.message}`);
-    }
-    await del(db, "job_postings", "id", postingIds);
-  }
+  await deletePostingsCascade(db, postingIds);
 
   // Depth 1 — the other NO ACTION child of organizations.
   await del(db, "payment_transactions", "organization_id", ids);

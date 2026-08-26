@@ -18,6 +18,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
 import type { Database } from "@/lib/supabase/types";
 import { deleteTestOrgs } from "../support/cleanup";
+import { deletePostingsCascade } from "../support/delete-orgs";
 import {
   AUTO_APPLY_DAILY_SUBMIT_CAP,
   AUTO_APPLY_FREE_PER_WEEK,
@@ -133,20 +134,52 @@ beforeAll(async () => {
     internalJobIds.push(job.id);
   }
 
-  const { data: external } = await admin
+  /*
+   * The external posting is OWNED too, for the same reason as the internal ones
+   * above. Lower risk — external rows come from the ingest pipeline rather than
+   * from fixtures — but still unowned: an ingest run can close a borrowed row
+   * mid-suite (the freshness pass closes anything a source did not just return),
+   * and this file's whole point is what auto-apply does with an OPEN external
+   * posting.
+   *
+   * `external_source` is deliberately a value no configured source uses. The
+   * ingest freshness pass is scoped per source, so a fixture under its own
+   * source key can never be closed by a real run.
+   */
+  const { data: external, error: externalError } = await admin
     .from("job_postings")
+    .insert({
+      source_type: "external",
+      organization_id: null,
+      company_name: "AUTOAPPLY-TEST External Co",
+      title: "AUTOAPPLY-TEST External Role",
+      description: "Fixture external posting owned by tests/auto-apply.",
+      structured_jd: {},
+      status: "open",
+      posted_at: new Date().toISOString(),
+      external_url: `https://example.com/autoapply-fixture/${randomUUID()}`,
+      external_source: "test-fixture:auto-apply",
+      dedup_fingerprint: `autoapply-external-${randomUUID()}`,
+    })
     .select("id")
-    .eq("source_type", "external")
-    .eq("status", "open")
-    .limit(1)
     .single();
-  externalJobId = external!.id;
+  if (externalError || !external) {
+    throw new Error(`Could not create fixture external posting: ${externalError?.message}`);
+  }
+  externalJobId = external.id;
 });
 
 afterAll(async () => {
   // Org first: deleteOrgsCascade removes the fixture postings with it, and
   // job_postings.organization_id is NO ACTION so the order matters.
   if (fixtureOrgId) await deleteTestOrgs([fixtureOrgId]);
+  /*
+   * The external fixture has no organisation, so no org delete reaches it and
+   * the global sweep — which works from the organisation allowlist — cannot see
+   * it either. It has to be removed by id, and its children first: applications
+   * and job_tailoring_requests are NO ACTION against job_postings.
+   */
+  if (externalJobId) await deletePostingsCascade(admin, [externalJobId]);
   if (user) await admin.auth.admin.deleteUser(user.id);
 });
 
