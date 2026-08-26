@@ -42,34 +42,7 @@ config({ path: ".env.local" });
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "../src/lib/supabase/types";
 import { deleteOrgsCascade } from "../tests/support/delete-orgs";
-
-/**
- * Fixture shapes, each traceable to the line that creates it. Domains are
- * preferred over names where they exist: `.example` is reserved by RFC 2606
- * and can never be a real company's domain.
- */
-const FIXTURE_DOMAIN_PATTERNS = [
-  "camp-%.example", // tests/billing/ad-campaigns.test.ts + tests/support/cleanup.test.ts
-  "out-%.example", // tests/billing/ad-campaigns.test.ts (the outsider org)
-];
-const FIXTURE_NAME_PATTERNS = [
-  "Campaign Co %", // tests/billing/ad-campaigns.test.ts
-  "Outsider Co %", // tests/billing/ad-campaigns.test.ts
-  "Teardown Co %", // tests/support/cleanup.test.ts
-  "Wallet Test Co %", // tests/billing/ad-wallet.test.ts
-  "COLPRIV-TEST %", // tests/rls/column-privileges.test.ts
-  "COLPRIV-ROLE %", // tests/rls/column-privileges.test.ts
-  "EMPLOYER-TEST%", // tests/employer/employer-flow.test.ts
-  "AUTOAPPLY-TEST Org %", // tests/auto-apply/enforcement.test.ts
-];
-
-/**
- * Real organisations. Not the mechanism that protects them — the allowlist
- * above is — but the assertion that proves the mechanism still holds.
- * "Zaria Digital" is scripts/seed.ts's demo org and the golden-path e2e runs
- * against its postings; "Fatishcakes" is a real signed-up employer.
- */
-const PROTECTED = ["Zaria Digital", "Fatishcakes"];
+import { selectFixtureOrgs, type FixtureOrg } from "../tests/support/fixture-orgs";
 
 const db = createClient<Database>(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -77,24 +50,13 @@ const db = createClient<Database>(
   { auth: { persistSession: false, autoRefreshToken: false } },
 );
 
-type Org = { id: string; name: string; domain: string | null };
-
-async function selectFixtures(): Promise<Org[]> {
-  const found = new Map<string, Org>();
-
-  const collect = async (column: "domain" | "name", pattern: string) => {
-    const { data, error } = await db
-      .from("organizations")
-      .select("id, name, domain")
-      .like(column, pattern);
-    if (error) throw new Error(`selecting ${column} like ${pattern}: ${error.message}`);
-    for (const o of data ?? []) found.set(o.id, o);
-  };
-
-  for (const p of FIXTURE_DOMAIN_PATTERNS) await collect("domain", p);
-  for (const p of FIXTURE_NAME_PATTERNS) await collect("name", p);
-  return [...found.values()];
-}
+/**
+ * Patterns and the protected-name assertion live in
+ * tests/support/fixture-orgs.ts, shared with the per-suite teardown and the
+ * global sweep so the three cannot drift. `selectFixtureOrgs` throws if the
+ * selection ever contains a known-real organisation.
+ */
+const selectFixtures = (): Promise<FixtureOrg[]> => selectFixtureOrgs(db as never);
 
 async function main() {
   const apply = process.argv.includes("--apply");
@@ -104,17 +66,6 @@ async function main() {
     .select("id", { count: "exact", head: true });
 
   const fixtures = await selectFixtures();
-
-  // Guard 3. Abort the whole run rather than skipping the row: a protected org
-  // in the selection means a pattern is wrong, and the rest of the selection
-  // can no longer be trusted either.
-  const protectedHits = fixtures.filter((o) => PROTECTED.includes(o.name));
-  if (protectedHits.length) {
-    throw new Error(
-      `ABORTED: fixture patterns matched protected organisations: ` +
-        protectedHits.map((o) => `${o.name} (${o.domain})`).join(", "),
-    );
-  }
 
   const ids = fixtures.map((o) => o.id);
   const { count: campaigns } = await db

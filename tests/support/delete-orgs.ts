@@ -69,6 +69,20 @@ export type OrgDeletingClient = SupabaseClient<Database>;
  * the organisation whose posting it was tailored for, so deleting it would
  * destroy someone else's fixture.
  *
+ * ── A teardown cannot clean up after a failure that stops the teardown ────
+ *
+ * This is the mechanism, and it is not sufficient on its own. Measured: run
+ * tests/billing/ad-campaigns.test.ts alone and the organisation count is
+ * unchanged (23 before, 23 after). Run the full suite into Supabase's auth
+ * rate limit — the condition CLAUDE.md documents as "not a real failure" — and
+ * 21 organisations from that same file survive, because the hook that would
+ * have removed them never finished.
+ *
+ * tests/support/global-teardown.ts is the backstop for exactly those runs. It
+ * sweeps once at the end of the whole run, by the shared allowlist in
+ * ./fixture-orgs.ts. Treat a straggler on a CLEAN run as a bug in that suite,
+ * not as something the sweep exists to absorb.
+ *
  * NOT FIXED HERE, deliberately: making `job_postings.organization_id` CASCADE
  * would be the tidier schema, but it is a product decision (should deleting an
  * employer destroy the postings applicants have applied to?) and it would not

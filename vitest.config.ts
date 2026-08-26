@@ -6,6 +6,13 @@ export default defineConfig({
     environment: "node",
     setupFiles: ["./tests/setup.ts"],
     /*
+     * Runs once after the whole run, after every file's own afterAll. The
+     * per-suite `deleteTestOrgs` is the mechanism; this is the backstop for
+     * the runs where a hook never finishes — a rate-limited run left 21
+     * organisations in the live project this way. See the file's header.
+     */
+    globalSetup: ["./tests/support/global-teardown.ts"],
+    /*
      * `.tsx` as well as `.ts`. The template suite renders real components with
      * react-dom/server, which needs JSX — and a file that does not match this
      * glob is not reported as skipped, it is simply never collected. The
