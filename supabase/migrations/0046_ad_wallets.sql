@@ -42,11 +42,20 @@ create table if not exists public.ad_wallets (
   -- time is a pricing decision nobody has made.
   currency text not null default 'NGN',
   balance_ngn integer not null default 0,
-  -- §7.3: the low-balance warning fires at 20% of the LAST top-up remaining,
-  -- so the threshold has to be remembered per wallet. Percentage rather than
-  -- an absolute figure because it scales with how the employer actually uses
-  -- the product; "one day's spend" would need a spend rate, and v1 has no
-  -- metering.
+  -- §7.3: the low-balance warning is a percentage of the LAST top-up
+  -- remaining, so the threshold has to be remembered per wallet. Percentage
+  -- rather than an absolute figure because it scales with how the employer
+  -- actually uses the product; "one day's spend" would need a spend rate, and
+  -- v1 has no metering.
+  --
+  -- THE MECHANISM IS DECIDED; THE NUMBER (20%) IS A PLACEHOLDER. It came from
+  -- example text in the question used to choose the mechanism, not from anyone
+  -- deliberating on the figure. It is implemented because the code needs a
+  -- number. Re-check it against real flat-rate campaign pricing before this is
+  -- treated as considered: if one campaign costs a meaningful fraction of a
+  -- typical top-up, 20% remaining may be less than a single campaign, and a
+  -- warning that arrives after the employer can no longer afford anything is
+  -- not a warning.
   last_topup_ngn integer,
   low_balance_notified_at timestamptz,
   created_at timestamptz not null default now(),
@@ -168,8 +177,12 @@ begin
   values
     (p_organization_id, -p_amount_ngn, p_reason, v_new_balance, p_related_entity_id, p_actor_user_id);
 
-  -- §7.3: 20% of the last top-up remaining. Evaluated on the debit that
+  -- §7.3: percentage of the last top-up remaining. Evaluated on the debit that
   -- crosses the line rather than on a schedule — no polling job.
+  --
+  -- The 20 below is a PLACEHOLDER, not a considered threshold — see the
+  -- last_topup_ngn column comment. Changing it is a one-line migration and is
+  -- expected once flat-rate pricing exists.
   return query select
     true,
     v_new_balance,

@@ -254,11 +254,21 @@ Not adding the field is also the cheaper direction to reverse: adding expiry
 later is a migration, whereas removing an expiry that has already voided
 someone's balance is not fixable.
 
-### 7.3 Low-balance warning — 20% of the last top-up remaining
+### 7.3 Low-balance warning — percentage of last top-up; 20% is a PLACEHOLDER
 
-**Founder's figure and founder's call**, recorded as such: §4 said "threshold
-TBD" and §7 asked percentage-vs-absolute-vs-one-day's-spend without proposing a
-number.
+**The mechanism is decided. The number is not.**
+
+Percentage-of-last-top-up was chosen by the founder. The specific figure — 20% —
+was **example text in the multiple-choice question used to ask him**, not a
+figure anyone has independently deliberated on. It is implemented because the
+code needs *a* number, and it is recorded here as provisional so nobody later
+reads it as considered.
+
+Tracing it properly, because the attribution drifted twice: §4 originally said
+"threshold TBD" and §7 asked percentage-vs-absolute-vs-one-day's-spend without
+proposing a number; the 20% then appeared in the option text, was briefly
+attributed back to this document, and then to the founder. Neither was right.
+**Nobody has deliberated on 20%.**
 
 **Why percentage-of-last-top-up is the right mechanism**, independent of the
 number: it scales with how the employer actually uses the product. An absolute
@@ -268,8 +278,8 @@ produce — that is a metering concept, and §2 is explicit that v1 has no meter
 Last top-up is the only signal available in v1 that is proportional to the
 employer's own scale.
 
-**The number is provisional and should be re-checked** once flat-rate campaign
-pricing is set. If a campaign costs a meaningful fraction of a typical top-up,
+**The number is provisional and MUST be re-checked** once flat-rate campaign
+pricing is set — it is a placeholder, not a considered default. If a campaign costs a meaningful fraction of a typical top-up,
 20% remaining may be less than one campaign — a warning that arrives after the
 employer can no longer afford anything is not a warning. Re-sanity-check when
 pricing lands; the mechanism does not change.
