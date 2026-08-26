@@ -33,6 +33,92 @@ both served stale content in this project's history. Don't rely on either.
 
 ---
 
+## Merged 2026-08-26 — PR #60, tests own the job postings they write against
+
+| PR | Branch | Merged at (UTC) | Merge SHA |
+|----|--------|-----------------|-----------|
+| [#60](https://github.com/Bayo-1987/Claude-Talentrah/pull/60) | `fix/tests-own-their-job-postings` | 15:00:28 | `4f1d9d7` |
+
+Third and final instance of the borrowed-fixture defect, after the tracker suite
+(#54/#58) and auto-apply's internal postings (#59).
+
+A row selected with `.limit(1)` — no ordering, no ownership — and held for a
+whole file can be deleted by its owning suite in between, because up to 33 files
+run in parallel against one production project. The insert then fails 23503, and
+these call sites rarely check the error.
+
+**Demonstrated.** Reproducing the old borrowing in `cross-user.test.ts` and
+deleting the row before use:
+
+```
+Error: seed applications: insert or update on table "applications"
+violates foreign key constraint "applications_job_posting_id_fkey"
+Tests  38 skipped (38)
+```
+
+Note the shape: `beforeAll` throws, so **every test in the file skips** — a
+silent zero-coverage run, not a visible failure. With the fix, 38/38 pass.
+
+Fixed in three files: `cross-user.test.ts` (one site, held file-wide),
+`column-privileges.test.ts` (three sites) and `enforcement.test.ts` (the
+external posting, whose `external_source` is a value no configured source uses,
+so the per-source ingest freshness pass can never close it).
+
+`cross-user.test.ts`'s header claimed *"It only ever touches rows it created"* —
+the borrow made that false. Same class as the false comment in #54. It now
+states what is true and what was not.
+
+### A claim checked and withdrawn
+
+I expected the two NEGATIVE tests in `column-privileges` — which assert an
+insert is refused — to have been passing on 23503 rather than a permission
+denial, a false green in the suite whose job is proving column grants hold. It
+would have been the most serious of the three findings.
+
+**Measured: wrong.** Pointing the insert at a nonexistent uuid still yields
+42501, because Postgres evaluates the column-grant denial BEFORE the foreign
+key. Those two were never losing coverage; only the third, which inserts through
+the service role and expects success, would have broken. The code comment
+records the measurement, not the guess.
+
+The error-code assertion added there is kept for a different reason than first
+given: `.not.toBeNull()` is satisfied by ANY error, so it would survive the
+refusal becoming something incidental.
+
+### `deletePostingsCascade`
+
+Extracted from `deleteOrgsCascade`. A posting with NO organisation — the
+external fixture — cannot be reached by an org delete, and the global sweep
+works from the organisation allowlist, so nothing would ever have swept it.
+
+Worth recording why extracting beat hand-rolling: the hand-rolled version got
+the FK facts wrong on the first attempt. It used
+`job_tailoring_requests.job_posting_id` (the column is `source_job_posting_id`)
+and would have DELETED resumes that merely reference a posting instead of
+unlinking them. `tsc` caught the column name; the resumes part was only right
+after reading `delete-orgs.ts`. That module exists to hold these facts once.
+
+### Verified, four-point standard
+
+1. **PR API** — `merged: true`, `merged_at 2026-08-26T15:00:28Z`,
+   `merge_commit_sha 4f1d9d7e3612a0f5754e56b3834b95cf08f5127b`.
+2. **Fresh shallow clone of `main`** — parents `a9dea9b` + `b68414a`.
+   `deletePostingsCascade` exported; all three new fixture patterns registered;
+   the corrected header present. A scan of the merged tree for surviving
+   borrowers returns exactly one hit, `cross-user.test.ts:420`, which is a
+   READ-ONLY visibility assertion — it never holds the id or writes against it,
+   and the new `verified: true` fixture org makes it strictly more robust by
+   guaranteeing a visible posting exists.
+3. **Live probe** — not applicable; this is test-only and reaches no production
+   surface. Recorded as N/A rather than skipped. What was checked instead is
+   residue: after running the four affected suites repeatedly, production holds
+   **2 organisations (both real), 0 fixture-shaped orgs, 0 fixture-shaped
+   postings**, and auth users are down to 31 from the 50 that was one account
+   short of breaking the seed.
+4. **CI green on the merged head** — 5/5.
+
+---
+
 ## Merged 2026-08-26 — PR #59, a totally failed ingest answers 500 (and one regression I caused)
 
 | PR | Branch | Merged at (UTC) | Merge SHA |
