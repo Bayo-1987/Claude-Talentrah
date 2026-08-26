@@ -33,6 +33,73 @@ both served stale content in this project's history. Don't rely on either.
 
 ---
 
+## Merged 2026-08-26 — PR #64, local runs cannot hit production; CI seeds before testing
+
+| PR | Branch | Merged at (UTC) | Merge SHA |
+|----|--------|-----------------|-----------|
+| [#64](https://github.com/Bayo-1987/Claude-Talentrah/pull/64) | `fix/local-and-ci-target-the-ci-project` | 19:31:27 | `5635154` |
+
+The two threads left over from giving CI its own Supabase project.
+
+**1. `tests/setup.ts` refuses to run against production.** `.env.local` was
+repointed at the CI project, but the guard is the actual fix: an unrepointed env
+file looks and behaves exactly like a correct one until you check what it wrote,
+which is how local runs hit production twice in one session without being
+noticed. It is also the backstop for the worse case — a GitHub secret
+misconfigured back to production would otherwise run the whole suite, seed
+included, against live data with nothing to stop it. Escape hatch is
+`ALLOW_TESTS_AGAINST_PRODUCTION=yes-i-mean-it`, which has to be typed on a
+command line so it cannot happen by drift.
+
+**The service-role key in `.env.local` is a placeholder** and must be pasted by
+hand from Talentrah CI → Settings → API. Nothing local works until it is, which
+is deliberate: a half-repointed file still holding a production service key is
+the exact failure the repoint exists to prevent.
+
+**2. The seed deadlock is gone.** `npm run seed` needs a dev server so it lives
+in the Playwright job, which is `needs: checks` — on a never-seeded database the
+unit tests ran first, failed on a missing catalog, and skipped the job that
+would have fixed them. `npm run seed:catalog` writes reference data straight to
+the database with no app involved and runs in the checks job before typecheck.
+Idempotent.
+
+Scholarships carry their moderation state because reproducing it matters:
+`cross-user.test.ts` asserts a verified one is visible to a signed-in user and a
+pending one is not, so a catalog with only one state would leave that gate
+untested rather than failing loudly.
+
+### Verified by experiment, not by a green tick
+
+The CI project's `scholarships` table was **emptied to 0 before pushing**. If the
+new step did nothing, `cross-user` would have crashed at file level reading
+`.id` of null, exactly as it did the first time the suite met a fresh database.
+
+```
+before push          scholarships = 0
+after the CI run     scholarships = 8   (5 verified / 3 pending)
+                     cross-user passed
+                     catalog otherwise intact: 11 templates, 3 packs, 2 passes
+```
+
+### Recorded because it explains why this class of bug survives
+
+Widening that test by also clearing `passes` and `credit_packs` was refused:
+FKs from seeded `user_passes` block the delete. **A fresh-project state cannot
+be simulated by deleting on a used one** — which is part of why "works because
+the data has been there for weeks" goes unnoticed for so long.
+
+### Verified, four-point standard
+
+1. **PR API** — `merged: true`, `merged_at 2026-08-26T19:31:27Z`,
+   `merge_commit_sha 5635154a015d0b65a1cd21718690710ad95a0a71`.
+2. **Fresh clone** — `scripts/seed-catalog.ts` present; the production guard in
+   `tests/setup.ts`; the seed step ahead of Typecheck in `ci.yml`.
+3. **Live probe** — the restore above, measured against a table this session
+   emptied on purpose.
+4. **CI green on the merged head** — 5/5.
+
+---
+
 ## Merged 2026-08-26 — PR #63, ad serving reaches the feed. Arc complete.
 
 | PR | Branch | Merged at (UTC) | Merge SHA |
