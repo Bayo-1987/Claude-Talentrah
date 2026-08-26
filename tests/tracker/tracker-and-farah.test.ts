@@ -83,6 +83,75 @@ async function stageOf(id: string) {
   return data;
 }
 
+/**
+ * A posting this suite OWNS.
+ *
+ * Two tests below used to grab whatever `job_postings` returned first for
+ * `status = open AND source_type = internal`, with no ordering and no
+ * ownership. That reads harmless and is not: there is no staging database
+ * (CLAUDE.md), up to 21 files run in parallel, and the row it lands on may
+ * belong to a suite that is about to delete it. It did — CI failed with
+ *
+ *     expected undefined to be 'Campaign Role 74d6c2'
+ *
+ * `Campaign Role …` is the ad-campaigns suite's naming. That suite created the
+ * posting, this test borrowed it, and its afterAll cascade-deleted the org (and
+ * the posting with it) between this test's write and its read. The tracker was
+ * never broken; the fixture was.
+ *
+ * Creating one costs a single insert and removes the whole class.
+ */
+async function makeOwnPosting(): Promise<{ id: string; title: string }> {
+  // An internal posting must belong to an organisation
+  // (job_postings_internal_has_org), so the fixture owns one of those too.
+  // Created once and reused: the constraint is about shape, not about each
+  // test having a distinct company.
+  if (!fixtureOrgId) {
+    const { data: org, error: orgErr } = await admin
+      .from("organizations")
+      .insert({
+        name: `Tracker Fixture Co ${randomUUID().slice(0, 8)}`,
+        domain: `trkfix-${randomUUID().slice(0, 8)}.example`,
+        created_by: sharedOwner.id,
+        // VERIFIED, and that is load-bearing rather than incidental. 0027 gates
+        // the authenticated SELECT policy on job_postings behind
+        // organizations.verified, so an unverified org's postings are invisible
+        // to a normal session and the tracker's embedded join returns nothing.
+        // The row this test used to borrow happened to belong to a verified
+        // org, which is why borrowing appeared to work — another thing the
+        // fixture was silently depending on.
+        verified: true,
+      })
+      .select("id")
+      .single();
+    if (orgErr) throw orgErr;
+    fixtureOrgId = org.id;
+  }
+
+  const title = `Tracker Fixture Role ${randomUUID().slice(0, 8)}`;
+  const { data, error } = await admin
+    .from("job_postings")
+    .insert({
+      source_type: "internal",
+      organization_id: fixtureOrgId,
+      title,
+      company_name: "Tracker Fixture Co",
+      description: "Fixture posting owned by tests/tracker.",
+      structured_jd: {},
+      status: "open",
+      posted_at: new Date().toISOString(),
+      dedup_fingerprint: randomUUID(),
+    })
+    .select("id, title")
+    .single();
+  if (error) throw error;
+  createdPostings.push(data.id);
+  return data;
+}
+
+const createdPostings: string[] = [];
+let fixtureOrgId: string | null = null;
+
 beforeAll(async () => {
   const user = await createAuthedTestUser("trk-shared");
   sharedOwner = { id: user.id, client: user.client };
@@ -95,6 +164,9 @@ afterEach(async () => {
 }, 60_000);
 
 afterAll(async () => {
+  if (createdPostings.length) await admin.from("job_postings").delete().in("id", createdPostings);
+  // Deleting the org cascades any posting the line above missed.
+  if (fixtureOrgId) await admin.from("organizations").delete().eq("id", fixtureOrgId);
   if (sharedOwner) await admin.auth.admin.deleteUser(sharedOwner.id).catch(() => {});
   const { data } = await admin.auth.admin.listUsers();
   for (const u of data.users.filter((x) => x.email?.startsWith("trk-"))) {
@@ -396,21 +468,15 @@ describe("manual entry integrity", () => {
   it("an entry whose posting is later closed still renders its data", async () => {
     // Soft-delete safety: closing a posting must not orphan a tracker row.
     const a = sharedOwner;
-    const { data: job } = await admin
-      .from("job_postings")
-      .select("id, title, company_name")
-      .eq("status", "open")
-      .eq("source_type", "internal")
-      .limit(1)
-      .single();
+    const job = await makeOwnPosting();
 
     const { data: app } = await admin
       .from("applications")
-      .insert({ user_id: a.id, job_posting_id: job!.id, stage: "applied", source: "internal_apply" })
+      .insert({ user_id: a.id, job_posting_id: job.id, stage: "applied", source: "internal_apply" })
       .select("id")
       .single();
 
-    await admin.from("job_postings").update({ status: "closed" }).eq("id", job!.id);
+    await admin.from("job_postings").update({ status: "closed" }).eq("id", job.id);
     try {
       const { data, error } = await a.client
         .from("applications")
@@ -418,9 +484,9 @@ describe("manual entry integrity", () => {
         .eq("id", app!.id)
         .single();
       expect(error, "a closed posting must not break the tracker join").toBeNull();
-      expect(data?.job_postings?.title).toBe(job!.title);
+      expect(data?.job_postings?.title).toBe(job.title);
     } finally {
-      await admin.from("job_postings").update({ status: "open" }).eq("id", job!.id);
+      await admin.from("job_postings").update({ status: "open" }).eq("id", job.id);
     }
   });
 
@@ -432,26 +498,21 @@ describe("manual entry integrity", () => {
      * errors on the save action.
      */
     const a = sharedOwner;
-    const { data: job } = await admin
-      .from("job_postings")
-      .select("id")
-      .eq("status", "open")
-      .limit(1)
-      .single();
+    const job = await makeOwnPosting();
 
     // Shared owner, so clear any prior row for this pair first.
     await admin
       .from("applications")
       .delete()
       .eq("user_id", a.id)
-      .eq("job_posting_id", job!.id);
+      .eq("job_posting_id", job.id);
 
     await a.client
       .from("applications")
-      .insert({ user_id: a.id, job_posting_id: job!.id, stage: "saved", source: "manual" });
+      .insert({ user_id: a.id, job_posting_id: job.id, stage: "saved", source: "manual" });
     const { error } = await a.client
       .from("applications")
-      .insert({ user_id: a.id, job_posting_id: job!.id, stage: "saved", source: "manual" });
+      .insert({ user_id: a.id, job_posting_id: job.id, stage: "saved", source: "manual" });
 
     expect(error?.code, "a duplicate save should be a unique violation, not a crash").toBe("23505");
   });
