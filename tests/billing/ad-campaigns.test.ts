@@ -23,6 +23,7 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { randomUUID } from "node:crypto";
 import { admin, createAuthedTestUser, deleteTestUsers, type DB } from "../support/auth";
+import { runCampaignChargeJob } from "@/lib/billing/campaign-charges";
 
 let owner: { id: string; client: DB };
 let orgId: string;
@@ -384,5 +385,109 @@ describe("cross-organisation isolation", () => {
     // Positive control.
     const mine = await owner.client.from("ad_campaigns").select("id").eq("organization_id", orgId);
     expect((mine.data ?? []).length, "the owner must still see their own").toBeGreaterThan(0);
+  });
+});
+
+describe("the batch runner — the caller charge_ad_campaign_day never had", () => {
+  /*
+   * 0047 shipped the daily charge with three passing tests and nothing calling
+   * it. `resume_ad_campaign` charges the day it activates a campaign, so a
+   * campaign went live having paid for one day and then advertised until its
+   * end date for free — and `spent_ngn` never grew, so the budget cap never
+   * completed it either.
+   *
+   * Every run here is SCOPED to this test's organisation. Unscoped is what the
+   * cron does and what bills correctly, but there is no staging database
+   * (CLAUDE.md): an unscoped run from a test would debit every real employer's
+   * wallet, and no cleanup can undo a charge to a row the suite did not create.
+   */
+  const on = new Date().toISOString().slice(0, 10);
+  const run = () => runCampaignChargeJob({ on, organizationId: orgId });
+
+  it("MONEY: charges an active campaign for the day", async () => {
+    await fund(DAILY * 5);
+    const id = await makeCampaign("active");
+
+    const summary = await run();
+
+    expect(summary.ok).toBe(true);
+    expect(summary.considered).toBe(1);
+    expect(summary.charged, "the active campaign was not charged").toBe(1);
+    expect(summary.chargedNgn).toBe(DAILY);
+    expect(await walletBalance()).toBe(DAILY * 4);
+
+    const c = await campaign(id);
+    expect(c.spent_ngn).toBe(DAILY);
+    expect(c.last_charged_on).toBe(on);
+  });
+
+  it("MONEY: a campaign that cannot be paid does not stop the ones after it", async () => {
+    /*
+     * The mid-batch failure decision, proven rather than asserted in a comment.
+     * Funded for two days, four campaigns: two charge, and the batch must keep
+     * going PAST the first failure to reach the fourth. The check is that no
+     * campaign is left `active` with nothing charged — an unreached campaign
+     * looks exactly like that, and it is the state that bills nobody while
+     * still advertising.
+     */
+    await fund(DAILY * 2);
+    const ids = [
+      await makeCampaign("active"),
+      await makeCampaign("active"),
+      await makeCampaign("active"),
+      await makeCampaign("active"),
+    ];
+
+    const summary = await run();
+
+    expect(summary.considered).toBe(4);
+    expect(summary.charged).toBe(2);
+    expect(
+      summary.pausedInsufficientFunds,
+      "the batch stopped at the first unaffordable campaign instead of continuing",
+    ).toBe(2);
+    // An empty wallet is the designed §4 outcome, not a job failure.
+    expect(summary.ok, "pausing is not an error — a 500 here would page someone nightly").toBe(true);
+    expect(summary.errors).toEqual([]);
+    expect(await walletBalance()).toBe(0);
+
+    const states = await Promise.all(ids.map(campaign));
+    expect(
+      states.filter((c) => c.status === "active" && c.last_charged_on === null),
+      "a campaign was never reached: still active, still unbilled",
+    ).toHaveLength(0);
+    expect(states.filter((c) => c.status === "paused_insufficient_funds")).toHaveLength(2);
+  });
+
+  it("a duplicate delivery the same day charges nothing twice", async () => {
+    // Vercel Cron delivery is best-effort and may duplicate.
+    await fund(DAILY * 5);
+    await makeCampaign("active");
+
+    await run();
+    const afterFirst = await walletBalance();
+    const second = await run();
+
+    expect(await walletBalance(), "the same day was charged twice").toBe(afterFirst);
+    // The work-list filter excludes it, so it is not even considered again.
+    // (charge_ad_campaign_day would no-op anyway — that is tested above on the
+    //  RPC directly. This asserts the cheaper outer guard also holds.)
+    expect(second.considered).toBe(0);
+    expect(second.charged).toBe(0);
+  });
+
+  it("does not touch campaigns that are not active", async () => {
+    await fund(DAILY * 5);
+    const drafted = await makeCampaign("draft");
+    const paused = await makeCampaign("paused_by_employer");
+    const review = await makeCampaign("pending_review");
+
+    const summary = await run();
+
+    expect(summary.considered, "the job charged something that was not live").toBe(0);
+    expect(await walletBalance()).toBe(DAILY * 5);
+    for (const id of [drafted, paused, review]) {
+      expect((await campaign(id)).spent_ngn).toBe(0);
+    }
   });
 });

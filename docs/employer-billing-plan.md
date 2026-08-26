@@ -305,6 +305,7 @@ add a role check without a schema change.
 
 ---
 
+
 ## 8. What was actually built (2026-08-26)
 
 The plan above was written before any migration. This section records what
@@ -381,6 +382,82 @@ on it, and the next reviewer has no way to know what was wrong.
 - **No top-up UI.** `credit_ad_wallet` exists and is idempotent on
   `paystack_reference`, but the employer-facing Paystack flow that calls it is
   not built — wallets can currently only be funded server-side.
-- **The daily charge cron is not wired.** `charge_ad_campaign_day` exists and
-  is tested; nothing calls it on a schedule yet. Until it is scheduled, an
-  active campaign runs without being billed.
+- ~~**The daily charge cron is not wired.**~~ **Fixed** — see §9. It is
+  scheduled at 08:00 UTC, after the 05:00 job ingest, so a campaign whose job
+  was closed that morning is not billed for a day promoting a dead role.
+
+---
+
+## 9. The daily charge job — failure policy
+
+Added 2026-08-26, when the job that runs §4 was finally written. `0047` shipped
+`charge_ad_campaign_day` with three passing tests and **no caller**:
+
+```
+$ grep -rn charge_ad_campaign_day src/
+src/lib/supabase/types.ts:1476:      charge_ad_campaign_day: {
+```
+
+— the generated type, nothing else, and `vercel.json` scheduled three crons,
+none of them this. The effect was a money leak rather than a stalled feature:
+`resume_ad_campaign` charges the day it activates a campaign, so a campaign was
+paid for exactly one day and then advertised until its `ends_on` for free.
+`spent_ngn` never grew, so the budget cap never completed it either. An
+employer paid one day's rate for a thirty-day run.
+
+Recorded here because the *shape* generalises: a tested function with no caller
+is indistinguishable from a missing one, and scores better in a coverage
+report. The standing check is now in `tests/api/contract.test.ts` — it asserts
+the schedule exists, not just that scheduled paths resolve.
+
+### 9.1 A charge that fails mid-batch does not stop the batch
+
+**Read off the SQL rather than assumed**, because the answer decides whether
+the loop may continue. Most of what looks like failure is not an exception at
+all:
+
+| Outcome | Returns | Batch treats it as |
+|---|---|---|
+| Wallet cannot cover the day | `ok=false`, `paused_insufficient_funds` | **normal** — §4 working |
+| Budget cap reached / past `ends_on` | `ok=true`, `completed` | normal |
+| Already charged for this date | `ok=true`, no-op | normal (idempotent) |
+| No longer `active` | `ok=false`, current status | normal (a race) |
+| Campaign row is gone | **raises** | error, logged, loop continues |
+| Transport / lock failure | **raises or returns `error`** | error, logged, loop continues |
+
+**The loop continues past the errors too.** Each `.rpc()` is its own PostgREST
+request and therefore its own transaction, so an error on campaign *N* cannot
+roll back campaigns *1..N-1* — they are charged and committed. Aborting there
+would leave the tail of the batch `active` and unbilled, which is a narrower
+re-creation of the exact defect above. Continuing is the only choice that does
+not manufacture the bug again.
+
+**Continuing is not the same as reporting success.** Any raise, or any failed
+work-list page, sets `ok = false` and the route answers 500 so a scheduler
+alerts — the `runPassRenewalJob` convention. Campaigns that *paused* do **not**
+make the run a failure: a healthy run can be full of them, and a 500 for that
+would page someone nightly for the system working as designed.
+
+### 9.2 Consequences worth knowing before changing this
+
+* **A duplicated cron delivery is safe; a MISSED one is lost revenue, not
+  deferred revenue.** `charge_ad_campaign_day` is idempotent on
+  `last_charged_on`, so a double delivery bills once. But the next run charges
+  for the *next* day only — the skipped day is never billed. That is the right
+  direction to fail in (an employer is never charged for a day we failed to
+  bill on time) and it does mean a cron that silently stops firing loses money
+  quietly. Recovering a specific day is `POST /api/admin/charge-campaigns?on=`.
+* **The work-list is read fully before anything is charged.** The filter is
+  `last_charged_on < today` and charging sets `last_charged_on = today`, so a
+  charged row leaves the result set. Paging with OFFSET while mutating that
+  same predicate silently skips one row per page.
+* **The job can be scoped to one organisation.** `?organization_id=` is the
+  support-recovery tool — re-run one employer without re-charging everyone
+  else. It is also what makes the job testable at all: there is no staging
+  database, so an unscoped run from a test would debit every real employer's
+  wallet, and no cleanup can undo a charge to a row the suite did not create.
+* **Charges are sequential, deliberately.** Campaigns in one organisation all
+  debit the same `ad_wallets` row, and `debit_ad_wallet`'s conditional UPDATE
+  takes a row lock. Concurrency here buys contention, not throughput. If this
+  becomes the slow part, batch inside Postgres rather than opening more
+  connections.
