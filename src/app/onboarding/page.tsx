@@ -1,6 +1,7 @@
 import { requireUser } from "@/lib/auth/require-user";
 import { EyebrowLabel } from "@/components/ui";
 import { ResumeUpload } from "@/components/onboarding/resume-upload";
+import { hasVisibleName, visibleName } from "@/lib/profile/name";
 
 export const metadata = { title: "Welcome — Talentrah" };
 
@@ -25,8 +26,8 @@ export default async function OnboardingPage() {
           doesn't.
         */}
         <h1 className="font-display text-[30px] leading-tight">
-          {profile.first_name?.trim()
-            ? `Ready to land your dream job, ${profile.first_name.trim()}?`
+          {hasVisibleName(profile.first_name)
+            ? `Ready to land your dream job, ${visibleName(profile.first_name)}?`
             : "Ready to land your dream job?"}
         </h1>
         <p className="text-[15px] italic text-ink-soft font-display">

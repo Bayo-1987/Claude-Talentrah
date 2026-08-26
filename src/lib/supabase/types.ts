@@ -1302,6 +1302,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      has_visible_characters: { Args: { value: string }; Returns: boolean }
       is_org_member: { Args: { p_organization_id: string }; Returns: boolean }
       normalize_email_for_self_referral: {
         Args: { p_email: string }

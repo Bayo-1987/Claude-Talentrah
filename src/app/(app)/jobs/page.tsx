@@ -9,6 +9,7 @@ import { FeedTabs } from "@/components/jobs/feed-tabs";
 import { FilterBar } from "@/components/jobs/filter-bar";
 import { JobCard } from "@/components/jobs/job-card";
 import { Constants, type Tables } from "@/lib/supabase/types";
+import { hasVisibleName, visibleName } from "@/lib/profile/name";
 
 export const metadata = { title: "Jobs — Talentrah" };
 
@@ -175,7 +176,7 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
       */}
       <p className="text-[12px] italic text-ink-soft">
         Match scores are calculated against your saved resume
-        {profile.first_name?.trim() ? ` — profile: ${profile.first_name.trim()}` : ""}.
+        {hasVisibleName(profile.first_name) ? ` — profile: ${visibleName(profile.first_name)}` : ""}.
       </p>
     </div>
   );
