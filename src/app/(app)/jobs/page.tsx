@@ -10,6 +10,11 @@ import { FilterBar } from "@/components/jobs/filter-bar";
 import { JobCard } from "@/components/jobs/job-card";
 import { Constants, type Tables } from "@/lib/supabase/types";
 import { hasVisibleName, visibleName } from "@/lib/profile/name";
+import {
+  fetchPromotedJobs,
+  recordPromotedImpressions,
+  PROMOTED_SLOTS,
+} from "@/lib/ads/promoted";
 
 export const metadata = { title: "Jobs — Talentrah" };
 
@@ -111,6 +116,61 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
     scored.sort((a, b) => b.score - a.score);
   }
 
+  /*
+   * Promoted slots — Recommended only (D4).
+   *
+   * External, Saved and Recent are user intents, not discovery surfaces: on
+   * Saved the person is looking at a list they built, and inserting a paid card
+   * into it would be a different product. Recommended is the only tab whose
+   * ordering Talentrah chooses, so it is the only one where selling a position
+   * in that ordering is coherent.
+   *
+   * AFTER scoring, necessarily: promoted_jobs joins match_scores, which the
+   * call above has just written. Same ordering constraint as the Auto-Apply
+   * scan, for the same reason.
+   *
+   * This REORDERS the feed rather than adding to it. A promoted job is an open
+   * posting that already satisfies the tab's filters, so it is already in
+   * `scored` — fetching it separately would risk showing a job the filters
+   * excluded, which is precisely what D1 rules out.
+   */
+  let promotedIds: string[] = [];
+  if (tab === "recommended") {
+    const promoted = await fetchPromotedJobs(supabase, {
+      workType,
+      seniority,
+      limit: PROMOTED_SLOTS,
+    });
+    const scoredIds = new Set(scored.map((s) => s.job.id));
+    // Only ones actually on the page. A promoted job absent from `scored` was
+    // filtered out upstream, and billing an impression for a card that never
+    // rendered is the one thing this must not do.
+    const visible = promoted.filter((p) => scoredIds.has(p.jobPostingId));
+    promotedIds = visible.map((p) => p.jobPostingId);
+
+    if (promotedIds.length > 0) {
+      const rank = new Map(promotedIds.map((id, i) => [id, i]));
+      scored.sort((a, b) => {
+        const ra = rank.get(a.job.id);
+        const rb = rank.get(b.job.id);
+        if (ra !== undefined && rb !== undefined) return ra - rb;
+        if (ra !== undefined) return -1;
+        if (rb !== undefined) return 1;
+        return 0; // everything else keeps the order it already had
+      });
+    }
+
+    // Fire-and-forget against the render, not the viewport (D3). Awaited so it
+    // cannot outlive the request, but never allowed to fail the page — the job
+    // board must not go down because an ad event did not record.
+    try {
+      await recordPromotedImpressions(user.id, visible);
+    } catch {
+      /* non-fatal — see recordPromotedImpressions */
+    }
+  }
+  const promotedSet = new Set(promotedIds);
+
   return (
     <div className="flex flex-col gap-5">
       <div>
@@ -163,6 +223,7 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
               score={score}
               isSaved={applicationByJobId.get(job.id) === "saved"}
               applicationStage={applicationByJobId.get(job.id) ?? null}
+              isSponsored={promotedSet.has(job.id)}
             />
           ))}
         </div>
