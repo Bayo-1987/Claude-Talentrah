@@ -23,9 +23,11 @@ export interface JobCardProps {
   score: number;
   isSaved: boolean;
   applicationStage: Tables<"applications">["stage"] | null;
+  /** Paid placement. Labelled on the card; never affects the score shown. */
+  isSponsored?: boolean;
 }
 
-export function JobCard({ job, score, isSaved, applicationStage }: JobCardProps) {
+export function JobCard({ job, score, isSaved, applicationStage, isSponsored = false }: JobCardProps) {
   const metaParts = [
     job.company_name,
     job.location,
@@ -53,6 +55,21 @@ export function JobCard({ job, score, isSaved, applicationStage }: JobCardProps)
               {isExternal && (
                 <span className="ml-2 border border-line px-2 py-0.5 font-display text-[10.5px] font-bold italic text-ink-soft">
                   sourced externally
+                </span>
+              )}
+              {/*
+                Solid --ink, like the company badge, and for the same reason:
+                the three match tiers own green/rust/amber, and a fourth
+                coloured pill here would read as a fourth tier. It is also
+                visually unlike the italic serif "sourced externally", because
+                the two say different things — one is where the job came from,
+                the other is that someone paid for its position.
+
+                The word is "Sponsored" and stays "Sponsored" everywhere.
+              */}
+              {isSponsored && (
+                <span className="ml-2 bg-ink px-2 py-0.5 align-[0.15em] font-body text-[10px] font-bold tracking-[0.14em] text-paper uppercase">
+                  Sponsored
                 </span>
               )}
             </h3>
