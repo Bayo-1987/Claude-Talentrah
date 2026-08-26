@@ -618,8 +618,10 @@ async function main() {
     } else {
       const skipped = r.skipped ? `, skipped ${r.skipped}` : "";
       const collided = r.collided ? `, collided ${r.collided}` : "";
+      // Loud on purpose: this one means the source may be serving stale jobs.
+      const skippedSweep = r.closureSkipped ? "  ⚠ freshness sweep SKIPPED (empty fetch)" : "";
       console.log(
-        `  ✓ ${r.source}/${r.identifier}: fetched ${r.fetched}, upserted ${r.upserted}, closed ${r.closed}${collided}${skipped}`,
+        `  ✓ ${r.source}/${r.identifier}: fetched ${r.fetched}, upserted ${r.upserted}, closed ${r.closed}${collided}${skipped}${skippedSweep}`,
       );
     }
   }

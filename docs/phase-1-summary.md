@@ -849,8 +849,9 @@ dispatch/dedup/freshness pipeline, one config entry in `sources.config.ts`
 **Built in from the start, not retrofitted:** a shape-validation guard
 (`validateJobPosting` in `schema-org.ts`) that skips and logs a malformed
 `JobPosting` block instead of throwing — the exact contract-drift gap
-`test-scenarios-external-api-integrations-prompt.md` §1 already names as
-missing from `greenhouse.ts`/`lever.ts`. This fetcher is greenfield, so there
+`greenhouse.ts`/`lever.ts` still have — they cast their API responses through
+with no shape check. (A review brief named that gap; the brief is not in this
+repo, so the durable reference is those two files themselves.) This fetcher is greenfield, so there
 was no reason to repeat it. `IngestSourceResult.skipped` surfaces the count.
 
 **The freshness/closure sweep changed shape for this.** Greenhouse/Lever are

@@ -38,10 +38,12 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 /**
- * The contract-drift guard `test-scenarios-external-api-integrations-prompt.md`
- * §1 already flags as missing from `greenhouse.ts`/`lever.ts` — this fetcher
- * is greenfield, so it's built in from the start instead of repeating that
- * gap. A source publishing malformed markup for one listing must not zero
+ * The contract-drift guard `greenhouse.ts`/`lever.ts` still lack: both cast
+ * their API responses straight through with no shape check, so a change at the
+ * source throws a raw TypeError and takes the whole batch with it. (A review
+ * brief named that gap; the brief is not in this repo, so the durable
+ * reference is those two files themselves.) This fetcher is greenfield, so the
+ * guard is built in from the start rather than repeating the gap. A source publishing malformed markup for one listing must not zero
  * out every other listing in the same batch, so this returns a pass/fail
  * plus a human-readable reason rather than throwing.
  */
