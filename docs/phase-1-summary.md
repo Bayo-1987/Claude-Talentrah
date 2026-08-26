@@ -404,6 +404,31 @@ Confirmed on production rather than from the docs alone — `GET`, `PUT`,
 change. `/api/e2e/llm-provider` likewise already self-gates correctly, 404 on
 production. Both are covered by tests now, but neither needed a code change.
 
+## An empty fetch could wipe a source's live postings (PR #47)
+
+The freshness sweep closes "anything I did not just see" — which is *everything*
+when the fetch returned nothing. A board answering 200 with an empty array
+closed every posting for that source; the next run reopened them, so the damage
+was a window rather than permanent, but during it the feed was missing real jobs
+and nothing reported it.
+
+Documented in `ingest.ts`'s own comment since the Greenhouse days, pointing at a
+brief that is not in this repo — a fair part of why it stayed unfixed. PR #39
+then widened the blast radius: a schema-org source closes by source, so one
+empty listing page took out every employer on it.
+
+**The rule is "any open postings", not a threshold.** A source that genuinely
+emptied and one that glitched both return zero and are not distinguishable from
+here; the only difference is what we already hold. A source that is supposed to
+be empty has nothing open and is a silent no-op.
+
+**Surfaced, not silent** — `closed: 0` is also what a healthy run looks like, so
+the skip is reported via `IngestSourceResult.closureSkipped`, a warning naming
+the source and the count it protected, and a `⚠` in seed output.
+
+Both closure paths covered and separately tested; the company-scoped path was a
+gap in the first round of tests, found and closed before merge.
+
 ## Names must render at least one visible character (0045)
 
 `signUpSchema` validated `firstName`/`lastName` with

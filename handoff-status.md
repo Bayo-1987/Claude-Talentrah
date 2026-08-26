@@ -33,6 +33,79 @@ both served stale content in this project's history. Don't rely on either.
 
 ---
 
+## Merged 2026-08-26 — PR #47, empty fetch no longer wipes a source
+
+| PR | Branch | Merged at (UTC) | Merge SHA |
+|----|--------|-----------------|-----------|
+| [#47](https://github.com/Bayo-1987/Claude-Talentrah/pull/47) | `fix/empty-fetch-mass-close` | 09:29:25 | `23755c0` |
+
+**Closes the one item the sweep's own write-up had flagged as STILL OPEN.** The
+backlog is now genuinely clear — that line was written honestly a few hours
+earlier rather than rounded into "done", and this is what closes it.
+
+The freshness sweep closes "anything I did not just see", which means
+*everything* when the fetch returned nothing. A board answering 200 with an
+empty array — a deploy, a rate limit answered politely, a markup change —
+closed every posting for that source. The next run reopens them, so the damage
+is a window rather than permanent, but during it the feed is missing real jobs
+and nothing said so.
+
+Reproduced before fixing:
+
+```
+× THE BUG: zero jobs returned closes every open posting for the source
+  AssertionError: FEED WIPED: expected [ 'closed', 'closed' ] to deeply equal
+  [ 'open', 'open' ]
+```
+
+### The two design calls, written down
+
+**The rule is "any", not a threshold.** Deliberately not "…but MANY open
+postings exist". The two cases a threshold would separate — a source that
+genuinely emptied and one that glitched — are not distinguishable from here:
+both return zero, and the only difference is what we already hold. Withholding
+closure when we hold one posting costs one stale listing until the next run; a
+threshold to close it faster buys nothing and adds a number nobody can justify.
+A source that is *supposed* to be empty has nothing open, takes the
+`openBefore === 0` branch, and is a silent no-op rather than a warning.
+
+**Silent skipping is not enough**, because `closed: 0` is also what a healthy
+run looks like. `IngestSourceResult.closureSkipped`, a `console.warn` naming the
+source and the count it protected, and a `⚠` line in seed output. The warning
+says a *repeat* across runs means the source itself needs looking at — one skip
+is routine, a persistent one is a broken source.
+
+### A gap found in the work's own tests
+
+The guard covers both closure paths — greenhouse/lever scoped by company,
+schema-org scoped by source — but the first round of tests only exercised
+schema-org. Testing one branch and assuming the other is the same assumption
+this repo keeps getting caught by, so the company-scoped case was added and
+proven to fail with the guard disabled. `tests/jobs/` 24/24 across 6 files.
+
+### Stale references removed
+
+`ingest.ts`'s comment pointed at `test-scenarios-job-feed-matching-prompt.md`,
+which is not in this repo — a fair part of why the bug sat unfixed for months.
+That and the two other comments pointing at missing brief files now reference
+the code that demonstrates the behaviour instead. **No comment in `src/`,
+`scripts/` or `docs/` points at a file that does not exist.**
+
+### Verified
+
+1. **PR API** — `merged: true`, `merge_commit_sha 23755c0e5ecf2855ea6cd333e10266e5fa337982`.
+2. **Fresh shallow clone of `main`** — merge commit `23755c0`, two parents
+   (`922615d` + `8a66bc4`). Guard confirmed in the merged `ingest.ts`
+   (`closureSkipped`, the `openBefore` count, the skip warning); both test files
+   present; no remaining `test-scenarios-` references.
+3. **Live** — the feed the guard protects is intact: greenhouse 126 open / 11
+   closed, `schema-org:workable-nigeria` 20 open / 0 closed. No schema change in
+   this PR, so the live check is the data it defends.
+4. **CI** — 29/29 files, **355/355 tests**, Playwright 13/13; all four checks
+   green.
+
+---
+
 ## The 2026-08-26 sweep — what it was actually about
 
 Four items closed in one pass (#44 dedup, #45 org-domain, #46 name-guard, plus
@@ -1089,23 +1162,17 @@ rules. Those need the real files.
    (`jobs.workable.com/search/nigeria`); `hotnigerianjobs.com`, `jobberman.com`,
    `myjobmag.com` and `fuzu.com` all checked and rejected, Fuzu's ToS
    independently re-verified. Broader reliance still gated on §10 item 10.
-3. **Test-coverage briefs — all closed except one.** The 2026-08-26 sweep took
-   the five that were scoped to it (dedup, org-domain, premium-template,
-   zero-width, employer flake) plus Paystack earlier. One remains, flagged
-   below; it was never part of the sweep's scope and is stated as open rather
-   than rounded into "done":
+3. ~~**Test-coverage briefs**~~ — **all closed.** The 2026-08-26 sweep took the
+   five scoped to it (dedup, org-domain, premium-template, zero-width, employer
+   flake), plus Paystack earlier and the empty-200 guard after. Kept below as
+   the record of what each was and how it was closed:
    - ~~Cross-source dedup hash collisions destroying a posting's apply link~~
      — **done**, PR #44. Mechanism real but not firing; fixed and made
      discoverable via `IngestSourceResult.collided`.
-   - **STILL OPEN — a transient empty-200 ingest response mass-closing a
-     source's live postings.** The only item from the original ten not closed
-     by this sweep, and it was never in the five the sweep scoped. It is real
-     and named in `ingest.ts`'s own comment: an empty fetch produces an empty
-     `seenFingerprints`, so the freshness sweep closes every posting for that
-     source. PR #39 widened the blast radius from one company to a whole
-     schema-org source and said so at the time rather than fixing it. Not
-     currently firing, but it is the last known way the feed can silently empty
-     itself.
+   - ~~A transient empty-200 ingest response mass-closing a source's live
+     postings~~ — **done**, PR #47. Was the last item outstanding; the guard
+     refuses to close when a fetch is empty but open postings exist, on both
+     the company-scoped and source-scoped paths, and reports the skip.
    - ~~A Paystack blip being indistinguishable from a real decline~~ — **done**,
      PR #42 / migration 0043. Also closed the "no external call anywhere sets a
      timeout" item outright: those were the last untimed calls in the repo.
@@ -1125,3 +1192,27 @@ Items already closed that these briefs still describe as open — confirm, don't
 re-diagnose: the ingestion trigger's fail-open (#37), the `spendCredits` race
 and the scholarship credit try/catch gap (#34), and the resume-builder
 credit-spend race (#34).
+
+---
+
+## Next: employer billing (Phase 2)
+
+No backlog items remain. The next piece of roadmap work is **employer billing**,
+chosen over Ad Campaign Manager because it is the prerequisite — you cannot
+charge for a campaign without it — and because the Paystack rails and
+decline/indeterminate handling are freshly hardened and well understood after
+PR #42.
+
+A design brief exists at [docs/employer-billing-plan.md](docs/employer-billing-plan.md)
+and is **a proposal, not a decision**. No code and no migrations have been
+written. It covers: what is genuinely reusable from the Pass machinery versus
+what only looks reusable (`runPassRenewalJob`'s fixed-price/fixed-date shape does
+not map onto metered ad spend); an atomic wallet decrement modelled on
+`spend_credits_atomic` from the first commit rather than hardened later; the
+zero-balance policy (campaigns **pause**, they do not run negative and get
+invoiced) with the reasoning written out; and rail-as-data so a top-up's rail is
+a property of the transaction even though v1 wires only Paystack NGN.
+
+Four questions in it need a founder answer before schema exists. The sharpest is
+**refunds**: if an unspent balance must be withdrawable, that is payouts and KYC
+— exactly what §6.7 avoided for referrals by choosing credits over cash.
