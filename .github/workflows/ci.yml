@@ -40,8 +40,25 @@ on:
 # database that debris lands in the real project and is then picked up by the
 # next run's fixtures, which is how a cancelled run turns into a failing one.
 # Waiting a few minutes is strictly cheaper than that.
+# THE GROUP KEY IS PER-REF, AND THE CROSS-REF SERIALISATION MOVED TO A WAIT
+# STEP. It used to be a CONSTANT key, on the correct reasoning that what runs
+# contend over is the shared Supabase project rather than git history. That
+# reasoning still holds; the mechanism did not.
+#
+# GitHub keeps only ONE pending run per concurrency group and CANCELS the
+# others, and it never re-creates them. With a constant key, every ref shares
+# one group, so a PR's queued run is discarded the moment anything else queues
+# behind it. Observed three times in one afternoon — PRs #50, #51 and #53 — and
+# the failure mode is worse than a lost run: `gh pr checks` then lists only the
+# Vercel entries, all of which pass, so the PR looks GREEN and is mergeable
+# with no CI having run at all.
+#
+# Per-ref restores what the group is good at — one run per branch at a time —
+# and .github/scripts/wait-for-ci-lock.sh does the cross-ref serialisation by
+# BLOCKING instead of discarding. See that script for why it cannot deadlock
+# and why it waits for whole runs rather than matching jobs.
 concurrency:
-  group: talentrah-shared-supabase
+  group: talentrah-ci-${{ github.ref }}
   cancel-in-progress: false
 
 env:
@@ -168,6 +185,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      # Only this job waits. `secrets` touches no database and must keep
+      # reporting fast; `e2e` needs this job, so by the time it runs the lock
+      # is already held on this run's behalf and every earlier run has finished.
+      - name: Wait for earlier CI runs (shared Supabase project)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: .github/scripts/wait-for-ci-lock.sh
 
       - uses: actions/setup-node@v4
         with:
