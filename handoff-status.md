@@ -33,6 +33,104 @@ both served stale content in this project's history. Don't rely on either.
 
 ---
 
+## Merged 2026-08-26 — PR #54, ad wallet top-up (0049 + 0050)
+
+| PR | Branch | Merged at (UTC) | Merge SHA |
+|----|--------|-----------------|-----------|
+| [#54](https://github.com/Bayo-1987/Claude-Talentrah/pull/54) | `feat/ad-wallet-topup` | 12:35:07 | `8791a6b` |
+
+The last real gap in the billing loop. `credit_ad_wallet` had existed since 0046
+with nothing employer-facing calling it, so wallets could only be funded
+server-side.
+
+**The whole design is one string.** `credit_ad_wallet` dedupes on
+`ad_wallet_ledger_topup_reference_idx`, UNIQUE on `paystack_reference`
+**WHERE paystack_reference IS NOT NULL** — a *partial* index. It protects
+nothing unless the same reference reaches Paystack, the `payment_transactions`
+row, and `credit_ad_wallet`. So the reference is minted once in the Server
+Action before anything is charged and passed through unchanged.
+
+That matters more than it looks. `fulfillPayment`'s "already processed" guard is
+a **read-then-act** check on `payment_transactions.status`, and its own comment
+records the webhook/callback double-grant race as open and out of scope. The
+race is ordinary: the Paystack webhook and the new callback page both fulfil the
+same reference. For credit packs and passes nothing closes it. **For a top-up
+this index is the only defence.**
+
+Two ways to defeat it, both closed and both tested:
+
+| Defeat | Why it works | Closed by |
+|---|---|---|
+| A **null** reference | The index is partial — null collides with nothing, not even another null | 0050 CHECKs a top-up row carries a reference and an org |
+| A **fresh** reference at fulfilment | Reads as entirely correct | Reference minted once and threaded through |
+
+Proved the tests catch the second: minting a new reference per delivery fails
+with `expected 125000 to be 25000` — a 5× overcredit. There is also a test
+asserting the **broken null behaviour on purpose**, so that if anyone later
+makes the index total, the failing test explains what the CHECK was buying.
+
+### Verified, four-point standard
+
+1. **PR API** — `merged: true`, `merged_at 2026-08-26T12:35:07Z`,
+   `merge_commit_sha 8791a6b87665460c6e3d907ee57617b500622cc1`.
+2. **Fresh shallow clone of `main`** — merge commit `8791a6b`, parents `614c64c`
+   + `ae5cd51`. Both migrations, the action, the form and the callback page all
+   present. The chain checked in the *merged* files rather than the diff:
+   reference minted at `wallet-actions.ts:68`, stored at `:86`, sent to Paystack
+   at `:98`, read back at `fulfill.ts:145` as `transaction.paystack_reference`.
+3. **Live probe** — production routes answer (`/employer/campaigns/topup-callback`
+   307 like every other gated employer route, `/` 200), and the schema is as
+   intended:
+   ```
+   enum has ad_wallet_topup        -> 1
+   checks on payment_transactions  -> payment_transactions_product_id_required,
+                                      payment_transactions_topup_shape
+   topup idempotency index         -> UNIQUE … (paystack_reference)
+                                      WHERE (paystack_reference IS NOT NULL)
+   product_id nullable now         -> YES
+   ```
+   Constraint *behaviour* was proved before the code was built on it, all four
+   cases: null reference rejected, null organisation rejected, `credit_pack`
+   still requires `product_id`, well-formed top-up accepted.
+4. **CI green on the merged head** — 5/5.
+
+### A cross-suite fixture bug this PR surfaced
+
+CI failed first on a test this PR does not touch:
+
+```
+FAIL tests/tracker/tracker-and-farah.test.ts
+     > an entry whose posting is later closed still renders its data
+AssertionError: expected undefined to be 'Campaign Role 74d6c2'
+```
+
+`Campaign Role …` is the **ad-campaigns** suite's naming. Two tracker tests took
+whatever `job_postings` returned first for `status = open AND source_type =
+internal` — no ordering, no ownership, no creation. With 21 files in parallel
+against one production database, the row they land on can belong to a suite
+about to delete it, which is what happened.
+
+Not caused by this PR, but made much likelier by #49 and #51, which added many
+campaign tests each minting exactly the kind of row that fixture grabs.
+
+Fixing it exposed a **second** hidden dependency: once the tests owned their
+posting they still failed identically, because the fixture org was
+`verified: false`. 0027 gates the authenticated SELECT on `job_postings` behind
+`organizations.verified`, so an unverified org's postings are invisible to a
+normal session and the embedded join returns nothing. The borrowed row happened
+to belong to a verified org. Same symptom, entirely different cause — which is
+what a borrowed fixture is good at hiding.
+
+### Process note
+
+An uncommitted working tree was destroyed mid-PR by a `git reset --hard` while
+switching branches. The untracked migrations survived but had **already been
+applied to production**, so the database was briefly ahead of the repo. Restored
+and committed immediately. No production impact; recorded because "the DB is
+ahead of the repo" is exactly the state that is hard to notice later.
+
+---
+
 ## Merged 2026-08-26 — PR #53, the seed's user lookup reads every page
 
 | PR | Branch | Merged at (UTC) | Merge SHA |
