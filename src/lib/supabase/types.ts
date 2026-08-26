@@ -127,6 +127,61 @@ export type Database = {
           },
         ]
       }
+      ad_events: {
+        Row: {
+          campaign_id: string
+          dedup_bucket: string
+          event_type: Database["public"]["Enums"]["ad_event_type"]
+          id: string
+          job_posting_id: string
+          occurred_at: string
+          surface: string
+          user_id: string
+        }
+        Insert: {
+          campaign_id: string
+          dedup_bucket: string
+          event_type: Database["public"]["Enums"]["ad_event_type"]
+          id?: string
+          job_posting_id: string
+          occurred_at?: string
+          surface?: string
+          user_id: string
+        }
+        Update: {
+          campaign_id?: string
+          dedup_bucket?: string
+          event_type?: Database["public"]["Enums"]["ad_event_type"]
+          id?: string
+          job_posting_id?: string
+          occurred_at?: string
+          surface?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ad_events_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "ad_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ad_events_job_posting_id_fkey"
+            columns: ["job_posting_id"]
+            isOneToOne: false
+            referencedRelation: "job_postings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ad_events_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ad_wallet_ledger: {
         Row: {
           actor_user_id: string | null
@@ -1554,6 +1609,29 @@ export type Database = {
         Args: { p_campaign_id: string }
         Returns: Database["public"]["Enums"]["ad_campaign_status"]
       }
+      promoted_jobs: {
+        Args: {
+          p_limit?: number
+          p_min_score?: number
+          p_seniority?: Database["public"]["Enums"]["seniority_level"]
+          p_work_type?: Database["public"]["Enums"]["work_type"]
+        }
+        Returns: {
+          campaign_id: string
+          job_posting_id: string
+          match_score: number
+        }[]
+      }
+      record_ad_event: {
+        Args: {
+          p_campaign_id: string
+          p_event_type: Database["public"]["Enums"]["ad_event_type"]
+          p_job_posting_id: string
+          p_surface?: string
+          p_user_id: string
+        }
+        Returns: boolean
+      }
       resume_ad_campaign: {
         Args: { p_actor_user_id?: string; p_campaign_id: string }
         Returns: {
@@ -1597,6 +1675,7 @@ export type Database = {
         | "paused_by_employer"
         | "paused_insufficient_funds"
         | "completed"
+      ad_event_type: "impression" | "click" | "apply"
       ad_wallet_reason:
         | "topup"
         | "campaign_charge"
@@ -1792,6 +1871,7 @@ export const Constants = {
         "paused_insufficient_funds",
         "completed",
       ],
+      ad_event_type: ["impression", "click", "apply"],
       ad_wallet_reason: [
         "topup",
         "campaign_charge",
