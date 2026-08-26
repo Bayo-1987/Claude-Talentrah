@@ -33,6 +33,107 @@ both served stale content in this project's history. Don't rely on either.
 
 ---
 
+## Merged 2026-08-26 — PR #53, the seed's user lookup reads every page
+
+| PR | Branch | Merged at (UTC) | Merge SHA |
+|----|--------|-----------------|-----------|
+| [#53](https://github.com/Bayo-1987/Claude-Talentrah/pull/53) | `fix/seed-user-lookup-pagination` | 12:04:51 | `99ebf40` |
+
+`main`'s CI failed on PR #50's merge commit at *Seed demo data* with
+`AuthApiError: A user with this email address has already been registered`, and
+the next push passed on identical code. That reads like contention on the
+shared project. It was not.
+
+Both lookups called `listUsers()` **with no arguments**, so they searched only
+the first page — GoTrue's default is 50 — with a plain `.find()`. The seeded
+accounts are the OLDEST rows and GoTrue pages newest-first, so they sort LAST.
+Measured at the time:
+
+```
+listUsers() with no args returned: 47 users
+position of demo in the page: 47 of 47
+```
+
+Three accounts from the cliff. Not a race — **a paging bug with a countdown on
+it**, which is exactly why identical code failed once and passed once.
+
+### Verified, four-point standard
+
+1. **PR API** — `merged: true`, `merged_at 2026-08-26T12:04:51Z`,
+   `merge_commit_sha 99ebf401e191169ac05178e63e8f73351f6f3d28`.
+2. **Fresh shallow clone of `main`**, reading the merged file itself rather
+   than trusting the diff — merge commit `99ebf40`, parents `fb7d8b1` +
+   `6ca4584`. `findUserByEmail` present at `scripts/seed.ts:201`; both call
+   sites converted (`:223` demo, `:543` referred friends); the only surviving
+   `listUsers` call is the paginated one at `:207` — the two other textual
+   matches are the explanatory comment, checked rather than assumed.
+3. **Live re-measurement**, which is the only live check this change admits:
+   ```
+   auth users on default page: 48
+   demo position: 48 of 48
+   merged helper @perPage=5:   demo found on page 10
+   merged helper @perPage=50:  demo found on page 1
+   merged helper @perPage=200: demo found on page 1
+   ```
+   Page 10 at `perPage=5` is the point: the old code read page 1 and stopped.
+4. **CI green on the merged head** — 5/5.
+
+### Two unrelated fixes carried, both of which were blocking
+
+**A 1-in-43 flake.** This PR's CI failed on a referral test it does not touch:
+`is case-SENSITIVE — a lowercased code silently attributes nothing`.
+`generate_referral_code` is `upper(substr(md5(...), 1, 8))`; md5 hex draws from
+`0-9a-f`, so **ten of sixteen characters are digits**. An all-digit code makes
+`toLowerCase()` a no-op, the lookup correctly attributes, and the test fails
+claiming a case-insensitivity that does not exist. Measured against the live
+function over 50,000 samples:
+
+```
+all-digit codes: 1,162 / 50,000 = 2.324%
+predicted (10/16)^8             = 2.328%   -> 1 run in 43
+```
+
+Fixed by pinning the referrer's code to a provably case-different value, with
+an assertion that the pin worked. Confirmed the fix addresses the cause: pinning
+to an all-digit code instead reproduces the failure through the new guard
+(`expected '40900038' not to be '40900038'`).
+
+**eslint now ignores `.claude/worktrees/**`.** Agent worktrees are git-excluded
+but not eslint-excluded, so a nested checkout is linted with the wrong relative
+paths, the `e2e/fixtures/**` rules-of-hooks override stops matching, and a clean
+tree reports errors CI never sees in files nobody touched.
+
+---
+
+## Standing CI defect found 2026-08-26 — a PR can have NO CI and still be mergeable
+
+Not yet fixed; recorded because it undermines every other verification in this
+file.
+
+`ci.yml` uses `concurrency: { group: talentrah-shared-supabase,
+cancel-in-progress: false }` — a constant key, correct in intent, since what
+runs contend over is the one shared Supabase project rather than git history.
+But GitHub keeps only the **newest pending run** in a concurrency group and
+cancels the others, and it does not re-create them. So a PR's queued run is
+discarded whenever anything else queues behind it, and **no check ever reports**.
+
+Observed three times today:
+- PR #53's first run (`32963733680`) cancelled after 1m14s when a push to main
+  queued behind it; the PR sat with only Vercel's checks and was mergeable.
+- PR #51 initially showed no CI run at all, same cause.
+- PR #50 has a `cancelled` run in its history for the same reason.
+
+The recovery used was an empty commit. `workflow_dispatch` is **not** available
+— the token returns `403 Resource not accessible by personal access token`.
+
+Why it matters: `gh pr checks` on such a PR lists only the Vercel entries and
+every one of them passes, so the PR looks green. Anyone merging on that signal
+merges untested code. A real fix probably means replacing GitHub's
+`concurrency` with a queueing mutex that waits rather than discards, since
+discarding is inherent to how `concurrency` resolves pending runs.
+
+---
+
 ## Merged 2026-08-26 — PR #51, the daily charge finally has a caller
 
 | PR | Branch | Merged at (UTC) | Merge SHA |
