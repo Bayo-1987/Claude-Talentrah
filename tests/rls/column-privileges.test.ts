@@ -26,6 +26,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
 import type { Database } from "@/lib/supabase/types";
+import { deleteTestOrgs } from "../support/cleanup";
 
 for (const key of [
   "NEXT_PUBLIC_SUPABASE_URL",
@@ -205,8 +206,7 @@ describe("organizations: a company cannot verify itself (0028)", () => {
         .eq("id", org!.id);
       expect(error, "employers must still be able to edit their own profile").toBeNull();
     } finally {
-      await admin.from("organization_members").delete().eq("organization_id", org!.id);
-      await admin.from("organizations").delete().eq("id", org!.id);
+      await deleteTestOrgs([org!.id]);
     }
   });
 });
@@ -306,8 +306,7 @@ describe("tables with no UPDATE policy stay unwritable", () => {
         "admin",
       );
     } finally {
-      await admin.from("organization_members").delete().eq("organization_id", org!.id);
-      await admin.from("organizations").delete().eq("id", org!.id);
+      await deleteTestOrgs([org!.id]);
     }
   });
 });

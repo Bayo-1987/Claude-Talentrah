@@ -16,13 +16,28 @@
  * depends on the seeded demo account.
  */
 import { test, expect, admin } from "./fixtures/authed";
+import { deleteOrgsCascade } from "../tests/support/delete-orgs";
 
 test.describe("employer surface", () => {
   test.afterEach(async () => {
-    // The fixture's user delete cascades membership, but organisations are
-    // owned by created_by with no cascade, so they would survive the user.
-    await admin.from("job_postings").delete().like("title", "E2E Employer%");
-    await admin.from("organizations").delete().like("name", "E2E Employer Co%");
+    /*
+     * Was two bare deletes, and it did not work. The comment below it was
+     * right that organisations do not cascade from their creator, and missed
+     * the reason they survive anyway: `job_postings.organization_id` is NO
+     * ACTION, so deleting the organisation is REFUSED whenever a posting
+     * outlives the title pattern above — and supabase-js reports that by
+     * resolving with `{ data: null, error }`, which nothing here read.
+     *
+     * `E2E Employer Co Vd9de0ad7` was found in the live project this way.
+     * deleteOrgsCascade deletes in FK order and throws, so a failure here
+     * fails the test rather than filling production.
+     */
+    const { data: orgs, error } = await admin
+      .from("organizations")
+      .select("id")
+      .like("name", "E2E Employer Co%");
+    if (error) throw new Error(`e2e teardown failed listing organisations: ${error.message}`);
+    await deleteOrgsCascade(admin, (orgs ?? []).map((o) => o.id));
   });
 
   test("a new employer can onboard, post a job, and is told why it isn't public", async ({

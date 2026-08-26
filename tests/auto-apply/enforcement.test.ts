@@ -17,6 +17,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
 import type { Database } from "@/lib/supabase/types";
+import { deleteTestOrgs } from "../support/cleanup";
 import {
   AUTO_APPLY_DAILY_SUBMIT_CAP,
   AUTO_APPLY_FREE_PER_WEEK,
@@ -337,7 +338,7 @@ describe("the daily cap holds under concurrency, not just in sequence", () => {
       await admin.from("auto_apply_queue").delete().eq("user_id", user.id);
       await admin.from("applications").delete().eq("user_id", user.id);
       for (const id of throwaway) await admin.from("job_postings").delete().eq("id", id);
-      await admin.from("organizations").delete().eq("id", throwawayOrgId);
+      await deleteTestOrgs([throwawayOrgId]);
     }
   });
 });

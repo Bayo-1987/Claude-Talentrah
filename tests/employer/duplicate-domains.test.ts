@@ -32,6 +32,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { randomUUID } from "node:crypto";
 import { admin, createTestUser, deleteTestUsers } from "../support/auth";
+import { deleteTestOrgs } from "../support/cleanup";
 
 const DOMAIN = `dupdomain-${randomUUID().slice(0, 8)}.example`;
 const createdOrgs: string[] = [];
@@ -57,8 +58,10 @@ beforeAll(async () => {
   createdUsers.push(a.id, b.id);
 });
 
+  // deleteTestOrgs, not a bare org delete: job_postings.organization_id is
+  // NO ACTION, so the bare version is refused and reports it only in `error`.
 afterAll(async () => {
-  if (createdOrgs.length) await admin.from("organizations").delete().in("id", createdOrgs);
+  await deleteTestOrgs(createdOrgs);
   await deleteTestUsers(createdUsers);
 }, 60_000);
 

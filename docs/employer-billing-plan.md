@@ -385,6 +385,17 @@ on it, and the next reviewer has no way to know what was wrong.
 - ~~**The daily charge cron is not wired.**~~ **Fixed** — see §9. It is
   scheduled at 08:00 UTC, after the 05:00 job ingest, so a campaign whose job
   was closed that morning is not billed for a day promoting a dead role.
+- ~~**Production held 324 fixture organisations and 117 `active` fixture
+  campaigns**, which the new cron would have charged every morning.~~
+  **Purged 2026-08-26**; see §9.3 and the operational entry in
+  handoff-status.md.
+
+**Ranked, for whoever picks this up next.** The top-up UI is the only one of
+these that blocks a real employer from using the product: every other gap is
+about tuning or hygiene, while this one means the wallet can only be funded by
+someone with the service-role key. Everything downstream of it — the daily
+charge, the pause-at-zero policy, the low-balance warning — is built and tested
+against money that no employer can currently put in.
 
 ---
 
@@ -461,3 +472,32 @@ would page someone nightly for the system working as designed.
   takes a row lock. Concurrency here buys contention, not throughput. If this
   becomes the slow part, batch inside Postgres rather than opening more
   connections.
+
+### 9.3 The job's output is only as trustworthy as the data it selects
+
+Worth recording next to the failure policy, because it is the same class of
+problem seen from the other side: the job was correct and its **summary was
+still going to be a lie**.
+
+When the cron was written, the live project held 324 fixture organisations left
+by test suites whose teardown had never worked (`job_postings.organization_id`
+is NO ACTION, and the resulting error was discarded — see handoff-status.md).
+**117 of their campaigns were `active`**, which is exactly what
+`runCampaignChargeJob` selects. The first scheduled run would have charged and
+paused 117 fakes and reported it as ordinary activity.
+
+Two consequences that outlive the cleanup:
+
+* **`charged` / `pausedInsufficientFunds` counters are only meaningful if the
+  fixture floor is zero.** It is now, and two layers keep it there:
+  `deleteTestOrgs` per suite, plus a global sweep that catches the runs where a
+  teardown never finishes — a rate-limited full-suite run leaked 21
+  organisations past the per-suite hook alone. A future suite that creates
+  organisations without routing through them puts fake rows back into this
+  job's work-list, not just into the database.
+* **`job_postings.organization_id` stays NO ACTION deliberately.** Making it
+  CASCADE would be the tidier schema and is *not* the fix: `applications`
+  is NO ACTION on `job_postings` too, so a real employer with applicants would
+  still refuse to delete — and "deleting an employer destroys the postings
+  people applied to" is a product decision, not a teardown convenience. The
+  test helper does the ordering instead.

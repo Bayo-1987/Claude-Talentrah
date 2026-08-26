@@ -28,6 +28,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
 import type { Database } from "@/lib/supabase/types";
+import { deleteTestOrgs } from "../support/cleanup";
 
 for (const key of [
   "NEXT_PUBLIC_SUPABASE_URL",
@@ -126,8 +127,13 @@ afterAll(async () => {
     if (!u) continue;
     await admin.from("organization_members").delete().eq("user_id", u.id);
   }
-  if (orgId) await admin.from("organizations").delete().eq("id", orgId);
-  await admin.from("organizations").delete().like("name", "EMPLOYER-TEST%");
+  // Routed through deleteTestOrgs so a refused delete throws instead of being
+  // discarded — the bare form above left 312 orgs in production.
+  const { data: strays } = await admin
+    .from("organizations")
+    .select("id")
+    .like("name", "EMPLOYER-TEST%");
+  await deleteTestOrgs([...(orgId ? [orgId] : []), ...(strays ?? []).map((o) => o.id)]);
   for (const u of [employerA, outsiderB]) {
     if (u) await admin.auth.admin.deleteUser(u.id);
   }
