@@ -199,16 +199,58 @@ self-check refused to report success, which is what it is for. It now converges
 over bounded passes, so a partial pass self-heals instead of depending on an
 operator noticing. Re-running is a no-op.
 
+### The fix needed two layers, and the first one alone was not enough
+
+A per-suite teardown was the obvious answer and it is only half of one. Both
+halves measured, on the branch, rather than reasoned about:
+
+| run | result |
+|---|---|
+| `ad-campaigns.test.ts` alone | **0 leaked** — 23 organisations before, 23 after |
+| full suite, clean | **0 leaked** |
+| full suite into the auth rate limit | **21 leaked**, all from that one file |
+
+An `afterAll` only runs if the file gets that far, and only finishes if it is
+given the time. Hook timeouts, a killed worker, Ctrl-C, a rate-limited run
+aborted partway — those are exactly the runs that leak, and exactly the runs a
+per-file hook cannot cover. The first clean-run measurement said "zero leak"
+and was testing the case that was never the problem.
+
+So the fix is two layers:
+
+1. **`deleteTestOrgs`** in each of the seven suites — deletes in FK order and
+   **throws**, so a broken teardown fails the suite.
+2. **`tests/support/global-teardown.ts`**, wired as vitest `globalSetup` —
+   sweeps once after the whole run by a shared allowlist. A safety net, not the
+   mechanism: a straggler on a *clean* run means a suite is missing layer 1, and
+   the sweep says so loudly. It does not fail the run on finding residue (that
+   is the case it exists for) but does fail if it cannot delete.
+
+Proven by planting an organisation with a blocking `job_posting`:
+
+```
+[global-teardown] 1 fixture organisation(s) survived their suite's afterAll — sweeping.
+[global-teardown] swept 1; 0 remaining.
+```
+
+### The sweep immediately found a leaker vitest cannot reach
+
+`E2E Employer Co Vd9de0ad7`, from the **Playwright** suite.
+`e2e/employer.spec.ts` had the identical bug a third time: delete postings by
+title pattern, then organisations, both errors discarded. Its own comment
+correctly noted that organisations do not cascade from their creator and missed
+that `job_postings` is what refuses the delete. Now routed through
+`deleteOrgsCascade`.
+
+Fixture patterns now live in `tests/support/fixture-orgs.ts` so the three
+consumers — per-suite teardown, global sweep, one-time script — cannot drift,
+and the protected-name assertion guards all three rather than only the script.
+
 ### Follow-up, open not merged
 
-The teardown fix itself is in **[PR #54](https://github.com/Bayo-1987/Claude-Talentrah/pull/54)**
-(`fix/test-org-teardown`) — a shared `deleteTestOrgs` that deletes in FK order
-and **throws on any failure**, wired into all seven suites, plus
-`npm run cleanup-test-orgs`. Until it merges, every suite run leaks again.
-
-**Proof it works:** a full 397-test run on the branch leaves 2 organisations, 0
-campaigns, 0 wallets, 0 ledger rows. The same run on `main` leaks ~10
-organisations and their campaigns.
+All of the above is in **[PR #54](https://github.com/Bayo-1987/Claude-Talentrah/pull/54)**
+(`fix/test-org-teardown`), together with `npm run cleanup-test-orgs`. Until it
+merges, every interrupted suite run leaks again.
 
 ---
 

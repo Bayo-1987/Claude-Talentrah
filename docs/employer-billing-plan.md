@@ -489,9 +489,12 @@ paused 117 fakes and reported it as ordinary activity.
 Two consequences that outlive the cleanup:
 
 * **`charged` / `pausedInsufficientFunds` counters are only meaningful if the
-  fixture floor is zero.** It is now, and `deleteTestOrgs` keeps it there — but
-  a future suite that creates organisations without routing through it puts
-  fake rows back into this job's work-list, not just into the database.
+  fixture floor is zero.** It is now, and two layers keep it there:
+  `deleteTestOrgs` per suite, plus a global sweep that catches the runs where a
+  teardown never finishes — a rate-limited full-suite run leaked 21
+  organisations past the per-suite hook alone. A future suite that creates
+  organisations without routing through them puts fake rows back into this
+  job's work-list, not just into the database.
 * **`job_postings.organization_id` stays NO ACTION deliberately.** Making it
   CASCADE would be the tidier schema and is *not* the fix: `applications`
   is NO ACTION on `job_postings` too, so a real employer with applicants would
