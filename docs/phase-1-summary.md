@@ -404,6 +404,33 @@ Confirmed on production rather than from the docs alone — `GET`, `PUT`,
 change. `/api/e2e/llm-provider` likewise already self-gates correctly, 404 on
 production. Both are covered by tests now, but neither needed a code change.
 
+## Two organisations could split one company's domain (0044)
+
+`createOrganizationAction` inserted with no check for an existing org at the
+claimed domain, while onboarding's joinable list only offers orgs where
+`verified = true`. Person A creates an org that isn't verified; person B at the
+same company sees an empty list and creates a second one. Colleagues end up in
+disconnected companies with postings and analytics split, and no merge path.
+
+**Why the obvious fix would have been worse.** A bare `unique (domain)` looks
+right until you ask what an unverified org is. Production holds one:
+`Fatishcakes`, claiming `fatishcakes.com`, created by a **gmail.com** user — so
+`evaluateDomainVerification` can never verify it and it holds the domain
+forever. Under that constraint the genuine employer could neither create (index
+rejects) nor join (`joinOrganizationAction` refuses unverified orgs,
+server-side). Locked out entirely, and squatting becomes trivial: one free
+mailbox denies any company its registration.
+
+**The rule:** verification establishes the claim — that is what 0027/0028 are
+for — so only a verified org owns a domain. `0044` is a partial unique index on
+`(lower(domain)) where domain is not null and verified`, plus an app-layer
+pre-check and a `23505` race handler that rolls back rather than leaving an
+unverified duplicate squatting the domain.
+
+Verified live after merge, in a rolled-back transaction: a fresh domain still
+creates and verifies, and a verified org can still be created alongside the
+unverifiable squatter.
+
 ## Dedup key collisions silently discarded apply links (PR #44)
 
 **Not a hash collision — the key was not specific enough.**

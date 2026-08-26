@@ -33,6 +33,68 @@ both served stale content in this project's history. Don't rely on either.
 
 ---
 
+## Merged 2026-08-26 — PR #45, one verified org per domain (0044)
+
+| PR | Branch | Merged at (UTC) | Merge SHA |
+|----|--------|-----------------|-----------|
+| [#45](https://github.com/Bayo-1987/Claude-Talentrah/pull/45) | `fix/duplicate-org-domains` | 08:11:37 | `f1df362` |
+
+3 files, +234/−0.
+
+**The case where checking live data before designing changed the outcome, not
+just confirmed it.** The brief offered two fixes — a unique index on
+`organizations(domain)`, or an app-layer check routing the second person to a
+join flow. **Both, as stated, would have failed**, and production held the row
+that proved it.
+
+`Fatishcakes` claims `fatishcakes.com` and was created by a **gmail.com** user
+(`zimcresttechnologies@gmail.com`, email confirmed). `evaluateDomainVerification`
+requires the claimed domain to match the creator's own confirmed email domain,
+so that org can never verify — it holds the domain permanently. Under a bare
+`unique (domain)` the real employer at fatishcakes.com could neither **create**
+(index rejects) nor **join** — because `joinOrganizationAction` gates on
+`verified = true` **server-side**, not only in the onboarding page's joinable
+query. Locked out on both paths, which is worse than the duplicate, and domain
+squatting becomes a one-line attack: any free mailbox permanently denies a
+company its registration.
+
+**The rule that resolves it:** verification is what establishes a claim on a
+domain — exactly what 0027 and 0028 exist for. A verified org owns its domain;
+an unverified one owns nothing and blocks nobody.
+
+`0044` is therefore a partial unique index:
+`(lower(domain)) where domain is not null and verified`. Four cases, each pinned
+by a test: two verified → rejected; verified alongside unverified → **allowed**
+(the route past a squatter); two unverified → allowed; null domain →
+unconstrained.
+
+App layer does the other half, since an index alone surfaces as a raw Postgres
+error rather than sending the person to their colleagues: a pre-check for a
+verified org at the domain, and `23505` handled as a genuine race by **rolling
+back** rather than leaving an unverified duplicate on the domain — that leftover
+would be the exact debris the index prevents, and invisible to the joinable list.
+
+### Verified
+
+1. **PR API** — `merged: true`, `merge_commit_sha f1df36275bbc8abc9539e064387e4468c364c1af`.
+2. **Fresh shallow clone of `main`** — merge commit `f1df362`, two parents
+   (`550c0b3` + `27b36cc`). Migration present with the scoped predicate; the
+   pre-check (actions.ts:120), the race handler (`23505`, :175) and
+   `tests/employer/duplicate-domains.test.ts` all present.
+3. **Live, post-merge** — `fatishcakes.com` still resolves to exactly **one** org
+   (`Fatishcakes [verified=false]`), and the happy path is intact. Verified in a
+   rolled-back transaction rather than by reasoning: a fresh domain creates then
+   verifies successfully, and a **verified** org can still be created alongside
+   the unverifiable squatter on `fatishcakes.com` — the anti-squatting route is
+   open. Production re-checked afterwards: 2 orgs, zero probe leftovers.
+4. **CI** — 26/26 files, **322/322 tests**, Playwright 13/13 on the PR head; all
+   four checks green.
+
+Proven first: `SPLIT COMPANY: two verified orgs share one domain` fails against
+unfixed code.
+
+---
+
 ## Merged 2026-08-26 — PR #44, dedup key collisions
 
 | PR | Branch | Merged at (UTC) | Merge SHA |
@@ -909,8 +971,9 @@ rules. Those need the real files.
    - A Paystack blip being indistinguishable from a real decline, permanently
      killing a paying customer's auto-renewal; **no external call anywhere sets
      a timeout**.
-   - Duplicate org names/domains unguarded — the second owner's org becomes
-     permanently unmanageable.
+   - ~~Duplicate org names/domains unguarded~~ — **done**, PR #45 / migration
+     0044. Scoped to VERIFIED orgs only; a bare unique index would have locked
+     real employers out behind unverifiable squatters.
    - ~~Premium-template gate bypassable via a direct `PATCH` to
      `resumes.template_id`~~ — **done**, PR #40 / migration 0041. Confirmed live
      and fixed; the sweep also found and fixed the Farah rate-limit bypass.
