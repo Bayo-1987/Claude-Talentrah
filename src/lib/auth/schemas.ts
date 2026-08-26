@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { isPasswordValid } from "./password";
+import { hasVisibleName } from "@/lib/profile/name";
 
 export const HOME_COUNTRIES = [
   "Nigeria",
@@ -18,8 +19,19 @@ export const DIASPORA_COUNTRIES = [
 export const SIGNUP_COUNTRIES = [...HOME_COUNTRIES, ...DIASPORA_COUNTRIES] as const;
 
 export const signUpSchema = z.object({
-  firstName: z.string().trim().min(1, "First name is required"),
-  lastName: z.string().trim().min(1, "Last name is required"),
+  /*
+   * `.trim().min(1)` was not enough: it strips the ECMAScript WhiteSpace
+   * production but not the zero-width FORMAT characters (Cf, not Zs), so a
+   * lone U+200B passed as a name and rendered as blank everywhere.
+   *
+   * This is the UX half only. The actual gate is the CHECK constraint in
+   * migration 0045, because 0030 grants update(first_name,last_name) to
+   * `authenticated` — a client can PATCH the column and never reach this file.
+   * Keeping the check here too means the signup form says "that name isn't
+   * valid" instead of surfacing a raw 23514.
+   */
+  firstName: z.string().refine(hasVisibleName, "Enter your first name"),
+  lastName: z.string().refine(hasVisibleName, "Enter your last name"),
   email: z.email("Enter a valid email"),
   country: z.enum(SIGNUP_COUNTRIES, "Select a country"),
   password: z
