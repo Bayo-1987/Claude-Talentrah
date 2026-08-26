@@ -33,6 +33,85 @@ both served stale content in this project's history. Don't rely on either.
 
 ---
 
+## Merged 2026-08-26 — PR #51, the daily charge finally has a caller
+
+| PR | Branch | Merged at (UTC) | Merge SHA |
+|----|--------|-----------------|-----------|
+| [#51](https://github.com/Bayo-1987/Claude-Talentrah/pull/51) | `feat/ad-campaign-daily-charge` | 11:30:09 | `2607fd9` |
+
+Closes the money defect recorded under PR #50. `charge_ad_campaign_day` shipped
+in 0047 with three passing tests and **no caller**; `resume_ad_campaign` charged
+the day it activated a campaign and nothing charged it again, so an employer
+paid one day's rate for a thirty-day run. A tested function nobody calls is
+indistinguishable from a missing one, and scores better in a coverage report.
+
+Now: `runCampaignChargeJob` in `src/lib/billing/campaign-charges.ts`,
+`/api/admin/charge-campaigns` (cron GET + admin POST), scheduled **08:00 UTC**
+— after the 05:00 job ingest, so a campaign whose job closed that morning is
+not billed for a day promoting a dead role.
+
+**Two PRs were built for this, and the other one was closed.** The chip task
+and this session produced #51 and #52 independently, converging on the same
+design. #52 was closed because #51 is better on three counts: it paginates the
+work-list with a keyset (#52's bare `select().eq("status","active")` silently
+truncates at PostgREST's max rows — the same silent-undercharge class the PR
+exists to fix); it carries an `ok` flag so a failed run answers 500 and a
+scheduler alerts, where #52 always returned 200; and it has four error-path
+tests #52 lacked. One test was ported across from #52 — the day boundary, below.
+
+### Verified, four-point standard
+
+1. **PR API** — `merged: true`, `merged_at 2026-08-26T11:30:09Z`,
+   `merge_commit_sha 2607fd9c5634381517d49aa2c644fb74da6041f4`.
+2. **Fresh shallow clone of `main`** — merge commit `2607fd9`, two parents
+   (`7963f1a` + `384db70`). `campaign-charges.ts`, the route and
+   `campaign-charge-errors.test.ts` all present; `vercel.json` carries
+   `/api/admin/charge-campaigns` at `0 8 * * *`; the ported day-boundary test
+   is on `main`; the billing plan's §9 landed.
+3. **Live probe** — the most side-effecting route in the app, all three ways in:
+   ```
+   GET  no credential   -> 401 {"error":"Unauthorized"}
+   GET  wrong bearer    -> 401 {"error":"Unauthorized"}
+   POST wrong secret    -> 401 {"error":"Unauthorized"}
+   ```
+4. **CI green on the merged head** — 5/5.
+
+### Both halves of idempotency are pinned
+
+The duplicate-delivery test proves the **same** day is not charged twice. The
+ported test proves the **next** day is. That second half is the one that fails
+silently: a work-list filter excluding an already-charged campaign too eagerly
+looks identical to a correct one on any single day's run, and only shows up as
+a campaign that never bills again after day one — the original defect wearing a
+different hat. Verified it catches that, by replacing the filter with
+`.is("last_charged_on", null)`:
+
+```
+× MONEY: crossing the day boundary charges a second day, exactly once
+  AssertionError: yesterday's campaign was not picked up the next day:
+  expected +0 to be 1
+```
+
+68/68 across the three affected suites once restored.
+
+### Rebase note
+
+The branch went `CONFLICTING` when #50 and two doc commits landed under it. Two
+conflicts, both resolved by **union rather than by choosing**:
+`contract.test.ts`'s SPIES array keeps both sets of spies, and
+`employer-billing-plan.md` keeps §8 "What was actually built" with this
+branch's failure policy renumbered to §9. §8.5's "the daily charge cron is not
+wired" is struck, since this branch is what wires it.
+
+### Operational
+
+Cron delivery is best-effort and never retried. A **duplicated** run is safe.
+A **missed** run is not recovered — that day goes unbilled, in the employer's
+favour. Same shape as 0043's renewal cron: load-bearing, no dunning queue, no
+alert, so a cron that silently stops firing means campaigns run free again.
+
+---
+
 ## Merged 2026-08-26 — PR #50, campaign Server Actions, UI and the review gate
 
 | PR | Branch | Merged at (UTC) | Merge SHA |
