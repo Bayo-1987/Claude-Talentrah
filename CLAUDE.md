@@ -16,7 +16,14 @@ Supabase backend: project **"Talentrah"** already exists in the connected Supaba
 
 **Migrations 0001–0025 are not in this repo** — they were applied straight to the project through the MCP connector, so the project's own `schema_migrations` table is the only history. From 0026 on, write the SQL into `supabase/migrations/` **first** so a policy change can be reviewed in a diff, then apply it. See [supabase/migrations/README.md](supabase/migrations/README.md).
 
-**There is no separate test/staging database.** The RLS suites, Playwright and `npm run seed` all run against the live project. They namespace and clean up their own throwaway users, but assume nothing else about isolation.
+**CI runs against a SECOND Supabase project, not production** (since 2026-08-26). `Talentrah CI`, project id `dozaffzgqkbarxtlclsj`, same org, same region, free tier, $0 — GitHub Actions secrets point at it, so `npm run seed`, the RLS suites and Playwright all hit it in CI. **Production is `nytwbbzfpytctjsoczzq` and Vercel still points there**; the two are separate systems and repointing CI did not touch the deployed app.
+
+Three consequences worth knowing before you touch either:
+- **A local run still hits PRODUCTION** unless you repoint `.env.local` yourself. The isolation is CI-only.
+- **Both projects need every migration.** They are intentionally allowed to diverge while a PR is in review (apply to CI, apply to production on merge), so check both before assuming a function exists.
+- **The CI project's reference data was bootstrapped by hand** and the seed only partly reproduces it. Standing up a third project is not yet one command — see the `credit_packs`/`passes` note in 0051 and the ordering caveat below.
+
+**Unit tests run BEFORE `npm run seed` in CI.** Seed lives in the Playwright job, which is `needs: checks`, so on a database that has never been seeded the unit tests fail first and skip the seed that would have fixed them. Reference data has to exist before the first green run.
 
 ## Current build state
 
