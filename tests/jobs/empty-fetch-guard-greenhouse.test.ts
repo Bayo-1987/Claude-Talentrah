@@ -14,10 +14,9 @@
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { admin } from "../support/auth";
 
-const { RUN, TOKEN, COMPANY, BOARD_URL } = vi.hoisted(() => {
+const { TOKEN, COMPANY, BOARD_URL } = vi.hoisted(() => {
   const run = Math.random().toString(36).slice(2, 10);
   return {
-    RUN: run,
     TOKEN: `emptyguard${run}`,
     COMPANY: `Empty Guard GH ${run}`,
     BOARD_URL: `https://boards-api.greenhouse.io/v1/boards/emptyguard${run}/jobs?content=true`,
