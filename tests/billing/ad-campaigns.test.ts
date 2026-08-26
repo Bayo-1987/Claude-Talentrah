@@ -23,6 +23,7 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { randomUUID } from "node:crypto";
 import { admin, createAuthedTestUser, deleteTestUsers, type DB } from "../support/auth";
+import { chargeActiveCampaigns } from "@/lib/billing/campaign-charge";
 
 let owner: { id: string; client: DB };
 let orgId: string;
@@ -384,5 +385,124 @@ describe("cross-organisation isolation", () => {
     // Positive control.
     const mine = await owner.client.from("ad_campaigns").select("id").eq("organization_id", orgId);
     expect((mine.data ?? []).length, "the owner must still see their own").toBeGreaterThan(0);
+  });
+});
+
+/**
+ * The daily charge BATCH — the caller that was missing.
+ *
+ * The block above proves `charge_ad_campaign_day` is correct. It was correct
+ * and it had no caller: `grep -rn charge_ad_campaign_day src/` matched only
+ * the generated type, and vercel.json scheduled three crons, none of them this
+ * one. So a campaign was charged exactly once — by `resume_ad_campaign`, on
+ * the day the employer started it — and then ran free until its end date.
+ *
+ * That is why these tests target the batch rather than the function. A correct
+ * function nobody calls is indistinguishable, from the wallet's point of view,
+ * from a broken one.
+ *
+ * SCOPED TO THIS TEST'S ORG ON PURPOSE. There is no staging database
+ * (CLAUDE.md); this runs against production. An unscoped batch here would
+ * debit real employers' wallets.
+ */
+describe("the daily charge batch", () => {
+  it("MONEY: two active campaigns are each charged exactly once per day", async () => {
+    await fund(DAILY * 10);
+    const a = await makeCampaign("active");
+    const b = await makeCampaign("active");
+    const before = await walletBalance();
+
+    const first = await chargeActiveCampaigns({ organizationId: orgId });
+    expect(first.charged, "both campaigns should have been charged").toBe(2);
+
+    for (const id of [a, b]) {
+      const c = await campaign(id);
+      expect(c.status, `${id} should still be running`).toBe("active");
+      expect(c.spent_ngn, `${id} should have been charged one day`).toBe(DAILY);
+      expect(c.last_charged_on).not.toBeNull();
+    }
+    expect(await walletBalance()).toBe(before - DAILY * 2);
+
+    // The day boundary has NOT passed, so a second run inside the same day is
+    // the duplicate-cron case: it must charge nothing.
+    const second = await chargeActiveCampaigns({ organizationId: orgId });
+    expect(second.charged, "a same-day re-run must not charge again").toBe(0);
+    expect(second.alreadyCharged).toBe(2);
+    expect(await walletBalance()).toBe(before - DAILY * 2);
+
+    for (const id of [a, b]) {
+      expect((await campaign(id)).spent_ngn, `${id} double-charged`).toBe(DAILY);
+    }
+  });
+
+  it("MONEY: crossing the day boundary charges a second day, once", async () => {
+    await fund(DAILY * 10);
+    // Backdated `last_charged_on` is how a day boundary is crossed without
+    // waiting for one: the function's guard is `last_charged_on >= p_on_date`,
+    // so yesterday's stamp is exactly the state a campaign is in when the cron
+    // fires the next morning.
+    const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+    const id = await makeCampaign("active", { last_charged_on: yesterday, spent_ngn: DAILY });
+    const before = await walletBalance();
+
+    expect((await chargeActiveCampaigns({ organizationId: orgId })).charged).toBe(1);
+    const c = await campaign(id);
+    expect(c.spent_ngn, "should now be two days in").toBe(DAILY * 2);
+    expect(c.status).toBe("active");
+    expect(await walletBalance()).toBe(before - DAILY);
+  });
+
+  it("MONEY: a campaign that cannot afford the day is paused, never left active and unbilled", async () => {
+    // Deliberately unfunded. This is the exact shape of the defect: the wrong
+    // outcome is not an exception, it is a campaign that stays `active` with
+    // `spent_ngn` unchanged — serving ads nobody paid for.
+    const id = await makeCampaign("active");
+    expect(await walletBalance()).toBe(0);
+
+    const summary = await chargeActiveCampaigns({ organizationId: orgId });
+    expect(summary.pausedInsufficientFunds).toBe(1);
+    expect(summary.charged).toBe(0);
+
+    const c = await campaign(id);
+    expect(c.status, "RUNNING UNPAID: still active on an empty wallet").toBe(
+      "paused_insufficient_funds",
+    );
+    expect(c.spent_ngn).toBe(0);
+    expect(await walletBalance()).toBe(0);
+  });
+
+  it("one broke advertiser does not stop everyone else being billed", async () => {
+    /*
+     * The batch charges per campaign and tallies failures rather than
+     * aborting. If it threw on the first unaffordable campaign, a single
+     * employer with an empty wallet would silently stop billing for every
+     * other advertiser — an outage that costs revenue and looks like nothing
+     * at all until someone reads the logs.
+     */
+    const broke = await makeCampaign("active", { daily_rate_ngn: DAILY * 100, total_budget_ngn: DAILY * 1000 });
+    const fine = await makeCampaign("active");
+    await fund(DAILY * 2);
+
+    const summary = await chargeActiveCampaigns({ organizationId: orgId });
+    expect(summary.pausedInsufficientFunds).toBe(1);
+    expect(summary.charged, "the affordable campaign must still be charged").toBe(1);
+    expect((await campaign(broke)).status).toBe("paused_insufficient_funds");
+    expect((await campaign(fine)).status).toBe("active");
+    expect((await campaign(fine)).spent_ngn).toBe(DAILY);
+  });
+
+  it("does not touch campaigns that are not active", async () => {
+    await fund(DAILY * 10);
+    const before = await walletBalance();
+    const paused = await makeCampaign("paused_by_employer");
+    const review = await makeCampaign("pending_review");
+    const draft = await makeCampaign("draft");
+
+    const summary = await chargeActiveCampaigns({ organizationId: orgId });
+    expect(summary.considered, "only active campaigns are candidates").toBe(0);
+    expect(await walletBalance()).toBe(before);
+    for (const id of [paused, review, draft]) {
+      expect((await campaign(id)).spent_ngn).toBe(0);
+    }
   });
 });

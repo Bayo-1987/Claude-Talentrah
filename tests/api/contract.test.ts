@@ -62,6 +62,7 @@ const ranModeration = vi.fn();
 const listedScholarships = vi.fn();
 const listedCampaigns = vi.fn();
 const decidedCampaign = vi.fn();
+const chargedCampaign = vi.fn();
 
 vi.mock("@/lib/jobs/ingest", () => ({
   ingestAllSources: (...a: unknown[]) => {
@@ -109,8 +110,12 @@ vi.mock("@/lib/supabase/service-role", () => ({
         }),
       }),
     }),
-    rpc: (...a: unknown[]) => {
-      decidedCampaign(...a);
+    rpc: (name: string, ...a: unknown[]) => {
+      if (name === "charge_ad_campaign_day") {
+        chargedCampaign(name, ...a);
+        return Promise.resolve({ data: [{ ok: true, status: "active", balance_after_ngn: 0 }], error: null });
+      }
+      decidedCampaign(name, ...a);
       return Promise.resolve({ data: "rejected", error: null });
     },
   }),
@@ -119,7 +124,7 @@ vi.mock("@/lib/supabase/service-role", () => ({
 const SPIES = [
   ranJobIngest, ranScholarshipIngest, ranCostProbe,
   ranPassRenewal, ranModeration, listedScholarships,
-  listedCampaigns, decidedCampaign,
+  listedCampaigns, decidedCampaign, chargedCampaign,
 ];
 
 beforeEach(() => {
@@ -161,6 +166,15 @@ const ADMIN_ENDPOINTS: Array<{
     url: "http://t/api/admin/estimate-llm-costs?group=tailoring",
     method: "POST",
     load: async () => (await import("@/app/api/admin/estimate-llm-costs/route")).POST,
+    sideEffecting: true,
+  },
+  {
+    name: "charge-campaigns POST",
+    url: "http://t/api/admin/charge-campaigns",
+    method: "POST",
+    load: async () => (await import("@/app/api/admin/charge-campaigns/route")).POST,
+    // Debits every active advertiser's wallet. The most side-effecting route
+    // in the app.
     sideEffecting: true,
   },
   {
@@ -299,6 +313,7 @@ describe("§2 — cron GETs fail closed too", () => {
     ["ingest-jobs", () => import("@/app/api/admin/ingest-jobs/route")],
     ["ingest-scholarships", () => import("@/app/api/admin/ingest-scholarships/route")],
     ["renew-passes", () => import("@/app/api/admin/renew-passes/route")],
+    ["charge-campaigns", () => import("@/app/api/admin/charge-campaigns/route")],
   ] as const;
 
   for (const [name, load] of CRON_ROUTES) {
@@ -340,6 +355,7 @@ describe("§2 — cron GETs fail closed too", () => {
       "/api/admin/renew-passes": () => import("@/app/api/admin/renew-passes/route"),
       "/api/admin/ingest-scholarships": () => import("@/app/api/admin/ingest-scholarships/route"),
       "/api/admin/ingest-jobs": () => import("@/app/api/admin/ingest-jobs/route"),
+      "/api/admin/charge-campaigns": () => import("@/app/api/admin/charge-campaigns/route"),
     };
 
     expect(vercelConfig.crons.length).toBeGreaterThan(0);
