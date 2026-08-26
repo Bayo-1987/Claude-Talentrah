@@ -112,6 +112,106 @@ alert, so a cron that silently stops firing means campaigns run free again.
 
 ---
 
+## Operational 2026-08-26 — production purged of 324 leaked test organisations
+
+Not a merge. A **production data change**, recorded here because it is not
+reconstructable from the git history and because it changes what the PR #51
+cron will report on its first run.
+
+### The finding
+
+The premise investigated was "ad-campaigns.test.ts has no teardown". It has
+one. So do the other six suites that create organisations. **None of them has
+ever worked.**
+
+```
+afterAll(async () => {
+  if (createdOrgs.length)
+    await admin.from("organizations").delete().in("id", createdOrgs);
+});
+```
+
+`job_postings.organization_id` is **NO ACTION, not CASCADE**, so Postgres
+refuses the delete — and supabase-js reports that by *resolving* with
+`{ data: null, error }` rather than throwing. The error was discarded at all
+seven call sites. Reproduced against the live project before anything was
+changed:
+
+```
+attempting delete of: Campaign Co 8bc26a91
+error: { code: '23503',
+         details: 'Key (id)=(b32bf622-…) is still referenced from
+                   table "job_postings".' }
+rows deleted: null
+still present after delete? true
+```
+
+So the leak rate was **100% per run**, not intermittent — which is why the
+count reached 324 organisations, 318 ad_campaigns, 192 ad_wallets and 385
+ledger rows.
+
+**Two mistakes, and the second is the one to remember.** Getting the FK order
+wrong is ordinary. *Discarding the error* is what let it survive across seven
+files for months. A teardown that fails loudly gets fixed the same afternoon;
+one that fails silently fills a production database.
+
+### Why it was urgent rather than untidy
+
+117 of the leaked campaigns were `active`. PR #51's cron selects exactly that,
+so its first scheduled run would have charged and paused 117 fixtures, and
+every future run summary would have reported fake activity as real.
+
+### State before and after, by SQL rather than by the script that did it
+
+| | before | after |
+|---|---|---|
+| organizations | 326 | **2** |
+| — fixtures | 324 | **0** |
+| ad_campaigns | 318 | **0** |
+| — `active` | 117 | **0** |
+| ad_wallets | 192 | **0** |
+| ad_wallet_ledger | 385 | **0** |
+
+The two survivors are both real: **Zaria Digital** (`scripts/seed.ts`'s demo
+org; the golden-path e2e runs against its postings) and **Fatishcakes** (a real
+signed-up employer). Neither owned a single campaign or wallet, so **no real ad
+data existed to lose** — checked before deleting, not asserted after.
+
+### The guard that made the delete safe, proven rather than assumed
+
+Selection is an **allowlist** of fixture patterns, so an organisation created by
+a future feature is safe by default rather than safe by having been remembered.
+On top of that a protected-name assertion aborts the whole run. Mutating the
+pattern to the tempting shortening `%.example` gives:
+
+```
+ABORTED: fixture patterns matched protected organisations:
+Zaria Digital (zariadigital.example)
+```
+
+Zaria's own domain is a `.example`, so "just match `.example`" was a real trap,
+not a hypothetical one.
+
+### One thing that went wrong, and the check that caught it
+
+The first `--apply` pass deleted 315 of 324 and left 9. The script's closing
+self-check refused to report success, which is what it is for. It now converges
+over bounded passes, so a partial pass self-heals instead of depending on an
+operator noticing. Re-running is a no-op.
+
+### Follow-up, open not merged
+
+The teardown fix itself is in **[PR #54](https://github.com/Bayo-1987/Claude-Talentrah/pull/54)**
+(`fix/test-org-teardown`) — a shared `deleteTestOrgs` that deletes in FK order
+and **throws on any failure**, wired into all seven suites, plus
+`npm run cleanup-test-orgs`. Until it merges, every suite run leaks again.
+
+**Proof it works:** a full 397-test run on the branch leaves 2 organisations, 0
+campaigns, 0 wallets, 0 ledger rows. The same run on `main` leaks ~10
+organisations and their campaigns.
+
+---
+
 ## Merged 2026-08-26 — PR #50, campaign Server Actions, UI and the review gate
 
 | PR | Branch | Merged at (UTC) | Merge SHA |
