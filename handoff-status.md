@@ -259,7 +259,7 @@ and the protected-name assertion guards all three rather than only the script.
 
 ### Follow-up, open not merged
 
-All of the above is in **[PR #54](https://github.com/Bayo-1987/Claude-Talentrah/pull/54)**
+All of the above is in **[PR #55](https://github.com/Bayo-1987/Claude-Talentrah/pull/55)**
 (`fix/test-org-teardown`), together with `npm run cleanup-test-orgs`. Until it
 merges, every interrupted suite run leaks again.
 
