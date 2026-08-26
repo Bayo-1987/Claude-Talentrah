@@ -33,6 +33,90 @@ both served stale content in this project's history. Don't rely on either.
 
 ---
 
+## Merged 2026-08-26 — PR #48, employer ad wallet (0046)
+
+| PR | Branch | Merged at (UTC) | Merge SHA |
+|----|--------|-----------------|-----------|
+| [#48](https://github.com/Bayo-1987/Claude-Talentrah/pull/48) | `feat/employer-billing-wallet` | 10:18:12 | `ce0df13` |
+
+**First Phase 2 roadmap work after the defect sweep, and the first genuinely new
+financial model in the codebase.** Design brief:
+[docs/employer-billing-plan.md](docs/employer-billing-plan.md) — written and
+reviewed *before* any code, deliberately.
+
+### The race was reproduced before the schema existed
+
+`spend_credits_atomic` (0035) exists because a read-then-write decrement looked
+correct for months. The wallet is the same shape with bigger numbers, so the
+naive JS implementation was built first and run against a throwaway wallet:
+
+```
+wallet ₦5000, two concurrent debits of ₦5000
+  debits that SUCCEEDED: 2 of 2
+  charged for: ₦10000   actually taken: ₦5000
+  => RACE: ₦5000 served free
+```
+
+`debit_ad_wallet` does the affordability check and the decrement in **one
+conditional UPDATE**. Swapping a naive body back in fails four tests — both
+debits succeed at `balance == cost`, **10 of 10** get through a balance
+affording 3, and a decrement is lost (19,000 where 16,000 is correct).
+
+Worth recording: the *in-database* naive version needed a `pg_sleep` to race,
+while the JS version raced immediately. The realistic failure mode is someone
+writing the debit in TypeScript — which is exactly what 0035 was.
+
+### Two deviations from the plan doc, both deliberate and documented
+
+* **Whole naira, not kobo.** The brief proposed `balance_kobo bigint` for
+  precision. `payment_transactions.amount` is `integer` in whole naira and so is
+  `passes.price_ngn`; a second money unit alongside an existing one is a classic
+  factor-of-100 bug generator. There is no sub-naira concept in the product.
+* **The 20% low-balance threshold is a PLACEHOLDER.** The mechanism
+  (percentage-of-last-top-up) is decided; the number is not. It originated as
+  example text in the multiple-choice question used to pick the mechanism, was
+  briefly attributed to the plan doc, then to the founder. **Neither was right —
+  nobody has deliberated on 20%.** Recorded as provisional in both §7.3 and the
+  migration, with the concrete risk stated: if a campaign costs a meaningful
+  fraction of a typical top-up, 20% remaining may be less than one campaign, and
+  a warning that arrives after the employer can no longer afford anything is not
+  a warning.
+
+### Two gaps found in this work's own tests
+
+* **No cross-org read test.** The suite covered the write lockdown thoroughly
+  and never asked who could *look*. `ad_wallets` is readable through an
+  `is_org_member` policy, and a subtly wrong one leaks how much every competitor
+  spends on ads. Proven by loosening the policy to `using (true)`: the outsider
+  read `balance_ngn: 42000`. Includes a positive control so it cannot pass by
+  denying everyone.
+* The attribution drift on the threshold, above.
+
+### Verified
+
+1. **PR API** — `merged: true`, `merge_commit_sha ce0df13e11379e558d27a758bbc7955112a10f31`.
+2. **Fresh shallow clone of `main`** — merge commit `ce0df13`, two parents
+   (`2d5f4bd` + `5a0712a`). Migration, tests and plan doc present; the atomic
+   `set balance_ngn = w.balance_ngn - p_amount_ngn` confirmed at
+   `0046_ad_wallets.sql:158`; the PLACEHOLDER correction present in both the
+   migration (2 places) and the plan doc.
+3. **Live** — `ad_wallets` and `ad_wallet_ledger` both RLS-enabled, **2 policies
+   and both are SELECT**, zero write policies, no table-wide UPDATE for
+   `authenticated`, both RPCs present. 0 live wallets (nothing funded yet).
+4. **CI** — 30/30 files, **368/368 tests**, Playwright 13/13; all four checks
+   green.
+
+### Open on this, for the record
+
+* `admin` can spend the organisation's money (§7.4's accepted trade). Narrowing
+  later is easy — the RPC already takes the actor.
+* Credit-only refunds (§7.1) mean over-funding has **no remedy**, which makes
+  the low-balance warning and pause-at-zero load-bearing rather than polish.
+* Multi-rail is scoped for but not wired: v1 is Paystack NGN only. Diaspora
+  billing stays blocked on §10's legal review.
+
+---
+
 ## Merged 2026-08-26 — PR #47, empty fetch no longer wipes a source
 
 | PR | Branch | Merged at (UTC) | Merge SHA |
