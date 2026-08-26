@@ -58,6 +58,7 @@ const ranJobIngest = vi.fn();
 const ranScholarshipIngest = vi.fn();
 const ranCostProbe = vi.fn();
 const ranPassRenewal = vi.fn();
+const ranCampaignCharge = vi.fn();
 const ranModeration = vi.fn();
 const listedScholarships = vi.fn();
 const listedCampaigns = vi.fn();
@@ -94,6 +95,16 @@ vi.mock("@/lib/billing/renewals", () => ({
     });
   },
 }));
+vi.mock("@/lib/billing/campaign-charges", () => ({
+  runCampaignChargeJob: (...a: unknown[]) => {
+    ranCampaignCharge(...a);
+    return Promise.resolve({
+      ok: true, on: "2026-08-26", considered: 0, charged: 0, chargedNgn: 0,
+      pausedInsufficientFunds: 0, completed: 0, alreadyCharged: 0, skipped: 0,
+      errors: [], queryErrors: [],
+    });
+  },
+}));
 vi.mock("@/lib/supabase/service-role", () => ({
   createServiceRoleClient: () => ({
     from: (table: string) => ({
@@ -119,7 +130,7 @@ vi.mock("@/lib/supabase/service-role", () => ({
 const SPIES = [
   ranJobIngest, ranScholarshipIngest, ranCostProbe,
   ranPassRenewal, ranModeration, listedScholarships,
-  listedCampaigns, decidedCampaign,
+  listedCampaigns, decidedCampaign, ranCampaignCharge,
 ];
 
 beforeEach(() => {
@@ -299,6 +310,10 @@ describe("§2 — cron GETs fail closed too", () => {
     ["ingest-jobs", () => import("@/app/api/admin/ingest-jobs/route")],
     ["ingest-scholarships", () => import("@/app/api/admin/ingest-scholarships/route")],
     ["renew-passes", () => import("@/app/api/admin/renew-passes/route")],
+    // Debits employer ad wallets. Registered here in the same commit that
+    // created the route, not retrofitted — the four routes above were all
+    // fail-OPEN in production before this file existed.
+    ["charge-campaigns", () => import("@/app/api/admin/charge-campaigns/route")],
   ] as const;
 
   for (const [name, load] of CRON_ROUTES) {
@@ -317,6 +332,32 @@ describe("§2 — cron GETs fail closed too", () => {
       expect(ok.status, `${name} rejected a valid cron invocation`).not.toBe(401);
     });
   }
+
+  it("every money-moving daily RPC has a scheduled caller", async () => {
+    /*
+     * The inverse of the assertion below, and the one that catches the bug
+     * this file was extended for. That one asks "is every scheduled path
+     * reachable?"; a job can pass it and still never run, because nothing
+     * asserts the job is scheduled AT ALL.
+     *
+     * `charge_ad_campaign_day` shipped in 0047 with three passing tests and no
+     * caller: `grep -rn charge_ad_campaign_day src/` matched only the
+     * generated type. `resume_ad_campaign` charges the day it activates a
+     * campaign, so the campaign went live having paid for one day and was
+     * never charged again — an employer paid one day's rate and advertised
+     * until their end date. A tested function nobody calls is indistinguishable
+     * from a missing one, and looks better in a coverage report.
+     */
+    const vercelConfig = (await import("../../vercel.json")).default as {
+      crons: Array<{ path: string; schedule: string }>;
+    };
+    const scheduled = vercelConfig.crons.map((c) => c.path);
+
+    expect(
+      scheduled,
+      "charge_ad_campaign_day has no scheduled caller — active campaigns run unpaid after their first day",
+    ).toContain("/api/admin/charge-campaigns");
+  });
 
   it("every scheduled path in vercel.json actually exports a GET", async () => {
     /*
@@ -340,6 +381,7 @@ describe("§2 — cron GETs fail closed too", () => {
       "/api/admin/renew-passes": () => import("@/app/api/admin/renew-passes/route"),
       "/api/admin/ingest-scholarships": () => import("@/app/api/admin/ingest-scholarships/route"),
       "/api/admin/ingest-jobs": () => import("@/app/api/admin/ingest-jobs/route"),
+      "/api/admin/charge-campaigns": () => import("@/app/api/admin/charge-campaigns/route"),
     };
 
     expect(vercelConfig.crons.length).toBeGreaterThan(0);

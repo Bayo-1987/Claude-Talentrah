@@ -2,6 +2,10 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "crons": [
     {
+      "path": "/api/admin/ingest-jobs",
+      "schedule": "0 5 * * *"
+    },
+    {
       "path": "/api/admin/renew-passes",
       "schedule": "0 6 * * *"
     },
@@ -10,8 +14,8 @@
       "schedule": "0 7 * * *"
     },
     {
-      "path": "/api/admin/ingest-jobs",
-      "schedule": "0 5 * * *"
+      "path": "/api/admin/charge-campaigns",
+      "schedule": "0 8 * * *"
     }
   ]
 }
