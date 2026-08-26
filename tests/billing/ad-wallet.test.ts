@@ -229,6 +229,49 @@ describe("the balance is not the client's to write", () => {
     expect(await balanceOf(orgId)).toBe(1000);
   });
 
+  it("a NON-member cannot see another organisation's balance or ledger", async () => {
+    /*
+     * The read side. The write lockdown above says nothing about who can look:
+     * `ad_wallets` is readable through an `is_org_member` policy, and a policy
+     * that is subtly wrong leaks how much every competitor is spending on ads —
+     * commercially sensitive in a way a job posting is not.
+     *
+     * Same shape as tests/rls/cross-user.test.ts, which exists because this
+     * repo has found three org-scoping holes (0026, 0027, 0028) by asking
+     * exactly this question.
+     */
+    await fund(orgId, 42_000);
+
+    const outsider = await createAuthedTestUser("adwallet-out");
+    createdUsers.push(outsider.id);
+
+    const wallet = await outsider.client
+      .from("ad_wallets")
+      .select("balance_ngn")
+      .eq("organization_id", orgId);
+    expect(
+      wallet.data ?? [],
+      "LEAK: a non-member could read another organisation's ad spend",
+    ).toHaveLength(0);
+
+    const ledger = await outsider.client
+      .from("ad_wallet_ledger")
+      .select("delta_ngn")
+      .eq("organization_id", orgId);
+    expect(
+      ledger.data ?? [],
+      "LEAK: a non-member could read another organisation's spend history",
+    ).toHaveLength(0);
+
+    // Positive control: the owner still can, so this is a scoping gate and not
+    // a policy that denies everyone.
+    const mine = await owner.client
+      .from("ad_wallets")
+      .select("balance_ngn")
+      .eq("organization_id", orgId);
+    expect(mine.data ?? [], "the owner must still see their own wallet").toHaveLength(1);
+  });
+
   it("a client cannot call the RPCs directly", async () => {
     // The functions take organization_id as an argument, so exposing them to
     // `authenticated` would make that argument a forgeable authorisation.
