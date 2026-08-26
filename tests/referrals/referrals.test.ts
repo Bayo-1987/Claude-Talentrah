@@ -675,8 +675,34 @@ describe("referral code lookup", () => {
      * normalise is a product call about link handling, not a security fix.
      */
     const referrer = await makeUser(gmail("code-r"));
+
+    /*
+     * The generated code is PINNED here rather than used as-issued, and that
+     * is the difference between this test passing 100% of the time and 97.7%.
+     *
+     * `generate_referral_code` is `upper(substr(md5(...), 1, 8))`. md5 hex
+     * draws from 0-9a-f, so ten of its sixteen characters are digits and an
+     * all-digit code — one where `code.toLowerCase() === code` — is not rare:
+     *
+     *     50,000 sampled codes -> 1,162 all-digit  (2.324%)
+     *     predicted (10/16)^8              2.328%   = 1 run in 43
+     *
+     * When that happens the lowercased code is the SAME string, the lookup
+     * correctly attributes, and this test fails claiming case-insensitivity
+     * that does not exist. It caught nothing; it just lost a coin toss. This
+     * pin keeps the property under test (a genuinely case-DIFFERENT code must
+     * not attribute) and removes the coin toss.
+     */
+    await admin
+      .from("profiles")
+      .update({ referral_code: `REF${randomUUID().replace(/-/g, "").slice(0, 5).toUpperCase()}` })
+      .eq("id", referrer);
+
     const code = await referralCodeOf(referrer);
     expect(code, "codes are expected to be uppercase").toBe(code.toUpperCase());
+    expect(code, "the pin must make the code genuinely case-different").not.toBe(
+      code.toLowerCase(),
+    );
 
     const referred = await makeUser(gmail("code-b"), { referred_by_code: code.toLowerCase() });
 
