@@ -211,14 +211,84 @@ Sketch, not final. No migration until this is agreed.
   confirms, and **idempotent on `paystack_reference`** so a webhook redelivery
   cannot double-credit. (Paystack retries webhooks; this is not hypothetical.)
 
-## 7. Open questions for you
+## 7. Decisions
 
-1. **Minimum top-up**, and does an unspent balance ever expire? Expiry has
-   consumer-protection implications in some jurisdictions — I would say no
-   expiry unless someone has checked.
-2. **Refunds** — is an unspent balance withdrawable, or credit-only? Withdrawable
-   means payouts and KYC, which §6.7 already avoided for referrals for exactly
-   that reason.
-3. **Low-balance threshold** — percentage, absolute, or "one day's spend"?
-4. **Who in an org can top up?** Today `organization_members` has `owner` and
-   `admin`. Spending money is plausibly owner-only.
+Answered by the founder 2026-08-26. Recorded with reasoning rather than relayed,
+because a decision without its reasoning is one someone reverses next year
+without knowing what it cost.
+
+### 7.1 Refunds — credit-only, never cash-refundable
+
+An unspent balance buys ad inventory and nothing else. It cannot be withdrawn.
+
+**Why.** A withdrawable balance is a money-transmission surface: it needs a
+payout rail, KYC on the recipient, and a position on what happens when the
+payout destination differs from the funding source. §6.7 already made exactly
+this trade for referrals — *"Prefer credit rewards over cash (avoids KYC/payout
+infra)"* — and the same reasoning applies with more force here, because employer
+top-ups will be larger than a referral reward.
+
+**What this constrains.** No refund path, so **the low-balance warning and the
+pause-at-zero behaviour in §4 are load-bearing rather than nice-to-have**: if an
+employer over-funds, their only remedy is to spend it. That makes over-funding a
+product problem, which is an argument for keeping minimum top-ups modest and for
+not nudging large prepayments.
+
+**What it does not license.** Credit-only is not permission to keep money for
+nothing. If Talentrah cannot deliver the inventory a balance was bought for —
+the platform shuts a campaign type down, say — that is a refund question this
+decision does not answer, and it should be escalated rather than silently
+resolved by pointing at this line.
+
+### 7.2 Expiry — none
+
+Balances do not expire. No expiry column, no sweeper job.
+
+**Why.** Expiry on prepaid value is a consumer-protection question in several
+jurisdictions and a trust question in all of them, and §10 already flags
+multi-jurisdiction compliance as unreviewed. Adding an expiry we have not had
+reviewed would be inventing an answer to an open legal question — the same
+mistake `verification.ts` explicitly refuses to make about domain ownership.
+
+Not adding the field is also the cheaper direction to reverse: adding expiry
+later is a migration, whereas removing an expiry that has already voided
+someone's balance is not fixable.
+
+### 7.3 Low-balance warning — 20% of the last top-up remaining
+
+**Founder's figure and founder's call**, recorded as such: §4 said "threshold
+TBD" and §7 asked percentage-vs-absolute-vs-one-day's-spend without proposing a
+number.
+
+**Why percentage-of-last-top-up is the right mechanism**, independent of the
+number: it scales with how the employer actually uses the product. An absolute
+threshold (₦5,000, say) is either noise to a large advertiser or useless to a
+small one. "One day's spend" needs a spend rate, which flat-rate campaigns do not
+produce — that is a metering concept, and §2 is explicit that v1 has no metering.
+Last top-up is the only signal available in v1 that is proportional to the
+employer's own scale.
+
+**The number is provisional and should be re-checked** once flat-rate campaign
+pricing is set. If a campaign costs a meaningful fraction of a typical top-up,
+20% remaining may be less than one campaign — a warning that arrives after the
+employer can no longer afford anything is not a warning. Re-sanity-check when
+pricing lands; the mechanism does not change.
+
+**Fires on the debit that crosses the line**, not on a schedule — no polling job,
+and no repeat on every subsequent debit below the line.
+
+### 7.4 Who can spend — owner and admin
+
+Both existing `organization_members` roles. No new permission tier.
+
+**Why.** Inventing a third role to gate spend would mean every employer has to
+understand and administer a distinction the product does not otherwise make,
+which is a real cost paid by every org to constrain a case none has reported.
+The two-tier model already exists, is already understood, and already gates the
+employer surface.
+
+**Accepted trade, stated plainly:** an `admin` can spend the organisation's
+money. That is a deliberate widening versus owner-only, and if it turns out to
+be wrong the fix is a narrowing, which is easy — the RPC takes the actor and can
+add a role check without a schema change.
+

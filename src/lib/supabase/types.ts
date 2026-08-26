@@ -17,6 +17,95 @@ export type Database = {
   }
   public: {
     Tables: {
+      ad_wallet_ledger: {
+        Row: {
+          actor_user_id: string | null
+          balance_after_ngn: number
+          created_at: string
+          delta_ngn: number
+          id: string
+          organization_id: string
+          paystack_reference: string | null
+          reason: Database["public"]["Enums"]["ad_wallet_reason"]
+          related_entity_id: string | null
+        }
+        Insert: {
+          actor_user_id?: string | null
+          balance_after_ngn: number
+          created_at?: string
+          delta_ngn: number
+          id?: string
+          organization_id: string
+          paystack_reference?: string | null
+          reason: Database["public"]["Enums"]["ad_wallet_reason"]
+          related_entity_id?: string | null
+        }
+        Update: {
+          actor_user_id?: string | null
+          balance_after_ngn?: number
+          created_at?: string
+          delta_ngn?: number
+          id?: string
+          organization_id?: string
+          paystack_reference?: string | null
+          reason?: Database["public"]["Enums"]["ad_wallet_reason"]
+          related_entity_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ad_wallet_ledger_actor_user_id_fkey"
+            columns: ["actor_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ad_wallet_ledger_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ad_wallets: {
+        Row: {
+          balance_ngn: number
+          created_at: string
+          currency: string
+          last_topup_ngn: number | null
+          low_balance_notified_at: string | null
+          organization_id: string
+          updated_at: string
+        }
+        Insert: {
+          balance_ngn?: number
+          created_at?: string
+          currency?: string
+          last_topup_ngn?: number | null
+          low_balance_notified_at?: string | null
+          organization_id: string
+          updated_at?: string
+        }
+        Update: {
+          balance_ngn?: number
+          created_at?: string
+          currency?: string
+          last_topup_ngn?: number | null
+          low_balance_notified_at?: string | null
+          organization_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ad_wallets_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       api_rate_limits: {
         Row: {
           bucket: string
@@ -1292,6 +1381,34 @@ export type Database = {
         Args: { p_exclude_referral_id?: string; p_referrer_id: string }
         Returns: number
       }
+      credit_ad_wallet: {
+        Args: {
+          p_actor_user_id?: string
+          p_amount_ngn: number
+          p_organization_id: string
+          p_paystack_reference?: string
+          p_reason?: Database["public"]["Enums"]["ad_wallet_reason"]
+        }
+        Returns: {
+          already_applied: boolean
+          balance_after_ngn: number
+          ok: boolean
+        }[]
+      }
+      debit_ad_wallet: {
+        Args: {
+          p_actor_user_id?: string
+          p_amount_ngn: number
+          p_organization_id: string
+          p_reason?: Database["public"]["Enums"]["ad_wallet_reason"]
+          p_related_entity_id?: string
+        }
+        Returns: {
+          balance_after_ngn: number
+          low_balance: boolean
+          ok: boolean
+        }[]
+      }
       generate_referral_code: { Args: never; Returns: string }
       grant_referral_reward: {
         Args: {
@@ -1329,6 +1446,11 @@ export type Database = {
       }
     }
     Enums: {
+      ad_wallet_reason:
+        | "topup"
+        | "campaign_charge"
+        | "admin_adjustment"
+        | "reversal"
       application_source: "internal_apply" | "manual" | "auto_apply"
       application_stage:
         | "saved"
@@ -1510,6 +1632,12 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      ad_wallet_reason: [
+        "topup",
+        "campaign_charge",
+        "admin_adjustment",
+        "reversal",
+      ],
       application_source: ["internal_apply", "manual", "auto_apply"],
       application_stage: [
         "saved",
