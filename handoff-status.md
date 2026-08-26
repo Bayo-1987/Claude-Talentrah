@@ -33,6 +33,47 @@ both served stale content in this project's history. Don't rely on either.
 
 ---
 
+## Merged 2026-08-26 — PR #44, dedup key collisions
+
+| PR | Branch | Merged at (UTC) | Merge SHA |
+|----|--------|-----------------|-----------|
+| [#44](https://github.com/Bayo-1987/Claude-Talentrah/pull/44) | `fix/dedup-key-collisions` | 07:54:46 | `feedd8a` |
+
+4 files, +230/−7. Full write-up in `docs/phase-1-summary.md`; the short version
+and the verification are here.
+
+**A correction to my own ranking.** I put this top of the backlog on impact
+partly assuming it was live. It was not: 127 postings, 127 distinct
+fingerprints, 0 dropped, no company under two sources. Real mechanism, not an
+active outage — worth saying because the ranking drove the ordering of work.
+
+**The bug** is the key, not the hash. `company | title | location` is UNIQUE
+table-wide, so two requisitions that canonicalize alike are one job. The batch
+collapse was last-one-wins and discarded the losing posting's `external_url` —
+the apply link — while `upserted` still reported a plausible count.
+
+**The fix** disambiguates by URL instead of dropping, keyed stably. Cross-source
+dedup is preserved and pinned by a test; it is the feature, and the obvious
+"tighten the key" fix would have broken it.
+
+### Verified
+
+1. **PR API** — `merged: true`, `merge_commit_sha feedd8a987d73901f76af8ee8b3ddbac07b0a312`.
+2. **Fresh shallow clone of `main`** — merge commit `feedd8a`, two parents
+   (`80f870f` + `ad1e7b6`). `disambiguateFingerprint` (dedup.ts:49),
+   `resolveFingerprintCollisions` and the `collided` counter (ingest.ts:29, :82,
+   :167), and `tests/jobs/dedup-collisions.test.ts` all present.
+3. **Live** — feed intact post-merge: 161 postings, **161 distinct
+   fingerprints**, 150 open, 137 greenhouse + 20 schema-org. Every one of the
+   157 external postings has a non-empty `external_url`; the only 4 without one
+   are `source_type: internal`, which apply in-app and legitimately have none.
+   Separately, a pre-merge churn probe over the live board returned **127
+   updates, 0 inserts** — the change causes no row churn.
+4. **CI green on the merge commit** — unit, Playwright and secret scan. On the
+   PR head: 25/25 files, **317/317 tests**, Playwright 13/13.
+
+---
+
 ## Merged 2026-08-25 — PR #43, CI serialized against the shared database
 
 | PR | Branch | Merged at (UTC) | Merge SHA |
@@ -861,7 +902,9 @@ rules. Those need the real files.
 3. **Six remaining test-coverage briefs**, in the backlog's severity order.
    Also blocked on missing files, though the one-line summaries name the
    defects. Highest-value leads from those summaries:
-   - Cross-source dedup hash collisions destroying a posting's apply link.
+   - ~~Cross-source dedup hash collisions destroying a posting's apply link~~
+     — **done**, PR #44. Mechanism real but not firing; fixed and made
+     discoverable via `IngestSourceResult.collided`.
    - A transient empty-200 ingest response mass-closing a source's live postings.
    - A Paystack blip being indistinguishable from a real decline, permanently
      killing a paying customer's auto-renewal; **no external call anywhere sets

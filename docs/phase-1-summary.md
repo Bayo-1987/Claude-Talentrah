@@ -404,6 +404,47 @@ Confirmed on production rather than from the docs alone — `GET`, `PUT`,
 change. `/api/e2e/llm-provider` likewise already self-gates correctly, 404 on
 production. Both are covered by tests now, but neither needed a code change.
 
+## Dedup key collisions silently discarded apply links (PR #44)
+
+**Not a hash collision — the key was not specific enough.**
+`computeDedupFingerprint` hashes `company | title | location`, and
+`job_postings.dedup_fingerprint` is UNIQUE table-wide, so any two postings that
+canonicalize alike *are* the same job to this system.
+
+The cost was the apply link. `external_url` is per-posting, and `ingest.ts`
+collapsed each batch with `new Map(fetchedJobs.map(j => [j.dedupFingerprint, j]))`
+— last-one-wins. Every colliding posting but one was discarded along with its
+URL, while `IngestSourceResult.upserted` counted the survivors, so **the number
+looked correct however many jobs had been lost**. A seeker would see a real
+posting and be sent to a different requisition, or nowhere.
+
+**Measured before assuming, and the framing needed correcting.** Against
+Moniepoint's live board: 127 postings, 127 distinct fingerprints, **0 dropped**,
+and no company under two `external_source` values. The mechanism is real; it was
+not firing. This pins the behaviour and makes it visible rather than fixing an
+active outage.
+
+**The fix, and the thing it must not break.** Colliding postings are
+disambiguated by URL rather than dropped, keyed stably so the upsert updates
+instead of inserting a fresh row each run. Cross-source dedup is *the feature* —
+one job on both an ATS board and an aggregator should collapse to one row — and
+a naive "make the key more specific" fix would have destroyed it. Disambiguation
+is safe only because it runs within a single fetch, which by construction holds
+one source's postings; a collision there is two requisitions, a collision across
+sources is one job. Pinned by a test.
+
+**Deployment risk checked against production, not asserted.** Fingerprint drift
+would have re-inserted every posting and let the freshness sweep close the
+originals, churning the whole external feed. Ran the real algorithm over the
+live board: 127 updates, **0 inserts**.
+
+**The trade-off is in the code.** A board that genuinely lists one role twice now
+shows two entries. Accepted because a visible duplicate is a smaller harm than a
+job the seeker never learns exists.
+
+`IngestSourceResult.collided` plus a run log and seed output make it
+discoverable if it ever does fire — which was the actual gap.
+
 ## A Paystack outage could cancel a paying subscription (0043)
 
 > **A different kind of entry from the ones above it.** 0041 was an
