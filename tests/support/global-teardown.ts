@@ -11,30 +11,37 @@ import { selectFixtureOrgs } from "./fixture-orgs";
  *
  * ── Why a per-suite teardown is not enough ────────────────────────────────
  *
- * `deleteTestOrgs` in each suite is the primary mechanism and it works: run
- * tests/billing/ad-campaigns.test.ts on its own and the organisation count is
- * unchanged, 23 before and 23 after.
+ * `deleteTestOrgs` in each suite is the primary mechanism, and the delete
+ * itself is proven correct: 21 organisations each with a blocking
+ * `job_posting` — the exact shape and scale ad-campaigns.test.ts produces —
+ * are removed in 1.7s, verified 0 remaining by direct SQL.
  *
- * But an `afterAll` only runs if the file gets that far, and it only finishes
- * if it is given the time. Measured, not theorised — a full-suite run that hit
- * Supabase's auth rate limit (the condition CLAUDE.md already documents as
- * "not a real failure") left 21 organisations behind, all from that one file:
+ * It still is not sufficient, and the honest version of why is that the
+ * failure is CONDITIONAL ON SCALE and the mechanism is NOT pinned down:
  *
- *     fixture_kind   n   first       last
- *     Campaign Co   20   11:59:16    11:59:47
- *     Outsider Co    1   11:59:36    11:59:36
+ *   | configuration                                   | leaked |
+ *   |-------------------------------------------------|--------|
+ *   | ad-campaigns.test.ts alone                      | 0      |
+ *   | 4 org-creating suites, 2 rate-limit failures    | 0      |
+ *   | full 33-file run, all files reported passing    | 21     |
+ *   | full 33-file run, rate-limited                  | 42     |
  *
- * while the same suite passing cleanly leaked nothing. A teardown cannot clean
- * up after a failure that prevents the teardown from running — hook timeouts,
- * a killed worker, Ctrl-C, a rate-limited run aborted partway. Those are
- * exactly the runs that leak, and exactly the runs a per-file hook cannot
- * cover.
+ * The leak is always a whole file's worth of fixtures (20 orgs + 1 outsider =
+ * one run of ad-campaigns.test.ts), which says the hook did not complete
+ * rather than that it deleted the wrong rows. What has NOT been established is
+ * why it does not complete at full parallelism — the obvious candidates
+ * (PostgREST row caps, `db_max_rows`) were checked and ruled out, and the
+ * runs that would narrow it further are themselves rate-limited by the auth
+ * API this suite hammers.
  *
- * So this runs ONCE after the whole run, regardless of what any individual
- * file did, and sweeps by the same conservative allowlist the one-time purge
- * script uses. It is a safety net, not the mechanism: a suite that stops
- * calling `deleteTestOrgs` should still be treated as a bug, which is why the
- * sweep is loud about what it found.
+ * That unknown is precisely the argument FOR a backstop rather than against
+ * one. There is no staging database (CLAUDE.md); the cost of a teardown that
+ * silently does not run is a production table that fills up, which is exactly
+ * how 324 organisations accumulated. A sweep that runs once at the end,
+ * unconditionally, does not need the mechanism explained to be correct.
+ *
+ * Treat a straggler on a CLEAN run as a bug in that suite, not as something
+ * the sweep exists to absorb — the breakdown it prints names the suite.
  *
  * ── Why it does not fail the run when it finds residue ────────────────────
  *
@@ -45,6 +52,14 @@ import { selectFixtureOrgs } from "./fixture-orgs";
  */
 
 export async function teardown(): Promise<void> {
+  if (process.env.TALENTRAH_SKIP_GLOBAL_SWEEP === "1") {
+    // Debug escape hatch: leaves stragglers in place so you can inspect WHICH
+    // suite produced them and when. Never set in CI — the sweep is the reason
+    // an interrupted run no longer fills the live project.
+    console.warn("[global-teardown] skipped (TALENTRAH_SKIP_GLOBAL_SWEEP=1)");
+    return;
+  }
+
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) {

@@ -204,17 +204,28 @@ operator noticing. Re-running is a no-op.
 A per-suite teardown was the obvious answer and it is only half of one. Both
 halves measured, on the branch, rather than reasoned about:
 
-| run | result |
+| configuration | leaked |
 |---|---|
-| `ad-campaigns.test.ts` alone | **0 leaked** — 23 organisations before, 23 after |
-| full suite, clean | **0 leaked** |
-| full suite into the auth rate limit | **21 leaked**, all from that one file |
+| `ad-campaigns.test.ts` alone | **0** — 23 organisations before, 23 after |
+| 4 org-creating suites, 2 rate-limit failures, sweep disabled | **0** |
+| full 33-file run, **all files reported passing** | **21** |
+| full 33-file run, rate-limited | **42** |
 
-An `afterAll` only runs if the file gets that far, and only finishes if it is
-given the time. Hook timeouts, a killed worker, Ctrl-C, a rate-limited run
-aborted partway — those are exactly the runs that leak, and exactly the runs a
-per-file hook cannot cover. The first clean-run measurement said "zero leak"
-and was testing the case that was never the problem.
+The delete itself is proven correct at the exact shape and scale that leaks: 21
+organisations each with a blocking `job_posting`, removed in 1.7s, 0 remaining
+by direct SQL. And the leak is always a whole file's worth (20 orgs + 1
+outsider = one run of ad-campaigns.test.ts), which says the hook did not
+complete rather than that it deleted the wrong rows.
+
+**What is NOT established is why it fails to complete at full parallelism.**
+PostgREST row caps and `db_max_rows` were checked and ruled out. The runs that
+would narrow it further are themselves rate-limited by the auth API this suite
+hammers, so the question is open.
+
+That unknown argues *for* the backstop, not against it. There is no staging
+database; a teardown that silently does not run fills a production table, which
+is exactly how 324 organisations accumulated. A sweep that runs once at the
+end, unconditionally, does not need the mechanism explained to be correct.
 
 So the fix is two layers:
 
