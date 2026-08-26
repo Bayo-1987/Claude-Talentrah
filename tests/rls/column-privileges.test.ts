@@ -26,6 +26,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
 import type { Database } from "@/lib/supabase/types";
+import { deleteOrgsCascade } from "../support/delete-orgs";
 import { deleteTestOrgs } from "../support/cleanup";
 
 for (const key of [
@@ -66,13 +67,66 @@ async function createAuthedUser(label: string) {
 }
 
 let user: Awaited<ReturnType<typeof createAuthedUser>>;
+let fixtureOrgId: string | null = null;
+/** A posting this suite owns — see makeFixturePosting. */
+let fixtureJobId: string;
 
 beforeAll(async () => {
   user = await createAuthedUser("owner");
+
+  /*
+   * A posting this suite OWNS.
+   *
+   * Three tests below took whatever `job_postings` returned first for
+   * `status = open` and inserted against it. With up to 33 files in parallel
+   * against one production project, a borrowed row can be deleted by its owning
+   * suite between the hook and the test.
+   *
+   * MEASURED, because the intuitive reading is wrong: for the two NEGATIVE
+   * tests here (which assert an insert is refused) a deleted posting is
+   * harmless — pointing the insert at a nonexistent uuid still yields 42501,
+   * because Postgres evaluates the column-grant denial BEFORE the foreign key.
+   * They were never silently losing coverage. It is the third test, which
+   * inserts through the service role and EXPECTS success, that a deleted row
+   * would break — loudly, with 23503.
+   *
+   * Owning the posting fixes the third and costs nothing for the other two.
+   */
+  const { data: org, error: orgError } = await admin
+    .from("organizations")
+    .insert({
+      name: `COLPRIV-TEST Org ${randomUUID().slice(0, 8)}`,
+      domain: `colpriv-${randomUUID().slice(0, 8)}.example`,
+      created_by: user.id,
+      verified: true,
+    })
+    .select("id")
+    .single();
+  if (orgError || !org) throw new Error(`Could not create fixture org: ${orgError?.message}`);
+  fixtureOrgId = org.id;
+
+  const { data: job, error: jobError } = await admin
+    .from("job_postings")
+    .insert({
+      source_type: "internal",
+      organization_id: fixtureOrgId,
+      company_name: "COLPRIV-TEST Co",
+      title: "COLPRIV-TEST Role",
+      description: "Fixture posting owned by tests/rls/column-privileges.",
+      structured_jd: {},
+      status: "open",
+      posted_at: new Date().toISOString(),
+      dedup_fingerprint: randomUUID(),
+    })
+    .select("id")
+    .single();
+  if (jobError || !job) throw new Error(`Could not create fixture posting: ${jobError?.message}`);
+  fixtureJobId = job.id;
 });
 
 afterAll(async () => {
   if (user) await admin.auth.admin.deleteUser(user.id);
+  if (fixtureOrgId) await deleteOrgsCascade(admin, [fixtureOrgId]);
 });
 
 describe("profiles: a user cannot rewrite what their account is worth (0030)", () => {
@@ -319,23 +373,24 @@ describe("derived tables are the server's conclusion, not the user's input (0031
      * threshold, so a user-writable score is a user-writable trigger for
      * applications sent under their name.
      */
-    const { data: job } = await admin
-      .from("job_postings")
-      .select("id")
-      .eq("status", "open")
-      .limit(1)
-      .single();
-
     const { error: insertError } = await user.client
       .from("match_scores")
-      .insert({ user_id: user.id, job_posting_id: job!.id, score: 100, tier: "Excellent" });
+      .insert({ user_id: user.id, job_posting_id: fixtureJobId, score: 100, tier: "Excellent" });
     expect(insertError, "a user authored their own match score").not.toBeNull();
+    // The CODE, not merely that something failed. `.not.toBeNull()` alone is
+    // satisfied by any error at all, so it would keep passing if the refusal
+    // ever stopped being a permission denial and became something incidental.
+    // (A missing posting is NOT such a case — see the note in beforeAll.)
+    expect(
+      insertError!.code,
+      `expected a permission denial, got ${insertError!.code}: ${insertError!.message}`,
+    ).toBe("42501");
 
     const { data: rows } = await admin
       .from("match_scores")
       .select("id")
       .eq("user_id", user.id)
-      .eq("job_posting_id", job!.id);
+      .eq("job_posting_id", fixtureJobId);
     expect(rows ?? []).toHaveLength(0);
 
     const { error: readError } = await user.client
@@ -494,16 +549,9 @@ describe("auto-apply tables: the user owns the switch, the server owns the rest 
      * name. If a user can write it, the match threshold is decorative — queue
      * anything, at any score, and confirm it.
      */
-    const { data: job } = await admin
-      .from("job_postings")
-      .select("id")
-      .eq("status", "open")
-      .limit(1)
-      .single();
-
     const { error } = await user.client.from("auto_apply_queue").insert({
       user_id: user.id,
-      job_posting_id: job!.id,
+      job_posting_id: fixtureJobId,
       match_score: 100,
       tier: "excellent",
       source_type: "internal",
@@ -520,20 +568,15 @@ describe("auto-apply tables: the user owns the switch, the server owns the rest 
   it("cannot rewrite what the activity log says happened", async () => {
     // The log is the record of applications sent on their behalf and credits
     // charged. Editable history is not an audit trail (build-prompt §8).
-    const { data: job } = await admin
-      .from("job_postings")
-      .select("id, source_type")
-      .eq("status", "open")
-      .limit(1)
-      .single();
     const { data: row } = await admin
       .from("auto_apply_queue")
       .insert({
         user_id: user.id,
-        job_posting_id: job!.id,
+        job_posting_id: fixtureJobId,
         match_score: 95,
         tier: "excellent",
-        source_type: job!.source_type,
+        // The fixture posting is internal by construction.
+        source_type: "internal",
         status: "submitted",
         decided_at: new Date().toISOString(),
         credits_spent: 2,

@@ -13,6 +13,8 @@ export const FIXTURE_DOMAIN_PATTERNS = [
   "camp-%.example", // tests/billing/ad-campaigns.test.ts, tests/support/cleanup.test.ts
   "out-%.example", // tests/billing/ad-campaigns.test.ts (the outsider org)
   "trkfix-%.example", // tests/tracker/tracker-and-farah.test.ts
+  "crossuser-%.example", // tests/rls/cross-user.test.ts
+  "colpriv-%.example", // tests/rls/column-privileges.test.ts
 ] as const;
 
 export const FIXTURE_NAME_PATTERNS = [
@@ -25,6 +27,7 @@ export const FIXTURE_NAME_PATTERNS = [
   "COLPRIV-ROLE %", // tests/rls/column-privileges.test.ts
   "EMPLOYER-TEST%", // tests/employer/employer-flow.test.ts
   "AUTOAPPLY-TEST Org %", // tests/auto-apply/enforcement.test.ts
+  "RLS-CROSSUSER Org %", // tests/rls/cross-user.test.ts
   "E2E Employer Co%", // e2e/employer.spec.ts — Playwright, not vitest, but it
   //                     leaks into the same project and its own afterEach had
   //                     the identical discarded-error bug.
