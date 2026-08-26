@@ -31,7 +31,7 @@
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { randomUUID } from "node:crypto";
-import { admin, createTestUser, deleteTestUsers } from "../support/auth";
+import { admin, createTestUser, deleteTestUsers , deleteTestOrgs } from "../support/auth";
 
 const DOMAIN = `dupdomain-${randomUUID().slice(0, 8)}.example`;
 const createdOrgs: string[] = [];
@@ -58,7 +58,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  if (createdOrgs.length) await admin.from("organizations").delete().in("id", createdOrgs);
+  await deleteTestOrgs(createdOrgs);
   await deleteTestUsers(createdUsers);
 }, 60_000);
 

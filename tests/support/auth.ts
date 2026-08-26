@@ -107,6 +107,89 @@ export async function createAuthedTestUser(
   return { ...user, client: await sessionFor(user.email) };
 }
 
+/**
+ * Best-effort cleanup of accounts a suite created.
+ *
+ * It reports rather than throws: a cleanup failure should not turn a passing
+ * run red, because the assertions already passed and the accounts are
+ * disposable. But it must not be SILENT either — the previous
+ * `.catch(() => {})` meant a cleanup that stopped working would look exactly
+ * like one that worked, and the only symptom would surface somewhere else
+ * entirely (the seed hitting the auth listUsers page boundary, in the event
+ * that prompted this).
+ *
+ * For the record, because it is the intuitive suspect and it is wrong: auth
+ * rate limiting is NOT why accounts leak. Replaying this exact burst against
+ * 48 leaked accounts deleted all 48 with zero failures. Accounts leak when the
+ * process is killed before `afterAll` runs at all, which no hook can fix —
+ * hence tests/global-setup.ts.
+ */
 export async function deleteTestUsers(ids: string[]): Promise<void> {
-  await Promise.all(ids.map((id) => admin.auth.admin.deleteUser(id).catch(() => {})));
+  const results = await Promise.all(
+    ids.map((id) =>
+      admin.auth.admin
+        .deleteUser(id)
+        .then((r) => (r.error ? `${id}: ${r.error.message}` : null))
+        .catch((e) => `${id}: ${e instanceof Error ? e.message : String(e)}`),
+    ),
+  );
+  const failed = results.filter((r): r is string => r !== null);
+  if (failed.length) {
+    console.warn(
+      `[cleanup] ${failed.length}/${ids.length} test accounts could not be deleted; ` +
+        `tests/global-setup.ts will sweep them on a later run. First: ${failed[0]}`,
+    );
+  }
+}
+
+/**
+ * Delete test organisations, children first.
+ *
+ * `await admin.from("organizations").delete().in("id", ids)` looks like it
+ * works and mostly does not. Of the six FKs pointing at `organizations`, four
+ * CASCADE — ad_campaigns, ad_wallets, ad_wallet_ledger, organization_members —
+ * and two do NOT: `job_postings_organization_id_fkey` and
+ * `payment_transactions_organization_id_fkey` are both NO ACTION.
+ *
+ * Nearly every suite that makes an org also makes a posting for it, so the
+ * delete is rejected with 23503. And because supabase-js resolves rather than
+ * throws, an unchecked `await` swallows that rejection whole: the hook reports
+ * success, the org survives, and the only visible symptom is test data piling
+ * up in production weeks later. Measured mid-session: 20 `Campaign Co %` orgs
+ * still present, 22 of 23 organisations carrying at least one posting.
+ *
+ * This is deliberately NOT fixed by making those FKs cascade. NO ACTION is the
+ * correct production rule — removing an organisation should not silently
+ * vaporise live job postings, and a test-cleanup convenience is a bad reason
+ * to weaken that.
+ *
+ * Errors are reported rather than thrown, for the same reason
+ * deleteTestUsers reports: a cleanup failure should not turn a passing run
+ * red. Silence, though, is what caused this.
+ */
+export async function deleteTestOrgs(ids: string[]): Promise<void> {
+  if (!ids.length) return;
+
+  const problems: string[] = [];
+  const { error: jobErr } = await admin
+    .from("job_postings")
+    .delete()
+    .in("organization_id", ids);
+  if (jobErr) problems.push(`job_postings: ${jobErr.message}`);
+
+  const { error: payErr } = await admin
+    .from("payment_transactions")
+    .delete()
+    .in("organization_id", ids);
+  if (payErr) problems.push(`payment_transactions: ${payErr.message}`);
+
+  const { error: orgErr } = await admin.from("organizations").delete().in("id", ids);
+  if (orgErr) problems.push(`organizations: ${orgErr.message}`);
+
+  if (problems.length) {
+    console.warn(
+      `[cleanup] ${ids.length} test org(s) not fully removed; tests/global-setup.ts ` +
+        `will sweep them on a later run. ${problems.join("; ")}`,
+    );
+  }
 }

@@ -27,6 +27,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
 import type { Database } from "@/lib/supabase/types";
+import { deleteTestOrgs } from "../support/auth";
 
 for (const key of [
   "NEXT_PUBLIC_SUPABASE_URL",
@@ -327,7 +328,7 @@ describe("RLS: an unverified organisation cannot reach the public feed", () => {
       for (const u of [attacker, bystander]) {
         await admin.from("organization_members").delete().eq("user_id", u.id);
       }
-      if (attackerOrgId) await admin.from("organizations").delete().eq("id", attackerOrgId);
+      if (attackerOrgId) await deleteTestOrgs([attackerOrgId]);
       for (const u of [attacker, bystander]) await admin.auth.admin.deleteUser(u.id);
     }
   });
@@ -404,7 +405,7 @@ describe("RLS: the legitimate organisation path still works", () => {
       await admin.from("job_postings").delete().eq("dedup_fingerprint", fingerprint);
     } finally {
       await admin.from("organization_members").delete().eq("user_id", founder.id);
-      if (ownOrgId) await admin.from("organizations").delete().eq("id", ownOrgId);
+      if (ownOrgId) await deleteTestOrgs([ownOrgId]);
       await admin.auth.admin.deleteUser(founder.id);
     }
   });

@@ -28,6 +28,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
 import type { Database } from "@/lib/supabase/types";
+import { deleteTestOrgs } from "../support/auth";
 
 for (const key of [
   "NEXT_PUBLIC_SUPABASE_URL",
@@ -126,8 +127,14 @@ afterAll(async () => {
     if (!u) continue;
     await admin.from("organization_members").delete().eq("user_id", u.id);
   }
-  if (orgId) await admin.from("organizations").delete().eq("id", orgId);
-  await admin.from("organizations").delete().like("name", "EMPLOYER-TEST%");
+  if (orgId) await deleteTestOrgs([orgId]);
+  // Resolved to ids first: deleteTestOrgs has to remove the non-cascading
+  // children (job_postings, payment_transactions) before the orgs themselves.
+  const { data: leftovers } = await admin
+    .from("organizations")
+    .select("id")
+    .like("name", "EMPLOYER-TEST%");
+  await deleteTestOrgs((leftovers ?? []).map((o) => o.id));
   for (const u of [employerA, outsiderB]) {
     if (u) await admin.auth.admin.deleteUser(u.id);
   }

@@ -19,7 +19,7 @@
  */
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { randomUUID } from "node:crypto";
-import { admin, createAuthedTestUser, deleteTestUsers, type DB } from "../support/auth";
+import { admin, createAuthedTestUser, deleteTestUsers, type DB , deleteTestOrgs } from "../support/auth";
 
 let orgId: string;
 let owner: { id: string; client: DB };
@@ -88,7 +88,7 @@ beforeEach(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  if (createdOrgs.length) await admin.from("organizations").delete().in("id", createdOrgs);
+  await deleteTestOrgs(createdOrgs);
   await deleteTestUsers(createdUsers);
 }, 60_000);
 

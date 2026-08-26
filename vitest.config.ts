@@ -6,6 +6,13 @@ export default defineConfig({
     environment: "node",
     setupFiles: ["./tests/setup.ts"],
     /*
+     * Runs ONCE per vitest invocation, before any file — unlike setupFiles,
+     * which runs per file and would fire this 21 times in parallel. See the
+     * file's own header for why the cleanup lives here rather than in an
+     * afterAll or a cron.
+     */
+    globalSetup: ["./tests/global-setup.ts"],
+    /*
      * `.tsx` as well as `.ts`. The template suite renders real components with
      * react-dom/server, which needs JSX — and a file that does not match this
      * glob is not reported as skipped, it is simply never collected. The
