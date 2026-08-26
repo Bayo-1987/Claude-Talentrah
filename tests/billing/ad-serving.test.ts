@@ -31,13 +31,32 @@ let jobId: string;
 let campaignId: string;
 const createdUsers: string[] = [];
 
-/** Sets a campaign's status directly. Only the service role may (0048). */
-async function setStatus(status: string) {
+/**
+ * Every campaign mutation in this file goes through here.
+ *
+ * The first version of the end-date test used a bare
+ * `admin.from("ad_campaigns").update(...)` and CI caught it: `ends_on` has
+ * `check (ends_on is null or ends_on >= starts_on)` and `starts_on` defaults
+ * to today, so setting `ends_on` to yesterday was REJECTED — and because the
+ * error was never read, the test proceeded believing its own setup. The
+ * assertion then failed for the honest reason that the campaign really was
+ * still live.
+ *
+ * Same shape as the unchecked deletes that let test organisations pile up in
+ * production for weeks. A setup step that cannot fail loudly is a test that
+ * can pass or fail for reasons unrelated to what it claims to check.
+ */
+async function updateCampaign(patch: Record<string, unknown>) {
   const { error } = await admin
     .from("ad_campaigns")
-    .update({ status: status as never })
+    .update(patch as never)
     .eq("id", campaignId);
-  if (error) throw error;
+  if (error) throw new Error(`campaign setup failed: ${error.message} [${error.code}]`);
+}
+
+/** Sets a campaign's status directly. Only the service role may (0048). */
+async function setStatus(status: string) {
+  await updateCampaign({ status });
 }
 
 async function scoreFor(userId: string, score: number) {
@@ -173,13 +192,13 @@ describe("D1 — payment does not override relevance", () => {
 
   it("the employer's targeting binds too, and an empty target means untargeted", async () => {
     await scoreFor(seeker.id, 95);
-    await admin.from("ad_campaigns").update({ target_locations: ["Abuja"] }).eq("id", campaignId);
+    await updateCampaign({ target_locations: ["Abuja"] });
     expect(
       await promotedFor(seeker.client),
       "a campaign targeted at Abuja served a Lagos posting",
     ).toHaveLength(0);
 
-    await admin.from("ad_campaigns").update({ target_locations: null }).eq("id", campaignId);
+    await updateCampaign({ target_locations: null });
     expect(
       await promotedFor(seeker.client),
       "a null target should mean untargeted, not matches-nothing",
@@ -203,10 +222,21 @@ describe("only a live campaign serves", () => {
 
   it("a campaign past its end date is not promoted", async () => {
     await scoreFor(seeker.id, 95);
-    const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
-    await admin.from("ad_campaigns").update({ ends_on: yesterday }).eq("id", campaignId);
-    expect(await promotedFor(seeker.client)).toHaveLength(0);
-    await admin.from("ad_campaigns").update({ ends_on: null }).eq("id", campaignId);
+    /*
+     * `starts_on` moves too. `ad_campaigns_ends_after_starts` requires
+     * ends_on >= starts_on, and starts_on defaults to today — so backdating
+     * only the end date is rejected by the constraint, which is exactly how
+     * this test failed the first time.
+     */
+    const day = (offset: number) =>
+      new Date(Date.now() + offset * 86_400_000).toISOString().slice(0, 10);
+    await updateCampaign({ starts_on: day(-2), ends_on: day(-1) });
+    expect(
+      await promotedFor(seeker.client),
+      "a campaign past its end date was still served",
+    ).toHaveLength(0);
+
+    await updateCampaign({ starts_on: day(0), ends_on: null });
     expect(await promotedFor(seeker.client)).toHaveLength(1);
   });
 });
