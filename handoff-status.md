@@ -33,6 +33,100 @@ both served stale content in this project's history. Don't rely on either.
 
 ---
 
+## Set up 2026-08-26 — CI runs against a second Supabase project
+
+Not a PR. Infrastructure, recorded because it changes what every entry below
+this one means: a test run can no longer damage production.
+
+| | Project | Role |
+|---|---|---|
+| Production | `nytwbbzfpytctjsoczzq` | Vercel points here. Untouched by the repoint |
+| CI | `dozaffzgqkbarxtlclsj` — "Talentrah CI", eu-north-1, free tier | GitHub Actions secrets point here |
+
+**Cost: $0/month.** Free tier allows 2 active projects. Pro ($25/mo) buys
+per-PR branch isolation at $0.01344/branch/hour — deferred until there is a
+second concurrent contributor, since #57's per-ref concurrency already
+serialises the one-at-a-time case.
+
+**The costed argument, including the part that weakened it.** The case was
+originally put as "seven infra defects today, all downstream of testing against
+production". On honest re-count that was overstated: roughly **three of eight**
+were genuinely shared-database (borrowed fixtures, auth rate limits, residue
+landing in production). The rest — the `listUsers()` pagination class, the
+ingest route's 200-on-total-failure, the unchecked deletes — would have
+happened anywhere. A staging database makes their consequences harmless; it
+does not prevent them.
+
+### No workflow change was needed
+
+`ci.yml` hardcodes no project ref — it reads `NEXT_PUBLIC_SUPABASE_URL`,
+`NEXT_PUBLIC_SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` from secrets.
+Updating the secret values IS the repoint. Checked rather than edited.
+
+### How the schema got there, and what to trust
+
+All 26 migrations replayed through the MCP connector — there is no PAT in this
+repo, `psql` is not installed and the Supabase CLI is not either, so
+`supabase db push` was not available. Verified against production rather than
+assumed:
+
+```
+tables 28 = 28      policies 36 = 36      functions 25 = 25
+public/auth triggers 7 = 7                public enums 25 = 25   (identical names)
+authenticated UPDATE column grants        BYTE-IDENTICAL
+```
+
+That last line is the one that matters — every `revoke`/`grant (cols)` from
+0028, 0030, 0033, 0041 and 0047 reproduced exactly, with `farah_messages`,
+`referral_shares` and `match_scores` correctly absent from both. The count gaps
+that looked alarming (12 vs 11 triggers, 37 vs 35 enums) were Supabase-managed
+`storage`/`realtime` objects.
+
+One deliberate textual deviation: 0045 embeds literal zero-width characters in
+a regex, and transcribing those blind is how the JS/SQL drift bug happened in
+the first place. Written with `\uXXXX` escapes instead and proved equivalent
+across all 11 cases, each of U+200B/200C/200D/2060/180E/FEFF included.
+
+### Proved in both directions
+
+A snapshot before the first green run, and the same query after:
+
+```
+production @ 17:15:53Z   35 auth users, 2 orgs, 166 postings, 11 templates
+production after run 206 35, 2, 166, 11   — and 0 test-shaped users created since
+CI project after run 206 3 seed accounts, 1 org, 149 postings, 8 scholarships
+```
+
+Test data landed in CI; production did not move a row. That is the
+confirmation, not the green tick — if CI were still pointed at production those
+throwaway rows would have appeared there.
+
+### What the first run found, which is the point of doing it
+
+Two hidden dependencies on ambient production data, invisible for as long as
+the only database anyone used already had it:
+
+* `template-registry.test.ts` — the CI project had only 0042's four templates.
+  seed lists all eleven; it had simply never run there.
+* `cross-user.test.ts` — crashed at file level reading `.id` of null. It
+  borrows a SCHOLARSHIP the same way it used to borrow a job posting, and a
+  fresh project has none. Third and fourth instance of that class, after #59
+  and #60 — the sweep those PRs ran covered `job_postings` and not every shared
+  table.
+
+### Standing caveats
+
+- **A LOCAL run still hits production.** The isolation is CI-only; `.env.local`
+  is unchanged.
+- **Both projects need every migration**, and they are deliberately allowed to
+  diverge while a PR is in review — CI on write, production on merge.
+- **Reference data was bootstrapped by hand** (templates, scholarships, credit
+  packs, passes). [PR #61](https://github.com/Bayo-1987/Claude-Talentrah/pull/61) teaches seed the two catalogs it never knew, but
+  the ordering problem remains: unit tests run before seed, so a fresh project
+  still fails its first run until its reference data exists.
+
+---
+
 ## Merged 2026-08-26 — PR #60, tests own the job postings they write against
 
 | PR | Branch | Merged at (UTC) | Merge SHA |
