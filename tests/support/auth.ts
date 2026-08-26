@@ -107,6 +107,37 @@ export async function createAuthedTestUser(
   return { ...user, client: await sessionFor(user.email) };
 }
 
+/**
+ * Best-effort cleanup of accounts a suite created.
+ *
+ * Reports rather than throws: a cleanup failure should not turn a passing run
+ * red, because the assertions already passed and the accounts are disposable.
+ * But it must not be SILENT. `.catch(() => {})` made a cleanup that stopped
+ * working indistinguishable from one that worked, which is the same silence
+ * that let the organisation leak this branch fixes survive for weeks — an
+ * unchecked failure surfaces somewhere unrelated, much later, as a wrong
+ * diagnosis.
+ *
+ * For the record, because it is the intuitive suspect and it is wrong: auth
+ * rate limiting is NOT why accounts leak. Replaying this exact burst against
+ * 48 leaked accounts deleted all 48 with zero failures. Accounts leak when the
+ * process is killed before the hook runs at all — which is what the global
+ * sweep on this branch is for.
+ */
 export async function deleteTestUsers(ids: string[]): Promise<void> {
-  await Promise.all(ids.map((id) => admin.auth.admin.deleteUser(id).catch(() => {})));
+  const results = await Promise.all(
+    ids.map((id) =>
+      admin.auth.admin
+        .deleteUser(id)
+        .then((r) => (r.error ? `${id}: ${r.error.message}` : null))
+        .catch((e) => `${id}: ${e instanceof Error ? e.message : String(e)}`),
+    ),
+  );
+  const failed = results.filter((r): r is string => r !== null);
+  if (failed.length) {
+    console.warn(
+      `[cleanup] ${failed.length}/${ids.length} test accounts could not be deleted; ` +
+        `the global sweep will remove them on a later run. First: ${failed[0]}`,
+    );
+  }
 }
