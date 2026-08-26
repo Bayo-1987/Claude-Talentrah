@@ -40,7 +40,24 @@ export const FIXTURE_NAME_PATTERNS = [
  */
 export const PROTECTED_ORG_NAMES = ["Zaria Digital", "Fatishcakes"] as const;
 
-export type FixtureOrg = { id: string; name: string; domain: string | null };
+export type FixtureOrg = { id: string; name: string; domain: string | null; created_at?: string };
+
+/**
+ * Only sweep organisations older than this.
+ *
+ * Credit where due: this gate comes from the concurrently-developed PR #56,
+ * which got it right and this file originally did not. Up to 33 files run in
+ * parallel, and CI can be running against the same project while someone runs
+ * locally — there is no staging database. Without an age gate a sweep deletes
+ * organisations out from under a live run, and the failures look like RLS bugs
+ * rather than like a sweep.
+ *
+ * Two hours: far beyond the longest observed run (~10 minutes), far below the
+ * gap between sessions. The repo-wide `talentrah-shared-supabase` concurrency
+ * group serialises CI against itself but does nothing about CI versus a local
+ * run, so the gate is doing real work.
+ */
+export const SWEEP_STALE_AFTER_MS = 2 * 60 * 60 * 1000;
 
 /** Throws if the selection contains a known-real organisation. */
 export function assertNoProtectedOrgs(orgs: FixtureOrg[]): void {
@@ -53,16 +70,30 @@ export function assertNoProtectedOrgs(orgs: FixtureOrg[]): void {
   }
 }
 
-/** Every organisation matching a fixture pattern. Deduped across patterns. */
-export async function selectFixtureOrgs(db: {
-  from: (t: string) => {
-    select: (c: string) => { like: (col: string, p: string) => Promise<{ data: FixtureOrg[] | null; error: { message: string } | null }> };
-  };
-}): Promise<FixtureOrg[]> {
+/**
+ * Every organisation matching a fixture pattern.
+ *
+ * `olderThanMs` defaults to SWEEP_STALE_AFTER_MS so the common caller — the
+ * global sweep — cannot forget it. Pass 0 for the one-time purge script, where
+ * the operator is deliberately clearing everything and no run is in flight.
+ */
+export async function selectFixtureOrgs(
+  db: {
+    from: (t: string) => {
+      select: (c: string) => {
+        like: (col: string, p: string) => Promise<{ data: FixtureOrg[] | null; error: { message: string } | null }>;
+      };
+    };
+  },
+  olderThanMs: number = SWEEP_STALE_AFTER_MS,
+): Promise<FixtureOrg[]> {
   const found = new Map<string, FixtureOrg>();
 
   const collect = async (column: "domain" | "name", pattern: string) => {
-    const { data, error } = await db.from("organizations").select("id, name, domain").like(column, pattern);
+    const { data, error } = await db
+      .from("organizations")
+      .select("id, name, domain, created_at")
+      .like(column, pattern);
     if (error) throw new Error(`selecting ${column} like ${pattern}: ${error.message}`);
     for (const o of data ?? []) found.set(o.id, o);
   };
@@ -71,6 +102,13 @@ export async function selectFixtureOrgs(db: {
   for (const p of FIXTURE_NAME_PATTERNS) await collect("name", p);
 
   const orgs = [...found.values()];
+
+  // Asserted BEFORE the age filter, deliberately: a protected organisation
+  // matching a fixture pattern is a broken pattern whether or not it happens
+  // to be young enough to survive this particular run.
   assertNoProtectedOrgs(orgs);
-  return orgs;
+
+  if (olderThanMs <= 0) return orgs;
+  const cutoff = Date.now() - olderThanMs;
+  return orgs.filter((o) => !o.created_at || new Date(o.created_at).getTime() < cutoff);
 }

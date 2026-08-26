@@ -56,7 +56,10 @@ const db = createClient<Database>(
  * global sweep so the three cannot drift. `selectFixtureOrgs` throws if the
  * selection ever contains a known-real organisation.
  */
-const selectFixtures = (): Promise<FixtureOrg[]> => selectFixtureOrgs(db as never);
+// olderThanMs = 0: the operator is deliberately clearing everything, and the
+// dry run has already shown them exactly what will go. The global sweep uses
+// the default age gate instead, because it can run while another suite is live.
+const selectFixtures = (): Promise<FixtureOrg[]> => selectFixtureOrgs(db as never, 0);
 
 async function main() {
   const apply = process.argv.includes("--apply");
