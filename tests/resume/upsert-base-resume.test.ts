@@ -17,6 +17,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/types";
 import { upsertBaseResume } from "@/lib/resume/upsert-base-resume";
 import { EMPTY_RESUME, type StructuredResume } from "@/lib/resume/types";
+import { findUserByEmail } from "../support/list-users";
 
 const TEST_EMAIL = "vitest-upsert-base-resume@talentrah.dev";
 
@@ -42,8 +43,10 @@ beforeAll(async () => {
     { auth: { persistSession: false, autoRefreshToken: false } },
   );
 
-  const { data: existing } = await admin.auth.admin.listUsers();
-  const already = existing.users.find((u) => u.email === TEST_EMAIL);
+  // Paginated: the unpaginated version of this is exactly what broke the
+  // seed — miss the account past page one, then createUser reports
+  // "already registered" and the test fails for a reason that looks unrelated.
+  const already = await findUserByEmail(admin, TEST_EMAIL);
   if (already) await admin.auth.admin.deleteUser(already.id);
 
   const { data, error } = await admin.auth.admin.createUser({

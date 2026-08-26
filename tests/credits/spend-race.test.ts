@@ -24,6 +24,7 @@ import { randomUUID } from "node:crypto";
 import type { Database } from "@/lib/supabase/types";
 import { spendCredits, InsufficientCreditsError } from "@/lib/credits/spend";
 import { CREDIT_COSTS } from "@/lib/credits/costs";
+import { listUsersWithPrefix } from "../support/list-users";
 
 for (const key of ["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"] as const) {
   if (!process.env[key]) throw new Error(`Credit-race test cannot run: ${key} is not set.`);
@@ -89,8 +90,7 @@ afterAll(async () => {
    * exactly the throwaway accounts it exists to remove — into the shared
    * project, because there is no staging database.
    */
-  const { data } = await admin.auth.admin.listUsers();
-  const mine = data.users.filter((x) => x.email?.startsWith("credit-race-"));
+  const mine = await listUsersWithPrefix(admin, "credit-race-");
   await Promise.all(mine.map((u) => admin.auth.admin.deleteUser(u.id)));
 }, 60_000);
 
