@@ -14,7 +14,7 @@ export default async function JobsPostedPage() {
     await Promise.all([
       supabase
         .from("job_postings")
-        .select("id, title, location, status, posted_at, work_type, employment_type")
+        .select("id, title, location, status, posted_at, work_type, employment_type, removal_reason")
         .eq("organization_id", organization.id)
         .eq("source_type", "internal")
         .order("posted_at", { ascending: false }),
@@ -38,6 +38,7 @@ export default async function JobsPostedPage() {
     title: job.title,
     location: job.location,
     status: job.status,
+    removalReason: job.removal_reason,
     postedAt: job.posted_at,
     workType: job.work_type,
     employmentType: job.employment_type,
