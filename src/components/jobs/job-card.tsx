@@ -1,6 +1,7 @@
 import { BorderedCard, IconButton, Button, MatchTierBadge } from "@/components/ui";
 import { getCompanyInitials } from "@/lib/jobs/company-initials";
 import { formatRelativeTime } from "@/lib/format-relative-time";
+import { freshnessNote } from "@/lib/jobs/freshness-note";
 import { FarahJobMenu } from "@/components/jobs/farah-job-menu";
 import type { MatchExplanation } from "@/lib/matching/score";
 import { toggleSaveAction, applyInAppAction, markAppliedExternallyAction } from "@/lib/applications/actions";
@@ -40,6 +41,7 @@ export function JobCard({ job, score, isSaved, applicationStage, isSponsored = f
   ].filter(Boolean);
 
   const isExternal = job.source_type === "external";
+  const freshness = freshnessNote(job);
   const alreadyApplied =
     applicationStage === "applied" ||
     applicationStage === "interviewing" ||
@@ -88,9 +90,22 @@ export function JobCard({ job, score, isSaved, applicationStage, isSponsored = f
       </p>
 
       <div className="flex items-center justify-between border-t border-line pt-3.5">
-        <span className="text-[12.5px] text-ink-soft">
-          {formatRelativeTime(job.posted_at)}
-        </span>
+        <div className="flex flex-col gap-[3px]">
+          <span className="text-[12.5px] text-ink-soft">
+            {formatRelativeTime(job.posted_at)}
+          </span>
+          {/*
+            Italic Newsreader is the design system's quiet-aside voice, and
+            --ink-soft keeps it there. The reference mock set this line in
+            --rust; it is deliberately not followed. Rust is one of the three
+            match-tier colours, and a coloured line on the card is how a fourth
+            tier gets invented by accident. Finding 04's own guidance was "one
+            flag, plain text, no icon" — a colour is not plain text.
+          */}
+          {freshness && (
+            <span className="font-display text-[12px] italic text-ink-soft">{freshness}</span>
+          )}
+        </div>
         <div className="relative flex items-center gap-2.5">
           <form action={toggleSaveAction.bind(null, job.id)}>
             <IconButton aria-label={isSaved ? "Unsave" : "Save"} type="submit">
