@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { FilterChip } from "@/components/ui";
 import type { SkillFacetEntry } from "@/lib/jobs/skill-facet";
 
 const WORK_TYPES = ["remote", "hybrid", "onsite"] as const;
@@ -46,25 +45,63 @@ export interface FilterBarProps {
 export function FilterBar({ tab, workType, seniority, skill, skillFacet = [] }: FilterBarProps) {
   const base = { tab, workType, seniority, skill };
 
+  const applied: { key: keyof typeof base; label: string }[] = [];
+  if (workType) applied.push({ key: "workType", label: LABEL[workType] });
+  if (seniority) applied.push({ key: "seniority", label: LABEL[seniority] });
+  // Lowercase on purpose. `sql` and `communication` are the values the parser
+  // actually stored, and the browse row below shows them the same way. Title
+  // casing would render "Sql", and a per-skill capitalisation map is a curated
+  // list — the exact thing the facet exists to avoid.
+  if (skill) applied.push({ key: "skill", label: skill });
+
   return (
     <div className="flex flex-col gap-3 border-y border-line py-3">
-      <div className="flex flex-wrap items-center gap-2">
-        {workType && (
-          <FilterChip
-            label={LABEL[workType]}
-          />
-        )}
-        {seniority && <FilterChip label={LABEL[seniority]} />}
-        {skill && <FilterChip label={skill} />}
-        {(workType || seniority || skill) && (
+      {/*
+        One instrument, not a scatter of chips (finding 01). The border is the
+        control; the hairlines inside are its dividers. It renders only when
+        something is applied — an empty bordered box would be a control with
+        nothing in it, and the mock's leading segment is a search field this
+        feed does not have.
+
+        Scope note: only APPLIED filters live in here. The work-type,
+        seniority and skill browse rows below are discovery affordances and
+        stay outside it, which is also all the mock ever showed inside — one
+        applied skill chip, never the twelve-option list.
+      */}
+      {applied.length > 0 && (
+        <div className="flex flex-wrap items-stretch overflow-hidden border-[1.5px] border-ink">
+          {applied.map(({ key, label }) => (
+            <Link
+              key={key}
+              href={buildHref(base, { [key]: undefined })}
+              aria-label={`Remove ${label} filter`}
+              /*
+                The whole segment is the remove target, not the 9px glyph. The
+                mock draws the x as decoration inside a span; at 9 x 9 that is
+                a quarter of the 40x40 minimum CLAUDE.md fixes, and shipping a
+                glyph-sized hit area is a bug this project has already had once.
+              */
+              className="flex min-h-[42px] items-center gap-2 border-r border-line px-3.5 text-[12.5px] font-semibold text-ink-soft no-underline transition-colors last:border-r-0 hover:text-rust"
+            >
+              {label}
+              <svg width="9" height="9" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                <path
+                  d="M4 4 L16 16 M16 4 L4 16"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </Link>
+          ))}
           <Link
             href={buildHref(base, { workType: undefined, seniority: undefined, skill: undefined })}
-            className="text-[12.5px] font-semibold text-ink-soft underline underline-offset-2 hover:text-rust"
+            className="flex min-h-[42px] items-center px-3.5 text-[12.5px] font-semibold text-ink-soft no-underline transition-colors hover:text-rust"
           >
             Clear filters
           </Link>
-        )}
-      </div>
+        </div>
+      )}
       <div className="flex flex-wrap items-center gap-4 text-[12.5px]">
         <div className="flex items-center gap-1.5">
           <span className="font-semibold text-ink-soft">Work type:</span>
