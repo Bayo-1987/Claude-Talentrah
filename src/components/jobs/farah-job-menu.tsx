@@ -33,12 +33,10 @@ import { fitSummary, gapSkills } from "@/lib/matching/vet-summary";
 
 export interface FarahJobMenuProps {
   jobId: string;
-  jobTitle: string;
-  score: number;
   explanation: MatchExplanation;
 }
 
-export function FarahJobMenu({ jobId, jobTitle, score, explanation }: FarahJobMenuProps) {
+export function FarahJobMenu({ jobId, explanation }: FarahJobMenuProps) {
   const [open, setOpen] = useState(false);
   const [detail, setDetail] = useState<"fit" | "gap" | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -107,10 +105,17 @@ export function FarahJobMenu({ jobId, jobTitle, score, explanation }: FarahJobMe
               Am I a fit?
             </button>
             {detail === "fit" && (
+              <>
+              {/*
+                No title, no percentage, no tier word. All three are already on
+                the card this menu is anchored to, and CLAUDE.md forbids prose
+                that restates the tier — naming "a good match" as the example.
+                This sentence carries only what is not already on screen.
+              */}
               <p className="mb-1 text-[12.5px] leading-[1.5] text-ink-soft">
-                {jobTitle} scores <strong className="text-ink">{score}%</strong> —{" "}
-                {fitSummary(score, explanation)}
+                {fitSummary(explanation)}
               </p>
+              </>
             )}
 
             <button

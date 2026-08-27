@@ -18,7 +18,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
-import { fitSummary, gapSkills, scoreBand } from "@/lib/matching/vet-summary";
+import { fitSummary, gapSkills } from "@/lib/matching/vet-summary";
 import { FarahJobMenu } from "@/components/jobs/farah-job-menu";
 import { TailorForm } from "@/components/tailoring/tailor-form";
 import type { MatchExplanation } from "@/lib/matching/score";
@@ -30,42 +30,67 @@ const explanation = (over: Partial<MatchExplanation> = {}): MatchExplanation => 
   ...over,
 });
 
-describe("the score bands agree with the three-tier system", () => {
-  it("changes wording exactly at 80, 70 and 60", () => {
-    expect(scoreBand(80)).toBe("a strong match");
-    expect(scoreBand(79)).toBe("a good match");
-    expect(scoreBand(70)).toBe("a good match");
-    expect(scoreBand(69)).toBe("a fair match");
-    expect(scoreBand(60)).toBe("a fair match");
-    expect(scoreBand(59)).toBe("a weak match");
-  });
+describe("the fit sentence never restates match quality", () => {
+  /*
+   * CLAUDE.md: "Match-tier wording must agree across every screen
+   * (Excellent/Good/Fair — no 'a good match' prose bypassing the system)."
+   *
+   * The first version of this asserted only that the LABELS were absent, and
+   * passed while the code returned the literal phrase the rule names. The rule
+   * is about the PHRASE — a paraphrased tier is the fourth tier arriving by the
+   * back door — so both are checked now.
+   */
+  const FORBIDDEN = [
+    "Excellent",
+    "Good",
+    "Fair",
+    "a good match",
+    "a strong match",
+    "a fair match",
+    "a weak match",
+    "match quality",
+  ];
 
-  it("never repeats a tier LABEL — the card already shows one two inches away", () => {
-    for (const s of [95, 75, 65, 30]) {
-      const text = fitSummary(s, explanation());
-      for (const label of ["Excellent", "Good", "Fair"]) {
-        expect(text, `"${label}" restated in prose next to the badge`).not.toContain(label);
+  it("carries neither a tier label nor a tier paraphrase, for any input", () => {
+    const cases: MatchExplanation[] = [
+      explanation(),
+      explanation({ seniorityAlignment: "match", matchedSkills: ["sql"] }),
+      explanation({ seniorityAlignment: "above", missingSkills: ["dbt"] }),
+      explanation({ seniorityAlignment: "below", matchedSkills: ["a", "b"] }),
+    ];
+    for (const e of cases) {
+      const text = fitSummary(e);
+      for (const phrase of FORBIDDEN) {
+        expect(text, `"${phrase}" restated next to the badge that already says it`).not.toContain(
+          phrase,
+        );
       }
     }
+  });
+
+  it("takes no score at all, so match quality cannot leak back in", () => {
+    // Structural, not cosmetic: with no score in scope the band cannot be
+    // reintroduced without changing the signature, which is a visible edit.
+    expect(fitSummary.length).toBe(1);
   });
 });
 
 describe("the fit sentence describes the stored data and nothing else", () => {
   it("reports how many named skills already match", () => {
-    expect(fitSummary(90, explanation({ matchedSkills: ["sql", "dbt"] }))).toContain(
+    expect(fitSummary(explanation({ matchedSkills: ["sql", "dbt"] }))).toContain(
       "You already match 2 of the skills it names",
     );
   });
 
   it("says so plainly when none match, rather than staying silent", () => {
-    expect(fitSummary(65, explanation())).toContain(
+    expect(fitSummary(explanation())).toContain(
       "None of the skills it names are on your resume yet",
     );
   });
 
   it("covers every seniority value, including unknown", () => {
     const reads = (["match", "above", "below", "unknown"] as const).map((a) =>
-      fitSummary(80, explanation({ seniorityAlignment: a })),
+      fitSummary(explanation({ seniorityAlignment: a })),
     );
     // Four distinct readings — an unhandled value silently collapsing into
     // another one's wording would misdescribe the job to the user.
@@ -91,12 +116,7 @@ describe("gap analysis", () => {
 
 describe("what the card renders before the menu is opened", () => {
   const markup = renderToStaticMarkup(
-    <FarahJobMenu
-      jobId="job-1"
-      jobTitle="Senior Product Manager"
-      score={92}
-      explanation={explanation({ missingSkills: ["compliance"] })}
-    />,
+    <FarahJobMenu jobId="job-1" explanation={explanation({ missingSkills: ["compliance"] })} />,
   );
 
   it("shows the disclosure trigger, closed", () => {

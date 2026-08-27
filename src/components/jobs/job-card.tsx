@@ -117,12 +117,7 @@ export function JobCard({ job, score, isSaved, applicationStage, isSponsored = f
               <path d="M7 8.8 L13 6.2 M7 11.2 L13 13.8" stroke="currentColor" strokeWidth="1.4" />
             </svg>
           </IconButton>
-          <FarahJobMenu
-            jobId={job.id}
-            jobTitle={job.title}
-            score={score}
-            explanation={explanation}
-          />
+          <FarahJobMenu jobId={job.id} explanation={explanation} />
 
           {alreadyApplied ? (
             <span className="inline-flex min-h-10 items-center px-4 text-[13.5px] font-semibold text-green">

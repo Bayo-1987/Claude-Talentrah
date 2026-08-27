@@ -10,12 +10,18 @@ import type { MatchExplanation } from "./score";
  * algorithmically for the score already on the card. No model call, no
  * credits, nothing stored.
  *
- * THE BANDS MUST MATCH THE TIER SYSTEM. CLAUDE.md fixes exactly three tiers
- * (Excellent 80+, Good 70–79, Fair 60–69) and forbids a fourth, and the
- * match-tier wording has to agree on every screen. These sentences deliberately
- * describe the band in prose rather than repeat the tier label, because the
- * label is already on the card two inches away — saying "Excellent" twice reads
- * as a system talking to itself.
+ * THESE SENTENCES SAY NOTHING ABOUT MATCH QUALITY, and that is the rule rather
+ * than a style choice. CLAUDE.md fixes three tiers and forbids prose that
+ * restates them — naming `"a good match"` specifically as the thing not to
+ * write. The first version of this file described the band in prose ("a strong
+ * match", "a good match") on the theory that avoiding the LABEL was enough. It
+ * was not: the rule is about the phrase, and paraphrasing a tier is exactly the
+ * fourth-tier-by-the-back-door the rule exists to stop.
+ *
+ * So the band is gone rather than reworded. The card already shows the
+ * percentage and the tier badge inches away; the sentence only adds what is
+ * NOT already on screen — seniority alignment and how many named skills the
+ * resume already covers.
  */
 
 const SENIORITY_READ: Record<MatchExplanation["seniorityAlignment"], string> = {
@@ -25,21 +31,18 @@ const SENIORITY_READ: Record<MatchExplanation["seniorityAlignment"], string> = {
   unknown: "the seniority isn't clear from the posting",
 };
 
-export function scoreBand(score: number): string {
-  if (score >= 80) return "a strong match";
-  if (score >= 70) return "a good match";
-  if (score >= 60) return "a fair match";
-  return "a weak match";
-}
-
-/** The headline read: band + seniority + how many named skills already match. */
-export function fitSummary(score: number, explanation: MatchExplanation): string {
+/**
+ * The headline read: seniority alignment, then how many named skills already
+ * match. Takes no score — see the note above on why match quality is absent.
+ */
+export function fitSummary(explanation: MatchExplanation): string {
   const matched = explanation.matchedSkills?.length ?? 0;
   const skills =
     matched > 0
       ? `You already match ${matched} of the skills it names.`
       : "None of the skills it names are on your resume yet.";
-  return `${scoreBand(score)}, and ${SENIORITY_READ[explanation.seniorityAlignment]}. ${skills}`;
+  const seniority = SENIORITY_READ[explanation.seniorityAlignment];
+  return `${seniority.charAt(0).toUpperCase()}${seniority.slice(1)}. ${skills}`;
 }
 
 /**
