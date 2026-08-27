@@ -220,11 +220,36 @@ spent one reasonable test at a time.
 
 ---
 
-## Not a gap: CI only runs on PRs targeting `main`
+## Not a gap: a stacked PR gets no CI until it retargets
 
-`ci.yml` is `on: pull_request: branches: [main]`, so a stacked PR gets no CI run
-until its base merges and it retargets. That is deliberate — every run contends
-for the one shared Supabase project (see the concurrency-group note in
-`ci.yml`), and widening the trigger would multiply exactly the contention that
-causes §3. The cost is that a stacked PR's verification is local-only until its
-turn. Plan the merge order around it rather than widening the trigger.
+`ci.yml` fires on three things:
+
+```yaml
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch: {}
+```
+
+So a PR whose base is another branch gets no automatic run — `pull_request` is
+filtered to `main`, and `push` only fires for `main` itself. That is
+deliberate: every run contends for the one shared Supabase project, and
+widening it would multiply exactly the contention §3 is about. The cost is that
+a stacked PR's verification is local-only until its base merges. Plan the merge
+order around it rather than widening the trigger.
+
+**The `push: branches: [main]` half is easy to forget and it is what makes §3
+bite.** Every MERGE kicks a run of its own, so merging one PR and pushing the
+next spends two runs back to back — which is more than a window holds. An
+earlier version of this section listed only the `pull_request` trigger and so
+described a workflow that would not have had this problem at all; a docs-only
+PR then failed on the auth rate limit two paragraphs below its own
+explanation, because its push landed immediately after a merge.
+
+Leave a gap after each merge before pushing the next branch. The runs do not
+fight each other for the database — `concurrency` is per-ref and
+`.github/scripts/wait-for-ci-lock.sh` BLOCKS rather than discarding, so an
+earlier run finishes before a later one starts — but they do share the
+account-wide auth budget, and blocking does not refill it.
