@@ -10,6 +10,7 @@ import { FilterBar } from "@/components/jobs/filter-bar";
 import { JobCard } from "@/components/jobs/job-card";
 import { Constants, type Tables } from "@/lib/supabase/types";
 import { hasVisibleName, visibleName } from "@/lib/profile/name";
+import { computeSkillFacet, filterBySkill } from "@/lib/jobs/skill-facet";
 import {
   fetchPromotedJobs,
   recordPromotedImpressions,
@@ -22,6 +23,7 @@ type SearchParams = Promise<{
   tab?: string;
   workType?: string;
   seniority?: string;
+  skill?: string;
 }>;
 
 const VALID_WORK_TYPES: readonly string[] = Constants.public.Enums.work_type;
@@ -39,6 +41,12 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
   const seniority = VALID_SENIORITIES.includes(params.seniority ?? "")
     ? (params.seniority as Seniority)
     : undefined;
+  /*
+   * Not validated against a list, because there is no list — the facet is
+   * whatever the postings mention. An unknown value simply matches nothing,
+   * which is the correct answer for a skill no posting names.
+   */
+  const skill = params.skill?.trim().toLowerCase() || undefined;
   const supabase = await createClient();
 
   const [{ data: baseResume, error: baseResumeError }, { data: applications }] = await Promise.all([
@@ -81,7 +89,26 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
   }
 
   const { data: jobsRaw } = await query;
-  const jobs: Tables<"job_postings">[] = jobsRaw ?? [];
+  const matchingFilters: Tables<"job_postings">[] = jobsRaw ?? [];
+
+  /*
+   * The facet is counted BEFORE the skill filter is applied, and then the
+   * filter is applied in memory.
+   *
+   * Counting after would collapse every other skill to whatever co-occurs
+   * with the selected one, so the facet would appear to empty out the moment
+   * anyone used it. Work-type and seniority are already applied at this point,
+   * which is the opposite choice on purpose: those counts should describe the
+   * board actually on screen.
+   *
+   * In memory rather than in SQL because the feed already fetches the whole
+   * result set — there is no pagination — so this is a filter over ~150 rows
+   * already in hand, not a second round trip. That stops being true if the
+   * board grows enough to need paging, and the filter moves into the query
+   * then.
+   */
+  const skillFacet = computeSkillFacet(matchingFilters);
+  const jobs: Tables<"job_postings">[] = filterBySkill(matchingFilters, skill);
   if (tab === "recent") {
     jobs.sort((a, b) => new Date(b.posted_at).getTime() - new Date(a.posted_at).getTime());
   }
@@ -185,7 +212,13 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
         pendingCount={pendingQueue.count ?? 0}
       />
 
-      <FilterBar tab={tab} workType={workType} seniority={seniority} />
+      <FilterBar
+        tab={tab}
+        workType={workType}
+        seniority={seniority}
+        skill={skill}
+        skillFacet={skillFacet}
+      />
 
       {baseResumeError && (
         <p className="border-[1.5px] border-rust bg-rust-soft px-4 py-3 text-[13.5px] text-rust">
