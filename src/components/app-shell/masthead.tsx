@@ -12,6 +12,7 @@ const NAV_LINKS = [
   { href: "/resume-builder", label: "Resume Builder" },
   { href: "/scholarships", label: "Scholarships" },
   { href: "/refer", label: "Refer a Friend" },
+  { href: "/feedback", label: "Feedback" },
 ];
 
 export interface MastheadProps {
@@ -39,10 +40,21 @@ export function Masthead({ creditsBalance, initials }: MastheadProps) {
           <nav className="flex items-center gap-5.5">
             {NAV_LINKS.map((link) => {
               const active = pathname?.startsWith(link.href);
+              /*
+               * Feedback carries the page you left. It is the only column on
+               * `feedback` that says anything about context, and without this
+               * every row would read "/feedback" — the form's own path, which
+               * tells a reader nothing. The page re-validates it; this is a
+               * convenience, not a trusted input.
+               */
+              const href =
+                link.href === "/feedback" && pathname && pathname !== "/feedback"
+                  ? `${link.href}?from=${encodeURIComponent(pathname)}`
+                  : link.href;
               return (
                 <Link
                   key={link.href}
-                  href={link.href}
+                  href={href}
                   className={cn(
                     "flex min-h-10 items-center border-b-[2.5px] border-transparent font-body text-[14.5px] font-semibold text-ink no-underline",
                     active ? "border-rust text-rust" : "hover:text-rust-hover",

@@ -178,3 +178,32 @@ describe("the browse rows stay outside the instrument", () => {
     expect(html).toContain("(38)");
   });
 });
+
+describe("browse rows are hit targets too", () => {
+  /*
+   * A cheap tripwire, not the measurement. The real check is
+   * `e2e/hit-targets.spec.ts`, which reads getBoundingClientRect in a
+   * browser — and it exists because this exact assertion, written against
+   * `min-h-10` alone, would have passed while "sql (38)" rendered 39.1px
+   * wide. Both dimensions are named here for that reason.
+   */
+  const html = render({ workType: "remote", seniority: "senior" });
+  const rowLinks = (label: string) => {
+    const at = html.indexOf(`>${label}</span>`);
+    const end = html.indexOf("</div>", at);
+    return html.slice(at, end).match(/<a [^>]*>/g) ?? [];
+  };
+
+  it.each([
+    ["Work type:", 3],
+    ["Seniority:", 5],
+    ["Mentioned in the job text:", 2],
+  ])("%s links carry both dimensions", (label, expected) => {
+    const links = rowLinks(label);
+    expect(links.length).toBe(expected);
+    for (const link of links) {
+      expect(link).toContain("min-h-10");
+      expect(link).toContain("min-w-10");
+    }
+  });
+});

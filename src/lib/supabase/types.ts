@@ -647,6 +647,41 @@ export type Database = {
           },
         ]
       }
+      feedback: {
+        Row: {
+          category: Database["public"]["Enums"]["feedback_category"]
+          created_at: string
+          id: string
+          message: string
+          page_path: string | null
+          user_id: string
+        }
+        Insert: {
+          category: Database["public"]["Enums"]["feedback_category"]
+          created_at?: string
+          id?: string
+          message: string
+          page_path?: string | null
+          user_id: string
+        }
+        Update: {
+          category?: Database["public"]["Enums"]["feedback_category"]
+          created_at?: string
+          id?: string
+          message?: string
+          page_path?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feedback_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       job_postings: {
         Row: {
           company_logo_url: string | null
@@ -1723,6 +1758,7 @@ export type Database = {
         | "auto_apply_run"
       employment_type: "full_time" | "part_time" | "contract" | "internship"
       farah_message_role: "user" | "farah"
+      feedback_category: "bug" | "idea" | "other"
       job_source_type: "internal" | "external"
       job_status: "open" | "closed" | "removed"
       market_segment: "home" | "diaspora"
@@ -1923,6 +1959,7 @@ export const Constants = {
       ],
       employment_type: ["full_time", "part_time", "contract", "internship"],
       farah_message_role: ["user", "farah"],
+      feedback_category: ["bug", "idea", "other"],
       job_source_type: ["internal", "external"],
       job_status: ["open", "closed", "removed"],
       market_segment: ["home", "diaspora"],
