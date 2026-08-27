@@ -655,6 +655,7 @@ export type Database = {
           dedup_fingerprint: string
           description: string
           employment_type: Database["public"]["Enums"]["employment_type"] | null
+          expires_at: string | null
           external_source: string | null
           external_url: string | null
           id: string
@@ -681,6 +682,7 @@ export type Database = {
           employment_type?:
             | Database["public"]["Enums"]["employment_type"]
             | null
+          expires_at?: string | null
           external_source?: string | null
           external_url?: string | null
           id?: string
@@ -707,6 +709,7 @@ export type Database = {
           employment_type?:
             | Database["public"]["Enums"]["employment_type"]
             | null
+          expires_at?: string | null
           external_source?: string | null
           external_url?: string | null
           id?: string
