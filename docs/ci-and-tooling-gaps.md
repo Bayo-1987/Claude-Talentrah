@@ -1,6 +1,6 @@
 # CI and tooling gaps
 
-Three operational facts that cost real time on 2026-08-27 and will cost it
+Four operational facts that cost real time on 2026-08-27 and will cost it
 again unless they are fixed at the source. Each one has a workaround, and each
 workaround has a side effect — which is the reason to write them down rather
 than keep routing around them.
@@ -98,10 +98,17 @@ The failing suite is frequently one the PR does not touch — on 2026-08-27 it h
 `job_postings` policies. That is the tell: **a rate-limit failure has no
 relationship to the diff.**
 
-**Cause.** Every integration suite mints real auth users, and the limit is
-account-wide, not per-run. Merging several PRs in a session means many runs in
-quick succession — each merge to `main` also kicks a run — and the quota does not
-recover between them. Three separate runs hit it in one afternoon.
+**Cause — two of them, and the second was misdiagnosed for a whole afternoon.**
+
+The first is real but was never the whole story: every integration suite mints
+real auth users, the limit is account-wide rather than per-run, and merging
+several PRs in a session means runs in quick succession — each merge to `main`
+kicks one of its own — so the quota does not recover between them.
+
+The second is that **the retry meant to absorb all of this was guarding the
+wrong calls.** See §3a. Six consecutive failures were read as pure volume, and
+"wait for the window" was the advice this document gave, because nobody had
+read the stack.
 
 **The numbers, measured 2026-08-27.** These are what turn "flaky" into a budget
 you can reason about:
@@ -156,7 +163,48 @@ either. Every delete is another auth admin request against the same exhausted
 quota, so the cleanup makes the immediate problem worse. Purge once runs are
 passing again.
 
-**What would actually fix it.** Fewer users per run. `tests/support/auth.ts`
+### 3a. The retry was guarding the two calls that never failed
+
+Found on the seventh failure, by reading a stack trace instead of the failure
+count. Every one of them came back identically:
+
+```
+SupabaseAuthClient.verifyOtp   node_modules/@supabase/auth-js/...
+sessionFor                     tests/support/auth.ts:93
+createAuthedTestUser           tests/support/auth.ts:107
+```
+
+`withRateLimitRetry` wrapped `createUser` and `generateLink`. **Neither has
+ever been the call that failed.** `verifyOtp` is metered separately by Supabase
+from creating a user or minting a link, and it had no backoff at all — so the
+helper written specifically so that "a transient limit costs seconds not a run"
+sat on the two calls that were not being limited. Now wrapped, in the same
+shape as the other two.
+
+**The measured effect, same day:**
+
+| run | result | duration |
+|---|---|---|
+| the fix's own PR | green | 3m21s |
+| next PR, first attempt | green | 3m52s |
+| the one after | failed | **10m7s** |
+
+Two consecutive runs passed where six in a row had failed. The third failed —
+and its ten minutes against a normal three or four is the backoff *working*,
+absorbing retries until four attempts ran out.
+
+**The ceiling, which is structural and not a tuning choice.** The backoff runs
+inside `beforeAll`, and `vitest.config.ts` gives a hook 60 seconds. Four
+attempts at 3/6/12/24s is 45s of waiting. A backoff long enough to ride out a
+multi-minute window cannot live there — it would fail the hook before it
+finished waiting. So the retry absorbs a burst and roughly two consecutive
+runs' worth of pressure, and nothing beyond that.
+
+**What to expect in practice.** About two runs per window. Plan a merge train
+around that, and if a third run in quick succession fails on 429, it is this
+ceiling and not a regression.
+
+**What would actually fix the rest.** Fewer users per run. `tests/support/auth.ts`
 already argues for exactly this — "create FEWER users … suites should seed state
 directly with the service role wherever a real session isn't the thing under
 test, and share one user across cases that don't need isolation" — and 38 call
