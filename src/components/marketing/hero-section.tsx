@@ -1,8 +1,7 @@
 import { EyebrowLabel } from "@/components/ui";
 import { JdDemoInput } from "./jd-demo-input";
-import { JdDemoExample } from "./jd-demo-example";
 
-export function HeroSection() {
+export function HeroSection({ isSignedIn = false }: { isSignedIn?: boolean }) {
   return (
     <div id="top" className="py-[72px] pb-[84px]">
       <div className="mx-auto flex max-w-[1120px] flex-col items-center gap-7.5 px-10">
@@ -12,13 +11,19 @@ export function HeroSection() {
             Talk to Farah. See exactly how well you match a job.
           </h1>
           <p className="mt-2.5 max-w-[540px] text-[17px] text-ink-soft">
-            Paste a job link or description and Farah returns your match score, what&apos;s
-            missing, and a tailored resume — free, no account needed.
+            {/* "job link" removed: nothing in this codebase fetches a URL, so
+                the hero was advertising a capability that does not exist. */}
+            Paste a job description and Farah returns your match score, what&apos;s missing, and
+            a tailored resume — free, no account needed.
           </p>
         </div>
 
-        <JdDemoInput />
-        <JdDemoExample />
+        {/*
+          JdDemoInput renders the worked example itself now — it swaps the
+          static panel for the real result, and one component owning that swap
+          is simpler than lifting the state up here to coordinate two siblings.
+        */}
+        <JdDemoInput isSignedIn={isSignedIn} />
       </div>
     </div>
   );
