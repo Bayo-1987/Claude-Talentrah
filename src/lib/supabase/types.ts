@@ -647,6 +647,41 @@ export type Database = {
           },
         ]
       }
+      feedback: {
+        Row: {
+          category: Database["public"]["Enums"]["feedback_category"]
+          created_at: string
+          id: string
+          message: string
+          page_path: string | null
+          user_id: string
+        }
+        Insert: {
+          category: Database["public"]["Enums"]["feedback_category"]
+          created_at?: string
+          id?: string
+          message: string
+          page_path?: string | null
+          user_id: string
+        }
+        Update: {
+          category?: Database["public"]["Enums"]["feedback_category"]
+          created_at?: string
+          id?: string
+          message?: string
+          page_path?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feedback_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       job_posting_reports: {
         Row: {
           created_at: string
@@ -697,6 +732,7 @@ export type Database = {
           dedup_fingerprint: string
           description: string
           employment_type: Database["public"]["Enums"]["employment_type"] | null
+          expires_at: string | null
           external_source: string | null
           external_url: string | null
           id: string
@@ -723,6 +759,7 @@ export type Database = {
           employment_type?:
             | Database["public"]["Enums"]["employment_type"]
             | null
+          expires_at?: string | null
           external_source?: string | null
           external_url?: string | null
           id?: string
@@ -749,6 +786,7 @@ export type Database = {
           employment_type?:
             | Database["public"]["Enums"]["employment_type"]
             | null
+          expires_at?: string | null
           external_source?: string | null
           external_url?: string | null
           id?: string
@@ -1762,6 +1800,7 @@ export type Database = {
         | "auto_apply_run"
       employment_type: "full_time" | "part_time" | "contract" | "internship"
       farah_message_role: "user" | "farah"
+      feedback_category: "bug" | "idea" | "other"
       job_report_reason:
         | "scam"
         | "closed_but_listed"
@@ -1967,6 +2006,7 @@ export const Constants = {
       ],
       employment_type: ["full_time", "part_time", "contract", "internship"],
       farah_message_role: ["user", "farah"],
+      feedback_category: ["bug", "idea", "other"],
       job_report_reason: [
         "scam",
         "closed_but_listed",

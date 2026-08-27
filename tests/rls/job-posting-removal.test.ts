@@ -313,6 +313,28 @@ describe("moderation history is not the org's to write", () => {
     expect((await statusOf(internalId)).removed_at).toBeNull();
   });
 
+  it("REGRESSION: expires_at is still writable — the grant list dropped it once", async () => {
+    /*
+     * 0056 revokes the table-level UPDATE grant and re-grants safe columns BY
+     * NAME. The first version of that list was written on a branch cut before
+     * 0053 merged, so `expires_at` was not in it — while existing on the
+     * database the migration ran against. The revoke took it; the re-grant did
+     * not give it back; nothing noticed, because nothing writes the column
+     * yet.
+     *
+     * This asserts the exception list is exactly `removed_at` and
+     * `removal_reason` and nothing else has quietly joined them. The migration
+     * now also guards itself and refuses to apply if a column goes missing.
+     */
+    const { error } = await member.client
+      .from("job_postings")
+      .update({ expires_at: "2027-01-31T00:00:00.000Z" })
+      .eq("id", internalId);
+    expect(error).toBeNull();
+
+    await setStatus(internalId, { expires_at: null });
+  });
+
   it("POSITIVE CONTROL: the columns an employer really does own still write", async () => {
     const { error } = await member.client
       .from("job_postings")
