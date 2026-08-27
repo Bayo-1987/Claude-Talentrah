@@ -32,6 +32,13 @@ export async function toggleSaveAction(jobId: string) {
   }
 
   revalidatePath("/jobs");
+  /*
+   * The detail route as well. `revalidatePath("/jobs")` refreshes that exact
+   * path only, so before this a Save made from /jobs/<id> left the button on
+   * that page still reading "Save" until a hard reload — the state changed and
+   * the page it changed on did not.
+   */
+  revalidatePath("/jobs/[id]", "page");
 }
 
 /** Internal jobs: applies in-app using the user's base resume. */
@@ -75,6 +82,13 @@ export async function applyInAppAction(jobId: string) {
   }
 
   revalidatePath("/jobs");
+  /*
+   * The detail route as well. `revalidatePath("/jobs")` refreshes that exact
+   * path only, so before this a Save made from /jobs/<id> left the button on
+   * that page still reading "Save" until a hard reload — the state changed and
+   * the page it changed on did not.
+   */
+  revalidatePath("/jobs/[id]", "page");
   revalidatePath("/tracker");
 }
 
@@ -104,5 +118,12 @@ export async function markAppliedExternallyAction(jobId: string) {
   }
 
   revalidatePath("/jobs");
+  /*
+   * The detail route as well. `revalidatePath("/jobs")` refreshes that exact
+   * path only, so before this a Save made from /jobs/<id> left the button on
+   * that page still reading "Save" until a hard reload — the state changed and
+   * the page it changed on did not.
+   */
+  revalidatePath("/jobs/[id]", "page");
   revalidatePath("/tracker");
 }

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
 import { EyebrowLabel } from "@/components/ui";
@@ -96,9 +97,9 @@ export default async function TrackerPage({ searchParams }: { searchParams: Sear
       {(totalCount ?? 0) === 0 ? (
         <p className="py-12 text-center text-[14.5px] text-ink-soft">
           Nothing tracked yet — save a job from{" "}
-          <a href="/jobs" className="underline hover:text-rust">
+          <Link href="/jobs" className="underline hover:text-rust">
             the feed
-          </a>{" "}
+          </Link>{" "}
           or add one you applied to elsewhere above.
         </p>
       ) : entries.length === 0 ? (
