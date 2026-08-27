@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { FilterChip } from "@/components/ui";
 import type { SkillFacetEntry } from "@/lib/jobs/skill-facet";
 
 const WORK_TYPES = ["remote", "hybrid", "onsite"] as const;
@@ -15,6 +14,29 @@ const LABEL: Record<string, string> = {
   lead: "Lead",
   executive: "Executive",
 };
+
+/**
+ * Browse links are hit targets, not text.
+ *
+ * CLAUDE.md fixes a >=40x40px minimum on every interactive element and
+ * records it as a bug this project has already shipped once. These eight
+ * links were 18.8px tall — measured in a browser, not inferred from the
+ * classes, because the classes looked fine.
+ *
+ * `min-w-10` is not redundant with `min-h-10`. The skill facet row below
+ * already had `min-h-10` and still failed: "sql (38)" measured 39.1 x 40, so
+ * the row that looked like the fixed one was itself a hair under on the other
+ * axis. Short labels — "Lead" at 25.2px, "Entry" at 28.1px — are the whole
+ * reason the rule names both dimensions.
+ */
+const BROWSE_LINK =
+  "inline-flex min-h-10 min-w-10 items-center justify-center underline underline-offset-2";
+
+function browseLink(active: boolean) {
+  return active
+    ? `${BROWSE_LINK} font-semibold text-rust`
+    : `${BROWSE_LINK} text-ink-soft hover:text-rust`;
+}
 
 function buildHref(
   base: Record<string, string | undefined>,
@@ -46,25 +68,63 @@ export interface FilterBarProps {
 export function FilterBar({ tab, workType, seniority, skill, skillFacet = [] }: FilterBarProps) {
   const base = { tab, workType, seniority, skill };
 
+  const applied: { key: keyof typeof base; label: string }[] = [];
+  if (workType) applied.push({ key: "workType", label: LABEL[workType] });
+  if (seniority) applied.push({ key: "seniority", label: LABEL[seniority] });
+  // Lowercase on purpose. `sql` and `communication` are the values the parser
+  // actually stored, and the browse row below shows them the same way. Title
+  // casing would render "Sql", and a per-skill capitalisation map is a curated
+  // list — the exact thing the facet exists to avoid.
+  if (skill) applied.push({ key: "skill", label: skill });
+
   return (
     <div className="flex flex-col gap-3 border-y border-line py-3">
-      <div className="flex flex-wrap items-center gap-2">
-        {workType && (
-          <FilterChip
-            label={LABEL[workType]}
-          />
-        )}
-        {seniority && <FilterChip label={LABEL[seniority]} />}
-        {skill && <FilterChip label={skill} />}
-        {(workType || seniority || skill) && (
+      {/*
+        One instrument, not a scatter of chips (finding 01). The border is the
+        control; the hairlines inside are its dividers. It renders only when
+        something is applied — an empty bordered box would be a control with
+        nothing in it, and the mock's leading segment is a search field this
+        feed does not have.
+
+        Scope note: only APPLIED filters live in here. The work-type,
+        seniority and skill browse rows below are discovery affordances and
+        stay outside it, which is also all the mock ever showed inside — one
+        applied skill chip, never the twelve-option list.
+      */}
+      {applied.length > 0 && (
+        <div className="flex flex-wrap items-stretch overflow-hidden border-[1.5px] border-ink">
+          {applied.map(({ key, label }) => (
+            <Link
+              key={key}
+              href={buildHref(base, { [key]: undefined })}
+              aria-label={`Remove ${label} filter`}
+              /*
+                The whole segment is the remove target, not the 9px glyph. The
+                mock draws the x as decoration inside a span; at 9 x 9 that is
+                a quarter of the 40x40 minimum CLAUDE.md fixes, and shipping a
+                glyph-sized hit area is a bug this project has already had once.
+              */
+              className="flex min-h-[42px] items-center gap-2 border-r border-line px-3.5 text-[12.5px] font-semibold text-ink-soft no-underline transition-colors last:border-r-0 hover:text-rust"
+            >
+              {label}
+              <svg width="9" height="9" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                <path
+                  d="M4 4 L16 16 M16 4 L4 16"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </Link>
+          ))}
           <Link
             href={buildHref(base, { workType: undefined, seniority: undefined, skill: undefined })}
-            className="text-[12.5px] font-semibold text-ink-soft underline underline-offset-2 hover:text-rust"
+            className="flex min-h-[42px] items-center px-3.5 text-[12.5px] font-semibold text-ink-soft no-underline transition-colors hover:text-rust"
           >
             Clear filters
           </Link>
-        )}
-      </div>
+        </div>
+      )}
       <div className="flex flex-wrap items-center gap-4 text-[12.5px]">
         <div className="flex items-center gap-1.5">
           <span className="font-semibold text-ink-soft">Work type:</span>
@@ -72,11 +132,7 @@ export function FilterBar({ tab, workType, seniority, skill, skillFacet = [] }: 
             <Link
               key={wt}
               href={buildHref(base, { workType: workType === wt ? undefined : wt })}
-              className={
-                workType === wt
-                  ? "font-semibold text-rust underline underline-offset-2"
-                  : "text-ink-soft underline underline-offset-2 hover:text-rust"
-              }
+              className={browseLink(workType === wt)}
             >
               {LABEL[wt]}
             </Link>
@@ -88,11 +144,7 @@ export function FilterBar({ tab, workType, seniority, skill, skillFacet = [] }: 
             <Link
               key={s}
               href={buildHref(base, { seniority: seniority === s ? undefined : s })}
-              className={
-                seniority === s
-                  ? "font-semibold text-rust underline underline-offset-2"
-                  : "text-ink-soft underline underline-offset-2 hover:text-rust"
-              }
+              className={browseLink(seniority === s)}
             >
               {LABEL[s]}
             </Link>
@@ -114,11 +166,7 @@ export function FilterBar({ tab, workType, seniority, skill, skillFacet = [] }: 
             <Link
               key={entry.skill}
               href={buildHref(base, { skill: skill === entry.skill ? undefined : entry.skill })}
-              className={
-                skill === entry.skill
-                  ? "inline-flex min-h-10 items-center font-semibold text-rust underline underline-offset-2"
-                  : "inline-flex min-h-10 items-center text-ink-soft underline underline-offset-2 hover:text-rust"
-              }
+              className={browseLink(skill === entry.skill)}
             >
               {entry.skill}
               <span className="ml-1 text-[11.5px] text-ink-soft">({entry.count})</span>
