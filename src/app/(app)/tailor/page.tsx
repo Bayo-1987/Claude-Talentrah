@@ -8,10 +8,10 @@ export const metadata = { title: "Tailor my resume — Talentrah" };
 export default async function TailorPage({
   searchParams,
 }: {
-  searchParams: Promise<{ jobId?: string }>;
+  searchParams: Promise<{ jobId?: string; coverLetter?: string }>;
 }) {
   const { user } = await requireUser();
-  const { jobId } = await searchParams;
+  const { jobId, coverLetter } = await searchParams;
   const supabase = await createClient();
 
   const [{ data: job }, { data: baseResume }] = await Promise.all([
@@ -44,7 +44,11 @@ export default async function TailorPage({
           .
         </p>
       ) : (
-        <TailorForm jobId={job?.id} initialJdText={job?.description ?? ""} />
+        <TailorForm
+          jobId={job?.id}
+          initialJdText={job?.description ?? ""}
+          defaultCoverLetter={coverLetter === "1" || coverLetter === "true"}
+        />
       )}
     </div>
   );
