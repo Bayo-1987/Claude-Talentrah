@@ -1,6 +1,8 @@
 import { BorderedCard, IconButton, Button, MatchTierBadge } from "@/components/ui";
 import { getCompanyInitials } from "@/lib/jobs/company-initials";
 import { formatRelativeTime } from "@/lib/format-relative-time";
+import { FarahJobMenu } from "@/components/jobs/farah-job-menu";
+import type { MatchExplanation } from "@/lib/matching/score";
 import { toggleSaveAction, applyInAppAction, markAppliedExternallyAction } from "@/lib/applications/actions";
 import type { Tables } from "@/lib/supabase/types";
 
@@ -25,9 +27,11 @@ export interface JobCardProps {
   applicationStage: Tables<"applications">["stage"] | null;
   /** Paid placement. Labelled on the card; never affects the score shown. */
   isSponsored?: boolean;
+  /** Drives the menu's free Vet answers. Already computed for `score`. */
+  explanation: MatchExplanation;
 }
 
-export function JobCard({ job, score, isSaved, applicationStage, isSponsored = false }: JobCardProps) {
+export function JobCard({ job, score, isSaved, applicationStage, isSponsored = false, explanation }: JobCardProps) {
   const metaParts = [
     job.company_name,
     job.location,
@@ -87,7 +91,7 @@ export function JobCard({ job, score, isSaved, applicationStage, isSponsored = f
         <span className="text-[12.5px] text-ink-soft">
           {formatRelativeTime(job.posted_at)}
         </span>
-        <div className="flex items-center gap-2.5">
+        <div className="relative flex items-center gap-2.5">
           <form action={toggleSaveAction.bind(null, job.id)}>
             <IconButton aria-label={isSaved ? "Unsave" : "Save"} type="submit">
               <svg width="16" height="16" viewBox="0 0 20 20" fill={isSaved ? "currentColor" : "none"}>
@@ -113,12 +117,12 @@ export function JobCard({ job, score, isSaved, applicationStage, isSponsored = f
               <path d="M7 8.8 L13 6.2 M7 11.2 L13 13.8" stroke="currentColor" strokeWidth="1.4" />
             </svg>
           </IconButton>
-          <a
-            href={`/tailor?jobId=${job.id}`}
-            className="text-[13px] font-semibold text-ink-soft underline underline-offset-2 hover:text-rust"
-          >
-            Ask Farah
-          </a>
+          <FarahJobMenu
+            jobId={job.id}
+            jobTitle={job.title}
+            score={score}
+            explanation={explanation}
+          />
 
           {alreadyApplied ? (
             <span className="inline-flex min-h-10 items-center px-4 text-[13.5px] font-semibold text-green">

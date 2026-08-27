@@ -14,9 +14,23 @@ type ApiResult = {
   creditsSpent: number;
 };
 
-export function TailorForm({ jobId, initialJdText }: { jobId?: string; initialJdText: string }) {
+export function TailorForm({
+  jobId,
+  initialJdText,
+  defaultCoverLetter = false,
+}: {
+  jobId?: string;
+  initialJdText: string;
+  /**
+   * Pre-ticks "also write a cover letter". Set by /tailor?coverLetter=1, which
+   * is how the job card's "Draft intro message" differs from "Tailor my
+   * resume" — without it both land on an identical page in an identical state
+   * and the second item is decoration.
+   */
+  defaultCoverLetter?: boolean;
+}) {
   const [jdText, setJdText] = useState(initialJdText);
-  const [includeCoverLetter, setIncludeCoverLetter] = useState(false);
+  const [includeCoverLetter, setIncludeCoverLetter] = useState(defaultCoverLetter);
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<ApiResult | null>(null);

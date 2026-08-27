@@ -216,7 +216,7 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
         </p>
       ) : (
         <div className="flex flex-col gap-4">
-          {scored.map(({ job, score }) => (
+          {scored.map(({ job, score, explanation }) => (
             <JobCard
               key={job.id}
               job={job}
@@ -224,6 +224,7 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
               isSaved={applicationByJobId.get(job.id) === "saved"}
               applicationStage={applicationByJobId.get(job.id) ?? null}
               isSponsored={promotedSet.has(job.id)}
+              explanation={explanation}
             />
           ))}
         </div>

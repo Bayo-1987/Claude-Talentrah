@@ -5,6 +5,7 @@ import { computeMatchScore } from "./score";
 import { getMatchTier } from "@/lib/match-tier";
 import type { Database, Tables } from "@/lib/supabase/types";
 import type { StructuredResume } from "@/lib/resume/types";
+import type { MatchExplanation } from "./score";
 
 type JobPosting = Tables<"job_postings">;
 
@@ -12,6 +13,13 @@ export interface ScoredJob {
   job: JobPosting;
   score: number;
   tier: ReturnType<typeof getMatchTier>;
+  /**
+   * Already computed for the score and already written to the cache — exposed
+   * so the card's Vet actions can answer from it without a model call. It was
+   * being discarded on the way out, which is why "Am I a fit?" looked like it
+   * needed new AI when it did not.
+   */
+  explanation: MatchExplanation;
 }
 
 /**
