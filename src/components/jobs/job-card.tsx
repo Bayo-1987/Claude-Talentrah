@@ -4,6 +4,7 @@ import { getCompanyInitials } from "@/lib/jobs/company-initials";
 import { formatRelativeTime } from "@/lib/format-relative-time";
 import { freshnessNote } from "@/lib/jobs/freshness-note";
 import { FarahJobMenu } from "@/components/jobs/farah-job-menu";
+import { ReportJobMenu } from "@/components/jobs/report-job-menu";
 import type { MatchExplanation } from "@/lib/matching/score";
 import { toggleSaveAction, applyInAppAction, markAppliedExternallyAction } from "@/lib/applications/actions";
 import type { Tables } from "@/lib/supabase/types";
@@ -144,6 +145,13 @@ export function JobCard({ job, score, isSaved, applicationStage, isSponsored = f
               <path d="M7 8.8 L13 6.2 M7 11.2 L13 13.8" stroke="currentColor" strokeWidth="1.4" />
             </svg>
           </IconButton>
+          {/*
+            Report sits before Ask Farah and is styled quieter than it:
+            --ink-soft, no underline, no chevron. It is the least-used action
+            on the card and putting it beside Apply would give a takedown
+            request the same weight as applying.
+          */}
+          <ReportJobMenu jobId={job.id} jobTitle={job.title} />
           <FarahJobMenu jobId={job.id} explanation={explanation} />
 
           {alreadyApplied ? (
