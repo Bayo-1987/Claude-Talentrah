@@ -130,15 +130,57 @@ export async function updateStageAction(applicationId: string, formData: FormDat
   }
 }
 
+/**
+ * Saving notes, with the write actually checked.
+ *
+ * This was `await supabase.from(...).update(...)` with no `.select()`, no
+ * error check and no row count — the shape that cannot report anything. A
+ * Supabase update that is REFUSED does not throw; it resolves with an
+ * `error`. So every possible failure here — a policy denial, a lost session, a
+ * deleted row, a constraint — looked exactly like success, and the page
+ * revalidated to show the old value as though that were the saved one.
+ *
+ * WHAT I COULD AND COULD NOT ESTABLISH. The reported symptom — Save does
+ * nothing — did NOT reproduce against the seeded account: the note persisted
+ * through save, revalidate and a full reload. Three candidate causes were
+ * checked against production directly and all are clear: the `applications`
+ * policy is owner-only for ALL and correct; every column including `notes`
+ * carries an UPDATE grant to `authenticated`; and the 0037 terminal-stage
+ * trigger early-returns when `old.stage is not distinct from new.stage`, so a
+ * notes-only edit on a hired application is not blocked by it either.
+ *
+ * So this is not a diagnosis, and it is deliberately not written as one. It is
+ * the missing instrument: whatever is failing for a real user now raises
+ * instead of vanishing, and the next report arrives with a message attached.
+ *
+ * Worth knowing while reading a future report: this form gives NO success
+ * feedback of any kind. It re-renders the textarea from `defaultValue`, so a
+ * save that worked perfectly is visually identical to one that did nothing.
+ * "Save does nothing" is what a working save also looks like.
+ */
 export async function updateNotesAction(applicationId: string, formData: FormData) {
   const { supabase, userId } = await getAuthedUserId();
   const notes = String(formData.get("notes") ?? "").trim();
 
-  await supabase
+  const { data: updated, error } = await supabase
     .from("applications")
     .update({ notes: notes || null })
     .eq("id", applicationId)
-    .eq("user_id", userId);
+    .eq("user_id", userId)
+    .select("id");
+
+  if (error) {
+    throw new Error(`Couldn't save those notes: ${error.message}`);
+  }
+
+  // Zero rows is not an error and not a success: the entry was deleted, or it
+  // was never this user's. Same handling as updateStageAction — revalidate so
+  // the page shows what is actually there rather than leaving a textarea
+  // asserting otherwise.
+  if (!updated?.length) {
+    revalidatePath("/tracker");
+    return;
+  }
 
   revalidatePath("/tracker");
 }
