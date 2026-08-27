@@ -111,13 +111,29 @@ you can reason about:
 | Call sites creating an auth user across `tests/` + `e2e/` | **38** |
 | Auth admin requests each one costs | 2–3 (`createUser`, `generateLink`, `verifyOtp`) |
 | So, auth requests per full CI run | **~80–115**, before the seed step's own |
-| Test accounts sitting in the CI project | **113** |
-| …created in the previous 24 hours | 113 |
-| …created in the previous 3 hours | **56** |
+| Test accounts **still sitting** in the CI project | **113** |
+| …of those, created in the previous 24 hours | 113 |
+| …of those, created in the previous 3 hours | 56 |
 
-Two things follow. The accounts are **leaking** — `deleteTestUsers` reports
-rather than throws (deliberately: a cleanup failure should not turn a passing
-run red), and a killed process skips the hook entirely. And the budget is spent
+**READ THE LAST THREE ROWS CAREFULLY — they are not what they first look
+like.** They count accounts that SURVIVED, not accounts that were created.
+`deleteTestUsers` removes most of them on the way out, so those figures are a
+floor on LEAKAGE and say nothing about how many auth requests a run actually
+made. They cannot be used to derive a per-run cost, and an earlier version of
+this section invited exactly that mistake.
+
+The evidence that they cannot: one failing run happened in an hour where only
+**three** accounts survived. Read as creation volume that would say the limit
+is nothing to do with volume — which is a conclusion about cleanup efficiency,
+not about the rate limit.
+
+The per-run figure above (~80–115) is derived from the CODE — 38 call sites
+times 2–3 requests each — and is the only one of these numbers that measures
+requests. Trust that one; treat the survivor counts as a leak metric only.
+
+The accounts do leak, and that is deliberate at the source: `deleteTestUsers`
+reports rather than throws, because a cleanup failure should not turn a passing
+run red, and a killed process skips the hook entirely. And the budget is spent
 per RUN, so a session that merges several PRs — each merge to `main` kicking a
 run of its own — exhausts it and then cannot recover while more runs are
 queued.
