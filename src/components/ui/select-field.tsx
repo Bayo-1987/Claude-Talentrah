@@ -25,6 +25,24 @@ export const SelectField = forwardRef<HTMLSelectElement, SelectFieldProps>(
     ref,
   ) {
     const selectId = id ?? props.name;
+
+    /*
+     * The placeholder only appears if something selects it.
+     *
+     * `<option value="" disabled>` renders first, but a browser skips a
+     * disabled option when nothing is selected and lands on the first REAL
+     * one — so the field arrived pre-answered and `required` was satisfied by
+     * a choice the person never made. On the contact form that meant every
+     * untouched submission read "General question"; on the feedback form it
+     * meant an idea filed as a bug.
+     *
+     * Only when the caller supplies neither `value` nor `defaultValue`. A
+     * caller that states either is controlling the selection deliberately —
+     * signup passes `defaultValue={fields.country}` (initially "", which is
+     * why signup was already correct) and the tracker passes "saved" — and
+     * overriding those would be a different bug in the other direction.
+     */
+    const unset = props.value === undefined && props.defaultValue === undefined;
     return (
       <div className="flex flex-col gap-1.5">
         <label
@@ -36,6 +54,7 @@ export const SelectField = forwardRef<HTMLSelectElement, SelectFieldProps>(
         <select
           ref={ref}
           id={selectId}
+          {...(unset ? { defaultValue: "" } : {})}
           className={cn(
             "min-h-11 border-[1.5px] border-ink bg-card px-3.5 py-2.5 font-body text-[15px] text-ink outline-none focus:border-rust",
             error && "border-rust",

@@ -91,7 +91,12 @@ export function FarahPanel({ firstName, initialMessages }: FarahPanelProps) {
       <div>
         <span className="font-body text-[13px] font-bold text-ink">{firstName}</span>
         <div>
-          <a href="/settings" className="text-[12.5px] underline underline-offset-2">
+          {/* 61.3 x 18 before this. inline-flex so the box grows rather than
+              the text, which keeps the panel's rhythm intact. */}
+          <a
+            href="/settings"
+            className="inline-flex min-h-10 min-w-10 items-center text-[12.5px] underline underline-offset-2"
+          >
             View profile
           </a>
         </div>
@@ -161,7 +166,10 @@ export function FarahPanel({ firstName, initialMessages }: FarahPanelProps) {
           onChange={(e) => setInput(e.target.value)}
           placeholder="Ask me anything…"
           disabled={pending}
-          className="flex-1 border-none bg-transparent font-display text-[12.5px] italic text-ink outline-none placeholder:text-ink-soft disabled:opacity-60"
+          /* 177 x 18.8 before this — a text field people have to hit on a
+             phone was under half the minimum height. The 11px send button
+             beside it was already right; the input was not. */
+          className="min-h-10 flex-1 border-none bg-transparent font-display text-[12.5px] italic text-ink outline-none placeholder:text-ink-soft disabled:opacity-60"
         />
         <button
           type="submit"

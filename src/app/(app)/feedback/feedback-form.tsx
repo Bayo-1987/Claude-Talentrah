@@ -44,18 +44,15 @@ export function FeedbackForm({ pagePath }: FeedbackFormProps) {
       {pagePath && <input type="hidden" name="pagePath" value={pagePath} />}
 
       {/*
-        `defaultValue=""` is what makes the placeholder show and `required`
-        mean anything. Without it the browser skips the disabled placeholder
-        and lands on the first real option, so the field arrives pre-answered
-        as "Something's broken" — and anyone who does not touch it files an
-        idea as a bug. Caught in the browser; SelectField has the same
-        behaviour everywhere else it is used.
+        No `defaultValue=""` here any more — SelectField does it for every
+        caller that states neither `value` nor `defaultValue`. This form
+        carried the workaround alone for one commit; the defect was the
+        primitive's.
       */}
       <SelectField
         label="What's this about?"
         name="category"
         options={FEEDBACK_CATEGORIES}
-        defaultValue=""
         placeholder="Pick one…"
         required
         error={state.fieldErrors?.category?.[0]}
