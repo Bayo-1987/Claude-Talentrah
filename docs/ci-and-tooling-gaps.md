@@ -103,15 +103,56 @@ account-wide, not per-run. Merging several PRs in a session means many runs in
 quick succession — each merge to `main` also kicks a run — and the quota does not
 recover between them. Three separate runs hit it in one afternoon.
 
-**What to do.** Confirm the failing assertions are all `429`s and unrelated to
-the change, then wait — the window is long enough that a re-trigger a few minutes
-later can hit it again. Do not "fix" a suite that failed this way.
+**The numbers, measured 2026-08-27.** These are what turn "flaky" into a budget
+you can reason about:
 
-**What would actually fix it.** Either fewer users per run (`tests/support/auth.ts`
-already argues for sharing one user across cases that do not need isolation), or
-a dedicated auth quota. The retry-with-backoff in `withRateLimitRetry` buys
-headroom but does not create budget, and it does not help when the limit is
-already exhausted before the run starts.
+| | |
+|---|---|
+| Call sites creating an auth user across `tests/` + `e2e/` | **38** |
+| Auth admin requests each one costs | 2–3 (`createUser`, `generateLink`, `verifyOtp`) |
+| So, auth requests per full CI run | **~80–115**, before the seed step's own |
+| Test accounts sitting in the CI project | **113** |
+| …created in the previous 24 hours | 113 |
+| …created in the previous 3 hours | **56** |
+
+Two things follow. The accounts are **leaking** — `deleteTestUsers` reports
+rather than throws (deliberately: a cleanup failure should not turn a passing
+run red), and a killed process skips the hook entirely. And the budget is spent
+per RUN, so a session that merges several PRs — each merge to `main` kicking a
+run of its own — exhausts it and then cannot recover while more runs are
+queued.
+
+**What it looked like when it got bad.** Four consecutive runs failed
+identically, always naming `tests/billing/ad-serving-feed.test.ts` — a suite
+none of those branches touched. `main` itself went red for three merges
+running. Every one of them reported `530 passed | 11 skipped` with only the
+user-minting suites at the tail failing on 429. **A red `main` in that state is
+not a regression**, and it is worth checking the failure text before treating it
+as one.
+
+**What to do.** Confirm the failing assertions are all `429`s and unrelated to
+the change, then wait — 15 minutes was not enough; the window is longer. Do not
+"fix" a suite that failed this way, and do not re-trigger on a short cycle:
+each attempt spends more of the same budget and slows recovery.
+
+Do NOT purge the leaked accounts to "clean up" while the limit is active
+either. Every delete is another auth admin request against the same exhausted
+quota, so the cleanup makes the immediate problem worse. Purge once runs are
+passing again.
+
+**What would actually fix it.** Fewer users per run. `tests/support/auth.ts`
+already argues for exactly this — "create FEWER users … suites should seed state
+directly with the service role wherever a real session isn't the thing under
+test, and share one user across cases that don't need isolation" — and 38 call
+sites is the measure of how far that advice has been followed. The
+retry-with-backoff in `withRateLimitRetry` buys headroom but does not create
+budget, and does nothing when the limit is exhausted before the run starts.
+
+Worth being plain about the direction of travel: two suites added on
+2026-08-27 (`tests/rls/feedback-write-only.test.ts`,
+`tests/profile/settings-write.test.ts`) account for 4 of those 38 sites. Each
+was justified on its own, and together they are the pattern — the budget gets
+spent one reasonable test at a time.
 
 ---
 
