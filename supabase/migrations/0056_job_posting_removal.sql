@@ -109,8 +109,55 @@ grant update (
   source_type, organization_id, title, company_name, company_logo_url,
   location, work_type, employment_type, seniority, years_experience_min,
   description, structured_jd, external_url, external_source, status,
-  posted_at, last_checked_at, dedup_fingerprint, created_at, id
+  posted_at, last_checked_at, dedup_fingerprint, created_at, id,
+  expires_at
 ) on public.job_postings to authenticated, anon;
+
+-- ---------------------------------------------------------------------------
+-- …and a guard, because the list above already failed once
+-- ---------------------------------------------------------------------------
+--
+-- `expires_at` (0053) was missing from that list on the first writing. Not a
+-- typo: this migration was written on a branch cut BEFORE 0053 merged, so the
+-- column did not exist in the schema the list was read off — but it did exist
+-- on the database the migration ran against. The revoke took it away and the
+-- re-grant did not give it back, silently, while the comment above claimed
+-- "Both roles keep exactly what they had".
+--
+-- Enumerating columns is the only option — a table-level grant overrides a
+-- column-level revoke, so the table grant has to go and the safe columns must
+-- come back BY NAME — and an explicit list is the reviewable form. What was
+-- missing is a way for the list being wrong to be loud instead of silent.
+--
+-- Any column that is neither in the list nor deliberately withheld fails the
+-- migration here rather than losing its privilege unnoticed. A future column
+-- that SHOULD be withheld gets added to the exception list on purpose, in a
+-- diff, which is the decision this repo wants made deliberately.
+
+do $$
+declare missing text;
+begin
+  select string_agg(c.column_name, ', ' order by c.column_name) into missing
+  from information_schema.columns c
+  where c.table_schema = 'public'
+    and c.table_name = 'job_postings'
+    and c.column_name not in ('removed_at', 'removal_reason')
+    and not exists (
+      select 1
+      from information_schema.column_privileges cp
+      where cp.table_schema = 'public'
+        and cp.table_name = 'job_postings'
+        and cp.column_name = c.column_name
+        and cp.grantee = 'authenticated'
+        and cp.privilege_type = 'UPDATE'
+    );
+
+  if missing is not null then
+    raise exception
+      'job_postings columns silently lost their UPDATE grant: %. Add them to the grant list above, or to this guard''s exception list if withholding them is deliberate.',
+      missing;
+  end if;
+end $$;
 
 -- ---------------------------------------------------------------------------
 -- The ingest must not un-remove a posting
