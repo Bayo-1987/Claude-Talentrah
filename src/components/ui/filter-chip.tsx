@@ -23,7 +23,17 @@ export function FilterChip({ label, onRemove, className }: FilterChipProps) {
           type="button"
           aria-label={`Remove ${label} filter`}
           onClick={onRemove}
-          className="flex h-4 w-4 items-center justify-center"
+          /*
+            The 9px x is what you see; the button is what you hit. h-4 w-4
+            made those the same thing at 16x16, which is the exact shape of
+            the bug CLAUDE.md's >=40x40 rule was written after — "icon glyph
+            sized != clickable area sized".
+
+            `-mr-3` pulls the target out over the chip's own right padding, so
+            a real 40x40 target costs the chip 28px of width rather than 40.
+            The chip's min-h-10 already supplies the height.
+          */
+          className="-mr-3 flex min-h-10 min-w-10 items-center justify-center"
         >
           <svg width="9" height="9" viewBox="0 0 20 20" fill="none">
             <path
