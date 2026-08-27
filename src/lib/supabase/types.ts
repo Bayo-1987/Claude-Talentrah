@@ -647,6 +647,48 @@ export type Database = {
           },
         ]
       }
+      job_posting_reports: {
+        Row: {
+          created_at: string
+          details: string | null
+          id: string
+          job_posting_id: string
+          reason: Database["public"]["Enums"]["job_report_reason"]
+          reporter_id: string
+        }
+        Insert: {
+          created_at?: string
+          details?: string | null
+          id?: string
+          job_posting_id: string
+          reason: Database["public"]["Enums"]["job_report_reason"]
+          reporter_id: string
+        }
+        Update: {
+          created_at?: string
+          details?: string | null
+          id?: string
+          job_posting_id?: string
+          reason?: Database["public"]["Enums"]["job_report_reason"]
+          reporter_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_posting_reports_job_posting_id_fkey"
+            columns: ["job_posting_id"]
+            isOneToOne: false
+            referencedRelation: "job_postings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_posting_reports_reporter_id_fkey"
+            columns: ["reporter_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       job_postings: {
         Row: {
           company_logo_url: string | null
@@ -1720,6 +1762,11 @@ export type Database = {
         | "auto_apply_run"
       employment_type: "full_time" | "part_time" | "contract" | "internship"
       farah_message_role: "user" | "farah"
+      job_report_reason:
+        | "scam"
+        | "closed_but_listed"
+        | "discriminatory"
+        | "other"
       job_source_type: "internal" | "external"
       job_status: "open" | "closed" | "removed"
       market_segment: "home" | "diaspora"
@@ -1920,6 +1967,12 @@ export const Constants = {
       ],
       employment_type: ["full_time", "part_time", "contract", "internship"],
       farah_message_role: ["user", "farah"],
+      job_report_reason: [
+        "scam",
+        "closed_but_listed",
+        "discriminatory",
+        "other",
+      ],
       job_source_type: ["internal", "external"],
       job_status: ["open", "closed", "removed"],
       market_segment: ["home", "diaspora"],
