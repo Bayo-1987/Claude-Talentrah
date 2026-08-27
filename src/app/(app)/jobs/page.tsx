@@ -129,6 +129,33 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
   const scored = await computeAndStoreMatchScores(supabase, user.id, resume, jobs);
 
   /*
+   * Applicant counts, for the ids on this page only.
+   *
+   * Through 0059's SECURITY DEFINER function, not a join: `applications` is
+   * owner-only under RLS, so joining it here would return this user's own rows
+   * and nothing else — "1 applicant" on every job they had applied to and "0"
+   * everywhere else, which looks like data and is not.
+   *
+   * Failure is swallowed to a null map rather than throwing. A missing count
+   * is a line that says so; it is not worth failing the whole feed over, and
+   * the card distinguishes "no count available" from "zero applicants".
+   */
+  const internalIds = scored.filter((s) => s.job.source_type === "internal").map((s) => s.job.id);
+  let applicantCounts: Map<string, number> | null = null;
+  if (internalIds.length > 0) {
+    const { data: counts, error: countsError } = await supabase.rpc("internal_applicant_counts", {
+      p_job_ids: internalIds,
+    });
+    if (countsError) {
+      console.error("[jobs] applicant counts unavailable:", countsError);
+    } else {
+      applicantCounts = new Map(
+        (counts ?? []).map((row) => [row.job_posting_id, Number(row.applicant_count)]),
+      );
+    }
+  }
+
+  /*
    * Auto-Apply scans AFTER scoring, on purpose: the scan reads `match_scores`,
    * so running it first would queue against last visit's scores. It is also
    * why this lives on the feed rather than a cron — the scores it depends on
@@ -215,26 +242,43 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
 
   return (
     <div className="flex flex-col gap-5">
-      <div>
-        <EyebrowLabel>Today&apos;s board</EyebrowLabel>
-        <div className="mt-2">
-          <FeedTabs active={tab} />
+      {/*
+        Everything a reader steers by — the tabs, the Auto-Apply switch and the
+        filters — stays put; only the cards move under it.
+
+        THE PADDING. (app)/layout.tsx wraps this in `py-8`, so without
+        `-mt-8 pt-8` the header would scroll up through 32px of the layout's
+        padding before locking, leaving a visible gap of paper above it at
+        rest and a 32px jump as it catches. Pulling the block up by exactly
+        that padding and re-adding it inside means it locks flush against the
+        masthead. Done here rather than by removing the layout's padding,
+        which every other page under it relies on.
+
+        `bg-paper` is not decoration either: without an opaque background the
+        cards scroll THROUGH the header, which is worse than no sticky at all.
+      */}
+      <div className="sticky top-[68px] z-10 -mt-8 flex flex-col gap-5 bg-paper pt-8 pb-4">
+        <div>
+          <EyebrowLabel>Today&apos;s board</EyebrowLabel>
+          <div className="mt-2">
+            <FeedTabs active={tab} />
+          </div>
         </div>
+
+        <AutoApplyToggle
+          enabled={!!autoApplySettings?.enabled}
+          pendingCount={pendingQueue.count ?? 0}
+        />
+
+        <FilterBar
+          q={q}
+          tab={tab}
+          workType={workType}
+          seniority={seniority}
+          skill={skill}
+          skillFacet={skillFacet}
+        />
       </div>
-
-      <AutoApplyToggle
-        enabled={!!autoApplySettings?.enabled}
-        pendingCount={pendingQueue.count ?? 0}
-      />
-
-      <FilterBar
-        q={q}
-        tab={tab}
-        workType={workType}
-        seniority={seniority}
-        skill={skill}
-        skillFacet={skillFacet}
-      />
 
       {baseResumeError && (
         <p className="border-[1.5px] border-rust bg-rust-soft px-4 py-3 text-[13.5px] text-rust">
@@ -275,6 +319,17 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
               isSponsored={promotedSet.has(job.id)}
               explanation={explanation}
             origin={origin}
+            /*
+              null vs 0 is the distinction the card renders. A posting with no
+              row in the map has had nobody apply — that is 0, not unknown.
+              Unknown is the whole map being null (the lookup failed) or the
+              posting being external.
+            */
+            applicantCount={
+              job.source_type === "internal" && applicantCounts
+                ? (applicantCounts.get(job.id) ?? 0)
+                : null
+            }
             />
           ))}
         </div>

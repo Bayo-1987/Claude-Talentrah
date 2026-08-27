@@ -40,6 +40,16 @@ export interface JobCardProps {
    * for every card in a render.
    */
   origin: string;
+  /**
+   * People who have actually applied, for an INTERNAL posting.
+   *
+   * `null` means unknown, and 0 means nobody — they are different facts and
+   * the card says so differently. Unknown is the honest answer for an external
+   * posting: it is advertised and applied to on someone else's site, so any
+   * number we have is the fraction who happened to route through us, and a
+   * confidently wrong count is worse than an absent one.
+   */
+  applicantCount?: number | null;
 }
 
 export function JobCard({
@@ -50,6 +60,7 @@ export function JobCard({
   isSponsored = false,
   explanation,
   origin,
+  applicantCount = null,
 }: JobCardProps) {
   const metaParts = [
     job.company_name,
@@ -122,6 +133,16 @@ export function JobCard({
         <div className="flex flex-col gap-[3px]">
           <span className="text-[12.5px] text-ink-soft">
             {formatRelativeTime(job.posted_at)}
+            {" · "}
+            {/*
+              Shown at zero rather than hidden. "0 applicants" is a real and
+              useful thing for a seeker to know — an untouched posting is a
+              better bet than a crowded one — and hiding the line at zero would
+              make its absence ambiguous with the unknown case below.
+            */}
+            {applicantCount === null
+              ? "Applicant count unavailable"
+              : `${applicantCount} ${applicantCount === 1 ? "applicant" : "applicants"}`}
           </span>
           {/*
             Italic Newsreader is the design system's quiet-aside voice, and
