@@ -15,6 +15,29 @@ const LABEL: Record<string, string> = {
   executive: "Executive",
 };
 
+/**
+ * Browse links are hit targets, not text.
+ *
+ * CLAUDE.md fixes a >=40x40px minimum on every interactive element and
+ * records it as a bug this project has already shipped once. These eight
+ * links were 18.8px tall — measured in a browser, not inferred from the
+ * classes, because the classes looked fine.
+ *
+ * `min-w-10` is not redundant with `min-h-10`. The skill facet row below
+ * already had `min-h-10` and still failed: "sql (38)" measured 39.1 x 40, so
+ * the row that looked like the fixed one was itself a hair under on the other
+ * axis. Short labels — "Lead" at 25.2px, "Entry" at 28.1px — are the whole
+ * reason the rule names both dimensions.
+ */
+const BROWSE_LINK =
+  "inline-flex min-h-10 min-w-10 items-center justify-center underline underline-offset-2";
+
+function browseLink(active: boolean) {
+  return active
+    ? `${BROWSE_LINK} font-semibold text-rust`
+    : `${BROWSE_LINK} text-ink-soft hover:text-rust`;
+}
+
 function buildHref(
   base: Record<string, string | undefined>,
   changes: Record<string, string | undefined>,
@@ -109,11 +132,7 @@ export function FilterBar({ tab, workType, seniority, skill, skillFacet = [] }: 
             <Link
               key={wt}
               href={buildHref(base, { workType: workType === wt ? undefined : wt })}
-              className={
-                workType === wt
-                  ? "font-semibold text-rust underline underline-offset-2"
-                  : "text-ink-soft underline underline-offset-2 hover:text-rust"
-              }
+              className={browseLink(workType === wt)}
             >
               {LABEL[wt]}
             </Link>
@@ -125,11 +144,7 @@ export function FilterBar({ tab, workType, seniority, skill, skillFacet = [] }: 
             <Link
               key={s}
               href={buildHref(base, { seniority: seniority === s ? undefined : s })}
-              className={
-                seniority === s
-                  ? "font-semibold text-rust underline underline-offset-2"
-                  : "text-ink-soft underline underline-offset-2 hover:text-rust"
-              }
+              className={browseLink(seniority === s)}
             >
               {LABEL[s]}
             </Link>
@@ -151,11 +166,7 @@ export function FilterBar({ tab, workType, seniority, skill, skillFacet = [] }: 
             <Link
               key={entry.skill}
               href={buildHref(base, { skill: skill === entry.skill ? undefined : entry.skill })}
-              className={
-                skill === entry.skill
-                  ? "inline-flex min-h-10 items-center font-semibold text-rust underline underline-offset-2"
-                  : "inline-flex min-h-10 items-center text-ink-soft underline underline-offset-2 hover:text-rust"
-              }
+              className={browseLink(skill === entry.skill)}
             >
               {entry.skill}
               <span className="ml-1 text-[11.5px] text-ink-soft">({entry.count})</span>
