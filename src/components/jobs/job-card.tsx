@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { BorderedCard, IconButton, Button, MatchTierBadge } from "@/components/ui";
 import { getCompanyInitials } from "@/lib/jobs/company-initials";
 import { formatRelativeTime } from "@/lib/format-relative-time";
@@ -58,7 +59,18 @@ export function JobCard({ job, score, isSaved, applicationStage, isSponsored = f
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline justify-between gap-4">
             <h3 className="text-[17px]">
-              {job.title}
+              {/*
+                Only the title text is the link, not the whole heading — the
+                badges beside it describe the posting, they are not part of its
+                name, and swallowing them into the anchor would put "sourced
+                externally" inside the link text every screen reader announces.
+              */}
+              <Link
+                href={`/jobs/${job.id}`}
+                className="text-ink no-underline hover:text-rust hover:underline"
+              >
+                {job.title}
+              </Link>
               {isExternal && (
                 <span className="ml-2 border border-line px-2 py-0.5 font-display text-[10.5px] font-bold italic text-ink-soft">
                   sourced externally
