@@ -698,6 +698,8 @@ export type Database = {
           location: string | null
           organization_id: string | null
           posted_at: string
+          removal_reason: string | null
+          removed_at: string | null
           seniority: Database["public"]["Enums"]["seniority_level"] | null
           source_type: Database["public"]["Enums"]["job_source_type"]
           status: Database["public"]["Enums"]["job_status"]
@@ -723,6 +725,8 @@ export type Database = {
           location?: string | null
           organization_id?: string | null
           posted_at?: string
+          removal_reason?: string | null
+          removed_at?: string | null
           seniority?: Database["public"]["Enums"]["seniority_level"] | null
           source_type: Database["public"]["Enums"]["job_source_type"]
           status?: Database["public"]["Enums"]["job_status"]
@@ -748,6 +752,8 @@ export type Database = {
           location?: string | null
           organization_id?: string | null
           posted_at?: string
+          removal_reason?: string | null
+          removed_at?: string | null
           seniority?: Database["public"]["Enums"]["seniority_level"] | null
           source_type?: Database["public"]["Enums"]["job_source_type"]
           status?: Database["public"]["Enums"]["job_status"]
@@ -1754,7 +1760,7 @@ export type Database = {
       farah_message_role: "user" | "farah"
       feedback_category: "bug" | "idea" | "other"
       job_source_type: "internal" | "external"
-      job_status: "open" | "closed"
+      job_status: "open" | "closed" | "removed"
       market_segment: "home" | "diaspora"
       org_member_role: "owner" | "admin"
       pass_auto_renew_status: "active" | "canceled" | "lapsed"
@@ -1955,7 +1961,7 @@ export const Constants = {
       farah_message_role: ["user", "farah"],
       feedback_category: ["bug", "idea", "other"],
       job_source_type: ["internal", "external"],
-      job_status: ["open", "closed"],
+      job_status: ["open", "closed", "removed"],
       market_segment: ["home", "diaspora"],
       org_member_role: ["owner", "admin"],
       pass_auto_renew_status: ["active", "canceled", "lapsed"],
