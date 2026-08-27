@@ -11,6 +11,8 @@ import { requireAdminSecret, internalError } from "@/lib/api/admin-auth";
  * is, and a moderation power with no way to exercise it is one that gets
  * exercised by hand in the SQL console instead.
  *
+ * GET  — postings with open reports, ranked by how many distinct people
+ *        reported them.
  * POST — { id, action: "remove" | "restore", reason }
  *
  * WHY RESTORE GOES TO `closed`, NOT `open`.
@@ -39,6 +41,125 @@ import { requireAdminSecret, internalError } from "@/lib/api/admin-auth";
  * self-asserted claim rendered as attribution, which is worse than a visible
  * absence.
  */
+
+/**
+ * A report is "open" while the posting it names is still on the board. There
+ * is no per-report status column and deliberately so: dismissing an individual
+ * report would need a queue, an operator identity to attribute the dismissal
+ * to, and a rule for what a dismissed report means when the same posting is
+ * reported again next week. Removing the posting is the action that closes the
+ * complaint, so removal is what clears it from this list.
+ *
+ * Consequence to know rather than discover: restoring a posting brings its old
+ * reports back into this queue. That is right — the reports were never
+ * retracted — but an operator restoring something will see it reappear here.
+ */
+async function openReports() {
+  const supabase = createServiceRoleClient();
+
+  /*
+   * Read every report and group in TypeScript rather than in SQL.
+   *
+   * PostgREST cannot express "count distinct reporters per posting, ordered by
+   * that count", and the honest alternatives are a database view or an RPC —
+   * both of which would put the operator queue's shape into a migration, where
+   * changing it means another migration. At the volume this table will see for
+   * a long time (one row per person per posting, on a 150-posting board) the
+   * grouping is free. If this ever needs paging, it needs an RPC, and that is
+   * the signal to write one rather than to add a LIMIT here and call it done.
+   */
+  const { data, error } = await supabase
+    .from("job_posting_reports")
+    // One contiguous literal, not a concatenation: supabase-js parses this
+    // string at the TYPE level to shape the result, and `a + b` is just
+    // `string` to the compiler — which collapses every row to
+    // GenericStringError and hides real mistakes behind a wall of them.
+    .select(
+      "job_posting_id, reason, details, created_at, job_postings!inner(title, company_name, status, source_type, external_url)",
+    )
+    /*
+     * The removed-posting filter lives HERE and not in the grouping below, and
+     * deliberately only in one place. Filtering again in TypeScript would look
+     * defensive and would in fact be worse: the e2e that asserts a removed
+     * posting drops out of this queue would then pass even if this embedded
+     * filter silently did nothing, which is precisely the regression worth
+     * catching. One mechanism, one test.
+     */
+    .neq("job_postings.status", "removed")
+    .order("created_at", { ascending: false });
+
+  if (error) return { error };
+
+  type Row = NonNullable<typeof data>[number];
+  const grouped = new Map<
+    string,
+    {
+      jobPostingId: string;
+      title: string;
+      company: string;
+      status: string;
+      sourceType: string;
+      externalUrl: string | null;
+      reportCount: number;
+      reasons: Record<string, number>;
+      latestAt: string;
+      details: string[];
+    }
+  >();
+
+  for (const row of (data ?? []) as Row[]) {
+    // `!inner` guarantees the join, but typegen models a to-one embed as
+    // possibly-null and is right to: the FK is the only thing making it
+    // to-one. Skip rather than assert.
+    const posting = row.job_postings;
+    if (!posting) continue;
+
+    const existing = grouped.get(row.job_posting_id);
+    const entry = existing ?? {
+      jobPostingId: row.job_posting_id,
+      title: posting.title,
+      company: posting.company_name,
+      status: posting.status,
+      sourceType: posting.source_type,
+      externalUrl: posting.external_url,
+      reportCount: 0,
+      reasons: {} as Record<string, number>,
+      // Rows arrive newest-first, so the first one seen for a posting is its
+      // most recent report.
+      latestAt: row.created_at,
+      details: [] as string[],
+    };
+
+    entry.reportCount += 1;
+    entry.reasons[row.reason] = (entry.reasons[row.reason] ?? 0) + 1;
+    if (row.details) entry.details.push(row.details);
+    grouped.set(row.job_posting_id, entry);
+  }
+
+  const postings = [...grouped.values()].sort(
+    (a, b) => b.reportCount - a.reportCount || b.latestAt.localeCompare(a.latestAt),
+  );
+
+  return { postings };
+}
+
+export async function GET(request: Request) {
+  const denied = requireAdminSecret(request);
+  if (denied) return denied;
+
+  const result = await openReports();
+  if (result.error) return internalError("moderate-job-posting:list", result.error);
+
+  return NextResponse.json({
+    count: result.postings!.length,
+    // One report per person per posting is enforced by a unique constraint
+    // (0057), so reportCount is a count of PEOPLE. Said in the payload because
+    // an operator acting on "12" needs to know it is not one person twelve
+    // times.
+    note: "reportCount is distinct reporters — one report per person per posting.",
+    postings: result.postings,
+  });
+}
 
 const ACTIONS = ["remove", "restore"] as const;
 type Action = (typeof ACTIONS)[number];
