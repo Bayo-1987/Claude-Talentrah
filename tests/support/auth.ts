@@ -38,7 +38,21 @@ function isRateLimited(err: unknown): boolean {
   return /rate limit/i.test(message);
 }
 
-/** Retries only a rate-limit failure; anything else is a real error, thrown as-is. */
+/**
+ * Retries only a rate-limit failure; anything else is a real error, thrown
+ * as-is.
+ *
+ * THE BACKOFF IS BOUNDED BY THE HOOK TIMEOUT, not by what would be ideal.
+ * These calls run inside `beforeAll`, and vitest.config.ts allows a hook 60
+ * seconds. 3+6+12+24 is 45s of waiting across four attempts, which leaves
+ * headroom for the calls themselves. A backoff long enough to ride out a
+ * multi-MINUTE limit window cannot live here — it would fail the hook before
+ * it ever finished waiting.
+ *
+ * So this rides out a short burst limit and nothing longer. That is a real
+ * ceiling on what retrying can fix, and the reason the note below about
+ * creating fewer sessions is not just tidiness.
+ */
 async function withRateLimitRetry<T>(fn: () => Promise<T>, attempts = 4): Promise<T> {
   let lastError: unknown;
   for (let i = 0; i < attempts; i++) {
@@ -47,7 +61,7 @@ async function withRateLimitRetry<T>(fn: () => Promise<T>, attempts = 4): Promis
     } catch (err) {
       if (!isRateLimited(err)) throw err;
       lastError = err;
-      await new Promise((r) => setTimeout(r, 2000 * 2 ** i));
+      await new Promise((r) => setTimeout(r, 3000 * 2 ** i));
     }
   }
   throw lastError;
@@ -90,11 +104,32 @@ export async function sessionFor(email: string): Promise<DB> {
   const client = createClient<Database>(URL, ANON, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
-  const { error: otpErr } = await client.auth.verifyOtp({
-    token_hash: link.properties.hashed_token,
-    type: "magiclink",
-  });
-  if (otpErr) throw otpErr;
+  /*
+   * WRAPPED, like the two calls above it — which it was not, and that is the
+   * whole of this fix.
+   *
+   * `withRateLimitRetry` guarded `createUser` and `generateLink`. Neither has
+   * ever been the call that failed. Every rate-limit failure in this repo's CI
+   * — six in one afternoon, always reported against a suite the PR had not
+   * touched — came back with the same stack:
+   *
+   *     SupabaseAuthClient.verifyOtp   node_modules/@supabase/auth-js/...
+   *     sessionFor                     tests/support/auth.ts:93
+   *     createAuthedTestUser           tests/support/auth.ts:107
+   *
+   * The one call being limited was the only one without the backoff the
+   * module was written to provide. Verifying an OTP is its own rate-limited
+   * endpoint in Supabase, metered separately from creating a user or minting
+   * a link, so guarding those two bought nothing here.
+   */
+  await withRateLimitRetry(() =>
+    client.auth
+      .verifyOtp({ token_hash: link.properties.hashed_token, type: "magiclink" })
+      .then((r) => {
+        if (r.error) throw r.error;
+        return r;
+      }),
+  );
   return client;
 }
 
