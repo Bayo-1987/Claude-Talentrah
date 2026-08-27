@@ -29,8 +29,22 @@ export function StageFilterBar({ stage, sort }: StageFilterBarProps) {
             key={s.key}
             href={s.key === "all" ? `/tracker?sort=${sort}` : `/tracker?stage=${s.key}&sort=${sort}`}
             className={cn(
-              "flex min-h-10 items-center border-b-[2.5px] border-transparent px-2 font-body text-[13.5px] font-bold text-ink-soft no-underline",
-              stage === s.key && "border-rust text-ink",
+              /*
+               * The active classes live in an ELSE branch, not on top of a base
+               * that already sets the same properties.
+               *
+               * `cn` in this repo is a plain join, not tailwind-merge, so a base
+               * `border-transparent text-ink-soft` and a conditional
+               * `border-rust text-ink` BOTH reach the class attribute. Equal
+               * specificity means the stylesheet's own order decides, and the
+               * base wins both times: measured `borderBottomColor rgba(0,0,0,0)`
+               * and `color` still ink-soft on the ACTIVE tab. The active state
+               * was rendering identically to the inactive ones.
+               */
+              "flex min-h-10 items-center border-b-[2.5px] px-2 font-body text-[13.5px] font-bold no-underline",
+              stage === s.key
+                ? "border-rust text-ink"
+                : "border-transparent text-ink-soft",
             )}
           >
             {s.label}

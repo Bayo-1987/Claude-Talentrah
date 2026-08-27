@@ -61,8 +61,22 @@ export function EmployerMasthead({ orgInitials, orgName }: { orgInitials: string
                   key={link.href}
                   href={link.href}
                   className={cn(
-                    "flex min-h-10 items-center border-b-[2.5px] border-transparent font-body text-[14.5px] font-semibold text-ink no-underline",
-                    active ? "border-rust text-rust" : "hover:text-rust-hover",
+                    /*
+                     * The active classes live in an ELSE branch, not on top of a base
+                     * that already sets the same properties.
+                     *
+                     * `cn` in this repo is a plain join, not tailwind-merge, so a base
+                     * `border-transparent text-ink-soft` and a conditional
+                     * `border-rust text-ink` BOTH reach the class attribute. Equal
+                     * specificity means the stylesheet's own order decides, and the
+                     * base wins both times: measured `borderBottomColor rgba(0,0,0,0)`
+                     * and `color` still ink-soft on the ACTIVE tab. The active state
+                     * was rendering identically to the inactive ones.
+                     */
+                    "flex min-h-10 items-center border-b-[2.5px] font-body text-[14.5px] font-semibold text-ink no-underline",
+                    active
+                      ? "border-rust text-rust"
+                      : "border-transparent hover:text-rust-hover",
                   )}
                 >
                   {link.label}

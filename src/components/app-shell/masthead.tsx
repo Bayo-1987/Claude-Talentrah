@@ -27,7 +27,13 @@ export function Masthead({ creditsBalance, initials }: MastheadProps) {
     <div className="border-b-[2.5px] border-ink bg-paper">
       <div className="flex h-[68px] items-center justify-between px-8">
         <div className="flex items-center gap-9">
-          <Link href="/jobs" className="flex flex-shrink-0 items-center no-underline">
+          {/*
+            min-h-10 on the brand link, not on the image. The mark itself is
+            24/32px by design and stays that size; the LINK around it grows to
+            40, which inside a 68px flex-centred bar changes nothing visually
+            and everything about the tap.
+          */}
+          <Link href="/jobs" className="flex min-h-10 flex-shrink-0 items-center no-underline">
             {/* eslint-disable-next-line @next/next/no-img-element -- static brand SVG, next/image's optimizer needs SVG allow-listing for no real benefit here */}
             <img
               src="/talentrah-horizontal.svg"
@@ -56,8 +62,28 @@ export function Masthead({ creditsBalance, initials }: MastheadProps) {
                   key={link.href}
                   href={href}
                   className={cn(
-                    "flex min-h-10 items-center border-b-[2.5px] border-transparent font-body text-[14.5px] font-semibold text-ink no-underline",
-                    active ? "border-rust text-rust" : "hover:text-rust-hover",
+                    // min-w-10 as well as min-h-10. Height alone is what let a
+                    // 39.1px-wide target through review in #69, and "Jobs"
+                    // measured 29.5 x 40 here — the same shape, in the one
+                    // component every signed-in page renders.
+                    "flex min-h-10 min-w-10 items-center justify-center border-b-[2.5px] font-body text-[14.5px] font-semibold text-ink no-underline",
+                    /*
+                     * `border-transparent` belongs in the INACTIVE branch, not
+                     * the base — and that is a bug fix, not tidying.
+                     *
+                     * `cn` here is a plain join, not tailwind-merge, so a base
+                     * `border-transparent` and a conditional `border-rust`
+                     * both land in the class attribute. Two single-class
+                     * selectors have equal specificity, so the stylesheet's
+                     * own order decides, and `border-transparent` wins:
+                     * measured `borderBottomColor: rgba(0,0,0,0)` on the
+                     * active item. The active underline has never rendered —
+                     * only the rust TEXT did, which is why it read as working.
+                     *
+                     * With the colour set in exactly one branch there is
+                     * nothing to conflict with.
+                     */
+                    active ? "border-rust text-rust" : "border-transparent hover:text-rust-hover",
                   )}
                 >
                   {link.label}
@@ -95,7 +121,7 @@ export function Masthead({ creditsBalance, initials }: MastheadProps) {
           <form action={signOutAction}>
             <button
               type="submit"
-              className="text-[13px] font-semibold text-ink-soft underline underline-offset-2 hover:text-rust"
+              className="inline-flex min-h-10 min-w-10 items-center justify-center text-[13px] font-semibold text-ink-soft underline underline-offset-2 hover:text-rust"
             >
               Sign out
             </button>
