@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 
 /**
  * /settings — the page "View profile" in the Farah panel has pointed at since
@@ -33,6 +33,29 @@ test.beforeEach(async ({ page }) => {
   await page.waitForURL("**/jobs");
 });
 
+/**
+ * Open a masthead disclosure, retrying until the app is interactive.
+ *
+ * NOT A SLEEP, and not superstition. The trigger is server-rendered, so
+ * Playwright finds it and clicks it happily before React has attached the
+ * handler — measured: clicking immediately after `goto` opens 0 menus, and
+ * after `networkidle` it opens 1. The click is real and lands on nothing.
+ *
+ * These tests always raced hydration; they simply used to win. Making the
+ * masthead a little heavier (a second disclosure for the mobile nav) tipped
+ * it, which is a fair description of the whole class of bug: a test that
+ * depends on timing passes until something unrelated changes the timing.
+ *
+ * `toPass` retries the click itself, so it waits exactly as long as the app
+ * takes and no longer.
+ */
+async function openMenu(page: Page, name: string) {
+  await expect(async () => {
+    await page.getByRole("button", { name }).click();
+    await expect(page.getByRole("menu")).toBeVisible({ timeout: 1000 });
+  }).toPass({ timeout: 15_000 });
+}
+
 test("the account menu's Settings item resolves instead of 404ing", async ({ page }) => {
   /*
    * This used to click "View profile" in the Farah panel. That link is gone —
@@ -49,7 +72,7 @@ test("the account menu's Settings item resolves instead of 404ing", async ({ pag
   expect(direct?.status()).toBe(200);
 
   await page.goto("/jobs");
-  await page.getByRole("button", { name: "Account menu" }).click();
+  await openMenu(page, "Account menu");
   await page.getByRole("menuitem", { name: "Settings" }).click();
   await page.waitForURL("**/settings");
   await expect(page.getByRole("heading", { name: "Your profile" })).toBeVisible();
@@ -64,7 +87,7 @@ test("the account menu is the only place Sign out lives", async ({ page }) => {
   await page.goto("/jobs");
   await expect(page.getByRole("button", { name: "Sign out" })).toBeHidden();
 
-  await page.getByRole("button", { name: "Account menu" }).click();
+  await openMenu(page, "Account menu");
   await expect(page.getByRole("menuitem", { name: "Sign out" })).toBeVisible();
 
   // Escape closes it again, same contract as the card menus.
@@ -85,7 +108,14 @@ test("a save lands, and the rest of the shell agrees with it", async ({ page }) 
     // The name is rendered by the (app) LAYOUT — masthead initials and the
     // Farah panel — not by this page. revalidatePath("/settings") alone would
     // leave the shell showing the old name, changed here and nowhere else.
-    await expect(page.locator("div.border-l")).toContainText(marker);
+    /*
+     * The panel by test id, not by `div.border-l`. That class moved to
+     * min-[760px]:border-l when the panel learned to stack on a phone, and
+     * this assertion silently stopped finding anything — "element(s) not
+     * found" reads as "the name did not propagate", which is a different and
+     * much more alarming bug than the one that existed.
+     */
+    await expect(page.getByTestId("farah-panel")).toContainText(marker);
 
     await page.reload();
     expect(await page.getByLabel("First name").inputValue()).toBe(marker);

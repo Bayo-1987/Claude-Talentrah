@@ -79,9 +79,17 @@ test.describe("the shell on a phone", () => {
       expect(box!.width).toBeGreaterThanOrEqual(40);
       expect(box!.height).toBeGreaterThanOrEqual(40);
 
-      await trigger.click();
+      /*
+       * Retried, because the trigger is server-rendered and clickable before
+       * React attaches its handler — measured at 0 menus opened on an
+       * immediate click versus 1 after hydration. Waits as long as the app
+       * needs and no longer.
+       */
       const menu = page.getByRole("menu").first();
-      await expect(menu).toBeVisible();
+      await expect(async () => {
+        await trigger.click();
+        await expect(menu).toBeVisible({ timeout: 1000 });
+      }).toPass({ timeout: 15_000 });
       // Every destination survives the collapse, including the one that was
       // hidden above 900px in the bar and would otherwise be unreachable.
       for (const label of ["Jobs", "Job Tracker", "Resume Builder", "Post a job"]) {
