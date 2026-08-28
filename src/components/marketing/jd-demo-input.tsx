@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import { EyebrowLabel } from "@/components/ui";
 import { JdDemoExample } from "./jd-demo-example";
@@ -36,13 +37,50 @@ type State =
  * logged-in person down an anonymous path that would tailor a stranger's CV
  * and then tell them to create the account they already have.
  *
- * `isSignedIn` is threaded from the page rather than detected here: this is a
- * client component, the session lives in an httpOnly cookie, and asking the
- * browser would be both unreliable and a round trip.
+ * THE SESSION IS DETECTED HERE, and it used to be threaded from the page.
+ *
+ * The old comment said the browser could not be asked because the session
+ * lives in an httpOnly cookie. That is not how this app is set up: @supabase/ssr
+ * writes a cookie its own browser client reads, which is why
+ * lib/supabase/client.ts exists at all. What the page paid for that assumption
+ * was its entire cacheability — one `getUser()` in a Server Component makes
+ * the whole route dynamic, so every anonymous visitor rendered the FAQ and the
+ * footer from scratch.
+ *
+ * Moving it here costs a caption. Until the session resolves the copy reads as
+ * signed-out, which is right for nearly everyone landing here and briefly
+ * wrong for the minority who are logged in. That is the trade, stated: a
+ * one-line swap after hydration, against a server render for every stranger.
+ *
+ * `getSession` reads the cookie and does not call the network, unlike
+ * `getUser`. And this flag decides COPY AND WHICH ENDPOINT TO POST TO, never
+ * whether something is allowed — /api/tailoring and /api/public/jd-demo each
+ * enforce their own auth server-side. A tampered client can pick the wrong
+ * door and gets turned away by it.
  */
-export function JdDemoInput({ isSignedIn = false }: { isSignedIn?: boolean }) {
+export function JdDemoInput() {
   const [value, setValue] = useState("");
   const [state, setState] = useState<State>({ kind: "idle" });
+  /** `null` while unknown — the caption treats it as signed-out meanwhile. */
+  const [session, setSession] = useState<boolean | null>(null);
+  const isSignedIn = session === true;
+
+  useEffect(() => {
+    let cancelled = false;
+    createClient()
+      .auth.getSession()
+      .then(({ data }) => {
+        if (!cancelled) setSession(!!data.session);
+      })
+      .catch(() => {
+        // Unknown reads as signed-out: the anonymous path is the one that
+        // works without an account, so failing towards it is the safe side.
+        if (!cancelled) setSession(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const looksLikeUrl = /^https?:\/\/\S+$/i.test(value.trim());
   const tooShort = value.trim().length < MIN_CHARS;
@@ -71,8 +109,27 @@ export function JdDemoInput({ isSignedIn = false }: { isSignedIn?: boolean }) {
 
     setState({ kind: "loading" });
 
+    /*
+     * RESOLVED AT SUBMIT, not read off the render.
+     *
+     * The effect above is for the caption and is allowed to be a moment late.
+     * This is not: someone who pastes and submits before it lands would be
+     * sent down the anonymous path while signed in — spending a public run and
+     * then being told to create the account they already have, which is
+     * precisely the failure the flag exists to prevent. `getSession` is a
+     * cookie read, so asking again here costs nothing and removes the race.
+     */
+    let signedIn = session;
+    if (signedIn === null) {
+      const { data } = await createClient()
+        .auth.getSession()
+        .catch(() => ({ data: { session: null } }));
+      signedIn = !!data.session;
+      setSession(signedIn);
+    }
+
     try {
-      const response = await fetch(isSignedIn ? "/api/tailoring" : "/api/public/jd-demo", {
+      const response = await fetch(signedIn ? "/api/tailoring" : "/api/public/jd-demo", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         // Never for either path. §6.9 makes the first cover letter a one-time
@@ -91,7 +148,7 @@ export function JdDemoInput({ isSignedIn = false }: { isSignedIn?: boolean }) {
          * "create a free account" is the wrong instruction and reads as the
          * product not knowing who they are.
          */
-        if (isSignedIn && response.status === 400 && /base resume/i.test(payload?.error ?? "")) {
+        if (signedIn && response.status === 400 && /base resume/i.test(payload?.error ?? "")) {
           setState({ kind: "needsResume" });
           return;
         }
@@ -106,7 +163,7 @@ export function JdDemoInput({ isSignedIn = false }: { isSignedIn?: boolean }) {
          * distinguishes them; the status alone cannot.
          */
         if (
-          !isSignedIn &&
+          !signedIn &&
           (payload?.reason === "already_used" || payload?.reason === "daily_cap")
         ) {
           setState({ kind: "used", message: payload?.error ?? "The free preview isn't available." });
@@ -262,7 +319,10 @@ export function JdDemoInput({ isSignedIn = false }: { isSignedIn?: boolean }) {
       )}
 
       {state.kind === "idle" && (
-        <div className="font-display text-[12.5px] italic text-ink-soft">
+        <div
+          data-testid="jd-demo-caption"
+          className="font-display text-[12.5px] italic text-ink-soft"
+        >
           {isSignedIn
             ? "Tailored against your saved resume"
             : `No account needed — one free run, ${MIN_CHARS} characters minimum`}

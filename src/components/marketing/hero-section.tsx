@@ -1,7 +1,7 @@
 import { EyebrowLabel } from "@/components/ui";
 import { JdDemoInput } from "./jd-demo-input";
 
-export function HeroSection({ isSignedIn = false }: { isSignedIn?: boolean }) {
+export function HeroSection() {
   return (
     <div id="top" className="py-[72px] pb-[84px]">
       <div className="mx-auto flex max-w-[1120px] flex-col items-center gap-7.5 px-10">
@@ -23,7 +23,7 @@ export function HeroSection({ isSignedIn = false }: { isSignedIn?: boolean }) {
           static panel for the real result, and one component owning that swap
           is simpler than lifting the state up here to coordinate two siblings.
         */}
-        <JdDemoInput isSignedIn={isSignedIn} />
+        <JdDemoInput />
       </div>
     </div>
   );
