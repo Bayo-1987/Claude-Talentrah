@@ -265,9 +265,36 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
         `locator.click: Test timeout` on a label that had resolved fine, which
         is what an obscured element looks like from Playwright.
 
-        Fixed by raising those three menus to z-30 rather than lowering this,
-        because an open disclosure should sit above the chrome. Anything else
-        added over the feed needs to stay below 30.
+        Fixed by raising those three menus rather than lowering this, because
+        an open disclosure should sit above the chrome it opens over.
+
+        THE ORDER, in full, because two numbers are not enough to infer it:
+
+            masthead (app)/layout.tsx        z-20    always on top
+            card menus report/farah/share    z-[15]  above this header, under the nav
+            this header                      z-10    above the scrolling cards
+
+        The menus write it in brackets. Not because the bare form is broken —
+        it was reported as a typo that compiles to nothing, and a clean
+        production build says otherwise:
+
+            .z-10{z-index:10}   .z-15{z-index:15}   .z-\[15\]{z-index:15}
+
+        Tailwind v4 generates numeric z-index utilities on demand, so `z-15`
+        works even though 15 is not in the 0/10/20/30/40/50 scale and this
+        project defines no --z-* token. Both forms are correct today.
+
+        Brackets anyway, for one reason worth the two characters: the bracket
+        form is an arbitrary value and cannot stop resolving, whereas the bare
+        form depends on a v4 feature that a future major could narrow. Also
+        note Tailwind scans raw file text — the string `z-15` in a comment is
+        enough to emit the rule — so "the class exists in the CSS" is not on
+        its own evidence that some element is using it.
+
+        The menus were briefly z-30, which fixed the bug and introduced a
+        smaller one: opening upward from a card near the top, they painted over
+        the masthead. z-15 clears this header without outranking the app's
+        primary navigation. Anything else layered over the feed stays below 20.
       */}
       <div className="sticky top-[68px] z-10 -mt-8 flex flex-col gap-5 bg-paper pt-8 pb-4">
         <div>
