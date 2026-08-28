@@ -112,7 +112,7 @@ test("the masthead, filter header and Farah panel all survive a long scroll", as
       };
       return {
         masthead: box("div.sticky.top-0"),
-        header: box("div.sticky.z-10"),
+        header: box('[data-testid="feed-header"]'),
         panel: box("div.border-l"),
         scrollY: Math.round(window.scrollY),
       };
@@ -155,10 +155,18 @@ test("the filter header is flush at rest, not 32px adrift", async ({ page }) => 
    * So the symptom is entirely at rest and in the travel: a visible strip of
    * paper under the masthead, and a 32px jump as the header catches up. The
    * scrolled state cannot see it, and asserting there proved nothing twice.
+   *
+   * UPDATED when the header became `position: fixed`. The `-mt-8` pull is
+   * still what this guards — the spacer inherits it, and without it the whole
+   * column would start 32px low. What changed is that at-rest and scrolled are
+   * now the SAME measurement rather than two: sticky sat at its flow position
+   * (gap 0) until scrolling pushed it to its 68px threshold (gap -2); fixed is
+   * pinned at 68 throughout, so the gap is -2 in both states. The range below
+   * already allowed that, which is why it is a range and not an equality.
    */
   const gapAtRest = await page.evaluate(() => {
     const m = document.querySelector("div.sticky.top-0") as HTMLElement;
-    const h = document.querySelector("div.sticky.z-10") as HTMLElement;
+    const h = document.querySelector('[data-testid="feed-header"]') as HTMLElement;
     return Math.round(h.getBoundingClientRect().top - m.getBoundingClientRect().bottom);
   });
   expect(gapAtRest).toBeLessThanOrEqual(2);
@@ -170,7 +178,7 @@ test("the filter header is flush at rest, not 32px adrift", async ({ page }) => 
 
   const stuck = await page.evaluate(() => {
     const m = document.querySelector("div.sticky.top-0") as HTMLElement;
-    const h = document.querySelector("div.sticky.z-10") as HTMLElement;
+    const h = document.querySelector('[data-testid="feed-header"]') as HTMLElement;
     const y = Math.round(m.getBoundingClientRect().bottom) + 4;
     const el = document.elementFromPoint(400, y) as HTMLElement | null;
     return {
@@ -193,7 +201,7 @@ test("the filter header is flush at rest, not 32px adrift", async ({ page }) => 
    * worse than no sticky header at all.
    */
   const background = await page.evaluate(() => {
-    const h = document.querySelector("div.sticky.z-10") as HTMLElement;
+    const h = document.querySelector('[data-testid="feed-header"]') as HTMLElement;
     return getComputedStyle(h).backgroundColor;
   });
   expect(background).not.toBe("transparent");
