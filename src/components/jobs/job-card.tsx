@@ -4,6 +4,7 @@ import { getCompanyInitials } from "@/lib/jobs/company-initials";
 import { formatRelativeTime } from "@/lib/format-relative-time";
 import { freshnessNote } from "@/lib/jobs/freshness-note";
 import { FarahJobMenu } from "@/components/jobs/farah-job-menu";
+import { ShareJobButton } from "@/components/jobs/share-job-button";
 import { ReportJobMenu } from "@/components/jobs/report-job-menu";
 import type { MatchExplanation } from "@/lib/matching/score";
 import { toggleSaveAction, applyInAppAction, markAppliedExternallyAction } from "@/lib/applications/actions";
@@ -32,9 +33,24 @@ export interface JobCardProps {
   isSponsored?: boolean;
   /** Drives the menu's free Vet answers. Already computed for `score`. */
   explanation: MatchExplanation;
+  /**
+   * Absolute origin for share links, resolved once by the page.
+   *
+   * Per-card would mean one `headers()` read per card; the value is identical
+   * for every card in a render.
+   */
+  origin: string;
 }
 
-export function JobCard({ job, score, isSaved, applicationStage, isSponsored = false, explanation }: JobCardProps) {
+export function JobCard({
+  job,
+  score,
+  isSaved,
+  applicationStage,
+  isSponsored = false,
+  explanation,
+  origin,
+}: JobCardProps) {
   const metaParts = [
     job.company_name,
     job.location,
@@ -132,19 +148,12 @@ export function JobCard({ job, score, isSaved, applicationStage, isSponsored = f
               </svg>
             </IconButton>
           </form>
-          <IconButton
-            aria-label="Share"
-            type="button"
-            title="Coming soon"
-            className="cursor-not-allowed opacity-60"
-          >
-            <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
-              <circle cx="15" cy="5" r="2.2" stroke="currentColor" strokeWidth="1.4" />
-              <circle cx="5" cy="10" r="2.2" stroke="currentColor" strokeWidth="1.4" />
-              <circle cx="15" cy="15" r="2.2" stroke="currentColor" strokeWidth="1.4" />
-              <path d="M7 8.8 L13 6.2 M7 11.2 L13 13.8" stroke="currentColor" strokeWidth="1.4" />
-            </svg>
-          </IconButton>
+          <ShareJobButton
+            jobId={job.id}
+            jobTitle={job.title}
+            companyName={job.company_name}
+            origin={origin}
+          />
           {/*
             Report sits before Ask Farah and is styled quieter than it:
             --ink-soft, no underline, no chevron. It is the least-used action

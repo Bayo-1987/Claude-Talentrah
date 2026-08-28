@@ -70,9 +70,29 @@ function mergedControl(html: string): string {
 }
 
 describe("one instrument, and only when there is something in it", () => {
-  it("renders no container at all when no filter is applied", () => {
+  it("renders the one container even with no filter applied — the search field is in it", () => {
+    /*
+     * This assertion used to be the opposite: no filters, no container,
+     * because an empty bordered box is a control with nothing in it. That
+     * stopped being true when the search field moved inside — there is now
+     * always something in it, so it always renders.
+     *
+     * The half that did NOT change, and is the point of the describe block, is
+     * "exactly one". The first attempt at the search field shipped it as a
+     * SECOND box with the same 1.5px border stacked above this one, which is
+     * a scatter of two instruments wearing one instrument's clothes. The
+     * count below is what caught that.
+     */
     const html = render();
-    expect(html).not.toContain("border-[1.5px] border-ink");
+    expect(html.split(CONTAINER).length - 1).toBe(1);
+    expect(mergedControl(html)).toContain('name="q"');
+  });
+
+  it("still offers no Clear filters when there is nothing to clear", () => {
+    // The container is unconditional now; the clear action is not. Offering
+    // it with nothing applied is a control that does nothing.
+    expect(render()).not.toContain("Clear filters");
+    expect(render({ workType: "remote" })).toContain("Clear filters");
   });
 
   it("renders exactly one container when filters are applied", () => {
@@ -150,7 +170,18 @@ describe("segments are hit targets, not glyphs", () => {
   it("marks the x decorative, because the link is the target", () => {
     // If the svg ever becomes the clickable element, this is 9x9.
     expect(inner).toContain('aria-hidden="true"');
-    expect(inner).not.toContain("<button");
+
+    /*
+     * There IS one button in the control now — the search field's submit — so
+     * "no <button> anywhere" no longer says what it meant. What it meant is
+     * that no remove affordance is a button, because each is a whole-segment
+     * Link. Asserted directly: every button in the control is the search
+     * submit, and every remove target is a Link carrying the aria-label.
+     */
+    const buttons = inner.match(/<button/g) ?? [];
+    expect(buttons.length, "an unexpected button appeared in the filter control").toBe(1);
+    expect(inner).toContain('type="submit"');
+    expect(inner).toContain('aria-label="Remove Remote filter"');
   });
 });
 

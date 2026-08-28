@@ -174,6 +174,7 @@ describe("the card actually renders it", () => {
         isSaved={false}
         applicationStage={null}
         explanation={{ matchedSkills: [], missingSkills: [], seniorityAlignment: "unknown" }}
+        origin="https://talentrah.test"
       />,
     );
   }

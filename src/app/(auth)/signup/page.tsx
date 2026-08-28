@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { safeRedirectTo } from "@/lib/auth/redirect-to";
 import { EyebrowLabel } from "@/components/ui";
 import { SignupForm } from "@/components/auth/signup-form";
 import { OAuthButtons } from "@/components/auth/oauth-buttons";
@@ -9,15 +10,16 @@ export const metadata = { title: "Create your account — Talentrah" };
 export default async function SignupPage({
   searchParams,
 }: {
-  searchParams: Promise<{ ref?: string }>;
+  searchParams: Promise<{ ref?: string; redirectTo?: string }>;
 }) {
+  const { ref, redirectTo: rawRedirectTo } = await searchParams;
+  const redirectTo = safeRedirectTo(rawRedirectTo, "");
+
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (user) redirect("/dashboard");
-
-  const { ref } = await searchParams;
+  if (user) redirect(redirectTo || "/dashboard");
 
   return (
     <div className="flex flex-col gap-8">
@@ -26,7 +28,10 @@ export default async function SignupPage({
         <h2 className="font-display text-[28px]">Let&apos;s get you set up.</h2>
         <p className="text-[14.5px] text-ink-soft">
           Already have an account?{" "}
-          <a href="/login" className="underline">
+          <a
+            href={redirectTo ? `/login?redirectTo=${encodeURIComponent(redirectTo)}` : "/login"}
+            className="underline"
+          >
             Log in
           </a>
           .
@@ -41,7 +46,7 @@ export default async function SignupPage({
         <span className="h-px flex-1 bg-line" />
       </div>
 
-      <SignupForm referredByCode={ref} />
+      <SignupForm referredByCode={ref} redirectTo={redirectTo || undefined} />
     </div>
   );
 }

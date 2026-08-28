@@ -11,6 +11,8 @@ import { JobCard } from "@/components/jobs/job-card";
 import { Constants, type Tables } from "@/lib/supabase/types";
 import { hasVisibleName, visibleName } from "@/lib/profile/name";
 import { computeSkillFacet, filterBySkill } from "@/lib/jobs/skill-facet";
+import { searchJobs } from "@/lib/jobs/search";
+import { getSiteOrigin } from "@/lib/referrals/url";
 import {
   fetchPromotedJobs,
   recordPromotedImpressions,
@@ -24,6 +26,7 @@ type SearchParams = Promise<{
   workType?: string;
   seniority?: string;
   skill?: string;
+  q?: string;
 }>;
 
 const VALID_WORK_TYPES: readonly string[] = Constants.public.Enums.work_type;
@@ -47,6 +50,7 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
    * which is the correct answer for a skill no posting names.
    */
   const skill = params.skill?.trim().toLowerCase() || undefined;
+  const q = params.q?.trim() || undefined;
   const supabase = await createClient();
 
   const [{ data: baseResume, error: baseResumeError }, { data: applications }] = await Promise.all([
@@ -108,7 +112,16 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
    * then.
    */
   const skillFacet = computeSkillFacet(matchingFilters);
-  const jobs: Tables<"job_postings">[] = filterBySkill(matchingFilters, skill);
+  /*
+   * Search is applied AFTER the facet is counted, alongside the skill filter,
+   * for the same reason: counting the facet against a searched board would
+   * collapse every chip to whatever co-occurs with the search term, so the
+   * facet would look broken the moment anyone typed.
+   */
+  const jobs: Tables<"job_postings">[] = searchJobs(
+    filterBySkill(matchingFilters, skill),
+    q,
+  );
   if (tab === "recent") {
     jobs.sort((a, b) => new Date(b.posted_at).getTime() - new Date(a.posted_at).getTime());
   }
@@ -197,6 +210,8 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
     }
   }
   const promotedSet = new Set(promotedIds);
+  // Once per render, not once per card — every card shares the same origin.
+  const origin = await getSiteOrigin();
 
   return (
     <div className="flex flex-col gap-5">
@@ -213,6 +228,7 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
       />
 
       <FilterBar
+        q={q}
         tab={tab}
         workType={workType}
         seniority={seniority}
@@ -258,6 +274,7 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
               applicationStage={applicationByJobId.get(job.id) ?? null}
               isSponsored={promotedSet.has(job.id)}
               explanation={explanation}
+            origin={origin}
             />
           ))}
         </div>

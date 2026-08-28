@@ -8,7 +8,13 @@ import { PasswordRequirements } from "./password-requirements";
 
 const initialState: AuthActionState = { error: null };
 
-export function SignupForm({ referredByCode }: { referredByCode?: string }) {
+export function SignupForm({
+  referredByCode,
+  redirectTo,
+}: {
+  referredByCode?: string;
+  redirectTo?: string;
+}) {
   const [state, formAction, pending] = useActionState(signUpAction, initialState);
   const [fields, setFields] = useState({
     firstName: "",
@@ -64,6 +70,8 @@ export function SignupForm({ referredByCode }: { referredByCode?: string }) {
       {referredByCode && (
         <input type="hidden" name="referredByCode" value={referredByCode} />
       )}
+      {/* Same pattern, same re-validation in the action. */}
+      {redirectTo && <input type="hidden" name="redirectTo" value={redirectTo} />}
 
       {state.error && (
         <p className="border-[1.5px] border-rust bg-rust-soft px-3.5 py-2.5 text-[13.5px] text-rust">

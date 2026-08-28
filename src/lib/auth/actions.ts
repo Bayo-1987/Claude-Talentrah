@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { safeRedirectTo } from "./redirect-to";
 import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { signUpSchema, signInSchema } from "./schemas";
@@ -72,7 +73,13 @@ export async function signUpAction(
     redirect(`/signup/check-email?email=${encodeURIComponent(email)}`);
   }
 
-  redirect("/onboarding");
+  /*
+   * A new account still goes through onboarding — that is not optional and a
+   * redirectTo must not skip it. The destination is carried across instead, so
+   * onboarding can hand them on at the end.
+   */
+  const afterSignup = safeRedirectTo(formData.get("redirectTo"), "");
+  redirect(afterSignup ? `/onboarding?next=${encodeURIComponent(afterSignup)}` : "/onboarding");
 }
 
 export async function signInAction(
@@ -98,7 +105,14 @@ export async function signInAction(
     return { error: "Incorrect email or password." };
   }
 
-  redirect("/jobs");
+  /*
+   * Back where they came from, or the feed. Validated here and not only at
+   * the page that rendered the field: this reads a form value, and a form can
+   * be posted by anything. `safeRedirectTo` refuses anything that could leave
+   * the origin — see its comment for why the "//" case is the one that
+   * matters.
+   */
+  redirect(safeRedirectTo(formData.get("redirectTo"), "/jobs"));
 }
 
 export async function signOutAction() {

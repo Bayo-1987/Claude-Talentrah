@@ -6,7 +6,7 @@ import { TextField, Button } from "@/components/ui";
 
 const initialState: AuthActionState = { error: null };
 
-export function LoginForm() {
+export function LoginForm({ redirectTo }: { redirectTo?: string }) {
   const [state, formAction, pending] = useActionState(signInAction, initialState);
   // Only email is controlled — React resets uncontrolled fields after every
   // form action completes (success or failure), which is what we want for
@@ -16,6 +16,13 @@ export function LoginForm() {
 
   return (
     <form action={formAction} className="flex flex-col gap-5">
+      {/*
+        Same hidden-field pattern SignupForm uses for referredByCode. The
+        action re-validates it — a hidden field is a form value, not a trusted
+        one.
+      */}
+      {redirectTo && <input type="hidden" name="redirectTo" value={redirectTo} />}
+
       {state.error && (
         <p className="border-[1.5px] border-rust bg-rust-soft px-3.5 py-2.5 text-[13.5px] text-rust">
           {state.error}
