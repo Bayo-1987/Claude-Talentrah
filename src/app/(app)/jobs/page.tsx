@@ -302,6 +302,11 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
         the root stacking context, so the same three-layer order holds. It is
         re-asserted in the browser rather than assumed — see
         e2e/fixed-tab-row.spec.ts.
+
+        Read "this row" as the eyebrow and the tabs only. The Auto-Apply card
+        and the filter bar scroll with the page and are not part of any layer
+        here; when this comment was written they were inside the pinned block
+        and it did describe all three.
       */}
       <FixedFeedHeader>
         <div>
@@ -310,7 +315,25 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
             <FeedTabs active={tab} />
           </div>
         </div>
+      </FixedFeedHeader>
 
+      {/*
+        OUTSIDE the pinned block, deliberately.
+
+        These two used to sit inside it, which made the fixed area 529px tall —
+        the tabs, the whole Auto-Apply card, the search box, the filter chips
+        and the skill cloud, all held on screen while only the job cards moved
+        beneath them. As a single `sticky` block that read as one unit and the
+        size was easy not to notice; pinning it made it impossible to ignore.
+
+        What belongs on screen permanently is the thing you steer by — which
+        board you are looking at. The filters and the Auto-Apply switch are
+        things you set and then stop looking at, so they scroll.
+
+        `gap-5` here replaces the gap they used to get from the pinned block's
+        own flex container, so the 20px rhythm between them survives the move.
+      */}
+      <div className="flex flex-col gap-5">
         <AutoApplyToggle
           enabled={!!autoApplySettings?.enabled}
           pendingCount={pendingQueue.count ?? 0}
@@ -324,7 +347,7 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
           skill={skill}
           skillFacet={skillFacet}
         />
-      </FixedFeedHeader>
+      </div>
 
       {baseResumeError && (
         <p className="border-[1.5px] border-rust bg-rust-soft px-4 py-3 text-[13.5px] text-rust">
