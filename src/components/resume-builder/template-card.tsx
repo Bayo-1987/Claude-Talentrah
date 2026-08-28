@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button, BorderedCard } from "@/components/ui";
 import { createResumeAction, unlockTemplateAction } from "@/lib/resume-builder/actions";
+import { TemplateThumbnail } from "@/components/resume-builder/template-thumbnail";
 import type { Tables } from "@/lib/supabase/types";
 
 function LockIcon() {
@@ -43,6 +44,13 @@ export function TemplateCard({
 
   return (
     <BorderedCard className="flex flex-col gap-3 p-5">
+      {/*
+        The card was name, category, lock icon and a button — nothing showing
+        what you were choosing between. A template gallery whose cards are
+        text is a list, not a gallery.
+      */}
+      <TemplateThumbnail slug={template.slug} />
+
       <div className="flex items-start justify-between gap-2">
         <div>
           <h3 className="text-[16px]">{template.name}</h3>
