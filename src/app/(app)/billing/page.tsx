@@ -3,6 +3,21 @@ import { createClient } from "@/lib/supabase/server";
 import { initiatePurchaseAction, cancelAutoRenewAction } from "@/lib/billing/actions";
 import { EyebrowLabel, BorderedCard, Button } from "@/components/ui";
 
+/**
+ * What each product_type is called on a receipt.
+ *
+ * Spelled out rather than derived from the enum: `credit_pack` is a column
+ * value, "Credit pack" is what a person recognises on a statement.
+ * ad_wallet_topup can appear here for someone who is both a seeker and an
+ * employer on one account, so it needs a label even though nothing in this
+ * change emails about it.
+ */
+const PRODUCT_LABEL: Record<string, string> = {
+  credit_pack: "Credit pack",
+  pass: "Talentrah Pass",
+  ad_wallet_topup: "Ad wallet top-up",
+};
+
 export const metadata = { title: "Credits & Passes — Talentrah" };
 
 /**
@@ -27,16 +42,39 @@ export default async function BillingPage({
   const supabase = await createClient();
   const { error } = await searchParams;
 
-  const [{ data: packs }, { data: passes }, { data: activePasses }] = await Promise.all([
-    supabase.from("credit_packs").select("*").eq("is_active", true).order("price_ngn"),
-    supabase.from("passes").select("*").eq("is_active", true).order("price_ngn"),
-    supabase
-      .from("user_passes")
-      .select("id, payment_method, auto_renew_status, next_renewal_date, expires_at, status, passes(name)")
-      .eq("user_id", profile.id)
-      .eq("status", "active")
-      .order("expires_at", { ascending: false }),
-  ]);
+  const [{ data: packs }, { data: passes }, { data: activePasses }, { data: purchases }] =
+    await Promise.all([
+      supabase.from("credit_packs").select("*").eq("is_active", true).order("price_ngn"),
+      supabase.from("passes").select("*").eq("is_active", true).order("price_ngn"),
+      supabase
+        .from("user_passes")
+        .select("id, payment_method, auto_renew_status, next_renewal_date, expires_at, status, passes(name)")
+        .eq("user_id", profile.id)
+        .eq("status", "active")
+        .order("expires_at", { ascending: false }),
+      /*
+       * The user's own receipts, through the NORMAL authenticated client.
+       *
+       * No service role: `payment_transactions` is owner-readable under RLS,
+       * so the session is already scoped to this user and elevating would only
+       * remove the guarantee that it is. The `.eq("user_id")` is belt and
+       * braces — RLS is what actually enforces it.
+       *
+       * Rendered from the row's own columns, with no join to the product. The
+       * FK cannot be followed: `product_id` points at `credit_packs` for one
+       * product_type and `passes` for another (and at nothing at all for a
+       * wallet top-up, nullable since 0050), so there is no single relation to
+       * embed. The row already carries amount, currency, rail and reference —
+       * everything a receipt line needs.
+       */
+      supabase
+        .from("payment_transactions")
+        .select("id, amount, currency, product_type, rail, channel, paystack_reference, created_at")
+        .eq("user_id", profile.id)
+        .eq("status", "success")
+        .order("created_at", { ascending: false })
+        .limit(10),
+    ]);
 
   const paystackConfigured = !!process.env.PAYSTACK_SECRET_KEY;
 
@@ -148,6 +186,59 @@ export default async function BillingPage({
           ))}
         </div>
       </div>
+
+      {/*
+        Purchase history. Only successful ones — a pending row is a payment
+        Paystack has not confirmed and a failed one is not a purchase, and
+        listing either under "what you have bought" would be a receipt for
+        something that did not happen.
+      */}
+      {(purchases ?? []).length > 0 && (
+        <div className="flex flex-col gap-4">
+          <EyebrowLabel size="sm">Purchase history</EyebrowLabel>
+          <div className="flex flex-col">
+            {(purchases ?? []).map((p) => (
+              <div
+                key={p.id}
+                className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-line py-3"
+              >
+                <div className="flex min-w-0 flex-col">
+                  <span className="font-body text-[14px] font-semibold text-ink">
+                    {PRODUCT_LABEL[p.product_type] ?? p.product_type}
+                  </span>
+                  <span className="font-body text-[12.5px] text-ink-soft">
+                    {new Date(p.created_at).toLocaleDateString("en-NG", {
+                      day: "numeric",
+                      month: "short",
+                      year: "numeric",
+                    })}
+                    {p.channel ? ` · ${p.channel}` : p.rail ? ` · ${p.rail}` : ""}
+                  </span>
+                </div>
+                <div className="flex flex-col items-end">
+                  <span className="font-display text-[16px] text-ink">
+                    ₦{p.amount.toLocaleString()}
+                  </span>
+                  {/*
+                    The Paystack reference IS the receipt number — the same
+                    string the confirmation email quotes, so a support question
+                    can be matched to a row without the user knowing what
+                    Paystack is.
+                  */}
+                  {p.paystack_reference && (
+                    <span className="font-body text-[11.5px] text-ink-soft">
+                      Receipt {p.paystack_reference}
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="font-display text-[12.5px] italic text-ink-soft">
+            Showing your ten most recent purchases.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,5 +1,7 @@
 import "server-only";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { getResendClient } from "@/lib/resend/client";
+import { visibleName } from "@/lib/profile/name";
 import { verifyTransaction } from "@/lib/paystack/client";
 import { grantCredits } from "@/lib/credits/spend";
 
@@ -77,6 +79,14 @@ export async function fulfillPayment(
    * constraint is ever loosened. Silently doing nothing beats crashing a
    * webhook, which Paystack would then retry forever.
    */
+  /*
+   * What to name in the receipt. Set only by the two branches that email —
+   * left null for ad_wallet_topup, which is the employer surface and out of
+   * scope, so "did we email?" and "is this a seeker purchase?" stay one
+   * question rather than two that can disagree.
+   */
+  let purchased: string | null = null;
+
   if (transaction.product_type === "credit_pack" && transaction.product_id) {
     const { data: pack } = await supabase
       .from("credit_packs")
@@ -85,11 +95,12 @@ export async function fulfillPayment(
       .single();
     if (pack) {
       await grantCredits(transaction.user_id, pack.credits, "purchase", transaction.id);
+      purchased = `${pack.credits.toLocaleString()} credits`;
     }
   } else if (transaction.product_type === "pass" && transaction.product_id) {
     const { data: pass } = await supabase
       .from("passes")
-      .select("duration_days")
+      .select("duration_days, name")
       .eq("id", transaction.product_id)
       .single();
     if (pass) {
@@ -112,6 +123,7 @@ export async function fulfillPayment(
         payment_transaction_id: transaction.id,
         status: "active",
       });
+      purchased = pass.name;
     }
   } else if (transaction.product_type === "ad_wallet_topup") {
     /*
@@ -163,7 +175,96 @@ export async function fulfillPayment(
     })
     .eq("id", transaction.id);
 
+  /*
+   * AFTER the status flip, not before. A receipt that arrives while the row is
+   * still `pending` is a promise the database has not made yet — and if the
+   * update below it failed, the person would hold an email for a purchase the
+   * system does not believe in.
+   *
+   * Failure here is swallowed on purpose: the money moved and the grant landed,
+   * so a dead Resend key must not turn a completed purchase into a thrown
+   * error that Paystack then retries. Logged, because a receipt that silently
+   * stopped sending is exactly the kind of thing nobody notices for months.
+   */
+  if (purchased) {
+    try {
+      await sendPurchaseReceipt(supabase, {
+        userId: transaction.user_id,
+        productName: purchased,
+        /*
+         * `amount` is NAIRA, not kobo. The kobo conversion lives at the
+         * Paystack boundary (`Math.round(amountNgn * 100)` in the client) and
+         * nowhere else, so this column is what the customer was charged in the
+         * unit the receipt prints. Worth stating: getting it wrong here means
+         * a receipt off by a factor of 100, in the direction that looks like
+         * an overcharge.
+         */
+        amountNgn: transaction.amount,
+        reference,
+      });
+    } catch (err) {
+      console.error("[fulfill] purchase receipt failed to send", err);
+    }
+  }
+
   return { status: "success" };
+}
+
+/**
+ * Receipt for a credit pack or a Pass.
+ *
+ * SAME SHAPE AS renewals.ts's sendReminderEmail, deliberately: same
+ * getResendClient(), same sender, same visibleName() greeting, and the same
+ * silent no-op when RESEND_API_KEY is unconfigured. A receipt is worth less
+ * than the purchase — failing the fulfilment because an email could not be
+ * sent would turn a completed payment into a broken one.
+ *
+ * NO NEW IDEMPOTENCY GUARD. The `status !== "pending"` check at the top of
+ * fulfillPayment already makes this whole path run exactly once per
+ * reference: the webhook and the browser callback both call it, and the second
+ * caller returns `already_processed` before reaching here. Adding a second
+ * guard would imply the first is unreliable, which would be the more alarming
+ * claim.
+ *
+ * NOT FOR ad_wallet_topup. That is the employer's ad wallet, billed to an
+ * organisation rather than a person — a different recipient, a different
+ * voice, and out of scope here. It is excluded by the caller rather than by a
+ * check inside, so the omission is visible at the call site.
+ *
+ * THE PROFILE IS FETCHED WITH A PLAIN SERVICE-ROLE QUERY, not a join. The
+ * embedded-resource syntax needs an FK constraint NAME
+ * (`profiles!user_passes_user_id_fkey(...)` next door), and guessing one that
+ * does not exist fails at runtime with a message about schema cache rather
+ * than anything obvious. Two queries is cheaper than being wrong about it.
+ */
+async function sendPurchaseReceipt(
+  supabase: ReturnType<typeof createServiceRoleClient>,
+  args: { userId: string; productName: string; amountNgn: number; reference: string },
+) {
+  const resend = getResendClient();
+  if (!resend) return;
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("email, first_name")
+    .eq("id", args.userId)
+    .maybeSingle();
+  if (!profile?.email) return;
+
+  const greeting = visibleName(profile.first_name);
+  await resend.emails.send({
+    from: "Talentrah <billing@talentrah.com>",
+    to: profile.email,
+    subject: `Your Talentrah purchase — ${args.productName}`,
+    text:
+      `Hi${greeting ? ` ${greeting}` : ""},\n\n` +
+      `Thanks — your payment went through.\n\n` +
+      `What you bought: ${args.productName}\n` +
+      `Amount: ₦${args.amountNgn.toLocaleString()}\n` +
+      `Receipt number: ${args.reference}\n\n` +
+      `Quote the receipt number if you ever need to ask us about this payment. ` +
+      `You can see all your purchases on your Billing page.\n\n— Talentrah`,
+  });
 }
 
 function toDateOnly(date: Date): string {
