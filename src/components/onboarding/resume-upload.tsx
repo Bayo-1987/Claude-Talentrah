@@ -7,7 +7,16 @@ import type { StructuredResume } from "@/lib/resume/types";
 
 type Status = "idle" | "uploading" | "done" | "error";
 
-export function ResumeUpload() {
+/**
+ * `next` is where the two exits go — normally the feed, but a signup that
+ * began from a shared job link carries that job's path through here. Onboarding
+ * is not skippable, so it has to hand the destination on rather than swallow
+ * it; without this the whole redirectTo chain dies one hop from the end.
+ *
+ * Already validated by the page (safeRedirectTo) — this component does not
+ * re-check, and must not be handed a raw query value.
+ */
+export function ResumeUpload({ next = "/jobs" }: { next?: string }) {
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{
@@ -55,7 +64,7 @@ export function ResumeUpload() {
           {confidence === "low" &&
             " Some sections weren't clear — you can fill in the gaps later in the Resume Builder."}
         </p>
-        <Button onClick={() => router.push("/jobs")}>
+        <Button onClick={() => router.push(next)}>
           Continue to your dashboard
         </Button>
       </div>
@@ -91,7 +100,7 @@ export function ResumeUpload() {
         </Button>
         <button
           type="button"
-          onClick={() => router.push("/jobs")}
+          onClick={() => router.push(next)}
           className="text-[13.5px] font-semibold text-ink-soft underline underline-offset-2 hover:text-rust"
         >
           Skip for now

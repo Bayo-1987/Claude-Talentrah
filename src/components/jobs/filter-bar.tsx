@@ -52,6 +52,8 @@ function buildHref(
 }
 
 export interface FilterBarProps {
+  /** Free-text query, matched in memory over the already-fetched board. */
+  q?: string;
   tab: string;
   workType?: string;
   seniority?: string;
@@ -65,8 +67,8 @@ export interface FilterBarProps {
 }
 
 /** Server-rendered, no client JS: every chip/toggle is a plain link that updates the URL. */
-export function FilterBar({ tab, workType, seniority, skill, skillFacet = [] }: FilterBarProps) {
-  const base = { tab, workType, seniority, skill };
+export function FilterBar({ q, tab, workType, seniority, skill, skillFacet = [] }: FilterBarProps) {
+  const base = { tab, workType, seniority, skill, q };
 
   const applied: { key: keyof typeof base; label: string }[] = [];
   if (workType) applied.push({ key: "workType", label: LABEL[workType] });
@@ -76,6 +78,10 @@ export function FilterBar({ tab, workType, seniority, skill, skillFacet = [] }: 
   // casing would render "Sql", and a per-skill capitalisation map is a curated
   // list — the exact thing the facet exists to avoid.
   if (skill) applied.push({ key: "skill", label: skill });
+  // The search term is a removable segment like any other applied filter —
+  // it is a filter, and leaving it out of the instrument would make it the one
+  // narrowing the board with no visible way to undo it.
+  if (q) applied.push({ key: "q", label: `“${q}”` });
 
   return (
     <div className="flex flex-col gap-3 border-y border-line py-3">
@@ -91,6 +97,37 @@ export function FilterBar({ tab, workType, seniority, skill, skillFacet = [] }: 
         stay outside it, which is also all the mock ever showed inside — one
         applied skill chip, never the twelve-option list.
       */}
+      {/*
+        THE LEADING SEGMENT, which a comment here used to note was "a search
+        field this feed does not have". It has one now: a GET form, so the
+        query lives in the URL like every other filter and a searched board is
+        shareable and back-buttonable. The hidden inputs carry the other
+        filters through — without them, searching would silently clear them.
+      */}
+      <form method="GET" action="/jobs" className="flex items-stretch border-[1.5px] border-ink">
+        {tab && <input type="hidden" name="tab" value={tab} />}
+        {workType && <input type="hidden" name="workType" value={workType} />}
+        {seniority && <input type="hidden" name="seniority" value={seniority} />}
+        {skill && <input type="hidden" name="skill" value={skill} />}
+        <label htmlFor="job-search" className="sr-only">
+          Search jobs
+        </label>
+        <input
+          id="job-search"
+          name="q"
+          type="search"
+          defaultValue={q ?? ""}
+          placeholder="Search by title, company or location…"
+          className="min-h-10 flex-1 border-none bg-card px-3.5 font-display text-[13px] italic text-ink outline-none placeholder:text-ink-soft"
+        />
+        <button
+          type="submit"
+          className="inline-flex min-h-10 min-w-10 items-center justify-center border-l border-line bg-card px-3.5 font-body text-[12.5px] font-semibold text-ink-soft no-underline hover:text-rust"
+        >
+          Search
+        </button>
+      </form>
+
       {applied.length > 0 && (
         <div className="flex flex-wrap items-stretch overflow-hidden border-[1.5px] border-ink">
           {applied.map(({ key, label }) => (
@@ -118,7 +155,7 @@ export function FilterBar({ tab, workType, seniority, skill, skillFacet = [] }: 
             </Link>
           ))}
           <Link
-            href={buildHref(base, { workType: undefined, seniority: undefined, skill: undefined })}
+            href={buildHref(base, { workType: undefined, seniority: undefined, skill: undefined, q: undefined })}
             className="flex min-h-[42px] items-center px-3.5 text-[12.5px] font-semibold text-ink-soft no-underline transition-colors hover:text-rust"
           >
             Clear filters

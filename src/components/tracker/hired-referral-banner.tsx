@@ -1,5 +1,6 @@
 import { getReferralUrl } from "@/lib/referrals/url";
 import { ShareButtons } from "@/components/referrals/share-buttons";
+import { logShareAction } from "@/lib/referrals/actions";
 
 /**
  * Voice choice: Farah-voiced, not neutral-system. build-prompt §6.10 lists
@@ -26,7 +27,7 @@ export async function HiredReferralBanner({
         job-hunting, this is the best time to send them your link — you&apos;ll both be glad
         you did.&rdquo;
       </p>
-      <ShareButtons referralUrl={referralUrl} compact />
+      <ShareButtons url={referralUrl} compact onShare={logShareAction} />
     </div>
   );
 }

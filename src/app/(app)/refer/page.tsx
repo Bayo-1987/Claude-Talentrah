@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getReferralUrl } from "@/lib/referrals/url";
 import { EyebrowLabel, BorderedCard } from "@/components/ui";
 import { ShareButtons } from "@/components/referrals/share-buttons";
+import { logShareAction } from "@/lib/referrals/actions";
 
 export const metadata = { title: "Refer a Friend — Talentrah" };
 
@@ -63,7 +64,7 @@ export default async function ReferPage() {
       <BorderedCard className="flex flex-col gap-4 p-5">
         <EyebrowLabel size="sm">Your link</EyebrowLabel>
         <p className="break-all font-display text-[16px] italic text-ink-soft">{referralUrl}</p>
-        <ShareButtons referralUrl={referralUrl} />
+        <ShareButtons url={referralUrl} onShare={logShareAction} />
       </BorderedCard>
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">

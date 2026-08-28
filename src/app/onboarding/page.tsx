@@ -1,11 +1,19 @@
 import { requireUser } from "@/lib/auth/require-user";
+import { safeRedirectTo } from "@/lib/auth/redirect-to";
 import { EyebrowLabel } from "@/components/ui";
 import { ResumeUpload } from "@/components/onboarding/resume-upload";
 import { hasVisibleName, visibleName } from "@/lib/profile/name";
 
 export const metadata = { title: "Welcome — Talentrah" };
 
-export default async function OnboardingPage() {
+export default async function OnboardingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ next?: string }>;
+}) {
+  const { next: rawNext } = await searchParams;
+  const next = safeRedirectTo(rawNext, "/jobs");
+
   const { profile } = await requireUser();
 
   return (
@@ -36,7 +44,7 @@ export default async function OnboardingPage() {
         </p>
       </div>
 
-      <ResumeUpload />
+      <ResumeUpload next={next} />
     </div>
   );
 }
