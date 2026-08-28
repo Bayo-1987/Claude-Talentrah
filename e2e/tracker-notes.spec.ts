@@ -155,8 +155,44 @@ test.describe("a multi-line note", () => {
   });
 });
 
-test.describe("when the save fails", () => {
-  test("the typed text survives and the error is shown", async ({ authedPage, testUser }) => {
+test.describe("when the server rejects the save", () => {
+  test("the rust banner shows and the draft is still there", async ({ authedPage, testUser }) => {
+    /*
+     * A REAL trip through the action's error return, which the aborted-request
+     * case below cannot give: killing the POST means the action never answers,
+     * so no error state comes back and no banner can render. That test proves
+     * the draft survives a dead network; this one proves the banner exists.
+     *
+     * The failure is provoked the way it actually happens — the row is gone by
+     * the time the save lands (deleted in another tab, or never this user's).
+     * The action's zero-rows branch returns an error state rather than a
+     * silent success, which is what puts the editor back with the banner over
+     * it.
+     */
+    const app = await seedApplication(testUser.id, "Called recruiter, follow up Friday");
+    await openTracker(authedPage);
+
+    await authedPage.getByTestId("notes-edit").click();
+    await authedPage.getByTestId("notes-textarea").fill("a draft worth not losing");
+
+    const { error } = await admin.from("applications").delete().eq("id", app.id);
+    // A refused delete resolves with an error rather than throwing; an
+    // unchecked one here would leave the row in place and the test would then
+    // pass by saving successfully, which is the opposite of the point.
+    if (error) throw new Error(`could not remove the row: ${error.message}`);
+
+    await authedPage.getByTestId("notes-save").click();
+
+    await expect(authedPage.getByTestId("notes-error-banner")).toBeVisible();
+    await expect(authedPage.getByTestId("notes-textarea")).toBeVisible();
+    await expect(authedPage.getByTestId("notes-textarea")).toHaveValue("a draft worth not losing");
+    // Not collapsed to the read view — a failed save must not look like a save.
+    await expect(authedPage.getByTestId("notes-saved-banner")).toHaveCount(0);
+  });
+});
+
+test.describe("when the save never reaches the server", () => {
+  test("the typed text survives a dead network", async ({ authedPage, testUser }) => {
     const original = "Called recruiter, follow up Friday";
     const app = await seedApplication(testUser.id, original);
     await openTracker(authedPage);
