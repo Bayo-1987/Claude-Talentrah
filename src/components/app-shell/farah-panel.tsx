@@ -116,8 +116,19 @@ export function FarahPanel({ firstName, initialMessages }: FarahPanelProps) {
       the page.
 
       68px is the masthead's height; the panel starts below it.
+
+      ALL OF THAT IS THE >=760px CASE. Stacked under the content column on a
+      phone, none of it applies and each part would be actively wrong: sticky
+      would pin the panel over the cards it sits beneath, max-h would trap a
+      conversation in a short scroller inside a page that already scrolls, and
+      border-l would draw a rule down the side of a full-width block. So they
+      are all min-[760px]: and the mobile case is the plain one — a full-width
+      section with a rule along the top separating it from the feed.
     */
-    <div className="sticky top-[68px] flex max-h-[calc(100vh-68px)] w-[280px] flex-shrink-0 flex-col gap-5.5 overflow-y-auto border-l border-line py-8 pl-7">
+    <div
+      data-testid="farah-panel"
+      className="flex w-full flex-col gap-5.5 border-t border-line px-6 py-8 min-[760px]:sticky min-[760px]:top-[68px] min-[760px]:max-h-[calc(100vh-68px)] min-[760px]:w-[280px] min-[760px]:flex-shrink-0 min-[760px]:overflow-y-auto min-[760px]:border-t-0 min-[760px]:border-l min-[760px]:px-0 min-[760px]:pl-7"
+    >
       {/*
         The name + "View profile" block that used to sit here is gone — both
         now live in the masthead's account menu, and repeating the name in the
