@@ -3,6 +3,7 @@ import { BorderedCard } from "@/components/ui";
 import { getCompanyInitials } from "@/lib/jobs/company-initials";
 import { StageSelect } from "@/components/tracker/stage-select";
 import { NotesForm } from "@/components/tracker/notes-form";
+import { formatTrackerDate as formatDate } from "@/lib/tracker/format-date";
 
 const STAGE_LABEL: Record<string, string> = {
   saved: "Saved",
@@ -14,19 +15,18 @@ const STAGE_LABEL: Record<string, string> = {
   archived: "Archived",
 };
 
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
-
 export interface TrackerEntry {
   id: string;
   stage: string;
   appliedAt: string | null;
   notes: string | null;
+  /**
+   * `applications.updated_at`. Nothing wrote to it before the notes editor
+   * did, so rows last touched earlier carry their creation time — the "Edited"
+   * line is therefore only meaningful once a note has been saved through the
+   * new action, which is also the only case that renders it.
+   */
+  updatedAt: string | null;
   companyName: string;
   title: string;
   location: string | null;
@@ -95,7 +95,7 @@ export function TrackerCard({ entry }: { entry: TrackerEntry }) {
         </p>
       )}
 
-      <NotesForm applicationId={entry.id} notes={entry.notes} />
+      <NotesForm applicationId={entry.id} notes={entry.notes} updatedAt={entry.updatedAt} />
     </BorderedCard>
   );
 }
