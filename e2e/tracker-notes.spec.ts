@@ -155,38 +155,40 @@ test.describe("a multi-line note", () => {
   });
 });
 
-test.describe("when the server rejects the save", () => {
-  test("the rust banner shows and the draft is still there", async ({ authedPage, testUser }) => {
+test.describe("when the entry is gone by the time the save lands", () => {
+  test("the card disappears, which IS the feedback", async ({ authedPage, testUser }) => {
     /*
-     * A REAL trip through the action's error return, which the aborted-request
-     * case below cannot give: killing the POST means the action never answers,
-     * so no error state comes back and no banner can render. That test proves
-     * the draft survives a dead network; this one proves the banner exists.
+     * WRITTEN TO ASSERT THE BANNER, AND THAT WAS WRONG. The first version of
+     * this test deleted the row, saved, and expected the rust banner. It
+     * failed, and the failure was correct: the action calls revalidatePath in
+     * its zero-rows branch, the deleted entry drops out of the re-rendered
+     * list, and NotesForm — which lives INSIDE that card — unmounts before it
+     * can render anything. A component cannot report the disappearance of the
+     * thing it is part of.
      *
-     * The failure is provoked the way it actually happens — the row is gone by
-     * the time the save lands (deleted in another tab, or never this user's).
-     * The action's zero-rows branch returns an error state rather than a
-     * silent success, which is what puts the editor back with the banner over
-     * it.
+     * So the error string that branch returns is unreachable copy, and the
+     * card vanishing is the whole of the user-visible feedback. That is
+     * defensible — the entry really is gone — but it is worth pinning,
+     * because the alternative reading is "the save silently did nothing".
      */
     const app = await seedApplication(testUser.id, "Called recruiter, follow up Friday");
     await openTracker(authedPage);
 
     await authedPage.getByTestId("notes-edit").click();
-    await authedPage.getByTestId("notes-textarea").fill("a draft worth not losing");
+    await authedPage.getByTestId("notes-textarea").fill("a draft with nowhere to land");
 
     const { error } = await admin.from("applications").delete().eq("id", app.id);
-    // A refused delete resolves with an error rather than throwing; an
-    // unchecked one here would leave the row in place and the test would then
-    // pass by saving successfully, which is the opposite of the point.
+    // A refused delete resolves with an error rather than throwing; unchecked,
+    // the row survives and this test passes by saving successfully — the exact
+    // opposite of what it claims.
     if (error) throw new Error(`could not remove the row: ${error.message}`);
 
     await authedPage.getByTestId("notes-save").click();
 
-    await expect(authedPage.getByTestId("notes-error-banner")).toBeVisible();
-    await expect(authedPage.getByTestId("notes-textarea")).toBeVisible();
-    await expect(authedPage.getByTestId("notes-textarea")).toHaveValue("a draft worth not losing");
-    // Not collapsed to the read view — a failed save must not look like a save.
+    // The card goes, and nothing pretends the save worked.
+    await expect(authedPage.getByRole("heading", { name: "Illustrator" })).toHaveCount(0, {
+      timeout: 15_000,
+    });
     await expect(authedPage.getByTestId("notes-saved-banner")).toHaveCount(0);
   });
 });

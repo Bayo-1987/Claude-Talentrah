@@ -7,6 +7,21 @@
  * Same reason src/lib/profile/settings-state.ts and src/lib/feedback/state.ts
  * exist.
  */
+/*
+ * A NOTE ON THE ERROR STATUS AND WHERE IT CAN ACTUALLY BE SEEN.
+ *
+ * Two things return `status: "error"`, and only one of them can be shown:
+ *
+ *   a database error   the row is still there, the card is still on screen,
+ *                      and the rust banner renders over the open editor.
+ *   zero rows matched  the entry was deleted or was never this user's. The
+ *                      action revalidates, the card drops out of the list, and
+ *                      NotesForm unmounts with it — a component cannot report
+ *                      the disappearance of the thing it lives inside. The
+ *                      card vanishing is the feedback there; the string below
+ *                      is unreachable in that path. Kept because the status
+ *                      itself is correct and cheap, not because it is seen.
+ */
 export interface NotesActionState {
   status: "idle" | "success" | "error";
   error: string | null;
