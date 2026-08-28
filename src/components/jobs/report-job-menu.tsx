@@ -72,7 +72,7 @@ export function ReportJobMenu({ jobId, jobTitle }: ReportJobMenuProps) {
 
       {open && (
         <div
-          className="absolute right-0 bottom-[calc(100%+8px)] z-[5] w-[280px] border-[1.5px] border-ink bg-card px-4 pt-3.5 pb-4"
+          className="absolute right-0 bottom-[calc(100%+8px)] z-30 w-[280px] border-[1.5px] border-ink bg-card px-4 pt-3.5 pb-4"
           role="dialog"
           aria-label={`Report ${jobTitle}`}
         >

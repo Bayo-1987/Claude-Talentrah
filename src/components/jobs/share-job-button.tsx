@@ -82,7 +82,7 @@ export function ShareJobButton({
 
       {open && (
         <div
-          className="absolute right-0 bottom-[calc(100%+8px)] z-[5] w-[300px] border-[1.5px] border-ink bg-card px-4 pt-3.5 pb-4"
+          className="absolute right-0 bottom-[calc(100%+8px)] z-30 w-[300px] border-[1.5px] border-ink bg-card px-4 pt-3.5 pb-4"
           role="dialog"
           aria-label={`Share ${jobTitle}`}
         >

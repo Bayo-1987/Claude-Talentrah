@@ -257,6 +257,18 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
         `bg-paper` is not decoration either: without an opaque background the
         cards scroll THROUGH the header, which is worse than no sticky at all.
       */}
+      {/*
+        z-10 puts this above the scrolling cards, which is the point. It also
+        put it above the cards' own menus, which were z-5 — a Report or Ask
+        Farah panel opened near the top of the list rendered UNDER this header:
+        present in the DOM, unclickable on screen. The e2e suite caught it as
+        `locator.click: Test timeout` on a label that had resolved fine, which
+        is what an obscured element looks like from Playwright.
+
+        Fixed by raising those three menus to z-30 rather than lowering this,
+        because an open disclosure should sit above the chrome. Anything else
+        added over the feed needs to stay below 30.
+      */}
       <div className="sticky top-[68px] z-10 -mt-8 flex flex-col gap-5 bg-paper pt-8 pb-4">
         <div>
           <EyebrowLabel>Today&apos;s board</EyebrowLabel>
