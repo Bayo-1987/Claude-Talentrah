@@ -79,7 +79,7 @@ export function FarahJobMenu({ jobId, explanation }: FarahJobMenuProps) {
 
       {open && (
         <div
-          className="absolute right-0 bottom-[calc(100%+8px)] z-[5] w-[240px] border-[1.5px] border-ink bg-card px-4 pt-3.5 pb-4"
+          className="absolute right-0 bottom-[calc(100%+8px)] z-30 w-[240px] border-[1.5px] border-ink bg-card px-4 pt-3.5 pb-4"
           role="menu"
         >
           <div className="mb-[10px] flex items-center gap-[7px] text-[12.5px] font-bold text-ink">

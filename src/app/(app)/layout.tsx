@@ -24,7 +24,26 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="min-h-screen">
-      <div className="print:hidden">
+      {/*
+        The sticky belongs HERE, on the wrapper, and that is not a style
+        preference.
+
+        `position: sticky` moves an element within its PARENT's box. This
+        wrapper is exactly as tall as the masthead inside it, so a sticky
+        Masthead has nowhere to travel and simply scrolls away with its
+        parent — measured at top:-2500 after a 2500px scroll, while the two
+        other sticky elements on the same page held at 68. On the wrapper the
+        parent is the `min-h-screen` div, which is the whole page, so there is
+        room.
+
+        Same failure the Farah panel's `self-start` exists to avoid, from the
+        opposite direction: there the box was too TALL to move in, here it was
+        too short.
+
+        z-20 keeps it above the jobs page's own sticky filter header (z-10) so
+        the two never contend for the same band of screen.
+      */}
+      <div className="sticky top-0 z-20 print:hidden">
         <Masthead creditsBalance={profile.credits_balance} initials={initials} />
       </div>
       <div className="mx-auto flex w-full max-w-[1360px] print:block print:max-w-none">

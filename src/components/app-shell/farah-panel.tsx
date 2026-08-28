@@ -87,7 +87,37 @@ export function FarahPanel({ firstName, initialMessages }: FarahPanelProps) {
   }
 
   return (
-    <div className="flex w-[280px] flex-shrink-0 flex-col gap-5.5 border-l border-line py-8 pl-7">
+    /*
+      WHY THERE IS NO `self-start` HERE, having tried it.
+      
+      The intuition — flex `align-items: stretch` makes this full height, so a
+      sticky element has nowhere to travel — is right in general and wrong in
+      this layout. This component is not the flex item: (app)/layout.tsx wraps
+      it in a `print:hidden` div, and THAT is the item that stretches. Measured
+      in a browser: the panel is 609px in a 35,648px row with or without
+      `self-start`, and with or without the max-height. Both were inert.
+
+      Same wrapper shape as the masthead, opposite outcome — and the two are
+      worth telling apart, because the fixes are NOT the same.
+
+        masthead   its wrapper is exactly its own height, so a sticky child has
+                   no room to travel. The `sticky` had to MOVE to the wrapper.
+        this panel its wrapper is the full page, so there is room to spare. The
+                   `sticky` stays right here on the component and works.
+
+      What the wrapper decides is whether a sticky child has anywhere to go —
+      not where the `sticky` class belongs. Before adding one to anything else
+      under this layout, measure the wrapper's height; do not assume either
+      answer from the other case.
+
+      `max-h` and `overflow-y-auto` stay. They do nothing for the stickiness —
+      the panel is 609px, well under the viewport — but they are what keeps a
+      long Farah conversation scrolling inside the panel rather than pushing
+      the page.
+
+      68px is the masthead's height; the panel starts below it.
+    */
+    <div className="sticky top-[68px] flex max-h-[calc(100vh-68px)] w-[280px] flex-shrink-0 flex-col gap-5.5 overflow-y-auto border-l border-line py-8 pl-7">
       <div>
         <span className="font-body text-[13px] font-bold text-ink">{firstName}</span>
         <div>
