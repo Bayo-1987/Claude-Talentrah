@@ -65,6 +65,11 @@ env:
   NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
   NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
   SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+  # The CI project's JWT signing secret, used by tests/support/auth.ts to mint
+  # a session directly instead of redeeming a magic link. This must be the CI
+  # project's secret and never production's: it can mint a valid session for
+  # ANY user of whichever project it belongs to.
+  SUPABASE_JWT_SECRET: ${{ secrets.SUPABASE_JWT_SECRET }}
   # CI runs on Groq, not Gemini — Gemini's shared 20-req/day free-tier quota
   # is exactly what used to make CI flaky/blocked (src/lib/llm/). Production
   # stays on Gemini; this only affects the CI job's own runs. GEMINI_API_KEY
