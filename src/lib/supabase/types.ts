@@ -271,6 +271,42 @@ export type Database = {
           },
         ]
       }
+      anonymous_demo_daily: {
+        Row: {
+          day: string
+          runs: number
+        }
+        Insert: {
+          day: string
+          runs?: number
+        }
+        Update: {
+          day?: string
+          runs?: number
+        }
+        Relationships: []
+      }
+      anonymous_demo_runs: {
+        Row: {
+          created_at: string
+          id: string
+          ip_hash: string | null
+          visitor_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          ip_hash?: string | null
+          visitor_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          ip_hash?: string | null
+          visitor_id?: string | null
+        }
+        Relationships: []
+      }
       api_rate_limits: {
         Row: {
           bucket: string
@@ -1623,6 +1659,13 @@ export type Database = {
         Args: { p_user_id: string }
         Returns: undefined
       }
+      claim_anonymous_demo_run: {
+        Args: { p_daily_cap: number; p_ip_hash: string; p_visitor_id: string }
+        Returns: {
+          allowed: boolean
+          reason: string
+        }[]
+      }
       consume_rate_limit: {
         Args: {
           p_bucket: string
@@ -1717,6 +1760,10 @@ export type Database = {
           p_user_id: string
         }
         Returns: boolean
+      }
+      release_anonymous_demo_run: {
+        Args: { p_ip_hash: string; p_visitor_id: string }
+        Returns: undefined
       }
       resume_ad_campaign: {
         Args: { p_actor_user_id?: string; p_campaign_id: string }
