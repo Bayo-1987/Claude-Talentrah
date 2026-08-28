@@ -156,7 +156,37 @@ export function JobCard({
             <span className="font-display text-[12px] italic text-ink-soft">{freshness}</span>
           )}
         </div>
-        <div className="relative flex items-center gap-2.5">
+        {/*
+          WRAPS, because at phone widths it did not fit and nothing gave.
+          This row is 350px of Save / Share / Ask Farah / Report / Apply, and
+          it sat in a `justify-between` footer as a non-shrinking block: the
+          document measured 456px wide against a 390px viewport, and against
+          360 and 412 too — the same 456 every time, because the row's width is
+          intrinsic and does not respond to the screen at all.
+
+          `flex-wrap` is what lets it respond. A wrapping flex container's
+          min-content width is its widest CHILD rather than the sum of them, so
+          the row can shrink and spill onto another line instead of pushing the
+          page sideways. `justify-end` keeps the buttons against the right edge
+          once they wrap, where they were before.
+
+          ONLY BELOW 760, and that boundary was measured rather than assumed.
+          Wrapping unconditionally also changed widths that were never broken:
+          the row went from 81px to 124px tall at 768 and 61px to 90px at 1024,
+          because `flex-wrap` lets a flex item shrink past its max-content
+          width and `justify-between` then does exactly that. 1280 was
+          identical either way. So the wrap is gated to the same 760px the
+          shell uses, and 768 and up render as they did before.
+
+          The card is roomier below 760 than just above it, which is not
+          intuitive: the Farah panel stacks there, so the content column is
+          711px at 759 and 400px at 760. The overflow this fixes is at 360-412,
+          where the column is 312-364 and the row's 350px does not fit.
+        */}
+        <div
+          data-testid="job-card-actions"
+          className="relative flex flex-wrap items-center justify-end gap-2.5 min-[760px]:flex-nowrap"
+        >
           <form action={toggleSaveAction.bind(null, job.id)}>
             <IconButton aria-label={isSaved ? "Unsave" : "Save"} type="submit">
               <svg width="16" height="16" viewBox="0 0 20 20" fill={isSaved ? "currentColor" : "none"}>

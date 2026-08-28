@@ -49,6 +49,7 @@ test.describe("the shell on a phone", () => {
         const masthead = document.querySelector("div.border-b-\\[2\\.5px\\]") as HTMLElement;
         return {
           clientW: doc.clientWidth,
+          scrollW: doc.scrollWidth,
           innerCol: Math.round(inner),
           mastheadRight: Math.round(masthead.getBoundingClientRect().right),
         };
@@ -63,6 +64,20 @@ test.describe("the shell on a phone", () => {
 
       // The shell itself must not be what makes the page scroll sideways.
       expect(shell.mastheadRight).toBeLessThanOrEqual(shell.clientW + 1);
+
+      /*
+       * AND NOW THE PAGE-LEVEL FACT, which this spec deliberately could not
+       * assert when it was written. The shell was fixed first and the job
+       * card's action row was still 350px of non-shrinking buttons, so the
+       * document stayed 456px wide at every phone width. Asserting it then
+       * would have failed for another component's bug; asserting it now is the
+       * whole point, and it is the assertion that catches the next thing that
+       * overflows, wherever it lives.
+       */
+      expect(
+        shell.scrollW,
+        "something on this page is wider than the viewport",
+      ).toBeLessThanOrEqual(shell.clientW);
     });
 
     test(`at ${width}px the nav is behind the menu, and reachable`, async ({ page }) => {
