@@ -2,16 +2,23 @@ import { requireUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
 import { Masthead } from "@/components/app-shell/masthead";
 import { FarahPanel } from "@/components/app-shell/farah-panel";
-import { visibleName } from "@/lib/profile/name";
+import { visibleName, fullVisibleName, nameInitials } from "@/lib/profile/name";
 
 const INITIAL_HISTORY_LIMIT = 20;
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, profile } = await requireUser();
-  // visibleName, not the raw column: neither of these trimmed at all before,
-  // so a name of a single space — or a zero-width character, which .trim()
-  // would not have caught either — produced a blank avatar and "Hi ,".
-  const initials = `${visibleName(profile.first_name)[0] ?? ""}${visibleName(profile.last_name)[0] ?? ""}`;
+  /*
+   * visibleName, not the raw column: neither of these trimmed at all before,
+   * so a name of a single space — or a zero-width character, which .trim()
+   * would not have caught either — produced a blank avatar and "Hi ,".
+   *
+   * nameInitials also UPPERCASES. The old inline version took the first
+   * character as typed, so a profile saved as "ada lovelace" rendered "al" in
+   * a circle whose type is styled for capitals.
+   */
+  const initials = nameInitials(profile.first_name, profile.last_name);
+  const displayName = fullVisibleName(profile.first_name, profile.last_name);
 
   const supabase = await createClient();
   const { data: historyRows } = await supabase
@@ -44,7 +51,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         the two never contend for the same band of screen.
       */}
       <div className="sticky top-0 z-20 print:hidden">
-        <Masthead creditsBalance={profile.credits_balance} initials={initials} />
+        <Masthead
+          creditsBalance={profile.credits_balance}
+          initials={initials}
+          email={profile.email}
+          displayName={displayName}
+        />
       </div>
       <div className="mx-auto flex w-full max-w-[1360px] print:block print:max-w-none">
         <div className="min-w-0 flex-1 px-10 py-8 print:p-0">{children}</div>
