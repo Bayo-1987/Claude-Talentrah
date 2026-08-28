@@ -1,4 +1,6 @@
+import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth/require-user";
+import { createClient } from "@/lib/supabase/server";
 import { safeRedirectTo } from "@/lib/auth/redirect-to";
 import { EyebrowLabel } from "@/components/ui";
 import { ResumeUpload } from "@/components/onboarding/resume-upload";
@@ -14,7 +16,39 @@ export default async function OnboardingPage({
   const { next: rawNext } = await searchParams;
   const next = safeRedirectTo(rawNext, "/jobs");
 
-  const { profile } = await requireUser();
+  const { user, profile } = await requireUser();
+
+  /*
+   * ONBOARDING IS FOR PEOPLE WHO HAVE NOT ONBOARDED.
+   *
+   * Nothing here checked that, so anyone routed to /onboarding saw the upload
+   * prompt whether or not they already had a resume. The visible case is OAuth:
+   * signing in again with Google or LinkedIn in a fresh session sends a
+   * returning user back through "upload your resume" as though the account
+   * were new, on the screen whose whole job is to make the product feel like
+   * it knows you.
+   *
+   * The check is a base resume, not a profile flag, because a base resume is
+   * the thing onboarding exists to produce — a flag would be a second source
+   * of truth that can disagree with it.
+   *
+   * REDIRECT ONLY ON A POSITIVE ANSWER, and the asymmetry is deliberate. If
+   * this query errors we render the upload, because the two mistakes are not
+   * equal: showing the prompt to someone who has a resume costs them one
+   * click, while redirecting someone who has none strands them at /jobs with
+   * no resume and no route back to the only screen that uploads one. Same
+   * reasoning the jobs feed applies to this table — an error is not an
+   * absence.
+   */
+  const supabase = await createClient();
+  const { data: baseResume, error: baseResumeError } = await supabase
+    .from("resumes")
+    .select("id")
+    .eq("user_id", user.id)
+    .eq("is_base", true)
+    .maybeSingle();
+
+  if (!baseResumeError && baseResume) redirect(next);
 
   return (
     <div className="mx-auto flex min-h-screen max-w-[560px] flex-col justify-center gap-8 px-6 py-16">
