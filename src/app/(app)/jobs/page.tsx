@@ -130,72 +130,116 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
   const scored = await computeAndStoreMatchScores(supabase, user.id, resume, jobs);
 
   /*
-   * Applicant counts, for the ids on this page only.
+   * THREE INDEPENDENT ROUND TRIPS, RUN TOGETHER.
    *
-   * Through 0059's SECURITY DEFINER function, not a join: `applications` is
-   * owner-only under RLS, so joining it here would return this user's own rows
-   * and nothing else — "1 applicant" on every job they had applied to and "0"
-   * everywhere else, which looks like data and is not.
+   * Applicant counts, the Auto-Apply scan and the promoted-slot fetch all
+   * depend on `match_scores` having just been written, and on nothing else —
+   * including each other. They used to run one after another, so the page paid
+   * all three latencies in series for no reason beyond the order they were
+   * written in.
    *
-   * Failure is swallowed to a null map rather than throwing. A missing count
-   * is a line that says so; it is not worth failing the whole feed over, and
-   * the card distinguishes "no count available" from "zero applicants".
+   * CHECKED FOR THE DEPENDENCY THAT WOULD MAKE THIS WRONG, because "the
+   * comments do not mention one" is not evidence. `scanAndQueue` writes
+   * exactly one table — an upsert into `auto_apply_queue`. It READS
+   * `applications`, `match_scores`, `job_postings` and `auto_apply_settings`
+   * and writes none of them. So it cannot move the applicant counts (which
+   * count `applications`) and it cannot move the promoted set (which joins
+   * `match_scores`). Nothing here observes another's side effect.
+   *
+   * The one ordering that IS real is preserved: the pending-queue count must
+   * run after the scan, or it reports the number from before this visit. That
+   * sequencing lives inside the inner async function, untouched.
    */
   const internalIds = scored.filter((s) => s.job.source_type === "internal").map((s) => s.job.id);
-  let applicantCounts: Map<string, number> | null = null;
-  if (internalIds.length > 0) {
-    const { data: counts, error: countsError } = await supabase.rpc("internal_applicant_counts", {
-      p_job_ids: internalIds,
-    });
-    if (countsError) {
-      console.error("[jobs] applicant counts unavailable:", countsError);
-    } else {
-      applicantCounts = new Map(
-        (counts ?? []).map((row) => [row.job_posting_id, Number(row.applicant_count)]),
-      );
-    }
-  }
 
-  /*
-   * Auto-Apply scans AFTER scoring, on purpose: the scan reads `match_scores`,
-   * so running it first would queue against last visit's scores. It is also
-   * why this lives on the feed rather than a cron — the scores it depends on
-   * are recomputed here, and nowhere else.
-   *
-   * Failure is swallowed deliberately. Auto-Apply is an accessory to the feed;
-   * a queueing error must not take the job board down with it.
-   */
-  const [{ data: autoApplySettings }, pendingQueue] = await Promise.all([
-    supabase.from("auto_apply_settings").select("enabled").eq("user_id", user.id).maybeSingle(),
-    (async () => {
-      try {
-        await scanAndQueue(user.id);
-      } catch {
-        /* non-fatal — see above */
-      }
-      return supabase
-        .from("auto_apply_queue")
-        .select("id", { count: "exact", head: true })
-        .eq("user_id", user.id)
-        .eq("status", "pending");
-    })(),
-  ]);
+  const [applicantCounts, [{ data: autoApplySettings }, pendingQueue], promoted] =
+    await Promise.all([
+      /*
+       * Applicant counts, for the ids on this page only.
+       *
+       * Through 0059's SECURITY DEFINER function, not a join: `applications` is
+       * owner-only under RLS, so joining it here would return this user's own
+       * rows and nothing else — "1 applicant" on every job they had applied to
+       * and "0" everywhere else, which looks like data and is not.
+       *
+       * Failure is swallowed to a null map rather than throwing. A missing
+       * count is a line that says so; it is not worth failing the whole feed
+       * over, and the card distinguishes "no count available" from "zero
+       * applicants".
+       */
+      (async (): Promise<Map<string, number> | null> => {
+        if (internalIds.length === 0) return null;
+        const { data: counts, error: countsError } = await supabase.rpc(
+          "internal_applicant_counts",
+          { p_job_ids: internalIds },
+        );
+        if (countsError) {
+          console.error("[jobs] applicant counts unavailable:", countsError);
+          return null;
+        }
+        return new Map(
+          (counts ?? []).map((row) => [row.job_posting_id, Number(row.applicant_count)]),
+        );
+      })(),
+
+      /*
+       * Auto-Apply scans AFTER scoring, on purpose: the scan reads
+       * `match_scores`, so running it first would queue against last visit's
+       * scores. It is also why this lives on the feed rather than a cron — the
+       * scores it depends on are recomputed here, and nowhere else.
+       *
+       * Failure is swallowed deliberately, and that still holds now the scan
+       * runs alongside its siblings rather than inside its own Promise.all:
+       * the try/catch is around the scan itself, so a rejection never reaches
+       * the outer Promise.all and cannot take the feed down. Moving the
+       * swallow outward — or dropping it on the assumption the wrapper catches
+       * it — would turn a queueing error into a blank job board.
+       */
+      Promise.all([
+        supabase.from("auto_apply_settings").select("enabled").eq("user_id", user.id).maybeSingle(),
+        (async () => {
+          try {
+            await scanAndQueue(user.id);
+          } catch {
+            /* non-fatal — see above */
+          }
+          return supabase
+            .from("auto_apply_queue")
+            .select("id", { count: "exact", head: true })
+            .eq("user_id", user.id)
+            .eq("status", "pending");
+        })(),
+      ]),
+
+      /*
+       * Promoted slots — Recommended only (D4).
+       *
+       * External, Saved and Recent are user intents, not discovery surfaces: on
+       * Saved the person is looking at a list they built, and inserting a paid
+       * card into it would be a different product. Recommended is the only tab
+       * whose ordering Talentrah chooses, so it is the only one where selling a
+       * position in that ordering is coherent.
+       *
+       * AFTER scoring, necessarily: promoted_jobs joins match_scores, which the
+       * call above has just written. Same ordering constraint as the Auto-Apply
+       * scan, for the same reason — and, as established above, no constraint
+       * relative to the scan itself.
+       */
+      tab === "recommended"
+        ? fetchPromotedJobs(supabase, { workType, seniority, limit: PROMOTED_SLOTS })
+        : Promise.resolve(null),
+    ]);
+
   if (tab !== "recent") {
     scored.sort((a, b) => b.score - a.score);
   }
 
   /*
-   * Promoted slots — Recommended only (D4).
+   * The promoted REORDER, applied after the sort above.
    *
-   * External, Saved and Recent are user intents, not discovery surfaces: on
-   * Saved the person is looking at a list they built, and inserting a paid card
-   * into it would be a different product. Recommended is the only tab whose
-   * ordering Talentrah chooses, so it is the only one where selling a position
-   * in that ordering is coherent.
-   *
-   * AFTER scoring, necessarily: promoted_jobs joins match_scores, which the
-   * call above has just written. Same ordering constraint as the Auto-Apply
-   * scan, for the same reason.
+   * The fetch moved into the Promise.all — it needs only `match_scores` — but
+   * this part must stay here, because it rewrites `scored` and has to run
+   * after `scored.sort` or the sort would undo it. Fetch early, apply late.
    *
    * This REORDERS the feed rather than adding to it. A promoted job is an open
    * posting that already satisfies the tab's filters, so it is already in
@@ -203,12 +247,7 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
    * excluded, which is precisely what D1 rules out.
    */
   let promotedIds: string[] = [];
-  if (tab === "recommended") {
-    const promoted = await fetchPromotedJobs(supabase, {
-      workType,
-      seniority,
-      limit: PROMOTED_SLOTS,
-    });
+  if (promoted) {
     const scoredIds = new Set(scored.map((s) => s.job.id));
     // Only ones actually on the page. A promoted job absent from `scored` was
     // filtered out upstream, and billing an impression for a card that never
