@@ -78,10 +78,10 @@ test("every filter link on the feed is at least 40x40", async ({ page }) => {
       }
     }
 
-    // The merged applied-filter control.
-    const control = [...document.querySelectorAll("div")].find(
-      (d) => typeof d.className === "string" && d.className.includes("border-[1.5px]"),
-    );
+    // The merged applied-filter control, by test id rather than by the
+    // border class it happens to wear — that class is on several boxes and
+    // this took whichever came first in the document.
+    const control = document.querySelector('[data-testid="applied-filters"]');
     for (const a of control?.querySelectorAll("a") ?? []) {
       links.push({ where: "applied filters", el: a });
     }

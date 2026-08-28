@@ -42,11 +42,11 @@ test.describe("the shell on a phone", () => {
 
       const shell = await page.evaluate(() => {
         const doc = document.documentElement;
-        const col = document.querySelector("div.min-w-0.flex-1") as HTMLElement;
+        const col = document.querySelector('[data-testid="content-column"]') as HTMLElement;
         const cs = getComputedStyle(col);
         const inner =
           col.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
-        const masthead = document.querySelector("div.border-b-\\[2\\.5px\\]") as HTMLElement;
+        const masthead = document.querySelector('[data-testid="masthead"]') as HTMLElement;
         return {
           clientW: doc.clientWidth,
           innerCol: Math.round(inner),
@@ -105,10 +105,8 @@ test.describe("the shell on a phone", () => {
       await login(page);
 
       const stacked = await page.evaluate(() => {
-        const col = document.querySelector("div.min-w-0.flex-1") as HTMLElement;
-        const panel = [...document.querySelectorAll("div")].find((d) =>
-          d.className.includes("min-[760px]:w-[280px]"),
-        ) as HTMLElement;
+        const col = document.querySelector('[data-testid="content-column"]') as HTMLElement;
+        const panel = document.querySelector('[data-testid="farah-panel"]') as HTMLElement;
         const p = panel.getBoundingClientRect();
         return {
           below: p.top >= col.getBoundingClientRect().bottom - 2,
@@ -140,10 +138,8 @@ test.describe("the shell on a phone", () => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await login(page);
     const r = await page.evaluate(() => {
-      const col = document.querySelector("div.min-w-0.flex-1") as HTMLElement;
-      const panel = [...document.querySelectorAll("div")].find((d) =>
-        d.className.includes("min-[760px]:w-[280px]"),
-      ) as HTMLElement;
+      const col = document.querySelector('[data-testid="content-column"]') as HTMLElement;
+      const panel = document.querySelector('[data-testid="farah-panel"]') as HTMLElement;
       return {
         innerCol: Math.round(col.clientWidth - 80),
         panelW: Math.round(panel.getBoundingClientRect().width),

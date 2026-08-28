@@ -107,7 +107,7 @@ export function Masthead({ creditsBalance, initials, email, displayName }: Masth
       here — see the note there. Putting it on this div looked right, built
       clean, and did nothing: measured at top:-2500 after a 2500px scroll.
     */
-    <div className="border-b-[2.5px] border-ink bg-paper">
+    <div data-testid="masthead" className="border-b-[2.5px] border-ink bg-paper">
       <div className="flex h-[68px] items-center justify-between px-8">
         <div className="flex items-center gap-4 min-[760px]:gap-9">
           {/*

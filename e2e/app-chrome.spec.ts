@@ -56,7 +56,7 @@ test("every interactive element in the masthead and panel is at least 40x40", as
 
   const measured = await page.evaluate((min) => {
     const regions: [string, string][] = [
-      ["masthead", "div.border-b-\\[2\\.5px\\]"],
+      ["masthead", '[data-testid="masthead"]'],
       ["farah panel", '[data-testid="farah-panel"]'],
     ];
     const all: { region: string; text: string; w: number; h: number }[] = [];

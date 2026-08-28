@@ -125,7 +125,7 @@ export function JobCard({
         </div>
       </div>
 
-      <p className="line-clamp-3 text-[14px] leading-relaxed text-ink-soft">
+      <p data-testid="job-card-description" className="line-clamp-3 text-[14px] leading-relaxed text-ink-soft">
         {job.description.slice(0, 280)}
       </p>
 

@@ -39,14 +39,14 @@ test("the card title opens the job, and the job is not truncated there", async (
   const href = await title.getAttribute("href");
   expect(href).toMatch(/^\/jobs\/[0-9a-f-]{36}$/);
 
-  const cardDescription = (await page.locator("p.line-clamp-3").first().textContent())!.trim();
+  const cardDescription = (await page.getByTestId("job-card-description").first().textContent())!.trim();
 
   await title.click();
   await page.waitForURL("**/jobs/**");
 
   await expect(page.locator("h1")).toHaveText(label);
 
-  const full = (await page.locator("div.whitespace-pre-line").first().textContent())!.trim();
+  const full = (await page.getByTestId("job-full-description").first().textContent())!.trim();
   // The card slices at 280. Anything at or below that means the page is
   // rendering the same truncation it exists to undo.
   expect(full.length).toBeGreaterThan(cardDescription.length);
