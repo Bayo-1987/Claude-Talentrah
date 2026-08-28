@@ -30,7 +30,7 @@ export default async function TrackerPage({ searchParams }: { searchParams: Sear
       let query = supabase
         .from("applications")
         .select(
-          "id, stage, applied_at, notes, created_at, job_posting_id, manual_job_snapshot, resume_id, cover_letter_id, job_postings(company_name, title, location, external_url), application_stage_events(stage, changed_at)",
+          "id, stage, applied_at, notes, updated_at, created_at, job_posting_id, manual_job_snapshot, resume_id, cover_letter_id, job_postings(company_name, title, location, external_url), application_stage_events(stage, changed_at)",
         )
         .eq("user_id", user.id);
       if (stage !== "all") query = query.eq("stage", stage);
@@ -56,6 +56,7 @@ export default async function TrackerPage({ searchParams }: { searchParams: Sear
       stage: row.stage,
       appliedAt: row.applied_at,
       notes: row.notes,
+      updatedAt: row.updated_at,
       companyName: job?.company_name ?? snapshot?.companyName ?? "Unknown company",
       title: job?.title ?? snapshot?.title ?? "Untitled role",
       location: job?.location ?? snapshot?.location ?? null,

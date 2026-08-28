@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import type { NotesActionState } from "./notes-state";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { Enums } from "@/lib/supabase/types";
@@ -158,19 +159,50 @@ export async function updateStageAction(applicationId: string, formData: FormDat
  * save that worked perfectly is visually identical to one that did nothing.
  * "Save does nothing" is what a working save also looks like.
  */
-export async function updateNotesAction(applicationId: string, formData: FormData) {
+/**
+ * Saves a note and reports what happened.
+ *
+ * RETURNS STATE NOW, RATHER THAN THROWING. It used to throw on a database
+ * error, which Next renders as the error boundary — the whole page replaced,
+ * and the note the user had just typed gone with it. The editor keeps its
+ * contents on failure instead, which is the point of the rust banner.
+ *
+ * `updated_at` is written explicitly. The column has existed since
+ * 0000_baseline_schema.sql and nothing has ever written to it — checked
+ * against production, and true of updateStageAction as well, so there is no
+ * trigger quietly doing it. The read view's "Edited …" line is the first thing
+ * that needs it to be true, so this is where it starts being maintained.
+ * Deliberately not a table-wide trigger and deliberately not applied to
+ * updateStageAction: a stage change is not an edit to the note, and making
+ * every write touch the column would make the timestamp mean nothing in
+ * particular.
+ */
+export async function updateNotesAction(
+  applicationId: string,
+  _prevState: NotesActionState,
+  formData: FormData,
+): Promise<NotesActionState> {
   const { supabase, userId } = await getAuthedUserId();
   const notes = String(formData.get("notes") ?? "").trim();
+  const updatedAt = new Date().toISOString();
 
   const { data: updated, error } = await supabase
     .from("applications")
-    .update({ notes: notes || null })
+    .update({ notes: notes || null, updated_at: updatedAt })
     .eq("id", applicationId)
     .eq("user_id", userId)
-    .select("id");
+    .select("id, notes, updated_at");
 
   if (error) {
-    throw new Error(`Couldn't save those notes: ${error.message}`);
+    // Not echoed verbatim: a Postgres string here would describe our columns
+    // and policies to whoever provoked it. The detail goes to the log.
+    console.error("[tracker:updateNotes]", error);
+    return {
+      status: "error",
+      error: "Couldn't save that note. Your text is still here — try again.",
+      notes: null,
+      updatedAt: null,
+    };
   }
 
   // Zero rows is not an error and not a success: the entry was deleted, or it
@@ -179,8 +211,19 @@ export async function updateNotesAction(applicationId: string, formData: FormDat
   // asserting otherwise.
   if (!updated?.length) {
     revalidatePath("/tracker");
-    return;
+    return {
+      status: "error",
+      error: "That entry is no longer in your tracker.",
+      notes: null,
+      updatedAt: null,
+    };
   }
 
   revalidatePath("/tracker");
+  return {
+    status: "success",
+    error: null,
+    notes: updated[0].notes,
+    updatedAt: updated[0].updated_at,
+  };
 }
