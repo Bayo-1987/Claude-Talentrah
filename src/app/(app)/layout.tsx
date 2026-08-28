@@ -58,8 +58,22 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           displayName={displayName}
         />
       </div>
-      <div className="mx-auto flex w-full max-w-[1360px] print:block print:max-w-none">
-        <div className="min-w-0 flex-1 px-10 py-8 print:p-0">{children}</div>
+      {/*
+        Column-stacked below 760px, side-by-side above it.
+
+        The panel is 280px and never shrank, so on a phone it took 280 of the
+        viewport and left the content column what remained minus 80px of
+        padding: measured 0px at 360, 30px at 390, 52px at 412. Not "cramped" —
+        a content column of zero.
+
+        Reflow rather than a launcher-and-sheet, and the reason is state. The
+        panel is a client component holding a Farah conversation; a sheet means
+        conditionally rendering it, which unmounts it and throws the
+        conversation away on every rotation. Changing flex-direction moves the
+        same mounted element, so nothing is lost crossing the breakpoint.
+      */}
+      <div className="mx-auto flex w-full max-w-[1360px] flex-col min-[760px]:flex-row print:block print:max-w-none">
+        <div className="min-w-0 flex-1 px-6 py-8 min-[760px]:px-10 print:p-0">{children}</div>
         <div className="print:hidden">
           <FarahPanel firstName={visibleName(profile.first_name) || "there"} initialMessages={initialMessages} />
         </div>

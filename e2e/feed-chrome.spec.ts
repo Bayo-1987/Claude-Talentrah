@@ -113,7 +113,7 @@ test("the masthead, filter header and Farah panel all survive a long scroll", as
       return {
         masthead: box("div.sticky.top-0"),
         header: box('[data-testid="feed-header"]'),
-        panel: box("div.border-l"),
+        panel: box('[data-testid="farah-panel"]'),
         scrollY: Math.round(window.scrollY),
       };
     });
@@ -221,7 +221,7 @@ test("the shell is sticky everywhere, not only on the feed", async ({ page }) =>
       const el = document.querySelector(sel) as HTMLElement | null;
       return el ? Math.round(el.getBoundingClientRect().top) : null;
     };
-    return { masthead: box("div.sticky.top-0"), panel: box("div.border-l"), scrollY: Math.round(window.scrollY) };
+    return { masthead: box("div.sticky.top-0"), panel: box('[data-testid="farah-panel"]'), scrollY: Math.round(window.scrollY) };
   });
 
   expect(after.scrollY).toBeGreaterThan(400);

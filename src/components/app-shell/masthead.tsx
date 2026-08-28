@@ -39,6 +39,44 @@ export function Masthead({ creditsBalance, initials, email, displayName }: Masth
   const pathname = usePathname();
   const [accountOpen, setAccountOpen] = useState(false);
   const accountRef = useRef<HTMLDivElement>(null);
+  const [navOpen, setNavOpen] = useState(false);
+  const navRef = useRef<HTMLDivElement>(null);
+
+  /*
+   * The nav links do not fit below 760px, so under that width they move behind
+   * a disclosure. 760 is not a round number picked for tidiness: the masthead's
+   * intrinsic width is 728px — measured, and constant at 360/390/412, because
+   * nothing in it shrinks — so the document scrolls sideways on every phone.
+   * 760 is the smallest breakpoint already in this codebase that clears 728.
+   */
+  useEffect(() => {
+    if (!navOpen) return;
+    function onPointer(e: MouseEvent) {
+      if (navRef.current && !navRef.current.contains(e.target as Node)) setNavOpen(false);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setNavOpen(false);
+    }
+    document.addEventListener("mousedown", onPointer);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onPointer);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [navOpen]);
+
+  /**
+   * Feedback carries the page you left; every other link is itself.
+   *
+   * Extracted because the mobile menu renders the same list and the rule must
+   * not be written twice — two copies is how one of them ends up pointing at
+   * a bare /feedback that tells a reader nothing.
+   */
+  function hrefFor(link: { href: string; label: string }) {
+    return link.href === "/feedback" && pathname && pathname !== "/feedback"
+      ? `${link.href}?from=${encodeURIComponent(pathname)}`
+      : link.href;
+  }
 
   /*
    * Same contract as the Farah and Report menus: outside click and Escape both
@@ -71,7 +109,7 @@ export function Masthead({ creditsBalance, initials, email, displayName }: Masth
     */
     <div className="border-b-[2.5px] border-ink bg-paper">
       <div className="flex h-[68px] items-center justify-between px-8">
-        <div className="flex items-center gap-9">
+        <div className="flex items-center gap-4 min-[760px]:gap-9">
           {/*
             min-h-10 on the brand link, not on the image. The mark itself is
             24/32px by design and stays that size; the LINK around it grows to
@@ -88,20 +126,10 @@ export function Masthead({ creditsBalance, initials, email, displayName }: Masth
               className="h-6 w-auto flex-shrink-0 min-[480px]:h-8"
             />
           </Link>
-          <nav className="flex items-center gap-5.5">
+          <nav className="hidden items-center gap-5.5 min-[760px]:flex">
             {NAV_LINKS.map((link) => {
               const active = pathname?.startsWith(link.href);
-              /*
-               * Feedback carries the page you left. It is the only column on
-               * `feedback` that says anything about context, and without this
-               * every row would read "/feedback" — the form's own path, which
-               * tells a reader nothing. The page re-validates it; this is a
-               * convenience, not a trusted input.
-               */
-              const href =
-                link.href === "/feedback" && pathname && pathname !== "/feedback"
-                  ? `${link.href}?from=${encodeURIComponent(pathname)}`
-                  : link.href;
+              const href = hrefFor(link);
               return (
                 <Link
                   key={link.href}
@@ -136,6 +164,71 @@ export function Masthead({ creditsBalance, initials, email, displayName }: Masth
               );
             })}
           </nav>
+
+          {/*
+            The same links, behind a disclosure, under 760px. Same contract as
+            the account menu below and the card menus on the feed: outside
+            click and Escape both close.
+          */}
+          <div ref={navRef} className="relative flex items-center min-[760px]:hidden">
+            <button
+              type="button"
+              aria-expanded={navOpen}
+              aria-haspopup="menu"
+              aria-label="Main menu"
+              onClick={() => setNavOpen((o) => !o)}
+              className="inline-flex h-10 w-10 items-center justify-center"
+            >
+              <svg width="18" height="14" viewBox="0 0 18 14" fill="none" aria-hidden="true">
+                <path
+                  d="M1 1h16M1 7h16M1 13h16"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </button>
+
+            {navOpen && (
+              <div
+                role="menu"
+                className="absolute top-[calc(100%+8px)] left-0 z-20 w-[240px] border-[1.5px] border-ink bg-card"
+              >
+                {NAV_LINKS.map((link) => {
+                  const active = pathname?.startsWith(link.href);
+                  return (
+                    <Link
+                      key={link.href}
+                      href={hrefFor(link)}
+                      role="menuitem"
+                      onClick={() => setNavOpen(false)}
+                      className={cn(
+                        "flex min-h-11 items-center px-4 font-body text-[14px] font-semibold no-underline",
+                        active ? "text-rust" : "text-ink hover:text-rust",
+                      )}
+                    >
+                      {link.label}
+                    </Link>
+                  );
+                })}
+
+                {/*
+                  "Post a job" is hidden above 900px in the bar and would
+                  otherwise have no home at all on a phone — the one link that
+                  was unreachable rather than merely cramped.
+                */}
+                <div className="border-t border-line" />
+                <Link
+                  href="/employer"
+                  role="menuitem"
+                  onClick={() => setNavOpen(false)}
+                  className="flex min-h-11 items-center px-4 font-body text-[14px] font-semibold text-ink-soft no-underline hover:text-rust"
+                >
+                  Post a job
+                </Link>
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="flex items-center gap-3.5">
@@ -151,7 +244,7 @@ export function Masthead({ creditsBalance, initials, email, displayName }: Masth
           >
             Post a job
           </Link>
-          <span className="inline-flex min-h-10 items-center border border-line px-2.5 text-[12.5px] text-ink-soft">
+          <span className="hidden min-h-10 items-center border border-line px-2.5 text-[12.5px] text-ink-soft min-[760px]:inline-flex">
             EN
           </span>
           <Link
