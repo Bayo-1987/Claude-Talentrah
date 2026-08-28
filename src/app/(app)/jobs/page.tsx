@@ -7,6 +7,7 @@ import { EMPTY_RESUME, type StructuredResume } from "@/lib/resume/types";
 import { EyebrowLabel } from "@/components/ui";
 import { FeedTabs } from "@/components/jobs/feed-tabs";
 import { FilterBar } from "@/components/jobs/filter-bar";
+import { FixedFeedHeader } from "@/components/jobs/fixed-feed-header";
 import { JobCard } from "@/components/jobs/job-card";
 import { Constants, type Tables } from "@/lib/supabase/types";
 import { hasVisibleName, visibleName } from "@/lib/profile/name";
@@ -293,10 +294,16 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
 
         The menus were briefly z-30, which fixed the bug and introduced a
         smaller one: opening upward from a card near the top, they painted over
-        the masthead. z-15 clears this header without outranking the app's
+        the masthead. z-[15] clears this header without outranking the app's
         primary navigation. Anything else layered over the feed stays below 20.
+
+        The row below is `position: fixed` now rather than sticky, which does
+        NOT change any of the above: both are positioned elements at z-10 in
+        the root stacking context, so the same three-layer order holds. It is
+        re-asserted in the browser rather than assumed — see
+        e2e/fixed-tab-row.spec.ts.
       */}
-      <div className="sticky top-[68px] z-10 -mt-8 flex flex-col gap-5 bg-paper pt-8 pb-4">
+      <FixedFeedHeader>
         <div>
           <EyebrowLabel>Today&apos;s board</EyebrowLabel>
           <div className="mt-2">
@@ -317,7 +324,7 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
           skill={skill}
           skillFacet={skillFacet}
         />
-      </div>
+      </FixedFeedHeader>
 
       {baseResumeError && (
         <p className="border-[1.5px] border-rust bg-rust-soft px-4 py-3 text-[13.5px] text-rust">
