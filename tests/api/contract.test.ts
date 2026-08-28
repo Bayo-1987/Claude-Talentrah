@@ -56,6 +56,7 @@ const ADMIN_SECRET = randomUUID();
  */
 const ranJobIngest = vi.fn();
 const ranScholarshipIngest = vi.fn();
+const ranScholarshipUpsert = vi.fn();
 const ranCostProbe = vi.fn();
 const ranPassRenewal = vi.fn();
 const ranCampaignCharge = vi.fn();
@@ -85,6 +86,10 @@ vi.mock("@/lib/scholarships/ingest", () => ({
   setModerationStatus: (...a: unknown[]) => {
     ranModeration(...a);
     return Promise.resolve();
+  },
+  upsertScholarships: (...a: unknown[]) => {
+    ranScholarshipUpsert(...a);
+    return Promise.resolve({ upserted: 1, returnedToReview: [], error: null });
   },
 }));
 vi.mock("@/lib/llm/cost-probe", () => ({
@@ -135,7 +140,7 @@ vi.mock("@/lib/supabase/service-role", () => ({
 }));
 
 const SPIES = [
-  ranJobIngest, ranScholarshipIngest, ranCostProbe,
+  ranJobIngest, ranScholarshipIngest, ranScholarshipUpsert, ranCostProbe,
   ranPassRenewal, ranModeration, listedScholarships,
   listedCampaigns, decidedCampaign, ranCampaignCharge,
 ];
@@ -159,6 +164,15 @@ const ADMIN_ENDPOINTS: Array<{
   load: () => Promise<Handler>;
   /** True when the handler, if the guard leaks, does something irreversible. */
   sideEffecting: boolean;
+  /**
+   * A body this specific route will actually accept.
+   *
+   * The shared default is `{ id, status }`, which the moderation routes take.
+   * A route that rejects it answers 400 on schema validation before it ever
+   * reaches its pipeline — which would make "the spy did not fire" true for
+   * the wrong reason, and quietly stop testing the guard at all.
+   */
+  body?: unknown;
 }> = [
   {
     name: "ingest-jobs POST",
@@ -173,6 +187,21 @@ const ADMIN_ENDPOINTS: Array<{
     method: "POST",
     load: async () => (await import("@/app/api/admin/ingest-scholarships/route")).POST,
     sideEffecting: true,
+  },
+  {
+    name: "scholarships POST (manual listing)",
+    url: "http://t/api/admin/scholarships",
+    method: "POST",
+    load: async () => (await import("@/app/api/admin/scholarships/route")).POST,
+    // Writes a row to the public catalog's table. Pending, but written.
+    sideEffecting: true,
+    body: {
+      provider: "Contract Test Provider",
+      programName: "Contract Test Programme",
+      degreeLevels: ["msc"],
+      fundingType: "full",
+      officialUrl: "https://example.org/scholarship",
+    },
   },
   {
     name: "estimate-llm-costs POST",
@@ -221,11 +250,17 @@ const ADMIN_ENDPOINTS: Array<{
   },
 ];
 
-function req(url: string, method: string, headers: Record<string, string> = {}): Request {
+function req(
+  url: string,
+  method: string,
+  headers: Record<string, string> = {},
+  body?: unknown,
+): Request {
+  const payload = body ?? { id: "00000000-0000-0000-0000-000000000000", status: "verified" };
   return new Request(url, {
     method,
     headers: { "content-type": "application/json", ...headers },
-    body: method === "POST" ? JSON.stringify({ id: "00000000-0000-0000-0000-000000000000", status: "verified" }) : undefined,
+    body: method === "POST" ? JSON.stringify(payload) : undefined,
   });
 }
 
@@ -238,7 +273,7 @@ describe("§1 — the admin guard fails CLOSED", () => {
        * runs — which is what the curl output in the file header captured.
        */
       const handler = await ep.load();
-      const res = await handler(req(ep.url, ep.method));
+      const res = await handler(req(ep.url, ep.method, {}, ep.body));
 
       expect(
         res.status,
@@ -259,7 +294,7 @@ describe("§1 — the admin guard fails CLOSED", () => {
       vi.stubEnv("INGEST_SECRET", ADMIN_SECRET);
       const handler = await ep.load();
       const res = await handler(
-        req(ep.url, ep.method, { "x-admin-secret": "not-the-secret" }),
+        req(ep.url, ep.method, { "x-admin-secret": "not-the-secret" }, ep.body),
       );
       expect(res.status).toBe(401);
     });
@@ -270,7 +305,7 @@ describe("§1 — the admin guard fails CLOSED", () => {
       // breakage dressed up as a security fix.
       vi.stubEnv("INGEST_SECRET", ADMIN_SECRET);
       const handler = await ep.load();
-      const res = await handler(req(ep.url, ep.method, { "x-ingest-secret": ADMIN_SECRET }));
+      const res = await handler(req(ep.url, ep.method, { "x-ingest-secret": ADMIN_SECRET }, ep.body));
       expect(res.status).not.toBe(401);
     });
 
@@ -281,7 +316,7 @@ describe("§1 — the admin guard fails CLOSED", () => {
        */
       vi.stubEnv("INGEST_SECRET", ADMIN_SECRET);
       const handler = await ep.load();
-      const res = await handler(req(ep.url, ep.method, { "x-admin-secret": ADMIN_SECRET }));
+      const res = await handler(req(ep.url, ep.method, { "x-admin-secret": ADMIN_SECRET }, ep.body));
       expect(res.status, `${ep.name} rejected a correct credential`).not.toBe(401);
     });
   }
