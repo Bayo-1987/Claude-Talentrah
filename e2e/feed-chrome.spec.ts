@@ -111,7 +111,7 @@ test("the masthead, filter header and Farah panel all survive a long scroll", as
         return { top: Math.round(r.top), bottom: Math.round(r.bottom) };
       };
       return {
-        masthead: box("div.sticky.top-0"),
+        masthead: box('[data-testid="masthead-band"]'),
         header: box('[data-testid="feed-header"]'),
         panel: box('[data-testid="farah-panel"]'),
         scrollY: Math.round(window.scrollY),
@@ -165,7 +165,7 @@ test("the filter header is flush at rest, not 32px adrift", async ({ page }) => 
    * already allowed that, which is why it is a range and not an equality.
    */
   const gapAtRest = await page.evaluate(() => {
-    const m = document.querySelector("div.sticky.top-0") as HTMLElement;
+    const m = document.querySelector('[data-testid="masthead-band"]') as HTMLElement;
     const h = document.querySelector('[data-testid="feed-header"]') as HTMLElement;
     return Math.round(h.getBoundingClientRect().top - m.getBoundingClientRect().bottom);
   });
@@ -177,7 +177,7 @@ test("the filter header is flush at rest, not 32px adrift", async ({ page }) => 
   await page.waitForTimeout(600);
 
   const stuck = await page.evaluate(() => {
-    const m = document.querySelector("div.sticky.top-0") as HTMLElement;
+    const m = document.querySelector('[data-testid="masthead-band"]') as HTMLElement;
     const h = document.querySelector('[data-testid="feed-header"]') as HTMLElement;
     const y = Math.round(m.getBoundingClientRect().bottom) + 4;
     const el = document.elementFromPoint(400, y) as HTMLElement | null;
@@ -221,7 +221,7 @@ test("the shell is sticky everywhere, not only on the feed", async ({ page }) =>
       const el = document.querySelector(sel) as HTMLElement | null;
       return el ? Math.round(el.getBoundingClientRect().top) : null;
     };
-    return { masthead: box("div.sticky.top-0"), panel: box('[data-testid="farah-panel"]'), scrollY: Math.round(window.scrollY) };
+    return { masthead: box('[data-testid="masthead-band"]'), panel: box('[data-testid="farah-panel"]'), scrollY: Math.round(window.scrollY) };
   });
 
   expect(after.scrollY).toBeGreaterThan(400);

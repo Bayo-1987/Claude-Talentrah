@@ -50,7 +50,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         z-20 keeps it above the jobs page's own sticky filter header (z-10) so
         the two never contend for the same band of screen.
       */}
-      <div className="sticky top-0 z-20 print:hidden">
+      <div data-testid="masthead-band" className="sticky top-0 z-20 print:hidden">
         <Masthead
           creditsBalance={profile.credits_balance}
           initials={initials}
@@ -73,7 +73,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         same mounted element, so nothing is lost crossing the breakpoint.
       */}
       <div className="mx-auto flex w-full max-w-[1360px] flex-col min-[760px]:flex-row print:block print:max-w-none">
-        <div className="min-w-0 flex-1 px-6 py-8 min-[760px]:px-10 print:p-0">{children}</div>
+        <div
+          data-testid="content-column"
+          className="min-w-0 flex-1 px-6 py-8 min-[760px]:px-10 print:p-0"
+        >
+          {children}
+        </div>
         <div className="print:hidden">
           <FarahPanel firstName={visibleName(profile.first_name) || "there"} initialMessages={initialMessages} />
         </div>

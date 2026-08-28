@@ -121,7 +121,10 @@ export function FilterBar({ q, tab, workType, seniority, skill, skillFacet = [] 
         removable segment further along — the input is how you search, the
         segment is how you stop.
       */}
-      <div className="flex flex-wrap items-stretch overflow-hidden border-[1.5px] border-ink">
+      <div
+        data-testid="applied-filters"
+        className="flex flex-wrap items-stretch overflow-hidden border-[1.5px] border-ink"
+      >
         <form
           method="GET"
           action="/jobs"

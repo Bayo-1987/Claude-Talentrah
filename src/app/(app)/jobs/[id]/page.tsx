@@ -220,7 +220,10 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
           slice is what this page exists to undo, so re-truncating here would
           leave the product with no way to read a job at all.
         */}
-        <div className="text-[15px] leading-relaxed whitespace-pre-line text-ink-soft">
+        <div
+          data-testid="job-full-description"
+          className="text-[15px] leading-relaxed whitespace-pre-line text-ink-soft"
+        >
           {job.description}
         </div>
       </div>
