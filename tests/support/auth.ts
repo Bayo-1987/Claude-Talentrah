@@ -175,6 +175,22 @@ async function userIdForEmail(email: string): Promise<string> {
  * misconfiguration. That is a real loss of coverage and it belongs to the
  * Playwright suite, which signs in through the actual UI.
  *
+ * A STANDING FRAGILITY, because it is invisible from this file. The secret
+ * this signs with is the project's LEGACY HS256 secret, and the CI project has
+ * since rotated to an ECC signing key — in Supabase's JWT Keys UI the secret
+ * below appears as a *previous key*. Previous keys are still accepted for
+ * verification, which is the only reason this works, but that is a property of
+ * the project's key configuration and not of anything in this repo. Someone
+ * tidying up the old key in the dashboard would take every suite here down
+ * with it, and nothing in the diff they were reviewing would say so.
+ *
+ * It will at least fail legibly rather than mysteriously: an unverifiable
+ * token is refused by PostgREST as PGRST301, and the check further down turns
+ * that into a named error rather than an empty result inside some unrelated
+ * assertion. If that is where you have landed, this is the first thing to
+ * check — confirm the legacy secret is still listed, then move to signing with
+ * the current key rather than re-adding the old one.
+ *
  * `userId` is optional only to keep the signature callers already use.
  */
 export async function sessionFor(email: string, userId?: string): Promise<DB> {
