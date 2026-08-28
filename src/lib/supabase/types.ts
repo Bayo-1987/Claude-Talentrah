@@ -271,6 +271,128 @@ export type Database = {
           },
         ]
       }
+      admin_audit_log: {
+        Row: {
+          action: string
+          admin_email: string | null
+          admin_session_id: string | null
+          admin_user_id: string | null
+          created_at: string
+          detail: Json | null
+          id: string
+          target_id: string | null
+          target_table: string | null
+        }
+        Insert: {
+          action: string
+          admin_email?: string | null
+          admin_session_id?: string | null
+          admin_user_id?: string | null
+          created_at?: string
+          detail?: Json | null
+          id?: string
+          target_id?: string | null
+          target_table?: string | null
+        }
+        Update: {
+          action?: string
+          admin_email?: string | null
+          admin_session_id?: string | null
+          admin_user_id?: string | null
+          created_at?: string
+          detail?: Json | null
+          id?: string
+          target_id?: string | null
+          target_table?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_audit_log_admin_session_id_fkey"
+            columns: ["admin_session_id"]
+            isOneToOne: false
+            referencedRelation: "admin_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "admin_audit_log_admin_user_id_fkey"
+            columns: ["admin_user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      admin_sessions: {
+        Row: {
+          admin_user_id: string
+          created_at: string
+          expires_at: string
+          id: string
+          ip: string | null
+          last_seen_at: string
+          revoked_at: string | null
+          token_hash: string
+          user_agent: string | null
+        }
+        Insert: {
+          admin_user_id: string
+          created_at?: string
+          expires_at: string
+          id?: string
+          ip?: string | null
+          last_seen_at?: string
+          revoked_at?: string | null
+          token_hash: string
+          user_agent?: string | null
+        }
+        Update: {
+          admin_user_id?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          ip?: string | null
+          last_seen_at?: string
+          revoked_at?: string | null
+          token_hash?: string
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_sessions_admin_user_id_fkey"
+            columns: ["admin_user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      admin_users: {
+        Row: {
+          created_at: string
+          disabled_at: string | null
+          display_name: string | null
+          email: string
+          id: string
+          last_login_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          disabled_at?: string | null
+          display_name?: string | null
+          email: string
+          id: string
+          last_login_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          disabled_at?: string | null
+          display_name?: string | null
+          email?: string
+          id?: string
+          last_login_at?: string | null
+        }
+        Relationships: []
+      }
       anonymous_demo_daily: {
         Row: {
           day: string
@@ -1630,6 +1752,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_session_validate: {
+        Args: { p_token_hash: string }
+        Returns: {
+          admin_display_name: string
+          admin_email: string
+          admin_id: string
+          session_expires_at: string
+          session_id: string
+        }[]
+      }
       auto_apply_claim_submission: {
         Args: {
           p_credit_cost: number
