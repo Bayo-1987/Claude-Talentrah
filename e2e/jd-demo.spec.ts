@@ -76,6 +76,20 @@ test.describe("the anonymous demo", () => {
   });
 
   test("runs once, shows the result, and refuses the second attempt", async ({ page }) => {
+    /*
+     * The global test timeout is 30s (playwright.config.ts), and the
+     * assertion below asks for 90s. Without this line the 90s is unreachable:
+     * Playwright kills the test at 30s regardless of what an individual
+     * expect() is willing to wait for, so the tolerance the assertion was
+     * written to provide never applied and the failure read as "the element
+     * never appeared" rather than "the model call was slow".
+     *
+     * 120s, not 90s: the budget has to exceed the longest thing inside it, or
+     * the test still dies before its own assertion gives up and the report
+     * still blames the wrong thing.
+     */
+    test.setTimeout(120_000);
+
     await page.goto("/");
 
     // The static worked example is what's on screen until there is a real one.
@@ -146,7 +160,65 @@ test.describe("the anonymous demo", () => {
 test.describe("a signed-in visitor on the landing page", () => {
   test.skip(!DEMO_PASSWORD, "DEMO_PASSWORD is not set — see scripts/seed.ts");
 
+  /*
+   * TOP UP THE DEMO ACCOUNT BEFORE EACH RUN, because these two tests SPEND.
+   *
+   * A signed-in tailoring run costs the one free trial and then credits. The
+   * demo account is shared and long-lived, nothing replenished it, and it ran
+   * out: free_trial_tailoring_used true, credits_balance 0, nine tailored
+   * resumes, the last of them at 10:57 — which is the last time these tests
+   * passed. Every run afterwards had the tailoring refused, so the result
+   * never rendered and the assertion failed with "element(s) not found".
+   *
+   * That looked exactly like a slow model call and was not one. It is a test
+   * that consumes a finite resource and never restores it, so it works until
+   * the budget is gone and then fails permanently — the failure arrives long
+   * after the change that caused it, on whatever PR happens to be next.
+   *
+   * Granting per test rather than once per file: the two tests below each
+   * spend, and a single top-up would leave the second one one short.
+   */
+  test.beforeEach(async () => {
+    if (!admin) return;
+    const { data, error } = await admin
+      .from("profiles")
+      .select("id")
+      .eq("email", "demo@talentrah.dev")
+      .single();
+    if (error || !data) throw new Error(`demo profile not found: ${error?.message}`);
+
+    /*
+     * Written straight to the ledger, which is the only way the balance moves:
+     * a trigger sets profiles.credits_balance from balance_after, so updating
+     * the profile column directly would be overwritten by the next ledger row.
+     * Same shape as grantTestCredits in fixtures/authed.ts — not imported,
+     * because that module builds a second service-role client at import time
+     * and this file already has one.
+     */
+    const { error: grantError } = await admin.from("credit_ledger").insert({
+      user_id: data.id,
+      delta: 25,
+      reason: "admin_adjustment",
+      balance_after: 25,
+    });
+    if (grantError) throw new Error(`could not top up the demo account: ${grantError.message}`);
+  });
+
   test("is tailored against their own resume, not the sample", async ({ page }) => {
+    /*
+     * The global test timeout is 30s (playwright.config.ts), and the
+     * assertion below asks for 90s. Without this line the 90s is unreachable:
+     * Playwright kills the test at 30s regardless of what an individual
+     * expect() is willing to wait for, so the tolerance the assertion was
+     * written to provide never applied and the failure read as "the element
+     * never appeared" rather than "the model call was slow".
+     *
+     * 120s, not 90s: the budget has to exceed the longest thing inside it, or
+     * the test still dies before its own assertion gives up and the report
+     * still blames the wrong thing.
+     */
+    test.setTimeout(120_000);
+
     await page.goto("/login");
     await page.getByLabel("Email").fill("demo@talentrah.dev");
     await page.getByLabel("Password").fill(DEMO_PASSWORD!);
@@ -170,6 +242,20 @@ test.describe("a signed-in visitor on the landing page", () => {
   });
 
   test("does not consume an anonymous run", async ({ page }) => {
+    /*
+     * The global test timeout is 30s (playwright.config.ts), and the
+     * assertion below asks for 90s. Without this line the 90s is unreachable:
+     * Playwright kills the test at 30s regardless of what an individual
+     * expect() is willing to wait for, so the tolerance the assertion was
+     * written to provide never applied and the failure read as "the element
+     * never appeared" rather than "the model call was slow".
+     *
+     * 120s, not 90s: the budget has to exceed the longest thing inside it, or
+     * the test still dies before its own assertion gives up and the report
+     * still blames the wrong thing.
+     */
+    test.setTimeout(120_000);
+
     await resetDay();
     await page.goto("/login");
     await page.getByLabel("Email").fill("demo@talentrah.dev");
