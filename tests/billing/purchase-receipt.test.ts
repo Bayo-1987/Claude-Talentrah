@@ -66,6 +66,15 @@ const admin: SupabaseClient<Database> = createClient<Database>(
 );
 
 let userId: string;
+/**
+ * Created lazily by the top-up case only.
+ *
+ * `payment_transactions_topup_shape` (0050) requires an ad_wallet_topup to
+ * carry BOTH an organization_id and a paystack_reference — a top-up with no
+ * organisation is not a row the database will accept, so the fixture has to
+ * have one even though nothing here reads it.
+ */
+let topupOrgId: string | null = null;
 const references: string[] = [];
 
 async function makeUser(): Promise<string> {
@@ -100,6 +109,19 @@ async function pendingTransaction(
   return reference;
 }
 
+/** The organisation an ad-wallet top-up has to belong to. Made once, on demand. */
+async function topupOrg(): Promise<string> {
+  if (topupOrgId) return topupOrgId;
+  const { data, error } = await admin
+    .from("organizations")
+    .insert({ name: `Receipt Test Org ${randomUUID().slice(0, 8)}`, created_by: userId })
+    .select("id")
+    .single();
+  if (error || !data) throw new Error(`fixture org: ${error?.message}`);
+  topupOrgId = data.id;
+  return topupOrgId;
+}
+
 beforeEach(async () => {
   sendMock.mockClear();
   vi.mocked(verifyTransaction).mockResolvedValue({
@@ -117,6 +139,19 @@ afterAll(async () => {
     .delete()
     .in("paystack_reference", references);
   if (error) console.error("[receipt cleanup: transactions]", error.message);
+
+  /*
+   * Strictly after the transactions, and checked. payment_transactions ->
+   * organizations is ON DELETE NO ACTION on purpose (removing an organisation
+   * must not vaporise its payment history), so deleting the org first simply
+   * fails — and a Supabase delete that is refused RESOLVES with an error
+   * rather than throwing, which is how test organisations piled up here for
+   * weeks while every hook reported success.
+   */
+  if (topupOrgId) {
+    const { error: orgError } = await admin.from("organizations").delete().eq("id", topupOrgId);
+    if (orgError) console.error("[receipt cleanup: org]", orgError.message);
+  }
   if (userId) await admin.auth.admin.deleteUser(userId).catch(() => {});
 });
 
@@ -216,13 +251,22 @@ describe("and nothing else does", () => {
   });
 
   it("does NOT email for an ad wallet top-up — employer surface, different recipient", async () => {
-    // product_id is null for a top-up (0050) and there is no organisation
-    // here, so nothing is granted; the point is only that no seeker receipt
-    // is sent for an employer's payment.
+    /*
+     * product_id is null for a top-up (0050); organization_id is NOT optional.
+     * The first version of this fixture left it null on the reasoning that
+     * "there is no organisation here, so nothing is granted", and the database
+     * refused the row: payment_transactions_topup_shape requires an
+     * organization_id and a paystack_reference for this product type. The
+     * constraint is right — a wallet top-up that belongs to no wallet is not a
+     * thing — so the fixture gained an organisation rather than the constraint
+     * losing a clause. Nothing below reads it; it exists to make the row legal.
+     */
+    const organizationId = await topupOrg();
     const reference = `receipt-test-${randomUUID()}`;
     references.push(reference);
     const { error } = await admin.from("payment_transactions").insert({
       user_id: userId,
+      organization_id: organizationId,
       product_type: "ad_wallet_topup",
       product_id: null,
       amount: 5000,
