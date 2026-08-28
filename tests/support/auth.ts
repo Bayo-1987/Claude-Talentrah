@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
+import jwt from "jsonwebtoken";
 import type { Database } from "@/lib/supabase/types";
 
 /**
@@ -21,11 +22,18 @@ import type { Database } from "@/lib/supabase/types";
  *      budget. Suites should seed state directly with the service role wherever
  *      a real session isn't the thing under test, and share one user across
  *      cases that don't need isolation.
+ *
+ * Neither was enough, because the call being limited was `verifyOtp` and no
+ * amount of backoff fits inside a 60s hook. `sessionFor` no longer logs in at
+ * all — see the note on it. `createUser` is still a real auth call, so the
+ * retry below still earns its place, but the burst it has to survive is now a
+ * third of what it was.
  */
 
 const URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const JWT_SECRET = process.env.SUPABASE_JWT_SECRET;
 
 export type DB = SupabaseClient<Database>;
 
@@ -91,45 +99,145 @@ export async function createTestUser(
   return { id: data.user!.id, email };
 }
 
-/** A real authenticated session, established the way a signed-in user has one. */
-export async function sessionFor(email: string): Promise<DB> {
-  const { data: link, error } = await withRateLimitRetry(() =>
-    admin.auth.admin.generateLink({ type: "magiclink", email }).then((r) => {
-      if (r.error) throw r.error;
-      return r;
-    }),
-  );
-  if (error || !link) throw error ?? new Error("no magic link");
+/** How long a minted test token is valid. A suite is over long before this. */
+const SESSION_TTL_SECONDS = 900;
+
+/**
+ * The claims a Supabase access token carries, as this project's database
+ * actually reads them.
+ *
+ * A REAL GoTrue TOKEN CARRIES MORE THAN THIS, and the difference was checked
+ * rather than assumed. Decoding a live session cookie from a browser login
+ * gives: aal, amr, app_metadata, aud, email, exp, iat, is_anonymous, iss,
+ * phone, role, session_id, sub, user_metadata. Everything omitted below is
+ * GoTrue's own bookkeeping.
+ *
+ * What matters is what reads them on the other side. Against the live CI
+ * database, `pg_policy` and `pg_proc` contain ZERO references to `auth.jwt()`
+ * or `auth.email()`; 55 uses of `auth.uid()` (which reads `sub`) and two
+ * functions using `auth.role()` (which reads `role`), both only to check for
+ * `service_role`, which an authenticated token fails here exactly as a real
+ * one does. PostgREST itself reads `role`, `aud` and `exp`. So the set below
+ * is not a convenient subset — it is every claim anything in this system looks
+ * at, and a token carrying it is indistinguishable to Postgres from a real one.
+ */
+function claimsFor(userId: string, email: string, now: number) {
+  return {
+    sub: userId,
+    role: "authenticated",
+    aud: "authenticated",
+    email,
+    iss: `${URL}/auth/v1`,
+    iat: now,
+    exp: now + SESSION_TTL_SECONDS,
+  };
+}
+
+/** Exported for the equivalence probe only — not used by the suites. */
+export const __claimsForTesting = claimsFor;
+
+async function userIdForEmail(email: string): Promise<string> {
+  const { data, error } = await admin
+    .from("profiles")
+    .select("id")
+    .eq("email", email)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) throw new Error(`no profile for ${email}; cannot mint a session without a subject`);
+  return data.id;
+}
+
+/**
+ * An authenticated client for a user.
+ *
+ * WHY THIS SIGNS A TOKEN INSTEAD OF LOGGING IN. It used to mint a magic link
+ * and redeem it with `verifyOtp`, which is a real login and was the honest
+ * thing to do — but it made every suite in this repo depend on a rate-limited
+ * remote endpoint that has nothing to do with what any of them assert. That
+ * bill came due: `verifyOtp` is metered separately from `createUser` and
+ * `generateLink`, a full CI run redeems ~48 of them in a burst, and once the
+ * limit was tripped the failures landed in whichever suite happened to run
+ * next — six red tests across three untouched files, none of them broken. A
+ * previous fix wrapped the call in backoff; that turned hard failures into
+ * near-misses (46 of 47 files, 56.5s of a 60s hook) but could not fix it,
+ * because the backoff is structurally capped by the hook timeout and the limit
+ * window is measured in tens of minutes.
+ *
+ * So the login is removed rather than retried. The token below is signed with
+ * the project's own `SUPABASE_JWT_SECRET`, which is what GoTrue signs with and
+ * what PostgREST verifies against — no auth request is made at all, so there
+ * is nothing left to rate-limit. What the suites are testing is RLS, and RLS
+ * sees a verified token and its claims; it has no way to know, and no reason
+ * to care, which service produced it.
+ *
+ * The cost, stated plainly: this no longer exercises the login path. Nothing
+ * here would catch a broken magic link, a bad redirect, or a GoTrue
+ * misconfiguration. That is a real loss of coverage and it belongs to the
+ * Playwright suite, which signs in through the actual UI.
+ *
+ * `userId` is optional only to keep the signature callers already use.
+ */
+export async function sessionFor(email: string, userId?: string): Promise<DB> {
+  if (!JWT_SECRET) {
+    throw new Error(
+      "SUPABASE_JWT_SECRET is required to mint a test session. It is the project's " +
+        "JWT signing secret (Supabase dashboard → Project Settings → API → JWT Settings) " +
+        "and must be set as a CI secret for the CI project only.",
+    );
+  }
+  const sub = userId ?? (await userIdForEmail(email));
+  const token = jwt.sign(claimsFor(sub, email, Math.floor(Date.now() / 1000)), JWT_SECRET, {
+    algorithm: "HS256",
+  });
 
   const client = createClient<Database>(URL, ANON, {
     auth: { autoRefreshToken: false, persistSession: false },
+    global: { headers: { Authorization: `Bearer ${token}` } },
   });
+
   /*
-   * WRAPPED, like the two calls above it — which it was not, and that is the
-   * whole of this fix.
+   * PROVE THE TOKEN IS ACTUALLY BEING HONOURED, before handing the client out.
    *
-   * `withRateLimitRetry` guarded `createUser` and `generateLink`. Neither has
-   * ever been the call that failed. Every rate-limit failure in this repo's CI
-   * — six in one afternoon, always reported against a suite the PR had not
-   * touched — came back with the same stack:
+   * The worry this started from: a token PostgREST will not accept might just
+   * proceed as `anon`, and that would be invisible in exactly the tests that
+   * matter most — a suite asserting "this table is write-only, selects come
+   * back empty" passes perfectly when the caller is anon, for entirely the
+   * wrong reason. Much of this repo's RLS coverage is negative assertions of
+   * that shape, so a silent downgrade would not turn the run red, it would
+   * hollow it out and leave it green.
    *
-   *     SupabaseAuthClient.verifyOtp   node_modules/@supabase/auth-js/...
-   *     sessionFor                     tests/support/auth.ts:93
-   *     createAuthedTestUser           tests/support/auth.ts:107
+   * MEASURED, not assumed: signing with a deliberately wrong secret against
+   * the CI project does NOT downgrade. PostgREST refuses the request outright:
    *
-   * The one call being limited was the only one without the backoff the
-   * module was written to provide. Verifying an OTP is its own rate-limited
-   * endpoint in Supabase, metered separately from creating a user or minting
-   * a link, so guarding those two bought nothing here.
+   *     PGRST301  No suitable key or wrong key type
+   *               "None of the keys was able to decode the JWT"
+   *
+   * So the common misconfiguration — wrong or missing secret — is already
+   * loud, and this check reports it in terms of the actual cause instead of as
+   * a puzzling empty result inside some unrelated assertion.
+   *
+   * What it still genuinely catches is the narrower case a signature check
+   * cannot: a token that verifies fine but does not resolve to the subject we
+   * meant — a `sub` that never got a profile row, a stale id from a user
+   * deleted by a previous run's cleanup, a caller passing someone else's id.
+   * `profiles` is SELECT-able only by its owner (`auth.uid() = id`), so reading
+   * our own row back asks Postgres directly: who do you think is calling? One
+   * cheap round-trip per session against a mistake that would otherwise cost a
+   * false green.
    */
-  await withRateLimitRetry(() =>
-    client.auth
-      .verifyOtp({ token_hash: link.properties.hashed_token, type: "magiclink" })
-      .then((r) => {
-        if (r.error) throw r.error;
-        return r;
-      }),
-  );
+  const { data: seen, error: probeError } = await client
+    .from("profiles")
+    .select("id")
+    .eq("id", sub)
+    .maybeSingle();
+  if (probeError) throw probeError;
+  if (seen?.id !== sub) {
+    throw new Error(
+      `minted session was not honoured as ${sub} — PostgREST is treating this token as anon. ` +
+        `Check SUPABASE_JWT_SECRET matches the project at ${URL}.`,
+    );
+  }
+
   return client;
 }
 
@@ -139,7 +247,7 @@ export async function createAuthedTestUser(
   meta?: Record<string, unknown>,
 ): Promise<TestUser & { client: DB }> {
   const user = await createTestUser(prefix, meta);
-  return { ...user, client: await sessionFor(user.email) };
+  return { ...user, client: await sessionFor(user.email, user.id) };
 }
 
 /**
