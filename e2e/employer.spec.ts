@@ -40,6 +40,61 @@ test.describe("employer surface", () => {
     await deleteOrgsCascade(admin, (orgs ?? []).map((o) => o.id));
   });
 
+  test("the employer masthead collapses its nav on a phone", async ({ authedPage, testUser }) => {
+    /*
+     * The seeker masthead's treatment, ported — and the breakpoint is NOT the
+     * same, which is why this has its own test rather than a shared one.
+     *
+     * That side collapses at 760 because seven nav links need 728px. This one
+     * has three and needs 379, so it only overflows below ~380 — but the link
+     * text wraps to two lines all the way up to 640 ("Company Profile" at 59px
+     * over two lines instead of 103px over one). 640 is where it stops being
+     * cramped, so 640 is the breakpoint. Copying 760 would have hidden a nav
+     * that fits perfectly well from 640 to 759.
+     */
+    const orgName = `E2E Employer Co ${testUser.id.slice(0, 8)}`;
+    await authedPage.goto("/employer");
+    await authedPage.getByLabel("Company name").fill(orgName);
+    await authedPage.getByLabel("Company website domain").fill("e2e-employer.example");
+    await authedPage.getByRole("button", { name: "Create company" }).click();
+    await expect(authedPage).toHaveURL(/\/employer\/jobs$/);
+
+    // ---- phone: nav behind the disclosure, nothing spilling sideways ------
+    await authedPage.setViewportSize({ width: 390, height: 844 });
+    await expect(authedPage.locator("nav")).toBeHidden();
+
+    const trigger = authedPage.getByRole("button", { name: "Main menu" });
+    await expect(trigger).toBeVisible();
+    const box = await trigger.boundingBox();
+    expect(box!.width).toBeGreaterThanOrEqual(40);
+    expect(box!.height).toBeGreaterThanOrEqual(40);
+
+    const menu = authedPage.getByTestId("employer-nav-menu");
+    // Retried: the trigger is server-rendered and clickable before React
+    // attaches its handler. Same hydration race the settings spec hit.
+    await expect(async () => {
+      await trigger.click();
+      await expect(menu).toBeVisible({ timeout: 1000 });
+    }).toPass({ timeout: 15_000 });
+
+    for (const label of ["Jobs Posted", "Company Profile", "Ad Campaigns", "Looking for work?"]) {
+      await expect(menu.getByRole("menuitem", { name: label })).toBeVisible();
+    }
+    await authedPage.keyboard.press("Escape");
+    await expect(menu).toBeHidden();
+
+    const spills = await authedPage.evaluate(() => {
+      const masthead = document.querySelector('[data-testid="employer-masthead"]') as HTMLElement;
+      return masthead.getBoundingClientRect().right > document.documentElement.clientWidth + 1;
+    });
+    expect(spills, "the employer masthead must not overflow the viewport").toBe(false);
+
+    // ---- and above the breakpoint it is the bar again ---------------------
+    await authedPage.setViewportSize({ width: 640, height: 900 });
+    await expect(authedPage.locator("nav")).toBeVisible();
+    await expect(authedPage.getByRole("button", { name: "Main menu" })).toBeHidden();
+  });
+
   test("a new employer can onboard, post a job, and is told why it isn't public", async ({
     authedPage,
     testUser,

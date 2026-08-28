@@ -54,18 +54,64 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
   const q = params.q?.trim() || undefined;
   const supabase = await createClient();
 
-  const [{ data: baseResume, error: baseResumeError }, { data: applications }] = await Promise.all([
+  /*
+   * THE POSTINGS QUERY NO LONGER WAITS ON THE RESUME.
+   *
+   * These three were two awaits: the resume and the applications together,
+   * and then the postings query after both. But the postings query needs
+   * NEITHER for most tabs — it reads `applications` only on Saved, to turn
+   * saved rows into an id filter, and it never reads the resume at all. So on
+   * Recommended, External and Recent it was waiting on two round trips for
+   * information it does not use.
+   *
+   * Now the resume is always in flight alongside; the postings query starts
+   * immediately except on Saved, where it genuinely cannot be built until the
+   * saved ids are known. That one tab keeps the dependency because it has a
+   * real one.
+   *
+   * Each query is wrapped in an async IIFE rather than passed as a bare
+   * builder. A Supabase builder is a thenable that fires on `then`, so a
+   * builder awaited in two places would issue two requests — `applications`
+   * is read here AND inside the Saved branch, which is exactly that shape.
+   */
+  const baseResumeQuery = (async () =>
     supabase
       .from("resumes")
       .select("structured_content")
       .eq("user_id", user.id)
       .eq("is_base", true)
-      .maybeSingle(),
-    supabase
-      .from("applications")
-      .select("job_posting_id, stage")
-      .eq("user_id", user.id),
-  ]);
+      .maybeSingle())();
+
+  const applicationsQuery = (async () =>
+    supabase.from("applications").select("job_posting_id, stage").eq("user_id", user.id))();
+
+  function postingsQuery(savedIds?: string[]) {
+    let query = supabase.from("job_postings").select("*").eq("status", "open");
+    if (tab === "external") query = query.eq("source_type", "external");
+    if (workType) query = query.eq("work_type", workType);
+    if (seniority) query = query.eq("seniority", seniority);
+    if (savedIds) {
+      query = query.in("id", savedIds.length ? savedIds : ["00000000-0000-0000-0000-000000000000"]);
+    }
+    return query;
+  }
+
+  const jobsQuery =
+    tab === "saved"
+      ? applicationsQuery.then(({ data }) =>
+          postingsQuery(
+            (data ?? [])
+              .filter((a) => a.job_posting_id !== null && a.stage === "saved")
+              .map((a) => a.job_posting_id as string),
+          ),
+        )
+      : (async () => postingsQuery())();
+
+  const [
+    { data: baseResume, error: baseResumeError },
+    { data: applications },
+    { data: jobsRaw },
+  ] = await Promise.all([baseResumeQuery, applicationsQuery, jobsQuery]);
 
   // Only fall back to an empty resume when there genuinely isn't one yet
   // (a real, expected state for a new user). A query error is a different
@@ -82,18 +128,6 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
     (applications ?? []).map((a) => [a.job_posting_id, a.stage]),
   );
 
-  let query = supabase.from("job_postings").select("*").eq("status", "open");
-  if (tab === "external") query = query.eq("source_type", "external");
-  if (workType) query = query.eq("work_type", workType);
-  if (seniority) query = query.eq("seniority", seniority);
-  if (tab === "saved") {
-    const savedIds = [...applicationByJobId.entries()]
-      .filter(([id, stage]) => id !== null && stage === "saved")
-      .map(([id]) => id as string);
-    query = query.in("id", savedIds.length ? savedIds : ["00000000-0000-0000-0000-000000000000"]);
-  }
-
-  const { data: jobsRaw } = await query;
   const matchingFilters: Tables<"job_postings">[] = jobsRaw ?? [];
 
   /*
