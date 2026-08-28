@@ -22,10 +22,16 @@ import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "re
  *     moves up by its height unless something holds the space. That is the
  *     spacer.
  *
- *  3. HEIGHT. The spacer cannot be a hardcoded number. This row wraps at
- *     narrow widths — the filter control alone goes from one line to three —
- *     so its height is a function of viewport width. A ResizeObserver watches
- *     both boxes and keeps them in step.
+ *  3. HEIGHT. The spacer cannot be a hardcoded number, because the row's
+ *     height is a function of viewport width.
+ *
+ *     That was overwhelmingly true when this held the Auto-Apply card and the
+ *     whole filter bar too: 488px at 1280 and 1586px at 390, where the filter
+ *     control alone went from one line to three. Those have since moved out —
+ *     what is pinned now is the eyebrow and the four tabs — so the range is
+ *     far narrower. It is not zero: four tabs still wrap on a small screen,
+ *     and a hardcoded height would be wrong on one side of that. The
+ *     ResizeObserver stays; it just has less to absorb.
  *
  * ── The order of the first paint, which is what stops the jump ────────────
  *

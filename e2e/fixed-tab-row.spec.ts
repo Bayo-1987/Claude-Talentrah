@@ -118,9 +118,16 @@ test.describe("the feed's tab row is fixed to the viewport", () => {
     expect(spacer.left).toBeCloseTo(bar.left, 0);
   });
 
-  test("the first card sits where the row leaves it, with no load-time jump", async ({ page }) => {
+  test("content below the row sits where the row leaves it, with no load-time jump", async ({ page }) => {
     await login(page);
 
+    /*
+     * "content below", not "the first card". When this was written the pinned
+     * block held the filters too, so the next thing after it WAS a job card.
+     * The Auto-Apply switch and the filter bar now scroll, so they sit there
+     * instead. What the test measures is unchanged and is the point either
+     * way: whatever follows the spacer must not move when the row mounts.
+     */
     const firstCardTop = () =>
       page.evaluate(() => {
         const spacer = document.querySelector('[data-testid="feed-header-spacer"]');
