@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/cn";
@@ -18,10 +19,49 @@ const NAV_LINKS = [
 export interface MastheadProps {
   creditsBalance: number;
   initials: string;
+  /**
+   * The account's own address. Always present — it is the login identity, so
+   * unlike the name there is no case where it is missing.
+   */
+  email: string;
+  /**
+   * First + last, or "" when the profile has neither.
+   *
+   * Empty is the COMMON case, not an edge one: 26 of 36 production profiles
+   * have no first_name at all. The menu therefore treats the name as optional
+   * decoration above the email rather than as the heading the email explains —
+   * rendering an empty bold line over an address looks like a failed load.
+   */
+  displayName: string;
 }
 
-export function Masthead({ creditsBalance, initials }: MastheadProps) {
+export function Masthead({ creditsBalance, initials, email, displayName }: MastheadProps) {
   const pathname = usePathname();
+  const [accountOpen, setAccountOpen] = useState(false);
+  const accountRef = useRef<HTMLDivElement>(null);
+
+  /*
+   * Same contract as the Farah and Report menus: outside click and Escape both
+   * close. Copied deliberately rather than abstracted — three call sites is
+   * not yet a component, and this one differs in what it closes over.
+   */
+  useEffect(() => {
+    if (!accountOpen) return;
+    function onPointer(e: MouseEvent) {
+      if (accountRef.current && !accountRef.current.contains(e.target as Node)) {
+        setAccountOpen(false);
+      }
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setAccountOpen(false);
+    }
+    document.addEventListener("mousedown", onPointer);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onPointer);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [accountOpen]);
 
   return (
     /*
@@ -120,17 +160,83 @@ export function Masthead({ creditsBalance, initials }: MastheadProps) {
           >
             {creditsBalance} credits · Top up
           </Link>
-          <div className="flex h-[34px] w-[34px] items-center justify-center rounded-full bg-ink font-display text-[12px] font-bold text-paper">
-            {initials}
-          </div>
-          <form action={signOutAction}>
+          {/*
+            The avatar is the account control now, and Sign out lives inside
+            it. It used to be a bare 34px div — decoration, not a target — next
+            to a standalone Sign out link, which put the single most
+            destructive action in the bar permanently one stray click away.
+            Behind a disclosure it takes an intent to open and then an intent
+            to choose.
+
+            The circle stays 34px because that is the design; the BUTTON around
+            it is 40x40, which is the rule CLAUDE.md makes hard. Same trick the
+            brand link above uses.
+          */}
+          <div ref={accountRef} className="relative flex items-center">
             <button
-              type="submit"
-              className="inline-flex min-h-10 min-w-10 items-center justify-center text-[13px] font-semibold text-ink-soft underline underline-offset-2 hover:text-rust"
+              type="button"
+              aria-expanded={accountOpen}
+              aria-haspopup="menu"
+              aria-label="Account menu"
+              onClick={() => setAccountOpen((o) => !o)}
+              className="inline-flex h-10 w-10 items-center justify-center"
             >
-              Sign out
+              <span className="flex h-[34px] w-[34px] items-center justify-center rounded-full bg-ink font-display text-[12px] font-bold text-paper">
+                {initials}
+              </span>
             </button>
-          </form>
+
+            {accountOpen && (
+              <div
+                role="menu"
+                className="absolute top-[calc(100%+8px)] right-0 z-20 w-[248px] border-[1.5px] border-ink bg-card"
+              >
+                {/*
+                  Identity block. The name renders only when there is one —
+                  see MastheadProps.displayName on why absent is the norm. The
+                  email is always shown and carries `break-all`: an address
+                  longer than 248px would otherwise widen the menu or spill
+                  past its border.
+                */}
+                <div className="flex flex-col gap-0.5 px-4 py-3">
+                  {displayName && (
+                    <span className="font-display text-[15px] font-semibold text-ink">
+                      {displayName}
+                    </span>
+                  )}
+                  <span className="text-[12.5px] break-all text-ink-soft">{email}</span>
+                </div>
+
+                <div className="border-t border-line" />
+
+                {/*
+                  One item, not two. Notifications and profile both live at
+                  /settings today, and two labels pointing at one page is a
+                  menu that lies about what it can do.
+                */}
+                <Link
+                  href="/settings"
+                  role="menuitem"
+                  onClick={() => setAccountOpen(false)}
+                  className="flex min-h-10 items-center px-4 text-[13px] font-semibold text-ink no-underline hover:text-rust"
+                >
+                  Settings
+                </Link>
+
+                <div className="border-t border-line" />
+
+                <form action={signOutAction}>
+                  <button
+                    type="submit"
+                    role="menuitem"
+                    className="flex min-h-10 w-full items-center px-4 text-left text-[13px] font-semibold text-ink-soft hover:text-rust"
+                  >
+                    Sign out
+                  </button>
+                </form>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

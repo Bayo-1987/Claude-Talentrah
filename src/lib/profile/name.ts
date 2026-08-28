@@ -78,3 +78,42 @@ export function hasVisibleName(value: string | null | undefined): boolean {
 export function normalizeName(value: string | null | undefined): string {
   return visibleName(value).replace(/\s+/g, " ");
 }
+
+/**
+ * First + last as one string, or "" when the profile has neither.
+ *
+ * Built on visibleName so a name made of zero-width characters collapses to
+ * "" here too, rather than producing a heading that renders as blank space.
+ *
+ * WORTH KNOWING BEFORE YOU RELY ON IT: "" is the majority answer. 26 of 36
+ * production profiles have no first_name and no last_name — signup collects an
+ * email and a password, and the name fields are only populated by OAuth or by
+ * a later visit to Settings. Callers must render the empty case deliberately;
+ * treating this as "always a name" produces a blank line, not a fallback.
+ *
+ * Deliberately does NOT fall back to the email's local part. Showing "ada"
+ * above "ada@example.com" is the same string twice, and it asserts a name the
+ * person never gave us.
+ */
+export function fullVisibleName(
+  first: string | null | undefined,
+  last: string | null | undefined,
+): string {
+  return [visibleName(first), visibleName(last)].filter(Boolean).join(" ");
+}
+
+/**
+ * Up to two uppercase initials, or "" when there is no visible name.
+ *
+ * Uppercased here rather than by the caller: the source is whatever the user
+ * typed, so a profile saved as "ada lovelace" rendered a lowercase "al" in a
+ * circle that is styled for capitals.
+ */
+export function nameInitials(
+  first: string | null | undefined,
+  last: string | null | undefined,
+): string {
+  const f = visibleName(first)[0] ?? "";
+  const l = visibleName(last)[0] ?? "";
+  return `${f}${l}`.toUpperCase();
+}

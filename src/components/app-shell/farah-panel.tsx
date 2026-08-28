@@ -118,21 +118,19 @@ export function FarahPanel({ firstName, initialMessages }: FarahPanelProps) {
       68px is the masthead's height; the panel starts below it.
     */
     <div className="sticky top-[68px] flex max-h-[calc(100vh-68px)] w-[280px] flex-shrink-0 flex-col gap-5.5 overflow-y-auto border-l border-line py-8 pl-7">
-      <div>
-        <span className="font-body text-[13px] font-bold text-ink">{firstName}</span>
-        <div>
-          {/* 61.3 x 18 before this. inline-flex so the box grows rather than
-              the text, which keeps the panel's rhythm intact. */}
-          <a
-            href="/settings"
-            className="inline-flex min-h-10 min-w-10 items-center text-[12.5px] underline underline-offset-2"
-          >
-            View profile
-          </a>
-        </div>
-      </div>
+      {/*
+        The name + "View profile" block that used to sit here is gone — both
+        now live in the masthead's account menu, and repeating the name in the
+        margin next to a greeting that already says it was the same fact twice
+        on one screen.
 
-      <div className="border-t border-line pt-4.5">
+        THE BORDER WENT WITH IT, deliberately. `border-t border-line pt-4.5`
+        was the rule separating that block from this one. With nothing above,
+        it would be a hairline across the top of the panel dividing the eyebrow
+        from the panel's own edge — a line that looks like structure and marks
+        nothing. The panel's `py-8` already sets the top inset.
+      */}
+      <div>
         <EyebrowLabel size="sm">Farah — your co-pilot</EyebrowLabel>
       </div>
 

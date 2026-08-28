@@ -33,14 +33,43 @@ test.beforeEach(async ({ page }) => {
   await page.waitForURL("**/jobs");
 });
 
-test("the panel's View profile link resolves instead of 404ing", async ({ page }) => {
+test("the account menu's Settings item resolves instead of 404ing", async ({ page }) => {
+  /*
+   * This used to click "View profile" in the Farah panel. That link is gone —
+   * the account moved behind the masthead avatar, and the panel no longer
+   * repeats the name and a profile link next to a greeting that already says
+   * the name.
+   *
+   * The ASSERTION did not change, only the route to it: /settings answers 200,
+   * and the affordance the product actually offers reaches it. Renaming the
+   * test to match where the affordance lives now, rather than leaving a name
+   * that describes a link nothing renders.
+   */
   const direct = await page.goto("/settings");
   expect(direct?.status()).toBe(200);
 
   await page.goto("/jobs");
-  await page.getByRole("link", { name: "View profile" }).click();
+  await page.getByRole("button", { name: "Account menu" }).click();
+  await page.getByRole("menuitem", { name: "Settings" }).click();
   await page.waitForURL("**/settings");
   await expect(page.getByRole("heading", { name: "Your profile" })).toBeVisible();
+});
+
+test("the account menu is the only place Sign out lives", async ({ page }) => {
+  /*
+   * The point of the change, pinned: Sign out used to sit in the masthead as a
+   * standing link, one stray click from ending the session. It must not be
+   * reachable until the menu is open.
+   */
+  await page.goto("/jobs");
+  await expect(page.getByRole("button", { name: "Sign out" })).toBeHidden();
+
+  await page.getByRole("button", { name: "Account menu" }).click();
+  await expect(page.getByRole("menuitem", { name: "Sign out" })).toBeVisible();
+
+  // Escape closes it again, same contract as the card menus.
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("menuitem", { name: "Sign out" })).toBeHidden();
 });
 
 test("a save lands, and the rest of the shell agrees with it", async ({ page }) => {
