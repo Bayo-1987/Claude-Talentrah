@@ -267,3 +267,92 @@ export async function decideCampaignAction(
       : "Rejected.",
   };
 }
+
+/**
+ * Move one piece of feedback through triage.
+ *
+ * The odd one out among the four, because there is nothing to approve: a bug
+ * report is not right or wrong, it is read or unread. So the states are about
+ * whether anyone is going to act, and `declined` exists so that "we read this
+ * and are not acting on it" has somewhere honest to go — without it an
+ * operator either marks it resolved, which makes the word mean two things, or
+ * leaves it open forever.
+ *
+ * `triaged_by` is set on every transition rather than only the first, so the
+ * column answers "who put it in the state it is in now" rather than "who
+ * touched it first". `admin_audit_log` keeps the whole chain, which is where
+ * the earlier operators remain visible.
+ *
+ * There is no path back to `new`. Un-triaging would erase the one thing the
+ * column is for; an operator who changes their mind moves it to another
+ * decided state, and the log records both.
+ */
+export async function decideFeedbackAction(
+  _prev: ModerationState,
+  formData: FormData,
+): Promise<ModerationState> {
+  const admin = await requireAdmin();
+  const id = String(formData.get("id") ?? "");
+  const status = String(formData.get("decision") ?? "");
+  const note = String(formData.get("note") ?? "").trim();
+
+  const ALLOWED = ["in_review", "resolved", "declined"] as const;
+  type Allowed = (typeof ALLOWED)[number];
+  if (!id || !(ALLOWED as readonly string[]).includes(status)) {
+    return { status: "error", message: "Pick a triage state.", targetId: id };
+  }
+  if (status === "declined" && !note) {
+    // Declining without saying why leaves nothing for the next operator to
+    // check, and nothing to answer if the person follows up.
+    return { status: "error", message: "Declining needs a reason.", targetId: id };
+  }
+
+  const supabase = createServiceRoleClient();
+  const { data, error } = await supabase
+    .from("feedback")
+    .update({
+      status: status as Allowed,
+      triaged_by: admin.adminId,
+      triaged_at: new Date().toISOString(),
+      // Only overwrite the note when one was given, so moving an item on does
+      // not silently erase the reasoning attached to its previous state.
+      ...(note ? { triage_note: note } : {}),
+    })
+    .eq("id", id)
+    // The precondition, in the statement: `new` is a one-way door out, and an
+    // item already in the state being asked for is not re-decided by whoever
+    // clicks second.
+    .neq("status", status as Allowed)
+    .select("id, status");
+
+  if (error) {
+    console.error("[admin-moderation] feedback", error);
+    return { status: "error", message: "Something went wrong on our end.", targetId: id };
+  }
+  if (!data?.length) {
+    return {
+      status: "error",
+      message: "Already in that state — reload to see the current queue.",
+      targetId: id,
+    };
+  }
+
+  await recordAdminAction({
+    identity: admin,
+    action: `feedback.${status}`,
+    targetTable: "feedback",
+    targetId: id,
+    // The note, not the message. The audit log is read by operators and the
+    // feedback text is the user's words — duplicating it into a second table
+    // widens where those words live for no gain.
+    detail: { note: note || null },
+  });
+
+  revalidatePath("/admin/feedback");
+  const LABEL: Record<string, string> = {
+    in_review: "Marked in review.",
+    resolved: "Marked resolved.",
+    declined: "Declined, with your reason recorded.",
+  };
+  return { status: "success", targetId: id, message: LABEL[status] };
+}

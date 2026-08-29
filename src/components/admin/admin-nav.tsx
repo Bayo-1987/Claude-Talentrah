@@ -4,7 +4,7 @@ import { queueCounts } from "@/lib/admin/moderation/queues";
 import { PATH_HEADER } from "@/lib/auth/redirect-to";
 
 /**
- * The dashboard's own nav, across the three moderation areas.
+ * The dashboard's own nav, across the moderation areas.
  *
  * Not the seeker masthead and not a variant of it — CLAUDE.md's "the masthead
  * doubles as app nav" rule is about the consumer product, and an operator here
@@ -26,6 +26,7 @@ const ITEMS = [
   { href: "/admin/scholarships", label: "Scholarships", key: "scholarships" },
   { href: "/admin/reports", label: "Reported postings", key: "reports" },
   { href: "/admin/campaigns", label: "Ad campaigns", key: "campaigns" },
+  { href: "/admin/feedback", label: "Feedback", key: "feedback" },
 ] as const;
 
 export async function AdminNav() {

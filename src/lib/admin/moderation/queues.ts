@@ -166,20 +166,94 @@ export async function pendingCampaigns(): Promise<PendingCampaign[]> {
   }));
 }
 
-/** Counts for the nav, in one place so the three screens and the shell agree. */
+export type FeedbackStatus = "new" | "in_review" | "resolved" | "declined";
+
+export interface FeedbackItem {
+  id: string;
+  category: string;
+  message: string;
+  pagePath: string | null;
+  createdAt: string;
+  status: FeedbackStatus;
+  triagedAt: string | null;
+  triageNote: string | null;
+  /** The operator who last changed the status, resolved to a display name. */
+  triagedByName: string | null;
+}
+
+/**
+ * Feedback awaiting triage.
+ *
+ * WHAT IS NOT SHOWN, and it is the whole reason this queue took a migration
+ * rather than a SELECT: nothing about the person who wrote it. `feedback` is a
+ * write-only mailbox (0054) precisely because it carries other people's words
+ * about the product, their employer, and sometimes us. Reading it as an
+ * operator is a legitimate need; identifying the author to act on their words
+ * is a different one, and this screen does not have it. `user_id` is not
+ * selected at all — not selected-and-hidden, which is one careless render away
+ * from being shown.
+ *
+ * The consequence is deliberate and worth stating: an operator cannot reply to
+ * feedback from here, because they cannot see who sent it. Following up needs
+ * a decision about contacting users that nobody has made yet, and a queue that
+ * quietly exposed every author's identity would have made it by default.
+ *
+ * `profiles` is joined ONLY for the triaging admin's own name — an operator,
+ * not a user, and someone whose name belongs on their own decision.
+ */
+export async function feedbackQueue(
+  statuses: FeedbackStatus[] = ["new", "in_review"],
+): Promise<FeedbackItem[]> {
+  const supabase = createServiceRoleClient();
+  const { data, error } = await supabase
+    .from("feedback")
+    .select(
+      "id, category, message, page_path, created_at, status, triaged_at, triage_note, profiles!feedback_triaged_by_fkey(first_name, last_name)",
+    )
+    .in("status", statuses)
+    .order("created_at", { ascending: false });
+
+  if (error) throw error;
+
+  return (data ?? []).map((r) => {
+    const triager = r.profiles;
+    const name = triager
+      ? [triager.first_name, triager.last_name].filter(Boolean).join(" ").trim()
+      : "";
+    return {
+      id: r.id,
+      category: r.category,
+      message: r.message,
+      pagePath: r.page_path,
+      createdAt: r.created_at,
+      status: r.status as FeedbackStatus,
+      triagedAt: r.triaged_at,
+      triageNote: r.triage_note,
+      triagedByName: name || null,
+    };
+  });
+}
+
+/** Counts for the nav, in one place so the screens and the shell agree. */
 export async function queueCounts(): Promise<{
   scholarships: number;
   reports: number;
   campaigns: number;
+  feedback: number;
 }> {
-  const [scholarships, reports, campaigns] = await Promise.all([
+  const [scholarships, reports, campaigns, feedback] = await Promise.all([
     pendingScholarships(),
     reportedPostings(),
     pendingCampaigns(),
+    // Untriaged only. Counting `in_review` here would make the badge stop
+    // falling as an operator works through the queue, which is the one thing
+    // a count on a nav is for.
+    feedbackQueue(["new"]),
   ]);
   return {
     scholarships: scholarships.length,
     reports: reports.length,
     campaigns: campaigns.length,
+    feedback: feedback.length,
   };
 }

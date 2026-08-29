@@ -885,6 +885,10 @@ export type Database = {
       }
       feedback: {
         Row: {
+          status: Database["public"]["Enums"]["feedback_status"]
+          triage_note: string | null
+          triaged_at: string | null
+          triaged_by: string | null
           category: Database["public"]["Enums"]["feedback_category"]
           created_at: string
           id: string
@@ -893,6 +897,10 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          status?: Database["public"]["Enums"]["feedback_status"]
+          triage_note?: string | null
+          triaged_at?: string | null
+          triaged_by?: string | null
           category: Database["public"]["Enums"]["feedback_category"]
           created_at?: string
           id?: string
@@ -901,6 +909,10 @@ export type Database = {
           user_id: string
         }
         Update: {
+          status?: Database["public"]["Enums"]["feedback_status"]
+          triage_note?: string | null
+          triaged_at?: string | null
+          triaged_by?: string | null
           category?: Database["public"]["Enums"]["feedback_category"]
           created_at?: string
           id?: string
@@ -909,6 +921,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "feedback_triaged_by_fkey"
+            columns: ["triaged_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "feedback_user_id_fkey"
             columns: ["user_id"]
@@ -2071,6 +2090,7 @@ export type Database = {
       employment_type: "full_time" | "part_time" | "contract" | "internship"
       farah_message_role: "user" | "farah"
       feedback_category: "bug" | "idea" | "other"
+      feedback_status: "new" | "in_review" | "resolved" | "declined"
       job_report_reason:
         | "scam"
         | "closed_but_listed"
@@ -2277,6 +2297,7 @@ export const Constants = {
       employment_type: ["full_time", "part_time", "contract", "internship"],
       farah_message_role: ["user", "farah"],
       feedback_category: ["bug", "idea", "other"],
+      feedback_status: ["new", "in_review", "resolved", "declined"],
       job_report_reason: [
         "scam",
         "closed_but_listed",
