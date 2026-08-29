@@ -35,12 +35,27 @@ import { scrollToFarahPanel } from "@/lib/farah/scroll-to-panel";
  * is a small bordered box in the design system's own language — 1.5px ink, no
  * radius, no shadow — that can be ignored without being dismissed.
  *
- * ── LAYERING ──────────────────────────────────────────────────────────────
+ * ── LAYERING, AND WHY IT DOES NOT SWALLOW CLICKS ──────────────────────────
  *
  * z-[19]: above FarahMobileTab (18) so it is never behind the bar it is
  * pointing at, and below the masthead band (20) so a masthead dropdown still
- * wins. It is positioned under the masthead at every width, so the two do not
- * overlap in practice either.
+ * wins.
+ *
+ * `pointer-events-none` on the box, `pointer-events-auto` on its two buttons,
+ * and that is a bug fix rather than a flourish. This thing appears UNBIDDEN,
+ * on every authenticated page, over a feed whose surface is almost entirely
+ * interactive — job cards, filter chips, the Auto-Apply toggle. As a plain
+ * fixed box it therefore blocked whatever it happened to land on: CI caught it
+ * on `auto-apply.spec.ts`, where Playwright reported the hint "intercepts
+ * pointer events" and the toggle could not be clicked for 30 seconds.
+ *
+ * There is no safe place to put it instead. The centre column is cards, the
+ * right column is the panel it points at, and moving it down only changes
+ * which control it covers. So the box does not take clicks at all — everything
+ * behind it stays usable, and only the two buttons are targets.
+ *
+ * The rule this encodes: an uninvited overlay may occupy space, but it may not
+ * take the app away from someone who is trying to use it.
  */
 export function FarahFirstVisitHint() {
   // Optimistic, and the state is local rather than derived from the action.
@@ -71,7 +86,7 @@ export function FarahFirstVisitHint() {
       role="status"
       aria-live="polite"
       className={[
-        "fixed z-[19] w-[min(320px,calc(100vw-32px))] border-[1.5px] border-ink bg-card px-4 pt-3.5 pb-4 print:hidden",
+        "pointer-events-none fixed z-[19] w-[min(320px,calc(100vw-32px))] border-[1.5px] border-ink bg-card px-4 pt-3.5 pb-4 print:hidden",
         // below 760: just above the fixed bar (58.5px + a gap), centred.
         "bottom-[76px] left-1/2 -translate-x-1/2",
         /*
@@ -147,14 +162,14 @@ export function FarahFirstVisitHint() {
                 scrollToFarahPanel();
                 dismiss();
               }}
-              className="inline-flex min-h-10 items-center justify-center border-none bg-ink px-4 font-body text-[13px] font-semibold text-paper transition-colors hover:bg-rust"
+              className="pointer-events-auto inline-flex min-h-10 items-center justify-center border-none bg-ink px-4 font-body text-[13px] font-semibold text-paper transition-colors hover:bg-rust"
             >
               Show me
             </button>
             <button
               type="button"
               onClick={dismiss}
-              className="inline-flex min-h-10 min-w-10 items-center justify-center px-1 font-body text-[13px] font-semibold text-ink-soft hover:text-rust"
+              className="pointer-events-auto inline-flex min-h-10 min-w-10 items-center justify-center px-1 font-body text-[13px] font-semibold text-ink-soft hover:text-rust"
             >
               Got it
             </button>

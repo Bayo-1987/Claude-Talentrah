@@ -129,6 +129,66 @@ test.describe("the first-visit Farah hint", () => {
     }
   });
 
+  test("does not take clicks away from the page underneath it", async ({ page }) => {
+    /*
+     * THE REGRESSION THIS EXISTS FOR, and it reached CI before it was caught.
+     *
+     * The hint appears UNBIDDEN over a feed whose surface is almost entirely
+     * interactive. As a plain fixed box it blocked whatever it landed on:
+     * auto-apply.spec.ts failed with Playwright reporting that the hint
+     * "intercepts pointer events" and the toggle unclickable for 30 seconds.
+     *
+     * Asserted functionally rather than by reading the class list —
+     * elementFromPoint at the hint's own centre must return something that is
+     * NOT the hint, which is the browser's own answer to "what would a click
+     * here actually hit".
+     */
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await login(page);
+
+    const hint = page.getByTestId("farah-first-visit-hint");
+    await expect(hint).toBeVisible();
+
+    const hitTest = await page.evaluate(() => {
+      const el = document.querySelector('[data-testid="farah-first-visit-hint"]') as HTMLElement;
+      const b = el.getBoundingClientRect();
+      // A point inside the box but away from its two buttons, which sit low.
+      const at = document.elementFromPoint(b.left + b.width / 2, b.top + 12);
+      return {
+        boxTakesClicks: getComputedStyle(el).pointerEvents !== "none",
+        hitIsTheHint: !!at && el.contains(at),
+      };
+    });
+
+    expect(hitTest.boxTakesClicks, "the hint must not swallow pointer events").toBe(false);
+    expect(
+      hitTest.hitIsTheHint,
+      "a click over the hint is being captured by it instead of the page",
+    ).toBe(false);
+
+    // …and its own buttons still work, which is the half that makes the above
+    // safe rather than merely permissive.
+    await hint.getByRole("button", { name: "Got it" }).click();
+    await expect(hint).toHaveCount(0);
+
+    /*
+     * WAIT FOR THE WRITE BEFORE LEAVING, and this is a real fix rather than
+     * defensive padding. Dismissal is optimistic: the box goes on the click and
+     * the Server Action persists afterwards. Ending the test here let that
+     * write land AFTER afterEach had reset the flag, so the NEXT test started
+     * with the hint already dismissed and failed on `toBeVisible` — which
+     * looked like a bug in the component and was a bug in this file.
+     */
+    await expect(async () => {
+      const { data } = await admin!
+        .from("profiles")
+        .select("farah_hint_dismissed_at")
+        .eq("email", "demo@talentrah.dev")
+        .single();
+      expect(data?.farah_hint_dismissed_at).not.toBeNull();
+    }).toPass({ timeout: 10_000 });
+  });
+
   test("dismissing it is permanent, and survives a reload", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await login(page);
