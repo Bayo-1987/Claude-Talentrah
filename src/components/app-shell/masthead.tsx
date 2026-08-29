@@ -5,6 +5,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/cn";
 import { signOutAction } from "@/lib/auth/actions";
+import { FarahMark } from "@/components/ui/farah-mark";
+import { scrollToFarahPanel } from "@/lib/farah/scroll-to-panel";
 
 const NAV_LINKS = [
   { href: "/jobs", label: "Jobs" },
@@ -35,7 +37,12 @@ export interface MastheadProps {
   displayName: string;
 }
 
-export function Masthead({ creditsBalance, initials, email, displayName }: MastheadProps) {
+export function Masthead({
+  creditsBalance,
+  initials,
+  email,
+  displayName,
+}: MastheadProps) {
   const pathname = usePathname();
   const [accountOpen, setAccountOpen] = useState(false);
   const accountRef = useRef<HTMLDivElement>(null);
@@ -52,7 +59,8 @@ export function Masthead({ creditsBalance, initials, email, displayName }: Masth
   useEffect(() => {
     if (!navOpen) return;
     function onPointer(e: MouseEvent) {
-      if (navRef.current && !navRef.current.contains(e.target as Node)) setNavOpen(false);
+      if (navRef.current && !navRef.current.contains(e.target as Node))
+        setNavOpen(false);
     }
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") setNavOpen(false);
@@ -86,7 +94,10 @@ export function Masthead({ creditsBalance, initials, email, displayName }: Masth
   useEffect(() => {
     if (!accountOpen) return;
     function onPointer(e: MouseEvent) {
-      if (accountRef.current && !accountRef.current.contains(e.target as Node)) {
+      if (
+        accountRef.current &&
+        !accountRef.current.contains(e.target as Node)
+      ) {
         setAccountOpen(false);
       }
     }
@@ -107,7 +118,10 @@ export function Masthead({ creditsBalance, initials, email, displayName }: Masth
       here — see the note there. Putting it on this div looked right, built
       clean, and did nothing: measured at top:-2500 after a 2500px scroll.
     */
-    <div data-testid="masthead" className="border-b-[2.5px] border-ink bg-paper">
+    <div
+      data-testid="masthead"
+      className="border-b-[2.5px] border-ink bg-paper"
+    >
       <div className="flex h-[68px] items-center justify-between px-8">
         <div className="flex items-center gap-4 min-[760px]:gap-9">
           {/*
@@ -116,7 +130,10 @@ export function Masthead({ creditsBalance, initials, email, displayName }: Masth
             40, which inside a 68px flex-centred bar changes nothing visually
             and everything about the tap.
           */}
-          <Link href="/jobs" className="flex min-h-10 flex-shrink-0 items-center no-underline">
+          <Link
+            href="/jobs"
+            className="flex min-h-10 flex-shrink-0 items-center no-underline"
+          >
             {/* eslint-disable-next-line @next/next/no-img-element -- static brand SVG, next/image's optimizer needs SVG allow-listing for no real benefit here */}
             <img
               src="/talentrah-horizontal.svg"
@@ -156,13 +173,78 @@ export function Masthead({ creditsBalance, initials, email, displayName }: Masth
                      * With the colour set in exactly one branch there is
                      * nothing to conflict with.
                      */
-                    active ? "border-rust text-rust" : "border-transparent hover:text-rust-hover",
+                    active
+                      ? "border-rust text-rust"
+                      : "border-transparent hover:text-rust-hover",
                   )}
                 >
                   {link.label}
                 </Link>
               );
             })}
+
+            {/*
+              "Ask Farah" is NOT in NAV_LINKS, and that is the point rather
+              than an oversight. Every entry in that list is a route, and the
+              map renders each one as a <Link> with an active state derived
+              from the pathname. Farah is a panel already on this page, so it
+              has no href to be active for — putting it in the list would mean
+              inventing a fake route or special-casing the map, and both are
+              worse than one sibling element that says what it is.
+
+              Styled to match the links either side of it, including the
+              transparent bottom border, so the bar reads as one row of items
+              and not as a button someone dropped into a nav. It never takes
+              the rust border, because there is no page it can be "on".
+
+              ── WHY xl AND NOT 760, WHICH IS WHAT WAS ASKED FOR ─────────────
+
+              Because this row has NO horizontal slack at 760, measured rather
+              than guessed. On main, before this item existed, the masthead's
+              scrollWidth at a 760px viewport was exactly 760 — it fits, with
+              nothing to spare, which is what "the breakpoint was derived from
+              the 728px intrinsic width" means in practice.
+
+              Adding a labelled item therefore overflows immediately: with this
+              button at 760 the document scrollWidth measured 809, reintroducing
+              the sideways scroll the 760 breakpoint exists to prevent. Worse
+              and quieter, at 900 and 1024 the document did NOT overflow but
+              the nav spilled out of its shrunken flex box and OVERLAPPED "Post
+              a job" — `postLeft - askRight` came back as -107 and -14. A
+              scrollWidth assertion would not have caught that; measuring the
+              gap between the two elements did. An icon-only version was
+              considered and does not help: with zero slack, 40px is still more
+              than 0.
+
+              2xl (1536), and the jump from xl is the interesting part. At 1280
+              this cleared "Post a job" by 18px on macOS and by EXACTLY 0 on
+              CI's Linux runner — same code, same viewport, different font
+              metrics, so the same row renders about 18px wider there. An 18px
+              margin that is 0 on another platform is not a margin, and real
+              users are on all three platforms with their own font fallbacks
+              and zoom levels. Tightening the nav's own 22px rhythm to buy the
+              space back was tried and rejected: trading a global design
+              property for one convenience item, and still only buying ~28px
+              against variance nobody can enumerate.
+
+              At 2xl there is ~256px of slack rather than tens of pixels, which
+              survives a platform that renders wider.
+
+              Nothing is lost below it. The Farah panel is a sticky column that
+              is ON SCREEN at every width from 760 up, so this item is a
+              convenience wherever it does not appear, never the only route. It
+              is below 760 — where the panel stacks under the feed and off
+              screen — that an affordance is actually required, and
+              FarahMobileTab is that affordance.
+            */}
+            <button
+              type="button"
+              onClick={scrollToFarahPanel}
+              className="hidden min-h-10 min-w-10 items-center justify-center gap-1.5 border-b-[2.5px] border-transparent font-body text-[14.5px] font-semibold text-ink hover:text-rust-hover 2xl:flex"
+            >
+              <FarahMark size={18} />
+              Ask Farah
+            </button>
           </nav>
 
           {/*
@@ -170,7 +252,10 @@ export function Masthead({ creditsBalance, initials, email, displayName }: Masth
             the account menu below and the card menus on the feed: outside
             click and Escape both close.
           */}
-          <div ref={navRef} className="relative flex items-center min-[760px]:hidden">
+          <div
+            ref={navRef}
+            className="relative flex items-center min-[760px]:hidden"
+          >
             <button
               type="button"
               aria-expanded={navOpen}
@@ -179,7 +264,13 @@ export function Masthead({ creditsBalance, initials, email, displayName }: Masth
               onClick={() => setNavOpen((o) => !o)}
               className="inline-flex h-10 w-10 items-center justify-center"
             >
-              <svg width="18" height="14" viewBox="0 0 18 14" fill="none" aria-hidden="true">
+              <svg
+                width="18"
+                height="14"
+                viewBox="0 0 18 14"
+                fill="none"
+                aria-hidden="true"
+              >
                 <path
                   d="M1 1h16M1 7h16M1 13h16"
                   stroke="currentColor"
@@ -297,7 +388,9 @@ export function Masthead({ creditsBalance, initials, email, displayName }: Masth
                       {displayName}
                     </span>
                   )}
-                  <span className="text-[12.5px] break-all text-ink-soft">{email}</span>
+                  <span className="text-[12.5px] break-all text-ink-soft">
+                    {email}
+                  </span>
                 </div>
 
                 <div className="border-t border-line" />

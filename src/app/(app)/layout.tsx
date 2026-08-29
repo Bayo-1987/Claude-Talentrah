@@ -2,11 +2,16 @@ import { requireUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
 import { Masthead } from "@/components/app-shell/masthead";
 import { FarahPanel } from "@/components/app-shell/farah-panel";
+import { FarahMobileTab } from "@/components/app-shell/farah-mobile-tab";
 import { visibleName, fullVisibleName, nameInitials } from "@/lib/profile/name";
 
 const INITIAL_HISTORY_LIMIT = 20;
 
-export default async function AppLayout({ children }: { children: React.ReactNode }) {
+export default async function AppLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const { user, profile } = await requireUser();
   /*
    * visibleName, not the raw column: neither of these trimmed at all before,
@@ -50,7 +55,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         z-20 keeps it above the jobs page's own sticky filter header (z-10) so
         the two never contend for the same band of screen.
       */}
-      <div data-testid="masthead-band" className="sticky top-0 z-20 print:hidden">
+      <div
+        data-testid="masthead-band"
+        className="sticky top-0 z-20 print:hidden"
+      >
         <Masthead
           creditsBalance={profile.credits_balance}
           initials={initials}
@@ -80,9 +88,18 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           {children}
         </div>
         <div className="print:hidden">
-          <FarahPanel firstName={visibleName(profile.first_name) || "there"} initialMessages={initialMessages} />
+          <FarahPanel
+            firstName={visibleName(profile.first_name) || "there"}
+            initialMessages={initialMessages}
+          />
         </div>
       </div>
+      {/*
+        Rendered from the AUTHENTICATED shell only. The marketing pages under
+        (marketing) have their own layout and no Farah panel, so a global tab
+        would point at an element that is not there.
+      */}
+      <FarahMobileTab />
     </div>
   );
 }
