@@ -66,6 +66,8 @@ Via the Supabase MCP connector's `apply_migration` (pass the name without the
 | `0062_course_recommendation_seed.sql` | applied 2026-08-29 to **both** projects. Recovers the nine catalog rows 0061's applied form inserted and its committed form omitted; idempotent, so it inserted nothing on production/CI and only records that the repo accounts for them |
 | `0063_course_recommendations_inactive.sql` | applied 2026-08-29 to **both** projects — switches the nine placeholder rows off so a fresh database matches the two real ones. See *The course catalog ships switched OFF* below |
 | `0064_moderation_attribution.sql` | applied 2026-08-29 to **both** projects |
+| `0065_feedback_triage.sql` | applied 2026-08-29 to **both** projects — row added after the fact; it was missing while 0064 and 0066 were listed, which reads as a gap rather than as an omission |
+| `0066_farah_hint_dismissed.sql` | applied 2026-08-29 to **CI only** while its PR is in review — production on merge. Adds `profiles.farah_hint_dismissed_at` and grants UPDATE on it, widening 0030's column list by one. See the file header for why that column is safe to grant, and `tests/rls/column-privileges.test.ts` for the assertion that it did not widen anything else |
 
 ## The course catalog ships switched OFF
 

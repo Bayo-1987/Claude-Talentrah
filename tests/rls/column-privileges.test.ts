@@ -228,6 +228,48 @@ describe("profiles: a user cannot rewrite what their account is worth (0030)", (
     expect(data?.first_name).toBe("Ada");
     expect(data?.country).toBe("Nigeria");
   });
+
+  it("0066 widened the grant list by exactly one harmless column", async () => {
+    /*
+     * A DELIBERATE WIDENING, PINNED. 0030's grant list is narrow on purpose,
+     * so every addition to it is a decision someone should be able to find
+     * later. 0066 added `farah_hint_dismissed_at` — whether this user has
+     * dismissed a piece of UI chrome — on the reasoning that it carries no
+     * money, trust or identity, and that nothing reads it to decide anything
+     * about anyone else.
+     *
+     * This asserts BOTH halves of that claim, because the first without the
+     * second is how a grant list quietly stops meaning anything: the new
+     * column is writable, and the column that costs money still is not, in the
+     * same session, against the same row.
+     */
+    const { error } = await user.client
+      .from("profiles")
+      .update({ farah_hint_dismissed_at: new Date().toISOString() })
+      .eq("id", user.id);
+    expect(error, "0066 must let a user dismiss their own hint").toBeNull();
+
+    const { data: after } = await admin
+      .from("profiles")
+      .select("farah_hint_dismissed_at, credits_balance")
+      .eq("id", user.id)
+      .single();
+    expect(after?.farah_hint_dismissed_at).not.toBeNull();
+
+    const before = after?.credits_balance;
+    const { error: refused } = await user.client
+      .from("profiles")
+      .update({ credits_balance: 999_999 })
+      .eq("id", user.id);
+    expect(refused, "widening the grant list must not have widened it further").not.toBeNull();
+
+    const { data: still } = await admin
+      .from("profiles")
+      .select("credits_balance")
+      .eq("id", user.id)
+      .single();
+    expect(still?.credits_balance).toBe(before);
+  });
 });
 
 describe("organizations: a company cannot verify itself (0028)", () => {

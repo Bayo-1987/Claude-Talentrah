@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Masthead } from "@/components/app-shell/masthead";
 import { FarahPanel } from "@/components/app-shell/farah-panel";
 import { FarahMobileTab } from "@/components/app-shell/farah-mobile-tab";
+import { FarahFirstVisitHint } from "@/components/app-shell/farah-first-visit-hint";
 import { visibleName, fullVisibleName, nameInitials } from "@/lib/profile/name";
 
 const INITIAL_HISTORY_LIMIT = 20;
@@ -100,6 +101,21 @@ export default async function AppLayout({
         would point at an element that is not there.
       */}
       <FarahMobileTab />
+      {/*
+        The first-visit hint, gated on the SERVER rather than in the client.
+
+        Rendering it always and letting it hide itself would mean every user who
+        dismissed it months ago still ships the component, mounts it, and
+        removes it after paint — a flash of chrome on every page load for the
+        people who least want to see it. `profile` is already loaded above, so
+        the check costs nothing.
+
+        Null, not falsy: the column is a timestamp, and `!profile.x` would also
+        be true for an empty string. There is no empty string in a timestamptz,
+        but writing the check that way is how the next nullable column gets it
+        wrong.
+      */}
+      {profile.farah_hint_dismissed_at === null && <FarahFirstVisitHint />}
     </div>
   );
 }

@@ -95,3 +95,39 @@ export async function updateProfileAction(
 
   return { status: "success", error: null };
 }
+
+/**
+ * Mark the first-visit Farah hint as dismissed, for this user, for good.
+ *
+ * NO FORM STATE AND NO RETURN VALUE, deliberately. The hint hides itself
+ * optimistically the moment it is clicked, because the thing being persisted is
+ * "do not show this again" — if the write fails, the correct experience is
+ * still that the hint goes away now, and the worst case is that it appears once
+ * more on the next visit. Surfacing an error banner over a piece of dismissed
+ * chrome would be louder than the chrome.
+ *
+ * `farah_hint_dismissed_at` is one of the columns 0030's grant list allows an
+ * authenticated user to write (widened by 0066, with the reasoning there). It
+ * carries no money, trust or identity, so scoping this to the session user is
+ * about correctness rather than containment: without `.eq("id", user.id)` a
+ * user could clear someone else's hint, which RLS already prevents, and the
+ * explicit filter is what makes that obvious to the next reader.
+ */
+export async function dismissFarahHintAction(): Promise<void> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({ farah_hint_dismissed_at: new Date().toISOString() })
+    .eq("id", user.id);
+
+  // Logged, not thrown, and not silently dropped either. A Supabase update
+  // that is refused RESOLVES with an error rather than throwing — the failure
+  // mode this repo has scar tissue about — so the check has to be explicit
+  // even where the consequence is only that a hint reappears.
+  if (error) console.error("[farah-hint] could not persist dismissal:", error.message);
+}
