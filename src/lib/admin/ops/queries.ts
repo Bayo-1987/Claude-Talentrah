@@ -190,11 +190,26 @@ export interface RateLimitBucket {
  */
 export async function rateLimitBuckets(): Promise<RateLimitBucket[]> {
   const supabase = createServiceRoleClient();
-  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  /*
+   * TRUNCATED TO THE HOUR, and that is not a rounding preference.
+   *
+   * `window_start` is hour-truncated by consume_rate_limit. Comparing it
+   * against a wall-clock `now - 24h` — 13:47, say — silently drops the 13:00
+   * window at the far end, so the screen would claim 24 hours and show 23 plus
+   * a fragment. The same mismatch, with `>` instead of `>=`, is what made me
+   * report "no rate-limit rows at all" during the CI investigation on
+   * 2026-08-29: the one window that mattered was exactly on the boundary, and
+   * a strict comparison against a truncated column dropped precisely it.
+   *
+   * A filter that returns plausible-and-empty does not announce itself. On a
+   * truncated column, truncate the bound too, and use `>=`.
+   */
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  since.setUTCMinutes(0, 0, 0);
   const { data, error } = await supabase
     .from("api_rate_limits")
     .select("bucket, user_id, window_start, request_count")
-    .gte("window_start", since);
+    .gte("window_start", since.toISOString());
   if (error) throw error;
 
   const grouped = new Map<
