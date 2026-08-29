@@ -885,39 +885,39 @@ export type Database = {
       }
       feedback: {
         Row: {
-          status: Database["public"]["Enums"]["feedback_status"]
-          triage_note: string | null
-          triaged_at: string | null
-          triaged_by: string | null
           category: Database["public"]["Enums"]["feedback_category"]
           created_at: string
           id: string
           message: string
           page_path: string | null
+          status: Database["public"]["Enums"]["feedback_status"]
+          triage_note: string | null
+          triaged_at: string | null
+          triaged_by: string | null
           user_id: string
         }
         Insert: {
-          status?: Database["public"]["Enums"]["feedback_status"]
-          triage_note?: string | null
-          triaged_at?: string | null
-          triaged_by?: string | null
           category: Database["public"]["Enums"]["feedback_category"]
           created_at?: string
           id?: string
           message: string
           page_path?: string | null
-          user_id: string
-        }
-        Update: {
           status?: Database["public"]["Enums"]["feedback_status"]
           triage_note?: string | null
           triaged_at?: string | null
           triaged_by?: string | null
+          user_id: string
+        }
+        Update: {
           category?: Database["public"]["Enums"]["feedback_category"]
           created_at?: string
           id?: string
           message?: string
           page_path?: string | null
+          status?: Database["public"]["Enums"]["feedback_status"]
+          triage_note?: string | null
+          triaged_at?: string | null
+          triaged_by?: string | null
           user_id?: string
         }
         Relationships: [
@@ -981,7 +981,6 @@ export type Database = {
       }
       job_postings: {
         Row: {
-          removed_by: string | null
           company_logo_url: string | null
           company_name: string
           created_at: string
@@ -998,6 +997,7 @@ export type Database = {
           posted_at: string
           removal_reason: string | null
           removed_at: string | null
+          removed_by: string | null
           seniority: Database["public"]["Enums"]["seniority_level"] | null
           source_type: Database["public"]["Enums"]["job_source_type"]
           status: Database["public"]["Enums"]["job_status"]
@@ -1007,7 +1007,6 @@ export type Database = {
           years_experience_min: number | null
         }
         Insert: {
-          removed_by?: string | null
           company_logo_url?: string | null
           company_name: string
           created_at?: string
@@ -1026,6 +1025,7 @@ export type Database = {
           posted_at?: string
           removal_reason?: string | null
           removed_at?: string | null
+          removed_by?: string | null
           seniority?: Database["public"]["Enums"]["seniority_level"] | null
           source_type: Database["public"]["Enums"]["job_source_type"]
           status?: Database["public"]["Enums"]["job_status"]
@@ -1035,7 +1035,6 @@ export type Database = {
           years_experience_min?: number | null
         }
         Update: {
-          removed_by?: string | null
           company_logo_url?: string | null
           company_name?: string
           created_at?: string
@@ -1054,6 +1053,7 @@ export type Database = {
           posted_at?: string
           removal_reason?: string | null
           removed_at?: string | null
+          removed_by?: string | null
           seniority?: Database["public"]["Enums"]["seniority_level"] | null
           source_type?: Database["public"]["Enums"]["job_source_type"]
           status?: Database["public"]["Enums"]["job_status"]
@@ -1068,6 +1068,13 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_postings_removed_by_fkey"
+            columns: ["removed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -1368,6 +1375,7 @@ export type Database = {
           created_at: string
           credits_balance: number
           email: string
+          farah_hint_dismissed_at: string | null
           first_name: string | null
           free_trial_cover_letter_used: boolean
           free_trial_tailoring_used: boolean
@@ -1384,6 +1392,7 @@ export type Database = {
           created_at?: string
           credits_balance?: number
           email: string
+          farah_hint_dismissed_at?: string | null
           first_name?: string | null
           free_trial_cover_letter_used?: boolean
           free_trial_tailoring_used?: boolean
@@ -1400,6 +1409,7 @@ export type Database = {
           created_at?: string
           credits_balance?: number
           email?: string
+          farah_hint_dismissed_at?: string | null
           first_name?: string | null
           free_trial_cover_letter_used?: boolean
           free_trial_tailoring_used?: boolean
@@ -1648,7 +1658,6 @@ export type Database = {
       }
       scholarships: {
         Row: {
-          moderated_by: string | null
           application_deadline: string | null
           created_at: string
           cycle_year: number | null
@@ -1667,6 +1676,7 @@ export type Database = {
           id: string
           last_checked_at: string
           moderated_at: string | null
+          moderated_by: string | null
           moderation_note: string | null
           moderation_status: Database["public"]["Enums"]["scholarship_moderation_status"]
           official_url: string
@@ -1676,7 +1686,6 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          moderated_by?: string | null
           application_deadline?: string | null
           created_at?: string
           cycle_year?: number | null
@@ -1695,6 +1704,7 @@ export type Database = {
           id?: string
           last_checked_at?: string
           moderated_at?: string | null
+          moderated_by?: string | null
           moderation_note?: string | null
           moderation_status?: Database["public"]["Enums"]["scholarship_moderation_status"]
           official_url: string
@@ -1704,7 +1714,6 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          moderated_by?: string | null
           application_deadline?: string | null
           created_at?: string
           cycle_year?: number | null
@@ -1723,6 +1732,7 @@ export type Database = {
           id?: string
           last_checked_at?: string
           moderated_at?: string | null
+          moderated_by?: string | null
           moderation_note?: string | null
           moderation_status?: Database["public"]["Enums"]["scholarship_moderation_status"]
           official_url?: string
@@ -1731,7 +1741,15 @@ export type Database = {
           source_name?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "scholarships_moderated_by_fkey"
+            columns: ["moderated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_passes: {
         Row: {

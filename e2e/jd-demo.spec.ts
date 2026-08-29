@@ -202,6 +202,66 @@ test.describe("a signed-in visitor on the landing page", () => {
       balance_after: 25,
     });
     if (grantError) throw new Error(`could not top up the demo account: ${grantError.message}`);
+
+    /*
+     * AND CLEAR THE RATE-LIMIT WINDOW, which is the same class of problem as
+     * the top-up above and was missed when that was added.
+     *
+     * /api/tailoring calls consumeRateLimit BEFORE anything else, and the
+     * tailoring bucket is 10 requests per HOUR per user. Every signed-in
+     * tailoring path in the whole suite — golden path, auto-apply, this file —
+     * spends from that one counter as the same demo account, so on a busy CI
+     * day the suite exhausts its own quota and whichever test runs eleventh
+     * gets a 429.
+     *
+     * That is exactly what turned main red on run #366. Measured afterwards:
+     * api_rate_limits for the demo user showed request_count = 12 in the 12:00
+     * window, against a limit of 10 — the two tests below were requests 11 and
+     * 12. The failure is silent in the worst way, because a 429 returns before
+     * the charge and before the job_tailoring_requests insert, so it leaves NO
+     * ledger row and NO request row and looks from the outside like the model
+     * never answered. Three sessions read it as a Gemini quota, as exhausted
+     * credits, and as CI contention; it was none of those.
+     *
+     * Deleting the row rather than raising the limit: the limit is a real
+     * product decision ("generous for real use, fatal to a loop") and should
+     * not be relaxed to suit a test suite that shares one account.
+     *
+     * SCOPED TO THE CURRENT WINDOW, not to the bucket. `window_start` is
+     * hour-truncated, so one row exists per hour and only the current one can
+     * refuse anything; the earlier rows are the record of what was throttled
+     * and when. An unscoped delete wiped that history every run — which is
+     * exactly how the evidence that proved this diagnosis (09:00-13:00,
+     * peaking at 12/10) was destroyed by the experiment that used it, and it
+     * would keep hollowing out the ops screen that reads this table.
+     *
+     * The hour boundary is not a risk: if the clock rolls into a new hour
+     * between here and the request, that window starts fresh at 1, which is
+     * under the limit either way.
+     *
+     * ONE SIDE EFFECT, RECORDED HERE BECAUSE THIS IS WHERE IT IS CAUSED.
+     * Clearing the current window means the demo account's current-hour
+     * tailoring count under-reports the traffic a CI run actually generated:
+     * the counter restarts on each of these tests. Anyone reading
+     * api_rate_limits afterwards — the admin ops screen reads exactly this
+     * table — will see a quiet current window during CI and an accurate one
+     * for every earlier hour. That is a property of this cleanup, not of the
+     * limiter, and it does not occur in production, where nothing runs these
+     * specs.
+     */
+    const windowStart = new Date();
+    windowStart.setUTCMinutes(0, 0, 0);
+    const { error: limitError } = await admin
+      .from("api_rate_limits")
+      .delete()
+      .eq("user_id", data.id)
+      .eq("bucket", "tailoring")
+      .gte("window_start", windowStart.toISOString());
+    // Checked: a refused delete RESOLVES with an error rather than throwing,
+    // and silently not clearing it puts the flake straight back.
+    if (limitError) {
+      throw new Error(`could not clear the tailoring rate limit: ${limitError.message}`);
+    }
   });
 
   test("is tailored against their own resume, not the sample", async ({ page }) => {
