@@ -50,11 +50,57 @@ export function Masthead({
   const navRef = useRef<HTMLDivElement>(null);
 
   /*
-   * The nav links do not fit below 760px, so under that width they move behind
-   * a disclosure. 760 is not a round number picked for tidiness: the masthead's
-   * intrinsic width is 728px — measured, and constant at 360/390/412, because
-   * nothing in it shrinks — so the document scrolls sideways on every phone.
-   * 760 is the smallest breakpoint already in this codebase that clears 728.
+   * The nav links move behind a disclosure below `lg` (1024px), and the number
+   * is measured rather than chosen.
+   *
+   * IT USED TO SAY 760, AND THAT WAS RIGHT ABOUT THE WRONG THING. The 728px
+   * figure this comment carried was the masthead's intrinsic width with the nav
+   * HIDDEN — brand, hamburger and the right-hand group — measured at 360/390/412
+   * where nothing shrinks. It correctly justified 760 as the width at which the
+   * COLLAPSED bar stops scrolling the document sideways. It said nothing about
+   * whether the EXPANDED nav fits there, and it does not: the list has since
+   * grown to seven items, Scholarships among them.
+   *
+   * What actually happens between 760 and ~920 is that the left group is
+   * flex-shrunk and its links spill out of their own boxes over the right-hand
+   * group. The document never overflows, so nothing catches it — measured, with
+   * the painted text extent rather than the link box, because the boxes stop
+   * moving at 684px while the text inside keeps going:
+   *
+   *     width   text vs credits pill   text vs EN chip
+   *      760          +87px                 +138px
+   *      845           +7px                  +58px
+   *      900          -38px                  +13px
+   *      920          -54px                   -4px
+   *     1024          -98px                  -48px
+   *
+   * So 845 — where the pill clears — is not the answer either; it just swaps
+   * which element is underneath. The nav does not clear everything in the right
+   * group until roughly 920.
+   *
+   * AND 1024 IS NOT ENOUGH EITHER, which the regression test caught after this
+   * comment first said it was. Measuring against the EN chip and the credits
+   * pill missed the element that is actually leftmost in the right-hand group:
+   * "Post a job" appears at 900 and sits left of both. Against IT:
+   *
+   *     width   text vs "Post a job"
+   *     1024          -7px      still overlapping
+   *     1120          -2px
+   *     1160           0px      touching
+   *     1200         +30px
+   *     1280        +110px
+   *
+   * The nav stops being flex-shrunk at about 1200, where its text finally ends
+   * at its natural 834px. `xl` is the smallest breakpoint already used here that
+   * clears that with room — 110px rather than 30 — and the margin is the point:
+   * this bug exists BECAUSE a seventh nav item was added, so a threshold that
+   * only just fits is a threshold that breaks on the next one.
+   *
+   * The cost is that 760-1279 gets the disclosure instead of the bar. That is
+   * acceptable only because the disclosure is COMPLETE — every nav link plus
+   * "Post a job", which would otherwise be unreachable at those widths since it
+   * lives in the right-hand group. e2e/masthead-nav-fit.spec.ts asserts both:
+   * the gap at every width the bar renders, and that nothing is stranded below.
    */
   useEffect(() => {
     if (!navOpen) return;
@@ -123,7 +169,7 @@ export function Masthead({
       className="border-b-[2.5px] border-ink bg-paper"
     >
       <div className="flex h-[68px] items-center justify-between px-8">
-        <div className="flex items-center gap-4 min-[760px]:gap-9">
+        <div className="flex items-center gap-4 xl:gap-9">
           {/*
             min-h-10 on the brand link, not on the image. The mark itself is
             24/32px by design and stays that size; the LINK around it grows to
@@ -143,7 +189,7 @@ export function Masthead({
               className="h-6 w-auto flex-shrink-0 min-[480px]:h-8"
             />
           </Link>
-          <nav className="hidden items-center gap-5.5 min-[760px]:flex">
+          <nav className="hidden items-center gap-5.5 xl:flex">
             {NAV_LINKS.map((link) => {
               const active = pathname?.startsWith(link.href);
               const href = hrefFor(link);
@@ -254,7 +300,7 @@ export function Masthead({
           */}
           <div
             ref={navRef}
-            className="relative flex items-center min-[760px]:hidden"
+            className="relative flex items-center xl:hidden"
           >
             <button
               type="button"
@@ -322,7 +368,7 @@ export function Masthead({
           </div>
         </div>
 
-        <div className="flex items-center gap-3.5">
+        <div data-testid="masthead-actions" className="flex items-center gap-3.5">
           {/*
             CLAUDE.md §5 lists a persistent "Post Job" shortcut in the seeker
             masthead. Until the employer surface existed there was nothing to

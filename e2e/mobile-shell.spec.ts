@@ -138,15 +138,44 @@ test.describe("the shell on a phone", () => {
     });
   }
 
-  test("the breakpoint flips exactly at 760, not near it", async ({ page }) => {
+  test("the SHELL breakpoint flips exactly at 760, not near it", async ({ page }) => {
+    /*
+     * 760 IS NO LONGER THE NAV'S BREAKPOINT, and this test used to assert that
+     * it was. It governs the shell: below it the Farah panel stacks under the
+     * feed and the mobile tab appears; at and above it the panel sits beside
+     * the content.
+     *
+     * The horizontal nav moved to `xl` because it never actually fit at 760 —
+     * it was flex-shrunk and painted over the right-hand group by up to 87px,
+     * without the document ever overflowing. That measurement, and the nav's
+     * own boundary, live in masthead-nav-fit.spec.ts. Asserting the nav here
+     * would duplicate it and, worse, would have to be changed in two places
+     * the next time the bar's contents change.
+     */
     await page.setViewportSize({ width: 759, height: 844 });
     await login(page);
-    await expect(page.getByRole("button", { name: "Main menu" })).toBeVisible();
-    await expect(page.locator("nav")).toBeHidden();
+
+    const stackedBelow = await page.evaluate(() => {
+      const col = document.querySelector('[data-testid="content-column"]')!.getBoundingClientRect();
+      const panel = document.querySelector('[data-testid="farah-panel"]')!.getBoundingClientRect();
+      return panel.top >= col.bottom - 2;
+    });
+    expect(stackedBelow, "at 759 the panel should stack under the feed").toBe(true);
+    await expect(page.getByTestId("farah-mobile-tab")).toBeVisible();
 
     await page.setViewportSize({ width: 760, height: 844 });
-    await expect(page.locator("nav")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Main menu" })).toBeHidden();
+    await page.waitForTimeout(150);
+
+    const sideBySideAt760 = await page.evaluate(() => {
+      const col = document.querySelector('[data-testid="content-column"]')!.getBoundingClientRect();
+      const panel = document.querySelector('[data-testid="farah-panel"]')!.getBoundingClientRect();
+      return panel.top < col.bottom;
+    });
+    expect(sideBySideAt760, "at 760 the panel should sit beside the feed").toBe(true);
+    await expect(page.getByTestId("farah-mobile-tab")).toBeHidden();
+
+    // …and the nav is still behind the disclosure here, which is the change.
+    await expect(page.getByRole("button", { name: "Main menu" })).toBeVisible();
   });
 
   test("the desktop layout is untouched", async ({ page }) => {
