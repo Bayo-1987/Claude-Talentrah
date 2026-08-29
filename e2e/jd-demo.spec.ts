@@ -238,6 +238,16 @@ test.describe("a signed-in visitor on the landing page", () => {
      * The hour boundary is not a risk: if the clock rolls into a new hour
      * between here and the request, that window starts fresh at 1, which is
      * under the limit either way.
+     *
+     * ONE SIDE EFFECT, RECORDED HERE BECAUSE THIS IS WHERE IT IS CAUSED.
+     * Clearing the current window means the demo account's current-hour
+     * tailoring count under-reports the traffic a CI run actually generated:
+     * the counter restarts on each of these tests. Anyone reading
+     * api_rate_limits afterwards — the admin ops screen reads exactly this
+     * table — will see a quiet current window during CI and an accurate one
+     * for every earlier hour. That is a property of this cleanup, not of the
+     * limiter, and it does not occur in production, where nothing runs these
+     * specs.
      */
     const windowStart = new Date();
     windowStart.setUTCMinutes(0, 0, 0);
