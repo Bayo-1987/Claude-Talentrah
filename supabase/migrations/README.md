@@ -123,6 +123,52 @@ standing up a new project. `0063` closes it, scoped to
 bare UPDATE, so it cannot switch off a real curated offer that a later
 environment holds.
 
+## Checking whether a migration actually landed
+
+```bash
+npm run audit-migrations          # prints a query; run it via the MCP connector
+npm run audit-migrations -- --list
+```
+
+`0066_farah_hint_dismissed` sat committed-but-unapplied on production for
+hours. Its code shipped, the column was never created, and the feature did
+nothing on the live site. It went unnoticed because there was no diff anyone
+could run and believe — this table holds three naming conventions on
+production, and on CI it is missing 25 rows for schema that is demonstrably
+present, so a naive comparison drowns one real gap in eleven false ones.
+
+The script encodes the rules that make the comparison mean something:
+
+| status | meaning |
+| --- | --- |
+| `applied` | name matches the file exactly |
+| `applied without its numeric prefix` | applied through the connector with a bare name — 0049–0057 |
+| `applied under a documented alias` | a mismatch that was decided, not missed. Only 0061, whose header explains it |
+| `MISSING` | **the ledger is silent** |
+
+It PRINTS SQL rather than connecting, for two reasons. PostgREST does not
+expose the `supabase_migrations` schema, so a service-role client cannot read
+it without adding a `public` wrapper function — real schema surface for a
+housekeeping query. And production is the project that most needs auditing,
+where CLAUDE.md requires the connector precisely so no credential lands on
+disk. Generating SQL needs no credential and audits either project.
+
+**`MISSING` does not mean the change is absent.** It means nothing recorded it.
+Check for the schema itself — the table, column, function or grant — before
+concluding a migration never ran: a project restored from a snapshot rather
+than replayed has the schema *without* the record, which is exactly the state
+CI is in for 0026–0050.
+
+The ledger is deliberately NOT rewritten to tidy any of this. An applied
+migration is history: 0060 kept its colliding number because its header carries
+an md5 of the recorded statements, 0061 documents its own name mismatch as
+cosmetic and deliberate, and 0062 exists because editing an applied migration
+was refused. The problem was never that the record is untidy — it is that
+nothing could read it.
+
+Last verified 2026-08-29: production reports **zero** MISSING across all 41
+committed migrations.
+
 Both projects, not one. CLAUDE.md allows them to diverge while a PR is in
 review — apply to CI, apply to production on merge — but 0060 is additive
 (three new tables and one function, nothing existing altered), and the app
