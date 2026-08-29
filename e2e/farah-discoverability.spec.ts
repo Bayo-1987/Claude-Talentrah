@@ -9,14 +9,24 @@ import { test, expect, type Page } from "@playwright/test";
  * invisible on a phone, and the two ends of this spec test two different
  * affordances for that reason rather than for symmetry.
  *
- * THE BREAKPOINTS ARE MEASURED, and one of them is not the one that was
- * originally specified. The masthead row has no horizontal slack at 760: on
- * main, before the nav item existed, its scrollWidth at a 760px viewport was
- * exactly 760. Adding a labelled item took the document to 809 and, at 900 and
- * 1024, let the nav overlap "Post a job" while the document did NOT overflow —
- * which is why this spec asserts the GAP between those two elements and not
- * just scrollWidth. The nav item is therefore gated to xl (1280), the smallest
- * breakpoint already in use where they clear each other.
+ * THE BREAKPOINTS ARE MEASURED, and the nav item's is not the one originally
+ * specified. The masthead row has no horizontal slack at 760: on main, before
+ * the item existed, its scrollWidth at a 760px viewport was exactly 760.
+ * Adding a labelled item took the document to 809 and, at 900 and 1024, let the
+ * nav overlap "Post a job" while the document did NOT overflow — which is why
+ * this spec asserts the GAP between those two elements and not just
+ * scrollWidth.
+ *
+ * THIS TEST THEN CAUGHT THE SECOND VERSION TOO, which is the reason it is
+ * written as a sweep rather than a single width. Gated to xl, the item cleared
+ * "Post a job" by 18px locally and by EXACTLY 0 on CI's Linux runner — same
+ * code, same viewport, different font metrics rendering the row ~18px wider.
+ * It is gated to 2xl for that reason: tens of pixels of margin is not margin
+ * when the platform can move it, and production serves every platform.
+ *
+ * So the sweep runs past the gate — 1536 and 1728 are here so the widths where
+ * the item IS rendered are actually asserted, not just the ones where it is
+ * hidden and the gap check silently skips.
  */
 
 const DEMO_PASSWORD = process.env.DEMO_PASSWORD;
@@ -140,8 +150,8 @@ test.describe("reaching Farah on a phone", () => {
 test.describe("reaching Farah on a desktop", () => {
   test.skip(!DEMO_PASSWORD, "DEMO_PASSWORD is not set — see scripts/seed.ts");
 
-  test("at 1280 the masthead carries the item and the bar is gone", async ({ page }) => {
-    await page.setViewportSize({ width: 1280, height: 900 });
+  test("at 2xl the masthead carries the item and the bar is gone", async ({ page }) => {
+    await page.setViewportSize({ width: 1536, height: 900 });
     await login(page);
 
     await expect(page.getByTestId("farah-mobile-tab")).toBeHidden();
@@ -173,7 +183,7 @@ test.describe("reaching Farah on a desktop", () => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await login(page);
 
-    for (const width of [760, 800, 860, 900, 1024, 1280]) {
+    for (const width of [760, 800, 860, 900, 1024, 1280, 1536, 1728]) {
       await page.setViewportSize({ width, height: 900 });
       await page.waitForTimeout(200);
 

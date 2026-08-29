@@ -143,14 +143,7 @@ export function Masthead({
               className="h-6 w-auto flex-shrink-0 min-[480px]:h-8"
             />
           </Link>
-          {/*
-            gap-5 at xl, not 5.5, and only there. Adding "Ask Farah" leaves just
-            4px between the nav and "Post a job" at exactly 1280 — they clear
-            each other but read as touching. Seven gaps shed 2px each at that
-            width only, which buys the separation back without disturbing the
-            22px rhythm at any width where the item is not rendered.
-          */}
-          <nav className="hidden items-center gap-5.5 min-[760px]:flex xl:gap-5">
+          <nav className="hidden items-center gap-5.5 min-[760px]:flex">
             {NAV_LINKS.map((link) => {
               const active = pathname?.startsWith(link.href);
               const href = hrefFor(link);
@@ -223,18 +216,31 @@ export function Masthead({
               considered and does not help: with zero slack, 40px is still more
               than 0.
 
-              xl (1280) is the smallest breakpoint already in use here where the
-              two clear each other. Nothing is lost between 760 and 1280: the
-              Farah panel is a sticky column that is ON SCREEN at every one of
-              those widths, so this item is a convenience there, not the only
-              route. It is below 760 — where the panel stacks under the feed and
-              off screen — that an affordance is actually required, and
+              2xl (1536), and the jump from xl is the interesting part. At 1280
+              this cleared "Post a job" by 18px on macOS and by EXACTLY 0 on
+              CI's Linux runner — same code, same viewport, different font
+              metrics, so the same row renders about 18px wider there. An 18px
+              margin that is 0 on another platform is not a margin, and real
+              users are on all three platforms with their own font fallbacks
+              and zoom levels. Tightening the nav's own 22px rhythm to buy the
+              space back was tried and rejected: trading a global design
+              property for one convenience item, and still only buying ~28px
+              against variance nobody can enumerate.
+
+              At 2xl there is ~256px of slack rather than tens of pixels, which
+              survives a platform that renders wider.
+
+              Nothing is lost below it. The Farah panel is a sticky column that
+              is ON SCREEN at every width from 760 up, so this item is a
+              convenience wherever it does not appear, never the only route. It
+              is below 760 — where the panel stacks under the feed and off
+              screen — that an affordance is actually required, and
               FarahMobileTab is that affordance.
             */}
             <button
               type="button"
               onClick={scrollToFarahPanel}
-              className="hidden min-h-10 min-w-10 items-center justify-center gap-1.5 border-b-[2.5px] border-transparent font-body text-[14.5px] font-semibold text-ink hover:text-rust-hover xl:flex"
+              className="hidden min-h-10 min-w-10 items-center justify-center gap-1.5 border-b-[2.5px] border-transparent font-body text-[14.5px] font-semibold text-ink hover:text-rust-hover 2xl:flex"
             >
               <FarahMark size={18} />
               Ask Farah
