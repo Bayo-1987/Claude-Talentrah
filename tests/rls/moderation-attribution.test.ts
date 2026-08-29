@@ -24,17 +24,53 @@ import { admin, createAuthedTestUser, deleteTestUsers } from "../support/auth";
 let seeker: Awaited<ReturnType<typeof createAuthedTestUser>>;
 let scholarshipId: string | null = null;
 
+/*
+ * THIS SUITE CREATES ITS OWN LISTING, and the first version did not — it took
+ * `select id from scholarships limit 1` and mutated whatever it found.
+ *
+ * That was wrong in a way that only shows up under load, which is the worst
+ * kind. Every suite here runs against one shared project, in parallel, and
+ * alongside other sessions' CI runs; a test that writes to an arbitrary row it
+ * did not create is coupled to every other suite that reads the catalog, and
+ * the failure surfaces somewhere unrelated as a value that changed underneath
+ * an assertion. This repo has a whole file of scar tissue about exactly that
+ * shape (tests/support/global-teardown.ts).
+ *
+ * It also meant a real catalog row carried a test user's id in `moderated_by`
+ * for the duration of the run.
+ *
+ * Own fixture, deleted afterwards, identified by a fingerprint nothing else
+ * can collide with.
+ */
+const FIXTURE_FINGERPRINT = `modattr-${randomUUID()}`;
+
 beforeAll(async () => {
   seeker = await createAuthedTestUser("modattr");
-  const { data } = await admin.from("scholarships").select("id").limit(1).maybeSingle();
-  scholarshipId = data?.id ?? null;
+
+  const { data, error } = await admin
+    .from("scholarships")
+    .insert({
+      provider: "MODATTR-TEST Provider",
+      program_name: "MODATTR-TEST Programme",
+      funding_type: "full",
+      official_url: "https://example.test/modattr",
+      dedup_fingerprint: FIXTURE_FINGERPRINT,
+    })
+    .select("id")
+    .single();
+  if (error) throw new Error(`could not create the fixture listing: ${error.message}`);
+  scholarshipId = data.id;
 });
 
 afterAll(async () => {
-  if (scholarshipId) {
-    // Leave the row exactly as found — this suite must not decide a listing.
-    await admin.from("scholarships").update({ moderated_by: null }).eq("id", scholarshipId);
-  }
+  // Checked, not fire-and-forget: a rejected Supabase delete RESOLVES with an
+  // error (CLAUDE.md), so an unchecked one would report a cleanup that never
+  // happened and leave a fixture listing in the catalog.
+  const { error } = await admin
+    .from("scholarships")
+    .delete()
+    .eq("dedup_fingerprint", FIXTURE_FINGERPRINT);
+  if (error) console.warn(`[cleanup] fixture scholarship survived: ${error.message}`);
   await deleteTestUsers([seeker.id]);
 });
 
