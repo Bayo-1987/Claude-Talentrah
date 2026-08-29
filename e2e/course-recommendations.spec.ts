@@ -124,7 +124,14 @@ test.describe("course recommendations", () => {
     await runTailoring(page);
 
     const section = page.getByTestId("course-recommendations");
-    await expect(section).toBeVisible();
+    /*
+     * Generous timeout on the FIRST assertion after the run, and only here.
+     * CI serves a production build (`npm run start`), so this is not about CI
+     * — it is about a local `next dev`, which compiles /tailor on first hit
+     * and can blow well past the 5s default. That failure looks exactly like
+     * a broken render, which is a bad way to spend a debugging minute.
+     */
+    await expect(section).toBeVisible({ timeout: 30_000 });
     await expect(page.getByTestId("course-recommendation")).toHaveCount(2);
 
     // Order is the ranker's, and the UI must not resort it.
