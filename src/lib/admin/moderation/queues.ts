@@ -1,5 +1,6 @@
 import "server-only";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { placeholderCourseCount } from "@/lib/admin/catalog/courses";
 
 /**
  * The three queues, read for the dashboard.
@@ -240,8 +241,9 @@ export async function queueCounts(): Promise<{
   reports: number;
   campaigns: number;
   feedback: number;
+  courses: number;
 }> {
-  const [scholarships, reports, campaigns, feedback] = await Promise.all([
+  const [scholarships, reports, campaigns, feedback, courses] = await Promise.all([
     pendingScholarships(),
     reportedPostings(),
     pendingCampaigns(),
@@ -249,11 +251,17 @@ export async function queueCounts(): Promise<{
     // falling as an operator works through the queue, which is the one thing
     // a count on a nav is for.
     feedbackQueue(["new"]),
+    // Not the row count. Every other badge means "this much is waiting", and a
+    // catalog has nothing waiting — but an un-curated affiliate link IS
+    // outstanding work (§10 item 1), so this counts those and falls to 0 when
+    // real codes land.
+    placeholderCourseCount(),
   ]);
   return {
     scholarships: scholarships.length,
     reports: reports.length,
     campaigns: campaigns.length,
     feedback: feedback.length,
+    courses,
   };
 }
