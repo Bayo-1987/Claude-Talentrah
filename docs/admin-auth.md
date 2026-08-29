@@ -143,6 +143,19 @@ If the address has no Talentrah account, the script creates one — but only wit
 `NEW_ADMIN_PASSWORD` set in the environment, never as an argument, because an
 argument lands in shell history and this repo is public.
 
+**WHICH PROJECT IT TARGETS IS WHATEVER `.env.local` POINTS AT, and that is now
+CI.** The script reads `.env.local` only. Since `.env` was deleted on
+2026-08-29 there is no production credential on disk by default, so running
+this locally grants admin on the **CI** project — which is almost never what
+someone typing it means.
+
+For production, use the Supabase MCP connector and do the same upsert directly:
+look up the id in `auth.users` by lower(email), then upsert
+`{id, lower(email), display_name, disabled_at: null}` into `admin_users`. That
+is exactly what the script does, and it reaches production without a
+`service_role` key ever landing on disk. The first production admin was
+provisioned that way.
+
 `--revoke` sets `disabled_at` and revokes every live session; it does **not**
 delete the row, because the audit trail names it.
 
@@ -186,9 +199,12 @@ Against the CI project (`dozaffzgqkbarxtlclsj`) and the local dev server:
   observed directly, because the local `.env.local` has a placeholder
   service-role key.
 
-**Not run locally:** the full signed-in click-through, for that same reason —
-`.env.local` points at the CI project with a placeholder
-`SUPABASE_SERVICE_ROLE_KEY`, so nothing service-role works in a local process.
-With a real key it is `npm run grant-admin -- <you> "Name"` then
-`/admin/login`. `tests/rls/admin-identity.test.ts` covers the database half in
-CI.
+**Not run at the time:** the full signed-in click-through. `.env.local` then
+held a placeholder `SUPABASE_SERVICE_ROLE_KEY`, so nothing service-role worked
+in a local process.
+
+*Resolved 2026-08-29.* A real CI key is in place, the full suite runs locally
+(and its teardown sweep now actually deletes, which it had never done), and the
+first production admin exists — provisioned through the connector rather than
+the script, for the reason in **Provisioning** above.
+`tests/rls/admin-identity.test.ts` covers the database half in CI.
