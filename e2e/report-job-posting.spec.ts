@@ -11,8 +11,13 @@ import type { Database } from "../src/lib/supabase/types";
  *
  * THE HIT-TARGET MEASUREMENT IS NOT DECORATION. #69 shipped a target past
  * review that read as `min-h-10` and measured 39.1px WIDE, because height and
- * width are separate and only one was named. "Report" is a short word, so this
- * measures both, in a browser, rather than trusting the class.
+ * width are separate and only one was named. It measures both, in a browser,
+ * rather than trusting the class.
+ *
+ * The trigger is now an IconButton, which is 40x40 by construction rather than
+ * by a hand-written pair of classes, so the specific 39.1px trap is gone. The
+ * measurement stays: it is the assertion that survives someone swapping the
+ * component out again, which is exactly how the original bug arrived.
  */
 const SECRET = process.env.ADMIN_API_SECRET || process.env.INGEST_SECRET;
 const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY;
