@@ -1,5 +1,6 @@
 import { requireAdmin } from "@/lib/admin/require-admin";
 import { AdminMasthead } from "@/components/admin/admin-masthead";
+import { AdminNav } from "@/components/admin/admin-nav";
 
 /**
  * The guard, applied once to everything inside the group.
@@ -23,6 +24,7 @@ export default async function ProtectedAdminLayout({
   return (
     <div className="flex min-h-screen flex-col bg-paper">
       <AdminMasthead email={admin.email} displayName={admin.displayName} />
+      <AdminNav />
       <main className="flex-1">{children}</main>
     </div>
   );
