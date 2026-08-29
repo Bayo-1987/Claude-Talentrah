@@ -28,6 +28,47 @@
 # waiting only for another run's `checks` would let this run's `checks` overlap
 # that run's `e2e`. Waiting for the run to be `completed` is what actually
 # closes that.
+#
+# A SECOND WAY IN THAT THE ORDERING DOES NOT POLICE: A RERUN DOES NOT WAIT.
+# (The first is MAX_WAIT_SECONDS below, which exits 0 rather than blocking
+# forever — deliberate, and documented there.)
+#
+# `gh run rerun` re-executes the ORIGINAL run number: it increments
+# run_ATTEMPT, not run_NUMBER, and the comparison below uses
+# GITHUB_RUN_NUMBER. So the lower-number test admits a rerun immediately — it
+# waits only for runs numbered below an id that predates everything currently
+# queued. The deadlock argument is unaffected and still holds; what does not
+# hold is the assumption that every run ENTERING the system is newer than the
+# ones already in it. A rerun can start on top of a live run, and both will
+# touch the shared project at once.
+#
+# Measured on 2026-08-29, same script, same day, the only variable being
+# whether the attempt was a rerun:
+#
+#   run   attempts   attempt 1   rerun
+#   #348      2         380s       0s
+#   #351      2         520s       0s
+#   #353      2         540s       0s
+#   #352      1         380s       (never rerun)
+#
+# Every rerun acquired the lock instantly. Every first attempt waited six to
+# nine minutes.
+#
+# WHAT IT ACTUALLY COST, stated narrowly because the wider claim is wrong. The
+# rerun of #348 ran while #352 was still live and produced dirty-state failures
+# — "expected length 1 but got 2", "expected 'active' to be 'lapsed'" — in
+# suites its own diff never touched. Those results were void, and the expensive
+# part is that nothing in the output said so.
+#
+# It did NOT cause the PR failures of that afternoon: #351's failure completed
+# BEFORE the rerun acquired the lock, with the lock properly held. That one
+# remains an unexplained flake. Do not let "the rerun explains it" settle in as
+# the story — it explains one void run, which is quite enough reason to fix it.
+#
+# So: serialise reruns BY HAND, one at a time with nothing else in flight, or
+# push an empty commit to get a fresh run number that queues properly. Read
+# this not as a reason to distrust the ordering rule, but as the entrance it
+# does not police.
 set -euo pipefail
 
 WORKFLOW_FILE="${WORKFLOW_FILE:-ci.yml}"
