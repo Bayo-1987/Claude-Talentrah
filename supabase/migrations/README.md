@@ -63,6 +63,7 @@ Via the Supabase MCP connector's `apply_migration` (pass the name without the
 | … | this table stopped being updated at 0036; 0037–0059 were applied as they landed |
 | `0060_admin_identity.sql` | applied 2026-08-28 to **both** projects — production `nytwbbzfpytctjsoczzq` and CI `dozaffzgqkbarxtlclsj` |
 | `0061_course_recommendations.sql` | applied 2026-08-29 to **both** projects — recorded in `schema_migrations` under its pre-rename name, `0060_course_recommendations` (see the file's header) |
+| `0062_course_recommendation_seed.sql` | **not applied yet** — written first, deliberately. Recovers the nine catalog rows 0061's applied form inserted and its committed form omitted; idempotent, so applying it to production/CI inserts nothing and only records that the repo accounts for them |
 
 Both projects, not one. CLAUDE.md allows them to diverge while a PR is in
 review — apply to CI, apply to production on merge — but 0060 is additive
