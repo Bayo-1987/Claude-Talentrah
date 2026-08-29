@@ -208,11 +208,36 @@ export default async function OpsPage() {
               Nothing rate-limited in the last day.
             </p>
           ) : (
-            <ul className="flex list-none flex-col gap-2 p-0 text-[14.5px]">
+            <ul className="flex list-none flex-col gap-2.5 p-0 text-[14.5px]">
               {buckets.map((b) => (
-                <li key={b.bucket} className="flex flex-wrap justify-between gap-3">
-                  <span>{b.bucket}</span>
-                  <span className="text-ink-soft">
+                <li key={b.bucket} className="flex flex-col gap-0.5">
+                  <div className="flex flex-wrap justify-between gap-3">
+                    <span>
+                      {b.bucket}
+                      {b.limit !== null && (
+                        <span className="ml-2 text-[12.5px] text-ink-soft">
+                          limit {b.limit}/hour
+                        </span>
+                      )}
+                    </span>
+                    <span
+                      className={
+                        b.windowsAtLimit > 0 ? "font-semibold text-rust" : "text-ink-soft"
+                      }
+                    >
+                      {/*
+                        The reading that matters. A raw count is unreadable; the
+                        peak against the ceiling says whether anybody was
+                        actually refused — which is the whole question, and the
+                        one that cost three sessions half a day when the only
+                        other evidence was an absence.
+                      */}
+                      {b.limit !== null ? `peak ${b.peak}/${b.limit}` : `peak ${b.peak}`}
+                      {b.windowsAtLimit > 0 &&
+                        ` · ${b.windowsAtLimit} ${b.windowsAtLimit === 1 ? "window" : "windows"} hit the limit`}
+                    </span>
+                  </div>
+                  <span className="text-[12.5px] text-ink-soft">
                     {b.requests} requests · {b.distinctUsers}{" "}
                     {b.distinctUsers === 1 ? "person" : "people"} · {b.windows} windows
                   </span>
@@ -222,7 +247,9 @@ export default async function OpsPage() {
           )}
           <p className="font-display text-[13.5px] italic text-ink-soft">
             Aggregated on purpose. Who hit which limit is a behavioural profile of named people,
-            and answering “is something being throttled” does not need it.
+            and answering “is something being throttled” does not need it. A refused request
+            returns before any charge or record is written, so this table is often the only
+            trace one happened.
           </p>
         </BorderedCard>
       </section>

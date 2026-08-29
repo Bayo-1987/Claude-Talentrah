@@ -3,6 +3,7 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { JOB_SOURCES } from "@/lib/jobs/sources.config";
 import { externalSourceKey } from "@/lib/jobs/types";
 import { MAX_INDETERMINATE_RENEWAL_ATTEMPTS } from "@/lib/billing/renewals";
+import { RATE_LIMITS } from "@/lib/api/rate-limit";
 
 /**
  * Operational visibility. READ ONLY — every function here is a SELECT.
@@ -157,6 +158,12 @@ export interface RateLimitBucket {
   requests: number;
   distinctUsers: number;
   latestWindowStart: string;
+  /** The bucket's configured ceiling, or null if the bucket is not in RATE_LIMITS. */
+  limit: number | null;
+  /** Windows in which the ceiling was actually reached — i.e. somebody got a 429. */
+  windowsAtLimit: number;
+  /** Highest count seen in any window, so "12 against a limit of 10" is visible. */
+  peak: number;
 }
 
 /**
@@ -167,6 +174,19 @@ export interface RateLimitBucket {
  * profile of named people — which is not what an operator needs to answer
  * "is something being throttled". The counts answer that; the names would
  * only tempt someone to act on them.
+ *
+ * EACH COUNT IS SHOWN AGAINST ITS CONFIGURED CEILING, and that is not a
+ * nicety. A raw "12 requests" is unreadable; "12 against a limit of 10" says a
+ * request was refused. This suggestion came from the session that spent half a
+ * day on a CI failure whose only evidence was an ABSENCE — a 429 returns
+ * before the credit charge and before the job_tailoring_requests insert, so a
+ * throttled run leaves no ledger row, no request row and no retained log line.
+ * The bucket row was the only trace, and a raw number would not have made it
+ * obvious.
+ *
+ * `windowsAtLimit` counts windows that actually reached the ceiling, because
+ * that is the thing worth alerting on; `peak` shows how far past it went,
+ * since consume_rate_limit keeps counting after it starts refusing.
  */
 export async function rateLimitBuckets(): Promise<RateLimitBucket[]> {
   const supabase = createServiceRoleClient();
@@ -177,18 +197,26 @@ export async function rateLimitBuckets(): Promise<RateLimitBucket[]> {
     .gte("window_start", since);
   if (error) throw error;
 
-  const grouped = new Map<string, { windows: number; requests: number; users: Set<string>; latest: string }>();
+  const grouped = new Map<
+    string,
+    { windows: number; requests: number; users: Set<string>; latest: string; atLimit: number; peak: number }
+  >();
   for (const row of data ?? []) {
+    const configured = (RATE_LIMITS as Record<string, { limit: number } | undefined>)[row.bucket];
     const entry = grouped.get(row.bucket) ?? {
       windows: 0,
       requests: 0,
       users: new Set<string>(),
       latest: row.window_start,
+      atLimit: 0,
+      peak: 0,
     };
     entry.windows += 1;
     entry.requests += row.request_count;
     entry.users.add(row.user_id);
     if (row.window_start > entry.latest) entry.latest = row.window_start;
+    if (configured && row.request_count >= configured.limit) entry.atLimit += 1;
+    if (row.request_count > entry.peak) entry.peak = row.request_count;
     grouped.set(row.bucket, entry);
   }
 
@@ -199,8 +227,13 @@ export async function rateLimitBuckets(): Promise<RateLimitBucket[]> {
       requests: e.requests,
       distinctUsers: e.users.size,
       latestWindowStart: e.latest,
+      limit: (RATE_LIMITS as Record<string, { limit: number } | undefined>)[bucket]?.limit ?? null,
+      windowsAtLimit: e.atLimit,
+      peak: e.peak,
     }))
-    .sort((a, b) => b.requests - a.requests);
+    // Throttled buckets first — a bucket that refused somebody is the only
+    // one that changes what an operator does next.
+    .sort((a, b) => b.windowsAtLimit - a.windowsAtLimit || b.requests - a.requests);
 }
 
 /* ------------------------------------------------------------------ *
