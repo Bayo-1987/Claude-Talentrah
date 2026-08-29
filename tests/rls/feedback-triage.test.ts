@@ -61,16 +61,42 @@ afterAll(async () => {
 });
 
 describe("a user cannot forge a triage record while filing", () => {
-  it("refuses an insert that sets status", async () => {
+  /*
+   * THIS ONE ISOLATES THE GRANT, and it exists because the obvious version did
+   * not. Setting `status: "resolved"` on insert is refused even with the old
+   * table-wide grant restored — but by feedback_triaged_rows_name_an_operator,
+   * the CHECK constraint, not by the privilege. Verified by running this suite
+   * against CI with `grant insert on public.feedback to authenticated` in
+   * place: that assertion stayed green while the other two went red.
+   *
+   * A test that passes for the wrong reason is the thing this repo keeps
+   * getting caught by, so the grant gets an assertion that nothing else can
+   * satisfy: `new` is the column's own default and satisfies the CHECK, so the
+   * ONLY thing that can refuse it is the absence of INSERT privilege on that
+   * column.
+   */
+  it("refuses an insert that sets status at all, even to its own default", async () => {
+    const { error } = await alice.client.from("feedback").insert({
+      user_id: alice.id,
+      category: "bug",
+      message: "FEEDBACK-TRIAGE-TEST: status set explicitly.",
+      status: "new",
+    });
+    expect(error, "a user could set status on insert — the per-column grant is gone").not.toBeNull();
+  });
+
+  it("refuses the realistic forgery: resolved, signed by someone", async () => {
+    // Belt and braces over the isolated test above. This is the shape an
+    // attacker would actually send, and it is refused twice over — by the
+    // column grant and by the CHECK.
     const { error } = await alice.client.from("feedback").insert({
       user_id: alice.id,
       category: "bug",
       message: "FEEDBACK-TRIAGE-TEST: pre-resolved.",
       status: "resolved",
+      triaged_by: alice.id,
     });
-    // A column-level privilege denial, not a policy denial: the policy would
-    // have accepted this row happily.
-    expect(error, "a user could set status on insert — the per-column grant is gone").not.toBeNull();
+    expect(error).not.toBeNull();
   });
 
   it("refuses an insert that names a triaging admin", async () => {
