@@ -9,6 +9,7 @@ import {
   InsufficientCreditsError,
 } from "@/lib/tailoring/gate";
 import { consumeRateLimit, rateLimited } from "@/lib/api/rate-limit";
+import { recommendCoursesForGapAnalysis } from "@/lib/courses/recommend";
 
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -178,11 +179,30 @@ export async function POST(request: Request) {
     credits_spent: totalCreditsSpent,
   });
 
+  /*
+   * Course recommendations for the gaps Farah just found.
+   *
+   * Computed here rather than in the browser for two reasons. The catalog is
+   * server data the page has no other reason to hold, so shipping all of it to
+   * every client to pick two rows would be paying bandwidth for something the
+   * target market pays for by the megabyte. And the affiliate URLs stay out of
+   * the page entirely until there is a result that actually cites them.
+   *
+   * Awaited AFTER the charge and after the tailoring row is written, so its
+   * failure cannot cost a paid run — `recommendCoursesForGapAnalysis` does not
+   * throw, and an empty list is a normal answer rather than an error state.
+   */
+  const courseRecommendations = await recommendCoursesForGapAnalysis(
+    supabase,
+    result.gapAnalysis,
+  );
+
   return NextResponse.json({
     resumeId: tailoredResumeRow.id,
     coverLetterResumeId,
     result,
     isFreeTrial,
     creditsSpent: totalCreditsSpent,
+    courseRecommendations,
   });
 }

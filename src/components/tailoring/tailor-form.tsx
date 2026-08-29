@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Button, EyebrowLabel, BorderedCard } from "@/components/ui";
 import { ResumeDocument } from "@/components/resume-builder/resume-document";
 import type { TailoringResult } from "@/lib/tailoring/types";
+import type { RankedRecommendation } from "@/lib/courses/match";
 
 type ApiResult = {
   resumeId: string;
@@ -12,6 +13,8 @@ type ApiResult = {
   result: TailoringResult;
   isFreeTrial: boolean;
   creditsSpent: number;
+  /** Ranked by the M1 matcher, server-side. Usually empty — see below. */
+  courseRecommendations?: RankedRecommendation[];
 };
 
 export function TailorForm({
@@ -122,6 +125,75 @@ export function TailorForm({
                 ))}
               </div>
             </div>
+
+            {/*
+              COURSES FOR THE GAPS, and only when there are any.
+
+              The whole block is absent rather than empty-stated. A standing
+              "no courses matched" line would be a permanent apology for the
+              catalog's size on a screen whose subject is the user's resume,
+              and the common case IS none — nine curated rows cannot cover most
+              gap analyses, which M1's tests pin as correct rather than
+              degraded. Silence reads as "nothing to add"; an empty state reads
+              as "something is missing here".
+
+              Capped at two by the ranker. A column of affiliate links under a
+              paid result is the ad unit this deliberately is not.
+            */}
+            {data.courseRecommendations && data.courseRecommendations.length > 0 && (
+              <div data-testid="course-recommendations">
+                <EyebrowLabel size="sm">Courses for these gaps</EyebrowLabel>
+                <div className="mt-2 flex flex-col">
+                  {data.courseRecommendations.map((rec) => (
+                    <div
+                      key={rec.course.id}
+                      data-testid="course-recommendation"
+                      className="flex items-baseline justify-between gap-4 border-b border-line py-2.5 last:border-b-0"
+                    >
+                      <div className="min-w-0">
+                        <a
+                          href={rec.course.affiliate_url}
+                          target="_blank"
+                          /*
+                            `sponsored` alongside the usual two. These carry an
+                            affiliate ref, and saying so in the markup is the
+                            same honesty the visible line below states in
+                            words — not an SEO tactic.
+                          */
+                          rel="sponsored noopener noreferrer"
+                          className="text-[13.5px] font-semibold text-ink no-underline hover:text-rust hover:underline"
+                        >
+                          {rec.course.title}
+                        </a>
+                        {/*
+                          Names the gap it answers, verbatim as the model wrote
+                          it — `matchedKeyword`, not the normalised tag. The
+                          user recognises "React.js" from the list above; they
+                          never saw "react".
+                        */}
+                        <div className="mt-0.5 text-[12.5px] text-ink-soft">
+                          for {rec.matchedKeyword}
+                        </div>
+                      </div>
+                      {rec.course.price_tier === "free" && (
+                        <span className="flex-shrink-0 font-body text-[10px] font-bold tracking-[0.14em] text-green uppercase">
+                          Free
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                {/*
+                  Said plainly, in the design system's quiet-aside voice. The
+                  links are commercial and the reader is entitled to know that
+                  before clicking rather than after.
+                */}
+                <p className="mt-2 font-display text-[11.5px] leading-[1.4] italic text-ink-soft">
+                  Partner links. Talentrah may earn a commission — it doesn&apos;t
+                  change what Farah recommends.
+                </p>
+              </div>
+            )}
 
             {result.coverLetter && (
               <div>

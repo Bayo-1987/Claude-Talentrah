@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.17"
+    PostgrestVersion: "14.5"
   }
   public: {
     Tables: {
@@ -666,6 +666,84 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      course_recommendation_clicks: {
+        Row: {
+          clicked_at: string
+          id: string
+          recommendation_id: string | null
+          skill_tag: string
+          source: string
+          user_id: string | null
+        }
+        Insert: {
+          clicked_at?: string
+          id?: string
+          recommendation_id?: string | null
+          skill_tag: string
+          source: string
+          user_id?: string | null
+        }
+        Update: {
+          clicked_at?: string
+          id?: string
+          recommendation_id?: string | null
+          skill_tag?: string
+          source?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_recommendation_clicks_recommendation_id_fkey"
+            columns: ["recommendation_id"]
+            isOneToOne: false
+            referencedRelation: "course_recommendations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_recommendation_clicks_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      course_recommendations: {
+        Row: {
+          active: boolean
+          affiliate_url: string
+          created_at: string
+          id: string
+          price_tier: string
+          provider: string
+          skill_tag: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          affiliate_url: string
+          created_at?: string
+          id?: string
+          price_tier: string
+          provider: string
+          skill_tag: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          affiliate_url?: string
+          created_at?: string
+          id?: string
+          price_tier?: string
+          provider?: string
+          skill_tag?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       credit_gate_events: {
         Row: {
