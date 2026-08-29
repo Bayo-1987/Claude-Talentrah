@@ -65,6 +65,42 @@ Via the Supabase MCP connector's `apply_migration` (pass the name without the
 | `0061_course_recommendations.sql` | applied 2026-08-29 to **both** projects — recorded in `schema_migrations` under its pre-rename name, `0060_course_recommendations` (see the file's header) |
 | `0062_course_recommendation_seed.sql` | **not applied yet** — written first, deliberately. Recovers the nine catalog rows 0061's applied form inserted and its committed form omitted; idempotent, so applying it to production/CI inserts nothing and only records that the repo accounts for them |
 
+## The course catalog is switched OFF in both databases, by hand
+
+`course_recommendations` holds nine AltSchool rows whose `affiliate_url`s are
+placeholders (`?ref=talentrah-placeholder`), not real affiliate codes. On
+2026-08-29, immediately before PR #107 put the recommendations UI on main, all
+nine were switched off directly against both projects:
+
+```sql
+update public.course_recommendations set active = false;
+```
+
+    production nytwbbzfpytctjsoczzq   9 rows, 0 active
+    CI         dozaffzgqkbarxtlclsj   9 rows, 0 active
+
+Deliberately a plain UPDATE and NOT a migration, so that re-enabling the
+catalog once real affiliate codes exist is the same one statement with `true`
+— no migration, no redeploy. The rows and their URLs are intact; only the flag
+moved. `recommendCoursesForGapAnalysis` filters on `active`, so the
+recommendations block is simply absent, which M1 and M2 both already treat as
+the correct answer rather than a degraded one.
+
+**A FRESH DATABASE BUILT FROM THIS REPO WILL NOT MATCH.** `0062` inserts
+without naming `active`, so it takes 0061's `default true` and a new
+environment comes up with the placeholder catalog **live** while both real
+environments have it dark:
+
+    fresh env from migrations   9 rows, 9 ACTIVE
+    production / CI             9 rows, 0 active
+
+That divergence is recorded here rather than fixed in SQL because the switch
+was asked for as data, not schema. If you are standing up a new environment,
+run the UPDATE above after the migrations, or decide deliberately that the
+catalog should be live there. Whoever replaces the placeholders with real
+affiliate codes (§10 item 1) should close this gap at the same time — that is
+the moment the answer stops being "off everywhere".
+
 Both projects, not one. CLAUDE.md allows them to diverge while a PR is in
 review — apply to CI, apply to production on merge — but 0060 is additive
 (three new tables and one function, nothing existing altered), and the app
