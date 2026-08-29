@@ -28,6 +28,7 @@ const ITEMS = [
   { href: "/admin/campaigns", label: "Ad campaigns", key: "campaigns" },
   { href: "/admin/feedback", label: "Feedback", key: "feedback" },
   { href: "/admin/courses", label: "Courses", key: "courses" },
+  { href: "/admin/ops", label: "Operations", key: "ops" },
 ] as const;
 
 export async function AdminNav() {

@@ -1,6 +1,7 @@
 import "server-only";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { placeholderCourseCount } from "@/lib/admin/catalog/courses";
+import { opsAttentionCount } from "@/lib/admin/ops/queries";
 
 /**
  * The three queues, read for the dashboard.
@@ -242,8 +243,9 @@ export async function queueCounts(): Promise<{
   campaigns: number;
   feedback: number;
   courses: number;
+  ops: number;
 }> {
-  const [scholarships, reports, campaigns, feedback, courses] = await Promise.all([
+  const [scholarships, reports, campaigns, feedback, courses, ops] = await Promise.all([
     pendingScholarships(),
     reportedPostings(),
     pendingCampaigns(),
@@ -256,6 +258,8 @@ export async function queueCounts(): Promise<{
     // outstanding work (§10 item 1), so this counts those and falls to 0 when
     // real codes land.
     placeholderCourseCount(),
+    // Only what will not fix itself — see opsAttentionCount.
+    opsAttentionCount(),
   ]);
   return {
     scholarships: scholarships.length,
@@ -263,5 +267,6 @@ export async function queueCounts(): Promise<{
     campaigns: campaigns.length,
     feedback: feedback.length,
     courses,
+    ops,
   };
 }
