@@ -47,6 +47,14 @@ Via the Supabase MCP connector's `apply_migration` (pass the name without the
 | `0034_auto_apply_claim.sql` | applied 2026-08-25 (re-applied after the alias fix) |
 | `0035_atomic_credit_spend.sql` | applied 2026-08-25 |
 | `0036_self_referral_dot_normalisation.sql` | applied 2026-08-25 |
+| … | this table stopped being updated at 0036; 0037–0059 were applied as they landed |
+| `0060_admin_identity.sql` | applied 2026-08-28 to **both** projects — production `nytwbbzfpytctjsoczzq` and CI `dozaffzgqkbarxtlclsj` |
+
+Both projects, not one. CLAUDE.md allows them to diverge while a PR is in
+review — apply to CI, apply to production on merge — but 0060 is additive
+(three new tables and one function, nothing existing altered), and the app
+cannot be exercised against either project without it. Check both before
+assuming a table or function exists.
 
 ## Still missing
 
@@ -55,3 +63,6 @@ Playwright, `npm run seed` — runs against this one project, which is also
 production. The suites namespace and clean up their own throwaway users, but
 that is a convention, not an isolation boundary. `0000_baseline_schema.sql`
 makes a second project buildable; standing one up is the next step.
+
+*(That paragraph predates the CI project, which now exists —
+`dozaffzgqkbarxtlclsj`. See CLAUDE.md for what is and is not isolated.)*

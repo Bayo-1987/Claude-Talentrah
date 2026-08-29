@@ -36,6 +36,18 @@ because a read-then-act cap is not a cap. **Auto-Apply never submits to external
 postings** — there is no ATS integration, so external matches are handed off to
 the source site and marked `handed_off`, never `applied`.
 
+**The admin dashboard has started, at M1: admin identity and the route guard.**
+Read [docs/admin-auth.md](docs/admin-auth.md) before touching `/admin`,
+`src/lib/admin/` or 0060. The two things most likely to be got wrong: admin
+identity is a **separate `admin_users` table**, not a flag on `profiles` — and
+deliberately so, because `profiles` is the table whose grant list exists to
+grow — and **the cron routes correctly keep the shared secret**, because a
+session cookie cannot authenticate a caller that has no browser. The split that
+matters is by caller, not by URL prefix: the human-operated `moderate-*` routes
+are the ones whose shared secret is the wrong mechanism, and they move to admin
+sessions in M2. Being signed in to the seeker app grants nothing at `/admin`;
+the guard never reads the Supabase session.
+
 Phase 1 is feature-complete except for the employer side. Read [docs/phase-1-summary.md](docs/phase-1-summary.md) before assuming any feature's status — it is kept current and lists what shipped, what is deferred, and the open defects with their evidence. Two that shape most decisions:
 
 - **The employer side exists**: org onboarding, Company Profile, free job posting, Jobs Posted (Phase 1), plus **Ad Campaigns** (Phase 2 — ad wallet 0046, campaign state machine 0047/0048, Server Actions and review gate). Billing and analytics are still Phase 2 and are deliberately **absent from the employer nav** rather than stubbed — don't add placeholder pages for them, and don't describe them as shipped. Ad Campaigns is in the nav because it is real, not because the rule changed. Building this surface is what exercised the org RLS policies for the first time and found the third hole in them (0028).

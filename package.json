@@ -9,6 +9,7 @@
     "lint": "eslint",
     "seed": "tsx scripts/seed.ts",
     "cleanup-test-orgs": "tsx scripts/cleanup-test-orgs.ts",
+    "grant-admin": "tsx scripts/grant-admin.ts",
     "test": "vitest run",
     "test:e2e": "playwright test",
     "estimate-costs": "tsx scripts/estimate-llm-costs.ts",
