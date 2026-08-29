@@ -28,6 +28,19 @@ doing. The goal here is that every *future* change is reviewable.
 Write the SQL into this directory **first**, review it in the PR, then apply
 it. Naming continues the existing sequence: `NNNN_snake_case_description.sql`.
 
+**Take the number from what exists at that moment, not from what you remember.**
+`0060` was claimed twice in one morning — `0060_admin_identity` and
+`0060_course_recommendations`, written on separate branches that each read the
+directory before the other landed. Neither author did anything careless; the
+number was simply free when each of them looked.
+
+    ls supabase/migrations/*.sql | sed 's|.*/||' | cut -c1-4 | sort | tail -1
+
+Re-check it immediately before opening the PR, not when starting the branch —
+the gap between those two is where a collision fits. If you lose the race,
+renumbering after an apply is survivable (see 0061's header) but leaves the
+filename disagreeing with `schema_migrations` forever.
+
 ## Applying one
 
 Via the Supabase MCP connector's `apply_migration` (pass the name without the
@@ -49,6 +62,7 @@ Via the Supabase MCP connector's `apply_migration` (pass the name without the
 | `0036_self_referral_dot_normalisation.sql` | applied 2026-08-25 |
 | … | this table stopped being updated at 0036; 0037–0059 were applied as they landed |
 | `0060_admin_identity.sql` | applied 2026-08-28 to **both** projects — production `nytwbbzfpytctjsoczzq` and CI `dozaffzgqkbarxtlclsj` |
+| `0061_course_recommendations.sql` | applied 2026-08-29 to **both** projects — recorded in `schema_migrations` under its pre-rename name, `0060_course_recommendations` (see the file's header) |
 
 Both projects, not one. CLAUDE.md allows them to diverge while a PR is in
 review — apply to CI, apply to production on merge — but 0060 is additive
