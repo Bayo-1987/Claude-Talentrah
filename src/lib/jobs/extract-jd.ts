@@ -1,8 +1,13 @@
 import type { StructuredJD, WorkType, SeniorityLevel } from "./types";
 
 /** Small curated vocabulary — enough to drive M3's algorithmic match scoring
- * without needing an LLM call per job at ingestion time. Extend as needed. */
-const SKILL_VOCABULARY = [
+ * without needing an LLM call per job at ingestion time. Extend as needed.
+ *
+ * Exported since the course catalog keys on it: `course_recommendations.skill_tag`
+ * holds terms from this list, and src/lib/courses/normalize.ts maps freeform
+ * gap-analysis keywords onto it. One vocabulary, two readers — a second copy
+ * would drift, and the drift would look like "no course for that skill". */
+export const SKILL_VOCABULARY = [
   "javascript",
   "typescript",
   "python",
