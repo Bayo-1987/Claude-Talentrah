@@ -226,12 +226,27 @@ test.describe("a signed-in visitor on the landing page", () => {
      * Deleting the row rather than raising the limit: the limit is a real
      * product decision ("generous for real use, fatal to a loop") and should
      * not be relaxed to suit a test suite that shares one account.
+     *
+     * SCOPED TO THE CURRENT WINDOW, not to the bucket. `window_start` is
+     * hour-truncated, so one row exists per hour and only the current one can
+     * refuse anything; the earlier rows are the record of what was throttled
+     * and when. An unscoped delete wiped that history every run — which is
+     * exactly how the evidence that proved this diagnosis (09:00-13:00,
+     * peaking at 12/10) was destroyed by the experiment that used it, and it
+     * would keep hollowing out the ops screen that reads this table.
+     *
+     * The hour boundary is not a risk: if the clock rolls into a new hour
+     * between here and the request, that window starts fresh at 1, which is
+     * under the limit either way.
      */
+    const windowStart = new Date();
+    windowStart.setUTCMinutes(0, 0, 0);
     const { error: limitError } = await admin
       .from("api_rate_limits")
       .delete()
       .eq("user_id", data.id)
-      .eq("bucket", "tailoring");
+      .eq("bucket", "tailoring")
+      .gte("window_start", windowStart.toISOString());
     // Checked: a refused delete RESOLVES with an error rather than throwing,
     // and silently not clearing it puts the flake straight back.
     if (limitError) {
