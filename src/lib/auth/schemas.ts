@@ -45,3 +45,24 @@ export const signInSchema = z.object({
   email: z.email("Enter a valid email"),
   password: z.string().min(1, "Password is required"),
 });
+
+/**
+ * Email only. There is nothing else to ask for, and nothing else to validate:
+ * whether an account exists for this address is deliberately not knowable from
+ * the response — see requestPasswordResetAction.
+ */
+export const forgotPasswordSchema = z.object({
+  email: z.email("Enter a valid email"),
+});
+
+/**
+ * The new password, held to the SAME rule as signup via `isPasswordValid`
+ * rather than a second definition. A reset form that accepted a weaker
+ * password than signup would be a way around the rule rather than a different
+ * screen, and the two would drift the moment either is edited.
+ */
+export const resetPasswordSchema = z.object({
+  password: z
+    .string()
+    .refine(isPasswordValid, "Password doesn't meet the requirements below"),
+});

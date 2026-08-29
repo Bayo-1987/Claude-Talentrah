@@ -39,14 +39,32 @@ export function LoginForm({ redirectTo }: { redirectTo?: string }) {
         onChange={(e) => setEmail(e.target.value)}
         error={state.fieldErrors?.email?.[0]}
       />
-      <TextField
-        label="Password"
-        name="password"
-        type="password"
-        autoComplete="current-password"
-        required
-        error={state.fieldErrors?.password?.[0]}
-      />
+      <div className="flex flex-col gap-1.5">
+        <TextField
+          label="Password"
+          name="password"
+          type="password"
+          autoComplete="current-password"
+          required
+          error={state.fieldErrors?.password?.[0]}
+        />
+        {/*
+          UNDER the field rather than beside its label, which is the more
+          common placement and is avoided on purpose: the label row is where
+          this form says what a field IS, and a link there competes with that
+          for the same glance. Here it reads as the next thing to try after the
+          password, which is when it is wanted.
+
+          Quiet by design — ink-soft, no button chrome. Someone who knows their
+          password should not be invited to reset it.
+        */}
+        <a
+          href="/forgot-password"
+          className="self-start text-[12.5px] text-ink-soft underline underline-offset-2 hover:text-rust"
+        >
+          Forgot password?
+        </a>
+      </div>
 
       <Button type="submit" disabled={pending} className="mt-1">
         {pending ? "Logging in…" : "Log in"}
