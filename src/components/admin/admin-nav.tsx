@@ -28,6 +28,13 @@ const ITEMS = [
   { href: "/admin/campaigns", label: "Ad campaigns", key: "campaigns" },
   { href: "/admin/feedback", label: "Feedback", key: "feedback" },
   { href: "/admin/courses", label: "Courses", key: "courses" },
+  /*
+   * Finance is in the nav; the PERSON LOOKUP is not, and that is deliberate.
+   * It is one click from here, but nobody should land on a PII surface while
+   * on their way somewhere else — which is the same argument that keeps the
+   * finance page itself free of names.
+   */
+  { href: "/admin/finance", label: "Finance", key: "finance" },
 ] as const;
 
 export async function AdminNav() {
