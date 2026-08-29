@@ -1,4 +1,31 @@
--- 0060 — course recommendations (build-prompt §6.9 / §10 item 12), M1.
+-- 0061 — course recommendations (build-prompt §6.9 / §10 item 12), M1.
+--
+-- ---------------------------------------------------------------------------
+-- RENAMED FROM 0060 AFTER IT WAS APPLIED. The applied name does not match.
+-- ---------------------------------------------------------------------------
+--
+-- This shipped as `0060_course_recommendations.sql` and collided with
+-- `0060_admin_identity.sql`, which landed on main from a separate branch the
+-- same morning. Renumbered to 0061 so the directory reads in one order again;
+-- 0060_admin_identity kept its number because its header carries an md5 of the
+-- statements stored in schema_migrations, and a rename would strand a
+-- verification someone may re-run.
+--
+-- The rename came AFTER the apply, so what is recorded server-side still says
+-- 0060 and always will:
+--
+--     CI   dozaffzgqkbarxtlclsj   version 20260829051115   name 0060_course_recommendations
+--     PRD  nytwbbzfpytctjsoczzq   version 20260829052303   name 0060_course_recommendations
+--
+-- That mismatch is cosmetic and deliberate. Supabase keys schema_migrations on
+-- `version`, the timestamp — not on the NNNN_ prefix — and the two versions are
+-- distinct, so nothing is ambiguous, double-applied, or pending. Verified by
+-- listing migrations on production: both 0060 names are present, with
+-- different versions, and neither ran twice.
+--
+-- DO NOT re-apply this file to "fix" the name. It would either no-op or fail on
+-- the existing objects, and the record it would write is the thing that is
+-- already correct.
 --
 -- A curated catalog plus an outbound-click log. Two tables with deliberately
 -- opposite access shapes, and the difference is the point:
