@@ -4,6 +4,7 @@ import { useActionState, useEffect, useRef, useState } from "react";
 import { reportJobPostingAction } from "@/lib/reports/actions";
 import { initialReportActionState } from "@/lib/reports/state";
 import { REPORT_REASONS } from "@/lib/reports/schemas";
+import { IconButton } from "@/components/ui";
 
 /**
  * "Report" on a job card — the seeker-side input to 0056's removal power.
@@ -56,19 +57,49 @@ export function ReportJobMenu({ jobId, jobTitle }: ReportJobMenuProps) {
   return (
     <div ref={wrapRef} className="relative inline-flex items-center">
       {/*
-        min-h-10 AND min-w-10. Height alone is what shipped a 39.1px-wide
-        target past review in #69 — CLAUDE.md's rule names both dimensions and
-        "Report" is a short word. Measured in a browser, not inferred.
+        AN ICON, matching Save and Share rather than sitting between them as
+        the one word in a row of glyphs.
+
+        The hit target stops being this component's problem in the process.
+        The text button carried a hand-written `min-h-10 min-w-10` because
+        height alone had shipped a 39.1px-wide target past review in #69;
+        IconButton is 40x40 by construction, so the rule is enforced by the
+        component every other icon on this card already uses instead of by a
+        comment reminding the next person not to drop it.
+
+        The LABEL NAMES THE JOB. A card list renders one of these per posting,
+        and a screen reader moving through it would otherwise announce a column
+        of identical "Report" buttons with nothing to tell them apart. The
+        panel's own aria-label was already qualified this way.
       */}
-      <button
+      <IconButton
         type="button"
+        aria-label={`Report ${jobTitle}`}
         aria-expanded={open}
         aria-haspopup="true"
         onClick={() => setOpen((o) => !o)}
-        className="inline-flex min-h-10 min-w-10 items-center justify-center gap-[5px] px-1 text-[13px] font-semibold text-ink-soft no-underline hover:text-rust"
       >
-        Report
-      </button>
+        {/*
+          Outline flag, 1.4 stroke and currentColor — the same weight and
+          colour contract as the Save heart beside it, so it inherits
+          IconButton's ink-soft/rust hover rather than declaring its own.
+        */}
+        <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+          <path
+            d="M5.25 17.5V3.25"
+            stroke="currentColor"
+            strokeWidth="1.4"
+            strokeLinecap="round"
+          />
+          <path
+            d="M5.25 3.75H15L12.4 7.4L15 11.05H5.25"
+            stroke="currentColor"
+            strokeWidth="1.4"
+            strokeLinejoin="round"
+            strokeLinecap="round"
+          />
+        </svg>
+      </IconButton>
 
       {open && (
         <div

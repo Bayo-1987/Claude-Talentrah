@@ -206,10 +206,14 @@ export function JobCard({
             origin={origin}
           />
           {/*
-            Report sits before Ask Farah and is styled quieter than it:
-            --ink-soft, no underline, no chevron. It is the least-used action
-            on the card and putting it beside Apply would give a takedown
-            request the same weight as applying.
+            Report sits before Ask Farah, and as an icon rather than a word:
+            it is the least-used action on the card, and putting it beside
+            Apply — or spelling it out mid-row between Save and Share — would
+            give a takedown request more weight than applying.
+
+            Grouping it with the other two circular buttons is also what keeps
+            the row honest about hierarchy: glyphs are the quiet actions, text
+            is the loud one, and Apply is the only text button left.
           */}
           <ReportJobMenu jobId={job.id} jobTitle={job.title} />
           <FarahJobMenu jobId={job.id} explanation={explanation} />
