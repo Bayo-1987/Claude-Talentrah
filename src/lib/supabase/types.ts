@@ -962,6 +962,7 @@ export type Database = {
       }
       job_postings: {
         Row: {
+          removed_by: string | null
           company_logo_url: string | null
           company_name: string
           created_at: string
@@ -987,6 +988,7 @@ export type Database = {
           years_experience_min: number | null
         }
         Insert: {
+          removed_by?: string | null
           company_logo_url?: string | null
           company_name: string
           created_at?: string
@@ -1014,6 +1016,7 @@ export type Database = {
           years_experience_min?: number | null
         }
         Update: {
+          removed_by?: string | null
           company_logo_url?: string | null
           company_name?: string
           created_at?: string
@@ -1626,6 +1629,7 @@ export type Database = {
       }
       scholarships: {
         Row: {
+          moderated_by: string | null
           application_deadline: string | null
           created_at: string
           cycle_year: number | null
@@ -1653,6 +1657,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          moderated_by?: string | null
           application_deadline?: string | null
           created_at?: string
           cycle_year?: number | null
@@ -1680,6 +1685,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          moderated_by?: string | null
           application_deadline?: string | null
           created_at?: string
           cycle_year?: number | null

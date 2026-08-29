@@ -1,7 +1,7 @@
 "use server";
 
-import { timingSafeEqual } from "node:crypto";
-import { adminSecret } from "@/lib/api/admin-auth";
+import { requireAdmin } from "@/lib/admin/require-admin";
+
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { upsertScholarships } from "./ingest";
 import { manualScholarshipSchema, toNormalizedScholarship } from "./schemas";
@@ -27,23 +27,6 @@ import type { AdminScholarshipState, PendingScholarship } from "./admin-state";
  */
 
 /** Same constant-time comparison the API guard uses, for the same reason. */
-function secretOk(provided: string | null): boolean {
-  const expected = adminSecret();
-  if (!expected) {
-    console.error(
-      "[admin-scholarships] refused: no ADMIN_API_SECRET/INGEST_SECRET configured. The form stays closed until one is set.",
-    );
-    return false;
-  }
-  if (!provided) return false;
-  const a = Buffer.from(provided, "utf8");
-  const b = Buffer.from(expected, "utf8");
-  if (a.length !== b.length) {
-    timingSafeEqual(b, b);
-    return false;
-  }
-  return timingSafeEqual(a, b);
-}
 
 /**
  * Reads the moderation queue directly rather than over HTTP to
@@ -82,20 +65,46 @@ async function loadPending(): Promise<PendingScholarship[]> {
  * entry saying "this one is fine" is how the next real one gets waved through.
  * A name that is not credential-shaped costs nothing.
  */
-const DENIED_MESSAGE = "That password isn't right.";
+/*
+ * The shared-secret check is gone from both actions.
+ *
+ * It was never wrong — it was the only thing available when this page shipped,
+ * and its own comment explained that the secret travelled with each submission
+ * precisely so it never had to be stored anywhere. M1 replaced the premise:
+ * /admin/scholarships/new now sits inside the (protected) route group, so an
+ * operator who can render this form has already proved who they are against a
+ * revocable session. Asking them to type a password as well would be theatre —
+ * and worse, a second credential to leak.
+ *
+ * `requireAdmin()` here is belt and braces rather than the gate: the layout
+ * guard already ran. It matters because a Server Action is a POST endpoint in
+ * its own right, reachable without ever rendering the page that hosts it, so
+ * the action has to establish identity itself and not inherit it.
+ */
 
 /**
- * Unlock only — check the password and show the queue, without writing
- * anything. Separate from the create path so an operator can look at what is
- * waiting for review before deciding whether to add to it.
+ * Load the pending queue without writing anything.
+ *
+ * It used to be the "unlock" step: type the password, see what is waiting.
+ * With session auth there is nothing to unlock, so it is now just a refresh —
+ * kept as its own action because the form still offers "show me what is
+ * pending" separately from "add a listing", and that was always the useful
+ * half of it.
+ *
+ * The unused parameters are the useActionState contract, not leftovers.
  */
+/*
+ * Neither argument is used any more — there is no password to read — but
+ * useActionState fixes this signature, so dropping them would break the hook's
+ * contract rather than tidy anything.
+ */
+/* eslint-disable @typescript-eslint/no-unused-vars -- see the note above */
 export async function loadQueueAction(
   _prev: AdminScholarshipState,
-  formData: FormData,
+  _formData: FormData,
 ): Promise<AdminScholarshipState> {
-  if (!secretOk(formData.get("secret") as string | null)) {
-    return { status: "error", error: DENIED_MESSAGE, pending: null, unlocked: false };
-  }
+  /* eslint-enable @typescript-eslint/no-unused-vars */
+  await requireAdmin();
   return { status: "idle", pending: await loadPending(), unlocked: true };
 }
 
@@ -103,9 +112,7 @@ export async function createScholarshipAction(
   _prev: AdminScholarshipState,
   formData: FormData,
 ): Promise<AdminScholarshipState> {
-  if (!secretOk(formData.get("secret") as string | null)) {
-    return { status: "error", error: DENIED_MESSAGE, pending: null, unlocked: false };
-  }
+  await requireAdmin();
 
   const parsed = manualScholarshipSchema.safeParse({
     provider: formData.get("provider"),

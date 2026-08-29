@@ -47,15 +47,34 @@ export default async function AdminHomePage() {
       <div className="flex flex-col gap-3">
         <EyebrowLabel>What exists today</EyebrowLabel>
         <p className="max-w-[620px] text-[15px] text-ink-soft">
-          The moderation queues are still API-only — they get screens in M2. The
-          one page already built is the hand-curated scholarship form.
+          Three moderation queues, each backed by logic that has been live and
+          tested for a while and had no screen until now. Everything else in the
+          domain map — feedback triage, user support, financial visibility — is a
+          real gap rather than a shipped feature, so it is absent from the nav
+          instead of stubbed.
         </p>
-        <p>
-          <Link href="/admin/scholarships/new" className="underline">
-            Add a scholarship by hand
-          </Link>
-        </p>
+        <ul className="flex list-none flex-col gap-2 p-0 text-[15px]">
+          <li>
+            <Link href="/admin/scholarships" className="underline">
+              Scholarship review
+            </Link>{" "}
+            — approve into the public catalog, or reject with a reason.
+          </li>
+          <li>
+            <Link href="/admin/reports" className="underline">
+              Reported postings
+            </Link>{" "}
+            — ranked by distinct reporters; remove or restore.
+          </li>
+          <li>
+            <Link href="/admin/campaigns" className="underline">
+              Ad campaign review
+            </Link>{" "}
+            — approving never starts a campaign or spends anything.
+          </li>
+        </ul>
       </div>
+
     </Container>
   );
 }

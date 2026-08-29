@@ -27,7 +27,7 @@ export function AdminScholarshipForm() {
   );
 
   // Whichever half last ran is the one holding a fresh queue and a real
-  // verdict on the password. Creating re-reads the queue, so preferring the
+  // freshest queue. Creating re-reads the queue, so preferring the
   // create state when it has one keeps the new row visible immediately.
   const active = state.pending !== null ? state : queueState;
   const queue = active.pending;
@@ -35,53 +35,27 @@ export function AdminScholarshipForm() {
   return (
     <div className="flex flex-col gap-8">
       {/*
-        The unlock form is separate from the listing form, not a section of it.
-        Two forms means the password can be checked — and the queue read —
-        without carrying twenty empty fields through a failed submission.
+        The password card that used to sit here is gone. It asked the operator
+        to type the shared admin secret before the form would appear — the only
+        identity check available when this page shipped. The page now lives
+        inside the (protected) route group behind a real admin session, so the
+        field was a second credential protecting something already protected.
+
+        `loadQueueAction` survives as a plain refresh: "show me what is
+        pending" was always the useful half of that form.
       */}
-      <BorderedCard className="max-w-[640px] p-5">
-        <form action={queueAction} className="flex flex-col gap-3">
-          <EyebrowLabel>Admin password</EyebrowLabel>
-          <div className="flex flex-wrap items-end gap-3">
-            <div className="min-w-[260px] flex-1">
-              {/*
-                Explicit id on both password fields. TextField falls back to
-                `name` for the id, and these two deliberately share a name so a
-                password manager treats them as the same credential — which
-                would otherwise put id="secret" on the page twice and point
-                both labels at the first one.
-              */}
-              <TextField
-                id="secret-unlock"
-                label="Password"
-                name="secret"
-                type="password"
-                autoComplete="current-password"
-                required
-              />
-            </div>
-            <Button type="submit" variant="secondary" disabled={queuePending}>
-              {queuePending ? "Checking…" : "Show pending queue"}
-            </Button>
-          </div>
-          {queueState.status === "error" && (
-            <p className="border-[1.5px] border-rust bg-rust-soft px-3.5 py-2.5 text-[13.5px] text-rust">
-              {queueState.error}
-            </p>
-          )}
-          <p className="font-display text-[13px] italic text-ink-soft">
-            The password isn&apos;t remembered between actions — enter it again
-            below when you post a listing.
-          </p>
-        </form>
-      </BorderedCard>
+      <form action={queueAction}>
+        <Button type="submit" variant="secondary" size="sm" disabled={queuePending}>
+          {queuePending ? "Loading…" : "Show pending queue"}
+        </Button>
+      </form>
 
       <section className="flex flex-col gap-4">
         <div className="flex flex-col gap-2">
           <EyebrowLabel>Awaiting review</EyebrowLabel>
           {queue === null ? (
             <p className="font-display text-[14px] italic text-ink-soft">
-              Enter the password above to see what&apos;s waiting.
+              Not loaded yet — use “Show pending queue”.
             </p>
           ) : queue.length === 0 ? (
             <p className="font-display text-[14px] italic text-ink-soft">
@@ -153,15 +127,6 @@ export function AdminScholarshipForm() {
               {state.error}
             </p>
           )}
-
-          <TextField
-            id="secret-create"
-            label="Password"
-            name="secret"
-            type="password"
-            autoComplete="current-password"
-            required
-          />
 
           <TextField
             label="Provider"
