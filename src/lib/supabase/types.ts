@@ -368,6 +368,7 @@ export type Database = {
       }
       admin_users: {
         Row: {
+          mfa_enrolled_at: string | null
           created_at: string
           disabled_at: string | null
           display_name: string | null
@@ -376,6 +377,7 @@ export type Database = {
           last_login_at: string | null
         }
         Insert: {
+          mfa_enrolled_at?: string | null
           created_at?: string
           disabled_at?: string | null
           display_name?: string | null
@@ -384,6 +386,7 @@ export type Database = {
           last_login_at?: string | null
         }
         Update: {
+          mfa_enrolled_at?: string | null
           created_at?: string
           disabled_at?: string | null
           display_name?: string | null

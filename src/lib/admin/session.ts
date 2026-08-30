@@ -44,6 +44,8 @@ export interface AdminIdentity {
   email: string;
   displayName: string | null;
   expiresAt: string;
+  /** Null until this operator completes TOTP enrolment (0068). */
+  mfaEnrolledAt: string | null;
 }
 
 function hashToken(token: string): string {
@@ -139,12 +141,27 @@ export async function getAdminIdentity(): Promise<AdminIdentity | null> {
   const row = data?.[0];
   if (!row) return null;
 
+  /*
+   * A second read rather than a change to admin_session_validate's signature.
+   * That function is the gate — four conditions under one lock — and widening
+   * its return type would mean re-applying a migration that is already live on
+   * both projects to add a field the gate does not use. The enrolment stamp is
+   * not a security decision here; it decides which PAGE an already-validated
+   * operator is sent to.
+   */
+  const { data: enrolment } = await supabase
+    .from("admin_users")
+    .select("mfa_enrolled_at")
+    .eq("id", row.admin_id)
+    .maybeSingle();
+
   return {
     sessionId: row.session_id,
     adminId: row.admin_id,
     email: row.admin_email,
     displayName: row.admin_display_name ?? null,
     expiresAt: row.session_expires_at,
+    mfaEnrolledAt: enrolment?.mfa_enrolled_at ?? null,
   };
 }
 

@@ -31,6 +31,22 @@ export function AdminLoginForm({ redirectTo }: { redirectTo?: string }) {
         autoComplete="current-password"
         required
       />
+      {/*
+        ALWAYS SHOWN, never conditional. Revealing the field only for accounts
+        with a factor would confirm both that the address is an operator's and
+        that it has MFA — two facts an attacker holding a freshly reset password
+        would like very much. Optional-looking here, enforced on the server for
+        anyone actually enrolled.
+      */}
+      <TextField
+        id="admin-code"
+        label="Authentication code"
+        name="code"
+        inputMode="numeric"
+        autoComplete="one-time-code"
+        maxLength={6}
+        placeholder="If you have two-factor set up"
+      />
 
       {state.error && (
         <p

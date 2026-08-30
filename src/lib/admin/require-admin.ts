@@ -24,7 +24,31 @@ import { getAdminIdentity, type AdminIdentity } from "./session";
 export async function requireAdmin(): Promise<AdminIdentity> {
   const identity = await getAdminIdentity();
   if (!identity) redirect(`/admin/login${await returnTripSuffix()}`);
+
+  /*
+   * ENROLMENT IS FORCED, LOGIN IS NOT BLOCKED.
+   *
+   * An operator without a second factor gets in and then goes exactly one
+   * place: /admin/mfa. Refusing the login instead would have locked out every
+   * admin that existed when this shipped — and since enrolment lives behind
+   * this same guard, it would have been a deadlock escapable only by a
+   * service-role intervention.
+   *
+   * The exemption is BY PATH and covers only the enrolment page itself. It is
+   * deliberately not a list: every other admin route, present and future, is
+   * gated by existing rather than by being remembered here.
+   */
+  if (!identity.mfaEnrolledAt && !(await onEnrolmentPage())) {
+    redirect("/admin/mfa");
+  }
+
   return identity;
+}
+
+/** Whether this request is already for the enrolment page. */
+async function onEnrolmentPage(): Promise<boolean> {
+  const here = (await headers()).get(PATH_HEADER) ?? "";
+  return here === "/admin/mfa" || here.startsWith("/admin/mfa?");
 }
 
 /** Non-redirecting form, for a page that renders differently rather than bouncing. */
