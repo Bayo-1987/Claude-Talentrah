@@ -9,25 +9,20 @@ import { adminLoginSchema } from "./schemas";
 import type { AdminLoginState } from "./login-state";
 import { createAdminSession, getAdminIdentity, revokeCurrentAdminSession } from "./session";
 import { recordAdminAction, recordFailedAdminLogin } from "./audit";
-import { verifyLoginCode } from "./mfa";
 
 /**
  * One message for every rejection, on purpose.
  *
  * Wrong password, correct password but not an admin, correct password on a
- * disabled admin, malformed email, missing or wrong TOTP code — all of them
- * say this. A form that distinguishes them tells whoever is guessing which
- * half they got right, and "this address is one of the operators" is the more
- * valuable half.
+ * disabled admin, malformed email — all of them say this. A form that
+ * distinguishes them tells whoever is guessing which half they got right, and
+ * "this address is one of the operators" is the more valuable half.
  *
- * THE CODE IS COVERED BY THE SAME SENTENCE ON PURPOSE. Saying "that code was
- * wrong" would confirm the account exists AND has MFA enabled — two facts an
- * attacker holding a freshly reset password would very much like. The cost is
- * that a legitimate operator who fat-fingers a digit reads a slightly vague
- * message; the field is always visible, so at least they know a code is a
- * thing this form wants.
+ * That matters more here than it would with a second factor in front of it.
+ * Password is the only thing being checked, so the reply to a wrong one is the
+ * only signal available — and it says nothing.
  */
-const GENERIC_FAILURE = "Incorrect email, password, or authentication code.";
+const GENERIC_FAILURE = "Incorrect email or password.";
 
 /**
  * Verifies a password against Supabase Auth WITHOUT creating a Supabase
@@ -99,7 +94,7 @@ export async function adminLoginAction(
 
   const { data: adminUser, error: lookupError } = await supabase
     .from("admin_users")
-    .select("id, email, disabled_at, mfa_enrolled_at")
+    .select("id, email, disabled_at")
     .eq("id", signIn.user.id)
     .maybeSingle();
 
@@ -116,26 +111,10 @@ export async function adminLoginAction(
   }
 
   /*
-   * THE SECOND FACTOR, CHECKED BEFORE ANY SESSION EXISTS.
-   *
-   * Only for operators who have actually enrolled. An operator who has not is
-   * allowed in and then forced to /admin/mfa by the guard — a hard block here
-   * would lock out every existing admin the moment this shipped, and the
-   * enrolment page lives behind the same guard, so it would also be a
-   * bootstrap deadlock with no way out that is not a service-role
-   * intervention.
-   *
-   * `mfa_enrolled_at` rather than a live read of auth.mfa_factors: the service
-   * role cannot see the auth schema at all (0067, 0068).
+   * THERE IS NO SECOND FACTOR. A correct password on a live admin_users row is
+   * the whole test. MFA was built (0068) and removed before anyone enrolled;
+   * see docs/admin-auth.md for why that risk is accepted rather than missed.
    */
-  if (adminUser.mfa_enrolled_at) {
-    const code = String(formData.get("code") ?? "").trim();
-    if (!code || !(await verifyLoginCode(email, password, code))) {
-      await recordFailedAdminLogin(adminUser.id, adminUser.email);
-      return { error: GENERIC_FAILURE };
-    }
-  }
-
   let sessionId: string;
   try {
     sessionId = await createAdminSession(adminUser.id);
@@ -147,10 +126,6 @@ export async function adminLoginAction(
   await recordAdminAction({
     identity: { adminId: adminUser.id, email: adminUser.email, sessionId },
     action: "admin.login",
-    // Recorded so the log distinguishes a login that cleared a second factor
-    // from one that did not — which is the only way to tell, after the fact,
-    // whether a session predates enrolment.
-    detail: { mfa: adminUser.mfa_enrolled_at ? "verified" : "not_enrolled" },
   });
 
   /*
