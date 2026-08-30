@@ -88,7 +88,25 @@ export default async function AppLayout({
         >
           {children}
         </div>
-        <div className="print:hidden">
+        {/*
+          THE TINT LIVES HERE, NOT ON THE PANEL, and the difference is visible
+          on every normal screen rather than at some far-scrolled extreme.
+
+          FarahPanel's own div is `sticky` with a max-height, so it is only ever
+          as tall as its content — measured at 511px against a content column of
+          36,327px. Painting `bg-paper-alt` there left the field stopping 511px
+          down while the feed carried on beside it: on a 900px viewport that is
+          a seam of plain --paper visible before the fold, not below it.
+
+          THIS wrapper is the flex item, so `align-items: stretch` makes it
+          exactly as tall as the content column. The tint therefore runs the
+          whole column, which is what a colour field means.
+
+          The rust top rule, the left hairline and the mark stay on the panel
+          itself: they mark where Farah's CONTENT begins, which is not the same
+          place as where her column begins.
+        */}
+        <div className="bg-paper-alt print:hidden">
           <FarahPanel
             firstName={visibleName(profile.first_name) || "there"}
             initialMessages={initialMessages}
