@@ -84,8 +84,30 @@ export function JobCard({
           {getCompanyInitials(job.company_name)}
         </div>
         <div className="min-w-0 flex-1">
-          <div className="flex items-baseline justify-between gap-4">
-            <h3 className="text-[17px]">
+          <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+            {/*
+              WRAPS, and the title carries `min-w-0`, because on a phone the
+              title and the score do not fit on one line.
+
+              A flex item defaults to `min-width: auto` and refuses to shrink
+              below its own min-content width; the badge beside it is
+              `flex-shrink-0`. So at 360px the two together pushed the PAGE to
+              388px wide — a horizontal scrollbar on every phone.
+
+              It surfaced when match scores first reached three digits: the
+              badge reads "100% · Excellent" rather than "72% · Good", and
+              those were the characters that stopped fitting. The overflow was
+              latent well before that — a long enough title would have done it
+              — so this is not a fix about one extra digit.
+
+              Wrapping rather than only shrinking, because shrinking alone
+              squeezed "Senior Content Designer" into three lines and broke
+              the "sourced externally" pill across two. Dropping the score to
+              its own line keeps the title readable and the pill intact.
+              Nothing changes above the width where both fit: on desktop the
+              row still reads title-left, score-right.
+            */}
+            <h3 className="min-w-0 text-[17px]">
               {/*
                 Only the title text is the link, not the whole heading — the
                 badges beside it describe the posting, they are not part of its
