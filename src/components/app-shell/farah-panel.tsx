@@ -18,8 +18,16 @@ export interface FarahPanelProps {
 }
 
 /**
- * Marginalia panel per design handoff §7 — 280px column, border-left only,
- * no card background, never a boxed chat widget. Farah's turns are set in
+ * Marginalia panel per design handoff §7 — never a boxed chat widget, no card
+ * background, no radius, no shadow.
+ *
+ * THE COLUMN'S OWN CHROME IS NOT ALL HERE, which is worth knowing before
+ * reading the classes below and concluding something is missing. The colour
+ * field (`bg-paper-alt`) and the left hairline live on the wrapper in
+ * (app)/layout.tsx, because both run the length of the COLUMN and this
+ * component is only ever as tall as its content. What stays here is what marks
+ * where Farah's content begins: the 3px rust top rule and the mark beside the
+ * eyebrow. Farah's turns are set in
  * italic Newsreader (matching the greeting copy this replaced); the user's
  * are plain body text — that typographic split is the only visual
  * differentiation, on purpose, rather than chat-bubble styling.
@@ -110,6 +118,14 @@ export function FarahPanel({ firstName, initialMessages }: FarahPanelProps) {
       under this layout, measure the wrapper's height; do not assume either
       answer from the other case.
 
+      THAT SAME FACT IS NOW LOAD-BEARING FOR THE COLUMN'S CHROME, not just for
+      the stickiness. Because this element is short and the wrapper is the full
+      column, anything meant to run the column's whole height has to be painted
+      on the wrapper: the tint sat here first and stopped 511px down while the
+      feed carried on for 36,561px, and the hairline had the same problem after
+      it. Both moved. Do not move them back on the assumption that "the panel"
+      means the column — here it does not.
+
       `max-h` and `overflow-y-auto` stay. They do nothing for the stickiness —
       the panel is 609px, well under the viewport — but they are what keeps a
       long Farah conversation scrolling inside the panel rather than pushing
@@ -119,11 +135,14 @@ export function FarahPanel({ firstName, initialMessages }: FarahPanelProps) {
 
       ALL OF THAT IS THE >=760px CASE. Stacked under the content column on a
       phone, none of it applies and each part would be actively wrong: sticky
-      would pin the panel over the cards it sits beneath, max-h would trap a
-      conversation in a short scroller inside a page that already scrolls, and
-      border-l would draw a rule down the side of a full-width block. So they
-      are all min-[760px]: and the mobile case is the plain one — a full-width
-      section with a rule along the top separating it from the feed.
+      would pin the panel over the cards it sits beneath, and max-h would trap a
+      conversation in a short scroller inside a page that already scrolls. So
+      they are min-[760px]: and the mobile case is the plain one — a full-width
+      section with the rust rule along the top separating it from the feed.
+
+      The left hairline used to be in that list. It is on the wrapper now, and
+      still min-[760px]: there for the same reason: a rule down the side of a
+      full-width block would be drawing an edge that is not there.
     */
     <div
       data-testid="farah-panel"
