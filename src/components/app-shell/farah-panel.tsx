@@ -143,10 +143,24 @@ export function FarahPanel({ firstName, initialMessages }: FarahPanelProps) {
       The left hairline used to be in that list. It is on the wrapper now, and
       still min-[760px]: there for the same reason: a rule down the side of a
       full-width block would be drawing an edge that is not there.
+
+      PADDING IS SYMMETRIC AT DESKTOP — min-[760px]:px-7, one utility, not
+      px-0 plus pl-7. It was the one-sided pair, which gave the column 28px on
+      the left and nothing on the right, so the eyebrow row, the greeting and
+      the quick-action links all ran flush to where the panel's box ends.
+
+      The reason it was ever one-sided no longer applies. When this element
+      carried the column's own chrome, a right inset would have been padding
+      against nothing. The field and its hairline are on the wrapper now, so
+      what sits to the right of this text is the column continuing — and text
+      set hard against that is text with no margin, not text meeting an edge.
+
+      If a future change reaches for pl-7 again, this is the note saying the
+      asymmetry was the bug.
     */
     <div
       data-testid="farah-panel"
-      className="flex w-full flex-col gap-5.5 border-t-[3px] border-t-rust px-6 py-8 min-[760px]:sticky min-[760px]:top-[68px] min-[760px]:max-h-[calc(100vh-68px)] min-[760px]:w-[280px] min-[760px]:flex-shrink-0 min-[760px]:overflow-y-auto min-[760px]:px-0 min-[760px]:pl-7"
+      className="flex w-full flex-col gap-5.5 border-t-[3px] border-t-rust px-6 py-8 min-[760px]:sticky min-[760px]:top-[68px] min-[760px]:max-h-[calc(100vh-68px)] min-[760px]:w-[280px] min-[760px]:flex-shrink-0 min-[760px]:overflow-y-auto min-[760px]:px-7"
     >
       {/*
         The name + "View profile" block that used to sit here is gone — both
