@@ -80,9 +80,14 @@ So:
 
 That is the ordinary consequence of email-based recovery and it is not a
 defect in the seeker flow. It matters here because the account it recovers is
-privileged, and it moves MFA from "the largest known gap" to the mitigation
-this design now depends on. Both production admins are unprotected by a second
-factor today.
+privileged. MFA is the mitigation, and as of `0068` it is built — see **Second
+factor** below.
+
+Built is not the same as protecting anybody. Enrolment is per-operator, and at
+the time of writing NEITHER production admin has completed it, so both remain
+password-only and the inbox-reset path above is fully open for them. That state
+is a column, not a belief: `select email, mfa_enrolled_at from
+public.admin_users;`.
 
 ### What being signed in to the seeker app gets you
 
