@@ -54,8 +54,13 @@ export async function setAutoApplyEnabledAction(enabled: boolean): Promise<AutoA
   if (enabled) {
     try {
       await scanAndQueue(userId);
-    } catch {
+    } catch (err) {
       // A failed scan is not a failed toggle — the next feed load retries.
+      // Logged rather than discarded: retrying forever is indistinguishable
+      // from working, so a scan that fails every time leaves the user with an
+      // Auto-Apply that is on and permanently empty and leaves us with no
+      // record that it ever ran.
+      console.error("[auto-apply] scan after enabling failed:", err);
     }
   }
 

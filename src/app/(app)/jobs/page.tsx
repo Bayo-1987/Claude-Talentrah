@@ -234,8 +234,16 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
         (async () => {
           try {
             await scanAndQueue(user.id);
-          } catch {
-            /* non-fatal — see above */
+          } catch (err) {
+            /*
+             * Non-fatal — see above — but not silent. The applicant-count
+             * branch directly above logs its failure and this did not, so a
+             * scan that threw on every feed load looked exactly like a scan
+             * that found nothing to queue. That is the whole failure mode:
+             * Auto-Apply reports itself enabled, the review queue stays empty,
+             * and there is nothing anywhere to say why.
+             */
+            console.error("[jobs] auto-apply scan failed:", err);
           }
           return supabase
             .from("auto_apply_queue")
