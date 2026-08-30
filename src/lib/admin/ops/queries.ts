@@ -378,6 +378,67 @@ export async function feedFreshness(): Promise<FeedFreshness[]> {
   return rows;
 }
 
+/* ------------------------------------------------------------------ *
+ * Credential events on operator accounts
+ * ------------------------------------------------------------------ */
+
+export interface OperatorCredentialEvent {
+  action: "user_recovery_requested" | "user_modified" | string;
+  operatorEmail: string;
+  occurredAt: string;
+  ip: string | null;
+  /**
+   * Within the attention window. Computed here rather than in the page: the
+   * page is a render path, and `Date.now()` during render is both impure and
+   * (lint caught this) forbidden — but it also belongs with the data, because
+   * "recent" is what the nav badge counts and the two must not drift.
+   */
+  recent: boolean;
+}
+
+/** Recent enough that a legitimate reset stops being flagged. */
+export const CREDENTIAL_EVENT_ATTENTION_DAYS = 7;
+
+/**
+ * Password recoveries and account modifications on ADMIN accounts.
+ *
+ * WHY THIS IS HERE AT ALL. `admin_audit_log` records what an operator DID.
+ * Nothing recorded something being done TO an operator's account — and since
+ * the seeker forgot-password flow shipped, an admin password is resettable
+ * from the public /login page by whoever controls that inbox. That is the
+ * ordinary consequence of email recovery rather than a defect, and excluding
+ * operators from reset would be worse (an enumeration oracle, plus no recovery
+ * for a locked-out operator). What was missing was visibility, which is this.
+ *
+ * IT READS AN EVENT GOTRUE ALREADY WRITES, so there is no write path of ours
+ * to fail, and it is RETROACTIVE — it covers resets that happened before this
+ * shipped.
+ *
+ * The scoping to operators lives in 0067's function body, not here, and is not
+ * a parameter: `auth.audit_log_entries` holds events for every user and its
+ * payload carries email addresses, so a caller must not be able to widen it.
+ *
+ * `user_modified` DOES NOT MEAN "the password changed". GoTrue does not record
+ * which field moved, so it is surfaced under its own label rather than folded
+ * in — an unexplained modification on an operator account is worth a look on
+ * its own terms, and conflating the two would turn a real signal into a false
+ * claim.
+ */
+export async function operatorCredentialEvents(): Promise<OperatorCredentialEvent[]> {
+  const supabase = createServiceRoleClient();
+  const { data, error } = await supabase.rpc("operator_credential_events", {});
+  if (error) throw error;
+
+  const cutoff = Date.now() - CREDENTIAL_EVENT_ATTENTION_DAYS * 24 * 60 * 60 * 1000;
+  return (data ?? []).map((e) => ({
+    action: e.event_action,
+    operatorEmail: e.operator_email,
+    occurredAt: e.occurred_at,
+    ip: e.event_ip ?? null,
+    recent: new Date(e.occurred_at).getTime() >= cutoff,
+  }));
+}
+
 /**
  * What the nav badge counts: things that will not fix themselves.
  *
@@ -393,8 +454,21 @@ export async function feedFreshness(): Promise<FeedFreshness[]> {
  *     a broken integration or a config that was never right.
  */
 export async function opsAttentionCount(): Promise<number> {
-  const [renewals, feeds] = await Promise.all([stuckRenewals(), feedFreshness()]);
+  const [renewals, feeds, credentials] = await Promise.all([
+    stuckRenewals(),
+    feedFreshness(),
+    operatorCredentialEvents(),
+  ]);
   const exhausted = renewals.filter((r) => r.exhausted).length;
   const neverSeen = feeds.filter((f) => f.configured && f.lastCheckedAt === null).length;
-  return exhausted + neverSeen;
+
+  /*
+   * Credential events count only while RECENT. An operator who legitimately
+   * reset their own password should be noticed, and should stop being flagged
+   * a week later — a badge that counts every event forever is permanently
+   * non-zero, which is the same as being off.
+   */
+  const recentCredentialEvents = credentials.filter((e) => e.recent).length;
+
+  return exhausted + neverSeen + recentCredentialEvents;
 }

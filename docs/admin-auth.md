@@ -192,6 +192,16 @@ delete the row, because the audit trail names it.
   forgot-password flow shipped this is no longer merely the strongest
   improvement — it is what stands between an admin's email inbox and the
   dashboard.
+- **`auth.audit_log_entries` is EMPTY on the CI project** — zero rows, ever,
+  while production holds 44,822. Anything that reasons about GoTrue auth events
+  is therefore untestable in CI: `0067`'s function has real data to filter on
+  production and nothing at all on CI, so its negative assertions pass there
+  trivially and its positive control skips (loudly, by design). Two ways to
+  mint a fixture event do not exist either — `generateLink` writes no audit
+  entry, and the service role cannot INSERT into the `auth` schema. Root cause
+  unknown and deliberately not investigated; recorded so the next person
+  testing anything against `auth.*` does not rediscover it from a green suite
+  that proved nothing.
 - **Expired `admin_sessions` rows are never swept.** They are inert — the
   validator refuses them — so this is housekeeping, not a leak.
 - **The admin cookie is scoped to `path=/admin`,** so a future `/api/admin/*`
