@@ -3,6 +3,8 @@ import { requireUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
 import { EyebrowLabel } from "@/components/ui";
 import { TemplateCard } from "@/components/resume-builder/template-card";
+import { EmptySkillsNotice } from "@/components/resume-builder/empty-skills-notice";
+import { shouldShowEmptySkillsNotice } from "@/lib/resume/empty-skills-notice";
 
 export const metadata = { title: "Resume Builder — Talentrah" };
 
@@ -39,7 +41,14 @@ export default async function ResumeBuilderPage({ searchParams }: { searchParams
   if (category) templatesQuery = templatesQuery.eq("industry_category", category);
   if (q) templatesQuery = templatesQuery.ilike("name", `%${q}%`);
 
-  const [{ data: resumes }, { data: templates, count }, { data: categoryRows }, { data: unlocks }] =
+  const [
+    { data: resumes },
+    { data: templates, count },
+    { data: categoryRows },
+    { data: unlocks },
+    { data: baseResume },
+    { data: profile },
+  ] =
     await Promise.all([
       supabase
         .from("resumes")
@@ -49,7 +58,33 @@ export default async function ResumeBuilderPage({ searchParams }: { searchParams
       templatesQuery,
       supabase.from("resume_templates").select("industry_category"),
       supabase.from("user_template_unlocks").select("template_id").eq("user_id", user.id),
+      /*
+       * The base resume's parsed skills, and whether this user has already
+       * said they know it is empty (#145).
+       *
+       * Selected as its own query rather than widened onto the list above:
+       * that one renders every resume a user has and needs four small columns
+       * from each, while this needs one large jsonb blob from exactly one row.
+       * Pulling `structured_content` for the whole list to reach a single
+       * array would grow with the number of resumes for no gain.
+       */
+      supabase
+        .from("resumes")
+        .select("id, structured_content")
+        .eq("user_id", user.id)
+        .eq("is_base", true)
+        .maybeSingle(),
+      supabase
+        .from("profiles")
+        .select("resume_skills_notice_dismissed_at")
+        .eq("id", user.id)
+        .maybeSingle(),
     ]);
+
+  const showEmptySkillsNotice = shouldShowEmptySkillsNotice(
+    baseResume,
+    profile?.resume_skills_notice_dismissed_at,
+  );
 
   const categories = Array.from(new Set((categoryRows ?? []).map((r) => r.industry_category))).sort();
   const unlockedIds = new Set((unlocks ?? []).map((u) => u.template_id));
@@ -70,6 +105,8 @@ export default async function ResumeBuilderPage({ searchParams }: { searchParams
           .
         </p>
       </div>
+
+      {showEmptySkillsNotice && baseResume && <EmptySkillsNotice baseResumeId={baseResume.id} />}
 
       {resumes && resumes.length > 0 && (
         <div className="flex flex-col gap-3">

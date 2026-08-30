@@ -131,3 +131,35 @@ export async function dismissFarahHintAction(): Promise<void> {
   // even where the consequence is only that a hint reappears.
   if (error) console.error("[farah-hint] could not persist dismissal:", error.message);
 }
+
+/**
+ * Hide the "your resume has no skills" notice for this user.
+ *
+ * Same shape as dismissFarahHintAction above, and a SEPARATE column on
+ * purpose (0072): these are two notices about two different things, and
+ * dismissing a nudge toward Farah must not also hide the one saying a
+ * resume cannot be scored.
+ *
+ * Dismissing changes nothing but whether the notice renders. The resume still
+ * has no skills and the match scores are still what they are — which is why
+ * the copy leads with the fix rather than with the dismissal.
+ */
+export async function dismissResumeSkillsNoticeAction(): Promise<void> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({ resume_skills_notice_dismissed_at: new Date().toISOString() })
+    .eq("id", user.id);
+
+  // A refused Supabase update RESOLVES with an error rather than throwing.
+  // Checked explicitly even though the only consequence is a notice coming
+  // back — the repo has scar tissue about exactly this shape.
+  if (error) {
+    console.error("[resume-skills-notice] could not persist dismissal:", error.message);
+  }
+}
