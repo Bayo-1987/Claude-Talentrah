@@ -1,5 +1,5 @@
 import { requireAdmin } from "@/lib/admin/require-admin";
-import { reportedPostings } from "@/lib/admin/moderation/queues";
+import { reportedPostings, removedPostings } from "@/lib/admin/moderation/queues";
 import { decideJobPostingAction } from "@/lib/admin/moderation/actions";
 import { DecisionForm } from "@/components/admin/decision-form";
 import { QueueEmpty, QueueHeader } from "@/components/admin/queue-chrome";
@@ -32,7 +32,7 @@ const REASON_LABEL: Record<string, string> = {
  */
 export default async function ReportsQueuePage() {
   const admin = await requireAdmin();
-  const queue = await reportedPostings();
+  const [queue, removed] = await Promise.all([reportedPostings(), removedPostings()]);
 
   return (
     <Container className="flex max-w-[900px] flex-col gap-8 py-12">
@@ -108,9 +108,15 @@ export default async function ReportsQueuePage() {
                   decisionName="action"
                   noteName="reason"
                   notePlaceholder="Reason — required either way, kept in the audit log"
+                  /*
+                    Remove only. A posting listed HERE is by definition not
+                    removed — the query filters them out — so a Restore button
+                    on this row could never succeed. It shipped in M2 and was
+                    unreachable in both directions at once; restore now lives
+                    where the removed postings actually are.
+                  */
                   options={[
                     { value: "remove", label: "Remove from the board", variant: "primary" },
-                    { value: "restore", label: "Restore" },
                   ]}
                 />
               </BorderedCard>
@@ -118,6 +124,58 @@ export default async function ReportsQueuePage() {
           ))}
         </ul>
       )}
+
+      {/* ---------------------------------------------------------- */}
+      <section className="flex flex-col gap-3">
+        <EyebrowLabel>Removed from the board</EyebrowLabel>
+        <p className="max-w-[640px] font-display text-[14.5px] italic text-ink-soft">
+          Restoring puts a posting back as <strong className="not-italic">closed</strong>, never
+          open. Restoring says the removal was wrong; it does not say the job is live. An
+          external posting reopens on the next ingest run only if its source still lists it, and
+          an internal one is the employer&apos;s to reopen.
+        </p>
+        {removed.length === 0 ? (
+          <BorderedCard className="p-5">
+            <p className="font-display text-[15px] italic text-ink-soft">
+              Nothing is removed.
+            </p>
+          </BorderedCard>
+        ) : (
+          <ul className="flex list-none flex-col gap-4 p-0">
+            {removed.map((p) => (
+              <li key={p.jobPostingId}>
+                <BorderedCard className="flex flex-col gap-3 p-5">
+                  <div className="flex flex-col gap-1.5">
+                    <EyebrowLabel>{p.company}</EyebrowLabel>
+                    <h3 className="font-display text-[19px] font-semibold leading-snug">
+                      {p.title}
+                    </h3>
+                    <p className="text-[13.5px] text-ink-soft">
+                      {p.sourceType === "external" ? "External listing" : "Posted on Talentrah"}
+                      {p.removedAt && ` · removed ${new Date(p.removedAt).toLocaleDateString()}`}
+                      {p.removedByName ? ` by ${p.removedByName}` : " · remover not recorded"}
+                    </p>
+                    {p.removalReason && (
+                      <p className="font-display text-[14px] italic text-ink-soft">
+                        “{p.removalReason}”
+                      </p>
+                    )}
+                  </div>
+
+                  <DecisionForm
+                    id={p.jobPostingId}
+                    action={decideJobPostingAction}
+                    decisionName="action"
+                    noteName="reason"
+                    notePlaceholder="Why is this being restored? Required, and kept in the audit log"
+                    options={[{ value: "restore", label: "Restore to closed", variant: "primary" }]}
+                  />
+                </BorderedCard>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     </Container>
   );
 }

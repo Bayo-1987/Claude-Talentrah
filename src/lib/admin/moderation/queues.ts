@@ -129,6 +129,63 @@ export async function reportedPostings(): Promise<ReportedPosting[]> {
   );
 }
 
+export interface RemovedPosting {
+  jobPostingId: string;
+  title: string;
+  company: string;
+  sourceType: string;
+  removedAt: string | null;
+  removalReason: string | null;
+  /** The operator who removed it, resolved to a name. Null for pre-0064 removals. */
+  removedByName: string | null;
+}
+
+/**
+ * Postings currently removed from the board.
+ *
+ * THIS EXISTS BECAUSE RESTORE WAS UNREACHABLE. `reportedPostings()` filters
+ * `status != 'removed'`, and the restore action's precondition is
+ * `status = 'removed'` — mutually exclusive. So the Restore button rendered on
+ * every row of the reports queue could never succeed, and every posting that
+ * could be restored had already dropped out of the list. The UI had a restore
+ * ACTION and no restore PATH; the shared-secret route was the only thing that
+ * could actually un-remove a posting.
+ *
+ * Shipped that way in M2 and not caught, because the round trip was never
+ * tested — only the remove half was. tests/rls/job-posting-restore.test.ts is
+ * the assertion that would have caught it, added with this.
+ *
+ * Deliberately NOT merged into reportedPostings(). These are two different
+ * questions — "what are people complaining about" and "what have we taken
+ * down" — and a single list mixing them would make the reports queue's count
+ * mean two things at once.
+ */
+export async function removedPostings(): Promise<RemovedPosting[]> {
+  const supabase = createServiceRoleClient();
+  const { data, error } = await supabase
+    .from("job_postings")
+    .select(
+      "id, title, company_name, source_type, removed_at, removal_reason, profiles!job_postings_removed_by_fkey(first_name, last_name)",
+    )
+    .eq("status", "removed")
+    .order("removed_at", { ascending: false });
+  if (error) throw error;
+
+  return (data ?? []).map((r) => {
+    const who = r.profiles;
+    const name = who ? [who.first_name, who.last_name].filter(Boolean).join(" ").trim() : "";
+    return {
+      jobPostingId: r.id,
+      title: r.title,
+      company: r.company_name,
+      sourceType: r.source_type,
+      removedAt: r.removed_at,
+      removalReason: r.removal_reason,
+      removedByName: name || null,
+    };
+  });
+}
+
 export interface PendingCampaign {
   id: string;
   name: string;
