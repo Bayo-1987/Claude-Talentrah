@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { EyebrowLabel } from "@/components/ui";
+import { EyebrowLabel, FarahMark } from "@/components/ui";
 import { FARAH_QUICK_ACTIONS } from "@/lib/farah/quick-actions";
 
 export interface FarahMessage {
@@ -127,7 +127,7 @@ export function FarahPanel({ firstName, initialMessages }: FarahPanelProps) {
     */
     <div
       data-testid="farah-panel"
-      className="flex w-full flex-col gap-5.5 border-t border-line px-6 py-8 min-[760px]:sticky min-[760px]:top-[68px] min-[760px]:max-h-[calc(100vh-68px)] min-[760px]:w-[280px] min-[760px]:flex-shrink-0 min-[760px]:overflow-y-auto min-[760px]:border-t-0 min-[760px]:border-l min-[760px]:px-0 min-[760px]:pl-7"
+      className="flex w-full flex-col gap-5.5 border-t-[3px] border-t-rust bg-paper-alt px-6 py-8 min-[760px]:sticky min-[760px]:top-[68px] min-[760px]:max-h-[calc(100vh-68px)] min-[760px]:w-[280px] min-[760px]:flex-shrink-0 min-[760px]:overflow-y-auto min-[760px]:border-l min-[760px]:border-l-line min-[760px]:px-0 min-[760px]:pl-7"
     >
       {/*
         The name + "View profile" block that used to sit here is gone — both
@@ -141,7 +141,8 @@ export function FarahPanel({ firstName, initialMessages }: FarahPanelProps) {
         from the panel's own edge — a line that looks like structure and marks
         nothing. The panel's `py-8` already sets the top inset.
       */}
-      <div>
+      <div className="flex items-center gap-2.5">
+        <FarahMark size={28} />
         <EyebrowLabel size="sm">Farah — your co-pilot</EyebrowLabel>
       </div>
 
