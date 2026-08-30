@@ -27,8 +27,22 @@ export async function upsertBaseResume(
   structuredContent: StructuredResume,
   source: Database["public"]["Enums"]["resume_source"],
   title = "My resume",
+  /*
+   * How well the upload parsed, when the caller knows. Written so a degraded
+   * parse is queryable instead of having to be inferred from the shape of the
+   * stored fields — see 0070 and issue #139. Callers that are not a parse (the
+   * builder) pass nothing and leave it null, which is the honest value: they
+   * did not parse anything.
+   */
+  parseConfidence?: "high" | "low",
 ): Promise<{ id: string }> {
   const content = JSON.parse(JSON.stringify(structuredContent));
+  /*
+   * Spread rather than always set: an undefined confidence must leave an
+   * existing value alone on update, not overwrite a recorded `low` with null
+   * the next time the builder saves the same row.
+   */
+  const confidenceField = parseConfidence ? { parse_confidence: parseConfidence } : {};
 
   const { data: existing, error: selectError } = await supabase
     .from("resumes")
@@ -44,7 +58,7 @@ export async function upsertBaseResume(
   if (existing) {
     const { error: updateError } = await supabase
       .from("resumes")
-      .update({ title, source, structured_content: content, updated_at: new Date().toISOString() })
+      .update({ title, source, structured_content: content, ...confidenceField, updated_at: new Date().toISOString() })
       .eq("id", existing.id);
     if (updateError) {
       throw new Error(`Couldn't update your resume: ${updateError.message}`);
@@ -54,7 +68,7 @@ export async function upsertBaseResume(
 
   const { data: created, error: insertError } = await supabase
     .from("resumes")
-    .insert({ user_id: userId, is_base: true, title, source, structured_content: content })
+    .insert({ user_id: userId, is_base: true, title, source, structured_content: content, ...confidenceField })
     .select("id")
     .single();
 
@@ -77,7 +91,7 @@ export async function upsertBaseResume(
     }
     const { error: updateError } = await supabase
       .from("resumes")
-      .update({ title, source, structured_content: content, updated_at: new Date().toISOString() })
+      .update({ title, source, structured_content: content, ...confidenceField, updated_at: new Date().toISOString() })
       .eq("id", winner.id);
     if (updateError) {
       throw new Error(`Couldn't update your resume: ${updateError.message}`);

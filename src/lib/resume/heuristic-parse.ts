@@ -4,7 +4,27 @@ const SECTION_PATTERNS: Record<string, RegExp> = {
   summary: /^(summary|profile|objective|about)$/i,
   experience: /^(experience|work experience|employment|employment history)$/i,
   education: /^education$/i,
-  skills: /^(skills|technical skills|core competencies)$/i,
+  /*
+   * WIDER THAN THE OTHER SECTIONS, on purpose.
+   *
+   * This matched exactly three strings — `skills`, `technical skills`,
+   * `core competencies` — and anything else left the section absent, which
+   * yields `skills: []` rather than an error. One of the three real uploaded
+   * resumes on production is in that state: its experience and education
+   * parsed, its skills did not, and it scores near-zero against the whole
+   * board as a result. See issue #139.
+   *
+   * The headings below are the ordinary ways people label this section. The
+   * optional qualifier covers "Key Skills" / "Technical Proficiencies" /
+   * "Relevant Skills"; the optional tail covers "Skills & Interests" and
+   * "Skills and Abilities", which are common and previously missed entirely.
+   *
+   * Deliberately still anchored and still a heading test. Loosening this to a
+   * substring match would classify a BULLET containing the word "skills" as
+   * the start of a section and swallow the rest of the resume into it.
+   */
+  skills:
+    /^(?:areas of (?:expertise|competence)|(?:(?:technical|core|key|professional|relevant|additional|other|primary)\s+)?(?:skills?|competenc(?:y|ies)|expertise|proficienc(?:y|ies)|skill set)(?:\s*(?:&|and)\s*(?:interests?|abilities|tools|competenc(?:y|ies)|expertise))?)$/i,
   projects: /^projects?$/i,
   certifications: /^(certifications?|certificates?)$/i,
 };
