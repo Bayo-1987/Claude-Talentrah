@@ -1,0 +1,57 @@
+-- 0071 — remove the admin second factor entirely.
+--
+-- Reverts 0068. Admin MFA was built, shipped behind the guard, and then
+-- deferred before a single operator completed enrolment. This drops the column
+-- rather than leaving it in place unread, because a column that no code writes
+-- and no code checks is worse than no column: the next person to find it has
+-- to work out whether it is load-bearing, and the honest answer stops being
+-- discoverable the moment the surrounding code is gone.
+--
+-- LOSSLESS, CHECKED BEFORE WRITING. Both projects were queried first:
+--
+--   CI (dozaffzgqkbarxtlclsj)         0 admin_users rows
+--   production (nytwbbzfpytctjsoczzq) 2 rows, mfa_enrolled_at NULL on both
+--
+-- So nothing is being discarded. Had either row carried a stamp, this would
+-- have needed a conversation rather than a drop — an operator who had actually
+-- enrolled would be losing a protection they had opted into.
+--
+-- WHAT THIS DOES NOT TOUCH, deliberately:
+--
+--   * auth.mfa_factors. Production holds ONE unverified TOTP factor, for
+--     zimcrestsynergy@gmail.com, from an enrolment started and abandoned on
+--     2026-08-30. Unverified factors do not raise the assurance level, so it
+--     neither blocks nor protects a password login — it is inert. Removing a
+--     row from the auth schema is a separate, deliberate act and is not
+--     smuggled into a public-schema drop.
+--
+--   * 0067's operator_credential_events. That reads GoTrue's own event log and
+--     is about audit visibility, not about whether a second factor exists.
+--     It keeps working unchanged.
+--
+-- ORDERING: THIS ONE DOES NOT GO TO CI FIRST.
+--
+-- The repo convention is "apply to CI first, production on merge". That is
+-- right for an ADDITIVE migration and wrong for this one, and it was learned
+-- the hard way here: applying the drop to CI ahead of the merge turned main
+-- and every open PR red, because they all still contain
+-- tests/rls/admin-mfa.test.ts and that suite asserts on the column. Four
+-- branches failed for a reason that had nothing to do with their own changes,
+-- and #141 was the one that surfaced it.
+--
+-- The column was restored on CI immediately, and the correct order for a
+-- DESTRUCTIVE migration against a SHARED CI project is:
+--
+--   1. merge the PR, which deletes the code and tests that reference it;
+--   2. THEN apply to CI and production.
+--
+-- The general rule: a migration that removes something can only be applied
+-- once nothing still running expects it. On a shared CI database, "nothing
+-- still running" includes every other open branch.
+--
+-- The risk this re-opens is stated plainly rather than left implied: an admin's
+-- password is resettable through the seeker forgot-password flow, so whoever
+-- controls the mailbox controls the admin account. That is now an accepted,
+-- deferred risk — see docs/admin-auth.md.
+
+alter table public.admin_users drop column if exists mfa_enrolled_at;

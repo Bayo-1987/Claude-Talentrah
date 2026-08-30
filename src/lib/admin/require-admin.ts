@@ -20,35 +20,18 @@ import { getAdminIdentity, type AdminIdentity } from "./session";
  * skipped it would be unguarded no matter what the proxy did — which is why
  * the guard lives in a layout that wraps every protected page rather than
  * being called page by page.
+ *
+ * A VALID SESSION IS THE WHOLE TEST. There is no second factor: admin MFA was
+ * built (0068) and then removed before any operator enrolled, deferred rather
+ * than kept half-on. The consequence is written down rather than left to be
+ * rediscovered — an admin's password is resettable through the seeker
+ * forgot-password flow, so whoever holds the mailbox holds the admin account.
+ * docs/admin-auth.md carries that as an accepted risk.
  */
 export async function requireAdmin(): Promise<AdminIdentity> {
   const identity = await getAdminIdentity();
   if (!identity) redirect(`/admin/login${await returnTripSuffix()}`);
-
-  /*
-   * ENROLMENT IS FORCED, LOGIN IS NOT BLOCKED.
-   *
-   * An operator without a second factor gets in and then goes exactly one
-   * place: /admin/mfa. Refusing the login instead would have locked out every
-   * admin that existed when this shipped — and since enrolment lives behind
-   * this same guard, it would have been a deadlock escapable only by a
-   * service-role intervention.
-   *
-   * The exemption is BY PATH and covers only the enrolment page itself. It is
-   * deliberately not a list: every other admin route, present and future, is
-   * gated by existing rather than by being remembered here.
-   */
-  if (!identity.mfaEnrolledAt && !(await onEnrolmentPage())) {
-    redirect("/admin/mfa");
-  }
-
   return identity;
-}
-
-/** Whether this request is already for the enrolment page. */
-async function onEnrolmentPage(): Promise<boolean> {
-  const here = (await headers()).get(PATH_HEADER) ?? "";
-  return here === "/admin/mfa" || here.startsWith("/admin/mfa?");
 }
 
 /** Non-redirecting form, for a page that renders differently rather than bouncing. */

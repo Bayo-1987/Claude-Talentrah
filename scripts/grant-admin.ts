@@ -14,7 +14,6 @@
  *   npm run grant-admin -- someone@talentrah.com "Their Name"
  *   npm run grant-admin -- --list
  *   npm run grant-admin -- --revoke someone@talentrah.com
- *   npm run grant-admin -- --reset-mfa someone@talentrah.com
  *
  * If the address has no Talentrah account yet, this creates the auth user —
  * but only when NEW_ADMIN_PASSWORD is set in the environment:
@@ -71,17 +70,15 @@ function urlProjectRef(url: string): string | null {
 /**
  * Say what is about to be written to, BEFORE writing to it.
  *
- * This script is the only recovery path for a lost authenticator — Supabase
- * MFA has no recovery codes here and `unenroll` requires aal2, the level a
- * locked-out operator cannot reach — so it is what somebody reaches for under
- * real pressure. Under pressure is exactly when "which database is this
- * pointing at" stops being asked.
+ * This script grants and revokes admin access, which is the highest-privilege
+ * change anybody makes by hand here — so it is worth being certain which
+ * database is on the other end before it happens.
  *
  * And the answer is not obvious. `.env.local` targets CI; there is no
  * production credential on disk by design (see CLAUDE.md). So an operator
- * running `--reset-mfa` locally, believing they are fixing production, clears
- * a factor on a database nobody is locked out of, sees a cheerful success
- * line, and concludes the tool is broken.
+ * running `--revoke` locally, believing they are removing production access,
+ * revokes on a database nobody was using, sees a cheerful success line, and
+ * walks away from an operator who still has the keys.
  *
  * The URL and the KEY are printed separately because they can disagree — that
  * happened on this project, with `.env.local` pointing at CI while a
@@ -141,16 +138,19 @@ function refuseProduction(operation: string, email: string): never {
       "  script targets CI. Making it reach production means restoring a service-role",
       "  key to a file — the hazard that removing .env got rid of.",
       "",
-      "  Use the Supabase MCP connector against nytwbbzfpytctjsoczzq instead. For a",
-      "  lost authenticator that is two steps, in this order:",
+      "  Use the Supabase MCP connector against nytwbbzfpytctjsoczzq instead:",
       "",
-      "    1. delete every factor for the operator   (auth admin API / dashboard)",
-      "    2. update public.admin_users",
-      `         set mfa_enrolled_at = null where email = '${email.toLowerCase()}';`,
+      "    -- take access away",
+      `    update public.admin_users set disabled_at = now() where email = '${email.toLowerCase()}';`,
       "",
-      "  BOTH, and step 2 is the one that matters: clearing the factor while leaving",
-      "  the column set makes the next login demand a code nobody can produce, which",
-      "  is the failure this whole path exists to undo.",
+      "    -- give it (the auth.users row must already exist)",
+      "    insert into public.admin_users (id, email, display_name)",
+      `    select id, '${email.toLowerCase()}', 'Their Name' from auth.users`,
+      `    where email = '${email.toLowerCase()}';`,
+      "",
+      "  DISABLE rather than DELETE when taking access away: admin_audit_log",
+      "  references admin_users, so removing the row would detach that operator",
+      "  from everything they did.",
       "",
     ].join("\n"),
   );
@@ -199,79 +199,6 @@ async function list() {
   }
 }
 
-/**
- * Clear a lost second factor, so an operator can enrol a new one.
- *
- * THE PEER-RESET PATH, and it exists because Supabase MFA has no recovery
- * codes. An operator who loses their authenticator cannot get back in on their
- * own: `unenroll` requires aal2, which is exactly the assurance level they can
- * no longer reach. That refusal is the mitigation working — an attacker
- * holding a reset password hits the same wall — so the way back has to be
- * out-of-band, and this is it.
- *
- * ACCEPTED, DOCUMENTED RISK: WITH ONE ADMIN THIS IS A LOCKOUT. The rescuer is
- * another person holding the service-role key. Today there are two operators,
- * so one can always clear the other. If that count ever drops to one, an
- * operator who loses their device is locked out of /admin entirely until
- * somebody with database access runs this — and if that person is the same
- * locked-out operator, they still have the service-role key and can, so the
- * true failure case is "sole admin loses both their authenticator and their
- * access to the Supabase project". That is not solved here and deliberately
- * so: recovery codes are a credential store of their own, and building one to
- * cover a case that does not currently exist is how a second thing to leak
- * gets added.
- *
- * BOTH SIDES ARE CLEARED IN ONE OPERATION. Removing the factor without
- * clearing `mfa_enrolled_at` would leave the column claiming a protection the
- * account no longer has, and the next login would demand a code nobody can
- * produce — the one drift direction that locks somebody out (0068).
- */
-async function resetMfa(email: string) {
-  const target = describeTarget();
-  if (target.isProduction) refuseProduction("reset MFA", email);
-
-  const normalized = email.toLowerCase();
-  const { data: row, error } = await admin
-    .from("admin_users")
-    .select("id, email, mfa_enrolled_at")
-    .eq("email", normalized)
-    .maybeSingle();
-  if (error) throw error;
-  if (!row) {
-    console.error(`No admin with that address: ${normalized}`);
-    process.exit(1);
-  }
-
-  // Remove every verified factor Supabase holds for them. Listed rather than
-  // assumed to be one: enrolment can leave unverified factors behind if it was
-  // abandoned, and leaving those would block a fresh enrolment.
-  const { data: factors, error: listError } = await admin.auth.admin.mfa.listFactors({
-    userId: row.id,
-  });
-  if (listError) throw listError;
-
-  for (const factor of factors?.factors ?? []) {
-    const { error: deleteError } = await admin.auth.admin.mfa.deleteFactor({
-      userId: row.id,
-      id: factor.id,
-    });
-    if (deleteError) throw deleteError;
-  }
-
-  const { error: clearError } = await admin
-    .from("admin_users")
-    .update({ mfa_enrolled_at: null })
-    .eq("id", row.id);
-  // A rejected Supabase write RESOLVES with an error (CLAUDE.md). Unchecked,
-  // this would report a reset that left the column set — which is the exact
-  // state that locks the operator out.
-  if (clearError) throw clearError;
-
-  console.log(
-    `Cleared ${factors?.factors?.length ?? 0} factor(s) for ${row.email}. ` +
-      `They will be asked to set up two-factor again on their next visit to /admin.`,
-  );
-}
 
 async function revoke(email: string) {
   const target = describeTarget();
@@ -374,16 +301,6 @@ async function main() {
     refuseProduction("act", email);
   }
 
-  const resetIndex = args.indexOf("--reset-mfa");
-  if (resetIndex !== -1) {
-    const email = args[resetIndex + 1];
-    if (!email) {
-      console.error("Usage: npm run grant-admin -- --reset-mfa someone@example.com");
-      process.exit(1);
-    }
-    return resetMfa(email);
-  }
-
   const revokeIndex = args.indexOf("--revoke");
   if (revokeIndex !== -1) {
     const email = args[revokeIndex + 1];
@@ -401,7 +318,6 @@ async function main() {
         "  npm run grant-admin -- someone@example.com \"Their Name\"\n" +
         "  npm run grant-admin -- --list\n" +
         "  npm run grant-admin -- --revoke someone@example.com\n" +
-        "  npm run grant-admin -- --reset-mfa someone@example.com\n" +
         "\n" +
         "Every write prints the project it is about to touch first. Production is\n" +
         "refused outright — pass --production to see how to do it via the connector.",
