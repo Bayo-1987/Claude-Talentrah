@@ -97,9 +97,23 @@ function describeTarget(): { ref: string; isProduction: boolean } {
   console.log(`  key project: ${fromKey ?? "unrecognised (non-JWT key)"}`);
 
   if (fromUrl && fromKey && fromUrl !== fromKey) {
+    /*
+     * DIAGNOSTIC, NOT A SAFETY NET, and the difference is worth being honest
+     * about. A mismatch cannot write to the wrong database: PostgREST talks to
+     * the URL and verifies the key against THAT project, so a foreign key is
+     * refused outright rather than silently accepted — measured in this repo
+     * already, see tests/support/auth.ts on PGRST301.
+     *
+     * What a mismatch actually costs is an operator's time and their
+     * confidence in the tool: every call fails with "Invalid API key" while
+     * the config looks plausible. Refusing early, by name, turns a confusing
+     * afternoon into one line. The URL is what decides the target — which is
+     * why tests/setup.ts's production guard correctly checks the URL alone.
+     */
     console.error(
       `\nREFUSING: the URL points at ${fromUrl} but the service key belongs to ${fromKey}.\n` +
-        "  One of them is wrong, and guessing which would write to the wrong database.",
+        "  Nothing would reach the wrong project — PostgREST refuses a foreign key — but\n" +
+        "  every call would fail with 'Invalid API key' while the config looked fine.",
     );
     process.exit(1);
   }
