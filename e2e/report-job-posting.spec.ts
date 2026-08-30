@@ -1,4 +1,4 @@
-import { test, expect, request as pwRequest } from "@playwright/test";
+import { test, expect, request as pwRequest, type Page, type Locator } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "../src/lib/supabase/types";
 
@@ -41,6 +41,38 @@ if (process.env.CI && (!SECRET || !admin || !DEMO_PASSWORD)) {
   throw new Error("report-job-posting spec cannot run in CI: missing secret, service key, or demo password");
 }
 
+/**
+ * Open a card's report panel, tolerating a page that is not interactive yet.
+ *
+ * THE FIRST CLICK AFTER A FULL DOCUMENT LOAD GETS SWALLOWED. The jobs feed
+ * renders 153 report buttons, and React attaches no onClick until the whole
+ * list has hydrated — Playwright's actionability checks all pass in the
+ * meantime, because the button is visible, enabled and unobstructed. It is
+ * simply not wired up yet, so the click lands on nothing and is lost with no
+ * error anywhere, and the test then hangs on the panel that never opened.
+ *
+ * That is why only the half of the test after `reload()` failed: arriving
+ * from /login is a CLIENT-SIDE navigation onto an already-hydrated page,
+ * while a reload starts hydration over. Instrumented on a dev server, the
+ * trigger's aria-expanded stayed false through the first click and flipped on
+ * the second, ~1.2s later.
+ *
+ * Clicking only when the panel is not already open matters — the trigger is a
+ * toggle, so a blind retry would close what the previous attempt opened and
+ * the loop would never converge.
+ *
+ * The underlying exposure is the PRODUCT'S, not the test's: a person clicking
+ * Report in that window loses the click just as silently. That is generic
+ * React hydration rather than a defect in this component, and it is filed
+ * separately rather than worked around here.
+ */
+async function openReportPanel(page: Page, trigger: Locator): Promise<void> {
+  await expect(async () => {
+    if ((await trigger.getAttribute("aria-expanded")) !== "true") await trigger.click();
+    await expect(page.getByRole("dialog")).toBeVisible({ timeout: 1000 });
+  }).toPass({ timeout: 20_000 });
+}
+
 test.describe("reporting a posting", () => {
   test.skip(!DEMO_PASSWORD, "DEMO_PASSWORD is not set — see scripts/seed.ts");
 
@@ -66,9 +98,8 @@ test.describe("reporting a posting", () => {
     expect(box!.width).toBeGreaterThanOrEqual(40);
     expect(box!.height).toBeGreaterThanOrEqual(40);
 
-    await trigger.click();
     const panel = page.getByRole("dialog");
-    await expect(panel).toBeVisible();
+    await openReportPanel(page, trigger);
 
     // Each reason's real target is the label wrapping the 13px radio — the
     // same "the glyph is small, the target is not" shape as FilterChip's x.
@@ -95,7 +126,7 @@ test.describe("reporting a posting", () => {
     await page.keyboard.press("Escape");
     await expect(panel).toBeHidden();
 
-    await trigger.click();
+    await openReportPanel(page, trigger);
     await page.getByText("It looks like a scam").click();
     await page.locator('textarea[name="details"]').fill("E2E-REPORT: asks for a training fee up front.");
     await page.getByRole("button", { name: "Send report" }).click();
@@ -103,7 +134,7 @@ test.describe("reporting a posting", () => {
 
     // Second time, same person, same posting: the unique constraint answers.
     await page.reload();
-    await page.getByRole("button", { name: "Report" }).first().click();
+    await openReportPanel(page, page.getByRole("button", { name: "Report" }).first());
     await page.getByRole("button", { name: "Send report" }).click();
     await expect(page.getByText("already reported this one")).toBeVisible({ timeout: 15000 });
   });
