@@ -45,7 +45,7 @@ describe("when the LLM fallback fails", () => {
   it("logs the failure instead of swallowing it", async () => {
     await parseResumeFile(UNPARSEABLE_SKILLS, "text/plain");
 
-    const logged = errorSpy.mock.calls.find((c) => String(c[0]).includes("[resume-parse]"));
+    const logged = errorSpy.mock.calls.find((c: unknown[]) => String(c[0]).includes("[resume-parse]"));
     expect(logged, "a discarded LLM failure leaves no way to know it happened").toBeDefined();
 
     /*
@@ -62,7 +62,7 @@ describe("when the LLM fallback fails", () => {
     // Without these counts the log says something failed but not how badly,
     // and an empty skills array is the specific condition worth alerting on.
     await parseResumeFile(UNPARSEABLE_SKILLS, "text/plain");
-    const logged = errorSpy.mock.calls.find((c) => String(c[0]).includes("[resume-parse]"));
+    const logged = errorSpy.mock.calls.find((c: unknown[]) => String(c[0]).includes("[resume-parse]"));
     expect(logged?.[1]).toMatchObject({ skills: 0 });
   });
 });
