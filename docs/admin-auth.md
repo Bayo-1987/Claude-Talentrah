@@ -137,7 +137,18 @@ service-role key:
 npm run grant-admin -- someone@talentrah.com "Their Name"
 npm run grant-admin -- --list
 npm run grant-admin -- --revoke someone@talentrah.com
+npm run grant-admin -- --reset-mfa someone@talentrah.com
 ```
+
+`--reset-mfa` is the peer-reset path for a lost authenticator. Supabase MFA has
+no recovery codes, and `unenroll` requires aal2 — the level a locked-out
+operator can no longer reach — so the way back is necessarily out-of-band. It
+deletes every factor and clears `mfa_enrolled_at` in one operation, because
+clearing only one leaves the column claiming a protection the account no longer
+has and the next login demanding a code nobody can produce.
+
+**Accepted risk, stated rather than solved:** with a single admin this is a
+lockout. Two operators exist today, so either can rescue the other.
 
 If the address has no Talentrah account, the script creates one — but only with
 `NEW_ADMIN_PASSWORD` set in the environment, never as an argument, because an

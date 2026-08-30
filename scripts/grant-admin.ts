@@ -1,5 +1,6 @@
 /**
- * Makes someone an admin, un-makes them, or lists who is one.
+ * Makes someone an admin, un-makes them, lists who is one, or clears a lost
+ * second factor.
  *
  * THERE IS NO OTHER WAY IN. `admin_users` has RLS on, no policies, and every
  * privilege revoked from `anon` and `authenticated` (0060) — so nothing the
@@ -13,6 +14,7 @@
  *   npm run grant-admin -- someone@talentrah.com "Their Name"
  *   npm run grant-admin -- --list
  *   npm run grant-admin -- --revoke someone@talentrah.com
+ *   npm run grant-admin -- --reset-mfa someone@talentrah.com
  *
  * If the address has no Talentrah account yet, this creates the auth user —
  * but only when NEW_ADMIN_PASSWORD is set in the environment:
@@ -84,6 +86,77 @@ async function list() {
     const seen = row.last_login_at ? `last login ${row.last_login_at}` : "never signed in";
     console.log(`${state.padEnd(8)} ${row.email}  ${row.display_name ?? "—"}  (${seen})`);
   }
+}
+
+/**
+ * Clear a lost second factor, so an operator can enrol a new one.
+ *
+ * THE PEER-RESET PATH, and it exists because Supabase MFA has no recovery
+ * codes. An operator who loses their authenticator cannot get back in on their
+ * own: `unenroll` requires aal2, which is exactly the assurance level they can
+ * no longer reach. That refusal is the mitigation working — an attacker
+ * holding a reset password hits the same wall — so the way back has to be
+ * out-of-band, and this is it.
+ *
+ * ACCEPTED, DOCUMENTED RISK: WITH ONE ADMIN THIS IS A LOCKOUT. The rescuer is
+ * another person holding the service-role key. Today there are two operators,
+ * so one can always clear the other. If that count ever drops to one, an
+ * operator who loses their device is locked out of /admin entirely until
+ * somebody with database access runs this — and if that person is the same
+ * locked-out operator, they still have the service-role key and can, so the
+ * true failure case is "sole admin loses both their authenticator and their
+ * access to the Supabase project". That is not solved here and deliberately
+ * so: recovery codes are a credential store of their own, and building one to
+ * cover a case that does not currently exist is how a second thing to leak
+ * gets added.
+ *
+ * BOTH SIDES ARE CLEARED IN ONE OPERATION. Removing the factor without
+ * clearing `mfa_enrolled_at` would leave the column claiming a protection the
+ * account no longer has, and the next login would demand a code nobody can
+ * produce — the one drift direction that locks somebody out (0068).
+ */
+async function resetMfa(email: string) {
+  const normalized = email.toLowerCase();
+  const { data: row, error } = await admin
+    .from("admin_users")
+    .select("id, email, mfa_enrolled_at")
+    .eq("email", normalized)
+    .maybeSingle();
+  if (error) throw error;
+  if (!row) {
+    console.error(`No admin with that address: ${normalized}`);
+    process.exit(1);
+  }
+
+  // Remove every verified factor Supabase holds for them. Listed rather than
+  // assumed to be one: enrolment can leave unverified factors behind if it was
+  // abandoned, and leaving those would block a fresh enrolment.
+  const { data: factors, error: listError } = await admin.auth.admin.mfa.listFactors({
+    userId: row.id,
+  });
+  if (listError) throw listError;
+
+  for (const factor of factors?.factors ?? []) {
+    const { error: deleteError } = await admin.auth.admin.mfa.deleteFactor({
+      userId: row.id,
+      id: factor.id,
+    });
+    if (deleteError) throw deleteError;
+  }
+
+  const { error: clearError } = await admin
+    .from("admin_users")
+    .update({ mfa_enrolled_at: null })
+    .eq("id", row.id);
+  // A rejected Supabase write RESOLVES with an error (CLAUDE.md). Unchecked,
+  // this would report a reset that left the column set — which is the exact
+  // state that locks the operator out.
+  if (clearError) throw clearError;
+
+  console.log(
+    `Cleared ${factors?.factors?.length ?? 0} factor(s) for ${row.email}. ` +
+      `They will be asked to set up two-factor again on their next visit to /admin.`,
+  );
 }
 
 async function revoke(email: string) {
@@ -170,6 +243,16 @@ async function main() {
 
   if (args.includes("--list")) return list();
 
+  const resetIndex = args.indexOf("--reset-mfa");
+  if (resetIndex !== -1) {
+    const email = args[resetIndex + 1];
+    if (!email) {
+      console.error("Usage: npm run grant-admin -- --reset-mfa someone@example.com");
+      process.exit(1);
+    }
+    return resetMfa(email);
+  }
+
   const revokeIndex = args.indexOf("--revoke");
   if (revokeIndex !== -1) {
     const email = args[revokeIndex + 1];
@@ -186,7 +269,8 @@ async function main() {
       "Usage:\n" +
         "  npm run grant-admin -- someone@example.com \"Their Name\"\n" +
         "  npm run grant-admin -- --list\n" +
-        "  npm run grant-admin -- --revoke someone@example.com",
+        "  npm run grant-admin -- --revoke someone@example.com\n" +
+        "  npm run grant-admin -- --reset-mfa someone@example.com",
     );
     process.exit(1);
   }
