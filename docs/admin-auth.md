@@ -58,11 +58,11 @@ So the split is:
 | Session | `admin_sessions` | Ours. Revocable, 8-hour TTL, independent of `sb-*`. |
 
 **The residual risk, stated plainly:** an admin's Supabase account being
-compromised (phishing, or an OAuth identity linked to their address) still
-leads to admin access, because that is the credential. What a fully separate
-credential store would have bought is exactly that, and it is the thing to
-revisit — with MFA on the Supabase account being the cheaper first move —
-rather than a gap that was overlooked.
+compromised (phishing, or an OAuth identity linked to their address) reaches
+admin access, because that is the credential. A fully separate credential store
+would have bought immunity to that; MFA is the cheaper answer, and as of `0068`
+it is built — see **Second factor** below. What remains is that MFA has to be
+*enrolled* to protect anybody, and enrolment is per-operator.
 
 **That risk widened on 2026-08-29, and the shape of it changed.** The seeker
 forgot-password flow shipped, calling `resetPasswordForEmail`, which operates
@@ -103,6 +103,72 @@ column that already exists.
 
 `scholarships` and `job_postings` have `moderated_at` / `removed_at` but **no
 `*_by` column at all** — M2 needs a small migration to add them.
+
+## Second factor (0068)
+
+TOTP, verified at `/admin/login` before any admin session is created.
+
+**It closes the reset path, and that was measured rather than assumed** — the
+whole feature rests on one claim, so it was tested against the live API before
+being built and is now asserted in `tests/rls/admin-mfa.test.ts`:
+
+```
+after enrolling and verifying     AAL: aal2
+fresh password-only login         AAL: aal1     <- what a password reset gets you
+mfa.unenroll from that session    422 AAL2 required to unenroll verified factor
+```
+
+Had that last call succeeded the feature would have been decoration: reset the
+password, strip the factor, walk in.
+
+**Enrolment state is a timestamp on `admin_users`, not a read of
+`auth.mfa_factors`.** The factors table is the truth, and it is unreachable:
+the service role has USAGE on the `auth` schema and no table privileges, and
+PostgREST does not expose the schema at all (`PGRST106`) — the same wall that
+forced `0067` to be `SECURITY DEFINER`. A second definer-rights function could
+read it, but this is a **gate consulted on every admin page render**, and a gate
+wants a cheap local answer rather than definer rights on the request path.
+`0068_admin_mfa.sql`'s header carries the full reasoning, including which
+direction of drift matters: column-set-but-factor-gone locks an operator out,
+column-null-but-factor-present is harmless noise. Only `--reset-mfa` removes a
+factor, and it clears both in one operation.
+
+**Enrolment is forced; login is not blocked.** An operator without a factor
+signs in and is redirected to `/admin/mfa` and nowhere else. Blocking at login
+would have locked out every existing admin the moment it shipped — and since
+enrolment lives behind the same guard, that is a deadlock escapable only by a
+service-role intervention.
+
+**There are no recovery codes, by design.** Supabase MFA does not provide them,
+and adding our own would be a second credential store to leak. The consequence
+is that a lost authenticator cannot be self-rescued: `unenroll` requires
+`aal2`, which is precisely the level a locked-out operator can no longer reach.
+That refusal is the mitigation working, so recovery has to be out-of-band.
+
+### The only recovery path
+
+```bash
+npm run grant-admin -- --reset-mfa someone@talentrah.com
+```
+
+It deletes every factor **and** clears `mfa_enrolled_at` together, because
+clearing one without the other leaves the next login demanding a code nobody
+can produce.
+
+**It refuses to touch production, and says so before any write.** Every write
+path prints the target project's URL and the `ref` claim decoded from the
+service key — separately, because they can disagree, and a mismatch is refused
+rather than resolved by guessing. Production is refused outright: there is no
+production credential on disk by design, so reaching it from a script means
+restoring one, which re-creates the hazard deleting `.env` removed. Passing
+`--production` never acts; it prints the connector recipe instead. That
+matters because this script is what somebody reaches for *under a real
+lockout*, which is exactly when "which database is this pointing at" stops
+being asked.
+
+**Accepted risk, stated rather than solved:** with a single admin, `--reset-mfa`
+is a lockout — the rescuer is another person with database access. Two
+operators exist today, so either can rescue the other.
 
 ## Decision 2 — the cron routes keep the shared secret
 
@@ -198,11 +264,13 @@ delete the row, because the audit trail names it.
   (`src/lib/auth/actions.ts`) has had this property since it shipped, so this
   is not new exposure — but a limiter keyed on the caller's own IP, against
   `api_rate_limits` (0038), is the real fix and is not in M1.
-- **No MFA.** The single strongest improvement available, and it is a Supabase
-  project setting plus an `aal2` check, not a schema change. Since the
-  forgot-password flow shipped this is no longer merely the strongest
-  improvement — it is what stands between an admin's email inbox and the
-  dashboard.
+- **MFA protects only operators who have ENROLLED.** `0068` built it and forces
+  enrolment, but an operator who has not yet been through `/admin/mfa` is still
+  password-only — so for them the inbox-reset path is wide open exactly as
+  before. This is a per-account state, not a project-wide switch: check it, do
+  not assume it.
+
+      select email, mfa_enrolled_at from public.admin_users;
 - **`auth.audit_log_entries` is EMPTY on the CI project** — zero rows, ever,
   while production holds 44,822. Anything that reasons about GoTrue auth events
   is therefore untestable in CI: `0067`'s function has real data to filter on

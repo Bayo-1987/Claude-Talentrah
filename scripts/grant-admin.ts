@@ -49,6 +49,100 @@ if (!URL || !SERVICE) {
   process.exit(1);
 }
 
+const PRODUCTION_REF = "nytwbbzfpytctjsoczzq";
+
+/** The project a key is actually for, from its own `ref` claim. */
+function keyProjectRef(key: string): string | null {
+  const parts = key.split(".");
+  if (parts.length !== 3) return null; // sb_secret_… style keys carry no claims
+  try {
+    const pad = (x: string) => x + "=".repeat((-x.length % 4 + 4) % 4);
+    return JSON.parse(Buffer.from(pad(parts[1]), "base64url").toString()).ref ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** The ref in the URL, which is what PostgREST actually talks to. */
+function urlProjectRef(url: string): string | null {
+  return /https:\/\/([a-z0-9]+)\.supabase\.co/i.exec(url)?.[1] ?? null;
+}
+
+/**
+ * Say what is about to be written to, BEFORE writing to it.
+ *
+ * This script is the only recovery path for a lost authenticator — Supabase
+ * MFA has no recovery codes here and `unenroll` requires aal2, the level a
+ * locked-out operator cannot reach — so it is what somebody reaches for under
+ * real pressure. Under pressure is exactly when "which database is this
+ * pointing at" stops being asked.
+ *
+ * And the answer is not obvious. `.env.local` targets CI; there is no
+ * production credential on disk by design (see CLAUDE.md). So an operator
+ * running `--reset-mfa` locally, believing they are fixing production, clears
+ * a factor on a database nobody is locked out of, sees a cheerful success
+ * line, and concludes the tool is broken.
+ *
+ * The URL and the KEY are printed separately because they can disagree — that
+ * happened on this project, with `.env.local` pointing at CI while a
+ * production service key sat underneath it in `.env`. A mismatch is refused
+ * outright rather than resolved by guessing which one was meant.
+ */
+function describeTarget(): { ref: string; isProduction: boolean } {
+  const fromUrl = urlProjectRef(URL!);
+  const fromKey = keyProjectRef(SERVICE!);
+
+  console.log(`  target URL : ${URL}`);
+  console.log(`  URL project: ${fromUrl ?? "unrecognised"}`);
+  console.log(`  key project: ${fromKey ?? "unrecognised (non-JWT key)"}`);
+
+  if (fromUrl && fromKey && fromUrl !== fromKey) {
+    console.error(
+      `\nREFUSING: the URL points at ${fromUrl} but the service key belongs to ${fromKey}.\n` +
+        "  One of them is wrong, and guessing which would write to the wrong database.",
+    );
+    process.exit(1);
+  }
+
+  const ref = fromUrl ?? fromKey ?? "unknown";
+  return { ref, isProduction: ref === PRODUCTION_REF };
+}
+
+/**
+ * Refuse to write to production from this script, and say what to do instead.
+ *
+ * Not squeamishness: since `.env` was deleted there is no production
+ * credential on disk, so reaching production from here requires someone to put
+ * one back — which re-creates the exact hazard that deletion removed. The
+ * Supabase MCP connector reaches production without a credential ever landing
+ * on disk, which is why it is the documented path for one-off production work.
+ */
+function refuseProduction(operation: string, email: string): never {
+  console.error(
+    [
+      "",
+      `REFUSING to ${operation} on PRODUCTION from this script.`,
+      "",
+      "  There is no production credential on disk by design (CLAUDE.md), so this",
+      "  script targets CI. Making it reach production means restoring a service-role",
+      "  key to a file — the hazard that removing .env got rid of.",
+      "",
+      "  Use the Supabase MCP connector against nytwbbzfpytctjsoczzq instead. For a",
+      "  lost authenticator that is two steps, in this order:",
+      "",
+      "    1. delete every factor for the operator   (auth admin API / dashboard)",
+      "    2. update public.admin_users",
+      `         set mfa_enrolled_at = null where email = '${email.toLowerCase()}';`,
+      "",
+      "  BOTH, and step 2 is the one that matters: clearing the factor while leaving",
+      "  the column set makes the next login demand a code nobody can produce, which",
+      "  is the failure this whole path exists to undo.",
+      "",
+    ].join("\n"),
+  );
+  process.exit(1);
+}
+
 const admin = createClient<Database>(URL, SERVICE, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
@@ -72,6 +166,9 @@ async function findAuthUserByEmail(email: string): Promise<{ id: string } | null
 }
 
 async function list() {
+  // Read-only, so no production refusal — but it still says where it looked.
+  // "There are no admins" means nothing without knowing which database.
+  describeTarget();
   const { data, error } = await admin
     .from("admin_users")
     .select("email, display_name, disabled_at, created_at, last_login_at")
@@ -116,6 +213,9 @@ async function list() {
  * produce — the one drift direction that locks somebody out (0068).
  */
 async function resetMfa(email: string) {
+  const target = describeTarget();
+  if (target.isProduction) refuseProduction("reset MFA", email);
+
   const normalized = email.toLowerCase();
   const { data: row, error } = await admin
     .from("admin_users")
@@ -160,6 +260,9 @@ async function resetMfa(email: string) {
 }
 
 async function revoke(email: string) {
+  const target = describeTarget();
+  if (target.isProduction) refuseProduction("revoke admin access", email);
+
   const { data, error } = await admin
     .from("admin_users")
     .update({ disabled_at: new Date().toISOString() })
@@ -189,6 +292,9 @@ async function revoke(email: string) {
 }
 
 async function grant(email: string, displayName: string | undefined) {
+  const target = describeTarget();
+  if (target.isProduction) refuseProduction("grant admin", email);
+
   const normalized = email.toLowerCase();
   let user = await findAuthUserByEmail(normalized);
 
@@ -243,6 +349,17 @@ async function main() {
 
   if (args.includes("--list")) return list();
 
+  /*
+   * `--production` never acts. It exists so that somebody who KNOWS they mean
+   * production gets the connector recipe instead of silently operating on CI —
+   * which is the failure this flag is here to prevent, not a capability it
+   * unlocks.
+   */
+  if (args.includes("--production")) {
+    const email = args.find((a) => a.includes("@")) ?? "someone@example.com";
+    refuseProduction("act", email);
+  }
+
   const resetIndex = args.indexOf("--reset-mfa");
   if (resetIndex !== -1) {
     const email = args[resetIndex + 1];
@@ -270,7 +387,10 @@ async function main() {
         "  npm run grant-admin -- someone@example.com \"Their Name\"\n" +
         "  npm run grant-admin -- --list\n" +
         "  npm run grant-admin -- --revoke someone@example.com\n" +
-        "  npm run grant-admin -- --reset-mfa someone@example.com",
+        "  npm run grant-admin -- --reset-mfa someone@example.com\n" +
+        "\n" +
+        "Every write prints the project it is about to touch first. Production is\n" +
+        "refused outright — pass --production to see how to do it via the connector.",
     );
     process.exit(1);
   }
