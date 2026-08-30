@@ -71,6 +71,7 @@ Via the Supabase MCP connector's `apply_migration` (pass the name without the
 | `0067_operator_credential_events.sql` | applied to **both** projects — production version 20260830132631. Row added 2026-08-30 after the fact: it was absent from this table while 0066 and 0068 were listed. Note it was applied to production *after* 0068 was, which is what being missed and backfilled looks like in the ledger |
 | `0068_admin_mfa.sql` | applied to **both** projects — production version 20260830093748. Row added 2026-08-30 after the fact, same as 0067 above |
 | `0069_invalidate_match_scores_on_jd_change.sql` | applied 2026-08-30 to **CI only** while its PR is in review — production on merge. Adds an AFTER UPDATE trigger on `job_postings` that clears cached `match_scores` when `structured_jd` or `seniority` changes |
+| `0071_drop_admin_mfa.sql` | applied to **both** projects — recorded as `drop_admin_mfa_0071` on each, and `admin_users.mfa_enrolled_at` is confirmed absent from both. Row added here by a different PR's author than the migration's, because the table is only useful if it is complete; see #143 for why admin MFA was removed rather than left half-on |
 
 ## The course catalog ships switched OFF
 
