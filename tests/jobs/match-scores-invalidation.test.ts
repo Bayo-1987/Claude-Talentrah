@@ -24,7 +24,7 @@
  * computed from must leave the row alone. The two together pin the trigger's
  * WHEN clause, which is the part with a real decision in it.
  */
-import { afterAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
 import type { Database } from "@/lib/supabase/types";
@@ -65,17 +65,32 @@ async function makePosting(skills: string[], seniority: "mid" | "senior" = "mid"
   return data.id;
 }
 
-async function makeUser() {
-  const email = `ms-inval-${randomUUID()}@talentrah.test`;
-  const { data, error } = await admin.auth.admin.createUser({
-    email,
-    password: randomUUID(),
-    email_confirm: true,
-  });
-  if (error || !data.user) throw new Error(`Could not create fixture user: ${error?.message}`);
-  createdUsers.push(data.user.id);
-  return data.user.id;
-}
+/*
+ * TWO users for the whole file, created once.
+ *
+ * Every suite here creates real auth users against the one shared CI project,
+ * ~20 files in parallel, and CLAUDE.md warns that back-to-back runs hit
+ * Supabase's auth rate limit. The first version of this file created a user
+ * per test — six — and the CI run failed in an unrelated suite
+ * (tests/rls/admin-mfa) whose own fixture operator had not been created. The
+ * tests here care about how many match_scores rows a posting has, not about
+ * who owns them, so six accounts bought nothing and cost another suite its
+ * setup.
+ */
+let users: string[] = [];
+
+beforeAll(async () => {
+  for (let i = 0; i < 2; i++) {
+    const { data, error } = await admin.auth.admin.createUser({
+      email: `ms-inval-${randomUUID()}@talentrah.test`,
+      password: randomUUID(),
+      email_confirm: true,
+    });
+    if (error || !data.user) throw new Error(`Could not create fixture user: ${error?.message}`);
+    createdUsers.push(data.user.id);
+  }
+  users = [...createdUsers];
+}, 60_000);
 
 async function score(userId: string, jobId: string) {
   const { error } = await admin.from("match_scores").insert({
@@ -122,7 +137,6 @@ afterAll(async () => {
 describe("changing what the score was computed from clears the cache", () => {
   it("drops the cached scores when the skills change", async () => {
     const jobId = await makePosting(["sql", "python"]);
-    const users = [await makeUser()];
     await score(users[0]!, jobId);
     expect(await scoreRows(jobId, users)).toBe(1);
 
@@ -139,7 +153,6 @@ describe("changing what the score was computed from clears the cache", () => {
     // The second input to computeMatchScore, and easy to forget in a WHEN
     // clause that only names structured_jd.
     const jobId = await makePosting(["sql"], "mid");
-    const users = [await makeUser()];
     await score(users[0]!, jobId);
 
     const { error } = await admin.from("job_postings").update({ seniority: "senior" }).eq("id", jobId);
@@ -150,7 +163,6 @@ describe("changing what the score was computed from clears the cache", () => {
 
   it("clears every user's row for that posting, not just one", async () => {
     const jobId = await makePosting(["sql"]);
-    const users = [await makeUser(), await makeUser()];
     for (const u of users) await score(u, jobId);
     expect(await scoreRows(jobId, users)).toBe(2);
 
@@ -167,7 +179,6 @@ describe("changing anything else leaves the cache alone", () => {
      * whenever any unrelated column moved.
      */
     const jobId = await makePosting(["sql"]);
-    const users = [await makeUser()];
     await score(users[0]!, jobId);
 
     const { error } = await admin
@@ -183,7 +194,6 @@ describe("changing anything else leaves the cache alone", () => {
     // `is distinct from` compares values, not writes. A re-ingest that finds
     // nothing changed must not evict a still-correct cache.
     const jobId = await makePosting(["sql", "python"]);
-    const users = [await makeUser()];
     await score(users[0]!, jobId);
 
     await admin
