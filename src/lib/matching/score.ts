@@ -1,6 +1,7 @@
 import { inferSeniority, NON_SCREENABLE_SKILLS } from "@/lib/jobs/extract-jd";
 import type { SeniorityLevel } from "@/lib/jobs/types";
 import type { StructuredResume } from "@/lib/resume/types";
+import { expandResumeSkills } from "./resume-skills";
 
 export interface MatchExplanation {
   matchedSkills: string[];
@@ -38,7 +39,13 @@ export function computeMatchScore(
   jobSkills: string[],
   jobSeniority: SeniorityLevel | undefined,
 ): MatchResult {
-  const resumeSkills = new Set(resume.skills.map((s) => s.toLowerCase()));
+  /*
+   * Expanded, not just lowercased. Job skills are canonical by construction
+   * and resume skills are whatever the candidate typed, so "SAFe Agile" and
+   * "Cloud (AWS, Azure)" never met `agile`, `aws` or `azure` — see
+   * resume-skills.ts. The comparison itself stays exact.
+   */
+  const resumeSkills = expandResumeSkills(resume.skills);
 
   /*
    * Only the requirements a resume can actually be screened against.
