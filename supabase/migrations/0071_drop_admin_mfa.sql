@@ -29,6 +29,26 @@
 --     is about audit visibility, not about whether a second factor exists.
 --     It keeps working unchanged.
 --
+-- ORDERING: THIS ONE DOES NOT GO TO CI FIRST.
+--
+-- The repo convention is "apply to CI first, production on merge". That is
+-- right for an ADDITIVE migration and wrong for this one, and it was learned
+-- the hard way here: applying the drop to CI ahead of the merge turned main
+-- and every open PR red, because they all still contain
+-- tests/rls/admin-mfa.test.ts and that suite asserts on the column. Four
+-- branches failed for a reason that had nothing to do with their own changes,
+-- and #141 was the one that surfaced it.
+--
+-- The column was restored on CI immediately, and the correct order for a
+-- DESTRUCTIVE migration against a SHARED CI project is:
+--
+--   1. merge the PR, which deletes the code and tests that reference it;
+--   2. THEN apply to CI and production.
+--
+-- The general rule: a migration that removes something can only be applied
+-- once nothing still running expects it. On a shared CI database, "nothing
+-- still running" includes every other open branch.
+--
 -- The risk this re-opens is stated plainly rather than left implied: an admin's
 -- password is resettable through the seeker forgot-password flow, so whoever
 -- controls the mailbox controls the admin account. That is now an accepted,
