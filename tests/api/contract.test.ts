@@ -264,6 +264,70 @@ function req(
   });
 }
 
+/*
+ * ---------------------------------------------------------------------------
+ * §0 — EVERY admin route, discovered rather than listed
+ * ---------------------------------------------------------------------------
+ *
+ * The list below (ADMIN_ENDPOINTS) carries per-route metadata a filesystem
+ * sweep cannot infer: request bodies, which calls are side-effecting, which
+ * pipeline spy must stay silent. It earns its place and is not replaced.
+ *
+ * What it CANNOT do is notice a route that nobody added to it. That is the
+ * failure mode this section exists for: a new handler under /api/admin with a
+ * fail-open guard would ship green, because the suite asserting admin routes
+ * fail closed would never have heard of it. The original finding — five admin
+ * routes live and unauthenticated on production — was exactly a case of
+ * "nobody was checking this one".
+ *
+ * So the routes are DISCOVERED. `import.meta.glob` is resolved by Vite at
+ * build time from the real directory, so adding a file is enough to be
+ * covered, and deleting one cannot silently reduce coverage to zero — the
+ * count assertion below fails if discovery breaks.
+ *
+ * This is deliberately the weakest possible assertion applied to the widest
+ * possible set: every exported HTTP method answers 401 with no credential.
+ * No bodies, no spies, no per-route knowledge. A route that needs more than
+ * that gets an entry in ADMIN_ENDPOINTS as well.
+ */
+const ADMIN_ROUTE_MODULES = import.meta.glob("../../src/app/api/admin/**/route.ts");
+
+const HTTP_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE"] as const;
+
+describe("§0 — every route under /api/admin fails closed, discovered from disk", () => {
+  const paths = Object.keys(ADMIN_ROUTE_MODULES).sort();
+
+  it("discovery actually found routes", () => {
+    /*
+     * Guards the guard. If the glob pattern ever stops matching — a directory
+     * move, a Vite change — every test below would silently pass by iterating
+     * nothing, which is the "clean check that proves nothing" shape this repo
+     * has been bitten by repeatedly. An empty sweep is a failure, not a pass.
+     */
+    expect(paths.length, "no admin routes discovered — the glob is wrong").toBeGreaterThan(3);
+  });
+
+  for (const path of paths) {
+    const label = path.replace("../../src/app/api/admin/", "").replace("/route.ts", "");
+
+    it(`${label}: every exported method answers 401 with no credential`, async () => {
+      const mod = (await ADMIN_ROUTE_MODULES[path]()) as Record<string, unknown>;
+      const exported = HTTP_METHODS.filter((m) => typeof mod[m] === "function");
+
+      expect(exported.length, `${label} exports no HTTP handler`).toBeGreaterThan(0);
+
+      for (const method of exported) {
+        const handler = mod[method] as (r: Request) => Promise<Response>;
+        const res = await handler(req(`http://t/api/admin/${label}`, method));
+        expect(
+          res.status,
+          `OPEN ADMIN ROUTE: ${label} ${method} answered ${res.status} with no credential`,
+        ).toBe(401);
+      }
+    });
+  }
+});
+
 describe("§1 — the admin guard fails CLOSED", () => {
   for (const ep of ADMIN_ENDPOINTS) {
     it(`${ep.name}: 401 when no admin secret is configured`, async () => {
