@@ -191,8 +191,26 @@ test.describe("the shell on a phone", () => {
         position: getComputedStyle(panel).position,
       };
     });
-    // The numbers this shipped with before the mobile pass.
-    expect(r.innerCol).toBe(920);
+    /*
+     * The numbers this shipped with before the mobile pass, with ONE pixel
+     * moved deliberately.
+     *
+     * innerCol was 920 while the panel's own div carried `border-l`. Tailwind
+     * sizes border-box, so that 1px hairline lived INSIDE the panel's
+     * `w-[280px]`. The hairline now sits on the wrapper — it had to, to run the
+     * full height of the colour field rather than stopping at the panel's 511px
+     * of content — and the wrapper has no width of its own, so the border adds
+     * to it instead of fitting within it. The field is 281px and the content
+     * column is 919.
+     *
+     * Asserted as 919 rather than loosened to a range: the point of these
+     * numbers is that an unintended shift fails, and this shift is intended and
+     * understood. A tolerance here would hide the next one.
+     *
+     * panelW stays 280 — the panel itself is unchanged; only what surrounds it
+     * moved.
+     */
+    expect(r.innerCol).toBe(919);
     expect(r.panelW).toBe(280);
     expect(r.sideBySide).toBe(true);
     expect(r.position).toBe("sticky");

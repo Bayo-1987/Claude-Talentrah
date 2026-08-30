@@ -127,7 +127,7 @@ export function FarahPanel({ firstName, initialMessages }: FarahPanelProps) {
     */
     <div
       data-testid="farah-panel"
-      className="flex w-full flex-col gap-5.5 border-t-[3px] border-t-rust px-6 py-8 min-[760px]:sticky min-[760px]:top-[68px] min-[760px]:max-h-[calc(100vh-68px)] min-[760px]:w-[280px] min-[760px]:flex-shrink-0 min-[760px]:overflow-y-auto min-[760px]:border-l min-[760px]:border-l-line min-[760px]:px-0 min-[760px]:pl-7"
+      className="flex w-full flex-col gap-5.5 border-t-[3px] border-t-rust px-6 py-8 min-[760px]:sticky min-[760px]:top-[68px] min-[760px]:max-h-[calc(100vh-68px)] min-[760px]:w-[280px] min-[760px]:flex-shrink-0 min-[760px]:overflow-y-auto min-[760px]:px-0 min-[760px]:pl-7"
     >
       {/*
         The name + "View profile" block that used to sit here is gone — both
