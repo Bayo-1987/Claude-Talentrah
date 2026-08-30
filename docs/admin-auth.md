@@ -64,6 +64,26 @@ credential store would have bought is exactly that, and it is the thing to
 revisit — with MFA on the Supabase account being the cheaper first move —
 rather than a gap that was overlooked.
 
+**That risk widened on 2026-08-29, and the shape of it changed.** The seeker
+forgot-password flow shipped, calling `resetPasswordForEmail`, which operates
+on any `auth.users` row. There is no admin exclusion and there should not be
+one: a reset form that behaved differently for an operator's address would be
+an enumeration oracle for exactly the accounts that most need not to be
+enumerable, and it would leave a locked-out operator with no recovery at all.
+
+So:
+
+| | changing an admin password requires |
+|---|---|
+| before | service-role access, or the Supabase dashboard |
+| after | access to that admin's email inbox |
+
+That is the ordinary consequence of email-based recovery and it is not a
+defect in the seeker flow. It matters here because the account it recovers is
+privileged, and it moves MFA from "the largest known gap" to the mitigation
+this design now depends on. Both production admins are unprotected by a second
+factor today.
+
 ### What being signed in to the seeker app gets you
 
 Nothing. `/admin/login` verifies the password with a Supabase client that
@@ -130,8 +150,8 @@ let `spendCredits` double-spend before 0035.
 
 ## Provisioning
 
-There is no self-serve path. Admin is granted by someone holding the
-service-role key:
+There is no self-serve path to BECOMING an admin. Admin is granted by someone
+holding the service-role key:
 
 ```bash
 npm run grant-admin -- someone@talentrah.com "Their Name"
@@ -168,7 +188,10 @@ delete the row, because the audit trail names it.
   is not new exposure — but a limiter keyed on the caller's own IP, against
   `api_rate_limits` (0038), is the real fix and is not in M1.
 - **No MFA.** The single strongest improvement available, and it is a Supabase
-  project setting plus an `aal2` check, not a schema change.
+  project setting plus an `aal2` check, not a schema change. Since the
+  forgot-password flow shipped this is no longer merely the strongest
+  improvement — it is what stands between an admin's email inbox and the
+  dashboard.
 - **`auth.audit_log_entries` is EMPTY on the CI project** — zero rows, ever,
   while production holds 44,822. Anything that reasons about GoTrue auth events
   is therefore untestable in CI: `0067`'s function has real data to filter on
