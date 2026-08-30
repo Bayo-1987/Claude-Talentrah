@@ -100,6 +100,41 @@ describe("upsertBaseResume", () => {
     expect(content.contact.name).toBe("Version Two");
   });
 
+  it("records how well the upload parsed, and does not erase it on a later save (0070)", async () => {
+    /*
+     * The parse confidence was computed and thrown away before 0070, which is
+     * why #139's empty-skills resume had to be diagnosed from the shape of its
+     * stored fields. Two properties matter and only one is obvious:
+     *
+     *   1. an upload that parsed badly is recorded as `low`
+     *   2. a LATER save that knows nothing about parsing — the builder, which
+     *      passes no confidence — must not overwrite that with null, or the
+     *      signal disappears the first time the user edits their resume
+     */
+    await upsertBaseResume(admin, userId, RESUME_V1, "uploaded", undefined, "low");
+
+    const afterUpload = await admin
+      .from("resumes")
+      .select("parse_confidence")
+      .eq("user_id", userId)
+      .eq("is_base", true)
+      .single();
+    expect(afterUpload.data?.parse_confidence).toBe("low");
+
+    await upsertBaseResume(admin, userId, RESUME_V2, "builder");
+
+    const afterEdit = await admin
+      .from("resumes")
+      .select("parse_confidence")
+      .eq("user_id", userId)
+      .eq("is_base", true)
+      .single();
+    expect(
+      afterEdit.data?.parse_confidence,
+      "a builder save erased the record of a degraded parse",
+    ).toBe("low");
+  });
+
   it("the database itself rejects a second is_base=true row, even bypassing the helper", async () => {
     // Proves migration 0010's unique partial index is real, not just
     // relying on this one function's application-level logic.

@@ -743,6 +743,33 @@ describe("resumes: the premium-template paywall is not the user's to set (0041)"
     expect(data?.user_id).toBe(user.id);
   });
 
+  it("cannot rewrite how well their own resume parsed (0070)", async () => {
+    /*
+     * `parse_confidence` is the server's conclusion about an upload, not
+     * something the uploader supplies — 0031's rule. It exists so a degraded
+     * parse is queryable instead of having to be inferred from the shape of
+     * the stored fields, which is how #139 was eventually found. A user who
+     * could set it to `high` would erase exactly the signal it was added for.
+     *
+     * It is unwritable because `resumes` has no table-level UPDATE grant, so
+     * a new column is not writable unless someone grants it. This asserts
+     * that rather than trusting it: the day somebody "restores" a table-level
+     * grant, this is what says so.
+     */
+    const { error } = await user.client
+      .from("resumes")
+      .update({ parse_confidence: "high" })
+      .eq("id", resumeId);
+    expect(error, "writing parse_confidence should be refused").not.toBeNull();
+
+    const { data } = await admin
+      .from("resumes")
+      .select("parse_confidence")
+      .eq("id", resumeId)
+      .single();
+    expect(data?.parse_confidence).not.toBe("high");
+  });
+
   it("POSITIVE CONTROL: the real save path still works", async () => {
     /*
      * Load-bearing. A fix that also breaks saveResumeAction is worse than the

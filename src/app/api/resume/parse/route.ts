@@ -87,7 +87,14 @@ export async function POST(request: Request) {
   try {
     // Replaces any existing base resume in place — see upsert-base-resume.ts
     // for why this can't be a plain insert (QA audit bug #1).
-    const resume = await upsertBaseResume(supabase, user.id, result.resume, "uploaded");
+    const resume = await upsertBaseResume(
+      supabase,
+      user.id,
+      result.resume,
+      "uploaded",
+      undefined,
+      result.confidence,
+    );
     resumeId = resume.id;
   } catch (err) {
     return internalError("resume-parse:save", err);

@@ -1552,6 +1552,7 @@ export type Database = {
           created_at: string
           id: string
           is_base: boolean
+          parse_confidence: string | null
           source: Database["public"]["Enums"]["resume_source"]
           structured_content: Json
           tailored_for_job_id: string | null
@@ -1564,6 +1565,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_base?: boolean
+          parse_confidence?: string | null
           source?: Database["public"]["Enums"]["resume_source"]
           structured_content?: Json
           tailored_for_job_id?: string | null
@@ -1576,6 +1578,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_base?: boolean
+          parse_confidence?: string | null
           source?: Database["public"]["Enums"]["resume_source"]
           structured_content?: Json
           tailored_for_job_id?: string | null
