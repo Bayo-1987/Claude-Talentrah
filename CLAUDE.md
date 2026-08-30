@@ -95,13 +95,23 @@ nobody would have questioned:
 | `where window_start > '12:00:00Z'` | `window_start` is hour-truncated, so `>` excluded the 12:00 window — the one that mattered | someone re-ran it and got rows |
 | a scripted `s.replace(old, new)` | the anchor text did not exist on that branch, so it replaced nothing and still printed success | `git status` showed the file unmodified |
 | `grep "unprotected by a second factor"` | the phrase wrapped across a line | re-checked with newlines flattened |
+| `grep … \| head -5` over route callers | the answer was **truncated**, not empty — real callers sat below the cut | ran it again without `head` |
 
 The first reported "no rate-limit rows at all" during an incident and nearly
 cost another session a correct diagnosis. The second would have shipped an
 admin page unreachable from the nav. The third reported a doc clean that still
 carried a false claim.
 
-So: **an empty result is a claim, and it gets a second method.** Flatten the
+**A TRUNCATED result is the same failure wearing a different hat**, and it is
+worse because it looks like data rather than absence. `head`, `limit`, a
+default page size, `--limit 20` — each turns "here is the answer" into "here is
+as much as I asked for", and nothing in the output says which you got. The
+fourth case above was reported as *"no in-repo caller uses these routes"* and
+offered as the evidence for deleting them; three test files were sitting two
+lines below the cut. Count first, or drop the limit and read the whole thing —
+a pipe into `head` is fine for looking and never fine for concluding.
+
+So: **an empty or truncated result is a claim, and it gets a second method.** Flatten the
 newlines. Widen the window and see the count move. Assert the anchor matched
 rather than trusting the exit code. Check `git status`, not just the script's
 own output. If a search returns nothing where something plausibly exists,
