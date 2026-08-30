@@ -58,6 +58,72 @@ export const SKILL_VOCABULARY = [
 ];
 
 /**
+ * Vocabulary terms that a resume's `skills` array cannot be screened against.
+ *
+ * These are still EXTRACTED — a posting that asks for communication really did
+ * ask for it, and gap analysis, cover letters and the keyword list all have a
+ * legitimate use for that. What they are not is a *requirement a candidate can
+ * be measured against*, so `computeMatchScore` drops them before dividing.
+ * Extraction keeps the information; scoring declines to score on it.
+ *
+ * ── THE EVIDENCE ──────────────────────────────────────────────────────────
+ *
+ * Measured on production, 155 open postings and all 642 rows of match_scores:
+ *
+ *   communication   88 postings  56.8%   matched 0 times, ever
+ *   operations      65 postings  41.9%   matched 0 times, ever
+ *   leadership      55 postings  35.5%   matched 0 times, ever
+ *   ── the cliff ──
+ *   sql             38 postings  24.5%   matched 119 times
+ *   agile           23 postings  14.8%   matched  25 times
+ *
+ * Hard skills demonstrably match, so this is not a broken comparison. It is
+ * three terms that are tagged on most of the board and satisfied by nobody,
+ * sitting in the denominator of every score. A posting asking for six things
+ * of which three are these could return at most 50% coverage however well
+ * qualified the candidate was.
+ *
+ * ── WHY THIS IS A LIST, WHEN skill-facet.ts ARGUES AGAINST LISTS ──────────
+ *
+ * The facet hit the same three terms and deliberately suppressed them by SHARE
+ * of the board rather than by name, because the alternative there was an
+ * allowlist of "real" technologies — unbounded, churning with every new
+ * framework, and silently dropping real skills as it went stale.
+ *
+ * That argument does not transfer, for a reason worth stating rather than
+ * assuming. This is not a new taxonomy: it is a subset of SKILL_VOCABULARY,
+ * which is already hand-maintained directly above, and nothing can enter this
+ * set that is not already in that list. A term is added here at the same
+ * moment it is added there, by the same person, in the same file.
+ * tests/unit/matching/score.test.ts fails if the two ever disagree.
+ *
+ * Share is also the wrong instrument HERE specifically, even though it is the
+ * right one for the facet. A match score is persisted per (user, job) and read
+ * back by Auto-Apply; deriving it from the composition of the surrounding
+ * board would make the same job score differently depending on what else had
+ * been ingested that week, and a threshold that moves under a stored,
+ * gate-carrying number is worse than a list somebody has to edit.
+ *
+ * ── WHAT IS DELIBERATELY NOT HERE ─────────────────────────────────────────
+ *
+ * `sales` (36 postings), `compliance` (30) and `customer success` (21) have
+ * also never matched, and they are NOT in this set. They are screenable domain
+ * skills that this particular handful of users happens not to have — a fact
+ * about four resumes, not about the terms. Adding them would start converting
+ * "nobody here has it" into "nobody can be asked for it", which is how a
+ * measured fix becomes a curated taxonomy.
+ *
+ * `negotiation` is a trait by any reading and is also not here: at 5 postings
+ * it is 3.2% of the board and poisons nothing. It earns a place if it ever
+ * reaches the share the three above sit at.
+ */
+export const NON_SCREENABLE_SKILLS: ReadonlySet<string> = new Set([
+  "communication",
+  "leadership",
+  "operations",
+]);
+
+/**
  * Some source HTML is double-escaped (`&amp;nbsp;` for a literal `&nbsp;`) —
  * decoding &amp; first unmasks those before the other entities run, so a
  * single pass catches both single- and double-escaped forms.
