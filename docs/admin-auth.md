@@ -143,6 +143,13 @@ blocking at login: with no recovery codes, and `unenroll` needing the very
 assurance level a locked-out operator cannot reach, a hard block would have
 been a deadlock for every admin that existed at the time.
 
+**Migration bookkeeping.** `0071` dropped the column. CI's ledger carries two
+extra rows from it (`drop_admin_mfa`, then
+`restore_admin_mfa_column_pending_pr143`) that have no file in
+`supabase/migrations/` — they are a premature apply and its undo, they cancel
+out, and nothing is pending. Production has only the real row. See
+`supabase/migrations/README.md` for why they were left rather than tidied away.
+
 **What was NOT reverted**, and should not be confused with this:
 
 - `0067`'s `operator_credential_events` and `/admin/ops`. That reads GoTrue's

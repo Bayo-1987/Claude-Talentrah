@@ -164,6 +164,41 @@ concluding a migration never ran: a project restored from a snapshot rather
 than replayed has the schema *without* the record, which is exactly the state
 CI is in for 0026–0050.
 
+### CI carries two dead rows from 0071, and they are not pending work
+
+CI's ledger holds three rows for one migration:
+
+| version | name | in the repo? |
+| --- | --- | --- |
+| `20260830145707` | `drop_admin_mfa` | no — a premature apply |
+| `20260830150946` | `restore_admin_mfa_column_pending_pr143` | no — undoing that |
+| `20260830182130` | `drop_admin_mfa_0071` | yes — `0071_drop_admin_mfa.sql` |
+
+**Only the third is real. The first two cancel out and nothing is pending.**
+Verified after the fact: `mfa_enrolled_at` is absent from `admin_users` on
+both projects, which is the state `0071` asks for. Production has only the
+third row.
+
+The first two exist because `0071` was applied to CI **before** its PR merged,
+following the usual apply-to-CI-first habit. That habit is right for an
+additive migration and wrong for a destructive one: main and four open
+branches still contained `tests/rls/admin-mfa.test.ts`, which asserts on the
+column, so the drop turned all of them red for reasons unrelated to their own
+changes. The column was restored, the branches went green, and `0071` was
+applied properly once #143 merged and deleted the test with it.
+
+**The rule that generalises:** a migration that REMOVES something can only be
+applied once nothing still running expects it — and on a shared CI database,
+"nothing still running" includes every other open branch, not just yours. On
+production it also includes the currently-deployed build, so a destructive
+migration waits for the deploy that stops reading the column. `0071` was
+applied to production only after the deploy of `4103037` was confirmed serving
+(the `/admin/login` page no longer renders the code field).
+
+Left in place rather than deleted, for the reason immediately below: an applied
+migration is history, and a row that records a mistake is worth more than a
+tidy ledger that hides one.
+
 The ledger is deliberately NOT rewritten to tidy any of this. An applied
 migration is history: 0060 kept its colliding number because its header carries
 an md5 of the recorded statements, 0061 documents its own name mismatch as
