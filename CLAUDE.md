@@ -83,6 +83,35 @@ Phase 1 is feature-complete except for the employer side. Read [docs/phase-1-sum
 
 Verification convention this repo holds itself to, visible throughout its PR history: **check real current state before building; prove a fix by first proving the test catches the bug.** Several milestones caught real defects specifically by re-testing what earlier work had assumed — an RLS policy that had never been run, a retry heuristic that looked like model behaviour, an OAuth name mapping where the intuitive fix would have repaired the wrong provider, and an org-membership policy that read as safe and was not. That last one is also the standing example of a second habit: after fixing a policy, ask what *else* grants the same privilege — the first fix closed one route and, in doing so, opened a second.
 
+**A clean check result is not proof that there is nothing there.** An empty
+grep, a zero-row query, a diff with no hits, a scripted replacement that
+reports success — all of these look identical whether they found nothing or
+were incapable of finding anything. This bit three times in one day
+(2026-08-29), each with a different underlying cause and each producing output
+nobody would have questioned:
+
+| what was run | why it found nothing | how it was caught |
+|---|---|---|
+| `where window_start > '12:00:00Z'` | `window_start` is hour-truncated, so `>` excluded the 12:00 window — the one that mattered | someone re-ran it and got rows |
+| a scripted `s.replace(old, new)` | the anchor text did not exist on that branch, so it replaced nothing and still printed success | `git status` showed the file unmodified |
+| `grep "unprotected by a second factor"` | the phrase wrapped across a line | re-checked with newlines flattened |
+
+The first reported "no rate-limit rows at all" during an incident and nearly
+cost another session a correct diagnosis. The second would have shipped an
+admin page unreachable from the nav. The third reported a doc clean that still
+carried a false claim.
+
+So: **an empty result is a claim, and it gets a second method.** Flatten the
+newlines. Widen the window and see the count move. Assert the anchor matched
+rather than trusting the exit code. Check `git status`, not just the script's
+own output. If a search returns nothing where something plausibly exists,
+the burden is on the search, not on reality.
+
+This is the same reflex as the "prove the test catches the bug" rule above,
+pointed at the tools instead of the code: a test that passes for the wrong
+reason and a grep that matches nothing for the wrong reason are the same
+mistake wearing different clothes.
+
 ---
 
 ## What Talentrah is
