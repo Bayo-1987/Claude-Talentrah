@@ -2042,6 +2042,16 @@ export type Database = {
         }
         Returns: Database["public"]["Enums"]["ad_campaign_status"]
       }
+      operator_credential_events: {
+        Args: { p_since?: string }
+        Returns: {
+          event_action: string
+          event_ip: string
+          occurred_at: string
+          operator_email: string
+          operator_id: string
+        }[]
+      }
       spend_credits_atomic: {
         Args: {
           p_amount: number

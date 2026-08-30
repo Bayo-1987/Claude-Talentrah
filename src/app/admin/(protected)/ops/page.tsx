@@ -4,6 +4,7 @@ import {
   autoApplyQueueHealth,
   rateLimitBuckets,
   feedFreshness,
+  operatorCredentialEvents,
   MAX_INDETERMINATE_RENEWAL_ATTEMPTS,
 } from "@/lib/admin/ops/queries";
 import { QueueHeader } from "@/components/admin/queue-chrome";
@@ -36,11 +37,12 @@ const QUEUE_LABEL: Record<string, string> = {
  */
 export default async function OpsPage() {
   const admin = await requireAdmin();
-  const [renewals, queue, buckets, feeds] = await Promise.all([
+  const [renewals, queue, buckets, feeds, credentialEvents] = await Promise.all([
     stuckRenewals(),
     autoApplyQueueHealth(),
     rateLimitBuckets(),
     feedFreshness(),
+    operatorCredentialEvents(),
   ]);
 
   const exhausted = renewals.filter((r) => r.exhausted);
@@ -108,6 +110,66 @@ export default async function OpsPage() {
             </ul>
           </>
         )}
+      </section>
+
+      {/* ---------------------------------------------------------- */}
+      <section className="flex flex-col gap-3">
+        <EyebrowLabel>Operator credential events</EyebrowLabel>
+        {/*
+          Since the seeker forgot-password flow shipped, an admin password is
+          resettable from the public /login page by whoever controls that
+          inbox — the ordinary consequence of email recovery, and not something
+          to fix by excluding operators (that would be an enumeration oracle,
+          and would leave a locked-out operator with no way back). What was
+          missing was that nothing surfaced it. This does, by reading an event
+          GoTrue already writes, which is also why it covers events from before
+          it existed.
+        */}
+        <p className="max-w-[640px] font-display text-[14.5px] italic text-ink-soft">
+          Recoveries and account changes on admin accounts only, last 90 days.
+          A reset you requested yourself is expected here — one you did not is
+          the reason this section exists.
+        </p>
+        {credentialEvents.length === 0 ? (
+          <BorderedCard className="p-5">
+            <p className="font-display text-[15px] italic text-ink-soft">
+              Nothing on any operator account.
+            </p>
+          </BorderedCard>
+        ) : (
+          <ul className="flex list-none flex-col gap-2 p-0">
+            {credentialEvents.map((e, i) => (
+                <li key={`${e.occurredAt}-${i}`}>
+                  <BorderedCard className="flex flex-wrap items-baseline justify-between gap-3 p-4">
+                    <span className="text-[14.5px]">
+                      <span className={e.recent ? "font-semibold text-rust" : ""}>
+                        {e.action === "user_recovery_requested"
+                          ? "Password recovery requested"
+                          : e.action === "user_modified"
+                            ? "Account modified"
+                            : e.action}
+                      </span>{" "}
+                      — {e.operatorEmail}
+                    </span>
+                    <span className="text-[13px] text-ink-soft">
+                      {new Date(e.occurredAt).toLocaleString()}
+                      {e.ip && ` · ${e.ip}`}
+                    </span>
+                  </BorderedCard>
+                </li>
+            ))}
+          </ul>
+        )}
+        {/*
+          Said explicitly because the honest limit of the data is easy to
+          overstate: GoTrue does not record WHICH field a user_modified event
+          changed.
+        */}
+        <p className="font-display text-[13.5px] italic text-ink-soft">
+          “Account modified” does not necessarily mean the password changed —
+          GoTrue does not record which field moved. It is shown separately for
+          that reason rather than folded into the recoveries.
+        </p>
       </section>
 
       {/* ---------------------------------------------------------- */}
