@@ -35,15 +35,46 @@ interface Fixture { id: string; email: string; password: string }
 const slug = `e2e-admin-blog-${randomUUID()}`;
 let operator: Fixture;
 const madePosts: string[] = [];
+let roleId = "";
 
+/**
+ * An operator with a REAL ROLE, not just the legacy `role` text.
+ *
+ * This fixture used to set `role: "super_admin"` and no `role_id`, and it
+ * passed — because the blog screens only called requireAdmin(). Since 0075,
+ * permissions come from `role_id` and a null one grants NOTHING by design
+ * (session.ts: "an operator who can sign in and reach nothing is a visible,
+ * fixable mistake"). So the fixture had zero permissions the whole time and
+ * the test could not tell, which is precisely what a too-weak guard buys you.
+ *
+ * Gating the screens on `blog` made that visible immediately: the editor
+ * stopped rendering and a `locator.fill` timed out. The guard was right and
+ * the fixture was wrong.
+ *
+ * It gets its own role rather than reusing a builtin, so revoking a permission
+ * here can never affect a real operator or another suite's expectations.
+ */
 async function makeOperator(): Promise<Fixture> {
+  const { data: role, error: roleError } = await db!
+    .from("admin_roles")
+    .insert({ name: `e2e-blog ${randomUUID().slice(0, 8)}` })
+    .select("id")
+    .single();
+  if (roleError || !role) throw new Error(`fixture role: ${roleError?.message}`);
+  roleId = role.id;
+
+  const { error: permError } = await db!
+    .from("admin_role_permissions")
+    .insert({ role_id: roleId, permission: "blog" });
+  if (permError) throw new Error(`fixture permission: ${permError.message}`);
+
   const email = `e2e-blog-admin-${randomUUID()}@talentrah.test`;
   const password = `E2E-${randomUUID()}Aa1!`;
   const { data, error } = await db!.auth.admin.createUser({ email, password, email_confirm: true });
   if (error) throw new Error(`fixture user: ${error.message}`);
   const { error: rowError } = await db!
     .from("admin_users")
-    .insert({ id: data.user.id, email, display_name: "E2E Blog Admin", role: "super_admin" });
+    .insert({ id: data.user.id, email, display_name: "E2E Blog Admin", role_id: roleId });
   if (rowError) throw new Error(`fixture operator: ${rowError.message}`);
   return { id: data.user.id, email, password };
 }
@@ -78,8 +109,16 @@ test.describe("blog admin", () => {
       if (error) throw new Error(`post cleanup failed: ${error.message}`);
     }
     if (operator?.id) {
+      // admin_users first: role_id is ON DELETE RESTRICT, so the role cannot
+      // go while an operator still points at it.
+      const { error: au } = await db!.from("admin_users").delete().eq("id", operator.id);
+      if (au) throw new Error(`admin_users cleanup failed: ${au.message}`);
       const { error } = await db!.auth.admin.deleteUser(operator.id);
       if (error) throw new Error(`operator cleanup failed: ${error.message}`);
+    }
+    if (roleId) {
+      const { error } = await db!.from("admin_roles").delete().eq("id", roleId);
+      if (error) throw new Error(`role cleanup failed: ${error.message}`);
     }
   });
 

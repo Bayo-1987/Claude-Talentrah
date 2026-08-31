@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireAdmin } from "@/lib/admin/require-admin";
+import { requirePermission } from "@/lib/admin/require-admin";
 import { listAllPosts } from "@/lib/admin/blog/posts";
 import { Container, EyebrowLabel, BorderedCard, buttonClasses } from "@/components/ui";
 
@@ -21,7 +21,7 @@ export const metadata = {
  * looked at by someone who does not distinguish those hues.
  */
 export default async function AdminBlogPage() {
-  await requireAdmin();
+  await requirePermission("blog");
   const posts = await listAllPosts();
   const drafts = posts.filter((p) => p.status === "draft").length;
   const published = posts.length - drafts;

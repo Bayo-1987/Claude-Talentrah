@@ -3,12 +3,24 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
-import { requireAdmin } from "@/lib/admin/require-admin";
+import { requirePermission } from "@/lib/admin/require-admin";
 import { recordAdminAction } from "@/lib/admin/audit";
 import { blogPostSchema } from "./schemas";
 
 /**
  * Blog mutations, under an admin session.
+ *
+ * ── GATED ON THE `blog` PERMISSION, NOT MERELY ON BEING AN ADMIN ──────────
+ *
+ * #163 gave every admin Server Action its own permission check rather than
+ * letting it inherit whatever the page happened to require. Blog was not in
+ * that sweep because the `blog` permission did not exist yet — 0077 added it
+ * afterwards — so these five actions were left on `requireAdmin()` alone.
+ *
+ * That is a reachable gap, not a theoretical one: a Server Action is a POST
+ * endpoint. An operator whose role does not grant `blog` never sees the nav
+ * link and is redirected away from /admin/blog, but nothing stopped them
+ * invoking the action directly, and `requireAdmin()` would have said yes.
  *
  * ── WHY SERVICE ROLE ──────────────────────────────────────────────────────
  *
@@ -60,7 +72,7 @@ export async function createPostAction(
   _prev: BlogActionState,
   formData: FormData,
 ): Promise<BlogActionState> {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("blog");
   const parsed = parse(formData);
   if (!parsed.success) {
     return {
@@ -107,7 +119,7 @@ export async function updatePostAction(
   _prev: BlogActionState,
   formData: FormData,
 ): Promise<BlogActionState> {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("blog");
   const id = String(formData.get("id") ?? "");
   if (!id) return { status: "error", message: "Missing post." };
 
@@ -174,7 +186,7 @@ export async function setPostStatusAction(
   _prev: BlogActionState,
   formData: FormData,
 ): Promise<BlogActionState> {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("blog");
   const id = String(formData.get("id") ?? "");
   const publish = String(formData.get("intent") ?? "") === "publish";
   if (!id) return { status: "error", message: "Missing post." };
@@ -223,7 +235,7 @@ export async function deletePostAction(
   _prev: BlogActionState,
   formData: FormData,
 ): Promise<BlogActionState> {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("blog");
   const id = String(formData.get("id") ?? "");
   if (!id) return { status: "error", message: "Missing post." };
 

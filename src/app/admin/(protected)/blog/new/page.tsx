@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireAdmin } from "@/lib/admin/require-admin";
+import { requirePermission } from "@/lib/admin/require-admin";
 import { createPostAction } from "@/lib/admin/blog/actions";
 import { BlogPostForm } from "@/components/admin/blog-post-form";
 import { Container, EyebrowLabel } from "@/components/ui";
@@ -11,7 +11,7 @@ export const metadata = {
 
 /** A new post always starts as a draft — see createPostAction. */
 export default async function NewBlogPostPage() {
-  await requireAdmin();
+  await requirePermission("blog");
   return (
     <Container className="flex max-w-[900px] flex-col gap-8 py-12">
       <div>
