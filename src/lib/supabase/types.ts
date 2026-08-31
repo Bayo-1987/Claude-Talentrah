@@ -751,6 +751,66 @@ export type Database = {
           },
         ]
       }
+      blog_posts: {
+        Row: {
+          author: string
+          body: string
+          created_at: string
+          created_by: string | null
+          description: string
+          id: string
+          published_at: string | null
+          slug: string
+          status: string
+          title: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          author: string
+          body: string
+          created_at?: string
+          created_by?: string | null
+          description: string
+          id?: string
+          published_at?: string | null
+          slug: string
+          status?: string
+          title: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          author?: string
+          body?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          id?: string
+          published_at?: string | null
+          slug?: string
+          status?: string
+          title?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "blog_posts_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "blog_posts_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       course_recommendations: {
         Row: {
           active: boolean
@@ -2173,6 +2233,7 @@ export type Database = {
     }
     Enums: {
       admin_permission:
+        | "blog"
         | "scholarships"
         | "reported_postings"
         | "ad_campaigns"

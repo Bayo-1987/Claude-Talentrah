@@ -1,0 +1,164 @@
+/**
+ * The blog admin: create, edit, publish, unpublish, delete — and the audit
+ * trail that has to accompany each of them.
+ *
+ * ── WHY THE AUDIT ASSERTIONS ARE HERE AND NOT ONLY IN A UNIT TEST ─────────
+ *
+ * `recordAdminAction` deliberately never throws: an audit write that failed
+ * must not roll back the change it was describing. That is the right trade and
+ * it has a cost — a mutation whose audit call was simply forgotten looks
+ * exactly like one whose audit call failed, and both look exactly like
+ * success. So the log is read back from the database after each action.
+ *
+ * ── UNPUBLISH IS THE PRIMARY RETIREMENT PATH ──────────────────────────────
+ *
+ * Asserted, not just implemented: unpublishing keeps the row, keeps
+ * `published_at`, and the post can come back. Deleting is the separate,
+ * quieter action. Same reasoning the job board applies to closed postings.
+ */
+import { test, expect, type Page } from "@playwright/test";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { randomUUID } from "node:crypto";
+import type { Database } from "@/lib/supabase/types";
+
+const URL_ = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const configured = Boolean(URL_ && SERVICE);
+if (process.env.CI && !configured) {
+  throw new Error("admin-blog spec cannot run in CI: missing Supabase URL or service-role key");
+}
+const db: SupabaseClient<Database> | null = configured
+  ? createClient<Database>(URL_!, SERVICE!, { auth: { persistSession: false } })
+  : null;
+
+interface Fixture { id: string; email: string; password: string }
+const slug = `e2e-admin-blog-${randomUUID()}`;
+let operator: Fixture;
+const madePosts: string[] = [];
+
+async function makeOperator(): Promise<Fixture> {
+  const email = `e2e-blog-admin-${randomUUID()}@talentrah.test`;
+  const password = `E2E-${randomUUID()}Aa1!`;
+  const { data, error } = await db!.auth.admin.createUser({ email, password, email_confirm: true });
+  if (error) throw new Error(`fixture user: ${error.message}`);
+  const { error: rowError } = await db!
+    .from("admin_users")
+    .insert({ id: data.user.id, email, display_name: "E2E Blog Admin", role: "super_admin" });
+  if (rowError) throw new Error(`fixture operator: ${rowError.message}`);
+  return { id: data.user.id, email, password };
+}
+
+async function signIn(page: Page) {
+  await page.goto("/admin/login");
+  await page.locator("#admin-email").fill(operator.email);
+  await page.locator("#admin-password").fill(operator.password);
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await page.waitForURL((u) => !u.pathname.startsWith("/admin/login"), { timeout: 30_000 });
+}
+
+async function auditFor(action: string, targetId: string) {
+  const { data } = await db!
+    .from("admin_audit_log")
+    .select("action, admin_email, target_table, target_id")
+    .eq("action", action)
+    .eq("target_id", targetId);
+  return data ?? [];
+}
+
+test.describe("blog admin", () => {
+  test.skip(!configured, "needs the Supabase URL and service-role key");
+
+  test.beforeAll(async () => {
+    operator = await makeOperator();
+  });
+
+  test.afterAll(async () => {
+    if (madePosts.length) {
+      const { error } = await db!.from("blog_posts").delete().in("id", madePosts);
+      if (error) throw new Error(`post cleanup failed: ${error.message}`);
+    }
+    if (operator?.id) {
+      const { error } = await db!.auth.admin.deleteUser(operator.id);
+      if (error) throw new Error(`operator cleanup failed: ${error.message}`);
+    }
+  });
+
+  test("the whole lifecycle, with an audit row for every step", async ({ page, request }) => {
+    await signIn(page);
+
+    // ---- CREATE -----------------------------------------------------------
+    await page.goto("/admin/blog/new");
+    await page.getByLabel("Title").fill("E2E lifecycle post");
+    await page.getByLabel("Slug").fill(slug);
+    await page.getByLabel("Description").fill("A post created by the admin blog end-to-end test.");
+    await page.getByLabel("Author").fill("Tests");
+    await page.locator("#body").fill("## First heading\n\nA paragraph with **bold** in it.");
+    await page.getByRole("button", { name: "Create draft" }).click();
+    await page.waitForURL(/\/admin\/blog\/[0-9a-f-]{36}/, { timeout: 30_000 });
+
+    const id = page.url().split("/").pop()!;
+    madePosts.push(id);
+    expect(await auditFor("blog.create", id), "no audit row for create").toHaveLength(1);
+
+    // Created as a DRAFT, and therefore not public.
+    expect((await page.request.get(`/blog/${slug}`)).status(), "a new post was public immediately").toBe(404);
+
+    // ---- PREVIEW, IN THE EDITOR -------------------------------------------
+    await page.getByRole("button", { name: "preview" }).click();
+    await expect(
+      page.getByRole("heading", { name: "First heading" }),
+      "the in-editor preview did not render the markdown",
+    ).toBeVisible();
+
+    // ---- EDIT --------------------------------------------------------------
+    await page.getByRole("button", { name: "write" }).click();
+    await page.getByLabel("Title").fill("E2E lifecycle post (edited)");
+    await page.getByRole("button", { name: "Save changes" }).click();
+    await expect(page.getByText("Saved.")).toBeVisible();
+    expect(await auditFor("blog.update", id), "no audit row for update").toHaveLength(1);
+
+    // ---- PUBLISH -----------------------------------------------------------
+    await page.getByRole("button", { name: "Publish" }).click();
+    await expect(page.getByText("Published.")).toBeVisible();
+    expect(await auditFor("blog.publish", id), "no audit row for publish").toHaveLength(1);
+
+    const live = await request.get(`/blog/${slug}`);
+    expect(live.status(), "a published post is not reachable").toBe(200);
+    expect((await (await request.get("/sitemap.xml")).text()).includes(slug)).toBe(true);
+
+    // ---- UNPUBLISH — the primary retirement path ---------------------------
+    await page.getByRole("button", { name: "Unpublish" }).click();
+    await expect(page.getByText("Unpublished — back to draft.")).toBeVisible();
+    expect(await auditFor("blog.unpublish", id), "no audit row for unpublish").toHaveLength(1);
+
+    expect((await request.get(`/blog/${slug}`)).status(), "an unpublished post is still live").toBe(404);
+
+    // The row survives, with its publish date intact — the whole point of
+    // unpublishing rather than deleting.
+    const { data: row } = await db!
+      .from("blog_posts")
+      .select("status, published_at")
+      .eq("id", id)
+      .single();
+    expect(row?.status).toBe("draft");
+    expect(row?.published_at, "published_at was cleared on unpublish").not.toBeNull();
+
+    // ---- DELETE ------------------------------------------------------------
+    await page.getByRole("button", { name: "Delete permanently" }).click();
+    await page.waitForURL("**/admin/blog", { timeout: 30_000 });
+    expect(await auditFor("blog.delete", id), "no audit row for delete").toHaveLength(1);
+
+    const { count } = await db!
+      .from("blog_posts")
+      .select("id", { count: "exact", head: true })
+      .eq("id", id);
+    expect(count, "the post was not deleted").toBe(0);
+    madePosts.length = 0;
+  });
+
+  test("a signed-out visitor cannot reach the blog admin at all", async ({ page }) => {
+    await page.context().clearCookies();
+    await page.goto("/admin/blog");
+    expect(page.url(), "the blog admin was reachable without a session").toContain("/admin/login");
+  });
+});

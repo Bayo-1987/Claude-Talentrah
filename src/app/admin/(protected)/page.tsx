@@ -15,6 +15,13 @@ import { Container, EyebrowLabel, BorderedCard } from "@/components/ui";
  */
 const DASHBOARD_LINKS = [
   {
+    href: "/admin/blog",
+    label: "Blog",
+    permission: "blog",
+    blurb:
+      "write, publish and unpublish posts. Publishing takes effect immediately; there is no deploy in the loop.",
+  },
+  {
     href: "/admin/scholarships",
     label: "Scholarship review",
     permission: "scholarships",
