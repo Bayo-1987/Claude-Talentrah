@@ -1,4 +1,5 @@
 import { getEmployerContext } from "@/lib/employer/membership";
+import { orgInitials as orgInitialsOf } from "@/lib/employer/org-initials";
 import { EmployerMasthead } from "@/components/employer/employer-masthead";
 
 /**
@@ -12,13 +13,9 @@ export default async function EmployerLayout({ children }: { children: React.Rea
   // would loop.
   const context = await getEmployerContext();
   const orgName = context?.organization.name ?? "";
-  const orgInitials =
-    orgName
-      .split(/\s+/)
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((w) => w[0]?.toUpperCase() ?? "")
-      .join("") || "—";
+  // See lib/employer/org-initials.ts: null when there is no name, so the
+  // masthead omits the badge rather than filling it with a placeholder.
+  const orgInitials = orgInitialsOf(orgName);
 
   return (
     <div className="min-h-screen">

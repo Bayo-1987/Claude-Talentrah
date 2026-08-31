@@ -34,7 +34,14 @@ const NAV_LINKS = [
   { href: "/employer/campaigns", label: "Ad Campaigns" },
 ];
 
-export function EmployerMasthead({ orgInitials, orgName }: { orgInitials: string; orgName: string }) {
+export function EmployerMasthead({
+  orgInitials,
+  orgName,
+}: {
+  /** Null before the organisation exists — the badge is omitted, not filled in. */
+  orgInitials: string | null;
+  orgName: string;
+}) {
   const pathname = usePathname();
   const [navOpen, setNavOpen] = useState(false);
   const navRef = useRef<HTMLDivElement>(null);
@@ -198,12 +205,19 @@ export function EmployerMasthead({ orgInitials, orgName }: { orgInitials: string
           >
             Looking for work?
           </Link>
-          <div
-            className="flex h-[34px] w-[34px] items-center justify-center bg-ink font-display text-[12px] font-bold text-paper"
-            title={orgName}
-          >
-            {orgInitials}
-          </div>
+          {/*
+            Omitted entirely when there is no organisation yet, which is the
+            normal state on /employer/onboarding. See the layout for why a
+            placeholder character was worse than nothing.
+          */}
+          {orgInitials && (
+            <div
+              className="flex h-[34px] w-[34px] items-center justify-center bg-ink font-display text-[12px] font-bold text-paper"
+              title={orgName}
+            >
+              {orgInitials}
+            </div>
+          )}
           <form action={signOutAction}>
             {/*
               min-h-10 min-w-10, which it did not have. Measured at 46 x 20 on
