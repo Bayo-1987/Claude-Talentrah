@@ -13,6 +13,7 @@ import { Constants, type Tables } from "@/lib/supabase/types";
 import { hasVisibleName, visibleName } from "@/lib/profile/name";
 import { computeSkillFacet, filterBySkill } from "@/lib/jobs/skill-facet";
 import { searchJobs } from "@/lib/jobs/search";
+import { buildSuggestionIndex } from "@/lib/jobs/search-suggestions";
 import { getSiteOrigin } from "@/lib/referrals/url";
 import {
   fetchPromotedJobs,
@@ -147,6 +148,13 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
    * then.
    */
   const skillFacet = computeSkillFacet(matchingFilters);
+  /*
+   * Built from `matchingFilters` — the board before the search term — for the
+   * same reason the facet is: suggestions counted against an already-searched
+   * board would collapse to whatever co-occurs with the partial term, so the
+   * list would look broken the moment anyone typed.
+   */
+  const searchIndex = buildSuggestionIndex(matchingFilters);
   /*
    * Search is applied AFTER the facet is counted, alongside the skill filter,
    * for the same reason: counting the facet against a searched board would
@@ -427,6 +435,7 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
           seniority={seniority}
           skill={skill}
           skillFacet={skillFacet}
+          searchIndex={searchIndex}
         />
       </div>
 
