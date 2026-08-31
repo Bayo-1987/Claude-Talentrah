@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { SITE_ORIGIN, SHARE_IMAGE, SHARE_IMAGE_META } from "@/lib/seo/site";
 import { Newsreader, Source_Sans_3 } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
@@ -16,10 +17,52 @@ const sourceSans = Source_Sans_3({
   variable: "--font-source-sans",
 });
 
+const SITE_NAME = "Talentrah";
+const SITE_DESCRIPTION =
+  "AI-powered career platform for job seekers in Nigeria and across Africa.";
+
+
 export const metadata: Metadata = {
-  title: "Talentrah",
-  description:
-    "AI-powered career platform for job seekers in Nigeria and across Africa.",
+  /*
+   * Required for every relative URL in this file and in each page's own
+   * metadata to resolve. Without it Next emits relative og:url / og:image,
+   * which crawlers cannot follow — and it warns at build time rather than
+   * failing, so it stays missing quietly.
+   *
+   * See lib/seo/site.ts for why this is a fixed canonical origin and not
+   * derived from VERCEL_URL.
+   */
+  metadataBase: new URL(SITE_ORIGIN),
+  /*
+   * A plain string, NOT a `template`.
+   *
+   * A `%s — Talentrah` template is the obvious thing to add here and it is
+   * wrong for this codebase: 37 pages already write their own full title
+   * ending in "— Talentrah", so the template appends a second one and every
+   * tab reads "Jobs — Talentrah — Talentrah". Caught on the job page before
+   * this shipped.
+   *
+   * The convention is that a page owns its whole title. Changing that means
+   * editing 37 files, which is a refactor rather than a metadata fix.
+   */
+  title: SITE_NAME,
+  description: SITE_DESCRIPTION,
+  applicationName: SITE_NAME,
+  openGraph: {
+    type: "website",
+    siteName: SITE_NAME,
+    title: SITE_NAME,
+    description: SITE_DESCRIPTION,
+    url: "/",
+    locale: "en_NG",
+    images: [SHARE_IMAGE_META],
+  },
+  twitter: {
+    card: "summary",
+    title: SITE_NAME,
+    description: SITE_DESCRIPTION,
+    images: [SHARE_IMAGE],
+  },
   icons: {
     icon: [
       { url: "/icons/talentrah-mark-16.png", sizes: "16x16", type: "image/png" },
