@@ -17,30 +17,34 @@
  *      it, and it makes "unknown" indistinguishable from "known and far away"
  *      permanently — no later migration can separate them again.
  *   2. NOT NULL. The same collapse, enforced harder.
- *   3. Anything closing a row on expiry. The last test parks a posting two
- *      years past its expiry and asserts it is STILL open. The day that
- *      fails, the authority this migration deliberately withheld has been
- *      added — which may be right, but it changes what `open` means and must
- *      not arrive as a side effect.
+ *   3. Anything closing an EXTERNAL row on expiry — see below.
  *
  * 1 and 2 are asserted behaviourally rather than through the catalog, because
  * behaviour is what a caller actually meets: a DEFAULT makes the first test's
  * insert come back non-null, and NOT NULL makes it fail outright.
+ *
+ * ── WHAT CHANGED, AND WHAT DID NOT ───────────────────────────────────────
+ *
+ * This file used to assert "nothing acts on it yet" for every posting, and
+ * warned that the day it failed, the withheld authority had been added and
+ * must not arrive as a side effect. It has now been added — deliberately,
+ * for INTERNAL postings only, because the employer job form now offers an
+ * expiry and a control that does nothing is worse than no control. See
+ * src/lib/jobs/expiry.ts for the full reasoning.
+ *
+ * The original objection is untouched and still pinned. It was specifically
+ * about a second authority contradicting the board on a row the board still
+ * serves, and that can only happen for EXTERNAL postings. An internal posting
+ * has no board: the employer typed the posting and typed the date, so nothing
+ * else claims the row. So the external case below is not a leftover — it is
+ * the half of the decision that was kept, and it should still fail loudly if
+ * someone widens the sweep.
  */
 import { afterAll, describe, expect, it } from "vitest";
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
-import type { Database } from "@/lib/supabase/types";
-
-for (const key of ["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"] as const) {
-  if (!process.env[key]) throw new Error(`expires_at test cannot run: ${key} is not set.`);
-}
-
-const admin: SupabaseClient<Database> = createClient<Database>(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { autoRefreshToken: false, persistSession: false } },
-);
+import { closeExpiredInternalPostings } from "@/lib/jobs/expiry";
+import { admin, createTestUser, deleteTestUsers } from "../support/auth";
+import { deleteTestOrgs } from "../support/cleanup";
 
 const created: string[] = [];
 
@@ -67,6 +71,43 @@ async function makePosting(over: Record<string, unknown> = {}) {
   return data;
 }
 
+function daysFromNow(days: number) {
+  return new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+}
+
+async function readPosting(id: string) {
+  const { data, error } = await admin
+    .from("job_postings")
+    .select("status, expires_at")
+    .eq("id", id)
+    .single();
+  if (error || !data) throw new Error(`Could not read posting ${id}: ${error?.message}`);
+  return data;
+}
+
+/**
+ * An internal posting REQUIRES an organization_id — 0000's
+ * job_postings_internal_has_org check enforces the pairing — so these tests
+ * cannot reuse the external fixture shape. An organisation in turn requires a
+ * real `created_by` user, hence the throwaway account.
+ */
+async function makeOrg() {
+  const user = await createTestUser("expires-at");
+  createdUsers.push(user.id);
+
+  const { data, error } = await admin
+    .from("organizations")
+    .insert({ name: `EXPIRES-TEST Org ${randomUUID()}`, created_by: user.id, verified: false })
+    .select("id")
+    .single();
+  if (error || !data) throw new Error(`Could not create fixture org: ${error?.message}`);
+  createdOrgs.push(data.id);
+  return data.id;
+}
+
+const createdOrgs: string[] = [];
+const createdUsers: string[] = [];
+
 afterAll(async () => {
   if (created.length === 0) return;
   // A rejected delete RESOLVES with an error rather than throwing — the
@@ -74,6 +115,18 @@ afterAll(async () => {
   // unrelated and much later. Report it.
   const { error } = await admin.from("job_postings").delete().in("id", created);
   if (error) throw new Error(`expires-at cleanup failed, rows left behind: ${error.message}`);
+
+  /*
+   * Postings first, then the shared cascade helper, then the users. The
+   * job_postings -> organizations FK is NO ACTION, not CASCADE, so an org
+   * that still has a posting cannot be deleted — and a refused delete
+   * RESOLVES with an error rather than throwing, which is how test orgs piled
+   * up in production for weeks while every hook reported success.
+   * deleteTestOrgs/deleteTestUsers report; a hand-rolled delete here would
+   * re-create exactly that bug.
+   */
+  if (createdOrgs.length > 0) await deleteTestOrgs(createdOrgs);
+  if (createdUsers.length > 0) await deleteTestUsers(createdUsers);
 });
 
 describe("the column records a fact; it does not invent one", () => {
@@ -92,19 +145,70 @@ describe("the column records a fact; it does not invent one", () => {
   });
 });
 
-describe("nothing acts on it yet", () => {
-  it("a posting whose expiry passed two years ago is still open", async () => {
-    const past = new Date(Date.now() - 730 * 24 * 60 * 60 * 1000).toISOString();
-    const row = await makePosting({ expires_at: past });
+describe("the expiry sweep, and the line it does not cross", () => {
+  it("closes an INTERNAL posting whose employer-set expiry has passed", async () => {
+    const org = await makeOrg();
+    const row = await makePosting({
+      source_type: "internal",
+      organization_id: org,
+      external_source: null,
+      external_url: null,
+      expires_at: daysFromNow(-1),
+    });
 
-    const { data, error } = await admin
-      .from("job_postings")
-      .select("status, expires_at")
-      .eq("id", row.id)
-      .single();
+    const swept = await closeExpiredInternalPostings();
+    expect(swept.ids).toContain(row.id);
 
-    expect(error).toBeNull();
-    expect(data!.status).toBe("open");
-    expect(data!.expires_at).not.toBeNull();
+    const after = await readPosting(row.id);
+    expect(after.status).toBe("closed");
+  });
+
+  it("leaves an INTERNAL posting whose expiry is still ahead alone", async () => {
+    const org = await makeOrg();
+    const row = await makePosting({
+      source_type: "internal",
+      organization_id: org,
+      external_source: null,
+      external_url: null,
+      expires_at: daysFromNow(30),
+    });
+
+    await closeExpiredInternalPostings();
+    expect((await readPosting(row.id)).status).toBe("open");
+  });
+
+  it("leaves an INTERNAL posting with NO expiry alone", async () => {
+    /*
+     * The one that would break silently. In PostgREST a comparison against
+     * NULL yields NULL, not false — so this passes for a real reason, but if
+     * the sweep were ever rewritten to coalesce a missing expiry to a date,
+     * every no-expiry posting in the product would close overnight.
+     */
+    const org = await makeOrg();
+    const row = await makePosting({
+      source_type: "internal",
+      organization_id: org,
+      external_source: null,
+      external_url: null,
+    });
+
+    await closeExpiredInternalPostings();
+    expect((await readPosting(row.id)).status).toBe("open");
+  });
+
+  it("a posting whose expiry passed two years ago is STILL open when it is external", async () => {
+    /*
+     * The half of 0053's decision that was kept. If this ever fails, the
+     * sweep has been widened to overrule the board on rows the board still
+     * serves — which is the exact failure 0053 named. That may one day be
+     * right, but it must be argued, not inherited.
+     */
+    const row = await makePosting({ expires_at: daysFromNow(-730) });
+
+    await closeExpiredInternalPostings();
+
+    const after = await readPosting(row.id);
+    expect(after.status).toBe("open");
+    expect(after.expires_at).not.toBeNull();
   });
 });
