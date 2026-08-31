@@ -1931,6 +1931,16 @@ export type Database = {
           session_id: string
         }[]
       }
+      admin_create_operator: {
+        Args: {
+          p_actor: string
+          p_display_name: string
+          p_email: string
+          p_role_id: string
+          p_user_id: string
+        }
+        Returns: { ok: boolean; reason: string }[]
+      }
       admin_delete_role: {
         Args: { p_actor: string; p_role_id: string }
         Returns: { ok: boolean; reason: string }[]

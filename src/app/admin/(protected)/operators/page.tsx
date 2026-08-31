@@ -1,8 +1,26 @@
 import { requirePermission } from "@/lib/admin/require-admin";
 import { listOperators, listRoles, operatorsCoverageCount } from "@/lib/admin/operators/list";
 import { OperatorRowForm } from "@/components/admin/operator-row-form";
+import { InviteOperatorForm } from "@/components/admin/invite-operator-form";
+import { RoleEditor } from "@/components/admin/role-editor";
 import { QueueHeader } from "@/components/admin/queue-chrome";
 import { Container, EyebrowLabel, BorderedCard } from "@/components/ui";
+
+/**
+ * The catalog, labelled. Keys match 0075's enum exactly — a label that drifts
+ * from its key is a permission somebody thinks they granted.
+ */
+const PERMISSION_OPTIONS = [
+  { key: "scholarships", label: "Scholarships" },
+  { key: "reported_postings", label: "Reported postings" },
+  { key: "ad_campaigns", label: "Ad campaigns" },
+  { key: "feedback", label: "Feedback" },
+  { key: "courses", label: "Courses" },
+  { key: "operations", label: "Operations" },
+  { key: "finance", label: "Finance" },
+  { key: "people", label: "People (support lookup)" },
+  { key: "operators", label: "Operators — manage roles and operators" },
+] as const;
 
 export const metadata = {
   title: "Operators — Talentrah admin",
@@ -25,11 +43,11 @@ export const metadata = {
  * is deliberately the same operation rather than a second one with different
  * semantics.
  *
- * WHAT IS ABSENT: adding an operator. Granting admin means creating or finding
- * an auth user first, which is grant-admin.ts's job and needs the service-role
- * key. A half-version here — invite by email, say — is a different feature with
- * its own delivery and expiry questions, and a button that only sometimes works
- * is worse than the CLI that always does.
+ * INVITING IS HERE NOW, and grant-admin.ts stays anyway. The CLI is the
+ * bootstrap and break-glass path: reaching this page requires already being an
+ * operator, so with zero admins — or with every admin locked out — the script
+ * is the only way back in. Two paths to the same table, for two different
+ * situations.
  */
 export default async function OperatorsPage() {
   const admin = await requirePermission("operators");
@@ -70,6 +88,48 @@ export default async function OperatorsPage() {
         )}
       </BorderedCard>
 
+      {/* ── invite ────────────────────────────────────────────────── */}
+      <section className="flex flex-col gap-3">
+        <EyebrowLabel>Invite an operator</EyebrowLabel>
+        <BorderedCard className="p-5">
+          <InviteOperatorForm roles={roles.map((r) => ({ id: r.id, name: r.name }))} />
+        </BorderedCard>
+      </section>
+
+      {/* ── roles ─────────────────────────────────────────────────── */}
+      <section className="flex flex-col gap-3">
+        <EyebrowLabel>Roles</EyebrowLabel>
+        <p className="max-w-[640px] font-display text-[14.5px] italic text-ink-soft">
+          A role is a set of permissions. Removing Operators from the last role
+          that grants it, or deleting that role, is refused — otherwise nobody
+          could reach this page to undo it.
+        </p>
+        <ul className="flex list-none flex-col gap-4 p-0">
+          {roles.map((r) => (
+            <li key={r.id}>
+              <BorderedCard className="p-5">
+                <RoleEditor
+                  role={{
+                    id: r.id,
+                    name: r.name,
+                    isBuiltin: r.isBuiltin,
+                    permissions: r.permissions,
+                  }}
+                  allPermissions={PERMISSION_OPTIONS}
+                />
+              </BorderedCard>
+            </li>
+          ))}
+          <li>
+            <BorderedCard className="p-5">
+              <RoleEditor role={null} allPermissions={PERMISSION_OPTIONS} />
+            </BorderedCard>
+          </li>
+        </ul>
+      </section>
+
+      {/* ── operators ─────────────────────────────────────────────── */}
+      <EyebrowLabel>Operators</EyebrowLabel>
       <ul className="flex list-none flex-col gap-4 p-0">
         {operators.map((o) => (
           <li key={o.id}>
