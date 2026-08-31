@@ -47,6 +47,9 @@ export type AdminRole = "super_admin" | "standard";
 
 /** 0075. The catalog, one key per admin area plus the one that grants management. */
 export type AdminPermission =
+  // 0076 added this to the enum; see its header for why it is a permission
+  // rather than an ungated link.
+  | "blog"
   | "scholarships"
   | "reported_postings"
   | "ad_campaigns"

@@ -2233,6 +2233,7 @@ export type Database = {
     }
     Enums: {
       admin_permission:
+        | "blog"
         | "scholarships"
         | "reported_postings"
         | "ad_campaigns"
