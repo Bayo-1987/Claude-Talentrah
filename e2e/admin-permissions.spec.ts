@@ -93,7 +93,7 @@ test.describe("per-area permissions", () => {
 
   test.beforeAll(async () => {
     restrictedRole = await makeRole("restricted", GRANTED);
-    fullRole = await makeRole("full", [...AREAS.map((a) => a.perm), "operators"]);
+    fullRole = await makeRole("full", [...AREAS.map((a) => a.perm), "operators", "blog"]);
     restricted = await makeOperator("restricted", restrictedRole);
     full = await makeOperator("full", fullRole);
   });
@@ -142,7 +142,9 @@ test.describe("per-area permissions", () => {
     // least of all.
     await expect(page.getByRole("link", { name: "Scholarships" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Finance" })).toBeVisible();
-    for (const label of ["Reported postings", "Ad campaigns", "Feedback", "Courses", "Operations", "Operators"]) {
+    // Blog and Operators are the count-less links; both must be hidden from a
+    // role that grants neither.
+    for (const label of ["Reported postings", "Ad campaigns", "Feedback", "Courses", "Operations", "Blog", "Operators"]) {
       await expect(page.getByRole("link", { name: label }), `${label} should be hidden`).toHaveCount(0);
     }
   });
@@ -157,5 +159,8 @@ test.describe("per-area permissions", () => {
     }
     await page.goto("/admin/operators");
     expect(new URL(page.url()).pathname).toBe("/admin/operators");
+
+    // Blog is a count-less nav entry too, and a role holding it must see it.
+    await expect(page.getByRole("link", { name: "Blog" })).toBeVisible();
   });
 });
