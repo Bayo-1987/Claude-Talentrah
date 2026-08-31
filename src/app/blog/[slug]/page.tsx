@@ -6,6 +6,8 @@ import { MarketingFooter } from "@/components/marketing/marketing-footer";
 import { Container, EyebrowLabel } from "@/components/ui";
 import { getAllPosts, getPostBySlug } from "@/lib/blog/posts";
 import { renderMarkdown } from "@/lib/blog/render";
+import { buildBlogPostingJsonLd } from "@/lib/seo/blog-posting-jsonld";
+import { JsonLd } from "@/components/seo/json-ld";
 
 interface BlogPostPageProps {
   params: Promise<{ slug: string }>;
@@ -55,6 +57,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
 
   return (
     <>
+      <JsonLd data={buildBlogPostingJsonLd(post)} />
       <MarketingMasthead />
       <div className="py-20">
         <Container className="flex max-w-[760px] flex-col gap-10">
