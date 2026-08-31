@@ -12,22 +12,25 @@ import type { AdminPermission } from "@/lib/admin/session";
  * is not a job seeker. Sharing that component would put Jobs / Job Tracker /
  * Resume Builder above a moderation queue.
  *
- * THE COUNTS ARE THE NAV'S REASON TO EXIST. A moderation dashboard whose links
- * do not say how much is waiting makes an operator open three screens to learn
- * that two were empty. They are read live rather than cached, which costs
- * three queries per admin navigation and is the right trade at this volume:
+ * COUNTS ARE WHY THE QUEUE LINKS EXIST. A moderation dashboard whose links do
+ * not say how much is waiting makes an operator open several screens to learn
+ * that most were empty. They are read live rather than cached, which costs one
+ * query per counted area per navigation and is the right trade at this volume:
  * a stale "0" on a queue that has something in it is the failure that matters.
  *
- * Only these three appear. Feedback triage, user support, financial visibility
- * and the rest of the domain map are real gaps, not shipped features, and a
- * link to a page that does not exist reads as one — the same rule that keeps
- * Billing and Analytics out of the employer nav.
- */
-/*
- * `permission` is what decides whether a link is rendered; `key` still names
- * the queue count. They are separate on purpose — the count keys are the
- * moderation queues' own names and predate 0075's catalog, and collapsing them
- * would tie a display concern to an access one.
+ * NOT EVERY LINK IS A QUEUE, and the array below is split accordingly. This
+ * comment used to say "only these three appear", and then named feedback
+ * triage, user support and financial visibility as "real gaps, not shipped
+ * features" — while all three sat in the list immediately underneath it. They
+ * shipped; the sentence did not keep up. The rule it was protecting is still
+ * right and still applies: a link to a page that does not exist reads as a
+ * feature that does, which is why Billing and Analytics stay out of the
+ * employer nav.
+ *
+ * WHAT DECIDES VISIBILITY IS THE PERMISSION, not the count. `permission` gates
+ * rendering; `key` only names the queue count. They stay separate because the
+ * count keys are the moderation queues' own names and predate 0075's catalog,
+ * and collapsing them would tie a display concern to an access one.
  */
 const ITEMS = [
   { href: "/admin/scholarships", label: "Scholarships", key: "scholarships", permission: "scholarships" },
@@ -46,16 +49,25 @@ const ITEMS = [
 ] as const;
 
 /*
- * Operators sits apart from ITEMS because it is the only link that is not for
- * everybody, and because it has no queue count — there is no backlog of
- * operators waiting to be dealt with, and a "0" beside it would invent one.
+ * Links with no count. These sit apart from ITEMS because a number beside them
+ * would invent a backlog that does not exist — there is no queue of operators
+ * waiting to be dealt with, and a blog post is not work arriving.
  *
- * HIDING IT IS UX, NOT ENFORCEMENT. A standard admin who types the URL is
- * refused by requireSuperAdmin() on the page itself. This only keeps a link
- * out of their way that would bounce them if they followed it — the same
- * distinction already written down about the proxy's cookie check.
+ * HIDING A LINK IS UX, NOT ENFORCEMENT, and the two are in different states
+ * here, which is worth knowing rather than glossing:
+ *
+ *   Operators — backed. requirePermission("operators") refuses anyone who
+ *               types the URL, so hiding it only spares them the bounce.
+ *   Blog      — NOT YET BACKED. /admin/blog still calls requireAdmin(), so any
+ *               operator can reach it by typing the address whatever this nav
+ *               shows. Swapping that page and its actions to
+ *               requirePermission("blog") is tracked with the blog work; until
+ *               it lands, treat this entry as tidiness and not as a control.
  */
-const OPERATORS_LINK = { href: "/admin/operators", label: "Operators" } as const;
+const COUNTLESS_ITEMS = [
+  { href: "/admin/blog", label: "Blog", permission: "blog" },
+  { href: "/admin/operators", label: "Operators", permission: "operators" },
+] as const;
 
 export async function AdminNav({ permissions }: { permissions: readonly AdminPermission[] }) {
   /*
@@ -106,20 +118,19 @@ export async function AdminNav({ permissions }: { permissions: readonly AdminPer
         );
       })}
 
-      {permissions.includes("operators") && (
+      {COUNTLESS_ITEMS.filter((item) => permissions.includes(item.permission)).map((item) => (
         <Link
-          href={OPERATORS_LINK.href}
-          aria-current={path.startsWith(OPERATORS_LINK.href) ? "page" : undefined}
+          key={item.href}
+          href={item.href}
+          aria-current={path.startsWith(item.href) ? "page" : undefined}
           className={
             "inline-flex min-h-11 items-center font-body text-[14px] no-underline " +
-            (path.startsWith(OPERATORS_LINK.href)
-              ? "font-semibold text-rust"
-              : "text-ink hover:text-rust")
+            (path.startsWith(item.href) ? "font-semibold text-rust" : "text-ink hover:text-rust")
           }
         >
-          {OPERATORS_LINK.label}
+          {item.label}
         </Link>
-      )}
+      ))}
     </nav>
   );
 }
