@@ -53,16 +53,18 @@ const ITEMS = [
  * would invent a backlog that does not exist — there is no queue of operators
  * waiting to be dealt with, and a blog post is not work arriving.
  *
- * HIDING A LINK IS UX, NOT ENFORCEMENT, and the two are in different states
- * here, which is worth knowing rather than glossing:
+ * HIDING A LINK IS UX, NOT ENFORCEMENT. Both entries are now backed by a
+ * guard, so hiding them only spares an operator a bounce they would otherwise
+ * take: requirePermission("operators") and requirePermission("blog") refuse
+ * anyone who types the URL — on the pages themselves, and again in their
+ * Server Actions, which are reachable by POST without the page ever rendering.
  *
- *   Operators — backed. requirePermission("operators") refuses anyone who
- *               types the URL, so hiding it only spares them the bounce.
- *   Blog      — NOT YET BACKED. /admin/blog still calls requireAdmin(), so any
- *               operator can reach it by typing the address whatever this nav
- *               shows. Swapping that page and its actions to
- *               requirePermission("blog") is tracked with the blog work; until
- *               it lands, treat this entry as tidiness and not as a control.
+ * This note used to record Blog as NOT backed, because at the time the blog
+ * pages asked only whether you were an admin. #167 closed that. The line is
+ * updated rather than deleted, because the distinction it drew is the one that
+ * matters here and will matter again for whatever entry somebody adds next: a
+ * link is not a control, and a nav that hides something the server will
+ * happily serve is a comfort rather than a boundary.
  */
 const COUNTLESS_ITEMS = [
   { href: "/admin/blog", label: "Blog", permission: "blog" },
