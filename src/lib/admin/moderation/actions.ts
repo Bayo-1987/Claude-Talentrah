@@ -58,38 +58,52 @@ export async function decideScholarshipAction(
   }
 
   const supabase = createServiceRoleClient();
-  const { data, error } = await supabase
-    .from("scholarships")
-    .update({
-      moderation_status: decision,
-      moderation_note: note || null,
-      moderated_at: new Date().toISOString(),
-      moderated_by: admin.adminId,
-    })
-    .eq("id", id)
-    // The precondition, in the statement. A listing another operator has
-    // already decided is not re-decided by whoever clicks second.
-    .eq("moderation_status", "pending")
-    .select("id, program_name");
+
+  /*
+   * THE WRITE HAPPENS IN THE DATABASE, permission-checked in the same
+   * statement (0079). requirePermission above is still the gate a person hits;
+   * this is the backstop under it, so a future code path that forgets the
+   * guard cannot write either. The precondition — only a row still `pending` —
+   * moved into the function with it, for the same reason it was in the
+   * statement before: a listing another operator already decided must not be
+   * re-decided by whoever clicks second.
+   */
+  const { data: res, error } = await supabase.rpc("admin_moderate_scholarship", {
+    p_actor: admin.adminId,
+    p_id: id,
+    p_status: decision,
+    p_note: note,
+  });
 
   if (error) {
     console.error("[admin-moderation] scholarship", error);
     return { status: "error", message: "Something went wrong on our end.", targetId: id };
   }
-  if (!data?.length) {
+  const row = res?.[0];
+  if (!row?.ok) {
     return {
       status: "error",
-      message: "Already decided by someone else — reload to see the current queue.",
+      message:
+        row?.reason === "not_authorised"
+          ? "You do not have permission to review scholarships."
+          : "Already decided by someone else — reload to see the current queue.",
       targetId: id,
     };
   }
+
+  // Read back for the message and the audit detail. A separate read rather
+  // than a returning-clause: the name is presentation, and widening the
+  // function's return type to carry it would tie the guard to the copy.
+  const { data } = await supabase
+    .from("scholarships").select("program_name").eq("id", id).maybeSingle();
+  const programName = data?.program_name ?? "that scholarship";
 
   await recordAdminAction({
     identity: admin,
     action: decision === "verified" ? "scholarship.approved" : "scholarship.rejected",
     targetTable: "scholarships",
     targetId: id,
-    detail: { program_name: data[0].program_name, note: note || null },
+    detail: { program_name: programName, note: note || null },
   });
 
   revalidatePath("/admin/scholarships");
@@ -98,8 +112,8 @@ export async function decideScholarshipAction(
     targetId: id,
     message:
       decision === "verified"
-        ? `Approved — “${data[0].program_name}” is now in the public catalog.`
-        : `Rejected — “${data[0].program_name}” stays out of the catalog.`,
+        ? `Approved — “${programName}” is now in the public catalog.`
+        : `Rejected — “${programName}” stays out of the catalog.`,
   };
 }
 
@@ -134,59 +148,50 @@ export async function decideJobPostingAction(
   }
 
   const supabase = createServiceRoleClient();
-  const query =
-    action === "remove"
-      ? supabase
-          .from("job_postings")
-          .update({
-            status: "removed" as const,
-            removed_at: new Date().toISOString(),
-            removal_reason: reason,
-            removed_by: admin.adminId,
-          })
-          .eq("id", id)
-          .neq("status", "removed")
-      : supabase
-          .from("job_postings")
-          .update({
-            status: "closed" as const,
-            // Cleared in the SAME statement: the preserve_job_posting_removal
-            // trigger only lets a row leave `removed` when removed_at goes
-            // null with it, which is what stops the nightly ingest quietly
-            // un-removing a scam listing.
-            removed_at: null,
-            removal_reason: null,
-            // The restorer is the operator of record now. Keeping the remover
-            // here would credit the removal to someone who did the opposite;
-            // admin_audit_log keeps both halves of the history.
-            removed_by: admin.adminId,
-          })
-          .eq("id", id)
-          .eq("status", "removed");
 
-  const { data, error } = await query.select("id, title, company_name, status");
+  /*
+   * Both directions go through one database function (0079), which holds the
+   * permission check and the state precondition in the same statement as the
+   * write. The restore half also clears removed_at alongside status, because
+   * preserve_job_posting_removal only lets a row leave `removed` when the two
+   * move together — which is what stops the nightly ingest quietly un-removing
+   * a scam listing.
+   */
+  const { data: res, error } = await supabase.rpc("admin_moderate_job_posting", {
+    p_actor: admin.adminId,
+    p_id: id,
+    p_action: action,
+    p_reason: reason,
+  });
 
   if (error) {
     console.error("[admin-moderation] job posting", error);
     return { status: "error", message: "Something went wrong on our end.", targetId: id };
   }
-  if (!data?.length) {
+  const res0 = res?.[0];
+  if (!res0?.ok) {
     return {
       status: "error",
       message:
-        action === "remove"
-          ? "Already removed — reload to see the current queue."
-          : "That posting isn't removed, so there's nothing to restore.",
+        res0?.reason === "not_authorised"
+          ? "You do not have permission to moderate reported postings."
+          : action === "remove"
+            ? "Already removed — reload to see the current queue."
+            : "That posting isn't removed, so there's nothing to restore.",
       targetId: id,
     };
   }
+
+  const { data: posting } = await supabase
+    .from("job_postings").select("title, company_name").eq("id", id).maybeSingle();
+  const title = posting?.title ?? "that posting";
 
   await recordAdminAction({
     identity: admin,
     action: action === "remove" ? "job_posting.removed" : "job_posting.restored",
     targetTable: "job_postings",
     targetId: id,
-    detail: { title: data[0].title, company: data[0].company_name, reason },
+    detail: { title, company: posting?.company_name ?? null, reason },
   });
 
   revalidatePath("/admin/reports");
@@ -195,7 +200,7 @@ export async function decideJobPostingAction(
     targetId: id,
     message:
       action === "remove"
-        ? `Removed “${data[0].title}”. The owning organisation still sees it and the reason; the public does not.`
+        ? `Removed “${title}”. The owning organisation still sees it and the reason; the public does not.`
         : `Restored to closed, not open — it reopens on the next ingest run only if its source still lists it.`,
   };
 }
@@ -314,31 +319,27 @@ export async function decideFeedbackAction(
   }
 
   const supabase = createServiceRoleClient();
-  const { data, error } = await supabase
-    .from("feedback")
-    .update({
-      status: status as Allowed,
-      triaged_by: admin.adminId,
-      triaged_at: new Date().toISOString(),
-      // Only overwrite the note when one was given, so moving an item on does
-      // not silently erase the reasoning attached to its previous state.
-      ...(note ? { triage_note: note } : {}),
-    })
-    .eq("id", id)
-    // The precondition, in the statement: `new` is a one-way door out, and an
-    // item already in the state being asked for is not re-decided by whoever
-    // clicks second.
-    .neq("status", status as Allowed)
-    .select("id, status");
+
+  // Permission-checked in the same statement as the write (0079).
+  const { data: res, error } = await supabase.rpc("admin_triage_feedback", {
+    p_actor: admin.adminId,
+    p_id: id,
+    p_status: status,
+    p_note: note,
+  });
 
   if (error) {
     console.error("[admin-moderation] feedback", error);
     return { status: "error", message: "Something went wrong on our end.", targetId: id };
   }
-  if (!data?.length) {
+  const row = res?.[0];
+  if (!row?.ok) {
     return {
       status: "error",
-      message: "Already in that state — reload to see the current queue.",
+      message:
+        row?.reason === "not_authorised"
+          ? "You do not have permission to triage feedback."
+          : "Already in that state — reload to see the current queue.",
       targetId: id,
     };
   }

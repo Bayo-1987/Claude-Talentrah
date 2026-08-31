@@ -55,6 +55,15 @@ export async function setCourseActiveAction(
 
   const supabase = createServiceRoleClient();
 
+  /*
+   * THE PLACEHOLDER GUARD READS FIRST, and must keep doing so. 0079 moved the
+   * WRITE into the database with its permission check; it deliberately did not
+   * absorb this rule, which is a product decision (0063 switched these rows off
+   * so un-earning links never reach users) rather than an access one. Removing
+   * this read to "simplify" the call would delete the refusal with it — which
+   * is exactly what happened in a draft of this change, and only surfaced
+   * because a later line still referenced `current`.
+   */
   const { data: current, error: readError } = await supabase
     .from("course_recommendations")
     .select("affiliate_url, title, active")
@@ -73,23 +82,23 @@ export async function setCourseActiveAction(
     };
   }
 
-  const { data, error } = await supabase
-    .from("course_recommendations")
-    .update({ active: activate, updated_at: new Date().toISOString() })
-    .eq("id", id)
-    // The precondition in the statement, so two operators clicking at once
-    // produce one change and one refusal rather than two writes racing.
-    .eq("active", !activate)
-    .select("id");
-
+  // Permission-checked in the same statement as the write (0079).
+  const { data: res, error } = await supabase.rpc("admin_update_course", {
+    p_actor: admin.adminId,
+    p_id: id,
+    p_active: activate,
+  });
   if (error) {
     console.error("[admin-catalog] toggle", error);
     return { status: "error", message: "Something went wrong on our end.", targetId: id };
   }
-  if (!data?.length) {
+  if (!res?.[0]?.ok) {
     return {
       status: "error",
-      message: "Already in that state — reload to see the current catalog.",
+      message:
+        res?.[0]?.reason === "not_authorised"
+          ? "You do not have permission to edit the course catalog."
+          : "That course no longer exists — reload the page.",
       targetId: id,
     };
   }
@@ -152,6 +161,9 @@ export async function updateCourseAction(
    * rule approached from the other side. Without this, the activation guard is
    * bypassable in two steps: activate a real row, then edit its URL back to a
    * placeholder. Deactivate it first if that is genuinely what you want.
+   *
+   * Kept here rather than pushed into 0079 for the same reason as above: this
+   * is a product rule about affiliate links, not an access rule.
    */
   if (before?.active && refusesActivation(affiliateUrl)) {
     return {
@@ -162,27 +174,30 @@ export async function updateCourseAction(
     };
   }
 
-  const { error } = await supabase
-    .from("course_recommendations")
-    .update({
-      skill_tag: skillTag,
-      provider,
-      title,
-      affiliate_url: affiliateUrl,
-      price_tier: priceTier,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", id);
-
+  // Permission-checked in the same statement as the write (0079). Null fields
+  // mean "leave alone", so one function serves both the toggle and this edit.
+  const { data: res, error } = await supabase.rpc("admin_update_course", {
+    p_actor: admin.adminId,
+    p_id: id,
+    p_skill_tag: skillTag,
+    p_provider: provider,
+    p_title: title,
+    p_affiliate_url: affiliateUrl,
+    p_price_tier: priceTier,
+  });
   if (error) {
     console.error("[admin-catalog] update", error);
-    // 23505 is course_recommendations_unique_offer — one row per provider per
-    // skill per title. Worth naming, because the operator can fix it.
-    const message =
-      error.code === "23505"
-        ? "Another course already has that provider, skill and title."
-        : "Something went wrong on our end.";
-    return { status: "error", message, targetId: id };
+    return { status: "error", message: "Something went wrong on our end.", targetId: id };
+  }
+  if (!res?.[0]?.ok) {
+    return {
+      status: "error",
+      message:
+        res?.[0]?.reason === "not_authorised"
+          ? "You do not have permission to edit the course catalog."
+          : "That course no longer exists — reload the page.",
+      targetId: id,
+    };
   }
 
   await recordAdminAction({

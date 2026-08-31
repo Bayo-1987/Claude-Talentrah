@@ -1,5 +1,5 @@
 import { requirePermission } from "@/lib/admin/require-admin";
-import { listOperators, listRoles, operatorsCoverageCount } from "@/lib/admin/operators/list";
+import { listOperators, listRoles, listPermissions, operatorsCoverageCount } from "@/lib/admin/operators/list";
 import { OperatorRowForm } from "@/components/admin/operator-row-form";
 import { InviteOperatorForm } from "@/components/admin/invite-operator-form";
 import { RoleEditor } from "@/components/admin/role-editor";
@@ -7,20 +7,35 @@ import { QueueHeader } from "@/components/admin/queue-chrome";
 import { Container, EyebrowLabel, BorderedCard } from "@/components/ui";
 
 /**
- * The catalog, labelled. Keys match 0075's enum exactly — a label that drifts
- * from its key is a permission somebody thinks they granted.
+ * Labels for the permission keys. The KEYS come from the database.
+ *
+ * A hardcoded catalog beside a migration-extensible enum is guaranteed to
+ * drift, and the failure is silent AND destructive: admin_upsert_role replaces
+ * a role's permission set with exactly what the form submitted, so a
+ * permission the checkboxes do not offer is deleted from every role somebody
+ * saves. That was live — `blog` was added by a later migration and granted to
+ * both builtin roles, and this screen would have stripped it from any role an
+ * operator edited, including Super Admin.
+ *
+ * So the list is read from admin_permission_catalog() (0079) and anything
+ * without a label here still renders, humanised, rather than vanishing.
  */
-const PERMISSION_OPTIONS = [
-  { key: "scholarships", label: "Scholarships" },
-  { key: "reported_postings", label: "Reported postings" },
-  { key: "ad_campaigns", label: "Ad campaigns" },
-  { key: "feedback", label: "Feedback" },
-  { key: "courses", label: "Courses" },
-  { key: "operations", label: "Operations" },
-  { key: "finance", label: "Finance" },
-  { key: "people", label: "People (support lookup)" },
-  { key: "operators", label: "Operators — manage roles and operators" },
-] as const;
+const PERMISSION_LABELS: Record<string, string> = {
+  scholarships: "Scholarships",
+  reported_postings: "Reported postings",
+  ad_campaigns: "Ad campaigns",
+  feedback: "Feedback",
+  courses: "Courses",
+  operations: "Operations",
+  finance: "Finance",
+  people: "People (support lookup)",
+  blog: "Blog",
+  operators: "Operators — manage roles and operators",
+};
+
+function labelFor(key: string): string {
+  return PERMISSION_LABELS[key] ?? key.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
+}
 
 export const metadata = {
   title: "Operators — Talentrah admin",
@@ -51,11 +66,13 @@ export const metadata = {
  */
 export default async function OperatorsPage() {
   const admin = await requirePermission("operators");
-  const [operators, roles, coverage] = await Promise.all([
+  const [operators, roles, permissionKeys, coverage] = await Promise.all([
     listOperators(),
     listRoles(),
+    listPermissions(),
     operatorsCoverageCount(),
   ]);
+  const permissionOptions = permissionKeys.map((key) => ({ key, label: labelFor(key) }));
 
   const active = operators.filter((o) => !o.disabledAt).length;
 
@@ -115,14 +132,14 @@ export default async function OperatorsPage() {
                     isBuiltin: r.isBuiltin,
                     permissions: r.permissions,
                   }}
-                  allPermissions={PERMISSION_OPTIONS}
+                  allPermissions={permissionOptions}
                 />
               </BorderedCard>
             </li>
           ))}
           <li>
             <BorderedCard className="p-5">
-              <RoleEditor role={null} allPermissions={PERMISSION_OPTIONS} />
+              <RoleEditor role={null} allPermissions={permissionOptions} />
             </BorderedCard>
           </li>
         </ul>
