@@ -328,7 +328,29 @@ function readJobForm(form: FormData) {
     years_experience_min: str(form, "yearsExperienceMin")
       ? Number(str(form, "yearsExperienceMin"))
       : null,
+    /*
+     * "" = no expiry, "keep" = leave whatever is stored, otherwise a number of
+     * DAYS computed forward from now. Undefined is meaningfully different from
+     * null here — see applyExpiry below.
+     *
+     * Computed server-side from a duration rather than accepted as a date, so
+     * a client cannot post an expiry in the past or one decades out; the only
+     * values that reach the column are now + one of the offered presets.
+     */
+    expires_at: readExpiry(form),
   };
+}
+
+/** Days -> ISO timestamp; undefined means "do not touch"; null means "clear". */
+function readExpiry(form: FormData): string | null | undefined {
+  const raw = str(form, "expiresIn");
+  if (raw === "keep") return undefined;
+  if (!raw) return null;
+  const days = Number(raw);
+  if (!Number.isFinite(days) || days <= 0 || days > 365) return null;
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return d.toISOString();
 }
 
 export async function postJobAction(
@@ -361,6 +383,9 @@ export async function postJobAction(
     years_experience_min: Number.isFinite(fields.years_experience_min)
       ? fields.years_experience_min
       : null,
+    // `keep` is unreachable on create — there is no stored value to keep — so
+    // undefined collapses to null, which is the documented "does not expire".
+    expires_at: fields.expires_at ?? null,
     status: "open",
     dedup_fingerprint: internalDedupFingerprint(organization.id, fields.title, fields.location),
   });
@@ -405,6 +430,14 @@ export async function updateJobAction(
       years_experience_min: Number.isFinite(fields.years_experience_min)
         ? fields.years_experience_min
         : null,
+      /*
+       * SPREAD, so "Keep current" omits the column rather than writing to it.
+       * Setting it unconditionally would mean every unrelated edit — fixing a
+       * typo in the description — silently restarted the countdown from the
+       * day of the edit. Explicitly choosing "No expiry" still writes null,
+       * because that is a decision rather than an absence.
+       */
+      ...(fields.expires_at === undefined ? {} : { expires_at: fields.expires_at }),
       dedup_fingerprint: internalDedupFingerprint(organization.id, fields.title, fields.location),
     })
     .eq("id", jobId)

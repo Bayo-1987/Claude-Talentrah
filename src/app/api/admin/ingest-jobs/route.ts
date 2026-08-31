@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { ingestAllSources } from "@/lib/jobs/ingest";
+import { closeExpiredInternalPostings } from "@/lib/jobs/expiry";
 import { requireAdminSecret, requireCronSecret, internalError } from "@/lib/api/admin-auth";
 
 /**
@@ -37,6 +38,34 @@ export async function POST(request: Request) {
 
 async function runAndRespond(trigger: "cron" | "manual") {
   try {
+    /*
+     * Runs BEFORE ingestion, and its failure is not allowed to cancel the run.
+     *
+     * Before, because an expired internal posting should not survive a run
+     * just because a board timed out afterwards. Non-fatal, because these are
+     * two unrelated jobs sharing a schedule: ingestion refreshes external
+     * postings, this closes internal ones whose employer-set date passed, and
+     * neither is a reason to skip the other. It rides this cron rather than
+     * getting its own so there is one daily job-maintenance run, not two
+     * schedules and two secrets to keep working.
+     */
+    let expiry: { closed: number; error?: string };
+    try {
+      const swept = await closeExpiredInternalPostings();
+      expiry = { closed: swept.closed };
+      if (swept.closed > 0) {
+        console.log(
+          `[job-expiry] closed ${swept.closed} internal posting(s) past their ` +
+            `employer-set expiry: ${swept.ids.join(", ")}`,
+        );
+      }
+    } catch (err) {
+      // Logged, not swallowed silently — a sweep that stops working must not
+      // look identical to a day with nothing to close.
+      expiry = { closed: 0, error: err instanceof Error ? err.message : String(err) };
+      console.error(`[job-expiry] sweep FAILED, continuing to ingestion:`, err);
+    }
+
     const results = await ingestAllSources();
     const total = results.reduce((n, r) => n + r.upserted, 0);
     const failed = results.filter((r) => r.error);
@@ -62,18 +91,19 @@ async function runAndRespond(trigger: "cron" | "manual") {
      */
     console.log(
       `[job-ingest] ${trigger} run: sources=${results.length} upserted=${total} ` +
+        `expired=${expiry.closed}${expiry.error ? ` (sweep failed: ${expiry.error})` : ""} ` +
         `failed=${failed.length}` +
         (failed.length ? ` — ${failed.map((r) => `${r.source}/${r.identifier}: ${r.error}`).join("; ")}` : ""),
     );
 
     if (failed.length > 0 && failed.length === results.length) {
       return NextResponse.json(
-        { results, error: "every configured source failed" },
+        { results, expiry, error: "every configured source failed" },
         { status: 500 },
       );
     }
 
-    return NextResponse.json({ results });
+    return NextResponse.json({ results, expiry });
   } catch (err) {
     // Previously unguarded: a throw from any single source produced an
     // unhandled rejection and a bare 500 with a framework stack, rather than

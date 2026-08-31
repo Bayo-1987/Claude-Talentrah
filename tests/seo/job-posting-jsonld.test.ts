@@ -135,6 +135,41 @@ describe("a posting that is no longer open", () => {
   });
 });
 
+describe("a posting that is open but already past its expiry", () => {
+  const days = (n: number) => new Date(Date.now() + n * 86_400_000).toISOString();
+
+  it("emits no markup, because validThrough in the past is expired markup on a live page", () => {
+    /*
+     * The gap this closes is real and bounded: the expiry sweep rides the
+     * 05:00 ingest cron, so a posting whose employer-set date passes at 09:00
+     * stays `open` for twenty hours. Without this guard those twenty hours
+     * emit a JobPosting whose validThrough has passed — which Google reads as
+     * an expired posting still being served, i.e. a Search Console error
+     * rather than a quiet omission.
+     */
+    expect(
+      buildJobPostingJsonLd(base({ status: "open", expires_at: days(-1) } as Partial<Job>)),
+      "a posting past its expiry still emitted JobPosting markup",
+    ).toBeNull();
+  });
+
+  it("emits normally when the expiry is still ahead, and carries validThrough", () => {
+    // The guard must not become a blanket off switch for every posting that
+    // has an expiry at all — which is what a `job.expires_at` truthiness
+    // check alone would have done.
+    const future = days(30);
+    const jsonLd = buildJobPostingJsonLd(base({ status: "open", expires_at: future } as Partial<Job>));
+    expect(jsonLd).not.toBeNull();
+    expect(jsonLd!.validThrough).toBe(new Date(future).toISOString());
+  });
+
+  it("emits normally when there is no expiry at all", () => {
+    const jsonLd = buildJobPostingJsonLd(base({ status: "open", expires_at: null } as Partial<Job>));
+    expect(jsonLd).not.toBeNull();
+    expect(jsonLd!.validThrough).toBeUndefined();
+  });
+});
+
 describe("the recommended properties, and the ones deliberately withheld", () => {
   it("maps employmentType to Google's case-sensitive vocabulary", () => {
     expect(buildJobPostingJsonLd(base())!.employmentType).toBe("FULL_TIME");
