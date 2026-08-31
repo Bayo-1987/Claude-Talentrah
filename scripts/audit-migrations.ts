@@ -76,6 +76,15 @@ const NOT_A_MIGRATION = new Set(["0000_baseline_schema"]);
  */
 const KNOWN_ALIASES: Record<string, string> = {
   "0061_course_recommendations": "0060_course_recommendations",
+  /*
+   * Both applied to CI as 0076/0077 before `0076_admin_create_operator`
+   * landed on main. Each was legitimately its number when written; main's
+   * arrived first, so the blog pair moved up by one. Production received them
+   * under the correct names, so this alias is CI-only — which is why the two
+   * projects disagree on the label and agree on the schema.
+   */
+  "0077_blog_permission": "0076_blog_permission",
+  "0078_grant_blog_permission": "0077_grant_blog_permission",
 };
 
 function committedMigrations(): string[] {

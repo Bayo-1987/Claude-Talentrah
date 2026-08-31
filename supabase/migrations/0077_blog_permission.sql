@@ -1,4 +1,4 @@
--- 0076 — `blog` becomes a grantable admin permission.
+-- 0077 — `blog` becomes a grantable admin permission.
 --
 -- ── WHY THIS IS A SEPARATE MIGRATION FROM 0074 ────────────────────────────
 --
@@ -30,6 +30,23 @@
 -- make "this role can do exactly these things" untrue the moment a new area
 -- ships. A super admin grants it from Operators, which is one click and is the
 -- decision the model exists to make explicit.
+
+-- ── RENUMBERED FROM 0076, AND CI RECORDS THE OLD NAME ─────────────────────
+--
+-- Applied to the CI project as `0076_blog_permission` before
+-- `0076_admin_create_operator` landed on main. Both were legitimately 0076 at
+-- the moment each was written; main's arrived first, so this one moved.
+--
+-- The applied record is NOT rewritten to match. This repo's position, stated
+-- in three migration headers, is that an applied migration is history —
+-- 0061 documents the same mismatch as "cosmetic and deliberate" and says in
+-- capitals not to re-apply it to fix a name. scripts/audit-migrations.ts has a
+-- KNOWN_ALIASES map for exactly this, and both names are registered there so
+-- the audit does not report a false MISSING.
+--
+-- Production has not had this applied yet, so it will record the correct name.
+-- The two projects therefore disagree on the label and agree on the schema,
+-- which is the same state 0061 left behind.
 
 alter type public.admin_permission add value if not exists 'blog';
 
