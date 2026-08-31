@@ -1,4 +1,5 @@
-import { requireUser } from "@/lib/auth/require-user";
+import { getOptionalUser } from "@/lib/auth/require-user";
+import { MarketingMasthead } from "@/components/marketing/marketing-masthead";
 import { createClient } from "@/lib/supabase/server";
 import { Masthead } from "@/components/app-shell/masthead";
 import { FarahPanel } from "@/components/app-shell/farah-panel";
@@ -13,7 +14,51 @@ export default async function AppLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { user, profile } = await requireUser();
+  /*
+   * OPTIONAL, not required — and the gate did not move, it was removed from a
+   * place that was never the only one holding it.
+   *
+   * All fourteen pages under (app) call `requireUser` themselves; that was
+   * checked one by one before this line changed, because relaxing a layout
+   * gate is only safe if it was redundant. It was. Every route in this group
+   * still redirects a signed-out visitor exactly as before — except
+   * /jobs/[id], which now opts in to being public.
+   *
+   * WHY THAT PAGE HAD TO BE PUBLIC. It carries JobPosting structured data, and
+   * Googlebot was being answered with a 302 to /login, so no posting was ever
+   * eligible for Google for Jobs. A signed-out reader gets the full posting;
+   * applying still requires an account.
+   */
+  const session = await getOptionalUser();
+
+  if (!session) {
+    /*
+     * The signed-out shell: marketing chrome, no Farah.
+     *
+     * Farah is an authenticated feature backed by a per-user conversation, and
+     * the first-visit hint reads a `profiles` column — neither has any meaning
+     * without a user, and rendering an empty panel beside a job posting would
+     * advertise a feature the reader cannot use. The content column keeps its
+     * own widths so the posting itself is laid out identically either way.
+     */
+    return (
+      <div className="min-h-screen">
+        <div className="sticky top-0 z-20 print:hidden" data-testid="masthead-band">
+          <MarketingMasthead />
+        </div>
+        <div className="mx-auto flex w-full max-w-[1360px] flex-col print:block print:max-w-none">
+          <div
+            data-testid="content-column"
+            className="min-w-0 flex-1 px-6 py-8 min-[760px]:px-10 print:p-0"
+          >
+            {children}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const { user, profile } = session;
   /*
    * visibleName, not the raw column: neither of these trimmed at all before,
    * so a name of a single space — or a zero-width character, which .trim()

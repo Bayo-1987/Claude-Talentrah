@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireUser } from "@/lib/auth/require-user";
+import { getOptionalUser } from "@/lib/auth/require-user";
+import { buildJobPostingJsonLd } from "@/lib/seo/job-posting-jsonld";
 import { createClient } from "@/lib/supabase/server";
 import { BorderedCard, Button, EyebrowLabel, MatchTierBadge, buttonClasses } from "@/components/ui";
 import { getCompanyInitials } from "@/lib/jobs/company-initials";
@@ -44,11 +45,46 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   // its title through the tab.
   const { data } = await supabase
     .from("job_postings")
-    .select("title, company_name")
+    .select("title, company_name, description, location, employment_type")
     .eq("id", id)
     .maybeSingle();
+
+  if (!data) return { title: "Job — Talentrah" };
+
+  const title = `${data.title} — ${data.company_name} — Talentrah`;
+
+  /*
+   * A description built from the posting, not a placeholder.
+   *
+   * This is not only a search-result snippet: it is what WhatsApp, Slack and
+   * X render when someone shares the link, and sharing a job is a normal thing
+   * to do here. Without it those unfurls fell back to the site-wide sentence,
+   * so every shared job looked identical.
+   *
+   * Shape: role at company, where, then the opening of the JD itself. Cut on a
+   * WORD boundary at ~155 characters — around where Google truncates, and a
+   * mid-word cut reads as broken rather than as elided.
+   */
+  const lead = [
+    `${data.title} at ${data.company_name}`,
+    data.location?.split(";")[0]?.trim(),
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  const body = (data.description ?? "").replace(/\s+/g, " ").trim();
+  const room = 155 - lead.length - 2;
+  const snippet =
+    body.length > room ? `${body.slice(0, Math.max(0, room)).replace(/\s+\S*$/, "")}…` : body;
+  const description = snippet ? `${lead}. ${snippet}` : lead;
+
   return {
-    title: data ? `${data.title} — ${data.company_name} — Talentrah` : "Job — Talentrah",
+    title,
+    description,
+    alternates: { canonical: `/jobs/${id}` },
+    openGraph: { title, description, type: "article", url: `/jobs/${id}` },
+    // `summary`, matching the root layout: the default share image is the
+    // square 512 mark and the large card would centre-crop it. See layout.tsx.
+    twitter: { card: "summary", title, description },
   };
 }
 
@@ -70,25 +106,45 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
  */
 export default async function JobDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { user } = await requireUser();
+  /*
+   * OPTIONAL user — this page is public, and that is the whole point.
+   *
+   * It carries JobPosting structured data, and while it required a session
+   * Googlebot was answered with a 302 to /login, so not one posting was ever
+   * eligible for Google for Jobs. A signed-out visitor now reads the full
+   * posting; every action on it still needs an account (see the CTA below).
+   */
+  const session = await getOptionalUser();
+  const user = session?.user ?? null;
   const supabase = await createClient();
 
-  const [{ data: job }, { data: baseResume, error: baseResumeError }, { data: application }] =
-    await Promise.all([
-      supabase.from("job_postings").select("*").eq("id", id).maybeSingle(),
-      supabase
-        .from("resumes")
-        .select("structured_content")
-        .eq("user_id", user.id)
-        .eq("is_base", true)
-        .maybeSingle(),
-      supabase
-        .from("applications")
-        .select("stage")
-        .eq("user_id", user.id)
-        .eq("job_posting_id", id)
-        .maybeSingle(),
-    ]);
+  const [{ data: job }, baseResumeResult, applicationResult] = await Promise.all([
+    supabase.from("job_postings").select("*").eq("id", id).maybeSingle(),
+    /*
+     * Skipped entirely when signed out rather than run and discarded. Both are
+     * owner-scoped by RLS so they would return nothing anyway, but issuing two
+     * pointless round trips on the page most likely to be hit by a crawler is
+     * the kind of cost that only shows up under load.
+     */
+    user
+      ? supabase
+          .from("resumes")
+          .select("structured_content")
+          .eq("user_id", user.id)
+          .eq("is_base", true)
+          .maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+    user
+      ? supabase
+          .from("applications")
+          .select("stage")
+          .eq("user_id", user.id)
+          .eq("job_posting_id", id)
+          .maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+  ]);
+  const { data: baseResume, error: baseResumeError } = baseResumeResult;
+  const { data: application } = applicationResult;
 
   if (!job) notFound();
 
@@ -102,15 +158,41 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
     (!baseResumeError ? (baseResume?.structured_content as StructuredResume | null) : null) ??
     EMPTY_RESUME;
 
-  // One job through the same function the feed uses, so the number here and
-  // the number on the card cannot drift apart.
-  const [scored] = await computeAndStoreMatchScores(supabase, user.id, resume, [job]);
+  /*
+   * One job through the same function the feed uses, so the number here and
+   * the number on the card cannot drift apart.
+   *
+   * NOT RUN FOR A SIGNED-OUT READER, and not merely because there is no resume
+   * to score: `computeAndStoreMatchScores` WRITES to match_scores through the
+   * service role. Calling it for an anonymous visitor would mean a crawler
+   * generating rows in a per-user cache, which is both meaningless and a way
+   * for an unauthenticated request to cause database writes.
+   */
+  const scored = user
+    ? (await computeAndStoreMatchScores(supabase, user.id, resume, [job]))[0]
+    : null;
 
   const isExternal = job.source_type === "external";
   const stage = application?.stage ?? null;
   const isSaved = stage === "saved";
   const alreadyApplied =
     stage === "applied" || stage === "interviewing" || stage === "offer" || stage === "hired";
+
+  /*
+   * JobPosting structured data — the thing that makes this posting eligible
+   * for Google for Jobs at all.
+   *
+   * Null when the posting cannot satisfy Google's REQUIRED set (most often a
+   * location naming no country), and nothing is rendered in that case. 130 of
+   * the 155 live postings currently qualify. Emitting partial markup would
+   * trade "not eligible" for "eligible and erroring in Search Console", which
+   * is worse because it looks fine on the page.
+   *
+   * Rendered for signed-in readers too. It costs one script tag, and gating it
+   * on being signed out would mean the markup a crawler sees is not the markup
+   * a human's browser sees — which is cloaking, and is penalised as such.
+   */
+  const jsonLd = buildJobPostingJsonLd(job);
 
   const freshness = freshnessNote(job);
   // The feed's own parser, not a second reading of structured_jd — it already
@@ -127,6 +209,16 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
 
   return (
     <div className="flex max-w-[760px] flex-col gap-6">
+      {jsonLd && (
+        <script
+          type="application/ld+json"
+          // Serialised with JSON.stringify, so the only injection surface is a
+          // "</script>" inside a field; the escape below closes it.
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c"),
+          }}
+        />
+      )}
       <Link
         href="/jobs"
         className="inline-flex min-h-10 min-w-10 items-center self-start text-[13px] font-semibold text-ink-soft no-underline hover:text-rust"
@@ -141,7 +233,7 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <h1 className="text-[28px] leading-[1.2]">{job.title}</h1>
-            <MatchTierBadge score={scored.score} className="flex-shrink-0" />
+            {scored && <MatchTierBadge score={scored.score} className="flex-shrink-0" />}
           </div>
           <p className="mt-1 text-[15px] text-ink-soft">{job.company_name}</p>
           {meta.length > 0 && (
@@ -167,6 +259,47 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
+        {!user ? (
+          <>
+        {/*
+          SIGNED OUT: read everything, act on nothing.
+          
+          The posting above is complete — that is deliberate, and it is what
+          makes the page worth indexing. What needs an account is doing
+          something with it: saving, applying, tailoring. Each of those writes
+          a row owned by a user, so there is nothing to degrade gracefully to.
+
+          One CTA rather than three disabled buttons. Three greyed controls
+          would say "you are missing out" three times; one says what to do.
+
+          `redirectTo` carries them back HERE after signing up, using the same
+          param /signup already reads through `safeRedirectTo`. Without it the
+          person who arrived from a search result for one specific job lands on
+          the feed and has to find it again — the exact loss requireUser's own
+          return-trip suffix was added to stop.
+
+          "Create a free account" verbatim: CLAUDE.md fixes one term per
+          concept and rules out "sign up" / "sign in" in body copy.
+        */}
+        <Link
+          href={`/signup?redirectTo=${encodeURIComponent(`/jobs/${job.id}`)}`}
+          className={buttonClasses("primary", "sm", "no-underline")}
+        >
+          Create a free account to apply
+        </Link>
+        {isExternal && job.external_url && (
+          <a
+            href={job.external_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={buttonClasses("secondary", "sm", "no-underline")}
+          >
+            View on company site
+          </a>
+        )}
+          </>
+        ) : (
+          <>
         <form action={toggleSaveAction.bind(null, job.id)}>
           <button type="submit" className={buttonClasses("secondary", "sm")}>
             {isSaved ? "Saved — remove" : "Save"}
@@ -204,6 +337,8 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
         <Link href={`/tailor?jobId=${job.id}`} className={buttonClasses("text", "sm", "no-underline")}>
           Tailor my resume for this
         </Link>
+          </>
+        )}
       </div>
 
       {skills.length > 0 && (
