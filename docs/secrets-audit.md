@@ -147,3 +147,33 @@ flag is passed.
 
 The underlying cause is the one already on the known-defects list: there is no
 staging database, so CI writes to production.
+
+## Closed 2026-08-31 — no history rewrite; rotation is the resolution
+
+The founder reviewed this audit's findings and its reasoning and decided
+against rewriting git history. **Rotation stands as the final resolution, and
+this is now closed rather than deferred.**
+
+That confirms the position *On scrubbing history* above rather than overriding
+it: the repository is public, so anything ever pushed must be assumed
+permanently captured, and a rewrite that misses one object buys a false sense
+of safety at the cost of breaking every clone and fork. It is the same
+conclusion PR #24 reached.
+
+The premise holds on the evidence already recorded here. Both real credentials
+that were still live at the time of the audit — `TalentrahDemoFriend123!` and,
+earlier, `TalentrahDemo123!` — were rotated and their published values
+**confirmed rejected by the live project**. The third finding was a Gemini key
+that no longer guards anything. Nothing in this repository's history is a
+currently-valid secret.
+
+**Recorded so it is not re-raised.** "Should we scrub the history?" is a
+reasonable question to arrive at independently, and it has now been asked and
+answered twice on the same facts. Reopening it needs a new fact — a
+newly-discovered live credential, or a change in what the history contains —
+not a fresh reading of the same ones.
+
+Two things this does *not* close, both still standing above: the
+provider-validated second opinion under **Security → Secret scanning** that
+this sweep could not obtain (403), and the underlying absence of a staging
+database that let CI write to production in the first place.

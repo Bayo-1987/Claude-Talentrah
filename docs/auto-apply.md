@@ -142,3 +142,39 @@ Recorded because both are the kind that read fine and fail live.
 - **The free/paid line and the caps are researched-anchor guesses**, like every
   other price in this product (§10 item 18). They are stated in one file so a
   pricing test can move them in one place.
+
+## Decided 2026-08-31 — keep it live as-is, and why the number is not the reason
+
+With all five real accounts recomputed against the current scorer, the board
+looks like this: **25 Excellent out of 774 open-posting pairs, 3.2%**, spread
+across four of the five accounts. The fifth scores zero.
+
+The decision is to **leave Auto-Apply exactly as it is** — opt-in, unpromoted,
+review-gated — rather than disable it or start marketing it. It is deliberately
+not a decision about the threshold.
+
+Two reasons, and the second is the load-bearing one.
+
+**The sample cannot carry a forecast.** Five accounts is not a rate, it is five
+anecdotes, and 3.2% of pairs is thin enough that one unusual résumé moves it
+several points. Reading it as "3.2% of matches will be Excellent at scale"
+would be inventing a trend from noise. The mechanism is sound — the threshold
+is applied in the database, the cap is atomic, external postings are handed
+off rather than submitted, and nothing reaches a real application without a
+human confirming it — so there is nothing here that argues for switching it
+off while the number is uncertain.
+
+**The bottleneck is upstream, so tuning this would fix the wrong thing.** The
+one account at zero Excellent is not a threshold problem: its résumé parsed to
+an empty skills array, so it matches nothing at any threshold (#139, #145).
+Lowering the bar would not help it and would hurt everyone else. What actually
+constrains the Excellent rate is the breadth of the job supply and the quality
+of résumé parsing — both upstream of matching, both already tracked elsewhere.
+A threshold change would move the number without improving a single match.
+
+**Revisit on signal, not on a schedule.** The two triggers are: a material
+improvement in either upstream input (more or better-targeted job supply, or
+résumé parsing that stops dropping skills), or enough real usage that the rate
+is a measurement rather than an anecdote. A calendar reminder would produce a
+re-decision on the same evidence, which is how a considered position turns into
+a recurring debate.
