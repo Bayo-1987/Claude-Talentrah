@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/seo/site";
 import { LegalPage } from "@/components/marketing/legal-page";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Privacy Policy — Talentrah",
   description: "How Talentrah collects, uses, and protects your data.",
-};
+  path: "/legal/privacy",
+});
 
 /**
  * DRAFT — grounded in the app&apos;s actual data flows (Supabase auth/storage,

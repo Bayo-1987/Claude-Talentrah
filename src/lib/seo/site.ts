@@ -55,3 +55,56 @@ export const SHARE_IMAGE_META = {
   height: 512,
   alt: "Talentrah",
 } as const;
+
+/**
+ * Page metadata with the social tags filled in from the same strings.
+ *
+ * ── THE NEXT.JS BEHAVIOUR THIS EXISTS FOR ─────────────────────────────────
+ *
+ * `openGraph` and `twitter` are REPLACED by a child, not merged field by
+ * field. Two consequences, and this codebase hit both:
+ *
+ *   - a page that declares `openGraph` without `images` loses the inherited
+ *     image (the job pages, fixed earlier in this work)
+ *   - a page that declares only `title`/`description` and NO `openGraph` never
+ *     contributes to og:title at all, so it silently inherits the root's
+ *     generic "Talentrah" — which is what /about, /blog, every blog post and
+ *     all three legal pages were doing
+ *
+ * The second is the nastier one because the page looks correct: the `<title>`
+ * tag is right, the meta description is right, and only the share card is
+ * generic. Nothing surfaces it short of reading the `<head>`.
+ *
+ * So: one place that takes the title and description ONCE and emits all three
+ * representations. A page passing through here cannot have a `<title>` and an
+ * `og:title` that disagree, because they come from the same argument.
+ */
+export function pageMetadata(input: {
+  title: string;
+  description: string;
+  /** Site-relative path, for og:url and the canonical link. */
+  path: string;
+  /** `article` for blog posts; anything else is a plain page. */
+  type?: "website" | "article";
+}) {
+  const { title, description, path, type = "website" } = input;
+  return {
+    title,
+    description,
+    alternates: { canonical: path },
+    openGraph: {
+      title,
+      description,
+      url: path,
+      type,
+      images: [SHARE_IMAGE_META],
+    },
+    twitter: {
+      // `summary`, not `summary_large_image` — see SHARE_IMAGE above.
+      card: "summary" as const,
+      title,
+      description,
+      images: [SHARE_IMAGE],
+    },
+  };
+}

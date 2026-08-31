@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/seo/site";
 import { notFound } from "next/navigation";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import { MarketingMasthead } from "@/components/marketing/marketing-masthead";
@@ -19,10 +20,18 @@ export async function generateMetadata({ params }: BlogPostPageProps): Promise<M
   const { slug } = await params;
   const post = getPostBySlug(slug);
   if (!post) return {};
-  return {
+  /*
+   * `article`, and via pageMetadata so og:title carries the POST's title.
+   * Before this it fell through to the root's generic "Talentrah", so every
+   * shared post produced an identical card — the one place where the title
+   * being right in the tab hid the tag being wrong.
+   */
+  return pageMetadata({
     title: `${post.title} — Talentrah Blog`,
     description: post.description,
-  };
+    path: `/blog/${slug}`,
+    type: "article",
+  });
 }
 
 function formatDate(iso: string) {

@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/seo/site";
 import { LegalPage } from "@/components/marketing/legal-page";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Data & Cookie Notice — Talentrah",
   description: "How Talentrah uses cookies and processes your data technically.",
-};
+  path: "/legal/data-cookie-notice",
+});
 
 /**
  * DRAFT — see the note in src/app/legal/privacy/page.tsx. The cookie list

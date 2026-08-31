@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/seo/site";
 import { LegalPage } from "@/components/marketing/legal-page";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Terms of Service — Talentrah",
   description: "The terms that govern your use of Talentrah.",
-};
+  path: "/legal/terms",
+});
 
 /**
  * DRAFT — see the note in src/app/legal/privacy/page.tsx. Same caveat
