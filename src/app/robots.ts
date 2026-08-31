@@ -41,8 +41,21 @@ export default function robots(): MetadataRoute.Robots {
           "/dashboard",
           // The feed itself needs a session; individual postings do not.
           "/jobs$",
-          // Employer console. The public /employer landing page stays allowed
-          // by the more specific rules above it.
+          /*
+           * The whole employer surface, INCLUDING /employer itself.
+           *
+           * An earlier version of this file allowed /employer on the belief
+           * that it was a public landing page. It is not: it is a redirect-only
+           * route whose first act is `getEmployerContext()`, which calls
+           * `requireUser()`. A signed-out visitor gets 307 -> /login, so there
+           * is no page there to index and no title to give it — Next's redirect
+           * boilerplate carries the root title, which is what made it look like
+           * a real page from the outside.
+           *
+           * If a public "for employers" marketing page is ever built, it earns
+           * its own Allow and its own title at that point.
+           */
+          "/employer",
           "/employer/campaigns",
           "/employer/jobs",
           "/employer/onboarding",

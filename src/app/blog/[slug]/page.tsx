@@ -1,24 +1,30 @@
 import type { Metadata } from "next";
 import { pageMetadata } from "@/lib/seo/site";
 import { notFound } from "next/navigation";
-import { MDXRemote } from "next-mdx-remote/rsc";
 import { MarketingMasthead } from "@/components/marketing/marketing-masthead";
 import { MarketingFooter } from "@/components/marketing/marketing-footer";
 import { Container, EyebrowLabel } from "@/components/ui";
 import { getAllPosts, getPostBySlug } from "@/lib/blog/posts";
-import { mdxComponents } from "@/components/marketing/mdx-components";
+import { renderMarkdown } from "@/lib/blog/render";
 
 interface BlogPostPageProps {
   params: Promise<{ slug: string }>;
 }
 
-export function generateStaticParams() {
-  return getAllPosts().map((post) => ({ slug: post.slug }));
+/*
+ * Still prerenders the published set, but the set now comes from the database
+ * rather than from a directory listing. Anything published after a build is
+ * rendered on demand instead of 404ing — `dynamicParams` defaults to true —
+ * which is what makes publishing from /admin/blog take effect without a
+ * deploy. That is the whole point of the move.
+ */
+export async function generateStaticParams() {
+  return (await getAllPosts()).map((post) => ({ slug: post.slug }));
 }
 
 export async function generateMetadata({ params }: BlogPostPageProps): Promise<Metadata> {
   const { slug } = await params;
-  const post = getPostBySlug(slug);
+  const post = await getPostBySlug(slug);
   if (!post) return {};
   /*
    * `article`, and via pageMetadata so og:title carries the POST's title.
@@ -44,7 +50,7 @@ function formatDate(iso: string) {
 
 export default async function BlogPostPage({ params }: BlogPostPageProps) {
   const { slug } = await params;
-  const post = getPostBySlug(slug);
+  const post = await getPostBySlug(slug);
   if (!post) notFound();
 
   return (
@@ -60,7 +66,13 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
             </p>
           </div>
           <div className="flex flex-col gap-6">
-            <MDXRemote source={post.content} components={mdxComponents} />
+            {/*
+              Markdown rendered to sanitised HTML, not compiled as MDX — see
+              lib/blog/render.ts for why a database-sourced body must not be
+              executable. `renderMarkdown` emits the same element classes
+              mdxComponents did, so the migrated posts render unchanged.
+            */}
+            <div dangerouslySetInnerHTML={{ __html: renderMarkdown(post.content) }} />
           </div>
         </Container>
       </div>

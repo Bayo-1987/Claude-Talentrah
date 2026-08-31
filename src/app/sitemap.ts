@@ -50,7 +50,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: p.priority,
   }));
 
-  const postEntries: MetadataRoute.Sitemap = getAllPosts().map((post) => ({
+  /*
+   * From the database now, not a directory listing — so a post published from
+   * /admin/blog appears here without a deploy, and an unpublished one drops
+   * out. `getAllPosts` filters `status = 'published'`, the same discipline the
+   * job entries below use to exclude closed postings: a sitemap must only ever
+   * claim URLs that actually answer 200.
+   */
+  const postEntries: MetadataRoute.Sitemap = (await getAllPosts()).map((post) => ({
     url: absoluteUrl(`/blog/${post.slug}`),
     lastModified: new Date(post.date),
     changeFrequency: "yearly",

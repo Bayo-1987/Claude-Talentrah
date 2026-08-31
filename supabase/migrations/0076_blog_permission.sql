@@ -1,0 +1,44 @@
+-- 0076 — `blog` becomes a grantable admin permission.
+--
+-- ── WHY THIS IS A SEPARATE MIGRATION FROM 0074 ────────────────────────────
+--
+-- 0074 created blog_posts and was written before 0075 existed; it is numbered
+-- ahead of it, so on a fresh database it runs FIRST. Adding a value to
+-- `admin_permission` from 0074 would reference a type that does not exist
+-- yet. The dependency runs the other way, so the change does too.
+--
+-- ── WHY THE ENUM GROWS RATHER THAN THE PAGE GOING UNGATED ─────────────────
+--
+-- 0075 replaced the admin home's hardcoded link list with one filtered by
+-- `admin.permissions`. A blog link added outside that filter would appear for
+-- an operator whose role grants nothing at all, directly beside the line
+-- telling them their role grants no areas yet.
+--
+-- 0075's own comment on the enum anticipated this: "Adding an area later is an
+-- `alter type ... add value`, which is the point at which somebody should be
+-- thinking about it." This is that point.
+--
+-- ── WHO GETS IT ───────────────────────────────────────────────────────────
+--
+-- Both builtin roles, matching how 0075 seeded every other content area:
+-- Super Admin gets the whole enum, Standard Admin gets everything except
+-- `operators`. Blog is a content area, not a privilege escalation, so it
+-- belongs in both.
+--
+-- CUSTOM roles created since 0075 get nothing here, deliberately. Their
+-- permission sets were chosen by a person, and silently widening them would
+-- make "this role can do exactly these things" untrue the moment a new area
+-- ships. A super admin grants it from Operators, which is one click and is the
+-- decision the model exists to make explicit.
+
+alter type public.admin_permission add value if not exists 'blog';
+
+-- SPLIT ACROSS TWO MIGRATIONS, and not for tidiness. Postgres refuses to USE a
+-- new enum value in the transaction that adds it:
+--
+--   ERROR: 55P04 unsafe use of new value "blog" of enum type admin_permission
+--   HINT:  New enum values must be committed before they can be used.
+--
+-- Migrations run in a transaction, so the grant has to be 0077. Verified by
+-- trying it in one and reading the error rather than assuming it would work.
+
