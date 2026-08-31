@@ -322,6 +322,42 @@ export type Database = {
           },
         ]
       }
+      admin_role_permissions: {
+        Row: {
+          permission: Database["public"]["Enums"]["admin_permission"]
+          role_id: string
+        }
+        Insert: {
+          permission: Database["public"]["Enums"]["admin_permission"]
+          role_id: string
+        }
+        Update: {
+          permission?: Database["public"]["Enums"]["admin_permission"]
+          role_id?: string
+        }
+        Relationships: []
+      }
+      admin_roles: {
+        Row: {
+          created_at: string
+          id: string
+          is_builtin: boolean
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_builtin?: boolean
+          name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_builtin?: boolean
+          name?: string
+        }
+        Relationships: []
+      }
       admin_sessions: {
         Row: {
           admin_user_id: string
@@ -375,6 +411,7 @@ export type Database = {
           id: string
           last_login_at: string | null
           role: string
+          role_id: string | null
         }
         Insert: {
           created_at?: string
@@ -384,6 +421,7 @@ export type Database = {
           id: string
           last_login_at?: string | null
           role?: string
+          role_id?: string | null
         }
         Update: {
           created_at?: string
@@ -393,6 +431,7 @@ export type Database = {
           id?: string
           last_login_at?: string | null
           role?: string
+          role_id?: string | null
         }
         Relationships: []
       }
@@ -1892,6 +1931,36 @@ export type Database = {
           session_id: string
         }[]
       }
+      admin_delete_role: {
+        Args: { p_actor: string; p_role_id: string }
+        Returns: { ok: boolean; reason: string }[]
+      }
+      admin_has_permission: {
+        Args: { p_admin: string; p_permission: Database["public"]["Enums"]["admin_permission"] }
+        Returns: boolean
+      }
+      admin_operators_covered: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
+      admin_set_operator: {
+        Args: {
+          p_actor: string
+          p_disabled?: boolean
+          p_role_id?: string
+          p_target: string
+        }
+        Returns: { ok: boolean; reason: string }[]
+      }
+      admin_upsert_role: {
+        Args: {
+          p_actor: string
+          p_name: string
+          p_permissions: Database["public"]["Enums"]["admin_permission"][]
+          p_role_id: string
+        }
+        Returns: { ok: boolean; reason: string; role_id: string }[]
+      }
       admin_update_operator: {
         Args: {
           p_actor: string
@@ -2093,6 +2162,16 @@ export type Database = {
       }
     }
     Enums: {
+      admin_permission:
+        | "scholarships"
+        | "reported_postings"
+        | "ad_campaigns"
+        | "feedback"
+        | "courses"
+        | "operations"
+        | "finance"
+        | "people"
+        | "operators"
       ad_campaign_status:
         | "draft"
         | "pending_review"

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import { queueCounts } from "@/lib/admin/moderation/queues";
 import { PATH_HEADER } from "@/lib/auth/redirect-to";
+import type { AdminPermission } from "@/lib/admin/session";
 
 /**
  * The dashboard's own nav, across the moderation areas.
@@ -22,20 +23,26 @@ import { PATH_HEADER } from "@/lib/auth/redirect-to";
  * link to a page that does not exist reads as one — the same rule that keeps
  * Billing and Analytics out of the employer nav.
  */
+/*
+ * `permission` is what decides whether a link is rendered; `key` still names
+ * the queue count. They are separate on purpose — the count keys are the
+ * moderation queues' own names and predate 0075's catalog, and collapsing them
+ * would tie a display concern to an access one.
+ */
 const ITEMS = [
-  { href: "/admin/scholarships", label: "Scholarships", key: "scholarships" },
-  { href: "/admin/reports", label: "Reported postings", key: "reports" },
-  { href: "/admin/campaigns", label: "Ad campaigns", key: "campaigns" },
-  { href: "/admin/feedback", label: "Feedback", key: "feedback" },
-  { href: "/admin/courses", label: "Courses", key: "courses" },
-  { href: "/admin/ops", label: "Operations", key: "ops" },
+  { href: "/admin/scholarships", label: "Scholarships", key: "scholarships", permission: "scholarships" },
+  { href: "/admin/reports", label: "Reported postings", key: "reports", permission: "reported_postings" },
+  { href: "/admin/campaigns", label: "Ad campaigns", key: "campaigns", permission: "ad_campaigns" },
+  { href: "/admin/feedback", label: "Feedback", key: "feedback", permission: "feedback" },
+  { href: "/admin/courses", label: "Courses", key: "courses", permission: "courses" },
+  { href: "/admin/ops", label: "Operations", key: "ops", permission: "operations" },
   /*
    * Finance is in the nav; the PERSON LOOKUP is not, and that is deliberate.
    * It is one click from here, but nobody should land on a PII surface while
    * on their way somewhere else — which is the same argument that keeps the
    * finance page itself free of names.
    */
-  { href: "/admin/finance", label: "Finance", key: "finance" },
+  { href: "/admin/finance", label: "Finance", key: "finance", permission: "finance" },
 ] as const;
 
 /*
@@ -48,9 +55,9 @@ const ITEMS = [
  * out of their way that would bounce them if they followed it — the same
  * distinction already written down about the proxy's cookie check.
  */
-const SUPER_ADMIN_ONLY = { href: "/admin/operators", label: "Operators" } as const;
+const OPERATORS_LINK = { href: "/admin/operators", label: "Operators" } as const;
 
-export async function AdminNav({ role }: { role: "super_admin" | "standard" }) {
+export async function AdminNav({ permissions }: { permissions: readonly AdminPermission[] }) {
   /*
    * The active link comes from the path header the proxy already stamps on
    * every request (src/lib/supabase/middleware.ts), for the same reason
@@ -68,7 +75,7 @@ export async function AdminNav({ role }: { role: "super_admin" | "standard" }) {
 
   return (
     <nav className="flex flex-wrap items-center gap-x-7 gap-y-2 border-b border-line px-10 py-3">
-      {ITEMS.map((item) => {
+      {ITEMS.filter((item) => permissions.includes(item.permission)).map((item) => {
         const count = counts[item.key];
         const active = path.startsWith(item.href);
         return (
@@ -99,18 +106,18 @@ export async function AdminNav({ role }: { role: "super_admin" | "standard" }) {
         );
       })}
 
-      {role === "super_admin" && (
+      {permissions.includes("operators") && (
         <Link
-          href={SUPER_ADMIN_ONLY.href}
-          aria-current={path.startsWith(SUPER_ADMIN_ONLY.href) ? "page" : undefined}
+          href={OPERATORS_LINK.href}
+          aria-current={path.startsWith(OPERATORS_LINK.href) ? "page" : undefined}
           className={
             "inline-flex min-h-11 items-center font-body text-[14px] no-underline " +
-            (path.startsWith(SUPER_ADMIN_ONLY.href)
+            (path.startsWith(OPERATORS_LINK.href)
               ? "font-semibold text-rust"
               : "text-ink hover:text-rust")
           }
         >
-          {SUPER_ADMIN_ONLY.label}
+          {OPERATORS_LINK.label}
         </Link>
       )}
     </nav>

@@ -60,15 +60,34 @@ let superA: Awaited<ReturnType<typeof createAuthedTestUser>>;
 let superB: Awaited<ReturnType<typeof createAuthedTestUser>>;
 let standard: Awaited<ReturnType<typeof createAuthedTestUser>>;
 
+/*
+ * ROLE_ID AS WELL AS `role`, since 0075.
+ *
+ * This suite exercises admin_update_operator, which 0075 kept as the bridge
+ * for the previously-deployed build: it takes a text role and now delegates to
+ * admin_set_operator. Permissions are decided by `role_id`, so a fixture that
+ * sets only the text column holds nothing and every mutation here is refused
+ * `not_authorised` — which is what happened the first time 0075 ran against
+ * this file. Setting both is also what makes this a real test OF the bridge
+ * rather than of the old column.
+ */
 async function makeOperator(
   user: Awaited<ReturnType<typeof createAuthedTestUser>>,
   role: "super_admin" | "standard",
 ) {
+  const { data: roleRow, error: roleErr } = await admin
+    .from("admin_roles")
+    .select("id")
+    .eq("name", role === "super_admin" ? "Super Admin" : "Standard Admin")
+    .single();
+  if (roleErr) throw new Error(`fixture role lookup: ${roleErr.message}`);
+
   const { error } = await admin.from("admin_users").insert({
     id: user.id,
     email: user.email.toLowerCase(),
     display_name: `roles-test ${role}`,
     role,
+    role_id: roleRow.id,
   });
   if (error) throw new Error(`fixture operator: ${error.message}`);
 }
@@ -76,12 +95,20 @@ async function makeOperator(
 const roleOf = async (id: string) =>
   (await admin.from("admin_users").select("role, disabled_at").eq("id", id).single()).data;
 
+/*
+ * Reading the DEPRECATED text column on purpose: this suite's job is that the
+ * bridge keeps it truthful for as long as it exists. admin_set_operator
+ * derives it from whether the new role grants `operators`, so these assertions
+ * are checking that derivation, not the old model.
+ */
+
 const activeSupers = async () =>
   (await admin
     .from("admin_users")
     .select("id", { count: "exact", head: true })
     .eq("role", "super_admin")
     .is("disabled_at", null)).count ?? 0;
+
 
 beforeAll(async () => {
   [seeker, superA, superB, standard] = await Promise.all([
@@ -179,122 +206,20 @@ describe("0073: only an active super admin may act", () => {
   });
 });
 
-describe("0073: at least one active super admin always survives", () => {
-  it("promoting and demoting works while another super admin remains", async () => {
-    const up = await admin.rpc("admin_update_operator", {
-      p_actor: superA.id, p_target: standard.id, p_role: "super_admin",
-    });
-    expect(up.data?.[0]?.ok, up.data?.[0]?.reason).toBe(true);
-    expect((await roleOf(standard.id))?.role).toBe("super_admin");
-
-    const down = await admin.rpc("admin_update_operator", {
-      p_actor: superA.id, p_target: standard.id, p_role: "standard",
-    });
-    expect(down.data?.[0]?.ok, down.data?.[0]?.reason).toBe(true);
-    expect((await roleOf(standard.id))?.role).toBe("standard");
-  });
-
-  it("disabling revokes live sessions in the same breath", async () => {
-    const { data: sess } = await admin
-      .from("admin_sessions")
-      .insert({
-        admin_user_id: standard.id,
-        token_hash: randomUUID().replace(/-/g, "") + randomUUID().replace(/-/g, ""),
-        expires_at: new Date(Date.now() + 3600_000).toISOString(),
-      })
-      .select("id")
-      .single();
-
-    const res = await admin.rpc("admin_update_operator", {
-      p_actor: superA.id, p_target: standard.id, p_disabled: true,
-    });
-    expect(res.data?.[0]?.ok, res.data?.[0]?.reason).toBe(true);
-
-    const { data: after } = await admin
-      .from("admin_sessions").select("revoked_at").eq("id", sess!.id).single();
-    expect(after?.revoked_at, "a disabled operator kept a live session").not.toBeNull();
-
-    await admin.rpc("admin_update_operator", {
-      p_actor: superA.id, p_target: standard.id, p_disabled: false,
-    });
-  });
-
-  it("SEQUENTIALLY: the last active super admin cannot be demoted or disabled", async () => {
-    // Leave exactly one: demote B, so only A is a super admin.
-    const demoteB = await admin.rpc("admin_update_operator", {
-      p_actor: superA.id, p_target: superB.id, p_role: "standard",
-    });
-    expect(demoteB.data?.[0]?.ok, demoteB.data?.[0]?.reason).toBe(true);
-    expect(await activeSupers()).toBeGreaterThanOrEqual(1);
-
-    const selfDemote = await admin.rpc("admin_update_operator", {
-      p_actor: superA.id, p_target: superA.id, p_role: "standard",
-    });
-    expect(selfDemote.data?.[0]?.ok).toBe(false);
-    expect(selfDemote.data?.[0]?.reason).toBe("last_super_admin");
-
-    const selfDisable = await admin.rpc("admin_update_operator", {
-      p_actor: superA.id, p_target: superA.id, p_disabled: true,
-    });
-    expect(selfDisable.data?.[0]?.ok).toBe(false);
-    expect(selfDisable.data?.[0]?.reason).toBe("last_super_admin");
-
-    expect((await roleOf(superA.id))?.role).toBe("super_admin");
-    expect((await roleOf(superA.id))?.disabled_at).toBeNull();
-
-    // Put B back for the concurrency test below.
-    await admin.rpc("admin_update_operator", {
-      p_actor: superA.id, p_target: superB.id, p_role: "super_admin",
-    });
-  });
-
-  /*
-   * THE ONE THAT ACTUALLY TESTS THE LOCK.
-   *
-   * Two super admins demoting each other at the same instant. Each, reading
-   * alone, sees one other super admin and concludes the demotion is safe. A
-   * read-then-write implementation lets BOTH commit and leaves zero — and the
-   * sequential test above passes against that broken version, which is exactly
-   * why it is not sufficient on its own.
-   */
-  it("CONCURRENTLY: two mutual demotions cannot both succeed", async () => {
-    expect(await activeSupers(), "precondition: exactly two active super admins")
-      .toBeGreaterThanOrEqual(2);
-
-    // Separate clients — see the note beside their construction. On one shared
-    // client these two do not overlap and the test proves nothing.
-    const [a, b] = await Promise.all([
-      raceA.rpc("admin_update_operator", {
-        p_actor: superA.id, p_target: superB.id, p_role: "standard",
-      }),
-      raceB.rpc("admin_update_operator", {
-        p_actor: superB.id, p_target: superA.id, p_role: "standard",
-      }),
-    ]);
-
-    const results = [a.data?.[0], b.data?.[0]];
-    const wins = results.filter((r) => r?.ok).length;
-    const losers = results.filter((r) => !r?.ok);
-
-    expect(wins, "both demotions committed — the guard is not atomic").toBe(1);
-    expect(losers, "one of the two must be refused").toHaveLength(1);
-
-    /*
-     * WHICH refusal is ordering-dependent, and asserting one specific reason
-     * over-fits — the first version of this test did, and failed for that
-     * rather than for a real defect. Whoever loses the lock has, by then,
-     * already been demoted by the winner, so its own actor check now fails and
-     * it is turned away as `not_authorised` before the invariant is ever
-     * consulted. Had the winner instead been demoting a third party, the loser
-     * would reach the count and be told `last_super_admin`. Both are correct
-     * refusals; the invariant below is the thing that actually matters.
-     */
-    expect(
-      ["last_super_admin", "not_authorised"],
-      `unexpected refusal reason: ${losers[0]?.reason}`,
-    ).toContain(losers[0]?.reason);
-
-    expect(await activeSupers(), "LOCKOUT: zero active super admins remain")
-      .toBeGreaterThanOrEqual(1);
-  });
-});
+/*
+ * THE COVERAGE INVARIANT IS NOT TESTED HERE ANY MORE — it moved wholesale to
+ * tests/rls/admin-permissions.test.ts, and the reason is worth recording.
+ *
+ * admin_operators_covered() is GLOBAL: it asks whether ANY active operator
+ * anywhere holds `operators`. So a test that needs to be "the last one" cannot
+ * share a run with another file that also creates covering operators — and
+ * vitest runs files in parallel. With the invariant asserted in both files,
+ * this suite's fixtures silently satisfied that one's coverage and seven of
+ * its assertions stopped being true. Each file passed alone; together they
+ * did not.
+ *
+ * That is the same shared-mutable-state shape as issue #136, so the fix is the
+ * one that issue argues for: exactly one file owns the state. This file keeps
+ * what is genuinely local to it — grant isolation, and the actor checks on the
+ * deprecated bridge.
+ */

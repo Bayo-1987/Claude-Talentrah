@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireAdmin } from "@/lib/admin/require-admin";
+import { requirePermission } from "@/lib/admin/require-admin";
 import { PersonLookup } from "@/components/admin/person-lookup";
 import { QueueHeader } from "@/components/admin/queue-chrome";
 import { Container, BorderedCard } from "@/components/ui";
@@ -25,7 +25,7 @@ export const metadata = {
  * half that actually protects anyone.
  */
 export default async function PersonLookupPage() {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("people");
 
   return (
     <Container className="flex max-w-[900px] flex-col gap-8 py-12">

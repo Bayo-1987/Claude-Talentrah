@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireAdmin } from "@/lib/admin/require-admin";
+import { requirePermission } from "@/lib/admin/require-admin";
 import { financialHealth } from "@/lib/admin/finance/queries";
 import { QueueHeader } from "@/components/admin/queue-chrome";
 import { Container, EyebrowLabel, BorderedCard } from "@/components/ui";
@@ -30,7 +30,7 @@ const money = (minor: number, currency: string) =>
  * (0035). An admin balance-edit button is that bug with different paperwork.
  */
 export default async function FinancialHealthPage() {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("finance");
   const health = await financialHealth();
 
   return (

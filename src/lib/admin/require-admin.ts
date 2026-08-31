@@ -2,7 +2,7 @@ import "server-only";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { PATH_HEADER, safeRedirectTo } from "@/lib/auth/redirect-to";
-import { getAdminIdentity, type AdminIdentity } from "./session";
+import { getAdminIdentity, type AdminIdentity, type AdminPermission } from "./session";
 
 /**
  * The guard. Every page under /admin passes through it, via
@@ -55,8 +55,36 @@ export async function requireAdmin(): Promise<AdminIdentity> {
  * come through here first.
  */
 export async function requireSuperAdmin(): Promise<AdminIdentity> {
+  return requirePermission("operators");
+}
+
+/**
+ * The per-area gate (0075). One permission key, checked on the server.
+ *
+ * THIS IS THE CONTROL; the nav is not. A link a role does not grant is hidden
+ * from that operator, but a hidden link is still a URL they can type — the
+ * same distinction already written above about the proxy's cookie check, which
+ * proves a cookie is PRESENT and nothing more. Every page that means to be
+ * restricted calls this, in the page itself, because a page that forgot to is
+ * open no matter what the nav shows.
+ *
+ * It redirects to /admin rather than rendering a 403. An operator who lands
+ * somewhere they cannot go has almost always followed a stale link or a
+ * bookmark; the dashboard is where they were going. The refusal is total —
+ * only its presentation is gentle.
+ *
+ * WHAT THIS DOES NOT DO, stated so nobody assumes otherwise: for the eight
+ * content areas it is enforced here and in each Server Action, both
+ * server-side, but the DATABASE does not know about those permissions — their
+ * actions write through the service-role client. Operator and role management
+ * is different: admin_set_operator, admin_upsert_role and admin_delete_role
+ * (0075) each re-check the actor themselves, because that is the surface that
+ * can escalate privilege. Closing the gap for the other eight is tracked in
+ * its own issue rather than left implied here.
+ */
+export async function requirePermission(permission: AdminPermission): Promise<AdminIdentity> {
   const identity = await requireAdmin();
-  if (identity.role !== "super_admin") redirect("/admin");
+  if (!identity.permissions.includes(permission)) redirect("/admin");
   return identity;
 }
 

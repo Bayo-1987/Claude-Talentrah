@@ -24,7 +24,7 @@ export default async function ProtectedAdminLayout({
   return (
     <div className="flex min-h-screen flex-col bg-paper">
       <AdminMasthead email={admin.email} displayName={admin.displayName} />
-      <AdminNav role={admin.role} />
+      <AdminNav permissions={admin.permissions} />
       <main className="flex-1">{children}</main>
     </div>
   );

@@ -38,8 +38,24 @@ export { ADMIN_COOKIE, ADMIN_COOKIE_PATH } from "./cookie";
 /** 8 hours. Short because an idle admin tab is a standing set of privileges. */
 const SESSION_TTL_SECONDS = 8 * 60 * 60;
 
-/** 0073. Two states, and the narrower one is the default everywhere. */
+/**
+ * 0073's two fixed tiers. Retained only for the deprecated `admin_users.role`
+ * column and the bridge function that still writes it; nothing in the app
+ * decides anything from it any more.
+ */
 export type AdminRole = "super_admin" | "standard";
+
+/** 0075. The catalog, one key per admin area plus the one that grants management. */
+export type AdminPermission =
+  | "scholarships"
+  | "reported_postings"
+  | "ad_campaigns"
+  | "feedback"
+  | "courses"
+  | "operations"
+  | "finance"
+  | "people"
+  | "operators";
 
 export interface AdminIdentity {
   sessionId: string;
@@ -47,8 +63,13 @@ export interface AdminIdentity {
   email: string;
   displayName: string | null;
   expiresAt: string;
-  /** 0073. Decides only whether operator management is reachable. */
+  /** 0073, deprecated by 0075. Kept until `admin_users.role` is dropped. */
   role: AdminRole;
+  /** 0075. Null when this operator has no role assigned — which grants nothing. */
+  roleId: string | null;
+  roleName: string | null;
+  /** Exactly what this operator may reach. Empty is a valid, deliberate answer. */
+  permissions: AdminPermission[];
 }
 
 function hashToken(token: string): string {
@@ -164,10 +185,31 @@ export async function getAdminIdentity(): Promise<AdminIdentity | null> {
    */
   const { data: enrichment, error: roleError } = await supabase
     .from("admin_users")
-    .select("role")
+    .select("role, role_id")
     .eq("id", row.admin_id)
     .maybeSingle();
   if (roleError) console.error("[admin-session] role read failed", roleError);
+
+  /*
+   * NO ROLE MEANS NO PERMISSIONS, and that is the designed failure. 0075 left
+   * `role_id` nullable rather than defaulting it to Standard Admin: an
+   * operator who can sign in and reach nothing is a visible, fixable mistake,
+   * whereas one silently handed eight permissions is not. The same reasoning
+   * makes every read below fail closed — a failed query yields an empty set,
+   * never a full one.
+   */
+  let roleName: string | null = null;
+  let permissions: AdminPermission[] = [];
+
+  if (enrichment?.role_id) {
+    const [{ data: roleRow }, { data: permRows, error: permError }] = await Promise.all([
+      supabase.from("admin_roles").select("name").eq("id", enrichment.role_id).maybeSingle(),
+      supabase.from("admin_role_permissions").select("permission").eq("role_id", enrichment.role_id),
+    ]);
+    if (permError) console.error("[admin-session] permission read failed", permError);
+    roleName = roleRow?.name ?? null;
+    permissions = (permRows ?? []).map((r) => r.permission);
+  }
 
   return {
     sessionId: row.session_id,
@@ -176,6 +218,9 @@ export async function getAdminIdentity(): Promise<AdminIdentity | null> {
     displayName: row.admin_display_name ?? null,
     expiresAt: row.session_expires_at,
     role: enrichment?.role === "super_admin" ? "super_admin" : "standard",
+    roleId: enrichment?.role_id ?? null,
+    roleName,
+    permissions,
   };
 }
 

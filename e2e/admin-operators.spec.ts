@@ -36,9 +36,22 @@ async function makeOperator(role: "super_admin" | "standard"): Promise<Fixture> 
   const password = `E2E-${randomUUID()}Aa1!`;
   const { data, error } = await db!.auth.admin.createUser({ email, password, email_confirm: true });
   if (error) throw new Error(`fixture user: ${error.message}`);
+  /*
+   * role_id, not just the text column. 0075 decides permissions from role_id;
+   * a fixture setting only `role` holds NOTHING, so the operator signs in and
+   * every page bounces them — which is exactly how this spec failed the first
+   * time it met 0075.
+   */
+  const { data: roleRow, error: roleErr } = await db!
+    .from("admin_roles")
+    .select("id")
+    .eq("name", role === "super_admin" ? "Super Admin" : "Standard Admin")
+    .single();
+  if (roleErr) throw new Error(`fixture role lookup: ${roleErr.message}`);
+
   const { error: rowError } = await db!
     .from("admin_users")
-    .insert({ id: data.user.id, email, display_name: `E2E ${role}`, role });
+    .insert({ id: data.user.id, email, display_name: `E2E ${role}`, role, role_id: roleRow.id });
   if (rowError) throw new Error(`fixture operator: ${rowError.message}`);
   return { id: data.user.id, email, password };
 }
@@ -101,14 +114,27 @@ test.describe("operator management", () => {
 
     const row = page.locator("li", { hasText: victim.email }).first();
     await expect(row).toBeVisible();
-    await expect(row.getByText("Standard Admin")).toBeVisible();
 
-    await row.getByRole("button", { name: "Make Super Admin" }).click();
+    /*
+     * The role select's VALUE, not the text "Standard Admin" — since 0075 the
+     * row contains that string twice, once as the operator's current role and
+     * once as an option in the select. Asserting on the text hit both and
+     * failed strict mode; asserting on the control says what is actually meant.
+     */
+    const select = row.getByLabel("Role");
+    await expect(select).toHaveValue(/.+/);
+
+    const { data: superRole } = await db!
+      .from("admin_roles").select("id").eq("name", "Super Admin").single();
+    await select.selectOption(superRole!.id);
+    await row.getByRole("button", { name: "Save role" }).click();
     await expect(page.getByRole("status")).toContainText("Saved", { timeout: 15_000 });
 
     // The database agrees with the screen.
     const { data: after } = await db!
-      .from("admin_users").select("role").eq("id", victim.id).single();
+      .from("admin_users").select("role, role_id").eq("id", victim.id).single();
+    expect(after?.role_id).toBe(superRole!.id);
+    // The deprecated text column is kept in step by the same statement.
     expect(after?.role).toBe("super_admin");
 
     // And the trail names who did it. This write lives in the Server Action,
@@ -122,6 +148,6 @@ test.describe("operator management", () => {
     expect(log, "no audit row for the role change").not.toBeNull();
     expect(log?.admin_user_id).toBe(sup.id);
     expect(log?.admin_email).toBe(sup.email);
-    expect((log?.detail as { role?: string } | null)?.role).toBe("super_admin");
+    expect((log?.detail as { role_id?: string } | null)?.role_id).toBe(superRole!.id);
   });
 });

@@ -1,4 +1,4 @@
-import { requireAdmin } from "@/lib/admin/require-admin";
+import { requirePermission } from "@/lib/admin/require-admin";
 import { pendingScholarships } from "@/lib/admin/moderation/queues";
 import { decideScholarshipAction } from "@/lib/admin/moderation/actions";
 import { DecisionForm } from "@/components/admin/decision-form";
@@ -24,7 +24,7 @@ export const metadata = {
  * status change.
  */
 export default async function ScholarshipQueuePage() {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("scholarships");
   const queue = await pendingScholarships();
 
   return (

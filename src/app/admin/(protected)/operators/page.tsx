@@ -1,5 +1,5 @@
-import { requireSuperAdmin } from "@/lib/admin/require-admin";
-import { listOperators, activeSuperAdminCount } from "@/lib/admin/operators/list";
+import { requirePermission } from "@/lib/admin/require-admin";
+import { listOperators, listRoles, operatorsCoverageCount } from "@/lib/admin/operators/list";
 import { OperatorRowForm } from "@/components/admin/operator-row-form";
 import { QueueHeader } from "@/components/admin/queue-chrome";
 import { Container, EyebrowLabel, BorderedCard } from "@/components/ui";
@@ -32,10 +32,11 @@ export const metadata = {
  * is worse than the CLI that always does.
  */
 export default async function OperatorsPage() {
-  const admin = await requireSuperAdmin();
-  const [operators, superAdmins] = await Promise.all([
+  const admin = await requirePermission("operators");
+  const [operators, roles, coverage] = await Promise.all([
     listOperators(),
-    activeSuperAdminCount(),
+    listRoles(),
+    operatorsCoverageCount(),
   ]);
 
   const active = operators.filter((o) => !o.disabledAt).length;
@@ -45,25 +46,26 @@ export default async function OperatorsPage() {
       <QueueHeader
         eyebrow="Operators"
         title="Who can get in, and what they can do."
-        blurb="Super Admins can manage operators, including this page. Standard Admins can use every other admin screen but not this one. Disabling keeps the row — the audit log names it — and signs them out immediately."
+        blurb="A role is a set of permissions; an operator has one role. Only a role granting Operators can reach this page. Disabling keeps the row — the audit log names it — and signs them out immediately."
         adminLabel={admin.displayName || admin.email}
       />
 
       <BorderedCard className="flex flex-col gap-2 p-5">
         <EyebrowLabel>Status</EyebrowLabel>
         <p className="text-[15px]">
-          {active} active of {operators.length} · {superAdmins} Super Admin
-          {superAdmins === 1 ? "" : "s"}
+          {active} active of {operators.length} · {roles.length} role
+          {roles.length === 1 ? "" : "s"} · {coverage} can manage operators
         </p>
         {/*
           The one sentence that explains a refusal before it happens. The rule
           is enforced in the database, in the same statement that does the
           write; this is here so the refusal reads as a rule rather than a bug.
         */}
-        {superAdmins === 1 && (
+        {coverage === 1 && (
           <p className="font-display text-[14.5px] italic text-ink-soft">
-            Only one Super Admin is left, so demoting or disabling them will be
-            refused. Promote someone else first.
+            Only one active operator can manage operators, so changing or
+            disabling them will be refused. Give someone else a role granting
+            Operators first.
           </p>
         )}
       </BorderedCard>
@@ -74,9 +76,7 @@ export default async function OperatorsPage() {
             <BorderedCard className="flex flex-col gap-4 p-5">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="flex flex-col gap-1.5">
-                  <EyebrowLabel>
-                    {o.role === "super_admin" ? "Super Admin" : "Standard Admin"}
-                  </EyebrowLabel>
+                  <EyebrowLabel>{o.roleName ?? "No role — no access"}</EyebrowLabel>
                   <h2 className="font-display text-[20px] font-semibold leading-snug">
                     {o.displayName || o.email}
                   </h2>
@@ -97,7 +97,8 @@ export default async function OperatorsPage() {
 
               <OperatorRowForm
                 id={o.id}
-                role={o.role}
+                roleId={o.roleId}
+                roles={roles.map((r) => ({ id: r.id, name: r.name }))}
                 disabled={o.disabledAt !== null}
                 isSelf={o.id === admin.adminId}
               />

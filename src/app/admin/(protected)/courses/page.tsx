@@ -1,4 +1,4 @@
-import { requireAdmin } from "@/lib/admin/require-admin";
+import { requirePermission } from "@/lib/admin/require-admin";
 import { courseCatalog } from "@/lib/admin/catalog/courses";
 import { CourseRowForm } from "@/components/admin/course-row-form";
 import { QueueHeader } from "@/components/admin/queue-chrome";
@@ -29,7 +29,7 @@ export const metadata = {
  * 0061 built for exactly this, and it keeps that history intact.
  */
 export default async function CourseCatalogPage() {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("courses");
   const catalog = await courseCatalog();
 
   const placeholders = catalog.filter((c) => c.isPlaceholder).length;

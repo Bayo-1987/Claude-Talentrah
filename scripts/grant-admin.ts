@@ -185,17 +185,25 @@ async function list() {
   describeTarget();
   const { data, error } = await admin
     .from("admin_users")
-    .select("email, display_name, disabled_at, created_at, last_login_at")
+    .select("email, display_name, disabled_at, created_at, last_login_at, role_id")
     .order("created_at");
   if (error) throw error;
   if (!data?.length) {
     console.log("No admins. Nobody can sign in at /admin/login yet.");
     return;
   }
+  const roleNames = new Map(
+    ((await admin.from("admin_roles").select("id, name")).data ?? []).map((r) => [r.id, r.name]),
+  );
   for (const row of data) {
     const state = row.disabled_at ? "DISABLED" : "active";
     const seen = row.last_login_at ? `last login ${row.last_login_at}` : "never signed in";
-    console.log(`${state.padEnd(8)} ${row.email}  ${row.display_name ?? "—"}  (${seen})`);
+    // "NO ROLE" is printed loudly rather than left blank: under 0075 it means
+    // the account can sign in and reach nothing, which is worth noticing.
+    const role = row.role_id ? (roleNames.get(row.role_id) ?? "unknown role") : "NO ROLE";
+    console.log(
+      `${state.padEnd(8)} ${role.padEnd(16)} ${row.email}  ${row.display_name ?? "—"}  (${seen})`,
+    );
   }
 }
 
@@ -232,7 +240,7 @@ async function revoke(email: string) {
   console.log(`Revoked admin access for ${data.email}. The admin_users row is kept for the audit trail.`);
 }
 
-async function grant(email: string, displayName: string | undefined) {
+async function grant(email: string, displayName: string | undefined, roleName?: string) {
   const target = describeTarget();
   if (target.isProduction) refuseProduction("grant admin", email);
 
@@ -267,6 +275,27 @@ async function grant(email: string, displayName: string | undefined) {
     console.log(`Created a Talentrah account for ${normalized}.`);
   }
 
+  /*
+   * A ROLE IS REQUIRED, and defaults to the narrower one.
+   *
+   * Before 0075 this upsert set no role at all, which under the new model
+   * creates an operator holding NOTHING — they sign in and every page bounces
+   * them. Defaulting to Standard Admin rather than Super Admin is deliberate:
+   * this is the bootstrap path, and the thing you least want it to do by
+   * accident is mint someone who can grant admin to anybody else. Pass
+   * --role "Super Admin" when that is genuinely what you mean.
+   */
+  const wanted = roleName ?? "Standard Admin";
+  const { data: role, error: roleError } = await admin
+    .from("admin_roles").select("id, name").eq("name", wanted).maybeSingle();
+  if (roleError) throw roleError;
+  if (!role) {
+    const names = ((await admin.from("admin_roles").select("name").order("name")).data ?? [])
+      .map((r) => `  ${r.name}`).join("\n");
+    console.error(`No role named ${JSON.stringify(wanted)}. Existing roles:\n${names}`);
+    process.exit(1);
+  }
+
   const { error } = await admin.from("admin_users").upsert(
     {
       id: user.id,
@@ -274,6 +303,7 @@ async function grant(email: string, displayName: string | undefined) {
       // audit lookup matches on equality — see src/lib/admin/actions.ts.
       email: normalized,
       display_name: displayName ?? null,
+      role_id: role.id,
       // Re-granting someone previously revoked is a normal thing to do and
       // should actually let them back in.
       disabled_at: null,
@@ -282,7 +312,7 @@ async function grant(email: string, displayName: string | undefined) {
   );
   if (error) throw error;
 
-  console.log(`${normalized} can now sign in at /admin/login.`);
+  console.log(`${normalized} can now sign in at /admin/login as ${role.name}.`);
 }
 
 async function main() {
@@ -311,11 +341,23 @@ async function main() {
     return revoke(email);
   }
 
+  /*
+   * CLI IS THE BREAK-GLASS AND BOOTSTRAP PATH, deliberately. The UI can invite
+   * operators, but reaching it requires already being one — so with zero
+   * admins, or with every admin locked out, this script is the only way back
+   * in. It is not the everyday tool; it is the one that works when the
+   * everyday tool cannot be reached.
+   */
+  const roleIndex = args.indexOf("--role");
+  const roleName = roleIndex !== -1 ? args[roleIndex + 1] : undefined;
+  if (roleIndex !== -1) args.splice(roleIndex, roleName ? 2 : 1);
+
   const [email, displayName] = args;
   if (!email || !email.includes("@")) {
     console.error(
       "Usage:\n" +
         "  npm run grant-admin -- someone@example.com \"Their Name\"\n" +
+        "  npm run grant-admin -- someone@example.com \"Their Name\" --role \"Super Admin\"\n" +
         "  npm run grant-admin -- --list\n" +
         "  npm run grant-admin -- --revoke someone@example.com\n" +
         "\n" +
@@ -324,7 +366,7 @@ async function main() {
     );
     process.exit(1);
   }
-  return grant(email, displayName);
+  return grant(email, displayName, roleName);
 }
 
 main().catch((err) => {
