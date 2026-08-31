@@ -22,6 +22,7 @@
  * down with it. The row this produces is the same row.
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { acquireOperatorsLock } from "../support/operators-lock";
 import { randomUUID } from "node:crypto";
 import { admin, createAuthedTestUser, deleteTestUsers } from "../support/auth";
 import type { Database } from "@/lib/supabase/types";
@@ -57,7 +58,17 @@ async function inviteOnly(email: string) {
   return data.user;
 }
 
+
+/*
+ * SERIALIZED against every other suite that creates an admin holding
+ * `operators`. See tests/support/operators-lock.ts and 0082 — the short
+ * version is that `admin_operators_covered()` is global, so "this is the last
+ * holder" is only true while no other suite's holder exists.
+ */
+let releaseOperatorsLock: (() => Promise<void>) | undefined;
+
 beforeAll(async () => {
+  releaseOperatorsLock = await acquireOperatorsLock(admin, "admin-invite");
   [manager, bystander] = await Promise.all([
     createAuthedTestUser("invite-mgr"),
     createAuthedTestUser("invite-bystander"),
@@ -69,18 +80,31 @@ beforeAll(async () => {
     { id: bystander.id, email: bystander.email.toLowerCase(), role_id: plainRole },
   ]);
   if (error) throw new Error(`fixture operators: ${error.message}`);
-});
+}, 300_000); // hook timeout: this hook QUEUES on the lease, and the
+//                default 60s is shorter than a few suites' worth of waiting.
 
+/*
+   * The release is in a finally because it has to happen even when the
+   * teardown above throws. It did throw once — a fixture was undefined after a
+   * failed beforeAll — and the lease then stood for its whole TTL, so every
+   * run that started in that window reported "skipped". A lock released only
+   * on the happy path is a lock that converts one failure into a queue of
+   * them.
+   */
 afterAll(async () => {
-  const ids = [manager?.id, bystander?.id, ...invited].filter(Boolean) as string[];
-  const { error: a } = await admin.from("admin_audit_log").delete().in("admin_user_id", ids);
-  if (a) console.error("[invite cleanup] audit:", a.message);
-  const { error: u } = await admin.from("admin_users").delete().in("id", ids);
-  if (u) console.error("[invite cleanup] admin_users:", u.message);
-  await deleteTestUsers(ids);
-  // Roles last: role_id is ON DELETE RESTRICT.
-  const { error } = await admin.from("admin_roles").delete().in("id", [managerRole, plainRole]);
-  if (error) console.error("[invite cleanup] roles:", error.message);
+  try {
+    const ids = [manager?.id, bystander?.id, ...invited].filter(Boolean) as string[];
+    const { error: a } = await admin.from("admin_audit_log").delete().in("admin_user_id", ids);
+    if (a) console.error("[invite cleanup] audit:", a.message);
+    const { error: u } = await admin.from("admin_users").delete().in("id", ids);
+    if (u) console.error("[invite cleanup] admin_users:", u.message);
+    await deleteTestUsers(ids);
+    // Roles last: role_id is ON DELETE RESTRICT.
+    const { error } = await admin.from("admin_roles").delete().in("id", [managerRole, plainRole]);
+    if (error) console.error("[invite cleanup] roles:", error.message);
+  } finally {
+    await releaseOperatorsLock?.();
+  }
 });
 
 describe("0076: an invite-created account is a usable operator", () => {
