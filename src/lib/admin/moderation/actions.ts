@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
-import { requireAdmin } from "@/lib/admin/require-admin";
+import { requirePermission } from "@/lib/admin/require-admin";
 import { recordAdminAction } from "@/lib/admin/audit";
 import type { ModerationState } from "./state";
 
@@ -14,10 +14,16 @@ import type { ModerationState } from "./state";
  * these are adapted from each hardcode a null with a comment explaining that a
  * shared secret proves "an operator" and not "which operator", and that
  * accepting a caller-supplied id would render a self-asserted claim as
- * attribution. Both were correct. `requireAdmin()` returns an identity the
- * server established itself, from a session row it can revoke — so the id
+ * attribution. Both were correct. `requirePermission(...)` returns an identity
+ * the server established itself, from a session row it can revoke — so the id
  * written below is not a claim, and 0064 gives two of the three somewhere to
  * put it.
+ *
+ * It also answers a second question the old `requireAdmin()` did not: not just
+ * WHO is deciding, but whether they may decide THIS. Each action names its own
+ * permission, because a Server Action is reachable by POST without the page
+ * that hosts it ever rendering — so the page guard protects the page, and only
+ * this protects this.
  *
  * Every action also writes `admin_audit_log`. The column on the record answers
  * "who last touched this row"; the log answers "what did this operator do",
@@ -37,7 +43,7 @@ export async function decideScholarshipAction(
   _prev: ModerationState,
   formData: FormData,
 ): Promise<ModerationState> {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("scholarships");
   const id = String(formData.get("id") ?? "");
   const decision = String(formData.get("decision") ?? "");
   const note = String(formData.get("note") ?? "").trim();
@@ -112,7 +118,7 @@ export async function decideJobPostingAction(
   _prev: ModerationState,
   formData: FormData,
 ): Promise<ModerationState> {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("reported_postings");
   const id = String(formData.get("id") ?? "");
   const action = String(formData.get("action") ?? "");
   const reason = String(formData.get("reason") ?? "").trim();
@@ -212,7 +218,7 @@ export async function decideCampaignAction(
   _prev: ModerationState,
   formData: FormData,
 ): Promise<ModerationState> {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("ad_campaigns");
   const id = String(formData.get("id") ?? "");
   const approve = String(formData.get("decision") ?? "") === "approve";
   const note = String(formData.get("note") ?? "").trim();
@@ -291,7 +297,7 @@ export async function decideFeedbackAction(
   _prev: ModerationState,
   formData: FormData,
 ): Promise<ModerationState> {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("feedback");
   const id = String(formData.get("id") ?? "");
   const status = String(formData.get("decision") ?? "");
   const note = String(formData.get("note") ?? "").trim();

@@ -1,6 +1,6 @@
 "use server";
 
-import { requireAdmin } from "@/lib/admin/require-admin";
+import { requirePermission } from "@/lib/admin/require-admin";
 import { recordAdminAction } from "@/lib/admin/audit";
 import { findPerson } from "./queries";
 import type { PersonLookupState } from "./state";
@@ -33,7 +33,7 @@ export async function lookUpPersonAction(
   _prev: PersonLookupState,
   formData: FormData,
 ): Promise<PersonLookupState> {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("people");
   const term = String(formData.get("term") ?? "").trim();
 
   if (!term) {
