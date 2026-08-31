@@ -19,6 +19,7 @@
  * a claim about the current grants, so it is asserted rather than believed.
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { acquireOperatorsLock } from "../support/operators-lock";
 import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
 import { admin, createAuthedTestUser, deleteTestUsers, type DB } from "../support/auth";
@@ -133,7 +134,17 @@ const activeSupers = async () =>
     .is("disabled_at", null)).count ?? 0;
 
 
+
+/*
+ * SERIALIZED against every other suite that creates an admin holding
+ * `operators`. See tests/support/operators-lock.ts and 0082 — the short
+ * version is that `admin_operators_covered()` is global, so "this is the last
+ * holder" is only true while no other suite's holder exists.
+ */
+let releaseOperatorsLock: (() => Promise<void>) | undefined;
+
 beforeAll(async () => {
+  releaseOperatorsLock = await acquireOperatorsLock(admin, "admin-roles");
   [seeker, superA, superB, standard] = await Promise.all([
     createAuthedTestUser("roles-seeker"),
     createAuthedTestUser("roles-super-a"),
@@ -147,22 +158,34 @@ beforeAll(async () => {
   await makeOperator(superA, "super_admin");
   await makeOperator(superB, "super_admin");
   await makeOperator(standard, "standard");
-});
+}, 300_000); // hook timeout: this hook QUEUES on the lease, and the
+//                default 60s is shorter than a few suites' worth of waiting.
 
+/*
+ * The release is in a finally because it has to happen even when the teardown
+ * above throws. It did throw once — a fixture was undefined after a failed
+ * beforeAll — and the lease then stood for its whole TTL, so every run that
+ * started in that window reported "skipped". A lock released only on the happy
+ * path converts one failure into a queue of them.
+ */
 afterAll(async () => {
-  // Audit rows are ON DELETE SET NULL, so clear them by id BEFORE the cascade
-  // removes the id they are found by. A refused delete RESOLVES with an error.
-  const { error } = await admin
-    .from("admin_audit_log")
-    .delete()
-    .in("admin_user_id", [superA.id, superB.id, standard.id]);
-  if (error) console.error("[admin-roles cleanup] audit:", error.message);
-  await deleteTestUsers([seeker.id, superA.id, superB.id, standard.id]);
-  // Role last: admin_users.role_id is ON DELETE RESTRICT, so it can only go
-  // once nothing references it. A refused delete RESOLVES with an error.
-  const { error: roleDelErr } = await admin
-    .from("admin_roles").delete().eq("name", `roles-test isolation ${tag}`);
-  if (roleDelErr) console.error("[admin-roles cleanup] role:", roleDelErr.message);
+  try {
+    // Audit rows are ON DELETE SET NULL, so clear them by id BEFORE the cascade
+    // removes the id they are found by. A refused delete RESOLVES with an error.
+    const { error } = await admin
+      .from("admin_audit_log")
+      .delete()
+      .in("admin_user_id", [superA.id, superB.id, standard.id]);
+    if (error) console.error("[admin-roles cleanup] audit:", error.message);
+    await deleteTestUsers([seeker.id, superA.id, superB.id, standard.id]);
+    // Role last: admin_users.role_id is ON DELETE RESTRICT, so it can only go
+    // once nothing references it. A refused delete RESOLVES with an error.
+    const { error: roleDelErr } = await admin
+      .from("admin_roles").delete().eq("name", `roles-test isolation ${tag}`);
+    if (roleDelErr) console.error("[admin-roles cleanup] role:", roleDelErr.message);
+  } finally {
+    await releaseOperatorsLock?.();
+  }
 });
 
 describe("0073: the role column is as unreachable as the table it sits on", () => {
