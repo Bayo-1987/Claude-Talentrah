@@ -34,3 +34,24 @@ export const SITE_ORIGIN: string = (
 export function absoluteUrl(path: string): string {
   return `${SITE_ORIGIN}${path.startsWith("/") ? path : `/${path}`}`;
 }
+
+/**
+ * The default share image, as an absolute-resolvable path.
+ *
+ * Lives here rather than in the root layout because Next REPLACES a parent's
+ * `openGraph` object when a child declares one — it does not merge field by
+ * field. So a page that sets its own openGraph title/description silently
+ * drops the inherited image unless it restates it, which is exactly how the
+ * job pages ended up with no share image at all.
+ *
+ * 512x512 is the largest brand raster in public/icons, which is why the
+ * Twitter card is `summary` rather than `summary_large_image` — the wide card
+ * centre-crops a square into a sliver.
+ */
+export const SHARE_IMAGE = "/icons/talentrah-mark-512.png";
+export const SHARE_IMAGE_META = {
+  url: SHARE_IMAGE,
+  width: 512,
+  height: 512,
+  alt: "Talentrah",
+} as const;

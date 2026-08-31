@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { SITE_ORIGIN } from "@/lib/seo/site";
+import { SITE_ORIGIN, SHARE_IMAGE, SHARE_IMAGE_META } from "@/lib/seo/site";
 import { Newsreader, Source_Sans_3 } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
@@ -21,20 +21,6 @@ const SITE_NAME = "Talentrah";
 const SITE_DESCRIPTION =
   "AI-powered career platform for job seekers in Nigeria and across Africa.";
 
-/*
- * The square brand mark, used as the default share image.
- *
- * 512x512 is the largest raster in public/icons, so the Twitter card is
- * declared as `summary` rather than `summary_large_image`: the large card is
- * 1200x630 and centre-crops whatever it is given, which turns a square mark
- * into a sliver of itself. Claiming the wide card without a wide image is the
- * common way share previews end up looking broken.
- *
- * A purpose-made 1200x630 image would allow the large card and is worth doing,
- * but it is a design artefact rather than a technical gap, so it is not
- * invented here.
- */
-const SHARE_IMAGE = "/icons/talentrah-mark-512.png";
 
 export const metadata: Metadata = {
   /*
@@ -47,12 +33,19 @@ export const metadata: Metadata = {
    * derived from VERCEL_URL.
    */
   metadataBase: new URL(SITE_ORIGIN),
-  title: {
-    default: SITE_NAME,
-    // Pages that set a title get it verbatim; this only fills the gap for any
-    // that do not. Job and blog pages already build their own full string.
-    template: `%s — ${SITE_NAME}`,
-  },
+  /*
+   * A plain string, NOT a `template`.
+   *
+   * A `%s — Talentrah` template is the obvious thing to add here and it is
+   * wrong for this codebase: 37 pages already write their own full title
+   * ending in "— Talentrah", so the template appends a second one and every
+   * tab reads "Jobs — Talentrah — Talentrah". Caught on the job page before
+   * this shipped.
+   *
+   * The convention is that a page owns its whole title. Changing that means
+   * editing 37 files, which is a refactor rather than a metadata fix.
+   */
+  title: SITE_NAME,
   description: SITE_DESCRIPTION,
   applicationName: SITE_NAME,
   openGraph: {
@@ -62,7 +55,7 @@ export const metadata: Metadata = {
     description: SITE_DESCRIPTION,
     url: "/",
     locale: "en_NG",
-    images: [{ url: SHARE_IMAGE, width: 512, height: 512, alt: `${SITE_NAME} logo` }],
+    images: [SHARE_IMAGE_META],
   },
   twitter: {
     card: "summary",

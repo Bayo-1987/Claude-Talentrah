@@ -158,6 +158,23 @@ function tidy(text: string): string {
  * Returning null is a real outcome, not an error path — see the header.
  */
 export function buildJobPostingJsonLd(job: JobPosting): Record<string, unknown> | null {
+  /*
+   * CLOSED POSTINGS GET NO MARKUP, and this is the guard that matters most now
+   * the page is public.
+   *
+   * Google's JobPosting guidance is explicit that an expired posting must stop
+   * being served as structured data — by 404/410, by a past validThrough, or
+   * by removing the markup. This page deliberately still RENDERS a closed
+   * posting (a shared link should explain itself rather than 404), so removing
+   * the markup is the applicable one of the three.
+   *
+   * Without this, a filled role stays eligible for Google for Jobs and the
+   * first anyone hears of it is a candidate applying to something that closed
+   * weeks ago. The sitemap already filters on `status = 'open'`, but a crawler
+   * that has the URL from anywhere else does not consult the sitemap.
+   */
+  if (job.status !== "open") return null;
+
   const description = tidy(job.description ?? "");
   // `description` is required, and Google rejects one identical to the title.
   if (!job.title?.trim() || !description || description === tidy(job.title)) return null;

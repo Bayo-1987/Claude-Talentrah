@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getOptionalUser } from "@/lib/auth/require-user";
 import { buildJobPostingJsonLd } from "@/lib/seo/job-posting-jsonld";
+import { SHARE_IMAGE, SHARE_IMAGE_META } from "@/lib/seo/site";
 import { createClient } from "@/lib/supabase/server";
 import { BorderedCard, Button, EyebrowLabel, MatchTierBadge, buttonClasses } from "@/components/ui";
 import { getCompanyInitials } from "@/lib/jobs/company-initials";
@@ -81,10 +82,21 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
     title,
     description,
     alternates: { canonical: `/jobs/${id}` },
-    openGraph: { title, description, type: "article", url: `/jobs/${id}` },
+    /*
+       `images` is restated, not inherited. Next REPLACES the parent openGraph
+       object when a child declares one, so omitting it here left the pages
+       people actually share — job links in WhatsApp — with no share image.
+    */
+    openGraph: {
+      title,
+      description,
+      type: "article",
+      url: `/jobs/${id}`,
+      images: [SHARE_IMAGE_META],
+    },
     // `summary`, matching the root layout: the default share image is the
     // square 512 mark and the large card would centre-crop it. See layout.tsx.
-    twitter: { card: "summary", title, description },
+    twitter: { card: "summary", title, description, images: [SHARE_IMAGE] },
   };
 }
 
@@ -281,12 +293,21 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
           "Create a free account" verbatim: CLAUDE.md fixes one term per
           concept and rules out "sign up" / "sign in" in body copy.
         */}
-        <Link
-          href={`/signup?redirectTo=${encodeURIComponent(`/jobs/${job.id}`)}`}
-          className={buttonClasses("primary", "sm", "no-underline")}
-        >
-          Create a free account to apply
-        </Link>
+        {/*
+          Not offered on a closed posting. "Create a free account to apply" on
+          a role that is filled is a promise the product cannot keep, and the
+          signed-out view is the one most likely to arrive from a search
+          result months later. The amber "no longer open" notice below still
+          renders, so the page explains itself rather than going blank.
+        */}
+        {job.status === "open" && (
+          <Link
+            href={`/signup?redirectTo=${encodeURIComponent(`/jobs/${job.id}`)}`}
+            className={buttonClasses("primary", "sm", "no-underline")}
+          >
+            Create a free account to apply
+          </Link>
+        )}
         {isExternal && job.external_url && (
           <a
             href={job.external_url}

@@ -110,6 +110,31 @@ describe("Google's required set is present or nothing is emitted", () => {
   });
 });
 
+describe("a posting that is no longer open", () => {
+  it("emits no markup at all", () => {
+    /*
+     * Google's guidance is that an expired posting must stop being served as
+     * structured data. This page still RENDERS a closed posting — a shared
+     * link should explain itself rather than 404 — so removing the markup is
+     * the applicable remedy of the three it offers.
+     *
+     * This matters more since the page became public: a filled role that stays
+     * eligible for Google for Jobs surfaces as a candidate applying to
+     * something that closed weeks ago.
+     */
+    for (const status of ["closed", "filled", "expired", "draft"]) {
+      expect(
+        buildJobPostingJsonLd(base({ status } as Partial<Job>)),
+        `a ${status} posting still emitted JobPosting markup`,
+      ).toBeNull();
+    }
+  });
+
+  it("still emits for an open one — the guard must not be a blanket off switch", () => {
+    expect(buildJobPostingJsonLd(base({ status: "open" } as Partial<Job>))).not.toBeNull();
+  });
+});
+
 describe("the recommended properties, and the ones deliberately withheld", () => {
   it("maps employmentType to Google's case-sensitive vocabulary", () => {
     expect(buildJobPostingJsonLd(base())!.employmentType).toBe("FULL_TIME");
