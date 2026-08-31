@@ -19,12 +19,14 @@ import { Button } from "@/components/ui";
  */
 export function OperatorRowForm({
   id,
-  role,
+  roleId,
+  roles,
   disabled,
   isSelf,
 }: {
   id: string;
-  role: "super_admin" | "standard";
+  roleId: string | null;
+  roles: { id: string; name: string }[];
   disabled: boolean;
   isSelf: boolean;
 }) {
@@ -44,19 +46,32 @@ export function OperatorRowForm({
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-3">
-        <form action={roleAction}>
+        {/*
+          A select plus an explicit Save, not a toggle. With two fixed tiers a
+          single button could name the only other state; with arbitrary roles
+          it cannot, and a control that changes access on the change event is
+          one mis-click from reassigning somebody.
+        */}
+        <form action={roleAction} className="flex flex-wrap items-center gap-2">
           <input type="hidden" name="id" value={id} />
-          <input
-            type="hidden"
-            name="role"
-            value={role === "super_admin" ? "standard" : "super_admin"}
-          />
+          <label className="sr-only" htmlFor={`role-${id}`}>
+            Role
+          </label>
+          <select
+            id={`role-${id}`}
+            name="roleId"
+            defaultValue={roleId ?? ""}
+            className="min-h-11 border-[1.5px] border-ink bg-card px-3 font-body text-[14px] text-ink"
+          >
+            <option value="">No role — no access</option>
+            {roles.map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.name}
+              </option>
+            ))}
+          </select>
           <Button type="submit" size="sm" variant="secondary" disabled={rolePending}>
-            {rolePending
-              ? "Working…"
-              : role === "super_admin"
-                ? "Make Standard Admin"
-                : "Make Super Admin"}
+            {rolePending ? "Working…" : "Save role"}
           </Button>
         </form>
 

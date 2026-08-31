@@ -282,7 +282,11 @@ begin
       if v_id is null then
         return query select false, 'not_found'::text, null::uuid; return;
       end if;
-      delete from public.admin_role_permissions where role_id = v_id;
+      -- QUALIFIED. This function's RETURNS TABLE declares an output column
+      -- called `role_id`, so a bare `where role_id = ...` is ambiguous
+      -- (42702) and the function throws instead of returning a refusal. The
+      -- guard test caught it on its first run.
+      delete from public.admin_role_permissions arp where arp.role_id = v_id;
     end if;
 
     insert into public.admin_role_permissions (role_id, permission)

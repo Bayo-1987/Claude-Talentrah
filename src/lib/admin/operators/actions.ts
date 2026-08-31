@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireSuperAdmin } from "@/lib/admin/require-admin";
+import { requirePermission } from "@/lib/admin/require-admin";
 import { recordAdminAction } from "@/lib/admin/audit";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import type { OperatorActionState } from "./state";
@@ -23,8 +23,9 @@ import type { OperatorActionState } from "./state";
  */
 
 const REFUSALS: Record<string, string> = {
-  last_super_admin:
-    "That would leave nobody with Super Admin. Promote someone else first, then come back.",
+  last_operator_admin:
+    "That would leave nobody able to manage operators. Give someone else a role granting Operators first, then come back.",
+  unknown_role: "That role no longer exists — reload the page.",
   not_authorised: "Only a Super Admin can change operator access.",
   not_found: "That operator no longer exists — reload the page.",
   bad_role: "Unknown role.",
@@ -33,19 +34,19 @@ const REFUSALS: Record<string, string> = {
 
 async function update(
   targetId: string,
-  change: { role?: "super_admin" | "standard"; disabled?: boolean },
+  change: { roleId?: string | null; disabled?: boolean },
 ): Promise<OperatorActionState> {
-  const actor = await requireSuperAdmin();
+  const actor = await requirePermission("operators");
 
   if (!targetId) {
     return { status: "error", message: "Missing operator.", targetId };
   }
 
   const supabase = createServiceRoleClient();
-  const { data, error } = await supabase.rpc("admin_update_operator", {
+  const { data, error } = await supabase.rpc("admin_set_operator", {
     p_actor: actor.adminId,
     p_target: targetId,
-    p_role: change.role ?? undefined,
+    p_role_id: change.roleId ?? undefined,
     p_disabled: change.disabled ?? undefined,
   });
 
@@ -71,14 +72,10 @@ async function update(
    */
   await recordAdminAction({
     identity: actor,
-    action: change.role !== undefined ? "operator.role_changed" : "operator.access_changed",
+    action: change.roleId !== undefined ? "operator.role_changed" : "operator.access_changed",
     targetTable: "admin_users",
     targetId,
-    detail: {
-      role: row.new_role,
-      disabled: row.new_disabled_at !== null,
-      disabled_at: row.new_disabled_at,
-    },
+    detail: { role_id: change.roleId ?? null, disabled: change.disabled ?? null },
   });
 
   revalidatePath("/admin/operators");
@@ -90,11 +87,8 @@ export async function setOperatorRoleAction(
   formData: FormData,
 ): Promise<OperatorActionState> {
   const id = String(formData.get("id") ?? "");
-  const role = String(formData.get("role") ?? "");
-  if (role !== "super_admin" && role !== "standard") {
-    return { status: "error", message: "Unknown role.", targetId: id };
-  }
-  return update(id, { role });
+  const roleId = String(formData.get("roleId") ?? "");
+  return update(id, { roleId: roleId === "" ? null : roleId });
 }
 
 export async function setOperatorAccessAction(

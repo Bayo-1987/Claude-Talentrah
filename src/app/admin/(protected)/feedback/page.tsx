@@ -1,4 +1,4 @@
-import { requireAdmin } from "@/lib/admin/require-admin";
+import { requirePermission } from "@/lib/admin/require-admin";
 import { feedbackQueue, type FeedbackStatus } from "@/lib/admin/moderation/queues";
 import { decideFeedbackAction } from "@/lib/admin/moderation/actions";
 import { DecisionForm } from "@/components/admin/decision-form";
@@ -30,7 +30,7 @@ const STATUS_LABEL: Record<FeedbackStatus, string> = {
  * gap: feedback nobody reads is feedback nobody acts on. This is the read
  * path, and it is the only one — the table's SELECT privilege is still revoked
  * from every client role, so this page reaches it the same way the other three
- * queues reach their rows, through requireAdmin() and the service role.
+ * queues reach their rows, through requirePermission("feedback") and the service role.
  *
  * THE AUTHOR IS NOT SHOWN, AND IS NOT FETCHED. See feedbackQueue(): `user_id`
  * is never selected, so there is no identity on this page to leak by accident.
@@ -45,7 +45,7 @@ const STATUS_LABEL: Record<FeedbackStatus, string> = {
  * not a triager.
  */
 export default async function FeedbackQueuePage() {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("feedback");
   const queue = await feedbackQueue(["new", "in_review"]);
 
   return (

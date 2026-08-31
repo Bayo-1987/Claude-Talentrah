@@ -1,4 +1,4 @@
-import { requireAdmin } from "@/lib/admin/require-admin";
+import { requirePermission } from "@/lib/admin/require-admin";
 import { reportedPostings } from "@/lib/admin/moderation/queues";
 import { decideJobPostingAction } from "@/lib/admin/moderation/actions";
 import { DecisionForm } from "@/components/admin/decision-form";
@@ -31,7 +31,7 @@ const REASON_LABEL: Record<string, string> = {
  * free-text details are surfaced, which is the part that carries evidence.
  */
 export default async function ReportsQueuePage() {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("reported_postings");
   const queue = await reportedPostings();
 
   return (

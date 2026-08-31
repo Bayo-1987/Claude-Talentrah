@@ -1,4 +1,4 @@
-import { requireAdmin } from "@/lib/admin/require-admin";
+import { requirePermission } from "@/lib/admin/require-admin";
 import { pendingCampaigns } from "@/lib/admin/moderation/queues";
 import { decideCampaignAction } from "@/lib/admin/moderation/actions";
 import { DecisionForm } from "@/components/admin/decision-form";
@@ -31,7 +31,7 @@ const naira = new Intl.NumberFormat("en-NG", {
  * from the campaign itself.
  */
 export default async function CampaignQueuePage() {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("ad_campaigns");
   const queue = await pendingCampaigns();
 
   return (

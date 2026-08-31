@@ -1,4 +1,4 @@
-import { requireAdmin } from "@/lib/admin/require-admin";
+import { requirePermission } from "@/lib/admin/require-admin";
 import {
   stuckRenewals,
   autoApplyQueueHealth,
@@ -36,7 +36,7 @@ const QUEUE_LABEL: Record<string, string> = {
  * card. Nothing surfaced one before this.
  */
 export default async function OpsPage() {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("operations");
   const [renewals, queue, buckets, feeds, credentialEvents] = await Promise.all([
     stuckRenewals(),
     autoApplyQueueHealth(),

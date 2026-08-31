@@ -13,6 +13,27 @@ import { Container, EyebrowLabel, BorderedCard } from "@/components/ui";
  * Analytics are absent from the employer nav: a link to a page that does not
  * exist reads as a shipped feature.
  */
+const DASHBOARD_LINKS = [
+  {
+    href: "/admin/scholarships",
+    label: "Scholarship review",
+    permission: "scholarships",
+    blurb: "approve into the public catalog, or reject with a reason.",
+  },
+  {
+    href: "/admin/reports",
+    label: "Reported postings",
+    permission: "reported_postings",
+    blurb: "ranked by distinct reporters; remove or restore.",
+  },
+  {
+    href: "/admin/campaigns",
+    label: "Ad campaign review",
+    permission: "ad_campaigns",
+    blurb: "approving never starts a campaign or spends anything.",
+  },
+] as const;
+
 export default async function AdminHomePage() {
   const admin = await requireAdmin();
 
@@ -45,33 +66,35 @@ export default async function AdminHomePage() {
       </BorderedCard>
 
       <div className="flex flex-col gap-3">
-        <EyebrowLabel>What exists today</EyebrowLabel>
+        <EyebrowLabel>What you can reach</EyebrowLabel>
         <p className="max-w-[620px] text-[15px] text-ink-soft">
-          Three moderation queues, each backed by logic that has been live and
-          tested for a while and had no screen until now. Everything else in the
-          domain map — feedback triage, user support, financial visibility — is a
-          real gap rather than a shipped feature, so it is absent from the nav
-          instead of stubbed.
+          Filtered to your role. Since 0075 an operator sees only the areas
+          their role grants — the same rule the nav follows, applied here too,
+          because a dashboard offering links that bounce is worse than one that
+          offers fewer.
         </p>
+        {/*
+          FILTERED, like the nav — and for the same reason, with the same
+          caveat. This is presentation: requirePermission() on each page is
+          what actually refuses. Leaving these unfiltered was not a hole (the
+          guard still bounced) but it offered links that could only fail, which
+          an e2e run caught before anyone had to read one.
+        */}
         <ul className="flex list-none flex-col gap-2 p-0 text-[15px]">
-          <li>
-            <Link href="/admin/scholarships" className="underline">
-              Scholarship review
-            </Link>{" "}
-            — approve into the public catalog, or reject with a reason.
-          </li>
-          <li>
-            <Link href="/admin/reports" className="underline">
-              Reported postings
-            </Link>{" "}
-            — ranked by distinct reporters; remove or restore.
-          </li>
-          <li>
-            <Link href="/admin/campaigns" className="underline">
-              Ad campaign review
-            </Link>{" "}
-            — approving never starts a campaign or spends anything.
-          </li>
+          {DASHBOARD_LINKS.filter((l) => admin.permissions.includes(l.permission)).map((l) => (
+            <li key={l.href}>
+              <Link href={l.href} className="underline">
+                {l.label}
+              </Link>{" "}
+              — {l.blurb}
+            </li>
+          ))}
+          {!DASHBOARD_LINKS.some((l) => admin.permissions.includes(l.permission)) && (
+            <li className="font-display italic text-ink-soft">
+              Your role grants no areas yet. Whoever invited you can change that
+              from Operators.
+            </li>
+          )}
         </ul>
       </div>
 
