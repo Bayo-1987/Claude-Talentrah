@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
 import type { Database } from "../src/lib/supabase/types";
+import { acquireOperatorsLock } from "../tests/support/operators-lock";
 
 /**
  * /admin/operators — the guard, and the trail.
@@ -73,22 +74,39 @@ test.describe("operator management", () => {
 
   let sup: Fixture, std: Fixture, victim: Fixture;
 
+  /*
+   * Same global invariant as the vitest suites — see 0082. These fixtures are
+   * Super Admins, so they hold `operators` and they count.
+   */
+  let releaseOperatorsLock: (() => Promise<void>) | undefined;
+
   test.beforeAll(async () => {
+    // This hook queues on the lease; the 30s config timeout is not enough.
+    test.setTimeout(300_000);
+    if (db) releaseOperatorsLock = await acquireOperatorsLock(db, "e2e-admin-operators");
     sup = await makeOperator("super_admin");
     std = await makeOperator("standard");
     victim = await makeOperator("standard");
   });
 
+  /*
+   * finally: the release must happen even if the teardown above throws, or a
+   * lease outlives the run and every later run waits out its whole TTL.
+   */
   test.afterAll(async () => {
-    const ids = [sup?.id, std?.id, victim?.id].filter(Boolean) as string[];
-    if (!ids.length || !db) return;
-    // Audit rows are ON DELETE SET NULL — clear them by id BEFORE the cascade
-    // takes the id away. A refused delete RESOLVES with an error.
-    const { error: auditError } = await db.from("admin_audit_log").delete().in("admin_user_id", ids);
-    if (auditError) console.error("[operators cleanup] audit:", auditError.message);
-    for (const id of ids) {
-      const { error } = await db.auth.admin.deleteUser(id);
-      if (error) console.error("[operators cleanup] user:", error.message);
+    try {
+      const ids = [sup?.id, std?.id, victim?.id].filter(Boolean) as string[];
+      if (!ids.length || !db) return;
+      // Audit rows are ON DELETE SET NULL — clear them by id BEFORE the cascade
+      // takes the id away. A refused delete RESOLVES with an error.
+      const { error: auditError } = await db.from("admin_audit_log").delete().in("admin_user_id", ids);
+      if (auditError) console.error("[operators cleanup] audit:", auditError.message);
+      for (const id of ids) {
+        const { error } = await db.auth.admin.deleteUser(id);
+        if (error) console.error("[operators cleanup] user:", error.message);
+      }
+    } finally {
+      await releaseOperatorsLock?.();
     }
   });
 
