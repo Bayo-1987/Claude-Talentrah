@@ -50,6 +50,7 @@ export type AdminPermission =
   // 0076 added this to the enum; see its header for why it is a permission
   // rather than an ungated link.
   | "blog"
+  | "feature_flags"
   | "scholarships"
   | "reported_postings"
   | "ad_campaigns"
