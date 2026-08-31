@@ -31,7 +31,9 @@ import { absoluteUrl } from "./site";
  * and deliberately gave it no default (a default would be a guess recorded as
  * if a source had stated it). Google's guidance is to OMIT validThrough when a
  * job has no expiry, not to invent one, so this emits it only when the column
- * is set. It will start appearing on its own as sources supply it.
+ * is set. It will start appearing on its own as sources supply it — and now
+ * also when an employer chooses one on the job form, which is what made the
+ * past-expiry guard below necessary.
  */
 
 type JobPosting = Tables<"job_postings">;
@@ -174,6 +176,25 @@ export function buildJobPostingJsonLd(job: JobPosting): Record<string, unknown> 
    * that has the URL from anywhere else does not consult the sitemap.
    */
   if (job.status !== "open") return null;
+
+  /*
+   * A posting can be `open` and already past its expiry, for up to a day.
+   *
+   * The expiry sweep (src/lib/jobs/expiry.ts) closes internal postings whose
+   * employer-set date has passed, but it rides the 05:00 ingest cron — so
+   * between the moment an expiry passes and the next run, the row is still
+   * `open` and this function would happily emit `validThrough` in the past.
+   * Google treats a JobPosting whose validThrough has passed as expired
+   * markup on a live page, which is a Search Console error rather than a
+   * silent omission.
+   *
+   * Emit nothing instead, consistent with every other guard here: absent
+   * markup costs eligibility, invalid markup costs trust. This is a backstop
+   * for the sweep's scheduling gap, NOT a substitute for it — the page itself
+   * still shows the posting as open until the sweep runs, and that is the
+   * sweep's job to fix, not this function's.
+   */
+  if (job.expires_at && new Date(job.expires_at).getTime() <= Date.now()) return null;
 
   const description = tidy(job.description ?? "");
   // `description` is required, and Google rejects one identical to the title.
