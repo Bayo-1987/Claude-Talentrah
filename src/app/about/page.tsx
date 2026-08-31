@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/seo/site";
 import { MarketingMasthead } from "@/components/marketing/marketing-masthead";
 import { MarketingFooter } from "@/components/marketing/marketing-footer";
 import { Container, EyebrowLabel } from "@/components/ui";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "About — Talentrah",
   description: "What Talentrah is, and why it&apos;s built the way it&apos;s built.",
-};
+  path: "/about",
+});
 
 /**
  * Deliberately no founding-story/team-bio content below — this spec (§6.1)

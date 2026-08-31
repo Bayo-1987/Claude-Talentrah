@@ -1,14 +1,16 @@
 import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/seo/site";
 import { MarketingMasthead } from "@/components/marketing/marketing-masthead";
 import { MarketingFooter } from "@/components/marketing/marketing-footer";
 import { Container, EyebrowLabel } from "@/components/ui";
 import { getContactRecipient } from "@/lib/resend/client";
 import { ContactForm } from "./contact-form";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Contact — Talentrah",
   description: "Get in touch with the Talentrah team.",
-};
+  path: "/contact",
+});
 
 export default function ContactPage() {
   const recipient = getContactRecipient();
