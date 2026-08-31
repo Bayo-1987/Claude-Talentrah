@@ -1,6 +1,7 @@
 "use server";
 
 import { requirePermission } from "@/lib/admin/require-admin";
+import { recordAdminAction } from "@/lib/admin/audit";
 
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { upsertScholarships } from "./ingest";
@@ -20,23 +21,26 @@ import type { AdminScholarshipState, PendingScholarship } from "./admin-state";
  * read back: a hidden input puts it in the page source, a cookie puts it on
  * disk, and a signed session token is the new auth system the brief ruled out.
  *
- * These are Server Actions rather than fetches to /api/admin/scholarships, so
- * they hold the secret server-side instead of a browser posting it. The route
- * and the actions share the schema and the writer, so there is one definition
- * of a valid listing and one path that writes it — not two that agree today.
+ * These are Server Actions rather than fetches to /api/admin/scholarships,
+ * which began as a way to hold the secret server-side instead of having a
+ * browser post it. That route has since been deleted and these are now the
+ * only way in, which is the stronger version of the same property: there is
+ * one definition of a valid listing and one path that writes it, rather than
+ * two that agree today.
  */
 
 /** Same constant-time comparison the API guard uses, for the same reason. */
 
 /**
- * Reads the moderation queue directly rather than over HTTP to
+ * Reads the moderation queue directly rather than over HTTP to what was
  * /api/admin/moderate-scholarship.
  *
  * Same query, same service-role read, no self-call: a Server Action fetching
  * the app's own route would need an absolute base URL that differs per
  * environment, and would send the admin secret back out over the network to
- * come straight back in. The route stays the operator-facing surface; this is
- * the same read, in-process.
+ * come straight back in. That reasoning is now moot — the route is gone and
+ * /admin/scholarships is the operator-facing surface — but the in-process read
+ * is what it always should have been, so it stays.
  */
 async function loadPending(): Promise<PendingScholarship[]> {
   const supabase = createServiceRoleClient();
@@ -121,7 +125,7 @@ export async function createScholarshipAction(
   _prev: AdminScholarshipState,
   formData: FormData,
 ): Promise<AdminScholarshipState> {
-  await requirePermission("scholarships");
+  const admin = await requirePermission("scholarships");
 
   const parsed = manualScholarshipSchema.safeParse({
     provider: formData.get("provider"),
@@ -155,7 +159,8 @@ export async function createScholarshipAction(
     };
   }
 
-  const result = await upsertScholarships([toNormalizedScholarship(parsed.data)]);
+  const listing = toNormalizedScholarship(parsed.data);
+  const result = await upsertScholarships([listing]);
   if (result.error) {
     // Not echoed: a Postgres error string describes our columns and
     // constraints. It goes to the server log, where the operator's colleague
@@ -171,6 +176,31 @@ export async function createScholarshipAction(
 
   // Re-read after the write so the new row shows up in the queue below the
   // form — the confirmation an operator actually trusts is seeing it listed.
+  /*
+   * ATTRIBUTION THE DELETED ROUTE COULD NOT PROVIDE.
+   *
+   * /api/admin/scholarships authenticated with a shared secret, which proves
+   * "an operator" and not "which operator" — so it wrote nothing to the audit
+   * log, because a caller-supplied id would have been a self-asserted claim
+   * rendered as attribution. A session establishes the identity server-side,
+   * so this can record who added a listing.
+   *
+   * `returnedToReview` is recorded, not just `ok`: it means the post matched a
+   * listing that was already live and differed, so something a seeker could
+   * see a moment ago is now back in the queue. That is the outcome somebody
+   * reading the log later would most want flagged.
+   */
+  await recordAdminAction({
+    identity: admin,
+    action: "scholarship.created",
+    targetTable: "scholarships",
+    detail: {
+      provider: listing.provider,
+      program_name: listing.programName,
+      returned_to_review: result.returnedToReview.length > 0,
+    },
+  });
+
   return {
     status: "success",
     returnedToReview: result.returnedToReview.length > 0,

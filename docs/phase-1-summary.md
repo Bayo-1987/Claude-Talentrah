@@ -350,6 +350,9 @@ env var meant no check at all. `INGEST_SECRET` was not set on the deployment,
 which made every one of them reachable unauthenticated on the public internet.
 Verified against production before the fix, not inferred:
 
+(`moderate-scholarship` has since been retired in favour of `/admin/scholarships`
+— the transcript is the evidence for the finding, not a live URL.)
+
 ```
 $ curl https://claude-talentrah.vercel.app/api/admin/moderate-scholarship
 {"count":3,"scholarships":[{…"moderation_status":"pending"}…]}   HTTP 200

@@ -16,6 +16,7 @@
  * inferred:
  *
  *     $ curl https://claude-talentrah.vercel.app/api/admin/moderate-scholarship
+ *       (that route has since been retired — see docs/admin-auth.md)
  *     {"count":3,"scholarships":[…"moderation_status":"pending"…]}   HTTP 200
  *
  *     $ curl -X POST '…/api/admin/estimate-llm-costs?group=bogus'
@@ -189,56 +190,10 @@ const ADMIN_ENDPOINTS: Array<{
     sideEffecting: true,
   },
   {
-    name: "scholarships POST (manual listing)",
-    url: "http://t/api/admin/scholarships",
-    method: "POST",
-    load: async () => (await import("@/app/api/admin/scholarships/route")).POST,
-    // Writes a row to the public catalog's table. Pending, but written.
-    sideEffecting: true,
-    body: {
-      provider: "Contract Test Provider",
-      programName: "Contract Test Programme",
-      degreeLevels: ["msc"],
-      fundingType: "full",
-      officialUrl: "https://example.org/scholarship",
-    },
-  },
-  {
     name: "estimate-llm-costs POST",
     url: "http://t/api/admin/estimate-llm-costs?group=tailoring",
     method: "POST",
     load: async () => (await import("@/app/api/admin/estimate-llm-costs/route")).POST,
-    sideEffecting: true,
-  },
-  {
-    name: "moderate-campaign GET",
-    url: "http://t/api/admin/moderate-campaign",
-    method: "GET",
-    load: async () => (await import("@/app/api/admin/moderate-campaign/route")).GET,
-    // Listing is not destructive, but it is every pending advertiser's name,
-    // spend and targeting — the same class of leak as the scholarship queue.
-    sideEffecting: false,
-  },
-  {
-    name: "moderate-campaign POST",
-    url: "http://t/api/admin/moderate-campaign",
-    method: "POST",
-    load: async () => (await import("@/app/api/admin/moderate-campaign/route")).POST,
-    // Approving an ad on someone else's behalf, from outside the company.
-    sideEffecting: true,
-  },
-  {
-    name: "moderate-scholarship GET",
-    url: "http://t/api/admin/moderate-scholarship",
-    method: "GET",
-    load: async () => (await import("@/app/api/admin/moderate-scholarship/route")).GET,
-    sideEffecting: false,
-  },
-  {
-    name: "moderate-scholarship POST",
-    url: "http://t/api/admin/moderate-scholarship",
-    method: "POST",
-    load: async () => (await import("@/app/api/admin/moderate-scholarship/route")).POST,
     sideEffecting: true,
   },
   {
@@ -555,25 +510,6 @@ describe("§3 — errors never carry internals to the caller", () => {
    * unauthenticated caller. The assertion is on the payload rather than on
    * the call site so a future route reintroducing the pattern is caught.
    */
-  const THROWN = new Error("relation \"scholarships\" violates check constraint \"scholarships_moderation_status_check\"");
-
-  it("moderate-scholarship POST: a driver error becomes a fixed 500 body", async () => {
-    vi.stubEnv("INGEST_SECRET", ADMIN_SECRET);
-    ranModeration.mockImplementationOnce(() => { throw THROWN; });
-
-    const { POST } = await import("@/app/api/admin/moderate-scholarship/route");
-    const res = await POST(req("http://t/api/admin/moderate-scholarship", "POST", { "x-admin-secret": ADMIN_SECRET }));
-    const body = await res.json();
-
-    expect(res.status).toBe(500);
-    expect(typeof body.error).toBe("string");
-    expect(
-      body.error,
-      "LEAK: raw database text reached the response body",
-    ).not.toContain("check constraint");
-    expect(body.error).not.toContain("scholarships");
-  });
-
   it("estimate-llm-costs: a provider error becomes a fixed 500 body", async () => {
     vi.stubEnv("INGEST_SECRET", ADMIN_SECRET);
     ranCostProbe.mockImplementationOnce(() => {

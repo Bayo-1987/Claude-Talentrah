@@ -1,6 +1,7 @@
-import { test, expect, request as pwRequest, type Page, type Locator } from "@playwright/test";
+import { test, expect, type Page, type Locator } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "../src/lib/supabase/types";
+import { randomUUID } from "node:crypto";
 
 /**
  * Reporting a posting, from the card to the operator's queue.
@@ -19,7 +20,6 @@ import type { Database } from "../src/lib/supabase/types";
  * measurement stays: it is the assertion that survives someone swapping the
  * component out again, which is exactly how the original bug arrived.
  */
-const SECRET = process.env.ADMIN_API_SECRET || process.env.INGEST_SECRET;
 const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const SUPA_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const DEMO_PASSWORD = process.env.DEMO_PASSWORD;
@@ -37,7 +37,7 @@ const admin =
  * so skipping is honest; in CI both exist, and a silent skip there would be
  * indistinguishable from a green run on the summary line.
  */
-if (process.env.CI && (!SECRET || !admin || !DEMO_PASSWORD)) {
+if (process.env.CI && (!admin || !DEMO_PASSWORD)) {
   throw new Error("report-job-posting spec cannot run in CI: missing secret, service key, or demo password");
 }
 
@@ -139,67 +139,163 @@ test.describe("reporting a posting", () => {
     await expect(page.getByText("already reported this one")).toBeVisible({ timeout: 15000 });
   });
 
-  test("the operator queue ranks postings by distinct reporters", async ({ baseURL }) => {
-    test.skip(!SECRET || !admin, "needs an admin secret and the service-role key");
+  /*
+   * THE OPERATOR-QUEUE TESTS NOW DRIVE THE SCREEN, not the retired route.
+   *
+   * They used to GET /api/admin/moderate-job-posting with a shared secret and
+   * assert on JSON. That route is gone — every property it authenticated is
+   * now behind an admin session with per-operator attribution — and the JSON
+   * was never what anyone read: it was a proxy for a page, and a proxy can
+   * agree with the handler while the page renders something else. The M2
+   * restore bug is the proof: the query was correct and the screen still
+   * offered a button that could not fire.
+   *
+   * WHERE THE OLD PROPERTIES WENT, so nothing is quietly dropped:
+   *
+   *   ranked by distinct reporters   -> here, read off the rendered queue
+   *   a removed posting drops out    -> here
+   *   a restored posting comes back  -> tests/rls/admin-content-enforcement,
+   *                                     because there is no restore UI on main
+   *                                     to drive: /admin/reports offers a
+   *                                     Restore button on a queue that filters
+   *                                     removed postings out, so it can never
+   *                                     fire. #132 fixes that; until it lands
+   *                                     the round trip is asserted at the
+   *                                     database layer, where it does work.
+   *   refused without a credential   -> e2e/admin-action-permissions
+   *   remove/restore act once        -> tests/rls/admin-content-enforcement
+   *   restore lands on `closed`      -> tests/rls/admin-content-enforcement
+   *   a reason is required both ways -> tests/rls/admin-content-enforcement
+   */
+  test("the operator queue counts people, not clicks, and a removal drops out", async ({ page }) => {
+    test.setTimeout(180_000);
+    if (!admin) return;
 
-    const api = await pwRequest.newContext({ baseURL });
-    const url = "/api/admin/moderate-job-posting";
+    /*
+     * THE QUEUE THIS READS IS BUILT BY THIS TEST, on purpose.
+     *
+     * The first draft asserted the ranking over whatever happened to be in the
+     * queue, and would have "passed" against a queue of one row — where
+     * "sorted descending" is true of every possible ordering. The seeker test
+     * above leaves exactly one report, so that is the case it would have hit
+     * every time: an assertion that reads like it checks ranking and cannot
+     * fail. Two postings with different reporter counts is the smallest fixture
+     * where the order is capable of being wrong.
+     */
+    const tag = randomUUID().slice(0, 8);
+    const email = `rjp-op-${tag}@talentrah.test`;
+    const password = `E2E-${randomUUID()}Aa1!`;
 
-    const noAuth = await api.get(url);
-    expect(noAuth.status()).toBe(401);
+    const { data: reporters, error: pe } = await admin.from("profiles").select("id").limit(2);
+    if (pe || !reporters || reporters.length < 2) {
+      throw new Error(`need two seeded profiles to act as reporters: ${pe?.message ?? "too few"}`);
+    }
 
-    const res = await api.get(url, { headers: { "x-admin-secret": SECRET! } });
-    expect(res.status()).toBe(200);
-    const body = await res.json();
-
-    expect(body.note).toContain("distinct reporters");
-    expect(Array.isArray(body.postings)).toBe(true);
-    expect(body.count).toBeGreaterThan(0);
-
-    const reported = body.postings[0];
-    expect(reported.reportCount).toBeGreaterThan(0);
-    expect(Object.values(reported.reasons as Record<string, number>).reduce((a, b) => a + b, 0)).toBe(
-      reported.reportCount,
-    );
-    // Ranked, not arbitrary.
-    const counts = body.postings.map((p: { reportCount: number }) => p.reportCount);
-    expect([...counts].sort((a: number, b: number) => b - a)).toEqual(counts);
-
-    await api.dispose();
-  });
-
-  test("a removed posting drops out of the queue", async ({ baseURL }) => {
-    test.skip(!SECRET || !admin, "needs an admin secret and the service-role key");
-
-    const api = await pwRequest.newContext({ baseURL });
-    const url = "/api/admin/moderate-job-posting";
-    const auth = { "x-admin-secret": SECRET! };
-
-    const before = await (await api.get(url, { headers: auth })).json();
-    const target = before.postings[0];
-    expect(target, "the previous test should have left a reported posting").toBeTruthy();
-
-    await api.post(url, {
-      headers: auth,
-      data: { id: target.jobPostingId, action: "remove", reason: "E2E: acting on the report." },
+    const posting = (n: string) => ({
+      source_type: "external" as const,
+      title: `E2E rank ${n} ${tag}`,
+      company_name: `E2E Co ${tag}`,
+      external_url: `https://example.invalid/e2e/${tag}/${n}`,
+      external_source: "e2e",
+      status: "open" as const,
+      description: `Fixture posting for the operator-queue e2e (${tag}).`,
+      // Unique per posting: the dedup key is a NOT NULL column and two
+      // fixtures sharing one would collide with each other.
+      dedup_fingerprint: `e2e-${tag}-${n}`,
     });
+    const { data: made, error: me } = await admin
+      .from("job_postings").insert([posting("busier"), posting("quieter")]).select("id, title");
+    if (me || !made) throw new Error(`fixture postings: ${me?.message}`);
+    const busier = made.find((r) => r.title.includes("busier"))!.id;
+    const quieter = made.find((r) => r.title.includes("quieter"))!.id;
 
-    const after = await (await api.get(url, { headers: auth })).json();
-    const ids = after.postings.map((p: { jobPostingId: string }) => p.jobPostingId);
-    expect(ids).not.toContain(target.jobPostingId);
+    // Two distinct people on one, one person on the other.
+    const { error: re } = await admin.from("job_posting_reports").insert([
+      { job_posting_id: busier, reporter_id: reporters[0].id, reason: "scam", details: `E2E-REPORT rank ${tag} a1` },
+      { job_posting_id: busier, reporter_id: reporters[1].id, reason: "scam", details: `E2E-REPORT rank ${tag} a2` },
+      { job_posting_id: quieter, reporter_id: reporters[0].id, reason: "scam", details: `E2E-REPORT rank ${tag} b1` },
+    ]);
+    if (re) throw new Error(`fixture reports: ${re.message}`);
 
-    // Restoring brings the reports back — they were never retracted. Worth
-    // asserting because it is the surprising half of "removal closes the
-    // complaint".
-    await api.post(url, {
-      headers: auth,
-      data: { id: target.jobPostingId, action: "restore", reason: "E2E: putting it back." },
+    const { data: u, error: ue } = await admin.auth.admin.createUser({
+      email, password, email_confirm: true,
     });
-    const restored = await (await api.get(url, { headers: auth })).json();
-    expect(restored.postings.map((p: { jobPostingId: string }) => p.jobPostingId)).toContain(
-      target.jobPostingId,
-    );
+    if (ue) throw new Error(`fixture operator: ${ue.message}`);
+    const { data: role } = await admin
+      .from("admin_roles").select("id").eq("name", "Super Admin").single();
+    const { error: ae } = await admin.from("admin_users")
+      .insert({ id: u!.user.id, email, display_name: "rjp probe", role_id: role!.id });
+    if (ae) throw new Error(`fixture admin_users: ${ae.message}`);
 
-    await api.dispose();
+    try {
+      await page.goto("/admin/login");
+      await page.locator("#admin-email").fill(email);
+      await page.locator("#admin-password").fill(password);
+      await page.getByRole("button", { name: "Sign in" }).click();
+      await page.waitForURL((x) => !x.pathname.startsWith("/admin/login"), { timeout: 30_000 });
+
+      await page.goto("/admin/reports");
+      expect(new URL(page.url()).pathname).toBe("/admin/reports");
+
+      // The wording is load-bearing: an operator acting on "12" has to know it
+      // is twelve people and not one person twelve times. 0057's unique
+      // constraint is what makes that true.
+      await expect(page.getByText(/one report per person/i)).toBeVisible();
+
+      const rowFor = (id: string) =>
+        page.locator(`ul > li:has(input[name="id"][value="${id}"])`);
+      await expect(rowFor(busier)).toHaveCount(1);
+      await expect(rowFor(quieter)).toHaveCount(1);
+
+      // Counted as people, and pluralised from the same number.
+      await expect(rowFor(busier)).toContainText("2");
+      await expect(rowFor(busier)).toContainText("people");
+      await expect(rowFor(quieter)).toContainText("1");
+      await expect(rowFor(quieter)).toContainText("person");
+
+      // Ranked worst-first: the busier posting is ABOVE the quieter one.
+      const order = await page
+        .locator('ul > li input[name="id"]')
+        .evaluateAll((els) => els.map((e) => (e as HTMLInputElement).value));
+      expect(order).toContain(busier);
+      expect(order).toContain(quieter);
+      expect(
+        order.indexOf(busier),
+        "two reporters must outrank one",
+      ).toBeLessThan(order.indexOf(quieter));
+
+      // Removing takes it out of the queue.
+      //
+      // Keyed on the row's hidden `id` input, not on rendered text: an earlier
+      // draft matched `.eq("title", …)` against `h2` innerText and read back
+      // nothing, which is indistinguishable from "the write never happened".
+      // The id is what the form itself posts, so it is the action's own key.
+      const first = rowFor(busier);
+      await first.getByRole("textbox").fill("E2E: removed by the queue test.");
+      await first.getByRole("button", { name: "Remove from the board" }).click();
+
+      await expect(rowFor(busier)).toHaveCount(0, { timeout: 15_000 });
+      // The other posting is still there — proving the removal was targeted
+      // and the row did not vanish because the whole queue failed to render.
+      await expect(rowFor(quieter)).toHaveCount(1);
+
+      // And the database agrees, with the operator NAMED — the thing a shared
+      // secret could never do: it proved "an operator", never which one.
+      const { data: after, error: afterErr } = await admin
+        .from("job_postings").select("status, removed_by").eq("id", busier).single();
+      if (afterErr) throw new Error(`re-read of ${busier} failed: ${afterErr.message}`);
+      expect(after?.status).toBe("removed");
+      expect(after?.removed_by, "the remover must be recorded").toBe(u!.user.id);
+    } finally {
+      // Postings cascade their reports away (0057).
+      const { error: dp } = await admin.from("job_postings").delete().in("id", [busier, quieter]);
+      if (dp) console.error("[rjp cleanup] postings:", dp.message);
+      const { error: da } = await admin.from("admin_audit_log").delete().eq("admin_user_id", u!.user.id);
+      if (da) console.error("[rjp cleanup] audit:", da.message);
+      const { error: du } = await admin.from("admin_users").delete().eq("id", u!.user.id);
+      if (du) console.error("[rjp cleanup] admin_users:", du.message);
+      const { error } = await admin.auth.admin.deleteUser(u!.user.id);
+      if (error) console.error("[rjp cleanup] user:", error.message);
+    }
   });
 });

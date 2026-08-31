@@ -8,8 +8,10 @@
  * adding one; a missing grant has to be restored on purpose, in SQL, in a
  * diff.
  *
- * THE UNIQUE CONSTRAINT IS NOT HOUSEKEEPING. The operator queue on
- * /api/admin/moderate-job-posting ranks postings by report count, and an
+ * THE UNIQUE CONSTRAINT IS NOT HOUSEKEEPING. The operator queue behind
+ * /admin/reports (`openReports()` in src/lib/admin/moderation/queues.ts, which
+ * inherited this query from the retired shared-secret route) ranks postings by
+ * report count, and an
  * operator deciding whether to pull an employer's listing needs that number to
  * mean "twelve people" and not "one person, twelve times". Without the
  * constraint the count is an applause meter and the loudest complainer decides

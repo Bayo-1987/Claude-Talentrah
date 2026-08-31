@@ -175,13 +175,32 @@ long-lived session for a machine — a shared secret again, with more moving
 parts and an expiry that can silently stop a nightly job.
 
 **The split that matters is by caller, not by URL prefix.** The routes under
-`/api/admin` that a *human* operates — `moderate-scholarship`,
-`moderate-campaign`, `moderate-job-posting`, and the `scholarships` POST — are
-the ones whose shared secret is the wrong mechanism, because it is why all
-three record `reviewed_by = null`. Those move to admin sessions in **M2**, when
-there are screens driving them. Until then `/admin/scholarships/new` sits
-behind the new guard *and* still asks for the shared secret; that double ask is
-honest rather than tidy, and M2 removes the second half.
+`/api/admin` that a *human* operated — `moderate-scholarship`,
+`moderate-campaign`, `moderate-job-posting`, and the `scholarships` POST — were
+the ones whose shared secret was the wrong mechanism, because it is why they
+recorded `reviewed_by = null`.
+
+**Those four are now gone.** M2 built the screens, and the routes were deleted
+rather than left running beside them:
+
+| retired route | what an operator uses instead | what it calls |
+|---|---|---|
+| `GET/POST /api/admin/moderate-job-posting` | `/admin/reports` | `decideJobPostingAction` → `admin_moderate_job_posting` |
+| `GET/POST /api/admin/moderate-scholarship` | `/admin/scholarships` | `decideScholarshipAction` → `admin_moderate_scholarship` |
+| `GET/POST /api/admin/moderate-campaign` | `/admin/campaigns` | `decideCampaignAction` |
+| `POST /api/admin/scholarships` | `/admin/scholarships/new` | `createScholarshipAction` |
+
+Deleting them was the point, not tidiness. While both existed, a shared secret
+and a session were two ways to reach the same write, and the weaker one set the
+real security level — `reviewed_by = null` would have stayed reachable for
+anyone holding the env var, next to a screen that records the operator properly.
+The double ask on `/admin/scholarships/new` is gone too: that page is inside
+`(protected)` and no longer has a password field.
+
+`requireAdminSecret` itself **stays**, and is still the right mechanism for the
+callers that have no browser: `ingest-jobs`, `ingest-scholarships`,
+`renew-passes`, `charge-campaigns` and `estimate-llm-costs`. Nothing scheduled
+changed.
 
 ## How it fits together
 
