@@ -13,7 +13,7 @@ import { randomUUID } from "node:crypto";
 import type { Database } from "@/lib/supabase/types";
 import { createAuthedTestUser, deleteTestUsers } from "../support/auth";
 import { deleteOrgsCascade } from "../support/delete-orgs";
-import { listUsersWithPrefix } from "../support/list-users";
+import { listUsersWithPrefix, RUN_TAG } from "../support/list-users";
 
 for (const key of [
   "NEXT_PUBLIC_SUPABASE_URL",
@@ -50,7 +50,7 @@ async function makeAuthedUser(label: string) {
   // Goes through the shared helper so a transient Supabase Auth rate limit is
   // retried, rather than surfacing as a nonsense assertion failure in whichever
   // suite happens to run next — see tests/support/auth.ts.
-  const user = await createAuthedTestUser(`trk-${label}`);
+  const user = await createAuthedTestUser(`trk-${RUN_TAG}-${label}`);
   created.push(user.id);
   return { id: user.id, client: user.client };
 }
@@ -156,7 +156,7 @@ const createdPostings: string[] = [];
 let fixtureOrgId: string | null = null;
 
 beforeAll(async () => {
-  const user = await createAuthedTestUser("trk-shared");
+  const user = await createAuthedTestUser(`trk-${RUN_TAG}-shared`);
   sharedOwner = { id: user.id, client: user.client };
 }, 60_000);
 
@@ -189,7 +189,9 @@ afterAll(async () => {
    * `trk-` accounts happened to land on page one and silently left the rest.
    * Same defect as the seed's, fixed in #53; it lived here too.
    */
-  trkUserIds.push(...(await listUsersWithPrefix(admin, "trk-")).map((u) => u.id));
+  // SCOPED TO THIS RUN. An unscoped `trk-` swept every concurrent run's
+  // live fixtures too — see RUN_TAG in tests/support/list-users.ts.
+  trkUserIds.push(...(await listUsersWithPrefix(admin, `trk-${RUN_TAG}-`)).map((u) => u.id));
   await deleteTestUsers([...new Set(trkUserIds)]);
 });
 
@@ -398,7 +400,7 @@ describe("a hired application cannot be silently un-hired (0037)", () => {
 
 describe("what a manual entry does to the referral ledger", () => {
   async function referredUser(tag: string) {
-    const referrerEmail = `trk-ref-${tag}-${randomUUID()}@talentrah.test`;
+    const referrerEmail = `trk-${RUN_TAG}-ref-${tag}-${randomUUID()}@talentrah.test`;
     const { data: r } = await admin.auth.admin.createUser({
       email: referrerEmail,
       email_confirm: true,
@@ -411,7 +413,7 @@ describe("what a manual entry does to the referral ledger", () => {
       .single();
 
     const { data: b } = await admin.auth.admin.createUser({
-      email: `trk-refd-${tag}-${randomUUID()}@talentrah.test`,
+      email: `trk-${RUN_TAG}-refd-${tag}-${randomUUID()}@talentrah.test`,
       email_confirm: true,
       user_metadata: { referred_by_code: prof!.referral_code },
     });
