@@ -43,6 +43,18 @@ export interface BlogPostMeta {
 export interface BlogPost extends BlogPostMeta {
   /** Raw Markdown. Callers render it through lib/blog/render.ts. */
   content: string;
+  /**
+   * When the post was last genuinely EDITED, or null if it never has been.
+   *
+   * Not simply `updated_at`. Every row starts with `updated_at == created_at`,
+   * and for the four posts 0074 migrated out of MDX that pair is the moment
+   * the migration ran — so passing the column straight through would tell
+   * Google all four were modified on 31 August 2026, when what happened that
+   * day was a change of storage, not a change of a word. Null means "nothing
+   * has edited this since it was created", and the JSON-LD builder omits
+   * dateModified rather than inventing one.
+   */
+  updatedAt: string | null;
 }
 
 function toMeta(row: Pick<Row, "slug" | "title" | "description" | "author" | "published_at">): BlogPostMeta {
@@ -77,11 +89,31 @@ export async function getAllPosts(): Promise<BlogPostMeta[]> {
 }
 
 /** One published post by slug, or null. Drafts return null. */
+/**
+ * When the post was really edited, or null if it never has been.
+ *
+ * A row is inserted with `updated_at == created_at`, and both the edit and the
+ * publish actions set `updated_at` explicitly — so equal timestamps mean
+ * nothing has touched the row since it was created.
+ *
+ * WHY THIS IS NOT JUST `row.updated_at`. For the four posts 0074 migrated out
+ * of MDX, `updated_at` is the moment the migration ran — 2026-08-31 11:52:50,
+ * identical across all four on production. Handing that to the BlogPosting
+ * builder would have published a `dateModified` claiming every article was
+ * freshly modified the day the storage changed, which is a freshness signal
+ * the content does not support. Exported so that rule has somewhere to be
+ * asserted; it is one comparison and would otherwise be untestable without
+ * mocking the database.
+ */
+export function editedAt(row: Pick<Row, "created_at" | "updated_at">): string | null {
+  return row.updated_at === row.created_at ? null : row.updated_at;
+}
+
 export async function getPostBySlug(slug: string): Promise<BlogPost | null> {
   const supabase = createPublicReadClient();
   const { data, error } = await supabase
     .from("blog_posts")
-    .select("slug, title, description, author, body, published_at")
+    .select("slug, title, description, author, body, published_at, created_at, updated_at")
     .eq("slug", slug)
     .eq("status", "published")
     .maybeSingle();
@@ -91,5 +123,5 @@ export async function getPostBySlug(slug: string): Promise<BlogPost | null> {
     return null;
   }
   if (!data) return null;
-  return { ...toMeta(data), content: data.body };
+  return { ...toMeta(data), content: data.body, updatedAt: editedAt(data) };
 }

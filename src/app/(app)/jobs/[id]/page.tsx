@@ -1,3 +1,4 @@
+import { JsonLd } from "@/components/seo/json-ld";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getOptionalUser } from "@/lib/auth/require-user";
@@ -221,16 +222,7 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
 
   return (
     <div className="flex max-w-[760px] flex-col gap-6">
-      {jsonLd && (
-        <script
-          type="application/ld+json"
-          // Serialised with JSON.stringify, so the only injection surface is a
-          // "</script>" inside a field; the escape below closes it.
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c"),
-          }}
-        />
-      )}
+      <JsonLd data={jsonLd} />
       <Link
         href="/jobs"
         className="inline-flex min-h-10 min-w-10 items-center self-start text-[13px] font-semibold text-ink-soft no-underline hover:text-rust"

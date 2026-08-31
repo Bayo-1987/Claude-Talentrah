@@ -1,5 +1,29 @@
 import { EyebrowLabel } from "@/components/ui";
 
+/**
+ * The public FAQ.
+ *
+ * ── NO FAQPage STRUCTURED DATA HERE, DELIBERATELY ─────────────────────────
+ *
+ * Adding it was planned and then checked against Google's current
+ * documentation rather than shipped on memory. FAQ rich results were narrowed
+ * to "well-known, authoritative government and health websites" in September
+ * 2023, and in June 2026 Google removed the feature's documentation outright:
+ * "The FAQ rich result feature is no longer shown in Google Search results."
+ *
+ * So the markup would render nothing anywhere, while costing a duplicate copy
+ * of every answer on each homepage load and a second place for the wording to
+ * drift out of sync. This project has an explicit payload budget for low-end
+ * Android on expensive data; dead structured data spends it for no return.
+ *
+ * ── THE ANSWERS STILL GO STALE, WHICH IS THE REAL RISK ────────────────────
+ *
+ * The employer answer here read "Not through the site yet — self-serve job
+ * posting is in development" long after self-serve posting shipped. Nothing
+ * catches that: it is a true-sounding sentence about a feature, and the only
+ * signal is someone reading it next to the product. Answers describing what is
+ * and is not live need re-reading whenever the thing they describe ships.
+ */
 const FAQS = [
   {
     q: "Is Talentrah free to use?",
@@ -15,7 +39,7 @@ const FAQS = [
   },
   {
     q: "Can employers post jobs on Talentrah?",
-    a: "Not through the site yet — self-serve job posting is in development. In the meantime, get in touch and we'll work with you directly on a role.",
+    a: "Yes, and it's free while we build out the employer tools. Create a free account, set up your company, and confirm a work email on your company's domain — your roles appear in the job feed once the company is verified. If you'd rather we worked a role with you directly, get in touch.",
   },
 ];
 
