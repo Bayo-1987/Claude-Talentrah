@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { MAX_EXPIRY_DAYS } from "@/lib/employer/expiry-input";
 import { BorderedCard, Button, TextField } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import type { EmployerActionState } from "@/lib/employer/actions";
@@ -87,13 +88,32 @@ const SENIORITIES = [
  * late. The copy says a date rather than a time for that reason; promising an
  * hour would be a precision the schedule does not have.
  *
- * ── PRESETS, NOT A DATE PICKER ────────────────────────────────────────────
+ * ── PRESETS FIRST, AND A BOUNDED CUSTOM DATE ──────────────────────────────
  *
- * An employer thinks in durability — "run this for a month" — not in calendar
- * arithmetic, and a raw date input invites the two failures a preset cannot
- * have: a date in the past, and a typo three years out. Every option here is
- * computed forward from now, so a past expiry is unreachable by construction
- * rather than by validation.
+ * This was presets-only, and the reason still holds: an employer thinks in
+ * duration — "run this for a month" — not in calendar arithmetic, and an
+ * unbounded date input invites the two failures a preset cannot have, a date
+ * in the past and a typo three years out. Presets remain the default path and
+ * are still posted as a NUMBER OF DAYS, never a date, so the server computes
+ * the timestamp from its own `now`.
+ *
+ * A custom date was asked for, and it is added WITHOUT giving up either
+ * guarantee, rather than by dropping the argument above:
+ *
+ *   PAST DATES        `min` is tomorrow, so a past date is not selectable —
+ *                     and the server independently refuses anything at or
+ *                     before `now`, because `min` is a courtesy to the person
+ *                     filling the form and not a control over what is posted.
+ *   ABSURD FUTURES    `max` is MAX_EXPIRY_DAYS ahead, the same 365-day bound
+ *                     the preset path already enforced, re-checked server-side.
+ *
+ * So the two failure modes stay unreachable; what changes is that they are now
+ * prevented by a bound at both ends rather than by not offering the input. The
+ * difference from the original design is that a custom date can be REFUSED —
+ * see readExpiry: a preset that is out of range resolves silently to "no
+ * expiry" because only a hand-made request could produce one, whereas a person
+ * typed the custom date and discarding it quietly would show a form that
+ * looked like it worked.
  *
  * The concrete date is shown once a preset is chosen, because "30 days" and
  * "expires 30 September" are different amounts of information and the second
@@ -107,10 +127,20 @@ const SENIORITIES = [
  * a date on their behalf would eventually take a live posting down.
  */
 const EXPIRY_PRESETS = [
+  { value: "1", label: "1 day", days: 1 },
+  { value: "3", label: "3 days", days: 3 },
+  { value: "7", label: "7 days", days: 7 },
   { value: "14", label: "2 weeks", days: 14 },
   { value: "30", label: "30 days", days: 30 },
   { value: "60", label: "60 days", days: 60 },
 ] as const;
+
+/** YYYY-MM-DD, which is what <input type="date"> wants for min/max/value. */
+function isoDate(offsetDays: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + offsetDays);
+  return d.toISOString().slice(0, 10);
+}
 
 function formatExpiry(days: number): string {
   const d = new Date();
@@ -122,6 +152,7 @@ function ExpiryField({ current }: { current: string | null }) {
   // "keep" only exists while editing a posting that already has an expiry —
   // remapping a stored date onto the nearest preset would silently move it.
   const [choice, setChoice] = useState(current ? "keep" : "");
+  const [customDate, setCustomDate] = useState("");
   const preset = EXPIRY_PRESETS.find((p) => p.value === choice);
   const currentLabel = current
     ? new Date(current).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })
@@ -148,13 +179,47 @@ function ExpiryField({ current }: { current: string | null }) {
             {o.label}
           </option>
         ))}
+        <option value="custom">Pick a date…</option>
       </select>
+
+      {choice === "custom" && (
+        <>
+          <label htmlFor="expiresOn" className="sr-only">
+            Closing date
+          </label>
+          <input
+            id="expiresOn"
+            name="expiresOn"
+            type="date"
+            required
+            /*
+             * Tomorrow at the earliest, and at most MAX_EXPIRY_DAYS out. This
+             * keeps a bad date from being *selectable*; it does not keep one
+             * from being *posted*, which is why readExpiry checks both bounds
+             * again against its own clock.
+             */
+            min={isoDate(1)}
+            max={isoDate(MAX_EXPIRY_DAYS)}
+            value={customDate}
+            onChange={(e) => setCustomDate(e.target.value)}
+            className="min-h-11 border-[1.5px] border-ink bg-card px-3.5 py-2.5 font-body text-[15px] text-ink outline-none focus:border-rust"
+          />
+        </>
+      )}
       <p className="text-[12.5px] text-ink-soft">
         {preset
           ? `Closes ${formatExpiry(preset.days)}.`
-          : choice === "keep" && currentLabel
-            ? `Closes ${currentLabel}. Choose a duration to change it, or “No expiry” to remove it.`
-            : "Stays open until you close it."}
+          : choice === "custom"
+            ? customDate
+              ? `Closes ${new Date(`${customDate}T12:00:00Z`).toLocaleDateString("en-GB", {
+                  day: "numeric",
+                  month: "long",
+                  year: "numeric",
+                })}, at the end of that day.`
+              : `Pick any date up to ${MAX_EXPIRY_DAYS} days from now.`
+            : choice === "keep" && currentLabel
+              ? `Closes ${currentLabel}. Choose a duration to change it, or “No expiry” to remove it.`
+              : "Stays open until you close it."}
       </p>
     </div>
   );

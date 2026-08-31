@@ -1,6 +1,7 @@
 "use server";
 
 import { createHash } from "node:crypto";
+import { readExpiry } from "./expiry-input";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -328,29 +329,7 @@ function readJobForm(form: FormData) {
     years_experience_min: str(form, "yearsExperienceMin")
       ? Number(str(form, "yearsExperienceMin"))
       : null,
-    /*
-     * "" = no expiry, "keep" = leave whatever is stored, otherwise a number of
-     * DAYS computed forward from now. Undefined is meaningfully different from
-     * null here — see applyExpiry below.
-     *
-     * Computed server-side from a duration rather than accepted as a date, so
-     * a client cannot post an expiry in the past or one decades out; the only
-     * values that reach the column are now + one of the offered presets.
-     */
-    expires_at: readExpiry(form),
   };
-}
-
-/** Days -> ISO timestamp; undefined means "do not touch"; null means "clear". */
-function readExpiry(form: FormData): string | null | undefined {
-  const raw = str(form, "expiresIn");
-  if (raw === "keep") return undefined;
-  if (!raw) return null;
-  const days = Number(raw);
-  if (!Number.isFinite(days) || days <= 0 || days > 365) return null;
-  const d = new Date();
-  d.setDate(d.getDate() + days);
-  return d.toISOString();
 }
 
 export async function postJobAction(
@@ -365,6 +344,10 @@ export async function postJobAction(
   if (fields.description.length < 40) {
     return { error: "Add a real job description — at least a couple of sentences." };
   }
+
+  // A custom date the person typed can be refused; a preset never is.
+  const expiry = readExpiry(form);
+  if (!expiry.ok) return { error: expiry.error };
 
   // Inserted through the user's client on purpose. The 0027 policy
   // (`source_type = 'internal' and is_org_member(organization_id)`) is what
@@ -385,7 +368,7 @@ export async function postJobAction(
       : null,
     // `keep` is unreachable on create — there is no stored value to keep — so
     // undefined collapses to null, which is the documented "does not expire".
-    expires_at: fields.expires_at ?? null,
+    expires_at: expiry.value ?? null,
     status: "open",
     dedup_fingerprint: internalDedupFingerprint(organization.id, fields.title, fields.location),
   });
@@ -416,6 +399,10 @@ export async function updateJobAction(
     return { error: "Add a real job description — at least a couple of sentences." };
   }
 
+  // A custom date the person typed can be refused; a preset never is.
+  const expiry = readExpiry(form);
+  if (!expiry.ok) return { error: expiry.error };
+
   // .eq("organization_id") is belt-and-braces on top of the RLS UPDATE policy.
   // Both must agree; neither is trusted alone.
   const { error } = await supabase
@@ -437,7 +424,7 @@ export async function updateJobAction(
        * day of the edit. Explicitly choosing "No expiry" still writes null,
        * because that is a decision rather than an absence.
        */
-      ...(fields.expires_at === undefined ? {} : { expires_at: fields.expires_at }),
+      ...(expiry.value === undefined ? {} : { expires_at: expiry.value }),
       dedup_fingerprint: internalDedupFingerprint(organization.id, fields.title, fields.location),
     })
     .eq("id", jobId)
