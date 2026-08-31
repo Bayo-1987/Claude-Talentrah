@@ -56,6 +56,27 @@ export async function listOperators(): Promise<OperatorRow[]> {
   }));
 }
 
+/**
+ * The permission catalog, read from the database.
+ *
+ * NOT A HARDCODED ARRAY, and that is a bug fix rather than a preference. The
+ * role editor submits exactly the permissions its checkboxes offer, and
+ * admin_upsert_role replaces a role's set with what it receives — so a
+ * permission the UI does not know about is DELETED from every role the moment
+ * somebody clicks Save.
+ *
+ * That happened: `blog` was added to the enum by a separate migration, both
+ * builtin roles were granted it, and this screen would have silently stripped
+ * it from any role an operator edited. Reading the enum means anything added
+ * by migration appears here without a second change nobody remembers to make.
+ */
+export async function listPermissions(): Promise<string[]> {
+  const supabase = createServiceRoleClient();
+  const { data, error } = await supabase.rpc("admin_permission_catalog");
+  if (error) throw error;
+  return (data ?? []).map((r) => r.permission);
+}
+
 export interface RoleRow {
   id: string;
   name: string;

@@ -1991,6 +1991,35 @@ export type Database = {
           session_id: string
         }[]
       }
+      admin_moderate_job_posting: {
+        Args: { p_action: string; p_actor: string; p_id: string; p_reason: string }
+        Returns: { new_status: string; ok: boolean; reason: string }[]
+      }
+      admin_moderate_scholarship: {
+        Args: { p_actor: string; p_id: string; p_note: string; p_status: string }
+        Returns: { ok: boolean; reason: string }[]
+      }
+      admin_permission_catalog: {
+        Args: Record<PropertyKey, never>
+        Returns: { permission: Database["public"]["Enums"]["admin_permission"] }[]
+      }
+      admin_triage_feedback: {
+        Args: { p_actor: string; p_id: string; p_note: string; p_status: string }
+        Returns: { ok: boolean; reason: string }[]
+      }
+      admin_update_course: {
+        Args: {
+          p_actor: string
+          p_active?: boolean
+          p_affiliate_url?: string
+          p_id: string
+          p_price_tier?: string
+          p_provider?: string
+          p_skill_tag?: string
+          p_title?: string
+        }
+        Returns: { ok: boolean; reason: string }[]
+      }
       admin_create_operator: {
         Args: {
           p_actor: string
@@ -2243,6 +2272,7 @@ export type Database = {
         | "finance"
         | "people"
         | "operators"
+        | "blog"
       ad_campaign_status:
         | "draft"
         | "pending_review"
