@@ -33,7 +33,7 @@ const db: SupabaseClient<Database> | null = configured
 
 const tag = randomUUID().slice(0, 8);
 let op = { id: "", email: "", password: "" };
-let roleId = "", postingId = "", reporterId = "";
+let roleId = "", postingId = "", reporterId = "", blogPostId = "";
 
 async function signIn(page: Page) {
   await page.goto("/admin/login");
@@ -54,7 +54,8 @@ test.describe("Server Actions check their own permission", () => {
     roleId = r!.id;
     const { error: pe } = await db!
       .from("admin_role_permissions").insert([{ role_id: roleId, permission: "courses" },
-                { role_id: roleId, permission: "reported_postings" }]);
+                { role_id: roleId, permission: "reported_postings" },
+                { role_id: roleId, permission: "blog" }]);
     if (pe) throw new Error(`fixture perms: ${pe.message}`);
 
     const email = `action-perm-${randomUUID()}@talentrah.test`;
@@ -87,6 +88,17 @@ test.describe("Server Actions check their own permission", () => {
       reason: "scam", details: "ACTION-PERM fixture report.",
     });
     if (rre) throw new Error(`fixture report: ${rre.message}`);
+
+    const { data: bp, error: bpe } = await db!.from("blog_posts").insert({
+      slug: `action-perm-blog-${tag}`,
+      title: "ACTION-PERM blog fixture",
+      description: "Fixture post owned by e2e/admin-action-permissions.",
+      author: "Tests",
+      body: "## Fixture\n\nFixture body.",
+      status: "draft",
+    }).select("id").single();
+    if (bpe) throw new Error(`fixture blog post: ${bpe.message}`);
+    blogPostId = bp!.id;
   });
 
   test.afterAll(async () => {
@@ -102,6 +114,10 @@ test.describe("Server Actions check their own permission", () => {
     if (reporterId) {
       const { error } = await db.auth.admin.deleteUser(reporterId);
       if (error) console.error("[action-perm cleanup] reporter:", error.message);
+    }
+    if (blogPostId) {
+      const { error } = await db.from("blog_posts").delete().eq("id", blogPostId);
+      if (error) console.error("[action-perm cleanup] blog post:", error.message);
     }
     const { error: ue } = await db.from("admin_users").delete().eq("id", op.id);
     if (ue) console.error("[action-perm cleanup] admin_users:", ue.message);
@@ -157,5 +173,54 @@ test.describe("Server Actions check their own permission", () => {
       .toBe("open");
     expect(after.data?.removal_reason, "LEAK: a removal reason was written").toBeNull();
     expect(after.data?.removed_by, "LEAK: a remover was recorded").toBeNull();
+  });
+
+  test("blog: revoking `blog` stops publishing, with the editor already open", async ({ page }) => {
+    /*
+     * The same claim as above, for the area that was not in #163's sweep. The
+     * `blog` permission did not exist when that landed — 0077 added it after —
+     * so the blog actions were left on bare requireAdmin(), which every
+     * operator satisfies.
+     *
+     * Publishing is the action worth proving: it is the one that makes content
+     * public, so an operator who should not hold it being able to POST the
+     * form is the difference between "cannot reach the screen" and "cannot
+     * publish".
+     */
+    await signIn(page);
+    await page.goto(`/admin/blog/${blogPostId}`);
+    await expect(page.getByRole("button", { name: "Publish" })).toBeVisible();
+
+    // Take it away with the editor still on screen. Permissions are read per
+    // request, so the next submit arrives from an operator who no longer holds it.
+    const { error: revokeErr } = await db!
+      .from("admin_role_permissions").delete()
+      .eq("role_id", roleId).eq("permission", "blog");
+    expect(revokeErr, "failed to revoke the fixture permission").toBeNull();
+
+    const before = await db!.from("blog_posts")
+      .select("status, published_at").eq("id", blogPostId).single();
+    expect(before.data?.status, "precondition").toBe("draft");
+
+    await page.getByRole("button", { name: "Publish" }).click();
+    await page.waitForTimeout(3000);
+
+    /*
+     * THE ROW, not the response. A redirect or an error page proves nothing on
+     * its own — only the post still being a draft proves the action checked.
+     */
+    const after = await db!.from("blog_posts")
+      .select("status, published_at").eq("id", blogPostId).single();
+    expect(after.data?.status, "LEAK: an operator without `blog` published a post").toBe("draft");
+    expect(after.data?.published_at, "LEAK: published_at was stamped").toBeNull();
+  });
+
+  test("blog: the same operator cannot reach the blog screens either", async ({ page }) => {
+    // The page guard, now that the permission is revoked. Both halves matter:
+    // the action check is the control, and the page check is what stops the
+    // screen rendering at all.
+    await signIn(page);
+    await page.goto("/admin/blog");
+    expect(page.url(), "an operator without `blog` reached the blog list").not.toContain("/admin/blog");
   });
 });

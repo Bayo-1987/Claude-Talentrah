@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireAdmin } from "@/lib/admin/require-admin";
+import { requirePermission } from "@/lib/admin/require-admin";
 import { getPostForEdit } from "@/lib/admin/blog/posts";
 import { updatePostAction } from "@/lib/admin/blog/actions";
 import { BlogStatusControls } from "@/components/admin/blog-status-controls";
@@ -14,7 +14,7 @@ export const metadata = {
 };
 
 export default async function EditBlogPostPage({ params }: { params: Promise<{ id: string }> }) {
-  await requireAdmin();
+  await requirePermission("blog");
   const { id } = await params;
   const post = await getPostForEdit(id);
   if (!post) notFound();
