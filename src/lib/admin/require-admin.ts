@@ -34,6 +34,32 @@ export async function requireAdmin(): Promise<AdminIdentity> {
   return identity;
 }
 
+/**
+ * The second gate: operator management, super admins only (0073).
+ *
+ * THIS IS THE BOUNDARY. Hiding the nav link from a standard admin is a
+ * courtesy to them, not a control on them — a link they cannot see is still a
+ * URL they can type, and the same reasoning is already written above about the
+ * proxy's cookie check: a check that only proves something is PRESENT is not
+ * the gate. Anything reachable only by super admins calls this, and calls it
+ * on the server, in the page itself.
+ *
+ * It redirects rather than rendering a 403 page. A standard admin who lands
+ * here has almost always followed a stale link or a bookmark, not probed for
+ * something — and the dashboard is where they were going. The refusal is still
+ * total; only its presentation is gentle.
+ *
+ * The DATABASE refuses this too: admin_update_operator (0073) re-checks that
+ * the actor is an active super admin. That is not redundancy for its own sake
+ * — it is what makes the function safe for any future caller that forgets to
+ * come through here first.
+ */
+export async function requireSuperAdmin(): Promise<AdminIdentity> {
+  const identity = await requireAdmin();
+  if (identity.role !== "super_admin") redirect("/admin");
+  return identity;
+}
+
 /** Non-redirecting form, for a page that renders differently rather than bouncing. */
 export async function getAdmin(): Promise<AdminIdentity | null> {
   return getAdminIdentity();

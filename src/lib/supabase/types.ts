@@ -374,6 +374,7 @@ export type Database = {
           email: string
           id: string
           last_login_at: string | null
+          role: string
         }
         Insert: {
           created_at?: string
@@ -382,6 +383,7 @@ export type Database = {
           email: string
           id: string
           last_login_at?: string | null
+          role?: string
         }
         Update: {
           created_at?: string
@@ -390,6 +392,7 @@ export type Database = {
           email?: string
           id?: string
           last_login_at?: string | null
+          role?: string
         }
         Relationships: []
       }
@@ -1887,6 +1890,20 @@ export type Database = {
           admin_id: string
           session_expires_at: string
           session_id: string
+        }[]
+      }
+      admin_update_operator: {
+        Args: {
+          p_actor: string
+          p_disabled?: boolean
+          p_role?: string
+          p_target: string
+        }
+        Returns: {
+          new_disabled_at: string
+          new_role: string
+          ok: boolean
+          reason: string
         }[]
       }
       auto_apply_claim_submission: {

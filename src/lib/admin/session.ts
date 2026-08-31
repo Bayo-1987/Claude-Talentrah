@@ -38,12 +38,17 @@ export { ADMIN_COOKIE, ADMIN_COOKIE_PATH } from "./cookie";
 /** 8 hours. Short because an idle admin tab is a standing set of privileges. */
 const SESSION_TTL_SECONDS = 8 * 60 * 60;
 
+/** 0073. Two states, and the narrower one is the default everywhere. */
+export type AdminRole = "super_admin" | "standard";
+
 export interface AdminIdentity {
   sessionId: string;
   adminId: string;
   email: string;
   displayName: string | null;
   expiresAt: string;
+  /** 0073. Decides only whether operator management is reachable. */
+  role: AdminRole;
 }
 
 function hashToken(token: string): string {
@@ -139,12 +144,38 @@ export async function getAdminIdentity(): Promise<AdminIdentity | null> {
   const row = data?.[0];
   if (!row) return null;
 
+  /*
+   * A second read rather than a change to admin_session_validate's signature.
+   * That function is the gate — four conditions under one lock — and widening
+   * its return type means re-applying a migration that is already live on both
+   * projects, to carry a field the gate does not use. The role is not an
+   * authentication decision; it decides which pages an ALREADY-VALIDATED
+   * operator may reach.
+   *
+   * (This is the same enrichment-read shape 0068 used for mfa_enrolled_at. It
+   * was removed wholesale with that feature in 0071, so this reintroduces the
+   * pattern rather than editing a surviving one.)
+   *
+   * FAILING CLOSED IS THE POINT OF THE COALESCE. A missing row or a failed
+   * read yields "standard", the role that can do less. The alternative —
+   * defaulting to super_admin, or throwing — either widens access on a
+   * database hiccup or takes the whole dashboard down over a page that most
+   * operators never open.
+   */
+  const { data: enrichment, error: roleError } = await supabase
+    .from("admin_users")
+    .select("role")
+    .eq("id", row.admin_id)
+    .maybeSingle();
+  if (roleError) console.error("[admin-session] role read failed", roleError);
+
   return {
     sessionId: row.session_id,
     adminId: row.admin_id,
     email: row.admin_email,
     displayName: row.admin_display_name ?? null,
     expiresAt: row.session_expires_at,
+    role: enrichment?.role === "super_admin" ? "super_admin" : "standard",
   };
 }
 

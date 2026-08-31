@@ -38,7 +38,19 @@ const ITEMS = [
   { href: "/admin/finance", label: "Finance", key: "finance" },
 ] as const;
 
-export async function AdminNav() {
+/*
+ * Operators sits apart from ITEMS because it is the only link that is not for
+ * everybody, and because it has no queue count — there is no backlog of
+ * operators waiting to be dealt with, and a "0" beside it would invent one.
+ *
+ * HIDING IT IS UX, NOT ENFORCEMENT. A standard admin who types the URL is
+ * refused by requireSuperAdmin() on the page itself. This only keeps a link
+ * out of their way that would bounce them if they followed it — the same
+ * distinction already written down about the proxy's cookie check.
+ */
+const SUPER_ADMIN_ONLY = { href: "/admin/operators", label: "Operators" } as const;
+
+export async function AdminNav({ role }: { role: "super_admin" | "standard" }) {
   /*
    * The active link comes from the path header the proxy already stamps on
    * every request (src/lib/supabase/middleware.ts), for the same reason
@@ -86,6 +98,21 @@ export async function AdminNav() {
           </Link>
         );
       })}
+
+      {role === "super_admin" && (
+        <Link
+          href={SUPER_ADMIN_ONLY.href}
+          aria-current={path.startsWith(SUPER_ADMIN_ONLY.href) ? "page" : undefined}
+          className={
+            "inline-flex min-h-11 items-center font-body text-[14px] no-underline " +
+            (path.startsWith(SUPER_ADMIN_ONLY.href)
+              ? "font-semibold text-rust"
+              : "text-ink hover:text-rust")
+          }
+        >
+          {SUPER_ADMIN_ONLY.label}
+        </Link>
+      )}
     </nav>
   );
 }
