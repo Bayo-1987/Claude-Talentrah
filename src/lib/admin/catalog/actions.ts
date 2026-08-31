@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
-import { requireAdmin } from "@/lib/admin/require-admin";
+import { requirePermission } from "@/lib/admin/require-admin";
 import { recordAdminAction } from "@/lib/admin/audit";
 import { PLACEHOLDER_MARKER } from "./courses";
 import { PRICE_TIERS } from "./constants";
@@ -48,7 +48,7 @@ export async function setCourseActiveAction(
   _prev: ModerationState,
   formData: FormData,
 ): Promise<ModerationState> {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("courses");
   const id = String(formData.get("id") ?? "");
   const activate = String(formData.get("decision") ?? "") === "activate";
   if (!id) return { status: "error", message: "Missing course.", targetId: id };
@@ -116,7 +116,7 @@ export async function updateCourseAction(
   _prev: ModerationState,
   formData: FormData,
 ): Promise<ModerationState> {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("courses");
   const id = String(formData.get("id") ?? "");
   const skillTag = String(formData.get("skill_tag") ?? "").trim();
   const provider = String(formData.get("provider") ?? "").trim();

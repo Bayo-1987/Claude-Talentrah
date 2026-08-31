@@ -1,6 +1,6 @@
 "use server";
 
-import { requireAdmin } from "@/lib/admin/require-admin";
+import { requirePermission } from "@/lib/admin/require-admin";
 
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { upsertScholarships } from "./ingest";
@@ -76,10 +76,19 @@ async function loadPending(): Promise<PendingScholarship[]> {
  * revocable session. Asking them to type a password as well would be theatre —
  * and worse, a second credential to leak.
  *
- * `requireAdmin()` here is belt and braces rather than the gate: the layout
- * guard already ran. It matters because a Server Action is a POST endpoint in
- * its own right, reachable without ever rendering the page that hosts it, so
- * the action has to establish identity itself and not inherit it.
+ * `requirePermission("scholarships")` here is THE GATE, not belt and braces.
+ *
+ * This comment used to say the opposite — that the layout guard had already
+ * run and this was a second helping — and that reading is what left a real
+ * hole. A Server Action is a POST endpoint in its own right, reachable without
+ * ever rendering the page that hosts it, so the layout proves nothing about
+ * this call. Worse, the layout only proves the caller is SOME operator; after
+ * 0075 that is no longer the same question as whether they may touch
+ * scholarships. An operator bounced from /admin/scholarships could still post
+ * here until this changed.
+ *
+ * The rule the old comment got backwards: a page guard protects a page. Only
+ * the action can protect the action.
  */
 
 /**
@@ -104,7 +113,7 @@ export async function loadQueueAction(
   _formData: FormData,
 ): Promise<AdminScholarshipState> {
   /* eslint-enable @typescript-eslint/no-unused-vars */
-  await requireAdmin();
+  await requirePermission("scholarships");
   return { status: "idle", pending: await loadPending(), unlocked: true };
 }
 
@@ -112,7 +121,7 @@ export async function createScholarshipAction(
   _prev: AdminScholarshipState,
   formData: FormData,
 ): Promise<AdminScholarshipState> {
-  await requireAdmin();
+  await requirePermission("scholarships");
 
   const parsed = manualScholarshipSchema.safeParse({
     provider: formData.get("provider"),
