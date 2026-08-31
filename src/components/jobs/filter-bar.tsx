@@ -1,5 +1,7 @@
 import Link from "next/link";
 import type { SkillFacetEntry } from "@/lib/jobs/skill-facet";
+import type { Suggestion } from "@/lib/jobs/search-suggestions";
+import { SearchCombobox } from "./search-combobox";
 
 const WORK_TYPES = ["remote", "hybrid", "onsite"] as const;
 const SENIORITIES = ["entry", "mid", "senior", "lead", "executive"] as const;
@@ -64,10 +66,30 @@ export interface FilterBarProps {
    * Derived from ingested text, never a maintained list — see skill-facet.ts.
    */
   skillFacet?: SkillFacetEntry[];
+  /**
+   * Suggestion values for the search field, built server-side from the board
+   * currently in hand. Built from the same set the skill facet counts — the
+   * board BEFORE the search term is applied — so suggestions do not collapse
+   * to whatever co-occurs with what you have typed so far.
+   */
+  searchIndex?: Suggestion[];
 }
 
-/** Server-rendered, no client JS: every chip/toggle is a plain link that updates the URL. */
-export function FilterBar({ q, tab, workType, seniority, skill, skillFacet = [] }: FilterBarProps) {
+/**
+ * Server-rendered. Every chip and toggle is still a plain link that updates the
+ * URL — the one client component is the search field's suggestion list, which
+ * is additive: with JS off it is the same `<input>` in the same GET form it has
+ * always been.
+ */
+export function FilterBar({
+  q,
+  tab,
+  workType,
+  seniority,
+  skill,
+  skillFacet = [],
+  searchIndex = [],
+}: FilterBarProps) {
   const base = { tab, workType, seniority, skill, q };
 
   const applied: { key: keyof typeof base; label: string }[] = [];
@@ -136,17 +158,12 @@ export function FilterBar({ q, tab, workType, seniority, skill, skillFacet = [] 
           {workType && <input type="hidden" name="workType" value={workType} />}
           {seniority && <input type="hidden" name="seniority" value={seniority} />}
           {skill && <input type="hidden" name="skill" value={skill} />}
-          <label htmlFor="job-search" className="sr-only">
-            Search jobs
-          </label>
-          <input
-            id="job-search"
-            name="q"
-            type="search"
-            defaultValue={q ?? ""}
-            placeholder="Search by title, company or location…"
-            className="min-h-[42px] flex-1 border-none bg-card px-3.5 font-display text-[13px] italic text-ink outline-none placeholder:text-ink-soft"
-          />
+          {/*
+            The input and its suggestion list. Still the same `name="q"` inside
+            this same GET form — the combobox fills it and submits the form,
+            rather than introducing a parallel path. See search-combobox.tsx.
+          */}
+          <SearchCombobox defaultValue={q ?? ""} index={searchIndex} />
           <button
             type="submit"
             className="inline-flex min-h-[42px] min-w-10 items-center justify-center border-l border-line bg-card px-3.5 font-body text-[12.5px] font-semibold text-ink-soft no-underline transition-colors hover:text-rust"
