@@ -1,4 +1,4 @@
--- 0074 — custom roles with granular permissions, replacing 0073's two fixed tiers.
+-- 0075 — custom roles with granular permissions, replacing 0073's two fixed tiers.
 --
 -- 0073 put `role text check (role in ('super_admin','standard'))` on
 -- admin_users. That was right for two tiers and wrong for any third, so this
@@ -327,7 +327,7 @@ begin
     return query select false, 'not_found'::text; return;
   end if;
   if v_builtin then
-    -- Builtins are what grant-admin and 0074's backfill name. A bootstrap path
+    -- Builtins are what grant-admin and 0075's backfill name. A bootstrap path
     -- that can be deleted from the UI is one that eventually will be.
     return query select false, 'builtin'::text; return;
   end if;
