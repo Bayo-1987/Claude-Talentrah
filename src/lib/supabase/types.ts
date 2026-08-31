@@ -1081,6 +1081,30 @@ export type Database = {
           },
         ]
       }
+      feature_flags: {
+        Row: {
+          enabled: boolean
+          key: string
+          label: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          enabled?: boolean
+          key: string
+          label: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          enabled?: boolean
+          key?: string
+          label?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       job_postings: {
         Row: {
           company_logo_url: string | null
@@ -2042,6 +2066,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: boolean
       }
+      admin_set_feature_flag: {
+        Args: { p_actor: string; p_enabled: boolean; p_key: string }
+        Returns: { ok: boolean; reason: string }[]
+      }
       admin_set_operator: {
         Args: {
           p_actor: string
@@ -2263,6 +2291,7 @@ export type Database = {
     Enums: {
       admin_permission:
         | "blog"
+        | "feature_flags"
         | "scholarships"
         | "reported_postings"
         | "ad_campaigns"
