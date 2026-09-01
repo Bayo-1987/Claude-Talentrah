@@ -1081,6 +1081,41 @@ export type Database = {
           },
         ]
       }
+      email_preferences: {
+        Row: {
+          created_at: string
+          digest_last_sent_at: string | null
+          job_match_digest: boolean
+          unsubscribe_token: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          digest_last_sent_at?: string | null
+          job_match_digest?: boolean
+          unsubscribe_token?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          digest_last_sent_at?: string | null
+          job_match_digest?: boolean
+          unsubscribe_token?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_preferences_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       feature_flags: {
         Row: {
           enabled: boolean
@@ -2184,6 +2219,13 @@ export type Database = {
         }[]
       }
       generate_referral_code: { Args: never; Returns: string }
+      email_unsubscribe: {
+        Args: { p_subscribed?: boolean; p_token: string }
+        Returns: {
+          job_match_digest: boolean
+          matched: boolean
+        }[]
+      }
       grant_referral_reward: {
         Args: {
           p_amount: number
