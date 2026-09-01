@@ -62,6 +62,14 @@ export default function PrivacyPolicyPage() {
         and communicating with you about your account. We do not sell your
         personal data.
       </p>
+      <p>
+        We also send a weekly email highlighting new roles that match your
+        resume. Those are picked automatically from your resume and the jobs
+        you&apos;ve saved or applied to, and every one carries a one-click
+        unsubscribe. Opting out stops that email only — you&apos;ll still get
+        messages about your account, like password resets and payment
+        receipts.
+      </p>
 
       <h2>AI processing</h2>
       <p>
@@ -77,8 +85,8 @@ export default function PrivacyPolicyPage() {
         <li>Employers or recruiters, only for roles you actively apply to.</li>
         <li>
           Service providers who help us run Talentrah: Supabase (database and
-          authentication), Google (AI processing via Gemini), and Paystack
-          (payment processing).
+          authentication), Google (AI processing via Gemini), Paystack
+          (payment processing), and Resend (sending email).
         </li>
         <li>Law enforcement or regulators, only where we&apos;re legally required to.</li>
       </ul>
