@@ -69,14 +69,57 @@ describe("the function is reachable only by the service role", () => {
 
 describe("it returns operators and nobody else", () => {
   it("every row it returns belongs to an admin_users account", async () => {
+    /*
+     * BOTH SIDES OF THE CALL ARE SNAPSHOTTED, and the union is what the rows
+     * are checked against.
+     *
+     * This read `admin_users` once, AFTER the RPC. Every suite shares one CI
+     * project, so an account that was an operator when the function ran can be
+     * deleted by another suite's teardown before that read — and then this
+     * reports `returned a non-operator` about a function that behaved
+     * perfectly. A security assertion that cries wolf gets weakened by whoever
+     * meets it on a bad day, which is the real cost.
+     *
+     * A row the RPC returned was an operator at RPC time, and RPC time lies
+     * between these two reads, so the union contains it whichever side of the
+     * call the account was created or deleted on. The property asserted is
+     * unchanged — it deliberately does NOT narrow to this suite's own rows,
+     * because "never returns a non-operator" is the thing worth catching.
+     */
+    const before = await admin.from("admin_users").select("id");
+    expect(before.error, before.error?.message).toBeNull();
+
     const { data, error } = await admin.rpc("operator_credential_events", {});
     expect(error).toBeNull();
 
-    const { data: admins } = await admin.from("admin_users").select("id");
-    const adminIds = new Set((admins ?? []).map((a) => a.id));
+    const after = await admin.from("admin_users").select("id");
+    expect(after.error, after.error?.message).toBeNull();
+
+    const adminIds = new Set([
+      ...(before.data ?? []).map((a) => a.id),
+      ...(after.data ?? []).map((a) => a.id),
+    ]);
 
     // The assertion that matters. If a future edit ever widens the scope, this
     // is what fails — not a reviewer noticing.
+    /*
+     * SAY SO WHEN THERE IS NOTHING TO CHECK.
+     *
+     * This loop is empty on any project whose `auth.audit_log_entries` holds no
+     * matching events — which is the CI project today, where the RPC returns
+     * zero rows. An empty loop passes, and a test that checked nothing is
+     * indistinguishable from one that checked everything unless it says so. The
+     * positive control below already warns for exactly this reason; this
+     * assertion was relying on the same absence without mentioning it.
+     */
+    if ((data ?? []).length === 0) {
+      console.warn(
+        "[operator-credential-events] the containment check ran over ZERO rows: " +
+          "auth.audit_log_entries has no matching events on this project, so it " +
+          "proved nothing here. It is a live guard only where events exist.",
+      );
+    }
+
     for (const row of data ?? []) {
       expect(adminIds.has(row.operator_id), `returned a non-operator: ${row.operator_id}`).toBe(
         true,
@@ -119,12 +162,29 @@ describe("it returns operators and nobody else", () => {
    * exists.
    */
   it("returns an operator's own events where the audit log is populated", async () => {
-    const { count } = await admin
+    /*
+     * THIS SUITE'S OWN OPERATOR, not "some operator somewhere".
+     *
+     * This asserted `count > 0` over the whole `admin_users` table while the
+     * comment claimed it proved the fixture exists. On a shared project those
+     * are different statements: any other suite's operator satisfies the count,
+     * so if this suite's own insert had silently failed, the check would still
+     * pass and the positive control below would quietly test nothing.
+     *
+     * Demonstrated rather than argued: with the fixture's row deleted and one
+     * unrelated operator present, the old assertion passed 5/5 and this one
+     * fails.
+     */
+    const { data: mine, error: mineErr } = await admin
       .from("admin_users")
-      .select("id", { count: "exact", head: true });
+      .select("id")
+      .eq("id", operator.id)
+      .maybeSingle();
+    expect(mineErr, mineErr?.message).toBeNull();
+    expect(mine?.id, "this suite's own fixture operator must exist").toBe(operator.id);
+
     const { data, error } = await admin.rpc("operator_credential_events", {});
     expect(error).toBeNull();
-    expect(count).toBeGreaterThan(0); // the fixture operator exists
 
     if ((data ?? []).length === 0) {
       console.warn(
