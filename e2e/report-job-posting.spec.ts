@@ -368,7 +368,7 @@ test.describe("reporting a posting", () => {
          * because the reason chip says "Scam · 2" — the assertion was true for
          * a reason that had nothing to do with what it claimed to check.
          */
-        const countOf = (id: string) => rowFor(id).locator("span.font-display").first();
+        const countOf = (id: string) => rowFor(id).getByTestId("report-count");
         await expect(countOf(busier)).toHaveText("2");
         await expect(rowFor(busier)).toContainText("people");
         await expect(countOf(quieter)).toHaveText("1");

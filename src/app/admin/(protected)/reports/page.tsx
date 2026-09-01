@@ -74,7 +74,19 @@ export default async function ReportsQueuePage() {
                   </div>
 
                   <div className="flex flex-col items-end gap-1">
-                    <span className="font-display text-[28px] leading-none">{p.reportCount}</span>
+                    {/*
+                      data-testid, not a class hook: the e2e suite asserts this
+                      number means PEOPLE rather than clicks, and a locator
+                      built on `font-display` would go quietly missing the next
+                      time the type scale is touched — reported as "element not
+                      found" rather than as a renamed class.
+                    */}
+                    <span
+                      data-testid="report-count"
+                      className="font-display text-[28px] leading-none"
+                    >
+                      {p.reportCount}
+                    </span>
                     <span className="text-[12px] text-ink-soft">
                       {p.reportCount === 1 ? "person" : "people"}
                     </span>
