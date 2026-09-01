@@ -1,6 +1,7 @@
 import "server-only";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { computeScholarshipFingerprint } from "./dedup";
+import { recheckDeadlines } from "./recheck";
 import { SEED_SCHOLARSHIPS } from "./sources.config";
 import type { NormalizedScholarship } from "./types";
 
@@ -16,18 +17,42 @@ export interface ScholarshipIngestSummary {
    */
   returnedToReview: number;
   staleMarked: number;
+  /** Listings published without review because their deadline was machine-verified. */
+  autoPublished: number;
   errors: string[];
+  /**
+   * Recheck outcomes that are information rather than failure — a source page
+   * temporarily unreachable, a page whose dates were ambiguous, a deadline
+   * that moved. Kept apart from `errors` because none of them should fail the
+   * run (or 500 the cron): the curated data stands whenever a recheck cannot
+   * improve on it.
+   */
+  notices: string[];
 }
 
 /** Listings whose deadline passed this long ago stop being re-surfaced. */
 const STALE_AFTER_DAYS = 1;
 
-async function fetchAllSources(): Promise<NormalizedScholarship[]> {
-  // Only a curated source for now — see sources.config.ts for why a live
-  // scraper is deliberately out of M10's scope (§10 item 19's legal review).
-  // A real fetch-based source slots in here without the rest of this file
-  // changing, exactly like src/lib/jobs/ingest.ts's fetchSource.
-  return SEED_SCHOLARSHIPS;
+async function fetchAllSources(): Promise<{
+  listings: NormalizedScholarship[];
+  notices: string[];
+}> {
+  /*
+   * Curated entries first (sources.config.ts — every row a person verified
+   * against its official page), then the daily deadline recheck over the
+   * subset with a recheck target (recheck.ts). The recheck can only update a
+   * deadline it read unambiguously from the official page or leave the
+   * curated data standing — it never invents listings and never degrades one
+   * on a fetch failure.
+   *
+   * The M10 stance that this file is "deliberately NOT a scraper" was revised
+   * by the founder on 2026-09-01 for permitted public sources only —
+   * docs/scholarship-sources.md carries the per-source robots/terms evidence
+   * and the list of sources checked and NOT ingested. §10 item 19's policy
+   * update is still owed; the doc drafts it.
+   */
+  const { listings, notices } = await recheckDeadlines(SEED_SCHOLARSHIPS);
+  return { listings, notices };
 }
 
 export interface ScholarshipUpsertResult {
@@ -40,6 +65,8 @@ export interface ScholarshipUpsertResult {
    * upsert that a human needs to act on.
    */
   returnedToReview: string[];
+  /** Fingerprints published without review under autoPublishMachineVerified. */
+  autoPublished: string[];
   /** Non-null when the write failed. The caller decides how loud that is. */
   error: string | null;
 }
@@ -198,10 +225,30 @@ function changedColumns(
  * content change — someone decided that, and an edit is not an appeal. And
  * `pending` rows are already in the queue, so there is nothing to do.
  */
+export interface UpsertOptions {
+  /**
+   * Founder decision, 2026-09-01: a NEW listing whose deadline is
+   * machine-verified — an exact date confirmed against the official source
+   * (deadlineVerifiedAt set), still in the future — publishes without waiting
+   * for review. Everything else (no confirmable date, variable-by-design
+   * dates, past dates) still lands `pending`.
+   *
+   * STRICTLY OPT-IN, and only the ingest pipeline opts in. The admin posting
+   * form and the manual API route keep the default, because that page's own
+   * copy promises "Nothing on this page can publish a listing" and a default
+   * here would quietly make that a lie. Changes to already-published listings
+   * are never auto-published by anyone — the return-to-review rule above runs
+   * first and wins.
+   */
+  autoPublishMachineVerified?: boolean;
+}
+
 export async function upsertScholarships(
   listings: NormalizedScholarship[],
+  opts: UpsertOptions = {},
 ): Promise<ScholarshipUpsertResult> {
-  if (listings.length === 0) return { upserted: 0, returnedToReview: [], error: null };
+  if (listings.length === 0)
+    return { upserted: 0, returnedToReview: [], autoPublished: [], error: null };
 
   const supabase = createServiceRoleClient();
 
@@ -244,7 +291,8 @@ export async function upsertScholarships(
       baseRows.map((row) => row.dedup_fingerprint),
     );
 
-  if (readError) return { upserted: 0, returnedToReview: [], error: readError.message };
+  if (readError)
+    return { upserted: 0, returnedToReview: [], autoPublished: [], error: readError.message };
 
   const stored = new Map(
     (storedRows ?? []).map((row) => [
@@ -254,9 +302,37 @@ export async function upsertScholarships(
   );
 
   const returnedToReview: string[] = [];
+  const autoPublished: string[] = [];
+  const today = now.slice(0, 10);
   const rows = baseRows.map((row) => {
     const existing = stored.get(row.dedup_fingerprint);
-    if (!existing || existing.moderation_status !== "verified") return row;
+    if (!existing) {
+      /*
+       * A listing we have never seen. Default path: takes the column default,
+       * `pending`. Auto-publish path (ingest only, see UpsertOptions): a
+       * machine-verified, still-open deadline is the entire condition — a
+       * null deadline, a variable-by-design deadlineNote, or a date already
+       * passed all stay pending. `> today` rather than `>=` because a
+       * deadline expiring TODAY is exactly the listing a human should look at
+       * before it goes in front of a seeker.
+       */
+      if (
+        opts.autoPublishMachineVerified &&
+        row.deadline_verified_at !== null &&
+        row.application_deadline !== null &&
+        row.application_deadline > today
+      ) {
+        autoPublished.push(row.dedup_fingerprint);
+        return {
+          ...row,
+          moderation_status: "verified" as const,
+          moderated_at: now,
+          moderation_note: `Auto-published: deadline machine-verified against ${row.source_name}. ${row.moderation_note ?? ""}`.trim(),
+        };
+      }
+      return row;
+    }
+    if (existing.moderation_status !== "verified") return row;
 
     const changed = changedColumns(row, existing);
     if (changed.length === 0) return row;
@@ -278,8 +354,8 @@ export async function upsertScholarships(
     .from("scholarships")
     .upsert(rows, { onConflict: "dedup_fingerprint", count: "exact" });
 
-  if (error) return { upserted: 0, returnedToReview: [], error: error.message };
-  return { upserted: count ?? rows.length, returnedToReview, error: null };
+  if (error) return { upserted: 0, returnedToReview: [], autoPublished: [], error: error.message };
+  return { upserted: count ?? rows.length, returnedToReview, autoPublished, error: null };
 }
 
 /**
@@ -293,10 +369,14 @@ export async function upsertScholarships(
  * the moderation gate are genuinely different, and merging them would mean
  * one pipeline carrying branches for both.
  *
- * Note what this does NOT do: it never sets moderation_status. New rows get
- * the column default (`pending`), and re-ingesting an existing listing
- * leaves whatever a human reviewer already decided untouched. Ingestion
- * cannot publish anything (§6.15).
+ * On moderation_status — revised 2026-09-01 by founder decision. This used to
+ * never set the column; now the ONE case it publishes without review is a NEW
+ * listing whose exact deadline was machine-verified against its official
+ * source and is still open (see UpsertOptions.autoPublishMachineVerified for
+ * the full condition and why only this caller opts in). Everything else is
+ * unchanged: no-date and variable-date listings land `pending`, re-ingesting
+ * leaves human decisions untouched, and a published listing whose content
+ * moves still goes BACK to review — a change is never auto-published.
  */
 export async function ingestScholarships(): Promise<ScholarshipIngestSummary> {
   const summary: ScholarshipIngestSummary = {
@@ -305,13 +385,17 @@ export async function ingestScholarships(): Promise<ScholarshipIngestSummary> {
     upserted: 0,
     returnedToReview: 0,
     staleMarked: 0,
+    autoPublished: 0,
     errors: [],
+    notices: [],
   };
   const supabase = createServiceRoleClient();
 
   let listings: NormalizedScholarship[];
   try {
-    listings = await fetchAllSources();
+    const fetched = await fetchAllSources();
+    listings = fetched.listings;
+    summary.notices.push(...fetched.notices);
   } catch (err) {
     summary.ok = false;
     summary.errors.push(err instanceof Error ? err.message : "Unknown fetch error");
@@ -319,7 +403,7 @@ export async function ingestScholarships(): Promise<ScholarshipIngestSummary> {
   }
   summary.fetched = listings.length;
 
-  const written = await upsertScholarships(listings);
+  const written = await upsertScholarships(listings, { autoPublishMachineVerified: true });
   if (written.error) {
     summary.ok = false;
     summary.errors.push(`Upsert failed: ${written.error}`);
@@ -327,6 +411,7 @@ export async function ingestScholarships(): Promise<ScholarshipIngestSummary> {
   }
   summary.upserted = written.upserted;
   summary.returnedToReview = written.returnedToReview.length;
+  summary.autoPublished = written.autoPublished.length;
 
   summary.staleMarked = await markExpiredCycles(supabase, summary);
   return summary;

@@ -194,6 +194,133 @@ export const SEED_SCHOLARSHIPS: NormalizedScholarship[] = [
     deadlineNote: "Varies by programme — each joint master's consortium sets its own deadline, generally between October and January. See the official source.",
     reviewNote: "Checked 2026-08-24: Erasmus+ gives only a general October-January window and defers exact dates to each consortium; confirmed variable.",
   },
+  /*
+   * ── 2026-09-01 expansion ──────────────────────────────────────────────────
+   *
+   * Added under the founder's 2026-09-01 direction to grow the catalog from
+   * public sources (see docs/scholarship-sources.md for the per-source
+   * permissibility evidence and the programs checked but NOT added). Every
+   * entry below was verified against its officialUrl on 2026-09-01; the same
+   * date discipline as the original eight applies — a deadline is either
+   * confirmed on the official page or null with a note, never a plausible
+   * guess. Two programs were caught by live checks that a list-copy would have
+   * shipped: Vanier (discontinued — "no longer accepting applications") and
+   * ADB-JSP (Asia-Pacific citizens only, fails the eligibility-relevant scope
+   * rule). Neither is below, and that is the point of checking.
+   */
+  {
+    provider: "UK Foreign, Commonwealth & Development Office",
+    programName: "Chevening Scholarships",
+    hostInstitution: "UK universities",
+    degreeLevels: ["msc"],
+    fieldTags: ["Any field", "Public Policy", "Leadership"],
+    fundingType: "full",
+    fundingCovers: ["tuition", "stipend", "travel"],
+    eligibilityNationalities: ["Nigeria", "Chevening-eligible countries"],
+    eligibilityPriorDegree: "An undergraduate degree, plus at least two years' work experience",
+    eligibilityAge: null,
+    eligibilityOther:
+      "Must return to your home country for at least two years after the award ends.",
+    applicationDeadline: "2026-10-06",
+    cycleYear: 2027,
+    officialUrl: "https://www.chevening.org/apply/",
+    sourceName: "Chevening official site",
+    deadlineVerifiedAt: "2026-09-01T06:30:00.000Z",
+    deadlineNote: null,
+    reviewNote:
+      "Checked 2026-09-01: apply page states applications open until 6 October 2026, 11:00 UTC, for 2027/28 study.",
+  },
+  {
+    provider: "Gates Cambridge Trust",
+    programName: "Gates Cambridge Scholarship",
+    hostInstitution: "University of Cambridge",
+    degreeLevels: ["msc", "phd"],
+    fieldTags: ["Any field", "Sciences", "Humanities", "Technology"],
+    fundingType: "full",
+    fundingCovers: ["tuition", "stipend", "travel"],
+    eligibilityNationalities: ["Nigeria", "Any country except the UK"],
+    eligibilityPriorDegree: "A bachelor's degree; apply alongside admission to a Cambridge postgraduate course",
+    eligibilityAge: null,
+    eligibilityOther:
+      "Selection weighs academic excellence, leadership and commitment to improving the lives of others.",
+    applicationDeadline: "2026-12-08",
+    cycleYear: 2027,
+    officialUrl: "https://www.gatescambridge.org/apply/timeline/",
+    sourceName: "Gates Cambridge official site",
+    deadlineVerifiedAt: "2026-09-01T06:30:00.000Z",
+    deadlineNote:
+      "8 December 2026 or 6 January 2027 depending on your course — the earlier date is shown; check which applies to your programme on the official timeline.",
+    reviewNote:
+      "Checked 2026-09-01: timeline page gives two international-round deadlines by course (8 Dec 2026 / 6 Jan 2027); earliest recorded as the deadline so nobody is late by our copy.",
+  },
+  {
+    provider: "Stanford University",
+    programName: "Knight-Hennessy Scholars",
+    hostInstitution: "Stanford University",
+    degreeLevels: ["msc", "phd"],
+    fieldTags: ["Any field", "Engineering", "Business", "Medicine", "Law"],
+    fundingType: "full",
+    fundingCovers: ["tuition", "stipend", "travel"],
+    eligibilityNationalities: ["Nigeria", "Any country"],
+    eligibilityPriorDegree:
+      "A bachelor's degree earned in 2020 or later; apply alongside admission to any Stanford graduate program",
+    eligibilityAge: null,
+    eligibilityOther: "Funds any full-time Stanford graduate degree, up to three years.",
+    applicationDeadline: "2026-10-06",
+    cycleYear: 2027,
+    officialUrl: "https://knight-hennessy.stanford.edu/admission",
+    sourceName: "Knight-Hennessy Scholars official site",
+    deadlineVerifiedAt: "2026-09-01T06:30:00.000Z",
+    deadlineNote: "Closes at 1pm Pacific Time on the deadline day.",
+    reviewNote:
+      "Checked 2026-09-01: admission page states the application closes 6 October 2026 at 1pm Pacific for 2027 entry.",
+  },
+  {
+    provider: "Swiss Confederation (SERI)",
+    programName: "Swiss Government Excellence Scholarships",
+    hostInstitution: "Swiss universities and federal institutes of technology",
+    degreeLevels: ["msc", "phd"],
+    fieldTags: ["Research", "Sciences", "Any field"],
+    fundingType: "full",
+    fundingCovers: ["tuition", "stipend"],
+    eligibilityNationalities: ["Nigeria", "183 eligible countries"],
+    eligibilityPriorDegree: "A master's degree or equivalent for research/PhD tracks",
+    eligibilityAge: null,
+    eligibilityOther: "Research, PhD and postdoctoral tracks; a Swiss host professor is required.",
+    applicationDeadline: null,
+    cycleYear: 2027,
+    officialUrl:
+      "https://www.sbfi.admin.ch/sbfi/en/home/education/scholarships-and-grants/swiss-government-excellence-scholarships.html",
+    sourceName: "Swiss State Secretariat for Education, Research and Innovation",
+    deadlineVerifiedAt: "2026-09-01T06:30:00.000Z",
+    deadlineNote:
+      "Varies by country — applications opened 20 August 2026 and each country's deadline is set by the local Swiss embassy. See the official source for Nigeria's date.",
+    reviewNote:
+      "Checked 2026-09-01: SERI page confirms the 2027/28 round opened 20 Aug 2026 with per-country deadlines published on that page; confirmed variable, not unannounced.",
+  },
+  {
+    provider: "World Bank",
+    programName: "Joint Japan/World Bank Graduate Scholarship Program (JJ/WBGSP)",
+    hostInstitution: "Partner universities worldwide",
+    degreeLevels: ["msc"],
+    fieldTags: ["Development", "Economics", "Public Health", "Policy"],
+    fundingType: "full",
+    fundingCovers: ["tuition", "stipend", "travel"],
+    eligibilityNationalities: ["Nigeria", "World Bank member developing countries"],
+    eligibilityPriorDegree:
+      "A bachelor's degree earned at least three years before application, plus three years' development-related work experience",
+    eligibilityAge: null,
+    eligibilityOther: "Must apply to a participating master's program; returns-home commitment applies.",
+    applicationDeadline: null,
+    cycleYear: 2027,
+    officialUrl: "https://www.worldbank.org/en/programs/scholarships",
+    sourceName: "World Bank official site",
+    deadlineVerifiedAt: "2026-09-01T06:30:00.000Z",
+    deadlineNote:
+      "Two application windows for the 2027 cycle — the exact dates are published in the application guidelines on the official page.",
+    reviewNote:
+      "Checked 2026-09-01: the 2027 windows are announced but the page defers exact dates to the per-window guidelines PDFs; confirmed variable-by-window, not unannounced.",
+  },
   {
     provider: "Aga Khan Foundation",
     programName: "Aga Khan Foundation International Scholarship Programme",

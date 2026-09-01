@@ -83,7 +83,16 @@ vi.mock("@/lib/jobs/ingest", () => ({
 vi.mock("@/lib/scholarships/ingest", () => ({
   ingestScholarships: (...a: unknown[]) => {
     ranScholarshipIngest(...a);
-    return Promise.resolve({ ok: true, fetched: 0, upserted: 0, staleMarked: 0, errors: [] });
+    return Promise.resolve({
+      ok: true,
+      fetched: 0,
+      upserted: 0,
+      returnedToReview: 0,
+      staleMarked: 0,
+      autoPublished: 0,
+      errors: [],
+      notices: [],
+    });
   },
   setModerationStatus: (...a: unknown[]) => {
     ranModeration(...a);
@@ -91,7 +100,7 @@ vi.mock("@/lib/scholarships/ingest", () => ({
   },
   upsertScholarships: (...a: unknown[]) => {
     ranScholarshipUpsert(...a);
-    return Promise.resolve({ upserted: 1, returnedToReview: [], error: null });
+    return Promise.resolve({ upserted: 1, returnedToReview: [], autoPublished: [], error: null });
   },
 }));
 vi.mock("@/lib/llm/cost-probe", () => ({
