@@ -40,7 +40,7 @@ async function runAndRespond(trigger: "cron" | "manual") {
   }
 
   console.log(
-    `[scholarship-ingest] ${trigger} run: ok=${summary.ok} fetched=${summary.fetched} upserted=${summary.upserted} returnedToReview=${summary.returnedToReview} staleMarked=${summary.staleMarked} errors=${summary.errors.length}`,
+    `[scholarship-ingest] ${trigger} run: ok=${summary.ok} fetched=${summary.fetched} upserted=${summary.upserted} autoPublished=${summary.autoPublished} returnedToReview=${summary.returnedToReview} staleMarked=${summary.staleMarked} errors=${summary.errors.length} notices=${summary.notices.length}`,
   );
 
   // Non-2xx on a failed run so a scheduler's alerting fires instead of
