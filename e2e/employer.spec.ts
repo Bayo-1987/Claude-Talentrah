@@ -16,6 +16,7 @@
  * depends on the seeded demo account.
  */
 import { test, expect, admin } from "./fixtures/authed";
+import { runCleanups } from "../tests/support/teardown";
 import { deleteOrgsCascade } from "../tests/support/delete-orgs";
 
 test.describe("employer surface", () => {
@@ -32,12 +33,22 @@ test.describe("employer surface", () => {
      * deleteOrgsCascade deletes in FK order and throws, so a failure here
      * fails the test rather than filling production.
      */
-    const { data: orgs, error } = await admin
-      .from("organizations")
-      .select("id")
-      .like("name", "E2E Employer Co%");
-    if (error) throw new Error(`e2e teardown failed listing organisations: ${error.message}`);
-    await deleteOrgsCascade(admin, (orgs ?? []).map((o) => o.id));
+    /*
+      * Listing and deleting are separate steps so a failed LIST cannot
+      * abandon the delete — see runCleanups. The old shape threw on the list
+      * error and never reached deleteOrgsCascade at all.
+      */
+    await runCleanups([
+      "employer organisations",
+      async () => {
+        const { data: orgs, error } = await admin
+          .from("organizations")
+          .select("id")
+          .like("name", "E2E Employer Co%");
+        if (error) throw new Error(`listing organisations: ${error.message}`);
+        await deleteOrgsCascade(admin, (orgs ?? []).map((o) => o.id));
+      },
+    ]);
   });
 
   test("the employer masthead collapses its nav on a phone", async ({ authedPage, testUser }) => {

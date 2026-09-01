@@ -17,6 +17,7 @@
  * quieter action. Same reasoning the job board applies to closed postings.
  */
 import { test, expect, type Page } from "@playwright/test";
+import { runCleanups, mustDelete } from "../tests/support/teardown";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
 import type { Database } from "@/lib/supabase/types";
@@ -104,22 +105,41 @@ test.describe("blog admin", () => {
   });
 
   test.afterAll(async () => {
-    if (madePosts.length) {
-      const { error } = await db!.from("blog_posts").delete().in("id", madePosts);
-      if (error) throw new Error(`post cleanup failed: ${error.message}`);
-    }
-    if (operator?.id) {
-      // admin_users first: role_id is ON DELETE RESTRICT, so the role cannot
-      // go while an operator still points at it.
-      const { error: au } = await db!.from("admin_users").delete().eq("id", operator.id);
-      if (au) throw new Error(`admin_users cleanup failed: ${au.message}`);
-      const { error } = await db!.auth.admin.deleteUser(operator.id);
-      if (error) throw new Error(`operator cleanup failed: ${error.message}`);
-    }
-    if (roleId) {
-      const { error } = await db!.from("admin_roles").delete().eq("id", roleId);
-      if (error) throw new Error(`role cleanup failed: ${error.message}`);
-    }
+    /*
+     * Every step runs even if an earlier one fails — see runCleanups.
+     *
+     * This hook is the reason that helper exists. Written as a sequence of
+     * throw-on-error deletes, a failure on `blog_posts` abandoned the rest and
+     * left an OPERATOR behind: an admin holding real permissions, in a
+     * database every other run shares. The suite reported the post failure and
+     * silently created a worse one.
+     *
+     * Order still matters and is preserved: admin_users before admin_roles,
+     * because role_id is ON DELETE RESTRICT.
+     */
+    await runCleanups(
+      ["blog posts", async () => {
+        if (madePosts.length) {
+          await mustDelete("blog_posts", db!.from("blog_posts").delete().in("id", madePosts));
+        }
+      }],
+      ["operator admin_users row", async () => {
+        if (operator?.id) {
+          await mustDelete("admin_users", db!.from("admin_users").delete().eq("id", operator.id));
+        }
+      }],
+      ["operator auth user", async () => {
+        if (operator?.id) {
+          const { error } = await db!.auth.admin.deleteUser(operator.id);
+          if (error) throw new Error(error.message);
+        }
+      }],
+      ["admin role", async () => {
+        if (roleId) {
+          await mustDelete("admin_roles", db!.from("admin_roles").delete().eq("id", roleId));
+        }
+      }],
+    );
   });
 
   test("the whole lifecycle, with an audit row for every step", async ({ page, request }) => {

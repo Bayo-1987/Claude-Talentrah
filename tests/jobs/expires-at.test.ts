@@ -45,6 +45,7 @@ import { randomUUID } from "node:crypto";
 import { closeExpiredInternalPostings } from "@/lib/jobs/expiry";
 import { admin, createTestUser, deleteTestUsers } from "../support/auth";
 import { deleteTestOrgs } from "../support/cleanup";
+import { runCleanups, mustDelete } from "../support/teardown";
 
 const created: string[] = [];
 
@@ -113,20 +114,24 @@ afterAll(async () => {
   // A rejected delete RESOLVES with an error rather than throwing — the
   // failure mode this repo has now hit five times, each found somewhere
   // unrelated and much later. Report it.
-  const { error } = await admin.from("job_postings").delete().in("id", created);
-  if (error) throw new Error(`expires-at cleanup failed, rows left behind: ${error.message}`);
-
   /*
-   * Postings first, then the shared cascade helper, then the users. The
-   * job_postings -> organizations FK is NO ACTION, not CASCADE, so an org
-   * that still has a posting cannot be deleted — and a refused delete
-   * RESOLVES with an error rather than throwing, which is how test orgs piled
-   * up in production for weeks while every hook reported success.
-   * deleteTestOrgs/deleteTestUsers report; a hand-rolled delete here would
-   * re-create exactly that bug.
+   * Every step runs even if an earlier one fails, and FK order is preserved:
+   * postings, then organisations, then users. Written as sequential
+   * throw-on-error deletes — which is how this hook started — a refused
+   * posting delete abandoned the org and user cleanup, leaving exactly the
+   * kind of residue that poisons later runs on a shared project.
    */
-  if (createdOrgs.length > 0) await deleteTestOrgs(createdOrgs);
-  if (createdUsers.length > 0) await deleteTestUsers(createdUsers);
+  await runCleanups(
+    ["postings", async () => {
+      await mustDelete("job_postings", admin.from("job_postings").delete().in("id", created));
+    }],
+    ["organisations", async () => {
+      if (createdOrgs.length > 0) await deleteTestOrgs(createdOrgs);
+    }],
+    ["users", async () => {
+      if (createdUsers.length > 0) await deleteTestUsers(createdUsers);
+    }],
+  );
 });
 
 describe("the column records a fact; it does not invent one", () => {

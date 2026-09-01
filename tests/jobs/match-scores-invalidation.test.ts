@@ -25,6 +25,7 @@
  * WHEN clause, which is the part with a real decision in it.
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { runCleanups, mustDelete } from "../support/teardown";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
 import type { Database } from "@/lib/supabase/types";
@@ -123,15 +124,26 @@ async function scoreRows(jobId: string, userIds: string[]) {
 }
 
 afterAll(async () => {
-  // A rejected delete RESOLVES with an error rather than throwing. Report it.
-  if (createdJobs.length) {
-    const { error } = await admin.from("job_postings").delete().in("id", createdJobs);
-    if (error) throw new Error(`posting cleanup failed, rows left behind: ${error.message}`);
-  }
-  for (const id of createdUsers) {
-    const { error } = await admin.auth.admin.deleteUser(id);
-    if (error) throw new Error(`user cleanup failed, ${id} left behind: ${error.message}`);
-  }
+  /*
+   * Every step runs even if an earlier one fails. Written as sequential
+   * throw-on-error deletes, a refused posting delete abandoned the user
+   * cleanup entirely and leaked accounts into the shared CI project — a
+   * failure that surfaces later, somewhere unrelated. See runCleanups.
+   */
+  await runCleanups(
+    ["postings", async () => {
+      if (createdJobs.length) {
+        await mustDelete("job_postings", admin.from("job_postings").delete().in("id", createdJobs));
+      }
+    }],
+    ...createdUsers.map(
+      (id) =>
+        [`user ${id}`, async () => {
+          const { error } = await admin.auth.admin.deleteUser(id);
+          if (error) throw new Error(error.message);
+        }] as const,
+    ),
+  );
 });
 
 describe("changing what the score was computed from clears the cache", () => {

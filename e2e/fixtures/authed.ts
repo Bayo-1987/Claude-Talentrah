@@ -62,7 +62,31 @@ interface SessionCookie {
 }
 
 async function createUserWithSession(): Promise<{ user: TestUser; cookie: SessionCookie }> {
-  const email = `e2e-${randomUUID()}@talentrah.test`;
+  /*
+   * ── A UNIQUE DOMAIN PER USER, NOT A SHARED ONE ──────────────────────────
+   *
+   * These used to be `e2e-<uuid>@talentrah.test`. Every throwaway e2e user
+   * therefore shared one work-email domain — and organisations auto-verify
+   * from the creator's confirmed non-consumer domain, while /employer/
+   * onboarding offers to JOIN any verified organisation on your domain.
+   *
+   * So a single leaked verified organisation on `talentrah.test` changed the
+   * onboarding page for EVERY later test: instead of the create flow they got
+   * "Someone from your company is already here", and five specs failed on a
+   * redirect that never came. Measured, not guessed — one leaked row was
+   * enough, and deleting that row turned the same suite from 5 failures back
+   * to 10 passes with no code change.
+   *
+   * A per-user subdomain makes the class impossible rather than rarer: no two
+   * e2e users can be colleagues, so no amount of residue from one test can
+   * reroute another. Teardown is still fixed (see tests/support/teardown.ts),
+   * but teardown that has to be perfect to keep the suite honest is a bad bet.
+   *
+   * The shared-domain behaviour itself is still covered — deliberately, by
+   * tests/employer/duplicate-domains.test.ts, which builds colleagues on
+   * purpose through the other helper.
+   */
+  const email = `e2e-${randomUUID()}@${randomUUID().slice(0, 12)}.talentrah.test`;
   const { data: created, error: createErr } = await admin.auth.admin.createUser({
     email,
     email_confirm: true,
