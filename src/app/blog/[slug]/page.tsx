@@ -13,6 +13,29 @@ interface BlogPostPageProps {
   params: Promise<{ slug: string }>;
 }
 
+/**
+ * A BACKSTOP, not the mechanism.
+ *
+ * Publishing, unpublishing, editing and deleting all call `revalidatePath`
+ * from their Server Actions, so the normal path is still instant and this
+ * value never comes into it. What it fixes is the case where something
+ * reaches `blog_posts` WITHOUT going through those actions — a migration, a
+ * bulk tool, a script, a hand-run SQL statement.
+ *
+ * That is not hypothetical. A row deleted straight through the database
+ * connector during the 0074 rollout left /blog/<slug> serving a cached 200
+ * with `x-vercel-cache: HIT` and a climbing age, while the listing and the
+ * sitemap — both of which query live — correctly showed it gone. Without a
+ * time bound the page was stuck until a redeploy, and a redeploy is what it
+ * took to clear it.
+ *
+ * An hour, because the cost of being wrong is asymmetric: an hour of a stale
+ * blog post is a nuisance, an indefinitely stuck one is an incident that only
+ * a deploy resolves. Short enough to self-heal unattended, long enough that it
+ * is not doing the work `revalidatePath` already does well.
+ */
+export const revalidate = 3600;
+
 /*
  * Still prerenders the published set, but the set now comes from the database
  * rather than from a directory listing. Anything published after a build is
