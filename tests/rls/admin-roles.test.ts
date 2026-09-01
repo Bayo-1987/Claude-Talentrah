@@ -19,6 +19,7 @@
  * a claim about the current grants, so it is asserted rather than believed.
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { acquireOperatorsLock } from "../support/operators-lock";
 import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
 import { admin, createAuthedTestUser, deleteTestUsers, type DB } from "../support/auth";
@@ -55,6 +56,12 @@ const raceB: DB = createClient<Database>(
   { auth: { autoRefreshToken: false, persistSession: false } },
 );
 
+/*
+ * Per-run, so two concurrent runs cannot delete each other's fixture role.
+ * The shared RUN_TAG helper is #155 and still open, so this is local.
+ */
+const tag = randomUUID().slice(0, 8);
+
 let seeker: Awaited<ReturnType<typeof createAuthedTestUser>>;
 let superA: Awaited<ReturnType<typeof createAuthedTestUser>>;
 let superB: Awaited<ReturnType<typeof createAuthedTestUser>>;
@@ -75,10 +82,27 @@ async function makeOperator(
   user: Awaited<ReturnType<typeof createAuthedTestUser>>,
   role: "super_admin" | "standard",
 ) {
+  /*
+   * A ROLE THAT DOES NOT GRANT `operators`, even for the "super_admin" case.
+   *
+   * These fixtures used the builtin Super Admin, which grants `operators` —
+   * and admin_operators_covered() is GLOBAL, so an active admin here satisfies
+   * the coverage that admin-permissions.test.ts's "last holder" assertions
+   * need to be exactly one. Run together, those eight tests failed; run apart,
+   * both files passed. Same shape as issue #136, and the same conclusion PR A
+   * reached for this file's own coverage block: exactly one file may own
+   * coverage-sensitive state, and it is admin-permissions.test.ts.
+   *
+   * Nothing here needs the permission. The three tests that remain assert what
+   * a CLIENT cannot read, write or execute — all negative, all refused by
+   * privilege before any permission is consulted. The actor-authorisation
+   * tests that did need a holder were duplicates of admin-permissions.test.ts's
+   * own, and were removed rather than moved.
+   */
   const { data: roleRow, error: roleErr } = await admin
     .from("admin_roles")
     .select("id")
-    .eq("name", role === "super_admin" ? "Super Admin" : "Standard Admin")
+    .eq("name", `roles-test isolation ${tag}`)
     .single();
   if (roleErr) throw new Error(`fixture role lookup: ${roleErr.message}`);
 
@@ -110,27 +134,58 @@ const activeSupers = async () =>
     .is("disabled_at", null)).count ?? 0;
 
 
+
+/*
+ * SERIALIZED against every other suite that creates an admin holding
+ * `operators`. See tests/support/operators-lock.ts and 0082 — the short
+ * version is that `admin_operators_covered()` is global, so "this is the last
+ * holder" is only true while no other suite's holder exists.
+ */
+let releaseOperatorsLock: (() => Promise<void>) | undefined;
+
 beforeAll(async () => {
+  releaseOperatorsLock = await acquireOperatorsLock(admin, "admin-roles");
   [seeker, superA, superB, standard] = await Promise.all([
     createAuthedTestUser("roles-seeker"),
     createAuthedTestUser("roles-super-a"),
     createAuthedTestUser("roles-super-b"),
     createAuthedTestUser("roles-standard"),
   ]);
+  const { error: roleCreateErr } = await admin
+    .from("admin_roles").insert({ name: `roles-test isolation ${tag}` });
+  if (roleCreateErr) throw new Error(`fixture role: ${roleCreateErr.message}`);
+
   await makeOperator(superA, "super_admin");
   await makeOperator(superB, "super_admin");
   await makeOperator(standard, "standard");
-});
+}, 300_000); // hook timeout: this hook QUEUES on the lease, and the
+//                default 60s is shorter than a few suites' worth of waiting.
 
+/*
+ * The release is in a finally because it has to happen even when the teardown
+ * above throws. It did throw once — a fixture was undefined after a failed
+ * beforeAll — and the lease then stood for its whole TTL, so every run that
+ * started in that window reported "skipped". A lock released only on the happy
+ * path converts one failure into a queue of them.
+ */
 afterAll(async () => {
-  // Audit rows are ON DELETE SET NULL, so clear them by id BEFORE the cascade
-  // removes the id they are found by. A refused delete RESOLVES with an error.
-  const { error } = await admin
-    .from("admin_audit_log")
-    .delete()
-    .in("admin_user_id", [superA.id, superB.id, standard.id]);
-  if (error) console.error("[admin-roles cleanup] audit:", error.message);
-  await deleteTestUsers([seeker.id, superA.id, superB.id, standard.id]);
+  try {
+    // Audit rows are ON DELETE SET NULL, so clear them by id BEFORE the cascade
+    // removes the id they are found by. A refused delete RESOLVES with an error.
+    const { error } = await admin
+      .from("admin_audit_log")
+      .delete()
+      .in("admin_user_id", [superA.id, superB.id, standard.id]);
+    if (error) console.error("[admin-roles cleanup] audit:", error.message);
+    await deleteTestUsers([seeker.id, superA.id, superB.id, standard.id]);
+    // Role last: admin_users.role_id is ON DELETE RESTRICT, so it can only go
+    // once nothing references it. A refused delete RESOLVES with an error.
+    const { error: roleDelErr } = await admin
+      .from("admin_roles").delete().eq("name", `roles-test isolation ${tag}`);
+    if (roleDelErr) console.error("[admin-roles cleanup] role:", roleDelErr.message);
+  } finally {
+    await releaseOperatorsLock?.();
+  }
 });
 
 describe("0073: the role column is as unreachable as the table it sits on", () => {
@@ -168,41 +223,6 @@ describe("0073: the role column is as unreachable as the table it sits on", () =
       });
       expect(error, `LEAK: ${label} executed admin_update_operator`).not.toBeNull();
     }
-  });
-});
-
-describe("0073: only an active super admin may act", () => {
-  it("a standard admin is refused as the actor", async () => {
-    const { data } = await admin.rpc("admin_update_operator", {
-      p_actor: standard.id,
-      p_target: superA.id,
-      p_role: "standard",
-    });
-    expect(data?.[0]?.ok).toBe(false);
-    expect(data?.[0]?.reason).toBe("not_authorised");
-    expect((await roleOf(superA.id))?.role).toBe("super_admin");
-  });
-
-  it("a disabled super admin is refused as the actor", async () => {
-    await admin.from("admin_users").update({ disabled_at: new Date().toISOString() }).eq("id", superB.id);
-    const { data } = await admin.rpc("admin_update_operator", {
-      p_actor: superB.id,
-      p_target: standard.id,
-      p_role: "super_admin",
-    });
-    expect(data?.[0]?.ok).toBe(false);
-    expect(data?.[0]?.reason).toBe("not_authorised");
-    await admin.from("admin_users").update({ disabled_at: null }).eq("id", superB.id);
-  });
-
-  it("an unknown target is reported, not silently ignored", async () => {
-    const { data } = await admin.rpc("admin_update_operator", {
-      p_actor: superA.id,
-      p_target: randomUUID(),
-      p_role: "standard",
-    });
-    expect(data?.[0]?.ok).toBe(false);
-    expect(data?.[0]?.reason).toBe("not_found");
   });
 });
 

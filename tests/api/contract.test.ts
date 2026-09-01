@@ -56,6 +56,7 @@ const ADMIN_SECRET = randomUUID();
  * instrument: if the guard leaks, the spy fires and the test says so.
  */
 const ranJobIngest = vi.fn();
+const sweptExpiredPostings = vi.fn();
 const ranScholarshipIngest = vi.fn();
 const ranScholarshipUpsert = vi.fn();
 const ranCostProbe = vi.fn();
@@ -132,6 +133,25 @@ vi.mock("@/lib/supabase/service-role", () => ({
           },
         }),
       }),
+      /*
+       * The job-expiry sweep, which /api/admin/ingest-jobs runs before
+       * ingesting. Without this the mock had no `update` at all, so the sweep
+       * threw on every ingest test — and because the route catches it and
+       * carries on by design, the suite stayed GREEN while its first action
+       * failed every time. It only surfaced as a stack trace in CI logs
+       * nobody reads.
+       *
+       * Chainable because the real call is
+       * .update().eq().eq().not().lt().select(), and a mock that stops short
+       * of the real shape is how the gap opened in the first place.
+       */
+      update: () => {
+        if (table === "job_postings") sweptExpiredPostings();
+        const chain: Record<string, unknown> = {};
+        for (const method of ["eq", "not", "lt", "gt", "is"]) chain[method] = () => chain;
+        chain.select = () => Promise.resolve({ data: [], error: null });
+        return chain;
+      },
     }),
     rpc: (...a: unknown[]) => {
       decidedCampaign(...a);
@@ -141,7 +161,7 @@ vi.mock("@/lib/supabase/service-role", () => ({
 }));
 
 const SPIES = [
-  ranJobIngest, ranScholarshipIngest, ranScholarshipUpsert, ranCostProbe,
+  ranJobIngest, sweptExpiredPostings, ranScholarshipIngest, ranScholarshipUpsert, ranCostProbe,
   ranPassRenewal, ranModeration, listedScholarships,
   listedCampaigns, decidedCampaign, ranCampaignCharge,
 ];
@@ -339,6 +359,30 @@ describe("§1 — the admin guard fails CLOSED", () => {
       expect(res.status, `${ep.name} rejected a correct credential`).not.toBe(401);
     });
   }
+
+  it("the ingest cron also runs the job-expiry sweep, and a sweep failure does not stop ingestion", async () => {
+    /*
+     * The expiry sweep has no cron of its own — it rides this route, because
+     * ingestion refreshing external postings and expiry closing internal ones
+     * are one daily job-maintenance run rather than two schedules and two
+     * secrets. That makes this route the only thing keeping employer-set
+     * expiries honest, so the wiring is worth pinning.
+     *
+     * This test exists because the wiring silently broke the day it shipped.
+     * The mock above had no `update`, so the sweep threw on every ingest test
+     * — and since the route deliberately catches and continues, the suite
+     * stayed green while its first action failed every single run. The only
+     * evidence was a stack trace in CI logs.
+     */
+    vi.stubEnv("INGEST_SECRET", ADMIN_SECRET);
+    const { POST } = await import("@/app/api/admin/ingest-jobs/route");
+    const res = await POST(
+      req("http://t/api/admin/ingest-jobs", "POST", { "x-admin-secret": ADMIN_SECRET }),
+    );
+    expect(sweptExpiredPostings, "the ingest run never swept expired postings").toHaveBeenCalled();
+    expect(ranJobIngest, "the sweep replaced ingestion rather than preceding it").toHaveBeenCalled();
+    expect(res.status).not.toBe(401);
+  });
 
   it("one secret covers the whole surface, including the route that spends money", async () => {
     /*

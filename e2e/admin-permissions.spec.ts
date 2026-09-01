@@ -2,6 +2,7 @@ import { test, expect, type Page } from "@playwright/test";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
 import type { Database } from "../src/lib/supabase/types";
+import { acquireOperatorsLock } from "../tests/support/operators-lock";
 
 /**
  * Per-area permission enforcement, driven by the URL.
@@ -91,26 +92,40 @@ test.describe("per-area permissions", () => {
   let restricted: Op, full: Op;
   let restrictedRole: string, fullRole: string;
 
+  // `fullRole` holds `operators`, so this spec moves the global count too.
+  let releaseOperatorsLock: (() => Promise<void>) | undefined;
+
   test.beforeAll(async () => {
+    // This hook queues on the lease; the 30s config timeout is not enough.
+    test.setTimeout(300_000);
+    if (db) releaseOperatorsLock = await acquireOperatorsLock(db, "e2e-admin-permissions");
     restrictedRole = await makeRole("restricted", GRANTED);
     fullRole = await makeRole("full", [...AREAS.map((a) => a.perm), "operators", "blog"]);
     restricted = await makeOperator("restricted", restrictedRole);
     full = await makeOperator("full", fullRole);
   });
 
+  /*
+   * finally: the release must happen even if the teardown above throws, or a
+   * lease outlives the run and every later run waits out its whole TTL.
+   */
   test.afterAll(async () => {
-    if (!db) return;
-    const ids = [restricted?.id, full?.id].filter(Boolean) as string[];
-    const { error: auditErr } = await db.from("admin_audit_log").delete().in("admin_user_id", ids);
-    if (auditErr) console.error("[perm-e2e cleanup] audit:", auditErr.message);
-    for (const id of ids) {
-      const { error } = await db.auth.admin.deleteUser(id);
-      if (error) console.error("[perm-e2e cleanup] user:", error.message);
+    try {
+      if (!db) return;
+      const ids = [restricted?.id, full?.id].filter(Boolean) as string[];
+      const { error: auditErr } = await db.from("admin_audit_log").delete().in("admin_user_id", ids);
+      if (auditErr) console.error("[perm-e2e cleanup] audit:", auditErr.message);
+      for (const id of ids) {
+        const { error } = await db.auth.admin.deleteUser(id);
+        if (error) console.error("[perm-e2e cleanup] user:", error.message);
+      }
+      // Roles last — admin_users.role_id is ON DELETE RESTRICT, so they can only
+      // go once nothing references them. A refused delete RESOLVES with an error.
+      const { error } = await db.from("admin_roles").delete().in("id", [restrictedRole, fullRole]);
+      if (error) console.error("[perm-e2e cleanup] roles:", error.message);
+    } finally {
+      await releaseOperatorsLock?.();
     }
-    // Roles last — admin_users.role_id is ON DELETE RESTRICT, so they can only
-    // go once nothing references them. A refused delete RESOLVES with an error.
-    const { error } = await db.from("admin_roles").delete().in("id", [restrictedRole, fullRole]);
-    if (error) console.error("[perm-e2e cleanup] roles:", error.message);
   });
 
   test("an operator is refused at the URL for every area their role does not grant", async ({ page }) => {

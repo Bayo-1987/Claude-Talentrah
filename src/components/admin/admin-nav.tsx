@@ -55,7 +55,7 @@ const ITEMS = [
  *
  * HIDING A LINK IS UX, NOT ENFORCEMENT. Both entries are now backed by a
  * guard, so hiding them only spares an operator a bounce they would otherwise
- * take: requirePermission("operators") and requirePermission("blog") refuse
+ * take: requirePermission("operators"), ("blog") and ("feature_flags") refuse
  * anyone who types the URL — on the pages themselves, and again in their
  * Server Actions, which are reachable by POST without the page ever rendering.
  *
@@ -68,6 +68,7 @@ const ITEMS = [
  */
 const COUNTLESS_ITEMS = [
   { href: "/admin/blog", label: "Blog", permission: "blog" },
+  { href: "/admin/feature-flags", label: "Feature flags", permission: "feature_flags" },
   { href: "/admin/operators", label: "Operators", permission: "operators" },
 ] as const;
 

@@ -48,6 +48,26 @@ export const metadata: Metadata = {
   title: SITE_NAME,
   description: SITE_DESCRIPTION,
   applicationName: SITE_NAME,
+  /*
+   * Google Search Console ownership, rendered by Next as
+   * <meta name="google-site-verification" content="…">.
+   *
+   * HERE AND NOT IN pageMetadata(). That helper is per-PAGE — seven pages call
+   * it to build their own title, canonical and og tags — so putting the token
+   * there would stamp it on those seven and omit it everywhere else, including
+   * pages Search Console is just as likely to fetch. Ownership is a property
+   * of the site, so it belongs in the one object that is a property of the
+   * site.
+   *
+   * The value is public by design: it is served in the HTML of every page for
+   * Google to read. It proves control of this property to Google and grants
+   * nothing to anyone who copies it, so it is committed rather than kept in an
+   * env var — a secret-shaped thing that is not a secret is worse hidden,
+   * because the next person has to work out which it is.
+   */
+  verification: {
+    google: "immMtQL4Q_POb0tDh4mrsti5K_1gsiqszQsExvZIbz0",
+  },
   openGraph: {
     type: "website",
     siteName: SITE_NAME,
