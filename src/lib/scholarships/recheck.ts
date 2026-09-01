@@ -66,6 +66,22 @@ export const RECHECK_TARGETS: RecheckTarget[] = [
     url: "https://knight-hennessy.stanford.edu/admission",
   },
   {
+    /*
+     * The one target added in tranche 2. Its page states a single deadline in
+     * a form the extractor reads, and it closes eight days after verification
+     * — so this is the entry most likely to move, and the one where a daily
+     * recheck earns its keep. Every other tranche-2 entry was deliberately NOT
+     * given a target: their pages carry a date range, several plan deadlines,
+     * or stale copy from the previous cycle, and the extractor's
+     * exactly-one-candidate rule would correctly defer to a human on all of
+     * them. Adding a target that always defers is noise in the run summary.
+     */
+    provider: "Schwarzman Scholars",
+    programName: "Schwarzman Scholars",
+    cycleYear: 2027,
+    url: "https://www.schwarzmanscholars.org/admissions/",
+  },
+  {
     provider: "Commonwealth Scholarship Commission (UK)",
     programName: "Commonwealth Master's Scholarships",
     cycleYear: 2027,

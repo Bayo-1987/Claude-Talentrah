@@ -48,6 +48,12 @@ Two standing rules were kept, deliberately:
 | Swiss Government Excellence | Variable — round opened 20 Aug 2026, per-country deadlines on the SERI page | No (variable by design) | Swiss federal site; standard terms (checked 2026-09-01) |
 | JJ/WBGSP (World Bank) | Variable — 2027 windows announced, dates in guidelines PDFs | No (dates live in PDFs) | worldbank.org public program page (checked 2026-09-01) |
 | Commonwealth Master's (existing M10 entry) | 2026-10-20 (verified 2026-08-24) | Yes — cscuk.fcdo.gov.uk (UK gov, Open Government Licence) | OGL — explicitly reusable |
+| **— tranche 2, 2026-09-01 —** | | | |
+| Lester B. Pearson (U of Toronto) | **2026-11-06** (scholarship application; school nomination 9 Oct, admission 16 Oct) | No — page carries stale 2025 copy, extractor would see several dates | robots.txt allows content (checked 2026-09-01) |
+| ETH Excellence & Opportunity (ESOP) | **2026-11-30** (window opens 1 Nov, 12:59 CET) | No — expressed as a range with an abbreviated month, extractor reads neither | no robots.txt served (404); no stated restriction (checked 2026-09-01) |
+| Schwarzman Scholars | **2026-09-09** (3pm EDT, class of 2027–28) | **Yes** — single machine-readable date | robots.txt `Disallow:` empty, `Crawl-delay: 10`; one fetch/day complies (checked 2026-09-01) |
+| NYU Abu Dhabi Undergraduate | Variable by plan — ED I 1 Nov, ED II 1 Jan, RD 5 Jan; **page states no year** | No | robots via redirect; page fetched cleanly (checked 2026-09-01) |
+| NL Scholarship (Nuffic) | Variable — each Dutch institution sets its own, commonly 1 Feb or 1 May | No (no central date) | studyinnl.org public programme page (checked 2026-09-01) |
 
 Plus the original M10 eight (DAAD EPOS, Mastercard Foundation, Commonwealth,
 MEXT, Rhodes, PTDF, Erasmus Mundus, Aga Khan) — unchanged.
@@ -57,6 +63,7 @@ MEXT, Rhodes, PTDF, Erasmus Mundus, Aga Khan) — unchanged.
 | Program | Reason | Re-check? |
 |---|---|---|
 | Vanier CGS (Canada) | **Discontinued** — site states "no longer accepting applications" (2026-09-01). A list-copy would have shipped this. | No |
+| Manaaki NZ Scholarships | **Nigeria and all African countries absent from the eligible list** — Pacific and Asian countries only (verified on the official eligible-countries page 2026-09-01). Same rule that excluded ADB-JSP. Tertiary applications also currently closed. | Only if the scope rule changes |
 | ADB–Japan Scholarship Program | Eligibility is ADB borrowing members (Asia-Pacific citizens) — fails the catalog's eligibility-relevant scope rule for Nigerian/African applicants | Only if scope rule changes |
 
 ## Checked — WATCH LIST (cycle closed or unconfirmed; re-verify on schedule)
@@ -67,9 +74,35 @@ MEXT, Rhodes, PTDF, Erasmus Mundus, Aga Khan) — unchanged.
 | Eiffel Excellence (France) | 2026 campaign closed (8 Jan 2026); 2027 campaign publishes in autumn | Oct–Nov 2026 |
 | Mandela Rhodes | Public pages carry no dates; applications typically open early in the year for the following intake | Jan 2027 |
 | Türkiye Bursları | Portal is login-gated; application window typically Jan–Feb | Dec 2026 |
-| Manaaki NZ Scholarships | Slug 404ed on first attempt — needs the current URL | Next pass |
-| Australia Awards (DFAT) | robots.txt fetch timed out — retry; note DFAT content is typically CC-BY | Next pass |
-| Global Korea Scholarship | studyinkorea.go.kr slug 404ed — needs the current URL | Next pass |
+| Australia Awards (Africa) | **Re-checked 2026-09-01**: 2027 intake closed; official page states the 2028 intake "will open in February 2027" with no exact date. Nigeria's participation not stated on the apply page. DFAT's own robots.txt timed out again. | Feb 2027 |
+| Global Korea Scholarship | **Re-checked 2026-09-01** — real domain found (`studyinkorea.go.kr`, robots allows all but `/Sims/`). Graduate cycle runs Feb–Mar per the official page, but the page gives **no exact date** and does not confirm Nigeria's eligibility. Same treatment as Stipendium Hungaricum: not added until eligibility is confirmed. | Jan 2027 |
+| Nottingham Developing Solutions | **Re-checked 2026-09-01**: Nigeria IS eligible ("Africa (all nations)"), but the page says "The application deadline has now passed" and publishes no next-cycle date. Nothing blocks adding it once a date appears. | Jan 2027 |
+| Westminster Full International | Official page returns **HTTP 403 to automated access** despite a permissive robots.txt — the deadline cannot be machine-verified. Needs a human to read the page. | Next pass (by hand) |
+| Clarendon Fund (Oxford) | ox.ac.uk returns **HTTP 403 to automated access**. | Next pass (by hand) |
+| Melbourne Graduate Research | scholarships.unimelb.edu.au returns **HTTP 403** on robots.txt itself. | Next pass (by hand) |
+| Bocconi | Guessed slug 404ed; real URL not yet found | Next pass |
+| Yenching Academy (PKU) | Guessed slug 404ed; real URL not yet found | Next pass |
+| Trudeau Foundation | Guessed slug 404ed; real URL not yet found | Next pass |
+
+### What tranche 2 learned about the method
+
+Three findings worth carrying forward, because they change what a pass can expect to yield:
+
+1. **September is the wrong month for university tranches.** Most 2027-cycle
+   university awards had either just closed (Nottingham, Australia Awards) or
+   not yet published dates. The programs that *were* open are the ones with
+   autumn deadlines — which is where the next pass should start, not at the
+   top of an alphabetical list.
+2. **University sites block bots far more often than government ones.** Oxford,
+   Westminster and Melbourne all return 403 to an honestly-identified fetcher
+   while serving a permissive robots.txt. That is a real constraint on how much
+   of this catalog can ever be machine-rechecked, and those entries need a
+   human reader rather than a better crawler.
+3. **A search summary is not a source, and this pass proved it twice.** One
+   search returned a 2028 deadline *earlier than its own opening date*; another
+   asserted a program was closed while quoting three future dates. Both were
+   resolved only by fetching the page and quoting it. Aggregators discover
+   names; official pages settle facts.
 
 **The queue is the process.** Each future pass (a scheduled session, or any
 operator) takes rows off this watch list, verifies against the official page,
@@ -78,14 +111,21 @@ the end. Nothing is added from memory or from aggregator blogs — official
 pages only. Aggregator sites (scholarshiproar, wemakescholars, etc.) may be
 used to *discover* program names, never as the source of a deadline or a fact.
 
-## University-hosted scholarships (next tranche)
+## University-hosted scholarships (tranche 2 started, 2026-09-01)
 
-The founder's scope includes university-run awards (Nottingham Developing
-Solutions, Westminster full scholarships, ETH Excellence, NYU Abu Dhabi,
-Bocconi, Lester B. Pearson/Toronto, Melbourne Graduate Research, and peers).
-Same rules: verify the live page, record robots/terms, exact deadline or
-note, then in. First attempts at two of these 404ed on guessed URLs — find
-the real page, don't guess.
+Worked through the founder's named list. **In:** Lester B. Pearson (Toronto),
+ETH Excellence, NYU Abu Dhabi. **Blocked by 403:** Westminster, Melbourne,
+Oxford Clarendon. **Closed for this cycle:** Nottingham Developing Solutions.
+**URL not yet found:** Bocconi.
+
+Still to work through, next pass: Bocconi, Yenching Academy, Trudeau
+Foundation, Cambridge Trust, Weidenfeld-Hoffmann (Oxford), Fulbright Foreign
+Student (per-country deadlines — Nigeria's is set by the US Mission), and the
+university awards attached to Mastercard Foundation partner campuses.
+
+Same rules: verify the live page, record robots/terms, exact deadline or a
+verified note, then in. Guessing a slug wasted three fetches this pass —
+search for the real page first.
 
 ## Draft data-policy update for §10 item 19 (founder to approve)
 
