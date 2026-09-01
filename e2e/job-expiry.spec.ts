@@ -14,6 +14,7 @@
  * unit test cannot cover, because it never had a client to trust.
  */
 import { test, expect, admin } from "./fixtures/authed";
+import { runCleanups } from "../tests/support/teardown";
 import { deleteOrgsCascade } from "../tests/support/delete-orgs";
 
 const DESCRIPTION =
@@ -21,12 +22,19 @@ const DESCRIPTION =
 
 test.describe("job expiry", () => {
   test.afterEach(async () => {
-    const { data: orgs, error } = await admin
-      .from("organizations")
-      .select("id")
-      .like("name", "E2E Expiry Co%");
-    if (error) throw new Error(`e2e teardown failed listing organisations: ${error.message}`);
-    await deleteOrgsCascade(admin, (orgs ?? []).map((o) => o.id));
+    // One step, but through runCleanups so a failed LIST still reports as a
+    // teardown failure rather than aborting before the delete.
+    await runCleanups([
+      "expiry organisations",
+      async () => {
+        const { data: orgs, error } = await admin
+          .from("organizations")
+          .select("id")
+          .like("name", "E2E Expiry Co%");
+        if (error) throw new Error(`listing organisations: ${error.message}`);
+        await deleteOrgsCascade(admin, (orgs ?? []).map((o) => o.id));
+      },
+    ]);
   });
 
   async function newPostingPage(authedPage: import("@playwright/test").Page, testUser: { id: string }) {

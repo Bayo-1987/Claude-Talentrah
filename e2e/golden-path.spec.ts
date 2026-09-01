@@ -7,10 +7,19 @@
  * What is genuinely exercised: the real routes, Server Actions, credit
  * gating, ledger, and rendered UI. Only the model itself is swapped out.
  *
- * What is fixture-seeded rather than driven, and why — stated here so the
- * coverage claim isn't overread:
- *   - resume upload: needs a binary PDF/DOCX through a parser with an LLM
- *     fallback; covered by tests/resume/ instead.
+ * RESUME UPLOAD IS NOW DRIVEN FOR REAL, in its own test below. This comment
+ * used to say it was fixture-seeded because upload "needs a binary PDF/DOCX
+ * through a parser with an LLM fallback" — true of PDF and DOCX, and not true
+ * of the third format the input has always accepted. A text/plain resume goes
+ * through the same route, the same rate limit, the same heuristic parser and
+ * the same upsert, without a binary fixture and without leaning on the
+ * fallback. The main journey below still seeds, so one long test does not get
+ * longer; the upload has its own.
+ *
+ * What is still fixture-seeded rather than driven, and why — stated here so
+ * the coverage claim isn't overread:
+ *   - PDF and DOCX extraction specifically: binary-fixture-dependent, and
+ *     covered by tests/resume/pdf-without-canvas.test.ts.
  *   - buying credits: a real Paystack round-trip is out of scope for CI;
  *     the ledger write is identical, and everything after it is real.
  */
@@ -42,6 +51,74 @@ test.describe("golden path", () => {
   // clean timeout. Generous on purpose: with the model stubbed this
   // normally finishes in well under a minute.
   test.setTimeout(150_000);
+
+  /**
+   * A real upload, end to end: the file input, POST /api/resume/parse, the
+   * per-user rate limit, the heuristic parser, and upsertBaseResume — none of
+   * it stubbed except the model, which this resume is written not to need.
+   *
+   * text/plain rather than PDF: the input has always accepted `.txt`, the
+   * route has always allowed `text/plain`, and it removes the binary fixture
+   * that kept this step seeded for so long. What it deliberately does NOT
+   * cover is pdf-parse/mammoth extraction, which stays in tests/resume/ — the
+   * point here is the pipeline around the extractor, which nothing exercised.
+   *
+   * The resume uses headings the heuristic parser recognises so a PASS means
+   * the heuristic worked, not that the LLM fallback rescued it. That
+   * distinction is the entire subject of #139, where a missed heading sent a
+   * resume to a fallback that threw, discarded the error, and stored a
+   * near-useless parse that reported success.
+   */
+  test("uploading a real resume file parses it and makes it the base resume", async ({
+    authedPage: page,
+    testUser,
+  }) => {
+    await requireStubbedLlm(page);
+
+    const RESUME_TEXT = [
+      "Ada Lovelace",
+      "ada@example.com",
+      "+234 800 000 0000",
+      "",
+      "Experience",
+      "Backend Engineer",
+      "Analytical Engines Ltd",
+      "Built and operated payment services in Node.js and PostgreSQL.",
+      "",
+      "Skills",
+      "SQL, Python, TypeScript, PostgreSQL",
+    ].join("\n");
+
+    await page.goto("/onboarding");
+    await page.locator('input[type="file"]').setInputFiles({
+      name: "ada-lovelace-resume.txt",
+      mimeType: "text/plain",
+      buffer: Buffer.from(RESUME_TEXT, "utf8"),
+    });
+
+    // The success panel reports what was actually extracted, so asserting on
+    // it is asserting on the parse rather than on the upload completing.
+    await expect(page.getByText("Resume saved")).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText(/Farah found \d+ skills/)).toBeVisible();
+
+    /*
+     * And it really landed. The UI could say "saved" off a response body
+     * without a row existing — that is the shape of failure #139 was, where
+     * an upload reported success over a parse that had partly failed.
+     */
+    const { data: base, error } = await admin
+      .from("resumes")
+      .select("structured_content, is_base")
+      .eq("user_id", testUser.id)
+      .eq("is_base", true)
+      .single();
+    expect(error, "no base resume row was written").toBeNull();
+
+    const content = base!.structured_content as { skills?: string[]; experience?: unknown[] };
+    expect(content.skills ?? [], "the parser stored no skills — the heading was missed").not.toHaveLength(0);
+    expect(content.skills!.map((sk) => sk.toLowerCase())).toContain("sql");
+    expect(content.experience ?? [], "no work experience was extracted").not.toHaveLength(0);
+  });
 
   test("signed-in seeker can browse, apply, track, tailor, spend credits and refer", async ({
     authedPage: page,
