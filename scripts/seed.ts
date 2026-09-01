@@ -25,6 +25,8 @@ import { extractStructuredJd } from "../src/lib/jobs/extract-jd";
 import type { IngestSourceResult } from "../src/lib/jobs/ingest";
 
 const DEMO_EMAIL = "demo@talentrah.dev";
+/** The demo account's credit balance after every seed. Set, never topped up. */
+const DEMO_CREDITS = 20;
 
 /*
  * Read from the environment, never committed. This password used to be a
@@ -273,6 +275,45 @@ async function findUserByEmail(
     if (error || !data.user) throw error ?? new Error("Failed to create demo user");
     userId = data.user.id;
     console.log(`  created (${userId})`);
+  }
+
+  /*
+   * ── THE DEMO ACCOUNT'S CONSUMABLES ARE RESET ON EVERY SEED ──────────────
+   *
+   * `free_trial_tailoring_used` and `free_trial_cover_letter_used` are
+   * one-time flags, and `credits_balance` is spent down. On a shared CI
+   * project that makes them ONE-WAY: the first run that tailors anything as
+   * the demo user burns the trial for every run afterwards, forever, because
+   * nothing ever set them back.
+   *
+   * That is not hypothetical — `free_trial_tailoring_used` was already `true`
+   * on the CI project when this was written, with no record of which run
+   * spent it. Any spec that depends on the trial being available then fails
+   * for a reason that has nothing to do with the code it is testing, and
+   * re-running does not help.
+   *
+   * So the seed makes them deterministic, exactly as it already re-asserts the
+   * password: seeding is how this account is defined, and an account whose
+   * state depends on which tests happened to run first is not seeded, it is
+   * accumulated.
+   *
+   * Credits are set rather than topped up, for the same reason — "at least
+   * 20" and "exactly 20" behave differently in any test that asserts a
+   * balance after spending.
+   */
+  console.log("→ Resetting demo consumables (free trial, credits)…");
+  const { error: consumablesError } = await supabase
+    .from("profiles")
+    .update({
+      free_trial_tailoring_used: false,
+      free_trial_cover_letter_used: false,
+      credits_balance: DEMO_CREDITS,
+    })
+    .eq("id", userId);
+  if (consumablesError) {
+    // Loud: a silent failure here is a flake generator, and this is exactly
+    // the "a rejected update RESOLVES with an error" shape.
+    throw new Error(`Could not reset demo consumables: ${consumablesError.message}`);
   }
 
   console.log("→ Seeding base resume…");
