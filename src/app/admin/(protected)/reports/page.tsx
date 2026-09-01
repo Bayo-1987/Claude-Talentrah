@@ -46,7 +46,15 @@ export default async function ReportsQueuePage() {
       {queue.length === 0 ? (
         <QueueEmpty>No open reports. Removed postings drop out of this queue.</QueueEmpty>
       ) : (
-        <ul className="flex list-none flex-col gap-5 p-0">
+        /*
+          Named lists. The page now shows TWO queues, and both contain rows
+          carrying `input[name="id"]` — the reports queue posts a decision, the
+          removed list posts a restore. A locator scoped to the page rather than
+          to one list matches a posting in whichever queue it currently sits in,
+          which is precisely the thing the e2e assertions distinguish: "gone
+          from the board" versus "gone entirely".
+        */
+        <ul data-testid="reports-queue" className="flex list-none flex-col gap-5 p-0">
           {queue.map((p) => (
             <li key={p.jobPostingId}>
               <BorderedCard className="flex flex-col gap-4 p-5">
@@ -153,7 +161,7 @@ export default async function ReportsQueuePage() {
             </p>
           </BorderedCard>
         ) : (
-          <ul className="flex list-none flex-col gap-4 p-0">
+          <ul data-testid="removed-queue" className="flex list-none flex-col gap-4 p-0">
             {removed.map((p) => (
               <li key={p.jobPostingId}>
                 <BorderedCard className="flex flex-col gap-3 p-5">
