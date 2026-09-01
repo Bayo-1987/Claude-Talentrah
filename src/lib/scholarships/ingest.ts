@@ -48,8 +48,9 @@ async function fetchAllSources(): Promise<{
    * The M10 stance that this file is "deliberately NOT a scraper" was revised
    * by the founder on 2026-09-01 for permitted public sources only —
    * docs/scholarship-sources.md carries the per-source robots/terms evidence
-   * and the list of sources checked and NOT ingested. §10 item 19's policy
-   * update is still owed; the doc drafts it.
+   * and the list of sources checked and NOT ingested. §10 item 19 was
+   * resolved 2026-09-01: the founder approved that doc's data policy as
+   * drafted, and it is the standing rule for this pipeline.
    */
   const { listings, notices } = await recheckDeadlines(SEED_SCHOLARSHIPS);
   return { listings, notices };
