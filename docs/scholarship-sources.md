@@ -66,6 +66,54 @@ MEXT, Rhodes, PTDF, Erasmus Mundus, Aga Khan) — unchanged.
 | Manaaki NZ Scholarships | **Nigeria and all African countries absent from the eligible list** — Pacific and Asian countries only (verified on the official eligible-countries page 2026-09-01). Same rule that excluded ADB-JSP. Tertiary applications also currently closed. | Only if the scope rule changes |
 | ADB–Japan Scholarship Program | Eligibility is ADB borrowing members (Asia-Pacific citizens) — fails the catalog's eligibility-relevant scope rule for Nigerian/African applicants | Only if scope rule changes |
 
+## Standing workflow: the scheduled sourcing pass, and the sync that follows it
+
+A **scheduled sourcing pass runs Mon/Wed/Fri at 06:04 UTC** in a fresh session.
+It works the backlog in this file, verifies against official pages under the
+same rules, and does two things with what it finds:
+
+1. **Inserts rows straight into production** — `verified` or `pending` by the
+   same publish rules the pipeline uses, with pipeline-matching fingerprints so
+   a later sync collides rather than duplicates.
+2. **Delivers a `NormalizedScholarship` entries file to the founder** each run.
+
+### The standing job for work sessions: batch-sync those files into config
+
+Take the delivered entries files and fold them into
+`src/lib/scholarships/sources.config.ts` **by PR — weekly is fine.** Batching is
+deliberate: three passes a week producing three PRs would be churn, and the
+rows are already live in production either way. What the sync buys is not
+visibility; it is monitoring.
+
+Because the fingerprints match, a synced entry **collides with the row already
+in production** rather than inserting a second one. Expect the first ingest
+after a sync to report those rows as upserted-same, `autoPublished=0` for them,
+and no change in row count. If a sync ever produces new rows instead of
+collisions, the fingerprints have drifted — stop and find out why before
+merging, because that is how a catalog grows duplicates.
+
+### Until a row is synced it is half-covered, and this is the important part
+
+The two safety mechanisms have **different reach**, and it is not obvious from
+their names:
+
+| Mechanism | Reach | Covers a pass-inserted row? |
+|---|---|---|
+| **Expiry sweep** (`markExpiredCycles`) | **DB-wide** — an unfiltered `UPDATE` over every `verified` row whose `application_deadline` has passed | **Yes, immediately** |
+| **Deadline recheck** (`recheckDeadlines`) | **Config-backed** — iterates `RECHECK_TARGETS` and looks each one up in a map built from `SEED_SCHOLARSHIPS` | **No, not until synced** |
+
+So a pass-inserted row **will** be withdrawn when its stored deadline passes —
+the "never show a closed scholarship" guarantee holds from the moment it lands.
+What it will **not** get is the daily re-read of its official page, so a
+provider *moving* a deadline earlier goes unnoticed until the row is in config
+and has a recheck target. That is the gap the weekly sync closes, and it is the
+reason the sync is a standing job rather than tidying.
+
+Note that adding the config entry is necessary but not sufficient: a recheck
+only happens for programs that ALSO appear in `RECHECK_TARGETS`, and only where
+the page publishes a single machine-readable date. The rows above marked
+HUMAN-READ ONLY never get one.
+
 ## When to run the next tranche — early October 2026
 
 **Run the next full pass in early October, not before.** Tranche 2 was run on
