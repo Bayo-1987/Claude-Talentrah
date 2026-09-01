@@ -66,23 +66,72 @@ MEXT, Rhodes, PTDF, Erasmus Mundus, Aga Khan) — unchanged.
 | Manaaki NZ Scholarships | **Nigeria and all African countries absent from the eligible list** — Pacific and Asian countries only (verified on the official eligible-countries page 2026-09-01). Same rule that excluded ADB-JSP. Tertiary applications also currently closed. | Only if the scope rule changes |
 | ADB–Japan Scholarship Program | Eligibility is ADB borrowing members (Asia-Pacific citizens) — fails the catalog's eligibility-relevant scope rule for Nigerian/African applicants | Only if scope rule changes |
 
+## When to run the next tranche — early October 2026
+
+**Run the next full pass in early October, not before.** Tranche 2 was run on
+1 September and returned five programs against a target of ten to fifteen, and
+the reason was calendar rather than effort: most university and government
+cycles for 2027 entry had either just closed or had not yet published dates.
+The programs that *were* open all had autumn deadlines.
+
+Early October is when the backlog is likeliest to be answerable in one sitting:
+
+| Waiting on | Expected to publish | Why October |
+|---|---|---|
+| Eiffel Excellence (France) | autumn 2026 | 2027 campaign publishes in autumn; a October read should find it |
+| Nottingham Developing Solutions | autumn/winter | 2026 deadline passed with no next date; cycles have historically reopened for a spring deadline |
+| Türkiye Bursları | Dec–Jan window | portal opens ahead of a Jan–Feb window |
+| Oxford / Westminster / Melbourne | already published | these are blocked by fetching, not by timing — see below |
+| Bocconi, Yenching, Trudeau | already published | blocked by not having found the real URL, not by timing |
+
+**A short-runway hunt is a different job and can be run any time.** Schwarzman
+was found eight days before its deadline, and a program that closes inside a
+month is worth surfacing the week it is found rather than waiting for a
+scheduled tranche. If that is wanted, it is a narrow pass over programs with
+known autumn/winter deadlines, not a full backlog sweep.
+
 ## Checked — WATCH LIST (cycle closed or unconfirmed; re-verify on schedule)
 
 | Program | Status 2026-09-01 | When to re-check |
 |---|---|---|
 | Stipendium Hungaricum | 2026/27 deadline (15 Jan 2026) passed; page not yet on next cycle. Nigeria's partner status unconfirmed on the page — do not add until confirmed. | Nov 2026 |
-| Eiffel Excellence (France) | 2026 campaign closed (8 Jan 2026); 2027 campaign publishes in autumn | Oct–Nov 2026 |
+| Eiffel Excellence (France) | 2026 campaign closed (8 Jan 2026); 2027 campaign publishes in autumn | **Oct 2026** |
 | Mandela Rhodes | Public pages carry no dates; applications typically open early in the year for the following intake | Jan 2027 |
-| Türkiye Bursları | Portal is login-gated; application window typically Jan–Feb | Dec 2026 |
+| Türkiye Bursları | Portal is login-gated; application window typically Jan–Feb | **Dec 2026** |
 | Australia Awards (Africa) | **Re-checked 2026-09-01**: 2027 intake closed; official page states the 2028 intake "will open in February 2027" with no exact date. Nigeria's participation not stated on the apply page. DFAT's own robots.txt timed out again. | Feb 2027 |
 | Global Korea Scholarship | **Re-checked 2026-09-01** — real domain found (`studyinkorea.go.kr`, robots allows all but `/Sims/`). Graduate cycle runs Feb–Mar per the official page, but the page gives **no exact date** and does not confirm Nigeria's eligibility. Same treatment as Stipendium Hungaricum: not added until eligibility is confirmed. | Jan 2027 |
-| Nottingham Developing Solutions | **Re-checked 2026-09-01**: Nigeria IS eligible ("Africa (all nations)"), but the page says "The application deadline has now passed" and publishes no next-cycle date. Nothing blocks adding it once a date appears. | Jan 2027 |
-| Westminster Full International | Official page returns **HTTP 403 to automated access** despite a permissive robots.txt — the deadline cannot be machine-verified. Needs a human to read the page. | Next pass (by hand) |
-| Clarendon Fund (Oxford) | ox.ac.uk returns **HTTP 403 to automated access**. | Next pass (by hand) |
-| Melbourne Graduate Research | scholarships.unimelb.edu.au returns **HTTP 403** on robots.txt itself. | Next pass (by hand) |
-| Bocconi | Guessed slug 404ed; real URL not yet found | Next pass |
-| Yenching Academy (PKU) | Guessed slug 404ed; real URL not yet found | Next pass |
-| Trudeau Foundation | Guessed slug 404ed; real URL not yet found | Next pass |
+| Nottingham Developing Solutions | **Re-checked 2026-09-01**: Nigeria IS eligible ("Africa (all nations)"), but the page says "The application deadline has now passed" and publishes no next-cycle date. Nothing blocks adding it once a date appears. | **Oct 2026**, then Jan 2027 |
+| Westminster Full International | **HUMAN-READ ONLY** — see below. 403 to automated access despite a permissive robots.txt. | **Oct 2026**, by hand |
+| Clarendon Fund (Oxford) | **HUMAN-READ ONLY** — see below. ox.ac.uk returns 403 to automated access. | **Oct 2026**, by hand |
+| Melbourne Graduate Research | **HUMAN-READ ONLY** — see below. 403 on robots.txt itself. | **Oct 2026**, by hand |
+| Bocconi | Guessed slug 404ed; real URL not yet found — **search for the real page before fetching** | **Oct 2026** |
+| Yenching Academy (PKU) | Guessed slug 404ed; real URL not yet found — **search first** | **Oct 2026** |
+| Trudeau Foundation | Guessed slug 404ed; real URL not yet found — **search first** | **Oct 2026** |
+
+### HUMAN-READ ONLY sources — do not point a fetcher at these
+
+**Oxford (Clarendon), Westminster, Melbourne.**
+
+All three serve a *permissive* robots.txt and then return **HTTP 403** to an
+honestly-identified fetcher. Melbourne returns 403 on `robots.txt` itself. That
+combination is the trap worth naming: reading robots alone would tell you these
+are fair game, and they are not reachable in practice.
+
+**Do not re-attempt a fetcher against them, and never add them to
+`RECHECK_TARGETS`.** A recheck target that always fails adds a notice line to
+every daily run for a page that will never answer, which trains whoever reads
+the summary to skim past notices that matter.
+
+**Their verification path is a person.** An operator opens the official page in
+a browser, reads the deadline, and enters the listing through the admin
+scholarship form at `/admin/scholarships` — which lands it `pending` and routes
+it through review, exactly as the form is designed to. Nothing about the
+auto-publish rule applies: that is opt-in by the ingest pipeline only, and a
+hand-entered listing never touches it.
+
+Re-test the 403 occasionally rather than assuming it is permanent — a WAF rule
+is a configuration, not a policy. But treat a fresh 403 as final for that pass
+rather than working around it.
 
 ### What tranche 2 learned about the method
 
