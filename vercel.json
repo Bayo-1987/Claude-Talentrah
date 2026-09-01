@@ -17,6 +17,10 @@
     {
       "path": "/api/admin/charge-campaigns",
       "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/admin/send-job-digest",
+      "schedule": "0 9 * * 1"
     }
   ]
 }
