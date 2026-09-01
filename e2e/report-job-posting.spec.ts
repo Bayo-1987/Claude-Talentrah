@@ -201,14 +201,18 @@ test.describe("reporting a posting", () => {
    *
    *   ranked by distinct reporters   -> here, read off the rendered queue
    *   a removed posting drops out    -> here
-   *   a restored posting comes back  -> tests/rls/admin-content-enforcement,
-   *                                     because there is no restore UI on main
-   *                                     to drive: /admin/reports offers a
-   *                                     Restore button on a queue that filters
-   *                                     removed postings out, so it can never
-   *                                     fire. #132 fixes that; until it lands
-   *                                     the round trip is asserted at the
-   *                                     database layer, where it does work.
+   *   a removed posting is VISIBLE
+   *     to an operator afterwards    -> here. This is what #132 was about: the
+   *                                     Restore button rendered only on rows
+   *                                     that could not use it, because the
+   *                                     queue filtered removed postings out.
+   *                                     There is now a removed-postings list,
+   *                                     and this asserts a removal lands in it
+   *                                     — the half of the round trip a screen
+   *                                     can be wrong about.
+   *   a restored posting comes back  -> tests/rls/job-posting-restore, which
+   *                                     walks remove -> find -> restore and
+   *                                     checks it lands in `closed`.
    *   refused without a credential   -> e2e/admin-action-permissions
    *   remove/restore act once        -> tests/rls/admin-content-enforcement
    *   restore lands on `closed`      -> tests/rls/admin-content-enforcement
@@ -355,8 +359,18 @@ test.describe("reporting a posting", () => {
         // constraint is what makes that true.
         await expect(page.getByText(/one report per person/i)).toBeVisible();
 
+        /*
+           SCOPED TO THE REPORTS QUEUE, not the page.
+ 
+           /admin/reports renders two lists and both carry `input[name="id"]`:
+           the reports queue posts a decision, the removed list posts a restore.
+           A page-wide locator finds a removed posting in the SECOND list, so
+           "it left the board" and "it is nowhere" stop being distinguishable —
+           and the drop-out assertion below would fail for the wrong reason.
+        */
+        const reportsQueue = page.getByTestId("reports-queue");
         const rowFor = (id: string) =>
-          page.locator(`ul > li:has(input[name="id"][value="${id}"])`);
+          reportsQueue.locator(`li:has(input[name="id"][value="${id}"])`);
         await expect(rowFor(busier)).toHaveCount(1);
         await expect(rowFor(quieter)).toHaveCount(1);
 
@@ -375,8 +389,8 @@ test.describe("reporting a posting", () => {
         await expect(rowFor(quieter)).toContainText("person");
 
         // Ranked worst-first: the busier posting is ABOVE the quieter one.
-        const order = await page
-          .locator('ul > li input[name="id"]')
+        const order = await reportsQueue
+          .locator('li input[name="id"]')
           .evaluateAll((els) => els.map((e) => (e as HTMLInputElement).value));
         expect(order).toContain(busier);
         expect(order).toContain(quieter);
@@ -413,6 +427,21 @@ test.describe("reporting a posting", () => {
          * wait for the page to settle rather than catch it mid-swap.
          */
         await expect(rowFor(quieter)).toHaveCount(1, { timeout: 15_000 });
+
+        /*
+         * AND IT IS SOMEWHERE AN OPERATOR CAN SEE.
+         *
+         * The bug in #132 was exactly this gap: a posting could be removed and
+         * then existed nowhere in the UI, so the Restore button rendered only
+         * on rows that could not use it. Asserting "it left the reports queue"
+         * alone still passes against that bug — which is why that assertion is
+         * not sufficient on its own.
+         */
+        const removedQueue = page.getByTestId("removed-queue");
+        await expect(
+          removedQueue.locator(`li:has(input[name="id"][value="${busier}"])`),
+          "a removed posting must be visible in the removed list (#132)",
+        ).toHaveCount(1, { timeout: 15_000 });
 
         // And the database agrees, with the operator NAMED — the thing a shared
         // secret could never do: it proved "an operator", never which one.
