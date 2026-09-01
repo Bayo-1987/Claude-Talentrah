@@ -1,0 +1,42 @@
+-- 0084 — document why the scholarship catalog's public-read gate needed no
+-- code change, verified rather than assumed before writing this comment.
+--
+-- CONTEXT. This lands alongside making /scholarships/[id] a public,
+-- signed-out-readable page — the scholarship-side equivalent of #152's
+-- /jobs/[id]. Before writing any RLS change, the actual state was checked
+-- directly against this project rather than assumed from the ticket:
+--
+--   select polname, polroles::regrole[], polcmd, pg_get_expr(polqual, polrelid)
+--   from pg_policy where polrelid = 'public.scholarships'::regclass;
+--   -> "only verified scholarships are publicly readable", polroles = {-}
+--
+-- `polroles = {-}` means the policy carries no `TO` clause, so it applies to
+-- PUBLIC — every role, `anon` included — not only `authenticated`. It has
+-- applied to anon since 0000_baseline_schema.sql, unchanged since.
+--
+-- Table-level grants were checked too: `anon` already holds SELECT on
+-- public.scholarships (Supabase's default grant set for a fresh project).
+-- Confirmed live rather than inferred: an anon-keyed client against this
+-- project reads exactly the `verified` rows and zero `pending`/`rejected`
+-- ones. tests/rls/scholarship-public-read.test.ts pins this with its own
+-- fixture rows and is sabotage-proven — a permissive policy was granted
+-- and reverted on this project to confirm the test actually fails without
+-- the gate, not only that it passes with it.
+--
+-- WHY 0027's TRAP DOES NOT APPLY HERE. That lesson is specifically about a
+-- policy that CALLS A FUNCTION: every role evaluating the policy needs
+-- EXECUTE on that function too, and revoking it without checking every
+-- caller is how 0027 broke job_postings for signed-out visitors. This
+-- policy's USING clause is a bare column comparison
+-- (`moderation_status = 'verified'`) — no function call, so there is no
+-- EXECUTE grant to get wrong.
+--
+-- WHAT THIS MIGRATION ACTUALLY DOES: nothing to the access rule, which is
+-- already correct. It adds a comment so the next person who greps for why
+-- scholarships are publicly readable finds the answer at the policy itself
+-- rather than re-deriving it, and so a future migration that tightens or
+-- widens this policy has to consciously overwrite a comment that says what
+-- the current behaviour is and why it was judged sufficient.
+
+comment on policy "only verified scholarships are publicly readable" on public.scholarships is
+  'Applies to PUBLIC (no TO clause) — anon and authenticated alike, since 0000_baseline_schema.sql. This is the gate that makes /scholarships/[id] safe to serve to a signed-out visitor: a pending or rejected row is invisible to every role, not filtered app-side. No function is called in the USING clause, so 0027''s EXECUTE-grant trap does not apply. Verified live and pinned by tests/rls/scholarship-public-read.test.ts.';
