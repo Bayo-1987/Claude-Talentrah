@@ -99,7 +99,8 @@ export async function claimAnonymousRun(
      * operation — no salt configured, or no cookie yet. Typegen renders a
      * parameter without a DEFAULT as non-optional and non-nullable, which
      * over-narrows it; same cast and same reason as the p_reviewer_id note in
-     * /api/admin/moderate-campaign.
+     * src/lib/admin/moderation/actions.ts (which is where that note went when
+     * /api/admin/moderate-campaign was retired).
      */
     p_ip_hash: ipHash as unknown as string,
     p_visitor_id: visitorId as unknown as string,

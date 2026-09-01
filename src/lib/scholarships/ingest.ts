@@ -166,9 +166,10 @@ function changedColumns(
  * Writes normalized listings to `scholarships`, keyed on the dedup
  * fingerprint. The one path anything takes to create a scholarship row.
  *
- * Extracted from `ingestScholarships` so the manual admin route
- * (src/app/api/admin/scholarships/route.ts) writes through exactly the same
- * code rather than a second, similar-looking one. The dedup key, the
+ * Extracted from `ingestScholarships` so the by-hand admin path writes
+ * through exactly the same code rather than a second, similar-looking one.
+ * (That path was the route src/app/api/admin/scholarships/route.ts; it is now
+ * `createScholarshipAction`, which still calls straight into here.) The dedup key, the
  * within-batch collapse and the moderation rules below are all things a
  * parallel implementation would have to remember, and getting them right in
  * one place and wrong in the other is the failure this prevents.

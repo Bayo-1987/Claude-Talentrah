@@ -52,13 +52,17 @@ function adminGate(request: NextRequest): NextResponse | null {
  *
  * They keep `requireCronSecret` / `requireAdminSecret`, unchanged.
  *
- * The split that matters is BY CALLER, not by URL prefix: the routes under
- * /api/admin that a HUMAN operates — moderate-scholarship, moderate-campaign,
- * moderate-job-posting, and the scholarships POST — are the ones whose shared
- * secret is the wrong mechanism, because it is why all three record
- * `reviewed_by = null` today. Those move to admin sessions in M2, when there
- * are screens driving them. M1 changes none of them, so nothing scheduled and
- * nothing already in a runbook breaks on this milestone.
+ * The split that matters is BY CALLER, not by URL prefix. The routes under
+ * /api/admin that a HUMAN operated — moderate-scholarship, moderate-campaign,
+ * moderate-job-posting, and the scholarships POST — were the ones whose shared
+ * secret was the wrong mechanism, because it is why they recorded
+ * `reviewed_by = null`. Those are GONE: the screens that replaced them
+ * (/admin/scholarships, /admin/campaigns, /admin/reports) call Server Actions
+ * behind `requirePermission`, so every decision now names an operator. The
+ * routes were deleted rather than left in place next to the screens, because a
+ * second way in is a second thing to remember to close.
+ *
+ * What survives here is the cron set above, unchanged and correctly so.
  */
 export async function proxy(request: NextRequest) {
   const gated = adminGate(request);

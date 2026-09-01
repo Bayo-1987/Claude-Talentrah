@@ -19,6 +19,7 @@ import { NextResponse } from "next/server";
  *     This was not hypothetical. Against the live deployment, before the fix:
  *
  *       $ curl https://claude-talentrah.vercel.app/api/admin/moderate-scholarship
+ *         # retired since — see the note under this transcript
  *       {"count":3,"scholarships":[{"id":"812ce263-…","provider":"Petroleum
  *        Technology Development Fund (PTDF)",…,"moderation_status":"pending"}…
  *       HTTP 200
@@ -27,6 +28,12 @@ import { NextResponse } from "next/server";
  *       {"error":"group must be one of tailoring, bullet, scholarship"}
  *       HTTP 400      # 400 not 401 — the guard was skipped, only the
  *                     # argument validation behind it answered
+ *
+ *     The moderate-scholarship route above no longer exists: /admin/scholarships
+ *     replaced it with a session-authenticated Server Action. The transcript is
+ *     kept because it is the EVIDENCE for the rule, not a URL to go and try.
+ *     This guard is unchanged and still correct for the callers that have no
+ *     session to present — the cron routes and estimate-llm-costs.
  *
  *     INGEST_SECRET is not set on the deployment, so every route gated on it
  *     has been open since it shipped — including the POST that flips a

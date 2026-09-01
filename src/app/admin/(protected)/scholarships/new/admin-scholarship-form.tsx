@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import Link from "next/link";
 import { createScholarshipAction, loadQueueAction } from "@/lib/scholarships/admin-actions";
 import { initialAdminScholarshipState } from "@/lib/scholarships/admin-state";
 import { DEGREE_LEVEL_VALUES, FUNDING_TYPE_VALUES } from "@/lib/scholarships/schemas";
@@ -88,13 +89,22 @@ export function AdminScholarshipForm() {
             </ul>
           )}
           {/*
-            Read-only on purpose. Approving is /api/admin/moderate-scholarship,
-            and putting a Publish button here would mean a second path to the
+            Read-only on purpose. Approving happens on /admin/scholarships, and
+            putting a Publish button here too would mean a second path to the
             one action this whole gate exists to control.
+
+            This used to name /api/admin/moderate-scholarship, which has been
+            retired. It mattered that this line got fixed with the route: it is
+            not a comment, it is the sentence an operator reads to find out
+            where to go next, and pointing it at a 404 would have made the page
+            a dead end.
           */}
           <p className="font-display text-[13px] italic text-ink-soft">
-            Read-only. Approving or rejecting is still a call to
-            /api/admin/moderate-scholarship.
+            Read-only here. Approving or rejecting is on{" "}
+            <Link href="/admin/scholarships" className="underline">
+              the review queue
+            </Link>
+            .
           </p>
         </div>
       </section>

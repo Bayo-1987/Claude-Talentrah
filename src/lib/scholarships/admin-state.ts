@@ -9,7 +9,8 @@ import type { ModerationStatus } from "./types";
  * this file exists so it cannot be a second one.
  */
 
-/** One row of the pending queue, as /api/admin/moderate-scholarship returns it. */
+/** One row of the pending queue, in the shape the retired
+ *  /api/admin/moderate-scholarship returned and `loadQueueAction` still does. */
 export interface PendingScholarship {
   id: string;
   provider: string;

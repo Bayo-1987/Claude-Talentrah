@@ -315,7 +315,7 @@ shipped against it, including where the build differed from the plan and why.
 |---|---|---|
 | Wallet, atomic debit/credit | `0046_ad_wallets.sql` | [#48](https://github.com/Bayo-1987/Claude-Talentrah/pull/48) |
 | Campaign state machine, review + charge functions | `0047_ad_campaigns.sql`, `0048_ad_campaign_submit_for_review.sql` | [#49](https://github.com/Bayo-1987/Claude-Talentrah/pull/49) |
-| Server Actions, employer UI, review gate | `src/lib/employer/campaign-actions.ts`, `src/app/employer/campaigns/**`, `src/app/api/admin/moderate-campaign/route.ts` | [#50](https://github.com/Bayo-1987/Claude-Talentrah/pull/50) |
+| Server Actions, employer UI, review gate | `src/lib/employer/campaign-actions.ts`, `src/app/employer/campaigns/**`, `src/app/api/admin/moderate-campaign/route.ts` (since retired) | [#50](https://github.com/Bayo-1987/Claude-Talentrah/pull/50) |
 
 ### 8.1 Billing unit — per day, not per click
 
@@ -364,9 +364,15 @@ a live control. It exists as the seam where a third role would land: a future
 
 ### 8.4 What the review route does not record
 
-`/api/admin/moderate-campaign` authenticates with a shared admin secret. That
-proves *an* operator acted, not *which* operator, so `reviewed_by` is written
-as null and the route **refuses to accept a reviewer id from the caller**. A
+> **Superseded.** `/api/admin/moderate-campaign` was retired once `/admin/campaigns`
+> shipped; review now runs through `decideCampaignAction` behind an admin
+> session, and `reviewed_by` records the actual operator. The reasoning below is
+> kept because it explains why the column was null for everything reviewed
+> before that, which is still visible in the data.
+
+`/api/admin/moderate-campaign` authenticated with a shared admin secret. That
+proved *an* operator acted, not *which* operator, so `reviewed_by` was written
+as null and the route **refused to accept a reviewer id from the caller**. A
 self-asserted id would make the column look like attribution while being
 unverifiable — an honest null is visibly missing, a wrong name is not. Real
 per-reviewer attribution needs admin sessions, which is a larger change than
