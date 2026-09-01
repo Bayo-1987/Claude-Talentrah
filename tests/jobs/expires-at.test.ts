@@ -196,6 +196,45 @@ describe("the expiry sweep, and the line it does not cross", () => {
     expect((await readPosting(row.id)).status).toBe("open");
   });
 
+  it("closes an INTERNAL posting set by a custom date once that day has passed", async () => {
+    /*
+     * The custom-date path reaches the same column, so it reaches the same
+     * sweep. Worth its own case because the value comes from a person rather
+     * than from the server's own arithmetic: an end-of-day timestamp is the
+     * one shape a preset never produces.
+     */
+    const org = await makeOrg();
+    const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+    const row = await makePosting({
+      source_type: "internal",
+      organization_id: org,
+      external_source: null,
+      external_url: null,
+      expires_at: `${yesterday}T23:59:59.999Z`,
+    });
+
+    const swept = await closeExpiredInternalPostings();
+    expect(swept.ids).toContain(row.id);
+    expect((await readPosting(row.id)).status).toBe("closed");
+  });
+
+  it("leaves an INTERNAL posting alone on the day its custom date falls", async () => {
+    // End-of-day today is still ahead of now, so a posting closing today is
+    // live for the rest of today — the whole point of the normalisation.
+    const org = await makeOrg();
+    const today = new Date().toISOString().slice(0, 10);
+    const row = await makePosting({
+      source_type: "internal",
+      organization_id: org,
+      external_source: null,
+      external_url: null,
+      expires_at: `${today}T23:59:59.999Z`,
+    });
+
+    await closeExpiredInternalPostings();
+    expect((await readPosting(row.id)).status).toBe("open");
+  });
+
   it("a posting whose expiry passed two years ago is STILL open when it is external", async () => {
     /*
      * The half of 0053's decision that was kept. If this ever fails, the
