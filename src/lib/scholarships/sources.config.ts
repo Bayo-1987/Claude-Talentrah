@@ -321,6 +321,143 @@ export const SEED_SCHOLARSHIPS: NormalizedScholarship[] = [
     reviewNote:
       "Checked 2026-09-01: the 2027 windows are announced but the page defers exact dates to the per-window guidelines PDFs; confirmed variable-by-window, not unannounced.",
   },
+  /*
+   * ── 2026-09-01 tranche 2 ─────────────────────────────────────────────────
+   *
+   * Second pass through docs/scholarship-sources.md's backlog. Every entry
+   * below was verified against its officialUrl on 2026-09-01 by quoting the
+   * page's own wording, never a search summary — a search result for one of
+   * these returned an internally impossible pair of dates (a 2028 deadline
+   * BEFORE its own opening date), which is the case for the rule.
+   *
+   * WHAT THE PASS ALSO PRODUCED, recorded in the doc rather than here: one
+   * verified EXCLUSION (Manaaki NZ — Pacific and Asian countries only, Nigeria
+   * absent from the eligible list, same rule that removed ADB-JSP), four
+   * programs whose cycle has closed with no next date published, and three
+   * official sites that return 403 to automated access and therefore cannot be
+   * machine-verified at all.
+   *
+   * A note on dates that look "closed" and are not: several pages carry both
+   * the live cycle and stale copy from the previous one. Where that happened
+   * the live student-facing deadline is recorded and the ambiguity is the
+   * reason no recheck target was added — see the doc.
+   */
+  {
+    provider: "University of Toronto",
+    programName: "Lester B. Pearson International Scholarship",
+    hostInstitution: "University of Toronto",
+    degreeLevels: ["bsc"],
+    fieldTags: ["Any field"],
+    fundingType: "full",
+    fundingCovers: ["tuition", "stipend"],
+    eligibilityNationalities: ["Nigeria", "Any country"],
+    eligibilityPriorDegree: "In your final year of secondary school, or graduated no earlier than the preceding year",
+    eligibilityAge: null,
+    eligibilityOther:
+      "You must be nominated by your school before you apply — the nomination deadline falls before the scholarship one.",
+    applicationDeadline: "2026-11-06",
+    cycleYear: 2027,
+    officialUrl: "https://future.utoronto.ca/pearson/",
+    sourceName: "University of Toronto official site",
+    deadlineVerifiedAt: "2026-09-01T12:00:00.000Z",
+    deadlineNote:
+      "Your school must nominate you by 9 October 2026 and your U of T admission application is due 16 October 2026 — both before this date. Studies begin September 2027.",
+    reviewNote:
+      "Checked 2026-09-01, quoted verbatim: 'The deadline to complete the Pearson International Scholarship application and submit all required documentation is November 6, 2026.' The same page still carries stale 2025-cycle copy, so no recheck target — an extractor would see several dates and defer.",
+  },
+  {
+    provider: "ETH Zurich",
+    programName: "ETH Excellence Scholarship & Opportunity Programme (ESOP)",
+    hostInstitution: "ETH Zurich",
+    degreeLevels: ["msc"],
+    fieldTags: ["Engineering", "Sciences", "Any field"],
+    fundingType: "full",
+    fundingCovers: ["tuition", "stipend"],
+    eligibilityNationalities: ["Nigeria", "Any country"],
+    eligibilityPriorDegree: "A bachelor's degree, applying for an ETH Zurich master's programme",
+    eligibilityAge: null,
+    eligibilityOther:
+      "Awarded on academic excellence; you apply for the scholarship alongside your master's admission.",
+    applicationDeadline: "2026-11-30",
+    cycleYear: 2027,
+    officialUrl: "https://ethz.ch/en/studies/financial/scholarships/excellencescholarship.html",
+    sourceName: "ETH Zurich official site",
+    deadlineVerifiedAt: "2026-09-01T12:00:00.000Z",
+    deadlineNote:
+      "The application window opens 1 November 2026 and closes 30 November 2026 at 12:59 CET, for autumn semester 2027 entry.",
+    reviewNote:
+      "Checked 2026-09-01: the page states the window as 'November 1 - 30 (12.59 MEZ)' for HS27. Recorded the closing date. No recheck target: the page expresses the window as a range with an abbreviated month, which the extractor is not built to read, so it would find nothing and defer.",
+  },
+  {
+    provider: "Schwarzman Scholars",
+    programName: "Schwarzman Scholars",
+    hostInstitution: "Tsinghua University",
+    degreeLevels: ["msc"],
+    fieldTags: ["Public Policy", "Leadership", "Economics", "International Studies"],
+    fundingType: "full",
+    fundingCovers: ["tuition", "stipend", "travel"],
+    eligibilityNationalities: ["Nigeria", "Any country"],
+    eligibilityPriorDegree: "A completed undergraduate degree by the time the programme begins",
+    eligibilityAge: "18–28 at the application deadline",
+    eligibilityOther:
+      "One-year master's in Global Affairs in Beijing. A separate, earlier window applies to applicants with Chinese citizenship.",
+    applicationDeadline: "2026-09-09",
+    cycleYear: 2027,
+    officialUrl: "https://www.schwarzmanscholars.org/admissions/",
+    sourceName: "Schwarzman Scholars official site",
+    deadlineVerifiedAt: "2026-09-01T12:00:00.000Z",
+    deadlineNote:
+      "Closes 3pm EDT. This is the global and US round for the class of 2027–2028; the programme begins August 2027.",
+    reviewNote:
+      "Checked 2026-09-01, quoted verbatim: 'The U.S. and Global application for the class of 2027-2028 is now open from April 8, 2026 to September 9, 2026 at 3 p.m. EDT.' Closing in eight days at time of verification — the shortest runway in the catalog, which is the argument for the daily recheck picking up the next cycle.",
+  },
+  {
+    provider: "New York University Abu Dhabi",
+    programName: "NYU Abu Dhabi Undergraduate Scholarships",
+    hostInstitution: "New York University Abu Dhabi",
+    degreeLevels: ["bsc"],
+    fieldTags: ["Any field"],
+    fundingType: "full",
+    fundingCovers: ["tuition", "stipend", "travel"],
+    eligibilityNationalities: ["Nigeria", "Any country"],
+    eligibilityPriorDegree: "Applying for undergraduate admission from secondary school",
+    eligibilityAge: null,
+    eligibilityOther:
+      "Aid is need-based and awarded with admission; the university states it accepts aid applications from all students regardless of citizenship.",
+    applicationDeadline: null,
+    cycleYear: 2027,
+    officialUrl: "https://nyuad.nyu.edu/en/apply/undergraduate/apply/key-dates-and-deadlines.html",
+    sourceName: "NYU Abu Dhabi official site",
+    deadlineVerifiedAt: "2026-09-01T12:00:00.000Z",
+    deadlineNote:
+      "Deadlines depend on the plan you choose: Early Decision I on 1 November, Early Decision II on 1 January, Regular Decision on 5 January, each at 11:59pm EST, with the financial-aid CSS Profile due shortly after. Check the official page for the year that applies to your intake.",
+    reviewNote:
+      "Checked 2026-09-01: the key-dates page lists the three plan deadlines but states NO YEAR against them, so no dated deadline is recorded — inferring the cycle year would be exactly the guess this catalog refuses. Confirmed variable-by-plan, not unannounced.",
+  },
+  {
+    provider: "Nuffic (Dutch Ministry of Education)",
+    programName: "NL Scholarship (Holland Scholarship)",
+    hostInstitution: "Participating Dutch universities",
+    degreeLevels: ["bsc", "msc"],
+    fieldTags: ["Any field"],
+    fundingType: "partial",
+    fundingCovers: ["tuition"],
+    eligibilityNationalities: ["Nigeria", "Non-EEA countries"],
+    eligibilityPriorDegree:
+      "No prior degree from a Dutch institution; applying for a full-time bachelor's or master's in the Netherlands",
+    eligibilityAge: null,
+    eligibilityOther:
+      "A first-year contribution towards tuition and living costs, not a full ride. Awarded by the Dutch institution you apply to.",
+    applicationDeadline: null,
+    cycleYear: 2027,
+    officialUrl: "https://www.studyinnl.org/finances/holland-scholarship",
+    sourceName: "Study in NL (Nuffic) official site",
+    deadlineVerifiedAt: "2026-09-01T12:00:00.000Z",
+    deadlineNote:
+      "Each participating Dutch institution sets and publishes its own deadline — commonly 1 February or 1 May. Check the page of the university you are applying to.",
+    reviewNote:
+      "Checked 2026-09-01: eligibility confirmed as 'Your nationality is non-EEA', which includes Nigeria. The page states the 2026-2027 application opened 1 November 2025 and delegates specific deadlines to individual institutions; confirmed variable-by-institution, not unannounced.",
+  },
   {
     provider: "Aga Khan Foundation",
     programName: "Aga Khan Foundation International Scholarship Programme",
