@@ -67,7 +67,8 @@ export interface ReportedPosting {
 /**
  * Postings with open reports, ranked by how many distinct people reported them.
  *
- * Ported from `openReports()` in /api/admin/moderate-job-posting, grouping and
+ * Ported from `openReports()` in the since-deleted
+ * /api/admin/moderate-job-posting, grouping and
  * ordering unchanged — including WHY it groups in TypeScript: PostgREST cannot
  * express "count distinct reporters per posting, ordered by that count", and
  * the alternatives put the queue's shape into a migration. At this table's

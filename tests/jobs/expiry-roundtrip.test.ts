@@ -54,7 +54,7 @@ describe("no expiry", () => {
 });
 
 describe("each preset round-trips to validThrough", () => {
-  it.each([14, 30, 60])("%s days", (days) => {
+  it.each([1, 3, 7, 14, 30, 60])("%s days", (days) => {
     const iso = presetToIso(days);
     const ld = buildJobPostingJsonLd(base({ expires_at: iso }))!;
     expect(ld.validThrough).toBe(new Date(iso).toISOString());
@@ -71,9 +71,28 @@ describe("each preset round-trips to validThrough", () => {
   it("is always in the future — a preset cannot produce a past date", () => {
     // The reason the field offers durations rather than a date input: a past
     // expiry is unreachable by construction rather than by validation.
-    for (const days of [14, 30, 60]) {
+    for (const days of [1, 3, 7, 14, 30, 60]) {
       expect(new Date(presetToIso(days)).getTime()).toBeGreaterThan(Date.now());
     }
+  });
+});
+
+describe("a custom date round-trips the same way a preset does", () => {
+  it("emits the chosen day's end as validThrough", () => {
+    /*
+     * The custom path is the only one where the value originates with a person
+     * rather than with the server's arithmetic, so it is worth checking it
+     * reaches Google unchanged rather than assuming it behaves like a preset.
+     */
+    const chosen = "2026-11-20T23:59:59.999Z";
+    const ld = buildJobPostingJsonLd(base({ expires_at: chosen }))!;
+    expect(ld.validThrough).toBe(chosen);
+  });
+
+  it("still emits nothing once that day has passed", () => {
+    // The past-expiry guard does not care how the date got there.
+    const past = new Date(Date.now() - 86_400_000).toISOString();
+    expect(buildJobPostingJsonLd(base({ expires_at: past }))).toBeNull();
   });
 });
 
