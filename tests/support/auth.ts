@@ -248,9 +248,51 @@ export async function sessionFor(email: string, userId?: string): Promise<DB> {
     .maybeSingle();
   if (probeError) throw probeError;
   if (seen?.id !== sub) {
+    /*
+     * NAME THE ACTUAL CAUSE, having checked it.
+     *
+     * This used to say "PostgREST is treating this token as anon — check
+     * SUPABASE_JWT_SECRET" for every failure. That is one of three possible
+     * causes and, on the evidence of issue #156, the least likely: the same
+     * secret mints working sessions everywhere else in the same run. The
+     * message sent one investigation to a config explanation and then to the
+     * FK violations further down the run, neither of which was the cause, and
+     * cost a full diagnostic pass. A probe that cannot see a row is not
+     * evidence about the token until you know the row exists.
+     *
+     * The probe above reads `profiles` AS THE USER, and that table is
+     * SELECT-able only by its owner — so an empty result is ambiguous by
+     * construction. These two service-role reads remove the ambiguity before
+     * anything is blamed.
+     */
+    const { data: profileRow } = await admin
+      .from("profiles")
+      .select("id")
+      .eq("id", sub)
+      .maybeSingle();
+    const { data: authRow } = await admin.auth.admin.getUserById(sub);
+
+    if (!authRow?.user) {
+      throw new Error(
+        `the account for ${sub} (${email}) NO LONGER EXISTS in auth.users — it was ` +
+          `deleted between being created and having its session minted. Something is ` +
+          `removing accounts out from under a live run; see issue #156. This is not a ` +
+          `JWT problem.`,
+      );
+    }
+    if (!profileRow) {
+      throw new Error(
+        `no profiles row for ${sub} (${email}), though the auth user EXISTS. ` +
+          `handle_new_user should have created it inside createUser's own transaction, ` +
+          `so this is either a trigger failure or a visibility gap — not a JWT problem. ` +
+          `See issue #156.`,
+      );
+    }
     throw new Error(
-      `minted session was not honoured as ${sub} — PostgREST is treating this token as anon. ` +
-        `Check SUPABASE_JWT_SECRET matches the project at ${URL}.`,
+      `minted session was not honoured as ${sub} — the profiles row EXISTS (read via ` +
+        `the service role) but the owner-only probe came back empty, so PostgREST is ` +
+        `not resolving this token to that subject. THIS one really is about the token: ` +
+        `check SUPABASE_JWT_SECRET matches the project at ${URL}.`,
     );
   }
 

@@ -18,7 +18,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
 import type { Database } from "@/lib/supabase/types";
 import { consumeRateLimit, RATE_LIMITS } from "@/lib/api/rate-limit";
-import { listUsersWithPrefix } from "../support/list-users";
+import { listUsersWithPrefix, RUN_TAG } from "../support/list-users";
 
 for (const key of ["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"] as const) {
   if (!process.env[key]) throw new Error(`Rate-limit test cannot run: ${key} is not set.`);
@@ -35,7 +35,7 @@ let otherUserId: string;
 
 async function makeUser(): Promise<string> {
   const { data, error } = await admin.auth.admin.createUser({
-    email: `rate-limit-${randomUUID()}@talentrah.test`,
+    email: `rate-limit-${RUN_TAG}-${randomUUID()}@talentrah.test`,
     email_confirm: true,
   });
   if (error) throw error;
@@ -70,7 +70,7 @@ afterAll(async () => {
    * exactly the throwaway accounts it exists to remove — into the shared
    * project, because there is no staging database.
    */
-  const mine = await listUsersWithPrefix(admin, "rate-limit-");
+  const mine = await listUsersWithPrefix(admin, `rate-limit-${RUN_TAG}-`);
   await Promise.all(mine.map((u) => admin.auth.admin.deleteUser(u.id)));
 }, 60_000);
 

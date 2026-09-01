@@ -13,7 +13,7 @@ import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
 import type { Database } from "@/lib/supabase/types";
-import { listUsersWithPrefix } from "../support/list-users";
+import { listUsersWithPrefix, RUN_TAG } from "../support/list-users";
 
 for (const key of [
   "NEXT_PUBLIC_SUPABASE_URL",
@@ -62,7 +62,7 @@ async function makeUser(email: string, meta?: Record<string, unknown>): Promise<
 
 /** A unique-but-gmail-shaped address, so dot rules apply without colliding. */
 function gmail(tag: string): string {
-  return `reftest-${tag}-${randomUUID().slice(0, 8)}@gmail.com`;
+  return `reftest-${RUN_TAG}-${tag}-${randomUUID().slice(0, 8)}@gmail.com`;
 }
 
 async function referralCodeOf(userId: string): Promise<string> {
@@ -151,7 +151,7 @@ afterAll(async () => {
    * aborts the loop partway, so the hook leaks exactly the accounts it exists
    * to remove, into the shared project — there is no staging database.
    */
-  const mine = await listUsersWithPrefix(admin, "reftest-");
+  const mine = await listUsersWithPrefix(admin, `reftest-${RUN_TAG}-`);
   await Promise.all(mine.map((u) => admin.auth.admin.deleteUser(u.id).catch(() => {})));
 }, 60_000);
 

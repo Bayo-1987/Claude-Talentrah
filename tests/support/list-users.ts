@@ -1,4 +1,30 @@
+import { randomUUID } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
+
+/**
+ * A tag unique to THIS test process, for scoping prefix sweeps.
+ *
+ * ── WHY A CLEANUP HOOK NEEDED ONE ────────────────────────────────────────
+ *
+ * Four suites tore down by listing every account whose email starts with a
+ * fixed prefix — `trk-`, `reftest-`, `rate-limit-`, `credit-race-` — and
+ * deleting all of them. Three of them called the result `mine`. It was not
+ * theirs: the prefix is shared by every run of that suite, on every branch,
+ * forever, and the CI project is shared with no staging database.
+ *
+ * So two overlapping runs delete each other's LIVE fixtures. Deleting the auth
+ * user cascades to `profiles`, and the next insert that references it fails —
+ * which is exactly how tracker-and-farah.test.ts produced 13 failures behind
+ * one `farah_messages_user_id_fkey` violation, intermittently, on four
+ * separate runs, always clearing on a retry that happened not to overlap.
+ *
+ * Scoping the prefix to the process keeps what the sweep is FOR — catching
+ * accounts this run created and lost track of, which is why it exists rather
+ * than deleting a list of ids — while making it incapable of reaching another
+ * run's. Per-process rather than per-file is deliberate: the hazard is two
+ * concurrent RUNS, and files inside one run already use distinct prefixes.
+ */
+export const RUN_TAG = randomUUID().slice(0, 8);
 
 /**
  * Read auth users across ALL pages.
