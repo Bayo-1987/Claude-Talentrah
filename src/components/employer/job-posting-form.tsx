@@ -72,6 +72,14 @@ const SENIORITIES = [
   { value: "executive", label: "Executive" },
 ] as const;
 
+const SALARY_UNITS = [
+  { value: "hour", label: "Per hour" },
+  { value: "day", label: "Per day" },
+  { value: "week", label: "Per week" },
+  { value: "month", label: "Per month" },
+  { value: "year", label: "Per year" },
+] as const;
+
 /**
  * How long the posting should stay open.
  *
@@ -235,6 +243,13 @@ export interface JobFormValues {
   yearsExperienceMin: number | null;
   /** ISO timestamp, or null. Null means the posting does not expire. */
   expiresAt: string | null;
+  /** All optional, and independent of one another in this form's own
+   * validation — see readSalaryForm in actions.ts for what combination is
+   * actually required before anything is saved. */
+  salaryMin: number | null;
+  salaryMax: number | null;
+  salaryCurrency: string | null;
+  salaryUnit: string | null;
 }
 
 export function JobPostingForm({
@@ -311,7 +326,41 @@ export function JobPostingForm({
               defaultValue={initial?.yearsExperienceMin ?? undefined}
               placeholder="Optional"
             />
+            <TextField
+              label="Minimum salary"
+              name="salaryMin"
+              type="number"
+              min={0}
+              defaultValue={initial?.salaryMin ?? undefined}
+              placeholder="Optional"
+            />
+            <TextField
+              label="Maximum salary"
+              name="salaryMax"
+              type="number"
+              min={0}
+              defaultValue={initial?.salaryMax ?? undefined}
+              placeholder="Optional"
+            />
+            <TextField
+              label="Salary currency"
+              name="salaryCurrency"
+              defaultValue={initial?.salaryCurrency ?? undefined}
+              placeholder="e.g. NGN, USD"
+            />
+            <ChoiceField
+              label="Salary period"
+              name="salaryUnit"
+              options={SALARY_UNITS}
+              defaultValue={initial?.salaryUnit}
+            />
           </div>
+          {(initial?.salaryMin || initial?.salaryMax) && (
+            <p className="-mt-3 font-body text-[12.5px] text-ink-soft">
+              Salary is shown to seekers and included in the job&rsquo;s search listing data. Add a
+              currency if you set an amount, or leave both blank to keep the salary private.
+            </p>
+          )}
 
           <div className="flex flex-col gap-1.5">
             <label

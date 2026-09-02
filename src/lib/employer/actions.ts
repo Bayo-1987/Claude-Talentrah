@@ -332,6 +332,49 @@ function readJobForm(form: FormData) {
   };
 }
 
+type SalaryFields = {
+  salary_min: number | null;
+  salary_max: number | null;
+  salary_currency: string | null;
+  salary_unit: Enums<"salary_unit"> | null;
+};
+
+/**
+ * All four salary columns travel together or not at all — see migration
+ * 0085 and job-posting-jsonld.ts's baseSalary note for why a bound with no
+ * currency is treated as no salary at all. Unlike the ingestion parser
+ * (which silently OMITS a malformed baseSalary so one bad source field never
+ * costs a whole listing), this is a human filling in one form field at a
+ * time, so the right behaviour is a clear inline error, not a silent drop —
+ * the same reasoning readExpiry already applies to a hand-typed date.
+ */
+function readSalaryForm(form: FormData): { ok: true; value: SalaryFields } | { ok: false; error: string } {
+  const minRaw = str(form, "salaryMin");
+  const maxRaw = str(form, "salaryMax");
+  const currency = str(form, "salaryCurrency").toUpperCase();
+  const unit = optionalEnum<Enums<"salary_unit">>(form, "salaryUnit", Constants.public.Enums.salary_unit);
+
+  const min = minRaw ? Number(minRaw) : null;
+  const max = maxRaw ? Number(maxRaw) : null;
+  if (min !== null && !Number.isFinite(min)) return { ok: false, error: "Minimum salary isn't a number." };
+  if (max !== null && !Number.isFinite(max)) return { ok: false, error: "Maximum salary isn't a number." };
+
+  if (min === null && max === null) {
+    // No amount at all — currency and period without an amount describe
+    // nothing, so they are dropped rather than half-saved.
+    return { ok: true, value: { salary_min: null, salary_max: null, salary_currency: null, salary_unit: null } };
+  }
+  if (!currency) return { ok: false, error: "Add a currency for the salary, or clear both amounts." };
+  if (!/^[A-Z]{3}$/.test(currency)) {
+    return { ok: false, error: "Salary currency should be a 3-letter code, like NGN or USD." };
+  }
+  if (min !== null && max !== null && max < min) {
+    return { ok: false, error: "Maximum salary can't be less than the minimum." };
+  }
+
+  return { ok: true, value: { salary_min: min, salary_max: max, salary_currency: currency, salary_unit: unit } };
+}
+
 export async function postJobAction(
   _prev: EmployerActionState,
   form: FormData,
@@ -348,6 +391,9 @@ export async function postJobAction(
   // A custom date the person typed can be refused; a preset never is.
   const expiry = readExpiry(form);
   if (!expiry.ok) return { error: expiry.error };
+
+  const salary = readSalaryForm(form);
+  if (!salary.ok) return { error: salary.error };
 
   // Inserted through the user's client on purpose. The 0027 policy
   // (`source_type = 'internal' and is_org_member(organization_id)`) is what
@@ -369,6 +415,7 @@ export async function postJobAction(
     // `keep` is unreachable on create — there is no stored value to keep — so
     // undefined collapses to null, which is the documented "does not expire".
     expires_at: expiry.value ?? null,
+    ...salary.value,
     status: "open",
     dedup_fingerprint: internalDedupFingerprint(organization.id, fields.title, fields.location),
   });
@@ -403,6 +450,9 @@ export async function updateJobAction(
   const expiry = readExpiry(form);
   if (!expiry.ok) return { error: expiry.error };
 
+  const salary = readSalaryForm(form);
+  if (!salary.ok) return { error: salary.error };
+
   // .eq("organization_id") is belt-and-braces on top of the RLS UPDATE policy.
   // Both must agree; neither is trusted alone.
   const { error } = await supabase
@@ -425,6 +475,10 @@ export async function updateJobAction(
        * because that is a decision rather than an absence.
        */
       ...(expiry.value === undefined ? {} : { expires_at: expiry.value }),
+      // Unlike expiry, salary has no "keep current" state to preserve — the
+      // form always submits all four fields together, so writing them
+      // unconditionally on every edit is correct, not a countdown reset.
+      ...salary.value,
       dedup_fingerprint: internalDedupFingerprint(organization.id, fields.title, fields.location),
     })
     .eq("id", jobId)

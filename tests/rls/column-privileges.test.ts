@@ -307,6 +307,70 @@ describe("organizations: a company cannot verify itself (0028)", () => {
   });
 });
 
+describe("job_postings: an employer can write their own posting's salary (0085)", () => {
+  /**
+   * POSITIVE CONTROL. 0085 added salary_min/salary_max/salary_currency/
+   * salary_unit and granted them UPDATE — this is the check that the grant
+   * is actually there, not withheld like removed_at/removal_reason/
+   * removed_by. Written the same way 0028's organisation test is: a fresh
+   * org this test owns, `user` joined as a member, then the real write path
+   * an employer's own Server Action uses (postJobAction/updateJobAction).
+   */
+  it("can set and then update salary on its own internal posting", async () => {
+    const { data: org } = await user.client
+      .from("organizations")
+      .insert({ name: `COLPRIV-TEST ${randomUUID().slice(0, 8)}`, created_by: user.id })
+      .select("id")
+      .single();
+    try {
+      await user.client.from("organization_members").insert({
+        organization_id: org!.id,
+        user_id: user.id,
+        role: "owner",
+      });
+
+      const { data: job, error: insertError } = await user.client
+        .from("job_postings")
+        .insert({
+          source_type: "internal",
+          organization_id: org!.id,
+          company_name: "COLPRIV-TEST Co",
+          title: "COLPRIV-TEST Salary Role",
+          description: "Fixture posting for the salary column-privilege test.",
+          structured_jd: {},
+          status: "open",
+          posted_at: new Date().toISOString(),
+          dedup_fingerprint: randomUUID(),
+          salary_min: 500000,
+          salary_max: 800000,
+          salary_currency: "NGN",
+          salary_unit: "month",
+        })
+        .select("id")
+        .single();
+      expect(insertError, "an employer must be able to set salary when posting a job").toBeNull();
+
+      const { error: updateError } = await user.client
+        .from("job_postings")
+        .update({ salary_min: 600000, salary_max: 900000 })
+        .eq("id", job!.id);
+      expect(updateError, "an employer must be able to update salary on their own posting").toBeNull();
+
+      const { data: after } = await admin
+        .from("job_postings")
+        .select("salary_min, salary_max, salary_currency, salary_unit")
+        .eq("id", job!.id)
+        .single();
+      expect(after?.salary_min).toBe(600000);
+      expect(after?.salary_max).toBe(900000);
+      expect(after?.salary_currency).toBe("NGN");
+      expect(after?.salary_unit).toBe("month");
+    } finally {
+      await deleteTestOrgs([org!.id]);
+    }
+  });
+});
+
 describe("tables with no UPDATE policy stay unwritable", () => {
   /**
    * These carry money, entitlements and role grants, and none of them has an

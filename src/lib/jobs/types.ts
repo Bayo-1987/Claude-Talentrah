@@ -1,6 +1,7 @@
 export type WorkType = "remote" | "hybrid" | "onsite";
 export type EmploymentType = "full_time" | "part_time" | "contract" | "internship";
 export type SeniorityLevel = "entry" | "mid" | "senior" | "lead" | "executive";
+export type SalaryUnit = "hour" | "day" | "week" | "month" | "year";
 
 export interface StructuredJD {
   skills: string[];
@@ -27,6 +28,18 @@ export interface NormalizedJobPosting {
   externalSource: "greenhouse" | "lever" | `schema-org:${string}`;
   postedAt: string;
   dedupFingerprint: string;
+  /** From schema.org's `validThrough`, when the source stated one and it
+   * parses as a real date. ISO timestamp. Feeds `job_postings.expires_at` —
+   * see src/lib/jobs/expiry.ts for why populating this for an external
+   * posting does not change how or when it closes. */
+  expiresAt?: string;
+  /** From schema.org's `baseSalary`. All four travel together or not at all
+   * — see sources/schema-org.ts's mapBaseSalary for why a bound with no
+   * currency is treated as no salary at all, never a fabricated one. */
+  salaryMin?: number;
+  salaryMax?: number;
+  salaryCurrency?: string;
+  salaryUnit?: SalaryUnit;
 }
 
 /**

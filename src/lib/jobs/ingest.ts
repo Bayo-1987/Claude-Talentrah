@@ -116,6 +116,19 @@ export async function ingestAllSources(): Promise<IngestSourceResult[]> {
         posted_at: job.postedAt,
         last_checked_at: new Date().toISOString(),
         dedup_fingerprint: job.dedupFingerprint,
+        // A source-stated fact, not a commitment this pipeline makes — see
+        // src/lib/jobs/expiry.ts for why populating this does NOT make an
+        // external posting eligible for date-based closure. Every row in
+        // this batch carries the same key set (present or null, never
+        // conditionally omitted), which is what keeps this upsert from
+        // reproducing the scholarship pipeline's mixed-shape incident,
+        // where a conditionally-omitted key on some rows of one bulk upsert
+        // forced NULL onto the same column for every other row in the batch.
+        expires_at: job.expiresAt ?? null,
+        salary_min: job.salaryMin ?? null,
+        salary_max: job.salaryMax ?? null,
+        salary_currency: job.salaryCurrency ?? null,
+        salary_unit: job.salaryUnit ?? null,
       }));
 
       let upserted = 0;
