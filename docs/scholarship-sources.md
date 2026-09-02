@@ -19,8 +19,9 @@ Two standing rules were kept, deliberately:
 1. **Permitted sources only.** A source is ingested or fetched only when its
    robots.txt and terms allow automated access — the same test that
    disqualified Jobberman/MyJobMag/Fuzu on the jobs side. A source that
-   prohibits scraping goes on the partnership list instead. §10 item 19's
-   legal review is still owed; the draft policy update below is its input.
+   prohibits scraping goes on the partnership list instead. §10 item 19 is
+   resolved — the founder approved the data policy at the bottom of this
+   file on 2026-09-01, and it is the standing rule.
 2. **A deadline is confirmed or absent — never guessed.** Unchanged from M10.
    The catalog's worst possible error is a wrong deadline (§6.15).
 
@@ -224,7 +225,7 @@ Same rules: verify the live page, record robots/terms, exact deadline or a
 verified note, then in. Guessing a slug wasted three fetches this pass —
 search for the real page first.
 
-## Draft data-policy update for §10 item 19 (founder to approve)
+## Data policy for §10 item 19 — APPROVED by the founder, 2026-09-01, as drafted
 
 > Talentrah's scholarship catalog lists factual details of third-party
 > scholarship programs — provider, program name, eligibility, funding type,
@@ -238,5 +239,15 @@ search for the real page first.
 > Listings are re-checked on a daily schedule; a listing whose deadline has
 > passed is withdrawn from the public catalog automatically.
 
-Once approved, CLAUDE.md's open-decisions section should move item 19 from
-"still open" to resolved-with-policy, citing this file.
+Approved by the founder on 2026-09-01, in the session that built the sourcing
+pipeline ("item 19 approved as drafted"). CLAUDE.md's open-decisions section
+now records it as resolved, citing this file. Standing consequences:
+
+- This policy is the operating rule for all scholarship sourcing — the
+  scheduled Mon/Wed/Fri passes, the daily recheck, and any manual entry.
+- The public scholarship pages (SEO surface) are unblocked on the policy
+  side; their PR should surface this paragraph on the public site's legal
+  pages so providers and users can read the commitment.
+- A formal external legal review remains RECOMMENDED before diaspora
+  billing, batched with the spec's other multi-jurisdiction items — this
+  approval is the founder's operating decision, not a legal opinion.
