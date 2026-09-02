@@ -9,6 +9,7 @@ import { BorderedCard, Button, EyebrowLabel, MatchTierBadge, buttonClasses } fro
 import { getCompanyInitials } from "@/lib/jobs/company-initials";
 import { formatRelativeTime } from "@/lib/format-relative-time";
 import { freshnessNote } from "@/lib/jobs/freshness-note";
+import { formatSalary } from "@/lib/jobs/format-salary";
 import { skillsOf } from "@/lib/jobs/skill-facet";
 import { computeAndStoreMatchScores } from "@/lib/matching/compute-and-store";
 import { EMPTY_RESUME } from "@/lib/resume/types";
@@ -219,6 +220,11 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
     job.employment_type ? EMPLOYMENT_LABEL[job.employment_type] : null,
     job.years_experience_min ? `${job.years_experience_min}+ years` : null,
   ].filter(Boolean);
+  // Its own line, not folded into `meta`: a salary is the one line here a
+  // seeker scans for first, and burying it in a middot-joined string of
+  // location/seniority/experience would be the wrong hierarchy for the
+  // single most decision-relevant fact on the page.
+  const salary = formatSalary(job);
 
   return (
     <div className="flex max-w-[760px] flex-col gap-6">
@@ -240,6 +246,7 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
             {scored && <MatchTierBadge score={scored.score} className="flex-shrink-0" />}
           </div>
           <p className="mt-1 text-[15px] text-ink-soft">{job.company_name}</p>
+          {salary && <p className="mt-1.5 text-[15px] font-semibold text-ink">{salary}</p>}
           {meta.length > 0 && (
             <p className="mt-0.5 text-[13.5px] text-ink-soft">{meta.join(" · ")}</p>
           )}

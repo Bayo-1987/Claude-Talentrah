@@ -3,6 +3,7 @@ import { BorderedCard, IconButton, Button, MatchTierBadge } from "@/components/u
 import { getCompanyInitials } from "@/lib/jobs/company-initials";
 import { formatRelativeTime } from "@/lib/format-relative-time";
 import { freshnessNote } from "@/lib/jobs/freshness-note";
+import { formatSalary } from "@/lib/jobs/format-salary";
 import { FarahJobMenu } from "@/components/jobs/farah-job-menu";
 import { ShareJobButton } from "@/components/jobs/share-job-button";
 import { ReportJobMenu } from "@/components/jobs/report-job-menu";
@@ -71,6 +72,10 @@ export function JobCard({
 
   const isExternal = job.source_type === "external";
   const freshness = freshnessNote(job);
+  // Own line, same call as the detail page (jobs/[id]/page.tsx) and the same
+  // reason: the one fact on the card most worth scanning for shouldn't be
+  // buried mid-string in the middot-joined company/location/seniority line.
+  const salary = formatSalary(job);
   const alreadyApplied =
     applicationStage === "applied" ||
     applicationStage === "interviewing" ||
@@ -144,6 +149,7 @@ export function JobCard({
             <MatchTierBadge score={score} className="flex-shrink-0" />
           </div>
           <div className="mt-0.5 text-[13px] text-ink-soft">{metaParts.join(" · ")}</div>
+          {salary && <div className="mt-1 text-[13.5px] font-semibold text-ink">{salary}</div>}
         </div>
       </div>
 
