@@ -225,6 +225,43 @@ Same rules: verify the live page, record robots/terms, exact deadline or a
 verified note, then in. Guessing a slug wasted three fetches this pass —
 search for the real page first.
 
+## The catalog went public, and structured data was checked, then not built
+
+On **2026-09-01** `/scholarships/[id]` became a public, signed-out-readable
+page — the scholarship-side equivalent of #152's `/jobs/[id]`. Every listing's
+facts (provider, programme, eligibility, funding, deadline) are now readable
+without an account, with the official source linked prominently on the page,
+matching the approved policy below. `/scholarships` itself — the
+authenticated, filterable list — stayed behind a session; only the single-item
+canonical page moved.
+
+**Structured data was researched before building, and the finding was: don't.**
+Google's structured data gallery (`developers.google.com/search/docs/appearance
+/structured-data/search-gallery`, checked 2026-09-01) lists no scholarship,
+financial-aid, or grant-funding type. The closest education-adjacent entries —
+Course list, Education Q&A — describe curricula and student Q&A, not a funding
+programme, and shoehorning a scholarship into either would misrepresent the
+type to Google's own validator. Same discipline #170 already applied to
+FAQPage on the blog: research current support before adding a type, and ship
+clean metadata (title, description, canonical, OG/Twitter via the shared
+`pageMetadata` helper) rather than decorate a listing with markup nobody reads.
+If Google ever ships a scholarship-specific type, this is the note that says
+to revisit it — not a decision assumed permanent.
+
+**RLS needed no functional change, and that was checked, not assumed.** The
+existing `only verified scholarships are publicly readable` policy has carried
+no `TO` clause — meaning it already governed `anon`, not only
+`authenticated` — since `0000_baseline_schema.sql`. 0084 adds a `comment on
+policy` recording that finding; it changes no access rule.
+`tests/rls/scholarship-public-read.test.ts` pins it with its own
+pending/verified/rejected fixtures and was sabotage-proven live on the CI
+project: a permissive `using (true)` policy was granted, the pending- and
+rejected-row tests failed exactly as expected, and it was reverted and
+reconfirmed clean. The same sabotage was run a second time against the public
+page's 404 behaviour and the sitemap's pending-exclusion test, both of which
+also caught it — three independent surfaces relying on the one RLS gate,
+proven rather than assumed to all fail together if it is ever weakened.
+
 ## Data policy for §10 item 19 — APPROVED by the founder, 2026-09-01, as drafted
 
 > Talentrah's scholarship catalog lists factual details of third-party

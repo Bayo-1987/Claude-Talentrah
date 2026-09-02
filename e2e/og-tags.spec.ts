@@ -79,6 +79,24 @@ test.describe("public pages carry their own social title", () => {
     expect(h.ogImage).toContain("talentrah-mark");
   });
 
+  test("a scholarship listing carries its OWN title, not the list page's", async ({ page }) => {
+    /*
+     * Fixed id, matching public-scholarship-page.spec.ts's own reasoning: a
+     * verified listing with a real host institution, so this tests the
+     * wiring rather than whichever row happens to sort first.
+     */
+    const h = await head(page, "/scholarships/6082edbd-bab1-4462-830e-8d40a6572463");
+    expect(h.title).toBe("Gates Cambridge Scholarship — Gates Cambridge Trust — Talentrah");
+    expect(h.ogTitle, "the scholarship page fell back to the generic og:title").not.toBe(GENERIC);
+    expect(h.ogTitle).toBe(h.title);
+    expect(h.twTitle).toBe(h.title);
+    expect(h.ogImage, "the scholarship page lost its og:image").toContain("talentrah-mark");
+    // Built from the listing's own fields — see generateMetadata's comment —
+    // and must not be empty, since scholarships carry no description column
+    // the way a job posting does.
+    expect(h.ogDescription).toBeTruthy();
+  });
+
   test("the home page keeps the generic title, which is correct there", async ({ page }) => {
     // The negative control. "/" sets no title of its own, so the site-wide
     // value IS its real title — a test that flagged every generic og:title

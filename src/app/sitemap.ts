@@ -15,16 +15,23 @@ import { absoluteUrl } from "@/lib/seo/site";
  * problem with the site, not as a hint to try harder.
  *
  * So job postings appear here ONLY because /jobs/[id] was made public in the
- * same change. Every other route under (app) still requires a session and is
- * deliberately absent.
+ * same change, and scholarships ONLY because /scholarships/[id] was made
+ * public the same way, later. Every other route under (app) still requires a
+ * session and is deliberately absent.
  *
- * ── WHY THE JOBS QUERY IS NOT CACHED ──────────────────────────────────────
+ * ── WHY THE JOBS AND SCHOLARSHIPS QUERIES ARE NOT CACHED ──────────────────
  *
- * `status = 'open'` is the point. Postings close continuously through the
- * ingest pipeline, and a stale sitemap advertising closed jobs is exactly the
- * failure Google's own JobPosting guidance calls out — it asks that expired
- * postings stop being served, and a cached list would keep offering them for
- * as long as the cache lived.
+ * `status = 'open'` and `moderation_status = 'verified'` are the point in each
+ * case. Postings close continuously through the ingest pipeline, and
+ * scholarships are re-checked on a Mon/Wed/Fri schedule plus a daily expiry
+ * sweep — a stale sitemap advertising a closed posting or an expired
+ * scholarship is exactly the failure Google's own JobPosting guidance calls
+ * out generalised to a second catalog: it asks that expired listings stop
+ * being served, and a cached list would keep offering them for as long as the
+ * cache lived. Filtering on `moderation_status` here is also the sitemap's own
+ * defence in depth on top of RLS (0084) — even if this query ever ran with
+ * elevated credentials, it would still only ever list what a signed-out
+ * visitor can actually load.
  */
 export const dynamic = "force-dynamic";
 
@@ -92,5 +99,47 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     console.error("[sitemap] could not list open postings:", err);
   }
 
-  return [...staticEntries, ...postEntries, ...jobEntries];
+  /*
+   * NO .eq("moderation_status", "verified") HERE, and that is deliberate,
+   * not an oversight — checked directly against how this table's own list
+   * page already reasons about the same gate (src/app/(app)/scholarships
+   * /page.tsx): "there is deliberately no .eq(...) here. The gate lives in
+   * RLS... Enforcing it here as well would imply the filter is what's
+   * protecting users, and the next page that forgets it would silently leak
+   * an unreviewed listing."
+   *
+   * That reasoning transfers here more exactly than it first looks like it
+   * would. The jobs block above DOES filter on `status = 'open'`, and needs
+   * to: job_postings' RLS policy (0027) gates on organisation verification
+   * and membership, not on `status`, so a closed posting stays visible to
+   * RLS and the app is genuinely what keeps it out of the sitemap.
+   * scholarships' RLS policy gates on `moderation_status` DIRECTLY — the
+   * exact column this filter would repeat — so removing it was tried and
+   * changed nothing: a pending or expired-into-rejected row still does not
+   * appear, because 0084's policy already excludes it. Sabotage-proven, not
+   * assumed: the filter was removed here, the pending-listing e2e test
+   * (e2e/scholarship-sitemap.spec.ts) still passed, and it was removed for
+   * real rather than restored out of caution.
+   */
+  let scholarshipEntries: MetadataRoute.Sitemap = [];
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("scholarships")
+      .select("id, updated_at")
+      .order("updated_at", { ascending: false });
+    if (error) throw new Error(error.message);
+    scholarshipEntries = (data ?? []).map((row) => ({
+      url: absoluteUrl(`/scholarships/${row.id}`),
+      lastModified: new Date(row.updated_at),
+      // Not daily like jobs: the recheck/expiry cadence for scholarships is
+      // Mon/Wed/Fri plus a daily sweep, not a continuous ingest.
+      changeFrequency: "weekly" as const,
+      priority: 0.7,
+    }));
+  } catch (err) {
+    console.error("[sitemap] could not list verified scholarships:", err);
+  }
+
+  return [...staticEntries, ...postEntries, ...jobEntries, ...scholarshipEntries];
 }

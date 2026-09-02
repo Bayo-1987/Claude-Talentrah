@@ -65,6 +65,30 @@ export default function TermsOfServicePage() {
         privacy practices apply, not ours.
       </p>
 
+      {/*
+        Approved by the founder 2026-09-01 as part of resolving build-prompt
+        §10 item 19 — see docs/scholarship-sources.md's own instruction that
+        the public scholarship pages surface this commitment on a legal page.
+        Rewritten in this page's own second-person voice rather than pasted
+        as the doc's third-person policy paragraph; every substantive
+        commitment in that paragraph is carried here — facts only, official
+        source as authority, no application-channel claim, provider
+        takedown honoured, daily re-check.
+      */}
+      <h2>Scholarship listings</h2>
+      <p>
+        Scholarship listings on Talentrah are facts we&apos;ve verified against
+        each provider&apos;s own official page — provider, eligibility, funding,
+        and application deadline — never a provider&apos;s own descriptive text,
+        always linked back to that official source, which remains the
+        authority on current terms. Talentrah isn&apos;t the application channel
+        for any scholarship: you apply directly with the provider. We only
+        source facts from official pages whose terms and robots.txt permit
+        it, or enter them ourselves after checking them by hand, and we
+        re-check listings daily so a closed scholarship stops appearing. If a
+        provider asks us to remove or correct a listing, we will.
+      </p>
+
       <h2>Credits, passes, and payments</h2>
       <p>
         Credits and passes are purchased in Naira through Paystack and are

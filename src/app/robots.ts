@@ -12,10 +12,14 @@ import { absoluteUrl, SITE_ORIGIN } from "@/lib/seo/site";
  * pages out of the index. A path that were only protected by this line would
  * be public.
  *
- * `/jobs/` IS CRAWLABLE, deliberately and as the point of the change that
- * added this file: the detail page is public and carries JobPosting
- * structured data. `/jobs` itself — the authenticated feed — is not, hence
- * the trailing-slash distinction below.
+ * `/jobs/` AND `/scholarships/` ARE CRAWLABLE, deliberately: each detail page
+ * is public and the feed/list behind it is not, hence the trailing-slash
+ * distinction below on both. Scholarships followed the same move for the same
+ * reason job postings did first (#152) — the catalog carries "fully funded
+ * scholarships for Nigerians"-class search demand, and a blanket disallow on
+ * `/scholarships` made every listing invisible to it. RLS is what actually
+ * keeps a pending listing out (0084); this line only stops crawl budget being
+ * spent discovering that the authenticated list route redirects.
  */
 export default function robots(): MetadataRoute.Robots {
   return {
@@ -33,14 +37,15 @@ export default function robots(): MetadataRoute.Robots {
           "/feedback",
           "/refer",
           "/resume-builder",
-          "/scholarships",
           "/settings",
           "/tailor",
           "/tracker",
           "/onboarding",
           "/dashboard",
-          // The feed itself needs a session; individual postings do not.
+          // The feed and list themselves need a session; individual detail
+          // pages do not.
           "/jobs$",
+          "/scholarships$",
           /*
            * The whole employer surface, INCLUDING /employer itself.
            *

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
 import { EyebrowLabel } from "@/components/ui";
@@ -171,7 +172,13 @@ export default async function ScholarshipsPage({ searchParams }: { searchParams:
       )}
 
       <div className="flex flex-wrap items-center gap-4 text-[13.5px]">
-        <a
+        {/*
+          `<Link>`, not `<a>` — this was silent until a sibling dynamic route
+          existed under /scholarships/ to trip Next's own
+          no-html-link-for-pages check against. Fixed here rather than left,
+          since it is now a real lint failure for anyone building this file.
+        */}
+        <Link
           href="/scholarships"
           className={
             tab === "all"
@@ -180,8 +187,8 @@ export default async function ScholarshipsPage({ searchParams }: { searchParams:
           }
         >
           All scholarships
-        </a>
-        <a
+        </Link>
+        <Link
           href="/scholarships?tab=saved"
           className={
             tab === "saved"
@@ -190,7 +197,7 @@ export default async function ScholarshipsPage({ searchParams }: { searchParams:
           }
         >
           Saved &amp; tracking ({saveByScholarshipId.size})
-        </a>
+        </Link>
       </div>
 
       <ScholarshipFilterBar
