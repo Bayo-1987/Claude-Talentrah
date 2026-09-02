@@ -1,0 +1,86 @@
+name: Ingest jobs (3-hourly)
+
+# Founder decision: scale the job-aggregation pipeline's refresh cadence from
+# once a day to once every 3 hours, without paying for a Vercel plan upgrade
+# to get higher-frequency Vercel Cron. This workflow calls the exact same
+# production route Vercel Cron already calls
+# (src/app/api/admin/ingest-jobs/route.ts), with the same secret and the same
+# auth check — the route cannot tell which scheduler called it, and does not
+# need to: ingestion and both expiry sweeps are idempotent regardless of who
+# triggers them or how close together two calls land (see that route's own
+# header comment).
+#
+# THE DAILY VERCEL CRON STAYS, DELIBERATELY, AS A BACKSTOP. A GitHub Actions
+# scheduled workflow on a public repo is best-effort in a way worth naming: it
+# runs on GitHub's own shared runner capacity, competes with every other
+# scheduled workflow on the platform for a slot, and GitHub explicitly
+# disables a scheduled workflow if the repository goes 60 days with no
+# pushes. None of that is a reason to prefer Vercel Cron over this — Vercel
+# Cron's own delivery is equally "best-effort and never retried" (see
+# ingest-jobs/route.ts) — it's a reason to keep BOTH rather than migrate from
+# one to the other. If GitHub Actions ever stops firing, the daily cadence
+# under vercel.json still runs and the feed does not go stale silently.
+#
+# ── THE SECRET NEVER REACHES A LOG LINE ─────────────────────────────────────
+#
+# This repository is PUBLIC, so an Actions log is public too. Three things
+# hold that line, together, not any single one alone:
+#
+#   1. The secret is read into an ENVIRONMENT VARIABLE on the step (`env:`
+#      below), never interpolated directly into the `run:` script text. A
+#      workflow log shows the run script SOURCE AS WRITTEN, with `$CRON_SECRET`
+#      printed literally — the shell resolves it at runtime, invisible to the
+#      log renderer. Writing `-H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"`
+#      directly into the script would still be masked by GitHub's own secret
+#      scanner, but env-var indirection is the belt this wears under that
+#      already-present braces, and it is what every current GitHub
+#      documentation example for a secret used in a shell command recommends.
+#   2. No `set -x` (or any other flag that echoes each command as it runs) —
+#      that is the concrete way a masked secret has leaked from workflows in
+#      the wild elsewhere: the mask covers the literal secret VALUE wherever
+#      it appears in output, but a transformed or partially-quoted rendering
+#      can slip past it, and the simplest way to never find out is to never
+#      echo the command line at all.
+#   3. curl runs with `-s` (silent) and its response body is written to a
+#      FILE, then that file — not the request, not any curl trace — is what
+#      gets echoed. The response body is this route's own JSON summary
+#      (source counts, upserted/expired/staleClosed counts); it has never
+#      once contained a secret, because the route never echoes its own auth
+#      header back.
+on:
+  schedule:
+    - cron: "0 */3 * * *"
+  workflow_dispatch: {}
+
+concurrency:
+  # A group of its own, deliberately not shared with ci.yml's — that group
+  # exists to serialise contention on the shared Supabase project between
+  # test suites, an entirely different resource from a production API call.
+  # `cancel-in-progress: false` queues rather than aborts: a hung run should
+  # not be killed mid-write, it should just make the next scheduled run wait.
+  group: ingest-jobs-3hourly
+  cancel-in-progress: false
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Call the production ingest-jobs cron endpoint
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -euo pipefail
+
+          status="$(curl -s --max-time 60 -o /tmp/ingest-response.json -w "%{http_code}" \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "https://www.talentrah.com/api/admin/ingest-jobs")"
+
+          echo "HTTP status: $status"
+          cat /tmp/ingest-response.json
+          echo
+
+          if [ "$status" -lt 200 ] || [ "$status" -ge 300 ]; then
+            echo "::error::ingest-jobs answered HTTP $status — see the response body above."
+            exit 1
+          fi
