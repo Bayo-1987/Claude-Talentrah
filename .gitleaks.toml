@@ -88,6 +88,16 @@ regexes = [
   # (boards-api.greenhouse.io/v1/boards/moniepoint/jobs), not a token, despite
   # the field being named `token` by Greenhouse's own API.
   '''moniepoint''',
+
+  # src/lib/jobs/sources.config.ts — Apollo Agriculture's public Lever
+  # board slug, same shape as moniepoint above: a path segment in a public,
+  # unauthenticated URL (api.lever.co/v0/postings/apolloagriculture and
+  # jobs.lever.co/apolloagriculture), not a credential, despite Lever also
+  # calling the field `token`. wavemm1 and jumia (the two new Greenhouse
+  # slugs added alongside this one) are under the rule's 8-character
+  # minimum and never matched in the first place — this is the only new
+  # slug from that change long enough to need allowlisting.
+  '''apolloagriculture''',
 ]
 
 paths = [
