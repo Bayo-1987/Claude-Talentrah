@@ -3,19 +3,24 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "../../src/lib/supabase/types";
 
 /**
- * A mutex for the suites that assert on a GLOBAL invariant.
+ * A mutex for suites that assert on a GLOBAL invariant — one that is NOT
+ * scoped to rows a single test run created, so per-run naming (RUN_TAG, see
+ * tests/support/list-users.ts) cannot protect it. Two kinds of "global" have
+ * needed this so far, and the distinction is worth keeping straight:
  *
- * See supabase/migrations/0082_ci_test_locks.sql for the full reasoning. The
- * short version: `admin_operators_covered()` asks "does ANY active admin hold
- * `operators`", so a test asserting "this is the last holder, refuse to
- * disable it" is only correct while no other holder exists anywhere. vitest
- * runs files in parallel, and every open PR's CI shares one Supabase project,
- * so "anywhere" includes another file and another pull request.
+ *   admin_operators_covered()   asks "does ANY active admin hold `operators`
+ *                                anywhere" — a property of every row in
+ *                                `admin_users`, not this run's rows.
+ *   anonymous_demo_daily        has exactly ONE row for "today", by design —
+ *                                the whole point of the table is a single
+ *                                shared budget, so there is no run-scoped name
+ *                                to give it.
  *
- * Anything that creates an admin holding `operators` takes this lease first.
- * Not everything that creates an admin — only the ones that move that global
- * number, because a mutex that covers more than the invariant it protects is
- * just a slower test suite.
+ * See supabase/migrations/0082_ci_test_locks.sql for the lease's own
+ * reasoning (why a table, why it expires, why acquire-or-renew is one
+ * statement). This file is the TypeScript side: one client function generic
+ * over the lock name, plus a named wrapper per invariant so a call site reads
+ * "acquire the operators lock" rather than "acquire lock #1".
  *
  * ── Using it ──────────────────────────────────────────────────────────────
  *
@@ -30,12 +35,32 @@ import type { Database } from "../../src/lib/supabase/types";
  *   });
  *
  * Releasing before teardown would hand the lock to a waiter while this suite's
- * operators-holding admins are still in the table, which is precisely the
+ * side of the invariant is still in the table, which is precisely the
  * situation the lock exists to prevent.
+ *
+ * Adding a THIRD invariant: add a lock-name constant below (never reuse an
+ * existing name — that would serialize two unrelated suites against each
+ * other for no reason) and a one-line wrapper calling `acquireLock`, matching
+ * `acquireOperatorsLock`'s shape. Do not reach for this for a hazard that
+ * per-run naming already solves — see tests/employer/employer-flow.test.ts
+ * for that fix instead, and the note in acquireLock's own doc comment below
+ * for how to tell the two apart.
  */
 
-/** One lease name for one invariant. A second invariant gets a second name. */
+/** One lease name per invariant. Reusing a name serializes unrelated suites. */
 export const OPERATORS_COVERAGE_LOCK = "admin_operators_coverage";
+
+/**
+ * anonymous_demo_daily has exactly one row for "today" — that is the design,
+ * not an oversight, so a per-run name cannot scope it the way RUN_TAG scopes
+ * `organizations`/`job_postings` rows. Every suite that mutates or resets that
+ * row takes this lease first. Reproduced before this existed: a second
+ * process's reset (the file's own beforeEach/afterEach, run concurrently)
+ * wiped the counter to zero mid-batch and let 4 claims through where the
+ * remaining budget was 2 — see the commit that added this lock for the
+ * measured numbers.
+ */
+export const ANONYMOUS_DEMO_DAILY_LOCK = "anonymous_demo_daily_invariant";
 
 export interface OperatorsLockOptions {
   /**
@@ -77,8 +102,22 @@ type LockRpc = {
   ): Promise<{ data: boolean | null; error: { message: string } | null }>;
 };
 
-export async function acquireOperatorsLock(
+/**
+ * Block until this process holds the NAMED lease, then keep it renewed.
+ *
+ * The general form both `acquireOperatorsLock` and `acquireAnonymousDemoDailyLock`
+ * are one-line wrappers around, so the RPC-calling, retry, jitter, renewal and
+ * release logic exists exactly once. Reach for this directly only when adding
+ * a THIRD invariant — see this file's header for how to tell a genuine global
+ * invariant apart from a per-run naming problem RUN_TAG already solves.
+ *
+ * Returns the release function. Renewal matters: a suite slower than one TTL
+ * would otherwise lose the lock mid-run to a waiter and fail in the confusing
+ * way that started all this, rather than failing as a timeout.
+ */
+export async function acquireLock(
   admin: SupabaseClient<Database>,
+  lockName: string,
   label: string,
   opts: OperatorsLockOptions = {},
 ): Promise<() => Promise<void>> {
@@ -90,7 +129,7 @@ export async function acquireOperatorsLock(
 
   const tryAcquire = async () => {
     const { data, error } = await rpc.rpc("ci_test_lock_acquire", {
-      p_name: OPERATORS_COVERAGE_LOCK,
+      p_name: lockName,
       p_holder: holder,
       p_ttl_seconds: ttlSeconds,
     });
@@ -99,7 +138,7 @@ export async function acquireOperatorsLock(
       // is the bug; a missing migration should say so, not degrade into the
       // intermittent failure it was meant to remove.
       throw new Error(
-        `[operators-lock:${label}] could not reach ci_test_lock_acquire — is 0082 applied to this project? ${error.message}`,
+        `[lock:${label}] could not reach ci_test_lock_acquire — is 0082 applied to this project? ${error.message}`,
       );
     }
     return data === true;
@@ -108,8 +147,8 @@ export async function acquireOperatorsLock(
   while (!(await tryAcquire())) {
     if (Date.now() - startedAt > waitTimeoutMs) {
       throw new Error(
-        `[operators-lock:${label}] waited ${Math.round((Date.now() - startedAt) / 1000)}s for ` +
-          `"${OPERATORS_COVERAGE_LOCK}" and never got it. Either a run is genuinely slow, or a ` +
+        `[lock:${label}] waited ${Math.round((Date.now() - startedAt) / 1000)}s for ` +
+          `"${lockName}" and never got it. Either a run is genuinely slow, or a ` +
           `previous run died holding it — the lease self-expires after ${ttlSeconds}s, so a wait ` +
           `longer than that means someone is actively renewing it.`,
       );
@@ -137,11 +176,29 @@ export async function acquireOperatorsLock(
     released = true;
     clearInterval(heartbeat);
     const { error } = await rpc.rpc("ci_test_lock_release", {
-      p_name: OPERATORS_COVERAGE_LOCK,
+      p_name: lockName,
       p_holder: holder,
     });
     // A release that fails is worth seeing but must not fail the suite: the
     // lease expires on its own, so the worst case is other runs waiting.
-    if (error) console.error(`[operators-lock:${label}] release failed:`, error.message);
+    if (error) console.error(`[lock:${label}] release failed:`, error.message);
   };
+}
+
+/** `acquireLock` pinned to the operators-coverage invariant. Existing call sites unchanged. */
+export function acquireOperatorsLock(
+  admin: SupabaseClient<Database>,
+  label: string,
+  opts: OperatorsLockOptions = {},
+): Promise<() => Promise<void>> {
+  return acquireLock(admin, OPERATORS_COVERAGE_LOCK, label, opts);
+}
+
+/** `acquireLock` pinned to the anonymous-demo-daily invariant. */
+export function acquireAnonymousDemoDailyLock(
+  admin: SupabaseClient<Database>,
+  label: string,
+  opts: OperatorsLockOptions = {},
+): Promise<() => Promise<void>> {
+  return acquireLock(admin, ANONYMOUS_DEMO_DAILY_LOCK, label, opts);
 }

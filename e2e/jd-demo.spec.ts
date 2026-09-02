@@ -1,5 +1,6 @@
 import { test, expect, request as pwRequest } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
+import { acquireAnonymousDemoDailyLock } from "../tests/support/operators-lock";
 
 /**
  * The pre-signup demo, from the landing page (§6.1).
@@ -11,6 +12,14 @@ import { createClient } from "@supabase/supabase-js";
  * the worst bug in this change was found — an internal failure was answered
  * 429, and the client rendered 429 as "you've already used the free preview"
  * to someone who had never been there.
+ *
+ * ── THE SAME GLOBAL-INVARIANT LEASE AS tests/demo/anonymous-limit.test.ts ──
+ *
+ * `anonymous_demo_daily` has exactly one row for "today", and `resetDay()`
+ * below unconditionally deletes it before every test. That collides with the
+ * vitest suite doing the same thing concurrently — a lease only excludes
+ * callers that check it, and a table with two independent resetters needs
+ * both of them holding the SAME one. See tests/support/operators-lock.ts.
  */
 const DEMO_PASSWORD = process.env.DEMO_PASSWORD;
 const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -49,6 +58,19 @@ test.use({ viewport: { width: 1280, height: 1000 } });
 
 test.describe("the anonymous demo", () => {
   test.skip(!admin, "needs the service-role key to reset the daily ceiling");
+
+  let releaseLock: (() => Promise<void>) | undefined;
+
+  test.beforeAll(async () => {
+    // This hook queues on the lease; the 30s per-test config timeout is not
+    // enough for that wait.
+    test.setTimeout(300_000);
+    if (admin) releaseLock = await acquireAnonymousDemoDailyLock(admin, "e2e-jd-demo");
+  });
+
+  test.afterAll(async () => {
+    await releaseLock?.();
+  });
 
   test.beforeEach(async () => {
     await resetDay();

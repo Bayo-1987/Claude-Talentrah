@@ -29,6 +29,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
 import type { Database } from "@/lib/supabase/types";
 import { deleteTestOrgs } from "../support/cleanup";
+import { RUN_TAG } from "../support/list-users";
 
 for (const key of [
   "NEXT_PUBLIC_SUPABASE_URL",
@@ -78,7 +79,15 @@ let outsiderB: Awaited<ReturnType<typeof createAuthedUser>>;
 let orgId: string;
 let jobId: string;
 const jobFingerprint = `employer-test-${randomUUID()}`;
-const orgName = `EMPLOYER-TEST-Org-${randomUUID().slice(0, 8)}`;
+/*
+ * RUN_TAG makes this run's rows the ONLY ones the sweeps below can reach.
+ * Before this, "EMPLOYER-TEST%" was shared by every run of this suite on
+ * every branch — the exact hazard #155 fixed in four sibling files, just
+ * never applied here. Reproduced deterministically before fixing: a second
+ * "run"'s bare-prefix sweep, executed while this run's fixtures were still
+ * live, deleted both the org and the job posting outright.
+ */
+const orgName = `EMPLOYER-TEST-${RUN_TAG}-Org-${randomUUID().slice(0, 8)}`;
 
 beforeAll(async () => {
   [employerA, outsiderB] = await Promise.all([
@@ -108,7 +117,7 @@ beforeAll(async () => {
       source_type: "internal",
       organization_id: orgId,
       company_name: orgName,
-      title: "EMPLOYER-TEST Backend Engineer",
+      title: `EMPLOYER-TEST-${RUN_TAG} Backend Engineer`,
       location: "Lagos, Nigeria",
       description: "A real description, long enough to pass the form's own minimum length check.",
       status: "open",
@@ -122,7 +131,11 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await admin.from("job_postings").delete().eq("dedup_fingerprint", jobFingerprint);
-  await admin.from("job_postings").delete().like("title", "EMPLOYER-TEST%");
+  // SCOPED TO THIS RUN. An unscoped "EMPLOYER-TEST%" swept every concurrent
+  // run's live fixtures too — see RUN_TAG in tests/support/list-users.ts, and
+  // the reproduction above the org/job naming that made this provable rather
+  // than assumed.
+  await admin.from("job_postings").delete().like("title", `EMPLOYER-TEST-${RUN_TAG}%`);
   for (const u of [employerA, outsiderB]) {
     if (!u) continue;
     await admin.from("organization_members").delete().eq("user_id", u.id);
@@ -132,7 +145,7 @@ afterAll(async () => {
   const { data: strays } = await admin
     .from("organizations")
     .select("id")
-    .like("name", "EMPLOYER-TEST%");
+    .like("name", `EMPLOYER-TEST-${RUN_TAG}%`);
   await deleteTestOrgs([...(orgId ? [orgId] : []), ...(strays ?? []).map((o) => o.id)]);
   for (const u of [employerA, outsiderB]) {
     if (u) await admin.auth.admin.deleteUser(u.id);
@@ -296,7 +309,7 @@ describe("employer: an outsider cannot get in", () => {
       source_type: "internal",
       organization_id: orgId,
       company_name: orgName,
-      title: "EMPLOYER-TEST Stray Posting",
+      title: `EMPLOYER-TEST-${RUN_TAG} Stray Posting`,
       description: "Should never exist under someone else's company.",
       status: "open",
       dedup_fingerprint: strayFingerprint,
