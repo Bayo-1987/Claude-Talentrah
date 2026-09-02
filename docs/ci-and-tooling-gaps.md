@@ -1,9 +1,15 @@
 # CI and tooling gaps
 
-Four operational facts that cost real time on 2026-08-27 and will cost it
-again unless they are fixed at the source. Each one has a workaround, and each
-workaround has a side effect — which is the reason to write them down rather
-than keep routing around them.
+Operational facts about this repo's CI that cost real time and will cost it
+again unless they are fixed at the source or written down. Each one has a
+workaround, and each workaround has a side effect — which is the reason to
+write them down rather than keep routing around them.
+
+Entries 1–3 are from 2026-08-27. Entries 4–5 were added 2026-09-02 while
+closing the flake ledger in [PR #191](https://github.com/Bayo-1987/Claude-Talentrah/pull/191) —
+deliberately, so a flagged-but-unfixed finding lands here as a backlog item
+with an owner and a next check, rather than as a line in a merged PR's prose
+that the next session has no reason to go looking for.
 
 ---
 
@@ -217,6 +223,81 @@ Worth being plain about the direction of travel: two suites added on
 `tests/profile/settings-write.test.ts`) account for 4 of those 38 sites. Each
 was justified on its own, and together they are the pattern — the budget gets
 spent one reasonable test at a time.
+
+---
+
+## 4. `e2e/jd-demo.spec.ts`: "the day's ceiling refuses a fresh visitor once it is spent" times out at 30s
+
+**Status: open, unowned.** Found 2026-09-02 while wiring the
+`anonymous_demo_daily` lease into this file for PR #191 (fix #2 of that PR's
+three). Not fixed there — it is unrelated to that PR's fix and none of the
+four flake-ledger entries named it, so fixing it would have been scope creep
+beyond what was diagnosed.
+
+**Symptom.** Run in isolation (`npx playwright test e2e/jd-demo.spec.ts -g
+"the day's ceiling refuses a fresh visitor once it is spent"`) against a local
+production build, this one test times out at exactly 30s. The other five
+tests in the same file pass.
+
+**Confirmed pre-existing, not caused by PR #191's lease fix.** The isolated,
+filtered run failed the same way consistently (not intermittently) on the
+modified code. To rule out the lease change as the cause: `git status --short`
+confirmed the four touched files, `git stash -u -q` reverted them, `npm run
+build` succeeded on the unmodified baseline, the server was restarted, and the
+identical isolated test was re-run against that baseline — it **also timed
+out at 30.0s**. `git stash pop -q` restored the changes, re-confirmed via
+`git status --short`. So this is not something PR #191 introduced.
+
+**Not yet diagnosed further than that.** One live hypothesis worth checking
+first, given CLAUDE.md's own note that "production runs Gemini on a free-tier
+key (20 req/day, shared)": if this test's path makes a real Gemini call and
+the shared key's daily cap is already spent when the suite runs, a 30s wait
+could be a real (if unhelpfully silent) upstream stall rather than a bug in
+the test or the route. That is a guess, not a finding — it has not been
+checked.
+
+**Next check, concretely.** Run the isolated test with tracing
+(`--trace on`) or `DEBUG=pw:api`, and look at what the 30s is actually spent
+waiting on:
+- If it's a network call to the Gemini API that never resolves or resolves
+  slowly, check whether the free-tier key's daily quota was exhausted at the
+  time of the run (consistent with the hypothesis above), and consider
+  whether this route needs its own timeout/fallback independent of Gemini's
+  latency.
+- If it's a `page.waitForX` or assertion with no matching network activity,
+  the bug is in the test or the route's response shape, not upstream latency.
+
+**Owner.** Unowned. Pick this up before the next change to
+`e2e/jd-demo.spec.ts` or to the JD-demo AI call path (`/api/public/jd-demo`)
+— don't let a second unrelated PR go past it silently the way this one did.
+
+---
+
+## 5. `gh run rerun` bypasses the CI lock's ordering — use a fresh push instead
+
+**The rule.** Never use `gh run rerun` to retry a CI run on this repo. Merge
+an empty commit, push a real fix, or let the run wait in the natural queue —
+not the rerun button.
+
+**Why, briefly.** `gh run rerun` re-executes a run's original `run_number`
+while genuinely restarting its clock. Confirmed 2026-09-02 via
+`gh api .../runs/517/attempts/{1,2}`: `run_started_at` reset from 07:54:05Z to
+08:04:14Z across the two attempts while `run_number` stayed fixed at 517.
+`.github/scripts/wait-for-ci-lock.sh` used to order strictly by `run_number`,
+so a reran older run could start alongside a genuinely-live newer run instead
+of waiting for it — this was the direct, confirmed cause of two of the four
+2026-09-01 flake-ledger entries (the GoTrue-500 failures in
+`referrals.test.ts` and `cross-user.test.ts`), both of which followed a
+same-session `gh run rerun` issued while something else was still live.
+
+PR #191 fixed the script to order by `run_started_at` instead (with
+`run_number` as a same-second tiebreak), which makes a rerun wait correctly
+rather than jumping the queue — so the correctness hazard above is closed.
+**The habit rule stands anyway**: a rerun still costs the same six-to-nine
+minutes a genuine re-queue would, the fix has only ever been proven against
+synthetic data (see PR #191's description) rather than a real overlapping
+rerun, and a fresh push needs no safety net at all. Don't spend the one you
+have just proved works when you don't have to.
 
 ---
 
