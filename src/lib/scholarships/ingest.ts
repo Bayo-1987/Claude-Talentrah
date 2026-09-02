@@ -169,6 +169,55 @@ export function scholarshipRow(
   };
 }
 
+/**
+ * Groups rows so every `.upsert()` call is column-homogeneous.
+ *
+ * `@supabase/postgrest-js`'s bulk `upsert` sends `columns=` as the UNION of
+ * every row's own keys in the call, and defaults to `Prefer: missing=default`
+ * OFF (`defaultToNull: true`) — so a row that omits a key present on a
+ * sibling row does not take that column's SQL default, it gets written as
+ * literal `NULL`. `rows` here is never one shape: a brand-new or unchanged
+ * listing omits `moderation_status`/`moderated_at` entirely (so the column
+ * default or the stored value survives); an auto-published or
+ * returned-to-review row always sets both; and `moderation_note` is present
+ * only when there is one to write (a supplied `reviewNote`, or one of those
+ * two decisions, which always set it). Mixing any of these in one call
+ * unions their keys and nulls out whichever ones a given row didn't ask for.
+ *
+ * Confirmed live 2026-09-02: the daily cron's `autoPublishMachineVerified`
+ * pass added `moderation_status`/`moderated_at` to 3 of 18 rows, which forced
+ * `moderation_status` into every row's write and drove `NULL` into it for the
+ * other 15 — a NOT NULL violation that failed the whole batch (`ok=false
+ * upserted=0 errors=1` in the 07:09 log). The `moderation_note` case is the
+ * same mechanism with a quieter failure mode: nothing here is NOT NULL, so a
+ * batch mixing a row that supplies `moderation_note` with a collision row
+ * that has none would silently overwrite a stored reviewer's note with NULL
+ * rather than error — never observed in production, but structurally the
+ * same hazard and closed by the same fix.
+ *
+ * The fix is this grouping, not `defaultToNull: false`. That flag makes an
+ * ABSENT key take the column's default — for `moderation_status` that default
+ * is `'pending'`, so a batch mixing shapes would silently flip a row this
+ * pass just verified back to pending on the very same write that published
+ * it. Homogeneous batches need neither flag: every row in a group already
+ * carries the same keys, so the union is a no-op.
+ *
+ * Within-batch fingerprint dedup (above, in `upsertScholarships`) guarantees
+ * no two rows share a `dedup_fingerprint`, which is what lets these groups be
+ * written as separate `ON CONFLICT DO UPDATE` calls with no risk of one
+ * group's write racing another's on the same row.
+ */
+export function groupRowsByShape<T extends Record<string, unknown>>(rows: T[]): T[][] {
+  const groups = new Map<string, T[]>();
+  for (const row of rows) {
+    const signature = Object.keys(row).sort().join("");
+    const group = groups.get(signature);
+    if (group) group.push(row);
+    else groups.set(signature, [row]);
+  }
+  return Array.from(groups.values());
+}
+
 /** A comparable form for one column's value, null distinguishable from "". */
 function comparable(column: string, value: unknown): string {
   if (value === null || value === undefined) return "\u0000null";
@@ -351,12 +400,26 @@ export async function upsertScholarships(
     };
   });
 
-  const { error, count } = await supabase
-    .from("scholarships")
-    .upsert(rows, { onConflict: "dedup_fingerprint", count: "exact" });
-
-  if (error) return { upserted: 0, returnedToReview: [], autoPublished: [], error: error.message };
-  return { upserted: count ?? rows.length, returnedToReview, autoPublished, error: null };
+  // One call per homogeneous shape — see groupRowsByShape for why a single
+  // mixed-shape call is unsafe here. Fails fast: a group that errors stops
+  // the loop rather than attempting the rest, so `upserted` below is exactly
+  // what was actually written rather than a count that includes an upsert
+  // that never ran. That is a real change from the old single-call
+  // atomicity (a failure here can leave some groups written and others not,
+  // where the old bug left NONE written), traded deliberately: writing the
+  // groups that parse correctly is strictly better than the daily 07:00
+  // cron's prior all-or-nothing failure, and a re-run is always safe — every
+  // row is content-addressed by `dedup_fingerprint` and recomputed fresh
+  // from source on the next pass.
+  let upserted = 0;
+  for (const group of groupRowsByShape(rows)) {
+    const { error, count } = await supabase
+      .from("scholarships")
+      .upsert(group, { onConflict: "dedup_fingerprint", count: "exact" });
+    if (error) return { upserted, returnedToReview: [], autoPublished: [], error: error.message };
+    upserted += count ?? group.length;
+  }
+  return { upserted, returnedToReview, autoPublished, error: null };
 }
 
 /**
