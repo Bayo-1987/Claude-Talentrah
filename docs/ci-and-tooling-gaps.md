@@ -334,3 +334,36 @@ fight each other for the database — `concurrency` is per-ref and
 `.github/scripts/wait-for-ci-lock.sh` BLOCKS rather than discarding, so an
 earlier run finishes before a later one starts — but they do share the
 account-wide auth budget, and blocking does not refill it.
+
+---
+
+## Not a gap: Search Console's `employmentType` warning on job postings
+
+Google Search Console flagged three recommended `JobPosting` fields missing
+from live listings: `validThrough`, `baseSalary`, `employmentType`. The first
+two were real gaps and were fixed (migration 0085, `src/lib/jobs/sources
+/schema-org.ts`'s `mapValidThrough`/`mapBaseSalary`, and the corresponding
+emission in `src/lib/seo/job-posting-jsonld.ts`). `employmentType` is not —
+`mapEmploymentType` in the same parser file has mapped it since this fetcher
+was first written, and `job-posting-jsonld.ts`'s `EMPLOYMENT_TYPE` lookup has
+always emitted it whenever the column is set.
+
+**The warning is genuine data absence, not a missed mapping.** A source that
+never states `employmentType` in its own JobPosting markup gives this pipeline
+nothing to map — measured against production on 2026-09-02, ahead of this fix:
+138 of 156 open postings have no `employment_type` at all. That is the sources'
+own gap, not this codebase's, and Google's guidance for a recommended field
+with no real value is to OMIT it, not to invent one. Guessing a value from a
+title or a description (a "Full-time" mention, a "Backend Engineer" title that
+sounds permanent) would be exactly the fabrication this whole feature was
+built to avoid doing for `validThrough`/`baseSalary`, applied to a field where
+it happens to be easier to get away with because nobody would notice a wrong
+guess as readily as a wrong salary.
+
+**So: if this warning still shows in Search Console after 0085 ships, that is
+expected, not a regression to chase.** It closes only as more sources start
+stating `employmentType` themselves, or as new internal postings (which the
+employer form already collects it for) make up a larger share of the board.
+Nothing here calls for inferring the field — recorded so a future pass at
+Search Console findings does not spend time "fixing" a warning that is already
+the correct behaviour.

@@ -34,6 +34,19 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
  * about and leaves it alone. External postings keep closing only when their
  * source stops serving them, unchanged.
  *
+ * THIS REMAINS TRUE NOW THAT `expires_at` IS POPULATED FOR EXTERNAL ROWS TOO.
+ * A schema.org source's `validThrough`, when it states one, is written to
+ * this same column (src/lib/jobs/ingest.ts's row mapper) so it can reach the
+ * JSON-LD builder and any page state that wants it — src/lib/seo/job-posting
+ * -jsonld.ts already emits it as `validThrough` markup. That is a read of
+ * the column, not a second writer of the close decision: this function's
+ * `.eq("source_type", "internal")` is unchanged, so an external row's
+ * `expires_at` is never consulted here, however far in the past it is. Its
+ * closure stays exactly what it always was — presence-driven, decided by
+ * `ingestAllSources`' freshness sweep noticing the source stopped serving it,
+ * never by a date on the row.
+ *
+
  * ── WHY CLOSE THE ROW RATHER THAN FILTER AT READ TIME ─────────────────────
  *
  * Because `status` is a gate every surface already honours — the feed query,

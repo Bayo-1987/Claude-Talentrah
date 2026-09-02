@@ -61,13 +61,18 @@ function itemList(urls: string[]) {
   };
 }
 
-function jobPosting(company: string, title: string) {
+function jobPosting(
+  company: string,
+  title: string,
+  extra: { validThrough?: string; baseSalary?: unknown } = {},
+) {
   return {
     "@type": "JobPosting",
     title,
     datePosted: new Date().toISOString(),
     hiringOrganization: { "@type": "Organization", name: company },
     jobLocationType: "TELECOMMUTE",
+    ...extra,
   };
 }
 
@@ -181,5 +186,74 @@ describe("ingestAllSources — schema-org source", () => {
     const b = rows!.find((r) => r.company_name === COMPANY_B);
     expect(a?.status).toBe("open");
     expect(b?.status).toBe("closed");
+  });
+});
+
+/**
+ * validThrough and baseSalary through the REAL upsert, not just the fetcher
+ * — closing the Search Console gap end to end. Own describe block and own
+ * company names so its cleanup can't race the suite above's.
+ */
+describe("ingestAllSources — schema-org validThrough/baseSalary reach the row", () => {
+  const COMPANY_C = `Test Schema Org Co C ${RUN_ID}`;
+  const JOB_C_URL = `https://jobs.workable.test/${RUN_ID}/view/c`;
+
+  afterAll(async () => {
+    await admin.from("job_postings").delete().eq("company_name", COMPANY_C);
+  });
+
+  it("writes expires_at from validThrough and salary_* from baseSalary on a real row", async () => {
+    mockListing([JOB_C_URL], {
+      [JOB_C_URL]: jobPosting(COMPANY_C, "Role C", {
+        validThrough: "2099-12-31T00:00:00.000Z",
+        baseSalary: {
+          "@type": "MonetaryAmount",
+          currency: "ngn",
+          value: { "@type": "QuantitativeValue", minValue: 500000, maxValue: 800000, unitText: "MONTH" },
+        },
+      }),
+    });
+
+    const results = await ingestAllSources();
+    const mine = results.find((r) => r.source === "schema-org");
+    expect(mine!.error).toBeUndefined();
+
+    const { data: row, error } = await admin
+      .from("job_postings")
+      .select("expires_at, salary_min, salary_max, salary_currency, salary_unit")
+      .eq("company_name", COMPANY_C)
+      .single();
+    if (error) throw error;
+
+    // Postgres reformats the timestamp on the way back ("+00:00" vs. "Z") —
+    // compare the instant, not the string, same trap
+    // tests/scholarships/return-to-review.test.ts documents for scholarships.
+    expect(new Date(row.expires_at!).getTime()).toBe(new Date("2099-12-31T00:00:00.000Z").getTime());
+    expect(row.salary_min).toBe(500000);
+    expect(row.salary_max).toBe(800000);
+    expect(row.salary_currency).toBe("NGN");
+    expect(row.salary_unit).toBe("month");
+  });
+
+  it("a listing with neither leaves both columns null — the ordinary case, not a regression", async () => {
+    // Reruns the FIRST suite's plain jobPosting() shape (no validThrough/
+    // baseSalary) through the real upsert, confirming the new columns don't
+    // turn "source said nothing" into an accidental non-null default.
+    const plainUrl = `https://jobs.workable.test/${RUN_ID}/view/c-plain`;
+    mockListing([plainUrl], { [plainUrl]: jobPosting(COMPANY_C, "Role C Plain") });
+
+    await ingestAllSources();
+
+    const { data: row, error } = await admin
+      .from("job_postings")
+      .select("expires_at, salary_min, salary_currency")
+      .eq("company_name", COMPANY_C)
+      .eq("title", "Role C Plain")
+      .single();
+    if (error) throw error;
+
+    expect(row.expires_at).toBeNull();
+    expect(row.salary_min).toBeNull();
+    expect(row.salary_currency).toBeNull();
   });
 });

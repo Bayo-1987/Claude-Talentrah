@@ -53,6 +53,10 @@ export default async function EditJobPage({ params }: { params: Promise<{ id: st
             seniority: job.seniority,
             yearsExperienceMin: job.years_experience_min,
             expiresAt: job.expires_at,
+            salaryMin: job.salary_min,
+            salaryMax: job.salary_max,
+            salaryCurrency: job.salary_currency,
+            salaryUnit: job.salary_unit,
           }}
         />
       </div>

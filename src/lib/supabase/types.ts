@@ -335,7 +335,15 @@ export type Database = {
           permission?: Database["public"]["Enums"]["admin_permission"]
           role_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "admin_role_permissions_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "admin_roles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       admin_roles: {
         Row: {
@@ -433,7 +441,15 @@ export type Database = {
           role?: string
           role_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "admin_users_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "admin_roles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       anonymous_demo_daily: {
         Row: {
@@ -709,48 +725,6 @@ export type Database = {
           },
         ]
       }
-      course_recommendation_clicks: {
-        Row: {
-          clicked_at: string
-          id: string
-          recommendation_id: string | null
-          skill_tag: string
-          source: string
-          user_id: string | null
-        }
-        Insert: {
-          clicked_at?: string
-          id?: string
-          recommendation_id?: string | null
-          skill_tag: string
-          source: string
-          user_id?: string | null
-        }
-        Update: {
-          clicked_at?: string
-          id?: string
-          recommendation_id?: string | null
-          skill_tag?: string
-          source?: string
-          user_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "course_recommendation_clicks_recommendation_id_fkey"
-            columns: ["recommendation_id"]
-            isOneToOne: false
-            referencedRelation: "course_recommendations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "course_recommendation_clicks_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       blog_posts: {
         Row: {
           author: string
@@ -807,6 +781,69 @@ export type Database = {
             columns: ["updated_by"]
             isOneToOne: false
             referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ci_test_locks: {
+        Row: {
+          acquired_at: string
+          expires_at: string
+          holder: string
+          name: string
+        }
+        Insert: {
+          acquired_at?: string
+          expires_at: string
+          holder: string
+          name: string
+        }
+        Update: {
+          acquired_at?: string
+          expires_at?: string
+          holder?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      course_recommendation_clicks: {
+        Row: {
+          clicked_at: string
+          id: string
+          recommendation_id: string | null
+          skill_tag: string
+          source: string
+          user_id: string | null
+        }
+        Insert: {
+          clicked_at?: string
+          id?: string
+          recommendation_id?: string | null
+          skill_tag: string
+          source: string
+          user_id?: string | null
+        }
+        Update: {
+          clicked_at?: string
+          id?: string
+          recommendation_id?: string | null
+          skill_tag?: string
+          source?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_recommendation_clicks_recommendation_id_fkey"
+            columns: ["recommendation_id"]
+            isOneToOne: false
+            referencedRelation: "course_recommendations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_recommendation_clicks_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -950,6 +987,41 @@ export type Database = {
         }
         Relationships: []
       }
+      email_preferences: {
+        Row: {
+          created_at: string
+          digest_last_sent_at: string | null
+          job_match_digest: boolean
+          unsubscribe_token: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          digest_last_sent_at?: string | null
+          job_match_digest?: boolean
+          unsubscribe_token?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          digest_last_sent_at?: string | null
+          job_match_digest?: boolean
+          unsubscribe_token?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_preferences_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       farah_messages: {
         Row: {
           content: string
@@ -979,6 +1051,38 @@ export type Database = {
           {
             foreignKeyName: "farah_messages_user_id_fkey"
             columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      feature_flags: {
+        Row: {
+          enabled: boolean
+          key: string
+          label: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          enabled?: boolean
+          key: string
+          label: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          enabled?: boolean
+          key?: string
+          label?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feature_flags_updated_by_fkey"
+            columns: ["updated_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -1081,65 +1185,6 @@ export type Database = {
           },
         ]
       }
-      email_preferences: {
-        Row: {
-          created_at: string
-          digest_last_sent_at: string | null
-          job_match_digest: boolean
-          unsubscribe_token: string
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          digest_last_sent_at?: string | null
-          job_match_digest?: boolean
-          unsubscribe_token?: string
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          digest_last_sent_at?: string | null
-          job_match_digest?: boolean
-          unsubscribe_token?: string
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "email_preferences_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: true
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      feature_flags: {
-        Row: {
-          enabled: boolean
-          key: string
-          label: string
-          updated_at: string
-          updated_by: string | null
-        }
-        Insert: {
-          enabled?: boolean
-          key: string
-          label: string
-          updated_at?: string
-          updated_by?: string | null
-        }
-        Update: {
-          enabled?: boolean
-          key?: string
-          label?: string
-          updated_at?: string
-          updated_by?: string | null
-        }
-        Relationships: []
-      }
       job_postings: {
         Row: {
           company_logo_url: string | null
@@ -1159,6 +1204,10 @@ export type Database = {
           removal_reason: string | null
           removed_at: string | null
           removed_by: string | null
+          salary_currency: string | null
+          salary_max: number | null
+          salary_min: number | null
+          salary_unit: Database["public"]["Enums"]["salary_unit"] | null
           seniority: Database["public"]["Enums"]["seniority_level"] | null
           source_type: Database["public"]["Enums"]["job_source_type"]
           status: Database["public"]["Enums"]["job_status"]
@@ -1187,6 +1236,10 @@ export type Database = {
           removal_reason?: string | null
           removed_at?: string | null
           removed_by?: string | null
+          salary_currency?: string | null
+          salary_max?: number | null
+          salary_min?: number | null
+          salary_unit?: Database["public"]["Enums"]["salary_unit"] | null
           seniority?: Database["public"]["Enums"]["seniority_level"] | null
           source_type: Database["public"]["Enums"]["job_source_type"]
           status?: Database["public"]["Enums"]["job_status"]
@@ -1215,6 +1268,10 @@ export type Database = {
           removal_reason?: string | null
           removed_at?: string | null
           removed_by?: string | null
+          salary_currency?: string | null
+          salary_max?: number | null
+          salary_min?: number | null
+          salary_unit?: Database["public"]["Enums"]["salary_unit"] | null
           seniority?: Database["public"]["Enums"]["seniority_level"] | null
           source_type?: Database["public"]["Enums"]["job_source_type"]
           status?: Database["public"]["Enums"]["job_status"]
@@ -1537,7 +1594,6 @@ export type Database = {
           credits_balance: number
           email: string
           farah_hint_dismissed_at: string | null
-          resume_skills_notice_dismissed_at: string | null
           first_name: string | null
           free_trial_cover_letter_used: boolean
           free_trial_tailoring_used: boolean
@@ -1547,6 +1603,7 @@ export type Database = {
           market_segment: Database["public"]["Enums"]["market_segment"]
           referral_code: string
           referred_by: string | null
+          resume_skills_notice_dismissed_at: string | null
           updated_at: string
         }
         Insert: {
@@ -1555,7 +1612,6 @@ export type Database = {
           credits_balance?: number
           email: string
           farah_hint_dismissed_at?: string | null
-          resume_skills_notice_dismissed_at?: string | null
           first_name?: string | null
           free_trial_cover_letter_used?: boolean
           free_trial_tailoring_used?: boolean
@@ -1565,6 +1621,7 @@ export type Database = {
           market_segment?: Database["public"]["Enums"]["market_segment"]
           referral_code: string
           referred_by?: string | null
+          resume_skills_notice_dismissed_at?: string | null
           updated_at?: string
         }
         Update: {
@@ -1573,7 +1630,6 @@ export type Database = {
           credits_balance?: number
           email?: string
           farah_hint_dismissed_at?: string | null
-          resume_skills_notice_dismissed_at?: string | null
           first_name?: string | null
           free_trial_cover_letter_used?: boolean
           free_trial_tailoring_used?: boolean
@@ -1583,6 +1639,7 @@ export type Database = {
           market_segment?: Database["public"]["Enums"]["market_segment"]
           referral_code?: string
           referred_by?: string | null
+          resume_skills_notice_dismissed_at?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -2040,6 +2097,65 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_create_operator: {
+        Args: {
+          p_actor: string
+          p_display_name: string
+          p_email: string
+          p_role_id: string
+          p_user_id: string
+        }
+        Returns: {
+          ok: boolean
+          reason: string
+        }[]
+      }
+      admin_delete_role: {
+        Args: { p_actor: string; p_role_id: string }
+        Returns: {
+          ok: boolean
+          reason: string
+        }[]
+      }
+      admin_has_permission: {
+        Args: {
+          p_admin: string
+          p_permission: Database["public"]["Enums"]["admin_permission"]
+        }
+        Returns: boolean
+      }
+      admin_moderate_job_posting: {
+        Args: {
+          p_action: string
+          p_actor: string
+          p_id: string
+          p_reason: string
+        }
+        Returns: {
+          new_status: string
+          ok: boolean
+          reason: string
+        }[]
+      }
+      admin_moderate_scholarship: {
+        Args: {
+          p_actor: string
+          p_id: string
+          p_note: string
+          p_status: string
+        }
+        Returns: {
+          ok: boolean
+          reason: string
+        }[]
+      }
+      admin_operators_covered: { Args: never; Returns: boolean }
+      admin_permission_catalog: {
+        Args: never
+        Returns: {
+          permission: Database["public"]["Enums"]["admin_permission"]
+        }[]
+      }
       admin_session_validate: {
         Args: { p_token_hash: string }
         Returns: {
@@ -2050,60 +2166,12 @@ export type Database = {
           session_id: string
         }[]
       }
-      admin_moderate_job_posting: {
-        Args: { p_action: string; p_actor: string; p_id: string; p_reason: string }
-        Returns: { new_status: string; ok: boolean; reason: string }[]
-      }
-      admin_moderate_scholarship: {
-        Args: { p_actor: string; p_id: string; p_note: string; p_status: string }
-        Returns: { ok: boolean; reason: string }[]
-      }
-      admin_permission_catalog: {
-        Args: Record<PropertyKey, never>
-        Returns: { permission: Database["public"]["Enums"]["admin_permission"] }[]
-      }
-      admin_triage_feedback: {
-        Args: { p_actor: string; p_id: string; p_note: string; p_status: string }
-        Returns: { ok: boolean; reason: string }[]
-      }
-      admin_update_course: {
-        Args: {
-          p_actor: string
-          p_active?: boolean
-          p_affiliate_url?: string
-          p_id: string
-          p_price_tier?: string
-          p_provider?: string
-          p_skill_tag?: string
-          p_title?: string
-        }
-        Returns: { ok: boolean; reason: string }[]
-      }
-      admin_create_operator: {
-        Args: {
-          p_actor: string
-          p_display_name: string
-          p_email: string
-          p_role_id: string
-          p_user_id: string
-        }
-        Returns: { ok: boolean; reason: string }[]
-      }
-      admin_delete_role: {
-        Args: { p_actor: string; p_role_id: string }
-        Returns: { ok: boolean; reason: string }[]
-      }
-      admin_has_permission: {
-        Args: { p_admin: string; p_permission: Database["public"]["Enums"]["admin_permission"] }
-        Returns: boolean
-      }
-      admin_operators_covered: {
-        Args: Record<PropertyKey, never>
-        Returns: boolean
-      }
       admin_set_feature_flag: {
         Args: { p_actor: string; p_enabled: boolean; p_key: string }
-        Returns: { ok: boolean; reason: string }[]
+        Returns: {
+          ok: boolean
+          reason: string
+        }[]
       }
       admin_set_operator: {
         Args: {
@@ -2112,16 +2180,38 @@ export type Database = {
           p_role_id?: string
           p_target: string
         }
-        Returns: { ok: boolean; reason: string }[]
+        Returns: {
+          ok: boolean
+          reason: string
+        }[]
       }
-      admin_upsert_role: {
+      admin_triage_feedback: {
         Args: {
           p_actor: string
-          p_name: string
-          p_permissions: Database["public"]["Enums"]["admin_permission"][]
-          p_role_id: string
+          p_id: string
+          p_note: string
+          p_status: string
         }
-        Returns: { ok: boolean; reason: string; role_id: string }[]
+        Returns: {
+          ok: boolean
+          reason: string
+        }[]
+      }
+      admin_update_course: {
+        Args: {
+          p_active?: boolean
+          p_actor: string
+          p_affiliate_url?: string
+          p_id: string
+          p_price_tier?: string
+          p_provider?: string
+          p_skill_tag?: string
+          p_title?: string
+        }
+        Returns: {
+          ok: boolean
+          reason: string
+        }[]
       }
       admin_update_operator: {
         Args: {
@@ -2135,6 +2225,19 @@ export type Database = {
           new_role: string
           ok: boolean
           reason: string
+        }[]
+      }
+      admin_upsert_role: {
+        Args: {
+          p_actor: string
+          p_name: string
+          p_permissions: Database["public"]["Enums"]["admin_permission"][]
+          p_role_id: string
+        }
+        Returns: {
+          ok: boolean
+          reason: string
+          role_id: string
         }[]
       }
       auto_apply_claim_submission: {
@@ -2165,6 +2268,14 @@ export type Database = {
       check_and_activate_referral: {
         Args: { p_user_id: string }
         Returns: undefined
+      }
+      ci_test_lock_acquire: {
+        Args: { p_holder: string; p_name: string; p_ttl_seconds?: number }
+        Returns: boolean
+      }
+      ci_test_lock_release: {
+        Args: { p_holder: string; p_name: string }
+        Returns: boolean
       }
       claim_anonymous_demo_run: {
         Args: { p_daily_cap: number; p_ip_hash: string; p_visitor_id: string }
@@ -2218,7 +2329,6 @@ export type Database = {
           ok: boolean
         }[]
       }
-      generate_referral_code: { Args: never; Returns: string }
       email_unsubscribe: {
         Args: { p_subscribed?: boolean; p_token: string }
         Returns: {
@@ -2226,6 +2336,7 @@ export type Database = {
           matched: boolean
         }[]
       }
+      generate_referral_code: { Args: never; Returns: string }
       grant_referral_reward: {
         Args: {
           p_amount: number
@@ -2247,6 +2358,16 @@ export type Database = {
       normalize_email_for_self_referral: {
         Args: { p_email: string }
         Returns: string
+      }
+      operator_credential_events: {
+        Args: { p_since?: string }
+        Returns: {
+          event_action: string
+          event_ip: string
+          occurred_at: string
+          operator_email: string
+          operator_id: string
+        }[]
       }
       org_application_counts: {
         Args: { p_organization_id: string }
@@ -2303,16 +2424,6 @@ export type Database = {
         }
         Returns: Database["public"]["Enums"]["ad_campaign_status"]
       }
-      operator_credential_events: {
-        Args: { p_since?: string }
-        Returns: {
-          event_action: string
-          event_ip: string
-          occurred_at: string
-          operator_email: string
-          operator_id: string
-        }[]
-      }
       spend_credits_atomic: {
         Args: {
           p_amount: number
@@ -2331,19 +2442,6 @@ export type Database = {
       }
     }
     Enums: {
-      admin_permission:
-        | "blog"
-        | "feature_flags"
-        | "scholarships"
-        | "reported_postings"
-        | "ad_campaigns"
-        | "feedback"
-        | "courses"
-        | "operations"
-        | "finance"
-        | "people"
-        | "operators"
-        | "blog"
       ad_campaign_status:
         | "draft"
         | "pending_review"
@@ -2358,6 +2456,18 @@ export type Database = {
         | "campaign_charge"
         | "admin_adjustment"
         | "reversal"
+      admin_permission:
+        | "scholarships"
+        | "reported_postings"
+        | "ad_campaigns"
+        | "feedback"
+        | "courses"
+        | "operations"
+        | "finance"
+        | "people"
+        | "operators"
+        | "blog"
+        | "feature_flags"
       application_source: "internal_apply" | "manual" | "auto_apply"
       application_stage:
         | "saved"
@@ -2408,6 +2518,7 @@ export type Database = {
       payment_status: "pending" | "success" | "failed"
       referral_status: "invited" | "signed_up" | "activated"
       resume_source: "uploaded" | "builder" | "tailored"
+      salary_unit: "hour" | "day" | "week" | "month" | "year"
       scholarship_degree_level:
         | "bsc"
         | "msc"
@@ -2434,12 +2545,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2463,11 +2574,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2488,11 +2599,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2513,11 +2624,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2530,11 +2641,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2561,6 +2672,19 @@ export const Constants = {
         "campaign_charge",
         "admin_adjustment",
         "reversal",
+      ],
+      admin_permission: [
+        "scholarships",
+        "reported_postings",
+        "ad_campaigns",
+        "feedback",
+        "courses",
+        "operations",
+        "finance",
+        "people",
+        "operators",
+        "blog",
+        "feature_flags",
       ],
       application_source: ["internal_apply", "manual", "auto_apply"],
       application_stage: [
@@ -2616,6 +2740,7 @@ export const Constants = {
       payment_status: ["pending", "success", "failed"],
       referral_status: ["invited", "signed_up", "activated"],
       resume_source: ["uploaded", "builder", "tailored"],
+      salary_unit: ["hour", "day", "week", "month", "year"],
       scholarship_degree_level: [
         "bsc",
         "msc",

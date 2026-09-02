@@ -194,4 +194,222 @@ describe("fetchSchemaOrgJobs", () => {
     mockRoutes({ [listingUrl]: { status: 404 } });
     await expect(fetchSchemaOrgJobs(listingUrl, "test-source")).rejects.toThrow(/404/);
   });
+
+  /**
+   * validThrough / baseSalary — the two Search Console findings this file's
+   * ingestion side was missing (the third, employmentType, was already
+   * mapped and needed no code change; see docs/ci-and-tooling-gaps.md).
+   *
+   * Same "malformed field costs that one field, not the listing" contract as
+   * the rest of this file: a required field (title, hiringOrganization,
+   * location-or-remote) skips the whole posting, but validThrough and
+   * baseSalary are optional and best-effort, so garbage in either one is
+   * silently dropped and the posting still comes back as a `job`, never a
+   * `skipped`.
+   */
+  describe("validThrough → expiresAt", () => {
+    function withValidThrough(validThrough: unknown) {
+      return {
+        "@type": "JobPosting",
+        title: "Backend Engineer",
+        hiringOrganization: { "@type": "Organization", name: "Good Co" },
+        jobLocationType: "TELECOMMUTE",
+        validThrough,
+      };
+    }
+
+    it("carries a real ISO date through as expiresAt", async () => {
+      const listingUrl = "https://jobs.workable.com/search/nigeria";
+      mockRoutes({ [listingUrl]: htmlWithJsonLd(withValidThrough("2099-12-31T00:00:00.000Z")) });
+
+      const { jobs, skipped } = await fetchSchemaOrgJobs(listingUrl, "test-source");
+      expect(skipped).toEqual([]);
+      expect(jobs).toHaveLength(1);
+      expect(jobs[0].expiresAt).toBe("2099-12-31T00:00:00.000Z");
+    });
+
+    it("accepts a non-ISO but real-world date format", async () => {
+      const listingUrl = "https://jobs.workable.com/search/nigeria";
+      mockRoutes({ [listingUrl]: htmlWithJsonLd(withValidThrough("December 31, 2099")) });
+
+      const { jobs } = await fetchSchemaOrgJobs(listingUrl, "test-source");
+      expect(jobs[0].expiresAt).toBeDefined();
+      expect(new Date(jobs[0].expiresAt!).getUTCFullYear()).toBe(2099);
+    });
+
+    it("MALFORMED DATE: omits expiresAt, but still returns the posting as a job, not a skip", async () => {
+      const listingUrl = "https://jobs.workable.com/search/nigeria";
+      mockRoutes({ [listingUrl]: htmlWithJsonLd(withValidThrough("whenever, probably")) });
+
+      const { jobs, skipped } = await fetchSchemaOrgJobs(listingUrl, "test-source");
+      expect(skipped, "a malformed validThrough must not invalidate the listing").toEqual([]);
+      expect(jobs).toHaveLength(1);
+      expect(jobs[0].expiresAt, "an unparsable date must not be guessed at or coerced").toBeUndefined();
+    });
+
+    it("MALFORMED SHAPE: a non-string validThrough is omitted the same way", async () => {
+      const listingUrl = "https://jobs.workable.com/search/nigeria";
+      mockRoutes({ [listingUrl]: htmlWithJsonLd(withValidThrough({ nonsense: true })) });
+
+      const { jobs, skipped } = await fetchSchemaOrgJobs(listingUrl, "test-source");
+      expect(skipped).toEqual([]);
+      expect(jobs[0].expiresAt).toBeUndefined();
+    });
+
+    it("no validThrough at all is the ordinary case — no crash, no field", async () => {
+      const listingUrl = "https://jobs.workable.com/search/nigeria";
+      mockRoutes({
+        [listingUrl]: htmlWithJsonLd({
+          "@type": "JobPosting",
+          title: "Backend Engineer",
+          hiringOrganization: { "@type": "Organization", name: "Good Co" },
+          jobLocationType: "TELECOMMUTE",
+        }),
+      });
+
+      const { jobs } = await fetchSchemaOrgJobs(listingUrl, "test-source");
+      expect(jobs[0].expiresAt).toBeUndefined();
+    });
+  });
+
+  describe("baseSalary → salaryMin/salaryMax/salaryCurrency/salaryUnit", () => {
+    function withBaseSalary(baseSalary: unknown) {
+      return {
+        "@type": "JobPosting",
+        title: "Backend Engineer",
+        hiringOrganization: { "@type": "Organization", name: "Good Co" },
+        jobLocationType: "TELECOMMUTE",
+        baseSalary,
+      };
+    }
+
+    it("a MonetaryAmount/QuantitativeValue range maps to min/max/currency/unit", async () => {
+      const listingUrl = "https://jobs.workable.com/search/nigeria";
+      mockRoutes({
+        [listingUrl]: htmlWithJsonLd(
+          withBaseSalary({
+            "@type": "MonetaryAmount",
+            currency: "ngn",
+            value: { "@type": "QuantitativeValue", minValue: 500000, maxValue: 800000, unitText: "MONTH" },
+          }),
+        ),
+      });
+
+      const { jobs, skipped } = await fetchSchemaOrgJobs(listingUrl, "test-source");
+      expect(skipped).toEqual([]);
+      expect(jobs[0].salaryMin).toBe(500000);
+      expect(jobs[0].salaryMax).toBe(800000);
+      // Uppercased regardless of how the source cased it.
+      expect(jobs[0].salaryCurrency).toBe("NGN");
+      expect(jobs[0].salaryUnit).toBe("month");
+    });
+
+    it("a single stated figure (bare value, no min/max) becomes an equal min and max", async () => {
+      const listingUrl = "https://jobs.workable.com/search/nigeria";
+      mockRoutes({
+        [listingUrl]: htmlWithJsonLd(
+          withBaseSalary({
+            "@type": "MonetaryAmount",
+            currency: "USD",
+            value: { "@type": "QuantitativeValue", value: 90000, unitText: "YEAR" },
+          }),
+        ),
+      });
+
+      const { jobs } = await fetchSchemaOrgJobs(listingUrl, "test-source");
+      expect(jobs[0].salaryMin).toBe(90000);
+      expect(jobs[0].salaryMax).toBe(90000);
+      expect(jobs[0].salaryUnit).toBe("year");
+    });
+
+    it("a bare number as `value` (no nested QuantitativeValue) is also accepted", async () => {
+      const listingUrl = "https://jobs.workable.com/search/nigeria";
+      mockRoutes({
+        [listingUrl]: htmlWithJsonLd(withBaseSalary({ "@type": "MonetaryAmount", currency: "USD", value: 120000 })),
+      });
+
+      const { jobs } = await fetchSchemaOrgJobs(listingUrl, "test-source");
+      expect(jobs[0].salaryMin).toBe(120000);
+      expect(jobs[0].salaryMax).toBe(120000);
+      expect(jobs[0].salaryUnit).toBeUndefined();
+    });
+
+    it("MALFORMED: no currency at all — never fabricate one, so the whole salary is omitted", async () => {
+      const listingUrl = "https://jobs.workable.com/search/nigeria";
+      mockRoutes({
+        [listingUrl]: htmlWithJsonLd(
+          withBaseSalary({
+            "@type": "MonetaryAmount",
+            value: { "@type": "QuantitativeValue", minValue: 500000, maxValue: 800000 },
+          }),
+        ),
+      });
+
+      const { jobs, skipped } = await fetchSchemaOrgJobs(listingUrl, "test-source");
+      expect(skipped, "a malformed baseSalary must not invalidate the listing").toEqual([]);
+      expect(jobs[0].salaryMin).toBeUndefined();
+      expect(jobs[0].salaryMax).toBeUndefined();
+      expect(jobs[0].salaryCurrency).toBeUndefined();
+    });
+
+    it("MALFORMED: a currency that isn't a 3-letter code is rejected, not passed through", async () => {
+      const listingUrl = "https://jobs.workable.com/search/nigeria";
+      mockRoutes({
+        [listingUrl]: htmlWithJsonLd(
+          withBaseSalary({
+            "@type": "MonetaryAmount",
+            currency: "US Dollars",
+            value: { "@type": "QuantitativeValue", value: 90000 },
+          }),
+        ),
+      });
+
+      const { jobs } = await fetchSchemaOrgJobs(listingUrl, "test-source");
+      expect(jobs[0].salaryCurrency).toBeUndefined();
+      expect(jobs[0].salaryMin).toBeUndefined();
+    });
+
+    it("MALFORMED: an inverted range (max < min) is omitted rather than swapped or half-kept", async () => {
+      const listingUrl = "https://jobs.workable.com/search/nigeria";
+      mockRoutes({
+        [listingUrl]: htmlWithJsonLd(
+          withBaseSalary({
+            "@type": "MonetaryAmount",
+            currency: "NGN",
+            value: { "@type": "QuantitativeValue", minValue: 800000, maxValue: 500000 },
+          }),
+        ),
+      });
+
+      const { jobs, skipped } = await fetchSchemaOrgJobs(listingUrl, "test-source");
+      expect(skipped).toEqual([]);
+      expect(jobs[0].salaryMin).toBeUndefined();
+      expect(jobs[0].salaryMax).toBeUndefined();
+    });
+
+    it("MALFORMED: baseSalary is a plain string — no crash, salary just isn't there", async () => {
+      const listingUrl = "https://jobs.workable.com/search/nigeria";
+      mockRoutes({ [listingUrl]: htmlWithJsonLd(withBaseSalary("competitive")) });
+
+      const { jobs, skipped } = await fetchSchemaOrgJobs(listingUrl, "test-source");
+      expect(skipped).toEqual([]);
+      expect(jobs[0].salaryMin).toBeUndefined();
+    });
+
+    it("no baseSalary at all is the ordinary case — no crash, no field", async () => {
+      const listingUrl = "https://jobs.workable.com/search/nigeria";
+      mockRoutes({
+        [listingUrl]: htmlWithJsonLd({
+          "@type": "JobPosting",
+          title: "Backend Engineer",
+          hiringOrganization: { "@type": "Organization", name: "Good Co" },
+          jobLocationType: "TELECOMMUTE",
+        }),
+      });
+
+      const { jobs } = await fetchSchemaOrgJobs(listingUrl, "test-source");
+      expect(jobs[0].salaryMin).toBeUndefined();
+      expect(jobs[0].salaryCurrency).toBeUndefined();
+    });
+  });
 });

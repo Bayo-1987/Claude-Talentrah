@@ -24,16 +24,24 @@ import { absoluteUrl } from "./site";
  * Jobs", invalid means an error in Search Console against a page that looks
  * fine to a human.
  *
- * ── WHY `validThrough` IS USUALLY ABSENT, AND WHY THAT IS CORRECT ─────────
+ * ── WHY `validThrough` AND `baseSalary` ARE OFTEN ABSENT, AND WHY THAT IS
+ *    CORRECT ─────────────────────────────────────────────────────────────
  *
- * `job_postings.expires_at` is null on all 155 open postings today — 0053 added
- * the column so a source that publishes `validThrough` has somewhere to put it,
- * and deliberately gave it no default (a default would be a guess recorded as
- * if a source had stated it). Google's guidance is to OMIT validThrough when a
- * job has no expiry, not to invent one, so this emits it only when the column
- * is set. It will start appearing on its own as sources supply it — and now
- * also when an employer chooses one on the job form, which is what made the
- * past-expiry guard below necessary.
+ * `job_postings.expires_at` had no writer at all until schema.org sources
+ * started reading `validThrough` off their own markup (src/lib/jobs/sources
+ * /schema-org.ts) and employers started choosing one on the job form — 0053
+ * added the column ahead of either, deliberately with no default (a default
+ * would be a guess recorded as if a source had stated it). Google's guidance
+ * is to OMIT validThrough when a job has no expiry, not to invent one, so
+ * this emits it only when the column is set.
+ *
+ * `baseSalary` follows the identical rule, one level deeper: it is emitted
+ * only when the row has BOTH a currency and at least one bound (min or max).
+ * A bound with no currency is not a fact — "50000" means nothing without
+ * knowing NGN from USD — so migration 0085's parser never stores one without
+ * the other, and this function checks both again rather than trusting that
+ * invariant blindly, consistent with "emit nothing rather than emit
+ * something invalid" holding at every layer, not just the one that wrote it.
  */
 
 type JobPosting = Tables<"job_postings">;
@@ -51,6 +59,24 @@ const EMPLOYMENT_TYPE: Record<string, string> = {
   internship: "INTERN",
   temporary: "TEMPORARY",
 };
+
+/** The inverse of sources/schema-org.ts's mapSalaryUnit — this app's enum
+ * value back to the schema.org unitText Google expects. */
+const SALARY_UNIT_TEXT: Record<string, string> = {
+  hour: "HOUR",
+  day: "DAY",
+  week: "WEEK",
+  month: "MONTH",
+  year: "YEAR",
+};
+
+/** `numeric` columns can arrive as a string over PostgREST — never emit an
+ * unparsable value rather than trust the column's declared type. */
+function toFiniteNumber(value: unknown): number | undefined {
+  if (value === null || value === undefined) return undefined;
+  const n = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(n) ? n : undefined;
+}
 
 export interface ParsedLocation {
   /** ISO-ish country name as written in the source, e.g. "Nigeria". */
@@ -258,6 +284,27 @@ export function buildJobPostingJsonLd(job: JobPosting): Record<string, unknown> 
 
   // Only when a source actually stated one — see the header.
   if (job.expires_at) jsonLd.validThrough = new Date(job.expires_at).toISOString();
+
+  // Only when a currency AND at least one bound are on the row — see the
+  // header's baseSalary paragraph for why a bound with no currency does not
+  // count as one.
+  const salaryMin = toFiniteNumber(job.salary_min);
+  const salaryMax = toFiniteNumber(job.salary_max);
+  if (job.salary_currency && (salaryMin !== undefined || salaryMax !== undefined)) {
+    const min = salaryMin ?? salaryMax!;
+    const max = salaryMax ?? salaryMin!;
+    const unitText = job.salary_unit ? SALARY_UNIT_TEXT[job.salary_unit] : undefined;
+    jsonLd.baseSalary = {
+      "@type": "MonetaryAmount",
+      currency: job.salary_currency,
+      value: {
+        "@type": "QuantitativeValue",
+        minValue: min,
+        maxValue: max,
+        ...(unitText ? { unitText } : {}),
+      },
+    };
+  }
 
   /*
    * directApply is FALSE for external postings on purpose. Auto-Apply hands

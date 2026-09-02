@@ -2,7 +2,7 @@ import "server-only";
 import { computeDedupFingerprint } from "../dedup";
 import { extractStructuredJd, inferSeniority, stripHtml } from "../extract-jd";
 import { schemaOrgSourceKey } from "../types";
-import type { EmploymentType, NormalizedJobPosting, WorkType } from "../types";
+import type { EmploymentType, NormalizedJobPosting, SalaryUnit, WorkType } from "../types";
 
 const FETCH_TIMEOUT_MS = 15_000;
 /**
@@ -31,6 +31,15 @@ interface ValidJobPostingBlock {
   jobLocationType?: string;
   applicantLocationRequirements?: unknown;
   url?: string;
+  /** Carried through unvalidated, same as employmentType — mapValidThrough
+   * does the actual date parsing and is where an unparsable value gets
+   * dropped rather than guessed at. */
+  validThrough?: string;
+  /** Untyped on purpose: schema.org's baseSalary is a MonetaryAmount whose
+   * `value` is either a bare number or a nested QuantitativeValue, and a
+   * malformed shape here must not throw — mapBaseSalary is where that gets
+   * sorted out defensively. */
+  baseSalary?: unknown;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -80,6 +89,8 @@ function validateJobPosting(candidate: unknown): ValidJobPostingBlock | { error:
     jobLocationType: typeof candidate.jobLocationType === "string" ? candidate.jobLocationType : undefined,
     applicantLocationRequirements: candidate.applicantLocationRequirements,
     url: typeof candidate.url === "string" ? candidate.url : undefined,
+    validThrough: typeof candidate.validThrough === "string" ? candidate.validThrough : undefined,
+    baseSalary: candidate.baseSalary,
   };
 }
 
@@ -134,6 +145,101 @@ function mapEmploymentType(raw: string | undefined): EmploymentType | undefined 
   return undefined;
 }
 
+/**
+ * `validThrough` as ISO, or undefined. `Date.parse` accepts a wide range of
+ * real-world formats (schema.org itself only requires ISO 8601, but sources
+ * are inconsistent), and anything it cannot parse is dropped rather than
+ * defaulted — the same "omit, never guess" rule Google's own JobPosting
+ * guidance asks for, already applied to `expires_at` on the DB→markup side
+ * in src/lib/seo/job-posting-jsonld.ts.
+ */
+function mapValidThrough(raw: string | undefined): string | undefined {
+  if (!raw) return undefined;
+  const parsed = Date.parse(raw);
+  return Number.isNaN(parsed) ? undefined : new Date(parsed).toISOString();
+}
+
+/** ISO 4217-shaped, uppercased. Not a real currency-code lookup — this app
+ * has no reason to enumerate every ISO code, only to reject something that
+ * obviously is not one before it reaches a column with no CHECK constraint
+ * to catch it (see migration 0085 for why there is deliberately no
+ * constraint). */
+function mapCurrency(raw: unknown): string | undefined {
+  if (typeof raw !== "string") return undefined;
+  const upper = raw.trim().toUpperCase();
+  return /^[A-Z]{3}$/.test(upper) ? upper : undefined;
+}
+
+/** schema.org's unitText values (HOUR/DAY/WEEK/MONTH/YEAR, sometimes
+ * "Annual" or a schema.org URL) mapped the same defensive, includes-based way
+ * mapEmploymentType is — unmapped is omitted, never guessed. */
+function mapSalaryUnit(raw: unknown): SalaryUnit | undefined {
+  if (typeof raw !== "string") return undefined;
+  const text = raw.toUpperCase();
+  if (text.includes("YEAR") || text.includes("ANNUM") || text.includes("ANNUAL")) return "year";
+  if (text.includes("MONTH")) return "month";
+  if (text.includes("WEEK")) return "week";
+  if (text.includes("DAY")) return "day";
+  if (text.includes("HOUR")) return "hour";
+  return undefined;
+}
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+interface ParsedSalary {
+  min?: number;
+  max?: number;
+  currency?: string;
+  unit?: SalaryUnit;
+}
+
+/**
+ * schema.org's baseSalary is a MonetaryAmount wrapping a `value` that is
+ * either a bare number (a single stated figure) or a nested QuantitativeValue
+ * (minValue/maxValue/value, plus unitText) — both shapes appear in the wild,
+ * and neither is guaranteed well-formed. Defensive per this file's contract-
+ * drift guard: a malformed baseSalary must cost this ONE optional field, not
+ * the listing it is attached to.
+ *
+ * Currency is required for a result at all — see types.ts's note on
+ * NormalizedJobPosting.salaryCurrency. A number with no stated currency is
+ * not a fact this app can act on or display, and guessing one (e.g.
+ * defaulting to NGN) would be exactly the fabrication the task this shipped
+ * under was explicit about never doing. An inverted range (max < min) is
+ * treated the same way: not a range anyone stated, so omitted rather than
+ * silently swapped or half-kept.
+ */
+function mapBaseSalary(raw: unknown): ParsedSalary | undefined {
+  if (!isRecord(raw)) return undefined;
+
+  const currency = mapCurrency(raw.currency);
+  if (!currency) return undefined;
+
+  const valueNode = "value" in raw ? raw.value : raw;
+  let min: number | undefined;
+  let max: number | undefined;
+  let unit: SalaryUnit | undefined;
+
+  if (isFiniteNumber(valueNode)) {
+    min = valueNode;
+    max = valueNode;
+  } else if (isRecord(valueNode)) {
+    const minValue = isFiniteNumber(valueNode.minValue) ? valueNode.minValue : undefined;
+    const maxValue = isFiniteNumber(valueNode.maxValue) ? valueNode.maxValue : undefined;
+    const singleValue = isFiniteNumber(valueNode.value) ? valueNode.value : undefined;
+    min = minValue ?? singleValue;
+    max = maxValue ?? singleValue;
+    unit = mapSalaryUnit(valueNode.unitText);
+  }
+
+  if (min === undefined && max === undefined) return undefined;
+  if (min !== undefined && max !== undefined && max < min) return undefined;
+
+  return { min, max, currency, unit };
+}
+
 function formatLocation(block: ValidJobPostingBlock): string | undefined {
   const addr = block.jobLocation?.address;
   if (!addr) return block.jobLocationType === "TELECOMMUTE" ? "Remote" : undefined;
@@ -151,6 +257,7 @@ function toNormalizedJobPosting(
   const location = formatLocation(block);
   const companyName = block.hiringOrganization.name;
   const externalUrl = block.url ?? fallbackUrl;
+  const salary = mapBaseSalary(block.baseSalary);
 
   return {
     title: block.title,
@@ -166,6 +273,11 @@ function toNormalizedJobPosting(
     externalSource: schemaOrgSourceKey(sourceLabel),
     postedAt: block.datePosted ?? new Date().toISOString(),
     dedupFingerprint: computeDedupFingerprint(companyName, block.title, location),
+    expiresAt: mapValidThrough(block.validThrough),
+    salaryMin: salary?.min,
+    salaryMax: salary?.max,
+    salaryCurrency: salary?.currency,
+    salaryUnit: salary?.unit,
   };
 }
 
