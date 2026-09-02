@@ -15,10 +15,34 @@
  * shared with every signed-in tailoring run and every Farah reply. A limit
  * that leaks under concurrency is an outage for paying users caused by the
  * marketing page.
+ *
+ * ── WHY THE WHOLE FILE TAKES A LEASE, NOT JUST THE "DAILY CEILING" TESTS ──
+ *
+ * `anonymous_demo_daily` has exactly ONE row for "today" — the whole point of
+ * the table, not an oversight (see 0058's own comment). Every test in this
+ * file calls `claim()`, and the RPC claims the DAY'S budget first regardless
+ * of which limit the test is actually exercising, so even a "per visitor"
+ * test mutates the same global row the "daily ceiling" tests assert on. And
+ * `reset()` runs in every beforeEach/afterEach, unconditionally deleting that
+ * row for today.
+ *
+ * REPRODUCED before this lease existed: claim 3 runs, let a second process's
+ * reset() (this file's OWN cleanup, run concurrently) delete the day row,
+ * then claim 4 more against a cap of 5 — 4 were allowed where at most 2
+ * should have been, because the counter had been wiped back to zero
+ * mid-batch. RUN_TAG (tests/support/list-users.ts) cannot fix this: it scopes
+ * ROWS THIS RUN OWNS, and there is no per-run name to give a table that is
+ * one row by design. The fix is the same shape as #177's operators lock —
+ * see tests/support/operators-lock.ts — pinned to a second invariant.
+ *
+ * e2e/jd-demo.spec.ts touches this same row through the real route and takes
+ * the SAME lease for the same reason: a lease only excludes callers that
+ * check it, and this table has exactly two.
  */
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { randomUUID } from "node:crypto";
 import { admin } from "../support/auth";
+import { acquireAnonymousDemoDailyLock } from "../support/operators-lock";
 
 const CAP = 5;
 
@@ -63,6 +87,21 @@ async function reset(prefix: string) {
 }
 
 let prefix: string;
+let releaseLock: (() => Promise<void>) | undefined;
+
+/*
+ * SERIALIZED against every other suite that mutates anonymous_demo_daily —
+ * currently this file and e2e/jd-demo.spec.ts. Acquired first, before any
+ * reset or claim, so nothing in this file can interleave with another
+ * process's view of "today".
+ */
+beforeAll(async () => {
+  releaseLock = await acquireAnonymousDemoDailyLock(admin, "anonymous-limit");
+}, 300_000); // this hook QUEUES on the lease; the default 60s is too short.
+
+afterAll(async () => {
+  await releaseLock?.();
+});
 
 beforeEach(async () => {
   prefix = `anonlimit-${randomUUID()}-`;
