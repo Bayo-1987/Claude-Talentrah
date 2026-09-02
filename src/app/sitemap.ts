@@ -2,6 +2,8 @@ import type { MetadataRoute } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { getAllPosts } from "@/lib/blog/posts";
 import { absoluteUrl } from "@/lib/seo/site";
+import { CITY_LANDING_PAGES, DEGREE_LEVEL_SLUG, LANDING_PAGE_MIN_ENTRIES } from "@/lib/seo/landing-pages";
+import { Constants } from "@/lib/supabase/types";
 
 /**
  * The sitemap, generated rather than listed.
@@ -141,5 +143,87 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     console.error("[sitemap] could not list verified scholarships:", err);
   }
 
-  return [...staticEntries, ...postEntries, ...jobEntries, ...scholarshipEntries];
+  /*
+   * Programmatic landing pages (src/lib/seo/landing-pages.ts) — the
+   * 200-only rule extended to content-emptiness, not just auth-redirects.
+   * A page here answers 200 only while its own live count clears
+   * LANDING_PAGE_MIN_ENTRIES (each page's own route re-checks the identical
+   * condition on every request and 404s below it), so this block runs the
+   * SAME queries rather than assuming a page that was live yesterday still
+   * is — a category that empties out from the job-expiry sweep or a
+   * scholarship deadline passing must drop out of the sitemap the same run
+   * it happens, with no deploy.
+   */
+  const landingPageEntries: MetadataRoute.Sitemap = [];
+  try {
+    const supabase = await createClient();
+    const today = new Date().toISOString().slice(0, 10);
+    const stillOpen = `application_deadline.is.null,application_deadline.gte.${today}`;
+
+    const { count: remoteCount } = await supabase
+      .from("job_postings")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "open")
+      .eq("work_type", "remote");
+    if ((remoteCount ?? 0) >= LANDING_PAGE_MIN_ENTRIES) {
+      landingPageEntries.push({
+        url: absoluteUrl("/jobs/remote"),
+        lastModified: now,
+        changeFrequency: "daily",
+        priority: 0.7,
+      });
+    }
+
+    for (const city of CITY_LANDING_PAGES) {
+      const { count } = await supabase
+        .from("job_postings")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "open")
+        .or(city.locationPatterns.map((p) => `location.ilike.${p}`).join(","));
+      if ((count ?? 0) >= LANDING_PAGE_MIN_ENTRIES) {
+        landingPageEntries.push({
+          url: absoluteUrl(`/jobs/in/${city.slug}`),
+          lastModified: now,
+          changeFrequency: "daily",
+          priority: 0.7,
+        });
+      }
+    }
+
+    const { count: fullyFundedCount } = await supabase
+      .from("scholarships")
+      .select("id", { count: "exact", head: true })
+      .eq("moderation_status", "verified")
+      .eq("funding_type", "full")
+      .or(stillOpen);
+    if ((fullyFundedCount ?? 0) >= LANDING_PAGE_MIN_ENTRIES) {
+      landingPageEntries.push({
+        url: absoluteUrl("/scholarships/fully-funded"),
+        lastModified: now,
+        changeFrequency: "weekly",
+        priority: 0.6,
+      });
+    }
+
+    for (const level of Constants.public.Enums.scholarship_degree_level) {
+      const { count } = await supabase
+        .from("scholarships")
+        .select("id", { count: "exact", head: true })
+        .eq("moderation_status", "verified")
+        .contains("degree_levels", [level])
+        .or(stillOpen);
+      if ((count ?? 0) >= LANDING_PAGE_MIN_ENTRIES) {
+        landingPageEntries.push({
+          url: absoluteUrl(`/scholarships/degree/${DEGREE_LEVEL_SLUG[level]}`),
+          lastModified: now,
+          changeFrequency: "weekly",
+          priority: 0.6,
+        });
+      }
+    }
+  } catch (err) {
+    console.error("[sitemap] could not list programmatic landing pages:", err);
+  }
+
+  return [...staticEntries, ...postEntries, ...jobEntries, ...scholarshipEntries, ...landingPageEntries];
 }

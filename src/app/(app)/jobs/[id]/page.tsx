@@ -10,6 +10,7 @@ import { getCompanyInitials } from "@/lib/jobs/company-initials";
 import { formatRelativeTime } from "@/lib/format-relative-time";
 import { freshnessNote } from "@/lib/jobs/freshness-note";
 import { formatSalary } from "@/lib/jobs/format-salary";
+import { relevantJobLandingLinks } from "@/lib/seo/landing-page-links";
 import { skillsOf } from "@/lib/jobs/skill-facet";
 import { computeAndStoreMatchScores } from "@/lib/matching/compute-and-store";
 import { EMPTY_RESUME } from "@/lib/resume/types";
@@ -161,6 +162,12 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
   const { data: application } = applicationResult;
 
   if (!job) notFound();
+
+  // Backlink to whichever SEO landing pages (src/lib/seo/landing-pages.ts)
+  // THIS job actually belongs to, and only while each is currently live —
+  // "explore more" closes the loop the landing pages open, without ever
+  // linking to a category that would 404.
+  const landingLinks = await relevantJobLandingLinks(supabase, job);
 
   /*
    * Same fallback rule as the feed: an empty resume only when there genuinely
@@ -382,6 +389,21 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
           {job.description}
         </div>
       </div>
+
+      {landingLinks.length > 0 && (
+        <div className="flex flex-wrap items-center gap-3 border-t border-line pt-4 text-[13px]">
+          <span className="font-semibold text-ink-soft">Explore more:</span>
+          {landingLinks.map((l) => (
+            <Link
+              key={l.href}
+              href={l.href}
+              className="text-rust underline underline-offset-2 hover:text-rust-hover"
+            >
+              {l.label}
+            </Link>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
