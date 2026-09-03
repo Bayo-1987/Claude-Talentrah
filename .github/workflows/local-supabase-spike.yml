@@ -48,6 +48,30 @@ jobs:
         with:
           version: latest
 
+      # ── ROUND 2, testing a specific finding from the first run ───────────
+      #
+      # Round 1 (run 33732883628, 2026-09-03) failed on `supabase start`'s
+      # own first-boot migration replay: 0026_fix_org_membership_rls.sql
+      # tried to CREATE POLICY "a user can join an organisation they
+      # created", and it already existed — SQLSTATE 42710.
+      #
+      # Root cause, confirmed via `git log --diff-filter=A`: 0026 was
+      # committed 2026-08-24; 0000_baseline_schema.sql (and every migration
+      # from 0027 onward) was committed 2026-08-25 or later. The baseline
+      # snapshot was taken AFTER 0026 had already run against the live
+      # project, so 0026's effect is already inside 0000's snapshot —
+      # replaying the file on top of the baseline double-applies it. Nothing
+      # else in the 0027-0086 range predates the baseline (checked all of
+      # them), so this is believed to be the ONLY such overlap.
+      #
+      # Removed here from THIS RUNNER'S CHECKOUT ONLY — the committed file in
+      # the repo is untouched, since it's still the correct historical record
+      # for how the live project actually got to its current schema. This is
+      # purely to find out, this round, whether 0027-0086 apply cleanly once
+      # this one known, already-diagnosed overlap is out of the way.
+      - name: Remove 0026 from this run's migration replay (superseded by baseline — see comment)
+        run: rm supabase/migrations/0026_fix_org_membership_rls.sql
+
       - name: Start the local stack (Postgres 17, matching production's engine)
         id: start
         run: |
