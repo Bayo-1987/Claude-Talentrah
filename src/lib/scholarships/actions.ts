@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { CREDIT_COSTS } from "@/lib/credits/costs";
 import { spendCredits, InsufficientCreditsError } from "@/lib/credits/spend";
 import { logCreditGateEvent } from "@/lib/credits/gate-events";
+import { checkPassCoverage, DAILY_CAP_MESSAGE } from "@/lib/passes/entitlement";
 import { EMPTY_RESUME, type StructuredResume } from "@/lib/resume/types";
 import { checkEligibility, draftPersonalStatement, type EligibilityCheckResult } from "./farah";
 import type { SaveStatus } from "./types";
@@ -131,7 +132,9 @@ export async function runEligibilityCheckAction(
   if (!scholarship) return { error: "Scholarship not found." };
 
   const balance = await getBalance(supabase, userId);
-  if (balance < cost) {
+  const coverage = await checkPassCoverage(userId);
+
+  if (!coverage.covered && balance < cost) {
     await logCreditGateEvent({
       userId,
       reason: "scholarship_eligibility_check",
@@ -140,14 +143,19 @@ export async function runEligibilityCheckAction(
       outcome: "blocked_insufficient_credits",
       relatedEntityId: scholarshipId,
     });
-    return { error: `Not enough credits — this needs ${cost}, you have ${balance}.` };
+    return {
+      error:
+        coverage.reason === "daily_cap_reached"
+          ? DAILY_CAP_MESSAGE
+          : `Not enough credits — this needs ${cost}, you have ${balance}.`,
+    };
   }
   await logCreditGateEvent({
     userId,
     reason: "scholarship_eligibility_check",
-    creditsRequired: cost,
+    creditsRequired: coverage.covered ? 0 : cost,
     creditsAvailable: balance,
-    outcome: "proceeded",
+    outcome: coverage.covered ? "covered_by_pass" : "proceeded",
     relatedEntityId: scholarshipId,
   });
 
@@ -161,6 +169,11 @@ export async function runEligibilityCheckAction(
     result = await checkEligibility(scholarship, resume, profile?.country ?? null);
   } catch {
     return { error: "Farah couldn't run that check just now — try again." };
+  }
+
+  if (coverage.covered) {
+    revalidatePath("/scholarships");
+    return { result };
   }
 
   /*
@@ -203,7 +216,9 @@ export async function draftSopAction(
   if (!scholarship) return { error: "Scholarship not found." };
 
   const balance = await getBalance(supabase, userId);
-  if (balance < cost) {
+  const coverage = await checkPassCoverage(userId);
+
+  if (!coverage.covered && balance < cost) {
     await logCreditGateEvent({
       userId,
       reason: "scholarship_sop_draft",
@@ -212,14 +227,19 @@ export async function draftSopAction(
       outcome: "blocked_insufficient_credits",
       relatedEntityId: scholarshipId,
     });
-    return { error: `Not enough credits — this needs ${cost}, you have ${balance}.` };
+    return {
+      error:
+        coverage.reason === "daily_cap_reached"
+          ? DAILY_CAP_MESSAGE
+          : `Not enough credits — this needs ${cost}, you have ${balance}.`,
+    };
   }
   await logCreditGateEvent({
     userId,
     reason: "scholarship_sop_draft",
-    creditsRequired: cost,
+    creditsRequired: coverage.covered ? 0 : cost,
     creditsAvailable: balance,
-    outcome: "proceeded",
+    outcome: coverage.covered ? "covered_by_pass" : "proceeded",
     relatedEntityId: scholarshipId,
   });
 
@@ -233,6 +253,11 @@ export async function draftSopAction(
   }
   if (!statement) {
     return { error: "Farah came back empty on that one — try again." };
+  }
+
+  if (coverage.covered) {
+    revalidatePath("/scholarships");
+    return { statement };
   }
 
   // Same reasoning as the eligibility check above.

@@ -8,6 +8,11 @@ export class InsufficientCreditsError extends Error {
   constructor(
     public required: number,
     public available: number,
+    /** Set only when a pass-covered gate hit the daily fair-use cap and ALSO
+     *  couldn't fall back to credits — see src/lib/passes/entitlement.ts's
+     *  DAILY_CAP_MESSAGE for why this needs its own copy rather than the
+     *  generic insufficient-credits message. */
+    public capMessage?: string,
   ) {
     super(`Needs ${required} credits, only ${available} available.`);
     this.name = "InsufficientCreditsError";

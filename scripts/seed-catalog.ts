@@ -41,15 +41,19 @@ const RESUME_TEMPLATES = [
   { name: "Public Record", slug: "public-record", industry_category: "Government & Public Sector", is_premium: true, unlock_cost_credits: 10 },
 ];
 
+// Founder-decided rebase, 2026-09-03 (see 0089_pricing_catalog_rebase.sql).
+// Popular and Power are retired — deactivated below, not listed here, since
+// this script's upsert only ever touches the rows it lists.
 const CREDIT_PACKS = [
   { name: "Starter", credits: 20, price_ngn: 2500 },
-  { name: "Popular", credits: 60, price_ngn: 6000 },
-  { name: "Power", credits: 150, price_ngn: 12500 },
+  { name: "Plus", credits: 45, price_ngn: 5000 },
 ];
+const RETIRED_CREDIT_PACKS = ["Popular", "Power"];
 
 const PASSES = [
-  { name: "7-Day Sprint Pass", duration_days: 7, price_ngn: 2000 },
+  { name: "7-Day Sprint Pass", duration_days: 7, price_ngn: 4000 },
   { name: "30-Day Pass", duration_days: 30, price_ngn: 6500 },
+  { name: "90-Day Pass", duration_days: 90, price_ngn: 15000 },
 ];
 
 async function main() {
@@ -69,6 +73,16 @@ async function main() {
     .from("credit_packs")
     .upsert(CREDIT_PACKS.map((p) => ({ ...p, is_active: true })), { onConflict: "name" });
   if (packErr) throw new Error(`credit_packs: ${packErr.message}`);
+
+  // Retired packs must not come back active on a re-run of this script —
+  // this ran on every CI job and reactivated Popular/Power on every single
+  // run until this fix, silently reverting 0089's catalog data (a schema
+  // migration can't stop a script from writing over it on the next run).
+  const { error: retireErr } = await db
+    .from("credit_packs")
+    .update({ is_active: false })
+    .in("name", RETIRED_CREDIT_PACKS);
+  if (retireErr) throw new Error(`retiring credit_packs: ${retireErr.message}`);
 
   const { error: passErr } = await db
     .from("passes")

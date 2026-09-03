@@ -52,7 +52,7 @@ const MODEL_PRICING: Record<string, { input: number; output: number; source: str
     input: 0.75,
     output: 3.75,
     source: "https://ai.google.dev/gemini-api/docs/pricing",
-    checked: "2026-08-24",
+    checked: "2026-09-03",
   },
   // Groq publishes no token pricing on groq.com or console.groq.com/docs;
   // this comes from secondary aggregators and is therefore LESS RELIABLE
@@ -67,8 +67,8 @@ const MODEL_PRICING: Record<string, { input: number; output: number; source: str
 };
 
 /** Live mid-market rate. Re-check on re-run; the naira is not stable. */
-const USD_TO_NGN = 1345.21;
-const NGN_RATE_SOURCE = "open.er-api.com, 2026-08-24";
+const USD_TO_NGN = 1329.17;
+const NGN_RATE_SOURCE = "open.er-api.com, 2026-09-03";
 
 /** ₦ per credit — the §6.9 anchor. Read from the spec, not from a price table. */
 const NGN_PER_CREDIT = 150;

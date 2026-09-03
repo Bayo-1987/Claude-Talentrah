@@ -2248,6 +2248,7 @@ export type Database = {
           p_credit_cost: number
           p_daily_cap: number
           p_free_per_week: number
+          p_has_active_pass?: boolean
           p_min_score: number
           p_queue_id: string
           p_user_id: string
@@ -2256,6 +2257,7 @@ export type Database = {
           charge: number
           job_posting_id: string
           ok: boolean
+          pass_covered: boolean
           reason: string
           source_type: Database["public"]["Enums"]["job_source_type"]
         }[]
@@ -2486,7 +2488,10 @@ export type Database = {
         | "handed_off"
         | "dismissed"
         | "expired"
-      credit_gate_outcome: "proceeded" | "blocked_insufficient_credits"
+      credit_gate_outcome:
+        | "proceeded"
+        | "blocked_insufficient_credits"
+        | "covered_by_pass"
       credit_reason:
         | "signup_grant"
         | "tailoring_run"
@@ -2502,6 +2507,7 @@ export type Database = {
         | "scholarship_eligibility_check"
         | "scholarship_sop_draft"
         | "auto_apply_run"
+        | "pricing_rebase_4x"
       employment_type: "full_time" | "part_time" | "contract" | "internship"
       farah_message_role: "user" | "farah"
       feedback_category: "bug" | "idea" | "other"
@@ -2706,7 +2712,11 @@ export const Constants = {
         "dismissed",
         "expired",
       ],
-      credit_gate_outcome: ["proceeded", "blocked_insufficient_credits"],
+      credit_gate_outcome: [
+        "proceeded",
+        "blocked_insufficient_credits",
+        "covered_by_pass",
+      ],
       credit_reason: [
         "signup_grant",
         "tailoring_run",
@@ -2722,6 +2732,7 @@ export const Constants = {
         "scholarship_eligibility_check",
         "scholarship_sop_draft",
         "auto_apply_run",
+        "pricing_rebase_4x",
       ],
       employment_type: ["full_time", "part_time", "contract", "internship"],
       farah_message_role: ["user", "farah"],

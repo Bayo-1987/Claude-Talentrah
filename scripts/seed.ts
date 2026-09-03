@@ -108,15 +108,22 @@ const RESUME_TEMPLATES: {
  * the move to a fresh Supabase project; these two did not, because nothing
  * could recreate them — which is the bug this list closes.
  */
+/*
+ * Founder repricing, 2026-09-03 (see src/lib/credits/costs.ts's header for
+ * the anchor this ladder is built from). Popular and Power are gone from
+ * this list on purpose, not just left off a future edit — they're retired
+ * by migration 0089 (deactivated, never deleted), and re-adding them here
+ * would fight that migration on every seed run.
+ */
 const CREDIT_PACKS: { name: string; credits: number; price_ngn: number }[] = [
   { name: "Starter", credits: 20, price_ngn: 2500 },
-  { name: "Popular", credits: 60, price_ngn: 6000 },
-  { name: "Power", credits: 150, price_ngn: 12500 },
+  { name: "Plus", credits: 45, price_ngn: 5000 },
 ];
 
 const PASSES: { name: string; duration_days: number; price_ngn: number }[] = [
-  { name: "7-Day Sprint Pass", duration_days: 7, price_ngn: 2000 },
+  { name: "7-Day Sprint Pass", duration_days: 7, price_ngn: 4000 },
   { name: "30-Day Pass", duration_days: 30, price_ngn: 6500 },
+  { name: "90-Day Pass", duration_days: 90, price_ngn: 15000 },
 ];
 
 const INTERNAL_JOBS = [
