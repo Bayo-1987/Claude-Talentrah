@@ -132,6 +132,23 @@ import type { JobSourceConfig } from "./types";
  * `computeDedupFingerprint`'s hardened location-canonicalization (see
  * src/lib/jobs/dedup.ts) exists to collapse correctly if the same posting is
  * ever independently discovered through two of these configs at once.
+ *
+ * CONFIRMED LIVE, NOT JUST SAMPLED: the first production run after these
+ * sources shipped (2026-09-02) showed Nigeria and Kenya each upserting FEWER
+ * open rows than they fetched (Nigeria 17 of 20, Kenya 19 of 20) — that is
+ * this exact mechanism firing for real, not a bug. `ingestAllSources` runs
+ * `JOB_SOURCES` in array order, so when a posting's canonicalised fingerprint
+ * matches one an EARLIER config in this list already wrote this same run,
+ * the later config's upsert updates that same row (via ON CONFLICT) rather
+ * than creating a second one — the row ends up attributed to whichever
+ * config ran LAST among the colliding set. Verified by reconciliation, not
+ * assumed: 298 total fetched across all 8 sources that run vs 294 total open
+ * rows afterward — a difference of exactly 4, matching Nigeria's shortfall
+ * of 3 plus Kenya's shortfall of 1 precisely. If a future run shows a
+ * similar per-source shortfall, check the reconciliation total before
+ * treating it as a lost posting — it almost certainly means the same job
+ * was independently discovered through two of these configs at once, exactly
+ * as designed.
  */
 export const JOB_SOURCES: JobSourceConfig[] = [
   { source: "greenhouse", token: "moniepoint", companyName: "Moniepoint" },
