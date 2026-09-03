@@ -62,6 +62,7 @@ vi.mock("@/lib/resend/client", () => ({ getResendClient: () => null }));
 
 let userId: string;
 let passId: string;
+let passPriceNgn: number;
 /**
  * The Pass under test. Reset to a sentinel at the START of every setup, and
  * that is load-bearing rather than tidiness.
@@ -95,6 +96,7 @@ async function setUpSharedUser() {
     .single();
   if (passErr || !pass) throw new Error("No passes seeded — run `npm run seed`.");
   passId = pass.id;
+  passPriceNgn = pass.price_ngn;
 }
 
 async function setUpDuePass() {
@@ -340,10 +342,15 @@ describe("an indeterminate failure must NOT end the subscription", () => {
     const pendingRef = (await transactionsForPass())[0].paystack_reference;
 
     // Second run: Paystack now says that reference actually succeeded.
+    // amount/currency must match the real seeded pass — with the
+    // amount/currency guard in place, an unrealistic hardcoded amount here
+    // would make this recovery look like a MISMATCH instead of a clean
+    // success, which is not what this test is about.
     verify.mockResolvedValue({
       status: "success",
       reference: pendingRef,
-      amount: 100,
+      amount: Math.round(passPriceNgn * 100),
+      currency: "NGN",
       channel: "card",
     });
     await runPassRenewalJob();
@@ -357,5 +364,119 @@ describe("an indeterminate failure must NOT end the subscription", () => {
     expect(state.auto_renew_status).toBe("active");
     const txns = await transactionsForPass();
     expect(txns.filter((t) => t.status === "success"), "the recovered charge is recorded once").toHaveLength(1);
+  });
+});
+
+/**
+ * Status alone is not the whole claim Paystack makes — a recurring charge
+ * deserves the same amount/currency backstop as a first one (fulfill.ts's
+ * fulfillPayment). Covers both settlement paths in chargeOne: a fresh
+ * chargeAuthorization result, and recovering a previously-pending reference
+ * via verifyTransaction.
+ */
+describe("a recurring charge is checked for amount and currency, not just status", () => {
+  it("a FRESH charge with a mismatched amount does not extend the Pass", async () => {
+    charge.mockResolvedValue({
+      status: "success",
+      reference: "ref_mismatch_amount",
+      amount: Math.round(passPriceNgn * 100) + 100, // one Naira more than owed
+      currency: "NGN",
+      channel: "card",
+    });
+
+    const { runPassRenewalJob } = await import("@/lib/billing/renewals");
+    await runPassRenewalJob();
+
+    expect(
+      (await passState()).auto_renew_status,
+      "MONEY BUG: a mismatched amount still extended the Pass",
+    ).toBe("lapsed");
+    const txns = await transactionsForPass();
+    expect(txns.map((t) => t.status)).toEqual(["failed"]);
+  });
+
+  it("a FRESH charge with a mismatched currency does not extend the Pass", async () => {
+    charge.mockResolvedValue({
+      status: "success",
+      reference: "ref_mismatch_currency",
+      amount: Math.round(passPriceNgn * 100),
+      currency: "GHS",
+      channel: "card",
+    });
+
+    const { runPassRenewalJob } = await import("@/lib/billing/renewals");
+    await runPassRenewalJob();
+
+    expect(
+      (await passState()).auto_renew_status,
+      "MONEY BUG: a mismatched currency still extended the Pass",
+    ).toBe("lapsed");
+    const txns = await transactionsForPass();
+    expect(txns.map((t) => t.status)).toEqual(["failed"]);
+  });
+
+  it("a FRESH charge with matching amount and currency extends the Pass normally", async () => {
+    // Positive control — without this, "mismatch lapses" could also pass if
+    // every renewal lapsed regardless of what Paystack actually confirmed.
+    charge.mockResolvedValue({
+      status: "success",
+      reference: "ref_clean_success",
+      amount: Math.round(passPriceNgn * 100),
+      currency: "NGN",
+      channel: "card",
+    });
+
+    const { runPassRenewalJob } = await import("@/lib/billing/renewals");
+    await runPassRenewalJob();
+
+    expect((await passState()).auto_renew_status).toBe("active");
+    const txns = await transactionsForPass();
+    expect(txns.map((t) => t.status)).toEqual(["success"]);
+  });
+
+  it("recovering a pending reference with a mismatched amount does NOT extend, and does NOT retry", async () => {
+    // First run: an indeterminate failure leaves pending_renewal_reference set.
+    charge.mockRejectedValueOnce(timeoutError());
+    const { runPassRenewalJob } = await import("@/lib/billing/renewals");
+    await runPassRenewalJob();
+    const pendingRef = (await transactionsForPass())[0].paystack_reference;
+
+    // Second run: Paystack says that reference succeeded, but for the wrong amount.
+    verify.mockResolvedValue({
+      status: "success",
+      reference: pendingRef,
+      amount: Math.round(passPriceNgn * 100) + 100,
+      currency: "NGN",
+      channel: "card",
+    });
+    await runPassRenewalJob();
+
+    expect(
+      (await passState()).auto_renew_status,
+      "MONEY BUG: a mismatched pending-recovery still extended the Pass",
+    ).toBe("lapsed");
+    expect(
+      charge,
+      "DOUBLE-CHARGE RISK: must not attempt a fresh charge when Paystack already reports success for the pending reference",
+    ).toHaveBeenCalledTimes(1);
+  });
+
+  it("recovering a pending reference with a mismatched currency does NOT extend, and does NOT retry", async () => {
+    charge.mockRejectedValueOnce(timeoutError());
+    const { runPassRenewalJob } = await import("@/lib/billing/renewals");
+    await runPassRenewalJob();
+    const pendingRef = (await transactionsForPass())[0].paystack_reference;
+
+    verify.mockResolvedValue({
+      status: "success",
+      reference: pendingRef,
+      amount: Math.round(passPriceNgn * 100),
+      currency: "USD",
+      channel: "card",
+    });
+    await runPassRenewalJob();
+
+    expect((await passState()).auto_renew_status).toBe("lapsed");
+    expect(charge).toHaveBeenCalledTimes(1);
   });
 });

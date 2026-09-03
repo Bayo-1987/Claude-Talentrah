@@ -243,8 +243,43 @@ async function chargeOne(
     }
 
     if (settled?.status === "success") {
-      await extendPass(supabase, row, pass, row.pending_renewal_reference, settled.channel);
-      summary.renewed++;
+      /*
+       * Same ground-truth check as fulfill.ts's fulfillPayment — status
+       * alone is not the whole claim, and a recurring charge deserves the
+       * same backstop as a first one.
+       *
+       * On a mismatch this deliberately does NOT fall through to "not a
+       * success, clear it, try a fresh charge below": Paystack is telling us
+       * THIS reference already succeeded, so attempting chargeAuthorization
+       * again would risk a genuine double charge for one period — the exact
+       * failure mode every other comment in this function is written to
+       * avoid. Should be unreachable in practice (the charge that created
+       * this reference was always requested with pass.price_ngn NGN), which
+       * is exactly why a mismatch here is treated as needing a human rather
+       * than resolved automatically either way.
+       */
+      const expectedKobo = Math.round(pass.price_ngn * 100);
+      if (settled.amount === expectedKobo && settled.currency === "NGN") {
+        await extendPass(supabase, row, pass, row.pending_renewal_reference, settled.channel);
+        summary.renewed++;
+        return;
+      }
+      console.error(
+        `[pass-renewal] MISMATCH verifying pending renewal ${row.pending_renewal_reference} for pass ` +
+          `${row.id}: expected ${expectedKobo} kobo NGN, Paystack confirmed ${settled.amount} ` +
+          `${settled.currency}. NOT extending. NOT retrying — Paystack already reports success for this ` +
+          `reference, so a fresh charge would risk billing twice. Needs manual reconciliation.`,
+      );
+      await supabase
+        .from("payment_transactions")
+        .update({ status: "failed" })
+        .eq("paystack_reference", row.pending_renewal_reference);
+      await markLapsed(supabase, row.id);
+      summary.lapsed++;
+      summary.errors.push({
+        userPassId: row.id,
+        message: `NEEDS RECONCILIATION: amount/currency mismatch on reference ${row.pending_renewal_reference}.`,
+      });
       return;
     }
     // Not a success — clear it so the fresh attempt below owns the state.
@@ -301,7 +336,28 @@ async function chargeOne(
     return;
   }
 
-  if (result.status !== "success") {
+  /*
+   * Same ground-truth check as the pending-recovery branch above and
+   * fulfill.ts's fulfillPayment — status alone is not the whole claim.
+   * Unlike that branch, a mismatch here is on a charge THIS run just made
+   * (chargeAuthorization was called with pass.price_ngn NGN), so there is no
+   * fresh-retry fallthrough to worry about racing: either it matches and the
+   * Pass extends, or it doesn't and this is treated the same as any other
+   * failed renewal — lapsed, recorded, and (distinctly, in the logs) flagged
+   * as a mismatch rather than a plain decline, since the money still moved.
+   */
+  const expectedKobo = Math.round(pass.price_ngn * 100);
+  const isCleanSuccess =
+    result.status === "success" && result.amount === expectedKobo && result.currency === "NGN";
+
+  if (!isCleanSuccess) {
+    if (result.status === "success") {
+      console.error(
+        `[pass-renewal] MISMATCH on fresh renewal charge ${reference} for pass ${row.id}: expected ` +
+          `${expectedKobo} kobo NGN, Paystack confirmed ${result.amount} ${result.currency}. Lapsing rather ` +
+          `than granting an extension inconsistent with what was actually charged.`,
+      );
+    }
     await supabase.from("payment_transactions").insert({
       user_id: row.user_id,
       rail: "paystack",

@@ -164,6 +164,10 @@ export async function initializeTransaction(params: InitializeParams) {
       body: JSON.stringify({
         email: params.email,
         amount: Math.round(params.amountNgn * 100), // Paystack expects kobo
+        // Explicit, not left to the Paystack account's own default currency
+        // setting. Every product this app sells is NGN-priced (build-prompt
+        // §6.9); this is defense against that ever silently not being true.
+        currency: "NGN",
         reference: params.reference,
         callback_url: params.callbackUrl,
         metadata: params.metadata,
@@ -186,6 +190,8 @@ export interface VerifyResult {
   status: string;
   reference: string;
   amount: number;
+  /** ISO 4217, e.g. "NGN" — what Paystack actually confirmed the charge was in. Ground truth, same reasoning as `channel` below: check it against what the transaction row expects rather than assuming it matches. */
+  currency: string;
   /** The channel Paystack actually confirmed the charge went through on — e.g. "card", "bank_transfer", "ussd", "bank", "qr". This is ground truth; never infer the rail from what checkout offered. */
   channel: string;
   authorization?: PaystackAuthorization | null;
@@ -205,6 +211,7 @@ export interface ChargeAuthorizationResult {
   status: string;
   reference: string;
   amount: number;
+  currency: string;
   channel: string;
   gateway_response: string;
 }

@@ -44,16 +44,10 @@ vi.mock("@/lib/resend/client", () => ({
   getContactRecipient: () => "support@talentrah.test",
 }));
 
-vi.mock("@/lib/paystack/client", () => ({
-  verifyTransaction: vi.fn(async () => ({
-    status: "success",
-    channel: "bank_transfer",
-    authorization: null,
-  })),
-}));
+const verifyTransaction = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/paystack/client", () => ({ verifyTransaction }));
 
 const { fulfillPayment } = await import("@/lib/billing/fulfill");
-const { verifyTransaction } = await import("@/lib/paystack/client");
 
 for (const key of ["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"] as const) {
   if (!process.env[key]) throw new Error(`purchase-receipt test cannot run: ${key} is not set.`);
@@ -124,11 +118,31 @@ async function topupOrg(): Promise<string> {
 
 beforeEach(async () => {
   sendMock.mockClear();
-  vi.mocked(verifyTransaction).mockResolvedValue({
-    status: "success",
-    channel: "bank_transfer",
-    authorization: null,
-  } as never);
+  /*
+   * Looks up the REAL transaction row's amount/currency rather than
+   * returning a fixed value — fulfillPayment now checks Paystack's verify
+   * response against exactly those columns (the amount/currency guard), and
+   * a mock that can't know each test's own amount would otherwise reject
+   * every fulfillment in this file as a false mismatch. Falls back to a
+   * fixture-shaped guess only if the row genuinely isn't found yet (it
+   * always will be, since pendingTransaction() runs before fulfillPayment
+   * in every test here) — never silently succeeding via a wrong default.
+   */
+  verifyTransaction.mockImplementation(async (reference: string) => {
+    const { data } = await admin
+      .from("payment_transactions")
+      .select("amount, currency")
+      .eq("paystack_reference", reference)
+      .single();
+    if (!data) throw new Error(`test mock: no transaction row for reference ${reference}`);
+    return {
+      status: "success",
+      amount: Math.round(data.amount * 100),
+      currency: data.currency,
+      channel: "bank_transfer",
+      authorization: null,
+    };
+  });
   if (!userId) userId = await makeUser();
 });
 
