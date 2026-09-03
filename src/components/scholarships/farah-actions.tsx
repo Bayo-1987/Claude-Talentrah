@@ -31,9 +31,17 @@ const STATUS_CLASS: Record<string, string> = {
 export function FarahActions({
   scholarshipId,
   creditsBalance,
+  passCovered,
 }: {
   scholarshipId: string;
   creditsBalance: number;
+  /**
+   * checkPassCoverage(userId).covered, computed server-side by the page —
+   * NOT re-derived here. A covered user must never see a credit price for
+   * an action their Pass already covers; showing one reads as a purchase
+   * that did nothing.
+   */
+  passCovered: boolean;
 }) {
   const [pending, startTransition] = useTransition();
   const [open, setOpen] = useState<"none" | "eligibility" | "sop">("none");
@@ -76,7 +84,11 @@ export function FarahActions({
           disabled={pending}
           onClick={runEligibility}
         >
-          {pending && open !== "sop" ? "Farah is checking…" : `Check my eligibility · ${eligibilityCost} credits`}
+          {pending && open !== "sop"
+            ? "Farah is checking…"
+            : passCovered
+              ? "Check my eligibility · Included with your Pass"
+              : `Check my eligibility · ${eligibilityCost} credits`}
         </Button>
         <Button
           type="button"
@@ -85,9 +97,13 @@ export function FarahActions({
           disabled={pending}
           onClick={() => setOpen(open === "sop" ? "none" : "sop")}
         >
-          {`Draft my personal statement · ${sopCost} credits`}
+          {passCovered
+            ? "Draft my personal statement · Included with your Pass"
+            : `Draft my personal statement · ${sopCost} credits`}
         </Button>
-        <span className="text-[12.5px] text-ink-soft">You have {creditsBalance} credits</span>
+        <span className="text-[12.5px] text-ink-soft">
+          {passCovered ? "Included with your Pass" : `You have ${creditsBalance} credits`}
+        </span>
       </div>
 
       {error && (
@@ -115,7 +131,11 @@ export function FarahActions({
             placeholder="A sentence or two in your own words."
           />
           <Button type="button" size="sm" disabled={pending} onClick={runSop} className="w-fit">
-            {pending ? "Farah is drafting…" : `Draft it · ${sopCost} credits`}
+            {pending
+              ? "Farah is drafting…"
+              : passCovered
+                ? "Draft it · Included with your Pass"
+                : `Draft it · ${sopCost} credits`}
           </Button>
         </div>
       )}

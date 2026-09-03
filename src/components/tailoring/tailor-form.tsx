@@ -12,6 +12,7 @@ type ApiResult = {
   coverLetterResumeId: string | null;
   result: TailoringResult;
   isFreeTrial: boolean;
+  isPassCovered: boolean;
   creditsSpent: number;
   /** Ranked by the M1 matcher, server-side. Usually empty — see below. */
   courseRecommendations?: RankedRecommendation[];
@@ -64,13 +65,15 @@ export function TailorForm({
   }
 
   if (data) {
-    const { result, isFreeTrial, creditsSpent, resumeId, coverLetterResumeId } = data;
+    const { result, isFreeTrial, isPassCovered, creditsSpent, resumeId, coverLetterResumeId } = data;
     return (
       <div className="flex flex-col gap-8">
         <p className="text-[13px] italic text-ink-soft">
           {isFreeTrial
             ? "This one was on the house — your free tailoring run."
-            : `${creditsSpent} credits used.`}
+            : isPassCovered
+              ? "Included with your Pass — no credits used."
+              : `${creditsSpent} credits used.`}
         </p>
 
         {/*

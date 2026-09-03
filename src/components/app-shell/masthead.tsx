@@ -20,6 +20,15 @@ const NAV_LINKS = [
 
 export interface MastheadProps {
   creditsBalance: number;
+  /**
+   * Present only when the account holds a currently-unexpired Pass
+   * (src/lib/passes/entitlement.ts's getActivePass — the same status
+   * hasActivePass gates on, computed once server-side in layout.tsx).
+   * When set, this replaces the credits/top-up pill: a Pass holder whose
+   * tailoring runs cost zero credits should never be shown "0 credits ·
+   * Top up", which reads as their purchase having done nothing.
+   */
+  activePass?: { name: string; daysRemaining: number } | null;
   initials: string;
   /**
    * The account's own address. Always present — it is the login identity, so
@@ -39,6 +48,7 @@ export interface MastheadProps {
 
 export function Masthead({
   creditsBalance,
+  activePass,
   initials,
   email,
   displayName,
@@ -388,7 +398,9 @@ export function Masthead({
             href="/billing"
             className="inline-flex min-h-10 items-center bg-rust-soft px-3.5 text-[13px] font-bold text-rust no-underline hover:bg-[oklch(87%_0.04_40)]"
           >
-            {creditsBalance} credits · Top up
+            {activePass
+              ? `${activePass.name} · ${activePass.daysRemaining}d left`
+              : `${creditsBalance} credits · Top up`}
           </Link>
           {/*
             The avatar is the account control now, and Sign out lives inside

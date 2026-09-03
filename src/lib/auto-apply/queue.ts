@@ -6,6 +6,7 @@ import {
   AUTO_APPLY_MAX_PENDING,
   AUTO_APPLY_MIN_SCORE,
 } from "./config";
+import { checkPassCoverage } from "@/lib/passes/entitlement";
 
 /**
  * Server-side Auto-Apply mechanics: what gets queued, what the caps say, and
@@ -28,6 +29,17 @@ export interface QuotaState {
   freeRemaining: number;
   /** True when the next confirmed internal submission will cost credits. */
   nextSubmissionCostsCredits: boolean;
+  /**
+   * True when the next submission would otherwise cost credits (the free
+   * weekly allowance is used up) but an active Pass, under today's fair-use
+   * cap, covers it instead. Checked here rather than left for the caller to
+   * infer from `nextSubmissionCostsCredits` alone, so a Pass holder past
+   * their free allowance is never shown a credit price for a submission that
+   * will actually be free — the same coverage confirmAutoApplyAction itself
+   * checks before charging (src/lib/auto-apply/actions.ts), read here only
+   * for display.
+   */
+  nextSubmissionCovered: boolean;
 }
 
 /**
@@ -61,13 +73,20 @@ export async function getQuotaState(userId: string): Promise<QuotaState> {
 
   const dailyRemaining = Math.max(0, AUTO_APPLY_DAILY_SUBMIT_CAP - submittedLast24h);
   const freeRemaining = Math.max(0, AUTO_APPLY_FREE_PER_WEEK - submittedLast7d);
+  const nextSubmissionCostsCredits = freeRemaining === 0;
+
+  // Only checked when it would actually change what's shown — no reason to
+  // spend the query while the free allowance still covers the next one.
+  const nextSubmissionCovered =
+    nextSubmissionCostsCredits && (await checkPassCoverage(userId)).covered;
 
   return {
     submittedLast24h,
     submittedLast7d,
     dailyRemaining,
     freeRemaining,
-    nextSubmissionCostsCredits: freeRemaining === 0,
+    nextSubmissionCostsCredits,
+    nextSubmissionCovered,
   };
 }
 

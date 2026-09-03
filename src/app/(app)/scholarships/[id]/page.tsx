@@ -14,6 +14,7 @@ import { SaveToggle } from "@/components/scholarships/save-toggle";
 import { SaveStatusSelect } from "@/components/scholarships/save-status-select";
 import { FarahActions } from "@/components/scholarships/farah-actions";
 import { relevantScholarshipLandingLinks } from "@/lib/seo/landing-page-links";
+import { checkPassCoverage } from "@/lib/passes/entitlement";
 
 /**
  * Columns the public page actually renders. Not `select("*")`.
@@ -103,6 +104,10 @@ export default async function ScholarshipDetailPage({
   const session = await getOptionalUser();
   const user = session?.user ?? null;
   const profile = session?.profile ?? null;
+  // Only meaningful for a signed-in user — FarahActions never renders
+  // without one (see the `!user` branch below), so there's nothing to skip
+  // by computing it unconditionally here.
+  const passCoverage = user ? await checkPassCoverage(user.id) : null;
 
   const [scholarship, saveResult] = await Promise.all([
     loadPublicScholarship(id),
@@ -305,6 +310,7 @@ export default async function ScholarshipDetailPage({
             <FarahActions
               scholarshipId={scholarship.id}
               creditsBalance={profile?.credits_balance ?? 0}
+              passCovered={passCoverage?.covered ?? false}
             />
           </div>
         )}

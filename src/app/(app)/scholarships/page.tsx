@@ -10,6 +10,7 @@ import {
 } from "@/components/scholarships/scholarship-card";
 import { Constants, type Tables } from "@/lib/supabase/types";
 import type { DegreeLevel, FundingType, SaveStatus } from "@/lib/scholarships/types";
+import { checkPassCoverage } from "@/lib/passes/entitlement";
 
 export const metadata = { title: "Scholarships — Talentrah" };
 
@@ -33,6 +34,7 @@ const VALID_FUNDING: readonly string[] = Constants.public.Enums.scholarship_fund
 export default async function ScholarshipsPage({ searchParams }: { searchParams: SearchParams }) {
   const { user, profile } = await requireUser();
   const params = await searchParams;
+  const passCoverage = await checkPassCoverage(user.id);
 
   const tab = params.tab === "saved" ? "saved" : "all";
   const level = VALID_LEVELS.includes(params.level ?? "") ? (params.level as DegreeLevel) : undefined;
@@ -229,6 +231,7 @@ export default async function ScholarshipsPage({ searchParams }: { searchParams:
               scholarship={s}
               save={saveByScholarshipId.get(s.id) ?? null}
               creditsBalance={profile.credits_balance}
+              passCovered={passCoverage.covered}
             />
           ))}
         </div>

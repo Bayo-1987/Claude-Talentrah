@@ -9,6 +9,8 @@ export interface ScholarshipCardProps {
   scholarship: Tables<"scholarships">;
   save: { id: string; status: SaveStatus } | null;
   creditsBalance: number;
+  /** See FarahActions — checkPassCoverage(userId).covered, from the page. */
+  passCovered: boolean;
 }
 
 /** Days until the deadline, or null when there's no published date. */
@@ -36,7 +38,7 @@ export function formatDeadline(deadline: string | null): string {
   return parsed.toLocaleDateString();
 }
 
-export function ScholarshipCard({ scholarship, save, creditsBalance }: ScholarshipCardProps) {
+export function ScholarshipCard({ scholarship, save, creditsBalance, passCovered }: ScholarshipCardProps) {
   const left = daysUntil(scholarship.application_deadline);
   const urgent = left !== null && left >= 0 && left <= 14;
 
@@ -139,7 +141,7 @@ export function ScholarshipCard({ scholarship, save, creditsBalance }: Scholarsh
         </div>
       )}
 
-      <FarahActions scholarshipId={scholarship.id} creditsBalance={creditsBalance} />
+      <FarahActions scholarshipId={scholarship.id} creditsBalance={creditsBalance} passCovered={passCovered} />
     </BorderedCard>
   );
 }
