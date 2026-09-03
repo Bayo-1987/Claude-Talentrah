@@ -174,9 +174,12 @@ test.describe("golden path", () => {
 
     // --- Credit spend ----------------------------------------------------
     // Second run: the free trial is used, so this draws on the balance.
-    await grantTestCredits(testUser.id, 20);
+    // Granted at 2x CREDIT_COSTS.tailoringRun (20) so the post-spend balance
+    // stays a nonzero, distinct number rather than landing on the harder-to-
+    // assert "0 credits" edge case.
+    await grantTestCredits(testUser.id, 40);
     await page.goto("/billing");
-    await expect(page.getByText("Your balance: 20 credits")).toBeVisible();
+    await expect(page.getByText("Your balance: 40 credits")).toBeVisible();
 
     await page.goto("/tailor");
     await page.locator("textarea").fill(SHORT_JD);
@@ -185,8 +188,8 @@ test.describe("golden path", () => {
 
     await page.goto("/billing");
     await expect(
-      page.getByText("Your balance: 15 credits"),
-      "a 5-credit tailoring run should leave 15 of 20",
+      page.getByText("Your balance: 20 credits"),
+      "a 20-credit tailoring run should leave 20 of 40",
     ).toBeVisible();
 
     // The ledger is the source of truth behind that number.
@@ -196,7 +199,7 @@ test.describe("golden path", () => {
       .eq("user_id", testUser.id)
       .eq("reason", "tailoring_run");
     expect(ledger, "the spend should be recorded in the ledger").toHaveLength(1);
-    expect(ledger![0].delta).toBe(-5);
+    expect(ledger![0].delta).toBe(-20);
 
     // --- Referral --------------------------------------------------------
     await page.goto("/refer");
