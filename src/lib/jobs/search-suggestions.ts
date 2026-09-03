@@ -1,6 +1,7 @@
 import type { Tables } from "@/lib/supabase/types";
 
-type JobPosting = Tables<"job_postings">;
+// See skill-facet.ts's identical alias for why this is Omit, not the full row.
+type JobPosting = Omit<Tables<"job_postings">, "description_preview">;
 
 /**
  * Typeahead suggestions for the feed's search field.

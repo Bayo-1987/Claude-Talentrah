@@ -7,7 +7,8 @@ import type { Database, Tables } from "@/lib/supabase/types";
 import type { StructuredResume } from "@/lib/resume/types";
 import type { MatchExplanation } from "./score";
 
-type JobPosting = Tables<"job_postings">;
+// See skill-facet.ts's identical alias for why this is Omit, not the full row.
+type JobPosting = Omit<Tables<"job_postings">, "description_preview">;
 
 export interface ScoredJob {
   job: JobPosting;

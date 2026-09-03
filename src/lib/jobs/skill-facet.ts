@@ -27,7 +27,12 @@ import type { Tables } from "@/lib/supabase/types";
  * instrument and a user should be able to see what a filter will cost them.
  */
 
-type JobPosting = Tables<"job_postings">;
+// Omit, not the full row: the signed-in feed (jobs/page.tsx) is this
+// function's only real caller and fetches `description` pre-truncated via
+// the generated `description_preview` column (migration 0086), never the
+// raw preview column itself — the wider Omit<> still accepts any full row
+// another caller might pass.
+type JobPosting = Omit<Tables<"job_postings">, "description_preview">;
 
 export interface SkillFacetEntry {
   skill: string;

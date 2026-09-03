@@ -86,8 +86,27 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
   const applicationsQuery = (async () =>
     supabase.from("applications").select("job_posting_id, stage").eq("user_id", user.id))();
 
+  /*
+   * Explicit column list, not `.select("*")` — this query has no row limit
+   * (every open posting renders as a card, on every load) and `description`
+   * alone averages ~5.4 KB of the ~7.3 KB a full row costs, to render a card
+   * that only ever shows 280 characters of it (job-card.tsx). Aliased back
+   * to `description` from the generated `description_preview` column
+   * (migration 0086) so nothing downstream — JobCard, search, matching —
+   * needs to know the difference; `/jobs/[id]` still fetches the real
+   * column in full for the page that actually renders it.
+   */
+  // A single string literal, not `+`-concatenated pieces — Supabase's
+  // `.select()` type inference reads the LITERAL TYPE of its argument, and
+  // `+` between string literals widens to plain `string` even under
+  // `as const` (confirmed: concatenation fell back to `GenericStringError`
+  // here). One literal keeps the aliased `description` typechecking as
+  // `Tables<"job_postings">`.
+  const FEED_COLUMNS =
+    "id, source_type, organization_id, title, company_name, company_logo_url, location, work_type, employment_type, seniority, years_experience_min, description:description_preview, structured_jd, external_url, external_source, status, posted_at, last_checked_at, dedup_fingerprint, created_at, expires_at, removed_at, removal_reason, removed_by, salary_min, salary_max, salary_currency, salary_unit";
+
   function postingsQuery(savedIds?: string[]) {
-    let query = supabase.from("job_postings").select("*").eq("status", "open");
+    let query = supabase.from("job_postings").select(FEED_COLUMNS).eq("status", "open");
     if (tab === "external") query = query.eq("source_type", "external");
     if (workType) query = query.eq("work_type", workType);
     if (seniority) query = query.eq("seniority", seniority);
@@ -129,7 +148,12 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
     (applications ?? []).map((a) => [a.job_posting_id, a.stage]),
   );
 
-  const matchingFilters: Tables<"job_postings">[] = jobsRaw ?? [];
+  // Omit, not the full row — see FEED_COLUMNS above and job-card.tsx's
+  // matching JobCardProps type: this query never fetches the raw
+  // `description_preview` column, only the pre-truncated value aliased as
+  // `description`.
+  type FeedJobPosting = Omit<Tables<"job_postings">, "description_preview">;
+  const matchingFilters: FeedJobPosting[] = jobsRaw ?? [];
 
   /*
    * The facet is counted BEFORE the skill filter is applied, and then the
@@ -161,7 +185,7 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
    * collapse every chip to whatever co-occurs with the search term, so the
    * facet would look broken the moment anyone typed.
    */
-  const jobs: Tables<"job_postings">[] = searchJobs(
+  const jobs: FeedJobPosting[] = searchJobs(
     filterBySkill(matchingFilters, skill),
     q,
   );

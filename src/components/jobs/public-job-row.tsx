@@ -28,7 +28,11 @@ const EMPLOYMENT_LABEL: Record<string, string> = {
  * "signed out: read everything, act on nothing" — the act-on-it path is the
  * detail page's own signup CTA, not a widget repeated on every landing page.
  */
-export function PublicJobRow({ job }: { job: Tables<"job_postings"> }) {
+// Omit, not the full row — see job-card.tsx's identical JobCardProps type:
+// the landing-page loaders that supply this (landing-page-data.ts) fetch
+// `description` pre-truncated via the generated `description_preview`
+// column (migration 0086), never the raw preview column itself.
+export function PublicJobRow({ job }: { job: Omit<Tables<"job_postings">, "description_preview"> }) {
   const meta = [
     job.company_name,
     job.location,
