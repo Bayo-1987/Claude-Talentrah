@@ -177,3 +177,49 @@ Two things this does *not* close, both still standing above: the
 provider-validated second opinion under **Security → Secret scanning** that
 this sweep could not obtain (403), and the underlying absence of a staging
 database that let CI write to production in the first place.
+
+## Working-tree finding — 2026-09-02, `.env.example`
+
+Caught mid-session, not by a scan: a routine `git status` after switching
+branches (the standing habit before any command that could discard
+uncommitted work) showed `.env.example` as **modified**, with `CRON_SECRET`
+set to a real-shape 64-character hex string — not the blank placeholder the
+committed file carries. No tool call in that session had written to the
+file; the mtime lined up with the founder's own CRON_SECRET rotation around
+the same time, so the likeliest explanation is a value pasted into the wrong
+file while rotating it elsewhere, not a leak this repo's own tooling caused.
+
+**Response, in order:**
+
+1. **Verified history before touching anything.** `git log -1 -- .env.example`
+   showed no commit anywhere near that content, and `git status --short`
+   confirmed the change was local and unstaged — the value had never been
+   `git add`ed, let alone committed or pushed. This repo is public
+   (see *On scrubbing history* above), so that check is the whole question:
+   an uncommitted value in a working tree was never captured anywhere this
+   audit's premise — "anything ever pushed must be assumed permanently
+   exposed" — applies to.
+2. **Reverted immediately.** `git checkout -- .env.example` restored the
+   committed placeholder, then `git status --short` confirmed no trace
+   remained.
+3. **Flagged rather than silently fixed.** Reported the finding to the
+   founder in the same turn, without repeating the value, and recommended
+   double-checking nothing else had it pasted somewhere unsafe.
+4. **Rotated anyway, out of caution.** Even with history confirmed clean,
+   `CRON_SECRET` was rotated a second time — set in both Vercel and GitHub
+   Actions — specifically because of this finding, on the reasoning that a
+   value real enough to look load-bearing is worth retiring rather than
+   trusted on a history check alone. Production redeployed via the next
+   merge to `main` rather than a manual redeploy, and the next scheduled
+   ingest call was verified to authenticate cleanly against the new value
+   (see the PR that carried the rotation for that verification).
+
+**The standing rule this reinforces:** production secrets live in exactly
+two places — Vercel environment variables and GitHub Actions secrets — and
+nowhere in this repository, committed or not. `.env.example` exists to show
+which keys exist, never what any of them are worth; a real value pasted into
+it even temporarily, in a working tree that is never pushed, is still the
+wrong file for it to have touched. The fix here was not "don't leak it" —
+nothing left this machine — it was "stop, verify, revert, flag, and rotate
+if there is any doubt," the same order this file's own two real leaks above
+were handled in.
