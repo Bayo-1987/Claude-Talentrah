@@ -13,6 +13,7 @@ import { daysUntil, formatDeadline } from "@/components/scholarships/scholarship
 import { SaveToggle } from "@/components/scholarships/save-toggle";
 import { SaveStatusSelect } from "@/components/scholarships/save-status-select";
 import { FarahActions } from "@/components/scholarships/farah-actions";
+import { relevantScholarshipLandingLinks } from "@/lib/seo/landing-page-links";
 
 /**
  * Columns the public page actually renders. Not `select("*")`.
@@ -120,6 +121,11 @@ export default async function ScholarshipDetailPage({
   ]);
 
   if (!scholarship) notFound();
+
+  // Backlink to whichever SEO landing pages (src/lib/seo/landing-pages.ts)
+  // THIS scholarship actually belongs to, and only while each is currently
+  // live — mirrors the same "explore more" pattern on /jobs/[id].
+  const landingLinks = await relevantScholarshipLandingLinks(await createClient(), scholarship);
 
   const save = saveResult.data as { id: string; status: SaveStatus } | null;
   const left = daysUntil(scholarship.application_deadline);
@@ -303,6 +309,21 @@ export default async function ScholarshipDetailPage({
           </div>
         )}
       </div>
+
+      {landingLinks.length > 0 && (
+        <div className="flex flex-wrap items-center gap-3 border-t border-line pt-4 text-[13px]">
+          <span className="font-semibold text-ink-soft">Explore more:</span>
+          {landingLinks.map((l) => (
+            <Link
+              key={l.href}
+              href={l.href}
+              className="text-rust underline underline-offset-2 hover:text-rust-hover"
+            >
+              {l.label}
+            </Link>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
