@@ -4,6 +4,21 @@
 -- credit is ₦125 (see 0090's sibling change to src/lib/credits/costs.ts for
 -- the per-action rebase this anchor drives).
 --
+-- KNOWN RACE WHILE THIS PR IS UNMERGED: the CI Supabase project is one
+-- database shared by every branch's CI run, not reset per run. main's
+-- scripts/seed.ts (until this PR merges) still unconditionally upserts
+-- Popular/Power with is_active: true and the 7-Day Sprint Pass at ₦2,000 —
+-- so any OTHER branch's Playwright job reseeding against CI silently
+-- reverts this migration's data (schema objects — the enum values, the
+-- auto_apply_claim_submission signature — are untouched, since seed.ts
+-- never touches those). Caught 2026-09-03 when this PR's own "checks" job
+-- failed against a CI catalog that had drifted back to pre-rebase values
+-- between an earlier verification and this run. The real fix is merging
+-- promptly, which updates main's seed.ts for every future run; if CI shows
+-- pre-rebase catalog values again before merge, re-run this migration's
+-- UPDATE/INSERT statements directly against CI rather than assuming the
+-- code is at fault.
+--
 -- Retire Popular and Power by DEACTIVATING, never deleting.
 -- payment_transactions and purchase-history rows referencing them by
 -- product_id must still resolve and render — and they do without any
