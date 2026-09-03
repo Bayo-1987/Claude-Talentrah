@@ -1,0 +1,164 @@
+name: Local Supabase spike (one-off)
+
+# ── WHAT THIS IS, AND WHAT IT IS NOT ────────────────────────────────────────
+#
+# A one-shot feasibility spike, triggered by hand (workflow_dispatch only —
+# not on push/pull_request), asking one question with real evidence instead
+# of reasoning about it: does this repo's migration set (0000_baseline_schema
+# .sql + 0026-0086, the only record of the schema now that 0001-0025 were
+# applied by hand to the live project years ago — see
+# supabase/migrations/README.md) actually apply cleanly to a Postgres that
+# has never seen it before?
+#
+# This does NOT replace ci.yml. It runs a completely separate, throwaway
+# Supabase stack inside the runner via the CLI's own Docker Compose setup
+# (supabase start), never touching the shared cloud CI or production
+# projects, and reports what happened. Promoting this to the real CI
+# pipeline is a deliberately separate decision, made after reading this
+# spike's actual results — not something this workflow does on its own.
+#
+# The two representative checks (one vitest file, one Playwright spec) were
+# chosen to exercise the things most likely to break silently: RLS policies,
+# grants and the anon/service-role split (tests/rls/column-privileges.test.ts
+# reads and writes as both), and a real signed-in page render through GoTrue
+# + PostgREST + the app's own session handling (e2e/masthead-nav.spec.ts).
+#
+# Every secret-shaped value below is a per-run, throwaway local credential —
+# this stack is destroyed when the job ends, so none of it needs to be a
+# real GitHub secret.
+on:
+  workflow_dispatch: {}
+
+jobs:
+  spike:
+    name: Local Supabase spike
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start the local stack (Postgres 17, matching production's engine)
+        id: start
+        run: |
+          START=$(date +%s)
+          echo "start_ts=$START" >> "$GITHUB_OUTPUT"
+          # Excluded containers are confirmed unused by this schema (checked
+          # 2026-09-03): no storage.buckets, no supabase_realtime publication,
+          # no pg_net/cron.schedule anywhere in supabase/migrations/*.sql —
+          # Talentrah's own cron is external (Vercel Cron + GitHub Actions
+          # hitting Next.js routes), not pg_cron.
+          supabase start --exclude imgproxy,storage-api,realtime,studio,edge-runtime,logflare,vector
+
+      - name: Reset the database against the real migration set — THE ACTUAL TEST
+        id: db_reset
+        run: |
+          # --no-seed: this repo's seeding is the two npm scripts below
+          # (seed-catalog.ts, seed.ts), not a supabase/seed.sql — see
+          # supabase/migrations/README.md and ci.yml's own "Seed reference
+          # data" step for why catalog seeding runs before any test.
+          supabase db reset --no-seed
+          END=$(date +%s)
+          echo "Migrations applied cleanly to a Postgres that has never seen them before."
+          echo "db_reset_end_ts=$END" >> "$GITHUB_OUTPUT"
+
+      - name: Report stack spin-up wall-clock
+        run: |
+          echo "supabase start + db reset: $(( ${{ steps.db_reset.outputs.db_reset_end_ts }} - ${{ steps.start.outputs.start_ts }} ))s"
+
+      - name: Export local connection details
+        run: |
+          # Printed in full deliberately — every one of these is a fixed,
+          # publicly-documented LOCAL DEVELOPMENT default (the same values
+          # anyone gets from `supabase start` on their own machine), not a
+          # secret scoped to this project. Raw output kept in the log so a
+          # wrong guess at the variable names below is visible immediately
+          # rather than failing three steps later with no context.
+          supabase status -o env | tee /tmp/supabase-status.env
+          set -a
+          source /tmp/supabase-status.env
+          set +a
+          {
+            echo "NEXT_PUBLIC_SUPABASE_URL=$API_URL"
+            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$ANON_KEY"
+            echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY"
+          } >> "$GITHUB_ENV"
+
+      - name: Seed reference data BEFORE any test runs
+        # Mirrors ci.yml's own "Seed reference data" step and its header
+        # comment exactly — catalog-only, no app involved, idempotent. On the
+        # shared cloud CI project this ordering is close to moot (reference
+        # data already persists from a prior run); on a stack that is
+        # genuinely empty on every single run, getting this step BEFORE
+        # typecheck/lint/unit is the fix for the gap CLAUDE.md documents
+        # ("Unit tests run BEFORE npm run seed in CI... Reference data has to
+        # exist before the first green run").
+        run: npm run seed:catalog
+
+      - name: Typecheck, lint
+        run: |
+          npx tsc --noEmit
+          npm run lint
+
+      - name: Run ONE representative DB-backed vitest file against the local stack
+        run: npx vitest run tests/rls/column-privileges.test.ts --reporter=verbose
+
+      - name: Build the app against the local stack
+        run: npm run build
+
+      - name: Generate a per-run admin secret
+        # Same pattern as ci.yml's e2e job: throwaway, only has to match
+        # between the server started below and the seed step.
+        run: echo "INGEST_SECRET=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+
+      - name: Start the app
+        env:
+          LLM_PROVIDER: stub
+          DEMO_PASSWORD: local-spike-throwaway-password-32ch
+          ANON_DEMO_IP_SALT: local-spike-throwaway-salt-value
+        run: npm run start &
+
+      - name: Wait for the app to respond
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:3000 > /dev/null; then
+              echo "App is up."
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "App never came up." >&2
+          exit 1
+
+      - name: Seed demo data (drives the real ingestion routes over HTTP)
+        env:
+          SEED_APP_URL: http://localhost:3000
+          DEMO_PASSWORD: local-spike-throwaway-password-32ch
+        run: npm run seed
+
+      - name: Install Playwright's browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Run ONE representative Playwright spec against the local stack
+        env:
+          E2E_BASE_URL: http://localhost:3000
+          DEMO_PASSWORD: local-spike-throwaway-password-32ch
+        run: npx playwright test e2e/masthead-nav.spec.ts --reporter=list
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: spike-playwright-report
+          path: playwright-report/
+          retention-days: 7
