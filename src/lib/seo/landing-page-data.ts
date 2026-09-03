@@ -37,9 +37,22 @@ type Client = SupabaseClient<Database>;
  */
 const PAGE_LIMIT = 30;
 
+/**
+ * Omit, not the full row: `description` alone averages ~5.4 KB of a ~7.3 KB
+ * job_postings row (measured 2026-09-03), to render a card that only ever
+ * shows 220 characters of it (public-job-row.tsx). Both loaders below fetch
+ * it pre-truncated via the generated `description_preview` column
+ * (migration 0086), aliased back to `description` — see jobs/page.tsx's
+ * identical FEED_COLUMNS for the fuller explanation and why this needs to
+ * be one string literal, not a concatenated or externally-typed one.
+ */
+type LandingJobPosting = Omit<Tables<"job_postings">, "description_preview">;
+const JOB_LANDING_COLUMNS =
+  "id, source_type, organization_id, title, company_name, company_logo_url, location, work_type, employment_type, seniority, years_experience_min, description:description_preview, structured_jd, external_url, external_source, status, posted_at, last_checked_at, dedup_fingerprint, created_at, expires_at, removed_at, removal_reason, removed_by, salary_min, salary_max, salary_currency, salary_unit";
+
 export interface JobLandingResult {
   total: number;
-  jobs: Tables<"job_postings">[];
+  jobs: LandingJobPosting[];
 }
 
 export async function loadRemoteJobs(
@@ -54,14 +67,14 @@ export async function loadRemoteJobs(
 
   const { data, error } = await supabase
     .from("job_postings")
-    .select("*")
+    .select(JOB_LANDING_COLUMNS)
     .eq("status", "open")
     .eq("work_type", "remote")
     .order("posted_at", { ascending: false })
     .limit(PAGE_LIMIT);
   if (error) throw new Error(error.message);
 
-  return { total: count ?? 0, jobs: (data ?? []) as Tables<"job_postings">[] };
+  return { total: count ?? 0, jobs: (data ?? []) as LandingJobPosting[] };
 }
 
 export interface CityJobLandingResult extends JobLandingResult {
@@ -86,14 +99,14 @@ export async function loadCityJobs(
 
   const { data, error } = await supabase
     .from("job_postings")
-    .select("*")
+    .select(JOB_LANDING_COLUMNS)
     .eq("status", "open")
     .or(orFilter)
     .order("posted_at", { ascending: false })
     .limit(PAGE_LIMIT);
   if (error) throw new Error(error.message);
 
-  return { city, total: count ?? 0, jobs: (data ?? []) as Tables<"job_postings">[] };
+  return { city, total: count ?? 0, jobs: (data ?? []) as LandingJobPosting[] };
 }
 
 export interface ScholarshipLandingResult {

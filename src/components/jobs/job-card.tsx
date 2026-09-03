@@ -26,7 +26,12 @@ const SENIORITY_LABEL: Record<string, string> = {
 };
 
 export interface JobCardProps {
-  job: Tables<"job_postings">;
+  // Omit, not the full row: the feed query that supplies this (jobs/page.tsx)
+  // fetches `description` pre-truncated via the generated `description_preview`
+  // column (migration 0086) and never selects the raw preview column itself —
+  // this component never reads it either, so the narrower type costs nothing
+  // and matches what the query actually returns.
+  job: Omit<Tables<"job_postings">, "description_preview">;
   score: number;
   isSaved: boolean;
   applicationStage: Tables<"applications">["stage"] | null;

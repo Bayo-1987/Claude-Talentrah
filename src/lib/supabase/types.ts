@@ -1192,6 +1192,7 @@ export type Database = {
           created_at: string
           dedup_fingerprint: string
           description: string
+          description_preview: string
           employment_type: Database["public"]["Enums"]["employment_type"] | null
           expires_at: string | null
           external_source: string | null
@@ -1222,6 +1223,7 @@ export type Database = {
           created_at?: string
           dedup_fingerprint: string
           description: string
+          description_preview?: string
           employment_type?:
             | Database["public"]["Enums"]["employment_type"]
             | null
@@ -1254,6 +1256,7 @@ export type Database = {
           created_at?: string
           dedup_fingerprint?: string
           description?: string
+          description_preview?: string
           employment_type?:
             | Database["public"]["Enums"]["employment_type"]
             | null
