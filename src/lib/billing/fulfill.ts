@@ -60,6 +60,35 @@ export async function fulfillPayment(
     return { status: "failed" };
   }
 
+  /*
+   * Ground truth, checked, not assumed. Every other decision in this
+   * function trusts `verified.status`, but status alone is not the whole
+   * claim Paystack is making — it also says WHAT was paid, and that has
+   * never been checked against what this transaction row actually expects.
+   * `transaction.amount` is server-derived (initiatePurchaseAction looks it
+   * up from credit_packs/passes by id, never from client input), so this
+   * isn't guarding against a client tampering with a number it never
+   * controlled — it's the backstop against any future bug, race, or
+   * reference-confusion that leaves a `payment_transactions` row
+   * inconsistent with what Paystack actually confirmed, and it is Paystack's
+   * own documented integration guidance. `transaction.amount` is whole
+   * Naira (an integer column); Paystack's `amount` is kobo — the `* 100`
+   * mirrors the exact conversion `initializeTransaction` does at the other
+   * end of this same transaction's life.
+   */
+  const expectedKobo = Math.round(transaction.amount * 100);
+  if (verified.amount !== expectedKobo || verified.currency !== transaction.currency) {
+    console.error(
+      `[fulfill] amount/currency mismatch for ${reference}: expected ${expectedKobo} kobo ` +
+        `${transaction.currency}, Paystack confirmed ${verified.amount} ${verified.currency}. Not fulfilling.`,
+    );
+    await supabase
+      .from("payment_transactions")
+      .update({ status: "failed" })
+      .eq("id", transaction.id);
+    return { status: "failed" };
+  }
+
   // Ground truth for the rail actually used, straight from Paystack's
   // verify response — never inferred from what checkout offered. A card
   // authorization is only ever eligible for silent recharge if Paystack
