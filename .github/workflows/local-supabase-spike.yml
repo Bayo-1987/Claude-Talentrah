@@ -129,6 +129,13 @@ jobs:
         # exist before the first green run").
         run: npm run seed:catalog
 
+      # Missed in round 2 — round 2's failure ("Cannot find name 'LayoutProps'"
+      # at src/app/layout.tsx#97) was this step missing, not anything about
+      # the local stack. ci.yml's own `checks` job runs this before typecheck;
+      # copied over now to match.
+      - name: Generate Next.js route types
+        run: npx next typegen
+
       - name: Typecheck, lint
         run: |
           npx tsc --noEmit
