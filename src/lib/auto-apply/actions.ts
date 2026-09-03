@@ -5,6 +5,8 @@ import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { spendCredits } from "@/lib/credits/spend";
 import { CREDIT_COSTS } from "@/lib/credits/costs";
+import { logCreditGateEvent } from "@/lib/credits/gate-events";
+import { checkPassCoverage, DAILY_CAP_MESSAGE } from "@/lib/passes/entitlement";
 import {
   AUTO_APPLY_DAILY_SUBMIT_CAP,
   AUTO_APPLY_FREE_PER_WEEK,
@@ -82,6 +84,19 @@ export async function confirmAutoApplyAction(queueId: string): Promise<AutoApply
   const userId = await requireUserId();
   const admin = createServiceRoleClient();
 
+  /*
+   * Checked in TS, before the locked claim — not the money-critical part of
+   * this gate (that stays entirely inside 0034/0088's lock, see that
+   * migration's own header for why bolting pass-coverage on around the RPC
+   * would be wrong there), just the boolean the lock needs to know. The
+   * fair-use cap (src/lib/passes/entitlement.ts) rides along on the same
+   * check, so a pass holder hammering Auto-Apply confirmations is bounded
+   * by the same 30/day ceiling every other pass-covered action is —
+   * independent of, and on top of, Auto-Apply's own unchanged 5/day
+   * submission cap.
+   */
+  const coverage = await checkPassCoverage(userId);
+
   const { data: verdicts, error: claimError } = await admin.rpc("auto_apply_claim_submission", {
     p_user_id: userId,
     p_queue_id: queueId,
@@ -89,6 +104,7 @@ export async function confirmAutoApplyAction(queueId: string): Promise<AutoApply
     p_daily_cap: AUTO_APPLY_DAILY_SUBMIT_CAP,
     p_free_per_week: AUTO_APPLY_FREE_PER_WEEK,
     p_credit_cost: CREDIT_COSTS.autoApplySubmission,
+    p_has_active_pass: coverage.covered,
   });
   if (claimError) return { ok: false, error: `Couldn't confirm: ${claimError.message}` };
 
@@ -96,7 +112,33 @@ export async function confirmAutoApplyAction(queueId: string): Promise<AutoApply
   if (!verdict) return { ok: false, error: "Couldn't confirm: no response from the queue." };
 
   if (!verdict.ok) {
-    return { ok: false, error: explain(verdict.reason) };
+    return {
+      ok: false,
+      error:
+        verdict.reason === "insufficient_credits" && !coverage.covered && coverage.reason === "daily_cap_reached"
+          ? DAILY_CAP_MESSAGE
+          : explain(verdict.reason),
+    };
+  }
+
+  // Auto-Apply had no funnel visibility at all before this — every other
+  // pass-covered action logs a gate event, and this is the one place that
+  // actually learns "covered by pass" only after the locked RPC decided it,
+  // rather than before like the other five.
+  if (verdict.pass_covered) {
+    const { data: coveredProfile } = await admin
+      .from("profiles")
+      .select("credits_balance")
+      .eq("id", userId)
+      .single();
+    await logCreditGateEvent({
+      userId,
+      reason: "auto_apply_run",
+      creditsRequired: 0,
+      creditsAvailable: coveredProfile?.credits_balance ?? 0,
+      outcome: "covered_by_pass",
+      relatedEntityId: queueId,
+    });
   }
 
   // ---- External: hand off, never submit. -------------------------------

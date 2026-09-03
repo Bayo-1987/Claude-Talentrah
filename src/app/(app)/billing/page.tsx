@@ -6,6 +6,7 @@ import {
   cancelAutoRenewAction,
 } from "@/lib/billing/actions";
 import { EyebrowLabel, BorderedCard, Button } from "@/components/ui";
+import { PASS_DAILY_ACTION_CAP } from "@/lib/passes/entitlement";
 
 /**
  * What each product_type is called on a receipt.
@@ -38,6 +39,32 @@ const PRODUCT_NEXT: Record<string, { href: string; label: string }> = {
   credit_pack: { href: "/tailor", label: "Tailor my resume" },
   pass: { href: "/tailor", label: "Tailor my resume" },
   ad_wallet_topup: { href: "/employer", label: "Go to your job postings" },
+};
+
+/**
+ * What each credit pack's price is worth in plain terms, keyed by name —
+ * matching scripts/seed.ts's own two packs. "Credits never expire" is a
+ * verified claim, not marketing copy: grep src/lib/credits/ finds no
+ * expiry logic anywhere, and this line only exists because of that check —
+ * if that ever stops being true, this line has to go with it, not stay as
+ * a claim nothing backs.
+ */
+const PACK_DESCRIPTION: Record<string, string> = {
+  Starter: "1 CV tailoring · credits never expire",
+  Plus: "2 tailorings + a cover letter, or a Directory verification · never expire",
+};
+
+/**
+ * Pass copy, keyed by name — matching scripts/seed.ts's three passes.
+ * Every pass states the same three things, in the same order: what
+ * "unlimited" actually means here, what stays credit-only regardless, and
+ * the fair-use ceiling nobody legitimate should ever reach (PASS_DAILY_ACTION_CAP,
+ * src/lib/passes/entitlement.ts).
+ */
+const PASS_HEADLINE: Record<string, string> = {
+  "7-Day Sprint Pass": "Unlimited for 7 days",
+  "30-Day Pass": "Unlimited for 30 days",
+  "90-Day Pass": "Unlimited for 90 days",
 };
 
 export const metadata = { title: "Credits & Passes — Talentrah" };
@@ -274,6 +301,9 @@ export default async function BillingPage({
               <p className="text-[13.5px] text-ink-soft">
                 {pack.credits} credits
               </p>
+              {PACK_DESCRIPTION[pack.name] && (
+                <p className="text-[13px] text-ink-soft">{PACK_DESCRIPTION[pack.name]}</p>
+              )}
               <p className="font-display text-[24px]">
                 ₦{pack.price_ngn.toLocaleString()}
               </p>
@@ -300,8 +330,16 @@ export default async function BillingPage({
             <BorderedCard key={pass.id} className="flex flex-col gap-3 p-5">
               <h3 className="text-[17px]">{pass.name}</h3>
               <p className="text-[13.5px] text-ink-soft">
-                Unlimited access for {pass.duration_days} days. Auto-renews if
-                paid by card; one-time if paid by mobile money.
+                {PASS_HEADLINE[pass.name] ?? `Unlimited access for ${pass.duration_days} days`}
+              </p>
+              <p className="text-[13px] text-ink-soft">
+                Covers tailoring, cover letters, bullet rewrites, Auto-Apply
+                beyond your free weekly runs, and scholarship eligibility
+                checks and SOP drafts — all at zero credit cost, up to{" "}
+                {PASS_DAILY_ACTION_CAP} actions a day. Template unlocks and
+                Talent Directory verification are sold separately, credits
+                only. Auto-renews if paid by card; one-time if paid by mobile
+                money.
               </p>
               <p className="font-display text-[24px]">
                 ₦{pass.price_ngn.toLocaleString()}

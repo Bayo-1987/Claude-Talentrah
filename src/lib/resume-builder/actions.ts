@@ -9,6 +9,7 @@ import { rewriteBullet, type BulletInstruction } from "@/lib/farah/rewrite-bulle
 import { CREDIT_COSTS } from "@/lib/credits/costs";
 import { spendCredits, InsufficientCreditsError } from "@/lib/credits/spend";
 import { logCreditGateEvent } from "@/lib/credits/gate-events";
+import { checkPassCoverage, DAILY_CAP_MESSAGE } from "@/lib/passes/entitlement";
 
 async function getAuthedUserId() {
   const supabase = await createClient();
@@ -166,6 +167,25 @@ export async function rewriteBulletAction(
     .eq("id", userId)
     .single();
   const balance = profile?.credits_balance ?? 0;
+
+  const coverage = await checkPassCoverage(userId);
+  if (coverage.covered) {
+    await logCreditGateEvent({
+      userId,
+      reason: "bullet_rewrite",
+      creditsRequired: 0,
+      creditsAvailable: balance,
+      outcome: "covered_by_pass",
+    });
+    let rewritten: string;
+    try {
+      rewritten = await rewriteBullet(text, instruction);
+    } catch {
+      return { text, error: "Farah couldn't rewrite that just now — try again." };
+    }
+    return { text: rewritten };
+  }
+
   if (balance < CREDIT_COSTS.bulletRewrite) {
     await logCreditGateEvent({
       userId,
@@ -176,7 +196,10 @@ export async function rewriteBulletAction(
     });
     return {
       text,
-      error: `Not enough credits — this needs ${CREDIT_COSTS.bulletRewrite}, you have ${balance}.`,
+      error:
+        coverage.reason === "daily_cap_reached"
+          ? DAILY_CAP_MESSAGE
+          : `Not enough credits — this needs ${CREDIT_COSTS.bulletRewrite}, you have ${balance}.`,
     };
   }
   await logCreditGateEvent({

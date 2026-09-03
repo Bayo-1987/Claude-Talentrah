@@ -87,7 +87,7 @@ export async function POST(request: Request) {
   } catch (err) {
     if (err instanceof InsufficientCreditsError) {
       return NextResponse.json(
-        { error: "Not enough credits for a tailoring run.", needsCredits: true },
+        { error: err.capMessage ?? "Not enough credits for a tailoring run.", needsCredits: true },
         { status: 402 },
       );
     }

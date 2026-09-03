@@ -1,18 +1,38 @@
 /**
- * Pricing anchors from build-prompt §6.9 — researched, not validated (see §10 item 18).
- * bulletRewrite has no stated anchor in §6.9; 1 credit is an M9 proposal —
- * smallest unit action on the price list, well below a full tailoring run.
+ * Founder-decided repricing (2026-09-03), replacing the original build-prompt
+ * §6.9 anchors (researched, not validated) with a single fixed anchor: ₦2,500
+ * = one CV tailoring. Starter is priced at 20 credits for ₦2,500, so a
+ * credit is worth exactly ₦125 — every other cost below is a founder-chosen
+ * multiple of tailoringRun, not an independent re-derivation from §6.9.
+ *
+ * The pass-holder cost-probe review (2026-09-03) measured real per-action
+ * LLM spend against these prices before they were approved — see that
+ * review for the margin numbers; nothing here needed retuning as a result.
+ *
+ * Two deliberate exceptions to "everything moved with the anchor":
+ *   - autoApplySubmission only doubled (2 -> 4), not quadrupled like the
+ *     rest. Auto-Apply is the engagement engine — the free weekly allowance
+ *     is the thing that gets people to trust the product before they ever
+ *     pay for anything — and it has to stay affordable even after the
+ *     rebase, or the funnel it exists to build gets more expensive to enter
+ *     right when the rest of the price list got less so.
+ *   - templateUnlock and talentDirectoryVerification are UNCHANGED. Both
+ *     are one-time purchases already priced fairly on their own terms
+ *     (₦1,250 and ₦3,125 respectively) rather than against the tailoring
+ *     anchor, so the rebase has nothing to correct for either.
+ *
+ * The ×4 that moved from 5 credits to 20 also drove a one-time balance
+ * migration (0090_balance_rebase_4x.sql): every existing credits_balance
+ * was multiplied by four so a balance that already paid for N tailorings
+ * still buys N tailorings after the rebase, not N/4.
  */
 export const CREDIT_COSTS = {
-  tailoringRun: 5,
-  coverLetterRun: 3,
-  templateUnlock: 10,
-  autoApplySubmission: 2,
-  talentDirectoryVerification: 25,
-  bulletRewrite: 1,
-  // §6.15 / §6.9 — both are stated anchors on the decided price list, not
-  // proposals: eligibility check 2 credits (₦300), SOP drafting 4 credits
-  // (₦600, a tier above cover letters for a longer piece).
-  scholarshipEligibilityCheck: 2,
-  scholarshipSopDraft: 4,
+  tailoringRun: 20, // ₦2,500 — the anchor
+  scholarshipSopDraft: 16, // ₦2,000
+  coverLetterRun: 10, // ₦1,250
+  autoApplySubmission: 4, // ₦500 — deliberately ×2, not ×4 (see header)
+  scholarshipEligibilityCheck: 4, // ₦500
+  bulletRewrite: 2, // ₦250
+  templateUnlock: 10, // ₦1,250 — UNCHANGED, already fairly priced
+  talentDirectoryVerification: 25, // ₦3,125 — UNCHANGED, already fairly priced
 } as const;
