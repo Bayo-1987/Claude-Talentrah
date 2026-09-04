@@ -173,18 +173,66 @@ jobs:
 
       # Reference data before the unit tests, deliberately.
       #
-      # `npm run seed` needs a dev server (it drives the real ingestion routes)
-      # so it lives in the Playwright job, which is `needs: checks`. On a
-      # database that has never been seeded the unit tests therefore run first,
-      # fail on a missing catalog, and skip the job that would have fixed it.
-      # That deadlock cost a red run the first time this suite was pointed at
-      # the CI project.
-      #
       # This step is catalog only — templates, packs, passes, scholarships —
       # writes straight to the database with no app involved, and is idempotent,
       # so running it on every job is cheap and safe.
-      - name: Seed reference data
+      - name: Seed reference data (catalog)
         run: npm run seed:catalog
+
+      # FULL seed too, discovered necessary by Stage 2 itself, not assumed
+      # up front. On the old shared hosted project this job's unit tests never
+      # needed this: the database was long-lived, so by the time `checks` ran,
+      # some PAST run of the `e2e` job's `npm run seed` had already left demo
+      # users, an internal posting, ingested job postings and payment/ledger
+      # rows sitting there. Several unit tests quietly depended on that —
+      # tests/seo/landing-page-links.test.ts asserting Lagos/remote postings
+      # exist, tests/billing/pricing-catalog-rebase.test.ts asserting retired
+      # packs still have payment_transactions rows, tests/rls/
+      # org-and-referral-scoping.test.ts and tests/seed/catalog.test.ts both
+      # literally erroring "run `npm run seed` first" — a real, message-level
+      # admission that they were never designed to run against catalog data
+      # alone. A fresh per-job database has no such leftovers, so this now has
+      # to be run here explicitly rather than borrowed by accident from
+      # whatever the last e2e run happened to leave behind.
+      #
+      # This needs a running app (`npm run seed` drives real ingestion HTTP
+      # routes), so this job now also builds and starts one — the same shape
+      # `e2e` uses below, duplicated rather than shared because these are
+      # separate GitHub Actions runners with no way to hand off a live
+      # container between them. Real, measured cost of full per-job isolation:
+      # two builds and two real ingestion sweeps per CI run instead of one.
+      # A pg_dump/restore of `checks`' already-seeded database into `e2e`
+      # instead of re-seeding there is the obvious follow-up if that cost
+      # turns out to matter in the measured wall-clock — not done here so the
+      # first attempt at Stage 2 stays checkable against a plain, unoptimised
+      # baseline before optimising it.
+      - name: Build app
+        run: npm run build
+
+      - name: Generate a per-run admin secret
+        run: echo "INGEST_SECRET=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+
+      - name: Start app
+        env:
+          LLM_PROVIDER: stub
+        run: npm run start &
+
+      - name: Wait for app to respond
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:3000 > /dev/null; then
+              echo "App is up."
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "App never came up." >&2
+          exit 1
+
+      - name: Seed demo data (full)
+        env:
+          SEED_APP_URL: http://localhost:3000
+        run: npm run seed
 
       - name: Typecheck
         run: npx tsc --noEmit
