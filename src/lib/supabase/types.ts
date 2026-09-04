@@ -559,12 +559,14 @@ export type Database = {
         Row: {
           applied_at: string | null
           cover_letter_id: string | null
+          cover_letter_snapshot: Json | null
           created_at: string
           id: string
           job_posting_id: string | null
           manual_job_snapshot: Json | null
           notes: string | null
           resume_id: string | null
+          resume_snapshot: Json | null
           source: Database["public"]["Enums"]["application_source"]
           stage: Database["public"]["Enums"]["application_stage"]
           updated_at: string
@@ -573,12 +575,14 @@ export type Database = {
         Insert: {
           applied_at?: string | null
           cover_letter_id?: string | null
+          cover_letter_snapshot?: Json | null
           created_at?: string
           id?: string
           job_posting_id?: string | null
           manual_job_snapshot?: Json | null
           notes?: string | null
           resume_id?: string | null
+          resume_snapshot?: Json | null
           source?: Database["public"]["Enums"]["application_source"]
           stage?: Database["public"]["Enums"]["application_stage"]
           updated_at?: string
@@ -587,12 +591,14 @@ export type Database = {
         Update: {
           applied_at?: string | null
           cover_letter_id?: string | null
+          cover_letter_snapshot?: Json | null
           created_at?: string
           id?: string
           job_posting_id?: string | null
           manual_job_snapshot?: Json | null
           notes?: string | null
           resume_id?: string | null
+          resume_snapshot?: Json | null
           source?: Database["public"]["Enums"]["application_source"]
           stage?: Database["public"]["Enums"]["application_stage"]
           updated_at?: string
@@ -2419,6 +2425,14 @@ export type Database = {
           balance_after_ngn: number
           low_balance: boolean
           ok: boolean
+        }[]
+      }
+      delete_resume_with_snapshot: {
+        Args: { p_resume_id: string; p_user_id: string }
+        Returns: {
+          applications_snapshotted: number
+          ok: boolean
+          reason: string
         }[]
       }
       email_unsubscribe: {

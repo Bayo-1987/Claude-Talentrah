@@ -34,6 +34,17 @@ export interface TrackerEntry {
   isManual: boolean;
   resumeId: string | null;
   coverLetterId: string | null;
+  /**
+   * The title held in `applications.resume_snapshot`, set only when
+   * `resumeId` is null because the source resume has been deleted (0094).
+   *
+   * An application's record of what was sent is not disposable, so deleting a
+   * resume nulls the FK and freezes a copy on the application instead. Without
+   * this the card would just stop rendering "Resume used" and the history
+   * would quietly be gone — a snapshot nobody reads is not a fix.
+   */
+  resumeSnapshotTitle: string | null;
+  coverLetterSnapshotTitle: string | null;
   history: { stage: string; changedAt: string }[];
 }
 
@@ -69,21 +80,49 @@ export function TrackerCard({ entry }: { entry: TrackerEntry }) {
             Job posting
           </a>
         )}
-        {entry.resumeId && (
+        {/*
+          Live resume first, snapshot second. The live row is the better
+          answer whenever it exists — it opens in the editor and it is what
+          the user would want to reuse. The snapshot only stands in once the
+          resume is gone, and it says so, because "Resume used" pointing at a
+          frozen copy without admitting it would be a quieter lie than showing
+          nothing.
+        */}
+        {entry.resumeId ? (
           <Link
             href={`/resume-builder/edit?resumeId=${entry.resumeId}`}
             className="underline underline-offset-2 hover:text-rust"
           >
             Resume used
           </Link>
+        ) : (
+          entry.resumeSnapshotTitle && (
+            <Link
+              href={`/tracker/${entry.id}/sent?doc=resume`}
+              data-testid="tracker-resume-snapshot"
+              className="underline underline-offset-2 hover:text-rust"
+            >
+              Resume used (deleted — copy kept)
+            </Link>
+          )
         )}
-        {entry.coverLetterId && (
+        {entry.coverLetterId ? (
           <Link
             href={`/resume-builder/edit?resumeId=${entry.coverLetterId}`}
             className="underline underline-offset-2 hover:text-rust"
           >
             Cover letter used
           </Link>
+        ) : (
+          entry.coverLetterSnapshotTitle && (
+            <Link
+              href={`/tracker/${entry.id}/sent?doc=cover-letter`}
+              data-testid="tracker-cover-letter-snapshot"
+              className="underline underline-offset-2 hover:text-rust"
+            >
+              Cover letter used (deleted — copy kept)
+            </Link>
+          )
         )}
       </div>
 

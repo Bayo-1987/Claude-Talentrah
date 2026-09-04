@@ -7,6 +7,7 @@ import { ManualEntryForm } from "@/components/tracker/manual-entry-form";
 import { TrackerCard, type TrackerEntry } from "@/components/tracker/tracker-card";
 import { HiredReferralBanner } from "@/components/tracker/hired-referral-banner";
 import { Constants, type Enums } from "@/lib/supabase/types";
+import { parseResumeSnapshot } from "@/lib/applications/resume-snapshot";
 
 export const metadata = { title: "Job Tracker — Talentrah" };
 
@@ -30,7 +31,10 @@ export default async function TrackerPage({ searchParams }: { searchParams: Sear
       let query = supabase
         .from("applications")
         .select(
-          "id, stage, applied_at, notes, updated_at, created_at, job_posting_id, manual_job_snapshot, resume_id, cover_letter_id, job_postings(company_name, title, location, external_url), application_stage_events(stage, changed_at)",
+          // resume_snapshot / cover_letter_snapshot are the fallback for a
+          // resume the user has since deleted (0094): the FK is nulled, so
+          // without these the card would silently stop saying what was sent.
+          "id, stage, applied_at, notes, updated_at, created_at, job_posting_id, manual_job_snapshot, resume_id, cover_letter_id, resume_snapshot, cover_letter_snapshot, job_postings(company_name, title, location, external_url), application_stage_events(stage, changed_at)",
         )
         .eq("user_id", user.id);
       if (stage !== "all") query = query.eq("stage", stage);
@@ -64,6 +68,16 @@ export default async function TrackerPage({ searchParams }: { searchParams: Sear
       isManual: !row.job_posting_id,
       resumeId: row.resume_id,
       coverLetterId: row.cover_letter_id,
+      /*
+       * Only parsed when the live FK is gone. A snapshot is written at delete
+       * time and never cleared, so a row could in principle hold both — the
+       * live resume is the better answer whenever it still exists, since it is
+       * the one the user can open and edit.
+       */
+      resumeSnapshotTitle: row.resume_id ? null : (parseResumeSnapshot(row.resume_snapshot)?.title ?? null),
+      coverLetterSnapshotTitle: row.cover_letter_id
+        ? null
+        : (parseResumeSnapshot(row.cover_letter_snapshot)?.title ?? null),
       history: (row.application_stage_events ?? [])
         .map((h) => ({ stage: h.stage, changedAt: h.changed_at }))
         .sort((a, b) => new Date(a.changedAt).getTime() - new Date(b.changedAt).getTime()),
