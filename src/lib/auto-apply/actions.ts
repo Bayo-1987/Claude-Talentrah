@@ -7,6 +7,8 @@ import { spendCredits } from "@/lib/credits/spend";
 import { CREDIT_COSTS } from "@/lib/credits/costs";
 import { logCreditGateEvent } from "@/lib/credits/gate-events";
 import { checkPassCoverage, DAILY_CAP_MESSAGE } from "@/lib/passes/entitlement";
+import { hasUneditedExampleContent } from "@/lib/resume-builder/example-guard";
+import type { StructuredResume } from "@/lib/resume/types";
 import {
   AUTO_APPLY_DAILY_SUBMIT_CAP,
   AUTO_APPLY_FREE_PER_WEEK,
@@ -176,10 +178,35 @@ export async function confirmAutoApplyAction(queueId: string): Promise<AutoApply
 
     const { data: baseResume } = await admin
       .from("resumes")
-      .select("id")
+      .select("id, structured_content")
       .eq("user_id", userId)
       .eq("is_base", true)
       .maybeSingle();
+
+    /*
+     * Stage 3.1's export guard, applied here too: a resume Auto-Apply is
+     * about to submit on the user's behalf must not still be carrying
+     * unedited "Start from an example" placeholder content — see
+     * example-guard.ts. Nothing in this codebase can put example content
+     * into the base resume today (createResumeAction never sets is_base,
+     * and the only path that does — upsertBaseResume — is upload/parse
+     * only), so this is future-proofing rather than a reachable bug fix
+     * right now; it costs one pure-function check and closes the door before
+     * any "use this as my base resume" feature could ever open it.
+     *
+     * A thrown error, not an early return: this needs to land in the SAME
+     * catch block below that releases the auto_apply_queue claim, same as
+     * every other failure in this section (a real submission that never
+     * happened must not silently consume the allowance).
+     */
+    if (
+      baseResume?.structured_content &&
+      hasUneditedExampleContent(baseResume.structured_content as StructuredResume)
+    ) {
+      throw new Error(
+        "your resume still has unedited example content — update it in the Resume Builder first",
+      );
+    }
 
     const { data: application, error: appError } = await admin
       .from("applications")

@@ -5,11 +5,16 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { EMPTY_RESUME, type StructuredResume } from "@/lib/resume/types";
+import { sanitizeStructuredResume } from "@/lib/resume/sanitize";
 import { rewriteBullet, type BulletInstruction } from "@/lib/farah/rewrite-bullet";
 import { CREDIT_COSTS } from "@/lib/credits/costs";
 import { spendCredits, InsufficientCreditsError } from "@/lib/credits/spend";
 import { logCreditGateEvent } from "@/lib/credits/gate-events";
 import { checkPassCoverage, DAILY_CAP_MESSAGE } from "@/lib/passes/entitlement";
+import { PREVIEW_SAMPLE_RESUME } from "@/lib/resume-builder/preview-sample";
+import { logResumeBuilderStartEvent, logResumeBuilderCompletion, type ResumeBuilderStartState } from "@/lib/resume-builder/start-events";
+
+export type { ResumeBuilderStartState } from "@/lib/resume-builder/start-events";
 
 async function getAuthedUserId() {
   const supabase = await createClient();
@@ -89,7 +94,55 @@ export async function unlockTemplateAction(
   return { ok: true };
 }
 
-export async function createResumeAction(templateId: string) {
+/**
+ * Creates a new builder resume (`is_base: false`) from one of three start
+ * states — the "empty form vs. filled document" fix (Stage 3.1):
+ *
+ *   - "blank"         — today's behaviour, unchanged: EMPTY_RESUME.
+ *   - "example"        — seeds PREVIEW_SAMPLE_RESUME (a complete, realistic
+ *                        CV, since Stage 3.1 — see that file's own header).
+ *   - "import_base"    — copies the user's EXISTING is_base=true resume's
+ *                        structured_content, if they have one. "Use my
+ *                        existing resume" in the "Import my CV" panel.
+ *   - "import_upload"  — the parsed content of a freshly-uploaded file,
+ *                        already produced by /api/resume-builder/import and
+ *                        handed in by the caller as a hidden form field
+ *                        ("content", a JSON string). This is the ONLY start
+ *                        state that carries a payload, because it's the only
+ *                        one whose content isn't already sitting in the
+ *                        database under this user's id.
+ *
+ * WHY A FORM FIELD AND NOT A DIRECT JS ARGUMENT: this action is invoked as a
+ * real `<form action=...>` submission for every start state, including this
+ * one — the StartStateChooser client component renders a hidden input
+ * carrying the parsed JSON once the upload finishes, rather than calling this
+ * function programmatically. Server Actions that call redirect() (this one
+ * does, at the end) are a well-trodden path when triggered by a form submit;
+ * calling one directly from a client event handler and relying on the thrown
+ * redirect propagating correctly is not something to depend on across Next
+ * versions. Routing every start state through the same form-submission
+ * mechanism means all four behave identically here, and none needed a special
+ * case.
+ *
+ * CRITICAL, and the whole reason "import_upload" doesn't just call
+ * upsertBaseResume itself: importing a CV to style it in the builder must
+ * never silently repoint the user's canonical is_base=true resume — that
+ * resume is what Auto-Apply submits on the user's behalf. So the parsed
+ * content lands ONLY in the new builder row created here, never in the base
+ * resume. `/api/resume-builder/import` calls parseResumeFile directly and
+ * performs no database write at all; this action is the only place the
+ * parsed content is ever persisted, and it always lands in a fresh
+ * `is_base: false` row.
+ *
+ * The premium-template unlock check runs BEFORE branching on start state and
+ * before any insert, same as before this feature existed — every start state
+ * goes through it, none can bypass it.
+ */
+export async function createResumeAction(
+  templateId: string,
+  startState: ResumeBuilderStartState = "blank",
+  formData?: FormData,
+) {
   const { supabase, userId } = await getAuthedUserId();
 
   const { data: template } = await supabase
@@ -109,6 +162,43 @@ export async function createResumeAction(templateId: string) {
     if (!unlock) throw new Error("Unlock this template with credits before using it.");
   }
 
+  let content: StructuredResume;
+  switch (startState) {
+    case "example":
+      content = PREVIEW_SAMPLE_RESUME;
+      break;
+    case "import_base": {
+      const { data: baseResume } = await supabase
+        .from("resumes")
+        .select("structured_content")
+        .eq("user_id", userId)
+        .eq("is_base", true)
+        .maybeSingle();
+      content = (baseResume?.structured_content as StructuredResume | null) ?? EMPTY_RESUME;
+      break;
+    }
+    case "import_upload": {
+      const raw = formData?.get("content");
+      if (typeof raw !== "string") throw new Error("No imported resume content was provided.");
+      let imported: StructuredResume;
+      try {
+        imported = JSON.parse(raw) as StructuredResume;
+      } catch {
+        throw new Error("Imported resume content was invalid.");
+      }
+      // Re-sanitized here, not trusted as-is: this value crossed a client
+      // boundary (a hidden form field holding the JSON /api/resume-builder/
+      // import returned), so a defensive re-clean costs nothing and means a
+      // tampered payload still can't stash a degenerate value.
+      content = sanitizeStructuredResume(imported);
+      break;
+    }
+    case "blank":
+    default:
+      content = EMPTY_RESUME;
+      break;
+  }
+
   const { data: resume, error } = await supabase
     .from("resumes")
     .insert({
@@ -117,14 +207,41 @@ export async function createResumeAction(templateId: string) {
       template_id: template.id,
       title: template.name,
       source: "builder",
-      structured_content: JSON.parse(JSON.stringify(EMPTY_RESUME)),
+      structured_content: JSON.parse(JSON.stringify(content)),
     })
     .select("id")
     .single();
 
   if (error || !resume) throw error ?? new Error("Couldn't create resume.");
 
+  await logResumeBuilderStartEvent({
+    userId,
+    resumeId: resume.id,
+    startState,
+    eventType: "selected",
+  });
+
   redirect(`/resume-builder/edit?resumeId=${resume.id}`);
+}
+
+/**
+ * Best-effort completion signal for the start-state funnel — called after a
+ * successful save or a successful export. See start-events.ts for exactly
+ * what "completed" means and why it's logged at most once per resume.
+ */
+export async function recordResumeBuilderCompletionAction(resumeId: string): Promise<void> {
+  const { supabase, userId } = await getAuthedUserId();
+  // Ownership check before logging anything against this resume id — a user
+  // should not be able to make another user's resume look "completed" by
+  // guessing its id.
+  const { data: owned } = await supabase
+    .from("resumes")
+    .select("id")
+    .eq("id", resumeId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (!owned) return;
+  await logResumeBuilderCompletion({ userId, resumeId });
 }
 
 export async function saveResumeAction(
@@ -145,8 +262,8 @@ export async function saveResumeAction(
     .eq("user_id", userId);
 
   if (error) throw error;
+  await logResumeBuilderCompletion({ userId, resumeId });
   revalidatePath("/resume-builder");
-  revalidatePath(`/resume-builder/preview`);
 }
 
 /**
