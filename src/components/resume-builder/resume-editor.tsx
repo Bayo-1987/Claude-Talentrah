@@ -181,21 +181,25 @@ export function ResumeEditor({ resumeId, initialTitle, initialContent }: ResumeE
         <EyebrowLabel size="sm">Contact</EyebrowLabel>
         <div className="grid grid-cols-2 gap-4">
           <TextField
+            id="contact-full-name"
             label="Full name"
             value={content.contact.name ?? ""}
             onChange={(e) => update("contact", { ...content.contact, name: e.target.value })}
           />
           <TextField
+            id="contact-location"
             label="Location"
             value={content.contact.location ?? ""}
             onChange={(e) => update("contact", { ...content.contact, location: e.target.value })}
           />
           <TextField
+            id="contact-email"
             label="Email"
             value={content.contact.email ?? ""}
             onChange={(e) => update("contact", { ...content.contact, email: e.target.value })}
           />
           <TextField
+            id="contact-phone"
             label="Phone"
             value={content.contact.phone ?? ""}
             onChange={(e) => update("contact", { ...content.contact, phone: e.target.value })}
@@ -246,10 +250,10 @@ export function ResumeEditor({ resumeId, initialTitle, initialContent }: ResumeE
               <div className="flex items-start justify-between">
                 <DragHandle />
                 <div className="grid flex-1 grid-cols-2 gap-3">
-                  <TextField label="Title" value={entry.title} onChange={(e) => updateExperience(i, { title: e.target.value })} />
-                  <TextField label="Company" value={entry.company} onChange={(e) => updateExperience(i, { company: e.target.value })} />
-                  <TextField label="Start date" value={entry.startDate ?? ""} onChange={(e) => updateExperience(i, { startDate: e.target.value })} />
-                  <TextField label="End date" value={entry.endDate ?? ""} onChange={(e) => updateExperience(i, { endDate: e.target.value })} />
+                  <TextField id={`experience-${i}-title`} label="Title" value={entry.title} onChange={(e) => updateExperience(i, { title: e.target.value })} />
+                  <TextField id={`experience-${i}-company`} label="Company" value={entry.company} onChange={(e) => updateExperience(i, { company: e.target.value })} />
+                  <TextField id={`experience-${i}-start-date`} label="Start date" value={entry.startDate ?? ""} onChange={(e) => updateExperience(i, { startDate: e.target.value })} />
+                  <TextField id={`experience-${i}-end-date`} label="End date" value={entry.endDate ?? ""} onChange={(e) => updateExperience(i, { endDate: e.target.value })} />
                 </div>
                 <RemoveControl onRemove={() => update("experience", content.experience.filter((_, j) => j !== i))} />
               </div>
@@ -294,8 +298,8 @@ export function ResumeEditor({ resumeId, initialTitle, initialContent }: ResumeE
             >
               <DragHandle />
               <div className="grid flex-1 grid-cols-2 gap-3">
-                <TextField label="School" value={entry.school} onChange={(e) => updateEducation(i, { school: e.target.value })} />
-                <TextField label="Degree" value={entry.degree ?? ""} onChange={(e) => updateEducation(i, { degree: e.target.value })} />
+                <TextField id={`education-${i}-school`} label="School" value={entry.school} onChange={(e) => updateEducation(i, { school: e.target.value })} />
+                <TextField id={`education-${i}-degree`} label="Degree" value={entry.degree ?? ""} onChange={(e) => updateEducation(i, { degree: e.target.value })} />
               </div>
               <RemoveControl onRemove={() => update("education", content.education.filter((_, j) => j !== i))} />
             </div>
