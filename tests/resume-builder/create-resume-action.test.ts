@@ -48,14 +48,13 @@ async function createdContent(resumeId: string): Promise<StructuredResume> {
     .eq("id", resumeId)
     .single();
   if (error || !data) throw new Error(`fixture lookup: ${error?.message}`);
-  return data.structured_content as StructuredResume;
+  return data.structured_content as unknown as StructuredResume;
 }
 
 let userId: string;
 let userEmail: string;
 let freeTemplateId: string;
 let premiumTemplateId: string;
-let premiumUnlockCost: number;
 const createdResumeIds: string[] = [];
 
 beforeAll(async () => {
@@ -75,13 +74,12 @@ beforeAll(async () => {
 
   const { data: premium, error: premiumErr } = await admin
     .from("resume_templates")
-    .select("id, unlock_cost_credits")
+    .select("id")
     .eq("is_premium", true)
     .limit(1)
     .single();
   if (premiumErr || !premium) throw new Error("No premium template seeded — run `npm run seed`.");
   premiumTemplateId = premium.id;
-  premiumUnlockCost = premium.unlock_cost_credits;
 }, 60_000);
 
 afterEach(async () => {
@@ -138,7 +136,7 @@ describe("start-state content selection (sabotage-proof target #3)", () => {
     };
     const { data: baseResume, error: baseErr } = await admin
       .from("resumes")
-      .insert({ user_id: userId, is_base: true, title: "Base", structured_content: baseContent })
+      .insert({ user_id: userId, is_base: true, title: "Base", structured_content: JSON.parse(JSON.stringify(baseContent)) })
       .select("id")
       .single();
     if (baseErr || !baseResume) throw new Error(`fixture base resume: ${baseErr?.message}`);

@@ -201,7 +201,7 @@ export async function confirmAutoApplyAction(queueId: string): Promise<AutoApply
      */
     if (
       baseResume?.structured_content &&
-      hasUneditedExampleContent(baseResume.structured_content as StructuredResume)
+      hasUneditedExampleContent(baseResume.structured_content as unknown as StructuredResume)
     ) {
       throw new Error(
         "your resume still has unedited example content — update it in the Resume Builder first",
