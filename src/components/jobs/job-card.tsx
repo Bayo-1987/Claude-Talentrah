@@ -1,8 +1,7 @@
 import Link from "next/link";
 import { BorderedCard, IconButton, Button, MatchTierBadge } from "@/components/ui";
 import { getCompanyInitials } from "@/lib/jobs/company-initials";
-import { formatRelativeTime } from "@/lib/format-relative-time";
-import { freshnessNote } from "@/lib/jobs/freshness-note";
+import { postingAgeLine } from "@/lib/jobs/freshness";
 import { formatSalary } from "@/lib/jobs/format-salary";
 import { FarahJobMenu } from "@/components/jobs/farah-job-menu";
 import { ShareJobButton } from "@/components/jobs/share-job-button";
@@ -76,7 +75,6 @@ export function JobCard({
   ].filter(Boolean);
 
   const isExternal = job.source_type === "external";
-  const freshness = freshnessNote(job);
   // Own line, same call as the detail page (jobs/[id]/page.tsx) and the same
   // reason: the one fact on the card most worth scanning for shouldn't be
   // buried mid-string in the middot-joined company/location/seniority line.
@@ -164,9 +162,18 @@ export function JobCard({
 
       <div className="flex items-center justify-between border-t border-line pt-3.5">
         <div className="flex flex-col gap-[3px]">
+          {/*
+            One line, not two: e2e/feed-chrome.spec.ts pins every card's age
+            and applicant-count facts to the SAME "Posted … ago · …" string
+            (checked before Stage 5a existed), so postingAgeLine's own
+            "· re-verified M" clause (external only, src/lib/jobs/freshness.ts)
+            joins the applicant clause on this one span rather than splitting
+            into a second line. Internal cards never get "re-verified" from
+            postingAgeLine, so their line reads exactly as it did before:
+            "Posted N days ago · N applicants".
+          */}
           <span className="text-[12.5px] text-ink-soft">
-            {formatRelativeTime(job.posted_at)}
-            {" · "}
+            {postingAgeLine(job)} ·{" "}
             {/*
               Shown at zero rather than hidden. "0 applicants" is a real and
               useful thing for a seeker to know — an untouched posting is a
@@ -177,17 +184,6 @@ export function JobCard({
               ? "Applicant count unavailable"
               : `${applicantCount} ${applicantCount === 1 ? "applicant" : "applicants"}`}
           </span>
-          {/*
-            Italic Newsreader is the design system's quiet-aside voice, and
-            --ink-soft keeps it there. The reference mock set this line in
-            --rust; it is deliberately not followed. Rust is one of the three
-            match-tier colours, and a coloured line on the card is how a fourth
-            tier gets invented by accident. Finding 04's own guidance was "one
-            flag, plain text, no icon" — a colour is not plain text.
-          */}
-          {freshness && (
-            <span className="font-display text-[12px] italic text-ink-soft">{freshness}</span>
-          )}
         </div>
         {/*
           WRAPS, because at phone widths it did not fit and nothing gave.

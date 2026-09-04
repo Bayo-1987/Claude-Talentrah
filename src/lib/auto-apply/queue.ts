@@ -7,6 +7,7 @@ import {
   AUTO_APPLY_MIN_SCORE,
 } from "./config";
 import { checkPassCoverage } from "@/lib/passes/entitlement";
+import { freshnessFloorISO } from "@/lib/jobs/freshness";
 
 /**
  * Server-side Auto-Apply mechanics: what gets queued, what the caps say, and
@@ -145,11 +146,17 @@ export async function scanAndQueue(userId: string): Promise<ScanResult> {
   const [{ data: existingApps }, { data: alreadyQueued }, { data: openJobs }] = await Promise.all([
     admin.from("applications").select("job_posting_id").eq("user_id", userId).in("job_posting_id", jobIds),
     admin.from("auto_apply_queue").select("job_posting_id").eq("user_id", userId).in("job_posting_id", jobIds),
+    // Same 30-day floor as every discovery surface (src/lib/jobs/freshness.ts)
+    // — an existing match_scores row for a job that has since aged out of
+    // the visible feed must not make Auto-Apply queue it anyway. This is an
+    // independent job_postings read (not the feed's own filtered query), so
+    // it needs the floor applied here too.
     admin
       .from("job_postings")
       .select("id, source_type, status")
       .in("id", jobIds)
-      .eq("status", "open"),
+      .eq("status", "open")
+      .gte("posted_at", freshnessFloorISO()),
   ]);
 
   const excluded = new Set([

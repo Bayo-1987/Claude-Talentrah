@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { CITY_LANDING_PAGES, DEGREE_LEVEL_SLUG, LANDING_PAGE_MIN_ENTRIES } from "./landing-pages";
 import { Constants, type Database, type Tables } from "@/lib/supabase/types";
 import { DEGREE_LEVEL_LABEL } from "@/lib/scholarships/types";
+import { freshnessFloorISO } from "@/lib/jobs/freshness";
 
 // See landing-page-data.ts's identical type for why this is generic rather
 // than the request-scoped createClient()'s own return type.
@@ -24,12 +25,18 @@ export async function liveJobLandingLinks(
   excludeHref?: string,
 ): Promise<LandingLink[]> {
   const links: LandingLink[] = [];
+  // Same 30-day floor as loadRemoteJobs/loadCityJobs — a category link here
+  // must agree with whether the page it points to would actually list
+  // anything, and a stale-but-still-open posting would otherwise count
+  // toward LANDING_PAGE_MIN_ENTRIES for a page that no longer shows it.
+  const floor = freshnessFloorISO();
 
   const { count: remoteCount } = await supabase
     .from("job_postings")
     .select("id", { count: "exact", head: true })
     .eq("status", "open")
-    .eq("work_type", "remote");
+    .eq("work_type", "remote")
+    .gte("posted_at", floor);
   if ((remoteCount ?? 0) >= LANDING_PAGE_MIN_ENTRIES) {
     links.push({ href: "/jobs/remote", label: "Remote jobs" });
   }
@@ -37,6 +44,7 @@ export async function liveJobLandingLinks(
   for (const city of CITY_LANDING_PAGES) {
     let query = supabase.from("job_postings").select("id", { count: "exact", head: true }).eq("status", "open");
     query = query.or(city.locationPatterns.map((p) => `location.ilike.${p}`).join(","));
+    query = query.gte("posted_at", floor);
     const { count } = await query;
     if ((count ?? 0) >= LANDING_PAGE_MIN_ENTRIES) {
       links.push({ href: `/jobs/in/${city.slug}`, label: `Jobs in ${city.displayName}` });

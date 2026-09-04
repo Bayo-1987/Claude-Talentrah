@@ -4,6 +4,7 @@ import { getAllPosts } from "@/lib/blog/posts";
 import { absoluteUrl } from "@/lib/seo/site";
 import { CITY_LANDING_PAGES, DEGREE_LEVEL_SLUG, LANDING_PAGE_MIN_ENTRIES } from "@/lib/seo/landing-pages";
 import { Constants } from "@/lib/supabase/types";
+import { freshnessFloorISO } from "@/lib/jobs/freshness";
 
 /**
  * The sitemap, generated rather than listed.
@@ -85,10 +86,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   let jobEntries: MetadataRoute.Sitemap = [];
   try {
     const supabase = await createClient();
+    // Same 30-day floor as every other discovery surface
+    // (src/lib/jobs/freshness.ts) — a URL claimed here that /jobs/[id]
+    // itself now 404s for would be exactly the false claim this file's own
+    // header rules out.
     const { data, error } = await supabase
       .from("job_postings")
       .select("id, posted_at")
       .eq("status", "open")
+      .gte("posted_at", freshnessFloorISO())
       .order("posted_at", { ascending: false });
     if (error) throw new Error(error.message);
     jobEntries = (data ?? []).map((job) => ({
@@ -159,12 +165,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const supabase = await createClient();
     const today = new Date().toISOString().slice(0, 10);
     const stillOpen = `application_deadline.is.null,application_deadline.gte.${today}`;
+    const jobFreshnessFloor = freshnessFloorISO();
 
     const { count: remoteCount } = await supabase
       .from("job_postings")
       .select("id", { count: "exact", head: true })
       .eq("status", "open")
-      .eq("work_type", "remote");
+      .eq("work_type", "remote")
+      .gte("posted_at", jobFreshnessFloor);
     if ((remoteCount ?? 0) >= LANDING_PAGE_MIN_ENTRIES) {
       landingPageEntries.push({
         url: absoluteUrl("/jobs/remote"),
@@ -179,7 +187,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         .from("job_postings")
         .select("id", { count: "exact", head: true })
         .eq("status", "open")
-        .or(city.locationPatterns.map((p) => `location.ilike.${p}`).join(","));
+        .or(city.locationPatterns.map((p) => `location.ilike.${p}`).join(","))
+        .gte("posted_at", jobFreshnessFloor);
       if ((count ?? 0) >= LANDING_PAGE_MIN_ENTRIES) {
         landingPageEntries.push({
           url: absoluteUrl(`/jobs/in/${city.slug}`),

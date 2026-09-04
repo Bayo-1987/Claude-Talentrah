@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { SkillFacetEntry } from "@/lib/jobs/skill-facet";
 import type { Suggestion } from "@/lib/jobs/search-suggestions";
 import { SearchCombobox } from "./search-combobox";
+import { JOB_DATE_FILTERS, JOB_DATE_FILTER_LABEL, type JobDateFilter } from "@/lib/jobs/freshness";
 
 const WORK_TYPES = ["remote", "hybrid", "onsite"] as const;
 const SENIORITIES = ["entry", "mid", "senior", "lead", "executive"] as const;
@@ -15,6 +16,7 @@ const LABEL: Record<string, string> = {
   senior: "Senior",
   lead: "Lead",
   executive: "Executive",
+  ...JOB_DATE_FILTER_LABEL,
 };
 
 /**
@@ -73,6 +75,12 @@ export interface FilterBarProps {
    * to whatever co-occurs with what you have typed so far.
    */
   searchIndex?: Suggestion[];
+  /**
+   * The user's chosen narrower window, layered on top of the ambient 30-day
+   * floor every tab already applies (src/lib/jobs/freshness.ts) — undefined
+   * means "just the floor", not "no filter at all".
+   */
+  posted?: JobDateFilter;
 }
 
 /**
@@ -87,14 +95,16 @@ export function FilterBar({
   workType,
   seniority,
   skill,
+  posted,
   skillFacet = [],
   searchIndex = [],
 }: FilterBarProps) {
-  const base = { tab, workType, seniority, skill, q };
+  const base = { tab, workType, seniority, skill, q, posted };
 
   const applied: { key: keyof typeof base; label: string }[] = [];
   if (workType) applied.push({ key: "workType", label: LABEL[workType] });
   if (seniority) applied.push({ key: "seniority", label: LABEL[seniority] });
+  if (posted) applied.push({ key: "posted", label: LABEL[posted] });
   // Lowercase on purpose. `sql` and `communication` are the values the parser
   // actually stored, and the browse row below shows them the same way. Title
   // casing would render "Sql", and a per-skill capitalisation map is a curated
@@ -158,6 +168,7 @@ export function FilterBar({
           {workType && <input type="hidden" name="workType" value={workType} />}
           {seniority && <input type="hidden" name="seniority" value={seniority} />}
           {skill && <input type="hidden" name="skill" value={skill} />}
+          {posted && <input type="hidden" name="posted" value={posted} />}
           {/*
             The input and its suggestion list. Still the same `name="q"` inside
             this same GET form — the combobox fills it and submits the form,
@@ -204,7 +215,13 @@ export function FilterBar({
         */}
         {applied.length > 0 && (
           <Link
-            href={buildHref(base, { workType: undefined, seniority: undefined, skill: undefined, q: undefined })}
+            href={buildHref(base, {
+              workType: undefined,
+              seniority: undefined,
+              skill: undefined,
+              q: undefined,
+              posted: undefined,
+            })}
             className="flex min-h-[42px] items-center px-3.5 text-[12.5px] font-semibold text-ink-soft no-underline transition-colors hover:text-rust"
           >
             Clear filters
@@ -233,6 +250,18 @@ export function FilterBar({
               className={browseLink(seniority === s)}
             >
               {LABEL[s]}
+            </Link>
+          ))}
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="font-semibold text-ink-soft">Posted:</span>
+          {JOB_DATE_FILTERS.map((d) => (
+            <Link
+              key={d}
+              href={buildHref(base, { posted: posted === d ? undefined : d })}
+              className={browseLink(posted === d)}
+            >
+              {LABEL[d]}
             </Link>
           ))}
         </div>

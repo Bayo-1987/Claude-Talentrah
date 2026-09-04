@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { findCityLandingPage, degreeLevelFromSlug, type CityLandingPage } from "./landing-pages";
 import type { Database, Tables } from "@/lib/supabase/types";
 import type { DegreeLevel } from "@/lib/scholarships/types";
+import { freshnessFloorISO } from "@/lib/jobs/freshness";
 
 /**
  * Typed generically as `SupabaseClient<Database>` rather than the return
@@ -58,11 +59,17 @@ export interface JobLandingResult {
 export async function loadRemoteJobs(
   supabase: Client,
 ): Promise<JobLandingResult> {
+  // The same 30-day floor every discovery surface enforces
+  // (src/lib/jobs/freshness.ts) — this loader has no shared choke point
+  // with the feed, so it needs its own copy of the filter.
+  const floor = freshnessFloorISO();
+
   const { count, error: countError } = await supabase
     .from("job_postings")
     .select("id", { count: "exact", head: true })
     .eq("status", "open")
-    .eq("work_type", "remote");
+    .eq("work_type", "remote")
+    .gte("posted_at", floor);
   if (countError) throw new Error(countError.message);
 
   const { data, error } = await supabase
@@ -70,6 +77,7 @@ export async function loadRemoteJobs(
     .select(JOB_LANDING_COLUMNS)
     .eq("status", "open")
     .eq("work_type", "remote")
+    .gte("posted_at", floor)
     .order("posted_at", { ascending: false })
     .limit(PAGE_LIMIT);
   if (error) throw new Error(error.message);
@@ -89,12 +97,14 @@ export async function loadCityJobs(
   if (!city) return null;
 
   const orFilter = city.locationPatterns.map((p) => `location.ilike.${p}`).join(",");
+  const floor = freshnessFloorISO();
 
   const { count, error: countError } = await supabase
     .from("job_postings")
     .select("id", { count: "exact", head: true })
     .eq("status", "open")
-    .or(orFilter);
+    .or(orFilter)
+    .gte("posted_at", floor);
   if (countError) throw new Error(countError.message);
 
   const { data, error } = await supabase
@@ -102,6 +112,7 @@ export async function loadCityJobs(
     .select(JOB_LANDING_COLUMNS)
     .eq("status", "open")
     .or(orFilter)
+    .gte("posted_at", floor)
     .order("posted_at", { ascending: false })
     .limit(PAGE_LIMIT);
   if (error) throw new Error(error.message);
