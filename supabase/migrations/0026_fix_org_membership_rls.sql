@@ -70,7 +70,23 @@ create policy "members can see their own membership rows"
 -- organisations are created with created_by = auth.uid(), and there is no
 -- invitation flow yet (M8, not started). When invitations ship, widen this
 -- deliberately — do not drop the organisation check.
+--
+-- REPLAY-SAFETY NOTE (added for Stage 2, after this migration had already
+-- been applied to production/CI — safe, because a migration already recorded
+-- as applied is never re-run against either project; this only changes what
+-- happens on a FRESH database replaying every file from 0000 forward, which
+-- Stage 2 needs to be possible). 0000_baseline_schema.sql captures the schema
+-- "as amended by 0026" (its own comment says so), so it already creates a
+-- policy named "a user can join an organisation they created" — the name
+-- THIS migration creates, not the old buggy one it drops below. Dropping only
+-- the old name left the new name's CREATE with nothing to guard it: on a real
+-- historical database the old name exists and this is a genuine rename, but
+-- on a from-0000 replay the old name was never created, so this DROP is a
+-- no-op and the CREATE collides with 0000's own policy of the same name.
+-- Dropping both names first makes this correct in both cases: a no-op DROP
+-- on whichever name doesn't exist, and a clean CREATE either way.
 drop policy if exists "a user can add themselves as an org member" on public.organization_members;
+drop policy if exists "a user can join an organisation they created" on public.organization_members;
 create policy "a user can join an organisation they created"
   on public.organization_members
   for insert

@@ -210,10 +210,30 @@ export async function ingestAllSources(): Promise<IngestSourceResult[]> {
         }
       }
 
-      const seenFingerprints = jobs.map((j) => j.dedupFingerprint);
-      let closeQuery = supabase
+      /*
+       * INVERTED, not a `.not("dedup_fingerprint", "in", ...)` over every
+       * fingerprint this run just fetched. That embeds the whole seen-list in
+       * one request's query string, which grows with the SOURCE's size and
+       * has no ceiling — Moniepoint alone is past 100 open postings and only
+       * grows, and a filter value has to fit in one URL. Stage 2 (moving CI
+       * onto a stack that replays ingest against a source shaped like
+       * production, not a handful of fixtures) is what surfaced this as a
+       * real ceiling rather than a theoretical one.
+       *
+       * Fetching the currently-open rows for this source and diffing in JS
+       * inverts which list has to fit in a query: the SELECT below carries no
+       * fingerprint list at all (bounded by the two `.eq()`s alone,
+       * regardless of source size), and the UPDATE that follows is scoped by
+       * `.in("id", staleIds)` — normally a handful of ids (the postings that
+       * disappeared this run), not the hundreds still open. `staleIds` is
+       * still chunked before the UPDATE as defence in depth: a source's
+       * first run, or one that goes from fully-populated to empty between
+       * runs, could in principle produce a stale list large enough to repeat
+       * the same problem this replaces.
+       */
+      let openQueryForClose = supabase
         .from("job_postings")
-        .update({ status: "closed", last_checked_at: new Date().toISOString() })
+        .select("id, dedup_fingerprint")
         // `externalSourceKey`, not `config.source` — for schema-org that is
         // `schema-org:<label>`, the same value the fetcher wrote. Matching on
         // the bare discriminator here scoped every schema-org config to the
@@ -222,17 +242,28 @@ export async function ingestAllSources(): Promise<IngestSourceResult[]> {
         .eq("external_source", sourceKey)
         .eq("status", "open");
       if (config.source !== "schema-org") {
-        closeQuery = closeQuery.eq("company_name", config.companyName);
+        openQueryForClose = openQueryForClose.eq("company_name", config.companyName);
       }
-      const { data: closedRows, error: closeError } = await closeQuery
-        .not(
-          "dedup_fingerprint",
-          "in",
-          `(${seenFingerprints.map((f) => `"${f}"`).join(",") || '""'})`,
-        )
-        .select("id");
-      if (closeError) throw closeError;
-      const closed = closedRows?.length ?? 0;
+      const { data: openRows, error: openRowsError } = await openQueryForClose;
+      if (openRowsError) throw openRowsError;
+
+      const seenFingerprints = new Set(jobs.map((j) => j.dedupFingerprint));
+      const staleIds = (openRows ?? [])
+        .filter((row) => !seenFingerprints.has(row.dedup_fingerprint))
+        .map((row) => row.id);
+
+      const CLOSE_BATCH_SIZE = 200;
+      let closed = 0;
+      for (let i = 0; i < staleIds.length; i += CLOSE_BATCH_SIZE) {
+        const batch = staleIds.slice(i, i + CLOSE_BATCH_SIZE);
+        const { data: closedRows, error: closeError } = await supabase
+          .from("job_postings")
+          .update({ status: "closed", last_checked_at: new Date().toISOString() })
+          .in("id", batch)
+          .select("id");
+        if (closeError) throw closeError;
+        closed += closedRows?.length ?? 0;
+      }
 
       results.push({
         source: config.source,
