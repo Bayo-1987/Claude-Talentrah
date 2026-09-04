@@ -50,7 +50,11 @@ test.describe("country-defaulted feed (Stage 12)", () => {
     orgId: string,
     title: string,
     location: string,
-    overrides: { postedAt?: string; workType?: "remote" | null } = {},
+    overrides: {
+      postedAt?: string;
+      workType?: "remote" | null;
+      seniority?: "entry" | "mid" | "senior" | "lead" | "executive" | null;
+    } = {},
   ): Promise<string> {
     const { data: job, error } = await admin
       .from("job_postings")
@@ -63,6 +67,7 @@ test.describe("country-defaulted feed (Stage 12)", () => {
         status: "open",
         location,
         work_type: overrides.workType ?? null,
+        seniority: overrides.seniority ?? null,
         posted_at: overrides.postedAt ?? isoAgo(0),
         dedup_fingerprint: `e2e-country-${randomUUID()}`,
       })
@@ -74,15 +79,16 @@ test.describe("country-defaulted feed (Stage 12)", () => {
   }
 
   test(
-    "a country with zero matches under the active search still shows the rest of the board, " +
-      "with an honest line — never a blank feed",
+    "a country with zero matches (country or remote) under the active search still shows " +
+      "the rest of the board, with an honest line — never a blank feed",
     async ({ authedPage, testUser }) => {
       await admin.from("profiles").update({ country: "Nigeria" }).eq("id", testUser.id);
       const orgId = await fixtureOrg(testUser.id);
 
       // Isolated from the rest of the (shared, populated) board via a unique
-      // search term — neither fixture is Nigeria-derivable, so under this
-      // search the country filter has exactly zero real matches.
+      // search term — neither fixture is Nigeria-derivable NOR remote, so
+      // under this search the country-or-remote filter has exactly zero
+      // real matches.
       const uniqueTerm = `e2ecountryzero${randomUUID().slice(0, 8)}`;
       const dakarTitle = `Role about ${uniqueTerm} in Dakar`;
       const nairobiTitle = `Role about ${uniqueTerm} in Nairobi`;
@@ -92,7 +98,7 @@ test.describe("country-defaulted feed (Stage 12)", () => {
       await authedPage.goto(`/jobs?q=${uniqueTerm}`);
 
       await expect(
-        authedPage.getByText("No jobs in Nigeria match these filters", { exact: false }),
+        authedPage.getByText("No jobs in Nigeria or remote match these filters", { exact: false }),
         "SABOTAGE-PROOF TARGET: the honest fallback line must render, not a blank feed",
       ).toBeVisible();
       // "Show what exists and then the rest": the country's own (zero) matches
@@ -104,42 +110,59 @@ test.describe("country-defaulted feed (Stage 12)", () => {
   );
 
   test(
-    "the country chip is visible, composes with another filter, and clearing it removes only itself",
+    "the country chip reads 'Nigeria + Remote', composes with another filter, includes a " +
+      "non-Nigeria remote posting, excludes a non-Nigeria non-remote one, and clears cleanly",
     async ({ authedPage, testUser }) => {
       await admin.from("profiles").update({ country: "Nigeria" }).eq("id", testUser.id);
       const orgId = await fixtureOrg(testUser.id);
 
       const uniqueTerm = `e2ecountrycompose${randomUUID().slice(0, 8)}`;
-      // 6 Nigeria-derivable remote fixtures — above COUNTRY_THIN_THRESHOLD (5)
-      // — so the country filter actually narrows the board rather than
-      // falling back, letting this test also prove composition with
-      // Work type: remote.
-      for (let i = 0; i < 6; i++) {
-        await fixtureJob(orgId, `Remote NG role ${uniqueTerm} ${i}`, "Lagos, Nigeria", { workType: "remote" });
+      // 5 Nigeria onsite fixtures — above COUNTRY_THIN_THRESHOLD (5) on
+      // their own, so the filter actually narrows rather than falling back,
+      // regardless of how much remote inventory the shared CI board
+      // ambiently has.
+      for (let i = 0; i < 5; i++) {
+        await fixtureJob(orgId, `NG onsite role ${uniqueTerm} ${i}`, "Lagos, Nigeria", {
+          seniority: "senior",
+        });
       }
-      const nonNigeriaTitle = `Remote elsewhere ${uniqueTerm}`;
-      await fixtureJob(orgId, nonNigeriaTitle, "Dakar, Senegal", { workType: "remote" });
+      // SABOTAGE-PROOF TARGET (inclusion): remote, but named to a DIFFERENT
+      // country — Thread 1's whole point is that this must still show,
+      // because "remote" is the qualifying fact, not which country it names.
+      const remoteElsewhereTitle = `Remote elsewhere ${uniqueTerm}`;
+      await fixtureJob(orgId, remoteElsewhereTitle, "Dakar, Senegal", {
+        workType: "remote",
+        seniority: "senior",
+      });
+      // Control (exclusion): neither Nigeria-derivable NOR remote — must
+      // still be excluded, proving the filter isn't a no-op.
+      const onsiteElsewhereTitle = `Onsite elsewhere ${uniqueTerm}`;
+      await fixtureJob(orgId, onsiteElsewhereTitle, "Dakar, Senegal", { seniority: "senior" });
 
-      await authedPage.goto(`/jobs?q=${uniqueTerm}&workType=remote`);
+      await authedPage.goto(`/jobs?q=${uniqueTerm}&seniority=senior`);
 
-      // Both filters show as applied chips together.
+      // Both filters show as applied chips together, with the new label.
       const appliedFilters = authedPage.getByTestId("applied-filters");
-      await expect(appliedFilters.getByText("Nigeria", { exact: true })).toBeVisible();
-      await expect(appliedFilters.getByText("Remote", { exact: true })).toBeVisible();
-      // Country actually narrowed the board: the non-Nigeria fixture is gone.
+      await expect(appliedFilters.getByText("Nigeria + Remote", { exact: true })).toBeVisible();
+      await expect(appliedFilters.getByText("Senior", { exact: true })).toBeVisible();
+
       await expect(
-        authedPage.getByText(nonNigeriaTitle),
-        "SABOTAGE-PROOF TARGET: Work type alone must not be enough to show a non-Nigeria posting",
+        authedPage.getByText(remoteElsewhereTitle),
+        "SABOTAGE-PROOF TARGET: a remote posting must show regardless of which country it names",
+      ).toBeVisible();
+      await expect(
+        authedPage.getByText(onsiteElsewhereTitle),
+        "a non-Nigeria, non-remote posting must still be excluded — the filter must not be a no-op",
       ).toHaveCount(0);
 
-      // Clearing ONLY the country chip: Work type survives, the non-Nigeria
-      // fixture reappears.
-      await appliedFilters.getByLabel("Remove Nigeria filter").click();
+      // Clearing ONLY the country chip: Seniority survives, the excluded
+      // onsite-elsewhere fixture reappears.
+      await appliedFilters.getByLabel("Remove Nigeria + Remote filter").click();
       await authedPage.waitForURL(/country=all/);
-      await expect(authedPage.getByText(nonNigeriaTitle)).toBeVisible();
+      await expect(authedPage.getByText(onsiteElsewhereTitle)).toBeVisible();
       await expect(
-        authedPage.getByLabel("Remove Remote filter"),
-        "clearing the country chip must not also clear Work type",
+        authedPage.getByLabel("Remove Senior filter"),
+        "clearing the country chip must not also clear Seniority",
       ).toBeVisible();
     },
   );

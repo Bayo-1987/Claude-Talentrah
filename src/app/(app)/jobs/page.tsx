@@ -246,6 +246,25 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
    * and search are (see the block above) — this feed has no pagination, so
    * the whole matching set is already in hand.
    *
+   * MATCHES THE COUNTRY *OR* IS REMOTE, not country alone. Country-only
+   * excluded every location-independent Moniepoint/Wave remote posting —
+   * for a Nigerian seeker, measured live, that meant 78 fresh remote roles
+   * dropping to 56 total shown, cutting out exactly the inventory a remote
+   * worker most wants. "Jobs available to me", not "jobs physically in my
+   * country", is the actual product intent here.
+   *
+   * THE HONEST LIMIT, worth stating precisely because it is not fixed by
+   * more code: `work_type = 'remote'` does not mean open to any country.
+   * Moniepoint's own remote listings usually name ONE required country per
+   * role ("Remote, Spain", "Remote, Poland" — real, current examples), and
+   * this dataset gives no reliable way to tell "remote, restricted to
+   * Ghana" apart from "remote, open anywhere" for a source that doesn't say
+   * so structurally. Showing the ambiguous ones is still better than hiding
+   * real opportunities, but nothing in this feature is allowed to claim a
+   * remote role is open to everyone — see the caption below the filter bar
+   * and the fallback notice's wording, both deliberately silent on
+   * eligibility, only ever stating what the listing itself says.
+   *
    * Below COUNTRY_THIN_THRESHOLD real matches, the filter does not narrow
    * `jobs` at all: the country's own matches were never excluded (they're
    * still somewhere in the full board), and `countryFallbackNotice` below
@@ -254,7 +273,7 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
    */
   let countryFallbackNotice: { country: TrackedCountry; matched: number } | undefined;
   if (country) {
-    const countryMatches = jobs.filter((j) => deriveCountry(j) === country);
+    const countryMatches = jobs.filter((j) => deriveCountry(j) === country || j.work_type === "remote");
     if (countryMatches.length >= COUNTRY_THIN_THRESHOLD) {
       jobs = countryMatches;
     } else {
@@ -556,6 +575,22 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
           skillFacet={skillFacet}
           searchIndex={searchIndex}
         />
+        {/*
+          The honest limit of "country OR remote", stated every time the
+          filter is actually active — not just in the rare fallback case
+          above. "Remote" on a listing is a fact about work_type, not a claim
+          about who is eligible; some of these roles name a single required
+          country in their own description that this filter has no reliable
+          way to read. Never claims a remote role is open to everyone —
+          states only what the filter itself does.
+        */}
+        {country && (
+          <p className="text-[12.5px] italic text-ink-soft">
+            Showing roles in {country} plus every remote listing on the board. Remote doesn&apos;t
+            always mean open to any country — some roles are restricted to a specific one in the
+            listing itself.
+          </p>
+        )}
       </div>
 
       {baseResumeError && (
@@ -589,9 +624,9 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
       {countryFallbackNotice && (
         <p className="border-[1.5px] border-line bg-card px-4 py-3 text-[13.5px] text-ink-soft">
           {countryFallbackNotice.matched === 0
-            ? `No jobs in ${countryFallbackNotice.country} match these filters right now`
-            : `${countryFallbackNotice.matched} job${countryFallbackNotice.matched === 1 ? "" : "s"} in ${countryFallbackNotice.country} match${countryFallbackNotice.matched === 1 ? "es" : ""} these filters`}{" "}
-          — showing roles from elsewhere in Africa below.
+            ? `No jobs in ${countryFallbackNotice.country} or remote match these filters right now`
+            : `${countryFallbackNotice.matched} job${countryFallbackNotice.matched === 1 ? "" : "s"} in ${countryFallbackNotice.country} or remote match${countryFallbackNotice.matched === 1 ? "es" : ""} these filters`}{" "}
+          — showing roles from elsewhere below.
         </p>
       )}
 

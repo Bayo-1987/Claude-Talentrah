@@ -142,7 +142,11 @@ export function FilterBar({
   if (workType) applied.push({ key: "workType", label: LABEL[workType] });
   if (seniority) applied.push({ key: "seniority", label: LABEL[seniority] });
   if (posted) applied.push({ key: "posted", label: LABEL[posted] });
-  if (country) applied.push({ key: "country", label: country, clearTo: "all" });
+  // "{country} + Remote", not just "{country}" — the filter itself now
+  // matches the country OR any remote listing (jobs/page.tsx), so the chip
+  // says what it actually does rather than reading as a stricter,
+  // country-only filter than the one in effect.
+  if (country) applied.push({ key: "country", label: `${country} + Remote`, clearTo: "all" });
   // Lowercase on purpose. `sql` and `communication` are the values the parser
   // actually stored, and the browse row below shows them the same way. Title
   // casing would render "Sql", and a per-skill capitalisation map is a curated
