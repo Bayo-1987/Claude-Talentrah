@@ -170,6 +170,16 @@ export async function rewriteBulletAction(
 
   const coverage = await checkPassCoverage(userId);
   if (coverage.covered) {
+    let rewritten: string;
+    try {
+      rewritten = await rewriteBullet(text, instruction);
+    } catch {
+      return { text, error: "Farah couldn't rewrite that just now — try again." };
+    }
+    // Logged only now, after the rewrite actually succeeded — this event
+    // counts against the Pass's daily fair-use cap, and logging it before
+    // the LLM call above would burn a cap slot on a rewrite that never
+    // happened the moment that call fails.
     await logCreditGateEvent({
       userId,
       reason: "bullet_rewrite",
@@ -177,12 +187,6 @@ export async function rewriteBulletAction(
       creditsAvailable: balance,
       outcome: "covered_by_pass",
     });
-    let rewritten: string;
-    try {
-      rewritten = await rewriteBullet(text, instruction);
-    } catch {
-      return { text, error: "Farah couldn't rewrite that just now — try again." };
-    }
     return { text: rewritten };
   }
 

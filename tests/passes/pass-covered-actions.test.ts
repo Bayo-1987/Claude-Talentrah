@@ -122,6 +122,16 @@ async function balance(): Promise<number> {
   return data?.credits_balance ?? 0;
 }
 
+async function coveredEventCountFor(reason: string): Promise<number> {
+  const { count } = await admin
+    .from("credit_gate_events")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .eq("reason", reason as never)
+    .eq("outcome", "covered_by_pass");
+  return count ?? 0;
+}
+
 async function ledgerCountFor(reason: string): Promise<number> {
   const { count } = await admin
     .from("credit_ledger")
@@ -323,4 +333,79 @@ describe("the daily fair-use cap hitting mid-session falls back to credits, with
       "must NOT imply the pass itself is exhausted",
     ).not.toMatch(/pass (is )?(exhausted|expired|used up)/);
   }, 120_000);
+});
+
+describe("the fair-use cap counts only runs that actually produced something", () => {
+  // Found live: a real tailoring run 502'd at the provider on its first
+  // attempt, and the covered_by_pass event was still written — because it
+  // was logged in checkTailoringAllowance, BEFORE the LLM call the caller
+  // makes in between check and commit. That silently burned a cap slot for
+  // a run that returned nothing. Fixed by moving the log to the commit side
+  // (tailoring/cover letter) or to after the LLM call resolves (bullet
+  // rewrite, both scholarship actions) — mirroring the ordering
+  // commitTailoringAllowance already used for the credit spend itself.
+
+  it("bullet rewrite: an LLM failure logs nothing — the cap count is unchanged", async () => {
+    await givePass(60 * 60 * 1000);
+    await setBalance(0);
+    rewriteBullet.mockRejectedValueOnce(new Error("provider 502"));
+
+    const before = await coveredEventCountFor("bullet_rewrite");
+    const result = await rewriteBulletAction("Did some things.", "impact");
+    expect(result.error, "the failed rewrite should surface as an error").toBeDefined();
+    expect(
+      await coveredEventCountFor("bullet_rewrite"),
+      "SABOTAGE-PROOF TARGET: a failed rewrite must not consume a fair-use cap slot",
+    ).toBe(before);
+  });
+
+  it("scholarship eligibility check: an LLM failure logs nothing — the cap count is unchanged", async () => {
+    await givePass(60 * 60 * 1000);
+    await setBalance(0);
+    checkEligibility.mockRejectedValueOnce(new Error("provider 502"));
+
+    const before = await coveredEventCountFor("scholarship_eligibility_check");
+    const result = await runEligibilityCheckAction(scholarshipId);
+    expect(result.error, "the failed check should surface as an error").toBeDefined();
+    expect(
+      await coveredEventCountFor("scholarship_eligibility_check"),
+      "SABOTAGE-PROOF TARGET: a failed check must not consume a fair-use cap slot",
+    ).toBe(before);
+  });
+
+  it("scholarship SOP draft: an LLM failure logs nothing — the cap count is unchanged", async () => {
+    await givePass(60 * 60 * 1000);
+    await setBalance(0);
+    draftPersonalStatement.mockRejectedValueOnce(new Error("provider 502"));
+
+    const before = await coveredEventCountFor("scholarship_sop_draft");
+    const result = await draftSopAction(scholarshipId, "");
+    expect(result.error, "the failed draft should surface as an error").toBeDefined();
+    expect(
+      await coveredEventCountFor("scholarship_sop_draft"),
+      "SABOTAGE-PROOF TARGET: a failed draft must not consume a fair-use cap slot",
+    ).toBe(before);
+  });
+
+  it(
+    "tailoring: checkTailoringAllowance alone (simulating the LLM call that runs between " +
+      "check and commit failing) logs nothing until commitTailoringAllowance actually runs",
+    async () => {
+      await givePass(60 * 60 * 1000);
+      await setBalance(0);
+
+      const before = await coveredEventCountFor("tailoring_run");
+      const allowance = await checkTailoringAllowance(userId, "tailoring");
+      expect(allowance.isPassCovered).toBe(true);
+      expect(
+        await coveredEventCountFor("tailoring_run"),
+        "SABOTAGE-PROOF TARGET: the check alone must not log — only commit, after the LLM call succeeds, may",
+      ).toBe(before);
+
+      // Sanity: the success path still logs exactly once, proving this
+      // isn't just a query bug hiding a row that was actually written.
+      await commitTailoringAllowance(userId, "tailoring", allowance);
+      expect(await coveredEventCountFor("tailoring_run")).toBe(before + 1);
+    },
+  );
 });
