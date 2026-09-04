@@ -122,9 +122,22 @@ test.describe("a nav click always shows something immediately", () => {
     test(`${label} paints a loading state within ${FEEDBACK_BUDGET_MS}ms`, async ({
       authedPage,
     }) => {
-      // Start somewhere that is NOT the destination, so the click is a real
-      // navigation rather than a no-op that would trivially "pass".
-      await authedPage.goto(label === "Jobs" ? "/tracker" : "/jobs");
+      /*
+       * Start somewhere that is NOT the destination, so the click is a real
+       * navigation rather than a no-op that would trivially "pass" — and
+       * NOT /jobs specifically, even though it used to be the obvious
+       * neutral choice. /jobs and /scholarships lost their own loading.tsx
+       * as part of the fix for src/proxy.ts's seekerAppGate (see that file):
+       * both have a public, notFound()-capable child route
+       * (/jobs/[id], /scholarships/[id] and /scholarships/degree/[level])
+       * that a shared ancestor loading.tsx would incorrectly wrap, turning
+       * a 404 into a 200 that only bounces client-side. Starting HERE from
+       * /jobs measured real degraded prefetch depth for every link clicked
+       * from it — a genuine, understood side effect of that fix, not a flake
+       * — so /billing is the neutral start now: it is not a NAV_LINKS target
+       * and keeps its own loading.tsx untouched.
+       */
+      await authedPage.goto("/billing");
       await authedPage.waitForLoadState("domcontentloaded");
 
       await throttle(authedPage);
