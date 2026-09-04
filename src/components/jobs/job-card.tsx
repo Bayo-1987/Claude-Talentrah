@@ -163,15 +163,17 @@ export function JobCard({
       <div className="flex items-center justify-between border-t border-line pt-3.5">
         <div className="flex flex-col gap-[3px]">
           {/*
-            "Posted N days ago · re-verified M" — always shown, not just past
-            some staleness threshold, per src/lib/jobs/freshness.ts's own
-            header on why a plain, always-visible line replaced the old
-            freshnessNote (which only fired past 120 days — a threshold this
-            card can no longer even reach, since nothing older than 30 days
-            is shown anywhere).
+            One line, not two: e2e/feed-chrome.spec.ts pins every card's age
+            and applicant-count facts to the SAME "Posted … ago · …" string
+            (checked before Stage 5a existed), so postingAgeLine's own
+            "· re-verified M" clause (external only, src/lib/jobs/freshness.ts)
+            joins the applicant clause on this one span rather than splitting
+            into a second line. Internal cards never get "re-verified" from
+            postingAgeLine, so their line reads exactly as it did before:
+            "Posted N days ago · N applicants".
           */}
-          <span className="text-[12.5px] text-ink-soft">{postingAgeLine(job)}</span>
           <span className="text-[12.5px] text-ink-soft">
+            {postingAgeLine(job)} ·{" "}
             {/*
               Shown at zero rather than hidden. "0 applicants" is a real and
               useful thing for a seeker to know — an untouched posting is a
