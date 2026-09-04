@@ -26,35 +26,8 @@ import { createClient } from "@supabase/supabase-js";
 import type { Database } from "../src/lib/supabase/types";
 import { SEED_SCHOLARSHIPS } from "../src/lib/scholarships/sources.config";
 import { computeScholarshipFingerprint } from "../src/lib/scholarships/dedup";
-
-const RESUME_TEMPLATES = [
-  { name: "Clean Professional", slug: "clean-professional", industry_category: "Business", is_premium: false, unlock_cost_credits: 0 },
-  { name: "Structured Admin", slug: "structured-admin", industry_category: "Administration", is_premium: false, unlock_cost_credits: 0 },
-  { name: "Product & Tech", slug: "product-tech", industry_category: "Technology", is_premium: false, unlock_cost_credits: 0 },
-  { name: "Portfolio Grid", slug: "portfolio-grid", industry_category: "Design", is_premium: true, unlock_cost_credits: 10 },
-  { name: "Field Notes", slug: "field-notes", industry_category: "Customer Success", is_premium: false, unlock_cost_credits: 0 },
-  { name: "Ledger", slug: "ledger", industry_category: "Banking & Finance", is_premium: false, unlock_cost_credits: 0 },
-  { name: "Pipeline", slug: "pipeline", industry_category: "Sales & Marketing", is_premium: true, unlock_cost_credits: 10 },
-  { name: "Clinical", slug: "clinical", industry_category: "Healthcare", is_premium: false, unlock_cost_credits: 0 },
-  { name: "Statute", slug: "statute", industry_category: "Legal", is_premium: true, unlock_cost_credits: 10 },
-  { name: "Critical Path", slug: "critical-path", industry_category: "Project Management", is_premium: true, unlock_cost_credits: 10 },
-  { name: "Public Record", slug: "public-record", industry_category: "Government & Public Sector", is_premium: true, unlock_cost_credits: 10 },
-];
-
-// Founder-decided rebase, 2026-09-03 (see 0089_pricing_catalog_rebase.sql).
-// Popular and Power are retired — deactivated below, not listed here, since
-// this script's upsert only ever touches the rows it lists.
-const CREDIT_PACKS = [
-  { name: "Starter", credits: 20, price_ngn: 2500 },
-  { name: "Plus", credits: 45, price_ngn: 5000 },
-];
-const RETIRED_CREDIT_PACKS = ["Popular", "Power"];
-
-const PASSES = [
-  { name: "7-Day Sprint Pass", duration_days: 7, price_ngn: 4000 },
-  { name: "30-Day Pass", duration_days: 30, price_ngn: 6500 },
-  { name: "90-Day Pass", duration_days: 90, price_ngn: 15000 },
-];
+import { RESUME_TEMPLATES, CREDIT_PACKS, RETIRED_CREDIT_PACKS, PASSES } from "../src/lib/billing/catalog";
+import { refuseIfProduction } from "./refuse-production";
 
 async function main() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -62,11 +35,12 @@ async function main() {
   if (!url || !key) {
     throw new Error("seed-catalog needs NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.");
   }
+  refuseIfProduction("seed-catalog", url);
   const db = createClient<Database>(url, key, { auth: { persistSession: false } });
 
   const { error: tplErr } = await db
     .from("resume_templates")
-    .upsert(RESUME_TEMPLATES, { onConflict: "slug" });
+    .upsert([...RESUME_TEMPLATES], { onConflict: "slug" });
   if (tplErr) throw new Error(`resume_templates: ${tplErr.message}`);
 
   const { error: packErr } = await db
