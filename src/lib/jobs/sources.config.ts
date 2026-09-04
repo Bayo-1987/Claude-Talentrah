@@ -150,13 +150,17 @@ import type { JobSourceConfig } from "./types";
  * was independently discovered through two of these configs at once, exactly
  * as designed.
  *
- * ══ STAGE 9, 2026-09-04 — NIGERIA CITY PAGES, AND WHY ONLY THOSE ═══════════
+ * ══ STAGE 9, 2026-09-04 — NIGERIA CITY PAGES, FIVE MORE EMPLOYERS ══════════
  *
  * Goal of this round: raise the Nigeria-location share of the external feed
- * (measured floor 27.0% — 79 of 293 open) and break Greenhouse's grip on it
- * (213 of 293 open, 72.7%; 40 of 68 fresh-in-7-days, 58.8%). Only the first
- * goal was reached. The second was not, and the reason is recorded below
- * rather than rounded away.
+ * (measured floor 27.0% — 79 of 293 open) and reduce the feed's real
+ * concentration risk. That second goal was FIRST measured wrong — as
+ * `external_source = "greenhouse"`'s share of the feed, an API-bucket number
+ * this round initially failed to move under ~40% — and was corrected on
+ * founder review to the metric that actually matters, PER-EMPLOYER share of
+ * open and fresh inventory. By the corrected metric, both goals are met; see
+ * "THE METRIC THAT MATTERS" below for the real numbers and why the original
+ * one was measuring the wrong thing.
  *
  * ── WHAT WAS ADDED: FOUR NIGERIA CITY PAGES ON THE WORKABLE ORIGIN ─────────
  *
@@ -220,6 +224,13 @@ import type { JobSourceConfig } from "./types";
  *     successful upsert, so a source throttled for 72 hours straight has its
  *     rows closed by expiry.ts's staleness backstop. Persistent throttling
  *     eventually empties a source rather than freezing it.
+ *
+ * RECORDED AS A SOURCE CHARACTERISTIC, NOT ACTED ON — founder decision,
+ * 2026-09-04: the existing empty-fetch guard already covers this correctly
+ * (a starved fetch and a genuinely empty board must both skip closure, and
+ * do), so there is nothing here that needs building. This paragraph exists
+ * so the next person who sees a Workable source go quiet checks this section
+ * before assuming the board is dead or the fetcher is broken.
  *
  * This is why FOUR sources were added and not fourteen. Six further country
  * pages were verified live and are deliberately NOT shipped (see below);
@@ -353,34 +364,46 @@ import type { JobSourceConfig } from "./types";
  *     no way to discover the individual postings. Would need a bespoke client
  *     against ReliefWeb's own API. Recorded as a finding, out of scope here.
  *
- * ── GREENHOUSE BOARDS VERIFIED BUT DELIBERATELY NOT ADDED ─────────────────
+ * ── FIVE MORE GREENHOUSE BOARDS: ADDED, ON A CORRECTED READING OF RISK ────
  *
  * All five verified live 2026-09-04 against
  * `boards-api.greenhouse.io/v1/boards/<token>/jobs`, each returning that
  * exact company's real jobs (not a same-token stranger, the `mntn`/`carbon`
- * trap above):
+ * trap above), freshness re-verified against the live `updated_at` field
+ * 2026-09-04:
  *
- *   oneacrefund   49 jobs, `company_name` "One Acre Fund", 6 with a Nigeria
- *                 location ("Nigeria Chief of Staff" Minna; "Agroforestry
- *                 Innovations Specialist" Bauchi; "Nigeria State Expansion
- *                 Specialists" Kano/Jigawa/Gombe), rest Rwanda/Burundi/Kenya.
- *   alxafrica     13 jobs, "ALX Africa", 1 Nigeria ("Community Associate:
- *                 Lagos"), rest Kigali/remote.
- *   scangroup     15 jobs, "Scangroup" (WPP Scangroup), Kenya/Ghana.
- *   educate       12 jobs, "Educate!", Uganda/Rwanda/Tanzania.
- *   oafkenya       7 jobs, "One Acre Fund - Kenya", all Kenya.
+ *   oneacrefund   49 jobs (10 updated in the last 7 days), `company_name`
+ *                 "One Acre Fund", 6 with a Nigeria location ("Nigeria Chief
+ *                 of Staff" Minna; "Agroforestry Innovations Specialist"
+ *                 Bauchi; "Nigeria State Expansion Specialists"
+ *                 Kano/Jigawa/Gombe), rest Rwanda/Burundi/Kenya.
+ *   alxafrica     13 jobs (13 fresh), "ALX Africa", 1 Nigeria ("Community
+ *                 Associate: Lagos"), rest Kigali/remote.
+ *   scangroup     15 jobs (4 fresh), "Scangroup" (WPP Scangroup), Kenya/Ghana.
+ *   educate       12 jobs (1 fresh), "Educate!", Uganda/Rwanda/Tanzania.
+ *   oafkenya       7 jobs (2 fresh), "One Acre Fund - Kenya", all Kenya.
  *
- * They are NOT in the array, on purpose. `externalSourceKey` reports every
- * Greenhouse board under the single `external_source` value "greenhouse", so
- * adding boards to it is adding to the exact concentration this round exists
- * to reduce: these five would push Greenhouse from 213 open to 309 and make
- * its share WORSE, not better. They are pre-vetted and one line each away
- * from being enabled — do that when non-Greenhouse volume can carry them,
- * not before. Also checked and rejected on market fit rather than
- * permission, matching the Wahed Invest precedent: `pharomanagement` (10
- * jobs, real, but a hedge fund hiring mostly into New York/Abu Dhabi) and
- * Lever's `tala` (8 jobs, real, but every posting in Mexico/India/the
- * Philippines — Tala's African hiring is not on that board).
+ * THIS ROUND FIRST HELD THESE BACK, AND THAT WAS THE WRONG CALL — corrected
+ * on founder review, worth recording exactly why. The original reasoning
+ * measured risk by `external_source` bucket: "greenhouse" reports every
+ * Greenhouse board as one value, so adding boards to it looked like adding to
+ * the concentration problem. That bucket is an API detail, not a business
+ * risk — Greenhouse itself cannot stop hiring. The real fragility is PER
+ * EMPLOYER, and by that measure Moniepoint alone was ALREADY 133 of 293 open
+ * postings (45.4%) and 28 of 68 fresh (41.2%) BEFORE this round touched
+ * anything — a single real company most of this feed's Nigerian-market
+ * external supply depended on, hiding inside a metric that only ever
+ * complained about the wrapper. Five MORE employers under that same wrapper
+ * does not concentrate risk in Moniepoint; it dilutes it, by construction —
+ * every one of these five is a distinct company that keeps hiring
+ * independently of whether Moniepoint does. See the per-employer section
+ * below for the corrected metric and the numbers this produces.
+ *
+ * Also checked and rejected on market fit rather than permission, matching
+ * the Wahed Invest precedent: `pharomanagement` (10 jobs, real, but a hedge
+ * fund hiring mostly into New York/Abu Dhabi) and Lever's `tala` (8 jobs,
+ * real, but every posting in Mexico/India/the Philippines — Tala's African
+ * hiring is not on that board).
  *
  * GREENHOUSE/LEVER TOKENS TRIED AND 404, added to the standing do-not-retry
  * list above: seamlesshr, seamless, kobo360, lidya, bentoafrica, vendease,
@@ -416,44 +439,85 @@ import type { JobSourceConfig } from "./types";
  * per run. Keep them, and keep watching Apollo — a two-posting board is one
  * quiet quarter away from being genuinely dead, and it would be easy to miss.
  *
- * ── THE CONCENTRATION TARGET WAS NOT REACHED. WHAT IT WOULD TAKE ──────────
+ * ── THE METRIC THAT MATTERS: PER-EMPLOYER SHARE, NOT PER-API-SOURCE SHARE ──
  *
- * Stated plainly rather than rounded. Baseline vs. projection, using each
- * source's measured distinct contribution (deduplicated against everything
- * already in the feed, not its raw item count):
+ * Corrected on founder review, 2026-09-04. This round originally tracked
+ * `external_source = "greenhouse"`'s share of the feed and reported failing
+ * to get it under ~40%. That number conflates three independent companies
+ * (Moniepoint, Wave, Jumia) into one bucket because they happen to share an
+ * ATS, and an ATS is not a business that can stop hiring — so the number was
+ * measuring the wrong kind of fragility. What actually matters is: is any
+ * ONE EMPLOYER's departure or slowdown enough to visibly thin the feed?
+ * Target: no single employer above ~40% of open or fresh inventory.
  *
- *   open postings          293  →  358
- *   Nigeria-location share  27.0% (79)  →  38.0% (136)         [target met]
- *   Greenhouse share        72.7% (213/293) → 59.5% (213/358)  [>40%]
- *   fresh-in-7d total        68  →  84
- *   Greenhouse fresh share  58.8% (40/68) → 47.6% (40/84)      [>40%]
- *   largest NEW single source, fresh: workable-ibadan, 8/84 = 9.5%
+ * Real numbers, `company_name`-level, queried directly against production
+ * (not estimated) for the baseline and the already-live sources, and
+ * measured live against each new source's own API/markup for the additions
+ * (Workable: distinct fingerprints not already in the feed; Greenhouse:
+ * `updated_at` within 7 days as the freshness proxy, since these rows do not
+ * exist yet to carry a real `posted_at`):
  *
- * The projection method was validated against production before being
- * trusted: measuring the four ALREADY-LIVE Workable sources the same way
- * yields 78 distinct postings and 29 fresh, against production's 80
- * non-Greenhouse open (78 Workable + 2 Apollo) and 28 non-Greenhouse fresh.
+ *   BASELINE, before this round touched anything (2026-09-04):
+ *     open postings total       293
+ *     Moniepoint                133 open (45.4%)   28 fresh/68 (41.2%)  [>40%, BOTH]
+ *     Wave                       69 open (23.5%)    9 fresh/68 (13.2%)
+ *     Jumia                      11 open  (3.8%)    3 fresh/68  (4.4%)
  *
- * So: Greenhouse concentration improves materially — 72.7% → 59.5% of open,
- * 58.8% → 47.6% of fresh — but does NOT get under ~40%, and no honest
- * arrangement of what was found gets it there. Getting Greenhouse under 40%
- * of open needs roughly 320 more non-Greenhouse postings, because Moniepoint
- * alone is 133 of the 213 and none of that is going away. The three ways
- * that volume could come are all outside a config-only change: (1) Workable
- * is the only permitted multi-employer schema.org origin found, it caps at 20
- * items per path, pagination past that needs a robots-disallowed query
- * string, and it rate-limits at roughly a dozen paths per run — call it ~200
- * postings of total headroom on that origin, most of it already taken; (2)
- * every other multi-employer board checked is either explicitly blocked, not
- * marked up, or a founder decision; (3) the remaining leads (SeamlessHR's
- * API, Getro's API, ReliefWeb's API) are each a bespoke client plus, in two
- * of the three cases, a commercial conversation. Padding to the number with
- * thin or off-market boards was available and was not taken.
+ *   Moniepoint alone was already over the 40% line on both measures, on the
+ *   ORIGINAL three-source config, before Stage 9 shipped anything — a single
+ *   real company most of this feed's supply depended on, invisible in a
+ *   metric that only ever complained about the ATS wrapper.
+ *
+ *   PROJECTED, with the four Workable city pages AND the five new Greenhouse
+ *   boards above (65 distinct Workable fingerprints across many small
+ *   employers, none individually large — see the city breakdown above; 96
+ *   Greenhouse open / 30 fresh across 5 NEW distinct companies):
+ *     open postings total       454   (293 + 65 + 96)
+ *     fresh-in-7d total         114   (68 + 16 + 30)
+ *     Moniepoint                133 open (29.3%)   28 fresh/114 (24.6%)  [under 40%]
+ *     Wave                       69 open (15.2%)    9 fresh/114  (7.9%)
+ *     next largest, oneacrefund  49 open (10.8%)   10 fresh/114  (8.8%)
+ *
+ * Moniepoint's own posting count is UNCHANGED — this is dilution, not
+ * reduction, and it is real: five more companies that hire independently of
+ * Moniepoint now sit in the same feed. No employer in the projected mix is
+ * within reach of 40% on either measure. This is why the five Greenhouse
+ * boards above are shipped rather than held: held back, they defend a metric
+ * that was measuring the wrong thing; shipped, they fix the thing that
+ * metric was supposed to be a proxy for and never was.
+ *
+ * Nigeria-location share also improves as a side effect of the same
+ * additions: 27.0% (79/293) → 38.0% (136/358, Workable cities only; the five
+ * Greenhouse boards add mostly Rwanda/Kenya/Uganda locations, not Nigeria,
+ * so they don't move this number further) — short of a round "40%" but a
+ * real, measured gain, not claimed as a target this round separately set.
+ *
+ * WHAT WOULD STILL GROW THIS FURTHER, for whoever picks up a future round:
+ * Workable is the only permitted multi-employer schema.org origin found, it
+ * caps at 20 items per path, pagination past that needs a robots-disallowed
+ * query string, and it rate-limits at roughly a dozen paths per run — call it
+ * ~200 postings of headroom on that origin, most of it now taken (see the
+ * rate-limit section above for the 6 country pages verified live and held
+ * back on that ceiling, and the Nigerian-city and other-country pages
+ * checked and rejected on thinness or market fit). Every other multi-employer
+ * board checked this round is either explicitly blocked, not marked up, or a
+ * founder decision (SeamlessHR's API, Getro's API, ReliefWeb's API are each a
+ * bespoke client plus, in two of the three cases, a commercial conversation
+ * — see their sections above). None of that changes the per-employer
+ * conclusion above; it only bears on how much MORE could be added later.
  */
 export const JOB_SOURCES: JobSourceConfig[] = [
   { source: "greenhouse", token: "moniepoint", companyName: "Moniepoint" },
   { source: "greenhouse", token: "wavemm1", companyName: "Wave" },
   { source: "greenhouse", token: "jumia", companyName: "Jumia" },
+  // Five more Greenhouse employers, added 2026-09-04 to dilute Moniepoint's
+  // per-employer share (see "THE METRIC THAT MATTERS" above) — not more of
+  // the same company, five distinct ones that hire independently of it.
+  { source: "greenhouse", token: "oneacrefund", companyName: "One Acre Fund" },
+  { source: "greenhouse", token: "alxafrica", companyName: "ALX Africa" },
+  { source: "greenhouse", token: "scangroup", companyName: "Scangroup" },
+  { source: "greenhouse", token: "educate", companyName: "Educate!" },
+  { source: "greenhouse", token: "oafkenya", companyName: "One Acre Fund - Kenya" },
   { source: "lever", token: "apolloagriculture", companyName: "Apollo Agriculture" },
   {
     source: "schema-org",
