@@ -11,7 +11,23 @@
 import { test, expect, admin } from "./fixtures/authed";
 import { randomUUID } from "node:crypto";
 
-const VERIFIED_SCHOLARSHIP = "6082edbd-bab1-4462-830e-8d40a6572463"; // Gates Cambridge Scholarship
+// Resolved by natural key, not a hardcoded id (Stage 2) — a literal id was
+// only ever stable because the old shared CI database was never wiped; a
+// fresh per-run local Supabase stack generates a new one every run.
+let VERIFIED_SCHOLARSHIP: string;
+
+test.beforeAll(async () => {
+  const { data, error } = await admin
+    .from("scholarships")
+    .select("id")
+    .eq("program_name", "Gates Cambridge Scholarship")
+    .eq("moderation_status", "verified")
+    .single();
+  if (error || !data) {
+    throw new Error(`seeded "Gates Cambridge Scholarship" not found — run \`npm run seed:catalog\`: ${error?.message ?? "no row"}`);
+  }
+  VERIFIED_SCHOLARSHIP = data.id;
+});
 
 test.describe("scholarship sitemap coverage", () => {
   test("a verified listing appears, with the /scholarships/ path", async ({ request }) => {

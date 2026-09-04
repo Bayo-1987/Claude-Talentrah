@@ -29,6 +29,28 @@
 -- so deactivating removes them from sale without touching anything that
 -- already happened. Deleting the rows would break the actual FK from
 -- payment_transactions.product_id instead.
+--
+-- REPLAY-SAFETY NOTE (added for Stage 2, after this migration had already
+-- been applied to production/CI). This block used to be a bare UPDATE,
+-- correct only on the assumption that Popular/Power already existed — they
+-- were created by one of the uncommitted 0001-0025 migrations (CLAUDE.md),
+-- so no file in this repo ever INSERTs them. A fresh replay from 0000
+-- forward has never run that original insert, so the bare UPDATE silently
+-- touched zero rows and Popular/Power ended up not existing at all on a
+-- from-scratch database — exactly the failure mode tests/seed/catalog.test.ts's
+-- own header comment names ("works because the data has been there for
+-- weeks"). credits/price_ngn below are not invented: confirmed identical on
+-- both production and CI on 2026-09-04, both already is_active = false and
+-- both untouched by this migration's own UPDATE (it only ever set
+-- is_active), so reading the live value back out is exactly the pre-0089
+-- value this migration itself expected to find. ON CONFLICT DO NOTHING
+-- makes this a no-op on the databases where the row is already there.
+insert into public.credit_packs (name, credits, price_ngn, is_active)
+values
+  ('Popular', 60, 6000, true),
+  ('Power', 150, 12500, true)
+on conflict (name) do nothing;
+
 update public.credit_packs set is_active = false where name in ('Popular', 'Power');
 
 -- Plus, replacing Popular: 45 = one Talent Directory verification (25,

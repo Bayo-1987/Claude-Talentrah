@@ -64,7 +64,14 @@ schema_paths = []
 
 [db.seed]
 # If enabled, seeds the database after migrations during a db reset.
-enabled = true
+#
+# Disabled: this project's reference/demo data comes from `npm run
+# seed:catalog` and `npm run seed` (scripts/, driven through the app itself —
+# seed:catalog writes straight to the DB, seed drives the real ingestion
+# routes over HTTP), not from a supabase/seed.sql file. That file was never
+# created; leaving this enabled makes `supabase db reset` fail on a missing
+# path the moment Stage 2 (CI on a local Supabase stack) actually calls it.
+enabled = false
 # Specifies an ordered list of seed files to load during db reset.
 # Supports glob patterns relative to supabase directory: "./seeds/*.sql"
 sql_paths = ["./seed.sql"]

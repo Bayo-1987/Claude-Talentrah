@@ -7,69 +7,36 @@ on:
     branches: [main]
   workflow_dispatch: {}
 
-# ── Serialize every run against the one shared Supabase project ────────────
+# ── STAGE 2: no more shared Supabase project to serialize against ──────────
 #
-# The group key is a CONSTANT, deliberately. The usual idiom keys on
-# `${{ github.ref }}` so a branch only queues against itself, but that models
-# the wrong resource: what these runs contend over is not git history, it is
-# the single live Supabase project every suite reads and writes. There is no
-# staging database (CLAUDE.md), so a PR's run and a push to main are just as
-# capable of corrupting each other as two pushes to the same branch. A
-# per-ref key would have prevented none of the incidents below.
+# Every job below starts its OWN ephemeral local Supabase stack (see
+# .github/actions/local-supabase) instead of reading and writing the single
+# shared hosted "Talentrah CI" project. That project is what the concurrency
+# group and .github/scripts/wait-for-ci-lock.sh existed to protect: three
+# separate incidents (an egress blowout, a catalog-reseed race between
+# overlapping runs, and a cross-branch migration collision — applying a
+# migration to the shared project makes it live for every branch's CI
+# instantly, whether or not that branch's own code has merged yet) all came
+# from runs contending over one live database with no staging tier in front
+# of it. A per-job local database has nothing to contend over: it is created
+# fresh, used by exactly one job, and discarded with the runner. There is
+# still no reason for two jobs on the SAME run to fight each other, but that
+# was never what the old lock was for — it was always about DIFFERENT runs.
 #
-# THE EVIDENCE THIS WAS ADDED ON. Three separate failures this run, all one
-# mechanism:
-#   * e2e/employer.spec.ts failing on merge commit 5d65e0d — a docs push
-#     started a second `main` run at 19:40:12 while the merge run
-#     (19:36:52-19:41:41) was mid-suite; the employer publish failed at
-#     19:41:07 and the page never left /employer/jobs/new. The identical tree
-#     passed Playwright minutes later once nothing overlapped.
-#   * Supabase Auth rate-limit exhaustion during the PR #42 review, which
-#     surfaces as unrelated assertion failures in other files rather than as
-#     a rate-limit error.
-#   * The `hookTimeout: 60000` bump in vitest.config.ts — local suite runs
-#     competing with CI for the same project, with every failure pinned at
-#     exactly the 10s hook budget.
+# .github/scripts/wait-for-ci-lock.sh is left in place, unreferenced, rather
+# than deleted here — this migration hasn't yet been proven stable over a run
+# of real GitHub Actions pushes (no Docker in the environment that wrote this,
+# so it could not be dry-run locally first). Delete the script in a follow-up
+# once local Supabase has held up in practice; reintroducing the lock would
+# otherwise mean reconstructing all of the above from git blame.
 #
-# The employer flake needed no change of its own once this landed; the
-# mechanism is gone rather than papered over.
-#
-# cancel-in-progress: false — QUEUE, never cancel. Killing a run mid-suite
-# leaves its throwaway users, orgs and job_postings behind, because cleanup
-# lives in afterAll/afterEach hooks that never get to run. With no staging
-# database that debris lands in the real project and is then picked up by the
-# next run's fixtures, which is how a cancelled run turns into a failing one.
-# Waiting a few minutes is strictly cheaper than that.
-# THE GROUP KEY IS PER-REF, AND THE CROSS-REF SERIALISATION MOVED TO A WAIT
-# STEP. It used to be a CONSTANT key, on the correct reasoning that what runs
-# contend over is the shared Supabase project rather than git history. That
-# reasoning still holds; the mechanism did not.
-#
-# GitHub keeps only ONE pending run per concurrency group and CANCELS the
-# others, and it never re-creates them. With a constant key, every ref shares
-# one group, so a PR's queued run is discarded the moment anything else queues
-# behind it. Observed three times in one afternoon — PRs #50, #51 and #53 — and
-# the failure mode is worse than a lost run: `gh pr checks` then lists only the
-# Vercel entries, all of which pass, so the PR looks GREEN and is mergeable
-# with no CI having run at all.
-#
-# Per-ref restores what the group is good at — one run per branch at a time —
-# and .github/scripts/wait-for-ci-lock.sh does the cross-ref serialisation by
-# BLOCKING instead of discarding. See that script for why it cannot deadlock
-# and why it waits for whole runs rather than matching jobs.
-concurrency:
-  group: talentrah-ci-${{ github.ref }}
-  cancel-in-progress: false
+# The Vercel-project egress this was also meant to protect against the
+# approaching 2026-10-02 free-tier cap: CI no longer touches that project's
+# database at all, so CI's contribution to that number is now ~0 rather than
+# whatever `npm run seed`'s real ingestion HTTP calls plus every suite's reads
+# and writes previously cost it.
 
 env:
-  NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-  NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-  SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-  # The CI project's JWT signing secret, used by tests/support/auth.ts to mint
-  # a session directly instead of redeeming a magic link. This must be the CI
-  # project's secret and never production's: it can mint a valid session for
-  # ANY user of whichever project it belongs to.
-  SUPABASE_JWT_SECRET: ${{ secrets.SUPABASE_JWT_SECRET }}
   # CI runs on Groq, not Gemini — Gemini's shared 20-req/day free-tier quota
   # is exactly what used to make CI flaky/blocked (src/lib/llm/). Production
   # stays on Gemini; this only affects the CI job's own runs. GEMINI_API_KEY
@@ -191,14 +158,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Only this job waits. `secrets` touches no database and must keep
-      # reporting fast; `e2e` needs this job, so by the time it runs the lock
-      # is already held on this run's behalf and every earlier run has finished.
-      - name: Wait for earlier CI runs (shared Supabase project)
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: .github/scripts/wait-for-ci-lock.sh
-
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -209,20 +168,71 @@ jobs:
       - name: Generate Next.js route types
         run: npx next typegen
 
+      - name: Start local Supabase
+        uses: ./.github/actions/local-supabase
+
       # Reference data before the unit tests, deliberately.
-      #
-      # `npm run seed` needs a dev server (it drives the real ingestion routes)
-      # so it lives in the Playwright job, which is `needs: checks`. On a
-      # database that has never been seeded the unit tests therefore run first,
-      # fail on a missing catalog, and skip the job that would have fixed it.
-      # That deadlock cost a red run the first time this suite was pointed at
-      # the CI project.
       #
       # This step is catalog only — templates, packs, passes, scholarships —
       # writes straight to the database with no app involved, and is idempotent,
       # so running it on every job is cheap and safe.
-      - name: Seed reference data
+      - name: Seed reference data (catalog)
         run: npm run seed:catalog
+
+      # FULL seed too, discovered necessary by Stage 2 itself, not assumed
+      # up front. On the old shared hosted project this job's unit tests never
+      # needed this: the database was long-lived, so by the time `checks` ran,
+      # some PAST run of the `e2e` job's `npm run seed` had already left demo
+      # users, an internal posting, ingested job postings and payment/ledger
+      # rows sitting there. Several unit tests quietly depended on that —
+      # tests/seo/landing-page-links.test.ts asserting Lagos/remote postings
+      # exist, tests/billing/pricing-catalog-rebase.test.ts asserting retired
+      # packs still have payment_transactions rows, tests/rls/
+      # org-and-referral-scoping.test.ts and tests/seed/catalog.test.ts both
+      # literally erroring "run `npm run seed` first" — a real, message-level
+      # admission that they were never designed to run against catalog data
+      # alone. A fresh per-job database has no such leftovers, so this now has
+      # to be run here explicitly rather than borrowed by accident from
+      # whatever the last e2e run happened to leave behind.
+      #
+      # This needs a running app (`npm run seed` drives real ingestion HTTP
+      # routes), so this job now also builds and starts one — the same shape
+      # `e2e` uses below, duplicated rather than shared because these are
+      # separate GitHub Actions runners with no way to hand off a live
+      # container between them. Real, measured cost of full per-job isolation:
+      # two builds and two real ingestion sweeps per CI run instead of one.
+      # A pg_dump/restore of `checks`' already-seeded database into `e2e`
+      # instead of re-seeding there is the obvious follow-up if that cost
+      # turns out to matter in the measured wall-clock — not done here so the
+      # first attempt at Stage 2 stays checkable against a plain, unoptimised
+      # baseline before optimising it.
+      - name: Build app
+        run: npm run build
+
+      - name: Generate a per-run admin secret
+        run: echo "INGEST_SECRET=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+
+      - name: Start app
+        env:
+          LLM_PROVIDER: stub
+        run: npm run start &
+
+      - name: Wait for app to respond
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:3000 > /dev/null; then
+              echo "App is up."
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "App never came up." >&2
+          exit 1
+
+      - name: Seed demo data (full)
+        env:
+          SEED_APP_URL: http://localhost:3000
+        run: npm run seed
 
       - name: Typecheck
         run: npx tsc --noEmit
@@ -235,6 +245,10 @@ jobs:
 
   e2e:
     name: Playwright e2e
+    # No longer needed for shared-database ordering (this job now has its own
+    # local Supabase stack, per the Stage 2 note above) — kept because failing
+    # fast on a typecheck/lint/unit-test break is still worth not spending the
+    # ~10 minutes this job takes to build and run Playwright.
     needs: checks
     runs-on: ubuntu-latest
     steps:
@@ -249,6 +263,12 @@ jobs:
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
+
+      # Before the build, deliberately: NEXT_PUBLIC_* vars are inlined into
+      # the client bundle at BUILD time, not read at runtime. Starting this
+      # after `npm run build` would ship a build pointed at nothing.
+      - name: Start local Supabase
+        uses: ./.github/actions/local-supabase
 
       - name: Build app
         run: npm run build
