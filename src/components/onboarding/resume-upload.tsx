@@ -7,16 +7,51 @@ import type { StructuredResume } from "@/lib/resume/types";
 
 type Status = "idle" | "uploading" | "done" | "error";
 
-/**
- * `next` is where the two exits go — normally the feed, but a signup that
- * began from a shared job link carries that job's path through here. Onboarding
- * is not skippable, so it has to hand the destination on rather than swallow
- * it; without this the whole redirectTo chain dies one hop from the end.
- *
- * Already validated by the page (safeRedirectTo) — this component does not
- * re-check, and must not be handed a raw query value.
- */
-export function ResumeUpload({ next = "/jobs" }: { next?: string }) {
+export interface ResumeUploadProps {
+  /**
+   * Where the two exits go — normally the feed, but a signup that began from
+   * a shared job link carries that job's path through here. Onboarding is
+   * not skippable, so it has to hand the destination on rather than swallow
+   * it; without this the whole redirectTo chain dies one hop from the end.
+   *
+   * Already validated by the page (safeRedirectTo) — this component does not
+   * re-check, and must not be handed a raw query value.
+   *
+   * Ignored when `onParsed` is given — that caller handles navigation itself.
+   */
+  next?: string;
+  /**
+   * Which route to POST the file to. Defaults to /api/resume/parse (the
+   * onboarding path, which writes the parsed content as the user's
+   * is_base=true resume via upsertBaseResume). The Resume Builder's "Import
+   * my CV" flow passes /api/resume-builder/import instead — a route that
+   * parses but never writes anywhere, so importing a CV to style it never
+   * silently repoints the canonical base resume Auto-Apply submits.
+   */
+  endpoint?: string;
+  /**
+   * When given, a successful parse calls this instead of rendering the
+   * built-in "Resume saved" / "Continue" screen and navigating to `next`.
+   * The Resume Builder uses this to take the parsed content straight into
+   * createResumeAction rather than treating the upload itself as a
+   * destination.
+   */
+  onParsed?: (result: { resume: StructuredResume; confidence: "high" | "low" }) => void;
+  /** Copy shown above the upload control, while idle. */
+  heading?: string;
+  /** Set false to hide the "Skip for now" exit — the builder's chooser has
+   *  its own way back (a different start-state panel), so it doesn't need a
+   *  second one baked into this component. */
+  showSkip?: boolean;
+}
+
+export function ResumeUpload({
+  next = "/jobs",
+  endpoint = "/api/resume/parse",
+  onParsed,
+  heading = "Upload your resume (PDF, DOCX, or plain text) and Farah will pre-fill your profile.",
+  showSkip = true,
+}: ResumeUploadProps) {
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{
@@ -34,7 +69,7 @@ export function ResumeUpload({ next = "/jobs" }: { next?: string }) {
     formData.append("file", file);
 
     try {
-      const res = await fetch("/api/resume/parse", {
+      const res = await fetch(endpoint, {
         method: "POST",
         body: formData,
       });
@@ -42,6 +77,11 @@ export function ResumeUpload({ next = "/jobs" }: { next?: string }) {
       if (!res.ok) {
         setError(data.error ?? "Something went wrong.");
         setStatus("error");
+        return;
+      }
+      if (onParsed) {
+        onParsed({ resume: data.resume, confidence: data.confidence });
+        setStatus("done");
         return;
       }
       setResult({ resume: data.resume, confidence: data.confidence });
@@ -84,9 +124,7 @@ export function ResumeUpload({ next = "/jobs" }: { next?: string }) {
         }}
       />
       <p className="text-[14px] text-ink-soft">
-        {status === "uploading"
-          ? "Farah is reading your resume…"
-          : "Upload your resume (PDF, DOCX, or plain text) and Farah will pre-fill your profile."}
+        {status === "uploading" ? "Farah is reading your resume…" : heading}
       </p>
       {error && <p className="text-[13px] text-rust">{error}</p>}
       <div className="mt-1 flex items-center justify-center gap-4">
@@ -98,13 +136,15 @@ export function ResumeUpload({ next = "/jobs" }: { next?: string }) {
         >
           {status === "uploading" ? "Uploading…" : "Choose a file"}
         </Button>
-        <button
-          type="button"
-          onClick={() => router.push(next)}
-          className="text-[13.5px] font-semibold text-ink-soft underline underline-offset-2 hover:text-rust"
-        >
-          Skip for now
-        </button>
+        {showSkip && (
+          <button
+            type="button"
+            onClick={() => router.push(next)}
+            className="text-[13.5px] font-semibold text-ink-soft underline underline-offset-2 hover:text-rust"
+          >
+            Skip for now
+          </button>
+        )}
       </div>
     </div>
   );

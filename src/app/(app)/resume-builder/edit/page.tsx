@@ -16,9 +16,16 @@ export default async function ResumeEditPage({
   if (!resumeId) redirect("/resume-builder");
 
   const supabase = await createClient();
+  /*
+   * `template_id` and the joined `slug` are read here for the same reason
+   * the old /resume-builder/preview page read them (now folded into this
+   * page's live preview, Stage 3.1) — TemplateRenderer needs the slug to
+   * render the right layout. Inner-style embed on a nullable FK, so a resume
+   * with no template still returns a row with `resume_templates: null`.
+   */
   const { data: resume } = await supabase
     .from("resumes")
-    .select("id, title, structured_content")
+    .select("id, title, structured_content, template_id, resume_templates(slug)")
     .eq("id", resumeId)
     .eq("user_id", user.id)
     .single();
@@ -28,6 +35,11 @@ export default async function ResumeEditPage({
   const content = (resume.structured_content as StructuredResume | null) ?? EMPTY_RESUME;
 
   return (
-    <ResumeEditor resumeId={resume.id} initialTitle={resume.title} initialContent={content} />
+    <ResumeEditor
+      resumeId={resume.id}
+      initialTitle={resume.title}
+      initialContent={content}
+      templateSlug={resume.resume_templates?.slug ?? null}
+    />
   );
 }

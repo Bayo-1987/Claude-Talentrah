@@ -1780,6 +1780,48 @@ export type Database = {
           },
         ]
       }
+      resume_builder_start_events: {
+        Row: {
+          created_at: string
+          event_type: string
+          id: string
+          resume_id: string | null
+          start_state: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          event_type: string
+          id?: string
+          resume_id?: string | null
+          start_state: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          event_type?: string
+          id?: string
+          resume_id?: string | null
+          start_state?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "resume_builder_start_events_resume_id_fkey"
+            columns: ["resume_id"]
+            isOneToOne: false
+            referencedRelation: "resumes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "resume_builder_start_events_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       resume_templates: {
         Row: {
           created_at: string

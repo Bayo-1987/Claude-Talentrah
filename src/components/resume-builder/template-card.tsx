@@ -2,8 +2,9 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Button, BorderedCard } from "@/components/ui";
-import { createResumeAction, unlockTemplateAction } from "@/lib/resume-builder/actions";
+import { unlockTemplateAction } from "@/lib/resume-builder/actions";
 import { TemplateThumbnail } from "@/components/resume-builder/template-thumbnail";
 import type { Tables } from "@/lib/supabase/types";
 
@@ -67,11 +68,16 @@ export function TemplateCard({
           {error && <p className="text-[12.5px] text-rust">{error}</p>}
         </div>
       ) : (
-        <form action={createResumeAction.bind(null, template.id)}>
-          <Button size="sm" type="submit">
+        // Goes to the start-state chooser (Stage 3.1) rather than creating
+        // the resume directly — "blank" is still one tap away there, this
+        // just adds the two shortcuts in front of it. createResumeAction's
+        // premium-unlock check still runs regardless of which of that
+        // chooser's three panels gets submitted.
+        <Link href={`/resume-builder/new?templateId=${template.id}`}>
+          <Button size="sm" type="button">
             Use this template
           </Button>
-        </form>
+        </Link>
       )}
     </BorderedCard>
   );

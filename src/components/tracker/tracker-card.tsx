@@ -71,7 +71,7 @@ export function TrackerCard({ entry }: { entry: TrackerEntry }) {
         )}
         {entry.resumeId && (
           <Link
-            href={`/resume-builder/preview?resumeId=${entry.resumeId}`}
+            href={`/resume-builder/edit?resumeId=${entry.resumeId}`}
             className="underline underline-offset-2 hover:text-rust"
           >
             Resume used
@@ -79,7 +79,7 @@ export function TrackerCard({ entry }: { entry: TrackerEntry }) {
         )}
         {entry.coverLetterId && (
           <Link
-            href={`/resume-builder/preview?resumeId=${entry.coverLetterId}`}
+            href={`/resume-builder/edit?resumeId=${entry.coverLetterId}`}
             className="underline underline-offset-2 hover:text-rust"
           >
             Cover letter used

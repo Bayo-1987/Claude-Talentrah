@@ -212,7 +212,7 @@ export function TailorForm({
                 Edit this resume →
               </Link>
               {coverLetterResumeId && (
-                <Link href={`/resume-builder/preview?resumeId=${coverLetterResumeId}`} className="text-[13.5px] font-semibold underline underline-offset-2">
+                <Link href={`/resume-builder/edit?resumeId=${coverLetterResumeId}`} className="text-[13.5px] font-semibold underline underline-offset-2">
                   View cover letter →
                 </Link>
               )}

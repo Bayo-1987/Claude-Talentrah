@@ -55,7 +55,7 @@ const CONTENT: StructuredResume = {
 };
 
 const html = renderToStaticMarkup(
-  <ResumeEditor resumeId="r1" initialTitle="My Resume" initialContent={CONTENT} />,
+  <ResumeEditor resumeId="r1" initialTitle="My Resume" initialContent={CONTENT} templateSlug={null} />,
 );
 
 /** `for="id"` on a label and `id="id"` on an input is exactly the pairing getByLabel/screen readers rely on. */

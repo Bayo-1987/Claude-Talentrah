@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button, TextField, EyebrowLabel, BorderedCard } from "@/components/ui";
 import { saveResumeAction, rewriteBulletAction } from "@/lib/resume-builder/actions";
+import { TemplateRenderer } from "@/components/resume-builder/templates";
+import { PrintButton } from "@/components/resume-builder/print-button";
 import type {
   StructuredResume,
   ResumeExperienceEntry,
@@ -76,9 +77,14 @@ export interface ResumeEditorProps {
   resumeId: string;
   initialTitle: string;
   initialContent: StructuredResume;
+  /** Which template's layout to render in the live preview — the same slug
+   *  the (removed) separate preview page used to read via a join. Passed
+   *  through as-is to TemplateRenderer, which already falls back to the
+   *  default layout for null/unmapped slugs. */
+  templateSlug: string | null;
 }
 
-export function ResumeEditor({ resumeId, initialTitle, initialContent }: ResumeEditorProps) {
+export function ResumeEditor({ resumeId, initialTitle, initialContent, templateSlug }: ResumeEditorProps) {
   const [title, setTitle] = useState(initialTitle);
   const [content, setContent] = useState<StructuredResume>(initialContent);
   const [rewritingKey, setRewritingKey] = useState<string | null>(null);
@@ -150,7 +156,8 @@ export function ResumeEditor({ resumeId, initialTitle, initialContent }: ResumeE
   };
 
   return (
-    <div className="flex flex-col gap-8 pb-16">
+    <div className="grid grid-cols-1 gap-8 pb-16 lg:grid-cols-[1fr_460px] lg:items-start print:block print:gap-0 print:pb-0">
+    <div className="flex flex-col gap-8 print:hidden">
       <div className="flex items-center justify-between">
         <div className="flex-1">
           <EyebrowLabel>Editing</EyebrowLabel>
@@ -164,12 +171,6 @@ export function ResumeEditor({ resumeId, initialTitle, initialContent }: ResumeE
           />
         </div>
         <div className="flex items-center gap-3">
-          <Link
-            href={`/resume-builder/preview?resumeId=${resumeId}`}
-            className="text-[13.5px] font-semibold underline underline-offset-2"
-          >
-            Preview →
-          </Link>
           <Button size="sm" onClick={handleSave} disabled={pending}>
             {pending ? "Saving…" : saved ? "Saved" : "Save"}
           </Button>
@@ -355,5 +356,26 @@ export function ResumeEditor({ resumeId, initialTitle, initialContent }: ResumeE
         </button>
       </div>
     </div>
+
+    {/*
+      LIVE PREVIEW, replacing the old separate /resume-builder/preview page
+      (Stage 3.1) — reuses TemplateRenderer exactly as that page and the
+      template thumbnails do, fed the SAME `content` state the form above is
+      editing, so it updates on every keystroke with no extra plumbing.
+      `sticky` keeps it in view while the (longer) form scrolls, on screen
+      only — print:static because print has no scroll position to stick to,
+      and this is also the only part of the page NOT print:hidden, so it is
+      the whole of what a PDF export contains.
+    */}
+    <div className="sticky top-6 flex flex-col gap-3 print:static print:top-auto">
+      <div className="flex items-center justify-between print:hidden">
+        <EyebrowLabel size="sm">Live preview</EyebrowLabel>
+        <PrintButton resumeId={resumeId} content={content} />
+      </div>
+      <div className="border-[1.5px] border-ink print:border-none">
+        <TemplateRenderer slug={templateSlug} resume={content} />
+      </div>
+    </div>
+  </div>
   );
 }

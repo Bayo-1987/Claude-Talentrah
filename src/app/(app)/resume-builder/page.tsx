@@ -128,17 +128,18 @@ export default async function ResumeBuilderPage({ searchParams }: { searchParams
                   </div>
                 </div>
                 <div className="flex items-center gap-4">
+                  {/*
+                    A single "Edit" link, not "Edit" + "Preview" — the editor
+                    now carries its own live preview and Download PDF button
+                    inline (Stage 3.1), so the two links pointed at the same
+                    content by two different routes. The separate
+                    /resume-builder/preview page is retired.
+                  */}
                   <Link
                     href={`/resume-builder/edit?resumeId=${r.id}`}
                     className="text-[13px] font-semibold underline underline-offset-2"
                   >
                     Edit
-                  </Link>
-                  <Link
-                    href={`/resume-builder/preview?resumeId=${r.id}`}
-                    className="text-[13px] font-semibold underline underline-offset-2"
-                  >
-                    Preview
                   </Link>
                 </div>
               </div>
