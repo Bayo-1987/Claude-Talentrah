@@ -23,14 +23,35 @@
  * Re-asserted here, independently of the jobs file, because a regression
  * that broke this list without breaking the jobs one should still be caught.
  *
- * A fixed scholarship id is used deliberately, matching the job test's own
+ * A fixed scholarship is used deliberately, matching the job test's own
  * reasoning: it is a verified listing with a real host institution and a
  * dated deadline, so the assertions test the wiring rather than whichever
  * listing happens to sort first.
+ *
+ * Resolved by natural key, not a hardcoded id (Stage 2) — same reasoning as
+ * e2e/public-job-page.spec.ts: a literal id was only ever stable because the
+ * old shared CI database was never wiped, and a fresh per-run local Supabase
+ * stack generates a new one every run. program_name is the scholarship's own
+ * stable identity (seed-catalog.ts upserts scholarships on dedup_fingerprint,
+ * which is itself derived from provider/program_name/cycle_year).
  */
 import { test, expect, type Page } from "@playwright/test";
+import { admin } from "./fixtures/authed";
 const DEMO_PASSWORD = process.env.DEMO_PASSWORD;
-const SCHOLARSHIP = "6082edbd-bab1-4462-830e-8d40a6572463"; // Gates Cambridge Scholarship
+let SCHOLARSHIP: string;
+
+test.beforeAll(async () => {
+  const { data, error } = await admin
+    .from("scholarships")
+    .select("id")
+    .eq("program_name", "Gates Cambridge Scholarship")
+    .eq("moderation_status", "verified")
+    .single();
+  if (error || !data) {
+    throw new Error(`seeded "Gates Cambridge Scholarship" not found — run \`npm run seed:catalog\`: ${error?.message ?? "no row"}`);
+  }
+  SCHOLARSHIP = data.id;
+});
 
 async function login(page: Page) {
   await page.goto("/login");

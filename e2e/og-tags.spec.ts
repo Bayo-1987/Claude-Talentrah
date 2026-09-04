@@ -28,6 +28,7 @@
  * Signed-out, no fixture account: every page here is public.
  */
 import { test, expect } from "@playwright/test";
+import { admin } from "./fixtures/authed";
 
 const GENERIC = "Talentrah";
 
@@ -81,11 +82,25 @@ test.describe("public pages carry their own social title", () => {
 
   test("a scholarship listing carries its OWN title, not the list page's", async ({ page }) => {
     /*
-     * Fixed id, matching public-scholarship-page.spec.ts's own reasoning: a
-     * verified listing with a real host institution, so this tests the
-     * wiring rather than whichever row happens to sort first.
+     * Fixed listing, matching public-scholarship-page.spec.ts's own
+     * reasoning: a verified listing with a real host institution, so this
+     * tests the wiring rather than whichever row happens to sort first.
+     *
+     * Resolved by natural key rather than a hardcoded id (Stage 2) — a
+     * literal id was only ever stable because the old shared CI database
+     * was never wiped; a fresh per-run local Supabase stack generates a new
+     * one every run.
      */
-    const h = await head(page, "/scholarships/6082edbd-bab1-4462-830e-8d40a6572463");
+    const { data: scholarship, error } = await admin
+      .from("scholarships")
+      .select("id")
+      .eq("program_name", "Gates Cambridge Scholarship")
+      .eq("moderation_status", "verified")
+      .single();
+    if (error || !scholarship) {
+      throw new Error(`seeded "Gates Cambridge Scholarship" not found — run \`npm run seed:catalog\`: ${error?.message ?? "no row"}`);
+    }
+    const h = await head(page, `/scholarships/${scholarship.id}`);
     expect(h.title).toBe("Gates Cambridge Scholarship — Gates Cambridge Trust — Talentrah");
     expect(h.ogTitle, "the scholarship page fell back to the generic og:title").not.toBe(GENERIC);
     expect(h.ogTitle).toBe(h.title);

@@ -17,13 +17,36 @@
  * someone adds a page to (app) and relies on the layout to protect it, that
  * page is public and this is what says so.
  *
- * A fixed job id is used deliberately — it is a seeded posting with a
+ * A fixed job is used deliberately — it is a seeded posting with a
  * resolvable location, so the JSON-LD assertion tests the wiring rather than
  * whichever posting happened to sort first.
+ *
+ * Resolved by natural key, not a hardcoded id (Stage 2). This posting's id
+ * used to be a literal here, safe only because the old shared CI database
+ * was never wiped between runs, so whatever random id this row got the
+ * first time it was ever seeded stayed valid forever after. A fresh
+ * per-run local Supabase stack generates a new id every run. Company name
+ * and title are exactly what scripts/seed.ts's own dedup_fingerprint is
+ * built from for this row, so this is no less stable an identity than the
+ * literal id was — just resolved instead of assumed.
  */
 import { test, expect, type Page } from "@playwright/test";
+import { admin } from "./fixtures/authed";
 const DEMO_PASSWORD = process.env.DEMO_PASSWORD;
-const JOB = "1ad10994-e497-4bd6-ba59-7e6611d8ec2b";
+let JOB: string;
+
+test.beforeAll(async () => {
+  const { data, error } = await admin
+    .from("job_postings")
+    .select("id")
+    .eq("company_name", "Zaria Digital")
+    .eq("title", "Backend Engineer (Node.js)")
+    .single();
+  if (error || !data) {
+    throw new Error(`seeded "Backend Engineer (Node.js)" posting not found — run \`npm run seed\`: ${error?.message ?? "no row"}`);
+  }
+  JOB = data.id;
+});
 
 async function login(page: Page) {
   await page.goto("/login");
