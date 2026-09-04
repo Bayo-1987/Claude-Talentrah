@@ -98,6 +98,17 @@ regexes = [
   # minimum and never matched in the first place — this is the only new
   # slug from that change long enough to need allowlisting.
   '''apolloagriculture''',
+
+  # src/lib/jobs/sources.config.ts, Stage 9 (2026-09-04) — four more
+  # Greenhouse public board slugs, same shape as moniepoint/apolloagriculture
+  # above: each is a path segment in a public, unauthenticated URL
+  # (boards-api.greenhouse.io/v1/boards/<slug>/jobs), not a credential.
+  # `educate` (the fifth slug added in the same change) is under the rule's
+  # 8-character minimum and never matched in the first place.
+  '''oneacrefund''',
+  '''alxafrica''',
+  '''scangroup''',
+  '''oafkenya''',
 ]
 
 paths = [
