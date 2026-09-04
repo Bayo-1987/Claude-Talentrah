@@ -622,7 +622,8 @@ async function findUserByEmail(
   await upsertReferredFriend("amaka.friend@talentrah.dev", "Amaka");
 
   // Friend #2: signed up AND activated (gets a base resume below, which
-  // fires resumes_check_activation → the 20-credit activation bonus).
+  // fires resumes_check_activation → the activation bonus, see
+  // src/lib/referrals/rewards.ts for the current amount).
   const activatedFriendId = await upsertReferredFriend("chidi.friend@talentrah.dev", "Chidi");
   const { data: friendHasResume } = await supabase
     .from("resumes")
