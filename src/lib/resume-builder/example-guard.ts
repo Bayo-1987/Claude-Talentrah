@@ -27,6 +27,20 @@ import { PREVIEW_SAMPLE_RESUME } from "./preview-sample";
  * the example's — adding, removing, or reordering even one item clears the
  * flag for that section, by design: "still has example content" should mean
  * "never touched", not "still contains one item that happens to overlap".
+ *
+ * contact.location IS THE EXCEPTION, AND DELIBERATELY NOT A STANDALONE
+ * SIGNAL. Unlike a fictional name or a fake email domain, "Lagos, Nigeria" is
+ * not a distinctive string — it is the single most likely real answer for
+ * this product's actual users, so treating it like name/email/phone would
+ * false-positive on a large share of genuine Lagos-based résumés the moment
+ * their location happens to read the same as the example's. Caught by this
+ * guard's own e2e coverage: e2e/auto-apply.spec.ts's fixture resume sets
+ * location to "Lagos, Nigeria" for realism, sharing nothing else with the
+ * example, and confirming applies threw "unedited example content" because
+ * location alone counted as a hit. Fixed below by requiring location to
+ * co-occur with at least one already-distinctive contact signal (name,
+ * email or phone) before it counts — the same principle the list fields
+ * already use: one generic overlap on its own is not "still the example".
  */
 export interface ExampleFieldFlag {
   /** Machine-stable path, useful for tests. */
@@ -56,7 +70,13 @@ export function findUneditedExampleFields(content: StructuredResume): ExampleFie
   if (isNonEmpty(content.contact.phone) && content.contact.phone === example.contact.phone) {
     flags.push({ path: "contact.phone", label: "phone number" });
   }
-  if (isNonEmpty(content.contact.location) && content.contact.location === example.contact.location) {
+  // Not a standalone signal — see the header comment. Only counts once
+  // something more distinctive has already matched.
+  if (
+    flags.length > 0 &&
+    isNonEmpty(content.contact.location) &&
+    content.contact.location === example.contact.location
+  ) {
     flags.push({ path: "contact.location", label: "location" });
   }
   if (isNonEmpty(content.summary) && content.summary === example.summary) {

@@ -100,6 +100,58 @@ describe("findUneditedExampleFields", () => {
     expect(findUneditedExampleFields(imported)).toEqual([]);
   });
 
+  it(
+    "SABOTAGE-PROOF TARGET: never flags a real résumé for sharing ONLY the example's " +
+      "location — 'Lagos, Nigeria' is the single most likely real answer for this " +
+      "product's own users, not a distinctive value like the example's fictional name",
+    () => {
+      // Everything here is real and distinct from PREVIEW_SAMPLE_RESUME except
+      // contact.location, which is exactly the example's value — the same
+      // fixture shape e2e/auto-apply.spec.ts's seedBaseResume uses, and the
+      // actual live failure this test was added to pin down.
+      const realLagosUser: StructuredResume = {
+        contact: {
+          name: "E2E Tester",
+          email: "e2e@talentrah.test",
+          location: PREVIEW_SAMPLE_RESUME.contact.location,
+        },
+        summary: "Backend engineer with six years building payment systems.",
+        experience: [
+          {
+            title: "Senior Engineer",
+            company: "Paystack",
+            location: "Lagos",
+            startDate: "2021",
+            endDate: "2026",
+            description: "Built and operated payment APIs at scale.",
+          },
+        ],
+        education: [{ school: "University of Lagos", degree: "BSc", field: "Computer Science" }],
+        skills: ["Node.js", "Postgres", "TypeScript"],
+        projects: [],
+        certifications: [],
+      };
+      expect(findUneditedExampleFields(realLagosUser)).toEqual([]);
+      expect(hasUneditedExampleContent(realLagosUser)).toBe(false);
+    },
+  );
+
+  it("DOES flag location once something more distinctive already matched too", () => {
+    // Location is a confirming signal, not a disqualifying one — a resume
+    // that also shares the example's fictional name is genuinely unedited,
+    // and location should count as part of that, not be silently ignored.
+    const stillTheExample: StructuredResume = {
+      ...EMPTY_RESUME,
+      contact: {
+        name: PREVIEW_SAMPLE_RESUME.contact.name,
+        location: PREVIEW_SAMPLE_RESUME.contact.location,
+      },
+    };
+    const paths = findUneditedExampleFields(stillTheExample).map((f) => f.path);
+    expect(paths).toContain("contact.name");
+    expect(paths).toContain("contact.location");
+  });
+
   it("does not flag an experience entry that merely reuses the example's company name", () => {
     // Guards the entry-match logic against being too loose: it must require
     // title + company + description to all match, not just one field.
