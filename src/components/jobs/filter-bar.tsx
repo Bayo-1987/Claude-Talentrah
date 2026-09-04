@@ -3,6 +3,7 @@ import type { SkillFacetEntry } from "@/lib/jobs/skill-facet";
 import type { Suggestion } from "@/lib/jobs/search-suggestions";
 import { SearchCombobox } from "./search-combobox";
 import { JOB_DATE_FILTERS, JOB_DATE_FILTER_LABEL, type JobDateFilter } from "@/lib/jobs/freshness";
+import { TRACKED_COUNTRIES, type TrackedCountry } from "@/lib/jobs/country";
 
 const WORK_TYPES = ["remote", "hybrid", "onsite"] as const;
 const SENIORITIES = ["entry", "mid", "senior", "lead", "executive"] as const;
@@ -81,6 +82,30 @@ export interface FilterBarProps {
    * means "just the floor", not "no filter at all".
    */
   posted?: JobDateFilter;
+  /**
+   * The EFFECTIVE country in play, whether from an explicit `?country=`
+   * param or defaulted from the signed-in user's profile.country
+   * (jobs/page.tsx computes both into one value before this ever sees it).
+   * Rendered as an applied chip either way — "make the default visible and
+   * removable... never invisible behaviour" — so this prop does not
+   * distinguish "kept" from "was always the default"; both look identical
+   * here, on purpose. `undefined` covers two different cases this component
+   * cannot tell apart on its own — see `countryApplicable` below for why
+   * that distinction still matters.
+   */
+  country?: TrackedCountry;
+  /**
+   * True whenever country is a real concept for this user in this render —
+   * jobs/page.tsx's countryState is "kept" or "cleared", not "none". `country`
+   * alone can't carry this: it's ALSO undefined right after an explicit
+   * clear, which looks identical to "no profile default exists at all"
+   * unless this is passed separately. The distinction matters for "Clear
+   * filters": it must keep re-asserting `country=all` for a user who already
+   * cleared it, or clicking Clear filters to drop an unrelated filter would
+   * silently let the country default reassert itself — exactly the
+   * invisible-behaviour this feature exists to rule out.
+   */
+  countryApplicable?: boolean;
 }
 
 /**
@@ -96,15 +121,28 @@ export function FilterBar({
   seniority,
   skill,
   posted,
+  country,
+  countryApplicable = false,
   skillFacet = [],
   searchIndex = [],
 }: FilterBarProps) {
-  const base = { tab, workType, seniority, skill, q, posted };
+  const base = { tab, workType, seniority, skill, q, posted, country };
 
-  const applied: { key: keyof typeof base; label: string }[] = [];
+  /*
+   * Every OTHER filter clears by omitting its param (absence means "no
+   * filter"). Country can't: absence means "apply the profile default"
+   * (jobs/page.tsx), so removing the country chip has to set the explicit
+   * "all" sentinel rather than just dropping the param — otherwise the
+   * default would silently reassert itself the moment the chip is clicked,
+   * which is exactly the "invisible behaviour" this filter must not have.
+   * `clearTo` lets each applied entry override what removing it actually
+   * sets, defaulting to `undefined` for everything else.
+   */
+  const applied: { key: keyof typeof base; label: string; clearTo?: string }[] = [];
   if (workType) applied.push({ key: "workType", label: LABEL[workType] });
   if (seniority) applied.push({ key: "seniority", label: LABEL[seniority] });
   if (posted) applied.push({ key: "posted", label: LABEL[posted] });
+  if (country) applied.push({ key: "country", label: country, clearTo: "all" });
   // Lowercase on purpose. `sql` and `communication` are the values the parser
   // actually stored, and the browse row below shows them the same way. Title
   // casing would render "Sql", and a per-skill capitalisation map is a curated
@@ -169,6 +207,7 @@ export function FilterBar({
           {seniority && <input type="hidden" name="seniority" value={seniority} />}
           {skill && <input type="hidden" name="skill" value={skill} />}
           {posted && <input type="hidden" name="posted" value={posted} />}
+          {country && <input type="hidden" name="country" value={country} />}
           {/*
             The input and its suggestion list. Still the same `name="q"` inside
             this same GET form — the combobox fills it and submits the form,
@@ -183,10 +222,10 @@ export function FilterBar({
           </button>
         </form>
 
-        {applied.map(({ key, label }) => (
+        {applied.map(({ key, label, clearTo }) => (
             <Link
               key={key}
-              href={buildHref(base, { [key]: undefined })}
+              href={buildHref(base, { [key]: clearTo })}
               aria-label={`Remove ${label} filter`}
               /*
                 The whole segment is the remove target, not the 9px glyph. The
@@ -221,6 +260,10 @@ export function FilterBar({
               skill: undefined,
               q: undefined,
               posted: undefined,
+              // Only when country is actually a concept for this user —
+              // see countryApplicable's own doc comment for why this can't
+              // just check `country` itself.
+              country: countryApplicable ? "all" : undefined,
             })}
             className="flex min-h-[42px] items-center px-3.5 text-[12.5px] font-semibold text-ink-soft no-underline transition-colors hover:text-rust"
           >
@@ -262,6 +305,22 @@ export function FilterBar({
               className={browseLink(posted === d)}
             >
               {LABEL[d]}
+            </Link>
+          ))}
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="font-semibold text-ink-soft">Country:</span>
+          {TRACKED_COUNTRIES.map((c) => (
+            <Link
+              key={c}
+              // Choosing the ALREADY-active country clears to "all" — the
+              // same explicit sentinel the chip's own remove target uses —
+              // rather than omitting the param, which would just fall back
+              // to the profile default again.
+              href={buildHref(base, { country: country === c ? "all" : c })}
+              className={browseLink(country === c)}
+            >
+              {c}
             </Link>
           ))}
         </div>

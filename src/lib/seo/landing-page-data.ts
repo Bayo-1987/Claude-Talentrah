@@ -4,6 +4,7 @@ import { findCityLandingPage, degreeLevelFromSlug, type CityLandingPage } from "
 import type { Database, Tables } from "@/lib/supabase/types";
 import type { DegreeLevel } from "@/lib/scholarships/types";
 import { freshnessFloorISO } from "@/lib/jobs/freshness";
+import { countryFromSlug, countryOrFilter, type TrackedCountry } from "@/lib/jobs/country";
 
 /**
  * Typed generically as `SupabaseClient<Database>` rather than the return
@@ -83,6 +84,52 @@ export async function loadRemoteJobs(
   if (error) throw new Error(error.message);
 
   return { total: count ?? 0, jobs: (data ?? []) as LandingJobPosting[] };
+}
+
+export interface CountryRemoteJobLandingResult extends JobLandingResult {
+  country: TrackedCountry;
+}
+
+/**
+ * Remote roles filtered to ONE tracked country — the honest per-country
+ * claim /jobs/remote itself deliberately dropped (see that page.tsx's own
+ * header). `countryOrFilter` matches deriveCountry's own logic at the SQL
+ * level: a literal country name in `location`, OR (when blind) the source's
+ * own declared country for a single-country schema-org board — see
+ * src/lib/jobs/country.ts for the full reasoning and why the two can't
+ * independently drift.
+ */
+export async function loadCountryRemoteJobs(
+  supabase: Client,
+  countrySlug: string,
+): Promise<CountryRemoteJobLandingResult | null> {
+  const country = countryFromSlug(countrySlug);
+  if (!country) return null;
+
+  const floor = freshnessFloorISO();
+  const orFilter = countryOrFilter(country);
+
+  const { count, error: countError } = await supabase
+    .from("job_postings")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "open")
+    .eq("work_type", "remote")
+    .or(orFilter)
+    .gte("posted_at", floor);
+  if (countError) throw new Error(countError.message);
+
+  const { data, error } = await supabase
+    .from("job_postings")
+    .select(JOB_LANDING_COLUMNS)
+    .eq("status", "open")
+    .eq("work_type", "remote")
+    .or(orFilter)
+    .gte("posted_at", floor)
+    .order("posted_at", { ascending: false })
+    .limit(PAGE_LIMIT);
+  if (error) throw new Error(error.message);
+
+  return { country, total: count ?? 0, jobs: (data ?? []) as LandingJobPosting[] };
 }
 
 export interface CityJobLandingResult extends JobLandingResult {

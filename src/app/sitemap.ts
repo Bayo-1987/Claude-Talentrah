@@ -5,6 +5,7 @@ import { absoluteUrl } from "@/lib/seo/site";
 import { CITY_LANDING_PAGES, DEGREE_LEVEL_SLUG, LANDING_PAGE_MIN_ENTRIES } from "@/lib/seo/landing-pages";
 import { Constants } from "@/lib/supabase/types";
 import { freshnessFloorISO } from "@/lib/jobs/freshness";
+import { TRACKED_COUNTRIES, COUNTRY_LANDING_SLUG, countryOrFilter } from "@/lib/jobs/country";
 
 /**
  * The sitemap, generated rather than listed.
@@ -167,13 +168,74 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const stillOpen = `application_deadline.is.null,application_deadline.gte.${today}`;
     const jobFreshnessFloor = freshnessFloorISO();
 
-    const { count: remoteCount } = await supabase
-      .from("job_postings")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "open")
-      .eq("work_type", "remote")
-      .gte("posted_at", jobFreshnessFloor);
-    if ((remoteCount ?? 0) >= LANDING_PAGE_MIN_ENTRIES) {
+    /*
+     * Every count below is independent and read-only, so all of them run
+     * together rather than one after another. This used to be a chain of
+     * sequential awaits — remote, then each city, then fully-funded, then
+     * each degree level — and adding four more sequential country counts on
+     * top of it (Stage 12) is what surfaced the cost: /sitemap.xml measured
+     * ~7.8s locally with the queries run one at a time, enough on its own to
+     * blow the 30s budget of an e2e test that calls it three times
+     * (e2e/seo-landing-pages-sitemap.spec.ts). None of these counts depend on
+     * each other, so there was never a reason for the chain.
+     */
+    const [remoteCount, countryRemoteCounts, cityCounts, fullyFundedCount, degreeLevelCounts] =
+      await Promise.all([
+        supabase
+          .from("job_postings")
+          .select("id", { count: "exact", head: true })
+          .eq("status", "open")
+          .eq("work_type", "remote")
+          .gte("posted_at", jobFreshnessFloor)
+          .then(({ count }) => count ?? 0),
+
+        Promise.all(
+          TRACKED_COUNTRIES.map((country) =>
+            supabase
+              .from("job_postings")
+              .select("id", { count: "exact", head: true })
+              .eq("status", "open")
+              .eq("work_type", "remote")
+              .or(countryOrFilter(country))
+              .gte("posted_at", jobFreshnessFloor)
+              .then(({ count }) => ({ country, count: count ?? 0 })),
+          ),
+        ),
+
+        Promise.all(
+          CITY_LANDING_PAGES.map((city) =>
+            supabase
+              .from("job_postings")
+              .select("id", { count: "exact", head: true })
+              .eq("status", "open")
+              .or(city.locationPatterns.map((p) => `location.ilike.${p}`).join(","))
+              .gte("posted_at", jobFreshnessFloor)
+              .then(({ count }) => ({ city, count: count ?? 0 })),
+          ),
+        ),
+
+        supabase
+          .from("scholarships")
+          .select("id", { count: "exact", head: true })
+          .eq("moderation_status", "verified")
+          .eq("funding_type", "full")
+          .or(stillOpen)
+          .then(({ count }) => count ?? 0),
+
+        Promise.all(
+          Constants.public.Enums.scholarship_degree_level.map((level) =>
+            supabase
+              .from("scholarships")
+              .select("id", { count: "exact", head: true })
+              .eq("moderation_status", "verified")
+              .contains("degree_levels", [level])
+              .or(stillOpen)
+              .then(({ count }) => ({ level, count: count ?? 0 })),
+          ),
+        ),
+      ]);
+
+    if (remoteCount >= LANDING_PAGE_MIN_ENTRIES) {
       landingPageEntries.push({
         url: absoluteUrl("/jobs/remote"),
         lastModified: now,
@@ -182,14 +244,19 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       });
     }
 
-    for (const city of CITY_LANDING_PAGES) {
-      const { count } = await supabase
-        .from("job_postings")
-        .select("id", { count: "exact", head: true })
-        .eq("status", "open")
-        .or(city.locationPatterns.map((p) => `location.ilike.${p}`).join(","))
-        .gte("posted_at", jobFreshnessFloor);
-      if ((count ?? 0) >= LANDING_PAGE_MIN_ENTRIES) {
+    for (const { country, count } of countryRemoteCounts) {
+      if (count >= LANDING_PAGE_MIN_ENTRIES) {
+        landingPageEntries.push({
+          url: absoluteUrl(`/jobs/remote/${COUNTRY_LANDING_SLUG[country]}`),
+          lastModified: now,
+          changeFrequency: "daily",
+          priority: 0.7,
+        });
+      }
+    }
+
+    for (const { city, count } of cityCounts) {
+      if (count >= LANDING_PAGE_MIN_ENTRIES) {
         landingPageEntries.push({
           url: absoluteUrl(`/jobs/in/${city.slug}`),
           lastModified: now,
@@ -199,13 +266,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       }
     }
 
-    const { count: fullyFundedCount } = await supabase
-      .from("scholarships")
-      .select("id", { count: "exact", head: true })
-      .eq("moderation_status", "verified")
-      .eq("funding_type", "full")
-      .or(stillOpen);
-    if ((fullyFundedCount ?? 0) >= LANDING_PAGE_MIN_ENTRIES) {
+    if (fullyFundedCount >= LANDING_PAGE_MIN_ENTRIES) {
       landingPageEntries.push({
         url: absoluteUrl("/scholarships/fully-funded"),
         lastModified: now,
@@ -214,14 +275,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       });
     }
 
-    for (const level of Constants.public.Enums.scholarship_degree_level) {
-      const { count } = await supabase
-        .from("scholarships")
-        .select("id", { count: "exact", head: true })
-        .eq("moderation_status", "verified")
-        .contains("degree_levels", [level])
-        .or(stillOpen);
-      if ((count ?? 0) >= LANDING_PAGE_MIN_ENTRIES) {
+    for (const { level, count } of degreeLevelCounts) {
+      if (count >= LANDING_PAGE_MIN_ENTRIES) {
         landingPageEntries.push({
           url: absoluteUrl(`/scholarships/degree/${DEGREE_LEVEL_SLUG[level]}`),
           lastModified: now,

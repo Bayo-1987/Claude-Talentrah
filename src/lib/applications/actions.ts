@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { loadJobSnapshot } from "./job-snapshot";
+import { logCountryDefaultEvent, type CountryState } from "@/lib/jobs/country-events";
 
 async function getAuthedUserId() {
   const supabase = await createClient();
@@ -50,8 +51,16 @@ export async function toggleSaveAction(jobId: string) {
   revalidatePath("/jobs/[id]", "page");
 }
 
-/** Internal jobs: applies in-app using the user's base resume. */
-export async function applyInAppAction(jobId: string) {
+/**
+ * Internal jobs: applies in-app using the user's base resume.
+ *
+ * `countryState` is Stage 12 instrumentation only ("kept"/"cleared"/"none" —
+ * see src/lib/jobs/country-events.ts) — bound in from whichever page rendered
+ * the Apply button, the same way `jobId` already is. It never gates or
+ * changes what this action does; a logging failure inside it is swallowed by
+ * logCountryDefaultEvent itself and cannot fail the apply.
+ */
+export async function applyInAppAction(jobId: string, countryState: CountryState) {
   const { supabase, userId } = await getAuthedUserId();
 
   const { data: baseResume, error: baseResumeError } = await supabase
@@ -97,6 +106,8 @@ export async function applyInAppAction(jobId: string) {
     await supabase.from("applications").insert(payload);
   }
 
+  await logCountryDefaultEvent({ userId, eventType: "apply", countryState, jobPostingId: jobId });
+
   revalidatePath("/jobs");
   /*
    * The detail route as well. `revalidatePath("/jobs")` refreshes that exact
@@ -108,8 +119,11 @@ export async function applyInAppAction(jobId: string) {
   revalidatePath("/tracker");
 }
 
-/** External jobs: the actual application happens on the source site; this just logs it. */
-export async function markAppliedExternallyAction(jobId: string) {
+/**
+ * External jobs: the actual application happens on the source site; this
+ * just logs it. `countryState` — see applyInAppAction's own header.
+ */
+export async function markAppliedExternallyAction(jobId: string, countryState: CountryState) {
   const { supabase, userId } = await getAuthedUserId();
 
   const [{ data: existing }, snapshot] = await Promise.all([
@@ -136,6 +150,8 @@ export async function markAppliedExternallyAction(jobId: string) {
   } else {
     await supabase.from("applications").insert(payload);
   }
+
+  await logCountryDefaultEvent({ userId, eventType: "apply", countryState, jobPostingId: jobId });
 
   revalidatePath("/jobs");
   /*

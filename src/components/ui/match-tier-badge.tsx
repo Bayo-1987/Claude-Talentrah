@@ -2,6 +2,7 @@ import {
   MATCH_TIER_LABEL,
   MATCH_TIER_TEXT_CLASS,
   getMatchTier,
+  displayMatchScore,
 } from "@/lib/match-tier";
 import { cn } from "@/lib/cn";
 
@@ -23,12 +24,13 @@ export function MatchTierBadge({
   const tier = getMatchTier(score);
   const colorClass = MATCH_TIER_TEXT_CLASS[tier];
   const label = MATCH_TIER_LABEL[tier];
+  const displayScore = displayMatchScore(score);
 
   if (variant === "display") {
     return (
       <div className={cn("flex items-baseline gap-3", className)}>
         <span className="font-display text-[46px] leading-none text-ink">
-          {score}
+          {displayScore}
           <span className="text-[20px]">%</span>
         </span>
         <span
@@ -51,7 +53,7 @@ export function MatchTierBadge({
         className,
       )}
     >
-      {score}% · {label}
+      {displayScore}% · {label}
     </span>
   );
 }

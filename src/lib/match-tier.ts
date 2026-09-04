@@ -23,3 +23,16 @@ export function getMatchTier(score: number): MatchTier {
   if (score >= 70) return "good";
   return "fair";
 }
+
+/**
+ * Stage 12: two consecutive "100% · Excellent" cards on the same feed load
+ * (observed live) reads as the product overclaiming — a skill-overlap score
+ * cannot support the certainty "100%" implies. Display-only: this never
+ * touches the stored score, the tier boundaries above, Auto-Apply's
+ * threshold, or anything the scoring algorithm itself does (that's Stage 8).
+ * Only ever changes a value that was already >= 99 — every other score
+ * renders exactly as computed.
+ */
+export function displayMatchScore(score: number): number {
+  return Math.min(score, 99);
+}

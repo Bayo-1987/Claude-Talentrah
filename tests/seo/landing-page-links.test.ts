@@ -200,13 +200,21 @@ describe("liveJobLandingLinks and relevantJobLandingLinks — agreement with the
   });
 
   it("a remote job's relevant links include remote but not a city it isn't posted in", async () => {
-    const links = await relevantJobLandingLinks(anon, { work_type: "remote", location: "Remote" });
+    const links = await relevantJobLandingLinks(anon, {
+      work_type: "remote",
+      location: "Remote",
+      external_source: null,
+    });
     expect(links.some((l) => l.href === "/jobs/remote")).toBe(true);
     expect(links.some((l) => l.href === "/jobs/in/lagos")).toBe(false);
   });
 
   it("a Lagos on-site job's relevant links include Lagos but not remote", async () => {
-    const links = await relevantJobLandingLinks(anon, { work_type: "onsite", location: "Lagos, Nigeria" });
+    const links = await relevantJobLandingLinks(anon, {
+      work_type: "onsite",
+      location: "Lagos, Nigeria",
+      external_source: null,
+    });
     expect(links.some((l) => l.href === "/jobs/in/lagos")).toBe(true);
     expect(links.some((l) => l.href === "/jobs/remote")).toBe(false);
   });
