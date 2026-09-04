@@ -150,14 +150,21 @@ export async function runEligibilityCheckAction(
           : `Not enough credits — this needs ${cost}, you have ${balance}.`,
     };
   }
-  await logCreditGateEvent({
-    userId,
-    reason: "scholarship_eligibility_check",
-    creditsRequired: coverage.covered ? 0 : cost,
-    creditsAvailable: balance,
-    outcome: coverage.covered ? "covered_by_pass" : "proceeded",
-    relatedEntityId: scholarshipId,
-  });
+  // Pass-covered logging waits until after the LLM call below succeeds —
+  // see the matching comment in the covered branch further down. The
+  // non-covered "proceeded" case stays logged here: it isn't gated on a
+  // capped resource the way covered_by_pass is, since a failed LLM call
+  // still costs the user nothing (spendCredits only runs after success).
+  if (!coverage.covered) {
+    await logCreditGateEvent({
+      userId,
+      reason: "scholarship_eligibility_check",
+      creditsRequired: cost,
+      creditsAvailable: balance,
+      outcome: "proceeded",
+      relatedEntityId: scholarshipId,
+    });
+  }
 
   const [resume, { data: profile }] = await Promise.all([
     loadBaseResume(supabase, userId),
@@ -172,6 +179,17 @@ export async function runEligibilityCheckAction(
   }
 
   if (coverage.covered) {
+    // Logged only now: this event counts against the Pass's daily fair-use
+    // cap, and logging it before the LLM call above would have burned a cap
+    // slot on a check that never actually ran the moment that call fails.
+    await logCreditGateEvent({
+      userId,
+      reason: "scholarship_eligibility_check",
+      creditsRequired: 0,
+      creditsAvailable: balance,
+      outcome: "covered_by_pass",
+      relatedEntityId: scholarshipId,
+    });
     revalidatePath("/scholarships");
     return { result };
   }
@@ -234,14 +252,18 @@ export async function draftSopAction(
           : `Not enough credits — this needs ${cost}, you have ${balance}.`,
     };
   }
-  await logCreditGateEvent({
-    userId,
-    reason: "scholarship_sop_draft",
-    creditsRequired: coverage.covered ? 0 : cost,
-    creditsAvailable: balance,
-    outcome: coverage.covered ? "covered_by_pass" : "proceeded",
-    relatedEntityId: scholarshipId,
-  });
+  // Same reasoning as runEligibilityCheckAction above: pass-covered logging
+  // waits until after the LLM call succeeds.
+  if (!coverage.covered) {
+    await logCreditGateEvent({
+      userId,
+      reason: "scholarship_sop_draft",
+      creditsRequired: cost,
+      creditsAvailable: balance,
+      outcome: "proceeded",
+      relatedEntityId: scholarshipId,
+    });
+  }
 
   const resume = await loadBaseResume(supabase, userId);
 
@@ -256,6 +278,14 @@ export async function draftSopAction(
   }
 
   if (coverage.covered) {
+    await logCreditGateEvent({
+      userId,
+      reason: "scholarship_sop_draft",
+      creditsRequired: 0,
+      creditsAvailable: balance,
+      outcome: "covered_by_pass",
+      relatedEntityId: scholarshipId,
+    });
     revalidatePath("/scholarships");
     return { statement };
   }
