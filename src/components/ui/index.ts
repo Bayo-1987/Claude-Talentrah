@@ -9,3 +9,4 @@ export * from "./container";
 export * from "./text-field";
 export * from "./select-field";
 export * from "./farah-mark";
+export * from "./skeleton";

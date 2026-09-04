@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 
 /**
@@ -142,8 +143,29 @@ export interface ActivePassSummary {
  * row this returns when a user holds more than one active pass: the one
  * with the LATEST expires_at, because "how long am I covered for" means
  * the outer edge of coverage, not whichever row happens to sort first.
+ *
+ * ── WHY `cache()` HERE AND DELIBERATELY NOT ON THE GATES ────────────────
+ *
+ * Request-memoized (React `cache()`, keyed on userId), so several surfaces
+ * on one page — the masthead chip and anything else that wants to show
+ * coverage — share a single query instead of each paying their own round
+ * trip. Safe precisely BECAUSE this function is display-only: showing the
+ * same pass twice on one page is the correct answer, and the memo is
+ * discarded when the request ends, so nothing can go stale between page
+ * loads.
+ *
+ * `hasActivePass` and `checkPassCoverage` are NOT wrapped, and that is the
+ * decision rather than an oversight. They are entitlement GATES that decide
+ * whether an action is free, and `checkPassCoverage` counts actions inside
+ * a rolling window that its own callers move — memoizing it would mean a
+ * request performing two covered actions checked the cap once and got the
+ * pre-first-action count for the second. The rule this file already states
+ * about live-checking `expires_at` on every call is the same rule: a gate
+ * reads now, a display reads once.
  */
-export async function getActivePass(userId: string): Promise<ActivePassSummary | null> {
+export const getActivePass = cache(async function getActivePass(
+  userId: string,
+): Promise<ActivePassSummary | null> {
   const supabase = createServiceRoleClient();
   const { data, error } = await supabase
     .from("user_passes")
@@ -161,4 +183,4 @@ export async function getActivePass(userId: string): Promise<ActivePassSummary |
   const expiresAt = new Date(data.expires_at);
   const daysRemaining = Math.max(0, Math.ceil((expiresAt.getTime() - Date.now()) / (24 * 60 * 60 * 1000)));
   return { name: data.passes.name, expiresAt: data.expires_at, daysRemaining };
-}
+});

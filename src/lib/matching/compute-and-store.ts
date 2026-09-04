@@ -48,7 +48,28 @@ export async function computeAndStoreMatchScores(
   resume: StructuredResume,
   jobs: JobPosting[],
 ): Promise<ScoredJob[]> {
-  const scored = jobs.map((job) => {
+  const scored = scoreJobs(resume, jobs);
+  await persistMatchScores(userId, scored);
+  return scored;
+}
+
+/**
+ * The scoring itself — pure, synchronous, no database.
+ *
+ * SPLIT OUT BECAUSE THE FEED WAS WAITING ON A WRITE IT DOES NOT READ. This
+ * is the entire array `/jobs` renders, and it is complete before the upsert
+ * below has even been issued: the cards, their scores and their
+ * explanations all come from here. Awaiting the persistence before
+ * rendering therefore held the response open for a write whose result never
+ * reaches the page. `/jobs` now calls this directly and hands the
+ * persistence to `after()`.
+ *
+ * Named `scoreJobs`, not `computeMatchScores`, to keep it clearly distinct
+ * from `computeMatchScore` (singular) in ./score, which is the per-job
+ * primitive this loops over.
+ */
+export function scoreJobs(resume: StructuredResume, jobs: JobPosting[]): ScoredJob[] {
+  return jobs.map((job) => {
     const structuredJd = job.structured_jd as { skills?: string[] } | null;
     const result = computeMatchScore(
       resume,
@@ -62,21 +83,43 @@ export async function computeAndStoreMatchScores(
       explanation: result.explanation,
     };
   });
+}
 
-  if (scored.length > 0) {
-    const admin = createServiceRoleClient();
-    await admin.from("match_scores").upsert(
-      scored.map((s) => ({
-        user_id: userId,
-        job_posting_id: s.job.id,
-        score: s.score,
-        tier: s.tier,
-        explanation: JSON.parse(JSON.stringify(s.explanation)),
-        computed_at: new Date().toISOString(),
-      })),
-      { onConflict: "user_id,job_posting_id" },
-    );
+/**
+ * Writes the cache. The elevated half — see the note on
+ * `computeAndStoreMatchScores` above for why the write uses the service role
+ * while the read that produced these jobs used the caller's session.
+ *
+ * SAFE TO RUN AFTER THE RESPONSE, and the reason is worth being precise
+ * about, because "it's only a cache" is not on its own a good enough
+ * argument when Auto-Apply gates on this table. Two things make it hold:
+ * the scores written here are computed by this server from a resume and a
+ * posting, so nothing a client said can reach them; and the one consumer
+ * that must see them fresh — `scanAndQueue` — is sequenced after this call
+ * inside the same `after()` callback rather than racing it. What a deferred
+ * write does change is that a reader of `match_scores` DURING the same
+ * request sees the previous visit's values; `/jobs` documents the two
+ * places that applies (the promoted-slot join and the pending-queue count).
+ *
+ * Errors are logged, not thrown. In `after()` there is no response left to
+ * fail, and an unhandled rejection there would be a crash report for a
+ * cache miss.
+ */
+export async function persistMatchScores(userId: string, scored: ScoredJob[]): Promise<void> {
+  if (scored.length === 0) return;
+  const admin = createServiceRoleClient();
+  const { error } = await admin.from("match_scores").upsert(
+    scored.map((s) => ({
+      user_id: userId,
+      job_posting_id: s.job.id,
+      score: s.score,
+      tier: s.tier,
+      explanation: JSON.parse(JSON.stringify(s.explanation)),
+      computed_at: new Date().toISOString(),
+    })),
+    { onConflict: "user_id,job_posting_id" },
+  );
+  if (error) {
+    console.error(`[matching] could not persist ${scored.length} score(s) for ${userId}: ${error.message}`);
   }
-
-  return scored;
 }

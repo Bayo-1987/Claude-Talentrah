@@ -14,7 +14,15 @@ export interface FarahMessage {
 
 export interface FarahPanelProps {
   firstName: string;
-  initialMessages: FarahMessage[];
+  /**
+   * Optional, and normally omitted.
+   *
+   * The panel loads its own history now (see the effect below), so the app
+   * shell no longer passes anything here. The prop survives for tests and
+   * for any caller that genuinely has the messages in hand already and would
+   * rather not have the panel re-fetch them.
+   */
+  initialMessages?: FarahMessage[];
 }
 
 /**
@@ -33,12 +41,60 @@ export interface FarahPanelProps {
  * differentiation, on purpose, rather than chat-bubble styling.
  */
 export function FarahPanel({ firstName, initialMessages }: FarahPanelProps) {
-  const [messages, setMessages] = useState<FarahMessage[]>(initialMessages);
+  const [messages, setMessages] = useState<FarahMessage[]>(initialMessages ?? []);
   const [input, setInput] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const localIdCounter = useRef(0);
+
+  /*
+   * ── HISTORY IS LOADED HERE, NOT BY THE SERVER ─────────────────────────
+   *
+   * (app)/layout.tsx used to read `farah_messages` and hand the result down
+   * as `initialMessages`. That layout wraps every signed-in page, so the
+   * query — and the extra Supabase client built to run it — sat on the
+   * critical path of the feed, the tracker and billing alike, delaying the
+   * document for a conversation most readers never open. Production has 43
+   * messages across 40 accounts: overwhelmingly it fetched nothing, slowly.
+   *
+   * Fetching it here instead means the page paints first and the history
+   * arrives after, which is the correct priority for a side panel.
+   *
+   * THE VISIBLE CONSEQUENCE, stated rather than glossed: a reader who DOES
+   * have history sees the greeting for the moment before it loads. That is
+   * the honest cost, and it is paid by the few rather than by everyone.
+   *
+   * `ignore` guards the unmount race — React 18 StrictMode mounts effects
+   * twice in development, and without it the second response can land after
+   * the component is gone or clobber messages sent in between.
+   *
+   * Skipped entirely when a caller supplied messages, so passing them stays
+   * a real override rather than a hint the panel then ignores.
+   */
+  useEffect(() => {
+    if (initialMessages) return;
+    let ignore = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/farah/history");
+        if (!res.ok) return;
+        const data = await res.json();
+        if (ignore || !Array.isArray(data.messages) || data.messages.length === 0) return;
+        // Prepend, never replace: a message sent while this was in flight is
+        // newer than anything the server just returned, and dropping it would
+        // make Farah appear to forget what she was told a second ago.
+        setMessages((prev) => [...(data.messages as FarahMessage[]), ...prev]);
+      } catch {
+        // Silent: history is an enhancement. The panel is fully usable
+        // without it, and an error banner over a side column for something
+        // the reader never asked for would be noise.
+      }
+    })();
+    return () => {
+      ignore = true;
+    };
+  }, [initialMessages]);
 
   useEffect(() => {
     const el = scrollRef.current;
