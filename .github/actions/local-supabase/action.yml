@@ -1,0 +1,62 @@
+name: Start local Supabase
+description: >
+  Spins up an ephemeral, per-job Supabase stack via the CLI (Docker, already
+  present on ubuntu-latest), applies every migration in supabase/migrations/
+  from 0000_baseline_schema.sql forward, and exports the resulting connection
+  details under the env var names the app and test suites already expect
+  (NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  SUPABASE_SERVICE_ROLE_KEY, SUPABASE_JWT_SECRET).
+#
+# STAGE 2 — replaces the single shared hosted Supabase project as CI's
+# database. That project (dozaffzgqkbarxtlclsj, "Talentrah CI") had caused
+# three separate incidents this repo's history documents: an egress blowout,
+# a catalog-reseed race between overlapping runs, and a cross-branch
+# migration collision (applying a migration directly to the shared project
+# makes it live for every branch's CI run immediately, regardless of whether
+# that branch's own code/tests have merged yet). A local, per-job stack has
+# no contention to have an incident about — each job gets its own database,
+# torn down with the runner. This is why the old `concurrency` group and
+# `.github/scripts/wait-for-ci-lock.sh` are no longer wired into ci.yml: the
+# resource they were serializing access to no longer exists as a shared
+# resource.
+#
+# This runs once PER JOB (checks and e2e each call it separately), not once
+# per workflow — GitHub Actions jobs are separate runners/containers, so
+# there is no way to share one Docker Compose stack across them, and there is
+# no need to: each job's database only has to survive that job.
+runs:
+  using: composite
+  steps:
+    - name: Install Supabase CLI
+      uses: supabase/setup-cli@v1
+      with:
+        version: latest
+
+    - name: Start local Supabase stack
+      shell: bash
+      run: supabase start
+
+    - name: Apply every migration from scratch
+      shell: bash
+      # `start` already applies pending migrations on a fresh stack (this
+      # runner has no cached Docker volume from a prior run, so every start
+      # here IS a fresh stack) — `db reset` is kept as an explicit, named
+      # verification that the migration set applied cleanly rather than
+      # trusting that implicitly, matching this repo's own "prove it, don't
+      # assume it" convention. It is not expected to do much real work on top
+      # of what `start` already did.
+      run: supabase db reset
+
+    - name: Export local Supabase connection details
+      shell: bash
+      run: |
+        set -euo pipefail
+        supabase status -o env > /tmp/supabase-status.env
+        # shellcheck disable=SC1091
+        source /tmp/supabase-status.env
+        {
+          echo "NEXT_PUBLIC_SUPABASE_URL=$API_URL"
+          echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$ANON_KEY"
+          echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY"
+          echo "SUPABASE_JWT_SECRET=$JWT_SECRET"
+        } >> "$GITHUB_ENV"
