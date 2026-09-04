@@ -23,6 +23,8 @@ import { extractStructuredJd } from "../src/lib/jobs/extract-jd";
 // renamed token -> identifier and the hand-written type below kept
 // compiling while every log line printed "greenhouse/undefined".
 import type { IngestSourceResult } from "../src/lib/jobs/ingest";
+import { RESUME_TEMPLATES, CREDIT_PACKS, PASSES } from "../src/lib/billing/catalog";
+import { refuseIfProduction } from "./refuse-production";
 
 const DEMO_EMAIL = "demo@talentrah.dev";
 /** The demo account's credit balance after every seed. Set, never topped up. */
@@ -64,67 +66,10 @@ if (!DEMO_PASSWORD) {
   );
 }
 
-// Mirrors the 7 templates already live in the "Talentrah" Supabase project
-// (industry_category/is_premium/unlock_cost_credits) — reproduced here so a
-// fresh project seeds the same real catalog rather than inventing a new one.
-/**
- * `slug` is the join key the component registry
- * (src/components/resume-builder/templates/index.ts) reads — NOT `name`, which
- * is editable catalog copy. Keep these in step with migration 0042's backfill;
- * a slug that exists here but has no registered component renders as
- * clean-professional and fails tests/resume-builder/template-registry.test.ts.
- */
-const RESUME_TEMPLATES: {
-  name: string;
-  slug: string;
-  industry_category: string;
-  is_premium: boolean;
-  unlock_cost_credits: number;
-}[] = [
-  { name: "Clean Professional", slug: "clean-professional", industry_category: "Business", is_premium: false, unlock_cost_credits: 0 },
-  { name: "Structured Admin", slug: "structured-admin", industry_category: "Administration", is_premium: false, unlock_cost_credits: 0 },
-  { name: "Product & Tech", slug: "product-tech", industry_category: "Technology", is_premium: false, unlock_cost_credits: 0 },
-  { name: "Portfolio Grid", slug: "portfolio-grid", industry_category: "Design", is_premium: true, unlock_cost_credits: 10 },
-  { name: "Field Notes", slug: "field-notes", industry_category: "Customer Success", is_premium: false, unlock_cost_credits: 0 },
-  { name: "Ledger", slug: "ledger", industry_category: "Banking & Finance", is_premium: false, unlock_cost_credits: 0 },
-  { name: "Pipeline", slug: "pipeline", industry_category: "Sales & Marketing", is_premium: true, unlock_cost_credits: 10 },
-  // Phase 2 — the full-library additions. Categories taken from Resume-Now's
-  // and Enhancv's real taxonomies and deduped against the seven above.
-  { name: "Clinical", slug: "clinical", industry_category: "Healthcare", is_premium: false, unlock_cost_credits: 0 },
-  { name: "Statute", slug: "statute", industry_category: "Legal", is_premium: true, unlock_cost_credits: 10 },
-  { name: "Critical Path", slug: "critical-path", industry_category: "Project Management", is_premium: true, unlock_cost_credits: 10 },
-  { name: "Public Record", slug: "public-record", industry_category: "Government & Public Sector", is_premium: true, unlock_cost_credits: 10 },
-];
-
-/*
- * The paid catalogs. Prices are build-prompt §6.9's researched anchors —
- * credit ≈ ₦150, packs ₦2,500/₦6,000/₦12,500, passes ₦2,000 (7-day) and
- * ₦6,500 (30-day) — and per CLAUDE.md they are anchors, NOT validated prices.
- * Changing them here changes what checkout charges, so treat this as pricing
- * config, not fixture data.
- *
- * These existed in production only because an uncommitted migration
- * (0001–0025) inserted them once. Every other catalog the seed owns survived
- * the move to a fresh Supabase project; these two did not, because nothing
- * could recreate them — which is the bug this list closes.
- */
-/*
- * Founder repricing, 2026-09-03 (see src/lib/credits/costs.ts's header for
- * the anchor this ladder is built from). Popular and Power are gone from
- * this list on purpose, not just left off a future edit — they're retired
- * by migration 0089 (deactivated, never deleted), and re-adding them here
- * would fight that migration on every seed run.
- */
-const CREDIT_PACKS: { name: string; credits: number; price_ngn: number }[] = [
-  { name: "Starter", credits: 20, price_ngn: 2500 },
-  { name: "Plus", credits: 45, price_ngn: 5000 },
-];
-
-const PASSES: { name: string; duration_days: number; price_ngn: number }[] = [
-  { name: "7-Day Sprint Pass", duration_days: 7, price_ngn: 4000 },
-  { name: "30-Day Pass", duration_days: 30, price_ngn: 6500 },
-  { name: "90-Day Pass", duration_days: 90, price_ngn: 15000 },
-];
+// RESUME_TEMPLATES, CREDIT_PACKS and PASSES now live in
+// src/lib/billing/catalog.ts — imported above, alongside
+// scripts/seed-catalog.ts, so the two seed sources can no longer restate
+// (and silently drift from) the same numbers.
 
 const INTERNAL_JOBS = [
   {
@@ -206,6 +151,7 @@ async function main() {
       "NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set in .env.local",
     );
   }
+  refuseIfProduction("seed", url);
 
 /**
  * Find an auth user by email, across ALL pages.
