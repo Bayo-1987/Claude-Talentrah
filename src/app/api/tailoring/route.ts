@@ -164,6 +164,11 @@ export async function POST(request: Request) {
 
   const totalCreditsSpent = tailoringAllowance.creditsSpent + (coverLetterAllowance?.creditsSpent ?? 0);
   const isFreeTrial = tailoringAllowance.isFreeTrial || (coverLetterAllowance?.isFreeTrial ?? false);
+  // Both legs are covered by the SAME pass-and-cap check within one request,
+  // so they can only ever agree — but this reads as "was this run free
+  // because of the Pass" rather than assuming that from creditsSpent === 0,
+  // which is also true (and means something different) for the free trial.
+  const isPassCovered = tailoringAllowance.isPassCovered || (coverLetterAllowance?.isPassCovered ?? false);
 
   // Service role (migration 0031): this row is the server's record of what it
   // just did and charged for. `authenticated` no longer holds INSERT on the
@@ -202,6 +207,7 @@ export async function POST(request: Request) {
     coverLetterResumeId,
     result,
     isFreeTrial,
+    isPassCovered,
     creditsSpent: totalCreditsSpent,
     courseRecommendations,
   });

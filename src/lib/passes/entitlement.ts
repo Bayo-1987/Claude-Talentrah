@@ -124,3 +124,41 @@ export async function checkPassCoverage(userId: string): Promise<PassCoverageRes
  */
 export const DAILY_CAP_MESSAGE =
   "You've reached today's fair-use limit for Pass-covered actions — it resets within 24 hours, and your Pass is still active. This one needs credits.";
+
+export interface ActivePassSummary {
+  name: string;
+  expiresAt: string;
+  daysRemaining: number;
+}
+
+/**
+ * For UI surfaces that need to SHOW pass identity/expiry — the masthead
+ * chip, primarily — as opposed to hasActivePass()/checkPassCoverage(),
+ * which only ever answer "is an action covered right now". Never used for
+ * an entitlement decision: a display surface should reflect the same
+ * status the gate would compute, not a second, independently-derived one.
+ *
+ * Same EXISTS-not-single-row reasoning as hasActivePass applies to WHICH
+ * row this returns when a user holds more than one active pass: the one
+ * with the LATEST expires_at, because "how long am I covered for" means
+ * the outer edge of coverage, not whichever row happens to sort first.
+ */
+export async function getActivePass(userId: string): Promise<ActivePassSummary | null> {
+  const supabase = createServiceRoleClient();
+  const { data, error } = await supabase
+    .from("user_passes")
+    .select("expires_at, passes(name)")
+    .eq("user_id", userId)
+    .eq("status", "active")
+    .gt("expires_at", new Date().toISOString())
+    .order("expires_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error || !data || !data.passes) {
+    if (error) console.error(`[pass-entitlement] could not load active pass for ${userId}: ${error.message}`);
+    return null;
+  }
+  const expiresAt = new Date(data.expires_at);
+  const daysRemaining = Math.max(0, Math.ceil((expiresAt.getTime() - Date.now()) / (24 * 60 * 60 * 1000)));
+  return { name: data.passes.name, expiresAt: data.expires_at, daysRemaining };
+}

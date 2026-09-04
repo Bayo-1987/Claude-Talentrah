@@ -84,7 +84,9 @@ export default async function AutoApplyPage() {
           <span className="font-semibold text-ink">{quota.freeRemaining}</span> of{" "}
           {AUTO_APPLY_FREE_PER_WEEK} free this week
           {quota.nextSubmissionCostsCredits
-            ? ` · next one costs ${CREDIT_COSTS.autoApplySubmission} credits`
+            ? quota.nextSubmissionCovered
+              ? " · next one is included with your Pass"
+              : ` · next one costs ${CREDIT_COSTS.autoApplySubmission} credits`
             : ""}
         </p>
       </BorderedCard>

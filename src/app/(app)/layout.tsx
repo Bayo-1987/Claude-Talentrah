@@ -6,6 +6,7 @@ import { FarahPanel } from "@/components/app-shell/farah-panel";
 import { FarahMobileTab } from "@/components/app-shell/farah-mobile-tab";
 import { FarahFirstVisitHint } from "@/components/app-shell/farah-first-visit-hint";
 import { visibleName, fullVisibleName, nameInitials } from "@/lib/profile/name";
+import { getActivePass } from "@/lib/passes/entitlement";
 
 const INITIAL_HISTORY_LIMIT = 20;
 
@@ -72,12 +73,15 @@ export default async function AppLayout({
   const displayName = fullVisibleName(profile.first_name, profile.last_name);
 
   const supabase = await createClient();
-  const { data: historyRows } = await supabase
-    .from("farah_messages")
-    .select("id, role, content, created_at")
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: false })
-    .limit(INITIAL_HISTORY_LIMIT);
+  const [{ data: historyRows }, activePass] = await Promise.all([
+    supabase
+      .from("farah_messages")
+      .select("id, role, content, created_at")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(INITIAL_HISTORY_LIMIT),
+    getActivePass(user.id),
+  ]);
   const initialMessages = [...(historyRows ?? [])].reverse();
 
   return (
@@ -107,6 +111,7 @@ export default async function AppLayout({
       >
         <Masthead
           creditsBalance={profile.credits_balance}
+          activePass={activePass}
           initials={initials}
           email={profile.email}
           displayName={displayName}

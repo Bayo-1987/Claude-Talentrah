@@ -144,6 +144,15 @@ export default async function BillingPage({
   const paystackConfigured = !!process.env.PAYSTACK_SECRET_KEY;
 
   /*
+   * Leads the page when true: an active-Pass holder's first impression here
+   * must be the Pass, not a possibly-zero credit balance that reads like
+   * their purchase did nothing. `activePasses` is already ordered by
+   * expires_at desc (furthest-out coverage first), matching the same choice
+   * getActivePass makes for the masthead.
+   */
+  const leadingPass = (activePasses ?? [])[0] ?? null;
+
+  /*
    * The purchase this confirmation is about: the newest successful row, which
    * the receipts query above already ordered that way. No extra round trip and
    * no reference in the URL to look one up with.
@@ -158,13 +167,16 @@ export default async function BillingPage({
   return (
     <div className="flex flex-col gap-10">
       <div>
-        <EyebrowLabel>Talentrah Credits</EyebrowLabel>
+        <EyebrowLabel>{leadingPass ? "Your Pass" : "Talentrah Credits"}</EyebrowLabel>
         <h1 className="mt-2 font-display text-[28px]">
-          Your balance: {profile.credits_balance} credits
+          {leadingPass
+            ? `${leadingPass.passes?.name ?? "Your Pass"} is active`
+            : `Your balance: ${profile.credits_balance} credits`}
         </h1>
         <p className="mt-1 text-[14.5px] text-ink-soft">
-          Credits cover AI tailoring runs, cover letters, and premium templates
-          beyond your free trial.
+          {leadingPass
+            ? `Tailoring, cover letters, bullet rewrites, Auto-Apply beyond your free weekly runs, and scholarship checks are covered at zero credit cost. You also have ${profile.credits_balance} credits for template unlocks and Talent Directory verification, which stay credit-only.`
+            : "Credits cover AI tailoring runs, cover letters, and premium templates beyond your free trial."}
         </p>
         {/*
           THE CONFIRMATION, rendered here rather than on the callback page.
