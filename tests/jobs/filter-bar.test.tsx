@@ -221,8 +221,8 @@ describe("the browse rows stay outside the instrument", () => {
   const inner = mergedControl(html);
 
   it("keeps the twelve-option skill facet out of the container", () => {
-    expect(html).toContain("Mentioned in the job text:");
-    expect(inner).not.toContain("Mentioned in the job text:");
+    expect(html).toContain("Skills:");
+    expect(inner).not.toContain("Skills:");
   });
 
   it("keeps the work-type and seniority pickers out of the container", () => {
@@ -259,13 +259,33 @@ describe("browse rows are hit targets too", () => {
   it.each([
     ["Work type:", 3],
     ["Seniority:", 5],
-    ["Mentioned in the job text:", 2],
   ])("%s links carry both dimensions", (label, expected) => {
     const links = rowLinks(label);
     expect(links.length).toBe(expected);
     for (const link of links) {
       expect(link).toContain("min-h-10");
       expect(link).toContain("min-w-10");
+    }
+  });
+
+  it("the Skills disclosure trigger and its chips all carry both dimensions", () => {
+    // Structurally different from the rows above (details/summary, not a
+    // flat label+links div — Stage 8a moved it behind a disclosure), so it
+    // needs its own extraction rather than reusing rowLinks.
+    const detailsStart = html.indexOf("<details");
+    const detailsEnd = html.indexOf("</details>", detailsStart) + "</details>".length;
+    const details = html.slice(detailsStart, detailsEnd);
+    expect(details).not.toBe("");
+
+    const summary = details.match(/<summary[^>]*>/)?.[0] ?? "";
+    expect(summary).toContain("min-h-10");
+    expect(summary).toContain("min-w-10");
+
+    const chips = details.match(/<a [^>]*>/g) ?? [];
+    expect(chips.length).toBeGreaterThan(0);
+    for (const chip of chips) {
+      expect(chip).toContain("min-h-10");
+      expect(chip).toContain("min-w-10");
     }
   });
 });

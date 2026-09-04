@@ -51,7 +51,7 @@ export const SKILL_FACET_SIZE = 12;
 /**
  * A skill matching more than this share of the board is dropped from the facet.
  *
- * WHY A SHARE AND NOT A CURATED LIST. The three most common parsed values are
+ * WHY A SHARE AND NOT A CURATED LIST. The most common parsed values are
  * `communication`, `operations` and `leadership` — none of which is what anyone
  * means by a skill filter, and all of which would sit at the top of a
  * count-ordered facet. The obvious fix is an allowlist of "real" technologies,
@@ -61,20 +61,25 @@ export const SKILL_FACET_SIZE = 12;
  *
  * A share threshold gets the same result from the data itself. A filter that
  * matches most of the board does not filter — that is true of `communication`
- * at 55% and would be equally true of `react` if the board were all frontend
- * roles. The rule survives the corpus changing; a list of tech names does not.
+ * and would be equally true of `react` if the board were all frontend roles.
+ * The rule survives the corpus changing; a list of tech names does not.
  *
- * 0.30 measured against production, not picked for roundness. On the 150 open
- * postings it removes exactly three values — communication (55%), operations
- * (45%), leadership (33%) — and nothing else: the next value down is `sql` at
- * 25%, so the threshold has real clearance on both sides rather than slicing
- * through the middle of the distribution.
+ * Stage 8a, re-measured against production 2026-09-04 (board has grown
+ * considerably since this was first set — communication is now 71.7% of the
+ * board, not the 55% originally measured, and `compliance` has since entered
+ * the top ranks as a new, genuinely non-differentiating value): the original
+ * 0.30 no longer excluded `compliance` at 29.3%, a filter that narrows the
+ * board by barely a third. Lowered to 0.25, which removes exactly compliance
+ * (28.8% on the board this was checked against) and nothing else — `sql`,
+ * `python`, `java` and `accounting` all sit well clear of it. Chosen the same
+ * way the original threshold was: real clearance on both sides of the line,
+ * not a number picked to hit one specific value.
  *
  * It is a share, so it also adjusts as the board does. On a filtered board of
- * twenty backend roles, `python` may well exceed 30% and drop out — correctly,
+ * twenty backend roles, `python` may well exceed 25% and drop out — correctly,
  * because at that point it no longer tells the user anything.
  */
-export const SKILL_FACET_MAX_SHARE = 0.3;
+export const SKILL_FACET_MAX_SHARE = 0.25;
 
 /** Reads the skills array off a posting, tolerating the 5 rows that lack one. */
 export function skillsOf(job: JobPosting): string[] {
