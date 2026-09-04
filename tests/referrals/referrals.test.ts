@@ -14,6 +14,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
 import type { Database } from "@/lib/supabase/types";
 import { listUsersWithPrefix, RUN_TAG } from "../support/list-users";
+import { REFERRAL_SIGNUP_BONUS_CREDITS, REFERRAL_ACTIVATION_BONUS_CREDITS } from "@/lib/referrals/rewards";
 
 for (const key of [
   "NEXT_PUBLIC_SUPABASE_URL",
@@ -156,6 +157,66 @@ afterAll(async () => {
 }, 60_000);
 
 /* ========================================================================== *
+ * §-1 — the repricing connection (0092)
+ * ========================================================================== */
+
+describe("referral reward amounts stay connected to CREDIT_COSTS (0092)", () => {
+  /**
+   * THE IMPORTANT ONE. 0089's pricing rebase moved CREDIT_COSTS.tailoringRun
+   * 5 -> 20 and rebased every other action price with it, but the two
+   * referral rewards are granted from inside Postgres triggers with no
+   * TypeScript call site — see 0092's migration comment and
+   * src/lib/referrals/rewards.ts for the full story — so nothing caught that
+   * the programme silently lost 75% of its value. This test is the fix for
+   * THAT class of bug: it reads the REAL amount the live triggers grant and
+   * compares it against the value computed from CREDIT_COSTS.tailoringRun,
+   * not a bare literal. A future repricing that bumps tailoringRun without
+   * also updating migration 0092's hardcoded amounts changes what this test
+   * EXPECTS without changing what the database actually grants — and fails,
+   * on this exact line, rather than shipping silently.
+   */
+  it(
+    "SABOTAGE-PROOF TARGET: the activation bonus actually granted equals " +
+      "REFERRAL_ACTIVATION_BONUS_TAILORING_RUNS * CREDIT_COSTS.tailoringRun, not a restated number",
+    async () => {
+      const referrer = await makeUser(gmail("reprice-r"));
+      const code = await referralCodeOf(referrer);
+      const referred = await makeUser(gmail("reprice-b"), { referred_by_code: code });
+
+      await admin.from("resumes").insert({
+        user_id: referred,
+        title: "Base",
+        is_base: true,
+        source: "uploaded",
+        structured_content: {},
+      });
+      await new Promise((r) => setTimeout(r, 1200));
+
+      const activationRows = (await ledgerFor(referrer)).filter(
+        (l) => l.reason === "referral_activation_bonus",
+      );
+      expect(activationRows, "the activation bonus was never granted").toHaveLength(1);
+      expect(activationRows[0].delta).toBe(REFERRAL_ACTIVATION_BONUS_CREDITS);
+    },
+  );
+
+  it(
+    "SABOTAGE-PROOF TARGET: the signup bonus actually granted equals REFERRAL_SIGNUP_BONUS_CREDITS",
+    async () => {
+      const referrer = await makeUser(gmail("reprice-signup-r"));
+      const code = await referralCodeOf(referrer);
+      await makeUser(gmail("reprice-signup-b"), { referred_by_code: code });
+
+      const signupRows = (await ledgerFor(referrer)).filter(
+        (l) => l.reason === "referral_signup_bonus",
+      );
+      expect(signupRows, "the signup bonus was never granted").toHaveLength(1);
+      expect(signupRows[0].delta).toBe(REFERRAL_SIGNUP_BONUS_CREDITS);
+    },
+  );
+});
+
+/* ========================================================================== *
  * §0 — self-referral detection
  * ========================================================================== */
 
@@ -268,7 +329,7 @@ describe("self-referral is blocked end to end", () => {
     const result = await attemptReferral(gmail("real-a"), gmail("real-b"));
     expect(result.row?.status, "a legitimate referral must be recorded").toBe("signed_up");
     expect(result.paid, "a legitimate referral must be paid its signup bonus").toBe(true);
-    expect(result.balance).toBe(5);
+    expect(result.balance).toBe(REFERRAL_SIGNUP_BONUS_CREDITS);
   });
 
   it("POSITIVE CONTROL: dotted addresses at a company domain still refer each other", async () => {
@@ -297,7 +358,7 @@ describe("the 10-per-30-days reward cap", () => {
   async function seedRewardedReferrals(referrerId: string, n: number, daysAgo = 0) {
     const rows = Array.from({ length: n }, () => ({
       user_id: referrerId,
-      delta: 5,
+      delta: REFERRAL_SIGNUP_BONUS_CREDITS,
       reason: "referral_signup_bonus" as const,
       related_entity_id: randomUUID(),
       balance_after: 0,
@@ -358,9 +419,9 @@ describe("the 10-per-30-days reward cap", () => {
      * status is no longer 'signed_up'.
      *
      * CORRECTION TO THE ORIGINAL BRIEF, measured here: the row does not show a
-     * reward of 0. It shows 5 — the signup bonus, which was paid before the
-     * window filled — and is simply missing the 20 it should have gained on
-     * activation. That is arguably worse than a visible zero: the referral
+     * reward of 0. It shows the signup bonus, which was paid before the
+     * window filled — and is simply missing the activation bonus it should
+     * have gained. That is arguably worse than a visible zero: the referral
      * looks partly paid, so nothing about the row suggests anything was
      * withheld. The founder-facing question is unchanged and is written up in
      * docs/referrals-open-questions.md.
@@ -393,7 +454,7 @@ describe("the 10-per-30-days reward cap", () => {
     expect(
       row?.reward_credits_referrer,
       "the row keeps its signup bonus and silently lacks the activation bonus",
-    ).toBe(5);
+    ).toBe(REFERRAL_SIGNUP_BONUS_CREDITS);
   });
 
   it("excludes the referral being rewarded from its own cap count", async () => {
@@ -584,7 +645,9 @@ describe("a referrer cannot inflate their own rewards", () => {
       .eq("id", row!.id);
 
     const after = await referralRowFor(referred);
-    expect(after?.reward_credits_referrer, "MONEY: a referrer inflated their own reward").toBe(5);
+    expect(after?.reward_credits_referrer, "MONEY: a referrer inflated their own reward").toBe(
+      REFERRAL_SIGNUP_BONUS_CREDITS,
+    );
     expect(after?.status, "a referrer marked their own referral activated").toBe("signed_up");
   });
 
@@ -620,7 +683,7 @@ describe("a referrer cannot inflate their own rewards", () => {
 describe("signup farming is bounded by the cap, not by friction", () => {
   it("rapid signups against one code stop paying at the cap", async () => {
     /*
-     * The signup bonus needs NO activation — 5 credits for any resolved,
+     * The signup bonus needs NO activation — credits for any resolved,
      * non-self code — and there is no signup rate limit, so the cap is the only
      * thing standing between a throwaway-address farm and unlimited credits.
      * Worth proving the cap actually holds under the pattern an attacker would
@@ -643,7 +706,7 @@ describe("signup farming is bounded by the cap, not by friction", () => {
     await admin.from("credit_ledger").insert(
       Array.from({ length: 8 }, () => ({
         user_id: referrer,
-        delta: 5,
+        delta: REFERRAL_SIGNUP_BONUS_CREDITS,
         reason: "referral_signup_bonus" as const,
         related_entity_id: randomUUID(),
         balance_after: 0,
@@ -748,12 +811,14 @@ describe("deleting a referred account", () => {
     const referrer = await makeUser(gmail("del-r"));
     const code = await referralCodeOf(referrer);
     const referred = await makeUser(gmail("del-b"), { referred_by_code: code });
-    expect(await balanceOf(referrer)).toBe(5);
+    expect(await balanceOf(referrer)).toBe(REFERRAL_SIGNUP_BONUS_CREDITS);
 
     await admin.auth.admin.deleteUser(referred);
     created = created.filter((id) => id !== referred);
 
-    expect(await balanceOf(referrer), "credits must not be clawed back").toBe(5);
+    expect(await balanceOf(referrer), "credits must not be clawed back").toBe(
+      REFERRAL_SIGNUP_BONUS_CREDITS,
+    );
     const { data: rows } = await admin
       .from("referrals")
       .select("id")

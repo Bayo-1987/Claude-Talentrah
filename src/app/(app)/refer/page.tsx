@@ -4,10 +4,13 @@ import { getReferralUrl } from "@/lib/referrals/url";
 import { EyebrowLabel, BorderedCard } from "@/components/ui";
 import { ShareButtons } from "@/components/referrals/share-buttons";
 import { logShareAction } from "@/lib/referrals/actions";
+import {
+  REFERRAL_SIGNUP_BONUS_CREDITS,
+  REFERRAL_ACTIVATION_BONUS_CREDITS,
+  REFERRAL_ACTIVATION_BONUS_TAILORING_RUNS,
+} from "@/lib/referrals/rewards";
 
 export const metadata = { title: "Refer a Friend — Talentrah" };
-
-const ACTIVATION_BONUS = 20;
 
 const STATUS_LABEL: Record<string, string> = {
   invited: "Invited",
@@ -40,7 +43,8 @@ export default async function ReferPage() {
   const signedUpCount = rows.filter((r) => r.status === "signed_up" || r.status === "activated").length;
   const activatedCount = rows.filter((r) => r.status === "activated").length;
   const creditsEarned = rows.reduce((sum, r) => sum + r.reward_credits_referrer, 0);
-  const creditsPending = rows.filter((r) => r.status === "signed_up").length * ACTIVATION_BONUS;
+  const creditsPending =
+    rows.filter((r) => r.status === "signed_up").length * REFERRAL_ACTIVATION_BONUS_CREDITS;
 
   const stats = [
     { label: "Shares sent", value: sharesCount ?? 0 },
@@ -53,11 +57,20 @@ export default async function ReferPage() {
     <div className="flex flex-col gap-8">
       <div>
         <EyebrowLabel>Refer & earn</EyebrowLabel>
-        <h1 className="mt-1.5 text-[26px]">Bring a friend, earn credits.</h1>
+        <h1 className="mt-1.5 text-[26px]">
+          Bring a friend, earn {REFERRAL_ACTIVATION_BONUS_TAILORING_RUNS} free CV tailorings.
+        </h1>
+        {/*
+          Leads with what the reward BUYS, not a credit count the reader has
+          to convert into meaning — and states the actual cap once. It used
+          to read "no cap on how many friends, up to 10 rewarded referrals
+          every 30 days", which contradicts itself inside one sentence.
+        */}
         <p className="mt-2 max-w-[560px] text-[14.5px] text-ink-soft">
-          You get {5} credits when a friend signs up with your link, and{" "}
-          {ACTIVATION_BONUS} more once they get set up on Talentrah — no cap on how many
-          friends, up to 10 rewarded referrals every 30 days.
+          When a friend signs up with your link, you get {REFERRAL_SIGNUP_BONUS_CREDITS} credits.
+          Once they get set up on Talentrah, you get {REFERRAL_ACTIVATION_BONUS_CREDITS} more —{" "}
+          {REFERRAL_ACTIVATION_BONUS_TAILORING_RUNS} free CV tailorings, the real reward. Up to 10
+          rewarded referrals every 30 days.
         </p>
       </div>
 

@@ -8,6 +8,15 @@ not to whoever next edits the code.
 
 Written 2026-08-25 alongside `tests/referrals/referrals.test.ts`.
 
+**Update, 2026-09-04:** the specific credit amounts below (`5`, `20`) are the
+values that were live when this was written and are now stale — 0092
+re-priced the signup bonus to 10 and the activation bonus to 40 (two CV
+tailorings) to correct a repricing gap the 0089 rebase left behind. See
+`src/lib/referrals/rewards.ts` for the current amounts and the reasoning.
+Left the numbers below unedited as the historical record the decisions here
+were actually made against; only the amounts changed, not the shape of any
+of the three open questions.
+
 ---
 
 ## 1. A capped-out reward is silent, and permanent
