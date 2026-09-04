@@ -1,3 +1,4 @@
+import { cache } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -39,9 +40,30 @@ import { EyebrowLabel, buttonClasses } from "@/components/ui";
  */
 export const dynamic = "force-dynamic";
 
-export async function generateMetadata() {
+/**
+ * ONE loader call per request, not two. Next.js runs generateMetadata and the
+ * default export in the SAME request and both need the same `total`, so
+ * before this each visit issued the count+page query pair twice. React's
+ * `cache()` is request-scoped memoization and nothing more — deliberately not
+ * `unstable_cache`, which persists ACROSS requests and would reintroduce
+ * exactly the staleness the force-dynamic contract above exists to rule out.
+ * Fresh on every request, once per request.
+ *
+ * The client is created INSIDE the helper rather than passed in because
+ * `cache()` memoizes on ARGUMENT IDENTITY, and `createClient()` returns a new
+ * object every call — a helper taking the client as a parameter would miss on
+ * every call and silently save nothing. loadRemoteJobs keeps its plain-client
+ * parameter (that is what lets tests/seo/landing-page-data.test.ts call it
+ * outside a request); the memoization boundary belongs here instead. The
+ * client is handed back so the related-links query can reuse it.
+ */
+const remoteJobsForRequest = cache(async () => {
   const supabase = await createClient();
-  const { total } = await loadRemoteJobs(supabase);
+  return { supabase, ...(await loadRemoteJobs(supabase)) };
+});
+
+export async function generateMetadata() {
+  const { total } = await remoteJobsForRequest();
   if (total < LANDING_PAGE_MIN_ENTRIES) return { title: "Remote Jobs — Talentrah" };
 
   const title = `Remote Jobs — ${total} Open Roles | Talentrah`;
@@ -50,8 +72,7 @@ export async function generateMetadata() {
 }
 
 export default async function RemoteJobsPage() {
-  const supabase = await createClient();
-  const { total, jobs } = await loadRemoteJobs(supabase);
+  const { supabase, total, jobs } = await remoteJobsForRequest();
   if (total < LANDING_PAGE_MIN_ENTRIES) notFound();
 
   const relatedLinks = await liveJobLandingLinks(supabase, "/jobs/remote");

@@ -1,6 +1,7 @@
+import { after } from "next/server";
 import { requireUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
-import { computeAndStoreMatchScores } from "@/lib/matching/compute-and-store";
+import { scoreJobs, persistMatchScores } from "@/lib/matching/compute-and-store";
 import { scanAndQueue } from "@/lib/auto-apply/queue";
 import { AutoApplyToggle } from "@/components/jobs/auto-apply-toggle";
 import { EMPTY_RESUME, type StructuredResume } from "@/lib/resume/types";
@@ -285,32 +286,45 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
     jobs.sort((a, b) => new Date(b.posted_at).getTime() - new Date(a.posted_at).getTime());
   }
 
-  const scored = await computeAndStoreMatchScores(supabase, user.id, resume, jobs);
+  /*
+   * SCORING IS SYNCHRONOUS AND THE PERSISTENCE IS NOT AWAITED — see the
+   * `after()` block below.
+   *
+   * `scoreJobs` is pure arithmetic over rows already in memory: it is the
+   * array this page renders, complete, with no database in it. The upsert
+   * that used to run in the same call wrote ~196 rows (production, 30-day
+   * window) that nothing on this page ever reads back. Awaiting it meant
+   * every feed view — including a filter chip click, which re-renders the
+   * whole page — held the response open for a write the reader was not
+   * waiting for.
+   */
+  const scored = scoreJobs(resume, jobs);
 
   /*
-   * THREE INDEPENDENT ROUND TRIPS, RUN TOGETHER.
+   * FOUR INDEPENDENT ROUND TRIPS, RUN TOGETHER.
    *
-   * Applicant counts, the Auto-Apply scan and the promoted-slot fetch all
-   * depend on `match_scores` having just been written, and on nothing else —
-   * including each other. They used to run one after another, so the page paid
-   * all three latencies in series for no reason beyond the order they were
-   * written in.
+   * Applicant counts, the two Auto-Apply reads and the promoted-slot fetch
+   * are independent of each other, so they go out at once rather than in the
+   * order they happened to be written in.
    *
-   * CHECKED FOR THE DEPENDENCY THAT WOULD MAKE THIS WRONG, because "the
-   * comments do not mention one" is not evidence. `scanAndQueue` writes
-   * exactly one table — an upsert into `auto_apply_queue`. It READS
-   * `applications`, `match_scores`, `job_postings` and `auto_apply_settings`
-   * and writes none of them. So it cannot move the applicant counts (which
-   * count `applications`) and it cannot move the promoted set (which joins
-   * `match_scores`). Nothing here observes another's side effect.
+   * THE SCAN IS NO LONGER ONE OF THEM. `scanAndQueue` used to run here, with
+   * the pending-queue count sequenced behind it so the count included
+   * anything this visit queued. Both the scan and the score-cache write it
+   * depends on now happen in `after()`, so the count below reports the state
+   * as of the PREVIOUS feed render. That is a real, visible change and it is
+   * called out on the `after()` block; it is not a detail that got lost.
    *
-   * The one ordering that IS real is preserved: the pending-queue count must
-   * run after the scan, or it reports the number from before this visit. That
-   * sequencing lives inside the inner async function, untouched.
+   * `promoted_jobs` joins `match_scores` and so reads the previous visit's
+   * scores for the same reason. Checked rather than assumed: the join is a
+   * filter (`score >= 60`) over jobs already on this page, so a stale score
+   * can only change WHICH of two eligible paid cards is promoted, and on a
+   * brand-new account with no scores yet it promotes nothing on the first
+   * render only. Impressions are deduped per user per campaign per day
+   * (`record_ad_event`), so nothing is over- or under-billed by the shift.
    */
   const internalIds = scored.filter((s) => s.job.source_type === "internal").map((s) => s.job.id);
 
-  const [, applicantCounts, [{ data: autoApplySettings }, pendingQueue], promoted] =
+  const [, applicantCounts, { data: autoApplySettings }, pendingQueue, promoted] =
     await Promise.all([
       // Stage 12 instrumentation — independent of everything else in this
       // Promise.all, and swallows its own failures (logCountryDefaultEvent),
@@ -345,42 +359,23 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
         );
       })(),
 
+      // Whether the toggle renders as on. Read here rather than taken from
+      // scanAndQueue's own copy of it, because the scan no longer runs on
+      // this path at all.
+      supabase.from("auto_apply_settings").select("enabled").eq("user_id", user.id).maybeSingle(),
+
       /*
-       * Auto-Apply scans AFTER scoring, on purpose: the scan reads
-       * `match_scores`, so running it first would queue against last visit's
-       * scores. It is also why this lives on the feed rather than a cron — the
-       * scores it depends on are recomputed here, and nowhere else.
+       * The pending review count, as of the last completed scan.
        *
-       * Failure is swallowed deliberately, and that still holds now the scan
-       * runs alongside its siblings rather than inside its own Promise.all:
-       * the try/catch is around the scan itself, so a rejection never reaches
-       * the outer Promise.all and cannot take the feed down. Moving the
-       * swallow outward — or dropping it on the assumption the wrapper catches
-       * it — would turn a queueing error into a blank job board.
+       * No longer sequenced behind `scanAndQueue` — it cannot be, now that
+       * the scan happens after the response. So it is a plain sibling here,
+       * which also means it stops adding its latency on top of the scan's.
        */
-      Promise.all([
-        supabase.from("auto_apply_settings").select("enabled").eq("user_id", user.id).maybeSingle(),
-        (async () => {
-          try {
-            await scanAndQueue(user.id);
-          } catch (err) {
-            /*
-             * Non-fatal — see above — but not silent. The applicant-count
-             * branch directly above logs its failure and this did not, so a
-             * scan that threw on every feed load looked exactly like a scan
-             * that found nothing to queue. That is the whole failure mode:
-             * Auto-Apply reports itself enabled, the review queue stays empty,
-             * and there is nothing anywhere to say why.
-             */
-            console.error("[jobs] auto-apply scan failed:", err);
-          }
-          return supabase
-            .from("auto_apply_queue")
-            .select("id", { count: "exact", head: true })
-            .eq("user_id", user.id)
-            .eq("status", "pending");
-        })(),
-      ]),
+      supabase
+        .from("auto_apply_queue")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", user.id)
+        .eq("status", "pending"),
 
       /*
        * Promoted slots — Recommended only (D4).
@@ -432,13 +427,14 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
    * excluded, which is precisely what D1 rules out.
    */
   let promotedIds: string[] = [];
+  let visiblePromoted: typeof promoted = null;
   if (promoted) {
     const scoredIds = new Set(scored.map((s) => s.job.id));
     // Only ones actually on the page. A promoted job absent from `scored` was
     // filtered out upstream, and billing an impression for a card that never
     // rendered is the one thing this must not do.
-    const visible = promoted.filter((p) => scoredIds.has(p.jobPostingId));
-    promotedIds = visible.map((p) => p.jobPostingId);
+    visiblePromoted = promoted.filter((p) => scoredIds.has(p.jobPostingId));
+    promotedIds = visiblePromoted.map((p) => p.jobPostingId);
 
     if (promotedIds.length > 0) {
       const rank = new Map(promotedIds.map((id, i) => [id, i]));
@@ -451,19 +447,74 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
         return 0; // everything else keeps the order it already had
       });
     }
-
-    // Fire-and-forget against the render, not the viewport (D3). Awaited so it
-    // cannot outlive the request, but never allowed to fail the page — the job
-    // board must not go down because an ad event did not record.
-    try {
-      await recordPromotedImpressions(user.id, visible);
-    } catch {
-      /* non-fatal — see recordPromotedImpressions */
-    }
   }
   const promotedSet = new Set(promotedIds);
   // Once per render, not once per card — every card shares the same origin.
   const origin = await getSiteOrigin();
+
+  /*
+   * ══ EVERYTHING THIS PAGE WRITES, AFTER THE RESPONSE IS SENT ═════════════
+   *
+   * `after()` (next/server) runs its callback once the response has been
+   * flushed, keeping the function alive to finish. All three writes below
+   * used to be awaited before render, and none of their results appear on
+   * the page: the reader was waiting on the database to record what they had
+   * already been shown.
+   *
+   * ── THE ORDER IS PRESERVED, AND IT IS THE POINT ───────────────────────
+   *
+   * `persistMatchScores` then `scanAndQueue`, sequentially, exactly as
+   * before. The scan applies Auto-Apply's threshold against `match_scores`
+   * IN THE DATABASE (`.gte("score", AUTO_APPLY_MIN_SCORE)` on a table no
+   * client can write, 0031) — that is the line making "conservative
+   * threshold" a fact rather than a setting, and it only means anything if
+   * the scores it reads are the ones this render just computed. Running the
+   * two concurrently, or dropping the await between them, would let the scan
+   * queue against the previous visit's scores. Deferring them TOGETHER
+   * changes when they run, not what they see.
+   *
+   * The impression recording is independent of both, so it goes in parallel
+   * with the pair rather than behind them.
+   *
+   * ── WHAT DEFERRING ACTUALLY COSTS ─────────────────────────────────────
+   *
+   * Two reads on THIS render now see the state as of the previous one: the
+   * pending-queue count above, and `promoted_jobs`' score join. Both are
+   * documented at their call sites. Nothing else in the codebase reads
+   * `match_scores` inside a request that also writes it — checked, not
+   * assumed: the other readers are `scanAndQueue` (sequenced here), the
+   * `promoted_jobs` RPC, and /jobs/[id], which scores its single posting
+   * itself.
+   *
+   * ── ERRORS ─────────────────────────────────────────────────────────────
+   *
+   * Each is caught. There is no response left to fail by this point, so an
+   * escaping rejection would be an unhandled crash report in place of a
+   * cache miss — but they are LOGGED, never silent. A scan that throws on
+   * every feed load must not look identical to a scan that found nothing to
+   * queue; that ambiguity is exactly what once hid Auto-Apply queueing
+   * nothing while reporting itself enabled.
+   */
+  after(async () => {
+    await Promise.all([
+      (async () => {
+        try {
+          await persistMatchScores(user.id, scored);
+          await scanAndQueue(user.id);
+        } catch (err) {
+          console.error("[jobs] deferred scoring/auto-apply scan failed:", err);
+        }
+      })(),
+      (async () => {
+        if (!visiblePromoted?.length) return;
+        try {
+          await recordPromotedImpressions(user.id, visiblePromoted);
+        } catch (err) {
+          console.error("[jobs] deferred impression recording failed:", err);
+        }
+      })(),
+    ]);
+  });
 
   return (
     <div className="flex flex-col gap-5">

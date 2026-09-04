@@ -1,3 +1,4 @@
+import { cache } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -25,10 +26,32 @@ import { EyebrowLabel, buttonClasses } from "@/components/ui";
  */
 export const dynamic = "force-dynamic";
 
+/**
+ * ONE loader call per request, not two. Next.js runs generateMetadata and the
+ * default export in the SAME request and both need the same result, so before
+ * this each visit issued the count+page query pair twice. React's `cache()`
+ * is request-scoped memoization and nothing more — deliberately not
+ * `unstable_cache`, which persists ACROSS requests and would reintroduce
+ * exactly the staleness the force-dynamic contract above exists to rule out.
+ * Fresh on every request, once per request.
+ *
+ * The client is created INSIDE the helper, and the only argument is the plain
+ * slug string, because `cache()` memoizes on ARGUMENT IDENTITY: passing the
+ * client in would miss on every call (createClient() returns a new object
+ * each time) and silently save nothing. loadCountryRemoteJobs keeps its
+ * plain-client parameter (that is what lets
+ * tests/seo/landing-page-data.test.ts call it outside a request); the
+ * memoization boundary belongs here instead. The client is handed back so the
+ * related-links query can reuse it.
+ */
+const countryRemoteJobsForRequest = cache(async (countrySlug: string) => {
+  const supabase = await createClient();
+  return { supabase, result: await loadCountryRemoteJobs(supabase, countrySlug) };
+});
+
 export async function generateMetadata({ params }: { params: Promise<{ country: string }> }) {
   const { country: countrySlug } = await params;
-  const supabase = await createClient();
-  const result = await loadCountryRemoteJobs(supabase, countrySlug);
+  const { result } = await countryRemoteJobsForRequest(countrySlug);
   if (!result || result.total < LANDING_PAGE_MIN_ENTRIES) return { title: "Remote Jobs — Talentrah" };
 
   const { country, total } = result;
@@ -43,8 +66,7 @@ export default async function CountryRemoteJobsPage({
   params: Promise<{ country: string }>;
 }) {
   const { country: countrySlug } = await params;
-  const supabase = await createClient();
-  const result = await loadCountryRemoteJobs(supabase, countrySlug);
+  const { supabase, result } = await countryRemoteJobsForRequest(countrySlug);
   if (!result || result.total < LANDING_PAGE_MIN_ENTRIES) notFound();
 
   const { country, total, jobs } = result;

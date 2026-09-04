@@ -1,14 +1,11 @@
 import { getOptionalUser } from "@/lib/auth/require-user";
 import { MarketingMasthead } from "@/components/marketing/marketing-masthead";
-import { createClient } from "@/lib/supabase/server";
 import { Masthead } from "@/components/app-shell/masthead";
 import { FarahPanel } from "@/components/app-shell/farah-panel";
 import { FarahMobileTab } from "@/components/app-shell/farah-mobile-tab";
 import { FarahFirstVisitHint } from "@/components/app-shell/farah-first-visit-hint";
 import { visibleName, fullVisibleName, nameInitials } from "@/lib/profile/name";
 import { getActivePass } from "@/lib/passes/entitlement";
-
-const INITIAL_HISTORY_LIMIT = 20;
 
 export default async function AppLayout({
   children,
@@ -59,7 +56,7 @@ export default async function AppLayout({
     );
   }
 
-  const { user, profile } = session;
+  const { profile } = session;
   /*
    * visibleName, not the raw column: neither of these trimmed at all before,
    * so a name of a single space — or a zero-width character, which .trim()
@@ -72,17 +69,26 @@ export default async function AppLayout({
   const initials = nameInitials(profile.first_name, profile.last_name);
   const displayName = fullVisibleName(profile.first_name, profile.last_name);
 
-  const supabase = await createClient();
-  const [{ data: historyRows }, activePass] = await Promise.all([
-    supabase
-      .from("farah_messages")
-      .select("id, role, content, created_at")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(INITIAL_HISTORY_LIMIT),
-    getActivePass(user.id),
-  ]);
-  const initialMessages = [...(historyRows ?? [])].reverse();
+  /*
+   * THE FARAH HISTORY READ IS GONE FROM HERE, and this is the one thing to
+   * know before adding another query to this file.
+   *
+   * This layout wraps every page in the signed-in app, so anything awaited
+   * here is awaited by the feed, the tracker, billing, settings and the rest
+   * — whether or not that page has any use for it. `farah_messages` was the
+   * clearest case: a second Supabase client, built solely to run one query,
+   * for a side panel most readers never speak to. Production holds 43 Farah
+   * messages across 40 accounts, so the overwhelming majority of page loads
+   * paid a round trip to be told there was nothing.
+   *
+   * FarahPanel fetches it itself now (/api/farah/history), after paint.
+   *
+   * `getActivePass` stays, because the masthead cannot render without it —
+   * the pass chip is chrome on this layout, not content on a page — and it
+   * is request-memoized, so a page that also needs pass state shares this
+   * one call rather than making a second.
+   */
+  const activePass = await getActivePass(session.user.id);
 
   return (
     <div className="min-h-screen">
@@ -167,10 +173,7 @@ export default async function AppLayout({
           same place as where her column begins.
         */}
         <div className="bg-paper-alt min-[760px]:border-l min-[760px]:border-l-line print:hidden">
-          <FarahPanel
-            firstName={visibleName(profile.first_name) || "there"}
-            initialMessages={initialMessages}
-          />
+          <FarahPanel firstName={visibleName(profile.first_name) || "there"} />
         </div>
       </div>
       {/*
