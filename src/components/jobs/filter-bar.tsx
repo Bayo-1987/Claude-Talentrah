@@ -330,27 +330,42 @@ export function FilterBar({
         </div>
       </div>
       {/*
+        Stage 8a: behind a disclosure, not a row at the top of the feed.
+        Search only covers title, company and location — this facet is the
+        only path to content-level discovery until Stage 8 ships full-text
+        search, so it stays (never deleted), but it no longer competes with
+        Work type/Seniority/Posted/Country for the first thing a reader sees.
+        A native <details>/<summary> rather than a client toggle, matching
+        this file's own JS-off philosophy (see the leading segment's own
+        comment): collapsed by default, no script required to open it.
+
         Skills parsed out of the postings themselves, not a category list
         anyone maintains — a value appears here because a job mentioned it.
-        Counts are shown because they are the honest part: the most common
-        values in this data are "communication" and "operations", matching
-        roughly half the board, and a chip that narrows almost nothing should
-        say so on its face rather than look like a precise filter.
+        Counts are shown because they are the honest part: a chip that
+        narrows almost nothing should say so on its face rather than look
+        like a precise filter. SKILL_FACET_MAX_SHARE (skill-facet.ts) already
+        drops anything matching more than a quarter of the board before this
+        ever renders, so what is left is the differentiating half of that
+        honesty, not the whole of it.
       */}
       {skillFacet.length > 0 && (
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[12.5px]">
-          <span className="font-semibold text-ink-soft">Mentioned in the job text:</span>
-          {skillFacet.map((entry) => (
-            <Link
-              key={entry.skill}
-              href={buildHref(base, { skill: skill === entry.skill ? undefined : entry.skill })}
-              className={browseLink(skill === entry.skill)}
-            >
-              {entry.skill}
-              <span className="ml-1 text-[11.5px] text-ink-soft">({entry.count})</span>
-            </Link>
-          ))}
-        </div>
+        <details className="text-[12.5px]">
+          <summary className="inline-flex min-h-10 min-w-10 cursor-pointer items-center font-semibold text-ink-soft hover:text-rust">
+            Skills:
+          </summary>
+          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+            {skillFacet.map((entry) => (
+              <Link
+                key={entry.skill}
+                href={buildHref(base, { skill: skill === entry.skill ? undefined : entry.skill })}
+                className={browseLink(skill === entry.skill)}
+              >
+                {entry.skill}
+                <span className="ml-1 text-[11.5px] text-ink-soft">({entry.count})</span>
+              </Link>
+            ))}
+          </div>
+        </details>
       )}
     </div>
   );
