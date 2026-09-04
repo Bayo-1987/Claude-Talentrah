@@ -130,9 +130,53 @@ async function fetchHtml(url: string): Promise<string> {
   return res.text();
 }
 
+/**
+ * Does this block name a real, physical place?
+ *
+ * ONE definition, shared by `mapWorkType` and `formatLocation`, because the
+ * two used to hold independent copies of it and that drift is the actual bug
+ * this function exists to prevent: `formatLocation` already asked "is there a
+ * usable address" (an `address` object AND at least one of
+ * locality/region/country actually populated) while `mapWorkType` never asked
+ * at all, so a posting could be rendered with a physical location and
+ * simultaneously labelled fully remote. Change the definition here and both
+ * callers move together; that is the whole point.
+ */
+function usableAddressParts(block: ValidJobPostingBlock): string[] {
+  const addr = block.jobLocation?.address;
+  if (!addr) return [];
+  return [addr.addressLocality, addr.addressRegion, addr.addressCountry].filter(
+    (part): part is string => Boolean(part),
+  );
+}
+
+function hasUsableAddress(block: ValidJobPostingBlock): boolean {
+  return usableAddressParts(block).length > 0;
+}
+
+/**
+ * schema.org has NO "hybrid" value — the vocabulary offers `jobLocationType:
+ * "TELECOMMUTE"` and nothing else — so hybrid has to be inferred, and the
+ * only honest signal for it is the one the source actually emits: Workable
+ * (the sole schema.org source this pipeline ingests) marks a hybrid role
+ * TELECOMMUTE *and* keeps a real physical `jobLocation.address`, where a
+ * fully-remote role carries the flag with no usable address.
+ *
+ * Verified against production before this changed: of 72 open schema-org
+ * postings stored as `remote`, exactly the 28 that kept a physical address
+ * were the 28 whose Workable `external_url` slug begins `hybrid-` — zero
+ * exceptions in either direction.
+ *
+ * DELIBERATELY NOT keyed on `applicantLocationRequirements`, the other
+ * remote-ish flag this schema exposes (see validateJobPosting above, which
+ * accepts either as proof a location-less posting is real). A posting
+ * carrying that flag AND a physical address is still hybrid: the address is
+ * the only signal that separates hybrid from remote, and a second rule here
+ * would just be a second thing to keep in sync.
+ */
 function mapWorkType(block: ValidJobPostingBlock): WorkType | undefined {
-  if (block.jobLocationType === "TELECOMMUTE") return "remote";
-  return undefined;
+  if (block.jobLocationType !== "TELECOMMUTE") return undefined;
+  return hasUsableAddress(block) ? "hybrid" : "remote";
 }
 
 function mapEmploymentType(raw: string | undefined): EmploymentType | undefined {
@@ -240,11 +284,13 @@ function mapBaseSalary(raw: unknown): ParsedSalary | undefined {
   return { min, max, currency, unit };
 }
 
+/** Shares `hasUsableAddress` with `mapWorkType` — see that function's header
+ * for why the test lives in one place rather than being re-derived here. */
 function formatLocation(block: ValidJobPostingBlock): string | undefined {
-  const addr = block.jobLocation?.address;
-  if (!addr) return block.jobLocationType === "TELECOMMUTE" ? "Remote" : undefined;
-  const parts = [addr.addressLocality, addr.addressRegion, addr.addressCountry].filter(Boolean);
-  if (parts.length === 0) return block.jobLocationType === "TELECOMMUTE" ? "Remote" : undefined;
+  const parts = usableAddressParts(block);
+  if (parts.length === 0) {
+    return block.jobLocationType === "TELECOMMUTE" ? "Remote" : undefined;
+  }
   return parts.join(", ");
 }
 

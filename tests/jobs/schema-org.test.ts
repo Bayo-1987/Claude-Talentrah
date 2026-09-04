@@ -412,4 +412,185 @@ describe("fetchSchemaOrgJobs", () => {
       expect(jobs[0].salaryCurrency).toBeUndefined();
     });
   });
+
+  /**
+   * workType — schema.org has no "hybrid" value, so hybrid is inferred from
+   * the one signal Workable actually emits: TELECOMMUTE *plus* a real
+   * physical address. Before this, every TELECOMMUTE posting was mapped to
+   * `remote` regardless, which is not merely a wrong badge — the feed filters
+   * on "country OR remote", so `remote` is a passport onto every country's
+   * board. Verified in production at the time of the fix: of 72 open
+   * schema-org postings stored as `remote`, exactly the 28 carrying a
+   * physical address were the 28 whose Workable slug begins `hybrid-`.
+   */
+  describe("workType — TELECOMMUTE plus a physical address means hybrid, not remote", () => {
+    const listingUrl = "https://jobs.workable.com/search/nigeria";
+
+    function posting(extra: Record<string, unknown>) {
+      return {
+        "@type": "JobPosting",
+        title: "Backend Engineer",
+        hiringOrganization: { "@type": "Organization", name: "Good Co" },
+        ...extra,
+      };
+    }
+
+    /** The real shape behind the Clickatell rows the production audit found:
+     * TELECOMMUTE kept alongside a fully populated Cape Town address. */
+    it("TELECOMMUTE + a real address → hybrid (and keeps the physical location string)", async () => {
+      mockRoutes({
+        [listingUrl]: htmlWithJsonLd(
+          posting({
+            jobLocationType: "TELECOMMUTE",
+            jobLocation: {
+              "@type": "Place",
+              address: {
+                "@type": "PostalAddress",
+                addressLocality: "Cape Town",
+                addressRegion: "Western Cape",
+                addressCountry: "South Africa",
+              },
+            },
+          }),
+        ),
+      });
+
+      const { jobs, skipped } = await fetchSchemaOrgJobs(listingUrl, "test-source");
+      expect(skipped).toEqual([]);
+      expect(jobs[0].workType).toBe("hybrid");
+      // The location and the work type now agree — the contradiction that
+      // made this a bug was a row reading "Remote" while naming a city.
+      expect(jobs[0].location).toBe("Cape Town, Western Cape, South Africa");
+    });
+
+    it("TELECOMMUTE + no jobLocation at all → remote", async () => {
+      mockRoutes({
+        [listingUrl]: htmlWithJsonLd(posting({ jobLocationType: "TELECOMMUTE" })),
+      });
+
+      const { jobs } = await fetchSchemaOrgJobs(listingUrl, "test-source");
+      expect(jobs[0].workType).toBe("remote");
+      expect(jobs[0].location).toBe("Remote");
+    });
+
+    /** Workable's real fully-remote shape (see the captured fixture at the
+     * top of this file): a `Place` node is present but carries no address,
+     * so "is there a jobLocation object" is NOT the usable test — the shared
+     * `usableAddressParts` helper is. */
+    it("TELECOMMUTE + an empty Place with no address → remote, not hybrid", async () => {
+      mockRoutes({
+        [listingUrl]: htmlWithJsonLd(
+          posting({ jobLocationType: "TELECOMMUTE", jobLocation: { "@type": "Place" } }),
+        ),
+      });
+
+      const { jobs } = await fetchSchemaOrgJobs(listingUrl, "test-source");
+      expect(jobs[0].workType).toBe("remote");
+    });
+
+    it("TELECOMMUTE + an address object whose every field is empty → remote", async () => {
+      mockRoutes({
+        [listingUrl]: htmlWithJsonLd(
+          posting({
+            jobLocationType: "TELECOMMUTE",
+            jobLocation: { "@type": "Place", address: { "@type": "PostalAddress" } },
+          }),
+        ),
+      });
+
+      const { jobs } = await fetchSchemaOrgJobs(listingUrl, "test-source");
+      expect(jobs[0].workType).toBe("remote");
+    });
+
+    it("a real address with NO TELECOMMUTE → undefined, unchanged behaviour", async () => {
+      mockRoutes({
+        [listingUrl]: htmlWithJsonLd(
+          posting({
+            jobLocation: {
+              "@type": "Place",
+              address: {
+                "@type": "PostalAddress",
+                addressLocality: "Lagos",
+                addressRegion: "Lagos",
+                addressCountry: "Nigeria",
+              },
+            },
+          }),
+        ),
+      });
+
+      const { jobs, skipped } = await fetchSchemaOrgJobs(listingUrl, "test-source");
+      expect(skipped).toEqual([]);
+      expect(
+        jobs[0].workType,
+        "an on-site posting states no work type — the source never said 'onsite', so nothing is guessed",
+      ).toBeUndefined();
+      expect(jobs[0].location).toBe("Lagos, Lagos, Nigeria");
+    });
+
+    /**
+     * THE TRAP THIS PINS. `applicantLocationRequirements` is the other
+     * remote-ish flag this schema exposes, and validateJobPosting accepts it
+     * as proof a location-less posting is real. It is deliberately NOT a
+     * third work-type rule: a posting carrying it AND a physical address is
+     * still hybrid. Keying on it would reintroduce exactly the bug being
+     * fixed, just through a different field.
+     */
+    it("TELECOMMUTE + address + applicantLocationRequirements → still hybrid", async () => {
+      mockRoutes({
+        [listingUrl]: htmlWithJsonLd(
+          posting({
+            jobLocationType: "TELECOMMUTE",
+            applicantLocationRequirements: { "@type": "Country", name: "Nigeria" },
+            jobLocation: {
+              "@type": "Place",
+              address: {
+                "@type": "PostalAddress",
+                addressLocality: "Lagos",
+                addressRegion: "Lagos",
+                addressCountry: "Nigeria",
+              },
+            },
+          }),
+        ),
+      });
+
+      const { jobs } = await fetchSchemaOrgJobs(listingUrl, "test-source");
+      expect(jobs[0].workType).toBe("hybrid");
+    });
+
+    /** The mirror of the case above, and the shape of the real captured
+     * fixture: the same flag with NO address still means remote. Together
+     * these two prove the address is the only signal that decides it. */
+    it("TELECOMMUTE + applicantLocationRequirements + no address → remote", async () => {
+      mockRoutes({
+        [listingUrl]: htmlWithJsonLd(
+          posting({
+            jobLocationType: "TELECOMMUTE",
+            applicantLocationRequirements: { "@type": "Country", name: "Nigeria" },
+          }),
+        ),
+      });
+
+      const { jobs } = await fetchSchemaOrgJobs(listingUrl, "test-source");
+      expect(jobs[0].workType).toBe("remote");
+    });
+
+    /** A partial address is still a real place — one populated field is
+     * enough, matching what formatLocation has always treated as usable. */
+    it("TELECOMMUTE + a country-only address → hybrid", async () => {
+      mockRoutes({
+        [listingUrl]: htmlWithJsonLd(
+          posting({
+            jobLocationType: "TELECOMMUTE",
+            jobLocation: { "@type": "Place", address: { "@type": "PostalAddress", addressCountry: "Kenya" } },
+          }),
+        ),
+      });
+
+      const { jobs } = await fetchSchemaOrgJobs(listingUrl, "test-source");
+      expect(jobs[0].workType).toBe("hybrid");
+      expect(jobs[0].location).toBe("Kenya");
+    });
+  });
 });

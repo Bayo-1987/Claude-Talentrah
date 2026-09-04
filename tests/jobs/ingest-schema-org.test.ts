@@ -22,6 +22,7 @@
 import { afterAll, describe, expect, it, vi } from "vitest";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/types";
+import { computeDedupFingerprint } from "@/lib/jobs/dedup";
 import { ingestAllSources } from "@/lib/jobs/ingest";
 
 for (const key of ["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"] as const) {
@@ -255,5 +256,115 @@ describe("ingestAllSources — schema-org validThrough/baseSalary reach the row"
     expect(row.expires_at).toBeNull();
     expect(row.salary_min).toBeNull();
     expect(row.salary_currency).toBeNull();
+  });
+});
+
+/**
+ * WHY THIS EXISTS: proving "no backfill needed", rather than asserting it.
+ *
+ * The hybrid mapping fix (schema-org.ts's `mapWorkType`) left 28 production
+ * rows carrying a physical address while stored as `work_type = 'remote'`.
+ * The claim made in its place of a migration is that `ingest.ts` upserts on
+ * `dedup_fingerprint` and writes `work_type` unconditionally on every run, so
+ * the next scheduled ingest rewrites those rows on its own.
+ *
+ * That claim is only true if the fingerprint is UNCHANGED by the fix, which
+ * is the part worth pinning: `computeDedupFingerprint` is built from
+ * company + title + LOCATION, and the fix deliberately does not alter
+ * `formatLocation`'s output — a hybrid row's location was already the
+ * physical address, both before and after. Had the location moved, the upsert
+ * would insert a NEW row and quietly strand the stale one as an open
+ * duplicate, and a backfill really would be required.
+ *
+ * So this seeds the exact pre-fix production state — right fingerprint, right
+ * physical location, wrong `work_type` — and asserts the next
+ * `ingestAllSources()` flips THE SAME ROW (asserted by id) to `hybrid`.
+ */
+describe("ingestAllSources — a stale 'remote' hybrid row self-corrects on the next run", () => {
+  const COMPANY_D = `Test Schema Org Co D ${RUN_ID}`;
+  const JOB_D_URL = `https://jobs.workable.test/${RUN_ID}/view/hybrid-role-in-cape-town`;
+  const TITLE_D = "Graduate Software Developer";
+  const LOCATION_D = "Cape Town, Western Cape, South Africa";
+
+  /** The Clickatell shape the production audit found: TELECOMMUTE kept
+   * alongside a fully populated physical address. */
+  const hybridPosting = {
+    "@type": "JobPosting",
+    title: TITLE_D,
+    datePosted: new Date().toISOString(),
+    hiringOrganization: { "@type": "Organization", name: COMPANY_D },
+    jobLocationType: "TELECOMMUTE",
+    jobLocation: {
+      "@type": "Place",
+      address: {
+        "@type": "PostalAddress",
+        addressLocality: "Cape Town",
+        addressRegion: "Western Cape",
+        addressCountry: "South Africa",
+      },
+    },
+  };
+
+  afterAll(async () => {
+    const { error } = await admin.from("job_postings").delete().eq("company_name", COMPANY_D);
+    // A rejected Supabase delete resolves with an `error` rather than
+    // throwing — see CLAUDE.md. Surface it instead of leaking test rows.
+    if (error) throw error;
+  });
+
+  it("rewrites work_type in place on the existing row — no migration, no backfill", async () => {
+    const fingerprint = computeDedupFingerprint(COMPANY_D, TITLE_D, LOCATION_D);
+
+    // 1. Seed the stale, pre-fix state exactly as production holds it.
+    const { data: seeded, error: seedError } = await admin
+      .from("job_postings")
+      .insert({
+        source_type: "external",
+        organization_id: null,
+        title: TITLE_D,
+        company_name: COMPANY_D,
+        location: LOCATION_D,
+        work_type: "remote", // the bug: physical address, stored fully remote
+        description: "seeded stale row",
+        structured_jd: {},
+        external_url: JOB_D_URL,
+        external_source: `schema-org:test-${RUN_ID}`,
+        status: "open",
+        posted_at: new Date().toISOString(),
+        dedup_fingerprint: fingerprint,
+      })
+      .select("id, work_type, location")
+      .single();
+    if (seedError) throw seedError;
+
+    expect(seeded.work_type, "precondition: the row starts in the buggy state").toBe("remote");
+
+    // 2. One ordinary ingest run — the same code path the daily job runs.
+    mockListing([JOB_D_URL], { [JOB_D_URL]: hybridPosting });
+    const results = await ingestAllSources();
+    const mine = results.find((r) => r.source === "schema-org");
+    expect(mine!.error).toBeUndefined();
+
+    // 3. The SAME row (by id) is now hybrid. Fetching by id rather than by
+    //    company is the whole point: a changed fingerprint would have
+    //    inserted a second row and left this one untouched.
+    const { data: after, error: afterError } = await admin
+      .from("job_postings")
+      .select("id, work_type, location, dedup_fingerprint")
+      .eq("id", seeded.id)
+      .single();
+    if (afterError) throw afterError;
+
+    expect(after.work_type).toBe("hybrid");
+    expect(after.dedup_fingerprint, "the fingerprint must not move, or this is an insert").toBe(fingerprint);
+    expect(after.location, "the physical location was already correct and must not change").toBe(LOCATION_D);
+
+    // And no duplicate was created alongside it.
+    const { data: all, error: allError } = await admin
+      .from("job_postings")
+      .select("id")
+      .eq("company_name", COMPANY_D);
+    if (allError) throw allError;
+    expect(all, "self-correction must update in place, never fork a second row").toHaveLength(1);
   });
 });
