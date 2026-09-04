@@ -20,6 +20,7 @@ import {
   recordPromotedImpressions,
   PROMOTED_SLOTS,
 } from "@/lib/ads/promoted";
+import { isJobDateFilter, jobDateFilterSinceISO, type JobDateFilter } from "@/lib/jobs/freshness";
 
 export const metadata = { title: "Jobs — Talentrah" };
 
@@ -29,6 +30,7 @@ type SearchParams = Promise<{
   seniority?: string;
   skill?: string;
   q?: string;
+  posted?: string;
 }>;
 
 const VALID_WORK_TYPES: readonly string[] = Constants.public.Enums.work_type;
@@ -53,6 +55,7 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
    */
   const skill = params.skill?.trim().toLowerCase() || undefined;
   const q = params.q?.trim() || undefined;
+  const posted: JobDateFilter | undefined = isJobDateFilter(params.posted) ? params.posted : undefined;
   const supabase = await createClient();
 
   /*
@@ -106,7 +109,19 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
     "id, source_type, organization_id, title, company_name, company_logo_url, location, work_type, employment_type, seniority, years_experience_min, description:description_preview, structured_jd, external_url, external_source, status, posted_at, last_checked_at, dedup_fingerprint, created_at, expires_at, removed_at, removal_reason, removed_by, salary_min, salary_max, salary_currency, salary_unit";
 
   function postingsQuery(savedIds?: string[]) {
-    let query = supabase.from("job_postings").select(FEED_COLUMNS).eq("status", "open");
+    let query = supabase
+      .from("job_postings")
+      .select(FEED_COLUMNS)
+      .eq("status", "open")
+      // The ambient 30-day floor always applies (src/lib/jobs/freshness.ts),
+      // to every tab including Saved — this page is the discovery feed, and
+      // a saved-but-aged-out posting disappearing from THIS tab does not
+      // lose anything: /tracker shows every stage (including "saved")
+      // through its own, entirely separate query with no freshness floor,
+      // so a user's actual history is unaffected regardless of what this
+      // feed hides. `posted` narrows the floor further when the reader
+      // picked a shorter window.
+      .gte("posted_at", jobDateFilterSinceISO(posted));
     if (tab === "external") query = query.eq("source_type", "external");
     if (workType) query = query.eq("work_type", workType);
     if (seniority) query = query.eq("seniority", seniority);
@@ -458,6 +473,7 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
           workType={workType}
           seniority={seniority}
           skill={skill}
+          posted={posted}
           skillFacet={skillFacet}
           searchIndex={searchIndex}
         />

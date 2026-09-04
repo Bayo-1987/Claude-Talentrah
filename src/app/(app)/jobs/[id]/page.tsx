@@ -7,8 +7,7 @@ import { SHARE_IMAGE, SHARE_IMAGE_META } from "@/lib/seo/site";
 import { createClient } from "@/lib/supabase/server";
 import { BorderedCard, Button, EyebrowLabel, MatchTierBadge, buttonClasses } from "@/components/ui";
 import { getCompanyInitials } from "@/lib/jobs/company-initials";
-import { formatRelativeTime } from "@/lib/format-relative-time";
-import { freshnessNote } from "@/lib/jobs/freshness-note";
+import { postingAgeLine, freshnessFloorISO } from "@/lib/jobs/freshness";
 import { formatSalary } from "@/lib/jobs/format-salary";
 import { relevantJobLandingLinks } from "@/lib/seo/landing-page-links";
 import { skillsOf } from "@/lib/jobs/skill-facet";
@@ -51,6 +50,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
     .from("job_postings")
     .select("title, company_name, description, location, employment_type")
     .eq("id", id)
+    .gte("posted_at", freshnessFloorISO())
     .maybeSingle();
 
   if (!data) return { title: "Job — Talentrah" };
@@ -134,7 +134,22 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
   const supabase = await createClient();
 
   const [{ data: job }, baseResumeResult, applicationResult] = await Promise.all([
-    supabase.from("job_postings").select("*").eq("id", id).maybeSingle(),
+    /*
+     * The same 30-day floor every discovery surface enforces
+     * (src/lib/jobs/freshness.ts) — reached directly by URL, not just via
+     * the feed, so this is the one place it must be re-checked rather than
+     * assumed from wherever the link came from. A job someone already saved
+     * or applied to is unaffected: the Job Tracker and Auto-Apply's review
+     * queue render from their OWN tables, never a link to this page (see
+     * freshness.ts's header), so an aged-out posting disappearing from here
+     * cannot break a user's own history.
+     */
+    supabase
+      .from("job_postings")
+      .select("*")
+      .eq("id", id)
+      .gte("posted_at", freshnessFloorISO())
+      .maybeSingle(),
     /*
      * Skipped entirely when signed out rather than run and discarded. Both are
      * owner-scoped by RLS so they would return nothing anyway, but issuing two
@@ -215,7 +230,6 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
    */
   const jsonLd = buildJobPostingJsonLd(job);
 
-  const freshness = freshnessNote(job);
   // The feed's own parser, not a second reading of structured_jd — it already
   // tolerates a missing key, a non-array, and non-string members.
   const skills = skillsOf(job);
@@ -262,13 +276,9 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
 
       <div className="flex flex-col gap-1 border-y border-line py-3">
         <span className="text-[12.5px] text-ink-soft">
-          {formatRelativeTime(job.posted_at)}
+          {postingAgeLine(job)}
           {isExternal && " · sourced externally"}
         </span>
-        {/* Same line, same rule, same module as the card — see 0053-era note. */}
-        {freshness && (
-          <span className="font-display text-[12px] italic text-ink-soft">{freshness}</span>
-        )}
         {job.status !== "open" && (
           <span className="text-[12.5px] font-semibold text-amber">
             This posting is no longer open.

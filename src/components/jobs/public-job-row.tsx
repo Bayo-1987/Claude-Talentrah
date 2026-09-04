@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { BorderedCard } from "@/components/ui";
 import { getCompanyInitials } from "@/lib/jobs/company-initials";
-import { formatRelativeTime } from "@/lib/format-relative-time";
+import { postingAgeLine } from "@/lib/jobs/freshness";
 import { formatSalary } from "@/lib/jobs/format-salary";
 import type { Tables } from "@/lib/supabase/types";
 
@@ -60,7 +60,7 @@ export function PublicJobRow({ job }: { job: Omit<Tables<"job_postings">, "descr
       <p className="line-clamp-2 text-[13.5px] leading-relaxed text-ink-soft">
         {job.description.slice(0, 220)}
       </p>
-      <span className="text-[12px] text-ink-soft">{formatRelativeTime(job.posted_at)}</span>
+      <span className="text-[12px] text-ink-soft">{postingAgeLine(job)}</span>
     </BorderedCard>
   );
 }

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { loadJobSnapshot } from "./job-snapshot";
 
 async function getAuthedUserId() {
   const supabase = await createClient();
@@ -24,9 +25,17 @@ export async function toggleSaveAction(jobId: string) {
     .maybeSingle();
 
   if (!existing) {
-    await supabase
-      .from("applications")
-      .insert({ user_id: userId, job_posting_id: jobId, stage: "saved", source: "manual" });
+    // Snapshotted at creation (src/lib/applications/job-snapshot.ts) so this
+    // row survives job_posting_id being deleted or nulled out later — see
+    // that module's header for why.
+    const snapshot = await loadJobSnapshot(supabase, jobId);
+    await supabase.from("applications").insert({
+      user_id: userId,
+      job_posting_id: jobId,
+      stage: "saved",
+      source: "manual",
+      manual_job_snapshot: snapshot,
+    });
   } else if (existing.stage === "saved") {
     await supabase.from("applications").delete().eq("id", existing.id);
   }
@@ -59,12 +68,15 @@ export async function applyInAppAction(jobId: string) {
     throw new Error(`Couldn't look up your resume: ${baseResumeError.message}`);
   }
 
-  const { data: existing } = await supabase
-    .from("applications")
-    .select("id")
-    .eq("user_id", userId)
-    .eq("job_posting_id", jobId)
-    .maybeSingle();
+  const [{ data: existing }, snapshot] = await Promise.all([
+    supabase
+      .from("applications")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("job_posting_id", jobId)
+      .maybeSingle(),
+    loadJobSnapshot(supabase, jobId),
+  ]);
 
   const payload = {
     user_id: userId,
@@ -73,6 +85,10 @@ export async function applyInAppAction(jobId: string) {
     stage: "applied" as const,
     source: "internal_apply" as const,
     applied_at: new Date().toISOString(),
+    // See src/lib/applications/job-snapshot.ts — kept fresh on update too,
+    // not just the first insert, so the snapshot never falls behind the
+    // real posting while it still exists.
+    manual_job_snapshot: snapshot,
   };
 
   if (existing) {
@@ -96,12 +112,15 @@ export async function applyInAppAction(jobId: string) {
 export async function markAppliedExternallyAction(jobId: string) {
   const { supabase, userId } = await getAuthedUserId();
 
-  const { data: existing } = await supabase
-    .from("applications")
-    .select("id")
-    .eq("user_id", userId)
-    .eq("job_posting_id", jobId)
-    .maybeSingle();
+  const [{ data: existing }, snapshot] = await Promise.all([
+    supabase
+      .from("applications")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("job_posting_id", jobId)
+      .maybeSingle(),
+    loadJobSnapshot(supabase, jobId),
+  ]);
 
   const payload = {
     user_id: userId,
@@ -109,6 +128,7 @@ export async function markAppliedExternallyAction(jobId: string) {
     stage: "applied" as const,
     source: "manual" as const,
     applied_at: new Date().toISOString(),
+    manual_job_snapshot: snapshot,
   };
 
   if (existing) {
