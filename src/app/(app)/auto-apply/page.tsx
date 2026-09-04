@@ -11,6 +11,7 @@ import { CREDIT_COSTS } from "@/lib/credits/costs";
 import { BorderedCard, EyebrowLabel } from "@/components/ui";
 import { AutoApplyQueueItem, type QueueItem } from "@/components/jobs/auto-apply-queue-item";
 import { formatRelativeTime } from "@/lib/format-relative-time";
+import { displayMatchScore } from "@/lib/match-tier";
 
 export const metadata = { title: "Auto-Apply — Talentrah" };
 
@@ -123,7 +124,7 @@ export default async function AutoApplyPage() {
                   {r.job_postings?.company_name ?? "Unknown company"}
                 </span>
                 <span className="font-body text-[12.5px] text-ink-soft">
-                  {r.match_score}% ·{" "}
+                  {displayMatchScore(r.match_score)}% ·{" "}
                   {r.decided_at ? formatRelativeTime(r.decided_at) : formatRelativeTime(r.queued_at)}
                   {r.credits_spent > 0 ? ` · ${r.credits_spent} credits` : ""}
                 </span>

@@ -806,6 +806,51 @@ export type Database = {
         }
         Relationships: []
       }
+      country_default_events: {
+        Row: {
+          country_state: string
+          created_at: string
+          event_type: string
+          id: string
+          job_posting_id: string | null
+          tab: string | null
+          user_id: string
+        }
+        Insert: {
+          country_state: string
+          created_at?: string
+          event_type: string
+          id?: string
+          job_posting_id?: string | null
+          tab?: string | null
+          user_id: string
+        }
+        Update: {
+          country_state?: string
+          created_at?: string
+          event_type?: string
+          id?: string
+          job_posting_id?: string | null
+          tab?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "country_default_events_job_posting_id_fkey"
+            columns: ["job_posting_id"]
+            isOneToOne: false
+            referencedRelation: "job_postings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "country_default_events_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       course_recommendation_clicks: {
         Row: {
           clicked_at: string

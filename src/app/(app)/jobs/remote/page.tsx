@@ -9,9 +9,20 @@ import { PublicJobRow } from "@/components/jobs/public-job-row";
 import { EyebrowLabel, buttonClasses } from "@/components/ui";
 
 /**
- * Programmatic SEO landing page targeting "remote jobs in Nigeria" and
- * close variants — the query pattern MyJobMag's own sitemap already
- * dedicates a custom page to (remote × field combinations).
+ * Programmatic SEO landing page for remote roles — deliberately carrying NO
+ * geography claim in its title or copy.
+ *
+ * It shipped as "Remote Jobs in Nigeria" in #198 (2026-09-03) with Search
+ * Console indexing never submitted, so there was no established indexing or
+ * backlink to preserve when this was corrected the next day — the cheapest
+ * moment this fix will ever be. The claim was false on inspection, not just
+ * unverified: this page's own inventory (Moniepoint, Wave and every
+ * schema-org Workable board it aggregates) includes real roles based in
+ * Spain, Poland, India, the UK and elsewhere outside Africa, so neither
+ * "Nigeria" nor a broader "Africa" substitute can be asserted for the page
+ * as a whole. Per-country claims now live only on /jobs/remote/[country]
+ * (src/lib/jobs/country.ts's TRACKED_COUNTRIES), each of which actually
+ * filters to the country it names before saying so.
  *
  * LIVE, NOT BUILD-TIME (see src/lib/seo/landing-pages.ts's header comment
  * and src/lib/seo/landing-page-data.ts's, which actually runs the query):
@@ -33,8 +44,8 @@ export async function generateMetadata() {
   const { total } = await loadRemoteJobs(supabase);
   if (total < LANDING_PAGE_MIN_ENTRIES) return { title: "Remote Jobs — Talentrah" };
 
-  const title = `Remote Jobs in Nigeria — ${total} Open Roles | Talentrah`;
-  const description = `Browse ${total} remote job openings for Nigerian and African talent, from Moniepoint, Wave, Jumia and other verified employers. Get matched, tailor your resume and apply free.`;
+  const title = `Remote Jobs — ${total} Open Roles | Talentrah`;
+  const description = `Browse ${total} remote job openings from Moniepoint, Wave, Jumia and other verified employers and boards. Get matched, tailor your resume and apply free.`;
   return pageMetadata({ title, description, path: "/jobs/remote" });
 }
 
@@ -55,14 +66,14 @@ export default async function RemoteJobsPage() {
       </Link>
 
       <div>
-        <EyebrowLabel>Work from anywhere in Nigeria</EyebrowLabel>
-        <h1 className="mt-1.5 text-[28px] leading-[1.2]">Remote Jobs in Nigeria</h1>
+        <EyebrowLabel>Work from anywhere</EyebrowLabel>
+        <h1 className="mt-1.5 text-[28px] leading-[1.2]">Remote Jobs</h1>
         <p className="mt-2 max-w-[640px] text-[14.5px] leading-relaxed text-ink-soft">
-          {total} remote roles are open right now across fintech, e-commerce and telecom employers
-          hiring Nigerian and African talent — Moniepoint, Wave, Jumia and others among them.
-          Every listing here is currently accepting applications; a role closes and drops off this
-          page the moment its source stops advertising it, so what you see is what is actually
-          live today.
+          {total} remote roles are open right now, aggregated from Moniepoint, Wave, Jumia and
+          Workable-listed employers. Some are restricted to specific countries, others open
+          globally — every listing says which. Every role here is currently accepting
+          applications; a role closes and drops off this page the moment its source stops
+          advertising it, so what you see is what is actually live today.
         </p>
       </div>
 

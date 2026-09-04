@@ -81,7 +81,13 @@ test("a saved job is not an applicant", async ({ page }) => {
    * depends on not telling, and the only way to catch it is a posting where
    * the two differ.
    */
-  await page.goto("/jobs?tab=recent");
+  // country=all: this test is about applicant-count honesty, not about
+  // Stage 12's country default — the demo account's profile.country
+  // ("Nigeria") would otherwise filter the board down to Nigeria-derived
+  // postings only, and "Customer Success Associate" (location: "Remote",
+  // no country in the string) would silently disappear from a concern this
+  // test isn't exercising.
+  await page.goto("/jobs?tab=recent&country=all");
   // By heading text, not by link role: card titles are plain text on this
   // branch. A role selector silently matched nothing and turned the most
   // valuable assertion in this file into a skip.

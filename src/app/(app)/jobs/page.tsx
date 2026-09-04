@@ -20,7 +20,16 @@ import {
   recordPromotedImpressions,
   PROMOTED_SLOTS,
 } from "@/lib/ads/promoted";
-import { isJobDateFilter, jobDateFilterSinceISO, type JobDateFilter } from "@/lib/jobs/freshness";
+import { isJobDateFilter, jobDateFilterSinceISO, JOB_FRESHNESS_WINDOW_DAYS, type JobDateFilter } from "@/lib/jobs/freshness";
+import {
+  isTrackedCountry,
+  defaultCountryForProfile,
+  deriveCountry,
+  COUNTRY_THIN_THRESHOLD,
+  type TrackedCountry,
+} from "@/lib/jobs/country";
+import { recommendedRankingKey } from "@/lib/jobs/ranking";
+import { logCountryDefaultEvent, type CountryState } from "@/lib/jobs/country-events";
 
 export const metadata = { title: "Jobs — Talentrah" };
 
@@ -31,6 +40,7 @@ type SearchParams = Promise<{
   skill?: string;
   q?: string;
   posted?: string;
+  country?: string;
 }>;
 
 const VALID_WORK_TYPES: readonly string[] = Constants.public.Enums.work_type;
@@ -56,6 +66,32 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
   const skill = params.skill?.trim().toLowerCase() || undefined;
   const q = params.q?.trim() || undefined;
   const posted: JobDateFilter | undefined = isJobDateFilter(params.posted) ? params.posted : undefined;
+
+  /*
+   * Country default (Stage 12). "all" is a real, explicit sentinel for
+   * cleared — distinct from the param simply being ABSENT, which falls back
+   * to the profile default instead. Every other filter on this page treats
+   * absence as "no filter"; country can't, because absence here means
+   * "apply the default", so clearing it needs its own state to win over that
+   * default rather than just omitting the param and landing back on it.
+   *
+   * countryState is Stage 12's own instrumentation dimension (kept/cleared/
+   * none — src/lib/jobs/country-events.ts), computed here once so the feed
+   * view log, the FilterBar chip and every apply on this page agree on it.
+   */
+  let country: TrackedCountry | undefined;
+  let countryState: CountryState;
+  if (params.country === "all") {
+    country = undefined;
+    countryState = "cleared";
+  } else if (isTrackedCountry(params.country)) {
+    country = params.country;
+    countryState = "kept";
+  } else {
+    country = defaultCountryForProfile(profile.country);
+    countryState = country ? "kept" : "none";
+  }
+
   const supabase = await createClient();
 
   /*
@@ -200,10 +236,51 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
    * collapse every chip to whatever co-occurs with the search term, so the
    * facet would look broken the moment anyone typed.
    */
-  const jobs: FeedJobPosting[] = searchJobs(
+  let jobs: FeedJobPosting[] = searchJobs(
     filterBySkill(matchingFilters, skill),
     q,
   );
+
+  /*
+   * Country default, applied in memory for the same reason the skill facet
+   * and search are (see the block above) — this feed has no pagination, so
+   * the whole matching set is already in hand.
+   *
+   * MATCHES THE COUNTRY *OR* IS REMOTE, not country alone. Country-only
+   * excluded every location-independent Moniepoint/Wave remote posting —
+   * for a Nigerian seeker, measured live, that meant 78 fresh remote roles
+   * dropping to 56 total shown, cutting out exactly the inventory a remote
+   * worker most wants. "Jobs available to me", not "jobs physically in my
+   * country", is the actual product intent here.
+   *
+   * THE HONEST LIMIT, worth stating precisely because it is not fixed by
+   * more code: `work_type = 'remote'` does not mean open to any country.
+   * Moniepoint's own remote listings usually name ONE required country per
+   * role ("Remote, Spain", "Remote, Poland" — real, current examples), and
+   * this dataset gives no reliable way to tell "remote, restricted to
+   * Ghana" apart from "remote, open anywhere" for a source that doesn't say
+   * so structurally. Showing the ambiguous ones is still better than hiding
+   * real opportunities, but nothing in this feature is allowed to claim a
+   * remote role is open to everyone — see the caption below the filter bar
+   * and the fallback notice's wording, both deliberately silent on
+   * eligibility, only ever stating what the listing itself says.
+   *
+   * Below COUNTRY_THIN_THRESHOLD real matches, the filter does not narrow
+   * `jobs` at all: the country's own matches were never excluded (they're
+   * still somewhere in the full board), and `countryFallbackNotice` below
+   * carries the honest count so the page can say why an unfiltered board is
+   * showing rather than silently widening or rendering a near-empty page.
+   */
+  let countryFallbackNotice: { country: TrackedCountry; matched: number } | undefined;
+  if (country) {
+    const countryMatches = jobs.filter((j) => deriveCountry(j) === country || j.work_type === "remote");
+    if (countryMatches.length >= COUNTRY_THIN_THRESHOLD) {
+      jobs = countryMatches;
+    } else {
+      countryFallbackNotice = { country, matched: countryMatches.length };
+    }
+  }
+
   if (tab === "recent") {
     jobs.sort((a, b) => new Date(b.posted_at).getTime() - new Date(a.posted_at).getTime());
   }
@@ -233,8 +310,13 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
    */
   const internalIds = scored.filter((s) => s.job.source_type === "internal").map((s) => s.job.id);
 
-  const [applicantCounts, [{ data: autoApplySettings }, pendingQueue], promoted] =
+  const [, applicantCounts, [{ data: autoApplySettings }, pendingQueue], promoted] =
     await Promise.all([
+      // Stage 12 instrumentation — independent of everything else in this
+      // Promise.all, and swallows its own failures (logCountryDefaultEvent),
+      // so it rides along for free rather than adding a fourth sequential
+      // round trip.
+      logCountryDefaultEvent({ userId: user.id, eventType: "feed_view", countryState, tab }),
       /*
        * Applicant counts, for the ids on this page only.
        *
@@ -319,7 +401,21 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
         : Promise.resolve(null),
     ]);
 
-  if (tab !== "recent") {
+  /*
+   * Stage 12: Recommended gets a freshness-decayed ranking key, not the raw
+   * score — a stale perfect match no longer automatically outranks a recent
+   * good-enough one (src/lib/jobs/ranking.ts has the full rationale). Every
+   * OTHER non-"recent" tab (External, Saved) keeps the plain score sort —
+   * only Recommended is asked to answer "what's best right now", and Most
+   * Recent's own date sort above is untouched either way.
+   */
+  if (tab === "recommended") {
+    scored.sort(
+      (a, b) =>
+        recommendedRankingKey(b.score, b.job.posted_at, JOB_FRESHNESS_WINDOW_DAYS) -
+        recommendedRankingKey(a.score, a.job.posted_at, JOB_FRESHNESS_WINDOW_DAYS),
+    );
+  } else if (tab !== "recent") {
     scored.sort((a, b) => b.score - a.score);
   }
 
@@ -474,9 +570,27 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
           seniority={seniority}
           skill={skill}
           posted={posted}
+          country={country}
+          countryApplicable={countryState !== "none"}
           skillFacet={skillFacet}
           searchIndex={searchIndex}
         />
+        {/*
+          The honest limit of "country OR remote", stated every time the
+          filter is actually active — not just in the rare fallback case
+          above. "Remote" on a listing is a fact about work_type, not a claim
+          about who is eligible; some of these roles name a single required
+          country in their own description that this filter has no reliable
+          way to read. Never claims a remote role is open to everyone —
+          states only what the filter itself does.
+        */}
+        {country && (
+          <p className="text-[12.5px] italic text-ink-soft">
+            Showing roles in {country} plus every remote listing on the board. Remote doesn&apos;t
+            always mean open to any country — some roles are restricted to a specific one in the
+            listing itself.
+          </p>
+        )}
       </div>
 
       {baseResumeError && (
@@ -500,6 +614,22 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
         </p>
       )}
 
+      {/*
+        Stage 12's honest fallback: shown ONLY when the country filter is
+        active but too thin to actually narrow the feed (see the
+        countryFallbackNotice computation above) — "never produce an empty
+        feed silently, show what exists and then the rest, with an honest
+        line saying so" rather than a filter that quietly does nothing.
+      */}
+      {countryFallbackNotice && (
+        <p className="border-[1.5px] border-line bg-card px-4 py-3 text-[13.5px] text-ink-soft">
+          {countryFallbackNotice.matched === 0
+            ? `No jobs in ${countryFallbackNotice.country} or remote match these filters right now`
+            : `${countryFallbackNotice.matched} job${countryFallbackNotice.matched === 1 ? "" : "s"} in ${countryFallbackNotice.country} or remote match${countryFallbackNotice.matched === 1 ? "es" : ""} these filters`}{" "}
+          — showing roles from elsewhere below.
+        </p>
+      )}
+
       {scored.length === 0 ? (
         <p className="py-12 text-center text-[14.5px] text-ink-soft">
           {tab === "saved"
@@ -518,6 +648,7 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
               isSponsored={promotedSet.has(job.id)}
               explanation={explanation}
             origin={origin}
+            countryState={countryState}
             /*
               null vs 0 is the distinction the card renders. A posting with no
               row in the map has had nobody apply — that is 0, not unknown.

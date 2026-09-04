@@ -4,6 +4,7 @@ import { CITY_LANDING_PAGES, DEGREE_LEVEL_SLUG, LANDING_PAGE_MIN_ENTRIES } from 
 import { Constants, type Database, type Tables } from "@/lib/supabase/types";
 import { DEGREE_LEVEL_LABEL } from "@/lib/scholarships/types";
 import { freshnessFloorISO } from "@/lib/jobs/freshness";
+import { TRACKED_COUNTRIES, COUNTRY_LANDING_SLUG, countryOrFilter, deriveCountry } from "@/lib/jobs/country";
 
 // See landing-page-data.ts's identical type for why this is generic rather
 // than the request-scoped createClient()'s own return type.
@@ -41,6 +42,32 @@ export async function liveJobLandingLinks(
     links.push({ href: "/jobs/remote", label: "Remote jobs" });
   }
 
+  // Parallel, not sequential — this runs on every job landing page render
+  // AND every /jobs/[id] render (via relevantJobLandingLinks below), so four
+  // more independent round trips added here on the hot path is worth
+  // avoiding rather than assuming is fine (see sitemap.ts's identical fix
+  // and its measured before/after for why this was checked, not assumed).
+  const countryRemoteCounts = await Promise.all(
+    TRACKED_COUNTRIES.map((country) =>
+      supabase
+        .from("job_postings")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "open")
+        .eq("work_type", "remote")
+        .or(countryOrFilter(country))
+        .gte("posted_at", floor)
+        .then(({ count }) => ({ country, count: count ?? 0 })),
+    ),
+  );
+  for (const { country, count } of countryRemoteCounts) {
+    if (count >= LANDING_PAGE_MIN_ENTRIES) {
+      links.push({
+        href: `/jobs/remote/${COUNTRY_LANDING_SLUG[country]}`,
+        label: `Remote jobs in ${country}`,
+      });
+    }
+  }
+
   for (const city of CITY_LANDING_PAGES) {
     let query = supabase.from("job_postings").select("id", { count: "exact", head: true }).eq("status", "open");
     query = query.or(city.locationPatterns.map((p) => `location.ilike.${p}`).join(","));
@@ -71,11 +98,15 @@ function matchesIlikePattern(value: string | null, pattern: string): boolean {
  */
 export async function relevantJobLandingLinks(
   supabase: SupabaseServerClient,
-  job: Pick<Tables<"job_postings">, "work_type" | "location">,
+  job: Pick<Tables<"job_postings">, "work_type" | "location" | "external_source">,
 ): Promise<LandingLink[]> {
   const all = await liveJobLandingLinks(supabase);
   return all.filter((link) => {
     if (link.href === "/jobs/remote") return job.work_type === "remote";
+    const country = TRACKED_COUNTRIES.find(
+      (c) => link.href === `/jobs/remote/${COUNTRY_LANDING_SLUG[c]}`,
+    );
+    if (country) return job.work_type === "remote" && deriveCountry(job) === country;
     const city = CITY_LANDING_PAGES.find((c) => link.href === `/jobs/in/${c.slug}`);
     if (city) return city.locationPatterns.some((p) => matchesIlikePattern(job.location, p));
     return false;

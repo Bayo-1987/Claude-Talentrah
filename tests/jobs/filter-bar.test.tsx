@@ -138,6 +138,37 @@ describe("removing one filter removes one filter", () => {
     expect(inner).toContain('href="/jobs?tab=recommended">Clear filters');
   });
 
+  describe("Stage 12: Clear filters and the country default", () => {
+    it("does not add a country param when country was never applicable", () => {
+      // Same render as `html` above — no country/countryApplicable passed —
+      // Clear filters must stay exactly as it always has.
+      expect(mergedControl(html)).toContain('href="/jobs?tab=recommended">Clear filters');
+    });
+
+    it(
+      "SABOTAGE-PROOF TARGET: re-asserts country=all even when country is ALREADY " +
+        "cleared (undefined) — otherwise clicking Clear filters after an explicit " +
+        "clear would silently let the profile default reassert itself",
+      () => {
+        // This is exactly the state right after a user clicked the country
+        // chip's own remove link: country is undefined, but it is undefined
+        // BECAUSE it was cleared, not because it was never in play.
+        const inner = mergedControl(
+          render({ workType: "remote", country: undefined, countryApplicable: true }),
+        );
+        expect(inner).toContain("Clear filters");
+        const clearHref = inner.match(/href="([^"]*)">Clear filters/)?.[1];
+        expect(clearHref, "Clear filters link not found").toBeTruthy();
+        expect(clearHref).toContain("country=all");
+      },
+    );
+
+    it("the country chip itself is absent when country is cleared, applicable or not", () => {
+      const inner = mergedControl(render({ country: undefined, countryApplicable: true }));
+      expect(inner).not.toContain("Remove Nigeria filter");
+    });
+  });
+
   it("labels each remove link for screen readers", () => {
     for (const label of ["Remote", "Senior", "sql"]) {
       expect(html).toContain(`aria-label="Remove ${label} filter"`);

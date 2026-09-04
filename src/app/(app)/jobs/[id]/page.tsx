@@ -19,6 +19,8 @@ import {
   applyInAppAction,
   markAppliedExternallyAction,
 } from "@/lib/applications/actions";
+import { defaultCountryForProfile } from "@/lib/jobs/country";
+import { logCountryDefaultEvent, type CountryState } from "@/lib/jobs/country-events";
 
 const WORK_TYPE_LABEL: Record<string, string> = {
   remote: "Remote",
@@ -177,6 +179,32 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
   const { data: application } = applicationResult;
 
   if (!job) notFound();
+
+  /*
+   * Stage 12 instrumentation, approximated (see 0091's migration comment):
+   * this page has no `?country=` param of its own — a feed card's title link
+   * carries no query string — so this can only reflect the user's PROFILE
+   * default, never an explicit per-request override or an explicit clear.
+   * "kept"/"none" are the only two states reachable from here; "cleared" is
+   * a feed-only state. logCountryDefaultEvent swallows its own failures, so
+   * this can't turn a broken log into a broken page — not awaited into the
+   * render path for the same reason recordPromotedImpressions on the feed
+   * is awaited but never allowed to throw past it, except here there's
+   * nothing downstream depending on it finishing first.
+   */
+  const detailCountryState: CountryState = user
+    ? defaultCountryForProfile(session!.profile.country)
+      ? "kept"
+      : "none"
+    : "none";
+  if (user) {
+    await logCountryDefaultEvent({
+      userId: user.id,
+      eventType: "detail_view",
+      countryState: detailCountryState,
+      jobPostingId: job.id,
+    });
+  }
 
   // Backlink to whichever SEO landing pages (src/lib/seo/landing-pages.ts)
   // THIS job actually belongs to, and only while each is currently live —
@@ -357,14 +385,14 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
             >
               Apply on company site
             </a>
-            <form action={markAppliedExternallyAction.bind(null, job.id)}>
+            <form action={markAppliedExternallyAction.bind(null, job.id, detailCountryState)}>
               <button type="submit" className={buttonClasses("text", "sm")}>
                 Mark as applied
               </button>
             </form>
           </>
         ) : (
-          <form action={applyInAppAction.bind(null, job.id)}>
+          <form action={applyInAppAction.bind(null, job.id, detailCountryState)}>
             <Button size="sm" type="submit">
               Apply
             </Button>

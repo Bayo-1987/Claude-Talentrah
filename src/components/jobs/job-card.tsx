@@ -8,6 +8,7 @@ import { ShareJobButton } from "@/components/jobs/share-job-button";
 import { ReportJobMenu } from "@/components/jobs/report-job-menu";
 import type { MatchExplanation } from "@/lib/matching/score";
 import { toggleSaveAction, applyInAppAction, markAppliedExternallyAction } from "@/lib/applications/actions";
+import type { CountryState } from "@/lib/jobs/country-events";
 import type { Tables } from "@/lib/supabase/types";
 
 const WORK_TYPE_LABEL: Record<string, string> = {
@@ -55,6 +56,8 @@ export interface JobCardProps {
    * confidently wrong count is worse than an absent one.
    */
   applicantCount?: number | null;
+  /** Stage 12 apply-rate instrumentation — see src/lib/jobs/country-events.ts. */
+  countryState: CountryState;
 }
 
 export function JobCard({
@@ -66,6 +69,7 @@ export function JobCard({
   explanation,
   origin,
   applicantCount = null,
+  countryState,
 }: JobCardProps) {
   const metaParts = [
     job.company_name,
@@ -253,7 +257,7 @@ export function JobCard({
             </span>
           ) : isExternal ? (
             <>
-              <form action={markAppliedExternallyAction.bind(null, job.id)}>
+              <form action={markAppliedExternallyAction.bind(null, job.id, countryState)}>
                 <button
                   type="submit"
                   className="text-[13px] font-semibold text-ink-soft underline underline-offset-2 hover:text-rust"
@@ -271,7 +275,7 @@ export function JobCard({
               </a>
             </>
           ) : (
-            <form action={applyInAppAction.bind(null, job.id)}>
+            <form action={applyInAppAction.bind(null, job.id, countryState)}>
               <Button size="sm" type="submit">
                 Apply
               </Button>
