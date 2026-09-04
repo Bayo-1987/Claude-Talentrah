@@ -1,11 +1,8 @@
 "use client";
 
 import { useActionState } from "react";
-import {
-  sendContactMessageAction,
-  initialContactActionState,
-} from "@/lib/contact/actions";
-import { CONTACT_TOPICS } from "@/lib/contact/schemas";
+import { sendContactMessageAction } from "@/lib/contact/actions";
+import { CONTACT_TOPICS, initialContactActionState } from "@/lib/contact/schemas";
 import { TextField, SelectField, Button } from "@/components/ui";
 
 export function ContactForm() {

@@ -1,18 +1,7 @@
 "use server";
 
 import { getResendClient, getContactRecipient } from "@/lib/resend/client";
-import { contactSchema } from "./schemas";
-
-export interface ContactActionState {
-  status: "idle" | "success" | "error";
-  error: string | null;
-  fieldErrors?: Record<string, string[]>;
-}
-
-export const initialContactActionState: ContactActionState = {
-  status: "idle",
-  error: null,
-};
+import { contactSchema, type ContactActionState } from "./schemas";
 
 export async function sendContactMessageAction(
   _prevState: ContactActionState,
