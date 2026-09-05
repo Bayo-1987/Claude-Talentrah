@@ -31,6 +31,16 @@
  * The `remote-` ↔ `hybrid` direction has no known live counterexample — it is
  * asserted anyway because it is the identical mistake in the other direction
  * and costs nothing to guard against before it happens once.
+ *
+ * The `onsite` pair below (added alongside the onsite-inference change this
+ * file shipped with) has no known live counterexample either — the
+ * production backfill that populated `onsite` only ever wrote it from
+ * `work_type IS NULL`, never over an existing `remote`/`hybrid` row, so there
+ * is nothing today for a `hybrid-`/`remote-` slug to contradict. It is
+ * asserted anyway, for the same reason as the pair above: the value this
+ * check protects is that a FUTURE mapping regression gets caught here, not
+ * that a present one exists — the whole point of a standing check is to fail
+ * on a bug that has not been written yet.
  */
 import { describe, expect, it } from "vitest";
 import { admin } from "../support/auth";
@@ -50,21 +60,34 @@ function slugPrefix(externalUrl: string | null): string {
   }
 }
 
+/**
+ * Fetches every row (whole-table, not `.limit(...)` — a truncated result
+ * here would report "clean" the same way an empty one does, which is
+ * exactly the failure mode CLAUDE.md documents; `.range` makes the page
+ * size explicit rather than relying on the client's default) stored as
+ * `storedWorkType`, and returns the ones whose slug starts with any of
+ * `contradictingPrefixes`.
+ */
+async function findSlugContradictions(
+  storedWorkType: "remote" | "hybrid" | "onsite",
+  contradictingPrefixes: string[],
+) {
+  const { data, error } = await admin
+    .from("job_postings")
+    .select("id, external_url")
+    .eq("work_type", storedWorkType)
+    .not("external_url", "is", null)
+    .range(0, 9999);
+  if (error) throw error;
+
+  return (data ?? []).filter((row) =>
+    contradictingPrefixes.some((prefix) => slugPrefix(row.external_url).startsWith(prefix)),
+  );
+}
+
 describe("job_postings — external_url slug must not contradict work_type", () => {
   it("no row has a 'hybrid-' slug stored as work_type = 'remote'", async () => {
-    // Whole-table, not `.limit(...)` — a truncated result here would report
-    // "clean" the same way an empty one does, which is exactly the failure
-    // mode CLAUDE.md documents. `.range` makes the page size explicit rather
-    // than relying on the client's default.
-    const { data, error } = await admin
-      .from("job_postings")
-      .select("id, external_url")
-      .eq("work_type", "remote")
-      .not("external_url", "is", null)
-      .range(0, 9999);
-    if (error) throw error;
-
-    const violations = (data ?? []).filter((row) => slugPrefix(row.external_url).startsWith("hybrid-"));
+    const violations = await findSlugContradictions("remote", ["hybrid-"]);
     expect(
       violations,
       `rows whose URL slug says 'hybrid' but work_type says 'remote': ${JSON.stringify(violations)}`,
@@ -72,18 +95,25 @@ describe("job_postings — external_url slug must not contradict work_type", () 
   });
 
   it("no row has a 'remote-' slug stored as work_type = 'hybrid'", async () => {
-    const { data, error } = await admin
-      .from("job_postings")
-      .select("id, external_url")
-      .eq("work_type", "hybrid")
-      .not("external_url", "is", null)
-      .range(0, 9999);
-    if (error) throw error;
-
-    const violations = (data ?? []).filter((row) => slugPrefix(row.external_url).startsWith("remote-"));
+    const violations = await findSlugContradictions("hybrid", ["remote-"]);
     expect(
       violations,
       `rows whose URL slug says 'remote' but work_type says 'hybrid': ${JSON.stringify(violations)}`,
+    ).toEqual([]);
+  });
+
+  /**
+   * The case this PR's own onsite-inference change introduces. A slug
+   * asserting either remote OR hybrid contradicts `onsite` equally — unlike
+   * the pair above, there is no legitimate reading of a `hybrid-`/`remote-`
+   * slug that is consistent with an on-site posting, so both prefixes are
+   * checked in one pass rather than needing a fourth test.
+   */
+  it("no row has a 'hybrid-' or 'remote-' slug stored as work_type = 'onsite'", async () => {
+    const violations = await findSlugContradictions("onsite", ["hybrid-", "remote-"]);
+    expect(
+      violations,
+      `rows whose URL slug says 'hybrid'/'remote' but work_type says 'onsite': ${JSON.stringify(violations)}`,
     ).toEqual([]);
   });
 });

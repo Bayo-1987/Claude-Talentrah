@@ -49,19 +49,58 @@
  * description for the one-time exception already found among closed rows,
  * which needed a test, not a data fix).
  *
- * ── HOW THIS WAS ACTUALLY RUN AGAINST PRODUCTION ─────────────────────────
+ * ── HOW THIS WAS ACTUALLY RUN AGAINST PRODUCTION, AND THE GAP THAT LEFT ────
  *
  * Per CLAUDE.md's "one-off production work" convention, the live run against
  * `nytwbbzfpytctjsoczzq` went through the Supabase MCP connector's
- * `execute_sql`, not by invoking this file with a production credential in
- * `.env.local` (which currently points at the paused CI project — see
- * db-target.ts). The SQL run there implements the identical two rules above
- * (Greenhouse: `inferWorkType`'s NON_LOCATION_VALUES denylist; schema-org:
- * "location is not null"); this file is the reviewable TypeScript definition
- * of that same logic, runnable against any project reachable from
- * `.env.local` (a local stack, or a future staging project) via
- * `npx tsx scripts/backfill-work-type.ts` (`--apply` to write; dry run by
- * default, same convention as cleanup-test-orgs.ts).
+ * `execute_sql`, not by invoking this file — `.env.local` currently points
+ * at the paused CI project (see db-target.ts), and putting a working
+ * production `service_role` key back on disk to run this script directly is
+ * exactly the hazard CLAUDE.md's `.env` history warns against re-creating.
+ * The SQL actually run there was HAND-WRITTEN to implement the identical two
+ * rules this file defines (Greenhouse: `inferWorkType`'s NON_LOCATION_VALUES
+ * denylist; schema-org: "location is not null"), cross-checked against a
+ * dry-run `SELECT` before the `UPDATE`. That is a real gap worth naming
+ * plainly: this file is the reviewed definition of the backfill logic, but
+ * it is NOT what executed against production — separately-typed SQL stood
+ * in for it, and the only thing establishing the two matched was manual
+ * comparison at the time.
+ *
+ * WHAT WOULD CLOSE THAT GAP. `scripts/audit-migrations.ts` already documents
+ * the repo's answer to "a script needs to inspect production but a
+ * credential shouldn't live on disk": don't connect at all — derive the
+ * exact SQL and print it, so a human (or an agent, via the MCP connector)
+ * runs the printed text rather than a second, independently-typed query.
+ * That convention transfers here cleanly, for a reason specific to this
+ * backfill: every row's new `work_type` is decided by a predicate with an
+ * exact SQL translation (a static denylist membership test, an IS NOT NULL
+ * check, two NOT LIKE checks) — nothing here depends on control flow, an
+ * external call, or anything else a `WHERE` clause can't express. So this
+ * script *could* be rewritten to require no `createClient`/no env vars at
+ * all: build the `UPDATE ... WHERE ... RETURNING id;` text programmatically
+ * from the same exported `NON_LOCATION_VALUES` set already used above (so
+ * the SQL denylist is generated from the TypeScript one, never re-typed
+ * separately and liable to drift from it), print it, and stop. Whatever gets
+ * pasted into the connector would then be this reviewed script's own output,
+ * not a human's or an agent's re-derivation of what it should say.
+ *
+ * That is deliberately not done in this PR — the founder asked for the
+ * explanation, not a re-run, and a print-mode rewrite is exactly the kind of
+ * change that wants its own review rather than riding in in the same commit
+ * as the logic it would be generating SQL for. It is scoped precisely to
+ * what this backfill needs, too: a future one-off whose per-row decision
+ * genuinely cannot be expressed as a SQL predicate (real branching more
+ * complex than this, an external API call, an LLM classification) would hit
+ * a different, currently-unsolved version of the same gap — this repo's only
+ * other precedent for a script that must act on live production data without
+ * a human/MCP loop is `check-migration-drift.ts`, which solves it by calling
+ * a `public.list_applied_migrations()` function deployed through a reviewed
+ * migration rather than connecting with a credential; that path trades a
+ * credential for real, permanent schema surface, which audit-migrations.ts's
+ * own header explicitly weighs against for a housekeeping concern. Neither
+ * shortcut generalizes past what a `WHERE` clause can say, so this note
+ * marks the boundary rather than pretending a script fix here would resolve
+ * it for every future backfill.
  */
 import { config } from "dotenv";
 config({ path: ".env.local" });
