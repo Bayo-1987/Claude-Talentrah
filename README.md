@@ -20,6 +20,54 @@ npm run seed
 
 That creates a demo account, `demo@talentrah.dev`, with a base resume, tracker entries, referral data, real ingested jobs, and scholarships. Its password comes from `DEMO_PASSWORD` and is **not** committed — this repo is public, and that account owns the demo organisation whose postings appear in the job feed, so a published password meant anyone could sign in and rewrite them. Set `DEMO_PASSWORD` in `.env.local` before seeding. Re-running the seed will *not* change an existing account's password — rotating one is deliberate: `SEED_ROTATE_PASSWORDS=1 npm run seed`.
 
+## Working in a git worktree
+
+A worktree needs two things the main checkout already has, and neither is
+obvious from the failure it causes.
+
+```bash
+git worktree add ../my-branch -b my-branch origin/main
+cd ../my-branch
+ln -s <path-to-main-checkout>/.env.local .env.local   # worktrees do not get ignored files
+npm ci                                                # required — see below
+PORT=3100 npm run dev                                 # a port of your own
+```
+
+**`.env.local` does not come with the worktree.** `git worktree add` copies
+tracked files only, and `.env.local` is gitignored. Without it every script and
+test fails at client construction with `supabaseUrl is required`. A symlink to
+the main checkout's copy keeps one file to rotate.
+
+**`npm ci` is required per worktree — a symlink will not do.** Observed, in
+order:
+
+| `node_modules` in the worktree | result |
+|---|---|
+| absent | `next dev` serves 500s: `ENOENT … .next/dev/server/pages/_app/build-manifest.json` |
+| symlinked to the root's | Turbopack refuses: `Symlink [project]/node_modules is invalid, it points out of the filesystem root` |
+| real install (`npm ci`) | serves normally |
+
+**Vitest and the dev server disagree about whether you need one**, which is
+what makes this confusing. Vitest runs fine with no install in the worktree —
+Node walks up and resolves the root's packages — so unit tests pass while the
+dev server 500s, and it looks like the app is broken rather than the
+environment. Vitest also writes `node_modules/.vite` into the worktree, so
+after running tests `node_modules` exists but contains only that cache
+directory. It is not an install, and `next dev` fails the same way as if it
+were absent.
+
+**`preview_start` uses the ROOT `.claude/launch.json`.** It starts the dev
+server with the main checkout as its working directory, not your worktree, so
+the page it serves is the other checkout's code. Verify before trusting a
+preview:
+
+```bash
+lsof -a -p "$(lsof -ti :3000 | head -1)" -d cwd   # which checkout is being served
+```
+
+Run your own server on a port of your own instead. It also avoids fighting
+other sessions for `:3000`.
+
 ## Environment variables
 
 Every variable is documented inline in [`.env.example`](.env.example); this is the short version of what you actually need.
