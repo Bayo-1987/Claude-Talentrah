@@ -18,13 +18,19 @@
  * surviving row to whichever source is placed later — the reason
  * sources.config.ts places `workable`/kuda AFTER `workable-abuja`.
  *
- * Network is mocked (both fetchers hit their REAL hardcoded hosts —
- * jobs.workable.test below stands in for jobs.workable.com's shape only in
- * the URL path, the workable fetcher itself is NOT mocked and calls the real
- * `apply.workable.com` host, intercepted by the stubbed global fetch below
- * using a random per-run token so it can never collide with a real account);
- * Supabase is not — same split as every other ingest-* test in this
- * directory.
+ * Network is mocked; Supabase is not — same split as every other ingest-*
+ * test in this directory. ONE THING WORTH FLAGGING FOR THE NEXT PERSON WHO
+ * COPIES THIS FILE: `ingestAllSources` constructs its OWN Supabase client
+ * (`createServiceRoleClient()`) *inside* the function call, which happens
+ * AFTER the fetch stub below is installed — so its REST calls (the upsert,
+ * the closure-sweep selects) route through this same mocked `fetch`, not
+ * around it. The fallback branch below MUST forward both `fetch` arguments
+ * (`input` AND `init`) to the real fetch, not just the URL — dropping `init`
+ * silently strips the request's auth header, method and body while `fetch`
+ * still resolves successfully, so nothing throws and the failure shows up
+ * three steps downstream as "zero rows landed" with no error anywhere to
+ * point at it. Caught here by comparing against a plain upsert+read that
+ * used no stub at all — see this PR's history for the full dead-end trail.
  */
 import { afterAll, describe, expect, it, vi } from "vitest";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
@@ -97,56 +103,12 @@ afterAll(async () => {
 });
 
 describe("a posting reachable via both a schema-org Workable search page and the per-company workable source", () => {
-  it("DIAGNOSTIC: a plain upsert+read round-trip works before any fetch mocking is involved", async () => {
-    // Isolates the DB/upsert mechanics from ingestAllSources and from the
-    // fetch stub entirely — no mocked fetch is active for this test, so this
-    // uses the real network path exactly like every passing sibling test's
-    // own admin client does. If this doesn't come back either, the next test
-    // failing is a DB/harness fact, not something about the workable source.
-    const probeFingerprint = `probe-${RUN_ID}`;
-    const { error: upsertError, count } = await admin.from("job_postings").upsert(
-      [
-        {
-          source_type: "external",
-          organization_id: null,
-          title: "Probe Role",
-          company_name: COMPANY,
-          location: "Lagos, Nigeria",
-          description: "probe",
-          structured_jd: { skills: [], keywords: [], responsibilities: [] },
-          external_url: "https://example.test/probe",
-          external_source: "workable",
-          status: "open",
-          posted_at: new Date().toISOString(),
-          last_checked_at: new Date().toISOString(),
-          dedup_fingerprint: probeFingerprint,
-        },
-      ],
-      { onConflict: "dedup_fingerprint", count: "exact" },
-    );
-    console.log("[ingest-workable-dedup] DIAGNOSTIC upsert error/count:", JSON.stringify({ upsertError, count }));
-
-    const { data: probeRows, error: probeReadError } = await admin
-      .from("job_postings")
-      .select("id, title, company_name")
-      .eq("dedup_fingerprint", probeFingerprint);
-    console.log(
-      "[ingest-workable-dedup] DIAGNOSTIC read-back:",
-      JSON.stringify({ probeRows, probeReadError }),
-    );
-
-    await admin.from("job_postings").delete().eq("dedup_fingerprint", probeFingerprint);
-
-    expect(upsertError, `probe upsert reported an error: ${JSON.stringify(upsertError)}`).toBeNull();
-    expect(probeRows, "a plain upsert of one row must be readable back immediately").toHaveLength(1);
-  });
-
   it("collapses to one row, attributed to whichever source runs LAST in JOB_SOURCES", async () => {
     await cleanup();
 
     vi.stubGlobal(
       "fetch",
-      vi.fn(async (input: unknown) => {
+      vi.fn(async (input: unknown, init?: unknown) => {
         const url = typeof input === "string" ? input : String((input as { url?: string })?.url ?? input);
 
         if (url === ABUJA_LISTING_URL) {
@@ -220,21 +182,17 @@ describe("a posting reachable via both a schema-org Workable search page and the
         if (url.startsWith("https://jobs.workable.test/") || url === WIDGET_URL) {
           throw new Error(`unstubbed test URL: ${url}`);
         }
-        return realFetch(input as Parameters<typeof fetch>[0]);
+        // Forward BOTH arguments — see the module doc comment above for why
+        // dropping `init` here is a silent-failure trap, not a style choice.
+        return realFetch(input as Parameters<typeof fetch>[0], init as Parameters<typeof fetch>[1]);
       }),
     );
 
     const { ingestAllSources } = await import("@/lib/jobs/ingest");
     const results = await ingestAllSources();
-    // Unconditional, not just on failure — per this repo's own "an empty or
-    // truncated result is a claim, get a second method" convention: a bare
-    // pass/fail here gives no way to tell WHICH config produced what without
-    // re-running in CI. Cheap to print, expensive to be missing later.
-    console.log("[ingest-workable-dedup] results:", JSON.stringify(results, null, 2));
     for (const r of results) expect(r.error, `ingest reported an error: ${r.error}`).toBeUndefined();
 
     const rows = await statuses();
-    console.log("[ingest-workable-dedup] rows for company:", JSON.stringify(rows, null, 2));
 
     const dsaRows = rows.filter((r) => r.title === "Direct Sales Agent");
     expect(
