@@ -173,10 +173,24 @@ function hasUsableAddress(block: ValidJobPostingBlock): boolean {
  * carrying that flag AND a physical address is still hybrid: the address is
  * the only signal that separates hybrid from remote, and a second rule here
  * would just be a second thing to keep in sync.
+ *
+ * The `onsite` branch below was added later (see the work_type NULL-share
+ * investigation this shipped under): with no TELECOMMUTE signal at all, a
+ * posting that still states a real physical address has positive evidence
+ * of being on-site there, and gets that label instead of falling through to
+ * undefined. This is NOT the same move as "TELECOMMUTE with no address means
+ * remote" above being flipped to a default — it is the opposite discipline
+ * applied consistently: `undefined` is reserved for postings that give this
+ * function nothing to go on (no address, no TELECOMMUTE), same as it always
+ * was. `hasUsableAddress` is exactly the check `formatLocation` already
+ * makes to decide whether it has anything to print, so a posting cannot end
+ * up on-screen with a location string and still read `undefined` here.
  */
 function mapWorkType(block: ValidJobPostingBlock): WorkType | undefined {
-  if (block.jobLocationType !== "TELECOMMUTE") return undefined;
-  return hasUsableAddress(block) ? "hybrid" : "remote";
+  if (block.jobLocationType === "TELECOMMUTE") {
+    return hasUsableAddress(block) ? "hybrid" : "remote";
+  }
+  return hasUsableAddress(block) ? "onsite" : undefined;
 }
 
 function mapEmploymentType(raw: string | undefined): EmploymentType | undefined {

@@ -178,11 +178,57 @@ export function extractStructuredJd(plainText: string): StructuredJD {
   };
 }
 
+/**
+ * Location strings Greenhouse ingestion has actually been seen to carry that
+ * are NOT a place — a template artefact left in a company's own posting
+ * ("City, Country", "Program Country"), an internal-org label ("OpCo"), or a
+ * genuinely blank/placeholder value. Greenhouse's `location.name` is free
+ * text set per-posting by each hiring company (unlike schema.org's
+ * structured address in schema-org.ts), so unlike that source this needs an
+ * explicit denylist rather than a structural check. Checked against every
+ * `work_type IS NULL` location value in production on 2026-09-05 — anything
+ * not on this list read as a real, specific place (a city, a region, a
+ * country, or several of those joined with ";").
+ */
+const NON_LOCATION_VALUES = new Set([
+  "",
+  "-",
+  "n/a",
+  "na",
+  "tbd",
+  "unknown",
+  "unspecified",
+  "none",
+  "various",
+  "multiple locations",
+  "worldwide",
+  "global",
+  "opco",
+  "program country",
+  "city, country",
+]);
+
+function namesARealPlace(location: string | undefined): boolean {
+  const normalized = location?.trim().toLowerCase() ?? "";
+  return normalized.length > 0 && !NON_LOCATION_VALUES.has(normalized);
+}
+
 export function inferWorkType(title: string, location: string | undefined): WorkType | undefined {
   const text = `${title} ${location ?? ""}`.toLowerCase();
   if (text.includes("remote")) return "remote";
   if (text.includes("hybrid")) return "hybrid";
-  return undefined;
+  /**
+   * Neither signal fired. A location that names a real, specific place is
+   * treated as positive evidence the role is on-site there — it is NOT a
+   * default for "couldn't tell": a missing, empty, or templated location
+   * (see NON_LOCATION_VALUES) still returns undefined, exactly as before
+   * this branch existed. The asymmetry with `inferSeniority` below — which
+   * DOES default when it runs out of signal — is deliberate here, not an
+   * oversight: a wrong seniority guess is a cosmetic badge, but a wrong
+   * onsite guess would tell a candidate an aggregation failure was a
+   * confident fact about where the job is.
+   */
+  return namesARealPlace(location) ? "onsite" : undefined;
 }
 
 export function inferSeniority(title: string): SeniorityLevel | undefined {

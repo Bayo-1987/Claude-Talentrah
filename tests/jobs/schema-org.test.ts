@@ -502,7 +502,18 @@ describe("fetchSchemaOrgJobs", () => {
       expect(jobs[0].workType).toBe("remote");
     });
 
-    it("a real address with NO TELECOMMUTE → undefined, unchanged behaviour", async () => {
+    /**
+     * Was "→ undefined, unchanged behaviour" — schema.org has no explicit
+     * "onsite" value, so a real address with no TELECOMMUTE signal used to
+     * fall all the way through to undefined, indistinguishable from a
+     * posting this parser simply failed to read. That collapsed two very
+     * different things onto the same NULL: measured on production, this was
+     * 65% of the whole board. A physical address IS positive evidence of an
+     * on-site role, so it is asserted now instead of discarded — see
+     * mapWorkType's own header for why this is not the same move as
+     * defaulting on missing signal.
+     */
+    it("a real address with NO TELECOMMUTE → onsite", async () => {
       mockRoutes({
         [listingUrl]: htmlWithJsonLd(
           posting({
@@ -521,11 +532,31 @@ describe("fetchSchemaOrgJobs", () => {
 
       const { jobs, skipped } = await fetchSchemaOrgJobs(listingUrl, "test-source");
       expect(skipped).toEqual([]);
-      expect(
-        jobs[0].workType,
-        "an on-site posting states no work type — the source never said 'onsite', so nothing is guessed",
-      ).toBeUndefined();
+      expect(jobs[0].workType).toBe("onsite");
       expect(jobs[0].location).toBe("Lagos, Lagos, Nigeria");
+    });
+
+    /**
+     * The other side of the same rule: no TELECOMMUTE and no address either
+     * (only the `applicantLocationRequirements` remote-ish flag, which is
+     * what lets this posting past validateJobPosting at all — see the
+     * TELECOMMUTE+applicantLocationRequirements+no-address case below for
+     * why that flag alone was never sufficient evidence of remote). With
+     * nothing naming an actual place, this must stay undefined — the whole
+     * point of the onsite branch is that it is evidence-gated, not a second
+     * default sitting next to the first one.
+     */
+    it("no TELECOMMUTE and no address at all → still undefined, not onsite by default", async () => {
+      mockRoutes({
+        [listingUrl]: htmlWithJsonLd(
+          posting({ applicantLocationRequirements: { "@type": "Country", name: "Nigeria" } }),
+        ),
+      });
+
+      const { jobs, skipped } = await fetchSchemaOrgJobs(listingUrl, "test-source");
+      expect(skipped).toEqual([]);
+      expect(jobs[0].workType).toBeUndefined();
+      expect(jobs[0].location).toBeUndefined();
     });
 
     /**
