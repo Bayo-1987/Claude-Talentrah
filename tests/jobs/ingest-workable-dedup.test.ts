@@ -169,7 +169,13 @@ describe("a posting reachable via both a schema-org Workable search page and the
             }),
           };
         }
-        if (url.includes("workable")) throw new Error(`unstubbed test URL: ${url}`);
+        // Precise, not a bare `.includes("workable")` — the real Supabase
+        // REST calls below carry `external_source=eq.schema-org%3Atest-
+        // workable-abuja-<run>` in their OWN query string, which contains
+        // the substring "workable" too and must fall through to realFetch.
+        if (url.startsWith("https://jobs.workable.test/") || url === WIDGET_URL) {
+          throw new Error(`unstubbed test URL: ${url}`);
+        }
         return realFetch(input as Parameters<typeof fetch>[0]);
       }),
     );
