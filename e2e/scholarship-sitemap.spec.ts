@@ -62,6 +62,22 @@ test.describe("scholarship sitemap coverage", () => {
     try {
       const res = await request.get("/sitemap.xml");
       const body = await res.text();
+
+      /*
+       * POSITIVE CONTROL FIRST, because the assertion below is an absence.
+       *
+       * `not.toContain` passes against an empty string, a 404 page and a
+       * 500 — every way the sitemap can be broken is also a way this test
+       * can report success. It has to be shown that the sitemap loaded and
+       * is really listing scholarships before "this id is not in it" means
+       * anything at all.
+       */
+      expect(res.status(), "the sitemap did not load, so the check below proves nothing").toBe(200);
+      expect(
+        body,
+        "the sitemap returned no scholarship URLs, so an absent id proves nothing",
+      ).toContain("/scholarships/");
+
       expect(body, "a pending scholarship leaked into the public sitemap").not.toContain(data.id);
     } finally {
       // afterEach-style cleanup inline, so it runs whether the assertion
