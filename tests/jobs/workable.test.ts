@@ -93,10 +93,16 @@ describe("fetchWorkableJobs", () => {
       expect(jobs[0].workType).toBe("remote");
     });
 
-    it("telecommuting: false with no remote/hybrid signal in the title falls through inferWorkType to undefined — never guessed as onsite", async () => {
+    it("telecommuting: false with no remote/hybrid signal falls through to inferWorkType, which reads the real Lagos location as onsite", async () => {
+      // `job()`'s default location (Lagos, Lagos, Nigeria) is a real place —
+      // exactly the positive evidence inferWorkType's onsite branch requires.
+      // This test's job is proving the FALL-THROUGH happens (telecommuting:
+      // false is not itself treated as a negative "not remote" signal, it's
+      // simply the absence of a positive one), not re-testing inferWorkType's
+      // own branches — those are covered directly in infer-work-type.test.ts.
       mockAccount({ name: "Kuda Technologies Ltd", jobs: [job({ telecommuting: false })] });
       const jobs = await fetchWorkableJobs("kuda", "Kuda Technologies Ltd");
-      expect(jobs[0].workType).toBeUndefined();
+      expect(jobs[0].workType).toBe("onsite");
     });
 
     it("telecommuting: false but the title itself says Remote — inferWorkType still catches it", async () => {
