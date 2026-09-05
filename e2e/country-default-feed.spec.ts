@@ -141,10 +141,20 @@ test.describe("country-defaulted feed (Stage 12)", () => {
 
       await authedPage.goto(`/jobs?q=${uniqueTerm}&seniority=senior`);
 
-      // Both filters show as applied chips together, with the new label.
-      const appliedFilters = authedPage.getByTestId("applied-filters");
-      await expect(appliedFilters.getByText("Nigeria + Remote", { exact: true })).toBeVisible();
-      await expect(appliedFilters.getByText("Senior", { exact: true })).toBeVisible();
+      /*
+       * No more applied-filter chips (removed in the filter-row redesign) —
+       * Country shows its live value on the menu button's own face, and
+       * Seniority shows applied via the same rust/bold styling every active
+       * link in the row gets. `.first()` on the country summary: the desktop
+       * row renders before the mobile row in the DOM, and at this suite's
+       * default >900px viewport only the desktop one is actually visible —
+       * the mobile instance exists but is `display:none`, which is exactly
+       * the pattern employer-masthead.tsx's own responsive nav already uses.
+       */
+      const countryButton = authedPage.locator("summary", { hasText: "Nigeria" }).first();
+      await expect(countryButton).toBeVisible();
+      const seniorLink = authedPage.getByRole("link", { name: "Senior", exact: true });
+      await expect(seniorLink).toHaveClass(/text-rust/);
 
       await expect(
         authedPage.getByText(remoteElsewhereTitle),
@@ -155,15 +165,16 @@ test.describe("country-defaulted feed (Stage 12)", () => {
         "a non-Nigeria, non-remote posting must still be excluded — the filter must not be a no-op",
       ).toHaveCount(0);
 
-      // Clearing ONLY the country chip: Seniority survives, the excluded
-      // onsite-elsewhere fixture reappears.
-      await appliedFilters.getByLabel("Remove Nigeria + Remote filter").click();
+      // Clearing ONLY the country (via the menu's "Every country" row):
+      // Seniority survives, the excluded onsite-elsewhere fixture reappears.
+      await countryButton.click();
+      await authedPage.getByRole("link", { name: /Every country/ }).click();
       await authedPage.waitForURL(/country=all/);
       await expect(authedPage.getByText(onsiteElsewhereTitle)).toBeVisible();
       await expect(
-        authedPage.getByLabel("Remove Senior filter"),
-        "clearing the country chip must not also clear Seniority",
-      ).toBeVisible();
+        authedPage.getByRole("link", { name: "Senior", exact: true }),
+        "clearing the country filter must not also clear Seniority",
+      ).toHaveClass(/text-rust/);
     },
   );
 

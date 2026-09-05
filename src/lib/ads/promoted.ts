@@ -50,12 +50,21 @@ export const PROMOTED_MIN_SCORE = 60;
  */
 export async function fetchPromotedJobs(
   supabase: SupabaseClient<Database>,
-  opts: { workType?: string; seniority?: string; limit?: number } = {},
+  opts: { workTypes?: string[]; seniorities?: string[]; limit?: number } = {},
 ): Promise<PromotedJob[]> {
+  /*
+   * Widened to arrays alongside the feed's own move to multi-select work
+   * type and seniority (0095) — D1 requires a promoted slot to satisfy every
+   * filter the reader has active, and a reader can now have two of either
+   * active at once. An empty array is passed through as `null` (0095's own
+   * "no filter applied" sentinel), not `[]`: `= any('{}')` matches nothing at
+   * all, which would have every promoted slot vanish the instant a caller
+   * passed an empty array instead of omitting the filter.
+   */
   const { data, error } = await supabase.rpc("promoted_jobs", {
     p_min_score: PROMOTED_MIN_SCORE,
-    p_work_type: (opts.workType ?? null) as never,
-    p_seniority: (opts.seniority ?? null) as never,
+    p_work_types: (opts.workTypes?.length ? opts.workTypes : null) as never,
+    p_seniorities: (opts.seniorities?.length ? opts.seniorities : null) as never,
     p_limit: opts.limit ?? PROMOTED_SLOTS,
   });
 

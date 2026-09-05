@@ -130,11 +130,33 @@ test.describe("golden path", () => {
     // --- Job feed -------------------------------------------------------
     await page.goto("/jobs");
     await expect(page.getByRole("heading", { level: 3 }).first()).toBeVisible();
-    const jobCards = page.locator("form:has(button:text-is('Apply'))");
-    expect(await jobCards.count(), "seeded internal jobs should be applyable").toBeGreaterThan(0);
+    /*
+     * BY NAME, NOT POSITION. This used to be `jobCards.first()` — coupling
+     * the golden path to feed ranking order. #211 changed that order once,
+     * #222 changes it again, and ranking is the one thing this product will
+     * keep changing. A test that silently depends on which card sorts first
+     * breaks for reasons that have nothing to do with whether applying
+     * actually works. "Senior Product Manager" is one of scripts/seed.ts's
+     * INTERNAL_JOBS — a fixture this test can name, not an incidental first
+     * result.
+     *
+     * TITLE ALONE IS NOT UNIQUE, confirmed by running this: the live board
+     * also carries a real externally-ingested Moniepoint posting titled
+     * "Senior Product Manager" — a genuine coincidence in real aggregated
+     * data, not a fixture collision. The exact-text "Apply" button
+     * disambiguates them: an external posting never has one (it renders
+     * "Mark as applied" / "Apply on company site" instead), so filtering on
+     * both the title AND that exact button selects only the seeded internal
+     * job, regardless of how many other postings share its title.
+     */
+    const seededJobCard = page
+      .getByTestId("job-card")
+      .filter({ has: page.getByRole("heading", { name: "Senior Product Manager" }) })
+      .filter({ has: page.getByRole("button", { name: "Apply", exact: true }) });
+    await expect(seededJobCard, "the seeded internal job should be on the board").toHaveCount(1);
 
     // --- Apply ----------------------------------------------------------
-    await jobCards.first().getByRole("button", { name: "Apply", exact: true }).click();
+    await seededJobCard.getByRole("button", { name: "Apply", exact: true }).click();
     await page.waitForLoadState("networkidle");
 
     // The application row is the thing that matters, not the toast.

@@ -90,7 +90,7 @@ export function JobCard({
     applicationStage === "hired";
 
   return (
-    <BorderedCard className="flex flex-col gap-3.5 p-5">
+    <BorderedCard data-testid="job-card" className="flex flex-col gap-3.5 p-5">
       <div className="flex items-start gap-4">
         <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center bg-ink font-display text-[15px] font-bold text-paper">
           {getCompanyInitials(job.company_name)}

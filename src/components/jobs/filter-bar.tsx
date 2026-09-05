@@ -1,7 +1,7 @@
 import Link from "next/link";
-import type { SkillFacetEntry } from "@/lib/jobs/skill-facet";
 import type { Suggestion } from "@/lib/jobs/search-suggestions";
 import { SearchCombobox } from "./search-combobox";
+import { FilterMenu, type FilterMenuItem } from "./filter-menu";
 import { JOB_DATE_FILTERS, JOB_DATE_FILTER_LABEL, type JobDateFilter } from "@/lib/jobs/freshness";
 import { TRACKED_COUNTRIES, type TrackedCountry } from "@/lib/jobs/country";
 
@@ -24,18 +24,16 @@ const LABEL: Record<string, string> = {
  * Browse links are hit targets, not text.
  *
  * CLAUDE.md fixes a >=40x40px minimum on every interactive element and
- * records it as a bug this project has already shipped once. These eight
- * links were 18.8px tall — measured in a browser, not inferred from the
- * classes, because the classes looked fine.
+ * records it as a bug this project has already shipped once. These links
+ * were 18.8px tall — measured in a browser, not inferred from the classes,
+ * because the classes looked fine.
  *
- * `min-w-10` is not redundant with `min-h-10`. The skill facet row below
- * already had `min-h-10` and still failed: "sql (38)" measured 39.1 x 40, so
- * the row that looked like the fixed one was itself a hair under on the other
- * axis. Short labels — "Lead" at 25.2px, "Entry" at 28.1px — are the whole
- * reason the rule names both dimensions.
+ * `min-w-10` is not redundant with `min-h-10`. Short labels — "Lead" at
+ * 25.2px, "Entry" at 28.1px — are the whole reason the rule names both
+ * dimensions.
  */
 const BROWSE_LINK =
-  "inline-flex min-h-10 min-w-10 items-center justify-center underline underline-offset-2";
+  "inline-flex min-h-10 min-w-10 items-center justify-center whitespace-nowrap underline underline-offset-2";
 
 function browseLink(active: boolean) {
   return active
@@ -56,42 +54,39 @@ function buildHref(
   return qs ? `/jobs?${qs}` : "/jobs";
 }
 
+/** Adds `value` if it isn't in `current`, removes it if it is — one click, one toggle. */
+function toggled(current: readonly string[], value: string): string[] {
+  return current.includes(value) ? current.filter((v) => v !== value) : [...current, value];
+}
+
 export interface FilterBarProps {
   /** Free-text query, matched in memory over the already-fetched board. */
   q?: string;
   tab: string;
-  workType?: string;
-  seniority?: string;
-  /** Applied skill filter, lowercase — matches `structured_jd.skills`. */
-  skill?: string;
-  /**
-   * Skills present in the postings currently on the board, with counts.
-   * Derived from ingested text, never a maintained list — see skill-facet.ts.
-   */
-  skillFacet?: SkillFacetEntry[];
+  /** Multi-select (Part 2) — both can be active at once, e.g. Remote + Hybrid. */
+  workTypes?: string[];
+  seniorities?: string[];
   /**
    * Suggestion values for the search field, built server-side from the board
-   * currently in hand. Built from the same set the skill facet counts — the
-   * board BEFORE the search term is applied — so suggestions do not collapse
-   * to whatever co-occurs with what you have typed so far.
+   * currently in hand. Built from the board BEFORE the search term is
+   * applied — so suggestions do not collapse to whatever co-occurs with what
+   * you have typed so far.
    */
   searchIndex?: Suggestion[];
   /**
    * The user's chosen narrower window, layered on top of the ambient 30-day
    * floor every tab already applies (src/lib/jobs/freshness.ts) — undefined
-   * means "just the floor", not "no filter at all".
+   * means "just the floor", not "no filter at all". Single-value: two time
+   * windows is meaningless, since the wider always wins.
    */
   posted?: JobDateFilter;
   /**
    * The EFFECTIVE country in play, whether from an explicit `?country=`
    * param or defaulted from the signed-in user's profile.country
    * (jobs/page.tsx computes both into one value before this ever sees it).
-   * Rendered as an applied chip either way — "make the default visible and
-   * removable... never invisible behaviour" — so this prop does not
-   * distinguish "kept" from "was always the default"; both look identical
-   * here, on purpose. `undefined` covers two different cases this component
-   * cannot tell apart on its own — see `countryApplicable` below for why
-   * that distinction still matters.
+   * `undefined` covers two different cases this component cannot tell apart
+   * on its own — see `countryApplicable` below for why that distinction
+   * still matters. Single-value: two countries has no coherent default.
    */
   country?: TrackedCountry;
   /**
@@ -106,94 +101,95 @@ export interface FilterBarProps {
    * invisible-behaviour this feature exists to rule out.
    */
   countryApplicable?: boolean;
+  /**
+   * Per-tracked-country counts, computed by jobs/page.tsx against the board
+   * as it stands under every OTHER active filter — work type, seniority,
+   * posted, search — but before country itself narrows it. "Under whatever
+   * else is applied", so a number shown here is a promise the next screen
+   * (which keeps every other filter active) actually keeps.
+   */
+  countryCounts?: Record<TrackedCountry, number>;
+  /** The "Every country" row's own count — the same board, no country restriction at all. */
+  everyCountryCount?: number;
 }
 
 /**
- * Server-rendered. Every chip and toggle is still a plain link that updates the
- * URL — the one client component is the search field's suggestion list, which
- * is additive: with JS off it is the same `<input>` in the same GET form it has
- * always been.
+ * The jobs feed's filter controls.
+ *
+ * Server-rendered. Every control is still a plain link or native
+ * `<details>`/`<summary>` that updates the URL — the one client component is
+ * the search field's suggestion list and the menu's keyboard polish
+ * (search-combobox.tsx, filter-menu.tsx), both additive: with JS off this is
+ * the same GET-driven links-and-inputs page it has always been.
  */
 export function FilterBar({
   q,
   tab,
-  workType,
-  seniority,
-  skill,
+  workTypes = [],
+  seniorities = [],
   posted,
   country,
   countryApplicable = false,
-  skillFacet = [],
+  countryCounts,
+  everyCountryCount,
   searchIndex = [],
 }: FilterBarProps) {
-  const base = { tab, workType, seniority, skill, q, posted, country };
+  const workTypeParam = workTypes.length ? workTypes.join(",") : undefined;
+  const seniorityParam = seniorities.length ? seniorities.join(",") : undefined;
+  const base = { tab, workType: workTypeParam, seniority: seniorityParam, q, posted, country };
+
+  const anyApplied =
+    workTypes.length > 0 || seniorities.length > 0 || !!posted || !!country || !!q;
 
   /*
-   * Every OTHER filter clears by omitting its param (absence means "no
-   * filter"). Country can't: absence means "apply the profile default"
-   * (jobs/page.tsx), so removing the country chip has to set the explicit
-   * "all" sentinel rather than just dropping the param — otherwise the
-   * default would silently reassert itself the moment the chip is clicked,
-   * which is exactly the "invisible behaviour" this filter must not have.
-   * `clearTo` lets each applied entry override what removing it actually
-   * sets, defaulting to `undefined` for everything else.
+   * Country menu content — one set of items, rendered by TWO <FilterMenu>
+   * instances below (the desktop leading control and the mobile row). Native
+   * `display:none` on whichever one the breakpoint hides takes it out of the
+   * tab order and the accessibility tree on its own — the same pattern
+   * employer-masthead.tsx already uses for its own responsive nav, so this
+   * isn't a new kind of duplication in this codebase.
    */
-  const applied: { key: keyof typeof base; label: string; clearTo?: string }[] = [];
-  if (workType) applied.push({ key: "workType", label: LABEL[workType] });
-  if (seniority) applied.push({ key: "seniority", label: LABEL[seniority] });
-  if (posted) applied.push({ key: "posted", label: LABEL[posted] });
-  // "{country} + Remote", not just "{country}" — the filter itself now
-  // matches the country OR any remote listing (jobs/page.tsx), so the chip
-  // says what it actually does rather than reading as a stricter,
-  // country-only filter than the one in effect.
-  if (country) applied.push({ key: "country", label: `${country} + Remote`, clearTo: "all" });
-  // Lowercase on purpose. `sql` and `communication` are the values the parser
-  // actually stored, and the browse row below shows them the same way. Title
-  // casing would render "Sql", and a per-skill capitalisation map is a curated
-  // list — the exact thing the facet exists to avoid.
-  if (skill) applied.push({ key: "skill", label: skill });
-  // The search term is a removable segment like any other applied filter —
-  // it is a filter, and leaving it out of the instrument would make it the one
-  // narrowing the board with no visible way to undo it.
-  if (q) applied.push({ key: "q", label: `“${q}”` });
+  const countryItems: FilterMenuItem[] = TRACKED_COUNTRIES.map((c) => ({
+    href: buildHref(base, { country: country === c ? "all" : c }),
+    label: c,
+    selected: country === c,
+    count: countryCounts?.[c],
+  }));
+  const countrySentinel: FilterMenuItem = {
+    href: buildHref(base, { country: "all" }),
+    label: "Every country",
+    selected: !country,
+    count: everyCountryCount,
+  };
+  // The button's own face always shows the live value — the default is
+  // visible and reversible, never invisible behaviour.
+  const countryFace = country ?? "Every country";
+
+  const workTypeItems: FilterMenuItem[] = WORK_TYPES.map((wt) => ({
+    href: buildHref(base, { workType: toggled(workTypes, wt).join(",") || undefined }),
+    label: LABEL[wt],
+    selected: workTypes.includes(wt),
+  }));
+  const seniorityItems: FilterMenuItem[] = SENIORITIES.map((s) => ({
+    href: buildHref(base, { seniority: toggled(seniorities, s).join(",") || undefined }),
+    label: LABEL[s],
+    selected: seniorities.includes(s),
+  }));
+  const postedItems: FilterMenuItem[] = JOB_DATE_FILTERS.map((d) => ({
+    href: buildHref(base, { posted: posted === d ? undefined : d }),
+    label: LABEL[d],
+    selected: posted === d,
+  }));
 
   return (
     <div className="flex flex-col gap-3 border-y border-line py-3">
       {/*
-        One instrument, not a scatter of chips (finding 01). The border is the
-        control; the hairlines inside are its dividers.
-
-        It used to render only when something was applied, because an empty
-        bordered box is a control with nothing in it. That reasoning retired
-        with the search field: there is now always something in it, so it
-        always renders.
-
-        Scope note: only APPLIED filters live in here. The work-type,
-        seniority and skill browse rows below are discovery affordances and
-        stay outside it, which is also all the mock ever showed inside — one
-        applied skill chip, never the twelve-option list.
-      */}
-      {/*
-        THE LEADING SEGMENT — a segment, not a second box.
-        
-        A comment here used to note this was "a search field this feed does not
-        have". It has one now, and the first version of it shipped as its own
-        bordered container stacked above this one. That looked close enough and
-        was wrong on the rule this whole control exists to satisfy: finding 01
-        is ONE instrument, and two identical 1.5px boxes is a scatter of two.
-        tests/jobs/filter-bar.test.tsx caught it.
-
-        A GET form, so the query lives in the URL like every other filter and a
-        searched board is shareable and back-buttonable. The hidden inputs
-        carry the other filters through — without them, searching would
-        silently clear them.
-
-        Consequence worth stating: the instrument now renders ALWAYS, because
-        the search field is always available. It is no longer "a box that
-        appears when something is applied" but "the board's controls", which is
-        what the mock draws. The applied term still appears as its own
-        removable segment further along — the input is how you search, the
-        segment is how you stop.
+        THE SEARCH INSTRUMENT — unchanged shape from before Part 3, minus the
+        per-filter chip row. Work type, seniority, posted and country now show
+        their own applied state directly (a rust link, a menu button's own
+        face) — a second, redundant display of the same state inside this box
+        was the "applied-filter chip row" that's gone. "Clear filters" is the
+        one thing left in here with no other affordance, so it stays.
       */}
       <div
         data-testid="applied-filters"
@@ -202,21 +198,13 @@ export function FilterBar({
         <form
           method="GET"
           action="/jobs"
-          className={`flex min-w-[240px] flex-1 items-stretch ${
-            applied.length > 0 ? "border-r border-line" : ""
-          }`}
+          className={`flex min-w-[240px] flex-1 items-stretch ${anyApplied ? "border-r border-line" : ""}`}
         >
           {tab && <input type="hidden" name="tab" value={tab} />}
-          {workType && <input type="hidden" name="workType" value={workType} />}
-          {seniority && <input type="hidden" name="seniority" value={seniority} />}
-          {skill && <input type="hidden" name="skill" value={skill} />}
+          {workTypeParam && <input type="hidden" name="workType" value={workTypeParam} />}
+          {seniorityParam && <input type="hidden" name="seniority" value={seniorityParam} />}
           {posted && <input type="hidden" name="posted" value={posted} />}
           {country && <input type="hidden" name="country" value={country} />}
-          {/*
-            The input and its suggestion list. Still the same `name="q"` inside
-            this same GET form — the combobox fills it and submits the form,
-            rather than introducing a parallel path. See search-combobox.tsx.
-          */}
           <SearchCombobox defaultValue={q ?? ""} index={searchIndex} />
           <button
             type="submit"
@@ -226,42 +214,11 @@ export function FilterBar({
           </button>
         </form>
 
-        {applied.map(({ key, label, clearTo }) => (
-            <Link
-              key={key}
-              href={buildHref(base, { [key]: clearTo })}
-              aria-label={`Remove ${label} filter`}
-              /*
-                The whole segment is the remove target, not the 9px glyph. The
-                mock draws the x as decoration inside a span; at 9 x 9 that is
-                a quarter of the 40x40 minimum CLAUDE.md fixes, and shipping a
-                glyph-sized hit area is a bug this project has already had once.
-              */
-              className="flex min-h-[42px] items-center gap-2 border-r border-line px-3.5 text-[12.5px] font-semibold text-ink-soft no-underline transition-colors last:border-r-0 hover:text-rust"
-            >
-              {label}
-              <svg width="9" height="9" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                <path
-                  d="M4 4 L16 16 M16 4 L4 16"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                />
-              </svg>
-            </Link>
-        ))}
-
-        {/*
-          Still conditional, unlike the container around it. "Clear filters"
-          with nothing applied is a button that does nothing — and clearing is
-          the one action here that should never be offered when it is a no-op.
-        */}
-        {applied.length > 0 && (
+        {anyApplied && (
           <Link
             href={buildHref(base, {
               workType: undefined,
               seniority: undefined,
-              skill: undefined,
               q: undefined,
               posted: undefined,
               // Only when country is actually a concept for this user —
@@ -275,33 +232,69 @@ export function FilterBar({
           </Link>
         )}
       </div>
-      <div className="flex flex-wrap items-center gap-4 text-[12.5px]">
-        <div className="flex items-center gap-1.5">
-          <span className="font-semibold text-ink-soft">Work type:</span>
+
+      {/*
+        DESKTOP — one row, Country leading as the only bordered menu, then
+        Work type / Seniority / Posted as plain inline links with no labels: a
+        hairline column rule between groups (border-l on each span after the
+        first) carries the grouping the labels used to.
+
+        THE BREAKPOINT IS MEASURED, and the number this comment used to state
+        (901px, "fits inside 996px available") was wrong — not approximately,
+        wrong in kind: `flex-nowrap` with no shrink/wrap/scroll fallback means
+        the row's actual rendered width (1069px, measured directly against a
+        real logged-in board) becomes the DOCUMENT's width the moment the
+        viewport is narrower than that, not the row's. At 901px and 1024px
+        viewports this pushed the whole page 168px and 45px past its own
+        viewport respectively — a horizontal scrollbar on the jobs feed at
+        one of the commonest laptop widths, caught by
+        e2e/farah-discoverability.spec.ts's own document-width assertion
+        (which exists for an unrelated masthead item, and caught this only
+        because it measures the DOCUMENT, not the masthead).
+
+        1140px, not 1120 (this codebase's own max-content-width constant):
+        1069px of real content plus a margin bigger than the ~18-45px of
+        cross-platform font-metric variance already observed elsewhere in
+        this exact suite (see that spec's own header) is the deliberate
+        choice — 1120px alone would leave only 51px of slack, which is not
+        comfortably more than variance already seen to move a similar row by
+        45px on its own. Below 1140px the row hides and the collapsed
+        FilterMenu version (below) takes over — the same control, not a
+        degraded one.
+      */}
+      <div
+        data-testid="filter-bar-desktop"
+        className="hidden min-[1140px]:flex min-[1140px]:flex-nowrap min-[1140px]:items-center min-[1140px]:gap-4"
+      >
+        <FilterMenu
+          faceLabel={countryFace}
+          items={countryItems}
+          sentinel={countrySentinel}
+          testId="filter-menu-country-desktop"
+        />
+        <span className="flex items-center gap-3.5 border-l border-line pl-4">
           {WORK_TYPES.map((wt) => (
             <Link
               key={wt}
-              href={buildHref(base, { workType: workType === wt ? undefined : wt })}
-              className={browseLink(workType === wt)}
+              href={buildHref(base, { workType: toggled(workTypes, wt).join(",") || undefined })}
+              className={browseLink(workTypes.includes(wt))}
             >
               {LABEL[wt]}
             </Link>
           ))}
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="font-semibold text-ink-soft">Seniority:</span>
+        </span>
+        <span className="flex items-center gap-3.5 border-l border-line pl-4">
           {SENIORITIES.map((s) => (
             <Link
               key={s}
-              href={buildHref(base, { seniority: seniority === s ? undefined : s })}
-              className={browseLink(seniority === s)}
+              href={buildHref(base, { seniority: toggled(seniorities, s).join(",") || undefined })}
+              className={browseLink(seniorities.includes(s))}
             >
               {LABEL[s]}
             </Link>
           ))}
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="font-semibold text-ink-soft">Posted:</span>
+        </span>
+        <span className="flex items-center gap-3.5 border-l border-line pl-4">
           {JOB_DATE_FILTERS.map((d) => (
             <Link
               key={d}
@@ -311,62 +304,50 @@ export function FilterBar({
               {LABEL[d]}
             </Link>
           ))}
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="font-semibold text-ink-soft">Country:</span>
-          {TRACKED_COUNTRIES.map((c) => (
-            <Link
-              key={c}
-              // Choosing the ALREADY-active country clears to "all" — the
-              // same explicit sentinel the chip's own remove target uses —
-              // rather than omitting the param, which would just fall back
-              // to the profile default again.
-              href={buildHref(base, { country: country === c ? "all" : c })}
-              className={browseLink(country === c)}
-            >
-              {c}
-            </Link>
-          ))}
-        </div>
+        </span>
       </div>
-      {/*
-        Stage 8a: behind a disclosure, not a row at the top of the feed.
-        Search only covers title, company and location — this facet is the
-        only path to content-level discovery until Stage 8 ships full-text
-        search, so it stays (never deleted), but it no longer competes with
-        Work type/Seniority/Posted/Country for the first thing a reader sees.
-        A native <details>/<summary> rather than a client toggle, matching
-        this file's own JS-off philosophy (see the leading segment's own
-        comment): collapsed by default, no script required to open it.
 
-        Skills parsed out of the postings themselves, not a category list
-        anyone maintains — a value appears here because a job mentioned it.
-        Counts are shown because they are the honest part: a chip that
-        narrows almost nothing should say so on its face rather than look
-        like a precise filter. SKILL_FACET_MAX_SHARE (skill-facet.ts) already
-        drops anything matching more than a quarter of the board before this
-        ever renders, so what is left is the differentiating half of that
-        honesty, not the whole of it.
+      {/*
+        PHONE/NARROW — below 1140px (see the desktop row's own comment above
+        for why that number, not 901) the three link groups have nowhere to
+        go, so they become menus matching Country's own. Same URLs, same
+        server code, same `toggled()` — only the control changes, per the
+        design spec's own "one source of truth, two renderings" rule.
+        Multi-select still works here: each tick is its own navigation (no JS
+        holds the menu's array state client-side, so the same server-computed
+        `items` that back the desktop links back these), so two ticks take
+        two opens of the menu rather than one, which is the honest cost of
+        shipping no client-side filter state at all.
       */}
-      {skillFacet.length > 0 && (
-        <details className="text-[12.5px]">
-          <summary className="inline-flex min-h-10 min-w-10 cursor-pointer items-center font-semibold text-ink-soft hover:text-rust">
-            Skills:
-          </summary>
-          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5">
-            {skillFacet.map((entry) => (
-              <Link
-                key={entry.skill}
-                href={buildHref(base, { skill: skill === entry.skill ? undefined : entry.skill })}
-                className={browseLink(skill === entry.skill)}
-              >
-                {entry.skill}
-                <span className="ml-1 text-[11.5px] text-ink-soft">({entry.count})</span>
-              </Link>
-            ))}
-          </div>
-        </details>
-      )}
+      <div data-testid="filter-bar-mobile" className="flex flex-wrap items-center gap-2.5 min-[1140px]:hidden">
+        <FilterMenu
+          faceLabel={countryFace}
+          items={countryItems}
+          sentinel={countrySentinel}
+          testId="filter-menu-country-mobile"
+        />
+        <FilterMenu
+          faceLabel="Work type"
+          ariaLabel="Work type"
+          items={workTypeItems}
+          variant="quiet"
+          testId="filter-menu-work-type"
+        />
+        <FilterMenu
+          faceLabel="Seniority"
+          ariaLabel="Seniority"
+          items={seniorityItems}
+          variant="quiet"
+          testId="filter-menu-seniority"
+        />
+        <FilterMenu
+          faceLabel="Posted"
+          ariaLabel="Posted"
+          items={postedItems}
+          variant="quiet"
+          testId="filter-menu-posted"
+        />
+      </div>
     </div>
   );
 }

@@ -22,6 +22,9 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { randomUUID } from "node:crypto";
 import { admin, createAuthedTestUser, deleteTestUsers, type DB } from "../support/auth";
 import { deleteOrgsCascade } from "../support/delete-orgs";
+import type { Database } from "@/lib/supabase/types";
+
+type PromotedJobsArgs = Database["public"]["Functions"]["promoted_jobs"]["Args"];
 
 let owner: { id: string; client: DB };
 let seeker: { id: string; client: DB };
@@ -69,8 +72,8 @@ async function scoreFor(userId: string, score: number) {
   if (error) throw error;
 }
 
-async function promotedFor(client: DB, opts: Record<string, unknown> = {}) {
-  const { data, error } = await client.rpc("promoted_jobs", opts as never);
+async function promotedFor(client: DB, opts: PromotedJobsArgs = {}) {
+  const { data, error } = await client.rpc("promoted_jobs", opts);
   if (error) throw error;
   return (data ?? []) as { job_posting_id: string; campaign_id: string; match_score: number }[];
 }
@@ -180,14 +183,23 @@ describe("D1 — payment does not override relevance", () => {
     await scoreFor(seeker.id, 95);
     // The fixture job is remote/mid.
     expect(
-      await promotedFor(seeker.client, { p_work_type: "onsite" }),
+      await promotedFor(seeker.client, { p_work_types: ["onsite"] }),
       "a promoted job ignored the seeker's work-type filter",
     ).toHaveLength(0);
     expect(
-      await promotedFor(seeker.client, { p_seniority: "executive" }),
+      await promotedFor(seeker.client, { p_seniorities: ["executive"] }),
       "a promoted job ignored the seeker's seniority filter",
     ).toHaveLength(0);
-    expect(await promotedFor(seeker.client, { p_work_type: "remote" })).toHaveLength(1);
+    expect(await promotedFor(seeker.client, { p_work_types: ["remote"] })).toHaveLength(1);
+  });
+
+  it("0095: a multi-select work-type filter matches ANY of the selected values", async () => {
+    await scoreFor(seeker.id, 95);
+    // The fixture job is remote/mid — Hybrid alone would exclude it; Remote
+    // OR Hybrid, the feed's own multi-select shape, must still include it.
+    expect(
+      await promotedFor(seeker.client, { p_work_types: ["remote", "hybrid"] }),
+    ).toHaveLength(1);
   });
 
   it("the employer's targeting binds too, and an empty target means untargeted", async () => {
