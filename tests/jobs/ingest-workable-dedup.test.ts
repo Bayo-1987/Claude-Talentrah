@@ -182,9 +182,15 @@ describe("a posting reachable via both a schema-org Workable search page and the
 
     const { ingestAllSources } = await import("@/lib/jobs/ingest");
     const results = await ingestAllSources();
+    // Unconditional, not just on failure — per this repo's own "an empty or
+    // truncated result is a claim, get a second method" convention: a bare
+    // pass/fail here gives no way to tell WHICH config produced what without
+    // re-running in CI. Cheap to print, expensive to be missing later.
+    console.log("[ingest-workable-dedup] results:", JSON.stringify(results, null, 2));
     for (const r of results) expect(r.error, `ingest reported an error: ${r.error}`).toBeUndefined();
 
     const rows = await statuses();
+    console.log("[ingest-workable-dedup] rows for company:", JSON.stringify(rows, null, 2));
 
     const dsaRows = rows.filter((r) => r.title === "Direct Sales Agent");
     expect(
