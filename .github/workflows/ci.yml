@@ -23,12 +23,14 @@ on:
 # still no reason for two jobs on the SAME run to fight each other, but that
 # was never what the old lock was for — it was always about DIFFERENT runs.
 #
-# .github/scripts/wait-for-ci-lock.sh is left in place, unreferenced, rather
-# than deleted here — this migration hasn't yet been proven stable over a run
-# of real GitHub Actions pushes (no Docker in the environment that wrote this,
-# so it could not be dry-run locally first). Delete the script in a follow-up
-# once local Supabase has held up in practice; reintroducing the lock would
-# otherwise mean reconstructing all of the above from git blame.
+# .github/scripts/wait-for-ci-lock.sh WAS left in place, unreferenced, until
+# this migration had been proven over real pushes. It has now been, so the
+# script is deleted — `git log -- .github/scripts/wait-for-ci-lock.sh` still has
+# its reasoning and its measurements if the lock ever needs rebuilding. Two of
+# its properties are worth carrying forward, because a naive reimplementation
+# would lose both: it gave up after MAX_WAIT_SECONDS and proceeded anyway with a
+# warning, and its blocker query ended `2>/dev/null || true`, so an API error
+# read as "lock acquired" — it failed OPEN.
 #
 # The Vercel-project egress this was also meant to protect against the
 # approaching 2026-10-02 free-tier cap: CI no longer touches that project's

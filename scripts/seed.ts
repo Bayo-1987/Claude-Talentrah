@@ -25,6 +25,7 @@ import { extractStructuredJd } from "../src/lib/jobs/extract-jd";
 import type { IngestSourceResult } from "../src/lib/jobs/ingest";
 import { RESUME_TEMPLATES, CREDIT_PACKS, PASSES } from "../src/lib/billing/catalog";
 import { refuseIfProduction } from "./refuse-production";
+import { announceDbTarget } from "./db-target";
 
 const DEMO_EMAIL = "demo@talentrah.dev";
 /** The demo account's credit balance after every seed. Set, never topped up. */
@@ -144,6 +145,10 @@ const DEMO_RESUME = {
 };
 
 async function main() {
+  // Which database is about to be seeded, said out loud. The seed writes a lot
+  // of rows; "it worked locally" needs to name where.
+  announceDbTarget("seed");
+
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !serviceKey) {

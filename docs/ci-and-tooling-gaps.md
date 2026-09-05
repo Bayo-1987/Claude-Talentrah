@@ -273,31 +273,37 @@ waiting on:
 
 ---
 
-## 5. `gh run rerun` bypasses the CI lock's ordering — use a fresh push instead
+## 5. `gh run rerun` — use a fresh push instead
 
-**The rule.** Never use `gh run rerun` to retry a CI run on this repo. Merge
-an empty commit, push a real fix, or let the run wait in the natural queue —
-not the rerun button.
+**The rule, unchanged.** Never use `gh run rerun` to retry a CI run on this
+repo. Merge an empty commit, push a real fix, or let the run wait in the
+natural queue — not the rerun button.
 
-**Why, briefly.** `gh run rerun` re-executes a run's original `run_number`
-while genuinely restarting its clock. Confirmed 2026-09-02 via
-`gh api .../runs/517/attempts/{1,2}`: `run_started_at` reset from 07:54:05Z to
-08:04:14Z across the two attempts while `run_number` stayed fixed at 517.
-`.github/scripts/wait-for-ci-lock.sh` used to order strictly by `run_number`,
-so a reran older run could start alongside a genuinely-live newer run instead
-of waiting for it — this was the direct, confirmed cause of two of the four
-2026-09-01 flake-ledger entries (the GoTrue-500 failures in
-`referrals.test.ts` and `cross-user.test.ts`), both of which followed a
-same-session `gh run rerun` issued while something else was still live.
+**The reason has changed, and saying so is the point.** This section used to
+justify the rule with a live correctness hazard: `gh run rerun` re-executes a
+run's original `run_number` while restarting its clock, and
+`.github/scripts/wait-for-ci-lock.sh` ordered strictly by `run_number`, so a
+reran older run could start alongside a genuinely-live newer one. That was the
+confirmed cause of two of the four 2026-09-01 flake-ledger entries (the
+GoTrue-500 failures in `referrals.test.ts` and `cross-user.test.ts`).
 
-PR #191 fixed the script to order by `run_started_at` instead (with
-`run_number` as a same-second tiebreak), which makes a rerun wait correctly
-rather than jumping the queue — so the correctness hazard above is closed.
-**The habit rule stands anyway**: a rerun still costs the same six-to-nine
-minutes a genuine re-queue would, the fix has only ever been proven against
-synthetic data (see PR #191's description) rather than a real overlapping
-rerun, and a fresh push needs no safety net at all. Don't spend the one you
-have just proved works when you don't have to.
+**That hazard is dead twice over.** PR #191 reordered the script by
+`run_started_at`, which makes a rerun wait correctly. Then #214 gave every CI
+job its own ephemeral Supabase stack, so there was no shared resource left to
+serialise — and the lock script has since been deleted outright. A rerun today
+cannot collide with a concurrent run over a database, because concurrent runs
+no longer share one.
+
+**So the rule now stands on cost and habit, which is enough.** A rerun costs the
+same six-to-nine minutes a genuine re-queue would, and a fresh push needs no
+safety net at all — it queues from a clean state, produces a new run number, and
+leaves an artefact in the history saying what was retried and why. An empty
+commit is `git commit --allow-empty -m "retry ci"`.
+
+**A rule propped up by a dead reason is worse than no rule**, because the first
+person to check the reason stops believing the rule. The reason above is the
+real one: reruns are not dangerous here any more, they are just the worse of two
+equally slow options, and the better one is one command.
 
 ---
 
@@ -329,11 +335,10 @@ described a workflow that would not have had this problem at all; a docs-only
 PR then failed on the auth rate limit two paragraphs below its own
 explanation, because its push landed immediately after a merge.
 
-Leave a gap after each merge before pushing the next branch. The runs do not
-fight each other for the database — `concurrency` is per-ref and
-`.github/scripts/wait-for-ci-lock.sh` BLOCKS rather than discarding, so an
-earlier run finishes before a later one starts — but they do share the
-account-wide auth budget, and blocking does not refill it.
+Leave a gap after each merge before pushing the next branch. The runs no longer
+fight each other for a database at all — since #214 each job starts its own
+ephemeral stack — but they do share the account-wide auth budget of whatever
+hosted project a run still reaches, and nothing refills that.
 
 ---
 

@@ -9,8 +9,47 @@ Product spec: [`talentrah-build-prompt.md`](talentrah-build-prompt.md). Design s
 ```bash
 npm ci
 cp .env.example .env.local   # then fill it in — see below
+npm run db:local             # your own database (needs Docker)
 npm run dev
 ```
+
+### Your own database
+
+`npm run db:local` starts an ephemeral Supabase stack for this checkout, applies
+every migration from scratch, and writes the four connection variables into your
+`.env.local` — leaving the rest of that file alone. It is the same
+`supabase start` + `supabase db reset` shape CI uses
+(`.github/actions/local-supabase/action.yml`), so a local run reproduces what CI
+ran. Run it again whenever you want a clean database.
+
+**Why this is the default.** Several sessions work in this repo at once, and
+every local run reads `.env.local`. While that pointed at one hosted project,
+those runs created and deleted each other's fixtures — a suite asserting on a
+global count could fail because of something another session did a second
+earlier. CI stopped sharing in #214, when each job started getting its own
+stack; this is the local half of that.
+
+**Every run says which database it used.** Tests and the seed print a line
+before doing anything:
+
+```
+[test suite] ✓ database: local ephemeral stack (http://127.0.0.1:54321)
+[seed]       ! database: the shared hosted project (dozaffzgqkbarxtlclsj)
+```
+
+That exists because "it works locally" is unfalsifiable when the sentence does
+not say which database "locally" meant — which is how a shared default went
+unnoticed.
+
+**Hosted projects are opt-in, by hand.** The test suite refuses both:
+
+| target | to use it anyway |
+|---|---|
+| production `nytwbbzfpytctjsoczzq` | `ALLOW_TESTS_AGAINST_PRODUCTION=yes-i-mean-it` |
+| shared hosted `dozaffzgqkbarxtlclsj` | `ALLOW_TESTS_AGAINST_HOSTED=yes-i-mean-it` |
+
+Both have real uses — reproducing something that only happens on a live
+project. Neither is reachable by drift.
 
 Then seed demo data (needs the dev server running — the seed drives the real ingestion routes over HTTP rather than importing them, so it doubles as a check that those routes work):
 
