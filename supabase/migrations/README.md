@@ -151,6 +151,22 @@ The script encodes the rules that make the comparison mean something:
 | `applied under a documented alias` | a mismatch that was decided, not missed — see `KNOWN_ALIASES` in the script, each entry with its own reasoning |
 | `MISSING` | **the ledger is silent** |
 
+**A fourth wrinkle, found while landing this check itself.**
+`0096_migration_status_reader` reached production on 2026-09-05 through the
+MCP connector, hand-applied ahead of its own PR merging — the same shape of
+gap this table exists to catch, caught here only because production was
+queried directly (function body compared byte-for-byte against the file,
+not just the ledger row's name) rather than assumed clean. `0094` and `0095`
+were applied to production afterwards, in their own turn. Because a
+migration's `version` is a timestamp assigned when it's applied, not when
+its file is written, this means the ledger's application order and the
+repo's file order now diverge on production **permanently** — reordering
+history to match isn't a thing you do after the fact. Say plainly: the
+drift check compares migration NAMES against the ledger, not their order,
+so this divergence does not affect it. Recorded here so a future reader of
+the out-of-order ledger concludes "known, harmless, explained" rather than
+"the check must be broken."
+
 ## Catching it automatically on production
 
 `0093_resume_builder_start_events` landed with #215, was applied to the CI
