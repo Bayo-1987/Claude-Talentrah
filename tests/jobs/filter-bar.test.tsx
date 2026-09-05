@@ -1,47 +1,35 @@
 /**
- * The merged filter control (finding 01).
+ * The jobs feed's filter controls (Part 3 of the filter-row redesign).
  *
- * The applied filters used to be a loose row of chips. They are now segments
- * inside one 1.5px --ink container with hairline dividers — one instrument
- * rather than several floating parts.
+ * The applied-filter CHIP ROW is gone — work type, seniority, posted and
+ * country now show their own state directly (a rust link, a menu button's
+ * own face), so a second, redundant list of "what's applied" no longer
+ * exists. What's pinned here instead:
  *
- * The boundary is the whole point of the change and is the thing most likely
- * to erode: only APPLIED filters go inside. The work-type, seniority and
- * skill rows underneath are browse affordances — they are how you pick a
- * filter, not a record of what is picked — and pulling any of them into the
- * container would turn a status display back into a form. The reference mock
- * showed exactly one applied skill chip inside, never the twelve-option list.
- *
- * Four properties are pinned:
- *
- *   1. Exactly one bordered container, and none when nothing is applied. An
- *      empty instrument is worse than no instrument.
- *   2. Removing one filter keeps the others and keeps the tab. A remove link
- *      that drops a sibling looks like the filter "not working".
- *   3. Every segment is a real hit target. The mock draws the x as a 9px
- *      glyph; 9px is a quarter of the minimum this project fixes, and a
- *      glyph-sized hit area is a bug already shipped here once.
- *   4. The browse rows stay outside the container.
+ *   1. The search instrument still renders as exactly one bordered box, with
+ *      "Clear filters" the one thing left inside it with no other display.
+ *   2. Work type and seniority are MULTI-select: two can be active, and
+ *      clicking an active one clears only that one, keeping the other.
+ *   3. Country, posted stay single-value, and country's own "+ Remote"
+ *      framing from the old chip does not need to exist anywhere anymore —
+ *      the honest caveat about that lives in jobs/page.tsx's own prose, not
+ *      this component.
+ *   4. Nothing named Skills survives: no facet prop, no disclosure, no
+ *      ?skill= handling.
+ *   5. Every control is a real hit target.
  */
 import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { FilterBar } from "@/components/jobs/filter-bar";
 
-const FACET = [
-  { skill: "sql", count: 38 },
-  { skill: "tableau", count: 12 },
-];
-
 function render(props: Partial<Parameters<typeof FilterBar>[0]> = {}) {
-  return renderToStaticMarkup(
-    <FilterBar tab="recommended" skillFacet={FACET} {...props} />,
-  );
+  return renderToStaticMarkup(<FilterBar tab="recommended" {...props} />);
 }
 
 const CONTAINER = 'class="flex flex-wrap items-stretch overflow-hidden border-[1.5px] border-ink"';
 
 /**
- * The container's markup, tags balanced.
+ * The search instrument's markup, tags balanced.
  *
  * Deliberately not a `.slice()` to the next `</div>`: that happens to work
  * only while the container holds no nested div, so it would keep passing
@@ -69,80 +57,32 @@ function mergedControl(html: string): string {
   return html.slice(from);
 }
 
-describe("one instrument, and only when there is something in it", () => {
-  it("renders the one container even with no filter applied — the search field is in it", () => {
-    /*
-     * This assertion used to be the opposite: no filters, no container,
-     * because an empty bordered box is a control with nothing in it. That
-     * stopped being true when the search field moved inside — there is now
-     * always something in it, so it always renders.
-     *
-     * The half that did NOT change, and is the point of the describe block, is
-     * "exactly one". The first attempt at the search field shipped it as a
-     * SECOND box with the same 1.5px border stacked above this one, which is
-     * a scatter of two instruments wearing one instrument's clothes. The
-     * count below is what caught that.
-     */
-    const html = render();
-    expect(html.split(CONTAINER).length - 1).toBe(1);
-    expect(mergedControl(html)).toContain('name="q"');
+describe("the search instrument", () => {
+  it("renders exactly one container, with or without filters applied", () => {
+    expect(render().split(CONTAINER).length - 1).toBe(1);
+    expect(render({ workTypes: ["remote"] }).split(CONTAINER).length - 1).toBe(1);
+    expect(mergedControl(render())).toContain('name="q"');
   });
 
-  it("still offers no Clear filters when there is nothing to clear", () => {
-    // The container is unconditional now; the clear action is not. Offering
-    // it with nothing applied is a control that does nothing.
+  it("offers Clear filters only when something is applied", () => {
     expect(render()).not.toContain("Clear filters");
-    expect(render({ workType: "remote" })).toContain("Clear filters");
+    expect(render({ workTypes: ["remote"] })).toContain("Clear filters");
+    expect(render({ seniorities: ["senior"] })).toContain("Clear filters");
+    expect(render({ posted: "week" })).toContain("Clear filters");
+    expect(render({ q: "python" })).toContain("Clear filters");
   });
 
-  it("renders exactly one container when filters are applied", () => {
-    const html = render({ workType: "remote", seniority: "senior" });
-    expect(html.split("border-[1.5px] border-ink").length - 1).toBe(1);
-  });
-
-  it("puts every applied filter inside it, and nothing else", () => {
-    const inner = mergedControl(render({ workType: "remote", seniority: "senior", skill: "sql" }));
-    expect(inner).toContain(">Remote<");
-    expect(inner).toContain(">Senior<");
-    expect(inner).toContain(">sql<");
-  });
-
-  it("keeps the divider off the trailing segment", () => {
-    // `last:border-r-0` on the segments; the Clear link carries no border-r.
-    const inner = mergedControl(render({ workType: "remote" }));
-    const clear = inner.slice(inner.indexOf("Clear filters") - 400);
-    expect(clear).not.toContain("border-r border-line");
-  });
-});
-
-describe("removing one filter removes one filter", () => {
-  const html = render({ workType: "remote", seniority: "senior", skill: "sql" });
-
-  it("drops only its own key and keeps the siblings", () => {
-    const inner = mergedControl(html);
-    const href = (label: string) =>
-      inner.match(new RegExp(`aria-label="Remove ${label} filter"[^>]*href="([^"]+)"`))?.[1] ?? "";
-
-    expect(href("Remote")).toBe("/jobs?tab=recommended&amp;seniority=senior&amp;skill=sql");
-    expect(href("Senior")).toBe("/jobs?tab=recommended&amp;workType=remote&amp;skill=sql");
-    expect(href("sql")).toBe("/jobs?tab=recommended&amp;workType=remote&amp;seniority=senior");
-  });
-
-  it("never drops the tab — removing a filter must not throw you back to Recommended", () => {
-    const inner = mergedControl(render({ tab: "saved", workType: "remote" }));
-    expect(inner).toContain("/jobs?tab=saved");
-  });
-
-  it("clears all three at once from the trailing segment", () => {
-    const inner = mergedControl(html);
-    expect(inner).toContain('href="/jobs?tab=recommended">Clear filters');
+  it("Clear filters drops every dimension at once, keeping the tab", () => {
+    const inner = mergedControl(
+      render({ tab: "saved", workTypes: ["remote"], seniorities: ["senior"], q: "python" }),
+    );
+    expect(inner).toContain('href="/jobs?tab=saved">Clear filters');
   });
 
   describe("Stage 12: Clear filters and the country default", () => {
     it("does not add a country param when country was never applicable", () => {
-      // Same render as `html` above — no country/countryApplicable passed —
-      // Clear filters must stay exactly as it always has.
-      expect(mergedControl(html)).toContain('href="/jobs?tab=recommended">Clear filters');
+      const inner = mergedControl(render({ workTypes: ["remote"] }));
+      expect(inner).toContain('href="/jobs?tab=recommended">Clear filters');
     });
 
     it(
@@ -150,11 +90,8 @@ describe("removing one filter removes one filter", () => {
         "cleared (undefined) — otherwise clicking Clear filters after an explicit " +
         "clear would silently let the profile default reassert itself",
       () => {
-        // This is exactly the state right after a user clicked the country
-        // chip's own remove link: country is undefined, but it is undefined
-        // BECAUSE it was cleared, not because it was never in play.
         const inner = mergedControl(
-          render({ workType: "remote", country: undefined, countryApplicable: true }),
+          render({ workTypes: ["remote"], country: undefined, countryApplicable: true }),
         );
         expect(inner).toContain("Clear filters");
         const clearHref = inner.match(/href="([^"]*)">Clear filters/)?.[1];
@@ -162,130 +99,93 @@ describe("removing one filter removes one filter", () => {
         expect(clearHref).toContain("country=all");
       },
     );
-
-    it("the country chip itself is absent when country is cleared, applicable or not", () => {
-      const inner = mergedControl(render({ country: undefined, countryApplicable: true }));
-      expect(inner).not.toContain("Remove Nigeria filter");
-    });
   });
 
-  it("labels each remove link for screen readers", () => {
-    for (const label of ["Remote", "Senior", "sql"]) {
-      expect(html).toContain(`aria-label="Remove ${label} filter"`);
-    }
-  });
-});
-
-describe("segments are hit targets, not glyphs", () => {
-  const inner = mergedControl(render({ workType: "remote", seniority: "senior", skill: "sql" }));
-
-  it("gives every link in the control a 42px minimum height", () => {
-    const links = inner.match(/<a [^>]*>/g) ?? [];
-    expect(links.length).toBe(4); // three removes plus Clear filters
-    for (const link of links) expect(link).toContain("min-h-[42px]");
-  });
-
-  it("suppresses the global link underline inside the instrument", () => {
-    /*
-     * globals.css sets `a { text-decoration: underline }` for the whole app.
-     * Inherited here it turns the control back into a row of links that
-     * happen to sit in a box — the underlines read as the segmentation
-     * instead of the hairlines doing it. Caught in the browser, not in
-     * markup review, which is why it is pinned.
-     */
-    for (const link of inner.match(/<a [^>]*>/g) ?? []) {
-      expect(link).toContain("no-underline");
-    }
-  });
-
-  it("marks the x decorative, because the link is the target", () => {
-    // If the svg ever becomes the clickable element, this is 9x9.
-    expect(inner).toContain('aria-hidden="true"');
-
-    /*
-     * There IS one button in the control now — the search field's submit — so
-     * "no <button> anywhere" no longer says what it meant. What it meant is
-     * that no remove affordance is a button, because each is a whole-segment
-     * Link. Asserted directly: every button in the control is the search
-     * submit, and every remove target is a Link carrying the aria-label.
-     */
-    const buttons = inner.match(/<button/g) ?? [];
-    expect(buttons.length, "an unexpected button appeared in the filter control").toBe(1);
-    expect(inner).toContain('type="submit"');
-    expect(inner).toContain('aria-label="Remove Remote filter"');
+  it("carries every other filter through the hidden inputs when searching", () => {
+    const inner = mergedControl(
+      render({ workTypes: ["remote", "hybrid"], seniorities: ["senior"], posted: "week", country: "Ghana" }),
+    );
+    expect(inner).toContain('name="workType" value="remote,hybrid"');
+    expect(inner).toContain('name="seniority" value="senior"');
+    expect(inner).toContain('name="posted" value="week"');
+    expect(inner).toContain('name="country" value="Ghana"');
   });
 });
 
-describe("the browse rows stay outside the instrument", () => {
-  const html = render({ workType: "remote", skill: "sql" });
-  const inner = mergedControl(html);
-
-  it("keeps the twelve-option skill facet out of the container", () => {
-    expect(html).toContain("Skills:");
-    expect(inner).not.toContain("Skills:");
-  });
-
-  it("keeps the work-type and seniority pickers out of the container", () => {
-    expect(html).toContain("Work type:");
-    expect(html).toContain("Seniority:");
-    expect(inner).not.toContain("Work type:");
-    expect(inner).not.toContain("Seniority:");
-  });
-
-  it("does not swallow the facet's counts into the applied chip", () => {
-    // The applied chip says "sql". The browse chip says "sql (38)". Mixing
-    // them would claim the filter currently matches 38 jobs, which is the
-    // pre-filter count.
-    expect(inner).not.toContain("(38)");
-    expect(html).toContain("(38)");
+describe("Skills is gone", () => {
+  it("renders nothing named Skills anywhere", () => {
+    // <details> itself is now legitimately used by the Country / mobile
+    // Work type / Seniority / Posted menus (filter-menu.tsx) — what's pinned
+    // here is that no CONTENT mentions Skills, not that <details> is absent.
+    const html = render({ workTypes: ["remote"] });
+    expect(html).not.toContain("Skills");
+    expect(html).not.toContain("(38)");
   });
 });
 
-describe("browse rows are hit targets too", () => {
-  /*
-   * A cheap tripwire, not the measurement. The real check is
-   * `e2e/hit-targets.spec.ts`, which reads getBoundingClientRect in a
-   * browser — and it exists because this exact assertion, written against
-   * `min-h-10` alone, would have passed while "sql (38)" rendered 39.1px
-   * wide. Both dimensions are named here for that reason.
-   */
-  const html = render({ workType: "remote", seniority: "senior" });
-  const rowLinks = (label: string) => {
-    const at = html.indexOf(`>${label}</span>`);
-    const end = html.indexOf("</div>", at);
-    return html.slice(at, end).match(/<a [^>]*>/g) ?? [];
-  };
+describe("work type and seniority are multi-select", () => {
+  it("shows two active links at once", () => {
+    const html = render({ workTypes: ["remote", "hybrid"] });
+    // The desktop row's active class, on both.
+    const activeCount = (html.match(/font-semibold text-rust/g) ?? []).length;
+    expect(activeCount).toBeGreaterThanOrEqual(2);
+  });
 
-  it.each([
-    ["Work type:", 3],
-    ["Seniority:", 5],
-  ])("%s links carry both dimensions", (label, expected) => {
-    const links = rowLinks(label);
-    expect(links.length).toBe(expected);
+  it("clicking an active value's link keeps the sibling and drops only itself", () => {
+    const html = render({ workTypes: ["remote", "hybrid"] });
+    // The Remote link, with both currently active, must toggle to just hybrid.
+    expect(html).toContain("workType=hybrid");
+  });
+
+  it("clicking an inactive value's link adds it to what's already selected", () => {
+    const html = render({ workTypes: ["remote"] });
+    // The Hybrid link, with only remote active, must toggle to both.
+    expect(html).toContain("workType=remote%2Chybrid");
+  });
+
+  it("seniority behaves the same way", () => {
+    // Both active: clicking Senior drops just Senior, keeping Lead.
+    expect(render({ seniorities: ["senior", "lead"] })).toContain("seniority=lead");
+    // Only Senior active: clicking Lead adds it, keeping Senior.
+    expect(render({ seniorities: ["senior"] })).toContain("seniority=senior%2Clead");
+  });
+});
+
+describe("country and posted stay single-value", () => {
+  it("choosing a country never appends to a list — it's always exactly one value", () => {
+    const html = render({ country: "Nigeria" });
+    expect(html).not.toMatch(/country=Nigeria%2C/);
+    expect(html).not.toMatch(/country=Nigeria,/);
+  });
+
+  it("the country button's face shows the live value", () => {
+    expect(render({ country: "Ghana" })).toContain(">Ghana<");
+    expect(render()).toContain("Every country");
+  });
+
+  it("posted toggles off rather than accumulating", () => {
+    const html = render({ posted: "week" });
+    // Clicking the already-active "Past week" link must clear it — href with
+    // no posted param at all, immediately followed by that link's own text.
+    expect(html).toMatch(/href="\/jobs\?tab=recommended">Past week/);
+  });
+});
+
+describe("hit targets", () => {
+  it("gives the desktop browse links a real 40x40 minimum", () => {
+    const html = render({ workTypes: ["remote"] });
+    const links = html.match(/<a [^>]*>(?:Remote|Hybrid|Onsite|Entry|Senior)<\/a>/g) ?? [];
+    expect(links.length).toBeGreaterThan(0);
     for (const link of links) {
       expect(link).toContain("min-h-10");
       expect(link).toContain("min-w-10");
     }
   });
 
-  it("the Skills disclosure trigger and its chips all carry both dimensions", () => {
-    // Structurally different from the rows above (details/summary, not a
-    // flat label+links div — Stage 8a moved it behind a disclosure), so it
-    // needs its own extraction rather than reusing rowLinks.
-    const detailsStart = html.indexOf("<details");
-    const detailsEnd = html.indexOf("</details>", detailsStart) + "</details>".length;
-    const details = html.slice(detailsStart, detailsEnd);
-    expect(details).not.toBe("");
-
-    const summary = details.match(/<summary[^>]*>/)?.[0] ?? "";
+  it("gives the country menu button and its rows a real 40px height", () => {
+    const html = render({ country: "Nigeria" });
+    expect(html).toContain("min-h-10");
+    const summary = html.match(/<summary[^>]*>/)?.[0] ?? "";
     expect(summary).toContain("min-h-10");
-    expect(summary).toContain("min-w-10");
-
-    const chips = details.match(/<a [^>]*>/g) ?? [];
-    expect(chips.length).toBeGreaterThan(0);
-    for (const chip of chips) {
-      expect(chip).toContain("min-h-10");
-      expect(chip).toContain("min-w-10");
-    }
   });
 });

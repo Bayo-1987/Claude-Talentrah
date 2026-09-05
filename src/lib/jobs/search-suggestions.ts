@@ -1,4 +1,5 @@
 import type { Tables } from "@/lib/supabase/types";
+import { skillsOf } from "./skill-facet";
 
 // See skill-facet.ts's identical alias for why this is Omit, not the full row.
 type JobPosting = Omit<Tables<"job_postings">, "description_preview">;
@@ -62,7 +63,10 @@ const INDEX_CAP_PER_KIND = 200;
 
 /** Must stay identical to searchJobs' haystack, or the counts stop being true. */
 function haystack(job: JobPosting): string {
-  return [job.title, job.company_name, job.location].filter(Boolean).join(" ").toLowerCase();
+  return [job.title, job.company_name, job.location, ...skillsOf(job)]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
 }
 
 /**

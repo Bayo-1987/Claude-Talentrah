@@ -12,8 +12,8 @@ import { FixedFeedHeader } from "@/components/jobs/fixed-feed-header";
 import { JobCard } from "@/components/jobs/job-card";
 import { Constants, type Tables } from "@/lib/supabase/types";
 import { hasVisibleName, visibleName } from "@/lib/profile/name";
-import { computeSkillFacet, filterBySkill } from "@/lib/jobs/skill-facet";
 import { searchJobs } from "@/lib/jobs/search";
+import { parseMultiSelect } from "@/lib/jobs/multi-select";
 import { buildSuggestionIndex } from "@/lib/jobs/search-suggestions";
 import { getSiteOrigin } from "@/lib/referrals/url";
 import {
@@ -27,6 +27,7 @@ import {
   defaultCountryForProfile,
   deriveCountry,
   COUNTRY_THIN_THRESHOLD,
+  TRACKED_COUNTRIES,
   type TrackedCountry,
 } from "@/lib/jobs/country";
 import { recommendedRankingKey } from "@/lib/jobs/ranking";
@@ -38,7 +39,6 @@ type SearchParams = Promise<{
   tab?: string;
   workType?: string;
   seniority?: string;
-  skill?: string;
   q?: string;
   posted?: string;
   country?: string;
@@ -53,18 +53,14 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
   const tab = params.tab ?? "recommended";
   type WorkType = NonNullable<Tables<"job_postings">["work_type"]>;
   type Seniority = NonNullable<Tables<"job_postings">["seniority"]>;
-  const workType = VALID_WORK_TYPES.includes(params.workType ?? "")
-    ? (params.workType as WorkType)
-    : undefined;
-  const seniority = VALID_SENIORITIES.includes(params.seniority ?? "")
-    ? (params.seniority as Seniority)
-    : undefined;
   /*
-   * Not validated against a list, because there is no list — the facet is
-   * whatever the postings mention. An unknown value simply matches nothing,
-   * which is the correct answer for a skill no posting names.
+   * Multi-select: `?workType=remote,hybrid` — parsed, validated and deduped
+   * by the shared helper (src/lib/jobs/multi-select.ts). An empty array means
+   * "no filter", same contract every other filter here has; `postingsQuery`
+   * below only calls `.in()` when the array is non-empty.
    */
-  const skill = params.skill?.trim().toLowerCase() || undefined;
+  const workTypes = parseMultiSelect<WorkType>(params.workType, VALID_WORK_TYPES as WorkType[]);
+  const seniorities = parseMultiSelect<Seniority>(params.seniority, VALID_SENIORITIES as Seniority[]);
   const q = params.q?.trim() || undefined;
   const posted: JobDateFilter | undefined = isJobDateFilter(params.posted) ? params.posted : undefined;
 
@@ -160,8 +156,10 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
       // picked a shorter window.
       .gte("posted_at", jobDateFilterSinceISO(posted));
     if (tab === "external") query = query.eq("source_type", "external");
-    if (workType) query = query.eq("work_type", workType);
-    if (seniority) query = query.eq("seniority", seniority);
+    // .in() with an empty array matches NOTHING, not everything — the empty
+    // case is handled by never calling it, so "no filter" stays "no filter".
+    if (workTypes.length) query = query.in("work_type", workTypes);
+    if (seniorities.length) query = query.in("seniority", seniorities);
     if (savedIds) {
       query = query.in("id", savedIds.length ? savedIds : ["00000000-0000-0000-0000-000000000000"]);
     }
@@ -208,39 +206,13 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
   const matchingFilters: FeedJobPosting[] = jobsRaw ?? [];
 
   /*
-   * The facet is counted BEFORE the skill filter is applied, and then the
-   * filter is applied in memory.
-   *
-   * Counting after would collapse every other skill to whatever co-occurs
-   * with the selected one, so the facet would appear to empty out the moment
-   * anyone used it. Work-type and seniority are already applied at this point,
-   * which is the opposite choice on purpose: those counts should describe the
-   * board actually on screen.
-   *
-   * In memory rather than in SQL because the feed already fetches the whole
-   * result set — there is no pagination — so this is a filter over ~150 rows
-   * already in hand, not a second round trip. That stops being true if the
-   * board grows enough to need paging, and the filter moves into the query
-   * then.
-   */
-  const skillFacet = computeSkillFacet(matchingFilters);
-  /*
    * Built from `matchingFilters` — the board before the search term — for the
-   * same reason the facet is: suggestions counted against an already-searched
-   * board would collapse to whatever co-occurs with the partial term, so the
-   * list would look broken the moment anyone typed.
+   * same reason search-suggestions always was: suggestions counted against an
+   * already-searched board would collapse to whatever co-occurs with the
+   * partial term, so the list would look broken the moment anyone typed.
    */
   const searchIndex = buildSuggestionIndex(matchingFilters);
-  /*
-   * Search is applied AFTER the facet is counted, alongside the skill filter,
-   * for the same reason: counting the facet against a searched board would
-   * collapse every chip to whatever co-occurs with the search term, so the
-   * facet would look broken the moment anyone typed.
-   */
-  let jobs: FeedJobPosting[] = searchJobs(
-    filterBySkill(matchingFilters, skill),
-    q,
-  );
+  let jobs: FeedJobPosting[] = searchJobs(matchingFilters, q);
 
   /*
    * Country default, applied in memory for the same reason the skill facet
@@ -272,6 +244,29 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
    * carries the honest count so the page can say why an unfiltered board is
    * showing rather than silently widening or rendering a near-empty page.
    */
+  /*
+   * The country MENU's own counts (Part 3) — computed here, against `jobs` as
+   * it stands right now: work type, seniority, posted and search already
+   * applied, country not yet. "Under whatever else is applied" is the whole
+   * point — a menu that counted against the unfiltered board would offer a
+   * number the next screen (which keeps every OTHER filter active) would not
+   * actually show, which is exactly the kind of promise this control must
+   * not make. Same country-OR-remote rule the filter itself uses below, so
+   * the number beside "Nigeria" always equals what clicking it produces.
+   */
+  const countryMenuCounts: Record<TrackedCountry, number> = {
+    Nigeria: 0,
+    Ghana: 0,
+    Kenya: 0,
+    "South Africa": 0,
+  };
+  for (const c of TRACKED_COUNTRIES) {
+    countryMenuCounts[c] = jobs.filter(
+      (j) => deriveCountry(j) === c || j.work_type === "remote",
+    ).length;
+  }
+  const everyCountryCount = jobs.length;
+
   let countryFallbackNotice: { country: TrackedCountry; matched: number } | undefined;
   if (country) {
     const countryMatches = jobs.filter((j) => deriveCountry(j) === country || j.work_type === "remote");
@@ -392,7 +387,7 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
        * relative to the scan itself.
        */
       tab === "recommended"
-        ? fetchPromotedJobs(supabase, { workType, seniority, limit: PROMOTED_SLOTS })
+        ? fetchPromotedJobs(supabase, { workTypes, seniorities, limit: PROMOTED_SLOTS })
         : Promise.resolve(null),
     ]);
 
@@ -617,13 +612,13 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
         <FilterBar
           q={q}
           tab={tab}
-          workType={workType}
-          seniority={seniority}
-          skill={skill}
+          workTypes={workTypes}
+          seniorities={seniorities}
           posted={posted}
           country={country}
           countryApplicable={countryState !== "none"}
-          skillFacet={skillFacet}
+          countryCounts={countryMenuCounts}
+          everyCountryCount={everyCountryCount}
           searchIndex={searchIndex}
         />
         {/*

@@ -2490,8 +2490,8 @@ export type Database = {
         Args: {
           p_limit?: number
           p_min_score?: number
-          p_seniority?: Database["public"]["Enums"]["seniority_level"]
-          p_work_type?: Database["public"]["Enums"]["work_type"]
+          p_seniorities?: Database["public"]["Enums"]["seniority_level"][]
+          p_work_types?: Database["public"]["Enums"]["work_type"][]
         }
         Returns: {
           campaign_id: string

@@ -151,11 +151,30 @@ describe("what the feed asks for", () => {
   it("D1: the seeker's filter is passed through, not applied afterwards", async () => {
     // Applying it afterwards would return the job, then hide it — and the
     // impression would already have been billed for a card nobody saw.
-    const promoted = await fetchPromotedJobs(seeker.client, { workType: "onsite", limit: 20 });
+    const promoted = await fetchPromotedJobs(seeker.client, { workTypes: ["onsite"], limit: 20 });
     expect(
       promoted.length,
       "the work-type filter did not reach the promoted query",
     ).toBe(0);
+  });
+
+  it("0095: a multi-select filter matches ANY of the selected values, not just the first", async () => {
+    // The fixture posting is work_type "remote". A reader with Remote AND
+    // Hybrid both active (the feed's own multi-select, ?workType=remote,hybrid)
+    // must still see it promoted — an array collapsed to only its first
+    // element, or one that required ALL values to match, would both wrongly
+    // exclude it here.
+    const jobId = await makePosting("ADFEED-TEST Multi-select");
+    await makeCampaign(jobId);
+    await score(jobId, PROMOTED_MIN_SCORE);
+    const promoted = await fetchPromotedJobs(seeker.client, {
+      workTypes: ["hybrid", "remote"],
+      limit: 20,
+    });
+    expect(
+      promoted.some((p) => p.jobPostingId === jobId),
+      "a remote posting was excluded even though Remote was one of the selected work types",
+    ).toBe(true);
   });
 });
 
