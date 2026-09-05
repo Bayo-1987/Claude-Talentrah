@@ -19,6 +19,7 @@ import {
   findUneditedExampleFields,
   hasUneditedExampleContent,
   describeExampleGuardError,
+  exampleFieldElementId,
 } from "@/lib/resume-builder/example-guard";
 
 describe("findUneditedExampleFields", () => {
@@ -184,5 +185,32 @@ describe("describeExampleGuardError", () => {
     ]);
     expect(msg).toContain("email, name and skills list");
     expect(msg).toMatch(/values/);
+  });
+});
+
+describe("exampleFieldElementId", () => {
+  it("maps contact paths to their pre-existing DOM ids, not a path-derived guess", () => {
+    // resume-editor-label-association.test.tsx asserts these exact ids —
+    // "contact.name" is NOT "contact-name" in the DOM.
+    expect(exampleFieldElementId("contact.name")).toBe("contact-full-name");
+    expect(exampleFieldElementId("contact.email")).toBe("contact-email");
+    expect(exampleFieldElementId("contact.phone")).toBe("contact-phone");
+    expect(exampleFieldElementId("contact.location")).toBe("contact-location");
+  });
+
+  it("maps the field/section-level paths to their field ids", () => {
+    expect(exampleFieldElementId("summary")).toBe("summary-field");
+    expect(exampleFieldElementId("skills")).toBe("skills-field");
+    expect(exampleFieldElementId("projects")).toBe("projects-field");
+    expect(exampleFieldElementId("certifications")).toBe("certifications-field");
+  });
+
+  it("maps experience/education entry paths to their entry-level card id, not a child field", () => {
+    // The guard flags these at the entry level (findUneditedExampleFields
+    // never emits e.g. "experience.0.title"), so the jump target has to be
+    // the card, which is what resume-editor.tsx actually gives an id.
+    expect(exampleFieldElementId("experience.0")).toBe("experience-0-card");
+    expect(exampleFieldElementId("experience.3")).toBe("experience-3-card");
+    expect(exampleFieldElementId("education.1")).toBe("education-1-card");
   });
 });

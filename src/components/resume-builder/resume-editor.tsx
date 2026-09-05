@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button, TextField, EyebrowLabel, BorderedCard } from "@/components/ui";
 import { saveResumeAction, rewriteBulletAction } from "@/lib/resume-builder/actions";
+import { findUneditedExampleFields } from "@/lib/resume-builder/example-guard";
 import { TemplateRenderer } from "@/components/resume-builder/templates";
 import { PrintButton } from "@/components/resume-builder/print-button";
 import type {
@@ -52,6 +53,17 @@ function RemoveControl({ onRemove }: { onRemove: () => void }) {
   );
 }
 
+/**
+ * Caption for a field/card/section still carrying "Start from an example"
+ * placeholder content — the same visual language as TextField's own `error`
+ * caption (text-[12.5px] text-rust), hand-matched here for fields that don't
+ * go through TextField. See example-guard.ts for what "still the example"
+ * means and PrintButton for the export block this same signal feeds.
+ */
+function ExampleFlagNotice({ text }: { text: string }) {
+  return <p className="text-[12.5px] text-rust">{text}</p>;
+}
+
 function RewriteButtons({
   onRewrite,
 }: {
@@ -95,6 +107,14 @@ export function ResumeEditor({ resumeId, initialTitle, initialContent, templateS
   const [dragExperienceIndex, setDragExperienceIndex] = useState<number | null>(null);
   const [dragEducationIndex, setDragEducationIndex] = useState<number | null>(null);
   const router = useRouter();
+
+  // Recomputed from `content` every render — the same driftless signal
+  // PrintButton derives independently from the same content, at the field
+  // (contact/summary), card (experience/education entry) and section
+  // (skills/projects/certifications) granularity the guard actually flags
+  // at. See example-guard.ts's own header for why this is a live
+  // computation rather than a stored flag.
+  const flaggedPaths = new Set(findUneditedExampleFields(content).map((f) => f.path));
 
   function update<K extends keyof StructuredResume>(key: K, value: StructuredResume[K]) {
     setContent((prev) => ({ ...prev, [key]: value }));
@@ -186,24 +206,28 @@ export function ResumeEditor({ resumeId, initialTitle, initialContent, templateS
             label="Full name"
             value={content.contact.name ?? ""}
             onChange={(e) => update("contact", { ...content.contact, name: e.target.value })}
+            error={flaggedPaths.has("contact.name") ? "Still the example name." : undefined}
           />
           <TextField
             id="contact-location"
             label="Location"
             value={content.contact.location ?? ""}
             onChange={(e) => update("contact", { ...content.contact, location: e.target.value })}
+            error={flaggedPaths.has("contact.location") ? "Still the example location." : undefined}
           />
           <TextField
             id="contact-email"
             label="Email"
             value={content.contact.email ?? ""}
             onChange={(e) => update("contact", { ...content.contact, email: e.target.value })}
+            error={flaggedPaths.has("contact.email") ? "Still the example email." : undefined}
           />
           <TextField
             id="contact-phone"
             label="Phone"
             value={content.contact.phone ?? ""}
             onChange={(e) => update("contact", { ...content.contact, phone: e.target.value })}
+            error={flaggedPaths.has("contact.phone") ? "Still the example phone number." : undefined}
           />
         </div>
       </section>
@@ -212,12 +236,14 @@ export function ResumeEditor({ resumeId, initialTitle, initialContent, templateS
       <section className="flex flex-col gap-2">
         <EyebrowLabel size="sm">Summary</EyebrowLabel>
         <textarea
+          id="summary-field"
           value={content.summary ?? ""}
           onChange={(e) => update("summary", e.target.value)}
           rows={3}
-          className="border-[1.5px] border-ink bg-card p-3 font-body text-[14.5px] outline-none focus:border-rust"
+          className={`border-[1.5px] ${flaggedPaths.has("summary") ? "border-rust" : "border-ink"} bg-card p-3 font-body text-[14.5px] outline-none focus:border-rust`}
           placeholder="A two- to three-sentence summary of your experience."
         />
+        {flaggedPaths.has("summary") && <ExampleFlagNotice text="Still the example summary." />}
       </section>
 
       {/* Experience */}
@@ -241,6 +267,7 @@ export function ResumeEditor({ resumeId, initialTitle, initialContent, templateS
           {content.experience.map((entry, i) => (
             <BorderedCard
               key={i}
+              id={`experience-${i}-card`}
               draggable
               onDragStart={() => setDragExperienceIndex(i)}
               onDragOver={(e) => e.preventDefault()}
@@ -248,6 +275,9 @@ export function ResumeEditor({ resumeId, initialTitle, initialContent, templateS
               onDragEnd={() => setDragExperienceIndex(null)}
               className={`flex flex-col gap-3 p-4 ${dragExperienceIndex === i ? "opacity-40" : ""}`}
             >
+              {flaggedPaths.has(`experience.${i}`) && (
+                <ExampleFlagNotice text="Still the example content — update or remove this entry." />
+              )}
               <div className="flex items-start justify-between">
                 <DragHandle />
                 <div className="grid flex-1 grid-cols-2 gap-3">
@@ -290,19 +320,27 @@ export function ResumeEditor({ resumeId, initialTitle, initialContent, templateS
           {content.education.map((entry, i) => (
             <div
               key={i}
-              draggable
-              onDragStart={() => setDragEducationIndex(i)}
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={() => handleEducationDrop(i)}
-              onDragEnd={() => setDragEducationIndex(null)}
-              className={`flex items-start gap-3 ${dragEducationIndex === i ? "opacity-40" : ""}`}
+              id={`education-${i}-card`}
+              className={`flex flex-col gap-2 ${dragEducationIndex === i ? "opacity-40" : ""}`}
             >
-              <DragHandle />
-              <div className="grid flex-1 grid-cols-2 gap-3">
-                <TextField id={`education-${i}-school`} label="School" value={entry.school} onChange={(e) => updateEducation(i, { school: e.target.value })} />
-                <TextField id={`education-${i}-degree`} label="Degree" value={entry.degree ?? ""} onChange={(e) => updateEducation(i, { degree: e.target.value })} />
+              {flaggedPaths.has(`education.${i}`) && (
+                <ExampleFlagNotice text="Still the example content — update or remove this entry." />
+              )}
+              <div
+                draggable
+                onDragStart={() => setDragEducationIndex(i)}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={() => handleEducationDrop(i)}
+                onDragEnd={() => setDragEducationIndex(null)}
+                className="flex items-start gap-3"
+              >
+                <DragHandle />
+                <div className="grid flex-1 grid-cols-2 gap-3">
+                  <TextField id={`education-${i}-school`} label="School" value={entry.school} onChange={(e) => updateEducation(i, { school: e.target.value })} />
+                  <TextField id={`education-${i}-degree`} label="Degree" value={entry.degree ?? ""} onChange={(e) => updateEducation(i, { degree: e.target.value })} />
+                </div>
+                <RemoveControl onRemove={() => update("education", content.education.filter((_, j) => j !== i))} />
               </div>
-              <RemoveControl onRemove={() => update("education", content.education.filter((_, j) => j !== i))} />
             </div>
           ))}
         </div>
@@ -312,35 +350,41 @@ export function ResumeEditor({ resumeId, initialTitle, initialContent, templateS
       <section className="flex flex-col gap-2">
         <EyebrowLabel size="sm">Skills</EyebrowLabel>
         <input
+          id="skills-field"
           value={content.skills.join(", ")}
           onChange={(e) => update("skills", e.target.value.split(",").map((s) => s.trim()).filter(Boolean))}
-          className="min-h-11 border-[1.5px] border-ink bg-card px-3.5 py-2.5 font-body text-[14.5px] outline-none focus:border-rust"
+          className={`min-h-11 border-[1.5px] ${flaggedPaths.has("skills") ? "border-rust" : "border-ink"} bg-card px-3.5 py-2.5 font-body text-[14.5px] outline-none focus:border-rust`}
           placeholder="Comma-separated, e.g. product management, sql, figma"
         />
+        {flaggedPaths.has("skills") && <ExampleFlagNotice text="Still the example skills list." />}
       </section>
 
       {/* Projects */}
       <section className="flex flex-col gap-2">
         <EyebrowLabel size="sm">Projects</EyebrowLabel>
         <textarea
+          id="projects-field"
           value={content.projects.join("\n")}
           onChange={(e) => update("projects", e.target.value.split("\n").map((s) => s.trim()).filter(Boolean))}
           rows={2}
-          className="border-[1.5px] border-ink bg-card p-3 font-body text-[14.5px] outline-none focus:border-rust"
+          className={`border-[1.5px] ${flaggedPaths.has("projects") ? "border-rust" : "border-ink"} bg-card p-3 font-body text-[14.5px] outline-none focus:border-rust`}
           placeholder="One project per line"
         />
+        {flaggedPaths.has("projects") && <ExampleFlagNotice text="Still the example projects list." />}
       </section>
 
       {/* Certifications */}
       <section className="flex flex-col gap-2">
         <EyebrowLabel size="sm">Certifications</EyebrowLabel>
         <textarea
+          id="certifications-field"
           value={content.certifications.join("\n")}
           onChange={(e) => update("certifications", e.target.value.split("\n").map((s) => s.trim()).filter(Boolean))}
           rows={2}
-          className="border-[1.5px] border-ink bg-card p-3 font-body text-[14.5px] outline-none focus:border-rust"
+          className={`border-[1.5px] ${flaggedPaths.has("certifications") ? "border-rust" : "border-ink"} bg-card p-3 font-body text-[14.5px] outline-none focus:border-rust`}
           placeholder="One certification per line"
         />
+        {flaggedPaths.has("certifications") && <ExampleFlagNotice text="Still the example certifications list." />}
       </section>
 
       <div className="flex items-center gap-3">
