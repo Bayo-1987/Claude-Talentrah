@@ -136,22 +136,38 @@ async function fetchAppliedMigrationNames(): Promise<string[]> {
   return rows.map((r) => r.name);
 }
 
-const committed = committedMigrations();
-const applied = await fetchAppliedMigrationNames();
-const results = compareMigrations(committed, applied);
-const missing = results.filter((r) => r.status === "MISSING");
+// Wrapped in an async IIFE rather than a top-level await: this repo's
+// package.json carries no "type": "module", so tsx/esbuild compile .ts
+// files to CJS by default, and CJS has no top-level await. This file was
+// the only one in scripts/ that needed it — renaming it to .mts would have
+// diverged it from every sibling script for one file's sake, and still
+// needed the npm script's own reference updated to match.
+void (async () => {
+  const committed = committedMigrations();
+  const applied = await fetchAppliedMigrationNames();
+  const results = compareMigrations(committed, applied);
+  const missing = results.filter((r) => r.status === "MISSING");
 
-for (const r of results) {
-  console.log(`${r.status === "MISSING" ? "✗" : "✓"} ${r.migration} — ${r.status}`);
-}
+  for (const r of results) {
+    console.log(`${r.status === "MISSING" ? "✗" : "✓"} ${r.migration} — ${r.status}`);
+  }
 
-if (missing.length > 0) {
-  console.error(
-    `\n${missing.length} migration${missing.length === 1 ? " is" : "s are"} committed on main but not recorded as applied on production:\n` +
-      missing.map((r) => `  - ${r.migration}`).join("\n") +
-      `\n\nApply through the Supabase MCP connector against nytwbbzfpytctjsoczzq, then re-run.`,
-  );
+  if (missing.length > 0) {
+    console.error(
+      `\n${missing.length} migration${missing.length === 1 ? " is" : "s are"} committed on main but not recorded as applied on production:\n` +
+        missing.map((r) => `  - ${r.migration}`).join("\n") +
+        `\n\nApply through the Supabase MCP connector against nytwbbzfpytctjsoczzq, then re-run.`,
+    );
+    process.exitCode = 1;
+  } else {
+    console.log(`\nAll ${committed.length} committed migrations are accounted for on production.`);
+  }
+})().catch((err) => {
+  // A thrown fetchAppliedMigrationNames error (a non-2xx response, e.g. a
+  // 401/403 from a wrong or missing secret) lands here — without this catch
+  // it would still crash the process via Node's default unhandled-rejection
+  // behaviour, but silently enough to obscure the actual status code in a
+  // wall of a default stack trace instead of a clear, single line.
+  console.error(err instanceof Error ? err.message : err);
   process.exitCode = 1;
-} else {
-  console.log(`\nAll ${committed.length} committed migrations are accounted for on production.`);
-}
+});
