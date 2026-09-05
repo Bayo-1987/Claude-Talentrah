@@ -97,6 +97,50 @@ afterAll(async () => {
 });
 
 describe("a posting reachable via both a schema-org Workable search page and the per-company workable source", () => {
+  it("DIAGNOSTIC: a plain upsert+read round-trip works before any fetch mocking is involved", async () => {
+    // Isolates the DB/upsert mechanics from ingestAllSources and from the
+    // fetch stub entirely — no mocked fetch is active for this test, so this
+    // uses the real network path exactly like every passing sibling test's
+    // own admin client does. If this doesn't come back either, the next test
+    // failing is a DB/harness fact, not something about the workable source.
+    const probeFingerprint = `probe-${RUN_ID}`;
+    const { error: upsertError, count } = await admin.from("job_postings").upsert(
+      [
+        {
+          source_type: "external",
+          organization_id: null,
+          title: "Probe Role",
+          company_name: COMPANY,
+          location: "Lagos, Nigeria",
+          description: "probe",
+          structured_jd: { skills: [], keywords: [], responsibilities: [] },
+          external_url: "https://example.test/probe",
+          external_source: "workable",
+          status: "open",
+          posted_at: new Date().toISOString(),
+          last_checked_at: new Date().toISOString(),
+          dedup_fingerprint: probeFingerprint,
+        },
+      ],
+      { onConflict: "dedup_fingerprint", count: "exact" },
+    );
+    console.log("[ingest-workable-dedup] DIAGNOSTIC upsert error/count:", JSON.stringify({ upsertError, count }));
+
+    const { data: probeRows, error: probeReadError } = await admin
+      .from("job_postings")
+      .select("id, title, company_name")
+      .eq("dedup_fingerprint", probeFingerprint);
+    console.log(
+      "[ingest-workable-dedup] DIAGNOSTIC read-back:",
+      JSON.stringify({ probeRows, probeReadError }),
+    );
+
+    await admin.from("job_postings").delete().eq("dedup_fingerprint", probeFingerprint);
+
+    expect(upsertError, `probe upsert reported an error: ${JSON.stringify(upsertError)}`).toBeNull();
+    expect(probeRows, "a plain upsert of one row must be readable back immediately").toHaveLength(1);
+  });
+
   it("collapses to one row, attributed to whichever source runs LAST in JOB_SOURCES", async () => {
     await cleanup();
 
