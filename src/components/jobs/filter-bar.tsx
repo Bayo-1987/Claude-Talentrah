@@ -235,9 +235,16 @@ export function FilterBar({
 
       {/*
         DESKTOP — one row, Country leading as the only bordered menu, then
-        Work type / Seniority / Posted as plain inline links with no labels: a
-        hairline column rule between groups (border-l on each span after the
-        first) carries the grouping the labels used to.
+        Work type / Seniority / Posted as labelled inline links, each group
+        set off by a hairline column rule (border-l on each span after the
+        first). The labels were dropped for one release on the theory that
+        "Remote/Hybrid/Onsite" etc. are self-explanatory without them — the
+        founder disagreed, live, from the shipped page, so they're back:
+        restoring them is not a style preference, it's what the founder
+        asked to see. text-[12.5px] on the row is restored for the same
+        reason — the surrounding release also dropped this row's explicit
+        size, so it inherited ambient body text and rendered larger than
+        every other release of this control ever has.
 
         THE BREAKPOINT IS MEASURED, and the number this comment used to state
         (901px, "fits inside 996px available") was wrong — not approximately,
@@ -264,7 +271,7 @@ export function FilterBar({
       */}
       <div
         data-testid="filter-bar-desktop"
-        className="hidden min-[1140px]:flex min-[1140px]:flex-nowrap min-[1140px]:items-center min-[1140px]:gap-4"
+        className="hidden min-[1140px]:flex min-[1140px]:flex-nowrap min-[1140px]:items-center min-[1140px]:gap-4 text-[12.5px]"
       >
         <FilterMenu
           faceLabel={countryFace}
@@ -273,6 +280,7 @@ export function FilterBar({
           testId="filter-menu-country-desktop"
         />
         <span className="flex items-center gap-3.5 border-l border-line pl-4">
+          <span className="font-semibold text-ink-soft">Work type:</span>
           {WORK_TYPES.map((wt) => (
             <Link
               key={wt}
@@ -284,6 +292,7 @@ export function FilterBar({
           ))}
         </span>
         <span className="flex items-center gap-3.5 border-l border-line pl-4">
+          <span className="font-semibold text-ink-soft">Seniority:</span>
           {SENIORITIES.map((s) => (
             <Link
               key={s}
@@ -295,6 +304,7 @@ export function FilterBar({
           ))}
         </span>
         <span className="flex items-center gap-3.5 border-l border-line pl-4">
+          <span className="font-semibold text-ink-soft">Posted:</span>
           {JOB_DATE_FILTERS.map((d) => (
             <Link
               key={d}
