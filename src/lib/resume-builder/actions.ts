@@ -13,6 +13,12 @@ import { logCreditGateEvent } from "@/lib/credits/gate-events";
 import { checkPassCoverage, DAILY_CAP_MESSAGE } from "@/lib/passes/entitlement";
 import { PREVIEW_SAMPLE_RESUME } from "@/lib/resume-builder/preview-sample";
 import { logResumeBuilderStartEvent, logResumeBuilderCompletion, type ResumeBuilderStartState } from "@/lib/resume-builder/start-events";
+import { defaultBuilderResumeTitle, normalizeResumeTitle } from "@/lib/resume-builder/resume-title";
+import {
+  BASE_RESUME_UNDELETABLE_REASON,
+  type DeleteResumeState,
+  type RenameResumeState,
+} from "@/lib/resume-builder/list-state";
 
 export type { ResumeBuilderStartState } from "@/lib/resume-builder/start-events";
 
@@ -205,7 +211,11 @@ export async function createResumeAction(
       user_id: userId,
       is_base: false,
       template_id: template.id,
-      title: template.name,
+      // Template name PLUS the date, not the bare template name — two gallery
+      // starts from the same template used to produce two identically-named
+      // rows. See resume-title.ts for why the stamp is day-level and why the
+      // tailoring path is deliberately not touched.
+      title: defaultBuilderResumeTitle(template.name),
       source: "builder",
       structured_content: JSON.parse(JSON.stringify(content)),
     })
@@ -342,8 +352,105 @@ export async function rewriteBulletAction(
   return { text: rewritten };
 }
 
-export async function deleteResumeAction(resumeId: string) {
+/**
+ * Rename a resume.
+ *
+ * The plain RLS client, deliberately — `title` is one of the four columns 0041
+ * grants `authenticated` UPDATE on, and the owner-only policy scopes the row.
+ * Nothing here needs definer rights, so nothing here takes them. The
+ * `.eq("user_id", ...)` is still written out: the policy is the enforcement,
+ * this is the assertion that the query means what it says.
+ */
+export async function renameResumeAction(
+  resumeId: string,
+  _prevState: RenameResumeState,
+  formData: FormData,
+): Promise<RenameResumeState> {
   const { supabase, userId } = await getAuthedUserId();
-  await supabase.from("resumes").delete().eq("id", resumeId).eq("user_id", userId).eq("is_base", false);
+
+  const title = normalizeResumeTitle(String(formData.get("title") ?? ""));
+  if (!title) {
+    return { status: "error", error: "A resume needs a name.", title: null };
+  }
+
+  const { data: updated, error } = await supabase
+    .from("resumes")
+    .update({ title, updated_at: new Date().toISOString() })
+    .eq("id", resumeId)
+    .eq("user_id", userId)
+    .select("id, title");
+
+  if (error) {
+    // Not echoed verbatim — a Postgres string here would describe our columns
+    // and policies to whoever provoked it. Same handling as updateNotesAction.
+    console.error("[resume-builder:rename]", error);
+    return { status: "error", error: "Couldn't rename that resume — try again.", title: null };
+  }
+
+  // Zero rows is neither an error nor a success: the resume was deleted in
+  // another tab, or was never this user's. Revalidate so the page shows what
+  // is actually there rather than a field asserting otherwise.
+  if (!updated?.length) {
+    revalidatePath("/resume-builder");
+    return { status: "error", error: "That resume is no longer in your list.", title: null };
+  }
+
   revalidatePath("/resume-builder");
+  return { status: "success", error: null, title: updated[0].title };
+}
+
+/**
+ * Delete a resume, keeping the record of any application it was sent with.
+ *
+ * WHY THIS IS ONE RPC AND NOT THREE QUERIES. Copying the resume onto every
+ * application that references it and then deleting it are two writes, and the
+ * gap between them loses data: a crash or a concurrent `saveResumeAction`
+ * produces either a snapshot of content that was never sent or a deleted
+ * resume with no snapshot at all. `delete_resume_with_snapshot` (0094) does
+ * both inside one transaction under a row lock — the same reasoning as
+ * `spend_credits_atomic` (0035). See that migration's header.
+ *
+ * SERVICE ROLE, and only because the function is granted to `service_role`
+ * alone. That grant is the point: `p_user_id` is an authorisation argument, so
+ * it has to come from a session this process has already verified — which it
+ * does, three lines up — and never from a client that could pass someone
+ * else's id. The function re-checks ownership itself regardless.
+ *
+ * AND THE ERROR IS CHECKED. The version this replaces was
+ * `await supabase.from("resumes").delete()...` with no error inspection, which
+ * is the exact shape CLAUDE.md documents: a rejected Supabase delete does not
+ * throw, it resolves with an `error`, so every one of those calls reported
+ * success while the four FKs pointing at `resumes` refused it outright.
+ */
+export async function deleteResumeAction(resumeId: string): Promise<DeleteResumeState> {
+  const { userId } = await getAuthedUserId();
+
+  const { data, error } = await createServiceRoleClient().rpc("delete_resume_with_snapshot", {
+    p_user_id: userId,
+    p_resume_id: resumeId,
+  });
+
+  if (error) {
+    console.error("[resume-builder:delete]", error);
+    return { status: "error", error: "Couldn't delete that resume — try again." };
+  }
+
+  // `returns table (...)` arrives as an array. No row at all would mean the
+  // function returned without a verdict, which it has no path to do — treated
+  // as a failure rather than assumed to be a success.
+  const verdict = data?.[0];
+  if (!verdict?.ok) {
+    revalidatePath("/resume-builder");
+    return {
+      status: "error",
+      error:
+        verdict?.reason === "base_resume"
+          ? BASE_RESUME_UNDELETABLE_REASON
+          : "That resume is no longer in your list.",
+    };
+  }
+
+  revalidatePath("/resume-builder");
+  revalidatePath("/tracker");
+  return { status: "success", error: null };
 }

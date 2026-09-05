@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { EyebrowLabel } from "@/components/ui";
 import { TemplateCard } from "@/components/resume-builder/template-card";
 import { EmptySkillsNotice } from "@/components/resume-builder/empty-skills-notice";
+import { ResumeListRow } from "@/components/resume-builder/resume-list-row";
 import { shouldShowEmptySkillsNotice } from "@/lib/resume/empty-skills-notice";
 
 export const metadata = { title: "Resume Builder — Talentrah" };
@@ -113,36 +114,13 @@ export default async function ResumeBuilderPage({ searchParams }: { searchParams
           <EyebrowLabel size="sm">Your resumes</EyebrowLabel>
           <div className="flex flex-col divide-y divide-line border-y border-line">
             {resumes.map((r) => (
-              <div key={r.id} className="flex items-center justify-between py-3">
-                <div>
-                  <span className="font-body text-[14.5px] font-semibold">
-                    {r.title}
-                    {r.is_base && (
-                      <span className="ml-2 text-[12px] font-normal text-ink-soft">
-                        (from your uploaded resume)
-                      </span>
-                    )}
-                  </span>
-                  <div className="text-[12.5px] text-ink-soft">
-                    Updated {new Date(r.updated_at).toLocaleDateString()}
-                  </div>
-                </div>
-                <div className="flex items-center gap-4">
-                  {/*
-                    A single "Edit" link, not "Edit" + "Preview" — the editor
-                    now carries its own live preview and Download PDF button
-                    inline (Stage 3.1), so the two links pointed at the same
-                    content by two different routes. The separate
-                    /resume-builder/preview page is retired.
-                  */}
-                  <Link
-                    href={`/resume-builder/edit?resumeId=${r.id}`}
-                    className="text-[13px] font-semibold underline underline-offset-2"
-                  >
-                    Edit
-                  </Link>
-                </div>
-              </div>
+              <ResumeListRow
+                key={r.id}
+                id={r.id}
+                title={r.title}
+                isBase={r.is_base}
+                updatedAt={r.updated_at}
+              />
             ))}
           </div>
         </div>
