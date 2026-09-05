@@ -35,6 +35,7 @@ export function FilterMenu({
   items,
   sentinel,
   variant = "primary",
+  testId,
 }: {
   /** What renders on the button's face — a live value (Country) or a static category name (the others). */
   faceLabel: string;
@@ -43,6 +44,14 @@ export function FilterMenu({
   items: FilterMenuItem[];
   /** The escape-from-default row, rendered below a heavier divider — "Every country", never a fifth peer. */
   sentinel?: FilterMenuItem;
+  /**
+   * Per tests/ui/e2e-locators.test.ts: e2e specs may not locate elements by
+   * CSS class. Country renders as its own FilterMenu at two breakpoints at
+   * once (desktop row + mobile row, one hidden by CSS, both in the DOM), so
+   * callers pass a breakpoint-qualified id for Country and a bare one for
+   * the others, which only ever render once.
+   */
+  testId?: string;
   /** `quiet` is the mobile-collapsed Work type/Seniority/Posted styling — line border, ink-soft, regular weight. */
   variant?: "primary" | "quiet";
 }) {
@@ -92,7 +101,7 @@ export function FilterMenu({
       : "border-ink font-semibold text-ink hover:border-rust hover:text-rust";
 
   return (
-    <details ref={detailsRef} className="relative inline-block">
+    <details ref={detailsRef} className="relative inline-block" data-testid={testId}>
       <summary
         aria-label={ariaLabel}
         className={`flex min-h-10 min-w-10 cursor-pointer list-none items-center gap-2 border-[1.5px] bg-card px-3 font-body text-[13.5px] whitespace-nowrap [&::-webkit-details-marker]:hidden ${summaryClass}`}

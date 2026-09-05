@@ -243,8 +243,16 @@ export function FilterBar({
         944px narrow-laptop case (≈55px to spare); wrapping here silently
         would mean the row no longer does what it was built to.
       */}
-      <div className="hidden min-[901px]:flex min-[901px]:flex-nowrap min-[901px]:items-center min-[901px]:gap-4">
-        <FilterMenu faceLabel={countryFace} items={countryItems} sentinel={countrySentinel} />
+      <div
+        data-testid="filter-bar-desktop"
+        className="hidden min-[901px]:flex min-[901px]:flex-nowrap min-[901px]:items-center min-[901px]:gap-4"
+      >
+        <FilterMenu
+          faceLabel={countryFace}
+          items={countryItems}
+          sentinel={countrySentinel}
+          testId="filter-menu-country-desktop"
+        />
         <span className="flex items-center gap-3.5 border-l border-line pl-4">
           {WORK_TYPES.map((wt) => (
             <Link
@@ -291,21 +299,34 @@ export function FilterBar({
         of the menu rather than one, which is the honest cost of shipping no
         client-side filter state at all.
       */}
-      <div className="flex flex-wrap items-center gap-2.5 min-[901px]:hidden">
-        <FilterMenu faceLabel={countryFace} items={countryItems} sentinel={countrySentinel} />
+      <div data-testid="filter-bar-mobile" className="flex flex-wrap items-center gap-2.5 min-[901px]:hidden">
+        <FilterMenu
+          faceLabel={countryFace}
+          items={countryItems}
+          sentinel={countrySentinel}
+          testId="filter-menu-country-mobile"
+        />
         <FilterMenu
           faceLabel="Work type"
           ariaLabel="Work type"
           items={workTypeItems}
           variant="quiet"
+          testId="filter-menu-work-type"
         />
         <FilterMenu
           faceLabel="Seniority"
           ariaLabel="Seniority"
           items={seniorityItems}
           variant="quiet"
+          testId="filter-menu-seniority"
         />
-        <FilterMenu faceLabel="Posted" ariaLabel="Posted" items={postedItems} variant="quiet" />
+        <FilterMenu
+          faceLabel="Posted"
+          ariaLabel="Posted"
+          items={postedItems}
+          variant="quiet"
+          testId="filter-menu-posted"
+        />
       </div>
     </div>
   );

@@ -25,22 +25,14 @@ for (const width of [901, 1024, 1280]) {
     await login(page);
     await page.waitForTimeout(300);
 
-    const result = await page.evaluate(() => {
-      const row = [...document.querySelectorAll("div")].find(
-        (d) => d.className.includes("min-[901px]:flex") && d.className.includes("flex-nowrap"),
-      );
-      const doc = document.documentElement;
-      if (!row) return { found: false };
-      const r = row.getBoundingClientRect();
-      const parent = row.parentElement?.getBoundingClientRect();
-      return {
-        found: true,
-        rowWidth: r.width,
-        parentWidth: parent?.width ?? null,
-        docClientWidth: doc.clientWidth,
-        docScrollWidth: doc.scrollWidth,
-      };
-    });
-    console.log(`WIDTH=${width} RESULT=${JSON.stringify(result)}`);
+    const row = page.getByTestId("filter-bar-desktop");
+    const box = await row.boundingBox();
+    const docWidths = await page.evaluate(() => ({
+      clientW: document.documentElement.clientWidth,
+      scrollW: document.documentElement.scrollWidth,
+    }));
+    console.log(
+      `WIDTH=${width} RESULT=${JSON.stringify({ rowWidth: box?.width ?? null, ...docWidths })}`,
+    );
   });
 }
