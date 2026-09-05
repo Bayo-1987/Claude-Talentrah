@@ -254,6 +254,38 @@ concluding a migration never ran: a project restored from a snapshot rather
 than replayed has the schema *without* the record, which is exactly the state
 CI is in for 0026–0050.
 
+### `CLEAN` does not mean nothing is pending — it is blind to unmerged branches
+
+The check compares production's ledger against the `.sql` files committed on
+`main`. It reads `main`, never a branch, so a migration sitting on an open PR
+is invisible to it by design — not a bug, a boundary. On 2026-09-05 it printed
+`All 70 committed migrations are accounted for on production` while
+`0095_promoted_jobs_multiselect` sat unapplied on
+`feature/jobs-feed-filter-redesign`. Both statements were true at once: `main`
+genuinely had nothing missing, and production genuinely didn't have 0095 yet.
+Nobody was confused that day because the merge that would have changed the
+answer hadn't happened yet either.
+
+So: **a clean report means "nothing merged is unapplied." It does not mean
+"nothing is pending."** A migration-bearing PR in review will never appear in
+this check's output, and it shouldn't — the check cannot warn about a file
+that may still change or never land. The moment it CAN tell you something is
+right after that PR merges and before you've applied the migration: run it
+then, expect to see the new file as `MISSING`, and treat that MISSING line as
+confirmation the detector is watching, not as a problem to explain away. That
+merged-but-not-yet-applied window is exactly where 0066, 0067, 0068, 0093 and
+0094 were each lost before something caught them.
+
+**The count itself excludes one file on purpose.** `main` carries 71 `.sql`
+files under `supabase/migrations/`, and the check reports on 70 — not an
+off-by-one. `committedMigrations()` (`scripts/audit-migrations.ts`) filters
+out `0000_baseline_schema` via `NOT_A_MIGRATION`, because it's a snapshot of
+schema state, not a migration with something to apply — there is nothing for
+production's ledger to have ever recorded it applying. A drift checker that
+looks like it dropped a file for no stated reason is one nobody trusts enough
+to act on; the number is "committed migrations, baseline excluded," and it's
+named that way here so nobody has to rediscover it by counting.
+
 ### CI carries two dead rows from 0071, and they are not pending work
 
 CI's ledger holds three rows for one migration:
