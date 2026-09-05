@@ -51,7 +51,18 @@ const cityJobsForRequest = cache(async (citySlug: string) => {
 export async function generateMetadata({ params }: { params: Promise<{ city: string }> }) {
   const { city: citySlug } = await params;
   const { result } = await cityJobsForRequest(citySlug);
-  if (!result || result.total < LANDING_PAGE_MIN_ENTRIES) return { title: "Jobs — Talentrah" };
+  /*
+   * notFound() HERE, not just in the page body below — TESTED, and this does
+   * NOT fix the status code by itself. See scholarships/degree/[level]/
+   * page.tsx's identical comment for the full empirical result: Next commits
+   * to HTTP 200 the moment it decides a route can stream at all (any
+   * ancestor loading.tsx is enough), independent of when generateMetadata
+   * resolves or whether it calls notFound(). Kept anyway — still correct
+   * behaviour, and via the shared `cityJobsForRequest` call it costs no extra
+   * query — but the actual fix is this segment having no loading.tsx
+   * ancestor (see (app)/loading.tsx and jobs/loading.tsx, both absent).
+   */
+  if (!result || result.total < LANDING_PAGE_MIN_ENTRIES) notFound();
 
   const { city, total } = result;
   const title = `Jobs in ${city.displayName}, Nigeria — ${total} Open Roles | Talentrah`;

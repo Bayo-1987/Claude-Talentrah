@@ -108,12 +108,28 @@ const FEEDBACK_BUDGET_MS = 100;
  * CI-blocking status-code bug), not a scoping mistake and not a flake.
  *
  * FIRST THEORY, WRONG: that only navigation ORIGINATING from /jobs or
- * /scholarships would be affected (both lost their own loading.tsx, since a
- * shared ancestor there would wrap their notFound()-capable children —
- * /jobs/[id], /scholarships/[id], /scholarships/degree/[level] — and turn a
- * 404 into a 200 that only bounces client-side). Changing the neutral start
- * page to /billing (unaffected, not a NAV_LINKS target) did NOT fix it in
- * real CI.
+ * /scholarships would be affected. Changing the neutral start page to
+ * /billing did NOT fix it in real CI.
+ *
+ * SECOND THEORY, ALSO TESTED, ALSO WRONG: that moving the notFound() decision
+ * into generateMetadata — which resolves before a route's own render, so in
+ * theory before any loading.tsx starts streaming — would let every affected
+ * loading.tsx be restored while keeping correct status codes. Tested against
+ * a real built server (fresh build, unique port, confirmed LISTEN, not the
+ * earlier stale-process-contaminated run): with generateMetadata calling
+ * notFound() in all four affected routes AND every one of (app)'s ancestor
+ * loading.tsx files restored, a missing job (/jobs/<uuid-that-does-not-
+ * exist>) and a below-threshold degree page (/scholarships/degree/phd, 4
+ * live entries against a 5-entry floor) both rendered correct 404 body
+ * content — the RSC payload genuinely carries `NEXT_HTTP_ERROR_FALLBACK;404`
+ * — while the outer HTTP status stayed 200. Removing loading.tsx files one
+ * ancestor at a time (the route's own, then its parent, then the (app) root)
+ * showed the same 200 at every step until NONE remained in the chain, at
+ * which point it correctly became 404. So the mechanism is not "does
+ * generateMetadata resolve before streaming begins" — Next commits to HTTP
+ * 200 the moment it decides a route CAN stream at all (i.e. the mere
+ * presence of a loading.tsx anywhere in the segment's ancestor chain), and an
+ * earlier notFound() doesn't change a status that was already locked in.
  *
  * ACTUAL SCOPE, measured directly in a real browser (click instrumented with
  * a MutationObserver, not just Playwright's own assertion): clicking to
@@ -124,9 +140,8 @@ const FEEDBACK_BUDGET_MS = 100;
  * degrades EVERY client-side navigation's skeleton-paint latency, not only
  * ones touching the two routes that needed it removed for correctness.
  * Restoring (app)/loading.tsx removes the slowdown but reopens the exact bug
- * this fix exists for — confirmed empirically, not assumed: with it
- * restored, a below-threshold scholarship page and a missing job both went
- * back to serving 200 instead of 404.
+ * this fix exists for — confirmed empirically both before and after trying
+ * the generateMetadata route, not assumed.
  *
  * This is a genuine, unresolved conflict between two real things this
  * codebase wants (instant nav feedback everywhere; correct HTTP status codes
