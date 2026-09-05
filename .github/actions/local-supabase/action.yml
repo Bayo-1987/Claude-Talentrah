@@ -16,9 +16,9 @@ description: >
 # that branch's own code/tests have merged yet). A local, per-job stack has
 # no contention to have an incident about — each job gets its own database,
 # torn down with the runner. This is why the old `concurrency` group and
-# `.github/scripts/wait-for-ci-lock.sh` are no longer wired into ci.yml: the
-# resource they were serializing access to no longer exists as a shared
-# resource.
+# `.github/scripts/wait-for-ci-lock.sh` are gone: the resource they serialized
+# access to no longer exists as a shared resource. (The script itself has since
+# been deleted; see `git log` for it.)
 #
 # This runs once PER JOB (checks and e2e each call it separately), not once
 # per workflow — GitHub Actions jobs are separate runners/containers, so
