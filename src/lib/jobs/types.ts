@@ -25,7 +25,7 @@ export interface NormalizedJobPosting {
    * discriminator; a schema.org source uses `schema-org:<label>` — see
    * `schemaOrgSourceKey` below for why the label is part of the value.
    */
-  externalSource: "greenhouse" | "lever" | `schema-org:${string}`;
+  externalSource: "greenhouse" | "lever" | "workable" | `schema-org:${string}`;
   postedAt: string;
   dedupFingerprint: string;
   /** From schema.org's `validThrough`, when the source stated one and it
@@ -51,10 +51,20 @@ export interface NormalizedJobPosting {
  * see `sources/schema-org.ts`. Modelled as a discriminated union rather than
  * bolting an optional `url` onto the old flat shape, so a `greenhouse`
  * config can't accidentally omit `token` or vice versa.
+ *
+ * `workable` is a third single-company namespace, same shape as
+ * greenhouse/lever (a `token` — Workable calls it an "account" — maps to
+ * exactly one company's board via `apply.workable.com/api/v1/widget/accounts/
+ * <token>`). It is intentionally NOT folded into the `schema-org` variant even
+ * though this pipeline's other Workable sources (`workable-nigeria`,
+ * `workable-lagos`, etc.) go through schema-org: those are multi-employer
+ * SEARCH pages with no fixed company, while a widget-accounts URL is a single
+ * company's own board, same as Greenhouse/Lever — see sources/workable.ts.
  */
 export type JobSourceConfig =
   | { source: "greenhouse"; token: string; companyName: string }
   | { source: "lever"; token: string; companyName: string }
+  | { source: "workable"; token: string; companyName: string }
   | { source: "schema-org"; url: string; label: string };
 
 /**

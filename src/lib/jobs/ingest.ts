@@ -2,6 +2,7 @@ import "server-only";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { fetchGreenhouseJobs } from "./sources/greenhouse";
 import { fetchLeverJobs } from "./sources/lever";
+import { fetchWorkableJobs } from "./sources/workable";
 import { fetchSchemaOrgJobs } from "./sources/schema-org";
 import { JOB_SOURCES } from "./sources.config";
 import { disambiguateFingerprint } from "./dedup";
@@ -53,6 +54,9 @@ async function fetchSource(
   }
   if (config.source === "lever") {
     return { jobs: await fetchLeverJobs(config.token, config.companyName) };
+  }
+  if (config.source === "workable") {
+    return { jobs: await fetchWorkableJobs(config.token, config.companyName) };
   }
   const { jobs, skipped } = await fetchSchemaOrgJobs(config.url, config.label);
   return { jobs, skipped: skipped.length };

@@ -505,6 +505,132 @@ import type { JobSourceConfig } from "./types";
  * bespoke client plus, in two of the three cases, a commercial conversation
  * — see their sections above). None of that changes the per-employer
  * conclusion above; it only bears on how much MORE could be added later.
+ *
+ * ══ WORKABLE COMPANY BOARDS: KUDA, VIA THE PER-COMPANY WIDGET API ═══════════
+ *
+ * Founder-reported gap, 2026-09-05: Kuda Technologies has 15 open roles on
+ * Workable, 11 of them in Lagos, and this feed carried exactly one (the Abuja
+ * "Direct Sales Agent", via `workable-abuja` above) plus a closed Cape Town
+ * Scrum Master. ROOT CAUSE, confirmed rather than re-derived: `workable-abuja`
+ * and every other `jobs.workable.com/search/<term>` entry above is a
+ * MULTI-EMPLOYER search page capped at 20 items (see the rate-limit section
+ * above) — Kuda's 11 Lagos roles were competing for one page's worth of space
+ * against every other Lagos employer on Workable, not being filtered out by
+ * anything. This is a volume-cap problem, and the fix is the same shape
+ * Greenhouse/Lever already use: a per-company board, not a search page.
+ *
+ * THE ENDPOINT. `https://apply.workable.com/api/v1/widget/accounts/<account>`
+ * — Workable's own documented "job widget"
+ * (help.workable.com/hc/en-us/articles/115012801727-How-to-embed-jobs-on-your-website-job-widget),
+ * the feature a Workable customer uses to embed their own board on their own
+ * careers page. It is public and unauthenticated for any known account slug —
+ * confirmed live, not assumed: a plain `curl` with no API key or session
+ * returns 200 and real job data. Same openness class as
+ * `boards-api.greenhouse.io`/`api.lever.co` above, and the fetcher lives at
+ * src/lib/jobs/sources/workable.ts, structured the same way. Adding
+ * `?details=true` was found by testing, not documented anywhere found in
+ * Workable's public docs: without it the endpoint omits `description`
+ * entirely; with it, every job carries the same real HTML content shape
+ * Greenhouse's `content` field does.
+ *
+ * KUDA'S ACCOUNT SLUG WAS CONFIRMED, NOT GUESSED — the exact trap this file's
+ * opening section warns about. `kuda` and `kuda-technologies` both resolve
+ * (200) on the widget endpoint, and only one is real: `kuda` returns
+ * `"name": "Kuda Technologies Ltd"` with 16 live job entries, matching the
+ * exact company name on Kuda's own JSON-LD posting already in this feed
+ * (`workable-abuja`'s "Direct Sales Agent... at Kuda Technologies Ltd").
+ * `kuda-technologies` returns a DIFFERENT, shorter name — "Kuda Technologies"
+ * — with zero jobs, i.e. an empty or decoy account that happens to share a
+ * guessable token. The slug itself was found by following real links, not by
+ * guessing at all: `jobs.workable.com/search/abuja`'s canonical Kuda listing
+ * links to `apply.workable.com/j/E96B878F8B`, which serves a bare
+ * "Redirecting to /kuda/j/E96B878F8B" — that path segment is the account.
+ *
+ * GROUND TRUTH, RECONCILED. The widget returns 16 raw job entries for `kuda`,
+ * not 15 — the founder's number and this feed's are the same 15 DISTINCT
+ * roles, and the 16th is not a 16th role. Workable's widget flattens a
+ * requisition posted to multiple locations into one array entry PER
+ * location: "Vice President of Engineering" (shortcode `61F507FDD7`) appears
+ * twice, once tagged Cape Town and once Johannesburg, otherwise identical.
+ * `fetchWorkableJobs` dedupes on `shortcode` before mapping (see that file
+ * for why silently keeping both would be worse than the bug
+ * `disambiguateFingerprint` in ingest.ts already guards against — this is one
+ * requisition counted twice, not two different ones colliding). Deduped to 15
+ * distinct roles, 11 of them Lagos (Backend Engineer, Data Analyst - Credit,
+ * IOS Engineer, Portfolio Analysis & Reporting - Lead, Scrum Master, two
+ * Senior iOS Engineer postings, Senior Product Manager - Credit, Senior
+ * Software Engineer, Software Development Engineer in Test (SDET), VP of
+ * Engineering) — exactly the founder's count on both numbers. The remaining
+ * 4: Direct Sales Agent (Abuja, already in the feed via `workable-abuja` and
+ * now deduped against this source — see the placement comment on the config
+ * entry below), Scrum Master (Cape Town), a second SDET (Cape Town), and the
+ * deduped Vice President of Engineering (Cape Town/Johannesburg, the one
+ * `telecommuting: true` posting on the board).
+ *
+ * WORK TYPE: A REAL FIELD, CHECKED RATHER THAN ASSUMED EITHER WAY. Unlike
+ * Greenhouse (no field at all) and like Lever (`workplaceType`), Workable's
+ * widget carries `telecommuting`, a boolean — but unlike Lever's three-way
+ * enum, a boolean can only assert the positive case with confidence. Verified
+ * live: every one of Kuda's on-site/hybrid-shaped roles carries
+ * `telecommuting: false`, and only the two "Vice President of Engineering"
+ * entries carry `telecommuting: true`. `fetchWorkableJobs`'s `mapWorkType`
+ * reads `true` directly as `remote` and only falls through to
+ * `inferWorkType` on `false`, where the field has nothing more to say. No
+ * `hybrid`-equivalent field exists anywhere in the payload (checked: the full
+ * key set on a raw job entry is title/shortcode/code/employment_type/
+ * telecommuting/department/url/shortlink/application_url/published_on/
+ * created_at/country/city/state/education/experience/function/industry/
+ * locations — nothing else).
+ *
+ * ROBOTS.TXT / TERMS OF SERVICE — THE ACTUAL GO/NO-GO CHECK, RE-RUN FOR THIS
+ * SPECIFIC PATH ON THIS SPECIFIC ORIGIN rather than assumed from the
+ * `jobs.workable.com` vetting above (a different host). Checked 2026-09-05:
+ *   - `apply.workable.com/robots.txt`: `User-agent: *` /
+ *     `Content-Signal: search=yes, ai-input=yes, ai-train=no` / `Disallow: `
+ *     (empty) — no path restriction at all, so `/api/v1/widget/accounts/*` is
+ *     as permitted as anything else on the origin. Same Content-Signal value
+ *     already vetted for `jobs.workable.com`.
+ *   - `jobs.workable.com/terms` (Workable's own Job Board Terms & Conditions):
+ *     read in full. No clause addressing automated access, scraping, bots,
+ *     API use, or redistribution/aggregation of listings on a third-party
+ *     site — the closest language is a general IP-infringement clause (data
+ *     uploaded to an ACCOUNT) and a ban on injecting scripts/malware into the
+ *     Workable website itself, neither of which speaks to reading public job
+ *     data via a public endpoint. This is the same check that disqualified
+ *     Fuzu above (explicit "no automated scraping, no redistribution without
+ *     authorisation" language) — Workable's terms contain no equivalent
+ *     clause anywhere found.
+ *   - The endpoint itself is Workable's own documented embed feature, meant
+ *     to serve exactly this data publicly for exactly this kind of external
+ *     consumption (a page that is not workable.com displaying it) — not a
+ *     reverse-engineered internal API.
+ *   - NOT verified: sustained throttling behaviour under repeated calls, the
+ *     way the rate-limit section above stress-tested `jobs.workable.com`.
+ *     This fetcher makes one request per ingest run for Kuda, far lighter
+ *     than a 20-link listing-plus-details crawl, and `apply.workable.com` is
+ *     a different host entirely from the one that throttles — but "lighter
+ *     and a different host" is reasoning, not a measurement, and is recorded
+ *     as such rather than claimed as proven.
+ *   Conclusion: FAIR GAME. Ships as `source: "workable"` in
+ *   src/lib/jobs/types.ts, alongside greenhouse/lever, not folded into the
+ *   `schema-org` variant — see that file's note on the union for why.
+ *
+ * SCOPE: KUDA ONLY, DELIBERATELY. Per this file's own opening convention
+ * (source selection is a founder call, not an engineering one), this round
+ * ships one employer to fix the specific gap reported, not a sweep of every
+ * Nigerian company on Workable. Other Nigerian Workable employers worth a
+ * founder decision on a future round — found only as company names inside
+ * the existing `jobs.workable.com/search/*` results above, NOT independently
+ * verified against their own widget-accounts endpoint the way Kuda was, so
+ * treat every one of these as "worth checking," not "checked": Reliance
+ * Health, FairMoney, Helium Health, Renmoney, Kora (all named explicitly
+ * elsewhere in this file as Workable-hosted already surfacing through the
+ * search pages) and, from the Nigeria-city sampling above, Rentokil Initial,
+ * Tetra Maritime, Alaro City, Kingmakers, Human Intelligence, NALA. A future
+ * round should run the same three-part verification this section did for
+ * Kuda (account slug confirmed via a real link, not guessed; live job count
+ * cross-checked; robots.txt/ToS re-read for the specific path) before
+ * shipping any of them.
  */
 export const JOB_SOURCES: JobSourceConfig[] = [
   { source: "greenhouse", token: "moniepoint", companyName: "Moniepoint" },
@@ -542,6 +668,27 @@ export const JOB_SOURCES: JobSourceConfig[] = [
     source: "schema-org",
     url: "https://jobs.workable.com/search/abuja",
     label: "workable-abuja",
+  },
+  /*
+   * Kuda's own Workable board, not another `jobs.workable.com/search/<term>`
+   * page — see the WORKABLE COMPANY BOARDS section below for the full
+   * diagnosis and verification. Placed HERE, immediately after
+   * `workable-abuja` and nowhere else, for the same collision rule the
+   * Nigeria city pages above already document: `ingestAllSources` runs
+   * `JOB_SOURCES` in array order, and when a posting's fingerprint collides
+   * across two configs in one run, the row ends up attributed to whichever
+   * config ran LAST. Kuda's "Direct Sales Agent" in Abuja is exactly that
+   * collision — `workable-abuja` already carries it — so this entry runs
+   * AFTER it on purpose: the dedicated per-company board is the more
+   * complete, more authoritative source for a Kuda posting (it is the only
+   * one of the two that sees all of Kuda's roles, not just whichever ones
+   * happen to also show up on one city's search page), so it should be the
+   * one whose `external_source`/description/URL survive the upsert.
+   */
+  {
+    source: "workable",
+    token: "kuda",
+    companyName: "Kuda Technologies Ltd",
   },
   {
     source: "schema-org",
