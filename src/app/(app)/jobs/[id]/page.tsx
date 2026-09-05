@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { JsonLd } from "@/components/seo/json-ld";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -43,19 +44,45 @@ const EMPLOYMENT_LABEL: Record<string, string> = {
   internship: "Internship",
 };
 
-export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
+/**
+ * ONE loader call per request, not two. Next.js runs generateMetadata and the
+ * default export in the SAME request and both need this row, so before this
+ * fix each visit issued two separate `job_postings` queries — one narrow
+ * (metadata's own column list), one `select("*")` (the page's). React's
+ * `cache()` is request-scoped memoization: the page's own call below hits
+ * this same cached result rather than re-querying, and gets the full row for
+ * free since metadata's fields are a subset of it.
+ *
+ * Client created INSIDE the helper, argument is the plain id string, because
+ * `cache()` memoizes on ARGUMENT IDENTITY — same reasoning as the sibling SEO
+ * landing pages' own `*ForRequest` loaders (scholarships/degree/[level],
+ * jobs/remote/[country], jobs/in/[city]).
+ *
+ * generateMetadata's own notFound() below does NOT fix this route's
+ * status-code bug by itself — TESTED empirically against a real built
+ * server, see (app)/scholarships/degree/[level]/page.tsx's comment on the
+ * same call for the full result. The actual fix is this segment (and its
+ * ancestors) carrying no loading.tsx at all; this loader exists for the
+ * query dedup, and notFound() here is honest (a reader/crawler asking about
+ * a missing job shouldn't get that job's own metadata shape back) rather
+ * than load-bearing for the status code.
+ */
+const jobForRequest = cache(async (id: string) => {
   const supabase = await createClient();
-  // Same client as the page, so a posting the reader cannot see does not leak
-  // its title through the tab.
   const { data } = await supabase
     .from("job_postings")
-    .select("title, company_name, description, location, employment_type")
+    .select("*")
     .eq("id", id)
     .gte("posted_at", freshnessFloorISO())
     .maybeSingle();
+  return { supabase, data };
+});
 
-  if (!data) return { title: "Job — Talentrah" };
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const { data } = await jobForRequest(id);
+
+  if (!data) notFound();
 
   const title = `${data.title} — ${data.company_name} — Talentrah`;
 
@@ -133,25 +160,16 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
    */
   const session = await getOptionalUser();
   const user = session?.user ?? null;
-  const supabase = await createClient();
+  /*
+   * Same 30-day-floor row generateMetadata already fetched above — this call
+   * hits the request-scoped cache() rather than re-querying. `job` is `null`
+   * only if generateMetadata's own notFound() somehow didn't short-circuit
+   * the render (it always should); kept below as a defensive fallback, not
+   * the primary gate.
+   */
+  const { supabase, data: job } = await jobForRequest(id);
 
-  const [{ data: job }, baseResumeResult, applicationResult] = await Promise.all([
-    /*
-     * The same 30-day floor every discovery surface enforces
-     * (src/lib/jobs/freshness.ts) — reached directly by URL, not just via
-     * the feed, so this is the one place it must be re-checked rather than
-     * assumed from wherever the link came from. A job someone already saved
-     * or applied to is unaffected: the Job Tracker and Auto-Apply's review
-     * queue render from their OWN tables, never a link to this page (see
-     * freshness.ts's header), so an aged-out posting disappearing from here
-     * cannot break a user's own history.
-     */
-    supabase
-      .from("job_postings")
-      .select("*")
-      .eq("id", id)
-      .gte("posted_at", freshnessFloorISO())
-      .maybeSingle(),
+  const [baseResumeResult, applicationResult] = await Promise.all([
     /*
      * Skipped entirely when signed out rather than run and discarded. Both are
      * owner-scoped by RLS so they would return nothing anyway, but issuing two

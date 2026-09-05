@@ -54,7 +54,27 @@ const scholarshipsByLevelForRequest = cache(async (levelSlug: string) => {
 export async function generateMetadata({ params }: { params: Promise<{ level: string }> }) {
   const { level: levelSlug } = await params;
   const { result } = await scholarshipsByLevelForRequest(levelSlug);
-  if (!result || result.total < LANDING_PAGE_MIN_ENTRIES) return { title: "Scholarships — Talentrah" };
+  /*
+   * notFound() HERE, not just in the page body below — TESTED, and this does
+   * NOT fix the status code by itself. The theory was that generateMetadata
+   * resolves before a route's loading.tsx starts streaming, so a 404 raised
+   * here would commit the real status ahead of any skeleton. Verified against
+   * a real built server (fresh build, unique port, confirmed LISTEN) with all
+   * of (app)'s ancestor loading.tsx files restored: this route's RSC payload
+   * correctly carries `NEXT_HTTP_ERROR_FALLBACK;404` — the notFound() really
+   * does fire, from here, before the page body ever runs — and the outer HTTP
+   * status was still 200. Next commits to 200 the moment it decides a route
+   * CAN stream (i.e. the mere presence of a loading.tsx anywhere in the
+   * segment's ancestor chain, not whether generateMetadata happens to resolve
+   * before the first byte goes out), so raising notFound() earlier in the
+   * lifecycle doesn't change which status code was already locked in. Kept
+   * anyway — it's still correct behaviour and, via the shared
+   * `scholarshipsByLevelForRequest` call, costs no extra query — but the
+   * actual fix for the status code is this segment's ancestors having no
+   * loading.tsx at all (see (app)/loading.tsx and scholarships/loading.tsx,
+   * both absent).
+   */
+  if (!result || result.total < LANDING_PAGE_MIN_ENTRIES) notFound();
 
   const { level, total } = result;
   const label = DEGREE_LEVEL_LABEL[level];
