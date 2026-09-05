@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { EyebrowLabel, FarahMark } from "@/components/ui";
 import { FARAH_QUICK_ACTIONS } from "@/lib/farah/quick-actions";
+import { renderFarahMarkdown } from "@/lib/farah/render-markdown";
 
 export interface FarahMessage {
   id: string;
@@ -244,9 +245,7 @@ export function FarahPanel({ firstName, initialMessages }: FarahPanelProps) {
         ) : (
           messages.map((m) =>
             m.role === "farah" ? (
-              <p key={m.id} className="font-display text-[13.5px] italic leading-relaxed text-ink-soft">
-                {m.content}
-              </p>
+              <div key={m.id}>{renderFarahMarkdown(m.content)}</div>
             ) : (
               <p key={m.id} className="text-right font-body text-[13px] text-ink">
                 {m.content}
