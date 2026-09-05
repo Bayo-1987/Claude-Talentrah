@@ -237,15 +237,34 @@ export function FilterBar({
         DESKTOP — one row, Country leading as the only bordered menu, then
         Work type / Seniority / Posted as plain inline links with no labels: a
         hairline column rule between groups (border-l on each span after the
-        first) carries the grouping the labels used to. `flex-nowrap` is
-        deliberate, not decorative — this was measured to fit inside the
-        1120px content column (≈890px used of 996px available) and the
-        944px narrow-laptop case (≈55px to spare); wrapping here silently
-        would mean the row no longer does what it was built to.
+        first) carries the grouping the labels used to.
+
+        THE BREAKPOINT IS MEASURED, and the number this comment used to state
+        (901px, "fits inside 996px available") was wrong — not approximately,
+        wrong in kind: `flex-nowrap` with no shrink/wrap/scroll fallback means
+        the row's actual rendered width (1069px, measured directly against a
+        real logged-in board) becomes the DOCUMENT's width the moment the
+        viewport is narrower than that, not the row's. At 901px and 1024px
+        viewports this pushed the whole page 168px and 45px past its own
+        viewport respectively — a horizontal scrollbar on the jobs feed at
+        one of the commonest laptop widths, caught by
+        e2e/farah-discoverability.spec.ts's own document-width assertion
+        (which exists for an unrelated masthead item, and caught this only
+        because it measures the DOCUMENT, not the masthead).
+
+        1140px, not 1120 (this codebase's own max-content-width constant):
+        1069px of real content plus a margin bigger than the ~18-45px of
+        cross-platform font-metric variance already observed elsewhere in
+        this exact suite (see that spec's own header) is the deliberate
+        choice — 1120px alone would leave only 51px of slack, which is not
+        comfortably more than variance already seen to move a similar row by
+        45px on its own. Below 1140px the row hides and the collapsed
+        FilterMenu version (below) takes over — the same control, not a
+        degraded one.
       */}
       <div
         data-testid="filter-bar-desktop"
-        className="hidden min-[901px]:flex min-[901px]:flex-nowrap min-[901px]:items-center min-[901px]:gap-4"
+        className="hidden min-[1140px]:flex min-[1140px]:flex-nowrap min-[1140px]:items-center min-[1140px]:gap-4"
       >
         <FilterMenu
           faceLabel={countryFace}
@@ -289,17 +308,18 @@ export function FilterBar({
       </div>
 
       {/*
-        PHONE/NARROW — below ~900px the three link groups have nowhere to go,
-        so they become menus matching Country's own. Same URLs, same server
-        code, same `toggled()` — only the control changes, per the design
-        spec's own "one source of truth, two renderings" rule. Multi-select
-        still works here: each tick is its own navigation (no JS holds the
-        menu's array state client-side, so the same server-computed `items`
-        that back the desktop links back these), so two ticks take two opens
-        of the menu rather than one, which is the honest cost of shipping no
-        client-side filter state at all.
+        PHONE/NARROW — below 1140px (see the desktop row's own comment above
+        for why that number, not 901) the three link groups have nowhere to
+        go, so they become menus matching Country's own. Same URLs, same
+        server code, same `toggled()` — only the control changes, per the
+        design spec's own "one source of truth, two renderings" rule.
+        Multi-select still works here: each tick is its own navigation (no JS
+        holds the menu's array state client-side, so the same server-computed
+        `items` that back the desktop links back these), so two ticks take
+        two opens of the menu rather than one, which is the honest cost of
+        shipping no client-side filter state at all.
       */}
-      <div data-testid="filter-bar-mobile" className="flex flex-wrap items-center gap-2.5 min-[901px]:hidden">
+      <div data-testid="filter-bar-mobile" className="flex flex-wrap items-center gap-2.5 min-[1140px]:hidden">
         <FilterMenu
           faceLabel={countryFace}
           items={countryItems}

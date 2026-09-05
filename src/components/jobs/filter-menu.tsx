@@ -13,8 +13,9 @@ export interface FilterMenuItem {
 
 /**
  * A bordered menu button that opens a list of links — the jobs feed's Country
- * control, and (below ~900px) the Work type / Seniority / Posted controls
- * too. Native `<details>`/`<summary>`, matching this file's own JS-off
+ * control, and (below 1140px — see filter-bar.tsx's own comment for why that
+ * number) the Work type / Seniority / Posted controls too. Native
+ * `<details>`/`<summary>`, matching this file's own JS-off
  * philosophy: with no JavaScript at all, clicking the summary still opens and
  * closes the menu and every link inside still works as a plain navigation.
  * What this component ADDS on top, and only on top, is keyboard/pointer
