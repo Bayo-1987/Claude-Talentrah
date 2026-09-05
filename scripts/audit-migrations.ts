@@ -37,12 +37,23 @@ import { fileURLToPath } from "node:url";
  * check-migration-drift.ts (same directory) is the one deliberate exception —
  * CI cannot run an MCP connector or a human in a loop, so 0093 sat
  * unrecorded on production from #215's merge until the founder's own direct
- * query caught it. That script connects with a role scoped to SELECT on
- * exactly `supabase_migrations.schema_migrations` and nothing else — not "the
- * one key nobody should be storing" this comment warns about, which is
- * service-role or superuser reach. This file's own reasoning stands for every
- * OTHER case: a human or an interactive agent has the MCP connector and
- * should keep using it.
+ * query caught it. That script calls `public.list_applied_migrations()`
+ * (0096) over HTTPS — a SECURITY DEFINER function reachable only by a
+ * dedicated role with no other privileges, authenticated with a pre-signed
+ * JWT that can do nothing but call this one function. Not "the one key
+ * nobody should be storing" this comment warns about, which is service-role
+ * or superuser reach: a leaked copy of that JWT can retrieve a list of
+ * migration filenames that are already sitting in this repo's own public git
+ * history. This file's own reasoning stands for every OTHER case: a human or
+ * an interactive agent has the MCP connector and should keep using it.
+ *
+ * An earlier version of check-migration-drift.ts connected directly to
+ * Postgres with a role scoped to SELECT on schema_migrations. That reached a
+ * dead end: Supabase's hosted shared pooler doesn't reliably route custom
+ * roles ("tenant/user ... not found", reproduced 8 times over 2 minutes), and
+ * the direct connection is IPv6-only, which GitHub Actions cannot reach at
+ * all. HTTPS has neither problem — see 0096's own header for the full
+ * account.
  *
  * ── WHY IT DOES NOT "FIX" THE LEDGER ──────────────────────────────────────
  *

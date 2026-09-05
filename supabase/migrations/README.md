@@ -156,25 +156,70 @@ The script encodes the rules that make the comparison mean something:
 `0093_resume_builder_start_events` landed with #215, was applied to the CI
 project as part of building that PR, and was never applied to production —
 the PR description said "production untouched, migrates on merge," and the
-merge itself carries no such step. It sat unrecorded until the founder's own
-direct query against production caught it, by which point two more
-migrations were already queued behind it.
+merge itself carries no such step, because there is no automated production
+migration mechanism in this repo at all. It sat unrecorded until the
+founder's own direct query against production caught it, by which point two
+more migrations were already queued behind it.
 
 `scripts/check-migration-drift.ts` is the automated version of the audit
-above, run by the `migration-drift` job in `.github/workflows/ci.yml` on
-every push to `main`. It is the one script in this repo that connects to
-production directly rather than through the Supabase MCP connector — CI has
-no connector and no human to hand a query to. It connects as
-`migration_auditor`, a Postgres role scoped to `SELECT` on exactly
-`supabase_migrations.schema_migrations` and nothing else (verified directly:
-`has_table_privilege('migration_auditor', 'public.profiles', 'SELECT')` is
-`false`), over Supavisor's transaction-mode pooler
-(`aws-0-eu-north-1.pooler.supabase.com:6543`) rather than the direct
-connection, because GitHub Actions runners are IPv4-only and the direct
-connection is IPv6-only without the paid add-on. The connection string lives
-in the `MIGRATION_AUDIT_DATABASE_URL` repository secret.
+above, run by `.github/workflows/migration-drift.yml` on every push to `main`
+**and once a day**. The daily run matters as much as the push trigger: drift
+appears AFTER a merge, so a push-only check only catches it on whatever the
+next push happens to be — merge on a Friday, next push Monday, and the gap
+is invisible all weekend. GitHub emails the repository's watchers when a
+scheduled run fails, which is the actual point of running this daily rather
+than relying on a log line nobody is looking at — that's exactly the failure
+mode behind 0066, 0067, 0068 and 0093 above.
 
-The job runs on `push` to `main` only, not on pull requests: a migration
+It is the one script in this repo that reaches production directly rather
+than through the Supabase MCP connector — CI has no connector and no human to
+hand a query to. It calls `public.list_applied_migrations()` (migration
+0096) over HTTPS, a `SECURITY DEFINER` function in `public` — the same
+pattern this project already uses to reach something the caller's own role
+can't see directly (`promoted_jobs`, `internal_applicant_counts`,
+`delete_resume_with_snapshot`), since `supabase_migrations` isn't a schema
+PostgREST exposes.
+
+**An earlier version of this connected directly to Postgres instead, and hit
+a real platform wall worth recording.** A `migration_auditor` role scoped to
+`SELECT` on exactly `supabase_migrations.schema_migrations`, reached over
+Supavisor's transaction-mode pooler — correct in principle (GitHub Actions
+runners are IPv4-only; the direct connection is IPv6-only without the paid
+add-on) but it never connected: authenticating as a custom role through
+hosted Supabase's shared pooler failed with `"(ENOTFOUND) tenant/user ...
+not found"`, reproduced 8 times over 2 minutes, not propagation lag. HTTPS
+has neither the pooler problem nor the IPv4 problem, and `migration_auditor`
+is dropped in 0096.
+
+**The JWT this authenticates with is not a dedicated Postgres role either,
+and that's a second platform wall, not a design choice.** The original plan
+was exactly that — a role reachable only by its own pre-signed JWT.
+`grant <new_role> to authenticator` is refused for a project's own owner on
+hosted Supabase ("authenticator is a reserved role, only superusers can
+modify it"): custom PostgREST-reachable roles are not something this
+platform lets a project provision for itself. `list_applied_migrations`
+resolves the JWT to `role: anon` instead (the only role PostgREST can
+actually switch it into) and checks a SECOND, custom claim
+(`purpose: "migration-status-reader"`) inside the function body, rejecting
+every other caller — including a plain request bearing only the public anon
+key — with a 403. This is Supabase's own documented pattern for exactly this
+shape of problem (the Data API guide's "Use additional API keys" section).
+The practical result is what a dedicated role was meant to buy: only a
+caller holding this specific JWT gets data back. See 0096's own migration
+for the full account — read it before assuming the `grant ... to anon` line
+in that file means what it looks like it means.
+
+Three repository secrets, minted and set once: `MIGRATION_STATUS_PROJECT_URL`
+(not actually secret, just production's URL), `MIGRATION_STATUS_APIKEY`
+(production's own anon/publishable key — required by Supabase's gateway
+alongside the JWT, grants nothing here on its own), and
+`MIGRATION_STATUS_JWT` (minted with `scripts/mint-migration-status-jwt.ts`,
+which must be run locally with the project's JWT secret — no MCP tool
+exposes that secret, deliberately, and only the resulting token should ever
+reach this repository).
+
+The workflow runs on `push` to `main`, on a daily schedule, and via
+`workflow_dispatch` — deliberately not on `pull_request`: a migration
 committed in a PR has not been applied to production yet BY DESIGN (write the
 SQL, review it, apply it after merge), so checking on every PR would fail
 every migration-bearing PR for the reason this exists to catch, not a defect

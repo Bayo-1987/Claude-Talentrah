@@ -17,7 +17,8 @@
     "seed:catalog": "tsx scripts/seed-catalog.ts",
     "audit-migrations": "tsx scripts/audit-migrations.ts",
     "db:local": "./scripts/local-db.sh",
-    "check-migration-drift": "tsx scripts/check-migration-drift.ts"
+    "check-migration-drift": "tsx scripts/check-migration-drift.ts",
+    "mint-migration-status-jwt": "tsx scripts/mint-migration-status-jwt.ts"
   },
   "dependencies": {
     "@google/genai": "^2.18.0",
@@ -50,7 +51,6 @@
     "eslint": "^9",
     "eslint-config-next": "16.3.2",
     "jsonwebtoken": "^9.0.3",
-    "postgres": "^3.4.9",
     "tailwindcss": "^4",
     "tsx": "^4.23.12",
     "typescript": "^5",

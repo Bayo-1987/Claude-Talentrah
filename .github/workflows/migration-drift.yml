@@ -1,0 +1,51 @@
+name: Migration drift (production)
+
+# WHY BOTH TRIGGERS. A push-only check cannot catch this on its own: drift
+# appears AFTER a merge, not before — pre-merge, `main` doesn't carry the new
+# migration yet, so there's nothing to detect. Post-merge, a push-only check
+# only fires on whatever the NEXT push happens to be. Merge on a Friday, next
+# push on Monday, and the gap is invisible all weekend — close to what
+# actually happened with 0093, which sat unrecorded from #215's merge until
+# the founder's own direct query caught it. The daily schedule is what closes
+# that window regardless of push activity.
+#
+# THE SCHEDULED RUN HAS TO FAIL LOUDLY, not just periodically re-check.
+# GitHub automatically emails the repository's watchers when a SCHEDULED
+# workflow run fails — that's the point of running this daily rather than
+# only on push, not an extra step this workflow has to build itself. A log
+# line nobody is looking at is exactly what already failed to catch this
+# four times (0066, 0067, 0068, 0093 — see supabase/migrations/README.md).
+on:
+  push:
+    branches: [main]
+  schedule:
+    # 06:23 UTC — off the top of the hour, per GitHub's own guidance to
+    # avoid the load spike every scheduled workflow on the platform competes
+    # for at :00.
+    - cron: "23 6 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  check:
+    name: Compare migration files on main against production's ledger
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Check for drift
+        env:
+          MIGRATION_STATUS_PROJECT_URL: https://nytwbbzfpytctjsoczzq.supabase.co
+          # Production's own anon/publishable key — required by Supabase's
+          # gateway alongside the JWT below, grants nothing on its own here.
+          # See check-migration-drift.ts's own header for the full request
+          # shape and why both are needed.
+          MIGRATION_STATUS_APIKEY: ${{ secrets.MIGRATION_STATUS_APIKEY }}
+          MIGRATION_STATUS_JWT: ${{ secrets.MIGRATION_STATUS_JWT }}
+        run: npm run check-migration-drift
