@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { safeRedirectTo } from "./redirect-to";
 import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
+import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import {
   signUpSchema,
   signInSchema,
@@ -228,7 +229,38 @@ export async function updatePasswordAction(
     return { error: error.message };
   }
 
-  redirect("/jobs");
+  /*
+   * AN OPERATOR LANDS AT THE ADMIN DOOR, not the job feed.
+   *
+   * This flow is the same one for everybody — deliberately, because a reset
+   * form that behaved differently for an operator's address would be an
+   * enumeration oracle (docs/admin-auth.md). That is about the REQUEST step,
+   * where the caller is anonymous. Here the caller has already proved control
+   * of the account, so choosing where to send them reveals nothing they do not
+   * already know.
+   *
+   * It is a role check rather than a `redirectTo` parameter on purpose. A
+   * parameter would have to be carried through the form, the emailed callback
+   * and the reset page, and every one of those is a place an open redirect can
+   * be introduced. There is no user-controlled value here at all, so that
+   * question does not arise instead of being answered carefully four times.
+   *
+   * They still have to sign in again: this sends them to /admin/login, not
+   * into /admin. The admin session is separate from the Supabase one by
+   * design, and a recovery session is not an admin session.
+   *
+   * A disabled operator falls through to /jobs, which is correct — they cannot
+   * use the admin door.
+   */
+  const service = createServiceRoleClient();
+  const { data: operator } = await service
+    .from("admin_users")
+    .select("id")
+    .eq("id", user.id)
+    .is("disabled_at", null)
+    .maybeSingle();
+
+  redirect(operator ? "/admin/login" : "/jobs");
 }
 
 export async function signOutAction() {
