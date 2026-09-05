@@ -1,5 +1,6 @@
 import { readdirSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 /**
  * Emit the SQL that answers "which committed migrations are not recorded as
@@ -33,6 +34,27 @@ import { join } from "node:path";
  * useless for production or would want the one key nobody should be storing.
  * Printing SQL needs no credential at all, and audits either project.
  *
+ * check-migration-drift.ts (same directory) is the one deliberate exception —
+ * CI cannot run an MCP connector or a human in a loop, so 0093 sat
+ * unrecorded on production from #215's merge until the founder's own direct
+ * query caught it. That script calls `public.list_applied_migrations()`
+ * (0096) over HTTPS — a SECURITY DEFINER function reachable only by a
+ * dedicated role with no other privileges, authenticated with a pre-signed
+ * JWT that can do nothing but call this one function. Not "the one key
+ * nobody should be storing" this comment warns about, which is service-role
+ * or superuser reach: a leaked copy of that JWT can retrieve a list of
+ * migration filenames that are already sitting in this repo's own public git
+ * history. This file's own reasoning stands for every OTHER case: a human or
+ * an interactive agent has the MCP connector and should keep using it.
+ *
+ * An earlier version of check-migration-drift.ts connected directly to
+ * Postgres with a role scoped to SELECT on schema_migrations. That reached a
+ * dead end: Supabase's hosted shared pooler doesn't reliably route custom
+ * roles ("tenant/user ... not found", reproduced 8 times over 2 minutes), and
+ * the direct connection is IPv6-only, which GitHub Actions cannot reach at
+ * all. HTTPS has neither problem — see 0096's own header for the full
+ * account.
+ *
  * ── WHY IT DOES NOT "FIX" THE LEDGER ──────────────────────────────────────
  *
  * Rewriting the recorded names to match the filenames was the obvious
@@ -58,7 +80,7 @@ const MIGRATIONS_DIR = join(process.cwd(), "supabase", "migrations");
  * reviewable baseline; its own header says it is not to be run, and running it
  * would fail on every object it describes.
  */
-const NOT_A_MIGRATION = new Set(["0000_baseline_schema"]);
+export const NOT_A_MIGRATION = new Set(["0000_baseline_schema"]);
 
 /**
  * Recorded under a name that is not its filename, deliberately.
@@ -74,8 +96,21 @@ const NOT_A_MIGRATION = new Set(["0000_baseline_schema"]);
  * to silence this script would be the failure it exists to prevent, so each
  * needs its reasoning written above it.
  */
-const KNOWN_ALIASES: Record<string, string> = {
+export const KNOWN_ALIASES: Record<string, string> = {
   "0061_course_recommendations": "0060_course_recommendations",
+  /*
+   * Applied to both projects under its own working title rather than its
+   * final filename — this repo's migration history briefly dropped, then
+   * restored, admin MFA (#143), and 0071 is the drop. Confirmed present on
+   * both production and CI as `drop_admin_mfa_0071`, and
+   * `admin_users.mfa_enrolled_at` confirmed absent from both — this is a
+   * label mismatch, not an unrecorded schema change. Found by running this
+   * script's own query for real against production while building
+   * check-migration-drift.ts (2026-09-05): it reported 0071 as MISSING with
+   * no alias entry, which would have been this check's first false positive
+   * on the very PR that added it.
+   */
+  "0071_drop_admin_mfa": "drop_admin_mfa_0071",
   /*
    * Both applied to CI as 0076/0077 before `0076_admin_create_operator`
    * landed on main. Each was legitimately its number when written; main's
@@ -87,7 +122,7 @@ const KNOWN_ALIASES: Record<string, string> = {
   "0078_grant_blog_permission": "0077_grant_blog_permission",
 };
 
-function committedMigrations(): string[] {
+export function committedMigrations(): string[] {
   return readdirSync(MIGRATIONS_DIR)
     .filter((f) => f.endsWith(".sql"))
     .map((f) => f.replace(/\.sql$/, ""))
@@ -95,7 +130,7 @@ function committedMigrations(): string[] {
     .sort();
 }
 
-function buildQuery(names: string[]): string {
+export function buildQuery(names: string[]): string {
   const values = names.map((n) => `('${n.replace(/'/g, "''")}')`).join(",\n    ");
   const aliases = Object.entries(KNOWN_ALIASES)
     .map(([file, recorded]) => `('${file}','${recorded}')`)
@@ -136,11 +171,19 @@ order by
   c.name;`;
 }
 
-const names = committedMigrations();
+// Guarded so check-migration-drift.ts can import committedMigrations/buildQuery
+// without also triggering this file's own CLI output as a side effect.
+// fileURLToPath, not a raw string compare against import.meta.url: a space
+// anywhere in the path (this repo's own directory has one) URL-encodes to
+// %20 in the URL form but not in process.argv[1], which made a naive
+// `file://${process.argv[1]}` comparison false even when run directly.
+if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
+  const names = committedMigrations();
 
-if (process.argv.includes("--list")) {
-  console.log(names.join("\n"));
-  console.log(`\n${names.length} committed migrations (excluding the baseline snapshot)`);
-} else {
-  console.log(buildQuery(names));
+  if (process.argv.includes("--list")) {
+    console.log(names.join("\n"));
+    console.log(`\n${names.length} committed migrations (excluding the baseline snapshot)`);
+  } else {
+    console.log(buildQuery(names));
+  }
 }

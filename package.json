@@ -16,7 +16,9 @@
     "estimate-costs": "tsx scripts/estimate-llm-costs.ts",
     "seed:catalog": "tsx scripts/seed-catalog.ts",
     "audit-migrations": "tsx scripts/audit-migrations.ts",
-    "db:local": "./scripts/local-db.sh"
+    "db:local": "./scripts/local-db.sh",
+    "check-migration-drift": "tsx scripts/check-migration-drift.ts",
+    "mint-migration-status-jwt": "tsx scripts/mint-migration-status-jwt.ts"
   },
   "dependencies": {
     "@google/genai": "^2.18.0",
