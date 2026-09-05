@@ -148,8 +148,37 @@ The script encodes the rules that make the comparison mean something:
 | --- | --- |
 | `applied` | name matches the file exactly |
 | `applied without its numeric prefix` | applied through the connector with a bare name — 0049–0057 |
-| `applied under a documented alias` | a mismatch that was decided, not missed. Only 0061, whose header explains it |
+| `applied under a documented alias` | a mismatch that was decided, not missed — see `KNOWN_ALIASES` in the script, each entry with its own reasoning |
 | `MISSING` | **the ledger is silent** |
+
+## Catching it automatically on production
+
+`0093_resume_builder_start_events` landed with #215, was applied to the CI
+project as part of building that PR, and was never applied to production —
+the PR description said "production untouched, migrates on merge," and the
+merge itself carries no such step. It sat unrecorded until the founder's own
+direct query against production caught it, by which point two more
+migrations were already queued behind it.
+
+`scripts/check-migration-drift.ts` is the automated version of the audit
+above, run by the `migration-drift` job in `.github/workflows/ci.yml` on
+every push to `main`. It is the one script in this repo that connects to
+production directly rather than through the Supabase MCP connector — CI has
+no connector and no human to hand a query to. It connects as
+`migration_auditor`, a Postgres role scoped to `SELECT` on exactly
+`supabase_migrations.schema_migrations` and nothing else (verified directly:
+`has_table_privilege('migration_auditor', 'public.profiles', 'SELECT')` is
+`false`), over Supavisor's transaction-mode pooler
+(`aws-0-eu-north-1.pooler.supabase.com:6543`) rather than the direct
+connection, because GitHub Actions runners are IPv4-only and the direct
+connection is IPv6-only without the paid add-on. The connection string lives
+in the `MIGRATION_AUDIT_DATABASE_URL` repository secret.
+
+The job runs on `push` to `main` only, not on pull requests: a migration
+committed in a PR has not been applied to production yet BY DESIGN (write the
+SQL, review it, apply it after merge), so checking on every PR would fail
+every migration-bearing PR for the reason this exists to catch, not a defect
+in it.
 
 It PRINTS SQL rather than connecting, for two reasons. PostgREST does not
 expose the `supabase_migrations` schema, so a service-role client cannot read
