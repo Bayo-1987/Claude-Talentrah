@@ -1,7 +1,17 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { askFarahChat, type FarahChatTurn } from "@/lib/farah/client";
+import { logFarahSessionMessage, type FarahEntryPoint } from "@/lib/farah/session-events";
 import type { StructuredResume } from "@/lib/resume/types";
+
+/** The only quick actions that actually start a chat — see quick-actions.ts. */
+const CHAT_ENTRY_POINTS = new Set(["interview-prep", "career-advisor", "salary-negotiation"]);
+
+function resolveEntryPoint(quickAction: string | undefined): FarahEntryPoint {
+  return quickAction && CHAT_ENTRY_POINTS.has(quickAction)
+    ? (quickAction as FarahEntryPoint)
+    : "free_text";
+}
 
 const MAX_MESSAGE_LENGTH = 2000;
 const HISTORY_TURNS = 12;
@@ -32,7 +42,9 @@ export async function POST(request: Request) {
   }
 
   const message = typeof body.message === "string" ? body.message.trim() : "";
-  const context = typeof body.quickAction === "string" ? { quickAction: body.quickAction } : {};
+  const quickAction = typeof body.quickAction === "string" ? body.quickAction : undefined;
+  const context = quickAction ? { quickAction } : {};
+  const sessionId = typeof body.sessionId === "string" ? body.sessionId : undefined;
 
   if (!message) {
     return NextResponse.json({ error: "Say something for Farah to respond to." }, { status: 400 });
@@ -60,6 +72,15 @@ export async function POST(request: Request) {
       { error: "That's a lot of messages this hour — give it a little while and try again." },
       { status: 429 },
     );
+  }
+
+  // Best-effort, and independent of whether Farah's reply below succeeds —
+  // this counts what the user actually did (sent a message from this entry
+  // point), not whether a downstream LLM call happened to work. No
+  // sessionId (an older client, or a caller that isn't the panel) just skips
+  // logging rather than guessing one.
+  if (sessionId) {
+    await logFarahSessionMessage({ userId: user.id, sessionId, entryPoint: resolveEntryPoint(quickAction) });
   }
 
   const { data: historyRows, error: historyError } = await supabase

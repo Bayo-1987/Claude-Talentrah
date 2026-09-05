@@ -1108,6 +1108,41 @@ export type Database = {
           },
         ]
       }
+      farah_session_events: {
+        Row: {
+          created_at: string
+          entry_point: string
+          event_type: string
+          id: string
+          session_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          entry_point: string
+          event_type: string
+          id?: string
+          session_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          entry_point?: string
+          event_type?: string
+          id?: string
+          session_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "farah_session_events_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       feature_flags: {
         Row: {
           enabled: boolean

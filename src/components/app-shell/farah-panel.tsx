@@ -48,6 +48,39 @@ export function FarahPanel({ firstName, initialMessages }: FarahPanelProps) {
   const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const localIdCounter = useRef(0);
+  /*
+   * One id per mount, sent with every chat request so the server can tell a
+   * session's first message from its second-plus (src/lib/farah/
+   * session-events.ts) — purely a counter concern, generated lazily so it
+   * costs nothing on a render that never sends a message. Not persisted or
+   * reused across a reload: an undercounted session (this mount ends, a new
+   * one starts) is the safer direction to be wrong in for a metric deciding
+   * whether real threads are worth building, versus a stale id silently
+   * merging two unrelated visits into one session.
+   */
+  const sessionIdRef = useRef<string | null>(null);
+  function sessionId(): string {
+    if (!sessionIdRef.current) sessionIdRef.current = crypto.randomUUID();
+    return sessionIdRef.current;
+  }
+
+  /*
+   * ── FETCHED, BUT NOT SHOWN UNTIL ASKED FOR ────────────────────────────
+   *
+   * The panel used to prepend fetched history straight into `messages`,
+   * which meant arriving on ANY page with the panel dropped the reader into
+   * the tail of whatever they last said to Farah — a fragment of an
+   * unrelated interview-prep answer, cut off at the top of a 320px scroller,
+   * pushing the quick actions below the fold. History itself was never the
+   * bug; showing it as the FIRST thing on arrival was.
+   *
+   * `historyRevealed` starts true when a caller passed `initialMessages`
+   * explicitly (see that prop's own doc comment) — an explicit override is
+   * the caller asking for exactly these messages up front, not the
+   * self-fetch path this component's own arrival behaviour is about.
+   */
+  const [pendingHistory, setPendingHistory] = useState<FarahMessage[] | null>(null);
+  const [historyRevealed, setHistoryRevealed] = useState(!!initialMessages);
 
   /*
    * ── HISTORY IS LOADED HERE, NOT BY THE SERVER ─────────────────────────
@@ -61,10 +94,6 @@ export function FarahPanel({ firstName, initialMessages }: FarahPanelProps) {
    *
    * Fetching it here instead means the page paints first and the history
    * arrives after, which is the correct priority for a side panel.
-   *
-   * THE VISIBLE CONSEQUENCE, stated rather than glossed: a reader who DOES
-   * have history sees the greeting for the moment before it loads. That is
-   * the honest cost, and it is paid by the few rather than by everyone.
    *
    * `ignore` guards the unmount race — React 18 StrictMode mounts effects
    * twice in development, and without it the second response can land after
@@ -82,10 +111,9 @@ export function FarahPanel({ firstName, initialMessages }: FarahPanelProps) {
         if (!res.ok) return;
         const data = await res.json();
         if (ignore || !Array.isArray(data.messages) || data.messages.length === 0) return;
-        // Prepend, never replace: a message sent while this was in flight is
-        // newer than anything the server just returned, and dropping it would
-        // make Farah appear to forget what she was told a second ago.
-        setMessages((prev) => [...(data.messages as FarahMessage[]), ...prev]);
+        // Held, not shown — see historyRevealed above. Nothing here decides
+        // whether the reader sees it; "Continue" below does.
+        setPendingHistory(data.messages as FarahMessage[]);
       } catch {
         // Silent: history is an enhancement. The panel is fully usable
         // without it, and an error banner over a side column for something
@@ -96,6 +124,21 @@ export function FarahPanel({ firstName, initialMessages }: FarahPanelProps) {
       ignore = true;
     };
   }, [initialMessages]);
+
+  /*
+   * The ONLY way pendingHistory ever reaches `messages`. History is never
+   * deleted and this component never asks the server to forget anything —
+   * every Farah call spends credits or pass allowance, so a panel that
+   * forgot context would make a user pay twice to re-establish it. What
+   * changes here is display only: revealing turns the held-back rows into
+   * exactly what the old "prepend on load" behaviour would have shown,
+   * just on request instead of by default.
+   */
+  function continueConversation() {
+    if (!pendingHistory) return;
+    setMessages((prev) => [...pendingHistory, ...prev]);
+    setHistoryRevealed(true);
+  }
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -119,7 +162,7 @@ export function FarahPanel({ firstName, initialMessages }: FarahPanelProps) {
       const res = await fetch("/api/farah/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: trimmed, quickAction }),
+        body: JSON.stringify({ message: trimmed, quickAction, sessionId: sessionId() }),
       });
       const data = await res.json();
 
@@ -238,10 +281,31 @@ export function FarahPanel({ firstName, initialMessages }: FarahPanelProps) {
 
       <div ref={scrollRef} className="flex max-h-80 flex-col gap-3 overflow-y-auto">
         {messages.length === 0 ? (
-          <p className="font-display text-[14.5px] italic leading-relaxed text-ink-soft">
-            &ldquo;Hi {firstName} — I can tailor your resume to any of these
-            roles, or help you prep. What do you need?&rdquo;
-          </p>
+          <>
+            <p className="font-display text-[14.5px] italic leading-relaxed text-ink-soft">
+              &ldquo;Hi {firstName} — I can tailor your resume to any of these
+              roles, or help you prep. What do you need?&rdquo;
+            </p>
+            {/*
+              The quiet line the earlier-conversation fix is actually about.
+              Only offered here, on the pristine arrival view — once the
+              reader has sent anything new this visit, `messages` stops being
+              empty and this stops rendering with it. The history itself is
+              still sitting in the database and still reaches every future
+              call to Farah either way (see chat/route.ts, unaffected by any
+              of this); this only decides what's on screen before anyone
+              chooses.
+            */}
+            {pendingHistory && pendingHistory.length > 0 && !historyRevealed && (
+              <button
+                type="button"
+                onClick={continueConversation}
+                className="text-left font-display text-[13px] italic text-ink-soft underline underline-offset-2 hover:text-rust"
+              >
+                Continue where you left off with Farah?
+              </button>
+            )}
+          </>
         ) : (
           messages.map((m) =>
             m.role === "farah" ? (
