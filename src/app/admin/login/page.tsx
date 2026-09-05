@@ -8,11 +8,34 @@ import { AdminLoginForm } from "@/components/admin/admin-login-form";
  * The admin door. Outside the (protected) group, so the guard does not wrap
  * it.
  *
- * NOT the seeker login page and not a mode of it. Three things are absent on
- * purpose: OAuth buttons, a "create a free account" link, and any password
- * reset. There is no self-serve route into this surface — an admin exists
- * because someone ran scripts/grant-admin.ts against the service role — and a
- * page that offers a way in is a page someone will find a way through.
+ * NOT the seeker login page and not a mode of it. Three things are absent:
+ * OAuth buttons, a "create a free account" link, and any password reset.
+ * There is no self-serve route INTO this surface — an admin exists because
+ * someone ran scripts/grant-admin.ts against the service role.
+ *
+ * THE PASSWORD-RESET LINK IS ABSENT FOR A DIFFERENT REASON THAN IT USED TO BE,
+ * and the distinction decides when it can be added.
+ *
+ * The old reason was "a page that offers a way in is a page someone will find
+ * a way through". That is wrong here, and was: the seeker forgot-password flow
+ * calls `resetPasswordForEmail`, which operates on any `auth.users` row
+ * including every operator, with deliberately no admin exclusion — so the
+ * capability is already reachable at /forgot-password by anyone who types the
+ * URL. Withholding a link never changed the attack surface, only who could
+ * find it, and the person who could not find it was the locked-out operator.
+ *
+ * The real reason is that recovery does not currently work reliably enough to
+ * advertise. The project's password-reset email quota is TWO PER HOUR and is
+ * PROJECT-WIDE, not per address — measured, not read from config: a second
+ * known address is refused immediately after the first exhausts it. So any two
+ * requests deny password recovery to every user and both operators for the
+ * rest of the window, and nothing in front of it rate-limits by IP or address
+ * (`consumeRateLimit` has three callers and none is in the auth flow).
+ *
+ * Pointing the admin door at that flow would advertise a remedy that anyone
+ * can switch off for an hour. The link goes in once custom SMTP is configured
+ * on the project and the quota is no longer trivially exhaustible; that is a
+ * dashboard change, not a code change. See docs/admin-auth.md.
  */
 export const metadata = {
   title: "Admin sign-in — Talentrah",

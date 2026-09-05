@@ -263,6 +263,37 @@ delete the row, because the audit trail names it.
 
 ## Known gaps, not oversights
 
+- **Password recovery is deniable by anyone, for an hour at a time, and that
+  is why `/admin/login` still has no reset link.** Measured against the CI
+  project rather than read from documented defaults: two `recover` calls
+  succeed and the third returns
+  `{"code":429,"error_code":"over_email_send_rate_limit"}`. The quota is
+  **project-wide, not per address** — a second known address is refused
+  immediately after the first exhausts it — and nothing in the app rate-limits
+  in front of it (`consumeRateLimit` has three callers; none is in the auth
+  flow, and `src/lib/auth/actions.ts` has no rate, throttle or IP reference at
+  all). Password reset is the only consumer of that quota today, since email
+  confirmation is off. So two requests deny recovery to every user and both
+  operators. The fix is custom SMTP on the project — a dashboard change, not a
+  code change. An app-layer limiter would sit in the shared seeker action and
+  affect every seeker: a design decision, not a fix, and deliberately not taken
+  on the way past.
+- **Whether an address is a registered user is observable at the GoTrue
+  endpoint, and no application change can close it.** Under an exhausted email
+  quota, `POST /auth/v1/recover` answers **429 for an address that exists** and
+  **200 for one that does not**, because only a real user consumes a send. That
+  endpoint is public and the anon key is public, so this is reachable without
+  going near this app. It is recorded here because it is a property of the
+  accounts this document is about, not because anything in `/admin` causes it:
+  the app's own `/forgot-password` response is identical either way — same
+  redirect, same body, same status — and that is deliberate
+  (`requestPasswordResetAction` swallows the error precisely so it cannot
+  differ). A timing difference at the app layer is plausible and unproven: on a
+  fresh quota the GoTrue call took ~1084ms for a known address against ~182ms
+  for an unknown one, and the action awaits it before redirecting, but the
+  app-layer measurement available was taken under an already-exhausted quota
+  and so measured nothing.
+
 - **Login brute-force protection is Supabase's per-IP limit, and the IP is
   ours.** `signInWithPassword` is called server-side, so the limit is shared by
   every caller rather than per-attacker. The seeker login
