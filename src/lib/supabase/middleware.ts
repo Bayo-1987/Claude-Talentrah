@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import type { User } from "@supabase/supabase-js";
 import type { Database } from "./types";
 import { PATH_HEADER } from "@/lib/auth/redirect-to";
 
@@ -8,8 +9,15 @@ import { PATH_HEADER } from "@/lib/auth/redirect-to";
  * always see a valid (non-expired) session cookie. Required by @supabase/ssr
  * — see src/lib/supabase/server.ts's comment on why it can't set cookies from
  * a Server Component alone.
+ *
+ * Also returns the `user` this call already fetched, so `proxy.ts`'s seeker-app
+ * gate (see there) can decide whether to redirect WITHOUT a second
+ * `auth.getUser()` round trip — this is the one call that was always going to
+ * happen anyway.
  */
-export async function updateSession(request: NextRequest) {
+export async function updateSession(
+  request: NextRequest,
+): Promise<{ response: NextResponse; user: User | null }> {
   /*
    * Stamp the path onto the request so a Server Component can know where it
    * is. `requireUser()` needs it to build a return trip, and a Server
@@ -45,7 +53,9 @@ export async function updateSession(request: NextRequest) {
   );
 
   // Required to actually refresh the session — do not remove.
-  await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  return response;
+  return { response, user };
 }
