@@ -134,3 +134,31 @@ export function describeExampleGuardError(flags: ExampleFieldFlag[]): string {
     labels.length > 1 ? "them" : "it"
   } before exporting.`;
 }
+
+const STATIC_FIELD_ELEMENT_IDS: Record<string, string> = {
+  "contact.name": "contact-full-name",
+  "contact.email": "contact-email",
+  "contact.phone": "contact-phone",
+  "contact.location": "contact-location",
+  summary: "summary-field",
+  skills: "skills-field",
+  projects: "projects-field",
+  certifications: "certifications-field",
+};
+
+/**
+ * Maps a flag's `path` to the id of the element resume-editor.tsx renders
+ * for it, so a flagged label can be turned into a real "jump to this field"
+ * button. Contact fields keep their pre-existing ids (asserted by
+ * resume-editor-label-association.test.tsx) rather than a path-derived one —
+ * "contact.name" is not "contact-name" in the DOM. experience/education
+ * flag at the entry level (see findUneditedExampleFields above), so those
+ * paths resolve to the entry's card/row id, not a child input.
+ */
+export function exampleFieldElementId(path: string): string {
+  const known = STATIC_FIELD_ELEMENT_IDS[path];
+  if (known) return known;
+  const entryMatch = /^(experience|education)\.(\d+)$/.exec(path);
+  if (entryMatch) return `${entryMatch[1]}-${entryMatch[2]}-card`;
+  return path;
+}
