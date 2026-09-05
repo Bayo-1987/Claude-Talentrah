@@ -17,7 +17,8 @@
     "audit-migrations": "tsx scripts/audit-migrations.ts",
     "db:local": "./scripts/local-db.sh",
     "check-migration-drift": "tsx scripts/check-migration-drift.ts",
-    "mint-migration-status-jwt": "tsx scripts/mint-migration-status-jwt.ts"
+    "mint-migration-status-jwt": "tsx scripts/mint-migration-status-jwt.ts",
+    "backfill-work-type": "tsx scripts/backfill-work-type.ts"
   },
   "dependencies": {
     "@google/genai": "^2.18.0",
