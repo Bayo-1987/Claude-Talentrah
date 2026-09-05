@@ -139,10 +139,20 @@ test.describe("golden path", () => {
      * actually works. "Senior Product Manager" is one of scripts/seed.ts's
      * INTERNAL_JOBS — a fixture this test can name, not an incidental first
      * result.
+     *
+     * TITLE ALONE IS NOT UNIQUE, confirmed by running this: the live board
+     * also carries a real externally-ingested Moniepoint posting titled
+     * "Senior Product Manager" — a genuine coincidence in real aggregated
+     * data, not a fixture collision. The exact-text "Apply" button
+     * disambiguates them: an external posting never has one (it renders
+     * "Mark as applied" / "Apply on company site" instead), so filtering on
+     * both the title AND that exact button selects only the seeded internal
+     * job, regardless of how many other postings share its title.
      */
     const seededJobCard = page
       .getByTestId("job-card")
-      .filter({ has: page.getByRole("heading", { name: "Senior Product Manager" }) });
+      .filter({ has: page.getByRole("heading", { name: "Senior Product Manager" }) })
+      .filter({ has: page.getByRole("button", { name: "Apply", exact: true }) });
     await expect(seededJobCard, "the seeded internal job should be on the board").toHaveCount(1);
 
     // --- Apply ----------------------------------------------------------
