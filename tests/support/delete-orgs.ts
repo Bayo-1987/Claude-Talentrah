@@ -58,10 +58,20 @@ export type OrgDeletingClient = SupabaseClient<Database>;
  *                              organization_members
  *   organizations ← NO ACTION: job_postings, payment_transactions
  *   job_postings  ← CASCADE:   ad_campaigns, auto_apply_queue, match_scores
- *   job_postings  ← NO ACTION: applications, job_tailoring_requests,
+ *   job_postings  ← SET NULL:  applications.job_posting_id,
+ *                              job_tailoring_requests.source_job_posting_id,
  *                              resumes.tailored_for_job_id
  *
- * So only the NO ACTION edges need doing by hand, deepest first. The CASCADE
+ * (Migration 0102/Stage 5b changed the three SET NULL edges above from
+ * NO ACTION — the FK itself no longer blocks a job_postings delete on any of
+ * them. The explicit cleanup below is kept anyway: these are still test
+ * FIXTURE rows, and a teardown that only unlinked them would leave orphaned
+ * applications/job_tailoring_requests rows accumulating in the shared project
+ * with every test run, exactly the leak this file's own header is about.
+ * SET NULL is the right production behaviour for a real user's history; it is
+ * not a reason for a fixture's own debris to survive its own test.)
+ *
+ * So only these three edges need doing by hand, deepest first. The CASCADE
  * ones are left to Postgres deliberately: re-deleting them here would be dead
  * code that silently starts mattering if a constraint is ever changed.
  *
@@ -125,9 +135,13 @@ async function del(
  * merely reference the posting instead of unlinking them.
  *
  *   job_postings ← CASCADE:   ad_campaigns, auto_apply_queue, match_scores
- *   job_postings ← NO ACTION: applications.job_posting_id,
- *                             job_tailoring_requests.source_job_posting_id,
- *                             resumes.tailored_for_job_id
+ *   job_postings ← SET NULL: applications.job_posting_id,
+ *                            job_tailoring_requests.source_job_posting_id,
+ *                            resumes.tailored_for_job_id
+ *                            (0102/Stage 5b — see deleteOrgsCascade's own
+ *                            header for why this teardown still deletes/
+ *                            unlinks these by hand rather than leaning on
+ *                            the FK now doing it for free)
  *
  * `resumes` is NULLed rather than deleted: a resume belongs to a user, not to
  * the posting it was tailored for.

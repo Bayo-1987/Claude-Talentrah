@@ -1273,6 +1273,7 @@ export type Database = {
       }
       job_postings: {
         Row: {
+          closed_at: string | null
           company_logo_url: string | null
           company_name: string
           created_at: string
@@ -1305,6 +1306,7 @@ export type Database = {
           years_experience_min: number | null
         }
         Insert: {
+          closed_at?: string | null
           company_logo_url?: string | null
           company_name: string
           created_at?: string
@@ -1339,6 +1341,7 @@ export type Database = {
           years_experience_min?: number | null
         }
         Update: {
+          closed_at?: string | null
           company_logo_url?: string | null
           company_name?: string
           created_at?: string

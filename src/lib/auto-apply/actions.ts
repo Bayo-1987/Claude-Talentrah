@@ -15,6 +15,7 @@ import {
   AUTO_APPLY_MIN_SCORE,
 } from "./config";
 import { scanAndQueue } from "./queue";
+import { loadJobSnapshot } from "@/lib/applications/job-snapshot";
 
 export type AutoApplyResult =
   | { ok: true; outcome: "submitted" | "handed_off" | "dismissed"; externalUrl?: string | null }
@@ -155,12 +156,19 @@ export async function confirmAutoApplyAction(queueId: string): Promise<AutoApply
       .eq("id", verdict.job_posting_id!)
       .maybeSingle();
 
+    // Snapshotted at creation, same as every other applications write
+    // (src/lib/applications/job-snapshot.ts) — this upsert was the one
+    // Stage 5a's own sweep missed (it only patched toggleSaveAction,
+    // applyInAppAction and markAppliedExternallyAction), which left every
+    // Auto-Apply row without the fallback Stage 5b's SET NULL FK now depends
+    // on. See migration 0102's header for the backfill this gap forced.
     await admin.from("applications").upsert(
       {
         user_id: userId,
         job_posting_id: verdict.job_posting_id!,
         stage: "saved",
         source: "auto_apply",
+        manual_job_snapshot: await loadJobSnapshot(admin, verdict.job_posting_id!),
       },
       { onConflict: "user_id,job_posting_id" },
     );
@@ -208,6 +216,9 @@ export async function confirmAutoApplyAction(queueId: string): Promise<AutoApply
       );
     }
 
+    // Same fallback as the handed_off branch above — see that comment.
+    const snapshot = await loadJobSnapshot(admin, verdict.job_posting_id!);
+
     const { data: application, error: appError } = await admin
       .from("applications")
       .upsert(
@@ -218,6 +229,7 @@ export async function confirmAutoApplyAction(queueId: string): Promise<AutoApply
           stage: "applied",
           source: "auto_apply",
           applied_at: new Date().toISOString(),
+          manual_job_snapshot: snapshot,
         },
         { onConflict: "user_id,job_posting_id" },
       )

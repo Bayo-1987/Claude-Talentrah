@@ -8,7 +8,9 @@ import type { StructuredResume } from "@/lib/resume/types";
 import type { MatchExplanation } from "./score";
 
 // See skill-facet.ts's identical alias for why this is Omit, not the full row.
-type JobPosting = Omit<Tables<"job_postings">, "description_preview" | "search_vector">;
+// closed_at (0102) omitted too — the feed query these callers all consume
+// filters to status = 'open' and never selects it.
+type JobPosting = Omit<Tables<"job_postings">, "description_preview" | "search_vector" | "closed_at">;
 
 export interface ScoredJob {
   job: JobPosting;

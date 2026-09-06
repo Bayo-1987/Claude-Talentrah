@@ -505,15 +505,51 @@ export async function updateJobAction(
   redirect("/employer/jobs");
 }
 
+/**
+ * The employer's own Close/Reopen toggle (posted-job-row.tsx binds `status`
+ * to the opposite of the row's current one).
+ *
+ * `closed_at` (0102) is stamped as a SEPARATE write, through the service
+ * role, deliberately. It is a trust column — the same shape as removed_at/
+ * removal_reason (0056) — withheld from job_postings' UPDATE grant to
+ * `authenticated` on purpose (tests/rls/column-privileges.test.ts asserts
+ * this org's own session client gets 42501 trying to set it directly), so
+ * this function cannot fold it into the `supabase` (session) update above
+ * even though it is the one place a self-serve close legitimately needs it
+ * set. The session write is still what AUTHORISES the change — RLS plus the
+ * `status` column grant are the real gate here — the service-role write only
+ * records a system fact about a change that write already made, the same
+ * division admin_moderate_job_posting draws between an operator's authority
+ * and the timestamp it leaves behind.
+ */
 export async function setJobStatusAction(jobId: string, status: Enums<"job_status">) {
   const { supabase } = await getAuthedUser();
   const { organization } = await requireEmployer();
 
-  await supabase
+  const { data: updated, error } = await supabase
     .from("job_postings")
     .update({ status })
     .eq("id", jobId)
-    .eq("organization_id", organization.id);
+    .eq("organization_id", organization.id)
+    .select("id");
+
+  // A rejected update resolves with `error`, and a policy mismatch resolves
+  // with zero rows — neither throws. Per this repo's standing rule, both are
+  // checked before doing anything else: closed_at must not be stamped for a
+  // status change that didn't actually happen.
+  if (!error && updated?.length) {
+    const admin = createServiceRoleClient();
+    if (status === "closed") {
+      await admin.from("job_postings").update({ closed_at: new Date().toISOString() }).eq("id", jobId);
+    } else if (status === "open") {
+      // Reopening clears it, the same convention 0079's restore branch
+      // already uses for removed_at: a posting that isn't closed must not
+      // carry a stale closed_at the 30-day deletion job could act on if the
+      // row is ever closed-then-reopened-then-closed and something upstream
+      // regresses.
+      await admin.from("job_postings").update({ closed_at: null }).eq("id", jobId);
+    }
+  }
 
   revalidatePath("/employer/jobs");
   revalidatePath("/jobs");

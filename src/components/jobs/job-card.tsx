@@ -53,7 +53,9 @@ export interface JobCardProps {
   // column (migration 0086) and never selects the raw preview column itself —
   // this component never reads it either, so the narrower type costs nothing
   // and matches what the query actually returns.
-  job: Omit<Tables<"job_postings">, "description_preview" | "search_vector">;
+  // closed_at (0102) is also never selected by the feed query — it filters
+  // to status = 'open', where closed_at is always null anyway.
+  job: Omit<Tables<"job_postings">, "description_preview" | "search_vector" | "closed_at">;
   score: number;
   isSaved: boolean;
   applicationStage: Tables<"applications">["stage"] | null;
