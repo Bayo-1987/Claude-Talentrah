@@ -179,7 +179,17 @@ export default async function ResumeBuilderPage({ searchParams }: { searchParams
             No templates match — try a different search or category.
           </p>
         ) : (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          /*
+            Two columns, not three (Stage 3.2) — deliberately capped here even
+            on very wide screens. With eleven templates total, the gallery can
+            afford to show each one large enough to actually evaluate (see
+            template-thumbnail.tsx's own note on the size bump that came with
+            this), and a third column would just squeeze the thumbnail back
+            toward the illegible size this change exists to fix. Stage 6's
+            65-template expansion is expected to revisit this — a much bigger
+            catalog is exactly the case a denser grid earns its keep for.
+          */
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
             {(templates ?? []).map((t) => (
               <TemplateCard key={t.id} template={t} isUnlocked={unlockedIds.has(t.id)} />
             ))}
