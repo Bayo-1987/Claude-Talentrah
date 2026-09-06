@@ -53,6 +53,44 @@ export function getDisplayMatchTier(score: number): MatchTier | null {
 }
 
 /**
+ * Stage 8 continued, 2026-09-06 — a real, founder-reported production case:
+ * a Product Manager resume (FinTech/HealthTech, no research background)
+ * scored "99% · Excellent" against a Global MEL Manager/Senior Manager
+ * posting (One Acre Fund) whose ONLY screenable tag, after
+ * `NON_SCREENABLE_SKILLS` filtering, was "project management" — a generic
+ * term almost every resume has. The job's actual differentiating
+ * requirements (RCTs, Stata, R, survey design) were never extracted into
+ * `structured_jd.skills`, so `computeMatchScore` never saw them; a separate
+ * LLM-backed code path (the Tailor flow, which reads the full JD prose)
+ * scored the same pairing 68% with six genuine gaps. Two live numbers, 31
+ * points apart, for the same pairing — and the card showing the wrong one
+ * was the one shown *before* a candidate decides whether to apply.
+ *
+ * Measured on production (nytwbbzfpytctjsoczzq), 2026-09-06: of every
+ * `match_scores` row ever computed with tier = 'excellent', 65% sit on a
+ * posting whose screenable-tag denominator is 1 or fewer, and 89% sit at 2
+ * or fewer — an "Excellent" rating on this board is, right now, overwhelmingly
+ * an artifact of a thin denominator rather than evidence of broad domain fit.
+ *
+ * `match-breakdown.tsx` already calls a denominator this size "thin" in its
+ * own sub-score line (`skillCoverageSub`) — this is that same threshold,
+ * shared rather than duplicated, so the topline tier label and the sub-score
+ * line underneath it can never disagree about what counts as thin. Anything
+ * that renders BOTH `MatchTierBadge` and `MatchBreakdown` for the same score
+ * must use this function, not its own cutoff.
+ *
+ * NOT a change to `getMatchTier`/`getDisplayMatchTier`/`match_scores.tier`:
+ * the stored tier, the Auto-Apply threshold and the digest's Good+ filter are
+ * all untouched. This only tells a RENDER site whether the Excellent label it
+ * is about to show needs qualifying — see `MatchTierBadge`'s own use of it.
+ */
+export const THIN_SCREENABLE_TAG_MAX = 2;
+
+export function isThinScreenableTagSet(totalScreenableTags: number): boolean {
+  return totalScreenableTags <= THIN_SCREENABLE_TAG_MAX;
+}
+
+/**
  * Stage 12: two consecutive "100% · Excellent" cards on the same feed load
  * (observed live) reads as the product overclaiming — a skill-overlap score
  * cannot support the certainty "100%" implies. Display-only: this never
