@@ -122,6 +122,18 @@ regexes = [
   '''alaro-city''',
   '''tetramaritime''',
   '''fairmoney''',
+
+  # tests/auth/one-tap-client.test.ts, Google One Tap (2026-09-06) — three
+  # fixture values for a mocked Supabase client, never a real credential:
+  # a fake JWT-shaped string in the exact `header.payload.signature` shape
+  # (no real segment is ever base64 in a fixture, since nothing decodes it),
+  # and the two literal strings `access-token`/`refresh-token` used as a
+  # fake session's token fields. The whole point of these three values is to
+  # be an obviously-fake, human-readable placeholder in an assertion, the
+  # same role `A-private-resume` plays above.
+  '''header\.payload\.signature''',
+  '''access-token''',
+  '''refresh-token''',
 ]
 
 paths = [

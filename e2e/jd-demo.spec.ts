@@ -120,9 +120,24 @@ test.describe("the anonymous demo", () => {
     await page.getByLabel("Job description").fill(JD);
     await page.getByRole("button", { name: "Send to Farah" }).click();
 
-    // Loading: CLAUDE.md §8 requires it past ~2s, and this is a model call.
-    await expect(page.getByText("Farah is reading")).toBeVisible();
-    await expect(page.getByLabel("Job description")).toBeDisabled();
+    /*
+     * Loading: CLAUDE.md §8 requires it past ~2s, and this is a model call.
+     *
+     * CHECKED CONCURRENTLY, NOT ONE AFTER THE OTHER. Both conditions come
+     * from the same state transition (the same setState call that flips
+     * `busy` true also puts up "Farah is reading"), so they become true in
+     * the same render — but checking them sequentially still races a fast
+     * response: the second `await expect(...)` only starts polling once the
+     * first one resolves, and CI's stubbed provider can complete the whole
+     * request in that gap, flipping the field back to enabled before the
+     * disabled check ever looks. Starting both polls at once, right after
+     * the click, removes that ordering dependency instead of hoping the gap
+     * stays small.
+     */
+    await Promise.all([
+      expect(page.getByText("Farah is reading")).toBeVisible(),
+      expect(page.getByLabel("Job description")).toBeDisabled(),
+    ]);
 
     await expect(page.getByText("What Farah sent back")).toBeVisible({ timeout: 90000 });
     // The framing is the honest half of the demo: this is not their resume.
