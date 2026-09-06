@@ -94,7 +94,7 @@ export function TailorForm({
 
   async function handleApplyAdditions() {
     if (!data) return;
-    const accepted = data.result.proposedAdditions.filter((a) => checkedIds.has(a.id));
+    const accepted = (data.result.proposedAdditions ?? []).filter((a) => checkedIds.has(a.id));
     if (accepted.length === 0) return;
 
     setApplyStatus("saving");
@@ -126,7 +126,16 @@ export function TailorForm({
 
   if (data) {
     const { result, isFreeTrial, isPassCovered, creditsSpent, resumeId, coverLetterResumeId } = data;
-    const pendingAdditions = result.proposedAdditions.filter((a) => !appliedIds.has(a.id));
+    /*
+     * `?? []`: this field is required in the real API's response shape
+     * (tailorResumeToJob always sets it), but e2e tests that stub
+     * `/api/tailoring` directly with `page.route()` predate this field and
+     * mock the older response shape (see course-recommendations.spec.ts) —
+     * without this guard, `undefined.filter()` throws and blanks the whole
+     * result panel, which is a worse failure than just treating "field
+     * absent" as "nothing proposed."
+     */
+    const pendingAdditions = (result.proposedAdditions ?? []).filter((a) => !appliedIds.has(a.id));
     const checkedCount = pendingAdditions.filter((a) => checkedIds.has(a.id)).length;
 
     return (
