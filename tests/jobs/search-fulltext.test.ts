@@ -188,16 +188,37 @@ describe("structured_jd.skills coverage survives the move to full-text search", 
 });
 
 describe("sabotage-proof: punctuation and injection-shaped input", () => {
+  // Punctuation ONLY around the same real term — websearch_to_tsquery strips
+  // it and leaves a single-word query, confirmed live against production
+  // ('(kubernetes),' -> 'kubernet' alone). A second real word (e.g.
+  // "(docker)") is deliberately NOT mixed in here: websearch ANDs bare words
+  // together by design, so adding one narrows the match to postings that
+  // contain BOTH words — a correct, unrelated effect of AND semantics, not a
+  // sign punctuation broke anything. That would test word-combination
+  // behaviour, not punctuation-safety, so it stays out of this table.
   it.each([
-    ["a comma and parentheses", "kubernetes, (docker)"],
+    ["a comma and parentheses", "(kubernetes),"],
     ["a trailing period", "kubernetes."],
-    ["SQL-comment-shaped input", "kubernetes); drop table job_postings; --"],
   ])("does not error or misbehave on %s", async (_label, query) => {
     const results = await search(query);
-    // Still finds the real match — punctuation didn't strip the real term
-    // out of the query, and the injection payload didn't do anything beyond
-    // being tokenized as ordinary (non-matching) words.
     expect(results.map((r) => r.id)).toContain(ids["title-hit"]);
+  });
+
+  it("SQL-comment-shaped input does not error, and does not execute anything", async () => {
+    // websearch_to_tsquery ANDs every bare word together, so a payload full
+    // of extra real words ("drop", "table", "job", "postings") becomes a
+    // query for a document containing ALL of them — title-hit legitimately
+    // does not, so an empty result here is the CORRECT outcome, not a sign
+    // of failure. Confirmed live against production that this exact string
+    // parses to plain lexemes ('drop' & 'tabl' & 'job' <-> 'post', etc.),
+    // never SQL grammar. The property this test actually needs to prove is
+    // that nothing was executed — checked by confirming the fixture this
+    // "payload" names is still there and still searchable immediately after.
+    const results = await search("kubernetes); drop table job_postings; --");
+    expect(Array.isArray(results)).toBe(true);
+
+    const stillThere = await search("kubernetes");
+    expect(stillThere.map((r) => r.id)).toContain(ids["title-hit"]);
   });
 
   it("an empty query matches nothing rather than erroring", async () => {
