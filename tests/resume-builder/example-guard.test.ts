@@ -20,6 +20,7 @@ import {
   hasUneditedExampleContent,
   describeExampleGuardError,
   exampleFieldElementId,
+  clearFlaggedExampleFields,
 } from "@/lib/resume-builder/example-guard";
 
 describe("findUneditedExampleFields", () => {
@@ -212,5 +213,128 @@ describe("exampleFieldElementId", () => {
     expect(exampleFieldElementId("experience.0")).toBe("experience-0-card");
     expect(exampleFieldElementId("experience.3")).toBe("experience-3-card");
     expect(exampleFieldElementId("education.1")).toBe("education-1-card");
+  });
+});
+
+describe("clearFlaggedExampleFields", () => {
+  /**
+   * The Stage 18 item 4 action: "clear the example content, keep the
+   * structure". SABOTAGE-PROOF TARGET — this must actually clear what the
+   * guard flags (not a parallel notion of "example"), must leave anything
+   * the guard no longer flags completely alone, and must preserve section
+   * shape (entry counts) rather than deleting entries outright.
+   */
+  it("a completely untouched example resume becomes flag-free after one pass, and stays flag-free", () => {
+    const cleared = clearFlaggedExampleFields(PREVIEW_SAMPLE_RESUME);
+    expect(findUneditedExampleFields(cleared)).toEqual([]);
+    // Idempotent: clearing an already-clear resume is a no-op, not a crash
+    // or a further mutation.
+    expect(clearFlaggedExampleFields(cleared)).toEqual(cleared);
+  });
+
+  it("does NOT touch a field the user already edited away from the example value", () => {
+    // Real name typed in, but the user left the example email untouched —
+    // only the email (still flagged) may be cleared; the name must survive
+    // verbatim.
+    const partiallyEdited: StructuredResume = {
+      ...PREVIEW_SAMPLE_RESUME,
+      contact: { ...PREVIEW_SAMPLE_RESUME.contact, name: "Chidinma Okoro" },
+    };
+    const cleared = clearFlaggedExampleFields(partiallyEdited);
+    expect(cleared.contact.name).toBe("Chidinma Okoro");
+    expect(cleared.contact.email).toBe("");
+    expect(findUneditedExampleFields(cleared)).toEqual([]);
+  });
+
+  it("preserves work-history entry count — three seeded entries stay three empty entries, not zero and not merged", () => {
+    expect(PREVIEW_SAMPLE_RESUME.experience).toHaveLength(3);
+    const cleared = clearFlaggedExampleFields(PREVIEW_SAMPLE_RESUME);
+    expect(cleared.experience).toHaveLength(3);
+    for (const entry of cleared.experience) {
+      expect(entry.title).toBe("");
+      expect(entry.company).toBe("");
+      expect(entry.description).toBe("");
+    }
+  });
+
+  it("preserves education entry count and blanks every field on the flagged entry", () => {
+    expect(PREVIEW_SAMPLE_RESUME.education).toHaveLength(1);
+    const cleared = clearFlaggedExampleFields(PREVIEW_SAMPLE_RESUME);
+    expect(cleared.education).toHaveLength(1);
+    expect(cleared.education[0]).toEqual({
+      school: "",
+      degree: "",
+      field: "",
+      startDate: "",
+      endDate: "",
+    });
+  });
+
+  it("preserves skills/projects/certifications list length while emptying every entry", () => {
+    const cleared = clearFlaggedExampleFields(PREVIEW_SAMPLE_RESUME);
+    expect(cleared.skills).toHaveLength(PREVIEW_SAMPLE_RESUME.skills.length);
+    expect(cleared.skills.every((s) => s === "")).toBe(true);
+    expect(cleared.projects).toHaveLength(PREVIEW_SAMPLE_RESUME.projects.length);
+    expect(cleared.projects.every((p) => p === "")).toBe(true);
+    expect(cleared.certifications).toHaveLength(PREVIEW_SAMPLE_RESUME.certifications.length);
+    expect(cleared.certifications.every((c) => c === "")).toBe(true);
+  });
+
+  it("leaves an experience entry the user has genuinely edited completely alone, including its neighbors' shape", () => {
+    const edited: StructuredResume = {
+      ...PREVIEW_SAMPLE_RESUME,
+      experience: [
+        {
+          title: "Software Engineer",
+          company: "Kwik Logistics",
+          location: "Abuja, Nigeria",
+          startDate: "2022",
+          endDate: "Present",
+          description: "Built the route-optimization service.",
+        },
+        ...PREVIEW_SAMPLE_RESUME.experience.slice(1),
+      ],
+    };
+    const cleared = clearFlaggedExampleFields(edited);
+    // Untouched real entry survives verbatim.
+    expect(cleared.experience[0]).toEqual(edited.experience[0]);
+    // Still-example entries (1 and 2) get blanked, shape preserved.
+    expect(cleared.experience).toHaveLength(3);
+    expect(cleared.experience[1].title).toBe("");
+    expect(cleared.experience[2].title).toBe("");
+    expect(findUneditedExampleFields(cleared).map((f) => f.path)).not.toContain("experience.0");
+  });
+
+  it("is a no-op on a genuinely blank resume — nothing flagged, nothing to clear", () => {
+    expect(clearFlaggedExampleFields(EMPTY_RESUME)).toEqual(EMPTY_RESUME);
+  });
+
+  it("is a no-op on a freshly-imported resume with real, different content", () => {
+    const imported: StructuredResume = {
+      contact: {
+        name: "Chidinma Okoro",
+        email: "chidinma.okoro@outlook.com",
+        phone: "+234 701 555 9012",
+        location: "Abuja, Nigeria",
+      },
+      summary: "Backend engineer with three years in logistics software.",
+      experience: [
+        {
+          title: "Software Engineer",
+          company: "Kwik Logistics",
+          location: "Abuja, Nigeria",
+          startDate: "2022",
+          endDate: "Present",
+          description: "Built the route-optimization service.",
+        },
+      ],
+      education: [
+        { school: "Ahmadu Bello University", degree: "B.Eng.", field: "Electrical Engineering", startDate: "2015", endDate: "2019" },
+      ],
+      skills: ["golang", "postgres", "docker"],
+      projects: ["Route optimization service"],
+      certifications: [],
+    };
+    expect(clearFlaggedExampleFields(imported)).toEqual(imported);
   });
 });

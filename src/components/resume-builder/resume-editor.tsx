@@ -414,7 +414,14 @@ export function ResumeEditor({ resumeId, initialTitle, initialContent, templateS
     <div className="sticky top-6 flex flex-col gap-3 print:static print:top-auto">
       <div className="flex items-center justify-between print:hidden">
         <EyebrowLabel size="sm">Live preview</EyebrowLabel>
-        <PrintButton resumeId={resumeId} content={content} />
+        <PrintButton
+          resumeId={resumeId}
+          content={content}
+          onClearExample={(next) => {
+            setContent(next);
+            setSaved(false);
+          }}
+        />
       </div>
       <div className="border-[1.5px] border-ink print:border-none">
         <TemplateRenderer slug={templateSlug} resume={content} />
