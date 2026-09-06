@@ -175,7 +175,7 @@ export function JobCard({
                 </span>
               )}
             </h3>
-            <MatchTierBadge score={score} className="flex-shrink-0" />
+            <MatchTierBadge score={score} explanation={explanation} className="flex-shrink-0" />
           </div>
           <div className="mt-0.5 text-[13px] text-ink-soft">{metaParts.join(" · ")}</div>
           {salary && <div className="mt-1 text-[13.5px] font-semibold text-ink">{salary}</div>}

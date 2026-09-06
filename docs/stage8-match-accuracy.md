@@ -55,6 +55,59 @@ scanning to understand. A vocabulary can chase the board's long tail
 indefinitely and still miss the next new occupation that shows up in
 tomorrow's ingest.
 
+### Second live confirmation of the NGO M&E gap (2026-09-06) — no vocabulary change made
+
+A separate, founder-reported production incident on 2026-09-06 (job id
+`3e593f15-c114-4bff-b2b2-ec1a7cb750cd`, One Acre Fund, "Global MEL
+Manager/Senior Manager") re-confirmed the exact gap this doc already named
+above: a real PM/FinTech/HealthTech resume with no research background
+scored **99% · Excellent** against this posting. Its `structured_jd.skills`
+were `operations, project management, leadership, communication` — three
+filtered by `NON_SCREENABLE_SKILLS`, leaving the single generic tag "project
+management" as the entire denominator. The posting's real, differentiating
+requirements (RCT/quasi-experimental research design, Stata, R, survey
+design, multi-country people management) were never extracted, because none
+of them are in `SKILL_VOCABULARY` even after step 1a's expansion. A separate
+LLM call (the Tailor flow, which reads the full JD prose) scored the same
+pairing 68% with six genuine gaps in the same call that surfaced this —
+independent confirmation that the requirements really were sitting in the
+prose the whole time, just never tagged.
+
+This was checked against step 1a's vocabulary deliberately, not assumed: `git
+grep -in "rct\|stata\|survey design\|quasi-experimental\|\bmel\b"
+src/lib/jobs/extract-jd.ts` returns nothing. **No vocabulary change was made
+for this PR**, for the same reasons already given above when this exact
+occupation (NGO M&E specialists) was sampled and deliberately left out of
+step 1a:
+
+- It is the same rare, occupation-specific case already named in "Why
+  heuristic expansion alone won't close the rest of the gap" above — a
+  second real occurrence doesn't change that it was 1-2/184 on the sampled
+  board, not a systemic term this board asks for broadly.
+- The obvious candidate terms are not a safe, trivial add. "Stata" and
+  "survey design" are plausible (multi-word, low collision risk, the same
+  shape as terms already added in step 1a), but "R" — the language most
+  distinctive to this actual gap — is a bare single letter. Even with the
+  existing word-boundary regex, a term that short is exactly the kind of
+  addition step 1a's own header comment already warned against ("a résumé
+  skills field is unlikely to echo back verbatim" for bare/ambiguous terms),
+  compounded here by "R" being a live false-positive risk against ordinary
+  English text in a way "sap" already was flagged for at low frequency.
+  Vetting that properly needs the same document-frequency measurement step
+  1a used, not a guess added under an unrelated PR.
+- This is exactly the shape of gap step 1b (LLM-assisted extraction,
+  proposed immediately below, not built) exists to close generically,
+  rather than chasing one more occupation into a hand-maintained list. This
+  incident is additional evidence FOR building step 1b, not a reason to
+  special-case M&E roles into the heuristic.
+
+The fix shipped for this incident is display-only (see `match-tier.ts`'s
+`isThinScreenableTagSet` and `MatchTierBadge`'s use of it): an Excellent
+label computed from a screenable-tag denominator this thin is now qualified
+("Excellent — thin match") rather than shown bare next to a sub-score line
+that already says "thin". It does not change what gets extracted or scored —
+that gap is still open and is what this section documents.
+
 ## Step 1b — proposal: LLM-assisted extraction for postings the heuristic leaves thin (NOT BUILT)
 
 This section is a proposal, not an implementation. Nothing described here has

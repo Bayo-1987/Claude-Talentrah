@@ -11,6 +11,14 @@
 import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { MatchTierBadge } from "@/components/ui/match-tier-badge";
+import type { MatchExplanation } from "@/lib/matching/score";
+
+const explanation = (over: Partial<MatchExplanation> = {}): MatchExplanation => ({
+  matchedSkills: [],
+  missingSkills: [],
+  seniorityAlignment: "unknown",
+  ...over,
+});
 
 describe("a sub-60 score", () => {
   it("SABOTAGE-PROOF TARGET: renders no tier word at all (eyebrow variant)", () => {
@@ -54,6 +62,90 @@ describe("60 and above still shows its tier, exactly as before", () => {
   it("80+ is Excellent", () => {
     const html = renderToStaticMarkup(<MatchTierBadge score={92} />);
     expect(html).toContain("92% · Excellent");
+    expect(html).toContain("text-green");
+  });
+});
+
+describe("thin screenable-tag denominator (One Acre Fund / ALX Africa case)", () => {
+  it(
+    "SABOTAGE-PROOF TARGET: exactly 1 screenable tag never renders an unqualified Excellent, even at 99%",
+    () => {
+      const html = renderToStaticMarkup(
+        <MatchTierBadge
+          score={99}
+          explanation={explanation({ matchedSkills: ["project management"], missingSkills: [] })}
+        />,
+      );
+      // The bare, unqualified label a founder actually saw live next to the
+      // card's own "thin" sub-score line — must never render again.
+      expect(html).not.toContain("99% · Excellent<");
+      expect(html).not.toMatch(/99% · Excellent(?!\s*—)/);
+      expect(html).toContain("thin");
+      // Still the real tier and color — this qualifies the label, it does
+      // not invent a fourth tier or drop the score.
+      expect(html).toContain("99%");
+      expect(html).toContain("text-green");
+    },
+  );
+
+  it("0 screenable tags (thinner still) also qualifies the label", () => {
+    const html = renderToStaticMarkup(
+      <MatchTierBadge score={100} explanation={explanation()} />,
+    );
+    expect(html).not.toMatch(/100% · Excellent(?!\s*—)/);
+    expect(html).toContain("thin");
+  });
+
+  it("2 screenable tags, both matched, still qualifies — same threshold as MatchBreakdown's own 'thin' cutoff", () => {
+    const html = renderToStaticMarkup(
+      <MatchTierBadge
+        score={100}
+        explanation={explanation({ matchedSkills: ["sql", "excel"], missingSkills: [] })}
+      />,
+    );
+    expect(html).toContain("thin");
+  });
+
+  it("does NOT break the common case: a genuinely thick, well-matched skill set still renders plain Excellent", () => {
+    const html = renderToStaticMarkup(
+      <MatchTierBadge
+        score={92}
+        explanation={explanation({
+          matchedSkills: ["sql", "python", "aws", "docker", "kubernetes"],
+          missingSkills: ["react"],
+        })}
+      />,
+    );
+    expect(html).toContain("92% · Excellent");
+    expect(html).not.toContain("thin");
+  });
+
+  it("no explanation supplied at all renders exactly as before (marketing demo / dev design-check callers)", () => {
+    const html = renderToStaticMarkup(<MatchTierBadge score={92} />);
+    expect(html).toContain("92% · Excellent");
+    expect(html).not.toContain("thin");
+  });
+
+  it("a thin denominator on a non-Excellent tier is untouched — the contradiction is specific to Excellent", () => {
+    const html = renderToStaticMarkup(
+      <MatchTierBadge
+        score={72}
+        explanation={explanation({ matchedSkills: ["sql"], missingSkills: [] })}
+      />,
+    );
+    expect(html).toContain("72% · Good");
+    expect(html).not.toContain("thin");
+  });
+
+  it("renders the qualifier in the display variant too, alongside the tier word", () => {
+    const html = renderToStaticMarkup(
+      <MatchTierBadge
+        score={99}
+        variant="display"
+        explanation={explanation({ matchedSkills: ["project management"], missingSkills: [] })}
+      />,
+    );
+    expect(html).toContain("thin");
     expect(html).toContain("text-green");
   });
 });

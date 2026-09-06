@@ -4,7 +4,13 @@
  * never changes a score that wasn't already at the ceiling.
  */
 import { describe, expect, it } from "vitest";
-import { displayMatchScore, getMatchTier, getDisplayMatchTier } from "@/lib/match-tier";
+import {
+  displayMatchScore,
+  getMatchTier,
+  getDisplayMatchTier,
+  isThinScreenableTagSet,
+  THIN_SCREENABLE_TAG_MAX,
+} from "@/lib/match-tier";
 
 describe("getMatchTier", () => {
   it("has no floor — anything under 70 is fair, including well under 60", () => {
@@ -75,5 +81,27 @@ describe("displayMatchScore", () => {
     // tier a 100% match belongs to must stay "excellent" regardless of what
     // number is printed next to it.
     expect(getMatchTier(100)).toBe("excellent");
+  });
+});
+
+describe("isThinScreenableTagSet", () => {
+  it(
+    "SABOTAGE-PROOF TARGET: the One Acre Fund / ALX Africa case — exactly 1 screenable tag is thin",
+    () => {
+      expect(isThinScreenableTagSet(1)).toBe(true);
+    },
+  );
+
+  it("0 tags is thin too (a bare percentage carries even less evidence)", () => {
+    expect(isThinScreenableTagSet(0)).toBe(true);
+  });
+
+  it("shares its cutoff with match-breakdown.tsx's own 'thin' sub-score line", () => {
+    expect(isThinScreenableTagSet(THIN_SCREENABLE_TAG_MAX)).toBe(true);
+    expect(isThinScreenableTagSet(THIN_SCREENABLE_TAG_MAX + 1)).toBe(false);
+  });
+
+  it("a genuinely thick skill set is not thin", () => {
+    expect(isThinScreenableTagSet(6)).toBe(false);
   });
 });

@@ -3,8 +3,10 @@ import {
   MATCH_TIER_TEXT_CLASS,
   getDisplayMatchTier,
   displayMatchScore,
+  isThinScreenableTagSet,
 } from "@/lib/match-tier";
 import { cn } from "@/lib/cn";
+import type { MatchExplanation } from "@/lib/matching/score";
 
 export interface MatchTierBadgeProps {
   score: number;
@@ -14,6 +16,19 @@ export interface MatchTierBadgeProps {
    */
   variant?: "eyebrow" | "display";
   className?: string;
+  /**
+   * Stage 8 continued, 2026-09-06: same `MatchExplanation` the card's
+   * `MatchBreakdown` already renders. Optional — every caller with a real,
+   * scored job/resume pairing has this on hand (see job-card.tsx and
+   * jobs/[id]/page.tsx); the marketing demo's hardcoded sample scores and the
+   * dev design-check page have no explanation to give and render exactly as
+   * before. When present and the tier is "excellent", a thin screenable-tag
+   * denominator (`isThinScreenableTagSet`, match-tier.ts) qualifies the label
+   * instead of showing an unqualified "Excellent" next to a sub-score line
+   * that already says "thin" — see match-tier.ts's own header for the real
+   * production case this fixes.
+   */
+  explanation?: MatchExplanation;
 }
 
 /**
@@ -26,10 +41,16 @@ export function MatchTierBadge({
   score,
   variant = "eyebrow",
   className,
+  explanation,
 }: MatchTierBadgeProps) {
   const tier = getDisplayMatchTier(score);
   const colorClass = tier ? MATCH_TIER_TEXT_CLASS[tier] : "text-ink-soft";
-  const label = tier ? MATCH_TIER_LABEL[tier] : null;
+  const screenableTagTotal = explanation
+    ? explanation.matchedSkills.length + explanation.missingSkills.length
+    : null;
+  const isThin =
+    tier === "excellent" && screenableTagTotal !== null && isThinScreenableTagSet(screenableTagTotal);
+  const label = tier ? (isThin ? `${MATCH_TIER_LABEL[tier]} — thin match` : MATCH_TIER_LABEL[tier]) : null;
   const displayScore = displayMatchScore(score);
 
   if (variant === "display") {

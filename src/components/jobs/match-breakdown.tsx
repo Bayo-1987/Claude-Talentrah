@@ -1,4 +1,5 @@
 import type { MatchExplanation } from "@/lib/matching/score";
+import { isThinScreenableTagSet } from "@/lib/match-tier";
 
 /**
  * Stage 8's display-only first step: three sub-scores instead of one opaque
@@ -50,10 +51,15 @@ const SENIORITY_VALUE_LABEL: Record<MatchExplanation["seniorityAlignment"], stri
  * distribution problem Stage 8 measured (57.6% of the board scores on 0-2
  * screenable tags). Making a thin denominator VISIBLE is itself useful,
  * independent of whether the count is ever raised.
+ *
+ * The threshold itself lives in `isThinScreenableTagSet` (match-tier.ts),
+ * shared with `MatchTierBadge`'s own "Excellent — thin match" qualifier, so
+ * this line and the topline tier label can never disagree about what counts
+ * as thin.
  */
 function skillCoverageSub(matched: number, total: number, matchedSkills: string[]): string | undefined {
   if (total === 0) return "no screenable skills listed";
-  if (total > 2) return undefined;
+  if (!isThinScreenableTagSet(total)) return undefined;
   if (matched === 0) return "thin — none of the named skills matched";
   const names = matchedSkills.map((s) => `"${s}"`).join(", ");
   return `only ${names} — thin`;
