@@ -7,6 +7,7 @@ import { buildJobPostingJsonLd } from "@/lib/seo/job-posting-jsonld";
 import { SHARE_IMAGE, SHARE_IMAGE_META } from "@/lib/seo/site";
 import { createClient } from "@/lib/supabase/server";
 import { BorderedCard, Button, EyebrowLabel, MatchTierBadge, buttonClasses } from "@/components/ui";
+import { dedupeMetaParts } from "@/components/jobs/job-card";
 import { getCompanyInitials } from "@/lib/jobs/company-initials";
 import { postingAgeLine, freshnessFloorISO } from "@/lib/jobs/freshness";
 import { formatSalary } from "@/lib/jobs/format-salary";
@@ -281,13 +282,23 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
   // tolerates a missing key, a non-array, and non-string members.
   const skills = skillsOf(job);
 
-  const meta = [
+  /*
+   * dedupeMetaParts, not a second `.filter(Boolean)` — this file used to
+   * build its own independent array here, so the "Remote · Remote · Senior"
+   * collision PR #244 fixed on the feed card shipped right back on this
+   * page: `job.location === "Remote"` and `WORK_TYPE_LABEL.remote ===
+   * "Remote"` collide the same way regardless of which file builds the
+   * array. See job-card.tsx's own comment on dedupeMetaParts for the full
+   * story; tests/jobs/job-card-meta.test.ts pins this page's own field
+   * combination, not just the card's.
+   */
+  const meta = dedupeMetaParts([
     job.location,
     job.work_type ? WORK_TYPE_LABEL[job.work_type] : null,
     job.seniority ? SENIORITY_LABEL[job.seniority] : null,
     job.employment_type ? EMPLOYMENT_LABEL[job.employment_type] : null,
     job.years_experience_min ? `${job.years_experience_min}+ years` : null,
-  ].filter(Boolean);
+  ]);
   // Its own line, not folded into `meta`: a salary is the one line here a
   // seeker scans for first, and burying it in a middot-joined string of
   // location/seniority/experience would be the wrong hierarchy for the
