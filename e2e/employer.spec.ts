@@ -150,7 +150,10 @@ test.describe("employer surface", () => {
       );
     await authedPage.getByRole("button", { name: "Publish job" }).click();
 
-    await expect(authedPage).toHaveURL(/\/employer\/jobs$/);
+    // Stage 7: postJobAction now redirects with `?posted=<id>` so the new
+    // share link can be surfaced right away — see e2e/employer-share.spec.ts
+    // for that surface itself.
+    await expect(authedPage).toHaveURL(/\/employer\/jobs\?posted=.+$/);
     await expect(
       authedPage.getByRole("heading", { name: "E2E Employer Backend Engineer" }),
     ).toBeVisible();
@@ -228,7 +231,7 @@ test.describe("employer surface", () => {
         "A verified company posting a real role, with a description long enough to clear the minimum length the form enforces.",
       );
     await authedPage.getByRole("button", { name: "Publish job" }).click();
-    await expect(authedPage).toHaveURL(/\/employer\/jobs$/);
+    await expect(authedPage).toHaveURL(/\/employer\/jobs\?posted=.+$/);
 
     // No "not verified" warning this time.
     await expect(authedPage.getByText("isn't verified yet.")).toHaveCount(0);

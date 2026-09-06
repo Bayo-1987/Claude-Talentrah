@@ -115,7 +115,22 @@ test.describe("employer share link", () => {
     const orgName = `E2E Share Co U${testUser.id.slice(0, 8)}`;
     await authedPage.goto("/employer/onboarding");
     await authedPage.getByLabel("Company name").fill(orgName);
-    // No domain given at all — stays unverified, same as a brand-new signup.
+    /*
+     * A DOMAIN THE TEST USER'S OWN EMAIL DOES NOT MATCH — deliberately, and
+     * not skippable. The onboarding form (org-onboarding-form.tsx) PRE-FILLS
+     * this field with the account's own confirmed work-email domain whenever
+     * it isn't a consumer provider (onboarding/page.tsx's `suggestedDomain`),
+     * specifically because that's the value that verifies immediately. The
+     * throwaway e2e user's email is `e2e-<uuid>@<random>.talentrah.test` — a
+     * real, non-consumer domain — so leaving this field untouched creates a
+     * VERIFIED org on the spot, defeating the entire point of this test. The
+     * first version of this test did exactly that and failed by finding a
+     * fully-populated share link where none should exist; caught by the
+     * test's own sabotage-proof assertions doing their job, not by a bug in
+     * the feature. employer.spec.ts's existing "onboard, post a job" test
+     * already established this exact pattern for the same reason.
+     */
+    await authedPage.getByLabel("Company website domain").fill("e2e-share-test.example");
     await authedPage.getByRole("button", { name: "Create company" }).click();
     await expect(authedPage).toHaveURL(/\/employer\/jobs$/);
 
