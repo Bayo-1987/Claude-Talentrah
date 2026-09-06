@@ -14,10 +14,15 @@
  */
 import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
-import { renderFarahMarkdown } from "@/lib/farah/render-markdown";
+import { renderFarahMarkdown, renderJobDescriptionMarkdown } from "@/lib/farah/render-markdown";
+import { stripHtml } from "@/lib/jobs/extract-jd";
 
 function render(content: string): string {
   return renderToStaticMarkup(<>{renderFarahMarkdown(content)}</>);
+}
+
+function renderJobDescription(content: string): string {
+  return renderToStaticMarkup(<>{renderJobDescriptionMarkdown(content)}</>);
 }
 
 describe("the supported subset renders as real elements", () => {
@@ -189,6 +194,61 @@ describe("anything outside the subset renders as plain text, not markup", () => 
       expect(html).toContain("Click here");
     },
   );
+});
+
+/**
+ * renderJobDescriptionMarkdown — the same parse/render engine as
+ * renderFarahMarkdown above, a different (non-italic, larger) visual face,
+ * now driving the job detail page's "Full description" block
+ * (src/app/(app)/jobs/[id]/page.tsx) instead of a raw `whitespace-pre-line`
+ * text dump. Exercised here end-to-end through `stripHtml`
+ * (src/lib/jobs/extract-jd.ts), the same way the real page does: raw
+ * ATS-shaped HTML in, rendered React elements out — because the bug this
+ * guards against (a blank line between every bullet) is a property of the
+ * two functions working TOGETHER, not of either one read in isolation.
+ */
+describe("renderJobDescriptionMarkdown — the job detail page's own use of this renderer", () => {
+  it("SABOTAGE-PROOF TARGET: a <li><p>text</p></li> source produces one bullet line with no blank line before the next bullet", () => {
+    const html = "<ul><li><p>First item</p></li><li><p>Second item</p></li></ul>";
+    const html2 = renderJobDescription(stripHtml(html));
+    expect(html2).toContain("<li>First item</li>");
+    expect(html2).toContain("<li>Second item</li>");
+    // Both items landed in the SAME <ul> — a blank line between them in the
+    // underlying text would have split them into two separate lists, which
+    // is exactly the "double-spaced wall of dots" this fixes.
+    expect((html2.match(/<ul/g) ?? []).length).toBe(1);
+  });
+
+  it("a <strong> sub-header renders visibly bold, not as plain inline text", () => {
+    const html = "<p><strong>Program &amp; Curriculum Development</strong></p><p>Body text.</p>";
+    const html2 = renderJobDescription(stripHtml(html));
+    expect(html2).toContain("<strong>Program &amp; Curriculum Development</strong>");
+    expect(html2).not.toContain("**");
+  });
+
+  it(
+    "SABOTAGE-PROOF TARGET: nothing this renders can produce an <a>, an <img>, or reach dangerouslySetInnerHTML — same guarantee renderFarahMarkdown already enforces for Farah's panel",
+    () => {
+      const html =
+        '<li><p><a href="javascript:alert(1)">Click here</a></p></li>' +
+        "<li><p><img src=x onerror=alert(1)></p></li>";
+      const html2 = renderJobDescription(stripHtml(html));
+      expect(html2).not.toContain("<a ");
+      expect(html2).not.toContain("<a>");
+      expect(html2).not.toContain("<img");
+      expect(html2).not.toMatch(/href\s*=/);
+      // The posting's own link text is still visible as inert text, same as
+      // renderFarahMarkdown's guarantee above — dropped from being markup,
+      // not disappeared from the description entirely.
+      expect(html2).toContain("Click here");
+    },
+  );
+
+  it("uses the detail page's own (non-italic) face, not Farah's", () => {
+    const html2 = renderJobDescription("Plain paragraph.");
+    expect(html2).not.toContain("italic");
+    expect(html2).toContain("text-ink-soft");
+  });
 });
 
 describe("edge cases", () => {

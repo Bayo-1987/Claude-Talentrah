@@ -206,11 +206,26 @@ const FARAH_RULE = "my-0.5 border-t border-dashed border-line";
 /** Same face as every other block; the border/indent is the only thing that marks it as quoted. */
 const FARAH_QUOTE = `${FARAH_TEXT} border-l-2 border-line pl-3`;
 
-export function renderFarahMarkdown(content: string): ReactNode {
+/**
+ * The set of classes a block-kind needs — pulled out so the SAME parse/render
+ * engine (parseBlocks + renderInline, the whole reason this file is safe
+ * against `<a>`/`<img>`/raw HTML) can serve a second caller with a different
+ * visual face, instead of a second renderer being written for it.
+ */
+interface MarkdownFace {
+  text: string;
+  heading: string;
+  rule: string;
+  quote: string;
+}
+
+const FARAH_FACE: MarkdownFace = { text: FARAH_TEXT, heading: FARAH_HEADING, rule: FARAH_RULE, quote: FARAH_QUOTE };
+
+function renderMarkdownBlocks(content: string, face: MarkdownFace): ReactNode {
   const blocks = parseBlocks(content);
 
-  // A reply with no parseable block (blank, or whitespace-only) falls back
-  // to the plain string — never nothing, and never a crash on empty input.
+  // No parseable block (blank, or whitespace-only) falls back to the plain
+  // string — never nothing, and never a crash on empty input.
   if (blocks.length === 0) return content;
 
   return (
@@ -219,21 +234,21 @@ export function renderFarahMarkdown(content: string): ReactNode {
         switch (block.kind) {
           case "paragraph":
             return (
-              <p key={i} className={FARAH_TEXT}>
+              <p key={i} className={face.text}>
                 {renderInline(block.text, `p${i}`)}
               </p>
             );
           case "heading":
             return (
-              <p key={i} className={FARAH_HEADING}>
+              <p key={i} className={face.heading}>
                 {renderInline(block.text, `h${i}`)}
               </p>
             );
           case "rule":
-            return <hr key={i} className={FARAH_RULE} />;
+            return <hr key={i} className={face.rule} />;
           case "quote":
             return (
-              <p key={i} className={FARAH_QUOTE}>
+              <p key={i} className={face.quote}>
                 {renderInline(block.text, `q${i}`)}
               </p>
             );
@@ -241,13 +256,13 @@ export function renderFarahMarkdown(content: string): ReactNode {
             return (
               <Fragment key={i}>
                 {block.ordered ? (
-                  <ol className={`${FARAH_TEXT} list-decimal pl-4`}>
+                  <ol className={`${face.text} list-decimal pl-4`}>
                     {block.items.map((item, j) => (
                       <li key={j}>{renderInline(item, `l${i}-${j}`)}</li>
                     ))}
                   </ol>
                 ) : (
-                  <ul className={`${FARAH_TEXT} list-disc pl-4`}>
+                  <ul className={`${face.text} list-disc pl-4`}>
                     {block.items.map((item, j) => (
                       <li key={j}>{renderInline(item, `l${i}-${j}`)}</li>
                     ))}
@@ -259,4 +274,32 @@ export function renderFarahMarkdown(content: string): ReactNode {
       })}
     </div>
   );
+}
+
+export function renderFarahMarkdown(content: string): ReactNode {
+  return renderMarkdownBlocks(content, FARAH_FACE);
+}
+
+/**
+ * Same parser, same safety guarantee (no `<a>`, no `<img>`, no
+ * `dangerouslySetInnerHTML` — see this file's header), a different face.
+ *
+ * Job descriptions are not Farah's voice: CLAUDE.md reserves italic
+ * Newsreader for quiet/secondary asides, and a full job description is the
+ * main content of its page, not an aside. This exists because
+ * `stripHtml` (src/lib/jobs/extract-jd.ts) now converts ATS HTML into this
+ * same bold/bullet/paragraph markdown subset instead of flattening it to
+ * bare whitespace — rendering that subset through a raw `whitespace-pre-line`
+ * text dump would show the literal `**`/`-` characters instead of the
+ * structure they encode.
+ */
+const JOB_DESCRIPTION_FACE: MarkdownFace = {
+  text: "text-[15px] leading-relaxed text-ink-soft",
+  heading: "text-[15px] font-semibold leading-relaxed text-ink-soft",
+  rule: "my-1 border-t border-line",
+  quote: "text-[15px] leading-relaxed text-ink-soft border-l-2 border-line pl-3",
+};
+
+export function renderJobDescriptionMarkdown(content: string): ReactNode {
+  return renderMarkdownBlocks(content, JOB_DESCRIPTION_FACE);
 }

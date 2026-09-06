@@ -13,7 +13,12 @@
  * would have and `\b` word-boundary matching exists to prevent.
  */
 import { describe, expect, it } from "vitest";
-import { extractStructuredJd, SKILL_VOCABULARY, NON_SCREENABLE_SKILLS } from "@/lib/jobs/extract-jd";
+import {
+  extractStructuredJd,
+  SKILL_VOCABULARY,
+  NON_SCREENABLE_SKILLS,
+  stripHtml,
+} from "@/lib/jobs/extract-jd";
 
 describe("Stage 8 additions extract real, distinct terms", () => {
   it.each([
@@ -79,5 +84,49 @@ describe("nothing added here was accidentally marked non-screenable", () => {
 
   it.each(added)("%s is screenable (not in NON_SCREENABLE_SKILLS)", (term) => {
     expect(NON_SCREENABLE_SKILLS.has(term)).toBe(false);
+  });
+});
+
+/**
+ * stripHtml — screenshot-confirmed against the same job's Greenhouse source:
+ * Greenhouse shows real bold sub-headers and tight, consistent bullet
+ * spacing; this page showed plain unstyled text and a full blank line
+ * between every bullet. Two compounding causes, both fixed here: every tag
+ * but `<li>`/`<br>`/`</p>` (including `<strong>`/`<b>`) became a bare space,
+ * and Greenhouse's own list markup (real whitespace between tags, and
+ * sometimes an inner `<p>` per `<li>`) stacked two newlines between
+ * consecutive bullets — exactly two, which the old `\n{3,} -> \n\n` collapse
+ * does not catch.
+ */
+describe("stripHtml preserves structure instead of destroying it", () => {
+  it("SABOTAGE-PROOF TARGET: a <li><p>text</p></li> source produces one bullet line with no blank line before the next bullet", () => {
+    const html = "<ul><li><p>First item</p></li><li><p>Second item</p></li></ul>";
+    expect(stripHtml(html)).toBe("- First item\n- Second item");
+  });
+
+  it("also collapses the blank line Greenhouse's own newline-formatted markup introduces between BARE <li> siblings (no inner <p>) — the actual shape of job 79a05392's own source", () => {
+    const html =
+      '<ul>\n<li style="font-weight: 400;">First item.</li>\n<li style="font-weight: 400;">Second item.</li>\n</ul>';
+    expect(stripHtml(html)).toBe("- First item.\n- Second item.");
+  });
+
+  it("converts <strong>/<b> to markdown bold instead of deleting it to a bare space", () => {
+    expect(stripHtml("<p><strong>Bold header</strong></p><p>Body text.</p>")).toBe(
+      "**Bold header**\n\nBody text.",
+    );
+  });
+
+  it("a paragraph break between two top-level paragraphs survives as a blank line, not a single line break", () => {
+    // Necessary, not cosmetic: renderJobDescriptionMarkdown (render-markdown.tsx)
+    // only starts a new paragraph BLOCK on a blank line — a single "\n" would
+    // merge every paragraph in a posting into one.
+    expect(stripHtml("<p>First.</p><p>Second.</p>")).toBe("First.\n\nSecond.");
+  });
+
+  it("SABOTAGE-PROOF TARGET: fully resolves the double-escaped '&amp;' this job actually shipped with, end to end through stripHtml", () => {
+    const html = "<li><p><strong>Program &amp;amp; Curriculum Development</strong></p></li>";
+    const out = stripHtml(html);
+    expect(out).not.toContain("&amp;");
+    expect(out).toContain("Program & Curriculum Development");
   });
 });

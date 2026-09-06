@@ -8,6 +8,7 @@ import { SHARE_IMAGE, SHARE_IMAGE_META } from "@/lib/seo/site";
 import { createClient } from "@/lib/supabase/server";
 import { BorderedCard, Button, EyebrowLabel, MatchTierBadge, buttonClasses } from "@/components/ui";
 import { dedupeMetaParts } from "@/components/jobs/job-card";
+import { renderJobDescriptionMarkdown } from "@/lib/farah/render-markdown";
 import { getCompanyInitials } from "@/lib/jobs/company-initials";
 import { postingAgeLine, freshnessFloorISO } from "@/lib/jobs/freshness";
 import { formatSalary } from "@/lib/jobs/format-salary";
@@ -455,15 +456,23 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
       <div className="flex flex-col gap-3">
         <EyebrowLabel size="sm">Full description</EyebrowLabel>
         {/*
-          whitespace-pre-line, and the whole thing. The feed's 280-character
-          slice is what this page exists to undo, so re-truncating here would
-          leave the product with no way to read a job at all.
+          The whole thing, not a re-truncation of the feed's 280-character
+          slice — that's what this page exists to undo.
+
+          Rendered through renderJobDescriptionMarkdown (render-markdown.tsx)
+          rather than a raw `whitespace-pre-line` text dump. `stripHtml`
+          (src/lib/jobs/extract-jd.ts) now converts ATS HTML into the small
+          bold/bullet/paragraph markdown subset that renderer already knows
+          how to render safely — same engine Farah's panel renders replies
+          through, same guarantee that nothing here can construct an `<a>`,
+          an `<img>`, or reach `dangerouslySetInnerHTML`, since the source is
+          another company's job posting text, not this app's own copy.
+          Dumping it as pre-formatted text showed the literal `**`/`-`
+          characters instead of the bold sub-headers and tight bullet
+          spacing they encode.
         */}
-        <div
-          data-testid="job-full-description"
-          className="text-[15px] leading-relaxed whitespace-pre-line text-ink-soft"
-        >
-          {job.description}
+        <div data-testid="job-full-description">
+          {renderJobDescriptionMarkdown(job.description)}
         </div>
       </div>
 

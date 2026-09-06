@@ -238,15 +238,51 @@ export function decodeHtmlEntities(text: string): string {
  * Some ATS APIs (Greenhouse) return the description as HTML-entity-encoded
  * HTML — i.e. the tags themselves are escaped (`&lt;p&gt;`), not real markup
  * — so entities must be decoded before tags can be stripped, not after.
+ *
+ * Converts to the small markdown subset render-markdown.tsx already knows
+ * how to render safely (bold, tight bullet lists, paragraph breaks) instead
+ * of flattening everything but `<li>`/`<br>`/`</p>` into a bare space. Two
+ * real, screenshot-confirmed defects this fixes, against job
+ * 79a05392-4621-4038-b13d-661cd2edb4ca vs. its Greenhouse source:
+ *
+ *   - `<strong>`/`<b>` used to become a bare space, silently deleting every
+ *     bold sub-header ("Program & Curriculum Development") a posting had.
+ *   - Greenhouse's own editor wraps list markup with real whitespace between
+ *     tags (`</li>\n<li>`) and sometimes an inner `<p>` per item
+ *     (`<li><p>text</p></li>`) — the old code's `<li>` -> "\n• " plus
+ *     `</p>` -> "\n" stacked BOTH newlines (the source's own, and the one
+ *     the old rule added) into a real blank line between every bullet, and
+ *     `\n{3,} -> \n\n` doesn't catch exactly two. Every rule below that
+ *     touches a `<li>` boundary consumes ALL surrounding whitespace/`<p>`
+ *     wrapping so the ONLY newline between two bullets is the single one the
+ *     next bullet's own opening marker contributes.
+ *
+ * The closing rule runs BEFORE the opening rule, deliberately: if both ran
+ * as independent global passes with the opening rule first, the closing
+ * rule's own trailing-whitespace cleanup would run second and eat the
+ * newline the opening rule had just inserted for the FOLLOWING bullet — by
+ * that point it's just a "\n" character like any other, with nothing marking
+ * it as "the marker for the next item" rather than "leftover source
+ * whitespace". Closing-then-opening means only one rule ever touches the
+ * whitespace BETWEEN two list items, so there's nothing left for the other
+ * to consume by mistake.
  */
 export function stripHtml(html: string): string {
   const decoded = decodeHtmlEntities(html);
   return decoded
-    .replace(/<li[^>]*>/gi, "\n• ")
+    // An empty (or `<br>`-only) bold pair — a copy-paste artifact real
+    // Greenhouse content actually has — dropped rather than converted, so
+    // it can't leave a run of bare "**" markers with nothing bolded between
+    // them for the next rule to choke on.
+    .replace(/<(?:strong|b)[^>]*>\s*(?:<br\s*\/?>\s*)*<\/(?:strong|b)>/gi, "")
+    .replace(/<\/?(?:strong|b)[^>]*>/gi, "**")
+    .replace(/(?:<\/p>\s*)?<\/li>/gi, "")
+    .replace(/\s*<li[^>]*>\s*(?:<p[^>]*>\s*)?/gi, "\n- ")
     .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/p>/gi, "\n")
+    .replace(/<\/p>/gi, "\n\n")
     .replace(/<[^>]+>/g, " ")
     .replace(/[ \t]+/g, " ")
+    .replace(/[ \t]*\n[ \t]*/g, "\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 }
@@ -255,7 +291,7 @@ function extractResponsibilities(plainText: string): string[] {
   return plainText
     .split("\n")
     .map((l) => l.trim())
-    .filter((l) => l.startsWith("• "))
+    .filter((l) => l.startsWith("- "))
     .map((l) => l.slice(2).trim())
     .filter((l) => l.length > 10 && l.length < 200)
     .slice(0, 8);
