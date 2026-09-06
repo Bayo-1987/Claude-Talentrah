@@ -4,6 +4,7 @@ import { getCompanyInitials } from "@/lib/jobs/company-initials";
 import { postingAgeLine } from "@/lib/jobs/freshness";
 import { formatSalary } from "@/lib/jobs/format-salary";
 import { FarahJobMenu } from "@/components/jobs/farah-job-menu";
+import { MatchBreakdown } from "@/components/jobs/match-breakdown";
 import { ShareJobButton } from "@/components/jobs/share-job-button";
 import { ReportJobMenu } from "@/components/jobs/report-job-menu";
 import type { MatchExplanation } from "@/lib/matching/score";
@@ -180,6 +181,14 @@ export function JobCard({
           {salary && <div className="mt-1 text-[13.5px] font-semibold text-ink">{salary}</div>}
         </div>
       </div>
+
+      {/*
+        Stage 8, display-only step (see match-breakdown.tsx's own header for
+        why this needs no scoring change): the single "99% · Excellent"
+        eyebrow above doesn't say WHY it landed there. This does, from data
+        the score already computed.
+      */}
+      <MatchBreakdown explanation={explanation} />
 
       <p data-testid="job-card-description" className="line-clamp-3 text-[14px] leading-relaxed text-ink-soft">
         {job.description.slice(0, 280)}
