@@ -29,6 +29,18 @@ import { fitSummary, gapSkills } from "@/lib/matching/vet-summary";
  * exists but knows nothing about this job, and a per-job menu whose item is
  * secretly job-blind undersells the whole idea. It comes back if the panel
  * bridge is ever built.
+ *
+ * THE TRIGGER AND HEADER USED TO SAY "Ask Farah" / "Discuss with Farah — this
+ * job" — both promise a conversation this menu has never delivered. There is
+ * no follow-up, no model call, nothing that reaches Farah's chat history (see
+ * the comment above); it is a `useState` toggle over static text. Copy-only
+ * fix: "Check this job" / "Match details — free, instant" describe what
+ * actually happens. This also stops the collision with masthead.tsx's and
+ * farah-mobile-tab.tsx's own "Ask Farah" button, which opens the real docked
+ * chat panel — two different features were sharing one name on screen at the
+ * same time. No behavior changed here; a real job-seeded Farah conversation
+ * is a legitimate future feature with its own credit-cost question, not
+ * something to build quietly under cover of a copy fix.
  */
 
 export interface FarahJobMenuProps {
@@ -74,7 +86,7 @@ export function FarahJobMenu({ jobId, explanation }: FarahJobMenuProps) {
         onClick={() => setOpen((o) => !o)}
         className="inline-flex min-h-10 items-center gap-[5px] py-2 text-[13px] font-semibold text-ink-soft underline underline-offset-2 hover:text-rust"
       >
-        Ask Farah <span className="text-[10px]">▾</span>
+        Check this job <span className="text-[10px]">▾</span>
       </button>
 
       {open && (
@@ -83,7 +95,7 @@ export function FarahJobMenu({ jobId, explanation }: FarahJobMenuProps) {
           role="menu"
         >
           <div className="mb-[10px] flex items-center gap-[7px] text-[12.5px] font-bold text-ink">
-            Discuss with Farah — this job
+            Match details — free, instant
           </div>
 
           <div className="fm-group">

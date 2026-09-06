@@ -120,7 +120,13 @@ describe("what the card renders before the menu is opened", () => {
   );
 
   it("shows the disclosure trigger, closed", () => {
-    expect(markup).toContain("Ask Farah");
+    // Pinned as "Check this job", not "Ask Farah" — the menu has no chat
+    // bridge (see the component's own header comment), so its trigger must
+    // not promise a conversation it can't deliver. Also stops a collision
+    // with the masthead/mobile-tab "Ask Farah" button, which opens the real
+    // docked chat panel.
+    expect(markup).toContain("Check this job");
+    expect(markup).not.toContain("Ask Farah");
     expect(markup).toContain('aria-expanded="false"');
   });
 
