@@ -109,6 +109,19 @@ regexes = [
   '''alxafrica''',
   '''scangroup''',
   '''oafkenya''',
+
+  # src/lib/jobs/sources.config.ts, Workable round 2 (2026-09-06) — five
+  # per-company Workable widget-API account slugs, same shape as `kuda`'s
+  # own token above (`kuda` itself is under the 8-character minimum and
+  # never matched in the first place): each is a path segment in a public,
+  # unauthenticated URL
+  # (apply.workable.com/api/v1/widget/accounts/<slug>), not a credential,
+  # despite Workable also calling the field `token`.
+  '''renmoney''',
+  '''get-reliance-health''',
+  '''alaro-city''',
+  '''tetramaritime''',
+  '''fairmoney''',
 ]
 
 paths = [

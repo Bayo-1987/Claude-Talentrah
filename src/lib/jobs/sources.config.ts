@@ -631,6 +631,186 @@ import type { JobSourceConfig } from "./types";
  * Kuda (account slug confirmed via a real link, not guessed; live job count
  * cross-checked; robots.txt/ToS re-read for the specific path) before
  * shipping any of them.
+ *
+ * ══ WORKABLE COMPANY BOARDS, ROUND 2: THE TEN CANDIDATES ABOVE, RESOLVED ═══
+ *
+ * The "worth checking" list immediately above was run through the exact
+ * three-part verification Kuda's own section performed — real link/redirect
+ * confirmation over guessing, robots.txt/ToS (already established as
+ * permissive origin-wide, re-stated rather than re-tested per employer),
+ * live job sample cross-checked against the real company's known identity —
+ * plus a fourth check Kuda's round didn't need: how much of each employer's
+ * board already reaches this feed via the multi-employer search pages, since
+ * a board with heavy existing overlap is a smaller real gain than its raw
+ * job count suggests. Founder reviewed the full write-up and ruled on both
+ * borderline cases below. Evidence retained here rather than only in the
+ * PR, per this file's own standing rule that research is recorded so it is
+ * never silently repeated.
+ *
+ * ── FOUR ADDED ────────────────────────────────────────────────────────────
+ *
+ * Renmoney (`renmoney`) — confirmed via a real link, not a guess: a live
+ * `workable-lagos` posting ("Head of Product - B2C... at Renmoney") links to
+ * `apply.workable.com/j/8F7A56FE46`, which redirects to
+ * `/renmoney/j/8F7A56FE46` — the same method that found Kuda's own slug.
+ * Widget returns `"name": "Renmoney"`, org URL `renmoney.com`: 118 raw
+ * entries / 76 distinct requisitions, 69 of them Nigeria (Lagos). Sample:
+ * "Business Analyst", "Business Development Lead", "Card Product Analyst",
+ * all Lagos — matches Renmoney's real identity as a Nigerian digital-
+ * lending/microfinance bank. Several requisitions (e.g. the "Head of
+ * Product - B2C" posting itself) also list Russia/Serbia/Belarus/Georgia/
+ * Cyprus/Kazakhstan as alternate locations on the SAME shortcode — this is
+ * the identical multi-location-flattening shape Kuda's "Vice President of
+ * Engineering" already demonstrated, not a different company sharing the
+ * token, and `fetchWorkableJobs` already dedupes it correctly by shortcode.
+ * Dedup: only 6 raw slot-hits across all 8 existing search-page sources in a
+ * live snapshot (all via `workable-lagos`) against 69 real distinct Nigeria
+ * roles — the largest volume-cap crowd-out found in this round, bigger than
+ * Kuda's original 11-of-15 Lagos gap.
+ *
+ * Reliance Health (`get-reliance-health`) — confirmed via a real link: the
+ * `sameAs` field on a live job's JSON-LD embeds
+ * `apply.workable.com/get-reliance-health`; confirmed by redirect,
+ * `apply.workable.com/j/31F5F4E749` → `/get-reliance-health/j/31F5F4E749`.
+ * Widget returns `"name": "Reliance Health"`, org URL `getreliancehealth.com`:
+ * 57 raw / 49 distinct, 43 of them Nigeria (Lagos and Port Harcourt), plus
+ * Egypt (3) and Senegal (3). Sample: "Associate Medical Laboratory
+ * Scientist" and "Associate Medical Officer" (both Lagos AND Port Harcourt),
+ * "Associate Data Scientist" (remote) — matches Reliance Health's real
+ * identity as a Lagos-based pan-African HMO/health-insurance company that
+ * runs its own clinics (the job description itself states "We operate
+ * across Nigeria, Egypt, Senegal, and Côte d'Ivoire"). Dedup: 19 raw
+ * slot-hits across `workable-abuja`(4) + `workable-port-harcourt`(7) +
+ * `workable-nigeria`(6) + `workable-lagos`(2) against 43 distinct roles —
+ * real partial coverage, but the Port Harcourt presence specifically is
+ * barely visible through the existing city pages.
+ *
+ * Alaro City (`alaro-city`) — slug guessed, but the guess is not the
+ * evidence: confirmed the same way every other entry here is, by redirect —
+ * `apply.workable.com/j/ED42BCC528` → `/alaro-city/j/ED42BCC528`. Widget
+ * returns `"name": "Alaro City"`: 62 raw / 61 distinct, 100% Nigeria (Epe,
+ * Lagos). Sample: "Business Development Associate", "Admissions Officer —
+ * Wellington College International Lagos", "China Business Associate
+ * (Chinese Indigene)", all Epe — the job description self-identifies Alaro
+ * City as "a joint venture between Rendeavour, the largest new city and
+ * industrial park builder in Africa, and the Lagos State Government...
+ * conceived on 2,000 hectares" in Epe LGA, Lagos, which also explains the
+ * admissions-role titles (the development includes a school, Wellington
+ * College International Lagos). Dedup: 0 raw slot-hits across all 8 existing
+ * search-page sources in a live snapshot — effectively invisible today
+ * despite 61 distinct open Nigeria roles, the largest single-employer gap
+ * found in this round, bigger than Kuda's original discovery.
+ *
+ * Tetra Maritime (`tetramaritime`, no hyphen — `tetra-maritime` 404s, the
+ * trap running the other direction from Kuda's own `kuda`/`kuda-technologies`
+ * case) — confirmed by redirect, `apply.workable.com/j/8908235F24` →
+ * `/tetramaritime/j/8908235F24`. Widget returns `"name": "Tetra Maritime"`,
+ * org URL `tetramaritime.com`: 9 raw / 8 distinct, 8 of them Nigeria (Lagos),
+ * 1 UK. Sample: "Analyst, Crewing Officer", "Analyst, Treasury", "Junior
+ * Lecturer Navigation", all Lagos — the job description self-identifies
+ * Tetra Maritime as "a leading Nigerian ship owner and operator, providing...
+ * solutions across the oil and gas supply chain... with a fleet of
+ * Nigerian-flagged vessels". Dedup: 3 raw slot-hits via `workable-lagos`
+ * against 8 distinct roles — the most marginal of the four adds (a net gain
+ * of roughly 5 roles), shipped on the founder's own call rather than being
+ * deferred as borderline.
+ *
+ * ── FIFTH ADD, FOUNDER'S CALL ON A BORDERLINE CASE ─────────────────────────
+ *
+ * FairMoney (`fairmoney`) — confirmed by redirect, `apply.workable.com/j/
+ * BD654BACB7` → `/fairmoney/j/BD654BACB7`. Widget returns `"name":
+ * "FairMoney"`: 38 raw / 14 distinct, 13 of them Nigeria (Lagos), remainder
+ * Kenya/Uganda/UK/India/South Africa. Sample: "Android Engineer", "ESG and
+ * Impact Manager", "Experience Lead", all Lagos — matches FairMoney's known
+ * identity as a Lagos-headquartered, CBN-licensed digital-lending bank with
+ * some CIS/India engineering presence. Dedup: this file already documents
+ * FairMoney surfacing across MULTIPLE existing search pages (`workable-
+ * kenya`, `workable-abuja`, `workable-ibadan`, `workable-port-harcourt`,
+ * `workable-nigeria`) — a live snapshot found 10 raw slot-hits against 13
+ * distinct Nigeria roles, meaning a dedicated board adds roughly 3 net-new
+ * roles, some of which the cross-config dedup fingerprint may already catch
+ * without one. Flagged to the founder as genuinely borderline ROI rather
+ * than a clean recommendation; founder's call was to bring it in anyway
+ * rather than defer it, since identity and permission were both fully
+ * confirmed and the marginal cost of one more HTTP request per run is low.
+ *
+ * ── DROPPED: HUMAN INTELLIGENCE, ADDED TO THE GRAVEYARD OF GUESSED SLUGS ───
+ *
+ * Neither guess resolved to a real Nigerian company, and — unlike a plain
+ * 404 — both guesses returned a confident 200 for a COMPLETELY DIFFERENT
+ * company, the exact false-positive shape this file's opening paragraph
+ * warns about: `human-intelligence` → `"name": "HumanI"`, 6 jobs, all
+ * Athens/Voiotia, Greece — a payroll/HRMS software consultancy. `human
+ * intelligence` (no hyphen) → `"name": "Human Intelligence"` — an EXACT
+ * display-name match that is still the wrong company — 47 jobs, all Metro
+ * Manila, Philippines, a remote-work-automation BPO. The one real lead, a
+ * `jobs.workable.com/search/lagos` posting for "Remote Principal UI/UX
+ * Designer... at Human Intelligence", resolves to `hiringOrganization.url =
+ * shaewellness.com` with no country asserted (fully remote) and no
+ * `apply.workable.com/<slug>` link anywhere on its own company page or a
+ * `/j/` shortlink to follow — unlike every entry above, this one may not
+ * expose a legacy widget account at all. Further guesses tried and 404'd:
+ * `shaewellness`, `shae-wellness`, `humanintelligencehq`, `hi-wellness`,
+ * `human-intel`. No corroborating result found for a Nigerian HR/staffing
+ * firm by this name. Founder's call: drop it rather than ship a guess:
+ * NOT ADDED. A future pass should get a real careers-page URL from whoever
+ * proposed this employer rather than re-running the same guesses.
+ *
+ * ── CHECKED AND SKIPPED, SAME DOCUMENTATION DISCIPLINE AS THE ADDS ─────────
+ *
+ * Kora (`koracareers`, found via its `sameAs` company-page link; bare `kora`
+ * 200s with the right name and ZERO jobs — a decoy shape worth naming since
+ * it isn't a plain 404 either) — widget confirms `"name": "Kora"`, org URL
+ * `korapay.com` (the real Korapay), but only 2 entries total: one real role
+ * ("Technical Support Engineer", Lagos) and a standing "Kora Talent Network"
+ * pipeline listing that is not an open role. Already visible via
+ * `workable-lagos`. SKIP — effectively one real job, not worth a dedicated
+ * config entry.
+ *
+ * Helium Health (`helium-health`) — already documented above (Greenhouse
+ * section) as hiring on Workable and reaching this feed via
+ * `workable-nigeria`. Re-confirmed here: 6 total jobs, all Lagos, 4 of them
+ * already surfacing as raw slot-hits across `workable-lagos` +
+ * `workable-nigeria`. SKIP — too thin (6 roles) and already substantially
+ * covered.
+ *
+ * NALA (`nalamoney` — bare `nala` is the trap, resolving to an unrelated
+ * `"Nala Health"` with 0 jobs) — widget confirms `"name": "NALA"`, matching
+ * the real `nala.money` remittance fintech via a live job's JSON-LD. 10
+ * jobs total: 5 UK, 2 Belgium, 2 Kenya, and exactly 1 Nigeria ("Country
+ * Manager - Nigeria", Lagos), already visible via `workable-lagos`. SKIP —
+ * same reasoning already applied to Wahed Invest above: a real, verified
+ * company, but not primarily African-hiring (9 of 10 roles are UK/Kenya/
+ * Belgium), and its one Nigeria role adds nothing beyond what's already
+ * visible.
+ *
+ * Kingmakers (`kingmakers`) — widget confirms `"name": "KingMakers"`, org
+ * URL `kingmakers.com` (the real pan-African sports-betting group that
+ * operates Betking in Nigeria — already independently noted above as
+ * appearing via `workable-south-africa`). 10 jobs: 6 South Africa (Cape
+ * Town), 3 Nigeria (Lagos), 1 Malta. SKIP — only 3 Nigeria roles total (net
+ * gain of roughly 2), and the company already has a foothold via the
+ * existing South Africa source; too thin on its own, same shape as Kora and
+ * Helium Health above.
+ *
+ * Rentokil Initial (`rentokil-initial` — `rentokilinitial` and bare
+ * `rentokil` are both decoys: a smaller unrelated "Rentokil Initial
+ * Malaysia" account and an empty account respectively, neither the real
+ * global company) — widget confirms `"name": "Rentokil Initial"`, org URL
+ * `careers.rentokil-initial.com`, and this IS the real global Rentokil
+ * Initial (already independently noted above as appearing via
+ * `workable-ghana`). But the board is 799 raw entries / 750 distinct
+ * requisitions across 37 countries (383 India, 90 Canada, 53 Indonesia, 46
+ * Australia...), and only 6 are Nigeria (Lagos) — already 4 raw slot-hits
+ * via `workable-lagos`(3) + `workable-ghana`(1). SKIP, and for a different
+ * reason than the other four: `fetchWorkableJobs` has no country filter, so
+ * adding this board as configured today would pull all 750 global
+ * requisitions into every ingest run to surface 6 relevant ones — real,
+ * verified, permitted, but an architecture cost this pipeline doesn't
+ * currently absorb for any other source, not a smaller version of the same
+ * judgment call as Wahed Invest/NALA above. Worth reopening only alongside a
+ * country filter on the fetcher itself, which is a code change, not a
+ * config entry.
  */
 export const JOB_SOURCES: JobSourceConfig[] = [
   { source: "greenhouse", token: "moniepoint", companyName: "Moniepoint" },
@@ -714,5 +894,44 @@ export const JOB_SOURCES: JobSourceConfig[] = [
     source: "schema-org",
     url: "https://jobs.workable.com/search/south-africa",
     label: "workable-south-africa",
+  },
+  /*
+   * Five per-company Workable boards, added 2026-09-06 — see "WORKABLE
+   * COMPANY BOARDS, ROUND 2" above for the full verification and dedup
+   * evidence per employer. Placed LAST, after every `jobs.workable.com/
+   * search/*` page above, not immediately after their most-overlapping city
+   * the way Kuda sits after `workable-abuja` — Kuda had no measured overlap
+   * beyond Abuja, but this round's own dedup pass found Reliance Health
+   * overlapping `workable-port-harcourt` and FairMoney overlapping
+   * `workable-kenya`, both of which run AFTER Kuda's position. Running array
+   * order decides which config wins a fingerprint collision in one ingest
+   * run (see the Nigeria-city-pages and Kuda comments above), so the only
+   * placement that guarantees every one of these five dedicated, more
+   * complete boards wins against every search page it might overlap is last.
+   */
+  {
+    source: "workable",
+    token: "renmoney",
+    companyName: "Renmoney",
+  },
+  {
+    source: "workable",
+    token: "get-reliance-health",
+    companyName: "Reliance Health",
+  },
+  {
+    source: "workable",
+    token: "alaro-city",
+    companyName: "Alaro City",
+  },
+  {
+    source: "workable",
+    token: "tetramaritime",
+    companyName: "Tetra Maritime",
+  },
+  {
+    source: "workable",
+    token: "fairmoney",
+    companyName: "FairMoney",
   },
 ];
