@@ -1,4 +1,5 @@
 import { MarketingMasthead } from "@/components/marketing/marketing-masthead";
+import { GoogleOneTap } from "@/components/auth/google-one-tap";
 import { HeroSection } from "@/components/marketing/hero-section";
 import { JobBoardPreview } from "@/components/marketing/job-board-preview";
 import { ProblemSection } from "@/components/marketing/problem-section";
@@ -31,11 +32,19 @@ import { MarketingFooter } from "@/components/marketing/marketing-footer";
  * default. Turning it on to fix a caption on the landing page would put /jobs,
  * /tracker and the employer surface in scope of the change. Worth doing
  * deliberately, on its own, with those routes audited; not as a side effect.
+ *
+ * GoogleOneTap does not reopen that problem: it's a Client Component that
+ * checks auth state and fetches its nonce in the browser after mount, so it
+ * adds nothing for the server to read at render time. It renders `null` and
+ * decides for itself, client-side, whether this particular visitor is
+ * signed out — the same "flag decided in the client" shape as the JD demo
+ * input this comment already describes.
  */
 export default function Home() {
   return (
     <>
       <MarketingMasthead />
+      <GoogleOneTap />
       <HeroSection />
       <JobBoardPreview />
       <ProblemSection />

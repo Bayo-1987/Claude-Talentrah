@@ -1,5 +1,6 @@
 import { getOptionalUser } from "@/lib/auth/require-user";
 import { MarketingMasthead } from "@/components/marketing/marketing-masthead";
+import { GoogleOneTap } from "@/components/auth/google-one-tap";
 import { Masthead } from "@/components/app-shell/masthead";
 import { FarahPanel } from "@/components/app-shell/farah-panel";
 import { FarahMobileTab } from "@/components/app-shell/farah-mobile-tab";
@@ -38,9 +39,17 @@ export default async function AppLayout({
      * without a user, and rendering an empty panel beside a job posting would
      * advertise a feature the reader cannot use. The content column keeps its
      * own widths so the posting itself is laid out identically either way.
+     *
+     * GoogleOneTap here is what makes /jobs/[id] and /scholarships/[id]
+     * qualify as "signed-out surfaces where signing in is a sensible next
+     * step" — this branch is the only place those two routes ever render for
+     * a signed-out visitor (the middleware sends a signed-out visitor away
+     * from every other (app) route; see proxy.ts's PROTECTED_* sets), so
+     * putting it here reaches both without a second call site.
      */
     return (
       <div className="min-h-screen">
+        <GoogleOneTap />
         <div className="sticky top-0 z-20 print:hidden" data-testid="masthead-band">
           <MarketingMasthead />
         </div>

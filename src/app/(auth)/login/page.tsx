@@ -4,6 +4,7 @@ import { safeRedirectTo } from "@/lib/auth/redirect-to";
 import { EyebrowLabel } from "@/components/ui";
 import { LoginForm } from "@/components/auth/login-form";
 import { OAuthButtons } from "@/components/auth/oauth-buttons";
+import { GoogleOneTap } from "@/components/auth/google-one-tap";
 
 export const metadata = { title: "Log in — Talentrah" };
 
@@ -31,6 +32,9 @@ export default async function LoginPage({
 
   return (
     <div className="flex flex-col gap-8">
+      {/* Renders nothing visible — see the component for why this page (an
+          already-signed-in visitor was just redirected above it) qualifies. */}
+      <GoogleOneTap />
       <div className="flex flex-col gap-2">
         <EyebrowLabel>Welcome back</EyebrowLabel>
         <h2 className="font-display text-[28px]">Log in to Talentrah.</h2>
