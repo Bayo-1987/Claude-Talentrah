@@ -1,0 +1,158 @@
+/**
+ * Stage 7: the employer's share link, end to end.
+ *
+ * Two things only a browser test can actually prove:
+ *
+ * 1. THE LINK A VERIFIED EMPLOYER SEES REALLY WORKS FOR A STRANGER. Building
+ *    the URL correctly in the component is necessary but not sufficient — the
+ *    thing that matters is whether a signed-out visitor handed that exact
+ *    string gets the real posting rather than a redirect or a 404. Checked
+ *    against the actual /jobs/[id] public-visitor code path (a fresh,
+ *    unauthenticated browser context), not just while logged in as the
+ *    employer who posted it.
+ *
+ * 2. AN UNVERIFIED ORG NEVER EXPOSES ONE, ANYWHERE THIS SCREEN SHOWS IT. The
+ *    unit tests (tests/employer/job-share-button.test.tsx) already prove the
+ *    components never render the URL for "unreachable" visibility in
+ *    isolation; this proves the real page never gets into a state where it
+ *    would — the post-success banner right after posting, and the Jobs
+ *    Posted row itself.
+ */
+import { test, expect, admin } from "./fixtures/authed";
+import { runCleanups } from "../tests/support/teardown";
+import { deleteOrgsCascade } from "../tests/support/delete-orgs";
+
+test.describe("employer share link", () => {
+  test.afterEach(async () => {
+    await runCleanups([
+      "employer organisations",
+      async () => {
+        const { data: orgs, error } = await admin
+          .from("organizations")
+          .select("id")
+          .like("name", "E2E Share Co%");
+        if (error) throw new Error(`listing organisations: ${error.message}`);
+        await deleteOrgsCascade(admin, (orgs ?? []).map((o) => o.id));
+      },
+    ]);
+  });
+
+  test("a verified org's posted job is shareable, and the link really works signed out", async ({
+    authedPage,
+    testUser,
+    browser,
+  }) => {
+    const orgName = `E2E Share Co V${testUser.id.slice(0, 8)}`;
+    await authedPage.goto("/employer/onboarding");
+    await authedPage.getByLabel("Company name").fill(orgName);
+    await authedPage.getByRole("button", { name: "Create company" }).click();
+    await expect(authedPage).toHaveURL(/\/employer\/jobs$/);
+
+    // Verification is service-role-only by design (0028) — same as the
+    // existing "verified company" test in employer.spec.ts.
+    const { data: org } = await admin
+      .from("organizations")
+      .select("id")
+      .eq("name", orgName)
+      .single();
+    await admin.from("organizations").update({ verified: true }).eq("id", org!.id);
+
+    await authedPage.goto("/employer/jobs/new");
+    await authedPage.getByLabel("Job title").fill("E2E Shareable Role");
+    await authedPage.getByLabel("Location").fill("Lagos, Nigeria");
+    await authedPage
+      .getByLabel("Job description")
+      .fill("A role posted specifically to prove the share link that comes out of it actually works.");
+    await authedPage.getByRole("button", { name: "Publish job" }).click();
+
+    // ---- Post-success surface -------------------------------------------
+    await expect(authedPage).toHaveURL(/\/employer\/jobs\?posted=.+$/);
+    await expect(authedPage.getByText('"E2E Shareable Role" is posted.')).toBeVisible();
+
+    const { data: job } = await admin
+      .from("job_postings")
+      .select("id")
+      .eq("organization_id", org!.id)
+      .eq("title", "E2E Shareable Role")
+      .single();
+    const expectedPath = `/jobs/${job!.id}`;
+
+    // The absolute URL is right there, no extra click needed.
+    const successLinkText = await authedPage
+      .locator("p", { hasText: expectedPath })
+      .first()
+      .textContent();
+    expect(successLinkText).toContain(expectedPath);
+
+    const whatsappLink = authedPage.getByRole("link", { name: "Share on WhatsApp" }).first();
+    await expect(whatsappLink).toBeVisible();
+    expect(await whatsappLink.getAttribute("href")).toContain(encodeURIComponent(expectedPath));
+
+    const linkedInLink = authedPage.getByRole("link", { name: "Share on LinkedIn" }).first();
+    await expect(linkedInLink).toBeVisible();
+    expect(await linkedInLink.getAttribute("href")).toContain(encodeURIComponent(expectedPath));
+
+    // ---- The row itself also offers Share, not just the success banner ---
+    await authedPage.goto("/employer/jobs");
+    await authedPage.getByRole("button", { name: "Share" }).first().click();
+    await expect(authedPage.getByRole("link", { name: "Share on WhatsApp" })).toBeVisible();
+
+    // ---- The link actually works for a stranger ---------------------------
+    const strangerContext = await browser.newContext();
+    const strangerPage = await strangerContext.newPage();
+    const res = await strangerPage.goto(expectedPath);
+    expect(res?.status(), "a verified org's job link must not redirect or 404 for a signed-out visitor").toBe(
+      200,
+    );
+    await expect(strangerPage.getByRole("heading", { name: "E2E Shareable Role" })).toBeVisible();
+    await strangerContext.close();
+  });
+
+  test("an unverified org's job never exposes a link anywhere on this screen", async ({
+    authedPage,
+    testUser,
+  }) => {
+    const orgName = `E2E Share Co U${testUser.id.slice(0, 8)}`;
+    await authedPage.goto("/employer/onboarding");
+    await authedPage.getByLabel("Company name").fill(orgName);
+    // No domain given at all — stays unverified, same as a brand-new signup.
+    await authedPage.getByRole("button", { name: "Create company" }).click();
+    await expect(authedPage).toHaveURL(/\/employer\/jobs$/);
+
+    await authedPage.goto("/employer/jobs/new");
+    await authedPage.getByLabel("Job title").fill("E2E Unreachable Role");
+    await authedPage.getByLabel("Location").fill("Lagos, Nigeria");
+    await authedPage
+      .getByLabel("Job description")
+      .fill("A role that must never come with a shareable link while the org is unverified.");
+    await authedPage.getByRole("button", { name: "Publish job" }).click();
+
+    // ---- Post-success surface: no link, no share targets ------------------
+    await expect(authedPage).toHaveURL(/\/employer\/jobs\?posted=.+$/);
+    await expect(authedPage.getByText("verify your company")).toBeVisible();
+    await expect(authedPage.getByRole("link", { name: "Share on WhatsApp" })).toHaveCount(0);
+
+    // The exact public path — not a generic "/jobs/" substring check, which
+    // would also match this same page's own ordinary "Edit" link
+    // (/employer/jobs/<id>/edit) and false-positive on something that has
+    // nothing to do with the public share link.
+    const { data: unverifiedJob } = await admin
+      .from("job_postings")
+      .select("id")
+      .eq("organization_id", (
+        await admin.from("organizations").select("id").eq("name", orgName).single()
+      ).data!.id)
+      .eq("title", "E2E Unreachable Role")
+      .single();
+    const bodyHtml = await authedPage.content();
+    expect(bodyHtml).not.toContain(`/jobs/${unverifiedJob!.id}`);
+
+    // ---- The row itself: "Unlock sharing", not a Share button --------------
+    await authedPage.goto("/employer/jobs");
+    await expect(
+      authedPage.getByRole("link", { name: "Unlock sharing" }),
+      "an unverified org's row must offer a way forward, not a dead share button",
+    ).toBeVisible();
+    await expect(authedPage.getByRole("button", { name: "Share" })).toHaveCount(0);
+  });
+});

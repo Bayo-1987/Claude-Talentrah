@@ -153,3 +153,31 @@ export function verificationMessage(outcome: VerificationOutcome, userEmail?: st
       return `Your account email${userEmail ? ` (${userEmail})` : ""} isn't at ${outcome.domain}. Sign up with your work email at that domain to get verified.`;
   }
 }
+
+/**
+ * The message for a banner that ALSO has the stored `organizations.verified`
+ * column in hand (Jobs Posted does; Company Profile doesn't need this
+ * variant because its own page always recomputes and saves in the same
+ * action).
+ *
+ * `evaluateDomainVerification` is a pure function of the account's current
+ * email/confirmation and the org's stored `domain` — it can legitimately
+ * disagree with the stored `verified` bit, because that bit is only written
+ * inside updateCompanyProfileAction, i.e. the next time the Company Profile
+ * form is saved, not the moment the underlying facts change (an email
+ * getting confirmed after signup, for instance). A caller showing the
+ * ordinary per-reason message in that state would tell an employer who
+ * already has a matching domain to "add" one; a caller showing "Verified"
+ * would claim a state the actual gate (0027) isn't honouring yet. Neither is
+ * true, so this is its own case.
+ */
+export function employerBannerMessage(
+  outcome: VerificationOutcome,
+  storedVerified: boolean,
+  userEmail?: string | null,
+): string {
+  if (outcome.verified && !storedVerified) {
+    return "Your account looks eligible to verify now — resave your Company Profile to finish.";
+  }
+  return verificationMessage(outcome, userEmail);
+}

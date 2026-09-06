@@ -3,12 +3,24 @@ import { createClient } from "@/lib/supabase/server";
 import { requireEmployer } from "@/lib/employer/membership";
 import { BorderedCard, EyebrowLabel, buttonClasses } from "@/components/ui";
 import { PostedJobRow, type PostedJob } from "@/components/employer/posted-job-row";
+import { EmployerJobShareInline } from "@/components/employer/job-share-button";
+import { getJobShareVisibility } from "@/lib/employer/job-visibility";
+import { evaluateDomainVerification, employerBannerMessage } from "@/lib/employer/verification";
+import { getSiteOrigin } from "@/lib/referrals/url";
 
 export const metadata = { title: "Jobs Posted — Talentrah" };
 
-export default async function JobsPostedPage() {
-  const { organization } = await requireEmployer();
+type SearchParams = Promise<{ posted?: string }>;
+
+export default async function JobsPostedPage({
+  searchParams,
+}: {
+  searchParams: SearchParams;
+}) {
+  const { organization, userEmail, emailConfirmed } = await requireEmployer();
+  const { posted } = await searchParams;
   const supabase = await createClient();
+  const origin = await getSiteOrigin();
 
   const [{ data: jobs, error: jobsError }, { data: counts, error: countsError }] =
     await Promise.all([
@@ -47,6 +59,32 @@ export default async function JobsPostedPage() {
 
   const openCount = rows.filter((r) => r.status === "open").length;
 
+  // The row this render should just have posted, if the redirect from
+  // postJobAction carried its id — not re-fetched, it's already in `rows`
+  // from the same query above (freshest first).
+  const postedJob = posted ? rows.find((r) => r.id === posted) : undefined;
+
+  /*
+   * The stored `organization.verified` bit and a fresh recompute of the same
+   * rule can disagree in one direction worth naming: an employer can become
+   * eligible (confirms their email, or the domain now matches) without the
+   * stored bit ever being told, because that bit is only written inside
+   * updateCompanyProfileAction — i.e. when the Company Profile form is next
+   * saved, not the moment the underlying facts change. Showing the ordinary
+   * per-reason message in that state would say something false ("add your
+   * domain") about an account that already has one; showing "Verified" would
+   * claim a state the gate (0027) isn't actually honouring yet, since nothing
+   * has re-run the service-role `verified` write inside
+   * updateCompanyProfileAction (src/lib/employer/actions.ts) for it. So it
+   * gets its own honest line instead of either.
+   */
+  const verificationOutcome = evaluateDomainVerification({
+    userEmail,
+    emailConfirmed,
+    claimedDomain: organization.domain,
+  });
+  const staleEligible = verificationOutcome.verified && !organization.verified;
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -75,14 +113,48 @@ export default async function JobsPostedPage() {
       */}
       {!organization.verified && (
         <p className="border-[1.5px] border-amber bg-[oklch(96%_0.03_70)] px-4 py-3 text-[13.5px] text-ink">
+          {/*
+            "{name} isn't verified yet." is asserted verbatim by
+            e2e/employer.spec.ts — kept as its own sentence rather than
+            reworded into the dynamic message below, so that test keeps
+            proving what it always proved (the unverified state is stated,
+            not silent) independent of which specific reason follows it.
+          */}
           <span className="font-semibold">{organization.name} isn&apos;t verified yet.</span> Your
-          jobs are saved and visible to your team, but they don&apos;t appear in the public job feed
-          until the company is verified.{" "}
+          jobs are saved and visible to your team, but not in the public job feed.{" "}
+          {employerBannerMessage(verificationOutcome, organization.verified, userEmail)}{" "}
           <Link href="/employer/profile" className="font-semibold text-rust underline underline-offset-2">
-            Add your work-email domain
+            {staleEligible ? "Go to Company Profile" : "Manage verification"}
           </Link>
           .
         </p>
+      )}
+
+      {/*
+        The post-success surface. There is no dedicated confirmation screen —
+        postJobAction redirects straight here with `?posted=<id>` — so this is
+        the only place an employer ever sees the link right after posting,
+        which is the moment they're most likely to actually go share it.
+        Shows nothing if the id in the URL doesn't match a row on this page
+        (a stale/copied link, or the job got removed in between).
+      */}
+      {postedJob && (
+        <BorderedCard className="border-ink p-5">
+          <p className="font-display text-[16px] font-medium text-ink">
+            &quot;{postedJob.title}&quot; is posted.
+          </p>
+          <div className="mt-3">
+            <EmployerJobShareInline
+              jobId={postedJob.id}
+              jobTitle={postedJob.title}
+              origin={origin}
+              visibility={getJobShareVisibility({
+                status: postedJob.status,
+                organizationVerified: organization.verified,
+              })}
+            />
+          </div>
+        </BorderedCard>
       )}
 
       {countsError && (
@@ -110,7 +182,7 @@ export default async function JobsPostedPage() {
       ) : (
         <div className="flex flex-col gap-3.5">
           {rows.map((job) => (
-            <PostedJobRow key={job.id} job={job} orgVerified={organization.verified} />
+            <PostedJobRow key={job.id} job={job} orgVerified={organization.verified} origin={origin} />
           ))}
         </div>
       )}

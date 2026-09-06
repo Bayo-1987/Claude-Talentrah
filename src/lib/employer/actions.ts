@@ -399,26 +399,31 @@ export async function postJobAction(
   // (`source_type = 'internal' and is_org_member(organization_id)`) is what
   // authorises it, so a regression in that policy breaks posting loudly here
   // instead of being silently bypassed by a service-role write.
-  const { error } = await supabase.from("job_postings").insert({
-    source_type: "internal",
-    organization_id: organization.id,
-    company_name: organization.name,
-    title: fields.title,
-    location: fields.location || null,
-    description: fields.description,
-    work_type: fields.work_type,
-    employment_type: fields.employment_type,
-    seniority: fields.seniority,
-    years_experience_min: Number.isFinite(fields.years_experience_min)
-      ? fields.years_experience_min
-      : null,
-    // `keep` is unreachable on create — there is no stored value to keep — so
-    // undefined collapses to null, which is the documented "does not expire".
-    expires_at: expiry.value ?? null,
-    ...salary.value,
-    status: "open",
-    dedup_fingerprint: internalDedupFingerprint(organization.id, fields.title, fields.location),
-  });
+  const { data: created, error } = await supabase
+    .from("job_postings")
+    .insert({
+      source_type: "internal",
+      organization_id: organization.id,
+      company_name: organization.name,
+      title: fields.title,
+      location: fields.location || null,
+      description: fields.description,
+      work_type: fields.work_type,
+      employment_type: fields.employment_type,
+      seniority: fields.seniority,
+      years_experience_min: Number.isFinite(fields.years_experience_min)
+        ? fields.years_experience_min
+        : null,
+      // `keep` is unreachable on create — there is no stored value to keep —
+      // so undefined collapses to null, which is the documented "does not
+      // expire".
+      expires_at: expiry.value ?? null,
+      ...salary.value,
+      status: "open",
+      dedup_fingerprint: internalDedupFingerprint(organization.id, fields.title, fields.location),
+    })
+    .select("id")
+    .single();
 
   if (error) {
     if (error.code === "23505") {
@@ -429,7 +434,11 @@ export async function postJobAction(
 
   revalidatePath("/employer/jobs");
   revalidatePath("/jobs");
-  redirect("/employer/jobs");
+  // `?posted=<id>` is how Jobs Posted knows to surface the share link right
+  // away (src/app/employer/jobs/page.tsx) — there is no other confirmation
+  // screen, so this is the only moment an employer sees it without a second
+  // trip back to find their own row.
+  redirect(`/employer/jobs?posted=${created.id}`);
 }
 
 export async function updateJobAction(

@@ -2,6 +2,8 @@ import Link from "next/link";
 import { BorderedCard, buttonClasses } from "@/components/ui";
 import { setJobStatusAction } from "@/lib/employer/actions";
 import { formatRelativeTime } from "@/lib/format-relative-time";
+import { EmployerJobShareButton } from "@/components/employer/job-share-button";
+import { getJobShareVisibility } from "@/lib/employer/job-visibility";
 
 export interface PostedJob {
   id: string;
@@ -26,7 +28,16 @@ const LABELS: Record<string, string> = {
   internship: "Internship",
 };
 
-export function PostedJobRow({ job, orgVerified }: { job: PostedJob; orgVerified: boolean }) {
+export function PostedJobRow({
+  job,
+  orgVerified,
+  origin,
+}: {
+  job: PostedJob;
+  orgVerified: boolean;
+  /** Resolved server-side — see EmployerJobShareButton's own comment. */
+  origin: string;
+}) {
   /*
    * A removed posting still appears here, on purpose: 0056 deliberately leaves
    * `is_org_member` out of the new `status <> 'removed'` conditions so an
@@ -99,6 +110,12 @@ export function PostedJobRow({ job, orgVerified }: { job: PostedJob; orgVerified
             {job.status === "open" ? "Close" : "Reopen"}
           </button>
         </form>
+        <EmployerJobShareButton
+          jobId={job.id}
+          jobTitle={job.title}
+          origin={origin}
+          visibility={getJobShareVisibility({ status: job.status, organizationVerified: orgVerified })}
+        />
       </div>
       )}
     </BorderedCard>
