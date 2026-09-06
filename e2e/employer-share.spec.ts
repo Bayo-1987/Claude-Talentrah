@@ -147,10 +147,16 @@ test.describe("employer share link", () => {
     await expect(authedPage.getByText("verify your company")).toBeVisible();
     await expect(authedPage.getByRole("link", { name: "Share on WhatsApp" })).toHaveCount(0);
 
-    // The exact public path — not a generic "/jobs/" substring check, which
-    // would also match this same page's own ordinary "Edit" link
-    // (/employer/jobs/<id>/edit) and false-positive on something that has
-    // nothing to do with the public share link.
+    // The exact ABSOLUTE public URL, not a bare path check — a first version
+    // of this checked for `/jobs/<id>` as a substring, which is exactly the
+    // trap the comment above used to warn about and then walked straight
+    // into: `/employer/jobs/<id>/edit` (the ordinary Edit link, always
+    // present) contains `/jobs/<id>` as a literal substring too, so that
+    // check false-positived on its own page's normal chrome. The share
+    // components (job-share-button.tsx) only ever render the public link in
+    // its full `${origin}/jobs/${id}` form — the origin prefix is exactly
+    // what an internal relative link like Edit's never has, which is what
+    // actually distinguishes them.
     const { data: unverifiedJob } = await admin
       .from("job_postings")
       .select("id")
@@ -159,8 +165,9 @@ test.describe("employer share link", () => {
       ).data!.id)
       .eq("title", "E2E Unreachable Role")
       .single();
+    const origin = new URL(authedPage.url()).origin;
     const bodyHtml = await authedPage.content();
-    expect(bodyHtml).not.toContain(`/jobs/${unverifiedJob!.id}`);
+    expect(bodyHtml).not.toContain(`${origin}/jobs/${unverifiedJob!.id}`);
 
     // ---- The row itself: "Unlock sharing", not a Share button --------------
     await authedPage.goto("/employer/jobs");
