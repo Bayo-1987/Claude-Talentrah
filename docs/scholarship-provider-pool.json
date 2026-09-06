@@ -1,0 +1,2226 @@
+{
+  "poolName": "Talentrah scholarship provider pool",
+  "generated": "2026-09-05",
+  "sourceOfTruth": "docs/scholarship-sources.md",
+  "companionFile": "Scholarship_Providers_by_Country.xlsx",
+  "howVerified": "Each entry was researched against the provider's own official page. Aggregator sites were used only to discover programme names, never as the source of a fact. Notes containing UNVERIFIED say so explicitly and name where the claim came from.",
+  "usage": "This is a POOL OF PROVIDERS to work through, not a list of listings. Nothing here may be inserted into public.scholarships without first reading the official page for an exact deadline and an eligibility statement covering Nigerian/African applicants, per the standing rules.",
+  "counts": {
+    "total": 219,
+    "byCountry": {
+      "United States": 13,
+      "United Kingdom": 19,
+      "Canada": 13,
+      "Australia": 12,
+      "Germany": 14,
+      "France": 9,
+      "Finland": 7,
+      "Norway": 8,
+      "Netherlands": 9,
+      "Portugal": 9,
+      "Spain": 8,
+      "Türkiye": 9,
+      "China": 14,
+      "South Korea": 10,
+      "Russia": 10,
+      "Saudi Arabia": 10,
+      "Brazil": 23,
+      "Global": 22
+    },
+    "humanReadOnly": 10,
+    "excludesNigeria": 21,
+    "unverified": 32
+  },
+  "providers": [
+    {
+      "country": "United States",
+      "type": "Context",
+      "name": "Federal aid (FAFSA / Pell) is closed to international students",
+      "officialUrl": "https://fsapartners.ed.gov/knowledge-center/fsa-handbook/2026-2027/vol1/ch2-us-citizenship-eligible-noncitizens",
+      "notes": "STRUCTURAL EXCLUSION, verified from the official 2026-2027 Federal Student Aid Handbook. Eligible noncitizens are limited to permanent residents, conditional entrants, refugees and asylees; the Handbook states F-1, F-2, M-1 and J-1/J-2 visas 'do not convey eligibility for Title IV funds'. A Nigerian student on an ordinary F-1 visa cannot access Pell Grants, federal work-study or federal loans at all. Consequence: in the US, 'scholarship' for an African applicant almost always means university, private or foreign-government money — never federal aid.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "United States",
+      "type": "Context",
+      "name": "State grant aid is citizenship-gated too (example: California Cal Grant)",
+      "officialUrl": "https://www.csac.ca.gov/cal-grant/faq",
+      "notes": "Verified from the California Student Aid Commission's own FAQ: applicants must be 'a U.S. citizen, permanent resident, eligible non-citizen, or meet the non-resident tuition exemption commonly known as AB 540' — which covers certain long-term California high-school attendees, not F-1 international students. Confirms the general pattern: state grant programmes are not a route for African applicants unless individually verified otherwise.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "United States",
+      "type": "Government",
+      "name": "Fulbright Foreign Student Program",
+      "officialUrl": "https://foreign.fulbrightonline.org/",
+      "notes": "The main US government route for inbound international students. Decentralised: applicants apply through the Fulbright Commission or US Embassy in their own country, with per-country deadlines — there is no single global portal. Funds tuition, living stipend, health insurance and round-trip travel. ACCESS WARNING: the Nigeria page (ng.usembassy.gov) returned HTTP 403 to an honest automated fetch on 2026-09-05 — human-read only. Do not quote a Nigeria deadline without a person opening that page.",
+      "humanReadOnly": true,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "United States",
+      "type": "Government",
+      "name": "Hubert H. Humphrey Fellowship Program",
+      "officialUrl": "https://www.humphreyfellowship.org/how-to-apply/eligibility/",
+      "notes": "Verified: requires citizenship of an eligible country, 5+ years professional experience, a bachelor's degree, English proficiency and 'limited experience in the United States'. NOT a degree programme — a 10-month non-degree professional development fellowship. The programme maintains a Sub-Saharan Africa alumni section, but Nigeria's presence on the current eligible-country list is PARTIALLY VERIFIED only; confirm via the US Embassy Abuja page before advising anyone.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "United States",
+      "type": "Government",
+      "name": "Mandela Washington Fellowship (YALI)",
+      "officialUrl": "https://yali.state.gov/mwf/",
+      "notes": "UNVERIFIED — not fetched directly in this pass. Flagged from prior knowledge as the flagship US-government Africa-specific exchange: young African leaders aged 25-35, six-week non-degree leadership institute at a US university plus a Washington summit. NOT a route to a US degree — do not present it as one. Verify eligibility, country list and deadline at the official site before use.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": true
+    },
+    {
+      "country": "United States",
+      "type": "University",
+      "name": "Massachusetts Institute of Technology (MIT)",
+      "officialUrl": "https://sfs.mit.edu/undergraduate-students/the-cost-of-attendance/making-mit-affordable/",
+      "notes": "Verified quote: 'We are proud to be one of the very few institutions in the United States that are need blind and full need for all of our undergraduate students, domestic and international.' Aid is structured so students 'shouldn't need to take out any loans'; 88% graduate debt-free. The clearest need-blind-for-international policy found anywhere in the US. Undergraduate only.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "United States",
+      "type": "University",
+      "name": "Princeton University",
+      "officialUrl": "https://admission.princeton.edu/apply/international-students",
+      "notes": "Verified quote: 'Princeton admission is need-blind... The full need of all admitted international students is met the same as it is for students from the United States' and 'Princeton has the same financial aid policy for all students regardless of citizenship.' Unambiguous need-blind + full-need for international undergraduates.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "United States",
+      "type": "University",
+      "name": "Harvard College",
+      "officialUrl": "https://college.harvard.edu/student-life/student-stories/applying-financial-aid-international-student",
+      "notes": "Verified quote from Harvard's own page: 'Students will not be disadvantaged in the undergraduate admissions process due to their financial need' and 'Harvard promises to meet 100% demonstrated need for all admitted students, including foreign students.' Need-blind and full-need for international undergraduates.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "United States",
+      "type": "University",
+      "name": "Yale University",
+      "officialUrl": "https://admissions.yale.edu/are-international-students-eligible-financial-aid-if-so-how-do-i-apply",
+      "notes": "Verified: Yale states admission is need-blind for international students and that aid uses 'a needs analysis that takes into account the relative differences between the US economy and the economy of students' home countries'. The explicit '100% of need for every admitted international student' guarantee was NOT directly quotable from the fetched page — treat that specific claim as UNVERIFIED pending a read of Yale's full policy page.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": true
+    },
+    {
+      "country": "United States",
+      "type": "University",
+      "name": "Amherst College",
+      "officialUrl": "https://www.amherst.edu/offices/financialaid/international_students",
+      "notes": "Verified: need-blind admission and a commitment to 'meet 100% of your calculated financial need' with no student loans in aid packages. The international-specific need-blind clause was not captured verbatim in the fetched excerpt — Amherst is widely documented as need-blind for internationals, but confirm on the dedicated international page before treating it as airtight.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "United States",
+      "type": "University",
+      "name": "Berea College",
+      "officialUrl": "https://www.berea.edu/admissions/admission-information/apply/checklist-items/international-faqs",
+      "notes": "Structurally unusual and worth knowing: verified quote — 'All admitted international students receive financial aid and scholarships that cover 100% of tuition, housing, food, and fees', plus a mandatory campus Work Program (10-40 hrs/week) earning $2,000+/year for personal expenses. A no-tuition work-college model rather than a competitive named scholarship. International deadline is 30 November, with no extensions granted.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "United States",
+      "type": "Private / Foundation",
+      "name": "AAUW International Fellowships",
+      "officialUrl": "https://www.aauw.org/resources/programs/fellowships-grants/aauw-international-fellowships/",
+      "notes": "Verified: for WOMEN who are non-US citizens and not permanent residents, holding a degree equivalent to a US bachelor's, min. 3.5/4.0 GPA, for master's or doctoral study in the US. $20,000 (master's) or $25,000 (doctorate). 2026 deadline verified as 17 September 2026, 5:00pm ET. Open to Nigerian and other African women; gender-restricted by design.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "United States",
+      "type": "Private / Foundation",
+      "name": "Rotary Peace Fellowships (US-hosted centres)",
+      "officialUrl": "https://www.rotary.org/en/our-programs/peace-fellowships",
+      "notes": "Verified: funds full tuition and fees, room and board, round-trip transport and internship/field-study costs; up to 170 fellowships/year across the global Rotary Peace Center network, including Duke/UNC in the US. No nationality restriction stated. TIMING TRAP: the 2027-28 cycle is already closed and the next cycle (2028-29) opens February 2027 — anyone reading this in late 2026 faces a real application gap.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "United Kingdom",
+      "type": "Context",
+      "name": "Nigerian applicants always pay 'international' fee status, and UKRI caps international PhD places",
+      "officialUrl": "https://www.ukri.org/apply-for-funding/ukri-funded-studentships/",
+      "notes": "STRUCTURAL CONTEXT. Nigerian students are always classified international (non-home) fee status in the UK, paying substantially more than UK/Irish students regardless of funding source. Since 2021-22 UKRI studentships are open to international students with a full award, BUT UKRI 'will normally limit the proportion of international students appointed each year through individual doctoral training programmes to 30% of the total'. So the 2021 opening is real but rationed — all non-UK nationalities compete for a minority of funded PhD places.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "United Kingdom",
+      "type": "Government",
+      "name": "Chevening Scholarships",
+      "officialUrl": "https://www.chevening.org/scholarships/nigeria/",
+      "notes": "VERIFIED: Nigeria is Chevening-eligible. Requires 2+ years' work experience, an undergraduate degree completed 2+ years before the deadline, offers from three different eligible UK master's courses (one unconditional by the deadline), and a commitment to return home for two years. 2027-2028 deadline: 6 October 2026, 11:00 UTC. Already live in Talentrah's catalog.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "United Kingdom",
+      "type": "Government",
+      "name": "Commonwealth Master's Scholarships (CSC)",
+      "officialUrl": "https://cscuk.fcdo.gov.uk/scholarships/commonwealth-masters-scholarships/",
+      "notes": "VERIFIED: Nigeria explicitly named among 42 eligible low/middle-income Commonwealth countries. Requires a 2:1 honours degree and demonstrated financial need; applications go through national nominating agencies, not direct. Covers full tuition, return airfare, monthly stipend of GBP 1,712 (GBP 2,000 in London), study travel grant and child allowance. 2027/28 cycle opens 8 September, closes 20 October 2026 at 16:00 BST. Already live in Talentrah's catalog.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "United Kingdom",
+      "type": "Government",
+      "name": "Commonwealth Shared Scholarships (CSC)",
+      "officialUrl": "https://cscuk.fcdo.gov.uk/scholarships/commonwealth-shared-scholarships-applications/",
+      "notes": "VERIFIED: Nigeria on the official list of 43 eligible countries. Tuition cost-shared between the CSC and the UK university; stipend GBP 1,452/month (GBP 1,781 London), plus airfare and thesis/travel grants. Distinct from the Master's scholarship above and less well known — a genuinely separate route. The 2026/27 cycle had closed as of September 2026; annual.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "United Kingdom",
+      "type": "Government",
+      "name": "Commonwealth Split-site PhD Scholarships (CSC)",
+      "officialUrl": "https://cscuk.fcdo.gov.uk/scholarships/commonwealth-split-site-scholarships-for-low-and-middle-income-countries/",
+      "notes": "For PhD candidates from low/middle-income Commonwealth countries to spend up to 12 months in the UK as part of a home-country doctorate — useful for someone who does not want to emigrate. Nigeria's inclusion was NOT named explicitly on this page (unlike the Master's and Shared pages), so treat Nigeria eligibility here as UNVERIFIED-by-name despite its Commonwealth status making it likely.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": true
+    },
+    {
+      "country": "United Kingdom",
+      "type": "Government",
+      "name": "GREAT Scholarships (British Council)",
+      "officialUrl": "https://study-uk.britishcouncil.org/scholarships/great-scholarships/nigeria",
+      "notes": "VERIFIED: Nigeria is one of 18 eligible countries. GBP 10,000 toward tuition for a one-year taught postgraduate course; 140+ scholarships across 60+ UK universities for 2026-27, with 14 institutions listing Nigeria-specific awards (including UCL, Imperial, Warwick, Bath, Southampton). Deadlines are set per institution, not centrally — official text says they vary 'according to each institution'.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "United Kingdom",
+      "type": "Private / Foundation",
+      "name": "Gates Cambridge Scholarship",
+      "officialUrl": "https://www.gatescambridge.org/apply/eligibility/",
+      "notes": "VERIFIED: open to 'a citizen of any country outside the United Kingdom' — Nigeria included, no regional restriction. Funds PhD, MLitt and selected one-year postgraduate courses at Cambridge. Specific funding figures were not confirmable on the pages fetched (the funding URL 404'd) — treat exact amounts as UNVERIFIED. Already live in Talentrah's catalog.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": true
+    },
+    {
+      "country": "United Kingdom",
+      "type": "Private / Foundation",
+      "name": "Rhodes Scholarship — West Africa constituency",
+      "officialUrl": "https://www.rhodeshouse.ox.ac.uk/scholarships/constituency-information/",
+      "notes": "IMPORTANT SCARCITY FINDING, verified. Nigeria has NO standalone Rhodes constituency — it is pooled into 'West Africa' alongside Benin, Ghana, Cote d'Ivoire, Senegal, Sierra Leone, Togo and others, sharing just THREE scholarships per year across all those countries combined. Fully funded (Oxford fees, GBP 20,400/yr stipend for 2025-26, visa and flight costs, settling-in allowance), but the odds are far worse than the Rhodes brand suggests. Note rhodeshouse.ox.ac.uk IS fetchable even though ox.ac.uk itself 403s.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "United Kingdom",
+      "type": "Private / Foundation",
+      "name": "Cambridge Africa Changemakers Scholarship (Cambridge Trust)",
+      "officialUrl": "https://www.cambridgetrust.org/scholarship/cambridge-africa-changemakers-scholarship/",
+      "notes": "AFRICA-SPECIFIC, VERIFIED. 'Open to applicants from any country in Africa' for PhD study at Cambridge, provided the research will 'contribute to the development of the African continent and to climate-resilient and sustainable futures'. Covers international PhD tuition, living stipend, visa costs, the Immigration Health Surcharge, and travel/research expenses. Excludes the Doctor of Business and premium-rate courses. Deadlines are course-specific.",
+      "humanReadOnly": false,
+      "excludesNigeria": true,
+      "unverified": false
+    },
+    {
+      "country": "United Kingdom",
+      "type": "University",
+      "name": "University of Manchester — Bicentenary Scholarships for Africa",
+      "officialUrl": "https://www.manchester.ac.uk/study/international/country-specific-information/south-africa/scholarships/",
+      "notes": "AFRICA-SPECIFIC, VERIFIED, and Nigeria is named. Despite the 'south-africa' URL slug, the page covers seven countries by name: 'Botswana, Egypt, Ghana, Kenya, Nigeria, South Africa and Zimbabwe'. 100+ undergraduate awards worth GBP 21,000 and 100+ master's awards worth GBP 15,000 (tuition discount). Requires an admission offer first.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "United Kingdom",
+      "type": "University",
+      "name": "University of Glasgow — African Excellence Award",
+      "officialUrl": "https://www.gla.ac.uk/scholarships/universityofglasgowafricanexcellenceaward",
+      "notes": "AFRICA-SPECIFIC, VERIFIED. Open to all 54 African countries with Nigeria explicitly named; requires international fee status, UK first-class-equivalent grades, and an offer for a one-year taught master's. Up to 16 full-tuition waivers for 2026/27. The 31 March 2026 deadline has passed and the page states applications are closed — recurs annually, so re-check timing.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "United Kingdom",
+      "type": "University",
+      "name": "University of Warwick — Chancellor's International Scholarship",
+      "officialUrl": "https://warwick.ac.uk/fac/sci/med/study/researchdegrees/fundingopportunities/chancellors",
+      "notes": "VERIFIED, general international with no nationality restriction found. For outstanding international PhD applicants: full tuition, UKRI-rate stipend for 3.5 years, plus a GBP 5,000 Research Training and Support Grant. Confirm current-year dates — the cycle seen closed 11 December.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "United Kingdom",
+      "type": "University",
+      "name": "University of Leeds — International Excellence Scholarships",
+      "officialUrl": "https://www.leeds.ac.uk/masters-funding",
+      "notes": "MIXED FINDING. The International Excellence Scholarships (500 awards at GBP 3,000/6,000/16,000) are open to international students generally. But note the NAME TRAP on the same page: 'The Leeds Masters Scholarship' (GBP 7,000) is explicitly for 'UK students from under-represented groups' — domestic only, despite the near-identical name. Separately, the once-popular Developing Solutions Masters Scholarship (Africa/developing-country targeted) did NOT appear on the current funding page and should be treated as likely discontinued pending confirmation.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "United Kingdom",
+      "type": "University",
+      "name": "University of Aberdeen — Halliburton Scholarships for African Students",
+      "officialUrl": "https://www.abdn.ac.uk/news/4445/",
+      "notes": "AFRICA-SPECIFIC but RECENCY UNVERIFIED. Fully funded (fees, accommodation, travel, living costs) for roughly 12 sub-Saharan African students/year in one-year engineering/geoscience master's programmes, tied to a Halliburton partnership requiring return to home-country energy jobs. The source content describes 2010-2013 activity with no current-year confirmation — verify with Aberdeen admissions whether this still runs before advising anyone.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": true
+    },
+    {
+      "country": "United Kingdom",
+      "type": "Government",
+      "name": "Scotland's Saltire Scholarships — EXCLUDED, Africa not eligible",
+      "officialUrl": "https://hca.ed.ac.uk/prospective-postgraduates/fees-funding/funding/masters/scotlands-saltire-scholarships",
+      "notes": "EXCLUSION, VERIFIED via University of Edinburgh's official page (the central saltirescholarships.com domain would not resolve). Eligible nationalities are listed as 'Canada, China, India, Pakistan, and the USA'. Nigeria and all African countries are NOT included, despite this scheme appearing constantly in generic 'UK scholarships' round-ups. Recorded so it does not get added later.",
+      "humanReadOnly": false,
+      "excludesNigeria": true,
+      "unverified": false
+    },
+    {
+      "country": "United Kingdom",
+      "type": "Government",
+      "name": "Global Wales Postgraduate Scholarship — EXCLUDED, Africa not eligible",
+      "officialUrl": "https://www.studyinwales.ac.uk/global-wales-postgraduate-scholarship",
+      "notes": "EXCLUSION. Eligible nationalities listed as 'Vietnam, India, the USA and countries of the European Union' — Nigeria and Africa not eligible. GBP 10,000 per award. Note the fetched page carried stale cycle information (referencing a 2021 reopening); the durable fact here is the nationality exclusion, not the date.",
+      "humanReadOnly": false,
+      "excludesNigeria": true,
+      "unverified": false
+    },
+    {
+      "country": "United Kingdom",
+      "type": "Private / Foundation",
+      "name": "Wolfson Foundation — does NOT accept individual applications",
+      "officialUrl": "https://www.wolfson.org.uk/funding/",
+      "notes": "EXCLUSION OF A DIFFERENT KIND, verified. Often listed alongside Wellcome and Leverhulme as a 'UK trust to apply to', but the Foundation states: 'We do not accept unsolicited applications under these programmes, and generally work with partner organisations who identify individuals for support.' 85% of grants are capital funding to UK institutions. Not a viable direct-application route for a student.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "United Kingdom",
+      "type": "University",
+      "name": "University of Oxford — ACCESS BLOCKED",
+      "officialUrl": "https://www.ox.ac.uk/",
+      "notes": "HUMAN-READ ONLY. ox.ac.uk returns HTTP 403 to honest automated fetchers (long-standing finding, carried forward, not re-tested). Oxford hosts funding relevant to Nigerian applicants — Clarendon Fund and Reach Oxford among them — but none of it could be verified from an official page. Note the Rhodes House subdomain IS reachable and is covered separately above.",
+      "humanReadOnly": true,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "United Kingdom",
+      "type": "University",
+      "name": "University of Westminster — ACCESS BLOCKED",
+      "officialUrl": "https://www.westminster.ac.uk/",
+      "notes": "HUMAN-READ ONLY. westminster.ac.uk returns HTTP 403 to honest automated fetchers (carried forward, not re-tested). Frequently cited by aggregators as offering Africa-relevant and Chevening-partner scholarships, none of which could be verified from source.",
+      "humanReadOnly": true,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Canada",
+      "type": "Context",
+      "name": "Tri-council funding splits by degree level — master's excludes internationals, doctoral does not",
+      "officialUrl": "https://www.mcgill.ca/gps/tri-masters",
+      "notes": "CRITICAL STRUCTURAL FINDING. Canada's federal graduate scholarships are NOT uniform. The master's-level tri-agency award (NSERC/SSHRC/CIHR) requires applicants to 'be a Canadian citizen, a permanent resident of Canada or a Protected Person' — international students are excluded. The doctoral-level award (see CGRS-D below) explicitly includes them. An applicant who assumes 'tri-council is tri-council' will wrongly rule themselves in or out.",
+      "humanReadOnly": false,
+      "excludesNigeria": true,
+      "unverified": false
+    },
+    {
+      "country": "Canada",
+      "type": "Context",
+      "name": "Queen Elizabeth Scholars — scattered per-university, one West Africa stream now ended",
+      "officialUrl": "https://queenelizabethscholars.ca/",
+      "notes": "STRUCTURAL NOTE. QES is not one programme but 55+ university-run streams across 80+ countries, each with its own eligibility and deadline; there is no central application. One stream checked — Western University's QES Advanced Scholars West Africa Program covering Benin, Liberia, Senegal, Nigeria and Ghana — was Nigeria-inclusive but has ENDED ('This program ended in December, 2025'). Treat QES as a layer to check institution by institution, not a single opportunity.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Canada",
+      "type": "Private / Foundation",
+      "name": "Mastercard Foundation Scholars Program",
+      "officialUrl": "https://mastercardfdn.org/en/what-we-do/our-programs/mastercard-foundation-scholars-program/",
+      "notes": "THE MAJOR AFRICA-SPECIFIC PROGRAMME IN THIS COUNTRY. Toronto-headquartered, with offices in Kigali, Accra, Nairobi, Kampala, Lagos, Dakar and Addis Ababa. Explicitly restricted to citizens of Sub-Saharan Africa; funds tuition, housing and food stipend, health insurance, learning materials and travel — genuinely full. 58,000+ scholars supported, targeting 100,000 by 2030. CRITICAL MECHANIC: each partner university sets its own deadline and field list independently; there is no single global deadline. Already live in Talentrah's catalog.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Canada",
+      "type": "University",
+      "name": "University of Toronto — Mastercard Foundation Scholars Program",
+      "officialUrl": "https://internationalexperience.utoronto.ca/global-experiences/global-scholarships/mastercard-foundation-scholars",
+      "notes": "VERIFIED: Sub-Saharan African citizens only, restricted to specific graduate health-related programmes (Biomedical Engineering, Financial Insurance, Health Administration, Health Informatics, Public Health streams). Fully funded including travel and visa costs. The 2026-27 cycle closed 3 November 2025 — do not quote that as upcoming.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Canada",
+      "type": "University",
+      "name": "University of British Columbia — Mastercard Foundation Scholars Program",
+      "officialUrl": "https://mastercardfdn.scholars.ubc.ca/",
+      "notes": "VERIFIED: explicitly for African students, with the stated aim of bringing '351 academically talented young people from Africa' to UBC for graduate study, fully funded. No deadline posted on the page; UBC directs enquiries to scholars.admissions@ubc.ca.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Canada",
+      "type": "University",
+      "name": "McGill University — Mastercard Foundation Scholars Program",
+      "officialUrl": "https://www.mcgill.ca/mastercardfdn-scholars/",
+      "notes": "VERIFIED: for master's-level 'leaders and changemakers... from across Sub-Saharan Africa', focused on nutrition, public health, policy and sustainable agriculture. Host since 2013 (132 scholars from 20+ countries through 2024) with a renewed commitment through 2034. Funding breakdown and current deadline not on the page — confirm directly.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Canada",
+      "type": "University",
+      "name": "University of Toronto — Lester B. Pearson International Scholarship",
+      "officialUrl": "https://future.utoronto.ca/pearson-scholarships",
+      "notes": "VERIFIED, open to any non-Canadian international student (not Africa-specific), first-year undergraduate only. Covers full tuition, books, incidental fees and residence for four years; roughly 37 scholars/year. Confirmed dates: school nomination 9 October 2026, U of T admission application 16 October 2026, scholarship application 6 November 2026, for September 2027 entry. Already live in Talentrah's catalog.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Canada",
+      "type": "University",
+      "name": "University of British Columbia — International Major Entrance Scholarship",
+      "officialUrl": "https://you.ubc.ca/financial-planning/scholarships-awards-international-students/",
+      "notes": "VERIFIED: two renewable entrance awards (IMES and Outstanding International Student Award) worth CAD 10,000-25,000/year for up to four years, for new international undergraduates entering directly from secondary school. Automatically considered at admission — no separate application. A third track, the need-and-merit International Scholars Program, requires nomination.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Canada",
+      "type": "Government",
+      "name": "Canada Graduate Research Scholarship-Doctoral (CGRS-D) — Vanier's successor",
+      "officialUrl": "https://www.sgs.utoronto.ca/awards/canada-graduate-research-scholarship-doctoral-cgrs-d-program/",
+      "notes": "VERIFIED and important: eligible applicants include 'an international student registered in a doctoral program of study at an eligible Canadian institution'. International and African PhD students ARE eligible at doctoral level. Up to CAD 50,000/year at the Vanier-legacy tier. Administered per-university, so check each institution's internal nomination deadline — there is no single national date.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Canada",
+      "type": "Government",
+      "name": "Fonds de recherche du Quebec — PBEEE Merit Scholarship for Foreign Students",
+      "officialUrl": "https://frq.gouv.qc.ca/en/program/merit-scholarship-program-for-foreign-students-pbeee-2026-2027/",
+      "notes": "A genuinely African-accessible PROVINCIAL layer that most lists miss. VERIFIED: restricted to foreign nationals who are 'not Canadian citizens or permanent residents' — the opposite gate from the federal master's award. Applicant must first be preselected by a Quebec university. Up to CAD 40,000 (master's), CAD 87,000 (doctoral), CAD 35,000/year (postdoc), plus tuition exemption and medical insurance. 2026-2027 deadline: 2 December 2025, 16:00 EST.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Canada",
+      "type": "Government",
+      "name": "Alberta Graduate Excellence Scholarship (AGES)",
+      "officialUrl": "https://studentaid.alberta.ca/scholarships/alberta-graduate-excellence-scholarship/",
+      "notes": "VERIFIED: explicitly 'established to incent the best and the brightest students, including international students, to study in Alberta', for master's or doctoral study. CAD 11,000-15,000. No central deadline — allocated per institution, so contact the Alberta university's student awards office.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Canada",
+      "type": "Government",
+      "name": "Ontario Graduate Scholarship (OGS)",
+      "officialUrl": "https://www.sgs.utoronto.ca/awards/ontario-graduate-scholarship/",
+      "notes": "UNVERIFIED in this pass. OGS is Ontario's main provincial graduate scholarship (roughly CAD 15,000/year) and is understood to include an international-eligible stream at several Ontario universities, but the citizenship clause was not quoted from an official page. Confirm at the specific host university before relying on it.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": true
+    },
+    {
+      "country": "Canada",
+      "type": "Private / Foundation",
+      "name": "Pierre Elliott Trudeau Foundation Doctoral Scholarship",
+      "officialUrl": "https://www.trudeaufoundation.ca/become-a-scholar/",
+      "notes": "VERIFIED: 'an international student enrolled at a Canadian university' is eligible; the programme explicitly excludes 'international students residing outside Canada or enrolled at a university outside Canada'. So a Nigerian qualifies only once already admitted to a Canadian PhD — it cannot fund the move itself. Up to CAD 50,000/year for three years plus CAD 20,000/year research and travel. Already live in Talentrah's catalog.",
+      "humanReadOnly": false,
+      "excludesNigeria": true,
+      "unverified": false
+    },
+    {
+      "country": "Australia",
+      "type": "Context",
+      "name": "No hidden state-level funding layer in Australia",
+      "officialUrl": "https://www.study.nsw.gov.au/future-student/scholarships",
+      "notes": "STRUCTURAL FINDING, and a deliberate contrast with Brazil. Australian states do NOT run independent scholarship-granting foundations analogous to Brazil's 26+ state research foundations. The official NSW, Victoria and Queensland study portals were each checked directly and all simply redirect applicants to the federal Australia Awards programme or to individual university scholarships. There is no CONFAP equivalent — read the state rows as pointers, not as a funding layer.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Australia",
+      "type": "Context",
+      "name": "Government awards are full rides; university awards mostly are not",
+      "officialUrl": "https://australiaawardsafrica.org/",
+      "notes": "EXPECTATION-SETTER. Australia Awards is the only Australia-linked route confirmed as a genuine full ride (tuition, travel, living, health cover). Every university award verified above — Melbourne, Monash, RMIT — is a partial tuition remission (20-25%) or a fixed AUD 15,000/year top-up, not full cost-of-living coverage. Student visa work rights (up to 48 hours/fortnight on most subclass 500 visas) partially close the gap, which is worth telling affordability-sensitive applicants explicitly.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Australia",
+      "type": "Government",
+      "name": "Australia Awards Africa — NIGERIA IS ELIGIBLE",
+      "officialUrl": "https://australiaawardsafrica.org/",
+      "notes": "RESOLVES TALENTRAH'S OPEN QUESTION: Nigeria IS a participating country. The official 2027-intake profile document states applicants must be 'a citizen of Algeria, Angola, Botswana, Cote d'Ivoire, Democratic Republic of the Congo, Egypt, Ethiopia, Ghana, Guinea, Kenya, Madagascar, Malawi, Mauritius, Morocco, Mozambique, Namibia, Nigeria, Rwanda, Sierra Leone, South Africa, Tanzania, The Gambia, Uganda, Zambia or Zimbabwe'. 2027 intake: opens 1 February 2026, closes 30 April 2026, 11:59pm AEST. Funds full tuition, return airfare, living allowance, health cover and establishment allowance. Priority sectors include agriculture/food security, climate change, foreign policy/security, gender and social inclusion, mining and energy.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Australia",
+      "type": "Government",
+      "name": "Australia Awards — DFAT participating countries list",
+      "officialUrl": "https://www.dfat.gov.au/people-to-people/australia-awards/participating-countries",
+      "notes": "THE VERIFICATION SOURCE for the row above, and it fetched cleanly this time (no robots.txt timeout). DFAT's official page lists Nigeria among 23-24 African nations. Talentrah's watch list had recorded Nigeria's participation as unconfirmed since 2026-09-01 — this settles it definitively and the watch-list note should be updated.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Australia",
+      "type": "Government",
+      "name": "Australia Awards — country conditions can change annually",
+      "officialUrl": "https://www.dfat.gov.au/geo/africa-middle-east/development-assistance-in-sub-saharan-africa/australia-awards-africa",
+      "notes": "IMPORTANT CAVEAT found on the official DFAT page: applicants must meet requirements in the Australia Awards Scholarships Policy Handbook, country-specific conditions apply, and 'eligible countries and priority sectors may change from year to year'. Nigeria's inclusion should be re-verified against the live intake document each cycle rather than assumed to persist.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Australia",
+      "type": "Government",
+      "name": "Research Training Program (RTP) — international students ARE eligible",
+      "officialUrl": "https://www.education.gov.au/research-block-grants/research-training-program",
+      "notes": "VERIFIED, resolving another open question. Official text: the RTP 'provides block grants to higher education providers to support both domestic and overseas students undertaking research doctorate and research masters degrees'. Funds tuition offset, living stipend and ancillary HDR costs; 3-4 years for a PhD, 2 for a research master's. No country exclusions found — subject to each university's own selection.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Australia",
+      "type": "Government",
+      "name": "Destination Australia Scholarship",
+      "officialUrl": "https://www.education.gov.au/international-education/financial-assistance-international-students",
+      "notes": "VERIFIED via a university implementation: federally funded, AUD 15,000/year, for international AND domestic students at REGIONAL campuses rather than major cities. No nationality restriction found. Administered per university, not through a central portal — a genuinely useful option for applicants willing to study outside Sydney and Melbourne.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Australia",
+      "type": "University",
+      "name": "University of Melbourne — International Undergraduate Scholarship",
+      "officialUrl": "https://scholarships.unimelb.edu.au/awards/melbourne-international-undergraduate-scholarship",
+      "notes": "VERIFIED, and unusually structured: eligibility is INCOME-BASED, not nationality-based — 'Be a citizen of a country with a Gross Domestic Product per capita of US$10,000 or less based on data published by the World Bank'. Nigeria comfortably qualifies. Automatic consideration with no separate application. 20% fee remission for the course duration (25% for awards made before 2027).",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Australia",
+      "type": "University",
+      "name": "Monash University — International Merit Scholarship",
+      "officialUrl": "https://www.monash.edu/study/fees-scholarships/scholarships/find-a-scholarship/international-merit-5770",
+      "notes": "VERIFIED: 'International students from all countries who have received an undergraduate course offer from Monash will automatically be considered' — explicitly no country restriction. AUD 15,000/year, up to AUD 75,000 total, automatic with no separate application.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Australia",
+      "type": "University",
+      "name": "RMIT University — Academic Merit Scholarship for Africa",
+      "officialUrl": "https://www.rmit.edu.au/study-with-us/international-students/apply-to-rmit-international-students/fees-and-scholarships/scholarships/rmit-funded-scholarships.html",
+      "notes": "AFRICA-SPECIFIC, existence verified on RMIT's official page: 'This scholarship supports outstanding students from African countries to pursue their academic goals at RMIT University in Melbourne, Australia.' The funding amount and deadline are NOT published on this page — UNVERIFIED; check RMIT's live scholarship finder at application time.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": true
+    },
+    {
+      "country": "Australia",
+      "type": "University",
+      "name": "University of Adelaide — research scholarships",
+      "officialUrl": "https://adelaide.edu.au/study/scholarships/",
+      "notes": "PARTIALLY VERIFIED: the official page confirms a broad research-scholarship programme for higher-degree-by-research students including international applicants, but the specific funding levels redirected to a general hub — amounts UNVERIFIED. Use as a lead for direct verification at application time.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": true
+    },
+    {
+      "country": "Australia",
+      "type": "University",
+      "name": "Australian National University (ANU)",
+      "officialUrl": "https://study.anu.edu.au/scholarships",
+      "notes": "UNVERIFIED for international eligibility. The official page lists the Tuckwell Scholarship, regional/rural awards and hardship/access scholarships, but the fetched content did not establish whether these extend to international applicants. Flagged rather than asserted — confirm with ANU admissions.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": true
+    },
+    {
+      "country": "Germany",
+      "type": "Context",
+      "name": "Baden-Wurttemberg charges non-EU fees — the exception to Germany's free-tuition norm",
+      "officialUrl": "https://www.uni-heidelberg.de/en/study/management-of-studies/semester-fees/tuition-fees-for-international-students",
+      "notes": "VERIFIED via Heidelberg. Since winter 2017/18, non-EU/EEA students with a foreign entrance qualification pay EUR 1,500/semester at ALL public universities in Baden-Wurttemberg — the one German state that broke from the national tuition-free norm. Affects Heidelberg, Stuttgart, Freiburg, Karlsruhe, Tubingen and others. Exemptions exist (EU/EEA nationals, German-qualified students, pre-2017 enrollees, some asylum cases, plus a discretionary 5%-per-institution waiver). Budget for this fee when applying to that state.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Germany",
+      "type": "Context",
+      "name": "German universities rarely fund new arrivals directly",
+      "officialUrl": "https://www.uni-goettingen.de/en/575849.html",
+      "notes": "EXPECTATION-SETTER, verified quote from Gottingen: 'German universities do not normally provide scholarships' to new applicants, and 'new undergraduate students are rarely considered for scholarships prior to starting'. University-level awards mostly reward students already enrolled. The money for an incoming Nigerian applicant is at DAAD and the political/religious foundations below, not at the university's own office.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Germany",
+      "type": "Context",
+      "name": "DFG funds professors, not students — target the job ad, not a scholarship form",
+      "officialUrl": "https://www.dfg.de/en/research-funding/funding-opportunities/funding",
+      "notes": "VERIFIED structural point. The German Research Foundation does not run a scholarship international students apply to; it funds German-based principal investigators, who then employ international PhD students and postdocs as paid research staff. Practical implication: a Nigerian PhD applicant should be hunting DFG-funded positions advertised by professors, not looking for a DFG application form.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Germany",
+      "type": "Government",
+      "name": "DAAD EPOS — Development-Related Postgraduate Courses",
+      "officialUrl": "https://www.daad.de/en/information-services-for-higher-education-institutions/further-information-on-daad-programmes/epos/",
+      "notes": "VERIFIED: master's and PhD scholarships at German universities restricted to graduates from developing countries — Nigeria qualifies — in development-related fields. No single deadline: each participating course sets its own, so the DAAD course database is the real starting point. Already live in Talentrah's catalog.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Germany",
+      "type": "Government",
+      "name": "DAAD In-Country/In-Region Programme (Sub-Saharan Africa)",
+      "officialUrl": "https://www.daad.de/en/information-services-for-higher-education-institutions/further-information-on-daad-programmes/in-countryin-region-programme-in-developing-countries/",
+      "notes": "AFRICA-SPECIFIC and structurally different: funds master's and doctoral study for sub-Saharan African graduates at partner institutions IN-REGION — i.e. at African universities, not in Germany — to build local teaching and research capacity, with an explicit emphasis on women's participation. Covers tuition at the partner university. The page carried dated (2021) deadlines; current cycle dates must be re-checked. Valuable for applicants who want funding without leaving the continent.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Germany",
+      "type": "Government",
+      "name": "Deutschlandstipendium (federal BMBF programme)",
+      "officialUrl": "https://uni-freiburg.de/en/studies/during-your-studies/financing-your-studies/deutschlandstipendium/",
+      "notes": "VERIFIED quote: 'Students of all nationalities may apply... provided they are enrolled on a degree programme as regular students.' EUR 300/month for one year, merit-based, no nationality bar — but REQUIRES enrolment first, so it is not an entry route for someone still abroad. Administered locally by each university, so dates vary.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Germany",
+      "type": "Private / Foundation",
+      "name": "KAAD — Katholischer Akademischer Auslander-Dienst",
+      "officialUrl": "https://www.kaad.de/en/stipendien/stipendienprogramm-1",
+      "notes": "VERIFIED and genuinely open to Nigerians: applicants must 'come from and currently reside in a developing or emerging country in Africa, Asia, the Middle East or Latin America'. RELIGIOUS CRITERION, stated plainly on the official page: applicants should be 'Catholic (or generally belong to a Christian denomination)'; non-Christians may be proposed by Catholic partners showing willingness for interreligious dialogue. Funds master's, PhD and postdoc. Requires B1 German (A2 for English-taught programmes) and prior professional experience.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Germany",
+      "type": "Private / Foundation",
+      "name": "Heinrich-Boll-Stiftung Scholarships",
+      "officialUrl": "https://www.boell.de/en/scholarships",
+      "notes": "VERIFIED and explicitly favourable to Nigerians: the foundation 'prioritizes applicants from DAC countries who have not yet taken up residence in Germany' — Nigeria is on the OECD DAC list. Funds master's (applied for before starting in Germany) and PhD. Two annual windows: 15 January-1 March and 15 July-1 September. One of the few German foundations that explicitly prefers applicants still in their home country.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Germany",
+      "type": "Private / Foundation",
+      "name": "Konrad-Adenauer-Stiftung — International Scholarship Programme",
+      "officialUrl": "https://www.kas.de/en/web/begabtenfoerderung-und-kultur/international-talent-development",
+      "notes": "VERIFIED: supports roughly 300 international scholars from 50+ countries at bachelor's (from 2nd semester), master's and PhD level. Selection weighs demonstrated commitment to 'democracy and human rights' and community engagement — a values criterion, not a nationality bar. Domestic deadline 15 July, noon CET; applicants abroad apply through KAS country/regional offices (interviews held in e.g. Nairobi) with their own dates.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Germany",
+      "type": "Private / Foundation",
+      "name": "Studienstiftung des deutschen Volkes",
+      "officialUrl": "https://www.studienstiftung.de/en/doctoral-scholarships",
+      "notes": "UNVERIFIED for international eligibility — the official pages fetched did not state a nationality rule. Structurally this foundation runs on NOMINATION (by schools, professors or existing scholars) and its doctoral awards require an already-established doctoral project, which in practice makes it very hard to access from abroad. Treat as a nomination-gated long shot, not a direct-apply route.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": true
+    },
+    {
+      "country": "Germany",
+      "type": "Private / Foundation",
+      "name": "BAYHOST (Bavaria) — EXCLUDED, Eastern Europe only",
+      "officialUrl": "https://www2.daad.de/deutschland/stipendium/datenbank/en/21148-scholarship-database/?detail=10000128",
+      "notes": "EXCLUSION, VERIFIED via the DAAD database: eligibility requires 'citizenship of one of the participating countries: Bulgaria, Croatia, the Czech Republic, Hungary, Poland, Romania, Russia, Serbia, Slovakia and Ukraine.' A Bavarian state-funded programme that sounds like general international funding but is entirely closed to African applicants. Proof that Germany's rich Lander layer is NOT uniformly open the way DAAD's national programmes are.",
+      "humanReadOnly": false,
+      "excludesNigeria": true,
+      "unverified": false
+    },
+    {
+      "country": "Germany",
+      "type": "University",
+      "name": "TUM — Scholarship for International Students",
+      "officialUrl": "https://www.tum.de/en/studies/fees-and-financial-aid/scholarships/tum-scholarships/scholarship-for-international-students-of-tum",
+      "notes": "VERIFIED: EUR 500-1,800 per semester, need- and merit-based, for enrolled international students not eligible for BAfoG (which covers most non-EU students including Nigerians), from the bachelor's 3rd or master's 2nd semester. Requires enrolment at TUM first. Winter 2026/27 window: 1-15 October 2026.",
+      "humanReadOnly": false,
+      "excludesNigeria": true,
+      "unverified": false
+    },
+    {
+      "country": "Germany",
+      "type": "University",
+      "name": "Freie Universitat Berlin — STIBET I",
+      "officialUrl": "https://www.fu-berlin.de/en/sites/studienberatung/international/daad-stipendien.html",
+      "notes": "ELIGIBILITY NUANCE worth recording: EUR 250/month for ten students, but restricted to students ALREADY ENROLLED at FU Berlin who additionally fall into a vulnerability category (refugee background, caregiving duties, disability or chronic illness). Not usable by a prospective applicant still in Nigeria, despite appearing in scholarship listings as a DAAD-funded award.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Germany",
+      "type": "University",
+      "name": "RWTH Aachen — scholarships and funding hub",
+      "officialUrl": "https://www.rwth-aachen.de/cms/root/studium/im-studium/~ehg/stipendien-foerderung/?lidx=1",
+      "notes": "VERIFIED but note what it is: a referral directory rather than a standalone award. RWTH hosts liaison officers for the German political foundations and points students to the DAAD database and EURAXESS. Useful as an access point, not a distinct funding source.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "France",
+      "type": "Context",
+      "name": "'Bienvenue en France' fees — and why PhD applicants escape them",
+      "officialUrl": "https://www.campusfrance.org/en/faq/am-i-subject-to-the-differentiated-tuition-fees-introduced-in-public-institutions",
+      "notes": "VERIFIED and genuinely useful. Since the 2019 reform, non-EU students newly arriving for bachelor's or master's at public universities pay higher 'differentiated' fees. EXEMPT: EU/EEA/Swiss nationals, refugees, legal French residents, students enrolled before 2018/19, recipients of French government scholarships (Eiffel/BGF) or institutional waivers, AND — crucially — DOCTORAL students, who are exempt regardless of nationality. So a Nigerian PhD applicant pays the same low fee as an EU student, while a Nigerian master's applicant faces steep fees unless they win funding.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "France",
+      "type": "Government",
+      "name": "Bourse France Excellence Eiffel",
+      "officialUrl": "https://www.campusfrance.org/en/the-france-excellence-eiffel-scholarship-program",
+      "notes": "VERIFIED via Paris-Saclay and Sorbonne official mirrors (campusfrance.org itself returned a server error). Master's track EUR 1,200/month (born after 31 March 1996); PhD track EUR 2,100/month (born after 31 March 1990). Dual French nationals excluded; candidates already studying in France generally ineligible at master's level. THE CRITICAL MECHANIC: students CANNOT apply directly — only the French host institution can nominate. Deadlines seen: master's 9 November, PhD 30 November. On Talentrah's watch list.",
+      "humanReadOnly": false,
+      "excludesNigeria": true,
+      "unverified": false
+    },
+    {
+      "country": "France",
+      "type": "Government",
+      "name": "Bourses du Gouvernement Francais (BGF) via embassies",
+      "officialUrl": "https://www.campusfrance.org/en/bursaries-foreign-students",
+      "notes": "VERIFIED and widely missed: roughly 75% of French government scholarships are awarded directly by individual French embassies abroad — including Abuja — rather than centrally. Eligibility and amounts are set per embassy, so the right instruction for a Nigerian applicant is to contact Campus France Nigeria, not to look for a single national rule.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "France",
+      "type": "Private / Foundation",
+      "name": "AUF 'Eugene Ionesco' grants — EXCLUDED, Francophonie only",
+      "officialUrl": "https://www.auf.org/bourses-de-recherche-doctorale-et-postdoctorale-eugen-ionescu-2025-2026/",
+      "notes": "EXCLUSION, VERIFIED. Candidates must come from higher-education institutions 'situes dans les pays membres et observateurs de l'Organisation internationale de la Francophonie (OIF), ainsi qu'en Algerie'. Nigeria is neither an OIF member/observer nor Algeria, so Nigerian applicants are excluded outright from AUF's flagship grant — a textbook 'sounds pan-African, is actually Francophone-only' trap.",
+      "humanReadOnly": false,
+      "excludesNigeria": true,
+      "unverified": false
+    },
+    {
+      "country": "France",
+      "type": "Government",
+      "name": "Erasmus Mundus Joint Masters (EU-wide, French-hosted consortia)",
+      "officialUrl": "https://erasmus-plus.ec.europa.eu/opportunities/individuals/students/erasmus-mundus-joint-masters",
+      "notes": "VERIFIED: 'Students from all over the world are welcome' — no nationality exclusion. Funds travel, visa costs and a living allowance for joint master's run by consortia of three or more universities across three or more countries. Deadlines vary by consortium, typically October-January. Already live in Talentrah's catalog.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "France",
+      "type": "University",
+      "name": "Sciences Po — Emile Boutmy Scholarship",
+      "officialUrl": "https://www.sciencespo.fr/en/admissions-and-financial-aid/scholarships-financial-aid/",
+      "notes": "VERIFIED: merit-based, for first-time applicants from outside the European Economic Area — Nigeria qualifies. Roughly 300 recipients per year; about 35% of the student body receives some aid from an EUR 11.5M annual pool. Exact amount and deadline were not obtainable (the dedicated Boutmy page redirected) — confirm with admissions.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "France",
+      "type": "University",
+      "name": "Sorbonne Universite — Eiffel nomination route",
+      "officialUrl": "https://www.sorbonne-universite.fr/en/news/france-excellence-eiffel-scholarship-programme-2026/2027",
+      "notes": "VERIFIED, and note the hidden bar: Sorbonne only nominates candidates averaging 15/20 over their last three academic years — an institutional threshold stricter than Eiffel's own national criteria. A reminder that nomination-gated schemes have two sets of rules, and the university's is often the harder one.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "France",
+      "type": "University",
+      "name": "Universite Paris-Saclay — Eiffel and international funding",
+      "officialUrl": "https://www.universite-paris-saclay.fr/en/admission/bourses-et-aides-financieres/france-excellence-eiffel-scholarship",
+      "notes": "VERIFIED, used as the working mirror for Eiffel's eligibility rules (age limits, amounts, nomination-only route) since campusfrance.org returned a server error. A reliable access point for the national scheme.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "France",
+      "type": "Private / Foundation",
+      "name": "ANR — Programme Retour Post-Doctorants",
+      "officialUrl": "https://anr.fr/en/call-for-proposals-details/call/post-doctoral-return/",
+      "notes": "VERIFIED and narrow: targets 'young French researchers, or young foreign researchers supporting their thesis in France' — open to a Nigerian ONLY if they completed their PhD in France and want to return for a postdoc. Not an entry route. Illustrates that French national research funding, like Germany's DFG, reaches internationals via prior ties or employment on a PI's grant.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Finland",
+      "type": "Context",
+      "name": "Finland charges non-EU tuition, and scholarships are usually partial waivers",
+      "officialUrl": "https://www.aalto.fi/en/admission-services/scholarships-and-tuition-fees",
+      "notes": "STRUCTURAL CONTEXT, verified across Helsinki, Aalto and UEF. Finland has charged non-EU/EEA tuition on English-taught degrees since 2017 (contrast Norway, which only started in 2023). Scholarships here are typically PARTIAL tuition waivers — 50% is the most common tier — and rarely cover living costs, which run roughly EUR 800-1,100/month. Applicants must independently prove living funds for the residence permit, so a full waiver is not the same as an affordable move.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Finland",
+      "type": "Government",
+      "name": "EDUFI Fellowship",
+      "officialUrl": "https://www.oph.fi/en/edufi-fellowship-ukk",
+      "notes": "VERIFIED: funds non-Finnish post-master's researchers invited to Finland for up to 12 months (6 for visiting students), with no country restriction stated. THE CRITICAL MECHANIC: the candidate cannot apply — a Finnish university department or supervisor must submit on the researcher's behalf. So a Nigerian applicant needs a Finnish host professor first; the funding is downstream of that relationship.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Finland",
+      "type": "Government",
+      "name": "HEP Programme (formerly HEI ICI)",
+      "officialUrl": "https://www.oph.fi/en/programmes/hep-programme",
+      "notes": "AFRICA-FACING but institutional, VERIFIED. The 2024-2026 cycle names Rwanda, Tanzania, Mozambique, Kenya, Zambia and Namibia (plus Nepal) as partner countries, funded from Finland's development-cooperation budget. IMPORTANT: it funds institution-to-institution capacity building — curriculum, digital learning, admin systems — NOT individual student scholarships. Nigeria is not among the named partners. Records why Finland's Africa money does not reach an individual Nigerian applicant.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Finland",
+      "type": "University",
+      "name": "University of Helsinki — tuition fee waivers",
+      "officialUrl": "https://www.helsinki.fi/en/admissions-and-education/apply-bachelors-and-masters-programmes/tuition-fees-and-scholarship-programme",
+      "notes": "VERIFIED: non-EU master's tuition is EUR 13,000-18,000/year. Waivers of 50% (the majority) or 100% based on academic merit; they do NOT cover living costs. Applied for automatically with the admission application via Studyinfo.fi — no separate form.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Finland",
+      "type": "University",
+      "name": "Aalto University — Excellence Scholarship",
+      "officialUrl": "https://www.aalto.fi/en/admission-services/scholarships-and-tuition-fees",
+      "notes": "VERIFIED: non-EU tuition EUR 12,000-20,000/year by field; EU/EEA/Swiss citizens pay nothing. Merit-based full-tuition scholarship available, again not covering living costs. Aalto also runs country-specific tuition-reduction deals (a 25% reduction for Mexican and Colombian students was live) — worth re-checking annually in case an African partner deal appears.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Finland",
+      "type": "University",
+      "name": "University of Eastern Finland — tuition waivers",
+      "officialUrl": "https://www.uef.fi/en/tuition-fees-waivers-and-scholarships",
+      "notes": "VERIFIED: non-EU tuition EUR 10,000-12,000/year. An 'Early Bird' 30% discount for paying within 21 days of admission, plus a further 30% waiver in later years conditional on completing 55 ECTS in year one. Partial only — 100% waivers are reserved for temporary-protection status holders, not general international applicants.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Finland",
+      "type": "Government",
+      "name": "Research Council of Finland",
+      "officialUrl": "https://www.aka.fi/en/research-funding/apply-for-funding/",
+      "notes": "UNVERIFIED for Africa-specific eligibility — the international-partnerships page returned a login/cookie wall. General postdoctoral and mobility calls typically require a Finnish host institution and target researchers already affiliated with Finnish universities rather than open unaffiliated applications. Included as a lead for manual checking.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": true
+    },
+    {
+      "country": "Norway",
+      "type": "Context",
+      "name": "Norway introduced non-EEA tuition in 2023 and built no scholarship safety net",
+      "officialUrl": "https://student.nmh.no/en/news/starting-in-2023-non-eu-eea-efta-students-must-pay-tuition-fees",
+      "notes": "THE SINGLE MOST IMPORTANT FACT ABOUT NORWAY, and it reframes the country entirely. VERIFIED at three institutions: from autumn 2023, non-EU/EEA/Swiss citizens pay tuition, ending decades of free study for everyone. University of Bergen quotes NOK 197,000-401,704/year. No compensating national or institutional scholarship scheme was created — UiB states plainly: 'UiB does not offer any scholarships to cover tuition fees.' Norway went from one of the most accessible destinations for African students to one of the most expensive, with nothing built to soften it. Note also that Norway's earlier national inbound scholarship for non-European students (the Quota Scheme) was discontinued around 2016 and never replaced — which is why this country has so few rows below, and why the salaried PhD route is the realistic one.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Norway",
+      "type": "Government",
+      "name": "Lanekassen — an exclusion, not an opportunity",
+      "officialUrl": "https://lanekassen.no/en-US/rules-and-regulations/tildeling/del1-kapittel2/foreign-nationals/foreign-nationals/",
+      "notes": "EXCLUSION, VERIFIED. Eligibility generally requires Norwegian citizenship; a foreign national qualifies only via permanent residence, asylum/protection status, marriage to a Norwegian citizen with joint residence, 24+ months of prior full-time employment in Norway, or 3+ years of prior study in Norway. A Nigerian applying from abroad does not qualify. Lanekassen also chiefly funds Norwegians studying ABROAD, not inbound students — a double mismatch.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Norway",
+      "type": "University",
+      "name": "NTNU — confirms it offers no general scholarships",
+      "officialUrl": "https://www.ntnu.edu/studies/financing-and-scholarships",
+      "notes": "VERIFIED and blunt: NTNU states 'NTNU does generally not offer any stipends/scholarships or loans' for bachelor's or master's students. It points instead to EU-only schemes (Erasmus Mundus) or narrow niche awards (Anglo-Norse Society, UK citizens only; BiGTREE, South American partnerships only) — none open to a general Nigerian applicant.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Norway",
+      "type": "University",
+      "name": "University of Bergen — tuition levels and no-scholarship policy",
+      "officialUrl": "https://www4.uib.no/en/studies/admission-and-application/tuition-fee-for-international-students",
+      "notes": "VERIFIED: non-EEA tuition NOK 197,000-401,704/year depending on field, and the official statement 'UiB does not offer any scholarships to cover tuition fees.' Only narrow case-by-case waivers exist for those with residency or close Norway ties.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Norway",
+      "type": "University",
+      "name": "NTNU PhD positions (stipendiat) — the one real route",
+      "officialUrl": "https://www.ntnu.edu/phd/admission-and-financing",
+      "notes": "THE PRACTICAL ANSWER FOR NORWAY, verified: 'PhD candidates in Norway are not considered students and PhD candidates are usually employees of the institution from which they receive their funding.' These are salaried research-fellow posts advertised via Jobbnorge, open to international applicants, with financing secured before admission. Norway's viable route for African talent is a paid JOB, not a scholarship — frame it that way to applicants.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Norway",
+      "type": "Government",
+      "name": "NORPART — institutional partnerships, and winding down",
+      "officialUrl": "https://hkdir.no/en/programmes-and-grant-schemes/norpart",
+      "notes": "VERIFIED: funds institutional partnerships between Norwegian and Global South institutions including reciprocal student mobility — not individual applications. STATUS: the government has proposed ENDING the programme; only about seven projects were funded in 2024 (NOK 35 million) and the page showed no open grants. A Nigerian can benefit only if already enrolled at a partner institution with an active agreement.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Norway",
+      "type": "Government",
+      "name": "NORHED II (Norad)",
+      "officialUrl": "https://www.norad.no/en/insight2/tematiske-omrader/photo-ken-opprann-education-and-research/norway-supports-education-and-research-in-low--and-middle-income-countries/",
+      "notes": "AFRICA-SPECIFIC but institutional, VERIFIED. Partner countries named include Uganda, Tanzania, Ethiopia, Malawi, South Sudan, Mozambique and Ghana; runs 2021-2026. Funds capacity building via universities in partner countries, not scholarships an individual can apply for — and Nigeria is not among the named partners.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Norway",
+      "type": "Private / Foundation",
+      "name": "GSEP/ESED Scholarship at NTNU",
+      "officialUrl": "https://www.ntnu.edu/studies/financing-and-scholarships",
+      "notes": "PARTIALLY VERIFIED: listed on NTNU's own financing page as an option for its MSc in Sustainable Energy. The claim that it is open to students from developing countries including Africa comes from AGGREGATOR sources (unischolars, collegedunia), not the GSEP scheme's own site — treat that eligibility claim as UNVERIFIED. Given how thin Norway's provision is, this narrow award is worth a human checking properly.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": true
+    },
+    {
+      "country": "Netherlands",
+      "type": "Context",
+      "name": "Statutory vs institutional tuition — why Dutch 'scholarships' are partial",
+      "officialUrl": "https://www.studyinnl.org/finances/tuition-fees",
+      "notes": "STRUCTURAL CONTEXT, VERIFIED. EU/EEA students pay a government-set statutory fee (EUR 2,694 for 2026-2027). Non-EEA students, Nigeria included, pay institution-set fees 3-11x higher: EUR 9,000-20,000/yr bachelor's, EUR 12,000-30,000/yr master's. Every Dutch award below is a PARTIAL offset against that gap, not a full ride — the opposite of Brazil, where tuition is free and the scholarship is a living stipend. Worth knowing why the options are thin: the Dutch government's main Africa/developing-country scholarship vehicle (the Orange Knowledge Programme, roughly EUR 310m across 55 countries) ran 2018-2024 and ended, with Nuffic phasing out most non-European activity and no successor identified.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Netherlands",
+      "type": "Government",
+      "name": "Holland Scholarship",
+      "officialUrl": "https://www.studyinnl.org/finances/holland-scholarship",
+      "notes": "VERIFIED: requires non-EEA nationality, so Nigerians qualify. Explicitly PARTIAL — EUR 5,000, first year only; official text states 'this is not a full-tuition scholarship'. 11 research universities and 25 universities of applied sciences participate for 2026-2027. Central window opened 1 November 2025; each institution sets its own closing date. Already live in Talentrah's catalog.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Netherlands",
+      "type": "Government",
+      "name": "StuNed — EXCLUDED, Indonesia only",
+      "officialUrl": "https://www.nuffic.nl/en/stuned",
+      "notes": "EXCLUSION, VERIFIED. StuNed is explicitly bilateral: 'part of the bilateral cooperation between the Dutch and Indonesian government', funding 'more than 200 Indonesian students per year'. Not open to Nigerian or other African applicants, despite appearing regularly in generic 'Netherlands scholarships' lists alongside genuinely open programmes.",
+      "humanReadOnly": false,
+      "excludesNigeria": true,
+      "unverified": false
+    },
+    {
+      "country": "Netherlands",
+      "type": "University",
+      "name": "Leiden University Excellence Scholarship (LExS)",
+      "officialUrl": "https://www.universiteitleiden.nl/en/scholarships/sea/leiden-university-excellence-scholarship-lexs",
+      "notes": "VERIFIED: requires a non-EEA/non-EFTA passport, so Nigeria qualifies (the Advanced LLM and MSc International Relations & Diplomacy programmes accept all nationalities). PARTIAL only, in tiers of EUR 10,000 / 15,000 / 17,500 / 18,500 / 19,000 — official text: 'not a full scholarship and does not cover the full cost of your studies'. Roughly 25 awarded per year against 'over a thousand' applicants. Deadline 1 December 2026.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Netherlands",
+      "type": "University",
+      "name": "TU Delft — Justus & Louise van Effen Excellence Scholarships",
+      "officialUrl": "https://www.tudelft.nl/en/education/study-programme-orientation/practical-matters/scholarships/justus-louise-van-effen-excellence-scholarships",
+      "notes": "VERIFIED, no geographic restriction found — open to any excellent international applicant newly admitted to a two-year MSc, top ~10% of prior graduates. Two awards per faculty. Covers full tuition plus a living-cost contribution, making this one of the more generous Dutch options. Deadline 1 December 2026, 23:59 CET; notifications by end of March 2027.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Netherlands",
+      "type": "University",
+      "name": "University of Amsterdam — Amsterdam Merit Scholarship",
+      "officialUrl": "https://www.uva.nl/en/education/fees-and-funding/masters-scholarships-and-loans/amsterdam-merit-scholarship/amsterdam-merit-scholarship.html",
+      "notes": "Eligibility VERIFIED: requires a non-EU/EEA passport, so Nigeria qualifies. Funding AMOUNT was not stated on the page — UNVERIFIED, and set per faculty. Official text confirms 'Deadlines for the AMS differ per Faculty or Graduate School', so there is no single date.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": true
+    },
+    {
+      "country": "Netherlands",
+      "type": "University",
+      "name": "University of Groningen — Talent Grant (Law)",
+      "officialUrl": "https://www.rug.nl/education/international-students/financial-matters/talentgrantlaw-partialscholarship?lang=en",
+      "notes": "VERIFIED and Nigeria is named explicitly on the eligible countries-of-origin list. For conditionally-admitted LLM applicants who can cover part but not all costs; new applicants get priority over current Groningen students. Roughly EUR 1,000/month for up to 12 months. Deadline 1 May, annually.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Netherlands",
+      "type": "University",
+      "name": "Erasmus University Rotterdam — NL Scholarship",
+      "officialUrl": "https://www.eur.nl/en/eshpm/education/grants/nl-scholarship-erasmus-university",
+      "notes": "VERIFIED, Erasmus's implementation of the Holland Scholarship model. Non-EEA nationality required, so Nigeria qualifies. EUR 5,000 / 10,000 / 15,000 at the faculty's discretion, paid over a maximum of 12 months in ten instalments AFTER full tuition has been paid — a cash-flow detail worth knowing. Confirm the current cycle date.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Netherlands",
+      "type": "University",
+      "name": "Utrecht University — ACCESS ISSUE",
+      "officialUrl": "https://www.uu.nl/en/masters/general-information/application-and-admission/scholarships-and-grants/utrecht-excellence-scholarships",
+      "notes": "uu.nl repeatedly failed at the robots.txt fetch stage (DNS/connect timeout rather than a refusal) on 2026-09-05. Utrecht Excellence Scholarships are corroborated by secondary sources but nothing here is verified — treat as human-read-only and re-attempt directly rather than trusting aggregator summaries.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Portugal",
+      "type": "Context",
+      "name": "Portugal splits into a Lusophone-preference layer and a genuinely open research layer",
+      "officialUrl": "https://www.dges.gov.pt/pt/pagina/o-novo-estatuto-do-estudante-internacional",
+      "notes": "STRUCTURAL CONTEXT, verified via DGES. The Estatuto do Estudante Internacional creates a special admissions track for non-EU students, separate from EU citizens (who get Portuguese-equivalent conditions) and from scholarship holders from Portuguese-speaking African countries (who have their own rules). A Nigerian falls into neither carve-out and goes through the general international track — higher fees, and excluded from the Lusophone scholarship lines. But see FCT below: the research-funding layer IS open.",
+      "humanReadOnly": false,
+      "excludesNigeria": true,
+      "unverified": false
+    },
+    {
+      "country": "Portugal",
+      "type": "Context",
+      "name": "University of Lisbon fee gap — national vs international",
+      "officialUrl": "https://www.ulisboa.pt/sites/default/files/documents/page/2026/deliberacaocgpropinas2025aprovada.pdf",
+      "notes": "VERIFIED from the official fee-setting document. National/EU-equivalent students pay a flat EUR 697/year for bachelor's and integrated master's; 'estudante internacional' fees for the SAME programmes run from roughly EUR 1,500 (Law) to EUR 18,000 (integrated Medicine) — a 2x to 25x gap by course. Unlike Germany's mostly-flat system, Portuguese international fees are set per institution and per course.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Portugal",
+      "type": "Government",
+      "name": "Instituto Camoes PROCULTURA scholarships — EXCLUDED, Lusophone only",
+      "officialUrl": "https://www.instituto-camoes.pt/activity/o-que-fazemos/bolsas-estudo",
+      "notes": "EXCLUSION, VERIFIED, confirming the earlier suspicion precisely. Camoes' flagship study-scholarship line offers '48 bolsas de estudos internacionais para licenciatura e mestrado... a cidadaos nacionais de Angola, Cabo Verde, Guine-Bissau, Mocambique, Sao Tome e Principe e Timor-Leste'. NIGERIA IS NOT ELIGIBLE. Camoes' entire mandate is organised around Portuguese language and culture, so its Africa work is Lusophone-first by design, not pan-African.",
+      "humanReadOnly": false,
+      "excludesNigeria": true,
+      "unverified": false
+    },
+    {
+      "country": "Portugal",
+      "type": "Government",
+      "name": "FCT — Fundacao para a Ciencia e a Tecnologia research grants",
+      "officialUrl": "https://www.fct.pt/wp-content/uploads/2026/01/RBi_Republicado_2025.pdf",
+      "notes": "THE OPEN DOOR IN PORTUGAL, verified in FCT's own grant regulation (Art. 9). Eligible categories explicitly include 'cidadaos de Estados terceiros' — third-country nationals — alongside Portuguese, EU, stateless and refugee applicants. Nigerian citizens CAN apply directly for FCT PhD and research grants, in direct contrast to Camoes. Caveat: grants whose work plan runs wholly or partly abroad require permanent residence in Portugal (Art. 9 §2).",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Portugal",
+      "type": "Private / Foundation",
+      "name": "Coimbra Group Scholarship Programme for Sub-Saharan Africa",
+      "officialUrl": "https://www.coimbra-group.eu/scholarships/sub-saharan-africa-grant-information/",
+      "notes": "AFRICA-SPECIFIC, VERIFIED, and unusually broad in reach: for academic staff (preferably PhD/postdoc holders) at sub-Saharan African universities, born on or after 1 January 1981, for 1-3 month research visits at any of 19 member universities across Germany, France, Portugal, Spain, Italy, the Netherlands, Austria, Poland, Norway and Turkey. One programme covering ten countries on this sheet. Requires prior written acceptance from a host supervisor; women's applications prioritised. Note: for academics, not degree-seeking students.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Portugal",
+      "type": "University",
+      "name": "University of Porto — scholarships and funding",
+      "officialUrl": "https://www.up.pt/portal/en/live/student-life/scholarships-and-funding/",
+      "notes": "VERIFIED, with an IMPORTANT EXCLUSION inside it: the university's own SASUP institutional scholarships explicitly 'exclude students with the International Student Status'. So Porto's home-grown aid is largely closed to precisely the students Talentrah serves; Nigerian applicants must rely on external funders (FCT, Erasmus Mundus, Coimbra Group) rather than the university's own budget. The page also confirms PALOP students benefit from Camoes/FCT funding, reinforcing the Lusophone divide.",
+      "humanReadOnly": false,
+      "excludesNigeria": true,
+      "unverified": false
+    },
+    {
+      "country": "Portugal",
+      "type": "University",
+      "name": "University of Lisbon — international scholarships",
+      "officialUrl": "https://www.ulisboa.pt/en/info/international-scholarships",
+      "notes": "Portugal's largest university, with a dedicated international scholarships page and a special admission contest for international students. Specific amounts and eligibility were not extracted in this pass — treat details as UNVERIFIED and confirm directly.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": true
+    },
+    {
+      "country": "Portugal",
+      "type": "University",
+      "name": "University of Coimbra — funding for international applicants",
+      "officialUrl": "https://www.uc.pt/international-applicants/oportunidades/funding/ei",
+      "notes": "PARTIALLY VERIFIED: the official page confirms categories exist (Merit Scholarships for 1st and 2nd cycle, other scholarships, prizes) but states no amounts, deadlines or explicit non-EU eligibility. Contact point given on-page is ucglobal@uc.pt. Treat any figures from aggregator sites as UNVERIFIED until confirmed here.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": true
+    },
+    {
+      "country": "Portugal",
+      "type": "University",
+      "name": "NOVA IMS (Universidade NOVA de Lisboa)",
+      "officialUrl": "https://novaims.unl.pt/en/education/students/scholarships/",
+      "notes": "VERIFIED: Gulbenkian Merit Scholarships at EUR 2,000/year plus a further EUR 2,000 international-mobility grant for talented first-year students of limited means; Santander Scholarships at 25 x EUR 1,000 (master's) and 10 x EUR 500 (bachelor's). No Africa-specific carve-out; merit/need-based and aimed at enrolled students rather than recruiting from abroad.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Spain",
+      "type": "Context",
+      "name": "MAEC-AECID calls have been unstable — track them, do not assume a fixed date",
+      "officialUrl": "https://www.aecid.es/w/becas-maec-aecid-2024-2025",
+      "notes": "Verified: the 2024-2025 cycle had tight windows (Africa-Med applications 23 January-9 February 2024) and scholarship counts have shifted materially year to year, down to 42 across programmes in one 2026-2027 announcement, with the Africa-Med line appearing as its own separate later call. Practical implication: monitor aecid.es each cycle rather than relying on a remembered annual deadline.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Spain",
+      "type": "Government",
+      "name": "Becas MAEC-AECID — Africa-Med Master programme",
+      "officialUrl": "https://www.aecid.es/w/la-aecid-abre-la-convocatoria-de-becas-maec-aecid-2026/2027-del-programa-%C3%A1frica-med-m%C3%A1ster",
+      "notes": "SPAIN'S REAL AFRICA-SPECIFIC PROGRAMME, verified on AECID's official site and Nigeria is named. The 2026-2027 call offers 30 scholarships to citizens of roughly 33 African and Middle-Eastern countries including Nigeria, Ghana, Kenya, Senegal, Cameroon, Ethiopia, South Africa and Sudan, with geographic quotas. Funds a full-time official master's (up to 60 ECTS) at a Spanish university; the applicant must already hold admission. The 2-15 July 2026 window has closed — watch aecid.es for the next call.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Spain",
+      "type": "Government",
+      "name": "Becas MAEC-AECID — scheme overview and its internal split",
+      "officialUrl": "https://www.aecid.es/becas-para-ciudadanos-de-paises-de-america-latina-africa-y-asia",
+      "notes": "IMPORTANT NUANCE, verified: within the SAME government scheme, most tracks EXCLUDE Africans. The flagship 'Programa Master' strand is restricted to Latin America and the Philippines; only the Africa-Med strand is broadly open to African nationals. Roughly 230 scholarships were budgeted across 2024-2027 at about EUR 4.52 million. Do not read 'MAEC-AECID is open to Africans' as a blanket statement — it is true of one strand.",
+      "humanReadOnly": false,
+      "excludesNigeria": true,
+      "unverified": false
+    },
+    {
+      "country": "Spain",
+      "type": "Private / Foundation",
+      "name": "Fundacion Carolina — EXCLUDED, Ibero-American only",
+      "officialUrl": "https://www.fundacioncarolina.es/becas/",
+      "notes": "EXCLUSION, VERIFIED, and this one matters because Carolina is Spain's best-known international scholarship brand. Official eligibility targets 'docentes de las universidades de America Latina asociadas con la FC' — teaching staff from associated Latin American universities — and the foundation signs agreements with Latin American universities and governments. No African eligibility appears anywhere on the official eligibility page. Nigerian applicants are not eligible.",
+      "humanReadOnly": false,
+      "excludesNigeria": true,
+      "unverified": false
+    },
+    {
+      "country": "Spain",
+      "type": "Private / Foundation",
+      "name": "Fundacion la Caixa postgraduate scholarships — WRONG DIRECTION",
+      "officialUrl": "https://fundacionlacaixa.org/es/becas-posgrado-extranjero",
+      "notes": "EXCLUSION of a kind easy to misread. Official description: scholarships 'para estudiantes espanoles y portugueses que quieran acceder a estudios de posgrado en el extranjero' — for SPANISH AND PORTUGUESE students to study ABROAD. This is outbound funding, not a route into Spain, and is irrelevant to African applicants despite appearing on 'Spain scholarships' lists.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Spain",
+      "type": "University",
+      "name": "Universidad Complutense de Madrid — non-EU tuition aid",
+      "officialUrl": "https://www.ucm.es/ayudas-ucm-matricula-estudiantes-extracomunitarios",
+      "notes": "VERIFIED: open to non-EU ('extracomunitario') students already admitted to an official bachelor's or master's, means-tested. Covers 35% of tuition (bachelor's) or 40% capped at EUR 2,100 (master's) — a partial discount, not a stipend. The published window seen was 8-30 March, but the most recent full call text dated to 2022-23; verify current dates with UCM.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Spain",
+      "type": "University",
+      "name": "UCM — Latin America and Caribbean scholarships (contrast row)",
+      "officialUrl": "https://www.ucm.es/latinas",
+      "notes": "Recorded as a CONTRAST, verified: the same university runs a separate, better-resourced scholarship line restricted to Latin America and the Caribbean. This is the recurring Spanish pattern — the richest aid is reserved for Ibero-American students, leaving African applicants the thinner general non-EU line above. Useful for setting expectations honestly.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Spain",
+      "type": "University",
+      "name": "IE University",
+      "officialUrl": "https://www.ie.edu/financial-aid/masters/awardsandscholarships/",
+      "notes": "UNVERIFIED — the page returned a redirect loop on 2026-09-05 (an access fault, not a robots block). IE is a major private Spanish university that actively markets merit scholarships to international students. A human should re-check ie.edu/financial-aid directly before any figures are recorded.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": true
+    },
+    {
+      "country": "Türkiye",
+      "type": "Context",
+      "name": "Language of instruction and the Turkish preparatory year",
+      "officialUrl": "https://www.turkiyeburslari.gov.tr/en",
+      "notes": "Turkiye Burslari' own funding list includes a Turkish-language course line item, consistent with recipients without adequate Turkish completing up to a one-year language preparatory year before their degree. Most Turkish STATE-university programmes are Turkish-medium; English-medium instruction concentrates at technical and private universities (Sabanci, Koc, Bilkent, METU, ITU). The specific 'mandatory one-year prep' framing comes from secondary sources and is UNVERIFIED on the official FAQ.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": true
+    },
+    {
+      "country": "Türkiye",
+      "type": "Context",
+      "name": "Turkish Maarif Foundation — schools IN Africa, not scholarships TO Turkiye",
+      "officialUrl": "https://www.turkiyemaarif.org/",
+      "notes": "Worth recording to prevent a category error. Maarif holds the 'unique authority to establish educational institutions abroad on behalf of the Republic of Turkey' and operates in 66 countries with confirmed African presence (Mali, Guinea, Senegal, and hosting Science Fest Africa 2026 in Abidjan). But it primarily builds and runs K-12 schools IN African countries rather than bringing African students TO Turkiye — no inbound scholarship process surfaced. Structural context, not a scholarship line.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Türkiye",
+      "type": "Context",
+      "name": "Turkish university sites broadly blocked automated access",
+      "officialUrl": "https://www.turkiyeburslari.gov.tr/en",
+      "notes": "VERIFICATION GAP recorded honestly. Bilkent, METU, Bogazici, Istanbul Technical University, Istanbul University, Erciyes and Necmettin Erbakan all returned HTTP 403/404 to automated fetches on every admissions/scholarship URL attempted on 2026-09-05. Treat all as human-read-only; a person should verify their scholarship pages before Talentrah cites figures for them. Also note KTU lists a 'MoNE-YLSY Scholarship Coordination Office' — YLSY funds TURKISH citizens studying ABROAD, not foreign students coming in, and is easy to miscategorise.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Türkiye",
+      "type": "Government",
+      "name": "Turkiye Burslari (Turkiye Scholarships)",
+      "officialUrl": "https://www.turkiyeburslari.gov.tr/en",
+      "notes": "Turkiye's flagship national inbound scholarship, run by YTB with the Foreign Ministry and Council of Higher Education. Covers associate through PhD and research levels; funds monthly stipend, tuition, health insurance, accommodation, a Turkish-language course, one-time flight and cultural programming. ACCESS LIMITATION, VERIFIED: the public pages carry only generic text — no numeric age/GPA cutoffs and no application calendar. The real criteria and dates sit behind the applicant login at tbbs.turkiyeburslari.gov.tr. RECORD ALL DEADLINES AS UNVERIFIED until read from inside that system. On Talentrah's watch list.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": true
+    },
+    {
+      "country": "Türkiye",
+      "type": "Government",
+      "name": "YTB — Presidency for Turks Abroad and Related Communities",
+      "officialUrl": "https://www.ytb.gov.tr/en",
+      "notes": "Parent agency for Turkiye Burslari plus internship and academy programmes. NOTABLE ABSENCE worth recording: the official English content surfaced NO dedicated Africa-specific scholarship track or country quota. Despite Turkiye's active African recruitment, its African engagement runs through the general Turkiye Burslari pool and the IsDB joint programme below, not a named Africa scheme — a genuine gap versus China's provincial and Confucius layers.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Türkiye",
+      "type": "Government",
+      "name": "YTB-Islamic Development Bank Joint Scholarship Program",
+      "officialUrl": "https://www.turkiyeburslari.gov.tr/en/page/ytb-isdb-joint-scholarship-program",
+      "notes": "The closest thing to an Africa-relevant dedicated channel on Turkiye's official scholarship site. A distinct co-funded track with its own application window, verified live on the official domain; applications via the tbbs portal. IsDB membership is heavily African and OIC — Nigeria is a member state — so this is the route worth watching. Per-country quotas and exact deadlines require portal login: UNVERIFIED.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": true
+    },
+    {
+      "country": "Türkiye",
+      "type": "Private / Foundation",
+      "name": "Diyanet Burslari (Turkiye Diyanet Foundation)",
+      "officialUrl": "https://www.tdv.org/",
+      "notes": "A large, genuinely distinct religious-affairs route: TDV's homepage states it supports 'thousands of students from Turkey and 114 countries through Diyanet Burslari'. Plausibly significant for African students pursuing Islamic theology or Arabic. ACCESS NOTE: the application portal (diyanetburslari.tdv.org) was down for maintenance on 2026-09-05, so eligibility, funding, field restrictions and deadlines are all UNVERIFIED. Do not confuse TDV (a foundation) with the state Presidency of Religious Affairs (diyanet.gov.tr) — linked but different organisations.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": true
+    },
+    {
+      "country": "Türkiye",
+      "type": "University",
+      "name": "Sabanci University — automatic scholarship consideration",
+      "officialUrl": "https://www.sabanciuniv.edu/en/scholarships",
+      "notes": "VERIFIED: 'Every international candidate who applies to Sabanci University is evaluated for a scholarship automatically' — no separate application, though 'competition is very keen'. PARTIAL EXCLUSION worth noting: the same page names the countries whose government-sponsored students it accepts — Azerbaijan, Iraq, Oman, Libya, Pakistan and Qatar — and Nigeria is not among them. General competitive scholarships remain open to all nationalities; the named bilateral fast-track does not include Nigeria.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Türkiye",
+      "type": "University",
+      "name": "Ankara University — YTB scholar admissions office",
+      "officialUrl": "https://isoidb.ankara.edu.tr/en/general-information-about-ytb/",
+      "notes": "Confirms the two-stage model that governs most Turkish scholarship study: national YTB selection first, then university-level registration and residence-permit handling. Useful for explaining to applicants why the university cannot answer scholarship-selection questions.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "China",
+      "type": "Context",
+      "name": "SCAM DOMAIN WARNING — two fake 'China Scholarship Council' sites",
+      "officialUrl": "https://www.csc.edu.cn/",
+      "notes": "CRITICAL, VERIFIED by direct fetch of both. chinascholarshipcouncil.com AND chinesescholarshipcouncil.com both style themselves 'Official Website: China Scholarships Council' and are NOT operated by the real CSC — they are third-party aggregators (one signs posts as 'cscscholarship' and carries its own disclaimer telling readers to verify elsewhere). Neither appeared to harvest payment or credentials, but NEITHER should ever be linked to a Talentrah user as official. The genuine CSC is a non-profit under China's Ministry of Education at csc.edu.cn, with campuschina.org as its official English portal and studyinchina.csc.edu.cn as the real application system.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "China",
+      "type": "Context",
+      "name": "FOCAC 2025-2027 pledges are training-weighted, not scholarship-weighted",
+      "officialUrl": "https://www.mfa.gov.cn/eng/xw/zyxw/202409/t20240905_11485719.html",
+      "notes": "Verified on China's Ministry of Foreign Affairs site, and worth reading carefully before repeating headline numbers. The Beijing Action Plan pledges for Africa include 60,000 TRAINING opportunities, 1,000 political-party exchange visits, 10 new or upgraded Luban vocational workshops plus 20 schools, and digital-education cooperation centres, with 2026 designated the Year of China-Africa People-to-People Exchanges. NOTE: this text emphasises training and vocational pledges rather than a headline count of new DEGREE scholarships — do not assume an equivalent to FOCAC 2018's widely-reported 50,000-scholarship figure without checking the full document.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "China",
+      "type": "Government",
+      "name": "Chinese Government Scholarship (CSC) — Type A, bilateral/embassy route",
+      "officialUrl": "https://www.campuschina.org/",
+      "notes": "Requires nomination through the Chinese Embassy in the applicant's home country. Eligibility verified via Beijing Language and Culture University's official reproduction of CSC criteria: non-PRC citizen in good health; undergraduate under 25 with a high-school diploma, master's under 35 with a bachelor's, PhD under 40 with a master's; HSK level 3-4 depending on programme. Funds tuition, accommodation or subsidy, monthly stipend of CNY 2,500-3,500, and CNY 800/year medical insurance. ACCESS NOTE: campuschina.org itself returned HTTP 412 to automated fetch.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "China",
+      "type": "Government",
+      "name": "Chinese Government Scholarship (CSC) — Type B, university route",
+      "officialUrl": "https://admission-is.bnu.edu.cn/english/international/chineseovernment/typebchinese/index.html",
+      "notes": "The route many applicants miss: with Type B the candidate is nominated DIRECTLY by a designated Chinese university, skipping the embassy step, then registered with CSC. Verified via Beijing Normal University: same age and degree bands as Type A, HSK required for Chinese-taught programmes, applications November-March through the university's own system. Same funding package. Two doors into the same scholarship.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "China",
+      "type": "Government",
+      "name": "International Chinese Language Teachers Scholarship (former Confucius Institute Scholarship)",
+      "officialUrl": "http://cis.chinese.cn",
+      "notes": "HIGHLY AFRICA-RELEVANT given the density of Confucius Institutes across the continent. Run by the Center for Language Education and Cooperation, successor to Hanban. Verified via two Chinese universities' admissions pages reproducing the criteria: ages 16-35 (teachers to 45), HSK 180 to Level 4 depending on track, and applicants must be RECOMMENDED BY a Confucius Institute or partner organisation — so the local Confucius Institute is the actual gateway. Funds tuition, one HSK test fee, CNY 700-1,000 housing allowance or dorm, CNY 2,500/month stipend and insurance.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "China",
+      "type": "Government",
+      "name": "Jiangsu Government Scholarship",
+      "officialUrl": "https://studyabroad.jiangnan.edu.cn/gjjy/English/Scholarships/Jiangsu_Government_Scholarship.htm",
+      "notes": "CHINA'S HIDDEN PROVINCIAL LAYER — the direct analogue of Brazil's state research foundations. Each province funds its own international scholarship independent of national CSC money. Verified: non-Chinese nationals, ages 18-30 (bachelor's) / under 35 (master's) / under 40 (PhD), HSK4 or an English test, two references for postgraduates. RMB 50,000/year (bachelor's) or RMB 70,000/year (master's) covering tuition, accommodation, living allowance and insurance. Applications January-April; multiple Jiangsu universities run parallel intakes.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "China",
+      "type": "Government",
+      "name": "Shanghai Government Scholarship",
+      "officialUrl": "https://edu.sh.gov.cn/study_en_scholarships/20240904/5d8add31c7ce44a4b1e0d5bdfafe1495.html",
+      "notes": "Verified on the Shanghai Municipal Education Commission's own .gov.cn domain (established 2006). Type A is full (tuition, accommodation, living, insurance); Type B covers tuition and insurance only. Requires HSK4+ for Chinese-taught programmes, caps ages at 25/35/40. Applications February-April via study-shanghai.cn, with each host university setting its exact date.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "China",
+      "type": "Government",
+      "name": "Beijing Government Scholarship",
+      "officialUrl": "https://english.beijing.gov.cn/studyinginbeijing/news/202601/t20260123_4459326.html",
+      "notes": "Verified via a January 2026 notice on the Beijing Municipal Government's own English portal. Three tiers from Category A (tuition, accommodation, living, insurance) down to Category C (tuition and insurance). Requires HSK4+ for Chinese-taught or TOEFL 85+ for English-taught programmes. Applicants apply directly to individual Beijing institutions; no single citywide deadline.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "China",
+      "type": "Government",
+      "name": "Zhejiang Provincial Government Scholarship",
+      "officialUrl": "https://iczu.zju.edu.cn/admissionsen/2022/0530/c68995a2590722/page.htm",
+      "notes": "Verified via Zhejiang University: RMB 30,000 for one year, renewable for strong performers. Requires no other concurrent scholarship and a police clearance certificate issued within six months. Deadline verified on ZJU's page as 28 February 2026 (Beijing time). Selection is document review then a video interview by the academic department.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "China",
+      "type": "Government",
+      "name": "Chinese Embassy in Nigeria — CSC bilateral route",
+      "officialUrl": "https://ng.china-embassy.gov.cn/eng/",
+      "notes": "Confirmed as the genuine embassy domain for Nigerian applicants routing Type A nominations (not a look-alike). ACCESS NOTE: at the time of checking, the embassy's English homepage carried no scholarship-specific announcement, unlike some other Chinese embassies which post annual 'CGS Application Now Open' notices each autumn. Nigerian applicants should monitor this exact domain each cycle — historically opening around October and closing around April — rather than trusting third-party sites.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "China",
+      "type": "University",
+      "name": "Tsinghua University — CSC nomination route",
+      "officialUrl": "https://yz.tsinghua.edu.cn/en/info/1027/1117.htm",
+      "notes": "Verified on Tsinghua's graduate admissions site: requires Tsinghua pre-admission AND departmental recommendation before the CSC application proceeds — the university acts as nominating body. Full scholarship covers tuition, accommodation or subsidy, stipend and medical insurance. Recommended internal deadline mid-December, varying by department.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "China",
+      "type": "University",
+      "name": "Peking University — Overseas Students Scholarship",
+      "officialUrl": "https://isd.pku.edu.cn/en/scholarship.php",
+      "notes": "PKU's OWN scholarship, distinct from CSC (established 2012). Verified restrictions worth noting: freshman-status overseas students only, and it EXCLUDES professional-degree, joint-degree and English-taught-programme students. Full award covers tuition plus a monthly stipend (CNY 2,000 undergraduate / 2,500 master's / 3,000 PhD) and medical cover; partial award is tuition only. Applications March-April; annual April review required to retain it.",
+      "humanReadOnly": false,
+      "excludesNigeria": true,
+      "unverified": false
+    },
+    {
+      "country": "China",
+      "type": "University",
+      "name": "Yenching Academy of Peking University — Yenching Scholars",
+      "officialUrl": "https://yenchingacademy.pku.edu.cn/ADMISSIONS.htm",
+      "notes": "Fully funded two-year master's in China Studies at PKU. Eligibility: 'non-Chinese citizens with a valid passport', no country restriction. Deadline 30 November 2026 (9:00am Beijing time) for the 2027 cohort. Covers tuition, accommodation, monthly stipend, one round-trip fare and field-study costs. ADDED TO TALENTRAH'S PRODUCTION CATALOG on 2026-09-05 as a verified listing.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "China",
+      "type": "Government",
+      "name": "Schwarzman Scholars (Tsinghua University)",
+      "officialUrl": "https://www.schwarzmanscholars.org/admissions/",
+      "notes": "Privately endowed, hosted at Tsinghua; one-year master's in global affairs, fully funded. Already live in Talentrah's catalog with a verified deadline of 9 September 2026 for the class of 2027-28.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "South Korea",
+      "type": "Context",
+      "name": "GKS runs two parallel tracks — check both before concluding you are ineligible",
+      "officialUrl": "https://www.studyinkorea.go.kr/en/main.do",
+      "notes": "STRUCTURAL CONTEXT for reading every GKS row. The Global Korea Scholarship allocates seats through two channels: the EMBASSY TRACK, a country-specific quota administered by the Korean embassy or cultural centre in the applicant's home country, and the UNIVERSITY TRACK, where Korean universities apply to NIIED for their own quota and select nationality-blind in principle. A country with no embassy-track allocation in a given year does not bar its citizens — they may still apply via university track. Always check both.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "South Korea",
+      "type": "Context",
+      "name": "Government routes are the Africa-accessible ones; private foundations mostly are not",
+      "officialUrl": "https://www.kf.or.kr/kfEng/cm/cntnts/cntntsView.do?mi=2219&cntntsId=1638",
+      "notes": "SUMMARY WORTH ACTING ON. The two full-ride routes with no African exclusion are both government-run: GKS Embassy Track and KOICA. Both verified private foundations (Korea Foundation, POSCO) structurally exclude Nigeria via fixed regional groupings that mirror Korea's Asian and trade-partner geography. Steer applicants to GKS and KOICA first — private foundation scholarships are a much weaker lead in Korea than in the UK or Canada.",
+      "humanReadOnly": false,
+      "excludesNigeria": true,
+      "unverified": false
+    },
+    {
+      "country": "South Korea",
+      "type": "Government",
+      "name": "Global Korea Scholarship — Graduate, Embassy Track (Nigeria)",
+      "officialUrl": "https://ngr.korean-culture.org/en/828/board/609/list",
+      "notes": "RESOLVES A LONG-STANDING OPEN QUESTION: Nigeria HAS a GKS quota. The Korean Cultural Center in Nigeria (official MOFA-linked portal) has published Nigeria-specific GKS Graduate Embassy Track notices for the 2023, 2025 AND 2026 cycles — at least four consecutive years of allocation. The exact 2026 numeric quota is UNVERIFIED (the individual notice page repeatedly redirect-looped). Talentrah's watch list previously recorded Nigeria's eligibility as unconfirmed; this settles it.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": true
+    },
+    {
+      "country": "South Korea",
+      "type": "Government",
+      "name": "Global Korea Scholarship — Undergraduate, Embassy Track (Nigeria)",
+      "officialUrl": "https://ngr.korean-culture.org/en/828/board/609/read/139665",
+      "notes": "VERIFIED from the official Korean Cultural Center Nigeria notice for the 2026 GKS-U Embassy Track. Application window quoted directly: 'Sept.15th - Sept 30th, 2025', closing 6pm on 30 September; interviews tentatively 14 October 2025; results by 17 October 2025. Confirms an active Nigerian undergraduate quota. Slot count not stated.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "South Korea",
+      "type": "Government",
+      "name": "Korean Cultural Center Nigeria — GKS notice board",
+      "officialUrl": "https://ngr.korean-culture.org/en/828/board/609/list",
+      "notes": "THE AUTHORITATIVE SOURCE for Nigeria-specific GKS dates and quotas: an official Korean-government cultural-diplomacy board carrying ten GKS postings spanning 2023-2026 across both undergraduate and graduate tracks. Individual notice pages intermittently redirect-loop, but the board index itself is reachable. This is where a human should check each cycle rather than relying on aggregators.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "South Korea",
+      "type": "Government",
+      "name": "KOICA Scholarship Program",
+      "officialUrl": "https://www.koica.go.kr/",
+      "notes": "ACCESS WARNING: koica.go.kr blocked automated access on 2026-09-05 — the Nigeria country-office page is robots-disallowed and the general scholarship page returned an error with no content. Human-read only. The claim that Nigeria is a KOICA partner country, and the reported package (full tuition, KRW 1,200,000/month, airfare, dormitory, insurance), traces to a Nigerian NGO blog, NOT to koica.go.kr — UNVERIFIED. Worth a person checking, since KOICA is a development agency and its awards are typically the most Africa-accessible in Korea.",
+      "humanReadOnly": true,
+      "excludesNigeria": false,
+      "unverified": true
+    },
+    {
+      "country": "South Korea",
+      "type": "University",
+      "name": "KAIST — International Graduate Scholarship",
+      "officialUrl": "https://admission.kaist.ac.kr/intl-graduate/FinancialSupport/Scholarship/KAISTScholarship",
+      "notes": "VERIFIED and independent of GKS: 'Open to international applicants for KAIST graduate programs' with no country restriction found. Funds full tuition, national health insurance and a monthly stipend (KRW 1,000,000/month for master's and integrated MS-PhD for four semesters; a separate lower PhD tier was also listed — confirm current figures at application).",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "South Korea",
+      "type": "University",
+      "name": "Yonsei University — International Companion Scholarship",
+      "officialUrl": "https://graduate.yonsei.ac.kr/graduate_en/academic/scholarship02.do",
+      "notes": "VERIFIED, and a useful fallback: a UNIVERSITY-funded scholarship independent of GKS, for full-time international students admitted through the international track. KRW 2,000,000/semester (master's) or KRW 3,000,000/semester (doctoral). Explicitly NOT stackable with full-tuition GKS support — so it functions precisely as the route for students who did not win GKS. Confirms Korean university scholarships do not all require GKS first.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "South Korea",
+      "type": "Private / Foundation",
+      "name": "Korea Foundation Scholarship — EXCLUDED, no African group",
+      "officialUrl": "https://www.kf.or.kr/kfEng/cm/cntnts/cntntsView.do?mi=2219&cntntsId=1638",
+      "notes": "EXCLUSION, VERIFIED. The official page organises eligibility into SIX fixed regional application groups — North America, Europe, Russia, Asia, Oceania and ASEAN. There is no African group. Nigeria and African countries generally are not covered as the programme is structured, despite the Korea Foundation being one of Korea's best-known international scholarship brands.",
+      "humanReadOnly": false,
+      "excludesNigeria": true,
+      "unverified": false
+    },
+    {
+      "country": "South Korea",
+      "type": "Private / Foundation",
+      "name": "POSCO TJ Park Foundation Asia Fellowship — EXCLUDED for Nigeria",
+      "officialUrl": "https://www.postf.org/en/asia/abroad/faq",
+      "notes": "EXCLUSION, VERIFIED by name. The official FAQ lists eligible countries by region and the entire Africa entry reads: 'Africa: Egypt, Morocco, South Africa.' Nigeria is not included. The programme funds full tuition plus KRW 1,000,000/month at six designated Korean universities — real money, structurally closed to Nigerian applicants.",
+      "humanReadOnly": false,
+      "excludesNigeria": true,
+      "unverified": false
+    },
+    {
+      "country": "Russia",
+      "type": "Context",
+      "name": "Only two routes exist, and neither is Nigeria-specific",
+      "officialUrl": "https://education-in-russia.com/",
+      "notes": "STRUCTURAL SUMMARY, cross-referenced across every official page fetched. A Nigerian's only two routes into Russian state-funded study are (1) the general Rossotrudnichestvo government quota, screened by the Russian Embassy or Russian House in Abuja, and (2) the separate Open Doors Olympiad. There is no dedicated Nigerian application system. The '220 seats' bilateral figure below is a diplomatic allocation layered on top of route (1), not a third channel.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Russia",
+      "type": "Context",
+      "name": "The funded Russian-language preparatory year",
+      "officialUrl": "https://od.globaluni.ru/about",
+      "notes": "Confirmed on the official Open Doors page: winners choosing a Russian-taught programme receive 'a year of complimentary Russian language training' before the degree begins. Directly material to choosing between an English-taught track (no language year, narrower programme choice) and a Russian-taught one (funded prep year, much wider access).",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Russia",
+      "type": "Context",
+      "name": "Nigerian medical graduates must pass the MDCN assessment exam to practise at home",
+      "officialUrl": "https://www.mdcn.gov.ng",
+      "notes": "A gate the marketing never mentions. The Medical and Dental Council of Nigeria runs an 'Assessment Examination for Foreign Trained Medical and Dental Graduates' (a sitting was posted for October 2026) that ALL foreign-trained doctors and dentists, Russia-trained included, must pass for full Nigerian registration. Not Russia-specific, but Russia is a very common destination for Nigerian medical students, so it belongs here.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Russia",
+      "type": "Context",
+      "name": "Post-2022 payment and banking constraints",
+      "officialUrl": "https://eng.istu.edu/international/international-profile/news-events/explanation-of-possible-ways-to-make-remittances-to-russia/",
+      "notes": "Recorded factually because it affects whether a listing is actionable. Confirmed on an official university international-office notice: foreign-issued Visa and Mastercard do not work in Russia, Russian-issued Visa/Mastercard do not work abroad, and SWIFT is blocked for several major Russian banks. Workarounds cited include an account at a non-sanctioned bank with a Mir card, a UnionPay card, or a transfer service. The Mir card works abroad only in a short list of countries. This materially affects how a scholarship-holder receives family funds.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Russia",
+      "type": "Government",
+      "name": "Russian Government Quota — Education in Russia portal",
+      "officialUrl": "https://education-in-russia.com/",
+      "notes": "The official whole-of-government application portal. Verified process: register, create an application, enter passport and academic details, select 1-6 universities, upload documents (jpeg/png/pdf, max 10MB), print, sign and re-upload, submit. The portal's own content is thin and JS-broken on direct fetch, so coverage and deadline detail were confirmed via receiving universities instead (HSE, SPMI below). Nigerians enter via the Russian Embassy / Russian House in Abuja.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Russia",
+      "type": "Government",
+      "name": "Open Doors: Russian Scholarship Project (Olympiad)",
+      "officialUrl": "https://od.globaluni.ru/about",
+      "notes": "A genuinely separate route from the quota, run by the Association of Global Universities with the Ministry of Science and Higher Education since 2017, with NO nationality restriction found. Tracks: bachelor's (16-23), master's (20-33), doctoral (22-35), postdoctoral (24-39). Winners get free tuition in English- or Russian-taught programmes. 2026 cycle verified: registration 20 August-1 November 2026, Stage 1 portfolio to 13 November, Stage 2 to 21 December, Stage 3 interviews to 26 February 2027.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Russia",
+      "type": "Government",
+      "name": "Nigeria-Russia bilateral allocation (~220 seats/year)",
+      "officialUrl": "https://fmino.gov.ng/russia-offers-to-increase-scholarships-for-nigerian-students-from-220-as-part-of-bilateral-cooperation/",
+      "notes": "Nigeria-specific and confirmed on Nigeria's own Federal Ministry of Information site: Russia has offered to raise Nigeria's annual quota above the existing 220. Cross-checked against reporting of a June 2025 Abuja briefing where the Russian Ambassador stated grant packages include tuition, living expenses and travel, with roughly 2,000 Nigerians currently studying in Russia. No self-serve portal for this layer — it runs through Federal Ministry of Education / Russian Embassy nomination. Exact 2026/27 numbers UNVERIFIED.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": true
+    },
+    {
+      "country": "Russia",
+      "type": "University",
+      "name": "HSE (Higher School of Economics) — quota admission",
+      "officialUrl": "https://admissions.hse.ru/en/rgs",
+      "notes": "VERIFIED, and carries a constraint applicants should know before committing: 'HSE has the right to independently determine the programme, regardless of the wishes and priorities of the applicant', and admission to English-taught programmes is restricted for quota admits. Stage 1 opened 15 September. HSE explicitly provides no advisory support for this pathway — everything goes through the national Rossotrudnichestvo office.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Russia",
+      "type": "University",
+      "name": "Saint Petersburg Mining University — quota admission guide",
+      "officialUrl": "https://en.spmi.ru/education/guide/by-quota",
+      "notes": "Confirms the quota is allocated by Rossotrudnichestvo with a Stage-1 embassy screening deadline of 1 November — the same date found on HSE's page, indicating a fixed government-wide calendar rather than per-university dates. Also notes admitted students 'can only transfer among programmes within the scope of their subject area', a real constraint if the assigned field is not the applicant's first choice.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Russia",
+      "type": "University",
+      "name": "RUDN University",
+      "officialUrl": "https://globaluni.rudn.ru/index-en.html",
+      "notes": "Structurally significant: founded in 1960 as Patrice Lumumba Peoples' Friendship University specifically to educate students from Africa, Asia and Latin America, and still one of Russia's largest hosts of African students. Participates in Open Doors as an admitting university. A Soviet-era legacy channel that is effectively invisible on Western scholarship aggregators.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Saudi Arabia",
+      "type": "Context",
+      "name": "No national scholarship body — each university funds its own",
+      "officialUrl": "https://studyinsaudi.sa/en",
+      "notes": "CONFIRMED by direct fetch, settling the earlier assumption. studyinsaudi.sa identifies itself as 'the official Ministry of Education platform for international students', registered with Saudi Arabia's Digital Government Authority — but it is an application FRONT-END, not a funder: 'After submission, the application is forwarded to the selected educational institution for review.' Unlike China's CSC or Turkiye's YTB, no single body both selects and funds. Each university runs and funds its own programme.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Saudi Arabia",
+      "type": "Context",
+      "name": "Religious and field-of-study constraints at the Islamic universities",
+      "officialUrl": "https://iu.edu.sa/",
+      "notes": "Recorded plainly and neutrally because it is a real eligibility constraint applicants should know before investing effort. Saudi Arabia's dedicated Islamic-sciences universities (IU Madinah, IMSIU, and Umm Al-Qura's Sharia colleges) are widely understood to restrict their core scholarship tracks to Muslim applicants and to Islamic-studies or Arabic fields, and IU Madinah's residential scholarship has historically been understood to be male-only. NONE of this was found in quotable text on the official pages that fetched successfully — their deeper eligibility pages 404'd or required a JS-rendered portal — so all of it is UNVERIFIED-FROM-SOURCE and must be confirmed from each university's admission regulations. By contrast the STEM universities (KFUPM, KAUST, KAU) show no such restriction on their official scholarship pages.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": true
+    },
+    {
+      "country": "Saudi Arabia",
+      "type": "Government",
+      "name": "Islamic Development Bank (IsDB) Scholarship Programmes",
+      "officialUrl": "https://www.isdb.org/scholarships",
+      "notes": "MAJOR AFRICA-RELEVANT FIND, headquartered in Jeddah and easily missed because it is a multilateral bank rather than a university or ministry. Three verified tracks: the Scholarship Program for Muslim Communities (undergraduate, from 1983), the M.Sc. Scholarship Program (from 1998) and the Merit Scholarship Program (PhD and post-doctoral, from 1992, focused on applied science and high technology). Covers both member countries and Muslim communities in non-member countries; NIGERIA IS AN IsDB MEMBER COUNTRY, so it qualifies under the member-country track. The 2024-2025 window had closed with 2026-2027 dates not yet published — UNVERIFIED, re-check.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": true
+    },
+    {
+      "country": "Saudi Arabia",
+      "type": "University",
+      "name": "King Fahd University of Petroleum and Minerals (KFUPM)",
+      "officialUrl": "https://www.kfupm.edu.sa/study/international-students/fees-and-scholarships",
+      "notes": "THE BEST-DOCUMENTED SAUDI OPTION, fully verified from the official page. Undergraduate: tuition 'completely waived for international students outside Saudi Arabia', plus free on-campus housing, free textbooks and a monthly stipend. Graduate: free tuition for PhD and selected MS programmes, stipend by scholarship category, free furnished air-conditioned housing, international airfare, medical and dental care, conference funding and textbooks. Paid research-assistant tracks also exist. No religion or gender restriction stated — a secular STEM university.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Saudi Arabia",
+      "type": "University",
+      "name": "King Abdullah University of Science and Technology (KAUST)",
+      "officialUrl": "https://admissions.kaust.edu.sa/",
+      "notes": "VERIFIED: 'Over 90% of admitted students receive full tuition support, a monthly stipend, housing, medical coverage, and relocation assistance' for MS and PhD students — funding is the norm but is not formally guaranteed to 100% of admits. Fully English-taught, secular STEM research university. The KAUST Global Fellowship (kgfp.kaust.edu.sa) is a related named track.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Saudi Arabia",
+      "type": "University",
+      "name": "Islamic University of Madinah",
+      "officialUrl": "https://iu.edu.sa/Deanship-Admission-Registration",
+      "notes": "HISTORICALLY A MAJOR DESTINATION FOR NIGERIAN STUDENTS, though that specific claim traces to Nigerian scholarship press rather than IU's own site and is UNVERIFIED. What IS verified from the official page: a distinct 'Scholarship Student Admission' track separate from domestic admission, open for the 1448H academic year through 29/06/2026, explicitly distinguishing domestic and international scholarships. GAP: the page did not state gender restriction, religion requirement or funding amount in readable form (heavily JavaScript-driven; sub-pages 404'd). Commonly reported but NOT verified: Muslim applicants only, Islamic-sciences focus, and a historically male-only residential programme. Re-verify via IU's admission regulations or care@iu.edu.sa before publishing as fact.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": true
+    },
+    {
+      "country": "Saudi Arabia",
+      "type": "University",
+      "name": "King Abdulaziz University (KAU)",
+      "officialUrl": "https://www.kau.edu.sa/",
+      "notes": "Genuinely international in scale — the official homepage confirms over 100,000 students from 100 countries across 33 faculties and 419 programmes. GAP: the homepage surfaced no scholarship eligibility, funding amounts or application process, and the deeper admission page 404'd to automated fetch. Scholarship terms UNVERIFIED pending a successful fetch or direct enquiry.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": true
+    },
+    {
+      "country": "Saudi Arabia",
+      "type": "University",
+      "name": "King Saud University (KSU)",
+      "officialUrl": "https://ksu.edu.sa/en/international-students",
+      "notes": "The official page directs international applicants to two internal offices (Office of International Students at isd.ksu.edu.sa, and Deanship of Student Affairs) but carries no scholarship eligibility or funding detail itself. UNVERIFIED pending a fetch of isd.ksu.edu.sa.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": true
+    },
+    {
+      "country": "Saudi Arabia",
+      "type": "University",
+      "name": "Umm Al-Qura University (UQU), Makkah",
+      "officialUrl": "https://uqu.edu.sa/en",
+      "notes": "Hosts roughly 2,000 international students among 57,000+ total across 30 colleges, and points to its own admission portal and the national Study In Saudi portal — but surfaced no scholarship-specific eligibility or funding text. Its Makkah location makes it a plausible route for Islamic-studies applicants, but that framing is inference rather than a verified claim. UNVERIFIED.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": true
+    },
+    {
+      "country": "Saudi Arabia",
+      "type": "University",
+      "name": "Imam Muhammad ibn Saud Islamic University (IMSIU)",
+      "officialUrl": "https://imamu.edu.sa/en",
+      "notes": "A specialist Islamic-sciences and Sharia university comparable in mission to IU Madinah. The homepage is reachable but surfaced no scholarship or international-admission content in this pass. UNVERIFIED — follow up via the site's own contact links before recording eligibility or funding.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": true
+    },
+    {
+      "country": "Brazil",
+      "type": "Context",
+      "name": "How scholarships work in Brazil — read this first",
+      "officialUrl": "https://www.gov.br/capes/pt-br",
+      "notes": "STRUCTURAL POINT: Brazilian PUBLIC universities (federal and state) charge NO tuition to anyone, including international students. So a Brazilian 'bolsa' is usually a monthly living stipend, not a tuition waiver — the funding question is living costs, and the tuition question mostly disappears. Separately: PROUNI and FIES, the two programmes most often surfaced by search, are for BRAZILIAN students at private universities only and are NOT open to international applicants.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Brazil",
+      "type": "Context",
+      "name": "ACCESS WARNING — gov.br and gcub.org.br block automated fetching",
+      "officialUrl": "https://www.gov.br/capes/pt-br",
+      "notes": "Checked 2026-09-05: gov.br/capes returned HTTP 401, gov.br/mec served a CAPTCHA, agenciagov.ebc.com.br is disallowed by robots.txt, and gcub.org.br returned 403/timeouts. Every Brazilian federal row below is therefore HUMAN-READ ONLY — same handling as Oxford, Westminster, Melbourne and ng.usembassy.gov. Do not point a fetcher at them or add them to RECHECK_TARGETS; a person must open the page and read the deadline.",
+      "humanReadOnly": true,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Brazil",
+      "type": "Government",
+      "name": "CAPES Move Africa — HIGH-PRIORITY LEAD, needs human verification",
+      "officialUrl": "https://www.gov.br/capes/pt-br/assuntos/noticias/capes-move-africa-oferta-2-6-mil-bolsas-para-estudantes-africanos-em-instituicoes-brasileiras",
+      "notes": "POTENTIALLY THE MOST RELEVANT ROW IN THIS ENTIRE SHEET FOR TALENTRAH. Announced May 2026: a CAPES programme reported as offering ~2,600 master's and doctoral scholarships specifically for AFRICAN students at Brazilian institutions. UNVERIFIED — every figure here comes from search-result headlines and Brazilian press, and the official CAPES page returned HTTP 401 to an honest fetch, so nothing here has been read from the source. Whether Nigeria is among the eligible countries is NOT established. Worth a human opening this page early, given the size of the programme and its explicit Africa focus.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": true
+    },
+    {
+      "country": "Brazil",
+      "type": "Government",
+      "name": "PEC-G — Programa de Estudantes-Convenio de Graduacao",
+      "officialUrl": "https://www.gov.br/mre/pt-br/assuntos/cultura-e-educacao/temas-educacionais/programas-de-estudo-para-estrangeiros/pec-g",
+      "notes": "Ministry of Foreign Affairs UNDERGRADUATE programme for nationals of developing countries with which Brazil holds an education agreement — includes several African countries. Portuguese proficiency generally required (Celpe-Bras). Human-read only, see access warning above.",
+      "humanReadOnly": true,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Brazil",
+      "type": "Government",
+      "name": "PEC-PG — Programa de Estudante-Convenio de Pos-Graduacao",
+      "officialUrl": "https://www.gov.br/mre/pt-br/assuntos/cultura-e-educacao/temas-educacionais/programas-de-estudo-para-estrangeiros/pec-pg-pos-graduacao-1/sobre-o-pec-pg",
+      "notes": "POSTGRADUATE equivalent of PEC-G (master's/doctorate), run jointly by MRE with CAPES and CNPq, same developing-country agreement basis. Human-read only.",
+      "humanReadOnly": true,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Brazil",
+      "type": "Government",
+      "name": "CAPES (Coordenacao de Aperfeicoamento de Pessoal de Nivel Superior)",
+      "officialUrl": "https://www.gov.br/capes/pt-br",
+      "notes": "Federal graduate-education agency — the single largest funder of master's/doctoral stipends in Brazil. Co-administers PEC-PG and runs Move Africa. Human-read only.",
+      "humanReadOnly": true,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Brazil",
+      "type": "Government",
+      "name": "CNPq (Conselho Nacional de Desenvolvimento Cientifico e Tecnologico)",
+      "officialUrl": "https://www.gov.br/cnpq/pt-br",
+      "notes": "Federal research-funding council; funds graduate and research stipends, co-administers PEC-PG. Human-read only.",
+      "humanReadOnly": true,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Brazil",
+      "type": "Government",
+      "name": "CNPq ProAfrica",
+      "officialUrl": "https://www.gov.br/cnpq/pt-br",
+      "notes": "CNPq's Brazil-Africa cooperation line; a 2026 call for joint Brazil-Africa scientific projects was reported open. Funds RESEARCH PROJECTS and associated mobility rather than open student scholarships — check whether a given call carries student stipends before treating it as a scholarship.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Brazil",
+      "type": "Private / Foundation",
+      "name": "GCUB — Grupo de Cooperacao Internacional de Universidades Brasileiras",
+      "officialUrl": "https://www.gcub.org.br/",
+      "notes": "Consortium of Brazilian universities that administers several international scholarship programmes jointly with CAPES and other partners (see GCUB-Mob below). Site returned 403/timeouts to an honest fetch on 2026-09-05 — human-read only.",
+      "humanReadOnly": true,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Brazil",
+      "type": "Private / Foundation",
+      "name": "GCUB-Mob — GCUB International Mobility Program",
+      "officialUrl": "https://www.gcub.org.br/programas/programa-gcub-mob/",
+      "notes": "LEAD, needs human verification. Master's and doctoral scholarships at Brazilian universities for international students; a 5th-edition call (No. 001/2026) was visible in search results. The eligible-country list is NOT verified — do not assume African or Nigerian eligibility without reading the call. Site 403s automated access.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Brazil",
+      "type": "Private / Foundation",
+      "name": "PAEC OEA-GCUB — EXCLUDED on the eligibility rule",
+      "officialUrl": "https://www.gcub.org.br/programas/programa-bolsas-brasil-paec-oea-gcub/",
+      "notes": "CHECKED AND EXCLUDED 2026-09-05. Confirmed on a host university's own page (UFJF): the programme is for 'students from 34 OAS member countries, except Brazil' — Organization of American States members only. Nigeria and African countries are NOT eligible. Same exclusion rule that removed Manaaki NZ and ADB-JSP from Talentrah's catalog. Recorded here so nobody re-adds it: the name looks pan-international, the eligibility is not.",
+      "humanReadOnly": false,
+      "excludesNigeria": true,
+      "unverified": false
+    },
+    {
+      "country": "Brazil",
+      "type": "Government",
+      "name": "CONFAP — Conselho Nacional das Fundacoes Estaduais de Amparo a Pesquisa",
+      "officialUrl": "https://confap.org.br/en/faps/",
+      "notes": "Umbrella body for Brazil's 26+ STATE research foundations (FAPs). This English page lists every state agency in one place — the efficient way to reach FAPERJ, FAPESB, FACEPE, FAPESC, FAPEAM and the rest without chasing each separately. State FAPs are a large and commonly-missed layer of Brazilian funding.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Brazil",
+      "type": "Government",
+      "name": "FAPESP — Fundacao de Amparo a Pesquisa do Estado de Sao Paulo",
+      "officialUrl": "https://fapesp.br/bolsas",
+      "notes": "The largest and best-funded state research foundation in Brazil (Sao Paulo). Funds master's, doctoral and post-doctoral scholarships in Brazil; several lines are open to foreign researchers hosted at Sao Paulo institutions.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Brazil",
+      "type": "Government",
+      "name": "FAPEMIG — Fundacao de Amparo a Pesquisa do Estado de Minas Gerais",
+      "officialUrl": "https://fapemig.br/",
+      "notes": "State research foundation for Minas Gerais; funds research and graduate stipends.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Brazil",
+      "type": "Government",
+      "name": "FAPERGS — Fundacao de Amparo a Pesquisa do Estado do Rio Grande do Sul",
+      "officialUrl": "https://fapergs.rs.gov.br/inicial",
+      "notes": "State research foundation for Rio Grande do Sul; funds scientific-initiation and graduate stipends.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Brazil",
+      "type": "Private / Foundation",
+      "name": "Santander Open Academy (Bolsas/Becas Santander)",
+      "officialUrl": "https://www.santanderopenacademy.com/en/sites/scholarships.html",
+      "notes": "Large private bank-funded scholarship programme with a substantial Brazilian footprint, delivered in partnership with individual universities. Mix of study, language and mobility grants; eligibility is usually set per-call and per-partner-university.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Brazil",
+      "type": "University",
+      "name": "Universidade de Sao Paulo (USP)",
+      "officialUrl": "https://internationaloffice.usp.br/",
+      "notes": "Brazil's largest and highest-ranked university. International Cooperation Office runs exchange and scholarship programmes; public, so no tuition.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Brazil",
+      "type": "University",
+      "name": "Universidade Estadual de Campinas (UNICAMP)",
+      "officialUrl": "https://www.unicamp.br/unicamp/internacional",
+      "notes": "Major Sao Paulo state research university; International Relations Office handles incoming international students.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Brazil",
+      "type": "University",
+      "name": "Universidade de Brasilia (UnB)",
+      "officialUrl": "https://international.unb.br/",
+      "notes": "Federal university in the capital; dedicated international-students portal covering admission routes for foreigners.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Brazil",
+      "type": "University",
+      "name": "Universidade Federal do Rio de Janeiro (UFRJ)",
+      "officialUrl": "https://internacional.ufrj.br/en/study-at-ufrj/",
+      "notes": "Large federal university with an English-language 'Study at UFRJ' section for international applicants.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Brazil",
+      "type": "University",
+      "name": "Universidade Federal de Minas Gerais (UFMG)",
+      "officialUrl": "https://www.ufmg.br/dri/en/",
+      "notes": "Federal university; Office of International Affairs (DRI) publishes an international-student guide and mobility routes.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Brazil",
+      "type": "University",
+      "name": "Universidade Federal de Sao Carlos (UFSCar)",
+      "officialUrl": "https://www.propg.ufscar.br/pt-br/internacionalizacao/bolsas/bolsas-no-brasil-de-mestrado-e-doutorado-exclusivamente-para-candidatos-estrangeiros",
+      "notes": "Notable because its graduate office maintains a page specifically for master's/doctoral scholarships in Brazil reserved for FOREIGN candidates — a useful model page for finding which programmes a given Brazilian university actually participates in.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Brazil",
+      "type": "University",
+      "name": "Universidade Federal de Juiz de Fora (UFJF)",
+      "officialUrl": "https://www2.ufjf.br/internationaloffice/",
+      "notes": "International office publishes clear English-language pages on each incoming-scholarship programme it participates in; this was the source that established PAEC OEA-GCUB's OAS-only eligibility.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Global",
+      "type": "Context",
+      "name": "Many 'global' fellowships fund a seat, not an application",
+      "officialUrl": "https://tdr.who.int/home/our-work/strengthening-research-capacity/postgraduate-training-scheme",
+      "notes": "RECURRING STRUCTURAL FINDING worth acting on. The biggest-sounding global names — WHO/TDR, most UNESCO co-sponsored fellowships, several DAAD in-region tracks — are not single-portal programmes. The funding body explicitly does not process admissions; the applicant must first be independently admitted by a specific named partner university, and the funding then attaches. So 'apply to WHO' or 'apply to UNESCO' is usually the wrong instruction; 'get admitted to [named partner university], then apply for the named funding' is correct.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Global",
+      "type": "Government",
+      "name": "Pan African University (PAU) — African Union funded",
+      "officialUrl": "https://au.int/en/announcements/20251115/pan-african-university-call-scholarships-applications-academic-year-2026-2027",
+      "notes": "AFRICA-HOSTED AND AFRICA-FUNDED, and routinely absent from Western scholarship lists. Run by the African Union: 'The African Union Commission will offer full scholarships to successful candidates', delivered across PAU institutes physically located in Africa. Open to applicants 'from African countries and the Diaspora' for master's and PhD. Note the gender-differentiated age caps: master's max 25 (male) / 28 (female); PhD max 28 (male) / 30 (female). The 2026-2027 deadline was 15 December 2025.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Global",
+      "type": "Government",
+      "name": "Islamic Development Bank — Member Countries track",
+      "officialUrl": "https://www.isdb.org/scholarships",
+      "notes": "Nigeria is a confirmed IsDB Member Country, so it qualifies for the member-country track including the Merit Scholarship Programme (PhD and post-doctoral, high-technology focus). The 2024-2025 cycle is confirmed closed and no consolidated 2026-2027 deadline was published on the main page — verify via isdbscholarships.smartsimple.com before advising anyone.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Global",
+      "type": "Government",
+      "name": "IsDB-ISFD Least Developed Member Countries track — EXCLUDES Nigeria",
+      "officialUrl": "https://www.isdb.org/sites/default/files/media/documents/2025-02/Sch-Bklets_EN_ISDB-ISFD_WEB_Revised.pdf",
+      "notes": "A SUBTLE EXCLUSION inside an otherwise open funder. The official booklet lists 21 eligible least-developed member countries by name: 'Afghanistan, Bangladesh, Benin, Burkina Faso, Chad, Comoros, Djibouti, Gambia, Guinea, Guinea Bissau, Mali, Mauritania, Mozambique, Niger, Senegal, Sierra Leone, Somalia, Sudan, Togo, Uganda, and Yemen.' Nigeria is NOT among them — so a Nigerian is excluded from this specific track while remaining eligible under IsDB's general member-country track above. Exactly the kind of distinction that wastes an applicant's time if missed.",
+      "humanReadOnly": false,
+      "excludesNigeria": true,
+      "unverified": false
+    },
+    {
+      "country": "Global",
+      "type": "Government",
+      "name": "Commonwealth Scholarships routed via Nigeria's Federal Scholarship Board",
+      "officialUrl": "https://cscuk.fcdo.gov.uk/apply/",
+      "notes": "THE MECHANIC NIGERIAN APPLICANTS MOST OFTEN GET WRONG. Applications from Nigeria are NOT made directly to the CSC — they are administered by Nigeria's Federal Scholarship Board (fsb@education.gov.ng), which requires at least two UK university admissions, an NYSC discharge or exemption certificate, and a first-class or second-class-upper degree for master's applicants. The 2025/2026 cycle ran 2 September-14 October 2025; expect a similarly timed call.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Global",
+      "type": "Government",
+      "name": "UNESCO Fellowships — an umbrella of ~10 separate donor schemes",
+      "officialUrl": "https://www.unesco.org/en/fellowships",
+      "notes": "IMPORTANT CLARIFICATION: UNESCO does not run one unified fellowship. It hosts separate donor-funded schemes with different rules — UNESCO/China Great Wall (75 places), TWAS PhD (160), OWSD PhD, UNESCO/Russia-ISEDC (20), UNESCO/Japan Keizo Obuchi, UNESCO/Poland Engineering (28) and Archaeology (7), UNESCO/Korea (25), UNESCO/Saudi AlUla (10), UNESCO/Nestle (20). Keizo Obuchi's cycle deadline was confirmed as 30 September 2026. Eligibility varies per sub-programme and was NOT individually verified — check each separately.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Global",
+      "type": "Government",
+      "name": "WHO/TDR Postgraduate Training Scheme",
+      "officialUrl": "https://tdr.who.int/home/our-work/strengthening-research-capacity/postgraduate-training-scheme",
+      "notes": "Open to researchers from low- and middle-income countries via seven partner universities, with African partners in Ghana, South Africa and Zambia named on the page. Funds 'full time tuition and board, cost of dissertation research/field work, return air travel from home country to institution and contribution towards textbooks'. CRITICAL MECHANIC, quoted: 'TDR will not receive or process applications or enquiries about admissions' — win admission to the partner university first, then apply for the funded seat.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Global",
+      "type": "Government",
+      "name": "IAEA Marie Sklodowska-Curie Fellowship Programme",
+      "officialUrl": "https://www.iaea.org/services/key-programmes/together-for-more-women-in-nuclear/iaea-marie-sklodowska-curie-fellowship-programme",
+      "notes": "WOMEN-ONLY master's scholarship in nuclear-related fields, with 'geographic and linguistic diversity' cited as a selection factor and no nationality bar found. Funds master's tuition and costs plus a small number of competitive internship placements. Most recent confirmed deadline was 31 October 2025 — check for the next cycle.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Global",
+      "type": "Government",
+      "name": "FAO-Hungary Government Scholarship Programme",
+      "officialUrl": "https://en.uni-mate.hu/fao-scholarship",
+      "notes": "A genuinely obscure but real option: a joint FAO / Hungarian government programme delivered through Hungary's Ministry of Agriculture, explicitly open to 43 named countries INCLUDING NIGERIA, Ghana, Kenya, Ethiopia and Uganda. Funds tuition, dormitory, subsistence and health insurance for named master's programmes (Agricultural Biotechnology at Godollo; Animal Nutrition and Feed Safety Engineering at Kaposvar). The 2026-27 window was 21 January-28 February 2026 — useful for planning next year's cycle.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Global",
+      "type": "Government",
+      "name": "DAAD In-Country/In-Region Programme (hosted at African universities)",
+      "officialUrl": "https://www.daad.de/en/information-services-for-higher-education-institutions/further-information-on-daad-programmes/in-countryin-region-programme-in-developing-countries/",
+      "notes": "Funds master's and PhD study physically hosted at partner universities inside the student's own region, with Sub-Saharan Africa a priority region (Eastern Africa and West/Central Africa calls cited). Nigeria was NOT explicitly named in the fetched page content — Nigeria-specific eligibility is UNVERIFIED; confirm via the current call text or a named host university.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": true
+    },
+    {
+      "country": "Global",
+      "type": "Private / Foundation",
+      "name": "Mastercard Foundation Scholars Program",
+      "officialUrl": "https://mastercardfdn.org/en/what-we-do/our-programs/mastercard-foundation-scholars-program/",
+      "notes": "Confirmed still active — partner-university pages (e.g. Cambridge) state 'Applications for the 2026/2027 academic year are now open'. Delivered through partner universities in Africa and worldwide, funding the full cost of study plus leadership and mentorship components. Apply through the specific partner university, never centrally. Already live in Talentrah's catalog.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Global",
+      "type": "Private / Foundation",
+      "name": "Rotary Peace Fellowships",
+      "officialUrl": "https://www.rotary.org/en/our-programs/peace-fellowships",
+      "notes": "Up to 170 fully funded fellowships per year (max 50 master's, 120 professional-development certificate) across eight Rotary Peace Centers worldwide, covering tuition, fees, room and board, round-trip travel and field-study costs. No nationality restriction found. TIMING: the 2027-28 cycle is closed and the next opens February 2027.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Global",
+      "type": "Private / Foundation",
+      "name": "Carnegie African Diaspora Fellowship Program — winding down",
+      "officialUrl": "https://www.iie.org/programs/carnegie-african-diaspora-fellowship-program/",
+      "notes": "Africa-hosted in six countries INCLUDING NIGERIA (with Ghana, Kenya, South Africa, Tanzania, Uganda). IMPORTANT SCOPE LIMIT: it funds African-BORN academics already on faculty at US or Canadian universities to do short project stays at African host institutions — NOT prospective students seeking a degree. The official page confirms the programme is in its 'final phase' (2013-2025), transitioning to an alumni-network model. Treat as winding down.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Global",
+      "type": "Private / Foundation",
+      "name": "Open Society Foundations — individual scholarships largely wound down",
+      "officialUrl": "https://www.opensocietyfoundations.org/grants",
+      "notes": "VERIFY BEFORE CHASING. The official grants page lists only one open individual opportunity (the Open Society Fellowship, for public intellectuals, already past deadline) and states 'the vast majority of our grants are awarded to organizations that we approach directly'. OSF's historic dedicated Africa and Central Asia individual scholarship schemes are absent from the current opportunities page — treat any aggregator claiming an open OSF student scholarship as needing direct re-verification.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Global",
+      "type": "Private / Foundation",
+      "name": "Agence universitaire de la Francophonie (AUF) — Nigeria eligibility doubtful",
+      "officialUrl": "https://www.auf.org/",
+      "notes": "Confirmed real and active: AUF groups 1,007 institutions across 119 countries and runs dozens of open calls. However, the official pages did NOT confirm whether Nigeria has member universities or whether Nigerian nationals at non-member institutions can apply, and Nigeria is not a Francophonie member state — so eligibility is doubtful by default. Do not list AUF as open to Nigerians without a specific call naming Nigeria or an eligible host university. See also the AUF Eugene Ionesco exclusion recorded under France.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Global",
+      "type": "Government",
+      "name": "Joint Japan/World Bank Graduate Scholarship Program (JJ/WBGSP)",
+      "officialUrl": "https://www.worldbank.org/en/programs/scholarships",
+      "notes": "Already live in Talentrah's catalog. Two annual application windows; exact dates are published inside the application guidelines PDF rather than on the landing page, which is why this listing carries a deadline note rather than a date.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Global",
+      "type": "Government",
+      "name": "MEXT Japanese Government Scholarship",
+      "officialUrl": "https://www.studyinjapan.go.jp/en/planning/scholarship/",
+      "notes": "Already live in Talentrah's catalog. Deadlines are delegated to the applicant's local Japanese embassy, so there is no single global date — the Abuja embassy sets Nigeria's.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Global",
+      "type": "Search / Aggregator site",
+      "name": "ScholarshipPortal.com",
+      "officialUrl": "https://www.scholarshipportal.com/",
+      "notes": "Aggregator — useful only to discover a programme's NAME. Per Talentrah's standing rule, every deadline, eligibility and funding fact must be confirmed on the provider's own official page. This pass produced repeated proof of why: Ontario Trillium, Ford IFP and several Wellcome schemes are all still listed as open by aggregators years after officially closing.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Global",
+      "type": "Search / Aggregator site",
+      "name": "Scholars4Dev.com",
+      "officialUrl": "https://www.scholars4dev.com/",
+      "notes": "Aggregator focused on developing-country applicants — discovery only, same caution as above.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Global",
+      "type": "Search / Aggregator site",
+      "name": "Opportunity Desk",
+      "officialUrl": "https://opportunitydesk.org/",
+      "notes": "Aggregator/news site geared toward African applicants — discovery only, same caution as above.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Global",
+      "type": "Search / Aggregator site",
+      "name": "WeMakeScholars.com",
+      "officialUrl": "https://www.wemakescholars.com/",
+      "notes": "Aggregator — discovery only, same caution as above.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    },
+    {
+      "country": "Global",
+      "type": "Search / Aggregator site",
+      "name": "Scholarships.com",
+      "officialUrl": "https://www.scholarships.com/",
+      "notes": "Aggregator — discovery only, same caution as above.",
+      "humanReadOnly": false,
+      "excludesNigeria": false,
+      "unverified": false
+    }
+  ]
+}
