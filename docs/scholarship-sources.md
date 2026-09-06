@@ -288,3 +288,178 @@ now records it as resolved, citing this file. Standing consequences:
 - A formal external legal review remains RECOMMENDED before diaspora
   billing, batched with the spec's other multi-jurisdiction items — this
   approval is the founder's operating decision, not a legal opinion.
+
+## The provider pool (added 2026-09-05)
+
+Everything above this section is a record of *listings* — programmes checked,
+added, watched or excluded. This section adds the layer underneath: a pool of
+**219 scholarship providers across 18 countries** to work through, so a
+sourcing pass starts from a researched list rather than from a search box.
+
+The pool is meant to live in `docs/scholarship-provider-pool.json`
+(machine-readable, one object per provider with `country`, `type`, `name`,
+`officialUrl`, `notes` and three flags: `humanReadOnly`, `excludesNigeria`,
+`unverified`), with a companion spreadsheet,
+`Scholarship_Providers_by_Country.xlsx`, holding the same rows for reading by
+hand. **Neither file is committed yet.** This section — the research findings
+below — is usable on its own without it: Register 1's exclusion list, the two
+resolved watch-list questions, and the structural findings are all complete
+statements that don't depend on the JSON existing. A future sourcing pass
+that wants to work through the full 219-provider list mechanically will need
+the JSON committed first; until then, treat any reference to it below as a
+description of what's coming, not a file to go looking for.
+
+**Countries covered:** United States, United Kingdom, Canada, Australia,
+Germany, France, Finland, Norway, Netherlands, Portugal, Spain, Türkiye, China,
+South Korea, Russia, Saudi Arabia, Brazil, plus a Global/multilateral section.
+
+**How it was built.** Each entry was researched against the provider's own
+official page. Aggregators were used only to discover programme names — never
+as the source of a fact, per the standing rule. 32 entries carry an explicit
+`UNVERIFIED` note naming where the unconfirmed claim came from; those are leads,
+not facts. (That count and those notes live in the pool file itself, which
+isn't committed yet — see above.)
+
+**What the pool is NOT.** It is a list of providers, not of listings. Nothing in
+it may be inserted into `public.scholarships` without first reading the official
+page for an exact deadline and an eligibility statement that covers
+Nigerian/African applicants. The pool tells a pass *where to look*; the rules
+above still decide what may be published.
+
+### Register 1 — programmes confirmed CLOSED to Nigerian/African applicants
+
+This is the most valuable part of the pool for the pipeline. Each of these
+sounds internationally open and is not. **Do not add any of them, and do not
+spend a pass re-checking them** unless the provider changes its own rules.
+
+| Programme | Host | Eligibility as published |
+|---|---|---|
+| Aga Khan Foundation ISP | Global | 15 named countries; no West African country. **Conflicts with a live catalog row — see below.** |
+| PAEC OEA-GCUB | Brazil | "students from 34 OAS member countries, except Brazil" |
+| Scotland's Saltire Scholarships | UK | Canada, China, India, Pakistan, USA |
+| Global Wales Postgraduate Scholarship | UK | Vietnam, India, USA, EU |
+| Fundación Carolina | Spain | Latin American partner universities (Ibero-American) |
+| Instituto Camões PROCULTURA | Portugal | Angola, Cabo Verde, Guiné-Bissau, Moçambique, São Tomé e Príncipe, Timor-Leste |
+| AUF "Eugène Ionesco" grants | France | OIF (Francophonie) member/observer states, plus Algeria |
+| BAYHOST | Germany (Bavaria) | Ten Central/Eastern European states |
+| Korea Foundation Scholarship | South Korea | Six regional groups — **no African group exists** |
+| POSCO TJ Park Asia Fellowship | South Korea | Africa entry reads: "Egypt, Morocco, South Africa" |
+| StuNed | Netherlands | Indonesia only (bilateral) |
+| Tri-agency master's award (NSERC/SSHRC/CIHR) | Canada | Citizens, PRs and Protected Persons only |
+| IsDB-ISFD least-developed-countries track | Global | 21 named countries; Nigeria absent (**but Nigeria qualifies under IsDB's general member-country track**) |
+| Fundación "la Caixa" postgraduate abroad | Spain | Funds Spanish/Portuguese students to go abroad — wrong direction entirely |
+| Wolfson Foundation | UK | Accepts no applications from individuals at all |
+| SASUP institutional scholarships | Portugal (U. Porto) | Explicitly excludes students holding International Student Status |
+| Sabancı bilateral sponsored slots | Türkiye | Azerbaijan, Iraq, Oman, Libya, Pakistan, Qatar |
+| Lånekassen | Norway | Norwegian citizenship or long residence/employment ties |
+| Cal Grant (and US state aid generally) | US | Citizens, PRs, eligible non-citizens, AB 540 |
+| FAFSA / Pell / federal aid | US | F-1, F-2, M-1, J-1, J-2 visas convey no eligibility |
+
+**Manaaki NZ and ADB-JSP**, excluded in earlier passes on the same rule, remain
+excluded and are recorded in the exclusions table earlier in this file.
+
+### Register 2 — sites that refuse honest automated access
+
+Same rule as the existing HUMAN-READ ONLY list: **do not point a fetcher at
+these, and never add them to `RECHECK_TARGETS`.** A recheck target that always
+fails adds a notice line to every daily run, which trains whoever reads the
+summary to skim past notices that matter.
+
+| Domain | Behaviour observed (2026-09-05) |
+|---|---|
+| `ox.ac.uk` | 403 to an honest fetcher (long-standing; `rhodeshouse.ox.ac.uk` IS reachable) |
+| `westminster.ac.uk` | 403 |
+| `melbourne` / `unimelb` robots | 403 on robots.txt itself (earlier pass) |
+| `ng.usembassy.gov` | 403, including robots.txt — blocks the Nigeria Fulbright page |
+| `gov.br` (CAPES, MEC, CNPq, MRE) | 401 on CAPES; CAPTCHA on MEC |
+| `agenciagov.ebc.com.br` | Disallowed by robots.txt |
+| `gcub.org.br` | 403 and read timeouts |
+| `koica.go.kr` | Robots-disallowed on the country-office page |
+| `campuschina.org` | 412 |
+| `wellcome.org` | 403 |
+| Turkish university sites (Bilkent, METU, Boğaziçi, ITU, Istanbul, Erciyes, Necmettin Erbakan) | 403/404 on every admissions URL attempted |
+| `uu.nl` (Utrecht) | DNS/connect timeout at the robots stage |
+
+### Register 3 — look-alike domains, never link a user to these
+
+`chinascholarshipcouncil.com` and `chinesescholarshipcouncil.com` both style
+themselves "Official Website: China Scholarships Council" and neither is
+operated by the China Scholarship Council. Both were fetched and confirmed to be
+third-party aggregators. **The genuine CSC is `csc.edu.cn`**, with
+`campuschina.org` as its official English portal and
+`studyinchina.csc.edu.cn` as the real application system.
+
+### Two watch-list questions this research resolved
+
+Both had been sitting unresolved since 2026-09-01. The existing watch-list
+table above (under "Checked — WATCH LIST") still reads as unresolved for
+these two as of this commit — updating those rows is a follow-up, not done
+here, since this section is the research record rather than an edit to that
+table:
+
+- **Australia Awards — Nigeria IS a participating country.** Confirmed on DFAT's
+  own participating-countries page and in the Australia Awards Africa 2027-intake
+  profile, which names Nigeria in its citizenship list. The 2027 intake opens
+  **1 February 2026** and closes **30 April 2026, 11:59pm AEST**. DFAT also warns
+  that "eligible countries and priority sectors may change from year to year", so
+  re-verify against the live intake document each cycle rather than assuming.
+- **Global Korea Scholarship — Nigeria HAS an Embassy Track quota.** The Korean
+  Cultural Center in Nigeria has published Nigeria-specific GKS notices for the
+  2023, 2025 and 2026 cycles, undergraduate and graduate. The exact numeric quota
+  could not be extracted (the individual notice pages redirect-loop), but the
+  standing allocation is established. Note GKS also runs a **University Track**
+  where Korean universities hold their own quota — a country with no embassy
+  allocation in a given year is not barred, so always check both.
+
+### One conflict with the live catalog, still open
+
+`public.scholarships` carries **Aga Khan Foundation International Scholarship
+Programme** as a `verified` row (cycle_year 2027, id
+`233ec41b-364a-4fc3-81a4-8cf5a33b9a69`). The programme's official eligibility
+page at `akf.org/international-scholarship-programme/` states it "is available in
+Afghanistan, Australia, Bangladesh, Egypt, India, Kenya, Kyrgyz Republic,
+Madagascar, Mozambique, New Zealand, Pakistan, Syria, Tajikistan, Tanzania, and
+Uganda", with applications in Canada, Portugal and the USA accepted only from
+people "originally from one of the countries listed above". **Nigeria and all of
+West Africa are absent.** Checked twice, independently, on 2026-09-05.
+
+The row was left untouched because a sourcing pass never modifies existing rows.
+It needs a human decision: either an eligibility note making the country
+restriction explicit on the listing, or withdrawal. Recorded here so the decision
+does not get lost. (This conflict is left exactly as found — no action taken on
+the catalog row as part of committing this section; the decision is the
+founder's, separately.)
+
+### Structural findings worth carrying into how listings are written
+
+Four things this research established that change how a country's listings
+should be presented to a seeker:
+
+1. **Brazilian public universities charge no tuition to anyone**, so a Brazilian
+   "bolsa" is a living stipend, not a fee waiver. PROUNI and FIES — the two
+   programmes search engines surface first — are for Brazilians at private
+   universities only.
+2. **Norway introduced non-EEA tuition in autumn 2023** (NOK 197,000–401,704/yr
+   at UiB) and built no scholarship to offset it; UiB states plainly it "does not
+   offer any scholarships to cover tuition fees". Norway's realistic route is now
+   a salaried PhD *position*, not a scholarship.
+3. **The Netherlands ended the Orange Knowledge Programme in 2024** — its main
+   Africa/developing-country vehicle, ~EUR 310m across 55 countries — with no
+   successor. Remaining Dutch awards are partial offsets against a non-EEA fee
+   3–11x the statutory rate.
+4. **France exempts doctoral students from the "Bienvenue en France" fee
+   increase regardless of nationality**, so a Nigerian PhD applicant pays the
+   same low fee as an EU student while a master's applicant does not.
+
+### A mechanic worth stating plainly, because it is the commonest wrong instruction
+
+Several of the largest-sounding programmes do not accept applications
+themselves. WHO/TDR states outright that it "will not receive or process
+applications or enquiries about admissions"; most UNESCO fellowships are
+separate donor-funded schemes rather than one programme; Eiffel can only be
+applied for by a French host institution nominating a candidate; and Commonwealth
+Scholarships from Nigeria are administered by Nigeria's Federal Scholarship
+Board, not by the CSC directly. For these, "apply to WHO/UNESCO/Campus France" is
+the wrong instruction — "get admitted to the named host institution, then apply
+for the named funding through the named body" is correct. Listings for these
+programmes should say so in the eligibility or deadline note.
