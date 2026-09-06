@@ -204,18 +204,34 @@ export const NON_SCREENABLE_SKILLS: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * Some source HTML is double-escaped (`&amp;nbsp;` for a literal `&nbsp;`) —
- * decoding &amp; first unmasks those before the other entities run, so a
- * single pass catches both single- and double-escaped forms.
+ * Some source HTML is double-escaped (`&amp;nbsp;` for a literal `&nbsp;`,
+ * or `&amp;amp;` for a literal `&`) — a single pass over the six entities
+ * below is NOT enough for the same-entity case. Traced live from a real
+ * posting ("monitoring, evaluation &amp; learning" reaching the /tailor JD
+ * box unchanged): a single `.replace(/&amp;/g, "&")` on `&amp;amp;` matches
+ * only the FIRST five characters and leaves `&` + `amp;` = `&amp;` behind,
+ * because `String.replace` with `/g` finds all matches in the ORIGINAL
+ * string in one pass — it never rescans its own output. `&amp;nbsp;` isn't
+ * affected by this specific gap (decoding `&amp;` first exposes `&nbsp;` for
+ * the LATER `.replace(/&nbsp;/g, ...)` call in the same chain to catch),
+ * which is why that case looked handled and this one didn't. Looping until
+ * a pass changes nothing closes it for any depth of repetition, not just two
+ * layers.
  */
-function decodeHtmlEntities(text: string): string {
-  return text
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&nbsp;/g, " ");
+export function decodeHtmlEntities(text: string): string {
+  let previous: string;
+  let current = text;
+  do {
+    previous = current;
+    current = current
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/&nbsp;/g, " ");
+  } while (current !== previous);
+  return current;
 }
 
 /**
