@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Suggestion } from "@/lib/jobs/search-suggestions";
 import { SearchCombobox } from "./search-combobox";
 import { FilterMenu, type FilterMenuItem } from "./filter-menu";
+import { FilterChip } from "@/components/ui";
 import { JOB_DATE_FILTERS, JOB_DATE_FILTER_LABEL, type JobDateFilter } from "@/lib/jobs/freshness";
 import { TRACKED_COUNTRIES, type TrackedCountry } from "@/lib/jobs/country";
 
@@ -190,6 +191,15 @@ export function FilterBar({
         face) — a second, redundant display of the same state inside this box
         was the "applied-filter chip row" that's gone. "Clear filters" is the
         one thing left in here with no other affordance, so it stays.
+
+        That removal left a real gap this file's own reasoning didn't cover:
+        the free-text search term never had another visible home (an empty
+        box and a box with "engineer" typed in it look identical at a
+        glance), and with several facets active at once a reader has to pick
+        rust-colored words out of ~17 links across four groups to reconstruct
+        what's filtering their results. The summary line below THE SEARCH
+        INSTRUMENT is the fix — see its own comment for why it isn't the same
+        thing as what was removed.
       */}
       <div
         data-testid="applied-filters"
@@ -232,6 +242,77 @@ export function FilterBar({
           </Link>
         )}
       </div>
+
+      {/*
+        ACTIVE-FILTER SUMMARY — shown only when `anyApplied`, so it costs
+        nothing in the common no-filter case. NOT a return of the removed
+        per-filter chip row: that row was a permanent, redundant echo of
+        state every toggle already showed via its own rust underline. This
+        is conditional, and it covers a real gap that reasoning never
+        addressed — the search term, which has no other visible home (an
+        empty box and a box with a real term typed in it look identical),
+        plus a single place to read back everything at once once more than
+        one or two facets are active, rather than picking rust-colored words
+        out of ~17 links across four groups.
+
+        Reuses FilterChip (src/components/ui/filter-chip.tsx) — already the
+        established "removable filter tag" component (scholarship-filter-bar
+        uses it too, display-only today), extended here with `removeHref` so
+        it degrades the same way every other control on this page does: a
+        plain link, no client JS required. Each chip's own href reuses the
+        exact same `buildHref`/`toggled` helpers the facet links above use to
+        remove one value while leaving every other filter untouched — not a
+        second implementation of "remove this one thing."
+
+        The search term renders `quoted` — italic Newsreader, distinct from
+        the plain facet words next to it — which is the one thing this line
+        exists to fix that nothing else on the page ever showed.
+      */}
+      {anyApplied && (
+        <div
+          data-testid="active-filter-summary"
+          className="flex flex-wrap items-center gap-2 text-[12.5px]"
+        >
+          <span className="font-semibold text-ink-soft">Showing:</span>
+          {q && (
+            <FilterChip
+              label={`"${q}"`}
+              quoted
+              removeHref={buildHref(base, { q: undefined })}
+            />
+          )}
+          {workTypes.map((wt) => (
+            <FilterChip
+              key={`wt-${wt}`}
+              label={LABEL[wt]}
+              removeHref={buildHref(base, {
+                workType: toggled(workTypes, wt).join(",") || undefined,
+              })}
+            />
+          ))}
+          {seniorities.map((s) => (
+            <FilterChip
+              key={`sen-${s}`}
+              label={LABEL[s]}
+              removeHref={buildHref(base, {
+                seniority: toggled(seniorities, s).join(",") || undefined,
+              })}
+            />
+          ))}
+          {posted && (
+            <FilterChip
+              label={LABEL[posted]}
+              removeHref={buildHref(base, { posted: undefined })}
+            />
+          )}
+          {country && (
+            <FilterChip
+              label={country}
+              removeHref={buildHref(base, { country: countryApplicable ? "all" : undefined })}
+            />
+          )}
+        </div>
+      )}
 
       {/*
         DESKTOP — one row, Country leading as the only bordered menu, then

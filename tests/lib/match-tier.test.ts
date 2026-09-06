@@ -4,7 +4,48 @@
  * never changes a score that wasn't already at the ceiling.
  */
 import { describe, expect, it } from "vitest";
-import { displayMatchScore, getMatchTier } from "@/lib/match-tier";
+import { displayMatchScore, getMatchTier, getDisplayMatchTier } from "@/lib/match-tier";
+
+describe("getMatchTier", () => {
+  it("has no floor — anything under 70 is fair, including well under 60", () => {
+    // Pinned deliberately: this is the STORAGE-facing function
+    // (compute-and-store.ts writes its result straight into
+    // match_scores.tier, a `not null` column) and digest/select.ts's own
+    // caller pre-filters to score >= 70 before ever reaching it — neither
+    // has a reason to see a floor, and this test exists so a future "add
+    // the floor here too" edit gets caught rather than silently breaking a
+    // NOT NULL write. getDisplayMatchTier (below) is where the floor lives.
+    expect(getMatchTier(59)).toBe("fair");
+    expect(getMatchTier(0)).toBe("fair");
+  });
+
+  it("the 60/70/80 boundaries", () => {
+    expect(getMatchTier(69)).toBe("fair");
+    expect(getMatchTier(70)).toBe("good");
+    expect(getMatchTier(79)).toBe("good");
+    expect(getMatchTier(80)).toBe("excellent");
+  });
+});
+
+describe("getDisplayMatchTier", () => {
+  it("SABOTAGE-PROOF TARGET: a 50% score is not Fair — it has no tier at all", () => {
+    expect(getDisplayMatchTier(50)).toBeNull();
+  });
+
+  it("null for anything under 60", () => {
+    expect(getDisplayMatchTier(59)).toBeNull();
+    expect(getDisplayMatchTier(0)).toBeNull();
+  });
+
+  it("the 60/70/80 boundaries still hold once there's a floor", () => {
+    expect(getDisplayMatchTier(60)).toBe("fair");
+    expect(getDisplayMatchTier(69)).toBe("fair");
+    expect(getDisplayMatchTier(70)).toBe("good");
+    expect(getDisplayMatchTier(79)).toBe("good");
+    expect(getDisplayMatchTier(80)).toBe("excellent");
+    expect(getDisplayMatchTier(100)).toBe("excellent");
+  });
+});
 
 describe("displayMatchScore", () => {
   it(

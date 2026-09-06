@@ -25,6 +25,27 @@ const SENIORITY_LABEL: Record<string, string> = {
   executive: "Executive",
 };
 
+/**
+ * "Zaria Digital · Remote · Remote · Entry" — confirmed live. `job.location`
+ * and `WORK_TYPE_LABEL[job.work_type]` collide whenever a posting's location
+ * field is itself the literal string "Remote", which schema-org/ATS sources
+ * write as a real location value, not an edge case. Case-insensitive and not
+ * scoped to the word "Remote" specifically: any two identical strings in the
+ * meta line collapse to one, keeping the first occurrence's casing.
+ */
+export function dedupeMetaParts(parts: (string | null)[]): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const part of parts) {
+    if (!part) continue;
+    const key = part.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(part);
+  }
+  return result;
+}
+
 export interface JobCardProps {
   // Omit, not the full row: the feed query that supplies this (jobs/page.tsx)
   // fetches `description` pre-truncated via the generated `description_preview`
@@ -71,12 +92,12 @@ export function JobCard({
   applicantCount = null,
   countryState,
 }: JobCardProps) {
-  const metaParts = [
+  const metaParts = dedupeMetaParts([
     job.company_name,
     job.location,
     job.work_type ? WORK_TYPE_LABEL[job.work_type] : null,
     job.seniority ? SENIORITY_LABEL[job.seniority] : null,
-  ].filter(Boolean);
+  ]);
 
   const isExternal = job.source_type === "external";
   // Own line, same call as the detail page (jobs/[id]/page.tsx) and the same

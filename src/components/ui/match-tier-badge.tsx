@@ -1,7 +1,7 @@
 import {
   MATCH_TIER_LABEL,
   MATCH_TIER_TEXT_CLASS,
-  getMatchTier,
+  getDisplayMatchTier,
   displayMatchScore,
 } from "@/lib/match-tier";
 import { cn } from "@/lib/cn";
@@ -16,14 +16,20 @@ export interface MatchTierBadgeProps {
   className?: string;
 }
 
+/**
+ * Below 60 there is no tier — see `getDisplayMatchTier`'s own comment for why
+ * that's a display-only floor rather than a change to the stored tier. Never
+ * a fourth colored label: the bare percentage renders in neutral `ink-soft`,
+ * no tier word, no tier color.
+ */
 export function MatchTierBadge({
   score,
   variant = "eyebrow",
   className,
 }: MatchTierBadgeProps) {
-  const tier = getMatchTier(score);
-  const colorClass = MATCH_TIER_TEXT_CLASS[tier];
-  const label = MATCH_TIER_LABEL[tier];
+  const tier = getDisplayMatchTier(score);
+  const colorClass = tier ? MATCH_TIER_TEXT_CLASS[tier] : "text-ink-soft";
+  const label = tier ? MATCH_TIER_LABEL[tier] : null;
   const displayScore = displayMatchScore(score);
 
   if (variant === "display") {
@@ -33,14 +39,16 @@ export function MatchTierBadge({
           {displayScore}
           <span className="text-[20px]">%</span>
         </span>
-        <span
-          className={cn(
-            "font-display text-[13px] font-bold italic",
-            colorClass,
-          )}
-        >
-          {label}
-        </span>
+        {label && (
+          <span
+            className={cn(
+              "font-display text-[13px] font-bold italic",
+              colorClass,
+            )}
+          >
+            {label}
+          </span>
+        )}
       </div>
     );
   }
@@ -53,7 +61,7 @@ export function MatchTierBadge({
         className,
       )}
     >
-      {displayScore}% · {label}
+      {label ? `${displayScore}% · ${label}` : `${displayScore}%`}
     </span>
   );
 }
