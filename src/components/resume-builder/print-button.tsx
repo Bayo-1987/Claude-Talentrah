@@ -1,7 +1,11 @@
 "use client";
 
 import { Button } from "@/components/ui";
-import { findUneditedExampleFields, exampleFieldElementId } from "@/lib/resume-builder/example-guard";
+import {
+  findUneditedExampleFields,
+  exampleFieldElementId,
+  clearFlaggedExampleFields,
+} from "@/lib/resume-builder/example-guard";
 import { recordResumeBuilderCompletionAction } from "@/lib/resume-builder/actions";
 import type { StructuredResume } from "@/lib/resume/types";
 
@@ -35,8 +39,27 @@ function focusFlaggedField(path: string) {
  * fully-enabled button. resume-editor.tsx renders the matching markers
  * inline (same flags, same source of truth), and each flagged label here is
  * a real button that scrolls to and focuses its field there.
+ *
+ * "Clear example content?" (Stage 18 item 4) sits next to that list as a
+ * faster way to unblock the same guard than clicking through and retyping
+ * every flagged field by hand — it hands `content` through
+ * clearFlaggedExampleFields (example-guard.ts), which blanks exactly the
+ * fields `findUneditedExampleFields` currently flags and nothing else, then
+ * reports the result to the parent via `onClearExample` (PrintButton itself
+ * owns no resume state — resume-editor.tsx does). A `window.confirm` is the
+ * whole undo story, matching this repo's existing pattern (see
+ * stage-select.tsx's Hired confirm) — no separate undo/redo stack.
  */
-export function PrintButton({ resumeId, content }: { resumeId: string; content: StructuredResume }) {
+export function PrintButton({
+  resumeId,
+  content,
+  onClearExample,
+}: {
+  resumeId: string;
+  content: StructuredResume;
+  /** Receives the cleared content — resume-editor.tsx wires this to setContent. */
+  onClearExample?: (next: StructuredResume) => void;
+}) {
   const flags = findUneditedExampleFields(content);
 
   function handleClick() {
@@ -48,6 +71,11 @@ export function PrintButton({ resumeId, content }: { resumeId: string; content: 
     // for.
     void recordResumeBuilderCompletionAction(resumeId);
     window.print();
+  }
+
+  function handleClearExample() {
+    if (!window.confirm("Clear example content?")) return;
+    onClearExample?.(clearFlaggedExampleFields(content));
   }
 
   return (
@@ -72,6 +100,15 @@ export function PrintButton({ resumeId, content }: { resumeId: string; content: 
               </span>
             ))}
           </p>
+          {onClearExample && (
+            <button
+              type="button"
+              onClick={handleClearExample}
+              className="mt-1 underline underline-offset-2 text-ink-soft hover:text-ink"
+            >
+              Clear example content, keep structure
+            </button>
+          )}
         </div>
       )}
     </div>

@@ -123,6 +123,69 @@ export function hasUneditedExampleContent(content: StructuredResume): boolean {
   return findUneditedExampleFields(content).length > 0;
 }
 
+/**
+ * Blanks every string value on an object while keeping exactly the keys it
+ * already had — used below to empty a flagged experience/education entry
+ * without hardcoding its field list (and so without drifting from
+ * ResumeExperienceEntry/ResumeEducationEntry if either grows a field).
+ */
+function blankEntry<T extends object>(entry: T): T {
+  const blanked: Record<string, unknown> = { ...entry } as Record<string, unknown>;
+  for (const key of Object.keys(entry)) {
+    if (typeof blanked[key] === "string") blanked[key] = "";
+  }
+  return blanked as T;
+}
+
+/**
+ * "Clear the example content, keep the structure" (Stage 18 item 4) —
+ * the action behind the export-guard message's clear control.
+ *
+ * DELIBERATELY NOT A NEW TRACKING MECHANISM: this writes empty values only
+ * to the fields `findUneditedExampleFields` currently flags, computed fresh
+ * from the SAME content passed in. It never invents a second notion of
+ * "is this still the example" — a field the user already edited away from
+ * the example value is, by construction, not in the flag list and is
+ * returned untouched.
+ *
+ * SHAPE-PRESERVING: a flagged experience/education entry is blanked in
+ * place (blankEntry above) rather than removed, so the array keeps its
+ * original length — three seeded work-history entries stay three empty
+ * entries, never zero and never collapsed into one. A flagged
+ * skills/projects/certifications list is likewise replaced with the same
+ * number of empty strings rather than truncated to `[]`, for the same
+ * reason: "cleared" should mean "empty", not "shorter".
+ */
+export function clearFlaggedExampleFields(content: StructuredResume): StructuredResume {
+  const flags = findUneditedExampleFields(content);
+  const flagged = new Set(flags.map((f) => f.path));
+  if (flagged.size === 0) return content;
+
+  const next: StructuredResume = {
+    ...content,
+    contact: { ...content.contact },
+    experience: content.experience.map((entry, i) =>
+      flagged.has(`experience.${i}`) ? blankEntry(entry) : entry,
+    ),
+    education: content.education.map((entry, i) =>
+      flagged.has(`education.${i}`) ? blankEntry(entry) : entry,
+    ),
+    skills: flagged.has("skills") ? content.skills.map(() => "") : content.skills,
+    projects: flagged.has("projects") ? content.projects.map(() => "") : content.projects,
+    certifications: flagged.has("certifications")
+      ? content.certifications.map(() => "")
+      : content.certifications,
+  };
+
+  if (flagged.has("contact.name")) next.contact.name = "";
+  if (flagged.has("contact.email")) next.contact.email = "";
+  if (flagged.has("contact.phone")) next.contact.phone = "";
+  if (flagged.has("contact.location")) next.contact.location = "";
+  if (flagged.has("summary")) next.summary = "";
+
+  return next;
+}
+
 /** The user-facing message for the export/Auto-Apply block. */
 export function describeExampleGuardError(flags: ExampleFieldFlag[]): string {
   const labels = flags.map((f) => f.label);
