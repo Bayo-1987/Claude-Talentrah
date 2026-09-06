@@ -87,7 +87,7 @@ test.describe("job expiry", () => {
     const chosen = iso(21);
     await authedPage.locator("#expiresOn").fill(chosen);
     await authedPage.getByRole("button", { name: "Publish job" }).click();
-    await expect(authedPage).toHaveURL(/\/employer\/jobs$/);
+    await expect(authedPage).toHaveURL(/\/employer\/jobs\?posted=.+$/);
 
     const { data } = await admin
       .from("job_postings")
@@ -109,7 +109,7 @@ test.describe("job expiry", () => {
     await authedPage.getByLabel("Job description").fill(DESCRIPTION);
     await authedPage.locator("#expiresIn").selectOption("3");
     await authedPage.getByRole("button", { name: "Publish job" }).click();
-    await expect(authedPage).toHaveURL(/\/employer\/jobs$/);
+    await expect(authedPage).toHaveURL(/\/employer\/jobs\?posted=.+$/);
 
     const { data } = await admin
       .from("job_postings")

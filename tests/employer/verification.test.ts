@@ -9,6 +9,7 @@
 import { describe, expect, it } from "vitest";
 import {
   emailDomain,
+  employerBannerMessage,
   evaluateDomainVerification,
   isConsumerEmailDomain,
   normalizeDomain,
@@ -153,5 +154,50 @@ describe("verificationMessage", () => {
         );
       }
     }
+  });
+});
+
+describe("employerBannerMessage", () => {
+  it("shows the ordinary per-reason message when the stored bit agrees", () => {
+    const outcome = evaluateDomainVerification({
+      userEmail: "ada@gmail.com",
+      emailConfirmed: true,
+      claimedDomain: "zariadigital.com",
+    });
+    expect(employerBannerMessage(outcome, false, "ada@gmail.com")).toBe(
+      verificationMessage(outcome, "ada@gmail.com"),
+    );
+  });
+
+  it("says to resave the profile when the account is now eligible but the stored bit hasn't caught up", () => {
+    // The exact case updateCompanyProfileAction leaves behind: an employer
+    // confirms their email (or the domain already matched) after the org was
+    // created, and nothing has re-run the service-role verified write since —
+    // evaluateDomainVerification recomputes true from current facts, but
+    // organizations.verified is still false in storage.
+    const outcome = evaluateDomainVerification({
+      userEmail: "ada@zariadigital.com",
+      emailConfirmed: true,
+      claimedDomain: "zariadigital.com",
+    });
+    expect(outcome.verified).toBe(true);
+    const message = employerBannerMessage(outcome, false, "ada@zariadigital.com");
+    expect(message).not.toBe(verificationMessage(outcome, "ada@zariadigital.com"));
+    expect(message).toMatch(/resave|profile/i);
+  });
+
+  it("never claims eligibility once the stored bit already agrees, even if it happens to be true", () => {
+    // storedVerified: true means the ordinary branch runs regardless of the
+    // outcome — this function's whole job is to catch the ONE combination
+    // (outcome.verified && !storedVerified), not to second-guess a
+    // already-consistent state.
+    const outcome = evaluateDomainVerification({
+      userEmail: "ada@zariadigital.com",
+      emailConfirmed: true,
+      claimedDomain: "zariadigital.com",
+    });
+    expect(employerBannerMessage(outcome, true, "ada@zariadigital.com")).toBe(
+      verificationMessage(outcome, "ada@zariadigital.com"),
+    );
   });
 });

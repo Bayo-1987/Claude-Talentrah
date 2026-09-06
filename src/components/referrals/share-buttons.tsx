@@ -3,13 +3,24 @@
 import { useState } from "react";
 import { Button } from "@/components/ui";
 
-export type ShareChannel = "whatsapp" | "copy_link" | "email" | "social";
+export type ShareChannel = "whatsapp" | "copy_link" | "email" | "social" | "linkedin";
 
 export interface ShareButtonsProps {
   /** What gets shared. Named `url`, not `referralUrl` — this serves jobs too. */
   url: string;
   /** Compact variant — WhatsApp, copy, email. No social, no funnel chrome. */
   compact?: boolean;
+  /**
+   * Adds a LinkedIn share link alongside the rest. Off by default — a
+   * referral invite has no reason to go through LinkedIn, and adding it there
+   * unasked would be one more thing on a screen it doesn't belong on. The
+   * employer job-share surface is the first caller to opt in.
+   *
+   * LinkedIn's share-offsite endpoint only ever takes a URL — it has ignored
+   * a prefilled summary/title since 2020, so `message` has no effect here the
+   * way it does for WhatsApp/email.
+   */
+  linkedIn?: boolean;
   /** Overrides the referral pitch. A job share is not a referral pitch. */
   message?: string;
   /** Email subject line. Defaults to the referral invite.  */
@@ -35,6 +46,7 @@ const REFERRAL_MESSAGE =
 export function ShareButtons({
   url: referralUrl,
   compact = false,
+  linkedIn = false,
   message = REFERRAL_MESSAGE,
   subject = "Join me on Talentrah",
   onShare,
@@ -55,6 +67,7 @@ export function ShareButtons({
   // isn't even available on most desktop browsers) — matches the same
   // zero-JS pattern as the WhatsApp/email links.
   const socialHref = `https://twitter.com/intent/tweet?text=${encodeURIComponent(message)}&url=${encodeURIComponent(referralUrl)}`;
+  const linkedInHref = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(referralUrl)}`;
 
   return (
     <div className="flex flex-wrap items-center gap-2.5">
@@ -90,6 +103,17 @@ export function ShareButtons({
             Share elsewhere
           </a>
         </>
+      )}
+      {linkedIn && (
+        <a
+          href={linkedInHref}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={() => onShare?.("linkedin")}
+          className="inline-flex min-h-11 items-center px-3.5 font-body text-[13.5px] font-semibold text-ink-soft underline underline-offset-2 hover:text-rust"
+        >
+          Share on LinkedIn
+        </a>
       )}
     </div>
   );
