@@ -307,6 +307,64 @@ describe("organizations: a company cannot verify itself (0028)", () => {
   });
 });
 
+describe("organizations: an employer cannot forge their own verification-reminder timestamps (0101)", () => {
+  /**
+   * These two columns exist so a cron can tell "already reminded at 48h" from
+   * "not yet" — see src/lib/employer-verification-reminders/send.ts. No
+   * grant statement was added for them in 0101 on the theory that 0028's
+   * table-level revoke plus a specific re-grant already excludes anything
+   * added later by construction, not by an explicit lock. This is the test
+   * that actually proves the theory rather than leaving it as an assumption
+   * — the exact gap CLAUDE.md's own history names as having produced four
+   * real findings before someone checked.
+   */
+  it("cannot set either reminder column, but can still edit its profile", async () => {
+    const { data: org } = await user.client
+      .from("organizations")
+      .insert({ name: `COLPRIV-TEST ${randomUUID().slice(0, 8)}`, created_by: user.id })
+      .select("id")
+      .single();
+    try {
+      await user.client.from("organization_members").insert({
+        organization_id: org!.id,
+        user_id: user.id,
+        role: "owner",
+      });
+
+      const forged = new Date().toISOString();
+      await user.client
+        .from("organizations")
+        .update({
+          verification_reminder_48h_sent_at: forged,
+          verification_reminder_7d_sent_at: forged,
+        })
+        .eq("id", org!.id);
+
+      const { data: after } = await admin
+        .from("organizations")
+        .select("verification_reminder_48h_sent_at, verification_reminder_7d_sent_at")
+        .eq("id", org!.id)
+        .single();
+      expect(
+        after?.verification_reminder_48h_sent_at,
+        "an organisation forged its own 48h reminder timestamp",
+      ).toBeNull();
+      expect(
+        after?.verification_reminder_7d_sent_at,
+        "an organisation forged its own 7d reminder timestamp",
+      ).toBeNull();
+
+      const { error } = await user.client
+        .from("organizations")
+        .update({ description: "legitimate edit" })
+        .eq("id", org!.id);
+      expect(error, "employers must still be able to edit their own profile").toBeNull();
+    } finally {
+      await deleteTestOrgs([org!.id]);
+    }
+  });
+});
+
 describe("job_postings: an employer can write their own posting's salary (0085)", () => {
   /**
    * POSITIVE CONTROL. 0085 added salary_min/salary_max/salary_currency/
