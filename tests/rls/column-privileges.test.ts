@@ -429,6 +429,81 @@ describe("job_postings: an employer can write their own posting's salary (0085)"
   });
 });
 
+describe("job_postings: closed_at cannot be written directly by the org (0102)", () => {
+  /**
+   * NEGATIVE CONTROL, the sibling of the salary POSITIVE control above.
+   * `closed_at` (0102) is the same shape of trust column as removed_at/
+   * removal_reason (0056): an operational fact this system records about why
+   * a row transitioned, not something the posting's own org gets to assert
+   * directly. It was deliberately left out of job_postings' UPDATE column
+   * grant list (0056), so — per the "additive allowlist" rule CLAUDE.md
+   * documents — it inherits no privilege from the table-level grant 0056
+   * already revoked, without needing its own revoke statement.
+   *
+   * Own org + explicit membership + a job inserted through the user's own
+   * client, same shape as the salary test, so a refusal here is provably the
+   * COLUMN grant and not the ROW policy: the same client can update this same
+   * row's `status` a moment later.
+   */
+  it("an org cannot set closed_at on its own posting", async () => {
+    const { data: org } = await user.client
+      .from("organizations")
+      .insert({ name: `COLPRIV-TEST ${randomUUID().slice(0, 8)}`, created_by: user.id })
+      .select("id")
+      .single();
+    try {
+      await user.client.from("organization_members").insert({
+        organization_id: org!.id,
+        user_id: user.id,
+        role: "owner",
+      });
+
+      const { data: job, error: insertError } = await user.client
+        .from("job_postings")
+        .insert({
+          source_type: "internal",
+          organization_id: org!.id,
+          company_name: "COLPRIV-TEST Co",
+          title: "COLPRIV-TEST Closed-At Role",
+          description: "Fixture posting for the closed_at column-privilege test.",
+          structured_jd: {},
+          status: "open",
+          posted_at: new Date().toISOString(),
+          dedup_fingerprint: randomUUID(),
+        })
+        .select("id")
+        .single();
+      expect(insertError).toBeNull();
+
+      const { error: closedAtError } = await user.client
+        .from("job_postings")
+        .update({ closed_at: new Date().toISOString() })
+        .eq("id", job!.id);
+      expect(closedAtError, "an org must not be able to fabricate its own closed_at").not.toBeNull();
+      expect(closedAtError!.code).toBe("42501");
+
+      // Proves the refusal above was the column grant, not a row policy that
+      // would also block this: the exact same client, same row, a column
+      // that IS in the grant list.
+      const { error: statusError } = await user.client
+        .from("job_postings")
+        .update({ status: "closed" })
+        .eq("id", job!.id);
+      expect(statusError, "the row policy itself must still allow this org to close its own posting").toBeNull();
+
+      const { data: after } = await admin
+        .from("job_postings")
+        .select("closed_at, status")
+        .eq("id", job!.id)
+        .single();
+      expect(after?.closed_at).toBeNull();
+      expect(after?.status).toBe("closed");
+    } finally {
+      await deleteTestOrgs([org!.id]);
+    }
+  });
+});
+
 describe("tables with no UPDATE policy stay unwritable", () => {
   /**
    * These carry money, entitlements and role grants, and none of them has an

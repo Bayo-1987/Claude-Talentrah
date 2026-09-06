@@ -68,7 +68,13 @@ export async function closeExpiredInternalPostings(
 
   const { data, error } = await supabase
     .from("job_postings")
-    .update({ status: "closed" })
+    // `closed_at` (0102) is stamped here, not left to a trigger, for the same
+    // reason `status` itself is written explicitly: this is one of five
+    // places in the codebase that can land a row on 'closed', and the 30-day
+    // deletion job (posting-deletion.ts) reads this column to know when that
+    // happened. See 0102's own header for why last_checked_at and expires_at
+    // both mean the wrong thing for that job.
+    .update({ status: "closed", closed_at: now.toISOString() })
     .eq("source_type", "internal")
     .eq("status", "open")
     /*
@@ -152,7 +158,11 @@ export async function closeStaleExternalPostings(
 
   const { data, error } = await supabase
     .from("job_postings")
-    .update({ status: "closed" })
+    // See closeExpiredInternalPostings above for why closed_at (0102) is
+    // stamped explicitly here too, rather than assuming last_checked_at can
+    // stand in for it — for this exact function it can't, since this branch
+    // deliberately never touches last_checked_at.
+    .update({ status: "closed", closed_at: now.toISOString() })
     .eq("source_type", "external")
     .eq("status", "open")
     .lt("last_checked_at", cutoff.toISOString())

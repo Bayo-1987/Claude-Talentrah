@@ -262,7 +262,16 @@ export async function ingestAllSources(): Promise<IngestSourceResult[]> {
         const batch = staleIds.slice(i, i + CLOSE_BATCH_SIZE);
         const { data: closedRows, error: closeError } = await supabase
           .from("job_postings")
-          .update({ status: "closed", last_checked_at: new Date().toISOString() })
+          // closed_at (0102): this is one of five places `status` can become
+          // 'closed', and the 30-day deletion job (posting-deletion.ts)
+          // thresholds on this column, not on last_checked_at — see 0102's
+          // migration header for why last_checked_at means something
+          // different depending which closure path set it.
+          .update({
+            status: "closed",
+            last_checked_at: new Date().toISOString(),
+            closed_at: new Date().toISOString(),
+          })
           .in("id", batch)
           .select("id");
         if (closeError) throw closeError;

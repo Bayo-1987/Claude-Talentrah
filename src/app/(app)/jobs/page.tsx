@@ -250,8 +250,12 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
   // Omit, not the full row — see FEED_COLUMNS above and job-card.tsx's
   // matching JobCardProps type: this query never fetches the raw
   // `description_preview` column, only the pre-truncated value aliased as
-  // `description`.
-  type FeedJobPosting = Omit<Tables<"job_postings">, "description_preview" | "search_vector">;
+  // `description`. `closed_at` (0102) is omitted the same way: FEED_COLUMNS
+  // filters to `status = 'open'` above, so it would only ever be null here.
+  type FeedJobPosting = Omit<
+    Tables<"job_postings">,
+    "description_preview" | "search_vector" | "closed_at"
+  >;
   const matchingFilters: FeedJobPosting[] = jobsRaw ?? [];
 
   /*
