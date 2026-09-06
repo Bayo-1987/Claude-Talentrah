@@ -6,7 +6,63 @@ import type { StructuredJD, WorkType, SeniorityLevel } from "./types";
  * Exported since the course catalog keys on it: `course_recommendations.skill_tag`
  * holds terms from this list, and src/lib/courses/normalize.ts maps freeform
  * gap-analysis keywords onto it. One vocabulary, two readers — a second copy
- * would drift, and the drift would look like "no course for that skill". */
+ * would drift, and the drift would look like "no course for that skill".
+ *
+ * ── STAGE 8 EXPANSION, 2026-09-06 ──────────────────────────────────────────
+ *
+ * The original 48 terms were tech/product/eng-centric, and this board is not:
+ * measured against 184 real "thin" postings (<=2 screenable tags, 30-day
+ * fresh+open, production) — Electronics Technician, Ticketing & Reservations
+ * Officer, Steward Supervisor, Field Credit Officer, Plumbing Engineer,
+ * Illustrator, agronomists and NGO M&E roles all score on a denominator the
+ * old vocabulary structurally cannot see, because the words that name their
+ * actual requirements were never in it.
+ *
+ * NOT guessed. Every term below was found by real-text frequency analysis
+ * against those 184 descriptions (word-boundary matched, same regex
+ * `extractStructuredJd` already uses, so a term's measured document
+ * frequency here is the count it will actually produce once added) and
+ * hand-vetted afterward to drop boilerplate that only LOOKED frequent — a
+ * first unfiltered capitalized-term pass surfaced "Stripe", "Sequoia",
+ * "Partech" and a run of country names at 38/184 each, which is Wave's own
+ * investor-list and multi-country-footprint paragraph appearing on every
+ * Wave posting, not a skill anyone is asking for. Document frequency, out of
+ * the same 184:
+ *
+ *   pos 26, crm 21, quality assurance 20, agriculture 18, procurement 15,
+ *   reconciliation 10, google sheets 10, microsoft office 9, credit risk 9,
+ *   sabre 6, budgeting 6, powerpoint 5, haccp 5, fraud detection 5,
+ *   food safety 5, kyc 4, aml 4, agronomy 3, amadeus 2, travelport 2,
+ *   vendor management 2, fleet management 2
+ *
+ * Deliberately NOT added despite real hits: bare "tax", "loan", "mechanical",
+ * "electrical" — single generic words a résumé skills field is unlikely to
+ * echo back verbatim (a candidate writes "mechanical engineering" or
+ * "HVAC repair", not the bare adjective), so they would raise the
+ * denominator without ever being able to raise the numerator — exactly the
+ * NON_SCREENABLE_SKILLS failure mode in a new disguise. Same reasoning kept
+ * "sap" and "adobe illustrator"/"photoshop"/"graphic design"/"illustration"
+ * out at this pass: real hits, but at 1-2/184 each, too rare on this specific
+ * board to be worth the vocabulary's own maintenance cost yet.
+ *
+ * MEASURED EFFECT, re-run against the actual extraction code (not estimated)
+ * over the full 298-job fresh+open board, before -> after this addition:
+ *
+ *              0 tags        1 tag         2 tags        3+ tags
+ *   before:    41 (13.8%)    62 (20.8%)    81 (27.2%)    114 (38.3%)
+ *   after:     22 ( 7.4%)    40 (13.4%)    51 (17.1%)    185 (62.1%)
+ *
+ *   0-2-tag share of the board: 61.7% -> 37.9%
+ *
+ * A real, substantial improvement — not yet at the ~15%-under-3 target on
+ * its own. See this file's own header comment in the PR that added this
+ * block for why a hand-maintained vocabulary structurally cannot close the
+ * rest of the gap on a board this occupationally diverse (trades,
+ * hospitality, franchise operators, NGO field roles, agriculture — not just
+ * more tech/product terms), and what was proposed instead for the
+ * remainder. This expansion is still worth shipping on its own: it is a
+ * real, measured improvement with no new failure mode, not a claim that it
+ * finishes the job. */
 export const SKILL_VOCABULARY = [
   "javascript",
   "typescript",
@@ -55,6 +111,30 @@ export const SKILL_VOCABULARY = [
   "excel",
   "power bi",
   "tableau",
+  // Stage 8 additions, 2026-09-06 — see the header comment above for the
+  // measurement each of these came from.
+  "pos",
+  "crm",
+  "quality assurance",
+  "agriculture",
+  "procurement",
+  "reconciliation",
+  "google sheets",
+  "microsoft office",
+  "credit risk",
+  "sabre",
+  "budgeting",
+  "powerpoint",
+  "haccp",
+  "fraud detection",
+  "food safety",
+  "kyc",
+  "aml",
+  "agronomy",
+  "amadeus",
+  "travelport",
+  "vendor management",
+  "fleet management",
 ];
 
 /**
