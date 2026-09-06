@@ -6,6 +6,7 @@ import { REFERRAL_COOKIE } from "@/lib/referrals/cookie";
 import { EyebrowLabel } from "@/components/ui";
 import { SignupForm } from "@/components/auth/signup-form";
 import { OAuthButtons } from "@/components/auth/oauth-buttons";
+import { GoogleOneTap } from "@/components/auth/google-one-tap";
 
 export const metadata = { title: "Create your account — Talentrah" };
 
@@ -35,6 +36,10 @@ export default async function SignupPage({
 
   return (
     <div className="flex flex-col gap-8">
+      {/* Renders nothing visible — see the component for why this page
+          qualifies. A brand-new account still lands in /onboarding, same as
+          signUpAction and signInWithOAuthAction below. */}
+      <GoogleOneTap />
       <div className="flex flex-col gap-2">
         <EyebrowLabel>Create a free account</EyebrowLabel>
         <h2 className="font-display text-[28px]">Let&apos;s get you set up.</h2>

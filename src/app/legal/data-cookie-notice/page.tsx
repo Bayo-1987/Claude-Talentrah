@@ -35,13 +35,28 @@ export default function DataCookieNoticePage() {
           from you. Talentrah doesn&apos;t function without these; they can&apos;t be
           turned off individually, only by not using the site.
         </li>
+        <li>
+          <strong>Google One Tap (optional sign-in convenience)</strong> — on
+          a handful of signed-out pages (the homepage, log in, create
+          account, and individual job/scholarship listings), Talentrah loads
+          Google&apos;s own Identity Services script so a visitor already
+          signed in to Google elsewhere in their browser can sign in to
+          Talentrah with one tap instead of the usual click-through. That
+          script is served by Google, not Talentrah, and Google may set its
+          own cookie in your browser to remember your One Tap preference —
+          governed by <a href="https://policies.google.com/privacy">Google&apos;s
+          own privacy policy</a>, not this one. It only runs for a signed-out
+          visitor, never appears anywhere in the signed-in app, and its
+          absence changes nothing: the ordinary &quot;Continue with
+          Google&quot; button on the same pages still works.
+        </li>
       </ul>
       <p>
-        Talentrah does not currently set advertising or third-party tracking
-        cookies. If that changes — for example, to add product analytics —
-        this page will be updated first, and where required we&apos;ll ask for
-        your consent before setting anything beyond what&apos;s required for the
-        site to function.
+        Beyond the above, Talentrah does not set advertising or third-party
+        tracking cookies. If that changes — for example, to add product
+        analytics — this page will be updated first, and where required
+        we&apos;ll ask for your consent before setting anything beyond what&apos;s
+        required for the site to function.
       </p>
 
       <h2>Where your data is processed</h2>
