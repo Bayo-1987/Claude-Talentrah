@@ -2,6 +2,8 @@ import { NextResponse, type NextRequest } from "next/server";
 import type { User } from "@supabase/supabase-js";
 import { updateSession } from "@/lib/supabase/middleware";
 import { ADMIN_COOKIE } from "@/lib/admin/cookie";
+import { createPublicReadClient } from "@/lib/supabase/public-read";
+import { REFERRAL_CODE_PATTERN, REFERRAL_COOKIE, REFERRAL_COOKIE_MAX_AGE_SECONDS } from "@/lib/referrals/cookie";
 
 /**
  * A first pass on /admin, before anything renders.
@@ -113,6 +115,81 @@ function seekerAppGate(request: NextRequest, user: User | null): NextResponse | 
 }
 
 /**
+ * Referral capture, on any route — not just /signup.
+ *
+ * WHY HERE, NOT ONLY ON /signup. `getReferralUrl` only ever built
+ * `/signup?ref=CODE`, so the code travelled exclusively as a query param
+ * `signup/page.tsx` read straight off `searchParams`. That is fine for a
+ * link that points at /signup. It is the wrong shape for a link that has to
+ * point at the shared content itself — a scholarship page, eventually a job
+ * — because a signup wall in front of shared content is how a WhatsApp share
+ * dies. So the code has to be picked up wherever the visitor actually lands,
+ * which is any route, which is why this lives in the proxy rather than in
+ * one page.
+ *
+ * FIRST-TOUCH, NOT LAST-TOUCH — an existing cookie is NEVER overwritten. The
+ * same scholarship gets shared into the same WhatsApp group by several
+ * people; first-touch means whoever the visitor saw FIRST keeps the credit,
+ * so a later sharer can't take it from them.
+ *
+ * NO SESSION CHECK, NO COOKIE. A signed-in visitor clicking a friend's link
+ * isn't a referral — they already have an account. Checked with the same
+ * `user` `updateSession` already fetched, not a second auth call.
+ *
+ * VALIDATED, NOT TRUSTED. An unknown code is ignored silently — no error, no
+ * redirect, nothing that tells a visitor probing for valid codes whether
+ * theirs landed. The shape check (`REFERRAL_CODE_PATTERN`) is cheap and runs
+ * first so a request that's obviously not even trying passes a real code
+ * never reaches the database; the actual check is `is_valid_referral_code`
+ * (migration 0098), a SECURITY DEFINER function that can only ever answer
+ * true/false — see that migration for why a wider read isn't used instead.
+ * `.rpc(name, { p_code })` is a parameterised call, never a string
+ * interpolated into SQL.
+ *
+ * WHAT THIS DOES NOT TOUCH: reward amounts, `grant_referral_reward`, the
+ * activation condition (0092), or the self-referral guard (0036). Those all
+ * still run exactly where they already did — inside `handle_new_user`, off
+ * `referred_by_code` in the new user's own metadata at signup. This function
+ * only ever decides whether a cookie gets set; `SignupForm`/`signUpAction`
+ * decide what a cookie value turns into, unchanged.
+ *
+ * NOT CASE-NORMALISED, DELIBERATELY. `tests/referrals/referrals.test.ts`
+ * ("referral code lookup ... is case-SENSITIVE") pins that `handle_new_user`'s
+ * own lookup does no case folding — a lowercased copy of a real code
+ * attributes nothing there, as a documented, deliberate non-fix rather than a
+ * bug. Upper-casing here would make THIS path more forgiving than the one
+ * signup itself uses, which is a worse inconsistency than either being
+ * strict: `REFERRAL_CODE_PATTERN` accepts either case only to cheaply reject
+ * non-hex garbage before touching the database, and the code that reaches the
+ * cookie (and, from there, `referredByCode`) is whatever the visitor's URL
+ * actually carried — same behaviour, same failure mode, at both ends.
+ */
+async function captureReferral(request: NextRequest, response: NextResponse, user: User | null) {
+  if (user) return;
+  if (request.cookies.get(REFERRAL_COOKIE)) return;
+
+  const code = request.nextUrl.searchParams.get("ref");
+  if (!code || !REFERRAL_CODE_PATTERN.test(code)) return;
+
+  const supabase = createPublicReadClient();
+  const { data: isValid, error } = await supabase.rpc("is_valid_referral_code", {
+    p_code: code,
+  });
+  if (error || !isValid) return;
+
+  response.cookies.set(REFERRAL_COOKIE, code, {
+    httpOnly: true,
+    sameSite: "lax",
+    // Matches src/lib/admin/session.ts's own rule, for the same reason: a
+    // hardcoded `secure: true` is silently dropped by the browser over plain
+    // HTTP, which is exactly how local dev and this suite's own CI server run.
+    secure: process.env.NODE_ENV === "production",
+    maxAge: REFERRAL_COOKIE_MAX_AGE_SECONDS,
+    path: "/",
+  });
+}
+
+/**
  * THE CRON AND INGEST ROUTES ARE NOT TOUCHED BY ANY OF THIS, and that is a
  * decision rather than an omission.
  *
@@ -148,9 +225,11 @@ export async function proxy(request: NextRequest) {
   const { response, user } = await updateSession(request);
 
   const seekerGated = seekerAppGate(request, user);
-  if (seekerGated) return seekerGated;
+  const finalResponse = seekerGated ?? response;
 
-  return response;
+  await captureReferral(request, finalResponse, user);
+
+  return finalResponse;
 }
 
 export const config = {

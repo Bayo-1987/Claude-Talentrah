@@ -1,9 +1,11 @@
+import Link from "next/link";
 import { BorderedCard } from "@/components/ui";
 import type { Tables } from "@/lib/supabase/types";
 import { DEGREE_LEVEL_LABEL, FUNDING_TYPE_LABEL, type SaveStatus } from "@/lib/scholarships/types";
 import { SaveToggle } from "./save-toggle";
 import { SaveStatusSelect } from "./save-status-select";
 import { FarahActions } from "./farah-actions";
+import { ScholarshipShareButton } from "./scholarship-share-button";
 
 export interface ScholarshipCardProps {
   scholarship: Tables<"scholarships">;
@@ -11,6 +13,10 @@ export interface ScholarshipCardProps {
   creditsBalance: number;
   /** See FarahActions — checkPassCoverage(userId).covered, from the page. */
   passCovered: boolean;
+  /** Absolute origin for the share link, resolved once by the page — see ShareJobButton's own comment on why per-card would be wasteful. */
+  origin: string;
+  /** The signed-in viewer's own referral code — always present on this authenticated list, but optional here since the component makes no assumption a caller must supply one. */
+  referralCode?: string | null;
 }
 
 /** Days until the deadline, or null when there's no published date. */
@@ -38,7 +44,14 @@ export function formatDeadline(deadline: string | null): string {
   return parsed.toLocaleDateString();
 }
 
-export function ScholarshipCard({ scholarship, save, creditsBalance, passCovered }: ScholarshipCardProps) {
+export function ScholarshipCard({
+  scholarship,
+  save,
+  creditsBalance,
+  passCovered,
+  origin,
+  referralCode,
+}: ScholarshipCardProps) {
   const left = daysUntil(scholarship.application_deadline);
   const urgent = left !== null && left >= 0 && left <= 14;
 
@@ -49,12 +62,37 @@ export function ScholarshipCard({ scholarship, save, creditsBalance, passCovered
           <span className="font-body text-[12.5px] font-semibold uppercase tracking-[0.08em] text-ink-soft">
             {scholarship.provider}
           </span>
-          <h3 className="text-[18px]">{scholarship.program_name}</h3>
+          {/*
+            The ONLY link on this card to Talentrah's own scholarship page —
+            everything else here (see "View the official listing" below)
+            deliberately points off-site. Before this, a reader browsing the
+            list had no way to reach /scholarships/[id] at all: a real, public,
+            sitemap-listed page that every card routed traffic away from.
+            Only the title text is the link, matching job-card.tsx's own
+            rule — the metadata beside a title is not part of its name.
+          */}
+          <h3 className="text-[18px]">
+            <Link
+              href={`/scholarships/${scholarship.id}`}
+              className="text-ink no-underline hover:text-rust hover:underline"
+            >
+              {scholarship.program_name}
+            </Link>
+          </h3>
           {scholarship.host_institution && (
             <span className="text-[13px] text-ink-soft">{scholarship.host_institution}</span>
           )}
         </div>
-        <SaveToggle scholarshipId={scholarship.id} isSaved={!!save} />
+        <div className="flex items-center gap-1.5">
+          <ScholarshipShareButton
+            scholarshipId={scholarship.id}
+            programName={scholarship.program_name}
+            provider={scholarship.provider}
+            origin={origin}
+            referralCode={referralCode}
+          />
+          <SaveToggle scholarshipId={scholarship.id} isSaved={!!save} />
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">

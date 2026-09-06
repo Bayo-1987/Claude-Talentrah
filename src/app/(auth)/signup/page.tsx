@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { safeRedirectTo } from "@/lib/auth/redirect-to";
+import { REFERRAL_COOKIE } from "@/lib/referrals/cookie";
 import { EyebrowLabel } from "@/components/ui";
 import { SignupForm } from "@/components/auth/signup-form";
 import { OAuthButtons } from "@/components/auth/oauth-buttons";
@@ -12,8 +14,18 @@ export default async function SignupPage({
 }: {
   searchParams: Promise<{ ref?: string; redirectTo?: string }>;
 }) {
-  const { ref, redirectTo: rawRedirectTo } = await searchParams;
+  const { ref: queryRef, redirectTo: rawRedirectTo } = await searchParams;
   const redirectTo = safeRedirectTo(rawRedirectTo, "");
+
+  /*
+   * `?ref=` still wins when present — a fresh /signup?ref=CODE link (a
+   * referrer sharing /refer's own link, unchanged) should always attribute
+   * to the code IN the link it was clicked from, not to some earlier
+   * first-touch cookie sitting from an unrelated visit. The cookie is only
+   * the fallback for "arrived some other way and is signing up now" — a
+   * scholarship share, or /signup reached with no code at all.
+   */
+  const ref = queryRef || (await cookies()).get(REFERRAL_COOKIE)?.value;
 
   const supabase = await createClient();
   const {
