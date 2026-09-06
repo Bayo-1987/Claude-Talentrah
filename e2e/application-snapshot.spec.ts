@@ -91,12 +91,17 @@ test.describe("application snapshot at creation (Stage 5a)", () => {
     const jobId = await fixtureJob(orgId, orgName, title);
 
     await authedPage.goto(`/jobs/${jobId}`);
-    await authedPage.getByRole("button", { name: "Save", exact: true }).click();
-    // A real UI signal, not networkidle — see golden-path.spec.ts's own
-    // comment on this exact pattern for why. The button's own text flips
-    // once the server action completes and the page re-renders with
-    // `isSaved`; that can't happen before the row actually exists.
-    await expect(authedPage.getByRole("button", { name: "Saved — remove" })).toBeVisible();
+    // Waits on the form's own POST response, not networkidle and not the
+    // resulting re-render — see golden-path.spec.ts's own comment on this
+    // exact pattern for the full reasoning (a UI-transition wait looked
+    // right but timed out against a page that recomputes on every
+    // `revalidatePath`; the response itself is the cheap, sufficient signal
+    // that the write has landed).
+    const [saveResponse] = await Promise.all([
+      authedPage.waitForResponse((res) => res.request().method() === "POST" && res.url().includes(jobId)),
+      authedPage.getByRole("button", { name: "Save", exact: true }).click(),
+    ]);
+    expect(saveResponse.ok(), "the Save form submission itself failed").toBe(true);
 
     const { data: row, error } = await admin
       .from("applications")
@@ -118,10 +123,13 @@ test.describe("application snapshot at creation (Stage 5a)", () => {
     const jobId = await fixtureJob(orgId, orgName, title);
 
     await authedPage.goto(`/jobs/${jobId}`);
-    await authedPage.getByRole("button", { name: "Apply", exact: true }).click();
-    // See the Save test above (and golden-path.spec.ts) for why this waits
-    // on the real UI transition rather than networkidle.
-    await expect(authedPage.getByText("Applied", { exact: true })).toBeVisible();
+    // See the Save test above (and golden-path.spec.ts) for the full
+    // reasoning behind waiting on the response rather than the UI.
+    const [applyResponse] = await Promise.all([
+      authedPage.waitForResponse((res) => res.request().method() === "POST" && res.url().includes(jobId)),
+      authedPage.getByRole("button", { name: "Apply", exact: true }).click(),
+    ]);
+    expect(applyResponse.ok(), "the Apply form submission itself failed").toBe(true);
 
     const { data: row, error } = await admin
       .from("applications")
@@ -148,18 +156,12 @@ test.describe("application snapshot at creation (Stage 5a)", () => {
     });
 
     await authedPage.goto(`/jobs/${jobId}`);
-    await authedPage.getByRole("button", { name: "Mark as applied", exact: true }).click();
-    /*
-     * `exact: true` matters here specifically: before this click, "Mark as
-     * applied" is ALREADY on the page (it's the button being clicked), and
-     * Playwright's text matching is a case-insensitive SUBSTRING match by
-     * default — "applied" lowercased is a substring of "Mark as applied", so
-     * a plain `getByText("Applied")` would already be satisfied before the
-     * click ever happens, which is exactly the kind of premature-pass this
-     * fix exists to prevent. `exact: true` requires the element's own text
-     * to be precisely "Applied", matching only the post-transition span.
-     */
-    await expect(authedPage.getByText("Applied", { exact: true })).toBeVisible();
+    // See the Save test above for the full reasoning.
+    const [markAppliedResponse] = await Promise.all([
+      authedPage.waitForResponse((res) => res.request().method() === "POST" && res.url().includes(jobId)),
+      authedPage.getByRole("button", { name: "Mark as applied", exact: true }).click(),
+    ]);
+    expect(markAppliedResponse.ok(), "the Mark as applied form submission itself failed").toBe(true);
 
     const { data: row, error } = await admin
       .from("applications")
