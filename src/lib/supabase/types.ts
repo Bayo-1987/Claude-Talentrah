@@ -1548,6 +1548,8 @@ export type Database = {
           logo_url: string | null
           name: string
           updated_at: string
+          verification_reminder_48h_sent_at: string | null
+          verification_reminder_7d_sent_at: string | null
           verified: boolean
         }
         Insert: {
@@ -1559,6 +1561,8 @@ export type Database = {
           logo_url?: string | null
           name: string
           updated_at?: string
+          verification_reminder_48h_sent_at?: string | null
+          verification_reminder_7d_sent_at?: string | null
           verified?: boolean
         }
         Update: {
@@ -1570,6 +1574,8 @@ export type Database = {
           logo_url?: string | null
           name?: string
           updated_at?: string
+          verification_reminder_48h_sent_at?: string | null
+          verification_reminder_7d_sent_at?: string | null
           verified?: boolean
         }
         Relationships: [

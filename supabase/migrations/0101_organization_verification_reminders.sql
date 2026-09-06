@@ -1,0 +1,31 @@
+-- 0101 — Idempotency columns for the "still unverified" employer reminder
+-- (src/lib/employer-verification-reminders/send.ts). Stage 7's found gap:
+-- Fatishcakes (production, real org) has been unverified since 2026-08-25
+-- with one invisible job and zero applications, and nothing has ever
+-- followed up.
+--
+-- TWO COLUMNS, NOT ONE, because the reminder fires twice on different
+-- schedules (48 hours, then 7 days, then never again) and each needs its
+-- own "already sent" fact — a single timestamp couldn't tell "sent the 48h
+-- one" apart from "sent the 7d one" without also storing which.
+--
+-- Stamped ONLY after a successful send (send.ts's own contract, matching
+-- send-job-digest's `digest_last_sent_at` precedent) — a failed send must
+-- retry next run, not be silently treated as done.
+--
+-- NO COLUMN GRANT STATEMENT NEEDED HERE, and that absence is deliberate, not
+-- an oversight: 0028 already did `revoke update on public.organizations from
+-- anon, authenticated` at the TABLE level and re-granted only
+-- (name, domain, logo_url, description, updated_at) back to `authenticated`.
+-- A column added after that revoke inherits no privilege of its own — Postgres
+-- column-level grants are additive allowlists, not something a new column
+-- opts into automatically. So these two columns are, by construction, not
+-- writable by an employer's own client from the moment they exist; only the
+-- service-role client this feature's Server code uses can ever set them.
+-- Verified with a new RLS test (tests/rls/column-privileges.test.ts) rather
+-- than left as an assumption, since this exact class of gap (a trust column
+-- with no explicit lock) is the one CLAUDE.md's own history section names
+-- as having produced four real findings already.
+alter table public.organizations
+  add column verification_reminder_48h_sent_at timestamptz,
+  add column verification_reminder_7d_sent_at timestamptz;
