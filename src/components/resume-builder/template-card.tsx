@@ -50,7 +50,24 @@ export function TemplateCard({
         what you were choosing between. A template gallery whose cards are
         text is a list, not a gallery.
       */}
-      <TemplateThumbnail slug={template.slug} />
+      <div className="relative">
+        <TemplateThumbnail slug={template.slug} />
+        {/*
+          The unlock cost used to live only inside the button below — true,
+          but "visible before the click" means visible while scanning the
+          gallery, not visible after reading all the way to the bottom of a
+          card that already caught your eye for its layout. Same `bg-ink`
+          solid-badge treatment as job-card.tsx's "Sponsored" pill, and for
+          the same reason: this is a fact about the template (it costs
+          credits), not a fourth match-tier color, so it stays ink/paper
+          rather than borrowing rust or amber.
+        */}
+        {locked && (
+          <span className="absolute top-2 right-2 bg-ink px-2.5 py-1 font-body text-[11px] font-bold tracking-[0.1em] text-paper uppercase">
+            Premium · {template.unlock_cost_credits} credits
+          </span>
+        )}
+      </div>
 
       <div className="flex items-start justify-between gap-2">
         <div>

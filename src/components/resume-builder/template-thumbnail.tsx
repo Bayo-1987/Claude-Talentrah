@@ -31,10 +31,23 @@ import { PREVIEW_SAMPLE_RESUME } from "@/lib/resume-builder/preview-sample";
  * template-registry.test.ts lists them as known free exceptions with no
  * component of their own, and the registry's documented fallback is what
  * catches them. Their thumbnails honestly show what a visitor will get.
+ *
+ * SIZE (Stage 3.2). With only eleven templates in the catalog, this gallery
+ * doesn't need Canva's thumbnail-at-scale density — it can afford to let a
+ * user actually read what they're choosing between. THUMB_HEIGHT and SCALE
+ * were raised together (190→420, 0.26→0.5) so the card shows a real, legible
+ * slice of the document instead of a postage stamp; the gallery dropped to
+ * two columns at the same time (see the grid in resume-builder/page.tsx) so
+ * the wider card has room to hold it. Centered on the horizontal axis
+ * (`left-1/2` + a `translateX(-50%)` folded into the same inline
+ * `transform` as the scale, since a second transform source — a Tailwind
+ * translate class — would just be silently overridden by the inline style)
+ * so a column narrower than the rendered width — a phone, mainly — crops
+ * evenly off both sides rather than only the right.
  */
 const NATURAL_WIDTH = 820;
-const THUMB_HEIGHT = 190;
-const SCALE = 0.26;
+const THUMB_HEIGHT = 420;
+const SCALE = 0.5;
 
 export function TemplateThumbnail({ slug }: { slug: string | null }) {
   const registered = slug ? registeredSlugs().includes(slug) : false;
@@ -46,8 +59,8 @@ export function TemplateThumbnail({ slug }: { slug: string | null }) {
       style={{ height: THUMB_HEIGHT }}
     >
       <div
-        className="pointer-events-none absolute top-0 left-0 origin-top-left"
-        style={{ width: NATURAL_WIDTH, transform: `scale(${SCALE})` }}
+        className="pointer-events-none absolute top-0 left-1/2 origin-top"
+        style={{ width: NATURAL_WIDTH, transform: `translateX(-50%) scale(${SCALE})` }}
       >
         <TemplateRenderer slug={slug} resume={PREVIEW_SAMPLE_RESUME} />
       </div>
