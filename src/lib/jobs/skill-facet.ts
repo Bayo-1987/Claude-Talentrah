@@ -23,7 +23,7 @@ import type { Tables } from "@/lib/supabase/types";
 // the generated `description_preview` column (migration 0086), never the
 // raw preview column itself — the wider Omit<> still accepts any full row
 // another caller might pass.
-type JobPosting = Omit<Tables<"job_postings">, "description_preview">;
+type JobPosting = Omit<Tables<"job_postings">, "description_preview" | "search_vector">;
 
 /** Reads the skills array off a posting, tolerating the 5 rows that lack one. */
 export function skillsOf(job: JobPosting): string[] {

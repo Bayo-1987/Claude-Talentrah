@@ -12,7 +12,6 @@ import { FixedFeedHeader } from "@/components/jobs/fixed-feed-header";
 import { JobCard } from "@/components/jobs/job-card";
 import { Constants, type Tables } from "@/lib/supabase/types";
 import { hasVisibleName, visibleName } from "@/lib/profile/name";
-import { searchJobs } from "@/lib/jobs/search";
 import { parseMultiSelect } from "@/lib/jobs/multi-select";
 import { buildSuggestionIndex } from "@/lib/jobs/search-suggestions";
 import { getSiteOrigin } from "@/lib/referrals/url";
@@ -166,22 +165,72 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
     return query;
   }
 
-  const jobsQuery =
+  /*
+   * Saved-tab ids, computed once and shared below by both the base postings
+   * query and the search RPC. This is a plain promise, not a second read:
+   * `applicationsQuery` is an already-resolved Promise from an async IIFE, so
+   * chaining `.then()` on it twice (here and, when searching, again below)
+   * reads the same response rather than firing a second request.
+   */
+  const savedIds: Promise<string[]> =
     tab === "saved"
       ? applicationsQuery.then(({ data }) =>
-          postingsQuery(
-            (data ?? [])
-              .filter((a) => a.job_posting_id !== null && a.stage === "saved")
-              .map((a) => a.job_posting_id as string),
-          ),
+          (data ?? [])
+            .filter((a) => a.job_posting_id !== null && a.stage === "saved")
+            .map((a) => a.job_posting_id as string),
         )
-      : (async () => postingsQuery())();
+      : Promise.resolve([]);
+
+  const jobsQuery =
+    tab === "saved" ? savedIds.then((ids) => postingsQuery(ids)) : (async () => postingsQuery())();
+
+  /*
+   * STAGE 8 STEP 2 (docs/stage8-match-accuracy.md) — real full-text search,
+   * server-side, via the `search_job_postings` RPC (migration 0100). This is
+   * a SEPARATE round trip from `jobsQuery` above, not a replacement for it:
+   * `searchIndex` below is built from the board BEFORE the search term (see
+   * its own comment for why), which is exactly what `jobsQuery` fetches, so
+   * that fetch still has to run even when there's a term to search for. This
+   * one runs alongside it, only when `q` is set, and its ranked result
+   * becomes `jobs` in place of the old in-memory `searchJobs()` substring
+   * pass. `search.ts`'s `searchJobs` itself is untouched — it's still the
+   * oracle `search-suggestions.ts`'s typeahead counts are tested against,
+   * against the unsearched board, exactly as before.
+   *
+   * `null`, not `undefined`, for an unset filter, and cast `as never` to get
+   * past it — same convention `fetchPromotedJobs` uses calling `promoted_jobs`
+   * (src/lib/ads/promoted.ts), because the generated Functions Args type for
+   * an optional array/enum parameter doesn't itself include `| null` even
+   * though the SQL side defaults it to null.
+   */
+  const searchQuery = q
+    ? savedIds.then((ids) =>
+        supabase.rpc("search_job_postings", {
+          p_query: q,
+          p_since: jobDateFilterSinceISO(posted),
+          p_source_type: (tab === "external" ? "external" : null) as never,
+          p_work_types: (workTypes.length ? workTypes : null) as never,
+          p_seniorities: (seniorities.length ? seniorities : null) as never,
+          p_ids: (tab === "saved"
+            ? ids.length
+              ? ids
+              : ["00000000-0000-0000-0000-000000000000"]
+            : null) as never,
+        }),
+      )
+    : undefined;
 
   const [
     { data: baseResume, error: baseResumeError },
     { data: applications },
     { data: jobsRaw },
-  ] = await Promise.all([baseResumeQuery, applicationsQuery, jobsQuery]);
+    searchResult,
+  ] = await Promise.all([
+    baseResumeQuery,
+    applicationsQuery,
+    jobsQuery,
+    searchQuery ?? Promise.resolve(null),
+  ]);
 
   // Only fall back to an empty resume when there genuinely isn't one yet
   // (a real, expected state for a new user). A query error is a different
@@ -202,7 +251,7 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
   // matching JobCardProps type: this query never fetches the raw
   // `description_preview` column, only the pre-truncated value aliased as
   // `description`.
-  type FeedJobPosting = Omit<Tables<"job_postings">, "description_preview">;
+  type FeedJobPosting = Omit<Tables<"job_postings">, "description_preview" | "search_vector">;
   const matchingFilters: FeedJobPosting[] = jobsRaw ?? [];
 
   /*
@@ -212,7 +261,25 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
    * partial term, so the list would look broken the moment anyone typed.
    */
   const searchIndex = buildSuggestionIndex(matchingFilters);
-  let jobs: FeedJobPosting[] = searchJobs(matchingFilters, q);
+
+  /*
+   * Ranked server-side results when searching, the unsearched board
+   * otherwise — see the `searchQuery` comment above for why this is a
+   * second fetch rather than a filter over `matchingFilters`. A failed RPC
+   * degrades to an empty result rather than throwing: a broken search box
+   * shouldn't take the whole feed down with it, but it is logged, not
+   * silent — see this file's own `after()` block for why silent failure is
+   * the one thing this codebase treats as worse than a visible one.
+   */
+  let jobs: FeedJobPosting[];
+  if (q) {
+    if (searchResult?.error) {
+      console.error("[jobs] full-text search failed:", searchResult.error);
+    }
+    jobs = (searchResult?.data ?? []) as FeedJobPosting[];
+  } else {
+    jobs = matchingFilters;
+  }
 
   /*
    * Country default, applied in memory for the same reason the skill facet

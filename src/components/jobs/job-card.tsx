@@ -53,7 +53,7 @@ export interface JobCardProps {
   // column (migration 0086) and never selects the raw preview column itself —
   // this component never reads it either, so the narrower type costs nothing
   // and matches what the query actually returns.
-  job: Omit<Tables<"job_postings">, "description_preview">;
+  job: Omit<Tables<"job_postings">, "description_preview" | "search_vector">;
   score: number;
   isSaved: boolean;
   applicationStage: Tables<"applications">["stage"] | null;

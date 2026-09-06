@@ -8,7 +8,7 @@ import type { StructuredResume } from "@/lib/resume/types";
 import type { MatchExplanation } from "./score";
 
 // See skill-facet.ts's identical alias for why this is Omit, not the full row.
-type JobPosting = Omit<Tables<"job_postings">, "description_preview">;
+type JobPosting = Omit<Tables<"job_postings">, "description_preview" | "search_vector">;
 
 export interface ScoredJob {
   job: JobPosting;
