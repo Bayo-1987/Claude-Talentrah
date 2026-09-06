@@ -246,32 +246,34 @@ export function FilterBar({
         size, so it inherited ambient body text and rendered larger than
         every other release of this control ever has.
 
-        THE BREAKPOINT IS MEASURED, and the number this comment used to state
-        (901px, "fits inside 996px available") was wrong — not approximately,
-        wrong in kind: `flex-nowrap` with no shrink/wrap/scroll fallback means
-        the row's actual rendered width (1069px, measured directly against a
-        real logged-in board) becomes the DOCUMENT's width the moment the
-        viewport is narrower than that, not the row's. At 901px and 1024px
-        viewports this pushed the whole page 168px and 45px past its own
-        viewport respectively — a horizontal scrollbar on the jobs feed at
-        one of the commonest laptop widths, caught by
-        e2e/farah-discoverability.spec.ts's own document-width assertion
-        (which exists for an unrelated masthead item, and caught this only
-        because it measures the DOCUMENT, not the masthead).
+        THE BREAKPOINT DOES NOT MOVE THIS FIX. The column this row lives in
+        is capped at exactly 1000px on every viewport wide enough to show the
+        two-column app shell: layout.tsx's shell is `max-w-[1360px]`, the
+        Farah sidebar is a fixed, non-shrinking `w-[280px]`
+        (farah-panel.tsx), and the content column carries its own `px-10`
+        padding twice (80px) — 1360 - 280 - 80 = 1000px, confirmed by direct
+        measurement at both 1440px and 1728px viewports. With the labels
+        restored, this row needs ~1086px at its original spacing — 86px more
+        than the column can ever offer, at ANY breakpoint, because raising
+        the number doesn't grow the column. The fix is inside the row:
+        `gap-4`/`gap-3.5` between filter groups and `pl-4` on each group's
+        border-left are tightened to `gap-2.5`/`gap-2`/`pl-2`, which measures
+        to ~972px real content — a 28px margin under the 1000px ceiling, in
+        the same ~18-45px cross-platform font-metric variance range this
+        suite's own farah-discoverability.spec.ts has already observed move a
+        row like this one. Font size and labels are untouched; this is a
+        spacing change, not the density regression #222 shipped and #236
+        reverted.
 
-        1140px, not 1120 (this codebase's own max-content-width constant):
-        1069px of real content plus a margin bigger than the ~18-45px of
-        cross-platform font-metric variance already observed elsewhere in
-        this exact suite (see that spec's own header) is the deliberate
-        choice — 1120px alone would leave only 51px of slack, which is not
-        comfortably more than variance already seen to move a similar row by
-        45px on its own. Below 1140px the row hides and the collapsed
-        FilterMenu version (below) takes over — the same control, not a
-        degraded one.
+        The 1140px breakpoint itself is unrelated to the fix above and
+        unchanged: it's where the row (now ~972px) hides and the collapsed
+        FilterMenu version (below) takes over, with margin against the same
+        font-metric variance — not where the row runs out of column width,
+        which no breakpoint number can fix.
       */}
       <div
         data-testid="filter-bar-desktop"
-        className="hidden min-[1140px]:flex min-[1140px]:flex-nowrap min-[1140px]:items-center min-[1140px]:gap-4 text-[12.5px]"
+        className="hidden min-[1140px]:flex min-[1140px]:flex-nowrap min-[1140px]:items-center min-[1140px]:gap-2.5 text-[12.5px]"
       >
         <FilterMenu
           faceLabel={countryFace}
@@ -279,7 +281,7 @@ export function FilterBar({
           sentinel={countrySentinel}
           testId="filter-menu-country-desktop"
         />
-        <span className="flex items-center gap-3.5 border-l border-line pl-4">
+        <span className="flex items-center gap-2 border-l border-line pl-2">
           <span className="font-semibold text-ink-soft">Work type:</span>
           {WORK_TYPES.map((wt) => (
             <Link
@@ -291,7 +293,7 @@ export function FilterBar({
             </Link>
           ))}
         </span>
-        <span className="flex items-center gap-3.5 border-l border-line pl-4">
+        <span className="flex items-center gap-2 border-l border-line pl-2">
           <span className="font-semibold text-ink-soft">Seniority:</span>
           {SENIORITIES.map((s) => (
             <Link
@@ -303,7 +305,7 @@ export function FilterBar({
             </Link>
           ))}
         </span>
-        <span className="flex items-center gap-3.5 border-l border-line pl-4">
+        <span className="flex items-center gap-2 border-l border-line pl-2">
           <span className="font-semibold text-ink-soft">Posted:</span>
           {JOB_DATE_FILTERS.map((d) => (
             <Link
