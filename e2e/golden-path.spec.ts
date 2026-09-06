@@ -156,8 +156,50 @@ test.describe("golden path", () => {
     await expect(seededJobCard, "the seeded internal job should be on the board").toHaveCount(1);
 
     // --- Apply ----------------------------------------------------------
-    await seededJobCard.getByRole("button", { name: "Apply", exact: true }).click();
-    await page.waitForLoadState("networkidle");
+    /*
+     * WAITED ON THE FORM'S OWN RESPONSE, NOT NETWORK IDLE — AND NOT ON THE
+     * RESULTING RE-RENDER EITHER.
+     *
+     * `waitForLoadState("networkidle")` used to sit here, and this assertion
+     * flaked intermittently across many unrelated PRs — always the same
+     * symptom, 0 rows where 1 was expected, never a thrown error. Once
+     * unchecked write errors were fixed elsewhere (src/lib/applications/
+     * actions.ts) and the exact same flake kept recurring, the remaining
+     * explanation was the wait itself: `networkidle` resolves once there has
+     * been no network activity for 500ms, which says nothing about whether
+     * THIS click's own request has even been dispatched yet — if the page
+     * was already idle from the prior navigation, it can be satisfied before
+     * the form's POST starts, and the very next line then reads the database
+     * before the server action has actually run.
+     *
+     * The first fix tried here waited on a real UI transition instead (the
+     * "Apply" button becoming an "Applied" span once `applicationStage` comes
+     * back from the server). That is correct in principle — the transition
+     * genuinely cannot render before the write lands — but wrong in practice
+     * for THIS page specifically: `<form action={applyInAppAction.bind(...)}>`
+     * has no explicit `redirect()`, so Next.js's client runtime responds to
+     * the revalidated `/jobs` path by refetching and re-rendering the WHOLE
+     * feed — match scoring across every open posting, promoted-slot lookups,
+     * applicant counts, all of it (this page's own header comments document
+     * exactly how much work a render does). Waiting for that full re-render
+     * to finish and repaint timed out at 5s twice in a row in CI, even with
+     * NO artificial slowdown added — the render itself is just that
+     * expensive, not flaky.
+     *
+     * So this waits on the one thing that is both NECESSARY and CHEAP: the
+     * form's own POST response. A Server Action bound to a `<form>` submits
+     * to the current URL, and Next only sends that response after the action
+     * (and the `revalidatePath` calls inside it) have fully run server-side —
+     * so by the time this resolves, the write is committed, regardless of
+     * how long the client then takes to repaint. `Promise.all` starts the
+     * waiter before the click so the response can't arrive and be missed in
+     * the gap between them.
+     */
+    const [applyResponse] = await Promise.all([
+      page.waitForResponse((res) => res.request().method() === "POST" && res.url().includes("/jobs")),
+      seededJobCard.getByRole("button", { name: "Apply", exact: true }).click(),
+    ]);
+    expect(applyResponse.ok(), "the Apply form submission itself failed").toBe(true);
 
     // The application row is the thing that matters, not the toast.
     const { data: applications } = await admin
