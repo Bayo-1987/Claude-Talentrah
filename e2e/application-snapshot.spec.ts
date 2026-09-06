@@ -92,7 +92,11 @@ test.describe("application snapshot at creation (Stage 5a)", () => {
 
     await authedPage.goto(`/jobs/${jobId}`);
     await authedPage.getByRole("button", { name: "Save", exact: true }).click();
-    await authedPage.waitForLoadState("networkidle");
+    // A real UI signal, not networkidle — see golden-path.spec.ts's own
+    // comment on this exact pattern for why. The button's own text flips
+    // once the server action completes and the page re-renders with
+    // `isSaved`; that can't happen before the row actually exists.
+    await expect(authedPage.getByRole("button", { name: "Saved — remove" })).toBeVisible();
 
     const { data: row, error } = await admin
       .from("applications")
@@ -115,7 +119,9 @@ test.describe("application snapshot at creation (Stage 5a)", () => {
 
     await authedPage.goto(`/jobs/${jobId}`);
     await authedPage.getByRole("button", { name: "Apply", exact: true }).click();
-    await authedPage.waitForLoadState("networkidle");
+    // See the Save test above (and golden-path.spec.ts) for why this waits
+    // on the real UI transition rather than networkidle.
+    await expect(authedPage.getByText("Applied", { exact: true })).toBeVisible();
 
     const { data: row, error } = await admin
       .from("applications")
@@ -143,7 +149,17 @@ test.describe("application snapshot at creation (Stage 5a)", () => {
 
     await authedPage.goto(`/jobs/${jobId}`);
     await authedPage.getByRole("button", { name: "Mark as applied", exact: true }).click();
-    await authedPage.waitForLoadState("networkidle");
+    /*
+     * `exact: true` matters here specifically: before this click, "Mark as
+     * applied" is ALREADY on the page (it's the button being clicked), and
+     * Playwright's text matching is a case-insensitive SUBSTRING match by
+     * default — "applied" lowercased is a substring of "Mark as applied", so
+     * a plain `getByText("Applied")` would already be satisfied before the
+     * click ever happens, which is exactly the kind of premature-pass this
+     * fix exists to prevent. `exact: true` requires the element's own text
+     * to be precisely "Applied", matching only the post-transition span.
+     */
+    await expect(authedPage.getByText("Applied", { exact: true })).toBeVisible();
 
     const { data: row, error } = await admin
       .from("applications")

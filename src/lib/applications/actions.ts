@@ -67,6 +67,12 @@ export async function toggleSaveAction(jobId: string) {
  * logCountryDefaultEvent itself and cannot fail the apply.
  */
 export async function applyInAppAction(jobId: string, countryState: CountryState) {
+  // TEMPORARY VERIFICATION PROBE — DO NOT MERGE. Artificially slows this
+  // action down to confirm the new e2e wait (a real UI-state assertion)
+  // tolerates a slow server action, unlike the networkidle wait it replaces.
+  // Removed before this branch is finalized.
+  await new Promise((resolve) => setTimeout(resolve, 2000));
+
   const { supabase, userId } = await getAuthedUserId();
 
   const { data: baseResume, error: baseResumeError } = await supabase

@@ -156,8 +156,32 @@ test.describe("golden path", () => {
     await expect(seededJobCard, "the seeded internal job should be on the board").toHaveCount(1);
 
     // --- Apply ----------------------------------------------------------
+    /*
+     * WAITED ON A REAL UI SIGNAL, NOT NETWORK IDLE.
+     *
+     * `waitForLoadState("networkidle")` used to sit here, and this assertion
+     * flaked intermittently across many unrelated PRs — always the same
+     * symptom, 0 rows where 1 was expected, never a thrown error. Once
+     * unchecked write errors were fixed elsewhere (src/lib/applications/
+     * actions.ts) and the exact same flake kept recurring, the remaining
+     * explanation was the wait itself: `networkidle` resolves once there has
+     * been no network activity for 500ms, which says nothing about whether
+     * THIS click's own request has even been dispatched yet — if the page
+     * was already idle from the prior navigation, it can be satisfied before
+     * the form's POST starts, and the very next line then reads the database
+     * before the server action has actually run. Playwright's own docs
+     * discourage `networkidle` for exactly this reason.
+     *
+     * `<form action={applyInAppAction.bind(...)}>` (job-card.tsx) calls
+     * `revalidatePath` before returning, which is what turns the "Apply"
+     * button into a plain "Applied" span once `applicationStage` comes back
+     * as "applied" from the server. That transition cannot render before the
+     * server action has fully completed, so waiting for it — instead of for
+     * the network merely going quiet — is a wait on the thing this test
+     * actually depends on, not a proxy for it.
+     */
     await seededJobCard.getByRole("button", { name: "Apply", exact: true }).click();
-    await page.waitForLoadState("networkidle");
+    await expect(seededJobCard.getByText("Applied", { exact: true })).toBeVisible();
 
     // The application row is the thing that matters, not the toast.
     const { data: applications } = await admin
