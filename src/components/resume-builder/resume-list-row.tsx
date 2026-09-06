@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useActionState, useEffect, useRef, useState, useTransition } from "react";
 import { deleteResumeAction, renameResumeAction } from "@/lib/resume-builder/actions";
+import { formatTrackerDate } from "@/lib/tracker/format-date";
 import {
   BASE_RESUME_UNDELETABLE_REASON,
   initialDeleteResumeState,
@@ -152,7 +153,16 @@ export function ResumeListRow({ id, title, isBase, updatedAt }: ResumeListRowPro
                 )}
               </span>
               <div className="text-[12.5px] text-ink-soft">
-                Updated {new Date(updatedAt).toLocaleDateString()}
+                {/*
+                  Explicit locale, not the runtime default: `toLocaleDateString()`
+                  with no arguments depends on the Node SSR process's locale,
+                  which can differ from the browser's — a hydration mismatch,
+                  not a display quirk. `formatTrackerDate` already exists as
+                  this app's one shared, locale-pinned formatter (src/lib/
+                  tracker/format-date.ts) — reused here rather than a second
+                  near-duplicate.
+                */}
+                Updated {formatTrackerDate(updatedAt)}
               </div>
             </>
           )}
