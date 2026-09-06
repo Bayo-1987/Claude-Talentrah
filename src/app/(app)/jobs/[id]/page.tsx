@@ -13,6 +13,7 @@ import { formatSalary } from "@/lib/jobs/format-salary";
 import { relevantJobLandingLinks } from "@/lib/seo/landing-page-links";
 import { skillsOf } from "@/lib/jobs/skill-facet";
 import { computeAndStoreMatchScores } from "@/lib/matching/compute-and-store";
+import { MatchBreakdown } from "@/components/jobs/match-breakdown";
 import { EMPTY_RESUME } from "@/lib/resume/types";
 import type { StructuredResume } from "@/lib/resume/types";
 import {
@@ -319,6 +320,9 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
           )}
         </div>
       </div>
+
+      {/* Stage 8, display-only step — see match-breakdown.tsx's own header. Same explanation the card's badge is computed from, not a second score. */}
+      {scored && <MatchBreakdown explanation={scored.explanation} />}
 
       <div className="flex flex-col gap-1 border-y border-line py-3">
         <span className="text-[12.5px] text-ink-soft">
