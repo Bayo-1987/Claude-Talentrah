@@ -25,6 +25,26 @@ export default async function FeedbackPage({
   const parsed = feedbackSchema.shape.pagePath.safeParse(from ?? null);
   const pagePath = parsed.success ? parsed.data : null;
 
+  /*
+   * A direct WhatsApp line to Talentrah's own support number — distinct from
+   * the marketing footer's WhatsApp COMMUNITY group link. Not a secret, so a
+   * plain env var; rendered only when it's set, same "omit until the account
+   * is real" convention as the footer's social links.
+   *
+   * The message carries `pagePath` when we have it, so a report that comes
+   * in over WhatsApp instead of the form still says which page it's about —
+   * the same context the form's own hidden `pagePath` field captures.
+   * Built here, server-side, as a plain string — not constructed in a click
+   * handler — so the link is a real `<a href>` that works with JS disabled.
+   */
+  const supportWhatsappNumber = process.env.NEXT_PUBLIC_SUPPORT_WHATSAPP_NUMBER;
+  const whatsappMessage = pagePath
+    ? `Hi Talentrah — I have some feedback about ${pagePath}: `
+    : "Hi Talentrah — I have some feedback: ";
+  const whatsappHref = supportWhatsappNumber
+    ? `https://wa.me/${supportWhatsappNumber}?text=${encodeURIComponent(whatsappMessage)}`
+    : null;
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-3">
@@ -34,6 +54,29 @@ export default async function FeedbackPage({
           Bugs, rough edges, or something you wish Talentrah did. This goes
           straight to the people building it.
         </p>
+        {whatsappHref && (
+          <p className="max-w-[560px] text-[15px] text-ink-soft">
+            Prefer WhatsApp?{" "}
+            <a
+              href={whatsappHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 font-semibold text-rust underline underline-offset-2 hover:text-rust-hover"
+            >
+              <svg width="15" height="15" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                <path
+                  d="M4 4h12v9H8l-4 3V4Z"
+                  stroke="currentColor"
+                  strokeWidth="1.4"
+                  strokeLinejoin="round"
+                  fill="none"
+                />
+              </svg>
+              Message us on WhatsApp
+            </a>{" "}
+            — often faster for a quick one.
+          </p>
+        )}
       </div>
 
       <BorderedCard className="max-w-[620px] p-6">
