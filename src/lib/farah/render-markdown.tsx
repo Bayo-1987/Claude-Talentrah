@@ -2,7 +2,8 @@ import { Fragment, type ReactNode } from "react";
 
 /**
  * Renders Farah's replies as a small, explicitly-limited subset of markdown:
- * bold, italic, unordered/ordered lists, and paragraph breaks. Nothing else.
+ * bold, italic, unordered/ordered lists, paragraph breaks, headings,
+ * horizontal rules, and blockquotes. Nothing else.
  *
  * ── WHY THIS EXISTS ────────────────────────────────────────────────────────
  *
@@ -12,6 +13,24 @@ import { Fragment, type ReactNode } from "react";
  * produces bold, italic and lists because that's how it's prompted to
  * structure advice; the fix is to render the subset it actually uses, not to
  * pull in a general-purpose renderer for content nobody controls.
+ *
+ * ── HEADINGS/RULES/BLOCKQUOTES WERE ADDED, NOT PROMPTED AWAY ───────────────
+ *
+ * A system-prompt paragraph asking the model not to use `#`/`---`/`>` was
+ * tried first and falsified live, twice, on production: naming the forbidden
+ * constructs in prose did not stop the model from reaching for them whenever
+ * it was asked for a "framework," "playbook," or "90-day sprint schedule."
+ * This codebase already knows better than to rely on a caller remembering a
+ * rule when a mechanism can enforce it instead (the `match_scores`
+ * invalidation trigger, the atomic credit-spend function, the terminal-
+ * `hired` trigger are the same reasoning). Headings, rules and blockquotes
+ * carry none of the actual risk this file's comment below lumped them in
+ * with — that risk is specifically raw HTML, links and images — so the fix
+ * is to support them as real, safe elements instead of asking the model to
+ * avoid them. Tables are still out of scope: a markdown table cannot render
+ * legibly in a 280px sidebar column regardless of whether the syntax parses
+ * correctly, so the system prompt asks for lists instead and this file has
+ * no table parser to fall back on if that's ignored.
  *
  * ── WHY NOT A MARKDOWN LIBRARY, AND WHY NOT dangerouslySetInnerHTML ────────
  *
@@ -23,13 +42,17 @@ import { Fragment, type ReactNode } from "react";
  * this path for a crafted reply to land in: a `<script>` tag typed into a
  * message is just the literal characters `<script>` as a text node, the same
  * way any other unsupported construct is — never parsed, never dropped
- * silently, always visible as what it literally is.
+ * silently, always visible as what it literally is. Headings/rules/
+ * blockquotes are parsed to block-level React elements exactly the way lists
+ * already are, with their inline text still escaped through the same
+ * `renderInline` — no new path was added that could ever construct an `<a>`
+ * or an `<img>`.
  *
  * ── WHAT COUNTS AS "OUTSIDE THE SUBSET" ────────────────────────────────────
  *
- * Links, images, headings, code spans, blockquotes, raw HTML — none of these
- * have a parser branch here, which means their source characters (`[`, `#`,
- * `` ` ``, `<`, ...) pass straight through `renderInline` as plain text. A
+ * Links, images, code spans, tables, raw HTML — none of these have a parser
+ * branch here, which means their source characters (`[`, `` ` ``, `|`, `<`,
+ * ...) pass straight through `renderInline` as plain text. A
  * `[Click here](javascript:alert(1))` reply renders as that literal string,
  * not a clickable anything — there is no code path in this file that ever
  * constructs an `<a>`.
@@ -39,8 +62,19 @@ import { Fragment, type ReactNode } from "react";
 const UNORDERED_ITEM = /^[-*]\s+(.*)$/;
 /** A `1. item` marker — digits, a literal dot, a space, then content. */
 const ORDERED_ITEM = /^\d+\.\s+(.*)$/;
+/** `#` through `######`, a space, then content — every heading level renders identically, just bold text at one modestly larger size. */
+const HEADING = /^#{1,6}\s+(.*)$/;
+/** Three or more bare hyphens and nothing else. Not `- - -` or any other hr variant — the model's own output only ever used bare `---`. */
+const RULE = /^-{3,}$/;
+/** A `> ` marker, optionally followed by content (`>` alone is a valid empty quote line). */
+const QUOTE_LINE = /^>\s?(.*)$/;
 
-type Block = { kind: "paragraph"; text: string } | { kind: "list"; ordered: boolean; items: string[] };
+type Block =
+  | { kind: "paragraph"; text: string }
+  | { kind: "list"; ordered: boolean; items: string[] }
+  | { kind: "heading"; text: string }
+  | { kind: "rule" }
+  | { kind: "quote"; text: string };
 
 function parseBlocks(content: string): Block[] {
   const lines = content.split(/\r\n|\r|\n/);
@@ -56,10 +90,41 @@ function parseBlocks(content: string): Block[] {
   let i = 0;
   while (i < lines.length) {
     const line = lines[i];
+    const trimmed = line.trim();
 
-    if (line.trim() === "") {
+    if (trimmed === "") {
       flushParagraph();
       i++;
+      continue;
+    }
+
+    const heading = line.match(HEADING);
+    if (heading) {
+      flushParagraph();
+      blocks.push({ kind: "heading", text: heading[1] });
+      i++;
+      continue;
+    }
+
+    if (RULE.test(trimmed)) {
+      flushParagraph();
+      blocks.push({ kind: "rule" });
+      i++;
+      continue;
+    }
+
+    const quoteLine = line.match(QUOTE_LINE);
+    if (quoteLine) {
+      flushParagraph();
+      const quoteLines: string[] = [quoteLine[1]];
+      i++;
+      while (i < lines.length) {
+        const next = lines[i].match(QUOTE_LINE);
+        if (!next) break;
+        quoteLines.push(next[1]);
+        i++;
+      }
+      blocks.push({ kind: "quote", text: quoteLines.join(" ").trim() });
       continue;
     }
 
@@ -134,6 +199,12 @@ function renderInline(text: string, keyPrefix: string): ReactNode[] {
  * list is still a Farah reply, not a different kind of content.
  */
 const FARAH_TEXT = "font-display text-[13.5px] italic leading-relaxed text-ink-soft";
+/** A heading is just bold text at a modestly larger size — this is a 280px sidebar, not a document, so no real `<h1>`-scale type. */
+const FARAH_HEADING = "font-display text-[15px] font-semibold not-italic leading-snug text-ink-soft";
+/** Matches farah-panel.tsx's own dashed section divider — a rule is a divider, not a document `<hr>`. */
+const FARAH_RULE = "my-0.5 border-t border-dashed border-line";
+/** Same face as every other block; the border/indent is the only thing that marks it as quoted. */
+const FARAH_QUOTE = `${FARAH_TEXT} border-l-2 border-line pl-3`;
 
 export function renderFarahMarkdown(content: string): ReactNode {
   const blocks = parseBlocks(content);
@@ -144,29 +215,48 @@ export function renderFarahMarkdown(content: string): ReactNode {
 
   return (
     <div className="flex flex-col gap-1.5">
-      {blocks.map((block, i) =>
-        block.kind === "paragraph" ? (
-          <p key={i} className={FARAH_TEXT}>
-            {renderInline(block.text, `p${i}`)}
-          </p>
-        ) : (
-          <Fragment key={i}>
-            {block.ordered ? (
-              <ol className={`${FARAH_TEXT} list-decimal pl-4`}>
-                {block.items.map((item, j) => (
-                  <li key={j}>{renderInline(item, `l${i}-${j}`)}</li>
-                ))}
-              </ol>
-            ) : (
-              <ul className={`${FARAH_TEXT} list-disc pl-4`}>
-                {block.items.map((item, j) => (
-                  <li key={j}>{renderInline(item, `l${i}-${j}`)}</li>
-                ))}
-              </ul>
-            )}
-          </Fragment>
-        ),
-      )}
+      {blocks.map((block, i) => {
+        switch (block.kind) {
+          case "paragraph":
+            return (
+              <p key={i} className={FARAH_TEXT}>
+                {renderInline(block.text, `p${i}`)}
+              </p>
+            );
+          case "heading":
+            return (
+              <p key={i} className={FARAH_HEADING}>
+                {renderInline(block.text, `h${i}`)}
+              </p>
+            );
+          case "rule":
+            return <hr key={i} className={FARAH_RULE} />;
+          case "quote":
+            return (
+              <p key={i} className={FARAH_QUOTE}>
+                {renderInline(block.text, `q${i}`)}
+              </p>
+            );
+          case "list":
+            return (
+              <Fragment key={i}>
+                {block.ordered ? (
+                  <ol className={`${FARAH_TEXT} list-decimal pl-4`}>
+                    {block.items.map((item, j) => (
+                      <li key={j}>{renderInline(item, `l${i}-${j}`)}</li>
+                    ))}
+                  </ol>
+                ) : (
+                  <ul className={`${FARAH_TEXT} list-disc pl-4`}>
+                    {block.items.map((item, j) => (
+                      <li key={j}>{renderInline(item, `l${i}-${j}`)}</li>
+                    ))}
+                  </ul>
+                )}
+              </Fragment>
+            );
+        }
+      })}
     </div>
   );
 }

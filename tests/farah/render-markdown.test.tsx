@@ -1,13 +1,16 @@
 /**
  * renderFarahMarkdown — the small, explicitly-limited subset the Farah panel
  * renders replies through: bold, italic, unordered/ordered lists, paragraph
- * breaks, and nothing else.
+ * breaks, headings, horizontal rules, blockquotes, and nothing else.
  *
  * This is UNTRUSTED MODEL OUTPUT rendered into a signed-in user's session, so
  * the tests are split into two kinds: the supported subset renders as real
  * elements, and everything outside it renders as inert text rather than
- * markup — checked here by asserting the DANGEROUS element (`<a>`) never
- * appears, not just that the happy path looks right.
+ * markup — checked here by asserting the DANGEROUS elements (`<a>`, `<img>`)
+ * never appear, not just that the happy path looks right. Headings, rules
+ * and blockquotes moved from the second group to the first when a
+ * system-prompt-only fix for them was tried and falsified live on
+ * production — see render-markdown.tsx's own header for why.
  */
 import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -77,6 +80,55 @@ describe("the supported subset renders as real elements", () => {
     expect(ulOpenTag).toContain("italic");
     expect(ulOpenTag).toContain("font-display");
   });
+
+  it("renders a heading as bold text, not a heading element", () => {
+    const html = render("### 1. Capture the current offer");
+    expect(html).not.toMatch(/<h[1-6]/);
+    expect(html).toMatch(/<p[^>]*>1\. Capture the current offer<\/p>/);
+    expect(html).not.toContain("#");
+  });
+
+  it("renders every heading level (1-6 #s) identically, as bold text at one size", () => {
+    for (const marker of ["#", "##", "###", "####", "#####", "######"]) {
+      const html = render(`${marker} Same treatment`);
+      expect(html).toMatch(/<p[^>]*>Same treatment<\/p>/);
+      expect(html).not.toContain(marker + " Same");
+    }
+  });
+
+  it("does not treat a bare '#' with no following space as a heading", () => {
+    const html = render("#trending is not a heading marker");
+    expect(html).toContain("#trending is not a heading marker");
+    expect(html).not.toMatch(/<p[^>]*>trending/);
+  });
+
+  it("renders a bare '---' line as a rule, not literal text", () => {
+    const html = render("Before.\n---\nAfter.");
+    expect(html).toContain("<hr");
+    expect(html).not.toContain("---");
+  });
+
+  it("does not treat a two-hyphen line as a rule", () => {
+    const html = render("--");
+    expect(html).not.toContain("<hr");
+    expect(html).toContain("--");
+  });
+
+  it("renders a blockquote with an indent/border, keeping the panel's italic face", () => {
+    const html = render('> "Thank you for the offer. I\'m excited about this role."');
+    expect(html).not.toContain("&gt;");
+    expect(html).toContain("Thank you for the offer");
+    const quoteTag = html.match(/<p[^>]*>[^<]*Thank you for the offer[^]*?<\/p>/)?.[0] ?? "";
+    expect(quoteTag).toContain("italic");
+    expect(quoteTag).toContain("border-l");
+  });
+
+  it("joins consecutive blockquote lines into one quote block", () => {
+    const html = render("> First line\n> Second line");
+    const paragraphs = html.match(/<p[^>]*>/g) ?? [];
+    expect(paragraphs.length).toBe(1);
+    expect(html).toContain("First line Second line");
+  });
 });
 
 describe("anything outside the subset renders as plain text, not markup", () => {
@@ -97,12 +149,6 @@ describe("anything outside the subset renders as plain text, not markup", () => 
     },
   );
 
-  it("a heading marker renders as literal text, not a heading element", () => {
-    const html = render("# Not actually a heading");
-    expect(html).not.toMatch(/<h[1-6]/);
-    expect(html).toContain("# Not actually a heading");
-  });
-
   it("an inline code span renders as literal text, not a <code> element", () => {
     const html = render("Run `npm install` first.");
     expect(html).not.toContain("<code");
@@ -118,11 +164,31 @@ describe("anything outside the subset renders as plain text, not markup", () => 
     expect(html).toContain("onerror=alert(1)");
   });
 
-  it("a blockquote marker renders as literal text", () => {
-    const html = render("> not a blockquote");
-    expect(html).not.toContain("<blockquote");
-    expect(html).toContain("&gt; not a blockquote");
+  it("a markdown table renders as literal pipe-and-dash text, never a <table>", () => {
+    const html = render("| Component | Value |\n|---|---|\n| Base | 100 |");
+    expect(html).not.toContain("<table");
+    expect(html).not.toContain("<hr");
+    expect(html).toContain("| Component | Value |");
   });
+
+  it(
+    "SABOTAGE-PROOF TARGET: raw HTML inside a heading is still never parsed as an element",
+    () => {
+      const html = render("# <img src=x onerror=alert(1)>");
+      expect(html).not.toContain("<img");
+      expect(html).toContain("onerror=alert(1)");
+    },
+  );
+
+  it(
+    "SABOTAGE-PROOF TARGET: link syntax inside a blockquote never becomes an anchor",
+    () => {
+      const html = render("> [Click here](javascript:alert(1))");
+      expect(html).not.toContain("<a ");
+      expect(html).not.toMatch(/href\s*=/);
+      expect(html).toContain("Click here");
+    },
+  );
 });
 
 describe("edge cases", () => {
