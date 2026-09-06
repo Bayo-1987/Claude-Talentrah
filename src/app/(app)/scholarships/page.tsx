@@ -11,6 +11,7 @@ import {
 import { Constants, type Tables } from "@/lib/supabase/types";
 import type { DegreeLevel, FundingType, SaveStatus } from "@/lib/scholarships/types";
 import { checkPassCoverage } from "@/lib/passes/entitlement";
+import { getSiteOrigin } from "@/lib/referrals/url";
 
 export const metadata = { title: "Scholarships — Talentrah" };
 
@@ -35,6 +36,7 @@ export default async function ScholarshipsPage({ searchParams }: { searchParams:
   const { user, profile } = await requireUser();
   const params = await searchParams;
   const passCoverage = await checkPassCoverage(user.id);
+  const origin = await getSiteOrigin();
 
   const tab = params.tab === "saved" ? "saved" : "all";
   const level = VALID_LEVELS.includes(params.level ?? "") ? (params.level as DegreeLevel) : undefined;
@@ -232,6 +234,8 @@ export default async function ScholarshipsPage({ searchParams }: { searchParams:
               save={saveByScholarshipId.get(s.id) ?? null}
               creditsBalance={profile.credits_balance}
               passCovered={passCoverage.covered}
+              origin={origin}
+              referralCode={profile.referral_code}
             />
           ))}
         </div>

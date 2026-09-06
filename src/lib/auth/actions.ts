@@ -2,9 +2,10 @@
 
 import { redirect } from "next/navigation";
 import { safeRedirectTo } from "./redirect-to";
-import { headers } from "next/headers";
+import { headers, cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { REFERRAL_COOKIE } from "@/lib/referrals/cookie";
 import {
   signUpSchema,
   signInSchema,
@@ -67,6 +68,21 @@ export async function signUpAction(
 
   if (error) {
     return { error: error.message };
+  }
+
+  /*
+   * The referral row is created by `handle_new_user` (0000, running as a
+   * trigger on `auth.users`) the instant `signUp()` above succeeds — before
+   * either redirect branch below, and regardless of whether email
+   * confirmation means there's a session yet. So the cookie's job is done
+   * here too, win or lose: a code that turned out to be a self-referral and
+   * got nulled out by the trigger's own guard (0036) still shouldn't keep
+   * re-offering itself on the visitor's next page view. Only clears a cookie
+   * that was actually used — a `?ref=` from the query string with no cookie
+   * set leaves nothing to clear, and that's fine.
+   */
+  if (referredByCode) {
+    (await cookies()).delete(REFERRAL_COOKIE);
   }
 
   // If the Supabase project has "Confirm email" enabled, signUp() creates

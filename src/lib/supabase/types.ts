@@ -1746,18 +1746,21 @@ export type Database = {
           channel: string
           created_at: string
           id: string
+          surface: string
           user_id: string
         }
         Insert: {
           channel: string
           created_at?: string
           id?: string
+          surface?: string
           user_id: string
         }
         Update: {
           channel?: string
           created_at?: string
           id?: string
+          surface?: string
           user_id?: string
         }
         Relationships: [
@@ -2496,6 +2499,7 @@ export type Database = {
         }[]
       }
       is_org_member: { Args: { p_organization_id: string }; Returns: boolean }
+      is_valid_referral_code: { Args: { p_code: string }; Returns: boolean }
       normalize_email_for_self_referral: {
         Args: { p_email: string }
         Returns: string
