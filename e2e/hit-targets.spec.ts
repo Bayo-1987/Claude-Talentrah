@@ -102,8 +102,11 @@ async function measureTrigger(page: Page, testId: string) {
 }
 
 test("the design system's own chips have real remove targets", async ({ page }) => {
-  // /dev/design-check is ungated and is where FilterChip's removable variant
-  // actually renders — the feed's applied filters are their own links now.
+  // /dev/design-check is ungated and is where FilterChip's `onRemove`
+  // (click-handler) variant actually renders. The feed's own active-filter
+  // summary chips use FilterChip too, but its `removeHref` (plain-link)
+  // variant — a `<button>` selector correctly finds none there, which is
+  // why that surface gets its own measurement below rather than this one.
   await page.goto("/dev/design-check");
 
   const found = await page.evaluate((min) => {
@@ -161,6 +164,16 @@ test("every filter control on the feed clears the 40x40 hit-target floor", async
   undersized.push(...(await measureLinksIn(page, "applied-filters", "Clear filters", MIN)));
   count += await linkCountIn(page, "applied-filters");
 
+  // --- The active-filter summary line (P14) — one FilterChip per active
+  // facet, each with a `removeHref` `<a>`, not the button/onRemove variant
+  // /dev/design-check's own test measures. Rendered once regardless of
+  // viewport (not duplicated between the desktop/mobile rows the way
+  // FilterMenu is), so it is measured here once rather than at both widths.
+  // workType=remote + seniority=senior on the URL above means exactly 2
+  // chips, so exactly 2 links expected. ---
+  undersized.push(...(await measureLinksIn(page, "active-filter-summary", "active-filter summary chip", MIN)));
+  count += await linkCountIn(page, "active-filter-summary");
+
   // --- The collapsed row (<1140px): every FilterMenu becomes a trigger,
   // covering surface the pre-redesign spec never measured at all. ---
   await page.setViewportSize({ width: 900, height: 900 });
@@ -186,8 +199,9 @@ test("every filter control on the feed clears the 40x40 hit-target floor", async
   }
 
   // Desktop: Work type (3) + Seniority (5) + Posted (4) links, the Country
-  // trigger + its 5 items, Clear filters (1) = 19. Mobile: 4 triggers +
-  // (5 Country + 3 Work type + 5 Seniority + 4 Posted) items = 21. 40 total
+  // trigger + its 5 items, Clear filters (1) = 19. Active-filter summary (2
+  // chips for workType=remote&seniority=senior) = 2. Mobile: 4 triggers +
+  // (5 Country + 3 Work type + 5 Seniority + 4 Posted) items = 21. 42 total
   // when every selector still finds what it's looking for — a number well
   // below that means a selector stopped matching, not that the controls
   // shrank.

@@ -225,7 +225,12 @@ export function SearchCombobox({
         onFocus={() => setOpen(true)}
         onKeyDown={onKeyDown}
         placeholder="Search by title, company or location…"
-        className="min-h-[42px] w-full min-w-0 flex-1 border-none bg-card px-3.5 font-display text-[13px] italic text-ink outline-none placeholder:text-ink-soft"
+        // `italic` was unscoped, so a real typed term rendered italic too —
+        // CLAUDE.md's "italic Newsreader = quiet/secondary asides
+        // (placeholders, captions, taglines)" doesn't cover an active search
+        // term. Scoped to `placeholder:italic` so only the empty-state text
+        // is italic; what a person actually types renders upright.
+        className="min-h-[42px] w-full min-w-0 flex-1 border-none bg-card px-3.5 font-display text-[13px] text-ink outline-none placeholder:italic placeholder:text-ink-soft"
       />
 
       {/*

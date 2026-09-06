@@ -171,6 +171,54 @@ describe("country and posted stay single-value", () => {
   });
 });
 
+describe("the active-filter summary line (P14)", () => {
+  it("is absent entirely when nothing is applied", () => {
+    expect(render()).not.toContain("active-filter-summary");
+    expect(render()).not.toContain("Showing:");
+  });
+
+  it("appears once a search term is set, with the term visually distinct (quoted, italic)", () => {
+    const html = render({ q: "product manager" });
+    expect(html).toContain('data-testid="active-filter-summary"');
+    expect(html).toContain("Showing:");
+    // Quoted (React escapes the literal `"` as `&quot;` in HTML output) and
+    // rendered through the italic-Newsreader treatment, not the plain
+    // facet-label styling.
+    expect(html).toMatch(/<span class="font-display italic">&quot;product manager&quot;<\/span>/);
+  });
+
+  it("lists every active facet as its own chip, plain (not quoted) styling", () => {
+    const html = render({ workTypes: ["remote"], seniorities: ["senior"], posted: "week" });
+    expect(html).toContain("<span>Remote</span>");
+    expect(html).toContain("<span>Senior</span>");
+    expect(html).toContain("<span>Past week</span>");
+  });
+
+  it("each chip's own removal href drops only that one filter, keeping the rest", () => {
+    const html = render({ workTypes: ["remote", "hybrid"], seniorities: ["senior"], q: "python" });
+    // Removing "remote" must keep hybrid, seniority and q intact. `class=`
+    // sits between `aria-label` and `href` in React's attribute output, and
+    // `&` between query params serializes as `&amp;` in HTML.
+    expect(html).toMatch(
+      /aria-label="Remove Remote filter" class="[^"]*" href="[^"]*workType=hybrid[^"]*"/,
+    );
+  });
+
+  it("the search-term chip's removal href drops q and keeps everything else", () => {
+    const html = render({ workTypes: ["remote"], q: "python" });
+    expect(html).toMatch(
+      /aria-label="Remove &quot;python&quot; filter" class="[^"]*" href="\/jobs\?tab=recommended&amp;workType=remote"/,
+    );
+  });
+
+  it("the country chip removes with country=all, matching Clear filters' own rule", () => {
+    const html = render({ country: "Nigeria", countryApplicable: true });
+    expect(html).toMatch(
+      /aria-label="Remove Nigeria filter" class="[^"]*" href="[^"]*country=all[^"]*"/,
+    );
+  });
+});
+
 describe("hit targets", () => {
   it("gives the desktop browse links a real 40x40 minimum", () => {
     const html = render({ workTypes: ["remote"] });
