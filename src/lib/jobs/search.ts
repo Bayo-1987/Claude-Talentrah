@@ -2,7 +2,7 @@ import type { Tables } from "@/lib/supabase/types";
 import { skillsOf } from "./skill-facet";
 
 // See skill-facet.ts's identical alias for why this is Omit, not the full row.
-type JobPosting = Omit<Tables<"job_postings">, "description_preview">;
+type JobPosting = Omit<Tables<"job_postings">, "description_preview" | "search_vector">;
 
 /**
  * Free-text search over the board already in memory.

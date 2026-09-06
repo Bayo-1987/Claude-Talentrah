@@ -1295,6 +1295,7 @@ export type Database = {
           salary_max: number | null
           salary_min: number | null
           salary_unit: Database["public"]["Enums"]["salary_unit"] | null
+          search_vector: string | null
           seniority: Database["public"]["Enums"]["seniority_level"] | null
           source_type: Database["public"]["Enums"]["job_source_type"]
           status: Database["public"]["Enums"]["job_status"]
@@ -1328,6 +1329,7 @@ export type Database = {
           salary_max?: number | null
           salary_min?: number | null
           salary_unit?: Database["public"]["Enums"]["salary_unit"] | null
+          search_vector?: string | null
           seniority?: Database["public"]["Enums"]["seniority_level"] | null
           source_type: Database["public"]["Enums"]["job_source_type"]
           status?: Database["public"]["Enums"]["job_status"]
@@ -1361,6 +1363,7 @@ export type Database = {
           salary_max?: number | null
           salary_min?: number | null
           salary_unit?: Database["public"]["Enums"]["salary_unit"] | null
+          search_vector?: string | null
           seniority?: Database["public"]["Enums"]["seniority_level"] | null
           source_type?: Database["public"]["Enums"]["job_source_type"]
           status?: Database["public"]["Enums"]["job_status"]
@@ -2558,6 +2561,47 @@ export type Database = {
           balance_after_ngn: number
           ok: boolean
           status: Database["public"]["Enums"]["ad_campaign_status"]
+        }[]
+      }
+      search_job_postings: {
+        Args: {
+          p_ids?: string[]
+          p_query: string
+          p_seniorities?: Database["public"]["Enums"]["seniority_level"][]
+          p_since: string
+          p_source_type?: Database["public"]["Enums"]["job_source_type"]
+          p_work_types?: Database["public"]["Enums"]["work_type"][]
+        }
+        Returns: {
+          company_logo_url: string | null
+          company_name: string
+          created_at: string
+          dedup_fingerprint: string
+          description: string
+          employment_type: Database["public"]["Enums"]["employment_type"] | null
+          expires_at: string | null
+          external_source: string | null
+          external_url: string | null
+          id: string
+          last_checked_at: string
+          location: string | null
+          organization_id: string | null
+          posted_at: string
+          rank: number
+          removal_reason: string | null
+          removed_at: string | null
+          removed_by: string | null
+          salary_currency: string | null
+          salary_max: number | null
+          salary_min: number | null
+          salary_unit: Database["public"]["Enums"]["salary_unit"] | null
+          seniority: Database["public"]["Enums"]["seniority_level"] | null
+          source_type: Database["public"]["Enums"]["job_source_type"]
+          status: Database["public"]["Enums"]["job_status"]
+          structured_jd: Json
+          title: string
+          work_type: Database["public"]["Enums"]["work_type"] | null
+          years_experience_min: number | null
         }[]
       }
       set_ad_campaign_review: {
