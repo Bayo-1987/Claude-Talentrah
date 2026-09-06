@@ -30,15 +30,21 @@ export async function toggleSaveAction(jobId: string) {
     // row survives job_posting_id being deleted or nulled out later — see
     // that module's header for why.
     const snapshot = await loadJobSnapshot(supabase, jobId);
-    await supabase.from("applications").insert({
+    const { error } = await supabase.from("applications").insert({
       user_id: userId,
       job_posting_id: jobId,
       stage: "saved",
       source: "manual",
       manual_job_snapshot: snapshot,
     });
+    // A rejected insert resolves with `error`, it does not throw — checked,
+    // per this repo's own standing rule (CLAUDE.md), because the alternative
+    // is a Save click that reports success over a row that was never
+    // written.
+    if (error) throw new Error(`Couldn't save this job: ${error.message}`);
   } else if (existing.stage === "saved") {
-    await supabase.from("applications").delete().eq("id", existing.id);
+    const { error } = await supabase.from("applications").delete().eq("id", existing.id);
+    if (error) throw new Error(`Couldn't un-save this job: ${error.message}`);
   }
 
   revalidatePath("/jobs");
@@ -100,10 +106,17 @@ export async function applyInAppAction(jobId: string, countryState: CountryState
     manual_job_snapshot: snapshot,
   };
 
+  // A rejected insert/update resolves with `error`, it does not throw —
+  // checked, per this repo's own standing rule (CLAUDE.md), because the
+  // alternative is an Apply click that reports success over a row that was
+  // never written, which is exactly indistinguishable from a real apply
+  // until someone goes looking at the tracker and finds nothing there.
   if (existing) {
-    await supabase.from("applications").update(payload).eq("id", existing.id);
+    const { error } = await supabase.from("applications").update(payload).eq("id", existing.id);
+    if (error) throw new Error(`Couldn't record your application: ${error.message}`);
   } else {
-    await supabase.from("applications").insert(payload);
+    const { error } = await supabase.from("applications").insert(payload);
+    if (error) throw new Error(`Couldn't record your application: ${error.message}`);
   }
 
   await logCountryDefaultEvent({ userId, eventType: "apply", countryState, jobPostingId: jobId });
@@ -145,10 +158,14 @@ export async function markAppliedExternallyAction(jobId: string, countryState: C
     manual_job_snapshot: snapshot,
   };
 
+  // See applyInAppAction's own comment above on why this is checked rather
+  // than left to a silent no-op.
   if (existing) {
-    await supabase.from("applications").update(payload).eq("id", existing.id);
+    const { error } = await supabase.from("applications").update(payload).eq("id", existing.id);
+    if (error) throw new Error(`Couldn't record this as applied: ${error.message}`);
   } else {
-    await supabase.from("applications").insert(payload);
+    const { error } = await supabase.from("applications").insert(payload);
+    if (error) throw new Error(`Couldn't record this as applied: ${error.message}`);
   }
 
   await logCountryDefaultEvent({ userId, eventType: "apply", countryState, jobPostingId: jobId });
