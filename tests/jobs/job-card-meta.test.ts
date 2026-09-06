@@ -13,7 +13,8 @@ import { describe, expect, it } from "vitest";
 import { dedupeMetaParts } from "@/components/jobs/job-card";
 
 const WORK_TYPE_LABEL: Record<string, string> = { remote: "Remote", hybrid: "Hybrid", onsite: "Onsite" };
-const SENIORITY_LABEL: Record<string, string> = { entry: "Entry" };
+const SENIORITY_LABEL: Record<string, string> = { entry: "Entry", senior: "Senior" };
+const EMPLOYMENT_LABEL: Record<string, string> = { full_time: "Full-time" };
 
 describe("dedupeMetaParts", () => {
   it(
@@ -44,6 +45,28 @@ describe("dedupeMetaParts", () => {
   it("drops null/empty entries the same way .filter(Boolean) used to", () => {
     expect(dedupeMetaParts(["Acme", null, "Lagos", null])).toEqual(["Acme", "Lagos"]);
   });
+
+  it(
+    "SABOTAGE-PROOF TARGET: the job DETAIL page's own meta array (location, work_type, seniority, employment_type, years_experience) also collapses the Remote/remote collision — confirmed live on job 79a05392-4621-4038-b13d-661cd2edb4ca, which rendered 'Remote · Remote · Senior' because jobs/[id]/page.tsx built its own array with a plain .filter(Boolean) instead of reusing this function",
+    () => {
+      const job = {
+        location: "Remote",
+        work_type: "remote",
+        seniority: "senior",
+        employment_type: "full_time",
+        years_experience_min: 5,
+      };
+      const meta = dedupeMetaParts([
+        job.location,
+        job.work_type ? WORK_TYPE_LABEL[job.work_type] : null,
+        job.seniority ? SENIORITY_LABEL[job.seniority] : null,
+        job.employment_type ? EMPLOYMENT_LABEL[job.employment_type] : null,
+        job.years_experience_min ? `${job.years_experience_min}+ years` : null,
+      ]);
+      expect(meta).toEqual(["Remote", "Senior", "Full-time", "5+ years"]);
+      expect(meta.join(" · ")).toBe("Remote · Senior · Full-time · 5+ years");
+    },
+  );
 
   it("leaves genuinely distinct values alone", () => {
     expect(dedupeMetaParts(["Acme", "Lagos, Nigeria", "Hybrid", "Senior"])).toEqual([
