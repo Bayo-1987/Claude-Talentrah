@@ -29,6 +29,29 @@ export interface JdTruncation {
   usedChars: number;
 }
 
+/**
+ * Something Farah found that would strengthen the tailored resume but isn't
+ * already true of the candidate's base resume — a fabrication candidate,
+ * reframed as a decision instead of a silent edit. See
+ * src/lib/tailoring/grounding.ts's own header for the full incident this
+ * exists to prevent.
+ *
+ * `source` is informational only, for the curious — the review UI treats a
+ * model-declared proposal and a backstop-caught one identically. Neither
+ * ever reaches `tailoredResume` without a separate, explicit accept.
+ */
+export interface ProposedAddition {
+  id: string;
+  section: "skills" | "experience";
+  /** Only set when section is "experience" — the index into tailoredResume.experience this would replace. */
+  experienceIndex?: number;
+  /** The exact text that would be added/restored if accepted. */
+  text: string;
+  /** Why Farah thinks it's worth considering — what in the JD it addresses. */
+  reason: string;
+  source: "model" | "backstop";
+}
+
 export interface TailoringResult {
   structuredJd: StructuredJdForTailoring;
   gapAnalysis: GapAnalysisItem[];
@@ -36,6 +59,7 @@ export interface TailoringResult {
   coverLetter: string | null;
   atsScore: number;
   atsFixes: string[];
+  proposedAdditions: ProposedAddition[];
   jdTruncation: JdTruncation | null;
 }
 

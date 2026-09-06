@@ -4,7 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { Button, EyebrowLabel, BorderedCard } from "@/components/ui";
 import { ResumeDocument } from "@/components/resume-builder/resume-document";
-import type { TailoringResult } from "@/lib/tailoring/types";
+import type { StructuredResume } from "@/lib/resume/types";
+import type { ProposedAddition, TailoringResult } from "@/lib/tailoring/types";
 import type { RankedRecommendation } from "@/lib/courses/match";
 
 type ApiResult = {
@@ -17,6 +18,14 @@ type ApiResult = {
   /** Ranked by the M1 matcher, server-side. Usually empty — see below. */
   courseRecommendations?: RankedRecommendation[];
 };
+
+/** One line describing where a proposed addition would land, for the review list. */
+function additionTarget(addition: ProposedAddition, tailoredResume: StructuredResume): string {
+  if (addition.section === "skills") return "Add to Skills";
+  const entry =
+    typeof addition.experienceIndex === "number" ? tailoredResume.experience[addition.experienceIndex] : undefined;
+  return entry ? `Rewrite: ${entry.title} at ${entry.company}` : "Rewrite an experience entry";
+}
 
 export function TailorForm({
   jobId,
@@ -39,6 +48,14 @@ export function TailorForm({
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<ApiResult | null>(null);
 
+  // Review-flow state — see src/lib/tailoring/grounding.ts for why this
+  // exists at all. Nothing in `proposedAdditions` reaches the saved resume
+  // until it's in `checkedIds` AND the accept call below has succeeded.
+  const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
+  const [appliedIds, setAppliedIds] = useState<Set<string>>(new Set());
+  const [applyStatus, setApplyStatus] = useState<"idle" | "saving" | "error">("idle");
+  const [applyError, setApplyError] = useState<string | null>(null);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setStatus("loading");
@@ -57,6 +74,8 @@ export function TailorForm({
         return;
       }
       setData(json);
+      setCheckedIds(new Set());
+      setAppliedIds(new Set());
       setStatus("idle");
     } catch {
       setError("Couldn't reach Farah — check your connection and try again.");
@@ -64,8 +83,52 @@ export function TailorForm({
     }
   }
 
+  function toggleChecked(id: string) {
+    setCheckedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  async function handleApplyAdditions() {
+    if (!data) return;
+    const accepted = data.result.proposedAdditions.filter((a) => checkedIds.has(a.id));
+    if (accepted.length === 0) return;
+
+    setApplyStatus("saving");
+    setApplyError(null);
+    try {
+      const res = await fetch("/api/tailoring/accept-additions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resumeId: data.resumeId, accepted }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setApplyError(json.error ?? "Couldn't save those changes.");
+        setApplyStatus("idle");
+        return;
+      }
+      // Reflect the merge locally right away — the preview and the saved
+      // resume should never visibly disagree, even for the moment before a
+      // reload.
+      setData((prev) => (prev ? { ...prev, result: { ...prev.result, tailoredResume: json.resume } } : prev));
+      setAppliedIds((prev) => new Set([...prev, ...accepted.map((a) => a.id)]));
+      setCheckedIds(new Set());
+      setApplyStatus("idle");
+    } catch {
+      setApplyError("Couldn't reach the server — check your connection and try again.");
+      setApplyStatus("idle");
+    }
+  }
+
   if (data) {
     const { result, isFreeTrial, isPassCovered, creditsSpent, resumeId, coverLetterResumeId } = data;
+    const pendingAdditions = result.proposedAdditions.filter((a) => !appliedIds.has(a.id));
+    const checkedCount = pendingAdditions.filter((a) => checkedIds.has(a.id)).length;
+
     return (
       <div className="flex flex-col gap-8">
         <p className="text-[13px] italic text-ink-soft">
@@ -128,6 +191,65 @@ export function TailorForm({
                 ))}
               </div>
             </div>
+
+            {/*
+              PROPOSED ADDITIONS — the review flow itself.
+              See src/lib/tailoring/grounding.ts's header for the full
+              incident this exists to prevent: a real run replaced 15 of 16
+              genuine skills with a list including four the candidate never
+              claimed, and invented experience bullets lifted from the JD.
+              Nothing here has been written into `result.tailoredResume` —
+              the preview on the right, and the resume already saved at
+              `resumeId`, are both the SAFE version. Checking a box and
+              saving is the only way anything below reaches either.
+              Unchecked and un-applied by default: an opt-IN list, not an
+              opt-out one.
+            */}
+            {pendingAdditions.length > 0 && (
+              <div data-testid="proposed-additions">
+                <EyebrowLabel size="sm">Worth adding? Your call</EyebrowLabel>
+                <p className="mt-1 text-[12.5px] italic text-ink-soft">
+                  Farah found these would strengthen the match, but none of them are on your base
+                  resume yet — nothing here is added unless you check it and confirm.
+                </p>
+                <div className="mt-2 flex flex-col gap-2.5">
+                  {pendingAdditions.map((addition) => (
+                    <label
+                      key={addition.id}
+                      className="flex cursor-pointer items-start gap-2.5 border-[1.5px] border-line bg-card p-3 text-[13.5px]"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checkedIds.has(addition.id)}
+                        onChange={() => toggleChecked(addition.id)}
+                        className="mt-0.5 h-4 w-4 flex-shrink-0 accent-[var(--ink)]"
+                      />
+                      <span>
+                        <span className="font-semibold text-ink">
+                          {additionTarget(addition, result.tailoredResume)}
+                        </span>
+                        <span className="block text-ink-soft">&quot;{addition.text}&quot;</span>
+                        <span className="mt-0.5 block text-[12px] italic text-ink-soft">{addition.reason}</span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+                {applyError && <p className="mt-2 text-[13px] text-rust">{applyError}</p>}
+                <Button
+                  type="button"
+                  size="sm"
+                  className="mt-3"
+                  disabled={checkedCount === 0 || applyStatus === "saving"}
+                  onClick={handleApplyAdditions}
+                >
+                  {applyStatus === "saving"
+                    ? "Saving…"
+                    : checkedCount > 0
+                      ? `Add ${checkedCount} checked item${checkedCount === 1 ? "" : "s"} to my resume`
+                      : "Add checked items to my resume"}
+                </Button>
+              </div>
+            )}
 
             {/*
               COURSES FOR THE GAPS, and only when there are any.

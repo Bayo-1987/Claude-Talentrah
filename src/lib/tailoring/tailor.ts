@@ -3,7 +3,8 @@ import { getLLMProvider } from "@/lib/llm";
 import { FARAH_SYSTEM_PROMPT } from "@/lib/farah/system-prompt";
 import { EMPTY_RESUME, type StructuredResume } from "@/lib/resume/types";
 import { sanitizeStructuredResume, wasDegenerate } from "@/lib/resume/sanitize";
-import { JD_MAX_CHARS, type TailoringResult } from "./types";
+import { applyGroundingBackstop } from "./grounding";
+import { JD_MAX_CHARS, type ProposedAddition, type TailoringResult } from "./types";
 
 export { JD_MAX_CHARS };
 
@@ -58,7 +59,12 @@ const RESUME_SCHEMA = {
         required: ["school"],
       },
     },
-    skills: { type: "array", items: { type: "string" } },
+    skills: {
+      type: "array",
+      items: { type: "string" },
+      description:
+        "Reorder to put the most relevant-to-this-JD skills first, but keep every real skill from the base resume unless it's a genuine duplicate — dropping a truthful skill because it doesn't match THIS job hides real information from the candidate's own resume. Never add a skill that isn't already on the base resume.",
+    },
     projects: { type: "array", items: { type: "string" } },
     certifications: { type: "array", items: { type: "string" } },
   },
@@ -106,7 +112,7 @@ const TAILOR_RESPONSE_SCHEMA = {
     tailoredResume: {
       ...RESUME_SCHEMA,
       description:
-        "The candidate's base resume, rewritten to emphasize what this specific JD asks for. Do not invent experience that isn't in the base resume — rephrase and reprioritize what's genuinely there.",
+        "The candidate's base resume, rewritten to emphasize what this specific JD asks for, using ONLY facts already present in the base resume. Reprioritize, reorder, and rephrase freely — but every skill, every sentence in every experience description, and the summary must already be true of this candidate based on their base resume. NEVER add a skill, tool, responsibility, or achievement that is not already there, even one that would be a strong match for this job — including something you infer is 'probably' true given their role. A gap belongs in gapAnalysis and proposedAdditions, never silently written into this field. This field is saved and shown to the candidate as their real resume without a further review step, so anything invented here reaches them as a false claim under their own name.",
     },
     coverLetter: {
       type: "string",
@@ -119,11 +125,41 @@ const TAILOR_RESPONSE_SCHEMA = {
     atsFixes: {
       type: "array",
       items: { type: "string" },
-      description: "2-5 short, specific, actionable fixes — e.g. \"add 'stakeholder management' — appears 3x in this JD, 0x in your resume\".",
+      description:
+        "2-5 short, specific, actionable fixes for the CANDIDATE to consider — e.g. \"add 'stakeholder management' — appears 3x in this JD, 0x in your resume\". These are suggestions for a human to read and decide on, never instructions to apply to tailoredResume yourself. If a fix would add a new skill or a new claim about their experience, also add a matching entry to proposedAdditions with the exact text — don't leave it as a suggestion with nothing structured behind it.",
+    },
+    proposedAdditions: {
+      type: "array",
+      description:
+        "Anything you considered adding to strengthen the match but that ISN'T already grounded in the base resume — skills the JD wants that the candidate hasn't listed, or a specific claim about a role that would help but isn't already there. Every one of these is shown to the candidate as an explicit opt-in choice, never written into tailoredResume automatically. When in doubt about whether something counts as 'already grounded,' put it here rather than in tailoredResume — the safe failure mode is asking the candidate, not guessing on their behalf.",
+      items: {
+        type: "object",
+        properties: {
+          section: { type: "string", enum: ["skills", "experience"] },
+          experienceIndex: {
+            type: "integer",
+            description: "Only set when section is \"experience\" — the index into tailoredResume.experience this claim is about.",
+          },
+          text: {
+            type: "string",
+            description:
+              "For section \"skills\": the exact skill string to add. For section \"experience\": the FULL replacement description for that entry if accepted — not just a clause to append, the complete text that entry's description would become. Accepting an item always replaces, never appends, so this must stand alone as the whole description.",
+          },
+          reason: { type: "string", description: "One short sentence: what in the JD this addresses." },
+        },
+        required: ["section", "text", "reason"],
+      },
     },
   },
-  required: ["structuredJd", "gapAnalysis", "tailoredResume", "atsScore", "atsFixes"],
+  required: ["structuredJd", "gapAnalysis", "tailoredResume", "atsScore", "atsFixes", "proposedAdditions"],
 };
+
+interface RawProposedAddition {
+  section: "skills" | "experience";
+  experienceIndex?: number;
+  text: string;
+  reason: string;
+}
 
 interface RawTailoringInput {
   structuredJd: TailoringResult["structuredJd"];
@@ -132,6 +168,7 @@ interface RawTailoringInput {
   coverLetter?: string;
   atsScore: number;
   atsFixes: string[];
+  proposedAdditions?: RawProposedAddition[];
 }
 
 async function callLLMRaw(
@@ -233,13 +270,56 @@ export async function tailorResumeToJob(
   }
 
   const { input, tailoredResume } = attempt;
+
+  /*
+   * THE BACKSTOP RUNS UNCONDITIONALLY, REGARDLESS OF WHETHER THE MODEL
+   * DECLARED ANY proposedAdditions ITSELF. The schema and prompt above ask
+   * the model to self-report additions rather than inline them — but a
+   * model already inclined to inline a fabrication for a higher atsScore
+   * has no particular incentive to also declare it honestly in a separate
+   * field it could just as easily skip. This is what makes "never reaches
+   * the resume automatically" true regardless of model behaviour, not just
+   * requested of it. See grounding.ts's own header for the full reasoning.
+   */
+  const { resume: groundedResume, additions: backstopAdditions } = applyGroundingBackstop(
+    tailoredResume,
+    baseResume,
+    input.structuredJd ?? { skills: [], keywords: [], responsibilities: [] },
+  );
+
+  let modelAdditionCounter = 0;
+  const modelAdditions: ProposedAddition[] = (input.proposedAdditions ?? [])
+    .filter(
+      (a) =>
+        a &&
+        (a.section === "skills" || a.section === "experience") &&
+        typeof a.text === "string" &&
+        a.text.trim().length > 0 &&
+        (a.section !== "experience" ||
+          (typeof a.experienceIndex === "number" &&
+            a.experienceIndex >= 0 &&
+            a.experienceIndex < groundedResume.experience.length)),
+    )
+    .map((a) => {
+      modelAdditionCounter += 1;
+      return {
+        id: `model-${modelAdditionCounter}`,
+        section: a.section,
+        experienceIndex: a.section === "experience" ? a.experienceIndex : undefined,
+        text: a.text,
+        reason: a.reason || "Farah flagged this as worth adding.",
+        source: "model" as const,
+      };
+    });
+
   return {
     structuredJd: input.structuredJd,
     gapAnalysis: input.gapAnalysis ?? [],
-    tailoredResume,
+    tailoredResume: groundedResume,
     coverLetter: includeCoverLetter ? (input.coverLetter ?? null) : null,
     atsScore: Math.max(0, Math.min(100, Math.round(input.atsScore ?? 0))),
     atsFixes: input.atsFixes ?? [],
+    proposedAdditions: [...modelAdditions, ...backstopAdditions],
     jdTruncation,
   };
 }
