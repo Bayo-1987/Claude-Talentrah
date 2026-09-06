@@ -86,4 +86,43 @@
     font-family: inherit;
     cursor: pointer;
   }
+
+  /*
+   * Resume PDF export (print-button.tsx) uses window.print() — the browser's
+   * native print-to-PDF — deliberately, per plan doc M4, instead of a
+   * server-side PDF library. That means the exported PDF is whatever the
+   * browser's print engine produces, including browser-injected chrome
+   * (a timestamp, the page <title>, and the page URL + page number) drawn
+   * inside the page's print margin. That chrome does not belong on a resume
+   * a candidate hands to an employer, and page-level CSS cannot reach into
+   * the browser's print UI to disable it directly — only
+   * `@page { margin: 0 }` can, by leaving the print engine no margin band to
+   * draw into. This is a real, documented Chromium behavior (verified
+   * against Chromium's own print code and widely reported), not a guess —
+   * but it is NOT airtight across every browser/version: a browser that
+   * draws header/footer text overlapping the content area instead of only
+   * within the margin box would still show it, and this was not possible to
+   * verify by rendering an actual PDF in this environment (see PR
+   * description). Treat this as "removes it in current Chrome/Chromium," not
+   * as a cross-browser guarantee.
+   *
+   * Kept inside @layer base, same as every other bare-selector default in
+   * this file (see the comment on the `@layer base` block above) — a plain
+   * `@page` rule placed after this block, outside any layer, compiled fine
+   * in `next build` but was silently dropped from the bundle `next dev`
+   * actually serves (confirmed by diffing the two directly: the production
+   * chunk contained `@page{margin:0}`, curl-ing the dev server's own CSS
+   * chunk byte-for-byte did not, with no build warning either side). Inside
+   * `@layer base` it compiles identically in both.
+   *
+   * Zeroing the page margin removes the ONLY source of whitespace the
+   * resume templates had around their content — see the paired `print:p-0`
+   * removal in resume-document.tsx and templates/*.tsx, which used to rely
+   * entirely on this browser-supplied margin. Without that companion
+   * change, this rule alone would print resume text flush against the
+   * physical page edge.
+   */
+  @page {
+    margin: 0;
+  }
 }

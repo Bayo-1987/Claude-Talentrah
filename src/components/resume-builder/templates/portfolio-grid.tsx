@@ -18,7 +18,7 @@ export function PortfolioGridTemplate({ resume }: TemplateProps) {
   const { contact, summary, experience, education, skills, projects, certifications } = resume;
 
   return (
-    <div className="mx-auto max-w-[720px] bg-paper p-10 text-ink print:p-0">
+    <div className="mx-auto max-w-[720px] bg-paper p-10 text-ink">
       <header className="border-b-[2.5px] border-ink pb-4">
         <h1 className="font-display text-[32px] leading-none tracking-[-0.01em]">
           {contact.name || "Your name"}

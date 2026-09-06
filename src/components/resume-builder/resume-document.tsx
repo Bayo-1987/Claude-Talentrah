@@ -11,7 +11,7 @@ export function ResumeDocument({ resume }: { resume: StructuredResume }) {
   const { contact, summary, experience, education, skills, projects, certifications } = resume;
 
   return (
-    <div className="mx-auto max-w-[720px] bg-paper p-10 text-ink print:p-0">
+    <div className="mx-auto max-w-[720px] bg-paper p-10 text-ink">
       <div className="border-b-[2.5px] border-ink pb-4">
         <h1 className="font-display text-[28px]">{contact.name || "Your name"}</h1>
         <p className="mt-1 text-[13px] text-ink-soft">

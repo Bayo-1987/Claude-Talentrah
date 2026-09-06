@@ -17,7 +17,7 @@ export function CriticalPathTemplate({ resume }: TemplateProps) {
   const { contact, summary, experience, education, skills, projects, certifications } = resume;
 
   return (
-    <div className="mx-auto max-w-[720px] bg-paper p-10 text-ink print:p-0">
+    <div className="mx-auto max-w-[720px] bg-paper p-10 text-ink">
       <header className="flex items-end justify-between gap-6 border-b-[2.5px] border-ink pb-3">
         <h1 className="font-display text-[28px] leading-none">{contact.name || "Your name"}</h1>
         <p className="pb-0.5 text-right font-body text-[12px] leading-snug text-ink-soft">
