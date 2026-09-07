@@ -1,0 +1,44 @@
+-- 0103: `people_list` — reading the seeker roster is its own grant.
+--
+-- WHY A SECOND PERMISSION AND NOT A WIDER `people`.
+--
+-- `people` grants /admin/people: look up ONE billing record for a person you
+-- already have an identifier for. That page cannot enumerate — it resolves one
+-- of three identifiers or nothing, and says so in its own comments.
+--
+-- /admin/people/signups is a different power: read every job seeker's name,
+-- email, country and credit balance, fifty at a time. Under one permission, an
+-- operator who needs to answer "where did my payment go" is handed the whole
+-- roster as well. These are separate grants because they are separate powers.
+--
+-- ON THE NAME. The convention is a domain-noun key (`reported_postings`,
+-- `feature_flags`, `ad_campaigns`). `people_list` was chosen over
+-- `seeker_directory` because "Talent Directory" is a planned, separate,
+-- externally-sold product (build-prompt §6.13) and a permission of nearly that
+-- name would later be read as gating it. `people_list` also states the exact
+-- distinction the split is about: `people` is one record, `people_list` is the
+-- list.
+--
+-- THIS MIGRATION GRANTS IT TO NOBODY, DELIBERATELY.
+--
+-- 0081 granted `feature_flags` to both builtin roles on creation, and that was
+-- right for a switchboard. This is the opposite case: the permission exists
+-- because reading every seeker's details should be decided per operator, and a
+-- migration that quietly hands it to whoever already had `people` would make
+-- the split cosmetic — the same people would keep the same reach, which is the
+-- thing the split was asked for to prevent.
+--
+-- CONSEQUENCE, STATED SO IT IS NOT A SURPRISE: on merge, /admin/people/signups
+-- is reachable by NOBODY until someone is granted `people_list` in
+-- /admin/operators. That is the intended default for a surface that reverses a
+-- privacy decision — it is off until somebody turns it on, on purpose.
+--
+-- For reference when deciding, as of 2026-09-07 on production: both builtin
+-- roles carry `people`, but only Super Admin has operators in it —
+-- stonebridgehibr1@gmail.com and zimcrestsynergy@gmail.com. Standard Admin
+-- holds the grant with nobody assigned.
+--
+-- `admin_permission_catalog()` is `unnest(enum_range(...))`, so the new value
+-- appears in the role editor with no change there.
+
+alter type public.admin_permission add value if not exists 'people_list';

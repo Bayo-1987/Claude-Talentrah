@@ -68,6 +68,10 @@ const ITEMS = [
  */
 const COUNTLESS_ITEMS = [
   { href: "/admin/blog", label: "Blog", permission: "blog" },
+  // Job seekers, newest first. The single-person billing lookup at
+  // /admin/people is deliberately NOT linked: it is reached on purpose for one
+  // case, and a nav entry is how a tool becomes something people browse.
+  { href: "/admin/people/signups", label: "Signups", permission: "people_list" },
   { href: "/admin/feature-flags", label: "Feature flags", permission: "feature_flags" },
   { href: "/admin/operators", label: "Operators", permission: "operators" },
 ] as const;

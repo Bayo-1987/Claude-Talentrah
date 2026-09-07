@@ -53,6 +53,20 @@ export default async function PersonLookupPage() {
         </Link>{" "}
         carries no personal data.
       </p>
+
+      {/*
+        A SEPARATE PAGE, and the wording keeps the line between them. Everything
+        above about this page is still true — it lists nobody and cannot. The
+        list is its own capability, added deliberately after the trade was
+        spelled out, and it records every view for that reason.
+      */}
+      <p className="text-[14px] text-ink-soft">
+        Looking for a full list instead?{" "}
+        <Link href="/admin/people/signups" className="underline">
+          Job-seeker signups
+        </Link>{" "}
+        lists everyone, newest first — and records each view.
+      </p>
     </Container>
   );
 }
