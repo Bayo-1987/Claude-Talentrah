@@ -327,3 +327,115 @@ async function countEvents(type: string): Promise<number> {
     .eq("event_type", type as never);
   return count ?? 0;
 }
+
+/**
+ * VERIFICATION (0109) — a paid slot clears the same gate as an organic one.
+ *
+ * ── WHY THIS WAS NOT CAUGHT BY ANYTHING ABOVE ─────────────────────────────
+ *
+ * `promoted_jobs` is SECURITY DEFINER, so the `job postings are publicly
+ * readable` policy — the one that hides an unverified organisation's postings
+ * (0027) — never runs for it. Every other listing surface leans on that
+ * policy. This one filtered posting status, campaign state and the seeker's
+ * filters, and never asked whether the organisation was verified.
+ *
+ * Measured on a live database before the fix, one statement, one user, one
+ * instant: the organic surface returned 0 rows and the paid surface returned
+ * 1. The gate held where nothing was being paid for and failed where money
+ * had changed hands, which is the wrong way round — an advertisement carries
+ * more implied endorsement than an organic card, not less.
+ *
+ * ── HOW AN UNVERIFIED ORG GETS A LIVE CAMPAIGN AND A SCORED SEEKER ────────
+ *
+ * Both look impossible and are not:
+ *
+ *   - REVIEW IS NOT A VERIFICATION GATE. `set_ad_campaign_review` has no such
+ *     condition. The admin queue merely DISPLAYS the org's verified state,
+ *     with the comment "an unverified organisation running paid ads is worth
+ *     a second look" — advisory, for a human to weigh.
+ *   - VERIFICATION IS NOT ONE-WAY. `saveCompanyProfileAction` re-runs it in
+ *     both directions on a domain change, deliberately, so an employer cannot
+ *     verify with their real domain and then rename to someone else's. The
+ *     `match_scores` rows written while they were verified outlive it.
+ *
+ * So: verify, post, get approved, run; seekers are scored organically; change
+ * the domain; the badge is correctly revoked and the advertisement keeps
+ * running for everyone already holding a score.
+ *
+ * These tests reuse this file's own fixture and toggle EXACTLY ONE FIELD, so
+ * neither direction can pass for an unrelated reason.
+ */
+describe("an unverified organisation's campaign reaches nobody", () => {
+  async function setVerified(verified: boolean) {
+    const { error } = await admin
+      .from("organizations")
+      .update({ verified })
+      .eq("id", orgId);
+    // Checked, for the reason updateCampaign's header gives: a setup step that
+    // cannot fail loudly turns this into a test that passes for its own
+    // reasons. `verified` is service-role-writable only (0028), so a client
+    // doing this would be refused and the refusal would be silent.
+    if (error) throw new Error(`verification setup failed: ${error.message} [${error.code}]`);
+  }
+
+  afterAll(async () => {
+    // Restore, so ordering cannot leak this into a later test in the file.
+    await setVerified(true);
+  });
+
+  it("is promoted while the organisation is verified — the control", async () => {
+    /*
+     * FIRST, and deliberately. Every assertion below is equally satisfied by a
+     * promoted_jobs that returns nothing at all, which is exactly what a
+     * botched `create or replace` produces. This pins that the fixture really
+     * does promote before anything is toggled.
+     */
+    await setVerified(true);
+    await scoreFor(seeker.id, 88);
+    const rows = await promotedFor(seeker.client, { p_min_score: 60, p_limit: 10 });
+    expect(
+      rows.map((r) => r.job_posting_id),
+      "the fixture does not promote even when verified — every case below is vacuous",
+    ).toContain(jobId);
+  });
+
+  it("stops being promoted the moment the organisation loses verification", async () => {
+    await setVerified(false);
+    const rows = await promotedFor(seeker.client, { p_min_score: 60, p_limit: 10 });
+    expect(
+      rows.map((r) => r.job_posting_id),
+      "LEAK: an unverified organisation's posting was served as a paid slot",
+    ).not.toContain(jobId);
+  });
+
+  it("agrees with what the organic surface does with the same row", async () => {
+    /*
+     * The property that actually matters, asserted as one thing rather than
+     * two: the paid and organic surfaces must reach the SAME answer about the
+     * same posting. Asserted through the seeker's own RLS-scoped client, not
+     * the service role, so it is the real policy answering.
+     */
+    await setVerified(false);
+    const { data: organic } = await seeker.client
+      .from("job_postings")
+      .select("id")
+      .eq("id", jobId);
+    const promoted = await promotedFor(seeker.client, { p_min_score: 60, p_limit: 10 });
+
+    const organicSees = (organic ?? []).length > 0;
+    const promotedSees = promoted.some((r) => r.job_posting_id === jobId);
+    expect(organicSees, "0027's gate stopped holding on the organic surface").toBe(false);
+    expect(
+      promotedSees,
+      "the paid surface disagreed with the organic one about the same posting",
+    ).toBe(organicSees);
+  });
+
+  it("comes back when verification is restored, so the rule is the org's state", async () => {
+    // Proves the exclusion tracks `verified` specifically, and is not the
+    // campaign having been quietly broken by one of the toggles above.
+    await setVerified(true);
+    const rows = await promotedFor(seeker.client, { p_min_score: 60, p_limit: 10 });
+    expect(rows.map((r) => r.job_posting_id)).toContain(jobId);
+  });
+});
