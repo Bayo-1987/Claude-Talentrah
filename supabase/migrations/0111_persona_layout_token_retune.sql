@@ -1,5 +1,16 @@
--- 0110 — layout-token retune for the 11 dedicated-persona slugs that were
+-- 0111 — layout-token retune for the 11 dedicated-persona slugs that were
 -- still visual near-duplicates of a sibling on the same skeleton.
+--
+-- RENAMED FROM 0110 TO 0111: this migration and
+-- `0110_template_free_tier_cut.sql` (the free-tier-cut PR) were built
+-- concurrently in two separate sessions and both independently claimed
+-- `0110` — the same numbering-collision class this repo has hit before
+-- (0060/0061, 0103/0104, 0106/0107; see supabase/migrations/README.md).
+-- The free-tier-cut PR merged first and keeps `0110`; this one renames to
+-- the next free number. Caught before either migration touched a live
+-- database, so — unlike the earlier collisions — there is no
+-- already-applied `schema_migrations` row to leave permanently mismatched;
+-- this is a clean, complete rename with no cosmetic residue.
 --
 -- BACKGROUND. PRs #277/#279 gave 22 template slugs their own dedicated
 -- persona (`src/lib/resume-builder/persona-for-slug.ts`), fixing CONTENT

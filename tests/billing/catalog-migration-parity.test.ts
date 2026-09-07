@@ -98,11 +98,11 @@ const OUT_OF_SCOPE_SLUGS = new Set([
  * (`catalog-configs.ts`'s own "LAYOUT RETUNE PASS" header comment) changed
  * `styleTokens` for each of these — dedicated-persona slugs that were still
  * visual near-duplicates of a sibling sharing their skeleton — and migration
- * `0110_persona_layout_token_retune.sql` is what corrected the LIVE data to
- * match. For `blueprint` specifically, 0110 supersedes 0106's own
- * `structure_schema` value too (0110 carries 0106's `sectionLabels` fix
+ * `0111_persona_layout_token_retune.sql` is what corrected the LIVE data to
+ * match. For `blueprint` specifically, 0111 supersedes 0106's own
+ * `structure_schema` value too (0111 carries 0106's `sectionLabels` fix
  * forward unchanged, plus the new `styleTokens`), so `blueprint` moves from
- * being checked against 0106 to being checked against 0110 below, alongside
+ * being checked against 0106 to being checked against 0111 below, alongside
  * the other 10.
  */
 const STRUCTURE_SCHEMA_SUPERSEDED_BY_LATER_MIGRATION = new Set([
@@ -119,7 +119,7 @@ const STRUCTURE_SCHEMA_SUPERSEDED_BY_LATER_MIGRATION = new Set([
   "schematic",
 ]);
 
-/** The 11 slugs `0110_persona_layout_token_retune.sql` corrected — every one of `STRUCTURE_SCHEMA_SUPERSEDED_BY_LATER_MIGRATION`'s members. */
+/** The 11 slugs `0111_persona_layout_token_retune.sql` corrected — every one of `STRUCTURE_SCHEMA_SUPERSEDED_BY_LATER_MIGRATION`'s members. */
 const LAYOUT_RETUNE_SLUGS = [
   "blueprint",
   "business-memo",
@@ -421,22 +421,22 @@ describe("RESUME_TEMPLATES vs the migration that seeds production — must never
     expect(mismatched, "structure_schema has drifted between catalog.ts and the migration").toEqual([]);
   });
 
-  it("the 11 layout-retuned slugs' structure_schema instead agree with their corrective migration, 0110", () => {
-    // 0110 uses the exact same `update public.resume_templates\nset
+  it("the 11 layout-retuned slugs' structure_schema instead agree with their corrective migration, 0111", () => {
+    // 0111 uses the exact same `update public.resume_templates\nset
     // structure_schema = '...'::jsonb\nwhere slug = '...';` shape
     // `parseFixedSlugUpdates` above already parses generically (originally
     // written for this same shape elsewhere in 0105) — reuse it rather than
     // hand-rolling a second parser.
-    const migration0110 = readFileSync(
-      path.resolve(__dirname, "../../supabase/migrations/0110_persona_layout_token_retune.sql"),
+    const migration0111 = readFileSync(
+      path.resolve(__dirname, "../../supabase/migrations/0111_persona_layout_token_retune.sql"),
       "utf8",
     );
-    const rows0110 = parseFixedSlugUpdates(migration0110);
-    const bySlug0110 = new Map(rows0110.map((r) => [r.slug, r]));
+    const rows0111 = parseFixedSlugUpdates(migration0111);
+    const bySlug0111 = new Map(rows0111.map((r) => [r.slug, r]));
 
     expect(
-      Array.from(bySlug0110.keys()).sort(),
-      "0110 should update exactly the 11 layout-retune slugs, no more, no fewer",
+      Array.from(bySlug0111.keys()).sort(),
+      "0111 should update exactly the 11 layout-retune slugs, no more, no fewer",
     ).toEqual(Array.from(LAYOUT_RETUNE_SLUGS).sort());
 
     const mismatched: string[] = [];
@@ -446,16 +446,16 @@ describe("RESUME_TEMPLATES vs the migration that seeds production — must never
         mismatched.push(`${slug}: not found in RESUME_TEMPLATES`);
         continue;
       }
-      const migrated = bySlug0110.get(slug);
+      const migrated = bySlug0111.get(slug);
       if (!migrated) {
-        mismatched.push(`${slug}: not found in migration 0110`);
+        mismatched.push(`${slug}: not found in migration 0111`);
         continue;
       }
       if (JSON.stringify(migrated.structureSchema) !== JSON.stringify(t.structure_schema)) {
-        mismatched.push(`${slug}: RESUME_TEMPLATES and migration 0110 disagree on structure_schema`);
+        mismatched.push(`${slug}: RESUME_TEMPLATES and migration 0111 disagree on structure_schema`);
       }
     }
-    expect(mismatched, "structure_schema has drifted between catalog.ts and migration 0110").toEqual([]);
+    expect(mismatched, "structure_schema has drifted between catalog.ts and migration 0111").toEqual([]);
   });
 
   it("blueprint's structure_schema also carries 0106's sectionLabels fix forward", () => {
@@ -476,12 +476,12 @@ describe("RESUME_TEMPLATES vs the migration that seeds production — must never
     const { value } = readSqlString(migration0106, openingQuoteIndex);
     const migratedSchema = JSON.parse(value) as { content: unknown };
 
-    // 0106 predates the layout-retune pass (0110), so its own JSON literal
+    // 0106 predates the layout-retune pass (0111), so its own JSON literal
     // still carries blueprint's ORIGINAL styleTokens — comparing the whole
-    // object here would fail now that 0110 has retuned them. What 0106 is
+    // object here would fail now that 0111 has retuned them. What 0106 is
     // actually the source of record for is `content.sectionLabels` (the
     // COREN fix); the previous test already proves the current
-    // structure_schema's styleTokens agree with 0110. So this test narrows
+    // structure_schema's styleTokens agree with 0111. So this test narrows
     // to exactly the part 0106 owns.
     const currentContent = (blueprint!.structure_schema as { content: unknown }).content;
     expect(migratedSchema.content).toEqual(JSON.parse(JSON.stringify(currentContent)));
