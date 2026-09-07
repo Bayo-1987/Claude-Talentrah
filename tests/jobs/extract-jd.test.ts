@@ -18,6 +18,7 @@ import {
   SKILL_VOCABULARY,
   NON_SCREENABLE_SKILLS,
   stripHtml,
+  stripMarkdownToPlainText,
 } from "@/lib/jobs/extract-jd";
 
 describe("Stage 8 additions extract real, distinct terms", () => {
@@ -128,5 +129,37 @@ describe("stripHtml preserves structure instead of destroying it", () => {
     const out = stripHtml(html);
     expect(out).not.toContain("&amp;");
     expect(out).toContain("Program & Curriculum Development");
+  });
+});
+
+describe("stripMarkdownToPlainText undoes what stripHtml produces, for consumers that never render markdown", () => {
+  it("SABOTAGE-PROOF TARGET: a real stripHtml output shows as plain readable text, no literal ** or leading '- '", () => {
+    const description = "**Program & Curriculum**\n- Led a team of 5";
+    const out = stripMarkdownToPlainText(description);
+    expect(out).not.toContain("**");
+    expect(out).not.toMatch(/^-\s/m);
+    expect(out).toBe("Program & Curriculum\nLed a team of 5");
+  });
+
+  it("strips a bold pair anywhere in the middle of a sentence, not just at the start", () => {
+    expect(stripMarkdownToPlainText("Own the roadmap for **merchant payments** end to end.")).toBe(
+      "Own the roadmap for merchant payments end to end.",
+    );
+  });
+
+  it("strips multiple bullet lines, each independently", () => {
+    const out = stripMarkdownToPlainText("- First point\n- Second point\n- Third point");
+    expect(out).toBe("First point\nSecond point\nThird point");
+  });
+
+  it("leaves a genuine hyphen mid-sentence alone — only a leading '- ' at a line start is a bullet marker", () => {
+    expect(stripMarkdownToPlainText("A well-structured, results-oriented team.")).toBe(
+      "A well-structured, results-oriented team.",
+    );
+  });
+
+  it("leaves plain text with no markdown syntax completely unchanged", () => {
+    const plain = "Own the merchant payments dashboard used by 40,000+ SMB merchants.";
+    expect(stripMarkdownToPlainText(plain)).toBe(plain);
   });
 });

@@ -3,6 +3,7 @@ import { BorderedCard, IconButton, Button, MatchTierBadge } from "@/components/u
 import { getCompanyInitials } from "@/lib/jobs/company-initials";
 import { postingAgeLine } from "@/lib/jobs/freshness";
 import { formatSalary } from "@/lib/jobs/format-salary";
+import { stripMarkdownToPlainText } from "@/lib/jobs/extract-jd";
 import { FarahJobMenu } from "@/components/jobs/farah-job-menu";
 import { MatchBreakdown } from "@/components/jobs/match-breakdown";
 import { ShareJobButton } from "@/components/jobs/share-job-button";
@@ -193,7 +194,16 @@ export function JobCard({
       <MatchBreakdown explanation={explanation} />
 
       <p data-testid="job-card-description" className="line-clamp-3 text-[14px] leading-relaxed text-ink-soft">
-        {job.description.slice(0, 280)}
+        {/*
+          Stripped before slicing, not after: `stripHtml` (#262) can leave
+          `**bold**`/`- bullet` markdown syntax in this column now, and
+          truncating raw markdown risks cutting a `**` pair in half — a
+          stray asterisk at the clamp boundary. This card excerpt never
+          renders markdown (see render-markdown.tsx's own job for that,
+          used only on the detail page), so the syntax needs to be gone,
+          not rendered.
+        */}
+        {stripMarkdownToPlainText(job.description).slice(0, 280)}
       </p>
 
       <div className="flex items-center justify-between border-t border-line pt-3.5">
