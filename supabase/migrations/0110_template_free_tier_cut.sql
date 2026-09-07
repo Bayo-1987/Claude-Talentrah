@@ -130,12 +130,34 @@
 -- a NEW resume on one of these slugs (or explicitly unlocking it) is gated
 -- from this point on. Re-verified against the full repo, not assumed.
 --
--- ── WHY UPDATE, NOT A SCHEMA CHANGE, AND WHY NO EXISTENCE CHECK ───────────
+-- ── WHY UPDATE, NOT A SCHEMA CHANGE ────────────────────────────────────────
 --
 -- Same idiom as 0104/0106: plain per-slug UPDATEs against an existing
--- column, no DDL. All 18 slugs already exist as of 0105 (applied to CI;
--- 0105/0106 predate this PR), so no "insert first" branch is needed the way
--- 0105 needed one for genuinely new rows.
+-- column, no DDL. 16 of the 18 slugs are guaranteed to exist by the time this
+-- runs — they are part of 0105's own 54-row INSERT, so no "insert first"
+-- branch is needed for them the way 0105 needed one for genuinely new rows.
+--
+-- `product-tech` and `field-notes` are the other 2, and are a real exception,
+-- caught by this migration's own post-check failing loudly on first attempt
+-- (CI run history: it raised exactly the error below for these two slugs and
+-- no others). They are 2 of the "four pre-existing free slugs" 0105's header
+-- describes — created by migrations 0001-0025 (not in this repo, applied
+-- straight to the long-lived hosted projects) and never by anything in this
+-- repo's migration history. On a database that already has that history
+-- (both hosted Supabase projects), the row exists and this migration's
+-- UPDATE reaches it correctly. On a truly fresh ephemeral stack — exactly
+-- the CI local-Supabase scenario `catalog.ts`'s own header and
+-- `tests/billing/catalog-migration-parity.test.ts`'s header both already
+-- document for these same two slugs — the row does not exist yet when THIS
+-- migration runs; `scripts/seed-catalog.ts`'s later `upsert(..., {onConflict:
+-- "slug"})` is what creates it, reading `is_premium`/`unlock_cost_credits`
+-- straight from the now-updated `RESUME_TEMPLATES`, so the end state is still
+-- correct once seeding runs — this migration's UPDATE for these two rows is
+-- simply a no-op on a fresh stack, same as 0105's own fixed-slug UPDATEs for
+-- these same two slugs already are. So the post-check below only asserts
+-- the 16 slugs this migration can actually guarantee; `product-tech` and
+-- `field-notes` are updated (for the long-lived projects) but not asserted
+-- (for the fresh-stack case), matching the precedent instead of fighting it.
 --
 -- Not a value a client can write, same as 0104/0105/0106: `resume_templates`
 -- has RLS enabled with no update policy, so `authenticated` cannot touch
@@ -169,15 +191,20 @@ update public.resume_templates set is_premium = true, unlock_cost_credits = 10 w
 update public.resume_templates set is_premium = true, unlock_cost_credits = 10 where slug = 'front-desk';
 update public.resume_templates set is_premium = true, unlock_cost_credits = 10 where slug = 'manifest';
 
--- Fail loudly rather than half-apply, same convention as 0042/0104/0105.
+-- Fail loudly rather than half-apply, same convention as 0042/0104/0105 —
+-- but only for the 16 slugs guaranteed to exist by this point (0105's own
+-- 54-row INSERT). `product-tech` and `field-notes` are deliberately NOT
+-- asserted here: see this file's header ("WHY UPDATE, NOT A SCHEMA CHANGE")
+-- for why a fresh ephemeral stack has no row for either yet at migration-
+-- apply time, and why that is expected rather than a half-applied migration.
 do $$
 declare v_missing text;
 begin
   select string_agg(slug, ', ') into v_missing
     from (
       select unnest(array[
-        'business-memo','filing-system','product-tech','studio-brief',
-        'field-notes','help-desk','compliance-brief','clinical','chambers',
+        'business-memo','filing-system','studio-brief',
+        'help-desk','compliance-brief','clinical','chambers',
         'sprint-board','civic-record','byline','harvest','rig-report',
         'network-ops','site-plan','front-desk','manifest'
       ]) as slug
