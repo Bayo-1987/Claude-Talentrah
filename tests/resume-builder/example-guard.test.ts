@@ -31,6 +31,17 @@
  * explicit case naming a NEW persona (not just the original EPC/NGO ones)
  * to prove the `.some()` genuinely covers the larger registry, not just the
  * personas that existed when that block was first written.
+ *
+ * CONVENTION FOR ANYONE HAND-AUTHORING A RESUME FIXTURE IN THIS FILE: this
+ * file's own fixtures (e.g. the "freshly-imported resume" below) once
+ * collided on `education` — same `school`+`degree` — with a persona added
+ * to `EXAMPLE_PERSONAS` in a later batch, and nothing caught it: this file's
+ * fixtures aren't part of that registry, so `example-personas-collision.test.ts`
+ * (which only compares registry entries against each other) structurally
+ * cannot see them. There is no automated cross-file check for this — before
+ * picking a name, email, phone, or school+degree pair for a fixture here,
+ * grep `EXAMPLE_PERSONAS` in `src/lib/resume-builder/preview-sample.ts` and
+ * pick something that doesn't match.
  */
 import { describe, expect, it } from "vitest";
 import { EMPTY_RESUME, type StructuredResume } from "@/lib/resume/types";

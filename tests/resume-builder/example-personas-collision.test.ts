@@ -30,6 +30,27 @@
  * "no two personas share a verbatim certifications list" check still fails
  * and still names both personas at n=12, then reverted; see the PR
  * description for that transcript too.
+ *
+ * EDUCATION CHECK ADDED after batch 1 shipped: batch 1's manual review (not
+ * any test — there was no check on `education` at all) caught two real
+ * `school`+`degree` collisions late. One was between two personas that are
+ * BOTH in this registry, which the check added below would have caught
+ * automatically. The other was between a new persona here and a
+ * hand-written fixture living in `example-guard.test.ts` — a resume literal
+ * that was never added to `EXAMPLE_PERSONAS` at all.
+ *
+ * COVERAGE GAP THIS DOES NOT CLOSE: this check, like every other check in
+ * this file, only ever compares entries *within* `EXAMPLE_PERSONAS`. It is
+ * structurally incapable of catching a collision against a fixture that
+ * lives outside the registry — e.g. a resume object hand-authored inline in
+ * some other test file's own test data. That is exactly the second
+ * collision batch 1 hit, and no automated check in this file can see it,
+ * because those fixtures are never imported here and the registry has no
+ * way to know they exist. Guarding against that class of collision is a
+ * cross-file problem this test does not attempt to solve — see the
+ * `example-guard.test.ts` header for the convention adopted instead
+ * (a pointer for fixture authors to check names/schools against this
+ * registry by hand before picking their own).
  */
 import { describe, expect, it } from "vitest";
 import {
@@ -120,6 +141,25 @@ describe("SABOTAGE-PROOF TARGET: no two personas collide on identity or list con
     const offenders = pairs(EXAMPLE_PERSONAS)
       .filter(([a, b]) => sameList(a.certifications, b.certifications))
       .map(([a, b]) => `${a.contact.name} / ${b.contact.name}`);
+    expect(offenders).toEqual([]);
+  });
+
+  // Registry-vs-registry only — see the file header's "COVERAGE GAP" note
+  // for the class of collision this cannot catch (a persona colliding with
+  // a hand-written fixture in some other test file).
+  it("no two personas share an identical school+degree education entry", () => {
+    const offenders: string[] = [];
+    for (const [a, b] of pairs(EXAMPLE_PERSONAS)) {
+      for (const eduA of a.education) {
+        for (const eduB of b.education) {
+          if (eduA.school && eduA.school === eduB.school && eduA.degree === eduB.degree) {
+            offenders.push(
+              `${a.contact.name} / ${b.contact.name} both have "${eduA.school}" — "${eduA.degree ?? "(no degree)"}"`,
+            );
+          }
+        }
+      }
+    }
     expect(offenders).toEqual([]);
   });
 });
