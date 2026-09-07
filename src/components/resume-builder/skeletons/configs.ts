@@ -11,9 +11,13 @@ import type { TemplateConfig } from "./types";
  * from PR1) is the byte-for-byte proof.
  *
  * This is ALSO the row this PR writes into `resume_templates.structure_schema`
- * for the `clean-professional` slug (migration 0103) — the first real,
- * non-`{}` value that column has ever held, and the shape PR3's 54 new rows
- * are expected to follow.
+ * for the `clean-professional` slug (migration 0104, renamed from 0103 after
+ * a collision with #268's own 0103 — see that migration's own header) — the
+ * first real, non-`{}` value that column has ever held, and the shape PR3's
+ * 54 new rows are expected to follow. Also mirrored in `RESUME_TEMPLATES`
+ * (src/lib/billing/catalog.ts) so `scripts/seed-catalog.ts`'s upsert writes
+ * the correct value even on a database where this migration's own per-slug
+ * UPDATE ran before the row existed — see that file's header for why.
  */
 export const CLEAN_PROFESSIONAL_CONFIG: TemplateConfig = {
   skeleton: "single-column",
