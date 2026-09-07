@@ -51,6 +51,15 @@
  * `example-guard.test.ts` header for the convention adopted instead
  * (a pointer for fixture authors to check names/schools against this
  * registry by hand before picking their own).
+ *
+ * UPDATED for batch 2: the registry grew from 12 to 22 personas (5 finishing
+ * the NGO & Development / Agriculture & Agribusiness split, 5 more on
+ * standalone-category slugs — see preview-sample.ts's own header). This
+ * batch was the first real exercise of the education check added right
+ * above: it was run for real against the full 22-persona registry (not just
+ * sabotaged and reverted) before this batch's content was finalized, and
+ * separately sabotage-proofed again at n=22 by colliding two of the NEW
+ * personas' education entries — see the PR description for that transcript.
  */
 import { describe, expect, it } from "vitest";
 import {
@@ -67,6 +76,16 @@ import {
   DRILLING_RIG_SUPERVISOR_RESUME,
   OFFSHORE_PROCESS_ENGINEER_RESUME,
   WELLHEAD_COMPLETIONS_ENGINEER_RESUME,
+  IMPACT_REPORTING_OFFICER_RESUME,
+  GRANTS_PROPOSAL_OFFICER_RESUME,
+  COMMERCIAL_AGRONOMIST_RESUME,
+  FIELD_PRODUCTION_SUPERVISOR_RESUME,
+  VALUE_CHAIN_ANALYST_RESUME,
+  SOFTWARE_ENGINEER_RESUME,
+  CREDIT_RISK_ANALYST_RESUME,
+  REGISTERED_NURSE_RESUME,
+  CORPORATE_LEGAL_ASSOCIATE_RESUME,
+  BUSINESS_OPERATIONS_MANAGER_RESUME,
 } from "@/lib/resume-builder/preview-sample";
 
 function pairs<T>(items: readonly T[]): Array<[T, T]> {
@@ -83,9 +102,9 @@ function sameList(a: readonly string[], b: readonly string[]): boolean {
   return a.length > 0 && a.length === b.length && a.every((item, i) => item === b[i]);
 }
 
-describe("EXAMPLE_PERSONAS registry has exactly the 12 personas this pass built", () => {
-  it("contains the original 3 personas plus the 9 new Engineering-group ones, and nothing is accidentally duplicated by reference", () => {
-    expect(EXAMPLE_PERSONAS).toHaveLength(12);
+describe("EXAMPLE_PERSONAS registry has exactly the 22 personas across batch 1 and batch 2", () => {
+  it("contains the 12 batch-1 personas plus the 10 new batch-2 ones, and nothing is accidentally duplicated by reference", () => {
+    expect(EXAMPLE_PERSONAS).toHaveLength(22);
     expect(EXAMPLE_PERSONAS).toContain(PREVIEW_SAMPLE_RESUME);
     expect(EXAMPLE_PERSONAS).toContain(EPC_SITE_ENGINEER_RESUME);
     expect(EXAMPLE_PERSONAS).toContain(DEVELOPMENT_PROGRAMME_OFFICER_RESUME);
@@ -98,6 +117,16 @@ describe("EXAMPLE_PERSONAS registry has exactly the 12 personas this pass built"
     expect(EXAMPLE_PERSONAS).toContain(DRILLING_RIG_SUPERVISOR_RESUME);
     expect(EXAMPLE_PERSONAS).toContain(OFFSHORE_PROCESS_ENGINEER_RESUME);
     expect(EXAMPLE_PERSONAS).toContain(WELLHEAD_COMPLETIONS_ENGINEER_RESUME);
+    expect(EXAMPLE_PERSONAS).toContain(IMPACT_REPORTING_OFFICER_RESUME);
+    expect(EXAMPLE_PERSONAS).toContain(GRANTS_PROPOSAL_OFFICER_RESUME);
+    expect(EXAMPLE_PERSONAS).toContain(COMMERCIAL_AGRONOMIST_RESUME);
+    expect(EXAMPLE_PERSONAS).toContain(FIELD_PRODUCTION_SUPERVISOR_RESUME);
+    expect(EXAMPLE_PERSONAS).toContain(VALUE_CHAIN_ANALYST_RESUME);
+    expect(EXAMPLE_PERSONAS).toContain(SOFTWARE_ENGINEER_RESUME);
+    expect(EXAMPLE_PERSONAS).toContain(CREDIT_RISK_ANALYST_RESUME);
+    expect(EXAMPLE_PERSONAS).toContain(REGISTERED_NURSE_RESUME);
+    expect(EXAMPLE_PERSONAS).toContain(CORPORATE_LEGAL_ASSOCIATE_RESUME);
+    expect(EXAMPLE_PERSONAS).toContain(BUSINESS_OPERATIONS_MANAGER_RESUME);
   });
 });
 
