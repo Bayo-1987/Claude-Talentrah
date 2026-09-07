@@ -1,9 +1,20 @@
 /**
  * The export/Auto-Apply guard against unedited "Start from an example"
  * content (src/lib/resume-builder/example-guard.ts) — a resume still
- * carrying PREVIEW_SAMPLE_RESUME's placeholder values must be caught before
- * it reaches a recruiter, and a genuinely blank or freshly-imported resume
- * must never be flagged.
+ * carrying one of `EXAMPLE_PERSONAS`'s placeholder values must be caught
+ * before it reaches a recruiter, and a genuinely blank or freshly-imported
+ * resume must never be flagged.
+ *
+ * REWORKED FOR THE MULTI-PERSONA REGISTRY. This guard used to compare
+ * against a single constant (`PREVIEW_SAMPLE_RESUME`); it now compares
+ * against ANY persona in `EXAMPLE_PERSONAS` (preview-sample.ts) —
+ * `example-guard.ts`'s own header explains why. Every test below that used
+ * to assert "matches THE example" now either (a) runs once per persona via
+ * `it.each(EXAMPLE_PERSONAS)`, so a regression that only breaks matching for
+ * the non-PM personas is caught the same way a PM-only regression would be,
+ * or (b) explicitly cross-checks that a persona OTHER than the one used to
+ * build a fixture doesn't accidentally also flag it (proving ".some(...)"
+ * isn't overly broad).
  *
  * SABOTAGE-PROOF: "findUneditedExampleFields returns nothing for an
  * unedited example resume" is the target test for this guard. It was run
@@ -14,7 +25,12 @@
  */
 import { describe, expect, it } from "vitest";
 import { EMPTY_RESUME, type StructuredResume } from "@/lib/resume/types";
-import { PREVIEW_SAMPLE_RESUME } from "@/lib/resume-builder/preview-sample";
+import {
+  PREVIEW_SAMPLE_RESUME,
+  EPC_SITE_ENGINEER_RESUME,
+  DEVELOPMENT_PROGRAMME_OFFICER_RESUME,
+  EXAMPLE_PERSONAS,
+} from "@/lib/resume-builder/preview-sample";
 import {
   findUneditedExampleFields,
   hasUneditedExampleContent,
@@ -24,30 +40,29 @@ import {
 } from "@/lib/resume-builder/example-guard";
 
 describe("findUneditedExampleFields", () => {
-  it("flags every field on a completely untouched example resume", () => {
-    const flags = findUneditedExampleFields(PREVIEW_SAMPLE_RESUME);
-    const paths = flags.map((f) => f.path);
-    expect(paths).toEqual(
-      expect.arrayContaining([
-        "contact.name",
-        "contact.email",
-        "contact.phone",
-        "contact.location",
-        "summary",
-        "skills",
-        "projects",
-        "certifications",
-      ]),
-    );
-    // Every seeded experience/education entry should be flagged too.
-    expect(paths.filter((p) => p.startsWith("experience."))).toHaveLength(
-      PREVIEW_SAMPLE_RESUME.experience.length,
-    );
-    expect(paths.filter((p) => p.startsWith("education."))).toHaveLength(
-      PREVIEW_SAMPLE_RESUME.education.length,
-    );
-    expect(hasUneditedExampleContent(PREVIEW_SAMPLE_RESUME)).toBe(true);
-  });
+  it.each(EXAMPLE_PERSONAS.map((p) => [p.contact.name, p] as const))(
+    "flags every field on a completely untouched example resume (%s)",
+    (_name, persona) => {
+      const flags = findUneditedExampleFields(persona);
+      const paths = flags.map((f) => f.path);
+      expect(paths).toEqual(
+        expect.arrayContaining([
+          "contact.name",
+          "contact.email",
+          "contact.phone",
+          "contact.location",
+          "summary",
+          "skills",
+          "projects",
+          "certifications",
+        ]),
+      );
+      // Every seeded experience/education entry should be flagged too.
+      expect(paths.filter((p) => p.startsWith("experience."))).toHaveLength(persona.experience.length);
+      expect(paths.filter((p) => p.startsWith("education."))).toHaveLength(persona.education.length);
+      expect(hasUneditedExampleContent(persona)).toBe(true);
+    },
+  );
 
   it("clears a field the moment its value changes", () => {
     const edited: StructuredResume = {
@@ -107,10 +122,10 @@ describe("findUneditedExampleFields", () => {
       "location — 'Lagos, Nigeria' is the single most likely real answer for this " +
       "product's own users, not a distinctive value like the example's fictional name",
     () => {
-      // Everything here is real and distinct from PREVIEW_SAMPLE_RESUME except
-      // contact.location, which is exactly the example's value — the same
-      // fixture shape e2e/auto-apply.spec.ts's seedBaseResume uses, and the
-      // actual live failure this test was added to pin down.
+      // Everything here is real and distinct from every persona except
+      // contact.location, which is exactly PREVIEW_SAMPLE_RESUME's value —
+      // the same fixture shape e2e/auto-apply.spec.ts's seedBaseResume uses,
+      // and the actual live failure this test was added to pin down.
       const realLagosUser: StructuredResume = {
         contact: {
           name: "E2E Tester",
@@ -169,6 +184,45 @@ describe("findUneditedExampleFields", () => {
     };
     expect(findUneditedExampleFields(partial).map((f) => f.path)).not.toContain("experience.0");
   });
+
+  describe("the registry-wide '.some(...)' match — a NON-PM persona is caught too", () => {
+    /*
+     * This is the actual behavior change from the single-persona guard: a
+     * resume seeded from the Engineering persona (say) must be flagged even
+     * though it shares NOTHING with PREVIEW_SAMPLE_RESUME. Proves the guard
+     * isn't secretly still only checking the PM persona under the hood.
+     */
+    it("flags a resume matching the EPC engineer persona, which shares nothing with the PM persona", () => {
+      expect(hasUneditedExampleContent(EPC_SITE_ENGINEER_RESUME)).toBe(true);
+      // Sanity: genuinely disjoint from the PM persona on every distinctive
+      // field, so this can only be passing because of the engineer entry.
+      expect(EPC_SITE_ENGINEER_RESUME.contact.name).not.toBe(PREVIEW_SAMPLE_RESUME.contact.name);
+      expect(EPC_SITE_ENGINEER_RESUME.contact.email).not.toBe(PREVIEW_SAMPLE_RESUME.contact.email);
+    });
+
+    it("flags a resume matching the development programme officer persona", () => {
+      expect(hasUneditedExampleContent(DEVELOPMENT_PROGRAMME_OFFICER_RESUME)).toBe(true);
+    });
+
+    it("editing a field on ONE persona's content away from ITS OWN value clears that flag, even though other personas' values differ too", () => {
+      const edited: StructuredResume = {
+        ...EPC_SITE_ENGINEER_RESUME,
+        contact: { ...EPC_SITE_ENGINEER_RESUME.contact, email: "real.engineer@gmail.com" },
+      };
+      const flags = findUneditedExampleFields(edited).map((f) => f.path);
+      expect(flags).not.toContain("contact.email");
+      // The rest of that persona's untouched fields still flag.
+      expect(flags).toContain("contact.name");
+    });
+
+    it("a real resume that happens to share the EPC engineer's location is not flagged on that alone", () => {
+      const realPortHarcourtUser: StructuredResume = {
+        ...EMPTY_RESUME,
+        contact: { name: "A Real User", email: "real.user@talentrah.test", location: EPC_SITE_ENGINEER_RESUME.contact.location },
+      };
+      expect(findUneditedExampleFields(realPortHarcourtUser)).toEqual([]);
+    });
+  });
 });
 
 describe("describeExampleGuardError", () => {
@@ -222,15 +276,19 @@ describe("clearFlaggedExampleFields", () => {
    * structure". SABOTAGE-PROOF TARGET — this must actually clear what the
    * guard flags (not a parallel notion of "example"), must leave anything
    * the guard no longer flags completely alone, and must preserve section
-   * shape (entry counts) rather than deleting entries outright.
+   * shape (entry counts) rather than deleting entries outright. Run once per
+   * persona so this isn't only proven for the PM one.
    */
-  it("a completely untouched example resume becomes flag-free after one pass, and stays flag-free", () => {
-    const cleared = clearFlaggedExampleFields(PREVIEW_SAMPLE_RESUME);
-    expect(findUneditedExampleFields(cleared)).toEqual([]);
-    // Idempotent: clearing an already-clear resume is a no-op, not a crash
-    // or a further mutation.
-    expect(clearFlaggedExampleFields(cleared)).toEqual(cleared);
-  });
+  it.each(EXAMPLE_PERSONAS.map((p) => [p.contact.name, p] as const))(
+    "a completely untouched example resume becomes flag-free after one pass, and stays flag-free (%s)",
+    (_name, persona) => {
+      const cleared = clearFlaggedExampleFields(persona);
+      expect(findUneditedExampleFields(cleared)).toEqual([]);
+      // Idempotent: clearing an already-clear resume is a no-op, not a crash
+      // or a further mutation.
+      expect(clearFlaggedExampleFields(cleared)).toEqual(cleared);
+    },
+  );
 
   it("does NOT touch a field the user already edited away from the example value", () => {
     // Real name typed in, but the user left the example email untouched —
@@ -246,16 +304,18 @@ describe("clearFlaggedExampleFields", () => {
     expect(findUneditedExampleFields(cleared)).toEqual([]);
   });
 
-  it("preserves work-history entry count — three seeded entries stay three empty entries, not zero and not merged", () => {
-    expect(PREVIEW_SAMPLE_RESUME.experience).toHaveLength(3);
-    const cleared = clearFlaggedExampleFields(PREVIEW_SAMPLE_RESUME);
-    expect(cleared.experience).toHaveLength(3);
-    for (const entry of cleared.experience) {
-      expect(entry.title).toBe("");
-      expect(entry.company).toBe("");
-      expect(entry.description).toBe("");
-    }
-  });
+  it.each(EXAMPLE_PERSONAS.map((p) => [p.contact.name, p] as const))(
+    "preserves work-history entry count on clear (%s)",
+    (_name, persona) => {
+      const cleared = clearFlaggedExampleFields(persona);
+      expect(cleared.experience).toHaveLength(persona.experience.length);
+      for (const entry of cleared.experience) {
+        expect(entry.title).toBe("");
+        expect(entry.company).toBe("");
+        expect(entry.description).toBe("");
+      }
+    },
+  );
 
   it("preserves education entry count and blanks every field on the flagged entry", () => {
     expect(PREVIEW_SAMPLE_RESUME.education).toHaveLength(1);
@@ -270,15 +330,18 @@ describe("clearFlaggedExampleFields", () => {
     });
   });
 
-  it("preserves skills/projects/certifications list length while emptying every entry", () => {
-    const cleared = clearFlaggedExampleFields(PREVIEW_SAMPLE_RESUME);
-    expect(cleared.skills).toHaveLength(PREVIEW_SAMPLE_RESUME.skills.length);
-    expect(cleared.skills.every((s) => s === "")).toBe(true);
-    expect(cleared.projects).toHaveLength(PREVIEW_SAMPLE_RESUME.projects.length);
-    expect(cleared.projects.every((p) => p === "")).toBe(true);
-    expect(cleared.certifications).toHaveLength(PREVIEW_SAMPLE_RESUME.certifications.length);
-    expect(cleared.certifications.every((c) => c === "")).toBe(true);
-  });
+  it.each(EXAMPLE_PERSONAS.map((p) => [p.contact.name, p] as const))(
+    "preserves skills/projects/certifications list length while emptying every entry (%s)",
+    (_name, persona) => {
+      const cleared = clearFlaggedExampleFields(persona);
+      expect(cleared.skills).toHaveLength(persona.skills.length);
+      expect(cleared.skills.every((s) => s === "")).toBe(true);
+      expect(cleared.projects).toHaveLength(persona.projects.length);
+      expect(cleared.projects.every((p) => p === "")).toBe(true);
+      expect(cleared.certifications).toHaveLength(persona.certifications.length);
+      expect(cleared.certifications.every((c) => c === "")).toBe(true);
+    },
+  );
 
   it("leaves an experience entry the user has genuinely edited completely alone, including its neighbors' shape", () => {
     const edited: StructuredResume = {
