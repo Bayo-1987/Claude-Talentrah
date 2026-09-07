@@ -30,12 +30,8 @@ import {
   getTemplateComponent,
   registeredSlugs,
 } from "@/components/resume-builder/templates";
-import {
-  PREVIEW_SAMPLE_RESUME,
-  EPC_SITE_ENGINEER_RESUME,
-  DEVELOPMENT_PROGRAMME_OFFICER_RESUME,
-} from "@/lib/resume-builder/preview-sample";
-import { personaForCategory } from "@/lib/resume-builder/persona-for-category";
+import { EXAMPLE_PERSONAS, PREVIEW_SAMPLE_RESUME } from "@/lib/resume-builder/preview-sample";
+import { personaForSlug } from "@/lib/resume-builder/persona-for-slug";
 
 for (const key of ["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"] as const) {
   if (!process.env[key]) throw new Error(`Template registry test cannot run: ${key} is not set.`);
@@ -502,29 +498,35 @@ describe("Template library PR 3 — the 54-row library", () => {
 });
 
 /**
- * THE MULTI-PERSONA REWORK (this PR). Every test above in this file renders
- * every catalog row against the SAME fixed `PREVIEW_SAMPLE_RESUME` — correct
- * for what those tests check (component identity/distinctness, ats_safe,
+ * THE MULTI-PERSONA REWORK. Every test above in this file renders every
+ * catalog row against the SAME fixed `PREVIEW_SAMPLE_RESUME` — correct for
+ * what those tests check (component identity/distinctness, ats_safe,
  * structure_schema parity), none of which depend on which persona is used.
  * This block is different: it renders each LIVE row against the persona
- * `personaForCategory` would ACTUALLY resolve for that row's own
- * `industry_category` — the same call `template-thumbnail.tsx` makes via
- * `personaForSlug` — so a regression that broke rendering for a non-PM
- * persona specifically (e.g. a skeleton renderer crashing on the
- * Engineering persona's longer `location` strings, or the NGO persona's
- * `volunteering`/`languages` fields none of the other personas populate)
- * would be caught here, where the PR2/PR3 tests above never would be — they
- * only ever exercise the PM persona.
+ * `personaForSlug` would ACTUALLY resolve for that row's own `slug` — the
+ * same call `template-thumbnail.tsx` makes — so a regression that broke
+ * rendering for a non-PM persona specifically (e.g. a skeleton renderer
+ * crashing on a longer `location` string, or the `languages` field only the
+ * NGO and `wellhead` personas populate) would be caught here, where the
+ * PR2/PR3 tests above never would be — they only ever exercise the PM
+ * persona.
+ *
+ * REWORKED for batch 1 of the per-slug persona rollout: resolution moved
+ * from `personaForCategory` (dropped — see persona-for-slug.ts) to
+ * `personaForSlug`, keyed by the row's own `slug` rather than its
+ * `industry_category`. The "at least one row resolves to each persona"
+ * check below is written generically over `EXAMPLE_PERSONAS` rather than
+ * naming each persona, so it keeps working as later batches add more.
  */
-describe("Multi-persona template previews — every row renders ITS OWN category's persona", () => {
-  it("every LIVE catalog row renders without throwing against the persona its own category resolves to, and shows that persona's name", async () => {
+describe("Multi-persona template previews — every row renders ITS OWN persona", () => {
+  it("every LIVE catalog row renders without throwing against the persona its own slug resolves to, and shows that persona's name", async () => {
     const { data, error } = await admin.from("resume_templates").select("slug, name, industry_category");
     if (error) throw error;
     expect(data ?? [], "catalog is empty — run `npm run seed`").not.toHaveLength(0);
 
     const broken: string[] = [];
     for (const row of data ?? []) {
-      const persona = personaForCategory(row.industry_category);
+      const persona = personaForSlug(row.slug);
       try {
         const Component = getTemplateComponent(row.slug);
         const html = renderToStaticMarkup(createElement(Component, { resume: persona }));
@@ -535,28 +537,27 @@ describe("Multi-persona template previews — every row renders ITS OWN category
           );
         }
       } catch (err) {
-        broken.push(`${row.name} (${row.slug}): threw against its own category's persona — ${(err as Error).message}`);
+        broken.push(`${row.name} (${row.slug}): threw against its own persona — ${(err as Error).message}`);
       }
     }
-    expect(broken, "these catalog rows do not render the persona their own category resolves to").toEqual([]);
+    expect(broken, "these catalog rows do not render the persona their own slug resolves to").toEqual([]);
   });
 
-  it("at least one row in the live catalog actually resolves to each non-fallback persona (the mapping isn't dead code)", async () => {
-    const { data, error } = await admin.from("resume_templates").select("slug, industry_category");
+  it("at least one row in the live catalog actually resolves to each persona in the registry (no persona is dead code)", async () => {
+    const { data, error } = await admin.from("resume_templates").select("slug");
     if (error) throw error;
 
-    const categories = new Set((data ?? []).map((r) => r.industry_category));
-    const resolvedPersonas = new Set([...categories].map((c) => personaForCategory(c)));
+    const resolvedPersonas = new Set((data ?? []).map((r) => personaForSlug(r.slug)));
 
-    expect(resolvedPersonas.has(EPC_SITE_ENGINEER_RESUME), "no live category resolved to the EPC engineer persona").toBe(
-      true,
-    );
-    expect(
-      resolvedPersonas.has(DEVELOPMENT_PROGRAMME_OFFICER_RESUME),
-      "no live category resolved to the development programme officer persona",
-    ).toBe(true);
-    expect(resolvedPersonas.has(PREVIEW_SAMPLE_RESUME), "no live category fell back to PREVIEW_SAMPLE_RESUME").toBe(
-      true,
-    );
+    for (const persona of EXAMPLE_PERSONAS) {
+      expect(
+        resolvedPersonas.has(persona),
+        `no live catalog row resolved to "${persona.contact.name}"'s persona`,
+      ).toBe(true);
+    }
+    // Sanity: PREVIEW_SAMPLE_RESUME (the fallback) is reachable too — it's
+    // also a member of EXAMPLE_PERSONAS, so the loop above already checks
+    // it, but this pins the reason down explicitly.
+    expect(resolvedPersonas.has(PREVIEW_SAMPLE_RESUME), "no live slug fell back to PREVIEW_SAMPLE_RESUME").toBe(true);
   });
 });

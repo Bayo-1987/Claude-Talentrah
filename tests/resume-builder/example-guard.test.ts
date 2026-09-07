@@ -22,6 +22,15 @@
  * comparison short-circuited to `false`) to confirm it actually fails when
  * the guard is broken, then restored — see the PR description for the
  * before/after run. Left here as the standing regression check.
+ *
+ * BATCH 1 UPDATE: `EXAMPLE_PERSONAS` grew from 3 to 12 personas (9 new ones
+ * covering the Engineering/Construction/Oil & Gas grouping individually —
+ * see preview-sample.ts). Every `it.each(EXAMPLE_PERSONAS...)` block below
+ * picked up the 9 new personas automatically with no changes needed; the
+ * "registry-wide .some(...) match" describe block below also got one new
+ * explicit case naming a NEW persona (not just the original EPC/NGO ones)
+ * to prove the `.some()` genuinely covers the larger registry, not just the
+ * personas that existed when that block was first written.
  */
 import { describe, expect, it } from "vitest";
 import { EMPTY_RESUME, type StructuredResume } from "@/lib/resume/types";
@@ -29,6 +38,7 @@ import {
   PREVIEW_SAMPLE_RESUME,
   EPC_SITE_ENGINEER_RESUME,
   DEVELOPMENT_PROGRAMME_OFFICER_RESUME,
+  WELLHEAD_COMPLETIONS_ENGINEER_RESUME,
   EXAMPLE_PERSONAS,
 } from "@/lib/resume-builder/preview-sample";
 import {
@@ -202,6 +212,14 @@ describe("findUneditedExampleFields", () => {
 
     it("flags a resume matching the development programme officer persona", () => {
       expect(hasUneditedExampleContent(DEVELOPMENT_PROGRAMME_OFFICER_RESUME)).toBe(true);
+    });
+
+    it("flags a resume matching one of the NEW batch-1 personas (wellhead's completions engineer), proving .some() covers the larger registry, not just the original 3", () => {
+      expect(hasUneditedExampleContent(WELLHEAD_COMPLETIONS_ENGINEER_RESUME)).toBe(true);
+      expect(WELLHEAD_COMPLETIONS_ENGINEER_RESUME.contact.name).not.toBe(PREVIEW_SAMPLE_RESUME.contact.name);
+      expect(WELLHEAD_COMPLETIONS_ENGINEER_RESUME.contact.email).not.toBe(PREVIEW_SAMPLE_RESUME.contact.email);
+      expect(WELLHEAD_COMPLETIONS_ENGINEER_RESUME.contact.name).not.toBe(EPC_SITE_ENGINEER_RESUME.contact.name);
+      expect(WELLHEAD_COMPLETIONS_ENGINEER_RESUME.contact.email).not.toBe(EPC_SITE_ENGINEER_RESUME.contact.email);
     });
 
     it("editing a field on ONE persona's content away from ITS OWN value clears that flag, even though other personas' values differ too", () => {

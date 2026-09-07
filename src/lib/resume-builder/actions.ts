@@ -11,7 +11,7 @@ import { CREDIT_COSTS } from "@/lib/credits/costs";
 import { spendCredits, InsufficientCreditsError } from "@/lib/credits/spend";
 import { logCreditGateEvent } from "@/lib/credits/gate-events";
 import { checkPassCoverage, DAILY_CAP_MESSAGE } from "@/lib/passes/entitlement";
-import { personaForCategory } from "@/lib/resume-builder/persona-for-category";
+import { personaForSlug } from "@/lib/resume-builder/persona-for-slug";
 import { logResumeBuilderStartEvent, logResumeBuilderCompletion, type ResumeBuilderStartState } from "@/lib/resume-builder/start-events";
 import { defaultBuilderResumeTitle, normalizeResumeTitle } from "@/lib/resume-builder/resume-title";
 import {
@@ -106,11 +106,10 @@ export async function unlockTemplateAction(
  *
  *   - "blank"         — today's behaviour, unchanged: EMPTY_RESUME.
  *   - "example"        — seeds the persona matching the chosen template's
- *                        `industry_category` (a complete, realistic CV,
- *                        since Stage 3.1 — see preview-sample.ts's own
- *                        header, and persona-for-category.ts for exactly
- *                        which categories get a dedicated persona vs. the
- *                        fallback).
+ *                        own `slug` (a complete, realistic CV, since Stage
+ *                        3.1 — see preview-sample.ts's own header, and
+ *                        persona-for-slug.ts for exactly which slugs get a
+ *                        dedicated persona vs. the fallback).
  *   - "import_base"    — copies the user's EXISTING is_base=true resume's
  *                        structured_content, if they have one. "Use my
  *                        existing resume" in the "Import my CV" panel.
@@ -157,7 +156,7 @@ export async function createResumeAction(
 
   const { data: template } = await supabase
     .from("resume_templates")
-    .select("id, is_premium, name, industry_category")
+    .select("id, is_premium, name, slug")
     .eq("id", templateId)
     .single();
 
@@ -175,7 +174,7 @@ export async function createResumeAction(
   let content: StructuredResume;
   switch (startState) {
     case "example":
-      content = personaForCategory(template.industry_category);
+      content = personaForSlug(template.slug);
       break;
     case "import_base": {
       const { data: baseResume } = await supabase
