@@ -61,3 +61,56 @@ export async function getEmployerContext(): Promise<EmployerContext | null> {
     role: membership.role,
   };
 }
+
+/**
+ * Every organisation id the viewer belongs to — for the seeker feed, not the
+ * employer surface.
+ *
+ * ── WHY THIS EXISTS SEPARATELY FROM getEmployerContext ────────────────────
+ *
+ * Same table, same "an error is not an absence" rule, but three deliberate
+ * differences, each one because the caller is /jobs — the hottest page in the
+ * app, rendered for every seeker on every load, ~none of whom have an org:
+ *
+ *   1. NO `organizations(*)` JOIN. getEmployerContext fetches the whole org
+ *      row because employer pages render it. The feed needs one uuid to build
+ *      a filter with, and making every seeker pay for a joined row to learn
+ *      "you have no organisation" is the wrong trade on this page.
+ *   2. NO requireUser()/createClient(). The feed has both already; taking them
+ *      as arguments keeps this one query, issuable inside the page's existing
+ *      Promise.all rather than as a serial round trip before it.
+ *   3. ALL memberships, not the earliest. getEmployerContext takes `limit(1)`
+ *      because Phase 1 offers one org per user and it must pick one. This is
+ *      matching against a database policy — `is_org_member` (0026) is true for
+ *      ANY membership — so narrowing to the first would make the page disagree
+ *      with RLS for a user with two, which the schema permits even though the
+ *      UI never creates it.
+ *
+ * Read through the caller's OWN client, never the service role, for the reason
+ * the file header gives: if 0026 ever regresses this fails closed.
+ */
+export async function getViewerOrganizationIds(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+): Promise<string[]> {
+  const { data, error } = await supabase
+    .from("organization_members")
+    .select("organization_id")
+    .eq("user_id", userId);
+
+  /*
+   * A failure returns "no organisations", and that is the SAFE direction here
+   * rather than the correct-looking one: this value only ever WIDENS what the
+   * feed shows (an employer additionally sees their own unlisted postings), so
+   * an empty answer degrades to exactly today's public behaviour. Throwing
+   * would take the whole job feed down for every seeker over a lookup that
+   * ~none of them need — the opposite trade from getEmployerContext, where the
+   * same error means an employer is about to be told to create a second
+   * organisation.
+   */
+  if (error) {
+    console.error("[jobs] couldn't resolve viewer's organisations:", error.message);
+    return [];
+  }
+  return (data ?? []).map((m) => m.organization_id);
+}

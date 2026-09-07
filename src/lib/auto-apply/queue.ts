@@ -156,6 +156,11 @@ export async function scanAndQueue(userId: string): Promise<ScanResult> {
       .select("id, source_type, status")
       .in("id", jobIds)
       .eq("status", "open")
+      // 0107, same reasoning as the freshness floor below: this is an
+      // independent read, so the feed's exclusion does not reach it. An
+      // unlisted posting is reachable by direct link only — auto-applying to
+      // one would put a seeker in front of a job nobody listed for them.
+      .is("unlisted_at", null)
       .gte("posted_at", freshnessFloorISO()),
   ]);
 

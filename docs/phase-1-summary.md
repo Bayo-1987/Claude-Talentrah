@@ -138,6 +138,13 @@ members and, publicly, only once the organisation is verified — the same shape
 as the existing scholarships moderation gate, enforced at the RLS layer so it
 covers every reader rather than one page.
 
+**Superseded in part by 0107/0108** (Phase 2, `docs/employer-share-and-verification.md`
+§2): there is now a third state between those two. A posting whose
+`unlisted_at` is stamped is readable by whoever holds its id, verified or not
+— but is still absent from the feed, search and sitemap. The org gate above is
+unchanged for everything else; what changed is that "publicly readable" and
+"listed" stopped being the same question.
+
 ## Published demo credentials — rotated
 
 This repo is **public**, and `demo@talentrah.dev`'s password was a literal in
@@ -185,6 +192,12 @@ Two things make it load-bearing rather than cosmetic: an unverified company's
 postings never reach the public feed (0027), and a company cannot mark itself
 verified (0028). Verification only ever happens server-side, from the session
 user's own confirmed email.
+
+Both still hold after 0107. A private link makes one posting reachable *by
+id*; it never puts that posting in the feed, and `unlisted_at` is a
+service-role-only column for the same reason `verified` is — an org that could
+stamp its own rows could publish without verification, which would make this
+gate decorative in exactly the way 0028 prevented.
 
 ## Column-privilege audit — 2026-08-25
 
@@ -241,6 +254,9 @@ Its own policy is:
 ```sql
 create policy "job postings are publicly readable" ... for select
   using ( source_type = 'external' or <org verified> or is_org_member(...) )
+  -- Since 0107 there is a fourth branch: `or unlisted_at is not null`.
+  -- Omitted from this snippet's own reasoning because the point being made
+  -- here is about WHO EVALUATES the policy, which that branch doesn't change.
 ```
 
 No `TO` clause, so it applies to `public` — anon included — and Postgres

@@ -16,6 +16,8 @@ export interface PostedJob {
   applicationCount: number;
   workType: string | null;
   employmentType: string | null;
+  /** Non-null once a private link has been minted for this posting (0107). */
+  unlistedAt: string | null;
 }
 
 const LABELS: Record<string, string> = {
@@ -72,13 +74,28 @@ export function PostedJobRow({
               Closed
             </span>
           )}
+          {/*
+            "Not public" was accurate when there was nothing to do about it. Now
+            there is: an unverified org with a minted link has something it can
+            actually hand a candidate, and a badge that still reads as a wall
+            would be describing the old behaviour.
+          */}
           {job.status === "open" && !orgVerified && (
-            <span
-              className="border border-amber px-2 py-0.5 font-body text-[11px] font-bold tracking-[0.14em] text-amber uppercase"
-              title="Only your team can see this until the company is verified"
-            >
-              Not public
-            </span>
+            job.unlistedAt ? (
+              <span
+                className="border border-ink-soft px-2 py-0.5 font-body text-[11px] font-bold tracking-[0.14em] text-ink-soft uppercase"
+                title="Not on the job board — but anyone with the link can open it"
+              >
+                Private link only
+              </span>
+            ) : (
+              <span
+                className="border border-amber px-2 py-0.5 font-body text-[11px] font-bold tracking-[0.14em] text-amber uppercase"
+                title="Only your team can see this until the company is verified"
+              >
+                Not public
+              </span>
+            )
           )}
         </div>
         {meta.length > 0 && (
@@ -114,7 +131,11 @@ export function PostedJobRow({
           jobId={job.id}
           jobTitle={job.title}
           origin={origin}
-          visibility={getJobShareVisibility({ status: job.status, organizationVerified: orgVerified })}
+          visibility={getJobShareVisibility({
+            status: job.status,
+            organizationVerified: orgVerified,
+            unlistedAt: job.unlistedAt,
+          })}
         />
       </div>
       )}

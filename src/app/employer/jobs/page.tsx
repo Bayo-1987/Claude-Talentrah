@@ -6,6 +6,7 @@ import { PostedJobRow, type PostedJob } from "@/components/employer/posted-job-r
 import { EmployerJobShareInline } from "@/components/employer/job-share-button";
 import { getJobShareVisibility } from "@/lib/employer/job-visibility";
 import { evaluateDomainVerification, employerBannerMessage } from "@/lib/employer/verification";
+import { mintUnlistedLink } from "@/lib/employer/mint-unlisted-link";
 import { getSiteOrigin } from "@/lib/referrals/url";
 
 export const metadata = { title: "Jobs Posted — Talentrah" };
@@ -17,7 +18,7 @@ export default async function JobsPostedPage({
 }: {
   searchParams: SearchParams;
 }) {
-  const { organization, userEmail, emailConfirmed } = await requireEmployer();
+  const { organization, userId, userEmail, emailConfirmed } = await requireEmployer();
   const { posted } = await searchParams;
   const supabase = await createClient();
   const origin = await getSiteOrigin();
@@ -26,7 +27,9 @@ export default async function JobsPostedPage({
     await Promise.all([
       supabase
         .from("job_postings")
-        .select("id, title, location, status, posted_at, work_type, employment_type, removal_reason")
+        .select(
+          "id, title, location, status, posted_at, work_type, employment_type, removal_reason, unlisted_at",
+        )
         .eq("organization_id", organization.id)
         .eq("source_type", "internal")
         .order("posted_at", { ascending: false }),
@@ -45,6 +48,33 @@ export default async function JobsPostedPage({
     (counts ?? []).map((row) => [row.job_posting_id, Number(row.application_count)]),
   );
 
+  /*
+   * MINTING HAPPENS HERE, ONCE PER POSTING, and only for an org that has no
+   * other way to share. A verified org's jobs are already public; spending a
+   * mint on one would consume the employer's daily allowance for nothing.
+   *
+   * mintUnlistedLink returns the existing stamp without charging when a link
+   * already exists, so rendering this page repeatedly costs nothing — the
+   * limit counts jobs granted a link, not page views.
+   */
+  const mintedAt = new Map<string, string>();
+  if (!organization.verified) {
+    for (const job of jobs ?? []) {
+      if (job.status === "removed") continue;
+      if (job.unlisted_at) {
+        mintedAt.set(job.id, job.unlisted_at);
+        continue;
+      }
+      const result = await mintUnlistedLink({
+        jobId: job.id,
+        userId,
+        status: job.status,
+        emailConfirmed,
+      });
+      if (result.unlistedAt) mintedAt.set(job.id, result.unlistedAt);
+    }
+  }
+
   const rows: PostedJob[] = (jobs ?? []).map((job) => ({
     id: job.id,
     title: job.title,
@@ -54,6 +84,7 @@ export default async function JobsPostedPage({
     postedAt: job.posted_at,
     workType: job.work_type,
     employmentType: job.employment_type,
+    unlistedAt: mintedAt.get(job.id) ?? job.unlisted_at ?? null,
     applicationCount: countByJob.get(job.id) ?? 0,
   }));
 
@@ -122,6 +153,20 @@ export default async function JobsPostedPage({
           */}
           <span className="font-semibold">{organization.name} isn&apos;t verified yet.</span> Your
           jobs are saved and visible to your team, but not in the public job feed.{" "}
+          {/*
+            SAY WHAT THIS ACCOUNT CAN ACTUALLY DO, which is not the same for
+            every unverified org. One that has minted a link has something to
+            hand a candidate right now; one that has not — no confirmed email,
+            or past its daily limit — does not, and telling it about private
+            links would describe a door it cannot open. Gated on the real
+            result, not on `!organization.verified`.
+          */}
+          {mintedAt.size > 0 && (
+            <>
+              Each job below has a private link you can send directly — it isn&apos;t listed
+              anywhere, but it opens for whoever you send it to.{" "}
+            </>
+          )}
           {employerBannerMessage(verificationOutcome, organization.verified, userEmail)}{" "}
           <Link href="/employer/profile" className="font-semibold text-rust underline underline-offset-2">
             {staleEligible ? "Go to Company Profile" : "Manage verification"}

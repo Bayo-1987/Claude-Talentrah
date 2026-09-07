@@ -1290,6 +1290,7 @@ export type Database = {
           organization_id: string | null
           posted_at: string
           removal_reason: string | null
+          unlisted_at: string | null
           removed_at: string | null
           removed_by: string | null
           salary_currency: string | null
@@ -1325,6 +1326,7 @@ export type Database = {
           organization_id?: string | null
           posted_at?: string
           removal_reason?: string | null
+          unlisted_at?: string | null
           removed_at?: string | null
           removed_by?: string | null
           salary_currency?: string | null
@@ -1360,6 +1362,7 @@ export type Database = {
           organization_id?: string | null
           posted_at?: string
           removal_reason?: string | null
+          unlisted_at?: string | null
           removed_at?: string | null
           removed_by?: string | null
           salary_currency?: string | null
@@ -2601,6 +2604,7 @@ export type Database = {
           posted_at: string
           rank: number
           removal_reason: string | null
+          unlisted_at: string | null
           removed_at: string | null
           removed_by: string | null
           salary_currency: string | null

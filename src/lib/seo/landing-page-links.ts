@@ -35,6 +35,8 @@ export async function liveJobLandingLinks(
   const { count: remoteCount } = await supabase
     .from("job_postings")
     .select("id", { count: "exact", head: true })
+    // 0107: never list an unlisted posting.
+    .is("unlisted_at", null)
     .eq("status", "open")
     .eq("work_type", "remote")
     .gte("posted_at", floor);
@@ -52,6 +54,8 @@ export async function liveJobLandingLinks(
       supabase
         .from("job_postings")
         .select("id", { count: "exact", head: true })
+        // 0107: never list an unlisted posting.
+        .is("unlisted_at", null)
         .eq("status", "open")
         .eq("work_type", "remote")
         .or(countryOrFilter(country))
@@ -69,7 +73,12 @@ export async function liveJobLandingLinks(
   }
 
   for (const city of CITY_LANDING_PAGES) {
-    let query = supabase.from("job_postings").select("id", { count: "exact", head: true }).eq("status", "open");
+    let query = supabase
+      .from("job_postings")
+      .select("id", { count: "exact", head: true })
+      // 0107: never count an unlisted posting toward a landing page.
+      .is("unlisted_at", null)
+      .eq("status", "open");
     query = query.or(city.locationPatterns.map((p) => `location.ilike.${p}`).join(","));
     query = query.gte("posted_at", floor);
     const { count } = await query;

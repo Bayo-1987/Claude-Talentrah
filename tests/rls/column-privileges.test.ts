@@ -661,6 +661,68 @@ describe("signed-out reach (0032)", () => {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
+  /*
+   * A POSTING THAT MUST NOT BE VISIBLE, owned by this block.
+   *
+   * The unverified-company sweep below reads whatever happens to be in the
+   * database. That was measured to be worthless on its own: with the policy
+   * deliberately sabotaged to expose every unverified org's postings, the
+   * sweep PASSED, because the CI project had zero unverified orgs at that
+   * moment and so no row it could have caught. A guard over ambient data is
+   * only as strong as the ambient data.
+   *
+   * This fixture removes that dependency. An unverified org with an un-minted
+   * posting is exactly the row the policy must hide, so it is present on every
+   * run and the sweep always has something to fail on.
+   */
+  let hiddenOrgId: string | null = null;
+  let hiddenJobId: string | null = null;
+
+  beforeAll(async () => {
+    const tag = randomUUID().slice(0, 8);
+    const { data: org, error: orgErr } = await admin
+      .from("organizations")
+      .insert({
+        name: `ANONREACH-TEST Unverified ${tag}`,
+        domain: `anonreach-${tag}.example`,
+        created_by: user.id,
+        verified: false,
+      })
+      .select("id")
+      .single();
+    if (orgErr || !org) throw new Error(`hidden fixture org: ${orgErr?.message}`);
+    hiddenOrgId = org.id;
+
+    const { data: job, error: jobErr } = await admin
+      .from("job_postings")
+      .insert({
+        source_type: "internal",
+        organization_id: hiddenOrgId,
+        company_name: `ANONREACH-TEST Co ${tag}`,
+        title: `ANONREACH-TEST Hidden Role ${tag}`,
+        description: "Un-minted posting on an unverified org. Anon must never see this.",
+        structured_jd: {},
+        dedup_fingerprint: `anonreach-${tag}`,
+        status: "open",
+        posted_at: new Date().toISOString(),
+      })
+      .select("id")
+      .single();
+    if (jobErr || !job) throw new Error(`hidden fixture posting: ${jobErr?.message}`);
+    hiddenJobId = job.id;
+  });
+
+  afterAll(async () => {
+    if (hiddenJobId) {
+      const { error } = await admin.from("job_postings").delete().eq("id", hiddenJobId);
+      if (error) console.error("[anonreach cleanup] posting:", error.message);
+    }
+    if (hiddenOrgId) {
+      const { error } = await admin.from("organizations").delete().eq("id", hiddenOrgId);
+      if (error) console.error("[anonreach cleanup] org:", error.message);
+    }
+  });
+
   it("REGRESSION GUARD: a signed-out visitor can read the public job board", async () => {
     /*
      * This is the test that would have caught 0027.
@@ -682,20 +744,86 @@ describe("signed-out reach (0032)", () => {
     expect((data ?? []).length, "a signed-out visitor should see external postings").toBeGreaterThan(0);
   });
 
-  it("but still cannot see an unverified company's postings", async () => {
-    // The 0032 fix must not have re-opened 0027's gate.
+  it("but still cannot see an unverified company's postings — unless a link was minted", async () => {
+    /*
+     * WIDENED ON PURPOSE (0107), not drift. This used to assert that every
+     * internal posting anon can see belongs to a VERIFIED org. That invariant
+     * genuinely changed: an unverified org can now mint one private link per
+     * posting, which makes that row anon-readable by id. Building that was the
+     * point of 0107, so a test still demanding "verified" would fail on a state
+     * it was explicitly asked to permit.
+     *
+     * What must NOT weaken is the REASON a row is visible. The check is now
+     * "verified OR unlisted" — two named, deliberate routes — and anything
+     * visible for a third reason is still the leak this exists to catch.
+     * `unlisted_at` is service-role-write-only: 0107 withholds it from the
+     * UPDATE grant and fails the migration if that ever changes, so an org
+     * cannot move itself into the second category.
+     *
+     * Same shape as 0102's closed_at precedent — when a trust column widens
+     * what is visible, the guard names the new route rather than being deleted.
+     */
     const { data: internal } = await anonClient
       .from("job_postings")
-      .select("organization_id")
+      .select("id, organization_id, unlisted_at")
       .eq("source_type", "internal");
-    const orgIds = [...new Set((internal ?? []).map((r) => r.organization_id).filter(Boolean))] as string[];
+
+    const rows = internal ?? [];
+    const orgIds = [...new Set(rows.map((r) => r.organization_id).filter(Boolean))] as string[];
+    const verified = new Set<string>();
     if (orgIds.length > 0) {
-      const { data: orgs } = await admin.from("organizations").select("verified").in("id", orgIds);
-      expect(
-        (orgs ?? []).every((o) => o.verified),
-        "LEAK: a signed-out visitor saw an unverified company's job",
-      ).toBe(true);
+      const { data: orgs } = await admin
+        .from("organizations")
+        .select("id, verified")
+        .in("id", orgIds);
+      for (const o of orgs ?? []) if (o.verified) verified.add(o.id);
     }
+
+    /*
+     * SAY WHEN THIS CHECKED NOTHING. Measured, not supposed: with the policy
+     * deliberately sabotaged to expose every unverified org's postings, this
+     * test PASSED — because the CI project had zero unverified orgs at that
+     * moment, so there was no leakable row for the sweep to find. A guard over
+     * ambient data is only as strong as the data present, and a green run that
+     * inspected nothing is indistinguishable from one that inspected
+     * everything unless it says so.
+     *
+     * The targeted proof lives in tests/employer/unlisted-links.test.ts, which
+     * owns an unverified org and an un-minted posting and DID fail under that
+     * same sabotage. This sweep stays because it covers rows no fixture
+     * anticipates; the warning is so its silence is never mistaken for
+     * evidence.
+     */
+    /*
+     * NON-VACUITY, ASSERTED — not warned about. This block owns an unverified
+     * org with an un-minted posting precisely so there is always a row the
+     * policy must be hiding. If that row is missing from the database, the
+     * sweep below is inspecting nothing and its silence means nothing, so the
+     * test fails here rather than passing quietly.
+     */
+    const { data: hiddenStillExists } = await admin
+      .from("job_postings")
+      .select("id")
+      .eq("id", hiddenJobId!)
+      .maybeSingle();
+    expect(
+      hiddenStillExists?.id,
+      "the fixture this guard depends on is gone — the sweep below would prove nothing",
+    ).toBe(hiddenJobId);
+
+    // …and the targeted half: that specific row must not be in what anon sees.
+    expect(
+      rows.map((r) => r.id),
+      "LEAK: anon saw the un-minted posting of an unverified company",
+    ).not.toContain(hiddenJobId);
+
+    const leaked = rows.filter(
+      (r) => !(r.organization_id && verified.has(r.organization_id)) && !r.unlisted_at,
+    );
+    expect(
+      leaked.map((r) => r.id),
+      "LEAK: anon saw an internal posting that is neither from a verified company nor unlisted",
+    ).toEqual([]);
   });
 
   it("sees nothing on any owner-scoped table", async () => {

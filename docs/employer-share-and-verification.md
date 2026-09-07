@@ -75,8 +75,43 @@ standing migration rule regardless of which PR it ships in.
 
 ## 2. The abuse surface of an "unlisted but linkable" visibility state
 
-The founder decision already flagged (not this doc's to make): should a job
-have a third visibility state — not in the feed, search, or sitemap, but
+> **BUILT (0107, 0108).** This section was written as input to a founder
+> decision. That decision was made — build it, with the mitigation this
+> section proposed — so what follows is now the *rationale for what shipped*,
+> not an open question. The abuse analysis below is unchanged and still the
+> reason the gate exists; only its status has moved.
+>
+> What shipped: `job_postings.unlisted_at`, a service-role-only trust column,
+> plus one new RLS branch making a stamped row readable by id whatever its
+> org's verification state. Minting is per-posting, once, behind a **confirmed
+> email** and a **5-per-24h** limit — exactly the "cheap mitigation" proposed
+> at the end of this section, both halves of it. Per-posting and not per-org
+> is load-bearing: "readable if the org is unverified but confirmed" would
+> have exposed every posting of every unverified org the moment it held, which
+> is the gate 0027 exists to keep shut.
+>
+> **The bullet below that says "not in the feed, search, or sitemap" named
+> search from the start, and the build still missed it.** Widening the RLS
+> policy silently opened every listing surface, because none of them ever
+> filtered on `verified` themselves — they relied on RLS to hide unverified
+> orgs for them. Fourteen PostgREST queries were updated for that reason. The
+> fifteenth, `search_job_postings` (0100), is SQL rather than a client query,
+> so nothing in the TypeScript diff pointed at it: an unlisted posting stayed
+> out of the feed and came straight back the moment anyone typed a word from
+> its title. Confirmed against a live database, then fixed in 0108. The
+> lesson worth carrying: a surface enumerated in prose is not a surface the
+> diff will remind you about.
+>
+> One deliberate exception to "not in the feed": **the posting's own org still
+> sees it there.** Minting is automatic — it happens on the next Jobs Posted
+> render, with no action from the employer — so excluding unlisted rows from
+> everyone would make a job vanish from its own poster's feed moments after
+> they posted it, for a reason invisible from either page. 0027's member
+> clause already prevents that; the feed and 0108 both honour it rather than
+> re-opening the hole above the database.
+
+The founder decision this section was written for: should a job have a third
+visibility state — not in the feed, search, or sitemap, but
 reachable by whoever has the direct link — so an org mid-verification (or one
 that will never verify, e.g. a one-off contract poster) can still send a link
 to a specific candidate?
@@ -117,10 +152,22 @@ something to weigh against rather than just the upside:
   how many unlisted links a single unverified account can mint. Neither
   closes the gap, both raise the cost of abusing it.
 
-Not built. Not a recommendation either way — the abuse surface above is the
-input the founder asked for; the tradeoff against the real, legitimate use
-case (Fatishcakes-style orgs who have a real job and a real candidate, just
-no path to full verification yet) is a product call, not an engineering one.
+Built, with the mitigation, after the founder weighed the above against the
+real legitimate use case (Fatishcakes-style orgs who have a real job and a
+real candidate, just no path to full verification yet).
+
+Two things this section got right that are worth keeping in view now that it
+is live, because neither is fixed by shipping:
+
+- **"Unlisted" is still not confidential.** Nothing built here changes that.
+  A forwarded link is as reachable as a public one; the absence is from
+  *discovery*, not from the web.
+- **The trust-and-safety visibility gap is real and still open.** Keeping
+  unlisted postings out of the feed, search and sitemap also keeps them out of
+  Talentrah's own view of what exists and who is visiting. The confirmed-email
+  gate raises the cost of minting one; it does not tell anyone that one was
+  minted. If unlisted links are ever abused at volume, that is the thing that
+  will be missing, and it is not in this build.
 
 ---
 

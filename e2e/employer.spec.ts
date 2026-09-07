@@ -158,8 +158,18 @@ test.describe("employer surface", () => {
       authedPage.getByRole("heading", { name: "E2E Employer Backend Engineer" }),
     ).toBeVisible();
     await expect(authedPage.getByText("0 applications")).toBeVisible();
-    // Per-posting reminder that this one is not reaching the feed.
-    await expect(authedPage.getByText("Not public")).toBeVisible();
+    /*
+     * CONTRACT CHANGED BY 0107, and the badge changed with it. This read
+     * "Not public", which was accurate when there was nothing the employer
+     * could do about it. There is now: an unverified org with a confirmed
+     * email gets one private link per posting, so the badge describes what
+     * they have — "Private link only" — rather than only what they lack.
+     *
+     * The fact this test is really about has not changed and is still
+     * asserted below: the posting does not reach the public feed for anyone
+     * outside its own org. Only the per-row wording moved.
+     */
+    await expect(authedPage.getByText("Private link only")).toBeVisible();
 
     // ---- What the poster themselves sees in the seeker feed ---------------
     //
@@ -178,10 +188,28 @@ test.describe("employer surface", () => {
     // Asserted here rather than skipped so the behaviour is recorded: if the
     // member clause is ever dropped, employers silently lose sight of their
     // own postings and this fails.
+    //
+    // ── 0107/0108 MADE THIS ASSERTION LOAD-BEARING TWICE ─────────────────
+    //
+    // By the time this runs, the posting is ALSO unlisted: the "Private link
+    // only" badge asserted above is proof the link was minted, which happens
+    // automatically on the Jobs Posted render. So this line now catches two
+    // distinct regressions that look identical from here:
+    //
+    //   1. the RLS member clause being dropped (0027), as before; and
+    //   2. a listing surface excluding unlisted postings UNCONDITIONALLY
+    //      rather than "except my own org" (0107).
+    //
+    // (2) is not hypothetical — it is the bug this test caught. The first
+    // draft of 0107 put a flat `.is("unlisted_at", null)` on the feed, and
+    // this assertion is what failed. Left as one assertion rather than split,
+    // because the property being defended is single and is the employer's:
+    // a job I posted does not vanish from my own feed for reasons I cannot
+    // see. The two mechanisms are just the two ways to break it.
     await authedPage.goto("/jobs");
     await expect(
       authedPage.getByText("E2E Employer Backend Engineer").first(),
-      "an org member should still see their own posting — 0027's member clause",
+      "an org member should still see their own posting — 0027's member clause, and 0107's own-org exception",
     ).toBeVisible();
 
     // ---- Editing round-trips ----------------------------------------------
