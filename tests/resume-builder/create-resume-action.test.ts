@@ -174,15 +174,6 @@ beforeAll(async () => {
   if (freeErr || !free) throw new Error("No free template seeded — run `npm run seed`.");
   freeTemplateId = free.id;
 
-  const { data: premium, error: premiumErr } = await admin
-    .from("resume_templates")
-    .select("id")
-    .eq("is_premium", true)
-    .limit(1)
-    .single();
-  if (premiumErr || !premium) throw new Error("No premium template seeded — run `npm run seed`.");
-  premiumTemplateId = premium.id;
-
   // Business (no dedicated persona -> fallback), Engineering and NGO &
   // Development (dedicated personas), Technology/`terminal` (a SECOND
   // no-dedicated-persona slug, to prove the fallback generalizes past
@@ -195,6 +186,30 @@ beforeAll(async () => {
   sitePlanTemplateId = await templateIdBySlug("site-plan");
   rigReportTemplateId = await templateIdBySlug("rig-report");
   productTechTemplateId = await templateIdBySlug("product-tech");
+
+  // Picked AFTER the three persona-dedicated premium slugs above, and
+  // explicitly excluding their ids. This describe block's own `afterEach`
+  // deletes `premiumTemplateId`'s unlock row after every test (so the
+  // "not weakened by any start state" gating tests stay independent of
+  // each other) — an unordered "any premium template" pick can silently
+  // land on `site-plan`/`rig-report`/`product-tech` now that the free-tier
+  // cut (migration 0110) moved them into the premium pool alongside
+  // everything else, wiping out their `beforeAll`-established unlock out
+  // from under a persona-resolution test that runs later in the same file.
+  // Caught live: CI failed exactly this way on "BATCH 2: product-tech
+  // seeds its own new software-engineer persona" once #280 (the free-tier
+  // cut) and #281 (the layout retune, which added this reservation
+  // pattern for the other two) were both on `main` together — neither PR's
+  // own branch could have seen this, since each only had its own change.
+  const reservedPremiumIds = new Set([sitePlanTemplateId, rigReportTemplateId, productTechTemplateId]);
+  const { data: premiumRows, error: premiumErr } = await admin
+    .from("resume_templates")
+    .select("id")
+    .eq("is_premium", true);
+  if (premiumErr) throw new Error(`Could not list premium templates: ${premiumErr.message}`);
+  const premium = premiumRows?.find((row) => !reservedPremiumIds.has(row.id));
+  if (!premium) throw new Error("No premium template seeded that isn't reserved by another fixture — run `npm run seed`.");
+  premiumTemplateId = premium.id;
 }, 60_000);
 
 afterEach(async () => {
