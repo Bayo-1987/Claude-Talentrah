@@ -1,4 +1,30 @@
--- 0103 — resume_templates.ats_safe, and the first real structure_schema row.
+-- 0104 — resume_templates.ats_safe, and the first real structure_schema row.
+--
+-- ---------------------------------------------------------------------------
+-- RENAMED FROM 0103 AFTER IT WAS APPLIED. The applied name does not match.
+-- ---------------------------------------------------------------------------
+--
+-- This shipped as `0103_resume_template_ats_safety.sql` and collided with
+-- `0103_people_list_permission.sql`, which landed on main from a separate PR
+-- (#268) merged while this branch was still in flight. Renumbered to 0104 so
+-- the directory reads in one order again; 0103_people_list_permission kept
+-- its number since it was already merged to main first.
+--
+-- The rename came AFTER the apply to CI, so what is recorded server-side
+-- still says 0103 and always will:
+--
+--     CI   dozaffzgqkbarxtlclsj   version 20260907083448   name 0103_resume_template_ats_safety
+--
+-- Not applied to production — this PR was still under review at rename time.
+--
+-- That CI mismatch is cosmetic and deliberate. Supabase keys schema_migrations
+-- on `version`, the timestamp — not on the NNNN_ prefix — so nothing is
+-- ambiguous, double-applied, or pending. Same precedent as 0061's own rename
+-- after colliding with 0060_admin_identity.
+--
+-- DO NOT re-apply this file to "fix" the CI name. It would either no-op or
+-- fail on the existing objects, and the record it would write is the thing
+-- that is already correct.
 --
 -- Template library PR 2 of 3 (layout-skeleton + style-token system —
 -- src/components/resume-builder/skeletons/). Two things land here:
