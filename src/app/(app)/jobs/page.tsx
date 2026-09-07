@@ -30,6 +30,7 @@ import {
   type TrackedCountry,
 } from "@/lib/jobs/country";
 import { recommendedRankingKey } from "@/lib/jobs/ranking";
+import { getViewerOrganizationIds } from "@/lib/employer/membership";
 import { logCountryDefaultEvent, type CountryState } from "@/lib/jobs/country-events";
 
 export const metadata = { title: "Jobs — Talentrah" };
@@ -140,10 +141,31 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
   const FEED_COLUMNS =
     "id, source_type, organization_id, title, company_name, company_logo_url, location, work_type, employment_type, seniority, years_experience_min, description:description_preview, structured_jd, external_url, external_source, status, posted_at, last_checked_at, dedup_fingerprint, created_at, expires_at, removed_at, removal_reason, removed_by, salary_min, salary_max, salary_currency, salary_unit";
 
-  function postingsQuery(savedIds?: string[]) {
+  function postingsQuery(viewerOrgIds: string[], savedIds?: string[]) {
     let query = supabase
       .from("job_postings")
       .select(FEED_COLUMNS)
+      /*
+       * 0107: an unlisted posting is reachable by direct link only, so it is
+       * excluded from this feed — EXCEPT for the org that posted it.
+       *
+       * The unconditional `.is("unlisted_at", null)` this replaces was wrong,
+       * and wrong in a way an employer could not have diagnosed. Minting is
+       * automatic: it happens on the next Jobs Posted render, with no action
+       * from them and nothing on screen tying it to this feed. So the job they
+       * had just posted would disappear from their own seeker feed minutes
+       * later, for a reason invisible from either page. 0027's member clause
+       * exists precisely so an employer keeps sight of their own postings; a
+       * page-level filter that overrides it re-opens that hole above the
+       * database rather than in it.
+       *
+       * `.or()` is a group ANDed with every other filter here, so status,
+       * freshness and the rest still apply to a member's own rows — being the
+       * poster widens WHICH postings are eligible, never which rules apply.
+       *
+       * With no membership this is exactly `unlisted_at is null`, which is
+       * every seeker, so the common path is unchanged.
+       */
       .eq("status", "open")
       // The ambient 30-day floor always applies (src/lib/jobs/freshness.ts),
       // to every tab including Saved — this page is the discovery feed, and
@@ -154,6 +176,9 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
       // feed hides. `posted` narrows the floor further when the reader
       // picked a shorter window.
       .gte("posted_at", jobDateFilterSinceISO(posted));
+    query = viewerOrgIds.length
+      ? query.or(`unlisted_at.is.null,organization_id.in.(${viewerOrgIds.join(",")})`)
+      : query.is("unlisted_at", null);
     if (tab === "external") query = query.eq("source_type", "external");
     // .in() with an empty array matches NOTHING, not everything — the empty
     // case is handled by never calling it, so "no filter" stays "no filter".
@@ -181,8 +206,23 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
         )
       : Promise.resolve([]);
 
+  /*
+   * The viewer's own organisations, for the unlisted exclusion above.
+   *
+   * Started here so it runs alongside the resume and applications reads rather
+   * than in front of them; the postings query does then wait on it, which is
+   * one indexed lookup on `organization_members_user_id_idx` — a real cost on
+   * this page, accepted because the alternative is an employer losing sight of
+   * their own posting. It never throws: see getViewerOrganizationIds for why
+   * an error here degrades to today's public behaviour instead of taking the
+   * feed down for every seeker.
+   */
+  const viewerOrgIds = getViewerOrganizationIds(supabase, user.id);
+
   const jobsQuery =
-    tab === "saved" ? savedIds.then((ids) => postingsQuery(ids)) : (async () => postingsQuery())();
+    tab === "saved"
+      ? Promise.all([viewerOrgIds, savedIds]).then(([orgIds, ids]) => postingsQuery(orgIds, ids))
+      : viewerOrgIds.then((orgIds) => postingsQuery(orgIds));
 
   /*
    * STAGE 8 STEP 2 (docs/stage8-match-accuracy.md) — real full-text search,
@@ -252,9 +292,13 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
   // `description_preview` column, only the pre-truncated value aliased as
   // `description`. `closed_at` (0102) is omitted the same way: FEED_COLUMNS
   // filters to `status = 'open'` above, so it would only ever be null here.
+  // `unlisted_at` (0107) is omitted for a different reason, and the difference
+  // matters: the feed does NOT exclude unlisted postings entirely — an org
+  // member sees their own. The column is omitted because FEED_COLUMNS never
+  // selects it and no card renders it, not because it is always null.
   type FeedJobPosting = Omit<
     Tables<"job_postings">,
-    "description_preview" | "search_vector" | "closed_at"
+    "description_preview" | "search_vector" | "closed_at" | "unlisted_at"
   >;
   const matchingFilters: FeedJobPosting[] = jobsRaw ?? [];
 

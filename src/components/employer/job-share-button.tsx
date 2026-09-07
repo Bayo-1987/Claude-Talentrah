@@ -85,8 +85,20 @@ export function EmployerJobShareButton({
           aria-label={`Share ${jobTitle}`}
         >
           <span className="mb-[10px] block text-[10.5px] font-bold tracking-[0.1em] text-rust uppercase">
-            Share this listing
+            {visibility === "unlisted" ? "Share this private link" : "Share this listing"}
           </span>
+          {/*
+            NAMED, not implied. An unlisted job is reachable by anyone holding
+            the link and appears in no feed, search result or sitemap — an
+            employer who thinks they are sharing a public listing would make a
+            different decision about who to send it to than one who knows it is
+            a link that works for whoever receives it.
+          */}
+          {visibility === "unlisted" && (
+            <p className="mb-2.5 font-body text-[12.5px] text-ink-soft">
+              Not listed on the job board yet — this link works for anyone you send it to.
+            </p>
+          )}
           <ShareButtons
             url={url}
             linkedIn
@@ -118,7 +130,7 @@ export function EmployerJobShareInline({
   if (visibility === "unreachable") {
     return (
       <p className="font-body text-[13.5px] text-ink-soft">
-        This job isn&apos;t public yet, so there&apos;s no link to share —{" "}
+        This job isn&apos;t shareable yet, so there&apos;s no link —{" "}
         <Link href="/employer/profile" className="font-semibold text-rust underline underline-offset-2">
           verify your company
         </Link>{" "}
@@ -131,6 +143,12 @@ export function EmployerJobShareInline({
 
   return (
     <div>
+      {visibility === "unlisted" && (
+        <p className="mb-2 font-body text-[13.5px] text-ink">
+          <span className="font-semibold">Private link.</span> This job isn&apos;t on the job
+          board, in search or in the sitemap — but anyone with this link can open it.
+        </p>
+      )}
       <p className="mb-2 font-body text-[13.5px] text-ink-soft break-all">{url}</p>
       <ShareButtons
         url={url}

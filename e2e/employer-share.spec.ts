@@ -169,12 +169,28 @@ test.describe("employer share link", () => {
     const bodyHtml = await authedPage.content();
     expect(bodyHtml).not.toContain(`${origin}/jobs/${unverifiedJob!.id}`);
 
-    // ---- The row itself: "Unlock sharing", not a Share button --------------
+    /*
+     * ---- The row itself, AFTER 0107 -------------------------------------
+     *
+     * This used to assert "Unlock sharing" and no Share button, because an
+     * unverified org had nothing to hand anyone. 0107 changed that on purpose:
+     * a confirmed-email account gets one private link per posting, and the
+     * e2e fixture user's email is confirmed, so this org mints.
+     *
+     * The assertion that must NOT be lost in that change is the one about the
+     * public surface — the posting still reaches no feed, no search and no
+     * sitemap, and the checks above for that are untouched. What is gone is
+     * only the claim that the employer is offered nothing, which is no longer
+     * the product.
+     */
     await authedPage.goto("/employer/jobs");
     await expect(
-      authedPage.getByRole("link", { name: "Unlock sharing" }),
-      "an unverified org's row must offer a way forward, not a dead share button",
+      authedPage.getByText("Private link only"),
+      "an unverified org that can mint should be told it has a private link",
     ).toBeVisible();
-    await expect(authedPage.getByRole("button", { name: "Share" })).toHaveCount(0);
+    await expect(
+      authedPage.getByRole("button", { name: "Share" }),
+      "the share affordance is real now, not a dead link to verification",
+    ).toBeVisible();
   });
 });

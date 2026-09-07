@@ -48,7 +48,7 @@ const PAGE_LIMIT = 30;
  * identical FEED_COLUMNS for the fuller explanation and why this needs to
  * be one string literal, not a concatenated or externally-typed one.
  */
-type LandingJobPosting = Omit<Tables<"job_postings">, "description_preview" | "search_vector">;
+type LandingJobPosting = Omit<Tables<"job_postings">, "description_preview" | "search_vector" | "unlisted_at">;
 const JOB_LANDING_COLUMNS =
   "id, source_type, organization_id, title, company_name, company_logo_url, location, work_type, employment_type, seniority, years_experience_min, description:description_preview, structured_jd, external_url, external_source, status, posted_at, last_checked_at, dedup_fingerprint, created_at, expires_at, removed_at, removal_reason, removed_by, salary_min, salary_max, salary_currency, salary_unit";
 
@@ -68,6 +68,8 @@ export async function loadRemoteJobs(
   const { count, error: countError } = await supabase
     .from("job_postings")
     .select("id", { count: "exact", head: true })
+    // 0107: never list an unlisted posting.
+    .is("unlisted_at", null)
     .eq("status", "open")
     .eq("work_type", "remote")
     .gte("posted_at", floor);
@@ -76,6 +78,8 @@ export async function loadRemoteJobs(
   const { data, error } = await supabase
     .from("job_postings")
     .select(JOB_LANDING_COLUMNS)
+    // 0107: never list an unlisted posting.
+    .is("unlisted_at", null)
     .eq("status", "open")
     .eq("work_type", "remote")
     .gte("posted_at", floor)
@@ -112,6 +116,8 @@ export async function loadCountryRemoteJobs(
   const { count, error: countError } = await supabase
     .from("job_postings")
     .select("id", { count: "exact", head: true })
+    // 0107: never list an unlisted posting.
+    .is("unlisted_at", null)
     .eq("status", "open")
     .eq("work_type", "remote")
     .or(orFilter)
@@ -121,6 +127,8 @@ export async function loadCountryRemoteJobs(
   const { data, error } = await supabase
     .from("job_postings")
     .select(JOB_LANDING_COLUMNS)
+    // 0107: never list an unlisted posting.
+    .is("unlisted_at", null)
     .eq("status", "open")
     .eq("work_type", "remote")
     .or(orFilter)
@@ -149,6 +157,8 @@ export async function loadCityJobs(
   const { count, error: countError } = await supabase
     .from("job_postings")
     .select("id", { count: "exact", head: true })
+    // 0107: never list an unlisted posting.
+    .is("unlisted_at", null)
     .eq("status", "open")
     .or(orFilter)
     .gte("posted_at", floor);
@@ -157,6 +167,8 @@ export async function loadCityJobs(
   const { data, error } = await supabase
     .from("job_postings")
     .select(JOB_LANDING_COLUMNS)
+    // 0107: never list an unlisted posting.
+    .is("unlisted_at", null)
     .eq("status", "open")
     .or(orFilter)
     .gte("posted_at", floor)

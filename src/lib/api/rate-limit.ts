@@ -15,6 +15,27 @@ export const RATE_LIMITS = {
   tailoring: { limit: 10, windowSeconds: 60 * 60 },
   /** Parsing is cheap until the LLM fallback fires, which is per-upload. */
   resumeParse: { limit: 20, windowSeconds: 60 * 60 },
+  /*
+   * Private share links minted by an UNVERIFIED org (0107).
+   *
+   * Tighter than the two above, and for a different reason. Those protect
+   * spend — the failure is a bill. This protects the domain's name: every mint
+   * turns an unvetted signup's posting into a live, Talentrah-branded public
+   * URL, and the failure is a spam link carrying our name, which is worse per
+   * event than one wasted model call.
+   *
+   * Five distinct JOBS per day, not five clicks: minting happens once per
+   * posting, so re-viewing a link already minted costs nothing. A real
+   * employer setting up has a handful of roles; five in one day before
+   * verifying is already brisk.
+   *
+   * The window is a fixed UTC-aligned tumbling bucket, not rolling —
+   * `consume_rate_limit` (0038) floors epoch/window. So five at 23:50 and five
+   * more at 00:10 is reachable. Accepted deliberately: it is the same
+   * trade-off already live for both buckets above, and narrowing it means
+   * changing shared infrastructure for one caller.
+   */
+  unlistedLinkMint: { limit: 5, windowSeconds: 60 * 60 * 24 },
 } as const;
 
 export interface RateLimitOutcome {

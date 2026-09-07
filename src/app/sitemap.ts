@@ -94,6 +94,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const { data, error } = await supabase
       .from("job_postings")
       .select("id, posted_at")
+      // 0107: unlisted postings are never in the sitemap.
+      .is("unlisted_at", null)
       .eq("status", "open")
       .gte("posted_at", freshnessFloorISO())
       .order("posted_at", { ascending: false });
@@ -184,6 +186,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         supabase
           .from("job_postings")
           .select("id", { count: "exact", head: true })
+          // 0107: unlisted postings are never in the sitemap.
+          .is("unlisted_at", null)
           .eq("status", "open")
           .eq("work_type", "remote")
           .gte("posted_at", jobFreshnessFloor)
@@ -194,6 +198,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
             supabase
               .from("job_postings")
               .select("id", { count: "exact", head: true })
+              // 0107: unlisted postings are never in the sitemap.
+              .is("unlisted_at", null)
               .eq("status", "open")
               .eq("work_type", "remote")
               .or(countryOrFilter(country))
@@ -207,6 +213,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
             supabase
               .from("job_postings")
               .select("id", { count: "exact", head: true })
+              // 0107: unlisted postings are never in the sitemap.
+              .is("unlisted_at", null)
               .eq("status", "open")
               .or(city.locationPatterns.map((p) => `location.ilike.${p}`).join(","))
               .gte("posted_at", jobFreshnessFloor)
