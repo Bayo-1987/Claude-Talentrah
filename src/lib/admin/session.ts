@@ -59,6 +59,9 @@ export type AdminPermission =
   | "operations"
   | "finance"
   | "people"
+  // 0103. Reading the seeker roster is a different power from looking up one
+  // billing record, so it is a different grant — see that migration's header.
+  | "people_list"
   | "operators";
 
 export interface AdminIdentity {
