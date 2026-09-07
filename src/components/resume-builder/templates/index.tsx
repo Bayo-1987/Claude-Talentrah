@@ -7,6 +7,7 @@ import { CriticalPathTemplate } from "./critical-path";
 import { PublicRecordTemplate } from "./public-record";
 import { PortfolioGridTemplate } from "./portfolio-grid";
 import { PipelineTemplate } from "./pipeline";
+import { CLEAN_PROFESSIONAL_CONFIG } from "../skeletons/configs";
 import type { TemplateProps } from "./shared";
 
 export type { TemplateProps } from "./shared";
@@ -80,4 +81,58 @@ export function TemplateRenderer({
   resume: StructuredResume;
 }) {
   return createElement(getTemplateComponent(slug), { resume });
+}
+
+/**
+ * ATS-safety per slug — Template library PR 2 of 3.
+ *
+ * `true` means: no sidebar, no banded/graphic header, no CSS grid splitting
+ * unrelated sections into side-by-side blocks, standard headings, and text
+ * that extracts from a generated PDF in the same order a human reads it.
+ * This is a real, verified claim, not a description of intent —
+ * `e2e/ats-safety.spec.ts` renders each of the seven
+ * skeletons to an actual PDF and asserts on the actual extracted text order.
+ * The six bespoke (non-skeleton) components below were classified by the
+ * same standard against their real DOM structure, not by skeleton test —
+ * see the reasoning per slug.
+ *
+ * `clean-professional`'s value comes from its own config
+ * (`CLEAN_PROFESSIONAL_CONFIG.atsSafe`, skeletons/configs.ts) rather than
+ * being repeated here, so the two can't quietly drift apart.
+ */
+export const TEMPLATE_ATS_SAFETY: Record<string, boolean> = {
+  "clean-professional": CLEAN_PROFESSIONAL_CONFIG.atsSafe,
+  // Pure single column, centred masthead — Statute's whole design brief is
+  // restraint; nothing is ever placed side-by-side.
+  statute: true,
+  // A `<div className="grid grid-cols-[128px_1fr]">` PER FIELD is a
+  // label:value pair on ONE logical row (e.g. "Position" | "Charge Nurse"),
+  // repeated down a single flowing column — not two unrelated sections
+  // placed beside each other. Reading order label-then-value per row is
+  // exactly how a human reads it too.
+  "public-record": true,
+  // A 2-column CSS grid holds Education and Certifications side by side —
+  // two DIFFERENT sections in the same visual row, the exact shape that
+  // risks interleaved extraction order.
+  clinical: false,
+  "critical-path": false,
+  // Projects render as a 2-column masonry grid, and the footer is a 3-column
+  // grid — both are real multi-column layouts, not incidental styling.
+  "portfolio-grid": false,
+  // The footer places Education and Certifications in a `flex flex-wrap`
+  // row — two different sections side by side whenever there's room.
+  pipeline: false,
+  // The four "known unstyled free" slugs (template-registry.test.ts) render
+  // as `clean-professional` today — literally the same DOM — so their real,
+  // current output is exactly as ATS-safe as clean-professional's.
+  "structured-admin": true,
+  "product-tech": true,
+  "field-notes": true,
+  ledger: true,
+};
+
+/** Same fallback shape as `getTemplateComponent`: an unclassified/unknown slug is judged by whatever the fallback template actually renders. */
+export function getTemplateAtsSafety(slug: string | null | undefined): boolean {
+  if (!slug) return TEMPLATE_ATS_SAFETY[DEFAULT_TEMPLATE_SLUG];
+  return TEMPLATE_ATS_SAFETY[slug] ?? TEMPLATE_ATS_SAFETY[DEFAULT_TEMPLATE_SLUG];
 }

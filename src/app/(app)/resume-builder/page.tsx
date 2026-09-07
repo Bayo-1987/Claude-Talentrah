@@ -11,7 +11,7 @@ export const metadata = { title: "Resume Builder — Talentrah" };
 
 const PAGE_SIZE = 6;
 
-type SearchParams = Promise<{ category?: string; q?: string; page?: string }>;
+type SearchParams = Promise<{ category?: string; q?: string; page?: string; atsSafe?: string }>;
 
 function buildHref(base: Record<string, string | undefined>, changes: Record<string, string | undefined>) {
   const params = new URLSearchParams();
@@ -29,6 +29,7 @@ export default async function ResumeBuilderPage({ searchParams }: { searchParams
   const params = await searchParams;
   const category = params.category ?? "";
   const q = (params.q ?? "").trim();
+  const atsSafeOnly = params.atsSafe === "1";
   const page = Math.max(1, Number(params.page) || 1);
   const from = (page - 1) * PAGE_SIZE;
   const to = from + PAGE_SIZE - 1;
@@ -41,6 +42,10 @@ export default async function ResumeBuilderPage({ searchParams }: { searchParams
     .range(from, to);
   if (category) templatesQuery = templatesQuery.eq("industry_category", category);
   if (q) templatesQuery = templatesQuery.ilike("name", `%${q}%`);
+  // ATS-safe filter (PR brief) — a real column check, not a client-side
+  // filter over the page's own rows, so it filters the whole catalog rather
+  // than just whatever page you happened to be on.
+  if (atsSafeOnly) templatesQuery = templatesQuery.eq("ats_safe", true);
 
   const [
     { data: resumes },
@@ -90,7 +95,7 @@ export default async function ResumeBuilderPage({ searchParams }: { searchParams
   const categories = Array.from(new Set((categoryRows ?? []).map((r) => r.industry_category))).sort();
   const unlockedIds = new Set((unlocks ?? []).map((u) => u.template_id));
   const totalPages = Math.max(1, Math.ceil((count ?? 0) / PAGE_SIZE));
-  const base = { category: category || undefined, q: q || undefined };
+  const base = { category: category || undefined, q: q || undefined, atsSafe: atsSafeOnly ? "1" : undefined };
 
   return (
     <div className="flex flex-col gap-10">
@@ -155,8 +160,9 @@ export default async function ResumeBuilderPage({ searchParams }: { searchParams
           ))}
         </div>
 
-        <form method="GET" action="/resume-builder" className="flex items-center gap-2">
+        <form method="GET" action="/resume-builder" className="flex flex-wrap items-center gap-2">
           {category && <input type="hidden" name="category" value={category} />}
+          {atsSafeOnly && <input type="hidden" name="atsSafe" value="1" />}
           <input
             type="text"
             name="q"
@@ -173,6 +179,23 @@ export default async function ResumeBuilderPage({ searchParams }: { searchParams
             </Link>
           )}
         </form>
+
+        {/*
+          A real filter over the whole catalog (see the `.eq("ats_safe", true)`
+          query above), not just a label on each card — someone who needs an
+          ATS-safe resume specifically shouldn't have to read all eleven cards
+          to find the three that qualify.
+        */}
+        <Link
+          href={buildHref(base, { atsSafe: atsSafeOnly ? undefined : "1", page: undefined })}
+          className={
+            atsSafeOnly
+              ? "flex min-h-10 w-fit items-center gap-2 border-[1.5px] border-ink bg-ink px-3 font-body text-[13px] font-semibold text-paper no-underline"
+              : "flex min-h-10 w-fit items-center gap-2 border-[1.5px] border-ink bg-card px-3 font-body text-[13px] font-semibold text-ink no-underline hover:border-rust hover:text-rust"
+          }
+        >
+          ATS-safe only
+        </Link>
 
         {(templates ?? []).length === 0 ? (
           <p className="py-8 text-center text-[14.5px] text-ink-soft">

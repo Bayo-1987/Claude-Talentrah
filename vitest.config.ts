@@ -48,6 +48,15 @@ export default defineConfig({
     alias: {
       "@": path.resolve(__dirname, "./src"),
       "server-only": path.resolve(__dirname, "./tests/stubs/server-only.ts"),
+      /*
+       * `next/font/google` needs Next's own SWC plugin to do anything real;
+       * under vitest's plain Node/Vite pipeline the actual package throws
+       * (`TypeError: Poppins is not a function`) the moment a component that
+       * imports it — anything under skeletons/, transitively via fonts.ts —
+       * is rendered. See tests/stubs/next-font-google.ts for what the stub
+       * returns and why the exact values don't matter for a test.
+       */
+      "next/font/google": path.resolve(__dirname, "./tests/stubs/next-font-google.ts"),
     },
   },
 });

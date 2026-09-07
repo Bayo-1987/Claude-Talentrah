@@ -36,6 +36,21 @@
 
   --font-display: var(--font-newsreader), Georgia, "Times New Roman", serif;
   --font-body: var(--font-source-sans), Georgia, serif;
+
+  /*
+   * Template library PR 2 of 3 — the four extra typefaces the resume-builder
+   * skeleton system draws from (src/components/resume-builder/skeletons/
+   * fonts.ts). Aliased the same way as --font-display/--font-body above: the
+   * raw next/font CSS variable is only ever in scope on the skeleton subtree
+   * that actually uses it (see fontScopeClassName in token-classes.ts), so
+   * these fall back to a system font stack rather than Newsreader/Source Sans
+   * when that variable isn't present — never silently rendering as the app's
+   * own fonts instead of the chosen typeface.
+   */
+  --font-geometric: var(--font-poppins), Arial, Helvetica, sans-serif;
+  --font-humanist: var(--font-worksans), Arial, Helvetica, sans-serif;
+  --font-serif-modern: var(--font-lora), Georgia, "Times New Roman", serif;
+  --font-condensed: var(--font-barlow-condensed), "Arial Narrow", sans-serif;
 }
 
 /*
