@@ -1,5 +1,4 @@
-import { getExperienceText } from "@/lib/resume/types";
-import { contactLine, dateRange, type TemplateProps } from "./shared";
+import { contactLine, dateRange, type TemplateProps } from "@/components/resume-builder/templates/shared";
 
 /**
  * Portfolio Grid — Design.
@@ -55,27 +54,24 @@ export function PortfolioGridTemplate({ resume }: TemplateProps) {
             Experience
           </h2>
           <div className="mt-3 flex flex-col gap-2.5">
-            {experience.map((entry, i) => {
-              const text = getExperienceText(entry);
-              return (
-                <div key={i} className="grid grid-cols-[92px_1fr] gap-3">
-                  <span className="font-body text-[11.5px] leading-[1.5] text-ink-soft">
-                    {dateRange(entry.startDate, entry.endDate)}
-                  </span>
-                  <div>
-                    <span className="font-body text-[14px] font-semibold">{entry.title}</span>
-                    {entry.company && (
-                      <span className="font-body text-[13.5px] text-ink-soft"> · {entry.company}</span>
-                    )}
-                    {text && (
-                      <p className="mt-0.5 font-body text-[13px] leading-snug text-ink-soft">
-                        {text}
-                      </p>
-                    )}
-                  </div>
+            {experience.map((entry, i) => (
+              <div key={i} className="grid grid-cols-[92px_1fr] gap-3">
+                <span className="font-body text-[11.5px] leading-[1.5] text-ink-soft">
+                  {dateRange(entry.startDate, entry.endDate)}
+                </span>
+                <div>
+                  <span className="font-body text-[14px] font-semibold">{entry.title}</span>
+                  {entry.company && (
+                    <span className="font-body text-[13.5px] text-ink-soft"> · {entry.company}</span>
+                  )}
+                  {entry.description && (
+                    <p className="mt-0.5 font-body text-[13px] leading-snug text-ink-soft">
+                      {entry.description}
+                    </p>
+                  )}
                 </div>
-              );
-            })}
+              </div>
+            ))}
           </div>
         </section>
       )}

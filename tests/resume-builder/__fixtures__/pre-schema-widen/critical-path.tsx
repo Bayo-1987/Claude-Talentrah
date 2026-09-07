@@ -1,5 +1,4 @@
-import { getExperienceText } from "@/lib/resume/types";
-import { contactLine, dateRange, type TemplateProps } from "./shared";
+import { contactLine, dateRange, type TemplateProps } from "@/components/resume-builder/templates/shared";
 
 /**
  * Critical Path — Project Management.
@@ -51,28 +50,25 @@ export function CriticalPathTemplate({ resume }: TemplateProps) {
             Delivery Experience
           </h2>
           <div className="mt-3 flex flex-col gap-4 border-l-2 border-rust pl-4">
-            {experience.map((entry, i) => {
-              const text = getExperienceText(entry);
-              return (
-                <div key={i}>
-                  <div className="font-body text-[11.5px] uppercase tracking-[0.08em] text-ink-soft">
-                    {dateRange(entry.startDate, entry.endDate)}
-                  </div>
-                  <div className="font-body text-[15px] font-semibold leading-snug">
-                    {entry.title}
-                    {entry.company && <span className="font-normal"> · {entry.company}</span>}
-                  </div>
-                  {entry.location && (
-                    <div className="font-body text-[12px] text-ink-soft">{entry.location}</div>
-                  )}
-                  {text && (
-                    <p className="mt-1 font-body text-[13.5px] leading-relaxed text-ink-soft">
-                      {text}
-                    </p>
-                  )}
+            {experience.map((entry, i) => (
+              <div key={i}>
+                <div className="font-body text-[11.5px] uppercase tracking-[0.08em] text-ink-soft">
+                  {dateRange(entry.startDate, entry.endDate)}
                 </div>
-              );
-            })}
+                <div className="font-body text-[15px] font-semibold leading-snug">
+                  {entry.title}
+                  {entry.company && <span className="font-normal"> · {entry.company}</span>}
+                </div>
+                {entry.location && (
+                  <div className="font-body text-[12px] text-ink-soft">{entry.location}</div>
+                )}
+                {entry.description && (
+                  <p className="mt-1 font-body text-[13.5px] leading-relaxed text-ink-soft">
+                    {entry.description}
+                  </p>
+                )}
+              </div>
+            ))}
           </div>
         </section>
       )}

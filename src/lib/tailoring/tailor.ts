@@ -154,6 +154,48 @@ const TAILOR_RESPONSE_SCHEMA = {
   required: ["structuredJd", "gapAnalysis", "tailoredResume", "atsScore", "atsFixes", "proposedAdditions"],
 };
 
+/**
+ * Carries every field this PR's schema widening added onto the tailored
+ * resume, UNCHANGED from the base resume — this run's LLM schema was not
+ * touched to ask the model to rewrite them, so nothing in `input.tailoredResume`
+ * or `EMPTY_RESUME` provides them, and without this they would simply
+ * vanish the moment a resume with any of them went through tailoring.
+ * "Preserve, don't (yet) tailor" is deliberate scope for this PR — see the
+ * template library milestone notes.
+ *
+ * Per-entry `bullets` needs its own pass rather than a flat spread, because
+ * it lives on `experience[i]`, not at the top level, and the tailored
+ * experience array is model output — same content, same order in the
+ * overwhelming common case, but matched by title+company (the same
+ * matching `groundExperienceDescriptions` already uses) rather than assumed
+ * to line up index-for-index.
+ */
+function preserveNewFields(
+  tailoredResume: StructuredResume,
+  baseResume: StructuredResume,
+): StructuredResume {
+  const sameRole = (title: string, company: string, base: { title: string; company: string }) =>
+    title.trim().toLowerCase() === base.title.trim().toLowerCase() &&
+    company.trim().toLowerCase() === base.company.trim().toLowerCase();
+
+  const experience = tailoredResume.experience.map((entry) => {
+    const baseEntry = baseResume.experience.find((b) => sameRole(entry.title, entry.company, b));
+    return baseEntry?.bullets ? { ...entry, bullets: baseEntry.bullets } : entry;
+  });
+
+  return {
+    ...tailoredResume,
+    experience,
+    links: baseResume.links,
+    languages: baseResume.languages,
+    awards: baseResume.awards,
+    publications: baseResume.publications,
+    volunteering: baseResume.volunteering,
+    customSections: baseResume.customSections,
+    referencesOnRequest: baseResume.referencesOnRequest,
+  };
+}
+
 interface RawProposedAddition {
   section: "skills" | "experience";
   experienceIndex?: number;
@@ -281,11 +323,17 @@ export async function tailorResumeToJob(
    * the resume automatically" true regardless of model behaviour, not just
    * requested of it. See grounding.ts's own header for the full reasoning.
    */
-  const { resume: groundedResume, additions: backstopAdditions } = applyGroundingBackstop(
+  const { resume: backstopResume, additions: backstopAdditions } = applyGroundingBackstop(
     tailoredResume,
     baseResume,
     input.structuredJd ?? { skills: [], keywords: [], responsibilities: [] },
   );
+
+  // See preserveNewFields' own header: this run's tailoring schema doesn't
+  // ask the model about any of the fields added while widening the resume
+  // schema, so they carry over from the base resume unchanged rather than
+  // disappearing.
+  const groundedResume = preserveNewFields(backstopResume, baseResume);
 
   let modelAdditionCounter = 0;
   const modelAdditions: ProposedAddition[] = (input.proposedAdditions ?? [])

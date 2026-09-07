@@ -1,5 +1,4 @@
-import { getExperienceText } from "@/lib/resume/types";
-import { contactLine, dateRange, type TemplateProps } from "./shared";
+import { contactLine, dateRange, type TemplateProps } from "@/components/resume-builder/templates/shared";
 
 /**
  * Public Record — Government & Public Sector.
@@ -54,22 +53,19 @@ export function PublicRecordTemplate({ resume }: TemplateProps) {
             Employment History
           </h2>
           <div className="mt-2 flex flex-col gap-4">
-            {experience.map((entry, i) => {
-              const text = getExperienceText(entry);
-              return (
-                <div key={i}>
-                  <Field label="Position">{entry.title || "—"}</Field>
-                  {entry.company && <Field label="Organisation">{entry.company}</Field>}
-                  <Field label="Dates">{dateRange(entry.startDate, entry.endDate) || "—"}</Field>
-                  {entry.location && <Field label="Location">{entry.location}</Field>}
-                  {text && (
-                    <p className="mt-2 font-body text-[13.5px] leading-[1.75] text-ink-soft">
-                      {text}
-                    </p>
-                  )}
-                </div>
-              );
-            })}
+            {experience.map((entry, i) => (
+              <div key={i}>
+                <Field label="Position">{entry.title || "—"}</Field>
+                {entry.company && <Field label="Organisation">{entry.company}</Field>}
+                <Field label="Dates">{dateRange(entry.startDate, entry.endDate) || "—"}</Field>
+                {entry.location && <Field label="Location">{entry.location}</Field>}
+                {entry.description && (
+                  <p className="mt-2 font-body text-[13.5px] leading-[1.75] text-ink-soft">
+                    {entry.description}
+                  </p>
+                )}
+              </div>
+            ))}
           </div>
         </section>
       )}

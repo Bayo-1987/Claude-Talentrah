@@ -1,5 +1,4 @@
-import { getExperienceText } from "@/lib/resume/types";
-import { contactLine, dateRange, type TemplateProps } from "./shared";
+import { contactLine, dateRange, type TemplateProps } from "@/components/resume-builder/templates/shared";
 
 /**
  * Pipeline — Sales & Marketing.
@@ -40,30 +39,27 @@ export function PipelineTemplate({ resume }: TemplateProps) {
             Track Record
           </h2>
           <div className="mt-3 flex flex-col gap-5">
-            {experience.map((entry, i) => {
-              const text = getExperienceText(entry);
-              return (
-                <div key={i}>
-                  <div className="flex items-baseline justify-between gap-4 border-b border-line pb-1">
-                    <span className="font-body text-[15.5px] font-bold">
-                      {entry.title}
-                      {entry.company && <span className="font-normal"> — {entry.company}</span>}
-                    </span>
-                    <span className="flex-shrink-0 font-body text-[12px] text-ink-soft">
-                      {dateRange(entry.startDate, entry.endDate)}
-                    </span>
-                  </div>
-                  {entry.location && (
-                    <div className="mt-0.5 font-body text-[12px] text-ink-soft">{entry.location}</div>
-                  )}
-                  {text && (
-                    <p className="mt-1.5 font-body text-[14px] leading-[1.65] text-ink-soft">
-                      {text}
-                    </p>
-                  )}
+            {experience.map((entry, i) => (
+              <div key={i}>
+                <div className="flex items-baseline justify-between gap-4 border-b border-line pb-1">
+                  <span className="font-body text-[15.5px] font-bold">
+                    {entry.title}
+                    {entry.company && <span className="font-normal"> — {entry.company}</span>}
+                  </span>
+                  <span className="flex-shrink-0 font-body text-[12px] text-ink-soft">
+                    {dateRange(entry.startDate, entry.endDate)}
+                  </span>
                 </div>
-              );
-            })}
+                {entry.location && (
+                  <div className="mt-0.5 font-body text-[12px] text-ink-soft">{entry.location}</div>
+                )}
+                {entry.description && (
+                  <p className="mt-1.5 font-body text-[14px] leading-[1.65] text-ink-soft">
+                    {entry.description}
+                  </p>
+                )}
+              </div>
+            ))}
           </div>
         </section>
       )}

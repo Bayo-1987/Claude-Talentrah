@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { EyebrowLabel, MatchTierBadge, buttonClasses } from "@/components/ui";
 import type { GapAnalysisItem, StructuredJdForTailoring } from "@/lib/tailoring/types";
-import type { StructuredResume } from "@/lib/resume/types";
+import { getExperienceText, type StructuredResume } from "@/lib/resume/types";
 
 export interface JdDemoResultData {
   structuredJd: StructuredJdForTailoring;
@@ -32,7 +32,7 @@ export function JdDemoResult({
   const missing = data.gapAnalysis.filter((g) => g.status === "missing");
   const excerpt =
     data.tailoredResume.summary?.trim() ||
-    data.tailoredResume.experience[0]?.description?.trim() ||
+    (data.tailoredResume.experience[0] && getExperienceText(data.tailoredResume.experience[0])?.trim()) ||
     "";
 
   return (

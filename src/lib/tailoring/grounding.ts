@@ -95,14 +95,32 @@ function containsAsWords(haystack: string, needle: string): boolean {
   return new RegExp(`${leading}${escaped}${trailing}`, "i").test(haystack);
 }
 
-/** Every word the candidate has actually written, anywhere on their resume, lowercased. */
+/**
+ * Every word the candidate has actually written, anywhere on their resume,
+ * lowercased.
+ *
+ * INCLUDES `bullets`, NOT JUST `description` — an experience entry now
+ * carries its narrative in either field (see `getExperienceText` in
+ * resume/types.ts), and this vocabulary is what decides whether a tailored
+ * skill or phrase counts as the candidate's own. Missing `bullets` here
+ * would make this backstop wrongly flag genuinely-grounded content as
+ * fabricated the moment a resume's roles are written as bullets instead of
+ * a paragraph — the exact false positive this module's own header warns is
+ * worse to under-flag than to over-flag, so it can't be left out.
+ */
 function baseResumeVocabulary(baseResume: StructuredResume): string {
   return [
     baseResume.summary ?? "",
     ...baseResume.skills,
     ...baseResume.projects,
     ...baseResume.certifications,
-    ...baseResume.experience.flatMap((e) => [e.title, e.company, e.location ?? "", e.description ?? ""]),
+    ...baseResume.experience.flatMap((e) => [
+      e.title,
+      e.company,
+      e.location ?? "",
+      e.description ?? "",
+      ...(e.bullets ?? []),
+    ]),
     ...baseResume.education.flatMap((e) => [e.school, e.degree ?? "", e.field ?? ""]),
   ]
     .join(" \n ")

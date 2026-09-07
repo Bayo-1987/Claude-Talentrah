@@ -11,6 +11,10 @@ import type {
   StructuredResume,
   ResumeExperienceEntry,
   ResumeEducationEntry,
+  ResumeLink,
+  ResumeLanguage,
+  ResumeVolunteeringEntry,
+  ResumeCustomSection,
 } from "@/lib/resume/types";
 
 function moveItem<T>(arr: T[], from: number, to: number): T[] {
@@ -173,6 +177,33 @@ export function ResumeEditor({ resumeId, initialTitle, initialContent, templateS
     const next = [...content.education];
     next[index] = { ...next[index], ...patch };
     update("education", next);
+  };
+
+  // Links/languages/volunteering/customSections are all OPTIONAL, so unlike
+  // experience/education there's no guaranteed array to spread from —
+  // `content.<field> ?? []` is the "nothing added yet" case throughout.
+  const updateLink = (index: number, patch: Partial<ResumeLink>) => {
+    const next = [...(content.links ?? [])];
+    next[index] = { ...next[index], ...patch };
+    update("links", next);
+  };
+
+  const updateLanguage = (index: number, patch: Partial<ResumeLanguage>) => {
+    const next = [...(content.languages ?? [])];
+    next[index] = { ...next[index], ...patch };
+    update("languages", next);
+  };
+
+  const updateVolunteering = (index: number, patch: Partial<ResumeVolunteeringEntry>) => {
+    const next = [...(content.volunteering ?? [])];
+    next[index] = { ...next[index], ...patch };
+    update("volunteering", next);
+  };
+
+  const updateCustomSection = (index: number, patch: Partial<ResumeCustomSection>) => {
+    const next = [...(content.customSections ?? [])];
+    next[index] = { ...next[index], ...patch };
+    update("customSections", next);
   };
 
   return (
@@ -386,6 +417,275 @@ export function ResumeEditor({ resumeId, initialTitle, initialContent, templateS
         />
         {flaggedPaths.has("certifications") && <ExampleFlagNotice text="Still the example certifications list." />}
       </section>
+
+      {/*
+        More sections — links, languages, awards, publications, volunteering,
+        custom sections, references-on-request. COLLAPSED BY DEFAULT (no
+        `open` attribute): none of these existed before this field set did,
+        and a user who wants none of them should see a form no longer than
+        it was before — the reason this uses <details> rather than a section
+        that's simply always rendered. Nothing here is required, and every
+        field stays absent (not an empty placeholder) until actually filled
+        in, matching the "absent means unused" convention the rest of this
+        schema follows.
+      */}
+      <details className="group border-t border-line pt-5">
+        <summary className="flex cursor-pointer list-none items-center gap-2 text-[13.5px] font-semibold text-ink-soft marker:content-none [&::-webkit-details-marker]:hidden">
+          <span aria-hidden="true" className="inline-block transition-transform group-open:rotate-90">
+            ›
+          </span>
+          More sections
+          <span className="font-normal text-ink-soft/70">
+            — links, languages, awards, publications, volunteering, custom
+          </span>
+        </summary>
+
+        <div className="mt-5 flex flex-col gap-8">
+          {/* Links */}
+          <section className="flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <EyebrowLabel size="sm">Links</EyebrowLabel>
+              <button
+                type="button"
+                onClick={() => update("links", [...(content.links ?? []), { label: "", url: "" }])}
+                className="text-[13px] font-semibold underline underline-offset-2"
+              >
+                + Add link
+              </button>
+            </div>
+            <div className="flex flex-col gap-3">
+              {(content.links ?? []).map((link, i) => (
+                <div key={i} className="flex items-start gap-3">
+                  <div className="grid flex-1 grid-cols-2 gap-3">
+                    <TextField
+                      id={`links-${i}-label`}
+                      label="Label"
+                      value={link.label}
+                      onChange={(e) => updateLink(i, { label: e.target.value })}
+                      placeholder="Portfolio"
+                    />
+                    <TextField
+                      id={`links-${i}-url`}
+                      label="URL"
+                      value={link.url}
+                      onChange={(e) => updateLink(i, { url: e.target.value })}
+                      placeholder="https://…"
+                    />
+                  </div>
+                  <RemoveControl
+                    onRemove={() => update("links", (content.links ?? []).filter((_, j) => j !== i))}
+                  />
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* Languages */}
+          <section className="flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <EyebrowLabel size="sm">Languages</EyebrowLabel>
+              <button
+                type="button"
+                onClick={() => update("languages", [...(content.languages ?? []), { name: "", level: "" }])}
+                className="text-[13px] font-semibold underline underline-offset-2"
+              >
+                + Add language
+              </button>
+            </div>
+            <div className="flex flex-col gap-3">
+              {(content.languages ?? []).map((lang, i) => (
+                <div key={i} className="flex items-start gap-3">
+                  <div className="grid flex-1 grid-cols-2 gap-3">
+                    <TextField
+                      id={`languages-${i}-name`}
+                      label="Language"
+                      value={lang.name}
+                      onChange={(e) => updateLanguage(i, { name: e.target.value })}
+                    />
+                    <TextField
+                      id={`languages-${i}-level`}
+                      label="Level"
+                      value={lang.level ?? ""}
+                      onChange={(e) => updateLanguage(i, { level: e.target.value })}
+                      placeholder="Fluent"
+                    />
+                  </div>
+                  <RemoveControl
+                    onRemove={() =>
+                      update("languages", (content.languages ?? []).filter((_, j) => j !== i))
+                    }
+                  />
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* Awards */}
+          <section className="flex flex-col gap-2">
+            <EyebrowLabel size="sm">Awards</EyebrowLabel>
+            <textarea
+              id="awards-field"
+              value={(content.awards ?? []).join("\n")}
+              onChange={(e) =>
+                update("awards", e.target.value.split("\n").map((s) => s.trim()).filter(Boolean))
+              }
+              rows={2}
+              className="border-[1.5px] border-ink bg-card p-3 font-body text-[14.5px] outline-none focus:border-rust"
+              placeholder="One award per line"
+            />
+          </section>
+
+          {/* Publications */}
+          <section className="flex flex-col gap-2">
+            <EyebrowLabel size="sm">Publications</EyebrowLabel>
+            <textarea
+              id="publications-field"
+              value={(content.publications ?? []).join("\n")}
+              onChange={(e) =>
+                update("publications", e.target.value.split("\n").map((s) => s.trim()).filter(Boolean))
+              }
+              rows={2}
+              className="border-[1.5px] border-ink bg-card p-3 font-body text-[14.5px] outline-none focus:border-rust"
+              placeholder="One publication per line"
+            />
+          </section>
+
+          {/* Volunteering */}
+          <section className="flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <EyebrowLabel size="sm">Volunteering</EyebrowLabel>
+              <button
+                type="button"
+                onClick={() =>
+                  update("volunteering", [
+                    ...(content.volunteering ?? []),
+                    { role: "", organisation: "", startDate: "", endDate: "", description: "" },
+                  ])
+                }
+                className="text-[13px] font-semibold underline underline-offset-2"
+              >
+                + Add volunteering
+              </button>
+            </div>
+            <div className="flex flex-col gap-4">
+              {(content.volunteering ?? []).map((entry, i) => (
+                <BorderedCard key={i} className="flex flex-col gap-3 p-4">
+                  <div className="flex items-start justify-between">
+                    <div className="grid flex-1 grid-cols-2 gap-3">
+                      <TextField
+                        id={`volunteering-${i}-role`}
+                        label="Role"
+                        value={entry.role}
+                        onChange={(e) => updateVolunteering(i, { role: e.target.value })}
+                      />
+                      <TextField
+                        id={`volunteering-${i}-organisation`}
+                        label="Organisation"
+                        value={entry.organisation}
+                        onChange={(e) => updateVolunteering(i, { organisation: e.target.value })}
+                      />
+                      <TextField
+                        id={`volunteering-${i}-start-date`}
+                        label="Start date"
+                        value={entry.startDate ?? ""}
+                        onChange={(e) => updateVolunteering(i, { startDate: e.target.value })}
+                      />
+                      <TextField
+                        id={`volunteering-${i}-end-date`}
+                        label="End date"
+                        value={entry.endDate ?? ""}
+                        onChange={(e) => updateVolunteering(i, { endDate: e.target.value })}
+                      />
+                    </div>
+                    <RemoveControl
+                      onRemove={() =>
+                        update("volunteering", (content.volunteering ?? []).filter((_, j) => j !== i))
+                      }
+                    />
+                  </div>
+                  <textarea
+                    value={entry.description ?? ""}
+                    onChange={(e) => updateVolunteering(i, { description: e.target.value })}
+                    rows={2}
+                    className="border-[1.5px] border-ink bg-card p-3 font-body text-[14px] outline-none focus:border-rust"
+                    placeholder="What you did"
+                  />
+                </BorderedCard>
+              ))}
+            </div>
+          </section>
+
+          {/* Custom sections */}
+          <section className="flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <EyebrowLabel size="sm">Custom sections</EyebrowLabel>
+              <button
+                type="button"
+                onClick={() =>
+                  update("customSections", [...(content.customSections ?? []), { title: "", items: [] }])
+                }
+                className="text-[13px] font-semibold underline underline-offset-2"
+              >
+                + Add section
+              </button>
+            </div>
+            <div className="flex flex-col gap-4">
+              {(content.customSections ?? []).map((section, i) => (
+                <BorderedCard key={i} className="flex flex-col gap-3 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <TextField
+                      id={`custom-section-${i}-title`}
+                      label="Section title"
+                      value={section.title}
+                      onChange={(e) => updateCustomSection(i, { title: e.target.value })}
+                      placeholder="Tech Stack"
+                    />
+                    <RemoveControl
+                      onRemove={() =>
+                        update("customSections", (content.customSections ?? []).filter((_, j) => j !== i))
+                      }
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label
+                      htmlFor={`custom-section-${i}-items`}
+                      className="font-body text-[13px] font-semibold text-ink-soft"
+                    >
+                      Items (one per line)
+                    </label>
+                    <textarea
+                      id={`custom-section-${i}-items`}
+                      value={section.items.join("\n")}
+                      onChange={(e) =>
+                        updateCustomSection(i, {
+                          items: e.target.value.split("\n").map((s) => s.trim()).filter(Boolean),
+                        })
+                      }
+                      rows={3}
+                      className="border-[1.5px] border-ink bg-card p-3 font-body text-[14px] outline-none focus:border-rust"
+                    />
+                  </div>
+                </BorderedCard>
+              ))}
+            </div>
+          </section>
+
+          {/* References */}
+          <section className="flex flex-col gap-2">
+            <EyebrowLabel size="sm">References</EyebrowLabel>
+            <label htmlFor="references-on-request" className="flex items-center gap-2 text-[13.5px] text-ink-soft">
+              <input
+                id="references-on-request"
+                type="checkbox"
+                checked={content.referencesOnRequest ?? false}
+                onChange={(e) => update("referencesOnRequest", e.target.checked)}
+                className="h-4 w-4 accent-ink"
+              />
+              Show &ldquo;References available on request&rdquo; instead of listing them
+            </label>
+          </section>
+        </div>
+      </details>
 
       <div className="flex items-center gap-3">
         <Button onClick={handleSave} disabled={pending}>
