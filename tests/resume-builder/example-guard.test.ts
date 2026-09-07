@@ -42,6 +42,15 @@
  * picking a name, email, phone, or school+degree pair for a fixture here,
  * grep `EXAMPLE_PERSONAS` in `src/lib/resume-builder/preview-sample.ts` and
  * pick something that doesn't match.
+ *
+ * BATCH 2: `EXAMPLE_PERSONAS` grew again, 12 to 22 personas. Followed the
+ * convention above before writing this batch's content: manually grepped
+ * this file's own `school:` fixtures ("Ahmadu Bello University" / "B.Eng." /
+ * Electrical Engineering, "University of Lagos" / "BSc" / Computer Science)
+ * against every new persona's education entries — no collision (the new
+ * Ahmadu Bello University persona uses a different degree, "B.Agric.").
+ * Every `it.each(EXAMPLE_PERSONAS...)` block below again picked up the 10
+ * new personas automatically with no changes needed.
  */
 import { describe, expect, it } from "vitest";
 import { EMPTY_RESUME, type StructuredResume } from "@/lib/resume/types";

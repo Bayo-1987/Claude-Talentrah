@@ -44,6 +44,28 @@ import type { StructuredResume } from "@/lib/resume/types";
  *
  * The original header below, describing `PREVIEW_SAMPLE_RESUME` itself,
  * still applies verbatim to that one constant.
+ *
+ * BATCH 2 (this pass) does two things. First, it finishes the NGO &
+ * Development / Agriculture & Agribusiness grouping batch 1 deliberately
+ * left shared: of that grouping's 6 slugs, `field-mission` keeps
+ * `DEVELOPMENT_PROGRAMME_OFFICER_RESUME` (Ngozi Umeh) unchanged — its
+ * `structure_schema` already has a `volunteering` section matching content
+ * she already has, and "Programme Experience" matches her summary/title
+ * closely — while the other 5 (`impact-report`, `grant-proposal`,
+ * `harvest`, `field-season`, `value-chain`) each get their own new,
+ * register-distinct persona below, matched to that slug's own
+ * `structure_schema` in catalog-configs.ts the same way batch 1 matched EPC
+ * content to layout. Second, it rounds the batch out with 5 more personas
+ * on standalone-category slugs still entirely on the `PREVIEW_SAMPLE_RESUME`
+ * fallback — one slug each from Technology, Banking & Finance, Healthcare,
+ * Legal and Business, chosen from 5 DIFFERENT categories for the same
+ * reason batch 1 picked a whole grouping (Engineering + Construction + Oil
+ * & Gas) rather than one slug each from unrelated categories: proving the
+ * mechanism against as many distinct professional registers as possible in
+ * one pass.
+ *
+ * `SLUG_PERSONA_MAP` in `persona-for-slug.ts` picks up every new persona
+ * below by literal slug, same mechanism as batch 1.
  */
 
 /**
@@ -936,14 +958,752 @@ export const DEVELOPMENT_PROGRAMME_OFFICER_RESUME: StructuredResume = {
 };
 
 /**
+ * `impact-report` persona — a monitoring & evaluation / impact-reporting
+ * specialist. Deliberately a DIFFERENT job from `field-mission`'s programme
+ * officer (Ngozi): M&E is about measuring and reporting on programmes other
+ * people run, not running the programmes directly — a distinction donors
+ * and NGO recruiters actually draw. `structure_schema` for this slug
+ * includes `volunteering`, populated below to match.
+ */
+export const IMPACT_REPORTING_OFFICER_RESUME: StructuredResume = {
+  contact: {
+    name: "Ijeoma Nwafor",
+    email: "ijeoma.nwafor@impactline.org",
+    phone: "+234 705 288 9931",
+    location: "Abuja, Nigeria",
+  },
+  summary:
+    "Monitoring, evaluation and impact-reporting specialist with seven years building donor accountability systems for development programmes across Nigeria, translating field data into evidence donors trust.",
+  experience: [
+    {
+      title: "Senior M&E Officer",
+      company: "Bridgepoint Development Partners",
+      location: "Abuja, Nigeria",
+      startDate: "2021",
+      endDate: "Present",
+      description:
+        "Designed and run the results-measurement framework for a €3.2M EU-funded livelihoods programme across 5 states, consolidating data from 40 field enumerators into quarterly donor reports. Built a standardized Power BI dashboard that cut report-production time from 6 weeks to 10 days, and caught a data-entry error pattern that corrected an overstated beneficiary count by 12%.",
+    },
+    {
+      title: "M&E Officer",
+      company: "Bridgepoint Development Partners",
+      location: "Abuja, Nigeria",
+      startDate: "2019",
+      endDate: "2021",
+      description:
+        "Led a randomized post-distribution monitoring survey across 6,500 households for a cash-transfer programme, and built the anomaly-detection checks that flagged 3% of transfers for review before disbursement.",
+    },
+    {
+      title: "Data & Reporting Assistant",
+      company: "Lakeshore Relief Network",
+      location: "Lagos, Nigeria",
+      startDate: "2017",
+      endDate: "2019",
+      description:
+        "Compiled quarterly indicator reports for a WASH programme reaching 15,000 beneficiaries, standardizing data-collection templates across 4 partner NGOs.",
+    },
+  ],
+  education: [
+    { school: "University of Abuja", degree: "B.Sc.", field: "Statistics", startDate: "2013", endDate: "2017" },
+  ],
+  skills: [
+    "monitoring & evaluation",
+    "results-based management",
+    "power bi",
+    "spss",
+    "survey design",
+    "donor reporting",
+    "theory of change / logframe design",
+    "data quality assurance",
+    "stata",
+  ],
+  projects: [
+    "EU livelihoods programme results dashboard — cut report turnaround from 6 weeks to 10 days",
+    "Post-distribution monitoring survey (6,500 households) — flagged 3% of disbursements for review pre-payment",
+    "WASH indicator reporting standardization — unified templates across 4 partner NGOs",
+  ],
+  certifications: [
+    "Data Quality Assessment (DQA) Certificate — MEASURE Evaluation Training",
+    "Advanced M&E Certificate — International Program for Development Evaluation Training (IPDET)",
+  ],
+  volunteering: [
+    {
+      role: "Volunteer Data Analyst",
+      organisation: "Abuja Community Health Initiative",
+      startDate: "2015",
+      endDate: "2017",
+      description: "Supported community health surveys and data cleaning for a maternal-health outreach programme.",
+    },
+  ],
+};
+
+/**
+ * `grant-proposal` persona — a grants and proposal-development officer,
+ * distinct again from Ngozi (field-mission) and Ijeoma (impact-report):
+ * this is the person who WINS the funding, not the one running it or
+ * measuring it. `structure_schema` for this slug promotes `skills` and
+ * `languages` above the narrative (donor-language fluency matters for a
+ * proposal writer) and includes `volunteering`, both populated below —
+ * French is plausible here for the same reason it is on `wellhead`
+ * (WELLHEAD_COMPLETIONS_ENGINEER_RESUME, above): real cross-border work,
+ * here with Nigeria's francophone Sahel neighbours (Niger, Chad).
+ */
+export const GRANTS_PROPOSAL_OFFICER_RESUME: StructuredResume = {
+  contact: {
+    name: "Musa Aliyu",
+    email: "musa.aliyu@sahelgrants.org",
+    phone: "+234 812 664 2207",
+    location: "Abuja, Nigeria",
+  },
+  summary:
+    "Grants and proposal-development officer with six years winning and managing donor funding for cross-border Sahel programmes, turning complex regional need into competitive, compliant proposals for USAID, EU and UN donors.",
+  experience: [
+    {
+      title: "Senior Grants Officer",
+      company: "Sahel Frontier Alliance",
+      location: "Abuja, Nigeria",
+      startDate: "2022",
+      endDate: "Present",
+      description:
+        "Lead proposal development for an $8.4M multi-country USAID consortium bid spanning Nigeria, Niger and Chad, coordinating inputs from 5 technical leads and 3 partner organisations on a 21-day turnaround. Won 3 of 5 proposals submitted in the last funding cycle, against a sector average closer to 1 in 5.",
+    },
+    {
+      title: "Grants Officer",
+      company: "Sahel Frontier Alliance",
+      location: "Abuja, Nigeria",
+      startDate: "2020",
+      endDate: "2022",
+      description:
+        "Managed compliance and reporting for a €1.6M EU grant portfolio across 4 active awards, and rebuilt the internal proposal-budget template that cut donor-flagged budget-narrative errors from 40% of submissions to under 10%.",
+    },
+    {
+      title: "Programme Support Officer",
+      company: "Niger Basin Partners",
+      location: "Kano, Nigeria",
+      startDate: "2018",
+      endDate: "2020",
+      description:
+        "Supported concept-note development for regional food-security appeals, drafting first-pass budgets for 12 concept notes in a single funding round.",
+    },
+  ],
+  education: [
+    { school: "Usmanu Danfodiyo University, Sokoto", degree: "B.Sc.", field: "Political Science", startDate: "2013", endDate: "2017" },
+  ],
+  skills: [
+    "grant & proposal writing",
+    "donor compliance (usaid, eu, un)",
+    "budget development",
+    "consortium & partner coordination",
+    "concept note development",
+    "grant portfolio management",
+    "needs assessment",
+    "cost-share & match tracking",
+    "cross-border programme design",
+  ],
+  projects: [
+    "$8.4M multi-country USAID consortium bid — won, 3-country Sahel food-security programme",
+    "EU grant compliance overhaul — cut donor-flagged budget errors from 40% to under 10%",
+    "Regional concept-note sprint — 12 concept notes drafted in one funding round",
+  ],
+  certifications: [
+    "Grant Professional Certified (GPC) — Grant Professionals Certification Institute",
+    "Certificate in USAID Rules & Regulations — Humentum Training",
+  ],
+  volunteering: [
+    {
+      role: "Volunteer Program Support",
+      organisation: "Zamfara Relief Coordination Committee",
+      startDate: "2016",
+      endDate: "2018",
+      description: "Assisted with drought-response needs assessments and community sensitization ahead of a food-security appeal.",
+    },
+  ],
+  languages: [
+    { name: "English", level: "Fluent" },
+    { name: "Hausa", level: "Native" },
+    { name: "French", level: "Professional working proficiency" },
+  ],
+};
+
+/**
+ * `harvest` persona — a commercial agronomist / farm operations manager.
+ * `structure_schema` for this slug promotes certifications right under
+ * experience with the label "Certifications (GAP, Organic)", so this
+ * persona's certifications are chosen specifically to back that up.
+ */
+export const COMMERCIAL_AGRONOMIST_RESUME: StructuredResume = {
+  contact: {
+    name: "Bashir Suleiman",
+    email: "bashir.suleiman@greenfieldsagritech.com",
+    phone: "+234 803 771 4482",
+    location: "Kaduna, Nigeria",
+  },
+  summary:
+    "Commercial agronomist with eight years managing large-scale grain and vegetable production for agribusiness outgrower schemes across northern Nigeria, focused on yield optimization and export-grade quality compliance.",
+  experience: [
+    {
+      title: "Farm Operations Manager",
+      company: "Greenfields AgriTech Ltd",
+      location: "Kaduna, Nigeria",
+      startDate: "2021",
+      endDate: "Present",
+      description:
+        "Manage 1,200 hectares of maize and soybean production across 3 outgrower clusters, supervising 8 field supervisors and 200+ contract farmers. Introduced a soil-testing-led fertiliser programme that lifted average maize yield from 2.4t/ha to 3.6t/ha (a 50% increase) across the 2023 season.",
+    },
+    {
+      title: "Senior Agronomist",
+      company: "Greenfields AgriTech Ltd",
+      location: "Kaduna, Nigeria",
+      startDate: "2018",
+      endDate: "2021",
+      description:
+        "Ran the GlobalG.A.P. certification readiness programme for the company's export vegetable line, closing 90% of audit non-conformances within one growing season and helping secure the farm's first export contract to the EU.",
+    },
+    {
+      title: "Field Agronomist",
+      company: "Kaduna Valley Farms",
+      location: "Kaduna, Nigeria",
+      startDate: "2016",
+      endDate: "2018",
+      description:
+        "Managed integrated pest management for 300 hectares of tomato and pepper, cutting post-harvest losses from 28% to 15% through revised harvest-timing protocols.",
+    },
+  ],
+  education: [
+    { school: "Ahmadu Bello University", degree: "B.Agric.", field: "Agronomy", startDate: "2012", endDate: "2016" },
+  ],
+  skills: [
+    "crop production management",
+    "soil & fertiliser management",
+    "globalg.a.p. compliance",
+    "yield optimization",
+    "outgrower scheme coordination",
+    "integrated pest management",
+    "farm budgeting",
+    "post-harvest handling",
+    "agronomic data record-keeping",
+  ],
+  projects: [
+    "Soil-testing-led fertiliser programme — lifted maize yield 50% (2.4t/ha to 3.6t/ha)",
+    "GlobalG.A.P. certification readiness — closed 90% of audit non-conformances, won first EU export contract",
+    "Integrated pest management overhaul — cut tomato/pepper post-harvest losses from 28% to 15%",
+  ],
+  certifications: [
+    "GlobalG.A.P. Certified Farm Assessor Training Certificate",
+    "Organic Agriculture Certificate — Nigerian Organic Agriculture Network (NOAN) Training Programme",
+    "Integrated Pest Management Certificate — IITA Training Programme",
+  ],
+};
+
+/**
+ * `field-season` persona — a seasonal field / crop-production supervisor.
+ * Deliberately a different register from `harvest`'s agronomist above: this
+ * is hands-on seasonal labour and harvest-logistics supervision, not
+ * yield-science and certification management.
+ */
+export const FIELD_PRODUCTION_SUPERVISOR_RESUME: StructuredResume = {
+  contact: {
+    name: "Grace Okonkwo",
+    email: "grace.okonkwo@savannafreshfarms.com",
+    phone: "+234 706 553 8821",
+    location: "Makurdi, Nigeria",
+  },
+  summary:
+    "Field production supervisor with six seasons managing seasonal cropping cycles and harvest labour for commercial rice and yam operations in Nigeria's Middle Belt.",
+  experience: [
+    {
+      title: "Field Production Supervisor",
+      company: "Savanna Fresh Farms",
+      location: "Makurdi, Nigeria",
+      startDate: "2022",
+      endDate: "Present",
+      description:
+        "Supervise seasonal planting-to-harvest operations across 450 hectares of rice, coordinating a rotating labour force of up to 150 seasonal workers at peak harvest. Restructured the harvest-labour scheduling system to align with milling capacity, cutting field-to-mill spoilage from 11% to 4% over two seasons.",
+    },
+    {
+      title: "Assistant Field Supervisor",
+      company: "Savanna Fresh Farms",
+      location: "Makurdi, Nigeria",
+      startDate: "2020",
+      endDate: "2022",
+      description:
+        "Ran daily field-scouting and irrigation-timing for 200 hectares of dry-season rice, and trained 40 seasonal workers on transplanting technique, lifting average stand establishment from 78% to 91%.",
+    },
+    {
+      title: "Farm Labour Coordinator",
+      company: "Benue Valley Agroservices",
+      location: "Makurdi, Nigeria",
+      startDate: "2018",
+      endDate: "2020",
+      description:
+        "Coordinated seasonal recruitment and payroll for up to 300 casual farm workers across two planting cycles a year, with zero payroll disputes across 4 consecutive seasons.",
+    },
+  ],
+  education: [
+    { school: "Federal University of Agriculture, Makurdi", degree: "B.Agric.", field: "Crop Production", startDate: "2014", endDate: "2018" },
+  ],
+  skills: [
+    "seasonal labour planning",
+    "crop scouting",
+    "irrigation scheduling",
+    "harvest logistics",
+    "yield & spoilage tracking",
+    "farm payroll coordination",
+    "rice production systems",
+    "worker training & supervision",
+    "agronomic record-keeping",
+  ],
+  projects: [
+    "Harvest-to-mill scheduling overhaul — cut spoilage from 11% to 4% across two seasons",
+    "Transplanting technique training programme — lifted stand establishment from 78% to 91%",
+    "Seasonal payroll system for 300 casual workers — zero disputes across 4 seasons",
+  ],
+  certifications: [
+    "Good Agricultural Practices (GAP) Training Certificate",
+    "Occupational Safety Training for Agricultural Workers — FAO/ILO Training Programme",
+  ],
+};
+
+/**
+ * `value-chain` persona — an agribusiness value-chain / market-access
+ * analyst. `structure_schema` for this slug is the only one of the 6
+ * NGO & Development / Agriculture & Agribusiness slugs that includes
+ * `languages` (verified directly in catalog-configs.ts before writing this
+ * — `grant-proposal`'s schema also includes `languages`, so that persona
+ * gets one too, above). French is plausible here for the same real reason
+ * as `grant-proposal` and `wellhead`: cross-border commodity trade with
+ * Nigeria's francophone neighbours (Niger, Benin).
+ */
+export const VALUE_CHAIN_ANALYST_RESUME: StructuredResume = {
+  contact: {
+    name: "Fatima Mohammed",
+    email: "fatima.mohammed@westafricagriexchange.com",
+    phone: "+234 809 442 1156",
+    location: "Kano, Nigeria",
+  },
+  summary:
+    "Agribusiness value-chain analyst with seven years mapping market access and cross-border trade routes for grain and livestock value chains between Nigeria and its francophone neighbours.",
+  experience: [
+    {
+      title: "Senior Value Chain Analyst",
+      company: "West Africa Agri Exchange",
+      location: "Kano, Nigeria",
+      startDate: "2021",
+      endDate: "Present",
+      description:
+        "Lead market-access analysis for a grain-trade corridor linking Kano to Niamey and Maradi, advising 3 exporter clients on tariff and non-tariff barriers across the Nigeria–Niger border. Identified a warehousing bottleneck that, once resolved with a client, cut average dispatch time from 9 days to 4.",
+    },
+    {
+      title: "Value Chain Analyst",
+      company: "West Africa Agri Exchange",
+      location: "Kano, Nigeria",
+      startDate: "2019",
+      endDate: "2021",
+      description:
+        "Built the cost-structure model comparing 4 competing maize export routes through ECOWAS corridors, which the client used to redirect 60% of volume to the lowest-cost route and cut landed cost per tonne by 14%.",
+    },
+    {
+      title: "Trade & Market Research Officer",
+      company: "Sahel Commodities Bureau",
+      location: "Kano, Nigeria",
+      startDate: "2017",
+      endDate: "2019",
+      description:
+        "Produced weekly cross-border price-monitoring bulletins covering 6 regional markets, cited in 3 donor food-security early-warning reports.",
+    },
+  ],
+  education: [
+    { school: "Kano University of Science and Technology, Wudil", degree: "B.Sc.", field: "Economics", startDate: "2013", endDate: "2017" },
+  ],
+  skills: [
+    "value chain analysis",
+    "market access strategy",
+    "cross-border trade compliance",
+    "cost-structure modeling",
+    "ecowas trade regulations",
+    "commodity price monitoring",
+    "logistics & warehousing analysis",
+    "stakeholder advisory",
+    "agribusiness market research",
+  ],
+  projects: [
+    "Kano–Niamey grain corridor market-access study — cut client dispatch time from 9 to 4 days",
+    "Multi-route maize export cost model — redirected 60% of volume, cut landed cost 14%",
+    "Weekly cross-border price bulletin — cited in 3 donor early-warning reports",
+  ],
+  certifications: [
+    "Value Chain Analysis Certificate — Feed the Future/USAID Training Programme",
+    "ECOWAS Trade Liberalisation Scheme (ETLS) Practitioner Certificate",
+  ],
+  languages: [
+    { name: "English", level: "Fluent" },
+    { name: "Hausa", level: "Native" },
+    { name: "French", level: "Professional working proficiency" },
+  ],
+};
+
+/**
+ * `product-tech` persona — a backend/full-stack software engineer. This
+ * slug's `structure_schema` sets `showLinksInHeader: true` (the config the
+ * PR2 brief's "links in header used meaningfully" requirement was written
+ * for — see catalog-configs.ts), so this is the persona that actually
+ * populates `links`.
+ */
+export const SOFTWARE_ENGINEER_RESUME: StructuredResume = {
+  contact: {
+    name: "David Adeyemi",
+    email: "david.adeyemi@stackforge.dev",
+    phone: "+234 810 225 6693",
+    location: "Lagos, Nigeria",
+  },
+  summary:
+    "Backend-leaning full-stack engineer with six years building high-throughput payments and logistics APIs for Nigerian and pan-African startups.",
+  experience: [
+    {
+      title: "Senior Software Engineer",
+      company: "StackForge Technologies",
+      location: "Lagos, Nigeria",
+      startDate: "2022",
+      endDate: "Present",
+      description:
+        "Own the core ledger service processing 2M+ daily transactions for a multi-country payments platform. Migrated the settlement pipeline from synchronous REST calls to an event-driven architecture (Kafka), cutting p95 settlement latency from 4.2s to 800ms and eliminating a recurring double-settlement bug.",
+    },
+    {
+      title: "Software Engineer",
+      company: "StackForge Technologies",
+      location: "Lagos, Nigeria",
+      startDate: "2020",
+      endDate: "2022",
+      description:
+        "Built the fraud-scoring microservice integrated into the checkout flow, reducing confirmed fraud losses by 37% in its first two quarters live.",
+    },
+    {
+      title: "Junior Backend Developer",
+      company: "Lagos Freight Systems",
+      location: "Lagos, Nigeria",
+      startDate: "2018",
+      endDate: "2020",
+      description:
+        "Rebuilt the shipment-tracking API from a monolith into a versioned REST service used by 3 internal apps, cutting average API response time from 900ms to 180ms.",
+    },
+  ],
+  education: [
+    { school: "Covenant University, Ota", degree: "B.Sc.", field: "Computer Science", startDate: "2014", endDate: "2018" },
+  ],
+  skills: [
+    "backend engineering",
+    "distributed systems",
+    "kafka",
+    "postgresql",
+    "node.js / typescript",
+    "api design",
+    "system design",
+    "ci/cd",
+    "fraud detection systems",
+  ],
+  projects: [
+    "Event-driven settlement pipeline migration — cut p95 latency from 4.2s to 800ms",
+    "Real-time fraud-scoring microservice — cut confirmed fraud losses 37%",
+    "Shipment-tracking API rebuild — cut average response time from 900ms to 180ms",
+  ],
+  certifications: ["AWS Certified Solutions Architect – Associate", "Certified Kubernetes Administrator (CKA)"],
+  links: [
+    { label: "GitHub", url: "https://github.com/davideyemi" },
+    { label: "Portfolio", url: "https://davidadeyemi.dev" },
+  ],
+};
+
+/**
+ * `ledger` persona — a credit/risk analyst at a Nigerian commercial bank.
+ */
+export const CREDIT_RISK_ANALYST_RESUME: StructuredResume = {
+  contact: {
+    name: "Oluwaseun Bakare",
+    email: "oluwaseun.bakare@meridiantrustbank.com",
+    phone: "+234 802 336 7745",
+    location: "Lagos, Nigeria",
+  },
+  summary:
+    "Credit and risk analyst with seven years assessing SME and corporate lending exposure for a Tier-2 Nigerian commercial bank, balancing portfolio growth against default risk.",
+  experience: [
+    {
+      title: "Senior Credit Analyst",
+      company: "Meridian Trust Bank",
+      location: "Lagos, Nigeria",
+      startDate: "2021",
+      endDate: "Present",
+      description:
+        "Underwrite and monitor a ₦4.6B SME loan portfolio across 220 active accounts, presenting risk recommendations to the credit committee. Rebuilt the early-warning scoring model, cutting the 90-day-past-due rate on new originations from 6.8% to 3.1% within 18 months.",
+    },
+    {
+      title: "Credit Analyst",
+      company: "Meridian Trust Bank",
+      location: "Lagos, Nigeria",
+      startDate: "2019",
+      endDate: "2021",
+      description:
+        "Conducted financial-statement and cash-flow analysis for 150+ corporate credit applications a year, and built the covenant-tracking dashboard now used bank-wide to flag breaches within 48 hours instead of at quarterly review.",
+    },
+    {
+      title: "Graduate Credit Trainee",
+      company: "Coastal Merchant Bank",
+      location: "Lagos, Nigeria",
+      startDate: "2017",
+      endDate: "2019",
+      description:
+        "Supported due diligence on a ₦1.2B syndicated facility, compiling the sector-risk benchmarking used in the final credit memo.",
+    },
+  ],
+  education: [
+    { school: "Lagos State University", degree: "B.Sc.", field: "Economics", startDate: "2013", endDate: "2017" },
+  ],
+  skills: [
+    "credit risk analysis",
+    "financial statement analysis",
+    "cash-flow modeling",
+    "loan underwriting",
+    "portfolio monitoring",
+    "covenant tracking",
+    "credit scoring models",
+    "ifrs 9 impairment analysis",
+    "financial modeling (excel)",
+  ],
+  projects: [
+    "Early-warning credit scoring model rebuild — cut 90-day-past-due rate from 6.8% to 3.1%",
+    "Bank-wide covenant-tracking dashboard — flags breaches within 48 hours vs. quarterly review",
+    "₦1.2B syndicated facility due diligence — sector-risk benchmarking used in final credit memo",
+  ],
+  certifications: [
+    "Chartered Financial Analyst (CFA) Program — Level I Candidate",
+    "Financial Modeling & Valuation Analyst (FMVA) — Corporate Finance Institute",
+  ],
+};
+
+/**
+ * `care-plan` persona — a registered nurse / ward care coordinator.
+ * Certifications are real, portable clinical-skills credentials (BLS/ACLS)
+ * rather than a claim to the Nigerian medical/nursing licensing body — same
+ * rule `blueprint`'s COREN fix established (see this file's top-of-file
+ * header and tests/resume-builder/catalog-configs-labels.test.ts).
+ */
+export const REGISTERED_NURSE_RESUME: StructuredResume = {
+  contact: {
+    name: "Patience Okoye",
+    email: "patience.okoye@lakeviewhealthcare.ng",
+    phone: "+234 703 219 8867",
+    location: "Enugu, Nigeria",
+  },
+  summary:
+    "Registered nurse with eight years in acute and chronic-care coordination across Nigerian private hospitals, focused on reducing readmissions through structured discharge planning.",
+  experience: [
+    {
+      title: "Senior Staff Nurse / Care Coordinator",
+      company: "Lakeview Specialist Hospital",
+      location: "Enugu, Nigeria",
+      startDate: "2021",
+      endDate: "Present",
+      description:
+        "Coordinate discharge planning and follow-up for a 40-bed internal medicine ward, managing a caseload of 25-30 patients at a time. Introduced a structured 72-hour post-discharge call-back programme that cut 30-day readmissions on the ward from 18% to 9%.",
+    },
+    {
+      title: "Staff Nurse",
+      company: "Lakeview Specialist Hospital",
+      location: "Enugu, Nigeria",
+      startDate: "2018",
+      endDate: "2021",
+      description:
+        "Delivered direct bedside care on a 20-bed surgical ward, and led the medication-reconciliation audit that cut prescription-error incidents by 60% over one year.",
+    },
+    {
+      title: "Staff Nurse",
+      company: "Nsukka General Hospital",
+      location: "Nsukka, Nigeria",
+      startDate: "2016",
+      endDate: "2018",
+      description:
+        "Rotated across paediatric and maternity wards, and trained 12 newly-onboarded nurses on the hospital's electronic vitals-charting system during its rollout.",
+    },
+  ],
+  education: [
+    { school: "University of Nigeria, Nsukka", degree: "B.NSc.", field: "Nursing Science", startDate: "2012", endDate: "2016" },
+  ],
+  skills: [
+    "patient care coordination",
+    "discharge planning",
+    "medication reconciliation",
+    "electronic health records",
+    "vital signs monitoring",
+    "chronic disease management",
+    "patient education",
+    "ward/caseload management",
+    "infection control protocols",
+  ],
+  projects: [
+    "72-hour post-discharge call-back programme — cut 30-day readmissions from 18% to 9%",
+    "Medication-reconciliation audit — cut prescription errors 60% in one year",
+    "Electronic vitals-charting rollout training — onboarded 12 new nurses",
+  ],
+  certifications: [
+    "Basic Life Support (BLS) Certification — American Heart Association",
+    "Advanced Cardiovascular Life Support (ACLS) Certification",
+  ],
+};
+
+/**
+ * `chambers` persona — a corporate & commercial legal associate.
+ * Certifications are real, portable professional credentials rather than a
+ * claim to the Nigerian Bar Association (same rule as `blueprint`'s COREN
+ * fix). `structure_schema` for this slug includes both `languages` and
+ * `publications` (verified in catalog-configs.ts before writing this), both
+ * populated below — French for real cross-border ECOWAS client work, a
+ * publication for a corporate lawyer whose practice includes advisory work
+ * genuinely worth writing up.
+ */
+export const CORPORATE_LEGAL_ASSOCIATE_RESUME: StructuredResume = {
+  contact: {
+    name: "Aisha Garba",
+    email: "aisha.garba@westgatelegalpractice.com",
+    phone: "+234 805 671 2298",
+    location: "Abuja, Nigeria",
+  },
+  summary:
+    "Corporate and commercial lawyer with six years advising Nigerian and cross-border clients on contracts, regulatory compliance and ECOWAS trade transactions.",
+  experience: [
+    {
+      title: "Senior Associate",
+      company: "Westgate Legal Practice",
+      location: "Abuja, Nigeria",
+      startDate: "2021",
+      endDate: "Present",
+      description:
+        "Lead contract drafting and negotiation for 30+ commercial transactions a year, including cross-border supply agreements with clients in Benin Republic and Togo. Restructured the firm's standard NDA and distribution-agreement templates, cutting average contract turnaround from 12 days to 5.",
+    },
+    {
+      title: "Associate",
+      company: "Westgate Legal Practice",
+      location: "Abuja, Nigeria",
+      startDate: "2019",
+      endDate: "2021",
+      description:
+        "Advised 15 SME clients on data-protection compliance programmes ahead of the NDPR enforcement deadline, and drafted the firm's internal compliance-audit checklist now used across the corporate practice group.",
+    },
+    {
+      title: "Associate (Litigation & Corporate)",
+      company: "Adeyemi Okafor & Co.",
+      location: "Lagos, Nigeria",
+      startDate: "2017",
+      endDate: "2019",
+      description:
+        "Supported due diligence on 8 commercial disputes and 2 M&A transactions, preparing the disclosure schedules for a ₦900M asset-sale deal.",
+    },
+  ],
+  education: [
+    { school: "Nnamdi Azikiwe University, Awka", degree: "LL.B.", field: "Law", startDate: "2011", endDate: "2015" },
+    { school: "Nigerian Law School, Bwari Campus", degree: "B.L.", field: "Barrister-at-Law", startDate: "2015", endDate: "2016" },
+  ],
+  skills: [
+    "contract drafting & negotiation",
+    "corporate/commercial law",
+    "regulatory compliance",
+    "cross-border transactions",
+    "due diligence",
+    "corporate governance",
+    "dispute resolution",
+    "ecowas trade law",
+    "client advisory",
+  ],
+  projects: [
+    "Contract-template overhaul — cut average turnaround from 12 to 5 days",
+    "NDPR compliance rollout for 15 SME clients ahead of enforcement deadline",
+    "₦900M asset-sale due diligence — full disclosure schedule preparation",
+  ],
+  certifications: [
+    "Chartered Institute of Arbitrators (CIArb) — Introductory Certificate in International Commercial Arbitration",
+    "Certified Information Privacy Professional/Europe (CIPP/E) — IAPP",
+  ],
+  publications: ["Co-authored \"Data Protection Compliance for Nigerian SMEs\" — Lagos Business Law Journal, 2022"],
+  languages: [
+    { name: "English", level: "Fluent" },
+    { name: "Hausa", level: "Native" },
+    { name: "French", level: "Professional working proficiency" },
+  ],
+};
+
+/**
+ * `business-memo` persona — a business operations manager.
+ */
+export const BUSINESS_OPERATIONS_MANAGER_RESUME: StructuredResume = {
+  contact: {
+    name: "Chukwuemeka Obiora",
+    email: "chukwuemeka.obiora@primestreamops.com",
+    phone: "+234 807 552 3391",
+    location: "Lagos, Nigeria",
+  },
+  summary:
+    "Business operations manager with seven years streamlining process and vendor operations for consumer-goods distribution companies across Lagos and the South-West.",
+  experience: [
+    {
+      title: "Operations Manager",
+      company: "PrimeStream Distribution Ltd",
+      location: "Lagos, Nigeria",
+      startDate: "2021",
+      endDate: "Present",
+      description:
+        "Run daily operations for a 3-warehouse FMCG distribution network serving 400+ retail outlets. Redesigned the inventory-replenishment process, cutting stockout incidents by 35% while reducing average warehouse holding costs by 18%.",
+    },
+    {
+      title: "Senior Operations Analyst",
+      company: "PrimeStream Distribution Ltd",
+      location: "Lagos, Nigeria",
+      startDate: "2019",
+      endDate: "2021",
+      description:
+        "Led a vendor-consolidation initiative that cut the active supplier list from 85 to 52 without disrupting fill rates, saving ₦38M annually in procurement overhead.",
+    },
+    {
+      title: "Operations Analyst",
+      company: "Lagoon Consumer Goods",
+      location: "Lagos, Nigeria",
+      startDate: "2017",
+      endDate: "2019",
+      description:
+        "Built the weekly ops-performance reporting pack used by the executive team, standardizing 6 previously inconsistent regional reports into one dashboard.",
+    },
+  ],
+  education: [
+    { school: "University of Ilorin", degree: "B.Sc.", field: "Business Administration", startDate: "2013", endDate: "2017" },
+  ],
+  skills: [
+    "operations management",
+    "inventory & supply chain optimization",
+    "vendor management",
+    "process improvement",
+    "warehouse operations",
+    "cost reduction",
+    "kpi reporting & dashboards",
+    "cross-functional coordination",
+    "procurement strategy",
+  ],
+  projects: [
+    "Inventory-replenishment redesign — cut stockouts 35%, warehouse holding costs 18%",
+    "Vendor consolidation (85 to 52 suppliers) — saved ₦38M annually with no fill-rate disruption",
+    "Unified ops-performance dashboard — replaced 6 inconsistent regional reports",
+  ],
+  certifications: ["Certified Supply Chain Professional (CSCP) — APICS/ASCM", "Lean Six Sigma Green Belt Certification"],
+};
+
+/**
  * The registry every consumer now matches against — see this file's
  * top-of-file header. Order is not meaningful for matching (every
  * comparison in example-guard.ts is `.some(...)` across the whole array),
  * but PREVIEW_SAMPLE_RESUME stays first because it is also the FALLBACK
  * persona-for-slug.ts returns for every slug without a dedicated entry —
- * the pre-existing, already-shipped behavior for those slugs. 12 entries as
- * of this pass: the original 3, plus the 9 new Engineering/Construction/Oil
- * & Gas personas that replaced that grouping's single shared persona.
+ * the pre-existing, already-shipped behavior for those slugs. 22 entries as
+ * of this pass (batch 2): the 12 from batch 1, plus 5 new NGO & Development
+ * / Agriculture & Agribusiness personas finishing that grouping's split,
+ * plus 5 new personas on standalone-category slugs (Technology, Banking &
+ * Finance, Healthcare, Legal, Business) that were on the
+ * `PREVIEW_SAMPLE_RESUME` fallback before this pass.
  */
 export const EXAMPLE_PERSONAS: readonly StructuredResume[] = [
   PREVIEW_SAMPLE_RESUME,
@@ -958,4 +1718,14 @@ export const EXAMPLE_PERSONAS: readonly StructuredResume[] = [
   DRILLING_RIG_SUPERVISOR_RESUME,
   OFFSHORE_PROCESS_ENGINEER_RESUME,
   WELLHEAD_COMPLETIONS_ENGINEER_RESUME,
+  IMPACT_REPORTING_OFFICER_RESUME,
+  GRANTS_PROPOSAL_OFFICER_RESUME,
+  COMMERCIAL_AGRONOMIST_RESUME,
+  FIELD_PRODUCTION_SUPERVISOR_RESUME,
+  VALUE_CHAIN_ANALYST_RESUME,
+  SOFTWARE_ENGINEER_RESUME,
+  CREDIT_RISK_ANALYST_RESUME,
+  REGISTERED_NURSE_RESUME,
+  CORPORATE_LEGAL_ASSOCIATE_RESUME,
+  BUSINESS_OPERATIONS_MANAGER_RESUME,
 ];

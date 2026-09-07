@@ -10,6 +10,17 @@
  * dropped rather than kept). The resolver is now keyed by literal template
  * `slug`, not `industry_category`, so every assertion below checks a slug
  * directly rather than a category string.
+ *
+ * UPDATED for batch 2: `field-mission` still resolves to the shared
+ * development-programme-officer persona, but the other 5 NGO & Development /
+ * Agriculture & Agribusiness slugs each now resolve to their OWN new
+ * persona (per-slug assertions below, not just "not the fallback") — the
+ * grouping is fully split as of this pass, same as Engineering was in batch
+ * 1. Five standalone-category slugs (one each from Technology, Banking &
+ * Finance, Healthcare, Legal, Business) also moved off the fallback; the
+ * "everything else still falls back" check now excludes those 5 slugs too,
+ * by literal slug rather than by category, since each of those 5 categories
+ * still has OTHER slugs deliberately left on the fallback.
  */
 import { describe, expect, it } from "vitest";
 import { personaForSlug } from "@/lib/resume-builder/persona-for-slug";
@@ -26,11 +37,25 @@ import {
   DRILLING_RIG_SUPERVISOR_RESUME,
   OFFSHORE_PROCESS_ENGINEER_RESUME,
   WELLHEAD_COMPLETIONS_ENGINEER_RESUME,
+  IMPACT_REPORTING_OFFICER_RESUME,
+  GRANTS_PROPOSAL_OFFICER_RESUME,
+  COMMERCIAL_AGRONOMIST_RESUME,
+  FIELD_PRODUCTION_SUPERVISOR_RESUME,
+  VALUE_CHAIN_ANALYST_RESUME,
+  SOFTWARE_ENGINEER_RESUME,
+  CREDIT_RISK_ANALYST_RESUME,
+  REGISTERED_NURSE_RESUME,
+  CORPORATE_LEGAL_ASSOCIATE_RESUME,
+  BUSINESS_OPERATIONS_MANAGER_RESUME,
 } from "@/lib/resume-builder/preview-sample";
 import { RESUME_TEMPLATES } from "@/lib/billing/catalog";
 
 const ENGINEERING_GROUP_CATEGORIES = ["Engineering", "Construction & Real Estate", "Oil & Gas / Energy"];
 const NGO_AGRICULTURE_CATEGORIES = ["NGO & Development", "Agriculture & Agribusiness"];
+// The 5 standalone-category slugs batch 2 gave a dedicated persona to — one
+// each from 5 different categories, deliberately NOT the whole category
+// (e.g. `terminal`/`stack-trace` are still Technology slugs on the fallback).
+const STANDALONE_BATCH_2_SLUGS = ["product-tech", "ledger", "care-plan", "chambers", "business-memo"];
 
 describe("personaForSlug", () => {
   it.each([
@@ -48,23 +73,44 @@ describe("personaForSlug", () => {
     expect(personaForSlug(slug)).toBe(persona);
   });
 
-  it.each(["field-mission", "impact-report", "grant-proposal", "harvest", "field-season", "value-chain"])(
-    "resolves NGO/Agriculture slug %s to the (still shared, unchanged) development programme officer persona",
-    (slug) => {
-      expect(personaForSlug(slug)).toBe(DEVELOPMENT_PROGRAMME_OFFICER_RESUME);
-    },
-  );
+  it("resolves field-mission to the (still shared, unchanged) development programme officer persona", () => {
+    expect(personaForSlug("field-mission")).toBe(DEVELOPMENT_PROGRAMME_OFFICER_RESUME);
+  });
 
-  it("every other real catalog slug (outside the two groupings above) still falls back to PREVIEW_SAMPLE_RESUME", () => {
+  it.each([
+    ["impact-report", IMPACT_REPORTING_OFFICER_RESUME],
+    ["grant-proposal", GRANTS_PROPOSAL_OFFICER_RESUME],
+    ["harvest", COMMERCIAL_AGRONOMIST_RESUME],
+    ["field-season", FIELD_PRODUCTION_SUPERVISOR_RESUME],
+    ["value-chain", VALUE_CHAIN_ANALYST_RESUME],
+  ])("resolves batch-2-split NGO/Agriculture slug %s to its own dedicated persona, not field-mission's", (slug, persona) => {
+    expect(personaForSlug(slug)).toBe(persona);
+    expect(personaForSlug(slug)).not.toBe(DEVELOPMENT_PROGRAMME_OFFICER_RESUME);
+  });
+
+  it.each([
+    ["product-tech", SOFTWARE_ENGINEER_RESUME],
+    ["ledger", CREDIT_RISK_ANALYST_RESUME],
+    ["care-plan", REGISTERED_NURSE_RESUME],
+    ["chambers", CORPORATE_LEGAL_ASSOCIATE_RESUME],
+    ["business-memo", BUSINESS_OPERATIONS_MANAGER_RESUME],
+  ])("resolves batch-2 standalone-category slug %s to its own dedicated persona", (slug, persona) => {
+    expect(personaForSlug(slug)).toBe(persona);
+    expect(personaForSlug(slug)).not.toBe(PREVIEW_SAMPLE_RESUME);
+  });
+
+  it("every other real catalog slug (outside both groupings and the 5 standalone slugs above) still falls back to PREVIEW_SAMPLE_RESUME", () => {
     const engineeringSlugs = new Set(
       RESUME_TEMPLATES.filter((t) => ENGINEERING_GROUP_CATEGORIES.includes(t.industry_category)).map((t) => t.slug),
     );
     const ngoSlugs = new Set(
       RESUME_TEMPLATES.filter((t) => NGO_AGRICULTURE_CATEGORIES.includes(t.industry_category)).map((t) => t.slug),
     );
-    const remaining = RESUME_TEMPLATES.filter((t) => !engineeringSlugs.has(t.slug) && !ngoSlugs.has(t.slug));
-    // Sanity: there really are slugs left to check — this pass claims ~53 of
-    // 65 templates are untouched fallback, so this shouldn't be empty.
+    const standaloneSlugs = new Set(STANDALONE_BATCH_2_SLUGS);
+    const remaining = RESUME_TEMPLATES.filter(
+      (t) => !engineeringSlugs.has(t.slug) && !ngoSlugs.has(t.slug) && !standaloneSlugs.has(t.slug),
+    );
+    // Sanity: there really are slugs left to check — this shouldn't be empty.
     expect(remaining.length).toBeGreaterThan(0);
     for (const template of remaining) {
       expect(personaForSlug(template.slug), `slug "${template.slug}"`).toBe(PREVIEW_SAMPLE_RESUME);
@@ -77,7 +123,7 @@ describe("personaForSlug", () => {
     expect(personaForSlug(undefined)).toBe(PREVIEW_SAMPLE_RESUME);
   });
 
-  it("the Engineering grouping's live slug list is exactly the 10 this pass split into individual personas (guards against catalog drift)", () => {
+  it("the Engineering grouping's live slug list is exactly the 10 batch 1 split into individual personas (guards against catalog drift)", () => {
     const epcSlugs = RESUME_TEMPLATES.filter((t) => ENGINEERING_GROUP_CATEGORIES.includes(t.industry_category)).map(
       (t) => t.slug,
     );
@@ -87,13 +133,18 @@ describe("personaForSlug", () => {
     }
   });
 
-  it("every NGO/Agriculture-persona-eligible slug in the real catalog actually resolves to the development programme officer persona (guards against the map and the catalog drifting apart)", () => {
+  it("the NGO/Agriculture grouping's live slug list is exactly the 6 this batch finished splitting (guards against catalog drift)", () => {
     const slugs = RESUME_TEMPLATES.filter((t) => NGO_AGRICULTURE_CATEGORIES.includes(t.industry_category)).map(
       (t) => t.slug,
     );
     expect(slugs.length).toBe(6);
     for (const slug of slugs) {
-      expect(personaForSlug(slug), `slug "${slug}"`).toBe(DEVELOPMENT_PROGRAMME_OFFICER_RESUME);
+      expect(personaForSlug(slug), `slug "${slug}"`).not.toBe(PREVIEW_SAMPLE_RESUME);
+    }
+    // field-mission specifically is the one that stayed on the shared persona.
+    expect(personaForSlug("field-mission")).toBe(DEVELOPMENT_PROGRAMME_OFFICER_RESUME);
+    for (const slug of slugs.filter((s) => s !== "field-mission")) {
+      expect(personaForSlug(slug), `slug "${slug}"`).not.toBe(DEVELOPMENT_PROGRAMME_OFFICER_RESUME);
     }
   });
 });
