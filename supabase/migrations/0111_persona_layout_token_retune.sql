@@ -1,4 +1,4 @@
--- 0110 — layout-token retune for the 11 dedicated-persona slugs that were
+-- 0111 — layout-token retune for the 11 dedicated-persona slugs that were
 -- still visual near-duplicates of a sibling on the same skeleton.
 --
 -- BACKGROUND. PRs #277/#279 gave 22 template slugs their own dedicated

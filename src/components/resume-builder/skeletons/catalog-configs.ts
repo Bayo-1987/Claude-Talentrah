@@ -77,7 +77,7 @@ import type { TemplateConfig } from "./types";
  * in its `STRUCTURE_SCHEMA_SUPERSEDED_BY_LATER_MIGRATION` set. Retuning
  * `styleTokens` here without a corrective migration would make that
  * comparison fail for all 11 slugs. See migration
- * `0110_persona_layout_token_retune.sql`, which does for these 11 exactly
+ * `0111_persona_layout_token_retune.sql`, which does for these 11 exactly
  * what `0106_blueprint_certifications_label.sql` already did for blueprint's
  * `sectionLabels` — and supersedes 0106's own `structure_schema` value for
  * `blueprint`, since this pass changes its `styleTokens` on top of 0106's
