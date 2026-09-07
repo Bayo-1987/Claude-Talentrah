@@ -29,6 +29,16 @@ export interface MatchTierBadgeProps {
    * production case this fixes.
    */
   explanation?: MatchExplanation;
+  /**
+   * A capped-to-99 score (`displayMatchScore`, Stage 12) gets a small,
+   * secondary marker showing the real value on hover — for review-before-
+   * submit contexts (Auto-Apply's queue) where the raw number is the thing
+   * being acted on, not just glanced at. Defaults to false everywhere else,
+   * including the job card's own main line: this never adds a second
+   * percentage next to the one already shown, only a quiet annotation on it,
+   * and it changes nothing about `displayMatchScore` or the 99 cap itself.
+   */
+  showRawWhenCapped?: boolean;
 }
 
 /**
@@ -42,6 +52,7 @@ export function MatchTierBadge({
   variant = "eyebrow",
   className,
   explanation,
+  showRawWhenCapped = false,
 }: MatchTierBadgeProps) {
   const tier = getDisplayMatchTier(score);
   const colorClass = tier ? MATCH_TIER_TEXT_CLASS[tier] : "text-ink-soft";
@@ -52,6 +63,7 @@ export function MatchTierBadge({
     tier === "excellent" && screenableTagTotal !== null && isThinScreenableTagSet(screenableTagTotal);
   const label = tier ? (isThin ? `${MATCH_TIER_LABEL[tier]} — thin match` : MATCH_TIER_LABEL[tier]) : null;
   const displayScore = displayMatchScore(score);
+  const isCapped = showRawWhenCapped && score > 99;
 
   if (variant === "display") {
     return (
@@ -83,6 +95,14 @@ export function MatchTierBadge({
       )}
     >
       {label ? `${displayScore}% · ${label}` : `${displayScore}%`}
+      {isCapped && (
+        <span
+          className="ml-1 normal-case tracking-normal text-ink-soft/70"
+          title={`Uncapped match score: ${score}%`}
+        >
+          *
+        </span>
+      )}
     </span>
   );
 }

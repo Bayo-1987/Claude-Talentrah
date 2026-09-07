@@ -52,7 +52,7 @@ export function AutoApplyQueueItem({ item }: { item: QueueItem }) {
             {!isInternal && " · sourced externally"}
           </p>
         </div>
-        <MatchTierBadge score={item.matchScore} />
+        <MatchTierBadge score={item.matchScore} showRawWhenCapped />
       </div>
 
       {error && (
