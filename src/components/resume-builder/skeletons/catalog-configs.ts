@@ -42,6 +42,48 @@ import type { TemplateConfig } from "./types";
 // The four PR2 free-but-unstyled slugs, now real.
 // ---------------------------------------------------------------------------
 
+/**
+ * LAYOUT RETUNE PASS (content unchanged; see this file's own comments below
+ * on the specific configs this pass touched). PRs #277/#279 gave 22 slugs
+ * their own dedicated persona (`persona-for-slug.ts`), which fixed CONTENT
+ * distinctiveness but did nothing about LAYOUT: two templates sharing a
+ * skeleton with `styleTokens` differing only in `accent`/`ruleWeight` read as
+ * identical at thumbnail scale. Grouping all 58 configs here by `skeleton`
+ * found several such clusters — some of them exact byte-for-byte
+ * `styleTokens` ties across 2–6 slugs. The founder's priority: a slug that
+ * already has its own dedicated persona AND is still a visual near-duplicate
+ * of a sibling on the same skeleton is retuned first, since content is right
+ * there but layout still reads as a copy. That intersection is exactly 11
+ * slugs: `blueprint`, `business-memo`, `harvest`, `site-plan` (single-column,
+ * a 6-way tie with `compliance-brief`/`structured-admin` left untouched —
+ * lower priority, no dedicated persona), `product-tech` (header-band, a
+ * 3-way tie with `pitch-deck`/`signal`), `rig-report`/`specification`
+ * (compact-dense, a 4-way tie with `field-notes`/`terminal`),
+ * `foundation`/`offshore` (timeline — BOTH sides of this one had a dedicated
+ * persona), `chambers` (sidebar-left, tied with `faculty-profile`), and
+ * `schematic` (grid-modules, near-tied with `stack-trace`/`uptime`). Path A
+ * only, per the founder's decision: no new skeleton, no new `TemplateConfig`
+ * field — every retune below stays inside `types.ts`'s existing token
+ * vocabulary, and pushes past accent/ruleWeight into displayFont/bodyFont
+ * pairing, headingTreatment, density, nameScale and contactLayout, since the
+ * founder was explicit that an accent or rule change alone doesn't read as
+ * different at thumbnail scale.
+ *
+ * WHY THIS ALSO NEEDED A MIGRATION. `structureSchemaFor()` (`src/lib/billing/
+ * catalog.ts`) serializes a slug's WHOLE `TemplateConfig` — `styleTokens`
+ * included — into `RESUME_TEMPLATES[].structure_schema`, and
+ * `tests/billing/catalog-migration-parity.test.ts` deep-compares that against
+ * migration 0105's frozen historical JSON for every slug not already listed
+ * in its `STRUCTURE_SCHEMA_SUPERSEDED_BY_LATER_MIGRATION` set. Retuning
+ * `styleTokens` here without a corrective migration would make that
+ * comparison fail for all 11 slugs. See migration
+ * `0110_persona_layout_token_retune.sql`, which does for these 11 exactly
+ * what `0106_blueprint_certifications_label.sql` already did for blueprint's
+ * `sectionLabels` — and supersedes 0106's own `structure_schema` value for
+ * `blueprint`, since this pass changes its `styleTokens` on top of 0106's
+ * `sectionLabels` correction.
+ */
+
 /** Administration. Single-column: an admin resume is read front-to-back by an office manager, not skimmed by section — no reason to reach for a split layout. */
 const STRUCTURED_ADMIN_CONFIG: TemplateConfig = {
   skeleton: "single-column",
@@ -64,18 +106,33 @@ const STRUCTURED_ADMIN_CONFIG: TemplateConfig = {
   atsSafe: true,
 };
 
-/** Technology. Header-band with a real links row — the config the PR2 brief's "links in header used meaningfully" requirement was written for, now actually sold as a template rather than only living as a dev-page demo. */
+/**
+ * Technology. Header-band with a real links row — the config the PR2 brief's "links in header used meaningfully" requirement was written for, now actually sold as a template rather than only living as a dev-page demo.
+ *
+ * LAYOUT RETUNE: was byte-identical in `styleTokens` to `pitch-deck`/`signal`
+ * (a 3-way tie: geometric/humanist/rust/none/uppercase-tracked/comfortable/
+ * lg/split), and it's the one of the three with a dedicated persona
+ * (`SOFTWARE_ENGINEER_RESUME`). NOTE: `header-band.tsx` renders its
+ * full-bleed name band from `accent` alone and hardcodes the contact line's
+ * className — `ruleWeight`/`contactLayout` are inert for this skeleton, so
+ * the tokens that actually move pixels here are `displayFont` (condensed —
+ * no other header-band config used it), `accent` (ink, which repaints the
+ * whole band from the rust the rest of the skeleton shares — the single
+ * biggest visible change), `headingTreatment` (small-caps) and `nameScale`
+ * (`sm`, the smallest in this skeleton) for a minimal console register
+ * instead of the wide rust-banded look the rest of the skeleton shares.
+ */
 const PRODUCT_TECH_CONFIG: TemplateConfig = {
   skeleton: "header-band",
   styleTokens: {
-    displayFont: "geometric",
+    displayFont: "condensed",
     bodyFont: "humanist",
-    accent: "rust",
-    ruleWeight: "none",
-    headingTreatment: "uppercase-tracked",
+    accent: "ink",
+    ruleWeight: "medium",
+    headingTreatment: "small-caps",
     density: "comfortable",
-    nameScale: "lg",
-    contactLayout: "split",
+    nameScale: "sm",
+    contactLayout: "inline",
   },
   content: {
     sectionOrder: ["experience", "projects", "skills", "education", "certifications"],
@@ -156,18 +213,31 @@ const BUSINESS_BOARDROOM_CONFIG: TemplateConfig = {
   atsSafe: false,
 };
 
-/** Business. Single-column, achievement-first: projects (measurable wins) before education, the plain "read it straight through" alternative to Boardroom. */
+/**
+ * Business. Single-column, achievement-first: projects (measurable wins)
+ * before education, the plain "read it straight through" alternative to
+ * Boardroom.
+ *
+ * LAYOUT RETUNE: was byte-identical in shape to `structured-admin`/`harvest`/
+ * `compliance-brief`/`site-plan` up to accent+ruleWeight (all
+ * display/body/uppercase-tracked/comfortable/md/inline). `business-memo` has
+ * its own dedicated persona (`BUSINESS_OPERATIONS_MANAGER_RESUME`), so it's
+ * one of the priority retunes: modern-serif/body (a pairing no other
+ * single-column config used) + rule-under heading + stacked contact gives it
+ * an editorial-memo register genuinely distinct from that cluster's plain
+ * tracked-caps look, not just a different accent.
+ */
 const BUSINESS_MEMO_CONFIG: TemplateConfig = {
   skeleton: "single-column",
   styleTokens: {
-    displayFont: "display",
+    displayFont: "modern-serif",
     bodyFont: "body",
     accent: "rust",
     ruleWeight: "hairline",
-    headingTreatment: "uppercase-tracked",
+    headingTreatment: "rule-under",
     density: "comfortable",
     nameScale: "md",
-    contactLayout: "inline",
+    contactLayout: "stacked",
   },
   content: {
     sectionOrder: ["experience", "projects", "education", "skills", "certifications"],
@@ -508,18 +578,34 @@ const LEGAL_BRIEF_CONFIG: TemplateConfig = {
   atsSafe: true,
 };
 
-/** Legal. Sidebar-left, free — skills/certifications/languages beside a narrative main column, distinct shape from Legal Brief's dense single column. */
+/**
+ * Legal. Sidebar-left, free — skills/certifications/languages beside a narrative main column, distinct shape from Legal Brief's dense single column.
+ *
+ * LAYOUT RETUNE: was byte-identical in `styleTokens` to `faculty-profile`
+ * (both modern-serif/humanist/ink/hairline/rule-under/comfortable/md/
+ * stacked), and `chambers` is the one with a dedicated persona
+ * (`CORPORATE_LEGAL_ASSOCIATE_RESUME`). NOTE: `sidebar-left.tsx` hardcodes
+ * its header wrapper className (`"pb-4"`) rather than reading
+ * `headerRuleClass(tokens.ruleWeight)` — `ruleWeight` is inert for this
+ * skeleton, so `double` here is a no-op kept only for schema/DB parity, not a
+ * claimed visual change. What actually differs from `faculty-profile`:
+ * display/body (the app's own Newsreader/Source Sans pairing — used by no
+ * other sidebar-left config), a tracked-caps heading (vs `faculty-profile`'s
+ * underline rule), a bigger `lg` name and a `split` contact layout (both
+ * genuinely rendered — `nameSizeClass`/`contactLineClass` read those tokens
+ * directly) — a distinctly more formal, chambers-letterhead register.
+ */
 const CHAMBERS_CONFIG: TemplateConfig = {
   skeleton: "sidebar-left",
   styleTokens: {
-    displayFont: "modern-serif",
-    bodyFont: "humanist",
+    displayFont: "display",
+    bodyFont: "body",
     accent: "ink",
-    ruleWeight: "hairline",
-    headingTreatment: "rule-under",
+    ruleWeight: "double",
+    headingTreatment: "uppercase-tracked",
     density: "comfortable",
-    nameScale: "md",
-    contactLayout: "stacked",
+    nameScale: "lg",
+    contactLayout: "split",
   },
   content: {
     sectionOrder: ["skills", "certifications", "languages", "experience", "education", "publications", "projects"],
@@ -628,18 +714,29 @@ const CIVIC_RECORD_CONFIG: TemplateConfig = {
 // see the PR description) — 4 templates, one per non-portfolio-overlapping
 // skeleton plus a grid variant for project-led engineers. ---
 
-/** Free. Single-column: professional certifications promoted, key projects listed plainly. */
+/**
+ * Free. Single-column: professional certifications promoted, key projects listed plainly.
+ *
+ * LAYOUT RETUNE: `blueprint` had its own dedicated persona
+ * (`EPC_SITE_ENGINEER_RESUME`) but was byte-identical in `styleTokens`
+ * (up to accent/ruleWeight) to `structured-admin`/`business-memo`/`harvest`/
+ * `compliance-brief`/`site-plan` — a 6-way tie, the single biggest
+ * near-duplicate cluster in the catalog. Condensed/humanist (a pairing no
+ * other single-column config used) at a spacious density with an `xl` name
+ * — the only `xl` name anywhere in this skeleton — reads as a genuinely
+ * different, bolder document, not a recolored twin.
+ */
 const BLUEPRINT_CONFIG: TemplateConfig = {
   skeleton: "single-column",
   styleTokens: {
-    displayFont: "display",
-    bodyFont: "body",
+    displayFont: "condensed",
+    bodyFont: "humanist",
     accent: "ink",
-    ruleWeight: "medium",
+    ruleWeight: "heavy",
     headingTreatment: "uppercase-tracked",
-    density: "comfortable",
-    nameScale: "md",
-    contactLayout: "inline",
+    density: "spacious",
+    nameScale: "xl",
+    contactLayout: "split",
   },
   content: {
     sectionOrder: ["experience", "education", "certifications", "skills", "projects"],
@@ -682,18 +779,29 @@ const SITE_REPORT_CONFIG: TemplateConfig = {
   atsSafe: true,
 };
 
-/** Premium. Compact-dense, technical-skills-forward for a long specification/standards-heavy career. */
+/**
+ * Premium. Compact-dense, technical-skills-forward for a long specification/standards-heavy career.
+ *
+ * LAYOUT RETUNE: the other dedicated-persona member of the 4-way
+ * compact-dense tie described on `rig-report` above
+ * (`STRUCTURAL_DESIGN_ENGINEER_RESUME`). Modern-serif/body with an
+ * underline-rule heading (no other compact-dense config used `rule-under` —
+ * the family was entirely small-caps or tracked caps) plus a `stacked`
+ * contact and the only other `md` name in this skeleton give it a precise,
+ * drafted-document register distinct from `rig-report`'s bolder industrial
+ * one and from the rest of the tied cluster.
+ */
 const SPECIFICATION_CONFIG: TemplateConfig = {
   skeleton: "compact-dense",
   styleTokens: {
-    displayFont: "condensed",
-    bodyFont: "condensed",
+    displayFont: "modern-serif",
+    bodyFont: "body",
     accent: "ink",
-    ruleWeight: "hairline",
-    headingTreatment: "small-caps",
+    ruleWeight: "medium",
+    headingTreatment: "rule-under",
     density: "compact",
-    nameScale: "sm",
-    contactLayout: "inline",
+    nameScale: "md",
+    contactLayout: "stacked",
   },
   content: {
     sectionOrder: ["experience", "skills", "certifications", "education", "projects"],
@@ -704,18 +812,32 @@ const SPECIFICATION_CONFIG: TemplateConfig = {
   atsSafe: true,
 };
 
-/** Premium. Grid-modules — engineering projects as cards for a portfolio-forward engineer (structural renders, plant commissioning, etc.). */
+/**
+ * Premium. Grid-modules — engineering projects as cards for a portfolio-forward engineer (structural renders, plant commissioning, etc.).
+ *
+ * LAYOUT RETUNE: was byte-identical in `styleTokens` to `stack-trace`, and
+ * only an accent swap away from `uptime` too (all three geometric/humanist,
+ * medium rule, boxed heading, comfortable/lg/split, differing at most by
+ * accent) — and `schematic` is the one with a dedicated persona
+ * (`ELECTRICAL_DESIGN_ENGINEER_RESUME`). Every grid-modules config used
+ * `headingTreatment: "boxed"` and `contactLayout: "split"` — `sectionHeadingClass`/
+ * `contactLineClass` (`token-classes.ts`) don't require that, so this is the
+ * first to break both: condensed/humanist, a hairline rule, an underline-rule
+ * heading, spacious density and the smallest name (`sm`, versus `lg`/`xl`
+ * everywhere else in this skeleton) reads as a minimal technical-drawing
+ * register, not a re-carded twin of `stack-trace`/`uptime`.
+ */
 const SCHEMATIC_CONFIG: TemplateConfig = {
   skeleton: "grid-modules",
   styleTokens: {
-    displayFont: "geometric",
+    displayFont: "condensed",
     bodyFont: "humanist",
-    accent: "rust",
-    ruleWeight: "medium",
-    headingTreatment: "boxed",
-    density: "comfortable",
-    nameScale: "lg",
-    contactLayout: "split",
+    accent: "ink",
+    ruleWeight: "hairline",
+    headingTreatment: "rule-under",
+    density: "spacious",
+    nameScale: "sm",
+    contactLayout: "inline",
   },
   content: {
     sectionOrder: ["projects", "experience", "certifications", "skills", "education"],
@@ -968,18 +1090,28 @@ const PRESS_KIT_CONFIG: TemplateConfig = {
 // sector across the continent (smallholder support, agribusiness, agtech)
 // that no competitor category-list surfaces. ---
 
-/** Free. Single-column, field programmes as projects, certifications for GAP/organic standards. */
+/**
+ * Free. Single-column, field programmes as projects, certifications for GAP/organic standards.
+ *
+ * LAYOUT RETUNE: another member of the 6-way single-column tie described on
+ * `blueprint` above, and also carrying its own dedicated persona
+ * (`COMMERCIAL_AGRONOMIST_RESUME`). Humanist/body, small-caps headings, a
+ * `compact` density (no other single-column config used anything but
+ * `comfortable`) and a small `sm` name give it a tighter, practical
+ * field-report register distinct from the rest of that cluster on five
+ * dimensions at once, not just accent/rule.
+ */
 const HARVEST_CONFIG: TemplateConfig = {
   skeleton: "single-column",
   styleTokens: {
-    displayFont: "display",
+    displayFont: "humanist",
     bodyFont: "body",
     accent: "ink",
     ruleWeight: "medium",
-    headingTreatment: "uppercase-tracked",
-    density: "comfortable",
-    nameScale: "md",
-    contactLayout: "inline",
+    headingTreatment: "small-caps",
+    density: "compact",
+    nameScale: "sm",
+    contactLayout: "stacked",
   },
   content: {
     sectionOrder: ["experience", "projects", "education", "certifications", "skills"],
@@ -1038,18 +1170,29 @@ const VALUE_CHAIN_CONFIG: TemplateConfig = {
 // Nigerian employment sector with its own credential norms (HSE/safety
 // certifications are the first thing a recruiter checks). ---
 
-/** Free. Compact-dense, safety/HSE certifications promoted directly under experience. */
+/**
+ * Free. Compact-dense, safety/HSE certifications promoted directly under experience.
+ *
+ * LAYOUT RETUNE: was byte-identical in `styleTokens` to `field-notes`/
+ * `specification`/`terminal` (a 4-way tie, all condensed/condensed/ink/
+ * hairline/small-caps/compact/sm/inline), and carries its own dedicated
+ * persona (`DRILLING_RIG_SUPERVISOR_RESUME`). Geometric/humanist, a heavy
+ * header rule, tracked-caps headings, a `split` contact layout (no other
+ * compact-dense config used `split`) and the ONLY `md` name in this
+ * skeleton's whole 9-member family give it a bolder, more industrial
+ * register than the rest of that cluster.
+ */
 const RIG_REPORT_CONFIG: TemplateConfig = {
   skeleton: "compact-dense",
   styleTokens: {
-    displayFont: "condensed",
-    bodyFont: "condensed",
+    displayFont: "geometric",
+    bodyFont: "humanist",
     accent: "ink",
-    ruleWeight: "hairline",
-    headingTreatment: "small-caps",
+    ruleWeight: "heavy",
+    headingTreatment: "uppercase-tracked",
     density: "compact",
-    nameScale: "sm",
-    contactLayout: "inline",
+    nameScale: "md",
+    contactLayout: "split",
   },
   content: {
     sectionOrder: ["experience", "certifications", "skills", "education", "projects"],
@@ -1060,17 +1203,26 @@ const RIG_REPORT_CONFIG: TemplateConfig = {
   atsSafe: true,
 };
 
-/** Premium. Timeline. */
+/**
+ * Premium. Timeline.
+ *
+ * LAYOUT RETUNE: the other side of the `foundation` tie described above —
+ * geometric/body (no other timeline config used this exact pairing) with a
+ * `double` rule, a `boxed` heading treatment (unused anywhere else in this
+ * skeleton — the rest is tracked caps, small-caps or rule-under) and an `xl`
+ * name for a bolder, industrial-process register distinct from
+ * `foundation`'s condensed/stacked look.
+ */
 const OFFSHORE_CONFIG: TemplateConfig = {
   skeleton: "timeline",
   styleTokens: {
     displayFont: "geometric",
-    bodyFont: "humanist",
-    accent: "ink",
-    ruleWeight: "heavy",
-    headingTreatment: "uppercase-tracked",
+    bodyFont: "body",
+    accent: "rust",
+    ruleWeight: "double",
+    headingTreatment: "boxed",
     density: "comfortable",
-    nameScale: "md",
+    nameScale: "xl",
     contactLayout: "inline",
   },
   content: {
@@ -1176,18 +1328,28 @@ const UPTIME_CONFIG: TemplateConfig = {
 
 // --- Construction & Real Estate — 3 templates. ---
 
-/** Free. Single-column, safety certifications promoted, projects listed as built work. */
+/**
+ * Free. Single-column, safety certifications promoted, projects listed as built work.
+ *
+ * LAYOUT RETUNE: the fourth member of the 6-way single-column tie described
+ * on `blueprint` above, and it also carries its own dedicated persona
+ * (`LAND_SURVEYOR_RESUME`). Geometric/humanist plus a `boxed` heading
+ * treatment (no other single-column config used `boxed` — every heading in
+ * this skeleton was plain tracked caps or an underline rule) reads as a
+ * survey-plan/technical-drawing register the rest of the cluster doesn't
+ * touch.
+ */
 const SITE_PLAN_CONFIG: TemplateConfig = {
   skeleton: "single-column",
   styleTokens: {
-    displayFont: "display",
-    bodyFont: "body",
+    displayFont: "geometric",
+    bodyFont: "humanist",
     accent: "ink",
-    ruleWeight: "medium",
-    headingTreatment: "uppercase-tracked",
+    ruleWeight: "double",
+    headingTreatment: "boxed",
     density: "comfortable",
-    nameScale: "md",
-    contactLayout: "inline",
+    nameScale: "lg",
+    contactLayout: "split",
   },
   content: {
     sectionOrder: ["experience", "projects", "certifications", "education", "skills"],
@@ -1198,18 +1360,30 @@ const SITE_PLAN_CONFIG: TemplateConfig = {
   atsSafe: true,
 };
 
-/** Premium. Timeline. */
+/**
+ * Premium. Timeline.
+ *
+ * LAYOUT RETUNE: was byte-identical in `styleTokens` to `offshore` below —
+ * the only 2-way tie in the whole catalog where BOTH sides already carry
+ * their own dedicated persona (`GEOTECHNICAL_ENGINEER_RESUME` here,
+ * `OFFSHORE_PROCESS_ENGINEER_RESUME` there), so both needed retuning, away
+ * from each other as well as from the rest of the timeline skeleton.
+ * Condensed/body (a pairing no other timeline config used) keeps the heavy
+ * rule and tracked-caps heading but moves to a `stacked` contact — genuinely
+ * different from `offshore`'s new geometric/body/boxed-heading/xl-name
+ * combination below.
+ */
 const FOUNDATION_CONFIG: TemplateConfig = {
   skeleton: "timeline",
   styleTokens: {
-    displayFont: "geometric",
-    bodyFont: "humanist",
+    displayFont: "condensed",
+    bodyFont: "body",
     accent: "ink",
     ruleWeight: "heavy",
     headingTreatment: "uppercase-tracked",
     density: "comfortable",
     nameScale: "md",
-    contactLayout: "inline",
+    contactLayout: "stacked",
   },
   content: {
     sectionOrder: ["experience", "certifications", "education", "skills", "projects"],
