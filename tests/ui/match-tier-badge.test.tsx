@@ -149,3 +149,35 @@ describe("thin screenable-tag denominator (One Acre Fund / ALX Africa case)", ()
     expect(html).toContain("text-green");
   });
 });
+
+describe("showRawWhenCapped — the secondary raw-score marker", () => {
+  it("SABOTAGE-PROOF TARGET: off by default — a capped score shows no marker and no second percentage", () => {
+    const html = renderToStaticMarkup(<MatchTierBadge score={100} />);
+    expect(html).toContain("99%");
+    expect(html).not.toContain("100%");
+    expect(html).not.toContain("title=");
+  });
+
+  it("with the flag on, a genuinely capped score (>99) gets a hover marker carrying the real value", () => {
+    const html = renderToStaticMarkup(<MatchTierBadge score={100} showRawWhenCapped />);
+    // "99% · Excellent" is still the only VISIBLE percentage — the "100%"
+    // that legitimately appears is data inside the hover title, not a
+    // second percentage competing with the face.
+    expect(html).toContain("99% · Excellent");
+    expect(html.replace(/title="[^"]*"/, "")).not.toContain("100%");
+    expect(html).toContain('title="Uncapped match score: 100%"');
+  });
+
+  it("with the flag on, a score that was NOT capped (<=99) shows no marker at all", () => {
+    const html = renderToStaticMarkup(<MatchTierBadge score={92} showRawWhenCapped />);
+    expect(html).toContain("92% · Excellent");
+    expect(html).not.toContain("title=");
+  });
+
+  it("does not touch displayMatchScore's own cap — the visible number is still 99, never 100+", () => {
+    const html = renderToStaticMarkup(<MatchTierBadge score={137} showRawWhenCapped />);
+    expect(html).toContain("99% · Excellent");
+    expect(html.replace(/title="[^"]*"/, "")).not.toMatch(/13[0-9]%/);
+    expect(html).toContain('title="Uncapped match score: 137%"');
+  });
+});
