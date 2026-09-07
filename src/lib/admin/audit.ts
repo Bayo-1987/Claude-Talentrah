@@ -1,7 +1,33 @@
 import "server-only";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import type { Json } from "@/lib/supabase/types";
-import type { AdminIdentity } from "./session";
+
+/**
+ * The actor for a change made OUTSIDE the running app.
+ *
+ * ── WHY A SENTINEL AND NOT A REAL ADMIN'S ID ──────────────────────────────
+ *
+ * Some changes genuinely happen outside `/admin/*`: a migration applied by a
+ * coding session at the founder's explicit direction, a role edited through the
+ * Supabase connector because the person who wanted it was not the person at the
+ * keyboard. `recordAdminAction` cannot describe those honestly — it needs an
+ * admin identity, and the only identities available belong to people who did
+ * not perform the action. Stamping one of them would put a name in the trail
+ * that is simply false, and a wrong name is worse than a null: it reads as
+ * attribution and cannot be told apart from the real thing.
+ *
+ * So the trail records what actually happened — a change made by tooling, on
+ * instruction — and says so in a way that can never be mistaken for a person.
+ *
+ * ── THE ADDRESS ───────────────────────────────────────────────────────────
+ *
+ * `.internal` is reserved by ICANN for private use and can never be registered,
+ * so this string cannot become a deliverable mailbox and therefore cannot
+ * collide with a real operator's address — the collision is impossible by
+ * construction rather than unlikely by convention. The local part says what it
+ * is on sight, in a column a person reads while asking "who did this".
+ */
+export const SYSTEM_TOOLING_ACTOR = "system-tooling@talentrah.internal";
 
 /**
  * Writes what an operator did, and as whom.
@@ -23,7 +49,13 @@ import type { AdminIdentity } from "./session";
  * server log.
  */
 export async function recordAdminAction(input: {
-  identity: Pick<AdminIdentity, "adminId" | "email"> & { sessionId?: string | null };
+  /*
+   * `adminId` is widened to allow null, matching the column, which has always
+   * been nullable — the FK is ON DELETE SET NULL so the trail outlives the
+   * account. Only `recordSystemAction` passes null, and it passes an email that
+   * says why. No existing caller changes.
+   */
+  identity: { adminId: string | null; email: string; sessionId?: string | null };
   action: string;
   targetTable?: string | null;
   targetId?: string | null;
@@ -62,5 +94,43 @@ export async function recordFailedAdminLogin(adminId: string, email: string): Pr
   await recordAdminAction({
     identity: { adminId, email, sessionId: null },
     action: "admin.login_failed",
+  });
+}
+
+/**
+ * Record a change made outside the app, by explicit founder direction.
+ *
+ * ── WHEN THIS IS THE RIGHT FUNCTION, AND WHEN IT IS ABUSE ─────────────────
+ *
+ * RIGHT: a migration applied through the Supabase connector, a role created by
+ * direct SQL because the founder asked for it and no operator performed it —
+ * anything where there is genuinely no admin session, and inventing one would
+ * be a lie.
+ *
+ * ABUSE: anything a real admin session did through `/admin/*`. Those keep
+ * using `recordAdminAction` with that admin's own identity. Reaching for this
+ * one because an identity was awkward to thread through a call stack would
+ * turn every attributed action into a maybe — the trail's entire value is that
+ * a name in it means that person, and one lazy call site is enough to end
+ * that. If you are tempted, the identity is the thing to fix.
+ *
+ * `admin_user_id` and `admin_session_id` are null because there is no account
+ * and no session — the same nulls the moderation routes used to write, except
+ * here the email says why rather than leaving an anonymous row.
+ *
+ * NEVER THROWS, for the same reason as `recordAdminAction`.
+ */
+export async function recordSystemAction(input: {
+  action: string;
+  targetTable?: string | null;
+  targetId?: string | null;
+  detail?: { [key: string]: Json } | null;
+}): Promise<void> {
+  await recordAdminAction({
+    identity: { adminId: null, email: SYSTEM_TOOLING_ACTOR, sessionId: null },
+    action: input.action,
+    targetTable: input.targetTable,
+    targetId: input.targetId,
+    detail: input.detail,
   });
 }
