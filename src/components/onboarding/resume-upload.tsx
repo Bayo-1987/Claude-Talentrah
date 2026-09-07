@@ -43,12 +43,27 @@ export interface ResumeUploadProps {
    *  its own way back (a different start-state panel), so it doesn't need a
    *  second one baked into this component. */
   showSkip?: boolean;
+  /**
+   * Run before navigating away from the skip control, if the surface wants a
+   * skip recorded.
+   *
+   * A PROP RATHER THAN AN IMPORT, so the scoping is structural. This component
+   * is shared with the resume builder's start-state chooser, and only
+   * /onboarding is a place where "skip" means "I was offered onboarding and
+   * declined". Reaching for the Server Action directly from inside here would
+   * make that true by accident — it happens to hold today only because the
+   * builder passes `showSkip={false}`, which is one prop change away from
+   * silently recording a skip that never happened. A surface that wants the
+   * marker written has to say so.
+   */
+  onSkip?: () => Promise<void>;
 }
 
 export function ResumeUpload({
   next = "/jobs",
   endpoint = "/api/resume/parse",
   onParsed,
+  onSkip,
   heading = "Upload your resume (PDF, DOCX, or plain text) and Farah will pre-fill your profile.",
   showSkip = true,
 }: ResumeUploadProps) {
@@ -139,7 +154,22 @@ export function ResumeUpload({
         {showSkip && (
           <button
             type="button"
-            onClick={() => router.push(next)}
+            /*
+             * SET, THEN NAVIGATE. Awaited rather than fired off, because a
+             * navigation can tear down the request that carries the write —
+             * and a skip that is not recorded sends this same person straight
+             * back here on their next sign-in, which is the whole thing the
+             * marker prevents.
+             *
+             * The navigation is NOT conditional on the write succeeding. The
+             * action logs its own failure; the person asked to leave, and the
+             * cost of a lost write is seeing this screen once more, which is
+             * strictly better than being held on it.
+             */
+            onClick={async () => {
+              await onSkip?.();
+              router.push(next);
+            }}
             className="text-[13.5px] font-semibold text-ink-soft underline underline-offset-2 hover:text-rust"
           >
             Skip for now

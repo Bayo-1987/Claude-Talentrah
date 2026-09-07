@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { safeRedirectTo } from "./redirect-to";
+import { onboardingDestination, ONBOARDING_PATH } from "./redirect-to";
 import { headers, cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
@@ -56,7 +56,7 @@ export async function signUpAction(
     email,
     password,
     options: {
-      emailRedirectTo: `${origin}/auth/callback?next=/onboarding`,
+      emailRedirectTo: `${origin}/auth/callback?next=${ONBOARDING_PATH}`,
       data: {
         first_name: firstName,
         last_name: lastName,
@@ -100,8 +100,7 @@ export async function signUpAction(
    * redirectTo must not skip it. The destination is carried across instead, so
    * onboarding can hand them on at the end.
    */
-  const afterSignup = safeRedirectTo(formData.get("redirectTo"), "");
-  redirect(afterSignup ? `/onboarding?next=${encodeURIComponent(afterSignup)}` : "/onboarding");
+  redirect(onboardingDestination(formData.get("redirectTo")));
 }
 
 export async function signInAction(
@@ -128,13 +127,27 @@ export async function signInAction(
   }
 
   /*
-   * Back where they came from, or the feed. Validated here and not only at
-   * the page that rendered the field: this reads a form value, and a form can
-   * be posted by anything. `safeRedirectTo` refuses anything that could leave
-   * the origin — see its comment for why the "//" case is the one that
-   * matters.
+   * ONBOARDING, NOT THE FEED — and this line is the whole bug.
+   *
+   * This used to be `redirect(safeRedirectTo(formData.get("redirectTo"),
+   * "/jobs"))`: straight to the feed, with no onboarding check of any kind.
+   * Signup and the OAuth/One Tap callback both routed to `/onboarding`, so two
+   * of the three entry points gated and this one did not.
+   *
+   * That gap is not theoretical. A confirmation link is single-use, so any
+   * user whose first click does not cleanly land — Gmail prefetching the link
+   * while it scans incoming mail, a second device, a closed tab — falls back
+   * to this form. They then reach the app having never seen /onboarding and,
+   * short of typing the URL, never can: signup and the callback are its only
+   * other entrances. Confirmed on production, where one such account reached
+   * /employer with zero rows in `resumes`.
+   *
+   * The destination is shared with the other entry points rather than
+   * re-derived here, because a rule spelled out at four call sites is a rule
+   * that drifts at one of them — which is how this bug was introduced.
+   * `/onboarding` bounces anyone who does not need it.
    */
-  redirect(safeRedirectTo(formData.get("redirectTo"), "/jobs"));
+  redirect(onboardingDestination(formData.get("redirectTo")));
 }
 
 /**
@@ -276,6 +289,23 @@ export async function updatePasswordAction(
     .is("disabled_at", null)
     .maybeSingle();
 
+  /*
+   * NOT ROUTED THROUGH onboardingDestination, and that is a live question
+   * rather than an oversight — flagged for a decision, not decided here.
+   *
+   * Completing a reset leaves the caller holding a session, so this is a
+   * post-authentication destination like signup's and sign-in's, and a user
+   * who arrives at the app this way skips onboarding exactly as the sign-in
+   * form used to let them. By the reasoning behind 0112 it arguably belongs
+   * with the others.
+   *
+   * It is deliberately left alone because it is outside what this change was
+   * asked to do, and because tests/auth/operator-reset-destination.test.ts
+   * pins this destination today. Those `/jobs` assertions are controls for the
+   * OPERATOR branch ("sends everybody else to the job feed, unchanged")
+   * rather than a product commitment about onboarding — but rewriting another
+   * change's controls to accommodate an unrequested one is how a scope creeps.
+   */
   redirect(operator ? "/admin/login" : "/jobs");
 }
 
@@ -302,7 +332,7 @@ export async function signInWithOAuthAction(formData: FormData) {
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider,
-    options: { redirectTo: `${origin}/auth/callback?next=/onboarding` },
+    options: { redirectTo: `${origin}/auth/callback?next=${ONBOARDING_PATH}` },
   });
 
   if (error || !data.url) {

@@ -1,4 +1,5 @@
 import type { AuthTokenResponse, SignInWithIdTokenCredentials } from "@supabase/supabase-js";
+import { onboardingDestination } from "./redirect-to";
 
 /**
  * The one method this module actually calls, typed structurally rather than
@@ -73,5 +74,7 @@ export async function completeOneTapSignIn(
  * `completeOneTapSignIn` returned `{ ok: true }`.
  */
 export function oneTapSuccessDestination(): string {
-  return "/onboarding";
+  // Shared with signUpAction, signInAction and the OAuth callback (0112), so
+  // a fourth entry point cannot quietly disagree the way signInAction did.
+  return onboardingDestination();
 }

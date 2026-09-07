@@ -5,6 +5,7 @@ import { safeRedirectTo } from "@/lib/auth/redirect-to";
 import { EyebrowLabel } from "@/components/ui";
 import { ResumeUpload } from "@/components/onboarding/resume-upload";
 import { hasVisibleName, visibleName } from "@/lib/profile/name";
+import { skipOnboardingAction } from "@/lib/profile/settings-actions";
 
 export const metadata = { title: "Welcome — Talentrah" };
 
@@ -28,9 +29,21 @@ export default async function OnboardingPage({
    * were new, on the screen whose whole job is to make the product feel like
    * it knows you.
    *
-   * The check is a base resume, not a profile flag, because a base resume is
-   * the thing onboarding exists to produce — a flag would be a second source
-   * of truth that can disagree with it.
+   * The first check is a base resume, not a profile flag, because a base
+   * resume is the thing onboarding exists to produce — a flag would be a
+   * second source of truth that can disagree with it.
+   *
+   * THE SECOND CHECK IS NOT THAT FLAG (0112). `onboarding_skipped_at` records
+   * a different fact — the offer was made and DECLINED — and the reason it has
+   * to exist is that a resume cannot express it: "skipped on purpose" and
+   * "never got here" are both "no base resume", and they need opposite
+   * treatment. Every entry point now routes here unconditionally, so without
+   * it a legitimate skipper would meet this screen on every single sign-in.
+   *
+   * The two cannot disagree, because neither answers the other's question, and
+   * only the skip button writes the marker — never resume creation. Redirect
+   * on EITHER: having the thing onboarding produces, or having already said no
+   * to being asked.
    *
    * REDIRECT ONLY ON A POSITIVE ANSWER, and the asymmetry is deliberate. If
    * this query errors we render the upload, because the two mistakes are not
@@ -49,6 +62,7 @@ export default async function OnboardingPage({
     .maybeSingle();
 
   if (!baseResumeError && baseResume) redirect(next);
+  if (profile.onboarding_skipped_at) redirect(next);
 
   return (
     <div className="mx-auto flex min-h-screen max-w-[560px] flex-col justify-center gap-8 px-6 py-16">
@@ -78,7 +92,11 @@ export default async function OnboardingPage({
         </p>
       </div>
 
-      <ResumeUpload next={next} />
+      {/*
+        Only this surface passes `onSkip`. The builder reuses this component
+        and must not record a skip — see the prop's own comment.
+      */}
+      <ResumeUpload next={next} onSkip={skipOnboardingAction} />
     </div>
   );
 }
