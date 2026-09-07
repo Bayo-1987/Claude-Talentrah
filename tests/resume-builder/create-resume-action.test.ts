@@ -1,30 +1,43 @@
 /**
  * createResumeAction's three (really four) start states — Stage 3.1's core
  * mechanism: "blank" (unchanged baseline), "example" (a persona from
- * `EXAMPLE_PERSONAS`, resolved by the chosen template's `industry_category`
- * — see persona-for-category.ts), "import_base" (copy the user's existing
- * is_base=true resume) and "import_upload" (a freshly-parsed file, handed in
- * via a form field).
+ * `EXAMPLE_PERSONAS`, resolved by the chosen template's own `slug` — see
+ * persona-for-slug.ts), "import_base" (copy the user's existing is_base=true
+ * resume) and "import_upload" (a freshly-parsed file, handed in via a form
+ * field).
  *
- * REWORKED FOR THE MULTI-PERSONA REGISTRY. Before this, `createResumeAction`
- * always seeded the single `PREVIEW_SAMPLE_RESUME` for "example", so any free
+ * REWORKED FOR THE MULTI-PERSONA REGISTRY, then reworked again for batch 1
+ * of the per-slug rollout. Before either pass, `createResumeAction` always
+ * seeded the single `PREVIEW_SAMPLE_RESUME` for "example", so any free
  * template picked with `.limit(1)` gave a deterministic answer. That is no
- * longer true — which persona comes back now depends on which category the
- * arbitrarily-picked template belongs to — so:
- *   - the pre-existing "'example' seeds ..." test below now pins its
- *     template to `clean-professional` explicitly (Business category, which
- *     has no dedicated persona and so resolves to the fallback,
+ * longer true — which persona comes back now depends on the exact slug of
+ * the picked template — so:
+ *   - the pre-existing "'example' seeds ..." test below pins its template to
+ *     `clean-professional` explicitly (Business category, which has no
+ *     dedicated persona and so resolves to the fallback,
  *     `PREVIEW_SAMPLE_RESUME`) instead of an arbitrary `.limit(1)` free
  *     template, so the assertion stays meaningful rather than becoming
  *     flaky depending on catalog order;
- *   - a new "persona-matching" describe block below is the sabotage-proof
- *     target for the category -> persona resolution itself: a free
- *     Engineering-category template seeds the EPC engineer persona, a free
- *     NGO & Development-category template seeds the development programme
- *     officer persona, and a free Technology-category template (a category
- *     with no dedicated persona, same as Business but a DIFFERENT one, to
- *     prove the fallback isn't just hardcoded to "Business") falls back to
- *     `PREVIEW_SAMPLE_RESUME` rather than crashing.
+ *   - a "persona-matching" describe block below is the sabotage-proof
+ *     target for the slug -> persona resolution itself: `blueprint` seeds
+ *     the (unchanged) EPC engineer persona, `site-plan` and `rig-report`
+ *     (both free, so no unlock fixture needed) each seed their OWN new
+ *     batch-1 persona (not each other's, and not the EPC engineer's —
+ *     proving the split is real, not still category-wide), a free NGO &
+ *     Development-category template seeds the (still shared, unchanged)
+ *     development programme officer persona, and a free Technology-category
+ *     template (a category with no dedicated persona, same as Business but
+ *     a DIFFERENT one, to prove the fallback isn't just hardcoded to
+ *     "Business") falls back to `PREVIEW_SAMPLE_RESUME` rather than
+ *     crashing.
+ *
+ * `createResumeAction`'s own `resume_templates` select changed in this pass
+ * too — it now selects `slug` (used to resolve the persona) instead of
+ * `industry_category` (no longer used for that purpose anywhere in the
+ * function). Every assertion below that reads back `structured_content`
+ * implicitly covers that change: if the select stopped returning `slug`,
+ * every "example" test here would seed `PREVIEW_SAMPLE_RESUME` regardless of
+ * template and fail immediately.
  *
  * Runs against the real CI Supabase project, same pattern as
  * tests/passes/pass-covered-actions.test.ts: createClient() is mocked to
@@ -45,6 +58,8 @@ import {
   PREVIEW_SAMPLE_RESUME,
   EPC_SITE_ENGINEER_RESUME,
   DEVELOPMENT_PROGRAMME_OFFICER_RESUME,
+  LAND_SURVEYOR_RESUME,
+  DRILLING_RIG_SUPERVISOR_RESUME,
 } from "@/lib/resume-builder/preview-sample";
 
 const testClientRef = vi.hoisted(() => ({ current: null as DB | null }));
@@ -88,6 +103,11 @@ let businessTemplateId: string;
 let engineeringTemplateId: string;
 let ngoTemplateId: string;
 let technologyTemplateId: string;
+// Two of the 9 batch-1 new personas, both on FREE Engineering-group slugs
+// (no unlock fixture needed) — used to prove the per-slug split is real
+// within the grouping, not still one persona shared across it.
+let sitePlanTemplateId: string;
+let rigReportTemplateId: string;
 const createdResumeIds: string[] = [];
 
 async function freeTemplateIdBySlug(slug: string): Promise<string> {
@@ -132,6 +152,8 @@ beforeAll(async () => {
   engineeringTemplateId = await freeTemplateIdBySlug("blueprint");
   ngoTemplateId = await freeTemplateIdBySlug("field-mission");
   technologyTemplateId = await freeTemplateIdBySlug("product-tech");
+  sitePlanTemplateId = await freeTemplateIdBySlug("site-plan");
+  rigReportTemplateId = await freeTemplateIdBySlug("rig-report");
 }, 60_000);
 
 afterEach(async () => {
@@ -261,17 +283,19 @@ describe("start-state content selection (sabotage-proof target #3)", () => {
 });
 
 /**
- * THE PERSONA-MATCHING SABOTAGE-PROOF TARGET for this PR. Before this, every
- * "example" seed was `PREVIEW_SAMPLE_RESUME` regardless of template — now
- * `createResumeAction` resolves a persona from the chosen template's
- * `industry_category` (persona-for-category.ts). These tests hit the real
+ * THE PERSONA-MATCHING SABOTAGE-PROOF TARGET for this PR. Before the
+ * multi-persona rework, every "example" seed was `PREVIEW_SAMPLE_RESUME`
+ * regardless of template. Before batch 1 (this PR), `createResumeAction`
+ * resolved a persona from the chosen template's `industry_category` — a
+ * whole category grouping shared one persona. Now it resolves from the
+ * template's own `slug` (persona-for-slug.ts). These tests hit the real
  * mechanism end-to-end: a real template row, a real `createResumeAction`
  * call, a real inserted `resumes.structured_content` read back — not the
  * resolver function in isolation (that's covered separately in
- * tests/resume-builder/persona-for-category.test.ts).
+ * tests/resume-builder/persona-for-slug.test.ts).
  */
-describe("createResumeAction's 'example' start state seeds the persona matching the template's category", () => {
-  it("an Engineering-category template seeds the EPC engineer persona, not the old universal default", async () => {
+describe("createResumeAction's 'example' start state seeds the persona matching the template's own slug", () => {
+  it("blueprint seeds the EPC engineer persona, not the old universal default", async () => {
     let resumeId = "";
     try {
       await createResumeAction(engineeringTemplateId, "example");
@@ -285,7 +309,38 @@ describe("createResumeAction's 'example' start state seeds the persona matching 
     expect(content).not.toEqual(PREVIEW_SAMPLE_RESUME);
   });
 
-  it("an NGO & Development-category template seeds the development programme officer persona", async () => {
+  it("site-plan seeds ITS OWN batch-1 persona (the land surveyor), not blueprint's EPC engineer or the fallback — proves the Engineering grouping is really split by slug now", async () => {
+    let resumeId = "";
+    try {
+      await createResumeAction(sitePlanTemplateId, "example");
+      throw new Error("expected a redirect");
+    } catch (err) {
+      resumeId = redirectedResumeId(err);
+    }
+    createdResumeIds.push(resumeId);
+    const content = await createdContent(resumeId);
+    expect(content).toEqual(LAND_SURVEYOR_RESUME);
+    expect(content).not.toEqual(EPC_SITE_ENGINEER_RESUME);
+    expect(content).not.toEqual(PREVIEW_SAMPLE_RESUME);
+  });
+
+  it("rig-report seeds ITS OWN batch-1 persona (the drilling rig supervisor), not site-plan's surveyor, blueprint's EPC engineer, or the fallback", async () => {
+    let resumeId = "";
+    try {
+      await createResumeAction(rigReportTemplateId, "example");
+      throw new Error("expected a redirect");
+    } catch (err) {
+      resumeId = redirectedResumeId(err);
+    }
+    createdResumeIds.push(resumeId);
+    const content = await createdContent(resumeId);
+    expect(content).toEqual(DRILLING_RIG_SUPERVISOR_RESUME);
+    expect(content).not.toEqual(LAND_SURVEYOR_RESUME);
+    expect(content).not.toEqual(EPC_SITE_ENGINEER_RESUME);
+    expect(content).not.toEqual(PREVIEW_SAMPLE_RESUME);
+  });
+
+  it("an NGO & Development-category template seeds the (still shared, unchanged) development programme officer persona", async () => {
     let resumeId = "";
     try {
       await createResumeAction(ngoTemplateId, "example");

@@ -21,6 +21,15 @@
  * confirmed it failed with a message naming both personas' emails, then
  * reverted — see the PR description for the before/after transcript. Left
  * here as the standing regression check.
+ *
+ * UPDATED for batch 1 of the per-slug persona rollout: the registry grew
+ * from 3 personas to 12 (the original 3 plus 9 new ones covering the
+ * Engineering/Construction/Oil & Gas grouping individually — see
+ * preview-sample.ts). Re-ran the same sabotage — this time making two of
+ * the NEW personas' certifications lists identical — and confirmed the
+ * "no two personas share a verbatim certifications list" check still fails
+ * and still names both personas at n=12, then reverted; see the PR
+ * description for that transcript too.
  */
 import { describe, expect, it } from "vitest";
 import {
@@ -28,6 +37,15 @@ import {
   PREVIEW_SAMPLE_RESUME,
   EPC_SITE_ENGINEER_RESUME,
   DEVELOPMENT_PROGRAMME_OFFICER_RESUME,
+  CONSTRUCTION_FOREMAN_RESUME,
+  STRUCTURAL_DESIGN_ENGINEER_RESUME,
+  ELECTRICAL_DESIGN_ENGINEER_RESUME,
+  LAND_SURVEYOR_RESUME,
+  GEOTECHNICAL_ENGINEER_RESUME,
+  REAL_ESTATE_DEVELOPMENT_MANAGER_RESUME,
+  DRILLING_RIG_SUPERVISOR_RESUME,
+  OFFSHORE_PROCESS_ENGINEER_RESUME,
+  WELLHEAD_COMPLETIONS_ENGINEER_RESUME,
 } from "@/lib/resume-builder/preview-sample";
 
 function pairs<T>(items: readonly T[]): Array<[T, T]> {
@@ -44,12 +62,21 @@ function sameList(a: readonly string[], b: readonly string[]): boolean {
   return a.length > 0 && a.length === b.length && a.every((item, i) => item === b[i]);
 }
 
-describe("EXAMPLE_PERSONAS registry has at least the 3 personas this pass built", () => {
-  it("contains the kept PM persona plus the 2 new ones, and nothing is accidentally duplicated by reference", () => {
-    expect(EXAMPLE_PERSONAS).toHaveLength(3);
+describe("EXAMPLE_PERSONAS registry has exactly the 12 personas this pass built", () => {
+  it("contains the original 3 personas plus the 9 new Engineering-group ones, and nothing is accidentally duplicated by reference", () => {
+    expect(EXAMPLE_PERSONAS).toHaveLength(12);
     expect(EXAMPLE_PERSONAS).toContain(PREVIEW_SAMPLE_RESUME);
     expect(EXAMPLE_PERSONAS).toContain(EPC_SITE_ENGINEER_RESUME);
     expect(EXAMPLE_PERSONAS).toContain(DEVELOPMENT_PROGRAMME_OFFICER_RESUME);
+    expect(EXAMPLE_PERSONAS).toContain(CONSTRUCTION_FOREMAN_RESUME);
+    expect(EXAMPLE_PERSONAS).toContain(STRUCTURAL_DESIGN_ENGINEER_RESUME);
+    expect(EXAMPLE_PERSONAS).toContain(ELECTRICAL_DESIGN_ENGINEER_RESUME);
+    expect(EXAMPLE_PERSONAS).toContain(LAND_SURVEYOR_RESUME);
+    expect(EXAMPLE_PERSONAS).toContain(GEOTECHNICAL_ENGINEER_RESUME);
+    expect(EXAMPLE_PERSONAS).toContain(REAL_ESTATE_DEVELOPMENT_MANAGER_RESUME);
+    expect(EXAMPLE_PERSONAS).toContain(DRILLING_RIG_SUPERVISOR_RESUME);
+    expect(EXAMPLE_PERSONAS).toContain(OFFSHORE_PROCESS_ENGINEER_RESUME);
+    expect(EXAMPLE_PERSONAS).toContain(WELLHEAD_COMPLETIONS_ENGINEER_RESUME);
   });
 });
 

@@ -10,8 +10,8 @@ import { EXAMPLE_PERSONAS } from "./preview-sample";
  * MECHANISM: exact-value comparison against ANY persona in `EXAMPLE_PERSONAS`
  * (src/lib/resume-builder/preview-sample.ts), field by field. Originally this
  * compared against a single constant (`PREVIEW_SAMPLE_RESUME`); the template
- * library now seeds a DIFFERENT persona depending on the template's category
- * (see `persona-for-category.ts`), so a resume seeded from, say, the
+ * library now seeds a DIFFERENT persona depending on the template's own slug
+ * (see `persona-for-slug.ts`), so a resume seeded from, say, the
  * Engineering persona would never have matched a guard that only knew the PM
  * one. Every comparison below is therefore "does this value match SOME
  * persona's value", not "does it match THE example's value" — a

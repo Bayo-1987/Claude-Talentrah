@@ -1,7 +1,7 @@
 "use client";
 
 import { TemplateRenderer, registeredSlugs } from "@/components/resume-builder/templates";
-import { personaForSlug } from "@/lib/resume-builder/persona-for-category";
+import { personaForSlug } from "@/lib/resume-builder/persona-for-slug";
 
 /**
  * A live, scaled-down render of the actual template.
@@ -54,11 +54,11 @@ const SCALE = 0.5;
 
 export function TemplateThumbnail({ slug }: { slug: string | null }) {
   const registered = slug ? registeredSlugs().includes(slug) : false;
-  // The persona matching THIS template's own category (blueprint's civil
-  // engineer, field-mission's programme officer, etc.) — see
-  // persona-for-category.ts. A slug with no dedicated persona for its
-  // category, or no category at all, falls back to the same PM persona
-  // every card previewed before this mechanism existed.
+  // The persona matching THIS template's own slug (blueprint's civil
+  // engineer, site-report's foreman, field-mission's programme officer,
+  // etc.) — see persona-for-slug.ts. A slug with no dedicated persona falls
+  // back to the same PM persona every card previewed before this mechanism
+  // existed.
   const resume = personaForSlug(slug);
 
   return (
