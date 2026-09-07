@@ -97,12 +97,12 @@ export const RESUME_TEMPLATES: readonly ResumeTemplateDefinition[] = [
   // real ats_safe/structure_schema now, sourced from CATALOG_TEMPLATE_CONFIGS
   // (skeletons/catalog-configs.ts) exactly like clean-professional above.
   { name: "Structured Admin", slug: "structured-admin", industry_category: "Administration", is_premium: false, unlock_cost_credits: 0, ats_safe: atsSafeFor("structured-admin"), structure_schema: structureSchemaFor("structured-admin") },
-  { name: "Product & Tech", slug: "product-tech", industry_category: "Technology", is_premium: false, unlock_cost_credits: 0, ats_safe: atsSafeFor("product-tech"), structure_schema: structureSchemaFor("product-tech") },
+  { name: "Product & Tech", slug: "product-tech", industry_category: "Technology", is_premium: true, unlock_cost_credits: 10, ats_safe: atsSafeFor("product-tech"), structure_schema: structureSchemaFor("product-tech") },
   { name: "Portfolio Grid", slug: "portfolio-grid", industry_category: "Design", is_premium: true, unlock_cost_credits: 10, ats_safe: false, structure_schema: {} },
-  { name: "Field Notes", slug: "field-notes", industry_category: "Customer Success", is_premium: false, unlock_cost_credits: 0, ats_safe: atsSafeFor("field-notes"), structure_schema: structureSchemaFor("field-notes") },
+  { name: "Field Notes", slug: "field-notes", industry_category: "Customer Success", is_premium: true, unlock_cost_credits: 10, ats_safe: atsSafeFor("field-notes"), structure_schema: structureSchemaFor("field-notes") },
   { name: "Ledger", slug: "ledger", industry_category: "Banking & Finance", is_premium: false, unlock_cost_credits: 0, ats_safe: atsSafeFor("ledger"), structure_schema: structureSchemaFor("ledger") },
   { name: "Pipeline", slug: "pipeline", industry_category: "Sales & Marketing", is_premium: true, unlock_cost_credits: 10, ats_safe: false, structure_schema: {} },
-  { name: "Clinical", slug: "clinical", industry_category: "Healthcare", is_premium: false, unlock_cost_credits: 0, ats_safe: false, structure_schema: {} },
+  { name: "Clinical", slug: "clinical", industry_category: "Healthcare", is_premium: true, unlock_cost_credits: 10, ats_safe: false, structure_schema: {} },
   { name: "Statute", slug: "statute", industry_category: "Legal", is_premium: true, unlock_cost_credits: 10, ats_safe: true, structure_schema: {} },
   { name: "Critical Path", slug: "critical-path", industry_category: "Project Management", is_premium: true, unlock_cost_credits: 10, ats_safe: false, structure_schema: {} },
   { name: "Public Record", slug: "public-record", industry_category: "Government & Public Sector", is_premium: true, unlock_cost_credits: 10, ats_safe: true, structure_schema: {} },
@@ -117,22 +117,22 @@ export const RESUME_TEMPLATES: readonly ResumeTemplateDefinition[] = [
 
   // Business
   { name: "Boardroom", slug: "business-boardroom", industry_category: "Business", is_premium: true, unlock_cost_credits: 10, ats_safe: atsSafeFor("business-boardroom"), structure_schema: structureSchemaFor("business-boardroom") },
-  { name: "Memo", slug: "business-memo", industry_category: "Business", is_premium: false, unlock_cost_credits: 0, ats_safe: atsSafeFor("business-memo"), structure_schema: structureSchemaFor("business-memo") },
+  { name: "Memo", slug: "business-memo", industry_category: "Business", is_premium: true, unlock_cost_credits: 10, ats_safe: atsSafeFor("business-memo"), structure_schema: structureSchemaFor("business-memo") },
   // Administration
   { name: "Front Office", slug: "front-office", industry_category: "Administration", is_premium: true, unlock_cost_credits: 10, ats_safe: atsSafeFor("front-office"), structure_schema: structureSchemaFor("front-office") },
-  { name: "Filing System", slug: "filing-system", industry_category: "Administration", is_premium: false, unlock_cost_credits: 0, ats_safe: atsSafeFor("filing-system"), structure_schema: structureSchemaFor("filing-system") },
+  { name: "Filing System", slug: "filing-system", industry_category: "Administration", is_premium: true, unlock_cost_credits: 10, ats_safe: atsSafeFor("filing-system"), structure_schema: structureSchemaFor("filing-system") },
   // Technology
   { name: "Stack Trace", slug: "stack-trace", industry_category: "Technology", is_premium: true, unlock_cost_credits: 10, ats_safe: atsSafeFor("stack-trace"), structure_schema: structureSchemaFor("stack-trace") },
   { name: "Terminal", slug: "terminal", industry_category: "Technology", is_premium: false, unlock_cost_credits: 0, ats_safe: atsSafeFor("terminal"), structure_schema: structureSchemaFor("terminal") },
   // Design
   { name: "Showcase", slug: "design-showcase", industry_category: "Design", is_premium: true, unlock_cost_credits: 10, ats_safe: atsSafeFor("design-showcase"), structure_schema: structureSchemaFor("design-showcase") },
-  { name: "Studio Brief", slug: "studio-brief", industry_category: "Design", is_premium: false, unlock_cost_credits: 0, ats_safe: atsSafeFor("studio-brief"), structure_schema: structureSchemaFor("studio-brief") },
+  { name: "Studio Brief", slug: "studio-brief", industry_category: "Design", is_premium: true, unlock_cost_credits: 10, ats_safe: atsSafeFor("studio-brief"), structure_schema: structureSchemaFor("studio-brief") },
   // Customer Success
   { name: "Success Story", slug: "success-story", industry_category: "Customer Success", is_premium: true, unlock_cost_credits: 10, ats_safe: atsSafeFor("success-story"), structure_schema: structureSchemaFor("success-story") },
-  { name: "Help Desk", slug: "help-desk", industry_category: "Customer Success", is_premium: false, unlock_cost_credits: 0, ats_safe: atsSafeFor("help-desk"), structure_schema: structureSchemaFor("help-desk") },
+  { name: "Help Desk", slug: "help-desk", industry_category: "Customer Success", is_premium: true, unlock_cost_credits: 10, ats_safe: atsSafeFor("help-desk"), structure_schema: structureSchemaFor("help-desk") },
   // Banking & Finance
   { name: "Balance Sheet", slug: "balance-sheet", industry_category: "Banking & Finance", is_premium: true, unlock_cost_credits: 10, ats_safe: atsSafeFor("balance-sheet"), structure_schema: structureSchemaFor("balance-sheet") },
-  { name: "Compliance Brief", slug: "compliance-brief", industry_category: "Banking & Finance", is_premium: false, unlock_cost_credits: 0, ats_safe: atsSafeFor("compliance-brief"), structure_schema: structureSchemaFor("compliance-brief") },
+  { name: "Compliance Brief", slug: "compliance-brief", industry_category: "Banking & Finance", is_premium: true, unlock_cost_credits: 10, ats_safe: atsSafeFor("compliance-brief"), structure_schema: structureSchemaFor("compliance-brief") },
   // Sales & Marketing
   { name: "Pitch Deck", slug: "pitch-deck", industry_category: "Sales & Marketing", is_premium: true, unlock_cost_credits: 10, ats_safe: atsSafeFor("pitch-deck"), structure_schema: structureSchemaFor("pitch-deck") },
   { name: "Funnel", slug: "funnel", industry_category: "Sales & Marketing", is_premium: false, unlock_cost_credits: 0, ats_safe: atsSafeFor("funnel"), structure_schema: structureSchemaFor("funnel") },
@@ -141,13 +141,13 @@ export const RESUME_TEMPLATES: readonly ResumeTemplateDefinition[] = [
   { name: "Care Plan", slug: "care-plan", industry_category: "Healthcare", is_premium: false, unlock_cost_credits: 0, ats_safe: atsSafeFor("care-plan"), structure_schema: structureSchemaFor("care-plan") },
   // Legal
   { name: "Legal Brief", slug: "legal-brief", industry_category: "Legal", is_premium: true, unlock_cost_credits: 10, ats_safe: atsSafeFor("legal-brief"), structure_schema: structureSchemaFor("legal-brief") },
-  { name: "Chambers", slug: "chambers", industry_category: "Legal", is_premium: false, unlock_cost_credits: 0, ats_safe: atsSafeFor("chambers"), structure_schema: structureSchemaFor("chambers") },
+  { name: "Chambers", slug: "chambers", industry_category: "Legal", is_premium: true, unlock_cost_credits: 10, ats_safe: atsSafeFor("chambers"), structure_schema: structureSchemaFor("chambers") },
   // Project Management
   { name: "Gantt", slug: "gantt", industry_category: "Project Management", is_premium: true, unlock_cost_credits: 10, ats_safe: atsSafeFor("gantt"), structure_schema: structureSchemaFor("gantt") },
-  { name: "Sprint Board", slug: "sprint-board", industry_category: "Project Management", is_premium: false, unlock_cost_credits: 0, ats_safe: atsSafeFor("sprint-board"), structure_schema: structureSchemaFor("sprint-board") },
+  { name: "Sprint Board", slug: "sprint-board", industry_category: "Project Management", is_premium: true, unlock_cost_credits: 10, ats_safe: atsSafeFor("sprint-board"), structure_schema: structureSchemaFor("sprint-board") },
   // Government & Public Sector
   { name: "Gazette", slug: "gazette", industry_category: "Government & Public Sector", is_premium: true, unlock_cost_credits: 10, ats_safe: atsSafeFor("gazette"), structure_schema: structureSchemaFor("gazette") },
-  { name: "Civic Record", slug: "civic-record", industry_category: "Government & Public Sector", is_premium: false, unlock_cost_credits: 0, ats_safe: atsSafeFor("civic-record"), structure_schema: structureSchemaFor("civic-record") },
+  { name: "Civic Record", slug: "civic-record", industry_category: "Government & Public Sector", is_premium: true, unlock_cost_credits: 10, ats_safe: atsSafeFor("civic-record"), structure_schema: structureSchemaFor("civic-record") },
 
   // Engineering (new category — see PR description)
   { name: "Blueprint", slug: "blueprint", industry_category: "Engineering", is_premium: false, unlock_cost_credits: 0, ats_safe: atsSafeFor("blueprint"), structure_schema: structureSchemaFor("blueprint") },
@@ -167,37 +167,37 @@ export const RESUME_TEMPLATES: readonly ResumeTemplateDefinition[] = [
   { name: "Grant Proposal", slug: "grant-proposal", industry_category: "NGO & Development", is_premium: true, unlock_cost_credits: 10, ats_safe: atsSafeFor("grant-proposal"), structure_schema: structureSchemaFor("grant-proposal") },
 
   // Creative & Media (new category)
-  { name: "Byline", slug: "byline", industry_category: "Creative & Media", is_premium: false, unlock_cost_credits: 0, ats_safe: atsSafeFor("byline"), structure_schema: structureSchemaFor("byline") },
+  { name: "Byline", slug: "byline", industry_category: "Creative & Media", is_premium: true, unlock_cost_credits: 10, ats_safe: atsSafeFor("byline"), structure_schema: structureSchemaFor("byline") },
   { name: "Reel", slug: "reel", industry_category: "Creative & Media", is_premium: true, unlock_cost_credits: 10, ats_safe: atsSafeFor("reel"), structure_schema: structureSchemaFor("reel") },
   { name: "Press Kit", slug: "press-kit", industry_category: "Creative & Media", is_premium: true, unlock_cost_credits: 10, ats_safe: atsSafeFor("press-kit"), structure_schema: structureSchemaFor("press-kit") },
 
   // Agriculture & Agribusiness (new category)
-  { name: "Harvest", slug: "harvest", industry_category: "Agriculture & Agribusiness", is_premium: false, unlock_cost_credits: 0, ats_safe: atsSafeFor("harvest"), structure_schema: structureSchemaFor("harvest") },
+  { name: "Harvest", slug: "harvest", industry_category: "Agriculture & Agribusiness", is_premium: true, unlock_cost_credits: 10, ats_safe: atsSafeFor("harvest"), structure_schema: structureSchemaFor("harvest") },
   { name: "Field Season", slug: "field-season", industry_category: "Agriculture & Agribusiness", is_premium: true, unlock_cost_credits: 10, ats_safe: atsSafeFor("field-season"), structure_schema: structureSchemaFor("field-season") },
   { name: "Value Chain", slug: "value-chain", industry_category: "Agriculture & Agribusiness", is_premium: true, unlock_cost_credits: 10, ats_safe: atsSafeFor("value-chain"), structure_schema: structureSchemaFor("value-chain") },
 
   // Oil & Gas / Energy (new category)
-  { name: "Rig Report", slug: "rig-report", industry_category: "Oil & Gas / Energy", is_premium: false, unlock_cost_credits: 0, ats_safe: atsSafeFor("rig-report"), structure_schema: structureSchemaFor("rig-report") },
+  { name: "Rig Report", slug: "rig-report", industry_category: "Oil & Gas / Energy", is_premium: true, unlock_cost_credits: 10, ats_safe: atsSafeFor("rig-report"), structure_schema: structureSchemaFor("rig-report") },
   { name: "Offshore", slug: "offshore", industry_category: "Oil & Gas / Energy", is_premium: true, unlock_cost_credits: 10, ats_safe: atsSafeFor("offshore"), structure_schema: structureSchemaFor("offshore") },
   { name: "Wellhead", slug: "wellhead", industry_category: "Oil & Gas / Energy", is_premium: true, unlock_cost_credits: 10, ats_safe: atsSafeFor("wellhead"), structure_schema: structureSchemaFor("wellhead") },
 
   // Telecommunications (new category)
-  { name: "Network Ops", slug: "network-ops", industry_category: "Telecommunications", is_premium: false, unlock_cost_credits: 0, ats_safe: atsSafeFor("network-ops"), structure_schema: structureSchemaFor("network-ops") },
+  { name: "Network Ops", slug: "network-ops", industry_category: "Telecommunications", is_premium: true, unlock_cost_credits: 10, ats_safe: atsSafeFor("network-ops"), structure_schema: structureSchemaFor("network-ops") },
   { name: "Signal", slug: "signal", industry_category: "Telecommunications", is_premium: true, unlock_cost_credits: 10, ats_safe: atsSafeFor("signal"), structure_schema: structureSchemaFor("signal") },
   { name: "Uptime", slug: "uptime", industry_category: "Telecommunications", is_premium: true, unlock_cost_credits: 10, ats_safe: atsSafeFor("uptime"), structure_schema: structureSchemaFor("uptime") },
 
   // Construction & Real Estate (new category)
-  { name: "Site Plan", slug: "site-plan", industry_category: "Construction & Real Estate", is_premium: false, unlock_cost_credits: 0, ats_safe: atsSafeFor("site-plan"), structure_schema: structureSchemaFor("site-plan") },
+  { name: "Site Plan", slug: "site-plan", industry_category: "Construction & Real Estate", is_premium: true, unlock_cost_credits: 10, ats_safe: atsSafeFor("site-plan"), structure_schema: structureSchemaFor("site-plan") },
   { name: "Foundation", slug: "foundation", industry_category: "Construction & Real Estate", is_premium: true, unlock_cost_credits: 10, ats_safe: atsSafeFor("foundation"), structure_schema: structureSchemaFor("foundation") },
   { name: "Property Portfolio", slug: "property-portfolio", industry_category: "Construction & Real Estate", is_premium: true, unlock_cost_credits: 10, ats_safe: atsSafeFor("property-portfolio"), structure_schema: structureSchemaFor("property-portfolio") },
 
   // Hospitality & Travel (new category)
-  { name: "Front Desk", slug: "front-desk", industry_category: "Hospitality & Travel", is_premium: false, unlock_cost_credits: 0, ats_safe: atsSafeFor("front-desk"), structure_schema: structureSchemaFor("front-desk") },
+  { name: "Front Desk", slug: "front-desk", industry_category: "Hospitality & Travel", is_premium: true, unlock_cost_credits: 10, ats_safe: atsSafeFor("front-desk"), structure_schema: structureSchemaFor("front-desk") },
   { name: "Concierge", slug: "concierge", industry_category: "Hospitality & Travel", is_premium: true, unlock_cost_credits: 10, ats_safe: atsSafeFor("concierge"), structure_schema: structureSchemaFor("concierge") },
   { name: "Itinerary", slug: "itinerary", industry_category: "Hospitality & Travel", is_premium: true, unlock_cost_credits: 10, ats_safe: atsSafeFor("itinerary"), structure_schema: structureSchemaFor("itinerary") },
 
   // Logistics & Supply Chain (new category)
-  { name: "Manifest", slug: "manifest", industry_category: "Logistics & Supply Chain", is_premium: false, unlock_cost_credits: 0, ats_safe: atsSafeFor("manifest"), structure_schema: structureSchemaFor("manifest") },
+  { name: "Manifest", slug: "manifest", industry_category: "Logistics & Supply Chain", is_premium: true, unlock_cost_credits: 10, ats_safe: atsSafeFor("manifest"), structure_schema: structureSchemaFor("manifest") },
   { name: "Route Plan", slug: "route-plan", industry_category: "Logistics & Supply Chain", is_premium: true, unlock_cost_credits: 10, ats_safe: atsSafeFor("route-plan"), structure_schema: structureSchemaFor("route-plan") },
   { name: "Supply Chain", slug: "supply-chain", industry_category: "Logistics & Supply Chain", is_premium: true, unlock_cost_credits: 10, ats_safe: atsSafeFor("supply-chain"), structure_schema: structureSchemaFor("supply-chain") },
 ];

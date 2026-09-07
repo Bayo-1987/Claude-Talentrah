@@ -29,6 +29,28 @@
  * it failed immediately with `ats_safe: RESUME_TEMPLATES says true, migration
  * 0105 says false`, then passed again once reverted. See the PR description
  * for the full transcript.
+ *
+ * `is_premium`/`unlock_cost_credits` PARITY (added by the free-tier-cut PR,
+ * migration 0110). Until that PR, this file's `structure_schema` string
+ * appeared only in this comment — there was no assertion at all comparing
+ * `is_premium`/`unlock_cost_credits` between `catalog.ts` and any migration,
+ * which is exactly the same drift class this file already guards `ats_safe`/
+ * `structure_schema` against, just for the two columns that gate spending
+ * credits. See `IS_PREMIUM_OUT_OF_SCOPE_SLUGS` and
+ * `IS_PREMIUM_SUPERSEDED_BY_LATER_MIGRATION` below for which migration is
+ * each slug's source of truth for those two columns specifically — it is NOT
+ * the same set of slugs as `OUT_OF_SCOPE_SLUGS`/
+ * `STRUCTURE_SCHEMA_SUPERSEDED_BY_LATER_MIGRATION` above, because 0105 never
+ * set `is_premium`/`unlock_cost_credits` for the four pre-existing slugs it
+ * only sent `ats_safe`/`structure_schema` UPDATEs for (`structured-admin`,
+ * `product-tech`, `field-notes`, `ledger` — see 0105's own header), so a
+ * slug can be in-scope for one column pair and out-of-scope for the other.
+ *
+ * SABOTAGE-PROOF, PERFORMED LIVE DURING THIS PR. Temporarily changed
+ * `manifest`'s `unlock_cost_credits` in `RESUME_TEMPLATES` from `10` to `5`
+ * (leaving migration 0110's own `10` untouched) and ran this file alone — it
+ * failed immediately naming `manifest` and both values, then passed again
+ * once reverted. See the PR description for the full transcript.
  */
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
@@ -38,6 +60,11 @@ import { RESUME_TEMPLATES } from "@/lib/billing/catalog";
 const MIGRATION_PATH = path.resolve(
   __dirname,
   "../../supabase/migrations/0105_resume_template_library.sql",
+);
+
+const MIGRATION_0110_PATH = path.resolve(
+  __dirname,
+  "../../supabase/migrations/0110_template_free_tier_cut.sql",
 );
 
 /**
@@ -69,6 +96,70 @@ const OUT_OF_SCOPE_SLUGS = new Set([
  * current source of record has moved to a later migration.
  */
 const STRUCTURE_SCHEMA_SUPERSEDED_BY_LATER_MIGRATION = new Set(["blueprint"]);
+
+/**
+ * Slugs whose `is_premium`/`unlock_cost_credits` have NEVER been set by any
+ * migration living in this repo — they were free/premium already in 0042
+ * (not in this repo; applied straight to the project, per CLAUDE.md), and
+ * neither 0105 nor 0110 touches them:
+ *   - `clean-professional`, `structured-admin`, `ledger`: the three of the
+ *     "four pre-existing free slugs" (0105's own header) that the free-tier
+ *     cut (0110) leaves free — 0105 only ever sent them `ats_safe`/
+ *     `structure_schema` UPDATEs, never touched `is_premium`.
+ *   - `statute`, `critical-path`, `public-record`, `portfolio-grid`,
+ *     `pipeline`: the five pre-PR2 bespoke premium slugs, same reasoning as
+ *     `OUT_OF_SCOPE_SLUGS` above — untouched by 0105 or 0110.
+ * No in-repo migration text exists to compare `RESUME_TEMPLATES` against for
+ * these, so they are excluded from the is_premium/unlock_cost_credits checks
+ * entirely, rather than being silently checked against the wrong migration.
+ */
+const IS_PREMIUM_OUT_OF_SCOPE_SLUGS = new Set([
+  "clean-professional",
+  "structured-admin",
+  "ledger",
+  "statute",
+  "critical-path",
+  "public-record",
+  "portfolio-grid",
+  "pipeline",
+]);
+
+/**
+ * The 18 slugs the free-tier-cut migration (0110) flips from free to
+ * premium. For these, 0110 — not 0105 — is the current source of truth for
+ * `is_premium`/`unlock_cost_credits`, same "true current source has moved to
+ * a later migration" reasoning as `STRUCTURE_SCHEMA_SUPERSEDED_BY_LATER_MIGRATION`
+ * above (blueprint/0106), just for a different column pair and a different
+ * later migration. Two of these (`product-tech`, `field-notes`) are also two
+ * of the "four pre-existing" slugs 0105 never set `is_premium` for at all —
+ * 0110 is their first-ever in-repo `is_premium` value, not a correction of
+ * an earlier one. `clinical` is one of the five pre-PR2 bespoke slugs in
+ * `OUT_OF_SCOPE_SLUGS` above for `ats_safe`/`structure_schema` purposes, but
+ * IS in scope here because 0110 is the first migration to ever touch its
+ * `is_premium` value. The other 15 were part of 0105's 54-row INSERT (which
+ * did set `is_premium`/`unlock_cost_credits` there, to free/0) and are
+ * superseded here by 0110's correction to premium/10.
+ */
+const IS_PREMIUM_SUPERSEDED_BY_LATER_MIGRATION = new Set([
+  "business-memo",
+  "filing-system",
+  "product-tech",
+  "studio-brief",
+  "field-notes",
+  "help-desk",
+  "compliance-brief",
+  "clinical",
+  "chambers",
+  "sprint-board",
+  "civic-record",
+  "byline",
+  "harvest",
+  "rig-report",
+  "network-ops",
+  "site-plan",
+  "front-desk",
+  "manifest",
+]);
 
 /** Read a single-quoted SQL string literal starting at `text[start] === "'"`, handling `''` as an escaped quote. Returns the unescaped value and the index just past the closing quote. */
 function readSqlString(text: string, start: number): { value: string; end: number } {
@@ -130,6 +221,31 @@ interface ParsedRow {
   slug: string;
   atsSafe: boolean;
   structureSchema: unknown;
+  /**
+   * Only populated from 0105's INSERT block (the 54 new rows) — 0105's
+   * fixed-slug UPDATEs (`parseFixedSlugUpdates`) never touch these two
+   * columns, so `undefined` here means "this migration has no opinion",
+   * not "false"/"0". Callers must check for `undefined`, not falsiness.
+   */
+  isPremium?: boolean;
+  unlockCostCredits?: number;
+}
+
+interface PremiumRow {
+  slug: string;
+  isPremium: boolean;
+  unlockCostCredits: number;
+}
+
+/** Parses 0110's `update ... set is_premium = ..., unlock_cost_credits = ... where slug = '...';` lines. */
+function parsePremiumUpdates(sql: string): PremiumRow[] {
+  const re =
+    /update public\.resume_templates set is_premium = (true|false), unlock_cost_credits = (\d+) where slug = '([a-z0-9-]+)';/g;
+  const rows: PremiumRow[] = [];
+  for (const m of sql.matchAll(re)) {
+    rows.push({ slug: m[3], isPremium: m[1] === "true", unlockCostCredits: Number(m[2]) });
+  }
+  return rows;
 }
 
 function parseInsertBlock(sql: string): ParsedRow[] {
@@ -172,9 +288,11 @@ function parseInsertBlock(sql: string): ParsedRow[] {
         throw new Error(`expected 7 fields in INSERT tuple, got ${fields.length}: ${tuple.slice(0, 80)}...`);
       }
       const slug = parseQuotedField(fields[1]);
+      const isPremium = fields[3].trim() === "true";
+      const unlockCostCredits = Number(fields[4].trim());
       const atsSafe = fields[5].trim() === "true";
       const schemaJson = parseQuotedField(fields[6]);
-      rows.push({ slug, atsSafe, structureSchema: JSON.parse(schemaJson) });
+      rows.push({ slug, atsSafe, structureSchema: JSON.parse(schemaJson), isPremium, unlockCostCredits });
       i = j;
       continue;
     }
@@ -285,5 +403,47 @@ describe("RESUME_TEMPLATES vs the migration that seeds production — must never
     const migratedSchema = JSON.parse(value);
 
     expect(migratedSchema).toEqual(JSON.parse(JSON.stringify(blueprint!.structure_schema)));
+  });
+
+  const migration0110Sql = readFileSync(MIGRATION_0110_PATH, "utf8");
+  const premiumRows0110 = parsePremiumUpdates(migration0110Sql);
+  const premiumBySlug0110 = new Map(premiumRows0110.map((r) => [r.slug, r]));
+
+  it("parsed 18 rows out of migration 0110 (the free-tier cut)", () => {
+    expect(premiumRows0110).toHaveLength(18);
+    expect(premiumBySlug0110.size).toBe(18);
+  });
+
+  it("every slug's is_premium and unlock_cost_credits agree between RESUME_TEMPLATES and their source migration (0105, or 0110 where superseded)", () => {
+    const mismatched: string[] = [];
+    for (const t of RESUME_TEMPLATES) {
+      if (IS_PREMIUM_OUT_OF_SCOPE_SLUGS.has(t.slug)) continue;
+
+      if (IS_PREMIUM_SUPERSEDED_BY_LATER_MIGRATION.has(t.slug)) {
+        const migrated = premiumBySlug0110.get(t.slug);
+        if (!migrated) {
+          mismatched.push(`${t.slug}: not found in migration 0110 at all`);
+          continue;
+        }
+        if (migrated.isPremium !== t.is_premium || migrated.unlockCostCredits !== t.unlock_cost_credits) {
+          mismatched.push(
+            `${t.slug}: RESUME_TEMPLATES says is_premium=${t.is_premium}/unlock_cost_credits=${t.unlock_cost_credits}, migration 0110 says is_premium=${migrated.isPremium}/unlock_cost_credits=${migrated.unlockCostCredits}`,
+          );
+        }
+        continue;
+      }
+
+      const migrated = migrationBySlug.get(t.slug);
+      if (!migrated || migrated.isPremium === undefined || migrated.unlockCostCredits === undefined) {
+        mismatched.push(`${t.slug}: no is_premium/unlock_cost_credits source found in migration 0105`);
+        continue;
+      }
+      if (migrated.isPremium !== t.is_premium || migrated.unlockCostCredits !== t.unlock_cost_credits) {
+        mismatched.push(
+          `${t.slug}: RESUME_TEMPLATES says is_premium=${t.is_premium}/unlock_cost_credits=${t.unlock_cost_credits}, migration 0105 says is_premium=${migrated.isPremium}/unlock_cost_credits=${migrated.unlockCostCredits}`,
+        );
+      }
+    }
+    expect(mismatched, "is_premium/unlock_cost_credits has drifted between catalog.ts and its source migration").toEqual([]);
   });
 });
