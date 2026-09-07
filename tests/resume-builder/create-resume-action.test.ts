@@ -22,16 +22,26 @@
  *   - a "persona-matching" describe block below is the sabotage-proof
  *     target for the slug -> persona resolution itself: `blueprint` seeds
  *     the (unchanged) EPC engineer persona, `site-plan` and `rig-report`
- *     (both free, so no unlock fixture needed) each seed their OWN new
- *     batch-1 persona (not each other's, and not the EPC engineer's —
- *     proving the split is real, not still category-wide), a free NGO &
- *     Development-category template (`field-mission`) seeds the (still
- *     shared, unchanged) development programme officer persona, `product-
- *     tech` (batch 2) seeds its own new software-engineer persona, and a
- *     free `terminal` (Technology, but a slug batch 2 deliberately did NOT
- *     give a dedicated persona to — proving the fallback isn't hardcoded to
- *     "Business" and isn't just "the whole Technology category got one
- *     now") falls back to `PREVIEW_SAMPLE_RESUME` rather than crashing.
+ *     each seed their OWN new batch-1 persona (not each other's, and not
+ *     the EPC engineer's — proving the split is real, not still
+ *     category-wide), a free NGO & Development-category template
+ *     (`field-mission`) seeds the (still shared, unchanged) development
+ *     programme officer persona, `product-tech` (batch 2) seeds its own
+ *     new software-engineer persona, and a free `terminal` (Technology,
+ *     but a slug batch 2 deliberately did NOT give a dedicated persona to
+ *     — proving the fallback isn't hardcoded to "Business" and isn't just
+ *     "the whole Technology category got one now") falls back to
+ *     `PREVIEW_SAMPLE_RESUME` rather than crashing.
+ *
+ *     `site-plan`, `rig-report` and `product-tech` moved from free to
+ *     premium in the resume-template free-tier cut (migration 0110) — this
+ *     suite now explicitly unlocks all three for the fixture user in
+ *     `beforeAll` (`templateIdBySlug`, below) rather than relying on them
+ *     being free, since these tests are about persona resolution, not
+ *     premium gating (that gate has its own dedicated describe block,
+ *     "premium template gating is not weakened by any start state", which
+ *     picks a premium template dynamically and is unaffected by which
+ *     specific slugs are premium).
  *
  * `createResumeAction`'s own `resume_templates` select changed in this pass
  * too — it now selects `slug` (used to resolve the persona) instead of
@@ -106,27 +116,46 @@ let businessTemplateId: string;
 let engineeringTemplateId: string;
 let ngoTemplateId: string;
 let technologyTemplateId: string;
-// Two of the 9 batch-1 new personas, both on FREE Engineering-group slugs
-// (no unlock fixture needed) — used to prove the per-slug split is real
-// within the grouping, not still one persona shared across it.
+// Two of the 9 batch-1 new personas, on the Engineering-group slugs
+// `site-plan`/`rig-report` — used to prove the per-slug split is real
+// within the grouping, not still one persona shared across it. Both moved
+// free -> premium in migration 0110 (the resume-template free-tier cut);
+// `templateIdBySlug` below unlocks a premium slug for the fixture user
+// automatically, so these tests keep exercising persona resolution rather
+// than tripping the (separately and dynamically tested) premium gate.
 let sitePlanTemplateId: string;
 let rigReportTemplateId: string;
 // Batch 2: product-tech got its own dedicated persona (SOFTWARE_ENGINEER_
 // RESUME) — `technologyTemplateId` above moved off `product-tech` onto
 // `terminal` (still Technology, still no dedicated persona) so it keeps
 // proving the fallback generically instead of accidentally testing the
-// slug this batch mapped.
+// slug this batch mapped. `product-tech` also moved free -> premium in
+// migration 0110; same auto-unlock via `templateIdBySlug` applies.
 let productTechTemplateId: string;
 const createdResumeIds: string[] = [];
 
-async function freeTemplateIdBySlug(slug: string): Promise<string> {
+/**
+ * Fetches a template's id by slug regardless of its current free/premium
+ * status, and — if it is premium — unlocks it for the fixture user so
+ * `createResumeAction`'s premium gate never blocks a persona-resolution
+ * test that has nothing to do with gating. Free templates are returned
+ * as-is with no unlock row written. `deleteTestUsers([userId])` in
+ * `afterAll` cascades away any unlock rows this creates, same as it does
+ * for the fixture resumes/user, so no dedicated cleanup is needed here.
+ */
+async function templateIdBySlug(slug: string): Promise<string> {
   const { data, error } = await admin
     .from("resume_templates")
     .select("id, is_premium")
     .eq("slug", slug)
     .single();
   if (error || !data) throw new Error(`Template "${slug}" not seeded — run \`npm run seed\`.`);
-  if (data.is_premium) throw new Error(`Template "${slug}" is premium — this suite needs a free one.`);
+  if (data.is_premium) {
+    const { error: unlockErr } = await admin
+      .from("user_template_unlocks")
+      .upsert({ user_id: userId, template_id: data.id }, { onConflict: "user_id,template_id" });
+    if (unlockErr) throw new Error(`Could not unlock template "${slug}" for the fixture user: ${unlockErr.message}`);
+  }
   return data.id;
 }
 
@@ -159,13 +188,13 @@ beforeAll(async () => {
   // no-dedicated-persona slug, to prove the fallback generalizes past
   // Business — deliberately NOT `product-tech`, which batch 2 gave its own
   // persona to; see this file's header).
-  businessTemplateId = await freeTemplateIdBySlug("clean-professional");
-  engineeringTemplateId = await freeTemplateIdBySlug("blueprint");
-  ngoTemplateId = await freeTemplateIdBySlug("field-mission");
-  technologyTemplateId = await freeTemplateIdBySlug("terminal");
-  sitePlanTemplateId = await freeTemplateIdBySlug("site-plan");
-  rigReportTemplateId = await freeTemplateIdBySlug("rig-report");
-  productTechTemplateId = await freeTemplateIdBySlug("product-tech");
+  businessTemplateId = await templateIdBySlug("clean-professional");
+  engineeringTemplateId = await templateIdBySlug("blueprint");
+  ngoTemplateId = await templateIdBySlug("field-mission");
+  technologyTemplateId = await templateIdBySlug("terminal");
+  sitePlanTemplateId = await templateIdBySlug("site-plan");
+  rigReportTemplateId = await templateIdBySlug("rig-report");
+  productTechTemplateId = await templateIdBySlug("product-tech");
 }, 60_000);
 
 afterEach(async () => {
