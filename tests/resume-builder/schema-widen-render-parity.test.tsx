@@ -129,10 +129,23 @@ describe("every registered template renders a resume using every new field", () 
 });
 
 describe("a resume with NONE of the new fields renders byte-identical to before this PR", () => {
-  for (const slug of registeredSlugs()) {
+  /*
+   * TEMPLATE LIBRARY PR 3 OF 3 NOTE. This describe block used to iterate
+   * `registeredSlugs()` directly — correct when the registry held exactly
+   * the seven pre-PR2 bespoke components this file has fixtures for. PR3
+   * registers 58 more slugs through the skeleton-config system
+   * (`createConfiguredTemplateComponent`, see templates/index.tsx), and
+   * "byte-identical to before PR1" is not a claim that means anything for a
+   * template that did not exist until PR3 — there is no pre-change fixture
+   * for it to match, by construction, not by an oversight this test should
+   * catch. Iterating `Object.keys(PRE_CHANGE_COMPONENTS)` instead keeps this
+   * file checking exactly what it always checked (the seven original
+   * components), without asserting a comparison against nothing has to hold
+   * for every new template the catalog will ever grow to.
+   */
+  for (const slug of Object.keys(PRE_CHANGE_COMPONENTS)) {
     it(`${slug}: matches its pre-widen output exactly`, () => {
       const preComponent = PRE_CHANGE_COMPONENTS[slug];
-      expect(preComponent, `no pre-change fixture registered for "${slug}"`).toBeDefined();
 
       const before = render(preComponent, OLD_SHAPE_RESUME);
       const after = render(getTemplateComponent(slug), OLD_SHAPE_RESUME);
@@ -148,9 +161,14 @@ describe("a resume with NONE of the new fields renders byte-identical to before 
     });
   }
 
-  it("every registered slug has a pre-change fixture (the comparison above can't silently skip one)", () => {
-    for (const slug of registeredSlugs()) {
-      expect(Object.prototype.hasOwnProperty.call(PRE_CHANGE_COMPONENTS, slug), slug).toBe(true);
+  it("every one of the seven original slugs this file has a fixture for is STILL a real registered slug", () => {
+    // The inverse of the old assertion, and the one that still matters: this
+    // catches one of the seven original components being silently dropped
+    // from the registry (renamed, deleted, unmapped), not a brand-new PR3
+    // template lacking a fixture that was never expected to have one.
+    const registered = new Set(registeredSlugs());
+    for (const slug of Object.keys(PRE_CHANGE_COMPONENTS)) {
+      expect(registered.has(slug), `"${slug}" has a pre-change fixture but is no longer registered`).toBe(true);
     }
   });
 });
