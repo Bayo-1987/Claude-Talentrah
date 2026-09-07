@@ -10,6 +10,7 @@ import { PDFParse } from "pdf-parse";
 // an expected marker order — so importing the data modules directly avoids
 // dragging that in.
 import { DEMO_CONFIGS } from "@/components/resume-builder/skeletons/configs";
+import { CATALOG_TEMPLATE_CONFIGS } from "@/components/resume-builder/skeletons/catalog-configs";
 import type { SectionKey, TemplateConfig } from "@/components/resume-builder/skeletons/types";
 
 /**
@@ -182,6 +183,84 @@ test.describe("ats_safe is a real, PDF-verified claim per skeleton", () => {
         const allMarkers = Object.values(SECTION_MARKERS).flat().concat(["ZQNAME", "ZQSUMMARY"]);
         const actual = actualMarkerOrder(text, allMarkers);
         console.log(`[ats-safety] ${configKey} (not ATS-safe) extracted order: ${actual.join(" -> ")}`);
+      }
+    });
+  }
+});
+
+/**
+ * Template library PR 3 of 3 — the real per-slug ATS-safety check the PR
+ * description promises: "at least one representative new template per
+ * skeleton actually used across the 54, PLUS any template flagged as
+ * content-restructured enough to need its own check."
+ *
+ * NO CONFIG IN `catalog-configs.ts` WAS FLAGGED — every one of the 58
+ * PR3-touched slugs (54 new + 4 fixed) inherits its skeleton's own baseline
+ * unmodified (see that file's header): `single-column`/`timeline`/
+ * `compact-dense` render `content.sectionOrder` as one linear DOM sequence
+ * regardless of what that order is, and `sidebar-left`/`rail-right`/
+ * `header-band`/`grid-modules` are false unconditionally regardless of which
+ * sections land in the split/rail/band/grid. So one slug per skeleton here
+ * is a real check of the MECHANISM those 58 configs all share, not a sample
+ * that could miss a genuinely different one — there isn't one.
+ *
+ * Picked one representative per skeleton (`blueprint`, `faculty-profile`,
+ * `value-chain`, `signal`, `gantt`, `specification`, `schematic`), plus all
+ * four fixed PR2 fallback slugs (`structured-admin`, `product-tech`,
+ * `field-notes`, `ledger`) since those are the other named PR3 deliverable.
+ * Every one of these 11 slugs' `sectionOrder` only uses sections
+ * `ATS_TEST_RESUME`/`SECTION_MARKERS` (above) actually carry a marker for
+ * (experience/education/skills/projects/certifications/links/languages/
+ * awards) — deliberate, so the strict order assertion below is meaningful
+ * for the `atsSafe: true` ones rather than silently skipping sections.
+ *
+ * This reaches `/dev/template-skeletons/<slug>` directly — the SAME route
+ * `DEMO_CONFIGS` uses above, just keyed by a real catalog slug instead of a
+ * demo key (see that page's own header) — so still no Supabase/DB
+ * dependency at all.
+ */
+const CATALOG_SLUGS_TO_VERIFY = [
+  "structured-admin",
+  "product-tech",
+  "field-notes",
+  "ledger",
+  "blueprint",
+  "faculty-profile",
+  "value-chain",
+  "signal",
+  "gantt",
+  "specification",
+  "schematic",
+] as const;
+
+test.describe("ats_safe is a real, PDF-verified claim per PR3 catalog slug", () => {
+  test("every slug above is a real, current catalog-configs.ts entry", () => {
+    for (const slug of CATALOG_SLUGS_TO_VERIFY) {
+      expect(CATALOG_TEMPLATE_CONFIGS[slug], `no config registered for "${slug}"`).toBeDefined();
+    }
+  });
+
+  for (const slug of CATALOG_SLUGS_TO_VERIFY) {
+    const config = CATALOG_TEMPLATE_CONFIGS[slug];
+    test(`${slug} (skeleton: ${config.skeleton}, claimed ats_safe=${config.atsSafe})`, async ({ page }) => {
+      await page.goto(`/dev/template-skeletons/${slug}`);
+      const pdfBuffer = await page.pdf({ printBackground: true });
+      expect(pdfBuffer.length, "generated PDF was empty").toBeGreaterThan(0);
+
+      const text = await extractPdfText(pdfBuffer);
+
+      if (config.atsSafe) {
+        const expected = expectedMarkerOrder(config);
+        const actual = actualMarkerOrder(text, expected);
+        expect(
+          actual,
+          `${slug} is marked ats_safe but its extracted PDF text order was ` +
+            `[${actual.join(", ")}], expected [${expected.join(", ")}]`,
+        ).toEqual(expected);
+      } else {
+        const allMarkers = Object.values(SECTION_MARKERS).flat().concat(["ZQNAME", "ZQSUMMARY"]);
+        const actual = actualMarkerOrder(text, allMarkers);
+        console.log(`[ats-safety] ${slug} (not ATS-safe) extracted order: ${actual.join(" -> ")}`);
       }
     });
   }

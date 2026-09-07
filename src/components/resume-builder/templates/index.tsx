@@ -8,6 +8,8 @@ import { PublicRecordTemplate } from "./public-record";
 import { PortfolioGridTemplate } from "./portfolio-grid";
 import { PipelineTemplate } from "./pipeline";
 import { CLEAN_PROFESSIONAL_CONFIG } from "../skeletons/configs";
+import { CATALOG_TEMPLATE_CONFIGS } from "../skeletons/catalog-configs";
+import { createConfiguredTemplateComponent } from "../skeletons";
 import type { TemplateProps } from "./shared";
 
 export type { TemplateProps } from "./shared";
@@ -32,6 +34,22 @@ export type { TemplateProps } from "./shared";
  */
 export const DEFAULT_TEMPLATE_SLUG = "clean-professional";
 
+/**
+ * Every slug PR3 gives a real skeleton config to (the 4 formerly-fallback
+ * PR2 slugs plus the 54 new templates) — one `ComponentType` per entry in
+ * `CATALOG_TEMPLATE_CONFIGS` (skeletons/catalog-configs.ts), built the same
+ * way `product-tech-preview`'s dev-page demo already does
+ * (`createConfiguredTemplateComponent`). Generated from that map rather than
+ * listed by hand so a slug added there is registered automatically and
+ * cannot drift out of sync with it.
+ */
+const CONFIGURED_REGISTRY: Record<string, ComponentType<TemplateProps>> = Object.fromEntries(
+  Object.entries(CATALOG_TEMPLATE_CONFIGS).map(([slug, config]) => [
+    slug,
+    createConfiguredTemplateComponent(config),
+  ]),
+);
+
 const REGISTRY: Record<string, ComponentType<TemplateProps>> = {
   // The original layout, unchanged — what every resume rendered as before the
   // library existed, regardless of which template had been chosen or paid for.
@@ -47,6 +65,9 @@ const REGISTRY: Record<string, ComponentType<TemplateProps>> = {
   // sit in that state.
   "portfolio-grid": PortfolioGridTemplate,
   pipeline: PipelineTemplate,
+  // Template library PR3 — 4 fixed fallback slugs + 54 new templates, all
+  // skeleton-configured rather than bespoke components.
+  ...CONFIGURED_REGISTRY,
 };
 
 export function getTemplateComponent(slug: string | null | undefined): ComponentType<TemplateProps> {
@@ -98,7 +119,10 @@ export function TemplateRenderer({
  *
  * `clean-professional`'s value comes from its own config
  * (`CLEAN_PROFESSIONAL_CONFIG.atsSafe`, skeletons/configs.ts) rather than
- * being repeated here, so the two can't quietly drift apart.
+ * being repeated here, so the two can't quietly drift apart. Every
+ * PR3-configured slug (the 4 formerly-fallback ones plus the 54 new
+ * templates) is the same idea applied to a whole map instead of one value —
+ * see `CONFIGURED_ATS_SAFETY` below.
  */
 export const TEMPLATE_ATS_SAFETY: Record<string, boolean> = {
   "clean-professional": CLEAN_PROFESSIONAL_CONFIG.atsSafe,
@@ -122,13 +146,15 @@ export const TEMPLATE_ATS_SAFETY: Record<string, boolean> = {
   // The footer places Education and Certifications in a `flex flex-wrap`
   // row — two different sections side by side whenever there's room.
   pipeline: false,
-  // The four "known unstyled free" slugs (template-registry.test.ts) render
-  // as `clean-professional` today — literally the same DOM — so their real,
-  // current output is exactly as ATS-safe as clean-professional's.
-  "structured-admin": true,
-  "product-tech": true,
-  "field-notes": true,
-  ledger: true,
+  // Template library PR3 — every slug in CATALOG_TEMPLATE_CONFIGS gets its
+  // ats_safe value straight from its own config's `atsSafe`, which is in
+  // turn always its skeleton's own already-verified baseline (no config in
+  // catalog-configs.ts restructures a skeleton's shape) — see that file's
+  // header. Spread LAST so a config's real value always wins over nothing;
+  // there is no per-slug manual value to disagree with it.
+  ...Object.fromEntries(
+    Object.entries(CATALOG_TEMPLATE_CONFIGS).map(([slug, config]) => [slug, config.atsSafe]),
+  ),
 };
 
 /** Same fallback shape as `getTemplateComponent`: an unclassified/unknown slug is judged by whatever the fallback template actually renders. */

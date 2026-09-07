@@ -67,8 +67,17 @@ describe("every catalog row has a slug and a component", () => {
   /**
    * FREE templates that knowingly have no distinct layout yet and render as
    * clean-professional. This list is a deliberate scope boundary, not an
-   * excuse: the milestone shipped four new templates plus fixes for the two
-   * premium ones that were already charging for the default layout.
+   * excuse — PR2 shipped four new templates plus fixes for the two premium
+   * ones that were already charging for the default layout, and left these
+   * four as a named, tracked gap rather than a silent one.
+   *
+   * EMPTY AS OF TEMPLATE LIBRARY PR3. All four (`structured-admin`,
+   * `product-tech`, `field-notes`, `ledger`) got a real `structure_schema` in
+   * this PR — see `src/components/resume-builder/skeletons/catalog-configs.ts`
+   * — so the list shrank to nothing, exactly as its own rule below requires.
+   * Left in place (rather than deleted) so a FUTURE regression that quietly
+   * unmaps one of them is caught the same way — by adding it back here with a
+   * reason, not by the tests below silently tolerating it.
    *
    * Two rules, both enforced below:
    *   * it may only ever SHRINK — adding a slug here is how "we'll style it
@@ -77,12 +86,7 @@ describe("every catalog row has a slug and a component", () => {
    *     default is a product that takes money for nothing, and the separate
    *     premium assertion below has no exemption list at all.
    */
-  const KNOWN_UNSTYLED_FREE_SLUGS = [
-    "structured-admin",
-    "product-tech",
-    "field-notes",
-    "ledger",
-  ] as const;
+  const KNOWN_UNSTYLED_FREE_SLUGS: readonly string[] = [];
 
   it("every catalog slug resolves to a REGISTERED component, or is a known free exception", async () => {
     /*
@@ -96,7 +100,7 @@ describe("every catalog row has a slug and a component", () => {
 
     const unmapped = (data ?? [])
       .filter((t) => !registered.has(t.slug))
-      .filter((t) => !KNOWN_UNSTYLED_FREE_SLUGS.includes(t.slug as never))
+      .filter((t) => !KNOWN_UNSTYLED_FREE_SLUGS.includes(t.slug))
       .map((t) => `${t.name} (${t.slug})`);
 
     expect(
@@ -388,5 +392,106 @@ describe("Template library PR 2 — every catalog row renders real content", () 
       "structure_schema for clean-professional must match CLEAN_PROFESSIONAL_CONFIG " +
         "(skeletons/configs.ts) — this is the shape PR3's 54 new rows are expected to follow",
     ).toEqual(JSON.parse(JSON.stringify(CLEAN_PROFESSIONAL_CONFIG)));
+  });
+});
+
+/**
+ * Template library PR 3 of 3 — the 54-row library, plus real
+ * `structure_schema` for the 4 formerly-fallback free slugs.
+ *
+ * The two PR2 tests above ("every LIVE catalog row renders...", "every
+ * PREMIUM row's rendered HTML actually differs from the free default's...")
+ * already generalize to all 65 rows with no change — they query the live
+ * catalog and iterate whatever is actually in it. What they do NOT catch is
+ * two NEW rows accidentally sharing one config: both would still differ from
+ * the free default (passing the PR2 test above) while being identical to
+ * EACH OTHER, which is exactly the bug a copy-paste between two of PR3's 54
+ * new `catalog-configs.ts` entries could introduce silently. This test
+ * closes that gap by diffing every row's rendered HTML against every other
+ * row's, not just against the fallback.
+ *
+ * SABOTAGE-PROOF, PERFORMED LIVE DURING THIS PR. Temporarily pointed
+ * `terminal`'s entry in `CATALOG_TEMPLATE_CONFIGS`
+ * (skeletons/catalog-configs.ts) at `FIELD_NOTES_CONFIG` instead of its own
+ * `TERMINAL_CONFIG` — collapsing two of the 54 new rows onto one config —
+ * and ran this test in isolation: it failed immediately with
+ * `"terminal" renders BYTE-IDENTICAL HTML to "field-notes"`, then passed
+ * again once reverted. See the PR description for the full transcript.
+ */
+describe("Template library PR 3 — the 54-row library", () => {
+  it("the catalog now has 65 rows (11 from PR1/PR2 + 54 new)", async () => {
+    const { data, error } = await admin.from("resume_templates").select("id");
+    if (error) throw error;
+    expect(data ?? []).toHaveLength(65);
+  });
+
+  it("every row's rendered HTML is unique across the WHOLE catalog, not just distinct from the free default", async () => {
+    const { data, error } = await admin.from("resume_templates").select("name, slug");
+    if (error) throw error;
+    expect(data ?? [], "catalog is empty — run `npm run seed`").not.toHaveLength(0);
+
+    const htmlToSlug = new Map<string, string>();
+    const collisions: string[] = [];
+    for (const row of data ?? []) {
+      const Component = getTemplateComponent(row.slug);
+      const html = renderToStaticMarkup(createElement(Component, { resume: PREVIEW_SAMPLE_RESUME }));
+      const already = htmlToSlug.get(html);
+      if (already) {
+        collisions.push(`"${row.slug}" renders BYTE-IDENTICAL HTML to "${already}"`);
+      } else {
+        htmlToSlug.set(html, row.slug);
+      }
+    }
+
+    expect(
+      collisions,
+      "two catalog rows render identical HTML for the same resume — one of them has no distinct layout " +
+        "(check for a copy-paste in skeletons/catalog-configs.ts)",
+    ).toEqual([]);
+  });
+
+  it("every PR3-configured slug's DB structure_schema matches its source config in catalog-configs.ts exactly", async () => {
+    const { CATALOG_TEMPLATE_CONFIGS } = await import(
+      "@/components/resume-builder/skeletons/catalog-configs"
+    );
+    const slugs = Object.keys(CATALOG_TEMPLATE_CONFIGS);
+    expect(slugs.length, "expected the 4 fixed PR2 slugs + 54 new PR3 slugs").toBe(58);
+
+    const { data, error } = await admin
+      .from("resume_templates")
+      .select("slug, structure_schema")
+      .in("slug", slugs);
+    if (error) throw error;
+    expect(data ?? []).toHaveLength(58);
+
+    /*
+     * DEEP-equal per row, not a JSON.stringify comparison across the whole
+     * set. Postgres JSONB does not preserve the original key order of an
+     * inserted JSON literal — a value written once and read back can come
+     * back with reordered object keys and identical content, and
+     * JSON.stringify() bakes key order into the string it produces. That
+     * false positive hit nearly the whole catalog (57 of 58 slugs) the first
+     * time this assertion ran for real: verified by pulling several of the
+     * "mismatched" rows directly from the CI database and hand-comparing
+     * against catalog-configs.ts — every field was identical, only nested
+     * `sectionLabels` key order differed on some rows. `toEqual` is
+     * order-independent for object keys, so it catches a REAL content drift
+     * without flagging a storage artifact as one.
+     */
+    const mismatched = (data ?? []).filter((row) => {
+      try {
+        expect(row.structure_schema).toEqual(
+          JSON.parse(JSON.stringify(CATALOG_TEMPLATE_CONFIGS[row.slug])),
+        );
+        return false;
+      } catch {
+        return true;
+      }
+    });
+
+    expect(
+      mismatched.map((row) => row.slug),
+      "DB structure_schema has drifted from CATALOG_TEMPLATE_CONFIGS for these slugs",
+    ).toEqual([]);
   });
 });
