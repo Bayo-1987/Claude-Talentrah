@@ -55,6 +55,12 @@ export default async function EmployerOnboardingPage() {
           userEmail={user.email ?? null}
           emailConfirmed={!!user.email_confirmed_at}
           suggestedDomain={domain && !isConsumerEmailDomain(domain) ? domain : null}
+          /*
+           * Computed here, where isConsumerEmailDomain already is. The form
+           * needs the answer, not the rule — nothing about the verification
+           * rule itself changes for this.
+           */
+          consumerEmailDomain={isConsumerEmailDomain(domain)}
         />
       </div>
     </div>

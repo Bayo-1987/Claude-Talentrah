@@ -18,12 +18,19 @@ export function OrgOnboardingForm({
   userEmail,
   emailConfirmed,
   suggestedDomain,
+  consumerEmailDomain,
 }: {
   joinable: JoinableOrg[];
   userEmail: string | null;
   emailConfirmed: boolean;
   /** The user's own work-email domain, pre-filled because it is the value that verifies. */
   suggestedDomain: string | null;
+  /**
+   * True when the account's own address is at a personal provider, so NO value
+   * typed into the domain field can verify it. Computed on the server, where
+   * `isConsumerEmailDomain` already lives.
+   */
+  consumerEmailDomain: boolean;
 }) {
   const [createState, createFormAction, creating] = useActionState<EmployerActionState, FormData>(
     createOrganizationAction,
@@ -45,6 +52,43 @@ export function OrgOnboardingForm({
           Confirm your email address to get your company verified. You can set the company up now
           either way — jobs stay private to your team until it&apos;s verified.
         </p>
+      )}
+
+      {/*
+        SAID HERE, BEFORE THE WORK, NOT ON JOBS POSTED AFTER IT.
+
+        An account at a personal provider cannot be verified by anything typed
+        into the domain field below: evaluateDomainVerification compares the
+        claimed domain against the ACCOUNT'S OWN email domain, so typing
+        gmail.com is refused as a consumer domain and typing a real company
+        domain is a mismatch. There is no third answer. Until now the only
+        warning on this screen was the unconfirmed-email one, which never fires
+        for an OAuth signup because their address arrives already confirmed —
+        so the people this affects most saw nothing at all, created a company,
+        wrote a job, posted it, and found out on Jobs Posted.
+
+        This is ADDITIVE. The !emailConfirmed banner above still fires for an
+        unconfirmed non-consumer signup and is untouched; this one is the
+        different case of "confirmed, and still cannot verify this way".
+      */}
+      {consumerEmailDomain && (
+        <div className="border-[1.5px] border-amber bg-[oklch(96%_0.03_70)] px-4 py-3">
+          <p className="text-[13.5px] text-ink">
+            <span className="font-semibold">
+              Your account uses a personal email provider
+              {userEmail ? <> ({userEmail})</> : null}.
+            </span>{" "}
+            No company domain entered below will verify it automatically — verification matches a
+            domain against your own account&apos;s email address, and a personal one can never
+            match.
+          </p>
+          <p className="mt-2 text-[13.5px] text-ink-soft">
+            You can still set the company up now and post jobs; they stay private to your team
+            until it&apos;s verified. Two other routes to verification are coming: inviting a
+            teammate whose email is on your company&apos;s domain, and verifying with your CAC
+            business registration number. Neither is available yet.
+          </p>
+        </div>
       )}
 
       {joinable.length > 0 && (
@@ -109,8 +153,16 @@ export function OrgOnboardingForm({
               <p className="font-body text-[12.5px] text-ink-soft">
                 {userEmail ? (
                   <>
-                    Your account email is <span className="font-semibold">{userEmail}</span>. Enter
-                    the matching company domain to be verified now.
+                    Your account email is <span className="font-semibold">{userEmail}</span>.
+                    {consumerEmailDomain ? (
+                      <>
+                        {" "}
+                        Enter your company&apos;s domain — it is stored on the company either way,
+                        and is what a teammate invite or CAC check would be matched against.
+                      </>
+                    ) : (
+                      <> Enter the matching company domain to be verified now.</>
+                    )}
                   </>
                 ) : (
                   "Enter your company's own domain — personal email providers don't count."
