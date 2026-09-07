@@ -628,7 +628,7 @@ const CIVIC_RECORD_CONFIG: TemplateConfig = {
 // see the PR description) — 4 templates, one per non-portfolio-overlapping
 // skeleton plus a grid variant for project-led engineers. ---
 
-/** Free. Single-column: professional certifications (COREN etc.) promoted, key projects listed plainly. */
+/** Free. Single-column: professional certifications promoted, key projects listed plainly. */
 const BLUEPRINT_CONFIG: TemplateConfig = {
   skeleton: "single-column",
   styleTokens: {
@@ -643,7 +643,17 @@ const BLUEPRINT_CONFIG: TemplateConfig = {
   },
   content: {
     sectionOrder: ["experience", "education", "certifications", "skills", "projects"],
-    sectionLabels: { certifications: "Professional Certifications (COREN)", projects: "Key Projects" },
+    /*
+     * "Professional Certifications", not "... (COREN)": naming a specific
+     * real credentialing body (COREN, Nigeria's engineering licensing
+     * council) reads as a factual claim about the demo content underneath
+     * it, and the shared PREVIEW_SAMPLE_RESUME (a PM's CSPO + Product
+     * School certs) can't back that claim up — it reads as wrong to anyone
+     * who recognizes COREN, not as generic placeholder content. See
+     * tests/resume-builder/catalog-configs-labels.test.ts for the
+     * regression guard.
+     */
+    sectionLabels: { certifications: "Professional Certifications", projects: "Key Projects" },
     showLinksInHeader: false,
     showSummary: true,
   },

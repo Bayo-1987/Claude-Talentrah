@@ -56,6 +56,20 @@ const OUT_OF_SCOPE_SLUGS = new Set([
   "pipeline",
 ]);
 
+/**
+ * `blueprint` stays IN scope for the slug-coverage and `ats_safe` checks
+ * above (it genuinely is one of 0105's 54 inserted rows, and its `ats_safe`
+ * still agrees) — only its `structure_schema` comparison is excluded here.
+ * 0105 shipped it with a `sectionLabels.certifications` value that named a
+ * real licensing body (COREN) the shared demo content can't back up;
+ * migration 0106 corrects the LIVE data, but 0105's own historical SQL text
+ * — read directly by this file — still shows the original value, so 0105
+ * alone would forever disagree with the now-corrected `catalog-configs.ts`.
+ * Same reasoning as `clean-professional`'s exclusion above: the slug's true
+ * current source of record has moved to a later migration.
+ */
+const STRUCTURE_SCHEMA_SUPERSEDED_BY_LATER_MIGRATION = new Set(["blueprint"]);
+
 /** Read a single-quoted SQL string literal starting at `text[start] === "'"`, handling `''` as an escaped quote. Returns the unescaped value and the index just past the closing quote. */
 function readSqlString(text: string, start: number): { value: string; end: number } {
   if (text[start] !== "'") throw new Error(`expected a quote at index ${start}`);
@@ -242,6 +256,7 @@ describe("RESUME_TEMPLATES vs the migration that seeds production — must never
     const mismatched: string[] = [];
     for (const t of RESUME_TEMPLATES) {
       if (OUT_OF_SCOPE_SLUGS.has(t.slug)) continue;
+      if (STRUCTURE_SCHEMA_SUPERSEDED_BY_LATER_MIGRATION.has(t.slug)) continue;
       const migrated = migrationBySlug.get(t.slug);
       if (!migrated) continue; // reported by the previous test
       if (JSON.stringify(migrated.structureSchema) !== JSON.stringify(t.structure_schema)) {
@@ -249,5 +264,26 @@ describe("RESUME_TEMPLATES vs the migration that seeds production — must never
       }
     }
     expect(mismatched, "structure_schema has drifted between catalog.ts and the migration").toEqual([]);
+  });
+
+  it("blueprint's structure_schema instead agrees with its corrective migration, 0106", () => {
+    const migration0106 = readFileSync(
+      path.resolve(__dirname, "../../supabase/migrations/0106_blueprint_certifications_label.sql"),
+      "utf8",
+    );
+    const blueprint = RESUME_TEMPLATES.find((t) => t.slug === "blueprint");
+    expect(blueprint, "blueprint should still exist in RESUME_TEMPLATES").toBeDefined();
+
+    // The migration sets structure_schema via a single `set structure_schema
+    // = '...'::jsonb` literal — extract and parse it the same way the rest
+    // of this file parses 0105's JSON literals.
+    const marker = "set structure_schema = ";
+    const markerIndex = migration0106.indexOf(marker);
+    expect(markerIndex, "expected to find the UPDATE's structure_schema literal in 0106").toBeGreaterThan(-1);
+    const openingQuoteIndex = markerIndex + marker.length;
+    const { value } = readSqlString(migration0106, openingQuoteIndex);
+    const migratedSchema = JSON.parse(value);
+
+    expect(migratedSchema).toEqual(JSON.parse(JSON.stringify(blueprint!.structure_schema)));
   });
 });
