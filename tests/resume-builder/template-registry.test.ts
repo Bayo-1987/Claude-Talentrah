@@ -100,7 +100,7 @@ describe("every catalog row has a slug and a component", () => {
 
     const unmapped = (data ?? [])
       .filter((t) => !registered.has(t.slug))
-      .filter((t) => !KNOWN_UNSTYLED_FREE_SLUGS.includes(t.slug as never))
+      .filter((t) => !KNOWN_UNSTYLED_FREE_SLUGS.includes(t.slug))
       .map((t) => `${t.name} (${t.slug})`);
 
     expect(
