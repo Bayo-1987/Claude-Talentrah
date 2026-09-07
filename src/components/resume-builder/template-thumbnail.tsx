@@ -1,7 +1,7 @@
 "use client";
 
 import { TemplateRenderer, registeredSlugs } from "@/components/resume-builder/templates";
-import { PREVIEW_SAMPLE_RESUME } from "@/lib/resume-builder/preview-sample";
+import { personaForSlug } from "@/lib/resume-builder/persona-for-category";
 
 /**
  * A live, scaled-down render of the actual template.
@@ -54,6 +54,12 @@ const SCALE = 0.5;
 
 export function TemplateThumbnail({ slug }: { slug: string | null }) {
   const registered = slug ? registeredSlugs().includes(slug) : false;
+  // The persona matching THIS template's own category (blueprint's civil
+  // engineer, field-mission's programme officer, etc.) — see
+  // persona-for-category.ts. A slug with no dedicated persona for its
+  // category, or no category at all, falls back to the same PM persona
+  // every card previewed before this mechanism existed.
+  const resume = personaForSlug(slug);
 
   return (
     <div
@@ -65,7 +71,7 @@ export function TemplateThumbnail({ slug }: { slug: string | null }) {
         className="pointer-events-none absolute top-0 left-1/2 origin-top"
         style={{ width: NATURAL_WIDTH, transform: `translateX(-50%) scale(${SCALE})` }}
       >
-        <TemplateRenderer slug={slug} resume={PREVIEW_SAMPLE_RESUME} />
+        <TemplateRenderer slug={slug} resume={resume} />
       </div>
 
       {/*

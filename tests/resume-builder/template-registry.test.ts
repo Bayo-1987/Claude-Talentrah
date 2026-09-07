@@ -30,7 +30,12 @@ import {
   getTemplateComponent,
   registeredSlugs,
 } from "@/components/resume-builder/templates";
-import { PREVIEW_SAMPLE_RESUME } from "@/lib/resume-builder/preview-sample";
+import {
+  PREVIEW_SAMPLE_RESUME,
+  EPC_SITE_ENGINEER_RESUME,
+  DEVELOPMENT_PROGRAMME_OFFICER_RESUME,
+} from "@/lib/resume-builder/preview-sample";
+import { personaForCategory } from "@/lib/resume-builder/persona-for-category";
 
 for (const key of ["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"] as const) {
   if (!process.env[key]) throw new Error(`Template registry test cannot run: ${key} is not set.`);
@@ -493,5 +498,65 @@ describe("Template library PR 3 — the 54-row library", () => {
       mismatched.map((row) => row.slug),
       "DB structure_schema has drifted from CATALOG_TEMPLATE_CONFIGS for these slugs",
     ).toEqual([]);
+  });
+});
+
+/**
+ * THE MULTI-PERSONA REWORK (this PR). Every test above in this file renders
+ * every catalog row against the SAME fixed `PREVIEW_SAMPLE_RESUME` — correct
+ * for what those tests check (component identity/distinctness, ats_safe,
+ * structure_schema parity), none of which depend on which persona is used.
+ * This block is different: it renders each LIVE row against the persona
+ * `personaForCategory` would ACTUALLY resolve for that row's own
+ * `industry_category` — the same call `template-thumbnail.tsx` makes via
+ * `personaForSlug` — so a regression that broke rendering for a non-PM
+ * persona specifically (e.g. a skeleton renderer crashing on the
+ * Engineering persona's longer `location` strings, or the NGO persona's
+ * `volunteering`/`languages` fields none of the other personas populate)
+ * would be caught here, where the PR2/PR3 tests above never would be — they
+ * only ever exercise the PM persona.
+ */
+describe("Multi-persona template previews — every row renders ITS OWN category's persona", () => {
+  it("every LIVE catalog row renders without throwing against the persona its own category resolves to, and shows that persona's name", async () => {
+    const { data, error } = await admin.from("resume_templates").select("slug, name, industry_category");
+    if (error) throw error;
+    expect(data ?? [], "catalog is empty — run `npm run seed`").not.toHaveLength(0);
+
+    const broken: string[] = [];
+    for (const row of data ?? []) {
+      const persona = personaForCategory(row.industry_category);
+      try {
+        const Component = getTemplateComponent(row.slug);
+        const html = renderToStaticMarkup(createElement(Component, { resume: persona }));
+        if (!html.includes(persona.contact.name!)) {
+          broken.push(
+            `${row.name} (${row.slug}, category "${row.industry_category}"): rendered but dropped ` +
+              `the resolved persona's own name ("${persona.contact.name}")`,
+          );
+        }
+      } catch (err) {
+        broken.push(`${row.name} (${row.slug}): threw against its own category's persona — ${(err as Error).message}`);
+      }
+    }
+    expect(broken, "these catalog rows do not render the persona their own category resolves to").toEqual([]);
+  });
+
+  it("at least one row in the live catalog actually resolves to each non-fallback persona (the mapping isn't dead code)", async () => {
+    const { data, error } = await admin.from("resume_templates").select("slug, industry_category");
+    if (error) throw error;
+
+    const categories = new Set((data ?? []).map((r) => r.industry_category));
+    const resolvedPersonas = new Set([...categories].map((c) => personaForCategory(c)));
+
+    expect(resolvedPersonas.has(EPC_SITE_ENGINEER_RESUME), "no live category resolved to the EPC engineer persona").toBe(
+      true,
+    );
+    expect(
+      resolvedPersonas.has(DEVELOPMENT_PROGRAMME_OFFICER_RESUME),
+      "no live category resolved to the development programme officer persona",
+    ).toBe(true);
+    expect(resolvedPersonas.has(PREVIEW_SAMPLE_RESUME), "no live category fell back to PREVIEW_SAMPLE_RESUME").toBe(
+      true,
+    );
   });
 });

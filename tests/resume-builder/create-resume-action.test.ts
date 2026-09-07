@@ -1,8 +1,30 @@
 /**
  * createResumeAction's three (really four) start states — Stage 3.1's core
- * mechanism: "blank" (unchanged baseline), "example" (PREVIEW_SAMPLE_RESUME),
- * "import_base" (copy the user's existing is_base=true resume) and
- * "import_upload" (a freshly-parsed file, handed in via a form field).
+ * mechanism: "blank" (unchanged baseline), "example" (a persona from
+ * `EXAMPLE_PERSONAS`, resolved by the chosen template's `industry_category`
+ * — see persona-for-category.ts), "import_base" (copy the user's existing
+ * is_base=true resume) and "import_upload" (a freshly-parsed file, handed in
+ * via a form field).
+ *
+ * REWORKED FOR THE MULTI-PERSONA REGISTRY. Before this, `createResumeAction`
+ * always seeded the single `PREVIEW_SAMPLE_RESUME` for "example", so any free
+ * template picked with `.limit(1)` gave a deterministic answer. That is no
+ * longer true — which persona comes back now depends on which category the
+ * arbitrarily-picked template belongs to — so:
+ *   - the pre-existing "'example' seeds ..." test below now pins its
+ *     template to `clean-professional` explicitly (Business category, which
+ *     has no dedicated persona and so resolves to the fallback,
+ *     `PREVIEW_SAMPLE_RESUME`) instead of an arbitrary `.limit(1)` free
+ *     template, so the assertion stays meaningful rather than becoming
+ *     flaky depending on catalog order;
+ *   - a new "persona-matching" describe block below is the sabotage-proof
+ *     target for the category -> persona resolution itself: a free
+ *     Engineering-category template seeds the EPC engineer persona, a free
+ *     NGO & Development-category template seeds the development programme
+ *     officer persona, and a free Technology-category template (a category
+ *     with no dedicated persona, same as Business but a DIFFERENT one, to
+ *     prove the fallback isn't just hardcoded to "Business") falls back to
+ *     `PREVIEW_SAMPLE_RESUME` rather than crashing.
  *
  * Runs against the real CI Supabase project, same pattern as
  * tests/passes/pass-covered-actions.test.ts: createClient() is mocked to
@@ -19,7 +41,11 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { admin, createTestUser, deleteTestUsers, sessionFor, type DB } from "../support/auth";
 import { EMPTY_RESUME, type StructuredResume } from "@/lib/resume/types";
-import { PREVIEW_SAMPLE_RESUME } from "@/lib/resume-builder/preview-sample";
+import {
+  PREVIEW_SAMPLE_RESUME,
+  EPC_SITE_ENGINEER_RESUME,
+  DEVELOPMENT_PROGRAMME_OFFICER_RESUME,
+} from "@/lib/resume-builder/preview-sample";
 
 const testClientRef = vi.hoisted(() => ({ current: null as DB | null }));
 vi.mock("@/lib/supabase/server", () => ({
@@ -55,7 +81,25 @@ let userId: string;
 let userEmail: string;
 let freeTemplateId: string;
 let premiumTemplateId: string;
+// Category-specific free template ids for the persona-matching tests below —
+// each fetched by exact slug (not `.limit(1)`) so which category each test
+// exercises is explicit and doesn't depend on catalog ordering.
+let businessTemplateId: string;
+let engineeringTemplateId: string;
+let ngoTemplateId: string;
+let technologyTemplateId: string;
 const createdResumeIds: string[] = [];
+
+async function freeTemplateIdBySlug(slug: string): Promise<string> {
+  const { data, error } = await admin
+    .from("resume_templates")
+    .select("id, is_premium")
+    .eq("slug", slug)
+    .single();
+  if (error || !data) throw new Error(`Template "${slug}" not seeded — run \`npm run seed\`.`);
+  if (data.is_premium) throw new Error(`Template "${slug}" is premium — this suite needs a free one.`);
+  return data.id;
+}
 
 beforeAll(async () => {
   const user = await createTestUser("resumestart");
@@ -80,6 +124,14 @@ beforeAll(async () => {
     .single();
   if (premiumErr || !premium) throw new Error("No premium template seeded — run `npm run seed`.");
   premiumTemplateId = premium.id;
+
+  // Business (no dedicated persona -> fallback), Engineering and NGO &
+  // Development (dedicated personas), Technology (a SECOND no-dedicated-
+  // persona category, to prove the fallback generalizes past Business).
+  businessTemplateId = await freeTemplateIdBySlug("clean-professional");
+  engineeringTemplateId = await freeTemplateIdBySlug("blueprint");
+  ngoTemplateId = await freeTemplateIdBySlug("field-mission");
+  technologyTemplateId = await freeTemplateIdBySlug("product-tech");
 }, 60_000);
 
 afterEach(async () => {
@@ -111,10 +163,13 @@ describe("start-state content selection (sabotage-proof target #3)", () => {
     expect(await createdContent(resumeId)).toEqual(EMPTY_RESUME);
   });
 
-  it('"example" seeds the rewritten PREVIEW_SAMPLE_RESUME, not a placeholder', async () => {
+  it('"example" on a Business-category template (no dedicated persona) seeds the fallback PREVIEW_SAMPLE_RESUME, not a placeholder', async () => {
     let resumeId = "";
     try {
-      await createResumeAction(freeTemplateId, "example");
+      // Pinned to the Business category explicitly (see this file's header)
+      // rather than an arbitrary `.limit(1)` free template — which persona
+      // comes back now depends on category, so the template has to be named.
+      await createResumeAction(businessTemplateId, "example");
       throw new Error("expected a redirect");
     } catch (err) {
       resumeId = redirectedResumeId(err);
@@ -202,6 +257,59 @@ describe("start-state content selection (sabotage-proof target #3)", () => {
     await expect(createResumeAction(freeTemplateId, "import_upload", new FormData())).rejects.toThrow(
       /no imported resume content/i,
     );
+  });
+});
+
+/**
+ * THE PERSONA-MATCHING SABOTAGE-PROOF TARGET for this PR. Before this, every
+ * "example" seed was `PREVIEW_SAMPLE_RESUME` regardless of template — now
+ * `createResumeAction` resolves a persona from the chosen template's
+ * `industry_category` (persona-for-category.ts). These tests hit the real
+ * mechanism end-to-end: a real template row, a real `createResumeAction`
+ * call, a real inserted `resumes.structured_content` read back — not the
+ * resolver function in isolation (that's covered separately in
+ * tests/resume-builder/persona-for-category.test.ts).
+ */
+describe("createResumeAction's 'example' start state seeds the persona matching the template's category", () => {
+  it("an Engineering-category template seeds the EPC engineer persona, not the old universal default", async () => {
+    let resumeId = "";
+    try {
+      await createResumeAction(engineeringTemplateId, "example");
+      throw new Error("expected a redirect");
+    } catch (err) {
+      resumeId = redirectedResumeId(err);
+    }
+    createdResumeIds.push(resumeId);
+    const content = await createdContent(resumeId);
+    expect(content).toEqual(EPC_SITE_ENGINEER_RESUME);
+    expect(content).not.toEqual(PREVIEW_SAMPLE_RESUME);
+  });
+
+  it("an NGO & Development-category template seeds the development programme officer persona", async () => {
+    let resumeId = "";
+    try {
+      await createResumeAction(ngoTemplateId, "example");
+      throw new Error("expected a redirect");
+    } catch (err) {
+      resumeId = redirectedResumeId(err);
+    }
+    createdResumeIds.push(resumeId);
+    const content = await createdContent(resumeId);
+    expect(content).toEqual(DEVELOPMENT_PROGRAMME_OFFICER_RESUME);
+    expect(content).not.toEqual(PREVIEW_SAMPLE_RESUME);
+  });
+
+  it("a category with no dedicated persona still seeds something sane (the fallback), not a crash — proven on a SECOND category, not just Business", async () => {
+    let resumeId = "";
+    try {
+      await createResumeAction(technologyTemplateId, "example");
+      throw new Error("expected a redirect");
+    } catch (err) {
+      resumeId = redirectedResumeId(err);
+    }
+    createdResumeIds.push(resumeId);
+    const content = await createdContent(resumeId);
+    expect(content).toEqual(PREVIEW_SAMPLE_RESUME);
   });
 });
 
