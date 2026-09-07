@@ -1880,6 +1880,7 @@ export type Database = {
       }
       resume_templates: {
         Row: {
+          ats_safe: boolean
           created_at: string
           id: string
           industry_category: string
@@ -1891,6 +1892,7 @@ export type Database = {
           unlock_cost_credits: number
         }
         Insert: {
+          ats_safe?: boolean
           created_at?: string
           id?: string
           industry_category: string
@@ -1902,6 +1904,7 @@ export type Database = {
           unlock_cost_credits?: number
         }
         Update: {
+          ats_safe?: boolean
           created_at?: string
           id?: string
           industry_category?: string

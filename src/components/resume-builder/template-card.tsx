@@ -77,6 +77,21 @@ export function TemplateCard({
         {locked && <LockIcon />}
       </div>
 
+      {/*
+        Plain language, not just an icon (PR brief) — "ATS-safe" as a bare
+        badge would mean nothing to someone who has never heard the term, and
+        the whole point of the claim is that it is a real, checked property
+        (ats-safety.ts, ats-safety.test.ts's PDF-extraction proof), not
+        decoration. The negative case says WHY, not just that it fails,
+        because "not ATS-safe" alone reads as a defect rather than a
+        deliberate visual trade-off a candidate might still want.
+      */}
+      <p className="text-[12px] text-ink-soft">
+        {template.ats_safe
+          ? "ATS-safe — a standard single-column layout that reads correctly to applicant tracking systems."
+          : "Not ATS-safe — this layout's columns can scramble in some applicant tracking systems."}
+      </p>
+
       {locked ? (
         <div className="flex flex-col gap-2">
           <Button size="sm" variant="secondary" onClick={handleUnlock} disabled={pending}>

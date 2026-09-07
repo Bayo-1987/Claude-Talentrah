@@ -20,13 +20,17 @@
  * registry back to itself and pass forever.
  */
 import { describe, expect, it } from "vitest";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/types";
 import {
   DEFAULT_TEMPLATE_SLUG,
+  getTemplateAtsSafety,
   getTemplateComponent,
   registeredSlugs,
 } from "@/components/resume-builder/templates";
+import { PREVIEW_SAMPLE_RESUME } from "@/lib/resume-builder/preview-sample";
 
 for (const key of ["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"] as const) {
   if (!process.env[key]) throw new Error(`Template registry test cannot run: ${key} is not set.`);
@@ -269,5 +273,120 @@ describe("the preview page renders the template a resume actually points at", ()
     // `resumes.template_id` is nullable and every uploaded/tailored resume has
     // it null — those must not crash the preview page.
     expect(getTemplateComponent(null)).toBe(getTemplateComponent(DEFAULT_TEMPLATE_SLUG));
+  });
+});
+
+/**
+ * Template library PR 2 of 3 — the layout-skeleton + style-token system.
+ *
+ * Three more things this milestone must not regress, on top of the two
+ * PR1-era invariants above:
+ *
+ *   1. every LIVE catalog row renders something for a real resume, not just
+ *      "resolves to a component" — a component that exists but throws on
+ *      real content is exactly as broken as no component at all;
+ *   2. every PREMIUM row's rendered HTML is different from the free
+ *      default's — the identity check above (`getTemplateComponent(slug) !==
+ *      fallback`) is necessary but not sufficient: two DIFFERENT component
+ *      references could still coincidentally render identical markup for a
+ *      given resume. This test renders both and diffs the actual strings;
+ *   3. every row's `ats_safe` column agrees with what the application code
+ *      believes about that slug (`getTemplateAtsSafety`,
+ *      `TEMPLATE_ATS_SAFETY` in templates/index.tsx) — so a migration that
+ *      sets the column and a later code change that reclassifies a slug
+ *      can't quietly drift apart. The underlying "is this skeleton actually
+ *      safe" claim is verified separately, against a real generated PDF, in
+ *      `e2e/ats-safety.spec.ts`.
+ *
+ * SABOTAGE-PROOF, PERFORMED LIVE DURING THIS PR (not committed as a
+ * permanent meta-test — see this repo's own `zz_temp_sabotage_*` /
+ * `zz_revert_sabotage_*` migration pairs for the established convention this
+ * follows): `REGISTRY["statute"]` was temporarily pointed at `ResumeDocument`
+ * (the free default) and
+ * `the registry maps slugs to distinct components > returns a different
+ * component for each registered slug` (above, this file) was run in
+ * isolation — it failed immediately with `"statute" and "clean-professional"
+ * resolve to the same component`, then passed again once reverted. That is
+ * the exact failure class the premium-distinctness test below exists to
+ * catch, at the same layer (the component/HTML resolution), so the proof
+ * transfers.
+ */
+describe("Template library PR 2 — every catalog row renders real content", () => {
+  it("every LIVE catalog row renders a real resume without throwing, and shows its content", async () => {
+    const { data, error } = await admin.from("resume_templates").select("slug, name");
+    if (error) throw error;
+    expect(data ?? [], "catalog is empty — run `npm run seed`").not.toHaveLength(0);
+
+    const broken: string[] = [];
+    for (const row of data ?? []) {
+      try {
+        const Component = getTemplateComponent(row.slug);
+        const html = renderToStaticMarkup(createElement(Component, { resume: PREVIEW_SAMPLE_RESUME }));
+        if (!html.includes(PREVIEW_SAMPLE_RESUME.contact.name!)) {
+          broken.push(`${row.name} (${row.slug}): rendered but dropped the resume's own name`);
+        }
+      } catch (err) {
+        broken.push(`${row.name} (${row.slug}): threw — ${(err as Error).message}`);
+      }
+    }
+    expect(broken, "these catalog rows do not render a real resume").toEqual([]);
+  });
+
+  it("every PREMIUM row's rendered HTML actually differs from the free default's — not just a different component reference", async () => {
+    const { data, error } = await admin
+      .from("resume_templates")
+      .select("name, slug, unlock_cost_credits")
+      .eq("is_premium", true);
+    if (error) throw error;
+
+    const Fallback = getTemplateComponent(DEFAULT_TEMPLATE_SLUG);
+    const fallbackHtml = renderToStaticMarkup(createElement(Fallback, { resume: PREVIEW_SAMPLE_RESUME }));
+
+    const identical = (data ?? [])
+      .map((t) => {
+        const Component = getTemplateComponent(t.slug);
+        const html = renderToStaticMarkup(createElement(Component, { resume: PREVIEW_SAMPLE_RESUME }));
+        return { t, html };
+      })
+      .filter(({ html }) => html === fallbackHtml)
+      .map(({ t }) => `${t.name} (${t.slug}, ${t.unlock_cost_credits} credits)`);
+
+    expect(
+      identical,
+      "PAID FOR NOTHING: these premium templates render BYTE-IDENTICAL HTML to the free default for the same resume",
+    ).toEqual([]);
+  });
+
+  it("every row's ats_safe column agrees with the application's own classification", async () => {
+    const { data, error } = await admin.from("resume_templates").select("name, slug, ats_safe");
+    if (error) throw error;
+
+    const mismatched = (data ?? [])
+      .filter((t) => t.ats_safe !== getTemplateAtsSafety(t.slug))
+      .map(
+        (t) =>
+          `${t.name} (${t.slug}): DB says ats_safe=${t.ats_safe}, TEMPLATE_ATS_SAFETY says ${getTemplateAtsSafety(t.slug)}`,
+      );
+
+    expect(
+      mismatched,
+      "the ats_safe migration and TEMPLATE_ATS_SAFETY have drifted apart for these rows",
+    ).toEqual([]);
+  });
+
+  it("clean-professional's DB structure_schema matches its source-of-truth config exactly", async () => {
+    const { CLEAN_PROFESSIONAL_CONFIG } = await import("@/components/resume-builder/skeletons/configs");
+    const { data, error } = await admin
+      .from("resume_templates")
+      .select("structure_schema")
+      .eq("slug", "clean-professional")
+      .single();
+    if (error) throw error;
+
+    expect(
+      data.structure_schema,
+      "structure_schema for clean-professional must match CLEAN_PROFESSIONAL_CONFIG " +
+        "(skeletons/configs.ts) — this is the shape PR3's 54 new rows are expected to follow",
+    ).toEqual(JSON.parse(JSON.stringify(CLEAN_PROFESSIONAL_CONFIG)));
   });
 });

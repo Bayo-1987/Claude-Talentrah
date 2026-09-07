@@ -1,115 +1,37 @@
-import { getExperienceText, type StructuredResume } from "@/lib/resume/types";
+import type { StructuredResume } from "@/lib/resume/types";
+import { SingleColumnSkeleton } from "./skeletons/single-column";
+import { CLEAN_PROFESSIONAL_CONFIG } from "./skeletons/configs";
 
 /**
- * Shared visual layout for every template in Phase 1 — the gallery lets
- * users pick a template for organization/premium-gating purposes, but only
- * one actual rendered layout exists yet (plan doc M4 scope note). Distinct
- * per-template layouts are a fast-follow, not required to prove the
- * choose→edit→preview→export loop works end to end.
+ * `clean-professional` — the free default, and the fallback every unmapped
+ * slug renders as (`DEFAULT_TEMPLATE_SLUG` in `templates/index.tsx`).
+ *
+ * TEMPLATE LIBRARY PR 2 OF 3: this used to be ~100 lines of hand-written JSX
+ * (see `tests/resume-builder/__fixtures__/pre-schema-widen/resume-document.tsx`
+ * for exactly what it looked like). It is now the one existing template
+ * moved onto the new layout-skeleton + style-token system
+ * (`src/components/resume-builder/skeletons/`) — chosen because it's the
+ * skeleton system's own `single-column` skeleton in its most literal form,
+ * which makes it the cleanest proof that the system can reproduce an
+ * existing template exactly rather than approximately.
+ *
+ * "Exactly" is verified, not asserted: `CLEAN_PROFESSIONAL_CONFIG`
+ * (skeletons/configs.ts) was built by reverse-deriving each style token from
+ * this component's original literal classNames, and
+ * `tests/resume-builder/schema-widen-render-parity.test.tsx` — unmodified
+ * from PR1 — still passes, because it byte-compares this component's output
+ * against a `git show` snapshot of the pre-PR2 JSX above for both an
+ * old-shape and an empty resume. If a future edit to the skeleton system or
+ * this config changes so much as a class name, that test fails.
+ *
+ * WHY THIS FILE STILL EXISTS AND ISN'T JUST DELETED IN FAVOR OF THE CONFIG.
+ * `getTemplateComponent("clean-professional")` is asserted elsewhere
+ * (template-registry.test.ts) to be `.toBe()` this exact export — i.e. an
+ * identity check, not a behavioral one. Keeping `ResumeDocument` as a real,
+ * named, importable component (rather than inlining the skeleton call at the
+ * registry) is what keeps that identity check meaningful instead of forcing
+ * it to change for an unrelated architectural reason.
  */
 export function ResumeDocument({ resume }: { resume: StructuredResume }) {
-  const { contact, summary, experience, education, skills, projects, certifications } = resume;
-
-  return (
-    <div className="mx-auto max-w-[720px] bg-paper p-10 text-ink">
-      <div className="border-b-[2.5px] border-ink pb-4">
-        <h1 className="font-display text-[28px]">{contact.name || "Your name"}</h1>
-        <p className="mt-1 text-[13px] text-ink-soft">
-          {[contact.email, contact.phone, contact.location].filter(Boolean).join(" · ")}
-        </p>
-      </div>
-
-      {summary && (
-        <section className="mt-5">
-          <p className="text-[14px] leading-relaxed text-ink-soft">{summary}</p>
-        </section>
-      )}
-
-      {experience.length > 0 && (
-        <section className="mt-6">
-          <h2 className="font-display text-[13px] font-bold uppercase tracking-[0.1em] text-rust">
-            Experience
-          </h2>
-          <div className="mt-3 flex flex-col gap-4">
-            {experience.map((entry, i) => {
-              const text = getExperienceText(entry);
-              return (
-                <div key={i}>
-                  <div className="flex items-baseline justify-between gap-4">
-                    <span className="font-body text-[15px] font-semibold">
-                      {entry.title} {entry.company && `— ${entry.company}`}
-                    </span>
-                    <span className="flex-shrink-0 text-[12px] text-ink-soft">
-                      {[entry.startDate, entry.endDate].filter(Boolean).join(" – ")}
-                    </span>
-                  </div>
-                  {entry.location && <div className="text-[12.5px] text-ink-soft">{entry.location}</div>}
-                  {text && <p className="mt-1 text-[13.5px] leading-relaxed text-ink-soft">{text}</p>}
-                </div>
-              );
-            })}
-          </div>
-        </section>
-      )}
-
-      {education.length > 0 && (
-        <section className="mt-6">
-          <h2 className="font-display text-[13px] font-bold uppercase tracking-[0.1em] text-rust">
-            Education
-          </h2>
-          <div className="mt-3 flex flex-col gap-2">
-            {education.map((entry, i) => (
-              <div key={i} className="flex items-baseline justify-between gap-4">
-                <span className="font-body text-[14.5px] font-semibold">
-                  {entry.school} {entry.degree && `— ${entry.degree}`}
-                </span>
-                <span className="flex-shrink-0 text-[12px] text-ink-soft">
-                  {[entry.startDate, entry.endDate].filter(Boolean).join(" – ")}
-                </span>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {skills.length > 0 && (
-        <section className="mt-6">
-          <h2 className="font-display text-[13px] font-bold uppercase tracking-[0.1em] text-rust">
-            Skills
-          </h2>
-          <p className="mt-2 text-[13.5px] text-ink-soft">{skills.join(" · ")}</p>
-        </section>
-      )}
-
-      {projects.length > 0 && (
-        <section className="mt-6">
-          <h2 className="font-display text-[13px] font-bold uppercase tracking-[0.1em] text-rust">
-            Projects
-          </h2>
-          <ul className="mt-2 flex flex-col gap-1">
-            {projects.map((p, i) => (
-              <li key={i} className="text-[13.5px] text-ink-soft">
-                {p}
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      {certifications.length > 0 && (
-        <section className="mt-6">
-          <h2 className="font-display text-[13px] font-bold uppercase tracking-[0.1em] text-rust">
-            Certifications
-          </h2>
-          <ul className="mt-2 flex flex-col gap-1">
-            {certifications.map((c, i) => (
-              <li key={i} className="text-[13.5px] text-ink-soft">
-                {c}
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-    </div>
-  );
+  return <SingleColumnSkeleton resume={resume} config={CLEAN_PROFESSIONAL_CONFIG} />;
 }
