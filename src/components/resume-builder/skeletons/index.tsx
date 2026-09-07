@@ -11,6 +11,7 @@ import type { SkeletonKey, SkeletonProps, TemplateConfig } from "./types";
 
 export type { TemplateConfig, StyleTokens, ContentConfig, SkeletonKey, SectionKey } from "./types";
 export { CLEAN_PROFESSIONAL_CONFIG, DEMO_CONFIGS } from "./configs";
+export { CATALOG_TEMPLATE_CONFIGS } from "./catalog-configs";
 
 /** The seven skeletons, each written once. Every skeleton takes the same `SkeletonProps` — `{ resume, config }`. */
 export const SKELETONS: Record<SkeletonKey, ComponentType<SkeletonProps>> = {

@@ -26,11 +26,14 @@ import { PREVIEW_SAMPLE_RESUME } from "@/lib/resume-builder/preview-sample";
  * template's name in noise. The card's own heading carries the accessible
  * name.
  *
- * FOUR SLUGS RENDER THE DEFAULT LAYOUT — structured-admin, product-tech,
- * field-notes, ledger. That is correct, not a gap to paper over:
- * template-registry.test.ts lists them as known free exceptions with no
- * component of their own, and the registry's documented fallback is what
- * catches them. Their thumbnails honestly show what a visitor will get.
+ * TEMPLATE LIBRARY PR3: every catalog slug now has a real component —
+ * structured-admin, product-tech, field-notes and ledger (PR2's "known free
+ * exceptions" with no layout of their own) are skeleton-configured like every
+ * other PR3 row, and `KNOWN_UNSTYLED_FREE_SLUGS` in
+ * template-registry.test.ts is empty. An unmapped/unknown slug still falls
+ * back to the default via the registry's documented fallback, so this
+ * component's thumbnail always honestly shows what a visitor will get even if
+ * that ever regresses.
  *
  * SIZE (Stage 3.2). With only eleven templates in the catalog, this gallery
  * doesn't need Canva's thumbnail-at-scale density — it can afford to let a
