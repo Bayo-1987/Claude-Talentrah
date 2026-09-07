@@ -2,7 +2,7 @@ import { requireUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
 import { EyebrowLabel } from "@/components/ui";
 import { TailorForm } from "@/components/tailoring/tailor-form";
-import { decodeHtmlEntities } from "@/lib/jobs/extract-jd";
+import { decodeHtmlEntities, stripMarkdownToPlainText } from "@/lib/jobs/extract-jd";
 
 export const metadata = { title: "Tailor my resume — Talentrah" };
 
@@ -61,7 +61,11 @@ export default async function TailorPage({
       ) : (
         <TailorForm
           jobId={job?.id}
-          initialJdText={job?.description ?? ""}
+          // A <textarea> can't render markdown, and stripHtml (#262) can now
+          // leave **bold**/- bullet syntax in `description` — stripped back
+          // to plain text here rather than rendered, since editable JD text
+          // is the one context where "rendered rich" was never the goal.
+          initialJdText={job ? stripMarkdownToPlainText(job.description) : ""}
           defaultCoverLetter={coverLetter === "1" || coverLetter === "true"}
         />
       )}

@@ -3,6 +3,7 @@ import { BorderedCard } from "@/components/ui";
 import { getCompanyInitials } from "@/lib/jobs/company-initials";
 import { postingAgeLine } from "@/lib/jobs/freshness";
 import { formatSalary } from "@/lib/jobs/format-salary";
+import { stripMarkdownToPlainText } from "@/lib/jobs/extract-jd";
 import type { Tables } from "@/lib/supabase/types";
 
 const WORK_TYPE_LABEL: Record<string, string> = {
@@ -58,7 +59,8 @@ export function PublicJobRow({ job }: { job: Omit<Tables<"job_postings">, "descr
         </div>
       </div>
       <p className="line-clamp-2 text-[13.5px] leading-relaxed text-ink-soft">
-        {job.description.slice(0, 220)}
+        {/* Stripped before slicing — see job-card.tsx's own comment on this same pattern. */}
+        {stripMarkdownToPlainText(job.description).slice(0, 220)}
       </p>
       <span className="text-[12px] text-ink-soft">{postingAgeLine(job)}</span>
     </BorderedCard>

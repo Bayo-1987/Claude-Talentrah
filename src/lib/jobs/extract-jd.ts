@@ -287,6 +287,27 @@ export function stripHtml(html: string): string {
     .trim();
 }
 
+/**
+ * Reverses the two markdown constructs `stripHtml` above can produce
+ * (`**bold**` and leading `- ` bullet markers) back to plain, readable text —
+ * for the two consumers that read `description`/`description_preview`
+ * without ever rendering markdown: the feed card excerpt and `/tailor`'s JD
+ * textarea. A `<textarea>` can't render markdown at all, and a one- or
+ * two-line card excerpt is the wrong register for rich formatting anyway —
+ * both just need the literal syntax characters gone, not rendered.
+ *
+ * Deliberately narrow: this only undoes what `stripHtml` itself ever emits
+ * (bold pairs and bullet-line dashes), not the full markdown grammar
+ * `render-markdown.tsx` can parse — the job detail page is the one place
+ * that actually renders the rich version, and it reads `description`
+ * directly, untouched by this function.
+ */
+export function stripMarkdownToPlainText(text: string): string {
+  return text
+    .replace(/\*\*(.+?)\*\*/g, "$1")
+    .replace(/^-[ \t]+/gm, "");
+}
+
 function extractResponsibilities(plainText: string): string[] {
   return plainText
     .split("\n")
