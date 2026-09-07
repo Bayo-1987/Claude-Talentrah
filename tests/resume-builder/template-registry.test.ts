@@ -464,16 +464,33 @@ describe("Template library PR 3 — the 54-row library", () => {
     if (error) throw error;
     expect(data ?? []).toHaveLength(58);
 
-    const mismatched = (data ?? [])
-      .filter(
-        (row) =>
-          JSON.stringify(row.structure_schema) !==
-          JSON.stringify(JSON.parse(JSON.stringify(CATALOG_TEMPLATE_CONFIGS[row.slug]))),
-      )
-      .map((row) => row.slug);
+    /*
+     * DEEP-equal per row, not a JSON.stringify comparison across the whole
+     * set. Postgres JSONB does not preserve the original key order of an
+     * inserted JSON literal — a value written once and read back can come
+     * back with reordered object keys and identical content, and
+     * JSON.stringify() bakes key order into the string it produces. That
+     * false positive hit nearly the whole catalog (57 of 58 slugs) the first
+     * time this assertion ran for real: verified by pulling several of the
+     * "mismatched" rows directly from the CI database and hand-comparing
+     * against catalog-configs.ts — every field was identical, only nested
+     * `sectionLabels` key order differed on some rows. `toEqual` is
+     * order-independent for object keys, so it catches a REAL content drift
+     * without flagging a storage artifact as one.
+     */
+    const mismatched = (data ?? []).filter((row) => {
+      try {
+        expect(row.structure_schema).toEqual(
+          JSON.parse(JSON.stringify(CATALOG_TEMPLATE_CONFIGS[row.slug])),
+        );
+        return false;
+      } catch {
+        return true;
+      }
+    });
 
     expect(
-      mismatched,
+      mismatched.map((row) => row.slug),
       "DB structure_schema has drifted from CATALOG_TEMPLATE_CONFIGS for these slugs",
     ).toEqual([]);
   });
