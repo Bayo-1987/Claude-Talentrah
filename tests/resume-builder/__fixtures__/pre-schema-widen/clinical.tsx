@@ -1,5 +1,4 @@
-import { getExperienceText } from "@/lib/resume/types";
-import { contactLine, dateRange, type TemplateProps } from "./shared";
+import { contactLine, dateRange, type TemplateProps } from "@/components/resume-builder/templates/shared";
 
 /**
  * Clinical — Healthcare.
@@ -51,27 +50,24 @@ export function ClinicalTemplate({ resume }: TemplateProps) {
             Clinical Experience
           </h2>
           <div className="mt-2 flex flex-col gap-3">
-            {experience.map((entry, i) => {
-              const text = getExperienceText(entry);
-              return (
-                <div key={i} className="border-l-2 border-line pl-3">
-                  <div className="flex items-baseline justify-between gap-4">
-                    <span className="font-body text-[14px] font-semibold">{entry.title}</span>
-                    <span className="flex-shrink-0 font-body text-[11.5px] text-ink-soft">
-                      {dateRange(entry.startDate, entry.endDate)}
-                    </span>
-                  </div>
-                  <div className="font-body text-[12.5px] text-ink-soft">
-                    {[entry.company, entry.location].filter(Boolean).join(" · ")}
-                  </div>
-                  {text && (
-                    <p className="mt-1 font-body text-[13px] leading-snug text-ink-soft">
-                      {text}
-                    </p>
-                  )}
+            {experience.map((entry, i) => (
+              <div key={i} className="border-l-2 border-line pl-3">
+                <div className="flex items-baseline justify-between gap-4">
+                  <span className="font-body text-[14px] font-semibold">{entry.title}</span>
+                  <span className="flex-shrink-0 font-body text-[11.5px] text-ink-soft">
+                    {dateRange(entry.startDate, entry.endDate)}
+                  </span>
                 </div>
-              );
-            })}
+                <div className="font-body text-[12.5px] text-ink-soft">
+                  {[entry.company, entry.location].filter(Boolean).join(" · ")}
+                </div>
+                {entry.description && (
+                  <p className="mt-1 font-body text-[13px] leading-snug text-ink-soft">
+                    {entry.description}
+                  </p>
+                )}
+              </div>
+            ))}
           </div>
         </section>
       )}

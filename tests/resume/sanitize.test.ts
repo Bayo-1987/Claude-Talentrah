@@ -75,6 +75,123 @@ describe("sanitizeStructuredResume", () => {
   });
 });
 
+describe("sanitizeStructuredResume — new optional sections (Template library PR 1/3)", () => {
+  it("leaves every new field undefined when the input never set them, same as EMPTY_RESUME", () => {
+    const cleaned = sanitizeStructuredResume(EMPTY_RESUME);
+    expect(cleaned.links).toBeUndefined();
+    expect(cleaned.languages).toBeUndefined();
+    expect(cleaned.awards).toBeUndefined();
+    expect(cleaned.publications).toBeUndefined();
+    expect(cleaned.volunteering).toBeUndefined();
+    expect(cleaned.customSections).toBeUndefined();
+    expect(cleaned.referencesOnRequest).toBeUndefined();
+    expect(cleaned.experience.every((e) => e.bullets === undefined)).toBe(true);
+  });
+
+  it("keeps well-formed values for every new field untouched", () => {
+    const raw: StructuredResume = {
+      ...EMPTY_RESUME,
+      experience: [
+        {
+          title: "Product Manager",
+          company: "Fintech Co",
+          bullets: ["Shipped the onboarding redesign.", "Cut signup drop-off by 12%."],
+        },
+      ],
+      links: [{ label: "Portfolio", url: "https://example.com/ada" }],
+      languages: [{ name: "Yoruba", level: "Native" }],
+      awards: ["Employee of the Year 2024"],
+      publications: ["A study of onboarding funnels, PM Weekly (2023)"],
+      volunteering: [
+        {
+          role: "Mentor",
+          organisation: "She Codes Africa",
+          startDate: "2022",
+          endDate: "2024",
+          description: "Mentored early-career PMs.",
+        },
+      ],
+      customSections: [{ title: "Tech Stack", items: ["SQL", "Figma", "Amplitude"] }],
+      referencesOnRequest: true,
+    };
+    const cleaned = sanitizeStructuredResume(raw);
+
+    expect(cleaned.experience[0].bullets).toEqual([
+      "Shipped the onboarding redesign.",
+      "Cut signup drop-off by 12%.",
+    ]);
+    expect(cleaned.links).toEqual([{ label: "Portfolio", url: "https://example.com/ada" }]);
+    expect(cleaned.languages).toEqual([{ name: "Yoruba", level: "Native" }]);
+    expect(cleaned.awards).toEqual(["Employee of the Year 2024"]);
+    expect(cleaned.publications).toEqual(["A study of onboarding funnels, PM Weekly (2023)"]);
+    expect(cleaned.volunteering).toEqual(raw.volunteering);
+    expect(cleaned.customSections).toEqual([{ title: "Tech Stack", items: ["SQL", "Figma", "Amplitude"] }]);
+    expect(cleaned.referencesOnRequest).toBe(true);
+  });
+
+  it("drops a link missing a label or url rather than keeping a half-empty entry", () => {
+    const raw: StructuredResume = {
+      ...EMPTY_RESUME,
+      links: [
+        { label: "GitHub", url: "https://github.com/ada" },
+        { label: "", url: "https://example.com/broken" },
+        { label: "Broken", url: "" },
+      ],
+    };
+    const cleaned = sanitizeStructuredResume(raw);
+    expect(cleaned.links).toEqual([{ label: "GitHub", url: "https://github.com/ada" }]);
+  });
+
+  it("collapses an empty array back to undefined instead of keeping [] (matches the description/summary convention)", () => {
+    const raw: StructuredResume = { ...EMPTY_RESUME, awards: [], links: [], customSections: [] };
+    const cleaned = sanitizeStructuredResume(raw);
+    expect(cleaned.awards).toBeUndefined();
+    expect(cleaned.links).toBeUndefined();
+    expect(cleaned.customSections).toBeUndefined();
+  });
+
+  it("truncates an overlong volunteering description the same way an overlong experience/summary field would be", () => {
+    const longDescription = "a".repeat(2500);
+    const raw: StructuredResume = {
+      ...EMPTY_RESUME,
+      volunteering: [{ role: "Mentor", organisation: "She Codes Africa", description: longDescription }],
+    };
+    const cleaned = sanitizeStructuredResume(raw);
+    expect(cleaned.volunteering?.[0]?.description?.length).toBeLessThanOrEqual(2001);
+    expect(cleaned.volunteering?.[0]?.description?.endsWith("…")).toBe(true);
+  });
+
+  it("drops a degenerate (over the short-field cap) volunteering role rather than keeping the whole entry broken", () => {
+    const raw: StructuredResume = {
+      ...EMPTY_RESUME,
+      volunteering: [{ role: DEGENERATE_PHONE, organisation: "She Codes Africa" }],
+    };
+    const cleaned = sanitizeStructuredResume(raw);
+    // role fails the short-field cap and drops to "", but organisation alone
+    // is still enough for the entry to count as real and be kept.
+    expect(cleaned.volunteering).toEqual([{ role: "", organisation: "She Codes Africa" }]);
+  });
+
+  it("drops a custom section with no real items rather than keeping an empty shell", () => {
+    const raw: StructuredResume = {
+      ...EMPTY_RESUME,
+      customSections: [{ title: "Tech Stack", items: [] }],
+    };
+    const cleaned = sanitizeStructuredResume(raw);
+    expect(cleaned.customSections).toBeUndefined();
+  });
+
+  it("a resume that never sets the new fields is not flagged as degenerate", () => {
+    const raw: StructuredResume = {
+      ...EMPTY_RESUME,
+      contact: { name: "Demo Seeker" },
+      skills: ["sql"],
+    };
+    const cleaned = sanitizeStructuredResume(raw);
+    expect(wasDegenerate(raw, cleaned)).toBe(false);
+  });
+});
+
 describe("wasDegenerate", () => {
   it("returns true when sanitizing actually changed something", () => {
     const raw: StructuredResume = { ...EMPTY_RESUME, contact: { phone: DEGENERATE_PHONE } };

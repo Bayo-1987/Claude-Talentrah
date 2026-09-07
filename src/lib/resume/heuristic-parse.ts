@@ -1,4 +1,4 @@
-import type { StructuredResume } from "./types";
+import type { ResumeLink, StructuredResume } from "./types";
 
 const SECTION_PATTERNS: Record<string, RegExp> = {
   summary: /^(summary|profile|objective|about)$/i,
@@ -31,6 +31,69 @@ const SECTION_PATTERNS: Record<string, RegExp> = {
 
 const EMAIL_RE = /[\w.+-]+@[\w-]+\.[\w.-]+/;
 const PHONE_RE = /(\+?\d[\d\s().-]{7,}\d)/;
+
+/*
+ * LinkedIn/GitHub get their own recognised label; anything else that reads
+ * as a real URL becomes "Website" — deliberately generic, never guessed at
+ * more specifically than the resume itself says. Scoped to actual URLs
+ * (an explicit scheme, or one of these two well-known hosts) rather than any
+ * bare domain-looking string, so an email's domain or a company name that
+ * happens to contain a dot is never misread as a link.
+ */
+const LINK_RE = /\bhttps?:\/\/[^\s,;)]+|\b(?:www\.)?(?:linkedin\.com|github\.com)\/[^\s,;)]+/gi;
+
+/** URLs the resume text actually contains, deduped and labeled — never invented. */
+function extractLinks(rawText: string): ResumeLink[] {
+  const matches = rawText.match(LINK_RE) ?? [];
+  const seen = new Set<string>();
+  const links: ResumeLink[] = [];
+  for (const match of matches) {
+    // Trailing punctuation is sentence structure, not part of the URL —
+    // "see my work at github.com/ada." should not keep the period.
+    const url = match.replace(/[.,;:]+$/, "");
+    const key = url.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const label = /linkedin\.com/i.test(url) ? "LinkedIn" : /github\.com/i.test(url) ? "GitHub" : "Website";
+    links.push({ label, url });
+  }
+  return links;
+}
+
+/*
+ * Bullet markers as people actually type them in a plain-text/copy-pasted
+ * resume. Requires the marker AND at least one space after it, so a line
+ * that merely starts with a hyphen as part of a word (there are none in
+ * practice, but "e-commerce" is the shape being guarded against) can't
+ * match on its own — the space is what makes it a list marker rather than
+ * punctuation.
+ */
+const BULLET_LINE_RE = /^[•●▪◦‣∙·*-]\s+/;
+
+/**
+ * Splits an experience block's trailing lines (everything after title/
+ * company) into either `bullets` or `description` — never both, and never
+ * invented. Only classified as bulleted when EVERY remaining line actually
+ * carries a bullet marker; a block that mixes bulleted and plain lines, or
+ * has none at all, is treated as ordinary prose and joined exactly as
+ * before this field existed — that's what keeps a resume with no bulleted
+ * experience parsing byte-identically to how it did before `bullets`
+ * existed.
+ */
+function extractNarrative(lines: string[]): { description?: string; bullets?: string[] } {
+  const nonEmpty = lines.filter((l) => l.trim() !== "");
+  if (nonEmpty.length === 0) return {};
+
+  const isBulleted = nonEmpty.every((l) => BULLET_LINE_RE.test(l.trim()));
+  if (isBulleted) {
+    const bullets = nonEmpty
+      .map((l) => l.trim().replace(BULLET_LINE_RE, "").trim())
+      .filter((l) => l.length > 0);
+    if (bullets.length > 0) return { bullets };
+  }
+
+  return { description: nonEmpty.join(" ") };
+}
 
 function matchSection(line: string): keyof typeof SECTION_PATTERNS | null {
   const trimmed = line.trim().replace(/[:\-–]+$/, "");
@@ -98,7 +161,7 @@ export function heuristicParseResume(rawText: string): {
   const experience = splitIntoBlocks(sectionText.experience ?? []).map((block) => ({
     title: block[0] ?? "",
     company: block[1] ?? "",
-    description: block.slice(2).join(" "),
+    ...extractNarrative(block.slice(2)),
   }));
 
   const education = splitIntoBlocks(sectionText.education ?? []).map((block) => ({
@@ -109,6 +172,10 @@ export function heuristicParseResume(rawText: string): {
   const projects = splitIntoBlocks(sectionText.projects ?? []).map((b) => b.join(" "));
   const certifications = (sectionText.certifications ?? []).filter((l) => l !== "");
   const summary = (sectionText.summary ?? []).join(" ").trim() || undefined;
+  // Scanned over the WHOLE document, not just a section — a LinkedIn/GitHub
+  // URL is as likely to sit in the header next to the email as under any
+  // heading, and there is no reliable "Links" heading to anchor a section on.
+  const links = extractLinks(rawText);
 
   const resume: StructuredResume = {
     contact: { name, email, phone },
@@ -118,6 +185,7 @@ export function heuristicParseResume(rawText: string): {
     skills,
     projects,
     certifications,
+    ...(links.length > 0 ? { links } : {}),
   };
 
   const confidence: "high" | "low" =
