@@ -3,7 +3,7 @@
 import { useActionState, useEffect, useRef, useState } from "react";
 import { signUpAction, type AuthActionState } from "@/lib/auth/actions";
 import { SIGNUP_COUNTRIES } from "@/lib/auth/schemas";
-import { TextField, SelectField, Button } from "@/components/ui";
+import { TextField, PasswordField, SelectField, Button } from "@/components/ui";
 import { PasswordRequirements } from "./password-requirements";
 
 const initialState: AuthActionState = { error: null };
@@ -124,10 +124,9 @@ export function SignupForm({
       />
 
       <div className="flex flex-col gap-2">
-        <TextField
+        <PasswordField
           label="Password"
           name="password"
-          type="password"
           autoComplete="new-password"
           required
           value={fields.password}

@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { updatePasswordAction, type AuthActionState } from "@/lib/auth/actions";
-import { TextField, Button } from "@/components/ui";
+import { PasswordField, Button } from "@/components/ui";
 import { PasswordRequirements } from "./password-requirements";
 
 const initialState: AuthActionState = { error: null };
@@ -34,10 +34,9 @@ export function ResetPasswordForm() {
       )}
 
       <div className="flex flex-col gap-2.5">
-        <TextField
+        <PasswordField
           label="New password"
           name="password"
-          type="password"
           autoComplete="new-password"
           required
           value={password}

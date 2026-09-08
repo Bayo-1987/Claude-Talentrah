@@ -29,7 +29,10 @@ test("Country and Terms checkbox survive a failed signup submission", async ({ p
   // src/lib/auth/password.ts) so the form re-renders with an error instead
   // of redirecting — that failed-submission re-render is exactly what used
   // to clobber the select/checkbox.
-  await page.getByLabel("Password").fill("weak");
+  // exact: true — the password reveal toggle's own accessible name also
+  // contains "Password" ("Show password"), which a substring match would
+  // resolve ambiguously.
+  await page.getByLabel("Password", { exact: true }).fill("weak");
 
   await page.getByRole("button", { name: "Create a free account" }).click();
 

@@ -136,7 +136,7 @@ test("the whole loop: request, reset, and the old password stops working", async
       // cannot pass because it never worked.
       await page.goto("/login");
       await page.getByLabel("Email").fill(email);
-      await page.getByLabel("Password").fill(OLD_PASSWORD);
+      await page.getByLabel("Password", { exact: true }).fill(OLD_PASSWORD);
       await page.getByRole("button", { name: "Log in" }).click();
       /*
        * /onboarding, not /jobs, and that is the correct destination rather
@@ -209,13 +209,13 @@ test("the whole loop: request, reset, and the old password stops working", async
 
       // The old password is refused…
       await page.getByLabel("Email").fill(email);
-      await page.getByLabel("Password").fill(OLD_PASSWORD);
+      await page.getByLabel("Password", { exact: true }).fill(OLD_PASSWORD);
       await page.getByRole("button", { name: "Log in" }).click();
       await expect(page.getByText("Incorrect email or password.")).toBeVisible();
 
       // …and the new one works.
       await page.getByLabel("Email").fill(email);
-      await page.getByLabel("Password").fill(NEW_PASSWORD);
+      await page.getByLabel("Password", { exact: true }).fill(NEW_PASSWORD);
       await page.getByRole("button", { name: "Log in" }).click();
       await page.waitForURL("**/onboarding**");
     } finally {
