@@ -5,6 +5,7 @@ import {
 } from "@/lib/employer/verification";
 import { EyebrowLabel } from "@/components/ui";
 import { CompanyProfileForm } from "@/components/employer/company-profile-form";
+import { CacVerificationForm } from "@/components/employer/cac-verification-form";
 
 export const metadata = { title: "Company Profile — Talentrah" };
 
@@ -66,6 +67,29 @@ export default async function CompanyProfilePage() {
         Verification currently means one thing: someone with a confirmed email address at this
         domain set the company up. It doesn&apos;t confirm they speak for the company.
       </p>
+
+      {/*
+        Path 2 (0116/0120): CAC business registration, for the employer domain
+        verification cannot reach. Shown regardless of `verified`, because a
+        domain-verified org can still lose that badge later (a domain change
+        re-runs verification in both directions) and CAC confirmation is not
+        undone by that — see 0120's own header for why the two are independent.
+      */}
+      <div className="mt-9">
+        <CacVerificationForm
+          initial={{
+            cacNumber: organization.cac_number ?? "",
+            cacBusinessName: organization.cac_business_name ?? "",
+          }}
+          status={
+            organization.cac_confirmed_at
+              ? "confirmed"
+              : organization.cac_number
+                ? "pending"
+                : "none"
+          }
+        />
+      </div>
     </div>
   );
 }

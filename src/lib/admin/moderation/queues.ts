@@ -227,6 +227,49 @@ export async function pendingCampaigns(): Promise<PendingCampaign[]> {
   }));
 }
 
+export interface PendingCacVerification {
+  organizationId: string;
+  organizationName: string;
+  domain: string | null;
+  cacNumber: string;
+  cacBusinessName: string;
+}
+
+/**
+ * Organisations with a CAC submission awaiting an admin's manual confirmation.
+ *
+ * "Awaiting" is exactly `cac_number is not null and cac_confirmed_at is
+ * null" — the plain reading of "submitted, not yet decided". A rejection
+ * (0116's `employer_verification` decision) does NOT set `cac_confirmed_at`,
+ * so a rejected submission stays in this queue until the employer resubmits
+ * or an admin later approves it — a deliberate consequence of "reject leaves
+ * no schema trace, only an audit log entry" (see `decideCacVerificationAction`
+ * for why), not an oversight here.
+ *
+ * No ordering claim beyond FIFO (oldest `cac_number` submission first) — there
+ * is no per-organisation submitted-at column, only `updated_at`, which also
+ * moves on an unrelated profile edit and would misorder the queue. Good enough
+ * at this volume; revisit if it ever needs a dedicated timestamp.
+ */
+export async function pendingCacVerifications(): Promise<PendingCacVerification[]> {
+  const supabase = createServiceRoleClient();
+  const { data, error } = await supabase
+    .from("organizations")
+    .select("id, name, domain, cac_number, cac_business_name")
+    .not("cac_number", "is", null)
+    .is("cac_confirmed_at", null)
+    .order("updated_at", { ascending: true });
+
+  if (error) throw error;
+  return (data ?? []).map((r) => ({
+    organizationId: r.id,
+    organizationName: r.name,
+    domain: r.domain,
+    cacNumber: r.cac_number!,
+    cacBusinessName: r.cac_business_name ?? "",
+  }));
+}
+
 export interface PendingJobReview {
   jobPostingId: string;
   title: string;
@@ -252,7 +295,7 @@ export interface PendingJobReview {
  *
  * `admin_review_decision is null` is the entire "awaiting" definition — a
  * rejection leaves it null-forever-until-resubmitted only in the sense that
- * nothing here resubmits it; unlike 0114's CAC queue, there is no separate
+ * nothing here resubmits it; unlike 0120's CAC queue, there is no separate
  * "resubmit" action for a single posting today; the employer's own row stays
  * decided.
  */
@@ -357,10 +400,20 @@ export async function queueCounts(): Promise<{
   courses: number;
   ops: number;
   finance: number;
+  employerVerification: number;
   jobReview: number;
 }> {
-  const [scholarships, reports, campaigns, feedback, courses, ops, finance, jobReview] =
-    await Promise.all([
+  const [
+    scholarships,
+    reports,
+    campaigns,
+    feedback,
+    courses,
+    ops,
+    finance,
+    employerVerification,
+    jobReview,
+  ] = await Promise.all([
     pendingScholarships(),
     reportedPostings(),
     pendingCampaigns(),
@@ -378,6 +431,8 @@ export async function queueCounts(): Promise<{
     // Payments whose outcome nobody has learned. NOT total payments — a badge
     // counting healthy activity never falls, so it never means anything.
     financialHealth(),
+    // CAC submissions nobody has confirmed or rejected yet (0116/0120).
+    pendingCacVerifications(),
     // Path 3 (0118/0119) requests nobody has decided yet.
     pendingJobReviews(),
   ]);
@@ -389,6 +444,7 @@ export async function queueCounts(): Promise<{
     courses,
     ops,
     finance: finance.pendingCount,
+    employerVerification: employerVerification.length,
     jobReview: jobReview.length,
   };
 }

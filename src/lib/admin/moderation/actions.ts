@@ -365,6 +365,138 @@ export async function decideFeedbackAction(
 }
 
 /**
+ * Confirm or reject an organisation's CAC (business registration) submission.
+ *
+ * This is "Path 2" of verification (see docs referenced from 0116/0120): a
+ * confirmed work-email domain is the only route to `verified` today, and this
+ * adds a manual one for an employer that route cannot reach. The admin is
+ * expected to have actually checked https://icrp.cac.gov.ng/public-search —
+ * nothing here calls it; there is no API, and this project does not scrape a
+ * government portal.
+ *
+ * APPROVE IS ONE CONDITIONAL UPDATE, precondition and write together — same
+ * shape as `spendCredits`/0035 and every RPC-backed decision above, applied
+ * here without a dedicated RPC because a single-table, single-row conditional
+ * UPDATE needs nothing else to be atomic. `.is("cac_confirmed_at", null)` is
+ * the precondition: two admins opening the same row cannot both "win", because
+ * whichever UPDATE runs second matches zero rows and is told the queue moved
+ * on, rather than silently overwriting the first decision's
+ * `cac_confirmed_by`.
+ *
+ * REJECT WRITES NOTHING TO `organizations`, on purpose (founder's own spec):
+ * `cac_number`/`cac_business_name` are left exactly as submitted and
+ * `cac_confirmed_at` stays null, so the row simply remains in this queue —
+ * the employer's path back in is to correct and resubmit, or for a later
+ * admin to approve it outright. The decision still exists, just only in
+ * `admin_audit_log`. Because nothing is written to the row, there is no
+ * database statement to make this atomic; the read-then-audit-write below can
+ * race a concurrent approval, and the worst case is a rejection logged a
+ * moment after somebody else approved — a harmless extra audit entry, not a
+ * state error, which is why this does not need the same guard the approve
+ * path does.
+ */
+export async function decideCacVerificationAction(
+  _prev: ModerationState,
+  formData: FormData,
+): Promise<ModerationState> {
+  const admin = await requirePermission("employer_verification");
+  const id = String(formData.get("id") ?? "");
+  const decision = String(formData.get("decision") ?? "");
+  const note = String(formData.get("note") ?? "").trim();
+
+  if (!id || (decision !== "approve" && decision !== "reject")) {
+    return { status: "error", message: "Pick approve or reject.", targetId: id };
+  }
+  if (decision === "reject" && !note) {
+    // Rejecting with no reason leaves the employer nothing to correct before
+    // resubmitting.
+    return { status: "error", message: "A rejection needs a reason.", targetId: id };
+  }
+
+  const supabase = createServiceRoleClient();
+
+  if (decision === "approve") {
+    const { data: updated, error } = await supabase
+      .from("organizations")
+      .update({
+        verified: true,
+        cac_confirmed_at: new Date().toISOString(),
+        cac_confirmed_by: admin.adminId,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", id)
+      .is("cac_confirmed_at", null)
+      .select("id, name, cac_number, cac_business_name")
+      .maybeSingle();
+
+    if (error) {
+      console.error("[admin-moderation] cac verification approve", error);
+      return { status: "error", message: "Something went wrong on our end.", targetId: id };
+    }
+    if (!updated) {
+      return {
+        status: "error",
+        message: "Already decided by someone else — reload to see the current queue.",
+        targetId: id,
+      };
+    }
+
+    await recordAdminAction({
+      identity: admin,
+      action: "organization.cac_verified",
+      targetTable: "organizations",
+      targetId: id,
+      detail: {
+        cac_number: updated.cac_number,
+        cac_business_name: updated.cac_business_name,
+        note: note || null,
+      },
+    });
+
+    revalidatePath("/admin/employer-verification");
+    return {
+      status: "success",
+      targetId: id,
+      message: `Verified “${updated.name}” by CAC registration. Their postings are public now.`,
+    };
+  }
+
+  // Reject — read the current submission for the audit detail and the
+  // "already decided" precondition, then write only the log.
+  const { data: org } = await supabase
+    .from("organizations")
+    .select("name, cac_number, cac_business_name, cac_confirmed_at")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (!org) {
+    return { status: "error", message: "That organisation no longer exists.", targetId: id };
+  }
+  if (org.cac_confirmed_at) {
+    return {
+      status: "error",
+      message: "Already verified by CAC — reload to see the current queue.",
+      targetId: id,
+    };
+  }
+
+  await recordAdminAction({
+    identity: admin,
+    action: "organization.cac_rejected",
+    targetTable: "organizations",
+    targetId: id,
+    detail: { cac_number: org.cac_number, cac_business_name: org.cac_business_name, note },
+  });
+
+  revalidatePath("/admin/employer-verification");
+  return {
+    status: "success",
+    targetId: id,
+    message: `Rejected. “${org.name}” can correct its CAC details and resubmit.`,
+  };
+}
+
+/**
  * Approve or reject a Path 3 individual job-posting review (0118/0119).
  *
  * APPROVING DOES NOT VERIFY THE ORGANISATION. It sets `admin_review_decision

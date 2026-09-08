@@ -78,11 +78,15 @@ describe("what the screen says", () => {
       consumerEmailDomain: true,
     });
     expect(html).toContain(CONSUMER_WARNING);
-    // …and names both of the routes that would work, without claiming either
-    // is available yet.
+    // …and names both of the routes: CAC verification is real (0116/0120,
+    // submitted from Company Profile once the company exists), so this
+    // screen must not still call it unavailable — only the teammate-invite
+    // route remains unbuilt, and that is the one claim that gets to say so.
     expect(html).toContain("teammate");
     expect(html).toContain("CAC");
-    expect(html).toContain("Neither is available yet");
+    expect(html).toContain("Company Profile");
+    expect(html).toContain("still coming");
+    expect(html).not.toContain("Neither is available yet");
     // The old promise must be gone for this account specifically.
     expect(html).not.toContain(OLD_PROMISE);
   });

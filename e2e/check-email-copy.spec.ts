@@ -10,6 +10,12 @@ import { test, expect } from "@playwright/test";
  * which one is true. Since the page can't distinguish the cases, this test
  * only has one path to check: that both messages are present and neither
  * outright confirms/denies the account already exists.
+ *
+ * UPDATED for the check-email redesign (resend action + webmail link): the
+ * two-paragraph hedge collapsed to one sentence and "log in instead" moved
+ * out of that sentence into its own de-emphasized line below a divider
+ * ("Already confirmed? Log in") — the property under test (both cases
+ * covered, neither confirmed) is unchanged, only the exact wording is.
  */
 test("check-email page guides a possibly-returning user without revealing account existence", async ({
   page,
@@ -22,10 +28,13 @@ test("check-email page guides a possibly-returning user without revealing accoun
     page.getByText(/we've sent a confirmation link/i),
   ).toBeVisible();
 
+  // One sentence now, not two paragraphs — but it still says both things
+  // without branching on which is true: activate a new account, or nothing
+  // new goes out for one that already exists.
   await expect(
-    page.getByText(/if you already have an account with this email/i),
+    page.getByText(/if you already have one here, no new email goes out/i),
   ).toBeVisible();
-  await expect(page.getByRole("link", { name: "log in instead" })).toHaveAttribute(
+  await expect(page.getByRole("link", { name: "Log in" })).toHaveAttribute(
     "href",
     "/login",
   );

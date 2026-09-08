@@ -348,6 +348,31 @@ describe("employer: an outsider cannot get in", () => {
   });
 
   /**
+   * 0120's CAC submission fields (`cac_number`, `cac_business_name`) are
+   * `authenticated`-writable at the COLUMN level (see
+   * tests/rls/column-privileges.test.ts for that half) — this is the other
+   * half: the row-level "org members can update their organization" policy
+   * (0026) is what stops an unrelated user writing them onto SOMEONE ELSE'S
+   * organisation, exactly as it already does for `description` above. A
+   * column grant only ever widens WHICH columns a row's own members may
+   * touch; it says nothing about whose row that is.
+   */
+  it("B cannot submit CAC details onto A's organisation", async () => {
+    await outsiderB.client
+      .from("organizations")
+      .update({ cac_number: "RC0000000", cac_business_name: "Hijacked Business" })
+      .eq("id", orgId);
+
+    const { data } = await admin
+      .from("organizations")
+      .select("cac_number, cac_business_name")
+      .eq("id", orgId)
+      .single();
+    expect(data?.cac_number, "an outsider submitted CAC details onto another org").toBeNull();
+    expect(data?.cac_business_name).toBeNull();
+  });
+
+  /**
    * 0119's `admin_review_requested_at` is `authenticated`-writable at the
    * COLUMN level (see tests/rls/column-privileges.test.ts for that half) —
    * this is the row-level half: the same "org members can update their org's

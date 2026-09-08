@@ -487,6 +487,27 @@ export type Database = {
         }
         Relationships: []
       }
+      anonymous_rate_limits: {
+        Row: {
+          bucket: string
+          rate_key: string
+          request_count: number
+          window_start: string
+        }
+        Insert: {
+          bucket: string
+          rate_key: string
+          request_count?: number
+          window_start: string
+        }
+        Update: {
+          bucket?: string
+          rate_key?: string
+          request_count?: number
+          window_start?: string
+        }
+        Relationships: []
+      }
       api_rate_limits: {
         Row: {
           bucket: string
@@ -1571,6 +1592,10 @@ export type Database = {
       }
       organizations: {
         Row: {
+          cac_business_name: string | null
+          cac_confirmed_at: string | null
+          cac_confirmed_by: string | null
+          cac_number: string | null
           created_at: string
           created_by: string
           description: string | null
@@ -1584,6 +1609,10 @@ export type Database = {
           verified: boolean
         }
         Insert: {
+          cac_business_name?: string | null
+          cac_confirmed_at?: string | null
+          cac_confirmed_by?: string | null
+          cac_number?: string | null
           created_at?: string
           created_by: string
           description?: string | null
@@ -1597,6 +1626,10 @@ export type Database = {
           verified?: boolean
         }
         Update: {
+          cac_business_name?: string | null
+          cac_confirmed_at?: string | null
+          cac_confirmed_by?: string | null
+          cac_number?: string | null
           created_at?: string
           created_by?: string
           description?: string | null
@@ -1610,6 +1643,13 @@ export type Database = {
           verified?: boolean
         }
         Relationships: [
+          {
+            foreignKeyName: "organizations_cac_confirmed_by_fkey"
+            columns: ["cac_confirmed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "organizations_created_by_fkey"
             columns: ["created_by"]
@@ -2464,6 +2504,19 @@ export type Database = {
         Returns: {
           allowed: boolean
           reason: string
+        }[]
+      }
+      consume_anonymous_rate_limit: {
+        Args: {
+          p_bucket: string
+          p_key: string
+          p_limit: number
+          p_window_seconds: number
+        }
+        Returns: {
+          allowed: boolean
+          resets_at: string
+          used: number
         }[]
       }
       consume_rate_limit: {

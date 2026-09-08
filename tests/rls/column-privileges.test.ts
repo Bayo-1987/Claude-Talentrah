@@ -307,6 +307,54 @@ describe("organizations: a company cannot verify itself (0028)", () => {
   });
 });
 
+describe("organizations: a company cannot verify itself at INSERT either (found building 0120)", () => {
+  /**
+   * 0028 closed self-verification through UPDATE and was never asked about
+   * INSERT — Supabase's default INSERT privilege is table-wide, not
+   * column-scoped, so nothing before 0120 stopped a client naming `verified`
+   * (or, once they existed, `cac_confirmed_at`/`cac_confirmed_by`) directly in
+   * the values list of the row's own creation. Reproduced live against a real
+   * database before 0120's INSERT policy fix existed: `insert into
+   * organizations (name, created_by, verified) values (..., auth.uid(), true)`
+   * from an authenticated session succeeded and returned `verified: true`.
+   *
+   * This is the regression test for that fix, not a test that assumes it: it
+   * asserts the INSERT is REFUSED (RLS denies the whole statement, so nothing
+   * is half-created), and that an ordinary insert — the one every real
+   * onboarding flow performs — still succeeds with the safe defaults.
+   */
+  it("cannot set verified, cac_confirmed_at or cac_confirmed_by while creating its own organisation", async () => {
+    const { error: badError } = await user.client
+      .from("organizations")
+      .insert({
+        name: `COLPRIV-TEST-insert-bad ${randomUUID().slice(0, 8)}`,
+        created_by: user.id,
+        verified: true,
+        cac_confirmed_at: new Date().toISOString(),
+        cac_confirmed_by: user.id,
+      })
+      .select("id");
+    expect(
+      badError,
+      "an authenticated user self-verified their own organisation at INSERT time",
+    ).not.toBeNull();
+
+    const { data: org, error: goodError } = await user.client
+      .from("organizations")
+      .insert({ name: `COLPRIV-TEST-insert-good ${randomUUID().slice(0, 8)}`, created_by: user.id })
+      .select("id, verified, cac_confirmed_at, cac_confirmed_by")
+      .single();
+    try {
+      expect(goodError, "an ordinary organisation creation must still succeed").toBeNull();
+      expect(org?.verified).toBe(false);
+      expect(org?.cac_confirmed_at).toBeNull();
+      expect(org?.cac_confirmed_by).toBeNull();
+    } finally {
+      if (org?.id) await deleteTestOrgs([org.id]);
+    }
+  });
+});
+
 describe("organizations: an employer cannot forge their own verification-reminder timestamps (0101)", () => {
   /**
    * These two columns exist so a cron can tell "already reminded at 48h" from
@@ -352,6 +400,97 @@ describe("organizations: an employer cannot forge their own verification-reminde
       expect(
         after?.verification_reminder_7d_sent_at,
         "an organisation forged its own 7d reminder timestamp",
+      ).toBeNull();
+
+      const { error } = await user.client
+        .from("organizations")
+        .update({ description: "legitimate edit" })
+        .eq("id", org!.id);
+      expect(error, "employers must still be able to edit their own profile").toBeNull();
+    } finally {
+      await deleteTestOrgs([org!.id]);
+    }
+  });
+});
+
+describe("organizations: an employer can submit CAC details but not confirm them (0120)", () => {
+  /**
+   * The positive control. `cac_number`/`cac_business_name` are exactly the
+   * two columns 0120 adds to 0028's `authenticated` UPDATE grant — without
+   * this, "an employer can submit CAC details" would be untested and a future
+   * migration could silently drop the grant (0107's own postscript documents
+   * exactly that failure mode for a different table).
+   */
+  it("can set cac_number and cac_business_name on its own row", async () => {
+    const { data: org } = await user.client
+      .from("organizations")
+      .insert({ name: `COLPRIV-TEST ${randomUUID().slice(0, 8)}`, created_by: user.id })
+      .select("id")
+      .single();
+    try {
+      await user.client.from("organization_members").insert({
+        organization_id: org!.id,
+        user_id: user.id,
+        role: "owner",
+      });
+
+      const { error } = await user.client
+        .from("organizations")
+        .update({ cac_number: "RC1234567", cac_business_name: "Test Business Ltd" })
+        .eq("id", org!.id);
+      expect(error, "an employer must be able to submit their own CAC details").toBeNull();
+
+      const { data: after } = await admin
+        .from("organizations")
+        .select("cac_number, cac_business_name")
+        .eq("id", org!.id)
+        .single();
+      expect(after?.cac_number).toBe("RC1234567");
+      expect(after?.cac_business_name).toBe("Test Business Ltd");
+    } finally {
+      await deleteTestOrgs([org!.id]);
+    }
+  });
+
+  /**
+   * The negative control, same shape as `verified` (0028) and the reminder
+   * timestamps (0101) above: `cac_confirmed_at` and `cac_confirmed_by` are the
+   * columns that actually move `verified`, via the admin decision in
+   * `decideCacVerificationAction` — so they stay withheld by 0028's
+   * table-level revoke, exactly like `verified` itself, and no grant statement
+   * in 0120 hands them back.
+   */
+  it("cannot set cac_confirmed_at or cac_confirmed_by, but can still edit its profile", async () => {
+    const { data: org } = await user.client
+      .from("organizations")
+      .insert({ name: `COLPRIV-TEST ${randomUUID().slice(0, 8)}`, created_by: user.id })
+      .select("id")
+      .single();
+    try {
+      await user.client.from("organization_members").insert({
+        organization_id: org!.id,
+        user_id: user.id,
+        role: "owner",
+      });
+
+      const forged = new Date().toISOString();
+      await user.client
+        .from("organizations")
+        .update({ cac_confirmed_at: forged, cac_confirmed_by: user.id })
+        .eq("id", org!.id);
+
+      const { data: after } = await admin
+        .from("organizations")
+        .select("cac_confirmed_at, cac_confirmed_by")
+        .eq("id", org!.id)
+        .single();
+      expect(
+        after?.cac_confirmed_at,
+        "an organisation confirmed its own CAC submission",
+      ).toBeNull();
+      expect(
+        after?.cac_confirmed_by,
+        "an organisation attributed its own CAC confirmation",
       ).toBeNull();
 
       const { error } = await user.client

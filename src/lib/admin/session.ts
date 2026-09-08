@@ -62,9 +62,13 @@ export type AdminPermission =
   // 0103. Reading the seeker roster is a different power from looking up one
   // billing record, so it is a different grant — see that migration's header.
   | "people_list"
+  // 0116. Deciding whether a CAC submission earns `verified` is a trust
+  // decision, not a plain content area — starts granted to nobody, exactly
+  // like `people_list` above.
+  | "employer_verification"
   // 0118. Deciding a Path 3 per-job approval is a trust decision over the
   // exact gate 0027 exists to keep shut, not a plain content area — starts
-  // granted to nobody, exactly like `people_list` above.
+  // granted to nobody, exactly like `people_list` and `employer_verification`.
   | "job_review"
   | "operators";
 

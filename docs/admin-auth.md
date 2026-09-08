@@ -263,36 +263,68 @@ delete the row, because the audit trail names it.
 
 ## Known gaps, not oversights
 
-- **Password recovery is deniable by anyone, for an hour at a time, and that
-  is why `/admin/login` still has no reset link.** Measured against the CI
-  project rather than read from documented defaults: two `recover` calls
-  succeed and the third returns
-  `{"code":429,"error_code":"over_email_send_rate_limit"}`. The quota is
-  **project-wide, not per address** — a second known address is refused
-  immediately after the first exhausts it — and nothing in the app rate-limits
-  in front of it (`consumeRateLimit` has three callers; none is in the auth
-  flow, and `src/lib/auth/actions.ts` has no rate, throttle or IP reference at
-  all). Password reset is the only consumer of that quota today, since email
-  confirmation is off. So two requests deny recovery to every user and both
-  operators. The fix is custom SMTP on the project — a dashboard change, not a
-  code change. An app-layer limiter would sit in the shared seeker action and
-  affect every seeker: a design decision, not a fix, and deliberately not taken
-  on the way past.
+- **RESOLVED ON PRODUCTION 2026-09-08 — custom SMTP is configured there.**
+  Everything below this paragraph was measured against the CI project
+  (`dozaffzgqkbarxtlclsj`), which is still on Supabase's default built-in
+  mailer and still exhibits exactly what's described. Production
+  (`nytwbbzfpytctjsoczzq`) now sends through a custom SMTP provider (Resend,
+  `smtp.resend.com:465`, sender `hello@talentrah.com`) — confirmed live via
+  Auth → Emails → SMTP Settings and a real delivered "Your sign-in link"
+  message in Resend's own send log, dated 2026-09-07. This is a dashboard-only
+  change with no commit to point to, the same way this document already
+  records other dashboard-only facts elsewhere. Production's own "Rate limit
+  for sending emails" now reads **30/hour**, not the built-in mailer's 2/hour.
+  `/admin/login` still has no reset link as of this writing — that is now a
+  separate follow-up (removing the workaround), not a blocked fix.
+- **Password recovery was deniable by anyone, for an hour at a time, on the
+  built-in mailer — and still is, on CI.** Measured against the CI project
+  rather than read from documented defaults: two `recover` calls succeed and
+  the third returns `{"code":429,"error_code":"over_email_send_rate_limit"}`.
+  The quota is **project-wide, not per address** — a second known address is
+  refused immediately after the first exhausts it — and nothing in the app
+  rate-limits in front of it at the time this was written (`consumeRateLimit`
+  had three callers, none in the auth flow). Password reset was the only
+  consumer of that quota, since email confirmation is off. So two requests
+  denied recovery to every user and both operators on the built-in mailer.
+  **On production, at 30/hour, this specific 2-request denial no longer
+  applies** — but see `supabase/migrations/0117_anonymous_rate_limits.sql`
+  for the app-layer limiter (`resendEmail`/`resendIp` buckets) built
+  specifically for the check-email resend flow, which is now the load-bearing
+  limit there regardless of GoTrue's own throttle.
 - **Whether an address is a registered user is observable at the GoTrue
-  endpoint, and no application change can close it.** Under an exhausted email
-  quota, `POST /auth/v1/recover` answers **429 for an address that exists** and
-  **200 for one that does not**, because only a real user consumes a send. That
-  endpoint is public and the anon key is public, so this is reachable without
-  going near this app. It is recorded here because it is a property of the
-  accounts this document is about, not because anything in `/admin` causes it:
-  the app's own `/forgot-password` response is identical either way — same
-  redirect, same body, same status — and that is deliberate
-  (`requestPasswordResetAction` swallows the error precisely so it cannot
-  differ). A timing difference at the app layer is plausible and unproven: on a
-  fresh quota the GoTrue call took ~1084ms for a known address against ~182ms
-  for an unknown one, and the action awaits it before redirecting, but the
-  app-layer measurement available was taken under an already-exhausted quota
-  and so measured nothing.
+  endpoint under an exhausted quota, and no application change can close it —
+  confirmed on CI's 2/hour, NOT re-verified against production's 30/hour.**
+  Under an exhausted email quota, `POST /auth/v1/recover` answers **429 for an
+  address that exists** and **200 for one that does not**, because only a real
+  user consumes a send. That endpoint is public and the anon key is public, so
+  this is reachable without going near this app. It is recorded here because
+  it is a property of the accounts this document is about, not because
+  anything in `/admin` causes it: the app's own `/forgot-password` response is
+  identical either way — same redirect, same body, same status — and that is
+  deliberate (`requestPasswordResetAction` swallows the error precisely so it
+  cannot differ). **Re-verifying this specific finding against production's
+  30/hour limit would require actually exhausting a real 30-email/hour quota
+  there first — 15x the cost of the original 2-email CI test, with real
+  side effects (real emails sent, a real hour of degraded recovery for real
+  users) — so this was deliberately not attempted.** The underlying mechanism
+  (only a real, successful send consumes the quota) does not obviously change
+  at a higher configured limit, but that is inference, not a measurement —
+  left here explicitly as **unverified under the new limit**, not assumed
+  true or false. A timing difference at the app layer is a separate, safer
+  question — see the next paragraph — and remains open the same way.
+- **The timing-based variant of the same question is safely re-checkable at
+  low volume (2 real sends, no exhaustion needed), and was not re-checked
+  here.** On CI's fresh (non-exhausted) quota, the GoTrue call took ~1084ms
+  for a known address against ~182ms for an unknown one, and
+  `requestPasswordResetAction` awaits it before redirecting — a plausible,
+  unproven app-layer timing side-channel. Checking whether the same gap
+  exists on production's new Resend-backed send path only needs one real send
+  to a known address and one to an unknown one (2 of the 30/hour budget, not
+  an exhaustion test) — genuinely low-risk. It was not done here because it
+  still means sending at least one real, unsolicited password-reset email
+  from production, which this document's author judged worth a direct
+  go-ahead rather than doing unprompted. Left as **unverified**, not assumed
+  either way — a candidate for a quick, cheap follow-up check if wanted.
 
 - **Login brute-force protection is Supabase's per-IP limit, and the IP is
   ours.** `signInWithPassword` is called server-side, so the limit is shared by

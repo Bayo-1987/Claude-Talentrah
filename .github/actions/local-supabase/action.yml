@@ -42,8 +42,9 @@ runs:
         # supabase/cli's own releases rather than assumed — everything published
         # after it that day was a `-beta` prerelease. Bump deliberately.
         #
-        # The CAC branch carries this same pin; whichever lands first, the other
-        # inherits it and this hunk drops out of its diff.
+        # The CAC branch carried this same pin; it landed first (#286), and
+        # this hunk dropped out of that diff as predicted — this is the other
+        # side of that same fix, unchanged by the merge.
         version: 2.117.0
 
     - name: Start local Supabase stack
