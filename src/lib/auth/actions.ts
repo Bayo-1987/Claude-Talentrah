@@ -11,7 +11,10 @@ import {
   signInSchema,
   forgotPasswordSchema,
   resetPasswordSchema,
+  emailSchema,
 } from "./schemas";
+import { consumeResendRateLimit } from "./resend-rate-limit";
+import type { ResendState } from "./resend-state";
 
 export interface AuthActionState {
   error: string | null;
@@ -24,6 +27,29 @@ async function getOrigin() {
   const protocol = h.get("x-forwarded-proto") ?? "http";
   return `${protocol}://${host}`;
 }
+
+/**
+ * The requester's IP, for the resend rate limiter (migration 0117) only —
+ * `getOrigin()` above deliberately does not read this, since nothing before
+ * the resend actions needed a caller identity that isn't a session. Taken
+ * from `x-forwarded-for`'s first entry (the original client, per the
+ * standard's left-to-right proxy-chain convention); falls back to `null`
+ * rather than a placeholder string when the header is absent, so
+ * `consumeResendRateLimit` can tell "no IP available" from "a real IP" and
+ * skip the IP bucket instead of pooling every headerless caller into one key.
+ */
+async function getRequestIp(): Promise<string | null> {
+  const h = await headers();
+  const forwarded = h.get("x-forwarded-for");
+  const first = forwarded?.split(",")[0]?.trim();
+  return first || null;
+}
+
+/** Shown for any resend failure that must not distinguish its cause — see below. */
+const RESEND_GENERIC_ERROR = "Couldn't resend that — try again in a moment.";
+/** Shown when either rate-limit bucket denies, or Supabase's own mailer throttle fires. */
+const RESEND_RATE_LIMITED_ERROR =
+  "That's a lot of requests for this address — try again later.";
 
 export async function signUpAction(
   _prevState: AuthActionState,
@@ -101,6 +127,66 @@ export async function signUpAction(
    * onboarding can hand them on at the end.
    */
   redirect(onboardingDestination(formData.get("redirectTo")));
+}
+
+/**
+ * Resend the signup confirmation link, from /signup/check-email.
+ *
+ * REACHABLE WITH NO SESSION, on purpose — that page is reached before anyone
+ * has one, and the whole point is giving a stuck visitor a second try without
+ * asking them to start signup over. That is also exactly what makes it
+ * different from every other rate-limited action in this codebase: the
+ * caller isn't spending their own budget, they're triggering mail to
+ * whatever address is in the `email` field, which may or may not be theirs.
+ * See migration 0117 for the rate-limit table this calls into and why it
+ * isn't `consumeRateLimit` (0038).
+ *
+ * SAME NON-COMMITTAL SHAPE AS `signUp()` ITSELF, and checked against the real
+ * behavior rather than assumed: probed live against the CI project,
+ * `supabase.auth.resend({ type: "signup", email })` returns NO error for
+ * BOTH a nonexistent address and an already-confirmed one (GoTrue's own
+ * anti-enumeration — there is nothing for this action to leak by branching
+ * on those). It DID return an error for a genuinely unconfirmed real account
+ * ("Email address ... is invalid", status 400) — which on inspection is not
+ * about that account at all: it is Supabase's built-in mailer refusing to
+ * send to an address outside the project's own team (the delivery
+ * restriction that applies with no custom SMTP configured — see
+ * docs/admin-auth.md). Left un-branched deliberately: whatever the true
+ * cause, surfacing that specific message would tell a caller "this address
+ * exists and has never been confirmed", which is exactly the fact this
+ * screen must never reveal. Every non-rate-limit error below collapses to
+ * the same generic sentence for that reason, not because the distinction
+ * wasn't checked.
+ */
+export async function resendSignupConfirmationAction(
+  email: string,
+  _prevState: ResendState,
+  _formData: FormData,
+): Promise<ResendState> {
+  const parsed = emailSchema.safeParse(email);
+  if (!parsed.success) {
+    return { status: "error", message: "That doesn't look like a valid email address." };
+  }
+  const validEmail = parsed.data;
+
+  const ip = await getRequestIp();
+  const limit = await consumeResendRateLimit(validEmail, ip);
+  if (!limit.allowed) {
+    return { status: "error", message: RESEND_RATE_LIMITED_ERROR };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.resend({ type: "signup", email: validEmail });
+
+  if (error) {
+    console.error("[resend-signup] failed:", error.message);
+    if (error.status === 429) {
+      return { status: "error", message: RESEND_RATE_LIMITED_ERROR };
+    }
+    return { status: "error", message: RESEND_GENERIC_ERROR };
+  }
+
+  return { status: "success", message: null };
 }
 
 export async function signInAction(
@@ -208,6 +294,61 @@ export async function requestPasswordResetAction(
   if (error) console.error("[password-reset] send failed:", error.message);
 
   redirect(`/forgot-password/check-email?email=${encodeURIComponent(email)}`);
+}
+
+/**
+ * Resend the reset-password link, from /forgot-password/check-email.
+ *
+ * SAME SHAPE AS `resendSignupConfirmationAction`, and the same reason it
+ * exists: reachable with no session, at a URL anyone can hit with any
+ * address, so it is rate-limited by the same anonymous, text-keyed bucket
+ * (migration 0117) rather than `consumeRateLimit`. Calls
+ * `resetPasswordForEmail` with the SAME options `requestPasswordResetAction`
+ * already uses, rather than re-deriving them, so the two never drift on
+ * `redirectTo`.
+ *
+ * THE UNDERLYING ANTI-ENUMERATION RULE IS `requestPasswordResetAction`'s, not
+ * a new one: `resetPasswordForEmail` already resolves the same way whether or
+ * not the address is registered, and that action's own header explains why
+ * that must never change. This action inherits it by calling the exact same
+ * method the exact same way — it does not re-implement the guarantee, it
+ * reuses it.
+ */
+export async function resendPasswordResetAction(
+  email: string,
+  _prevState: ResendState,
+  _formData: FormData,
+): Promise<ResendState> {
+  const parsed = emailSchema.safeParse(email);
+  if (!parsed.success) {
+    return { status: "error", message: "That doesn't look like a valid email address." };
+  }
+  const validEmail = parsed.data;
+
+  const ip = await getRequestIp();
+  const limit = await consumeResendRateLimit(validEmail, ip);
+  if (!limit.allowed) {
+    return { status: "error", message: RESEND_RATE_LIMITED_ERROR };
+  }
+
+  const supabase = await createClient();
+  const origin = await getOrigin();
+
+  const { error } = await supabase.auth.resetPasswordForEmail(validEmail, {
+    redirectTo: `${origin}/auth/callback?next=/reset-password`,
+  });
+
+  if (error) {
+    console.error("[resend-password-reset] send failed:", error.message);
+    if (error.status === 429) {
+      return { status: "error", message: RESEND_RATE_LIMITED_ERROR };
+    }
+    // Logged, not surfaced — same discipline as requestPasswordResetAction:
+    // whether the address exists must never be observable from this response.
+    return { status: "error", message: RESEND_GENERIC_ERROR };
+  }
+
+  return { status: "success", message: null };
 }
 
 /**
