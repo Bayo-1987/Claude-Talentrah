@@ -3,6 +3,12 @@ import { createClient } from "@/lib/supabase/server";
 import { askFarahChat, type FarahChatTurn } from "@/lib/farah/client";
 import { logFarahSessionMessage, type FarahEntryPoint } from "@/lib/farah/session-events";
 import type { StructuredResume } from "@/lib/resume/types";
+import {
+  HISTORY_TURNS,
+  MAX_HISTORY_MESSAGE_CHARS,
+  MAX_MESSAGE_LENGTH,
+  buildResumeContext,
+} from "@/lib/farah/token-budget";
 
 /** The only quick actions that actually start a chat — see quick-actions.ts. */
 const CHAT_ENTRY_POINTS = new Set(["interview-prep", "career-advisor", "salary-negotiation"]);
@@ -13,8 +19,6 @@ function resolveEntryPoint(quickAction: string | undefined): FarahEntryPoint {
     : "free_text";
 }
 
-const MAX_MESSAGE_LENGTH = 2000;
-const HISTORY_TURNS = 12;
 /**
  * Farah chat has no credit/free-trial gating yet — build-prompt §6.5 itself
  * only says the informational layer is "free or credit-gated", leaving the
@@ -102,16 +106,25 @@ export async function POST(request: Request) {
     .maybeSingle();
 
   const baseResume = baseResumeRow?.structured_content as StructuredResume | null;
-  const extraContext = baseResume
-    ? `Context on this user, from their resume (only reference what's actually here — don't invent detail beyond it):\nSummary: ${baseResume.summary ?? "(none given)"}\nSkills: ${baseResume.skills.join(", ") || "(none given)"}\nMost recent role: ${baseResume.experience[0] ? `${baseResume.experience[0].title} at ${baseResume.experience[0].company}` : "(none given)"}`
-    : undefined;
+  // Both caps matter, and for different reasons. Slicing the skills list stops
+  // the common case (a skills-heavy resume) from dominating the request, while
+  // the character ceiling is the backstop that makes the size independent of
+  // how any single field was written — a 4,000-character summary would sail
+  // past a skills-only cap. Truncating after building keeps the leading
+  // "don't invent detail" instruction, which a head-truncation would preserve
+  // and a tail-truncation would not.
+  const extraContext = baseResume ? buildResumeContext(baseResume) : undefined;
 
   const turns: FarahChatTurn[] = [
     ...[...(historyRows ?? [])]
       .reverse()
       .map((row) => ({
         role: row.role === "farah" ? ("assistant" as const) : ("user" as const),
-        content: row.content,
+        // Truncated for the REPLAY only — the stored row and what the user
+        // sees in the panel are untouched. A reply written under the old
+        // 1536-token budget is still in farah_messages, so without this the
+        // history term stays unbounded no matter what future replies cost.
+        content: row.content.slice(0, MAX_HISTORY_MESSAGE_CHARS),
       })),
     { role: "user", content: message },
   ];
