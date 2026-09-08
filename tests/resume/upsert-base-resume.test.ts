@@ -18,6 +18,7 @@ import type { Database } from "@/lib/supabase/types";
 import { upsertBaseResume } from "@/lib/resume/upsert-base-resume";
 import { EMPTY_RESUME, type StructuredResume } from "@/lib/resume/types";
 import { findUserByEmail } from "../support/list-users";
+import { createAuthedTestUser, deleteTestUsers, type TestUser, type DB } from "../support/auth";
 
 const TEST_EMAIL = "vitest-upsert-base-resume@talentrah.dev";
 
@@ -155,5 +156,73 @@ describe("upsertBaseResume", () => {
       .eq("user_id", userId)
       .eq("is_base", true);
     expect(baseResumes).toHaveLength(1);
+  });
+});
+
+/**
+ * SABOTAGE-PROOF TARGET, using the client shape that actually matters.
+ *
+ * Every test above calls `upsertBaseResume` with `admin` — a service-role
+ * client. That is exactly why a real, live bug (found 2026-09-08, while
+ * building an unrelated Resume Builder feature) went unnoticed here: 0041
+ * and 0070 restrict UPDATE on `resumes` to a named column list for
+ * `authenticated`, and `parse_confidence` is deliberately excluded from that
+ * list (server-set, not client-writable). A service-role client bypasses RLS
+ * and column grants entirely, so nothing above ever exercised that boundary.
+ *
+ * `/api/resume/parse/route.ts` — the ONLY caller that always passes a
+ * confidence — calls `upsertBaseResume` with the real, session-scoped,
+ * RLS-governed client every actual request uses. This suite uses the same
+ * shape (`createAuthedTestUser`'s `.client`, real login, real JWT) rather
+ * than `admin`, specifically so this class of bug is caught here instead of
+ * in production. A second real upload for the same user is exactly the
+ * "Upload your resume again" path from the empty-skills notice.
+ */
+describe("upsertBaseResume, called the way a real request calls it (RLS-scoped client, not service role)", () => {
+  let rlsUser: TestUser & { client: DB };
+
+  beforeAll(async () => {
+    rlsUser = await createAuthedTestUser("upsert-base-resume-rls");
+  });
+
+  afterAll(async () => {
+    if (rlsUser) await deleteTestUsers([rlsUser.id]);
+  });
+
+  it("a second upload (the UPDATE branch) with a confidence value does not 500 with 'permission denied'", async () => {
+    // First upload — INSERT branch, unrestricted by column, always worked.
+    await expect(
+      upsertBaseResume(rlsUser.client, rlsUser.id, RESUME_V1, "uploaded", undefined, "high"),
+    ).resolves.toMatchObject({ id: expect.any(String) });
+
+    // Second upload for the SAME user — the UPDATE branch. This is the exact
+    // call that failed live with `permission denied for table resumes`
+    // before the fix, because parse_confidence was included in the
+    // RLS-scoped UPDATE payload.
+    await expect(
+      upsertBaseResume(rlsUser.client, rlsUser.id, RESUME_V2, "uploaded", undefined, "low"),
+    ).resolves.toMatchObject({ id: expect.any(String) });
+
+    // The content genuinely updated (not silently a no-op), and the
+    // service-role side-write recorded the new confidence correctly.
+    const { data, error } = await admin
+      .from("resumes")
+      .select("structured_content, parse_confidence")
+      .eq("user_id", rlsUser.id)
+      .eq("is_base", true)
+      .single();
+    expect(error).toBeNull();
+    expect((data!.structured_content as unknown as StructuredResume).contact.name).toBe("Version Two");
+    expect(data!.parse_confidence).toBe("low");
+  });
+
+  it("still exactly one base resume row after two RLS-scoped uploads", async () => {
+    const { data, error } = await admin
+      .from("resumes")
+      .select("id")
+      .eq("user_id", rlsUser.id)
+      .eq("is_base", true);
+    expect(error).toBeNull();
+    expect(data).toHaveLength(1);
   });
 });
