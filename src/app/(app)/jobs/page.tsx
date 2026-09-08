@@ -25,10 +25,12 @@ import {
   isTrackedCountry,
   defaultCountryForProfile,
   deriveCountry,
+  countryOrFilter,
   COUNTRY_THIN_THRESHOLD,
   TRACKED_COUNTRIES,
   type TrackedCountry,
 } from "@/lib/jobs/country";
+import { decideCountryFilter, RECENT_PAGE_SIZE, type BoardAggregateRow } from "@/lib/jobs/recent-pagination";
 import { recommendedRankingKey } from "@/lib/jobs/ranking";
 import { getViewerOrganizationIds } from "@/lib/employer/membership";
 import { logCountryDefaultEvent, type CountryState } from "@/lib/jobs/country-events";
@@ -42,6 +44,7 @@ type SearchParams = Promise<{
   q?: string;
   posted?: string;
   country?: string;
+  page?: string;
 }>;
 
 const VALID_WORK_TYPES: readonly string[] = Constants.public.Enums.work_type;
@@ -88,6 +91,31 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
     country = defaultCountryForProfile(profile.country);
     countryState = country ? "kept" : "none";
   }
+
+  /*
+   * RECENT-TAB PAGINATION (egress fix). Only Recent, and only when there is
+   * no search term.
+   *
+   * WHY NOT EVERY TAB: Recommended/External/Saved sort by `scored`/
+   * `recommendedRankingKey`, both computed by `scoreJobs` over the ENTIRE
+   * filtered board in memory — a DB `.range()` on those would silently
+   * return an arbitrary, wrongly-ranked subset with no error and no way for
+   * a user to tell they aren't seeing their real best matches. Recent sorts
+   * by `posted_at`, a real DB column, independent of scoring — the only tab
+   * where pushing the limit into the query is actually sound. See
+   * docs/jobs-feed-pagination.md for the full writeup, including why
+   * Recommended/External/Saved get an interim row cap instead, not real
+   * pagination, in this pass.
+   *
+   * WHY NOT ALSO WHEN SEARCHING: `search_job_postings` (the RPC `searchQuery`
+   * below calls) has no LIMIT/OFFSET parameters today, and giving it one is
+   * a separate, small piece of work — out of scope here. Recent+search keeps
+   * today's behaviour (the full ranked RPC result, unbounded) unchanged.
+   */
+  const isPaginatedRecent = tab === "recent" && !q;
+  const page = isPaginatedRecent ? Math.max(1, Number(params.page ?? "1") || 1) : 1;
+  const recentFrom = (page - 1) * RECENT_PAGE_SIZE;
+  const recentTo = recentFrom + RECENT_PAGE_SIZE - 1;
 
   const supabase = await createClient();
 
@@ -141,6 +169,16 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
   const FEED_COLUMNS =
     "id, source_type, organization_id, title, company_name, company_logo_url, location, work_type, employment_type, seniority, years_experience_min, description:description_preview, structured_jd, external_url, external_source, status, posted_at, last_checked_at, dedup_fingerprint, created_at, expires_at, removed_at, removal_reason, removed_by, salary_min, salary_max, salary_currency, salary_unit";
 
+  /*
+   * The Recent tab's own board-WIDE columns — for aggregate reads only
+   * (the country filter menu's per-country counts, and the search-suggestion
+   * index), never for rendering a card. A separate literal, not FEED_COLUMNS
+   * sliced down at runtime, for the exact reason FEED_COLUMNS above is one
+   * literal and not built by concatenation: Supabase's .select() reads the
+   * LITERAL TYPE of its argument.
+   */
+  const BOARD_AGGREGATE_COLUMNS = "title, company_name, location, external_source, work_type, structured_jd";
+
   function postingsQuery(viewerOrgIds: string[], savedIds?: string[]) {
     let query = supabase
       .from("job_postings")
@@ -191,6 +229,70 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
   }
 
   /*
+   * Recent tab's board-wide aggregate fetch — same status/freshness/
+   * unlisted-org/work-type/seniority filters as postingsQuery above, minus
+   * savedIds and the external-tab branch (both dead here: this only ever
+   * runs for tab === "recent"). Kept as its own function rather than a
+   * parameter to postingsQuery for the same select()-literal-typing reason
+   * BOARD_AGGREGATE_COLUMNS is its own constant, not a slice of FEED_COLUMNS.
+   *
+   * MUST stay filter-identical to postingsQuery's and paginatedRecentQuery's
+   * status/freshness/unlisted/workType/seniority clauses — the three are
+   * deliberately parallel, not shared, and a future filter change here needs
+   * to be made in all three or the aggregate counts and the paginated page
+   * will silently disagree about what's on the board.
+   */
+  function boardAggregateQuery(viewerOrgIds: string[]) {
+    let query = supabase
+      .from("job_postings")
+      .select(BOARD_AGGREGATE_COLUMNS)
+      .eq("status", "open")
+      .gte("posted_at", jobDateFilterSinceISO(posted));
+    query = viewerOrgIds.length
+      ? query.or(`unlisted_at.is.null,organization_id.in.(${viewerOrgIds.join(",")})`)
+      : query.is("unlisted_at", null);
+    if (workTypes.length) query = query.in("work_type", workTypes);
+    if (seniorities.length) query = query.in("seniority", seniorities);
+    return query;
+  }
+
+  /*
+   * Recent tab's own paginated page fetch — same FEED_COLUMNS shape as
+   * postingsQuery (so nothing downstream needs to know which function
+   * produced `jobsRaw`), but DB-ordered and DB-ranged, and with the country
+   * filter (when the caller decided to apply one — see decideCountryFilter)
+   * pushed into the query as a real `.or()` clause (countryOrFilter, already
+   * used for the public landing pages' equivalent DB-side count) rather than
+   * left as an in-memory `.filter()` the way every other tab still does it.
+   *
+   * An in-memory country filter applied AFTER a DB `.range()` would silently
+   * corrupt pagination — see recent-pagination.ts's own header for why —
+   * which is the whole reason this exists as a separate function instead of
+   * postingsQuery growing an `.order()`/`.range()` parameter.
+   */
+  function paginatedRecentQuery(viewerOrgIds: string[], countryFilter: TrackedCountry | undefined) {
+    let query = supabase
+      .from("job_postings")
+      .select(FEED_COLUMNS, { count: "exact" })
+      .eq("status", "open")
+      .gte("posted_at", jobDateFilterSinceISO(posted));
+    query = viewerOrgIds.length
+      ? query.or(`unlisted_at.is.null,organization_id.in.(${viewerOrgIds.join(",")})`)
+      : query.is("unlisted_at", null);
+    if (workTypes.length) query = query.in("work_type", workTypes);
+    if (seniorities.length) query = query.in("seniority", seniorities);
+    if (countryFilter) query = query.or(countryOrFilter(countryFilter));
+    return query
+      .order("posted_at", { ascending: false })
+      // Tiebreak for rows sharing a posted_at timestamp (bulk-imported
+      // batches commonly do) — without it, `.range()` pages are not stable:
+      // the same row could land on two different pages, or neither, across
+      // requests, depending on how Postgres happens to order equal keys.
+      .order("id", { ascending: true })
+      .range(recentFrom, recentTo);
+  }
+
+  /*
    * Saved-tab ids, computed once and shared below by both the base postings
    * query and the search RPC. This is a plain promise, not a second read:
    * `applicationsQuery` is an already-resolved Promise from an async IIFE, so
@@ -219,10 +321,46 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
    */
   const viewerOrgIds = getViewerOrganizationIds(supabase, user.id);
 
-  const jobsQuery =
-    tab === "saved"
-      ? Promise.all([viewerOrgIds, savedIds]).then(([orgIds, ids]) => postingsQuery(orgIds, ids))
-      : viewerOrgIds.then((orgIds) => postingsQuery(orgIds));
+  /*
+   * Set (only for isPaginatedRecent) inside the IIFE below, once the board
+   * aggregate read and the country-filter decision are both in hand. A
+   * mutable outer binding rather than a return value threaded through
+   * `jobsQuery`'s own resolved type, because `jobsQuery` must keep resolving
+   * to exactly the FEED_COLUMNS `{data, error, count}` shape every other
+   * branch already produces — folding this in would widen that type for
+   * every tab just to carry information only one tab needs.
+   */
+  let recentPagination:
+    | { boardAggregateRows: BoardAggregateRow[]; countryApplied: boolean; countryMatched: number; total: number; totalPages: number }
+    | undefined;
+
+  const jobsQuery = (async () => {
+    if (isPaginatedRecent) {
+      const orgIds = await viewerOrgIds;
+      const { data: boardRaw } = await boardAggregateQuery(orgIds);
+      const boardAggregateRows = boardRaw ?? [];
+      const { apply: countryApplied, matched: countryMatched } = decideCountryFilter(
+        boardAggregateRows,
+        country,
+      );
+      const result = await paginatedRecentQuery(orgIds, countryApplied ? country : undefined);
+      const total = result.count ?? 0;
+      recentPagination = {
+        boardAggregateRows,
+        countryApplied,
+        countryMatched,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / RECENT_PAGE_SIZE)),
+      };
+      return result;
+    }
+    if (tab === "saved") {
+      const [orgIds, ids] = await Promise.all([viewerOrgIds, savedIds]);
+      return postingsQuery(orgIds, ids);
+    }
+    const orgIds = await viewerOrgIds;
+    return postingsQuery(orgIds);
+  })();
 
   /*
    * STAGE 8 STEP 2 (docs/stage8-match-accuracy.md) — real full-text search,
@@ -307,8 +445,16 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
    * same reason search-suggestions always was: suggestions counted against an
    * already-searched board would collapse to whatever co-occurs with the
    * partial term, so the list would look broken the moment anyone typed.
+   *
+   * ISPAGINATEDRECENT'S OWN EXCEPTION: `matchingFilters` there is just the
+   * current PAGE (24 rows), which would make suggestions vanish and reappear
+   * as someone pages through Recent. `recentPagination.boardAggregateRows` is
+   * the real, unpaginated board — same rows this index has always been built
+   * from for every other tab, just fetched with a lighter column list.
    */
-  const searchIndex = buildSuggestionIndex(matchingFilters);
+  const searchIndex = buildSuggestionIndex(
+    recentPagination ? recentPagination.boardAggregateRows : matchingFilters,
+  );
 
   /*
    * Ranked server-side results when searching, the unsearched board
@@ -369,6 +515,14 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
    * not make. Same country-OR-remote rule the filter itself uses below, so
    * the number beside "Nigeria" always equals what clicking it produces.
    */
+  /*
+   * ISPAGINATEDRECENT'S OWN EXCEPTION, same reason as searchIndex above: the
+   * menu counts and "all countries" total must reflect the WHOLE board, not
+   * the current page — otherwise switching pages would make the country menu
+   * itself look like it's changing what's on the board.
+   */
+  const countryCountSource: Pick<BoardAggregateRow, "location" | "external_source" | "work_type">[] =
+    recentPagination ? recentPagination.boardAggregateRows : jobs;
   const countryMenuCounts: Record<TrackedCountry, number> = {
     Nigeria: 0,
     Ghana: 0,
@@ -376,14 +530,23 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
     "South Africa": 0,
   };
   for (const c of TRACKED_COUNTRIES) {
-    countryMenuCounts[c] = jobs.filter(
+    countryMenuCounts[c] = countryCountSource.filter(
       (j) => deriveCountry(j) === c || j.work_type === "remote",
     ).length;
   }
-  const everyCountryCount = jobs.length;
+  const everyCountryCount = countryCountSource.length;
 
   let countryFallbackNotice: { country: TrackedCountry; matched: number } | undefined;
-  if (country) {
+  if (recentPagination) {
+    // The country filter was already decided (decideCountryFilter) and, if
+    // applicable, pushed into paginatedRecentQuery itself — `jobs` is
+    // correctly DB-filtered already, or correctly not, matching that
+    // decision. Nothing here narrows `jobs` again; this only surfaces the
+    // same honest fallback notice the in-memory path shows below.
+    if (country && !recentPagination.countryApplied) {
+      countryFallbackNotice = { country, matched: recentPagination.countryMatched };
+    }
+  } else if (country) {
     const countryMatches = jobs.filter((j) => deriveCountry(j) === country || j.work_type === "remote");
     if (countryMatches.length >= COUNTRY_THIN_THRESHOLD) {
       jobs = countryMatches;
@@ -392,7 +555,12 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
     }
   }
 
-  if (tab === "recent") {
+  // recentPagination's page is already DB-ordered (posted_at desc, id asc
+  // tiebreak) — this in-memory sort is redundant there (and, being a stable
+  // sort on posted_at alone, would preserve rather than disturb that
+  // tiebreak even if it did run), so it's skipped rather than relied on to
+  // be harmless.
+  if (tab === "recent" && !recentPagination) {
     jobs.sort((a, b) => new Date(b.posted_at).getTime() - new Date(a.posted_at).getTime());
   }
 
@@ -561,6 +729,25 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
   const promotedSet = new Set(promotedIds);
   // Once per render, not once per card — every card shares the same origin.
   const origin = await getSiteOrigin();
+
+  /*
+   * Recent tab's own Prev/Next hrefs — mirrors scholarships/page.tsx's
+   * buildPageHref exactly (same shape: omit a param at its default, only
+   * write `page` when it's not 1). `q` is deliberately never carried:
+   * isPaginatedRecent is false whenever `q` is set, so this control never
+   * renders on a search result in the first place.
+   */
+  const buildRecentPageHref = (target: number) => {
+    const sp = new URLSearchParams();
+    sp.set("tab", "recent");
+    if (workTypes.length) sp.set("workType", workTypes.join(","));
+    if (seniorities.length) sp.set("seniority", seniorities.join(","));
+    if (posted) sp.set("posted", posted);
+    if (params.country === "all") sp.set("country", "all");
+    else if (country) sp.set("country", country);
+    if (target > 1) sp.set("page", String(target));
+    return `/jobs?${sp.toString()}`;
+  };
 
   /*
    * ══ EVERYTHING THIS PAGE WRITES, AFTER THE RESPONSE IS SENT ═════════════
@@ -823,6 +1010,33 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
             }
             />
           ))}
+        </div>
+      )}
+
+      {recentPagination && recentPagination.totalPages > 1 && (
+        <div className="flex items-center justify-between border-t border-line pt-3 text-[13px]">
+          <span className="text-ink-soft">
+            Page {page} of {recentPagination.totalPages} · {recentPagination.total} job
+            {recentPagination.total === 1 ? "" : "s"}
+          </span>
+          <div className="flex items-center gap-4">
+            {page > 1 && (
+              <a
+                href={buildRecentPageHref(page - 1)}
+                className="font-semibold underline underline-offset-2 hover:text-rust"
+              >
+                Previous
+              </a>
+            )}
+            {page < recentPagination.totalPages && (
+              <a
+                href={buildRecentPageHref(page + 1)}
+                className="font-semibold underline underline-offset-2 hover:text-rust"
+              >
+                Next
+              </a>
+            )}
+          </div>
         </div>
       )}
 
