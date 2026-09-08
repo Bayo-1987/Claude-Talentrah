@@ -1,5 +1,5 @@
 import type { MatchExplanation } from "@/lib/matching/score";
-import { isThinScreenableTagSet } from "@/lib/match-tier";
+import { hasNoScreenableSkills, isThinScreenableTagSet } from "@/lib/match-tier";
 
 /**
  * Stage 8's display-only first step: three sub-scores instead of one opaque
@@ -58,7 +58,7 @@ const SENIORITY_VALUE_LABEL: Record<MatchExplanation["seniorityAlignment"], stri
  * as thin.
  */
 function skillCoverageSub(matched: number, total: number, matchedSkills: string[]): string | undefined {
-  if (total === 0) return "no screenable skills listed";
+  if (hasNoScreenableSkills(total)) return "no screenable skills listed";
   if (!isThinScreenableTagSet(total)) return undefined;
   if (matched === 0) return "thin — none of the named skills matched";
   const names = matchedSkills.map((s) => `"${s}"`).join(", ");

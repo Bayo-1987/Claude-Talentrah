@@ -46,6 +46,40 @@ describe("a sub-60 score", () => {
   });
 });
 
+describe("zero-screenable-skill postings (docs/zero-skill-scoring.md)", () => {
+  it(
+    "SABOTAGE-PROOF TARGET: a real zero-tag score (55, computeMatchScore's neutral-fallback ceiling) reads 'Unscreened', not a bare percentage",
+    () => {
+      const html = renderToStaticMarkup(<MatchTierBadge score={55} explanation={explanation()} />);
+      expect(html).toContain("55% · Unscreened");
+      // Still neutral, not a tier color — this is not a fourth tier.
+      expect(html).toContain("text-ink-soft");
+      expect(html).not.toContain("text-amber");
+    },
+  );
+
+  it("does not fire on a real, if thin, PARTIAL match at the same score range — only a true zero denominator qualifies", () => {
+    const html = renderToStaticMarkup(
+      <MatchTierBadge score={35} explanation={explanation({ matchedSkills: [], missingSkills: ["react"] })} />,
+    );
+    expect(html).not.toContain("Unscreened");
+    expect(html).toContain("35%");
+  });
+
+  it("renders 'Unscreened' in the display variant too", () => {
+    const html = renderToStaticMarkup(
+      <MatchTierBadge score={50} variant="display" explanation={explanation()} />,
+    );
+    expect(html).toContain("Unscreened");
+  });
+
+  it("no explanation supplied renders exactly as before — no qualifier appears without data to justify it", () => {
+    const html = renderToStaticMarkup(<MatchTierBadge score={55} />);
+    expect(html).not.toContain("Unscreened");
+    expect(html).toContain("55%");
+  });
+});
+
 describe("60 and above still shows its tier, exactly as before", () => {
   it("60-69 is Fair", () => {
     const html = renderToStaticMarkup(<MatchTierBadge score={63} />);

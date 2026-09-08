@@ -2,6 +2,7 @@ import { after } from "next/server";
 import { requireUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
 import { scoreJobs, persistMatchScores } from "@/lib/matching/compute-and-store";
+import { hasNoScreenableSkills, screenedFirstCompare } from "@/lib/match-tier";
 import { scanAndQueue } from "@/lib/auto-apply/queue";
 import { AutoApplyToggle } from "@/components/jobs/auto-apply-toggle";
 import { EMPTY_RESUME, type StructuredResume } from "@/lib/resume/types";
@@ -729,15 +730,32 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
    * OTHER non-"recent" tab (External, Saved) keeps the plain score sort —
    * only Recommended is asked to answer "what's best right now", and Most
    * Recent's own date sort above is untouched either way.
+   *
+   * ZERO-SCREENABLE-SKILL POSTINGS SORT LAST WITHIN EITHER COMPARATOR
+   * (docs/zero-skill-scoring.md). `computeMatchScore`'s neutral 0.5 fallback
+   * for a posting with nothing to screen against produces a real score
+   * (35-55) that would otherwise compete directly against — and routinely
+   * beat — a posting where a genuine, if thin, partial match was measured.
+   * `screenedFirstCompare` only overrides the tab's own comparator when
+   * exactly one side is unscreened; among postings that are BOTH screened or
+   * BOTH unscreened, today's ordering is unchanged. This does not remove
+   * anything from the tab — see the doc for why hiding these outright risks
+   * a false negative (usually an extraction gap, not a genuinely bad match).
    */
+  const isUnscreened = (s: (typeof scored)[number]) =>
+    hasNoScreenableSkills(s.explanation.matchedSkills.length + s.explanation.missingSkills.length);
+
   if (tab === "recommended") {
-    scored.sort(
-      (a, b) =>
+    scored.sort((a, b) =>
+      screenedFirstCompare(
+        isUnscreened(a),
+        isUnscreened(b),
         recommendedRankingKey(b.score, b.job.posted_at, JOB_FRESHNESS_WINDOW_DAYS) -
-        recommendedRankingKey(a.score, a.job.posted_at, JOB_FRESHNESS_WINDOW_DAYS),
+          recommendedRankingKey(a.score, a.job.posted_at, JOB_FRESHNESS_WINDOW_DAYS),
+      ),
     );
   } else if (tab !== "recent") {
-    scored.sort((a, b) => b.score - a.score);
+    scored.sort((a, b) => screenedFirstCompare(isUnscreened(a), isUnscreened(b), b.score - a.score));
   }
 
   /*

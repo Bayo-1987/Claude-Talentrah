@@ -10,6 +10,8 @@ import {
   getDisplayMatchTier,
   isThinScreenableTagSet,
   THIN_SCREENABLE_TAG_MAX,
+  hasNoScreenableSkills,
+  screenedFirstCompare,
 } from "@/lib/match-tier";
 
 describe("getMatchTier", () => {
@@ -103,5 +105,42 @@ describe("isThinScreenableTagSet", () => {
 
   it("a genuinely thick skill set is not thin", () => {
     expect(isThinScreenableTagSet(6)).toBe(false);
+  });
+});
+
+describe("hasNoScreenableSkills", () => {
+  it("SABOTAGE-PROOF TARGET: exactly zero tags is unscreened", () => {
+    expect(hasNoScreenableSkills(0)).toBe(true);
+  });
+
+  it("one tag is thin (isThinScreenableTagSet), but NOT unscreened — the two predicates diverge at 1", () => {
+    expect(hasNoScreenableSkills(1)).toBe(false);
+    expect(isThinScreenableTagSet(1)).toBe(true);
+  });
+
+  it("a thick skill set is not unscreened", () => {
+    expect(hasNoScreenableSkills(12)).toBe(false);
+  });
+});
+
+describe("screenedFirstCompare", () => {
+  it("SABOTAGE-PROOF TARGET: an unscreened posting sorts after a screened one, regardless of the base comparison", () => {
+    // Base comparison says the unscreened one (a) should win by a landslide
+    // (a large negative number) — the partition must override that.
+    expect(screenedFirstCompare(true, false, -1000)).toBeGreaterThan(0);
+    expect(screenedFirstCompare(false, true, 1000)).toBeLessThan(0);
+  });
+
+  it("when both sides agree on screened/unscreened, the base comparison decides, untouched", () => {
+    expect(screenedFirstCompare(false, false, -7)).toBe(-7);
+    expect(screenedFirstCompare(true, true, 42)).toBe(42);
+    expect(screenedFirstCompare(false, false, 0)).toBe(0);
+  });
+
+  it("reproduces the real production inversion this exists to fix: a 55% unscreened posting no longer beats a 25% measured one", () => {
+    // Offline Customer Support Officer (0 tags, score 55) vs Senior Developer
+    // (12 tags, score 25) — docs/zero-skill-scoring.md's own live example.
+    const baseComparison = 25 - 55; // plain "higher score wins" comparator, negative = unscreened wins
+    expect(screenedFirstCompare(true, false, baseComparison)).toBeGreaterThan(0); // now the measured one wins
   });
 });
