@@ -91,29 +91,38 @@ describe("no entry point carries a destination of its own", () => {
 
   /*
    * SCOPED TO THE FUNCTIONS THAT ROUTE AN AUTHENTICATED USER, not the whole
-   * file — and getting that scope right took two goes, both worth recording.
+   * file — and this list took three passes to get right, which is the reason
+   * it is written down rather than just correct.
    *
    * The first draft asserted "/jobs" appears nowhere in actions.ts, failed,
    * and was narrowed on the belief that the offending line was
-   * `signOutAction` sending a departing user to the feed. That was wrong
-   * twice: `signOutAction` redirects to /login, and the line belongs to
-   * `updatePasswordAction`, which leaves the caller holding a session and is
-   * therefore a post-authentication destination like the others.
+   * `signOutAction` sending a departing user to the feed. Wrong twice:
+   * `signOutAction` redirects to /login, and the line belonged to
+   * `updatePasswordAction` — which hands back a live session and is therefore
+   * a post-authentication destination like the others. The narrowing walked
+   * straight past a live instance of the bug this file exists to catch, in the
+   * file it was reading.
    *
-   * `updatePasswordAction` IS DELIBERATELY ABSENT FROM THIS LIST, and the
-   * absence is the point of this comment. By 0112's own reasoning it probably
-   * belongs here; it is excluded because changing it was outside what that
-   * change was asked to do, and because
-   * tests/auth/operator-reset-destination.test.ts pins its destination today.
-   * Adding it here without that decision would turn a guard into a way of
-   * smuggling one in.
+   * The second pass added `updatePasswordAction`, then removed it again: the
+   * change was out of scope at the time, and rewriting another change's
+   * control assertions to accommodate it would have been scope creep. It was
+   * recorded here as UNDECIDED rather than left as a silent gap.
    *
-   * So: a guard narrowed to make a failure go away is only as good as the
-   * reason given, and "that one is fine" deserves the same proof as the
-   * assertion. Here the reason is "not yet decided", which is different from
-   * "correct" — and is why it is written down rather than left as a gap.
+   * It is decided now, and included. The rule it settles is general: every
+   * entry point that hands someone a session routes through
+   * `onboardingDestination`, so this class of drift cannot recur by omission
+   * — which is exactly what happened to `signInAction` and then, quietly, to
+   * this one.
+   *
+   * `updatePasswordAction` still carries a bare "/admin/login" for its
+   * operator branch, deliberately — that is not a seeker destination and
+   * /onboarding has nothing to say to an operator. Only "/jobs" is forbidden.
    */
-  const POST_AUTH_FUNCTIONS = ["signInAction", "signUpAction"] as const;
+  const POST_AUTH_FUNCTIONS = [
+    "signInAction",
+    "signUpAction",
+    "updatePasswordAction",
+  ] as const;
 
   it.each(POST_AUTH_FUNCTIONS)("%s does not send an authenticated user to /jobs", (fn) => {
     const body = functionBody(stripComments(read("lib/auth/actions.ts")), fn);

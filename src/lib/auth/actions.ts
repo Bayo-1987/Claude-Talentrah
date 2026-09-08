@@ -290,23 +290,33 @@ export async function updatePasswordAction(
     .maybeSingle();
 
   /*
-   * NOT ROUTED THROUGH onboardingDestination, and that is a live question
-   * rather than an oversight — flagged for a decision, not decided here.
+   * THE FOURTH ENTRY POINT, now routed like the other three.
    *
-   * Completing a reset leaves the caller holding a session, so this is a
-   * post-authentication destination like signup's and sign-in's, and a user
-   * who arrives at the app this way skips onboarding exactly as the sign-in
-   * form used to let them. By the reasoning behind 0112 it arguably belongs
-   * with the others.
+   * Completing a reset leaves the caller holding a live session, so this is a
+   * post-authentication destination exactly like signup's, sign-in's and the
+   * OAuth callback's — and it used to send everyone to `/jobs` unconditionally.
+   * A resume-less account that recovered its password therefore skipped
+   * onboarding in precisely the way `signInAction` used to allow, which is the
+   * bug 0112 exists to close, in a fourth place.
    *
-   * It is deliberately left alone because it is outside what this change was
-   * asked to do, and because tests/auth/operator-reset-destination.test.ts
-   * pins this destination today. Those `/jobs` assertions are controls for the
-   * OPERATOR branch ("sends everybody else to the job feed, unchanged")
-   * rather than a product commitment about onboarding — but rewriting another
-   * change's controls to accommodate an unrequested one is how a scope creeps.
+   * Found by e2e/forgot-password.spec.ts going red when sign-in started
+   * gating, and deliberately left alone in that change as out of scope. It is
+   * in scope now, and the rule it settles is the general one: every entry
+   * point that hands someone a session asks the same question in the same
+   * place, so this class of drift cannot recur by omission.
+   *
+   * NOT A REGRESSION FOR ANYONE WHO ALREADY BELONGS HERE. `/onboarding` bounces
+   * a visitor who has a base resume or a skip marker, so an established user
+   * still lands on `/jobs` exactly as before. The only accounts that now see
+   * the upload screen are resume-less and never-skipped — the exact population
+   * this whole class of bug stranded.
+   *
+   * THE OPERATOR BRANCH IS UNTOUCHED, and not by omission. An operator lands
+   * at the admin door, still has to sign in there, and an admin session is
+   * separate from the Supabase one by design (see the comment above).
+   * `/onboarding` is a seeker screen with nothing to say to them.
    */
-  redirect(operator ? "/admin/login" : "/jobs");
+  redirect(operator ? "/admin/login" : onboardingDestination());
 }
 
 export async function signOutAction() {
