@@ -196,6 +196,20 @@ describe("anything outside the subset renders as plain text, not markup", () => 
   );
 });
 
+  it(
+    "SABOTAGE-PROOF TARGET: a bare https:// URL in a Farah reply stays plain text, not a link — pins the asymmetry with renderJobDescriptionMarkdown as a tested guarantee, not an implicit default",
+    () => {
+      const html = render("See https://lnkd.in/e_ZuGXSQ for the listing.");
+      expect(html).not.toContain("<a ");
+      expect(html).not.toContain("<a>");
+      expect(html).not.toMatch(/href\s*=/);
+      // The URL text itself is still visible, unmodified — dropped from
+      // being markup, not disappeared from the reply.
+      expect(html).toContain("https://lnkd.in/e_ZuGXSQ");
+    },
+  );
+
+
 /**
  * renderJobDescriptionMarkdown — the same parse/render engine as
  * renderFarahMarkdown above, a different (non-italic, larger) visual face,
@@ -248,6 +262,49 @@ describe("renderJobDescriptionMarkdown — the job detail page's own use of this
     const html2 = renderJobDescription("Plain paragraph.");
     expect(html2).not.toContain("italic");
     expect(html2).toContain("text-ink-soft");
+  });
+
+  it("autolinks a bare https:// URL — the real bug: a bare LinkedIn share link sitting dead in a job description", () => {
+    const html2 = renderJobDescription(
+      "Apply via the recruiter's post: https://lnkd.in/e_ZuGXSQ and mention this listing.",
+    );
+    expect(html2).toContain('<a href="https://lnkd.in/e_ZuGXSQ"');
+    expect(html2).toContain('target="_blank"');
+    expect(html2).toMatch(/rel="[^"]*noopener[^"]*"/);
+    expect(html2).toMatch(/rel="[^"]*noreferrer[^"]*"/);
+    expect(html2).toMatch(/rel="[^"]*nofollow[^"]*"/);
+    // The link text is the URL itself — nothing to spoof, unlike bracket syntax.
+    expect(html2).toContain(">https://lnkd.in/e_ZuGXSQ</a>");
+  });
+
+  it("does not swallow trailing sentence punctuation into the href", () => {
+    const html2 = renderJobDescription("Read more at https://example.com/path. It explains everything.");
+    expect(html2).toContain('<a href="https://example.com/path"');
+    expect(html2).not.toContain('href="https://example.com/path."');
+    // The period survives as its own text, right after the closing </a>.
+    expect(html2).toMatch(/<\/a>\.\s/);
+  });
+
+  it(
+    "SABOTAGE-PROOF TARGET: bracket-syntax link syntax still never becomes an anchor, even now that bare URLs do — only the URL SHAPE changed, not the bracket-syntax rule",
+    () => {
+      const html2 = renderJobDescription("[Click here](javascript:alert(1))");
+      expect(html2).not.toContain("<a ");
+      expect(html2).not.toContain("<a>");
+      expect(html2).not.toMatch(/href\s*=/);
+      expect(html2).toContain("Click here");
+    },
+  );
+
+  it("a bare URL inside bold/italic markers is not separately autolinked — non-recursive parsing is unchanged", () => {
+    // Consistent with this file's existing "explicitly-limited, non-recursive"
+    // rule for **bold**/*italic*: content captured inside those markers is
+    // rendered as plain text even if it contains its own special characters.
+    // A URL wrapped in ** is bold text that happens to contain a URL-shaped
+    // string, not a link — the bold branch matches first and wins.
+    const html2 = renderJobDescription("**https://example.com**");
+    expect(html2).toContain("<strong>https://example.com</strong>");
+    expect(html2).not.toContain("<a ");
   });
 });
 
