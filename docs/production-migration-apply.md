@@ -1,7 +1,16 @@
-# Applying migrations to production — a proposal
+# Applying migrations to production — the convention
 
-**Status: proposal. Nothing here is built. Nothing was applied to production
-while writing it.** Pick an option, then it gets built.
+**Status: ADOPTED, 2026-09-08.** The recommendation below — **(c′)
+apply-before-merge for additive migrations, deploy-first for destructive ones,
+plus (d) as a backstop** — is the convention this project now follows, not an
+open question. The options and reasoning are kept in full because the
+trade-offs are what make the rule followable, and because (a) and (b) were
+rejected for reasons worth not re-litigating.
+
+What has since been built: **(d)** is
+`supabase/migrations/0122_ledger_unique_migration_name.sql`, and the
+reverse-drift warning named in §5's "residual gap" is in
+`scripts/migration-drift-compare.ts`.
 
 Written 2026-09-08, after the day's two incidents. Every factual claim below
 was checked against live state rather than inferred; where a claim is an
@@ -267,8 +276,27 @@ Compare: (a) is roughly a day once TTL semantics, release-on-failure and the
 stale-claim escape hatch are done properly; (b) is multiple days and a standing
 security decision.
 
-## 7. Not done, deliberately
+## 7. Built, and what is still not
 
-Nothing was applied to production. The unique index in (d) is described, not
-created. No convention has been written into `README.md` or `CLAUDE.md` yet —
-that is the first build step once an option is chosen.
+**Built** (2026-09-08, same day as adoption):
+
+- **(d)** — `supabase/migrations/0122_ledger_unique_migration_name.sql`. A
+  unique index on the ledger's `name`, so a second apply of the same migration
+  fails with `23505` instead of silently inserting a duplicate row. The
+  migration proves the index enforces before trusting it: it attempts a
+  colliding insert in a subtransaction and aborts if that insert succeeds.
+- **The reverse-drift warning** — `scripts/migration-drift-compare.ts` now also
+  reports migrations applied on production but absent from `main`, as a
+  **warning, not a failure**. Production briefly ahead of main is the expected
+  state under apply-before-merge; the warning is what makes it visible when a
+  migration is applied for a PR that is then abandoned. The existing `MISSING`
+  case is untouched and still fails the build.
+
+**Not built, deliberately:**
+
+- **(a)** and **(b)**, for the reasons in §4. Neither is a partial step toward
+  the other, so neither is "deferred" so much as declined.
+- The `deployment_status` trigger from plain (c). Under (c′) the deploy should
+  never be the first thing to discover a missing migration, so its value drops
+  from "catches the outage" to "catches a convention breach" — worth having,
+  not worth blocking on.
