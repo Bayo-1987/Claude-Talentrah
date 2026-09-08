@@ -53,6 +53,59 @@ env:
   NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY: ${{ secrets.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY }}
 
 jobs:
+  migration-collisions:
+    name: Migration numbering
+    runs-on: ubuntu-latest
+    # PULL REQUESTS ONLY. On a push to main the collision has already landed —
+    # this exists to stop it landing, and running it post-merge would just be a
+    # second, later way of learning what `Start local Supabase` already failed
+    # on. The drift check is the one that watches main; this one watches the
+    # door.
+    if: github.event_name == 'pull_request'
+    # No `needs:` — cheap, and it must report even when the build is broken.
+    # It is also the fastest signal on the PR by a wide margin, which matters
+    # because the failure it prevents is the one that looks like somebody
+    # else's fault.
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Two commits is enough to diff this branch against a freshly
+          # fetched main; the script fetches main itself rather than relying
+          # on the checkout's depth.
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Check migration numbers against origin/main
+        run: npm run check-migration-collisions
+
+      - name: What to do if this failed
+        if: failure()
+        run: |
+          echo "A migration on this branch reuses a number already on main."
+          echo
+          echo "This is not a style rule. supabase_migrations.schema_migrations is"
+          echo "keyed on the filename's numeric prefix, so two files sharing one is a"
+          echo "primary-key collision that kills 'supabase db reset' before any test"
+          echo "runs — on main, for every branch, not just this one. It has happened"
+          echo "six times (0060, 0103, 0106, 0110 twice, 0113) and taken main red at"
+          echo "least three of those."
+          echo
+          echo "Fix: rename your migration to the next free number, update every"
+          echo "in-repo reference to the old name, and push again. This repo's"
+          echo "convention is that whichever lands SECOND renumbers."
+          echo
+          echo "NOTE: passing this check does not fully close the race. Two open PRs"
+          echo "can each pass against a main holding neither, and the second to land"
+          echo "still collides. GitHub's 'Require branches to be up to date before"
+          echo "merging' is what forces a re-run against the latest main at merge"
+          echo "time, and that setting is the other half of this."
+
   secrets:
     name: Secret scan
     runs-on: ubuntu-latest
