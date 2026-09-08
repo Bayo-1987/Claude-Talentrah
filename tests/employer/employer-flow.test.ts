@@ -348,7 +348,7 @@ describe("employer: an outsider cannot get in", () => {
   });
 
   /**
-   * 0114's CAC submission fields (`cac_number`, `cac_business_name`) are
+   * 0117's CAC submission fields (`cac_number`, `cac_business_name`) are
    * `authenticated`-writable at the COLUMN level (see
    * tests/rls/column-privileges.test.ts for that half) — this is the other
    * half: the row-level "org members can update their organization" policy

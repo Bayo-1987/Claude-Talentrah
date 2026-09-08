@@ -69,11 +69,11 @@ export default async function CompanyProfilePage() {
       </p>
 
       {/*
-        Path 2 (0113/0114): CAC business registration, for the employer domain
+        Path 2 (0116/0117): CAC business registration, for the employer domain
         verification cannot reach. Shown regardless of `verified`, because a
         domain-verified org can still lose that badge later (a domain change
         re-runs verification in both directions) and CAC confirmation is not
-        undone by that — see 0114's own header for why the two are independent.
+        undone by that — see 0117's own header for why the two are independent.
       */}
       <div className="mt-9">
         <CacVerificationForm

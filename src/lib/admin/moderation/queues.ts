@@ -240,7 +240,7 @@ export interface PendingCacVerification {
  *
  * "Awaiting" is exactly `cac_number is not null and cac_confirmed_at is
  * null" — the plain reading of "submitted, not yet decided". A rejection
- * (0113's `employer_verification` decision) does NOT set `cac_confirmed_at`,
+ * (0116's `employer_verification` decision) does NOT set `cac_confirmed_at`,
  * so a rejected submission stays in this queue until the employer resubmits
  * or an admin later approves it — a deliberate consequence of "reject leaves
  * no schema trace, only an audit log entry" (see `decideCacVerificationAction`
@@ -368,7 +368,7 @@ export async function queueCounts(): Promise<{
     // Payments whose outcome nobody has learned. NOT total payments — a badge
     // counting healthy activity never falls, so it never means anything.
     financialHealth(),
-    // CAC submissions nobody has confirmed or rejected yet (0113/0114).
+    // CAC submissions nobody has confirmed or rejected yet (0116/0117).
     pendingCacVerifications(),
   ]);
   return {

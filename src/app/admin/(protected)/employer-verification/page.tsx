@@ -16,7 +16,7 @@ const CAC_PUBLIC_SEARCH_URL = "https://icrp.cac.gov.ng/public-search";
 /**
  * Employers who submitted a CAC (business registration) number for manual
  * verification — "Path 2", for the employer a confirmed work-email domain
- * cannot reach (0113/0114).
+ * cannot reach (0116/0117).
  *
  * NOTHING HERE CALLS THE CAC PORTAL. It has no API and its own terms do not
  * offer one; the admin opens the plain public-search link themselves, looks

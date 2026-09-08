@@ -56,7 +56,7 @@ beforeEach(() => {
   identity.current = null;
 });
 
-describe("requirePermission(\"employer_verification\") — 0113's new value", () => {
+describe("requirePermission(\"employer_verification\") — 0116's new value", () => {
   it("resolves the identity when the operator's role grants it", async () => {
     identity.current = fakeIdentity(["employer_verification"]);
     const resolved = await requirePermission("employer_verification");
