@@ -1,10 +1,14 @@
 /**
- * Docked panel quick-actions (build-prompt §6.5 / §5 IA). CV Builder and
- * Cover Letter Builder are navigation shortcuts into the already-built,
- * already-credit-gated Resume Builder (M4) and JD tailoring (M5) flows —
- * §6.5 lists those as separate "inline actions", not new chat features, so
- * they don't get a chat starter. The other three open the chat with a
- * starter prompt and behave as normal conversation from there.
+ * Docked panel quick-actions (build-prompt §6.5 / §5 IA).
+ *
+ * CV Builder and Cover Letter Builder — pure navigation shortcuts, `href`
+ * set and `starterPrompt: null`, into /resume-builder and /tailor — were
+ * dropped 2026-09-08. Every entry left here opens the chat with a starter
+ * prompt and behaves as normal conversation from there; a generic
+ * panel-wide link to either flow duplicated navigation already reachable
+ * elsewhere without adding anything a conversation actually does. `href`
+ * stays on the type — every remaining entry happens to be chat-only, but
+ * the type itself still describes either shape.
  */
 export interface FarahQuickAction {
   key: string;
@@ -14,7 +18,6 @@ export interface FarahQuickAction {
 }
 
 export const FARAH_QUICK_ACTIONS: FarahQuickAction[] = [
-  { key: "cv-builder", label: "CV Builder", href: "/resume-builder", starterPrompt: null },
   {
     key: "interview-prep",
     label: "Job Interview Prep",
@@ -26,12 +29,6 @@ export const FARAH_QUICK_ACTIONS: FarahQuickAction[] = [
     label: "Career Advisor",
     href: null,
     starterPrompt: "I'd like some career advice.",
-  },
-  {
-    key: "cover-letter-builder",
-    label: "Cover Letter Builder",
-    href: "/tailor",
-    starterPrompt: null,
   },
   {
     key: "salary-negotiation",
