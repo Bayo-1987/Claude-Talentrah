@@ -18,6 +18,14 @@ export const DIASPORA_COUNTRIES = [
 
 export const SIGNUP_COUNTRIES = [...HOME_COUNTRIES, ...DIASPORA_COUNTRIES] as const;
 
+/**
+ * Shared across every schema in this file that takes a bare email address —
+ * signup, sign-in, forgot-password, and the check-email resend actions in
+ * actions.ts. One definition so the message and the validation rule can't
+ * drift between call sites.
+ */
+export const emailSchema = z.email("Enter a valid email");
+
 export const signUpSchema = z.object({
   /*
    * `.trim().min(1)` was not enough: it strips the ECMAScript WhiteSpace
@@ -32,7 +40,7 @@ export const signUpSchema = z.object({
    */
   firstName: z.string().refine(hasVisibleName, "Enter your first name"),
   lastName: z.string().refine(hasVisibleName, "Enter your last name"),
-  email: z.email("Enter a valid email"),
+  email: emailSchema,
   country: z.enum(SIGNUP_COUNTRIES, "Select a country"),
   password: z
     .string()
@@ -42,7 +50,7 @@ export const signUpSchema = z.object({
 });
 
 export const signInSchema = z.object({
-  email: z.email("Enter a valid email"),
+  email: emailSchema,
   password: z.string().min(1, "Password is required"),
 });
 
@@ -52,7 +60,7 @@ export const signInSchema = z.object({
  * the response — see requestPasswordResetAction.
  */
 export const forgotPasswordSchema = z.object({
-  email: z.email("Enter a valid email"),
+  email: emailSchema,
 });
 
 /**

@@ -487,6 +487,27 @@ export type Database = {
         }
         Relationships: []
       }
+      anonymous_rate_limits: {
+        Row: {
+          bucket: string
+          rate_key: string
+          request_count: number
+          window_start: string
+        }
+        Insert: {
+          bucket: string
+          rate_key: string
+          request_count?: number
+          window_start: string
+        }
+        Update: {
+          bucket?: string
+          rate_key?: string
+          request_count?: number
+          window_start?: string
+        }
+        Relationships: []
+      }
       api_rate_limits: {
         Row: {
           bucket: string
@@ -2442,6 +2463,19 @@ export type Database = {
         Returns: {
           allowed: boolean
           reason: string
+        }[]
+      }
+      consume_anonymous_rate_limit: {
+        Args: {
+          p_bucket: string
+          p_key: string
+          p_limit: number
+          p_window_seconds: number
+        }
+        Returns: {
+          allowed: boolean
+          resets_at: string
+          used: number
         }[]
       }
       consume_rate_limit: {
