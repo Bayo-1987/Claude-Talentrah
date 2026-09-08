@@ -307,14 +307,14 @@ describe("organizations: a company cannot verify itself (0028)", () => {
   });
 });
 
-describe("organizations: a company cannot verify itself at INSERT either (found building 0117)", () => {
+describe("organizations: a company cannot verify itself at INSERT either (found building 0120)", () => {
   /**
    * 0028 closed self-verification through UPDATE and was never asked about
    * INSERT — Supabase's default INSERT privilege is table-wide, not
-   * column-scoped, so nothing before 0117 stopped a client naming `verified`
+   * column-scoped, so nothing before 0120 stopped a client naming `verified`
    * (or, once they existed, `cac_confirmed_at`/`cac_confirmed_by`) directly in
    * the values list of the row's own creation. Reproduced live against a real
-   * database before 0117's INSERT policy fix existed: `insert into
+   * database before 0120's INSERT policy fix existed: `insert into
    * organizations (name, created_by, verified) values (..., auth.uid(), true)`
    * from an authenticated session succeeded and returned `verified: true`.
    *
@@ -413,10 +413,10 @@ describe("organizations: an employer cannot forge their own verification-reminde
   });
 });
 
-describe("organizations: an employer can submit CAC details but not confirm them (0117)", () => {
+describe("organizations: an employer can submit CAC details but not confirm them (0120)", () => {
   /**
    * The positive control. `cac_number`/`cac_business_name` are exactly the
-   * two columns 0117 adds to 0028's `authenticated` UPDATE grant — without
+   * two columns 0120 adds to 0028's `authenticated` UPDATE grant — without
    * this, "an employer can submit CAC details" would be untested and a future
    * migration could silently drop the grant (0107's own postscript documents
    * exactly that failure mode for a different table).
@@ -458,7 +458,7 @@ describe("organizations: an employer can submit CAC details but not confirm them
    * columns that actually move `verified`, via the admin decision in
    * `decideCacVerificationAction` — so they stay withheld by 0028's
    * table-level revoke, exactly like `verified` itself, and no grant statement
-   * in 0117 hands them back.
+   * in 0120 hands them back.
    */
   it("cannot set cac_confirmed_at or cac_confirmed_by, but can still edit its profile", async () => {
     const { data: org } = await user.client

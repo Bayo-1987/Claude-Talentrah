@@ -78,7 +78,7 @@ describe("what the screen says", () => {
       consumerEmailDomain: true,
     });
     expect(html).toContain(CONSUMER_WARNING);
-    // …and names both of the routes: CAC verification is real (0116/0117,
+    // …and names both of the routes: CAC verification is real (0116/0120,
     // submitted from Company Profile once the company exists), so this
     // screen must not still call it unavailable — only the teammate-invite
     // route remains unbuilt, and that is the one claim that gets to say so.

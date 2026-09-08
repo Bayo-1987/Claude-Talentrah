@@ -368,7 +368,7 @@ export async function queueCounts(): Promise<{
     // Payments whose outcome nobody has learned. NOT total payments — a badge
     // counting healthy activity never falls, so it never means anything.
     financialHealth(),
-    // CAC submissions nobody has confirmed or rejected yet (0116/0117).
+    // CAC submissions nobody has confirmed or rejected yet (0116/0120).
     pendingCacVerifications(),
   ]);
   return {

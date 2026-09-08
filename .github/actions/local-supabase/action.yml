@@ -30,7 +30,25 @@ runs:
     - name: Install Supabase CLI
       uses: supabase/setup-cli@v1
       with:
-        version: latest
+        # PINNED, NOT `latest`, and the reason is availability rather than
+        # reproducibility. `latest` makes setup-cli resolve the release through
+        # the GitHub API on every job that uses this action — which is every
+        # job needing a database, so `checks` and `e2e` both. That is a shared
+        # single point of transient failure: PR #286's run died at
+        # "Failed to resolve latest Supabase CLI release: rate limit exceeded"
+        # and skipped every step after it, including the migrations and the
+        # entire test suite. Nothing was wrong with the branch.
+        #
+        # A pinned version is fetched directly and cannot be rate-limited into
+        # failing the whole workflow. It also means a CLI release cannot change
+        # what CI runs without a reviewed diff — `supabase db reset` behaviour
+        # is load-bearing here, and this repo has already had two migrations
+        # collide in exactly that step.
+        #
+        # 2.117.0 was the current stable release on 2026-09-08, checked against
+        # supabase/cli's own releases rather than assumed: everything published
+        # after it that day was a `-beta` prerelease. Bump deliberately.
+        version: 2.117.0
 
     - name: Start local Supabase stack
       shell: bash

@@ -7,7 +7,7 @@ import { BorderedCard, Button, TextField, EyebrowLabel } from "@/components/ui";
 /**
  * "Path 2" of verification: a CAC business registration number, for an
  * employer whose account email cannot verify the org by domain match
- * (0116/0117).
+ * (0116/0120).
  *
  * Reflects three states honestly rather than always showing the form, same
  * spirit as the domain verification note above it on this page:

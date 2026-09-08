@@ -367,7 +367,7 @@ export async function decideFeedbackAction(
 /**
  * Confirm or reject an organisation's CAC (business registration) submission.
  *
- * This is "Path 2" of verification (see docs referenced from 0116/0117): a
+ * This is "Path 2" of verification (see docs referenced from 0116/0120): a
  * confirmed work-email domain is the only route to `verified` today, and this
  * adds a manual one for an employer that route cannot reach. The admin is
  * expected to have actually checked https://icrp.cac.gov.ng/public-search —

@@ -308,21 +308,21 @@ export async function updateCompanyProfileAction(
 
 /**
  * Submit CAC (Corporate Affairs Commission) business registration details for
- * manual admin confirmation — "Path 2" of verification (0116/0117), for an
+ * manual admin confirmation — "Path 2" of verification (0116/0120), for an
  * employer whose confirmed account email is not at the company's claimed
  * domain and so cannot reach `verified` the way `updateCompanyProfileAction`
  * above does.
  *
  * Ownership-scoped exactly like that action: this writes through the SIGNED-
  * IN user's own client, not the service role, so `requireEmployer()` (which
- * throws for anyone not a member of the organisation) plus 0117's
+ * throws for anyone not a member of the organisation) plus 0120's
  * `grant update (cac_number, cac_business_name)` are what stop this touching
  * anything else — the same "grant, not a hand-written allow-list" reasoning
  * as the domain field. Submitting does not itself verify the organisation;
  * only an admin's decision does that
  * (src/lib/admin/moderation/actions.ts#decideCacVerificationAction), which is
  * exactly why `verified`, `cac_confirmed_at` and `cac_confirmed_by` are
- * withheld from this grant in 0117 and cannot be touched from here even by
+ * withheld from this grant in 0120 and cannot be touched from here even by
  * accident.
  */
 export async function submitCacVerificationAction(
