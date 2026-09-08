@@ -163,7 +163,66 @@ function unsubscribeUrlFor(token: string): string {
 }
 
 /**
- * The week's scored, unacted-on postings for one person.
+ * A scored posting before the digest's own listing gate has run — see
+ * `filterListablePostings` below for why this gate exists at all.
+ */
+export interface RawScoredPosting {
+  jobId: string;
+  title: string;
+  companyName: string;
+  location: string | null;
+  score: number;
+  postedAt: string;
+  /** Null for an external posting — those have no organisation to verify. */
+  organizationId: string | null;
+  /** Non-null once a private share link was minted for this posting (0107). */
+  unlistedAt: string | null;
+}
+
+/**
+ * The digest's own copy of the public-listing gate.
+ *
+ * `loadCandidates` below runs on the SERVICE ROLE client, which bypasses RLS
+ * entirely. Every OTHER listing surface (the feed, `search_job_postings`,
+ * the sitemap, the SEO landing pages) gets `organizations.verified` enforced
+ * for free by the `job postings are publicly readable` policy (0027, 0107) —
+ * this one does not, because nothing here ever evaluates that policy. This
+ * function is that check, done by hand, matching 0109's reasoning for
+ * `promoted_jobs`: a proactive surface — an email a person did not ask to see
+ * right now — must clear at least the bar an organic listing does, not less.
+ *
+ * `match_scores` rows do not expire when verification does. The whole finding
+ * behind 0109 was that they outlive it: `saveCompanyProfileAction` re-runs
+ * verification in BOTH directions when an organisation's domain changes, so a
+ * posting that was scored while verified can keep a stale score row long
+ * after the org verifies away. Trusting an existing `match_scores` row as
+ * proof the posting was ever safe to surface is exactly the assumption that
+ * produced the bug this function closes.
+ *
+ * A posting with `unlistedAt` set is excluded outright, with no
+ * `is_org_member`-style exception the way the feed and search make for an
+ * org viewing its own draft (0108). The digest has no such member-facing
+ * purpose — its recipient is a job seeker, not the org managing the
+ * posting — so there is no reason for an unlisted posting to ever reach a
+ * digest email, verified org or not: a digest is precisely the kind of
+ * proactive surfacing `unlisted_at` exists to avoid.
+ *
+ * Pure and exported so this is testable without a database, matching this
+ * repo's own convention (`selectDigestJobs`, `getJobShareVisibility`).
+ */
+export function filterListablePostings(
+  postings: RawScoredPosting[],
+  verifiedOrganizationIds: ReadonlySet<string>,
+): RawScoredPosting[] {
+  return postings.filter((p) => {
+    if (p.unlistedAt) return false;
+    if (p.organizationId === null) return true; // external — nothing to verify
+    return verifiedOrganizationIds.has(p.organizationId);
+  });
+}
+
+/**
+ * The week's scored, unacted-on, PUBLICLY LISTABLE postings for one person.
  *
  * Scores come from `match_scores`, which the feed already computes and stores —
  * the digest deliberately does NOT recompute them. Recomputing would make a
@@ -177,14 +236,60 @@ async function loadCandidates(
 ): Promise<DigestCandidate[]> {
   const { data, error } = await supabase
     .from("match_scores")
-    .select("score, job_posting_id, job_postings!inner(id, title, company_name, location, posted_at, status)")
+    .select(
+      "score, job_posting_id, job_postings!inner(id, title, company_name, location, posted_at, status, organization_id, unlisted_at)",
+    )
     .eq("user_id", userId)
     .eq("job_postings.status", "open")
     .gte("job_postings.posted_at", since);
   if (error) throw error;
 
-  const jobIds = (data ?? []).map((r) => r.job_posting_id);
-  if (jobIds.length === 0) return [];
+  type JoinedJob = {
+    id: string;
+    title: string;
+    company_name: string;
+    location: string | null;
+    posted_at: string;
+    organization_id: string | null;
+    unlisted_at: string | null;
+  };
+
+  const rawPostings: RawScoredPosting[] = (data ?? []).map((row) => {
+    const job = row.job_postings as unknown as JoinedJob;
+    return {
+      jobId: job.id,
+      title: job.title,
+      companyName: job.company_name,
+      location: job.location,
+      score: row.score,
+      postedAt: job.posted_at,
+      organizationId: job.organization_id,
+      unlistedAt: job.unlisted_at,
+    };
+  });
+  if (rawPostings.length === 0) return [];
+
+  // Only the organisation ids the digest actually needs to check — an
+  // external posting (null organization_id) has nothing to verify.
+  const organizationIds = Array.from(
+    new Set(rawPostings.map((p) => p.organizationId).filter((id): id is string => id !== null)),
+  );
+
+  let verifiedOrganizationIds = new Set<string>();
+  if (organizationIds.length > 0) {
+    const { data: orgs, error: orgError } = await supabase
+      .from("organizations")
+      .select("id")
+      .in("id", organizationIds)
+      .eq("verified", true);
+    if (orgError) throw orgError;
+    verifiedOrganizationIds = new Set((orgs ?? []).map((o) => o.id));
+  }
+
+  const listable = filterListablePostings(rawPostings, verifiedOrganizationIds);
+  if (listable.length === 0) return [];
+
+  const jobIds = listable.map((p) => p.jobId);
 
   // Saved or applied — either means they have seen it, so it is not news.
   const { data: acted, error: actedError } = await supabase
@@ -195,22 +300,13 @@ async function loadCandidates(
   if (actedError) throw actedError;
   const seen = new Set((acted ?? []).map((a) => a.job_posting_id));
 
-  return (data ?? []).map((row) => {
-    const job = row.job_postings as unknown as {
-      id: string;
-      title: string;
-      company_name: string;
-      location: string | null;
-      posted_at: string;
-    };
-    return {
-      jobId: job.id,
-      title: job.title,
-      companyName: job.company_name,
-      location: job.location,
-      score: row.score,
-      postedAt: job.posted_at,
-      alreadyActedOn: seen.has(row.job_posting_id),
-    };
-  });
+  return listable.map((p) => ({
+    jobId: p.jobId,
+    title: p.title,
+    companyName: p.companyName,
+    location: p.location,
+    score: p.score,
+    postedAt: p.postedAt,
+    alreadyActedOn: seen.has(p.jobId),
+  }));
 }
