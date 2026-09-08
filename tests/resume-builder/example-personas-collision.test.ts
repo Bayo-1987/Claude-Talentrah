@@ -72,6 +72,22 @@
  * Tobenna Igwe"), confirmed the other checks stayed green (proving the
  * failure was specific to the sabotaged field, not a broken test), then
  * reverted and confirmed green again.
+ *
+ * UPDATED for batch 3B: the registry grew from 36 to 51 personas (15 new
+ * ones across Banking & Finance, Healthcare, Legal, Government & Public
+ * Sector, Project Management and Logistics & Supply Chain — see
+ * preview-sample.ts's own header for why these and why now). Same drill as
+ * every batch before it: ran the full suite for real against the 51-persona
+ * registry before finalizing this batch's content, then sabotage-proofed
+ * again at n=51 by temporarily making two of the NEW personas'
+ * certifications lists identical (`INFRASTRUCTURE_PROJECT_MANAGER_RESUME`
+ * and `PROGRAM_MANAGER_RESUME` were both set to
+ * `["PRINCE2 Practitioner Certification (AXELOS)", "Primavera P6
+ * Professional Certification"]`) — confirmed the "certifications" check
+ * failed and named both ("Adaobi Ilori / Tochukwu Emenike"), confirmed the
+ * other checks (name/email/phone/skills/projects/education) stayed green
+ * (proving the failure was specific to the sabotaged field, not a broken
+ * test), then reverted and confirmed the full suite green again.
  */
 import { describe, expect, it } from "vitest";
 import {
@@ -112,6 +128,21 @@ import {
   BRAND_CAMPAIGN_MANAGER_RESUME,
   DEVOPS_ENGINEER_RESUME,
   MOBILE_ENGINEER_RESUME,
+  FINANCIAL_ACCOUNTANT_RESUME,
+  COMPLIANCE_OFFICER_RESUME,
+  FAMILY_MEDICINE_PHYSICIAN_RESUME,
+  HOSPITAL_PHYSICIAN_RESUME,
+  IN_HOUSE_LEGAL_COUNSEL_RESUME,
+  LITIGATION_COUNSEL_RESUME,
+  CIVIL_REGISTRATION_OFFICER_RESUME,
+  GOVERNMENT_PRESS_OFFICER_RESUME,
+  CIVIL_SERVICE_ADMINISTRATOR_RESUME,
+  INFRASTRUCTURE_PROJECT_MANAGER_RESUME,
+  PROGRAM_MANAGER_RESUME,
+  AGILE_DELIVERY_MANAGER_RESUME,
+  WAREHOUSE_OPERATIONS_MANAGER_RESUME,
+  FLEET_ROUTE_PLANNING_MANAGER_RESUME,
+  SUPPLY_CHAIN_PROCUREMENT_MANAGER_RESUME,
 } from "@/lib/resume-builder/preview-sample";
 
 function pairs<T>(items: readonly T[]): Array<[T, T]> {
@@ -128,9 +159,9 @@ function sameList(a: readonly string[], b: readonly string[]): boolean {
   return a.length > 0 && a.length === b.length && a.every((item, i) => item === b[i]);
 }
 
-describe("EXAMPLE_PERSONAS registry has exactly the 36 personas across batches 1, 2 and 3A", () => {
-  it("contains the 22 personas from batches 1-2 plus the 14 new batch-3A ones, and nothing is accidentally duplicated by reference", () => {
-    expect(EXAMPLE_PERSONAS).toHaveLength(36);
+describe("EXAMPLE_PERSONAS registry has exactly the 51 personas across batches 1, 2, 3A and 3B", () => {
+  it("contains the 36 personas from batches 1-3A plus the 15 new batch-3B ones, and nothing is accidentally duplicated by reference", () => {
+    expect(EXAMPLE_PERSONAS).toHaveLength(51);
     expect(EXAMPLE_PERSONAS).toContain(PREVIEW_SAMPLE_RESUME);
     expect(EXAMPLE_PERSONAS).toContain(EPC_SITE_ENGINEER_RESUME);
     expect(EXAMPLE_PERSONAS).toContain(DEVELOPMENT_PROGRAMME_OFFICER_RESUME);
@@ -167,6 +198,21 @@ describe("EXAMPLE_PERSONAS registry has exactly the 36 personas across batches 1
     expect(EXAMPLE_PERSONAS).toContain(BRAND_CAMPAIGN_MANAGER_RESUME);
     expect(EXAMPLE_PERSONAS).toContain(DEVOPS_ENGINEER_RESUME);
     expect(EXAMPLE_PERSONAS).toContain(MOBILE_ENGINEER_RESUME);
+    expect(EXAMPLE_PERSONAS).toContain(FINANCIAL_ACCOUNTANT_RESUME);
+    expect(EXAMPLE_PERSONAS).toContain(COMPLIANCE_OFFICER_RESUME);
+    expect(EXAMPLE_PERSONAS).toContain(FAMILY_MEDICINE_PHYSICIAN_RESUME);
+    expect(EXAMPLE_PERSONAS).toContain(HOSPITAL_PHYSICIAN_RESUME);
+    expect(EXAMPLE_PERSONAS).toContain(IN_HOUSE_LEGAL_COUNSEL_RESUME);
+    expect(EXAMPLE_PERSONAS).toContain(LITIGATION_COUNSEL_RESUME);
+    expect(EXAMPLE_PERSONAS).toContain(CIVIL_REGISTRATION_OFFICER_RESUME);
+    expect(EXAMPLE_PERSONAS).toContain(GOVERNMENT_PRESS_OFFICER_RESUME);
+    expect(EXAMPLE_PERSONAS).toContain(CIVIL_SERVICE_ADMINISTRATOR_RESUME);
+    expect(EXAMPLE_PERSONAS).toContain(INFRASTRUCTURE_PROJECT_MANAGER_RESUME);
+    expect(EXAMPLE_PERSONAS).toContain(PROGRAM_MANAGER_RESUME);
+    expect(EXAMPLE_PERSONAS).toContain(AGILE_DELIVERY_MANAGER_RESUME);
+    expect(EXAMPLE_PERSONAS).toContain(WAREHOUSE_OPERATIONS_MANAGER_RESUME);
+    expect(EXAMPLE_PERSONAS).toContain(FLEET_ROUTE_PLANNING_MANAGER_RESUME);
+    expect(EXAMPLE_PERSONAS).toContain(SUPPLY_CHAIN_PROCUREMENT_MANAGER_RESUME);
   });
 });
 

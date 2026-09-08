@@ -28,22 +28,32 @@
  *     `clean-professional` and `terminal` can no longer be that proof: both
  *     were the "no dedicated persona" examples through batch 2 (a Business
  *     slug and a Technology slug respectively — see git history for that
- *     wording), and BATCH 3A GAVE BOTH THEIR OWN PERSONA. As of this batch
+ *     wording), and BATCH 3A GAVE BOTH THEIR OWN PERSONA. As of batch 3A
  *     every free-tier slug has a dedicated persona, so the two
- *     "falls back rather than crashing" proofs below now use two different,
+ *     "falls back rather than crashing" proofs used two different,
  *     still-unmapped PREMIUM slugs from two different categories instead
- *     (`rounds` — Healthcare, `statute` — Legal), unlocked the same way
- *     `site-plan`/`rig-report`/`product-tech` already are.
+ *     (`rounds` — Healthcare, `statute` — Legal).
+ *
+ *     BATCH 3B GAVE BOTH OF THOSE THEIR OWN PERSONA TOO (`rounds` ->
+ *     HOSPITAL_PHYSICIAN_RESUME, `statute` -> LITIGATION_COUNSEL_RESUME —
+ *     Healthcare and Legal are now fully split), so they can no longer be
+ *     the "no dedicated persona" proof either. The two "falls back rather
+ *     than crashing" proofs below now use two different, still-unmapped
+ *     PREMIUM slugs from categories batch 3C hasn't reached
+ *     (`success-story` — Customer Success, `byline` — Creative & Media),
+ *     unlocked the same way `site-plan`/`rig-report`/`product-tech`/
+ *     `rounds`/`statute` already were.
  *
  *     `site-plan`, `rig-report` and `product-tech` moved from free to
- *     premium in the resume-template free-tier cut (migration 0110) — this
- *     suite now explicitly unlocks all three (plus `rounds`/`statute` above)
- *     for the fixture user in `beforeAll` (`templateIdBySlug`, below) rather
- *     than relying on them being free, since these tests are about persona
- *     resolution, not premium gating (that gate has its own dedicated
- *     describe block, "premium template gating is not weakened by any start
- *     state", which picks a premium template dynamically and is unaffected
- *     by which specific slugs are premium).
+ *     premium in the resume-template free-tier cut (migration 0110); `rounds`
+ *     and `statute` were premium from the start. This suite now explicitly
+ *     unlocks all of `site-plan`/`rig-report`/`product-tech`/`success-story`/
+ *     `byline` for the fixture user in `beforeAll` (`templateIdBySlug`,
+ *     below) rather than relying on them being free, since these tests are
+ *     about persona resolution, not premium gating (that gate has its own
+ *     dedicated describe block, "premium template gating is not weakened by
+ *     any start state", which picks a premium template dynamically and is
+ *     unaffected by which specific slugs are premium).
  *
  * `createResumeAction`'s own `resume_templates` select changed in the
  * multi-persona-registry pass too — it now selects `slug` (used to resolve
@@ -77,6 +87,18 @@ import {
   SOFTWARE_ENGINEER_RESUME,
   BUSINESS_GENERALIST_RESUME,
   DEVOPS_ENGINEER_RESUME,
+  CORPORATE_LEGAL_ASSOCIATE_RESUME,
+  IN_HOUSE_LEGAL_COUNSEL_RESUME,
+  LITIGATION_COUNSEL_RESUME,
+  CIVIL_REGISTRATION_OFFICER_RESUME,
+  GOVERNMENT_PRESS_OFFICER_RESUME,
+  CIVIL_SERVICE_ADMINISTRATOR_RESUME,
+  INFRASTRUCTURE_PROJECT_MANAGER_RESUME,
+  PROGRAM_MANAGER_RESUME,
+  AGILE_DELIVERY_MANAGER_RESUME,
+  WAREHOUSE_OPERATIONS_MANAGER_RESUME,
+  FLEET_ROUTE_PLANNING_MANAGER_RESUME,
+  SUPPLY_CHAIN_PROCUREMENT_MANAGER_RESUME,
 } from "@/lib/resume-builder/preview-sample";
 
 const testClientRef = vi.hoisted(() => ({ current: null as DB | null }));
@@ -137,9 +159,14 @@ let productTechTemplateId: string;
 // `technologyTemplateId` (terminal) both now resolve to their OWN dedicated
 // persona — see this file's header. Neither can prove the "unmapped slug
 // falls back" behavior anymore, so two different, still-unmapped PREMIUM
-// slugs from two different categories cover that instead.
-let healthcareNoPersonaTemplateId: string; // "rounds" — Healthcare
-let legalNoPersonaTemplateId: string; // "statute" — Legal
+// slugs from two different categories covered that instead (`rounds` —
+// Healthcare, `statute` — Legal).
+// BATCH 3B: `rounds` and `statute` ALSO now resolve to their own dedicated
+// persona (Healthcare and Legal are fully split as of this batch), so they
+// can no longer prove the fallback either. Two different, still-unmapped
+// PREMIUM slugs from categories batch 3C hasn't reached cover it instead.
+let customerSuccessNoPersonaTemplateId: string; // "success-story" — Customer Success
+let creativeMediaNoPersonaTemplateId: string; // "byline" — Creative & Media
 const createdResumeIds: string[] = [];
 
 /**
@@ -193,11 +220,12 @@ beforeAll(async () => {
   sitePlanTemplateId = await templateIdBySlug("site-plan");
   rigReportTemplateId = await templateIdBySlug("rig-report");
   productTechTemplateId = await templateIdBySlug("product-tech");
-  // BATCH 3A: two still-unmapped premium slugs, from two different
-  // categories, now carry the "falls back rather than crashing" proof that
-  // `clean-professional`/`terminal` used to carry.
-  healthcareNoPersonaTemplateId = await templateIdBySlug("rounds");
-  legalNoPersonaTemplateId = await templateIdBySlug("statute");
+  // BATCH 3B: two still-unmapped premium slugs, from two different
+  // categories batch 3C hasn't reached, now carry the "falls back rather
+  // than crashing" proof that `rounds`/`statute` used to carry before batch
+  // 3B gave both of those their own persona.
+  customerSuccessNoPersonaTemplateId = await templateIdBySlug("success-story");
+  creativeMediaNoPersonaTemplateId = await templateIdBySlug("byline");
 
   // Picked AFTER the persona-dedicated premium slugs above, and explicitly
   // excluding their ids. This describe block's own `afterEach` deletes
@@ -217,8 +245,8 @@ beforeAll(async () => {
     sitePlanTemplateId,
     rigReportTemplateId,
     productTechTemplateId,
-    healthcareNoPersonaTemplateId,
-    legalNoPersonaTemplateId,
+    customerSuccessNoPersonaTemplateId,
+    creativeMediaNoPersonaTemplateId,
   ]);
   const { data: premiumRows, error: premiumErr } = await admin
     .from("resume_templates")
@@ -262,10 +290,10 @@ describe("start-state content selection (sabotage-proof target #3)", () => {
   it('"example" on a still-unmapped premium template (no dedicated persona) seeds the fallback PREVIEW_SAMPLE_RESUME, not a placeholder', async () => {
     let resumeId = "";
     try {
-      // Pinned to `rounds` (Healthcare) explicitly — see this file's header
-      // for why `clean-professional` (this test's slug through batch 2)
-      // can no longer be the example: batch 3A gave it its own persona.
-      await createResumeAction(healthcareNoPersonaTemplateId, "example");
+      // Pinned to `success-story` (Customer Success) explicitly — see this
+      // file's header for why `rounds` (this test's slug through batch 3A)
+      // can no longer be the example: batch 3B gave it its own persona.
+      await createResumeAction(customerSuccessNoPersonaTemplateId, "example");
       throw new Error("expected a redirect");
     } catch (err) {
       resumeId = redirectedResumeId(err);
@@ -428,8 +456,8 @@ describe("createResumeAction's 'example' start state seeds the persona matching 
     expect(content).not.toEqual(PREVIEW_SAMPLE_RESUME);
   });
 
-  it("a category with no dedicated persona still seeds something sane (the fallback), not a crash — proven on TWO different categories (Healthcare, Legal)", async () => {
-    for (const templateId of [healthcareNoPersonaTemplateId, legalNoPersonaTemplateId]) {
+  it("a category with no dedicated persona still seeds something sane (the fallback), not a crash — proven on TWO different categories (Customer Success, Creative & Media)", async () => {
+    for (const templateId of [customerSuccessNoPersonaTemplateId, creativeMediaNoPersonaTemplateId]) {
       let resumeId = "";
       try {
         await createResumeAction(templateId, "example");
@@ -484,6 +512,94 @@ describe("createResumeAction's 'example' start state seeds the persona matching 
     expect(content).toEqual(DEVOPS_ENGINEER_RESUME);
     expect(content).not.toEqual(PREVIEW_SAMPLE_RESUME);
     expect(content).not.toEqual(SOFTWARE_ENGINEER_RESUME);
+  });
+
+  it("BATCH 3B: Legal's two new slugs (legal-brief, statute) each seed their OWN persona, distinct from each other and from chambers's existing one", async () => {
+    const legalBriefId = await templateIdBySlug("legal-brief");
+    const statuteId = await templateIdBySlug("statute");
+
+    let legalBriefResumeId = "";
+    try {
+      await createResumeAction(legalBriefId, "example");
+      throw new Error("expected a redirect");
+    } catch (err) {
+      legalBriefResumeId = redirectedResumeId(err);
+    }
+    createdResumeIds.push(legalBriefResumeId);
+    const legalBriefContent = await createdContent(legalBriefResumeId);
+    expect(legalBriefContent).toEqual(IN_HOUSE_LEGAL_COUNSEL_RESUME);
+    expect(legalBriefContent).not.toEqual(PREVIEW_SAMPLE_RESUME);
+    expect(legalBriefContent).not.toEqual(CORPORATE_LEGAL_ASSOCIATE_RESUME);
+
+    let statuteResumeId = "";
+    try {
+      await createResumeAction(statuteId, "example");
+      throw new Error("expected a redirect");
+    } catch (err) {
+      statuteResumeId = redirectedResumeId(err);
+    }
+    createdResumeIds.push(statuteResumeId);
+    const statuteContent = await createdContent(statuteResumeId);
+    expect(statuteContent).toEqual(LITIGATION_COUNSEL_RESUME);
+    expect(statuteContent).not.toEqual(PREVIEW_SAMPLE_RESUME);
+    expect(statuteContent).not.toEqual(CORPORATE_LEGAL_ASSOCIATE_RESUME);
+    expect(statuteContent).not.toEqual(legalBriefContent);
+  });
+
+  it("BATCH 3B: each of the three brand-new categories (Government & Public Sector, Project Management, Logistics & Supply Chain) resolves all 3 of its slugs to genuinely distinct personas, not a title swap", async () => {
+    const groups: Array<[string, string, string, StructuredResume, StructuredResume, StructuredResume]> = [
+      [
+        "civic-record",
+        "gazette",
+        "public-record",
+        CIVIL_REGISTRATION_OFFICER_RESUME,
+        GOVERNMENT_PRESS_OFFICER_RESUME,
+        CIVIL_SERVICE_ADMINISTRATOR_RESUME,
+      ],
+      [
+        "critical-path",
+        "gantt",
+        "sprint-board",
+        INFRASTRUCTURE_PROJECT_MANAGER_RESUME,
+        PROGRAM_MANAGER_RESUME,
+        AGILE_DELIVERY_MANAGER_RESUME,
+      ],
+      [
+        "manifest",
+        "route-plan",
+        "supply-chain",
+        WAREHOUSE_OPERATIONS_MANAGER_RESUME,
+        FLEET_ROUTE_PLANNING_MANAGER_RESUME,
+        SUPPLY_CHAIN_PROCUREMENT_MANAGER_RESUME,
+      ],
+    ];
+
+    for (const [slugA, slugB, slugC, personaA, personaB, personaC] of groups) {
+      const contents: StructuredResume[] = [];
+      for (const [slug, persona] of [
+        [slugA, personaA],
+        [slugB, personaB],
+        [slugC, personaC],
+      ] as const) {
+        const templateId = await templateIdBySlug(slug);
+        let resumeId = "";
+        try {
+          await createResumeAction(templateId, "example");
+          throw new Error("expected a redirect");
+        } catch (err) {
+          resumeId = redirectedResumeId(err);
+        }
+        createdResumeIds.push(resumeId);
+        const content = await createdContent(resumeId);
+        expect(content, `slug "${slug}"`).toEqual(persona);
+        expect(content, `slug "${slug}"`).not.toEqual(PREVIEW_SAMPLE_RESUME);
+        contents.push(content);
+      }
+      // Pairwise distinctness within the group.
+      expect(contents[0]).not.toEqual(contents[1]);
+      expect(contents[0]).not.toEqual(contents[2]);
+      expect(contents[1]).not.toEqual(contents[2]);
+    }
   });
 });
 
