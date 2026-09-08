@@ -26,9 +26,26 @@ function git(...args: string[]): string {
 
 function main(): void {
   try {
-    // Unshallow-tolerant: Actions checkouts are shallow by default, and a
-    // shallow fetch of main is enough to read its tree.
-    git("fetch", "--no-tags", "--depth=1", "origin", "main");
+    /*
+     * NO `--depth=1`, and that is a correction rather than an omission.
+     *
+     * The first version used it as an optimisation — a shallow fetch is enough
+     * to read main's tree, and Actions checkouts are shallow anyway. But
+     * `git fetch --depth=1` does not just fetch shallowly, it TRUNCATES the
+     * repository it runs in. Running this script once on a full local clone
+     * left that clone shallow: merge-base stopped resolving, and a two-commit
+     * feature branch started reporting itself 575 commits ahead of main.
+     *
+     * Found by running the script locally and then trying to rebase, which is
+     * exactly what anyone doing `npm run check-migration-collisions` before
+     * pushing would have hit. CI never would have — it gets a fresh checkout
+     * every run, so the damage was invisible on the surface this was written
+     * for.
+     *
+     * A plain fetch is correct in both places: the CI job checks out with
+     * `fetch-depth: 0`, and a developer's clone stays whole.
+     */
+    git("fetch", "--no-tags", "origin", "main");
   } catch (err) {
     console.error("Could not fetch origin/main, so this check cannot run:", err);
     process.exit(1);
