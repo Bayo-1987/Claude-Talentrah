@@ -97,6 +97,42 @@ export interface ScanResult {
   reason?: string;
 }
 
+/** An open, fresh, not-yet-excluded job before the queuing gate below has run. */
+export interface QueueableJobCandidate {
+  id: string;
+  sourceType: string;
+  /** Null for an external posting — those have no organisation to verify. */
+  organizationId: string | null;
+}
+
+/**
+ * The queuing gate: mirrors `filterListablePostings` in
+ * `src/lib/digest/send.ts` (PR #285), which itself matches 0109's reasoning
+ * for `promoted_jobs`.
+ *
+ * `scanAndQueue` reads through the service-role client, which bypasses RLS
+ * entirely. Every RLS-gated listing surface (the feed, `search_job_postings`,
+ * the sitemap, the SEO landing pages) gets `organizations.verified` enforced
+ * for free by the `job postings are publicly readable` policy (0027, 0107) —
+ * this read does not, because nothing here ever evaluates that policy.
+ *
+ * `match_scores` rows do not expire when verification does:
+ * `saveCompanyProfileAction` re-runs verification in BOTH directions on a
+ * domain change, so a posting scored Excellent while its org was verified can
+ * keep that score long after the org un-verifies. Trusting an existing
+ * `match_scores` row as proof the posting is still safe to queue is exactly
+ * the assumption that produced this bug (and 0109's, and PR #285's).
+ *
+ * Pure and exported so this is testable without a database, matching this
+ * repo's own convention (`filterListablePostings`, `selectDigestJobs`).
+ */
+export function filterQueueableJobs(
+  jobs: QueueableJobCandidate[],
+  verifiedOrganizationIds: ReadonlySet<string>,
+): QueueableJobCandidate[] {
+  return jobs.filter((j) => j.organizationId === null || verifiedOrganizationIds.has(j.organizationId));
+}
+
 /**
  * Finds jobs worth queuing and queues them.
  *
@@ -108,6 +144,11 @@ export interface ScanResult {
  *
  * Idempotent: the unique (user_id, job_posting_id) constraint means a re-scan
  * cannot re-queue something already queued, submitted, or dismissed.
+ *
+ * NOTE ON WHAT THIS DOES NOT COVER: this filter runs only at queuing time. A
+ * job already sitting in `auto_apply_queue` as `pending` is never re-checked
+ * by this function if its org un-verifies after being queued — see the
+ * confirm-time gap noted where this is called from / in the PR description.
  */
 export async function scanAndQueue(userId: string): Promise<ScanResult> {
   const admin = createServiceRoleClient();
@@ -153,7 +194,7 @@ export async function scanAndQueue(userId: string): Promise<ScanResult> {
     // it needs the floor applied here too.
     admin
       .from("job_postings")
-      .select("id, source_type, status")
+      .select("id, source_type, status, organization_id")
       .in("id", jobIds)
       .eq("status", "open")
       // 0107, same reasoning as the freshness floor below: this is an
@@ -168,7 +209,36 @@ export async function scanAndQueue(userId: string): Promise<ScanResult> {
     ...(existingApps ?? []).map((a) => a.job_posting_id),
     ...(alreadyQueued ?? []).map((q) => q.job_posting_id),
   ]);
-  const openById = new Map((openJobs ?? []).map((j) => [j.id, j]));
+
+  // Which of the internal candidates' organisations are CURRENTLY verified —
+  // see filterQueueableJobs's own header for why an existing match_scores
+  // row cannot be trusted to mean this on its own.
+  const candidateOrgIds = Array.from(
+    new Set((openJobs ?? []).map((j) => j.organization_id).filter((id): id is string => id !== null)),
+  );
+  let verifiedOrganizationIds = new Set<string>();
+  if (candidateOrgIds.length > 0) {
+    const { data: orgs, error: orgErr } = await admin
+      .from("organizations")
+      .select("id")
+      .in("id", candidateOrgIds)
+      .eq("verified", true);
+    if (orgErr) throw new Error(`Couldn't check organisation verification: ${orgErr.message}`);
+    verifiedOrganizationIds = new Set((orgs ?? []).map((o) => o.id));
+  }
+
+  // filterQueueableJobs decides WHICH ids clear the gate; the map below is
+  // still built from the original, fully-typed rows so source_type keeps its
+  // real "internal" | "external" literal type rather than widening to string.
+  const queueableIds = new Set(
+    filterQueueableJobs(
+      (openJobs ?? []).map((j) => ({ id: j.id, sourceType: j.source_type, organizationId: j.organization_id })),
+      verifiedOrganizationIds,
+    ).map((j) => j.id),
+  );
+  const openById = new Map(
+    (openJobs ?? []).filter((j) => queueableIds.has(j.id)).map((j) => [j.id, j]),
+  );
 
   const rows = scores
     .filter((s) => !excluded.has(s.job_posting_id) && openById.has(s.job_posting_id))
