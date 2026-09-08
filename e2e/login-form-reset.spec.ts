@@ -19,12 +19,16 @@ test("email survives a failed login, password does not", async ({ page }) => {
   await page.goto("/login");
 
   await page.getByLabel("Email").fill("nobody-e2e@talentrah.dev");
-  await page.getByLabel("Password").fill("whatever-wrong-password");
+  // exact: true — the password reveal toggle next to this field also carries
+  // an accessible name containing "Password" ("Show password"), which a
+  // substring match would resolve ambiguously since the shared PasswordField
+  // component (src/components/ui/password-field.tsx) was introduced here.
+  await page.getByLabel("Password", { exact: true }).fill("whatever-wrong-password");
 
   await page.getByRole("button", { name: "Log in" }).click();
 
   await expect(page.getByText("Incorrect email or password.")).toBeVisible();
 
   await expect(page.getByLabel("Email")).toHaveValue("nobody-e2e@talentrah.dev");
-  await expect(page.getByLabel("Password")).toHaveValue("");
+  await expect(page.getByLabel("Password", { exact: true })).toHaveValue("");
 });
