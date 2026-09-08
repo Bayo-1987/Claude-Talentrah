@@ -51,6 +51,14 @@
  * Ahmadu Bello University persona uses a different degree, "B.Agric.").
  * Every `it.each(EXAMPLE_PERSONAS...)` block below again picked up the 10
  * new personas automatically with no changes needed.
+ *
+ * BATCH 3A: `EXAMPLE_PERSONAS` grew again, 22 to 36 personas. Same
+ * convention followed before writing this batch's 14 new personas: neither
+ * of this file's own fixture pairs ("Ahmadu Bello University" / "B.Eng." /
+ * Electrical Engineering above, "University of Lagos" / "BSc" / Computer
+ * Science below) was reused by any of the 14 — none of them use either
+ * university at all. Every `it.each(EXAMPLE_PERSONAS...)` block below again
+ * picked up the 14 new personas automatically with no changes needed.
  */
 import { describe, expect, it } from "vitest";
 import { EMPTY_RESUME, type StructuredResume } from "@/lib/resume/types";

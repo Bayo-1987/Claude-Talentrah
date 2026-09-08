@@ -7,18 +7,12 @@
  * field).
  *
  * REWORKED FOR THE MULTI-PERSONA REGISTRY, then reworked again for batch 1
- * of the per-slug rollout, then again for batch 2. Before any of these
- * passes, `createResumeAction` always seeded the single
+ * of the per-slug rollout, then again for batch 2, then again for batch 3A.
+ * Before any of these passes, `createResumeAction` always seeded the single
  * `PREVIEW_SAMPLE_RESUME` for "example", so any free template picked with
  * `.limit(1)` gave a deterministic answer. That is no longer true — which
  * persona comes back now depends on the exact slug of the picked template —
  * so:
- *   - the pre-existing "'example' seeds ..." test below pins its template to
- *     `clean-professional` explicitly (Business category, which has no
- *     dedicated persona and so resolves to the fallback,
- *     `PREVIEW_SAMPLE_RESUME`) instead of an arbitrary `.limit(1)` free
- *     template, so the assertion stays meaningful rather than becoming
- *     flaky depending on catalog order;
  *   - a "persona-matching" describe block below is the sabotage-proof
  *     target for the slug -> persona resolution itself: `blueprint` seeds
  *     the (unchanged) EPC engineer persona, `site-plan` and `rig-report`
@@ -27,29 +21,37 @@
  *     category-wide), a free NGO & Development-category template
  *     (`field-mission`) seeds the (still shared, unchanged) development
  *     programme officer persona, `product-tech` (batch 2) seeds its own
- *     new software-engineer persona, and a free `terminal` (Technology,
- *     but a slug batch 2 deliberately did NOT give a dedicated persona to
- *     — proving the fallback isn't hardcoded to "Business" and isn't just
- *     "the whole Technology category got one now") falls back to
- *     `PREVIEW_SAMPLE_RESUME` rather than crashing.
+ *     new software-engineer persona, `clean-professional` (batch 3A) seeds
+ *     its own new generalist persona, and `terminal` (batch 3A) seeds its
+ *     own new DevOps-engineer persona;
+ *   - a still-unmapped-slug fallback still needs proving, but
+ *     `clean-professional` and `terminal` can no longer be that proof: both
+ *     were the "no dedicated persona" examples through batch 2 (a Business
+ *     slug and a Technology slug respectively — see git history for that
+ *     wording), and BATCH 3A GAVE BOTH THEIR OWN PERSONA. As of this batch
+ *     every free-tier slug has a dedicated persona, so the two
+ *     "falls back rather than crashing" proofs below now use two different,
+ *     still-unmapped PREMIUM slugs from two different categories instead
+ *     (`rounds` — Healthcare, `statute` — Legal), unlocked the same way
+ *     `site-plan`/`rig-report`/`product-tech` already are.
  *
  *     `site-plan`, `rig-report` and `product-tech` moved from free to
  *     premium in the resume-template free-tier cut (migration 0110) — this
- *     suite now explicitly unlocks all three for the fixture user in
- *     `beforeAll` (`templateIdBySlug`, below) rather than relying on them
- *     being free, since these tests are about persona resolution, not
- *     premium gating (that gate has its own dedicated describe block,
- *     "premium template gating is not weakened by any start state", which
- *     picks a premium template dynamically and is unaffected by which
- *     specific slugs are premium).
+ *     suite now explicitly unlocks all three (plus `rounds`/`statute` above)
+ *     for the fixture user in `beforeAll` (`templateIdBySlug`, below) rather
+ *     than relying on them being free, since these tests are about persona
+ *     resolution, not premium gating (that gate has its own dedicated
+ *     describe block, "premium template gating is not weakened by any start
+ *     state", which picks a premium template dynamically and is unaffected
+ *     by which specific slugs are premium).
  *
- * `createResumeAction`'s own `resume_templates` select changed in this pass
- * too — it now selects `slug` (used to resolve the persona) instead of
- * `industry_category` (no longer used for that purpose anywhere in the
- * function). Every assertion below that reads back `structured_content`
- * implicitly covers that change: if the select stopped returning `slug`,
- * every "example" test here would seed `PREVIEW_SAMPLE_RESUME` regardless of
- * template and fail immediately.
+ * `createResumeAction`'s own `resume_templates` select changed in the
+ * multi-persona-registry pass too — it now selects `slug` (used to resolve
+ * the persona) instead of `industry_category` (no longer used for that
+ * purpose anywhere in the function). Every assertion below that reads back
+ * `structured_content` implicitly covers that change: if the select stopped
+ * returning `slug`, every "example" test here would seed
+ * `PREVIEW_SAMPLE_RESUME` regardless of template and fail immediately.
  *
  * Runs against the real CI Supabase project, same pattern as
  * tests/passes/pass-covered-actions.test.ts: createClient() is mocked to
@@ -73,6 +75,8 @@ import {
   LAND_SURVEYOR_RESUME,
   DRILLING_RIG_SUPERVISOR_RESUME,
   SOFTWARE_ENGINEER_RESUME,
+  BUSINESS_GENERALIST_RESUME,
+  DEVOPS_ENGINEER_RESUME,
 } from "@/lib/resume-builder/preview-sample";
 
 const testClientRef = vi.hoisted(() => ({ current: null as DB | null }));
@@ -126,12 +130,16 @@ let technologyTemplateId: string;
 let sitePlanTemplateId: string;
 let rigReportTemplateId: string;
 // Batch 2: product-tech got its own dedicated persona (SOFTWARE_ENGINEER_
-// RESUME) — `technologyTemplateId` above moved off `product-tech` onto
-// `terminal` (still Technology, still no dedicated persona) so it keeps
-// proving the fallback generically instead of accidentally testing the
-// slug this batch mapped. `product-tech` also moved free -> premium in
-// migration 0110; same auto-unlock via `templateIdBySlug` applies.
+// RESUME). `product-tech` also moved free -> premium in migration 0110;
+// same auto-unlock via `templateIdBySlug` applies.
 let productTechTemplateId: string;
+// BATCH 3A: `businessTemplateId` (clean-professional) and
+// `technologyTemplateId` (terminal) both now resolve to their OWN dedicated
+// persona — see this file's header. Neither can prove the "unmapped slug
+// falls back" behavior anymore, so two different, still-unmapped PREMIUM
+// slugs from two different categories cover that instead.
+let healthcareNoPersonaTemplateId: string; // "rounds" — Healthcare
+let legalNoPersonaTemplateId: string; // "statute" — Legal
 const createdResumeIds: string[] = [];
 
 /**
@@ -174,11 +182,10 @@ beforeAll(async () => {
   if (freeErr || !free) throw new Error("No free template seeded — run `npm run seed`.");
   freeTemplateId = free.id;
 
-  // Business (no dedicated persona -> fallback), Engineering and NGO &
-  // Development (dedicated personas), Technology/`terminal` (a SECOND
-  // no-dedicated-persona slug, to prove the fallback generalizes past
-  // Business — deliberately NOT `product-tech`, which batch 2 gave its own
-  // persona to; see this file's header).
+  // Business, Engineering and NGO & Development (dedicated personas),
+  // Technology/`terminal` (also a dedicated persona as of batch 3A — see
+  // this file's header for why this used to be the fallback proof and no
+  // longer can be).
   businessTemplateId = await templateIdBySlug("clean-professional");
   engineeringTemplateId = await templateIdBySlug("blueprint");
   ngoTemplateId = await templateIdBySlug("field-mission");
@@ -186,22 +193,33 @@ beforeAll(async () => {
   sitePlanTemplateId = await templateIdBySlug("site-plan");
   rigReportTemplateId = await templateIdBySlug("rig-report");
   productTechTemplateId = await templateIdBySlug("product-tech");
+  // BATCH 3A: two still-unmapped premium slugs, from two different
+  // categories, now carry the "falls back rather than crashing" proof that
+  // `clean-professional`/`terminal` used to carry.
+  healthcareNoPersonaTemplateId = await templateIdBySlug("rounds");
+  legalNoPersonaTemplateId = await templateIdBySlug("statute");
 
-  // Picked AFTER the three persona-dedicated premium slugs above, and
-  // explicitly excluding their ids. This describe block's own `afterEach`
-  // deletes `premiumTemplateId`'s unlock row after every test (so the
-  // "not weakened by any start state" gating tests stay independent of
-  // each other) — an unordered "any premium template" pick can silently
-  // land on `site-plan`/`rig-report`/`product-tech` now that the free-tier
-  // cut (migration 0110) moved them into the premium pool alongside
-  // everything else, wiping out their `beforeAll`-established unlock out
-  // from under a persona-resolution test that runs later in the same file.
-  // Caught live: CI failed exactly this way on "BATCH 2: product-tech
-  // seeds its own new software-engineer persona" once #280 (the free-tier
-  // cut) and #281 (the layout retune, which added this reservation
-  // pattern for the other two) were both on `main` together — neither PR's
-  // own branch could have seen this, since each only had its own change.
-  const reservedPremiumIds = new Set([sitePlanTemplateId, rigReportTemplateId, productTechTemplateId]);
+  // Picked AFTER the persona-dedicated premium slugs above, and explicitly
+  // excluding their ids. This describe block's own `afterEach` deletes
+  // `premiumTemplateId`'s unlock row after every test (so the "not weakened
+  // by any start state" gating tests stay independent of each other) — an
+  // unordered "any premium template" pick can silently land on one of the
+  // reserved slugs now that the free-tier cut (migration 0110) moved most
+  // of them into the premium pool alongside everything else, wiping out
+  // their `beforeAll`-established unlock out from under a persona-resolution
+  // test that runs later in the same file. Caught live: CI failed exactly
+  // this way on "BATCH 2: product-tech seeds its own new software-engineer
+  // persona" once #280 (the free-tier cut) and #281 (the layout retune,
+  // which added this reservation pattern for the other two) were both on
+  // `main` together — neither PR's own branch could have seen this, since
+  // each only had its own change.
+  const reservedPremiumIds = new Set([
+    sitePlanTemplateId,
+    rigReportTemplateId,
+    productTechTemplateId,
+    healthcareNoPersonaTemplateId,
+    legalNoPersonaTemplateId,
+  ]);
   const { data: premiumRows, error: premiumErr } = await admin
     .from("resume_templates")
     .select("id")
@@ -241,13 +259,13 @@ describe("start-state content selection (sabotage-proof target #3)", () => {
     expect(await createdContent(resumeId)).toEqual(EMPTY_RESUME);
   });
 
-  it('"example" on a Business-category template (no dedicated persona) seeds the fallback PREVIEW_SAMPLE_RESUME, not a placeholder', async () => {
+  it('"example" on a still-unmapped premium template (no dedicated persona) seeds the fallback PREVIEW_SAMPLE_RESUME, not a placeholder', async () => {
     let resumeId = "";
     try {
-      // Pinned to the Business category explicitly (see this file's header)
-      // rather than an arbitrary `.limit(1)` free template — which persona
-      // comes back now depends on category, so the template has to be named.
-      await createResumeAction(businessTemplateId, "example");
+      // Pinned to `rounds` (Healthcare) explicitly — see this file's header
+      // for why `clean-professional` (this test's slug through batch 2)
+      // can no longer be the example: batch 3A gave it its own persona.
+      await createResumeAction(healthcareNoPersonaTemplateId, "example");
       throw new Error("expected a redirect");
     } catch (err) {
       resumeId = redirectedResumeId(err);
@@ -410,17 +428,19 @@ describe("createResumeAction's 'example' start state seeds the persona matching 
     expect(content).not.toEqual(PREVIEW_SAMPLE_RESUME);
   });
 
-  it("a category with no dedicated persona still seeds something sane (the fallback), not a crash — proven on a SECOND category, not just Business", async () => {
-    let resumeId = "";
-    try {
-      await createResumeAction(technologyTemplateId, "example");
-      throw new Error("expected a redirect");
-    } catch (err) {
-      resumeId = redirectedResumeId(err);
+  it("a category with no dedicated persona still seeds something sane (the fallback), not a crash — proven on TWO different categories (Healthcare, Legal)", async () => {
+    for (const templateId of [healthcareNoPersonaTemplateId, legalNoPersonaTemplateId]) {
+      let resumeId = "";
+      try {
+        await createResumeAction(templateId, "example");
+        throw new Error("expected a redirect");
+      } catch (err) {
+        resumeId = redirectedResumeId(err);
+      }
+      createdResumeIds.push(resumeId);
+      const content = await createdContent(resumeId);
+      expect(content).toEqual(PREVIEW_SAMPLE_RESUME);
     }
-    createdResumeIds.push(resumeId);
-    const content = await createdContent(resumeId);
-    expect(content).toEqual(PREVIEW_SAMPLE_RESUME);
   });
 
   it("BATCH 2: product-tech seeds its own new software-engineer persona, not the fallback and not another slug's persona from the same Technology category", async () => {
@@ -435,6 +455,35 @@ describe("createResumeAction's 'example' start state seeds the persona matching 
     const content = await createdContent(resumeId);
     expect(content).toEqual(SOFTWARE_ENGINEER_RESUME);
     expect(content).not.toEqual(PREVIEW_SAMPLE_RESUME);
+  });
+
+  it("BATCH 3A: clean-professional seeds its own new generalist persona, not the fallback it used to share an outcome with", async () => {
+    let resumeId = "";
+    try {
+      await createResumeAction(businessTemplateId, "example");
+      throw new Error("expected a redirect");
+    } catch (err) {
+      resumeId = redirectedResumeId(err);
+    }
+    createdResumeIds.push(resumeId);
+    const content = await createdContent(resumeId);
+    expect(content).toEqual(BUSINESS_GENERALIST_RESUME);
+    expect(content).not.toEqual(PREVIEW_SAMPLE_RESUME);
+  });
+
+  it("BATCH 3A: terminal seeds its own new DevOps-engineer persona, not the fallback and not product-tech's software-engineer persona from the same Technology category", async () => {
+    let resumeId = "";
+    try {
+      await createResumeAction(technologyTemplateId, "example");
+      throw new Error("expected a redirect");
+    } catch (err) {
+      resumeId = redirectedResumeId(err);
+    }
+    createdResumeIds.push(resumeId);
+    const content = await createdContent(resumeId);
+    expect(content).toEqual(DEVOPS_ENGINEER_RESUME);
+    expect(content).not.toEqual(PREVIEW_SAMPLE_RESUME);
+    expect(content).not.toEqual(SOFTWARE_ENGINEER_RESUME);
   });
 });
 

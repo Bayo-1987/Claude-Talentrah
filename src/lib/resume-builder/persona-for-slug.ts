@@ -22,6 +22,20 @@ import {
   REGISTERED_NURSE_RESUME,
   CORPORATE_LEGAL_ASSOCIATE_RESUME,
   BUSINESS_OPERATIONS_MANAGER_RESUME,
+  EXECUTIVE_ADMINISTRATIVE_ASSISTANT_RESUME,
+  FRONT_OFFICE_MANAGER_RESUME,
+  RECORDS_DOCUMENTATION_OFFICER_RESUME,
+  BUSINESS_GENERALIST_RESUME,
+  CHIEF_OPERATING_OFFICER_RESUME,
+  MICROBIOLOGY_LECTURER_RESUME,
+  ENGINEERING_ASSOCIATE_PROFESSOR_RESUME,
+  ECONOMICS_FACULTY_DEAN_RESUME,
+  RENEWABLE_ENERGY_RESEARCH_FELLOW_RESUME,
+  GROWTH_MARKETING_MANAGER_RESUME,
+  ENTERPRISE_ACCOUNT_EXECUTIVE_RESUME,
+  BRAND_CAMPAIGN_MANAGER_RESUME,
+  DEVOPS_ENGINEER_RESUME,
+  MOBILE_ENGINEER_RESUME,
 } from "@/lib/resume-builder/preview-sample";
 
 /**
@@ -41,17 +55,35 @@ import {
  * grouping's 6 slugs all pointing at the same `DEVELOPMENT_PROGRAMME_OFFICER_
  * RESUME`, on purpose, pending this batch.
  *
- * BATCH 2 (this pass) finishes that grouping: `field-mission` keeps
+ * BATCH 2 finished that grouping: `field-mission` keeps
  * `DEVELOPMENT_PROGRAMME_OFFICER_RESUME` unchanged (its `structure_schema`
  * already has `volunteering`, matching content Ngozi already has, and
  * "Programme Experience" matches her summary/title closely); the other 5
  * (`impact-report`, `grant-proposal`, `harvest`, `field-season`,
- * `value-chain`) each get their own new persona. This pass also adds 5 new
+ * `value-chain`) each got their own new persona. That pass also added 5 new
  * entries on standalone-category slugs that were on the `PREVIEW_SAMPLE_
- * RESUME` fallback before now: one each from Technology, Banking & Finance,
+ * RESUME` fallback before it: one each from Technology, Banking & Finance,
  * Healthcare, Legal and Business — see `preview-sample.ts`'s own header for
- * why those 5 specific categories. Every slug not listed here still falls
- * through to `PREVIEW_SAMPLE_RESUME`, unchanged.
+ * why those 5 specific categories.
+ *
+ * BATCH 3A (this pass, first of three closing the remaining 44 fallback
+ * slugs) adds 14 more entries across 5 categories, completing every one of
+ * them: Administration (`structured-admin`, `front-office`,
+ * `filing-system`), Business (`clean-professional`, `business-boardroom` —
+ * joining batch 2's `business-memo`), Technology (`terminal`, `stack-trace`
+ * — joining batch 2's `product-tech`), Sales & Marketing (`funnel`,
+ * `pipeline`, `pitch-deck`) and Education & Academia (`curriculum-vitae`,
+ * `lecture-notes`, `faculty-profile`, `research-record`). See
+ * `preview-sample.ts`'s own header for the full reasoning, including why
+ * `clean-professional` — this function's own fallback destination — getting
+ * a dedicated persona was a special case worth its own writeup.
+ *
+ * Every slug not listed here still falls through to `PREVIEW_SAMPLE_RESUME`
+ * — roughly 30 slugs remain, across categories batches 3B/3C haven't
+ * reached yet (Design, Customer Success, most of Healthcare/Legal/Banking &
+ * Finance, Project Management, Government & Public Sector, Creative &
+ * Media, Telecommunications, Hospitality & Travel, Logistics & Supply
+ * Chain).
  */
 const SLUG_PERSONA_MAP: Record<string, StructuredResume> = {
   // Engineering + Construction & Real Estate + Oil & Gas/Energy — one
@@ -77,17 +109,40 @@ const SLUG_PERSONA_MAP: Record<string, StructuredResume> = {
   "field-season": FIELD_PRODUCTION_SUPERVISOR_RESUME,
   "value-chain": VALUE_CHAIN_ANALYST_RESUME,
 
-  // Standalone categories — one dedicated slug each, new as of batch 2, out
+  // Standalone categories — one dedicated slug each, added in batch 2, out
   // of 5 different categories (Technology, Banking & Finance, Healthcare,
-  // Legal, Business) still entirely on the fallback before this pass. Every
-  // OTHER slug in each of these categories (e.g. `terminal`/`stack-trace` in
-  // Technology) is deliberately left on `PREVIEW_SAMPLE_RESUME` — this batch
-  // adds one persona per category, not a full category split.
+  // Legal, Business) still entirely on the fallback before that pass. Batch
+  // 2 deliberately left every OTHER slug in each of these categories (e.g.
+  // `terminal`/`stack-trace` in Technology) on `PREVIEW_SAMPLE_RESUME` — one
+  // persona per category, not a full category split. Technology and
+  // Business are now fully split as of batch 3A below (see that section);
+  // Banking & Finance, Healthcare and Legal still have unmapped siblings.
   "product-tech": SOFTWARE_ENGINEER_RESUME,
   ledger: CREDIT_RISK_ANALYST_RESUME,
   "care-plan": REGISTERED_NURSE_RESUME,
   chambers: CORPORATE_LEGAL_ASSOCIATE_RESUME,
   "business-memo": BUSINESS_OPERATIONS_MANAGER_RESUME,
+
+  // BATCH 3A — 5 categories, each fully completed (see this file's own
+  // header and preview-sample.ts's header for the full reasoning).
+  "structured-admin": EXECUTIVE_ADMINISTRATIVE_ASSISTANT_RESUME,
+  "front-office": FRONT_OFFICE_MANAGER_RESUME,
+  "filing-system": RECORDS_DOCUMENTATION_OFFICER_RESUME,
+
+  "clean-professional": BUSINESS_GENERALIST_RESUME,
+  "business-boardroom": CHIEF_OPERATING_OFFICER_RESUME,
+
+  terminal: DEVOPS_ENGINEER_RESUME,
+  "stack-trace": MOBILE_ENGINEER_RESUME,
+
+  funnel: GROWTH_MARKETING_MANAGER_RESUME,
+  pipeline: ENTERPRISE_ACCOUNT_EXECUTIVE_RESUME,
+  "pitch-deck": BRAND_CAMPAIGN_MANAGER_RESUME,
+
+  "curriculum-vitae": MICROBIOLOGY_LECTURER_RESUME,
+  "lecture-notes": ENGINEERING_ASSOCIATE_PROFESSOR_RESUME,
+  "faculty-profile": ECONOMICS_FACULTY_DEAN_RESUME,
+  "research-record": RENEWABLE_ENERGY_RESEARCH_FELLOW_RESUME,
 };
 
 /**
@@ -96,14 +151,22 @@ const SLUG_PERSONA_MAP: Record<string, StructuredResume> = {
  * gallery preview).
  *
  * FALLS BACK TO `PREVIEW_SAMPLE_RESUME` for any slug not in the map above —
- * every catalog slug across the two passes so far hasn't built a dedicated
- * persona for, plus `null`/`undefined`/an unrecognized string. This is
- * deliberately a fallback to a SANE, already-shipped persona rather than a
- * thrown error or a blank resume — an unmapped slug must still produce a
- * usable "start from an example", not a crash, exactly the same way
- * `getTemplateComponent` falls back to `clean-professional` for an unmapped
- * slug rather than throwing (see template-registry.test.ts's "falls back
- * ... for an unmapped or missing slug").
+ * roughly 30 catalog slugs remain unmapped after batch 3A (see this file's
+ * own header for exactly which categories), plus `null`/`undefined`/an
+ * unrecognized string. This is deliberately a fallback to a SANE,
+ * already-shipped persona rather than a thrown error or a blank resume — an
+ * unmapped slug must still produce a usable "start from an example", not a
+ * crash, exactly the same way `getTemplateComponent` falls back to
+ * `clean-professional` for an unmapped slug rather than throwing (see
+ * template-registry.test.ts's "falls back ... for an unmapped or missing
+ * slug"). NOTE: that fallback is about `getTemplateComponent` resolving
+ * which REACT COMPONENT to render for an unrecognized slug — a completely
+ * different fallback from this one, which resolves which PERSONA to seed.
+ * They happen to share a destination in one case (`clean-professional` is
+ * both `getTemplateComponent`'s fallback AND, before batch 3A, this
+ * function's fallback too) but `clean-professional` now has its own
+ * dedicated persona (`BUSINESS_GENERALIST_RESUME`) here — the two fallbacks
+ * are independent and this one no longer routes through it.
  */
 export function personaForSlug(slug: string | null | undefined): StructuredResume {
   if (!slug) return PREVIEW_SAMPLE_RESUME;

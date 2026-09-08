@@ -66,6 +66,52 @@ import type { StructuredResume } from "@/lib/resume/types";
  *
  * `SLUG_PERSONA_MAP` in `persona-for-slug.ts` picks up every new persona
  * below by literal slug, same mechanism as batch 1.
+ *
+ * BATCH 3A (this pass, first of three sequential batches closing the
+ * remaining 44 fallback slugs). Covers 14 slugs across 5 categories, chosen
+ * because 5 of them (`structured-admin`, `clean-professional`,
+ * `curriculum-vitae`, `funnel`, `terminal`) sit in the app's 9-slug free
+ * tier — the highest-traffic templates in the catalog — and this batch
+ * takes the rest of each of THEIR categories along too, so no category ends
+ * up split across batches: Administration (`structured-admin`,
+ * `front-office`, `filing-system` — all 3, category now complete), Business
+ * (`clean-professional`, `business-boardroom` — joining `business-memo`
+ * from batch 2, category now complete), Technology (`terminal`,
+ * `stack-trace` — joining `product-tech` from batch 2, category now
+ * complete), Sales & Marketing (`funnel`, `pipeline`, `pitch-deck` — all 3,
+ * new category, now complete) and Education & Academia (`curriculum-vitae`,
+ * `lecture-notes`, `faculty-profile`, `research-record` — all 4, new
+ * category, now complete). After this batch, EVERY slug in the free tier
+ * has a dedicated persona — `clean-professional` and `terminal` were the
+ * last two free slugs still on the fallback, and both tests that used to
+ * prove "a free slug can still fall back to PREVIEW_SAMPLE_RESUME" using
+ * exactly those two slugs (`create-resume-action.test.ts`) had to move to
+ * two different, still-unmapped premium slugs instead.
+ *
+ * `clean-professional` is a special case worth calling out: it is not just
+ * "the Business category's free slug", it is `getTemplateComponent`'s own
+ * fallback component AND (per `persona-for-slug.ts`) was, until this batch,
+ * indistinguishable in outcome from an unmapped slug — both roads led to
+ * `PREVIEW_SAMPLE_RESUME`. Giving it its own persona (`BUSINESS_GENERALIST_
+ * RESUME`, below) meant that persona had to earn the word "generalist" for
+ * real: a career that reads as broad competence across functions (ops,
+ * admin, project coordination) rather than one narrow specialism, since
+ * this is the template a user lands on when nothing more specific matched.
+ *
+ * Every new persona below was matched to its slug's own `structure_schema`
+ * in `catalog-configs.ts` the same way earlier batches did — `pipeline` is
+ * the one exception with no skeleton config at all (`structure_schema: {}`
+ * in `catalog.ts`, one of the pre-PR2 bespoke-component slugs), so that
+ * persona was matched against `PipelineTemplate` (`templates/pipeline.tsx`)
+ * directly instead: its skills line and "Track Record"/"Campaigns &
+ * Accounts" labels are hardcoded in the component, not config-driven.
+ *
+ * Real, portable, non-statutory credentials only, same rule as every batch
+ * before this one (see `tests/resume-builder/catalog-configs-labels.test.ts`
+ * for the reasoning) — none of these 14 personas' certifications name a
+ * licensing/chartering/regulatory body (Nigerian or otherwise); every one is
+ * a vendor certification, an international voluntary professional body, or
+ * a training-programme certificate.
  */
 
 /**
@@ -1692,18 +1738,1048 @@ export const BUSINESS_OPERATIONS_MANAGER_RESUME: StructuredResume = {
   certifications: ["Certified Supply Chain Professional (CSCP) — APICS/ASCM", "Lean Six Sigma Green Belt Certification"],
 };
 
+// ---------------------------------------------------------------------------
+// BATCH 3A — 14 new personas across 5 categories (Administration, Business,
+// Education & Academia, Sales & Marketing, Technology). See this file's
+// top-of-file header for why these 5 categories and why now.
+// ---------------------------------------------------------------------------
+
+/**
+ * `structured-admin` persona — an executive administrative assistant
+ * supporting C-suite executives, distinct from `front-office`'s
+ * reception/facilities register and `filing-system`'s records/archives
+ * register below: this is calendar, travel and board-prep support for
+ * senior executives, not front-of-house or document management.
+ */
+export const EXECUTIVE_ADMINISTRATIVE_ASSISTANT_RESUME: StructuredResume = {
+  contact: {
+    name: "Comfort Adeyinka",
+    email: "comfort.adeyinka@bellcourtholdings.com",
+    phone: "+234 802 918 4471",
+    location: "Lagos, Nigeria",
+  },
+  summary:
+    "Executive administrative assistant with eight years supporting C-suite executives at a Lagos conglomerate, managing complex scheduling, travel and cross-department coordination with precision.",
+  experience: [
+    {
+      title: "Senior Executive Assistant",
+      company: "Bellcourt Holdings Group",
+      location: "Lagos, Nigeria",
+      startDate: "2021",
+      endDate: "Present",
+      description:
+        "Support the CEO and two EVPs, managing a shared calendar across 4 time zones for global partner calls and coordinating travel and logistics for 40+ trips a year. Redesigned the board-meeting preparation workflow with the company secretary's office, cutting document turnaround from 3 days to 1.",
+    },
+    {
+      title: "Executive Assistant",
+      company: "Bellcourt Holdings Group",
+      location: "Lagos, Nigeria",
+      startDate: "2018",
+      endDate: "2021",
+      description:
+        "Managed daily operations for the CFO's office, processing expense reconciliation for a 12-person finance leadership team. Reduced expense-report processing time by 45% after introducing a standardized approval template.",
+    },
+    {
+      title: "Administrative Assistant",
+      company: "Coastline Trading Company",
+      location: "Lagos, Nigeria",
+      startDate: "2015",
+      endDate: "2018",
+      description:
+        "Supported a 15-person sales office with correspondence, scheduling and vendor invoicing, cutting payment-approval turnaround from 10 days to 4 by streamlining the invoice-routing process.",
+    },
+  ],
+  education: [
+    { school: "Lagos State Polytechnic", degree: "HND", field: "Office Technology and Management", startDate: "2011", endDate: "2014" },
+  ],
+  skills: [
+    "executive calendar management",
+    "travel & logistics coordination",
+    "board meeting preparation",
+    "expense reconciliation",
+    "vendor & invoice coordination",
+    "cross-department liaison",
+    "minute-taking",
+    "microsoft 365 / google workspace",
+    "confidential correspondence handling",
+    "stakeholder scheduling",
+  ],
+  projects: [
+    "Board-meeting preparation workflow redesign — cut document turnaround from 3 days to 1",
+    "CFO office expense reconciliation overhaul — cut processing time 45%",
+    "Vendor invoice routing streamline — cut payment-approval turnaround from 10 to 4 days",
+  ],
+  certifications: [
+    "Certified Administrative Professional (CAP) — International Association of Administrative Professionals (IAAP)",
+    "Microsoft Office Specialist (MOS): Excel Expert",
+  ],
+};
+
+/**
+ * `front-office` persona — a corporate front-office/facilities manager,
+ * deliberately NOT a hotel front-desk register (that belongs to Hospitality
+ * & Travel's own `front-desk` slug, a different category with its own
+ * future persona): this is reception, facilities and vendor coordination
+ * for a corporate office campus. `structure_schema` labels `skills` as
+ * "Office Software", so this persona's skills lean toward named tools.
+ */
+export const FRONT_OFFICE_MANAGER_RESUME: StructuredResume = {
+  contact: {
+    name: "Chinyere Nwankwo",
+    email: "chinyere.nwankwo@westbridgecorporate.com",
+    phone: "+234 807 331 5528",
+    location: "Uyo, Nigeria",
+  },
+  summary:
+    "Front office manager with seven years overseeing reception, facilities coordination and vendor management for corporate office environments across South-South Nigeria.",
+  experience: [
+    {
+      title: "Front Office Manager",
+      company: "Westbridge Corporate Services",
+      location: "Uyo, Nigeria",
+      startDate: "2021",
+      endDate: "Present",
+      description:
+        "Manage a 4-person front-office and facilities team for a 300-staff corporate campus, overseeing visitor management, meeting-room scheduling and vendor contracts for cleaning and security. Cut average visitor check-in time from 6 minutes to under 90 seconds after digitizing the visitor log, and renegotiated 3 facilities vendor contracts, saving ₦9M annually.",
+    },
+    {
+      title: "Front Office Supervisor",
+      company: "Westbridge Corporate Services",
+      location: "Uyo, Nigeria",
+      startDate: "2018",
+      endDate: "2021",
+      description:
+        "Supervised reception operations across two client sites, standardized the front-office handover checklist adopted company-wide, and cut the missed-call rate at reception from 22% to 6%.",
+    },
+    {
+      title: "Front Desk Officer",
+      company: "Delta Business Park",
+      location: "Uyo, Nigeria",
+      startDate: "2016",
+      endDate: "2018",
+      description:
+        "Managed daily reception duties and visitor logs for a shared office facility with 40 tenant companies, coordinating meeting-room bookings and courier handling.",
+    },
+  ],
+  education: [
+    { school: "University of Uyo", degree: "B.Sc.", field: "Office and Information Management", startDate: "2012", endDate: "2016" },
+  ],
+  skills: [
+    "visitor management systems (envoy/proxyclick)",
+    "microsoft 365 (outlook, excel, teams)",
+    "meeting-room booking software",
+    "facilities management software",
+    "vendor & contract management",
+    "front-office operations",
+    "team supervision",
+    "customer service excellence",
+    "health & safety compliance",
+  ],
+  projects: [
+    "Digitized visitor check-in system — cut check-in time from 6 minutes to under 90 seconds",
+    "Facilities vendor contract renegotiation — saved ₦9M annually across 3 contracts",
+    "Company-wide front-office handover checklist — cut missed-call rate from 22% to 6%",
+  ],
+  certifications: [
+    "IFMA Facility Management Professional (FMP) Foundations Certificate",
+    "Certified Customer Service Professional (CCSP)",
+  ],
+};
+
+/**
+ * `filing-system` persona — a records & documentation officer. Distinct
+ * from `structured-admin`'s executive-support register and `front-office`'s
+ * reception register: this is records-retention compliance and physical/
+ * digital archive management.
+ */
+export const RECORDS_DOCUMENTATION_OFFICER_RESUME: StructuredResume = {
+  contact: {
+    name: "Yusuf Abdullahi",
+    email: "yusuf.abdullahi@falconarchives.com",
+    phone: "+234 806 224 7793",
+    location: "Sokoto, Nigeria",
+  },
+  summary:
+    "Records and documentation officer with seven years managing physical and digital records-compliance programmes for corporate and public-sector offices across northern Nigeria.",
+  experience: [
+    {
+      title: "Senior Records Officer",
+      company: "Falcon Records & Archives Solutions",
+      location: "Sokoto, Nigeria",
+      startDate: "2021",
+      endDate: "Present",
+      description:
+        "Manage the records-retention programme for a 200-employee organisation, overseeing digitization of 15 years of physical archives. Cut file-retrieval time from an average of 45 minutes to under 5 by building a barcode-indexed filing system, and closed a compliance audit with zero missing-file findings across 3,000 audited files.",
+    },
+    {
+      title: "Documentation Officer",
+      company: "Falcon Records & Archives Solutions",
+      location: "Sokoto, Nigeria",
+      startDate: "2018",
+      endDate: "2021",
+      description:
+        "Maintained the central filing registry for HR and contracts documents, processing 200+ document requests a month with a same-day turnaround hit 95% of the time.",
+    },
+    {
+      title: "Filing Clerk",
+      company: "Northfield Registrars Ltd",
+      location: "Kano, Nigeria",
+      startDate: "2016",
+      endDate: "2018",
+      description:
+        "Indexed and archived incoming correspondence and contract files for a document-management services client, maintaining a zero-loss record across 18 months.",
+    },
+  ],
+  education: [
+    { school: "Umaru Ali Shinkafi Polytechnic", degree: "HND", field: "Records and Information Management", startDate: "2013", endDate: "2016" },
+  ],
+  skills: [
+    "records management",
+    "document digitization",
+    "filing systems administration",
+    "microsoft office suite & sharepoint",
+    "compliance auditing",
+    "archival best practices",
+    "data entry & indexing",
+    "confidentiality & data protection",
+    "retention scheduling",
+  ],
+  projects: [
+    "Barcode-indexed filing system — cut file-retrieval time from 45 minutes to under 5",
+    "15-year physical archive digitization programme — zero missing-file findings across 3,000 audited files",
+    "Central HR/contracts filing registry — 95% same-day document-request turnaround",
+  ],
+  certifications: [
+    "Certified Records Manager (CRM) — Institute of Certified Records Managers (ICRM)",
+    "Certificate in Information and Records Management — AIIM Training",
+  ],
+};
+
+/**
+ * `clean-professional` persona — a business operations/administration
+ * generalist. THE SPECIAL CASE this batch's header calls out: this is the
+ * app-wide default fallback template (`getTemplateComponent`'s own
+ * fallback component), so this persona had to read as genuine breadth
+ * across functions (operations, administration, project coordination
+ * across three different employers/industries) rather than one narrow
+ * specialism — the opposite instinct from every other persona in this
+ * registry, which is written to be AS SPECIFIC as possible to its slug.
+ */
+export const BUSINESS_GENERALIST_RESUME: StructuredResume = {
+  contact: {
+    name: "Yetunde Bankole",
+    email: "yetunde.bankole@bridgewayconsulting.com",
+    phone: "+234 813 445 2207",
+    location: "Ibadan, Nigeria",
+  },
+  summary:
+    "Versatile business professional with eight years spanning operations, administration and project coordination across retail, logistics and professional-services employers — equally comfortable running a project, managing a budget or fixing a broken process.",
+  experience: [
+    {
+      title: "Business Operations Coordinator",
+      company: "Bridgeway Consulting Group",
+      location: "Ibadan, Nigeria",
+      startDate: "2022",
+      endDate: "Present",
+      description:
+        "Coordinate operations, vendor relationships and internal projects for a 35-person professional-services firm spanning HR, IT and facilities needs. Ran the office relocation project from planning to move-in with zero missed client-deliverable days, and cut monthly vendor spend by 15% through contract renegotiation.",
+    },
+    {
+      title: "Administration & Projects Officer",
+      company: "Sunrise Retail Group",
+      location: "Ibadan, Nigeria",
+      startDate: "2019",
+      endDate: "2022",
+      description:
+        "Managed administrative operations across 6 retail outlets while running two cross-functional projects a year, including a POS-system rollout and a staff-scheduling overhaul that cut scheduling conflicts by 40%.",
+    },
+    {
+      title: "Customer Operations Associate",
+      company: "Westline Logistics",
+      location: "Ibadan, Nigeria",
+      startDate: "2017",
+      endDate: "2019",
+      description:
+        "Handled customer service, dispatch coordination and reporting for a regional courier operation, and built the first standard operating procedure manual adopted company-wide.",
+    },
+  ],
+  education: [
+    { school: "The Polytechnic, Ibadan", degree: "HND", field: "Business Administration", startDate: "2013", endDate: "2016" },
+  ],
+  skills: [
+    "project coordination",
+    "operations management",
+    "vendor & contract management",
+    "process improvement",
+    "budget tracking",
+    "cross-functional collaboration",
+    "customer service",
+    "standard operating procedures (sops)",
+    "stakeholder communication",
+    "microsoft office / google workspace",
+  ],
+  projects: [
+    "Office relocation project — zero missed client-deliverable days",
+    "POS-system rollout across 6 retail outlets — cut scheduling conflicts 40%",
+    "Company-wide SOP manual — first standardized operating procedures adopted org-wide",
+  ],
+  certifications: [
+    "Certified Associate in Project Management (CAPM) — Project Management Institute",
+    "Lean Six Sigma Yellow Belt Certification",
+  ],
+};
+
+/**
+ * `business-boardroom` persona — a C-suite/executive-track operator,
+ * distinct from `clean-professional`'s generalist above (breadth without
+ * seniority) and from `business-memo`'s mid-level operations manager
+ * (BUSINESS_OPERATIONS_MANAGER_RESUME, batch 2): this is P&L ownership and
+ * board-facing leadership. `structure_schema` leads with `skills` and
+ * `certifications` before the narrative, matching an executive reader who
+ * checks credentials first.
+ */
+export const CHIEF_OPERATING_OFFICER_RESUME: StructuredResume = {
+  contact: {
+    name: "Temitope Osagie",
+    email: "temitope.osagie@stratumholdings.com",
+    phone: "+234 803 662 1198",
+    location: "Lagos, Nigeria",
+  },
+  summary:
+    "Chief operating officer with twelve years leading business-unit strategy, P&L ownership and organisational transformation for diversified conglomerates across Nigeria's manufacturing and consumer-goods sectors.",
+  experience: [
+    {
+      title: "Chief Operating Officer",
+      company: "Stratum Holdings Group",
+      location: "Lagos, Nigeria",
+      startDate: "2021",
+      endDate: "Present",
+      description:
+        "Own P&L and operating strategy for a ₦45B-revenue conglomerate spanning manufacturing, distribution and retail, leading a leadership team of 9 direct reports across 4 business units. Drove a company-wide restructuring that improved consolidated EBITDA margin from 11% to 16% within two years while cutting corporate overhead by ₦600M annually.",
+    },
+    {
+      title: "General Manager",
+      company: "Bright Path Manufacturing Ltd",
+      location: "Lagos, Nigeria",
+      startDate: "2017",
+      endDate: "2021",
+      description:
+        "Ran full operations for a 500-employee manufacturing subsidiary, turning around a loss-making plant to profitability within 18 months by renegotiating supplier contracts and cutting production downtime 30%.",
+    },
+    {
+      title: "Senior Manager, Strategy & Business Development",
+      company: "Coastal Consumer Brands",
+      location: "Lagos, Nigeria",
+      startDate: "2013",
+      endDate: "2017",
+      description:
+        "Led market-entry strategy for 3 new product categories, growing category revenue from ₦0 to ₦2.1B within three years.",
+    },
+  ],
+  education: [
+    { school: "Delta State University", degree: "B.Sc.", field: "Business Management", startDate: "2005", endDate: "2009" },
+    { school: "Lagos Business School, Pan-Atlantic University", degree: "Executive MBA", field: "General Management", startDate: "2016", endDate: "2018" },
+  ],
+  skills: [
+    "strategic planning",
+    "p&l management",
+    "business transformation",
+    "organisational leadership",
+    "stakeholder & board management",
+    "mergers & market-entry strategy",
+    "operational efficiency",
+    "change management",
+    "cross-industry general management",
+    "budget & financial oversight",
+  ],
+  certifications: [
+    "Advanced Management Program — INSEAD",
+    "Certified Professional in Strategic Planning — Association for Strategic Planning (ASP)",
+  ],
+  projects: [
+    "Company-wide restructuring — lifted consolidated EBITDA margin from 11% to 16%, cut overhead ₦600M/yr",
+    "Manufacturing subsidiary turnaround — returned to profitability in 18 months, cut downtime 30%",
+    "New-category market-entry strategy — grew revenue from ₦0 to ₦2.1B in three years",
+  ],
+};
+
+/**
+ * `curriculum-vitae` persona — an early/mid-career university lecturer.
+ * Free tier. Education-first per `structure_schema`, with a `publications`
+ * section every academic persona in this batch populates. Real Nigerian
+ * universities for the DEGREES SHE HOLDS (matching this file's established
+ * convention); the EMPLOYER she teaches at is fictional, same as every
+ * company employer elsewhere in this registry.
+ */
+export const MICROBIOLOGY_LECTURER_RESUME: StructuredResume = {
+  contact: {
+    name: "Folashade Ogunleye",
+    email: "folashade.ogunleye@crestlandsu.edu.ng",
+    phone: "+234 705 668 2214",
+    location: "Osogbo, Nigeria",
+  },
+  summary:
+    "Microbiology lecturer with six years teaching undergraduate life-sciences courses and running an active research programme in environmental microbiology at a Nigerian state university.",
+  experience: [
+    {
+      title: "Lecturer I, Department of Microbiology",
+      company: "Crestland State University",
+      location: "Osogbo, Nigeria",
+      startDate: "2021",
+      endDate: "Present",
+      description:
+        "Teach four undergraduate courses a semester — Microbial Genetics, Environmental Microbiology, and General Microbiology I & II — to cohorts of 80-150 students, and supervise 6 final-year research projects a year. Redesigned the Environmental Microbiology lab manual, cutting practical-session setup time by 30% and raising average practical-exam scores from 58% to 74%.",
+    },
+    {
+      title: "Assistant Lecturer, Department of Microbiology",
+      company: "Crestland State University",
+      location: "Osogbo, Nigeria",
+      startDate: "2019",
+      endDate: "2021",
+      description:
+        "Delivered tutorials and laboratory sessions for 200+ first- and second-year students, and coordinated the department's annual research symposium for two consecutive years.",
+    },
+    {
+      title: "Graduate Assistant, Department of Microbiology",
+      company: "Baywood State University",
+      location: "Nigeria",
+      startDate: "2017",
+      endDate: "2019",
+      description:
+        "Assisted with practical-class supervision and marking for introductory microbiology courses while completing postgraduate studies.",
+    },
+  ],
+  education: [
+    { school: "University of Ibadan", degree: "PhD", field: "Microbiology", startDate: "2017", endDate: "2021" },
+    { school: "Federal University Oye-Ekiti", degree: "M.Sc.", field: "Microbiology", startDate: "2013", endDate: "2015" },
+    { school: "Ekiti State University", degree: "B.Sc.", field: "Microbiology", startDate: "2009", endDate: "2013" },
+  ],
+  skills: [
+    "microbial genetics",
+    "environmental microbiology",
+    "laboratory techniques & safety",
+    "curriculum development",
+    "undergraduate teaching",
+    "research supervision",
+    "scientific writing",
+    "data analysis (spss/r)",
+    "grant proposal writing",
+  ],
+  projects: [
+    "Environmental Microbiology lab manual redesign — cut setup time 30%, raised practical scores from 58% to 74%",
+    "Departmental annual research symposium coordination — two consecutive years",
+    "Peri-urban water microbial resistance study — published in a national microbiology journal",
+  ],
+  certifications: [
+    "Associate Fellowship, Higher Education Academy (Advance HE) — University Teaching and Learning",
+    "Biosafety and Biosecurity Training Certificate — WHO e-Learning Programme",
+  ],
+  publications: [
+    "Ogunleye, F. et al. (2022). 'Antibiotic Resistance Patterns in Environmental Isolates from Peri-Urban Water Sources in Southwest Nigeria.' Nigerian Journal of Microbiology, 36(2).",
+    "Ogunleye, F., & Adisa, T. (2020). 'Microbial Load Assessment of Sachet Water Sold in Osogbo Metropolis.' African Journal of Environmental Science and Technology, 14(4).",
+  ],
+};
+
+/**
+ * `lecture-notes` persona — a senior academic (associate professor) with a
+ * long appointment history and funded grants, distinct from
+ * `curriculum-vitae`'s early-career lecturer above: dense, many appointments,
+ * `awards` populated (labeled "Honours & Grants" by `structure_schema`).
+ */
+export const ENGINEERING_ASSOCIATE_PROFESSOR_RESUME: StructuredResume = {
+  contact: {
+    name: "Ikechukwu Madu",
+    email: "ikechukwu.madu@crownhillut.edu.ng",
+    phone: "+234 807 214 6690",
+    location: "Akure, Nigeria",
+  },
+  summary:
+    "Associate professor of mechanical engineering with over fifteen years of academic appointments spanning lecturing, postgraduate supervision and funded research in thermofluids and renewable-energy systems.",
+  experience: [
+    {
+      title: "Associate Professor, Department of Mechanical Engineering",
+      company: "Crownhill University of Technology",
+      location: "Akure, Nigeria",
+      startDate: "2020",
+      endDate: "Present",
+      description:
+        "Lead the Thermofluids Research Group, supervising 5 PhD and 12 MSc students, and teach postgraduate Heat Transfer and Renewable Energy Systems courses. Secured a ₦38M TETFund National Research Fund grant for a solar-thermal drying research programme, the department's largest single grant in a decade.",
+    },
+    {
+      title: "Senior Lecturer, Department of Mechanical Engineering",
+      company: "Crownhill University of Technology",
+      location: "Akure, Nigeria",
+      startDate: "2015",
+      endDate: "2020",
+      description:
+        "Taught undergraduate Thermodynamics and Fluid Mechanics to cohorts of 100+, and established the department's first solar-energy testing laboratory, used by every final-year project since.",
+    },
+    {
+      title: "Lecturer I, Department of Mechanical Engineering",
+      company: "Baymount Polytechnic",
+      location: "Ondo State, Nigeria",
+      startDate: "2010",
+      endDate: "2015",
+      description:
+        "Taught technical drawing and manufacturing processes to ND/HND students, and coordinated final-year industrial-attachment placements for 150+ students across 3 cohorts.",
+    },
+  ],
+  education: [
+    { school: "Obafemi Awolowo University", degree: "PhD", field: "Mechanical Engineering", startDate: "2006", endDate: "2010" },
+    { school: "Obafemi Awolowo University", degree: "M.Eng.", field: "Mechanical Engineering (Thermofluids)", startDate: "2003", endDate: "2005" },
+    { school: "Federal University of Technology, Akure", degree: "B.Eng.", field: "Mechanical Engineering", startDate: "1998", endDate: "2003" },
+  ],
+  skills: [
+    "thermofluids & heat transfer",
+    "renewable energy systems",
+    "postgraduate supervision",
+    "curriculum & course development",
+    "research grant management",
+    "engineering laboratory development",
+    "cad/simulation tools (ansys/solidworks)",
+    "technical writing & publication",
+    "academic leadership",
+  ],
+  awards: [
+    "₦38M TETFund National Research Fund Grant — Solar-Thermal Drying Research Programme (Principal Investigator), 2021",
+    "Faculty Best Postgraduate Supervisor Award — Crownhill University of Technology, 2019",
+  ],
+  projects: [
+    "Solar-thermal drying research programme — secured ₦38M grant, the largest in the department in a decade",
+    "Department's first solar-energy testing laboratory — used by every final-year project since founding",
+    "PhD/MSc supervision programme — 5 PhD and 12 MSc students under active supervision",
+  ],
+  certifications: [
+    "Six Sigma Black Belt Certification",
+    "Certificate in Engineering Education — International Federation of Engineering Education Societies (IFEES)",
+  ],
+  publications: [
+    "Madu, I. et al. (2020). 'Solar-Thermal Drying Kinetics for Tropical Agricultural Produce.' Journal of Renewable Energy Systems (West Africa), 12(3).",
+    "Madu, I., & Afolabi, K. (2016). 'Thermofluid Performance Analysis of Low-Cost Solar Collectors.' Nigerian Journal of Mechanical Engineering Research, 9(1).",
+  ],
+};
+
+/**
+ * `faculty-profile` persona — a full professor and faculty dean, the most
+ * senior academic in this batch. Sidebar-left: `skills`, `languages` and
+ * `certifications` sit in the sidebar (populated below), main column carries
+ * education/experience/publications/awards/projects.
+ */
+export const ECONOMICS_FACULTY_DEAN_RESUME: StructuredResume = {
+  contact: {
+    name: "Oluwatosin Adebisi",
+    email: "oluwatosin.adebisi@ashfordfu.edu.ng",
+    phone: "+234 806 774 3315",
+    location: "Jos, Nigeria",
+  },
+  summary:
+    "Professor of economics and faculty dean with over twenty years of academic leadership, postgraduate supervision and applied development-economics research across Nigerian universities.",
+  experience: [
+    {
+      title: "Professor & Dean, Faculty of Social Sciences",
+      company: "Ashford Federal University",
+      location: "Jos, Nigeria",
+      startDate: "2019",
+      endDate: "Present",
+      description:
+        "Lead a faculty of 6 departments and 85 academic staff, overseeing curriculum review and postgraduate programme growth. Secured full accreditation renewal for 2 previously-probationary postgraduate programmes, and grew faculty postgraduate enrolment by 40% over three years.",
+    },
+    {
+      title: "Associate Professor, Department of Economics",
+      company: "Ashford Federal University",
+      location: "Jos, Nigeria",
+      startDate: "2013",
+      endDate: "2019",
+      description:
+        "Taught postgraduate Development Economics and supervised 14 PhD students to completion, and led a World Bank-funded research project on rural financial inclusion across 3 northern states reaching 12,000 survey respondents.",
+    },
+    {
+      title: "Senior Lecturer, Department of Economics",
+      company: "Ashford Federal University",
+      location: "Jos, Nigeria",
+      startDate: "2008",
+      endDate: "2013",
+      description:
+        "Published extensively on informal-sector taxation and coordinated the department's undergraduate research-methods course for 6 consecutive years.",
+    },
+  ],
+  education: [
+    { school: "University of Leeds", degree: "PhD", field: "Development Economics", startDate: "1998", endDate: "2002" },
+    { school: "University of Ibadan", degree: "M.Sc.", field: "Economics", startDate: "1993", endDate: "1995" },
+    { school: "University of Jos", degree: "B.Sc.", field: "Economics", startDate: "1988", endDate: "1992" },
+  ],
+  skills: [
+    "development economics",
+    "econometrics (stata/eviews)",
+    "curriculum & accreditation management",
+    "postgraduate supervision",
+    "grant & research management",
+    "policy analysis",
+    "academic leadership",
+    "public speaking & keynote presentation",
+    "faculty administration",
+  ],
+  languages: [
+    { name: "English", level: "Native" },
+    { name: "Hausa", level: "Conversational" },
+    { name: "French", level: "Professional working proficiency" },
+  ],
+  certifications: [
+    "Leadership in Higher Education Certificate — Association of African Universities (AAU) Leadership Programme",
+    "Certificate in Research Grant Management — INASP/AuthorAID Training",
+  ],
+  awards: [
+    "World Bank Research Grant — Rural Financial Inclusion Study (Principal Investigator), 2015",
+    "Best Faculty Researcher Award — Ashford Federal University, 2018",
+  ],
+  projects: [
+    "World Bank rural financial inclusion research project — surveyed 12,000 respondents across 3 states",
+    "Postgraduate programme accreditation renewal — 2 programmes brought to full standing",
+    "Faculty postgraduate enrolment growth initiative — 40% increase over three years",
+  ],
+  publications: [
+    "Adebisi, O. (2021). 'Rural Financial Inclusion and Informal Credit Markets in Northern Nigeria.' Journal of African Development Economics, 29(1).",
+    "Adebisi, O., & Yakassai, H. (2017). 'Taxing the Informal Sector: Evidence from Three Nigerian States.' West African Economic Review, 22(3).",
+  ],
+};
+
+/**
+ * `research-record` persona — a research fellow with a chronological
+ * research-institute career (labeled "Research Positions" by
+ * `structure_schema`), distinct from the three teaching-track academics
+ * above: no classroom teaching, a research institute rather than a
+ * university, and no `awards`/`languages` fields (this slug's schema
+ * doesn't include them).
+ */
+export const RENEWABLE_ENERGY_RESEARCH_FELLOW_RESUME: StructuredResume = {
+  contact: {
+    name: "Chinonso Okeke",
+    email: "chinonso.okeke@sunridge-renewables.org",
+    phone: "+234 803 219 6647",
+    location: "Owerri, Nigeria",
+  },
+  summary:
+    "Research fellow with nine years running applied research on solar mini-grid performance and rural electrification across Nigeria, publishing widely and securing multi-year donor and government research funding.",
+  experience: [
+    {
+      title: "Senior Research Fellow",
+      company: "Sunridge Renewable Energy Research Institute",
+      location: "Owerri, Nigeria",
+      startDate: "2022",
+      endDate: "Present",
+      description:
+        "Lead a 6-person research team studying solar mini-grid performance degradation across 40 rural installations in the South-East, publishing findings that informed a national rural-electrification funding review. Secured a $650,000 multi-year grant from a bilateral development partner to extend the monitoring programme to 100 sites.",
+    },
+    {
+      title: "Research Fellow",
+      company: "Sunridge Renewable Energy Research Institute",
+      location: "Owerri, Nigeria",
+      startDate: "2018",
+      endDate: "2022",
+      description:
+        "Ran field performance studies on 25 solar mini-grid sites, building the institute's first standardized performance-monitoring protocol, later adopted by 2 partner research institutes.",
+    },
+    {
+      title: "Postdoctoral Research Associate",
+      company: "Sunridge Renewable Energy Research Institute",
+      location: "Owerri, Nigeria",
+      startDate: "2016",
+      endDate: "2018",
+      description:
+        "Conducted laboratory testing of photovoltaic panel degradation under tropical humidity conditions, contributing to 4 peer-reviewed publications.",
+    },
+  ],
+  education: [
+    { school: "University of Nigeria, Nsukka", degree: "PhD", field: "Renewable Energy Engineering", startDate: "2012", endDate: "2016" },
+    { school: "Imo State University", degree: "M.Sc.", field: "Physics", startDate: "2009", endDate: "2011" },
+    { school: "Imo State University", degree: "B.Sc.", field: "Physics", startDate: "2005", endDate: "2009" },
+  ],
+  skills: [
+    "renewable energy systems research",
+    "solar mini-grid performance analysis",
+    "field data collection & monitoring",
+    "grant & donor reporting",
+    "statistical analysis (r/python)",
+    "photovoltaic testing",
+    "scientific writing",
+    "research team leadership",
+    "rural electrification policy",
+  ],
+  projects: [
+    "40-site solar mini-grid performance study — informed national rural-electrification funding review",
+    "Standardized performance-monitoring protocol — adopted by 2 partner research institutes",
+    "$650,000 multi-year monitoring-programme grant — extended coverage to 100 sites",
+  ],
+  certifications: [
+    "Certified Energy Manager (CEM) — Association of Energy Engineers (AEE)",
+    "Renewable Energy Project Management Certificate — REN21/UNIDO Training Programme",
+  ],
+  publications: [
+    "Okeke, C. et al. (2023). 'Performance Degradation of Solar Mini-Grids in Humid Tropical Climates: A 40-Site Study.' Renewable Energy Journal of West Africa, 8(2).",
+    "Okeke, C., & Nnadi, F. (2019). 'Standardizing Field Performance Monitoring for Rural Solar Mini-Grids.' Journal of Sustainable Energy Systems, 11(1).",
+  ],
+};
+
+/**
+ * `funnel` persona — a growth/digital marketing manager running
+ * lead-generation funnels, distinct from `pipeline`'s quota-carrying sales
+ * executive and `pitch-deck`'s brand-campaign manager below: this is
+ * paid-acquisition and conversion-funnel ownership, not account sales or
+ * brand campaigns. Free tier. `structure_schema` includes `languages`,
+ * populated below.
+ */
+export const GROWTH_MARKETING_MANAGER_RESUME: StructuredResume = {
+  contact: {
+    name: "Damilola Ajala",
+    email: "damilola.ajala@growthlanegroup.com",
+    phone: "+234 810 337 2261",
+    location: "Lagos, Nigeria",
+  },
+  summary:
+    "Growth marketing manager with seven years building and optimizing digital lead-generation funnels for consumer fintech and e-commerce brands across Nigeria.",
+  experience: [
+    {
+      title: "Growth Marketing Manager",
+      company: "GrowthLane Digital Group",
+      location: "Lagos, Nigeria",
+      startDate: "2022",
+      endDate: "Present",
+      description:
+        "Own the full-funnel marketing strategy for a fintech app with 300,000+ downloads, managing a ₦80M annual paid-acquisition budget across Meta, Google and TikTok. Rebuilt the onboarding funnel with Product, cutting cost-per-activated-user by 42% while growing monthly activated users from 8,000 to 19,000.",
+    },
+    {
+      title: "Digital Marketing Specialist",
+      company: "GrowthLane Digital Group",
+      location: "Lagos, Nigeria",
+      startDate: "2019",
+      endDate: "2022",
+      description:
+        "Ran acquisition and retargeting campaigns for 5 e-commerce clients, and built the attribution dashboard that reduced wasted ad spend by 25% across the client portfolio.",
+    },
+    {
+      title: "Marketing Executive",
+      company: "Palmgrove Retail Ltd",
+      location: "Lagos, Nigeria",
+      startDate: "2017",
+      endDate: "2019",
+      description:
+        "Managed email and SMS lifecycle campaigns for a multi-store retail chain, lifting repeat-purchase rate from 18% to 27% over one year.",
+    },
+  ],
+  education: [
+    { school: "Babcock University", degree: "B.Sc.", field: "Mass Communication", startDate: "2013", endDate: "2017" },
+  ],
+  skills: [
+    "full-funnel marketing strategy",
+    "paid acquisition (meta/google/tiktok ads)",
+    "conversion rate optimization",
+    "marketing analytics",
+    "lifecycle & retention marketing",
+    "seo/sem",
+    "a/b testing",
+    "budget management",
+    "attribution modeling",
+  ],
+  languages: [
+    { name: "English", level: "Fluent" },
+    { name: "Yoruba", level: "Native" },
+    { name: "French", level: "Basic" },
+  ],
+  certifications: ["Google Ads Certification", "HubSpot Inbound Marketing Certification"],
+  projects: [
+    "Fintech app onboarding funnel rebuild — cut cost-per-activated-user 42%, grew monthly activations from 8,000 to 19,000",
+    "Cross-client attribution dashboard — cut wasted ad spend 25% across 5 e-commerce clients",
+    "Retail lifecycle email/SMS programme — lifted repeat-purchase rate from 18% to 27%",
+  ],
+};
+
+/**
+ * `pipeline` persona — an enterprise B2B account executive carrying a
+ * sales quota. `pipeline` is the one slug in this batch with NO skeleton
+ * `structure_schema` (it's a pre-PR2 bespoke component, `PipelineTemplate`
+ * in `templates/pipeline.tsx`, not a config-driven skeleton) — this persona
+ * was matched against that component directly: its hardcoded "Track
+ * Record"/"Campaigns & Accounts" labels and top-of-page scannable skills
+ * line are why this content leads with quota numbers and named account
+ * wins rather than a narrative-first summary.
+ */
+export const ENTERPRISE_ACCOUNT_EXECUTIVE_RESUME: StructuredResume = {
+  contact: {
+    name: "Kelechi Nwosu",
+    email: "kelechi.nwosu@crestlinebiz.com",
+    phone: "+234 802 774 1156",
+    location: "Lagos, Nigeria",
+  },
+  summary:
+    "Enterprise B2B sales executive with eight years carrying and consistently exceeding multi-million-naira quotas for SaaS and business-services accounts across Nigeria's mid-market and enterprise segments.",
+  experience: [
+    {
+      title: "Senior Account Executive",
+      company: "Crestline Business Solutions",
+      location: "Lagos, Nigeria",
+      startDate: "2022",
+      endDate: "Present",
+      description:
+        "Own a ₦450M annual quota across 30 enterprise accounts in banking and telecoms, closing 118% of quota in FY2024 and growing the territory's average deal size from ₦8M to ₦14M. Built the account-expansion playbook now used by the entire enterprise sales team.",
+    },
+    {
+      title: "Account Executive",
+      company: "Crestline Business Solutions",
+      location: "Lagos, Nigeria",
+      startDate: "2019",
+      endDate: "2022",
+      description:
+        "Carried a ₦180M quota across a 45-account mid-market book, achieving 105% average quota attainment across three consecutive years and cutting sales-cycle length from 90 to 62 days.",
+    },
+    {
+      title: "Sales Development Representative",
+      company: "Vantage Business Systems",
+      location: "Lagos, Nigeria",
+      startDate: "2017",
+      endDate: "2019",
+      description:
+        "Generated and qualified outbound pipeline for the enterprise sales team, converting 32% of qualified leads to closed-won deals against a team average of 21%.",
+    },
+  ],
+  education: [
+    { school: "Nasarawa State University, Keffi", degree: "B.Sc.", field: "Marketing", startDate: "2013", endDate: "2017" },
+  ],
+  skills: [
+    "enterprise account management",
+    "quota attainment & forecasting",
+    "solution selling",
+    "contract negotiation",
+    "pipeline management (salesforce/hubspot)",
+    "stakeholder & c-suite selling",
+    "territory planning",
+    "sales-cycle optimization",
+  ],
+  certifications: ["Salesforce Certified Sales Cloud Consultant", "Miller Heiman Strategic Selling Certification"],
+  projects: [
+    "Enterprise banking account expansion — grew average deal size from ₦8M to ₦14M",
+    "Account-expansion playbook — adopted team-wide across enterprise sales",
+    "Outbound qualification programme — lifted lead-to-close conversion from 21% to 32% team average",
+  ],
+};
+
+/**
+ * `pitch-deck` persona — a brand/campaign marketing manager, distinct from
+ * `funnel`'s digital-acquisition register and `pipeline`'s account-sales
+ * register: this is integrated brand campaigns across traditional and
+ * digital media. Header-band with `showLinksInHeader: true`, so this
+ * persona populates `links` alongside `product-tech`/`stack-trace`.
+ */
+export const BRAND_CAMPAIGN_MANAGER_RESUME: StructuredResume = {
+  contact: {
+    name: "Zainab Lawal",
+    email: "zainab.lawal@brandforgestudio.com",
+    phone: "+234 815 226 7743",
+    location: "Abuja, Nigeria",
+  },
+  summary:
+    "Brand and campaign marketing manager with seven years building integrated marketing campaigns for consumer brands across Nigeria, from concept through paid media and measurable market results.",
+  experience: [
+    {
+      title: "Senior Campaign Manager",
+      company: "Brandforge Studio",
+      location: "Abuja, Nigeria",
+      startDate: "2022",
+      endDate: "Present",
+      description:
+        "Lead integrated campaign strategy for 4 consumer-goods clients, managing a combined ₦150M annual media budget across TV, radio, digital and OOH. Delivered a national beverage-launch campaign that lifted brand awareness from 12% to 34% in its target market within 6 months.",
+    },
+    {
+      title: "Campaign Manager",
+      company: "Brandforge Studio",
+      location: "Abuja, Nigeria",
+      startDate: "2019",
+      endDate: "2022",
+      description:
+        "Managed end-to-end campaign delivery for 6 mid-size brand clients a year, and built the agency's first post-campaign ROI reporting template, adopted across the account team.",
+    },
+    {
+      title: "Marketing Coordinator",
+      company: "Northstar Consumer Brands",
+      location: "Abuja, Nigeria",
+      startDate: "2017",
+      endDate: "2019",
+      description:
+        "Coordinated regional activation events and influencer partnerships for a personal-care brand, growing social engagement 3x over 18 months.",
+    },
+  ],
+  education: [
+    { school: "Baze University, Abuja", degree: "B.Sc.", field: "Mass Communication", startDate: "2013", endDate: "2017" },
+  ],
+  skills: [
+    "integrated campaign strategy",
+    "media planning & buying",
+    "brand positioning",
+    "influencer & partnerships marketing",
+    "campaign roi analysis",
+    "cross-channel marketing (tv/radio/digital/ooh)",
+    "stakeholder & client management",
+    "creative brief development",
+  ],
+  certifications: ["Meta Certified Digital Marketing Associate", "Google Analytics Individual Qualification (IQ)"],
+  projects: [
+    "National beverage-launch campaign — lifted brand awareness from 12% to 34% in 6 months",
+    "Post-campaign ROI reporting template — adopted agency-wide",
+    "Personal-care brand activation & influencer programme — 3x social engagement growth",
+  ],
+  links: [
+    { label: "Portfolio", url: "https://zainablawal-campaigns.com" },
+    { label: "LinkedIn", url: "https://linkedin.com/in/zainablawal" },
+  ],
+};
+
+/**
+ * `terminal` persona — a DevOps/site reliability engineer. Free tier.
+ * Distinct from `product-tech`'s backend/full-stack register (batch 2) and
+ * `stack-trace`'s mobile-engineer register below: infrastructure, CI/CD and
+ * incident response, not application code.
+ */
+export const DEVOPS_ENGINEER_RESUME: StructuredResume = {
+  contact: {
+    name: "Tobenna Igwe",
+    email: "tobenna.igwe@ironcladcloud.dev",
+    phone: "+234 809 552 3317",
+    location: "Lagos, Nigeria",
+  },
+  summary:
+    "DevOps and site reliability engineer with six years running infrastructure and deployment pipelines for high-traffic Nigerian consumer platforms, focused on uptime, automation and incident response.",
+  experience: [
+    {
+      title: "Senior DevOps Engineer",
+      company: "Ironclad Cloud Systems",
+      location: "Lagos, Nigeria",
+      startDate: "2022",
+      endDate: "Present",
+      description:
+        "Own infrastructure and CI/CD for a ride-hailing platform serving 200,000+ daily active riders, managing a Kubernetes cluster across 3 availability zones. Cut deployment failure rate from 8% to under 1% by rebuilding the CI/CD pipeline with automated canary releases, and reduced mean-time-to-recovery from 45 minutes to 9.",
+    },
+    {
+      title: "DevOps Engineer",
+      company: "Ironclad Cloud Systems",
+      location: "Lagos, Nigeria",
+      startDate: "2020",
+      endDate: "2022",
+      description:
+        "Migrated a monolithic deployment process to containerized microservices on AWS, cutting infrastructure costs by 30% through right-sizing and spot-instance adoption.",
+    },
+    {
+      title: "Systems Administrator",
+      company: "Nimbus Cloud Hosting",
+      location: "Lagos, Nigeria",
+      startDate: "2018",
+      endDate: "2020",
+      description:
+        "Managed Linux server infrastructure for 200+ shared-hosting clients, and automated the backup-verification process, eliminating a recurring class of silent backup failures.",
+    },
+  ],
+  education: [
+    { school: "Ladoke Akintola University of Technology", degree: "B.Sc.", field: "Computer Science", startDate: "2012", endDate: "2016" },
+  ],
+  skills: [
+    "kubernetes",
+    "docker",
+    "terraform",
+    "aws",
+    "ci/cd pipelines (github actions/jenkins)",
+    "linux systems administration",
+    "prometheus & grafana monitoring",
+    "bash/python scripting",
+    "incident response",
+  ],
+  certifications: ["AWS Certified DevOps Engineer – Professional", "Certified Kubernetes Security Specialist (CKS)"],
+  projects: [
+    "CI/CD pipeline rebuild — cut deployment failure rate from 8% to under 1%, MTTR from 45 to 9 minutes",
+    "Monolith-to-microservices migration on AWS — cut infrastructure costs 30%",
+    "Automated backup-verification system — eliminated recurring silent backup failures",
+  ],
+};
+
+/**
+ * `stack-trace` persona — a mobile engineer (Android/cross-platform).
+ * Grid-modules, projects-first — per this batch's own guidance, a
+ * project-first layout needs strong named projects, so this persona's
+ * `projects` list carries three specific, named, quantified shipped apps.
+ * `showLinksInHeader: true`, so `links` is populated alongside
+ * `product-tech`/`pitch-deck`.
+ */
+export const MOBILE_ENGINEER_RESUME: StructuredResume = {
+  contact: {
+    name: "Precious Danjuma",
+    email: "precious.danjuma@orbitmobileworks.dev",
+    phone: "+234 706 118 5527",
+    location: "Abuja, Nigeria",
+  },
+  summary:
+    "Mobile engineer with six years shipping consumer Android and cross-platform apps for Nigerian fintech and logistics startups, from zero-to-launch builds to scaling apps past a million installs.",
+  experience: [
+    {
+      title: "Senior Mobile Engineer",
+      company: "Orbit Mobile Works",
+      location: "Abuja, Nigeria",
+      startDate: "2022",
+      endDate: "Present",
+      description:
+        "Lead Android development for a savings and investment app with 1.2M installs, rebuilding the app's core navigation and state layer in Kotlin/Jetpack Compose. Cut app crash rate from 2.1% to 0.3% and reduced cold-start time from 3.8s to 1.4s.",
+    },
+    {
+      title: "Mobile Engineer",
+      company: "Orbit Mobile Works",
+      location: "Abuja, Nigeria",
+      startDate: "2020",
+      endDate: "2022",
+      description:
+        "Built the initial Android and iOS (React Native) versions of a last-mile delivery-tracking app from scratch, taking it from zero to 80,000 installs in its first year.",
+    },
+    {
+      title: "Junior Android Developer",
+      company: "Fastlink Technologies",
+      location: "Abuja, Nigeria",
+      startDate: "2018",
+      endDate: "2020",
+      description:
+        "Maintained and shipped features for a USSD-to-app migration project, supporting the release of 12 feature updates across 18 months.",
+    },
+  ],
+  education: [
+    { school: "Veritas University, Abuja", degree: "B.Sc.", field: "Computer Science", startDate: "2013", endDate: "2017" },
+  ],
+  skills: [
+    "kotlin & jetpack compose",
+    "android sdk",
+    "react native",
+    "swift (ios basics)",
+    "rest/graphql api integration",
+    "ci/cd for mobile (fastlane/bitrise)",
+    "performance profiling & crash analytics",
+    "agile/scrum",
+  ],
+  certifications: ["Associate Android Developer Certification — Google", "Meta React Native Specialist Certificate"],
+  projects: [
+    "Savings app Android rebuild (Kotlin/Compose) — cut crash rate from 2.1% to 0.3%, cold start from 3.8s to 1.4s",
+    "Last-mile delivery-tracking app — built from zero to 80,000 installs in year one",
+    "USSD-to-app migration programme — shipped 12 feature releases across 18 months",
+  ],
+  links: [
+    { label: "GitHub", url: "https://github.com/preciousdanjuma" },
+    { label: "Play Store", url: "https://play.google.com/store/apps/dev?id=preciousdanjuma" },
+  ],
+};
+
 /**
  * The registry every consumer now matches against — see this file's
  * top-of-file header. Order is not meaningful for matching (every
  * comparison in example-guard.ts is `.some(...)` across the whole array),
  * but PREVIEW_SAMPLE_RESUME stays first because it is also the FALLBACK
  * persona-for-slug.ts returns for every slug without a dedicated entry —
- * the pre-existing, already-shipped behavior for those slugs. 22 entries as
- * of this pass (batch 2): the 12 from batch 1, plus 5 new NGO & Development
- * / Agriculture & Agribusiness personas finishing that grouping's split,
- * plus 5 new personas on standalone-category slugs (Technology, Banking &
- * Finance, Healthcare, Legal, Business) that were on the
- * `PREVIEW_SAMPLE_RESUME` fallback before this pass.
+ * the pre-existing, already-shipped behavior for those slugs. 36 entries as
+ * of this pass (batch 3A): the 22 from batches 1-2, plus 14 new personas
+ * across 5 categories (Administration, Business, Education & Academia,
+ * Sales & Marketing, Technology) — see this file's top-of-file header for
+ * why these 5 and why now.
  */
 export const EXAMPLE_PERSONAS: readonly StructuredResume[] = [
   PREVIEW_SAMPLE_RESUME,
@@ -1728,4 +2804,18 @@ export const EXAMPLE_PERSONAS: readonly StructuredResume[] = [
   REGISTERED_NURSE_RESUME,
   CORPORATE_LEGAL_ASSOCIATE_RESUME,
   BUSINESS_OPERATIONS_MANAGER_RESUME,
+  EXECUTIVE_ADMINISTRATIVE_ASSISTANT_RESUME,
+  FRONT_OFFICE_MANAGER_RESUME,
+  RECORDS_DOCUMENTATION_OFFICER_RESUME,
+  BUSINESS_GENERALIST_RESUME,
+  CHIEF_OPERATING_OFFICER_RESUME,
+  MICROBIOLOGY_LECTURER_RESUME,
+  ENGINEERING_ASSOCIATE_PROFESSOR_RESUME,
+  ECONOMICS_FACULTY_DEAN_RESUME,
+  RENEWABLE_ENERGY_RESEARCH_FELLOW_RESUME,
+  GROWTH_MARKETING_MANAGER_RESUME,
+  ENTERPRISE_ACCOUNT_EXECUTIVE_RESUME,
+  BRAND_CAMPAIGN_MANAGER_RESUME,
+  DEVOPS_ENGINEER_RESUME,
+  MOBILE_ENGINEER_RESUME,
 ];
