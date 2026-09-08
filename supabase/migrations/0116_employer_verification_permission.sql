@@ -13,7 +13,7 @@
 -- ONE STATEMENT, NOTHING ELSE. Postgres forbids using a new enum value in the
 -- same transaction that adds it (`55P04 unsafe use of new value`) — see
 -- 0077/0078's header for the exact failure this avoids. The columns and RLS
--- surface this permission will gate land in 0117, a separate migration, for
+-- surface this permission will gate land in 0120, a separate migration, for
 -- that reason alone.
 --
 -- `admin_permission_catalog()` (0079) is `unnest(enum_range(...))`, so the new

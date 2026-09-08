@@ -3,7 +3,7 @@
 -- ── WHAT THIS ADDS ─────────────────────────────────────────────────────────
 --
 -- Today a job posting from an organisation that is neither domain-verified
--- (0027) nor CAC-verified (0113/0114) has no route to public visibility at
+-- (0027) nor CAC-verified (0116/0120) has no route to public visibility at
 -- all short of an unlisted link nobody but the holder can find (0107). This
 -- gives an admin a third, narrower option: approve THIS ONE POSTING for
 -- public listing without touching the organisation's own `verified` flag —
@@ -17,7 +17,7 @@
 --
 -- ── WHY `admin_reviewed_by` POINTS AT `profiles`, NOT `admin_users` ───────
 --
--- Same reasoning as 0114's `cac_confirmed_by`, which is the same reasoning as
+-- Same reasoning as 0120's `cac_confirmed_by`, which is the same reasoning as
 -- 0064's `moderated_by`/`reviewed_by`/`removed_by`: an admin account later
 -- revoked should still resolve as a named person in the audit trail rather
 -- than dangling or cascading the row away.
@@ -154,7 +154,7 @@ end $$;
 -- this table that grants trust — the three this migration adds, plus the two
 -- 0056/0107 already should have carried. `admin_review_requested_at` and
 -- `admin_review_note` are deliberately NOT constrained: the first grants
--- nothing by itself (it only queues a request, same shape as 0114's
+-- nothing by itself (it only queues a request, same shape as 0120's
 -- cac_number), and the second is inert without a decision next to it.
 --
 -- All five constrained columns are nullable with no default other than null,
