@@ -86,7 +86,22 @@ Phase 1 is feature-complete except for the employer side. Read [docs/phase-1-sum
   charging again, precisely so a timeout that happened after the card was
   debited never becomes a double charge. A genuine decline still lapses on the
   first attempt, unchanged.
-- **Production runs Gemini on a free-tier key** (20 req/day, shared). A billed key is a founder/account action, not a code change.
+- **Production runs GROQ, not Gemini** (corrected 2026-09-08). `LLM_PROVIDER=groq`
+  is set on the deployment; the code still *defaults* to Gemini when that
+  variable is absent (`src/lib/llm/index.ts`), so the default and the live
+  configuration disagree — check the deployment, not the default. This line
+  previously said production ran a free-tier Gemini key at 20 req/day, and the
+  earlier "Gemini → Groq automatic failover, blocked on Google billing" framing
+  is **moot**: Groq is already the production provider, so there is nothing to
+  fail over from. A session working from the old note misdiagnoses live
+  incidents, which is part of what happened on 2026-09-08.
+  - **Groq's cap is per-minute TOKENS, not requests**: `openai/gpt-oss-120b` on
+    the tier in use allows 8,000 TPM, and the **reserved output budget counts
+    against it** as well as the prompt. That is a different failure shape from
+    a daily request quota — it fails intermittently, only for large enough
+    requests, and retrying never helps because the retry is the same size. It
+    took Farah chat down; see `src/lib/farah/token-budget.ts` for the budget
+    and the guard that now holds it.
 
 Verification convention this repo holds itself to, visible throughout its PR history: **check real current state before building; prove a fix by first proving the test catches the bug.** Several milestones caught real defects specifically by re-testing what earlier work had assumed — an RLS policy that had never been run, a retry heuristic that looked like model behaviour, an OAuth name mapping where the intuitive fix would have repaired the wrong provider, and an org-membership policy that read as safe and was not. That last one is also the standing example of a second habit: after fixing a policy, ask what *else* grants the same privilege — the first fix closed one route and, in doing so, opened a second.
 
