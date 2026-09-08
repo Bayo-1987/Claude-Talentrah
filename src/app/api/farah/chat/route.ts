@@ -9,6 +9,11 @@ import {
   MAX_MESSAGE_LENGTH,
   buildResumeContext,
 } from "@/lib/farah/token-budget";
+import {
+  checkFarahChatAllowance,
+  commitFarahChatAllowance,
+  InsufficientCreditsError,
+} from "@/lib/farah/chat-gate";
 
 /** The only quick actions that actually start a chat — see quick-actions.ts. */
 const CHAT_ENTRY_POINTS = new Set(["interview-prep", "career-advisor", "salary-negotiation"]);
@@ -20,12 +25,12 @@ function resolveEntryPoint(quickAction: string | undefined): FarahEntryPoint {
 }
 
 /**
- * Farah chat has no credit/free-trial gating yet — build-prompt §6.5 itself
- * only says the informational layer is "free or credit-gated", leaving the
- * choice open, and it isn't part of this milestone's scope. This cap exists
- * purely as an abuse/cost safety net (unbounded authenticated LLM spend),
- * not a monetization mechanism — reuses farah_messages itself as the
- * counter rather than adding new schema for it.
+ * A scripted-abuse backstop, independent of payment status (0123) — layered
+ * UNDER the real entitlement gate below, not replaced by it. A Pass holder
+ * or someone with a full credit balance shouldn't be able to script 500
+ * messages an hour either; this cap has nothing to do with whether an
+ * individual message is free, Pass-covered, or paid. Reuses farah_messages
+ * itself as the counter rather than adding new schema for it.
  */
 const MAX_USER_MESSAGES_PER_HOUR = 30;
 
@@ -76,6 +81,35 @@ export async function POST(request: Request) {
       { error: "That's a lot of messages this hour — give it a little while and try again." },
       { status: 429 },
     );
+  }
+
+  /*
+   * The real entitlement gate (0123) — checked BEFORE the Groq call below,
+   * same reasoning src/lib/tailoring/gate.ts's own check/commit split
+   * gives: an unaffordable message must never trigger (and cost Talentrah
+   * for) an LLM request. commitFarahChatAllowance runs only after that call
+   * actually succeeds, so a failed reply never burns the free allowance,
+   * the Pass's daily cap, or a credit spend for nothing. Applies identically
+   * to every entry point — free-text chat and the quick actions that also
+   * resolve here (interview-prep, career-advisor, salary-negotiation) share
+   * the exact same counter, not a separate one per surface.
+   */
+  let allowance;
+  try {
+    allowance = await checkFarahChatAllowance(user.id);
+  } catch (err) {
+    if (err instanceof InsufficientCreditsError) {
+      return NextResponse.json(
+        {
+          error:
+            err.capMessage ??
+            `Not enough credits — this needs ${err.required}, you have ${err.available}.`,
+          needsCredits: true,
+        },
+        { status: 402 },
+      );
+    }
+    throw err;
   }
 
   // Best-effort, and independent of whether Farah's reply below succeeds —
@@ -146,6 +180,11 @@ export async function POST(request: Request) {
     );
   }
 
+  // Only now — after the LLM call actually succeeded — commit the free
+  // allowance/Pass use or the credit spend. See checkFarahChatAllowance's
+  // own header for why this can't happen any earlier.
+  await commitFarahChatAllowance(user.id, allowance);
+
   const { error: insertUserError } = await supabase
     .from("farah_messages")
     .insert({ user_id: user.id, role: "user", content: message, context });
@@ -163,6 +202,7 @@ export async function POST(request: Request) {
       id: null,
       createdAt: new Date().toISOString(),
       persisted: false,
+      freeMessagesRemaining: allowance.freeMessagesRemaining,
     });
   }
 
@@ -171,5 +211,6 @@ export async function POST(request: Request) {
     id: farahRow.id,
     createdAt: farahRow.created_at,
     persisted: true,
+    freeMessagesRemaining: allowance.freeMessagesRemaining,
   });
 }

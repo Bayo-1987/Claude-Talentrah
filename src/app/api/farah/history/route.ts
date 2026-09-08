@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { farahChatFreeMessagesRemaining } from "@/lib/farah/chat-gate";
+import { hasActivePass } from "@/lib/passes/entitlement";
 
 /**
  * Farah's recent conversation, fetched by the panel itself.
@@ -50,8 +52,24 @@ export async function GET() {
     return NextResponse.json({ error: "Couldn't load your conversation." }, { status: 500 });
   }
 
+  /*
+   * The panel's own "X free messages left" indicator (0123) — computed here
+   * rather than a third round trip, since the panel already calls this
+   * route once on mount. `null` when the user holds an active Pass: a Pass
+   * covers messages regardless of the free counter, so surfacing "0 free
+   * left" to someone with effectively unlimited messages would read as a
+   * wall that isn't there. Not memoized (getActivePass is, deliberately —
+   * see its own header) because this reads a live rolling count, not a
+   * display-only summary.
+   */
+  const isPassHolder = await hasActivePass(user.id);
+  const freeMessagesRemaining = isPassHolder ? null : await farahChatFreeMessagesRemaining(user.id);
+
   // Newest-first out of the query (so the LIMIT takes the most recent turns),
   // oldest-first for the panel (so it reads top to bottom). Same two-step the
   // layout did.
-  return NextResponse.json({ messages: [...(data ?? [])].reverse() });
+  return NextResponse.json({
+    messages: [...(data ?? [])].reverse(),
+    freeMessagesRemaining,
+  });
 }

@@ -46,6 +46,13 @@ export function FarahPanel({ firstName, initialMessages }: FarahPanelProps) {
   const [input, setInput] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /*
+   * The gate's own indicator (0123) — `null` until the history fetch below
+   * resolves, and stays `null` for a Pass holder (the route itself omits it
+   * then; see /api/farah/history's own comment for why). Not shown at all
+   * while unknown, rather than a placeholder number that might be wrong.
+   */
+  const [freeRemaining, setFreeRemaining] = useState<number | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const localIdCounter = useRef(0);
   /*
@@ -110,7 +117,11 @@ export function FarahPanel({ firstName, initialMessages }: FarahPanelProps) {
         const res = await fetch("/api/farah/history");
         if (!res.ok) return;
         const data = await res.json();
-        if (ignore || !Array.isArray(data.messages) || data.messages.length === 0) return;
+        if (ignore) return;
+        if (typeof data.freeMessagesRemaining === "number" || data.freeMessagesRemaining === null) {
+          setFreeRemaining(data.freeMessagesRemaining);
+        }
+        if (!Array.isArray(data.messages) || data.messages.length === 0) return;
         // Held, not shown — see historyRevealed above. Nothing here decides
         // whether the reader sees it; "Continue" below does.
         setPendingHistory(data.messages as FarahMessage[]);
@@ -181,6 +192,9 @@ export function FarahPanel({ firstName, initialMessages }: FarahPanelProps) {
           created_at: data.createdAt,
         },
       ]);
+      if (typeof data.freeMessagesRemaining === "number" || data.freeMessagesRemaining === null) {
+        setFreeRemaining(data.freeMessagesRemaining);
+      }
     } catch {
       setError("Couldn't reach Farah — check your connection and try again.");
       setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
@@ -278,6 +292,21 @@ export function FarahPanel({ firstName, initialMessages }: FarahPanelProps) {
         <FarahMark size={28} />
         <EyebrowLabel size="sm">Farah — your co-pilot</EyebrowLabel>
       </div>
+
+      {/*
+        The gate's own indicator (0123) — plain Source Sans body text, no
+        pill/badge, no gamification meter, per the Editorial system's own
+        hard rule. `null` (unknown, or an active Pass) renders nothing:
+        silence is correct there, it's only a hard 0 with no warning that
+        reads as broken.
+      */}
+      {freeRemaining !== null && (
+        <p className="text-[12px] text-ink-soft">
+          {freeRemaining > 0
+            ? `${freeRemaining} free message${freeRemaining === 1 ? "" : "s"} left this month.`
+            : "You've used your free messages this month — further messages use credits."}
+        </p>
+      )}
 
       <div ref={scrollRef} className="flex max-h-80 flex-col gap-3 overflow-y-auto">
         {messages.length === 0 ? (

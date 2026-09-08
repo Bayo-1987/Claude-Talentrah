@@ -1299,6 +1299,7 @@ export type Database = {
           admin_review_requested_at: string | null
           admin_reviewed_at: string | null
           admin_reviewed_by: string | null
+          banner_path: string | null
           closed_at: string | null
           company_logo_url: string | null
           company_name: string
@@ -1316,20 +1317,19 @@ export type Database = {
           organization_id: string | null
           posted_at: string
           removal_reason: string | null
-          unlisted_at: string | null
-          banner_path: string | null
           removed_at: string | null
           removed_by: string | null
           salary_currency: string | null
           salary_max: number | null
           salary_min: number | null
           salary_unit: Database["public"]["Enums"]["salary_unit"] | null
-          search_vector: string | null
+          search_vector: unknown
           seniority: Database["public"]["Enums"]["seniority_level"] | null
           source_type: Database["public"]["Enums"]["job_source_type"]
           status: Database["public"]["Enums"]["job_status"]
           structured_jd: Json
           title: string
+          unlisted_at: string | null
           work_type: Database["public"]["Enums"]["work_type"] | null
           years_experience_min: number | null
         }
@@ -1339,6 +1339,7 @@ export type Database = {
           admin_review_requested_at?: string | null
           admin_reviewed_at?: string | null
           admin_reviewed_by?: string | null
+          banner_path?: string | null
           closed_at?: string | null
           company_logo_url?: string | null
           company_name: string
@@ -1358,20 +1359,19 @@ export type Database = {
           organization_id?: string | null
           posted_at?: string
           removal_reason?: string | null
-          unlisted_at?: string | null
-          banner_path?: string | null
           removed_at?: string | null
           removed_by?: string | null
           salary_currency?: string | null
           salary_max?: number | null
           salary_min?: number | null
           salary_unit?: Database["public"]["Enums"]["salary_unit"] | null
-          search_vector?: string | null
+          search_vector?: unknown
           seniority?: Database["public"]["Enums"]["seniority_level"] | null
           source_type: Database["public"]["Enums"]["job_source_type"]
           status?: Database["public"]["Enums"]["job_status"]
           structured_jd?: Json
           title: string
+          unlisted_at?: string | null
           work_type?: Database["public"]["Enums"]["work_type"] | null
           years_experience_min?: number | null
         }
@@ -1381,6 +1381,7 @@ export type Database = {
           admin_review_requested_at?: string | null
           admin_reviewed_at?: string | null
           admin_reviewed_by?: string | null
+          banner_path?: string | null
           closed_at?: string | null
           company_logo_url?: string | null
           company_name?: string
@@ -1400,20 +1401,19 @@ export type Database = {
           organization_id?: string | null
           posted_at?: string
           removal_reason?: string | null
-          unlisted_at?: string | null
-          banner_path?: string | null
           removed_at?: string | null
           removed_by?: string | null
           salary_currency?: string | null
           salary_max?: number | null
           salary_min?: number | null
           salary_unit?: Database["public"]["Enums"]["salary_unit"] | null
-          search_vector?: string | null
+          search_vector?: unknown
           seniority?: Database["public"]["Enums"]["seniority_level"] | null
           source_type?: Database["public"]["Enums"]["job_source_type"]
           status?: Database["public"]["Enums"]["job_status"]
           structured_jd?: Json
           title?: string
+          unlisted_at?: string | null
           work_type?: Database["public"]["Enums"]["work_type"] | null
           years_experience_min?: number | null
         }
@@ -1763,7 +1763,6 @@ export type Database = {
           credits_balance: number
           email: string
           farah_hint_dismissed_at: string | null
-          onboarding_skipped_at: string | null
           first_name: string | null
           free_trial_cover_letter_used: boolean
           free_trial_tailoring_used: boolean
@@ -1771,6 +1770,7 @@ export type Database = {
           last_name: string | null
           locale: string
           market_segment: Database["public"]["Enums"]["market_segment"]
+          onboarding_skipped_at: string | null
           referral_code: string
           referred_by: string | null
           resume_skills_notice_dismissed_at: string | null
@@ -1782,7 +1782,6 @@ export type Database = {
           credits_balance?: number
           email: string
           farah_hint_dismissed_at?: string | null
-          onboarding_skipped_at?: string | null
           first_name?: string | null
           free_trial_cover_letter_used?: boolean
           free_trial_tailoring_used?: boolean
@@ -1790,6 +1789,7 @@ export type Database = {
           last_name?: string | null
           locale?: string
           market_segment?: Database["public"]["Enums"]["market_segment"]
+          onboarding_skipped_at?: string | null
           referral_code: string
           referred_by?: string | null
           resume_skills_notice_dismissed_at?: string | null
@@ -1801,7 +1801,6 @@ export type Database = {
           credits_balance?: number
           email?: string
           farah_hint_dismissed_at?: string | null
-          onboarding_skipped_at?: string | null
           first_name?: string | null
           free_trial_cover_letter_used?: boolean
           free_trial_tailoring_used?: boolean
@@ -1809,6 +1808,7 @@ export type Database = {
           last_name?: string | null
           locale?: string
           market_segment?: Database["public"]["Enums"]["market_segment"]
+          onboarding_skipped_at?: string | null
           referral_code?: string
           referred_by?: string | null
           resume_skills_notice_dismissed_at?: string | null
@@ -2599,6 +2599,12 @@ export type Database = {
       }
       is_org_member: { Args: { p_organization_id: string }; Returns: boolean }
       is_valid_referral_code: { Args: { p_code: string }; Returns: boolean }
+      list_applied_migrations: {
+        Args: never
+        Returns: {
+          name: string
+        }[]
+      }
       normalize_email_for_self_referral: {
         Args: { p_email: string }
         Returns: string
@@ -2659,15 +2665,6 @@ export type Database = {
           status: Database["public"]["Enums"]["ad_campaign_status"]
         }[]
       }
-      storage_bucket_usage: {
-        Args: Record<PropertyKey, never>
-        Returns: {
-          bucket_id: string
-          is_public: boolean
-          object_count: number
-          bytes: number
-        }[]
-      }
       search_job_postings: {
         Args: {
           p_ids?: string[]
@@ -2678,36 +2675,35 @@ export type Database = {
           p_work_types?: Database["public"]["Enums"]["work_type"][]
         }
         Returns: {
-          company_logo_url: string | null
+          company_logo_url: string
           company_name: string
           created_at: string
           dedup_fingerprint: string
           description: string
-          employment_type: Database["public"]["Enums"]["employment_type"] | null
-          expires_at: string | null
-          external_source: string | null
-          external_url: string | null
+          employment_type: Database["public"]["Enums"]["employment_type"]
+          expires_at: string
+          external_source: string
+          external_url: string
           id: string
           last_checked_at: string
-          location: string | null
-          organization_id: string | null
+          location: string
+          organization_id: string
           posted_at: string
           rank: number
-          removal_reason: string | null
-          unlisted_at: string | null
-          removed_at: string | null
-          removed_by: string | null
-          salary_currency: string | null
-          salary_max: number | null
-          salary_min: number | null
-          salary_unit: Database["public"]["Enums"]["salary_unit"] | null
-          seniority: Database["public"]["Enums"]["seniority_level"] | null
+          removal_reason: string
+          removed_at: string
+          removed_by: string
+          salary_currency: string
+          salary_max: number
+          salary_min: number
+          salary_unit: Database["public"]["Enums"]["salary_unit"]
+          seniority: Database["public"]["Enums"]["seniority_level"]
           source_type: Database["public"]["Enums"]["job_source_type"]
           status: Database["public"]["Enums"]["job_status"]
           structured_jd: Json
           title: string
-          work_type: Database["public"]["Enums"]["work_type"] | null
-          years_experience_min: number | null
+          work_type: Database["public"]["Enums"]["work_type"]
+          years_experience_min: number
         }[]
       }
       set_ad_campaign_review: {
@@ -2729,6 +2725,15 @@ export type Database = {
         Returns: {
           balance_after: number
           ok: boolean
+        }[]
+      }
+      storage_bucket_usage: {
+        Args: never
+        Returns: {
+          bucket_id: string
+          bytes: number
+          is_public: boolean
+          object_count: number
         }[]
       }
       submit_ad_campaign_for_review: {
@@ -2763,6 +2768,9 @@ export type Database = {
         | "operators"
         | "blog"
         | "feature_flags"
+        | "people_list"
+        | "employer_verification"
+        | "job_review"
       application_source: "internal_apply" | "manual" | "auto_apply"
       application_stage:
         | "saved"
@@ -2782,6 +2790,7 @@ export type Database = {
         | "proceeded"
         | "blocked_insufficient_credits"
         | "covered_by_pass"
+        | "covered_by_free_allowance"
       credit_reason:
         | "signup_grant"
         | "tailoring_run"
@@ -2798,6 +2807,7 @@ export type Database = {
         | "scholarship_sop_draft"
         | "auto_apply_run"
         | "pricing_rebase_4x"
+        | "farah_chat_message"
       employment_type: "full_time" | "part_time" | "contract" | "internship"
       farah_message_role: "user" | "farah"
       feedback_category: "bug" | "idea" | "other"
@@ -2984,6 +2994,9 @@ export const Constants = {
         "operators",
         "blog",
         "feature_flags",
+        "people_list",
+        "employer_verification",
+        "job_review",
       ],
       application_source: ["internal_apply", "manual", "auto_apply"],
       application_stage: [
@@ -3006,6 +3019,7 @@ export const Constants = {
         "proceeded",
         "blocked_insufficient_credits",
         "covered_by_pass",
+        "covered_by_free_allowance",
       ],
       credit_reason: [
         "signup_grant",
@@ -3023,6 +3037,7 @@ export const Constants = {
         "scholarship_sop_draft",
         "auto_apply_run",
         "pricing_rebase_4x",
+        "farah_chat_message",
       ],
       employment_type: ["full_time", "part_time", "contract", "internship"],
       farah_message_role: ["user", "farah"],

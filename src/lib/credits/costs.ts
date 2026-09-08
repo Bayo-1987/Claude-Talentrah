@@ -35,4 +35,15 @@ export const CREDIT_COSTS = {
   bulletRewrite: 2, // ₦250
   templateUnlock: 10, // ₦1,250 — UNCHANGED, already fairly priced
   talentDirectoryVerification: 25, // ₦3,125 — UNCHANGED, already fairly priced
+  /**
+   * ₦125 — the smallest tier in this list, cheaper than bulletRewrite's 2
+   * credits. A NEW price, not a rebase: Farah chat had no credit gate at all
+   * until now (src/lib/farah/chat-gate.ts, after a 3-free-message/30-day
+   * rolling allowance and Pass coverage both miss). Proposed here because a
+   * conversational reply costs less to serve than a rewrite — but this is a
+   * real, founder-facing price like every other line above, not a number to
+   * treat as settled just because it shipped. Confirm or adjust in review;
+   * changing it is this one line, nothing structural.
+   */
+  farahChatMessage: 1, // ₦125 — PROPOSED, pending founder confirmation
 } as const;
