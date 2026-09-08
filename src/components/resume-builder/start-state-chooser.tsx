@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Button, BorderedCard, EyebrowLabel } from "@/components/ui";
+import { Button, EyebrowLabel } from "@/components/ui";
 import { createResumeAction } from "@/lib/resume-builder/actions";
 import { ResumeUpload } from "@/components/onboarding/resume-upload";
+import { PanelShell } from "@/components/resume-builder/panel-shell";
 import type { StructuredResume } from "@/lib/resume/types";
 
 /**
@@ -49,27 +50,6 @@ export function StartStateChooser({
         ← Back to templates
       </Link>
     </div>
-  );
-}
-
-function PanelShell({
-  eyebrow,
-  title,
-  description,
-  children,
-}: {
-  eyebrow: string;
-  title: string;
-  description: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <BorderedCard className="flex flex-col gap-3 p-5">
-      <EyebrowLabel size="sm">{eyebrow}</EyebrowLabel>
-      <h3 className="text-[16px]">{title}</h3>
-      <p className="flex-1 text-[13.5px] text-ink-soft">{description}</p>
-      {children}
-    </BorderedCard>
   );
 }
 
