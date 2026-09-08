@@ -91,6 +91,52 @@ export function isThinScreenableTagSet(totalScreenableTags: number): boolean {
 }
 
 /**
+ * Stage 8 continued again, 2026-09-08 — the sibling case the thin-denominator
+ * fix above doesn't reach: a posting with ZERO screenable tags. `score.ts`'s
+ * `computeMatchScore` gives that a neutral `skillCoverage = 0.5` (35-55 after
+ * seniority adjustment) "rather than a false 0 or 100" — reasonable for the
+ * STORED score in isolation, but that number then competes in Recommended/
+ * External/Saved's sort against postings where something was actually
+ * measured, however thin. Measured against real production `match_scores`
+ * (docs/zero-skill-scoring.md): every user with scores shows zero-tag
+ * postings averaging rank ~5-34 out of their board, while genuinely measured
+ * partial matches average rank 100-190+ — "we cannot tell" outranking "we
+ * checked, and it's weak." A zero-tag posting also always scores below 60
+ * (max 55), so `getDisplayMatchTier` already returns `null` for it — there is
+ * no tier word for a qualifier to suffix, which is why this is its own
+ * predicate rather than folded into `isThinScreenableTagSet`.
+ *
+ * Used in exactly three places, the same way `isThinScreenableTagSet` keeps
+ * `MatchTierBadge` and `match-breakdown.tsx` from disagreeing about what
+ * counts as thin: the sort partition in `jobs/page.tsx`'s three score-based
+ * tab branches, `MatchTierBadge`'s "Unscreened" qualifier, and
+ * `match-breakdown.tsx`'s existing "no screenable skills listed" line.
+ */
+export function hasNoScreenableSkills(totalScreenableTags: number): boolean {
+  return totalScreenableTags === 0;
+}
+
+/**
+ * Sort helper for the partition above: unscreened postings sort AFTER every
+ * measured one (however thin), never mixed in by raw score. `baseComparison`
+ * is whatever the tab's own comparator already produced for `a`/`b` — this
+ * only overrides that result when exactly one side is unscreened; when both
+ * (or neither) are, the tab's own ordering decides, unchanged.
+ *
+ * A partition, not a removal — see docs/zero-skill-scoring.md for why:
+ * removing zero-tag postings from the feed risks hiding a real opportunity
+ * behind an extraction gap, not a genuinely bad match.
+ */
+export function screenedFirstCompare(
+  aUnscreened: boolean,
+  bUnscreened: boolean,
+  baseComparison: number,
+): number {
+  if (aUnscreened !== bUnscreened) return aUnscreened ? 1 : -1;
+  return baseComparison;
+}
+
+/**
  * Stage 12: two consecutive "100% · Excellent" cards on the same feed load
  * (observed live) reads as the product overclaiming — a skill-overlap score
  * cannot support the certainty "100%" implies. Display-only: this never

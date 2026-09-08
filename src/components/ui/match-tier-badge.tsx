@@ -4,6 +4,7 @@ import {
   getDisplayMatchTier,
   displayMatchScore,
   isThinScreenableTagSet,
+  hasNoScreenableSkills,
 } from "@/lib/match-tier";
 import { cn } from "@/lib/cn";
 import type { MatchExplanation } from "@/lib/matching/score";
@@ -27,6 +28,13 @@ export interface MatchTierBadgeProps {
    * instead of showing an unqualified "Excellent" next to a sub-score line
    * that already says "thin" — see match-tier.ts's own header for the real
    * production case this fixes.
+   *
+   * A ZERO-tag denominator (`hasNoScreenableSkills`) is a different case, not
+   * a more extreme "thin": it always scores below 60 (score.ts's neutral 0.5
+   * fallback), so `tier` is already null and there's no tier word to suffix.
+   * This renders "Unscreened" as the label itself instead of a bare
+   * percentage — see match-tier.ts's own header for why this needs its own
+   * predicate rather than reusing `isThinScreenableTagSet`.
    */
   explanation?: MatchExplanation;
   /**
@@ -44,8 +52,8 @@ export interface MatchTierBadgeProps {
 /**
  * Below 60 there is no tier — see `getDisplayMatchTier`'s own comment for why
  * that's a display-only floor rather than a change to the stored tier. Never
- * a fourth colored label: the bare percentage renders in neutral `ink-soft`,
- * no tier word, no tier color.
+ * a fourth COLORED label: a sub-60 score renders in neutral `ink-soft`, no
+ * tier color, whether or not it carries the "Unscreened" qualifier above.
  */
 export function MatchTierBadge({
   score,
@@ -61,7 +69,14 @@ export function MatchTierBadge({
     : null;
   const isThin =
     tier === "excellent" && screenableTagTotal !== null && isThinScreenableTagSet(screenableTagTotal);
-  const label = tier ? (isThin ? `${MATCH_TIER_LABEL[tier]} — thin match` : MATCH_TIER_LABEL[tier]) : null;
+  const isUnscreened = screenableTagTotal !== null && hasNoScreenableSkills(screenableTagTotal);
+  const label = tier
+    ? isThin
+      ? `${MATCH_TIER_LABEL[tier]} — thin match`
+      : MATCH_TIER_LABEL[tier]
+    : isUnscreened
+      ? "Unscreened"
+      : null;
   const displayScore = displayMatchScore(score);
   const isCapped = showRawWhenCapped && score > 99;
 
