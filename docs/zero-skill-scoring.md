@@ -130,7 +130,7 @@ value), the Auto-Apply threshold, and the already-shipped thin-but-nonzero
 handling (`isThinScreenableTagSet`, `displayMatchScore`, the 99% cap) are
 all correct and untouched — confirmed above that none of them are even
 reachable by a zero-tag posting's score range. This is scoped entirely to
-the `jobSkillSet.size === 0` branch and how it competes in sort order nd
+the `jobSkillSet.size === 0` branch and how it competes in sort order and
 badge display, nothing upstream (`computeMatchScore`'s arithmetic itself is
 unchanged — the 0.5 fallback stays, since it's the persisted `score` and
 `tier` that other things key off of) or downstream of it.
