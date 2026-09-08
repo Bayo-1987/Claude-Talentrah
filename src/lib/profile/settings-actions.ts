@@ -163,3 +163,65 @@ export async function dismissResumeSkillsNoticeAction(): Promise<void> {
     console.error("[resume-skills-notice] could not persist dismissal:", error.message);
   }
 }
+
+/**
+ * Record that this user chose "Skip for now" on /onboarding.
+ *
+ * ── WHY A COLUMN AND NOT "THEY HAVE NO RESUME" ────────────────────────────
+ *
+ * Because those are different facts and they need opposite treatment.
+ * `/onboarding` used to decide purely on whether a base resume existed, which
+ * cannot tell "declined on purpose" from "never got here" — both are no
+ * resume. Gating sign-in on resume-existence alone would have re-prompted
+ * every legitimate skipper on every visit; gating on nothing, which is what
+ * `signInAction` did, stranded anyone whose confirmation link did not cleanly
+ * land. This column is the missing half: the offer was made and answered.
+ *
+ * It is written HERE ONLY, by the skip button, and never by resume creation —
+ * so it cannot become a second, disagreeing answer to "does this user have a
+ * resume?", which `resumes.is_base` already answers. The page redirects on
+ * either fact; neither claims the other's territory.
+ *
+ * Same shape as the two dismissals above (0066, 0072) and, like them, written
+ * through the user's own client against a column 0112 adds to the grant list.
+ * Setting it only silences your own prompt, so it carries no money, trust or
+ * identity.
+ */
+export async function skipOnboardingAction(): Promise<void> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+
+  /*
+   * FIRST SKIP WINS. `.is("onboarding_skipped_at", null)` keeps the original
+   * timestamp if this somehow runs twice, so the column answers "when did they
+   * first decline" rather than "when did they last press the button". Nothing
+   * depends on that today — the redirect only asks whether it is null — but a
+   * marker that quietly resets itself would be a poor thing to build any
+   * later answer on.
+   */
+  const { error } = await supabase
+    .from("profiles")
+    .update({ onboarding_skipped_at: new Date().toISOString() })
+    .eq("id", user.id)
+    .is("onboarding_skipped_at", null);
+
+  /*
+   * Checked, not assumed. A Supabase update that is REFUSED resolves with an
+   * error rather than throwing — the failure shape this repo has scar tissue
+   * about — and here it matters more than it does for the two dismissals
+   * above: if this write is lost, the user is sent back to /onboarding on
+   * their next sign-in, which is the exact re-prompting the column exists to
+   * prevent.
+   *
+   * Logged rather than surfaced, because the navigation must happen either
+   * way. Trapping someone on the screen they just asked to leave, to tell them
+   * about a failure they cannot act on, would be worse than seeing it once
+   * more.
+   */
+  if (error) {
+    console.error("[onboarding] could not persist skip:", error.message);
+  }
+}

@@ -100,7 +100,23 @@ test.describe("forgotten password", () => {
       await page.getByLabel("Email").fill(email);
       await page.getByLabel("Password").fill(OLD_PASSWORD);
       await page.getByRole("button", { name: "Log in" }).click();
-      await page.waitForURL("**/jobs");
+      /*
+       * /onboarding, not /jobs, and that is the correct destination rather
+       * than a concession: every authenticated entry point now lands there,
+       * and this account is created straight through the admin API with no
+       * base resume and no skip marker, so /onboarding has something to show
+       * it and does not bounce.
+       *
+       * The other 21 specs that drive this same form still wait on /jobs, and
+       * still pass, because they sign in as the seeded demo account — which
+       * HAS a base resume, so /onboarding hands it straight on. This file is
+       * the only one that mints a fresh account, which is why it is the only
+       * one that noticed.
+       *
+       * What this test is about is unchanged: reaching the app at all proves
+       * the credential worked, which is the assertion that matters here.
+       */
+      await page.waitForURL("**/onboarding**");
 
       /*
        * Signed out by clearing cookies rather than by driving the account
@@ -185,7 +201,7 @@ test.describe("forgotten password", () => {
       await page.getByLabel("Email").fill(email);
       await page.getByLabel("Password").fill(NEW_PASSWORD);
       await page.getByRole("button", { name: "Log in" }).click();
-      await page.waitForURL("**/jobs");
+      await page.waitForURL("**/onboarding**");
     } finally {
       // Checked, not fired and forgotten — a refused delete RESOLVES with an
       // error rather than throwing, which is how this repo accumulated test

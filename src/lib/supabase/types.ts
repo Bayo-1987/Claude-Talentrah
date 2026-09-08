@@ -1698,6 +1698,7 @@ export type Database = {
           credits_balance: number
           email: string
           farah_hint_dismissed_at: string | null
+          onboarding_skipped_at: string | null
           first_name: string | null
           free_trial_cover_letter_used: boolean
           free_trial_tailoring_used: boolean
@@ -1716,6 +1717,7 @@ export type Database = {
           credits_balance?: number
           email: string
           farah_hint_dismissed_at?: string | null
+          onboarding_skipped_at?: string | null
           first_name?: string | null
           free_trial_cover_letter_used?: boolean
           free_trial_tailoring_used?: boolean
@@ -1734,6 +1736,7 @@ export type Database = {
           credits_balance?: number
           email?: string
           farah_hint_dismissed_at?: string | null
+          onboarding_skipped_at?: string | null
           first_name?: string | null
           free_trial_cover_letter_used?: boolean
           free_trial_tailoring_used?: boolean

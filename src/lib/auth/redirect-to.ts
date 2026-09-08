@@ -42,3 +42,43 @@ export function safeRedirectTo(raw: unknown, fallback: string): string {
 
 /** The header the proxy stamps each request with, so a Server Component can know its own path. */
 export const PATH_HEADER = "x-talentrah-path";
+
+/**
+ * The path every successful authentication lands on, whatever the method.
+ *
+ * A LITERAL SHARED BY FIVE CALL SITES, not five copies of the same string.
+ * The bug this constant exists to prevent already happened: `signInAction`
+ * carried its own destination (`/jobs`) while signup, the OAuth callback and
+ * One Tap all carried `/onboarding`, so anyone whose email-confirmation click
+ * did not cleanly land fell back to the sign-in form and skipped onboarding
+ * permanently. Three entry points, two behaviours, and nothing that would fail
+ * if a fourth disagreed again.
+ */
+export const ONBOARDING_PATH = "/onboarding";
+
+/**
+ * Where to send someone who has just authenticated — always onboarding, with
+ * their intended destination carried along for onboarding to hand on at the
+ * end.
+ *
+ * UNCONDITIONAL ON PURPOSE. This deliberately does not ask "is this a new
+ * account?" or "do they have a resume?", because every version of this code
+ * that answered those questions at the entry point got one of them wrong.
+ * `/onboarding` itself is the single place that decides whether a given user
+ * needs onboarding, and it can do that for free: `requireUser()` already loads
+ * the profile it reads.
+ *
+ * The cost is one extra redirect hop for a returning user. That is the correct
+ * trade against the alternative, which is the routing rule living in four
+ * places and drifting in one of them — which is precisely how the bug this
+ * fixes was introduced.
+ *
+ * `next` is run through `safeRedirectTo` first: it arrives from a query string
+ * or a hidden form field, so it is attacker-controlled, and an unchecked value
+ * echoed into a redirect is an open redirect. An unusable value costs the
+ * return trip, never the sign-in.
+ */
+export function onboardingDestination(rawNext?: unknown): string {
+  const next = safeRedirectTo(rawNext, "");
+  return next ? `${ONBOARDING_PATH}?next=${encodeURIComponent(next)}` : ONBOARDING_PATH;
+}
