@@ -517,6 +517,19 @@ describe("Template library PR 3 — the 54-row library", () => {
  * `industry_category`. The "at least one row resolves to each persona"
  * check below is written generically over `EXAMPLE_PERSONAS` rather than
  * naming each persona, so it keeps working as later batches add more.
+ *
+ * REWORKED AGAIN for batch 3C (the batch that closed the last of the 44
+ * fallback slugs batches 3A/3B left standing): the "no persona is dead
+ * code" check below used to include `PREVIEW_SAMPLE_RESUME` in its loop and
+ * finish with a sanity check that a live slug DOES still fall back to it —
+ * true through batch 3B, since some real catalog slugs were still unmapped.
+ * As of batch 3C every one of the 65 live catalog slugs has its own
+ * dedicated persona, so that is no longer true and would never be true
+ * again outside of a brand-new template slug landing before its own batch —
+ * the loop now explicitly excludes `PREVIEW_SAMPLE_RESUME` (it isn't "dead
+ * code", it's a deliberate safety net that is SUPPOSED to be unreached
+ * against today's catalog) and the trailing sanity check is flipped to
+ * assert exactly that: no live slug resolves to the fallback anymore.
  */
 describe("Multi-persona template previews — every row renders ITS OWN persona", () => {
   it("every LIVE catalog row renders without throwing against the persona its own slug resolves to, and shows that persona's name", async () => {
@@ -543,21 +556,34 @@ describe("Multi-persona template previews — every row renders ITS OWN persona"
     expect(broken, "these catalog rows do not render the persona their own slug resolves to").toEqual([]);
   });
 
-  it("at least one row in the live catalog actually resolves to each persona in the registry (no persona is dead code)", async () => {
+  it("at least one row in the live catalog actually resolves to each DEDICATED persona in the registry (no persona is dead code)", async () => {
     const { data, error } = await admin.from("resume_templates").select("slug");
     if (error) throw error;
 
     const resolvedPersonas = new Set((data ?? []).map((r) => personaForSlug(r.slug)));
 
+    // EXCLUDES `PREVIEW_SAMPLE_RESUME` deliberately, as of batch 3C — see the
+    // dedicated sanity check right below this loop for why. Every OTHER
+    // persona in the registry is a dedicated, slug-mapped persona that some
+    // live catalog row must actually resolve to, or it really would be dead
+    // code (a persona nothing ever seeds).
     for (const persona of EXAMPLE_PERSONAS) {
+      if (persona === PREVIEW_SAMPLE_RESUME) continue;
       expect(
         resolvedPersonas.has(persona),
         `no live catalog row resolved to "${persona.contact.name}"'s persona`,
       ).toBe(true);
     }
-    // Sanity: PREVIEW_SAMPLE_RESUME (the fallback) is reachable too — it's
-    // also a member of EXAMPLE_PERSONAS, so the loop above already checks
-    // it, but this pins the reason down explicitly.
-    expect(resolvedPersonas.has(PREVIEW_SAMPLE_RESUME), "no live slug fell back to PREVIEW_SAMPLE_RESUME").toBe(true);
+    // AS OF BATCH 3C, THIS IS THE OPPOSITE OF WHAT IT USED TO ASSERT. Before
+    // this batch, `PREVIEW_SAMPLE_RESUME` was still every unmapped slug's
+    // fallback, so `resolvedPersonas.has(PREVIEW_SAMPLE_RESUME)` was
+    // expected `true`. Now every one of the 65 live catalog slugs has its
+    // own dedicated persona (see persona-for-slug.test.ts's definitive
+    // regression test for the direct proof), so NO live row should resolve
+    // to the fallback anymore — this assertion flips to `false` and stays
+    // that way unless a future template is added without its own persona.
+    expect(resolvedPersonas.has(PREVIEW_SAMPLE_RESUME), "a live slug is still falling back to PREVIEW_SAMPLE_RESUME").toBe(
+      false,
+    );
   });
 });

@@ -37,12 +37,28 @@
  *     BATCH 3B GAVE BOTH OF THOSE THEIR OWN PERSONA TOO (`rounds` ->
  *     HOSPITAL_PHYSICIAN_RESUME, `statute` -> LITIGATION_COUNSEL_RESUME —
  *     Healthcare and Legal are now fully split), so they can no longer be
- *     the "no dedicated persona" proof either. The two "falls back rather
- *     than crashing" proofs below now use two different, still-unmapped
- *     PREMIUM slugs from categories batch 3C hasn't reached
- *     (`success-story` — Customer Success, `byline` — Creative & Media),
- *     unlocked the same way `site-plan`/`rig-report`/`product-tech`/
- *     `rounds`/`statute` already were.
+ *     the "no dedicated persona" proof either. Through batch 3B this suite
+ *     used two different, still-unmapped PREMIUM slugs from categories
+ *     batch 3C hadn't reached yet (`success-story` — Customer Success,
+ *     `byline` — Creative & Media) for that proof.
+ *
+ *     BATCH 3C GAVE BOTH OF *THOSE* THEIR OWN PERSONA TOO — it is the last
+ *     of the three batches, and after it there is no real catalog slug left
+ *     to demonstrate "still unmapped" with. `successStoryTemplateId` and
+ *     `bylineTemplateId` (renamed from `customerSuccessNoPersonaTemplateId`/
+ *     `creativeMediaNoPersonaTemplateId`) now instead prove `success-story`
+ *     and `byline` resolve to their OWN new batch-3C personas, folded into
+ *     the "BATCH 3C: each of the five brand-new categories..." group test
+ *     below (the same style batch 3B used for its three brand-new
+ *     categories). The "falls back rather than crashing" proof needed a new
+ *     mechanism instead: `unmappedSlugTemplateId` is a SYNTHETIC
+ *     `resume_templates` row this suite inserts directly (a fake slug with
+ *     no `SLUG_PERSONA_MAP` entry), simulating a hypothetical future
+ *     template added to the catalog before its own batch gives it a
+ *     dedicated persona. That is now the only way to exercise this path
+ *     end-to-end, since every REAL catalog slug resolves to a dedicated
+ *     persona as of this batch (see persona-for-slug.test.ts's own
+ *     definitive regression test for the unit-level proof of that).
  *
  *     `site-plan`, `rig-report` and `product-tech` moved from free to
  *     premium in the resume-template free-tier cut (migration 0110); `rounds`
@@ -53,7 +69,9 @@
  *     about persona resolution, not premium gating (that gate has its own
  *     dedicated describe block, "premium template gating is not weakened by
  *     any start state", which picks a premium template dynamically and is
- *     unaffected by which specific slugs are premium).
+ *     unaffected by which specific slugs are premium). The synthetic
+ *     `unmappedSlugTemplateId` fixture is deliberately NON-premium — its job
+ *     is proving persona-fallback behavior, not exercising the unlock gate.
  *
  * `createResumeAction`'s own `resume_templates` select changed in the
  * multi-persona-registry pass too — it now selects `slug` (used to resolve
@@ -99,6 +117,21 @@ import {
   WAREHOUSE_OPERATIONS_MANAGER_RESUME,
   FLEET_ROUTE_PLANNING_MANAGER_RESUME,
   SUPPLY_CHAIN_PROCUREMENT_MANAGER_RESUME,
+  BYLINE_JOURNALIST_RESUME,
+  REEL_VIDEO_EDITOR_RESUME,
+  PRESS_KIT_PUBLICIST_RESUME,
+  FIELD_CUSTOMER_SUCCESS_MANAGER_RESUME,
+  TECHNICAL_HELP_DESK_SPECIALIST_RESUME,
+  CUSTOMER_SUCCESS_RENEWALS_MANAGER_RESUME,
+  PRODUCT_UX_DESIGNER_RESUME,
+  GRAPHIC_BRAND_DESIGNER_RESUME,
+  CREATIVE_DIRECTOR_STUDIO_RESUME,
+  HOTEL_CONCIERGE_RESUME,
+  HOTEL_FRONT_DESK_SUPERVISOR_RESUME,
+  TRAVEL_ITINERARY_COORDINATOR_RESUME,
+  NOC_FIELD_NETWORK_ENGINEER_RESUME,
+  RF_TRANSMISSION_ENGINEER_RESUME,
+  NETWORK_RELIABILITY_ENGINEER_RESUME,
 } from "@/lib/resume-builder/preview-sample";
 
 const testClientRef = vi.hoisted(() => ({ current: null as DB | null }));
@@ -164,9 +197,29 @@ let productTechTemplateId: string;
 // BATCH 3B: `rounds` and `statute` ALSO now resolve to their own dedicated
 // persona (Healthcare and Legal are fully split as of this batch), so they
 // can no longer prove the fallback either. Two different, still-unmapped
-// PREMIUM slugs from categories batch 3C hasn't reached cover it instead.
-let customerSuccessNoPersonaTemplateId: string; // "success-story" — Customer Success
-let creativeMediaNoPersonaTemplateId: string; // "byline" — Creative & Media
+// PREMIUM slugs from categories batch 3C hadn't reached yet covered it
+// instead, through batch 3B.
+// BATCH 3C: `success-story` and `byline` ALSO now resolve to their own
+// dedicated persona (Customer Success and Creative & Media are fully split
+// as of this batch), so these two variables no longer prove the fallback
+// either — renamed from `customerSuccessNoPersonaTemplateId`/
+// `creativeMediaNoPersonaTemplateId` and repurposed to prove their OWN new
+// personas instead (folded into the "BATCH 3C: each of the five brand-new
+// categories..." group test). `unmappedSlugTemplateId` (below) is the new,
+// and now permanent, mechanism for the "falls back rather than crashing"
+// proof — see this file's header for why a real catalog slug can no longer
+// demonstrate that.
+let successStoryTemplateId: string; // "success-story" — Customer Success
+let bylineTemplateId: string; // "byline" — Creative & Media
+// A SYNTHETIC `resume_templates` row this suite inserts directly, with a
+// slug guaranteed not to appear in `SLUG_PERSONA_MAP` (a randomised suffix
+// avoids colliding with a parallel test run against the same CI database).
+// Non-premium, so it never touches the unlock gate. `resumes.template_id`
+// has no `ON DELETE CASCADE` back to `resume_templates`, so this row must
+// outlive every fixture resume that points at it — `afterAll` deletes it
+// only after `createdResumeIds` is cleared, same ordering constraint as any
+// other fixture template row in this file.
+let unmappedSlugTemplateId: string;
 const createdResumeIds: string[] = [];
 
 /**
@@ -220,12 +273,32 @@ beforeAll(async () => {
   sitePlanTemplateId = await templateIdBySlug("site-plan");
   rigReportTemplateId = await templateIdBySlug("rig-report");
   productTechTemplateId = await templateIdBySlug("product-tech");
-  // BATCH 3B: two still-unmapped premium slugs, from two different
-  // categories batch 3C hasn't reached, now carry the "falls back rather
-  // than crashing" proof that `rounds`/`statute` used to carry before batch
-  // 3B gave both of those their own persona.
-  customerSuccessNoPersonaTemplateId = await templateIdBySlug("success-story");
-  creativeMediaNoPersonaTemplateId = await templateIdBySlug("byline");
+  // BATCH 3C: `success-story`/`byline` now resolve to their own dedicated
+  // persona (see this file's header) — these two variables are still
+  // fetched the same way, just renamed and repurposed to prove that instead
+  // of the fallback.
+  successStoryTemplateId = await templateIdBySlug("success-story");
+  bylineTemplateId = await templateIdBySlug("byline");
+
+  // The permanent "falls back rather than crashing" fixture: a template row
+  // with a slug this suite controls and that will never be added to
+  // `SLUG_PERSONA_MAP`, since it doesn't correspond to a real template. See
+  // this variable's own declaration comment above for why it exists.
+  const { data: unmappedTemplate, error: unmappedTemplateErr } = await admin
+    .from("resume_templates")
+    .insert({
+      name: "Unmapped Persona Fixture (batch 3C)",
+      slug: `unmapped-persona-fixture-${userId}`,
+      industry_category: "Test Fixture",
+      is_premium: false,
+      unlock_cost_credits: 0,
+    })
+    .select("id")
+    .single();
+  if (unmappedTemplateErr || !unmappedTemplate) {
+    throw new Error(`Could not create the synthetic unmapped-slug fixture template: ${unmappedTemplateErr?.message}`);
+  }
+  unmappedSlugTemplateId = unmappedTemplate.id;
 
   // Picked AFTER the persona-dedicated premium slugs above, and explicitly
   // excluding their ids. This describe block's own `afterEach` deletes
@@ -245,8 +318,8 @@ beforeAll(async () => {
     sitePlanTemplateId,
     rigReportTemplateId,
     productTechTemplateId,
-    customerSuccessNoPersonaTemplateId,
-    creativeMediaNoPersonaTemplateId,
+    successStoryTemplateId,
+    bylineTemplateId,
   ]);
   const { data: premiumRows, error: premiumErr } = await admin
     .from("resume_templates")
@@ -271,6 +344,15 @@ afterAll(async () => {
     const { error } = await admin.from("resumes").delete().in("id", createdResumeIds);
     if (error) console.warn(`[cleanup] could not delete fixture resumes: ${error.message}`);
   }
+  // Must run AFTER the resumes above are gone: `resumes.template_id` has no
+  // cascade back to `resume_templates`, so deleting this row first would
+  // fail (or, worse, silently no-op — see CLAUDE.md's note on checking the
+  // `error` on every test-cleanup delete) while a fixture resume still
+  // points at it.
+  if (unmappedSlugTemplateId) {
+    const { error } = await admin.from("resume_templates").delete().eq("id", unmappedSlugTemplateId);
+    if (error) console.warn(`[cleanup] could not delete the unmapped-slug fixture template: ${error.message}`);
+  }
   if (userId) await deleteTestUsers([userId]);
 }, 60_000);
 
@@ -287,13 +369,14 @@ describe("start-state content selection (sabotage-proof target #3)", () => {
     expect(await createdContent(resumeId)).toEqual(EMPTY_RESUME);
   });
 
-  it('"example" on a still-unmapped premium template (no dedicated persona) seeds the fallback PREVIEW_SAMPLE_RESUME, not a placeholder', async () => {
+  it('"example" on a template with no dedicated persona seeds the fallback PREVIEW_SAMPLE_RESUME, not a placeholder', async () => {
     let resumeId = "";
     try {
-      // Pinned to `success-story` (Customer Success) explicitly — see this
-      // file's header for why `rounds` (this test's slug through batch 3A)
-      // can no longer be the example: batch 3B gave it its own persona.
-      await createResumeAction(customerSuccessNoPersonaTemplateId, "example");
+      // Uses the synthetic `unmappedSlugTemplateId` fixture — see this
+      // file's header for why no REAL catalog slug can demonstrate this
+      // anymore as of batch 3C (every one of the 65 now has a dedicated
+      // persona).
+      await createResumeAction(unmappedSlugTemplateId, "example");
       throw new Error("expected a redirect");
     } catch (err) {
       resumeId = redirectedResumeId(err);
@@ -456,18 +539,39 @@ describe("createResumeAction's 'example' start state seeds the persona matching 
     expect(content).not.toEqual(PREVIEW_SAMPLE_RESUME);
   });
 
-  it("a category with no dedicated persona still seeds something sane (the fallback), not a crash — proven on TWO different categories (Customer Success, Creative & Media)", async () => {
-    for (const templateId of [customerSuccessNoPersonaTemplateId, creativeMediaNoPersonaTemplateId]) {
-      let resumeId = "";
+  it("a template with no dedicated persona still seeds something sane (the fallback), not a crash — proven on a SECOND, independently-created synthetic fixture, so the behavior isn't tied to one specific row", async () => {
+    // Deliberately its own throwaway template row, separate from `beforeAll`'s
+    // `unmappedSlugTemplateId` fixture and cleaned up locally rather than in
+    // the shared `afterAll` — this test's whole point is that the fallback
+    // isn't a fluke of one particular id, so it proves the mechanism against
+    // an independently-created row rather than reusing the first one.
+    const { data: secondFixture, error: fixtureErr } = await admin
+      .from("resume_templates")
+      .insert({
+        name: "Second Unmapped Persona Fixture (batch 3C)",
+        slug: `unmapped-persona-fixture-2-${userId}`,
+        industry_category: "Test Fixture",
+        is_premium: false,
+        unlock_cost_credits: 0,
+      })
+      .select("id")
+      .single();
+    if (fixtureErr || !secondFixture) throw new Error(`fixture template: ${fixtureErr?.message}`);
+
+    let resumeId = "";
+    try {
       try {
-        await createResumeAction(templateId, "example");
+        await createResumeAction(secondFixture.id, "example");
         throw new Error("expected a redirect");
       } catch (err) {
         resumeId = redirectedResumeId(err);
       }
-      createdResumeIds.push(resumeId);
       const content = await createdContent(resumeId);
       expect(content).toEqual(PREVIEW_SAMPLE_RESUME);
+    } finally {
+      await admin.from("resumes").delete().eq("id", resumeId);
+      const { error: deleteErr } = await admin.from("resume_templates").delete().eq("id", secondFixture.id);
+      if (deleteErr) console.warn(`[cleanup] could not delete second fixture template: ${deleteErr.message}`);
     }
   });
 
@@ -601,6 +705,84 @@ describe("createResumeAction's 'example' start state seeds the persona matching 
       expect(contents[1]).not.toEqual(contents[2]);
     }
   });
+
+  /**
+   * BATCH 3C (this pass, third and final of three): the same style as the
+   * BATCH 3B test above, now covering the last five brand-new categories.
+   * `success-story` and `byline` are folded in here rather than getting
+   * their own single-slug tests — see this file's header for why those two
+   * variables were renamed and repurposed instead of continuing to prove
+   * the fallback.
+   */
+  it("BATCH 3C: each of the five brand-new categories (Creative & Media, Customer Success, Design, Hospitality & Travel, Telecommunications) resolves all 3 of its slugs to genuinely distinct personas, not a title swap", async () => {
+    const groups: Array<[string, string, string, StructuredResume, StructuredResume, StructuredResume]> = [
+      ["byline", "press-kit", "reel", BYLINE_JOURNALIST_RESUME, PRESS_KIT_PUBLICIST_RESUME, REEL_VIDEO_EDITOR_RESUME],
+      [
+        "field-notes",
+        "help-desk",
+        "success-story",
+        FIELD_CUSTOMER_SUCCESS_MANAGER_RESUME,
+        TECHNICAL_HELP_DESK_SPECIALIST_RESUME,
+        CUSTOMER_SUCCESS_RENEWALS_MANAGER_RESUME,
+      ],
+      [
+        "design-showcase",
+        "portfolio-grid",
+        "studio-brief",
+        PRODUCT_UX_DESIGNER_RESUME,
+        GRAPHIC_BRAND_DESIGNER_RESUME,
+        CREATIVE_DIRECTOR_STUDIO_RESUME,
+      ],
+      [
+        "concierge",
+        "front-desk",
+        "itinerary",
+        HOTEL_CONCIERGE_RESUME,
+        HOTEL_FRONT_DESK_SUPERVISOR_RESUME,
+        TRAVEL_ITINERARY_COORDINATOR_RESUME,
+      ],
+      [
+        "network-ops",
+        "signal",
+        "uptime",
+        NOC_FIELD_NETWORK_ENGINEER_RESUME,
+        RF_TRANSMISSION_ENGINEER_RESUME,
+        NETWORK_RELIABILITY_ENGINEER_RESUME,
+      ],
+    ];
+
+    for (const [slugA, slugB, slugC, personaA, personaB, personaC] of groups) {
+      const contents: StructuredResume[] = [];
+      for (const [slug, persona] of [
+        [slugA, personaA],
+        [slugB, personaB],
+        [slugC, personaC],
+      ] as const) {
+        // `success-story`/`byline` already have unlocked template ids from
+        // `beforeAll` (`successStoryTemplateId`/`bylineTemplateId`), but
+        // `templateIdBySlug` is idempotent (it looks up by slug and upserts
+        // the unlock on conflict), so calling it again here for those two is
+        // harmless and keeps this loop uniform across all 15 slugs.
+        const templateId = await templateIdBySlug(slug);
+        let resumeId = "";
+        try {
+          await createResumeAction(templateId, "example");
+          throw new Error("expected a redirect");
+        } catch (err) {
+          resumeId = redirectedResumeId(err);
+        }
+        createdResumeIds.push(resumeId);
+        const content = await createdContent(resumeId);
+        expect(content, `slug "${slug}"`).toEqual(persona);
+        expect(content, `slug "${slug}"`).not.toEqual(PREVIEW_SAMPLE_RESUME);
+        contents.push(content);
+      }
+      // Pairwise distinctness within the group.
+      expect(contents[0]).not.toEqual(contents[1]);
+      expect(contents[0]).not.toEqual(contents[2]);
+      expect(contents[1]).not.toEqual(contents[2]);
+    }
+  }, 60_000); // 15 slugs' worth of sequential DB round-trips (5 categories x 3), same reasoning as beforeAll's own 60s allowance — the default 20s test timeout was too tight for this many sequential template lookups/unlocks/inserts against a real network round-trip.
 });
 
 describe("premium template gating is not weakened by any start state (sabotage-proof target #4)", () => {

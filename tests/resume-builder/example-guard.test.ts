@@ -65,6 +65,17 @@
  * of this file's own fixture pairs was reused by any of the 15. Every
  * `it.each(EXAMPLE_PERSONAS...)` block below again picked up the 15 new
  * personas automatically with no changes needed.
+ *
+ * BATCH 3C (THIRD AND FINAL): `EXAMPLE_PERSONAS` grew again, 51 to 66
+ * personas — the last 15, closing out every remaining fallback slug in the
+ * catalog (see preview-sample.ts's own header). Same convention followed
+ * before writing this batch's content: this file's own fixture pairs
+ * ("Ahmadu Bello University" / "B.Eng." / Electrical Engineering above,
+ * "University of Lagos" / "BSc" / Computer Science below) were checked
+ * against all 15 new personas' education entries — neither is reused (one
+ * new persona also uses "University of Lagos", but with a different degree,
+ * "B.A."). Every `it.each(EXAMPLE_PERSONAS...)` block below again picked up
+ * the 15 new personas automatically with no changes needed.
  */
 import { describe, expect, it } from "vitest";
 import { EMPTY_RESUME, type StructuredResume } from "@/lib/resume/types";
