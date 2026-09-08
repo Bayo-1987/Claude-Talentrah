@@ -46,6 +46,7 @@ const ITEMS = [
    * finance page itself free of names.
    */
   { href: "/admin/finance", label: "Finance", key: "finance", permission: "finance" },
+  { href: "/admin/job-review", label: "Job review", key: "jobReview", permission: "job_review" },
 ] as const;
 
 /*

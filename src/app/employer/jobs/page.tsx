@@ -28,7 +28,7 @@ export default async function JobsPostedPage({
       supabase
         .from("job_postings")
         .select(
-          "id, title, location, status, posted_at, work_type, employment_type, removal_reason, unlisted_at",
+          "id, title, location, status, posted_at, work_type, employment_type, removal_reason, unlisted_at, admin_review_requested_at, admin_review_decision",
         )
         .eq("organization_id", organization.id)
         .eq("source_type", "internal")
@@ -85,6 +85,8 @@ export default async function JobsPostedPage({
     workType: job.work_type,
     employmentType: job.employment_type,
     unlistedAt: mintedAt.get(job.id) ?? job.unlisted_at ?? null,
+    adminReviewRequestedAt: job.admin_review_requested_at,
+    adminReviewDecision: job.admin_review_decision,
     applicationCount: countByJob.get(job.id) ?? 0,
   }));
 

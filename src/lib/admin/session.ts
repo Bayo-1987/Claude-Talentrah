@@ -62,6 +62,10 @@ export type AdminPermission =
   // 0103. Reading the seeker roster is a different power from looking up one
   // billing record, so it is a different grant — see that migration's header.
   | "people_list"
+  // 0118. Deciding a Path 3 per-job approval is a trust decision over the
+  // exact gate 0027 exists to keep shut, not a plain content area — starts
+  // granted to nobody, exactly like `people_list` above.
+  | "job_review"
   | "operators";
 
 export interface AdminIdentity {

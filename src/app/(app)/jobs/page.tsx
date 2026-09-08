@@ -298,7 +298,7 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
   // selects it and no card renders it, not because it is always null.
   type FeedJobPosting = Omit<
     Tables<"job_postings">,
-    "description_preview" | "search_vector" | "closed_at" | "unlisted_at" | "banner_path"
+    "description_preview" | "search_vector" | "closed_at" | "unlisted_at" | "banner_path" | "admin_review_decision" | "admin_review_note" | "admin_review_requested_at" | "admin_reviewed_at" | "admin_reviewed_by"
   >;
   const matchingFilters: FeedJobPosting[] = jobsRaw ?? [];
 

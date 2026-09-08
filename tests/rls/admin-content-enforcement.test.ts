@@ -238,6 +238,11 @@ describe("0079: the permission catalog comes from the enum", () => {
                      "courses", "operations", "finance", "people", "operators"]) {
       expect(keys, `catalog is missing ${k}`).toContain(k);
     }
+    // 0118: `job_review` needs no change here or in the role editor to
+    // become grantable — this is what actually proves that, instead of
+    // trusting 0113's own investigation (which found the same for
+    // `employer_verification`) applies here too on faith.
+    expect(keys, "catalog is missing job_review (0118)").toContain("job_review");
     expect(keys.length, "catalog should reflect the enum, not a frozen list")
       .toBeGreaterThanOrEqual(9);
   });

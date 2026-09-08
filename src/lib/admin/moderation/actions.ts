@@ -363,3 +363,88 @@ export async function decideFeedbackAction(
   };
   return { status: "success", targetId: id, message: LABEL[status] };
 }
+
+/**
+ * Approve or reject a Path 3 individual job-posting review (0118/0119).
+ *
+ * APPROVING DOES NOT VERIFY THE ORGANISATION. It sets `admin_review_decision
+ * = 'approved'` on THIS posting only — `organizations.verified` is untouched,
+ * on purpose, per the founder's own framing of Path 3: every other and every
+ * future posting from the same org needs its own separate approval. That is
+ * the entire reason this is a `job_postings` column and not a shortcut into
+ * `organizations.verified`.
+ *
+ * A CONDITIONAL UPDATE, precondition and write together, same shape as
+ * `decideCacVerificationAction`'s approve branch and `spendCredits`/0035:
+ * `.is("admin_review_decision", null)` means two admins opening the same
+ * posting cannot both "win" — whichever UPDATE runs second matches zero rows
+ * and is told the queue moved on, rather than silently overwriting the first
+ * decision's `admin_reviewed_by`. Both approve and reject go through the same
+ * conditional UPDATE here, unlike CAC's reject (which writes nothing) —
+ * there IS a column to move here (`admin_review_decision`), so both
+ * directions get the same atomicity.
+ */
+export async function decideJobReviewAction(
+  _prev: ModerationState,
+  formData: FormData,
+): Promise<ModerationState> {
+  const admin = await requirePermission("job_review");
+  const id = String(formData.get("id") ?? "");
+  const decision = String(formData.get("decision") ?? "");
+  const note = String(formData.get("note") ?? "").trim();
+
+  if (!id || (decision !== "approved" && decision !== "rejected")) {
+    return { status: "error", message: "Pick approve or reject.", targetId: id };
+  }
+  if (decision === "rejected" && !note) {
+    // A rejection with no reason leaves the employer nothing to fix — there
+    // is no resubmit action for a single posting today, so this note is the
+    // only explanation they will ever get.
+    return { status: "error", message: "A rejection needs a reason.", targetId: id };
+  }
+
+  const supabase = createServiceRoleClient();
+
+  const { data: updated, error } = await supabase
+    .from("job_postings")
+    .update({
+      admin_review_decision: decision,
+      admin_reviewed_at: new Date().toISOString(),
+      admin_reviewed_by: admin.adminId,
+      admin_review_note: note || null,
+    })
+    .eq("id", id)
+    .is("admin_review_decision", null)
+    .select("id, title, company_name")
+    .maybeSingle();
+
+  if (error) {
+    console.error("[admin-moderation] job review", error);
+    return { status: "error", message: "Something went wrong on our end.", targetId: id };
+  }
+  if (!updated) {
+    return {
+      status: "error",
+      message: "Already decided by someone else — reload to see the current queue.",
+      targetId: id,
+    };
+  }
+
+  await recordAdminAction({
+    identity: admin,
+    action: decision === "approved" ? "job_posting.review_approved" : "job_posting.review_rejected",
+    targetTable: "job_postings",
+    targetId: id,
+    detail: { note: note || null },
+  });
+
+  revalidatePath("/admin/job-review");
+  return {
+    status: "success",
+    targetId: id,
+    message:
+      decision === "approved"
+        ? `Approved “${updated.title}” for the public feed. This does not verify ${updated.company_name} — every other posting still needs its own review.`
+        : `Rejected, with your reason recorded.`,
+  };
+}

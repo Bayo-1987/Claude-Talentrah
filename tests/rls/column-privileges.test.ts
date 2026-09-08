@@ -429,6 +429,211 @@ describe("job_postings: an employer can write their own posting's salary (0085)"
   });
 });
 
+describe("job_postings: an employer can request Path 3 review but not decide it (0119)", () => {
+  /**
+   * POSITIVE CONTROL. `admin_review_requested_at` is the one column of the
+   * five 0119 adds that is granted to `authenticated` — the employer's own
+   * "Submit for review" click.
+   */
+  it("can set admin_review_requested_at on its own posting", async () => {
+    const { data: org } = await user.client
+      .from("organizations")
+      .insert({ name: `COLPRIV-TEST ${randomUUID().slice(0, 8)}`, created_by: user.id })
+      .select("id")
+      .single();
+    try {
+      await user.client.from("organization_members").insert({
+        organization_id: org!.id,
+        user_id: user.id,
+        role: "owner",
+      });
+
+      const { data: job } = await user.client
+        .from("job_postings")
+        .insert({
+          source_type: "internal",
+          organization_id: org!.id,
+          company_name: "COLPRIV-TEST Co",
+          title: "COLPRIV-TEST Path3 Role",
+          description: "Fixture posting for the Path 3 column-privilege test.",
+          structured_jd: {},
+          status: "open",
+          posted_at: new Date().toISOString(),
+          dedup_fingerprint: randomUUID(),
+        })
+        .select("id")
+        .single();
+
+      const { error } = await user.client
+        .from("job_postings")
+        .update({ admin_review_requested_at: new Date().toISOString() })
+        .eq("id", job!.id);
+      expect(error, "an employer must be able to request Path 3 review on their own posting").toBeNull();
+
+      const { data: after } = await admin
+        .from("job_postings")
+        .select("admin_review_requested_at")
+        .eq("id", job!.id)
+        .single();
+      expect(after?.admin_review_requested_at).not.toBeNull();
+    } finally {
+      await deleteTestOrgs([org!.id]);
+    }
+  });
+
+  /**
+   * NEGATIVE CONTROL. `admin_review_decision`, `admin_reviewed_at` and
+   * `admin_reviewed_by` are what actually grant public reach outside the
+   * usual verification routes — self-approval here would make the entire
+   * queue optional.
+   */
+  it("cannot set admin_review_decision, admin_reviewed_at or admin_reviewed_by, but can still request review", async () => {
+    const { data: org } = await user.client
+      .from("organizations")
+      .insert({ name: `COLPRIV-TEST ${randomUUID().slice(0, 8)}`, created_by: user.id })
+      .select("id")
+      .single();
+    try {
+      await user.client.from("organization_members").insert({
+        organization_id: org!.id,
+        user_id: user.id,
+        role: "owner",
+      });
+
+      const { data: job } = await user.client
+        .from("job_postings")
+        .insert({
+          source_type: "internal",
+          organization_id: org!.id,
+          company_name: "COLPRIV-TEST Co",
+          title: "COLPRIV-TEST Path3 Self-Approve Role",
+          description: "Fixture posting for the Path 3 negative column-privilege test.",
+          structured_jd: {},
+          status: "open",
+          posted_at: new Date().toISOString(),
+          dedup_fingerprint: randomUUID(),
+        })
+        .select("id")
+        .single();
+
+      await user.client
+        .from("job_postings")
+        .update({
+          admin_review_decision: "approved",
+          admin_reviewed_at: new Date().toISOString(),
+          admin_reviewed_by: user.id,
+        })
+        .eq("id", job!.id);
+
+      const { data: after } = await admin
+        .from("job_postings")
+        .select("admin_review_decision, admin_reviewed_at, admin_reviewed_by")
+        .eq("id", job!.id)
+        .single();
+      expect(after?.admin_review_decision, "an org self-approved its own Path 3 review").toBeNull();
+      expect(after?.admin_reviewed_at).toBeNull();
+      expect(after?.admin_reviewed_by).toBeNull();
+
+      const { error } = await user.client
+        .from("job_postings")
+        .update({ admin_review_requested_at: new Date().toISOString() })
+        .eq("id", job!.id);
+      expect(error, "employers must still be able to request Path 3 review").toBeNull();
+    } finally {
+      await deleteTestOrgs([org!.id]);
+    }
+  });
+});
+
+describe("job_postings: cannot self-smuggle trust columns at INSERT either (found building 0119)", () => {
+  /**
+   * The third instance of the finding `0114_organization_and_posting_insert_hardening`
+   * records — named in full because a bare "0114" was ambiguous for a
+   * while: the CAC sibling branch drafted its own 0114 too, and that one is
+   * now 0117. See 0119's migration header.
+   * `unlisted_at`/`removed_at`/`removal_reason`/`removed_by` (0056, 0107) and
+   * this migration's own `admin_review_decision`/`admin_reviewed_at`/
+   * `admin_reviewed_by` all grant trust, and none of them had ever been
+   * excluded from a client's own INSERT — only their UPDATE. Reproduced live
+   * before 0119's INSERT policy fix existed: an authenticated org member
+   * inserting their OWN new posting with `unlisted_at`, `removed_at`,
+   * `removal_reason`, `removed_by` and `admin_review_decision` all named in
+   * the values list succeeded and returned every one of them as given.
+   */
+  it("cannot set any trust column while creating its own internal posting", async () => {
+    const { data: org } = await user.client
+      .from("organizations")
+      .insert({ name: `COLPRIV-TEST ${randomUUID().slice(0, 8)}`, created_by: user.id })
+      .select("id")
+      .single();
+    try {
+      await user.client.from("organization_members").insert({
+        organization_id: org!.id,
+        user_id: user.id,
+        role: "owner",
+      });
+
+      const { error: badError } = await user.client
+        .from("job_postings")
+        .insert({
+          source_type: "internal",
+          organization_id: org!.id,
+          company_name: "COLPRIV-TEST Co",
+          title: `COLPRIV-TEST-insert-bad ${randomUUID().slice(0, 8)}`,
+          description: "Fixture posting for the INSERT self-smuggling test.",
+          structured_jd: {},
+          status: "open",
+          posted_at: new Date().toISOString(),
+          dedup_fingerprint: randomUUID(),
+          unlisted_at: new Date().toISOString(),
+          removed_at: new Date().toISOString(),
+          removal_reason: "self-smuggled",
+          removed_by: user.id,
+          admin_review_decision: "approved",
+          admin_reviewed_at: new Date().toISOString(),
+          admin_reviewed_by: user.id,
+        })
+        .select("id");
+      expect(
+        badError,
+        "an authenticated org member self-smuggled a trust column while creating a posting",
+      ).not.toBeNull();
+
+      const { data: job, error: goodError } = await user.client
+        .from("job_postings")
+        .insert({
+          source_type: "internal",
+          organization_id: org!.id,
+          company_name: "COLPRIV-TEST Co",
+          title: `COLPRIV-TEST-insert-good ${randomUUID().slice(0, 8)}`,
+          description: "Fixture posting for the INSERT self-smuggling test.",
+          structured_jd: {},
+          status: "open",
+          posted_at: new Date().toISOString(),
+          dedup_fingerprint: randomUUID(),
+        })
+        .select(
+          "id, unlisted_at, removed_at, removal_reason, removed_by, admin_review_decision, admin_reviewed_at, admin_reviewed_by",
+        )
+        .single();
+      try {
+        expect(goodError, "an ordinary posting creation must still succeed").toBeNull();
+        expect(job?.unlisted_at).toBeNull();
+        expect(job?.removed_at).toBeNull();
+        expect(job?.removal_reason).toBeNull();
+        expect(job?.removed_by).toBeNull();
+        expect(job?.admin_review_decision).toBeNull();
+        expect(job?.admin_reviewed_at).toBeNull();
+        expect(job?.admin_reviewed_by).toBeNull();
+      } finally {
+        if (job?.id) await admin.from("job_postings").delete().eq("id", job.id);
+      }
+    } finally {
+      await deleteTestOrgs([org!.id]);
+    }
+  });
+});
+
 describe("job_postings: closed_at cannot be written directly by the org (0102)", () => {
   /**
    * NEGATIVE CONTROL, the sibling of the salary POSITIVE control above.

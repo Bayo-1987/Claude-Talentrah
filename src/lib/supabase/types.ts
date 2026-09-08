@@ -1273,6 +1273,11 @@ export type Database = {
       }
       job_postings: {
         Row: {
+          admin_review_decision: string | null
+          admin_review_note: string | null
+          admin_review_requested_at: string | null
+          admin_reviewed_at: string | null
+          admin_reviewed_by: string | null
           closed_at: string | null
           company_logo_url: string | null
           company_name: string
@@ -1308,6 +1313,11 @@ export type Database = {
           years_experience_min: number | null
         }
         Insert: {
+          admin_review_decision?: string | null
+          admin_review_note?: string | null
+          admin_review_requested_at?: string | null
+          admin_reviewed_at?: string | null
+          admin_reviewed_by?: string | null
           closed_at?: string | null
           company_logo_url?: string | null
           company_name: string
@@ -1345,6 +1355,11 @@ export type Database = {
           years_experience_min?: number | null
         }
         Update: {
+          admin_review_decision?: string | null
+          admin_review_note?: string | null
+          admin_review_requested_at?: string | null
+          admin_reviewed_at?: string | null
+          admin_reviewed_by?: string | null
           closed_at?: string | null
           company_logo_url?: string | null
           company_name?: string
@@ -1382,6 +1397,13 @@ export type Database = {
           years_experience_min?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "job_postings_admin_reviewed_by_fkey"
+            columns: ["admin_reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "job_postings_organization_id_fkey"
             columns: ["organization_id"]
