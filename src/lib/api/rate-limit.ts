@@ -36,6 +36,17 @@ export const RATE_LIMITS = {
    * changing shared infrastructure for one caller.
    */
   unlistedLinkMint: { limit: 5, windowSeconds: 60 * 60 * 24 },
+  /*
+   * Banner uploads (0115). Counted per employer, per day.
+   *
+   * Tighter than resumeParse's 20/h because the cost is different in kind: a
+   * resume parse spends CPU and is discarded, while a banner lands in a public
+   * bucket and is then served on every view of that posting. 20 is generous
+   * against the real use — an employer with a handful of live postings,
+   * re-cropping one a few times — and it bounds how fast a single account can
+   * fill a free-plan bucket nobody is watching yet.
+   */
+  jobBannerUpload: { limit: 20, windowSeconds: 60 * 60 * 24 },
 } as const;
 
 export interface RateLimitOutcome {

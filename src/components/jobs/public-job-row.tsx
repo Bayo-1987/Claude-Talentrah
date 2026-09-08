@@ -33,7 +33,7 @@ const EMPLOYMENT_LABEL: Record<string, string> = {
 // the landing-page loaders that supply this (landing-page-data.ts) fetch
 // `description` pre-truncated via the generated `description_preview`
 // column (migration 0086), never the raw preview column itself.
-export function PublicJobRow({ job }: { job: Omit<Tables<"job_postings">, "description_preview" | "search_vector" | "unlisted_at"> }) {
+export function PublicJobRow({ job }: { job: Omit<Tables<"job_postings">, "description_preview" | "search_vector" | "unlisted_at" | "banner_path"> }) {
   const meta = [
     job.company_name,
     job.location,

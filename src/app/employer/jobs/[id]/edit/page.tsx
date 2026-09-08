@@ -5,6 +5,8 @@ import { requireEmployer } from "@/lib/employer/membership";
 import { updateJobAction } from "@/lib/employer/actions";
 import { EyebrowLabel } from "@/components/ui";
 import { JobPostingForm } from "@/components/employer/job-posting-form";
+import { JobBannerUpload } from "@/components/employer/job-banner-upload";
+import { bannerPublicUrl } from "@/lib/employer/banner";
 
 export const metadata = { title: "Edit job — Talentrah" };
 
@@ -38,6 +40,28 @@ export default async function EditJobPage({ params }: { params: Promise<{ id: st
         <h1 className="mt-2 font-display text-[30px] leading-[1.15] font-medium text-ink">
           {job.title}
         </h1>
+      </div>
+      {/*
+        Above the form because it is the one field that is not part of the
+        posting's text, and because an employer arriving to add a banner should
+        not have to scroll past every other field to find it.
+
+        This preview does NOT apply the public visibility gate: it is the
+        owner's own edit screen and showing them their own artwork is the
+        point. Whether the PUBLIC page renders it is a different question,
+        answered on the detail page and explained in the notice inside this
+        card when the answer is currently no.
+      */}
+      <div className="mt-6">
+        <JobBannerUpload
+          jobId={job.id}
+          organizationVerified={organization.verified}
+          currentBannerUrl={bannerPublicUrl({
+            supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
+            bannerPath: job.banner_path,
+            organizationId: job.organization_id,
+          })}
+        />
       </div>
       <div className="mt-6">
         <JobPostingForm
