@@ -161,35 +161,107 @@ end $$;
 -- so a normal insert that never mentions them — every real posting creation
 -- in this codebase — keeps passing this check unchanged; only an insert that
 -- explicitly smuggles a non-null value is newly refused.
-drop policy "org members can manage their org's internal postings" on public.job_postings;
-
-create policy "org members can manage their org's internal postings"
-  on public.job_postings
-  for insert
-  to authenticated
-  with check (
-    source_type = 'internal'::job_source_type
-    and is_org_member(organization_id)
-    and unlisted_at is null
-    and removed_at is null
-    and removal_reason is null
-    and removed_by is null
-    and admin_review_decision is null
-    and admin_reviewed_at is null
-    and admin_reviewed_by is null
-  );
-
--- Asserts the fix landed in the stored policy.
+-- ── EXTENDS THE EXISTING `with check`, RATHER THAN RESTATING IT ──────────
+--
+-- The first version hardcoded all SIX of 0114's base clauses (`source_type`,
+-- `is_org_member`, `unlisted_at`, `removed_at`, `removal_reason`,
+-- `removed_by`) alongside its own three. It was correct — the copies matched —
+-- and correct is precisely the problem: it is a SECOND COPY of a list that
+-- lives in `0114_organization_and_posting_insert_hardening`, and a copy goes
+-- stale silently. If a later migration adds a seventh clause there, this file
+-- keeps working and keeps passing, and simply stops enforcing it.
+--
+-- That is the shape 0107's postscript describes about 0085's four dropped
+-- salary grants, and 0114's own header asks both held branches not to repeat
+-- it — naming this migration by its pre-renumber number: "When 0114/0116
+-- land, each extends the relevant policy this migration creates (ANDs its own
+-- columns onto what already exists) rather than re-declaring the whole
+-- `with check` from scratch."
+--
+-- So the base expression is READ, not retyped, with `pg_get_expr` — the same
+-- lookup 0114's own assertion uses to verify itself — and this migration only
+-- ANDs its three onto whatever is actually there. Six clauses today, seven
+-- tomorrow, without this file needing to know.
+--
+-- The sibling CAC branch applies the identical treatment to the
+-- `organizations` INSERT policy; these are the same fix on the two policies
+-- 0114 patched.
+--
+-- Roles are read and re-applied rather than assumed: recreating this policy
+-- `to authenticated` when the original had been narrowed would be a silent
+-- privilege change smuggled in by a migration about admin review.
 do $$
+declare
+  base_check text;
+  policy_roles text;
 begin
-  if not exists (
-    select 1 from pg_policy
-    where polrelid = 'public.job_postings'::regclass
-      and polname = 'org members can manage their org''s internal postings'
-      and pg_get_expr(polwithcheck, polrelid) ilike '%unlisted_at%'
-      and pg_get_expr(polwithcheck, polrelid) ilike '%admin_review_decision%'
-  ) then
+  select
+    pg_get_expr(p.polwithcheck, p.polrelid),
+    (select string_agg(quote_ident(r.rolname), ', ' order by r.rolname)
+       from pg_roles r where r.oid = any (p.polroles))
+  into base_check, policy_roles
+  from pg_policy p
+  where p.polrelid = 'public.job_postings'::regclass
+    and p.polname = 'org members can manage their org''s internal postings';
+
+  -- Absence is a broken assumption, not "nothing to extend": creating this
+  -- policy from scratch would carry ONLY the three admin-review clauses and
+  -- drop `source_type`/`is_org_member` — which is not a weaker gate but no
+  -- gate at all, letting any authenticated user insert a posting for any
+  -- organisation.
+  if base_check is null then
     raise exception
-      'the job_postings INSERT policy no longer constrains its trust columns — the self-smuggling-at-insert fix was lost.';
+      'the job_postings INSERT policy is missing, so there is nothing to extend. 0114_organization_and_posting_insert_hardening should have created it; refusing to invent a replacement that would drop source_type and is_org_member.';
+  end if;
+
+  -- `polroles` is `{0}` for PUBLIC, which resolves to no rows above.
+  if policy_roles is null then
+    raise exception
+      'the job_postings INSERT policy applies to PUBLIC rather than a named role; refusing to re-create it blindly.';
+  end if;
+
+  execute 'drop policy "org members can manage their org''s internal postings" on public.job_postings';
+  execute format(
+    'create policy "org members can manage their org''s internal postings" '
+    'on public.job_postings for insert to %s with check ((%s) '
+    'and admin_review_decision is null and admin_reviewed_at is null and admin_reviewed_by is null)',
+    policy_roles,
+    base_check
+  );
+end $$;
+
+-- Asserts the fix landed in the stored policy — ALL NINE columns, not just the
+-- three this migration adds.
+--
+-- The base six are the half the rewrite above protects, so they are the half
+-- actually worth checking: a botched read of the existing expression would
+-- produce a policy carrying only `admin_review_*`, which looks like a working
+-- migration while removing the org-membership gate entirely. An assertion
+-- naming only this migration's own columns would pass on exactly that.
+do $$
+declare
+  final_check text;
+  missing text[] := '{}';
+  col text;
+begin
+  select pg_get_expr(polwithcheck, polrelid) into final_check
+  from pg_policy
+  where polrelid = 'public.job_postings'::regclass
+    and polname = 'org members can manage their org''s internal postings';
+
+  foreach col in array array[
+    'source_type', 'is_org_member', 'unlisted_at', 'removed_at',
+    'removal_reason', 'removed_by',
+    'admin_review_decision', 'admin_reviewed_at', 'admin_reviewed_by'
+  ] loop
+    if final_check is null or final_check not ilike '%' || col || '%' then
+      missing := missing || col;
+    end if;
+  end loop;
+
+  if array_length(missing, 1) is not null then
+    raise exception
+      'the job_postings INSERT policy is missing %; expected all six of 0114''s base clauses plus this migration''s three.',
+      array_to_string(missing, ', ');
   end if;
 end $$;
