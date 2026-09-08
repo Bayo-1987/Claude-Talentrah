@@ -31,6 +31,22 @@ export const initialDeleteResumeState: DeleteResumeState = {
 };
 
 /**
+ * Form state for the base resume's "Replace" control (upload → preview →
+ * confirm). Same reasoning as Delete above: no user input beyond the
+ * already-parsed content sitting in the client's own state, so this is a
+ * transition result, not a `useActionState` form state.
+ */
+export interface ReplaceResumeState {
+  status: "idle" | "success" | "error";
+  error: string | null;
+}
+
+export const initialReplaceResumeState: ReplaceResumeState = {
+  status: "idle",
+  error: null,
+};
+
+/**
  * The one sentence explaining why the base resume has no delete button.
  *
  * A disabled control with no reason is worse than no control: the user cannot

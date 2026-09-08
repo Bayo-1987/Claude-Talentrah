@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { EMPTY_RESUME, type StructuredResume } from "@/lib/resume/types";
 import { sanitizeStructuredResume } from "@/lib/resume/sanitize";
+import { upsertBaseResume } from "@/lib/resume/upsert-base-resume";
 import { rewriteBullet, type BulletInstruction } from "@/lib/farah/rewrite-bullet";
 import { CREDIT_COSTS } from "@/lib/credits/costs";
 import { spendCredits, InsufficientCreditsError } from "@/lib/credits/spend";
@@ -18,6 +19,7 @@ import {
   BASE_RESUME_UNDELETABLE_REASON,
   type DeleteResumeState,
   type RenameResumeState,
+  type ReplaceResumeState,
 } from "@/lib/resume-builder/list-state";
 
 export type { ResumeBuilderStartState } from "@/lib/resume-builder/start-events";
@@ -277,6 +279,61 @@ export async function saveResumeAction(
   if (error) throw error;
   await logResumeBuilderCompletion({ userId, resumeId });
   revalidatePath("/resume-builder");
+}
+
+/**
+ * Replaces the user's base resume with freshly parsed upload content, from
+ * the Resume Builder page's "Replace" control on the base-resume row.
+ *
+ * PARSE AND PERSIST STAY SPLIT, same reasoning as createResumeAction's
+ * "import_upload" case and the header comment on
+ * /api/resume-builder/import: that route parses and sanitizes a freshly
+ * uploaded file but never writes anywhere, so the caller can show a preview
+ * ("Farah found N skills...") before anything touches the database. This
+ * action is the ONLY thing that calls upsertBaseResume from the Replace
+ * surface — parsing a file, however many times the user retries, can never
+ * by itself overwrite the base resume Auto-Apply submits and future
+ * tailoring reads. Only an explicit confirm click (in
+ * ReplaceBaseResume, src/components/resume-builder/replace-base-resume.tsx)
+ * reaches this function; the preview step calls nothing but this on submit.
+ *
+ * Re-sanitized here, not trusted as-is: this content crossed a client
+ * boundary (the parsed JSON /api/resume-builder/import returned, held in the
+ * browser's component state since then), so a defensive re-clean costs
+ * nothing — same reasoning as createResumeAction's "import_upload" case.
+ *
+ * SERVICE ROLE, DELIBERATELY, even though upsertBaseResume's own lookup
+ * already scopes the update to a row selected by this user's id. Measured
+ * against the real database (not assumed): 0041 revokes table-level UPDATE
+ * on `resumes` from `authenticated` and grants back exactly
+ * (title, source, structured_content, updated_at) — `parse_confidence`
+ * (added later, 0070) is not in that list, on purpose, because 0070 wants it
+ * server-set. But upsertBaseResume's UPDATE branch always writes
+ * `parse_confidence` once a caller passes a confidence value, so the plain
+ * RLS client 500s here with "permission denied for table resumes" — every
+ * time, since this action always has a confidence to record. This is a
+ * genuine, currently-live gap in /api/resume/parse's own second-upload path
+ * too (confirmed the same way, not just reasoned about), but that route and
+ * upsertBaseResume are both out of scope for this change; the fix here is
+ * to use the client that is actually allowed to write the column 0070
+ * reserved for the server, which this function is.
+ */
+export async function replaceBaseResumeAction(
+  content: StructuredResume,
+  confidence: "high" | "low",
+): Promise<ReplaceResumeState> {
+  const { userId } = await getAuthedUserId();
+
+  try {
+    const sanitized = sanitizeStructuredResume(content);
+    await upsertBaseResume(createServiceRoleClient(), userId, sanitized, "uploaded", undefined, confidence);
+  } catch (err) {
+    console.error("[resume-builder:replace-base]", err);
+    return { status: "error", error: "Couldn't update your resume — try again." };
+  }
+
+  revalidatePath("/resume-builder");
+  return { status: "success", error: null };
 }
 
 /**
