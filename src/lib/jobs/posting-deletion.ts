@@ -1,5 +1,6 @@
 import "server-only";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { BANNER_BUCKET } from "@/lib/employer/banner";
 
 /**
  * Stage 5b: permanently delete a job posting once it has been CLOSED for 30+
@@ -81,7 +82,19 @@ export async function deleteStaleClosedPostings(
    */
   const { data: eligibleRows, error: selectError } = await supabase
     .from("job_postings")
-    .select("id")
+    /*
+     * `banner_path` alongside `id` (0115). A banner is a Storage object, not a
+     * foreign key, so it is invisible to the cascade/set-null reasoning this
+     * file's header works through — nothing in the database would ever remove
+     * it, and every deleted posting that had one would leave a permanently
+     * orphaned file quietly consuming the same free-tier quota the ops page
+     * now reports.
+     *
+     * Read here rather than at delete time because the DELETE's own
+     * `.select()` returns rows that are already gone; the path has to be
+     * captured while the row still exists.
+     */
+    .select("id, banner_path")
     .eq("status", "closed")
     .not("closed_at", "is", null)
     .lt("closed_at", cutoff.toISOString());
@@ -92,6 +105,15 @@ export async function deleteStaleClosedPostings(
   }
 
   const eligibleIds = (eligibleRows ?? []).map((row) => row.id);
+  /*
+   * Only the rows that actually have one. Keyed by posting id so a batch can
+   * look up exactly what it deleted rather than re-deriving it.
+   */
+  const bannerPathById = new Map<string, string>(
+    (eligibleRows ?? [])
+      .filter((row): row is { id: string; banner_path: string } => !!row.banner_path)
+      .map((row) => [row.id, row.banner_path]),
+  );
 
   if (eligibleIds.length === 0) {
     return { eligible: 0, deleted: 0, ids: [] };
@@ -151,6 +173,60 @@ export async function deleteStaleClosedPostings(
     const batchIds = (deletedRows ?? []).map((row) => row.id);
     deletedCount += batchIds.length;
     deletedIds.push(...batchIds);
+
+    /*
+     * ── THE BANNER FILES FOR THE ROWS THIS BATCH ACTUALLY DELETED ─────────
+     *
+     * AFTER the delete, and keyed off `batchIds` rather than off the eligible
+     * set, so a posting that was reopened between the SELECT and the DELETE
+     * keeps its banner — it still has a row, and the whole point of deleting
+     * at 30 days rather than at close time is that a closed posting can come
+     * back. Removing artwork from a listing that is alive again would be the
+     * regression this timing exists to avoid.
+     *
+     * LOG AND CONTINUE, NOT BLOCK — a deliberate choice. This function's own
+     * contract is "the batch reports how far it got, and a re-run is
+     * idempotent", and the DB deletion is the part that actually matters:
+     * blocking a row's permanent removal on a Storage hiccup would hold up
+     * real cleanup indefinitely for the less important half. The failure mode
+     * of continuing is a rare orphaned file, which the ops page's storage
+     * panel now makes visible — and which a re-run does NOT fix, since the row
+     * is gone, so it is reported loudly rather than left to be inferred from a
+     * byte count drifting upward.
+     */
+    const bannerPaths = batchIds
+      .map((id) => bannerPathById.get(id))
+      .filter((path): path is string => !!path);
+
+    if (bannerPaths.length > 0) {
+      const { data: removed, error: storageError } = await supabase.storage
+        .from(BANNER_BUCKET)
+        .remove(bannerPaths);
+
+      // Checked, never fired and forgotten. A Storage remove that is refused
+      // resolves with an error rather than throwing — the exact shape this
+      // repo has scar tissue about, and the reason an unchecked cleanup shows
+      // up months later as a number nobody can explain.
+      if (storageError) {
+        console.error(
+          `[job-deletion] ${bannerPaths.length} banner file(s) could NOT be removed and are now ` +
+            `orphaned (their postings are deleted, so a re-run will not retry them): ` +
+            `${bannerPaths.join(", ")} —`,
+          storageError.message,
+        );
+      } else {
+        const removedCount = removed?.length ?? 0;
+        if (removedCount !== bannerPaths.length) {
+          // Partial success is silent otherwise: `remove()` resolves fine when
+          // some paths simply were not there.
+          console.warn(
+            `[job-deletion] asked Storage to remove ${bannerPaths.length} banner(s) but it ` +
+              `reported ${removedCount}; the difference was already gone.`,
+          );
+        }
+        console.log(`[job-deletion] removed ${removedCount} banner file(s) for this batch.`);
+      }
+    }
   }
 
   return { eligible: eligibleIds.length, deleted: deletedCount, ids: deletedIds };

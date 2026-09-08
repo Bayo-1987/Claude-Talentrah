@@ -31,6 +31,7 @@ import {
 } from "@/lib/jobs/posting-deletion";
 import { admin, createTestUser, deleteTestUsers } from "../support/auth";
 import { deleteTestOrgs } from "../support/cleanup";
+import { BANNER_BUCKET } from "@/lib/employer/banner";
 import { runCleanups, mustDelete } from "../support/teardown";
 
 const createdPostings: string[] = [];
@@ -312,5 +313,93 @@ describe("SET NULL rows survive, exactly as approved", () => {
     expect(after!.title).toBe("Tailored — POSTING-DELETION-TEST Role");
 
     await mustDelete("resumes", admin.from("resumes").delete().eq("id", resume.id));
+  });
+});
+
+/**
+ * A banner is a Storage object, not a foreign key.
+ *
+ * This file's header reasons through every FK pointing at job_postings —
+ * cascade or set-null — and that analysis cannot see a banner at all, because
+ * `banner_path` is a plain string column. Nothing in the database would ever
+ * remove the file. Without the cleanup this pins, every deleted posting that
+ * had a banner would leave a permanently orphaned object consuming free-tier
+ * quota, with no row left to explain it.
+ *
+ * Deliberately NOT removed at close time: a closed posting can be reopened
+ * (this file's own reason for the 30-day wait), and an employer who reopened a
+ * listing to find its artwork gone would have lost something that was never
+ * actually deleted. The banner's lifetime matches the row's exactly.
+ */
+describe("a deleted posting takes its banner file with it", () => {
+  /** A real, minimal PNG — Storage stores bytes, so the test supplies bytes. */
+  function tinyPng(): Uint8Array {
+    const b = new Uint8Array(64);
+    b.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a], 0);
+    b.set([0, 0, 0, 13], 8);
+    b.set([0x49, 0x48, 0x44, 0x52], 12);
+    b.set([0, 0, 6, 64], 16); // 1600
+    b.set([0, 0, 1, 144], 20); // 400
+    return b;
+  }
+
+  async function objectExists(path: string): Promise<boolean> {
+    const slash = path.lastIndexOf("/");
+    const { data, error } = await admin.storage
+      .from(BANNER_BUCKET)
+      .list(path.slice(0, slash), { search: path.slice(slash + 1) });
+    if (error) throw new Error(`could not list storage: ${error.message}`);
+    return (data ?? []).some((o) => o.name === path.slice(slash + 1));
+  }
+
+  it("removes the Storage object, not just the row", async () => {
+    const orgId = randomUUID();
+    const jobId = await makeClosedPosting(daysAgo(31));
+    const path = `${orgId}/${jobId}.png`;
+
+    const { error: upErr } = await admin.storage
+      .from(BANNER_BUCKET)
+      .upload(path, tinyPng(), { contentType: "image/png", upsert: true });
+    if (upErr) throw new Error(`fixture upload failed: ${upErr.message}`);
+
+    const { error: setErr } = await admin
+      .from("job_postings")
+      .update({ banner_path: path })
+      .eq("id", jobId);
+    if (setErr) throw new Error(`could not attach the fixture banner: ${setErr.message}`);
+
+    // The control. Without it, "the file is gone afterwards" would pass just
+    // as happily if the upload had silently never happened.
+    expect(await objectExists(path), "fixture banner was not stored to begin with").toBe(true);
+
+    await deleteStaleClosedPostings();
+
+    expect(await readPosting(jobId), "the row should be gone").toBeNull();
+    expect(
+      await objectExists(path),
+      "the row was deleted but its banner file was left orphaned in Storage",
+    ).toBe(false);
+  });
+
+  it("leaves the banner alone when the posting is NOT eligible", async () => {
+    /*
+     * The other direction, and the one that catches an over-eager cleanup: a
+     * posting closed only yesterday is not deleted, so its banner must still
+     * be there. A cleanup keyed off the eligible set rather than off what was
+     * actually deleted would fail here.
+     */
+    const orgId = randomUUID();
+    const jobId = await makeClosedPosting(daysAgo(1));
+    const path = `${orgId}/${jobId}.png`;
+    await admin.storage.from(BANNER_BUCKET).upload(path, tinyPng(), { contentType: "image/png", upsert: true });
+    await admin.from("job_postings").update({ banner_path: path }).eq("id", jobId);
+
+    await deleteStaleClosedPostings();
+
+    expect(await readPosting(jobId), "a recently-closed posting must survive").not.toBeNull();
+    expect(await objectExists(path), "its banner must survive with it").toBe(true);
+
+    const { error } = await admin.storage.from(BANNER_BUCKET).remove([path]);
+    if (error) console.error("[banner test cleanup]", error.message);
   });
 });

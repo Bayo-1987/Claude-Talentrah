@@ -25,6 +25,7 @@ import {
 } from "@/lib/applications/actions";
 import { defaultCountryForProfile } from "@/lib/jobs/country";
 import { logCountryDefaultEvent, type CountryState } from "@/lib/jobs/country-events";
+import { bannerPublicUrl } from "@/lib/employer/banner";
 
 const WORK_TYPE_LABEL: Record<string, string> = {
   remote: "Remote",
@@ -74,7 +75,13 @@ const jobForRequest = cache(async (id: string) => {
   const supabase = await createClient();
   const { data } = await supabase
     .from("job_postings")
-    .select("*")
+    /*
+     * `organizations(verified)` is joined for ONE reason: the banner (0115).
+     * The posting's own visibility is still RLS's decision — this adds no gate
+     * — but whether the banner renders is a different, stricter question that
+     * the row alone cannot answer.
+     */
+    .select("*, organizations(verified)")
     .eq("id", id)
     .gte("posted_at", freshnessFloorISO())
     .maybeSingle();
@@ -306,6 +313,37 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
   // single most decision-relevant fact on the page.
   const salary = formatSalary(job);
 
+  /*
+   * ── THE BANNER IS GATED ON THE ORGANISATION, NOT ON READABILITY ─────────
+   *
+   * `verified`, deliberately, and NOT "can this visitor see the posting" —
+   * since 0107 those are different questions. An unlisted posting is publicly
+   * readable by direct link while its organisation is unverified, and a direct
+   * link is precisely the leak this gate exists for: an employer mid-review
+   * must not be able to dress an unapproved posting up as a legitimate one
+   * somewhere it escapes to.
+   *
+   * So an unlisted posting shows no banner. The posting itself still renders —
+   * that is the private-link feature working — but the marketing artwork is
+   * the part that would lend it unearned credibility, and it waits for
+   * verification.
+   *
+   * When the per-job admin-approval path lands it extends this automatically,
+   * because it is the same underlying question rather than a second one bolted
+   * on: whatever decides "this posting is publicly legitimate" decides this.
+   *
+   * `bannerPublicUrl` then refuses anything not shaped `<this org>/<uuid>.<ext>`,
+   * which is what makes an employer-supplied `banner_path` harmless — see its
+   * own comment for why that check lives there rather than in a column grant.
+   */
+  const bannerUrl = job.organizations?.verified
+    ? bannerPublicUrl({
+        supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
+        bannerPath: job.banner_path,
+        organizationId: job.organization_id,
+      })
+    : null;
+
   return (
     <div className="flex max-w-[760px] flex-col gap-6">
       <JsonLd data={jsonLd} />
@@ -315,6 +353,36 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
       >
         ← Back to jobs
       </Link>
+
+      {bannerUrl && (
+        /*
+         * Bordered box, no radius, no shadow — the design system's standard
+         * treatment. The one shadow it allows is the landing hero's input box
+         * and nothing else gets one.
+         *
+         * Fixed 4:1 with object-cover so the page always gets a header strip:
+         * uploads are accepted between 3:1 and 5:1, and cropping to a
+         * predictable band is what keeps this from becoming an arbitrary hero
+         * image dropped into an Editorial layout.
+         *
+         * eslint-disable-next-line @next/next/no-img-element — next/image
+         * would proxy this through the optimizer, which on this plan means
+         * paying transform cost for an image already served from a CDN at the
+         * one size it is ever displayed. A plain img is the cheaper, simpler
+         * thing here.
+         */
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={bannerUrl}
+          alt=""
+          width={1600}
+          height={400}
+          className="aspect-[4/1] w-full border-[1.5px] border-ink object-cover"
+          /* Decorative: the company name and title are already the heading
+             directly below, so announcing it again would be noise. */
+          aria-hidden="true"
+        />
+      )}
 
       <div className="flex items-start gap-4">
         <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center bg-ink font-display text-[19px] font-bold text-paper">
