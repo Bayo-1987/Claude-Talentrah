@@ -54,6 +54,29 @@ type SearchParams = Promise<{
 const VALID_WORK_TYPES: readonly string[] = Constants.public.Enums.work_type;
 const VALID_SENIORITIES: readonly string[] = Constants.public.Enums.seniority_level;
 
+/**
+ * Interim safety net for Recommended/External/Saved (docs/jobs-feed-pagination.md,
+ * "Step 2"). Real match_scores-backed pagination isn't safely achievable yet
+ * — coverage against production is 0-100% per user, so an ORDER BY score
+ * LIMIT would either drop every unscored posting or silently reorder to
+ * "already-scored first, everything else undefined", neither of which is
+ * "best match". That's separate, larger work.
+ *
+ * This is not that. It's a hard ceiling applied AFTER scoreJobs and AFTER
+ * every sort (the tab's own ranking, then the promoted reorder) — changing
+ * nothing about which job ranks where, only stopping the rendered (and
+ * after()-persisted) set from growing without bound as the board does.
+ * Applying it any earlier would make it exactly the "arbitrary wrong
+ * subset" bug this whole investigation exists to avoid: scoreJobs and the
+ * sort need the FULL filtered board to mean anything.
+ *
+ * 2,000 is pure headroom today, not a behavior change: the largest possible
+ * filtered board (673 open postings, measured 2026-09-08) is already under
+ * it, so this cap is a genuine no-op until the catalog outgrows it — which
+ * is the whole point.
+ */
+const RECOMMENDED_HARD_CAP = 2000;
+
 export default async function JobsPage({ searchParams }: { searchParams: SearchParams }) {
   const { user, profile } = await requireUser();
   const params = await searchParams;
@@ -751,6 +774,17 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
       });
     }
   }
+
+  /*
+   * RECOMMENDED_HARD_CAP, applied here and ONLY here — after scoreJobs, after
+   * the tab's own sort, and after the promoted reorder above. Any promoted
+   * card is already inside the first PROMOTED_SLOTS positions of `scored` by
+   * this point, so this can never cut a paid placement; it can only ever
+   * trim the tail of an already-fully-ranked list. See RECOMMENDED_HARD_CAP's
+   * own comment for why this exists and why 2,000 is a no-op today.
+   */
+  scored.length = Math.min(scored.length, RECOMMENDED_HARD_CAP);
+
   const promotedSet = new Set(promotedIds);
   // Once per render, not once per card — every card shares the same origin.
   const origin = await getSiteOrigin();
