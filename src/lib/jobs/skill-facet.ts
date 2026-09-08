@@ -18,14 +18,14 @@ import type { Tables } from "@/lib/supabase/types";
  * card.
  */
 
-// Omit, not the full row: the signed-in feed (jobs/page.tsx) is this
-// function's only real caller and fetches `description` pre-truncated via
-// the generated `description_preview` column (migration 0086), never the
-// raw preview column itself — the wider Omit<> still accepts any full row
-// another caller might pass.
-// closed_at (0102) omitted too — the feed query these callers all consume
-// filters to status = 'open' and never selects it.
-type JobPosting = Omit<Tables<"job_postings">, "description_preview" | "search_vector" | "closed_at" | "unlisted_at" | "banner_path" | "admin_review_decision" | "admin_review_note" | "admin_review_requested_at" | "admin_reviewed_at" | "admin_reviewed_by">;
+// Pick, not the full row: skillsOf only ever reads structured_jd. Narrowed
+// from the previous Omit<> (still a huge required shape) so the jobs feed's
+// lightweight board-aggregate query (jobs/page.tsx's boardAggregateQuery,
+// added for Recent-tab pagination) — which selects only a handful of
+// columns, not a full posting row — can call this too. A Pick only widens
+// what's ACCEPTED, so every existing caller passing a full row keeps typing
+// fine.
+type JobPosting = Pick<Tables<"job_postings">, "structured_jd">;
 
 /** Reads the skills array off a posting, tolerating the 5 rows that lack one. */
 export function skillsOf(job: JobPosting): string[] {
