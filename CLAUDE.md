@@ -14,6 +14,12 @@ This repo root is also the Next.js app root (App Router + TypeScript + Tailwind,
 
 Supabase backend: project **"Talentrah"** already exists in the connected Supabase org (`Bayo-1987's Org`), project id `nytwbbzfpytctjsoczzq`, region `eu-north-1`. Reuse it — don't create a new project. It free-tier-pauses when idle; `restore_project` before running migrations/queries if `get_project` shows `INACTIVE`.
 
+**Apply additive migrations BEFORE merging, destructive ones AFTER the deploy**
+(adopted 2026-09-08). Merging first is what put production on code referencing
+columns that did not exist, twice in one day. Full reasoning in
+[docs/production-migration-apply.md](docs/production-migration-apply.md); the
+short rule lives in [supabase/migrations/README.md](supabase/migrations/README.md).
+
 **Migrations 0001–0025 are not in this repo** — they were applied straight to the project through the MCP connector, so the project's own `schema_migrations` table is the only history. From 0026 on, write the SQL into `supabase/migrations/` **first** so a policy change can be reviewed in a diff, then apply it. See [supabase/migrations/README.md](supabase/migrations/README.md).
 
 **CI runs against a SECOND Supabase project, not production** (since 2026-08-26). `Talentrah CI`, project id `dozaffzgqkbarxtlclsj`, same org, same region, free tier, $0 — GitHub Actions secrets point at it, so `npm run seed`, the RLS suites and Playwright all hit it in CI. **Production is `nytwbbzfpytctjsoczzq` and Vercel still points there**; the two are separate systems and repointing CI did not touch the deployed app.

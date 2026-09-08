@@ -59,3 +59,38 @@ export function compareMigrations(committed: string[], appliedNames: string[]): 
     return { migration, status: "MISSING" };
   });
 }
+
+/**
+ * The mirror of `compareMigrations`: names applied on production that are not
+ * committed on main.
+ *
+ * WHY THIS IS A WARNING AND NOT A FAILURE. Under the apply-before-merge
+ * convention (docs/production-migration-apply.md) production is *expected* to
+ * be briefly ahead of main — that is the whole point of the ordering, and
+ * failing on it would make the convention unusable. What this catches is the
+ * convention's residual gap: a migration applied for a PR that is then
+ * abandoned or renamed, which otherwise sits on production forever with
+ * nothing in the repo describing it. Exactly the situation migrations
+ * 0001-0025 left behind.
+ *
+ * Deliberately reuses the same alias and stripped-prefix tolerances as
+ * `compareMigrations`. Without them, every renumbered migration — and this
+ * project has renumbered several — would be reported as unexplained in both
+ * directions at once, which is noise that would get the warning ignored.
+ */
+export function findAppliedButNotCommitted(committed: string[], appliedNames: string[]): string[] {
+  const committedSet = new Set(committed);
+  const committedByStrippedName = new Set(committed.map(stripNumericPrefix));
+  // A committed migration may be recorded under a documented alias; those
+  // alias names are legitimately on production and must not be reported.
+  const knownAliases = new Set(
+    committed.map((m) => KNOWN_ALIASES[m]).filter((a): a is string => Boolean(a)),
+  );
+
+  return appliedNames.filter((applied) => {
+    if (committedSet.has(applied)) return false;
+    if (knownAliases.has(applied)) return false;
+    if (committedByStrippedName.has(stripNumericPrefix(applied))) return false;
+    return true;
+  });
+}

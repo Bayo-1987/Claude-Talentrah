@@ -1,5 +1,5 @@
 import { committedMigrations } from "./audit-migrations";
-import { compareMigrations } from "./migration-drift-compare";
+import { compareMigrations, findAppliedButNotCommitted } from "./migration-drift-compare";
 
 /**
  * The automated half of `npm run audit-migrations` — CI cannot run an MCP
@@ -150,6 +150,20 @@ void (async () => {
 
   for (const r of results) {
     console.log(`${r.status === "MISSING" ? "✗" : "✓"} ${r.migration} — ${r.status}`);
+  }
+
+  // Warning only, and printed before the failure so it is not lost under an
+  // error. Production ahead of main is the EXPECTED state under
+  // apply-before-merge; this exists to surface the case where it stays that
+  // way because a PR was abandoned. It never sets a non-zero exit code.
+  const extra = findAppliedButNotCommitted(committed, applied);
+  if (extra.length > 0) {
+    console.warn(
+      `\n⚠ ${extra.length} migration${extra.length === 1 ? " is" : "s are"} applied on production but not committed on main:\n` +
+        extra.map((m) => `  - ${m}`).join("\n") +
+        `\n\nExpected briefly under apply-before-merge (docs/production-migration-apply.md).` +
+        `\nIf the PR that applied one was abandoned, the migration needs committing or reverting.`,
+    );
   }
 
   if (missing.length > 0) {

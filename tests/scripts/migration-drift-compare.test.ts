@@ -6,7 +6,7 @@
  * connection, and so it's testable on its own.
  */
 import { describe, expect, it } from "vitest";
-import { compareMigrations } from "../../scripts/migration-drift-compare";
+import { compareMigrations, findAppliedButNotCommitted } from "../../scripts/migration-drift-compare";
 
 describe("compareMigrations", () => {
   it("marks an exact name match as applied", () => {
@@ -79,5 +79,60 @@ describe("compareMigrations", () => {
 
   it("returns an empty result for no committed migrations", () => {
     expect(compareMigrations([], ["anything"])).toEqual([]);
+  });
+});
+
+/**
+ * The reverse direction, added when apply-before-merge was adopted
+ * (docs/production-migration-apply.md).
+ *
+ * `compareMigrations` is one-directional: it reports migrations committed on
+ * main but not applied, and is blind to the mirror case. Under the adopted
+ * convention production is deliberately, briefly ahead of main — so the
+ * mirror case is EXPECTED and is reported as a warning, never a failure. What
+ * it exists to catch is that state persisting: a migration applied for a PR
+ * that was then abandoned, sitting on production with nothing in the repo
+ * describing it. That is precisely how 0001-0025 came to be undocumented.
+ */
+describe("findAppliedButNotCommitted", () => {
+  it("FIRES on a migration applied to production but absent from main", () => {
+    // The case the warning exists for. If this ever stops returning the name,
+    // the warning has stopped detecting anything.
+    const extra = findAppliedButNotCommitted(
+      ["0120_employer_cac_verification"],
+      ["0120_employer_cac_verification", "0121_applied_for_an_abandoned_pr"],
+    );
+    expect(extra).toEqual(["0121_applied_for_an_abandoned_pr"]);
+  });
+
+  it("stays silent when the two sides agree", () => {
+    expect(
+      findAppliedButNotCommitted(["0120_employer_cac_verification"], ["0120_employer_cac_verification"]),
+    ).toEqual([]);
+  });
+
+  it("stays silent when production is BEHIND main, which is the other check's job", () => {
+    // A committed-but-unapplied migration must not be reported here as well;
+    // compareMigrations already fails the build for it, and double-reporting
+    // one problem in two voices is how a warning gets ignored.
+    expect(findAppliedButNotCommitted(["0121_not_yet_applied"], [])).toEqual([]);
+  });
+
+  it("does not flag a documented alias as unexplained", () => {
+    // 0071's real case: committed as 0071_drop_admin_mfa, applied under the
+    // working title. Without alias tolerance this would warn on every run
+    // forever, which is the fastest way to make a warning worthless.
+    expect(
+      findAppliedButNotCommitted(["0071_drop_admin_mfa"], ["drop_admin_mfa_0071"]),
+    ).toEqual([]);
+  });
+
+  it("does not flag a renumbered migration in either direction", () => {
+    // This project has renumbered repeatedly (0117 -> 0120 most recently).
+    // The stripped-prefix tolerance is what keeps a rename from being
+    // reported as both MISSING and unexplained-extra simultaneously.
+    expect(
+      findAppliedButNotCommitted(["0120_employer_cac_verification"], ["0117_employer_cac_verification"]),
+    ).toEqual([]);
   });
 });

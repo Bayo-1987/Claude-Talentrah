@@ -26,7 +26,31 @@ doing. The goal here is that every *future* change is reviewable.
 ## Working rule
 
 Write the SQL into this directory **first**, review it in the PR, then apply
-it. Naming continues the existing sequence: `NNNN_snake_case_description.sql`.
+it.
+
+### When to apply, relative to merging (adopted 2026-09-08)
+
+**Additive migration — apply BEFORE merging.** New columns, tables, enum
+values, widened policies. Once the PR is green, apply to CI, verify, apply to
+production, verify, then merge. Production is briefly ahead of main, which is
+harmless: nothing reads the new column until the deploy lands.
+
+**Destructive migration — deploy FIRST, apply after.** Dropping a column,
+narrowing a policy, tightening a constraint. These break the *currently
+deployed* code the instant they apply, so the order inverts: merge, let the
+deploy land, then apply.
+
+Why this exists: on 2026-09-08 two PRs merged and deployed ahead of their
+migrations, and production served 500s from code referencing columns that did
+not exist — the employer Jobs Posted page among them. The full reasoning, the
+options that were rejected, and what got built is in
+[docs/production-migration-apply.md](../../docs/production-migration-apply.md).
+
+Two things back this up rather than relying on memory:
+`0122_ledger_unique_migration_name.sql` makes a second apply of the same name
+fail with `23505` instead of silently duplicating, and the production drift
+check now also warns when production is ahead of main — expected briefly,
+worth seeing if it persists. Naming continues the existing sequence: `NNNN_snake_case_description.sql`.
 
 **Take the number from what exists at that moment, not from what you remember.**
 `0060` was claimed twice in one morning — `0060_admin_identity` and
