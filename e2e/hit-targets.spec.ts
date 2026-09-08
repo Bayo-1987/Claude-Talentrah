@@ -51,7 +51,7 @@ type Undersized = { where: string; text: string; w: number; h: number };
 async function login(page: Page, password: string) {
   await page.goto("/login");
   await page.getByLabel("Email").fill("demo@talentrah.dev");
-  await page.getByLabel("Password").fill(password);
+  await page.getByLabel("Password", { exact: true }).fill(password);
   await page.getByRole("button", { name: "Log in" }).click();
   await page.waitForURL("**/jobs");
 }

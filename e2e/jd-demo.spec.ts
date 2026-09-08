@@ -318,7 +318,7 @@ test.describe("a signed-in visitor on the landing page", () => {
 
     await page.goto("/login");
     await page.getByLabel("Email").fill("demo@talentrah.dev");
-    await page.getByLabel("Password").fill(DEMO_PASSWORD!);
+    await page.getByLabel("Password", { exact: true }).fill(DEMO_PASSWORD!);
     await page.getByRole("button", { name: "Log in" }).click();
     await page.waitForURL("**/jobs");
 
@@ -356,7 +356,7 @@ test.describe("a signed-in visitor on the landing page", () => {
     await resetDay();
     await page.goto("/login");
     await page.getByLabel("Email").fill("demo@talentrah.dev");
-    await page.getByLabel("Password").fill(DEMO_PASSWORD!);
+    await page.getByLabel("Password", { exact: true }).fill(DEMO_PASSWORD!);
     await page.getByRole("button", { name: "Log in" }).click();
     await page.waitForURL("**/jobs");
 

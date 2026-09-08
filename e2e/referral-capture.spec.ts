@@ -157,7 +157,7 @@ test("signup with no ?ref= in the URL but a live cookie still creates the referr
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Country").selectOption("Nigeria");
   await page.getByRole("checkbox").check();
-  await page.getByLabel("Password").fill("Str0ng-Enough-Passw0rd!");
+  await page.getByLabel("Password", { exact: true }).fill("Str0ng-Enough-Passw0rd!");
   await page.getByRole("button", { name: "Create a free account" }).click();
   await page.waitForURL(/\/(onboarding|signup\/check-email)/);
 
@@ -222,7 +222,7 @@ test("self-referral through a cookie-sourced code is still refused by the existi
   await page.getByLabel("Email").fill(referredEmail);
   await page.getByLabel("Country").selectOption("Nigeria");
   await page.getByRole("checkbox").check();
-  await page.getByLabel("Password").fill("Str0ng-Enough-Passw0rd!");
+  await page.getByLabel("Password", { exact: true }).fill("Str0ng-Enough-Passw0rd!");
   await page.getByRole("button", { name: "Create a free account" }).click();
   await page.waitForURL(/\/(onboarding|signup\/check-email)/);
 

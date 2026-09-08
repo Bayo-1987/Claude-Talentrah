@@ -25,7 +25,7 @@ const TOP = 68;
 async function login(page: Page) {
   await page.goto("/login");
   await page.getByLabel("Email").fill("demo@talentrah.dev");
-  await page.getByLabel("Password").fill(DEMO_PASSWORD!);
+  await page.getByLabel("Password", { exact: true }).fill(DEMO_PASSWORD!);
   await page.getByRole("button", { name: "Log in" }).click();
   await page.waitForURL("**/jobs");
   // The row measures itself in a layout effect; wait for it to have taken.

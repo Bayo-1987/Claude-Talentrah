@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { signInAction, type AuthActionState } from "@/lib/auth/actions";
-import { TextField, Button } from "@/components/ui";
+import { TextField, PasswordField, Button } from "@/components/ui";
 
 const initialState: AuthActionState = { error: null };
 
@@ -40,10 +40,9 @@ export function LoginForm({ redirectTo }: { redirectTo?: string }) {
         error={state.fieldErrors?.email?.[0]}
       />
       <div className="flex flex-col gap-1.5">
-        <TextField
+        <PasswordField
           label="Password"
           name="password"
-          type="password"
           autoComplete="current-password"
           required
           error={state.fieldErrors?.password?.[0]}

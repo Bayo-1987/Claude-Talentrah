@@ -31,7 +31,10 @@ test("a signed-in visitor gets the signed-in hero", async ({ page }) => {
   test.skip(!DEMO_PASSWORD, "DEMO_PASSWORD is not set — see scripts/seed.ts");
   await page.goto("/login");
   await page.getByLabel("Email").fill("demo@talentrah.dev");
-  await page.getByLabel("Password").fill(DEMO_PASSWORD!);
+  // exact: true — the password reveal toggle's own accessible name also
+  // contains "Password" ("Show password"), which a substring match would
+  // resolve ambiguously.
+  await page.getByLabel("Password", { exact: true }).fill(DEMO_PASSWORD!);
   await page.getByRole("button", { name: "Log in" }).click();
   await page.waitForURL("**/jobs");
 

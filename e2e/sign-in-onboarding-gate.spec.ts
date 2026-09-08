@@ -52,7 +52,10 @@ async function passwordAccount(): Promise<{ id: string; email: string; password:
 async function signIn(page: import("@playwright/test").Page, email: string, password: string) {
   await page.goto("/login");
   await page.getByLabel("Email").fill(email);
-  await page.getByLabel("Password").fill(password);
+  // exact: true — the password reveal toggle's own accessible name also
+  // contains "Password" ("Show password"), which a substring match would
+  // resolve ambiguously.
+  await page.getByLabel("Password", { exact: true }).fill(password);
   await page.getByRole("button", { name: "Log in" }).click();
 }
 
@@ -163,7 +166,7 @@ test.describe("password sign-in routes through onboarding", () => {
 
     await page.goto("/login?redirectTo=%2Ftracker");
     await page.getByLabel("Email").fill(acct.email);
-    await page.getByLabel("Password").fill(acct.password);
+    await page.getByLabel("Password", { exact: true }).fill(acct.password);
     await page.getByRole("button", { name: "Log in" }).click();
 
     await page.waitForURL("**/tracker");
