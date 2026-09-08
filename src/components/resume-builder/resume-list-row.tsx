@@ -11,6 +11,7 @@ import {
   type DeleteResumeState,
 } from "@/lib/resume-builder/list-state";
 import { MAX_RESUME_TITLE_LENGTH } from "@/lib/resume-builder/resume-title";
+import { ReplaceBaseResume } from "@/components/resume-builder/replace-base-resume";
 
 /**
  * One row in "Your resumes", in three modes: reading, renaming, confirming a
@@ -37,7 +38,7 @@ import { MAX_RESUME_TITLE_LENGTH } from "@/lib/resume-builder/resume-title";
  * rather than leaving the reason as unassociated text.
  */
 
-type Mode = "read" | "renaming" | "confirming-delete";
+type Mode = "read" | "renaming" | "confirming-delete" | "replacing";
 
 export interface ResumeListRowProps {
   id: string;
@@ -204,6 +205,23 @@ export function ResumeListRow({ id, title, isBase, updatedAt }: ResumeListRowPro
             >
               Delete
             </button>
+            {/*
+              Replace lives next to the disabled Delete for exactly the
+              reason Delete is disabled here: this is the base resume, so the
+              row needs its own way back to changing what it holds. See
+              ReplaceBaseResume for the upload -> preview -> confirm flow
+              this opens.
+            */}
+            {isBase && (
+              <button
+                type="button"
+                onClick={() => setMode("replacing")}
+                data-testid="resume-replace"
+                className="inline-flex min-h-10 items-center font-body text-[13px] font-semibold text-ink-soft underline underline-offset-2 hover:text-rust"
+              >
+                Replace
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -259,6 +277,8 @@ export function ResumeListRow({ id, title, isBase, updatedAt }: ResumeListRowPro
           {deleteState.error}
         </p>
       )}
+
+      {mode === "replacing" && <ReplaceBaseResume onCancel={() => setMode("read")} />}
     </div>
   );
 }
