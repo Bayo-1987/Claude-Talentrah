@@ -302,31 +302,28 @@ export async function saveResumeAction(
  * browser's component state since then), so a defensive re-clean costs
  * nothing — same reasoning as createResumeAction's "import_upload" case.
  *
- * SERVICE ROLE, DELIBERATELY, even though upsertBaseResume's own lookup
- * already scopes the update to a row selected by this user's id. Measured
- * against the real database (not assumed): 0041 revokes table-level UPDATE
- * on `resumes` from `authenticated` and grants back exactly
- * (title, source, structured_content, updated_at) — `parse_confidence`
- * (added later, 0070) is not in that list, on purpose, because 0070 wants it
- * server-set. But upsertBaseResume's UPDATE branch always writes
- * `parse_confidence` once a caller passes a confidence value, so the plain
- * RLS client 500s here with "permission denied for table resumes" — every
- * time, since this action always has a confidence to record. This is a
- * genuine, currently-live gap in /api/resume/parse's own second-upload path
- * too (confirmed the same way, not just reasoned about), but that route and
- * upsertBaseResume are both out of scope for this change; the fix here is
- * to use the client that is actually allowed to write the column 0070
- * reserved for the server, which this function is.
+ * THE PLAIN RLS CLIENT, same as `getAuthedUserId`'s every other caller in
+ * this file — not a service-role workaround. This branch was originally cut
+ * before #309 landed: at the time, `upsertBaseResume`'s UPDATE branch always
+ * wrote `parse_confidence` once a caller passed a confidence value (this one
+ * always does), and 0070 deliberately withholds the UPDATE grant on that
+ * column from `authenticated`, so the plain RLS client 500'd here with
+ * "permission denied for table resumes" every time. #309 fixed that
+ * centrally — `upsertBaseResume` now gives `parse_confidence` its own
+ * narrowly-scoped service-role write internally — so every caller, this one
+ * included, can go back to the same RLS-scoped client it uses for
+ * everything else. `userId` still comes from a real `supabase.auth.getUser()`
+ * call either way, not anything client-supplied.
  */
 export async function replaceBaseResumeAction(
   content: StructuredResume,
   confidence: "high" | "low",
 ): Promise<ReplaceResumeState> {
-  const { userId } = await getAuthedUserId();
+  const { supabase, userId } = await getAuthedUserId();
 
   try {
     const sanitized = sanitizeStructuredResume(content);
-    await upsertBaseResume(createServiceRoleClient(), userId, sanitized, "uploaded", undefined, confidence);
+    await upsertBaseResume(supabase, userId, sanitized, "uploaded", undefined, confidence);
   } catch (err) {
     console.error("[resume-builder:replace-base]", err);
     return { status: "error", error: "Couldn't update your resume — try again." };
