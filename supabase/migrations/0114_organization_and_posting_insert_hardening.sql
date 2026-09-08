@@ -1,4 +1,22 @@
--- 0113: close two INSERT-side trust holes, live on production today.
+-- 0114: close two INSERT-side trust holes, live on production today.
+--
+-- RENAMED FROM 0113 TO 0114: this migration and `0113_storage_usage_reader.sql`
+-- (PR #291) were built concurrently in two separate sessions and both
+-- independently claimed `0113` — the same numbering-collision class this
+-- repo has hit before (0060/0061, 0103/0104, 0106/0107, and 0110/0111 twice
+-- in one afternoon). #291 merged first and had already been applied to
+-- production before this was caught, so it keeps `0113`; this one renames to
+-- the next free number. This migration itself had NOT been applied to any
+-- live database under the name `0113` before the rename, so — like 0111's
+-- own rename — there is no already-applied `schema_migrations` row left
+-- permanently mismatched.
+--
+-- CONSEQUENCE FOR THE HELD BRANCHES: the CAC verification branch (#286) had
+-- already drafted its own `0114_employer_cac_verification.sql`, numbered
+-- before this collision existed. That file will need to move to `0115` (or
+-- later) during its own rebase, on top of the extend-not-re-declare rework
+-- it already needed because of this hotfix. Flagging here so it is not a
+-- second surprise on top of the first.
 --
 -- ── WHY THIS IS ITS OWN MIGRATION, AHEAD OF THE FEATURES THAT FOUND IT ────
 --

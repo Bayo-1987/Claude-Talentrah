@@ -1,5 +1,6 @@
 /**
- * `0113` closed two INSERT-side holes, both found while building the CAC
+ * `0114` (renamed from `0113` after a numbering collision with PR #291's
+ * `0113_storage_usage_reader.sql`) closed two INSERT-side holes, both found while building the CAC
  * verification (draft `0114`) and Path 3 (draft `0116`) branches, both
  * exploitable independent of either feature:
  *
