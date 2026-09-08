@@ -54,9 +54,17 @@ export const MIN_BANNER_HEIGHT = 300;
 /** Bounds decode cost for something displayed 760px wide. */
 export const MAX_BANNER_WIDTH = 3000;
 
-/** What the upload UI tells someone BEFORE they pick a file. */
+/**
+ * What the upload UI tells someone BEFORE they pick a file.
+ *
+ * Changed from "Wide and short, like a LinkedIn cover — 1600×400 is ideal"
+ * when that stopped being a hard requirement: the upload component now
+ * accepts any croppable image and lets the employer crop it to a 1600×400
+ * strip themselves (src/lib/employer/banner-crop.ts), so a copy promising a
+ * specific SOURCE shape would be actively wrong about what happens next.
+ */
 export const BANNER_GUIDANCE =
-  "Wide and short, like a LinkedIn cover — 1600×400 is ideal. PNG, JPEG or WebP, up to 2 MB.";
+  "Upload any image — you'll crop it to a wide banner strip before it saves. PNG, JPEG or WebP, up to 2 MB.";
 
 /**
  * FILE SIGNATURE, NOT THE CLAIMED CONTENT-TYPE.
