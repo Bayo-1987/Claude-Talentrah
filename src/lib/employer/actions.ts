@@ -306,6 +306,49 @@ export async function updateCompanyProfileAction(
   return { ok: true };
 }
 
+/**
+ * Submit CAC (Corporate Affairs Commission) business registration details for
+ * manual admin confirmation — "Path 2" of verification (0113/0114), for an
+ * employer whose confirmed account email is not at the company's claimed
+ * domain and so cannot reach `verified` the way `updateCompanyProfileAction`
+ * above does.
+ *
+ * Ownership-scoped exactly like that action: this writes through the SIGNED-
+ * IN user's own client, not the service role, so `requireEmployer()` (which
+ * throws for anyone not a member of the organisation) plus 0114's
+ * `grant update (cac_number, cac_business_name)` are what stop this touching
+ * anything else — the same "grant, not a hand-written allow-list" reasoning
+ * as the domain field. Submitting does not itself verify the organisation;
+ * only an admin's decision does that
+ * (src/lib/admin/moderation/actions.ts#decideCacVerificationAction), which is
+ * exactly why `verified`, `cac_confirmed_at` and `cac_confirmed_by` are
+ * withheld from this grant in 0114 and cannot be touched from here even by
+ * accident.
+ */
+export async function submitCacVerificationAction(
+  _prev: EmployerActionState,
+  form: FormData,
+): Promise<EmployerActionState> {
+  const { supabase } = await getAuthedUser();
+  const { organization } = await requireEmployer();
+
+  const cacNumber = str(form, "cacNumber");
+  const cacBusinessName = str(form, "cacBusinessName");
+  if (!cacNumber || !cacBusinessName) {
+    return { error: "Both the RC number and the registered business name are required." };
+  }
+
+  const { error } = await supabase
+    .from("organizations")
+    .update({ cac_number: cacNumber, cac_business_name: cacBusinessName })
+    .eq("id", organization.id);
+
+  if (error) return { error: `Couldn't submit for verification: ${error.message}` };
+
+  revalidatePath("/employer/profile");
+  return { ok: true };
+}
+
 /* -------------------------------------------------------------------------- *
  * Job postings
  * -------------------------------------------------------------------------- */

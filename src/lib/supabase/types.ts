@@ -1570,6 +1570,10 @@ export type Database = {
       }
       organizations: {
         Row: {
+          cac_business_name: string | null
+          cac_confirmed_at: string | null
+          cac_confirmed_by: string | null
+          cac_number: string | null
           created_at: string
           created_by: string
           description: string | null
@@ -1583,6 +1587,10 @@ export type Database = {
           verified: boolean
         }
         Insert: {
+          cac_business_name?: string | null
+          cac_confirmed_at?: string | null
+          cac_confirmed_by?: string | null
+          cac_number?: string | null
           created_at?: string
           created_by: string
           description?: string | null
@@ -1596,6 +1604,10 @@ export type Database = {
           verified?: boolean
         }
         Update: {
+          cac_business_name?: string | null
+          cac_confirmed_at?: string | null
+          cac_confirmed_by?: string | null
+          cac_number?: string | null
           created_at?: string
           created_by?: string
           description?: string | null
@@ -1609,6 +1621,13 @@ export type Database = {
           verified?: boolean
         }
         Relationships: [
+          {
+            foreignKeyName: "organizations_cac_confirmed_by_fkey"
+            columns: ["cac_confirmed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "organizations_created_by_fkey"
             columns: ["created_by"]
