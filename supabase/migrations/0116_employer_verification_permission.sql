@@ -1,0 +1,27 @@
+-- 0116: `employer_verification` — reviewing a CAC submission is its own grant.
+--
+-- Exactly 0103's precedent (`people_list`), and for the same reason: a trust
+-- permission that decides whether an organisation's `verified` badge can be
+-- set from something other than domain-match is not a plain content area like
+-- `blog` (0077/0078), which both builtin roles got on creation. It is a
+-- moderation power over a column 0028 already treats as a smuggling target —
+-- see that migration's own reasoning for why `verified` is never client
+-- writable. Handing this to whoever already had some other permission would
+-- make the split cosmetic, so it starts granted to NOBODY and is a deliberate
+-- per-operator decision made in /admin/operators.
+--
+-- ONE STATEMENT, NOTHING ELSE. Postgres forbids using a new enum value in the
+-- same transaction that adds it (`55P04 unsafe use of new value`) — see
+-- 0077/0078's header for the exact failure this avoids. The columns and RLS
+-- surface this permission will gate land in 0117, a separate migration, for
+-- that reason alone.
+--
+-- `admin_permission_catalog()` (0079) is `unnest(enum_range(...))`, so the new
+-- value appears in the role editor with no change there — verified directly
+-- against both call sites (src/app/admin/(protected)/operators/page.tsx and
+-- src/components/admin/role-editor.tsx) rather than assumed: the editor takes
+-- `allPermissions` as a prop built from the catalog RPC, and an unknown key
+-- falls back to a humanised label (`key.replace(/_/g, " ")...`), so no label
+-- map entry is required either.
+
+alter type public.admin_permission add value if not exists 'employer_verification';

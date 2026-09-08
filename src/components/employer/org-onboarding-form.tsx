@@ -84,9 +84,10 @@ export function OrgOnboardingForm({
           </p>
           <p className="mt-2 text-[13.5px] text-ink-soft">
             You can still set the company up now and post jobs; they stay private to your team
-            until it&apos;s verified. Two other routes to verification are coming: inviting a
-            teammate whose email is on your company&apos;s domain, and verifying with your CAC
-            business registration number. Neither is available yet.
+            until it&apos;s verified. Once it&apos;s set up, you can submit your CAC (Corporate
+            Affairs Commission) business registration number from Company Profile for an admin to
+            confirm by hand. Inviting a teammate whose email is on your company&apos;s domain is a
+            separate route that&apos;s still coming.
           </p>
         </div>
       )}

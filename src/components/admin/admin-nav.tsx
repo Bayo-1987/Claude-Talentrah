@@ -46,6 +46,12 @@ const ITEMS = [
    * finance page itself free of names.
    */
   { href: "/admin/finance", label: "Finance", key: "finance", permission: "finance" },
+  {
+    href: "/admin/employer-verification",
+    label: "Employer verification",
+    key: "employerVerification",
+    permission: "employer_verification",
+  },
 ] as const;
 
 /*
