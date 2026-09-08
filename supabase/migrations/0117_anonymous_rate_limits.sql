@@ -41,20 +41,29 @@
 -- so its job is bounding a single actor's blast radius across many addresses,
 -- not being the tight limit — the email bucket is that.
 --
--- HOW MUCH WORK THIS BUCKET ACTUALLY DOES TODAY. Measured against the CI
--- project, not assumed (docs/admin-auth.md): Supabase's own built-in mailer
--- currently allows just TWO auth emails per hour, PROJECT-WIDE, not per
--- address — the third `resend`/`resetPasswordForEmail`/`signUp` call of any
--- kind in an hour gets refused by GoTrue itself, before this bucket is ever
--- consulted. So today this table is defense-in-depth and the source of a
--- fast, friendly error message rather than the only thing standing between a
--- stranger's inbox and abuse — GoTrue's own project-wide throttle is
--- functionally the tighter limit while it stands. That changes the moment
--- custom SMTP is configured (already tracked in docs/admin-auth.md's "Known
--- gaps" section as blocking the admin reset-password link) and GoTrue's
--- throttle loosens to roughly 30/hour — at which point this per-email/per-IP
--- bucket becomes the load-bearing one. Built now rather than deferred so that
--- day does not arrive with no limiter at all.
+-- HOW MUCH WORK THIS BUCKET ACTUALLY DOES TODAY — AND IT DIFFERS BY PROJECT.
+-- Checked live against BOTH hosted projects' Auth → Emails → SMTP Settings,
+-- not assumed from one and generalized to the other (docs/admin-auth.md has
+-- the full history):
+--
+--   CI (dozaffzgqkbarxtlclsj): still on Supabase's default built-in mailer.
+--   GoTrue allows just TWO auth emails per hour, PROJECT-WIDE, not per
+--   address — the third `resend`/`resetPasswordForEmail`/`signUp` call of any
+--   kind in an hour gets refused by GoTrue itself, before this bucket is ever
+--   consulted. This is why this migration's own test suite still exercises
+--   that 2/hour path — it is CI's real, current behaviour, not a stale
+--   assumption.
+--
+--   Production (nytwbbzfpytctjsoczzq): custom SMTP (Resend, smtp.resend.com,
+--   sender hello@talentrah.com) has been configured — a dashboard-only
+--   change with no commit to point to, the same way docs/admin-auth.md
+--   already records other dashboard-only facts. GoTrue's own throttle there
+--   is 30 emails/hour, not 2. That means THIS TABLE — not GoTrue's own
+--   throttle — is the load-bearing rate limiter on production today: 30/hour
+--   project-wide is a much looser backstop than 5/day per email or 20/day per
+--   IP. The "day this becomes load-bearing" this migration was originally
+--   written to anticipate has already arrived, on production, not as a future
+--   contingency.
 --
 -- service_role only, same reasoning as 0038: a caller who could point this at
 -- someone else's key would defeat the whole limiter.
