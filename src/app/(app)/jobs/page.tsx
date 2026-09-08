@@ -2,7 +2,6 @@ import { after } from "next/server";
 import { requireUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
 import { scoreJobs, persistMatchScores } from "@/lib/matching/compute-and-store";
-import { hasNoScreenableSkills, screenedFirstCompare } from "@/lib/match-tier";
 import { scanAndQueue } from "@/lib/auto-apply/queue";
 import { AutoApplyToggle } from "@/components/jobs/auto-apply-toggle";
 import { EMPTY_RESUME, type StructuredResume } from "@/lib/resume/types";
@@ -36,7 +35,7 @@ import {
   RECENT_PAGE_SIZE,
   type BoardAggregateRow,
 } from "@/lib/jobs/recent-pagination";
-import { recommendedRankingKey } from "@/lib/jobs/ranking";
+import { sortFeedResults } from "@/lib/jobs/ranking";
 import { getViewerOrganizationIds } from "@/lib/employer/membership";
 import { logCountryDefaultEvent, type CountryState } from "@/lib/jobs/country-events";
 
@@ -726,37 +725,18 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
   /*
    * Stage 12: Recommended gets a freshness-decayed ranking key, not the raw
    * score — a stale perfect match no longer automatically outranks a recent
-   * good-enough one (src/lib/jobs/ranking.ts has the full rationale). Every
-   * OTHER non-"recent" tab (External, Saved) keeps the plain score sort —
-   * only Recommended is asked to answer "what's best right now", and Most
-   * Recent's own date sort above is untouched either way.
-   *
-   * ZERO-SCREENABLE-SKILL POSTINGS SORT LAST WITHIN EITHER COMPARATOR
-   * (docs/zero-skill-scoring.md). `computeMatchScore`'s neutral 0.5 fallback
-   * for a posting with nothing to screen against produces a real score
-   * (35-55) that would otherwise compete directly against — and routinely
-   * beat — a posting where a genuine, if thin, partial match was measured.
-   * `screenedFirstCompare` only overrides the tab's own comparator when
-   * exactly one side is unscreened; among postings that are BOTH screened or
-   * BOTH unscreened, today's ordering is unchanged. This does not remove
-   * anything from the tab — see the doc for why hiding these outright risks
-   * a false negative (usually an extraction gap, not a genuinely bad match).
+   * good-enough one. Every OTHER non-"recent" tab (External, Saved) keeps the
+   * plain score sort. Zero-screenable-skill postings partition last within
+   * either comparator (docs/zero-skill-scoring.md). NONE of this runs when a
+   * search term is active — `search_job_postings`'s own `rank desc,
+   * posted_at desc` ordering survives untouched on every tab instead. See
+   * `sortFeedResults`'s own header (src/lib/jobs/ranking.ts) for the full
+   * rationale on both, including the real production case ("engineer" search
+   * surfacing an unrelated 99% match ahead of actual engineering roles) that
+   * made the search exemption explicit rather than an accident of Recent's
+   * own branch condition.
    */
-  const isUnscreened = (s: (typeof scored)[number]) =>
-    hasNoScreenableSkills(s.explanation.matchedSkills.length + s.explanation.missingSkills.length);
-
-  if (tab === "recommended") {
-    scored.sort((a, b) =>
-      screenedFirstCompare(
-        isUnscreened(a),
-        isUnscreened(b),
-        recommendedRankingKey(b.score, b.job.posted_at, JOB_FRESHNESS_WINDOW_DAYS) -
-          recommendedRankingKey(a.score, a.job.posted_at, JOB_FRESHNESS_WINDOW_DAYS),
-      ),
-    );
-  } else if (tab !== "recent") {
-    scored.sort((a, b) => screenedFirstCompare(isUnscreened(a), isUnscreened(b), b.score - a.score));
-  }
+  sortFeedResults(scored, tab, !!q, JOB_FRESHNESS_WINDOW_DAYS);
 
   /*
    * The promoted REORDER, applied after the sort above.
