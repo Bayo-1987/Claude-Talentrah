@@ -270,6 +270,59 @@ export async function pendingCacVerifications(): Promise<PendingCacVerification[
   }));
 }
 
+export interface PendingJobReview {
+  jobPostingId: string;
+  title: string;
+  companyName: string;
+  location: string | null;
+  organizationId: string | null;
+  organizationName: string | null;
+  organizationVerified: boolean;
+  requestedAt: string;
+}
+
+/**
+ * Postings an employer has asked an admin to individually approve — Path 3
+ * (0118/0119) — not yet decided.
+ *
+ * OLDEST FIRST, unlike `reportedPostings()`'s worst-first ranking. That queue
+ * orders by how bad each posting looks: reports have no natural age pressure
+ * of their own, only severity. This one is a fairness queue — an employer who
+ * asked first should not wait behind one who asked five minutes ago just
+ * because a later admin found their posting first — so FIFO by
+ * `admin_review_requested_at` is the defensible default, matching how a
+ * support inbox is worked.
+ *
+ * `admin_review_decision is null` is the entire "awaiting" definition — a
+ * rejection leaves it null-forever-until-resubmitted only in the sense that
+ * nothing here resubmits it; unlike 0120's CAC queue, there is no separate
+ * "resubmit" action for a single posting today; the employer's own row stays
+ * decided.
+ */
+export async function pendingJobReviews(): Promise<PendingJobReview[]> {
+  const supabase = createServiceRoleClient();
+  const { data, error } = await supabase
+    .from("job_postings")
+    .select(
+      "id, title, company_name, location, organization_id, admin_review_requested_at, organizations(name, verified)",
+    )
+    .not("admin_review_requested_at", "is", null)
+    .is("admin_review_decision", null)
+    .order("admin_review_requested_at", { ascending: true });
+
+  if (error) throw error;
+  return (data ?? []).map((r) => ({
+    jobPostingId: r.id,
+    title: r.title,
+    companyName: r.company_name,
+    location: r.location,
+    organizationId: r.organization_id,
+    organizationName: r.organizations?.name ?? null,
+    organizationVerified: r.organizations?.verified ?? false,
+    requestedAt: r.admin_review_requested_at!,
+  }));
+}
+
 export type FeedbackStatus = "new" | "in_review" | "resolved" | "declined";
 
 export interface FeedbackItem {
@@ -348,9 +401,19 @@ export async function queueCounts(): Promise<{
   ops: number;
   finance: number;
   employerVerification: number;
+  jobReview: number;
 }> {
-  const [scholarships, reports, campaigns, feedback, courses, ops, finance, employerVerification] =
-    await Promise.all([
+  const [
+    scholarships,
+    reports,
+    campaigns,
+    feedback,
+    courses,
+    ops,
+    finance,
+    employerVerification,
+    jobReview,
+  ] = await Promise.all([
     pendingScholarships(),
     reportedPostings(),
     pendingCampaigns(),
@@ -370,6 +433,8 @@ export async function queueCounts(): Promise<{
     financialHealth(),
     // CAC submissions nobody has confirmed or rejected yet (0116/0120).
     pendingCacVerifications(),
+    // Path 3 (0118/0119) requests nobody has decided yet.
+    pendingJobReviews(),
   ]);
   return {
     scholarships: scholarships.length,
@@ -380,5 +445,6 @@ export async function queueCounts(): Promise<{
     ops,
     finance: finance.pendingCount,
     employerVerification: employerVerification.length,
+    jobReview: jobReview.length,
   };
 }

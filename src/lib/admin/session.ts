@@ -66,6 +66,10 @@ export type AdminPermission =
   // decision, not a plain content area — starts granted to nobody, exactly
   // like `people_list` above.
   | "employer_verification"
+  // 0118. Deciding a Path 3 per-job approval is a trust decision over the
+  // exact gate 0027 exists to keep shut, not a plain content area — starts
+  // granted to nobody, exactly like `people_list` and `employer_verification`.
+  | "job_review"
   | "operators";
 
 export interface AdminIdentity {

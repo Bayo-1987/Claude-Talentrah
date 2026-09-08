@@ -25,7 +25,7 @@ import type { Tables } from "@/lib/supabase/types";
 // another caller might pass.
 // closed_at (0102) omitted too — the feed query these callers all consume
 // filters to status = 'open' and never selects it.
-type JobPosting = Omit<Tables<"job_postings">, "description_preview" | "search_vector" | "closed_at" | "unlisted_at" | "banner_path">;
+type JobPosting = Omit<Tables<"job_postings">, "description_preview" | "search_vector" | "closed_at" | "unlisted_at" | "banner_path" | "admin_review_decision" | "admin_review_note" | "admin_review_requested_at" | "admin_reviewed_at" | "admin_reviewed_by">;
 
 /** Reads the skills array off a posting, tolerating the 5 rows that lack one. */
 export function skillsOf(job: JobPosting): string[] {

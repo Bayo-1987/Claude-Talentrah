@@ -371,6 +371,32 @@ describe("employer: an outsider cannot get in", () => {
     expect(data?.cac_number, "an outsider submitted CAC details onto another org").toBeNull();
     expect(data?.cac_business_name).toBeNull();
   });
+
+  /**
+   * 0119's `admin_review_requested_at` is `authenticated`-writable at the
+   * COLUMN level (see tests/rls/column-privileges.test.ts for that half) —
+   * this is the row-level half: the same "org members can update their org's
+   * internal postings" policy that stops B rewriting A's title above is what
+   * stops B requesting Path 3 review on A's posting. A column grant only
+   * ever widens WHICH columns a row's own members may touch, never whose row
+   * it is.
+   */
+  it("B cannot request Path 3 review on A's posting", async () => {
+    await outsiderB.client
+      .from("job_postings")
+      .update({ admin_review_requested_at: new Date().toISOString() })
+      .eq("id", jobId);
+
+    const { data } = await admin
+      .from("job_postings")
+      .select("admin_review_requested_at")
+      .eq("id", jobId)
+      .single();
+    expect(
+      data?.admin_review_requested_at,
+      "an outsider requested Path 3 review on another company's posting",
+    ).toBeNull();
+  });
 });
 
 describe("employer: application counts (migration 0029)", () => {

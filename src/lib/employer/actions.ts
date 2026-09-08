@@ -597,3 +597,33 @@ export async function setJobStatusAction(jobId: string, status: Enums<"job_statu
   revalidatePath("/employer/jobs");
   revalidatePath("/jobs");
 }
+
+/**
+ * "Submit for review" — Path 3 (0118/0119): an employer asks an admin to
+ * individually approve THIS posting for public listing, for the case where
+ * the organisation itself has no other route there yet.
+ *
+ * Bound per row exactly like `setJobStatusAction` above — no client JS, and
+ * `.eq("organization_id", organization.id)` plus the RLS UPDATE policy is
+ * what stops this touching a posting that isn't the caller's own. Only
+ * `admin_review_requested_at` is granted to `authenticated` (0119); the
+ * decision columns are service-role only, so this action cannot self-approve
+ * no matter what it sends.
+ *
+ * `.is("admin_review_requested_at", null)` makes a second click a no-op
+ * rather than re-stamping the timestamp — the queue's ordering (oldest first)
+ * would otherwise move on every re-click.
+ */
+export async function requestJobReviewAction(jobId: string) {
+  const { supabase } = await getAuthedUser();
+  const { organization } = await requireEmployer();
+
+  await supabase
+    .from("job_postings")
+    .update({ admin_review_requested_at: new Date().toISOString() })
+    .eq("id", jobId)
+    .eq("organization_id", organization.id)
+    .is("admin_review_requested_at", null);
+
+  revalidatePath("/employer/jobs");
+}

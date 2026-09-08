@@ -48,7 +48,7 @@ const PAGE_LIMIT = 30;
  * identical FEED_COLUMNS for the fuller explanation and why this needs to
  * be one string literal, not a concatenated or externally-typed one.
  */
-type LandingJobPosting = Omit<Tables<"job_postings">, "description_preview" | "search_vector" | "unlisted_at" | "banner_path">;
+type LandingJobPosting = Omit<Tables<"job_postings">, "description_preview" | "search_vector" | "unlisted_at" | "banner_path" | "admin_review_decision" | "admin_review_note" | "admin_review_requested_at" | "admin_reviewed_at" | "admin_reviewed_by">;
 const JOB_LANDING_COLUMNS =
   "id, source_type, organization_id, title, company_name, company_logo_url, location, work_type, employment_type, seniority, years_experience_min, description:description_preview, structured_jd, external_url, external_source, status, posted_at, last_checked_at, dedup_fingerprint, created_at, expires_at, removed_at, removal_reason, removed_by, salary_min, salary_max, salary_currency, salary_unit";
 

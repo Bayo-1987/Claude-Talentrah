@@ -1,0 +1,21 @@
+-- 0118: `job_review` — deciding a Path-3 per-job approval is its own grant.
+--
+-- Same pattern as 0103 (`people_list`) and 0113 (`employer_verification`):
+-- this decides whether ONE job posting from a neither-domain-verified-nor-
+-- CAC-verified organisation becomes publicly readable anyway — a moderation
+-- power over the exact gate 0027 exists to keep shut, not a plain content
+-- area. It starts granted to NOBODY; an operator gets it deliberately, in
+-- /admin/operators, same as every trust permission before it.
+--
+-- ONE STATEMENT, NOTHING ELSE, its own migration — Postgres forbids using a
+-- new enum value in the transaction that adds it (`55P04 unsafe use of new
+-- value`; see 0077/0078's header). The `job_postings` columns and RLS branch
+-- this permission gates land in 0119.
+--
+-- `admin_permission_catalog()` (0079) is `unnest(enum_range(...))` and the
+-- Operators page's `RoleEditor` + its label map already fall back to a
+-- humanised label for any key they don't recognise (`people_list` and
+-- `feature_flags` are already unmapped there, per 0113's own investigation)
+-- — so, again, no change needed anywhere else for this to become grantable.
+
+alter type public.admin_permission add value if not exists 'job_review';

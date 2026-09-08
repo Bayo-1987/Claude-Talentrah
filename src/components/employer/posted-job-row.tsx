@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { BorderedCard, buttonClasses } from "@/components/ui";
-import { setJobStatusAction } from "@/lib/employer/actions";
+import { BorderedCard, Button, buttonClasses } from "@/components/ui";
+import { requestJobReviewAction, setJobStatusAction } from "@/lib/employer/actions";
 import { formatRelativeTime } from "@/lib/format-relative-time";
 import { EmployerJobShareButton } from "@/components/employer/job-share-button";
 import { getJobShareVisibility } from "@/lib/employer/job-visibility";
@@ -18,6 +18,10 @@ export interface PostedJob {
   employmentType: string | null;
   /** Non-null once a private link has been minted for this posting (0107). */
   unlistedAt: string | null;
+  /** The employer's own "Submit for review" click (Path 3, 0118/0119). */
+  adminReviewRequestedAt: string | null;
+  /** 'approved' | 'rejected' | null — an admin's Path 3 decision, if any. */
+  adminReviewDecision: string | null;
 }
 
 const LABELS: Record<string, string> = {
@@ -97,6 +101,41 @@ export function PostedJobRow({
               </span>
             )
           )}
+          {/*
+            Path 3 (0118/0119): reflects the admin's decision honestly rather
+            than silently reverting to the "Not public" badge above once one
+            exists — an employer who was told "approved" and later sees
+            nothing at all would reasonably assume something broke.
+          */}
+          {job.status === "open" && !orgVerified && job.adminReviewDecision === "approved" && (
+            <span
+              className="border border-green px-2 py-0.5 font-body text-[11px] font-bold tracking-[0.14em] text-green uppercase"
+              title="An admin approved this posting for the public feed — this does not verify your company"
+            >
+              Approved for the feed
+            </span>
+          )}
+          {job.status === "open" &&
+            !orgVerified &&
+            job.adminReviewDecision === "rejected" && (
+              <span
+                className="border border-rust px-2 py-0.5 font-body text-[11px] font-bold tracking-[0.14em] text-rust uppercase"
+                title="An admin reviewed this posting and did not approve it for the public feed"
+              >
+                Review: not approved
+              </span>
+            )}
+          {job.status === "open" &&
+            !orgVerified &&
+            job.adminReviewRequestedAt &&
+            !job.adminReviewDecision && (
+              <span
+                className="border border-ink-soft px-2 py-0.5 font-body text-[11px] font-bold tracking-[0.14em] text-ink-soft uppercase"
+                title="Submitted for an admin to individually review"
+              >
+                Pending review
+              </span>
+            )}
         </div>
         {meta.length > 0 && (
           <p className="mt-1 font-body text-[13.5px] text-ink-soft">{meta.join(" · ")}</p>
@@ -137,6 +176,28 @@ export function PostedJobRow({
             unlistedAt: job.unlistedAt,
           })}
         />
+        {/*
+          Path 3 (0118/0119). Only offered once: the button disappears the
+          moment a request or a decision exists — the badges above are what
+          reflect that state honestly, not a second copy of the button
+          silently reappearing.
+
+          TODO once Phase 2 (CAC verification, 0113/0114) merges: this should
+          also stay hidden for an org that is CAC-verified even though
+          `orgVerified` (domain verification) is false — Path 3 exists for an
+          org with NEITHER route. That column does not exist on this branch's
+          base yet, so `orgVerified` is the only signal available here.
+        */}
+        {job.status === "open" &&
+          !orgVerified &&
+          !job.adminReviewRequestedAt &&
+          !job.adminReviewDecision && (
+            <form action={requestJobReviewAction.bind(null, job.id)}>
+              <Button type="submit" size="sm" variant="secondary">
+                Submit for review
+              </Button>
+            </form>
+          )}
       </div>
       )}
     </BorderedCard>
