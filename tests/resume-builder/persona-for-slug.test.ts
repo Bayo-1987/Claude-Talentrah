@@ -45,6 +45,29 @@
  * CATEGORIES`. Three brand-new categories (Government & Public Sector,
  * Project Management, Logistics & Supply Chain) are also fully split as of
  * this batch — see `BATCH_3B_FULL_CATEGORIES` below.
+ *
+ * UPDATED for batch 3C (THIRD AND FINAL batch closing the 44 fallback slugs
+ * batches 3A/3B left standing): the last 15 slugs now resolve to their own
+ * persona, across 5 more brand-new categories fully split in one pass —
+ * Creative & Media, Customer Success, Design, Hospitality & Travel and
+ * Telecommunications (see `BATCH_3C_FULL_CATEGORIES` below). THIS CLOSES THE
+ * LAST GAP: every one of the catalog's 65 slugs now resolves to a dedicated
+ * persona. The old "every OTHER real catalog slug still falls back" test
+ * (which asserted `remaining.length` was greater than zero, i.e. that some
+ * slugs were still deliberately left unmapped) is RETIRED — after this
+ * batch there is nothing left for it to assert, and a test that can never
+ * find a "remaining" slug again is not a regression guard, it's dead code.
+ * It is replaced by a single definitive regression test — "every catalog
+ * slug in RESUME_TEMPLATES resolves to a dedicated persona, not the
+ * PREVIEW_SAMPLE_RESUME fallback" — that iterates the ENTIRE live catalog
+ * (not a computed "remaining" subset) and is exactly the kind of check that
+ * would have caught the original `structured-admin` gap by hand before
+ * send-75 had to point it out; it now stays as a permanent guard against a
+ * newly-added template slug quietly landing on the fallback again. The
+ * "falls back rather than crashing for an unknown or missing slug" test
+ * keeps proving the fallback mechanism itself still works, using a slug that
+ * is deliberately fake rather than a real catalog one, since no real catalog
+ * slug can demonstrate that anymore.
  */
 import { describe, expect, it } from "vitest";
 import { personaForSlug } from "@/lib/resume-builder/persona-for-slug";
@@ -100,20 +123,34 @@ import {
   WAREHOUSE_OPERATIONS_MANAGER_RESUME,
   FLEET_ROUTE_PLANNING_MANAGER_RESUME,
   SUPPLY_CHAIN_PROCUREMENT_MANAGER_RESUME,
+  BYLINE_JOURNALIST_RESUME,
+  REEL_VIDEO_EDITOR_RESUME,
+  PRESS_KIT_PUBLICIST_RESUME,
+  FIELD_CUSTOMER_SUCCESS_MANAGER_RESUME,
+  TECHNICAL_HELP_DESK_SPECIALIST_RESUME,
+  CUSTOMER_SUCCESS_RENEWALS_MANAGER_RESUME,
+  PRODUCT_UX_DESIGNER_RESUME,
+  GRAPHIC_BRAND_DESIGNER_RESUME,
+  CREATIVE_DIRECTOR_STUDIO_RESUME,
+  HOTEL_CONCIERGE_RESUME,
+  HOTEL_FRONT_DESK_SUPERVISOR_RESUME,
+  TRAVEL_ITINERARY_COORDINATOR_RESUME,
+  NOC_FIELD_NETWORK_ENGINEER_RESUME,
+  RF_TRANSMISSION_ENGINEER_RESUME,
+  NETWORK_RELIABILITY_ENGINEER_RESUME,
 } from "@/lib/resume-builder/preview-sample";
 import { RESUME_TEMPLATES } from "@/lib/billing/catalog";
 
 const ENGINEERING_GROUP_CATEGORIES = ["Engineering", "Construction & Real Estate", "Oil & Gas / Energy"];
 const NGO_AGRICULTURE_CATEGORIES = ["NGO & Development", "Agriculture & Agribusiness"];
-// The 5 standalone-category slugs batch 2 gave a dedicated persona to — one
-// each from 5 different categories, deliberately NOT the whole category
-// (e.g. `chambers` is Legal's only mapped slug; `statute`/`legal-brief`
-// still fall back). NOTE: two of batch 2's "still on the fallback" siblings
-// (`terminal`, `stack-trace` — Technology) were mapped by batch 3A below, so
-// this list is no longer "one slug per category with unmapped siblings" for
-// Technology specifically; it stays accurate for Banking & Finance,
-// Healthcare and Legal.
-const STANDALONE_BATCH_2_SLUGS = ["product-tech", "ledger", "care-plan", "chambers", "business-memo"];
+// NOTE: batch 2's `STANDALONE_BATCH_2_SLUGS` list (the 5 one-slug-per-category
+// exceptions — `product-tech`/`ledger`/`care-plan`/`chambers`/`business-memo`)
+// lived here through batch 3B, feeding the "everything else falls back"
+// aggregator test below it. That test is retired as of batch 3C (see this
+// file's own header — there is nothing left for it to assert against), and
+// the 5 slugs' own per-slug resolution is still covered by the "resolves
+// batch-2 standalone-category slug" test above, so the list itself is no
+// longer referenced and was removed rather than kept as dead code.
 // BATCH 3A — 5 categories, each FULLY split (every slug in the category has
 // its own dedicated persona), unlike batch 2's standalone-slug pattern above.
 const BATCH_3A_FULL_CATEGORIES = ["Administration", "Business", "Technology", "Sales & Marketing", "Education & Academia"];
@@ -129,6 +166,16 @@ const BATCH_3B_FULL_CATEGORIES = [
   "Government & Public Sector",
   "Project Management",
   "Logistics & Supply Chain",
+];
+// BATCH 3C (third and final) — 5 more brand-new categories, each fully
+// completed in one pass, closing out the last of the 44 fallback slugs
+// batches 3A and 3B left standing.
+const BATCH_3C_FULL_CATEGORIES = [
+  "Creative & Media",
+  "Customer Success",
+  "Design",
+  "Hospitality & Travel",
+  "Telecommunications",
 ];
 
 describe("personaForSlug", () => {
@@ -228,36 +275,44 @@ describe("personaForSlug", () => {
     expect(personaForSlug(slug)).not.toBe(PREVIEW_SAMPLE_RESUME);
   });
 
-  it("every other real catalog slug (outside both groupings, the 5 batch-2 standalone slugs and the batch-3A/3B full categories above) still falls back to PREVIEW_SAMPLE_RESUME", () => {
-    const engineeringSlugs = new Set(
-      RESUME_TEMPLATES.filter((t) => ENGINEERING_GROUP_CATEGORIES.includes(t.industry_category)).map((t) => t.slug),
-    );
-    const ngoSlugs = new Set(
-      RESUME_TEMPLATES.filter((t) => NGO_AGRICULTURE_CATEGORIES.includes(t.industry_category)).map((t) => t.slug),
-    );
-    const standaloneSlugs = new Set(STANDALONE_BATCH_2_SLUGS);
-    const batch3aSlugs = new Set(
-      RESUME_TEMPLATES.filter((t) => BATCH_3A_FULL_CATEGORIES.includes(t.industry_category)).map((t) => t.slug),
-    );
-    const batch3bSlugs = new Set(
-      RESUME_TEMPLATES.filter((t) => BATCH_3B_FULL_CATEGORIES.includes(t.industry_category)).map((t) => t.slug),
-    );
-    const remaining = RESUME_TEMPLATES.filter(
-      (t) =>
-        !engineeringSlugs.has(t.slug) &&
-        !ngoSlugs.has(t.slug) &&
-        !standaloneSlugs.has(t.slug) &&
-        !batch3aSlugs.has(t.slug) &&
-        !batch3bSlugs.has(t.slug),
-    );
-    // Sanity: there really are slugs left to check — this shouldn't be empty.
-    expect(remaining.length).toBeGreaterThan(0);
-    for (const template of remaining) {
-      expect(personaForSlug(template.slug), `slug "${template.slug}"`).toBe(PREVIEW_SAMPLE_RESUME);
-    }
+  it.each([
+    ["byline", BYLINE_JOURNALIST_RESUME],
+    ["press-kit", PRESS_KIT_PUBLICIST_RESUME],
+    ["reel", REEL_VIDEO_EDITOR_RESUME],
+    ["field-notes", FIELD_CUSTOMER_SUCCESS_MANAGER_RESUME],
+    ["help-desk", TECHNICAL_HELP_DESK_SPECIALIST_RESUME],
+    ["success-story", CUSTOMER_SUCCESS_RENEWALS_MANAGER_RESUME],
+    ["design-showcase", PRODUCT_UX_DESIGNER_RESUME],
+    ["portfolio-grid", GRAPHIC_BRAND_DESIGNER_RESUME],
+    ["studio-brief", CREATIVE_DIRECTOR_STUDIO_RESUME],
+    ["concierge", HOTEL_CONCIERGE_RESUME],
+    ["front-desk", HOTEL_FRONT_DESK_SUPERVISOR_RESUME],
+    ["itinerary", TRAVEL_ITINERARY_COORDINATOR_RESUME],
+    ["network-ops", NOC_FIELD_NETWORK_ENGINEER_RESUME],
+    ["signal", RF_TRANSMISSION_ENGINEER_RESUME],
+    ["uptime", NETWORK_RELIABILITY_ENGINEER_RESUME],
+  ])("resolves batch-3C slug %s to its own dedicated persona", (slug, persona) => {
+    expect(personaForSlug(slug)).toBe(persona);
+    expect(personaForSlug(slug)).not.toBe(PREVIEW_SAMPLE_RESUME);
   });
 
-  it("falls back rather than crashing for an unknown or missing slug", () => {
+  /**
+   * THE DEFINITIVE REGRESSION GUARD this whole three-batch effort was
+   * building toward: not a computed "remaining" subset (that test is
+   * retired — see this file's own header for why), but every single slug
+   * the live catalog actually has, checked directly. If a new template is
+   * ever added to `RESUME_TEMPLATES` without also earning its own
+   * `SLUG_PERSONA_MAP` entry, THIS is the test that fails and names it.
+   */
+  it("every catalog slug in RESUME_TEMPLATES resolves to a dedicated persona, not the PREVIEW_SAMPLE_RESUME fallback", () => {
+    expect(RESUME_TEMPLATES.length).toBeGreaterThan(0);
+    const offenders = RESUME_TEMPLATES.filter((t) => personaForSlug(t.slug) === PREVIEW_SAMPLE_RESUME).map(
+      (t) => t.slug,
+    );
+    expect(offenders, `slug(s) still falling back to PREVIEW_SAMPLE_RESUME: ${offenders.join(", ")}`).toEqual([]);
+  });
+
+  it("falls back rather than crashing for an unknown or missing slug — a genuinely fake slug, since no real catalog slug is unmapped anymore", () => {
     expect(personaForSlug("not-a-real-template")).toBe(PREVIEW_SAMPLE_RESUME);
     expect(personaForSlug(null)).toBe(PREVIEW_SAMPLE_RESUME);
     expect(personaForSlug(undefined)).toBe(PREVIEW_SAMPLE_RESUME);
@@ -302,6 +357,18 @@ describe("personaForSlug", () => {
 
   it.each(BATCH_3B_FULL_CATEGORIES)(
     "the %s category's live slug list is entirely off the fallback as of batch 3B (guards against catalog drift)",
+    (category) => {
+      const slugs = RESUME_TEMPLATES.filter((t) => t.industry_category === category).map((t) => t.slug);
+      // Sanity: the category still has slugs in the live catalog to check.
+      expect(slugs.length).toBeGreaterThan(0);
+      for (const slug of slugs) {
+        expect(personaForSlug(slug), `slug "${slug}" (category "${category}")`).not.toBe(PREVIEW_SAMPLE_RESUME);
+      }
+    },
+  );
+
+  it.each(BATCH_3C_FULL_CATEGORIES)(
+    "the %s category's live slug list is entirely off the fallback as of batch 3C (guards against catalog drift)",
     (category) => {
       const slugs = RESUME_TEMPLATES.filter((t) => t.industry_category === category).map((t) => t.slug);
       // Sanity: the category still has slugs in the live catalog to check.

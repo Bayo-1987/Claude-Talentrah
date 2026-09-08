@@ -88,6 +88,25 @@
  * other checks (name/email/phone/skills/projects/education) stayed green
  * (proving the failure was specific to the sabotaged field, not a broken
  * test), then reverted and confirmed the full suite green again.
+ *
+ * UPDATED for batch 3C (THIRD AND FINAL batch closing the 44 fallback slugs
+ * batches 3A/3B left standing): the registry grew from 51 to 66 personas (15
+ * new ones across Creative & Media, Customer Success, Design, Hospitality &
+ * Travel and Telecommunications — see preview-sample.ts's own header for why
+ * these and why now). Same drill as every batch before it: ran the full
+ * suite for real against the 66-persona registry before finalizing this
+ * batch's content, then sabotage-proofed again at n=66 by temporarily making
+ * two of the NEW personas' certifications lists identical
+ * (`NOC_FIELD_NETWORK_ENGINEER_RESUME` and `RF_TRANSMISSION_ENGINEER_RESUME`
+ * were both set to `["Cisco Certified Network Associate (CCNA)", "CompTIA
+ * Network+"]`) — confirmed the "certifications" check failed and named both
+ * ("Chukwuka Nnoli / Fisayo Akintola"), confirmed the other checks
+ * (name/email/phone/skills/projects/education) stayed green (proving the
+ * failure was specific to the sabotaged field, not a broken test), then
+ * reverted and confirmed the full suite green again. This batch closes the
+ * full 44-persona effort: all 65 catalog slugs now have a dedicated persona,
+ * and a standing regression test in persona-for-slug.test.ts asserts that
+ * directly against every live `RESUME_TEMPLATES` slug.
  */
 import { describe, expect, it } from "vitest";
 import {
@@ -143,6 +162,21 @@ import {
   WAREHOUSE_OPERATIONS_MANAGER_RESUME,
   FLEET_ROUTE_PLANNING_MANAGER_RESUME,
   SUPPLY_CHAIN_PROCUREMENT_MANAGER_RESUME,
+  BYLINE_JOURNALIST_RESUME,
+  REEL_VIDEO_EDITOR_RESUME,
+  PRESS_KIT_PUBLICIST_RESUME,
+  FIELD_CUSTOMER_SUCCESS_MANAGER_RESUME,
+  TECHNICAL_HELP_DESK_SPECIALIST_RESUME,
+  CUSTOMER_SUCCESS_RENEWALS_MANAGER_RESUME,
+  PRODUCT_UX_DESIGNER_RESUME,
+  GRAPHIC_BRAND_DESIGNER_RESUME,
+  CREATIVE_DIRECTOR_STUDIO_RESUME,
+  HOTEL_CONCIERGE_RESUME,
+  HOTEL_FRONT_DESK_SUPERVISOR_RESUME,
+  TRAVEL_ITINERARY_COORDINATOR_RESUME,
+  NOC_FIELD_NETWORK_ENGINEER_RESUME,
+  RF_TRANSMISSION_ENGINEER_RESUME,
+  NETWORK_RELIABILITY_ENGINEER_RESUME,
 } from "@/lib/resume-builder/preview-sample";
 
 function pairs<T>(items: readonly T[]): Array<[T, T]> {
@@ -159,9 +193,9 @@ function sameList(a: readonly string[], b: readonly string[]): boolean {
   return a.length > 0 && a.length === b.length && a.every((item, i) => item === b[i]);
 }
 
-describe("EXAMPLE_PERSONAS registry has exactly the 51 personas across batches 1, 2, 3A and 3B", () => {
-  it("contains the 36 personas from batches 1-3A plus the 15 new batch-3B ones, and nothing is accidentally duplicated by reference", () => {
-    expect(EXAMPLE_PERSONAS).toHaveLength(51);
+describe("EXAMPLE_PERSONAS registry has exactly the 66 personas across batches 1, 2, 3A, 3B and 3C", () => {
+  it("contains the 51 personas from batches 1-3B plus the 15 new batch-3C ones, and nothing is accidentally duplicated by reference", () => {
+    expect(EXAMPLE_PERSONAS).toHaveLength(66);
     expect(EXAMPLE_PERSONAS).toContain(PREVIEW_SAMPLE_RESUME);
     expect(EXAMPLE_PERSONAS).toContain(EPC_SITE_ENGINEER_RESUME);
     expect(EXAMPLE_PERSONAS).toContain(DEVELOPMENT_PROGRAMME_OFFICER_RESUME);
@@ -213,6 +247,21 @@ describe("EXAMPLE_PERSONAS registry has exactly the 51 personas across batches 1
     expect(EXAMPLE_PERSONAS).toContain(WAREHOUSE_OPERATIONS_MANAGER_RESUME);
     expect(EXAMPLE_PERSONAS).toContain(FLEET_ROUTE_PLANNING_MANAGER_RESUME);
     expect(EXAMPLE_PERSONAS).toContain(SUPPLY_CHAIN_PROCUREMENT_MANAGER_RESUME);
+    expect(EXAMPLE_PERSONAS).toContain(BYLINE_JOURNALIST_RESUME);
+    expect(EXAMPLE_PERSONAS).toContain(REEL_VIDEO_EDITOR_RESUME);
+    expect(EXAMPLE_PERSONAS).toContain(PRESS_KIT_PUBLICIST_RESUME);
+    expect(EXAMPLE_PERSONAS).toContain(FIELD_CUSTOMER_SUCCESS_MANAGER_RESUME);
+    expect(EXAMPLE_PERSONAS).toContain(TECHNICAL_HELP_DESK_SPECIALIST_RESUME);
+    expect(EXAMPLE_PERSONAS).toContain(CUSTOMER_SUCCESS_RENEWALS_MANAGER_RESUME);
+    expect(EXAMPLE_PERSONAS).toContain(PRODUCT_UX_DESIGNER_RESUME);
+    expect(EXAMPLE_PERSONAS).toContain(GRAPHIC_BRAND_DESIGNER_RESUME);
+    expect(EXAMPLE_PERSONAS).toContain(CREATIVE_DIRECTOR_STUDIO_RESUME);
+    expect(EXAMPLE_PERSONAS).toContain(HOTEL_CONCIERGE_RESUME);
+    expect(EXAMPLE_PERSONAS).toContain(HOTEL_FRONT_DESK_SUPERVISOR_RESUME);
+    expect(EXAMPLE_PERSONAS).toContain(TRAVEL_ITINERARY_COORDINATOR_RESUME);
+    expect(EXAMPLE_PERSONAS).toContain(NOC_FIELD_NETWORK_ENGINEER_RESUME);
+    expect(EXAMPLE_PERSONAS).toContain(RF_TRANSMISSION_ENGINEER_RESUME);
+    expect(EXAMPLE_PERSONAS).toContain(NETWORK_RELIABILITY_ENGINEER_RESUME);
   });
 });
 

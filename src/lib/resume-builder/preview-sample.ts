@@ -179,6 +179,75 @@ import type { StructuredResume } from "@/lib/resume/types";
  * Nigerian statutory regulator like ICAN or NBA is the thing that reads as
  * an unbackable claim, not a voluntary international credentialing body), or
  * a named training programme.
+ *
+ * BATCH 3C (this pass, THIRD AND FINAL of three closing the 44 fallback
+ * slugs batches 3A and 3B left standing). Covers the last 15 slugs, all
+ * premium, across 5 categories, completing every one of them: Creative &
+ * Media (`byline`, `press-kit`, `reel` — all 3, new category, now complete),
+ * Customer Success (`field-notes`, `help-desk`, `success-story` — all 3, new
+ * category, now complete), Design (`design-showcase`, `portfolio-grid`,
+ * `studio-brief` — all 3, new category, now complete), Hospitality & Travel
+ * (`concierge`, `front-desk`, `itinerary` — all 3, new category, now
+ * complete) and Telecommunications (`network-ops`, `signal`, `uptime` — all
+ * 3, the category the founder originally flagged this bug in, now
+ * complete). AFTER THIS BATCH, EVERY ONE OF THE CATALOG'S 65 SLUGS HAS A
+ * DEDICATED PERSONA — `PREVIEW_SAMPLE_RESUME` is no longer an active
+ * fallback for any real template; see `persona-for-slug.ts`'s own header
+ * for what that means for its continued role as a safety net.
+ *
+ * `portfolio-grid` is this batch's one bespoke-component slug (like
+ * `pipeline`, `clinical`, `statute`, `critical-path` and `public-record`
+ * before it) — its persona was matched against `PortfolioGridTemplate`
+ * (`src/components/resume-builder/templates/portfolio-grid.tsx`) directly:
+ * that component's projects-first "Selected Work" grid, "Experience",
+ * "Capabilities" (skills) and label-free education/certifications block, not
+ * a `structure_schema` config. `pipeline` and `portfolio-grid` were always
+ * the two pre-PR2 bespoke slugs `catalog-configs.ts`'s own header calls out
+ * that hadn't been covered by an earlier batch; this pass closes the last of
+ * them.
+ *
+ * THE THREE-WAY CATEGORIES EACH GET A GENUINELY DISTINCT SUB-SPECIALTY, same
+ * discipline as every earlier three-way category: Creative & Media splits
+ * into feature/business journalism (`byline`'s Adanna Okoro, writing her own
+ * bylined articles), video/motion post-production (`reel`'s Bolaji
+ * Aderibigbe, cutting other people's footage) and talent/brand publicity
+ * (`press-kit`'s Nkiru Obialor, securing OTHER clients' media placements
+ * rather than writing or editing anything herself) — three different
+ * relationships to "media", not three writers. Customer Success splits into
+ * on-site/field account management (`field-notes`'s Kayode Fashina, who
+ * physically visits client sites — matching the slug's own name), reactive
+ * technical ticket support (`help-desk`'s Rahila Musa, ticket-queue and
+ * SLA-driven) and proactive renewals/expansion account ownership
+ * (`success-story`'s Victor Nduka, net-revenue-retention and upsell framed,
+ * matching `SUCCESS_STORY_CONFIG`'s "Customer Wins" experience label) —
+ * three different jobs a "customer success" title covers, not three
+ * flavours of the same one. Design splits into digital product/UX design
+ * (`design-showcase`'s Tayo Ogundipe), print/brand-identity graphic design
+ * (`portfolio-grid`'s Chizoba Anyanwu) and studio-side creative direction
+ * managing client briefs (`studio-brief`'s Aderonke Fatunde, the one whose
+ * job is directing OTHER designers' work, not producing her own). Hospitality
+ * & Travel splits into front-of-house hotel operations (`front-desk`'s
+ * Simisola Ajayi), high-touch concierge services (`concierge`'s Ndidi
+ * Okorafor — the one persona in this trio with `languages` carrying a real
+ * concierge register, matching `CONCIERGE_CONFIG`'s sidebar languages
+ * section) and travel-agency itinerary planning (`itinerary`'s Hauwa
+ * Abdulkadir, who works for a travel agency, not a hotel). Telecommunications
+ * splits into NOC/field network operations (`network-ops`'s Chukwuka Nnoli,
+ * incident response and field-technician dispatch), RF/transmission
+ * engineering (`signal`'s Fisayo Akintola, spectrum and link-budget work) and
+ * core-network reliability engineering (`uptime`'s Obinna Ezike, backbone
+ * uptime/failover work, matching `UPTIME_CONFIG`'s own "Network Projects"
+ * label) — three genuinely different telecom engineering disciplines, not
+ * three job titles on the same NOC desk.
+ *
+ * Same certification rule as every batch before this one: no
+ * licensing/chartering/regulatory body name (Nigerian or otherwise) appears
+ * in any of these 15 personas' `certifications` — vendor certifications
+ * (Adobe, Cisco, CompTIA, AWS), international voluntary professional bodies
+ * (Les Clefs d'Or for hotel concierges, iNARTE for RF engineers, HDI for
+ * help-desk analysts, IAPP-style credentialing bodies elsewhere in the
+ * registry) or training-programme certificates (Google, Poynter, The Travel
+ * Institute, AHLEI) only.
  */
 
 /**
@@ -3920,16 +3989,1066 @@ export const SUPPLY_CHAIN_PROCUREMENT_MANAGER_RESUME: StructuredResume = {
 };
 
 /**
+ * `byline` persona — a feature/business journalist who writes and publishes
+ * her own bylined articles. `BYLINE_CONFIG`'s `sectionOrder` includes
+ * `publications` (labelled "Bylines & Features"), populated below with her
+ * own authored pieces — distinct from `press-kit`'s Nkiru, who secures
+ * OTHER people's media placements rather than writing anything herself.
+ */
+export const BYLINE_JOURNALIST_RESUME: StructuredResume = {
+  contact: {
+    name: "Adanna Okoro",
+    email: "adanna.okoro@westportmediagroup.com",
+    phone: "+234 802 337 6614",
+    location: "Lagos, Nigeria",
+  },
+  summary:
+    "Business journalist with eight years covering Nigeria's fintech, banking and startup sectors, known for source-driven investigative features that regulators and competitors both read closely.",
+  experience: [
+    {
+      title: "Senior Business Correspondent",
+      company: "Westport Media Group",
+      location: "Lagos, Nigeria",
+      startDate: "2022",
+      endDate: "Present",
+      description:
+        "Cover the fintech and startup beat, breaking 3 exclusive stories on Nigerian fintech regulation that were picked up by 2 international wire services. Grew the business desk's monthly unique readership from 180,000 to 310,000 (a 72% increase) through a weekly explainer series.",
+    },
+    {
+      title: "Business Correspondent",
+      company: "Westport Media Group",
+      location: "Lagos, Nigeria",
+      startDate: "2019",
+      endDate: "2022",
+      description:
+        "Filed over 200 published articles on Nigeria's startup and banking sectors. One investigative piece on a fintech's licensing gap prompted a formal regulatory review.",
+    },
+    {
+      title: "Staff Writer",
+      company: "The Continental Business Review",
+      location: "Lagos, Nigeria",
+      startDate: "2016",
+      endDate: "2019",
+      description:
+        "Covered SME and trade-policy beats on a twice-weekly cadence, building a source network across 40+ Lagos-based small businesses for a recurring column.",
+    },
+  ],
+  education: [
+    { school: "Ambrose Alli University, Ekpoma", degree: "B.A.", field: "Mass Communication", startDate: "2011", endDate: "2015" },
+  ],
+  skills: [
+    "investigative reporting",
+    "business journalism",
+    "source development",
+    "fact-checking",
+    "longform writing",
+    "seo writing",
+    "interviewing",
+    "editorial research",
+    "digital publishing",
+    "ap style editing",
+  ],
+  projects: [
+    "Fintech licensing-gap investigation — prompted a Central Bank regulatory review",
+    "Weekly fintech explainer series — grew business-desk readership 72% (180k to 310k monthly uniques)",
+    "40+ SME source network built for a recurring trade-policy column",
+  ],
+  certifications: ["Google News Initiative Digital Journalism Certificate", "Poynter ACES Certificate in Editing"],
+  publications: [
+    '"The Licensing Gap No One Flagged" — Continental Business Review, 2023',
+    "\"Inside Nigeria's Fintech Funding Winter\" — Westport Media Group, 2024",
+  ],
+};
+
+/**
+ * `reel` persona — a video editor / motion-content creator, the
+ * post-production counterpart to `byline`'s writer: he cuts other people's
+ * footage rather than authoring his own bylined work. `REEL_CONFIG` is
+ * projects-first (`sectionLabels.projects` = "Portfolio Reel"), so his
+ * `projects` list is written to carry the persona on its own.
+ */
+export const REEL_VIDEO_EDITOR_RESUME: StructuredResume = {
+  contact: {
+    name: "Bolaji Aderibigbe",
+    email: "bolaji.aderibigbe@lightboxcreative.ng",
+    phone: "+234 810 774 2261",
+    location: "Lagos, Nigeria",
+  },
+  summary:
+    "Video editor and motion-content creator with seven years cutting branded content, music videos and commercial work for Lagos production studios, leading post-production from rough cut through delivery.",
+  experience: [
+    {
+      title: "Senior Video Editor",
+      company: "Lightbox Creative Studio",
+      location: "Lagos, Nigeria",
+      startDate: "2022",
+      endDate: "Present",
+      description:
+        "Lead post-production on 30+ branded-content and music-video projects a year, managing a 3-person edit team. Cut average turnaround from 12 days to 6 by standardising the studio's edit-and-review workflow; one campaign edit surpassed 2M organic views within a week of release.",
+    },
+    {
+      title: "Video Editor",
+      company: "Lightbox Creative Studio",
+      location: "Lagos, Nigeria",
+      startDate: "2019",
+      endDate: "2022",
+      description:
+        "Edited 80+ short-form social and commercial videos for consumer brands, and built the studio's first motion-graphics template library, cutting average graphics turnaround by 40%.",
+    },
+    {
+      title: "Junior Editor / Motion Designer",
+      company: "Framewire Productions",
+      location: "Lagos, Nigeria",
+      startDate: "2017",
+      endDate: "2019",
+      description:
+        "Assisted on documentary and commercial edits, and produced motion titles for a 6-part branded documentary series.",
+    },
+  ],
+  education: [
+    { school: "Delta State Polytechnic, Ogwashi-Uku", degree: "HND", field: "Mass Communication", startDate: "2013", endDate: "2016" },
+  ],
+  skills: [
+    "video editing",
+    "adobe premiere pro",
+    "davinci resolve",
+    "motion graphics",
+    "after effects",
+    "colour grading",
+    "sound design",
+    "visual storytelling",
+    "content strategy",
+    "production scheduling",
+  ],
+  projects: [
+    "Consumer-brand campaign edit — surpassed 2M organic views in one week",
+    "Studio motion-graphics template library — cut graphics turnaround 40%",
+    "6-part branded documentary series — motion titles and post-production",
+  ],
+  certifications: ["Adobe Certified Professional — Premiere Pro", "DaVinci Resolve Certified Colorist"],
+};
+
+/**
+ * `press-kit` persona — a talent/brand publicist who secures OTHER clients'
+ * media placements, the third and last Creative & Media register: distinct
+ * from `byline`'s own bylined writing and `reel`'s own edited footage.
+ * `PRESS_KIT_CONFIG` labels `publications` "Press & Features", populated
+ * below with placements she secured for clients rather than pieces she
+ * authored herself.
+ */
+export const PRESS_KIT_PUBLICIST_RESUME: StructuredResume = {
+  contact: {
+    name: "Nkiru Obialor",
+    email: "nkiru.obialor@cadencepublicity.com",
+    phone: "+234 706 448 2217",
+    location: "Lagos, Nigeria",
+  },
+  summary:
+    "Publicist with seven years managing press and media strategy for entertainment and consumer-brand clients across Lagos, turning press kits and pitch angles into earned media placements.",
+  experience: [
+    {
+      title: "Senior Publicist",
+      company: "Cadence Publicity Group",
+      location: "Lagos, Nigeria",
+      startDate: "2022",
+      endDate: "Present",
+      description:
+        "Manage press and media strategy for a roster of 8 entertainment and consumer-brand clients, securing over 120 media placements in the past year. Landed a client's product launch on 3 national television morning shows, lifting the client's search interest an estimated 65% in launch week.",
+    },
+    {
+      title: "Publicist",
+      company: "Cadence Publicity Group",
+      location: "Lagos, Nigeria",
+      startDate: "2019",
+      endDate: "2022",
+      description:
+        "Built and executed press-kit and media-outreach strategy for 15 client campaigns, growing average earned-media placements per campaign from 6 to 14.",
+    },
+    {
+      title: "Junior Publicist",
+      company: "Framepoint Communications",
+      location: "Lagos, Nigeria",
+      startDate: "2017",
+      endDate: "2019",
+      description:
+        "Coordinated press-kit production and media-list building for consumer-brand launches, supporting 20+ press events.",
+    },
+  ],
+  education: [
+    { school: "Kaduna State University", degree: "B.Sc.", field: "Mass Communication", startDate: "2012", endDate: "2016" },
+  ],
+  skills: [
+    "media relations",
+    "press kit production",
+    "crisis communications",
+    "brand storytelling",
+    "influencer outreach",
+    "event publicity",
+    "media list building",
+    "pitch writing",
+    "client management",
+    "social listening",
+  ],
+  projects: [
+    "National morning-show launch placement — lifted client search interest ~65% in launch week",
+    "Campaign-placement growth programme — grew average earned placements per campaign from 6 to 14",
+    "20+ press events coordinated for consumer-brand launches",
+  ],
+  certifications: [
+    "Certificate in Strategic Communications — Cornell University (eCornell)",
+    "Crisis Communications Certificate — PR News Ragan Training",
+  ],
+  publications: [
+    "Client feature secured — BusinessDay Weekend, 2023",
+    "Client product-launch coverage secured — 3 national morning shows, 2024",
+  ],
+};
+
+/**
+ * `field-notes` persona — an on-site/field customer success manager who
+ * physically visits client sites, matching the slug's own name.
+ * `FIELD_NOTES_CONFIG` labels `experience` "Customer Impact" and `skills`
+ * "Tools & Platforms". Distinct from `help-desk`'s reactive ticket support
+ * and `success-story`'s renewals/expansion account ownership — three
+ * different jobs a "customer success" title covers.
+ */
+export const FIELD_CUSTOMER_SUCCESS_MANAGER_RESUME: StructuredResume = {
+  contact: {
+    name: "Kayode Fashina",
+    email: "kayode.fashina@fieldstacktech.com",
+    phone: "+234 813 118 4479",
+    location: "Ibadan, Nigeria",
+  },
+  summary:
+    "Field customer success manager with seven years driving on-site onboarding and adoption for enterprise agribusiness clients across Nigeria, visiting client farms and processing sites to close the gap between the product and how it's actually used.",
+  experience: [
+    {
+      title: "Senior Field Customer Success Manager",
+      company: "Fieldstack Technologies",
+      location: "Lagos, Nigeria (regional travel)",
+      startDate: "2022",
+      endDate: "Present",
+      description:
+        "Own onsite onboarding and adoption for 35 enterprise agribusiness clients across 6 states, visiting client sites monthly. Cut time-to-first-value from 45 days to 22 by redesigning the onsite onboarding checklist, and lifted the 12-month renewal rate among visited accounts from 78% to 94%.",
+    },
+    {
+      title: "Field Customer Success Manager",
+      company: "Fieldstack Technologies",
+      location: "Ibadan, Nigeria (regional travel)",
+      startDate: "2020",
+      endDate: "2022",
+      description:
+        "Managed onsite training and support visits for 20 mid-market clients, documenting recurring product gaps in structured field reports that fed 3 shipped product fixes.",
+    },
+    {
+      title: "Customer Success Associate",
+      company: "Cropline Digital",
+      location: "Ibadan, Nigeria",
+      startDate: "2018",
+      endDate: "2020",
+      description:
+        "Supported onboarding calls and site visits for 40+ smallholder-cooperative accounts, maintaining a 92% onboarding completion rate.",
+    },
+  ],
+  education: [
+    { school: "Niger Delta University, Wilberforce Island", degree: "B.Sc.", field: "Business Administration", startDate: "2013", endDate: "2017" },
+  ],
+  skills: [
+    "customer onboarding",
+    "field account management",
+    "adoption strategy",
+    "renewal management",
+    "client training",
+    "salesforce",
+    "structured field reporting",
+    "stakeholder relationship management",
+    "travel-based account coverage",
+    "product feedback synthesis",
+  ],
+  projects: [
+    "Onsite onboarding checklist redesign — cut time-to-first-value from 45 to 22 days",
+    "Renewal-rate improvement programme — lifted visited-account renewals from 78% to 94%",
+    "Field-report product-feedback pipeline — fed 3 shipped product fixes",
+  ],
+  certifications: ["Certified Customer Success Manager (CCSM) — SuccessCOACHING", "Salesforce Certified Administrator"],
+};
+
+/**
+ * `help-desk` persona — a reactive, ticket-queue-driven technical support
+ * specialist, the second Customer Success register: SLA and resolution-time
+ * framed, distinct from `field-notes`'s on-site visits and
+ * `success-story`'s account-ownership framing. `HELP_DESK_CONFIG` labels
+ * `skills` "Support Tools".
+ */
+export const TECHNICAL_HELP_DESK_SPECIALIST_RESUME: StructuredResume = {
+  contact: {
+    name: "Rahila Musa",
+    email: "rahila.musa@nexbridgeit.com",
+    phone: "+234 708 552 1197",
+    location: "Abuja, Nigeria",
+  },
+  summary:
+    "Technical help desk specialist with six years resolving Tier 1/2 support tickets for corporate clients in Abuja, focused on cutting resolution time without sacrificing first-contact quality.",
+  experience: [
+    {
+      title: "Senior Help Desk Analyst",
+      company: "Nexbridge IT Services",
+      location: "Abuja, Nigeria",
+      startDate: "2022",
+      endDate: "Present",
+      description:
+        "Resolve Tier 1/2 tickets for a 1,200-seat corporate client base, averaging 45 tickets a day. Rebuilt the internal knowledge base, cutting average ticket resolution time from 6 hours to 2.5 and lifting first-contact resolution from 61% to 84%.",
+    },
+    {
+      title: "Help Desk Analyst",
+      company: "Nexbridge IT Services",
+      location: "Abuja, Nigeria",
+      startDate: "2020",
+      endDate: "2022",
+      description:
+        "Provided remote and on-site technical support for 15 client organisations, closing over 6,000 tickets a year at a 96% customer satisfaction score.",
+    },
+    {
+      title: "IT Support Assistant",
+      company: "Northgate Systems Ltd",
+      location: "Abuja, Nigeria",
+      startDate: "2018",
+      endDate: "2020",
+      description:
+        "Handled hardware/software troubleshooting and new-hire IT setup for a 300-employee company, reducing average new-hire setup time from 2 days to half a day.",
+    },
+  ],
+  education: [
+    { school: "University of Maiduguri", degree: "B.Sc.", field: "Computer Science", startDate: "2014", endDate: "2018" },
+  ],
+  skills: [
+    "technical troubleshooting",
+    "ticketing systems (zendesk/freshdesk)",
+    "remote desktop support",
+    "active directory administration",
+    "hardware diagnostics",
+    "knowledge-base management",
+    "sla management",
+    "customer communication",
+    "windows/macos support",
+    "network fundamentals",
+  ],
+  projects: [
+    "Internal knowledge-base rebuild — cut resolution time from 6 hours to 2.5, lifted first-contact resolution to 84%",
+    "New-hire IT setup redesign — cut setup time from 2 days to half a day",
+    "6,000+ annual ticket closures across 15 client organisations at 96% CSAT",
+  ],
+  certifications: ["HDI Support Center Analyst (HDI-SCA)", "CompTIA A+ Certification"],
+};
+
+/**
+ * `success-story` persona — a renewals/expansion customer success manager,
+ * the third Customer Success register: net-revenue-retention and upsell
+ * framed, matching `SUCCESS_STORY_CONFIG`'s "Customer Wins" experience
+ * label. Distinct from `field-notes`'s on-site visits and `help-desk`'s
+ * reactive ticket queue.
+ */
+export const CUSTOMER_SUCCESS_RENEWALS_MANAGER_RESUME: StructuredResume = {
+  contact: {
+    name: "Victor Nduka",
+    email: "victor.nduka@bridgetechsoftware.com",
+    phone: "+234 705 447 2264",
+    location: "Lagos, Nigeria",
+  },
+  summary:
+    "Customer success manager with seven years driving renewals and expansion revenue for a B2B SaaS portfolio in Lagos, turning account health data into upsell conversations before renewal risk becomes churn.",
+  experience: [
+    {
+      title: "Senior Customer Success Manager",
+      company: "Bridgetech Software",
+      location: "Lagos, Nigeria",
+      startDate: "2022",
+      endDate: "Present",
+      description:
+        "Own a $2.4M portfolio of 60 mid-market accounts, driving renewal and expansion conversations. Lifted net revenue retention across the portfolio from 92% to 118% in one year through a structured quarterly business-review programme, and closed 14 expansion deals worth $310,000 in upsell ARR.",
+    },
+    {
+      title: "Customer Success Manager",
+      company: "Bridgetech Software",
+      location: "Lagos, Nigeria",
+      startDate: "2020",
+      endDate: "2022",
+      description:
+        "Managed a 45-account portfolio, rebuilding the 90-day renewal-risk escalation process and cutting churn among at-risk accounts by 35%.",
+    },
+    {
+      title: "Customer Success Associate",
+      company: "Growthline SaaS",
+      location: "Lagos, Nigeria",
+      startDate: "2018",
+      endDate: "2020",
+      description:
+        "Supported onboarding and health-scoring for 100+ SMB accounts, contributing to a company-wide renewal-rate improvement from 81% to 89%.",
+    },
+  ],
+  education: [
+    { school: "Kwara State University, Malete", degree: "B.Sc.", field: "Marketing", startDate: "2013", endDate: "2017" },
+  ],
+  skills: [
+    "customer success management",
+    "renewal strategy",
+    "expansion & upsell selling",
+    "net revenue retention",
+    "quarterly business reviews",
+    "account health scoring",
+    "gainsight",
+    "customer advocacy",
+    "churn risk management",
+    "cross-functional escalation",
+  ],
+  projects: [
+    "Portfolio NRR improvement — lifted net revenue retention from 92% to 118% in one year",
+    "14 expansion deals closed — $310,000 in upsell ARR",
+    "At-risk churn-reduction programme — cut churn among flagged accounts by 35%",
+  ],
+  certifications: ["Gainsight Certified Administrator (GCA)", "Certified Customer Success Manager (CCSM) — Level 2"],
+};
+
+/**
+ * `design-showcase` persona — a digital product/UX designer, the first
+ * Design register: interaction and usability framed. Distinct from
+ * `portfolio-grid`'s print/brand-identity graphic design and
+ * `studio-brief`'s studio-side creative direction.
+ */
+export const PRODUCT_UX_DESIGNER_RESUME: StructuredResume = {
+  contact: {
+    name: "Tayo Ogundipe",
+    email: "tayo.ogundipe@nimbusdigitalproducts.com",
+    phone: "+234 812 668 3347",
+    location: "Lagos, Nigeria",
+  },
+  summary:
+    "Product designer with seven years designing consumer fintech products in Lagos, running research-informed redesigns that move activation and retention metrics, not just visuals.",
+  experience: [
+    {
+      title: "Senior Product Designer",
+      company: "Nimbus Digital Products",
+      location: "Lagos, Nigeria",
+      startDate: "2022",
+      endDate: "Present",
+      description:
+        "Lead end-to-end product design for a consumer savings app used by 500,000+ users, running weekly usability tests with a research partner. Redesigned the onboarding flow, lifting activation rate from 54% to 71%, and cut design-to-dev handoff time from 9 days to 4 with a new component library.",
+    },
+    {
+      title: "Product Designer",
+      company: "Nimbus Digital Products",
+      location: "Lagos, Nigeria",
+      startDate: "2019",
+      endDate: "2022",
+      description:
+        "Designed and shipped 12 major feature releases across web and mobile, partnering with 4 engineering pods, and introduced a design-QA checklist that cut post-launch UI defect reports by 50%.",
+    },
+    {
+      title: "UI/UX Designer",
+      company: "Clickframe Studio",
+      location: "Lagos, Nigeria",
+      startDate: "2017",
+      endDate: "2019",
+      description:
+        "Designed interfaces for 8 client web and mobile products, running user interviews that shaped 3 major feature pivots.",
+    },
+  ],
+  education: [
+    { school: "Adekunle Ajasin University, Akungba-Akoko", degree: "B.Sc.", field: "Computer Science", startDate: "2014", endDate: "2018" },
+  ],
+  skills: [
+    "product design",
+    "ux research",
+    "figma",
+    "interaction design",
+    "design systems",
+    "usability testing",
+    "prototyping",
+    "information architecture",
+    "accessibility design",
+    "cross-functional collaboration",
+  ],
+  projects: [
+    "Onboarding flow redesign — lifted activation rate from 54% to 71%",
+    "Component library rollout — cut design-to-dev handoff from 9 to 4 days",
+    "Design-QA checklist — cut post-launch UI defect reports 50%",
+  ],
+  certifications: ["Google UX Design Professional Certificate", "Certified Usability Analyst (CUA) — Human Factors International"],
+};
+
+/**
+ * `portfolio-grid` persona — a print/brand-identity graphic designer, the
+ * second Design register. Matched against `PortfolioGridTemplate`
+ * (`src/components/resume-builder/templates/portfolio-grid.tsx`) directly —
+ * one of the catalog's pre-PR2 bespoke components (`structure_schema: {}`),
+ * not a skeleton config — whose "Selected Work" projects grid, "Experience",
+ * "Capabilities" (skills), "Education" and label-free certifications block
+ * this persona's content is written for. Distinct from `design-showcase`'s
+ * digital/UX register and `studio-brief`'s studio-direction register.
+ */
+export const GRAPHIC_BRAND_DESIGNER_RESUME: StructuredResume = {
+  contact: {
+    name: "Chizoba Anyanwu",
+    email: "chizoba.anyanwu@formworkdesign.com",
+    phone: "+234 703 552 8817",
+    location: "Lagos, Nigeria",
+  },
+  summary:
+    "Brand and graphic designer with eight years leading identity design for FMCG and fintech clients at a Lagos design studio, from logo systems through full packaging rollouts.",
+  experience: [
+    {
+      title: "Senior Brand Designer",
+      company: "Formwork Design Studio",
+      location: "Lagos, Nigeria",
+      startDate: "2022",
+      endDate: "Present",
+      description:
+        "Lead brand-identity design for 10+ client rebrands a year across FMCG and fintech sectors. Delivered a full rebrand for a regional retail chain that grew its social engagement 3x within two months of rollout, and built the studio's reusable brand-guideline template, cutting delivery time per brand book from 3 weeks to 10 days.",
+    },
+    {
+      title: "Brand Designer",
+      company: "Formwork Design Studio",
+      location: "Lagos, Nigeria",
+      startDate: "2019",
+      endDate: "2022",
+      description:
+        "Designed logo systems and packaging for 25+ consumer-goods clients, and led a packaging refresh that helped one client win a retail shelf-placement upgrade.",
+    },
+    {
+      title: "Junior Graphic Designer",
+      company: "Palette House Creative",
+      location: "Lagos, Nigeria",
+      startDate: "2017",
+      endDate: "2019",
+      description:
+        "Produced marketing collateral and social assets for 15 SME clients, delivering an average of 30 assets a month.",
+    },
+  ],
+  education: [
+    { school: "Kogi State University", degree: "B.A.", field: "Fine and Applied Arts", startDate: "2012", endDate: "2016" },
+  ],
+  skills: [
+    "brand identity design",
+    "logo design",
+    "adobe illustrator",
+    "adobe photoshop",
+    "packaging design",
+    "typography",
+    "art direction",
+    "brand guideline systems",
+    "client presentation",
+    "print production",
+  ],
+  projects: [
+    "Regional retail chain rebrand — grew social engagement 3x in two months",
+    "Reusable brand-guideline template — cut brand-book delivery from 3 weeks to 10 days",
+    "Packaging refresh — helped client win a retail shelf-placement upgrade",
+  ],
+  certifications: ["Adobe Certified Expert (ACE) — Illustrator", "Certified Brand Strategist — Branding Institute"],
+};
+
+/**
+ * `studio-brief` persona — a studio-side creative director who directs
+ * OTHER designers' work and manages client briefs, the third Design
+ * register: distinct from `design-showcase`'s and `portfolio-grid`'s
+ * individual-contributor design work.
+ */
+export const CREATIVE_DIRECTOR_STUDIO_RESUME: StructuredResume = {
+  contact: {
+    name: "Aderonke Fatunde",
+    email: "aderonke.fatunde@larkspurcreative.com",
+    phone: "+234 815 668 2259",
+    location: "Lagos, Nigeria",
+  },
+  summary:
+    "Creative director with nine years leading studio output and client briefs for a Lagos design studio, translating client objectives into pitch-winning campaign concepts for a 12-person creative team.",
+  experience: [
+    {
+      title: "Creative Director",
+      company: "Larkspur Creative Studio",
+      location: "Lagos, Nigeria",
+      startDate: "2022",
+      endDate: "Present",
+      description:
+        "Lead creative strategy and studio briefs for a 12-person design team serving 20+ retained clients. Restructured the studio's brief-intake process, cutting average brief-to-concept turnaround from 15 days to 7, and won 2 new retained accounts worth a combined ₦48M annually through pitch-winning campaign concepts.",
+    },
+    {
+      title: "Senior Art Director",
+      company: "Larkspur Creative Studio",
+      location: "Lagos, Nigeria",
+      startDate: "2019",
+      endDate: "2022",
+      description:
+        "Directed campaign concepts and studio output for 8 major client accounts, mentoring a team of 4 designers and improving the client-approval-on-first-round rate from 45% to 70%.",
+    },
+    {
+      title: "Art Director",
+      company: "Millbrook Studio",
+      location: "Lagos, Nigeria",
+      startDate: "2016",
+      endDate: "2019",
+      description:
+        "Led creative concepting for 15 advertising campaigns across print, digital and OOH, managing production budgets of up to ₦20M per campaign.",
+    },
+  ],
+  education: [
+    { school: "Auchi Polytechnic", degree: "HND", field: "Industrial Design", startDate: "2013", endDate: "2016" },
+  ],
+  skills: [
+    "creative direction",
+    "client brief development",
+    "campaign concepting",
+    "art direction",
+    "team leadership",
+    "pitch presentation",
+    "budget management",
+    "brand strategy",
+    "cross-discipline collaboration",
+    "studio operations",
+  ],
+  projects: [
+    "Brief-intake process redesign — cut brief-to-concept turnaround from 15 to 7 days",
+    "2 new retained accounts won — combined ₦48M annual value",
+    "Client-approval-on-first-round improvement — from 45% to 70% across 8 accounts",
+  ],
+  certifications: ["Certified Brand Manager — Digital Marketing Institute", "Adobe Certified Professional — InDesign"],
+};
+
+/**
+ * `concierge` persona — high-touch luxury-hotel concierge services, the
+ * first Hospitality & Travel register. `CONCIERGE_CONFIG`'s `sectionOrder`
+ * includes `languages`, populated below to match a real luxury-hotel
+ * concierge's international-guest register. Distinct from `front-desk`'s
+ * front-of-house operations and `itinerary`'s travel-agency planning.
+ */
+export const HOTEL_CONCIERGE_RESUME: StructuredResume = {
+  contact: {
+    name: "Ndidi Okorafor",
+    email: "ndidi.okorafor@thealarichotel.com",
+    phone: "+234 809 447 6625",
+    location: "Lagos, Nigeria",
+  },
+  summary:
+    "Hotel concierge with eight years coordinating VIP arrangements and bespoke guest experiences at a 5-star Lagos hotel, turning local knowledge into a measurable guest-satisfaction advantage.",
+  experience: [
+    {
+      title: "Senior Concierge",
+      company: "The Alaric Hotel Lagos",
+      location: "Lagos, Nigeria",
+      startDate: "2022",
+      endDate: "Present",
+      description:
+        "Lead a 4-person concierge desk for a 250-room 5-star hotel, coordinating VIP arrangements, restaurant reservations and bespoke experiences for 200+ guest requests weekly. Built a curated local-experience directory that lifted concierge guest-satisfaction scores from 4.3 to 4.8 out of 5.",
+    },
+    {
+      title: "Concierge",
+      company: "The Alaric Hotel Lagos",
+      location: "Lagos, Nigeria",
+      startDate: "2019",
+      endDate: "2022",
+      description:
+        "Managed daily guest requests including transport, tickets and special-occasion arrangements, maintaining a 98% same-day fulfilment rate across 1,500+ annual requests.",
+    },
+    {
+      title: "Guest Relations Assistant",
+      company: "Palmgrove Suites",
+      location: "Lagos, Nigeria",
+      startDate: "2016",
+      endDate: "2019",
+      description:
+        "Supported front-of-house guest relations and handled escalations for a 120-room hotel, resolving 90% of guest complaints on first contact.",
+    },
+  ],
+  education: [
+    { school: "Federal Polytechnic, Ilaro", degree: "HND", field: "Hospitality Management", startDate: "2013", endDate: "2016" },
+  ],
+  skills: [
+    "guest relations",
+    "vip arrangement coordination",
+    "reservation management",
+    "local experience curation",
+    "hospitality service recovery",
+    "event coordination",
+    "vendor liaison",
+    "guest satisfaction management",
+    "discretion & confidentiality",
+    "multilingual guest service",
+  ],
+  projects: [
+    "Curated local-experience directory — lifted concierge guest-satisfaction from 4.3 to 4.8/5",
+    "1,500+ annual guest requests — 98% same-day fulfilment rate",
+    "Guest complaint resolution — 90% resolved on first contact",
+  ],
+  certifications: ["Certified Hotel Concierge — Les Clefs d'Or", "Certified Guest Service Professional (CGSP) — AHLEI"],
+  languages: [
+    { name: "English", level: "Fluent" },
+    { name: "French", level: "Professional working proficiency" },
+  ],
+};
+
+/**
+ * `front-desk` persona — front-of-house hotel operations, the second
+ * Hospitality & Travel register: check-in/out, billing and queue management
+ * rather than `concierge`'s bespoke arrangement-making. `FRONT_DESK_CONFIG`
+ * labels `skills` "Guest Service Skills" and includes `languages`. Distinct
+ * from `front-office`'s Administration-category office-management register
+ * (a different job in a different category, despite the similar name).
+ */
+export const HOTEL_FRONT_DESK_SUPERVISOR_RESUME: StructuredResume = {
+  contact: {
+    name: "Simisola Ajayi",
+    email: "simisola.ajayi@northshorehotelabuja.com",
+    phone: "+234 806 553 2291",
+    location: "Abuja, Nigeria",
+  },
+  summary:
+    "Front desk supervisor with seven years running guest check-in/out and billing operations at a 180-room Abuja hotel, focused on cutting wait times without sacrificing accuracy.",
+  experience: [
+    {
+      title: "Front Desk Supervisor",
+      company: "Northshore Hotel Abuja",
+      location: "Abuja, Nigeria",
+      startDate: "2022",
+      endDate: "Present",
+      description:
+        "Supervise a 6-person front desk team for a 180-room hotel, managing check-in/out for 150+ guests daily during peak season. Cut average check-in wait time from 8 minutes to 3 by redesigning the queue and pre-arrival verification process, lifting front-desk guest-satisfaction scores from 4.1 to 4.6 out of 5.",
+    },
+    {
+      title: "Front Desk Agent",
+      company: "Northshore Hotel Abuja",
+      location: "Abuja, Nigeria",
+      startDate: "2019",
+      endDate: "2022",
+      description:
+        "Handled guest check-in/out, billing and reservation changes, maintaining a 99% billing accuracy rate across more than 20,000 transactions.",
+    },
+    {
+      title: "Guest Services Associate",
+      company: "Rivergate Hotel",
+      location: "Abuja, Nigeria",
+      startDate: "2017",
+      endDate: "2019",
+      description:
+        "Managed guest inquiries and room assignments for a 90-room property, resolving overbooking conflicts with a 95% same-stay resolution rate.",
+    },
+  ],
+  education: [
+    { school: "Moshood Abiola Polytechnic, Abeokuta", degree: "HND", field: "Hotel and Catering Management", startDate: "2014", endDate: "2017" },
+  ],
+  skills: [
+    "guest check-in/check-out",
+    "hotel pms systems (opera)",
+    "billing & reservations",
+    "queue management",
+    "guest complaint resolution",
+    "upselling room upgrades",
+    "team supervision",
+    "service recovery",
+    "night-audit procedures",
+    "guest data confidentiality",
+  ],
+  projects: [
+    "Check-in queue redesign — cut average wait time from 8 to 3 minutes",
+    "Guest-satisfaction improvement — front-desk scores from 4.1 to 4.6/5",
+    "20,000+ transactions processed at 99% billing accuracy",
+  ],
+  certifications: ["Certified Guest Service Professional (CGSP) — AHLEI", "Opera PMS Certified User"],
+  languages: [
+    { name: "English", level: "Native" },
+    { name: "Hausa", level: "Fluent" },
+  ],
+};
+
+/**
+ * `itinerary` persona — travel-agency itinerary planning, the third
+ * Hospitality & Travel register: multi-city logistics and visa-support
+ * coordination for a travel agency's clients, distinct from `concierge`'s
+ * and `front-desk`'s hotel-based registers. `ITINERARY_CONFIG` includes
+ * `languages`.
+ */
+export const TRAVEL_ITINERARY_COORDINATOR_RESUME: StructuredResume = {
+  contact: {
+    name: "Hauwa Abdulkadir",
+    email: "hauwa.abdulkadir@compasspointtravel.com",
+    phone: "+234 701 224 6693",
+    location: "Abuja, Nigeria",
+  },
+  summary:
+    "Travel coordinator with seven years designing multi-city itineraries and visa-support logistics for corporate and leisure clients at an Abuja travel agency.",
+  experience: [
+    {
+      title: "Senior Travel Coordinator",
+      company: "Compass Point Travel & Tours",
+      location: "Abuja, Nigeria",
+      startDate: "2022",
+      endDate: "Present",
+      description:
+        "Design and manage multi-city itineraries for 300+ corporate and leisure travellers a year, including visa-support logistics and group tours. Cut average itinerary-turnaround time from 5 days to 2 by building a standardised itinerary-template system, and negotiated group rates that cut average client trip cost by 15%.",
+    },
+    {
+      title: "Travel Coordinator",
+      company: "Compass Point Travel & Tours",
+      location: "Abuja, Nigeria",
+      startDate: "2019",
+      endDate: "2022",
+      description:
+        "Booked and coordinated flights, accommodation and ground transport for 150+ annual corporate travel bookings, maintaining a 97% on-time itinerary-delivery rate.",
+    },
+    {
+      title: "Travel Consultant",
+      company: "Horizonline Travels",
+      location: "Kano, Nigeria",
+      startDate: "2017",
+      endDate: "2019",
+      description:
+        "Advised individual and family clients on international travel planning, handling visa-documentation support for over 200 applications.",
+    },
+  ],
+  education: [
+    { school: "Bauchi State University, Gadau", degree: "B.Sc.", field: "Tourism Studies", startDate: "2013", endDate: "2017" },
+  ],
+  skills: [
+    "itinerary planning",
+    "travel logistics coordination",
+    "visa documentation support",
+    "group tour management",
+    "gds booking systems (amadeus)",
+    "corporate travel management",
+    "vendor negotiation",
+    "budget travel planning",
+    "client consultation",
+    "crisis rebooking",
+  ],
+  projects: [
+    "Standardised itinerary-template system — cut turnaround from 5 to 2 days",
+    "Group-rate negotiation programme — cut average client trip cost 15%",
+    "200+ visa-documentation applications supported for international travel clients",
+  ],
+  certifications: ["Certified Travel Associate (CTA) — The Travel Institute", "IATA Travel and Tourism Professional Certificate"],
+  languages: [
+    { name: "English", level: "Fluent" },
+    { name: "Hausa", level: "Native" },
+    { name: "Arabic", level: "Basic" },
+  ],
+};
+
+/**
+ * `network-ops` persona — NOC/field network operations, the first
+ * Telecommunications register: incident response and field-technician
+ * dispatch. Distinct from `signal`'s RF/transmission engineering and
+ * `uptime`'s core-network reliability engineering — this is the category
+ * the founder originally noticed showing the identical demo resume under
+ * two different template names ("Network Ops" and "Signal").
+ */
+export const NOC_FIELD_NETWORK_ENGINEER_RESUME: StructuredResume = {
+  contact: {
+    name: "Chukwuka Nnoli",
+    email: "chukwuka.nnoli@skylinktelecom.ng",
+    phone: "+234 803 664 2258",
+    location: "Port Harcourt, Nigeria",
+  },
+  summary:
+    "Network operations engineer with nine years running NOC incident response and field-technician dispatch for a regional telecom network across the Niger Delta.",
+  experience: [
+    {
+      title: "Senior Network Operations Engineer",
+      company: "Skylink Telecom Nigeria",
+      location: "Lagos, Nigeria",
+      startDate: "2022",
+      endDate: "Present",
+      description:
+        "Monitor and maintain network operations for a regional telecom network serving 800,000+ subscribers, leading incident response for a 10-engineer NOC shift rotation. Cut average major-incident resolution time from 90 to 40 minutes by rebuilding the escalation runbook, and reduced unplanned network downtime 35% year-over-year.",
+    },
+    {
+      title: "Network Operations Engineer",
+      company: "Skylink Telecom Nigeria",
+      location: "Port Harcourt, Nigeria",
+      startDate: "2019",
+      endDate: "2022",
+      description:
+        "Dispatched and coordinated field technicians for 200+ base-station fault resolutions a year, maintaining network availability above 99.5% across the region.",
+    },
+    {
+      title: "Field Network Technician",
+      company: "Coastline Communications",
+      location: "Port Harcourt, Nigeria",
+      startDate: "2017",
+      endDate: "2019",
+      description:
+        "Performed on-site maintenance and fault-clearing on 60+ base transceiver stations, cutting average field dispatch-to-resolution time by 25%.",
+    },
+  ],
+  education: [
+    { school: "Kaduna Polytechnic", degree: "HND", field: "Electrical/Electronic Engineering", startDate: "2012", endDate: "2015" },
+  ],
+  skills: [
+    "network operations monitoring",
+    "incident response",
+    "base station maintenance",
+    "field dispatch coordination",
+    "network fault diagnosis",
+    "escalation management",
+    "sla compliance",
+    "network monitoring tools",
+    "transmission troubleshooting",
+    "team shift leadership",
+  ],
+  projects: [
+    "Escalation runbook rebuild — cut major-incident resolution from 90 to 40 minutes",
+    "Regional downtime-reduction programme — cut unplanned downtime 35% year-over-year",
+    "200+ base-station fault resolutions a year — availability held above 99.5%",
+  ],
+  certifications: ["Cisco Certified Network Associate (CCNA)", "CompTIA Network+"],
+};
+
+/**
+ * `signal` persona — RF/transmission engineering, the second
+ * Telecommunications register: spectrum planning and link-budget work,
+ * distinct from `network-ops`'s NOC/field-dispatch register and `uptime`'s
+ * core-network reliability register.
+ */
+export const RF_TRANSMISSION_ENGINEER_RESUME: StructuredResume = {
+  contact: {
+    name: "Fisayo Akintola",
+    email: "fisayo.akintola@apexsignalnetworks.com",
+    phone: "+234 807 118 6647",
+    location: "Lagos, Nigeria",
+  },
+  summary:
+    "RF and transmission engineer with ten years planning and optimising cellular network coverage across Nigeria, focused on call quality and site-design efficiency.",
+  experience: [
+    {
+      title: "Senior RF Engineer",
+      company: "Apex Signal Networks",
+      location: "Lagos, Nigeria",
+      startDate: "2022",
+      endDate: "Present",
+      description:
+        "Lead RF planning and optimisation for a multi-state cellular network covering 4 states, managing spectrum allocation and interference resolution across 500+ cell sites. Improved average call-drop rate from 2.1% to 0.6% through a systematic RF-optimisation programme, and cut new-site RF design turnaround from 3 weeks to 10 days.",
+    },
+    {
+      title: "RF Engineer",
+      company: "Apex Signal Networks",
+      location: "Lagos, Nigeria",
+      startDate: "2019",
+      endDate: "2022",
+      description:
+        "Conducted drive tests and site surveys for 150+ new and existing cell sites, and delivered a link-budget standardisation that cut design rework by 30%.",
+    },
+    {
+      title: "Transmission Engineer",
+      company: "Riverside Telecom Services",
+      location: "Port Harcourt, Nigeria",
+      startDate: "2016",
+      endDate: "2019",
+      description:
+        "Configured and maintained microwave transmission links across 40 base station sites, maintaining network transmission uptime above 99.7%.",
+    },
+  ],
+  education: [
+    { school: "Federal University of Petroleum Resources, Effurun (FUPRE)", degree: "B.Eng.", field: "Electrical and Electronics Engineering", startDate: "2011", endDate: "2016" },
+  ],
+  skills: [
+    "rf planning & optimisation",
+    "spectrum management",
+    "drive testing",
+    "link budget analysis",
+    "microwave transmission",
+    "interference resolution",
+    "site survey",
+    "network kpi analysis",
+    "cell site design",
+    "atoll/mapinfo tools",
+  ],
+  projects: [
+    "RF-optimisation programme — cut average call-drop rate from 2.1% to 0.6%",
+    "New-site RF design turnaround — cut from 3 weeks to 10 days",
+    "Link-budget standardisation — cut design rework 30% across 150+ sites",
+  ],
+  certifications: ["iNARTE Certified RF Engineer", "CompTIA Network+"],
+};
+
+/**
+ * `uptime` persona — core-network reliability engineering, the third
+ * Telecommunications register: backbone failover and MTTR work, matching
+ * `UPTIME_CONFIG`'s own "Network Projects" label. Distinct from
+ * `network-ops`'s field-dispatch register and `signal`'s RF register.
+ */
+export const NETWORK_RELIABILITY_ENGINEER_RESUME: StructuredResume = {
+  contact: {
+    name: "Obinna Ezike",
+    email: "obinna.ezike@beaconcorenetworks.com",
+    phone: "+234 815 227 5539",
+    location: "Lagos, Nigeria",
+  },
+  summary:
+    "Network reliability engineer with eight years owning core-network uptime and failover design for a national telecom backbone, turning incident postmortems into fewer repeat incidents.",
+  experience: [
+    {
+      title: "Senior Network Reliability Engineer",
+      company: "Beacon Core Networks",
+      location: "Lagos, Nigeria",
+      startDate: "2022",
+      endDate: "Present",
+      description:
+        "Own core-network reliability and capacity planning for a national backbone serving 15 regional networks, leading a 5-engineer reliability team. Lifted core-network uptime from 99.5% to 99.97% by redesigning failover routing across 3 data centres, and cut mean-time-to-recovery for backbone incidents from 3 hours to 45 minutes.",
+    },
+    {
+      title: "Network Reliability Engineer",
+      company: "Beacon Core Networks",
+      location: "Lagos, Nigeria",
+      startDate: "2019",
+      endDate: "2022",
+      description:
+        "Built automated health-check monitoring across 200+ core network nodes, catching 90% of degradation events before they caused a customer-visible outage.",
+    },
+    {
+      title: "Network Engineer",
+      company: "Grandview Network Systems",
+      location: "Port Harcourt, Nigeria",
+      startDate: "2017",
+      endDate: "2019",
+      description:
+        "Maintained routing and switching infrastructure for a regional ISP network, supporting 99.2% uptime across the core network.",
+    },
+  ],
+  education: [
+    { school: "Federal University, Otuoke", degree: "B.Eng.", field: "Electrical/Electronic Engineering", startDate: "2012", endDate: "2016" },
+  ],
+  skills: [
+    "network reliability engineering",
+    "failover & redundancy design",
+    "capacity planning",
+    "core network monitoring",
+    "root cause analysis",
+    "bgp/ospf routing",
+    "incident postmortems",
+    "sla/uptime reporting",
+    "automation scripting",
+    "data-centre network design",
+  ],
+  projects: [
+    "Failover routing redesign — lifted core-network uptime from 99.5% to 99.97%",
+    "Automated health-check monitoring rollout — caught 90% of degradation events pre-outage",
+    "MTTR reduction programme — cut backbone incident recovery from 3 hours to 45 minutes",
+  ],
+  certifications: ["Cisco Certified Network Professional (CCNP)", "AWS Certified SysOps Administrator – Associate"],
+};
+
+/**
  * The registry every consumer now matches against — see this file's
  * top-of-file header. Order is not meaningful for matching (every
  * comparison in example-guard.ts is `.some(...)` across the whole array),
  * but PREVIEW_SAMPLE_RESUME stays first because it is also the FALLBACK
  * persona-for-slug.ts returns for every slug without a dedicated entry —
- * the pre-existing, already-shipped behavior for those slugs. 51 entries as
- * of this pass (batch 3B): the 36 from batches 1-3A, plus 15 new personas
- * across Banking & Finance, Healthcare, Legal, Government & Public Sector,
- * Project Management and Logistics & Supply Chain — see this file's
- * top-of-file header for why these and why now.
+ * now a safety net for a future new template rather than an active
+ * fallback for any slug in today's catalog. 66 entries as of this pass
+ * (batch 3C, the last of three): the 51 from batches 1-3B, plus 15 new
+ * personas across Creative & Media, Customer Success, Design, Hospitality &
+ * Travel and Telecommunications — see this file's top-of-file header for
+ * why these and why now. This closes the full 44-persona effort across
+ * batches 3A, 3B and 3C: every one of the catalog's 65 slugs now has a
+ * dedicated persona.
  */
 export const EXAMPLE_PERSONAS: readonly StructuredResume[] = [
   PREVIEW_SAMPLE_RESUME,
@@ -3983,4 +5102,19 @@ export const EXAMPLE_PERSONAS: readonly StructuredResume[] = [
   WAREHOUSE_OPERATIONS_MANAGER_RESUME,
   FLEET_ROUTE_PLANNING_MANAGER_RESUME,
   SUPPLY_CHAIN_PROCUREMENT_MANAGER_RESUME,
+  BYLINE_JOURNALIST_RESUME,
+  REEL_VIDEO_EDITOR_RESUME,
+  PRESS_KIT_PUBLICIST_RESUME,
+  FIELD_CUSTOMER_SUCCESS_MANAGER_RESUME,
+  TECHNICAL_HELP_DESK_SPECIALIST_RESUME,
+  CUSTOMER_SUCCESS_RENEWALS_MANAGER_RESUME,
+  PRODUCT_UX_DESIGNER_RESUME,
+  GRAPHIC_BRAND_DESIGNER_RESUME,
+  CREATIVE_DIRECTOR_STUDIO_RESUME,
+  HOTEL_CONCIERGE_RESUME,
+  HOTEL_FRONT_DESK_SUPERVISOR_RESUME,
+  TRAVEL_ITINERARY_COORDINATOR_RESUME,
+  NOC_FIELD_NETWORK_ENGINEER_RESUME,
+  RF_TRANSMISSION_ENGINEER_RESUME,
+  NETWORK_RELIABILITY_ENGINEER_RESUME,
 ];

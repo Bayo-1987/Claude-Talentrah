@@ -37,12 +37,47 @@
  *     BATCH 3B GAVE BOTH OF THOSE THEIR OWN PERSONA TOO (`rounds` ->
  *     HOSPITAL_PHYSICIAN_RESUME, `statute` -> LITIGATION_COUNSEL_RESUME —
  *     Healthcare and Legal are now fully split), so they can no longer be
- *     the "no dedicated persona" proof either. The two "falls back rather
- *     than crashing" proofs below now use two different, still-unmapped
- *     PREMIUM slugs from categories batch 3C hasn't reached
- *     (`success-story` — Customer Success, `byline` — Creative & Media),
- *     unlocked the same way `site-plan`/`rig-report`/`product-tech`/
- *     `rounds`/`statute` already were.
+ *     the "no dedicated persona" proof either. Through batch 3B this suite
+ *     used two different, still-unmapped PREMIUM slugs from categories
+ *     batch 3C hadn't reached yet (`success-story` — Customer Success,
+ *     `byline` — Creative & Media) for that proof.
+ *
+ *     BATCH 3C GAVE BOTH OF *THOSE* THEIR OWN PERSONA TOO — it is the last
+ *     of the three batches, and after it there is no real catalog slug left
+ *     to demonstrate "still unmapped" with. `successStoryTemplateId` and
+ *     `bylineTemplateId` (renamed from `customerSuccessNoPersonaTemplateId`/
+ *     `creativeMediaNoPersonaTemplateId`) now instead prove `success-story`
+ *     and `byline` resolve to their OWN new batch-3C personas, folded into
+ *     the "BATCH 3C: each of the five brand-new categories..." group test
+ *     below (the same style batch 3B used for its three brand-new
+ *     categories).
+ *
+ *     THE "FALLS BACK RATHER THAN CRASHING" DB-LEVEL PROOF IS RETIRED, NOT
+ *     REPLACED. An earlier version of this batch tried inserting a synthetic
+ *     `resume_templates` row (a fake slug with no `SLUG_PERSONA_MAP` entry)
+ *     to keep exercising this end-to-end — and CI caught exactly why that's
+ *     the wrong call: `template-registry.test.ts` full-table-scans
+ *     `resume_templates` with strict catalog-wide invariants ("the catalog
+ *     has exactly 65 rows", "every slug renders a REGISTERED component or is
+ *     a known free exception", "every row's rendered HTML is unique", "no
+ *     live slug falls back to PREVIEW_SAMPLE_RESUME" — the last one broken
+ *     by the very row meant to prove the opposite, since the fixture WAS an
+ *     unmapped slug). A synthetic row a test inserts and cleans up in its
+ *     own `beforeAll`/`afterAll` is invisible to this file's own boundaries
+ *     but not to another file's full-table scan — worse, on the shared
+ *     hosted project two test files can run concurrently against the same
+ *     table, so the row can be visible to `template-registry.test.ts`
+ *     mid-run even before this file's own `afterAll` deletes it. Rather than
+ *     fight that with more synchronization, this suite drops the DB-level
+ *     "unmapped slug" proof entirely: `createResumeAction`'s "example"
+ *     branch is a one-line pass-through (`personaForSlug(template.slug)`),
+ *     and `personaForSlug`'s OWN fallback behavior for a genuinely unmapped
+ *     string is already exhaustively unit-tested with no database at all in
+ *     `persona-for-slug.test.ts` ("falls back rather than crashing for an
+ *     unknown or missing slug"). Re-proving that same fallback logic here,
+ *     through a real DB row, bought no real coverage — it only bought a
+ *     fragile shared-state hazard for a code path that is a single function
+ *     call with nothing else in between.
  *
  *     `site-plan`, `rig-report` and `product-tech` moved from free to
  *     premium in the resume-template free-tier cut (migration 0110); `rounds`
@@ -99,6 +134,21 @@ import {
   WAREHOUSE_OPERATIONS_MANAGER_RESUME,
   FLEET_ROUTE_PLANNING_MANAGER_RESUME,
   SUPPLY_CHAIN_PROCUREMENT_MANAGER_RESUME,
+  BYLINE_JOURNALIST_RESUME,
+  REEL_VIDEO_EDITOR_RESUME,
+  PRESS_KIT_PUBLICIST_RESUME,
+  FIELD_CUSTOMER_SUCCESS_MANAGER_RESUME,
+  TECHNICAL_HELP_DESK_SPECIALIST_RESUME,
+  CUSTOMER_SUCCESS_RENEWALS_MANAGER_RESUME,
+  PRODUCT_UX_DESIGNER_RESUME,
+  GRAPHIC_BRAND_DESIGNER_RESUME,
+  CREATIVE_DIRECTOR_STUDIO_RESUME,
+  HOTEL_CONCIERGE_RESUME,
+  HOTEL_FRONT_DESK_SUPERVISOR_RESUME,
+  TRAVEL_ITINERARY_COORDINATOR_RESUME,
+  NOC_FIELD_NETWORK_ENGINEER_RESUME,
+  RF_TRANSMISSION_ENGINEER_RESUME,
+  NETWORK_RELIABILITY_ENGINEER_RESUME,
 } from "@/lib/resume-builder/preview-sample";
 
 const testClientRef = vi.hoisted(() => ({ current: null as DB | null }));
@@ -164,9 +214,19 @@ let productTechTemplateId: string;
 // BATCH 3B: `rounds` and `statute` ALSO now resolve to their own dedicated
 // persona (Healthcare and Legal are fully split as of this batch), so they
 // can no longer prove the fallback either. Two different, still-unmapped
-// PREMIUM slugs from categories batch 3C hasn't reached cover it instead.
-let customerSuccessNoPersonaTemplateId: string; // "success-story" — Customer Success
-let creativeMediaNoPersonaTemplateId: string; // "byline" — Creative & Media
+// PREMIUM slugs from categories batch 3C hadn't reached yet covered it
+// instead, through batch 3B.
+// BATCH 3C: `success-story` and `byline` ALSO now resolve to their own
+// dedicated persona (Customer Success and Creative & Media are fully split
+// as of this batch), so these two variables no longer prove the fallback
+// either — renamed from `customerSuccessNoPersonaTemplateId`/
+// `creativeMediaNoPersonaTemplateId` and repurposed to prove their OWN new
+// personas instead (folded into the "BATCH 3C: each of the five brand-new
+// categories..." group test). There is no replacement DB-level "still
+// unmapped" fixture — see this file's header for why that proof is retired
+// rather than kept alive with a synthetic `resume_templates` row.
+let successStoryTemplateId: string; // "success-story" — Customer Success
+let bylineTemplateId: string; // "byline" — Creative & Media
 const createdResumeIds: string[] = [];
 
 /**
@@ -220,12 +280,12 @@ beforeAll(async () => {
   sitePlanTemplateId = await templateIdBySlug("site-plan");
   rigReportTemplateId = await templateIdBySlug("rig-report");
   productTechTemplateId = await templateIdBySlug("product-tech");
-  // BATCH 3B: two still-unmapped premium slugs, from two different
-  // categories batch 3C hasn't reached, now carry the "falls back rather
-  // than crashing" proof that `rounds`/`statute` used to carry before batch
-  // 3B gave both of those their own persona.
-  customerSuccessNoPersonaTemplateId = await templateIdBySlug("success-story");
-  creativeMediaNoPersonaTemplateId = await templateIdBySlug("byline");
+  // BATCH 3C: `success-story`/`byline` now resolve to their own dedicated
+  // persona (see this file's header) — these two variables are still
+  // fetched the same way, just renamed and repurposed to prove that instead
+  // of the fallback.
+  successStoryTemplateId = await templateIdBySlug("success-story");
+  bylineTemplateId = await templateIdBySlug("byline");
 
   // Picked AFTER the persona-dedicated premium slugs above, and explicitly
   // excluding their ids. This describe block's own `afterEach` deletes
@@ -245,8 +305,8 @@ beforeAll(async () => {
     sitePlanTemplateId,
     rigReportTemplateId,
     productTechTemplateId,
-    customerSuccessNoPersonaTemplateId,
-    creativeMediaNoPersonaTemplateId,
+    successStoryTemplateId,
+    bylineTemplateId,
   ]);
   const { data: premiumRows, error: premiumErr } = await admin
     .from("resume_templates")
@@ -287,20 +347,26 @@ describe("start-state content selection (sabotage-proof target #3)", () => {
     expect(await createdContent(resumeId)).toEqual(EMPTY_RESUME);
   });
 
-  it('"example" on a still-unmapped premium template (no dedicated persona) seeds the fallback PREVIEW_SAMPLE_RESUME, not a placeholder', async () => {
+  it('"example" seeds a real persona (not a placeholder, not EMPTY_RESUME) for the template\'s own slug', async () => {
+    // Uses `engineeringTemplateId` (`blueprint`) — any dedicated slug would
+    // do, since every real catalog slug has one as of batch 3C. See this
+    // file's header for why this test no longer round-trips a genuinely
+    // unmapped slug through the database: that fallback behavior is fully
+    // covered, with no database and no shared-table side effects, by
+    // persona-for-slug.test.ts's own unit tests of `personaForSlug` — the
+    // exact function `createResumeAction`'s "example" branch is a one-line
+    // pass-through to.
     let resumeId = "";
     try {
-      // Pinned to `success-story` (Customer Success) explicitly — see this
-      // file's header for why `rounds` (this test's slug through batch 3A)
-      // can no longer be the example: batch 3B gave it its own persona.
-      await createResumeAction(customerSuccessNoPersonaTemplateId, "example");
+      await createResumeAction(engineeringTemplateId, "example");
       throw new Error("expected a redirect");
     } catch (err) {
       resumeId = redirectedResumeId(err);
     }
     createdResumeIds.push(resumeId);
     const content = await createdContent(resumeId);
-    expect(content).toEqual(PREVIEW_SAMPLE_RESUME);
+    expect(content).toEqual(EPC_SITE_ENGINEER_RESUME);
+    expect(content).not.toEqual(EMPTY_RESUME);
     // Guards against the example itself regressing back to a placeholder —
     // this is the exact content the export guard treats as "unedited".
     expect(content.contact.email).not.toBe("sample@example.com");
@@ -456,20 +522,14 @@ describe("createResumeAction's 'example' start state seeds the persona matching 
     expect(content).not.toEqual(PREVIEW_SAMPLE_RESUME);
   });
 
-  it("a category with no dedicated persona still seeds something sane (the fallback), not a crash — proven on TWO different categories (Customer Success, Creative & Media)", async () => {
-    for (const templateId of [customerSuccessNoPersonaTemplateId, creativeMediaNoPersonaTemplateId]) {
-      let resumeId = "";
-      try {
-        await createResumeAction(templateId, "example");
-        throw new Error("expected a redirect");
-      } catch (err) {
-        resumeId = redirectedResumeId(err);
-      }
-      createdResumeIds.push(resumeId);
-      const content = await createdContent(resumeId);
-      expect(content).toEqual(PREVIEW_SAMPLE_RESUME);
-    }
-  });
+  // NOTE: there is deliberately no DB-level "template with no dedicated
+  // persona falls back" test in this describe block anymore — see this
+  // file's header for why inserting a synthetic `resume_templates` row (even
+  // one cleaned up within the same test) is the wrong tool now that
+  // `template-registry.test.ts` full-table-scans that same table with
+  // catalog-wide invariants a stray row can trip, and the fallback logic
+  // itself is already exhaustively covered with no database involved at all
+  // by persona-for-slug.test.ts.
 
   it("BATCH 2: product-tech seeds its own new software-engineer persona, not the fallback and not another slug's persona from the same Technology category", async () => {
     let resumeId = "";
@@ -601,6 +661,84 @@ describe("createResumeAction's 'example' start state seeds the persona matching 
       expect(contents[1]).not.toEqual(contents[2]);
     }
   });
+
+  /**
+   * BATCH 3C (this pass, third and final of three): the same style as the
+   * BATCH 3B test above, now covering the last five brand-new categories.
+   * `success-story` and `byline` are folded in here rather than getting
+   * their own single-slug tests — see this file's header for why those two
+   * variables were renamed and repurposed instead of continuing to prove
+   * the fallback.
+   */
+  it("BATCH 3C: each of the five brand-new categories (Creative & Media, Customer Success, Design, Hospitality & Travel, Telecommunications) resolves all 3 of its slugs to genuinely distinct personas, not a title swap", async () => {
+    const groups: Array<[string, string, string, StructuredResume, StructuredResume, StructuredResume]> = [
+      ["byline", "press-kit", "reel", BYLINE_JOURNALIST_RESUME, PRESS_KIT_PUBLICIST_RESUME, REEL_VIDEO_EDITOR_RESUME],
+      [
+        "field-notes",
+        "help-desk",
+        "success-story",
+        FIELD_CUSTOMER_SUCCESS_MANAGER_RESUME,
+        TECHNICAL_HELP_DESK_SPECIALIST_RESUME,
+        CUSTOMER_SUCCESS_RENEWALS_MANAGER_RESUME,
+      ],
+      [
+        "design-showcase",
+        "portfolio-grid",
+        "studio-brief",
+        PRODUCT_UX_DESIGNER_RESUME,
+        GRAPHIC_BRAND_DESIGNER_RESUME,
+        CREATIVE_DIRECTOR_STUDIO_RESUME,
+      ],
+      [
+        "concierge",
+        "front-desk",
+        "itinerary",
+        HOTEL_CONCIERGE_RESUME,
+        HOTEL_FRONT_DESK_SUPERVISOR_RESUME,
+        TRAVEL_ITINERARY_COORDINATOR_RESUME,
+      ],
+      [
+        "network-ops",
+        "signal",
+        "uptime",
+        NOC_FIELD_NETWORK_ENGINEER_RESUME,
+        RF_TRANSMISSION_ENGINEER_RESUME,
+        NETWORK_RELIABILITY_ENGINEER_RESUME,
+      ],
+    ];
+
+    for (const [slugA, slugB, slugC, personaA, personaB, personaC] of groups) {
+      const contents: StructuredResume[] = [];
+      for (const [slug, persona] of [
+        [slugA, personaA],
+        [slugB, personaB],
+        [slugC, personaC],
+      ] as const) {
+        // `success-story`/`byline` already have unlocked template ids from
+        // `beforeAll` (`successStoryTemplateId`/`bylineTemplateId`), but
+        // `templateIdBySlug` is idempotent (it looks up by slug and upserts
+        // the unlock on conflict), so calling it again here for those two is
+        // harmless and keeps this loop uniform across all 15 slugs.
+        const templateId = await templateIdBySlug(slug);
+        let resumeId = "";
+        try {
+          await createResumeAction(templateId, "example");
+          throw new Error("expected a redirect");
+        } catch (err) {
+          resumeId = redirectedResumeId(err);
+        }
+        createdResumeIds.push(resumeId);
+        const content = await createdContent(resumeId);
+        expect(content, `slug "${slug}"`).toEqual(persona);
+        expect(content, `slug "${slug}"`).not.toEqual(PREVIEW_SAMPLE_RESUME);
+        contents.push(content);
+      }
+      // Pairwise distinctness within the group.
+      expect(contents[0]).not.toEqual(contents[1]);
+      expect(contents[0]).not.toEqual(contents[2]);
+      expect(contents[1]).not.toEqual(contents[2]);
+    }
+  }, 60_000); // 15 slugs' worth of sequential DB round-trips (5 categories x 3), same reasoning as beforeAll's own 60s allowance — the default 20s test timeout was too tight for this many sequential template lookups/unlocks/inserts against a real network round-trip.
 });
 
 describe("premium template gating is not weakened by any start state (sabotage-proof target #4)", () => {

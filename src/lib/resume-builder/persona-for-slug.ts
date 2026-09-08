@@ -51,6 +51,21 @@ import {
   WAREHOUSE_OPERATIONS_MANAGER_RESUME,
   FLEET_ROUTE_PLANNING_MANAGER_RESUME,
   SUPPLY_CHAIN_PROCUREMENT_MANAGER_RESUME,
+  BYLINE_JOURNALIST_RESUME,
+  REEL_VIDEO_EDITOR_RESUME,
+  PRESS_KIT_PUBLICIST_RESUME,
+  FIELD_CUSTOMER_SUCCESS_MANAGER_RESUME,
+  TECHNICAL_HELP_DESK_SPECIALIST_RESUME,
+  CUSTOMER_SUCCESS_RENEWALS_MANAGER_RESUME,
+  PRODUCT_UX_DESIGNER_RESUME,
+  GRAPHIC_BRAND_DESIGNER_RESUME,
+  CREATIVE_DIRECTOR_STUDIO_RESUME,
+  HOTEL_CONCIERGE_RESUME,
+  HOTEL_FRONT_DESK_SUPERVISOR_RESUME,
+  TRAVEL_ITINERARY_COORDINATOR_RESUME,
+  NOC_FIELD_NETWORK_ENGINEER_RESUME,
+  RF_TRANSMISSION_ENGINEER_RESUME,
+  NETWORK_RELIABILITY_ENGINEER_RESUME,
 } from "@/lib/resume-builder/preview-sample";
 
 /**
@@ -93,28 +108,53 @@ import {
  * `clean-professional` — this function's own fallback destination — getting
  * a dedicated persona was a special case worth its own writeup.
  *
- * BATCH 3B (this pass, second of three) adds 15 more entries, all premium
- * (none of this batch sits in the free tier): Banking & Finance
- * (`balance-sheet`, `compliance-brief` — joining batch 2's `ledger`),
- * Healthcare (`clinical`, `rounds` — joining batch 2's `care-plan`), Legal
- * (`legal-brief`, `statute` — joining batch 2's `chambers`), and three
- * brand-new categories completed in full: Government & Public Sector
- * (`civic-record`, `gazette`, `public-record`), Project Management
- * (`critical-path`, `gantt`, `sprint-board`) and Logistics & Supply Chain
- * (`manifest`, `route-plan`, `supply-chain`). Four of these fifteen —
- * `clinical`, `statute`, `critical-path`, `public-record` — are bespoke
- * components with no `structure_schema`, matched against their own template
- * file the same way batch 3A matched `pipeline`. See `preview-sample.ts`'s
- * own header for the full reasoning, including why each three-way category
- * got a genuinely distinct sub-specialty per slug rather than a title swap.
+ * BATCH 3B adds 15 more entries, all premium (none of this batch sits in the
+ * free tier): Banking & Finance (`balance-sheet`, `compliance-brief` —
+ * joining batch 2's `ledger`), Healthcare (`clinical`, `rounds` — joining
+ * batch 2's `care-plan`), Legal (`legal-brief`, `statute` — joining batch
+ * 2's `chambers`), and three brand-new categories completed in full:
+ * Government & Public Sector (`civic-record`, `gazette`, `public-record`),
+ * Project Management (`critical-path`, `gantt`, `sprint-board`) and
+ * Logistics & Supply Chain (`manifest`, `route-plan`, `supply-chain`). Four
+ * of these fifteen — `clinical`, `statute`, `critical-path`, `public-record`
+ * — are bespoke components with no `structure_schema`, matched against their
+ * own template file the same way batch 3A matched `pipeline`. See
+ * `preview-sample.ts`'s own header for the full reasoning, including why
+ * each three-way category got a genuinely distinct sub-specialty per slug
+ * rather than a title swap.
  *
- * Every slug not listed here still falls through to `PREVIEW_SAMPLE_RESUME`
- * — exactly 15 slugs remain out of the catalog's 65 (50 now mapped above),
- * across categories batch 3C hasn't reached yet: Design (`design-showcase`,
- * `studio-brief`, `portfolio-grid`), Customer Success (`field-notes`,
- * `success-story`, `help-desk`), Creative & Media (`byline`, `reel`,
- * `press-kit`), Telecommunications (`network-ops`, `signal`, `uptime`) and
- * Hospitality & Travel (`front-desk`, `concierge`, `itinerary`).
+ * BATCH 3C (THIRD AND FINAL batch closing the 44 fallback slugs batches 3A
+ * and 3B left standing) adds the last 15 entries, all premium, completing
+ * five more categories in full: Creative & Media (`byline`, `press-kit`,
+ * `reel`), Customer Success (`field-notes`, `help-desk`, `success-story`),
+ * Design (`design-showcase`, `portfolio-grid`, `studio-brief`), Hospitality
+ * & Travel (`concierge`, `front-desk`, `itinerary`) and Telecommunications
+ * (`network-ops`, `signal`, `uptime` — the category the founder originally
+ * noticed this bug in, "Network Ops" and "Signal" both showing the identical
+ * demo resume). `portfolio-grid` is this batch's one bespoke-component slug
+ * (like `pipeline`, `clinical`, `statute`, `critical-path` and
+ * `public-record` before it), matched against `PortfolioGridTemplate`
+ * directly. See `preview-sample.ts`'s own header for the full reasoning,
+ * including why each three-way category got a genuinely distinct
+ * sub-specialty per slug rather than a title swap.
+ *
+ * AFTER BATCH 3C, EVERY CURRENT CATALOG SLUG HAS A DEDICATED PERSONA — all
+ * 65 real slugs in `RESUME_TEMPLATES` (src/lib/billing/catalog.ts) resolve
+ * to their own entry in `SLUG_PERSONA_MAP` below, none of them to the
+ * `PREVIEW_SAMPLE_RESUME` fallback. `PREVIEW_SAMPLE_RESUME` is not retired —
+ * it stays exported and stays first in `EXAMPLE_PERSONAS` — but it is no
+ * longer an ACTIVE fallback for anything in today's catalog. Its only
+ * remaining job is as a safety net for a FUTURE new template slug that gets
+ * added to the catalog before a batch gives it its own dedicated persona:
+ * `personaForSlug` below still falls back to it for any slug not present in
+ * the map (also covering `null`/`undefined`/a typo'd string), so a new
+ * template still seeds something sane on day one rather than crashing or
+ * seeding a blank resume. See `tests/resume-builder/persona-for-slug.test.ts`
+ * for the standing regression test that asserts this directly against every
+ * live catalog slug — the same check that would have caught the original
+ * `structured-admin` gap (and every other slug closed across these three
+ * batches) by hand, so it stays as a permanent guard against a new template
+ * quietly landing on the fallback again.
  */
 const SLUG_PERSONA_MAP: Record<string, StructuredResume> = {
   // Engineering + Construction & Real Estate + Oil & Gas/Energy — one
@@ -201,6 +241,30 @@ const SLUG_PERSONA_MAP: Record<string, StructuredResume> = {
   manifest: WAREHOUSE_OPERATIONS_MANAGER_RESUME,
   "route-plan": FLEET_ROUTE_PLANNING_MANAGER_RESUME,
   "supply-chain": SUPPLY_CHAIN_PROCUREMENT_MANAGER_RESUME,
+
+  // BATCH 3C (this pass, third and final) — 5 more categories, each fully
+  // completed, closing out every remaining fallback slug in the catalog
+  // (see this file's own header and preview-sample.ts's header for the full
+  // reasoning, including which slug is this batch's bespoke component).
+  byline: BYLINE_JOURNALIST_RESUME,
+  "press-kit": PRESS_KIT_PUBLICIST_RESUME,
+  reel: REEL_VIDEO_EDITOR_RESUME,
+
+  "field-notes": FIELD_CUSTOMER_SUCCESS_MANAGER_RESUME,
+  "help-desk": TECHNICAL_HELP_DESK_SPECIALIST_RESUME,
+  "success-story": CUSTOMER_SUCCESS_RENEWALS_MANAGER_RESUME,
+
+  "design-showcase": PRODUCT_UX_DESIGNER_RESUME,
+  "portfolio-grid": GRAPHIC_BRAND_DESIGNER_RESUME,
+  "studio-brief": CREATIVE_DIRECTOR_STUDIO_RESUME,
+
+  concierge: HOTEL_CONCIERGE_RESUME,
+  "front-desk": HOTEL_FRONT_DESK_SUPERVISOR_RESUME,
+  itinerary: TRAVEL_ITINERARY_COORDINATOR_RESUME,
+
+  "network-ops": NOC_FIELD_NETWORK_ENGINEER_RESUME,
+  signal: RF_TRANSMISSION_ENGINEER_RESUME,
+  uptime: NETWORK_RELIABILITY_ENGINEER_RESUME,
 };
 
 /**
@@ -208,10 +272,17 @@ const SLUG_PERSONA_MAP: Record<string, StructuredResume> = {
  * (createResumeAction's "example" start state, template-thumbnail.tsx's
  * gallery preview).
  *
- * FALLS BACK TO `PREVIEW_SAMPLE_RESUME` for any slug not in the map above —
- * roughly 30 catalog slugs remain unmapped after batch 3A (see this file's
- * own header for exactly which categories), plus `null`/`undefined`/an
- * unrecognized string. This is deliberately a fallback to a SANE,
+ * FALLS BACK TO `PREVIEW_SAMPLE_RESUME` for any slug not in the map above.
+ * AS OF BATCH 3C, THAT IS NOT A LIVE OUTCOME FOR ANY CURRENT CATALOG SLUG —
+ * every one of the 65 real slugs in `RESUME_TEMPLATES` now has its own
+ * dedicated entry in `SLUG_PERSONA_MAP` above (see this file's own header
+ * and `tests/resume-builder/persona-for-slug.test.ts`'s standing regression
+ * test, which asserts exactly that against the live catalog). The fallback
+ * still exists and still matters — it's what a genuinely unrecognized
+ * string, `null`, `undefined`, or a brand-new template slug added to the
+ * catalog before its own batch gives it a dedicated persona resolves to —
+ * but it is a safety net for the future, not an active destination for
+ * anything shipping today. This is deliberately a fallback to a SANE,
  * already-shipped persona rather than a thrown error or a blank resume — an
  * unmapped slug must still produce a usable "start from an example", not a
  * crash, exactly the same way `getTemplateComponent` falls back to
