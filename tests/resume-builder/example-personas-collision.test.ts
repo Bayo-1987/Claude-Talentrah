@@ -60,6 +60,18 @@
  * sabotaged and reverted) before this batch's content was finalized, and
  * separately sabotage-proofed again at n=22 by colliding two of the NEW
  * personas' education entries — see the PR description for that transcript.
+ *
+ * UPDATED for batch 3A: the registry grew from 22 to 36 personas (14 new
+ * ones across 5 categories — see preview-sample.ts's own header for why
+ * those 5 and why now). Same drill as batch 2: ran the full suite for real
+ * against the 36-persona registry before finalizing this batch's content,
+ * then sabotage-proofed again at n=36 by temporarily making two of the NEW
+ * personas' certifications lists identical (`EXECUTIVE_ADMINISTRATIVE_
+ * ASSISTANT_RESUME` and `DEVOPS_ENGINEER_RESUME`) — confirmed the
+ * "certifications" check failed and named both ("Comfort Adeyinka /
+ * Tobenna Igwe"), confirmed the other checks stayed green (proving the
+ * failure was specific to the sabotaged field, not a broken test), then
+ * reverted and confirmed green again.
  */
 import { describe, expect, it } from "vitest";
 import {
@@ -86,6 +98,20 @@ import {
   REGISTERED_NURSE_RESUME,
   CORPORATE_LEGAL_ASSOCIATE_RESUME,
   BUSINESS_OPERATIONS_MANAGER_RESUME,
+  EXECUTIVE_ADMINISTRATIVE_ASSISTANT_RESUME,
+  FRONT_OFFICE_MANAGER_RESUME,
+  RECORDS_DOCUMENTATION_OFFICER_RESUME,
+  BUSINESS_GENERALIST_RESUME,
+  CHIEF_OPERATING_OFFICER_RESUME,
+  MICROBIOLOGY_LECTURER_RESUME,
+  ENGINEERING_ASSOCIATE_PROFESSOR_RESUME,
+  ECONOMICS_FACULTY_DEAN_RESUME,
+  RENEWABLE_ENERGY_RESEARCH_FELLOW_RESUME,
+  GROWTH_MARKETING_MANAGER_RESUME,
+  ENTERPRISE_ACCOUNT_EXECUTIVE_RESUME,
+  BRAND_CAMPAIGN_MANAGER_RESUME,
+  DEVOPS_ENGINEER_RESUME,
+  MOBILE_ENGINEER_RESUME,
 } from "@/lib/resume-builder/preview-sample";
 
 function pairs<T>(items: readonly T[]): Array<[T, T]> {
@@ -102,9 +128,9 @@ function sameList(a: readonly string[], b: readonly string[]): boolean {
   return a.length > 0 && a.length === b.length && a.every((item, i) => item === b[i]);
 }
 
-describe("EXAMPLE_PERSONAS registry has exactly the 22 personas across batch 1 and batch 2", () => {
-  it("contains the 12 batch-1 personas plus the 10 new batch-2 ones, and nothing is accidentally duplicated by reference", () => {
-    expect(EXAMPLE_PERSONAS).toHaveLength(22);
+describe("EXAMPLE_PERSONAS registry has exactly the 36 personas across batches 1, 2 and 3A", () => {
+  it("contains the 22 personas from batches 1-2 plus the 14 new batch-3A ones, and nothing is accidentally duplicated by reference", () => {
+    expect(EXAMPLE_PERSONAS).toHaveLength(36);
     expect(EXAMPLE_PERSONAS).toContain(PREVIEW_SAMPLE_RESUME);
     expect(EXAMPLE_PERSONAS).toContain(EPC_SITE_ENGINEER_RESUME);
     expect(EXAMPLE_PERSONAS).toContain(DEVELOPMENT_PROGRAMME_OFFICER_RESUME);
@@ -127,6 +153,20 @@ describe("EXAMPLE_PERSONAS registry has exactly the 22 personas across batch 1 a
     expect(EXAMPLE_PERSONAS).toContain(REGISTERED_NURSE_RESUME);
     expect(EXAMPLE_PERSONAS).toContain(CORPORATE_LEGAL_ASSOCIATE_RESUME);
     expect(EXAMPLE_PERSONAS).toContain(BUSINESS_OPERATIONS_MANAGER_RESUME);
+    expect(EXAMPLE_PERSONAS).toContain(EXECUTIVE_ADMINISTRATIVE_ASSISTANT_RESUME);
+    expect(EXAMPLE_PERSONAS).toContain(FRONT_OFFICE_MANAGER_RESUME);
+    expect(EXAMPLE_PERSONAS).toContain(RECORDS_DOCUMENTATION_OFFICER_RESUME);
+    expect(EXAMPLE_PERSONAS).toContain(BUSINESS_GENERALIST_RESUME);
+    expect(EXAMPLE_PERSONAS).toContain(CHIEF_OPERATING_OFFICER_RESUME);
+    expect(EXAMPLE_PERSONAS).toContain(MICROBIOLOGY_LECTURER_RESUME);
+    expect(EXAMPLE_PERSONAS).toContain(ENGINEERING_ASSOCIATE_PROFESSOR_RESUME);
+    expect(EXAMPLE_PERSONAS).toContain(ECONOMICS_FACULTY_DEAN_RESUME);
+    expect(EXAMPLE_PERSONAS).toContain(RENEWABLE_ENERGY_RESEARCH_FELLOW_RESUME);
+    expect(EXAMPLE_PERSONAS).toContain(GROWTH_MARKETING_MANAGER_RESUME);
+    expect(EXAMPLE_PERSONAS).toContain(ENTERPRISE_ACCOUNT_EXECUTIVE_RESUME);
+    expect(EXAMPLE_PERSONAS).toContain(BRAND_CAMPAIGN_MANAGER_RESUME);
+    expect(EXAMPLE_PERSONAS).toContain(DEVOPS_ENGINEER_RESUME);
+    expect(EXAMPLE_PERSONAS).toContain(MOBILE_ENGINEER_RESUME);
   });
 });
 
