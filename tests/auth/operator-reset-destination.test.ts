@@ -11,6 +11,15 @@
  * question does not arise rather than being answered carefully in the form, the
  * emailed callback and the reset page.
  *
+ * SINCE 0112 the non-operator branch routes through `onboardingDestination()`
+ * rather than naming `/jobs` itself — the same helper signup, sign-in and the
+ * OAuth callback use, so every path that hands back a session asks one
+ * question in one place. The operator branch is deliberately untouched: an
+ * admin session is separate from the Supabase one, and /onboarding is a seeker
+ * screen. The tests below therefore assert /onboarding where they once
+ * asserted /jobs, and that is the same assertion — "not the admin door" —
+ * against a destination that moved.
+ *
  * WHAT THIS DOES NOT CHANGE, and must not: the REQUEST step is identical for
  * every address, because that is where the caller is anonymous and a
  * difference would be an enumeration oracle (docs/admin-auth.md). By the time
@@ -88,9 +97,22 @@ describe("a completed password reset", () => {
     expect(await runReset()).toBe("/admin/login");
   });
 
-  it("sends everybody else to the job feed, unchanged", async () => {
+  it("sends everybody else through the shared onboarding gate", async () => {
+    /*
+     * WAS `/jobs`, AND THAT ASSERTION WAS A CONTROL, not a product commitment.
+     * It existed to prove the operator fix left everyone else where they were
+     * — which it did. What changed underneath it is where "everyone else"
+     * belongs: completing a reset hands back a live session, so this is a
+     * post-authentication destination like sign-in's, and it now asks the same
+     * question sign-in asks.
+     *
+     * This is NOT "resume-less users go to onboarding" — this action does not
+     * know or care. It hands off to `/onboarding`, which bounces anyone with a
+     * base resume or a skip marker straight to `/jobs`, exactly as before. The
+     * single place that decision lives is the whole point.
+     */
     operatorRow = null;
-    expect(await runReset()).toBe("/jobs");
+    expect(await runReset()).toBe("/onboarding");
   });
 
   it("asks about THIS user, and only about an operator who is not disabled", async () => {
@@ -105,11 +127,14 @@ describe("a completed password reset", () => {
     expect(filters).toContainEqual(["is:disabled_at", null]);
   });
 
-  it("sends a DISABLED operator to the job feed", async () => {
+  it("sends a DISABLED operator down the seeker path, not the admin door", async () => {
     // The fake honours the filter by answering null, which is what a real
-    // `is("disabled_at", null)` would do for a disabled row.
+    // `is("disabled_at", null)` would do for a disabled row. The assertion
+    // that matters is unchanged and unchanged in meaning: a disabled operator
+    // does NOT reach /admin/login. Where they go instead is now whatever every
+    // other non-operator gets, which is the shared gate.
     operatorRow = null;
-    expect(await runReset()).toBe("/jobs");
+    expect(await runReset()).toBe("/onboarding");
     expect(filters).toContainEqual(["is:disabled_at", null]);
   });
 });

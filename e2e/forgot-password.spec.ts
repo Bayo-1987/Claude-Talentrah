@@ -77,7 +77,45 @@ const NEW_PASSWORD = `New${randomUUID().slice(0, 12)}2`;
 test.describe("forgotten password", () => {
   test.skip(!admin, "no usable SUPABASE_SERVICE_ROLE_KEY — this spec mints its own account");
 
-  test("the whole loop: request, reset, and the old password stops working", async ({
+  /**
+ * Turn a recovery token into a real browser session.
+ *
+ * Extracted rather than duplicated when a second test needed it: this is the
+ * only part of the reset flow that cannot be driven through the UI (see the
+ * file header for why following `action_link` directly does not work), so a
+ * second copy would be a second place for that subtlety to rot.
+ *
+ * Redeemed through Supabase and handed to the browser as cookies — the pattern
+ * resume-upload.spec.ts and the RLS suites already use.
+ */
+async function applyRecoverySession(
+  page: import("@playwright/test").Page,
+  baseURL: string,
+  tokenHash: string,
+): Promise<void> {
+  const jar = new Map<string, string>();
+  const captured: { name: string; value: string }[] = [];
+  const ssr = createServerClient(SUPA_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
+    cookies: {
+      getAll: () => [...jar.entries()].map(([name, value]) => ({ name, value })),
+      setAll: (list) => {
+        for (const c of list) {
+          jar.set(c.name, c.value);
+          captured.push({ name: c.name, value: c.value });
+        }
+      },
+    },
+  });
+  const { error: otpErr } = await ssr.auth.verifyOtp({ token_hash: tokenHash, type: "recovery" });
+  if (otpErr) throw otpErr;
+  expect(captured.length, "verifyOtp produced no session cookie").toBeGreaterThan(0);
+
+  await page.context().addCookies(
+    captured.map((c) => ({ name: c.name, value: c.value, url: baseURL })),
+  );
+}
+
+test("the whole loop: request, reset, and the old password stops working", async ({
     page,
     baseURL,
   }) => {
@@ -147,36 +185,7 @@ test.describe("forgotten password", () => {
       });
       if (linkErr || !link) throw linkErr ?? new Error("no recovery link returned");
 
-      /*
-       * Redeemed through Supabase for a real session, then handed to the
-       * browser as cookies — the pattern resume-upload.spec.ts and the RLS
-       * suites already use. See the file header for why following
-       * `action_link` directly does not work and what that does and does not
-       * say about the product.
-       */
-      const jar = new Map<string, string>();
-      const captured: { name: string; value: string }[] = [];
-      const ssr = createServerClient(SUPA_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
-        cookies: {
-          getAll: () => [...jar.entries()].map(([name, value]) => ({ name, value })),
-          setAll: (list) => {
-            for (const c of list) {
-              jar.set(c.name, c.value);
-              captured.push({ name: c.name, value: c.value });
-            }
-          },
-        },
-      });
-      const { error: otpErr } = await ssr.auth.verifyOtp({
-        token_hash: link.properties.hashed_token,
-        type: "recovery",
-      });
-      if (otpErr) throw otpErr;
-      expect(captured.length, "verifyOtp produced no session cookie").toBeGreaterThan(0);
-
-      await page.context().addCookies(
-        captured.map((c) => ({ name: c.name, value: c.value, url: baseURL! })),
-      );
+      await applyRecoverySession(page, baseURL!, link.properties.hashed_token);
 
       await page.goto("/reset-password");
       await expect(page.getByRole("heading", { name: "Set a new password." })).toBeVisible();
@@ -185,7 +194,14 @@ test.describe("forgotten password", () => {
       // ── Setting the new one ────────────────────────────────────────────
       await page.getByLabel("New password").fill(NEW_PASSWORD);
       await page.getByRole("button", { name: "Set new password" }).click();
-      await page.waitForURL("**/jobs");
+      /*
+       * /onboarding, not /jobs — completing a reset hands back a live session,
+       * so it routes through the same gate every other entry point uses. This
+       * account has no base resume and no skip marker, so the gate keeps it.
+       * A user who already has either still lands on /jobs; the test directly
+       * below this one pins that half.
+       */
+      await page.waitForURL("**/onboarding**");
 
       // ── And the credential actually changed ────────────────────────────
       await page.context().clearCookies();
@@ -208,6 +224,63 @@ test.describe("forgotten password", () => {
       // accounts for weeks while every hook reported success.
       const { error } = await admin!.auth.admin.deleteUser(userId);
       if (error) console.error("[forgot-password cleanup]", error.message);
+    }
+  });
+
+  test("a reset by a user who ALREADY onboarded still lands on /jobs", async ({
+    page,
+    baseURL,
+  }) => {
+    /*
+     * The other half of the gate, and the one that makes the change above safe
+     * to ship. Routing a reset through /onboarding would be a regression if it
+     * meant every established user met an upload prompt after recovering their
+     * password — so this pins that it does not.
+     *
+     * Identical to the account in the test above in every respect except a
+     * skip marker, which is exactly the difference the gate reads. A base
+     * resume would do just as well; the marker is used because it is the half
+     * that cannot be inferred from anything else, and therefore the half a
+     * naive reimplementation would drop.
+     */
+    const email = `reset-onb-${randomUUID()}@talentrah.test`;
+    const { data: created, error: createErr } = await admin!.auth.admin.createUser({
+      email,
+      password: OLD_PASSWORD,
+      email_confirm: true,
+    });
+    if (createErr) throw createErr;
+    const userId = created.user.id;
+
+    try {
+      const { error: markErr } = await admin!
+        .from("profiles")
+        .update({ onboarding_skipped_at: new Date().toISOString() })
+        .eq("id", userId);
+      // Checked: a refused Supabase update RESOLVES rather than throwing, and
+      // an unset marker here would make this test pass for the wrong reason
+      // by simply never reaching the branch it claims to cover.
+      if (markErr) throw new Error(`could not set the skip marker: ${markErr.message}`);
+
+      const { data: link, error: linkErr } = await admin!.auth.admin.generateLink({
+        type: "recovery",
+        email,
+      });
+      if (linkErr || !link) throw linkErr ?? new Error("no recovery link returned");
+
+      await applyRecoverySession(page, baseURL!, link.properties.hashed_token);
+
+      await page.goto("/reset-password");
+      await page.getByLabel("New password").fill(NEW_PASSWORD);
+      await page.getByRole("button", { name: "Set new password" }).click();
+
+      // Straight through: the gate ran and handed this account on, because it
+      // has already answered the question onboarding asks.
+      await page.waitForURL("**/jobs");
+      await expect(page.getByRole("button", { name: "Choose a file" })).toHaveCount(0);
+    } finally {
+      const { error } = await admin!.auth.admin.deleteUser(userId);
+      if (error) console.error("[forgot-password onboarded cleanup]", error.message);
     }
   });
 
