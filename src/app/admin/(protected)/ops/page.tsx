@@ -5,6 +5,10 @@ import {
   rateLimitBuckets,
   feedFreshness,
   operatorCredentialEvents,
+  storageUsage,
+  formatBytes,
+  FREE_PLAN_STORAGE_BYTES,
+  FREE_PLAN_EGRESS_BYTES,
   MAX_INDETERMINATE_RENEWAL_ATTEMPTS,
 } from "@/lib/admin/ops/queries";
 import { QueueHeader } from "@/components/admin/queue-chrome";
@@ -37,12 +41,13 @@ const QUEUE_LABEL: Record<string, string> = {
  */
 export default async function OpsPage() {
   const admin = await requirePermission("operations");
-  const [renewals, queue, buckets, feeds, credentialEvents] = await Promise.all([
+  const [renewals, queue, buckets, feeds, credentialEvents, storage] = await Promise.all([
     stuckRenewals(),
     autoApplyQueueHealth(),
     rateLimitBuckets(),
     feedFreshness(),
     operatorCredentialEvents(),
+    storageUsage(),
   ]);
 
   const exhausted = renewals.filter((r) => r.exhausted);
@@ -315,6 +320,102 @@ export default async function OpsPage() {
           </p>
         </BorderedCard>
       </section>
+      {/* ---------------------------------------------------------- */}
+      <section className="flex flex-col gap-3">
+        <EyebrowLabel>Storage</EyebrowLabel>
+        <p className="text-[13.5px] text-ink-soft">
+          Every Storage bucket, its object count and its size. Here because job
+          banners are the first thing this product ever uploads, and a free-plan
+          ceiling that nobody is watching is one you meet by having an upload
+          start failing.
+        </p>
+
+        {storage.error ? (
+          <BorderedCard className="p-5">
+            <p className="text-[14px] text-amber">
+              Storage figures could not be read: {storage.error}
+            </p>
+            <p className="mt-1 text-[13px] text-ink-soft">
+              Stated rather than shown as zero — &ldquo;nothing stored&rdquo; and
+              &ldquo;could not ask&rdquo; look identical on a dashboard and mean
+              opposite things.
+            </p>
+          </BorderedCard>
+        ) : (
+          <>
+            <BorderedCard className="flex flex-col gap-1.5 p-5">
+              <div className="flex flex-wrap items-baseline justify-between gap-3">
+                <span className="font-display text-[22px]">
+                  {formatBytes(storage.totalBytes)}
+                </span>
+                <span className="text-[13.5px] text-ink-soft">
+                  of {formatBytes(FREE_PLAN_STORAGE_BYTES)} on the free plan
+                  {" · "}
+                  {(storage.fractionOfPlan * 100).toFixed(
+                    storage.fractionOfPlan < 0.01 ? 2 : 1,
+                  )}
+                  % used
+                </span>
+              </div>
+              <p className="text-[13px] text-ink-soft">
+                {storage.totalObjects} object{storage.totalObjects === 1 ? "" : "s"} across{" "}
+                {storage.buckets.length} bucket{storage.buckets.length === 1 ? "" : "s"}. The
+                ceiling is hardcoded, not fetched — reading the real plan limit needs the same
+                Management API token egress does, and a token dependency for one number is not
+                worth it.
+              </p>
+            </BorderedCard>
+
+            {storage.buckets.length === 0 ? (
+              <BorderedCard className="p-5">
+                <p className="text-[14px] text-ink-soft">
+                  No buckets yet. This is the real state of the project, not a failed read —
+                  the first one arrives with job banners.
+                </p>
+              </BorderedCard>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {storage.buckets.map((b) => (
+                  <BorderedCard
+                    key={b.bucket}
+                    className="flex flex-wrap items-baseline justify-between gap-3 p-4"
+                  >
+                    <span className="text-[14px] font-semibold">
+                      {b.bucket}
+                      <span className="ml-2 text-[12.5px] font-normal text-ink-soft">
+                        {b.isPublic ? "public read" : "private"}
+                      </span>
+                    </span>
+                    <span className="text-[13.5px] text-ink-soft">
+                      {formatBytes(b.bytes)} · {b.objects} object
+                      {b.objects === 1 ? "" : "s"}
+                    </span>
+                  </BorderedCard>
+                ))}
+              </div>
+            )}
+
+            <BorderedCard className="flex flex-col gap-1.5 p-5">
+              <span className="text-[14px] font-semibold text-ink-soft">
+                Egress — not available
+              </span>
+              <p className="text-[13px] text-ink-soft">
+                Bandwidth is metered at Supabase&rsquo;s edge, not in Postgres, so no query in
+                this database can answer it. Reading it needs the Management API and a personal
+                access token, which is a credential decision rather than a code one — so this
+                is a labelled gap rather than a quietly missing panel.
+              </p>
+              <p className="text-[13px] text-ink-soft">
+                Worth knowing while it is blank: egress, not storage, is the binding constraint
+                here. The free plan allows {formatBytes(FREE_PLAN_EGRESS_BYTES)} a month, and at
+                the 2&nbsp;MB banner cap that is roughly 2,500 job-detail views before it bites —
+                far sooner than the {formatBytes(FREE_PLAN_STORAGE_BYTES)} above runs out.
+              </p>
+            </BorderedCard>
+          </>
+        )}
+      </section>
+
     </Container>
   );
 }
