@@ -2581,6 +2581,15 @@ export type Database = {
           status: Database["public"]["Enums"]["ad_campaign_status"]
         }[]
       }
+      storage_bucket_usage: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          bucket_id: string
+          is_public: boolean
+          object_count: number
+          bytes: number
+        }[]
+      }
       search_job_postings: {
         Args: {
           p_ids?: string[]

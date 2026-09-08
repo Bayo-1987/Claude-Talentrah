@@ -472,3 +472,111 @@ export async function opsAttentionCount(): Promise<number> {
 
   return exhausted + neverSeen + recentCredentialEvents;
 }
+
+/* ------------------------------------------------------------------ *
+ * Storage usage
+ * ------------------------------------------------------------------ */
+
+/**
+ * Supabase's free-plan ceilings, hardcoded.
+ *
+ * NOT FETCHED, and the reason is the same one that keeps egress off this page
+ * entirely: asking Supabase "what plan am I on and what does it include"
+ * requires the Management API and a personal access token, which is exactly
+ * the credential this feature is deliberately not introducing yet. Fetching
+ * one number dynamically while hardcoding the other would be the worst of both
+ * — a token dependency for no extra insight.
+ *
+ * So it is a constant with a date on it. If the plan changes, this number is
+ * wrong and the percentage below is wrong with it, which is why the panel
+ * names the plan it is comparing against rather than just showing a bare "%".
+ * Verified against the account 2026-09-08.
+ */
+export const FREE_PLAN_STORAGE_BYTES = 1024 * 1024 * 1024; // 1 GB
+export const FREE_PLAN_EGRESS_BYTES = 5 * 1024 * 1024 * 1024; // 5 GB / month
+
+export interface StorageBucketUsage {
+  bucket: string;
+  isPublic: boolean;
+  objects: number;
+  bytes: number;
+}
+
+export interface StorageUsage {
+  buckets: StorageBucketUsage[];
+  totalBytes: number;
+  totalObjects: number;
+  /** Fraction of the free plan's storage ceiling, 0–1+ (can exceed 1). */
+  fractionOfPlan: number;
+  /** Set when the figures could not be read at all — see the panel's own note. */
+  error: string | null;
+}
+
+/**
+ * Bytes and object counts per Storage bucket.
+ *
+ * ── WHY THIS ONE NEEDED A MIGRATION WHEN NOTHING ELSE HERE DID ────────────
+ *
+ * This module's header says the service role already reads everything it
+ * needs. That remains true — `storage.objects` included:
+ *
+ *     has_table_privilege('service_role','storage.objects','SELECT')  ->  true
+ *
+ * But the application does not reach Postgres directly, it reaches PostgREST,
+ * and PostgREST does not expose the `storage` schema:
+ *
+ *     supabase.schema("storage").from("objects").select("id")
+ *       ->  PGRST106  Invalid schema: storage
+ *
+ * Measured with a real request and the real key, not reasoned about. The grant
+ * question and the reachability question have different answers, and only
+ * checking the first would have produced a confident wrong "no migration
+ * needed". 0113 adds a SECURITY DEFINER function that returns this aggregate
+ * and nothing else — no names, no paths, no per-object rows — callable by
+ * `service_role` alone.
+ *
+ * DEGRADES TO A STATED ERROR, never to a plausible zero. "0 bytes used" and
+ * "we could not read it" look identical on a dashboard and mean opposite
+ * things; this repo's own standing lesson is that an empty result is a claim.
+ */
+export async function storageUsage(): Promise<StorageUsage> {
+  const supabase = createServiceRoleClient();
+  const { data, error } = await supabase.rpc("storage_bucket_usage");
+
+  if (error) {
+    console.error("[ops] could not read storage usage:", error.message);
+    return { buckets: [], totalBytes: 0, totalObjects: 0, fractionOfPlan: 0, error: error.message };
+  }
+
+  const buckets: StorageBucketUsage[] = (data ?? []).map((r) => ({
+    bucket: r.bucket_id,
+    isPublic: r.is_public,
+    // bigint arrives as a string over PostgREST; Number is safe well past any
+    // plausible free-tier total, and the alternative (BigInt) would not
+    // survive JSON serialisation into a Server Component's props.
+    objects: Number(r.object_count),
+    bytes: Number(r.bytes),
+  }));
+
+  const totalBytes = buckets.reduce((sum, b) => sum + b.bytes, 0);
+  return {
+    buckets,
+    totalBytes,
+    totalObjects: buckets.reduce((sum, b) => sum + b.objects, 0),
+    fractionOfPlan: totalBytes / FREE_PLAN_STORAGE_BYTES,
+    error: null,
+  };
+}
+
+/** Bytes as something a person can read at a glance. */
+export function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  const units = ["KB", "MB", "GB", "TB"];
+  let value = bytes / 1024;
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit += 1;
+  }
+  return `${value < 10 ? value.toFixed(1) : Math.round(value)} ${units[unit]}`;
+}
