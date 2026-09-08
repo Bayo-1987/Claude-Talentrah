@@ -6,8 +6,8 @@
  * conditional logic worth a standalone, DB-free test.
  */
 import { describe, expect, it } from "vitest";
-import { decideCountryFilter } from "@/lib/jobs/recent-pagination";
-import { COUNTRY_THIN_THRESHOLD } from "@/lib/jobs/country";
+import { decideCountryFilter, recentCountryOrFilter } from "@/lib/jobs/recent-pagination";
+import { COUNTRY_THIN_THRESHOLD, countryOrFilter } from "@/lib/jobs/country";
 import type { Constants } from "@/lib/supabase/types";
 
 type WorkType = (typeof Constants.public.Enums.work_type)[number];
@@ -47,5 +47,38 @@ describe("decideCountryFilter", () => {
     const rows = Array.from({ length: COUNTRY_THIN_THRESHOLD }, () => row({ location: "Accra, Ghana" }));
     const result = decideCountryFilter(rows, "Ghana");
     expect(result.apply).toBe(true);
+  });
+});
+
+/**
+ * The bug this exists to pin: `decideCountryFilter` above counts a remote
+ * posting as matching ANY country regardless of its location text — but
+ * `countryOrFilter` (shared with the public landing pages, which are all
+ * already work_type='remote'-scoped) has no way to express "or remote" on
+ * its own. Pushing `countryOrFilter` bare into the Recent tab's query
+ * — which is NOT remote-scoped — would silently drop a real, live class of
+ * row: a remote posting whose location doesn't literally name the tracked
+ * country (a bare "Remote", "Remote, Spain", "Remote, Bangalore" — all
+ * present on production today) from Recent's paginated results, while
+ * `decideCountryFilter`'s own count still decided to turn the filter on.
+ */
+describe("recentCountryOrFilter", () => {
+  it("includes a work_type.eq.remote branch that plain countryOrFilter does not have", () => {
+    const clause = recentCountryOrFilter("Nigeria");
+    expect(clause).toContain("work_type.eq.remote");
+    // Confirms the premise: the shared function really doesn't carry this on
+    // its own, which is why this wrapper has to exist at all.
+    expect(countryOrFilter("Nigeria")).not.toContain("work_type.eq.remote");
+  });
+
+  it("still carries the country-specific clause countryOrFilter itself produces", () => {
+    const clause = recentCountryOrFilter("Ghana");
+    expect(clause).toContain(countryOrFilter("Ghana"));
+  });
+
+  it("produces a single comma-joined .or() string with the remote branch last", () => {
+    // Exact shape, not just substring containment — a caller passing this
+    // straight to Supabase's .or() needs one string, not an array.
+    expect(recentCountryOrFilter("Kenya")).toBe(`${countryOrFilter("Kenya")},work_type.eq.remote`);
   });
 });

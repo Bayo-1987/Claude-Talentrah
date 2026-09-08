@@ -25,12 +25,16 @@ import {
   isTrackedCountry,
   defaultCountryForProfile,
   deriveCountry,
-  countryOrFilter,
   COUNTRY_THIN_THRESHOLD,
   TRACKED_COUNTRIES,
   type TrackedCountry,
 } from "@/lib/jobs/country";
-import { decideCountryFilter, RECENT_PAGE_SIZE, type BoardAggregateRow } from "@/lib/jobs/recent-pagination";
+import {
+  decideCountryFilter,
+  recentCountryOrFilter,
+  RECENT_PAGE_SIZE,
+  type BoardAggregateRow,
+} from "@/lib/jobs/recent-pagination";
 import { recommendedRankingKey } from "@/lib/jobs/ranking";
 import { getViewerOrganizationIds } from "@/lib/employer/membership";
 import { logCountryDefaultEvent, type CountryState } from "@/lib/jobs/country-events";
@@ -261,9 +265,16 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
    * postingsQuery (so nothing downstream needs to know which function
    * produced `jobsRaw`), but DB-ordered and DB-ranged, and with the country
    * filter (when the caller decided to apply one — see decideCountryFilter)
-   * pushed into the query as a real `.or()` clause (countryOrFilter, already
-   * used for the public landing pages' equivalent DB-side count) rather than
-   * left as an in-memory `.filter()` the way every other tab still does it.
+   * pushed into the query as a real `.or()` clause rather than left as an
+   * in-memory `.filter()` the way every other tab still does it.
+   *
+   * `recentCountryOrFilter`, NOT the shared `countryOrFilter` the public
+   * landing pages use — this tab is not remote-scoped the way those pages
+   * are, so it needs the "OR remote" branch those pages get for free from
+   * their own unconditional work_type filter. See recent-pagination.ts's own
+   * header on that function for why reusing `countryOrFilter` bare here
+   * would have silently dropped every remote posting whose location doesn't
+   * literally name the tracked country.
    *
    * An in-memory country filter applied AFTER a DB `.range()` would silently
    * corrupt pagination — see recent-pagination.ts's own header for why —
@@ -281,7 +292,7 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
       : query.is("unlisted_at", null);
     if (workTypes.length) query = query.in("work_type", workTypes);
     if (seniorities.length) query = query.in("seniority", seniorities);
-    if (countryFilter) query = query.or(countryOrFilter(countryFilter));
+    if (countryFilter) query = query.or(recentCountryOrFilter(countryFilter));
     return query
       .order("posted_at", { ascending: false })
       // Tiebreak for rows sharing a posted_at timestamp (bulk-imported
@@ -322,19 +333,28 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
   const viewerOrgIds = getViewerOrganizationIds(supabase, user.id);
 
   /*
-   * Set (only for isPaginatedRecent) inside the IIFE below, once the board
-   * aggregate read and the country-filter decision are both in hand. A
-   * mutable outer binding rather than a return value threaded through
-   * `jobsQuery`'s own resolved type, because `jobsQuery` must keep resolving
-   * to exactly the FEED_COLUMNS `{data, error, count}` shape every other
-   * branch already produces — folding this in would widen that type for
-   * every tab just to carry information only one tab needs.
+   * `recentPagination` rides along INSIDE `jobsQuery`'s own resolved value
+   * (`{ result, recentPagination }`) rather than being written to an outer
+   * `let` from inside this IIFE. That mutable-closure version tripped
+   * `react-hooks/immutability` in CI ("Cannot reassign variable in async
+   * function") — a real, correct catch: reassigning a binding from inside an
+   * async callback is exactly the shape that produces stale/inconsistent
+   * reads if this function is ever re-entered concurrently. Returning it
+   * instead makes `recentPagination` a plain `const`, computed once the
+   * whole fetch has resolved.
    */
-  let recentPagination:
-    | { boardAggregateRows: BoardAggregateRow[]; countryApplied: boolean; countryMatched: number; total: number; totalPages: number }
-    | undefined;
+  type JobsFetchResult = {
+    result: Awaited<ReturnType<typeof postingsQuery>>;
+    recentPagination?: {
+      boardAggregateRows: BoardAggregateRow[];
+      countryApplied: boolean;
+      countryMatched: number;
+      total: number;
+      totalPages: number;
+    };
+  };
 
-  const jobsQuery = (async () => {
+  const jobsQuery: Promise<JobsFetchResult> = (async () => {
     if (isPaginatedRecent) {
       const orgIds = await viewerOrgIds;
       const { data: boardRaw } = await boardAggregateQuery(orgIds);
@@ -345,21 +365,23 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
       );
       const result = await paginatedRecentQuery(orgIds, countryApplied ? country : undefined);
       const total = result.count ?? 0;
-      recentPagination = {
-        boardAggregateRows,
-        countryApplied,
-        countryMatched,
-        total,
-        totalPages: Math.max(1, Math.ceil(total / RECENT_PAGE_SIZE)),
+      return {
+        result,
+        recentPagination: {
+          boardAggregateRows,
+          countryApplied,
+          countryMatched,
+          total,
+          totalPages: Math.max(1, Math.ceil(total / RECENT_PAGE_SIZE)),
+        },
       };
-      return result;
     }
     if (tab === "saved") {
       const [orgIds, ids] = await Promise.all([viewerOrgIds, savedIds]);
-      return postingsQuery(orgIds, ids);
+      return { result: await postingsQuery(orgIds, ids) };
     }
     const orgIds = await viewerOrgIds;
-    return postingsQuery(orgIds);
+    return { result: await postingsQuery(orgIds) };
   })();
 
   /*
@@ -401,7 +423,7 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
   const [
     { data: baseResume, error: baseResumeError },
     { data: applications },
-    { data: jobsRaw },
+    jobsFetch,
     searchResult,
   ] = await Promise.all([
     baseResumeQuery,
@@ -409,6 +431,9 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
     jobsQuery,
     searchQuery ?? Promise.resolve(null),
   ]);
+  const { data: jobsRaw } = jobsFetch.result;
+  // undefined for every tab except isPaginatedRecent — see JobsFetchResult above.
+  const recentPagination = jobsFetch.recentPagination;
 
   // Only fall back to an empty resume when there genuinely isn't one yet
   // (a real, expected state for a new user). A query error is a different
