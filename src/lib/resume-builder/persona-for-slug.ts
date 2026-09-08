@@ -36,6 +36,21 @@ import {
   BRAND_CAMPAIGN_MANAGER_RESUME,
   DEVOPS_ENGINEER_RESUME,
   MOBILE_ENGINEER_RESUME,
+  FINANCIAL_ACCOUNTANT_RESUME,
+  COMPLIANCE_OFFICER_RESUME,
+  FAMILY_MEDICINE_PHYSICIAN_RESUME,
+  HOSPITAL_PHYSICIAN_RESUME,
+  IN_HOUSE_LEGAL_COUNSEL_RESUME,
+  LITIGATION_COUNSEL_RESUME,
+  CIVIL_REGISTRATION_OFFICER_RESUME,
+  GOVERNMENT_PRESS_OFFICER_RESUME,
+  CIVIL_SERVICE_ADMINISTRATOR_RESUME,
+  INFRASTRUCTURE_PROJECT_MANAGER_RESUME,
+  PROGRAM_MANAGER_RESUME,
+  AGILE_DELIVERY_MANAGER_RESUME,
+  WAREHOUSE_OPERATIONS_MANAGER_RESUME,
+  FLEET_ROUTE_PLANNING_MANAGER_RESUME,
+  SUPPLY_CHAIN_PROCUREMENT_MANAGER_RESUME,
 } from "@/lib/resume-builder/preview-sample";
 
 /**
@@ -66,24 +81,40 @@ import {
  * Healthcare, Legal and Business — see `preview-sample.ts`'s own header for
  * why those 5 specific categories.
  *
- * BATCH 3A (this pass, first of three closing the remaining 44 fallback
- * slugs) adds 14 more entries across 5 categories, completing every one of
- * them: Administration (`structured-admin`, `front-office`,
- * `filing-system`), Business (`clean-professional`, `business-boardroom` —
- * joining batch 2's `business-memo`), Technology (`terminal`, `stack-trace`
- * — joining batch 2's `product-tech`), Sales & Marketing (`funnel`,
- * `pipeline`, `pitch-deck`) and Education & Academia (`curriculum-vitae`,
+ * BATCH 3A (first of three closing the remaining 44 fallback slugs) added 14
+ * entries across 5 categories, completing every one of them: Administration
+ * (`structured-admin`, `front-office`, `filing-system`), Business
+ * (`clean-professional`, `business-boardroom` — joining batch 2's
+ * `business-memo`), Technology (`terminal`, `stack-trace` — joining batch
+ * 2's `product-tech`), Sales & Marketing (`funnel`, `pipeline`,
+ * `pitch-deck`) and Education & Academia (`curriculum-vitae`,
  * `lecture-notes`, `faculty-profile`, `research-record`). See
  * `preview-sample.ts`'s own header for the full reasoning, including why
  * `clean-professional` — this function's own fallback destination — getting
  * a dedicated persona was a special case worth its own writeup.
  *
+ * BATCH 3B (this pass, second of three) adds 15 more entries, all premium
+ * (none of this batch sits in the free tier): Banking & Finance
+ * (`balance-sheet`, `compliance-brief` — joining batch 2's `ledger`),
+ * Healthcare (`clinical`, `rounds` — joining batch 2's `care-plan`), Legal
+ * (`legal-brief`, `statute` — joining batch 2's `chambers`), and three
+ * brand-new categories completed in full: Government & Public Sector
+ * (`civic-record`, `gazette`, `public-record`), Project Management
+ * (`critical-path`, `gantt`, `sprint-board`) and Logistics & Supply Chain
+ * (`manifest`, `route-plan`, `supply-chain`). Four of these fifteen —
+ * `clinical`, `statute`, `critical-path`, `public-record` — are bespoke
+ * components with no `structure_schema`, matched against their own template
+ * file the same way batch 3A matched `pipeline`. See `preview-sample.ts`'s
+ * own header for the full reasoning, including why each three-way category
+ * got a genuinely distinct sub-specialty per slug rather than a title swap.
+ *
  * Every slug not listed here still falls through to `PREVIEW_SAMPLE_RESUME`
- * — roughly 30 slugs remain, across categories batches 3B/3C haven't
- * reached yet (Design, Customer Success, most of Healthcare/Legal/Banking &
- * Finance, Project Management, Government & Public Sector, Creative &
- * Media, Telecommunications, Hospitality & Travel, Logistics & Supply
- * Chain).
+ * — exactly 15 slugs remain out of the catalog's 65 (50 now mapped above),
+ * across categories batch 3C hasn't reached yet: Design (`design-showcase`,
+ * `studio-brief`, `portfolio-grid`), Customer Success (`field-notes`,
+ * `success-story`, `help-desk`), Creative & Media (`byline`, `reel`,
+ * `press-kit`), Telecommunications (`network-ops`, `signal`, `uptime`) and
+ * Hospitality & Travel (`front-desk`, `concierge`, `itinerary`).
  */
 const SLUG_PERSONA_MAP: Record<string, StructuredResume> = {
   // Engineering + Construction & Real Estate + Oil & Gas/Energy — one
@@ -143,6 +174,33 @@ const SLUG_PERSONA_MAP: Record<string, StructuredResume> = {
   "lecture-notes": ENGINEERING_ASSOCIATE_PROFESSOR_RESUME,
   "faculty-profile": ECONOMICS_FACULTY_DEAN_RESUME,
   "research-record": RENEWABLE_ENERGY_RESEARCH_FELLOW_RESUME,
+
+  // BATCH 3B — Banking & Finance and Healthcare and Legal each gain a
+  // second dedicated slug (joining `ledger`/`care-plan`/`chambers` above),
+  // and three brand-new categories are completed in full (see this file's
+  // own header and preview-sample.ts's header for the full reasoning,
+  // including which four of these are bespoke components rather than
+  // skeleton-config slugs).
+  "balance-sheet": FINANCIAL_ACCOUNTANT_RESUME,
+  "compliance-brief": COMPLIANCE_OFFICER_RESUME,
+
+  clinical: FAMILY_MEDICINE_PHYSICIAN_RESUME,
+  rounds: HOSPITAL_PHYSICIAN_RESUME,
+
+  "legal-brief": IN_HOUSE_LEGAL_COUNSEL_RESUME,
+  statute: LITIGATION_COUNSEL_RESUME,
+
+  "civic-record": CIVIL_REGISTRATION_OFFICER_RESUME,
+  gazette: GOVERNMENT_PRESS_OFFICER_RESUME,
+  "public-record": CIVIL_SERVICE_ADMINISTRATOR_RESUME,
+
+  "critical-path": INFRASTRUCTURE_PROJECT_MANAGER_RESUME,
+  gantt: PROGRAM_MANAGER_RESUME,
+  "sprint-board": AGILE_DELIVERY_MANAGER_RESUME,
+
+  manifest: WAREHOUSE_OPERATIONS_MANAGER_RESUME,
+  "route-plan": FLEET_ROUTE_PLANNING_MANAGER_RESUME,
+  "supply-chain": SUPPLY_CHAIN_PROCUREMENT_MANAGER_RESUME,
 };
 
 /**

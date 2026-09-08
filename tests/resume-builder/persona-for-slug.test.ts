@@ -31,6 +31,20 @@
  * don't anymore, so the drift-guard tests below assert full-category
  * coverage for these 5, the same style batch 1 used for the Engineering
  * grouping, rather than a standalone-slug list.
+ *
+ * UPDATED for batch 3B: 15 more slugs now resolve to their own persona, and
+ * EVERY ONE of batch 2's three remaining standalone categories (Banking &
+ * Finance, Healthcare, Legal) is now fully split too — `ledger`, `care-plan`
+ * and `chambers` were each the one mapped slug in a 3-slug category; their
+ * two siblings apiece (`balance-sheet`/`compliance-brief`,
+ * `clinical`/`rounds`, `legal-brief`/`statute`) are now mapped by this
+ * batch, so `STANDALONE_BATCH_2_SLUGS` below is retired from the "everything
+ * else falls back" aggregator (though its own per-slug test stays — those 5
+ * slugs still each resolve correctly) in favour of folding all 3 categories
+ * into a full-category exclusion, the same style as `BATCH_3A_FULL_
+ * CATEGORIES`. Three brand-new categories (Government & Public Sector,
+ * Project Management, Logistics & Supply Chain) are also fully split as of
+ * this batch — see `BATCH_3B_FULL_CATEGORIES` below.
  */
 import { describe, expect, it } from "vitest";
 import { personaForSlug } from "@/lib/resume-builder/persona-for-slug";
@@ -71,6 +85,21 @@ import {
   BRAND_CAMPAIGN_MANAGER_RESUME,
   DEVOPS_ENGINEER_RESUME,
   MOBILE_ENGINEER_RESUME,
+  FINANCIAL_ACCOUNTANT_RESUME,
+  COMPLIANCE_OFFICER_RESUME,
+  FAMILY_MEDICINE_PHYSICIAN_RESUME,
+  HOSPITAL_PHYSICIAN_RESUME,
+  IN_HOUSE_LEGAL_COUNSEL_RESUME,
+  LITIGATION_COUNSEL_RESUME,
+  CIVIL_REGISTRATION_OFFICER_RESUME,
+  GOVERNMENT_PRESS_OFFICER_RESUME,
+  CIVIL_SERVICE_ADMINISTRATOR_RESUME,
+  INFRASTRUCTURE_PROJECT_MANAGER_RESUME,
+  PROGRAM_MANAGER_RESUME,
+  AGILE_DELIVERY_MANAGER_RESUME,
+  WAREHOUSE_OPERATIONS_MANAGER_RESUME,
+  FLEET_ROUTE_PLANNING_MANAGER_RESUME,
+  SUPPLY_CHAIN_PROCUREMENT_MANAGER_RESUME,
 } from "@/lib/resume-builder/preview-sample";
 import { RESUME_TEMPLATES } from "@/lib/billing/catalog";
 
@@ -88,6 +117,19 @@ const STANDALONE_BATCH_2_SLUGS = ["product-tech", "ledger", "care-plan", "chambe
 // BATCH 3A — 5 categories, each FULLY split (every slug in the category has
 // its own dedicated persona), unlike batch 2's standalone-slug pattern above.
 const BATCH_3A_FULL_CATEGORIES = ["Administration", "Business", "Technology", "Sales & Marketing", "Education & Academia"];
+// BATCH 3B — Banking & Finance, Healthcare and Legal (each had exactly one
+// batch-2 standalone slug — `ledger`/`care-plan`/`chambers` — and now have
+// their other two siblings mapped too) plus three brand-new categories
+// completed in full: Government & Public Sector, Project Management,
+// Logistics & Supply Chain.
+const BATCH_3B_FULL_CATEGORIES = [
+  "Banking & Finance",
+  "Healthcare",
+  "Legal",
+  "Government & Public Sector",
+  "Project Management",
+  "Logistics & Supply Chain",
+];
 
 describe("personaForSlug", () => {
   it.each([
@@ -165,7 +207,28 @@ describe("personaForSlug", () => {
     expect(personaForSlug("clean-professional")).not.toBe(PREVIEW_SAMPLE_RESUME);
   });
 
-  it("every other real catalog slug (outside both groupings, the 5 batch-2 standalone slugs and the 5 batch-3A full categories above) still falls back to PREVIEW_SAMPLE_RESUME", () => {
+  it.each([
+    ["balance-sheet", FINANCIAL_ACCOUNTANT_RESUME],
+    ["compliance-brief", COMPLIANCE_OFFICER_RESUME],
+    ["clinical", FAMILY_MEDICINE_PHYSICIAN_RESUME],
+    ["rounds", HOSPITAL_PHYSICIAN_RESUME],
+    ["legal-brief", IN_HOUSE_LEGAL_COUNSEL_RESUME],
+    ["statute", LITIGATION_COUNSEL_RESUME],
+    ["civic-record", CIVIL_REGISTRATION_OFFICER_RESUME],
+    ["gazette", GOVERNMENT_PRESS_OFFICER_RESUME],
+    ["public-record", CIVIL_SERVICE_ADMINISTRATOR_RESUME],
+    ["critical-path", INFRASTRUCTURE_PROJECT_MANAGER_RESUME],
+    ["gantt", PROGRAM_MANAGER_RESUME],
+    ["sprint-board", AGILE_DELIVERY_MANAGER_RESUME],
+    ["manifest", WAREHOUSE_OPERATIONS_MANAGER_RESUME],
+    ["route-plan", FLEET_ROUTE_PLANNING_MANAGER_RESUME],
+    ["supply-chain", SUPPLY_CHAIN_PROCUREMENT_MANAGER_RESUME],
+  ])("resolves batch-3B slug %s to its own dedicated persona", (slug, persona) => {
+    expect(personaForSlug(slug)).toBe(persona);
+    expect(personaForSlug(slug)).not.toBe(PREVIEW_SAMPLE_RESUME);
+  });
+
+  it("every other real catalog slug (outside both groupings, the 5 batch-2 standalone slugs and the batch-3A/3B full categories above) still falls back to PREVIEW_SAMPLE_RESUME", () => {
     const engineeringSlugs = new Set(
       RESUME_TEMPLATES.filter((t) => ENGINEERING_GROUP_CATEGORIES.includes(t.industry_category)).map((t) => t.slug),
     );
@@ -176,8 +239,16 @@ describe("personaForSlug", () => {
     const batch3aSlugs = new Set(
       RESUME_TEMPLATES.filter((t) => BATCH_3A_FULL_CATEGORIES.includes(t.industry_category)).map((t) => t.slug),
     );
+    const batch3bSlugs = new Set(
+      RESUME_TEMPLATES.filter((t) => BATCH_3B_FULL_CATEGORIES.includes(t.industry_category)).map((t) => t.slug),
+    );
     const remaining = RESUME_TEMPLATES.filter(
-      (t) => !engineeringSlugs.has(t.slug) && !ngoSlugs.has(t.slug) && !standaloneSlugs.has(t.slug) && !batch3aSlugs.has(t.slug),
+      (t) =>
+        !engineeringSlugs.has(t.slug) &&
+        !ngoSlugs.has(t.slug) &&
+        !standaloneSlugs.has(t.slug) &&
+        !batch3aSlugs.has(t.slug) &&
+        !batch3bSlugs.has(t.slug),
     );
     // Sanity: there really are slugs left to check — this shouldn't be empty.
     expect(remaining.length).toBeGreaterThan(0);
@@ -219,6 +290,18 @@ describe("personaForSlug", () => {
 
   it.each(BATCH_3A_FULL_CATEGORIES)(
     "the %s category's live slug list is entirely off the fallback as of batch 3A (guards against catalog drift)",
+    (category) => {
+      const slugs = RESUME_TEMPLATES.filter((t) => t.industry_category === category).map((t) => t.slug);
+      // Sanity: the category still has slugs in the live catalog to check.
+      expect(slugs.length).toBeGreaterThan(0);
+      for (const slug of slugs) {
+        expect(personaForSlug(slug), `slug "${slug}" (category "${category}")`).not.toBe(PREVIEW_SAMPLE_RESUME);
+      }
+    },
+  );
+
+  it.each(BATCH_3B_FULL_CATEGORIES)(
+    "the %s category's live slug list is entirely off the fallback as of batch 3B (guards against catalog drift)",
     (category) => {
       const slugs = RESUME_TEMPLATES.filter((t) => t.industry_category === category).map((t) => t.slug);
       // Sanity: the category still has slugs in the live catalog to check.

@@ -112,6 +112,73 @@ import type { StructuredResume } from "@/lib/resume/types";
  * licensing/chartering/regulatory body (Nigerian or otherwise); every one is
  * a vendor certification, an international voluntary professional body, or
  * a training-programme certificate.
+ *
+ * BATCH 3B (this pass, second of three closing the remaining 44 fallback
+ * slugs batch 3A left after its own 14). Covers 15 more slugs, all premium
+ * (none of this batch sits in the free tier — see
+ * `supabase/migrations/0110_template_free_tier_cut.sql`, which moved
+ * `compliance-brief`, `clinical`, `sprint-board`, `civic-record` and
+ * `manifest` from free to premium): Banking & Finance (`balance-sheet`,
+ * `compliance-brief` — joining `ledger` from batch 2), Healthcare
+ * (`clinical`, `rounds` — joining `care-plan` from batch 2), Legal
+ * (`legal-brief`, `statute` — joining `chambers` from batch 2), and three
+ * brand-new categories with zero prior coverage: Government & Public Sector
+ * (`civic-record`, `gazette`, `public-record` — all 3, category now
+ * complete), Project Management (`critical-path`, `gantt`, `sprint-board` —
+ * all 3, category now complete) and Logistics & Supply Chain (`manifest`,
+ * `route-plan`, `supply-chain` — all 3, category now complete).
+ *
+ * FOUR OF THESE FIFTEEN ARE BESPOKE COMPONENTS, not skeleton configs —
+ * `clinical`, `statute`, `critical-path` and `public-record` are four of the
+ * six pre-PR2 bespoke slugs `catalog-configs.ts`'s own header already calls
+ * out (the other two, `portfolio-grid` and `pipeline`, are outside this
+ * batch). Each of those four personas was matched against its own component
+ * file in `src/components/resume-builder/templates/` instead of a skeleton
+ * config: `clinical.tsx`'s "Licensure & Certifications" / "Clinical
+ * Experience" / "Clinical Skills" / "Research & Quality Improvement"
+ * sections, `statute.tsx`'s centred "Admissions" / "Notable Matters" /
+ * "Practice Areas" register (the most conservative layout in the catalog, by
+ * that file's own comment), `critical-path.tsx`'s "Delivery Experience" /
+ * "Programmes & Initiatives" tag-forward layout, and `public-record.tsx`'s
+ * labelled label:value civil-service-panel format ("Statement of
+ * Suitability", "Employment History", "Professional Registration").
+ *
+ * THE THREE-WAY CATEGORIES EACH GET A DISTINCT SUB-SPECIALTY, not a title
+ * swap on the same career: Government splits into vital-records/civil
+ * registration (`civic-record`'s Blessing Etim), government press/gazette
+ * communications (`gazette`'s Patricia Ekpo, the one persona in this batch
+ * with `awards` populated — that slug's config is the only one of the three
+ * with an `awards` section) and federal civil-service administration
+ * (`public-record`'s Ibrahim Danmusa). Logistics splits into warehousing
+ * (`manifest`'s Chukwudi Orji), last-mile fleet/route planning
+ * (`route-plan`'s Ebele Nnaji) and procurement/import-export supply chain
+ * (`supply-chain`'s Nneoma Igwilo — the one persona in this batch with
+ * `languages` populated, since `SUPPLY_CHAIN_CONFIG` is the only one of the
+ * three with a `languages` section). Healthcare's two slugs split into
+ * primary/community care (`clinical`'s Nkechi Umeadi, a family-medicine
+ * physician) versus hospital ward/ICU care (`rounds`'s Segun Fashola, an
+ * internal-medicine physician) rather than two flavours of the same job.
+ * Legal's two slugs split into in-house regulatory/commercial counsel
+ * (`legal-brief`'s Ifeanyi Okwuosa, the one persona in this batch with
+ * `publications` populated, matching `LEGAL_BRIEF_CONFIG`'s own
+ * `publications` section) versus independent-practice litigation/arbitration
+ * advocacy (`statute`'s Chidera Nnamani) — both deliberately distinct from
+ * `chambers`'s existing corporate/commercial transactional register
+ * (`CORPORATE_LEGAL_ASSOCIATE_RESUME`, Aisha Garba), and each of this
+ * batch's three lawyer-shaped personas (Ifeanyi, Chidera, plus Aisha
+ * already in the registry) uses its own law school and call-to-bar campus so
+ * no two collide on an identical `school`+`degree` education entry.
+ *
+ * Same certification rule as every batch before this one: no
+ * licensing/chartering/regulatory body name (Nigerian or otherwise) appears
+ * in any of these 15 personas' `certifications` — every credential is a
+ * vendor certification (AWS-style), an international voluntary professional
+ * body (ACCA, ACAMS, CIPS, PMI, Scrum Alliance, APICS/ASCM — the same kind
+ * of internationally portable body `chambers`'s CIArb/CIPP-E and
+ * `credit-risk`'s CFA already established as fine, precisely because a
+ * Nigerian statutory regulator like ICAN or NBA is the thing that reads as
+ * an unbackable claim, not a voluntary international credentialing body), or
+ * a named training programme.
  */
 
 /**
@@ -2769,17 +2836,1100 @@ export const MOBILE_ENGINEER_RESUME: StructuredResume = {
   ],
 };
 
+// ---------------------------------------------------------------------------
+// BATCH 3B — 15 personas across Banking & Finance, Healthcare, Legal, and
+// three brand-new categories (Government & Public Sector, Project
+// Management, Logistics & Supply Chain). See this file's own top-of-file
+// header for the full reasoning behind each pick.
+// ---------------------------------------------------------------------------
+
+/**
+ * `balance-sheet` persona — a financial/statutory-reporting accountant.
+ * `BALANCE_SHEET_CONFIG`'s `sectionLabels.certifications` is "Professional
+ * Certifications", which this persona's ACCA/CMA credentials genuinely back.
+ */
+export const FINANCIAL_ACCOUNTANT_RESUME: StructuredResume = {
+  contact: {
+    name: "Ifeoma Okonji",
+    email: "ifeoma.okonji@sterlingfinserve.com",
+    phone: "+234 804 221 3396",
+    location: "Lagos, Nigeria",
+  },
+  summary:
+    "Financial accountant with eight years preparing statutory financial statements and managing balance-sheet reconciliations for manufacturing and consumer-goods companies in Lagos, with a track record of clean external audits and tightened month-end close cycles.",
+  experience: [
+    {
+      title: "Senior Financial Accountant",
+      company: "Sterlingway Manufacturing Plc",
+      location: "Lagos, Nigeria",
+      startDate: "2021",
+      endDate: "Present",
+      description:
+        "Own monthly and year-end balance-sheet reconciliations across 40+ GL accounts for a ₦12B-revenue manufacturer. Cut month-end close from 12 working days to 6 by automating bank and intercompany reconciliations, and delivered three consecutive unqualified external audit opinions.",
+    },
+    {
+      title: "Financial Accountant",
+      company: "Sterlingway Manufacturing Plc",
+      location: "Lagos, Nigeria",
+      startDate: "2018",
+      endDate: "2021",
+      description:
+        "Prepared IFRS-compliant financial statements and managed fixed-asset registers worth ₦3.2B. Identified and corrected a recurring depreciation misstatement that had understated net book value by ₦140M across two prior periods.",
+    },
+    {
+      title: "Graduate Accountant",
+      company: "Vantage Consumer Products Ltd",
+      location: "Lagos, Nigeria",
+      startDate: "2016",
+      endDate: "2018",
+      description:
+        "Supported the finance team on payables reconciliation and VAT filing for a 200-SKU consumer goods portfolio, cutting supplier-payment queries by 35% after introducing a standardized invoice-matching checklist.",
+    },
+  ],
+  education: [
+    { school: "University of Calabar", degree: "B.Sc.", field: "Accounting", startDate: "2012", endDate: "2016" },
+  ],
+  skills: [
+    "financial reporting",
+    "balance-sheet reconciliation",
+    "ifrs compliance",
+    "fixed-asset accounting",
+    "month-end close",
+    "variance analysis",
+    "sap fico",
+    "excel financial modeling",
+    "audit liaison",
+    "vat & withholding tax filing",
+  ],
+  projects: [
+    "Month-end close automation — cut close cycle from 12 to 6 working days",
+    "Depreciation-misstatement correction — recovered ₦140M in net book value accuracy",
+    "Invoice-matching checklist rollout — cut supplier-payment queries 35%",
+  ],
+  certifications: [
+    "Association of Chartered Certified Accountants (ACCA) Affiliate",
+    "Certified Management Accountant (CMA) — Institute of Management Accountants (IMA)",
+  ],
+};
+
+/**
+ * `compliance-brief` persona — a bank compliance/AML officer, distinct from
+ * `ledger`'s credit-risk register (Oluwaseun Bakare). `COMPLIANCE_BRIEF_
+ * CONFIG`'s `sectionLabels.certifications` is "Regulatory Certifications".
+ */
+export const COMPLIANCE_OFFICER_RESUME: StructuredResume = {
+  contact: {
+    name: "Abubakar Sadiq",
+    email: "abubakar.sadiq@northgatebank.ng",
+    phone: "+234 701 663 8845",
+    location: "Abuja, Nigeria",
+  },
+  summary:
+    "Compliance officer with seven years running anti-money-laundering monitoring and regulatory-reporting programmes for a commercial bank's retail and SME divisions, focused on sanctions screening and reducing false-positive alert volume.",
+  experience: [
+    {
+      title: "Senior Compliance Officer",
+      company: "Northgate Commercial Bank",
+      location: "Abuja, Nigeria",
+      startDate: "2022",
+      endDate: "Present",
+      description:
+        "Lead AML transaction monitoring for 1.1M retail accounts, tuning detection-rule thresholds that cut false-positive alerts by 38% while holding true-positive detection flat. Coordinate quarterly sanctions-list screening refreshes across 3 business units.",
+    },
+    {
+      title: "Compliance Officer",
+      company: "Northgate Commercial Bank",
+      location: "Abuja, Nigeria",
+      startDate: "2019",
+      endDate: "2022",
+      description:
+        "Ran know-your-customer (KYC) file reviews for new SME account openings, clearing a 900-file backlog within 4 months and cutting average onboarding compliance turnaround from 9 days to 3.",
+    },
+    {
+      title: "Compliance Analyst",
+      company: "Meridian Microfinance Bank",
+      location: "Kaduna, Nigeria",
+      startDate: "2016",
+      endDate: "2019",
+      description:
+        "Investigated suspicious-transaction alerts and filed regulatory suspicious-activity reports, maintaining a 100% on-time filing record across 3 years of quarterly regulator submissions.",
+    },
+  ],
+  education: [
+    { school: "Al-Hikmah University, Ilorin", degree: "B.Sc.", field: "Accounting", startDate: "2012", endDate: "2016" },
+  ],
+  skills: [
+    "aml/cft monitoring",
+    "transaction screening",
+    "kyc/cdd review",
+    "sanctions screening",
+    "regulatory reporting",
+    "suspicious-activity investigation",
+    "risk-based compliance",
+    "sql",
+    "compliance training delivery",
+  ],
+  projects: [
+    "AML alert-threshold tuning — cut false positives 38% with detection held flat",
+    "SME KYC backlog clearance — 900 files cleared in 4 months",
+    "Suspicious-activity filing programme — 100% on-time regulatory filing record",
+  ],
+  certifications: [
+    "ACAMS Certified Anti-Money Laundering Specialist (CAMS)",
+    "Certified Compliance & Ethics Professional (CCEP) — Society of Corporate Compliance and Ethics (SCCE)",
+  ],
+};
+
+/**
+ * `clinical` persona — a primary/community-care family-medicine physician,
+ * matched against `clinical.tsx` directly (bespoke component, no skeleton
+ * config): "Licensure & Certifications" promoted under the header,
+ * "Clinical Experience", "Clinical Skills", "Research & Quality
+ * Improvement". Deliberately a PRIMARY-CARE register — distinct from
+ * `rounds`'s hospital ward/ICU register below and from `care-plan`'s
+ * existing REGISTERED_NURSE_RESUME (Patience Okoye).
+ */
+export const FAMILY_MEDICINE_PHYSICIAN_RESUME: StructuredResume = {
+  contact: {
+    name: "Nkechi Umeadi",
+    email: "nkechi.umeadi@primacarehealthng.org",
+    phone: "+234 813 227 5591",
+    location: "Enugu, Nigeria",
+  },
+  summary:
+    "Family medicine physician with ten years delivering primary care across community health centres in Enugu State, focused on maternal and child health outreach and chronic-disease management for underserved populations.",
+  experience: [
+    {
+      title: "Senior Medical Officer",
+      company: "Ridgeview Community Health Centre",
+      location: "Enugu, Nigeria",
+      startDate: "2021",
+      endDate: "Present",
+      description:
+        "Lead a team of 6 clinical staff delivering outpatient and antenatal care to 8,000+ registered patients. Redesigned the antenatal triage workflow, cutting average patient wait time from 90 to 40 minutes and raising completed 4-visit antenatal attendance from 58% to 79%.",
+    },
+    {
+      title: "Medical Officer",
+      company: "Ridgeview Community Health Centre",
+      location: "Enugu, Nigeria",
+      startDate: "2018",
+      endDate: "2021",
+      description:
+        "Managed a chronic-disease clinic for hypertension and diabetes patients, growing enrolment from 300 to 1,100 patients and improving 6-month blood-pressure control rates from 44% to 67% through a structured follow-up call programme.",
+    },
+    {
+      title: "House Officer",
+      company: "Enugu State University Teaching Hospital",
+      location: "Enugu, Nigeria",
+      startDate: "2016",
+      endDate: "2018",
+      description:
+        "Rotated through internal medicine, paediatrics, surgery and obstetrics/gynaecology wards, managing an average daily caseload of 15 admitted patients under consultant supervision.",
+    },
+  ],
+  education: [
+    { school: "Ebonyi State University", degree: "MBBS", field: "Medicine", startDate: "2009", endDate: "2016" },
+  ],
+  skills: [
+    "primary care & family medicine",
+    "antenatal care",
+    "chronic disease management",
+    "maternal & child health",
+    "clinical triage",
+    "patient counselling",
+    "community health outreach",
+    "electronic health records",
+    "health data reporting",
+  ],
+  projects: [
+    "Antenatal triage redesign — cut wait time from 90 to 40 minutes, lifted 4-visit attendance to 79%",
+    "Hypertension & diabetes follow-up programme — grew enrolment to 1,100 patients, improved BP control to 67%",
+  ],
+  certifications: [
+    "Pediatric Advanced Life Support (PALS) Certification",
+    "WHO-AFRO Integrated Disease Surveillance and Response (IDSR) Training Certificate",
+  ],
+};
+
+/**
+ * `rounds` persona — a hospital ward/ICU internal-medicine physician.
+ * `ROUNDS_CONFIG` relabels experience "Clinical Experience" and
+ * certifications "Licenses". Deliberately a SECONDARY/TERTIARY HOSPITAL
+ * register — ward rounds, ICU step-down, junior-doctor supervision — the
+ * distinguishing sub-specialty from `clinical`'s primary-care register above.
+ */
+export const HOSPITAL_PHYSICIAN_RESUME: StructuredResume = {
+  contact: {
+    name: "Segun Fashola",
+    email: "segun.fashola@crownpointhospital.org",
+    phone: "+234 706 884 2213",
+    location: "Ibadan, Nigeria",
+  },
+  summary:
+    "Internal medicine physician with nine years managing adult inpatient wards and intensive-care rotations at a tertiary hospital in Ibadan, with a focus on sepsis-protocol compliance and reducing avoidable readmissions.",
+  experience: [
+    {
+      title: "Senior Registrar, Internal Medicine",
+      company: "Crownpoint Teaching Hospital",
+      location: "Ibadan, Nigeria",
+      startDate: "2022",
+      endDate: "Present",
+      description:
+        "Lead daily ward rounds for a 40-bed general medicine unit and supervise 4 junior doctors. Rolled out a sepsis-screening protocol at triage that cut time-to-first-antibiotic from 130 to 55 minutes, and cut 30-day readmissions for heart-failure patients from 22% to 14%.",
+    },
+    {
+      title: "Registrar, Internal Medicine",
+      company: "Crownpoint Teaching Hospital",
+      location: "Ibadan, Nigeria",
+      startDate: "2019",
+      endDate: "2022",
+      description:
+        "Managed a 15-bed medical ICU step-down unit, coordinating multidisciplinary discharge planning that cut average length of stay from 9.4 to 7.1 days without raising readmission rates.",
+    },
+    {
+      title: "House Officer",
+      company: "Crownpoint Teaching Hospital",
+      location: "Ibadan, Nigeria",
+      startDate: "2017",
+      endDate: "2019",
+      description:
+        "Rotated across internal medicine, surgery, paediatrics and accident & emergency, managing acute admissions and assisting in over 200 ward procedures under consultant supervision.",
+    },
+  ],
+  education: [
+    { school: "Olabisi Onabanjo University", degree: "MBBS", field: "Medicine", startDate: "2010", endDate: "2017" },
+  ],
+  skills: [
+    "internal medicine",
+    "ward rounds & inpatient care",
+    "sepsis protocol management",
+    "icu step-down care",
+    "discharge planning",
+    "clinical documentation",
+    "junior doctor supervision",
+    "multidisciplinary case review",
+    "patient safety auditing",
+  ],
+  projects: [
+    "Sepsis-screening triage protocol — cut time-to-first-antibiotic from 130 to 55 minutes",
+    "Heart-failure readmission reduction programme — cut 30-day readmissions from 22% to 14%",
+    "ICU step-down discharge planning redesign — cut average length of stay from 9.4 to 7.1 days",
+  ],
+  certifications: [
+    "Advanced Trauma Life Support (ATLS) Certification",
+    "Ultrasound-Guided Vascular Access Certification",
+  ],
+};
+
+/**
+ * `legal-brief` persona — in-house regulatory/commercial counsel, moving
+ * from private practice into a Head of Legal role. `LEGAL_BRIEF_CONFIG`
+ * includes a `publications` section, populated below — distinct from
+ * `chambers`'s CORPORATE_LEGAL_ASSOCIATE_RESUME (Aisha Garba) register and
+ * from `statute`'s independent-litigation register below; uses its own law
+ * school and law-school campus so neither collides with Aisha's or
+ * Chidera's education entries.
+ */
+export const IN_HOUSE_LEGAL_COUNSEL_RESUME: StructuredResume = {
+  contact: {
+    name: "Ifeanyi Okwuosa",
+    email: "ifeanyi.okwuosa@brightpointtelecom.com",
+    phone: "+234 802 559 7761",
+    location: "Lagos, Nigeria",
+  },
+  summary:
+    "Senior legal counsel with ten years advising banking and telecommunications companies on regulatory compliance, commercial contracts and data-protection governance, moving from private practice into in-house leadership.",
+  experience: [
+    {
+      title: "Head of Legal",
+      company: "Brightpoint Telecom Nigeria Ltd",
+      location: "Lagos, Nigeria",
+      startDate: "2022",
+      endDate: "Present",
+      description:
+        "Lead a 3-person legal team advising on regulatory filings, interconnect agreements and data-protection governance for a telecom operator serving 2.1M subscribers. Restructured the vendor-contract review process, cutting average contract turnaround from 21 to 9 days.",
+    },
+    {
+      title: "Legal Counsel",
+      company: "Brightpoint Telecom Nigeria Ltd",
+      location: "Lagos, Nigeria",
+      startDate: "2019",
+      endDate: "2022",
+      description:
+        "Managed regulatory compliance filings and led the company's NDPR data-protection compliance programme, closing 95% of identified gaps within the first compliance cycle.",
+    },
+    {
+      title: "Associate",
+      company: "Falconbridge & Co.",
+      location: "Lagos, Nigeria",
+      startDate: "2016",
+      endDate: "2019",
+      description:
+        "Advised corporate clients on commercial contracts and regulatory licensing applications across banking and telecom sectors, drafting over 150 commercial agreements.",
+    },
+  ],
+  education: [
+    {
+      school: "Enugu State University of Science and Technology (ESUT)",
+      degree: "LL.B.",
+      field: "Law",
+      startDate: "2010",
+      endDate: "2014",
+    },
+    {
+      school: "Nigerian Law School, Enugu Campus",
+      degree: "B.L.",
+      field: "Barrister-at-Law",
+      startDate: "2014",
+      endDate: "2015",
+    },
+  ],
+  skills: [
+    "regulatory compliance",
+    "commercial contract drafting",
+    "data protection governance",
+    "telecom regulatory law",
+    "corporate governance",
+    "vendor contract management",
+    "legal risk advisory",
+    "stakeholder negotiation",
+  ],
+  projects: [
+    "Vendor-contract review overhaul — cut average turnaround from 21 to 9 days",
+    "NDPR compliance programme rollout — closed 95% of identified gaps in one cycle",
+    "150+ commercial agreements drafted across banking and telecom clients",
+  ],
+  certifications: [
+    "Certified Information Privacy Professional/United States (CIPP/US) — IAPP",
+    "International Certificate in Corporate Governance — The Chartered Governance Institute (CGI)",
+  ],
+  publications: ['Co-authored "Data Governance in Nigerian Telecommunications" — Nigerian Journal of Technology Law, 2023'],
+};
+
+/**
+ * `statute` persona — independent-practice litigation and arbitration
+ * counsel, matched against `statute.tsx` directly (bespoke component, no
+ * skeleton config): centred "Admissions", "Notable Matters" (projects),
+ * "Practice Areas" (skills) — the most conservative layout in the catalog,
+ * by that file's own comment. Distinct from `legal-brief`'s in-house
+ * register above and `chambers`'s transactional register; own law school and
+ * law-school campus so no education-entry collision with either.
+ */
+export const LITIGATION_COUNSEL_RESUME: StructuredResume = {
+  contact: {
+    name: "Chidera Nnamani",
+    email: "chidera.nnamani@fortresschambers.com",
+    phone: "+234 815 331 6624",
+    location: "Lagos, Nigeria",
+  },
+  summary:
+    "Litigation and arbitration counsel with eleven years representing corporate clients in commercial disputes before Nigerian courts and international arbitral tribunals, with a practice concentrated in contract and shareholder disputes.",
+  experience: [
+    {
+      title: "Senior Counsel",
+      company: "Fortress Chambers",
+      location: "Lagos, Nigeria",
+      startDate: "2021",
+      endDate: "Present",
+      description:
+        "Lead a team of 4 associates on commercial litigation and arbitration matters, securing favourable outcomes in 80% of the 25 matters concluded since 2021, including a ₦1.4B shareholder-dispute settlement.",
+    },
+    {
+      title: "Counsel",
+      company: "Fortress Chambers",
+      location: "Lagos, Nigeria",
+      startDate: "2017",
+      endDate: "2021",
+      description:
+        "Represented clients in 40+ commercial disputes before the Lagos High Court and the Lagos Court of Arbitration, and led pre-trial case-strategy sessions that shortened average matter duration from 26 to 17 months.",
+    },
+    {
+      title: "Associate",
+      company: "Okoli & Braithwaite LP",
+      location: "Lagos, Nigeria",
+      startDate: "2015",
+      endDate: "2017",
+      description:
+        "Prepared pleadings and conducted legal research for commercial and employment litigation matters, supporting lead counsel across 30+ active files.",
+    },
+  ],
+  education: [
+    { school: "Abia State University", degree: "LL.B.", field: "Law", startDate: "2009", endDate: "2013" },
+    {
+      school: "Nigerian Law School, Yola Campus",
+      degree: "B.L.",
+      field: "Barrister-at-Law",
+      startDate: "2013",
+      endDate: "2014",
+    },
+  ],
+  skills: [
+    "commercial litigation",
+    "arbitration advocacy",
+    "contract disputes",
+    "shareholder & corporate disputes",
+    "case strategy",
+    "legal research",
+    "pre-trial negotiation",
+    "client advisory",
+  ],
+  projects: [
+    "₦1.4B shareholder-dispute settlement — negotiated favourable resolution for corporate client",
+    "Case-strategy programme — cut average matter duration from 26 to 17 months",
+    "80% favourable-outcome rate across 25 matters concluded since 2021",
+  ],
+  certifications: [
+    "ICC Advanced Certificate in International Commercial Arbitration",
+    "Lagos Court of Arbitration — Alternative Dispute Resolution Training Certificate",
+  ],
+};
+
+/**
+ * `civic-record` persona — a civil registration (vital records) officer.
+ * `CIVIC_RECORD_CONFIG` has no `sectionLabels` overrides. The
+ * VITAL-RECORDS/REGISTRY sub-specialty distinguishing this slug from
+ * `gazette`'s communications register and `public-record`'s general
+ * administration register below.
+ */
+export const CIVIL_REGISTRATION_OFFICER_RESUME: StructuredResume = {
+  contact: {
+    name: "Blessing Etim",
+    email: "blessing.etim@stateregistryservices.org",
+    phone: "+234 703 774 9926",
+    location: "Uyo, Nigeria",
+  },
+  summary:
+    "Civil registration officer with nine years managing birth, death and civic-status registration for local government registry offices in Akwa Ibom State, focused on digitizing paper archives and improving registration turnaround.",
+  experience: [
+    {
+      title: "Senior Civil Registration Officer",
+      company: "Uyo Local Government Registry",
+      location: "Uyo, Nigeria",
+      startDate: "2021",
+      endDate: "Present",
+      description:
+        "Oversee birth and death registration for a local government area covering 380,000 residents. Led the digitization of 12 years of paper registers into a searchable electronic archive, cutting record-retrieval time from an average of 5 days to same-day.",
+    },
+    {
+      title: "Civil Registration Officer",
+      company: "Uyo Local Government Registry",
+      location: "Uyo, Nigeria",
+      startDate: "2018",
+      endDate: "2021",
+      description:
+        "Processed an average of 900 birth and death registrations monthly, and introduced a mobile registration outreach programme that raised rural birth-registration rates from 61% to 84% across 3 wards.",
+    },
+    {
+      title: "Registry Assistant",
+      company: "Eket Local Government Registry",
+      location: "Eket, Nigeria",
+      startDate: "2016",
+      endDate: "2018",
+      description:
+        "Verified and filed registration documents and supported public enquiries at the registry front desk, clearing a 2,000-file registration backlog within 8 months.",
+    },
+  ],
+  education: [
+    { school: "Akwa Ibom State University", degree: "B.Sc.", field: "Public Administration", startDate: "2012", endDate: "2016" },
+  ],
+  skills: [
+    "civil registration & vital records",
+    "records digitization",
+    "public records management",
+    "community outreach",
+    "registry compliance",
+    "data entry & verification",
+    "customer service",
+    "records archiving",
+  ],
+  projects: [
+    "12-year paper archive digitization — cut record-retrieval time from 5 days to same-day",
+    "Mobile birth-registration outreach — raised rural registration rates from 61% to 84%",
+    "Registration backlog clearance — 2,000 files cleared in 8 months",
+  ],
+  certifications: [
+    "Civil Registration and Vital Statistics (CRVS) Training Certificate — UNICEF Regional Training Programme",
+    "Data Protection and Records Management Certificate — International Records Management Trust (IRMT) Training Programme",
+  ],
+};
+
+/**
+ * `gazette` persona — a government press/public-affairs officer.
+ * `GAZETTE_CONFIG` relabels experience "Public Service Experience" and adds
+ * an `awards` section ("Honours & Awards") — the only one of this batch's 3
+ * Government slugs with `awards`, populated below. The
+ * COMMUNICATIONS/GAZETTE-PUBLISHING sub-specialty distinguishing this slug
+ * from `civic-record`'s registry register above and `public-record`'s
+ * general administration register below.
+ */
+export const GOVERNMENT_PRESS_OFFICER_RESUME: StructuredResume = {
+  contact: {
+    name: "Patricia Ekpo",
+    email: "patricia.ekpo@stateinfobureau.org",
+    phone: "+234 810 662 7742",
+    location: "Calabar, Nigeria",
+  },
+  summary:
+    "Public affairs officer with ten years managing government communications, press briefings and official gazette publications for a state Ministry of Information, with a focus on public-facing crisis communication.",
+  experience: [
+    {
+      title: "Senior Press and Public Affairs Officer",
+      company: "Cross River State Ministry of Information and Culture",
+      location: "Calabar, Nigeria",
+      startDate: "2021",
+      endDate: "Present",
+      description:
+        "Lead the ministry's press office, drafting official gazette notices and coordinating press briefings for 3 commissioners. Cut average notice-to-publication turnaround from 12 to 4 working days after redesigning the internal clearance workflow.",
+    },
+    {
+      title: "Public Affairs Officer",
+      company: "Cross River State Ministry of Information and Culture",
+      location: "Calabar, Nigeria",
+      startDate: "2017",
+      endDate: "2021",
+      description:
+        "Managed the ministry's crisis-communication response during 2 major public-health awareness campaigns, growing radio and print media pickup of official releases by 45%.",
+    },
+    {
+      title: "Information Officer",
+      company: "Calabar Municipal Council",
+      location: "Calabar, Nigeria",
+      startDate: "2014",
+      endDate: "2017",
+      description:
+        "Drafted council press releases and public notices, and organised 20+ town-hall briefings on local government policy changes.",
+    },
+  ],
+  education: [
+    { school: "Cross River University of Technology", degree: "B.A.", field: "Mass Communication", startDate: "2010", endDate: "2014" },
+  ],
+  skills: [
+    "government communications",
+    "press relations",
+    "gazette & official notice drafting",
+    "crisis communication",
+    "media liaison",
+    "public briefing coordination",
+    "stakeholder engagement",
+    "content editing",
+  ],
+  projects: [
+    "Gazette clearance workflow redesign — cut notice-to-publication turnaround from 12 to 4 days",
+    "Public-health crisis communication campaigns — grew media pickup of official releases 45%",
+    "Local government town-hall series — 20+ public briefings organised",
+  ],
+  certifications: [
+    "Government Communications Certificate — Commonwealth Association for Public Administration and Management (CAPAM) Training Programme",
+    "Crisis Communications Certificate — International Association of Business Communicators (IABC) Training",
+  ],
+  awards: [
+    "Meritorious Service Commendation — Cross River State Civil Service, 2023",
+    "Best Public Communications Team Award — State Ministry of Information, 2020",
+  ],
+};
+
+/**
+ * `public-record` persona — federal civil-service administration, matched
+ * against `public-record.tsx` directly (bespoke component, no skeleton
+ * config): labelled label:value fields throughout ("Statement of
+ * Suitability", "Employment History", "Education & Qualifications",
+ * "Professional Registration", "Competencies", "Projects & Assignments") —
+ * a criteria-scored civil-service-panel format, by that file's own comment.
+ * The GENERAL ADMINISTRATION/PROCUREMENT sub-specialty distinguishing this
+ * slug from `civic-record`'s registry register and `gazette`'s
+ * communications register above.
+ */
+export const CIVIL_SERVICE_ADMINISTRATOR_RESUME: StructuredResume = {
+  contact: {
+    name: "Ibrahim Danmusa",
+    email: "ibrahim.danmusa@fedadminservice.org",
+    phone: "+234 706 225 8834",
+    location: "Abuja, Nigeria",
+  },
+  summary:
+    "Administrative officer with nine years managing procurement documentation, personnel administration and ministerial correspondence within a federal ministry, with a focus on tightening procurement-file compliance.",
+  experience: [
+    {
+      title: "Assistant Director (Administration)",
+      company: "Federal Ministry of Budget and National Planning",
+      location: "Abuja, Nigeria",
+      startDate: "2022",
+      endDate: "Present",
+      description:
+        "Supervise a 6-person administrative unit handling procurement documentation and personnel records for a department of 140 staff. Introduced a standardized procurement-file checklist that cut audit queries on incomplete files by 60%.",
+    },
+    {
+      title: "Principal Administrative Officer",
+      company: "Federal Ministry of Budget and National Planning",
+      location: "Abuja, Nigeria",
+      startDate: "2018",
+      endDate: "2022",
+      description:
+        "Managed correspondence tracking and file management for the department, reducing average response time to inter-ministerial memos from 11 to 5 working days.",
+    },
+    {
+      title: "Administrative Officer II",
+      company: "Federal Ministry of Budget and National Planning",
+      location: "Abuja, Nigeria",
+      startDate: "2016",
+      endDate: "2018",
+      description:
+        "Processed personnel records and leave administration for 90 staff, and digitized 6 years of paper personnel files into the department's electronic records system.",
+    },
+  ],
+  education: [
+    { school: "Federal University Dutsin-Ma", degree: "B.Sc.", field: "Public Administration", startDate: "2011", endDate: "2015" },
+  ],
+  skills: [
+    "procurement documentation",
+    "personnel administration",
+    "records management",
+    "correspondence tracking",
+    "public sector budgeting support",
+    "file compliance auditing",
+    "stakeholder liaison",
+    "policy implementation support",
+  ],
+  projects: [
+    "Procurement-file checklist rollout — cut audit queries on incomplete files by 60%",
+    "Correspondence tracking overhaul — cut response time to inter-ministerial memos from 11 to 5 days",
+    "Personnel-file digitization — 6 years of paper records moved to electronic system",
+  ],
+  certifications: [
+    "Chartered Institute of Procurement & Supply (CIPS) — Level 4 Diploma",
+    "Public Financial Management Certificate — CABRI/World Bank Training Programme",
+  ],
+};
+
+/**
+ * `critical-path` persona — a construction/infrastructure project manager,
+ * matched against `critical-path.tsx` directly (bespoke component, no
+ * skeleton config): tag-forward skills row, "Delivery Experience",
+ * "Programmes & Initiatives" (projects). The CONSTRUCTION/INFRASTRUCTURE
+ * SCHEDULING sub-specialty distinguishing this slug from `gantt`'s
+ * multi-site programme register and `sprint-board`'s agile-software
+ * register below — uses PRINCE2 rather than PMP so this batch's three
+ * Project Management personas don't converge on the same methodology.
+ */
+export const INFRASTRUCTURE_PROJECT_MANAGER_RESUME: StructuredResume = {
+  contact: {
+    name: "Adaobi Ilori",
+    email: "adaobi.ilori@trailblazeinfra.com",
+    phone: "+234 813 774 6620",
+    location: "Lagos, Nigeria",
+  },
+  summary:
+    "Project manager with ten years delivering road, power and commercial-building infrastructure projects across Nigeria, using critical-path scheduling to keep multi-contractor programmes on budget and on time.",
+  experience: [
+    {
+      title: "Senior Project Manager",
+      company: "Trailblaze Infrastructure Ltd",
+      location: "Lagos, Nigeria",
+      startDate: "2021",
+      endDate: "Present",
+      description:
+        "Manage a $65M portfolio of 4 concurrent road and drainage infrastructure projects, coordinating 6 subcontractors against a critical-path schedule. Recovered a 5-week schedule slip on a flagship interchange project by re-sequencing 3 work packages, delivering the project 2 weeks ahead of the revised date.",
+    },
+    {
+      title: "Project Manager",
+      company: "Trailblaze Infrastructure Ltd",
+      location: "Lagos, Nigeria",
+      startDate: "2018",
+      endDate: "2021",
+      description:
+        "Led project controls for a 25km urban road-rehabilitation programme, tracking cost performance against a ₦4.2B budget and holding cost variance under 3% across the full programme.",
+    },
+    {
+      title: "Assistant Project Manager",
+      company: "Kingsbridge Builders Ltd",
+      location: "Lagos, Nigeria",
+      startDate: "2016",
+      endDate: "2018",
+      description:
+        "Supported scheduling and progress tracking for a 14-storey commercial development, maintaining the master schedule across 9 subcontractor trades.",
+    },
+  ],
+  education: [
+    { school: "Federal University of Technology, Owerri (FUTO)", degree: "B.Eng.", field: "Civil Engineering", startDate: "2011", endDate: "2016" },
+  ],
+  skills: [
+    "critical path method (cpm) scheduling",
+    "project controls",
+    "cost & budget tracking",
+    "subcontractor coordination",
+    "risk management",
+    "primavera p6",
+    "stakeholder reporting",
+    "construction project delivery",
+  ],
+  projects: [
+    "Flagship interchange schedule recovery — recovered 5-week slip, delivered 2 weeks ahead of revised date",
+    "25km urban road-rehabilitation programme — held cost variance under 3% against ₦4.2B budget",
+    "14-storey commercial development master schedule — coordinated across 9 subcontractor trades",
+  ],
+  certifications: ["PRINCE2 Practitioner Certification (AXELOS)", "Primavera P6 Professional Certification"],
+};
+
+/**
+ * `gantt` persona — a multi-site programme/portfolio manager. `GANTT_CONFIG`
+ * relabels experience "Programs Delivered" and certifications "Certifications
+ * (PMP, Agile)" — this persona's PMP/PMI-ACP credentials genuinely back that
+ * label. The MULTI-SITE PROGRAMME PORTFOLIO sub-specialty distinguishing
+ * this slug from `critical-path`'s single-discipline construction register
+ * above and `sprint-board`'s agile-software register below.
+ */
+export const PROGRAM_MANAGER_RESUME: StructuredResume = {
+  contact: {
+    name: "Tochukwu Emenike",
+    email: "tochukwu.emenike@vantagepmoglobal.com",
+    phone: "+234 807 663 1128",
+    location: "Lagos, Nigeria",
+  },
+  summary:
+    "Program manager with eleven years leading multi-site programme delivery for telecommunications and consumer-goods rollouts across Nigeria, managing cross-functional teams against aggressive go-live timelines.",
+  experience: [
+    {
+      title: "Senior Program Manager",
+      company: "Vantage PMO Consulting",
+      location: "Lagos, Nigeria",
+      startDate: "2021",
+      endDate: "Present",
+      description:
+        "Lead a portfolio of 5 concurrent programmes for telecom and FMCG clients, managing a $30M combined budget across 12 workstreams. Delivered a 200-site network-upgrade programme 6 weeks ahead of schedule by restructuring the vendor-dependency sequence.",
+    },
+    {
+      title: "Program Manager",
+      company: "Vantage PMO Consulting",
+      location: "Lagos, Nigeria",
+      startDate: "2017",
+      endDate: "2021",
+      description:
+        "Managed a national retail-rollout programme opening 85 new outlets in 18 months, coordinating construction, licensing and staffing workstreams and cutting average outlet launch time from 70 to 48 days.",
+    },
+    {
+      title: "Project Coordinator",
+      company: "Zenith Rollout Partners",
+      location: "Lagos, Nigeria",
+      startDate: "2015",
+      endDate: "2017",
+      description:
+        "Coordinated scheduling and vendor logistics for a regional store-fitout programme covering 40 locations, tracking milestone completion against a shared programme dashboard.",
+    },
+  ],
+  education: [
+    { school: "University of Nigeria, Enugu Campus", degree: "B.Sc.", field: "Business Administration", startDate: "2010", endDate: "2014" },
+  ],
+  skills: [
+    "program & portfolio management",
+    "cross-functional team leadership",
+    "vendor dependency management",
+    "agile & waterfall delivery",
+    "budget & resource planning",
+    "stakeholder reporting",
+    "risk mitigation",
+    "multi-site rollout coordination",
+  ],
+  projects: [
+    "200-site network-upgrade programme — delivered 6 weeks ahead of schedule",
+    "National retail-rollout programme — 85 outlets opened in 18 months, launch time cut from 70 to 48 days",
+    "Regional store-fitout coordination — 40 locations tracked against shared programme dashboard",
+  ],
+  certifications: [
+    "Project Management Professional (PMP) — Project Management Institute",
+    "PMI Agile Certified Practitioner (PMI-ACP)",
+  ],
+};
+
+/**
+ * `sprint-board` persona — an agile software delivery manager/Scrum Master.
+ * `SPRINT_BOARD_CONFIG` puts `projects` FIRST in `sectionOrder` and relabels
+ * it "Delivered Programs" — this persona's `projects` list is written as
+ * delivered initiatives accordingly. The AGILE SOFTWARE DELIVERY
+ * sub-specialty distinguishing this slug from `critical-path`'s construction
+ * register and `gantt`'s multi-site programme register above.
+ */
+export const AGILE_DELIVERY_MANAGER_RESUME: StructuredResume = {
+  contact: {
+    name: "Opeyemi Fagbenle",
+    email: "opeyemi.fagbenle@brightloopfintech.com",
+    phone: "+234 809 225 6641",
+    location: "Lagos, Nigeria",
+  },
+  summary:
+    "Agile delivery manager with eight years leading Scrum and SAFe delivery for fintech engineering teams in Lagos, focused on removing cross-team blockers and improving sprint predictability.",
+  experience: [
+    {
+      title: "Agile Delivery Manager",
+      company: "Brightloop Fintech",
+      location: "Lagos, Nigeria",
+      startDate: "2022",
+      endDate: "Present",
+      description:
+        "Serve as Scrum Master for 4 engineering squads (28 engineers) building a savings and lending platform. Raised average sprint-commitment completion from 68% to 91% by restructuring backlog-refinement cadence, and cut cross-team dependency delays by 40%.",
+    },
+    {
+      title: "Scrum Master",
+      company: "Brightloop Fintech",
+      location: "Lagos, Nigeria",
+      startDate: "2019",
+      endDate: "2022",
+      description:
+        "Facilitated Scrum ceremonies for 2 product squads, introducing a dependency-mapping board that cut blocked-story carryover from 30% to 12% of each sprint.",
+    },
+    {
+      title: "Junior Project Coordinator",
+      company: "Hexacore Software Ltd",
+      location: "Lagos, Nigeria",
+      startDate: "2017",
+      endDate: "2019",
+      description:
+        "Tracked sprint deliverables and maintained the release calendar for a 15-person engineering team, supporting on-time delivery of 6 quarterly releases.",
+    },
+  ],
+  education: [
+    { school: "Afe Babalola University, Ado-Ekiti", degree: "B.Sc.", field: "Computer Science", startDate: "2013", endDate: "2017" },
+  ],
+  skills: [
+    "scrum & agile facilitation",
+    "safe framework",
+    "sprint planning & backlog refinement",
+    "cross-team dependency management",
+    "jira & confluence",
+    "delivery metrics reporting",
+    "stakeholder communication",
+    "engineering process improvement",
+  ],
+  projects: [
+    "Backlog-refinement cadence redesign — raised sprint-commitment completion from 68% to 91%",
+    "Dependency-mapping board rollout — cut blocked-story carryover from 30% to 12% per sprint",
+    "Cross-team delay reduction initiative — cut dependency delays 40% across 4 squads",
+  ],
+  certifications: ["Certified ScrumMaster (CSM) — Scrum Alliance", "SAFe Agilist Certification (SA)"],
+};
+
+/**
+ * `manifest` persona — a warehousing/inventory operations manager.
+ * `MANIFEST_CONFIG`'s `sectionLabels.certifications` is "Logistics
+ * Certifications". The WAREHOUSING sub-specialty distinguishing this slug
+ * from `route-plan`'s last-mile register and `supply-chain`'s
+ * procurement/import-export register below.
+ */
+export const WAREHOUSE_OPERATIONS_MANAGER_RESUME: StructuredResume = {
+  contact: {
+    name: "Chukwudi Orji",
+    email: "chukwudi.orji@swiftlanelogistics.com",
+    phone: "+234 802 664 1197",
+    location: "Lagos, Nigeria",
+  },
+  summary:
+    "Warehouse operations manager with nine years running inventory and fulfilment operations for e-commerce logistics providers in Lagos, focused on order-accuracy and pick-pack efficiency at scale.",
+  experience: [
+    {
+      title: "Senior Warehouse Operations Manager",
+      company: "Swiftlane Logistics Ltd",
+      location: "Lagos, Nigeria",
+      startDate: "2021",
+      endDate: "Present",
+      description:
+        "Manage a 45,000 sq ft fulfilment warehouse processing 12,000 orders daily across 3 shifts and 80 staff. Redesigned the pick-pack workflow zoning, cutting average order-processing time from 38 to 21 minutes and raising inventory accuracy from 94% to 99.2%.",
+    },
+    {
+      title: "Warehouse Operations Supervisor",
+      company: "Swiftlane Logistics Ltd",
+      location: "Lagos, Nigeria",
+      startDate: "2018",
+      endDate: "2021",
+      description:
+        "Supervised receiving and put-away operations for a 20,000 sq ft warehouse, cutting stock-discrepancy write-offs by 45% after introducing a cycle-count programme covering the full SKU catalogue monthly.",
+    },
+    {
+      title: "Inventory Control Officer",
+      company: "Metrofreight Warehousing Ltd",
+      location: "Lagos, Nigeria",
+      startDate: "2016",
+      endDate: "2018",
+      description:
+        "Maintained inventory records for a multi-client warehousing facility, reconciling stock counts across 3,000+ SKUs and resolving discrepancies within a 48-hour service standard.",
+    },
+  ],
+  education: [
+    { school: "Federal Polytechnic, Nekede", degree: "HND", field: "Purchasing and Supply", startDate: "2013", endDate: "2016" },
+  ],
+  skills: [
+    "warehouse operations management",
+    "inventory control",
+    "pick-pack workflow design",
+    "cycle counting",
+    "wms (warehouse management systems)",
+    "staff scheduling",
+    "fulfilment kpi reporting",
+    "sku management",
+  ],
+  projects: [
+    "Pick-pack zoning redesign — cut order-processing time from 38 to 21 minutes, raised accuracy to 99.2%",
+    "Monthly full-catalogue cycle-count programme — cut stock-discrepancy write-offs 45%",
+    "Multi-client SKU reconciliation — resolved discrepancies within a 48-hour standard",
+  ],
+  certifications: [
+    "Certified in Production and Inventory Management (CPIM) — APICS/ASCM",
+    "Forklift Operations and Warehouse Safety Certification",
+  ],
+};
+
+/**
+ * `route-plan` persona — a last-mile fleet/route-planning manager. The
+ * LAST-MILE DELIVERY sub-specialty distinguishing this slug from
+ * `manifest`'s warehousing register above and `supply-chain`'s
+ * procurement/import-export register below.
+ */
+export const FLEET_ROUTE_PLANNING_MANAGER_RESUME: StructuredResume = {
+  contact: {
+    name: "Ebele Nnaji",
+    email: "ebele.nnaji@dashpointdelivery.com",
+    phone: "+234 706 774 2295",
+    location: "Lagos, Nigeria",
+  },
+  summary:
+    "Fleet and route-planning manager with eight years optimizing last-mile delivery operations for e-commerce logistics across 4 Nigerian cities, focused on on-time delivery rates and per-drop cost reduction.",
+  experience: [
+    {
+      title: "Senior Fleet and Route Planning Manager",
+      company: "Dashpoint Delivery Ltd",
+      location: "Lagos, Nigeria",
+      startDate: "2022",
+      endDate: "Present",
+      description:
+        "Plan daily delivery routes for a fleet of 120 riders and vans across Lagos, Ibadan, Abuja and Port Harcourt, processing 9,000 deliveries a day. Introduced zone-based route optimization software that cut average delivery cost per drop by 22% and raised same-day on-time delivery from 81% to 94%.",
+    },
+    {
+      title: "Route Planning Supervisor",
+      company: "Dashpoint Delivery Ltd",
+      location: "Lagos, Nigeria",
+      startDate: "2019",
+      endDate: "2022",
+      description:
+        "Supervised route dispatch for a 60-rider Lagos fleet, cutting average rider idle time between deliveries from 25 to 12 minutes through a batched-dispatch scheduling change.",
+    },
+    {
+      title: "Dispatch Coordinator",
+      company: "QuickHaul Express",
+      location: "Lagos, Nigeria",
+      startDate: "2018",
+      endDate: "2019",
+      description:
+        "Coordinated daily dispatch assignments for 30 delivery riders, tracking delivery-completion rates and escalating recurring delay patterns to operations management.",
+    },
+  ],
+  education: [
+    { school: "Institute of Management and Technology (IMT), Enugu", degree: "HND", field: "Transport Management", startDate: "2015", endDate: "2018" },
+  ],
+  skills: [
+    "last-mile delivery planning",
+    "fleet management",
+    "route optimization software",
+    "dispatch scheduling",
+    "on-time delivery kpi tracking",
+    "rider performance management",
+    "geospatial route mapping",
+    "cost-per-drop analysis",
+  ],
+  projects: [
+    "Zone-based route optimization rollout — cut cost per drop 22%, raised on-time delivery to 94%",
+    "Batched-dispatch scheduling change — cut rider idle time from 25 to 12 minutes",
+    "Multi-city fleet expansion — scaled route planning from 60 to 120 active riders",
+  ],
+  certifications: [
+    "Certified in Logistics, Transportation and Distribution (CLTD) — APICS/ASCM",
+    "Defensive Driving and Fleet Safety Certification",
+  ],
+};
+
+/**
+ * `supply-chain` persona — a procurement/import-export supply chain manager.
+ * `SUPPLY_CHAIN_CONFIG` is the only one of this batch's 3 Logistics slugs
+ * with a `languages` section, populated below (French for cross-border West
+ * African sourcing, the same real reason `chambers`'s Aisha Garba carries
+ * French). The PROCUREMENT/IMPORT-EXPORT sub-specialty distinguishing this
+ * slug from `manifest`'s warehousing register and `route-plan`'s last-mile
+ * register above.
+ */
+export const SUPPLY_CHAIN_PROCUREMENT_MANAGER_RESUME: StructuredResume = {
+  contact: {
+    name: "Nneoma Igwilo",
+    email: "nneoma.igwilo@atlasprocurementgroup.com",
+    phone: "+234 815 442 6673",
+    location: "Port Harcourt, Nigeria",
+  },
+  summary:
+    "Supply chain and procurement manager with ten years sourcing raw materials and managing import logistics for a manufacturing company in Port Harcourt, with experience clearing customs across 3 West African ports.",
+  experience: [
+    {
+      title: "Supply Chain and Procurement Manager",
+      company: "Atlas Manufacturing Group",
+      location: "Port Harcourt, Nigeria",
+      startDate: "2021",
+      endDate: "Present",
+      description:
+        "Manage end-to-end procurement and import logistics for a manufacturer sourcing raw materials from 5 countries. Renegotiated freight-forwarder contracts, cutting average customs clearance time from 18 to 9 days and reducing annual logistics spend by 16%.",
+    },
+    {
+      title: "Senior Procurement Officer",
+      company: "Atlas Manufacturing Group",
+      location: "Port Harcourt, Nigeria",
+      startDate: "2018",
+      endDate: "2021",
+      description:
+        "Managed vendor sourcing and contract negotiation for a ₦2.8B annual raw-materials spend, consolidating from 45 to 22 suppliers and cutting unit input costs by 11%.",
+    },
+    {
+      title: "Procurement Officer",
+      company: "Delta Ports Trading Co.",
+      location: "Port Harcourt, Nigeria",
+      startDate: "2016",
+      endDate: "2018",
+      description:
+        "Processed purchase orders and coordinated customs documentation for imported industrial equipment, maintaining a 98% on-time customs clearance rate across 3 years.",
+    },
+  ],
+  education: [
+    { school: "Rivers State University", degree: "B.Sc.", field: "Purchasing and Supply Chain Management", startDate: "2012", endDate: "2016" },
+  ],
+  skills: [
+    "supply chain management",
+    "procurement & vendor sourcing",
+    "import/export logistics",
+    "customs clearance",
+    "contract negotiation",
+    "supplier consolidation",
+    "freight forwarding",
+    "cost & spend analysis",
+  ],
+  projects: [
+    "Freight-forwarder contract renegotiation — cut customs clearance time from 18 to 9 days",
+    "Supplier consolidation programme — reduced 45 to 22 suppliers, cut unit input costs 11%",
+    "Annual logistics spend reduction — cut logistics spend 16% across 5-country sourcing",
+  ],
+  certifications: [
+    "Certified Supply Chain Professional (CSCP) — APICS/ASCM",
+    "International Trade and Customs Compliance Certificate — Forum for International Trade Training (FITT)",
+  ],
+  languages: [
+    { name: "English", level: "Native" },
+    { name: "French", level: "Professional working proficiency" },
+  ],
+};
+
 /**
  * The registry every consumer now matches against — see this file's
  * top-of-file header. Order is not meaningful for matching (every
  * comparison in example-guard.ts is `.some(...)` across the whole array),
  * but PREVIEW_SAMPLE_RESUME stays first because it is also the FALLBACK
  * persona-for-slug.ts returns for every slug without a dedicated entry —
- * the pre-existing, already-shipped behavior for those slugs. 36 entries as
- * of this pass (batch 3A): the 22 from batches 1-2, plus 14 new personas
- * across 5 categories (Administration, Business, Education & Academia,
- * Sales & Marketing, Technology) — see this file's top-of-file header for
- * why these 5 and why now.
+ * the pre-existing, already-shipped behavior for those slugs. 51 entries as
+ * of this pass (batch 3B): the 36 from batches 1-3A, plus 15 new personas
+ * across Banking & Finance, Healthcare, Legal, Government & Public Sector,
+ * Project Management and Logistics & Supply Chain — see this file's
+ * top-of-file header for why these and why now.
  */
 export const EXAMPLE_PERSONAS: readonly StructuredResume[] = [
   PREVIEW_SAMPLE_RESUME,
@@ -2818,4 +3968,19 @@ export const EXAMPLE_PERSONAS: readonly StructuredResume[] = [
   BRAND_CAMPAIGN_MANAGER_RESUME,
   DEVOPS_ENGINEER_RESUME,
   MOBILE_ENGINEER_RESUME,
+  FINANCIAL_ACCOUNTANT_RESUME,
+  COMPLIANCE_OFFICER_RESUME,
+  FAMILY_MEDICINE_PHYSICIAN_RESUME,
+  HOSPITAL_PHYSICIAN_RESUME,
+  IN_HOUSE_LEGAL_COUNSEL_RESUME,
+  LITIGATION_COUNSEL_RESUME,
+  CIVIL_REGISTRATION_OFFICER_RESUME,
+  GOVERNMENT_PRESS_OFFICER_RESUME,
+  CIVIL_SERVICE_ADMINISTRATOR_RESUME,
+  INFRASTRUCTURE_PROJECT_MANAGER_RESUME,
+  PROGRAM_MANAGER_RESUME,
+  AGILE_DELIVERY_MANAGER_RESUME,
+  WAREHOUSE_OPERATIONS_MANAGER_RESUME,
+  FLEET_ROUTE_PLANNING_MANAGER_RESUME,
+  SUPPLY_CHAIN_PROCUREMENT_MANAGER_RESUME,
 ];
