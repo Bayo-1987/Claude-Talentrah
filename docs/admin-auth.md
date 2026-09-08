@@ -312,19 +312,31 @@ delete the row, because the audit trail names it.
   left here explicitly as **unverified under the new limit**, not assumed
   true or false. A timing difference at the app layer is a separate, safer
   question — see the next paragraph — and remains open the same way.
-- **The timing-based variant of the same question is safely re-checkable at
-  low volume (2 real sends, no exhaustion needed), and was not re-checked
-  here.** On CI's fresh (non-exhausted) quota, the GoTrue call took ~1084ms
-  for a known address against ~182ms for an unknown one, and
-  `requestPasswordResetAction` awaits it before redirecting — a plausible,
-  unproven app-layer timing side-channel. Checking whether the same gap
-  exists on production's new Resend-backed send path only needs one real send
-  to a known address and one to an unknown one (2 of the 30/hour budget, not
-  an exhaustion test) — genuinely low-risk. It was not done here because it
-  still means sending at least one real, unsolicited password-reset email
-  from production, which this document's author judged worth a direct
-  go-ahead rather than doing unprompted. Left as **unverified**, not assumed
-  either way — a candidate for a quick, cheap follow-up check if wanted.
+- **The timing-based variant IS real on production, though narrower than on
+  the built-in mailer — measured directly, founder-approved, 2026-09-08.**
+  On CI's fresh (non-exhausted) quota, the GoTrue call took ~1084ms for a
+  known address against ~182ms for an unknown one (a ~902ms gap). Checked
+  the same way against production's live `/auth/v1/recover` endpoint,
+  timing the raw call exactly as the CI baseline did: `demo@talentrah.dev`
+  (the seeded demo account — a controlled inbox, not a real job seeker's or
+  an admin's, per this repo's own convention for exactly this kind of test)
+  took **1051ms**; a freshly-generated, guaranteed-unregistered synthetic
+  address took **727ms** — a **~324ms gap**, the known address running
+  ~44% slower. Both calls returned an identical response (`{}`, HTTP 200),
+  confirming the anti-enumeration behaviour holds at the response-body/
+  status level either way — only the timing differs. Narrower than CI's gap
+  (Resend's SMTP relay is presumably faster or more uniform than whatever
+  the built-in mailer's send path does under the hood), but **the app-layer
+  timing side-channel this predicted is real on production, not just a CI
+  artifact of the slower default mailer.** Single-sample in both directions
+  (one known, one unknown) — the founder's approval was scoped to exactly
+  2 sends, not a repeated-trial average, so treat the specific millisecond
+  figures as one real data point each rather than a stable characterisation;
+  the qualitative finding (a real, non-trivial gap persists) is the load-
+  bearing part. `requestPasswordResetAction` still awaits the call before
+  redirecting and still swallows the error so the app's own response is
+  identical either way — this gap exists one layer below the app's own
+  response, at the raw endpoint, exactly where it was found on CI.
 
 - **Login brute-force protection is Supabase's per-IP limit, and the IP is
   ours.** `signInWithPassword` is called server-side, so the limit is shared by
