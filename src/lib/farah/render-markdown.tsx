@@ -50,12 +50,26 @@ import { Fragment, type ReactNode } from "react";
  *
  * ── WHAT COUNTS AS "OUTSIDE THE SUBSET" ────────────────────────────────────
  *
- * Links, images, code spans, tables, raw HTML — none of these have a parser
- * branch here, which means their source characters (`[`, `` ` ``, `|`, `<`,
- * ...) pass straight through `renderInline` as plain text. A
- * `[Click here](javascript:alert(1))` reply renders as that literal string,
- * not a clickable anything — there is no code path in this file that ever
- * constructs an `<a>`.
+ * Bracket-syntax links, images, code spans, tables, raw HTML — none of these
+ * have a parser branch here, which means their source characters (`[`,
+ * `` ` ``, `|`, `<`, ...) pass straight through `renderInline` as plain
+ * text. A `[Click here](javascript:alert(1))` reply renders as that literal
+ * string, not a clickable anything, for EITHER caller of this file — there
+ * is no code path anywhere here that parses `[label](url)` syntax into an
+ * `<a>`.
+ *
+ * ── THE ONE EXCEPTION, AND WHY IT DOES NOT WEAKEN THE ABOVE ────────────────
+ *
+ * `renderJobDescriptionMarkdown` (not `renderFarahMarkdown`) also autolinks a
+ * BARE `http(s)://` url with no bracket syntax at all — added because a real
+ * posting can contain one (`https://lnkd.in/...`) and leaving it dead plain
+ * text is a worse outcome than the risk, which is materially different from
+ * a bracketed link: a bare URL's visible text IS its destination, so there is
+ * no separate label to lie about the way `[trustworthy text](evil-url)`
+ * does. See INLINE_WITH_URL and MarkdownFace's `link` field below for the
+ * mechanism and for why Farah's own renderer is structurally unable to reach
+ * it — the paragraph above (no `<a>` from bracket syntax, ever, for either
+ * caller) still holds exactly as stated.
  */
 
 /** A `* item` or `- item` marker: the marker, a space, then content. Not `*text*` (no space) — that's italic. */
@@ -164,13 +178,54 @@ function parseBlocks(content: string): Block[] {
  */
 const INLINE = /\*\*(.+?)\*\*|\*(.+?)\*|_(.+?)_/;
 
-function renderInline(text: string, keyPrefix: string): ReactNode[] {
+/**
+ * The same three groups, plus a fourth: a BARE url, http(s) only, no bracket
+ * or parenthesis syntax at all.
+ *
+ * WHY BARE URLS ARE A DIFFERENT THREAT SHAPE THAN LINK SYNTAX, AND WHY THAT IS
+ * WHAT MAKES THIS SAFE TO ADD. A bracketed `[label](url)` link lets the
+ * visible text lie about the destination — that is the entire reason this
+ * file has never had a parser branch for `[`/`(` at all (see the file header).
+ * A bare URL has no separate label: what is rendered as the link text IS the
+ * href, character for character, so there is nothing left to spoof. Only the
+ * literal `https?://` prefix makes this recognizable at all, which is why the
+ * scheme itself must never be widened into an allowlist or generalized to a
+ * protocol-relative (`//`) or bare-domain (`example.com/x`) form — those have
+ * no fixed prefix to anchor on, and accepting them is how a caller could get
+ * tricked into treating an arbitrary string as a link. Deliberately narrower
+ * than a real autolinker for exactly that reason: a posting that writes
+ * "visit lnkd.in/xyz" with no scheme stays plain text.
+ *
+ * The character class excludes the delimiters a URL is likely to be
+ * followed by in prose (`<>"')]` and whitespace) so a URL inside existing
+ * markdown-link syntax, a quoted attribute, or a parenthetical never eats
+ * past its own boundary. It does NOT exclude `.,!?;:` — those are legal
+ * inside a real URL's path/query — so a trailing one is trimmed off after
+ * the match instead (see trimTrailingUrlPunctuation below); this is the
+ * standard trade-off every plain-text autolinker makes.
+ */
+const INLINE_WITH_URL = /\*\*(.+?)\*\*|\*(.+?)\*|_(.+?)_|(\bhttps?:\/\/[^\s<>"'\)\]]+)/;
+
+/**
+ * Sentence punctuation right after a URL ("...see https://x.com/a. Next
+ * sentence.") is not part of the address; `)` and `]` are not in this list
+ * because INLINE_WITH_URL's character class already excludes them from the
+ * match entirely — they can never reach here.
+ */
+const TRAILING_URL_PUNCTUATION = /[.,!?;:]+$/;
+
+function renderInline(
+  text: string,
+  keyPrefix: string,
+  opts?: { autoLinkUrls?: boolean; linkClassName?: string },
+): ReactNode[] {
+  const pattern = opts?.autoLinkUrls ? INLINE_WITH_URL : INLINE;
   const nodes: ReactNode[] = [];
   let remaining = text;
   let key = 0;
 
   while (remaining.length > 0) {
-    const match = INLINE.exec(remaining);
+    const match = pattern.exec(remaining);
     if (!match) {
       nodes.push(remaining);
       break;
@@ -180,13 +235,43 @@ function renderInline(text: string, keyPrefix: string): ReactNode[] {
 
     if (match[1] !== undefined) {
       nodes.push(<strong key={`${keyPrefix}-${key++}`}>{match[1]}</strong>);
+      remaining = remaining.slice(match.index + match[0].length);
     } else if (match[2] !== undefined) {
       nodes.push(<em key={`${keyPrefix}-${key++}`}>{match[2]}</em>);
-    } else {
+      remaining = remaining.slice(match.index + match[0].length);
+    } else if (match[3] !== undefined) {
       nodes.push(<em key={`${keyPrefix}-${key++}`}>{match[3]}</em>);
+      remaining = remaining.slice(match.index + match[0].length);
+    } else {
+      // match[4]: a bare URL — only reachable when opts.autoLinkUrls is
+      // true, which only JOB_DESCRIPTION_FACE's presence of `link` turns on
+      // (see MarkdownFace below). Farah's face has no `link` field, so
+      // there is no code path by which a model reply reaches this branch.
+      const rawUrl = match[4]!;
+      const url = rawUrl.replace(TRAILING_URL_PUNCTUATION, "");
+      if (url.length === 0) {
+        // Degenerate: nothing but scheme + punctuation (e.g. "https://.").
+        // Not a real URL — render the untrimmed text literally rather than
+        // link to an empty-path href.
+        nodes.push(rawUrl);
+        remaining = remaining.slice(match.index + rawUrl.length);
+      } else {
+        nodes.push(
+          <a
+            key={`${keyPrefix}-${key++}`}
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer nofollow"
+            className={opts?.linkClassName}
+          >
+            {url}
+          </a>,
+        );
+        // Only the TRIMMED length is consumed — trailing punctuation stays
+        // in `remaining` to be emitted as plain text on the next pass.
+        remaining = remaining.slice(match.index + url.length);
+      }
     }
-
-    remaining = remaining.slice(match.index + match[0].length);
   }
 
   return nodes;
@@ -217,8 +302,20 @@ interface MarkdownFace {
   heading: string;
   rule: string;
   quote: string;
+  /**
+   * Class for a bare-URL autolink. PRESENCE of this field is what turns on
+   * autolinking in renderInline — not a separate boolean threaded in by the
+   * caller. FARAH_FACE below has no `link` field at all, so there is no
+   * value that could accidentally make Farah's untrusted-model-output path
+   * construct an `<a>`; only literally adding a string here would. See
+   * renderMarkdownBlocks for where this is read.
+   */
+  link?: string;
 }
 
+// No `link` field — see MarkdownFace's own comment on why that omission,
+// not a boolean, is what keeps Farah's renderer structurally incapable of
+// ever autolinking untrusted model output.
 const FARAH_FACE: MarkdownFace = { text: FARAH_TEXT, heading: FARAH_HEADING, rule: FARAH_RULE, quote: FARAH_QUOTE };
 
 function renderMarkdownBlocks(content: string, face: MarkdownFace): ReactNode {
@@ -228,6 +325,11 @@ function renderMarkdownBlocks(content: string, face: MarkdownFace): ReactNode {
   // string — never nothing, and never a crash on empty input.
   if (blocks.length === 0) return content;
 
+  // Derived once from the face, not passed in by the caller — see
+  // MarkdownFace's `link` field comment for why that is the safety
+  // property, not just a convenience.
+  const inlineOpts = face.link ? { autoLinkUrls: true, linkClassName: face.link } : undefined;
+
   return (
     <div className="flex flex-col gap-1.5">
       {blocks.map((block, i) => {
@@ -235,13 +337,13 @@ function renderMarkdownBlocks(content: string, face: MarkdownFace): ReactNode {
           case "paragraph":
             return (
               <p key={i} className={face.text}>
-                {renderInline(block.text, `p${i}`)}
+                {renderInline(block.text, `p${i}`, inlineOpts)}
               </p>
             );
           case "heading":
             return (
               <p key={i} className={face.heading}>
-                {renderInline(block.text, `h${i}`)}
+                {renderInline(block.text, `h${i}`, inlineOpts)}
               </p>
             );
           case "rule":
@@ -249,7 +351,7 @@ function renderMarkdownBlocks(content: string, face: MarkdownFace): ReactNode {
           case "quote":
             return (
               <p key={i} className={face.quote}>
-                {renderInline(block.text, `q${i}`)}
+                {renderInline(block.text, `q${i}`, inlineOpts)}
               </p>
             );
           case "list":
@@ -258,13 +360,13 @@ function renderMarkdownBlocks(content: string, face: MarkdownFace): ReactNode {
                 {block.ordered ? (
                   <ol className={`${face.text} list-decimal pl-4`}>
                     {block.items.map((item, j) => (
-                      <li key={j}>{renderInline(item, `l${i}-${j}`)}</li>
+                      <li key={j}>{renderInline(item, `l${i}-${j}`, inlineOpts)}</li>
                     ))}
                   </ol>
                 ) : (
                   <ul className={`${face.text} list-disc pl-4`}>
                     {block.items.map((item, j) => (
-                      <li key={j}>{renderInline(item, `l${i}-${j}`)}</li>
+                      <li key={j}>{renderInline(item, `l${i}-${j}`, inlineOpts)}</li>
                     ))}
                   </ul>
                 )}
@@ -298,6 +400,10 @@ const JOB_DESCRIPTION_FACE: MarkdownFace = {
   heading: "text-[15px] font-semibold leading-relaxed text-ink-soft",
   rule: "my-1 border-t border-line",
   quote: "text-[15px] leading-relaxed text-ink-soft border-l-2 border-line pl-3",
+  // Same rust-link treatment as the scholarship page's own official-source
+  // link (src/app/(app)/scholarships/[id]/page.tsx) — one link style for
+  // one concept, not a bespoke one invented here.
+  link: "text-rust underline underline-offset-2 hover:text-rust-hover",
 };
 
 export function renderJobDescriptionMarkdown(content: string): ReactNode {
