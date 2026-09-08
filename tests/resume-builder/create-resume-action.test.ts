@@ -50,15 +50,34 @@
  *     and `byline` resolve to their OWN new batch-3C personas, folded into
  *     the "BATCH 3C: each of the five brand-new categories..." group test
  *     below (the same style batch 3B used for its three brand-new
- *     categories). The "falls back rather than crashing" proof needed a new
- *     mechanism instead: `unmappedSlugTemplateId` is a SYNTHETIC
- *     `resume_templates` row this suite inserts directly (a fake slug with
- *     no `SLUG_PERSONA_MAP` entry), simulating a hypothetical future
- *     template added to the catalog before its own batch gives it a
- *     dedicated persona. That is now the only way to exercise this path
- *     end-to-end, since every REAL catalog slug resolves to a dedicated
- *     persona as of this batch (see persona-for-slug.test.ts's own
- *     definitive regression test for the unit-level proof of that).
+ *     categories).
+ *
+ *     THE "FALLS BACK RATHER THAN CRASHING" DB-LEVEL PROOF IS RETIRED, NOT
+ *     REPLACED. An earlier version of this batch tried inserting a synthetic
+ *     `resume_templates` row (a fake slug with no `SLUG_PERSONA_MAP` entry)
+ *     to keep exercising this end-to-end — and CI caught exactly why that's
+ *     the wrong call: `template-registry.test.ts` full-table-scans
+ *     `resume_templates` with strict catalog-wide invariants ("the catalog
+ *     has exactly 65 rows", "every slug renders a REGISTERED component or is
+ *     a known free exception", "every row's rendered HTML is unique", "no
+ *     live slug falls back to PREVIEW_SAMPLE_RESUME" — the last one broken
+ *     by the very row meant to prove the opposite, since the fixture WAS an
+ *     unmapped slug). A synthetic row a test inserts and cleans up in its
+ *     own `beforeAll`/`afterAll` is invisible to this file's own boundaries
+ *     but not to another file's full-table scan — worse, on the shared
+ *     hosted project two test files can run concurrently against the same
+ *     table, so the row can be visible to `template-registry.test.ts`
+ *     mid-run even before this file's own `afterAll` deletes it. Rather than
+ *     fight that with more synchronization, this suite drops the DB-level
+ *     "unmapped slug" proof entirely: `createResumeAction`'s "example"
+ *     branch is a one-line pass-through (`personaForSlug(template.slug)`),
+ *     and `personaForSlug`'s OWN fallback behavior for a genuinely unmapped
+ *     string is already exhaustively unit-tested with no database at all in
+ *     `persona-for-slug.test.ts` ("falls back rather than crashing for an
+ *     unknown or missing slug"). Re-proving that same fallback logic here,
+ *     through a real DB row, bought no real coverage — it only bought a
+ *     fragile shared-state hazard for a code path that is a single function
+ *     call with nothing else in between.
  *
  *     `site-plan`, `rig-report` and `product-tech` moved from free to
  *     premium in the resume-template free-tier cut (migration 0110); `rounds`
@@ -69,9 +88,7 @@
  *     about persona resolution, not premium gating (that gate has its own
  *     dedicated describe block, "premium template gating is not weakened by
  *     any start state", which picks a premium template dynamically and is
- *     unaffected by which specific slugs are premium). The synthetic
- *     `unmappedSlugTemplateId` fixture is deliberately NON-premium — its job
- *     is proving persona-fallback behavior, not exercising the unlock gate.
+ *     unaffected by which specific slugs are premium).
  *
  * `createResumeAction`'s own `resume_templates` select changed in the
  * multi-persona-registry pass too — it now selects `slug` (used to resolve
@@ -205,21 +222,11 @@ let productTechTemplateId: string;
 // either — renamed from `customerSuccessNoPersonaTemplateId`/
 // `creativeMediaNoPersonaTemplateId` and repurposed to prove their OWN new
 // personas instead (folded into the "BATCH 3C: each of the five brand-new
-// categories..." group test). `unmappedSlugTemplateId` (below) is the new,
-// and now permanent, mechanism for the "falls back rather than crashing"
-// proof — see this file's header for why a real catalog slug can no longer
-// demonstrate that.
+// categories..." group test). There is no replacement DB-level "still
+// unmapped" fixture — see this file's header for why that proof is retired
+// rather than kept alive with a synthetic `resume_templates` row.
 let successStoryTemplateId: string; // "success-story" — Customer Success
 let bylineTemplateId: string; // "byline" — Creative & Media
-// A SYNTHETIC `resume_templates` row this suite inserts directly, with a
-// slug guaranteed not to appear in `SLUG_PERSONA_MAP` (a randomised suffix
-// avoids colliding with a parallel test run against the same CI database).
-// Non-premium, so it never touches the unlock gate. `resumes.template_id`
-// has no `ON DELETE CASCADE` back to `resume_templates`, so this row must
-// outlive every fixture resume that points at it — `afterAll` deletes it
-// only after `createdResumeIds` is cleared, same ordering constraint as any
-// other fixture template row in this file.
-let unmappedSlugTemplateId: string;
 const createdResumeIds: string[] = [];
 
 /**
@@ -280,26 +287,6 @@ beforeAll(async () => {
   successStoryTemplateId = await templateIdBySlug("success-story");
   bylineTemplateId = await templateIdBySlug("byline");
 
-  // The permanent "falls back rather than crashing" fixture: a template row
-  // with a slug this suite controls and that will never be added to
-  // `SLUG_PERSONA_MAP`, since it doesn't correspond to a real template. See
-  // this variable's own declaration comment above for why it exists.
-  const { data: unmappedTemplate, error: unmappedTemplateErr } = await admin
-    .from("resume_templates")
-    .insert({
-      name: "Unmapped Persona Fixture (batch 3C)",
-      slug: `unmapped-persona-fixture-${userId}`,
-      industry_category: "Test Fixture",
-      is_premium: false,
-      unlock_cost_credits: 0,
-    })
-    .select("id")
-    .single();
-  if (unmappedTemplateErr || !unmappedTemplate) {
-    throw new Error(`Could not create the synthetic unmapped-slug fixture template: ${unmappedTemplateErr?.message}`);
-  }
-  unmappedSlugTemplateId = unmappedTemplate.id;
-
   // Picked AFTER the persona-dedicated premium slugs above, and explicitly
   // excluding their ids. This describe block's own `afterEach` deletes
   // `premiumTemplateId`'s unlock row after every test (so the "not weakened
@@ -344,15 +331,6 @@ afterAll(async () => {
     const { error } = await admin.from("resumes").delete().in("id", createdResumeIds);
     if (error) console.warn(`[cleanup] could not delete fixture resumes: ${error.message}`);
   }
-  // Must run AFTER the resumes above are gone: `resumes.template_id` has no
-  // cascade back to `resume_templates`, so deleting this row first would
-  // fail (or, worse, silently no-op — see CLAUDE.md's note on checking the
-  // `error` on every test-cleanup delete) while a fixture resume still
-  // points at it.
-  if (unmappedSlugTemplateId) {
-    const { error } = await admin.from("resume_templates").delete().eq("id", unmappedSlugTemplateId);
-    if (error) console.warn(`[cleanup] could not delete the unmapped-slug fixture template: ${error.message}`);
-  }
   if (userId) await deleteTestUsers([userId]);
 }, 60_000);
 
@@ -369,21 +347,26 @@ describe("start-state content selection (sabotage-proof target #3)", () => {
     expect(await createdContent(resumeId)).toEqual(EMPTY_RESUME);
   });
 
-  it('"example" on a template with no dedicated persona seeds the fallback PREVIEW_SAMPLE_RESUME, not a placeholder', async () => {
+  it('"example" seeds a real persona (not a placeholder, not EMPTY_RESUME) for the template\'s own slug', async () => {
+    // Uses `engineeringTemplateId` (`blueprint`) — any dedicated slug would
+    // do, since every real catalog slug has one as of batch 3C. See this
+    // file's header for why this test no longer round-trips a genuinely
+    // unmapped slug through the database: that fallback behavior is fully
+    // covered, with no database and no shared-table side effects, by
+    // persona-for-slug.test.ts's own unit tests of `personaForSlug` — the
+    // exact function `createResumeAction`'s "example" branch is a one-line
+    // pass-through to.
     let resumeId = "";
     try {
-      // Uses the synthetic `unmappedSlugTemplateId` fixture — see this
-      // file's header for why no REAL catalog slug can demonstrate this
-      // anymore as of batch 3C (every one of the 65 now has a dedicated
-      // persona).
-      await createResumeAction(unmappedSlugTemplateId, "example");
+      await createResumeAction(engineeringTemplateId, "example");
       throw new Error("expected a redirect");
     } catch (err) {
       resumeId = redirectedResumeId(err);
     }
     createdResumeIds.push(resumeId);
     const content = await createdContent(resumeId);
-    expect(content).toEqual(PREVIEW_SAMPLE_RESUME);
+    expect(content).toEqual(EPC_SITE_ENGINEER_RESUME);
+    expect(content).not.toEqual(EMPTY_RESUME);
     // Guards against the example itself regressing back to a placeholder —
     // this is the exact content the export guard treats as "unedited".
     expect(content.contact.email).not.toBe("sample@example.com");
@@ -539,41 +522,14 @@ describe("createResumeAction's 'example' start state seeds the persona matching 
     expect(content).not.toEqual(PREVIEW_SAMPLE_RESUME);
   });
 
-  it("a template with no dedicated persona still seeds something sane (the fallback), not a crash — proven on a SECOND, independently-created synthetic fixture, so the behavior isn't tied to one specific row", async () => {
-    // Deliberately its own throwaway template row, separate from `beforeAll`'s
-    // `unmappedSlugTemplateId` fixture and cleaned up locally rather than in
-    // the shared `afterAll` — this test's whole point is that the fallback
-    // isn't a fluke of one particular id, so it proves the mechanism against
-    // an independently-created row rather than reusing the first one.
-    const { data: secondFixture, error: fixtureErr } = await admin
-      .from("resume_templates")
-      .insert({
-        name: "Second Unmapped Persona Fixture (batch 3C)",
-        slug: `unmapped-persona-fixture-2-${userId}`,
-        industry_category: "Test Fixture",
-        is_premium: false,
-        unlock_cost_credits: 0,
-      })
-      .select("id")
-      .single();
-    if (fixtureErr || !secondFixture) throw new Error(`fixture template: ${fixtureErr?.message}`);
-
-    let resumeId = "";
-    try {
-      try {
-        await createResumeAction(secondFixture.id, "example");
-        throw new Error("expected a redirect");
-      } catch (err) {
-        resumeId = redirectedResumeId(err);
-      }
-      const content = await createdContent(resumeId);
-      expect(content).toEqual(PREVIEW_SAMPLE_RESUME);
-    } finally {
-      await admin.from("resumes").delete().eq("id", resumeId);
-      const { error: deleteErr } = await admin.from("resume_templates").delete().eq("id", secondFixture.id);
-      if (deleteErr) console.warn(`[cleanup] could not delete second fixture template: ${deleteErr.message}`);
-    }
-  });
+  // NOTE: there is deliberately no DB-level "template with no dedicated
+  // persona falls back" test in this describe block anymore — see this
+  // file's header for why inserting a synthetic `resume_templates` row (even
+  // one cleaned up within the same test) is the wrong tool now that
+  // `template-registry.test.ts` full-table-scans that same table with
+  // catalog-wide invariants a stray row can trip, and the fallback logic
+  // itself is already exhaustively covered with no database involved at all
+  // by persona-for-slug.test.ts.
 
   it("BATCH 2: product-tech seeds its own new software-engineer persona, not the fallback and not another slug's persona from the same Technology category", async () => {
     let resumeId = "";
