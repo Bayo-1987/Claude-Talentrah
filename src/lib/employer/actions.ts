@@ -627,3 +627,40 @@ export async function requestJobReviewAction(jobId: string) {
 
   revalidatePath("/employer/jobs");
 }
+
+/* -------------------------------------------------------------------------- *
+ * Applicants (0125)
+ * -------------------------------------------------------------------------- */
+
+/**
+ * The employer's own review status for one applicant — New / Reviewing /
+ * Shortlisted / Interviewing / Hired / Not a fit. Deliberately NOT
+ * `applications.stage`: that column is the seeker's own private Job Tracker
+ * field (0037's own header), and nothing in this feature reads, writes, or
+ * extends it.
+ *
+ * Written through the SIGNED-IN user's own client, not the service role —
+ * `employer_applicant_status`'s own RLS policies (0125,
+ * `is_org_member_for_application`) are what actually authorise this, the
+ * same reason `postJobAction`/`updateJobAction` insert/update through the
+ * user's client rather than the service role: a regression in that policy
+ * should fail this loudly, not be silently papered over by an elevated
+ * write that never exercises it.
+ */
+export async function setApplicantStatusAction(
+  applicationId: string,
+  status: Enums<"applicant_review_status">,
+): Promise<{ error: string } | { ok: true }> {
+  const { supabase } = await getAuthedUser();
+  // Not strictly required for the write itself — RLS is the real gate — but
+  // matches every other action in this file: a caller with no organisation
+  // at all gets sent to onboarding rather than a raw policy-violation error.
+  await requireEmployer();
+
+  const { error } = await supabase
+    .from("employer_applicant_status")
+    .upsert({ application_id: applicationId, status }, { onConflict: "application_id" });
+
+  if (error) return { error: `Couldn't update status: ${error.message}` };
+  return { ok: true };
+}

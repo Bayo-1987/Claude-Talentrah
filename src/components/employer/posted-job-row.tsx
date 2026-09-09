@@ -143,9 +143,26 @@ export function PostedJobRow({
         <p className="mt-1 font-body text-[13px] text-ink-soft">
           {/* formatRelativeTime already returns "Posted …" — don't prefix it again. */}
           {formatRelativeTime(job.postedAt)} ·{" "}
-          <span className="font-semibold text-ink">
-            {job.applicationCount} {job.applicationCount === 1 ? "application" : "applications"}
-          </span>
+          {/*
+            The count itself stays the aggregate-only org_application_counts
+            read (0029) — this just makes it a real link into the structured
+            list (0125) rather than a static number, when there's actually
+            someone to see. Zero applicants links to nothing: an empty
+            applicants page for every unapplied-to posting is not worth the
+            click, and the count already says so.
+          */}
+          {job.applicationCount > 0 ? (
+            <Link
+              href={`/employer/jobs/${job.id}/applicants`}
+              className="font-semibold text-ink underline underline-offset-2 hover:text-rust"
+            >
+              {job.applicationCount} {job.applicationCount === 1 ? "application" : "applications"}
+            </Link>
+          ) : (
+            <span className="font-semibold text-ink">
+              {job.applicationCount} applications
+            </span>
+          )}
         </p>
       </div>
 

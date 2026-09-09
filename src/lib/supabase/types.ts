@@ -1094,6 +1094,42 @@ export type Database = {
           },
         ]
       }
+      employer_applicant_status: {
+        Row: {
+          application_id: string
+          status: Database["public"]["Enums"]["applicant_review_status"]
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          application_id: string
+          status?: Database["public"]["Enums"]["applicant_review_status"]
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          application_id?: string
+          status?: Database["public"]["Enums"]["applicant_review_status"]
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employer_applicant_status_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: true
+            referencedRelation: "applications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employer_applicant_status_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       farah_messages: {
         Row: {
           content: string
@@ -2579,6 +2615,24 @@ export type Database = {
           matched: boolean
         }[]
       }
+      employer_job_applicants: {
+        Args: { p_job_posting_id: string }
+        Returns: {
+          application_id: string
+          applied_at: string
+          first_name: string
+          last_name: string
+          resume_id: string
+          status: Database["public"]["Enums"]["applicant_review_status"]
+        }[]
+      }
+      employer_view_resume: {
+        Args: { p_application_id: string }
+        Returns: {
+          structured_content: Json
+          template_slug: string
+        }[]
+      }
       generate_referral_code: { Args: never; Returns: string }
       grant_referral_reward: {
         Args: {
@@ -2598,6 +2652,10 @@ export type Database = {
         }[]
       }
       is_org_member: { Args: { p_organization_id: string }; Returns: boolean }
+      is_org_member_for_application: {
+        Args: { p_application_id: string }
+        Returns: boolean
+      }
       is_valid_referral_code: { Args: { p_code: string }; Returns: boolean }
       list_applied_migrations: {
         Args: never
@@ -2771,6 +2829,13 @@ export type Database = {
         | "people_list"
         | "employer_verification"
         | "job_review"
+      applicant_review_status:
+        | "new"
+        | "reviewing"
+        | "shortlisted"
+        | "interviewing"
+        | "hired"
+        | "not_a_fit"
       application_source: "internal_apply" | "manual" | "auto_apply"
       application_stage:
         | "saved"
@@ -2997,6 +3062,14 @@ export const Constants = {
         "people_list",
         "employer_verification",
         "job_review",
+      ],
+      applicant_review_status: [
+        "new",
+        "reviewing",
+        "shortlisted",
+        "interviewing",
+        "hired",
+        "not_a_fit",
       ],
       application_source: ["internal_apply", "manual", "auto_apply"],
       application_stage: [
