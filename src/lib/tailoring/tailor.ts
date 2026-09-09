@@ -1,5 +1,5 @@
 import "server-only";
-import { getLLMProvider } from "@/lib/llm";
+import { generateWithFailover } from "@/lib/llm";
 import { FARAH_SYSTEM_PROMPT } from "@/lib/farah/system-prompt";
 import { EMPTY_RESUME, type StructuredResume } from "@/lib/resume/types";
 import { sanitizeStructuredResume, wasDegenerate } from "@/lib/resume/sanitize";
@@ -218,17 +218,19 @@ async function callLLMRaw(
   jdText: string,
   includeCoverLetter: boolean,
 ): Promise<string> {
-  const text = await getLLMProvider().generateText({
-    systemPrompt: FARAH_SYSTEM_PROMPT,
-    turns: [
-      {
-        role: "user",
-        content: `Here is my base resume as JSON:\n${JSON.stringify(baseResume)}\n\nHere is the job description I want to tailor it to:\n${jdText.slice(0, JD_MAX_CHARS)}\n\n${includeCoverLetter ? "Include a cover letter." : "Do not include a cover letter."}`,
-      },
-    ],
-    maxOutputTokens: 4096,
-    jsonSchema: TAILOR_RESPONSE_SCHEMA,
-  });
+  const text = await generateWithFailover((provider) =>
+    provider.generateText({
+      systemPrompt: FARAH_SYSTEM_PROMPT,
+      turns: [
+        {
+          role: "user",
+          content: `Here is my base resume as JSON:\n${JSON.stringify(baseResume)}\n\nHere is the job description I want to tailor it to:\n${jdText.slice(0, JD_MAX_CHARS)}\n\n${includeCoverLetter ? "Include a cover letter." : "Do not include a cover letter."}`,
+        },
+      ],
+      maxOutputTokens: 4096,
+      jsonSchema: TAILOR_RESPONSE_SCHEMA,
+    }),
+  );
 
   if (!text) {
     throw new Error("Farah didn't return a structured tailoring result.");
