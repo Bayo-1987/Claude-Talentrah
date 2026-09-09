@@ -7,15 +7,49 @@ import { saveResumeAction, rewriteBulletAction } from "@/lib/resume-builder/acti
 import { findUneditedExampleFields } from "@/lib/resume-builder/example-guard";
 import { TemplateRenderer } from "@/components/resume-builder/templates";
 import { PrintButton } from "@/components/resume-builder/print-button";
-import type {
-  StructuredResume,
-  ResumeExperienceEntry,
-  ResumeEducationEntry,
-  ResumeLink,
-  ResumeLanguage,
-  ResumeVolunteeringEntry,
-  ResumeCustomSection,
+import {
+  getExperienceBullets,
+  type StructuredResume,
+  type ResumeExperienceEntry,
+  type ResumeEducationEntry,
+  type ResumeLink,
+  type ResumeLanguage,
+  type ResumeVolunteeringEntry,
+  type ResumeCustomSection,
 } from "@/lib/resume/types";
+
+/**
+ * The textarea's own display value for an experience entry: `bullets`
+ * joined one-per-line when they exist (so a role parsed or tailored with
+ * real bullets is actually visible and editable, not hidden behind a blank
+ * field because `description` was never set for it), falling back to
+ * `description` otherwise — the same precedence `getExperienceText` uses,
+ * just joined with a newline instead of a space since this feeds an
+ * editable multi-line field rather than a rendered paragraph.
+ */
+function experienceTextareaValue(entry: ResumeExperienceEntry): string {
+  const bullets = getExperienceBullets(entry);
+  return bullets ? bullets.join("\n") : (entry.description ?? "");
+}
+
+/**
+ * Turns whatever's in the textarea into the patch to apply to an entry.
+ * `description` always gets the raw text — the textarea's own source of
+ * truth, so re-rendering with this same value back never trims a trailing
+ * space or eats a blank line the user just pressed Enter to create.
+ * `bullets` is DERIVED separately (split on newline, trimmed, blanks
+ * dropped) and only set when there's genuinely more than one line; a
+ * single-line entry keeps `bullets` undefined so `getExperienceText`'s
+ * existing bullets-then-description fallback renders it as plain text, not
+ * a one-item bulleted list.
+ */
+function narrativePatch(rawText: string): { description: string; bullets: string[] | undefined } {
+  const lines = rawText
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0);
+  return { description: rawText, bullets: lines.length > 1 ? lines : undefined };
+}
 
 function moveItem<T>(arr: T[], from: number, to: number): T[] {
   if (to < 0 || to >= arr.length) return arr;
@@ -131,8 +165,11 @@ export function ResumeEditor({ resumeId, initialTitle, initialContent, templateS
     setRewriteError(null);
     setRewriteErrorKey(null);
     try {
+      // Rewrites the WHOLE field, same as before an entry could hold more
+      // than one bullet — see rewrite-bullet.ts's own header for why this
+      // targets the full set rather than a single focused line.
       const { text, error } = await rewriteBulletAction(
-        content.experience[index].description ?? "",
+        experienceTextareaValue(content.experience[index]),
         instruction,
       );
       if (error) {
@@ -141,7 +178,7 @@ export function ResumeEditor({ resumeId, initialTitle, initialContent, templateS
         return;
       }
       const next = [...content.experience];
-      next[index] = { ...next[index], description: text };
+      next[index] = { ...next[index], ...narrativePatch(text) };
       update("experience", next);
     } finally {
       setRewritingKey(null);
@@ -320,10 +357,11 @@ export function ResumeEditor({ resumeId, initialTitle, initialContent, templateS
                 <RemoveControl onRemove={() => update("experience", content.experience.filter((_, j) => j !== i))} />
               </div>
               <textarea
-                value={entry.description ?? ""}
-                onChange={(e) => updateExperience(i, { description: e.target.value })}
-                rows={2}
+                value={experienceTextareaValue(entry)}
+                onChange={(e) => updateExperience(i, narrativePatch(e.target.value))}
+                rows={3}
                 className="border-[1.5px] border-ink bg-card p-3 font-body text-[14px] outline-none focus:border-rust"
+                placeholder={"One achievement per line — each line becomes its own bullet point."}
               />
               <RewriteButtons onRewrite={(instr) => handleRewrite(i, instr)} />
               {rewritingKey === `${i}` && <span className="text-[12px] text-ink-soft">Farah is rewriting…</span>}

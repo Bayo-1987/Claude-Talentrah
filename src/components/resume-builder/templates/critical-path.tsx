@@ -1,4 +1,4 @@
-import { getExperienceText } from "@/lib/resume/types";
+import { getExperienceBullets, getExperienceText } from "@/lib/resume/types";
 import { contactLine, dateRange, type TemplateProps } from "./shared";
 
 /**
@@ -52,6 +52,7 @@ export function CriticalPathTemplate({ resume }: TemplateProps) {
           </h2>
           <div className="mt-3 flex flex-col gap-4 border-l-2 border-rust pl-4">
             {experience.map((entry, i) => {
+              const bullets = getExperienceBullets(entry);
               const text = getExperienceText(entry);
               return (
                 <div key={i}>
@@ -65,10 +66,18 @@ export function CriticalPathTemplate({ resume }: TemplateProps) {
                   {entry.location && (
                     <div className="font-body text-[12px] text-ink-soft">{entry.location}</div>
                   )}
-                  {text && (
-                    <p className="mt-1 font-body text-[13.5px] leading-relaxed text-ink-soft">
-                      {text}
-                    </p>
+                  {bullets ? (
+                    <ul className="mt-1 list-disc pl-[18px] font-body text-[13.5px] leading-relaxed text-ink-soft">
+                      {bullets.map((bullet, bi) => (
+                        <li key={bi}>{bullet}</li>
+                      ))}
+                    </ul>
+                  ) : (
+                    text && (
+                      <p className="mt-1 font-body text-[13.5px] leading-relaxed text-ink-soft">
+                        {text}
+                      </p>
+                    )
                   )}
                 </div>
               );

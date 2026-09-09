@@ -1,4 +1,4 @@
-import { getExperienceText } from "@/lib/resume/types";
+import { getExperienceBullets, getExperienceText } from "@/lib/resume/types";
 import { contactLine, dateRange, type TemplateProps } from "./shared";
 
 /**
@@ -49,6 +49,7 @@ export function StatuteTemplate({ resume }: TemplateProps) {
           </h2>
           <div className="mt-3 flex flex-col gap-5">
             {experience.map((entry, i) => {
+              const bullets = getExperienceBullets(entry);
               const text = getExperienceText(entry);
               return (
                 <div key={i}>
@@ -64,10 +65,18 @@ export function StatuteTemplate({ resume }: TemplateProps) {
                       {dateRange(entry.startDate, entry.endDate)}
                     </span>
                   </div>
-                  {text && (
-                    <p className="mt-1.5 font-display text-[13.5px] leading-[1.7] text-ink-soft">
-                      {text}
-                    </p>
+                  {bullets ? (
+                    <ul className="mt-1.5 list-disc pl-[18px] font-display text-[13.5px] leading-[1.7] text-ink-soft">
+                      {bullets.map((bullet, bi) => (
+                        <li key={bi}>{bullet}</li>
+                      ))}
+                    </ul>
+                  ) : (
+                    text && (
+                      <p className="mt-1.5 font-display text-[13.5px] leading-[1.7] text-ink-soft">
+                        {text}
+                      </p>
+                    )
                   )}
                 </div>
               );
