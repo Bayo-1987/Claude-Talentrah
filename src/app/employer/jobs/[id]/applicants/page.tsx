@@ -1,0 +1,108 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+import { requireEmployer } from "@/lib/employer/membership";
+import { BorderedCard, EyebrowLabel } from "@/components/ui";
+import { ApplicantStatusSelect } from "@/components/employer/applicant-status-select";
+import { formatTrackerDate } from "@/lib/tracker/format-date";
+
+export const metadata = { title: "Applicants — Talentrah" };
+
+/**
+ * The real employer-applicant view (0125) — a structured listing, not just
+ * an aggregate count (org_application_counts, 0029). Per-job scope for v1:
+ * `/employer/jobs` already renders one row per posting, so this is the
+ * natural next screen from there rather than an org-wide roster.
+ *
+ * Double-checked the same way `[id]/edit/page.tsx` scopes its own job
+ * lookup: `.eq("id", id).eq("organization_id", organization.id)`. RLS would
+ * already stop this from reading another org's posting (job_postings SELECT
+ * is public, so RLS alone doesn't help here — this is a manual out-of-scope
+ * guard, not a leak-prevention one), but rendering a 404 for a job that
+ * isn't the caller's own is the right response regardless of who could
+ * technically read the row.
+ *
+ * The applicant rows themselves come from `employer_job_applicants` (0125),
+ * a SECURITY DEFINER function that derives which org owns the posting and
+ * checks the CALLER's membership in it — a second, independent gate from
+ * the one above, not a duplicate of it.
+ */
+export default async function JobApplicantsPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const { organization } = await requireEmployer();
+  const supabase = await createClient();
+
+  const { data: job } = await supabase
+    .from("job_postings")
+    .select("id, title")
+    .eq("id", id)
+    .eq("organization_id", organization.id)
+    .maybeSingle();
+
+  if (!job) notFound();
+
+  const { data: applicants, error } = await supabase.rpc("employer_job_applicants", {
+    p_job_posting_id: id,
+  });
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div>
+        <Link
+          href="/employer/jobs"
+          className="font-body text-[13px] font-semibold text-ink-soft no-underline hover:text-rust"
+        >
+          ← Jobs Posted
+        </Link>
+        <div className="mt-4">
+          <EyebrowLabel>Applicants</EyebrowLabel>
+          <h1 className="mt-2 font-display text-[30px] leading-[1.15] font-medium text-ink">{job.title}</h1>
+        </div>
+      </div>
+
+      {error && (
+        <p className="border-[1.5px] border-rust bg-rust-soft px-4 py-3 text-[13.5px] text-rust">
+          Couldn&apos;t load applicants right now. The job posting itself is fine — try reloading this page.
+        </p>
+      )}
+
+      {(applicants ?? []).length === 0 ? (
+        <BorderedCard className="p-8 text-center">
+          <p className="font-display text-[18px] font-medium text-ink">No applicants yet.</p>
+          <p className="mx-auto mt-2 max-w-[46ch] font-body text-[14px] text-ink-soft">
+            Anyone who applies through Talentrah will show up here, with their resume one click away.
+          </p>
+        </BorderedCard>
+      ) : (
+        <div className="flex flex-col divide-y divide-line border-y border-line">
+          {(applicants ?? []).map((applicant) => (
+            <div
+              key={applicant.application_id}
+              className="flex flex-col gap-3 py-4 min-[640px]:flex-row min-[640px]:items-center min-[640px]:justify-between"
+            >
+              <div className="min-w-0">
+                <p className="font-body text-[14.5px] font-semibold text-ink">
+                  {[applicant.first_name, applicant.last_name].filter(Boolean).join(" ") || "Applicant"}
+                </p>
+                <p className="mt-0.5 font-body text-[12.5px] text-ink-soft">
+                  Applied {applicant.applied_at ? formatTrackerDate(applicant.applied_at) : "—"}
+                </p>
+              </div>
+              <div className="flex flex-shrink-0 items-center gap-4">
+                {applicant.resume_id && (
+                  <Link
+                    href={`/employer/jobs/${job.id}/applicants/${applicant.application_id}/resume`}
+                    className="font-body text-[13px] font-semibold text-ink underline underline-offset-2 hover:text-rust"
+                  >
+                    View resume
+                  </Link>
+                )}
+                <ApplicantStatusSelect applicationId={applicant.application_id} initialStatus={applicant.status} />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
