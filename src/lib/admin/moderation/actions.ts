@@ -195,6 +195,12 @@ export async function decideJobPostingAction(
   });
 
   revalidatePath("/admin/reports");
+  // Also revalidated here, not just on the reports queue: send-121's
+  // /admin/postings search calls this same action, and its own "browse"
+  // listing (searchJobPostings with no query) excludes `removed` postings —
+  // without this, a removal made from that page would leave the
+  // now-removed posting sitting in its own still-cached result list.
+  revalidatePath("/admin/postings");
   return {
     status: "success",
     targetId: id,

@@ -79,6 +79,12 @@ const COUNTLESS_ITEMS = [
   // /admin/people is deliberately NOT linked: it is reached on purpose for one
   // case, and a nav entry is how a tool becomes something people browse.
   { href: "/admin/people/signups", label: "Signups", permission: "people_list" },
+  // Reach ANY live posting by name and remove it, reported or not — see that
+  // page's own header for why this isn't just "reported postings" with a
+  // search box. No count: unlike the queues above, there is no "pending"
+  // state here, since a live posting nobody's flagged isn't waiting on
+  // anything — this is a search tool, not a worklist.
+  { href: "/admin/postings", label: "Find a posting", permission: "reported_postings" },
   { href: "/admin/feature-flags", label: "Feature flags", permission: "feature_flags" },
   { href: "/admin/operators", label: "Operators", permission: "operators" },
 ] as const;
