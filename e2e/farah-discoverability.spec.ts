@@ -98,26 +98,43 @@ test.describe("reaching Farah on a phone", () => {
        * the columns stack. The first version of this reserved 56px against a
        * bar that is 58.5px tall including its rule, and the panel's bottom
        * edge measured 2px BEHIND the bar.
+       *
+       * SCROLL AND RE-MEASURE, rather than scroll-once-then-fixed-wait: the
+       * panel's own history fetch (farah-panel.tsx) resolves after mount and,
+       * once the credit-gate indicator (0123) has something to show, adds a
+       * line of text that grows the panel — and therefore the document —
+       * AFTER a scroll that already happened. A single `scrollTo` plus a
+       * fixed timeout races that fetch: on a fast response the document was
+       * already at its final height when scrolled and the test passes; on a
+       * slower one (this is exactly what CI's ephemeral database did,
+       * consistently, on a freshly-seeded account with no existing Pass) the
+       * scroll target was measured before the growth, the page is scrolled
+       * to what is now short of the true bottom, and the panel's new bottom
+       * edge — not the bar's reserve — is what's uncovered. `toPass` re-scrolls
+       * on every retry, so it converges once the document stops growing,
+       * instead of gambling on one fetch finishing inside one fixed wait.
        */
       await page.setViewportSize({ width, height: 844 });
       await login(page);
-      await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-      await page.waitForTimeout(800);
 
-      const r = await page.evaluate(() => {
-        const panel = document
-          .querySelector('[data-testid="farah-panel"]')!
-          .getBoundingClientRect();
-        const tab = document
-          .querySelector('[data-testid="farah-mobile-tab"]')!
-          .getBoundingClientRect();
-        return { panelBottom: panel.bottom, tabTop: tab.top };
-      });
+      await expect(async () => {
+        await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
 
-      expect(
-        r.panelBottom,
-        "the bar is covering the panel it exists to reveal",
-      ).toBeLessThanOrEqual(r.tabTop);
+        const r = await page.evaluate(() => {
+          const panel = document
+            .querySelector('[data-testid="farah-panel"]')!
+            .getBoundingClientRect();
+          const tab = document
+            .querySelector('[data-testid="farah-mobile-tab"]')!
+            .getBoundingClientRect();
+          return { panelBottom: panel.bottom, tabTop: tab.top };
+        });
+
+        expect(
+          r.panelBottom,
+          "the bar is covering the panel it exists to reveal",
+        ).toBeLessThanOrEqual(r.tabTop);
+      }).toPass({ timeout: 10_000 });
     });
 
     test(`at ${width}px tapping the tab brings the panel into view`, async ({ page }) => {
