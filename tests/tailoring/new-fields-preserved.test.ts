@@ -16,8 +16,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const generateText = vi.fn();
 
+const fakeProvider = { name: "test" as const, model: "test", generateText, generateWithUsage: vi.fn() };
 vi.mock("@/lib/llm", () => ({
-  getLLMProvider: () => ({ name: "test", model: "test", generateText, generateWithUsage: vi.fn() }),
+  getLLMProvider: () => fakeProvider,
+  generateWithFailover: (call: (p: typeof fakeProvider) => Promise<string>) => call(fakeProvider),
 }));
 
 const { tailorResumeToJob } = await import("@/lib/tailoring/tailor");
