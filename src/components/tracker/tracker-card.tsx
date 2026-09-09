@@ -46,6 +46,14 @@ export interface TrackerEntry {
   resumeSnapshotTitle: string | null;
   coverLetterSnapshotTitle: string | null;
   history: { stage: string; changedAt: string }[];
+  /**
+   * `employer_applicant_status.first_viewed_at` (0126), read through
+   * `seeker_application_view_status` — set the first time an employer opens
+   * this application's resume, never afterwards. The partial counterweight
+   * to 0125's implicit-consent decision (CLAUDE.md): informational only, so
+   * this never gates or delays anything the employer does.
+   */
+  firstViewedAt: string | null;
 }
 
 export function TrackerCard({ entry }: { entry: TrackerEntry }) {
@@ -75,6 +83,12 @@ export function TrackerCard({ entry }: { entry: TrackerEntry }) {
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-line pt-3 text-[12.5px] text-ink-soft">
         {entry.appliedAt && <span>Applied {formatDate(entry.appliedAt)}</span>}
+        {/*
+          Only ever a positive fact, never a "not yet viewed" placeholder —
+          same restraint FilterChip/badges already apply elsewhere in this
+          app to an absent state.
+        */}
+        {entry.firstViewedAt && <span>Viewed {formatDate(entry.firstViewedAt)}</span>}
         {entry.url && (
           <a href={entry.url} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-rust">
             Job posting

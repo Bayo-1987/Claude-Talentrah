@@ -1097,18 +1097,21 @@ export type Database = {
       employer_applicant_status: {
         Row: {
           application_id: string
+          first_viewed_at: string | null
           status: Database["public"]["Enums"]["applicant_review_status"]
           updated_at: string
           updated_by: string | null
         }
         Insert: {
           application_id: string
+          first_viewed_at?: string | null
           status?: Database["public"]["Enums"]["applicant_review_status"]
           updated_at?: string
           updated_by?: string | null
         }
         Update: {
           application_id?: string
+          first_viewed_at?: string | null
           status?: Database["public"]["Enums"]["applicant_review_status"]
           updated_at?: string
           updated_by?: string | null
@@ -2711,6 +2714,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      record_employer_resume_view: {
+        Args: { p_application_id: string }
+        Returns: undefined
+      }
       release_anonymous_demo_run: {
         Args: { p_ip_hash: string; p_visitor_id: string }
         Returns: undefined
@@ -2762,6 +2769,13 @@ export type Database = {
           title: string
           work_type: Database["public"]["Enums"]["work_type"]
           years_experience_min: number
+        }[]
+      }
+      seeker_application_view_status: {
+        Args: { p_application_ids: string[] }
+        Returns: {
+          application_id: string
+          first_viewed_at: string
         }[]
       }
       set_ad_campaign_review: {
