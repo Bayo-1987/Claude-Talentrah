@@ -109,6 +109,44 @@ Phase 1 is feature-complete except for the employer side. Read [docs/phase-1-sum
     requests, and retrying never helps because the retry is the same size. It
     took Farah chat down; see `src/lib/farah/token-budget.ts` for the budget
     and the guard that now holds it.
+  - **A SEPARATE cap — Groq's daily token budget (TPD), not the per-minute one
+    above — took Farah chat down again on 2026-09-08**, diagnosed as send-109.
+    The `on_demand` tier's 200,000 TPD ceiling is shared account-wide across
+    every LLM-calling feature (chat, tailoring, gap analysis, scholarship
+    eligibility, bullet rewriting, resume-parse fallback), and real usage
+    exhausted it in an 11-minute burst. The real error shape, worth
+    recognizing on sight — note "tokens per day" is what distinguishes it from
+    the TPM error above:
+    ```
+    [groq/rate_limit] 429 ... on tokens per day (TPD): Limit 200000, Used 198178, Requested 2003. Please try again in 1m18.192s.
+    ```
+    Fixed in three parts, in the order they actually shipped: (1) the founder
+    raised Groq's own billing tier directly in Groq's console — **the actual
+    new daily ceiling is not recorded anywhere in this repo and could not be
+    confirmed while writing this**; check Groq's own dashboard rather than
+    assuming a number, and update this line once it's known. (2)
+    `generateWithFailover` (`src/lib/llm/index.ts`, PR #320) — per-request
+    runtime failover from Groq to Gemini, scoped deliberately to
+    `LLMProviderError`s with `kind === "rate_limit"` only; an `auth` or
+    `unknown` error still propagates unchanged, on purpose, so a genuinely
+    broken key fails loudly instead of being silently routed around. (3) PR
+    #322 covering the 6th and final real call site
+    (`src/lib/resume/llm-fallback.ts`'s low-confidence resume-parse path),
+    which #320 had correctly left out of its own scope and a later pass
+    closed separately — `getLLMProvider()` itself is now called directly only
+    from `llm/index.ts` and `cost-probe.ts` (deliberately, for its
+    monkey-patch); every real generation call site goes through the failover
+    wrapper.
+    **The failover is not a second capacity pool**: Gemini (the failover
+    target) is a free-tier key, 20 requests/day, shared across the whole
+    project (`README.md`, `.env.example`, `docs/secrets-audit.md`) — unless
+    that key has since been upgraded too, the failover buys about 20 extra
+    requests a day against a 200,000-token daily budget, not real headroom.
+    `src/lib/farah/rate-limit-message.ts` turns Groq's own "please try again
+    in Xm Ys" text into rounded-to-the-minute user-facing copy
+    (`parseRetryAfterSeconds` + `farahRateLimitMessage`), falling back to the
+    pre-existing generic "try again in a moment" message on anything it can't
+    parse.
 
 Verification convention this repo holds itself to, visible throughout its PR history: **check real current state before building; prove a fix by first proving the test catches the bug.** Several milestones caught real defects specifically by re-testing what earlier work had assumed — an RLS policy that had never been run, a retry heuristic that looked like model behaviour, an OAuth name mapping where the intuitive fix would have repaired the wrong provider, and an org-membership policy that read as safe and was not. That last one is also the standing example of a second habit: after fixing a policy, ask what *else* grants the same privilege — the first fix closed one route and, in doing so, opened a second.
 
