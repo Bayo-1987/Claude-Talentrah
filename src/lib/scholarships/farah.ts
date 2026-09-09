@@ -1,5 +1,5 @@
 import "server-only";
-import { getLLMProvider } from "@/lib/llm";
+import { generateWithFailover } from "@/lib/llm";
 import { FARAH_SYSTEM_PROMPT } from "@/lib/farah/system-prompt";
 import type { StructuredResume } from "@/lib/resume/types";
 import type { Tables } from "@/lib/supabase/types";
@@ -83,12 +83,13 @@ export async function checkEligibility(
   resume: StructuredResume,
   profileCountry: string | null,
 ): Promise<EligibilityCheckResult> {
-  const raw = await getLLMProvider().generateText({
-    systemPrompt: FARAH_SYSTEM_PROMPT,
-    turns: [
-      {
-        role: "user",
-        content: `Check whether I'm eligible for this scholarship, based only on my resume and its stated criteria.
+  const raw = await generateWithFailover((provider) =>
+    provider.generateText({
+      systemPrompt: FARAH_SYSTEM_PROMPT,
+      turns: [
+        {
+          role: "user",
+          content: `Check whether I'm eligible for this scholarship, based only on my resume and its stated criteria.
 
 SCHOLARSHIP:
 ${describeScholarship(scholarship)}
@@ -99,11 +100,12 @@ MY RESUME (JSON):
 ${JSON.stringify(resume).slice(0, 8000)}
 
 Work criterion by criterion against what the listing actually states. Where my resume doesn't say something the criterion needs, mark it "unclear" rather than assuming either way — do not invent qualifications, dates, or nationality I haven't given you. Talentrah is a discovery layer, not the awarding body, so be explicit that the official page is the authority on current terms.`,
-      },
-    ],
-    maxOutputTokens: 2048,
-    jsonSchema: ELIGIBILITY_SCHEMA as unknown as Record<string, unknown>,
-  });
+        },
+      ],
+      maxOutputTokens: 2048,
+      jsonSchema: ELIGIBILITY_SCHEMA as unknown as Record<string, unknown>,
+    }),
+  );
 
   const parsed = JSON.parse(raw) as EligibilityCheckResult;
   return {
@@ -124,12 +126,13 @@ export async function draftPersonalStatement(
   resume: StructuredResume,
   motivation: string,
 ): Promise<string> {
-  const text = await getLLMProvider().generateText({
-    systemPrompt: FARAH_SYSTEM_PROMPT,
-    turns: [
-      {
-        role: "user",
-        content: `Draft a personal statement / statement of purpose for this scholarship.
+  const text = await generateWithFailover((provider) =>
+    provider.generateText({
+      systemPrompt: FARAH_SYSTEM_PROMPT,
+      turns: [
+        {
+          role: "user",
+          content: `Draft a personal statement / statement of purpose for this scholarship.
 
 SCHOLARSHIP:
 ${describeScholarship(scholarship)}
@@ -141,10 +144,11 @@ WHY I'M APPLYING (in my own words):
 ${motivation.slice(0, 2000) || "(not provided — work from my resume alone)"}
 
 Write 500–1000 words in my voice, first person, plain prose with no headings or bullet points. Ground every claim in my actual resume and what I told you above — if you don't have a concrete example for something, leave it out rather than inventing one. Return the statement text only, with no preamble, title, or closing commentary.`,
-      },
-    ],
-    maxOutputTokens: 3072,
-  });
+        },
+      ],
+      maxOutputTokens: 3072,
+    }),
+  );
 
   return text.trim();
 }

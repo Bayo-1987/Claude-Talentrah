@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { askFarahChat, type FarahChatTurn } from "@/lib/farah/client";
 import { logFarahSessionMessage, type FarahEntryPoint } from "@/lib/farah/session-events";
+import { LLMProviderError } from "@/lib/llm";
+import { GENERIC_FARAH_UNAVAILABLE_MESSAGE, farahRateLimitMessage } from "@/lib/farah/rate-limit-message";
 import type { StructuredResume } from "@/lib/resume/types";
 import {
   HISTORY_TURNS,
@@ -140,10 +142,14 @@ export async function POST(request: Request) {
     // — src/lib/llm/errors.ts — carries which provider and what kind of
     // failure), return a clean, Farah-voiced message instead.
     console.error("Farah chat: LLM call failed", err);
-    return NextResponse.json(
-      { error: "Farah couldn't respond just now — try again in a moment." },
-      { status: 502 },
-    );
+    // send-111: a rate-limit error carries Groq's own real wait time — use
+    // it instead of the generic message. Any other LLMProviderError kind
+    // (or a non-LLM error) keeps the generic copy unchanged.
+    const message =
+      err instanceof LLMProviderError && err.kind === "rate_limit"
+        ? farahRateLimitMessage(err.message)
+        : GENERIC_FARAH_UNAVAILABLE_MESSAGE;
+    return NextResponse.json({ error: message }, { status: 502 });
   }
 
   const { error: insertUserError } = await supabase

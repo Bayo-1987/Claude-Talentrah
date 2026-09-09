@@ -1,15 +1,17 @@
 import "server-only";
-import { getLLMProvider } from "@/lib/llm";
+import { generateWithFailover } from "@/lib/llm";
 import { FARAH_SYSTEM_PROMPT } from "./system-prompt";
 import { CHAT_MAX_OUTPUT_TOKENS } from "./token-budget";
 
 /** One-shot text completion with Farah's voice as the system prompt. */
 export async function askFarah(userMessage: string, maxTokens = 1536): Promise<string> {
-  return getLLMProvider().generateText({
-    systemPrompt: FARAH_SYSTEM_PROMPT,
-    turns: [{ role: "user", content: userMessage }],
-    maxOutputTokens: maxTokens,
-  });
+  return generateWithFailover((provider) =>
+    provider.generateText({
+      systemPrompt: FARAH_SYSTEM_PROMPT,
+      turns: [{ role: "user", content: userMessage }],
+      maxOutputTokens: maxTokens,
+    }),
+  );
 }
 
 export interface FarahChatTurn {
@@ -35,9 +37,11 @@ export async function askFarahChat(
   maxTokens = CHAT_MAX_OUTPUT_TOKENS,
 ): Promise<string> {
   const system = extraContext ? `${FARAH_SYSTEM_PROMPT}\n\n${extraContext}` : FARAH_SYSTEM_PROMPT;
-  return getLLMProvider().generateText({
-    systemPrompt: system,
-    turns,
-    maxOutputTokens: maxTokens,
-  });
+  return generateWithFailover((provider) =>
+    provider.generateText({
+      systemPrompt: system,
+      turns,
+      maxOutputTokens: maxTokens,
+    }),
+  );
 }
