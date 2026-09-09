@@ -1,26 +1,37 @@
 /**
- * Farah's per-job menu — the parts that must stay honest.
+ * Farah's per-job button — the parts that must stay honest.
  *
- * The menu replaced a single "Ask Farah" link that went to /tailor. Three
- * claims are worth pinning, because all three could regress invisibly:
+ * send-100 collapsed the old Vet/Land disclosure menu into a single "Ask
+ * Farah" button that seeds the docked panel (see farah-job-menu.tsx's own
+ * header for the full history). Two claims survive that change and are
+ * still worth pinning here, because both could regress invisibly:
  *
- *   1. Vet costs nothing. Both items read match_scores.explanation, which is
- *      computed algorithmically for the score already on the card. If someone
- *      later routes them through a model call, Vet silently starts costing
- *      credits on a free surface.
- *   2. The score bands agree with the tier system. CLAUDE.md fixes three tiers
- *      and forbids a fourth; prose that drifts from 80/70/60 would be a fourth
- *      tier in words.
- *   3. Land's two items go to DIFFERENT places. Without `coverLetter=1` they
- *      resolve to an identical page in an identical state, which is the
- *      dead-duplicate problem that got Gap analysis rewritten instead of
- *      linked.
+ *   1. The free Vet reads (`fitSummary`/`gapSkills`) are still pure,
+ *      still cost nothing, and still never restate the match-tier system —
+ *      they didn't move when the menu did; send-100's job-seeded chat
+ *      grounding (buildJobContext, src/lib/farah/token-budget.ts) calls
+ *      them directly rather than re-deriving the same read, so a regression
+ *      here would now also corrupt what Farah is told about the job.
+ *   2. The seeded panel's two generation links (`tailorHref`/
+ *      `coverLetterHref`, src/lib/farah/job-seed.ts — the direct successors
+ *      of this menu's old Land group) still go to DIFFERENT places.
+ *      Without `coverLetter=1` they resolve to an identical page in an
+ *      identical state, the same dead-duplicate problem that got "Gap
+ *      analysis" rewritten instead of linked, originally.
+ *
+ * What's NEW here: the button itself. It used to say "Check this job" and
+ * open a dropdown specifically because it had no chat to open — that
+ * constraint is gone, so `expect(markup).not.toContain("Ask Farah")` (this
+ * file's own prior assertion) is deliberately INVERTED below, not silently
+ * dropped: the whole point of send-100 is that this button now says "Ask
+ * Farah" and means it.
  */
 import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { fitSummary, gapSkills } from "@/lib/matching/vet-summary";
 import { FarahJobMenu } from "@/components/jobs/farah-job-menu";
 import { TailorForm } from "@/components/tailoring/tailor-form";
+import { coverLetterHref, tailorHref } from "@/lib/farah/job-seed";
 import type { MatchExplanation } from "@/lib/matching/score";
 
 const explanation = (over: Partial<MatchExplanation> = {}): MatchExplanation => ({
@@ -108,45 +119,54 @@ describe("gap analysis", () => {
   });
 
   it("returns null rather than an empty list", () => {
-    // An empty "Gap analysis" reads as broken rather than as good news, so the
-    // component says something different instead of rendering nothing.
+    // An empty "Gap analysis" reads as broken rather than as good news, so
+    // buildJobContext (which reads this the same way) says something
+    // different instead of telling Farah there is nothing missing.
     expect(gapSkills(explanation())).toBeNull();
   });
 });
 
-describe("what the card renders before the menu is opened", () => {
+describe("the per-job button, post send-100", () => {
   const markup = renderToStaticMarkup(
-    <FarahJobMenu jobId="job-1" explanation={explanation({ missingSkills: ["compliance"] })} />,
+    <FarahJobMenu jobId="job-1" jobTitle="Backend Engineer" companyName="Flutterwave" />,
   );
 
-  it("shows the disclosure trigger, closed", () => {
-    // Pinned as "Check this job", not "Ask Farah" — the menu has no chat
-    // bridge (see the component's own header comment), so its trigger must
-    // not promise a conversation it can't deliver. Also stops a collision
-    // with the masthead/mobile-tab "Ask Farah" button, which opens the real
-    // docked chat panel.
-    expect(markup).toContain("Check this job");
-    expect(markup).not.toContain("Ask Farah");
-    expect(markup).toContain('aria-expanded="false"');
+  it("is a single button that says what it now actually does", () => {
+    // Inverted deliberately — see this file's own header. "Check this job"
+    // and the dropdown it opened are gone with the menu.
+    expect(markup).toContain("Ask Farah");
+    expect(markup).not.toContain("Check this job");
   });
 
-  it("does not leak the menu's contents into the closed markup", () => {
-    // Rendered-but-hidden would ship the Vet answers to every card on every
-    // feed load, which is a payload cost on a connection the audience pays for
-    // by the megabyte.
+  it("renders no dropdown, no caret, no Vet/Land grouping", () => {
+    expect(markup).not.toContain("aria-expanded");
+    expect(markup).not.toContain("aria-haspopup");
     expect(markup).not.toContain("Gap analysis");
     expect(markup).not.toContain("Tailor my resume");
+    expect(markup).not.toContain("▾");
+  });
+
+  it("is a single <button>, not an anchor or a menu wrapper", () => {
+    expect(markup.match(/<button/g)?.length).toBe(1);
+    expect(markup).not.toContain("<a ");
   });
 });
 
-describe("Land's two items do not resolve to the same page state", () => {
+describe("the seeded panel's two generation links do not resolve to the same page state", () => {
   /*
-   * "Tailor my resume" and "Draft intro message" both go to /tailor. The only
-   * thing making them different actions is `coverLetter=1` pre-ticking the
-   * cover-letter box — without it the second item is decoration, which is
-   * exactly why Gap analysis was rewritten to read stored data instead of
-   * becoming a third link to the same place.
+   * "Tailor my resume for this job" and "Draft an intro message for this
+   * job" (the seeded panel's direct successors of the old menu's Land
+   * group) both go to /tailor. The only thing making them different actions
+   * is `coverLetter=1` pre-ticking the cover-letter box — without it the
+   * second item is decoration, exactly why "Gap analysis" was rewritten to
+   * read stored data instead of becoming a third link to the same place,
+   * back when this lived in the menu.
    */
+  it("tailorHref and coverLetterHref carry the same jobId but differ only by the cover-letter flag", () => {
+    expect(tailorHref("job-1")).toBe("/tailor?jobId=job-1");
+    expect(coverLetterHref("job-1")).toBe("/tailor?jobId=job-1&coverLetter=1");
+  });
+
   it("the cover-letter box is OFF by default", () => {
     const markup = renderToStaticMarkup(<TailorForm initialJdText="" />);
     const box = /<input[^>]*type="checkbox"[^>]*>/.exec(markup)?.[0] ?? "";

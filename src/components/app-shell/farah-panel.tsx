@@ -5,6 +5,14 @@ import Link from "next/link";
 import { EyebrowLabel, FarahMark } from "@/components/ui";
 import { FARAH_QUICK_ACTIONS } from "@/lib/farah/quick-actions";
 import { renderFarahMarkdown } from "@/lib/farah/render-markdown";
+import {
+  JOB_SEED_CHAT_STARTERS,
+  coverLetterHref,
+  jobSeedOpener,
+  onFarahJobSeed,
+  tailorHref,
+  type FarahJobSeed,
+} from "@/lib/farah/job-seed";
 
 export interface FarahMessage {
   id: string;
@@ -24,6 +32,15 @@ export interface FarahPanelProps {
    * rather not have the panel re-fetch them.
    */
   initialMessages?: FarahMessage[];
+  /**
+   * Escape hatch for tests, same convention as `initialMessages` above —
+   * the real seed always arrives via `onFarahJobSeed` (see job-seed.ts's own
+   * header for why a window event rather than a prop threaded from a job
+   * card several trees away), which `renderToStaticMarkup` never runs
+   * (effects don't execute under it), so a render-level test has no other
+   * way to exercise the seeded view.
+   */
+  initialJobSeed?: FarahJobSeed;
 }
 
 /**
@@ -41,11 +58,20 @@ export interface FarahPanelProps {
  * are plain body text — that typographic split is the only visual
  * differentiation, on purpose, rather than chat-bubble styling.
  */
-export function FarahPanel({ firstName, initialMessages }: FarahPanelProps) {
+export function FarahPanel({ firstName, initialMessages, initialJobSeed }: FarahPanelProps) {
   const [messages, setMessages] = useState<FarahMessage[]>(initialMessages ?? []);
   const [input, setInput] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /*
+   * send-100 — set by a job card's "Ask Farah" button (job-seed.ts), read
+   * only while `messages` is still empty (see the render below): once a
+   * real conversation has started, a later click elsewhere still updates
+   * this but has nothing left to show it in, rather than yanking an
+   * in-progress conversation out from under the reader.
+   */
+  const [jobSeed, setJobSeed] = useState<FarahJobSeed | null>(initialJobSeed ?? null);
+  useEffect(() => onFarahJobSeed(setJobSeed), []);
   /*
    * The gate's own indicator (0123) — `null` until the history fetch below
    * resolves, and stays `null` for a Pass holder (the route itself omits it
@@ -156,7 +182,7 @@ export function FarahPanel({ firstName, initialMessages }: FarahPanelProps) {
     if (el) el.scrollTop = el.scrollHeight;
   }, [messages, pending]);
 
-  async function send(text: string, quickAction?: string) {
+  async function send(text: string, quickAction?: string, jobId?: string) {
     const trimmed = text.trim();
     if (!trimmed || pending) return;
     setError(null);
@@ -173,7 +199,7 @@ export function FarahPanel({ firstName, initialMessages }: FarahPanelProps) {
       const res = await fetch("/api/farah/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: trimmed, quickAction, sessionId: sessionId() }),
+        body: JSON.stringify({ message: trimmed, quickAction, sessionId: sessionId(), jobId }),
       });
       const data = await res.json();
 
@@ -310,31 +336,79 @@ export function FarahPanel({ firstName, initialMessages }: FarahPanelProps) {
 
       <div ref={scrollRef} className="flex max-h-80 flex-col gap-3 overflow-y-auto">
         {messages.length === 0 ? (
-          <>
-            <p className="font-display text-[14.5px] italic leading-relaxed text-ink-soft">
-              &ldquo;Hi {firstName} — I can tailor your resume to any of these
-              roles, or help you prep. What do you need?&rdquo;
-            </p>
-            {/*
-              The quiet line the earlier-conversation fix is actually about.
-              Only offered here, on the pristine arrival view — once the
-              reader has sent anything new this visit, `messages` stops being
-              empty and this stops rendering with it. The history itself is
-              still sitting in the database and still reaches every future
-              call to Farah either way (see chat/route.ts, unaffected by any
-              of this); this only decides what's on screen before anyone
-              chooses.
-            */}
-            {pendingHistory && pendingHistory.length > 0 && !historyRevealed && (
-              <button
-                type="button"
-                onClick={continueConversation}
-                className="text-left font-display text-[13px] italic text-ink-soft underline underline-offset-2 hover:text-rust"
-              >
-                Continue where you left off with Farah?
-              </button>
-            )}
-          </>
+          jobSeed ? (
+            /*
+              send-100's seeded opener — free, instant, client-rendered only.
+              This branch never calls the LLM, never hits /api/farah/chat,
+              never writes a farah_messages row: `jobSeedOpener` is a plain
+              template function and the four items below are the first thing
+              that costs anything, exactly like this panel's own default
+              greeting it replaces here (same reasoning, same free status).
+            */
+            <>
+              <p className="font-display text-[14.5px] italic leading-relaxed text-ink-soft">
+                {jobSeedOpener(jobSeed)}
+              </p>
+              <div className="flex flex-col">
+                {JOB_SEED_CHAT_STARTERS.map((starter) => (
+                  <button
+                    key={starter.label}
+                    type="button"
+                    disabled={pending}
+                    onClick={() => void send(starter.label, starter.key, jobSeed.jobId)}
+                    className="flex min-h-10 items-center py-1 text-left font-body text-[13.5px] font-semibold text-ink underline underline-offset-2 hover:text-rust disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {starter.label}
+                  </button>
+                ))}
+                {/*
+                  Real generation, unchanged — same /tailor flow and same
+                  credit gate the job card's old Land group already pointed
+                  at, not a new path. See job-seed.ts's own header on why the
+                  fourth Orion-style slot is this rather than a fabricated
+                  "Connections" feature Talentrah doesn't have.
+                */}
+                <Link
+                  href={tailorHref(jobSeed.jobId)}
+                  className="flex min-h-10 items-center py-1 font-body text-[13.5px] font-semibold text-ink underline underline-offset-2 hover:text-rust"
+                >
+                  Tailor my resume for this job →
+                </Link>
+                <Link
+                  href={coverLetterHref(jobSeed.jobId)}
+                  className="flex min-h-10 items-center py-1 font-body text-[13.5px] font-semibold text-ink underline underline-offset-2 hover:text-rust"
+                >
+                  Draft an intro message for this job →
+                </Link>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="font-display text-[14.5px] italic leading-relaxed text-ink-soft">
+                &ldquo;Hi {firstName} — I can tailor your resume to any of these
+                roles, or help you prep. What do you need?&rdquo;
+              </p>
+              {/*
+                The quiet line the earlier-conversation fix is actually about.
+                Only offered here, on the pristine arrival view — once the
+                reader has sent anything new this visit, `messages` stops being
+                empty and this stops rendering with it. The history itself is
+                still sitting in the database and still reaches every future
+                call to Farah either way (see chat/route.ts, unaffected by any
+                of this); this only decides what's on screen before anyone
+                chooses.
+              */}
+              {pendingHistory && pendingHistory.length > 0 && !historyRevealed && (
+                <button
+                  type="button"
+                  onClick={continueConversation}
+                  className="text-left font-display text-[13px] italic text-ink-soft underline underline-offset-2 hover:text-rust"
+                >
+                  Continue where you left off with Farah?
+                </button>
+              )}
+            </>
+          )
         ) : (
           messages.map((m) =>
             m.role === "farah" ? (

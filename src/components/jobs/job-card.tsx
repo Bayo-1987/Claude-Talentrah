@@ -292,7 +292,7 @@ export function JobCard({
             is the loud one, and Apply is the only text button left.
           */}
           <ReportJobMenu jobId={job.id} jobTitle={job.title} />
-          <FarahJobMenu jobId={job.id} explanation={explanation} />
+          <FarahJobMenu jobId={job.id} jobTitle={job.title} companyName={job.company_name} />
 
           {alreadyApplied ? (
             <span className="inline-flex min-h-10 items-center px-4 text-[13.5px] font-semibold text-green">
