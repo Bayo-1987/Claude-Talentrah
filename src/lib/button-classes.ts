@@ -4,7 +4,7 @@ export type ButtonVariant = "primary" | "secondary" | "ghost" | "text";
 export type ButtonSize = "md" | "sm";
 
 const base =
-  "inline-flex items-center justify-center rounded-none font-body font-semibold transition-colors";
+  "inline-flex items-center justify-center rounded-none font-body font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50";
 
 const variantSizeClasses: Record<ButtonSize, Record<ButtonVariant, string>> = {
   md: {

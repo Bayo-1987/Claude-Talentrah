@@ -8,6 +8,7 @@ import { FarahJobMenu } from "@/components/jobs/farah-job-menu";
 import { MatchBreakdown } from "@/components/jobs/match-breakdown";
 import { ShareJobButton } from "@/components/jobs/share-job-button";
 import { ReportJobMenu } from "@/components/jobs/report-job-menu";
+import { MarkAppliedButton } from "@/components/jobs/mark-applied-button";
 import type { MatchExplanation } from "@/lib/matching/score";
 import { toggleSaveAction, applyInAppAction, markAppliedExternallyAction } from "@/lib/applications/actions";
 import type { CountryState } from "@/lib/jobs/country-events";
@@ -300,12 +301,7 @@ export function JobCard({
           ) : isExternal ? (
             <>
               <form action={markAppliedExternallyAction.bind(null, job.id, countryState)}>
-                <button
-                  type="submit"
-                  className="text-[13px] font-semibold text-ink-soft underline underline-offset-2 hover:text-rust"
-                >
-                  Mark as applied
-                </button>
+                <MarkAppliedButton />
               </form>
               <a
                 href={job.external_url ?? "#"}
