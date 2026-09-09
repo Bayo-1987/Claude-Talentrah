@@ -49,7 +49,13 @@ let fixture: Fixture;
  * is about are terminated. Which fixture a call receives is decided by the
  * TABLE AND THE SELECT LIST TOGETHER — `resumes` is queried twice on this
  * page with different columns, and keying on the table alone would hand the
- * notice the resume LIST and quietly pass.
+ * notice the resume LIST and quietly pass. `resume_templates` is now queried
+ * THREE ways for the same reason (the plain gallery listing, `select("*")`;
+ * the category list, `select("industry_category")`; and send-119's single
+ * default-import-template lookup, `select("id")` terminated with
+ * `maybeSingle()`) — the last one needs a single-row-or-null shape, not the
+ * array shape the other two share, or `defaultImportTemplate` in page.tsx
+ * comes back as a truthy `[]` and renders a real link with `templateId=undefined`.
  */
 vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => ({
@@ -63,6 +69,9 @@ vi.mock("@/lib/supabase/server", () => ({
         if (state.table === "profiles") {
           return { data: { resume_skills_notice_dismissed_at: fixture.dismissedAt }, error: null };
         }
+        if (state.table === "resume_templates" && state.select === "id") {
+          return { data: null, error: null };
+        }
         if (state.table === "resume_templates") return { data: [], count: 0, error: null };
         return { data: [], error: null };
       };
@@ -75,6 +84,7 @@ vi.mock("@/lib/supabase/server", () => ({
         ilike: () => chain,
         order: () => chain,
         range: () => chain,
+        limit: () => chain,
         maybeSingle: async () => result(),
         single: async () => result(),
         then: (onOk: (v: unknown) => unknown, onErr?: (e: unknown) => unknown) =>
