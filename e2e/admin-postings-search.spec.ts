@@ -105,7 +105,21 @@ test("an admin can find a live posting with zero reports and remove it, and it l
       await row.getByRole("textbox").fill("E2E: taken down on sight, never reported.");
       await row.getByRole("button", { name: "Remove from the board" }).click();
 
-      await expect(page.getByText(/removed/i)).toBeVisible({ timeout: 15_000 });
+      /*
+       * WAIT FOR THE ROW ITSELF TO DISAPPEAR, not for text containing
+       * "removed" to appear — this page's own static blurb already says
+       * "...drops onto the removed list on the reports page" before any
+       * button is ever clicked, so a `getByText(/removed/i)` check here
+       * would be satisfied instantly by copy that was already on the page,
+       * not by the actual mutation completing. That raced this test ahead
+       * of the real removal in CI (green locally against a warmer
+       * connection, red there) — the exact "passes for the wrong reason"
+       * failure mode this repo's own CLAUDE.md calls out. Waiting for the
+       * row to drop out of the search results is the same real signal
+       * report-job-posting.spec.ts already uses after a removal on
+       * /admin/reports itself.
+       */
+      await expect(row).toHaveCount(0, { timeout: 15_000 });
 
       // And it lands where every other removal does — removedPostings()
       // doesn't ask how a posting got to `removed`, but confirm rather than
