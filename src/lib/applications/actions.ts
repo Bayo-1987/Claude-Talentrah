@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { loadJobSnapshot } from "./job-snapshot";
 import { logCountryDefaultEvent, type CountryState } from "@/lib/jobs/country-events";
@@ -69,21 +70,13 @@ export async function toggleSaveAction(jobId: string) {
 export async function applyInAppAction(jobId: string, countryState: CountryState) {
   const { supabase, userId } = await getAuthedUserId();
 
-  const { data: baseResume, error: baseResumeError } = await supabase
-    .from("resumes")
-    .select("id")
-    .eq("user_id", userId)
-    .eq("is_base", true)
-    .maybeSingle();
-
-  // A missing resume is a legitimate state (resume_id just stays null below)
-  // — a query error is not, and applying anyway would silently record the
-  // wrong thing (QA audit bug #1). Fail loudly instead.
-  if (baseResumeError) {
-    throw new Error(`Couldn't look up your resume: ${baseResumeError.message}`);
-  }
-
-  const [{ data: existing }, snapshot] = await Promise.all([
+  // Three-way parallel: none of these depend on either of the others — the
+  // base-resume lookup used to run before this Promise.all for no reason,
+  // making a click on Apply pay for three round-trips in sequence (1-then-2)
+  // instead of the one this button's own CTA-latency fix (Button/IconButton
+  // now show a real pending state via useFormStatus) still can't hide.
+  const [{ data: baseResume, error: baseResumeError }, { data: existing }, snapshot] = await Promise.all([
+    supabase.from("resumes").select("id").eq("user_id", userId).eq("is_base", true).maybeSingle(),
     supabase
       .from("applications")
       .select("id")
@@ -92,6 +85,13 @@ export async function applyInAppAction(jobId: string, countryState: CountryState
       .maybeSingle(),
     loadJobSnapshot(supabase, jobId),
   ]);
+
+  // A missing resume is a legitimate state (resume_id just stays null below)
+  // — a query error is not, and applying anyway would silently record the
+  // wrong thing (QA audit bug #1). Fail loudly instead.
+  if (baseResumeError) {
+    throw new Error(`Couldn't look up your resume: ${baseResumeError.message}`);
+  }
 
   const payload = {
     user_id: userId,
@@ -119,7 +119,14 @@ export async function applyInAppAction(jobId: string, countryState: CountryState
     if (error) throw new Error(`Couldn't record your application: ${error.message}`);
   }
 
-  await logCountryDefaultEvent({ userId, eventType: "apply", countryState, jobPostingId: jobId });
+  // Deferred, not awaited: logCountryDefaultEvent's own header documents
+  // that a logging failure inside it is swallowed (caught and console.error'd,
+  // never thrown) and cannot fail the apply — exactly the kind of write
+  // src/app/(app)/jobs/page.tsx's own after() block already defers off the
+  // response path, for the same reason (the reader isn't waiting on it).
+  after(async () => {
+    await logCountryDefaultEvent({ userId, eventType: "apply", countryState, jobPostingId: jobId });
+  });
 
   revalidatePath("/jobs");
   /*

@@ -123,23 +123,21 @@ export async function POST(request: Request) {
     await logFarahSessionMessage({ userId: user.id, sessionId, entryPoint: resolveEntryPoint(quickAction) });
   }
 
-  const { data: historyRows, error: historyError } = await supabase
-    .from("farah_messages")
-    .select("role, content")
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: false })
-    .limit(HISTORY_TURNS);
+  // Independent reads — neither depends on the other's result — so they run
+  // together instead of one after the other.
+  const [{ data: historyRows, error: historyError }, { data: baseResumeRow }] = await Promise.all([
+    supabase
+      .from("farah_messages")
+      .select("role, content")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(HISTORY_TURNS),
+    supabase.from("resumes").select("structured_content").eq("user_id", user.id).eq("is_base", true).maybeSingle(),
+  ]);
 
   if (historyError) {
     return NextResponse.json({ error: "Couldn't reach Farah — try again in a moment." }, { status: 500 });
   }
-
-  const { data: baseResumeRow } = await supabase
-    .from("resumes")
-    .select("structured_content")
-    .eq("user_id", user.id)
-    .eq("is_base", true)
-    .maybeSingle();
 
   const baseResume = baseResumeRow?.structured_content as StructuredResume | null;
   // Both caps matter, and for different reasons. Slicing the skills list stops
@@ -191,14 +189,16 @@ export async function POST(request: Request) {
   // own header for why this can't happen any earlier.
   await commitFarahChatAllowance(user.id, allowance);
 
-  const { error: insertUserError } = await supabase
-    .from("farah_messages")
-    .insert({ user_id: user.id, role: "user", content: message, context });
-  const { data: farahRow, error: insertFarahError } = await supabase
-    .from("farah_messages")
-    .insert({ user_id: user.id, role: "farah", content: reply, context })
-    .select("id, created_at")
-    .single();
+  // Two independent writes (different rows, neither reads the other) — run
+  // together rather than one after the other.
+  const [{ error: insertUserError }, { data: farahRow, error: insertFarahError }] = await Promise.all([
+    supabase.from("farah_messages").insert({ user_id: user.id, role: "user", content: message, context }),
+    supabase
+      .from("farah_messages")
+      .insert({ user_id: user.id, role: "farah", content: reply, context })
+      .select("id, created_at")
+      .single(),
+  ]);
 
   if (insertUserError || insertFarahError || !farahRow) {
     // The reply already happened and cost real money — surface it to the
