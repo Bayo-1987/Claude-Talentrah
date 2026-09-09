@@ -38,6 +38,7 @@ function entry(overrides: Partial<TrackerEntry> = {}): TrackerEntry {
     resumeSnapshotTitle: null,
     coverLetterSnapshotTitle: null,
     history: [],
+    firstViewedAt: null,
     ...overrides,
   };
 }

@@ -22,6 +22,17 @@ export const metadata = { title: "Applicant resume — Talentrah" };
  * ensures the caller has SOME organisation; the RPC's own membership check
  * is the real, independent gate, the same two-layer shape the applicants
  * list page uses.
+ *
+ * The founder's consent decision on 0125 (CLAUDE.md) has a second half: an
+ * employer opening a resume here is the one moment "viewed" is real, so this
+ * is where `record_employer_resume_view` (0126) gets called — through this
+ * same session-scoped `supabase` client, same reasoning as
+ * `setApplicantStatusAction`, so a regression in its own membership check
+ * (identical shape to `is_org_member_for_application`) can't be papered over
+ * by an elevated write that never exercises it. Fired only after the resume
+ * content actually resolved above — an application with no resume never
+ * reaches this line at all, which is the v1 scope decision documented in
+ * 0126's own header.
  */
 export default async function ApplicantResumePage({
   params,
@@ -37,6 +48,8 @@ export default async function ApplicantResumePage({
     .maybeSingle();
 
   if (error || !data || !data.structured_content) notFound();
+
+  await supabase.rpc("record_employer_resume_view", { p_application_id: applicationId });
 
   return (
     <div className="flex flex-col gap-5">

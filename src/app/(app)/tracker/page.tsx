@@ -46,6 +46,20 @@ export default async function TrackerPage({ searchParams }: { searchParams: Sear
       .eq("user_id", user.id),
   ]);
 
+  // The partial counterweight to 0125's implicit-consent decision (CLAUDE.md):
+  // one RPC for every visible application id, not one per card. Only ids an
+  // employer has actually opened come back at all (0126) — everything else
+  // simply has no entry in the map, which is what makes "no key" the correct
+  // absent-state check below rather than a placeholder value.
+  const { data: viewStatusRows } = (rows ?? []).length
+    ? await supabase.rpc("seeker_application_view_status", {
+        p_application_ids: (rows ?? []).map((row) => row.id),
+      })
+    : { data: [] as { application_id: string; first_viewed_at: string }[] };
+  const firstViewedAtByApplicationId = new Map(
+    (viewStatusRows ?? []).map((r) => [r.application_id, r.first_viewed_at]),
+  );
+
   const entries: TrackerEntry[] = (rows ?? []).map((row) => {
     const snapshot = row.manual_job_snapshot as {
       companyName: string;
@@ -81,6 +95,7 @@ export default async function TrackerPage({ searchParams }: { searchParams: Sear
       history: (row.application_stage_events ?? [])
         .map((h) => ({ stage: h.stage, changedAt: h.changed_at }))
         .sort((a, b) => new Date(a.changedAt).getTime() - new Date(b.changedAt).getTime()),
+      firstViewedAt: firstViewedAtByApplicationId.get(row.id) ?? null,
     };
   });
 
