@@ -1,4 +1,4 @@
-import { getExperienceText } from "@/lib/resume/types";
+import { getExperienceBullets, getExperienceText } from "@/lib/resume/types";
 import { contactLine, dateRange, type TemplateProps } from "./shared";
 
 /**
@@ -56,6 +56,7 @@ export function PortfolioGridTemplate({ resume }: TemplateProps) {
           </h2>
           <div className="mt-3 flex flex-col gap-2.5">
             {experience.map((entry, i) => {
+              const bullets = getExperienceBullets(entry);
               const text = getExperienceText(entry);
               return (
                 <div key={i} className="grid grid-cols-[92px_1fr] gap-3">
@@ -67,10 +68,18 @@ export function PortfolioGridTemplate({ resume }: TemplateProps) {
                     {entry.company && (
                       <span className="font-body text-[13.5px] text-ink-soft"> · {entry.company}</span>
                     )}
-                    {text && (
-                      <p className="mt-0.5 font-body text-[13px] leading-snug text-ink-soft">
-                        {text}
-                      </p>
+                    {bullets ? (
+                      <ul className="mt-0.5 list-disc pl-[18px] font-body text-[13px] leading-snug text-ink-soft">
+                        {bullets.map((bullet, bi) => (
+                          <li key={bi}>{bullet}</li>
+                        ))}
+                      </ul>
+                    ) : (
+                      text && (
+                        <p className="mt-0.5 font-body text-[13px] leading-snug text-ink-soft">
+                          {text}
+                        </p>
+                      )
                     )}
                   </div>
                 </div>

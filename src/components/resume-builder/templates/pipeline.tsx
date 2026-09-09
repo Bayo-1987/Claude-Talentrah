@@ -1,4 +1,4 @@
-import { getExperienceText } from "@/lib/resume/types";
+import { getExperienceBullets, getExperienceText } from "@/lib/resume/types";
 import { contactLine, dateRange, type TemplateProps } from "./shared";
 
 /**
@@ -41,6 +41,7 @@ export function PipelineTemplate({ resume }: TemplateProps) {
           </h2>
           <div className="mt-3 flex flex-col gap-5">
             {experience.map((entry, i) => {
+              const bullets = getExperienceBullets(entry);
               const text = getExperienceText(entry);
               return (
                 <div key={i}>
@@ -56,10 +57,18 @@ export function PipelineTemplate({ resume }: TemplateProps) {
                   {entry.location && (
                     <div className="mt-0.5 font-body text-[12px] text-ink-soft">{entry.location}</div>
                   )}
-                  {text && (
-                    <p className="mt-1.5 font-body text-[14px] leading-[1.65] text-ink-soft">
-                      {text}
-                    </p>
+                  {bullets ? (
+                    <ul className="mt-1.5 list-disc pl-[18px] font-body text-[14px] leading-[1.65] text-ink-soft">
+                      {bullets.map((bullet, bi) => (
+                        <li key={bi}>{bullet}</li>
+                      ))}
+                    </ul>
+                  ) : (
+                    text && (
+                      <p className="mt-1.5 font-body text-[14px] leading-[1.65] text-ink-soft">
+                        {text}
+                      </p>
+                    )
                   )}
                 </div>
               );

@@ -1,4 +1,4 @@
-import { getExperienceText, type StructuredResume } from "@/lib/resume/types";
+import { getExperienceBullets, getExperienceText, type StructuredResume } from "@/lib/resume/types";
 import { contactLine, dateRange } from "../templates/shared";
 import {
   bodyTextScale,
@@ -131,6 +131,7 @@ export function renderExperience({
       <SectionHeading tokens={tokens} label={sectionLabel(content, "experience")} />
       <div className={d.experienceListGap}>
         {experience.map((entry, i) => {
+          const bullets = getExperienceBullets(entry);
           const body = getExperienceText(entry);
           return (
             <div key={i}>
@@ -145,10 +146,24 @@ export function renderExperience({
               {entry.location && (
                 <div className={joinClasses("text-[12.5px]", "text-ink-soft")}>{entry.location}</div>
               )}
-              {body && (
-                <p className={joinClasses(d.experienceEntryTextTop, t.entryText, "leading-relaxed text-ink-soft")}>
-                  {body}
-                </p>
+              {bullets ? (
+                <ul
+                  className={joinClasses(
+                    d.experienceEntryTextTop,
+                    t.entryText,
+                    "list-disc pl-[18px] leading-relaxed text-ink-soft",
+                  )}
+                >
+                  {bullets.map((bullet, bi) => (
+                    <li key={bi}>{bullet}</li>
+                  ))}
+                </ul>
+              ) : (
+                body && (
+                  <p className={joinClasses(d.experienceEntryTextTop, t.entryText, "leading-relaxed text-ink-soft")}>
+                    {body}
+                  </p>
+                )
               )}
             </div>
           );

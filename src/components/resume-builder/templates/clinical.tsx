@@ -1,4 +1,4 @@
-import { getExperienceText } from "@/lib/resume/types";
+import { getExperienceBullets, getExperienceText } from "@/lib/resume/types";
 import { contactLine, dateRange, type TemplateProps } from "./shared";
 
 /**
@@ -52,6 +52,7 @@ export function ClinicalTemplate({ resume }: TemplateProps) {
           </h2>
           <div className="mt-2 flex flex-col gap-3">
             {experience.map((entry, i) => {
+              const bullets = getExperienceBullets(entry);
               const text = getExperienceText(entry);
               return (
                 <div key={i} className="border-l-2 border-line pl-3">
@@ -64,10 +65,18 @@ export function ClinicalTemplate({ resume }: TemplateProps) {
                   <div className="font-body text-[12.5px] text-ink-soft">
                     {[entry.company, entry.location].filter(Boolean).join(" · ")}
                   </div>
-                  {text && (
-                    <p className="mt-1 font-body text-[13px] leading-snug text-ink-soft">
-                      {text}
-                    </p>
+                  {bullets ? (
+                    <ul className="mt-1 list-disc pl-[18px] font-body text-[13px] leading-snug text-ink-soft">
+                      {bullets.map((bullet, bi) => (
+                        <li key={bi}>{bullet}</li>
+                      ))}
+                    </ul>
+                  ) : (
+                    text && (
+                      <p className="mt-1 font-body text-[13px] leading-snug text-ink-soft">
+                        {text}
+                      </p>
+                    )
                   )}
                 </div>
               );

@@ -108,24 +108,42 @@ export interface ParseResult {
   usedFallback: boolean;
 }
 
+function cleanBullets(bullets: string[] | undefined): string[] | undefined {
+  const cleaned = bullets?.map((b) => b.trim()).filter((b) => b.length > 0);
+  return cleaned && cleaned.length > 0 ? cleaned : undefined;
+}
+
 /**
  * The single place every display site reads an experience entry's narrative
  * content from — never `entry.description` directly. Prefers `bullets` when
  * it holds at least one non-blank line, falling back to `description`
  * otherwise (including for every entry that predates `bullets` entirely).
  *
- * Returns a single display string rather than the raw bullet array on
- * purpose: this PR widens the schema only — no template's visual layout
- * changes (that's PR 2, which is what would turn multiple bullets into a
- * real `<ul>`). Joining bullets into one line here means every existing
- * call site that does `{entry.description && <p>{entry.description}</p>}`
- * can swap in this helper with no other change, and a resume that has only
- * `description` renders byte-for-byte as it did before this field existed.
+ * Returns a single display string, unchanged in shape since the schema-widen
+ * PR that added it: joining bullets into one line here is what let every
+ * existing call site swap this in with no other change back then, and a
+ * resume that has only `description` still renders byte-for-byte as it did
+ * before `bullets` existed. `getExperienceBullets` below is the real-list
+ * counterpart for a renderer that wants an actual `<ul>` instead — added
+ * alongside this rather than changing this function's return type, so
+ * nothing that already calls this one for plain text (the JD-tailoring demo
+ * preview, in particular) needs to change to keep working.
  */
 export function getExperienceText(entry: ResumeExperienceEntry): string | undefined {
-  const bullets = entry.bullets?.map((b) => b.trim()).filter((b) => b.length > 0);
-  if (bullets && bullets.length > 0) {
+  const bullets = cleanBullets(entry.bullets);
+  if (bullets) {
     return bullets.join(" ");
   }
   return entry.description;
+}
+
+/**
+ * The raw bullet list for a renderer that wants a real `<ul>` — `undefined`
+ * whenever `getExperienceText` would have fallen back to `description`
+ * (no bullets, or only blank ones), so the two stay in lockstep: a caller
+ * that checks this first and falls back to `getExperienceText`'s string
+ * for its `<p>` can never end up rendering neither, or both.
+ */
+export function getExperienceBullets(entry: ResumeExperienceEntry): string[] | undefined {
+  return cleanBullets(entry.bullets);
 }
