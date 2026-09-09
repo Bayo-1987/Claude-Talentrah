@@ -9,6 +9,13 @@
  * real job description before Farah can tailor anything. This test only
  * proves the entry point exists and navigates; it does not claim /tailor
  * works with no job description, because that was explicitly out of scope.
+ *
+ * The eyebrow above this section reads "Two ways to start" OR "Three ways
+ * to start" — send-119 added a third ("already have a resume? Import it")
+ * card that only appears once a free, ATS-safe default template resolves
+ * live from resume_templates, so which wording renders depends on catalog
+ * data, not on this test. Matched with a regex rather than the literal
+ * "Two ways" string for exactly that reason.
  */
 import { test, expect } from "./fixtures/authed";
 
@@ -17,7 +24,7 @@ test("Resume Builder surfaces a dedicated cover-letter entry point that links to
 }) => {
   await authedPage.goto("/resume-builder");
 
-  await expect(authedPage.getByText("Two ways to start")).toBeVisible();
+  await expect(authedPage.getByText(/ways to start/i)).toBeVisible();
   await expect(authedPage.getByText("Generate a cover letter")).toBeVisible();
   await expect(authedPage.getByRole("heading", { name: "Tailor one to a real job" })).toBeVisible();
 

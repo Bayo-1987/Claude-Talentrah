@@ -7,22 +7,13 @@ import { EmptySkillsNotice } from "@/components/resume-builder/empty-skills-noti
 import { ResumeListRow } from "@/components/resume-builder/resume-list-row";
 import { PanelShell } from "@/components/resume-builder/panel-shell";
 import { shouldShowEmptySkillsNotice } from "@/lib/resume/empty-skills-notice";
+import { buildGalleryHref } from "@/lib/resume-builder/gallery-href";
 
 export const metadata = { title: "Resume Builder — Talentrah" };
 
 const PAGE_SIZE = 6;
 
-type SearchParams = Promise<{ category?: string; q?: string; page?: string; atsSafe?: string }>;
-
-function buildHref(base: Record<string, string | undefined>, changes: Record<string, string | undefined>) {
-  const params = new URLSearchParams();
-  const merged = { ...base, ...changes };
-  for (const [key, value] of Object.entries(merged)) {
-    if (value) params.set(key, value);
-  }
-  const qs = params.toString();
-  return qs ? `/resume-builder?${qs}` : "/resume-builder";
-}
+type SearchParams = Promise<{ category?: string; q?: string; page?: string; atsSafe?: string; freeOnly?: string }>;
 
 export default async function ResumeBuilderPage({ searchParams }: { searchParams: SearchParams }) {
   const { user } = await requireUser();
@@ -31,6 +22,12 @@ export default async function ResumeBuilderPage({ searchParams }: { searchParams
   const category = params.category ?? "";
   const q = (params.q ?? "").trim();
   const atsSafeOnly = params.atsSafe === "1";
+  // send-119: 56 of 65 templates are premium — a reader hits a locked card
+  // roughly 6 times out of 7 with no way to filter it out before clicking
+  // in. "Free templates only" over a three-way All/Free/Premium toggle
+  // because the premium case is the common one; a control built to isolate
+  // it would spend UI space on the rarer need.
+  const freeOnly = params.freeOnly === "1";
   const page = Math.max(1, Number(params.page) || 1);
   const from = (page - 1) * PAGE_SIZE;
   const to = from + PAGE_SIZE - 1;
@@ -47,6 +44,10 @@ export default async function ResumeBuilderPage({ searchParams }: { searchParams
   // filter over the page's own rows, so it filters the whole catalog rather
   // than just whatever page you happened to be on.
   if (atsSafeOnly) templatesQuery = templatesQuery.eq("ats_safe", true);
+  // Same shape as ats_safe above — composes with it and with category/q
+  // rather than any of them silently overriding the others, since each is
+  // its own independent .eq()/.ilike() chained onto the same query.
+  if (freeOnly) templatesQuery = templatesQuery.eq("is_premium", false);
 
   const [
     { data: resumes },
@@ -55,6 +56,7 @@ export default async function ResumeBuilderPage({ searchParams }: { searchParams
     { data: unlocks },
     { data: baseResume },
     { data: profile },
+    { data: defaultImportTemplate },
   ] =
     await Promise.all([
       supabase
@@ -86,6 +88,24 @@ export default async function ResumeBuilderPage({ searchParams }: { searchParams
         .select("resume_skills_notice_dismissed_at")
         .eq("id", user.id)
         .maybeSingle(),
+      /*
+       * send-119: a real template id to send an "already have a resume?"
+       * import shortcut to, since ImportPanel/createResumeAction need SOME
+       * templateId even though upload+parse itself doesn't depend on which
+       * one — free and ATS-safe so the shortcut never routes someone
+       * straight into a premium unlock wall or a template least likely to
+       * survive an ATS scan. Picked live rather than hardcoded: a specific
+       * UUID baked into this file would silently break the moment that row
+       * is renamed, unpublished, or reordered.
+       */
+      supabase
+        .from("resume_templates")
+        .select("id")
+        .eq("is_premium", false)
+        .eq("ats_safe", true)
+        .order("name")
+        .limit(1)
+        .maybeSingle(),
     ]);
 
   const showEmptySkillsNotice = shouldShowEmptySkillsNotice(
@@ -96,7 +116,12 @@ export default async function ResumeBuilderPage({ searchParams }: { searchParams
   const categories = Array.from(new Set((categoryRows ?? []).map((r) => r.industry_category))).sort();
   const unlockedIds = new Set((unlocks ?? []).map((u) => u.template_id));
   const totalPages = Math.max(1, Math.ceil((count ?? 0) / PAGE_SIZE));
-  const base = { category: category || undefined, q: q || undefined, atsSafe: atsSafeOnly ? "1" : undefined };
+  const base = {
+    category: category || undefined,
+    q: q || undefined,
+    atsSafe: atsSafeOnly ? "1" : undefined,
+    freeOnly: freeOnly ? "1" : undefined,
+  };
 
   return (
     <div className="flex flex-col gap-10">
@@ -124,8 +149,8 @@ export default async function ResumeBuilderPage({ searchParams }: { searchParams
         not add a way around it.
       */}
       <div className="flex flex-col gap-3">
-        <EyebrowLabel size="sm">Two ways to start</EyebrowLabel>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <EyebrowLabel size="sm">{defaultImportTemplate ? "Three ways to start" : "Two ways to start"}</EyebrowLabel>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
           <PanelShell
             eyebrow="Build a resume"
             title="Pick a template below"
@@ -138,6 +163,31 @@ export default async function ResumeBuilderPage({ searchParams }: { searchParams
               ↓ Jump to the gallery
             </a>
           </PanelShell>
+          {/*
+            send-119: the gallery below is a REAL prerequisite for uploading a
+            CV, not just a suggestion — "Import my CV" only appears after a
+            template is picked, one click into /resume-builder/new. A reader
+            who already has a resume file and lands on this page has no way
+            to know that; this card puts the shortcut where they'd actually
+            look for it, going straight to the chooser with a real,
+            free/ATS-safe templateId already resolved so it never dead-ends
+            on a locked template. Omitted rather than shown broken on the
+            rare chance no free ATS-safe template exists.
+          */}
+          {defaultImportTemplate && (
+            <PanelShell
+              eyebrow="Already have a resume?"
+              title="Import it"
+              description="Upload your resume and Farah pulls in your details — pick a template after, or keep this one."
+            >
+              <Link
+                href={`/resume-builder/new?templateId=${defaultImportTemplate.id}`}
+                className={buttonClasses("primary", "sm", "no-underline w-fit")}
+              >
+                Import my resume →
+              </Link>
+            </PanelShell>
+          )}
           <PanelShell
             eyebrow="Generate a cover letter"
             title="Tailor one to a real job"
@@ -174,7 +224,7 @@ export default async function ResumeBuilderPage({ searchParams }: { searchParams
 
         <div className="flex flex-wrap items-center gap-6 border-b border-line pb-3">
           <Link
-            href={buildHref(base, { category: undefined, page: undefined })}
+            href={buildGalleryHref(base, { category: undefined, page: undefined })}
             className={
               !category
                 ? "flex min-h-10 items-center border-b-[2.5px] border-rust font-body text-[13.5px] font-bold text-ink no-underline"
@@ -186,7 +236,7 @@ export default async function ResumeBuilderPage({ searchParams }: { searchParams
           {categories.map((c) => (
             <Link
               key={c}
-              href={buildHref(base, { category: c, page: undefined })}
+              href={buildGalleryHref(base, { category: c, page: undefined })}
               className={
                 category === c
                   ? "flex min-h-10 items-center border-b-[2.5px] border-rust font-body text-[13.5px] font-bold text-ink no-underline"
@@ -201,6 +251,7 @@ export default async function ResumeBuilderPage({ searchParams }: { searchParams
         <form method="GET" action="/resume-builder" className="flex flex-wrap items-center gap-2">
           {category && <input type="hidden" name="category" value={category} />}
           {atsSafeOnly && <input type="hidden" name="atsSafe" value="1" />}
+          {freeOnly && <input type="hidden" name="freeOnly" value="1" />}
           <input
             type="text"
             name="q"
@@ -210,7 +261,7 @@ export default async function ResumeBuilderPage({ searchParams }: { searchParams
           />
           {q && (
             <Link
-              href={buildHref(base, { q: undefined, page: undefined })}
+              href={buildGalleryHref(base, { q: undefined, page: undefined })}
               className="text-[12.5px] font-semibold text-ink-soft underline underline-offset-2 hover:text-rust"
             >
               Clear search
@@ -224,16 +275,34 @@ export default async function ResumeBuilderPage({ searchParams }: { searchParams
           ATS-safe resume specifically shouldn't have to read all eleven cards
           to find the three that qualify.
         */}
-        <Link
-          href={buildHref(base, { atsSafe: atsSafeOnly ? undefined : "1", page: undefined })}
-          className={
-            atsSafeOnly
-              ? "flex min-h-10 w-fit items-center gap-2 border-[1.5px] border-ink bg-ink px-3 font-body text-[13px] font-semibold text-paper no-underline"
-              : "flex min-h-10 w-fit items-center gap-2 border-[1.5px] border-ink bg-card px-3 font-body text-[13px] font-semibold text-ink no-underline hover:border-rust hover:text-rust"
-          }
-        >
-          ATS-safe only
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            href={buildGalleryHref(base, { atsSafe: atsSafeOnly ? undefined : "1", page: undefined })}
+            className={
+              atsSafeOnly
+                ? "flex min-h-10 w-fit items-center gap-2 border-[1.5px] border-ink bg-ink px-3 font-body text-[13px] font-semibold text-paper no-underline"
+                : "flex min-h-10 w-fit items-center gap-2 border-[1.5px] border-ink bg-card px-3 font-body text-[13px] font-semibold text-ink no-underline hover:border-rust hover:text-rust"
+            }
+          >
+            ATS-safe only
+          </Link>
+          {/*
+            send-119: 56 of 65 templates are premium — this composes with
+            category/q/atsSafe exactly the way ATS-safe does above (its own
+            .eq() chained onto the same query, its own key in `base` carried
+            through buildGalleryHref), rather than resetting the others.
+          */}
+          <Link
+            href={buildGalleryHref(base, { freeOnly: freeOnly ? undefined : "1", page: undefined })}
+            className={
+              freeOnly
+                ? "flex min-h-10 w-fit items-center gap-2 border-[1.5px] border-ink bg-ink px-3 font-body text-[13px] font-semibold text-paper no-underline"
+                : "flex min-h-10 w-fit items-center gap-2 border-[1.5px] border-ink bg-card px-3 font-body text-[13px] font-semibold text-ink no-underline hover:border-rust hover:text-rust"
+            }
+          >
+            Free templates only
+          </Link>
+        </div>
 
         {(templates ?? []).length === 0 ? (
           <p className="py-8 text-center text-[14.5px] text-ink-soft">
@@ -261,7 +330,7 @@ export default async function ResumeBuilderPage({ searchParams }: { searchParams
           <div className="flex items-center justify-center gap-4 pt-2 text-[13.5px]">
             {page > 1 ? (
               <Link
-                href={buildHref(base, { page: page - 1 === 1 ? undefined : `${page - 1}` })}
+                href={buildGalleryHref(base, { page: page - 1 === 1 ? undefined : `${page - 1}` })}
                 className="font-semibold underline underline-offset-2"
               >
                 ← Previous
@@ -273,7 +342,7 @@ export default async function ResumeBuilderPage({ searchParams }: { searchParams
               Page {page} of {totalPages}
             </span>
             {page < totalPages ? (
-              <Link href={buildHref(base, { page: `${page + 1}` })} className="font-semibold underline underline-offset-2">
+              <Link href={buildGalleryHref(base, { page: `${page + 1}` })} className="font-semibold underline underline-offset-2">
                 Next →
               </Link>
             ) : (

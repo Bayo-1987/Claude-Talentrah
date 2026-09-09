@@ -7,6 +7,7 @@ import { ResumeDocument } from "@/components/resume-builder/resume-document";
 import type { StructuredResume } from "@/lib/resume/types";
 import type { ProposedAddition, TailoringResult } from "@/lib/tailoring/types";
 import type { RankedRecommendation } from "@/lib/courses/match";
+import { buildAcceptedAdditions } from "@/lib/tailoring/accepted-payload";
 
 type ApiResult = {
   resumeId: string;
@@ -55,6 +56,15 @@ export function TailorForm({
   const [appliedIds, setAppliedIds] = useState<Set<string>>(new Set());
   const [applyStatus, setApplyStatus] = useState<"idle" | "saving" | "error">("idle");
   const [applyError, setApplyError] = useState<string | null>(null);
+  /*
+   * Keyed by addition.id, only present once a user has actually typed —
+   * absent means "use Farah's original wording unchanged". Editing here
+   * doesn't cross a new trust boundary: /api/tailoring/accept-additions's
+   * own header explains that a candidate editing their OWN accepted text is
+   * exactly as trusted as any ordinary resume edit already is; this only
+   * changes what `accepted` carries client-side, before it's sent.
+   */
+  const [editedTexts, setEditedTexts] = useState<Record<string, string>>({});
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -76,6 +86,7 @@ export function TailorForm({
       setData(json);
       setCheckedIds(new Set());
       setAppliedIds(new Set());
+      setEditedTexts({});
       setStatus("idle");
     } catch {
       setError("Couldn't reach Farah — check your connection and try again.");
@@ -94,7 +105,7 @@ export function TailorForm({
 
   async function handleApplyAdditions() {
     if (!data) return;
-    const accepted = (data.result.proposedAdditions ?? []).filter((a) => checkedIds.has(a.id));
+    const accepted = buildAcceptedAdditions(data.result.proposedAdditions ?? [], checkedIds, editedTexts);
     if (accepted.length === 0) return;
 
     setApplyStatus("saving");
@@ -222,26 +233,48 @@ export function TailorForm({
                   resume yet — nothing here is added unless you check it and confirm.
                 </p>
                 <div className="mt-2 flex flex-col gap-2.5">
-                  {pendingAdditions.map((addition) => (
-                    <label
-                      key={addition.id}
-                      className="flex cursor-pointer items-start gap-2.5 border-[1.5px] border-line bg-card p-3 text-[13.5px]"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={checkedIds.has(addition.id)}
-                        onChange={() => toggleChecked(addition.id)}
-                        className="mt-0.5 h-4 w-4 flex-shrink-0 accent-[var(--ink)]"
-                      />
-                      <span>
-                        <span className="font-semibold text-ink">
-                          {additionTarget(addition, result.tailoredResume)}
-                        </span>
-                        <span className="block text-ink-soft">&quot;{addition.text}&quot;</span>
-                        <span className="mt-0.5 block text-[12px] italic text-ink-soft">{addition.reason}</span>
-                      </span>
-                    </label>
-                  ))}
+                  {pendingAdditions.map((addition) => {
+                    const checkboxId = `addition-${addition.id}`;
+                    return (
+                      <div
+                        key={addition.id}
+                        className="flex items-start gap-2.5 border-[1.5px] border-line bg-card p-3 text-[13.5px]"
+                      >
+                        <input
+                          type="checkbox"
+                          id={checkboxId}
+                          checked={checkedIds.has(addition.id)}
+                          onChange={() => toggleChecked(addition.id)}
+                          className="mt-0.5 h-4 w-4 flex-shrink-0 accent-[var(--ink)]"
+                        />
+                        {/*
+                          NOT one big <label> around the whole row, deliberately
+                          — a <label> forwards a click anywhere inside it
+                          (including inside a nested textarea) to the checkbox
+                          it's for, which would make placing a cursor to edit
+                          also toggle the checkbox. The target line keeps that
+                          click-to-toggle convenience via its own explicit
+                          htmlFor; the textarea sits outside any label, fully
+                          independent.
+                        */}
+                        <div className="min-w-0 flex-1">
+                          <label htmlFor={checkboxId} className="block cursor-pointer font-semibold text-ink">
+                            {additionTarget(addition, result.tailoredResume)}
+                          </label>
+                          <textarea
+                            value={editedTexts[addition.id] ?? addition.text}
+                            onChange={(e) =>
+                              setEditedTexts((prev) => ({ ...prev, [addition.id]: e.target.value }))
+                            }
+                            rows={2}
+                            aria-label={`Edit suggested text for ${additionTarget(addition, result.tailoredResume)}`}
+                            className="mt-1 block w-full resize-y border border-line bg-paper p-1.5 font-body text-[13.5px] text-ink outline-none focus:border-rust"
+                          />
+                          <span className="mt-0.5 block text-[12px] italic text-ink-soft">{addition.reason}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
                 {applyError && <p className="mt-2 text-[13px] text-rust">{applyError}</p>}
                 <Button
