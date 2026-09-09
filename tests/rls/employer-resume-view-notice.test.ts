@@ -15,13 +15,13 @@
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { randomUUID } from "node:crypto";
-import { admin, createAuthedTestUser, deleteTestUsers, type TestUser } from "../support/auth";
+import { admin, createAuthedTestUser, deleteTestUsers } from "../support/auth";
 import { deleteOrgsCascade } from "../support/delete-orgs";
 
 type AuthedTestUser = Awaited<ReturnType<typeof createAuthedTestUser>>;
 
-let seekerA: TestUser;
-let seekerB: TestUser;
+let seekerA: AuthedTestUser;
+let seekerB: AuthedTestUser;
 let orgOwnerA: AuthedTestUser;
 let orgOwnerB: AuthedTestUser;
 let orgIdA: string;
