@@ -39,11 +39,9 @@ export const CREDIT_COSTS = {
    * ₦125 — the smallest tier in this list, cheaper than bulletRewrite's 2
    * credits. A NEW price, not a rebase: Farah chat had no credit gate at all
    * until now (src/lib/farah/chat-gate.ts, after a 3-free-message/30-day
-   * rolling allowance and Pass coverage both miss). Proposed here because a
-   * conversational reply costs less to serve than a rewrite — but this is a
-   * real, founder-facing price like every other line above, not a number to
-   * treat as settled just because it shipped. Confirm or adjust in review;
-   * changing it is this one line, nothing structural.
+   * rolling allowance and Pass coverage both miss). Founder-confirmed
+   * 2026-09-09 because a conversational reply costs less to serve than a
+   * rewrite.
    */
-  farahChatMessage: 1, // ₦125 — PROPOSED, pending founder confirmation
+  farahChatMessage: 1, // ₦125 — founder-confirmed
 } as const;

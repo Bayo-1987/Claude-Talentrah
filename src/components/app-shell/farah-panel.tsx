@@ -303,8 +303,8 @@ export function FarahPanel({ firstName, initialMessages }: FarahPanelProps) {
       {freeRemaining !== null && (
         <p className="text-[12px] text-ink-soft">
           {freeRemaining > 0
-            ? `${freeRemaining} free message${freeRemaining === 1 ? "" : "s"} left this month.`
-            : "You've used your free messages this month — further messages use credits."}
+            ? `${freeRemaining} free message${freeRemaining === 1 ? "" : "s"} left in the last 30 days.`
+            : "You've used your free messages in the last 30 days — further messages use credits."}
         </p>
       )}
 
