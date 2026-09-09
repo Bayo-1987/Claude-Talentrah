@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
-import { EyebrowLabel } from "@/components/ui";
+import { EyebrowLabel, buttonClasses } from "@/components/ui";
 import { TemplateCard } from "@/components/resume-builder/template-card";
 import { EmptySkillsNotice } from "@/components/resume-builder/empty-skills-notice";
 import { ResumeListRow } from "@/components/resume-builder/resume-list-row";
+import { PanelShell } from "@/components/resume-builder/panel-shell";
 import { shouldShowEmptySkillsNotice } from "@/lib/resume/empty-skills-notice";
 
 export const metadata = { title: "Resume Builder — Talentrah" };
@@ -104,12 +105,49 @@ export default async function ResumeBuilderPage({ searchParams }: { searchParams
         <h1 className="mt-2 font-display text-[28px]">Build a resume that fits the role.</h1>
         <p className="mt-1 text-[14.5px] text-ink-soft">
           Pick a template, fill in your details, and let Farah help sharpen the wording.
-          Already have a role in mind?{" "}
-          <Link href="/tailor" className="underline underline-offset-2">
-            Tailor your resume and generate a cover letter
-          </Link>
-          .
         </p>
+      </div>
+
+      {/*
+        Cover-letter generation used to have exactly one mention on this whole
+        page — a clause riding along inside the intro paragraph above, easy to
+        skim past. This gives it equal visual weight with the resume path
+        instead, reusing PanelShell (the New Resume screen's own three-way
+        chooser shape) rather than inventing a second card pattern for the
+        same idea. The "Build a resume" side is informational only — the
+        gallery is the very next thing on the page — so its own action is a
+        real anchor down to it, not a fake button-styled span.
+
+        Still honest about the constraint this doesn't remove: /tailor still
+        needs a real job description before Farah can write anything. This
+        makes that visible instead of hiding it inside a sentence; it does
+        not add a way around it.
+      */}
+      <div className="flex flex-col gap-3">
+        <EyebrowLabel size="sm">Two ways to start</EyebrowLabel>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <PanelShell
+            eyebrow="Build a resume"
+            title="Pick a template below"
+            description="Browse the gallery and start filling it in — Farah helps sharpen the wording as you go."
+          >
+            <a
+              href="#template-gallery"
+              className="w-fit text-[12.5px] font-semibold text-ink-soft underline underline-offset-2 hover:text-rust"
+            >
+              ↓ Jump to the gallery
+            </a>
+          </PanelShell>
+          <PanelShell
+            eyebrow="Generate a cover letter"
+            title="Tailor one to a real job"
+            description="Paste the job description you're applying to and Farah writes a cover letter around it."
+          >
+            <Link href="/tailor" className={buttonClasses("primary", "sm", "no-underline w-fit")}>
+              Tailor a cover letter →
+            </Link>
+          </PanelShell>
+        </div>
       </div>
 
       {showEmptySkillsNotice && baseResume && <EmptySkillsNotice baseResumeId={baseResume.id} />}
@@ -131,7 +169,7 @@ export default async function ResumeBuilderPage({ searchParams }: { searchParams
         </div>
       )}
 
-      <div className="flex flex-col gap-4">
+      <div id="template-gallery" className="flex flex-col gap-4 scroll-mt-6">
         <EyebrowLabel size="sm">Template gallery</EyebrowLabel>
 
         <div className="flex flex-wrap items-center gap-6 border-b border-line pb-3">
