@@ -169,6 +169,49 @@ describe("the free allowance, exactly 3 in a rolling 30-day window", () => {
   );
 });
 
+describe("send-100: one shared counter across surfaces, in either order", () => {
+  /*
+   * checkFarahChatAllowance/commitFarahChatAllowance take only a userId —
+   * no entry point, no jobId, nothing identifying which surface (ordinary
+   * chat vs. a job card's "Ask Farah" starter) sent the message. That is
+   * what actually GUARANTEES a shared counter: there is no parameter here
+   * for a second counter to key off. sendOneMessage() below is exactly the
+   * real path chat/route.ts takes for every entry point alike (see
+   * tests/farah/chat-route-job-seed.test.ts for the route-level proof that
+   * job_fit reaches this same call unmodified) — so "two via ordinary chat,
+   * one via a job-seeded starter" and "one via a job-seeded starter, two via
+   * ordinary chat" are literally the same three calls in a different order,
+   * which is the point: order cannot matter when nothing distinguishes the
+   * calls in the first place.
+   */
+  it("SABOTAGE-PROOF TARGET: 2 ordinary + 1 job-seeded consumes the free allowance; a 4th (either kind) is blocked", async () => {
+    await sendOneMessage(); // ordinary chat, message 1
+    await sendOneMessage(); // ordinary chat, message 2
+    const third = await sendOneMessage(); // job-seeded starter, message 3 — same call, nothing marks it as such
+    expect(third.isFreeAllowance, "the 3rd message, from whichever surface, is still the last free one").toBe(
+      true,
+    );
+    expect(await farahChatFreeMessagesRemaining(userId)).toBe(0);
+
+    await setBalance(0);
+    await expect(
+      checkFarahChatAllowance(userId),
+      "a 4th message must be blocked regardless of which surface sends it",
+    ).rejects.toBeInstanceOf(InsufficientCreditsError);
+  });
+
+  it("SABOTAGE-PROOF TARGET: 1 job-seeded + 2 ordinary — same result in the other order", async () => {
+    await sendOneMessage(); // job-seeded starter, message 1
+    await sendOneMessage(); // ordinary chat, message 2
+    const third = await sendOneMessage(); // ordinary chat, message 3
+    expect(third.isFreeAllowance).toBe(true);
+    expect(await farahChatFreeMessagesRemaining(userId)).toBe(0);
+
+    await setBalance(0);
+    await expect(checkFarahChatAllowance(userId)).rejects.toBeInstanceOf(InsufficientCreditsError);
+  });
+});
+
 describe("Pass coverage — checked only once the free allowance is exhausted", () => {
   it(
     "SABOTAGE-PROOF TARGET: a Pass holder with UNUSED free messages still uses the free allowance " +

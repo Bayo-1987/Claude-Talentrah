@@ -9,6 +9,7 @@ import {
   HISTORY_TURNS,
   MAX_HISTORY_MESSAGE_CHARS,
   MAX_MESSAGE_LENGTH,
+  buildJobContext,
   buildResumeContext,
 } from "@/lib/farah/token-budget";
 import {
@@ -16,9 +17,11 @@ import {
   commitFarahChatAllowance,
   InsufficientCreditsError,
 } from "@/lib/farah/chat-gate";
+import { JOB_FIT_ENTRY_POINT } from "@/lib/farah/job-seed";
+import type { MatchExplanation } from "@/lib/matching/score";
 
 /** The only quick actions that actually start a chat — see quick-actions.ts. */
-const CHAT_ENTRY_POINTS = new Set(["interview-prep", "career-advisor", "salary-negotiation"]);
+const CHAT_ENTRY_POINTS = new Set(["interview-prep", "career-advisor", "salary-negotiation", JOB_FIT_ENTRY_POINT]);
 
 function resolveEntryPoint(quickAction: string | undefined): FarahEntryPoint {
   return quickAction && CHAT_ENTRY_POINTS.has(quickAction)
@@ -56,6 +59,10 @@ export async function POST(request: Request) {
   const quickAction = typeof body.quickAction === "string" ? body.quickAction : undefined;
   const context = quickAction ? { quickAction } : {};
   const sessionId = typeof body.sessionId === "string" ? body.sessionId : undefined;
+  // send-100: only ever sent alongside a job-seeded starter, but not
+  // enforced as a pairing here — this route just grounds whatever jobId it
+  // gets, silently skipping if the lookup below comes up empty.
+  const jobId = typeof body.jobId === "string" ? body.jobId : undefined;
 
   if (!message) {
     return NextResponse.json({ error: "Say something for Farah to respond to." }, { status: 400 });
@@ -147,7 +154,40 @@ export async function POST(request: Request) {
   // past a skills-only cap. Truncating after building keeps the leading
   // "don't invent detail" instruction, which a head-truncation would preserve
   // and a tail-truncation would not.
-  const extraContext = baseResume ? buildResumeContext(baseResume) : undefined;
+  const resumeContext = baseResume ? buildResumeContext(baseResume) : undefined;
+
+  /*
+   * send-100's job grounding. Both queries go through `supabase` — the
+   * SESSION-scoped, RLS-enforced client this route already uses, not a
+   * service-role client — so an unverified org's posting or another user's
+   * match_scores row can't leak in here just because a client sent that
+   * jobId; RLS is what actually enforces both restrictions (CLAUDE.md's own
+   * warning about a DEFINER function silently opting out of the verified
+   * gate is precisely why this reuses the ambient client instead of reaching
+   * for one). A missing job or a not-yet-computed score just means no job
+   * context — the chat still works, ungrounded, rather than erroring.
+   */
+  let jobContext: string | undefined;
+  if (jobId) {
+    const [{ data: jobRow }, { data: scoreRow }] = await Promise.all([
+      supabase.from("job_postings").select("title, company_name").eq("id", jobId).maybeSingle(),
+      supabase
+        .from("match_scores")
+        .select("explanation")
+        .eq("user_id", user.id)
+        .eq("job_posting_id", jobId)
+        .maybeSingle(),
+    ]);
+    if (jobRow && scoreRow?.explanation) {
+      jobContext = buildJobContext(
+        { title: jobRow.title, companyName: jobRow.company_name },
+        scoreRow.explanation as unknown as MatchExplanation,
+      );
+    }
+  }
+
+  const extraContext =
+    [resumeContext, jobContext].filter((part): part is string => !!part).join("\n\n") || undefined;
 
   const turns: FarahChatTurn[] = [
     ...[...(historyRows ?? [])]

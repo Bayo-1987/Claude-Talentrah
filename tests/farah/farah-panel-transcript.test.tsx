@@ -66,3 +66,61 @@ describe("an explicit initialMessages override (the documented escape hatch, e.g
     expect(html).not.toContain("Continue where you left off");
   });
 });
+
+/**
+ * send-100's job-seeded arrival view. `initialJobSeed` is the same kind of
+ * documented escape hatch as `initialMessages` above — the real seed only
+ * ever arrives via `onFarahJobSeed`'s window-event listener (job-seed.ts),
+ * registered inside a `useEffect` that (per this file's own header) never
+ * runs under `renderToStaticMarkup`. Without this prop there would be no way
+ * to render the seeded branch at all in this test environment; the event
+ * round trip itself still needs a real browser, same boundary as the
+ * history fetch above.
+ */
+describe("a job seed present on arrival (initialJobSeed — the same kind of escape hatch)", () => {
+  const SEED = { jobId: "job-42", jobTitle: "Backend Engineer", companyName: "Flutterwave" };
+
+  it("renders the templated opener naming the job, not the default greeting", () => {
+    const html = renderToStaticMarkup(<FarahPanel firstName="Ada" initialJobSeed={SEED} />);
+    expect(html).toContain("Backend Engineer");
+    expect(html).toContain("Flutterwave");
+    expect(html).not.toContain("I can tailor your resume to any of these");
+  });
+
+  it("renders all four starters, the two chat ones before the two /tailor links", () => {
+    const html = renderToStaticMarkup(<FarahPanel firstName="Ada" initialJobSeed={SEED} />);
+    const fitIdx = html.indexOf("Why is this a good fit for me?");
+    const tipsIdx = html.indexOf("What resume tips do you have for this role?");
+    const tailorIdx = html.indexOf("Tailor my resume for this job");
+    const introIdx = html.indexOf("Draft an intro message for this job");
+    for (const idx of [fitIdx, tipsIdx, tailorIdx, introIdx]) expect(idx).toBeGreaterThan(-1);
+    expect(fitIdx).toBeLessThan(tipsIdx);
+    expect(tipsIdx).toBeLessThan(tailorIdx);
+    expect(tailorIdx).toBeLessThan(introIdx);
+  });
+
+  it("the two link starters carry this exact job's id, one with coverLetter=1", () => {
+    const html = renderToStaticMarkup(<FarahPanel firstName="Ada" initialJobSeed={SEED} />);
+    expect(html).toContain(`/tailor?jobId=${SEED.jobId}"`);
+    expect(html).toContain(`/tailor?jobId=${SEED.jobId}&amp;coverLetter=1"`);
+  });
+
+  it("does NOT replace the panel's own quick-actions block below it", () => {
+    // send-100's own instruction: the seeded content renders ABOVE the
+    // existing empty-state content, never in place of the generic
+    // interview-prep/career-advisor/salary-negotiation quick actions.
+    const html = renderToStaticMarkup(<FarahPanel firstName="Ada" initialJobSeed={SEED} />);
+    expect(html).toContain("Job Interview Prep");
+    expect(html).toContain("Career Advisor");
+    expect(html).toContain("Salary Negotiation");
+  });
+
+  it("a seed present alongside real messages does not resurface — an active conversation is not interrupted", () => {
+    const html = renderToStaticMarkup(
+      <FarahPanel firstName="Ada" initialJobSeed={SEED} initialMessages={[OLD_TURN]} />,
+    );
+    expect(html).not.toContain("Backend Engineer");
+    expect(html).not.toContain("Why is this a good fit for me?");
+    expect(html).toContain(OLD_TURN.content);
+  });
+});

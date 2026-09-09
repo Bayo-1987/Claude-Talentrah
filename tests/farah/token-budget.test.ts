@@ -31,15 +31,18 @@ import {
   HISTORY_TURNS,
   MAX_EXTRA_CONTEXT_CHARS,
   MAX_HISTORY_MESSAGE_CHARS,
+  MAX_JOB_CONTEXT_CHARS,
   MAX_MESSAGE_LENGTH,
   PROVIDER_TPM_LIMIT,
   REQUEST_TOKEN_CEILING,
+  buildJobContext,
   buildResumeContext,
   estimateTokens,
   estimateWorstCaseRequestTokens,
 } from "@/lib/farah/token-budget";
 import { FARAH_SYSTEM_PROMPT } from "@/lib/farah/system-prompt";
 import type { StructuredResume } from "@/lib/resume/types";
+import type { MatchExplanation } from "@/lib/matching/score";
 
 const SYSTEM_PROMPT_CHARS = FARAH_SYSTEM_PROMPT.length;
 
@@ -152,4 +155,50 @@ describe("a realistic conversation, not just the theoretical maximum", () => {
 
     expect(realistic).toBeLessThan(4000);
   });
+});
+
+describe("send-100's job-seeded grounding", () => {
+  const gapHeavyExplanation: MatchExplanation = {
+    matchedSkills: Array.from({ length: 20 }, (_, i) => `matched-skill-${i}`),
+    missingSkills: Array.from({ length: 20 }, (_, i) => `missing-skill-${i}`),
+    seniorityAlignment: "below",
+  };
+
+  it("caps the job context no matter how many skills the explanation carries", () => {
+    const context = buildJobContext(
+      { title: "Senior Backend Engineer", companyName: "Flutterwave" },
+      gapHeavyExplanation,
+    );
+    expect(context.length).toBeLessThanOrEqual(MAX_JOB_CONTEXT_CHARS);
+    expect(context).toContain("don't invent detail");
+  });
+
+  it("names the actual job and reuses fitSummary's own wording, not a re-derived copy", () => {
+    const context = buildJobContext(
+      { title: "Senior Backend Engineer", companyName: "Flutterwave" },
+      { matchedSkills: ["sql"], missingSkills: [], seniorityAlignment: "match" },
+    );
+    expect(context).toContain("Senior Backend Engineer at Flutterwave");
+    expect(context).toContain("The seniority looks right for you");
+  });
+
+  it(
+    "a worst-case turn WITH job context, on top of a maxed resume context, still clears the " +
+      "provider ceiling with real headroom — the two budgets are independent, not shared",
+    () => {
+      const withJobContext = estimateWorstCaseRequestTokens({
+        systemPromptChars: SYSTEM_PROMPT_CHARS,
+        historyTurns: HISTORY_TURNS,
+        maxMessageChars: MAX_MESSAGE_LENGTH,
+        maxExtraContextChars: MAX_EXTRA_CONTEXT_CHARS + MAX_JOB_CONTEXT_CHARS,
+        maxOutputTokens: CHAT_MAX_OUTPUT_TOKENS,
+        storedReplyMaxTokens: 1536,
+        historyMessageMaxChars: MAX_HISTORY_MESSAGE_CHARS,
+      });
+
+      expect(withJobContext).toBeLessThan(REQUEST_TOKEN_CEILING);
+      expect(withJobContext).toBeLessThan(PROVIDER_TPM_LIMIT);
+      expect(PROVIDER_TPM_LIMIT - withJobContext).toBeGreaterThan(1000);
+    },
+  );
 });

@@ -26,6 +26,8 @@
  */
 
 import type { StructuredResume } from "@/lib/resume/types";
+import type { MatchExplanation } from "@/lib/matching/score";
+import { fitSummary, gapSkills } from "@/lib/matching/vet-summary";
 
 /** Groq's per-minute cap for `openai/gpt-oss-120b` on the tier production uses. */
 export const PROVIDER_TPM_LIMIT = 8000;
@@ -57,6 +59,18 @@ export const MAX_EXTRA_CONTEXT_CHARS = 500;
 
 /** Skills included in that grounding string before truncation. */
 export const MAX_EXTRA_CONTEXT_SKILLS = 10;
+
+/**
+ * Hard ceiling on the job-seeded grounding string (send-100) — same
+ * discipline as MAX_EXTRA_CONTEXT_CHARS, a sibling budget line rather than a
+ * bigger shared one, so a job-seeded turn's total extra context is capped by
+ * construction (resume + job, each independently bounded) instead of by a
+ * single number two unrelated builders would have to coordinate on.
+ */
+export const MAX_JOB_CONTEXT_CHARS = 500;
+
+/** Skills included in the job-context string (matched or missing) before truncation. */
+export const MAX_JOB_CONTEXT_SKILLS = 10;
 
 /**
  * Reserved output for CHAT specifically. Was 1536, shared with `askFarah`'s
@@ -152,4 +166,29 @@ Most recent role: ${resume.experience[0] ? `${resume.experience[0].title} at ${r
     0,
     MAX_EXTRA_CONTEXT_CHARS,
   );
+}
+
+/**
+ * The job-seeded grounding string appended alongside `buildResumeContext`'s
+ * output when a chat message was sent through a job card's "Ask Farah"
+ * starter (send-100).
+ *
+ * Deliberately reuses `fitSummary`/`gapSkills` (src/lib/matching/vet-summary.ts)
+ * rather than re-deriving matched/missing skills text — those already read
+ * `match_scores.explanation`, the same object the job card's own free Vet
+ * answers are built from, and CLAUDE.md's match-tier rule (no prose that
+ * restates Excellent/Good/Fair) is enforced there once rather than twice.
+ */
+export function buildJobContext(
+  job: { title: string; companyName: string },
+  explanation: MatchExplanation,
+): string {
+  const missing = gapSkills(explanation);
+  const gapLine = missing
+    ? `Skills this posting names that aren't on the user's resume yet: ${missing.slice(0, MAX_JOB_CONTEXT_SKILLS).join(", ")}.`
+    : "No named skill gaps.";
+  return `Context on the job the user is asking about (only reference what's actually here — don't invent detail beyond it):
+Job: ${job.title} at ${job.companyName}
+${fitSummary(explanation)}
+${gapLine}`.slice(0, MAX_JOB_CONTEXT_CHARS);
 }
