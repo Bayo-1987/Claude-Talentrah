@@ -1,5 +1,5 @@
 import "server-only";
-import { getLLMProvider } from "@/lib/llm";
+import { generateWithFailover } from "@/lib/llm";
 import { EMPTY_RESUME, type StructuredResume } from "./types";
 import { sanitizeStructuredResume, wasDegenerate } from "./sanitize";
 
@@ -142,16 +142,18 @@ const EXTRACTION_SCHEMA = {
 };
 
 async function callLLMRaw(rawText: string): Promise<string> {
-  const text = await getLLMProvider().generateText({
-    turns: [
-      {
-        role: "user",
-        content: `Extract structured fields from this resume text. Leave fields empty/omitted rather than guessing when the text doesn't clearly say so.\n\n---\n${rawText.slice(0, 15000)}`,
-      },
-    ],
-    maxOutputTokens: 2048,
-    jsonSchema: EXTRACTION_SCHEMA,
-  });
+  const text = await generateWithFailover((provider) =>
+    provider.generateText({
+      turns: [
+        {
+          role: "user",
+          content: `Extract structured fields from this resume text. Leave fields empty/omitted rather than guessing when the text doesn't clearly say so.\n\n---\n${rawText.slice(0, 15000)}`,
+        },
+      ],
+      maxOutputTokens: 2048,
+      jsonSchema: EXTRACTION_SCHEMA,
+    }),
+  );
 
   if (!text) {
     throw new Error("The LLM fallback did not return structured resume data.");
