@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui";
 import { resubscribeAction } from "./actions";
+import type { UnsubscribablePreference } from "./preference";
 
 /**
  * Undo, in one click and with no sign-in.
@@ -12,15 +13,23 @@ import { resubscribeAction } from "./actions";
  * channel they had chosen to keep — so the same token that switched it off
  * switches it on again.
  */
-export function ResubscribeButton({ token }: { token: string }) {
+const CONFIRMATION_COPY: Record<UnsubscribablePreference, string> = {
+  job_match_digest: "You're subscribed again — the weekly job-match email will keep coming.",
+  proactive_match_alert:
+    "You're subscribed again — you'll hear from Farah if an exceptional match turns up.",
+};
+
+export function ResubscribeButton({
+  token,
+  preference,
+}: {
+  token: string;
+  preference: UnsubscribablePreference;
+}) {
   const [state, setState] = useState<"idle" | "working" | "done" | "failed">("idle");
 
   if (state === "done") {
-    return (
-      <p className="text-[15.5px] text-ink">
-        You&apos;re subscribed again — the weekly job-match email will keep coming.
-      </p>
-    );
+    return <p className="text-[15.5px] text-ink">{CONFIRMATION_COPY[preference]}</p>;
   }
 
   return (
@@ -31,7 +40,7 @@ export function ResubscribeButton({ token }: { token: string }) {
         disabled={state === "working"}
         onClick={async () => {
           setState("working");
-          setState((await resubscribeAction(token)) ? "done" : "failed");
+          setState((await resubscribeAction(token, preference)) ? "done" : "failed");
         }}
       >
         {state === "working" ? "Undoing…" : "Actually, keep sending them"}

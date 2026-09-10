@@ -291,14 +291,26 @@ async function loadCandidates(
 
   const jobIds = listable.map((p) => p.jobId);
 
-  // Saved or applied — either means they have seen it, so it is not news.
-  const { data: acted, error: actedError } = await supabase
-    .from("applications")
-    .select("job_posting_id")
-    .eq("user_id", userId)
-    .in("job_posting_id", jobIds);
+  /*
+   * Two reasons a job is not news, queried the same way: saved/applied means
+   * the person has already seen it; already surfaced by send-138's own
+   * proactive "exceptional match" alert means Farah already told them about
+   * it directly, which is a stronger version of the same fact. Folded into
+   * one `alreadyActedOn` flag rather than a second field — the digest's own
+   * silence rule (selectDigestJobs) only ever asks "has this been dealt with
+   * already", not which mechanism dealt with it, so a second field would be
+   * a distinction nothing downstream reads.
+   */
+  const [{ data: acted, error: actedError }, { data: alerted, error: alertedError }] = await Promise.all([
+    supabase.from("applications").select("job_posting_id").eq("user_id", userId).in("job_posting_id", jobIds),
+    supabase.from("proactive_match_alerts").select("job_posting_id").eq("user_id", userId).in("job_posting_id", jobIds),
+  ]);
   if (actedError) throw actedError;
-  const seen = new Set((acted ?? []).map((a) => a.job_posting_id));
+  if (alertedError) throw alertedError;
+  const seen = new Set([
+    ...(acted ?? []).map((a) => a.job_posting_id),
+    ...(alerted ?? []).map((a) => a.job_posting_id),
+  ]);
 
   return listable.map((p) => ({
     jobId: p.jobId,

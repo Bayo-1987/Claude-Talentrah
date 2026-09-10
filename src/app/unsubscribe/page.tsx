@@ -5,9 +5,13 @@ import { MarketingFooter } from "@/components/marketing/marketing-footer";
 import { Container, EyebrowLabel } from "@/components/ui";
 import { pageMetadata } from "@/lib/seo/site";
 import { ResubscribeButton } from "./resubscribe-button";
+import { parsePreference } from "./preference";
 
 /**
- * Unsubscribe, reached from a link in the digest.
+ * Unsubscribe, reached from a link in either the digest or send-138's
+ * proactive match alert — `pref` in the query string picks which
+ * (defaulting to the digest, so every digest email already sent before
+ * send-138 existed still points at valid behaviour with no `pref` at all).
  *
  * ── NO SESSION, BY NECESSITY ──────────────────────────────────────────────
  *
@@ -44,26 +48,44 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
+const COPY = {
+  job_match_digest: {
+    unsubscribed: {
+      heading: "You're unsubscribed.",
+      body: "We won't send you the weekly job-match email again. This doesn't affect your account, and it doesn't stop messages about things you asked for — password resets, payment receipts, and the like.",
+    },
+  },
+  proactive_match_alert: {
+    unsubscribed: {
+      heading: "You're unsubscribed.",
+      body: "Farah won't send the rare \"exceptional match\" alert to your inbox again. This doesn't affect your account, your weekly digest (if you're subscribed to it), or anything else Talentrah sends.",
+    },
+  },
+} as const;
+
 export default async function UnsubscribePage({
   searchParams,
 }: {
-  searchParams: Promise<{ token?: string }>;
+  searchParams: Promise<{ token?: string; pref?: string }>;
 }) {
-  const { token } = await searchParams;
+  const { token, pref } = await searchParams;
+  const preference = parsePreference(pref);
 
   let matched = false;
   if (token) {
     const supabase = createServiceRoleClient();
-    const { data, error } = await supabase.rpc("email_unsubscribe", {
-      p_token: token,
-      p_subscribed: false,
-    });
+    const { data, error } =
+      preference === "proactive_match_alert"
+        ? await supabase.rpc("proactive_match_alert_set_preference", { p_token: token, p_enabled: false })
+        : await supabase.rpc("email_unsubscribe", { p_token: token, p_subscribed: false });
     if (error) {
       console.error("[unsubscribe] rpc failed:", error.message);
     } else {
       matched = data?.[0]?.matched === true;
     }
   }
+
+  const copy = COPY[preference].unsubscribed;
 
   return (
     <>
@@ -73,15 +95,11 @@ export default async function UnsubscribePage({
           <EyebrowLabel>Email preferences</EyebrowLabel>
           {matched ? (
             <>
-              <h1 className="text-[32px] leading-[1.25]">You&apos;re unsubscribed.</h1>
-              <p className="text-[15.5px] text-ink-soft">
-                We won&apos;t send you the weekly job-match email again. This doesn&apos;t affect
-                your account, and it doesn&apos;t stop messages about things you asked for —
-                password resets, payment receipts, and the like.
-              </p>
+              <h1 className="text-[32px] leading-[1.25]">{copy.heading}</h1>
+              <p className="text-[15.5px] text-ink-soft">{copy.body}</p>
               {/* Undo, because a mis-click or a link scanner should not cost
                   somebody a channel they wanted. */}
-              <ResubscribeButton token={token!} />
+              <ResubscribeButton token={token!} preference={preference} />
             </>
           ) : (
             <>

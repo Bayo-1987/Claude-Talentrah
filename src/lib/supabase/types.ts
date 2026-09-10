@@ -1064,6 +1064,7 @@ export type Database = {
           created_at: string
           digest_last_sent_at: string | null
           job_match_digest: boolean
+          proactive_match_alert: boolean
           unsubscribe_token: string
           updated_at: string
           user_id: string
@@ -1072,6 +1073,7 @@ export type Database = {
           created_at?: string
           digest_last_sent_at?: string | null
           job_match_digest?: boolean
+          proactive_match_alert?: boolean
           unsubscribe_token?: string
           updated_at?: string
           user_id: string
@@ -1080,6 +1082,7 @@ export type Database = {
           created_at?: string
           digest_last_sent_at?: string | null
           job_match_digest?: boolean
+          proactive_match_alert?: boolean
           unsubscribe_token?: string
           updated_at?: string
           user_id?: string
@@ -1811,6 +1814,42 @@ export type Database = {
           },
         ]
       }
+      proactive_match_alerts: {
+        Row: {
+          job_posting_id: string
+          score: number
+          sent_at: string
+          user_id: string
+        }
+        Insert: {
+          job_posting_id: string
+          score: number
+          sent_at?: string
+          user_id: string
+        }
+        Update: {
+          job_posting_id?: string
+          score?: number
+          sent_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proactive_match_alerts_job_posting_id_fkey"
+            columns: ["job_posting_id"]
+            isOneToOne: false
+            referencedRelation: "job_postings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proactive_match_alerts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           country: string | null
@@ -2250,6 +2289,47 @@ export type Database = {
           },
         ]
       }
+      user_notifications: {
+        Row: {
+          body: string
+          created_at: string
+          id: string
+          link: string | null
+          read_at: string | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          id?: string
+          link?: string | null
+          read_at?: string | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          id?: string
+          link?: string | null
+          read_at?: string | null
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_notifications_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_passes: {
         Row: {
           authorization_code: string | null
@@ -2646,6 +2726,13 @@ export type Database = {
         Returns: {
           job_match_digest: boolean
           matched: boolean
+        }[]
+      }
+      proactive_match_alert_set_preference: {
+        Args: { p_enabled?: boolean; p_token: string }
+        Returns: {
+          matched: boolean
+          proactive_match_alert: boolean
         }[]
       }
       employer_job_applicants: {

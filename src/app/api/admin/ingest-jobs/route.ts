@@ -6,6 +6,7 @@ import {
   EXTERNAL_STALE_AFTER_HOURS,
 } from "@/lib/jobs/expiry";
 import { requireAdminSecret, requireCronSecret, internalError } from "@/lib/api/admin-auth";
+import { sendProactiveMatchAlerts } from "@/lib/notifications/proactive-match-alert/send";
 
 /**
  * Trigger for the job aggregation pipeline. Not on any user-facing request
@@ -77,6 +78,15 @@ async function runAndRespond(trigger: "cron" | "manual") {
       console.error(`[job-expiry] sweep FAILED, continuing to ingestion:`, err);
     }
 
+    /*
+     * Captured BEFORE ingestion runs, not after. `sendProactiveMatchAlerts`
+     * below identifies "this run's new postings" as `created_at >=
+     * ingestStartedAt` — capturing the marker before the upsert guarantees
+     * every row this run actually inserts has a `created_at` at or after it
+     * (Postgres's own `now()` for the insert cannot predate a timestamp this
+     * process already read), so no genuinely-new posting is ever missed.
+     */
+    const ingestStartedAt = new Date().toISOString();
     const results = await ingestAllSources();
     const total = results.reduce((n, r) => n + r.upserted, 0);
     const failed = results.filter((r) => r.error);
@@ -107,6 +117,22 @@ async function runAndRespond(trigger: "cron" | "manual") {
     }
 
     /*
+     * send-138: Farah's proactive "exceptional match" alert. Runs LAST,
+     * after both sweeps, for the same reason expiry runs first and staleness
+     * runs last — this is a third, unrelated job riding the same schedule,
+     * and its own failure must not cancel ingestion or either sweep, exactly
+     * as neither of those may cancel each other.
+     */
+    let proactiveAlerts: { sent: number; error?: string };
+    try {
+      const alertSummary = await sendProactiveMatchAlerts(ingestStartedAt);
+      proactiveAlerts = { sent: alertSummary.sent };
+    } catch (err) {
+      proactiveAlerts = { sent: 0, error: err instanceof Error ? err.message : String(err) };
+      console.error(`[proactive-match-alert] run FAILED:`, err);
+    }
+
+    /*
      * A run where every source failed used to answer 200.
      *
      * `ingestAllSources` catches per source and records the reason in
@@ -129,18 +155,19 @@ async function runAndRespond(trigger: "cron" | "manual") {
       `[job-ingest] ${trigger} run: sources=${results.length} upserted=${total} ` +
         `expired=${expiry.closed}${expiry.error ? ` (sweep failed: ${expiry.error})` : ""} ` +
         `staleClosed=${staleSweep.closed}${staleSweep.error ? ` (sweep failed: ${staleSweep.error})` : ""} ` +
+        `proactiveAlertsSent=${proactiveAlerts.sent}${proactiveAlerts.error ? ` (failed: ${proactiveAlerts.error})` : ""} ` +
         `failed=${failed.length}` +
         (failed.length ? ` — ${failed.map((r) => `${r.source}/${r.identifier}: ${r.error}`).join("; ")}` : ""),
     );
 
     if (failed.length > 0 && failed.length === results.length) {
       return NextResponse.json(
-        { results, expiry, staleSweep, error: "every configured source failed" },
+        { results, expiry, staleSweep, proactiveAlerts, error: "every configured source failed" },
         { status: 500 },
       );
     }
 
-    return NextResponse.json({ results, expiry, staleSweep });
+    return NextResponse.json({ results, expiry, staleSweep, proactiveAlerts });
   } catch (err) {
     // Previously unguarded: a throw from any single source produced an
     // unhandled rejection and a bare 500 with a framework stack, rather than
