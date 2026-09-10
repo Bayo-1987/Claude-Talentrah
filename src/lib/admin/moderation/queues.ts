@@ -395,6 +395,56 @@ export async function feedbackQueue(
   });
 }
 
+export interface PendingMentorApplication {
+  userId: string;
+  name: string;
+  email: string;
+  bio: string | null;
+  expertiseRoles: string[];
+  expertiseIndustries: string[];
+  yearsExperience: number | null;
+  basePriceNgn: number | null;
+  appliedAt: string;
+}
+
+/**
+ * Mentor applications awaiting an admin's approve/reject (send-137,
+ * build-prompt §6.11). "Awaiting" is `status = 'pending'` — the same plain
+ * reading as every other queue here. No mentor is publicly listed before
+ * this decision (0133's mentor_profiles SELECT policy: `status = 'approved'
+ * or user_id = auth.uid()`), so an applicant sitting in this queue is
+ * invisible to every other user in the meantime.
+ */
+export async function pendingMentorApplications(): Promise<PendingMentorApplication[]> {
+  const supabase = createServiceRoleClient();
+  const { data, error } = await supabase
+    .from("mentor_profiles")
+    .select(
+      "user_id, bio, expertise_roles, expertise_industries, years_experience, base_price_ngn, applied_at, profiles!mentor_profiles_user_id_fkey(first_name, last_name, email)",
+    )
+    .eq("status", "pending")
+    .order("applied_at", { ascending: true });
+
+  if (error) throw error;
+  return (data ?? []).map((r) => {
+    const profile = r.profiles;
+    const name = profile
+      ? [profile.first_name, profile.last_name].filter(Boolean).join(" ").trim()
+      : "";
+    return {
+      userId: r.user_id,
+      name: name || "(no name on file)",
+      email: profile?.email ?? "",
+      bio: r.bio,
+      expertiseRoles: r.expertise_roles,
+      expertiseIndustries: r.expertise_industries,
+      yearsExperience: r.years_experience,
+      basePriceNgn: r.base_price_ngn,
+      appliedAt: r.applied_at,
+    };
+  });
+}
+
 /** Counts for the nav, in one place so the screens and the shell agree. */
 export async function queueCounts(): Promise<{
   scholarships: number;
@@ -406,6 +456,7 @@ export async function queueCounts(): Promise<{
   finance: number;
   employerVerification: number;
   jobReview: number;
+  mentorReview: number;
 }> {
   const [
     scholarships,
@@ -417,6 +468,7 @@ export async function queueCounts(): Promise<{
     finance,
     employerVerification,
     jobReview,
+    mentorReview,
   ] = await Promise.all([
     pendingScholarships(),
     reportedPostings(),
@@ -439,6 +491,8 @@ export async function queueCounts(): Promise<{
     pendingCacVerifications(),
     // Path 3 (0118/0119) requests nobody has decided yet.
     pendingJobReviews(),
+    // Mentor applications nobody has approved or rejected yet (0132/0133).
+    pendingMentorApplications(),
   ]);
   return {
     scholarships: scholarships.length,
@@ -450,5 +504,6 @@ export async function queueCounts(): Promise<{
     finance: finance.pendingCount,
     employerVerification: employerVerification.length,
     jobReview: jobReview.length,
+    mentorReview: mentorReview.length,
   };
 }

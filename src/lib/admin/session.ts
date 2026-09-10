@@ -70,6 +70,10 @@ export type AdminPermission =
   // exact gate 0027 exists to keep shut, not a plain content area — starts
   // granted to nobody, exactly like `people_list` and `employer_verification`.
   | "job_review"
+  // 0132/0133. Deciding whether a mentor application is publicly listed is a
+  // trust decision over a new public-facing surface, not a plain content
+  // area — starts granted to nobody, exactly like the three above it.
+  | "mentor_review"
   | "operators";
 
 export interface AdminIdentity {

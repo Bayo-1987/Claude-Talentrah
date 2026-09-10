@@ -53,6 +53,12 @@ const ITEMS = [
     permission: "employer_verification",
   },
   { href: "/admin/job-review", label: "Job review", key: "jobReview", permission: "job_review" },
+  {
+    href: "/admin/mentor-review",
+    label: "Mentor applications",
+    key: "mentorReview",
+    permission: "mentor_review",
+  },
 ] as const;
 
 /*

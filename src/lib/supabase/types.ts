@@ -1609,6 +1609,235 @@ export type Database = {
           },
         ]
       }
+      mentor_availability_slots: {
+        Row: {
+          created_at: string
+          end_at: string
+          id: string
+          is_booked: boolean
+          mentor_id: string
+          start_at: string
+        }
+        Insert: {
+          created_at?: string
+          end_at: string
+          id?: string
+          is_booked?: boolean
+          mentor_id: string
+          start_at: string
+        }
+        Update: {
+          created_at?: string
+          end_at?: string
+          id?: string
+          is_booked?: boolean
+          mentor_id?: string
+          start_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mentor_availability_slots_mentor_id_fkey"
+            columns: ["mentor_id"]
+            isOneToOne: false
+            referencedRelation: "mentor_profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      mentor_profiles: {
+        Row: {
+          applied_at: string
+          base_price_ngn: number | null
+          bio: string | null
+          expertise_industries: string[]
+          expertise_roles: string[]
+          expertise_seniority: Database["public"]["Enums"]["seniority_level"][]
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          user_id: string
+          years_experience: number | null
+        }
+        Insert: {
+          applied_at?: string
+          base_price_ngn?: number | null
+          bio?: string | null
+          expertise_industries?: string[]
+          expertise_roles?: string[]
+          expertise_seniority?: Database["public"]["Enums"]["seniority_level"][]
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          user_id: string
+          years_experience?: number | null
+        }
+        Update: {
+          applied_at?: string
+          base_price_ngn?: number | null
+          bio?: string | null
+          expertise_industries?: string[]
+          expertise_roles?: string[]
+          expertise_seniority?: Database["public"]["Enums"]["seniority_level"][]
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          user_id?: string
+          years_experience?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mentor_profiles_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mentor_profiles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mentorship_reviews: {
+        Row: {
+          created_at: string
+          id: string
+          mentor_id: string
+          rating: number
+          review_text: string | null
+          reviewer_id: string
+          session_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          mentor_id: string
+          rating: number
+          review_text?: string | null
+          reviewer_id: string
+          session_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          mentor_id?: string
+          rating?: number
+          review_text?: string | null
+          reviewer_id?: string
+          session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mentorship_reviews_mentor_id_fkey"
+            columns: ["mentor_id"]
+            isOneToOne: false
+            referencedRelation: "mentor_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "mentorship_reviews_reviewer_id_fkey"
+            columns: ["reviewer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mentorship_reviews_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "mentorship_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mentorship_sessions: {
+        Row: {
+          availability_slot_id: string
+          created_at: string
+          id: string
+          meeting_link: string | null
+          mentee_id: string
+          mentee_notes: string | null
+          mentor_confirmed_at: string | null
+          mentor_id: string
+          mentor_notes: string | null
+          mentor_payout_ngn: number
+          platform_commission_ngn: number
+          price_ngn: number
+          scheduled_end: string
+          scheduled_start: string
+          session_type: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          availability_slot_id: string
+          created_at?: string
+          id?: string
+          meeting_link?: string | null
+          mentee_id: string
+          mentee_notes?: string | null
+          mentor_confirmed_at?: string | null
+          mentor_id: string
+          mentor_notes?: string | null
+          mentor_payout_ngn?: number
+          platform_commission_ngn?: number
+          price_ngn?: number
+          scheduled_end: string
+          scheduled_start: string
+          session_type: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          availability_slot_id?: string
+          created_at?: string
+          id?: string
+          meeting_link?: string | null
+          mentee_id?: string
+          mentee_notes?: string | null
+          mentor_confirmed_at?: string | null
+          mentor_id?: string
+          mentor_notes?: string | null
+          mentor_payout_ngn?: number
+          platform_commission_ngn?: number
+          price_ngn?: number
+          scheduled_end?: string
+          scheduled_start?: string
+          session_type?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mentorship_sessions_availability_slot_id_fkey"
+            columns: ["availability_slot_id"]
+            isOneToOne: true
+            referencedRelation: "mentor_availability_slots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mentorship_sessions_mentee_id_fkey"
+            columns: ["mentee_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mentorship_sessions_mentor_id_fkey"
+            columns: ["mentor_id"]
+            isOneToOne: false
+            referencedRelation: "mentor_profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       organization_members: {
         Row: {
           created_at: string
@@ -2492,6 +2721,18 @@ export type Database = {
           reason: string
         }[]
       }
+      admin_moderate_mentor_application: {
+        Args: {
+          p_actor: string
+          p_decision: string
+          p_mentor_user_id: string
+          p_note: string
+        }
+        Returns: {
+          ok: boolean
+          reason: string
+        }[]
+      }
       admin_moderate_scholarship: {
         Args: {
           p_actor: string
@@ -2612,6 +2853,18 @@ export type Database = {
           pass_covered: boolean
           reason: string
           source_type: Database["public"]["Enums"]["job_source_type"]
+        }[]
+      }
+      book_mentor_session: {
+        Args: {
+          p_availability_slot_id: string
+          p_mentee_id: string
+          p_session_type: string
+        }
+        Returns: {
+          mentor_id: string
+          price_ngn: number
+          session_id: string
         }[]
       }
       charge_ad_campaign_day: {
@@ -2797,6 +3050,14 @@ export type Database = {
           name: string
         }[]
       }
+      mark_mentor_session_confirmed: {
+        Args: {
+          p_meeting_link: string
+          p_mentor_id: string
+          p_session_id: string
+        }
+        Returns: boolean
+      }
       normalize_company_name: { Args: { p_name: string }; Returns: string }
       normalize_email_for_self_referral: {
         Args: { p_email: string }
@@ -2975,6 +3236,7 @@ export type Database = {
         | "people_list"
         | "employer_verification"
         | "job_review"
+        | "mentor_review"
       applicant_review_status:
         | "new"
         | "reviewing"
@@ -3034,7 +3296,11 @@ export type Database = {
       org_member_role: "owner" | "admin"
       pass_auto_renew_status: "active" | "canceled" | "lapsed"
       pass_payment_method: "card" | "mobile_money"
-      payment_product_type: "credit_pack" | "pass" | "ad_wallet_topup"
+      payment_product_type:
+        | "credit_pack"
+        | "pass"
+        | "ad_wallet_topup"
+        | "mentor_session"
       payment_status: "pending" | "success" | "failed"
       referral_status: "invited" | "signed_up" | "activated"
       resume_source: "uploaded" | "builder" | "tailored"
@@ -3208,6 +3474,7 @@ export const Constants = {
         "people_list",
         "employer_verification",
         "job_review",
+        "mentor_review",
       ],
       applicant_review_status: [
         "new",
@@ -3274,7 +3541,12 @@ export const Constants = {
       org_member_role: ["owner", "admin"],
       pass_auto_renew_status: ["active", "canceled", "lapsed"],
       pass_payment_method: ["card", "mobile_money"],
-      payment_product_type: ["credit_pack", "pass", "ad_wallet_topup"],
+      payment_product_type: [
+        "credit_pack",
+        "pass",
+        "ad_wallet_topup",
+        "mentor_session",
+      ],
       payment_status: ["pending", "success", "failed"],
       referral_status: ["invited", "signed_up", "activated"],
       resume_source: ["uploaded", "builder", "tailored"],

@@ -187,6 +187,38 @@ export async function fulfillPayment(
         p_actor_user_id: transaction.user_id,
       });
     }
+  } else if (transaction.product_type === "mentor_session" && transaction.product_id) {
+    /*
+     * The session row already exists — book_mentor_session (0133) created it
+     * in `pending_payment`, atomically with the slot lock, at booking time,
+     * BEFORE payment was even initiated. Fulfilment's only job for a mentor
+     * session is to move it to `awaiting_confirmation` (waiting on the
+     * mentor) once Paystack confirms the charge — there is no separate
+     * "grant" step the way credits/passes have one, because the thing being
+     * sold (a specific slot) was already reserved at booking.
+     *
+     * `.eq("status", "pending_payment")` is a second, independent layer of
+     * idempotency on top of this function's own top-level
+     * `transaction.status !== "pending"` guard: that guard already stops a
+     * webhook redelivery from reaching this branch twice for the same
+     * payment_transactions row, but this makes the SESSION-side state change
+     * itself a no-op if it were ever somehow reached twice — the same
+     * belt-and-braces reasoning as credit_ad_wallet's own reference-based
+     * unique index backing up the guard above it. A webhook redelivery can
+     * therefore never double-book or double-charge a session: fulfilment
+     * itself is blocked at the top, and even a bypass of that lands on a
+     * conditional UPDATE that only ever fires once.
+     */
+    const { data: session } = await supabase
+      .from("mentorship_sessions")
+      .update({ status: "awaiting_confirmation", updated_at: new Date().toISOString() })
+      .eq("id", transaction.product_id)
+      .eq("status", "pending_payment")
+      .select("session_type")
+      .maybeSingle();
+    if (session) {
+      purchased = `Mentorship session (${session.session_type.replace(/_/g, " ")})`;
+    }
   }
 
   // Marked success only after the grant above has run. Ordering matches the
