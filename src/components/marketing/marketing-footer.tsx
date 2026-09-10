@@ -16,7 +16,8 @@ import type { IconType } from "react-icons";
  * "Mentorship", "Post a Job", "Advertise with Us" and "Employer Login" all
  * did exactly that. "Employer Login" was the worst of them: it implies an
  * employer account system exists to log into. Removed rather than reworded;
- * add each back when the feature ships, with a real href.
+ * add each back when the feature ships, with a real href. "Mentorship" is
+ * back (2026-09-10, PR #341/send-137) — the rest are still unbuilt.
  *
  * The employer column keeps its place — §6.1 wants employers addressed in
  * the footer — but now points at the only route that can actually serve one
@@ -32,6 +33,7 @@ const FOOTER_COLUMNS = [
       "Job Tracker",
       "Scholarships",
       "Refer & Earn",
+      { label: "Mentorship", href: "/mentorship" },
     ],
   },
   {

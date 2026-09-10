@@ -16,6 +16,7 @@ const NAV_LINKS = [
   { href: "/scholarships", label: "Scholarships" },
   { href: "/talent-directory/verify", label: "Get Verified" },
   { href: "/refer", label: "Refer a Friend" },
+  { href: "/mentorship", label: "Mentorship" },
   { href: "/feedback", label: "Feedback" },
 ];
 
