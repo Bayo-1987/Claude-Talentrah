@@ -3,12 +3,14 @@ import { createClient } from "@/lib/supabase/server";
 import { getReferralUrl } from "@/lib/referrals/url";
 import { EyebrowLabel, BorderedCard } from "@/components/ui";
 import { ShareButtons } from "@/components/referrals/share-buttons";
+import { LeaderboardOptIn } from "@/components/referrals/leaderboard-opt-in";
 import { logShareAction } from "@/lib/referrals/actions";
 import {
   REFERRAL_SIGNUP_BONUS_CREDITS,
   REFERRAL_ACTIVATION_BONUS_CREDITS,
   REFERRAL_ACTIVATION_BONUS_TAILORING_RUNS,
 } from "@/lib/referrals/rewards";
+import { isWithinRolloverGrace, monthRange } from "@/lib/referrals/leaderboard";
 
 export const metadata = { title: "Refer a Friend — Talentrah" };
 
@@ -27,17 +29,33 @@ export default async function ReferPage() {
   const supabase = await createClient();
   const referralUrl = await getReferralUrl(profile.referral_code);
 
-  const [{ data: referrals }, { count: sharesCount }] = await Promise.all([
-    supabase
-      .from("referrals")
-      .select("id, status, reward_credits_referrer, created_at, activated_at")
-      .eq("referrer_id", user.id)
-      .order("created_at", { ascending: false }),
-    supabase
-      .from("referral_shares")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", user.id),
-  ]);
+  const now = new Date();
+  const currentPeriod = monthRange(now);
+  const showPreviousPeriod = isWithinRolloverGrace(now);
+  const previousPeriod = showPreviousPeriod ? monthRange(now, 1) : null;
+
+  const [{ data: referrals }, { count: sharesCount }, { data: currentLeaderboard }, { data: previousLeaderboard }] =
+    await Promise.all([
+      supabase
+        .from("referrals")
+        .select("id, status, reward_credits_referrer, created_at, activated_at")
+        .eq("referrer_id", user.id)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("referral_shares")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", user.id),
+      supabase.rpc("referral_leaderboard", {
+        p_period_start: currentPeriod.start,
+        p_period_end: currentPeriod.end,
+      }),
+      previousPeriod
+        ? supabase.rpc("referral_leaderboard", {
+            p_period_start: previousPeriod.start,
+            p_period_end: previousPeriod.end,
+          })
+        : Promise.resolve({ data: null, error: null }),
+    ]);
 
   const rows = referrals ?? [];
   const signedUpCount = rows.filter((r) => r.status === "signed_up" || r.status === "activated").length;
@@ -96,6 +114,38 @@ export default async function ReferPage() {
         </p>
       )}
 
+      {/*
+        send-140. Ranked by ACTIVATED referrals this calendar month, reusing
+        the exact column the reward system itself pays out on — see
+        0130's own header for why that, and not a raw invite count, is the
+        metric. During the first few days of a new month the previous
+        month's frozen standings show too, so someone who just missed the
+        cutoff doesn't wonder why the board reset under them.
+      */}
+      <BorderedCard className="flex flex-col gap-4 p-5">
+        <div>
+          <EyebrowLabel size="sm">Leaderboard — this month</EyebrowLabel>
+          <p className="mt-1 font-body text-[13px] text-ink-soft">
+            Ranked by referrals that activated, not invites sent.
+          </p>
+        </div>
+        <LeaderboardTable rows={currentLeaderboard ?? []} />
+
+        {showPreviousPeriod && previousLeaderboard && previousLeaderboard.length > 0 && (
+          <div className="border-t border-line pt-4">
+            <EyebrowLabel size="sm">Last month&rsquo;s final standings</EyebrowLabel>
+            <div className="mt-2">
+              <LeaderboardTable rows={previousLeaderboard} />
+            </div>
+          </div>
+        )}
+
+        <LeaderboardOptIn
+          optedIn={profile.referral_leaderboard_opt_in}
+          displayName={profile.referral_leaderboard_display_name}
+        />
+      </BorderedCard>
+
       <div className="flex flex-col gap-3">
         <EyebrowLabel size="sm">Your referrals</EyebrowLabel>
         {rows.length === 0 ? (
@@ -117,6 +167,43 @@ export default async function ReferPage() {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+interface LeaderboardRow {
+  rank: number;
+  display_name: string;
+  activated_count: number;
+}
+
+/**
+ * Only render an active fact, never an absent one — the same restraint
+ * CLAUDE.md states for FilterChip/badges, applied here: an empty leaderboard
+ * (nobody has opted in yet, or nobody has activated a referral this month)
+ * says so plainly rather than rendering an empty table with headers and
+ * nothing under them.
+ */
+function LeaderboardTable({ rows }: { rows: LeaderboardRow[] }) {
+  if (rows.length === 0) {
+    return (
+      <p className="py-4 text-center font-body text-[13.5px] text-ink-soft">
+        Nobody&rsquo;s on the board yet this month — activate a referral and opt in below to be first.
+      </p>
+    );
+  }
+
+  return (
+    <div className="flex flex-col divide-y divide-line border-y border-line">
+      {rows.map((r) => (
+        <div key={`${r.rank}-${r.display_name}`} className="flex items-center gap-3 py-2.5 text-[13.5px]">
+          <span className="w-6 flex-shrink-0 text-right font-display text-[16px] text-ink-soft">{r.rank}</span>
+          <span className="min-w-0 flex-1 truncate text-ink">{r.display_name}</span>
+          <span className="flex-shrink-0 font-semibold text-ink">
+            {r.activated_count} {r.activated_count === 1 ? "referral" : "referrals"}
+          </span>
+        </div>
+      ))}
     </div>
   );
 }

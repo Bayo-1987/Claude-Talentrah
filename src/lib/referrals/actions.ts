@@ -36,3 +36,36 @@ export async function logShareAction(channel: string, surface: string = "refer")
 
   await supabase.from("referral_shares").insert({ user_id: user.id, channel, surface });
 }
+
+/**
+ * send-140 — the leaderboard's own opt-in and optional display handle, one
+ * action for both since they are set together on the same form.
+ *
+ * `optIn: false` does NOT clear `displayName` — someone opting back in later
+ * keeps whatever handle they had chosen, rather than being asked to pick one
+ * again. An empty/whitespace-only name is stored as `null` rather than "",
+ * matching what the leaderboard function itself already treats as "no
+ * custom name" (0130's own `nullif(trim(...), '')`).
+ */
+export async function setReferralLeaderboardPreferenceAction(
+  optIn: boolean,
+  displayName: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not signed in." };
+
+  const trimmed = displayName.trim();
+  const { error } = await supabase
+    .from("profiles")
+    .update({
+      referral_leaderboard_opt_in: optIn,
+      referral_leaderboard_display_name: trimmed.length > 0 ? trimmed.slice(0, 60) : null,
+    })
+    .eq("id", user.id);
+
+  if (error) return { ok: false, error: "That didn't save. Try again." };
+  return { ok: true };
+}

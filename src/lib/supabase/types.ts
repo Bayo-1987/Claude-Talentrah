@@ -1811,6 +1811,8 @@ export type Database = {
           market_segment: Database["public"]["Enums"]["market_segment"]
           onboarding_skipped_at: string | null
           referral_code: string
+          referral_leaderboard_display_name: string | null
+          referral_leaderboard_opt_in: boolean
           referred_by: string | null
           resume_skills_notice_dismissed_at: string | null
           updated_at: string
@@ -1830,6 +1832,8 @@ export type Database = {
           market_segment?: Database["public"]["Enums"]["market_segment"]
           onboarding_skipped_at?: string | null
           referral_code: string
+          referral_leaderboard_display_name?: string | null
+          referral_leaderboard_opt_in?: boolean
           referred_by?: string | null
           resume_skills_notice_dismissed_at?: string | null
           updated_at?: string
@@ -1849,6 +1853,8 @@ export type Database = {
           market_segment?: Database["public"]["Enums"]["market_segment"]
           onboarding_skipped_at?: string | null
           referral_code?: string
+          referral_leaderboard_display_name?: string | null
+          referral_leaderboard_opt_in?: boolean
           referred_by?: string | null
           resume_skills_notice_dismissed_at?: string | null
           updated_at?: string
@@ -2660,6 +2666,14 @@ export type Database = {
         Returns: boolean
       }
       is_valid_referral_code: { Args: { p_code: string }; Returns: boolean }
+      referral_leaderboard: {
+        Args: { p_limit?: number; p_period_end: string; p_period_start: string }
+        Returns: {
+          activated_count: number
+          display_name: string
+          rank: number
+        }[]
+      }
       list_applied_migrations: {
         Args: never
         Returns: {
