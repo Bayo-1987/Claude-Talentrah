@@ -21,6 +21,11 @@
  *     (₦1,250 and ₦3,125 respectively) rather than against the tailoring
  *     anchor, so the rebase has nothing to correct for either.
  *
+ * talentDirectoryHumanReview (added later, alongside 0141/0142's
+ * human-reviewed verification tier) is likewise priced on its own terms, not
+ * against the tailoring anchor — it is the direct-labor-cost side of a
+ * verification, not an AI action.
+ *
  * The ×4 that moved from 5 credits to 20 also drove a one-time balance
  * migration (0090_balance_rebase_4x.sql): every existing credits_balance
  * was multiplied by four so a balance that already paid for N tailorings
@@ -35,6 +40,17 @@ export const CREDIT_COSTS = {
   bulletRewrite: 2, // ₦250
   templateUnlock: 10, // ₦1,250 — UNCHANGED, already fairly priced
   talentDirectoryVerification: 25, // ₦3,125 — UNCHANGED, already fairly priced
+  /**
+   * ₦7,500 — the higher-cost, human-reviewed verification tier (0141/0142),
+   * alongside the existing 25-credit AI-only path above. NGN_PER_CREDIT (125)
+   * and the 85% reviewer payout share are duplicated as literals inside
+   * resolve_talent_verification() (0142) for the same "computed inside the
+   * one atomic statement, not trusted from a caller" reason
+   * book_mentor_session (0133) already established — see that migration's
+   * own header, and tests/talent-directory/reviewer-payout.test.ts, which is
+   * what actually proves the two haven't drifted apart.
+   */
+  talentDirectoryHumanReview: 60, // ₦7,500
   /**
    * ₦125 — the smallest tier in this list, cheaper than bulletRewrite's 2
    * credits. A NEW price, not a rebase: Farah chat had no credit gate at all

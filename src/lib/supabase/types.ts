@@ -1655,6 +1655,7 @@ export type Database = {
           review_note: string | null
           reviewed_at: string | null
           reviewed_by: string | null
+          reviews_verifications: boolean
           status: string
           user_id: string
           years_experience: number | null
@@ -1669,6 +1670,7 @@ export type Database = {
           review_note?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
+          reviews_verifications?: boolean
           status?: string
           user_id: string
           years_experience?: number | null
@@ -1683,6 +1685,7 @@ export type Database = {
           review_note?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
+          reviews_verifications?: boolean
           status?: string
           user_id?: string
           years_experience?: number | null
@@ -2684,31 +2687,58 @@ export type Database = {
         Row: {
           ai_feedback: string | null
           ai_score: number | null
+          claimed_at: string | null
           credit_ledger_id: string | null
           decided_at: string | null
           id: string
           requested_at: string
+          review_type: string
+          reviewer_id: string | null
+          reviewer_notes: string | null
+          reviewer_paid_at: string | null
+          reviewer_payout_ngn: number
+          reviewer_payout_reference: string | null
           status: string
+          target_industry: string | null
+          target_role: string | null
           user_id: string
         }
         Insert: {
           ai_feedback?: string | null
           ai_score?: number | null
+          claimed_at?: string | null
           credit_ledger_id?: string | null
           decided_at?: string | null
           id?: string
           requested_at?: string
+          review_type?: string
+          reviewer_id?: string | null
+          reviewer_notes?: string | null
+          reviewer_paid_at?: string | null
+          reviewer_payout_ngn?: number
+          reviewer_payout_reference?: string | null
           status?: string
+          target_industry?: string | null
+          target_role?: string | null
           user_id: string
         }
         Update: {
           ai_feedback?: string | null
           ai_score?: number | null
+          claimed_at?: string | null
           credit_ledger_id?: string | null
           decided_at?: string | null
           id?: string
           requested_at?: string
+          review_type?: string
+          reviewer_id?: string | null
+          reviewer_notes?: string | null
+          reviewer_paid_at?: string | null
+          reviewer_payout_ngn?: number
+          reviewer_payout_reference?: string | null
           status?: string
+          target_industry?: string | null
+          target_role?: string | null
           user_id?: string
         }
         Relationships: [
@@ -2718,6 +2748,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "credit_ledger"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "talent_verifications_reviewer_id_fkey"
+            columns: ["reviewer_id"]
+            isOneToOne: false
+            referencedRelation: "mentor_profiles"
+            referencedColumns: ["user_id"]
           },
           {
             foreignKeyName: "talent_verifications_user_id_fkey"
@@ -3104,6 +3141,13 @@ export type Database = {
           reason: string
         }[]
       }
+      claim_talent_verification_review: {
+        Args: { p_reviewer_id: string; p_verification_id: string }
+        Returns: {
+          ok: boolean
+          reason: string
+        }[]
+      }
       claim_external_job_posting: {
         Args: {
           p_description: string
@@ -3337,10 +3381,16 @@ export type Database = {
         Args: { p_user_id: string; p_verification_id: string }
         Returns: undefined
       }
+      release_talent_verification_review_claim: {
+        Args: { p_reviewer_id: string; p_verification_id: string }
+        Returns: boolean
+      }
       resolve_talent_verification: {
         Args: {
-          p_feedback: string
-          p_score: number
+          p_feedback: string | null
+          p_reviewer_id?: string | null
+          p_reviewer_notes?: string | null
+          p_score: number | null
           p_user_id: string
           p_verification_id: string
           p_verified: boolean
@@ -3466,6 +3516,40 @@ export type Database = {
           verified_at: string
         }[]
       }
+      talent_verification_my_claims: {
+        Args: never
+        Returns: {
+          claimed_at: string
+          id: string
+          requested_at: string
+          target_industry: string
+          target_role: string
+        }[]
+      }
+      talent_verification_review_detail: {
+        Args: { p_verification_id: string }
+        Returns: {
+          candidate_first_name: string
+          candidate_id: string
+          candidate_last_name: string
+          id: string
+          requested_at: string
+          resume: Json
+          status: string
+          target_industry: string
+          target_role: string
+        }[]
+      }
+      talent_verification_review_queue: {
+        Args: { p_limit?: number }
+        Returns: {
+          expertise_match: boolean
+          id: string
+          requested_at: string
+          target_industry: string
+          target_role: string
+        }[]
+      }
     }
     Enums: {
       ad_campaign_status:
@@ -3543,6 +3627,7 @@ export type Database = {
         | "pricing_rebase_4x"
         | "farah_chat_message"
         | "talent_directory_verification"
+        | "talent_directory_human_review"
       employment_type: "full_time" | "part_time" | "contract" | "internship"
       farah_message_role: "user" | "farah"
       feedback_category: "bug" | "idea" | "other"
@@ -3788,6 +3873,7 @@ export const Constants = {
         "pricing_rebase_4x",
         "farah_chat_message",
         "talent_directory_verification",
+        "talent_directory_human_review",
       ],
       employment_type: ["full_time", "part_time", "contract", "internship"],
       farah_message_role: ["user", "farah"],

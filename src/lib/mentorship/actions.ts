@@ -77,6 +77,27 @@ export async function updateMentorProfileAction(_prev: unknown, formData: FormDa
   return { status: "success" as const, message: "Saved." };
 }
 
+/**
+ * The reviewer opt-in toggle (0141/0142's own design decision: an approved
+ * mentor is NOT automatically a verification reviewer — this is a second,
+ * explicit choice, same shape talent-directory/actions.ts's
+ * setDirectoryOptInAction already uses for the mirror-image decision on the
+ * seeker side). Goes through the authenticated client — 0142's column grant
+ * is the only thing standing between this and every other mentor_profiles
+ * column, same 0030 discipline as every other column-grant-restricted
+ * update in this codebase.
+ */
+export async function setReviewsVerificationsOptInAction(optIn: boolean) {
+  const { user } = await requireUser();
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("mentor_profiles")
+    .update({ reviews_verifications: optIn })
+    .eq("user_id", user.id);
+  if (error) throw error;
+  revalidatePath("/mentorship/apply");
+}
+
 export async function postAvailabilitySlotAction(startAt: string, endAt: string) {
   const { user } = await requireUser();
   const supabase = await createClient();

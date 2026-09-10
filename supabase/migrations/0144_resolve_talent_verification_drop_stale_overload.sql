@@ -1,0 +1,41 @@
+-- RENUMBERED 0139 -> 0144. This particular number did not itself collide
+-- with a sibling dispatch, but 0136-0138 did (see 0141/0142/0143's own
+-- headers) and this migration depends on 0142 already being applied — kept
+-- in sequence rather than leaving a gap. Pure filename rename, applied to
+-- both live projects under the OLD name
+-- (`0139_resolve_talent_verification_drop_stale_overload`).
+--
+-- 0144 — fix: 0142's own header claimed "CREATE OR REPLACE FUNCTION supports
+-- adding new parameters at the end of an existing function's signature as
+-- long as they carry defaults" and relied on that to "extend, not replace"
+-- resolve_talent_verification. That claim is WRONG, caught by actually
+-- running tests/talent-directory/reviewer-payout.test.ts's AI-path
+-- assertion rather than trusting the comment: Postgres identifies a
+-- function to replace by its NAME AND ARGUMENT TYPE LIST — "it is not
+-- possible to change ... argument types of a function this way (that would
+-- actually create a new, distinct function)" (CREATE FUNCTION docs, verbatim
+-- claim this repo got backwards). 0142's `create or replace function
+-- resolve_talent_verification(... 7 args ...)` therefore did NOT replace the
+-- original 5-arg function — it created a SECOND, OVERLOADED function
+-- alongside it:
+--
+--   resolve_talent_verification(uuid, uuid, boolean, integer, text)
+--   resolve_talent_verification(uuid, uuid, boolean, integer, text, uuid, text)
+--
+-- verification-runner.ts's existing AI-path call supplies exactly the first
+-- five named arguments, which is ambiguous between "call the 5-arg function
+-- exactly" and "call the 7-arg function, defaulting the last two" — this
+-- surfaced as the RPC call returning no usable result for the AI path,
+-- caught by this PR's own tests/talent-directory/reviewer-payout.test.ts
+-- ("an AI-graded verification records zero reviewer payout" failed with the
+-- RPC not resolving as expected) BEFORE this ever reached
+-- runTalentVerification's real callers.
+--
+-- Fix: drop the stale 5-arg overload outright. Only the 7-arg function
+-- (0142, with p_reviewer_id/p_reviewer_notes both defaulting to null) is
+-- left, so every existing call site — including verification-runner.ts's
+-- unmodified 5-named-argument AI-path call — resolves unambiguously to it,
+-- with the two new parameters filled by their defaults exactly as 0142
+-- intended, just via one function rather than the two it actually created.
+
+drop function if exists public.resolve_talent_verification(uuid, uuid, boolean, integer, text);
