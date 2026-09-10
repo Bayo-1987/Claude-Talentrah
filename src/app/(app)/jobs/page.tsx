@@ -212,7 +212,8 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
       .select(FEED_COLUMNS)
       /*
        * 0107: an unlisted posting is reachable by direct link only, so it is
-       * excluded from this feed — EXCEPT for the org that posted it.
+       * excluded from this feed — EXCEPT for the org that posted it, OR for a
+       * posting Path 3 (0119) has individually approved for the public feed.
        *
        * The unconditional `.is("unlisted_at", null)` this replaces was wrong,
        * and wrong in a way an employer could not have diagnosed. Minting is
@@ -224,12 +225,25 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
        * page-level filter that overrides it re-opens that hole above the
        * database rather than in it.
        *
-       * `.or()` is a group ANDed with every other filter here, so status,
-       * freshness and the rest still apply to a member's own rows — being the
-       * poster widens WHICH postings are eligible, never which rules apply.
+       * `admin_review_decision.eq.approved` (found live 2026-09-10) is the
+       * SAME kind of gap, on the other side of the SAME feature: 0119's own
+       * RLS SELECT policy grants a Path 3-approved posting to everyone,
+       * "[d]eliberately independent of ... unlisted_at" (0119's own comment)
+       * — but minting an unlisted link happens automatically and
+       * independently of admin review, so an approved posting still carries
+       * `unlisted_at` and this app-level filter kept excluding it from the
+       * one surface an admin approval is supposed to reach. RLS granted
+       * exactly what the "Approved for the feed" badge on Jobs Posted claims;
+       * this filter took it back, silently.
        *
-       * With no membership this is exactly `unlisted_at is null`, which is
-       * every seeker, so the common path is unchanged.
+       * `.or()` is a group ANDed with every other filter here, so status,
+       * freshness and the rest still apply to a member's own rows and to an
+       * approved posting — either branch widens WHICH postings are eligible,
+       * never which rules apply.
+       *
+       * With no membership and no Path 3 approval this is exactly
+       * `unlisted_at is null`, which is the overwhelming majority of seekers
+       * and postings, so the common path is unchanged.
        */
       .eq("status", "open")
       // The ambient 30-day floor always applies (src/lib/jobs/freshness.ts),
@@ -242,8 +256,10 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
       // picked a shorter window.
       .gte("posted_at", jobDateFilterSinceISO(posted));
     query = viewerOrgIds.length
-      ? query.or(`unlisted_at.is.null,organization_id.in.(${viewerOrgIds.join(",")})`)
-      : query.is("unlisted_at", null);
+      ? query.or(
+          `unlisted_at.is.null,organization_id.in.(${viewerOrgIds.join(",")}),admin_review_decision.eq.approved`,
+        )
+      : query.or("unlisted_at.is.null,admin_review_decision.eq.approved");
     if (tab === "external") query = query.eq("source_type", "external");
     // .in() with an empty array matches NOTHING, not everything — the empty
     // case is handled by never calling it, so "no filter" stays "no filter".
@@ -267,7 +283,10 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
    * status/freshness/unlisted/workType/seniority clauses — the three are
    * deliberately parallel, not shared, and a future filter change here needs
    * to be made in all three or the aggregate counts and the paginated page
-   * will silently disagree about what's on the board.
+   * will silently disagree about what's on the board. That includes the
+   * `admin_review_decision.eq.approved` branch (found live 2026-09-10, see
+   * postingsQuery's own comment) — a Path 3-approved posting must count here
+   * too, or the board total and the paginated rows disagree about it.
    */
   function boardAggregateQuery(viewerOrgIds: string[]) {
     let query = supabase
@@ -276,8 +295,10 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
       .eq("status", "open")
       .gte("posted_at", jobDateFilterSinceISO(posted));
     query = viewerOrgIds.length
-      ? query.or(`unlisted_at.is.null,organization_id.in.(${viewerOrgIds.join(",")})`)
-      : query.is("unlisted_at", null);
+      ? query.or(
+          `unlisted_at.is.null,organization_id.in.(${viewerOrgIds.join(",")}),admin_review_decision.eq.approved`,
+        )
+      : query.or("unlisted_at.is.null,admin_review_decision.eq.approved");
     if (workTypes.length) query = query.in("work_type", workTypes);
     if (seniorities.length) query = query.in("seniority", seniorities);
     return query;
@@ -311,8 +332,10 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
       .eq("status", "open")
       .gte("posted_at", jobDateFilterSinceISO(posted));
     query = viewerOrgIds.length
-      ? query.or(`unlisted_at.is.null,organization_id.in.(${viewerOrgIds.join(",")})`)
-      : query.is("unlisted_at", null);
+      ? query.or(
+          `unlisted_at.is.null,organization_id.in.(${viewerOrgIds.join(",")}),admin_review_decision.eq.approved`,
+        )
+      : query.or("unlisted_at.is.null,admin_review_decision.eq.approved");
     if (workTypes.length) query = query.in("work_type", workTypes);
     if (seniorities.length) query = query.in("seniority", seniorities);
     if (countryFilter) query = query.or(recentCountryOrFilter(countryFilter));
