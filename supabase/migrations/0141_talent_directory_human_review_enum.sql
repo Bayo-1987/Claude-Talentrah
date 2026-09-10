@@ -1,0 +1,31 @@
+-- RENUMBERED 0136 -> 0141 after a sibling dispatch (send-153 mentor payouts,
+-- and a "seeker-paid-visibility" slice) both independently claimed 0136 for
+-- unrelated migrations while this branch was in flight — the expected
+-- collision supabase/migrations/README.md describes, not a bug. This is a
+-- pure filename rename per that doc's own instruction: applied to both
+-- dozaffzgqkbarxtlclsj and nytwbbzfpytctjsoczzq under the OLD name
+-- (`0136_talent_directory_human_review_enum`), which is what
+-- `schema_migrations` records forever (see 0061's own header for the same
+-- situation). No database was touched for this rename.
+--
+-- 0141 — one new credit_reason enum value for Talent Directory human-reviewed
+-- verification ("Talent Directory v2, part 2" — build-prompt §6.13's own
+-- "AI-graded + paid human review tier", cut from the 0135/send-139 v1 slice
+-- specifically because Mentorship's mentor network did not exist yet; it now
+-- does (send-137/0132/0133), which is what this migration and 0142 build on.
+--
+-- ONE STATEMENT, NOTHING ELSE, in its own migration — Postgres forbids using
+-- a new enum value in the same transaction that adds it (`55P04 unsafe use
+-- of new value`). See 0049/0116/0118/0132/0134 for the identical pattern
+-- already established five times in this repo for exactly this reason.
+--
+-- `talent_directory_human_review`: the higher-cost credit tier for
+-- human-reviewed verification, spent through the existing
+-- `spend_credits_atomic` (0035) exactly like `talent_directory_verification`
+-- (0134) already is — no new atomicity primitive needed, this is just a new
+-- reason the existing one already supports once the value exists. The cost
+-- itself (60 credits, CREDIT_COSTS.talentDirectoryHumanReview) lands with
+-- the application code in the same PR; the CHECK/behaviour that makes this
+-- value meaningful lands in 0142, once it can actually be used.
+
+alter type public.credit_reason add value if not exists 'talent_directory_human_review';

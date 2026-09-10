@@ -7,6 +7,7 @@ import {
 import { Container, EyebrowLabel, BorderedCard } from "@/components/ui";
 import { CREDIT_COSTS } from "@/lib/credits/costs";
 import { VerificationPanel } from "./verification-panel";
+import { HumanReviewForm } from "./human-review-form";
 import { OptInToggle } from "./opt-in-toggle";
 import { BoostPanel } from "./boost-panel";
 import { AvailabilityForm } from "./availability-form";
@@ -16,7 +17,8 @@ export const metadata = { title: "Get Verified — Talentrah" };
 
 const STATUS_COPY: Record<string, string> = {
   unverified: "You haven't requested verification yet.",
-  pending: "Your verification is being graded.",
+  pending: "Your verification is being graded, or waiting for a reviewer to pick it up.",
+  claimed: "A mentor is reviewing your submission now.",
   verified: "You're verified.",
   rejected: "Your last attempt wasn't verified — see the feedback below.",
 };
@@ -51,7 +53,8 @@ export default async function TalentDirectoryVerifyPage() {
         A verified badge tells local employers your resume holds up —
         complete, specific, and internally consistent. Farah grades it
         automatically; verifying costs {CREDIT_COSTS.talentDirectoryVerification}{" "}
-        credits.
+        credits. Prefer a person to look it over instead? A Talentrah mentor
+        can review it directly for {CREDIT_COSTS.talentDirectoryHumanReview} credits.
       </p>
 
       <BorderedCard className="flex flex-col gap-3 p-5">
@@ -60,6 +63,7 @@ export default async function TalentDirectoryVerifyPage() {
           <p className="text-[13px] text-ink-soft">Last score: {state.score}/100</p>
         )}
         <VerificationPanel status={state.status} />
+        {(state.status === "unverified" || state.status === "rejected") && <HumanReviewForm />}
       </BorderedCard>
 
       {state.status === "verified" && (

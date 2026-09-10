@@ -1,0 +1,36 @@
+-- RENUMBERED 0140 -> 0145, same reason as 0144's own header (kept in
+-- sequence after the 0136-0138 sibling collision, not itself a colliding
+-- number). Pure filename rename, applied to both live projects under the
+-- OLD name (`0140_lock_talent_verifications_write_grants`).
+--
+-- 0145 — close a real gap found while extending talent_verifications for
+-- human review (0141/0142): the table has NEVER had INSERT/UPDATE/DELETE
+-- revoked from `authenticated`, since Supabase grants ALL ON ALL TABLES at
+-- project creation and 0135 (which created this table) only added a SELECT
+-- policy, reasoning "no client insert/update/delete policy at all" was
+-- sufficient — CLAUDE.md's own standing lesson is that this conflates two
+-- separate layers: RLS policy absence blocks these commands TODAY (an
+-- enabled RLS table with zero permissive policies for a command lets zero
+-- rows through), but the table-level GRANT is still sitting there wide open
+-- underneath it, on every column, waiting for the day someone adds ONE
+-- policy for a legitimate-looking case — this migration's own header text
+-- can't invent an example better than the real ones already in this
+-- codebase's history (0026/0027/0028/0030) for exactly this shape of bug.
+--
+-- Confirmed live before writing this (not assumed):
+--   select privilege_type from information_schema.table_privileges
+--   where grantee='authenticated' and table_name='talent_verifications';
+--   -> INSERT, SELECT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER (ALL of them)
+--
+-- This table now carries MORE trust/money surface than it did at 0135
+-- (reviewer_id, reviewer_payout_ngn, reviewer_paid_at, status's new
+-- 'claimed' state) — exactly the kind of table CLAUDE.md's column-privilege
+-- rule is about. Every real write already goes through service-role RPCs
+-- (runTalentVerification, runTalentVerificationHumanReview,
+-- claim/release/resolve_talent_verification) — nothing legitimate needs
+-- direct client INSERT/UPDATE/DELETE here, so there is no safe-column list
+-- to re-grant, unlike profiles/mentor_profiles's partial revokes.
+--
+-- SELECT is untouched — the existing owner-only policy (0135) is correct and
+-- still the only thing gating it.
+revoke insert, update, delete on public.talent_verifications from authenticated;
