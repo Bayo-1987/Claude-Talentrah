@@ -4,19 +4,45 @@
  * has no staging DB — CLAUDE.md), not a fixture-seeded scenario, because the
  * bug this pins was a DATA problem, not a code path nobody exercised.
  *
- * THE INCIDENT THIS PINS. Workable (the schema-org source this pipeline
- * ingests) encodes a work-type hint directly into its own URL slugs —
- * `.../view/<id>/hybrid-<role>-in-<city>-at-<company>`. The #219 hybrid-
- * inference fix corrected the mapper going forward and was reported to have
- * backfilled the historical rows it left behind, but the backfill had
- * actually only been run against the Nigerian sources: 14 production rows
- * (12 South Africa, 2 Kenya — zero Nigeria) kept a `hybrid-` slug while
- * `work_type` stayed `remote`. All 14 happen to be `status = 'closed'` today,
- * so nothing user-facing is broken by them right now, but that's luck, not a
- * property this schema enforces — a closed row is not excluded here, because
- * the row's own slug already knows it's wrong regardless of whether the
- * posting is currently visible. This is the check that would have caught the
- * incomplete backfill on the day it ran, instead of three weeks later.
+ * THE INCIDENT THIS PINS, AND WHAT ACTUALLY HAPPENED (corrected send-135,
+ * superseding an earlier, wrong account below this file used to carry).
+ * Workable (the schema-org source this pipeline ingests) encodes a work-type
+ * hint directly into its own URL slugs —
+ * `.../view/<id>/hybrid-<role>-in-<city>-at-<company>`. #219's own PR body is
+ * explicit that it shipped NO migration and NO manual backfill at all: the
+ * fix relies on `ingest.ts` upserting on `dedup_fingerprint` and rewriting
+ * `work_type` on every run, so any row re-ingested after the fix landed
+ * self-corrects on its own.
+ *
+ * This file previously claimed a backfill had been run and "actually only
+ * against the Nigerian sources" — checked directly against production and
+ * that framing does not hold up: correctly-labelled `hybrid` rows with a
+ * `hybrid-` slug exist from South Africa, Kenya and elsewhere too, not just
+ * Nigeria, whenever the posting was re-crawled after #219 merged
+ * (2026-09-05T07:53:40Z). What the 12 residual violations found here shared
+ * was not a country, it was TIMING: every one of them has `last_checked_at`
+ * strictly BEFORE that merge — each had already stopped being re-crawled
+ * (closed/removed from its source) before the fix ever had a chance to
+ * self-correct it. A row that never gets ingested again cannot self-correct;
+ * that is the actual, and much less surprising, gap. All 12 were `status =
+ * 'closed'`, so nothing user-facing was broken by them, but that's luck, not
+ * a property this schema enforces — a closed row is not excluded here,
+ * because the row's own slug already knows it's wrong regardless of whether
+ * the posting is currently visible.
+ *
+ * Corrected directly against production (send-135, 2026-09-10): all 12 rows
+ * had `work_type` set to `hybrid` via a one-off `UPDATE ... WHERE work_type =
+ * 'remote' AND external_url ~ '/hybrid-[^/]*$'` run through the Supabase MCP
+ * connector, matching #234's own precedent for a pure data correction with no
+ * schema change (56267d6) — no migration, since nothing here is a repeatable
+ * schema change. This is the check that would have caught the residue on the
+ * day #219 shipped, instead of weeks later.
+ *
+ * A quick look at this repo's other historical backfills (#234's own onsite
+ * backfill, the only other one on record) found no sign of the same
+ * "silently narrower than reported" mistake — #234 explicitly backfilled ALL
+ * 457 open postings, broken down and verified by SOURCE rather than by
+ * country, with no equivalent residue.
  *
  * WHY tests/jobs/ AND WHY A NEW FILE, not folded into schema-org.test.ts or
  * ingest-schema-org.test.ts: those two are both about the FETCHER's mapping
