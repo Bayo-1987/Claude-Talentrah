@@ -39,7 +39,16 @@ if (process.env.CI && !DEMO_PASSWORD) {
   throw new Error("app-chrome spec cannot run in CI: DEMO_PASSWORD is not set");
 }
 
-test.use({ viewport: { width: 1280, height: 900 } });
+/*
+ * Wide enough to clear the masthead nav's own breakpoint (masthead.tsx,
+ * currently 2xl/1536) so both tests below find the desktop bar's real links
+ * rather than the collapsed disclosure, which renders no <a> elements at all
+ * until its own trigger is clicked. Was 1280 (the historical hit-target
+ * measurement width in this file's own header) until send-139's "Get
+ * Verified" pushed the breakpoint to 1536 — see masthead.tsx's own comment
+ * and e2e/masthead-nav-fit.spec.ts.
+ */
+test.use({ viewport: { width: 1600, height: 900 } });
 
 test.beforeEach(async ({ page }) => {
   test.skip(!DEMO_PASSWORD, "DEMO_PASSWORD is not set — see scripts/seed.ts");

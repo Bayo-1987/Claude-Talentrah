@@ -18,11 +18,21 @@ import { test, expect } from "@playwright/test";
  * Requires the demo user seeded by `npm run seed` (scripts/seed.ts), and
  * DEMO_PASSWORD — the demo account's password is no longer a literal in this
  * repo (it is public; see the note in scripts/seed.ts).
+ *
+ * EXPLICIT WIDE VIEWPORT, not Playwright's default (1280x720). This test
+ * checks nav CONTENT, not the bar-vs-disclosure breakpoint, and it used to
+ * get the bar "for free" only because the breakpoint (masthead.tsx) happened
+ * to sit at exactly 1280 — an implicit coupling that broke silently when
+ * send-139 moved the breakpoint to 1536 for an unrelated reason (an eighth
+ * nav item left no margin at 1280, see masthead.tsx's own comment and
+ * e2e/masthead-nav-fit.spec.ts). Pinning the viewport here decouples this
+ * test's intent from wherever that breakpoint happens to be next.
  */
 const DEMO_PASSWORD = process.env.DEMO_PASSWORD;
 
 test("masthead nav shows all four links once Job Tracker (M7) and Refer a Friend (M8) have shipped", async ({ page }) => {
   test.skip(!DEMO_PASSWORD, "DEMO_PASSWORD is not set — see scripts/seed.ts");
+  await page.setViewportSize({ width: 1600, height: 900 });
 
   await page.goto("/login");
   await page.getByLabel("Email").fill("demo@talentrah.dev");
