@@ -8,6 +8,7 @@ import { Container, EyebrowLabel, BorderedCard } from "@/components/ui";
 import { CREDIT_COSTS } from "@/lib/credits/costs";
 import { VerificationPanel } from "./verification-panel";
 import { OptInToggle } from "./opt-in-toggle";
+import { BoostPanel } from "./boost-panel";
 import { AvailabilityForm } from "./availability-form";
 import { PortfolioManager } from "./portfolio-manager";
 
@@ -65,6 +66,13 @@ export default async function TalentDirectoryVerifyPage() {
         <BorderedCard className="flex flex-col gap-4 p-5">
           <h2 className="font-display text-[18px] font-semibold">List yourself in the directory</h2>
           <OptInToggle optIn={state.optIn} />
+        </BorderedCard>
+      )}
+
+      {state.status === "verified" && state.optIn && (
+        <BorderedCard className="flex flex-col gap-4 p-5">
+          <h2 className="font-display text-[18px] font-semibold">Boost your placement</h2>
+          <BoostPanel boostedUntil={state.boostedUntil} />
         </BorderedCard>
       )}
 

@@ -1,0 +1,18 @@
+-- 0136 — one new enum value for Talent Directory v2 part 1: the seeker-paid
+-- search boost (send-139 follow-up, build-prompt §6.13's third buyer segment
+-- — "job seekers themselves (competitive edge, paid via credits)" — the only
+-- one of the three §6.13 buyer segments 0134/0135 did not build).
+--
+-- ONE STATEMENT, NOTHING ELSE, in its own migration: Postgres forbids using a
+-- new enum value in the same transaction that adds it (`55P04 unsafe use of
+-- new value`) — see 0049/0116/0118/0132/0134 for the identical pattern
+-- already established five times in this repo for exactly this enum.
+--
+-- `talent_directory_boost`: the credit-gated cost of a time-boxed top-of-
+-- search placement for an already verified+opted-in seeker (see 0137's own
+-- header for why a time-boxed boost was chosen over a badge or a score
+-- weight), spent through the existing `spend_credits_atomic` (0035) exactly
+-- the way 0134's `talent_directory_verification` value already is — no new
+-- atomicity primitive needed, this is just a new reason the existing one
+-- already supports once the value exists.
+alter type public.credit_reason add value if not exists 'talent_directory_boost';

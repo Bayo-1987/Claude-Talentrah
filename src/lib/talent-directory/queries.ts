@@ -9,6 +9,8 @@ export interface OwnVerificationState {
   availableForHire: boolean;
   remoteReady: boolean;
   earliestStartDate: string | null;
+  /** null when never boosted; a past timestamp when a boost has lapsed — the UI is what decides "active" vs "expired" by comparing to now(). */
+  boostedUntil: string | null;
 }
 
 export async function getOwnVerificationState(userId: string): Promise<OwnVerificationState | null> {
@@ -16,7 +18,7 @@ export async function getOwnVerificationState(userId: string): Promise<OwnVerifi
   const { data, error } = await supabase
     .from("profiles")
     .select(
-      "talent_verification_status, talent_verification_score, talent_verified_at, talent_directory_opt_in, talent_available_for_hire, talent_remote_ready, talent_earliest_start_date",
+      "talent_verification_status, talent_verification_score, talent_verified_at, talent_directory_opt_in, talent_available_for_hire, talent_remote_ready, talent_earliest_start_date, talent_boosted_until",
     )
     .eq("id", userId)
     .maybeSingle();
@@ -30,7 +32,34 @@ export async function getOwnVerificationState(userId: string): Promise<OwnVerifi
     availableForHire: data.talent_available_for_hire,
     remoteReady: data.talent_remote_ready,
     earliestStartDate: data.talent_earliest_start_date,
+    boostedUntil: data.talent_boosted_until,
   };
+}
+
+export interface BoostHistoryEntry {
+  id: string;
+  days: number;
+  status: string;
+  requestedAt: string;
+  boostedUntil: string | null;
+}
+
+/** The seeker's own purchase history (talent_directory_boosts is owner-select-only RLS, same shape as talent_verifications' history). */
+export async function getOwnBoostHistory(userId: string): Promise<BoostHistoryEntry[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("talent_directory_boosts")
+    .select("id, days, status, requested_at, boosted_until")
+    .eq("user_id", userId)
+    .order("requested_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map((r) => ({
+    id: r.id,
+    days: r.days,
+    status: r.status,
+    requestedAt: r.requested_at,
+    boostedUntil: r.boosted_until,
+  }));
 }
 
 export interface VerificationHistoryEntry {
