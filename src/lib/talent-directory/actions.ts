@@ -3,7 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
-import { runTalentVerification, type VerificationActionResult } from "./verification-runner";
+import {
+  runTalentVerification,
+  runTalentVerificationHumanReview,
+  type VerificationActionResult,
+} from "./verification-runner";
 import { runTalentDirectoryBoostPurchase, type BoostActionResult } from "./boost-runner";
 
 /* ---------------------------------------------------------------------- *
@@ -82,6 +86,28 @@ export type { VerificationActionResult };
 export async function requestTalentVerificationAction(): Promise<VerificationActionResult> {
   const { user } = await requireUser();
   const result = await runTalentVerification(user.id);
+  if (result.status === "success") revalidatePath("/talent-directory/verify");
+  return result;
+}
+
+/**
+ * The higher-cost, human-reviewed tier (0141/0142) alongside the AI-only
+ * action above. Thin for the same reason: the whole flow lives in
+ * runTalentVerificationHumanReview (verification-runner.ts) as a plain
+ * function taking a trusted userId — this Server Action's only job is
+ * resolving that id from a real session and passing through the optional
+ * target role/industry the candidate typed in.
+ */
+export async function requestHumanReviewVerificationAction(
+  _prev: unknown,
+  formData: FormData,
+): Promise<VerificationActionResult> {
+  const { user } = await requireUser();
+  const result = await runTalentVerificationHumanReview(
+    user.id,
+    String(formData.get("targetRole") ?? "").trim() || null,
+    String(formData.get("targetIndustry") ?? "").trim() || null,
+  );
   if (result.status === "success") revalidatePath("/talent-directory/verify");
   return result;
 }

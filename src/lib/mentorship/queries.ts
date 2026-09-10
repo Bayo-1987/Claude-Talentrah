@@ -110,6 +110,8 @@ export interface OwnMentorProfile {
   expertiseIndustries: string[];
   basePriceNgn: number | null;
   reviewNote: string | null;
+  /** Second, independent opt-in on top of status='approved' (0142) — see reviews-verifications-toggle.tsx. */
+  reviewsVerifications: boolean;
 }
 
 /** The signed-in user's own mentor application/profile, whatever its status — unlike browseMentors, this bypasses the approved-only filter via the SELECT policy's own `user_id = auth.uid()` half. */
@@ -117,7 +119,7 @@ export async function getOwnMentorProfile(userId: string): Promise<OwnMentorProf
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("mentor_profiles")
-    .select("status, bio, expertise_roles, expertise_industries, base_price_ngn, review_note")
+    .select("status, bio, expertise_roles, expertise_industries, base_price_ngn, review_note, reviews_verifications")
     .eq("user_id", userId)
     .maybeSingle();
   if (error) throw error;
@@ -129,6 +131,7 @@ export async function getOwnMentorProfile(userId: string): Promise<OwnMentorProf
     expertiseIndustries: data.expertise_industries,
     basePriceNgn: data.base_price_ngn,
     reviewNote: data.review_note,
+    reviewsVerifications: data.reviews_verifications,
   };
 }
 

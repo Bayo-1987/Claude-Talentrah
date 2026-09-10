@@ -159,3 +159,87 @@ export async function runTalentVerification(userId: string): Promise<Verificatio
     passed: grade.passed,
   };
 }
+
+/**
+ * The higher-cost, human-reviewed verification tier (0141/0142), alongside
+ * runTalentVerification's AI-only path above. Same claim-then-spend shape,
+ * deliberately: the claim step is the SAME conditional UPDATE on
+ * `profiles.talent_verification_status` (unverified/rejected -> pending),
+ * so a double-click can't queue two human-review requests any more than it
+ * can trigger two AI grades. The one real difference is what happens after
+ * the claim succeeds — there is no synchronous LLM call to wait on, so this
+ * inserts a queued `talent_verifications` row (review_type='human',
+ * status='pending', meaning "waiting for a reviewer to claim it" rather than
+ * "an LLM call is in flight") and returns immediately once credits are
+ * spent. See tests/talent-directory/human-review-race.test.ts for the same
+ * race proof verification-race.test.ts already gives the AI path.
+ */
+export async function runTalentVerificationHumanReview(
+  userId: string,
+  targetRole?: string | null,
+  targetIndustry?: string | null,
+): Promise<VerificationActionResult> {
+  const serviceClient = createServiceRoleClient();
+  const cost = CREDIT_COSTS.talentDirectoryHumanReview;
+
+  const { data: claimed, error: claimError } = await serviceClient
+    .from("profiles")
+    .update({ talent_verification_status: "pending" })
+    .eq("id", userId)
+    .in("talent_verification_status", ["unverified", "rejected"])
+    .select("id")
+    .maybeSingle();
+
+  if (claimError) return { status: "error", message: "Something went wrong on our end." };
+  if (!claimed) {
+    return {
+      status: "error",
+      message: "A verification attempt is already pending, or you're already verified.",
+    };
+  }
+
+  const { data: verification, error: insertError } = await serviceClient
+    .from("talent_verifications")
+    .insert({
+      user_id: userId,
+      status: "pending",
+      review_type: "human",
+      target_role: targetRole?.trim() || null,
+      target_industry: targetIndustry?.trim() || null,
+    })
+    .select("id")
+    .single();
+
+  if (insertError || !verification) {
+    // Same bailout runTalentVerification uses for the identical failure —
+    // no talent_verifications row exists yet, so release_talent_verification_claim
+    // (which deletes a 'pending' row) has nothing to do here either.
+    await serviceClient
+      .from("profiles")
+      .update({ talent_verification_status: "unverified" })
+      .eq("id", userId)
+      .eq("talent_verification_status", "pending");
+    return { status: "error", message: "Something went wrong on our end." };
+  }
+
+  try {
+    await spendCredits(userId, cost, "talent_directory_human_review", verification.id);
+  } catch (err) {
+    await serviceClient.rpc("release_talent_verification_claim", {
+      p_user_id: userId,
+      p_verification_id: verification.id,
+    });
+    if (err instanceof InsufficientCreditsError) {
+      return {
+        status: "error",
+        message: `Not enough credits — this needs ${cost}, you have ${err.available}.`,
+      };
+    }
+    throw err;
+  }
+
+  return {
+    status: "success",
+    message: "Queued for human review — a mentor will pick this up and get back to you with a decision.",
+  };
+}
