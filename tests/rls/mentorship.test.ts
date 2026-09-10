@@ -273,3 +273,49 @@ describe("mentorship_reviews", () => {
     await admin.from("mentorship_reviews").delete().eq("session_id", sessionId);
   });
 });
+
+/**
+ * 0150's own standing check: mentorship_reviews' UPDATE and DELETE had never
+ * been revoked from `authenticated` since 0133 created the table — only its
+ * SELECT and INSERT policies existed, and INSERT is deliberately left
+ * granted (the real, working "a mentee may review their own COMPLETED
+ * session, once" policy above). A review must never be editable or
+ * deletable by a client once submitted. CLAUDE.md's own column-privilege
+ * lesson, applied here directly.
+ */
+describe("0150: mentorship_reviews has no direct client UPDATE/DELETE, at the grant level", () => {
+  let reviewId: string;
+
+  beforeAll(async () => {
+    const { data, error } = await admin
+      .from("mentorship_reviews")
+      .insert({ session_id: sessionId, mentor_id: mentor.id, reviewer_id: mentee.id, rating: 4, review_text: "Solid session" })
+      .select("id")
+      .single();
+    if (error || !data) throw error ?? new Error("no review");
+    reviewId = data.id;
+  });
+
+  afterAll(async () => {
+    await admin.from("mentorship_reviews").delete().eq("id", reviewId);
+  });
+
+  it("the reviewer cannot edit their own submitted review directly", async () => {
+    const { error } = await mentee.client.from("mentorship_reviews").update({ rating: 1 }).eq("id", reviewId);
+    expect(
+      error?.code,
+      "GRANT BUG: a direct client UPDATE on mentorship_reviews was not refused at the grant level",
+    ).toBe("42501");
+  });
+
+  it("the reviewer cannot delete their own submitted review directly", async () => {
+    const { error } = await mentee.client.from("mentorship_reviews").delete().eq("id", reviewId);
+    expect(
+      error?.code,
+      "GRANT BUG: a direct client DELETE on mentorship_reviews was not refused at the grant level",
+    ).toBe("42501");
+
+    const { data: stillThere } = await admin.from("mentorship_reviews").select("id").eq("id", reviewId).maybeSingle();
+    expect(stillThere?.id, "the review must survive an attempted client-side delete").toBe(reviewId);
+  });
+});

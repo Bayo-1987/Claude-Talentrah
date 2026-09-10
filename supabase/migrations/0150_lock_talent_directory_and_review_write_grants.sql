@@ -1,0 +1,37 @@
+-- 0150 — the same "wide-open ALL ON ALL TABLES grant, no covering RLS
+-- policy" gap CLAUDE.md documents as this repo's own standing lesson
+-- (0026/0027/0028/0030), and 0140/0145 already closed for
+-- talent_verifications — found opportunistically while auditing that
+-- table's own grants during the human-review-verification-tier build.
+-- Confirmed live on both Supabase projects before writing this (not
+-- assumed), via:
+--   select table_name, privilege_type from information_schema.table_privileges
+--   where grantee = 'authenticated' and privilege_type in ('INSERT','UPDATE','DELETE');
+-- cross-referenced against pg_policies for each table's actual policy commands.
+--
+-- talent_directory_plans (0135) — a tiny admin-managed catalog, same shape
+-- as `passes`: only a public SELECT policy exists ("the active plan catalog
+-- is publicly readable"). INSERT/UPDATE/DELETE have no covering policy at
+-- all. Every write site (src/lib/talent-directory/subscription-actions.ts,
+-- src/app/employer/talent-directory/page.tsx's own read) goes through the
+-- service-role client exclusively — no authenticated-client write path
+-- exists to break.
+--
+-- talent_directory_subscriptions (0135) — 0135's own header already states
+-- "no client insert/update policy — purchase is a service-role write"; only
+-- a member-scoped SELECT policy exists ("an org member reads their own
+-- org's subscription"). Every write site
+-- (src/lib/talent-directory/renewals.ts, subscription-actions.ts,
+-- src/lib/billing/fulfill.ts) is service-role only.
+--
+-- mentorship_reviews (0133) — UPDATE and DELETE have no covering policy at
+-- all (a review should never be editable or deletable by a client).
+-- INSERT is left untouched deliberately: "a mentee may review their own
+-- COMPLETED session, once" is a real, intentional, already-scoped policy,
+-- and src/lib/mentorship/actions.ts's submitMentorshipReviewAction writes
+-- through the user's own session client (not service role) to use exactly
+-- that policy — revoking INSERT here would break a real, working feature,
+-- not close a gap.
+revoke insert, update, delete on public.talent_directory_plans from authenticated;
+revoke insert, update, delete on public.talent_directory_subscriptions from authenticated;
+revoke update, delete on public.mentorship_reviews from authenticated;
