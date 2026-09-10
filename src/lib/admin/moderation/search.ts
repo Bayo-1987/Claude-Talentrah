@@ -47,8 +47,13 @@ export interface SearchedPosting {
 /** Hard cap on what one search/browse returns — a search tool, not an export. */
 const RESULT_LIMIT = 50;
 
+// `organizations!job_postings_organization_id_fkey` hints the embed
+// explicitly: 0128 added a SECOND FK from job_postings to organizations
+// (claimed_by_organization_id), so PostgREST can no longer infer which one
+// this join means on its own — an unhinted `organizations(name)` now fails
+// with "more than one relationship was found."
 const SELECT_COLUMNS =
-  "id, title, company_name, status, source_type, external_url, location, posted_at, organizations(name)";
+  "id, title, company_name, status, source_type, external_url, location, posted_at, organizations!job_postings_organization_id_fkey(name)";
 
 type Row = {
   id: string;

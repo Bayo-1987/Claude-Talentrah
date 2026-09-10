@@ -57,7 +57,7 @@ export interface JobCardProps {
   // and matches what the query actually returns.
   // closed_at (0102) is also never selected by the feed query — it filters
   // to status = 'open', where closed_at is always null anyway.
-  job: Omit<Tables<"job_postings">, "description_preview" | "search_vector" | "closed_at" | "unlisted_at" | "banner_path" | "admin_review_decision" | "admin_review_note" | "admin_review_requested_at" | "admin_reviewed_at" | "admin_reviewed_by">;
+  job: Omit<Tables<"job_postings">, "description_preview" | "search_vector" | "closed_at" | "unlisted_at" | "banner_path" | "admin_review_decision" | "admin_review_note" | "admin_review_requested_at" | "admin_reviewed_at" | "admin_reviewed_by" | "claimed_by_organization_id" | "claimed_at">;
   score: number;
   isSaved: boolean;
   applicationStage: Tables<"applications">["stage"] | null;

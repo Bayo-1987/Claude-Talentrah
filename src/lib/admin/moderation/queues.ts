@@ -304,7 +304,11 @@ export async function pendingJobReviews(): Promise<PendingJobReview[]> {
   const { data, error } = await supabase
     .from("job_postings")
     .select(
-      "id, title, company_name, location, organization_id, admin_review_requested_at, organizations(name, verified)",
+      // `organizations!job_postings_organization_id_fkey` hints the embed:
+      // 0128 added a second FK from job_postings to organizations
+      // (claimed_by_organization_id), so an unhinted `organizations(...)`
+      // join is now ambiguous to PostgREST.
+      "id, title, company_name, location, organization_id, admin_review_requested_at, organizations!job_postings_organization_id_fkey(name, verified)",
     )
     .not("admin_review_requested_at", "is", null)
     .is("admin_review_decision", null)
