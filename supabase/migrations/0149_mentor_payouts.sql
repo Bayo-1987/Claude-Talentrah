@@ -1,4 +1,4 @@
--- 0139 — Mentor payouts (Mentorship v2, part 1).
+-- 0149 — Mentor payouts (Mentorship v2, part 1).
 --
 -- 0133 shipped session booking, payment collection and the no-show sweep, but
 -- deliberately cut automated mentor payouts for v1: "the mentor's 85% share
@@ -36,6 +36,20 @@
 -- twice), not by coordinating with the other sessions — a further collision
 -- at 0139 from a task this session has no visibility into is possible and
 -- would be resolved the same way, by whichever of us renumbers second.
+--
+-- **RENUMBERED AGAIN, 0139 → 0149**, exactly the predicted collision above:
+-- a separate task resolving the whole 0136+ pile-up found `0139` already
+-- applied to both projects under `0139_resolve_talent_verification_drop_
+-- stale_overload` (the human-review-verification-tier task, dispatched in
+-- parallel, still unbranched at the time). Recorded in both projects'
+-- `schema_migrations` under `0136_mentor_payouts` — the second rename does
+-- not change that; the applied name and the committed filename already
+-- disagreed after the first rename and continue to. `0149` was chosen clear
+-- of every number then visible in either ledger AND of that same
+-- human-review task's own local files, caught mid-rename to `0141-0145` in
+-- an uncommitted worktree while this check was running — headroom against a
+-- branch that had not finished moving yet, not just against what was
+-- already applied.
 --
 -- ── WHY THIS IS FIRST OUTBOUND MONEY, AND WHAT THAT CHANGES ─────────────────
 --

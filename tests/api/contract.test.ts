@@ -436,7 +436,7 @@ describe("§2 — cron GETs fail closed too", () => {
       "renew-talent-directory-subscriptions",
       () => import("@/app/api/admin/renew-talent-directory-subscriptions/route"),
     ],
-    // Pays mentors real money out via Paystack Transfers (0139) — the first
+    // Pays mentors real money out via Paystack Transfers (0149) — the first
     // outbound-payment route in this file, same fail-closed reasoning as
     // charge-campaigns/mentorship-sweep above, registered in the same commit
     // that created the route.

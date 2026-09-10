@@ -1541,13 +1541,13 @@ describe("farah_messages: the LLM rate limit is not the user's to reset (0041)",
   });
 });
 
-describe("mentor_profiles: a mentor cannot forge their own verified payout account (0139)", () => {
+describe("mentor_profiles: a mentor cannot forge their own verified payout account (0149)", () => {
   /**
    * `payout_account_name` in particular is the whole point of this task's own
    * brief ("never trust a free-typed account name") — Paystack's own
    * /bank/resolve is what's supposed to set it (saveMentorPayoutDetailsAction,
    * src/lib/mentorship/payout-details.ts), and none of the five payout_*
-   * columns 0139 adds are in 0133's `authenticated` UPDATE grant list. This
+   * columns 0149 adds are in 0133's `authenticated` UPDATE grant list. This
    * asserts that directly rather than trusting it stayed that way, plus the
    * positive control: a mentor can still edit the columns 0133 already grants.
    */

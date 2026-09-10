@@ -3,7 +3,7 @@ import { runMentorPayoutJob } from "@/lib/mentorship/payouts";
 import { requireAdminSecret, requireCronSecret, internalError } from "@/lib/api/admin-auth";
 
 /**
- * Mentor payouts (0139) — same two-entry-point shape as renew-passes and
+ * Mentor payouts (0149) — same two-entry-point shape as renew-passes and
  * mentorship-sweep: GET for Vercel Cron, POST for a manual/admin on-demand
  * run, both behind the shared fail-closed secret guard since this route
  * moves REAL money out of Talentrah's own Paystack balance.

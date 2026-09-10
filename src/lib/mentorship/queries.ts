@@ -140,11 +140,11 @@ export interface OwnPayoutDetails {
 }
 
 /**
- * The mentor's own payout bank details — read-only here (0139). Nothing
+ * The mentor's own payout bank details — read-only here (0149). Nothing
  * writes through the authenticated client: saveMentorPayoutDetailsAction
  * (src/lib/mentorship/payout-details.ts) uses the service-role client for
- * every write, because none of these five columns are in 0133/0139's
- * `authenticated` UPDATE grant on mentor_profiles — see 0139's own migration
+ * every write, because none of these five columns are in 0133/0149's
+ * `authenticated` UPDATE grant on mentor_profiles — see 0149's own migration
  * header for why `payout_account_name` specifically must never be
  * client-writable.
  */

@@ -6,7 +6,7 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { listNigerianBanks, resolveAccountNumber, createTransferRecipient, isDecline } from "@/lib/paystack/client";
 
 /**
- * Bank-detail collection for mentor payouts (0139). Lives alongside
+ * Bank-detail collection for mentor payouts (0149). Lives alongside
  * AvailabilityManager on the mentor's own apply/cockpit page
  * (src/app/(app)/mentorship/apply/page.tsx) rather than a separate settings
  * route — both are "things an APPROVED mentor configures about themselves,"
@@ -18,7 +18,7 @@ import { listNigerianBanks, resolveAccountNumber, createTransferRecipient, isDec
  * account name via Paystack BEFORE persisting anything, never trust a
  * free-typed name. This function is also the only writer of
  * mentor_profiles.payout_* — none of those columns are in the authenticated
- * UPDATE grant (0139's own header), so a mentor cannot bypass this by
+ * UPDATE grant (0149's own header), so a mentor cannot bypass this by
  * PATCHing the table directly even if they tried.
  */
 export interface BankListState {

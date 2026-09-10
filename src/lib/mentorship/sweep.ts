@@ -29,7 +29,7 @@ export interface MentorshipSweepSummary {
  * describes the state machine ending at `confirmed` with nothing moving it
  * further). Added here rather than as a third cron, for two reasons: this
  * file already owns time-based `mentorship_sessions.status` transitions, and
- * mentor payouts (0139, src/lib/mentorship/payouts.ts) depend on `completed`
+ * mentor payouts (0149, src/lib/mentorship/payouts.ts) depend on `completed`
  * existing — calling this from BOTH runMentorshipSweep and
  * runMentorPayoutJob removes any ordering dependency between the two crons
  * (each ensures completion for itself rather than trusting the other ran
