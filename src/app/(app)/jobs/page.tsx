@@ -507,7 +507,21 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
   // selects it and no card renders it, not because it is always null.
   type FeedJobPosting = Omit<
     Tables<"job_postings">,
-    "description_preview" | "search_vector" | "closed_at" | "unlisted_at" | "banner_path" | "admin_review_decision" | "admin_review_note" | "admin_review_requested_at" | "admin_reviewed_at" | "admin_reviewed_by"
+    | "description_preview"
+    | "search_vector"
+    | "closed_at"
+    | "unlisted_at"
+    | "banner_path"
+    | "admin_review_decision"
+    | "admin_review_note"
+    | "admin_review_requested_at"
+    | "admin_reviewed_at"
+    | "admin_reviewed_by"
+    // 0128: not selected by FEED_COLUMNS — a claimed external posting is
+    // `removed`, so it never reaches this query's `status = 'open'` filter
+    // anyway, and the feed has no use for who claimed it.
+    | "claimed_by_organization_id"
+    | "claimed_at"
   >;
   const matchingFilters: FeedJobPosting[] = jobsRaw ?? [];
 

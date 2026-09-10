@@ -7,6 +7,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { requireEmployer } from "@/lib/employer/membership";
+import { getClaimCandidates } from "@/lib/employer/claim";
 import {
   emailDomain,
   evaluateDomainVerification,
@@ -192,6 +193,23 @@ export async function createOrganizationAction(
   }
 
   revalidatePath("/employer", "layout");
+
+  /*
+   * "Claim your listing" (0128, build-prompt §6.12), surfaced reactively at
+   * the one moment it is cheapest to show: the org just became verified, and
+   * onboarding is the only screen this account has seen so far. Skipped
+   * entirely — straight to Jobs Posted, unchanged from before this
+   * feature — for the overwhelmingly common case of an unverified org or a
+   * verified one with nothing to claim, so this never adds a screen most
+   * employers will ever see. The employer can also reach /employer/claim on
+   * their own later (linked from Jobs Posted whenever candidates exist), so
+   * this redirect is a convenience, not the only route in — reactive, not
+   * proactive outreach; see 0128's PR description for why.
+   */
+  if (outcome.verified) {
+    const candidates = await getClaimCandidates(supabase, org.id).catch(() => []);
+    if (candidates.length > 0) redirect("/employer/claim?onboarding=1");
+  }
   redirect("/employer/jobs");
 }
 
@@ -663,4 +681,106 @@ export async function setApplicantStatusAction(
 
   if (error) return { error: `Couldn't update status: ${error.message}` };
   return { ok: true };
+}
+
+/* -------------------------------------------------------------------------- *
+ * "Claim your listing" (0128)
+ * -------------------------------------------------------------------------- */
+
+const CLAIM_ERROR_MESSAGES: Record<string, string> = {
+  org_not_found: "Couldn't find your organisation.",
+  org_not_verified: "Verify your company (Company Profile) before claiming a listing.",
+  not_found: "That listing doesn't exist any more — someone may already have claimed it.",
+  already_claimed: "Someone already claimed this listing — reload the page to see the current list.",
+  not_a_match:
+    "This listing's source or company name doesn't match your organisation, so it can't be claimed from here.",
+  title_required: "Job title is required.",
+  description_too_short: "Add a real job description — at least a couple of sentences.",
+};
+
+/**
+ * Claim an external posting: creates a NEW internal posting the organisation
+ * fully owns and marks the external source row removed+claimed, in one
+ * atomic database transaction (`claim_external_job_posting`, 0128).
+ *
+ * `organization.id` comes from `requireEmployer()` — read through the user's
+ * OWN client, the same as every other action in this file — never from the
+ * form. The RPC is service-role only and trusts `p_organization_id` for
+ * exactly that reason: a client-supplied org id would be forgeable, but this
+ * one was resolved from the caller's own session first. See 0128's migration
+ * header for the full trust-boundary argument (same shape as
+ * `auto_apply_claim_submission`, 0034).
+ *
+ * The match itself is NOT re-decided here — `job_posting_claim_candidates`
+ * only ever suggests, and `claim_external_job_posting` re-verifies the domain
+ * or name signal server-side before writing anything, so a tampered or stale
+ * `externalJobPostingId` fails closed (`not_a_match`) rather than silently
+ * attaching the wrong employer's org to someone else's job.
+ */
+export async function claimJobPostingAction(
+  _prev: EmployerActionState,
+  form: FormData,
+): Promise<EmployerActionState> {
+  const { organization } = await requireEmployer();
+
+  const externalJobPostingId = str(form, "externalJobPostingId");
+  const title = str(form, "title");
+  const description = str(form, "description");
+  const location = str(form, "location");
+
+  if (!externalJobPostingId) return { error: "Missing listing to claim." };
+  if (!title) return { error: "Job title is required." };
+  if (description.length < 40) {
+    return { error: "Add a real job description — at least a couple of sentences." };
+  }
+
+  const admin = createServiceRoleClient();
+  const { data, error } = await admin.rpc("claim_external_job_posting", {
+    p_organization_id: organization.id,
+    p_external_job_posting_id: externalJobPostingId,
+    p_title: title,
+    p_description: description,
+    // Nullable in SQL (no NOT NULL constraint); typegen renders a parameter
+    // without a DEFAULT as non-optional and so over-narrows it to `string` —
+    // same cast `decideCampaignAction` already applies to `p_note`.
+    p_location: (location || null) as unknown as string,
+  });
+
+  if (error) {
+    return { error: `Couldn't claim this listing: ${error.message}` };
+  }
+  const row = data?.[0];
+  if (!row?.ok || !row.job_posting_id) {
+    return { error: CLAIM_ERROR_MESSAGES[row?.reason ?? ""] ?? "Couldn't claim this listing." };
+  }
+
+  revalidatePath("/employer/jobs");
+  revalidatePath("/employer/claim");
+  revalidatePath("/jobs");
+  redirect(`/employer/jobs?claimed=${row.job_posting_id}`);
+}
+
+/**
+ * "Not now" on the Jobs Posted nudge banner — `organizations.
+ * claim_review_dismissed_at` (0128/0129). Purely a UI preference: it decides
+ * nothing about any `job_postings` row and carries no trust or money, which
+ * is exactly why it's granted directly to `authenticated` rather than
+ * routed through the service role, the same shape as `profiles.
+ * farah_hint_dismissed_at` (0066).
+ *
+ * Silently a no-op for an org that isn't verified or has no candidates —
+ * there's no banner to dismiss in that state, so nothing calls this then,
+ * but it doesn't need to defend against it either: setting a timestamp
+ * nobody reads yet is harmless.
+ */
+export async function dismissClaimReviewAction(): Promise<void> {
+  const { supabase } = await getAuthedUser();
+  const { organization } = await requireEmployer();
+
+  await supabase
+    .from("organizations")
+    .update({ claim_review_dismissed_at: new Date().toISOString() })
+    .eq("id", organization.id);
+
+  revalidatePath("/employer/jobs");
 }
