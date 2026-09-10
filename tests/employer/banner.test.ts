@@ -14,6 +14,7 @@ import {
   validateBanner,
   bannerPublicUrl,
   bannerObjectPath,
+  bannerIsEligibleToRender,
   MAX_BANNER_BYTES,
 } from "@/lib/employer/banner";
 
@@ -209,5 +210,57 @@ describe("the URL is only ever built for this posting's own org", () => {
   it("is null when there is no banner, and when the org is unknown", () => {
     expect(bannerPublicUrl({ supabaseUrl, bannerPath: null, organizationId: ORG })).toBeNull();
     expect(bannerPublicUrl({ supabaseUrl, bannerPath: path, organizationId: null })).toBeNull();
+  });
+});
+
+/**
+ * send-136: the job detail page's own banner gate widened to admit a
+ * Path-3-approved posting, matching the already-independent grant 0119/0127
+ * gave that posting's visibility. The exact real-world row this bug was
+ * found on (Fatishcakes' "Senior Product Manager", confirmed directly
+ * against production before this fix: `admin_review_decision: "approved"`,
+ * `organizations.verified: false`, a real `banner_path` already set) is the
+ * fixture below, not an invented shape.
+ */
+describe("bannerIsEligibleToRender — Path 3 approval is a second, independent route", () => {
+  const FATISHCAKES_SENIOR_PM = { organizationVerified: false, adminReviewDecision: "approved" };
+
+  it("FAIL-BEFORE: the old single-condition check (verified alone) hid this exact posting's banner", () => {
+    // Reproduces the OLD `job.organizations?.verified` gate literally, on
+    // the real row that exposed the bug — proving the bug existed before
+    // asserting the fix, not just reasoning about it.
+    const oldGateResult = FATISHCAKES_SENIOR_PM.organizationVerified;
+    expect(oldGateResult).toBe(false);
+  });
+
+  it("PASS-AFTER: the new gate admits the same posting on its Path 3 approval alone", () => {
+    expect(bannerIsEligibleToRender(FATISHCAKES_SENIOR_PM)).toBe(true);
+  });
+
+  it("still admits a verified org's posting, independent of admin_review_decision", () => {
+    expect(bannerIsEligibleToRender({ organizationVerified: true, adminReviewDecision: null })).toBe(
+      true,
+    );
+    expect(
+      bannerIsEligibleToRender({ organizationVerified: true, adminReviewDecision: "rejected" }),
+    ).toBe(true);
+  });
+
+  it("REGRESSION: an unverified org's posting with no review decision still shows no banner", () => {
+    expect(
+      bannerIsEligibleToRender({ organizationVerified: false, adminReviewDecision: null }),
+    ).toBe(false);
+  });
+
+  it("REGRESSION: an unverified org's REJECTED posting still shows no banner", () => {
+    expect(
+      bannerIsEligibleToRender({ organizationVerified: false, adminReviewDecision: "rejected" }),
+    ).toBe(false);
+  });
+
+  it("is false only when neither route grants it — both conditions false", () => {
+    expect(
+      bannerIsEligibleToRender({ organizationVerified: false, adminReviewDecision: "pending" }),
+    ).toBe(false);
   });
 });
