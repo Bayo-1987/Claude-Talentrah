@@ -431,6 +431,11 @@ describe("§2 — cron GETs fail closed too", () => {
     // Refunds Paystack charges (0133's no-show/cancellation policy) — same
     // money-moving reasoning as charge-campaigns above.
     ["mentorship-sweep", () => import("@/app/api/admin/mentorship-sweep/route")],
+    // Charges org cards for Talent Directory subscriptions — same money-moving reasoning.
+    [
+      "renew-talent-directory-subscriptions",
+      () => import("@/app/api/admin/renew-talent-directory-subscriptions/route"),
+    ],
   ] as const;
 
   for (const [name, load] of CRON_ROUTES) {
@@ -505,6 +510,8 @@ describe("§2 — cron GETs fail closed too", () => {
       "/api/admin/delete-stale-postings": () =>
         import("@/app/api/admin/delete-stale-postings/route"),
       "/api/admin/mentorship-sweep": () => import("@/app/api/admin/mentorship-sweep/route"),
+      "/api/admin/renew-talent-directory-subscriptions": () =>
+        import("@/app/api/admin/renew-talent-directory-subscriptions/route"),
     };
 
     expect(vercelConfig.crons.length).toBeGreaterThan(0);

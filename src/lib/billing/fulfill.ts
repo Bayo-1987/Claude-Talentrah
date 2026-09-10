@@ -154,6 +154,57 @@ export async function fulfillPayment(
       });
       purchased = pass.name;
     }
+  } else if (transaction.product_type === "talent_directory_subscription" && transaction.product_id) {
+    /*
+     * The org's Talent Directory subscription — a fixed-price, fixed-date
+     * Pass-style charge (0135's own header explains why), so this branch is
+     * the direct mirror of the `pass` branch just above it: reusable-card
+     * checkout auto-renews, every other rail is prepaid/non-renewing.
+     *
+     * THE ROW ALREADY EXISTS, IN `pending_payment`. Unlike credit_pack/pass
+     * (which grant by INSERTing a new row here) or mentor_session (created
+     * atomically at booking time by its own SQL function), this is the ONE
+     * product type where the client-initiated Server Action
+     * (purchaseTalentDirectorySubscriptionAction) creates the row itself,
+     * before payment — because the partial unique index enforcing "one
+     * active subscription per org" needs a real row to apply the constraint
+     * to, and that check has to happen before Paystack is ever contacted,
+     * not after. This branch's only job is the state transition
+     * pending_payment -> active; it never inserts.
+     *
+     * `.eq("status", "pending_payment")` on the UPDATE is this function's
+     * own belt-and-braces idempotency layer, same reasoning 0132's own
+     * mentor_session branch uses it for: the top-level `status !== "pending"`
+     * guard on `transaction` already stops a webhook redelivery from
+     * reaching this branch twice, but this makes the SUBSCRIPTION-side state
+     * change itself a no-op if it were ever somehow reached twice.
+     */
+    const { data: subscription } = await supabase
+      .from("talent_directory_subscriptions")
+      .select("plan_id, expires_at, talent_directory_plans(name)")
+      .eq("id", transaction.product_id)
+      .single();
+
+    if (subscription) {
+      const autoRenew = isReusableCard;
+      const { data: updated } = await supabase
+        .from("talent_directory_subscriptions")
+        .update({
+          status: "active",
+          auto_renew_status: autoRenew ? "active" : null,
+          next_renewal_date: autoRenew ? toDateOnly(new Date(subscription.expires_at)) : null,
+          authorization_code: authorizationCode,
+          payment_transaction_id: transaction.id,
+        })
+        .eq("id", transaction.product_id)
+        .eq("status", "pending_payment")
+        .select("id")
+        .maybeSingle();
+
+      if (updated) {
+        purchased = subscription.talent_directory_plans?.name ?? "Talent Directory subscription";
+      }
+    }
   } else if (transaction.product_type === "ad_wallet_topup") {
     /*
      * The organisation's ad wallet.

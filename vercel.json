@@ -33,6 +33,10 @@
     {
       "path": "/api/admin/mentorship-sweep",
       "schedule": "0 12 * * *"
+    },
+    {
+      "path": "/api/admin/renew-talent-directory-subscriptions",
+      "schedule": "0 13 * * *"
     }
   ]
 }

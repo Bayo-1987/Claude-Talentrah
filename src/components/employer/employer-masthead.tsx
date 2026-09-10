@@ -30,6 +30,7 @@ const NAV_LINKS = [
   { href: "/employer/profile", label: "Company Profile" },
   { href: "/employer/campaigns", label: "Ad Campaigns" },
   { href: "/employer/analytics", label: "Analytics" },
+  { href: "/employer/talent-directory", label: "Talent Directory" },
 ];
 
 export function EmployerMasthead({
