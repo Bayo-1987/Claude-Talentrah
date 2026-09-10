@@ -134,6 +134,14 @@ regexes = [
   '''header\.payload\.signature''',
   '''access-token''',
   '''refresh-token''',
+
+  # src/components/jobs/promoted-click-tracker.tsx (0128) —
+  # `credentials: "same-origin"` is a literal, standard Fetch API request
+  # option (the browser's own vocabulary for which cookies to send), not a
+  # credential value. It only matches this rule because `credential` is one
+  # of the rule's own trigger keywords and the fetch option happens to be
+  # spelled the same way. There is no secret here to rotate.
+  '''same-origin''',
 ]
 
 paths = [
