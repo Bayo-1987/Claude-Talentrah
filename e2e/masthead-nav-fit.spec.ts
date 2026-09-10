@@ -167,6 +167,7 @@ test.describe("the masthead nav fits where it is shown", () => {
       "Scholarships",
       "Get Verified",
       "Refer a Friend",
+      "Mentorship",
       "Feedback",
       "Post a job",
     ]) {
