@@ -428,6 +428,9 @@ describe("§2 — cron GETs fail closed too", () => {
     // created the route, not retrofitted — the four routes above were all
     // fail-OPEN in production before this file existed.
     ["charge-campaigns", () => import("@/app/api/admin/charge-campaigns/route")],
+    // Refunds Paystack charges (0133's no-show/cancellation policy) — same
+    // money-moving reasoning as charge-campaigns above.
+    ["mentorship-sweep", () => import("@/app/api/admin/mentorship-sweep/route")],
   ] as const;
 
   for (const [name, load] of CRON_ROUTES) {
@@ -501,6 +504,7 @@ describe("§2 — cron GETs fail closed too", () => {
         import("@/app/api/admin/send-verification-reminders/route"),
       "/api/admin/delete-stale-postings": () =>
         import("@/app/api/admin/delete-stale-postings/route"),
+      "/api/admin/mentorship-sweep": () => import("@/app/api/admin/mentorship-sweep/route"),
     };
 
     expect(vercelConfig.crons.length).toBeGreaterThan(0);

@@ -120,6 +120,21 @@ export const KNOWN_ALIASES: Record<string, string> = {
    */
   "0077_blog_permission": "0076_blog_permission",
   "0078_grant_blog_permission": "0077_grant_blog_permission",
+  /*
+   * Applied to both projects under 0131/0132 before this branch discovered,
+   * on re-checking migration numbering immediately before pushing (per this
+   * repo's own standing coordination note — the exact 0033/0033, 0035/0035
+   * scenario it warns about), that origin/farah-proactive-nudge had been
+   * rebased onto a new main and its own migration renumbered to claim 0131.
+   * Rather than re-apply under the corrected names (the schema, tables and
+   * functions already exist correctly under the old ones), the FILES were
+   * renamed to 0132/0133 and these two aliases record the mismatch — same
+   * resolution as the 0076/0077 blog pair above, for the identical reason:
+   * each was legitimately its number when applied, and a later-discovered
+   * branch collision moved it up.
+   */
+  "0132_mentorship_enum_values": "0131_mentorship_enum_values",
+  "0133_mentorship_marketplace": "0132_mentorship_marketplace",
 };
 
 export function committedMigrations(): string[] {

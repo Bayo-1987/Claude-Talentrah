@@ -248,3 +248,46 @@ export async function chargeAuthorization(params: {
   );
   return data.data as ChargeAuthorizationResult;
 }
+
+export interface RefundResult {
+  status: string;
+  amount: number;
+  currency: string;
+}
+
+/**
+ * send-137's own use: Mentorship's no-show/cancellation policy (a mentor who
+ * never confirms by the deadline) refunds the mentee automatically.
+ *
+ * REQUESTS the refund and returns Paystack's own acknowledgement — it does
+ * NOT wait for the refund to finish processing. A Paystack refund is
+ * asynchronous on their side (the transaction moves to "processing", then
+ * later actually settles), the same way `initializeTransaction` starts a
+ * charge without waiting for it to be paid. Reconciling the eventual outcome
+ * via Paystack's `refund.processed`/`refund.failed` webhook events is a real
+ * gap, stated rather than hidden — this mirrors `fulfillPayment`'s own
+ * documented webhook/callback race being "open and out of scope" for two of
+ * its three product types. What this DOES guarantee: the request is made,
+ * logged, and the session's own status records that a refund was attempted
+ * — a human can always reconcile a specific reference against Paystack's
+ * dashboard if the webhook path is never built.
+ *
+ * No `amount` argument: always a full refund. Mentorship v1 has no partial-
+ * session concept (a session that never got confirmed was never partially
+ * delivered), so there is nothing a partial refund would even mean here.
+ */
+export async function refundTransaction(reference: string): Promise<RefundResult> {
+  const data = await paystackFetch(
+    `${PAYSTACK_BASE_URL}/refund`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${getSecretKey()}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ transaction: reference }),
+    },
+    "refund",
+  );
+  return data.data as RefundResult;
+}

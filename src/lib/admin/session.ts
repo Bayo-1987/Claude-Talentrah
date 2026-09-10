@@ -70,17 +70,11 @@ export type AdminPermission =
   // exact gate 0027 exists to keep shut, not a plain content area — starts
   // granted to nobody, exactly like `people_list` and `employer_verification`.
   | "job_review"
-  | "operators"
-  // Mentorship Marketplace's own migration already added this to the live
-  // `admin_permission` enum on both Supabase projects ahead of its own PR
-  // (#341) merging — surfaced here only because regenerating types.ts for
-  // THIS merge (referral-leaderboard, #340) picked up the real, current
-  // enum, which made `permissions = (permRows ?? []).map((r) => r.permission)`
-  // fail to typecheck against this file's stale hand-written union. Added
-  // narrowly to keep the type honest about what the database already has —
-  // nothing here grants the permission to anyone or gates any UI on it; the
-  // actual mentor-review admin functionality remains #341's own scope.
-  | "mentor_review";
+  // 0132/0133. Deciding whether a mentor application is publicly listed is a
+  // trust decision over a new public-facing surface, not a plain content
+  // area — starts granted to nobody, exactly like the three above it.
+  | "mentor_review"
+  | "operators";
 
 export interface AdminIdentity {
   sessionId: string;

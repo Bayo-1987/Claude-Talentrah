@@ -522,6 +522,89 @@ export async function decideCacVerificationAction(
  * there IS a column to move here (`admin_review_decision`), so both
  * directions get the same atomicity.
  */
+/**
+ * Approve or reject a mentor application (send-137, build-prompt §6.11).
+ *
+ * SAME SHAPE AS decideJobPostingAction/decideScholarshipAction: the write and
+ * the permission check happen together in admin_moderate_mentor_application
+ * (0133), which also carries the `status = 'pending'` precondition — so two
+ * admins opening the same application cannot both "win".
+ *
+ * Approving does not do anything beyond flipping `mentor_profiles.status` —
+ * there is no separate "go live" step, because the SELECT policy on
+ * mentor_profiles already reads `status = 'approved'` directly. Unlike ad
+ * campaign review, there is exactly one moment this mentor becomes publicly
+ * listed, and this is it.
+ */
+export async function decideMentorApplicationAction(
+  _prev: ModerationState,
+  formData: FormData,
+): Promise<ModerationState> {
+  const admin = await requirePermission("mentor_review");
+  const id = String(formData.get("id") ?? "");
+  const decision = String(formData.get("decision") ?? "");
+  const note = String(formData.get("note") ?? "").trim();
+
+  if (!id || (decision !== "approved" && decision !== "rejected")) {
+    return { status: "error", message: "Pick approve or reject.", targetId: id };
+  }
+  if (decision === "rejected" && !note) {
+    // A rejection with no reason leaves the applicant nothing to correct
+    // before reapplying.
+    return { status: "error", message: "A rejection needs a reason.", targetId: id };
+  }
+
+  const supabase = createServiceRoleClient();
+
+  const { data: res, error } = await supabase.rpc("admin_moderate_mentor_application", {
+    p_actor: admin.adminId,
+    p_mentor_user_id: id,
+    p_decision: decision,
+    p_note: note,
+  });
+
+  if (error) {
+    console.error("[admin-moderation] mentor application", error);
+    return { status: "error", message: "Something went wrong on our end.", targetId: id };
+  }
+  const row = res?.[0];
+  if (!row?.ok) {
+    return {
+      status: "error",
+      message:
+        row?.reason === "not_authorised"
+          ? "You do not have permission to review mentor applications."
+          : "Already decided by someone else — reload to see the current queue.",
+      targetId: id,
+    };
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("first_name, last_name")
+    .eq("id", id)
+    .maybeSingle();
+  const name = profile ? [profile.first_name, profile.last_name].filter(Boolean).join(" ") : "";
+
+  await recordAdminAction({
+    identity: admin,
+    action: decision === "approved" ? "mentor_application.approved" : "mentor_application.rejected",
+    targetTable: "mentor_profiles",
+    targetId: id,
+    detail: { name: name || null, note: note || null },
+  });
+
+  revalidatePath("/admin/mentor-review");
+  return {
+    status: "success",
+    targetId: id,
+    message:
+      decision === "approved"
+        ? `Approved — ${name || "this mentor"} is now listed in Mentorship.`
+        : `Rejected, with your reason recorded.`,
+  };
+}
+
 export async function decideJobReviewAction(
   _prev: ModerationState,
   formData: FormData,
