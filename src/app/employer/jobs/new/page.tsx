@@ -2,7 +2,7 @@ import Link from "next/link";
 import { requireEmployer } from "@/lib/employer/membership";
 import { postJobAction } from "@/lib/employer/actions";
 import { EyebrowLabel } from "@/components/ui";
-import { JobPostingForm } from "@/components/employer/job-posting-form";
+import { NewJobForm } from "@/components/employer/new-job-form";
 import { NewJobBannerPicker } from "@/components/employer/new-job-banner-picker";
 
 export const metadata = { title: "Post a job — Talentrah" };
@@ -37,7 +37,7 @@ export default async function NewJobPage() {
         <NewJobBannerPicker userId={userId} />
       </div>
       <div className="mt-6">
-        <JobPostingForm
+        <NewJobForm
           action={postJobAction}
           submitLabel="Publish job"
           pendingLabel="Publishing…"

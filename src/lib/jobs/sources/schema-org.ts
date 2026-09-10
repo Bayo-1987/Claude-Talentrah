@@ -20,8 +20,16 @@ interface SkipReason {
 }
 
 /** What this module actually asserts about a parsed JSON-LD object before
- * trusting it — see module doc below for why. */
-interface ValidJobPostingBlock {
+ * trusting it — see module doc below for why.
+ *
+ * Exported (like the mapping functions below) so
+ * src/lib/employer/job-import can reuse this vetted parsing/mapping logic for
+ * an employer's own "import from URL" fetch, rather than re-deriving a
+ * second, unvetted JSON-LD reader. Ingestion and the employer import feature
+ * read the exact same schema.org shape; only what happens after parsing
+ * differs (upsert into the aggregation pipeline vs. pre-filling a form for
+ * the employer to review). */
+export interface ValidJobPostingBlock {
   title: string;
   description?: string;
   datePosted?: string;
@@ -42,7 +50,7 @@ interface ValidJobPostingBlock {
   baseSalary?: unknown;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
+export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
@@ -56,7 +64,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  * out every other listing in the same batch, so this returns a pass/fail
  * plus a human-readable reason rather than throwing.
  */
-function validateJobPosting(candidate: unknown): ValidJobPostingBlock | { error: string } {
+export function validateJobPosting(candidate: unknown): ValidJobPostingBlock | { error: string } {
   if (!isRecord(candidate)) return { error: "not an object" };
   if (candidate["@type"] !== "JobPosting") return { error: `@type is "${String(candidate["@type"])}", not "JobPosting"` };
 
@@ -102,7 +110,7 @@ function validateJobPosting(candidate: unknown): ValidJobPostingBlock | { error:
  * page chrome like `Organization`/`WebSite`, a bare object for the
  * `JobPosting`/`ItemList` itself).
  */
-function extractJsonLdNodes(html: string): unknown[] {
+export function extractJsonLdNodes(html: string): unknown[] {
   const nodes: unknown[] = [];
   const scriptRe = /<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
   let match: RegExpExecArray | null;
@@ -186,14 +194,14 @@ function hasUsableAddress(block: ValidJobPostingBlock): boolean {
  * makes to decide whether it has anything to print, so a posting cannot end
  * up on-screen with a location string and still read `undefined` here.
  */
-function mapWorkType(block: ValidJobPostingBlock): WorkType | undefined {
+export function mapWorkType(block: ValidJobPostingBlock): WorkType | undefined {
   if (block.jobLocationType === "TELECOMMUTE") {
     return hasUsableAddress(block) ? "hybrid" : "remote";
   }
   return hasUsableAddress(block) ? "onsite" : undefined;
 }
 
-function mapEmploymentType(raw: string | undefined): EmploymentType | undefined {
+export function mapEmploymentType(raw: string | undefined): EmploymentType | undefined {
   if (!raw) return undefined;
   const text = raw.toUpperCase();
   if (text.includes("INTERN")) return "internship";
@@ -246,7 +254,7 @@ function isFiniteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
 }
 
-interface ParsedSalary {
+export interface ParsedSalary {
   min?: number;
   max?: number;
   currency?: string;
@@ -269,7 +277,7 @@ interface ParsedSalary {
  * treated the same way: not a range anyone stated, so omitted rather than
  * silently swapped or half-kept.
  */
-function mapBaseSalary(raw: unknown): ParsedSalary | undefined {
+export function mapBaseSalary(raw: unknown): ParsedSalary | undefined {
   if (!isRecord(raw)) return undefined;
 
   const currency = mapCurrency(raw.currency);
@@ -300,7 +308,7 @@ function mapBaseSalary(raw: unknown): ParsedSalary | undefined {
 
 /** Shares `hasUsableAddress` with `mapWorkType` — see that function's header
  * for why the test lives in one place rather than being re-derived here. */
-function formatLocation(block: ValidJobPostingBlock): string | undefined {
+export function formatLocation(block: ValidJobPostingBlock): string | undefined {
   const parts = usableAddressParts(block);
   if (parts.length === 0) {
     return block.jobLocationType === "TELECOMMUTE" ? "Remote" : undefined;
