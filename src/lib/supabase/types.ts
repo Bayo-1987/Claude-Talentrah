@@ -1770,6 +1770,7 @@ export type Database = {
           mentor_payout_ngn: number
           platform_commission_ngn: number
           price_ngn: number
+          reminder_sent_at: string | null
           scheduled_end: string
           scheduled_start: string
           session_type: string
@@ -1789,6 +1790,7 @@ export type Database = {
           mentor_payout_ngn?: number
           platform_commission_ngn?: number
           price_ngn?: number
+          reminder_sent_at?: string | null
           scheduled_end: string
           scheduled_start: string
           session_type: string
@@ -1808,6 +1810,7 @@ export type Database = {
           mentor_payout_ngn?: number
           platform_commission_ngn?: number
           price_ngn?: number
+          reminder_sent_at?: string | null
           scheduled_end?: string
           scheduled_start?: string
           session_type?: string
