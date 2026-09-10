@@ -436,6 +436,11 @@ describe("§2 — cron GETs fail closed too", () => {
       "renew-talent-directory-subscriptions",
       () => import("@/app/api/admin/renew-talent-directory-subscriptions/route"),
     ],
+    // Pays mentors real money out via Paystack Transfers (0139) — the first
+    // outbound-payment route in this file, same fail-closed reasoning as
+    // charge-campaigns/mentorship-sweep above, registered in the same commit
+    // that created the route.
+    ["mentor-payouts", () => import("@/app/api/admin/mentor-payouts/route")],
   ] as const;
 
   for (const [name, load] of CRON_ROUTES) {
@@ -512,6 +517,7 @@ describe("§2 — cron GETs fail closed too", () => {
       "/api/admin/mentorship-sweep": () => import("@/app/api/admin/mentorship-sweep/route"),
       "/api/admin/renew-talent-directory-subscriptions": () =>
         import("@/app/api/admin/renew-talent-directory-subscriptions/route"),
+      "/api/admin/mentor-payouts": () => import("@/app/api/admin/mentor-payouts/route"),
     };
 
     expect(vercelConfig.crons.length).toBeGreaterThan(0);
