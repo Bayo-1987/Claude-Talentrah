@@ -5,6 +5,7 @@ import { after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { loadJobSnapshot } from "./job-snapshot";
 import { logCountryDefaultEvent, type CountryState } from "@/lib/jobs/country-events";
+import { findActiveCampaignForJobPosting, recordAdEvent } from "@/lib/ads/promoted";
 
 async function getAuthedUserId() {
   const supabase = await createClient();
@@ -70,6 +71,41 @@ export async function toggleSaveAction(jobId: string) {
 export async function applyInAppAction(jobId: string, countryState: CountryState) {
   const { supabase, userId } = await getAuthedUserId();
 
+  /*
+   * Ad-funnel instrumentation (0128) — started here, NOT awaited here.
+   *
+   * This is the SAME campaign lookup both the click and (further below) the
+   * apply event need, kicked off once as a plain promise so it runs
+   * concurrently with everything else in this action instead of adding a
+   * round trip to the button's own CTA latency (see the "Three-way parallel"
+   * comment just below — apply already has a documented latency budget this
+   * must not spend). Internal, non-promoted postings resolve to `null` almost
+   * immediately and both `after()` blocks below become no-ops.
+   */
+  const activeCampaignId = findActiveCampaignForJobPosting(jobId);
+
+  // The "Apply" control was activated, independent of whether the write below
+  // succeeds — a click on Apply is a real ad interaction the moment the
+  // button is pressed. Deferred via `after()`, same reasoning as
+  // `logCountryDefaultEvent` further down: must never add latency to the
+  // response, and a failure here must never fail the apply itself.
+  after(async () => {
+    try {
+      const campaignId = await activeCampaignId;
+      if (campaignId) {
+        await recordAdEvent({
+          campaignId,
+          jobPostingId: jobId,
+          userId,
+          eventType: "click",
+          surface: "job_feed_apply",
+        });
+      }
+    } catch (err) {
+      console.error("[ads] apply-click recording failed:", err);
+    }
+  });
+
   // Three-way parallel: none of these depend on either of the others — the
   // base-resume lookup used to run before this Promise.all for no reason,
   // making a click on Apply pay for three round-trips in sequence (1-then-2)
@@ -126,6 +162,26 @@ export async function applyInAppAction(jobId: string, countryState: CountryState
   // response path, for the same reason (the reader isn't waiting on it).
   after(async () => {
     await logCountryDefaultEvent({ userId, eventType: "apply", countryState, jobPostingId: jobId });
+  });
+
+  // The apply half of the ad funnel — only reached once the write above has
+  // actually succeeded, unlike the click `after()` above it. Reuses the same
+  // in-flight `activeCampaignId` lookup rather than querying again.
+  after(async () => {
+    try {
+      const campaignId = await activeCampaignId;
+      if (campaignId) {
+        await recordAdEvent({
+          campaignId,
+          jobPostingId: jobId,
+          userId,
+          eventType: "apply",
+          surface: "job_feed_apply",
+        });
+      }
+    } catch (err) {
+      console.error("[ads] apply-event recording failed:", err);
+    }
   });
 
   revalidatePath("/jobs");
