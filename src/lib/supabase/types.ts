@@ -2103,6 +2103,7 @@ export type Database = {
           referred_by: string | null
           resume_skills_notice_dismissed_at: string | null
           talent_available_for_hire: boolean
+          talent_boosted_until: string | null
           talent_directory_opt_in: boolean
           talent_earliest_start_date: string | null
           talent_remote_ready: boolean
@@ -2131,6 +2132,7 @@ export type Database = {
           referred_by?: string | null
           resume_skills_notice_dismissed_at?: string | null
           talent_available_for_hire?: boolean
+          talent_boosted_until?: string | null
           talent_directory_opt_in?: boolean
           talent_earliest_start_date?: string | null
           talent_remote_ready?: boolean
@@ -2159,6 +2161,7 @@ export type Database = {
           referred_by?: string | null
           resume_skills_notice_dismissed_at?: string | null
           talent_available_for_hire?: boolean
+          talent_boosted_until?: string | null
           talent_directory_opt_in?: boolean
           talent_earliest_start_date?: string | null
           talent_remote_ready?: boolean
@@ -2542,6 +2545,54 @@ export type Database = {
           {
             foreignKeyName: "scholarships_moderated_by_fkey"
             columns: ["moderated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      talent_directory_boosts: {
+        Row: {
+          boosted_until: string | null
+          credit_ledger_id: string | null
+          days: number
+          decided_at: string | null
+          id: string
+          requested_at: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          boosted_until?: string | null
+          credit_ledger_id?: string | null
+          days: number
+          decided_at?: string | null
+          id?: string
+          requested_at?: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          boosted_until?: string | null
+          credit_ledger_id?: string | null
+          days?: number
+          decided_at?: string | null
+          id?: string
+          requested_at?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "talent_directory_boosts_credit_ledger_id_fkey"
+            columns: ["credit_ledger_id"]
+            isOneToOne: false
+            referencedRelation: "credit_ledger"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "talent_directory_boosts_user_id_fkey"
+            columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -3340,6 +3391,10 @@ export type Database = {
         Args: { p_user_id: string; p_verification_id: string }
         Returns: undefined
       }
+      resolve_talent_directory_boost: {
+        Args: { p_boost_id: string; p_days: number; p_user_id: string }
+        Returns: string
+      }
       resolve_talent_verification: {
         Args: {
           p_feedback: string
@@ -3546,6 +3601,7 @@ export type Database = {
         | "pricing_rebase_4x"
         | "farah_chat_message"
         | "talent_directory_verification"
+        | "talent_directory_boost"
       employment_type: "full_time" | "part_time" | "contract" | "internship"
       farah_message_role: "user" | "farah"
       feedback_category: "bug" | "idea" | "other"
@@ -3791,6 +3847,7 @@ export const Constants = {
         "pricing_rebase_4x",
         "farah_chat_message",
         "talent_directory_verification",
+        "talent_directory_boost",
       ],
       employment_type: ["full_time", "part_time", "contract", "internship"],
       farah_message_role: ["user", "farah"],

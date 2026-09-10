@@ -31,11 +31,11 @@ const FAQS = [
   },
   {
     q: "What's the difference between Farah and a human mentor?",
-    a: "Day-to-day, Farah handles the matching, tailoring, and coaching, and that's what's live today. When the stakes are highest — negotiating pay, or prepping for a final round — she'll tell you a human is the better call. Hand-off to a real mentor is planned, not yet available.",
+    a: "Day-to-day, Farah handles the matching, tailoring, and coaching. When the stakes are highest — negotiating pay, or prepping for a final round — she'll point you to a human mentor instead, which is now live and bookable right from Talentrah.",
   },
   {
     q: "Is human mentorship available yet?",
-    a: "Not yet — mentorship is planned, not live. Farah handles the coaching available today. When mentorship launches, sessions will be paid directly to the mentor rather than through credits.",
+    a: "Yes — book a paid or volunteer 1:1 session with a vetted mentor for the moments Farah can't handle alone, like a real negotiation or a mock interview for a specific offer. Sessions are booked and paid for directly through the platform, not through credits.",
   },
   {
     q: "Can employers post jobs on Talentrah?",

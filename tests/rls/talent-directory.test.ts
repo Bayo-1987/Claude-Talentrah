@@ -12,6 +12,13 @@
  *     exposes — gated on the CALLER's own entitlement (an active
  *     subscription for their org), re-derived from auth.uid(), never from a
  *     client-supplied organization id.
+ *
+ * 0137 adds the seeker-paid search boost (§6.13's third buyer segment) as a
+ * pure ORDER BY change on top of that same gate — this suite's third
+ * describe block proves the gate composes correctly with it: a boost record
+ * must never be a THIRD way into the directory alongside verified+opted-in,
+ * and among candidates who already pass the gate, a boost must actually
+ * change ordering. Neither is assumed from "the WHERE clause is unchanged."
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { randomUUID } from "node:crypto";
@@ -26,6 +33,7 @@ let verifiedOptedIn: { id: string; client: DB };
 let verifiedNotOptedIn: { id: string; client: DB };
 let optedInNotVerified: { id: string; client: DB };
 let neither: { id: string; client: DB };
+let boostedVerifiedOptedIn: { id: string; client: DB };
 
 let subscribedOrgId: string;
 let subscribedOrgOwner: { id: string; client: DB };
@@ -37,16 +45,19 @@ let subscriptionId: string;
 let planId: string;
 
 beforeAll(async () => {
-  [verifiedOptedIn, verifiedNotOptedIn, optedInNotVerified, neither, subscribedOrgOwner, unsubscribedOrgOwner, outsider] =
+  [verifiedOptedIn, verifiedNotOptedIn, optedInNotVerified, neither, boostedVerifiedOptedIn, subscribedOrgOwner, unsubscribedOrgOwner, outsider] =
     await Promise.all([
       createAuthedTestUser("tdrls-verified-optedin"),
       createAuthedTestUser("tdrls-verified-notoptedin"),
       createAuthedTestUser("tdrls-optedin-notverified"),
       createAuthedTestUser("tdrls-neither"),
+      createAuthedTestUser("tdrls-boosted-verified-optedin"),
       createAuthedTestUser("tdrls-org-owner-sub"),
       createAuthedTestUser("tdrls-org-owner-nosub"),
       createAuthedTestUser("tdrls-outsider"),
     ]);
+
+  const futureBoost = new Date(Date.now() + 7 * 24 * 3600_000).toISOString();
 
   await Promise.all([
     admin
@@ -61,6 +72,32 @@ beforeAll(async () => {
       .from("profiles")
       .update({ talent_verification_status: "unverified", talent_directory_opt_in: true })
       .eq("id", optedInNotVerified.id),
+    // Verified AND opted-in AND boosted — the one candidate that should
+    // actually be affected by 0137's ORDER BY change. Verified earlier than
+    // `verifiedOptedIn` (see the `talent_verified_at` below) so that WITHOUT
+    // the boost this candidate would sort strictly AFTER `verifiedOptedIn`
+    // — the ordering assertion below only proves anything because of that.
+    admin
+      .from("profiles")
+      .update({
+        talent_verification_status: "verified",
+        talent_directory_opt_in: true,
+        talent_verified_at: new Date(Date.now() - 3600_000).toISOString(),
+        talent_boosted_until: futureBoost,
+      })
+      .eq("id", boostedVerifiedOptedIn.id),
+  ]);
+
+  // A "boost record" on candidates that fail the verified+opted-in gate —
+  // proving 0137's own claim that a boost is never a third way in. Setting
+  // `talent_boosted_until` directly (rather than going through the purchase
+  // flow) is deliberate: this must hold even for a row that "somehow" has a
+  // boost value, not just one that arrived via the normal, gated purchase
+  // path.
+  await Promise.all([
+    admin.from("profiles").update({ talent_boosted_until: futureBoost }).eq("id", verifiedNotOptedIn.id),
+    admin.from("profiles").update({ talent_boosted_until: futureBoost }).eq("id", optedInNotVerified.id),
+    admin.from("profiles").update({ talent_boosted_until: futureBoost }).eq("id", neither.id),
   ]);
 
   await admin.from("talent_portfolio_items").insert([
@@ -119,6 +156,7 @@ afterAll(async () => {
     verifiedNotOptedIn.id,
     optedInNotVerified.id,
     neither.id,
+    boostedVerifiedOptedIn.id,
     subscribedOrgOwner.id,
     unsubscribedOrgOwner.id,
     outsider.id,
@@ -241,5 +279,67 @@ describe("no other query path leaks a non-opted-in seeker's data", () => {
       data ?? [],
       "PRIVACY BUG: profiles' RLS was widened for this feature instead of using the SECURITY DEFINER function",
     ).toEqual([]);
+  });
+});
+
+describe("0137: the seeker-paid search boost never overrides the verified+opted-in gate", () => {
+  it("PRIVACY BUG: a boost record must not let an opted-out-but-verified seeker into the directory", async () => {
+    const { data, error } = await subscribedOrgOwner.client.rpc("talent_directory_search", {
+      p_candidate_id: verifiedNotOptedIn.id,
+    });
+    expect(error).toBeNull();
+    expect(
+      data ?? [],
+      "PRIVACY BUG: a talent_boosted_until value let a verified-but-NOT-opted-in seeker appear in the directory",
+    ).toEqual([]);
+  });
+
+  it("PRIVACY BUG: a boost record must not let an unverified-but-opted-in seeker into the directory", async () => {
+    const { data, error } = await subscribedOrgOwner.client.rpc("talent_directory_search", {
+      p_candidate_id: optedInNotVerified.id,
+    });
+    expect(error).toBeNull();
+    expect(
+      data ?? [],
+      "PRIVACY BUG: a talent_boosted_until value let an opted-in-but-NOT-verified seeker appear in the directory",
+    ).toEqual([]);
+  });
+
+  it("PRIVACY BUG: a boost record must not let a seeker who is neither verified nor opted-in into the directory", async () => {
+    const { data, error } = await subscribedOrgOwner.client.rpc("talent_directory_search", {
+      p_candidate_id: neither.id,
+    });
+    expect(error).toBeNull();
+    expect(
+      data ?? [],
+      "PRIVACY BUG: a talent_boosted_until value alone (no verification, no opt-in) exposed a seeker in the directory",
+    ).toEqual([]);
+  });
+
+  it("the SAME three boosted-but-ineligible candidates are also absent from a plain, unfiltered search", async () => {
+    // The p_candidate_id lookup above proves each one individually; this
+    // proves the boost doesn't smuggle them into the general result set
+    // either — e.g. via the ORDER BY somehow short-circuiting the WHERE.
+    const { data, error } = await subscribedOrgOwner.client.rpc("talent_directory_search", { p_limit: 50 });
+    expect(error).toBeNull();
+    const ids = (data ?? []).map((r) => r.user_id);
+    expect(ids).not.toContain(verifiedNotOptedIn.id);
+    expect(ids).not.toContain(optedInNotVerified.id);
+    expect(ids).not.toContain(neither.id);
+  });
+
+  it("among candidates who DO pass the gate, a boost genuinely moves a candidate ahead in ordering", async () => {
+    const { data, error } = await subscribedOrgOwner.client.rpc("talent_directory_search", { p_limit: 50 });
+    expect(error).toBeNull();
+    const ids = (data ?? []).map((r) => r.user_id);
+
+    const boostedIndex = ids.indexOf(boostedVerifiedOptedIn.id);
+    const unboostedIndex = ids.indexOf(verifiedOptedIn.id);
+    expect(boostedIndex, "the boosted candidate must appear in results at all").toBeGreaterThanOrEqual(0);
+    expect(unboostedIndex, "the unboosted candidate must still appear in results").toBeGreaterThanOrEqual(0);
+    expect(
+      boostedIndex,
+      "a boosted candidate (verified earlier, so it would otherwise sort LAST) must sort ahead of an unboosted one",
+    ).toBeLessThan(unboostedIndex);
   });
 });

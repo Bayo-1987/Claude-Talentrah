@@ -194,13 +194,13 @@ mistake wearing different clothes.
 ## What Talentrah is
 
 An AI-powered career platform for job seekers in Nigeria/Africa, with a self-serve employer side. Two-sided:
-- **Job seekers**: AI-matched job feed, paste-a-job-link → instant tailored resume + cover letter, application tracking, resume builder, referrals, human mentorship (deferred).
+- **Job seekers**: AI-matched job feed, paste-a-job-link → instant tailored resume + cover letter, application tracking, resume builder, referrals, human mentorship.
 - **Employers**: post jobs, company profile, self-serve ad campaigns.
 
 **Farah** is the AI copilot — a named, consistent-voice persona (encouraging, direct, practical) threaded through the whole seeker experience, not a bolted-on chatbot. Never call her "the AI" or "the bot."
 
 **Core differentiation thesis**: Jobright/LinkedIn/Indeed are US-centric and underserve Nigerian/African job seekers — real gap, but a *hypothesis to validate* with real users, not an assumed fact. Talentrah's actual product-level differentiators vs. AI-only competitors:
-1. Real human **Mentorship** marketplace (not just AI "coaching") — deferred until core loop proves retention.
+1. Real human **Mentorship** marketplace (not just AI "coaching") — shipped 2026-09-10 (PR #341, send-137).
 2. **Auto-Apply** positioned as a trust/quality feature (review-before-submit default, conservative match threshold) — not a spam-driving volume feature.
 3. Lower visual density than incumbents (see Design System below) — calm/editorial, not sales-driven SaaS.
 4. Diaspora expansion (UK/US/Canada Nigerians) as a natural Tier-1 hard-currency market — NOT competing head-on for US/UK job seekers generally.
@@ -213,20 +213,21 @@ An AI-powered career platform for job seekers in Nigeria/Africa, with a self-ser
 - Core AI tailoring loop (JD import → gap analysis → tailored resume) — the actual "aha moment"
 
 **Explicitly deferred until core loop proves retention:**
-- Mentorship marketplace (§6.11) — second cold-start problem; if forced to pick the next big bet, **Talent Directory & Verification (§6.13) comes before Mentorship** (monetizes both local + global employers, no separate marketplace bootstrap).
 - Deep virality/shareable mechanics (job search is often confidential — private-by-default).
 - Outcome-data matching moat (too noisy with small early user base).
+
+Mentorship marketplace (§6.11) and Talent Directory & Verification (§6.13) — both listed here as deferred bets in earlier versions of this doc — shipped 2026-09-10 (PR #341/send-137 and PR #342/send-139). **When a feature ships, check every surface a user could reach it from, not just the route existing**: #341 shipped a fully working `/mentorship` with no nav link anywhere a signed-in user or visitor would see it (only `admin-nav.tsx`, its moderation queue, was touched) — caught after the fact, not before. `marketing-footer.tsx`'s own comment already had the right instinct ("add each back when the feature ships, with a real href") but nobody was watching for the trigger.
 
 ## Build phasing (see build-prompt §9 for full detail)
 
 - **Phase 1 (MVP)** — currently being built, see the plan doc referenced above: auth/onboarding, resume upload/parse, job aggregation pipeline, match-scored feed, manual apply, Job Tracker, Resume Builder (subset templates), JD paste-text tailoring, Farah chat panel, free org job posting, Refer & Earn (credits-only), Credits + Prepaid Passes with mobile-money-native payment rails (Paystack).
 - **Phase 2**: Auto-apply, full template library, Ad Campaign Manager (flat-rate → CPC), employer billing, URL-scraping JD import, "claim your listing" flow, diaspora currency/billing.
-- **Phase 3**: Talent Directory & Verification, internships, Mentorship marketplace, CPA billing, referral leaderboard, proactive Farah nudges.
+- **Phase 3**: Talent Directory & Verification, internships, Mentorship marketplace, CPA billing, referral leaderboard, proactive Farah nudges. Of these, Talent Directory & Verification, Mentorship marketplace, referral leaderboard, and proactive Farah nudges shipped 2026-09-10 (PRs #339–#342); internships and CPA billing remain deferred.
 - **Phase 4**: Managed Services commercial launch (recruitment/staffing/outsourcing) — lead-capture only, manual sales. In-house dev-project outsourcing is **explicitly cut from the roadmap entirely** (it's a different business).
 
 ## Information architecture
 
-**Job seeker nav** (masthead, not icon sidebar): Jobs · Job Tracker · Resume Builder · Refer a Friend · Mentorship (deferred) · Feedback · Settings. Persistent: global search, notifications, language selector, "Post Job" shortcut, credits/upgrade CTA, profile menu, docked Farah panel on key screens.
+**Job seeker nav** (masthead, not icon sidebar): Jobs · Job Tracker · Resume Builder · Refer a Friend · Mentorship · Feedback · Settings. Persistent: global search, notifications, language selector, "Post Job" shortcut, credits/upgrade CTA, profile menu, docked Farah panel on key screens.
 
 **Employer nav**: Jobs Posted · Company Profile · Ad Campaigns · Billing · Analytics.
 
@@ -242,9 +243,9 @@ An AI-powered career platform for job seekers in Nigeria/Africa, with a self-ser
 - **6.8 Employer ads**: sponsored listings (build first) → banner/display → featured employer profile. Pricing model: flat-rate first, then CPC, CPA deferred (needs reliable attribution). Employer billing via Paystack/Flutterwave.
 - **6.9 Monetization**: free/uncapped for zero-AI-cost actions (browsing, tracker, algorithmic scoring). One-time free AI trial at signup, not renewable. **Talentrah Credits** for all AI actions beyond that (tailoring, cover letters, bullet rewriting, premium templates, auto-apply beyond free cap). **Passes** (7-day/30-day): auto-renew if paid by card (Paystack/Flutterwave token or Stripe for diaspora), stay prepaid/non-renewing if paid via mobile money wallet. Mentor sessions are NOT a credits action — paid directly, real cash pass-through. Multi-rail payments (mobile money + card) required from day one, not retrofitted. Pricing anchors: credit ≈ ₦150; packs ₦2,500/₦6,000/₦12,500; passes ₦2,000 (7-day) / ₦6,500 (30-day); diaspora subscription $9.99/mo — all researched anchors, **not validated**, need a real pricing test before locking in.
 - **6.10 Notifications**: transactional (immediate: status change, referral conversion, ad milestone, pass renewal reminder) vs. digest (batched: new match digest). Voice by sender: Farah-voiced for relationship-y notifications (matches, referrals), neutral system voice for factual/B2B ones. Voice by channel: in-app terse, email structured, WhatsApp conversational. Template-variable based copy, not hardcoded.
-- **6.11 Mentorship** *(deferred)*: real human mentors, clear line vs. Farah's shortcuts (mentors = high-stakes/judgment: mock interviews, negotiation for a specific offer). Profiles, discovery, booking, session lifecycle, vetting/approval queue. Payments direct (not credits); free/volunteer mentors are a permanent option, not just bootstrap. Session pricing ₦5k–₦100k+ by tier; **platform commission 15% flat**.
+- **6.11 Mentorship** *(shipped 2026-09-10, PR #341/send-137)*: real human mentors, clear line vs. Farah's shortcuts (mentors = high-stakes/judgment: mock interviews, negotiation for a specific offer). Profiles, discovery, booking, session lifecycle, vetting/approval queue. Payments direct (not credits); free/volunteer mentors are a permanent option, not just bootstrap. Session pricing ₦5k–₦100k+ by tier; **platform commission 15% flat**.
 - **6.12 Job supply/liquidity**: aggregate via ATS APIs (Greenhouse, Lever, Workday, etc.) + schema.org JobPosting data + regional board partnerships (Jobberman, MyJobMag, Fuzu). Avoid scraping ToS-prohibited platforms (LinkedIn, Indeed). "Claim your listing" employer conversion flow. Dedup/freshness pipeline. UI must clearly distinguish aggregated vs. direct jobs. **Jobberman, MyJobMag and Fuzu are partnership targets specifically — a negotiated, authorised relationship, not direct schema.org ingestion.** All three were checked and disqualified for the direct-ingestion mechanism (Jobberman/robots.txt disallow, MyJobMag/no JSON-LD, Fuzu/JSON-LD present but its ToS explicitly bans automated scraping and redistribution without authorisation — see `docs/phase-1-summary.md`'s *schema.org ingestion* section for the evidence). A real partnership conversation with any of the three is unaffected by that; don't read the disqualification as ruling them out generally.
-- **6.13 Talent Directory & Verification** *(deferred, recommended next major bet after core loop)*: searchable verified talent pool sold to 3 buyers — global/diaspora employers (primary FOREX surface), local employers (trust/anti-fraud), job seekers themselves (competitive edge, paid via credits). Skills verification (AI-graded + paid human review tier), portfolio surfacing, remote-readiness metadata.
+- **6.13 Talent Directory & Verification** *(shipped 2026-09-10, PR #342/send-139)*: searchable verified talent pool sold to 3 buyers — global/diaspora employers (primary FOREX surface), local employers (trust/anti-fraud), job seekers themselves (competitive edge, paid via credits). Skills verification (AI-graded + paid human review tier), portfolio surfacing, remote-readiness metadata.
 - **6.14 Managed Services** *(deferred, own "Business Services" page, not seeker-facing)*: tech recruitment + client-managed outsourcing (first wave, once directory has supply), general HR staffing, internships (cheap, do early — good directory cold-start lever). Partner (don't build) EOR/payroll via Deel/Remote/local PEO. **In-house dev outsourcing is cut entirely — treat as out of scope, not just deferred.**
 
 ## Data model (see build-prompt §7 for full field-level detail)
