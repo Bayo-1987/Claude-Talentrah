@@ -38,11 +38,17 @@ if (process.env.CI && !DEMO_PASSWORD) {
   throw new Error("masthead-nav-fit spec cannot run in CI: DEMO_PASSWORD is not set");
 }
 
-/** Below `xl` the nav is behind the disclosure; at and above it, it renders. */
-const NAV_BREAKPOINT = 1280;
+/**
+ * Below `2xl` the nav is behind the disclosure; at and above it, it renders.
+ * Raised from 1280 (`xl`) after an eighth nav item (send-139's "Get
+ * Verified") left zero margin at 1280 on CI's Linux runner — see
+ * masthead.tsx's own comment on why the fix is a real breakpoint move, not a
+ * shaved margin.
+ */
+const NAV_BREAKPOINT = 1536;
 
 /** Boundary either side, then the widths a laptop actually reports. */
-const WIDTHS = [760, 800, 845, 900, 1024, 1160, 1279, 1280, 1360, 1440, 1536, 1728];
+const WIDTHS = [760, 800, 845, 900, 1024, 1160, 1280, 1360, 1440, 1535, 1536, 1728];
 
 /** Minimum breathing room between the nav and the right-hand group. */
 const MIN_GAP_PX = 16;
@@ -135,10 +141,11 @@ test.describe("the masthead nav fits where it is shown", () => {
 
   test("every destination survives the collapse below the breakpoint", async ({ page }) => {
     /*
-     * Raising the breakpoint from 760 to 1280 put tablet and small-laptop widths
-     * behind the disclosure. That is only acceptable because it is COMPLETE —
-     * asserted here rather than assumed, at a width that was previously served
-     * by the horizontal bar.
+     * The breakpoint has moved twice now — 760 to 1280, then 1280 to 1536 —
+     * and each move pushed a wider band of viewports behind the disclosure.
+     * That is only acceptable because it stays COMPLETE at every width below
+     * NAV_BREAKPOINT — asserted here rather than assumed, at a width that was
+     * previously served by the horizontal bar.
      */
     await page.setViewportSize({ width: 900, height: 900 });
     await login(page);
@@ -158,6 +165,7 @@ test.describe("the masthead nav fits where it is shown", () => {
       "Auto-Apply",
       "Resume Builder",
       "Scholarships",
+      "Get Verified",
       "Refer a Friend",
       "Feedback",
       "Post a job",

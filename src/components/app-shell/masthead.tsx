@@ -102,16 +102,32 @@ export function Masthead({
    *     1280        +110px
    *
    * The nav stops being flex-shrunk at about 1200, where its text finally ends
-   * at its natural 834px. `xl` is the smallest breakpoint already used here that
-   * clears that with room — 110px rather than 30 — and the margin is the point:
-   * this bug exists BECAUSE a seventh nav item was added, so a threshold that
-   * only just fits is a threshold that breaks on the next one.
+   * at its natural width. `xl` (1280) was the smallest breakpoint already used
+   * here that cleared that with room, at the time it was seven items — and the
+   * margin was the point: that bug existed BECAUSE a seventh nav item was
+   * added, so a threshold that only just fits is a threshold that breaks on
+   * the next one.
    *
-   * The cost is that 760-1279 gets the disclosure instead of the bar. That is
-   * acceptable only because the disclosure is COMPLETE — every nav link plus
-   * "Post a job", which would otherwise be unreachable at those widths since it
-   * lives in the right-hand group. e2e/masthead-nav-fit.spec.ts asserts both:
-   * the gap at every width the bar renders, and that nothing is stranded below.
+   * IT BROKE ON THE NEXT ONE. Adding an eighth item ("Get Verified", Talent
+   * Directory) put "Feedback"'s painted text flush against the right-hand
+   * group at 1280 — textRight and rightGroupLeft both measured 937 on CI's
+   * Linux runner, zero margin, caught by e2e/masthead-nav-fit.spec.ts rather
+   * than by eye. Shaving the nav's own rhythm to buy the ~110px back was
+   * rejected for the same reason it was rejected for the Ask Farah button
+   * below: trading a global spacing property for one item, against variance
+   * (fonts, platforms, zoom) nobody can enumerate, is how this keeps breaking
+   * on the NEXT item too.
+   *
+   * So the whole row — not just the newest item — moved to `2xl` (1536),
+   * matching Ask Farah's own already-established reasoning a few lines down:
+   * buy real slack, don't re-measure a margin that already proved too thin
+   * once. The cost is that 760-1535 gets the disclosure instead of the bar,
+   * wider than the previous 760-1279. That is acceptable for the same reason
+   * it was acceptable before: the disclosure is COMPLETE — every nav link
+   * plus "Post a job", which would otherwise be unreachable at those widths
+   * since it lives in the right-hand group. e2e/masthead-nav-fit.spec.ts
+   * asserts both: the gap at every width the bar renders, and that nothing is
+   * stranded below.
    */
   useEffect(() => {
     if (!navOpen) return;
@@ -200,7 +216,7 @@ export function Masthead({
               className="h-6 w-auto flex-shrink-0 min-[480px]:h-8"
             />
           </Link>
-          <nav className="hidden items-center gap-5.5 xl:flex">
+          <nav className="hidden items-center gap-5.5 2xl:flex">
             {NAV_LINKS.map((link) => {
               const active = pathname?.startsWith(link.href);
               const href = hrefFor(link);
@@ -311,7 +327,7 @@ export function Masthead({
           */}
           <div
             ref={navRef}
-            className="relative flex items-center xl:hidden"
+            className="relative flex items-center 2xl:hidden"
           >
             <button
               type="button"
