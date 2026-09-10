@@ -8,6 +8,7 @@ import {
   runTalentVerificationHumanReview,
   type VerificationActionResult,
 } from "./verification-runner";
+import { runTalentDirectoryBoostPurchase, type BoostActionResult } from "./boost-runner";
 
 /* ---------------------------------------------------------------------- *
  * Free + uncapped: opt-in, availability metadata, portfolio items touch no
@@ -107,6 +108,23 @@ export async function requestHumanReviewVerificationAction(
     String(formData.get("targetRole") ?? "").trim() || null,
     String(formData.get("targetIndustry") ?? "").trim() || null,
   );
+  if (result.status === "success") revalidatePath("/talent-directory/verify");
+  return result;
+}
+
+/**
+ * Talent Directory v2, part 1 (§6.13's third buyer segment): a verified,
+ * opted-in seeker spends credits for a time-boxed top-of-search placement.
+ * Thin for the same reason requestTalentVerificationAction is thin — the
+ * whole flow lives in runTalentDirectoryBoostPurchase (boost-runner.ts) as a
+ * plain function taking a trusted userId, so it's callable directly from
+ * tests without a real Next.js request context.
+ */
+export type { BoostActionResult };
+
+export async function requestTalentDirectoryBoostAction(): Promise<BoostActionResult> {
+  const { user } = await requireUser();
+  const result = await runTalentDirectoryBoostPurchase(user.id);
   if (result.status === "success") revalidatePath("/talent-directory/verify");
   return result;
 }

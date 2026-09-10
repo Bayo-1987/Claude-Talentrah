@@ -135,6 +135,21 @@ export const KNOWN_ALIASES: Record<string, string> = {
    */
   "0132_mentorship_enum_values": "0131_mentorship_enum_values",
   "0133_mentorship_marketplace": "0132_mentorship_marketplace",
+  /*
+   * Applied to both projects under its working title, "claimable job
+   * postings," before the PR was retitled to "claim your listing" and the
+   * file committed under that name — the schema (columns, index, functions,
+   * the INSERT policy's extended check) is identical either way, only the
+   * label is stale. Found via the drift-check workflow reporting 0128 as
+   * MISSING on production; verified as a labeling mismatch rather than a
+   * real gap by checking the actual schema directly — the function bodies,
+   * the RLS policy's `claimed_by_organization_id`/`claimed_at` clauses, and
+   * the columns themselves are all present and consistent on both projects
+   * — before assuming the check's own suggested fix (re-apply through the
+   * connector) was the right one. Re-running the migration file instead
+   * would have hit a real column/index that already exists.
+   */
+  "0128_claim_your_listing": "0128_claimable_job_postings",
 };
 
 export function committedMigrations(): string[] {

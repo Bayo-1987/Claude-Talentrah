@@ -7,8 +7,10 @@ import { EyebrowLabel } from "@/components/ui";
 import { JdDemoExample } from "./jd-demo-example";
 import { JdDemoResult, type JdDemoResultData } from "./jd-demo-result";
 
-// Shipped surfaces only — "Talk to a mentor" sat here alongside three real
-// actions, which read as parity with them. Mentorship is Phase 3.
+// Quick, unauthenticated actions only — "Talk to a mentor" isn't one: booking
+// a real mentor needs an account and a session to book, not a single click
+// from a signed-out demo widget. Mentorship itself has since shipped (see
+// /mentorship), this widget just isn't its entry point.
 const QUICK_ACTIONS = [
   { label: "Tailor my resume to a job", href: "/signup" },
   { label: "Check my match score", href: "/signup" },

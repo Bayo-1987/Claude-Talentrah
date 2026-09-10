@@ -52,6 +52,17 @@ export const CREDIT_COSTS = {
    */
   talentDirectoryHumanReview: 60, // ₦7,500
   /**
+   * ₦1,250 for a TALENT_DIRECTORY_BOOST_DAYS-day top-of-search placement
+   * (§6.13's third buyer segment — seekers paying for competitive edge).
+   * Priced level with templateUnlock rather than re-derived from the
+   * tailoringRun anchor: like templateUnlock, it's a one-off, non-AI-cost
+   * purchase (no LLM call — see talent-directory/boost-runner.ts), so the
+   * cost-probe reasoning that repriced the AI-cost actions doesn't apply
+   * here. A NEW price, founder-unconfirmed like every other §6.9 anchor —
+   * flagged the same way the rest of this file already is.
+   */
+  talentDirectoryBoost: 10, // ₦1,250 — new, see TALENT_DIRECTORY_BOOST_DAYS
+  /**
    * ₦125 — the smallest tier in this list, cheaper than bulletRewrite's 2
    * credits. A NEW price, not a rebase: Farah chat had no credit gate at all
    * until now (src/lib/farah/chat-gate.ts, after a 3-free-message/30-day
