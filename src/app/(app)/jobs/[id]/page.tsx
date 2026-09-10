@@ -80,8 +80,13 @@ const jobForRequest = cache(async (id: string) => {
      * The posting's own visibility is still RLS's decision — this adds no gate
      * — but whether the banner renders is a different, stricter question that
      * the row alone cannot answer.
+     *
+     * `!job_postings_organization_id_fkey` hints WHICH relationship: 0128
+     * added a second FK to organizations (claimed_by_organization_id), so an
+     * unhinted embed is ambiguous to PostgREST — this must stay the poster's
+     * own org, never the org that claimed some OTHER external row.
      */
-    .select("*, organizations(verified)")
+    .select("*, organizations!job_postings_organization_id_fkey(verified)")
     .eq("id", id)
     .gte("posted_at", freshnessFloorISO())
     .maybeSingle();
