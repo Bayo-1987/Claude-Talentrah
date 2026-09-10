@@ -23,6 +23,39 @@ export interface MentorshipSweepSummary {
   errors: Array<{ sessionId: string; message: string }>;
 }
 
+/**
+ * Confirmed sessions whose scheduled_end has passed become `completed` — the
+ * one session-lifecycle transition 0133 never actually built (its own header
+ * describes the state machine ending at `confirmed` with nothing moving it
+ * further). Added here rather than as a third cron, for two reasons: this
+ * file already owns time-based `mentorship_sessions.status` transitions, and
+ * mentor payouts (0136, src/lib/mentorship/payouts.ts) depend on `completed`
+ * existing — calling this from BOTH runMentorshipSweep and
+ * runMentorPayoutJob removes any ordering dependency between the two crons
+ * (each ensures completion for itself rather than trusting the other ran
+ * first today).
+ *
+ * A conditional UPDATE, same idempotent shape as everything else in this
+ * file: running it any number of times, from any number of concurrent
+ * callers, moves each eligible session to `completed` exactly once — a
+ * second call simply matches zero rows for one already moved.
+ */
+export async function completeFinishedSessions(): Promise<number> {
+  const supabase = createServiceRoleClient();
+  const { data, error } = await supabase
+    .from("mentorship_sessions")
+    .update({ status: "completed", updated_at: new Date().toISOString() })
+    .eq("status", "confirmed")
+    .lte("scheduled_end", new Date().toISOString())
+    .select("id");
+
+  if (error) {
+    console.error(`[mentorship-sweep] completeFinishedSessions failed: ${error.message}`);
+    return 0;
+  }
+  return data?.length ?? 0;
+}
+
 export async function runMentorshipSweep(): Promise<MentorshipSweepSummary> {
   const summary: MentorshipSweepSummary = {
     ok: true,
@@ -32,6 +65,8 @@ export async function runMentorshipSweep(): Promise<MentorshipSweepSummary> {
     refundFailed: 0,
     errors: [],
   };
+
+  await completeFinishedSessions();
 
   const supabase = createServiceRoleClient();
   const deadline = new Date(Date.now() + CONFIRMATION_DEADLINE_HOURS * 60 * 60 * 1000).toISOString();

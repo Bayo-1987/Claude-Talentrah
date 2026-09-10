@@ -1644,6 +1644,72 @@ export type Database = {
           },
         ]
       }
+      mentor_payouts: {
+        Row: {
+          amount_ngn: number
+          attempt_count: number
+          created_at: string
+          eligible_at: string
+          failure_reason: string | null
+          id: string
+          last_attempted_at: string | null
+          mentor_id: string
+          paid_at: string | null
+          paystack_transfer_code: string | null
+          pending_transfer_reference: string | null
+          session_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          amount_ngn: number
+          attempt_count?: number
+          created_at?: string
+          eligible_at: string
+          failure_reason?: string | null
+          id?: string
+          last_attempted_at?: string | null
+          mentor_id: string
+          paid_at?: string | null
+          paystack_transfer_code?: string | null
+          pending_transfer_reference?: string | null
+          session_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          amount_ngn?: number
+          attempt_count?: number
+          created_at?: string
+          eligible_at?: string
+          failure_reason?: string | null
+          id?: string
+          last_attempted_at?: string | null
+          mentor_id?: string
+          paid_at?: string | null
+          paystack_transfer_code?: string | null
+          pending_transfer_reference?: string | null
+          session_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mentor_payouts_mentor_id_fkey"
+            columns: ["mentor_id"]
+            isOneToOne: false
+            referencedRelation: "mentor_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "mentor_payouts_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "mentorship_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       mentor_profiles: {
         Row: {
           applied_at: string
@@ -1652,9 +1718,15 @@ export type Database = {
           expertise_industries: string[]
           expertise_roles: string[]
           expertise_seniority: Database["public"]["Enums"]["seniority_level"][]
+          payout_account_name: string | null
+          payout_account_number: string | null
+          payout_bank_code: string | null
+          payout_bank_verified_at: string | null
+          payout_recipient_code: string | null
           review_note: string | null
           reviewed_at: string | null
           reviewed_by: string | null
+          reviews_verifications: boolean
           status: string
           user_id: string
           years_experience: number | null
@@ -1666,9 +1738,15 @@ export type Database = {
           expertise_industries?: string[]
           expertise_roles?: string[]
           expertise_seniority?: Database["public"]["Enums"]["seniority_level"][]
+          payout_account_name?: string | null
+          payout_account_number?: string | null
+          payout_bank_code?: string | null
+          payout_bank_verified_at?: string | null
+          payout_recipient_code?: string | null
           review_note?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
+          reviews_verifications?: boolean
           status?: string
           user_id: string
           years_experience?: number | null
@@ -1680,9 +1758,15 @@ export type Database = {
           expertise_industries?: string[]
           expertise_roles?: string[]
           expertise_seniority?: Database["public"]["Enums"]["seniority_level"][]
+          payout_account_name?: string | null
+          payout_account_number?: string | null
+          payout_bank_code?: string | null
+          payout_bank_verified_at?: string | null
+          payout_recipient_code?: string | null
           review_note?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
+          reviews_verifications?: boolean
           status?: string
           user_id?: string
           years_experience?: number | null
@@ -1770,6 +1854,7 @@ export type Database = {
           mentor_payout_ngn: number
           platform_commission_ngn: number
           price_ngn: number
+          reminder_sent_at: string | null
           scheduled_end: string
           scheduled_start: string
           session_type: string
@@ -1789,6 +1874,7 @@ export type Database = {
           mentor_payout_ngn?: number
           platform_commission_ngn?: number
           price_ngn?: number
+          reminder_sent_at?: string | null
           scheduled_end: string
           scheduled_start: string
           session_type: string
@@ -1808,6 +1894,7 @@ export type Database = {
           mentor_payout_ngn?: number
           platform_commission_ngn?: number
           price_ngn?: number
+          reminder_sent_at?: string | null
           scheduled_end?: string
           scheduled_start?: string
           session_type?: string
@@ -2100,6 +2187,7 @@ export type Database = {
           referred_by: string | null
           resume_skills_notice_dismissed_at: string | null
           talent_available_for_hire: boolean
+          talent_boosted_until: string | null
           talent_directory_opt_in: boolean
           talent_earliest_start_date: string | null
           talent_remote_ready: boolean
@@ -2128,6 +2216,7 @@ export type Database = {
           referred_by?: string | null
           resume_skills_notice_dismissed_at?: string | null
           talent_available_for_hire?: boolean
+          talent_boosted_until?: string | null
           talent_directory_opt_in?: boolean
           talent_earliest_start_date?: string | null
           talent_remote_ready?: boolean
@@ -2156,6 +2245,7 @@ export type Database = {
           referred_by?: string | null
           resume_skills_notice_dismissed_at?: string | null
           talent_available_for_hire?: boolean
+          talent_boosted_until?: string | null
           talent_directory_opt_in?: boolean
           talent_earliest_start_date?: string | null
           talent_remote_ready?: boolean
@@ -2545,6 +2635,54 @@ export type Database = {
           },
         ]
       }
+      talent_directory_boosts: {
+        Row: {
+          boosted_until: string | null
+          credit_ledger_id: string | null
+          days: number
+          decided_at: string | null
+          id: string
+          requested_at: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          boosted_until?: string | null
+          credit_ledger_id?: string | null
+          days: number
+          decided_at?: string | null
+          id?: string
+          requested_at?: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          boosted_until?: string | null
+          credit_ledger_id?: string | null
+          days?: number
+          decided_at?: string | null
+          id?: string
+          requested_at?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "talent_directory_boosts_credit_ledger_id_fkey"
+            columns: ["credit_ledger_id"]
+            isOneToOne: false
+            referencedRelation: "credit_ledger"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "talent_directory_boosts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       talent_directory_plans: {
         Row: {
           duration_days: number
@@ -2684,31 +2822,58 @@ export type Database = {
         Row: {
           ai_feedback: string | null
           ai_score: number | null
+          claimed_at: string | null
           credit_ledger_id: string | null
           decided_at: string | null
           id: string
           requested_at: string
+          review_type: string
+          reviewer_id: string | null
+          reviewer_notes: string | null
+          reviewer_paid_at: string | null
+          reviewer_payout_ngn: number
+          reviewer_payout_reference: string | null
           status: string
+          target_industry: string | null
+          target_role: string | null
           user_id: string
         }
         Insert: {
           ai_feedback?: string | null
           ai_score?: number | null
+          claimed_at?: string | null
           credit_ledger_id?: string | null
           decided_at?: string | null
           id?: string
           requested_at?: string
+          review_type?: string
+          reviewer_id?: string | null
+          reviewer_notes?: string | null
+          reviewer_paid_at?: string | null
+          reviewer_payout_ngn?: number
+          reviewer_payout_reference?: string | null
           status?: string
+          target_industry?: string | null
+          target_role?: string | null
           user_id: string
         }
         Update: {
           ai_feedback?: string | null
           ai_score?: number | null
+          claimed_at?: string | null
           credit_ledger_id?: string | null
           decided_at?: string | null
           id?: string
           requested_at?: string
+          review_type?: string
+          reviewer_id?: string | null
+          reviewer_notes?: string | null
+          reviewer_paid_at?: string | null
+          reviewer_payout_ngn?: number
+          reviewer_payout_reference?: string | null
           status?: string
+          target_industry?: string | null
+          target_role?: string | null
           user_id?: string
         }
         Relationships: [
@@ -2718,6 +2883,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "credit_ledger"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "talent_verifications_reviewer_id_fkey"
+            columns: ["reviewer_id"]
+            isOneToOne: false
+            referencedRelation: "mentor_profiles"
+            referencedColumns: ["user_id"]
           },
           {
             foreignKeyName: "talent_verifications_user_id_fkey"
@@ -3118,6 +3290,24 @@ export type Database = {
           reason: string
         }[]
       }
+      claim_mentor_payout: {
+        Args: { p_payout_id: string }
+        Returns: {
+          amount_ngn: number
+          attempt_count: number
+          id: string
+          mentor_id: string
+          pending_transfer_reference: string
+          session_id: string
+        }[]
+      }
+      claim_talent_verification_review: {
+        Args: { p_reviewer_id: string; p_verification_id: string }
+        Returns: {
+          ok: boolean
+          reason: string
+        }[]
+      }
       consume_anonymous_rate_limit: {
         Args: {
           p_bucket: string
@@ -3337,16 +3527,37 @@ export type Database = {
         Args: { p_user_id: string; p_verification_id: string }
         Returns: undefined
       }
-      resolve_talent_verification: {
-        Args: {
-          p_feedback: string
-          p_score: number
-          p_user_id: string
-          p_verification_id: string
-          p_verified: boolean
-        }
+      release_talent_verification_review_claim: {
+        Args: { p_reviewer_id: string; p_verification_id: string }
         Returns: boolean
       }
+      resolve_talent_directory_boost: {
+        Args: { p_boost_id: string; p_days: number; p_user_id: string }
+        Returns: string
+      }
+      resolve_talent_verification:
+        | {
+            Args: {
+              p_feedback: string
+              p_score: number
+              p_user_id: string
+              p_verification_id: string
+              p_verified: boolean
+            }
+            Returns: boolean
+          }
+        | {
+            Args: {
+              p_feedback: string
+              p_reviewer_id?: string
+              p_reviewer_notes?: string
+              p_score: number
+              p_user_id: string
+              p_verification_id: string
+              p_verified: boolean
+            }
+            Returns: boolean
+          }
       resume_ad_campaign: {
         Args: { p_actor_user_id?: string; p_campaign_id: string }
         Returns: {
@@ -3437,6 +3648,7 @@ export type Database = {
         Args: { p_actor_user_id: string; p_campaign_id: string }
         Returns: Database["public"]["Enums"]["ad_campaign_status"]
       }
+      sync_mentor_payout_rows: { Args: never; Returns: number }
       talent_directory_portfolio_items: {
         Args: { p_candidate_id: string }
         Returns: {
@@ -3464,6 +3676,40 @@ export type Database = {
           user_id: string
           verification_score: number
           verified_at: string
+        }[]
+      }
+      talent_verification_my_claims: {
+        Args: never
+        Returns: {
+          claimed_at: string
+          id: string
+          requested_at: string
+          target_industry: string
+          target_role: string
+        }[]
+      }
+      talent_verification_review_detail: {
+        Args: { p_verification_id: string }
+        Returns: {
+          candidate_first_name: string
+          candidate_id: string
+          candidate_last_name: string
+          id: string
+          requested_at: string
+          resume: Json
+          status: string
+          target_industry: string
+          target_role: string
+        }[]
+      }
+      talent_verification_review_queue: {
+        Args: { p_limit?: number }
+        Returns: {
+          expertise_match: boolean
+          id: string
+          requested_at: string
+          target_industry: string
+          target_role: string
         }[]
       }
     }
@@ -3543,6 +3789,8 @@ export type Database = {
         | "pricing_rebase_4x"
         | "farah_chat_message"
         | "talent_directory_verification"
+        | "talent_directory_boost"
+        | "talent_directory_human_review"
       employment_type: "full_time" | "part_time" | "contract" | "internship"
       farah_message_role: "user" | "farah"
       feedback_category: "bug" | "idea" | "other"
@@ -3788,6 +4036,8 @@ export const Constants = {
         "pricing_rebase_4x",
         "farah_chat_message",
         "talent_directory_verification",
+        "talent_directory_boost",
+        "talent_directory_human_review",
       ],
       employment_type: ["full_time", "part_time", "contract", "internship"],
       farah_message_role: ["user", "farah"],

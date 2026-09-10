@@ -37,6 +37,10 @@
     {
       "path": "/api/admin/renew-talent-directory-subscriptions",
       "schedule": "0 13 * * *"
+    },
+    {
+      "path": "/api/admin/mentor-payouts",
+      "schedule": "0 14 * * *"
     }
   ]
 }

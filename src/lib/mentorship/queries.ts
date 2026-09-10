@@ -132,6 +132,39 @@ export async function getOwnMentorProfile(userId: string): Promise<OwnMentorProf
   };
 }
 
+export interface OwnPayoutDetails {
+  bankCode: string | null;
+  accountNumber: string | null;
+  accountName: string | null;
+  verifiedAt: string | null;
+}
+
+/**
+ * The mentor's own payout bank details — read-only here (0136). Nothing
+ * writes through the authenticated client: saveMentorPayoutDetailsAction
+ * (src/lib/mentorship/payout-details.ts) uses the service-role client for
+ * every write, because none of these five columns are in 0133/0136's
+ * `authenticated` UPDATE grant on mentor_profiles — see 0136's own migration
+ * header for why `payout_account_name` specifically must never be
+ * client-writable.
+ */
+export async function getOwnPayoutDetails(userId: string): Promise<OwnPayoutDetails | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("mentor_profiles")
+    .select("payout_bank_code, payout_account_number, payout_account_name, payout_bank_verified_at")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  return {
+    bankCode: data.payout_bank_code,
+    accountNumber: data.payout_account_number,
+    accountName: data.payout_account_name,
+    verifiedAt: data.payout_bank_verified_at,
+  };
+}
+
 export async function getOwnAvailabilitySlots(mentorUserId: string): Promise<MentorAvailabilitySlot[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
