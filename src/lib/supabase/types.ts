@@ -2099,13 +2099,6 @@ export type Database = {
           referral_leaderboard_opt_in: boolean
           referred_by: string | null
           resume_skills_notice_dismissed_at: string | null
-          talent_available_for_hire: boolean
-          talent_directory_opt_in: boolean
-          talent_earliest_start_date: string | null
-          talent_remote_ready: boolean
-          talent_verification_score: number | null
-          talent_verification_status: string
-          talent_verified_at: string | null
           updated_at: string
         }
         Insert: {
@@ -2127,13 +2120,6 @@ export type Database = {
           referral_leaderboard_opt_in?: boolean
           referred_by?: string | null
           resume_skills_notice_dismissed_at?: string | null
-          talent_available_for_hire?: boolean
-          talent_directory_opt_in?: boolean
-          talent_earliest_start_date?: string | null
-          talent_remote_ready?: boolean
-          talent_verification_score?: number | null
-          talent_verification_status?: string
-          talent_verified_at?: string | null
           updated_at?: string
         }
         Update: {
@@ -2155,13 +2141,6 @@ export type Database = {
           referral_leaderboard_opt_in?: boolean
           referred_by?: string | null
           resume_skills_notice_dismissed_at?: string | null
-          talent_available_for_hire?: boolean
-          talent_directory_opt_in?: boolean
-          talent_earliest_start_date?: string | null
-          talent_remote_ready?: boolean
-          talent_verification_score?: number | null
-          talent_verification_status?: string
-          talent_verified_at?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -2539,189 +2518,6 @@ export type Database = {
           {
             foreignKeyName: "scholarships_moderated_by_fkey"
             columns: ["moderated_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      talent_directory_plans: {
-        Row: {
-          duration_days: number
-          id: string
-          is_active: boolean
-          name: string
-          price_ngn: number
-        }
-        Insert: {
-          duration_days?: number
-          id?: string
-          is_active?: boolean
-          name: string
-          price_ngn: number
-        }
-        Update: {
-          duration_days?: number
-          id?: string
-          is_active?: boolean
-          name?: string
-          price_ngn?: number
-        }
-        Relationships: []
-      }
-      talent_directory_subscriptions: {
-        Row: {
-          authorization_code: string | null
-          auto_renew_status: string | null
-          created_at: string
-          expires_at: string
-          id: string
-          last_renewal_failure_at: string | null
-          next_renewal_date: string | null
-          organization_id: string
-          payment_transaction_id: string | null
-          pending_renewal_reference: string | null
-          plan_id: string
-          renewal_attempt_count: number
-          renewal_reminder_sent_at: string | null
-          started_at: string
-          status: string
-        }
-        Insert: {
-          authorization_code?: string | null
-          auto_renew_status?: string | null
-          created_at?: string
-          expires_at: string
-          id?: string
-          last_renewal_failure_at?: string | null
-          next_renewal_date?: string | null
-          organization_id: string
-          payment_transaction_id?: string | null
-          pending_renewal_reference?: string | null
-          plan_id: string
-          renewal_attempt_count?: number
-          renewal_reminder_sent_at?: string | null
-          started_at?: string
-          status?: string
-        }
-        Update: {
-          authorization_code?: string | null
-          auto_renew_status?: string | null
-          created_at?: string
-          expires_at?: string
-          id?: string
-          last_renewal_failure_at?: string | null
-          next_renewal_date?: string | null
-          organization_id?: string
-          payment_transaction_id?: string | null
-          pending_renewal_reference?: string | null
-          plan_id?: string
-          renewal_attempt_count?: number
-          renewal_reminder_sent_at?: string | null
-          started_at?: string
-          status?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "talent_directory_subscriptions_organization_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "talent_directory_subscriptions_payment_transaction_id_fkey"
-            columns: ["payment_transaction_id"]
-            isOneToOne: false
-            referencedRelation: "payment_transactions"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "talent_directory_subscriptions_plan_id_fkey"
-            columns: ["plan_id"]
-            isOneToOne: false
-            referencedRelation: "talent_directory_plans"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      talent_portfolio_items: {
-        Row: {
-          created_at: string
-          description: string | null
-          id: string
-          title: string
-          url: string | null
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          description?: string | null
-          id?: string
-          title: string
-          url?: string | null
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          description?: string | null
-          id?: string
-          title?: string
-          url?: string | null
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "talent_portfolio_items_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      talent_verifications: {
-        Row: {
-          ai_feedback: string | null
-          ai_score: number | null
-          credit_ledger_id: string | null
-          decided_at: string | null
-          id: string
-          requested_at: string
-          status: string
-          user_id: string
-        }
-        Insert: {
-          ai_feedback?: string | null
-          ai_score?: number | null
-          credit_ledger_id?: string | null
-          decided_at?: string | null
-          id?: string
-          requested_at?: string
-          status?: string
-          user_id: string
-        }
-        Update: {
-          ai_feedback?: string | null
-          ai_score?: number | null
-          credit_ledger_id?: string | null
-          decided_at?: string | null
-          id?: string
-          requested_at?: string
-          status?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "talent_verifications_credit_ledger_id_fkey"
-            columns: ["credit_ledger_id"]
-            isOneToOne: false
-            referencedRelation: "credit_ledger"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "talent_verifications_user_id_fkey"
-            columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -3333,20 +3129,6 @@ export type Database = {
         Args: { p_ip_hash: string; p_visitor_id: string }
         Returns: undefined
       }
-      release_talent_verification_claim: {
-        Args: { p_user_id: string; p_verification_id: string }
-        Returns: undefined
-      }
-      resolve_talent_verification: {
-        Args: {
-          p_feedback: string
-          p_score: number
-          p_user_id: string
-          p_verification_id: string
-          p_verified: boolean
-        }
-        Returns: boolean
-      }
       resume_ad_campaign: {
         Args: { p_actor_user_id?: string; p_campaign_id: string }
         Returns: {
@@ -3437,35 +3219,6 @@ export type Database = {
         Args: { p_actor_user_id: string; p_campaign_id: string }
         Returns: Database["public"]["Enums"]["ad_campaign_status"]
       }
-      talent_directory_portfolio_items: {
-        Args: { p_candidate_id: string }
-        Returns: {
-          description: string
-          id: string
-          title: string
-          url: string
-        }[]
-      }
-      talent_directory_search: {
-        Args: {
-          p_available_for_hire?: boolean
-          p_candidate_id?: string
-          p_limit?: number
-          p_offset?: number
-          p_remote_ready?: boolean
-        }
-        Returns: {
-          available_for_hire: boolean
-          country: string
-          earliest_start_date: string
-          first_name: string
-          last_name: string
-          remote_ready: boolean
-          user_id: string
-          verification_score: number
-          verified_at: string
-        }[]
-      }
     }
     Enums: {
       ad_campaign_status:
@@ -3542,7 +3295,6 @@ export type Database = {
         | "auto_apply_run"
         | "pricing_rebase_4x"
         | "farah_chat_message"
-        | "talent_directory_verification"
       employment_type: "full_time" | "part_time" | "contract" | "internship"
       farah_message_role: "user" | "farah"
       feedback_category: "bug" | "idea" | "other"
@@ -3563,7 +3315,6 @@ export type Database = {
         | "pass"
         | "ad_wallet_topup"
         | "mentor_session"
-        | "talent_directory_subscription"
       payment_status: "pending" | "success" | "failed"
       referral_status: "invited" | "signed_up" | "activated"
       resume_source: "uploaded" | "builder" | "tailored"
@@ -3787,7 +3538,6 @@ export const Constants = {
         "auto_apply_run",
         "pricing_rebase_4x",
         "farah_chat_message",
-        "talent_directory_verification",
       ],
       employment_type: ["full_time", "part_time", "contract", "internship"],
       farah_message_role: ["user", "farah"],
@@ -3810,7 +3560,6 @@ export const Constants = {
         "pass",
         "ad_wallet_topup",
         "mentor_session",
-        "talent_directory_subscription",
       ],
       payment_status: ["pending", "success", "failed"],
       referral_status: ["invited", "signed_up", "activated"],
