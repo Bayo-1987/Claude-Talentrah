@@ -73,7 +73,15 @@ export default async function CampaignPage({ params }: { params: Promise<{ id: s
             Promoting {campaign.job_postings?.title ?? "a job that is no longer listed"}
           </p>
         </div>
-        <CampaignStatusBadge status={status} />
+        <div className="flex flex-col items-end gap-2">
+          <CampaignStatusBadge status={status} />
+          <Link
+            href={`/employer/campaigns/${campaign.id}/analytics`}
+            className="font-body text-[13px] font-semibold text-ink underline underline-offset-2 hover:text-rust"
+          >
+            View analytics
+          </Link>
+        </div>
       </div>
 
       <div className="mt-5 flex flex-col gap-4 border-y border-line py-5">
