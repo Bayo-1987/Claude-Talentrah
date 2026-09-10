@@ -1,4 +1,4 @@
--- 0137 — Talent Directory v2, part 1: the seeker-paid search boost
+-- 0147 — Talent Directory v2, part 1: the seeker-paid search boost
 -- (build-prompt §6.13's third buyer segment — "job seekers themselves
 -- (competitive edge, paid via credits)" — the one 0134/0135 deliberately did
 -- not build, per that migration's own header, in favour of the two employer
@@ -51,7 +51,7 @@
 -- Mirrors runTalentVerification exactly (see verification-runner.ts's own
 -- header): insert a 'pending' audit row FIRST, spend credits through the
 -- existing spend_credits_atomic (0035) — no new atomicity primitive for the
--- credit side, this is just a new credit_reason (0136) the existing RPC
+-- credit side, this is just a new credit_reason (0146) the existing RPC
 -- already supports — then resolve the row and extend the boost in ONE
 -- atomic statement below. A spend failure deletes the still-pending row
 -- directly (service role bypasses RLS; no profiles column has been touched
