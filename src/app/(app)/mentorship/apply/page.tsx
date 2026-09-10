@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth/require-user";
-import { getOwnMentorProfile, getOwnAvailabilitySlots } from "@/lib/mentorship/queries";
+import { getOwnMentorProfile, getOwnAvailabilitySlots, getOwnPayoutDetails } from "@/lib/mentorship/queries";
+import { listBanksForForm } from "@/lib/mentorship/payout-details";
 import { Container, EyebrowLabel, BorderedCard } from "@/components/ui";
 import { ApplicationForm } from "./application-form";
 import { AvailabilityManager } from "./availability-manager";
+import { PayoutDetailsForm } from "./payout-details-form";
 import { ReviewsVerificationsToggle } from "./reviews-verifications-toggle";
 
 export const metadata = { title: "Become a mentor — Talentrah" };
@@ -32,6 +34,9 @@ export default async function MentorApplyPage() {
   const profile = await getOwnMentorProfile(user.id);
 
   const slots = profile?.status === "approved" ? await getOwnAvailabilitySlots(user.id) : [];
+  const payoutDetails = profile?.status === "approved" ? await getOwnPayoutDetails(user.id) : null;
+  const { banks, error: banksError } =
+    profile?.status === "approved" ? await listBanksForForm() : { banks: [], error: null };
 
   return (
     <Container className="flex max-w-[640px] flex-col gap-8 py-12">
@@ -49,17 +54,20 @@ export default async function MentorApplyPage() {
             )}
           </BorderedCard>
           <ApplicationForm existing={profile} />
-          {profile.status === "approved" && <AvailabilityManager slots={slots} />}
           {profile.status === "approved" && (
-            <BorderedCard className="flex flex-col gap-3 p-5">
-              <h2 className="font-display text-[18px] font-semibold">Talent Directory reviews</h2>
-              <ReviewsVerificationsToggle optIn={profile.reviewsVerifications} />
-              {profile.reviewsVerifications && (
-                <Link href="/mentorship/reviews" className="text-[13.5px] text-rust">
-                  Go to the review queue ↗
-                </Link>
-              )}
-            </BorderedCard>
+            <>
+              <AvailabilityManager slots={slots} />
+              <PayoutDetailsForm existing={payoutDetails} banks={banks} banksError={banksError} />
+              <BorderedCard className="flex flex-col gap-3 p-5">
+                <h2 className="font-display text-[18px] font-semibold">Talent Directory reviews</h2>
+                <ReviewsVerificationsToggle optIn={profile.reviewsVerifications} />
+                {profile.reviewsVerifications && (
+                  <Link href="/mentorship/reviews" className="text-[13.5px] text-rust">
+                    Go to the review queue ↗
+                  </Link>
+                )}
+              </BorderedCard>
+            </>
           )}
         </>
       ) : (

@@ -291,3 +291,169 @@ export async function refundTransaction(reference: string): Promise<RefundResult
   );
   return data.data as RefundResult;
 }
+
+/* ────────────────────────────────────────────────────────────────────────
+ * Transfers — mentor payouts (Mentorship v2, part 1, 0149).
+ *
+ * The FIRST outbound-money surface in this codebase — everything above pays
+ * Talentrah; this pays a mentor. Same provider (Paystack), a genuinely
+ * different API family: recipients have to be created once and reused, and
+ * an initiated transfer can come back "success", an affirmed "failed"/
+ * "reversed", or genuinely unresolved ("pending"/"otp" — some Paystack
+ * account tiers require an OTP approval step this codebase has no way to
+ * complete non-interactively). That third bucket is real and is why
+ * src/lib/mentorship/payouts.ts treats "Paystack accepted the request but
+ * hasn't resolved it" as its own outcome, never collapsed into success or
+ * failure — exactly the same discipline chargeAuthorization's caller
+ * already applies to a Pass renewal that timed out.
+ * ──────────────────────────────────────────────────────────────────────── */
+
+export interface PaystackBank {
+  name: string;
+  code: string;
+  currency: string;
+}
+
+/** Nigerian bank list for the payout-details form's dropdown — nothing here a mentor should have to type from memory. */
+export async function listNigerianBanks(): Promise<PaystackBank[]> {
+  const data = await paystackFetch(
+    `${PAYSTACK_BASE_URL}/bank?country=nigeria&currency=NGN`,
+    { headers: { Authorization: `Bearer ${getSecretKey()}` } },
+    "bank list",
+  );
+  return (data.data as Array<{ name: string; code: string; currency: string }>).map((b) => ({
+    name: b.name,
+    code: b.code,
+    currency: b.currency,
+  }));
+}
+
+export interface ResolvedAccount {
+  account_number: string;
+  account_name: string;
+}
+
+/**
+ * The account-resolution step this task's own brief requires before ANY
+ * account name is persisted: "the account name resolved via Paystack's
+ * account-resolution/verification endpoint before saving — never trust a
+ * free-typed account name." A decline here (invalid account/bank
+ * combination) is Paystack affirmatively saying the pair doesn't resolve —
+ * callers should show that to the mentor and save nothing.
+ */
+export async function resolveAccountNumber(params: {
+  accountNumber: string;
+  bankCode: string;
+}): Promise<ResolvedAccount> {
+  const data = await paystackFetch(
+    `${PAYSTACK_BASE_URL}/bank/resolve?account_number=${encodeURIComponent(params.accountNumber)}&bank_code=${encodeURIComponent(params.bankCode)}`,
+    { headers: { Authorization: `Bearer ${getSecretKey()}` } },
+    "account resolution",
+  );
+  return data.data as ResolvedAccount;
+}
+
+export interface TransferRecipient {
+  recipient_code: string;
+  details: { account_number: string; account_name: string | null; bank_code: string };
+}
+
+/**
+ * Created ONCE per mentor and cached on mentor_profiles.payout_recipient_code
+ * (src/lib/mentorship/payout-details.ts) — Paystack recipients are reusable,
+ * and re-creating one on every payout would be both wasteful and a second
+ * place for the account details to silently drift from what was resolved.
+ */
+export async function createTransferRecipient(params: {
+  name: string;
+  accountNumber: string;
+  bankCode: string;
+}): Promise<TransferRecipient> {
+  const data = await paystackFetch(
+    `${PAYSTACK_BASE_URL}/transferrecipient`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${getSecretKey()}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        type: "nuban",
+        name: params.name,
+        account_number: params.accountNumber,
+        bank_code: params.bankCode,
+        currency: "NGN",
+      }),
+    },
+    "recipient creation",
+  );
+  return data.data as TransferRecipient;
+}
+
+export interface TransferResult {
+  transfer_code: string;
+  reference: string;
+  amount: number;
+  currency: string;
+  /**
+   * Paystack's own transfer status. "success" is the only one that means
+   * paid. "otp"/"pending" mean Paystack accepted the request but has not
+   * resolved it — genuinely indeterminate, not a failure. "failed"/
+   * "reversed" are affirmed non-success. Callers must branch on this string,
+   * not just on whether the HTTP call itself threw.
+   */
+  status: string;
+}
+
+/**
+ * Requests a transfer OUT of Talentrah's Paystack balance to a mentor.
+ * `source: "balance"` is Paystack's own required value for a balance-funded
+ * transfer (the only kind this app ever does — there is no other funding
+ * source configured). Never call this with a reference that has been used
+ * before: Paystack refuses a duplicate reference outright, which is exactly
+ * the backstop src/lib/mentorship/payouts.ts leans on the same way
+ * credit_ad_wallet already leans on its own reference-uniqueness (0050).
+ */
+export async function initiateTransfer(params: {
+  amountNgn: number;
+  recipientCode: string;
+  reference: string;
+  reason: string;
+}): Promise<TransferResult> {
+  const data = await paystackFetch(
+    `${PAYSTACK_BASE_URL}/transfer`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${getSecretKey()}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        source: "balance",
+        amount: Math.round(params.amountNgn * 100),
+        recipient: params.recipientCode,
+        reference: params.reference,
+        reason: params.reason,
+        currency: "NGN",
+      }),
+    },
+    "transfer",
+  );
+  return data.data as TransferResult;
+}
+
+/**
+ * Learns the real outcome of a transfer reference whose result a previous
+ * run never confirmed — the transfer equivalent of verifyTransaction, and
+ * the mechanism that lets a timed-out initiateTransfer be resolved before
+ * ever being retried with a fresh reference (mirrors chargeOne's own
+ * pending_renewal_reference recovery in src/lib/billing/renewals.ts).
+ */
+export async function verifyTransfer(reference: string): Promise<TransferResult> {
+  const data = await paystackFetch(
+    `${PAYSTACK_BASE_URL}/transfer/verify/${encodeURIComponent(reference)}`,
+    { headers: { Authorization: `Bearer ${getSecretKey()}` } },
+    "transfer verification",
+  );
+  return data.data as TransferResult;
+}

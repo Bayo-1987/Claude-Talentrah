@@ -1541,6 +1541,60 @@ describe("farah_messages: the LLM rate limit is not the user's to reset (0041)",
   });
 });
 
+describe("mentor_profiles: a mentor cannot forge their own verified payout account (0149)", () => {
+  /**
+   * `payout_account_name` in particular is the whole point of this task's own
+   * brief ("never trust a free-typed account name") — Paystack's own
+   * /bank/resolve is what's supposed to set it (saveMentorPayoutDetailsAction,
+   * src/lib/mentorship/payout-details.ts), and none of the five payout_*
+   * columns 0149 adds are in 0133's `authenticated` UPDATE grant list. This
+   * asserts that directly rather than trusting it stayed that way, plus the
+   * positive control: a mentor can still edit the columns 0133 already grants.
+   */
+  it("cannot write any payout_* column, but can still edit its own bio", async () => {
+    const { error: insertError } = await user.client
+      .from("mentor_profiles")
+      .insert({ user_id: user.id, status: "pending" });
+    expect(insertError, "fixture insert should succeed via the 0133 self-apply policy").toBeNull();
+
+    try {
+      const forged = new Date().toISOString();
+      await user.client
+        .from("mentor_profiles")
+        .update({
+          payout_bank_code: "058",
+          payout_account_number: "0123456789",
+          payout_account_name: "FORGED NAME",
+          payout_recipient_code: "RCP_forged",
+          payout_bank_verified_at: forged,
+        })
+        .eq("user_id", user.id);
+
+      const { data: after } = await admin
+        .from("mentor_profiles")
+        .select("payout_bank_code, payout_account_number, payout_account_name, payout_recipient_code, payout_bank_verified_at")
+        .eq("user_id", user.id)
+        .single();
+      expect(after?.payout_bank_code, "MONEY: a mentor set their own payout bank code directly").toBeNull();
+      expect(after?.payout_account_number).toBeNull();
+      expect(
+        after?.payout_account_name,
+        "MONEY: a mentor forged an unverified payout account name — the whole point of resolving it via Paystack first",
+      ).toBeNull();
+      expect(after?.payout_recipient_code).toBeNull();
+      expect(after?.payout_bank_verified_at).toBeNull();
+
+      const { error: bioError } = await user.client
+        .from("mentor_profiles")
+        .update({ bio: "still allowed" })
+        .eq("user_id", user.id);
+      expect(bioError, "0133's own grant must still let a mentor edit their profile").toBeNull();
+    } finally {
+      await admin.from("mentor_profiles").delete().eq("user_id", user.id);
+    }
+  });
+});
+
 describe("resume_templates is catalog data, not user input (0042)", () => {
   /**
    * Added alongside the template library, which put a new column (`slug`) on
