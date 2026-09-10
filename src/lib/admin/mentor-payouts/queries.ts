@@ -2,7 +2,7 @@ import "server-only";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 
 /**
- * Admin visibility for mentor payouts (0136, send-141-ish "Mentorship v2,
+ * Admin visibility for mentor payouts (0139, send-141-ish "Mentorship v2,
  * part 1"). Reuses the existing `mentor_review` permission rather than
  * inventing a new one — the same reasoning `requirePermission`'s own
  * comments already apply elsewhere in this admin surface: `mentor_review`

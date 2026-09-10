@@ -5,7 +5,7 @@ import { initiateTransfer, verifyTransfer, isDecline } from "@/lib/paystack/clie
 import { completeFinishedSessions } from "@/lib/mentorship/sweep";
 
 /**
- * Mentor payouts — Mentorship v2, part 1 (0136). Read 0136's own migration
+ * Mentor payouts — Mentorship v2, part 1 (0139). Read 0139's own migration
  * header before touching this file: it records the hold-window and
  * bad-review-clawback decisions this module enforces.
  *
@@ -15,7 +15,7 @@ import { completeFinishedSessions } from "@/lib/mentorship/sweep";
  * API for a given payout row, and it is safe to call it concurrently, any
  * number of times, from any caller (the cron loop below, or an admin's
  * manual retry in src/lib/admin/mentor-payouts/actions.ts) — because the
- * FIRST thing it does is `claim_mentor_payout` (0136), one atomic
+ * FIRST thing it does is `claim_mentor_payout` (0139), one atomic
  * `UPDATE ... WHERE status IN ('pending','failed') ... RETURNING`. A caller
  * that gets no row back did not win the claim and does nothing further. This
  * is the same reasoning book_mentor_session (0133) and spend_credits_atomic
@@ -36,7 +36,7 @@ import { completeFinishedSessions } from "@/lib/mentorship/sweep";
  * verify call actually learns the outcome.
  *
  * The 72-hour hold window itself is enforced in SQL, not here —
- * `sync_mentor_payout_rows` (0136) sets `eligible_at` at row-creation time,
+ * `sync_mentor_payout_rows` (0139) sets `eligible_at` at row-creation time,
  * so this module never has to recompute or re-check it.
  */
 
@@ -147,7 +147,7 @@ export async function attemptPayout(payoutId: string): Promise<PayoutAttemptOutc
   if (!claim) return { outcome: "not_eligible" };
 
   // Resolve the mentor's payout configuration and current standing — a
-  // suspended/rejected mentor is the deliberate hold lever (0136's own
+  // suspended/rejected mentor is the deliberate hold lever (0139's own
   // header: reviews are informational, suspension is the real clawback).
   const { data: mentor } = await supabase
     .from("mentor_profiles")

@@ -8,7 +8,7 @@ import { attemptPayout } from "@/lib/mentorship/payouts";
  * The manual-retry path for a `failed` payout. Deliberately calls the SAME
  * `attemptPayout` the cron loop calls — no separate "admin retry" code path
  * to duplicate or drift from the cron's own idempotency guarantees.
- * `attemptPayout`'s own claim step (`claim_mentor_payout`, 0136) is what
+ * `attemptPayout`'s own claim step (`claim_mentor_payout`, 0139) is what
  * makes it safe to call this even if the cron happens to be mid-run against
  * the same row at the same moment: at most one of the two ever wins the
  * claim.

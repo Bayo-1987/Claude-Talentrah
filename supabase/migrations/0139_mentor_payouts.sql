@@ -1,4 +1,4 @@
--- 0136 — Mentor payouts (Mentorship v2, part 1).
+-- 0139 — Mentor payouts (Mentorship v2, part 1).
 --
 -- 0133 shipped session booking, payment collection and the no-show sweep, but
 -- deliberately cut automated mentor payouts for v1: "the mentor's 85% share
@@ -13,12 +13,29 @@
 -- integration, seeker-paid-visibility, human-review-verification-tier) that
 -- may also touch `mentor_profiles`. Re-checked immediately before writing this
 -- file: `mentor_profiles` on both nytwbbzfpytctjsoczzq and dozaffzgqkbarxtlclsj
--- has exactly the twelve columns 0133 created — no sibling has landed columns
--- here yet — and `0136` was free in supabase/migrations/ and in both
--- projects' own `schema_migrations` (highest real migration on all three was
--- 0135). If a sibling's migration lands under 0136 first, per this repo's own
--- convention (supabase/migrations/README.md) this file gets renumbered, not
--- either database touched to resolve it.
+-- had exactly the twelve columns 0133 created — no sibling had landed columns
+-- there yet — and `0136` was free in supabase/migrations/ and in both
+-- projects' own `schema_migrations` at that moment (highest real migration on
+-- all three was 0135). This migration was applied to both projects, and this
+-- PR opened, under that name.
+--
+-- **RENUMBERED 0136 → 0139 after opening the PR**, per this repo's own
+-- convention (supabase/migrations/README.md: "whichever PR lands second
+-- renumbers") — a FILE rename only, `git mv`, neither database touched. Not
+-- a two-way collision but a genuine pile-up: re-checking `list_migrations`
+-- immediately before opening the PR showed THREE different migrations had
+-- landed as `0136` (this one, `0136_talent_directory_boost_enum_value`, and
+-- `0136_talent_directory_human_review_enum`), with matching collisions at
+-- `0137` (two claimants) and `0138` (two more, unrelated to `0136`). This
+-- migration is recorded in both projects' `schema_migrations` under the name
+-- `0136_mentor_payouts` — the applied name and the committed filename now
+-- permanently disagree, the same accepted cosmetic mismatch 0061's own header
+-- documents for exactly this situation. `0139` was chosen as the next number
+-- strictly above every migration number visible in either ledger at
+-- renumbering time (0136, 0137 and 0138 were each already claimed at least
+-- twice), not by coordinating with the other sessions — a further collision
+-- at 0139 from a task this session has no visibility into is possible and
+-- would be resolved the same way, by whichever of us renumbers second.
 --
 -- ── WHY THIS IS FIRST OUTBOUND MONEY, AND WHAT THAT CHANGES ─────────────────
 --

@@ -1,5 +1,5 @@
 /**
- * Mentor payouts (0136) — the first OUTBOUND-money feature in this codebase,
+ * Mentor payouts (0139) — the first OUTBOUND-money feature in this codebase,
  * held to the idempotency bar CLAUDE.md sets for anything gating on a
  * compared value: check-and-act in ONE database statement, never a
  * read-then-write. `claim_mentor_payout` and `attemptPayout`

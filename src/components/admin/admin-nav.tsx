@@ -93,7 +93,7 @@ const COUNTLESS_ITEMS = [
   { href: "/admin/postings", label: "Find a posting", permission: "reported_postings" },
   { href: "/admin/feature-flags", label: "Feature flags", permission: "feature_flags" },
   { href: "/admin/operators", label: "Operators", permission: "operators" },
-  // Mentor payouts (0136). Not a QUEUE — most rows are just `pending`,
+  // Mentor payouts (0139). Not a QUEUE — most rows are just `pending`,
   // waiting on their 72h hold window, which is not a backlog to work
   // through. It sits under `mentor_review` (see src/lib/admin/mentor-payouts/
   // queries.ts's own header for why), same as "Mentor applications" above.

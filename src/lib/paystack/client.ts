@@ -293,7 +293,7 @@ export async function refundTransaction(reference: string): Promise<RefundResult
 }
 
 /* ────────────────────────────────────────────────────────────────────────
- * Transfers — mentor payouts (Mentorship v2, part 1, 0136).
+ * Transfers — mentor payouts (Mentorship v2, part 1, 0139).
  *
  * The FIRST outbound-money surface in this codebase — everything above pays
  * Talentrah; this pays a mentor. Same provider (Paystack), a genuinely
