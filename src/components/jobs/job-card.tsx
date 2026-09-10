@@ -9,6 +9,7 @@ import { MatchBreakdown } from "@/components/jobs/match-breakdown";
 import { ShareJobButton } from "@/components/jobs/share-job-button";
 import { ReportJobMenu } from "@/components/jobs/report-job-menu";
 import { MarkAppliedButton } from "@/components/jobs/mark-applied-button";
+import { PromotedClickTracker } from "@/components/jobs/promoted-click-tracker";
 import type { MatchExplanation } from "@/lib/matching/score";
 import { toggleSaveAction, applyInAppAction, markAppliedExternallyAction } from "@/lib/applications/actions";
 import type { CountryState } from "@/lib/jobs/country-events";
@@ -63,6 +64,12 @@ export interface JobCardProps {
   applicationStage: Tables<"applications">["stage"] | null;
   /** Paid placement. Labelled on the card; never affects the score shown. */
   isSponsored?: boolean;
+  /**
+   * The campaign this card is promoted under, when `isSponsored`. Only used
+   * to attribute a click event (0128) — never rendered. `null`/absent for a
+   * non-sponsored card, in which case no click tracking is wired up at all.
+   */
+  campaignId?: string | null;
   /** Drives the menu's free Vet answers. Already computed for `score`. */
   explanation: MatchExplanation;
   /**
@@ -92,6 +99,7 @@ export function JobCard({
   isSaved,
   applicationStage,
   isSponsored = false,
+  campaignId = null,
   explanation,
   origin,
   applicantCount = null,
@@ -115,7 +123,7 @@ export function JobCard({
     applicationStage === "offer" ||
     applicationStage === "hired";
 
-  return (
+  const card = (
     <BorderedCard data-testid="job-card" className="flex flex-col gap-3.5 p-5">
       <div className="flex items-start gap-4">
         <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center bg-ink font-display text-[15px] font-bold text-paper">
@@ -154,6 +162,7 @@ export function JobCard({
               */}
               <Link
                 href={`/jobs/${job.id}`}
+                data-ad-click={isSponsored ? "true" : undefined}
                 className="text-ink no-underline hover:text-rust hover:underline"
               >
                 {job.title}
@@ -307,6 +316,7 @@ export function JobCard({
                 href={job.external_url ?? "#"}
                 target="_blank"
                 rel="noopener noreferrer"
+                data-ad-click={isSponsored ? "true" : undefined}
                 className="inline-flex min-h-10 items-center justify-center border-none bg-ink px-[18px] py-[10px] font-body text-[13.5px] font-semibold text-paper no-underline transition-colors hover:bg-rust"
               >
                 Apply on company site
@@ -314,6 +324,18 @@ export function JobCard({
             </>
           ) : (
             <form action={applyInAppAction.bind(null, job.id, countryState)}>
+              {/*
+                Deliberately NOT `data-ad-click` here, unlike the title link
+                and the external "Apply on company site" anchor above. Both
+                of those are plain navigations the delegated click tracker is
+                the ONLY way to observe. This button is a form submit —
+                `applyInAppAction` itself already records the click (and, on
+                success, the apply) server-side, unconditionally, the moment
+                it runs. Marking this too would only add a redundant client
+                beacon for the same event `record_ad_event`'s own per-minute
+                dedup would collapse back to one row anyway — harmless, but
+                pointless.
+              */}
               <Button size="sm" type="submit">
                 Apply
               </Button>
@@ -322,5 +344,16 @@ export function JobCard({
         </div>
       </div>
     </BorderedCard>
+  );
+
+  // Only a sponsored card with a real campaign to attribute to gets wrapped —
+  // zero extra client JS for the overwhelming majority of cards. See
+  // promoted-click-tracker.tsx's own header for what it actually listens for.
+  return isSponsored && campaignId ? (
+    <PromotedClickTracker campaignId={campaignId} jobPostingId={job.id}>
+      {card}
+    </PromotedClickTracker>
+  ) : (
+    card
   );
 }

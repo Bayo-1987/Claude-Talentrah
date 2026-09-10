@@ -126,3 +126,75 @@ export async function recordPromotedImpressions(
     }),
   );
 }
+
+/**
+ * The other two-thirds of the funnel (0128) — impressions were the only
+ * event type ever recorded before this. Shared by the click-recording API
+ * route and the in-app apply action, so both funnel stages go through one
+ * error-handling shape instead of three near-identical try/catches.
+ *
+ * Service role, same reasoning as `recordPromotedImpressions`: `record_ad_event`
+ * is service_role-only EXECUTE (0052) precisely so no client-writable path can
+ * author what is, in effect, an invoice line. Both of this function's callers
+ * are themselves server-side (an API route, a Server Action) — the client
+ * never gets a direct line to this.
+ */
+export async function recordAdEvent(params: {
+  campaignId: string;
+  jobPostingId: string;
+  userId: string;
+  eventType: "click" | "apply";
+  surface: string;
+}): Promise<void> {
+  const admin = createServiceRoleClient();
+  try {
+    const { error } = await admin.rpc("record_ad_event", {
+      p_campaign_id: params.campaignId,
+      p_job_posting_id: params.jobPostingId,
+      p_user_id: params.userId,
+      p_event_type: params.eventType,
+      p_surface: params.surface,
+    });
+    if (error) console.error(`[ads] ${params.eventType} ${params.campaignId}: ${error.message}`);
+  } catch (err) {
+    console.error(`[ads] ${params.eventType} ${params.campaignId}:`, err);
+  }
+}
+
+/**
+ * Whether ONE job posting currently has an active campaign, and if so which
+ * one — used by the click-recording route (to validate a client-claimed
+ * campaign id is real and current) and the apply action (to decide whether an
+ * apply is attributable at all).
+ *
+ * Deliberately NOT `fetchPromotedJobs`/`promoted_jobs`: that RPC answers "is
+ * this promoted FOR THIS SEEKER right now" — it requires a `match_scores` row
+ * for the calling user and applies their active feed filters, which is the
+ * right question for deciding what to SHOW, and the wrong one for deciding
+ * whether a click or apply that already happened should be attributed to a
+ * campaign. This answers the narrower, campaign-only question directly.
+ *
+ * Service role: `ad_campaigns` is org-members-only readable (0047), and
+ * neither caller has an org session — a seeker applying, or an unauthenticated
+ * validation check, has no route to this table otherwise.
+ *
+ * If more than one active campaign somehow targets the same posting (nothing
+ * in 0047 prevents it, though normal use never creates it), this returns
+ * whichever the query happens to return first — the same "no dedup across
+ * campaigns" behaviour `promoted_jobs` itself already has, not a new gap.
+ */
+export async function findActiveCampaignForJobPosting(jobPostingId: string): Promise<string | null> {
+  const admin = createServiceRoleClient();
+  const { data, error } = await admin
+    .from("ad_campaigns")
+    .select("id")
+    .eq("job_posting_id", jobPostingId)
+    .eq("status", "active")
+    .limit(1)
+    .maybeSingle();
+  if (error) {
+    console.error(`[ads] active-campaign lookup for ${jobPostingId} failed:`, error.message);
+    return null;
+  }
+  return data?.id ?? null;
+}
