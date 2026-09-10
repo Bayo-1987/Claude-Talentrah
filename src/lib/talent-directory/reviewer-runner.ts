@@ -70,11 +70,15 @@ export async function resolveVerificationReview(
     p_verified: verified,
     // Human review has no numeric AI score — null is honest here rather
     // than inventing one, and profiles.talent_verification_score already
-    // allows null (0135).
-    p_score: null,
-    p_feedback: notes.trim() || null,
+    // allows null (0135). The generated Args type marks p_score/p_feedback
+    // as non-nullable because the SQL function declares them with no
+    // DEFAULT, not because Postgres actually rejects a null argument for a
+    // plain integer/text parameter — same known generated-type gap as
+    // promoted.ts's own `as never` casts.
+    p_score: null as never,
+    p_feedback: (notes.trim() || null) as never,
     p_reviewer_id: reviewerId,
-    p_reviewer_notes: notes.trim() || null,
+    p_reviewer_notes: notes.trim() || undefined,
   });
 
   if (error || !ok) {
