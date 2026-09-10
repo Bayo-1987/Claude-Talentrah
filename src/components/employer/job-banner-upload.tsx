@@ -21,7 +21,11 @@ import { isCroppable, maxCroppableWidth, maxZoomForCrop, renderCroppedBanner } f
  * A banner is stored at `<organization_id>/<job_posting_id>` — it needs the
  * posting's id, which does not exist until the posting does. Rather than
  * inventing an id client-side or staging the file somewhere to move later,
- * this lives where the id is real. The create form points here instead.
+ * this lives where the id is real. The create form itself says nothing about
+ * a banner; the pointer lives on the post-success card instead (Jobs
+ * Posted's `?posted=<id>` state, src/app/employer/jobs/page.tsx) — the
+ * moment right after publishing is when an employer is most likely to still
+ * be engaged enough to go add one (send-130).
  *
  * ── THE CLIENT CHECKS ARE COURTESY; THE SERVER'S ARE THE RULE ─────────────
  *

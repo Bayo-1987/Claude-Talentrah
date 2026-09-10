@@ -201,6 +201,26 @@ export default async function JobsPostedPage({
               })}
             />
           </div>
+          {/*
+            send-130: JobBannerUpload only exists on Edit (its own header
+            comment explains why — a banner is stored at
+            <organization_id>/<job_posting_id>, which doesn't exist until this
+            posting does), but nothing pointed there. This is the pointer, put
+            on the post-success card rather than the create form because this
+            is the moment the employer is actually engaged, right after
+            publishing — the same reasoning that already put the share link
+            here instead of on a dedicated confirmation screen.
+          */}
+          <p className="mt-3 font-body text-[13px] text-ink-soft">
+            You can add a banner image on{" "}
+            <Link
+              href={`/employer/jobs/${postedJob.id}/edit`}
+              className="font-semibold text-rust underline underline-offset-2"
+            >
+              this job&apos;s edit page
+            </Link>
+            .
+          </p>
         </BorderedCard>
       )}
 
