@@ -63,7 +63,7 @@ alter table public.email_preferences
   add column proactive_match_alert boolean not null default true;
 
 comment on column public.email_preferences.proactive_match_alert is
-  'Whether THIS PERSON wants the rare "exceptional match, even if you are not looking" alert (send-138). Separate from job_match_digest on purpose — see this migration's own header.';
+  'Whether THIS PERSON wants the rare "exceptional match, even if you are not looking" alert (send-138). Separate from job_match_digest on purpose — see this migration''s own header.';
 
 insert into public.feature_flags (key, label, enabled) values
   ('proactive_match_alert', 'Proactive "exceptional match" alerts', false);
@@ -123,7 +123,7 @@ create table public.proactive_match_alerts (
 );
 
 comment on table public.proactive_match_alerts is
-  'One row per (user, job) this alert ever fired for — the INSERT succeeding is the send-once lock (this migration's own header), and max(sent_at) per user is the rate-limit clock. Service-role only, same reasoning as email_preferences'' token: nothing here is a value a client should read or write directly.';
+  'One row per (user, job) this alert ever fired for — the INSERT succeeding is the send-once lock (this migration''s own header), and max(sent_at) per user is the rate-limit clock. Service-role only, same reasoning as email_preferences'' token: nothing here is a value a client should read or write directly.';
 
 alter table public.proactive_match_alerts enable row level security;
 -- No policies at all, deliberately — service_role only. Matches
