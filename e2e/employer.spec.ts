@@ -171,6 +171,15 @@ test.describe("employer surface", () => {
      */
     await expect(authedPage.getByText("Private link only")).toBeVisible();
 
+    // ---- send-130: the post-success card points at the banner uploader ----
+    // JobBannerUpload only exists on Edit (a banner needs the posting's real
+    // id), and until now nothing on the create flow said so. Checks the link
+    // actually resolves to THIS job's edit page, not a generic one — the
+    // requirement called out explicitly in send-130.
+    const editHref = await authedPage.getByRole("link", { name: "this job's edit page" }).getAttribute("href");
+    const postedJobId = new URL(authedPage.url()).searchParams.get("posted");
+    expect(editHref).toBe(`/employer/jobs/${postedJobId}/edit`);
+
     // ---- What the poster themselves sees in the seeker feed ---------------
     //
     // Worth stating, because the first version of this test asserted the
