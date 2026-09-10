@@ -162,6 +162,38 @@ export function bannerPublicUrl(args: {
   return `${supabaseUrl.replace(/\/$/, "")}/storage/v1/object/public/${BANNER_BUCKET}/${bannerPath}`;
 }
 
+/**
+ * Whether a posting's banner is allowed to render publicly at all — a
+ * separate question from `bannerPublicUrl`'s own path-shape check, which
+ * only stops a malformed/spoofed path once this question has already said
+ * yes.
+ *
+ * Two independent routes answer "this posting is publicly legitimate", and
+ * this OR's them together deliberately: `organizationVerified` (0027's own
+ * gate — everything the org posts) and `adminReviewDecision === "approved"`
+ * (0119/0127's Path 3 — one specific posting, approved on its own, whether
+ * or not the org ever gets verified). send-136 added the second route: the
+ * job detail page's own comment had anticipated this exact extension since
+ * 0115 shipped the banner ("whatever decides 'this posting is publicly
+ * legitimate' decides this"), and Path 3 landing without this function
+ * being updated is precisely the kind of gate-duplicates-part-of-a-later-
+ * grant gap CLAUDE.md already documents for `promoted_jobs` (0109) and
+ * `search_job_postings` (0108) — a gate written before a later, independent
+ * grant existed, never told about it.
+ *
+ * DELIBERATELY UNCHANGED FOR EVERYTHING ELSE. An unlisted posting from an
+ * org that is neither verified nor Path-3-approved still shows no banner —
+ * that leak (dressing up an unapproved posting behind a direct link) is
+ * exactly what this gate exists to prevent, and neither route here weakens
+ * it.
+ */
+export function bannerIsEligibleToRender(args: {
+  organizationVerified: boolean;
+  adminReviewDecision: string | null;
+}): boolean {
+  return args.organizationVerified || args.adminReviewDecision === "approved";
+}
+
 export type BannerRejection =
   | { ok: false; reason: string };
 export type BannerAcceptance = {

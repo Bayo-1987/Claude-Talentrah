@@ -25,7 +25,7 @@ import {
 } from "@/lib/applications/actions";
 import { defaultCountryForProfile } from "@/lib/jobs/country";
 import { logCountryDefaultEvent, type CountryState } from "@/lib/jobs/country-events";
-import { bannerPublicUrl } from "@/lib/employer/banner";
+import { bannerIsEligibleToRender, bannerPublicUrl } from "@/lib/employer/banner";
 
 const WORK_TYPE_LABEL: Record<string, string> = {
   remote: "Remote",
@@ -328,15 +328,22 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
    * the part that would lend it unearned credibility, and it waits for
    * verification.
    *
-   * When the per-job admin-approval path lands it extends this automatically,
-   * because it is the same underlying question rather than a second one bolted
-   * on: whatever decides "this posting is publicly legitimate" decides this.
+   * EXTENDED (send-136) for the per-job admin-approval path (0119/0127, Path
+   * 3): a posting individually approved by an admin is publicly legitimate
+   * on its own terms, independent of whether its organisation is verified —
+   * the same reasoning 0119 already applied to the posting's own visibility,
+   * now applied to its banner too, because it is the same underlying
+   * question rather than a second one bolted on. `bannerIsEligibleToRender`
+   * (banner.ts) is the one place that ORs the two routes together.
    *
    * `bannerPublicUrl` then refuses anything not shaped `<this org>/<uuid>.<ext>`,
    * which is what makes an employer-supplied `banner_path` harmless — see its
    * own comment for why that check lives there rather than in a column grant.
    */
-  const bannerUrl = job.organizations?.verified
+  const bannerUrl = bannerIsEligibleToRender({
+    organizationVerified: !!job.organizations?.verified,
+    adminReviewDecision: job.admin_review_decision,
+  })
     ? bannerPublicUrl({
         supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
         bannerPath: job.banner_path,
