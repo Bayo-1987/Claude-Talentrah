@@ -507,7 +507,21 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
   // selects it and no card renders it, not because it is always null.
   type FeedJobPosting = Omit<
     Tables<"job_postings">,
-    "description_preview" | "search_vector" | "closed_at" | "unlisted_at" | "banner_path" | "admin_review_decision" | "admin_review_note" | "admin_review_requested_at" | "admin_reviewed_at" | "admin_reviewed_by"
+    | "description_preview"
+    | "search_vector"
+    | "closed_at"
+    | "unlisted_at"
+    | "banner_path"
+    | "admin_review_decision"
+    | "admin_review_note"
+    | "admin_review_requested_at"
+    | "admin_reviewed_at"
+    | "admin_reviewed_by"
+    // 0128: not selected by FEED_COLUMNS — a claimed external posting is
+    // `removed`, so it never reaches this query's `status = 'open'` filter
+    // anyway, and the feed has no use for who claimed it.
+    | "claimed_by_organization_id"
+    | "claimed_at"
   >;
   const matchingFilters: FeedJobPosting[] = jobsRaw ?? [];
 
@@ -807,6 +821,10 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
   scored.length = Math.min(scored.length, RECOMMENDED_HARD_CAP);
 
   const promotedSet = new Set(promotedIds);
+  // job posting id -> campaign id, for the click-tracking wrapper (0128) —
+  // `promotedSet` alone only says a card IS sponsored, not which campaign a
+  // click on it should be attributed to.
+  const promotedCampaignByJobId = new Map((visiblePromoted ?? []).map((p) => [p.jobPostingId, p.campaignId]));
   // Once per render, not once per card — every card shares the same origin.
   const origin = await getSiteOrigin();
 
@@ -1074,6 +1092,7 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
               isSaved={applicationByJobId.get(job.id) === "saved"}
               applicationStage={applicationByJobId.get(job.id) ?? null}
               isSponsored={promotedSet.has(job.id)}
+              campaignId={promotedCampaignByJobId.get(job.id) ?? null}
               explanation={explanation}
             origin={origin}
             countryState={countryState}

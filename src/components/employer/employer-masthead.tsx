@@ -13,25 +13,23 @@ import { signOutAction } from "@/lib/auth/actions";
  * §5 lists the employer nav as:
  *   Jobs Posted · Company Profile · Ad Campaigns · Billing · Analytics
  *
- * Three of those five are Phase 2 by CLAUDE.md's own phasing section. They are
- * OMITTED here, not shipped as disabled "coming soon" items.
+ * Three of those five were Phase 2 by CLAUDE.md's own phasing section, and
+ * were OMITTED here rather than shipped as disabled "coming soon" items —
+ * see PR #16's own reasoning, which this comment used to spell out in full:
+ * a nav full of dead entries teaches an employer the product is thinner than
+ * it looks. That precedent is exactly why Analytics slots back in only now
+ * (0128) that `/employer/analytics` is a real page reading real
+ * `ad_events` rows, not a placeholder.
  *
- * Why omit rather than stub: PR #16 did a full pass removing every place the
- * site implied an unshipped feature existed, and three dead entries out of
- * five turns the primary nav into mostly signposts to nothing — an employer
- * clicking "Billing" and finding a placeholder learns the product is thinner
- * than it looks, which is the exact impression that pass was correcting.
- *
- * There IS repo precedent the other way (§6.5 stubs a disabled "book a mentor"
- * hand-off for Phase 3), and it is a reasonable call — but that is one
- * in-context affordance inside a working screen, not a third of the top-level
- * navigation. When Ad Campaigns, Billing and Analytics ship, they slot in
- * here; nothing about this layout has to change to accommodate them.
+ * Billing is still omitted for the same reason Analytics was until now —
+ * nothing behind that label is real yet. When it ships, it slots in here
+ * the same way; nothing about this layout has to change to accommodate it.
  */
 const NAV_LINKS = [
   { href: "/employer/jobs", label: "Jobs Posted" },
   { href: "/employer/profile", label: "Company Profile" },
   { href: "/employer/campaigns", label: "Ad Campaigns" },
+  { href: "/employer/analytics", label: "Analytics" },
 ];
 
 export function EmployerMasthead({

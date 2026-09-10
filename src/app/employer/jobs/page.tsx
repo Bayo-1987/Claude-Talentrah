@@ -8,11 +8,13 @@ import { PostSuccessBannerNote } from "@/components/employer/post-success-banner
 import { getJobShareVisibility } from "@/lib/employer/job-visibility";
 import { evaluateDomainVerification, employerBannerMessage } from "@/lib/employer/verification";
 import { mintUnlistedLink } from "@/lib/employer/mint-unlisted-link";
+import { getClaimCandidates } from "@/lib/employer/claim";
+import { dismissClaimReviewAction } from "@/lib/employer/actions";
 import { getSiteOrigin } from "@/lib/referrals/url";
 
 export const metadata = { title: "Jobs Posted — Talentrah" };
 
-type SearchParams = Promise<{ posted?: string }>;
+type SearchParams = Promise<{ posted?: string; claimed?: string }>;
 
 export default async function JobsPostedPage({
   searchParams,
@@ -20,9 +22,21 @@ export default async function JobsPostedPage({
   searchParams: SearchParams;
 }) {
   const { organization, userId, userEmail, emailConfirmed } = await requireEmployer();
-  const { posted } = await searchParams;
+  const { posted, claimed } = await searchParams;
   const supabase = await createClient();
   const origin = await getSiteOrigin();
+
+  // "Claim your listing" (0128/0129): only worth checking for a VERIFIED
+  // org — job_posting_claim_candidates matches against the verified
+  // domain/name, so an unverified org would only ever see a name-only
+  // false-positive list, and the Company Profile banner above already tells
+  // it to verify first. Also skipped once the org has dismissed the banner —
+  // dismissClaimReviewAction is a one-way "stop asking," not a snooze, so a
+  // dismissed org never has claimCandidateCount computed again on this page.
+  const claimCandidateCount =
+    organization.verified && !organization.claim_review_dismissed_at
+      ? (await getClaimCandidates(supabase, organization.id).catch(() => [])).length
+      : 0;
 
   const [{ data: jobs, error: jobsError }, { data: counts, error: countsError }] =
     await Promise.all([
@@ -97,6 +111,10 @@ export default async function JobsPostedPage({
   // postJobAction carried its id — not re-fetched, it's already in `rows`
   // from the same query above (freshest first).
   const postedJob = posted ? rows.find((r) => r.id === posted) : undefined;
+  // Same shape as postedJob, for claimJobPostingAction's own redirect
+  // (`?claimed=<id>`) — the new posting is internal and owned by this org, so
+  // it's already in `rows` from the same query above.
+  const claimedJob = claimed ? rows.find((r) => r.id === claimed) : undefined;
 
   /*
    * The stored `organization.verified` bit and a fresh recompute of the same
@@ -214,6 +232,60 @@ export default async function JobsPostedPage({
             outcome rather than getting a distinct error state.
           */}
           <PostSuccessBannerNote jobId={postedJob.id} userId={userId} />
+        </BorderedCard>
+      )}
+
+      {/*
+        "Claim your listing" (0128): only shown when there's actually
+        something to look at — an employer with zero candidates should never
+        see a dead-end link, the same reasoning mintedAt.size > 0 gates the
+        private-link copy above.
+      */}
+      {claimCandidateCount > 0 && (
+        <p className="flex flex-wrap items-center justify-between gap-3 border-[1.5px] border-ink bg-[oklch(95%_0.02_60)] px-4 py-3 text-[13.5px] text-ink">
+          <span>
+            We found {claimCandidateCount} job posting{claimCandidateCount === 1 ? "" : "s"} from other
+            sources that might be {organization.name}&apos;s.{" "}
+            <Link href="/employer/claim" className="font-semibold text-rust underline underline-offset-2">
+              Review and claim them
+            </Link>
+            .
+          </span>
+          <form action={dismissClaimReviewAction}>
+            <button
+              type="submit"
+              className="font-body text-[12.5px] font-semibold text-ink-soft underline underline-offset-2 hover:text-rust"
+            >
+              Not now
+            </button>
+          </form>
+        </p>
+      )}
+
+      {/*
+        The claim-success surface — same shape as the post-success one below,
+        for claimJobPostingAction's own redirect (`?claimed=<id>`).
+      */}
+      {claimedJob && (
+        <BorderedCard className="border-ink p-5">
+          <p className="font-display text-[16px] font-medium text-ink">
+            &quot;{claimedJob.title}&quot; is now your own posting.
+          </p>
+          <p className="mt-2 font-body text-[13.5px] text-ink-soft">
+            The original listing has been taken out of the public feed — this one represents the role
+            from here on.
+          </p>
+          <div className="mt-3">
+            <EmployerJobShareInline
+              jobId={claimedJob.id}
+              jobTitle={claimedJob.title}
+              origin={origin}
+              visibility={getJobShareVisibility({
+                status: claimedJob.status,
+                organizationVerified: organization.verified,
+              })}
+            />
+          </div>
         </BorderedCard>
       )}
 

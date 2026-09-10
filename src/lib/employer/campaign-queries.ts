@@ -81,3 +81,66 @@ export async function getWalletBalance(organizationId: string) {
     .maybeSingle();
   return data?.balance_ngn ?? 0;
 }
+
+export interface CampaignAnalytics {
+  impressions: number;
+  clicks: number;
+  applies: number;
+}
+
+/**
+ * Impression/click/apply counts for ONE campaign (0128) — the read side of
+ * the funnel `record_ad_event` (0052) writes. Goes through the CALLER'S
+ * session, same as every other query in this file: `ad_events`' own RLS
+ * policy ("org members read their own campaign events", 0052) is what
+ * actually stops one organisation from reading another's numbers — this
+ * function adds no access of its own, per the task's own instruction that
+ * none is needed.
+ *
+ * The `organizationId`/`campaignId` pair is checked against `ad_campaigns`
+ * FIRST, through the same session, for the same reason `getCampaign` above
+ * does it: a wrong or foreign id should read as "not found", not as three
+ * queries that happen to return zero because RLS silently hid every event
+ * row. Without this check, a foreign campaign id would look identical to a
+ * real campaign that simply has no events yet — the exact ambiguity this
+ * file's other functions already avoid.
+ *
+ * Three separate counted queries rather than one aggregate read: Supabase's
+ * client has no GROUP BY, and a real organisation runs a small number of
+ * campaigns — three `count: "exact", head: true` reads per campaign is cheap
+ * at that scale and needs no new SQL function. Revisit if a campaign's event
+ * volume ever makes this worth a dedicated aggregate.
+ */
+export async function getCampaignAnalytics(
+  organizationId: string,
+  campaignId: string,
+): Promise<CampaignAnalytics | null> {
+  const supabase = await createClient();
+
+  const { data: campaign } = await supabase
+    .from("ad_campaigns")
+    .select("id")
+    .eq("organization_id", organizationId)
+    .eq("id", campaignId)
+    .maybeSingle();
+  if (!campaign) return null;
+
+  const countFor = (eventType: "impression" | "click" | "apply") =>
+    supabase
+      .from("ad_events")
+      .select("id", { count: "exact", head: true })
+      .eq("campaign_id", campaignId)
+      .eq("event_type", eventType);
+
+  const [impressions, clicks, applies] = await Promise.all([
+    countFor("impression"),
+    countFor("click"),
+    countFor("apply"),
+  ]);
+
+  return {
+    impressions: impressions.count ?? 0,
+    clicks: clicks.count ?? 0,
+    applies: applies.count ?? 0,
+  };
+}
