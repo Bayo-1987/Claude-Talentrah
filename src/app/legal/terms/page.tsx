@@ -12,16 +12,27 @@ export const metadata: Metadata = pageMetadata({
  * DRAFT — see the note in src/app/legal/privacy/page.tsx. Same caveat
  * applies here: grounded in the actual product (credits system, Paystack
  * billing) but needs a legal review pass before launch, particularly the
- * liability/disclaimer and Nigeria-specific consumer-protection sections.
+ * liability/disclaimer and Nigeria-specific consumer-protection sections —
+ * and now, specifically, whether "Talentrah isn't a party to a mentor's
+ * advice" (the Human mentorship section below) is the right liability line
+ * for an actual paid transaction, and whether the platform-commission and
+ * automatic-refund language there satisfies Nigerian consumer-protection
+ * requirements for a marketplace taking a cut of a service it didn't perform.
  *
- * These Terms describe only what has actually shipped. Auto-apply (Phase 2)
- * and the mentor marketplace (Phase 3) were previously written up here as
- * live, enableable capabilities — they don't exist and can't be enabled, so
- * they're gone rather than reworded. A contract shouldn't govern features
- * that aren't there: it misleads users about what they're agreeing to, and
- * on the auto-apply clause specifically it described Talentrah acting on a
- * user's behalf in a way it currently cannot. When either ships, add its
- * section back at that point.
+ * These Terms describe only what has actually shipped. Auto-apply and the
+ * mentor marketplace were previously written up here as live, enableable
+ * capabilities before either existed — a contract shouldn't govern features
+ * that aren't there — so both were removed rather than reworded, with a note
+ * to add each back once it shipped. Both have since shipped (Auto-Apply in
+ * Phase 2; Mentorship 2026-09-10, PR #341/send-137) and have their own
+ * sections below, grounded in src/lib/auto-apply/config.ts and
+ * docs/auto-apply.md for Auto-Apply, and src/lib/mentorship/pricing.ts and
+ * sweep.ts for Mentorship's commission split and no-show/refund policy — not
+ * reconstructed from memory of the original, removed text. Neither section
+ * states the actual cap/threshold/price numbers, which live in those files
+ * specifically so a pricing or policy change doesn't also require editing a
+ * legal document; each section states the invariant instead (review before
+ * submit, commission is flat, a non-response auto-cancels and auto-refunds).
  */
 export default function TermsOfServicePage() {
   return (
@@ -65,6 +76,20 @@ export default function TermsOfServicePage() {
         privacy practices apply, not ours.
       </p>
 
+      <h2>Auto-Apply</h2>
+      <p>
+        Auto-Apply is off by default, and turning it on never creates a
+        fully automatic mode: nothing is ever submitted without your own
+        confirmation click, and it only surfaces your strongest matches for
+        you to review. Confirming a match on a job posted directly on
+        Talentrah creates a real application under your name, the same as
+        applying yourself. Confirming a match on a job sourced from another
+        company&apos;s own site or board does not submit anything there on
+        your behalf — Talentrah has no way to do that — it hands you off to
+        that site to apply yourself, and we record it as a link opened, not
+        as an application.
+      </p>
+
       {/*
         Approved by the founder 2026-09-01 as part of resolving build-prompt
         §10 item 19 — see docs/scholarship-sources.md's own instruction that
@@ -98,6 +123,22 @@ export default function TermsOfServicePage() {
         renews automatically until you cancel it, which you can do at any
         time from your billing page; a pass paid for by any other method is
         one-time and does not renew.
+      </p>
+
+      <h2>Human mentorship</h2>
+      <p>
+        Mentorship connects you directly with a vetted human mentor for the
+        moments Farah steps back from — things like a mock interview or
+        negotiating a specific offer. Mentors apply and are reviewed before
+        they can be booked, but that review doesn&apos;t make Talentrah a
+        party to a session&apos;s advice: what a mentor tells you is their
+        own judgment, not ours. A paid session is billed in Naira through
+        Paystack at the price the mentor sets — some mentors volunteer their
+        time for free — never through Credits, and Talentrah keeps a flat
+        platform commission from any paid session. If a mentor doesn&apos;t
+        confirm a booked session at least 24 hours before it&apos;s
+        scheduled to start, the session is cancelled automatically and any
+        payment already made is refunded automatically.
       </p>
 
       <h2>Acceptable use</h2>
