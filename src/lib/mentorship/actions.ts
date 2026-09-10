@@ -9,6 +9,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { initializeTransaction, NGN_CHANNELS } from "@/lib/paystack/client";
 import { generateMeetingLink } from "@/lib/mentorship/meeting-link";
+import { notifySessionConfirmed } from "@/lib/mentorship/notifications";
 import type { MentorshipSessionType } from "@/lib/mentorship/pricing";
 
 function splitTags(raw: string): string[] {
@@ -192,7 +193,14 @@ export async function confirmMentorSessionAction(sessionId: string) {
   });
 
   if (error || !ok) throw new Error("Could not confirm that session.");
+
+  // Best-effort — notifySessionConfirmed never throws (see its own header).
+  // The confirmation itself already succeeded above; a notification failure
+  // must not turn a successful confirm into an error the mentor sees.
+  await notifySessionConfirmed(sessionId);
+
   revalidatePath("/mentorship/sessions/mentor");
+  revalidatePath("/mentorship/sessions");
 }
 
 export async function submitMentorshipReviewAction(sessionId: string, mentorId: string, rating: number, reviewText: string) {
