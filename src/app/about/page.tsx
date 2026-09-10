@@ -58,10 +58,10 @@ export default function AboutPage() {
             <p className="text-[15px] text-ink-soft">
               Farah handles the day-to-day: matching, tailoring, coaching. When
               the stakes are highest — negotiating an offer, prepping for a
-              final round — she&apos;ll say so rather than bluff, and a hand-off to
-              a real mentor who&apos;s done it before is on the roadmap. AI gets you
-              further, faster, on the parts it&apos;s good at; it should step aside
-              for the parts it isn&apos;t.
+              final round — she&apos;ll say so rather than bluff, and hand you off
+              to a real mentor who&apos;s done it before. AI gets you further,
+              faster, on the parts it&apos;s good at; it should step aside for the
+              parts it isn&apos;t.
             </p>
           </div>
 

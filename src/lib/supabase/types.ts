@@ -3535,29 +3535,18 @@ export type Database = {
         Args: { p_boost_id: string; p_days: number; p_user_id: string }
         Returns: string
       }
-      resolve_talent_verification:
-        | {
-            Args: {
-              p_feedback: string
-              p_score: number
-              p_user_id: string
-              p_verification_id: string
-              p_verified: boolean
-            }
-            Returns: boolean
-          }
-        | {
-            Args: {
-              p_feedback: string
-              p_reviewer_id?: string
-              p_reviewer_notes?: string
-              p_score: number
-              p_user_id: string
-              p_verification_id: string
-              p_verified: boolean
-            }
-            Returns: boolean
-          }
+      resolve_talent_verification: {
+        Args: {
+          p_feedback: string
+          p_reviewer_id?: string
+          p_reviewer_notes?: string
+          p_score: number
+          p_user_id: string
+          p_verification_id: string
+          p_verified: boolean
+        }
+        Returns: boolean
+      }
       resume_ad_campaign: {
         Args: { p_actor_user_id?: string; p_campaign_id: string }
         Returns: {

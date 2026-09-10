@@ -39,8 +39,12 @@
       "schedule": "0 13 * * *"
     },
     {
-      "path": "/api/admin/mentor-payouts",
+      "path": "/api/admin/mentorship-session-reminders",
       "schedule": "0 14 * * *"
+    },
+    {
+      "path": "/api/admin/mentor-payouts",
+      "schedule": "0 15 * * *"
     }
   ]
 }

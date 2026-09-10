@@ -517,6 +517,8 @@ describe("§2 — cron GETs fail closed too", () => {
       "/api/admin/mentorship-sweep": () => import("@/app/api/admin/mentorship-sweep/route"),
       "/api/admin/renew-talent-directory-subscriptions": () =>
         import("@/app/api/admin/renew-talent-directory-subscriptions/route"),
+      "/api/admin/mentorship-session-reminders": () =>
+        import("@/app/api/admin/mentorship-session-reminders/route"),
       "/api/admin/mentor-payouts": () => import("@/app/api/admin/mentor-payouts/route"),
     };
 
