@@ -3,11 +3,12 @@ import { requireEmployer } from "@/lib/employer/membership";
 import { postJobAction } from "@/lib/employer/actions";
 import { EyebrowLabel } from "@/components/ui";
 import { JobPostingForm } from "@/components/employer/job-posting-form";
+import { NewJobBannerPicker } from "@/components/employer/new-job-banner-picker";
 
 export const metadata = { title: "Post a job — Talentrah" };
 
 export default async function NewJobPage() {
-  const { organization } = await requireEmployer();
+  const { organization, userId } = await requireEmployer();
 
   return (
     <div className="max-w-[820px]">
@@ -23,6 +24,18 @@ export default async function NewJobPage() {
           Post a job at {organization.name}
         </h1>
       </div>
+      {/*
+        send-134: above the form, same placement JobBannerUpload uses on
+        Edit — a banner isn't one of the posting's text fields and shouldn't
+        be buried below them. Unlike Edit, nothing uploads yet: there's no
+        jobId until postJobAction creates one, so this only picks and crops
+        the image client-side. The post-success card
+        (src/app/employer/jobs/page.tsx's PostSuccessBannerNote) uploads it
+        once a real posting exists — see new-job-banner-picker.tsx.
+      */}
+      <div className="mt-6">
+        <NewJobBannerPicker userId={userId} />
+      </div>
       <div className="mt-6">
         <JobPostingForm
           action={postJobAction}
@@ -31,7 +44,7 @@ export default async function NewJobPage() {
           unverifiedNotice={
             organization.verified
               ? undefined
-              : "Your company isn't verified yet, so this job will be visible only to your team — not in the public job feed. Add your work-email domain on Company Profile to change that."
+              : "Your company isn't verified yet, so this job — and any banner you add — will be visible only to your team, not in the public job feed. Add your work-email domain on Company Profile to change that."
           }
         />
       </div>

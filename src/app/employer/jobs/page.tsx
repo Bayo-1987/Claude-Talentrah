@@ -4,6 +4,7 @@ import { requireEmployer } from "@/lib/employer/membership";
 import { BorderedCard, EyebrowLabel, buttonClasses } from "@/components/ui";
 import { PostedJobRow, type PostedJob } from "@/components/employer/posted-job-row";
 import { EmployerJobShareInline } from "@/components/employer/job-share-button";
+import { PostSuccessBannerNote } from "@/components/employer/post-success-banner-note";
 import { getJobShareVisibility } from "@/lib/employer/job-visibility";
 import { evaluateDomainVerification, employerBannerMessage } from "@/lib/employer/verification";
 import { mintUnlistedLink } from "@/lib/employer/mint-unlisted-link";
@@ -202,25 +203,17 @@ export default async function JobsPostedPage({
             />
           </div>
           {/*
-            send-130: JobBannerUpload only exists on Edit (its own header
-            comment explains why — a banner is stored at
-            <organization_id>/<job_posting_id>, which doesn't exist until this
-            posting does), but nothing pointed there. This is the pointer, put
-            on the post-success card rather than the create form because this
-            is the moment the employer is actually engaged, right after
-            publishing — the same reasoning that already put the share link
-            here instead of on a dedicated confirmation screen.
+            send-132 put a pointer to Edit here, since a banner can't be
+            uploaded before this posting exists. send-134 goes further: an
+            employer can now pick and crop a banner on the create form itself
+            (new-job-banner-picker.tsx), staged client-side until a real jobId
+            exists. PostSuccessBannerNote is what actually uploads that staged
+            image now that one does, and falls back to the exact same pointer
+            text whenever there was nothing staged OR the deferred upload
+            failed — see its own header for why those two cases share one
+            outcome rather than getting a distinct error state.
           */}
-          <p className="mt-3 font-body text-[13px] text-ink-soft">
-            You can add a banner image on{" "}
-            <Link
-              href={`/employer/jobs/${postedJob.id}/edit`}
-              className="font-semibold text-rust underline underline-offset-2"
-            >
-              this job&apos;s edit page
-            </Link>
-            .
-          </p>
+          <PostSuccessBannerNote jobId={postedJob.id} userId={userId} />
         </BorderedCard>
       )}
 
