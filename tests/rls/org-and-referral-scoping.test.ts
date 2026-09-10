@@ -119,9 +119,17 @@ beforeAll(async () => {
    * with the product. Filtering on verified states what this fixture actually
    * needs instead of relying on what happens to be in the table.
    */
+  // `organizations!job_postings_organization_id_fkey!inner` hints WHICH
+  // relationship: 0128 added a second FK from job_postings to organizations
+  // (claimed_by_organization_id), so an unhinted embed is ambiguous to
+  // PostgREST — this must stay the poster's own org. Without this the
+  // query returns a real runtime error (not just a TS-level one, since
+  // nothing here ever reads `posting.organizations` in a way tsc would
+  // catch), which is exactly what broke this suite in CI on the branch that
+  // added the second FK — confirmed live, not assumed.
   const { data: posting, error: postErr } = await admin
     .from("job_postings")
-    .select("id, title, organization_id, organizations!inner(verified)")
+    .select("id, title, organization_id, organizations!job_postings_organization_id_fkey!inner(verified)")
     .eq("source_type", "internal")
     .eq("organizations.verified", true)
     .not("organization_id", "is", null)
