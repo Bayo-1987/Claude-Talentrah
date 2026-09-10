@@ -1,5 +1,16 @@
--- 0128 — Farah's proactive "exceptional match, even if you're not looking"
+-- 0131 — Farah's proactive "exceptional match, even if you're not looking"
 -- alert (send-138 — build-prompt §6.10's own worked example).
+--
+-- RENUMBERED FROM 0128. Written and applied to both Supabase projects under
+-- 0128 while three other branches were independently in flight on the same
+-- repo; by the time this PR was ready to merge, "Claim your listing" had
+-- already taken 0128 (and 0129) and merged first. The content below is
+-- exactly what ran — this is a filename change for the directory's own
+-- sequencing, not a second apply: the ledger entry these statements produced
+-- on both projects still reads `0128_proactive_match_alerts`, unchanged: an
+-- applied migration is history that does not get rewritten, the same
+-- precedent 0129 itself set one commit before this one. Nothing here needs
+-- re-running against either database.
 --
 -- ── WHY THIS IS A SEPARATE PREFERENCE, A SEPARATE FLAG, AND A NEW TABLE ────
 --
@@ -30,7 +41,7 @@
 --
 -- The same table's `max(sent_at)` for a user is also the rate-limit clock —
 -- one table answers both questions rather than a second one drifting from
--- it. It also doubles as the digest's own new exclusion set (0128 wires
+-- it. It also doubles as the digest's own new exclusion set (this migration wires
 -- digest/send.ts to skip a job already recorded here for that user): a job
 -- this alert already surfaced is not news to the digest either, the same
 -- reasoning the digest already applies to a saved/applied job.
@@ -52,7 +63,7 @@ alter table public.email_preferences
   add column proactive_match_alert boolean not null default true;
 
 comment on column public.email_preferences.proactive_match_alert is
-  'Whether THIS PERSON wants the rare "exceptional match, even if you are not looking" alert (send-138). Separate from job_match_digest on purpose — see 0128''s own header.';
+  'Whether THIS PERSON wants the rare "exceptional match, even if you are not looking" alert (send-138). Separate from job_match_digest on purpose — see this migration's own header.';
 
 insert into public.feature_flags (key, label, enabled) values
   ('proactive_match_alert', 'Proactive "exceptional match" alerts', false);
@@ -112,7 +123,7 @@ create table public.proactive_match_alerts (
 );
 
 comment on table public.proactive_match_alerts is
-  'One row per (user, job) this alert ever fired for — the INSERT succeeding is the send-once lock (0128''s own header), and max(sent_at) per user is the rate-limit clock. Service-role only, same reasoning as email_preferences'' token: nothing here is a value a client should read or write directly.';
+  'One row per (user, job) this alert ever fired for — the INSERT succeeding is the send-once lock (this migration's own header), and max(sent_at) per user is the rate-limit clock. Service-role only, same reasoning as email_preferences'' token: nothing here is a value a client should read or write directly.';
 
 alter table public.proactive_match_alerts enable row level security;
 -- No policies at all, deliberately — service_role only. Matches
