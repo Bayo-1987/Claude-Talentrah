@@ -1339,6 +1339,8 @@ export type Database = {
           admin_reviewed_at: string | null
           admin_reviewed_by: string | null
           banner_path: string | null
+          claimed_at: string | null
+          claimed_by_organization_id: string | null
           closed_at: string | null
           company_logo_url: string | null
           company_name: string
@@ -1379,6 +1381,8 @@ export type Database = {
           admin_reviewed_at?: string | null
           admin_reviewed_by?: string | null
           banner_path?: string | null
+          claimed_at?: string | null
+          claimed_by_organization_id?: string | null
           closed_at?: string | null
           company_logo_url?: string | null
           company_name: string
@@ -1421,6 +1425,8 @@ export type Database = {
           admin_reviewed_at?: string | null
           admin_reviewed_by?: string | null
           banner_path?: string | null
+          claimed_at?: string | null
+          claimed_by_organization_id?: string | null
           closed_at?: string | null
           company_logo_url?: string | null
           company_name?: string
@@ -1462,6 +1468,13 @@ export type Database = {
             columns: ["admin_reviewed_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_postings_claimed_by_organization_id_fkey"
+            columns: ["claimed_by_organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
           {
@@ -1635,6 +1648,7 @@ export type Database = {
           cac_confirmed_at: string | null
           cac_confirmed_by: string | null
           cac_number: string | null
+          claim_review_dismissed_at: string | null
           created_at: string
           created_by: string
           description: string | null
@@ -1652,6 +1666,7 @@ export type Database = {
           cac_confirmed_at?: string | null
           cac_confirmed_by?: string | null
           cac_number?: string | null
+          claim_review_dismissed_at?: string | null
           created_at?: string
           created_by: string
           description?: string | null
@@ -1669,6 +1684,7 @@ export type Database = {
           cac_confirmed_at?: string | null
           cac_confirmed_by?: string | null
           cac_number?: string | null
+          claim_review_dismissed_at?: string | null
           created_at?: string
           created_by?: string
           description?: string | null
@@ -2545,6 +2561,20 @@ export type Database = {
           reason: string
         }[]
       }
+      claim_external_job_posting: {
+        Args: {
+          p_description: string
+          p_external_job_posting_id: string
+          p_location: string
+          p_organization_id: string
+          p_title: string
+        }
+        Returns: {
+          job_posting_id: string
+          ok: boolean
+          reason: string
+        }[]
+      }
       consume_anonymous_rate_limit: {
         Args: {
           p_bucket: string
@@ -2660,12 +2690,27 @@ export type Database = {
         Returns: boolean
       }
       is_valid_referral_code: { Args: { p_code: string }; Returns: boolean }
+      job_posting_claim_candidates: {
+        Args: { p_organization_id: string }
+        Returns: {
+          company_name: string
+          confidence: string
+          external_source: string
+          external_url: string
+          id: string
+          location: string
+          posted_at: string
+          title: string
+        }[]
+      }
+      job_posting_external_host: { Args: { p_url: string }; Returns: string }
       list_applied_migrations: {
         Args: never
         Returns: {
           name: string
         }[]
       }
+      normalize_company_name: { Args: { p_name: string }; Returns: string }
       normalize_email_for_self_referral: {
         Args: { p_email: string }
         Returns: string

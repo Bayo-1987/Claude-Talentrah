@@ -10,7 +10,7 @@ import type { MatchExplanation } from "./score";
 // See skill-facet.ts's identical alias for why this is Omit, not the full row.
 // closed_at (0102) omitted too — the feed query these callers all consume
 // filters to status = 'open' and never selects it.
-type JobPosting = Omit<Tables<"job_postings">, "description_preview" | "search_vector" | "closed_at" | "unlisted_at" | "banner_path" | "admin_review_decision" | "admin_review_note" | "admin_review_requested_at" | "admin_reviewed_at" | "admin_reviewed_by">;
+type JobPosting = Omit<Tables<"job_postings">, "description_preview" | "search_vector" | "closed_at" | "unlisted_at" | "banner_path" | "admin_review_decision" | "admin_review_note" | "admin_review_requested_at" | "admin_reviewed_at" | "admin_reviewed_by" | "claimed_by_organization_id" | "claimed_at">;
 
 export interface ScoredJob {
   job: JobPosting;
