@@ -52,4 +52,14 @@ export interface LLMProvider {
    * path per provider — this is not a second client.
    */
   generateWithUsage(options: LLMGenerateOptions): Promise<LLMResult>;
+  /**
+   * Same request as generateText, yielding incremental text chunks as the
+   * provider produces them instead of waiting for the full reply. Only
+   * meaningful for free-text calls (Farah chat) — a `jsonSchema` response
+   * can't be safely parsed or displayed a chunk at a time, so no caller
+   * streams one today. Usage metadata isn't collected here: the providers'
+   * streaming APIs report it on the final chunk, not incrementally, and no
+   * caller has needed it yet — add it if one does.
+   */
+  generateTextStream(options: LLMGenerateOptions): AsyncGenerator<string>;
 }

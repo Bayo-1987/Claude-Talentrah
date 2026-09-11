@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Button, EyebrowLabel, BorderedCard } from "@/components/ui";
 import { ResumeDocument } from "@/components/resume-builder/resume-document";
@@ -19,6 +19,37 @@ type ApiResult = {
   /** Ranked by the M1 matcher, server-side. Usually empty — see below. */
   courseRecommendations?: RankedRecommendation[];
 };
+
+/**
+ * send-latency-1 — a specific, step-based loading state in place of the bare
+ * "Farah is working on it…" this replaced. This one LLM call (JD parse, gap
+ * analysis, and the tailored rewrite together) returns a single JSON object,
+ * so it can't stream token-by-token the way Farah's free-text chat now does
+ * (chat/route.ts) — a partial JSON document isn't safely parseable or
+ * displayable mid-stream. Splitting this into a separate streamed narration
+ * call plus the real structured extraction was the other option on the
+ * table; decided against it FOR NOW because it's a second LLM call on the
+ * product's core loop (real added cost per §6.9, and a worse worst case if
+ * the narration call itself is slow), for a UX gain this sequence already
+ * gets most of the way to. Revisit if real usage shows this run's actual
+ * latency (not the narration idea) is still the bigger problem.
+ *
+ * Advances forward on a timer while the call is in flight — NOT tied to any
+ * real signal from the server, since a single opaque call has no
+ * sub-progress to report. Stops at the last step rather than looping, so a
+ * genuinely slow run never looks like it silently restarted. Deliberately no
+ * time estimate on any line — CLAUDE.md's own content rule against
+ * unmeasured specific promises ("in 10 seconds") applies exactly as much
+ * here as to a piece of AI-generated copy.
+ */
+const TAILORING_STEPS = [
+  "Reading your resume…",
+  "Comparing it to the job description…",
+  "Checking for matched and missing skills…",
+  "Drafting your tailored resume…",
+] as const;
+
+const TAILORING_STEP_INTERVAL_MS = 2200;
 
 /** One line describing where a proposed addition would land, for the review list. */
 function additionTarget(addition: ProposedAddition, tailoredResume: StructuredResume): string {
@@ -48,6 +79,15 @@ export function TailorForm({
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<ApiResult | null>(null);
+  const [stepIndex, setStepIndex] = useState(0);
+
+  useEffect(() => {
+    if (status !== "loading") return;
+    const id = setInterval(() => {
+      setStepIndex((i) => Math.min(i + 1, TAILORING_STEPS.length - 1));
+    }, TAILORING_STEP_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, [status]);
 
   // Review-flow state — see src/lib/tailoring/grounding.ts for why this
   // exists at all. Nothing in `proposedAdditions` reaches the saved resume
@@ -69,6 +109,7 @@ export function TailorForm({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setStatus("loading");
+    setStepIndex(0);
     setError(null);
 
     try {
@@ -413,8 +454,13 @@ export function TailorForm({
       </label>
       {error && <p className="text-[13.5px] text-rust">{error}</p>}
       <Button type="submit" disabled={status === "loading"} className="self-start">
-        {status === "loading" ? "Farah is working on it…" : "Tailor my resume"}
+        {status === "loading" ? "Working…" : "Tailor my resume"}
       </Button>
+      {status === "loading" && (
+        <p role="status" aria-live="polite" className="font-display text-[13px] italic text-ink-soft">
+          {TAILORING_STEPS[stepIndex]}
+        </p>
+      )}
     </form>
   );
 }

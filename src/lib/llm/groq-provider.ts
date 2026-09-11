@@ -128,4 +128,68 @@ export class GroqProvider implements LLMProvider {
       );
     }
   }
+
+  /**
+   * Same request shape as generateWithUsage, with `stream: true` on the
+   * OpenAI-compatible completion call. Each chunk's `delta.content` is the
+   * incremental text (never the accumulated reply) — the standard OpenAI
+   * streaming shape, and reasoning tokens (gpt-oss-120b's own "thinking",
+   * see REASONING_EFFORT above) live on a separate `delta.reasoning` field
+   * this never reads, matching generateWithUsage's non-streaming read of
+   * only `message.content`. Worth calling out: production runs
+   * LLM_PROVIDER=groq (CLAUDE.md), so THIS implementation — not Gemini's —
+   * is what actually streams Farah's replies today.
+   */
+  async *generateTextStream({
+    systemPrompt,
+    turns,
+    maxOutputTokens,
+    jsonSchema,
+  }: LLMGenerateOptions): AsyncGenerator<string> {
+    const client = getGroqClient();
+
+    const systemContent = jsonSchema
+      ? [
+          systemPrompt,
+          `Respond with ONLY a single JSON object matching this JSON Schema — no markdown fences, no commentary before or after:\n${JSON.stringify(jsonSchema)}`,
+        ]
+          .filter(Boolean)
+          .join("\n\n")
+      : systemPrompt;
+
+    const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
+      ...(systemContent ? [{ role: "system" as const, content: systemContent }] : []),
+      ...turns.map((t) => ({ role: t.role, content: t.content })),
+    ];
+
+    try {
+      const stream = await client.chat.completions.create({
+        model: GROQ_MODEL,
+        messages,
+        max_tokens: maxOutputTokens,
+        reasoning_effort: REASONING_EFFORT,
+        stream: true,
+        ...(jsonSchema ? { response_format: { type: "json_object" as const } } : {}),
+      });
+
+      for await (const chunk of stream) {
+        const delta = chunk.choices[0]?.delta?.content;
+        if (delta) yield delta;
+      }
+    } catch (err) {
+      if (err instanceof APIError) {
+        if (err.status === 429) {
+          throw new LLMProviderError("groq", "rate_limit", err.message);
+        }
+        if (err.status === 401 || err.status === 403) {
+          throw new LLMProviderError("groq", "auth", err.message);
+        }
+      }
+      throw new LLMProviderError(
+        "groq",
+        "unknown",
+        err instanceof Error ? err.message : String(err),
+      );
+    }
+  }
 }

@@ -19,7 +19,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const getUser = vi.fn();
 const checkFarahChatAllowance = vi.fn();
 const commitFarahChatAllowance = vi.fn();
-const askFarahChat = vi.fn();
+const askFarahChatStream = vi.fn();
 const logFarahSessionMessage = vi.fn();
 
 /**
@@ -65,7 +65,7 @@ function fakeSupabase() {
 }
 
 vi.mock("@/lib/supabase/server", () => ({ createClient: async () => fakeSupabase() }));
-vi.mock("@/lib/farah/client", () => ({ askFarahChat }));
+vi.mock("@/lib/farah/client", () => ({ askFarahChatStream }));
 vi.mock("@/lib/farah/session-events", () => ({ logFarahSessionMessage }));
 vi.mock("@/lib/farah/chat-gate", () => ({
   checkFarahChatAllowance,
@@ -83,6 +83,21 @@ function makeRequest(body: Record<string, unknown>): Request {
   });
 }
 
+/**
+ * The route now streams (send-latency-1): POST() returns as soon as the
+ * Response wrapping the ReadableStream is constructed, NOT once the stream's
+ * internal work (the LLM call, commitFarahChatAllowance, the message
+ * inserts) has finished — that work continues in the stream's own `start()`
+ * callback, independent of when the caller received the Response object.
+ * Draining the body (reading it to completion, same as a real client would
+ * once it sees the stream close) is what actually waits for that work, so
+ * every assertion on a mock the stream's internals call has to happen AFTER
+ * this, not right after `await POST(...)`.
+ */
+async function drain(res: Response): Promise<string> {
+  return res.text();
+}
+
 const ALLOWANCE = {
   isFreeAllowance: true,
   isPassCovered: false,
@@ -95,7 +110,9 @@ beforeEach(() => {
   getUser.mockReset().mockResolvedValue({ data: { user: { id: "route-test-user" } } });
   checkFarahChatAllowance.mockReset().mockResolvedValue(ALLOWANCE);
   commitFarahChatAllowance.mockReset().mockResolvedValue(undefined);
-  askFarahChat.mockReset().mockResolvedValue("A grounded reply.");
+  askFarahChatStream.mockReset().mockImplementation(async function* () {
+    yield "A grounded reply.";
+  });
   logFarahSessionMessage.mockReset().mockResolvedValue(undefined);
   jobRow = { title: "Senior Backend Engineer", company_name: "Flutterwave" };
   scoreRow = { explanation: { matchedSkills: ["sql"], missingSkills: ["dbt"], seniorityAlignment: "match" } };
@@ -103,7 +120,7 @@ beforeEach(() => {
 
 describe("job_fit shares the exact same gate call as every other entry point", () => {
   it("SABOTAGE-PROOF TARGET: checkFarahChatAllowance/commitFarahChatAllowance are called with ONLY the user id, jobId or not", async () => {
-    await POST(makeRequest({ message: "Help me prep for an interview.", quickAction: "interview-prep" }));
+    await drain(await POST(makeRequest({ message: "Help me prep for an interview.", quickAction: "interview-prep" })));
     expect(checkFarahChatAllowance).toHaveBeenCalledTimes(1);
     expect(checkFarahChatAllowance).toHaveBeenCalledWith("route-test-user");
     expect(commitFarahChatAllowance).toHaveBeenCalledTimes(1);
@@ -112,8 +129,8 @@ describe("job_fit shares the exact same gate call as every other entry point", (
     checkFarahChatAllowance.mockClear();
     commitFarahChatAllowance.mockClear();
 
-    await POST(
-      makeRequest({ message: "Why is this a good fit for me?", quickAction: "job_fit", jobId: "job-1" }),
+    await drain(
+      await POST(makeRequest({ message: "Why is this a good fit for me?", quickAction: "job_fit", jobId: "job-1" })),
     );
     // Same function, same single argument, same shape of second argument —
     // nothing about jobId's presence reaches either call. If a future
@@ -126,8 +143,10 @@ describe("job_fit shares the exact same gate call as every other entry point", (
   });
 
   it("grounds the reply with job context when jobId + a real match score are present", async () => {
-    await POST(makeRequest({ message: "Why is this a good fit for me?", quickAction: "job_fit", jobId: "job-1" }));
-    const [, extraContext] = askFarahChat.mock.calls[0] as [unknown, string | undefined];
+    await drain(
+      await POST(makeRequest({ message: "Why is this a good fit for me?", quickAction: "job_fit", jobId: "job-1" })),
+    );
+    const [, extraContext] = askFarahChatStream.mock.calls[0] as [unknown, string | undefined];
     expect(extraContext).toContain("Senior Backend Engineer at Flutterwave");
   });
 
@@ -138,13 +157,19 @@ describe("job_fit shares the exact same gate call as every other entry point", (
       makeRequest({ message: "Why is this a good fit for me?", quickAction: "job_fit", jobId: "missing-job" }),
     );
     expect(res.status).toBe(200);
-    const [, extraContext] = askFarahChat.mock.calls[0] as [unknown, string | undefined];
+    const body = await drain(res);
+    // Streaming means a 200 status no longer implies success on its own
+    // (an in-stream failure also returns 200 — see chat/route.ts's own
+    // comment on why headers can't change once streaming starts), so this
+    // also checks the body never carries an in-stream "error" event.
+    expect(body).not.toContain('"type":"error"');
+    const [, extraContext] = askFarahChatStream.mock.calls[0] as [unknown, string | undefined];
     expect(extraContext).toBeUndefined();
   });
 
   it("free-text chat (no jobId at all) is unaffected — extraContext is undefined, not an empty job block", async () => {
-    await POST(makeRequest({ message: "How's the weather today?" }));
-    const [, extraContext] = askFarahChat.mock.calls[0] as [unknown, string | undefined];
+    await drain(await POST(makeRequest({ message: "How's the weather today?" })));
+    const [, extraContext] = askFarahChatStream.mock.calls[0] as [unknown, string | undefined];
     expect(extraContext).toBeUndefined();
   });
 });

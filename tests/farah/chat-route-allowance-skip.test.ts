@@ -24,8 +24,10 @@ import { afterAll, beforeAll, expect, it, vi } from "vitest";
 import { createTestUser, deleteTestUsers, admin } from "../support/auth";
 import { LLMProviderError } from "@/lib/llm";
 
-const askFarahChat = vi.fn();
-vi.mock("@/lib/farah/client", () => ({ askFarahChat: (...args: unknown[]) => askFarahChat(...args) }));
+const askFarahChatStream = vi.fn();
+vi.mock("@/lib/farah/client", () => ({
+  askFarahChatStream: (...args: unknown[]) => askFarahChatStream(...args),
+}));
 
 /** A chain stub covering exactly the methods route.ts calls before the LLM call — count-style (recentCount), array-style (history), and maybeSingle-style (base resume) all read from the same merged shape. */
 function chain(result: Record<string, unknown>) {
@@ -64,10 +66,14 @@ vi.mock("@/lib/supabase/server", () => ({
   }),
 }));
 
-it("a rate-limited LLM call returns 502 and never commits the free-message allowance", async () => {
-  askFarahChat.mockRejectedValueOnce(
-    new LLMProviderError("groq", "rate_limit", "Please try again in 12m45.504s."),
-  );
+it("a rate-limited LLM call streams an in-body error and never commits the free-message allowance", async () => {
+  // Throws on the FIRST pull, before yielding anything — the shape a real
+  // rate-limit failure takes when it happens before the primary provider
+  // (or its failover — see generateChatStreamWithFailover's own comment)
+  // ever produces a token.
+  askFarahChatStream.mockImplementationOnce(async function* () {
+    throw new LLMProviderError("groq", "rate_limit", "Please try again in 12m45.504s.");
+  });
 
   const { farahChatFreeMessagesRemaining, FARAH_CHAT_FREE_ALLOWANCE } = await import("@/lib/farah/chat-gate");
   const before = await farahChatFreeMessagesRemaining(userId);
@@ -81,11 +87,26 @@ it("a rate-limited LLM call returns 502 and never commits the free-message allow
     }),
   );
 
-  expect(response.status).toBe(502);
-  const body = await response.json();
+  // Streaming means the route can no longer return 502 for an error that
+  // surfaces after the response has started — the status is always 200 once
+  // streaming begins, and failure is now an in-body "error" event instead
+  // (see chat/route.ts's own comment on why headers can't change mid-stream).
+  expect(response.status).toBe(200);
+  // .text() drains the stream to completion, which is what actually waits
+  // for the route's internal work (here: NOT calling commitFarahChatAllowance)
+  // to finish — awaiting POST() alone only waits for the Response object to
+  // be constructed, not for the stream's own async start() callback to run.
+  const body = await response.text();
+  const events = body
+    .trim()
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => JSON.parse(line));
+  const errorEvent = events.find((e) => e.type === "error");
   // send-111's rate-limit-aware copy specifically, not the generic fallback —
   // proves #320's message-shaping and #319's gate are both live on this path.
-  expect(body.error).toBe("Farah's hit her limit for right now — try again in about 13 minutes.");
+  expect(errorEvent?.message).toBe("Farah's hit her limit for right now — try again in about 13 minutes.");
+  expect(events.find((e) => e.type === "done")).toBeUndefined();
 
   // THE ASSERTION THIS TEST EXISTS FOR: the failed call must not have
   // touched the allowance. If commitFarahChatAllowance had run anyway, this

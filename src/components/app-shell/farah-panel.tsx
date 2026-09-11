@@ -5,6 +5,7 @@ import Link from "next/link";
 import { EyebrowLabel, FarahMark } from "@/components/ui";
 import { FARAH_QUICK_ACTIONS } from "@/lib/farah/quick-actions";
 import { renderFarahMarkdown } from "@/lib/farah/render-markdown";
+import { readFarahChatStream } from "@/lib/farah/read-chat-stream";
 import {
   JOB_SEED_CHAT_STARTERS,
   coverLetterHref,
@@ -62,6 +63,14 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
   const [messages, setMessages] = useState<FarahMessage[]>(initialMessages ?? []);
   const [input, setInput] = useState("");
   const [pending, setPending] = useState(false);
+  /**
+   * True from the moment a request is sent until the first streamed chunk
+   * of Farah's reply arrives (or the call fails before ever streaming one).
+   * Distinct from `pending`, which spans the whole request: "Farah is
+   * thinking…" below should disappear the instant real text starts
+   * appearing, not stay up next to a reply that's already rendering.
+   */
+  const [awaitingFirstToken, setAwaitingFirstToken] = useState(false);
   const [error, setError] = useState<string | null>(null);
   /*
    * send-100 — set by a job card's "Ask Farah" button (job-seed.ts), read
@@ -180,13 +189,14 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
   useEffect(() => {
     const el = scrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [messages, pending]);
+  }, [messages, pending, awaitingFirstToken]);
 
   async function send(text: string, quickAction?: string, jobId?: string) {
     const trimmed = text.trim();
     if (!trimmed || pending) return;
     setError(null);
     setPending(true);
+    setAwaitingFirstToken(true);
     setInput("");
 
     const optimisticId = `optimistic-${localIdCounter.current++}`;
@@ -195,37 +205,57 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
       { id: optimisticId, role: "user", content: trimmed, created_at: new Date().toISOString() },
     ]);
 
+    // Placeholder id for the streaming reply, swapped for the real
+    // database id once the "done" event arrives (or kept as-is if
+    // persistence failed — see chat/route.ts's own comment on that case).
+    const streamId = `stream-${localIdCounter.current++}`;
+
     try {
       const res = await fetch("/api/farah/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: trimmed, quickAction, sessionId: sessionId(), jobId }),
       });
-      const data = await res.json();
 
       if (!res.ok) {
+        const data = await res.json().catch(() => ({}) as { error?: string });
         setError(data.error ?? "Something went wrong — try again.");
         setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
         return;
       }
 
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: data.id ?? `local-${localIdCounter.current++}`,
-          role: "farah",
-          content: data.reply,
-          created_at: data.createdAt,
-        },
-      ]);
-      if (typeof data.freeMessagesRemaining === "number" || data.freeMessagesRemaining === null) {
-        setFreeRemaining(data.freeMessagesRemaining);
+      for await (const event of readFarahChatStream(res)) {
+        if (event.type === "delta") {
+          setAwaitingFirstToken(false);
+          // Upsert rather than an "already started?" flag: whether the
+          // streaming message exists yet is read from `prev` itself, not
+          // from a variable this closure would otherwise need to mutate.
+          setMessages((prev) =>
+            prev.some((m) => m.id === streamId)
+              ? prev.map((m) => (m.id === streamId ? { ...m, content: event.fullText } : m))
+              : [...prev, { id: streamId, role: "farah", content: event.fullText, created_at: new Date().toISOString() }],
+          );
+        } else if (event.type === "error") {
+          setError(event.message ?? "Something went wrong — try again.");
+          setMessages((prev) => prev.filter((m) => m.id !== optimisticId && m.id !== streamId));
+          return;
+        } else if (event.type === "done") {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === streamId ? { ...m, id: event.id ?? streamId, created_at: event.createdAt ?? m.created_at } : m,
+            ),
+          );
+          if (typeof event.freeMessagesRemaining === "number" || event.freeMessagesRemaining === null) {
+            setFreeRemaining(event.freeMessagesRemaining ?? null);
+          }
+        }
       }
     } catch {
       setError("Couldn't reach Farah — check your connection and try again.");
-      setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
+      setMessages((prev) => prev.filter((m) => m.id !== optimisticId && m.id !== streamId));
     } finally {
       setPending(false);
+      setAwaitingFirstToken(false);
     }
   }
 
@@ -420,7 +450,7 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
             ),
           )
         )}
-        {pending && <p className="font-display text-[13px] italic text-ink-soft">Farah is thinking…</p>}
+        {awaitingFirstToken && <p className="font-display text-[13px] italic text-ink-soft">Farah is thinking…</p>}
       </div>
 
       {error && (
