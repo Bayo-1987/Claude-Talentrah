@@ -3013,6 +3013,7 @@ export type Database = {
           payment_transaction_id: string | null
           pending_renewal_reference: string | null
           renewal_attempt_count: number
+          renewal_claimed_at: string | null
           renewal_reminder_sent_at: string | null
           started_at: string
           status: string
@@ -3034,6 +3035,7 @@ export type Database = {
           payment_transaction_id?: string | null
           pending_renewal_reference?: string | null
           renewal_attempt_count?: number
+          renewal_claimed_at?: string | null
           renewal_reminder_sent_at?: string | null
           started_at?: string
           status?: string
@@ -3055,6 +3057,7 @@ export type Database = {
           payment_transaction_id?: string | null
           pending_renewal_reference?: string | null
           renewal_attempt_count?: number
+          renewal_claimed_at?: string | null
           renewal_reminder_sent_at?: string | null
           started_at?: string
           status?: string
