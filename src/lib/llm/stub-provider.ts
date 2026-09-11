@@ -42,6 +42,16 @@ export class StubProvider implements LLMProvider {
       usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0, reasoningTokens: null },
     };
   }
+
+  /**
+   * A single chunk carrying the whole reply — real incremental chunking
+   * isn't the thing e2e is testing, and the golden-path run just needs the
+   * streaming code path exercised end-to-end without depending on network
+   * timing.
+   */
+  async *generateTextStream(options: LLMGenerateOptions): AsyncGenerator<string> {
+    yield (await this.generateWithUsage(options)).text;
+  }
 }
 
 interface JsonSchema {

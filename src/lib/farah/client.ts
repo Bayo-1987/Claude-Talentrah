@@ -1,5 +1,5 @@
 import "server-only";
-import { generateWithFailover } from "@/lib/llm";
+import { generateWithFailover, generateChatStreamWithFailover } from "@/lib/llm";
 import { FARAH_SYSTEM_PROMPT } from "./system-prompt";
 import { CHAT_MAX_OUTPUT_TOKENS } from "./token-budget";
 
@@ -39,6 +39,28 @@ export async function askFarahChat(
   const system = extraContext ? `${FARAH_SYSTEM_PROMPT}\n\n${extraContext}` : FARAH_SYSTEM_PROMPT;
   return generateWithFailover((provider) =>
     provider.generateText({
+      systemPrompt: system,
+      turns,
+      maxOutputTokens: maxTokens,
+    }),
+  );
+}
+
+/**
+ * Streaming counterpart to askFarahChat, for the docked panel's free-text
+ * replies (chat/route.ts) — same system prompt/turns/token-budget
+ * construction, yielding incremental text instead of waiting for the full
+ * reply. See generateChatStreamWithFailover's own comment for the failover
+ * boundary this inherits.
+ */
+export async function* askFarahChatStream(
+  turns: FarahChatTurn[],
+  extraContext?: string,
+  maxTokens = CHAT_MAX_OUTPUT_TOKENS,
+): AsyncGenerator<string> {
+  const system = extraContext ? `${FARAH_SYSTEM_PROMPT}\n\n${extraContext}` : FARAH_SYSTEM_PROMPT;
+  yield* generateChatStreamWithFailover((provider) =>
+    provider.generateTextStream({
       systemPrompt: system,
       turns,
       maxOutputTokens: maxTokens,

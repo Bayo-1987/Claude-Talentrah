@@ -81,3 +81,55 @@ export async function generateWithFailover(
     return result;
   }
 }
+
+/**
+ * Streaming counterpart to generateWithFailover, for Farah's free-text chat
+ * (askFarahChat) — the one caller where streaming is safe to display (see
+ * LLMProvider.generateTextStream's own comment on why JSON-schema calls
+ * don't get this).
+ *
+ * Failover ONLY switches providers if the primary is rate-limited before it
+ * has yielded a single chunk. Once real text has reached the caller (and,
+ * downstream, the client's response stream), there's no way to "restart"
+ * with a different provider without either duplicating what was already
+ * shown or discarding it — neither is better than just ending the reply
+ * where it is. So a rate-limit that surfaces mid-stream is not retried; it
+ * propagates like any other error, same as it always could before streaming
+ * existed. This mirrors generateWithFailover's own one-retry, no-loop shape,
+ * just gated on "before or after the first token" instead of "before or
+ * after the call returns."
+ */
+export async function* generateChatStreamWithFailover(
+  call: (provider: LLMProvider) => AsyncGenerator<string>,
+): AsyncGenerator<string> {
+  const primary = getLLMProvider();
+  let generator = call(primary);
+  let yieldedAny = false;
+  let usedFallback = false;
+
+  while (true) {
+    let step;
+    try {
+      step = await generator.next();
+    } catch (err) {
+      if (
+        !yieldedAny &&
+        !usedFallback &&
+        err instanceof LLMProviderError &&
+        err.kind === "rate_limit"
+      ) {
+        const fallback = getFailoverProvider();
+        if (fallback) {
+          console.warn(`[llm] ${primary.name} rate-limited — retrying stream via ${fallback.name}`);
+          usedFallback = true;
+          generator = call(fallback);
+          continue;
+        }
+      }
+      throw err;
+    }
+    if (step.done) return;
+    yieldedAny = true;
+    yield step.value;
+  }
+}

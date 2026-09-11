@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { askFarahChat, type FarahChatTurn } from "@/lib/farah/client";
+import { askFarahChatStream, type FarahChatTurn } from "@/lib/farah/client";
 import { logFarahSessionMessage, type FarahEntryPoint } from "@/lib/farah/session-events";
 import { LLMProviderError } from "@/lib/llm";
 import { GENERIC_FARAH_UNAVAILABLE_MESSAGE, farahRateLimitMessage } from "@/lib/farah/rate-limit-message";
@@ -203,60 +203,115 @@ export async function POST(request: Request) {
     { role: "user", content: message },
   ];
 
-  let reply: string;
-  try {
-    reply = await askFarahChat(turns, extraContext);
-  } catch (err) {
-    // Never surface the raw provider error to the client — a provider
-    // SDK's error .message can embed the full JSON response body (internal
-    // request details, account-billing detail, etc.), which is both leaky
-    // and useless to a user. Log server-side for debugging (LLMProviderError
-    // — src/lib/llm/errors.ts — carries which provider and what kind of
-    // failure), return a clean, Farah-voiced message instead.
-    console.error("Farah chat: LLM call failed", err);
-    // send-111: a rate-limit error carries Groq's own real wait time — use
-    // it instead of the generic message. Any other LLMProviderError kind
-    // (or a non-LLM error) keeps the generic copy unchanged.
-    const message =
-      err instanceof LLMProviderError && err.kind === "rate_limit"
-        ? farahRateLimitMessage(err.message)
-        : GENERIC_FARAH_UNAVAILABLE_MESSAGE;
-    return NextResponse.json({ error: message }, { status: 502 });
-  }
+  /*
+   * Streamed from here on (send-latency-1): everything above can still
+   * fail with a plain JSON error response (bad input, rate-limited on
+   * message count, entitlement gate) because none of it has committed to a
+   * response body yet. Once we're actually calling the LLM, Farah's
+   * free-text chat is the one call site in this codebase where streaming is
+   * safe to show — see LLMProvider.generateTextStream's own comment on why
+   * the JSON-schema calls (tailoring, gap analysis) don't get this. NDJSON
+   * framing (one `{...}\n` object per line) rather than real SSE: the
+   * client already needs to parse each event's payload, and NDJSON needs no
+   * `data: `/blank-line framing to get that for free — it's simpler to
+   * produce and to consume for a same-origin fetch stream with no third
+   * party (a browser's native EventSource) that would need it.
+   *
+   * The allowance is committed, and both messages are persisted, only AFTER
+   * the full reply has been collected — same rule as before streaming
+   * existed (checkFarahChatAllowance's own header), extended the obvious
+   * way: a reply that errors out PARTWAY through streaming is still a
+   * failed call. The user already saw the partial text (that's inherent to
+   * streaming — there's no way to un-send bytes already on the wire), but
+   * it is deliberately not charged for and not saved, the same as any other
+   * failed attempt.
+   */
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      function send(event: Record<string, unknown>) {
+        controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
+      }
 
-  // Only now — after the LLM call actually succeeded — commit the free
-  // allowance/Pass use or the credit spend. See checkFarahChatAllowance's
-  // own header for why this can't happen any earlier.
-  await commitFarahChatAllowance(user.id, allowance);
+      let fullText = "";
+      try {
+        for await (const chunk of askFarahChatStream(turns, extraContext)) {
+          fullText += chunk;
+          send({ type: "delta", text: chunk });
+        }
+      } catch (err) {
+        // Never surface the raw provider error to the client — a provider
+        // SDK's error .message can embed the full JSON response body
+        // (internal request details, account-billing detail, etc.), which
+        // is both leaky and useless to a user. Log server-side for
+        // debugging (LLMProviderError — src/lib/llm/errors.ts — carries
+        // which provider and what kind of failure), send a clean,
+        // Farah-voiced message instead.
+        console.error("Farah chat: LLM call failed", err);
+        // send-111: a rate-limit error carries Groq's own real wait time —
+        // use it instead of the generic message. Any other LLMProviderError
+        // kind (or a non-LLM error) keeps the generic copy unchanged.
+        const errorMessage =
+          err instanceof LLMProviderError && err.kind === "rate_limit"
+            ? farahRateLimitMessage(err.message)
+            : GENERIC_FARAH_UNAVAILABLE_MESSAGE;
+        send({ type: "error", message: errorMessage });
+        controller.close();
+        return;
+      }
 
-  // Two independent writes (different rows, neither reads the other) — run
-  // together rather than one after the other.
-  const [{ error: insertUserError }, { data: farahRow, error: insertFarahError }] = await Promise.all([
-    supabase.from("farah_messages").insert({ user_id: user.id, role: "user", content: message, context }),
-    supabase
-      .from("farah_messages")
-      .insert({ user_id: user.id, role: "farah", content: reply, context })
-      .select("id, created_at")
-      .single(),
-  ]);
+      if (!fullText) {
+        // A provider that streams zero chunks and never throws — treated
+        // the same as the pre-streaming "empty response" case each
+        // provider's own generateWithUsage already guards against, just
+        // reached a different way here.
+        send({ type: "error", message: GENERIC_FARAH_UNAVAILABLE_MESSAGE });
+        controller.close();
+        return;
+      }
 
-  if (insertUserError || insertFarahError || !farahRow) {
-    // The reply already happened and cost real money — surface it to the
-    // user even if persistence failed, rather than losing the answer.
-    return NextResponse.json({
-      reply,
-      id: null,
-      createdAt: new Date().toISOString(),
-      persisted: false,
-      freeMessagesRemaining: allowance.freeMessagesRemaining,
-    });
-  }
+      // Only now — after the LLM call actually succeeded in full — commit
+      // the free allowance/Pass use or the credit spend. See
+      // checkFarahChatAllowance's own header for why this can't happen any
+      // earlier.
+      await commitFarahChatAllowance(user.id, allowance);
 
-  return NextResponse.json({
-    reply,
-    id: farahRow.id,
-    createdAt: farahRow.created_at,
-    persisted: true,
-    freeMessagesRemaining: allowance.freeMessagesRemaining,
+      // Two independent writes (different rows, neither reads the other) —
+      // run together rather than one after the other.
+      const [{ error: insertUserError }, { data: farahRow, error: insertFarahError }] = await Promise.all([
+        supabase.from("farah_messages").insert({ user_id: user.id, role: "user", content: message, context }),
+        supabase
+          .from("farah_messages")
+          .insert({ user_id: user.id, role: "farah", content: fullText, context })
+          .select("id, created_at")
+          .single(),
+      ]);
+
+      if (insertUserError || insertFarahError || !farahRow) {
+        // The reply already happened and cost real money — the client
+        // already has the full text from the delta events either way; this
+        // just tells it persistence failed, rather than losing the answer.
+        send({
+          type: "done",
+          id: null,
+          createdAt: new Date().toISOString(),
+          persisted: false,
+          freeMessagesRemaining: allowance.freeMessagesRemaining,
+        });
+      } else {
+        send({
+          type: "done",
+          id: farahRow.id,
+          createdAt: farahRow.created_at,
+          persisted: true,
+          freeMessagesRemaining: allowance.freeMessagesRemaining,
+        });
+      }
+      controller.close();
+    },
+  });
+
+  return new Response(stream, {
+    headers: { "Content-Type": "application/x-ndjson; charset=utf-8", "Cache-Control": "no-cache" },
   });
 }

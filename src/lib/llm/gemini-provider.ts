@@ -108,4 +108,58 @@ export class GeminiProvider implements LLMProvider {
       );
     }
   }
+
+  /**
+   * generateContentStream's chunks carry each chunk's OWN incremental text
+   * in `.text` (the same convenience getter `generateContent` exposes on
+   * its single response) — concatenating every yielded chunk reconstructs
+   * the full reply, the standard shape for every Gemini streaming example.
+   * Same error mapping as generateWithUsage: a rate-limit/auth failure can
+   * surface either from starting the stream or partway through iterating
+   * it, and both are inside this one try block.
+   */
+  async *generateTextStream({
+    systemPrompt,
+    turns,
+    maxOutputTokens,
+    jsonSchema,
+  }: LLMGenerateOptions): AsyncGenerator<string> {
+    const client = getGeminiClient();
+
+    try {
+      const stream = await client.models.generateContentStream({
+        model: GEMINI_MODEL,
+        contents: turns.map((t) => ({
+          role: t.role === "assistant" ? "model" : "user",
+          parts: [{ text: t.content }],
+        })),
+        config: {
+          ...(systemPrompt ? { systemInstruction: systemPrompt } : {}),
+          maxOutputTokens,
+          thinkingConfig: THINKING_CONFIG,
+          ...(jsonSchema
+            ? { responseMimeType: "application/json", responseSchema: jsonSchema }
+            : {}),
+        },
+      });
+
+      for await (const chunk of stream) {
+        if (chunk.text) yield chunk.text;
+      }
+    } catch (err) {
+      if (err instanceof ApiError) {
+        if (err.status === 429) {
+          throw new LLMProviderError("gemini", "rate_limit", err.message);
+        }
+        if (err.status === 401 || err.status === 403) {
+          throw new LLMProviderError("gemini", "auth", err.message);
+        }
+      }
+      throw new LLMProviderError(
+        "gemini",
+        "unknown",
+        err instanceof Error ? err.message : String(err),
+      );
+    }
+  }
 }

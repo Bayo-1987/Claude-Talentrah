@@ -104,7 +104,7 @@ export async function farahChatFreeMessagesRemaining(
 }
 
 /**
- * Read-only affordability check — call BEFORE askFarahChat. Does not
+ * Read-only affordability check — call BEFORE askFarahChat/askFarahChatStream. Does not
  * mutate anything; pair with commitFarahChatAllowance after the LLM call
  * actually succeeds.
  */
