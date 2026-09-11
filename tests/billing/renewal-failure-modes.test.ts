@@ -480,3 +480,75 @@ describe("a recurring charge is checked for amount and currency, not just status
     expect(charge).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("0157: two concurrent job runs must not both charge the same due Pass", () => {
+  /*
+   * THE BUG THIS WAS WRITTEN AGAINST, found by a load-testing pass. Before
+   * 0157, `chargeDueRenewals` selected its work-list with a plain
+   * `.select(...).lte("next_renewal_date", today)` — no `FOR UPDATE`, no
+   * `SKIP LOCKED`, no claim column. `/api/admin/renew-passes` has two entry
+   * points calling the same job (GET for Vercel Cron, POST for a manual
+   * trigger), so a retried trigger racing the cron — or an overlapping cron
+   * fire — invoked it twice concurrently, and both invocations selected the
+   * same due Pass before either had written anything. Proved directly: two
+   * concurrent `runPassRenewalJob()` calls against one seeded due Pass called
+   * `chargeAuthorization` TWICE and wrote two `payment_transactions` rows for
+   * one renewal — a real double charge.
+   *
+   * 0157 adds an atomic claim (`claimForRenewal`, same shape as mentorship
+   * session reminders' `.is("reminder_sent_at", null)` claim): before
+   * processing a due row, re-check its eligibility AND set
+   * `renewal_claimed_at` in one UPDATE. Only the run whose UPDATE actually
+   * matches a row proceeds to `chargeOne`; the other finds the row already
+   * claimed and moves on.
+   *
+   * Deliberately in THIS file rather than its own — `chargeDueRenewals` has
+   * no per-test scoping (it processes every due row account-wide), and
+   * vitest runs separate test FILES in parallel by default. A standalone
+   * file seeding its own due Pass would race this file's own due-Pass
+   * fixture the moment both run in the same CI job, which is exactly the
+   * kind of cross-file contamination this exists to rule out, not cause.
+   * Reusing this file's existing beforeEach/afterEach keeps exactly one due
+   * Pass live at a time for the whole file.
+   */
+  it("exactly one of two concurrent runPassRenewalJob() calls charges the Pass", async () => {
+    // Charge resolves after a short delay so both concurrent job runs are
+    // guaranteed to have already SELECTed the due row before either one's
+    // charge attempt resolves — widening the race window rather than hoping
+    // to hit it by luck.
+    charge.mockImplementation(
+      async () =>
+        new Promise((resolve) =>
+          setTimeout(
+            () =>
+              resolve({
+                status: "success",
+                amount: Math.round(passPriceNgn * 100),
+                currency: "NGN",
+                channel: "card",
+              }),
+            150,
+          ),
+        ),
+    );
+
+    const { runPassRenewalJob } = await import("@/lib/billing/renewals");
+    const [a, b] = await Promise.all([runPassRenewalJob(), runPassRenewalJob()]);
+    expect(a.ok).toBe(true);
+    expect(b.ok).toBe(true);
+
+    // Pre-0157 this was 2 — the whole point of this test.
+    expect(charge).toHaveBeenCalledTimes(1);
+
+    const transactions = await transactionsForPass();
+    expect(transactions).toHaveLength(1);
+    expect(transactions[0].status).toBe("success");
+
+    // The one run that WAS claimed still completed a normal, correct
+    // extendPass — attempt count reset, exactly one renewal period added,
+    // not double-advanced by two runs both thinking they extended it.
+    const state = await passState();
+    expect(state.auto_renew_status).toBe("active");
+    expect(state.next_renewal_date).not.toBeNull();
+  }, 30_000);
+});

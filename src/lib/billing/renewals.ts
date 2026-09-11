@@ -21,6 +21,16 @@ export const MAX_INDETERMINATE_RENEWAL_ATTEMPTS = 3;
 /** How far ahead of the actual renewal date to send the reminder. */
 const REMINDER_WINDOW_DAYS = 3;
 
+/**
+ * How long a claim on a due Pass is honored before another run may reclaim
+ * it. Not a permanent lock: a run that crashed between claiming and
+ * finishing must not strand the Pass forever. Minutes, not days, because the
+ * legitimate retry path (an indeterminate outcome) is expected to wait for
+ * "the next daily cron run" anyway (0043) — by then any claim from this run
+ * is long stale regardless of what this constant is set to.
+ */
+const CLAIM_STALENESS_MINUTES = 15;
+
 function todayDateOnly(): string {
   return new Date().toISOString().slice(0, 10);
 }
@@ -180,6 +190,13 @@ async function chargeDueRenewals(summary: RenewalJobSummary) {
 
   for (const row of due ?? []) {
     try {
+      const claimed = await claimForRenewal(supabase, row.id);
+      if (!claimed) {
+        // Another concurrent invocation (a retried manual trigger racing the
+        // cron, or an overlapping cron fire) already has this row. Not an
+        // error — this run simply lost the race for it and moves on.
+        continue;
+      }
       await chargeOne(supabase, row, summary);
     } catch (err) {
       summary.errors.push({
@@ -188,6 +205,39 @@ async function chargeDueRenewals(summary: RenewalJobSummary) {
       });
     }
   }
+}
+
+/**
+ * Atomic claim, in the same statement that re-checks eligibility — the same
+ * shape as mentorship session reminders' `.is("reminder_sent_at", null)`
+ * claim, applied here because `chargeDueRenewals`' plain SELECT gave two
+ * concurrent job runs no way to know about each other before both reached
+ * `chargeAuthorization` for the same Pass (proved directly: two concurrent
+ * `runPassRenewalJob()` calls against one due Pass charged it twice).
+ *
+ * The `renewal_claimed_at` condition accepts a row with no claim OR a claim
+ * older than the staleness window — so a run that crashed mid-charge doesn't
+ * strand the Pass forever, without needing a separate reaper process.
+ *
+ * Returns true only if THIS call's UPDATE actually matched a row — the
+ * PostgREST equivalent of `UPDATE ... RETURNING id` being empty vs. not.
+ */
+async function claimForRenewal(
+  supabase: ReturnType<typeof createServiceRoleClient>,
+  userPassId: string,
+): Promise<boolean> {
+  const staleBefore = new Date(Date.now() - CLAIM_STALENESS_MINUTES * 60_000).toISOString();
+  const { data, error } = await supabase
+    .from("user_passes")
+    .update({ renewal_claimed_at: new Date().toISOString() })
+    .eq("id", userPassId)
+    .eq("auto_renew_status", "active")
+    .lte("next_renewal_date", todayDateOnly())
+    .or(`renewal_claimed_at.is.null,renewal_claimed_at.lt.${staleBefore}`)
+    .select("id");
+
+  if (error) throw error;
+  return (data?.length ?? 0) > 0;
 }
 
 async function chargeOne(
@@ -455,6 +505,11 @@ async function recordIndeterminate(
       renewal_attempt_count: attempts,
       pending_renewal_reference: reference,
       last_renewal_failure_at: new Date().toISOString(),
+      // This row deliberately STAYS due (next_renewal_date untouched) so a
+      // later run retries it — release the claim now rather than making it
+      // wait out CLAIM_STALENESS_MINUTES, which would turn a legitimate
+      // same-day retry into an indefinite stall.
+      renewal_claimed_at: null,
     })
     .eq("id", row.id);
 
@@ -520,6 +575,7 @@ async function extendPass(
       // later starts from a clean count rather than inheriting an old one.
       renewal_attempt_count: 0,
       pending_renewal_reference: null,
+      renewal_claimed_at: null,
     })
     .eq("id", row.id);
 }
@@ -531,6 +587,7 @@ async function markLapsed(supabase: ReturnType<typeof createServiceRoleClient>, 
       auto_renew: false,
       auto_renew_status: "lapsed",
       next_renewal_date: null,
+      renewal_claimed_at: null,
     })
     .eq("id", userPassId);
 }
