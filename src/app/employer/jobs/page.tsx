@@ -14,7 +14,7 @@ import { getSiteOrigin } from "@/lib/referrals/url";
 
 export const metadata = { title: "Jobs Posted — Talentrah" };
 
-type SearchParams = Promise<{ posted?: string; claimed?: string }>;
+type SearchParams = Promise<{ posted?: string; claimed?: string; deleted?: string; error?: string }>;
 
 export default async function JobsPostedPage({
   searchParams,
@@ -22,7 +22,7 @@ export default async function JobsPostedPage({
   searchParams: SearchParams;
 }) {
   const { organization, userId, userEmail, emailConfirmed } = await requireEmployer();
-  const { posted, claimed } = await searchParams;
+  const { posted, claimed, deleted, error: actionError } = await searchParams;
   const supabase = await createClient();
   const origin = await getSiteOrigin();
 
@@ -193,6 +193,24 @@ export default async function JobsPostedPage({
             {staleEligible ? "Go to Company Profile" : "Manage verification"}
           </Link>
           .
+        </p>
+      )}
+
+      {/*
+        deleteJobAction's own redirect targets, both back to this page rather
+        than a dedicated confirmation screen — the confirmation already
+        happened on /employer/jobs/[id]/delete before the action ran. The
+        deleted row is gone by the time this renders, so there's nothing left
+        to look up the way postedJob/claimedJob do below.
+      */}
+      {deleted && (
+        <p className="border-[1.5px] border-ink bg-[oklch(95%_0.02_60)] px-4 py-3 text-[13.5px] text-ink">
+          That posting has been permanently deleted.
+        </p>
+      )}
+      {actionError && (
+        <p className="border-[1.5px] border-rust bg-rust-soft px-4 py-3 text-[13.5px] text-rust">
+          {actionError}
         </p>
       )}
 

@@ -183,6 +183,23 @@ export function PostedJobRow({
             {job.status === "open" ? "Close" : "Reopen"}
           </button>
         </form>
+        {/*
+          CLOSED ONLY — see deleteJobAction/deleteJobPosting's own headers for
+          why. Hidden rather than disabled for an open posting, the same
+          principle this file's own header comment states for Edit/Close on a
+          removed row: a button that would just be refused isn't worth
+          showing. A dedicated confirmation page, not a bare button here —
+          this is the one row action irreversible enough to deserve its own
+          screen rather than a single click.
+        */}
+        {job.status === "closed" && (
+          <Link
+            href={`/employer/jobs/${job.id}/delete`}
+            className={buttonClasses("text", "sm", "no-underline")}
+          >
+            Delete
+          </Link>
+        )}
         <EmployerJobShareButton
           jobId={job.id}
           jobTitle={job.title}

@@ -48,6 +48,132 @@ import { BANNER_BUCKET } from "@/lib/employer/banner";
 
 export const CLOSED_STALE_AFTER_DAYS = 30;
 
+/**
+ * Removes one or more banner files from Storage after their `job_postings`
+ * row(s) are already gone. Factored out of the batch sweep below so
+ * `deleteJobPosting` (an employer's own direct delete) shares the exact same
+ * cleanup — and its exact same failure handling — rather than a second,
+ * slightly different copy: a banner Storage remove that silently drops one
+ * path, or that throws instead of resolving with `error`, is precisely the
+ * kind of drift two independent copies of this logic would eventually grow.
+ *
+ * LOG AND CONTINUE, deliberately: the row's own deletion is what actually
+ * matters, and a Storage hiccup should never hold that up. See the call
+ * sites for why a failure here only ever produces an orphaned file (visible
+ * on the ops storage panel), never a dangling row.
+ */
+export async function removeBannerFiles(
+  supabase: ReturnType<typeof createServiceRoleClient>,
+  bannerPaths: string[],
+): Promise<void> {
+  if (bannerPaths.length === 0) return;
+
+  const { data: removed, error: storageError } = await supabase.storage
+    .from(BANNER_BUCKET)
+    .remove(bannerPaths);
+
+  // Checked, never fired and forgotten — a Storage remove that is refused
+  // resolves with an error rather than throwing.
+  if (storageError) {
+    console.error(
+      `[job-deletion] ${bannerPaths.length} banner file(s) could NOT be removed and are now ` +
+        `orphaned (their postings are deleted, so a re-run will not retry them): ` +
+        `${bannerPaths.join(", ")} —`,
+      storageError.message,
+    );
+    return;
+  }
+
+  const removedCount = removed?.length ?? 0;
+  if (removedCount !== bannerPaths.length) {
+    // Partial success is silent otherwise: `remove()` resolves fine when
+    // some paths simply were not there.
+    console.warn(
+      `[job-deletion] asked Storage to remove ${bannerPaths.length} banner(s) but it ` +
+        `reported ${removedCount}; the difference was already gone.`,
+    );
+  }
+  console.log(`[job-deletion] removed ${removedCount} banner file(s).`);
+}
+
+export type DeleteJobPostingResult =
+  | { deleted: true }
+  | { deleted: false; reason: "not_found" | "not_closed" | "delete_failed" };
+
+/**
+ * An employer's own direct delete of ONE posting — the manual counterpart to
+ * `deleteStaleClosedPostings`' 30-day sweep below, for an org that doesn't
+ * want to wait a month for a mistaken or unwanted listing to disappear on
+ * its own.
+ *
+ * CLOSED POSTINGS ONLY, enforced HERE, not just in the UI. An open posting
+ * can still be actively drawing applicants; the sweep this function's
+ * sibling implements never touches anything but a posting that has already
+ * been deliberately closed and left that way — the only precedent this
+ * codebase has for "how long does someone get to reconsider before a
+ * job_postings row is gone for good." Reusing that same gate here means an
+ * employer never loses a live listing to a stray click, and costs nothing:
+ * Close is one button away, and deleting immediately afterward is exactly as
+ * fast as a direct delete would have been. Enforced with `.eq("status",
+ * "closed")` on the write itself — not trusted from whatever the caller's
+ * own page last rendered — so a request replayed after the posting was
+ * reopened in another tab is refused, not raced.
+ *
+ * Same FK-safety guarantee as the sweep (see this file's own header — same
+ * table, same 0102 rules, same cascade/set-null split) and the same banner
+ * cleanup (`removeBannerFiles` above) — one copy of "how to safely remove a
+ * job_postings row," not two.
+ *
+ * `organizationId` is checked again here, on the SERVICE-ROLE client, even
+ * though the caller (`deleteJobAction`) has already resolved and authorised
+ * it through the session client first. Never trust an id alone once past
+ * that boundary — the same discipline `claim_external_job_posting` (0128)
+ * documents for its own SECURITY DEFINER write, and the same reason
+ * `setJobStatusAction` re-asserts `organization_id` on its own update even
+ * though RLS would already refuse a cross-org row.
+ */
+export async function deleteJobPosting(
+  supabase: ReturnType<typeof createServiceRoleClient>,
+  jobId: string,
+  organizationId: string,
+): Promise<DeleteJobPostingResult> {
+  const { data: job, error: selectError } = await supabase
+    .from("job_postings")
+    .select("status, banner_path")
+    .eq("id", jobId)
+    .eq("organization_id", organizationId)
+    .maybeSingle();
+
+  if (selectError || !job) {
+    return { deleted: false, reason: "not_found" };
+  }
+  if (job.status !== "closed") {
+    return { deleted: false, reason: "not_closed" };
+  }
+
+  const { data: deletedRows, error: deleteError } = await supabase
+    .from("job_postings")
+    .delete()
+    .eq("id", jobId)
+    .eq("organization_id", organizationId)
+    .eq("status", "closed")
+    .select("id");
+
+  // A rejected delete resolves with `error`, it does not throw — checked, per
+  // this repo's standing rule. Zero rows (the posting was reopened between
+  // the SELECT above and this DELETE) is reported the same way as a real
+  // error: either way, nothing was actually removed.
+  if (deleteError || !deletedRows?.length) {
+    return { deleted: false, reason: "delete_failed" };
+  }
+
+  if (job.banner_path) {
+    await removeBannerFiles(supabase, [job.banner_path]);
+  }
+
+  return { deleted: true };
+}
+
 export type PostingDeletionResult = {
   /** How many postings matched the deletion criteria when this run started. */
   eligible: number;
@@ -198,35 +324,7 @@ export async function deleteStaleClosedPostings(
       .map((id) => bannerPathById.get(id))
       .filter((path): path is string => !!path);
 
-    if (bannerPaths.length > 0) {
-      const { data: removed, error: storageError } = await supabase.storage
-        .from(BANNER_BUCKET)
-        .remove(bannerPaths);
-
-      // Checked, never fired and forgotten. A Storage remove that is refused
-      // resolves with an error rather than throwing — the exact shape this
-      // repo has scar tissue about, and the reason an unchecked cleanup shows
-      // up months later as a number nobody can explain.
-      if (storageError) {
-        console.error(
-          `[job-deletion] ${bannerPaths.length} banner file(s) could NOT be removed and are now ` +
-            `orphaned (their postings are deleted, so a re-run will not retry them): ` +
-            `${bannerPaths.join(", ")} —`,
-          storageError.message,
-        );
-      } else {
-        const removedCount = removed?.length ?? 0;
-        if (removedCount !== bannerPaths.length) {
-          // Partial success is silent otherwise: `remove()` resolves fine when
-          // some paths simply were not there.
-          console.warn(
-            `[job-deletion] asked Storage to remove ${bannerPaths.length} banner(s) but it ` +
-              `reported ${removedCount}; the difference was already gone.`,
-          );
-        }
-        console.log(`[job-deletion] removed ${removedCount} banner file(s) for this batch.`);
-      }
-    }
+    await removeBannerFiles(supabase, bannerPaths);
   }
 
   return { eligible: eligibleIds.length, deleted: deletedCount, ids: deletedIds };
