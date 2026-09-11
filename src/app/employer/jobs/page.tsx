@@ -33,13 +33,14 @@ export default async function JobsPostedPage({
   // it to verify first. Also skipped once the org has dismissed the banner —
   // dismissClaimReviewAction is a one-way "stop asking," not a snooze, so a
   // dismissed org never has claimCandidateCount computed again on this page.
-  const claimCandidateCount =
-    organization.verified && !organization.claim_review_dismissed_at
-      ? (await getClaimCandidates(supabase, organization.id).catch(() => [])).length
-      : 0;
-
-  const [{ data: jobs, error: jobsError }, { data: counts, error: countsError }] =
+  // Folded into the same Promise.all as the postings/counts queries below —
+  // it only needs `supabase`/`organization.id`, both already resolved, and
+  // depends on neither of the other two reads.
+  const [claimCandidates, { data: jobs, error: jobsError }, { data: counts, error: countsError }] =
     await Promise.all([
+      organization.verified && !organization.claim_review_dismissed_at
+        ? getClaimCandidates(supabase, organization.id).catch(() => [])
+        : Promise.resolve([]),
       supabase
         .from("job_postings")
         .select(
@@ -54,6 +55,7 @@ export default async function JobsPostedPage({
       // exists for exactly this, and returns counts without applicant identity.
       supabase.rpc("org_application_counts", { p_organization_id: organization.id }),
     ]);
+  const claimCandidateCount = claimCandidates.length;
 
   if (jobsError) {
     throw new Error(`Couldn't load your job postings: ${jobsError.message}`);

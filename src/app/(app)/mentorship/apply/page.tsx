@@ -33,10 +33,15 @@ export default async function MentorApplyPage() {
   const { user } = await requireUser();
   const profile = await getOwnMentorProfile(user.id);
 
-  const slots = profile?.status === "approved" ? await getOwnAvailabilitySlots(user.id) : [];
-  const payoutDetails = profile?.status === "approved" ? await getOwnPayoutDetails(user.id) : null;
-  const { banks, error: banksError } =
-    profile?.status === "approved" ? await listBanksForForm() : { banks: [], error: null };
+  // Three independent reads, each gated on the same condition and each
+  // needing only `user.id` (or nothing) — run together instead of one
+  // after another.
+  const isApprovedMentor = profile?.status === "approved";
+  const [slots, payoutDetails, { banks, error: banksError }] = await Promise.all([
+    isApprovedMentor ? getOwnAvailabilitySlots(user.id) : Promise.resolve([]),
+    isApprovedMentor ? getOwnPayoutDetails(user.id) : Promise.resolve(null),
+    isApprovedMentor ? listBanksForForm() : Promise.resolve({ banks: [], error: null }),
+  ]);
 
   return (
     <Container className="flex max-w-[640px] flex-col gap-8 py-12">
