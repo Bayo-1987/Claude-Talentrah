@@ -45,6 +45,10 @@
     {
       "path": "/api/admin/mentor-payouts",
       "schedule": "0 15 * * *"
+    },
+    {
+      "path": "/api/admin/refresh-match-scores",
+      "schedule": "0 16 * * *"
     }
   ]
 }
