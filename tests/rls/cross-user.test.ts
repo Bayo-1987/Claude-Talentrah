@@ -414,6 +414,208 @@ describe("RLS: write control — B cannot MUTATE A's rows", () => {
   });
 });
 
+/**
+ * 0151's own standing check: a systematic information_schema.table_privileges
+ * sweep (same shape as 0150's) found ~20 more tables where `authenticated`
+ * still held INSERT/UPDATE/DELETE with no covering RLS policy at all — RLS
+ * already denies these today (a non-matching UPDATE/DELETE affects zero rows
+ * silently; an INSERT with no satisfiable WITH CHECK is refused with a real
+ * RLS-violation error), but the GRANT itself was still sitting open,
+ * waiting for the next policy addition to expose it — CLAUDE.md's own
+ * column-privilege lesson, at the table-grant level instead of the
+ * column-grant level.
+ *
+ * Every table here was individually confirmed (not assumed from the sweep
+ * alone) to have zero legitimate authenticated-client write path for the
+ * specific command being asserted — see 0151's own migration header for the
+ * full per-table reasoning. `profiles` (also flagged by the sweep) is
+ * deliberately NOT here — its own migration/PR gives it the scrutiny its
+ * status as the root identity table warrants, separate from this batch.
+ * `organizations`/`organization_members` are also deliberately not here —
+ * 0152's own header explains why their fix needs an accompanying code
+ * change, not just a revoke.
+ *
+ * Tests use A's OWN rows where a seeded row already exists in this file's
+ * own fixtures (a stronger check than "B can't touch A's row": even the
+ * OWNER can no longer write via these commands, because the grant itself is
+ * gone, not because of an ownership boundary).
+ */
+describe("0151: verified zero-write-path tables have NO client write at the grant level", () => {
+  it("A cannot update or delete its own credit_ledger row", async () => {
+    const { error: updateError } = await A.client
+      .from("credit_ledger")
+      .update({ delta: 999 })
+      .eq("id", ids["credit_ledger"]);
+    expect(updateError?.code, "GRANT BUG: credit_ledger UPDATE not refused at the grant level").toBe("42501");
+
+    const { error: deleteError } = await A.client.from("credit_ledger").delete().eq("id", ids["credit_ledger"]);
+    expect(deleteError?.code, "GRANT BUG: credit_ledger DELETE not refused at the grant level").toBe("42501");
+  });
+
+  it("A cannot insert, update, or delete its own payment_transactions row", async () => {
+    const { error: insertError } = await A.client.from("payment_transactions").insert({
+      user_id: A.id,
+      amount: 1,
+      product_type: "pass",
+      product_id: passId,
+      status: "success",
+      paystack_reference: `rls_test_${randomUUID()}`,
+    });
+    expect(insertError?.code, "MONEY BUG: payment_transactions INSERT not refused at the grant level").toBe("42501");
+
+    const { error: updateError } = await A.client
+      .from("payment_transactions")
+      .update({ status: "failed" })
+      .eq("id", ids["payment_transactions"]);
+    expect(updateError?.code, "MONEY BUG: payment_transactions UPDATE not refused at the grant level").toBe(
+      "42501",
+    );
+
+    const { error: deleteError } = await A.client
+      .from("payment_transactions")
+      .delete()
+      .eq("id", ids["payment_transactions"]);
+    expect(deleteError?.code, "MONEY BUG: payment_transactions DELETE not refused at the grant level").toBe(
+      "42501",
+    );
+  });
+
+  it("A cannot update or delete its own user_passes row", async () => {
+    const { error: updateError } = await A.client
+      .from("user_passes")
+      .update({ status: "cancelled" })
+      .eq("id", ids["user_passes"]);
+    expect(updateError?.code, "GRANT BUG: user_passes UPDATE not refused at the grant level").toBe("42501");
+
+    const { error: deleteError } = await A.client.from("user_passes").delete().eq("id", ids["user_passes"]);
+    expect(deleteError?.code, "GRANT BUG: user_passes DELETE not refused at the grant level").toBe("42501");
+  });
+
+  it("A cannot insert, update, or delete its own referrals row", async () => {
+    const { data: existing } = await admin.from("referrals").select("id").eq("referrer_id", A.id).limit(1).single();
+
+    const { error: insertError } = await A.client
+      .from("referrals")
+      .insert({ referrer_id: A.id, status: "activated" });
+    expect(insertError?.code, "MONEY BUG: referrals INSERT not refused at the grant level").toBe("42501");
+
+    const { error: updateError } = await A.client
+      .from("referrals")
+      .update({ status: "activated" })
+      .eq("id", existing!.id);
+    expect(updateError?.code, "MONEY BUG: referrals UPDATE not refused at the grant level").toBe("42501");
+
+    const { error: deleteError } = await A.client.from("referrals").delete().eq("id", existing!.id);
+    expect(deleteError?.code, "MONEY BUG: referrals DELETE not refused at the grant level").toBe("42501");
+  });
+
+  it("A cannot update or delete its own user_template_unlocks row", async () => {
+    const { error: updateError } = await A.client
+      .from("user_template_unlocks")
+      .update({ template_id: templateId })
+      .eq("id", ids["user_template_unlocks"]);
+    expect(updateError?.code, "GRANT BUG: user_template_unlocks UPDATE not refused at the grant level").toBe(
+      "42501",
+    );
+
+    const { error: deleteError } = await A.client
+      .from("user_template_unlocks")
+      .delete()
+      .eq("id", ids["user_template_unlocks"]);
+    expect(deleteError?.code, "GRANT BUG: user_template_unlocks DELETE not refused at the grant level").toBe(
+      "42501",
+    );
+  });
+
+  it("A cannot update or delete its own credit_gate_events row", async () => {
+    const { error: updateError } = await A.client
+      .from("credit_gate_events")
+      .update({ outcome: "proceeded" })
+      .eq("id", ids["credit_gate_events"]);
+    expect(updateError?.code, "GRANT BUG: credit_gate_events UPDATE not refused at the grant level").toBe("42501");
+
+    const { error: deleteError } = await A.client
+      .from("credit_gate_events")
+      .delete()
+      .eq("id", ids["credit_gate_events"]);
+    expect(deleteError?.code, "GRANT BUG: credit_gate_events DELETE not refused at the grant level").toBe("42501");
+  });
+
+  it("A cannot update or delete its own application_stage_events row", async () => {
+    const { error: updateError } = await A.client
+      .from("application_stage_events")
+      .update({ stage: "hired" })
+      .eq("id", ids["application_stage_events"]);
+    expect(updateError?.code, "GRANT BUG: application_stage_events UPDATE not refused at the grant level").toBe(
+      "42501",
+    );
+
+    const { error: deleteError } = await A.client
+      .from("application_stage_events")
+      .delete()
+      .eq("id", ids["application_stage_events"]);
+    expect(deleteError?.code, "GRANT BUG: application_stage_events DELETE not refused at the grant level").toBe(
+      "42501",
+    );
+  });
+
+  it("A (the org's own creator) cannot delete the fixture job posting directly", async () => {
+    const { error } = await A.client.from("job_postings").delete().eq("id", jobPostingId);
+    expect(error?.code, "GRANT BUG: job_postings DELETE not refused at the grant level").toBe("42501");
+    const { data: stillThere } = await admin.from("job_postings").select("id").eq("id", jobPostingId).maybeSingle();
+    expect(stillThere?.id, "the posting must survive an attempted client-side delete").toBe(jobPostingId);
+  });
+
+  it("B cannot insert or delete a scholarship", async () => {
+    const { error: insertError } = await B.client.from("scholarships").insert({
+      program_name: "Fabricated by B",
+      provider: "Nobody",
+      source_name: "fabricated",
+      dedup_fingerprint: randomUUID(),
+      moderation_status: "verified",
+    } as never);
+    expect(insertError?.code, "GRANT BUG: scholarships INSERT not refused at the grant level").toBe("42501");
+
+    const { error: deleteError } = await B.client.from("scholarships").delete().eq("id", verifiedScholarshipId);
+    expect(deleteError?.code, "GRANT BUG: scholarships DELETE not refused at the grant level").toBe("42501");
+  });
+
+  it("no client can write the catalog tables (credit_packs, passes, resume_templates) at all", async () => {
+    const { error: packError } = await B.client
+      .from("credit_packs")
+      .update({ price_ngn: 1 })
+      .eq("id", (await admin.from("credit_packs").select("id").limit(1).single()).data!.id);
+    expect(packError?.code, "MONEY BUG: credit_packs UPDATE not refused at the grant level").toBe("42501");
+
+    const { error: passError } = await B.client.from("passes").update({ price_ngn: 1 }).eq("id", passId);
+    expect(passError?.code, "MONEY BUG: passes UPDATE not refused at the grant level").toBe("42501");
+
+    const { error: templateError } = await B.client
+      .from("resume_templates")
+      .update({ is_premium: false })
+      .eq("id", templateId);
+    expect(templateError?.code, "GRANT BUG: resume_templates UPDATE not refused at the grant level").toBe("42501");
+  });
+
+  it("neither user can write country_default_events, farah_session_events, or resume_builder_start_events", async () => {
+    for (const table of ["country_default_events", "farah_session_events", "resume_builder_start_events"] as const) {
+      const { error } = await A.client.from(table).insert({ user_id: A.id } as never);
+      expect(error?.code, `GRANT BUG: ${table} INSERT not refused at the grant level`).toBe("42501");
+    }
+  });
+
+  it("A cannot delete a user_notifications row", async () => {
+    const { data: notif } = await admin
+      .from("user_notifications")
+      .insert({ user_id: A.id, type: "mentorship_session_confirmed", title: "t", body: "b" } as never)
+      .select("id")
+      .single();
+    const { error } = await A.client.from("user_notifications").delete().eq("id", notif!.id);
+    expect(error?.code, "GRANT BUG: user_notifications DELETE not refused at the grant level").toBe("42501");
+    await admin.from("user_notifications").delete().eq("id", notif!.id);
+  });
+});
+
 describe("RLS: public and semi-public surfaces behave as intended", () => {
   it("both users can read the public job feed", async () => {
     for (const [label, u] of [["A", A], ["B", B]] as const) {

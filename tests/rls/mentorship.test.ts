@@ -136,18 +136,20 @@ describe("mentor_profiles visibility", () => {
 
 describe("mentor_availability_slots", () => {
   it("has no client UPDATE path at all — is_booked cannot be flipped directly", async () => {
-    // No UPDATE policy at all means RLS filters every row before the write
-    // even reaches it — the same "silent zero rows, not an error" shape as
-    // the delete case below, not a thrown error.
-    const { error, count } = await mentor.client
+    // Was "RLS filters every row before the write even reaches it — silent
+    // zero rows, not an error" — true when this was written, because RLS's
+    // own default-deny (no UPDATE policy at all) was the ONLY thing stopping
+    // this. 0151 closed the GRANT itself too, so the statement is now
+    // refused outright (42501) rather than silently affecting zero rows —
+    // strictly stronger, and the reason this assertion changed.
+    const { error } = await mentor.client
       .from("mentor_availability_slots")
-      .update({ is_booked: false }, { count: "exact" })
+      .update({ is_booked: false })
       .eq("id", slotId);
-    expect(error).toBeNull();
     expect(
-      count,
+      error?.code,
       "SECURITY BUG: a client could flip is_booked directly, bypassing book_mentor_session's atomic lock",
-    ).toBe(0);
+    ).toBe("42501");
 
     const { data } = await admin.from("mentor_availability_slots").select("is_booked").eq("id", slotId).single();
     expect(data?.is_booked, "the slot must still be booked").toBe(true);
@@ -317,5 +319,46 @@ describe("0150: mentorship_reviews has no direct client UPDATE/DELETE, at the gr
 
     const { data: stillThere } = await admin.from("mentorship_reviews").select("id").eq("id", reviewId).maybeSingle();
     expect(stillThere?.id, "the review must survive an attempted client-side delete").toBe(reviewId);
+  });
+});
+
+/**
+ * 0151's own standing check — see that migration's header for the full
+ * per-table reasoning. mentor_availability_slots' own UPDATE case is the
+ * grant-level version of the claim the very first test in this file's
+ * "mentor_availability_slots" describe block already makes informally
+ * ("has no client UPDATE path at all"); this closes the grant sitting
+ * behind that claim instead of leaving it resting on RLS's default-deny
+ * alone.
+ */
+describe("0151: mentor_profiles/mentorship_sessions have no client write at the grant level", () => {
+  it("the mentor cannot delete their own approved mentor_profiles row", async () => {
+    const { error } = await mentor.client.from("mentor_profiles").delete().eq("user_id", mentor.id);
+    expect(error?.code, "GRANT BUG: mentor_profiles DELETE not refused at the grant level").toBe("42501");
+    const { data: stillThere } = await admin.from("mentor_profiles").select("user_id").eq("user_id", mentor.id).maybeSingle();
+    expect(stillThere?.user_id, "the mentor profile must survive an attempted client-side delete").toBe(mentor.id);
+  });
+
+  it("neither party can insert or delete a mentorship_sessions row directly", async () => {
+    const { error: insertError } = await mentee.client.from("mentorship_sessions").insert({
+      mentor_id: mentor.id,
+      mentee_id: mentee.id,
+      availability_slot_id: slotId,
+      session_type: "resume_review",
+      status: "confirmed",
+      price_ngn: 0,
+      platform_commission_ngn: 0,
+      mentor_payout_ngn: 0,
+    } as never);
+    expect(insertError?.code, "MONEY BUG: mentorship_sessions INSERT not refused at the grant level").toBe(
+      "42501",
+    );
+
+    const { error: deleteError } = await mentor.client.from("mentorship_sessions").delete().eq("id", sessionId);
+    expect(deleteError?.code, "GRANT BUG: mentorship_sessions DELETE not refused at the grant level").toBe(
+      "42501",
+    );
+    const { data: stillThere } = await admin.from("mentorship_sessions").select("id").eq("id", sessionId).maybeSingle();
+    expect(stillThere?.id, "the session must survive an attempted client-side delete").toBe(sessionId);
   });
 });
