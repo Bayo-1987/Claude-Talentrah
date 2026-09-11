@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { requireEmployer } from "@/lib/employer/membership";
 import { getClaimCandidates } from "@/lib/employer/claim";
+import { deleteJobPosting } from "@/lib/jobs/posting-deletion";
 import {
   emailDomain,
   evaluateDomainVerification,
@@ -643,6 +644,57 @@ export async function setJobStatusAction(jobId: string, status: Enums<"job_statu
 
   revalidatePath("/employer/jobs");
   revalidatePath("/jobs");
+}
+
+/**
+ * Permanent, employer-triggered deletion — the manual counterpart to the
+ * 30-day automatic sweep (`deleteStaleClosedPostings`,
+ * src/lib/jobs/posting-deletion.ts), for an org that doesn't want to wait a
+ * month for a mistaken or unwanted CLOSED listing to disappear on its own.
+ * See that file's own header for why this only ever accepts an already-
+ * closed posting, and for the FK-safety/banner-cleanup guarantee it shares
+ * with the sweep rather than re-deriving.
+ *
+ * Two-step shape, same reason `claim_external_job_posting` (0128) and
+ * `setJobStatusAction` above both draw the line where they do: `job_postings`
+ * no longer grants DELETE to `authenticated` at all (0151), so the session
+ * client below can only RESOLVE AND AUTHORISE the request — its own SELECT,
+ * scoped to `.eq("organization_id", organization.id)`, is what a forged
+ * `jobId` cannot cross — never perform the delete itself. The actual write
+ * goes through `deleteJobPosting`'s own service-role client, which re-checks
+ * `organizationId` again on that client, independently, as defense in depth:
+ * never trust an id alone once past the session-client boundary, the same
+ * discipline 0128's own header documents for its SECURITY DEFINER write.
+ */
+export async function deleteJobAction(jobId: string) {
+  const { supabase } = await getAuthedUser();
+  const { organization } = await requireEmployer();
+
+  const { data: job } = await supabase
+    .from("job_postings")
+    .select("id")
+    .eq("id", jobId)
+    .eq("organization_id", organization.id)
+    .maybeSingle();
+
+  if (!job) {
+    redirect(`/employer/jobs?error=${encodeURIComponent("Couldn't find that posting.")}`);
+  }
+
+  const admin = createServiceRoleClient();
+  const result = await deleteJobPosting(admin, jobId, organization.id);
+
+  if (!result.deleted) {
+    const message =
+      result.reason === "not_closed"
+        ? "Close this posting before deleting it."
+        : "Couldn't delete that posting — it may have already been removed.";
+    redirect(`/employer/jobs?error=${encodeURIComponent(message)}`);
+  }
+
+  revalidatePath("/employer/jobs");
+  revalidatePath("/jobs");
+  redirect("/employer/jobs?deleted=1");
 }
 
 /**

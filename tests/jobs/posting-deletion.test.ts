@@ -27,6 +27,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import { randomUUID } from "node:crypto";
 import {
   deleteStaleClosedPostings,
+  deleteJobPosting,
   CLOSED_STALE_AFTER_DAYS,
 } from "@/lib/jobs/posting-deletion";
 import { admin, createTestUser, deleteTestUsers } from "../support/auth";
@@ -401,5 +402,114 @@ describe("a deleted posting takes its banner file with it", () => {
 
     const { error } = await admin.storage.from(BANNER_BUCKET).remove([path]);
     if (error) console.error("[banner test cleanup]", error.message);
+  });
+});
+
+/**
+ * deleteJobPosting — the employer-triggered single-row delete
+ * (src/lib/employer/actions.ts's deleteJobAction), independent of the sweep
+ * above. Exercises the function directly rather than deleteJobAction itself:
+ * the Server Action resolves its session via cookies(), which throws outside
+ * a real Next.js request scope — the same limitation already documented for
+ * other Server Actions in this codebase (see 0153's own column-privileges
+ * test comment for createOrganizationAction). Everything this function
+ * actually decides (closed-only, org-scoped, banner cleanup) lives here,
+ * in a plain function that takes explicit arguments.
+ */
+describe("deleteJobPosting: an employer's own direct delete of one posting", () => {
+  async function makeOrg(label: string) {
+    const userId = await fixtureUser(label);
+    const { data: org, error } = await admin
+      .from("organizations")
+      .insert({ name: `POSTING-DELETION-TEST Org ${randomUUID()}`, created_by: userId, verified: true })
+      .select("id")
+      .single();
+    if (error || !org) throw new Error(`fixture org: ${error?.message}`);
+    createdOrgs.push(org.id);
+    return org.id;
+  }
+
+  async function makeOrgPosting(organizationId: string, status: "open" | "closed" = "closed") {
+    return makeClosedPosting(status === "closed" ? new Date().toISOString() : null, {
+      source_type: "internal",
+      organization_id: organizationId,
+      external_source: null,
+      external_url: null,
+      status,
+    });
+  }
+
+  it("deletes a closed posting that belongs to the given organization", async () => {
+    const orgId = await makeOrg("posting-del-single-owner");
+    const id = await makeOrgPosting(orgId, "closed");
+
+    const result = await deleteJobPosting(admin, id, orgId);
+    expect(result).toEqual({ deleted: true });
+    expect(await readPosting(id)).toBeNull();
+    createdPostings.splice(createdPostings.indexOf(id), 1);
+  });
+
+  /**
+   * SABOTAGE-PROOF TARGET: org B guessing (or otherwise obtaining) org A's
+   * posting id must not be enough to delete it. This is the function's own
+   * defense-in-depth check — deleteJobAction's session-client read already
+   * stops this in the real request path, but this proves the service-role
+   * write refuses it independently, the same "never trust an id alone past
+   * that boundary" discipline 0128's own header documents.
+   */
+  it("refuses to delete another organization's posting, even with its real id", async () => {
+    const ownerOrgId = await makeOrg("posting-del-cross-org-owner");
+    const attackerOrgId = await makeOrg("posting-del-cross-org-attacker");
+    const id = await makeOrgPosting(ownerOrgId, "closed");
+
+    const result = await deleteJobPosting(admin, id, attackerOrgId);
+    expect(result).toEqual({ deleted: false, reason: "not_found" });
+    expect(await readPosting(id), "org A's posting must survive org B's attempt").not.toBeNull();
+  });
+
+  /**
+   * The open-vs-closed decision this feature made: only a CLOSED posting can
+   * be deleted directly, the same and only precedent this codebase has for
+   * "how long before a job_postings row is gone for good." Enforced here,
+   * not just hidden in the UI — a request that reaches this function for an
+   * open posting (a stale page, a replayed request) must still be refused.
+   */
+  it("refuses to delete an OPEN posting, even for its own organization", async () => {
+    const orgId = await makeOrg("posting-del-single-open");
+    const id = await makeOrgPosting(orgId, "open");
+
+    const result = await deleteJobPosting(admin, id, orgId);
+    expect(result).toEqual({ deleted: false, reason: "not_closed" });
+    expect(await readPosting(id), "the open posting must survive").not.toBeNull();
+  });
+
+  it("reports not_found for an id that doesn't exist at all", async () => {
+    const orgId = await makeOrg("posting-del-single-missing");
+    const result = await deleteJobPosting(admin, randomUUID(), orgId);
+    expect(result).toEqual({ deleted: false, reason: "not_found" });
+  });
+
+  it("takes its banner file with it, the same as the scheduled sweep", async () => {
+    const orgId = await makeOrg("posting-del-single-banner");
+    const id = await makeOrgPosting(orgId, "closed");
+    const path = `${orgId}/${id}.png`;
+
+    const { error: upErr } = await admin.storage
+      .from(BANNER_BUCKET)
+      .upload(path, new Uint8Array([0x89, 0x50, 0x4e, 0x47]), { contentType: "image/png", upsert: true });
+    if (upErr) throw new Error(`fixture upload failed: ${upErr.message}`);
+    await admin.from("job_postings").update({ banner_path: path }).eq("id", id);
+
+    const result = await deleteJobPosting(admin, id, orgId);
+    expect(result).toEqual({ deleted: true });
+    createdPostings.splice(createdPostings.indexOf(id), 1);
+
+    const { data: listed } = await admin.storage
+      .from(BANNER_BUCKET)
+      .list(orgId, { search: `${id}.png` });
+    expect(
+      (listed ?? []).some((o) => o.name === `${id}.png`),
+      "the banner file should have been removed along with the row",
+    ).toBe(false);
   });
 });
