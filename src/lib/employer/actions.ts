@@ -151,7 +151,18 @@ export async function createOrganizationAction(
     // Roll back rather than leave an org nobody belongs to: 0026 only lets its
     // creator join, so an orphaned org here would be permanently unreachable
     // AND would occupy its domain for the join path below.
-    await supabase.from("organizations").delete().eq("id", org.id);
+    //
+    // Service role, not the session client: organizations/organization_members
+    // have never had a DELETE policy (0151/0152's own write-grant audit found
+    // this), so this call silently deleted zero rows for as long as it
+    // existed — the row-being-yours-doesn't-make-it-deletable half of the
+    // same lesson 0028/0030 already state for UPDATE. This is a genuine
+    // internal cleanup path, not a user-facing delete action, so the fix is
+    // to route it through the role that can actually do the job rather than
+    // inventing a client-facing DELETE policy this product does not want.
+    const cleanup = createServiceRoleClient();
+    const { error: cleanupError } = await cleanup.from("organizations").delete().eq("id", org.id);
+    if (cleanupError) console.error(`[createOrganizationAction] orphan cleanup failed for org ${org.id}:`, cleanupError.message);
     return { error: `Couldn't set you up as the owner: ${memberError.message}` };
   }
 
@@ -175,8 +186,26 @@ export async function createOrganizationAction(
        * leftover would also be invisible to the joinable list.
        */
       if (verifyError.code === "23505") {
-        await supabase.from("organization_members").delete().eq("organization_id", org.id);
-        await supabase.from("organizations").delete().eq("id", org.id);
+        // Service role — see the memberError branch above for why: neither
+        // table has ever had a DELETE policy, so the session client here was
+        // silently deleting zero rows too.
+        const { error: memberCleanupError } = await admin
+          .from("organization_members")
+          .delete()
+          .eq("organization_id", org.id);
+        if (memberCleanupError) {
+          console.error(
+            `[createOrganizationAction] duplicate-domain cleanup (members) failed for org ${org.id}:`,
+            memberCleanupError.message,
+          );
+        }
+        const { error: orgCleanupError } = await admin.from("organizations").delete().eq("id", org.id);
+        if (orgCleanupError) {
+          console.error(
+            `[createOrganizationAction] duplicate-domain cleanup (org) failed for org ${org.id}:`,
+            orgCleanupError.message,
+          );
+        }
         return {
           error:
             `Someone else at ${outcome.domain} registered your company while you were filling this in. ` +

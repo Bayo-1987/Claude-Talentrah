@@ -332,6 +332,89 @@ describe("organizations: a company cannot verify itself (0028)", () => {
   });
 });
 
+/**
+ * 0153's own standing check. Distinct from every organizations test above:
+ * those all prove a COLUMN-level restriction on top of real, intentional
+ * INSERT/UPDATE policies. This proves organizations has never had a DELETE
+ * policy at all, and organization_members has never had an UPDATE or
+ * DELETE policy — and, unlike every other table this write-grant audit
+ * found, that gap was not merely theoretical: it meant
+ * createOrganizationAction's own rollback-delete calls
+ * (src/lib/employer/actions.ts) had been silently affecting zero rows
+ * since they were written, for both the "organization_members insert
+ * failed" and "lost a 23505 domain race" cases they handle. Confirmed
+ * empirically before this fix: a real session's DELETE against its own
+ * just-created org returned `{ error: null, count: 0 }` and the row
+ * survived. The accompanying code change switches those three calls to
+ * the service-role client (the same "internal cleanup, not a user-facing
+ * action" shape every other money/trust write in this codebase already
+ * follows) — verified empirically to actually delete the row, since
+ * createOrganizationAction itself cannot be unit-tested directly (it
+ * resolves its session via cookies(), which throws outside a real Next.js
+ * request scope, the same limitation already documented for other Server
+ * Actions in this codebase).
+ */
+describe("organizations/organization_members have no DELETE (or, for members, UPDATE) at the grant level (0153)", () => {
+  it("the creator cannot delete their own organisation directly", async () => {
+    const { data: org } = await admin
+      .from("organizations")
+      .insert({ name: `COLPRIV-0153-org ${randomUUID().slice(0, 8)}`, created_by: user.id })
+      .select("id")
+      .single();
+    try {
+      const { error } = await user.client.from("organizations").delete().eq("id", org!.id);
+      expect(error?.code, "GRANT BUG: organizations DELETE not refused at the grant level").toBe("42501");
+      const { data: stillThere } = await admin.from("organizations").select("id").eq("id", org!.id).maybeSingle();
+      expect(stillThere?.id, "the organisation must survive an attempted client-side delete").toBe(org!.id);
+    } finally {
+      await deleteTestOrgs([org!.id]);
+    }
+  });
+
+  it("a member cannot update or delete their own organization_members row directly", async () => {
+    // No standalone `id` column — the primary key is the composite
+    // (organization_id, user_id) (0000's own baseline schema).
+    const { data: org } = await admin
+      .from("organizations")
+      .insert({ name: `COLPRIV-0153-members ${randomUUID().slice(0, 8)}`, created_by: user.id })
+      .select("id")
+      .single();
+    const { error: insertError } = await admin
+      .from("organization_members")
+      .insert({ organization_id: org!.id, user_id: user.id, role: "owner" });
+    if (insertError) throw insertError;
+    try {
+      const { error: updateError } = await user.client
+        .from("organization_members")
+        .update({ role: "admin" })
+        .eq("organization_id", org!.id)
+        .eq("user_id", user.id);
+      expect(updateError?.code, "GRANT BUG: organization_members UPDATE not refused at the grant level").toBe(
+        "42501",
+      );
+
+      const { error: deleteError } = await user.client
+        .from("organization_members")
+        .delete()
+        .eq("organization_id", org!.id)
+        .eq("user_id", user.id);
+      expect(deleteError?.code, "GRANT BUG: organization_members DELETE not refused at the grant level").toBe(
+        "42501",
+      );
+
+      const { data: stillThere } = await admin
+        .from("organization_members")
+        .select("role")
+        .eq("organization_id", org!.id)
+        .eq("user_id", user.id)
+        .maybeSingle();
+      expect(stillThere?.role, "the membership row must survive an attempted client-side write").toBe("owner");
+    } finally {
+      await deleteTestOrgs([org!.id]);
+    }
+  });
+});
+
 describe("organizations: a company cannot verify itself at INSERT either (found building 0120)", () => {
   /**
    * 0028 closed self-verification through UPDATE and was never asked about
