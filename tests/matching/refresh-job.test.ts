@@ -17,24 +17,33 @@
  * flaky as tests/seo/landing-page-links.test.ts's own ambient-count
  * assertions, which is exactly the failure class to avoid.
  *
- * ONE REAL SOURCE OF CROSS-SUITE FLAKINESS REMAINS, and it is worth naming
- * rather than being surprised by it later: this file can intermittently
- * fail when run alongside other suites that create and delete their own
- * `job_postings` fixtures concurrently — either a
- * `match_scores_job_posting_id_fkey` violation (see refresh-job.ts's own
- * header, "A NARROW, SELF-HEALING RACE"), or, before it was fixed, a
- * just-inserted posting silently missing from the eligible board because
- * the query's `.limit()` had no `.order()` ahead of it (also fixed there).
- * This is this repo's own documented class of shared-DB contention
- * (CLAUDE.md: "expect other concurrent sessions' fixtures... in it") —
- * **and, corrected from an earlier version of this comment, it is NOT
- * CI-exempt**: CI gives each WORKFLOW JOB its own ephemeral database, but
+ * TWO REAL SOURCES OF CROSS-SUITE CONTENTION HIT THIS FILE DURING
+ * DEVELOPMENT — worth naming, because both broke `main`'s CI directly, not
+ * just a local run, and both are now actually FIXED rather than
+ * documented-and-tolerated:
+ *
+ *  1. The eligible-board query's `.limit()` had no `.order()` ahead of it —
+ *     non-deterministic once real row count (this repo's own test suite
+ *     creates open `job_postings` fixtures in 50+ files, all sharing one
+ *     database within a single CI workflow job) passed the cap, so a
+ *     just-inserted test posting could be silently excluded from the
+ *     returned page. Fixed by ordering newest-first before the limit, and
+ *     by raising the cap itself (see MAX_ELIGIBLE_POSTINGS's own comment)
+ *     — CI-wide fixture noise needed real headroom, not just determinism.
+ *  2. A posting deleted mid-run (by another suite's own cleanup) failed a
+ *     user's WHOLE match_scores batch on one stale foreign-key reference —
+ *     see refresh-job.ts's own header for the real fix
+ *     (`persistScoresOrRetryStale`), which retries with the stale
+ *     reference filtered out instead of losing an otherwise-valid batch.
+ *
+ * Both are this repo's own documented class of shared-DB contention
+ * (CLAUDE.md: "expect other concurrent sessions' fixtures... in it"), and
+ * — corrected from an earlier version of this comment — NEITHER is
+ * CI-exempt: CI gives each WORKFLOW JOB its own ephemeral database, but
  * every test FILE within that one job still shares that single database in
- * parallel with every other file, so this class of contention reproduces
- * in CI too (confirmed live — this exact test failed on `main` once from
- * the ordering bug above). The ordering fix closes the specific failure
- * that hit; a future addition to this file should assume CI-wide
- * contention is real, not assume the ephemeral database makes it moot.
+ * parallel with every other file. A future addition to this file should
+ * assume CI-wide contention is real, not assume the ephemeral database
+ * makes it moot.
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { randomUUID } from "node:crypto";

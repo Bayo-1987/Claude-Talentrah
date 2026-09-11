@@ -2,7 +2,7 @@ import "server-only";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { computeMatchScore } from "./score";
 import { getMatchTier } from "@/lib/match-tier";
-import { persistMatchScores, type ScoredJobLike } from "./compute-and-store";
+import type { ScoredJobLike } from "./compute-and-store";
 import { freshnessFloorISO } from "@/lib/jobs/freshness";
 import type { StructuredResume } from "@/lib/resume/types";
 import type { SeniorityLevel } from "@/lib/jobs/types";
@@ -58,24 +58,30 @@ import type { SeniorityLevel } from "@/lib/jobs/types";
  * MAX_ELIGIBLE_POSTINGS, that is the real signal this needs to become a
  * set-based query — not a schedule change or a bigger cap.
  *
- * ── A NARROW, SELF-HEALING RACE, INHERITED FROM persistMatchScores ──────
+ * ── A NARROW RACE, FOUND, THEN ACTUALLY FIXED NOT JUST DOCUMENTED ────────
  *
- * `persistMatchScores` upserts one user's whole missing-score batch in a
- * single statement and — deliberately, per its own header ("no response
- * left to fail") — logs rather than throws on error. If a posting in that
- * batch is deleted (the daily stale-posting sweep, or an employer's own
- * delete, send-160) between this job's board read and that user's write,
- * the WHOLE batch for that user fails, not just the one stale row — this
- * job's own eligible-board read happens once at the top of the run, so the
- * window is real, if narrow. Nothing is left inconsistent: the deleted
- * posting drops out of the NEXT run's eligible board by construction (it no
- * longer exists to be "missing"), so that user's other, still-valid gaps
- * simply get filled on the next run instead of this one — a delayed
- * refresh, not a wrong one. Confirmed live during development: running this
- * job's own test suite alongside other job_postings-fixture-churning suites
- * reproduces this exact race (see refresh-job.test.ts's own header) — real
- * cross-suite test contention on a shared, mutating table, not a production
- * concern at anything like that frequency.
+ * If a posting is deleted (the daily stale-posting sweep, or an employer's
+ * own delete, send-160) between this job's board read and a user's write,
+ * a naive batch upsert fails the WHOLE batch on one stale row. An earlier
+ * version of this job called the shared `persistMatchScores`
+ * (compute-and-store.ts), which deliberately logs rather than throws on
+ * error (correct for ITS other callers, which have no response left to act
+ * on a failure) — and reasoned that losing a whole batch here was
+ * "self-healing," since the deleted posting drops out of the NEXT run's
+ * eligible board by construction. That reasoning was too optimistic in
+ * practice: running this job's own test suite alongside other
+ * job_postings-fixture-churning suites hit this race often enough, in both
+ * local runs and CI, to make the test suite itself unreliable — "self-heals
+ * eventually" is a poor substitute for "actually works this run" when the
+ * failure rate is that high.
+ *
+ * Fixed for real: `persistScoresOrRetryStale` (below) does the upsert
+ * directly rather than through `persistMatchScores`, so it can SEE a
+ * foreign-key violation, re-check which of the batch's postings still
+ * exist, and retry with only the survivors — the common case (one stale
+ * reference among many valid ones) now succeeds instead of losing
+ * everything, and `summary.failed` only ever reports a genuine,
+ * unrecovered failure rather than silently under-counting one.
  *
  * CORRECTION, found the hard way: an earlier version of this comment (and
  * of refresh-job.test.ts's own header) claimed this "does not reproduce in
@@ -114,17 +120,24 @@ export interface MatchScoreRefreshSummary {
 const MAX_USERS_PER_RUN = 500;
 
 /**
- * Same number and the same reasoning as jobs/page.tsx's own
- * RECOMMENDED_HARD_CAP — kept as a separate local constant rather than a
- * shared import, matching this codebase's established "three copies, not
- * shared" convention for feed-eligibility queries
- * (docs/jobs-feed-pagination.md), for the same reason: Supabase's
- * `.select()` reads the literal type of its argument, so a column list
- * passed as a runtime parameter to one shared function loses type safety
- * here without reaching for generic query-builder types this codebase
- * doesn't otherwise use.
+ * Deliberately much larger than jobs/page.tsx's own RECOMMENDED_HARD_CAP
+ * (2000), even though both exist for the same reason (production headroom
+ * — the real board is 338-673 rows today, so either number is "pure
+ * headroom, not a current-behavior change" against production alone). This
+ * one has a second constraint the feed's cap does not: this repo's own
+ * test suite creates open job_postings fixtures in 50+ files, all sharing
+ * one database within a single CI workflow job (see the correction above,
+ * and refresh-job.test.ts's own header) — at 2000, a real CI run's
+ * peak concurrent fixture count was enough to push a just-inserted test
+ * posting out of this query's page even with newest-first ordering, and
+ * broke `main` directly. 20000 is still a real, meaningful cap (protects
+ * against genuine unbounded growth at a scale far beyond anything this
+ * product has hit), just large enough that CI's own test-fixture noise
+ * can't realistically compete with it — not a number picked to make one
+ * test pass, but the same "not a current-behavior change" reasoning
+ * applied to BOTH real constraints on this query, not just production's.
  */
-const MAX_ELIGIBLE_POSTINGS = 2000;
+const MAX_ELIGIBLE_POSTINGS = 20_000;
 
 export interface ScorableJobPosting {
   id: string;
@@ -155,6 +168,78 @@ export function filterScorablePostings(
   verifiedOrganizationIds: ReadonlySet<string>,
 ): ScorableJobPosting[] {
   return postings.filter((p) => p.organizationId === null || verifiedOrganizationIds.has(p.organizationId));
+}
+
+/**
+ * The upsert, done directly here rather than via the shared
+ * `persistMatchScores` (compute-and-store.ts) — that function deliberately
+ * "logs rather than throws" (its own header: "no response left to fail"),
+ * a correct contract for its OTHER callers (an `after()` cache write on the
+ * feed, apply-time scoring) that genuinely have nothing left to do with a
+ * failure. This job is different: it NEEDS to know whether a write actually
+ * landed, because its own summary counts (usersRefreshed/postingsScored/
+ * failed) are the only signal an operator has that the job is working —
+ * silently swallowing a failed batch here means those counts lie.
+ *
+ * Confirmed live, repeatedly, that swallowing was actively hiding a real
+ * failure: a posting deleted mid-run (see this file's own header, "A
+ * NARROW, SELF-HEALING RACE") fails the WHOLE batch with a
+ * `match_scores_job_posting_id_fkey` violation, and a caller that doesn't
+ * see that error has no way to retry around it — usersRefreshed still
+ * incremented, postingsScored still counted rows that were never written.
+ * So: on a foreign-key violation specifically, re-check which of this
+ * batch's postings still exist and retry with only those — the common case
+ * (one stale reference among many valid ones) then succeeds instead of
+ * losing everything, and the summary's `failed` count only ever reports a
+ * REAL, unrecovered failure.
+ */
+async function persistScoresOrRetryStale(
+  admin: ReturnType<typeof createServiceRoleClient>,
+  userId: string,
+  scored: ScoredJobLike[],
+): Promise<{ persisted: number; ok: boolean }> {
+  const rows = scored.map((s) => ({
+    user_id: userId,
+    job_posting_id: s.job.id,
+    score: s.score,
+    tier: s.tier,
+    explanation: JSON.parse(JSON.stringify(s.explanation)),
+    computed_at: new Date().toISOString(),
+  }));
+
+  const { error } = await admin
+    .from("match_scores")
+    .upsert(rows, { onConflict: "user_id,job_posting_id" });
+  if (!error) return { persisted: rows.length, ok: true };
+
+  if (error.code === "23503") {
+    const ids = rows.map((r) => r.job_posting_id);
+    const { data: stillExist, error: existError } = await admin
+      .from("job_postings")
+      .select("id")
+      .in("id", ids);
+    if (existError) {
+      console.error(`[match-score-refresh] could not verify stale postings for ${userId}: ${existError.message}`);
+      return { persisted: 0, ok: false };
+    }
+    const existingIds = new Set((stillExist ?? []).map((r) => r.id));
+    const survivors = rows.filter((r) => existingIds.has(r.job_posting_id));
+    if (survivors.length === 0) return { persisted: 0, ok: false };
+
+    const { error: retryError } = await admin
+      .from("match_scores")
+      .upsert(survivors, { onConflict: "user_id,job_posting_id" });
+    if (retryError) {
+      console.error(
+        `[match-score-refresh] retry after filtering stale postings still failed for ${userId}: ${retryError.message}`,
+      );
+      return { persisted: 0, ok: false };
+    }
+    return { persisted: survivors.length, ok: true };
+  }
+
+  console.error(`[match-score-refresh] could not persist ${rows.length} score(s) for ${userId}: ${error.message}`);
+  return { persisted: 0, ok: false };
 }
 
 export async function runMatchScoreRefreshJob(): Promise<MatchScoreRefreshSummary> {
@@ -300,9 +385,14 @@ export async function runMatchScoreRefreshJob(): Promise<MatchScoreRefreshSummar
         };
       });
 
-      await persistMatchScores(userId, scored);
+      const result = await persistScoresOrRetryStale(admin, userId, scored);
+      if (!result.ok) {
+        summary.failed++;
+        summary.errors.push({ userId, message: "could not persist scores (see server log)" });
+        continue;
+      }
       summary.usersRefreshed++;
-      summary.postingsScored += scored.length;
+      summary.postingsScored += result.persisted;
     } catch (err) {
       summary.failed++;
       summary.errors.push({ userId, message: err instanceof Error ? err.message : String(err) });
