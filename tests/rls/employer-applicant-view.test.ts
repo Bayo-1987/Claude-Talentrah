@@ -203,11 +203,68 @@ describe("employer_job_applicants — identity-bearing, org-scoped", () => {
     expect(row?.resume_id).toBe(resumeId);
     // Default status, since no employer_applicant_status row exists yet.
     expect(row?.status, "an applicant with no status row must read as 'new'").toBe("new");
+    // 0154: no match_scores row exists for this fixture (it was inserted
+    // directly, not through applyInAppAction), so every new column reads as
+    // null — "not yet scored" is an honest answer, not a missing one.
+    expect(row?.match_score, "no match_scores row exists for this fixture").toBeNull();
+    expect(row?.match_tier).toBeNull();
+    expect(row?.matched_skills).toBeNull();
+    expect(row?.missing_skills).toBeNull();
+    expect(row?.seniority_alignment).toBeNull();
     // Never anything from applications.stage, notes, or the seeker's email —
     // only the columns the function's own return type declares.
     expect(Object.keys(row ?? {}).sort()).toEqual(
-      ["application_id", "applied_at", "first_name", "last_name", "resume_id", "status"].sort(),
+      [
+        "application_id",
+        "applied_at",
+        "first_name",
+        "last_name",
+        "match_score",
+        "match_tier",
+        "matched_skills",
+        "missing_skills",
+        "resume_id",
+        "seniority_alignment",
+        "status",
+      ].sort(),
     );
+  });
+
+  /**
+   * 0154's own standing check: the same match_scores cache the seeker-side
+   * feed already writes to (computeAndStoreMatchScores) is read back here,
+   * scoped to this one applicant/job pair — proving the LEFT JOIN actually
+   * surfaces a real row when one exists, not just that it tolerates one
+   * being absent (the test above).
+   */
+  it("surfaces a real match_scores row when one exists for this applicant/job pair", async () => {
+    const explanation = { matchedSkills: ["sql"], missingSkills: ["python"], seniorityAlignment: "match" as const };
+    const { error: scoreErr } = await admin.from("match_scores").upsert(
+      {
+        user_id: seeker.id,
+        job_posting_id: jobIdA,
+        score: 77,
+        tier: "good",
+        explanation,
+      },
+      { onConflict: "user_id,job_posting_id" },
+    );
+    if (scoreErr) throw new Error(`fixture match_scores: ${scoreErr.message}`);
+
+    try {
+      const { data, error } = await orgOwnerA.client.rpc("employer_job_applicants", {
+        p_job_posting_id: jobIdA,
+      });
+      expect(error).toBeNull();
+      const row = (data ?? []).find((r) => r.application_id === applicationId);
+      expect(row?.match_score).toBe(77);
+      expect(row?.match_tier).toBe("good");
+      expect(row?.matched_skills).toEqual(["sql"]);
+      expect(row?.missing_skills).toEqual(["python"]);
+      expect(row?.seniority_alignment).toBe("match");
+    } finally {
+      await admin.from("match_scores").delete().eq("user_id", seeker.id).eq("job_posting_id", jobIdA);
+    }
   });
 
   it(

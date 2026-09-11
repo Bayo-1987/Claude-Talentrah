@@ -2,9 +2,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requireEmployer } from "@/lib/employer/membership";
-import { BorderedCard, EyebrowLabel } from "@/components/ui";
+import { BorderedCard, EyebrowLabel, MatchTierBadge } from "@/components/ui";
 import { ApplicantStatusSelect } from "@/components/employer/applicant-status-select";
+import { MatchBreakdown } from "@/components/jobs/match-breakdown";
 import { formatTrackerDate } from "@/lib/tracker/format-date";
+import type { MatchExplanation } from "@/lib/matching/score";
 
 export const metadata = { title: "Applicants — Talentrah" };
 
@@ -75,32 +77,66 @@ export default async function JobApplicantsPage({ params }: { params: Promise<{ 
         </BorderedCard>
       ) : (
         <div className="flex flex-col divide-y divide-line border-y border-line">
-          {(applicants ?? []).map((applicant) => (
-            <div
-              key={applicant.application_id}
-              className="flex flex-col gap-3 py-4 min-[640px]:flex-row min-[640px]:items-center min-[640px]:justify-between"
-            >
-              <div className="min-w-0">
-                <p className="font-body text-[14.5px] font-semibold text-ink">
-                  {[applicant.first_name, applicant.last_name].filter(Boolean).join(" ") || "Applicant"}
-                </p>
-                <p className="mt-0.5 font-body text-[12.5px] text-ink-soft">
-                  Applied {applicant.applied_at ? formatTrackerDate(applicant.applied_at) : "—"}
-                </p>
+          {(applicants ?? []).map((applicant) => {
+            /*
+             * send-158: assistive ranking, not a filter or a replacement for
+             * ApplicantStatusSelect below — the sort itself already happened
+             * server-side (employer_job_applicants' own ORDER BY, 0154), this
+             * just renders what's already in the row. Null whenever
+             * computeAndStoreApplicationMatchScore hasn't run for this
+             * (user, job) pair yet — an application that predates this
+             * feature, or one whose resume lookup failed at apply time —
+             * rendered as "not yet scored" rather than a fabricated number.
+             */
+            const explanation: MatchExplanation | null =
+              applicant.match_score !== null &&
+              applicant.matched_skills !== null &&
+              applicant.missing_skills !== null &&
+              applicant.seniority_alignment !== null
+                ? {
+                    matchedSkills: applicant.matched_skills as string[],
+                    missingSkills: applicant.missing_skills as string[],
+                    seniorityAlignment: applicant.seniority_alignment as MatchExplanation["seniorityAlignment"],
+                  }
+                : null;
+
+            return (
+              <div key={applicant.application_id} className="flex flex-col gap-3 py-4">
+                <div className="flex flex-col gap-3 min-[640px]:flex-row min-[640px]:items-center min-[640px]:justify-between">
+                  <div className="min-w-0">
+                    <p className="font-body text-[14.5px] font-semibold text-ink">
+                      {[applicant.first_name, applicant.last_name].filter(Boolean).join(" ") || "Applicant"}
+                    </p>
+                    <p className="mt-0.5 font-body text-[12.5px] text-ink-soft">
+                      Applied {applicant.applied_at ? formatTrackerDate(applicant.applied_at) : "—"}
+                    </p>
+                  </div>
+                  <div className="flex flex-shrink-0 items-center gap-4">
+                    {applicant.match_score !== null ? (
+                      <MatchTierBadge score={applicant.match_score} explanation={explanation ?? undefined} />
+                    ) : (
+                      <span className="font-body text-[11px] font-bold tracking-[0.14em] text-ink-soft uppercase">
+                        Not yet scored
+                      </span>
+                    )}
+                    {applicant.resume_id && (
+                      <Link
+                        href={`/employer/jobs/${job.id}/applicants/${applicant.application_id}/resume`}
+                        className="font-body text-[13px] font-semibold text-ink underline underline-offset-2 hover:text-rust"
+                      >
+                        View resume
+                      </Link>
+                    )}
+                    <ApplicantStatusSelect
+                      applicationId={applicant.application_id}
+                      initialStatus={applicant.status}
+                    />
+                  </div>
+                </div>
+                {explanation && <MatchBreakdown explanation={explanation} />}
               </div>
-              <div className="flex flex-shrink-0 items-center gap-4">
-                {applicant.resume_id && (
-                  <Link
-                    href={`/employer/jobs/${job.id}/applicants/${applicant.application_id}/resume`}
-                    className="font-body text-[13px] font-semibold text-ink underline underline-offset-2 hover:text-rust"
-                  >
-                    View resume
-                  </Link>
-                )}
-                <ApplicantStatusSelect applicationId={applicant.application_id} initialStatus={applicant.status} />
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

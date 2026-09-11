@@ -12,8 +12,16 @@ import type { MatchExplanation } from "./score";
 // filters to status = 'open' and never selects it.
 type JobPosting = Omit<Tables<"job_postings">, "description_preview" | "search_vector" | "closed_at" | "unlisted_at" | "banner_path" | "admin_review_decision" | "admin_review_note" | "admin_review_requested_at" | "admin_reviewed_at" | "admin_reviewed_by" | "claimed_by_organization_id" | "claimed_at">;
 
-export interface ScoredJob {
-  job: JobPosting;
+/**
+ * What persistMatchScores actually needs to write one row — `job` only ever
+ * has to identify WHICH job, not carry the rest of the posting. `ScoredJob`
+ * below satisfies this structurally (its `job` is a full JobPosting, which
+ * has an `id`), so the feed's own call site needs no change; a caller that
+ * only has a job id in hand (computeAndStoreApplicationMatchScore below)
+ * doesn't have to construct a fake full JobPosting just to call this.
+ */
+export interface ScoredJobLike {
+  job: { id: string };
   score: number;
   tier: ReturnType<typeof getMatchTier>;
   /**
@@ -23,6 +31,10 @@ export interface ScoredJob {
    * needed new AI when it did not.
    */
   explanation: MatchExplanation;
+}
+
+export interface ScoredJob extends ScoredJobLike {
+  job: JobPosting;
 }
 
 /**
@@ -107,7 +119,7 @@ export function scoreJobs(resume: StructuredResume, jobs: JobPosting[]): ScoredJ
  * fail, and an unhandled rejection there would be a crash report for a
  * cache miss.
  */
-export async function persistMatchScores(userId: string, scored: ScoredJob[]): Promise<void> {
+export async function persistMatchScores(userId: string, scored: ScoredJobLike[]): Promise<void> {
   if (scored.length === 0) return;
   const admin = createServiceRoleClient();
   const { error } = await admin.from("match_scores").upsert(
@@ -124,4 +136,61 @@ export async function persistMatchScores(userId: string, scored: ScoredJob[]): P
   if (error) {
     console.error(`[matching] could not persist ${scored.length} score(s) for ${userId}: ${error.message}`);
   }
+}
+
+/**
+ * Scores and caches ONE application's match at the moment it's created —
+ * the guaranteed point at which a resume and a job posting exist together,
+ * independent of whether the seeker ever viewed this job through a scored
+ * surface first. `computeAndStoreMatchScores`/`scoreJobs` above only ever
+ * run on the feed and the job detail page (send-158's own investigation:
+ * `grep -rn computeMatchScore src/` before this change found exactly those
+ * two call sites plus the proactive-match-alert notifier — no application
+ * path scored anything), so a `match_scores` row for a given
+ * (user_id, job_posting_id) pair was never guaranteed to exist by the time
+ * someone actually applied. Called from `applyInAppAction`
+ * (src/lib/applications/actions.ts), deferred via `after()` there for the
+ * same reason that function already defers its ad-event and
+ * country-default-event writes: a cache write must never hold up the Apply
+ * click's own response.
+ *
+ * Reads `structured_jd`/`seniority` and the resume's `structured_content`
+ * directly rather than accepting them as arguments, since the caller
+ * (an `after()` callback, off the response path) has nothing to lose by
+ * one more round trip and this keeps the scoring call sites' inputs
+ * consistent — always freshly read, never a value that could have gone
+ * stale between the apply click and this write.
+ *
+ * No new scoring logic: `computeMatchScore` itself is untouched (send-158's
+ * own scope explicitly rules that out), and this is the exact same
+ * (resume, jobSkills, jobSeniority) call `scoreJobs` already makes — it is
+ * one applicant/job pair instead of one seeker against many jobs, not a
+ * different function. Read back by `employer_job_applicants` (0154) for
+ * the applicant-ranking surface, from the same `match_scores` table this
+ * writes to — one cache, read in both directions, because the score is a
+ * fact about the (resume, job) pair, not about which side asked for it.
+ */
+export async function computeAndStoreApplicationMatchScore(
+  supabase: SupabaseClient<Database>,
+  userId: string,
+  jobId: string,
+  resumeId: string,
+): Promise<void> {
+  const [{ data: resumeRow }, { data: jobRow }] = await Promise.all([
+    supabase.from("resumes").select("structured_content").eq("id", resumeId).maybeSingle(),
+    supabase.from("job_postings").select("structured_jd, seniority").eq("id", jobId).maybeSingle(),
+  ]);
+
+  if (!resumeRow || !jobRow) return;
+
+  const structuredJd = jobRow.structured_jd as { skills?: string[] } | null;
+  const result = computeMatchScore(
+    resumeRow.structured_content as unknown as StructuredResume,
+    structuredJd?.skills ?? [],
+    jobRow.seniority ?? undefined,
+  );
+
+  await persistMatchScores(userId, [
+    { job: { id: jobId }, score: result.score, tier: getMatchTier(result.score), explanation: result.explanation },
+  ]);
 }

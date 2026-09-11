@@ -3388,7 +3388,12 @@ export type Database = {
           applied_at: string
           first_name: string
           last_name: string
+          match_score: number | null
+          match_tier: string | null
+          matched_skills: Json | null
+          missing_skills: Json | null
           resume_id: string
+          seniority_alignment: string | null
           status: Database["public"]["Enums"]["applicant_review_status"]
         }[]
       }
