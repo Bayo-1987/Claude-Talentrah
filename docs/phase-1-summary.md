@@ -21,7 +21,7 @@ Milestone names below follow **the plan doc** (`~/.claude/plans/adaptive-gigglin
 | **M7** Job Tracker | done | Stage tracking, manual entries, Hired → referral prompt |
 | **M8** Employer side | done (Phase 1 subset) | Org onboarding (create + join), Company Profile, job posting form, Jobs Posted with application counts. Free posting only — Ad Campaigns, billing and analytics are Phase 2 and are **omitted from the nav**, not stubbed. Building it surfaced a third policy hole (0028) |
 | **M9** Refer & Earn | done | Two-step reward, share surfaces, anti-abuse |
-| **M10** Cross-cutting polish | done | RLS verification, service-role audit, README, golden-path e2e all landed. Mobile/low-bandwidth payload check still not done |
+| **M10** Cross-cutting polish | done | RLS verification, service-role audit, README, golden-path e2e all landed. Mobile/low-bandwidth payload check done 2026-09-11 — see [docs/mobile-bandwidth-audit.md](mobile-bandwidth-audit.md) |
 | *(added later)* Scholarship Discovery | done | Not in the plan doc; added to build-prompt §6.15 mid-build |
 
 ## Numbering drift
