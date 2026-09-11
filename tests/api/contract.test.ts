@@ -441,6 +441,11 @@ describe("§2 — cron GETs fail closed too", () => {
     // charge-campaigns/mentorship-sweep above, registered in the same commit
     // that created the route.
     ["mentor-payouts", () => import("@/app/api/admin/mentor-payouts/route")],
+    // Fills match_scores coverage gaps (send-latency-2) — no money moved and
+    // no LLM call (computeMatchScore is pure), but the same fail-closed
+    // guard as every other admin/cron route, registered in the same commit
+    // that created the route.
+    ["refresh-match-scores", () => import("@/app/api/admin/refresh-match-scores/route")],
   ] as const;
 
   for (const [name, load] of CRON_ROUTES) {
@@ -520,6 +525,7 @@ describe("§2 — cron GETs fail closed too", () => {
       "/api/admin/mentorship-session-reminders": () =>
         import("@/app/api/admin/mentorship-session-reminders/route"),
       "/api/admin/mentor-payouts": () => import("@/app/api/admin/mentor-payouts/route"),
+      "/api/admin/refresh-match-scores": () => import("@/app/api/admin/refresh-match-scores/route"),
     };
 
     expect(vercelConfig.crons.length).toBeGreaterThan(0);

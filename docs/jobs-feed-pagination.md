@@ -182,3 +182,62 @@ the "arbitrary wrong subset" bug this whole investigation exists to avoid.
 **Not built without a go-ahead** — this is the proposal, not the diff. If
 approved, it's a small, low-risk follow-up commit; real `match_scores`
 pagination is separate, larger work to scope on its own.
+
+**Update, since shipped:** the interim hard cap above was approved and
+built (`RECOMMENDED_HARD_CAP = 2000` in `jobs/page.tsx`, applied after
+scoring and after the sort exactly as specced) — this doc was never updated
+to say so until now, which is itself worth naming: a proposal marked "not
+built without a go-ahead" needs the same "come back and update this" habit
+`phase-1-summary.md` already has, or it reads as still-open long after it
+isn't.
+
+## Step 3 — the background scoring-refresh job: built (send-latency-2, 2026-09-11)
+
+Part of a broader latency review (see the review's own PR/report). This is
+what Step 2's own conclusion called for: `runMatchScoreRefreshJob`
+(`src/lib/matching/refresh-job.ts`), a daily cron
+(`/api/admin/refresh-match-scores`, `vercel.json`), fills genuine
+`match_scores` coverage gaps — (user, posting) pairs that have never been
+scored — for every user with a base resume, against the same public,
+verified-org, unlisted-aware eligible board every other discovery surface
+enforces by hand (this job reads through the service-role client, which
+bypasses RLS, so it re-implements the `organizations.verified` gate itself,
+the same way `src/lib/digest/send.ts`'s `filterListablePostings` already has
+to for the weekly digest — 0109's own finding, that nothing does this for a
+service-role reader automatically, applies here too).
+
+**What this does NOT do, on purpose:** it does not re-score a pair that
+already has a row (a resume edit doesn't retroactively invalidate an old
+score — a different, separate problem from the coverage gap this closes),
+and it does NOT flip Recommended/External/Saved over to real `ORDER BY
+score DESC LIMIT/OFFSET` pagination. Coverage has to be reliably high
+*before* that cutover is safe, per this doc's own reasoning above — this
+job is what gets coverage there; the query cutover is a later, separate
+change once it demonstrably has.
+
+**Why a plain per-user loop, not a set-based SQL function:** at today's real
+scale (7 users with a base resume, a few hundred eligible postings) a
+per-user loop costs a few thousand simple, indexed queries per run at
+worst — nothing. Mirrors `sendJobMatchDigest`/`runMentorshipSweep`'s own
+per-recipient cron shape rather than introducing a new migration/RPC for a
+data volume that's trivial today. If `usersConsidered` or `eligiblePostings`
+ever regularly approach their caps (500 / 2,000 — the second one is the
+SAME number and reasoning as `RECOMMENDED_HARD_CAP` above, kept as a
+separate constant per this doc's own "three copies, not shared" convention),
+that's the real signal to revisit as a set-based query, not a bigger cap.
+
+Real integration tests (`tests/matching/refresh-job.test.ts`) prove the gap
+is filled for a real seeker, an unverified org's posting and an unlisted
+(non-admin-approved) posting are never scored, a stale/closed posting is
+excluded, a second run is a true no-op for an already-covered user (no
+rewrite, `computed_at` untouched), and a partially-covered user only gets
+their genuine gap filled — an existing row is never overwritten.
+
+**Found, not fixed, while building this:** a real ambient user's base
+resume has no `skills` field at all on `structured_content`, which crashes
+`computeMatchScore` (`expandResumeSkills` iterates `resume.skills`
+unconditionally) — reachable from the ORIGINAL feed/apply-time call sites
+too, not something this job introduced. Flagged as its own follow-up rather
+than fixed here (out of scope for a background-job design task); this
+job's own per-user try/catch absorbs it correctly in the meantime (logged,
+that one user's refresh is skipped, the run continues for everyone else).
