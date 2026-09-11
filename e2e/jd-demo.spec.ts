@@ -175,6 +175,22 @@ test.describe("the anonymous demo", () => {
   });
 
   test("the day's ceiling refuses a fresh visitor once it is spent", async ({ baseURL }) => {
+    /*
+     * FIVE real, uncapped-latency model calls in sequence, on the global 30s
+     * default (playwright.config.ts) — every sibling test in this file that
+     * makes even ONE such call bumps to 120s specifically because a single
+     * real tailoring call can need up to 90s, and neither LLM provider client
+     * (src/lib/llm/groq-provider.ts, gemini-provider.ts) has a request-level
+     * timeout the way Paystack's fetches do. This test was missing that same
+     * bump, so it was one slow Groq response away from being killed by
+     * Playwright at exactly 30.0s — which reads identically to a genuine
+     * hang in the report, because there is nothing underneath that fails
+     * faster. Measured locally: 5 calls plus the sixth normally complete in
+     * ~16-19s, so 120s matches the sibling tests' margin rather than
+     * guessing a new number.
+     */
+    test.setTimeout(120_000);
+
     // Five distinct visitors (each context is its own cookie jar) exhaust it,
     // and the sixth gets the cap message rather than the already-used one —
     // they are different situations and say so.
