@@ -230,20 +230,24 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
       ? "kept"
       : "none"
     : "none";
-  if (user) {
-    await logCountryDefaultEvent({
-      userId: user.id,
-      eventType: "detail_view",
-      countryState: detailCountryState,
-      jobPostingId: job.id,
-    });
-  }
-
-  // Backlink to whichever SEO landing pages (src/lib/seo/landing-pages.ts)
-  // THIS job actually belongs to, and only while each is currently live —
-  // "explore more" closes the loop the landing pages open, without ever
-  // linking to a category that would 404.
-  const landingLinks = await relevantJobLandingLinks(supabase, job);
+  // Neither depends on the other — the log write only needs `user`/`job.id`
+  // already resolved above, and the landing-link lookup only needs
+  // `supabase`/`job` — so they run together instead of one after the other.
+  const [, landingLinks] = await Promise.all([
+    user
+      ? logCountryDefaultEvent({
+          userId: user.id,
+          eventType: "detail_view",
+          countryState: detailCountryState,
+          jobPostingId: job.id,
+        })
+      : Promise.resolve(),
+    // Backlink to whichever SEO landing pages (src/lib/seo/landing-pages.ts)
+    // THIS job actually belongs to, and only while each is currently live —
+    // "explore more" closes the loop the landing pages open, without ever
+    // linking to a category that would 404.
+    relevantJobLandingLinks(supabase, job),
+  ]);
 
   /*
    * Same fallback rule as the feed: an empty resume only when there genuinely

@@ -104,12 +104,14 @@ export default async function ScholarshipDetailPage({
   const session = await getOptionalUser();
   const user = session?.user ?? null;
   const profile = session?.profile ?? null;
-  // Only meaningful for a signed-in user — FarahActions never renders
-  // without one (see the `!user` branch below), so there's nothing to skip
-  // by computing it unconditionally here.
-  const passCoverage = user ? await checkPassCoverage(user.id) : null;
-
-  const [scholarship, saveResult] = await Promise.all([
+  // Three independent reads — none uses another's result — run together
+  // instead of one after the other. `passCoverage` only needs `user.id`,
+  // already resolved above.
+  const [passCoverage, scholarship, saveResult] = await Promise.all([
+    // Only meaningful for a signed-in user — FarahActions never renders
+    // without one (see the `!user` branch below), so there's nothing to
+    // skip by computing it unconditionally here.
+    user ? checkPassCoverage(user.id) : Promise.resolve(null),
     loadPublicScholarship(id),
     // Skipped entirely when signed out, matching the job page: the query is
     // owner-scoped by RLS and would return nothing anyway, so there is no

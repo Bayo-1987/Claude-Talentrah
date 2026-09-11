@@ -34,18 +34,26 @@ export default async function JobApplicantsPage({ params }: { params: Promise<{ 
   const { organization } = await requireEmployer();
   const supabase = await createClient();
 
-  const { data: job } = await supabase
-    .from("job_postings")
-    .select("id, title")
-    .eq("id", id)
-    .eq("organization_id", organization.id)
-    .maybeSingle();
+  /*
+   * Run together rather than one after the other: `employer_job_applicants`
+   * takes only the raw route param `id` and re-derives ownership itself (see
+   * this file's own header — a SECURITY DEFINER function with its own
+   * independent membership check), so it needs nothing from the `job`
+   * lookup above it. The cost of this is firing the RPC once, harmlessly,
+   * for a mistyped/foreign job id that will 404 anyway — the RPC's own gate
+   * means that case returns nothing regardless.
+   */
+  const [{ data: job }, { data: applicants, error }] = await Promise.all([
+    supabase
+      .from("job_postings")
+      .select("id, title")
+      .eq("id", id)
+      .eq("organization_id", organization.id)
+      .maybeSingle(),
+    supabase.rpc("employer_job_applicants", { p_job_posting_id: id }),
+  ]);
 
   if (!job) notFound();
-
-  const { data: applicants, error } = await supabase.rpc("employer_job_applicants", {
-    p_job_posting_id: id,
-  });
 
   return (
     <div className="flex flex-col gap-6">

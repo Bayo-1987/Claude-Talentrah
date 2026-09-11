@@ -35,8 +35,13 @@ const VALID_FUNDING: readonly string[] = Constants.public.Enums.scholarship_fund
 export default async function ScholarshipsPage({ searchParams }: { searchParams: SearchParams }) {
   const { user, profile } = await requireUser();
   const params = await searchParams;
-  const passCoverage = await checkPassCoverage(user.id);
-  const origin = await getSiteOrigin();
+  // Three independent reads, none needing anything but `user.id` (or
+  // nothing at all) — run together rather than one after another.
+  const [passCoverage, origin, supabase] = await Promise.all([
+    checkPassCoverage(user.id),
+    getSiteOrigin(),
+    createClient(),
+  ]);
 
   const tab = params.tab === "saved" ? "saved" : "all";
   const level = VALID_LEVELS.includes(params.level ?? "") ? (params.level as DegreeLevel) : undefined;
@@ -47,8 +52,6 @@ export default async function ScholarshipsPage({ searchParams }: { searchParams:
   const field = params.field?.trim() || undefined;
   const q = params.q?.trim() || undefined;
   const page = Math.max(1, Number(params.page ?? "1") || 1);
-
-  const supabase = await createClient();
 
   // Saves first — needed both for the "Saved" tab filter and to mark cards.
   const { data: saves } = await supabase
