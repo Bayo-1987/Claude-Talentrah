@@ -18,16 +18,23 @@
  * assertions, which is exactly the failure class to avoid.
  *
  * ONE REAL SOURCE OF CROSS-SUITE FLAKINESS REMAINS, and it is worth naming
- * rather than being surprised by it later: this file passes reliably on its
- * own, but can intermittently fail with a `match_scores_job_posting_id_fkey`
- * violation when run in the SAME vitest process alongside other suites that
- * create and delete their own `job_postings` fixtures concurrently (e.g.
- * tests/jobs/freshness-visibility.test.ts) — see refresh-job.ts's own header
- * ("A NARROW, SELF-HEALING RACE") for why. This is this repo's own
- * documented class of shared-hosted-DB local contention (CLAUDE.md: "expect
- * other concurrent sessions' fixtures... in it"), not a bug this suite is
- * pinning — it does not reproduce in CI, where every job owns an exclusive,
- * ephemeral database, or when this file is run standalone.
+ * rather than being surprised by it later: this file can intermittently
+ * fail when run alongside other suites that create and delete their own
+ * `job_postings` fixtures concurrently — either a
+ * `match_scores_job_posting_id_fkey` violation (see refresh-job.ts's own
+ * header, "A NARROW, SELF-HEALING RACE"), or, before it was fixed, a
+ * just-inserted posting silently missing from the eligible board because
+ * the query's `.limit()` had no `.order()` ahead of it (also fixed there).
+ * This is this repo's own documented class of shared-DB contention
+ * (CLAUDE.md: "expect other concurrent sessions' fixtures... in it") —
+ * **and, corrected from an earlier version of this comment, it is NOT
+ * CI-exempt**: CI gives each WORKFLOW JOB its own ephemeral database, but
+ * every test FILE within that one job still shares that single database in
+ * parallel with every other file, so this class of contention reproduces
+ * in CI too (confirmed live — this exact test failed on `main` once from
+ * the ordering bug above). The ordering fix closes the specific failure
+ * that hit; a future addition to this file should assume CI-wide
+ * contention is real, not assume the ephemeral database makes it moot.
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { randomUUID } from "node:crypto";

@@ -73,11 +73,23 @@ import type { SeniorityLevel } from "@/lib/jobs/types";
  * simply get filled on the next run instead of this one — a delayed
  * refresh, not a wrong one. Confirmed live during development: running this
  * job's own test suite alongside other job_postings-fixture-churning suites
- * against the shared hosted dev project reproduces this exact race (see
- * refresh-job.test.ts's own header) — that is local, cross-suite test
- * contention on a shared, mutating table, not a production concern at
- * anything like that frequency, and does not reproduce in CI, where every
- * job gets its own exclusive, ephemeral database.
+ * reproduces this exact race (see refresh-job.test.ts's own header) — real
+ * cross-suite test contention on a shared, mutating table, not a production
+ * concern at anything like that frequency.
+ *
+ * CORRECTION, found the hard way: an earlier version of this comment (and
+ * of refresh-job.test.ts's own header) claimed this "does not reproduce in
+ * CI, where every job gets its own exclusive, ephemeral database" — true at
+ * the wrong granularity. CI does give each WORKFLOW JOB (Typecheck/lint/
+ * unit vs. Playwright e2e) its own ephemeral database, but every test FILE
+ * within that one job still runs against that SAME single database, in
+ * parallel with every other file — the eligible-board query below hit
+ * exactly this in a real CI run: `.limit(MAX_ELIGIBLE_POSTINGS)` with no
+ * `.order()` let another test file's concurrently-open job_postings
+ * fixtures silently push a just-inserted posting out of the returned page.
+ * Fixed by ordering newest-first before the limit (see below) rather than
+ * by narrowing the claim further — the underlying non-determinism was a
+ * real bug regardless of which environment surfaced it first.
  */
 
 export interface MatchScoreRefreshSummary {
@@ -165,12 +177,24 @@ export async function runMatchScoreRefreshJob(): Promise<MatchScoreRefreshSummar
   // organization_id), the same reasoning BOARD_AGGREGATE_COLUMNS already
   // documents in jobs/page.tsx: this never renders anything, so it has no
   // reason to carry a description or a salary range.
+  // `.order()` before `.limit()` is load-bearing, not cosmetic: with no
+  // explicit order, which rows a `.limit()` past the true row count returns
+  // is whatever the query planner happens to scan first — observed live in
+  // CI (a real, reproducible failure, not a one-off): a posting inserted
+  // moments earlier in the SAME ephemeral database (many other test files'
+  // own job_postings fixtures share it, this job's own "prove it" pass
+  // originally assumed otherwise) was silently excluded once total open,
+  // fresh-enough postings passed the cap. Ordering newest-first both fixes
+  // that determinism gap AND is the more correct behaviour in production —
+  // a hard cap should drop the STALEST rows within the freshness window
+  // first, not an arbitrary scan-order slice of them.
   const { data: rawPostings, error: postingsError } = await admin
     .from("job_postings")
     .select("id, structured_jd, seniority, organization_id")
     .eq("status", "open")
     .gte("posted_at", freshnessFloorISO())
     .or("unlisted_at.is.null,admin_review_decision.eq.approved")
+    .order("posted_at", { ascending: false })
     .limit(MAX_ELIGIBLE_POSTINGS);
 
   if (postingsError) {
