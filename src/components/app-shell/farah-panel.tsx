@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { EyebrowLabel, FarahMark } from "@/components/ui";
 import { FARAH_QUICK_ACTIONS } from "@/lib/farah/quick-actions";
@@ -45,6 +45,83 @@ export interface FarahPanelProps {
 }
 
 /**
+ * The four job-seed actions (two real chat starters, tailor, cover letter) —
+ * shared between the pristine empty-state reveal and a mid-conversation
+ * job-seed marker, so a later "Ask Farah" click offers exactly what the
+ * first one would have. `keyPrefix` keeps React keys unique when more than
+ * one marker is on screen at once (one per job switched to this session).
+ */
+function JobSeedActions({
+  seed,
+  pending,
+  onStarter,
+  keyPrefix,
+}: {
+  seed: FarahJobSeed;
+  pending: boolean;
+  onStarter: (label: string, quickAction: string, jobId: string) => void;
+  keyPrefix: string;
+}) {
+  return (
+    <div className="flex flex-col">
+      {JOB_SEED_CHAT_STARTERS.map((starter) => (
+        <button
+          key={`${keyPrefix}-${starter.label}`}
+          type="button"
+          disabled={pending}
+          onClick={() => onStarter(starter.label, starter.key, seed.jobId)}
+          className="flex min-h-10 items-center py-1 text-left font-body text-[13.5px] font-semibold text-ink underline underline-offset-2 hover:text-rust disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {starter.label}
+        </button>
+      ))}
+      <Link
+        href={tailorHref(seed.jobId)}
+        className="flex min-h-10 items-center py-1 font-body text-[13.5px] font-semibold text-ink underline underline-offset-2 hover:text-rust"
+      >
+        Tailor my resume for this job →
+      </Link>
+      <Link
+        href={coverLetterHref(seed.jobId)}
+        className="flex min-h-10 items-center py-1 font-body text-[13.5px] font-semibold text-ink underline underline-offset-2 hover:text-rust"
+      >
+        Draft an intro message for this job →
+      </Link>
+    </div>
+  );
+}
+
+/**
+ * The divider a later "Ask Farah" click inserts into an already-open
+ * conversation — see `jobSeedMarkers` on `FarahPanel` for why this exists.
+ * The eyebrow label is the disambiguation itself: whatever's above it is a
+ * previous job, whatever's below (including these actions) is this one.
+ */
+function JobSeedMarker({
+  seed,
+  pending,
+  onStarter,
+  markerId,
+}: {
+  seed: FarahJobSeed;
+  pending: boolean;
+  onStarter: (label: string, quickAction: string, jobId: string) => void;
+  markerId: string;
+}) {
+  return (
+    <div data-testid="job-seed-divider" className="flex flex-col gap-3 border-t border-dashed border-line pt-4">
+      <EyebrowLabel size="sm">
+        Now looking at: {seed.jobTitle} at {seed.companyName}
+      </EyebrowLabel>
+      <p className="font-display text-[14.5px] italic leading-relaxed text-ink-soft">
+        {jobSeedOpener(seed)}
+      </p>
+      <JobSeedActions seed={seed} pending={pending} onStarter={onStarter} keyPrefix={markerId} />
+    </div>
+  );
+}
+
+/**
  * Marginalia panel per design handoff §7 — never a boxed chat widget, no card
  * background, no radius, no shadow.
  *
@@ -74,13 +151,58 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
   const [error, setError] = useState<string | null>(null);
   /*
    * send-100 — set by a job card's "Ask Farah" button (job-seed.ts), read
-   * only while `messages` is still empty (see the render below): once a
-   * real conversation has started, a later click elsewhere still updates
-   * this but has nothing left to show it in, rather than yanking an
-   * in-progress conversation out from under the reader.
+   * only while `messages` is still empty (see the render below). Once a
+   * real conversation has started this is no longer what's shown — see
+   * `jobSeedMarkers` just below for that case.
    */
   const [jobSeed, setJobSeed] = useState<FarahJobSeed | null>(initialJobSeed ?? null);
-  useEffect(() => onFarahJobSeed(setJobSeed), []);
+
+  /*
+   * A LATER "Ask Farah" click, once a conversation already has content.
+   *
+   * THE BUG THIS EXISTS TO FIX. `jobSeed` above is only read by the
+   * empty-state branch below, so send-100's original comment described the
+   * post-first-click behaviour as "a later click elsewhere still updates
+   * this but has nothing left to show it in" — true, but the actual result
+   * was worse than a no-op: the panel kept displaying whatever answer was
+   * already on screen, about the PREVIOUS job, with nothing marking it as
+   * stale. A reader who clicked "Ask Farah" on job B after already asking
+   * about job A saw job A's real answer sitting there looking like it was
+   * about job B. The original worry (don't yank an in-progress conversation
+   * out from under the reader) was reasonable; the fix is to ADD a way to
+   * ask about the new job rather than silently doing nothing.
+   *
+   * Each entry is inserted into the rendered timeline at `insertAt` (a
+   * snapshot of `messages.length` at the moment the seed arrived), so a
+   * divider + fresh starters for the new job appear in the right place
+   * chronologically even if the reader keeps chatting and later switches to
+   * a third job. Never sent to the server and never persisted — same
+   * "purely client-side" status as `jobSeed` itself (see job-seed.ts).
+   */
+  const [jobSeedMarkers, setJobSeedMarkers] = useState<
+    Array<{ id: string; seed: FarahJobSeed; insertAt: number }>
+  >([]);
+  const messagesRef = useRef<FarahMessage[]>(messages);
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
+  useEffect(
+    () =>
+      onFarahJobSeed((seed) => {
+        setJobSeed(seed);
+        const currentLength = messagesRef.current.length;
+        // A pristine panel: the empty-state branch below already shows this
+        // seed directly, no divider needed — that view *is* the reveal.
+        if (currentLength === 0) return;
+        setJobSeedMarkers((prev) => {
+          // The same job clicked again mid-conversation — nothing changed,
+          // don't stack a redundant divider.
+          if (prev.length > 0 && prev[prev.length - 1].seed.jobId === seed.jobId) return prev;
+          return [...prev, { id: crypto.randomUUID(), seed, insertAt: currentLength }];
+        });
+      }),
+    [],
+  );
   /*
    * The gate's own indicator (0123) — `null` until the history fetch below
    * resolves, and stays `null` for a Pass holder (the route itself omits it
@@ -379,38 +501,19 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
               <p className="font-display text-[14.5px] italic leading-relaxed text-ink-soft">
                 {jobSeedOpener(jobSeed)}
               </p>
-              <div className="flex flex-col">
-                {JOB_SEED_CHAT_STARTERS.map((starter) => (
-                  <button
-                    key={starter.label}
-                    type="button"
-                    disabled={pending}
-                    onClick={() => void send(starter.label, starter.key, jobSeed.jobId)}
-                    className="flex min-h-10 items-center py-1 text-left font-body text-[13.5px] font-semibold text-ink underline underline-offset-2 hover:text-rust disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {starter.label}
-                  </button>
-                ))}
-                {/*
-                  Real generation, unchanged — same /tailor flow and same
-                  credit gate the job card's old Land group already pointed
-                  at, not a new path. See job-seed.ts's own header on why the
-                  fourth Orion-style slot is this rather than a fabricated
-                  "Connections" feature Talentrah doesn't have.
-                */}
-                <Link
-                  href={tailorHref(jobSeed.jobId)}
-                  className="flex min-h-10 items-center py-1 font-body text-[13.5px] font-semibold text-ink underline underline-offset-2 hover:text-rust"
-                >
-                  Tailor my resume for this job →
-                </Link>
-                <Link
-                  href={coverLetterHref(jobSeed.jobId)}
-                  className="flex min-h-10 items-center py-1 font-body text-[13.5px] font-semibold text-ink underline underline-offset-2 hover:text-rust"
-                >
-                  Draft an intro message for this job →
-                </Link>
-              </div>
+              {/*
+                Real generation, unchanged — same /tailor flow and same
+                credit gate the job card's old Land group already pointed
+                at, not a new path. See job-seed.ts's own header on why the
+                fourth Orion-style slot is this rather than a fabricated
+                "Connections" feature Talentrah doesn't have.
+              */}
+              <JobSeedActions
+                seed={jobSeed}
+                pending={pending}
+                onStarter={(label, quickAction, jobId) => void send(label, quickAction, jobId)}
+                keyPrefix="empty-state"
+              />
             </>
           ) : (
             <>
@@ -440,15 +543,45 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
             </>
           )
         ) : (
-          messages.map((m) =>
-            m.role === "farah" ? (
-              <div key={m.id}>{renderFarahMarkdown(m.content)}</div>
-            ) : (
-              <p key={m.id} className="text-right font-body text-[13px] text-ink">
-                {m.content}
-              </p>
-            ),
-          )
+          <>
+            {messages.map((m, i) => (
+              <Fragment key={m.id}>
+                {jobSeedMarkers
+                  .filter((marker) => marker.insertAt === i)
+                  .map((marker) => (
+                    <JobSeedMarker
+                      key={marker.id}
+                      markerId={marker.id}
+                      seed={marker.seed}
+                      pending={pending}
+                      onStarter={(label, quickAction, jobId) => void send(label, quickAction, jobId)}
+                    />
+                  ))}
+                {m.role === "farah" ? (
+                  <div data-testid="farah-message">{renderFarahMarkdown(m.content)}</div>
+                ) : (
+                  <p data-testid="farah-message" className="text-right font-body text-[13px] text-ink">
+                    {m.content}
+                  </p>
+                )}
+              </Fragment>
+            ))}
+            {/* A job seeded after the last message so far — same "insertAt
+                the current length" bookkeeping, walked past the end of the
+                array above since there's no message index left to attach
+                to. */}
+            {jobSeedMarkers
+              .filter((marker) => marker.insertAt === messages.length)
+              .map((marker) => (
+                <JobSeedMarker
+                  key={marker.id}
+                  markerId={marker.id}
+                  seed={marker.seed}
+                  pending={pending}
+                  onStarter={(label, quickAction, jobId) => void send(label, quickAction, jobId)}
+                />
+              ))}
+          </>
         )}
         {awaitingFirstToken && <p className="font-display text-[13px] italic text-ink-soft">Farah is thinking…</p>}
       </div>
