@@ -191,3 +191,74 @@ export async function getOrgSubscription(organizationId: string): Promise<OrgSub
     autoRenewStatus: data.auto_renew_status,
   };
 }
+
+/* ---------------------------------------------------------------------- *
+ * send-157 — the contact-request flow. Both reads are plain table selects
+ * through RLS (talent_directory_contact_requests, 0155), not a SECURITY
+ * DEFINER function — that table already has real, scoped SELECT policies
+ * (candidate_id = auth.uid() for the candidate; is_org_member(organization_id)
+ * for the employer side), the same shape talent_verifications' own owner-only
+ * history read already uses above.
+ * ---------------------------------------------------------------------- */
+
+export interface ContactRequest {
+  id: string;
+  organizationId: string;
+  organizationName: string;
+  message: string;
+  status: string;
+  createdAt: string;
+  decidedAt: string | null;
+}
+
+/**
+ * The candidate's own inbox — every request ever addressed to them, newest
+ * first. The `organizations(name)` embed relies on organizations' own
+ * "publicly readable" SELECT policy (0000_baseline_schema.sql) — the
+ * candidate has no membership row on the requesting org, so this can't use
+ * an is_org_member()-style check the way the employer's own read below does.
+ */
+export async function getIncomingContactRequests(userId: string): Promise<ContactRequest[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("talent_directory_contact_requests")
+    .select("id, organization_id, message, status, created_at, decided_at, organizations(name)")
+    .eq("candidate_id", userId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map((r) => ({
+    id: r.id,
+    organizationId: r.organization_id,
+    organizationName: r.organizations?.name ?? "An employer",
+    message: r.message,
+    status: r.status,
+    createdAt: r.created_at,
+    decidedAt: r.decided_at,
+  }));
+}
+
+/**
+ * Whether THIS org already has an outstanding or decided request for THIS
+ * candidate — read before rendering the "Request contact" button, so an
+ * employer sees "Pending"/"Approved"/"Declined" instead of a button that
+ * would just be refused by the partial unique index (0155) on a second
+ * click. Most recent first: an org that was declined once and is allowed to
+ * try again (the index only blocks a SECOND pending row, not a new one
+ * after a decline) should see its LATEST attempt's state, not its first.
+ */
+export async function getOwnContactRequestStatus(
+  organizationId: string,
+  candidateId: string,
+): Promise<string | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("talent_directory_contact_requests")
+    .select("status")
+    .eq("organization_id", organizationId)
+    .eq("candidate_id", candidateId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data?.status ?? null;
+}

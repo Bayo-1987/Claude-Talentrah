@@ -2683,6 +2683,61 @@ export type Database = {
           },
         ]
       }
+      talent_directory_contact_requests: {
+        Row: {
+          candidate_id: string
+          created_at: string
+          decided_at: string | null
+          id: string
+          message: string
+          organization_id: string
+          requested_by: string | null
+          status: string
+        }
+        Insert: {
+          candidate_id: string
+          created_at?: string
+          decided_at?: string | null
+          id?: string
+          message: string
+          organization_id: string
+          requested_by?: string | null
+          status?: string
+        }
+        Update: {
+          candidate_id?: string
+          created_at?: string
+          decided_at?: string | null
+          id?: string
+          message?: string
+          organization_id?: string
+          requested_by?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "talent_directory_contact_requests_candidate_id_fkey"
+            columns: ["candidate_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "talent_directory_contact_requests_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "talent_directory_contact_requests_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       talent_directory_plans: {
         Row: {
           duration_days: number
@@ -3536,6 +3591,19 @@ export type Database = {
         Args: { p_reviewer_id: string; p_verification_id: string }
         Returns: boolean
       }
+      request_talent_directory_contact: {
+        Args: {
+          p_candidate_id: string
+          p_message: string
+          p_organization_id: string
+          p_requested_by: string
+        }
+        Returns: {
+          ok: boolean
+          reason: string
+          request_id: string | null
+        }[]
+      }
       resolve_talent_directory_boost: {
         Args: { p_boost_id: string; p_days: number; p_user_id: string }
         Returns: string
@@ -3550,6 +3618,10 @@ export type Database = {
           p_verification_id: string
           p_verified: boolean
         }
+        Returns: boolean
+      }
+      respond_to_talent_directory_contact_request: {
+        Args: { p_approve: boolean; p_candidate_id: string; p_request_id: string }
         Returns: boolean
       }
       resume_ad_campaign: {

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth/require-user";
+import { requireEmployer } from "@/lib/employer/membership";
 import { createClient } from "@/lib/supabase/server";
 import {
   runTalentVerification,
@@ -9,6 +10,12 @@ import {
   type VerificationActionResult,
 } from "./verification-runner";
 import { runTalentDirectoryBoostPurchase, type BoostActionResult } from "./boost-runner";
+import {
+  runTalentDirectoryContactRequest,
+  runTalentDirectoryContactResponse,
+  type ContactRequestResult,
+  type ContactResponseResult,
+} from "./contact-runner";
 
 /* ---------------------------------------------------------------------- *
  * Free + uncapped: opt-in, availability metadata, portfolio items touch no
@@ -127,4 +134,42 @@ export async function requestTalentDirectoryBoostAction(): Promise<BoostActionRe
   const result = await runTalentDirectoryBoostPurchase(user.id);
   if (result.status === "success") revalidatePath("/talent-directory/verify");
   return result;
+}
+
+/**
+ * send-157 — an employer sends interest in a directory candidate.
+ * `organization.id` is resolved here, through the session
+ * (requireEmployer()), and handed to the runner as a trusted value — never a
+ * client-supplied organisation id, the same boundary claimJobPostingAction
+ * draws for claim_external_job_posting.
+ */
+export type { ContactRequestResult };
+
+export async function sendTalentDirectoryContactRequestAction(
+  candidateId: string,
+  _prev: unknown,
+  formData: FormData,
+): Promise<ContactRequestResult> {
+  const { organization, userId } = await requireEmployer();
+  const message = String(formData.get("message") ?? "").trim();
+  const result = await runTalentDirectoryContactRequest(organization.id, userId, candidateId, message);
+  if (result.status === "success") revalidatePath(`/employer/talent-directory/${candidateId}`);
+  return result;
+}
+
+/**
+ * send-157 — the candidate's own approve/decline. `user.id` is resolved
+ * here, through the session, and handed to the runner as p_candidateId —
+ * checked again inside respond_to_talent_directory_contact_request against
+ * the row's own candidate_id, not trusted blindly.
+ */
+export type { ContactResponseResult };
+
+export async function respondToTalentDirectoryContactRequestAction(
+  requestId: string,
+  approve: boolean,
+): Promise<void> {
+  const { user } = await requireUser();
+  await runTalentDirectoryContactResponse(requestId, user.id, approve);
+  revalidatePath("/talent-directory/verify");
 }

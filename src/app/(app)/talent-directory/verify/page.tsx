@@ -3,6 +3,7 @@ import {
   getOwnVerificationState,
   getVerificationHistory,
   getOwnPortfolioItems,
+  getIncomingContactRequests,
 } from "@/lib/talent-directory/queries";
 import { Container, EyebrowLabel, BorderedCard } from "@/components/ui";
 import { CREDIT_COSTS } from "@/lib/credits/costs";
@@ -12,6 +13,7 @@ import { OptInToggle } from "./opt-in-toggle";
 import { BoostPanel } from "./boost-panel";
 import { AvailabilityForm } from "./availability-form";
 import { PortfolioManager } from "./portfolio-manager";
+import { IncomingContactRequests } from "./incoming-contact-requests";
 
 export const metadata = { title: "Get Verified — Talentrah" };
 
@@ -37,10 +39,11 @@ const STATUS_COPY: Record<string, string> = {
  */
 export default async function TalentDirectoryVerifyPage() {
   const { user } = await requireUser();
-  const [state, history, portfolioItems] = await Promise.all([
+  const [state, history, portfolioItems, contactRequests] = await Promise.all([
     getOwnVerificationState(user.id),
     getVerificationHistory(user.id),
     getOwnPortfolioItems(user.id),
+    getIncomingContactRequests(user.id),
   ]);
 
   if (!state) return null;
@@ -65,6 +68,8 @@ export default async function TalentDirectoryVerifyPage() {
         <VerificationPanel status={state.status} />
         {(state.status === "unverified" || state.status === "rejected") && <HumanReviewForm />}
       </BorderedCard>
+
+      {contactRequests.length > 0 && <IncomingContactRequests requests={contactRequests} />}
 
       {state.status === "verified" && (
         <BorderedCard className="flex flex-col gap-4 p-5">
