@@ -1,0 +1,40 @@
+-- 0152 — closes the same "wide-open ALL ON ALL TABLES grant, no covering
+-- RLS policy" gap 0140/0145/0150/0151 already closed elsewhere, this time
+-- on `profiles` itself — the root identity table, given its own migration
+-- rather than being folded into 0151's 21-table batch, since the blast
+-- radius of getting this one wrong is categorically higher than any of
+-- those.
+--
+-- Confirmed live on production before writing this (not assumed):
+--   select privilege_type from information_schema.table_privileges
+--   where grantee='authenticated' and table_name='profiles'
+--     and privilege_type in ('INSERT','DELETE');
+--   -> INSERT, DELETE (both still granted)
+--
+-- `profiles` already has a real UPDATE policy ("profiles are self-updatable")
+-- with real column-level restrictions on top of it (0030 locked
+-- credits_balance/free_trial_tailoring_used/referral_code/referred_by;
+-- 0041/0045 extended the same treatment to other value-bearing columns) —
+-- none of that is touched here. This migration is about the two commands
+-- 0030's own systematic pass never reached: INSERT and DELETE.
+--
+-- INSERT: the only place a `profiles` row is ever created is
+-- handle_new_user() (0000, replaced by 0036 and 0092 for self-referral and
+-- repricing reasons unrelated to this), a SECURITY DEFINER trigger on
+-- auth.users that runs as the function's owner, not as `authenticated` — a
+-- client-issued INSERT was never how this table gets rows, only ever a
+-- redundant, unused grant sitting behind the trigger. `grep -rn
+-- 'from("profiles")' src/` confirms zero insert/upsert call sites anywhere
+-- in application code.
+--
+-- DELETE: no account-deletion feature exists in this codebase yet (a
+-- client-side privacy-policy PAGE mentions the concept; no code path
+-- implements it) — this NFR (build-prompt §8: "support account/data
+-- deletion") is still open. When it ships, it will need its own design
+-- (this table's FKs are a mix of CASCADE and NO ACTION, per CLAUDE.md's own
+-- note on organizations/payment_transactions) and almost certainly a
+-- service-role-mediated flow rather than a direct client DELETE on the row
+-- everything else in the schema points at — so revoking the unused grant
+-- now costs nothing and removes one more surface a future policy addition
+-- could accidentally expose.
+revoke insert, delete on public.profiles from authenticated;

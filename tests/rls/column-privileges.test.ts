@@ -270,6 +270,31 @@ describe("profiles: a user cannot rewrite what their account is worth (0030)", (
       .single();
     expect(still?.credits_balance).toBe(before);
   });
+
+  /**
+   * 0152's own standing check. Distinct from every test above: those all
+   * prove a COLUMN-level restriction on top of a real, intentional UPDATE
+   * policy. This proves the whole TABLE-level grant for two other commands
+   * is gone — profiles has never had a client-issued INSERT (only
+   * handle_new_user(), SECURITY DEFINER) or DELETE (no account-deletion
+   * feature exists in code yet) path at all.
+   */
+  it("cannot insert a fabricated profile row directly", async () => {
+    const { error } = await user.client.from("profiles").insert({
+      id: randomUUID(),
+      first_name: "Fabricated",
+      email: `fabricated-${randomUUID()}@talentrah.test`,
+      country: "Nigeria",
+    } as never);
+    expect(error?.code, "GRANT BUG: profiles INSERT not refused at the grant level").toBe("42501");
+  });
+
+  it("cannot delete its own profile row directly", async () => {
+    const { error } = await user.client.from("profiles").delete().eq("id", user.id);
+    expect(error?.code, "GRANT BUG: profiles DELETE not refused at the grant level").toBe("42501");
+    const { data: stillThere } = await admin.from("profiles").select("id").eq("id", user.id).maybeSingle();
+    expect(stillThere?.id, "the profile must survive an attempted client-side delete").toBe(user.id);
+  });
 });
 
 describe("organizations: a company cannot verify itself (0028)", () => {
