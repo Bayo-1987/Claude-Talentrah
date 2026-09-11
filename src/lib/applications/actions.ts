@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { loadJobSnapshot } from "./job-snapshot";
 import { logCountryDefaultEvent, type CountryState } from "@/lib/jobs/country-events";
 import { findActiveCampaignForJobPosting, recordAdEvent } from "@/lib/ads/promoted";
+import { computeAndStoreApplicationMatchScore } from "@/lib/matching/compute-and-store";
 
 async function getAuthedUserId() {
   const supabase = await createClient();
@@ -183,6 +184,25 @@ export async function applyInAppAction(jobId: string, countryState: CountryState
       console.error("[ads] apply-event recording failed:", err);
     }
   });
+
+  // send-158: cache this applicant's match score against this job at the one
+  // guaranteed moment a resume and a job posting exist together — see
+  // computeAndStoreApplicationMatchScore's own header for why the feed's own
+  // scoring can't be relied on to have already done this. Skipped entirely
+  // when there's no base resume (payload.resume_id is already null in that
+  // case) — nothing to score. Deferred and swallowed, same reasoning as
+  // logCountryDefaultEvent just above: a scoring failure must never fail the
+  // apply itself, and there is no response left to fail by the time this runs.
+  if (payload.resume_id) {
+    const resumeId = payload.resume_id;
+    after(async () => {
+      try {
+        await computeAndStoreApplicationMatchScore(supabase, userId, jobId, resumeId);
+      } catch (err) {
+        console.error("[matching] could not score application:", err);
+      }
+    });
+  }
 
   revalidatePath("/jobs");
   /*
