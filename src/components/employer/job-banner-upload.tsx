@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { BorderedCard, EyebrowLabel } from "@/components/ui";
 import { BANNER_GUIDANCE } from "@/lib/employer/banner";
+import { CROP_OUTPUT_WIDTH, CROP_OUTPUT_HEIGHT } from "@/lib/employer/banner-crop";
 import { BannerCropPicker, type BannerCropOutcome } from "./banner-crop-picker";
 
 /**
@@ -73,6 +74,14 @@ export function JobBannerUpload({
         <img
           src={currentBannerUrl}
           alt="The banner currently on this posting"
+          // Real intrinsic dimensions (every banner is cropped to this exact
+          // size before upload — banner-crop.ts's own CROP_OUTPUT_WIDTH/
+          // HEIGHT), not just the CSS aspect ratio below — so the browser
+          // reserves the right space before the image loads instead of
+          // shifting layout once it does, same reasoning the public job
+          // detail page's own banner already applies (jobs/[id]/page.tsx).
+          width={CROP_OUTPUT_WIDTH}
+          height={CROP_OUTPUT_HEIGHT}
           className="aspect-[4/1] w-full border-[1.5px] border-ink object-cover"
         />
       )}
