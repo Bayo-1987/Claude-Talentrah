@@ -1,0 +1,60 @@
+-- 0153 — closes the same "wide-open ALL ON ALL TABLES grant, no covering
+-- RLS policy" gap 0140/0145/0150/0151/0152 already closed elsewhere, this
+-- time on `organizations` (DELETE) and `organization_members`
+-- (UPDATE/DELETE) — given their own migration rather than folded into
+-- 0151's batch, because closing this one required a real code change
+-- alongside it (see the accompanying commit to
+-- src/lib/employer/actions.ts), not just a revoke.
+--
+-- Confirmed live on production before writing this:
+--   select table_name, privilege_type from information_schema.table_privileges
+--   where grantee='authenticated' and table_name in ('organizations','organization_members')
+--     and privilege_type in ('INSERT','UPDATE','DELETE');
+--   -> organizations: DELETE. organization_members: UPDATE, DELETE.
+-- (organizations INSERT and organization_members INSERT are untouched —
+-- both have real, exercised policies: "authenticated users can create an
+-- organization" and "a user can join an organisation they created".
+-- organizations UPDATE is also untouched — "org members can update their
+-- organization" is real and 0028 already column-locks `verified` on top of
+-- it.)
+--
+-- ── THE REAL BUG THIS AUDIT FOUND ────────────────────────────────────────
+--
+-- Confirmed via pg_policies: neither table has EVER had a DELETE policy —
+-- not even a narrow one. Which means createOrganizationAction's own
+-- rollback-delete calls (src/lib/employer/actions.ts, written when the org
+-- flow itself was built) have been silently affecting ZERO rows since the
+-- day they were written, for both cases they handle:
+--   1. organization_members insert fails after the org was created ->
+--      "roll back rather than leave an org nobody belongs to."
+--   2. a 23505 domain-uniqueness race (0044) is lost -> "roll this one back
+--      rather than leave a duplicate sitting unverified forever."
+-- Both comments describe orphan/duplicate cleanup that was never actually
+-- happening. This is the exact "RLS default-deny for UPDATE/DELETE is
+-- silent, not an error" trap CLAUDE.md already documents for grants in
+-- general (tests/rls/cross-user.test.ts's own header states it precisely:
+-- "under RLS a non-matching UPDATE/DELETE succeeds affecting zero rows") —
+-- here it was never even about a NON-matching row; the row matched fine,
+-- there was simply no policy to let the match through at all.
+--
+-- Confirmed empirically before writing the fix: a real authenticated
+-- session's DELETE against its own just-created (and RLS-visible) org row
+-- returns { error: null, count: 0 } and the row survives — the exact shape
+-- neither test file's own "write control" sections would catch, since none
+-- of them specifically exercised this action's own rollback branches.
+--
+-- ── THE FIX, NOT JUST THE REVOKE ─────────────────────────────────────────
+--
+-- The accompanying code change switches those three delete calls (one in
+-- the memberError branch, two in the 23505 branch) to the service-role
+-- client — the same "internal cleanup path, not a user-facing action"
+-- reasoning every OTHER money/trust write in this codebase already follows
+-- (payment_transactions, credit_ledger, etc.). This product has never
+-- wanted a general "org owner can delete their org" policy — CLAUDE.md's
+-- own note on organizations'/payment_transactions' NO ACTION foreign keys
+-- says as much ("removing an organisation must not silently vaporise live
+-- job postings") — so inventing a client-facing DELETE policy here would
+-- be solving the wrong problem. Revoking the unused, silently-broken grant
+-- and fixing the actual cleanup code are the same change.
+revoke delete on public.organizations from authenticated;
+revoke update, delete on public.organization_members from authenticated;
