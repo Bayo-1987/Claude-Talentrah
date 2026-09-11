@@ -359,3 +359,20 @@ describe("nothing here loosens the seeker's own applications/resumes RLS", () =>
     expect(rawResumes ?? [], "an org member must not gain direct table access to resumes").toHaveLength(0);
   });
 });
+
+/**
+ * 0151's own standing check — see that migration's header. The owning org's
+ * own upsert (setApplicantStatusAction) is untouched — this proves only the
+ * DELETE gap is closed, not the real, working write path.
+ */
+describe("0151: employer_applicant_status has no direct client DELETE, at the grant level", () => {
+  it("the owning org cannot delete the status row for their own application", async () => {
+    const { error } = await orgOwnerA.client
+      .from("employer_applicant_status")
+      .delete()
+      .eq("application_id", applicationId);
+    expect(error?.code, "GRANT BUG: employer_applicant_status DELETE not refused at the grant level").toBe(
+      "42501",
+    );
+  });
+});

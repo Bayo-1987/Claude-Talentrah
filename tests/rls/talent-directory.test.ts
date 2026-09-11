@@ -426,3 +426,50 @@ describe("0137: the seeker-paid search boost never overrides the verified+opted-
     ).toBeLessThan(unboostedIndex);
   });
 });
+
+/**
+ * 0151's own standing check — see that migration's header for the full
+ * reasoning. talent_directory_boosts' whole lifecycle already goes through
+ * runTalentDirectoryBoostPurchase (boost-runner.ts), service-role only; this
+ * proves the grant itself is gone, not just that no client-facing feature
+ * happens to call it directly today.
+ */
+describe("0151: talent_directory_boosts has no direct client write path, at the grant level", () => {
+  it("a seeker cannot insert, update, or delete their own boost row directly", async () => {
+    const { error: insertError } = await boostedVerifiedOptedIn.client.from("talent_directory_boosts").insert({
+      user_id: boostedVerifiedOptedIn.id,
+      days: 30,
+      status: "pending",
+    } as never);
+    expect(insertError?.code, "MONEY BUG: talent_directory_boosts INSERT not refused at the grant level").toBe(
+      "42501",
+    );
+
+    // This fixture's own boost was set directly on profiles.talent_boosted_until
+    // (see beforeAll above), not via a talent_directory_boosts row — seed one
+    // here so the update/delete attempts below have a real row to target.
+    const { data: boostRow } = await admin
+      .from("talent_directory_boosts")
+      .insert({ user_id: boostedVerifiedOptedIn.id, days: 7, status: "pending" })
+      .select("id")
+      .single();
+
+    const { error: updateError } = await boostedVerifiedOptedIn.client
+      .from("talent_directory_boosts")
+      .update({ days: 999 })
+      .eq("id", boostRow!.id);
+    expect(updateError?.code, "MONEY BUG: talent_directory_boosts UPDATE not refused at the grant level").toBe(
+      "42501",
+    );
+
+    const { error: deleteError } = await boostedVerifiedOptedIn.client
+      .from("talent_directory_boosts")
+      .delete()
+      .eq("id", boostRow!.id);
+    expect(deleteError?.code, "GRANT BUG: talent_directory_boosts DELETE not refused at the grant level").toBe(
+      "42501",
+    );
+
+    await admin.from("talent_directory_boosts").delete().eq("id", boostRow!.id);
+  });
+});
