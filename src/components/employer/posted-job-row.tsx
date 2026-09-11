@@ -216,11 +216,11 @@ export function PostedJobRow({
           reflect that state honestly, not a second copy of the button
           silently reappearing.
 
-          TODO once Phase 2 (CAC verification, 0113/0114) merges: this should
-          also stay hidden for an org that is CAC-verified even though
-          `orgVerified` (domain verification) is false — Path 3 exists for an
-          org with NEITHER route. That column does not exist on this branch's
-          base yet, so `orgVerified` is the only signal available here.
+          CAC verification (0113/0114/0120) already covered by `orgVerified`
+          alone: `decideCacVerificationAction`'s approve branch
+          (src/lib/admin/moderation/actions.ts) sets the SAME
+          `organizations.verified` column domain verification does — there is
+          no separate "CAC-verified but not verified" state to check for.
         */}
         {job.status === "open" &&
           !orgVerified &&
