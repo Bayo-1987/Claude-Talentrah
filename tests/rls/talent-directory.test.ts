@@ -256,6 +256,89 @@ describe("talent_directory_portfolio_items: same gates, independently", () => {
   });
 });
 
+/**
+ * 0150's own standing check: talent_directory_plans and
+ * talent_directory_subscriptions have never had INSERT/UPDATE/DELETE
+ * revoked from `authenticated` since 0135 created them — only their own
+ * SELECT policies existed. Both tables are purely service-role-written
+ * (the plan catalog is an admin-managed table; a subscription purchase goes
+ * through Paystack fulfilment), so there is no legitimate column list to
+ * re-grant, unlike profiles/mentor_profiles's partial revokes. CLAUDE.md's
+ * own column-privilege lesson, applied here directly — proving the GRANT is
+ * gone, not just that no policy happens to permit it today.
+ */
+describe("0150: talent_directory_plans/subscriptions have NO direct client write path, at the grant level", () => {
+  it("an org owner cannot insert a fabricated plan directly", async () => {
+    const { error } = await subscribedOrgOwner.client
+      .from("talent_directory_plans")
+      .insert({ name: "Free Plan", price_ngn: 0, is_active: true });
+    expect(
+      error?.code,
+      "GRANT BUG: a direct client INSERT into talent_directory_plans was not refused at the grant level",
+    ).toBe("42501");
+  });
+
+  it("an org owner cannot update the plan catalog's price directly", async () => {
+    const { error } = await subscribedOrgOwner.client
+      .from("talent_directory_plans")
+      .update({ price_ngn: 0 })
+      .eq("id", planId);
+    expect(
+      error?.code,
+      "MONEY BUG: a direct client UPDATE on talent_directory_plans' price was not refused at the grant level",
+    ).toBe("42501");
+  });
+
+  it("an org owner cannot insert a fabricated subscription for their own org directly", async () => {
+    const { error } = await subscribedOrgOwner.client.from("talent_directory_subscriptions").insert({
+      organization_id: subscribedOrgId,
+      plan_id: planId,
+      expires_at: new Date(Date.now() + 365 * 24 * 3600_000).toISOString(),
+      status: "active",
+    });
+    expect(
+      error?.code,
+      "MONEY BUG: a direct client INSERT into talent_directory_subscriptions was not refused at the grant level",
+    ).toBe("42501");
+  });
+
+  it("an org owner cannot extend their own subscription's expiry directly", async () => {
+    const { error } = await subscribedOrgOwner.client
+      .from("talent_directory_subscriptions")
+      .update({ expires_at: new Date(Date.now() + 365 * 24 * 3600_000).toISOString() })
+      .eq("id", subscriptionId);
+    expect(
+      error?.code,
+      "MONEY BUG: a direct client UPDATE on talent_directory_subscriptions' expiry was not refused at the grant level",
+    ).toBe("42501");
+
+    const { data: unchanged } = await admin
+      .from("talent_directory_subscriptions")
+      .select("expires_at")
+      .eq("id", subscriptionId)
+      .single();
+    expect(unchanged?.expires_at, "the subscription's real expiry must survive an attempted client-side extension").not.toBeNull();
+  });
+
+  it("an unsubscribed org owner cannot delete another org's subscription directly", async () => {
+    const { error } = await unsubscribedOrgOwner.client
+      .from("talent_directory_subscriptions")
+      .delete()
+      .eq("id", subscriptionId);
+    expect(
+      error?.code,
+      "GRANT BUG: a direct client DELETE on talent_directory_subscriptions was not refused at the grant level",
+    ).toBe("42501");
+
+    const { data: stillThere } = await admin
+      .from("talent_directory_subscriptions")
+      .select("id")
+      .eq("id", subscriptionId)
+      .maybeSingle();
+    expect(stillThere?.id, "the subscription row must survive an attempted client-side delete").toBe(subscriptionId);
+  });
+});
+
 describe("no other query path leaks a non-opted-in seeker's data", () => {
   it("talent_portfolio_items itself stays owner-only RLS — an org owner cannot read it directly", async () => {
     const { data, error } = await subscribedOrgOwner.client
