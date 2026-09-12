@@ -1,0 +1,34 @@
+version: 2
+updates:
+  # npm dependencies — weekly, grouped so a routine update round doesn't open
+  # a dozen individual PRs. Security updates for anything Dependabot itself
+  # flags as vulnerable are opened immediately regardless of this schedule
+  # (that's Dependabot's own default behavior, not something to configure
+  # here) — the weekly cadence below is for ordinary version-bump PRs only.
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    groups:
+      # Patch/minor bumps across the board, batched into one PR a week —
+      # this is the noisy long tail (types packages, small utility libs)
+      # where reviewing each individually would be pure overhead.
+      routine-updates:
+        update-types:
+          - "minor"
+          - "patch"
+    # Major version bumps stay ungrouped and individual — those are the ones
+    # actually worth reading a changelog for before merging.
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+
+  # GitHub Actions themselves (actions/checkout, actions/setup-node, etc.) —
+  # a compromised action is a supply-chain hole with direct repo/secrets
+  # access, same class of risk as a compromised npm package, and had zero
+  # coverage before this file existed.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"

@@ -23,7 +23,12 @@ const SENIORITY_ORDER: Record<SeniorityLevel, number> = {
 };
 
 function inferResumeSeniority(resume: StructuredResume): SeniorityLevel | undefined {
-  const mostRecentTitle = resume.experience[0]?.title;
+  // Same latent-crash shape as resume.skills (resume-skills.ts's own
+  // comment has the full story): `experience` is typed as required, but an
+  // unvalidated stored resume can genuinely lack it. `?.[0]` rather than
+  // `[0]` treats that the same as an empty work history — unknown
+  // seniority, not a crash.
+  const mostRecentTitle = resume.experience?.[0]?.title;
   return mostRecentTitle ? inferSeniority(mostRecentTitle) : undefined;
 }
 
