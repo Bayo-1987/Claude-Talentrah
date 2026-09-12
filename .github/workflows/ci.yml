@@ -67,7 +67,7 @@ jobs:
     # because the failure it prevents is the one that looks like somebody
     # else's fault.
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # Two commits is enough to diff this branch against a freshly
           # fetched main; the script fetches main itself rather than relying
@@ -114,7 +114,7 @@ jobs:
     # that only warns is a scanner people learn to scroll past, and this
     # repo's own history is the argument for that not being optional.
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # Needed to resolve base..head below. A shallow clone has no merge
           # base, and gitleaks would silently scan nothing.
@@ -224,7 +224,7 @@ jobs:
     # silently. Revisit the level (not the existence of the gate) if a
     # low-severity backlog ever makes this noisy.
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v4
         with:
@@ -240,7 +240,7 @@ jobs:
     name: Typecheck, lint, unit tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v4
         with:
@@ -336,7 +336,7 @@ jobs:
     needs: checks
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v4
         with:
