@@ -137,7 +137,16 @@ export default async function RemoteJobsPage() {
       */}
       {session ? (
         <div className="flex flex-col gap-2 border-t border-line pt-5">
-          <Link href="/jobs" className={buttonClasses("primary", "sm", "no-underline w-fit")}>
+          {/*
+            `/jobs?workType=remote`, not plain `/jobs` — /jobs already parses
+            this param (src/app/(app)/jobs/page.tsx), so a returning visitor
+            lands back on the same filtered view this page represents rather
+            than a generic feed they have to re-filter by hand.
+          */}
+          <Link
+            href="/jobs?workType=remote"
+            className={buttonClasses("primary", "sm", "no-underline w-fit")}
+          >
             Go to Jobs to see your match score
           </Link>
           <p className="text-[12.5px] text-ink-soft">

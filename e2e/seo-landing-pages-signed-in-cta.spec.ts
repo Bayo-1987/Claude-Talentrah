@@ -86,13 +86,33 @@ test.describe("SEO landing pages don't pitch a signed-in visitor the account the
     }
   }
 
+  /*
+   * `expectedHref` per page, not just the shared link text — /jobs/remote
+   * and /jobs/remote/[country] carry their own filter through to /jobs
+   * (`?workType=remote`, `?workType=remote&country=<TrackedCountry>`) so a
+   * returning visitor lands back on the same filtered view rather than a
+   * generic feed to re-filter by hand. /jobs/in/[city] has no matching city
+   * filter on /jobs to hand off to, so plain "/jobs" there is correct, not
+   * an oversight — the assertion below still pins it explicitly so a future
+   * change can't silently drop the other two back to generic without this
+   * test moving.
+   */
   const PAGES = [
-    { path: "/jobs/in/lagos", label: "city" },
-    { path: "/jobs/remote", label: "remote" },
-    { path: "/jobs/remote/nigeria", label: "country" },
+    { path: "/jobs/in/lagos", label: "city", expectedHref: "/jobs" },
+    { path: "/jobs/remote", label: "remote", expectedHref: "/jobs?workType=remote" },
+    {
+      path: "/jobs/remote/nigeria",
+      label: "country",
+      expectedHref: "/jobs?workType=remote&country=Nigeria",
+    },
   ] as const;
 
-  for (const { path, label } of PAGES) {
+  /** React/Next escape `&` as `&amp;` in rendered HTML attribute values. */
+  function hrefAttr(href: string): string {
+    return `href="${href.replace(/&/g, "&amp;")}"`;
+  }
+
+  for (const { path, label, expectedHref } of PAGES) {
     test(`${label} page (${path}): signed in sees the Jobs pointer, not the signup pitch`, async ({
       authedPage,
       testUser,
@@ -108,6 +128,10 @@ test.describe("SEO landing pages don't pitch a signed-in visitor the account the
       expect(body, `${path} is missing the signed-in Jobs pointer`).toContain(
         "Go to Jobs to see your match score",
       );
+      expect(
+        body,
+        `${path}'s signed-in Jobs pointer must carry this page's own filter through as ${expectedHref}, not a generic /jobs`,
+      ).toContain(hrefAttr(expectedHref));
     });
   }
 
