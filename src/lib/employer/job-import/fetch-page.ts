@@ -1,8 +1,20 @@
 import "server-only";
 import { decodeHtmlEntities } from "@/lib/jobs/extract-jd";
 import { isUrlAllowedByRobots } from "./robots";
+import { checkUrlIsSafeToFetch } from "@/lib/security/ssrf-guard";
 
 const FETCH_TIMEOUT_MS = 10_000;
+
+/**
+ * A pasted URL can redirect, and a hostname allowlist checked only on the
+ * URL the employer typed would say nothing about where a 3xx chain actually
+ * ends up — so redirects are followed manually here, one hop at a time,
+ * with the SSRF check re-run on every target before it's fetched. Five hops
+ * is generous for a real careers-page redirect (login-wall bounces, a CDN
+ * or www-canonicalization redirect, at most one or two of each) and short
+ * enough that a malicious or broken chain fails fast rather than spinning.
+ */
+const MAX_REDIRECTS = 5;
 
 /**
  * Hard ceiling on the RAW HTML this will even attempt to process, before any
@@ -75,6 +87,69 @@ export function htmlToPlainText(html: string): string {
  * action.ts and CLAUDE.md's requirement that a blocked/failed fetch falls
  * back to the blank form, not a crash.
  */
+const REQUEST_HEADERS = {
+  // Identifies this as what it is — an employer-initiated import, not
+  // an anonymous scraper or a named AI crawler — see robots.ts's
+  // header for why the *general* `*` robots group is still the one
+  // that governs this regardless of the UA string.
+  "User-Agent": "Mozilla/5.0 (compatible; TalentrahJobImportBot/1.0; +employer-initiated job import)",
+  Accept: "text/html,application/xhtml+xml",
+};
+
+const REDIRECT_STATUS_CODES = new Set([301, 302, 303, 307, 308]);
+
+/**
+ * `redirect: "follow"` is exactly what an SSRF-safe fetch cannot use: the
+ * hostname allowlist would only ever see the URL the caller typed, not
+ * where a 3xx chain actually lands. This follows redirects itself, one hop
+ * at a time, re-running the full SSRF check (`checkUrlIsSafeToFetch`) on
+ * every target BEFORE fetching it — including the first.
+ */
+async function fetchWithSsrfGuard(
+  startUrl: URL,
+): Promise<{ ok: true; response: Response } | { ok: false; reason: string }> {
+  let currentUrl = startUrl;
+
+  for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+    const safety = await checkUrlIsSafeToFetch(currentUrl);
+    if (!safety.allowed) {
+      return { ok: false, reason: "That address can't be fetched — it points at a non-public network." };
+    }
+
+    let response: Response;
+    try {
+      response = await fetch(currentUrl.toString(), {
+        redirect: "manual",
+        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+        headers: REQUEST_HEADERS,
+      });
+    } catch {
+      return { ok: false, reason: "Couldn't reach that page — check the URL and try again." };
+    }
+
+    if (!REDIRECT_STATUS_CODES.has(response.status)) {
+      return { ok: true, response };
+    }
+
+    const location = response.headers.get("location");
+    if (!location) {
+      return { ok: false, reason: "That page redirected without saying where to." };
+    }
+    let nextUrl: URL;
+    try {
+      nextUrl = new URL(location, currentUrl);
+    } catch {
+      return { ok: false, reason: "That page redirected to an address that couldn't be read." };
+    }
+    if (nextUrl.protocol !== "http:" && nextUrl.protocol !== "https:") {
+      return { ok: false, reason: "That page redirected to a non-web address." };
+    }
+    currentUrl = nextUrl;
+  }
+
+  return { ok: false, reason: "That page redirected too many times." };
+}
+
 export async function fetchJobPage(rawUrl: string): Promise<FetchJobPageResult> {
   const url = normalizeUrl(rawUrl);
   if (!url) return { ok: false, reason: "That doesn't look like a valid web address." };
@@ -87,24 +162,9 @@ export async function fetchJobPage(rawUrl: string): Promise<FetchJobPageResult> 
     };
   }
 
-  let response: Response;
-  try {
-    response = await fetch(url.toString(), {
-      redirect: "follow",
-      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-      headers: {
-        // Identifies this as what it is — an employer-initiated import, not
-        // an anonymous scraper or a named AI crawler — see robots.ts's
-        // header for why the *general* `*` robots group is still the one
-        // that governs this regardless of the UA string.
-        "User-Agent":
-          "Mozilla/5.0 (compatible; TalentrahJobImportBot/1.0; +employer-initiated job import)",
-        Accept: "text/html,application/xhtml+xml",
-      },
-    });
-  } catch {
-    return { ok: false, reason: "Couldn't reach that page — check the URL and try again." };
-  }
+  const fetched = await fetchWithSsrfGuard(url);
+  if (!fetched.ok) return { ok: false, reason: fetched.reason };
+  const response = fetched.response;
 
   if (!response.ok) {
     return { ok: false, reason: `That page returned an error (HTTP ${response.status}).` };
