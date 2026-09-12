@@ -24,9 +24,18 @@ import { test, expect, type Page } from "@playwright/test";
  * It is gated to 2xl for that reason: tens of pixels of margin is not margin
  * when the platform can move it, and production serves every platform.
  *
- * So the sweep runs past the gate — 1536 and 1728 are here so the widths where
- * the item IS rendered are actually asserted, not just the ones where it is
- * hidden and the gap check silently skips.
+ * IT CAUGHT A THIRD VERSION TOO, from a font rather than a platform: the
+ * Sunbird design swap (send-197) replaced Source Sans 3 with DM Sans, which
+ * paints every nav label wider at the same size and weight. That alone grew
+ * the nav row 64.8px at 1536px and took the gap to "Post a job" to exactly 0
+ * — caught by this same sweep, with no structural diff anywhere to explain
+ * it (see masthead.tsx's own comment for the measurement). The gate moved
+ * again, to `min-[1792px]`.
+ *
+ * So the sweep runs past the gate — 1792 and 1800 are here so the widths
+ * where the item IS rendered are actually asserted, not just the ones where
+ * it is hidden and the gap check silently skips. 1536 and 1728 stay in the
+ * sweep too, now on the hidden side of the gate.
  */
 
 const DEMO_PASSWORD = process.env.DEMO_PASSWORD;
@@ -167,8 +176,8 @@ test.describe("reaching Farah on a phone", () => {
 test.describe("reaching Farah on a desktop", () => {
   test.skip(!DEMO_PASSWORD, "DEMO_PASSWORD is not set — see scripts/seed.ts");
 
-  test("at 2xl the masthead carries the item and the bar is gone", async ({ page }) => {
-    await page.setViewportSize({ width: 1536, height: 900 });
+  test("at min-[1792px] the masthead carries the item and the bar is gone", async ({ page }) => {
+    await page.setViewportSize({ width: 1792, height: 900 });
     await login(page);
 
     await expect(page.getByTestId("farah-mobile-tab")).toBeHidden();
@@ -200,7 +209,7 @@ test.describe("reaching Farah on a desktop", () => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await login(page);
 
-    for (const width of [760, 800, 860, 900, 1024, 1280, 1536, 1728]) {
+    for (const width of [760, 800, 860, 900, 1024, 1280, 1536, 1728, 1792, 1800]) {
       await page.setViewportSize({ width, height: 900 });
       await page.waitForTimeout(200);
 

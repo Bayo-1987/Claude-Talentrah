@@ -129,6 +129,32 @@ export function Masthead({
    * since it lives in the right-hand group. e2e/masthead-nav-fit.spec.ts
    * asserts both: the gap at every width the bar renders, and that nothing is
    * stranded below.
+   *
+   * IT BROKE AGAIN, FROM A DIRECTION THIS COMMENT DIDN'T ANTICIPATE: not a new
+   * item, but a new TYPEFACE. The Sunbird design swap (send-197) replaced
+   * Source Sans 3 with DM Sans for every one of these labels, and DM Sans
+   * paints wider at the same size and weight — measured, on this exact row at
+   * 1536px, as +64.8px across the nav's own width alone (every label grew a
+   * few px; nothing was added or removed). That took the "~256px of slack"
+   * this comment used to claim down to a bare 79.57px first (the nav had
+   * already grown by two items since that figure was written and nobody
+   * re-measured it), then the font swap finished it to exactly 0 — "Ask
+   * Farah" and "Post a job" touching, pixel for pixel. Same lesson as the
+   * paragraph above, aimed at a different kind of change: a margin measured
+   * once is a number about to go stale, and "the text got wider" is invisible
+   * to a source diff the way "a link got added" is not — nothing here changed
+   * shape, only paint.
+   *
+   * Re-measured under Sunbird's fonts and moved again, to `min-[1792px]`
+   * (Tailwind has no named breakpoint there, hence the arbitrary value — the
+   * same idiom "Post a job" and the EN chip already use below). At 1792px the
+   * gap is 226px, close to the real slack this row is supposed to carry
+   * rather than the wafer-thin 79.57px it had drifted down to. Yes, this
+   * means a 1728px-wide display (a 16" MacBook Pro's native logical width)
+   * now gets the disclosure instead of the bar — an intentional cost, for the
+   * same reason the 1536 move accepted the same cost at a smaller scale: a
+   * threshold with real margin that sometimes collapses beats one with none
+   * that sometimes overlaps.
    */
   useEffect(() => {
     if (!navOpen) return;
@@ -217,7 +243,7 @@ export function Masthead({
               className="h-6 w-auto flex-shrink-0 min-[480px]:h-8"
             />
           </Link>
-          <nav className="hidden items-center gap-5.5 2xl:flex">
+          <nav className="hidden items-center gap-5.5 min-[1792px]:flex">
             {NAV_LINKS.map((link) => {
               const active = pathname?.startsWith(link.href);
               const href = hrefFor(link);
@@ -307,6 +333,22 @@ export function Masthead({
               At 2xl there is ~256px of slack rather than tens of pixels, which
               survives a platform that renders wider.
 
+              MOVED AGAIN, to `min-[1792px]`, when that slack ran out from a
+              direction font metrics rather than viewport width: the Sunbird
+              swap (send-197) replaced Source Sans 3 with DM Sans, which paints
+              every one of these labels a few pixels wider at the same size and
+              weight. Measured at 1536px, the whole row (not just this button)
+              grew 64.8px, and the two items either side of this button's own
+              growth left the gap to "Post a job" at exactly 0 — the same
+              zero-margin failure this section already describes for a
+              narrower viewport, reappearing for a wider typeface instead.
+              Tightening the nav's own rhythm was rejected here for the same
+              reason it was rejected above; re-measured under the new fonts,
+              1792px carries a real 226px gap rather than the 79.57px the 1536
+              breakpoint had actually degraded to by the time the font swap
+              landed (two nav items had been added since "~256px" was written,
+              and nobody had re-measured it).
+
               Nothing is lost below it. The Farah panel is a sticky column that
               is ON SCREEN at every width from 760 up, so this item is a
               convenience wherever it does not appear, never the only route. It
@@ -317,7 +359,7 @@ export function Masthead({
             <button
               type="button"
               onClick={scrollToFarahPanel}
-              className="hidden min-h-10 min-w-10 items-center justify-center gap-1.5 border-b-[2.5px] border-transparent font-body text-[14.5px] font-semibold text-ink hover:text-coral-hover 2xl:flex"
+              className="hidden min-h-10 min-w-10 items-center justify-center gap-1.5 border-b-[2.5px] border-transparent font-body text-[14.5px] font-semibold text-ink hover:text-coral-hover min-[1792px]:flex"
             >
               <FarahMark size={18} />
               Ask Farah
@@ -331,7 +373,7 @@ export function Masthead({
           */}
           <div
             ref={navRef}
-            className="relative flex items-center 2xl:hidden"
+            className="relative flex items-center min-[1792px]:hidden"
           >
             <button
               type="button"

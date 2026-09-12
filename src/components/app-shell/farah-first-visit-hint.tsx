@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { Card } from "@/components/ui/card";
 import { FarahMark } from "@/components/ui/farah-mark";
 import { dismissFarahHintAction } from "@/lib/profile/settings-actions";
 import { scrollToFarahPanel } from "@/lib/farah/scroll-to-panel";
@@ -18,9 +19,15 @@ import { scrollToFarahPanel } from "@/lib/farah/scroll-to-panel";
  * with the same breakpoints the affordances themselves use — no new numbers
  * are introduced here:
  *
- *   below 760   FarahMobileTab, fixed to the bottom      -> hint sits above it
- *   760 to 2xl  the panel itself, a sticky right column  -> hint sits beside it
- *   2xl and up  the masthead's "Ask Farah" item          -> hint sits under it
+ *   below 760          FarahMobileTab, fixed to the bottom      -> hint sits above it
+ *   760 to 1792        the panel itself, a sticky right column  -> hint sits beside it
+ *   1792 and up        the masthead's "Ask Farah" item          -> hint sits under it
+ *
+ * The masthead item's own breakpoint moved from `2xl` (1536) to `min-[1792px]`
+ * during the Sunbird font swap (masthead.tsx has the full measurement) — this
+ * component's copy has to move with it, not just the affordances it names,
+ * because the wrong copy at 1536-1791px would tell someone to "Use Ask Farah
+ * in the menu bar" while the bar is still collapsed behind the disclosure.
  *
  * The three variants are three spans with responsive visibility rather than a
  * JS media query, which keeps the server and client markup identical and means
@@ -32,8 +39,9 @@ import { scrollToFarahPanel } from "@/lib/farah/scroll-to-panel";
  * as marginalia rather than as a widget that demands attention. A dimmed
  * backdrop with a cut-out would contradict both, and would be the most
  * attention-grabbing element in an app whose argument is that it is calm. This
- * is a small bordered box in the design system's own language — 1.5px ink, no
- * radius, no shadow — that can be ignored without being dismissed.
+ * is a small card in the design system's own language — rounded, the same
+ * soft shadow as every other card — that can be ignored without being
+ * dismissed.
  *
  * ── LAYERING, AND WHY IT DOES NOT SWALLOW CLICKS ──────────────────────────
  *
@@ -75,7 +83,7 @@ export function FarahFirstVisitHint() {
   if (gone) return null;
 
   return (
-    <div
+    <Card
       data-testid="farah-first-visit-hint"
       /*
        * role="status" rather than a dialog. It is not modal, it traps nothing,
@@ -86,7 +94,7 @@ export function FarahFirstVisitHint() {
       role="status"
       aria-live="polite"
       className={[
-        "pointer-events-none fixed z-[19] w-[min(320px,calc(100vw-32px))] border-[1.5px] border-ink bg-card px-4 pt-3.5 pb-4 print:hidden",
+        "pointer-events-none fixed z-[19] w-[min(320px,calc(100vw-32px))] px-4 pt-3.5 pb-4 print:hidden",
         // below 760: just above the fixed bar (58.5px + a gap), centred.
         "bottom-[76px] left-1/2 -translate-x-1/2",
         /*
@@ -135,11 +143,11 @@ export function FarahFirstVisitHint() {
               <span className="font-semibold text-ink">Ask Farah</span> at the bottom of the
               screen whenever you need her.
             </span>
-            <span className="hidden min-[760px]:inline 2xl:hidden">
+            <span className="hidden min-[760px]:inline min-[1792px]:hidden">
               She can tailor your resume or prep you for an interview. She&apos;s in the
               column on the right, and stays there as you scroll.
             </span>
-            <span className="hidden 2xl:inline">
+            <span className="hidden min-[1792px]:inline">
               She can tailor your resume or prep you for an interview. Use{" "}
               <span className="font-semibold text-ink">Ask Farah</span> in the menu bar, or the
               column on the right.
@@ -176,6 +184,6 @@ export function FarahFirstVisitHint() {
           </div>
         </div>
       </div>
-    </div>
+    </Card>
   );
 }
