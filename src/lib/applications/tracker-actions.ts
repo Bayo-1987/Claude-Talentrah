@@ -1,7 +1,6 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import type { NotesActionState } from "./notes-state";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { Enums } from "@/lib/supabase/types";
@@ -132,98 +131,8 @@ export async function updateStageAction(applicationId: string, formData: FormDat
 }
 
 /**
- * Saving notes, with the write actually checked.
- *
- * This was `await supabase.from(...).update(...)` with no `.select()`, no
- * error check and no row count — the shape that cannot report anything. A
- * Supabase update that is REFUSED does not throw; it resolves with an
- * `error`. So every possible failure here — a policy denial, a lost session, a
- * deleted row, a constraint — looked exactly like success, and the page
- * revalidated to show the old value as though that were the saved one.
- *
- * WHAT I COULD AND COULD NOT ESTABLISH. The reported symptom — Save does
- * nothing — did NOT reproduce against the seeded account: the note persisted
- * through save, revalidate and a full reload. Three candidate causes were
- * checked against production directly and all are clear: the `applications`
- * policy is owner-only for ALL and correct; every column including `notes`
- * carries an UPDATE grant to `authenticated`; and the 0037 terminal-stage
- * trigger early-returns when `old.stage is not distinct from new.stage`, so a
- * notes-only edit on a hired application is not blocked by it either.
- *
- * So this is not a diagnosis, and it is deliberately not written as one. It is
- * the missing instrument: whatever is failing for a real user now raises
- * instead of vanishing, and the next report arrives with a message attached.
- *
- * Worth knowing while reading a future report: this form gives NO success
- * feedback of any kind. It re-renders the textarea from `defaultValue`, so a
- * save that worked perfectly is visually identical to one that did nothing.
- * "Save does nothing" is what a working save also looks like.
+ * Notes are saved via src/app/api/tracker/notes/route.ts, not a Server
+ * Action here — see that file's comment for why: a transport failure on a
+ * Server Action's POST is invisible to useActionState and uncatchable from a
+ * caller-side wrapper.
  */
-/**
- * Saves a note and reports what happened.
- *
- * RETURNS STATE NOW, RATHER THAN THROWING. It used to throw on a database
- * error, which Next renders as the error boundary — the whole page replaced,
- * and the note the user had just typed gone with it. The editor keeps its
- * contents on failure instead, which is the point of the rust banner.
- *
- * `updated_at` is written explicitly. The column has existed since
- * 0000_baseline_schema.sql and nothing has ever written to it — checked
- * against production, and true of updateStageAction as well, so there is no
- * trigger quietly doing it. The read view's "Edited …" line is the first thing
- * that needs it to be true, so this is where it starts being maintained.
- * Deliberately not a table-wide trigger and deliberately not applied to
- * updateStageAction: a stage change is not an edit to the note, and making
- * every write touch the column would make the timestamp mean nothing in
- * particular.
- */
-export async function updateNotesAction(
-  applicationId: string,
-  _prevState: NotesActionState,
-  formData: FormData,
-): Promise<NotesActionState> {
-  const { supabase, userId } = await getAuthedUserId();
-  const notes = String(formData.get("notes") ?? "").trim();
-  const updatedAt = new Date().toISOString();
-
-  const { data: updated, error } = await supabase
-    .from("applications")
-    .update({ notes: notes || null, updated_at: updatedAt })
-    .eq("id", applicationId)
-    .eq("user_id", userId)
-    .select("id, notes, updated_at");
-
-  if (error) {
-    // Not echoed verbatim: a Postgres string here would describe our columns
-    // and policies to whoever provoked it. The detail goes to the log.
-    console.error("[tracker:updateNotes]", error);
-    return {
-      status: "error",
-      error: "Couldn't save that note. Your text is still here — try again.",
-      notes: null,
-      updatedAt: null,
-    };
-  }
-
-  // Zero rows is not an error and not a success: the entry was deleted, or it
-  // was never this user's. Same handling as updateStageAction — revalidate so
-  // the page shows what is actually there rather than leaving a textarea
-  // asserting otherwise.
-  if (!updated?.length) {
-    revalidatePath("/tracker");
-    return {
-      status: "error",
-      error: "That entry is no longer in your tracker.",
-      notes: null,
-      updatedAt: null,
-    };
-  }
-
-  revalidatePath("/tracker");
-  return {
-    status: "success",
-    error: null,
-    notes: updated[0].notes,
-    updatedAt: updated[0].updated_at,
-  };
-}
