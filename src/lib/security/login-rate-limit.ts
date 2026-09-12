@@ -48,27 +48,59 @@ export interface LoginRateLimitOutcome {
 }
 
 /**
- * `ip` is nullable because `x-forwarded-for` is not guaranteed present. A
- * missing IP has nothing to key a per-caller bucket on — rather than pool
- * every headerless caller into one shared key (which would let one such
- * caller lock out every other one) or silently skip the check (which would
- * make a misconfigured proxy an unnoticed way to disable this entirely),
- * this fails CLOSED: no verifiable caller identity is treated the same as a
- * caller who has already exhausted their attempts. A legitimate deployment
- * behind Vercel always sets this header, so this path is not expected to be
- * hit in production.
+ * A LIVE BUG THIS CAUGHT, immediately, the first time this ran anywhere but
+ * this module's own unit tests: every e2e spec in this repo's own CI suite
+ * shares ONE loopback connection to the ephemeral local server, so
+ * `getRequestIp()` resolves to the literal string `"::1"` for every single
+ * login across the whole ~250-file suite — not `null`. A first version of
+ * this function failed CLOSED on a missing IP, reasoning that "a legitimate
+ * deployment behind Vercel always sets this header, so this path is not
+ * expected to be hit in production" — true, but it missed that CI (and any
+ * plain `next start` with no reverse proxy in front, including local dev)
+ * hits a DIFFERENT path: a real, non-null, loopback IP, shared by every
+ * caller because there is no proxy distinguishing them. That version passed
+ * its own tests (which all supply a synthetic non-loopback IP) and then
+ * failed roughly 30 unrelated e2e specs in one CI run, each unable to log in
+ * at all once the shared "::1" bucket's budget ran out partway through the
+ * suite — caught only by actually running the real login form, not by any
+ * automated test here.
+ *
+ * So: `null` (header absent) and a loopback literal (`127.0.0.1`, `::1`, or
+ * the IPv4-mapped form of either) are both treated as "no distinguishable
+ * real external caller" — and BOTH are treated as `allowed: true` (this
+ * layer skips, not fails closed), matching the established precedent in
+ * `resend-rate-limit.ts`'s own IP bucket rather than inventing a new
+ * convention: an unidentifiable caller is not evidence of an attacker, and
+ * Supabase's own shared per-source-IP limit (the thing this module exists to
+ * add a second layer in front of) remains the backstop either way. A real
+ * production deployment behind Vercel's own reverse proxy never presents a
+ * loopback address as the caller's IP — if this path is ever hit in
+ * production, something is misconfigured, and failing OPEN on that specific
+ * failure is the safer direction: it degrades to "no extra throttle," not
+ * "every real user's login stops working."
  */
+const LOOPBACK_LITERALS = new Set(["127.0.0.1", "::1", "::ffff:127.0.0.1"]);
+
+function isUnidentifiableCaller(ip: string | null): boolean {
+  return !ip || LOOPBACK_LITERALS.has(ip);
+}
+
 export async function consumeLoginRateLimit(
   ip: string | null,
   bucket: LoginRateLimitBucket,
 ): Promise<LoginRateLimitOutcome> {
-  if (!ip) return { allowed: false, resetsAt: null };
+  if (isUnidentifiableCaller(ip)) return { allowed: true, resetsAt: null };
 
   const { limit, windowSeconds } = LOGIN_RATE_LIMITS[bucket];
   const admin = createServiceRoleClient();
 
   const { data, error } = await admin.rpc("consume_anonymous_rate_limit", {
-    p_key: ip,
+    // Non-null: isUnidentifiableCaller's early return above is what makes
+    // this safe — it's the only guard, deliberately not written as a type
+    // predicate, since it's also true for certain non-null (loopback)
+    // strings and a predicate narrowing to `ip is string` would be
+    // technically dishonest about what the check actually tests.
+    p_key: ip!,
     p_bucket: bucket,
     p_limit: limit,
     p_window_seconds: windowSeconds,

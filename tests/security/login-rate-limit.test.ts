@@ -94,13 +94,48 @@ describe("consumeLoginRateLimit enforces its own configured limits", () => {
   });
 });
 
-describe("fails CLOSED, not open", () => {
-  it("a missing IP is denied outright — never pooled into one shared bucket, never skipped", async () => {
+describe("an unidentifiable caller is skipped, not denied outright", () => {
+  /*
+   * THE LIVE BUG THIS SECTION WAS REWRITTEN AGAINST — see
+   * login-rate-limit.ts's own header on `isUnidentifiableCaller` for the
+   * full account. The original version of this describe block was called
+   * "fails CLOSED, not open" and asserted the opposite of what's below; it
+   * passed here and then broke roughly 30 unrelated e2e specs in the first
+   * real CI run, because every one of them shares one loopback IP with no
+   * distinguishing proxy in front — exactly the case this now covers.
+   */
+  it("a missing IP is allowed — this layer skips rather than blocking every real login", async () => {
     const result = await consumeLoginRateLimit(null, "seekerLogin");
-    expect(result.allowed).toBe(false);
+    expect(result.allowed).toBe(true);
   });
 
-  it("a broken RPC denies rather than passes", async () => {
+  it("a loopback IP (::1) is allowed — CI and local dev share exactly this address with no reverse proxy", async () => {
+    const result = await consumeLoginRateLimit("::1", "seekerLogin");
+    expect(result.allowed).toBe(true);
+  });
+
+  it("a loopback IP (127.0.0.1) is allowed", async () => {
+    const result = await consumeLoginRateLimit("127.0.0.1", "adminLogin");
+    expect(result.allowed).toBe(true);
+  });
+
+  it("skipping for loopback never touches the real counter — a genuine attacker IP is still tracked independently", async () => {
+    const attackerIp = testIp();
+    testKeys.push(attackerIp);
+
+    // Loopback calls interleaved with real ones must not share a bucket or
+    // otherwise perturb the real IP's own count.
+    await consumeLoginRateLimit("::1", "seekerLogin");
+    const results = await Promise.all(
+      Array.from({ length: 22 }, () => consumeLoginRateLimit(attackerIp, "seekerLogin")),
+    );
+    await consumeLoginRateLimit(null, "seekerLogin");
+
+    expect(results.filter((r) => r.allowed).length).toBe(20);
+    expect(results.filter((r) => !r.allowed).length).toBe(2);
+  });
+
+  it("a broken RPC still denies a REAL identifiable caller rather than passing", async () => {
     vi.resetModules();
     vi.doMock("@/lib/supabase/service-role", () => ({
       createServiceRoleClient: () => ({
