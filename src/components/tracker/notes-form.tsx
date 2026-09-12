@@ -1,8 +1,7 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState } from "react";
-import { updateNotesAction } from "@/lib/applications/tracker-actions";
-import { initialNotesActionState } from "@/lib/applications/notes-state";
+import { useEffect, useRef, useState, useTransition, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
 import { formatTrackerDate } from "@/lib/tracker/format-date";
 
 /**
@@ -25,12 +24,32 @@ import { formatTrackerDate } from "@/lib/tracker/format-date";
  * WHY LOCAL STATE AND NOT A ROUTE. The three states are view modes, not pages
  * — nothing about them belongs in the URL, and putting them there would make
  * the browser's back button undo an edit-in-progress on one card out of twenty.
+ *
+ * WHY A FETCH TO A ROUTE HANDLER AND NOT A SERVER ACTION. This used to submit
+ * via `<form action={formAction}>` bound to a `"use server"` action through
+ * `useActionState`. That dispatch has no way for application code to catch a
+ * TRANSPORT failure — only errors the action itself throws after it runs. A
+ * dropped connection surfaces inside Next's own action-dispatch machinery as
+ * an uncaught rejection, which the App Router turns into its default "This
+ * page couldn't load" interstitial, unmounting this component and the draft
+ * with it — confirmed, including that wrapping the old `formAction()` call in
+ * a `try/catch` does not stop it, because the rejection happens below
+ * anything exposed to the caller. A plain `fetch()` against a Route Handler
+ * has none of that in the way: a dead network is an ordinary rejected promise
+ * this component already awaits in its own `try/catch`.
  */
 
 /** Save keeps this on screen for a moment, then it goes. */
 const SAVED_BANNER_MS = 3000;
 
 type Mode = "empty" | "read" | "editing";
+
+interface SaveResult {
+  status: "success" | "error";
+  error: string | null;
+  notes: string | null;
+  updatedAt: string | null;
+}
 
 export interface NotesFormProps {
   applicationId: string;
@@ -40,51 +59,23 @@ export interface NotesFormProps {
 }
 
 export function NotesForm({ applicationId, notes, updatedAt }: NotesFormProps) {
-  const [state, formAction, pending] = useActionState(
-    updateNotesAction.bind(null, applicationId),
-    initialNotesActionState,
-  );
+  const router = useRouter();
+  const [result, setResult] = useState<SaveResult | null>(null);
+  const [pending, startTransition] = useTransition();
 
   /*
    * The server's copy wins once there is one. `notes` is the prop from the
-   * last server render; `state.notes` is what the database returned from this
-   * save. revalidatePath refreshes the page behind us, but not before the
-   * banner and the read view need to show the new text — so until that arrives
-   * the action's own answer is the truth.
+   * last server render; `result.notes` is what the database returned from
+   * this save. `router.refresh()` re-fetches the page behind us, but not
+   * before the banner and the read view need to show the new text — so until
+   * that arrives, the save's own answer is the truth.
    */
-  const savedNotes = state.status === "success" ? state.notes : notes;
-  const savedAt = state.status === "success" ? state.updatedAt : updatedAt;
+  const savedNotes = result?.status === "success" ? result.notes : notes;
+  const savedAt = result?.status === "success" ? result.updatedAt : updatedAt;
 
   const [mode, setMode] = useState<Mode>(notes ? "read" : "empty");
   const [showSaved, setShowSaved] = useState(false);
-  const [handledState, setHandledState] = useState(state);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  /*
-   * REACTING TO THE SAVE DURING RENDER, not in an effect.
-   *
-   * The obvious version is `useEffect(() => { if (success) setMode("read") })`,
-   * and the lint rule rejects it for a real reason: it paints the editor once
-   * more with the save already finished, then re-renders into the read view.
-   * Adjusting state during render while a prop-like value has changed is the
-   * documented way to do this — React discards the in-progress render and
-   * restarts before touching the DOM, so the intermediate state never paints.
-   *
-   * `handledState` is the "have I already reacted to this result" marker.
-   * Comparing the state OBJECT rather than its status matters: two failed
-   * saves in a row both have status "error", and without an identity check the
-   * second would not reopen the editor if something had closed it.
-   */
-  if (state !== handledState) {
-    setHandledState(state);
-    if (state.status === "success") {
-      setMode(state.notes ? "read" : "empty");
-      setShowSaved(true);
-    } else if (state.status === "error") {
-      // A failed save must not throw away what was typed.
-      setMode("editing");
-    }
-  }
 
   // The banner's lifetime is a timer, which is an external system — the one
   // thing here that genuinely belongs in an effect. setState happens in the
@@ -119,6 +110,58 @@ export function NotesForm({ applicationId, notes, updatedAt }: NotesFormProps) {
     setMode(savedNotes ? "read" : "empty");
   }
 
+  function handleSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const value = String(new FormData(e.currentTarget).get("notes") ?? "");
+
+    startTransition(async () => {
+      try {
+        const res = await fetch("/api/tracker/notes", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ applicationId, notes: value }),
+        });
+        const data = (await res.json().catch(() => null)) as
+          | { notes: string | null; updatedAt: string }
+          | { error: string }
+          | null;
+
+        if (!res.ok || !data || "error" in data) {
+          setResult({
+            status: "error",
+            error: (data && "error" in data && data.error) || "Couldn't save that note. Try again.",
+            notes: null,
+            updatedAt: null,
+          });
+          setMode("editing");
+          // A 404 means the route handler's own zero-rows branch already
+          // revalidated the tracker path server-side (the entry is gone) — a
+          // plain database error (500) hasn't touched the cache, so only this
+          // case needs the client to go fetch the now-stale page.
+          if (res.status === 404) router.refresh();
+          return;
+        }
+
+        setResult({ status: "success", error: null, notes: data.notes, updatedAt: data.updatedAt });
+        setMode(data.notes ? "read" : "empty");
+        setShowSaved(true);
+        router.refresh();
+      } catch {
+        // A transport failure — the request never reached the server at all.
+        // An ordinary caught rejection here, unlike a Server Action dispatch:
+        // the draft in the (uncontrolled) textarea is untouched because this
+        // component never unmounts and never rewrites its value.
+        setResult({
+          status: "error",
+          error: "Couldn't save that note. Your text is still here — try again.",
+          notes: null,
+          updatedAt: null,
+        });
+        setMode("editing");
+      }
+    });
+  }
+
   // Size and focus the box when the editor opens, not on every render.
   useEffect(() => {
     if (mode !== "editing") return;
@@ -150,12 +193,12 @@ export function NotesForm({ applicationId, notes, updatedAt }: NotesFormProps) {
         </p>
       )}
 
-      {state.status === "error" && mode === "editing" && (
+      {result?.status === "error" && mode === "editing" && (
         <p
           data-testid="notes-error-banner"
           className="mb-2.5 border-[1.5px] border-rust bg-rust-soft px-3 py-1.5 text-[12.5px] text-rust"
         >
-          {state.error}
+          {result.error}
         </p>
       )}
 
@@ -203,7 +246,7 @@ export function NotesForm({ applicationId, notes, updatedAt }: NotesFormProps) {
       )}
 
       {mode === "editing" && (
-        <form action={formAction} className="flex items-start gap-2.5">
+        <form onSubmit={handleSubmit} className="flex items-start gap-2.5">
           <textarea
             ref={textareaRef}
             name="notes"

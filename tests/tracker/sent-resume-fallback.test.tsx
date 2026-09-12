@@ -12,11 +12,15 @@
  *   - TrackerCard falls back to it when the FK is null, prefers the live
  *     resume when it is not, and says which one the user is looking at.
  */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { TrackerCard, type TrackerEntry } from "@/components/tracker/tracker-card";
 import { parseResumeSnapshot } from "@/lib/applications/resume-snapshot";
 import { EMPTY_RESUME } from "@/lib/resume/types";
+
+// NotesForm (rendered inside TrackerCard) calls useRouter() to refresh the
+// page after a save; there is no App Router context in a static SSR render.
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: () => {} }) }));
 
 const APP_ID = "22222222-2222-2222-2222-222222222222";
 const LIVE_RESUME_ID = "33333333-3333-3333-3333-333333333333";

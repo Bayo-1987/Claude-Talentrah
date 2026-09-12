@@ -439,7 +439,8 @@ export async function renameResumeAction(
 
   if (error) {
     // Not echoed verbatim — a Postgres string here would describe our columns
-    // and policies to whoever provoked it. Same handling as updateNotesAction.
+    // and policies to whoever provoked it. Same handling as the tracker notes
+    // save (src/app/api/tracker/notes/route.ts).
     console.error("[resume-builder:rename]", error);
     return { status: "error", error: "Couldn't rename that resume — try again.", title: null };
   }
