@@ -143,7 +143,18 @@ export default async function CountryRemoteJobsPage({
       */}
       {session ? (
         <div className="flex flex-col gap-2 border-t border-line pt-5">
-          <Link href="/jobs" className={buttonClasses("primary", "sm", "no-underline w-fit")}>
+          {/*
+            `/jobs?workType=remote&country=<TrackedCountry>`, not plain
+            `/jobs` — /jobs already parses both params
+            (src/app/(app)/jobs/page.tsx), and `country` here IS the exact
+            TrackedCountry value ("Nigeria", "South Africa", …) that param
+            expects, so a returning visitor lands back on the same filtered
+            view this page represents rather than a generic feed.
+          */}
+          <Link
+            href={`/jobs?workType=remote&country=${encodeURIComponent(country)}`}
+            className={buttonClasses("primary", "sm", "no-underline w-fit")}
+          >
             Go to Jobs to see your match score
           </Link>
           <p className="text-[12.5px] text-ink-soft">
