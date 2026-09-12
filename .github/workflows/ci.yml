@@ -207,6 +207,35 @@ jobs:
           echo "either: re-run the job before merging, and do not read a green"
           echo "PR as evidence this change was scanned."
 
+  dependency-audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    # No `needs:` — same reasoning as the secrets job right above: cheap,
+    # and must report even when the build itself is broken.
+    #
+    # Blocking, not report-only: the tree was swept clean (0 findings) as
+    # part of adding this job (a genuine critical unauthenticated-RCE
+    # advisory against the exact Next.js version this repo had pinned,
+    # GHSA-p293-qw3h-jr36, plus three transitive high-severity findings),
+    # so there is nothing already-known to carve out an exception for.
+    # `--audit-level=high` — a MODERATE/LOW finding still gets triaged via
+    # the Dependabot PRs configured in .github/dependabot.yml, just not as
+    # a hard CI gate; this only stops a HIGH-or-worse one from merging
+    # silently. Revisit the level (not the existence of the gate) if a
+    # low-severity backlog ever makes this noisy.
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: npm audit (high and above)
+        run: npm audit --audit-level=high
+
   checks:
     name: Typecheck, lint, unit tests
     runs-on: ubuntu-latest

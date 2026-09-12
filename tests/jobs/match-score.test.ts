@@ -110,6 +110,54 @@ describe("non-screenable skills", () => {
   });
 });
 
+describe("a resume missing skills/experience entirely — must score, never throw", () => {
+  /*
+   * Found live: a real ambient resume on the shared dev project has no
+   * `skills` key on `structured_content` at all (docs/jobs-feed-
+   * pagination.md, via send-latency-2's background refresh job). `skills`
+   * and `experience` are typed as required arrays, but a stored resume is
+   * an unvalidated JSONB blob — an older format, a partially-completed
+   * builder draft, or a resume-parse fallback that skipped populating a
+   * field can all leave this missing at runtime regardless of the type.
+   * Two of computeMatchScore's four real call sites (scoreJobs, which is
+   * what every signed-in user's /jobs feed renders directly, and
+   * computeAndStoreApplicationMatchScore, at apply time) had NO try/catch
+   * around this call before the fix — a resume in this shape crashed the
+   * caller's whole feed page, not just one score.
+   */
+  it("a resume with no skills field at all scores as zero overlap, not a crash", () => {
+    const resume = { experience: [{ title: "Product Manager" }] } as unknown as StructuredResume;
+    expect(() => computeMatchScore(resume, ["sql", "figma"], undefined)).not.toThrow();
+    const scored = computeMatchScore(resume, ["sql", "figma"], undefined);
+    expect(scored.score).toBe(0);
+    expect(scored.explanation.matchedSkills).toEqual([]);
+    expect(scored.explanation.missingSkills).toEqual(["sql", "figma"]);
+  });
+
+  it("skills: null (not just absent) is treated the same as an empty list", () => {
+    const resume = { skills: null, experience: [] } as unknown as StructuredResume;
+    expect(() => computeMatchScore(resume, ["sql"], undefined)).not.toThrow();
+  });
+
+  it("a resume with no experience field at all: unknown seniority, not a crash", () => {
+    const resume = { skills: ["sql"] } as unknown as StructuredResume;
+    expect(() => computeMatchScore(resume, ["sql"], "senior")).not.toThrow();
+    const scored = computeMatchScore(resume, ["sql"], "senior");
+    expect(scored.explanation.seniorityAlignment).toBe("unknown");
+    // The one real requirement is still matched — a missing field on the
+    // resume degrades gracefully rather than zeroing the whole score.
+    expect(scored.explanation.matchedSkills).toEqual(["sql"]);
+  });
+
+  it("both fields missing at once still returns a real, usable result", () => {
+    const resume = {} as unknown as StructuredResume;
+    expect(() => computeMatchScore(resume, ["sql"], "mid")).not.toThrow();
+    const scored = computeMatchScore(resume, ["sql"], "mid");
+    expect(scored.score).toBe(0);
+    expect(scored.explanation.seniorityAlignment).toBe("unknown");
+  });
+});
+
 describe("the parts the fix must not have changed", () => {
   it("still has no listed requirements case", () => {
     expect(computeMatchScore(resumeWith(["sql"]), [], undefined).score).toBe(50);
