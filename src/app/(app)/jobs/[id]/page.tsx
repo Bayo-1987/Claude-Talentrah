@@ -8,6 +8,7 @@ import { SHARE_IMAGE, SHARE_IMAGE_META } from "@/lib/seo/site";
 import { createClient } from "@/lib/supabase/server";
 import { BorderedCard, Button, EyebrowLabel, MatchTierBadge, buttonClasses } from "@/components/ui";
 import { dedupeMetaParts } from "@/components/jobs/job-card";
+import { FarahJobMenu } from "@/components/jobs/farah-job-menu";
 import { renderJobDescriptionMarkdown } from "@/lib/farah/render-markdown";
 import { getCompanyInitials } from "@/lib/jobs/company-initials";
 import { postingAgeLine, freshnessFloorISO } from "@/lib/jobs/freshness";
@@ -526,6 +527,15 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
         <Link href={`/tailor?jobId=${job.id}`} className={buttonClasses("text", "sm", "no-underline")}>
           Tailor my resume for this
         </Link>
+        {/*
+          Never wired to this page before now (send-185) — FarahJobMenu was
+          built and tested only against job-card.tsx's own row, so the
+          highest-intent place to ask about a job (full JD already in view,
+          arrived here straight from a search result or a shared link) had
+          no path to it at all. Same component, same trigger, just placed
+          where it had been missing.
+        */}
+        <FarahJobMenu jobId={job.id} jobTitle={job.title} companyName={job.company_name} />
           </>
         )}
       </div>
