@@ -4,7 +4,7 @@
  * Not in actions.ts: a `"use server"` module may export only async functions.
  * An object export there compiles, renders, and then 500s on the first submit
  * — which reads as a failed save rather than a failed module. Same reason
- * src/lib/applications/notes-state.ts and src/lib/feedback/state.ts exist.
+ * src/lib/feedback/state.ts and src/lib/profile/settings-state.ts exist.
  */
 
 export interface RenameResumeState {
