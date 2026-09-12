@@ -2,6 +2,7 @@ import { cache } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getOptionalUser } from "@/lib/auth/require-user";
 import { pageMetadata } from "@/lib/seo/site";
 import { LANDING_PAGE_MIN_ENTRIES } from "@/lib/seo/landing-pages";
 import { liveJobLandingLinks } from "@/lib/seo/landing-page-links";
@@ -75,6 +76,18 @@ export default async function RemoteJobsPage() {
   const { supabase, total, jobs } = await remoteJobsForRequest();
   if (total < LANDING_PAGE_MIN_ENTRIES) notFound();
 
+  /*
+   * send-186: a signed-in visitor re-finding this page was still pitched
+   * "create a free account" — same bug class as the job detail page before
+   * send-185, just never checked here either. Already force-dynamic (for
+   * the live count), so unlike the marketing homepage's own
+   * landing-auth-variant tradeoff (deliberately pushed to the client to
+   * keep that page cacheable) there is no cost to checking the real
+   * session server-side.
+   */
+  const session = await getOptionalUser();
+  const user = session?.user ?? null;
+
   const relatedLinks = await liveJobLandingLinks(supabase, "/jobs/remote");
 
   return (
@@ -122,16 +135,36 @@ export default async function RemoteJobsPage() {
       )}
 
       <div className="flex flex-col gap-2 border-t border-line pt-5">
-        <Link
-          href={`/signup?redirectTo=${encodeURIComponent("/jobs")}`}
-          className={buttonClasses("primary", "sm", "no-underline w-fit")}
-        >
-          Create a free account to see your match score
-        </Link>
-        <p className="text-[12.5px] text-ink-soft">
-          A free account scores every remote role against your resume, tracks what you apply to,
-          and lets Farah tailor your resume for any listing — free to start, no card required.
-        </p>
+        {!user ? (
+          <>
+            <Link
+              href={`/signup?redirectTo=${encodeURIComponent("/jobs")}`}
+              className={buttonClasses("primary", "sm", "no-underline w-fit")}
+            >
+              Create a free account to see your match score
+            </Link>
+            <p className="text-[12.5px] text-ink-soft">
+              A free account scores every remote role against your resume, tracks what you apply
+              to, and lets Farah tailor your resume for any listing — free to start, no card
+              required.
+            </p>
+          </>
+        ) : (
+          // SIGNED IN: /jobs already understands ?workType= — the same
+          // filter this page itself represents, not an invented one.
+          <>
+            <Link
+              href="/jobs?workType=remote"
+              className={buttonClasses("primary", "sm", "no-underline w-fit")}
+            >
+              See your match score
+            </Link>
+            <p className="text-[12.5px] text-ink-soft">
+              Your Jobs feed already scores remote roles like these against your resume, and Farah
+              can tailor it for any listing you find there.
+            </p>
+          </>
+        )}
       </div>
     </div>
   );
