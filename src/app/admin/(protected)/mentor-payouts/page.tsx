@@ -1,7 +1,7 @@
 import { requirePermission } from "@/lib/admin/require-admin";
 import { listMentorPayouts } from "@/lib/admin/mentor-payouts/queries";
 import { QueueHeader, QueueEmpty } from "@/components/admin/queue-chrome";
-import { Container, EyebrowLabel, BorderedCard } from "@/components/ui";
+import { Container, EyebrowLabel, Card } from "@/components/ui";
 import { RetryButton } from "./retry-button";
 
 export const metadata = {
@@ -48,7 +48,7 @@ export default async function MentorPayoutsPage() {
       {payouts.length === 0 ? (
         <QueueEmpty>No mentor payouts yet.</QueueEmpty>
       ) : (
-        <BorderedCard className="overflow-x-auto p-0">
+        <Card className="overflow-x-auto p-0">
           <table className="w-full min-w-[820px] border-collapse text-[14px]">
             <thead>
               <tr className="border-b border-line text-left">
@@ -72,7 +72,7 @@ export default async function MentorPayoutsPage() {
                     <span
                       className={
                         "font-semibold " +
-                        (p.status === "paid" ? "text-green" : p.status === "failed" ? "text-rust" : "text-ink")
+                        (p.status === "paid" ? "text-green" : p.status === "failed" ? "text-coral" : "text-ink")
                       }
                     >
                       {STATUS_LABEL[p.status] ?? p.status}
@@ -94,7 +94,7 @@ export default async function MentorPayoutsPage() {
               ))}
             </tbody>
           </table>
-        </BorderedCard>
+        </Card>
       )}
     </Container>
   );

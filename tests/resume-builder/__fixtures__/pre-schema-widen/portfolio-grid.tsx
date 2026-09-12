@@ -18,7 +18,7 @@ export function PortfolioGridTemplate({ resume }: TemplateProps) {
   const { contact, summary, experience, education, skills, projects, certifications } = resume;
 
   return (
-    <div className="mx-auto max-w-[720px] bg-paper p-10 text-ink">
+    <div className="mx-auto max-w-[720px] bg-bg p-10 text-ink">
       <header className="border-b-[2.5px] border-ink pb-4">
         <h1 className="font-display text-[32px] leading-none tracking-[-0.01em]">
           {contact.name || "Your name"}
@@ -32,7 +32,7 @@ export function PortfolioGridTemplate({ resume }: TemplateProps) {
 
       {projects.length > 0 && (
         <section className="mt-6">
-          <h2 className="font-body text-[11px] font-bold uppercase tracking-[0.14em] text-rust">
+          <h2 className="font-body text-[11px] font-bold uppercase tracking-[0.14em] text-coral">
             Selected Work
           </h2>
           <div className="mt-3 grid grid-cols-2 gap-x-5 gap-y-4">
@@ -50,7 +50,7 @@ export function PortfolioGridTemplate({ resume }: TemplateProps) {
 
       {experience.length > 0 && (
         <section className="mt-6 border-t border-line pt-4">
-          <h2 className="font-body text-[11px] font-bold uppercase tracking-[0.14em] text-rust">
+          <h2 className="font-body text-[11px] font-bold uppercase tracking-[0.14em] text-coral">
             Experience
           </h2>
           <div className="mt-3 flex flex-col gap-2.5">
@@ -79,7 +79,7 @@ export function PortfolioGridTemplate({ resume }: TemplateProps) {
       <div className="mt-6 grid grid-cols-3 gap-5 border-t border-line pt-4">
         {skills.length > 0 && (
           <section className="col-span-2">
-            <h2 className="font-body text-[11px] font-bold uppercase tracking-[0.14em] text-rust">
+            <h2 className="font-body text-[11px] font-bold uppercase tracking-[0.14em] text-coral">
               Capabilities
             </h2>
             <p className="mt-2 font-body text-[13px] leading-relaxed text-ink-soft">
@@ -90,7 +90,7 @@ export function PortfolioGridTemplate({ resume }: TemplateProps) {
         <section>
           {education.length > 0 && (
             <>
-              <h2 className="font-body text-[11px] font-bold uppercase tracking-[0.14em] text-rust">
+              <h2 className="font-body text-[11px] font-bold uppercase tracking-[0.14em] text-coral">
                 Education
               </h2>
               <div className="mt-2 flex flex-col gap-1">

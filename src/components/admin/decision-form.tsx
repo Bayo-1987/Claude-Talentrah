@@ -60,7 +60,7 @@ export function DecisionForm({
         name={noteName}
         rows={2}
         placeholder={notePlaceholder}
-        className="border-[1.5px] border-ink bg-card px-3.5 py-2.5 font-body text-[14px] text-ink outline-none placeholder:font-display placeholder:text-[13.5px] placeholder:italic placeholder:text-ink-soft focus:border-rust"
+        className="border-[1.5px] border-ink bg-card px-3.5 py-2.5 font-body text-[14px] text-ink outline-none placeholder:font-display placeholder:text-[13.5px] placeholder:italic placeholder:text-ink-soft focus:border-coral"
       />
 
       <div className="flex flex-wrap items-center gap-3">
@@ -85,7 +85,7 @@ export function DecisionForm({
           className={
             "border-[1.5px] px-3.5 py-2.5 text-[13.5px] " +
             (state.status === "error"
-              ? "border-rust bg-rust-soft text-rust"
+              ? "border-coral bg-coral-soft text-coral"
               : "border-ink bg-card text-ink")
           }
         >

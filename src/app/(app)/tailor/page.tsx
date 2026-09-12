@@ -51,7 +51,7 @@ export default async function TailorPage({
       </div>
 
       {!baseResume ? (
-        <p className="border-[1.5px] border-rust bg-rust-soft px-4 py-3 text-[14px] text-rust">
+        <p className="border-[1.5px] border-coral bg-coral-soft px-4 py-3 text-[14px] text-coral">
           You need a base resume first — upload one or build one in the{" "}
           <a href="/resume-builder" className="underline">
             Resume Builder

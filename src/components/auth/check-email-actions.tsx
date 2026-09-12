@@ -43,7 +43,7 @@ export function CheckEmailActions({ email, kind }: CheckEmailActionsProps) {
         <p className="text-[13.5px] text-ink">Sent — check your inbox.</p>
       )}
       {state.status === "error" && state.message && (
-        <p className="text-[13.5px] text-rust">{state.message}</p>
+        <p className="text-[13.5px] text-coral">{state.message}</p>
       )}
 
       {webmailUrl && (

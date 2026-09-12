@@ -2,9 +2,9 @@
 
 This file is a persistent summary for AI coding sessions on this project. Full detail lives in two source docs — **read them, don't just this summary, before doing real spec or design work**:
 - [talentrah-build-prompt.md](talentrah-build-prompt.md) — product spec, strategy, data model, phasing, monetization, all `[DECIDE]` open items.
-- [talentrah-editorial-design-handoff.md](talentrah-editorial-design-handoff.md) — visual/design system, content rules.
-- [Main-Editorial.dc.html](Main-Editorial.dc.html) / [JobFeed-Editorial.dc.html](JobFeed-Editorial.dc.html) — real working HTML/CSS reference markup (exact spacing/colors/type). Copy values from these, don't eyeball.
-- Live click-through reference: https://claude.ai/code/artifact/d150ad75-1b0f-4b3b-bcfb-a00e17cac229 ("Editorial — Full Build" page)
+- [talentrah-editorial-design-handoff.md](talentrah-editorial-design-handoff.md) — visual/design system, content rules. Filename is a historical artifact (kept rather than churning every inbound link for a rename with no functional benefit) — its content describes the current "Sunbird" system, not Editorial; see its own header.
+- [Main-Sunbird.dc.html](Main-Sunbird.dc.html) / [JobFeed-Sunbird.dc.html](JobFeed-Sunbird.dc.html) — real working HTML/CSS reference markup (exact spacing/colors/type). Copy values from these, don't eyeball.
+- Design-direction canvas (6 directions, Direction E/Sunbird chosen): https://claude.ai/code/artifact/f939960c-d188-4cb0-8a32-69a16e8b90ff
 
 The approved Phase 1 build plan (milestones, tech stack, data model) lives at `~/.claude/plans/adaptive-giggling-ember.md` — refer back to it during implementation rather than re-deriving scope.
 
@@ -267,54 +267,61 @@ The Phase 1 subset of this schema (actual table list being migrated into Supabas
 
 ---
 
-## Design system ("Editorial")
+## Design system ("Sunbird")
 
-Newspaper/magazine metaphor — deliberately not rounded/blue/card-heavy SaaS. **No border-radius** anywhere except small circular affordances (avatars, notification dots, toggle switches). **No drop shadows** except one deliberate soft lift on the hero's input box.
+Replaced "Editorial" (newspaper/magazine metaphor, no border-radius, no shadows) wholesale in one PR (send-197) — full swap, not phased. Full detail, including the match-tier bug found and fixed during the swap and the known gaps it left open, lives in [talentrah-editorial-design-handoff.md](talentrah-editorial-design-handoff.md) (filename is a historical artifact; its content is current). Summary below.
 
-### Colors (oklch CSS custom properties — see either .dc.html file for the exact block)
+The opposite of Editorial's hard rules, deliberately: **fully rounded cards** (14–20px radius) **and pill buttons/badges**, **a soft drop shadow on every card** (`0 4px 16px oklch(30% 0.05 35 / 0.08)`), geometric shape accents (circles, a triangle) as decoration.
+
+### Colors (oklch CSS custom properties — see globals.css or either .dc.html file for the exact block)
 
 ```css
---paper: oklch(97% 0.014 85);       /* page background */
---paper-alt: oklch(94.5% 0.018 80); /* alternating section background */
---ink: oklch(20% 0.018 50);         /* primary text, borders, dark buttons */
---ink-soft: oklch(38% 0.02 50);     /* secondary/body text */
---ink-line: oklch(30% 0.02 50);     /* footer dividers on dark bg */
---rust: oklch(52% 0.14 40);         /* brand accent — links, active states, CTAs on hover */
---rust-hover: oklch(45% 0.14 40);
---rust-soft: oklch(91% 0.03 40);    /* accent tint backgrounds, highlighted text */
---line: oklch(78% 0.02 60);         /* hairline dividers on paper background */
---green: oklch(48% 0.1 152);        /* "Excellent" match tier */
---amber: oklch(52% 0.12 70);        /* "Fair" match tier */
---card: oklch(99% 0.006 85);        /* white-ish card/box background */
+--bg: oklch(98% 0.015 55);          /* page background */
+--card: oklch(100% 0.005 55);       /* card/box background */
+--ink: oklch(22% 0.02 30);          /* primary text, dark buttons */
+--ink-soft: oklch(42% 0.02 30);     /* secondary/body text */
+--ink-faint: oklch(58% 0.015 40);   /* tertiary text, timestamps */
+--coral: oklch(63% 0.19 35);        /* primary accent — CTAs, links, active states */
+--coral-hover: oklch(55% 0.19 35);
+--teal: oklch(55% 0.11 195);        /* secondary accent — Farah panel, info, "Good" match tier */
+--teal-soft: oklch(92% 0.03 195);
+--gold: oklch(78% 0.14 85);         /* decorative accent — shapes/highlights only */
+--green: oklch(55% 0.13 150);       /* "Excellent" match tier */
+--amber: oklch(45% 0.1 70);         /* "Fair" match tier */
+--line: oklch(89% 0.015 55);        /* hairline dividers, thin borders */
 ```
 
+Plus three tokens the Sunbird artboards don't define (no equivalent need existed in the mockups), carried forward from Editorial's roles and recomputed at Sunbird's hues: `--bg-alt` (alternating section background), `--coral-soft` (tinted backgrounds), `--ink-line` (footer dividers on dark `--ink`).
+
 **Match-tier system — exactly three tiers, used everywhere a score appears, never a 4th tier or bespoke wording:**
-- Excellent (~80%+) → `--green`
-- Good (~70–79%) → `--rust`
-- Fair (~60–69%) → `--amber`
+- Excellent (~80%+) → `--green` / `--green-soft`
+- Good (~70–79%) → `--teal` / `--teal-soft` — **deliberately not `--coral`**, unlike Editorial's equivalent (Good → `--rust` there): `--coral` is this system's own CTA/action color, rendered directly beside match badges on the same card (a job card's "Apply" button), so a coral Good badge would blur "clickable" with "score" exactly where it matters most.
+- Fair (~60–69%) → `--amber` / `--amber-soft` — a real defined pair; the Sunbird artboards themselves used an undefined one-off inline color here, fixed rather than replicated (see the handoff doc's own note).
 
 ### Typography
 
-- Headings (h1–h3): **Newsreader** (serif), weight 500 normal / 600 for card h3s. `Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400`
-- Body/UI: **Source Sans 3**, weights 400–700.
-- Eyebrow labels: Source Sans 3, 11–12px, weight 700, `letter-spacing: 0.14em`, uppercase, `--rust`. Must literally describe the section/element directly below it — no decorative/invented mythology.
-- Italic Newsreader = quiet/secondary asides (placeholders, captions, taglines).
+- Headings (h1–h3): **DM Serif Display**, weight 400 (its only cut — no 500/600 to step up to). `DM+Serif+Display` (normal + italic).
+- Body/UI: **DM Sans**, weights 400–700.
+- Eyebrow labels: DM Sans, 11–12px, weight 700, `letter-spacing: 0.08em`, uppercase, `--coral`. Must literally describe the section/element directly below it — no decorative/invented mythology.
+- Italic DM Serif Display = quiet/secondary asides (placeholders, captions, taglines).
+- The four resume-builder skeleton fonts (`--font-geometric`/`--font-humanist`/`--font-serif-modern`/`--font-condensed` — Poppins/Work Sans/Lora/Barlow Condensed) are untouched by this swap: template choices for user-facing resumes, unrelated to the app's own chrome.
 
 ### Components
 
-- **Buttons**, all `border-radius: 0`, min-height 44px: Primary (`--ink` bg → hovers `--rust`), Secondary (transparent, 1.5px `--ink` border → hovers rust), Ghost (no border, hovers rust text).
-- **Bordered box/card**: 1.5–2px solid `--ink`, no radius, `--card` background. Hero input box is the *only* element with a shadow.
-- **Classifieds-row list** (landing page job preview only): border-bottom `--line`, no card chrome, large serif match % on left.
-- **Dashboard job cards** (JobFeed — intentional, do not revert to rows): 1.5px `--ink` border box on `--card`, 44×44px square `--ink`-bg two-letter company badge (never a brand color — would look like a 4th match tier), circular 40×40px icon buttons for Save/Share, `.btn-text` for "Ask Farah", `.btn-primary` for "Apply".
+- **Buttons**, all `border-radius: 999px` (pill), min-height 44px: Primary (`--coral` bg, white text → hovers `--coral-hover`), Secondary (transparent, 1px `--line` border → hovers coral), Ghost (no border, hovers coral text).
+- **`Card`** (renamed from Editorial's `BorderedCard` — that name described a border-and-no-radius convention that no longer applies): rounded corners, `--card` background, a soft shadow **by default** (opposite of Editorial, which reserved a shadow for exactly one element).
+- **Classifieds-row list** (landing page job preview only): border-bottom `--line`, no card chrome, large serif match % on left — unchanged from Editorial.
+- **Dashboard job cards** (JobFeed): rounded `Card` with the shared shadow, circular 40–56px `--ink`-bg two-letter company badge (never a brand color — would look like a 4th match tier), circular 40×40px icon buttons for Save/Share, `.btn-text` for "Ask Farah", `.btn-primary` (pill) for "Apply".
 - **Masthead doubles as app nav** — no icon sidebar, ever. Same component signed-out and signed-in, just marketing links swapped for Jobs/Job Tracker/Resume Builder/Mentorship/Refer a Friend.
-- **Farah panel** = marginalia (280px right column, `border-left: 1px solid var(--line)`, no card bg) — never a boxed chat widget.
+- **Farah panel**: the artboards draw this as a full elevated card (rounded, shadowed) — a real departure from Editorial's flat marginalia rule. **Not yet adopted in `src/components/app-shell/farah-panel.tsx`** — flagged in that file's own header comment as a deliberate, deferred scope decision (its sticky/scroll shell and dependent e2e specs need care), not silently left inconsistent.
 - **Every interactive element** must have a real ≥40×40px hit target, even small ones (was a real shipped bug — icon glyph sized ≠ clickable area sized).
 - No emoji as icons — inline SVG only. No stock photography / fake human avatars for Farah — she's the abstract two-overlapping-circles mark only. No profile-completion bar / gamification meter anywhere (hard rule, ties to build-prompt §2.5's anti-gamification retention stance).
+- **Known gap:** ~59 files still hardcode an ad-hoc bordered box instead of using `Card` — correct tokens, just not yet the rounded/shadow treatment. Listed in the handoff doc's §9; a dedicated sweep is the natural next PR, not something this swap silently left unrecorded.
 
 ### Layout
 
 - Max content width 1120px, `padding: 0 40px`.
-- Section rhythm: 88–96px vertical padding, alternating paper/paper-alt with hairline border between (always pair divider + bg change, never just one).
+- Section rhythm: 88–96px vertical padding, alternating bg/bg-alt with hairline border between (always pair divider + bg change, never just one).
 - Grids use explicit `gap`, never margin-spaced siblings.
 
 ### Content/copy rules

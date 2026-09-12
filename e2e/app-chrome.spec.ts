@@ -18,7 +18,7 @@ import { test, expect } from "@playwright/test";
  *
  * 2. THE ACTIVE STATE DID NOT RENDER. `cn` in this repo is a plain join, not
  *    tailwind-merge, so a base `border-transparent text-ink-soft` and a
- *    conditional `border-rust text-ink` both reach the class attribute. Equal
+ *    conditional `border-coral text-ink` both reach the class attribute. Equal
  *    specificity means the stylesheet's own order decides — and the base won
  *    both. On /jobs and /tracker the active tab was rendering IDENTICALLY to
  *    the inactive ones. The masthead was half-broken: rust text (which happens

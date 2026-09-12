@@ -36,7 +36,7 @@ export function WalletTopUp({
             <>— campaigns draw from this, separately from your Talentrah credits.</>
           ) : daysLeft === 0 ? (
             <>
-              — <strong className="text-rust">not enough for another day</strong> at{" "}
+              — <strong className="text-coral">not enough for another day</strong> at{" "}
               {naira(dailyCommitmentNgn)}/day. Running campaigns will pause.
             </>
           ) : (
@@ -49,7 +49,7 @@ export function WalletTopUp({
       </div>
 
       {error && (
-        <p className="border-[1.5px] border-rust bg-rust-soft px-3.5 py-2.5 text-[13.5px] text-rust">
+        <p className="border-[1.5px] border-coral bg-coral-soft px-3.5 py-2.5 text-[13.5px] text-coral">
           {error}
         </p>
       )}
@@ -87,7 +87,7 @@ export function WalletTopUp({
             <button
               type="submit"
               disabled={pending}
-              className="min-h-11 border-[1.5px] border-ink bg-transparent px-4 font-body text-[13.5px] font-semibold text-ink hover:border-rust hover:text-rust disabled:opacity-50"
+              className="min-h-11 border-[1.5px] border-ink bg-transparent px-4 font-body text-[13.5px] font-semibold text-ink hover:border-coral hover:text-coral disabled:opacity-50"
             >
               {naira(p)}
             </button>

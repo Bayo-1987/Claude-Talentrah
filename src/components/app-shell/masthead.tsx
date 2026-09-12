@@ -194,7 +194,7 @@ export function Masthead({
     */
     <div
       data-testid="masthead"
-      className="border-b-[2.5px] border-ink bg-paper"
+      className="border-b-[2.5px] border-ink bg-bg"
     >
       <div className="flex h-[68px] items-center justify-between px-8">
         <div className="flex items-center gap-4 xl:gap-9">
@@ -230,26 +230,29 @@ export function Masthead({
                     // 39.1px-wide target through review in #69, and "Jobs"
                     // measured 29.5 x 40 here — the same shape, in the one
                     // component every signed-in page renders.
-                    "flex min-h-10 min-w-10 items-center justify-center border-b-[2.5px] font-body text-[14.5px] font-semibold text-ink no-underline",
+                    "flex min-h-10 min-w-10 items-center justify-center border-b-[2.5px] font-body text-[14.5px] font-semibold no-underline",
                     /*
-                     * `border-transparent` belongs in the INACTIVE branch, not
-                     * the base — and that is a bug fix, not tidying.
-                     *
+                     * BOTH `border-transparent`/`text-ink` and their active
+                     * counterparts belong in the branches, not the base —
                      * `cn` here is a plain join, not tailwind-merge, so a base
-                     * `border-transparent` and a conditional `border-rust`
+                     * class and a conditional override of the SAME property
                      * both land in the class attribute. Two single-class
                      * selectors have equal specificity, so the stylesheet's
-                     * own order decides, and `border-transparent` wins:
-                     * measured `borderBottomColor: rgba(0,0,0,0)` on the
-                     * active item. The active underline has never rendered —
-                     * only the rust TEXT did, which is why it read as working.
-                     *
-                     * With the colour set in exactly one branch there is
-                     * nothing to conflict with.
+                     * own generated order decides, not source order in the
+                     * string. That's what silently broke the active/inactive
+                     * text-color distinction during the Sunbird swap: `text-ink`
+                     * stayed in the base while the active branch added
+                     * `text-coral`, and Tailwind's generated order happened to
+                     * favor `ink` for this pair of class names where it had
+                     * favored `rust` before — a real, measured regression
+                     * (e2e/app-chrome.spec.ts), not a hypothetical. The border
+                     * had this same bug already fixed the same way, once,
+                     * for the same reason. With every conflicting property set
+                     * in exactly one branch there is nothing left to conflict.
                      */
                     active
-                      ? "border-rust text-rust"
-                      : "border-transparent hover:text-rust-hover",
+                      ? "border-coral text-coral"
+                      : "border-transparent text-ink hover:text-coral-hover",
                   )}
                 >
                   {link.label}
@@ -314,7 +317,7 @@ export function Masthead({
             <button
               type="button"
               onClick={scrollToFarahPanel}
-              className="hidden min-h-10 min-w-10 items-center justify-center gap-1.5 border-b-[2.5px] border-transparent font-body text-[14.5px] font-semibold text-ink hover:text-rust-hover 2xl:flex"
+              className="hidden min-h-10 min-w-10 items-center justify-center gap-1.5 border-b-[2.5px] border-transparent font-body text-[14.5px] font-semibold text-ink hover:text-coral-hover 2xl:flex"
             >
               <FarahMark size={18} />
               Ask Farah
@@ -369,7 +372,7 @@ export function Masthead({
                       onClick={() => setNavOpen(false)}
                       className={cn(
                         "flex min-h-11 items-center px-4 font-body text-[14px] font-semibold no-underline",
-                        active ? "text-rust" : "text-ink hover:text-rust",
+                        active ? "text-coral" : "text-ink hover:text-coral",
                       )}
                     >
                       {link.label}
@@ -387,7 +390,7 @@ export function Masthead({
                   href="/employer"
                   role="menuitem"
                   onClick={() => setNavOpen(false)}
-                  className="flex min-h-11 items-center px-4 font-body text-[14px] font-semibold text-ink-soft no-underline hover:text-rust"
+                  className="flex min-h-11 items-center px-4 font-body text-[14px] font-semibold text-ink-soft no-underline hover:text-coral"
                 >
                   Post a job
                 </Link>
@@ -405,7 +408,7 @@ export function Masthead({
           */}
           <Link
             href="/employer"
-            className="hidden min-h-10 items-center text-[13px] font-semibold text-ink-soft no-underline underline-offset-2 hover:text-rust hover:underline min-[900px]:inline-flex"
+            className="hidden min-h-10 items-center text-[13px] font-semibold text-ink-soft no-underline underline-offset-2 hover:text-coral hover:underline min-[900px]:inline-flex"
           >
             Post a job
           </Link>
@@ -414,7 +417,7 @@ export function Masthead({
           </span>
           <Link
             href="/billing"
-            className="inline-flex min-h-10 items-center bg-rust-soft px-3.5 text-[13px] font-bold text-rust no-underline hover:bg-[oklch(87%_0.04_40)]"
+            className="inline-flex min-h-10 items-center bg-coral-soft px-3.5 text-[13px] font-bold text-coral no-underline hover:bg-[oklch(87%_0.04_40)]"
           >
             {activePass
               ? `${activePass.name} · ${activePass.daysRemaining}d left`
@@ -441,7 +444,7 @@ export function Masthead({
               onClick={() => setAccountOpen((o) => !o)}
               className="inline-flex h-10 w-10 items-center justify-center"
             >
-              <span className="flex h-[34px] w-[34px] items-center justify-center rounded-full bg-ink font-display text-[12px] font-bold text-paper">
+              <span className="flex h-[34px] w-[34px] items-center justify-center rounded-full bg-ink font-display text-[12px] font-bold text-bg">
                 {initials}
               </span>
             </button>
@@ -480,7 +483,7 @@ export function Masthead({
                   href="/settings"
                   role="menuitem"
                   onClick={() => setAccountOpen(false)}
-                  className="flex min-h-10 items-center px-4 text-[13px] font-semibold text-ink no-underline hover:text-rust"
+                  className="flex min-h-10 items-center px-4 text-[13px] font-semibold text-ink no-underline hover:text-coral"
                 >
                   Settings
                 </Link>
@@ -491,7 +494,7 @@ export function Masthead({
                   <button
                     type="submit"
                     role="menuitem"
-                    className="flex min-h-10 w-full items-center px-4 text-left text-[13px] font-semibold text-ink-soft hover:text-rust"
+                    className="flex min-h-10 w-full items-center px-4 text-left text-[13px] font-semibold text-ink-soft hover:text-coral"
                   >
                     Sign out
                   </button>

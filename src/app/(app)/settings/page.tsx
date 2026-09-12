@@ -1,5 +1,5 @@
 import { requireUser } from "@/lib/auth/require-user";
-import { BorderedCard, EyebrowLabel } from "@/components/ui";
+import { Card, EyebrowLabel } from "@/components/ui";
 import { visibleName } from "@/lib/profile/name";
 import { SettingsForm } from "./settings-form";
 
@@ -61,13 +61,13 @@ export default async function SettingsPage() {
         <h1 className="text-[30px] leading-[1.2]">Your profile</h1>
       </div>
 
-      <BorderedCard className="p-6">
+      <Card className="p-6">
         <SettingsForm
           firstName={visibleName(profile.first_name)}
           lastName={visibleName(profile.last_name)}
           country={profile.country}
         />
-      </BorderedCard>
+      </Card>
 
       <div className="flex flex-col gap-4">
         <EyebrowLabel size="sm">Not editable here</EyebrowLabel>

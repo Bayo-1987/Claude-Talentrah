@@ -2,7 +2,7 @@ import Link from "next/link";
 import { requireUser } from "@/lib/auth/require-user";
 import { getOwnMentorProfile, getOwnAvailabilitySlots, getOwnPayoutDetails } from "@/lib/mentorship/queries";
 import { listBanksForForm } from "@/lib/mentorship/payout-details";
-import { Container, EyebrowLabel, BorderedCard } from "@/components/ui";
+import { Container, EyebrowLabel, Card } from "@/components/ui";
 import { ApplicationForm } from "./application-form";
 import { AvailabilityManager } from "./availability-manager";
 import { PayoutDetailsForm } from "./payout-details-form";
@@ -52,26 +52,26 @@ export default async function MentorApplyPage() {
 
       {profile ? (
         <>
-          <BorderedCard className="flex flex-col gap-3 p-5">
+          <Card className="flex flex-col gap-3 p-5">
             <p className="text-[14px] text-ink">{STATUS_COPY[profile.status] ?? profile.status}</p>
             {profile.status === "rejected" && profile.reviewNote && (
               <p className="text-[13px] text-ink-soft">Reviewer note: {profile.reviewNote}</p>
             )}
-          </BorderedCard>
+          </Card>
           <ApplicationForm existing={profile} />
           {profile.status === "approved" && (
             <>
               <AvailabilityManager slots={slots} />
               <PayoutDetailsForm existing={payoutDetails} banks={banks} banksError={banksError} />
-              <BorderedCard className="flex flex-col gap-3 p-5">
+              <Card className="flex flex-col gap-3 p-5">
                 <h2 className="font-display text-[18px] font-semibold">Talent Directory reviews</h2>
                 <ReviewsVerificationsToggle optIn={profile.reviewsVerifications} />
                 {profile.reviewsVerifications && (
-                  <Link href="/mentorship/reviews" className="text-[13.5px] text-rust">
+                  <Link href="/mentorship/reviews" className="text-[13.5px] text-coral">
                     Go to the review queue ↗
                   </Link>
                 )}
-              </BorderedCard>
+              </Card>
             </>
           )}
         </>

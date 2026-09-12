@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { dismissResumeSkillsNoticeAction } from "@/lib/profile/settings-actions";
+import { Card } from "@/components/ui";
 
 /**
  * Says, on the page where it can be fixed, that this resume has no skills on
@@ -45,8 +46,8 @@ import { dismissResumeSkillsNoticeAction } from "@/lib/profile/settings-actions"
  * that rule is load-bearing rather than decorative: it ties to the product's
  * anti-gamification retention stance. So this shows no percentage, no count of
  * remaining steps, and no progress of any kind. It states one fact and offers
- * the two ways to act on it. It is a bordered box in the design system's own
- * language — 1.5px ink, no radius, no shadow.
+ * the two ways to act on it. It is a plain card in the design system's own
+ * language — rounded corners, the same soft shadow as every other card.
  */
 export function EmptySkillsNotice({ baseResumeId }: { baseResumeId: string }) {
   const [dismissed, setDismissed] = useState(false);
@@ -55,7 +56,7 @@ export function EmptySkillsNotice({ baseResumeId }: { baseResumeId: string }) {
   if (dismissed) return null;
 
   return (
-    <div className="flex flex-col gap-3 border-[1.5px] border-ink bg-card p-5" data-testid="empty-skills-notice">
+    <Card className="flex flex-col gap-3 p-5" data-testid="empty-skills-notice">
       <p className="font-body text-[14.5px] font-semibold text-ink">
         Your resume has no skills on it yet.
       </p>
@@ -67,13 +68,13 @@ export function EmptySkillsNotice({ baseResumeId }: { baseResumeId: string }) {
       <div className="flex flex-wrap items-center gap-5">
         <Link
           href={`/resume-builder/edit?resumeId=${baseResumeId}`}
-          className="text-[13.5px] font-semibold underline underline-offset-2 hover:text-rust"
+          className="text-[13.5px] font-semibold underline underline-offset-2 hover:text-coral"
         >
           Add your skills
         </Link>
         <Link
           href="/onboarding"
-          className="text-[13.5px] font-semibold underline underline-offset-2 hover:text-rust"
+          className="text-[13.5px] font-semibold underline underline-offset-2 hover:text-coral"
         >
           Upload your resume again
         </Link>
@@ -91,11 +92,11 @@ export function EmptySkillsNotice({ baseResumeId }: { baseResumeId: string }) {
               void dismissResumeSkillsNoticeAction();
             });
           }}
-          className="min-h-10 text-[13.5px] text-ink-soft underline underline-offset-2 hover:text-rust"
+          className="min-h-10 text-[13.5px] text-ink-soft underline underline-offset-2 hover:text-coral"
         >
           I know, hide this
         </button>
       </div>
-    </div>
+    </Card>
   );
 }

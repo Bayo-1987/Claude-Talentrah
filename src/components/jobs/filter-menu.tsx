@@ -98,8 +98,8 @@ export function FilterMenu({
 
   const summaryClass =
     variant === "quiet"
-      ? "border-line font-normal text-ink-soft hover:border-rust hover:text-rust [details[open]_&]:border-rust [details[open]_&]:text-rust"
-      : "border-ink font-semibold text-ink hover:border-rust hover:text-rust";
+      ? "border-line font-normal text-ink-soft hover:border-coral hover:text-coral [details[open]_&]:border-coral [details[open]_&]:text-coral"
+      : "border-ink font-semibold text-ink hover:border-coral hover:text-coral";
 
   return (
     <details ref={detailsRef} className="relative inline-block" data-testid={testId}>
@@ -118,8 +118,8 @@ export function FilterMenu({
           <Link
             key={item.label}
             href={item.href}
-            className={`flex min-h-10 items-center justify-between gap-4 border-b border-line px-3.5 text-[13.5px] no-underline last:border-b-0 hover:bg-rust-soft ${
-              item.selected ? "font-bold text-rust" : "text-ink"
+            className={`flex min-h-10 items-center justify-between gap-4 border-b border-line px-3.5 text-[13.5px] no-underline last:border-b-0 hover:bg-coral-soft ${
+              item.selected ? "font-bold text-coral" : "text-ink"
             }`}
           >
             <span>{item.label}</span>
@@ -131,7 +131,7 @@ export function FilterMenu({
         {sentinel && (
           <Link
             href={sentinel.href}
-            className="flex min-h-10 items-center justify-between gap-4 border-t-[1.5px] border-ink px-3.5 font-display text-[13.5px] text-ink italic no-underline hover:bg-rust-soft"
+            className="flex min-h-10 items-center justify-between gap-4 border-t-[1.5px] border-ink px-3.5 font-display text-[13.5px] text-ink italic no-underline hover:bg-coral-soft"
           >
             <span>{sentinel.label}</span>
             {sentinel.count !== undefined && (

@@ -196,7 +196,7 @@ export function JdDemoInput() {
     <div className="flex w-full max-w-[860px] flex-col items-center gap-4">
       <form
         onSubmit={handleSubmit}
-        className="w-full max-w-[680px] border-[1.5px] border-ink bg-card p-5 shadow-[0_24px_48px_-28px_oklch(20%_0.018_50_/_0.3)]"
+        className="w-full max-w-[680px] rounded-[20px] bg-card p-5 shadow-[0_4px_16px_oklch(30%_0.05_35_/_0.08)]"
       >
         <EyebrowLabel className="mb-3 block">Paste a job description</EyebrowLabel>
         <div className="mb-4 flex items-start gap-3.5 border-b border-dashed border-line pb-4">
@@ -224,7 +224,7 @@ export function JdDemoInput() {
             type="submit"
             disabled={busy}
             aria-label={busy ? "Farah is working" : "Send to Farah"}
-            className="flex h-11 w-11 flex-shrink-0 items-center justify-center bg-ink text-paper disabled:opacity-60"
+            className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-coral text-white disabled:opacity-60"
           >
             {busy ? (
               // Spinner rather than a disabled arrow: CLAUDE.md's §8 requires
@@ -252,7 +252,7 @@ export function JdDemoInput() {
             <Link
               key={action.label}
               href={action.href}
-              className="font-body text-[13.5px] font-bold text-rust underline underline-offset-3"
+              className="font-body text-[13.5px] font-bold text-coral underline underline-offset-3"
             >
               {action.label}
             </Link>
@@ -275,10 +275,10 @@ export function JdDemoInput() {
       {state.kind === "used" && (
         <div
           aria-live="polite"
-          className="flex flex-col items-center gap-2 border-[1.5px] border-ink bg-card px-5 py-4 text-center"
+          className="flex flex-col items-center gap-2 rounded-2xl bg-card px-5 py-4 text-center shadow-[0_4px_16px_oklch(30%_0.05_35_/_0.08)]"
         >
           <p className="text-[14px] text-ink">{state.message}</p>
-          <Link href="/signup" className="text-[13.5px] font-bold text-rust underline underline-offset-3">
+          <Link href="/signup" className="text-[13.5px] font-bold text-coral underline underline-offset-3">
             Create a free account →
           </Link>
         </div>
@@ -287,14 +287,14 @@ export function JdDemoInput() {
       {state.kind === "needsResume" && (
         <div
           aria-live="polite"
-          className="flex flex-col items-center gap-2 border-[1.5px] border-ink bg-card px-5 py-4 text-center"
+          className="flex flex-col items-center gap-2 rounded-2xl bg-card px-5 py-4 text-center shadow-[0_4px_16px_oklch(30%_0.05_35_/_0.08)]"
         >
           <p className="text-[14px] text-ink">
             You&apos;ll need a base resume before Farah can tailor one.
           </p>
           <Link
             href="/resume-builder"
-            className="text-[13.5px] font-bold text-rust underline underline-offset-3"
+            className="text-[13.5px] font-bold text-coral underline underline-offset-3"
           >
             Build or upload your resume →
           </Link>
@@ -304,16 +304,16 @@ export function JdDemoInput() {
       {state.kind === "error" && (
         <div
           aria-live="polite"
-          className="flex flex-col items-center gap-1 border-[1.5px] border-rust bg-rust-soft px-3.5 py-2.5 text-center"
+          className="flex flex-col items-center gap-1 rounded-2xl bg-coral-soft px-3.5 py-2.5 text-center"
         >
-          <p className="text-[13.5px] text-rust">{state.message}</p>
+          <p className="text-[13.5px] text-coral">{state.message}</p>
           {/*
             Said plainly, because it is the visitor's first question and the
             answer is not obvious: the run is released server-side whenever the
             model call fails, so a failure costs them nothing.
           */}
           {!isSignedIn && (
-            <p className="font-display text-[12.5px] italic text-rust">
+            <p className="font-display text-[12.5px] italic text-coral">
               Your free preview wasn&apos;t used — try again.
             </p>
           )}

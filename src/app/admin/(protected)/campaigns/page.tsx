@@ -3,7 +3,7 @@ import { pendingCampaigns } from "@/lib/admin/moderation/queues";
 import { decideCampaignAction } from "@/lib/admin/moderation/actions";
 import { DecisionForm } from "@/components/admin/decision-form";
 import { QueueEmpty, QueueHeader } from "@/components/admin/queue-chrome";
-import { Container, EyebrowLabel, BorderedCard } from "@/components/ui";
+import { Container, EyebrowLabel, Card } from "@/components/ui";
 
 export const metadata = {
   title: "Ad campaign review — Talentrah admin",
@@ -49,7 +49,7 @@ export default async function CampaignQueuePage() {
         <ul className="flex list-none flex-col gap-5 p-0">
           {queue.map((c) => (
             <li key={c.id}>
-              <BorderedCard className="flex flex-col gap-4 p-5">
+              <Card className="flex flex-col gap-4 p-5">
                 <div className="flex flex-col gap-1.5">
                   <EyebrowLabel>
                     {c.organisation?.name ?? "Unknown organisation"}
@@ -82,7 +82,7 @@ export default async function CampaignQueuePage() {
                     { value: "reject", label: "Reject", requiresNote: true },
                   ]}
                 />
-              </BorderedCard>
+              </Card>
             </li>
           ))}
         </ul>

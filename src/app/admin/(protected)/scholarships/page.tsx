@@ -2,7 +2,7 @@ import { requirePermission } from "@/lib/admin/require-admin";
 import { pendingScholarships } from "@/lib/admin/moderation/queues";
 import { decideScholarshipAction } from "@/lib/admin/moderation/actions";
 import { DecisionForm } from "@/components/admin/decision-form";
-import { Container, EyebrowLabel, BorderedCard } from "@/components/ui";
+import { Container, EyebrowLabel, Card } from "@/components/ui";
 import { QueueEmpty, QueueHeader } from "@/components/admin/queue-chrome";
 
 export const metadata = {
@@ -44,7 +44,7 @@ export default async function ScholarshipQueuePage() {
         <ul className="flex list-none flex-col gap-5 p-0">
           {queue.map((s) => (
             <li key={s.id}>
-              <BorderedCard className="flex flex-col gap-4 p-5">
+              <Card className="flex flex-col gap-4 p-5">
                 <div className="flex flex-col gap-1.5">
                   <EyebrowLabel>{s.provider}</EyebrowLabel>
                   <h2 className="font-display text-[20px] font-semibold leading-snug">
@@ -81,7 +81,7 @@ export default async function ScholarshipQueuePage() {
                     { value: "rejected", label: "Reject", requiresNote: true },
                   ]}
                 />
-              </BorderedCard>
+              </Card>
             </li>
           ))}
         </ul>

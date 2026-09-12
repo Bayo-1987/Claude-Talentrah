@@ -28,7 +28,7 @@ export function BlogStatusControls({ id, published }: { id: string; published: b
         <p
           className={
             failed
-              ? "border-[1.5px] border-rust bg-rust-soft px-3.5 py-2.5 text-[13.5px] text-rust"
+              ? "border-[1.5px] border-coral bg-coral-soft px-3.5 py-2.5 text-[13.5px] text-coral"
               : "border-[1.5px] border-green px-3.5 py-2.5 text-[13.5px] text-green"
           }
         >
@@ -57,7 +57,7 @@ export function BlogStatusControls({ id, published }: { id: string; published: b
         <button
           type="submit"
           disabled={deletePending}
-          className={buttonClasses("text", "sm") + " text-rust"}
+          className={buttonClasses("text", "sm") + " text-coral"}
         >
           {deletePending ? "Deleting…" : "Delete permanently"}
         </button>

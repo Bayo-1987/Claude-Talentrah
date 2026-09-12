@@ -7,9 +7,9 @@ export interface FilterChipProps {
   label: string;
   /**
    * True for a free-text search term specifically — CLAUDE.md's "italic
-   * Newsreader = quiet/secondary asides" doesn't fit an active filter word,
-   * but a typed term is a quote of what the user wrote, not a facet label,
-   * and the two should not look identical in a mixed summary line.
+   * display font = quiet/secondary asides" doesn't fit an active filter
+   * word, but a typed term is a quote of what the user wrote, not a facet
+   * label, and the two should not look identical in a mixed summary line.
    */
   quoted?: boolean;
   onRemove?: () => void;
@@ -50,7 +50,7 @@ export function FilterChip({ label, quoted = false, onRemove, removeHref, classN
   return (
     <span
       className={cn(
-        "inline-flex min-h-10 items-center gap-1.5 border border-line px-3 text-[12.5px] font-semibold text-ink-soft",
+        "inline-flex min-h-10 items-center gap-1.5 rounded-full border border-line px-3.5 text-[12.5px] font-semibold text-ink-soft",
         className,
       )}
     >

@@ -127,7 +127,7 @@ export default async function TrackerPage({ searchParams }: { searchParams: Sear
       {(totalCount ?? 0) === 0 ? (
         <p className="py-12 text-center text-[14.5px] text-ink-soft">
           Nothing tracked yet — save a job from{" "}
-          <Link href="/jobs" className="underline hover:text-rust">
+          <Link href="/jobs" className="underline hover:text-coral">
             the feed
           </Link>{" "}
           or add one you applied to elsewhere above.

@@ -226,7 +226,7 @@ export function SearchCombobox({
         onKeyDown={onKeyDown}
         placeholder="Search by title, company or location…"
         // `italic` was unscoped, so a real typed term rendered italic too —
-        // CLAUDE.md's "italic Newsreader = quiet/secondary asides
+        // CLAUDE.md's "italic display font = quiet/secondary asides
         // (placeholders, captions, taglines)" doesn't cover an active search
         // term. Scoped to `placeholder:italic` so only the empty-state text
         // is italic; what a person actually types renders upright.
@@ -248,9 +248,10 @@ export function SearchCombobox({
           role="listbox"
           aria-label="Search suggestions"
           /*
-            Editorial: square corners, the same 1.5px ink border as the
-            instrument it hangs off, --card ground, no shadow. Only the hero
-            input carries a shadow in this design system.
+            Sunbird: rounded corners and the same soft shadow every card
+            gets, --card ground — a floating menu reads as a raised surface
+            here rather than the bordered, no-shadow instrument Editorial
+            used to draw.
           */
           style={
             anchorRect
@@ -262,7 +263,7 @@ export function SearchCombobox({
                 }
               : undefined
           }
-          className="z-50 max-h-[60vh] overflow-y-auto border-[1.5px] border-ink bg-card"
+          className="z-50 max-h-[60vh] overflow-y-auto rounded-2xl bg-card shadow-[0_4px_16px_oklch(30%_0.05_35_/_0.08)]"
         >
           {GROUP_ORDER.map((kind) => {
             const rows = suggestions
@@ -273,7 +274,7 @@ export function SearchCombobox({
               <li key={kind} role="presentation">
                 <div
                   role="presentation"
-                  className="border-b border-line px-3.5 pt-3 pb-1.5 font-body text-[11px] font-bold tracking-[0.14em] text-rust uppercase"
+                  className="border-b border-line px-3.5 pt-3 pb-1.5 font-body text-[11px] font-bold tracking-[0.14em] text-coral uppercase"
                 >
                   {GROUP_LABEL[kind]}
                 </div>
@@ -293,7 +294,7 @@ export function SearchCombobox({
                         choose(i);
                       }}
                       className={`flex min-h-10 cursor-pointer items-center justify-between gap-3 border-b border-line px-3.5 py-2 text-[13.5px] ${
-                        active === i ? "bg-rust-soft text-ink" : "text-ink"
+                        active === i ? "bg-coral-soft text-ink" : "text-ink"
                       }`}
                     >
                       <span className="truncate">{s.value}</span>
@@ -317,7 +318,7 @@ export function SearchCombobox({
                 choose(freeTextIndex);
               }}
               className={`flex min-h-10 cursor-pointer items-center px-3.5 py-2 text-[13.5px] ${
-                active === freeTextIndex ? "bg-rust-soft text-ink" : "text-ink-soft"
+                active === freeTextIndex ? "bg-coral-soft text-ink" : "text-ink-soft"
               }`}
             >
               Search for <span className="ml-1 font-semibold text-ink">“{value.trim()}”</span>

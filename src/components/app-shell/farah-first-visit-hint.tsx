@@ -162,14 +162,14 @@ export function FarahFirstVisitHint() {
                 scrollToFarahPanel();
                 dismiss();
               }}
-              className="pointer-events-auto inline-flex min-h-10 items-center justify-center border-none bg-ink px-4 font-body text-[13px] font-semibold text-paper transition-colors hover:bg-rust"
+              className="pointer-events-auto inline-flex min-h-10 items-center justify-center border-none bg-ink px-4 font-body text-[13px] font-semibold text-bg transition-colors hover:bg-coral"
             >
               Show me
             </button>
             <button
               type="button"
               onClick={dismiss}
-              className="pointer-events-auto inline-flex min-h-10 min-w-10 items-center justify-center px-1 font-body text-[13px] font-semibold text-ink-soft hover:text-rust"
+              className="pointer-events-auto inline-flex min-h-10 min-w-10 items-center justify-center px-1 font-body text-[13px] font-semibold text-ink-soft hover:text-coral"
             >
               Got it
             </button>

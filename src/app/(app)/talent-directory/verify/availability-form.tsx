@@ -43,7 +43,7 @@ export function AvailabilityForm({
         />
       </div>
       {state.message && (
-        <p className={`text-[13px] ${state.status === "error" ? "text-rust" : "text-green"}`}>{state.message}</p>
+        <p className={`text-[13px] ${state.status === "error" ? "text-coral" : "text-green"}`}>{state.message}</p>
       )}
       <Button type="submit" variant="secondary" size="sm" disabled={pending}>
         Save

@@ -41,14 +41,14 @@ const CLASS_MAP: Record<string, string> = {
   h2: "mt-2 text-[22px] text-ink",
   h3: "mt-1 text-[18px] text-ink",
   p: "text-[15.5px] leading-[1.75] text-ink-soft",
-  a: "text-rust underline underline-offset-2",
+  a: "text-coral underline underline-offset-2",
   ul: "flex flex-col gap-2 text-[15.5px] leading-[1.75] text-ink-soft",
   ol: "flex flex-col gap-2 text-[15.5px] leading-[1.75] text-ink-soft",
   li: "ml-5 list-disc",
   strong: "text-ink",
   blockquote: "border-l-2 border-line pl-4 text-[15.5px] italic text-ink-soft",
-  code: "bg-paper-alt px-1 text-[14px]",
-  pre: "overflow-x-auto border border-line bg-paper-alt p-4 text-[13.5px]",
+  code: "bg-bg-alt px-1 text-[14px]",
+  pre: "overflow-x-auto border border-line bg-bg-alt p-4 text-[13.5px]",
 };
 
 export function renderMarkdown(body: string): string {

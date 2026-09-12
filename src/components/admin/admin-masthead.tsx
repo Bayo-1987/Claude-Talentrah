@@ -23,13 +23,13 @@ export function AdminMasthead({
   displayName: string | null;
 }) {
   return (
-    <header className="border-b border-line bg-paper-alt">
+    <header className="border-b border-line bg-bg-alt">
       <Container className="flex min-h-[64px] flex-wrap items-center justify-between gap-4 py-3">
         <div className="flex items-baseline gap-3">
           <Link href="/admin" className="font-display text-[20px] no-underline">
             Talentrah
           </Link>
-          <span className="font-body text-[11px] font-bold uppercase tracking-[0.14em] text-rust">
+          <span className="font-body text-[11px] font-bold uppercase tracking-[0.14em] text-coral">
             Admin
           </span>
         </div>

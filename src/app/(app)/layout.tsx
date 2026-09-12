@@ -159,9 +159,9 @@ export default async function AppLayout({
 
           FarahPanel's own div is `sticky` with a max-height, so it is only ever
           as tall as its content — measured at 511px against a content column of
-          36,327px. Painting `bg-paper-alt` there left the field stopping 511px
+          36,327px. Painting `bg-bg-alt` there left the field stopping 511px
           down while the feed carried on beside it: on a 900px viewport that is
-          a seam of plain --paper visible before the fold, not below it.
+          a seam of plain --bg visible before the fold, not below it.
 
           THIS wrapper is the flex item, so `align-items: stretch` makes it
           exactly as tall as the content column. The tint therefore runs the
@@ -177,11 +177,11 @@ export default async function AppLayout({
           Still min-[760px]:, so the stacked mobile view has no side rule to
           draw, exactly as before.
 
-          The rust top rule and the mark beside the eyebrow stay on the panel
+          The coral top rule and the mark beside the eyebrow stay on the panel
           itself: those DO mark where Farah's content begins, which is not the
           same place as where her column begins.
         */}
-        <div className="bg-paper-alt min-[760px]:border-l min-[760px]:border-l-line print:hidden">
+        <div className="bg-bg-alt min-[760px]:border-l min-[760px]:border-l-line print:hidden">
           <FarahPanel firstName={visibleName(profile.first_name) || "there"} />
         </div>
       </div>

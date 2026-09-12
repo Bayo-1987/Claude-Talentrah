@@ -108,7 +108,7 @@ function BannerPointer({ jobId }: { jobId: string }) {
       You can add a banner image on{" "}
       <Link
         href={`/employer/jobs/${jobId}/edit`}
-        className="font-semibold text-rust underline underline-offset-2"
+        className="font-semibold text-coral underline underline-offset-2"
       >
         this job&apos;s edit page
       </Link>

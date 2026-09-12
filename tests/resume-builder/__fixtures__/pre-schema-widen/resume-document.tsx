@@ -11,7 +11,7 @@ export function ResumeDocument({ resume }: { resume: StructuredResume }) {
   const { contact, summary, experience, education, skills, projects, certifications } = resume;
 
   return (
-    <div className="mx-auto max-w-[720px] bg-paper p-10 text-ink">
+    <div className="mx-auto max-w-[720px] bg-bg p-10 text-ink">
       <div className="border-b-[2.5px] border-ink pb-4">
         <h1 className="font-display text-[28px]">{contact.name || "Your name"}</h1>
         <p className="mt-1 text-[13px] text-ink-soft">
@@ -27,7 +27,7 @@ export function ResumeDocument({ resume }: { resume: StructuredResume }) {
 
       {experience.length > 0 && (
         <section className="mt-6">
-          <h2 className="font-display text-[13px] font-bold uppercase tracking-[0.1em] text-rust">
+          <h2 className="font-display text-[13px] font-bold uppercase tracking-[0.1em] text-coral">
             Experience
           </h2>
           <div className="mt-3 flex flex-col gap-4">
@@ -53,7 +53,7 @@ export function ResumeDocument({ resume }: { resume: StructuredResume }) {
 
       {education.length > 0 && (
         <section className="mt-6">
-          <h2 className="font-display text-[13px] font-bold uppercase tracking-[0.1em] text-rust">
+          <h2 className="font-display text-[13px] font-bold uppercase tracking-[0.1em] text-coral">
             Education
           </h2>
           <div className="mt-3 flex flex-col gap-2">
@@ -73,7 +73,7 @@ export function ResumeDocument({ resume }: { resume: StructuredResume }) {
 
       {skills.length > 0 && (
         <section className="mt-6">
-          <h2 className="font-display text-[13px] font-bold uppercase tracking-[0.1em] text-rust">
+          <h2 className="font-display text-[13px] font-bold uppercase tracking-[0.1em] text-coral">
             Skills
           </h2>
           <p className="mt-2 text-[13.5px] text-ink-soft">{skills.join(" · ")}</p>
@@ -82,7 +82,7 @@ export function ResumeDocument({ resume }: { resume: StructuredResume }) {
 
       {projects.length > 0 && (
         <section className="mt-6">
-          <h2 className="font-display text-[13px] font-bold uppercase tracking-[0.1em] text-rust">
+          <h2 className="font-display text-[13px] font-bold uppercase tracking-[0.1em] text-coral">
             Projects
           </h2>
           <ul className="mt-2 flex flex-col gap-1">
@@ -97,7 +97,7 @@ export function ResumeDocument({ resume }: { resume: StructuredResume }) {
 
       {certifications.length > 0 && (
         <section className="mt-6">
-          <h2 className="font-display text-[13px] font-bold uppercase tracking-[0.1em] text-rust">
+          <h2 className="font-display text-[13px] font-bold uppercase tracking-[0.1em] text-coral">
             Certifications
           </h2>
           <ul className="mt-2 flex flex-col gap-1">

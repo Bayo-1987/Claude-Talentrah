@@ -1,7 +1,7 @@
 import { requireUser } from "@/lib/auth/require-user";
 import { getReviewQueue, getMyClaimedReviews } from "@/lib/talent-directory/review-queries";
 import { claimVerificationReviewAction } from "@/lib/talent-directory/reviewer-actions";
-import { Container, EyebrowLabel, BorderedCard, Button } from "@/components/ui";
+import { Container, EyebrowLabel, Card, Button } from "@/components/ui";
 
 export const metadata = { title: "Verification reviews — Talentrah" };
 
@@ -37,22 +37,22 @@ export default async function VerificationReviewsPage({
         review it — best expertise matches are shown first.
       </p>
 
-      {error && <p className="text-[13px] text-rust">{decodeURIComponent(error)}</p>}
+      {error && <p className="text-[13px] text-coral">{decodeURIComponent(error)}</p>}
 
       {myClaims.length > 0 && (
         <section className="flex flex-col gap-3">
           <h2 className="font-display text-[18px] font-semibold">Your claimed reviews</h2>
           {myClaims.map((c) => (
-            <BorderedCard key={c.id} className="flex flex-col gap-2 p-5">
+            <Card key={c.id} className="flex flex-col gap-2 p-5">
               <p className="text-[14px] text-ink">
                 {c.targetRole ?? "No target role stated"}
                 {c.targetIndustry ? ` · ${c.targetIndustry}` : ""}
               </p>
               <p className="text-[13px] text-ink-soft">Claimed {new Date(c.claimedAt).toLocaleString()}</p>
-              <a href={`/mentorship/reviews/${c.id}`} className="text-[13.5px] text-rust">
+              <a href={`/mentorship/reviews/${c.id}`} className="text-[13.5px] text-coral">
                 Continue reviewing ↗
               </a>
-            </BorderedCard>
+            </Card>
           ))}
         </section>
       )}
@@ -66,7 +66,7 @@ export default async function VerificationReviewsPage({
           </p>
         ) : (
           queue.map((item) => (
-            <BorderedCard key={item.id} className="flex flex-col gap-2 p-5">
+            <Card key={item.id} className="flex flex-col gap-2 p-5">
               <p className="text-[14px] text-ink">
                 {item.targetRole ?? "No target role stated"}
                 {item.targetIndustry ? ` · ${item.targetIndustry}` : ""}
@@ -79,7 +79,7 @@ export default async function VerificationReviewsPage({
                   Claim
                 </Button>
               </form>
-            </BorderedCard>
+            </Card>
           ))
         )}
       </section>

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BorderedCard } from "@/components/ui";
+import { Card } from "@/components/ui";
 import { getCompanyInitials } from "@/lib/jobs/company-initials";
 import { postingAgeLine } from "@/lib/jobs/freshness";
 import { formatSalary } from "@/lib/jobs/format-salary";
@@ -43,14 +43,14 @@ export function PublicJobRow({ job }: { job: Omit<Tables<"job_postings">, "descr
   const salary = formatSalary(job);
 
   return (
-    <BorderedCard className="flex flex-col gap-2 p-5">
+    <Card className="flex flex-col gap-2 p-5">
       <div className="flex items-start gap-3">
-        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center bg-ink font-display text-[13px] font-bold text-paper">
+        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-ink font-display text-[13px] font-bold text-bg">
           {getCompanyInitials(job.company_name)}
         </div>
         <div className="min-w-0 flex-1">
           <h3 className="text-[16px]">
-            <Link href={`/jobs/${job.id}`} className="text-ink no-underline hover:text-rust hover:underline">
+            <Link href={`/jobs/${job.id}`} className="text-ink no-underline hover:text-coral hover:underline">
               {job.title}
             </Link>
           </h3>
@@ -63,6 +63,6 @@ export function PublicJobRow({ job }: { job: Omit<Tables<"job_postings">, "descr
         {stripMarkdownToPlainText(job.description).slice(0, 220)}
       </p>
       <span className="text-[12px] text-ink-soft">{postingAgeLine(job)}</span>
-    </BorderedCard>
+    </Card>
   );
 }

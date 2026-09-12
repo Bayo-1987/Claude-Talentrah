@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getAdmin } from "@/lib/admin/require-admin";
 import { safeRedirectTo } from "@/lib/auth/redirect-to";
-import { Container, EyebrowLabel, BorderedCard } from "@/components/ui";
+import { Container, EyebrowLabel, Card } from "@/components/ui";
 import { AdminLoginForm } from "@/components/admin/admin-login-form";
 
 /**
@@ -71,9 +71,9 @@ export default async function AdminLoginPage({
         </p>
       </div>
 
-      <BorderedCard className="p-6">
+      <Card className="p-6">
         <AdminLoginForm redirectTo={redirectTo || undefined} />
-      </BorderedCard>
+      </Card>
     </Container>
   );
 }

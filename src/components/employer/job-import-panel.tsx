@@ -95,7 +95,7 @@ export function JobImportPanel({
         </Button>
       </div>
       {message && (
-        <p className={cn("font-body text-[13px]", message.tone === "error" ? "text-rust" : "text-ink-soft")}>
+        <p className={cn("font-body text-[13px]", message.tone === "error" ? "text-coral" : "text-ink-soft")}>
           {message.text}
         </p>
       )}

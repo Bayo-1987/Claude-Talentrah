@@ -154,7 +154,7 @@ test.describe("country-defaulted feed (Stage 12)", () => {
       const countryButton = authedPage.locator("summary", { hasText: "Nigeria" }).first();
       await expect(countryButton).toBeVisible();
       const seniorLink = authedPage.getByRole("link", { name: "Senior", exact: true });
-      await expect(seniorLink).toHaveClass(/text-rust/);
+      await expect(seniorLink).toHaveClass(/text-coral/);
 
       await expect(
         authedPage.getByText(remoteElsewhereTitle),
@@ -174,7 +174,7 @@ test.describe("country-defaulted feed (Stage 12)", () => {
       await expect(
         authedPage.getByRole("link", { name: "Senior", exact: true }),
         "clearing the country filter must not also clear Seniority",
-      ).toHaveClass(/text-rust/);
+      ).toHaveClass(/text-coral/);
     },
   );
 

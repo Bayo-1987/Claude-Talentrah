@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { saveMentorPayoutDetailsAction, type SavePayoutDetailsState } from "@/lib/mentorship/payout-details";
-import { TextField, SelectField, Button, BorderedCard } from "@/components/ui";
+import { TextField, SelectField, Button, Card } from "@/components/ui";
 import type { OwnPayoutDetails } from "@/lib/mentorship/queries";
 import type { PaystackBank } from "@/lib/paystack/client";
 
@@ -20,7 +20,7 @@ export function PayoutDetailsForm({
   const [state, formAction, pending] = useActionState(saveMentorPayoutDetailsAction, initialState);
 
   return (
-    <BorderedCard className="flex flex-col gap-4 p-5">
+    <Card className="flex flex-col gap-4 p-5">
       <h2 className="font-display text-[18px] font-semibold">Payout details</h2>
       {existing?.verifiedAt ? (
         <p className="text-[13.5px] text-ink-soft">
@@ -34,7 +34,7 @@ export function PayoutDetailsForm({
       )}
 
       {banksError ? (
-        <p className="text-[13px] text-rust">{banksError}</p>
+        <p className="text-[13px] text-coral">{banksError}</p>
       ) : (
         <form action={formAction} className="flex flex-col gap-4">
           <SelectField
@@ -56,7 +56,7 @@ export function PayoutDetailsForm({
           />
 
           {state.message && (
-            <p className={`text-[13px] ${state.status === "error" ? "text-rust" : "text-green"}`}>{state.message}</p>
+            <p className={`text-[13px] ${state.status === "error" ? "text-coral" : "text-green"}`}>{state.message}</p>
           )}
 
           <Button type="submit" variant="secondary" disabled={pending}>
@@ -64,6 +64,6 @@ export function PayoutDetailsForm({
           </Button>
         </form>
       )}
-    </BorderedCard>
+    </Card>
   );
 }

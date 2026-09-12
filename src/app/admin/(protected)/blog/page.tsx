@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requirePermission } from "@/lib/admin/require-admin";
 import { listAllPosts } from "@/lib/admin/blog/posts";
-import { Container, EyebrowLabel, BorderedCard, buttonClasses } from "@/components/ui";
+import { Container, EyebrowLabel, Card, buttonClasses } from "@/components/ui";
 
 export const metadata = {
   title: "Blog — Talentrah admin",
@@ -43,9 +43,9 @@ export default async function AdminBlogPage() {
       </div>
 
       {posts.length === 0 ? (
-        <BorderedCard className="p-6 text-[14px] text-ink-soft">
+        <Card className="p-6 text-[14px] text-ink-soft">
           No posts yet. <Link href="/admin/blog/new" className="underline">Write the first one.</Link>
-        </BorderedCard>
+        </Card>
       ) : (
         <div className="flex flex-col divide-y divide-line border-y border-line">
           {posts.map((post) => (

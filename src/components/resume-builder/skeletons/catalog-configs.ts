@@ -589,7 +589,7 @@ const LEGAL_BRIEF_CONFIG: TemplateConfig = {
  * `headerRuleClass(tokens.ruleWeight)` — `ruleWeight` is inert for this
  * skeleton, so `double` here is a no-op kept only for schema/DB parity, not a
  * claimed visual change. What actually differs from `faculty-profile`:
- * display/body (the app's own Newsreader/Source Sans pairing — used by no
+ * display/body (the app's own DM Serif Display/DM Sans pairing — used by no
  * other sidebar-left config), a tracked-caps heading (vs `faculty-profile`'s
  * underline rule), a bigger `lg` name and a `split` contact layout (both
  * genuinely rendered — `nameSizeClass`/`contactLineClass` read those tokens

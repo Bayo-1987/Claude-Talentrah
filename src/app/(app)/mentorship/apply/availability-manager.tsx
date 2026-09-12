@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { postAvailabilitySlotAction, deleteAvailabilitySlotAction } from "@/lib/mentorship/actions";
-import { Button, BorderedCard } from "@/components/ui";
+import { Button, Card } from "@/components/ui";
 import type { MentorAvailabilitySlot } from "@/lib/mentorship/queries";
 
 export function AvailabilityManager({ slots }: { slots: MentorAvailabilitySlot[] }) {
@@ -12,7 +12,7 @@ export function AvailabilityManager({ slots }: { slots: MentorAvailabilitySlot[]
   const [error, setError] = useState<string | null>(null);
 
   return (
-    <BorderedCard className="flex flex-col gap-4 p-5">
+    <Card className="flex flex-col gap-4 p-5">
       <h2 className="font-display text-[18px] font-semibold">Your open slots</h2>
 
       {slots.length === 0 ? (
@@ -27,7 +27,7 @@ export function AvailabilityManager({ slots }: { slots: MentorAvailabilitySlot[]
               <button
                 type="button"
                 onClick={() => startTransition(() => deleteAvailabilitySlotAction(slot.id))}
-                className="font-body text-[12.5px] font-semibold text-rust"
+                className="font-body text-[12.5px] font-semibold text-coral"
               >
                 Remove
               </button>
@@ -77,7 +77,7 @@ export function AvailabilityManager({ slots }: { slots: MentorAvailabilitySlot[]
           Add slot
         </Button>
       </form>
-      {error && <p className="text-[12.5px] text-rust">{error}</p>}
-    </BorderedCard>
+      {error && <p className="text-[12.5px] text-coral">{error}</p>}
+    </Card>
   );
 }

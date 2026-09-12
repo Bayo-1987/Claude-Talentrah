@@ -39,7 +39,7 @@ export function GridModulesSkeleton({ resume, config }: SkeletonProps) {
 
   return (
     <div
-      className={joinClasses("mx-auto max-w-[760px] bg-paper p-10 text-ink", fontScopeClassName(tokens))}
+      className={joinClasses("mx-auto max-w-[760px] bg-bg p-10 text-ink", fontScopeClassName(tokens))}
     >
       {renderHeader({
         resume,

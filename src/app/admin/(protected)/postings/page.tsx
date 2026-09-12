@@ -4,7 +4,7 @@ import { searchJobPostings } from "@/lib/admin/moderation/search";
 import { decideJobPostingAction } from "@/lib/admin/moderation/actions";
 import { DecisionForm } from "@/components/admin/decision-form";
 import { QueueEmpty } from "@/components/admin/queue-chrome";
-import { Container, EyebrowLabel, BorderedCard, TextField, Button } from "@/components/ui";
+import { Container, EyebrowLabel, Card, TextField, Button } from "@/components/ui";
 
 export const metadata = {
   title: "Find a posting — Talentrah admin",
@@ -112,7 +112,7 @@ export default async function PostingsSearchPage({
         <ul data-testid="postings-search-results" className="flex list-none flex-col gap-4 p-0">
           {results.map((p) => (
             <li key={p.jobPostingId}>
-              <BorderedCard className="flex flex-col gap-4 p-5">
+              <Card className="flex flex-col gap-4 p-5">
                 <div className="flex flex-col gap-1.5">
                   <EyebrowLabel>
                     {p.company}
@@ -147,7 +147,7 @@ export default async function PostingsSearchPage({
                   notePlaceholder="Reason — required, kept in the audit log"
                   options={[{ value: "remove", label: "Remove from the board", variant: "primary" }]}
                 />
-              </BorderedCard>
+              </Card>
             </li>
           ))}
         </ul>

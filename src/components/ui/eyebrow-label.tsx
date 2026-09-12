@@ -7,7 +7,7 @@ export interface EyebrowLabelProps extends HTMLAttributes<HTMLSpanElement> {
 }
 
 /**
- * The small-caps rust kicker used above every major section/card.
+ * The small-caps coral kicker used above every major section/card.
  * Must literally describe the content directly below it — no decorative
  * flourishes with no real referent (design handoff §6).
  */
@@ -19,7 +19,7 @@ export function EyebrowLabel({
   return (
     <span
       className={cn(
-        "font-body font-bold uppercase tracking-[0.14em] text-rust",
+        "font-body font-bold uppercase tracking-[0.08em] text-coral",
         size === "md" ? "text-[12px]" : "text-[11px]",
         className,
       )}

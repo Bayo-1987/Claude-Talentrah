@@ -57,7 +57,7 @@ export function AdminLoginForm({ redirectTo }: { redirectTo?: string }) {
       {state.error && (
         <p
           role="alert"
-          className="border-[1.5px] border-rust bg-rust-soft px-3.5 py-2.5 text-[13.5px] text-rust"
+          className="border-[1.5px] border-coral bg-coral-soft px-3.5 py-2.5 text-[13.5px] text-coral"
         >
           {state.error}
         </p>

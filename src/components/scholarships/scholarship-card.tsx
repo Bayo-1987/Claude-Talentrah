@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BorderedCard } from "@/components/ui";
+import { Card } from "@/components/ui";
 import type { Tables } from "@/lib/supabase/types";
 import { DEGREE_LEVEL_LABEL, FUNDING_TYPE_LABEL, type SaveStatus } from "@/lib/scholarships/types";
 import { SaveToggle } from "./save-toggle";
@@ -56,7 +56,7 @@ export function ScholarshipCard({
   const urgent = left !== null && left >= 0 && left <= 14;
 
   return (
-    <BorderedCard className="flex flex-col gap-3 p-5">
+    <Card className="flex flex-col gap-3 p-5">
       <div className="flex items-start justify-between gap-4">
         <div className="flex flex-col gap-1">
           <span className="font-body text-[12.5px] font-semibold uppercase tracking-[0.08em] text-ink-soft">
@@ -74,7 +74,7 @@ export function ScholarshipCard({
           <h3 className="text-[18px]">
             <Link
               href={`/scholarships/${scholarship.id}`}
-              className="text-ink no-underline hover:text-rust hover:underline"
+              className="text-ink no-underline hover:text-coral hover:underline"
             >
               {scholarship.program_name}
             </Link>
@@ -117,7 +117,7 @@ export function ScholarshipCard({
       <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-[13.5px] text-ink-soft">
         <span>
           <span className="font-semibold">Deadline:</span>{" "}
-          <span className={urgent ? "font-semibold text-rust" : undefined}>
+          <span className={urgent ? "font-semibold text-coral" : undefined}>
             {/*
               A provider with no single deadline (per-partner, per-embassy,
               per-consortium) is verified, not unknown — so show the sourced
@@ -152,7 +152,7 @@ export function ScholarshipCard({
         href={scholarship.official_url}
         target="_blank"
         rel="noopener noreferrer"
-        className="inline-flex min-h-10 w-fit items-center gap-1.5 font-body text-[13.5px] font-semibold text-rust underline underline-offset-2 hover:text-rust-hover"
+        className="inline-flex min-h-10 w-fit items-center gap-1.5 font-body text-[13.5px] font-semibold text-coral underline underline-offset-2 hover:text-coral-hover"
       >
         View the official listing
         <svg width="12" height="12" viewBox="0 0 20 20" fill="none" aria-hidden="true">
@@ -180,6 +180,6 @@ export function ScholarshipCard({
       )}
 
       <FarahActions scholarshipId={scholarship.id} creditsBalance={creditsBalance} passCovered={passCovered} />
-    </BorderedCard>
+    </Card>
   );
 }

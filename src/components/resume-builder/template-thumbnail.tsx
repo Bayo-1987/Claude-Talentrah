@@ -81,7 +81,7 @@ export function TemplateThumbnail({ slug }: { slug: string | null }) {
         stops it reading as a rendering bug.
       */}
       {!registered && (
-        <span className="absolute right-0 bottom-0 bg-ink px-2 py-0.5 font-body text-[10px] font-bold tracking-[0.1em] text-paper uppercase">
+        <span className="absolute right-0 bottom-0 bg-ink px-2 py-0.5 font-body text-[10px] font-bold tracking-[0.1em] text-bg uppercase">
           Standard layout
         </span>
       )}

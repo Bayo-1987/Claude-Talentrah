@@ -2,7 +2,7 @@ import Link from "next/link";
 import { requirePermission } from "@/lib/admin/require-admin";
 import { financialHealth } from "@/lib/admin/finance/queries";
 import { QueueHeader } from "@/components/admin/queue-chrome";
-import { Container, EyebrowLabel, BorderedCard } from "@/components/ui";
+import { Container, EyebrowLabel, Card } from "@/components/ui";
 
 export const metadata = {
   title: "Financial health — Talentrah admin",
@@ -47,7 +47,7 @@ export default async function FinancialHealthPage() {
           className={
             "border-[1.5px] px-3.5 py-2.5 text-[14px] " +
             (health.stalePending > 0
-              ? "border-rust bg-rust-soft text-rust"
+              ? "border-coral bg-coral-soft text-coral"
               : "border-ink bg-card text-ink")
           }
         >
@@ -59,12 +59,12 @@ export default async function FinancialHealthPage() {
 
       <section className="flex flex-col gap-2">
         <EyebrowLabel>Payments by status and rail</EyebrowLabel>
-        <BorderedCard className="overflow-x-auto p-0">
+        <Card className="overflow-x-auto p-0">
           <table className="w-full border-collapse text-[14px]">
             <tbody>
               {health.payments.map((p) => (
                 <tr key={`${p.status}-${p.rail}-${p.currency}`} className="border-b border-line last:border-b-0">
-                  <td className={"px-4 py-3 " + (p.status === "pending" ? "font-semibold text-rust" : "")}>
+                  <td className={"px-4 py-3 " + (p.status === "pending" ? "font-semibold text-coral" : "")}>
                     {p.status}
                   </td>
                   <td className="px-4 py-3">{p.rail}</td>
@@ -82,12 +82,12 @@ export default async function FinancialHealthPage() {
               )}
             </tbody>
           </table>
-        </BorderedCard>
+        </Card>
       </section>
 
       <section className="flex flex-col gap-2">
         <EyebrowLabel>Passes</EyebrowLabel>
-        <BorderedCard className="flex flex-col gap-2 p-5">
+        <Card className="flex flex-col gap-2 p-5">
           <ul className="flex list-none flex-wrap gap-x-8 gap-y-2 p-0 text-[14.5px]">
             {Object.entries(health.passesByStatus).map(([status, n]) => (
               <li key={status}>
@@ -100,7 +100,7 @@ export default async function FinancialHealthPage() {
             )}
           </ul>
           {health.passesAwaitingRenewalOutcome > 0 && (
-            <p className="text-[13.5px] text-rust">
+            <p className="text-[13.5px] text-coral">
               {health.passesAwaitingRenewalOutcome} awaiting a renewal outcome —{" "}
               <Link href="/admin/ops" className="underline">
                 see Operations
@@ -108,12 +108,12 @@ export default async function FinancialHealthPage() {
               for attempt counts and references.
             </p>
           )}
-        </BorderedCard>
+        </Card>
       </section>
 
       <section className="flex flex-col gap-2">
         <EyebrowLabel>Credit movements by reason</EyebrowLabel>
-        <BorderedCard className="overflow-x-auto p-0">
+        <Card className="overflow-x-auto p-0">
           <table className="w-full border-collapse text-[14px]">
             <tbody>
               {health.creditsByReason.map((c) => (
@@ -130,12 +130,12 @@ export default async function FinancialHealthPage() {
               )}
             </tbody>
           </table>
-        </BorderedCard>
+        </Card>
       </section>
 
       <section className="flex flex-col gap-2">
         <EyebrowLabel>Ad wallets</EyebrowLabel>
-        <BorderedCard className="p-5 text-[14.5px]">
+        <Card className="p-5 text-[14.5px]">
           {health.adWalletCount === 0 ? (
             <span className="font-display italic text-ink-soft">No ad wallets yet.</span>
           ) : (
@@ -149,7 +149,7 @@ export default async function FinancialHealthPage() {
               </span>
             </>
           )}
-        </BorderedCard>
+        </Card>
       </section>
 
       <p className="text-[14px] text-ink-soft">

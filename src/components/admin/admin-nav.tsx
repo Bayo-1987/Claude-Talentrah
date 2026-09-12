@@ -128,7 +128,7 @@ export async function AdminNav({ permissions }: { permissions: readonly AdminPer
             aria-current={active ? "page" : undefined}
             className={
               "inline-flex min-h-11 items-center gap-2 font-body text-[14px] no-underline " +
-              (active ? "font-semibold text-rust" : "text-ink hover:text-rust")
+              (active ? "font-semibold text-coral" : "text-ink hover:text-coral")
             }
           >
             {item.label}
@@ -140,7 +140,7 @@ export async function AdminNav({ permissions }: { permissions: readonly AdminPer
             <span
               className={
                 "min-w-6 px-1.5 py-0.5 text-center font-body text-[12px] font-bold " +
-                (count > 0 ? "bg-ink text-paper" : "bg-transparent text-ink-soft")
+                (count > 0 ? "bg-ink text-bg" : "bg-transparent text-ink-soft")
               }
             >
               {count}
@@ -156,7 +156,7 @@ export async function AdminNav({ permissions }: { permissions: readonly AdminPer
           aria-current={path.startsWith(item.href) ? "page" : undefined}
           className={
             "inline-flex min-h-11 items-center font-body text-[14px] no-underline " +
-            (path.startsWith(item.href) ? "font-semibold text-rust" : "text-ink hover:text-rust")
+            (path.startsWith(item.href) ? "font-semibold text-coral" : "text-ink hover:text-coral")
           }
         >
           {item.label}

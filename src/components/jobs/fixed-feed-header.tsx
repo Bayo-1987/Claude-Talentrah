@@ -156,7 +156,7 @@ export function FixedFeedHeader({ children }: { children: ReactNode }) {
       <div
         ref={barRef}
         data-testid="feed-header"
-        className="z-10 flex flex-col gap-5 bg-paper pt-8 pb-4"
+        className="z-10 flex flex-col gap-5 bg-bg pt-8 pb-4"
         style={
           fixed
             ? {

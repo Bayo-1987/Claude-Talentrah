@@ -37,7 +37,7 @@ const STATUS: Record<CampaignStatus, { label: string; className: string; blurb: 
   },
   rejected: {
     label: "Changes needed",
-    className: "border-rust text-rust",
+    className: "border-coral text-coral",
     blurb: "Not approved. Edit it and submit again — nothing was charged.",
   },
   active: {
@@ -52,7 +52,7 @@ const STATUS: Record<CampaignStatus, { label: string; className: string; blurb: 
   },
   paused_insufficient_funds: {
     label: "Out of funds",
-    className: "border-rust text-rust",
+    className: "border-coral text-coral",
     blurb:
       "Stopped because your ad wallet couldn't cover a day. Top up, then resume — nothing was charged for the day it couldn't pay for.",
   },
@@ -103,7 +103,7 @@ export function CampaignControls({
   return (
     <div className="flex flex-col gap-3">
       {error && (
-        <p className="border-[1.5px] border-rust bg-rust-soft px-3.5 py-2.5 text-[13.5px] text-rust">
+        <p className="border-[1.5px] border-coral bg-coral-soft px-3.5 py-2.5 text-[13.5px] text-coral">
           {error}
         </p>
       )}

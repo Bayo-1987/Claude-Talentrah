@@ -8,7 +8,7 @@ import {
   AUTO_APPLY_MIN_SCORE,
 } from "@/lib/auto-apply/config";
 import { CREDIT_COSTS } from "@/lib/credits/costs";
-import { BorderedCard, EyebrowLabel } from "@/components/ui";
+import { Card, EyebrowLabel } from "@/components/ui";
 import { AutoApplyQueueItem, type QueueItem } from "@/components/jobs/auto-apply-queue-item";
 import { formatRelativeTime } from "@/lib/format-relative-time";
 import { displayMatchScore } from "@/lib/match-tier";
@@ -71,14 +71,14 @@ export default async function AutoApplyPage() {
       {!settings?.enabled && (
         <p className="border-[1.5px] border-amber bg-[oklch(96%_0.03_70)] px-4 py-3 text-[13.5px] text-ink">
           Auto-Apply is off, so nothing new is being queued.{" "}
-          <Link href="/jobs" className="font-semibold text-rust underline underline-offset-2">
+          <Link href="/jobs" className="font-semibold text-coral underline underline-offset-2">
             Turn it on from the job feed
           </Link>
           .
         </p>
       )}
 
-      <BorderedCard className="p-4">
+      <Card className="p-4">
         <p className="font-body text-[13px] text-ink-soft">
           <span className="font-semibold text-ink">{quota.dailyRemaining}</span> of{" "}
           {AUTO_APPLY_DAILY_SUBMIT_CAP} submissions left today ·{" "}
@@ -90,17 +90,17 @@ export default async function AutoApplyPage() {
               : ` · next one costs ${CREDIT_COSTS.autoApplySubmission} credits`
             : ""}
         </p>
-      </BorderedCard>
+      </Card>
 
       <section className="flex flex-col gap-3.5">
         {pending.length === 0 ? (
-          <BorderedCard className="p-8 text-center">
+          <Card className="p-8 text-center">
             <p className="font-display text-[19px] font-medium text-ink">Nothing waiting</p>
             <p className="mx-auto mt-2 max-w-[46ch] font-body text-[14px] text-ink-soft">
               Auto-Apply only queues Excellent matches, so an empty queue usually means there
               aren&apos;t any right now — not that it isn&apos;t working.
             </p>
-          </BorderedCard>
+          </Card>
         ) : (
           pending.map((item) => <AutoApplyQueueItem key={item.id} item={item} />)
         )}

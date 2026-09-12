@@ -158,7 +158,7 @@ export default async function ResumeBuilderPage({ searchParams }: { searchParams
           >
             <a
               href="#template-gallery"
-              className="w-fit text-[12.5px] font-semibold text-ink-soft underline underline-offset-2 hover:text-rust"
+              className="w-fit text-[12.5px] font-semibold text-ink-soft underline underline-offset-2 hover:text-coral"
             >
               ↓ Jump to the gallery
             </a>
@@ -227,7 +227,7 @@ export default async function ResumeBuilderPage({ searchParams }: { searchParams
             href={buildGalleryHref(base, { category: undefined, page: undefined })}
             className={
               !category
-                ? "flex min-h-10 items-center border-b-[2.5px] border-rust font-body text-[13.5px] font-bold text-ink no-underline"
+                ? "flex min-h-10 items-center border-b-[2.5px] border-coral font-body text-[13.5px] font-bold text-ink no-underline"
                 : "flex min-h-10 items-center border-b-[2.5px] border-transparent font-body text-[13.5px] font-bold text-ink-soft no-underline"
             }
           >
@@ -239,7 +239,7 @@ export default async function ResumeBuilderPage({ searchParams }: { searchParams
               href={buildGalleryHref(base, { category: c, page: undefined })}
               className={
                 category === c
-                  ? "flex min-h-10 items-center border-b-[2.5px] border-rust font-body text-[13.5px] font-bold text-ink no-underline"
+                  ? "flex min-h-10 items-center border-b-[2.5px] border-coral font-body text-[13.5px] font-bold text-ink no-underline"
                   : "flex min-h-10 items-center border-b-[2.5px] border-transparent font-body text-[13.5px] font-bold text-ink-soft no-underline"
               }
             >
@@ -257,12 +257,12 @@ export default async function ResumeBuilderPage({ searchParams }: { searchParams
             name="q"
             defaultValue={q}
             placeholder="Search templates by name…"
-            className="min-h-11 w-full max-w-[320px] border-[1.5px] border-ink bg-card px-3.5 py-2.5 font-body text-[14px] outline-none focus:border-rust"
+            className="min-h-11 w-full max-w-[320px] border-[1.5px] border-ink bg-card px-3.5 py-2.5 font-body text-[14px] outline-none focus:border-coral"
           />
           {q && (
             <Link
               href={buildGalleryHref(base, { q: undefined, page: undefined })}
-              className="text-[12.5px] font-semibold text-ink-soft underline underline-offset-2 hover:text-rust"
+              className="text-[12.5px] font-semibold text-ink-soft underline underline-offset-2 hover:text-coral"
             >
               Clear search
             </Link>
@@ -280,8 +280,8 @@ export default async function ResumeBuilderPage({ searchParams }: { searchParams
             href={buildGalleryHref(base, { atsSafe: atsSafeOnly ? undefined : "1", page: undefined })}
             className={
               atsSafeOnly
-                ? "flex min-h-10 w-fit items-center gap-2 border-[1.5px] border-ink bg-ink px-3 font-body text-[13px] font-semibold text-paper no-underline"
-                : "flex min-h-10 w-fit items-center gap-2 border-[1.5px] border-ink bg-card px-3 font-body text-[13px] font-semibold text-ink no-underline hover:border-rust hover:text-rust"
+                ? "flex min-h-10 w-fit items-center gap-2 border-[1.5px] border-ink bg-ink px-3 font-body text-[13px] font-semibold text-bg no-underline"
+                : "flex min-h-10 w-fit items-center gap-2 border-[1.5px] border-ink bg-card px-3 font-body text-[13px] font-semibold text-ink no-underline hover:border-coral hover:text-coral"
             }
           >
             ATS-safe only
@@ -296,8 +296,8 @@ export default async function ResumeBuilderPage({ searchParams }: { searchParams
             href={buildGalleryHref(base, { freeOnly: freeOnly ? undefined : "1", page: undefined })}
             className={
               freeOnly
-                ? "flex min-h-10 w-fit items-center gap-2 border-[1.5px] border-ink bg-ink px-3 font-body text-[13px] font-semibold text-paper no-underline"
-                : "flex min-h-10 w-fit items-center gap-2 border-[1.5px] border-ink bg-card px-3 font-body text-[13px] font-semibold text-ink no-underline hover:border-rust hover:text-rust"
+                ? "flex min-h-10 w-fit items-center gap-2 border-[1.5px] border-ink bg-ink px-3 font-body text-[13px] font-semibold text-bg no-underline"
+                : "flex min-h-10 w-fit items-center gap-2 border-[1.5px] border-ink bg-card px-3 font-body text-[13px] font-semibold text-ink no-underline hover:border-coral hover:text-coral"
             }
           >
             Free templates only

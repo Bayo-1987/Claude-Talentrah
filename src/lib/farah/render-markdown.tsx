@@ -387,7 +387,7 @@ export function renderFarahMarkdown(content: string): ReactNode {
  * `dangerouslySetInnerHTML` — see this file's header), a different face.
  *
  * Job descriptions are not Farah's voice: CLAUDE.md reserves italic
- * Newsreader for quiet/secondary asides, and a full job description is the
+ * display serif for quiet/secondary asides, and a full job description is the
  * main content of its page, not an aside. This exists because
  * `stripHtml` (src/lib/jobs/extract-jd.ts) now converts ATS HTML into this
  * same bold/bullet/paragraph markdown subset instead of flattening it to
@@ -400,10 +400,10 @@ const JOB_DESCRIPTION_FACE: MarkdownFace = {
   heading: "text-[15px] font-semibold leading-relaxed text-ink-soft",
   rule: "my-1 border-t border-line",
   quote: "text-[15px] leading-relaxed text-ink-soft border-l-2 border-line pl-3",
-  // Same rust-link treatment as the scholarship page's own official-source
+  // Same coral-link treatment as the scholarship page's own official-source
   // link (src/app/(app)/scholarships/[id]/page.tsx) — one link style for
   // one concept, not a bespoke one invented here.
-  link: "text-rust underline underline-offset-2 hover:text-rust-hover",
+  link: "text-coral underline underline-offset-2 hover:text-coral-hover",
 };
 
 export function renderJobDescriptionMarkdown(content: string): ReactNode {

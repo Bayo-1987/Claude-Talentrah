@@ -69,14 +69,14 @@ export function AutoApplyToggle({
           }
           className={[
             "relative inline-flex h-[26px] w-[46px] flex-shrink-0 items-center rounded-full border-[1.5px] border-ink transition-colors",
-            optimisticEnabled ? "bg-ink" : "bg-paper",
+            optimisticEnabled ? "bg-ink" : "bg-bg",
             isPending ? "opacity-50" : "",
           ].join(" ")}
         >
           <span
             className={[
               "inline-block h-[16px] w-[16px] rounded-full transition-transform",
-              optimisticEnabled ? "translate-x-[25px] bg-paper" : "translate-x-[4px] bg-ink",
+              optimisticEnabled ? "translate-x-[25px] bg-bg" : "translate-x-[4px] bg-ink",
             ].join(" ")}
           />
         </button>
@@ -86,7 +86,7 @@ export function AutoApplyToggle({
         <div className="flex flex-wrap items-center gap-3 border-t border-line pt-2.5">
           <Link
             href="/auto-apply"
-            className="font-body text-[13.5px] font-semibold text-rust underline underline-offset-2"
+            className="font-body text-[13.5px] font-semibold text-coral underline underline-offset-2"
           >
             {pendingCount > 0
               ? `${pendingCount} ${pendingCount === 1 ? "match is" : "matches are"} waiting for review`

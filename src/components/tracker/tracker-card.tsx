@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BorderedCard } from "@/components/ui";
+import { Card } from "@/components/ui";
 import { getCompanyInitials } from "@/lib/jobs/company-initials";
 import { StageSelect } from "@/components/tracker/stage-select";
 import { NotesForm } from "@/components/tracker/notes-form";
@@ -58,9 +58,9 @@ export interface TrackerEntry {
 
 export function TrackerCard({ entry }: { entry: TrackerEntry }) {
   return (
-    <BorderedCard className="flex flex-col gap-3.5 p-5">
+    <Card className="flex flex-col gap-3.5 p-5">
       <div className="flex items-start gap-4">
-        <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center bg-ink font-display text-[15px] font-bold text-paper">
+        <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center bg-ink font-display text-[15px] font-bold text-bg">
           {getCompanyInitials(entry.companyName)}
         </div>
         <div className="min-w-0 flex-1">
@@ -90,7 +90,7 @@ export function TrackerCard({ entry }: { entry: TrackerEntry }) {
         */}
         {entry.firstViewedAt && <span>Viewed {formatDate(entry.firstViewedAt)}</span>}
         {entry.url && (
-          <a href={entry.url} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-rust">
+          <a href={entry.url} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-coral">
             Job posting
           </a>
         )}
@@ -105,7 +105,7 @@ export function TrackerCard({ entry }: { entry: TrackerEntry }) {
         {entry.resumeId ? (
           <Link
             href={`/resume-builder/edit?resumeId=${entry.resumeId}`}
-            className="underline underline-offset-2 hover:text-rust"
+            className="underline underline-offset-2 hover:text-coral"
           >
             Resume used
           </Link>
@@ -114,7 +114,7 @@ export function TrackerCard({ entry }: { entry: TrackerEntry }) {
             <Link
               href={`/tracker/${entry.id}/sent?doc=resume`}
               data-testid="tracker-resume-snapshot"
-              className="underline underline-offset-2 hover:text-rust"
+              className="underline underline-offset-2 hover:text-coral"
             >
               Resume used (deleted — copy kept)
             </Link>
@@ -123,7 +123,7 @@ export function TrackerCard({ entry }: { entry: TrackerEntry }) {
         {entry.coverLetterId ? (
           <Link
             href={`/resume-builder/edit?resumeId=${entry.coverLetterId}`}
-            className="underline underline-offset-2 hover:text-rust"
+            className="underline underline-offset-2 hover:text-coral"
           >
             Cover letter used
           </Link>
@@ -132,7 +132,7 @@ export function TrackerCard({ entry }: { entry: TrackerEntry }) {
             <Link
               href={`/tracker/${entry.id}/sent?doc=cover-letter`}
               data-testid="tracker-cover-letter-snapshot"
-              className="underline underline-offset-2 hover:text-rust"
+              className="underline underline-offset-2 hover:text-coral"
             >
               Cover letter used (deleted — copy kept)
             </Link>
@@ -149,6 +149,6 @@ export function TrackerCard({ entry }: { entry: TrackerEntry }) {
       )}
 
       <NotesForm applicationId={entry.id} notes={entry.notes} updatedAt={entry.updatedAt} />
-    </BorderedCard>
+    </Card>
   );
 }

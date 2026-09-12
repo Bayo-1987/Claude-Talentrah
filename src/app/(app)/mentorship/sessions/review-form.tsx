@@ -47,7 +47,7 @@ export function ReviewForm({ sessionId, mentorId }: { sessionId: string; mentorI
         placeholder="Optional note for other seekers"
         className="min-h-16 border-[1.5px] border-ink bg-card p-2.5 font-body text-[13.5px]"
       />
-      {error && <p className="text-[12.5px] text-rust">{error}</p>}
+      {error && <p className="text-[12.5px] text-coral">{error}</p>}
       <Button type="submit" variant="secondary" size="sm" disabled={pending}>
         Submit review
       </Button>

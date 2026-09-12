@@ -17,7 +17,7 @@ export function PipelineTemplate({ resume }: TemplateProps) {
   const { contact, summary, experience, education, skills, projects, certifications } = resume;
 
   return (
-    <div className="mx-auto max-w-[720px] bg-paper p-10 text-ink">
+    <div className="mx-auto max-w-[720px] bg-bg p-10 text-ink">
       <header className="pb-3">
         <h1 className="font-display text-[30px] leading-none">{contact.name || "Your name"}</h1>
         <p className="mt-1.5 font-body text-[12.5px] text-ink-soft">{contactLine(contact)}</p>
@@ -35,7 +35,7 @@ export function PipelineTemplate({ resume }: TemplateProps) {
 
       {experience.length > 0 && (
         <section className="mt-6">
-          <h2 className="font-body text-[11px] font-bold uppercase tracking-[0.14em] text-rust">
+          <h2 className="font-body text-[11px] font-bold uppercase tracking-[0.14em] text-coral">
             Track Record
           </h2>
           <div className="mt-3 flex flex-col gap-5">
@@ -66,7 +66,7 @@ export function PipelineTemplate({ resume }: TemplateProps) {
 
       {projects.length > 0 && (
         <section className="mt-6">
-          <h2 className="font-body text-[11px] font-bold uppercase tracking-[0.14em] text-rust">
+          <h2 className="font-body text-[11px] font-bold uppercase tracking-[0.14em] text-coral">
             Campaigns &amp; Accounts
           </h2>
           <ul className="mt-2 flex flex-col gap-1.5">
@@ -82,7 +82,7 @@ export function PipelineTemplate({ resume }: TemplateProps) {
       <div className="mt-6 flex flex-wrap gap-x-10 gap-y-3 border-t border-line pt-4">
         {education.length > 0 && (
           <section>
-            <h2 className="font-body text-[11px] font-bold uppercase tracking-[0.14em] text-rust">
+            <h2 className="font-body text-[11px] font-bold uppercase tracking-[0.14em] text-coral">
               Education
             </h2>
             <div className="mt-1.5 flex flex-col gap-1">
@@ -97,7 +97,7 @@ export function PipelineTemplate({ resume }: TemplateProps) {
         )}
         {certifications.length > 0 && (
           <section>
-            <h2 className="font-body text-[11px] font-bold uppercase tracking-[0.14em] text-rust">
+            <h2 className="font-body text-[11px] font-bold uppercase tracking-[0.14em] text-coral">
               Certifications
             </h2>
             <div className="mt-1.5 flex flex-col gap-1">

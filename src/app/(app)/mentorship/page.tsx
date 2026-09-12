@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth/require-user";
 import { browseMentors } from "@/lib/mentorship/queries";
-import { Container, EyebrowLabel, BorderedCard } from "@/components/ui";
+import { Container, EyebrowLabel, Card } from "@/components/ui";
 
 export const metadata = { title: "Mentorship — Talentrah" };
 
@@ -41,13 +41,13 @@ export default async function MentorshipPage({
         </div>
         <Link
           href="/mentorship/apply"
-          className="inline-flex min-h-11 shrink-0 items-center justify-center border-[1.5px] border-ink px-4 font-body text-[13.5px] font-semibold text-ink no-underline hover:border-rust hover:text-rust"
+          className="inline-flex min-h-11 shrink-0 items-center justify-center border-[1.5px] border-ink px-4 font-body text-[13.5px] font-semibold text-ink no-underline hover:border-coral hover:text-coral"
         >
           Become a mentor
         </Link>
       </div>
 
-      {error && <p className="text-[13.5px] text-rust">{error}</p>}
+      {error && <p className="text-[13.5px] text-coral">{error}</p>}
 
       {mentors.length === 0 ? (
         <p className="text-[14px] text-ink-soft">
@@ -58,7 +58,7 @@ export default async function MentorshipPage({
           {mentors.map((mentor) => (
             <li key={mentor.userId}>
               <Link href={`/mentorship/${mentor.userId}`} className="no-underline">
-                <BorderedCard className="flex h-full flex-col gap-3 p-5">
+                <Card className="flex h-full flex-col gap-3 p-5">
                   <h2 className="font-display text-[18px] font-semibold text-ink">
                     {mentor.name}
                   </h2>
@@ -78,7 +78,7 @@ export default async function MentorshipPage({
                       {[...mentor.expertiseRoles, ...mentor.expertiseIndustries].slice(0, 4).join(" · ")}
                     </p>
                   )}
-                </BorderedCard>
+                </Card>
               </Link>
             </li>
           ))}

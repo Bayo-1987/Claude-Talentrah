@@ -39,7 +39,7 @@ export function DecideForm({ verificationId, candidateId }: { verificationId: st
       </div>
 
       {state.message && (
-        <p className={`text-[13px] ${state.status === "error" ? "text-rust" : "text-green"}`}>{state.message}</p>
+        <p className={`text-[13px] ${state.status === "error" ? "text-coral" : "text-green"}`}>{state.message}</p>
       )}
     </form>
   );

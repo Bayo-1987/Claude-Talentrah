@@ -73,7 +73,7 @@ export default async function SentDocumentPage({
         </p>
       </div>
 
-      <div className="border-[1.5px] border-ink bg-rust-soft px-4 py-3 text-[13px] text-ink">
+      <div className="border-[1.5px] border-ink bg-coral-soft px-4 py-3 text-[13px] text-ink">
         The resume this was made from has been deleted. This is the copy saved
         when you deleted it
         {snapshot.capturedAt ? ` on ${formatTrackerDate(snapshot.capturedAt)}` : ""}, so your

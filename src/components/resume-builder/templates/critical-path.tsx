@@ -18,7 +18,7 @@ export function CriticalPathTemplate({ resume }: TemplateProps) {
   const { contact, summary, experience, education, skills, projects, certifications } = resume;
 
   return (
-    <div className="mx-auto max-w-[720px] bg-paper p-10 text-ink">
+    <div className="mx-auto max-w-[720px] bg-bg p-10 text-ink">
       <header className="flex items-end justify-between gap-6 border-b-[2.5px] border-ink pb-3">
         <h1 className="font-display text-[28px] leading-none">{contact.name || "Your name"}</h1>
         <p className="pb-0.5 text-right font-body text-[12px] leading-snug text-ink-soft">
@@ -47,10 +47,10 @@ export function CriticalPathTemplate({ resume }: TemplateProps) {
 
       {experience.length > 0 && (
         <section className="mt-5">
-          <h2 className="font-body text-[11px] font-bold uppercase tracking-[0.14em] text-rust">
+          <h2 className="font-body text-[11px] font-bold uppercase tracking-[0.14em] text-coral">
             Delivery Experience
           </h2>
-          <div className="mt-3 flex flex-col gap-4 border-l-2 border-rust pl-4">
+          <div className="mt-3 flex flex-col gap-4 border-l-2 border-coral pl-4">
             {experience.map((entry, i) => {
               const bullets = getExperienceBullets(entry);
               const text = getExperienceText(entry);
@@ -88,7 +88,7 @@ export function CriticalPathTemplate({ resume }: TemplateProps) {
 
       {projects.length > 0 && (
         <section className="mt-5">
-          <h2 className="font-body text-[11px] font-bold uppercase tracking-[0.14em] text-rust">
+          <h2 className="font-body text-[11px] font-bold uppercase tracking-[0.14em] text-coral">
             Programmes &amp; Initiatives
           </h2>
           <ul className="mt-2 flex flex-col gap-1">
@@ -104,7 +104,7 @@ export function CriticalPathTemplate({ resume }: TemplateProps) {
       <div className="mt-5 grid grid-cols-2 gap-6 border-t border-line pt-4">
         {education.length > 0 && (
           <section>
-            <h2 className="font-body text-[11px] font-bold uppercase tracking-[0.14em] text-rust">
+            <h2 className="font-body text-[11px] font-bold uppercase tracking-[0.14em] text-coral">
               Education
             </h2>
             <div className="mt-2 flex flex-col gap-1.5">
@@ -119,7 +119,7 @@ export function CriticalPathTemplate({ resume }: TemplateProps) {
         )}
         {certifications.length > 0 && (
           <section>
-            <h2 className="font-body text-[11px] font-bold uppercase tracking-[0.14em] text-rust">
+            <h2 className="font-body text-[11px] font-bold uppercase tracking-[0.14em] text-coral">
               Certifications
             </h2>
             <ul className="mt-2 flex flex-col gap-1">

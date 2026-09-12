@@ -74,7 +74,7 @@ export function renderHeader({
               href={link.url}
               className={joinClasses(
                 "underline underline-offset-2",
-                tokens.accent === "rust" ? "text-rust" : "text-ink",
+                tokens.accent === "rust" ? "text-coral" : "text-ink",
               )}
             >
               {link.label}
@@ -348,7 +348,7 @@ export function renderLinksSection({
           <li key={i} className={joinClasses(t.listItem)}>
             <a
               href={link.url}
-              className={joinClasses("underline underline-offset-2", tokens.accent === "rust" ? "text-rust" : "text-ink")}
+              className={joinClasses("underline underline-offset-2", tokens.accent === "rust" ? "text-coral" : "text-ink")}
             >
               {link.label}
             </a>

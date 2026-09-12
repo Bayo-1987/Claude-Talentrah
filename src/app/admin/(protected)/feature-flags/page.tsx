@@ -2,7 +2,7 @@ import { requirePermission } from "@/lib/admin/require-admin";
 import { listFeatureFlags } from "@/lib/admin/flags/list";
 import { FeatureFlagRow } from "@/components/admin/feature-flag-row";
 import { QueueHeader } from "@/components/admin/queue-chrome";
-import { Container, EyebrowLabel, BorderedCard } from "@/components/ui";
+import { Container, EyebrowLabel, Card } from "@/components/ui";
 
 export const metadata = {
   title: "Feature flags — Talentrah admin",
@@ -37,17 +37,17 @@ export default async function FeatureFlagsPage() {
         adminLabel={admin.displayName || admin.email}
       />
 
-      <BorderedCard className="flex flex-col gap-2 p-5">
+      <Card className="flex flex-col gap-2 p-5">
         <EyebrowLabel>Status</EyebrowLabel>
         <p className="text-[15px]">
           {on} of {flags.length} on
         </p>
-      </BorderedCard>
+      </Card>
 
       <ul className="flex list-none flex-col gap-4 p-0">
         {flags.map((f) => (
           <li key={f.key}>
-            <BorderedCard className="flex flex-col gap-4 p-5">
+            <Card className="flex flex-col gap-4 p-5">
               <div className="flex flex-col gap-1.5">
                 <EyebrowLabel>{f.enabled ? "On" : "Off"}</EyebrowLabel>
                 <h2 className="font-display text-[20px] font-semibold leading-snug">{f.label}</h2>
@@ -59,7 +59,7 @@ export default async function FeatureFlagsPage() {
                 </p>
               </div>
               <FeatureFlagRow flagKey={f.key} enabled={f.enabled} />
-            </BorderedCard>
+            </Card>
           </li>
         ))}
         {flags.length === 0 && (

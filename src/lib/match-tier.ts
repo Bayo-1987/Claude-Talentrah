@@ -11,11 +11,38 @@ export const MATCH_TIER_LABEL: Record<MatchTier, string> = {
   fair: "Fair",
 };
 
-/** Tailwind text-color utility for each tier (see globals.css @theme tokens). */
+/**
+ * Tailwind text-color utility for each tier (see globals.css @theme tokens).
+ *
+ * Good deliberately does NOT reuse Sunbird's primary accent (--coral) the
+ * way Editorial's equivalent reused --rust — --coral is this system's own
+ * CTA/action color, rendered directly beside match badges on the same card
+ * (job-card.tsx's Apply button, the job detail page's "Apply on company
+ * site"). A coral Good-tier badge next to a coral button would blur "this is
+ * clickable" with "this is a score." --teal already carries a calm,
+ * informational register on these screens (the Farah panel, skill-tag
+ * pills) rather than an actionable one, so it takes over Good's role
+ * instead. See globals.css's own note on this for the full reasoning.
+ */
 export const MATCH_TIER_TEXT_CLASS: Record<MatchTier, string> = {
   excellent: "text-green",
-  good: "text-rust",
+  good: "text-teal",
   fair: "text-amber",
+};
+
+/**
+ * Filled-pill treatment (soft background + solid foreground) — MatchTierBadge's
+ * "eyebrow" variant, matching the score badges on Sunbird's own Feed/Detail
+ * artboards (SunbirdFeed.dc.html, SunbirdDetail.dc.html). Same three tiers,
+ * same colors as MATCH_TIER_TEXT_CLASS above — this just adds the matching
+ * soft background for a context that renders a badge rather than plain text
+ * (the marketing classifieds-row list intentionally stays plain text; see
+ * job-board-preview.tsx).
+ */
+export const MATCH_TIER_BADGE_CLASS: Record<MatchTier, string> = {
+  excellent: "bg-green-soft text-green",
+  good: "bg-teal-soft text-teal",
+  fair: "bg-amber-soft text-amber",
 };
 
 export function getMatchTier(score: number): MatchTier {
