@@ -143,4 +143,100 @@ test.describe("switching which job the docked panel is seeded for", () => {
       "farah-message",
     ]);
   });
+
+  /**
+   * send-185: the job DETAIL page never had "Ask Farah" at all — it was
+   * built and wired only against job-card.tsx's own row. This pins the new
+   * wiring specifically as a second, different entry point into the SAME
+   * seed mechanism the test above already exercises from the feed, so a
+   * client-side navigation from the feed to a detail page (both under the
+   * same (app) layout, so the docked panel never remounts) can't silently
+   * clobber a conversation already in progress — the exact failure class
+   * send-175 originally fixed, now checked against the entry point that was
+   * missing rather than just the one that already had coverage.
+   *
+   * Only one real generation call (job A, from the card) — the point here
+   * is proving the detail page's button seeds correctly and doesn't lose
+   * what came before, not re-proving a second real reply works, which the
+   * test above already covers.
+   */
+  test("Ask Farah on the job DETAIL page seeds correctly, mid-conversation, without losing what came before", async ({
+    page,
+  }) => {
+    test.setTimeout(150_000);
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await login(page);
+
+    const cards = page.getByTestId("job-card");
+    await expect(cards.first()).toBeVisible();
+    const cardCount = await cards.count();
+    expect(cardCount, "this test needs at least two jobs on the feed").toBeGreaterThanOrEqual(2);
+
+    const cardA = cards.nth(0);
+    const titleA = (await cardA.locator("h3 a").first().innerText()).trim();
+    let cardB = cards.nth(1);
+    let titleB = (await cardB.locator("h3 a").first().innerText()).trim();
+    let hrefB = await cardB.locator("h3 a").first().getAttribute("href");
+    for (let i = 2; i < cardCount && titleA === titleB; i++) {
+      cardB = cards.nth(i);
+      titleB = (await cardB.locator("h3 a").first().innerText()).trim();
+      hrefB = await cardB.locator("h3 a").first().getAttribute("href");
+    }
+    expect(titleA, "precondition: found two cards with different titles").not.toBe(titleB);
+    const jobIdB = hrefB?.replace("/jobs/", "");
+
+    const panel = page.getByTestId("farah-panel");
+    const timelineMessages = panel.getByTestId("farah-message");
+    const dividers = panel.getByTestId("job-seed-divider");
+
+    // Seed and answer job A from the CARD — the pre-existing, already-covered
+    // entry point — to get a real conversation in progress.
+    await cardA.getByRole("button", { name: "Ask Farah" }).click();
+    await expect(panel.getByText(titleA)).toBeVisible();
+    await panel.getByRole("button", { name: "Why is this a good fit for me?" }).click();
+    await waitForReplyToFinish(page);
+    await expect(timelineMessages).toHaveCount(2);
+    const farahReplyToA = await timelineMessages.nth(1).innerText();
+    expect(farahReplyToA.length).toBeGreaterThan(0);
+
+    // Navigate to job B's DETAIL page — a client-side navigation, since both
+    // routes share the (app) layout the docked panel lives in. If this ever
+    // triggered a full reload, the conversation above would already be gone
+    // before the assertions below could even find the bug. Clicked from
+    // cardB's own link (not a page-wide role query by title text) so this
+    // can't ambiguously match some OTHER card that happens to share titleB.
+    await cardB.locator("h3 a").first().click();
+    await page.waitForURL(hrefB!);
+    await expect(page.locator("h1")).toHaveText(titleB);
+
+    // job A's conversation must still be exactly as it was — nothing about
+    // navigating to a different page should have touched the docked panel.
+    await expect(timelineMessages).toHaveCount(2);
+    expect(await timelineMessages.nth(1).innerText()).toBe(farahReplyToA);
+    await expect(dividers).toHaveCount(0);
+
+    // THE NEW ENTRY POINT: click "Ask Farah" on the detail page itself, not
+    // a card.
+    await page.getByRole("button", { name: "Ask Farah" }).click();
+
+    // Same switch behaviour the card-to-card test pins — divider naming the
+    // new job, job A's turns untouched, a fresh starter for job B.
+    await expect(dividers).toHaveCount(1);
+    await expect(dividers.first()).toContainText(`Now looking at: ${titleB}`);
+    await expect(timelineMessages).toHaveCount(2);
+    expect(await timelineMessages.nth(1).innerText()).toBe(farahReplyToA);
+
+    const newAskFitButton = panel.getByRole("button", { name: "Why is this a good fit for me?" });
+    await expect(newAskFitButton).toHaveCount(1);
+    await expect(newAskFitButton).toBeEnabled();
+
+    // The panel's own tailor link for job B must agree with the detail
+    // page's OWN "Tailor my resume for this" link — same href, two routes
+    // to the same destination, never allowed to drift apart.
+    const tailorLinkForB = panel.getByRole("link", { name: "Tailor my resume for this job →" });
+    await expect(tailorLinkForB).toHaveAttribute("href", `/tailor?jobId=${jobIdB}`);
+    await expect(
+      page.getByRole("link", { name: "Tailor my resume for this", exact: true }),
+    ).toHaveAttribute("href", `/tailor?jobId=${jobIdB}`);
+  });
 });
