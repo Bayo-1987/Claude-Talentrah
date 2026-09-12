@@ -241,3 +241,24 @@ too, not something this job introduced. Flagged as its own follow-up rather
 than fixed here (out of scope for a background-job design task); this
 job's own per-user try/catch absorbs it correctly in the meantime (logged,
 that one user's refresh is skipped, the run continues for everyone else).
+**Fixed separately, immediately after** (`fix/resume-skills-crash`): both
+unguarded call sites (`scoreJobs`, the one every signed-in user's `/jobs`
+feed goes through directly with no try/catch, and
+`computeAndStoreApplicationMatchScore`) turned out more exposed than "found,
+not fixed" suggested — a resume in this exact shape crashed a user's whole
+feed page, not just one score — so this got its own fix rather than an
+indefinite deferral.
+
+**Also found the hard way, after this shipped:** the eligible-board query's
+`.limit(MAX_ELIGIBLE_POSTINGS)` had no `.order()` ahead of it, which is
+non-deterministic once real row count passes the cap — broke `main`'s CI
+directly (a just-inserted test fixture posting was silently excluded from
+the page Postgres happened to return). The original claim that this class
+of cross-suite contention "does not reproduce in CI" was wrong at the
+granularity that matters: CI isolates each WORKFLOW JOB's own database, not
+each test FILE within one job — every file in the `Typecheck, lint, unit
+tests` job still shares one database in parallel with every other file.
+Fixed by ordering newest-first before the limit, which is also the more
+correct production behaviour (a cap should drop the stalest rows, not an
+arbitrary scan-order slice) — see `refresh-job.ts`'s own header for the full
+correction.

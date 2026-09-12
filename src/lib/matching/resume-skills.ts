@@ -77,6 +77,15 @@ const SEPARATORS = /[,;|&()[\]/]+/;
  */
 export function expandResumeSkills(skills: string[]): Set<string> {
   const out = new Set<string>();
+  // `skills` is typed as required, but a real stored resume's
+  // structured_content is an unvalidated JSONB blob — an older format, a
+  // partially-completed builder draft, or a resume-parse fallback that
+  // skipped populating it can all leave this missing or null at runtime.
+  // Treated the same as a resume with no skills yet (an empty Set, the
+  // exact "no overlap" case this function already produces for one),
+  // never a crash — found live via a real ambient resume with no `skills`
+  // key on structured_content at all (docs/jobs-feed-pagination.md).
+  if (!Array.isArray(skills)) return out;
 
   for (const entry of skills) {
     if (typeof entry !== "string") continue;
