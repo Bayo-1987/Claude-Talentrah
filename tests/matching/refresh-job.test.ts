@@ -47,10 +47,16 @@
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { randomUUID } from "node:crypto";
-import { runMatchScoreRefreshJob, filterScorablePostings, type ScorableJobPosting } from "@/lib/matching/refresh-job";
+import {
+  runMatchScoreRefreshJob,
+  filterScorablePostings,
+  persistScoresOrRetryStale,
+  type ScorableJobPosting,
+} from "@/lib/matching/refresh-job";
 import { admin, createTestUser, deleteTestUsers } from "../support/auth";
 import { deleteTestOrgs } from "../support/cleanup";
 import type { TablesInsert } from "@/lib/supabase/types";
+import type { ScoredJobLike } from "@/lib/matching/compute-and-store";
 
 for (const key of ["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"] as const) {
   if (!process.env[key]) throw new Error(`Match-score refresh job test cannot run: ${key} is not set.`);
@@ -170,6 +176,83 @@ describe("filterScorablePostings — the pure org-verification gate, no database
   it("keeps an external posting (no organisation to verify)", () => {
     const result = filterScorablePostings([posting({ organizationId: null })], new Set());
     expect(result).toHaveLength(1);
+  });
+});
+
+describe("persistScoresOrRetryStale — the FK-violation retry path itself, deterministically", () => {
+  // Direct, deterministic coverage of the fix in refresh-job.ts's own "A
+  // NARROW RACE, FOUND, THEN ACTUALLY FIXED NOT JUST DOCUMENTED" section:
+  // three consecutive clean combined-suite runs were good evidence the fix
+  // reduces real-world flakiness, but that's probabilistic evidence for an
+  // intermittent failure, not a targeted proof of this function's own
+  // branches. Each test below constructs the FK-violation condition
+  // directly (a `job_posting_id` that was never inserted, standing in for
+  // "deleted mid-run") rather than trying to reproduce real cross-suite
+  // contention.
+  let user: string;
+  let posting: string;
+
+  beforeAll(async () => {
+    const seeker = await createTestUser("msrls-retry-seeker");
+    user = seeker.id;
+    createdUsers.push(user);
+    // external, not internal — this test only needs a real job_postings row
+    // to reference, not an organisation (internal postings require one via
+    // the job_postings_internal_has_org check constraint).
+    posting = await insertPosting({ source_type: "external", external_source: "msrls-retry-test", external_url: `https://example.test/${randomUUID()}` });
+  }, 30_000);
+
+  function scoredRow(jobPostingId: string): ScoredJobLike {
+    return {
+      job: { id: jobPostingId },
+      score: 42,
+      tier: "fair",
+      explanation: { matchedSkills: ["sql"], missingSkills: [], seniorityAlignment: "unknown" },
+    };
+  }
+
+  it("persists normally when every posting in the batch is real — no FK violation to recover from", async () => {
+    const result = await persistScoresOrRetryStale(admin, user, [scoredRow(posting)]);
+    expect(result).toEqual({ persisted: 1, ok: true });
+
+    const row = await matchScoreFor(user, posting);
+    expect(row?.score).toBe(42);
+  });
+
+  it("retries with survivors and reports the partial count when one posting in the batch no longer exists", async () => {
+    const deletedPostingId = randomUUID();
+    const otherSeeker = await createTestUser("msrls-retry-seeker-partial");
+    createdUsers.push(otherSeeker.id);
+
+    const result = await persistScoresOrRetryStale(admin, otherSeeker.id, [
+      scoredRow(posting),
+      scoredRow(deletedPostingId),
+    ]);
+
+    expect(result, "the survivor must persist even though one row in the batch pointed at a stale posting").toEqual({
+      persisted: 1,
+      ok: true,
+    });
+
+    const survivorRow = await matchScoreFor(otherSeeker.id, posting);
+    expect(survivorRow?.score).toBe(42);
+    const staleRow = await matchScoreFor(otherSeeker.id, deletedPostingId);
+    expect(staleRow, "the stale posting must never end up with a row — it doesn't exist to reference").toBeNull();
+  });
+
+  it("reports failure, not a false success, when every posting in the batch is stale", async () => {
+    const allStaleSeeker = await createTestUser("msrls-retry-seeker-all-stale");
+    createdUsers.push(allStaleSeeker.id);
+
+    const result = await persistScoresOrRetryStale(admin, allStaleSeeker.id, [
+      scoredRow(randomUUID()),
+      scoredRow(randomUUID()),
+    ]);
+
+    expect(
+      result,
+      "summary.failed must actually increment here — a caller trusting {ok:true} with persisted:0 would silently under-count a real failure",
+    ).toEqual({ persisted: 0, ok: false });
   });
 });
 

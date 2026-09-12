@@ -193,7 +193,7 @@ export function filterScorablePostings(
  * losing everything, and the summary's `failed` count only ever reports a
  * REAL, unrecovered failure.
  */
-async function persistScoresOrRetryStale(
+export async function persistScoresOrRetryStale(
   admin: ReturnType<typeof createServiceRoleClient>,
   userId: string,
   scored: ScoredJobLike[],
