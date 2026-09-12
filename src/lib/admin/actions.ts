@@ -9,6 +9,8 @@ import { adminLoginSchema } from "./schemas";
 import type { AdminLoginState } from "./login-state";
 import { createAdminSession, getAdminIdentity, revokeCurrentAdminSession } from "./session";
 import { recordAdminAction, recordFailedAdminLogin } from "./audit";
+import { consumeLoginRateLimit } from "@/lib/security/login-rate-limit";
+import { getRequestIp } from "@/lib/security/request-ip";
 
 /**
  * One message for every rejection, on purpose.
@@ -57,19 +59,23 @@ export async function adminLoginAction(
   const { email, password } = parsed.data;
 
   /*
+   * Per-IP throttle FIRST, before either check below — see
+   * login-rate-limit.ts's own header. This is the fix the comment used to
+   * describe as still missing: Supabase rate-limits its auth token endpoint
+   * per source IP, but this call is made from the server, so Supabase sees
+   * Talentrah's own IP and the limit is one shared ceiling across every
+   * login attempt from every user, not a per-attacker throttle. Checked
+   * ahead of the real Supabase call specifically so a caller already over
+   * their own limit never spends any of that shared budget.
+   */
+  const ip = await getRequestIp();
+  const rateLimit = await consumeLoginRateLimit(ip, "adminLogin");
+  if (!rateLimit.allowed) return { error: GENERIC_FAILURE };
+
+  /*
    * Password first, admin-membership second, and never the other way round.
    * Checking `admin_users` before the password would let anyone learn which
    * addresses are operators by timing the two paths.
-   *
-   * WHAT PROTECTS THIS FROM GUESSING, stated honestly. Supabase rate-limits
-   * its token endpoint per source IP — but this call is made from the server,
-   * so the source IP is ours and the limit is shared by everyone who logs in.
-   * It is a ceiling on total attempts, not a per-attacker one. The seeker
-   * login (src/lib/auth/actions.ts) has had exactly this property since it
-   * shipped, so this is not a new exposure, and a second limiter keyed on the
-   * caller's own IP would be the real fix. `api_rate_limits` (0038) is where
-   * that belongs; it is not in M1's scope and is written down in
-   * docs/admin-auth.md rather than assumed to be handled.
    */
   const { data: signIn, error: signInError } = await passwordCheckClient()
     .auth.signInWithPassword({ email, password });

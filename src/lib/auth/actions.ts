@@ -14,6 +14,8 @@ import {
   emailSchema,
 } from "./schemas";
 import { consumeResendRateLimit } from "./resend-rate-limit";
+import { consumeLoginRateLimit } from "@/lib/security/login-rate-limit";
+import { getRequestIp } from "@/lib/security/request-ip";
 import type { ResendState } from "./resend-state";
 
 export interface AuthActionState {
@@ -26,23 +28,6 @@ async function getOrigin() {
   const host = h.get("x-forwarded-host") ?? h.get("host");
   const protocol = h.get("x-forwarded-proto") ?? "http";
   return `${protocol}://${host}`;
-}
-
-/**
- * The requester's IP, for the resend rate limiter (migration 0117) only —
- * `getOrigin()` above deliberately does not read this, since nothing before
- * the resend actions needed a caller identity that isn't a session. Taken
- * from `x-forwarded-for`'s first entry (the original client, per the
- * standard's left-to-right proxy-chain convention); falls back to `null`
- * rather than a placeholder string when the header is absent, so
- * `consumeResendRateLimit` can tell "no IP available" from "a real IP" and
- * skip the IP bucket instead of pooling every headerless caller into one key.
- */
-async function getRequestIp(): Promise<string | null> {
-  const h = await headers();
-  const forwarded = h.get("x-forwarded-for");
-  const first = forwarded?.split(",")[0]?.trim();
-  return first || null;
 }
 
 /** Shown for any resend failure that must not distinguish its cause — see below. */
@@ -203,6 +188,19 @@ export async function signInAction(
       error: "Enter a valid email and password.",
       fieldErrors: parsed.error.flatten().fieldErrors as Record<string, string[]>,
     };
+  }
+
+  /*
+   * Per-IP throttle BEFORE the real Supabase call — see login-rate-limit.ts's
+   * own header for the gap this closes (Supabase's own auth rate limit is
+   * shared across every login this server makes, not per attacker). Checked
+   * ahead of signInWithPassword specifically so a caller already over their
+   * own limit never reaches Supabase's endpoint at all.
+   */
+  const ip = await getRequestIp();
+  const rateLimit = await consumeLoginRateLimit(ip, "seekerLogin");
+  if (!rateLimit.allowed) {
+    return { error: "Too many attempts — try again later." };
   }
 
   const supabase = await createClient();
