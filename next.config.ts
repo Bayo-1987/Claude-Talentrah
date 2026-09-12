@@ -59,6 +59,95 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     "/api/resume/parse": ["./node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs"],
   },
+
+  /**
+   * HTTP security headers — none of these were set anywhere before this:
+   * checked this file, looked for a request `middleware.ts` (there is
+   * none — `src/lib/supabase/middleware.ts` is the Supabase session-refresh
+   * helper, not a request middleware, and doesn't touch response headers),
+   * and grepped the whole repo for `Content-Security-Policy`, `Strict-
+   * Transport-Security`, `X-Frame-Options`, `X-Content-Type-Options`,
+   * `Referrer-Policy`: zero hits anywhere. Vercel's own platform defaults
+   * cover some of this, but relying on an undocumented platform default for
+   * a security posture is exactly the kind of unreviewable assumption this
+   * repo's own CLAUDE.md warns against elsewhere (the grant-vs-policy
+   * confusion that cost four separate RLS incidents) — these are explicit
+   * and reviewable instead.
+   *
+   * Scoped against what this app actually loads client-side, checked
+   * directly rather than assumed:
+   *   - Fonts (Newsreader, Source Sans 3) go through `next/font/google`,
+   *     which self-hosts the font files at build time — confirmed no
+   *     runtime request to fonts.googleapis.com/fonts.gstatic.com exists
+   *     anywhere in the app, so neither host needs a CSP entry.
+   *   - Paystack checkout is a full top-level redirect to Paystack's own
+   *     hosted page (`initializeTransaction`'s `authorization_url`, opened
+   *     via navigation) — never embedded via script or iframe — so it needs
+   *     no CSP entry either; a `frame-ancestors`/`frame-src` directive has
+   *     nothing to do with a page that navigates AWAY rather than embeds.
+   *   - Google One Tap (`src/components/auth/google-one-tap.tsx`) DOES load
+   *     `https://accounts.google.com/gsi/client` and has Google inject an
+   *     iframe for the prompt — both allowed below.
+   *   - Supabase (`NEXT_PUBLIC_SUPABASE_URL`, a `*.supabase.co` host) is
+   *     called directly from the browser client for auth/session calls.
+   *
+   * THE CSP IS REPORT-ONLY, DELIBERATELY, NOT A CONFIG OVERSIGHT. Everything
+   * else here (HSTS, nosniff, frame protection, Referrer-Policy) is safe to
+   * enforce immediately — none of it can break a legitimate page load. A CSP
+   * is different: `'unsafe-inline'` is still present below because Next.js's
+   * own inline bootstrap scripts and this app's few inline styles haven't
+   * been audited against a nonce-based policy, and shipping an enforcing CSP
+   * that turns out to block one of those would take down real pages rather
+   * than just log a violation. Report-Only mode is how that gets tightened
+   * safely: watch `report-to`/browser devtools for real violations against
+   * real traffic, remove `'unsafe-inline'` once nothing depends on it, and
+   * only then switch this to the enforcing header name.
+   */
+  async headers() {
+    const csp = [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline' https://accounts.google.com",
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' data: https:",
+      "font-src 'self' data:",
+      `connect-src 'self' https://*.supabase.co wss://*.supabase.co https://accounts.google.com`,
+      "frame-src https://accounts.google.com",
+      "frame-ancestors 'none'",
+      "base-uri 'self'",
+      "object-src 'none'",
+    ].join("; ");
+
+    return [
+      {
+        // Every route — these are response-header policies, not per-page
+        // content, so there's no reason to scope them narrower.
+        source: "/:path*",
+        headers: [
+          {
+            // includeSubDomains + a year, matching how HSTS is meant to be
+            // deployed once a site is fully HTTPS (this one already is, on
+            // Vercel) — preload is left off deliberately: submitting to the
+            // browser preload list is effectively permanent (removal takes
+            // months to propagate), and that's a call for the founder to
+            // make explicitly, not a default this config should reach for.
+            key: "Strict-Transport-Security",
+            value: "max-age=31536000; includeSubDomains",
+          },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          // Belt-and-braces with the CSP's own frame-ancestors 'none' above
+          // — legacy-browser fallback, since X-Frame-Options predates CSP2.
+          { key: "X-Frame-Options", value: "DENY" },
+          // Sends the full URL to a same-origin navigation/fetch, only the
+          // origin cross-origin — never nothing, so analytics/referral
+          // attribution this app already relies on (Refer & Earn) still
+          // works for same-site traffic, but a click OUT to an external job
+          // posting doesn't hand that site a full internal URL.
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          { key: "Content-Security-Policy-Report-Only", value: csp },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;
