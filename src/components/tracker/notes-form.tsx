@@ -4,6 +4,7 @@ import { useActionState, useEffect, useRef, useState } from "react";
 import { updateNotesAction } from "@/lib/applications/tracker-actions";
 import { initialNotesActionState } from "@/lib/applications/notes-state";
 import { formatTrackerDate } from "@/lib/tracker/format-date";
+import { withNetworkFallback } from "@/lib/forms/with-network-fallback";
 
 /**
  * A note on a tracked application, in three states.
@@ -40,8 +41,22 @@ export interface NotesFormProps {
 }
 
 export function NotesForm({ applicationId, notes, updatedAt }: NotesFormProps) {
+  /*
+   * `withNetworkFallback` matters here specifically: without it, a request
+   * that never reaches the server (dropped connection, aborted fetch) makes
+   * this action reject, and useActionState escalates a rejection straight
+   * to the nearest Error Boundary instead of updating `state` — which is
+   * Next's generic crash screen, not the error banner below, and it takes
+   * whatever was typed with it. See with-network-fallback.ts for why this
+   * has to live at this call site rather than inside updateNotesAction.
+   */
   const [state, formAction, pending] = useActionState(
-    updateNotesAction.bind(null, applicationId),
+    withNetworkFallback(updateNotesAction.bind(null, applicationId), () => ({
+      status: "error",
+      error: "Couldn't reach the server. Your text is still here — try again.",
+      notes: null,
+      updatedAt: null,
+    })),
     initialNotesActionState,
   );
 
@@ -59,6 +74,18 @@ export function NotesForm({ applicationId, notes, updatedAt }: NotesFormProps) {
   const [showSaved, setShowSaved] = useState(false);
   const [handledState, setHandledState] = useState(state);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  /**
+   * What the user actually typed, kept outside React's own state so a
+   * failed submit can restore it. React resets a `<form action={...}>`'s
+   * uncontrolled fields to their `defaultValue` once the action settles —
+   * previously invisible here because a network-transport failure made the
+   * action REJECT, and React only performs that reset when the action
+   * completes normally. withNetworkFallback (send-183) fixed the crash by
+   * making the action always resolve, which correctly triggers the reset
+   * React was always going to do — so the draft has to be restored
+   * explicitly now, the same way it always should have needed to be.
+   */
+  const draftRef = useRef<string>("");
 
   /*
    * REACTING TO THE SAVE DURING RENDER, not in an effect.
@@ -128,7 +155,25 @@ export function NotesForm({ applicationId, notes, updatedAt }: NotesFormProps) {
     el.focus();
     // Caret at the end rather than the start: this is nearly always an append.
     el.setSelectionRange(el.value.length, el.value.length);
+    draftRef.current = el.value;
   }, [mode]);
+
+  /*
+   * Undo React's own post-action form reset specifically for a failed save
+   * — restore what draftRef captured, right after React has already reset
+   * the field to defaultValue. This runs after the effect above (defined
+   * later, same commit), so it always gets the last word for this case.
+   * A SUCCESSFUL save is not touched here: it intentionally leaves editing
+   * mode, so there's no field left to restore anything into.
+   */
+  useEffect(() => {
+    if (state.status !== "error") return;
+    const el = textareaRef.current;
+    if (!el) return;
+    el.value = draftRef.current;
+    fit(el);
+    el.setSelectionRange(el.value.length, el.value.length);
+  }, [state]);
 
   return (
     <div className="border-t border-line pt-3">
@@ -216,7 +261,10 @@ export function NotesForm({ applicationId, notes, updatedAt }: NotesFormProps) {
              */
             key={savedNotes ?? ""}
             defaultValue={savedNotes ?? ""}
-            onInput={(e) => fit(e.currentTarget)}
+            onInput={(e) => {
+              draftRef.current = e.currentTarget.value;
+              fit(e.currentTarget);
+            }}
             placeholder="Interview dates, contacts, next steps…"
             rows={2}
             data-testid="notes-textarea"
