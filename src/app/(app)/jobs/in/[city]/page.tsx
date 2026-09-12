@@ -2,6 +2,7 @@ import { cache } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getOptionalUser } from "@/lib/auth/require-user";
 import { pageMetadata } from "@/lib/seo/site";
 import { LANDING_PAGE_MIN_ENTRIES } from "@/lib/seo/landing-pages";
 import { liveJobLandingLinks } from "@/lib/seo/landing-page-links";
@@ -76,6 +77,10 @@ export default async function CityJobsPage({ params }: { params: Promise<{ city:
   if (!result || result.total < LANDING_PAGE_MIN_ENTRIES) notFound();
 
   const { city, total, jobs } = result;
+  // OPTIONAL user, same reason /jobs/[id] reads it: a returning signed-in
+  // visitor should not be pitched the account they already have — see the
+  // CTA block below.
+  const session = await getOptionalUser();
   const relatedLinks = await liveJobLandingLinks(supabase, `/jobs/in/${city.slug}`);
 
   return (
@@ -121,19 +126,40 @@ export default async function CityJobsPage({ params }: { params: Promise<{ city:
         </p>
       )}
 
-      <div className="flex flex-col gap-2 border-t border-line pt-5">
-        <Link
-          href={`/signup?redirectTo=${encodeURIComponent("/jobs")}`}
-          className={buttonClasses("primary", "sm", "no-underline w-fit")}
-        >
-          Create a free account to see your match score
-        </Link>
-        <p className="text-[12.5px] text-ink-soft">
-          A free account scores every {city.displayName} role against your resume, tracks what
-          you apply to, and lets Farah tailor your resume for any listing — free to start, no
-          card required.
-        </p>
-      </div>
+      {/*
+        SIGNED IN: this pitch is unconditional today (send-186) — a returning
+        visitor gets told to create the account they're browsing this page
+        with, credits balance and all. Same "read everything, act on
+        nothing" split /jobs/[id] and /scholarships/[id] already use, just
+        pointed at the real match-scored feed instead of a functional
+        per-item action, since a list page like this one has no single
+        save/apply to wire up.
+      */}
+      {session ? (
+        <div className="flex flex-col gap-2 border-t border-line pt-5">
+          <Link href="/jobs" className={buttonClasses("primary", "sm", "no-underline w-fit")}>
+            Go to Jobs to see your match score
+          </Link>
+          <p className="text-[12.5px] text-ink-soft">
+            You already have an account — every open role, {city.displayName}&apos;s included, is
+            scored against your resume there.
+          </p>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-2 border-t border-line pt-5">
+          <Link
+            href={`/signup?redirectTo=${encodeURIComponent("/jobs")}`}
+            className={buttonClasses("primary", "sm", "no-underline w-fit")}
+          >
+            Create a free account to see your match score
+          </Link>
+          <p className="text-[12.5px] text-ink-soft">
+            A free account scores every {city.displayName} role against your resume, tracks what
+            you apply to, and lets Farah tailor your resume for any listing — free to start, no
+            card required.
+          </p>
+        </div>
+      )}
     </div>
   );
 }
