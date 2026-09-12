@@ -143,7 +143,19 @@ export default async function CountryRemoteJobsPage({
       */}
       {session ? (
         <div className="flex flex-col gap-2 border-t border-line pt-5">
-          <Link href="/jobs" className={buttonClasses("primary", "sm", "no-underline w-fit")}>
+          {/*
+            ?workType=remote&country=<TrackedCountry>, not plain /jobs —
+            /jobs already understands both params (its own searchParams
+            handling, isTrackedCountry-gated), so a returning visitor lands
+            back on the same remote+country filter they came here for
+            instead of a generic feed they'd have to re-apply by hand.
+            `country` is already a TrackedCountry ("Nigeria", "Ghana", …) —
+            the exact value /jobs's own `country` param expects.
+          */}
+          <Link
+            href={`/jobs?workType=remote&country=${encodeURIComponent(country)}`}
+            className={buttonClasses("primary", "sm", "no-underline w-fit")}
+          >
             Go to Jobs to see your match score
           </Link>
           <p className="text-[12.5px] text-ink-soft">

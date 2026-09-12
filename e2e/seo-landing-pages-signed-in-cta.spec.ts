@@ -25,6 +25,15 @@ import { deletePostingsCascade, deleteOrgsCascade } from "../tests/support/delet
  * pre-rendered shell); these pages are server-rendered per request already,
  * so one signed-in assertion per page plus one signed-out control is enough
  * to prove the branch is real and wired to the right template.
+ *
+ * The signed-in destination is asserted PER PAGE, not just the shared button
+ * copy: /jobs already understands `?workType=` and `?country=` (see its own
+ * searchParams handling), so /jobs/remote and /jobs/remote/[country] carry
+ * that filter through instead of dropping a returning visitor on a generic
+ * /jobs they'd have to re-filter by hand. /jobs/in/[city] has no matching
+ * city filter on /jobs to hand off to, so plain /jobs is the honest
+ * destination there — asserted too, so a future change can't silently start
+ * inventing one.
  */
 
 const FIXTURE_COUNT = 6; // comfortably above LANDING_PAGE_MIN_ENTRIES (5) alone
@@ -86,13 +95,22 @@ test.describe("SEO landing pages don't pitch a signed-in visitor the account the
     }
   }
 
+  /*
+   * The expected signed-in href, as it actually appears in rendered HTML —
+   * React/Next escapes `&` in an attribute to `&amp;`, so the raw query
+   * string with a literal `&` would never match a real response body.
+   */
   const PAGES = [
-    { path: "/jobs/in/lagos", label: "city" },
-    { path: "/jobs/remote", label: "remote" },
-    { path: "/jobs/remote/nigeria", label: "country" },
+    { path: "/jobs/in/lagos", label: "city", signedInHref: "/jobs" },
+    { path: "/jobs/remote", label: "remote", signedInHref: "/jobs?workType=remote" },
+    {
+      path: "/jobs/remote/nigeria",
+      label: "country",
+      signedInHref: "/jobs?workType=remote&amp;country=Nigeria",
+    },
   ] as const;
 
-  for (const { path, label } of PAGES) {
+  for (const { path, label, signedInHref } of PAGES) {
     test(`${label} page (${path}): signed in sees the Jobs pointer, not the signup pitch`, async ({
       authedPage,
       testUser,
@@ -108,6 +126,10 @@ test.describe("SEO landing pages don't pitch a signed-in visitor the account the
       expect(body, `${path} is missing the signed-in Jobs pointer`).toContain(
         "Go to Jobs to see your match score",
       );
+      expect(
+        body,
+        `${path}'s signed-in Jobs pointer doesn't carry this page's own filter through`,
+      ).toContain(`href="${signedInHref}"`);
     });
   }
 
