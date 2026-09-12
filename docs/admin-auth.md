@@ -339,18 +339,32 @@ delete the row, because the audit trail names it.
   response, at the raw endpoint, exactly where it was found on CI.
 
 - **Login brute-force protection is Supabase's per-IP limit, and the IP is
-  ours.** `signInWithPassword` is called server-side, so the limit is shared by
-  every caller rather than per-attacker. The seeker login
-  (`src/lib/auth/actions.ts`) has had this property since it shipped, so this
-  is not new exposure — but a limiter keyed on the caller's own IP, against
-  `api_rate_limits` (0038), is the real fix and is not in M1.
+  ours — fixed 2026-09-12 (security-hardening pass).** `signInWithPassword` is
+  called server-side, so the limit used to be shared by every caller rather
+  than per-attacker, on both the admin and seeker (`src/lib/auth/actions.ts`)
+  login paths. Both now check and consume a per-caller-IP bucket
+  (`src/lib/security/login-rate-limit.ts`, reusing `consume_anonymous_rate_limit`
+  from 0117 — the same building block `resend-rate-limit.ts` already used for
+  the identical "no session, no user id yet" shape of problem) BEFORE calling
+  Supabase, so a caller already over their own limit never spends any of that
+  shared budget. Admin: 8 attempts/15 min; seeker: 20/15 min — looser, because
+  Nigeria/Africa mobile-carrier CGNAT puts many real, unrelated users behind
+  one IP. A caller with no resolvable IP (`x-forwarded-for` absent) fails
+  CLOSED rather than being pooled into one shared bucket or skipped outright.
 - **THERE IS NO SECOND FACTOR AT ALL.** Every admin is password-only, and an
   admin password is resettable through the seeker forgot-password flow — so
   control of an operator's mailbox is control of `/admin`. `0068` built TOTP
-  and `0071` removed it before anyone enrolled; this is a deferred decision,
-  not a gap nobody noticed. The practical mitigation lives outside this
-  codebase: keep `admin_users` short, and put admin addresses on mailboxes that
-  have their own 2FA.
+  and `0071` removed it before anyone enrolled, over a real deadlock risk: no
+  recovery codes, and `unenroll` needing an `aal2` session a locked-out admin
+  can't reach. **Re-checked 2026-09-12, deliberately, now that production has
+  real admin accounts and real data behind them (not just a hypothetical) —
+  the founder's call is that the acceptance still stands.** The deadlock risk
+  is unchanged and still the reason: finishing MFA properly needs a real
+  recovery-code design first, not just re-enabling `0068`. Revisit if a
+  recovery-code design gets worked out, or before onboarding any operator
+  beyond the founder. Until then, the practical mitigation lives outside this
+  codebase: keep `admin_users` short, and put admin addresses on mailboxes
+  that have their own 2FA.
 - **`auth.audit_log_entries` is EMPTY on the CI project** — zero rows, ever,
   while production holds 44,822. Anything that reasons about GoTrue auth events
   is therefore untestable in CI: `0067`'s function has real data to filter on
