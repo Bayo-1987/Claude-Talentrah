@@ -70,20 +70,20 @@ function JobSeedActions({
           type="button"
           disabled={pending}
           onClick={() => onStarter(starter.label, starter.key, seed.jobId)}
-          className="flex min-h-10 items-center py-1 text-left font-body text-[13.5px] font-semibold text-ink underline underline-offset-2 hover:text-rust disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex min-h-10 items-center py-1 text-left font-body text-[13.5px] font-semibold text-ink underline underline-offset-2 hover:text-coral disabled:cursor-not-allowed disabled:opacity-50"
         >
           {starter.label}
         </button>
       ))}
       <Link
         href={tailorHref(seed.jobId)}
-        className="flex min-h-10 items-center py-1 font-body text-[13.5px] font-semibold text-ink underline underline-offset-2 hover:text-rust"
+        className="flex min-h-10 items-center py-1 font-body text-[13.5px] font-semibold text-ink underline underline-offset-2 hover:text-coral"
       >
         Tailor my resume for this job →
       </Link>
       <Link
         href={coverLetterHref(seed.jobId)}
-        className="flex min-h-10 items-center py-1 font-body text-[13.5px] font-semibold text-ink underline underline-offset-2 hover:text-rust"
+        className="flex min-h-10 items-center py-1 font-body text-[13.5px] font-semibold text-ink underline underline-offset-2 hover:text-coral"
       >
         Draft an intro message for this job →
       </Link>
@@ -122,17 +122,29 @@ function JobSeedMarker({
 }
 
 /**
- * Marginalia panel per design handoff §7 — never a boxed chat widget, no card
- * background, no radius, no shadow.
+ * Marginalia panel — carried over structurally unchanged from Editorial's
+ * "never a boxed chat widget, no card background, no radius, no shadow"
+ * rule.
+ *
+ * KNOWN DIVERGENCE FROM THE SUNBIRD ARTBOARDS, FLAGGED RATHER THAN SILENTLY
+ * FIXED: both SunbirdFeed.dc.html and SunbirdDetail.dc.html actually draw
+ * this panel as a full elevated card (rounded-2xl, `background:var(--card)`,
+ * the same soft shadow every other card gets) — not flat marginalia. Adopting
+ * that fully means restructuring this component's sticky/scroll shell (and
+ * the wrapper in (app)/layout.tsx that currently owns the column's
+ * background and hairline) and re-verifying every Farah e2e spec that
+ * depends on its current geometry. That is a real, deliberate scope decision
+ * for the PR that swaps this component, not something to guess at inside a
+ * broader token/primitive sweep — left as Editorial's flat treatment for now.
  *
  * THE COLUMN'S OWN CHROME IS NOT ALL HERE, which is worth knowing before
  * reading the classes below and concluding something is missing. The colour
- * field (`bg-paper-alt`) and the left hairline live on the wrapper in
+ * field (`bg-bg-alt`) and the left hairline live on the wrapper in
  * (app)/layout.tsx, because both run the length of the COLUMN and this
  * component is only ever as tall as its content. What stays here is what marks
- * where Farah's content begins: the 3px rust top rule and the mark beside the
+ * where Farah's content begins: the 3px coral top rule and the mark beside the
  * eyebrow. Farah's turns are set in
- * italic Newsreader (matching the greeting copy this replaced); the user's
+ * italic display serif (matching the greeting copy this replaced); the user's
  * are plain body text — that typographic split is the only visual
  * differentiation, on purpose, rather than chat-bubble styling.
  */
@@ -430,7 +442,7 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
       would pin the panel over the cards it sits beneath, and max-h would trap a
       conversation in a short scroller inside a page that already scrolls. So
       they are min-[760px]: and the mobile case is the plain one — a full-width
-      section with the rust rule along the top separating it from the feed.
+      section with the coral rule along the top separating it from the feed.
 
       The left hairline used to be in that list. It is on the wrapper now, and
       still min-[760px]: there for the same reason: a rule down the side of a
@@ -452,7 +464,7 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
     */
     <div
       data-testid="farah-panel"
-      className="flex w-full flex-col gap-5.5 border-t-[3px] border-t-rust px-6 py-8 min-[760px]:sticky min-[760px]:top-[68px] min-[760px]:max-h-[calc(100vh-68px)] min-[760px]:w-[280px] min-[760px]:flex-shrink-0 min-[760px]:overflow-y-auto min-[760px]:px-7"
+      className="flex w-full flex-col gap-5.5 border-t-[3px] border-t-coral px-6 py-8 min-[760px]:sticky min-[760px]:top-[68px] min-[760px]:max-h-[calc(100vh-68px)] min-[760px]:w-[280px] min-[760px]:flex-shrink-0 min-[760px]:overflow-y-auto min-[760px]:px-7"
     >
       {/*
         The name + "View profile" block that used to sit here is gone — both
@@ -472,8 +484,8 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
       </div>
 
       {/*
-        The gate's own indicator (0123) — plain Source Sans body text, no
-        pill/badge, no gamification meter, per the Editorial system's own
+        The gate's own indicator (0123) — plain body text, no
+        pill/badge, no gamification meter, per the design system's own
         hard rule. `null` (unknown, or an active Pass) renders nothing:
         silence is correct there, it's only a hard 0 with no warning that
         reads as broken.
@@ -535,7 +547,7 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
                 <button
                   type="button"
                   onClick={continueConversation}
-                  className="text-left font-display text-[13px] italic text-ink-soft underline underline-offset-2 hover:text-rust"
+                  className="text-left font-display text-[13px] italic text-ink-soft underline underline-offset-2 hover:text-coral"
                 >
                   Continue where you left off with Farah?
                 </button>
@@ -587,7 +599,7 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
       </div>
 
       {error && (
-        <p className="border border-rust bg-rust-soft px-2.5 py-2 text-[12px] text-rust">{error}</p>
+        <p className="border border-coral bg-coral-soft px-2.5 py-2 text-[12px] text-coral">{error}</p>
       )}
 
       <div className="flex flex-col border-t border-dashed border-line pt-4">
@@ -596,7 +608,7 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
             <Link
               key={action.key}
               href={action.href}
-              className="flex min-h-10 items-center py-1 font-body text-[13.5px] font-semibold text-ink underline underline-offset-2 hover:text-rust"
+              className="flex min-h-10 items-center py-1 font-body text-[13.5px] font-semibold text-ink underline underline-offset-2 hover:text-coral"
             >
               {action.label}
             </Link>
@@ -606,7 +618,7 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
               type="button"
               disabled={pending}
               onClick={() => void send(action.starterPrompt as string, action.key)}
-              className="flex min-h-10 items-center py-1 text-left font-body text-[13.5px] font-semibold text-ink underline underline-offset-2 hover:text-rust disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex min-h-10 items-center py-1 text-left font-body text-[13.5px] font-semibold text-ink underline underline-offset-2 hover:text-coral disabled:cursor-not-allowed disabled:opacity-50"
             >
               {action.label}
             </button>
@@ -633,7 +645,7 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
           type="submit"
           disabled={pending || !input.trim()}
           aria-label="Send to Farah"
-          className="flex h-11 w-11 flex-shrink-0 items-center justify-center bg-ink text-paper disabled:opacity-50"
+          className="flex h-11 w-11 flex-shrink-0 items-center justify-center bg-ink text-bg disabled:opacity-50"
         >
           <svg width="15" height="15" viewBox="0 0 20 20" fill="none" aria-hidden="true">
             <path

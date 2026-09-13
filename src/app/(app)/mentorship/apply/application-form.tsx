@@ -55,7 +55,7 @@ export function ApplicationForm({ existing }: { existing: OwnMentorProfile | nul
       />
 
       {state.message && (
-        <p className={`text-[13px] ${state.status === "error" ? "text-rust" : "text-green"}`}>{state.message}</p>
+        <p className={`text-[13px] ${state.status === "error" ? "text-coral" : "text-green"}`}>{state.message}</p>
       )}
 
       <Button type="submit" variant="primary" disabled={pending}>

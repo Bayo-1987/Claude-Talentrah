@@ -36,7 +36,7 @@ export function JdDemoResult({
     "";
 
   return (
-    <div className="mt-3 w-full max-w-[860px] border-[1.5px] border-ink bg-card">
+    <div className="mt-3 w-full max-w-[860px] overflow-hidden rounded-[20px] bg-card shadow-[0_4px_16px_oklch(30%_0.05_35_/_0.08)]">
       <div className="flex flex-wrap items-center justify-between gap-2.5 border-b border-line px-6 py-3.5">
         <EyebrowLabel>What Farah sent back</EyebrowLabel>
         {/*
@@ -98,7 +98,7 @@ export function JdDemoResult({
         <div className="w-px flex-shrink-0 bg-line" />
 
         <div className="flex flex-1 flex-col justify-center gap-3.5 min-[901px]:pl-7.5">
-          <div className="border border-line bg-paper p-4">
+          <div className="border border-line bg-bg p-4">
             <EyebrowLabel className="mb-2 block">Tailored resume preview</EyebrowLabel>
             <p className="text-[13.5px] leading-relaxed text-ink-soft">
               {excerpt || "Farah rewrote the resume but had nothing to quote back here."}

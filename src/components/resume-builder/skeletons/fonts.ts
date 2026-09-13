@@ -2,7 +2,7 @@ import { Poppins, Work_Sans, Lora, Barlow_Condensed } from "next/font/google";
 
 /**
  * The four typefaces added for the template library, beyond the app's own
- * Newsreader/Source Sans (`--font-display`/`--font-body`, declared in
+ * DM Serif Display/DM Sans (`--font-display`/`--font-body`, declared in
  * `src/app/layout.tsx`). Each is self-hosted at build by `next/font/google` —
  * no runtime Google Fonts request, and nothing served from Supabase storage,
  * so none of this touches the org's egress cap (CLAUDE.md).
@@ -27,7 +27,7 @@ import { Poppins, Work_Sans, Lora, Barlow_Condensed } from "next/font/google";
 
 // Geometric sans — Poppins. Genuinely geometric construction (near-circular
 // bowls, single-story "a", monolinear strokes), which is what the "geometric
-// sans" style-token bucket is named for. Distinct in voice from Source Sans
+// sans" style-token bucket is named for. Distinct in voice from DM Sans
 // (the app's own humanist body face) so choosing it for a resume reads as a
 // real style decision, not the app's own UI font leaking into the document.
 export const poppins = Poppins({
@@ -40,7 +40,7 @@ export const poppins = Poppins({
 
 // Humanist sans — Work Sans. Warmer, more open letterforms and a taller
 // x-height than a geometric face, built specifically for UI/body reading at
-// small sizes. Picked over reusing Source Sans (already the app's own body
+// small sizes. Picked over reusing DM Sans (already the app's own body
 // font) so a template that asks for "humanist sans" is visibly different from
 // the app shell, not the default rendered twice.
 export const workSans = Work_Sans({
@@ -52,9 +52,9 @@ export const workSans = Work_Sans({
 });
 
 // Modern serif — Lora. Moderate, book-like contrast built for body text
-// rather than Newsreader's higher-contrast editorial/display voice. The two
-// need to read as different registers since a gallery can show both at once —
-// Newsreader stays the app's own display serif; Lora is the "print resume"
+// rather than DM Serif Display's higher-contrast editorial/display voice. The
+// two need to read as different registers since a gallery can show both at
+// once — DM Serif Display stays the app's own display serif; Lora is the "print resume"
 // serif choice inside a template.
 export const lora = Lora({
   subsets: ["latin"],

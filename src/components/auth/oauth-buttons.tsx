@@ -14,7 +14,7 @@ export function OAuthButtons() {
         <input type="hidden" name="provider" value="google" />
         <button
           type="submit"
-          className="flex min-h-11 w-full items-center justify-center gap-2 border-[1.5px] border-ink bg-transparent font-body text-[14px] font-semibold text-ink transition-colors hover:border-rust hover:text-rust"
+          className="flex min-h-11 w-full items-center justify-center gap-2 border-[1.5px] border-ink bg-transparent font-body text-[14px] font-semibold text-ink transition-colors hover:border-coral hover:text-coral"
         >
           <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
             <path
@@ -41,7 +41,7 @@ export function OAuthButtons() {
         <input type="hidden" name="provider" value="linkedin_oidc" />
         <button
           type="submit"
-          className="flex min-h-11 w-full items-center justify-center gap-2 border-[1.5px] border-ink bg-transparent font-body text-[14px] font-semibold text-ink transition-colors hover:border-rust hover:text-rust"
+          className="flex min-h-11 w-full items-center justify-center gap-2 border-[1.5px] border-ink bg-transparent font-body text-[14px] font-semibold text-ink transition-colors hover:border-coral hover:text-coral"
         >
           <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
             <rect x="2" y="2" width="16" height="16" stroke="currentColor" strokeWidth="1.4" />

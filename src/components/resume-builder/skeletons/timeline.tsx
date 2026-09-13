@@ -34,7 +34,7 @@ export function TimelineSkeleton({ resume, config }: SkeletonProps) {
 
   return (
     <div
-      className={joinClasses("mx-auto max-w-[720px] bg-paper p-10 text-ink", fontScopeClassName(tokens))}
+      className={joinClasses("mx-auto max-w-[720px] bg-bg p-10 text-ink", fontScopeClassName(tokens))}
     >
       {renderHeader({
         resume,

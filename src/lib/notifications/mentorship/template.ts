@@ -108,30 +108,31 @@ export interface SessionEmail {
 
 function baseEmailHtml(bodyParagraphs: string[], sessionType: MentorshipSessionType, when: string, meetingLink: string): string {
   return `<!doctype html>
-<html><body style="margin:0;padding:24px;background:#f7f3ec;">
+<html><body style="margin:0;padding:24px;background:#fff6ef;">
   <div style="max-width:560px;margin:0 auto;">
     ${bodyParagraphs
       .map(
         (p) =>
-          `<p style="font:400 15px/1.6 -apple-system,Segoe UI,Roboto,sans-serif;color:#2b2119;">${p}</p>`,
+          `<p style="font:400 15px/1.6 -apple-system,Segoe UI,Roboto,sans-serif;color:#231715;">${p}</p>`,
       )
       .join("\n    ")}
-    <div style="padding:16px 0;border-top:1px solid #d9cfc2;border-bottom:1px solid #d9cfc2;">
-      <div style="font:600 13px/1.4 -apple-system,Segoe UI,Roboto,sans-serif;color:#6b4a3a;">
+    <div style="padding:16px 0;border-top:1px solid #e3d8d2;border-bottom:1px solid #e3d8d2;">
+      <div style="font:600 13px/1.4 -apple-system,Segoe UI,Roboto,sans-serif;color:#e4512c;">
         ${esc(sessionTypeLabel(sessionType))}
       </div>
-      <div style="font:500 17px/1.35 Georgia,'Times New Roman',serif;color:#2b2119;margin-top:2px;">
+      <div style="font:500 17px/1.35 Georgia,'Times New Roman',serif;color:#231715;margin-top:2px;">
         ${esc(when)}
       </div>
     </div>
     <p style="margin:24px 0;">
       <a href="${esc(meetingLink)}"
-         style="display:inline-block;background:#2b2119;color:#f7f3ec;text-decoration:none;
+         style="display:inline-block;background:#e4512c;color:#ffffff;text-decoration:none;
+                border-radius:24px;
                 padding:12px 20px;font:600 14px/1 -apple-system,Segoe UI,Roboto,sans-serif;">
         Join the call
       </a>
     </p>
-    <p style="font:400 12px/1.5 -apple-system,Segoe UI,Roboto,sans-serif;color:#6b5c50;">— Talentrah</p>
+    <p style="font:400 12px/1.5 -apple-system,Segoe UI,Roboto,sans-serif;color:#584947;">— Talentrah</p>
   </div>
 </body></html>`;
 }

@@ -2,7 +2,7 @@
  * The jobs feed's filter controls (Part 3 of the filter-row redesign).
  *
  * The applied-filter CHIP ROW is gone — work type, seniority, posted and
- * country now show their own state directly (a rust link, a menu button's
+ * country now show their own state directly (a coral link, a menu button's
  * own face), so a second, redundant list of "what's applied" no longer
  * exists. What's pinned here instead:
  *
@@ -26,7 +26,7 @@ function render(props: Partial<Parameters<typeof FilterBar>[0]> = {}) {
   return renderToStaticMarkup(<FilterBar tab="recommended" {...props} />);
 }
 
-const CONTAINER = 'class="flex flex-wrap items-stretch overflow-hidden border-[1.5px] border-ink"';
+const CONTAINER = 'class="flex flex-wrap items-stretch overflow-hidden rounded-2xl border border-line"';
 
 /**
  * The search instrument's markup, tags balanced.
@@ -127,7 +127,7 @@ describe("work type and seniority are multi-select", () => {
   it("shows two active links at once", () => {
     const html = render({ workTypes: ["remote", "hybrid"] });
     // The desktop row's active class, on both.
-    const activeCount = (html.match(/font-semibold text-rust/g) ?? []).length;
+    const activeCount = (html.match(/font-semibold text-coral/g) ?? []).length;
     expect(activeCount).toBeGreaterThanOrEqual(2);
   });
 
@@ -182,7 +182,7 @@ describe("the active-filter summary line (P14)", () => {
     expect(html).toContain('data-testid="active-filter-summary"');
     expect(html).toContain("Showing:");
     // Quoted (React escapes the literal `"` as `&quot;` in HTML output) and
-    // rendered through the italic-Newsreader treatment, not the plain
+    // rendered through the italic-display treatment, not the plain
     // facet-label styling.
     expect(html).toMatch(/<span class="font-display italic">&quot;product manager&quot;<\/span>/);
   });

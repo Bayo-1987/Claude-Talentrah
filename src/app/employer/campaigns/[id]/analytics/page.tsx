@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireEmployer } from "@/lib/employer/membership";
 import { getCampaign, getCampaignAnalytics } from "@/lib/employer/campaign-queries";
-import { BorderedCard, EyebrowLabel } from "@/components/ui";
+import { Card, EyebrowLabel } from "@/components/ui";
 import { CampaignStatusBadge, type CampaignStatus } from "@/components/employer/campaign-controls";
 import { ctrLabel } from "@/lib/ads/analytics-format";
 
@@ -39,7 +39,7 @@ export default async function CampaignAnalyticsPage({ params }: { params: Promis
     <div className="max-w-[820px]">
       <Link
         href={`/employer/campaigns/${campaign.id}`}
-        className="font-body text-[13px] font-semibold text-ink-soft no-underline hover:text-rust"
+        className="font-body text-[13px] font-semibold text-ink-soft no-underline hover:text-coral"
       >
         ← {campaign.name}
       </Link>
@@ -58,24 +58,24 @@ export default async function CampaignAnalyticsPage({ params }: { params: Promis
       </div>
 
       <div className="mt-6 grid grid-cols-2 gap-4 min-[640px]:grid-cols-4">
-        <BorderedCard className="p-4">
+        <Card className="p-4">
           <EyebrowLabel>Impressions</EyebrowLabel>
           <p className="mt-2 font-display text-[26px] text-ink">{analytics.impressions.toLocaleString()}</p>
-        </BorderedCard>
-        <BorderedCard className="p-4">
+        </Card>
+        <Card className="p-4">
           <EyebrowLabel>Clicks</EyebrowLabel>
           <p className="mt-2 font-display text-[26px] text-ink">{analytics.clicks.toLocaleString()}</p>
-        </BorderedCard>
-        <BorderedCard className="p-4">
+        </Card>
+        <Card className="p-4">
           <EyebrowLabel>Applies</EyebrowLabel>
           <p className="mt-2 font-display text-[26px] text-ink">{analytics.applies.toLocaleString()}</p>
-        </BorderedCard>
-        <BorderedCard className="p-4">
+        </Card>
+        <Card className="p-4">
           <EyebrowLabel>CTR</EyebrowLabel>
           <p className="mt-2 font-display text-[26px] text-ink">
             {ctrLabel(analytics.clicks, analytics.impressions)}
           </p>
-        </BorderedCard>
+        </Card>
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-4 min-[640px]:grid-cols-3">

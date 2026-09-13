@@ -51,7 +51,7 @@ export function BoostPanel({ boostedUntil }: { boostedUntil: string | null }) {
         </Button>
       </div>
       {message && (
-        <p className={`text-[13px] ${message.ok ? "text-green" : "text-rust"}`}>{message.text}</p>
+        <p className={`text-[13px] ${message.ok ? "text-green" : "text-coral"}`}>{message.text}</p>
       )}
     </div>
   );

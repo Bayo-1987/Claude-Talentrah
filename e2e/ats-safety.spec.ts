@@ -129,6 +129,23 @@ function actualMarkerOrder(text: string, candidates: string[]): string[] {
 }
 
 /**
+ * TEMPORARY, send-197 follow-up (kerning isolation). Anchored on
+ * `ZQEXPERIENCE` — the one occurrence guaranteed unique per page — rather
+ * than searching the whole page text for "Certif...", which on the
+ * sidebar-left/rail-right layouts matched the UNRELATED `ZQCERTIFICATIONS`
+ * marker sitting earlier in reading order, or a legitimate line-wrap from a
+ * long title in a narrow rail column. Neither is the phenomenon under
+ * investigation (a same-line glyph-run split); slicing a fixed window right
+ * after the experience marker looks at exactly the text this fixture change
+ * added, nothing else on the page.
+ */
+function experienceTitleWindow(text: string): string | null {
+  const i = text.indexOf("ZQEXPERIENCE");
+  if (i === -1) return null;
+  return text.slice(i, i + 60);
+}
+
+/**
  * Every skeleton, and whether ITS demo config is marked `ats_safe`
  * (skeletons/configs.ts) — must agree with
  * `templates/index.tsx`'s per-slug values once a config is a real catalog
@@ -151,7 +168,7 @@ test.describe("ats_safe is a real, PDF-verified claim per skeleton", () => {
   });
 
   for (const [configKey, claimedAtsSafe] of Object.entries(SKELETON_CLAIMS)) {
-    test(`${configKey} (claimed ats_safe=${claimedAtsSafe})`, async ({ page }) => {
+    test(`${configKey} (claimed ats_safe=${claimedAtsSafe})`, async ({ page }, testInfo) => {
       const config = DEMO_CONFIGS[configKey];
       expect(config, `no demo config registered for "${configKey}"`).toBeDefined();
 
@@ -164,12 +181,65 @@ test.describe("ats_safe is a real, PDF-verified claim per skeleton", () => {
 
       const text = await extractPdfText(pdfBuffer);
 
+      /*
+       * TEMPORARY, send-197 follow-up (kerning isolation): every config here
+       * renders an experience title in font-semibold + `bodyFont`, and that
+       * title now carries "Certification Lead" specifically to test whether
+       * the ZQEDUCATION corruption is scoped to the education field or to
+       * font-semibold DM Sans generally (see ats-test-fixture.ts's comment).
+       * Logged unconditionally — including for configs with no ats_safe
+       * claim at all — to get the full bodyFont x corruption matrix in one
+       * CI run rather than iterating per-hypothesis.
+       */
+      console.log(
+        `[ats-safety][kerning-isolation] ${configKey}: bodyFont=${config.styleTokens.bodyFont} experience-title window: ${JSON.stringify(experienceTitleWindow(text))}`,
+      );
+
       if (claimedAtsSafe) {
         // The actual proof: reading order out of the PDF must match reading
         // order on the page, exactly, for every marker this config's
         // sections actually surface.
         const expected = expectedMarkerOrder(config);
         const actual = actualMarkerOrder(text, expected);
+        /*
+         * TEMPORARY DIAGNOSTIC (send-197 follow-up): CI has been failing a
+         * subset of these (clean-professional-demo, timeline-demo, and three
+         * PR3 catalog slugs) with a marker MISSING entirely from the
+         * extracted text — not reordered — while every one of them passes
+         * clean locally. That gap is real signal (see the masthead 1536px
+         * bug in the same PR, caught the same way: a real cross-platform
+         * difference invisible to a source diff), not a reason to assume
+         * flake. Attaching the raw PDF and its per-page text on failure so
+         * the actual CI-rendered document can be inspected directly instead
+         * of guessed at from a marker list. Remove once the cause is found.
+         */
+        if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+          ensurePdfRuntimeGlobals();
+          await testInfo.attach(`${configKey}.pdf`, { body: pdfBuffer, contentType: "application/pdf" });
+          const parser = new PDFParse({ data: pdfBuffer });
+          try {
+            const info = await parser.getInfo();
+            const full = await parser.getText();
+            await testInfo.attach(`${configKey}-diagnostic.json`, {
+              body: JSON.stringify(
+                {
+                  totalPages: info.total,
+                  perPageText: full.pages.map((p) => ({
+                    page: p.num,
+                    hasEducation: p.text.includes("ZQEDUCATION"),
+                    length: p.text.length,
+                    text: p.text,
+                  })),
+                },
+                null,
+                2,
+              ),
+              contentType: "application/json",
+            });
+          } finally {
+            await parser.destroy();
+          }
+        }
         expect(
           actual,
           `${configKey} is marked ats_safe but its extracted PDF text order was ` +
@@ -242,16 +312,52 @@ test.describe("ats_safe is a real, PDF-verified claim per PR3 catalog slug", () 
 
   for (const slug of CATALOG_SLUGS_TO_VERIFY) {
     const config = CATALOG_TEMPLATE_CONFIGS[slug];
-    test(`${slug} (skeleton: ${config.skeleton}, claimed ats_safe=${config.atsSafe})`, async ({ page }) => {
+    test(`${slug} (skeleton: ${config.skeleton}, claimed ats_safe=${config.atsSafe})`, async ({ page }, testInfo) => {
       await page.goto(`/dev/template-skeletons/${slug}`);
       const pdfBuffer = await page.pdf({ printBackground: true });
       expect(pdfBuffer.length, "generated PDF was empty").toBeGreaterThan(0);
 
       const text = await extractPdfText(pdfBuffer);
 
+      // See the matching comment in the DEMO_CONFIGS loop above — same
+      // temporary kerning-isolation check, same reasoning, applied here too
+      // since this loop is where structured-admin/ledger/specification
+      // actually run (the earlier diagnostic pass only instrumented the
+      // DEMO_CONFIGS loop and missed these three entirely).
+      console.log(
+        `[ats-safety][kerning-isolation] ${slug}: bodyFont=${config.styleTokens.bodyFont} experience-title window: ${JSON.stringify(experienceTitleWindow(text))}`,
+      );
+
       if (config.atsSafe) {
         const expected = expectedMarkerOrder(config);
         const actual = actualMarkerOrder(text, expected);
+        if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+          ensurePdfRuntimeGlobals();
+          await testInfo.attach(`${slug}.pdf`, { body: pdfBuffer, contentType: "application/pdf" });
+          const parser = new PDFParse({ data: pdfBuffer });
+          try {
+            const info = await parser.getInfo();
+            const full = await parser.getText();
+            await testInfo.attach(`${slug}-diagnostic.json`, {
+              body: JSON.stringify(
+                {
+                  totalPages: info.total,
+                  perPageText: full.pages.map((p) => ({
+                    page: p.num,
+                    hasEducation: p.text.includes("ZQEDUCATION"),
+                    length: p.text.length,
+                    text: p.text,
+                  })),
+                },
+                null,
+                2,
+              ),
+              contentType: "application/json",
+            });
+          } finally {
+            await parser.destroy();
+          }
+        }
         expect(
           actual,
           `${slug} is marked ats_safe but its extracted PDF text order was ` +

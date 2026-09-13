@@ -1,7 +1,7 @@
 import { requireUser } from "@/lib/auth/require-user";
 import { sessionsAsMentor } from "@/lib/mentorship/queries";
 import { confirmMentorSessionAction } from "@/lib/mentorship/actions";
-import { Container, EyebrowLabel, BorderedCard, Button } from "@/components/ui";
+import { Container, EyebrowLabel, Card, Button } from "@/components/ui";
 
 export const metadata = { title: "Your mentees — Talentrah" };
 
@@ -44,7 +44,7 @@ export default async function MentorSessionsPage() {
             <section className="flex flex-col gap-4">
               <h2 className="font-display text-[18px] font-semibold">Needs your confirmation</h2>
               {needsConfirmation.map((s) => (
-                <BorderedCard key={s.id} className="flex flex-col gap-2 p-5">
+                <Card key={s.id} className="flex flex-col gap-2 p-5">
                   <p className="font-semibold text-ink">{s.menteeName} · {s.sessionType.replace(/_/g, " ")}</p>
                   <p className="text-[13.5px] text-ink-soft">
                     {new Date(s.scheduledStart).toLocaleString()}
@@ -56,7 +56,7 @@ export default async function MentorSessionsPage() {
                     <input type="hidden" name="sessionId" value={s.id} />
                     <Button type="submit" variant="primary" size="sm">Confirm</Button>
                   </form>
-                </BorderedCard>
+                </Card>
               ))}
             </section>
           )}
@@ -64,17 +64,17 @@ export default async function MentorSessionsPage() {
           <section className="flex flex-col gap-4">
             <h2 className="font-display text-[18px] font-semibold">Everything else</h2>
             {rest.map((s) => (
-              <BorderedCard key={s.id} className="flex flex-col gap-2 p-5">
+              <Card key={s.id} className="flex flex-col gap-2 p-5">
                 <p className="font-semibold text-ink">{s.menteeName} · {s.sessionType.replace(/_/g, " ")}</p>
                 <p className="text-[13.5px] text-ink-soft">
                   {new Date(s.scheduledStart).toLocaleString()} · {STATUS_LABEL[s.status] ?? s.status}
                 </p>
                 {s.meetingLink && (
-                  <a href={s.meetingLink} target="_blank" rel="noopener noreferrer" className="text-[13.5px] text-rust">
+                  <a href={s.meetingLink} target="_blank" rel="noopener noreferrer" className="text-[13.5px] text-coral">
                     Join meeting ↗
                   </a>
                 )}
-              </BorderedCard>
+              </Card>
             ))}
           </section>
         </>

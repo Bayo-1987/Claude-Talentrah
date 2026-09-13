@@ -57,8 +57,8 @@ export type SectionKey =
   | "references";
 
 /**
- * Six typefaces total: the app's own two (`display`/`body`, Newsreader /
- * Source Sans — reused so a template can deliberately look like "the app's
+ * Six typefaces total: the app's own two (`display`/`body`, DM Serif Display /
+ * DM Sans — reused so a template can deliberately look like "the app's
  * own voice") plus the four new ones added for the template library. See
  * `fonts.ts` for which real family each maps to and why.
  */
@@ -71,11 +71,14 @@ export type Typeface =
   | "condensed";
 
 /**
- * Restricted to the two neutral brand colors on purpose. `--green`/`--amber`
- * are reserved for the match-tier system everywhere in this product
- * (CLAUDE.md: "never a 4th tier"); a template using them as decoration would
- * read as a match score. `rust` and `ink` are the only two the design system
- * treats as generic accent/ink colors outside that system.
+ * Restricted to the two neutral brand colors on purpose. `--green`/`--teal`/
+ * `--amber` are reserved for the match-tier system everywhere in this
+ * product (CLAUDE.md: "never a 4th tier"); a template using them as
+ * decoration would read as a match score. The values below (still named
+ * "rust" — an internal key, not a rendered color; token-classes.ts maps it
+ * to `--coral`, the design system's actual primary accent) and "ink" are the
+ * only two the design system treats as generic accent/ink colors outside
+ * that system.
  */
 export type AccentColor = "rust" | "ink";
 

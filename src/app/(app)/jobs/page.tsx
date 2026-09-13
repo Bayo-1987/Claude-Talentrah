@@ -925,7 +925,7 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
         masthead. Done here rather than by removing the layout's padding,
         which every other page under it relies on.
 
-        `bg-paper` is not decoration either: without an opaque background the
+        `bg-bg` is not decoration either: without an opaque background the
         cards scroll THROUGH the header, which is worse than no sticky at all.
       */}
       {/*
@@ -1040,7 +1040,7 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
       </div>
 
       {baseResumeError && (
-        <p className="border-[1.5px] border-rust bg-rust-soft px-4 py-3 text-[13.5px] text-rust">
+        <p className="border-[1.5px] border-coral bg-coral-soft px-4 py-3 text-[13.5px] text-coral">
           Couldn&apos;t load your resume, so match scores below aren&apos;t
           reliable right now. Try reloading — if this keeps happening,{" "}
           <a href="/resume-builder" className="underline">
@@ -1122,7 +1122,7 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
             {page > 1 && (
               <a
                 href={buildRecentPageHref(page - 1)}
-                className="font-semibold underline underline-offset-2 hover:text-rust"
+                className="font-semibold underline underline-offset-2 hover:text-coral"
               >
                 Previous
               </a>
@@ -1130,7 +1130,7 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
             {page < recentPagination.totalPages && (
               <a
                 href={buildRecentPageHref(page + 1)}
-                className="font-semibold underline underline-offset-2 hover:text-rust"
+                className="font-semibold underline underline-offset-2 hover:text-coral"
               >
                 Next
               </a>

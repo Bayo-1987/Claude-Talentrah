@@ -86,7 +86,7 @@ export function ShareJobButton({
           role="dialog"
           aria-label={`Share ${jobTitle}`}
         >
-          <span className="mb-[10px] block text-[10.5px] font-bold tracking-[0.1em] text-rust uppercase">
+          <span className="mb-[10px] block text-[10.5px] font-bold tracking-[0.1em] text-coral uppercase">
             Share this job
           </span>
           <ShareButtons

@@ -18,7 +18,7 @@ export default async function NewCampaignPage() {
     <div className="max-w-[820px]">
       <Link
         href="/employer/campaigns"
-        className="font-body text-[13px] font-semibold text-ink-soft no-underline hover:text-rust"
+        className="font-body text-[13px] font-semibold text-ink-soft no-underline hover:text-coral"
       >
         ← Ad Campaigns
       </Link>

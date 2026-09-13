@@ -28,7 +28,24 @@ export const ATS_TEST_RESUME: StructuredResume = {
   summary: "ZQSUMMARY Backend engineer focused on payments infrastructure and reliability.",
   experience: [
     {
-      title: "ZQEXPERIENCE Staff Engineer",
+      /*
+       * TEMPORARY, send-197 follow-up: "— Certification Lead" appended
+       * deliberately, not part of the original fixture. The real job title
+       * text was too clean to answer the question that matters — every
+       * marker here is font-semibold + `bodyFont` (see section-blocks.tsx's
+       * renderExperience/renderEducation title spans), but only ZQEDUCATION
+       * (a "TI" letter pair, that exact weight+font) was ever exercised
+       * against one. "Certification" puts the same letter pair through the
+       * SAME styling this fixture already gives job titles, to tell apart
+       * "education's field is bugged" from "font-semibold DM Sans has a bad
+       * TI kerning pair on Linux Chromium, and any semibold job title with
+       * 'ti' in it — Certification, Operations, Administrator, Technician —
+       * is equally exposed." The marker itself (`ZQEXPERIENCE`) is
+       * untouched at the start, so every existing position-based assertion
+       * in ats-safety.spec.ts is unaffected. Revert this once the isolation
+       * test has an answer.
+       */
+      title: "ZQEXPERIENCE Staff Engineer — Certification Lead",
       company: "Northbridge Systems",
       location: "Abuja, Nigeria",
       startDate: "2022",

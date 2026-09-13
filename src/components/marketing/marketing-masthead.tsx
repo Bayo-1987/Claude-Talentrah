@@ -11,13 +11,13 @@ const NAV_LINKS = [
 /**
  * Marketing-site masthead for the signed-out landing page. Visually the same
  * masthead language as the signed-in app shell (src/components/app-shell/masthead.tsx)
- * — sticky, Newsreader logo, bordered — but a separate component since the
+ * — sticky, display-serif logo, bordered — but a separate component since the
  * nav here is anchor-based (in-page sections) rather than route-based, and
  * there's no signed-in user to read credits/initials from.
  */
 export function MarketingMasthead() {
   return (
-    <div className="sticky top-0 z-20 border-b-[2.5px] border-ink bg-paper/95 backdrop-blur-sm">
+    <div className="sticky top-0 z-20 border-b-[2.5px] border-ink bg-bg/95 backdrop-blur-sm">
       <div className="mx-auto flex h-[78px] max-w-[1120px] items-center justify-between px-10">
         <Link href="/" className="flex flex-shrink-0 items-center no-underline">
           {/* eslint-disable-next-line @next/next/no-img-element -- static brand SVG, next/image's optimizer needs SVG allow-listing for no real benefit here */}
@@ -35,7 +35,7 @@ export function MarketingMasthead() {
             <a
               key={link.href}
               href={link.href}
-              className="flex min-h-11 items-center px-1 font-body text-[14.5px] font-semibold text-ink no-underline hover:text-rust"
+              className="flex min-h-11 items-center px-1 font-body text-[14.5px] font-semibold text-ink no-underline hover:text-coral"
             >
               {link.label}
             </a>

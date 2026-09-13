@@ -5,7 +5,7 @@ import { listSignups } from "@/lib/admin/people/queries";
 import { PAGE_SIZE, describeFilters, parseSignupListParams } from "@/lib/admin/people/signups";
 import { NewSignupsBadge } from "@/components/admin/new-signups-badge";
 import { QueueHeader } from "@/components/admin/queue-chrome";
-import { Container, BorderedCard, Button, TextField } from "@/components/ui";
+import { Container, Card, Button, TextField } from "@/components/ui";
 
 export const metadata = {
   title: "Job-seeker signups — Talentrah admin",
@@ -104,14 +104,14 @@ export default async function SignupsPage({
         what answers the question later, and the sentence is what makes the
         casual browse less likely in the first place.
       */}
-      <BorderedCard className="border-ink bg-rust-soft p-4">
+      <Card className="border-ink bg-coral-soft p-4">
         <p className="text-[14px] text-ink">
           <strong>Opening this list is recorded.</strong> Each view writes{" "}
           <code className="text-[13px]">people.listed</code> to the admin audit log against your
           account, with the filters you used — including when you change a filter or turn a page.
           Billing records only: no resumes, no applications, no tailoring history.
         </p>
-      </BorderedCard>
+      </Card>
 
       <form method="get" className="flex flex-wrap items-end gap-3">
         <div className="min-w-[260px] flex-1">

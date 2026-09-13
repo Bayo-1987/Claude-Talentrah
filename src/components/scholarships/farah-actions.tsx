@@ -18,7 +18,7 @@ const VERDICT_LABEL: Record<EligibilityCheckResult["verdict"], string> = {
 // fourth: green = clear, rust = mixed, amber = weakest. No new tier names.
 const VERDICT_CLASS: Record<EligibilityCheckResult["verdict"], string> = {
   likely_eligible: "text-green",
-  partly_eligible: "text-rust",
+  partly_eligible: "text-coral",
   likely_ineligible: "text-amber",
 };
 
@@ -107,7 +107,7 @@ export function FarahActions({
       </div>
 
       {error && (
-        <p className="border-[1.5px] border-rust bg-rust-soft px-3 py-2 text-[13px] text-rust">
+        <p className="border-[1.5px] border-coral bg-coral-soft px-3 py-2 text-[13px] text-coral">
           {error}{" "}
           {error.startsWith("Not enough credits") && (
             <Link href="/billing" className="underline underline-offset-2">
@@ -127,7 +127,7 @@ export function FarahActions({
             value={motivation}
             onChange={(e) => setMotivation(e.target.value)}
             rows={3}
-            className="w-full border-[1.5px] border-ink bg-card px-3 py-2 font-body text-[13.5px] text-ink outline-none focus:border-rust"
+            className="w-full border-[1.5px] border-ink bg-card px-3 py-2 font-body text-[13.5px] text-ink outline-none focus:border-coral"
             placeholder="A sentence or two in your own words."
           />
           <Button type="button" size="sm" disabled={pending} onClick={runSop} className="w-fit">
@@ -175,7 +175,7 @@ export function FarahActions({
 
       {statement && (
         <div className="flex flex-col gap-2 border-[1.5px] border-line p-4">
-          <span className="font-body text-[11px] font-bold uppercase tracking-[0.14em] text-rust">
+          <span className="font-body text-[11px] font-bold uppercase tracking-[0.14em] text-coral">
             Your draft statement
           </span>
           <p className="whitespace-pre-wrap text-[13.5px] leading-relaxed text-ink">{statement}</p>

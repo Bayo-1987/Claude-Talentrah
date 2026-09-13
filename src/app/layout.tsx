@@ -1,20 +1,22 @@
 import type { Metadata } from "next";
 import { SITE_ORIGIN, SHARE_IMAGE, SHARE_IMAGE_META } from "@/lib/seo/site";
-import { Newsreader, Source_Sans_3 } from "next/font/google";
+import { DM_Serif_Display, DM_Sans } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
-const newsreader = Newsreader({
+// DM Serif Display ships one weight (400) — see globals.css's own note on
+// why the h1-h3 base rule has no 500/600 step-up the way Newsreader did.
+const dmSerifDisplay = DM_Serif_Display({
   subsets: ["latin"],
-  weight: ["400", "500", "600"],
+  weight: ["400"],
   style: ["normal", "italic"],
-  variable: "--font-newsreader",
+  variable: "--font-dm-serif-display",
 });
 
-const sourceSans = Source_Sans_3({
+const dmSans = DM_Sans({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
-  variable: "--font-source-sans",
+  variable: "--font-dm-sans",
 });
 
 const SITE_NAME = "Talentrah";
@@ -98,9 +100,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${newsreader.variable} ${sourceSans.variable} h-full antialiased`}
+      className={`${dmSerifDisplay.variable} ${dmSans.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-paper text-ink">
+      <body className="min-h-full flex flex-col bg-bg text-ink">
         {children}
         <Analytics />
       </body>

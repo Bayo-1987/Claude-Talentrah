@@ -61,8 +61,8 @@ export function PasswordField({ label, error, className, id, name, ...rest }: Pa
           name={name}
           type={revealed ? "text" : "password"}
           className={cn(
-            "min-h-11 w-full border-[1.5px] border-ink bg-card py-2.5 pl-3.5 pr-12 font-body text-[15px] text-ink outline-none focus:border-rust",
-            error && "border-rust",
+            "min-h-11 w-full border-[1.5px] border-ink bg-card py-2.5 pl-3.5 pr-12 font-body text-[15px] text-ink outline-none focus:border-coral",
+            error && "border-coral",
             className,
           )}
           {...rest}
@@ -86,15 +86,15 @@ export function PasswordField({ label, error, className, id, name, ...rest }: Pa
            * to say that than "Hide password".
            */
           aria-label={revealed ? "Hide password" : "Show password"}
-          className={`absolute inset-y-0 right-0 flex w-11 items-center justify-center border-l border-line transition-colors hover:text-rust focus-visible:text-rust focus-visible:outline-none ${
-            revealed ? "text-rust" : "text-ink-soft"
+          className={`absolute inset-y-0 right-0 flex w-11 items-center justify-center border-l border-line transition-colors hover:text-coral focus-visible:text-coral focus-visible:outline-none ${
+            revealed ? "text-coral" : "text-ink-soft"
           }`}
         >
           {revealed ? <EyeOffIcon /> : <EyeIcon />}
         </button>
       </div>
 
-      {error && <p className="text-[12.5px] text-rust">{error}</p>}
+      {error && <p className="text-[12.5px] text-coral">{error}</p>}
     </div>
   );
 }

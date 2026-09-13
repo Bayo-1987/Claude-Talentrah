@@ -141,7 +141,7 @@ export function ResumeUpload({
       <p className="text-[14px] text-ink-soft">
         {status === "uploading" ? "Farah is reading your resume…" : heading}
       </p>
-      {error && <p className="text-[13px] text-rust">{error}</p>}
+      {error && <p className="text-[13px] text-coral">{error}</p>}
       <div className="mt-1 flex items-center justify-center gap-4">
         <Button
           type="button"
@@ -170,7 +170,7 @@ export function ResumeUpload({
               await onSkip?.();
               router.push(next);
             }}
-            className="text-[13.5px] font-semibold text-ink-soft underline underline-offset-2 hover:text-rust"
+            className="text-[13.5px] font-semibold text-ink-soft underline underline-offset-2 hover:text-coral"
           >
             Skip for now
           </button>

@@ -1,4 +1,4 @@
-import { BorderedCard, Button, TextField, SelectField } from "@/components/ui";
+import { Card, Button, TextField, SelectField } from "@/components/ui";
 import { addManualEntryAction } from "@/lib/applications/tracker-actions";
 
 const STAGE_OPTIONS = ["saved", "applied", "interviewing", "offer", "rejected", "archived"];
@@ -11,10 +11,10 @@ const STAGE_OPTIONS = ["saved", "applied", "interviewing", "offer", "rejected", 
 export function ManualEntryForm() {
   return (
     <details className="group">
-      <summary className="flex min-h-11 w-fit cursor-pointer items-center gap-2 font-body text-[13.5px] font-semibold text-ink-soft underline underline-offset-2 hover:text-rust [&::-webkit-details-marker]:hidden">
+      <summary className="flex min-h-11 w-fit cursor-pointer items-center gap-2 font-body text-[13.5px] font-semibold text-ink-soft underline underline-offset-2 hover:text-coral [&::-webkit-details-marker]:hidden">
         + Add a job you applied to outside Talentrah
       </summary>
-      <BorderedCard className="mt-3 p-5">
+      <Card className="mt-3 p-5">
         <form
           action={addManualEntryAction}
           className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2"
@@ -39,7 +39,7 @@ export function ManualEntryForm() {
             </Button>
           </div>
         </form>
-      </BorderedCard>
+      </Card>
     </details>
   );
 }

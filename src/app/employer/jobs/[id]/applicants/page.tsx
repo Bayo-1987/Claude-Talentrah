@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requireEmployer } from "@/lib/employer/membership";
-import { BorderedCard, EyebrowLabel, MatchTierBadge } from "@/components/ui";
+import { Card, EyebrowLabel, MatchTierBadge } from "@/components/ui";
 import { ApplicantStatusSelect } from "@/components/employer/applicant-status-select";
 import { MatchBreakdown } from "@/components/jobs/match-breakdown";
 import { formatTrackerDate } from "@/lib/tracker/format-date";
@@ -60,7 +60,7 @@ export default async function JobApplicantsPage({ params }: { params: Promise<{ 
       <div>
         <Link
           href="/employer/jobs"
-          className="font-body text-[13px] font-semibold text-ink-soft no-underline hover:text-rust"
+          className="font-body text-[13px] font-semibold text-ink-soft no-underline hover:text-coral"
         >
           ← Jobs Posted
         </Link>
@@ -71,18 +71,18 @@ export default async function JobApplicantsPage({ params }: { params: Promise<{ 
       </div>
 
       {error && (
-        <p className="border-[1.5px] border-rust bg-rust-soft px-4 py-3 text-[13.5px] text-rust">
+        <p className="border-[1.5px] border-coral bg-coral-soft px-4 py-3 text-[13.5px] text-coral">
           Couldn&apos;t load applicants right now. The job posting itself is fine — try reloading this page.
         </p>
       )}
 
       {(applicants ?? []).length === 0 ? (
-        <BorderedCard className="p-8 text-center">
+        <Card className="p-8 text-center">
           <p className="font-display text-[18px] font-medium text-ink">No applicants yet.</p>
           <p className="mx-auto mt-2 max-w-[46ch] font-body text-[14px] text-ink-soft">
             Anyone who applies through Talentrah will show up here, with their resume one click away.
           </p>
-        </BorderedCard>
+        </Card>
       ) : (
         <div className="flex flex-col divide-y divide-line border-y border-line">
           {(applicants ?? []).map((applicant) => {
@@ -130,7 +130,7 @@ export default async function JobApplicantsPage({ params }: { params: Promise<{ 
                     {applicant.resume_id && (
                       <Link
                         href={`/employer/jobs/${job.id}/applicants/${applicant.application_id}/resume`}
-                        className="font-body text-[13px] font-semibold text-ink underline underline-offset-2 hover:text-rust"
+                        className="font-body text-[13px] font-semibold text-ink underline underline-offset-2 hover:text-coral"
                       >
                         View resume
                       </Link>

@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 import { lookUpPersonAction } from "@/lib/admin/finance/actions";
 import { initialPersonLookupState } from "@/lib/admin/finance/state";
-import { Button, TextField, BorderedCard, EyebrowLabel } from "@/components/ui";
+import { Button, TextField, Card, EyebrowLabel } from "@/components/ui";
 
 const naira = (minor: number, currency: string) =>
   new Intl.NumberFormat("en-NG", { style: "currency", currency, maximumFractionDigits: 2 }).format(
@@ -55,14 +55,14 @@ export function PersonLookup() {
         </p>
       )}
       {state.status === "error" && (
-        <p className="border-[1.5px] border-rust bg-rust-soft px-3.5 py-2.5 text-[14px] text-rust">
+        <p className="border-[1.5px] border-coral bg-coral-soft px-3.5 py-2.5 text-[14px] text-coral">
           {state.message}
         </p>
       )}
 
       {person && (
         <div className="flex flex-col gap-5">
-          <BorderedCard className="flex flex-col gap-1.5 p-5">
+          <Card className="flex flex-col gap-1.5 p-5">
             <EyebrowLabel>Account</EyebrowLabel>
             <p className="font-display text-[20px]">
               {[person.firstName, person.lastName].filter(Boolean).join(" ") || person.email}
@@ -74,14 +74,14 @@ export function PersonLookup() {
               <span className="font-semibold text-ink">{person.creditsBalance} credits</span>
             </p>
             <p className="font-mono text-[12px] text-ink-soft">{person.id}</p>
-          </BorderedCard>
+          </Card>
 
           <section className="flex flex-col gap-2">
             <EyebrowLabel>Payments</EyebrowLabel>
             {person.payments.length === 0 ? (
               <p className="font-display text-[14px] italic text-ink-soft">No payments.</p>
             ) : (
-              <BorderedCard className="overflow-x-auto p-0">
+              <Card className="overflow-x-auto p-0">
                 <table className="w-full border-collapse text-[13.5px]">
                   <tbody>
                     {person.payments.map((p) => (
@@ -95,7 +95,7 @@ export function PersonLookup() {
                         </td>
                         <td
                           className={
-                            "px-4 py-2.5 " + (p.status === "pending" ? "font-semibold text-rust" : "")
+                            "px-4 py-2.5 " + (p.status === "pending" ? "font-semibold text-coral" : "")
                           }
                         >
                           {p.status}
@@ -107,7 +107,7 @@ export function PersonLookup() {
                     ))}
                   </tbody>
                 </table>
-              </BorderedCard>
+              </Card>
             )}
           </section>
 
@@ -119,7 +119,7 @@ export function PersonLookup() {
               <ul className="flex list-none flex-col gap-2 p-0">
                 {person.passes.map((p) => (
                   <li key={p.id}>
-                    <BorderedCard className="flex flex-col gap-1 p-4 text-[13.5px]">
+                    <Card className="flex flex-col gap-1 p-4 text-[13.5px]">
                       <span>
                         {p.status}
                         {p.autoRenewStatus && ` · auto-renew ${p.autoRenewStatus}`} · expires{" "}
@@ -132,12 +132,12 @@ export function PersonLookup() {
                           surfaces in aggregate — this is the per-person view of
                           it, and it is often exactly why the person wrote in.
                         */
-                        <span className="font-semibold text-rust">
+                        <span className="font-semibold text-coral">
                           Renewal outcome unknown — attempt {p.renewalAttemptCount}, reference{" "}
                           <span className="font-mono text-[12px]">{p.pendingRenewalReference}</span>
                         </span>
                       )}
-                    </BorderedCard>
+                    </Card>
                   </li>
                 ))}
               </ul>
@@ -149,7 +149,7 @@ export function PersonLookup() {
             {person.credits.length === 0 ? (
               <p className="font-display text-[14px] italic text-ink-soft">No credit movements.</p>
             ) : (
-              <BorderedCard className="overflow-x-auto p-0">
+              <Card className="overflow-x-auto p-0">
                 <table className="w-full border-collapse text-[13.5px]">
                   <tbody>
                     {person.credits.map((c) => (
@@ -164,7 +164,7 @@ export function PersonLookup() {
                     ))}
                   </tbody>
                 </table>
-              </BorderedCard>
+              </Card>
             )}
           </section>
 

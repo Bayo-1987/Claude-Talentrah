@@ -56,7 +56,7 @@ export function ApplicantStatusSelect({
         onChange={handleChange}
         disabled={pending}
         aria-label="Applicant status"
-        className="min-h-10 border-[1.5px] border-ink bg-card px-2.5 font-body text-[13px] text-ink outline-none focus:border-rust disabled:opacity-60"
+        className="min-h-10 border-[1.5px] border-ink bg-card px-2.5 font-body text-[13px] text-ink outline-none focus:border-coral disabled:opacity-60"
       >
         {STATUS_OPTIONS.map((s) => (
           <option key={s} value={s}>
@@ -64,7 +64,7 @@ export function ApplicantStatusSelect({
           </option>
         ))}
       </select>
-      {error && <p className="max-w-[180px] text-right text-[11.5px] text-rust">{error}</p>}
+      {error && <p className="max-w-[180px] text-right text-[11.5px] text-coral">{error}</p>}
     </div>
   );
 }

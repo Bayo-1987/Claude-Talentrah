@@ -1,6 +1,7 @@
 import {
   MATCH_TIER_LABEL,
   MATCH_TIER_TEXT_CLASS,
+  MATCH_TIER_BADGE_CLASS,
   getDisplayMatchTier,
   displayMatchScore,
   isThinScreenableTagSet,
@@ -64,6 +65,7 @@ export function MatchTierBadge({
 }: MatchTierBadgeProps) {
   const tier = getDisplayMatchTier(score);
   const colorClass = tier ? MATCH_TIER_TEXT_CLASS[tier] : "text-ink-soft";
+  const badgeClass = tier ? MATCH_TIER_BADGE_CLASS[tier] : "bg-line/40 text-ink-soft";
   const screenableTagTotal = explanation
     ? explanation.matchedSkills.length + explanation.missingSkills.length
     : null;
@@ -104,15 +106,15 @@ export function MatchTierBadge({
   return (
     <span
       className={cn(
-        "font-body text-[11px] font-bold uppercase tracking-[0.14em]",
-        colorClass,
+        "inline-flex items-center rounded-full px-3 py-1 font-body text-[12px] font-bold",
+        badgeClass,
         className,
       )}
     >
       {label ? `${displayScore}% · ${label}` : `${displayScore}%`}
       {isCapped && (
         <span
-          className="ml-1 normal-case tracking-normal text-ink-soft/70"
+          className="ml-1 font-normal text-ink-soft/70"
           title={`Uncapped match score: ${score}%`}
         >
           *

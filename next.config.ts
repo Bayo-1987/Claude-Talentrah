@@ -76,7 +76,7 @@ const nextConfig: NextConfig = {
    *
    * Scoped against what this app actually loads client-side, checked
    * directly rather than assumed:
-   *   - Fonts (Newsreader, Source Sans 3) go through `next/font/google`,
+   *   - Fonts (DM Serif Display, DM Sans) go through `next/font/google`,
    *     which self-hosts the font files at build time — confirmed no
    *     runtime request to fonts.googleapis.com/fonts.gstatic.com exists
    *     anywhere in the app, so neither host needs a CSP entry.

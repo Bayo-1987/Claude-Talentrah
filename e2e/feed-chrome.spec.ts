@@ -57,7 +57,7 @@ test("external postings never claim a count", async ({ page }) => {
     const out: string[] = [];
     document.querySelectorAll("h3").forEach((h) => {
       if (!h.textContent?.includes("sourced externally")) return;
-      const card = h.closest("div[class*='border-[1.5px]']");
+      const card = h.closest("[data-testid='job-card']");
       const posted = [...(card?.querySelectorAll("span") ?? [])]
         .map((s) => (s as HTMLElement).innerText?.trim() ?? "")
         .find((t) => /^Posted .+ ago · /.test(t));
@@ -91,7 +91,7 @@ test("a saved job is not an applicant", async ({ page }) => {
   // By heading text, not by link role: card titles are plain text on this
   // branch. A role selector silently matched nothing and turned the most
   // valuable assertion in this file into a skip.
-  const card = page.locator("div[class*='border-[1.5px]']").filter({
+  const card = page.locator("[data-testid='job-card']").filter({
     has: page.getByRole("heading", { name: /Customer Success Associate/ }),
   });
   expect(await card.count(), "the seeded internal posting should be on the recent board").toBeGreaterThan(0);
@@ -99,7 +99,7 @@ test("a saved job is not an applicant", async ({ page }) => {
 
   // And a posting that really does have an applicant reads 1 — otherwise "0"
   // could just mean the count never arrives.
-  const applied = page.locator("div[class*='border-[1.5px]']").filter({
+  const applied = page.locator("[data-testid='job-card']").filter({
     has: page.getByRole("heading", { name: /Backend Engineer/ }),
   });
   if ((await applied.count()) > 0) {
@@ -201,7 +201,7 @@ test("the filter header is flush at rest, not 32px adrift", async ({ page }) => 
    * And it is actually OPAQUE.
    *
    * `elementFromPoint` hit-tests a transparent element exactly like a painted
-   * one, so the `covered` check above passes with `bg-paper` removed while
+   * one, so the `covered` check above passes with `bg-bg` removed while
    * cards scroll visibly through the header. The computed background is the
    * only thing that tells them apart — a sticky header you can see through is
    * worse than no sticky header at all.

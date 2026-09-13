@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { requireEmployer } from "@/lib/employer/membership";
-import { BorderedCard, EyebrowLabel, buttonClasses } from "@/components/ui";
+import { Card, EyebrowLabel, buttonClasses } from "@/components/ui";
 import { PostedJobRow, type PostedJob } from "@/components/employer/posted-job-row";
 import { EmployerJobShareInline } from "@/components/employer/job-share-button";
 import { PostSuccessBannerNote } from "@/components/employer/post-success-banner-note";
@@ -191,7 +191,7 @@ export default async function JobsPostedPage({
             </>
           )}
           {employerBannerMessage(verificationOutcome, organization.verified, userEmail)}{" "}
-          <Link href="/employer/profile" className="font-semibold text-rust underline underline-offset-2">
+          <Link href="/employer/profile" className="font-semibold text-coral underline underline-offset-2">
             {staleEligible ? "Go to Company Profile" : "Manage verification"}
           </Link>
           .
@@ -211,7 +211,7 @@ export default async function JobsPostedPage({
         </p>
       )}
       {actionError && (
-        <p className="border-[1.5px] border-rust bg-rust-soft px-4 py-3 text-[13.5px] text-rust">
+        <p className="border-[1.5px] border-coral bg-coral-soft px-4 py-3 text-[13.5px] text-coral">
           {actionError}
         </p>
       )}
@@ -225,7 +225,7 @@ export default async function JobsPostedPage({
         (a stale/copied link, or the job got removed in between).
       */}
       {postedJob && (
-        <BorderedCard className="border-ink p-5">
+        <Card className="border-ink p-5">
           <p className="font-display text-[16px] font-medium text-ink">
             &quot;{postedJob.title}&quot; is posted.
           </p>
@@ -252,7 +252,7 @@ export default async function JobsPostedPage({
             outcome rather than getting a distinct error state.
           */}
           <PostSuccessBannerNote jobId={postedJob.id} userId={userId} />
-        </BorderedCard>
+        </Card>
       )}
 
       {/*
@@ -266,7 +266,7 @@ export default async function JobsPostedPage({
           <span>
             We found {claimCandidateCount} job posting{claimCandidateCount === 1 ? "" : "s"} from other
             sources that might be {organization.name}&apos;s.{" "}
-            <Link href="/employer/claim" className="font-semibold text-rust underline underline-offset-2">
+            <Link href="/employer/claim" className="font-semibold text-coral underline underline-offset-2">
               Review and claim them
             </Link>
             .
@@ -274,7 +274,7 @@ export default async function JobsPostedPage({
           <form action={dismissClaimReviewAction}>
             <button
               type="submit"
-              className="font-body text-[12.5px] font-semibold text-ink-soft underline underline-offset-2 hover:text-rust"
+              className="font-body text-[12.5px] font-semibold text-ink-soft underline underline-offset-2 hover:text-coral"
             >
               Not now
             </button>
@@ -287,7 +287,7 @@ export default async function JobsPostedPage({
         for claimJobPostingAction's own redirect (`?claimed=<id>`).
       */}
       {claimedJob && (
-        <BorderedCard className="border-ink p-5">
+        <Card className="border-ink p-5">
           <p className="font-display text-[16px] font-medium text-ink">
             &quot;{claimedJob.title}&quot; is now your own posting.
           </p>
@@ -306,18 +306,18 @@ export default async function JobsPostedPage({
               })}
             />
           </div>
-        </BorderedCard>
+        </Card>
       )}
 
       {countsError && (
-        <p className="border-[1.5px] border-rust bg-rust-soft px-4 py-3 text-[13.5px] text-rust">
+        <p className="border-[1.5px] border-coral bg-coral-soft px-4 py-3 text-[13.5px] text-coral">
           Couldn&apos;t load application counts, so the numbers below aren&apos;t reliable right
           now. The postings themselves are fine.
         </p>
       )}
 
       {rows.length === 0 ? (
-        <BorderedCard className="p-8 text-center">
+        <Card className="p-8 text-center">
           <p className="font-display text-[20px] font-medium text-ink">
             Post your first role
           </p>
@@ -330,7 +330,7 @@ export default async function JobsPostedPage({
               Post a job
             </Link>
           </div>
-        </BorderedCard>
+        </Card>
       ) : (
         <div className="flex flex-col gap-3.5">
           {rows.map((job) => (

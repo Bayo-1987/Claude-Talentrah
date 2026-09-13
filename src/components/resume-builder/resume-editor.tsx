@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Button, TextField, EyebrowLabel, BorderedCard } from "@/components/ui";
+import { Button, TextField, EyebrowLabel, Card } from "@/components/ui";
 import { saveResumeAction, rewriteBulletAction } from "@/lib/resume-builder/actions";
 import { findUneditedExampleFields } from "@/lib/resume-builder/example-guard";
 import { TemplateRenderer } from "@/components/resume-builder/templates";
@@ -84,7 +84,7 @@ function RemoveControl({ onRemove }: { onRemove: () => void }) {
       type="button"
       onClick={onRemove}
       aria-label="Remove"
-      className="flex h-9 w-9 shrink-0 items-center justify-center text-ink-soft hover:text-rust"
+      className="flex h-9 w-9 shrink-0 items-center justify-center text-ink-soft hover:text-coral"
     >
       ×
     </button>
@@ -94,12 +94,12 @@ function RemoveControl({ onRemove }: { onRemove: () => void }) {
 /**
  * Caption for a field/card/section still carrying "Start from an example"
  * placeholder content — the same visual language as TextField's own `error`
- * caption (text-[12.5px] text-rust), hand-matched here for fields that don't
+ * caption (text-[12.5px] text-coral), hand-matched here for fields that don't
  * go through TextField. See example-guard.ts for what "still the example"
  * means and PrintButton for the export block this same signal feeds.
  */
 function ExampleFlagNotice({ text }: { text: string }) {
-  return <p className="text-[12.5px] text-rust">{text}</p>;
+  return <p className="text-[12.5px] text-coral">{text}</p>;
 }
 
 function RewriteButtons({
@@ -110,13 +110,13 @@ function RewriteButtons({
   return (
     <div className="flex items-center gap-3 text-[12px]">
       <span className="font-semibold text-ink-soft">Farah:</span>
-      <button type="button" onClick={() => onRewrite("impact")} className="underline underline-offset-2 text-ink-soft hover:text-rust">
+      <button type="button" onClick={() => onRewrite("impact")} className="underline underline-offset-2 text-ink-soft hover:text-coral">
         More impact-driven
       </button>
-      <button type="button" onClick={() => onRewrite("quantify")} className="underline underline-offset-2 text-ink-soft hover:text-rust">
+      <button type="button" onClick={() => onRewrite("quantify")} className="underline underline-offset-2 text-ink-soft hover:text-coral">
         Quantify this
       </button>
-      <button type="button" onClick={() => onRewrite("concise")} className="underline underline-offset-2 text-ink-soft hover:text-rust">
+      <button type="button" onClick={() => onRewrite("concise")} className="underline underline-offset-2 text-ink-soft hover:text-coral">
         More concise
       </button>
     </div>
@@ -308,7 +308,7 @@ export function ResumeEditor({ resumeId, initialTitle, initialContent, templateS
           value={content.summary ?? ""}
           onChange={(e) => update("summary", e.target.value)}
           rows={3}
-          className={`border-[1.5px] ${flaggedPaths.has("summary") ? "border-rust" : "border-ink"} bg-card p-3 font-body text-[14.5px] outline-none focus:border-rust`}
+          className={`border-[1.5px] ${flaggedPaths.has("summary") ? "border-coral" : "border-ink"} bg-card p-3 font-body text-[14.5px] outline-none focus:border-coral`}
           placeholder="A two- to three-sentence summary of your experience."
         />
         {flaggedPaths.has("summary") && <ExampleFlagNotice text="Still the example summary." />}
@@ -333,7 +333,7 @@ export function ResumeEditor({ resumeId, initialTitle, initialContent, templateS
         </div>
         <div className="flex flex-col gap-4">
           {content.experience.map((entry, i) => (
-            <BorderedCard
+            <Card
               key={i}
               id={`experience-${i}-card`}
               draggable
@@ -360,15 +360,15 @@ export function ResumeEditor({ resumeId, initialTitle, initialContent, templateS
                 value={experienceTextareaValue(entry)}
                 onChange={(e) => updateExperience(i, narrativePatch(e.target.value))}
                 rows={3}
-                className="border-[1.5px] border-ink bg-card p-3 font-body text-[14px] outline-none focus:border-rust"
+                className="border-[1.5px] border-ink bg-card p-3 font-body text-[14px] outline-none focus:border-coral"
                 placeholder={"One achievement per line — each line becomes its own bullet point."}
               />
               <RewriteButtons onRewrite={(instr) => handleRewrite(i, instr)} />
               {rewritingKey === `${i}` && <span className="text-[12px] text-ink-soft">Farah is rewriting…</span>}
               {rewritingKey === null && rewriteErrorKey === `${i}` && rewriteError && (
-                <span className="text-[12px] text-rust">{rewriteError}</span>
+                <span className="text-[12px] text-coral">{rewriteError}</span>
               )}
-            </BorderedCard>
+            </Card>
           ))}
         </div>
       </section>
@@ -422,7 +422,7 @@ export function ResumeEditor({ resumeId, initialTitle, initialContent, templateS
           id="skills-field"
           value={content.skills.join(", ")}
           onChange={(e) => update("skills", e.target.value.split(",").map((s) => s.trim()).filter(Boolean))}
-          className={`min-h-11 border-[1.5px] ${flaggedPaths.has("skills") ? "border-rust" : "border-ink"} bg-card px-3.5 py-2.5 font-body text-[14.5px] outline-none focus:border-rust`}
+          className={`min-h-11 border-[1.5px] ${flaggedPaths.has("skills") ? "border-coral" : "border-ink"} bg-card px-3.5 py-2.5 font-body text-[14.5px] outline-none focus:border-coral`}
           placeholder="Comma-separated, e.g. product management, sql, figma"
         />
         {flaggedPaths.has("skills") && <ExampleFlagNotice text="Still the example skills list." />}
@@ -436,7 +436,7 @@ export function ResumeEditor({ resumeId, initialTitle, initialContent, templateS
           value={content.projects.join("\n")}
           onChange={(e) => update("projects", e.target.value.split("\n").map((s) => s.trim()).filter(Boolean))}
           rows={2}
-          className={`border-[1.5px] ${flaggedPaths.has("projects") ? "border-rust" : "border-ink"} bg-card p-3 font-body text-[14.5px] outline-none focus:border-rust`}
+          className={`border-[1.5px] ${flaggedPaths.has("projects") ? "border-coral" : "border-ink"} bg-card p-3 font-body text-[14.5px] outline-none focus:border-coral`}
           placeholder="One project per line"
         />
         {flaggedPaths.has("projects") && <ExampleFlagNotice text="Still the example projects list." />}
@@ -450,7 +450,7 @@ export function ResumeEditor({ resumeId, initialTitle, initialContent, templateS
           value={content.certifications.join("\n")}
           onChange={(e) => update("certifications", e.target.value.split("\n").map((s) => s.trim()).filter(Boolean))}
           rows={2}
-          className={`border-[1.5px] ${flaggedPaths.has("certifications") ? "border-rust" : "border-ink"} bg-card p-3 font-body text-[14.5px] outline-none focus:border-rust`}
+          className={`border-[1.5px] ${flaggedPaths.has("certifications") ? "border-coral" : "border-ink"} bg-card p-3 font-body text-[14.5px] outline-none focus:border-coral`}
           placeholder="One certification per line"
         />
         {flaggedPaths.has("certifications") && <ExampleFlagNotice text="Still the example certifications list." />}
@@ -568,7 +568,7 @@ export function ResumeEditor({ resumeId, initialTitle, initialContent, templateS
                 update("awards", e.target.value.split("\n").map((s) => s.trim()).filter(Boolean))
               }
               rows={2}
-              className="border-[1.5px] border-ink bg-card p-3 font-body text-[14.5px] outline-none focus:border-rust"
+              className="border-[1.5px] border-ink bg-card p-3 font-body text-[14.5px] outline-none focus:border-coral"
               placeholder="One award per line"
             />
           </section>
@@ -583,7 +583,7 @@ export function ResumeEditor({ resumeId, initialTitle, initialContent, templateS
                 update("publications", e.target.value.split("\n").map((s) => s.trim()).filter(Boolean))
               }
               rows={2}
-              className="border-[1.5px] border-ink bg-card p-3 font-body text-[14.5px] outline-none focus:border-rust"
+              className="border-[1.5px] border-ink bg-card p-3 font-body text-[14.5px] outline-none focus:border-coral"
               placeholder="One publication per line"
             />
           </section>
@@ -607,7 +607,7 @@ export function ResumeEditor({ resumeId, initialTitle, initialContent, templateS
             </div>
             <div className="flex flex-col gap-4">
               {(content.volunteering ?? []).map((entry, i) => (
-                <BorderedCard key={i} className="flex flex-col gap-3 p-4">
+                <Card key={i} className="flex flex-col gap-3 p-4">
                   <div className="flex items-start justify-between">
                     <div className="grid flex-1 grid-cols-2 gap-3">
                       <TextField
@@ -645,10 +645,10 @@ export function ResumeEditor({ resumeId, initialTitle, initialContent, templateS
                     value={entry.description ?? ""}
                     onChange={(e) => updateVolunteering(i, { description: e.target.value })}
                     rows={2}
-                    className="border-[1.5px] border-ink bg-card p-3 font-body text-[14px] outline-none focus:border-rust"
+                    className="border-[1.5px] border-ink bg-card p-3 font-body text-[14px] outline-none focus:border-coral"
                     placeholder="What you did"
                   />
-                </BorderedCard>
+                </Card>
               ))}
             </div>
           </section>
@@ -669,7 +669,7 @@ export function ResumeEditor({ resumeId, initialTitle, initialContent, templateS
             </div>
             <div className="flex flex-col gap-4">
               {(content.customSections ?? []).map((section, i) => (
-                <BorderedCard key={i} className="flex flex-col gap-3 p-4">
+                <Card key={i} className="flex flex-col gap-3 p-4">
                   <div className="flex items-start justify-between gap-3">
                     <TextField
                       id={`custom-section-${i}-title`}
@@ -700,10 +700,10 @@ export function ResumeEditor({ resumeId, initialTitle, initialContent, templateS
                         })
                       }
                       rows={3}
-                      className="border-[1.5px] border-ink bg-card p-3 font-body text-[14px] outline-none focus:border-rust"
+                      className="border-[1.5px] border-ink bg-card p-3 font-body text-[14px] outline-none focus:border-coral"
                     />
                   </div>
-                </BorderedCard>
+                </Card>
               ))}
             </div>
           </section>

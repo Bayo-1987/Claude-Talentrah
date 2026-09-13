@@ -2,7 +2,7 @@ import { EyebrowLabel, FarahMark } from "@/components/ui";
 
 export function MeetFarahSection() {
   return (
-    <div id="farah" className="border-y border-line bg-paper-alt py-24">
+    <div id="farah" className="border-y border-line bg-bg-alt py-24">
       <div className="mx-auto grid max-w-[1120px] grid-cols-1 items-center gap-8 px-10 text-center min-[901px]:grid-cols-[300px_1fr] min-[901px]:gap-16 min-[901px]:text-left">
         <div className="flex justify-center min-[901px]:justify-start">
           <FarahMark />

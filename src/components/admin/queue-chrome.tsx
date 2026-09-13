@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Container, EyebrowLabel, BorderedCard } from "@/components/ui";
+import { Container, EyebrowLabel, Card } from "@/components/ui";
 import { buttonClasses } from "@/lib/button-classes";
 
 /**
@@ -47,9 +47,9 @@ export function QueueHeader({
 
 export function QueueEmpty({ children }: { children: React.ReactNode }) {
   return (
-    <BorderedCard className="p-6">
+    <Card className="p-6">
       <p className="font-display text-[15px] italic text-ink-soft">{children}</p>
-    </BorderedCard>
+    </Card>
   );
 }
 

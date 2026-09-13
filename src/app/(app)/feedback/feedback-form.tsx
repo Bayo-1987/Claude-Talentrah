@@ -36,7 +36,7 @@ export function FeedbackForm({ pagePath }: FeedbackFormProps) {
   return (
     <form action={formAction} className="flex flex-col gap-5">
       {state.error && (
-        <p className="border-[1.5px] border-rust bg-rust-soft px-3.5 py-2.5 text-[13.5px] text-rust">
+        <p className="border-[1.5px] border-coral bg-coral-soft px-3.5 py-2.5 text-[13.5px] text-coral">
           {state.error}
         </p>
       )}
@@ -68,10 +68,10 @@ export function FeedbackForm({ pagePath }: FeedbackFormProps) {
           rows={7}
           required
           placeholder="The more specific, the more useful — what you were doing, and what you expected instead."
-          className="border-[1.5px] border-ink bg-card px-3.5 py-2.5 font-body text-[15px] text-ink outline-none placeholder:font-display placeholder:text-[14px] placeholder:italic placeholder:text-ink-soft focus:border-rust"
+          className="border-[1.5px] border-ink bg-card px-3.5 py-2.5 font-body text-[15px] text-ink outline-none placeholder:font-display placeholder:text-[14px] placeholder:italic placeholder:text-ink-soft focus:border-coral"
         />
         {state.fieldErrors?.message?.[0] && (
-          <p className="text-[12.5px] text-rust">{state.fieldErrors.message[0]}</p>
+          <p className="text-[12.5px] text-coral">{state.fieldErrors.message[0]}</p>
         )}
       </div>
 

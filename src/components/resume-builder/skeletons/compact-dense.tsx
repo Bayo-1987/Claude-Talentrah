@@ -28,7 +28,7 @@ export function CompactDenseSkeleton({ resume, config }: SkeletonProps) {
 
   return (
     <div
-      className={joinClasses("mx-auto max-w-[700px] bg-paper p-8 text-ink", fontScopeClassName(tokens))}
+      className={joinClasses("mx-auto max-w-[700px] bg-bg p-8 text-ink", fontScopeClassName(tokens))}
     >
       {renderHeader({
         resume,

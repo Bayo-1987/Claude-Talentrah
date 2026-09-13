@@ -37,7 +37,7 @@ export default function BillingLoading() {
       */}
       {["Credit packs", "Passes"].map((section) => (
         <div key={section}>
-          <span className="font-body text-[11px] font-bold uppercase tracking-[0.14em] text-rust">
+          <span className="font-body text-[11px] font-bold uppercase tracking-[0.14em] text-coral">
             {section}
           </span>
           <div className="mt-3 grid gap-4 min-[760px]:grid-cols-3">

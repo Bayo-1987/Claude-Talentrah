@@ -6,7 +6,7 @@ import { getOptionalUser } from "@/lib/auth/require-user";
 import { buildJobPostingJsonLd } from "@/lib/seo/job-posting-jsonld";
 import { SHARE_IMAGE, SHARE_IMAGE_META } from "@/lib/seo/site";
 import { createClient } from "@/lib/supabase/server";
-import { BorderedCard, Button, EyebrowLabel, MatchTierBadge, buttonClasses } from "@/components/ui";
+import { Card, Button, EyebrowLabel, MatchTierBadge, buttonClasses } from "@/components/ui";
 import { dedupeMetaParts } from "@/components/jobs/job-card";
 import { FarahJobMenu } from "@/components/jobs/farah-job-menu";
 import { renderJobDescriptionMarkdown } from "@/lib/farah/render-markdown";
@@ -366,21 +366,21 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
       <JsonLd data={jsonLd} />
       <Link
         href="/jobs"
-        className="inline-flex min-h-10 min-w-10 items-center self-start text-[13px] font-semibold text-ink-soft no-underline hover:text-rust"
+        className="inline-flex min-h-10 min-w-10 items-center self-start text-[13px] font-semibold text-ink-soft no-underline hover:text-coral"
       >
         ← Back to jobs
       </Link>
 
       {bannerUrl && (
         /*
-         * Bordered box, no radius, no shadow — the design system's standard
-         * treatment. The one shadow it allows is the landing hero's input box
-         * and nothing else gets one.
+         * Rounded corners and the same soft shadow every card gets — this
+         * design system's standard card treatment, not the flat bordered box
+         * Editorial used here.
          *
          * Fixed 4:1 with object-cover so the page always gets a header strip:
          * uploads are accepted between 3:1 and 5:1, and cropping to a
          * predictable band is what keeps this from becoming an arbitrary hero
-         * image dropped into an Editorial layout.
+         * image dropped into the layout.
          *
          * eslint-disable-next-line @next/next/no-img-element — next/image
          * would proxy this through the optimizer, which on this plan means
@@ -394,7 +394,7 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
           alt=""
           width={1600}
           height={400}
-          className="aspect-[4/1] w-full border-[1.5px] border-ink object-cover"
+          className="aspect-[4/1] w-full rounded-2xl object-cover shadow-[0_4px_16px_oklch(30%_0.05_35_/_0.08)]"
           /* Decorative: the company name and title are already the heading
              directly below, so announcing it again would be noise. */
           aria-hidden="true"
@@ -402,7 +402,7 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
       )}
 
       <div className="flex items-start gap-4">
-        <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center bg-ink font-display text-[19px] font-bold text-paper">
+        <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-full bg-ink font-display text-[19px] font-bold text-bg">
           {getCompanyInitials(job.company_name)}
         </div>
         <div className="min-w-0 flex-1">
@@ -541,10 +541,10 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
       </div>
 
       {skills.length > 0 && (
-        <BorderedCard className="flex flex-col gap-2 p-5">
+        <Card className="flex flex-col gap-2 p-5">
           <EyebrowLabel size="sm">Skills named in this posting</EyebrowLabel>
           <p className="text-[14px] leading-relaxed text-ink-soft">{skills.join(" · ")}</p>
-        </BorderedCard>
+        </Card>
       )}
 
       <div className="flex flex-col gap-3">
@@ -577,7 +577,7 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
             <Link
               key={l.href}
               href={l.href}
-              className="text-rust underline underline-offset-2 hover:text-rust-hover"
+              className="text-coral underline underline-offset-2 hover:text-coral-hover"
             >
               {l.label}
             </Link>

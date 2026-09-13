@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { BorderedCard, Button, TextField } from "@/components/ui";
+import { Card, Button, TextField } from "@/components/ui";
 import type { EmployerActionState } from "@/lib/employer/actions";
 
 export interface CampaignFormValues {
@@ -51,19 +51,19 @@ export function CampaignForm({
 
   if (jobs.length === 0 && !jobLocked) {
     return (
-      <BorderedCard className="p-6">
+      <Card className="p-6">
         <p className="font-body text-[15px] leading-[1.6] text-ink">
           A campaign promotes one of your published jobs, and you don&apos;t have one yet. Post a
           job first, then come back here to promote it.
         </p>
-      </BorderedCard>
+      </Card>
     );
   }
 
   return (
     <div className="flex flex-col gap-5">
       {error && (
-        <p className="border-[1.5px] border-rust bg-rust-soft px-3.5 py-2.5 text-[13.5px] text-rust">
+        <p className="border-[1.5px] border-coral bg-coral-soft px-3.5 py-2.5 text-[13.5px] text-coral">
           {error}
         </p>
       )}
@@ -71,7 +71,7 @@ export function CampaignForm({
         <p className="border-[1.5px] border-green px-3.5 py-2.5 text-[13.5px] text-ink">Saved.</p>
       )}
 
-      <BorderedCard className="p-6">
+      <Card className="p-6">
         <form action={formAction} className="flex flex-col gap-5">
           <TextField
             label="Campaign name"
@@ -91,7 +91,7 @@ export function CampaignForm({
             {jobLocked ? (
               <>
                 <input type="hidden" name="jobPostingId" value={initial?.jobPostingId ?? ""} />
-                <p className="min-h-11 border-[1.5px] border-line bg-paper-alt px-3.5 py-2.5 font-body text-[15px] text-ink-soft">
+                <p className="min-h-11 border-[1.5px] border-line bg-bg-alt px-3.5 py-2.5 font-body text-[15px] text-ink-soft">
                   {jobs.find((j) => j.id === initial?.jobPostingId)?.title ?? "—"}
                 </p>
                 <p className="font-body text-[12.5px] text-ink-soft">
@@ -105,7 +105,7 @@ export function CampaignForm({
                 name="jobPostingId"
                 required
                 defaultValue={initial?.jobPostingId ?? ""}
-                className="min-h-11 border-[1.5px] border-ink bg-card px-3.5 py-2.5 font-body text-[15px] text-ink outline-none focus:border-rust"
+                className="min-h-11 border-[1.5px] border-ink bg-card px-3.5 py-2.5 font-body text-[15px] text-ink outline-none focus:border-coral"
               >
                 <option value="">Choose a job</option>
                 {jobs.map((j) => (
@@ -183,7 +183,7 @@ export function CampaignForm({
             </Button>
           </div>
         </form>
-      </BorderedCard>
+      </Card>
     </div>
   );
 }

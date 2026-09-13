@@ -65,7 +65,7 @@ export function NewSignupsBadge({ since }: { since: string }) {
   return (
     <a
       href="/admin/people/signups"
-      className="border-[1.5px] border-rust bg-rust-soft px-3 py-1.5 text-[13.5px] text-rust no-underline hover:bg-rust hover:text-paper"
+      className="border-[1.5px] border-coral bg-coral-soft px-3 py-1.5 text-[13.5px] text-coral no-underline hover:bg-coral hover:text-bg"
       data-testid="new-signups"
     >
       {count} new since you opened this — reload

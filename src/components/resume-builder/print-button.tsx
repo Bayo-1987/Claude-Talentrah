@@ -84,7 +84,7 @@ export function PrintButton({
         Download PDF
       </Button>
       {flags.length > 0 && (
-        <div className="max-w-[260px] text-right text-[12.5px] text-rust">
+        <div className="max-w-[260px] text-right text-[12.5px] text-coral">
           <p>Still the example content — update before exporting:</p>
           <p className="mt-1">
             {flags.map((flag, i) => (
