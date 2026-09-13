@@ -69,12 +69,12 @@ export function PostedJobRow({
         <div className="flex flex-wrap items-center gap-2.5">
           <h3 className="font-display text-[19px] font-semibold text-ink">{job.title}</h3>
           {removed && (
-            <span className="border border-coral px-2 py-0.5 font-body text-[11px] font-bold tracking-[0.14em] text-coral uppercase">
+            <span className="rounded-full border border-coral px-2 py-0.5 font-body text-[11px] font-bold tracking-[0.14em] text-coral uppercase">
               Removed
             </span>
           )}
           {job.status === "closed" && (
-            <span className="border border-line px-2 py-0.5 font-body text-[11px] font-bold tracking-[0.14em] text-ink-soft uppercase">
+            <span className="rounded-full border border-line px-2 py-0.5 font-body text-[11px] font-bold tracking-[0.14em] text-ink-soft uppercase">
               Closed
             </span>
           )}

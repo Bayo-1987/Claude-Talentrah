@@ -168,7 +168,7 @@ export function JobCard({
                 {job.title}
               </Link>
               {isExternal && (
-                <span className="ml-2 border border-line px-2 py-0.5 font-display text-[10.5px] font-bold italic text-ink-soft">
+                <span className="ml-2 rounded-full border border-line px-2 py-0.5 font-display text-[10.5px] font-bold italic text-ink-soft">
                   sourced externally
                 </span>
               )}

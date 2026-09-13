@@ -165,7 +165,7 @@ export default async function ScholarshipDetailPage({
           {meta.map((label) => (
             <span
               key={label}
-              className="inline-flex min-h-7 items-center border border-line px-2 text-[12px] font-semibold text-ink-soft"
+              className="inline-flex min-h-7 items-center rounded-full border border-line px-2 text-[12px] font-semibold text-ink-soft"
             >
               {label}
             </span>

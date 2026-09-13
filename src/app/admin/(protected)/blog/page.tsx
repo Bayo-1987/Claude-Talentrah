@@ -60,8 +60,8 @@ export default async function AdminBlogPage() {
                   <span
                     className={
                       post.status === "published"
-                        ? "border border-ink px-1.5 py-0.5 font-body text-[10.5px] font-bold tracking-[0.1em] uppercase"
-                        : "border border-line px-1.5 py-0.5 font-body text-[10.5px] font-bold tracking-[0.1em] text-ink-soft uppercase"
+                        ? "rounded-full border border-ink px-1.5 py-0.5 font-body text-[10.5px] font-bold tracking-[0.1em] uppercase"
+                        : "rounded-full border border-line px-1.5 py-0.5 font-body text-[10.5px] font-bold tracking-[0.1em] text-ink-soft uppercase"
                     }
                   >
                     {post.status}

@@ -105,7 +105,7 @@ export default async function ReportsQueuePage() {
                   {Object.entries(p.reasons).map(([reason, n]) => (
                     <span
                       key={reason}
-                      className="border border-line px-2.5 py-1 text-[12.5px] text-ink-soft"
+                      className="rounded-full border border-line px-2.5 py-1 text-[12.5px] text-ink-soft"
                     >
                       {REASON_LABEL[reason] ?? reason} · {n}
                     </span>

@@ -68,7 +68,7 @@ export function TrackerCard({ entry }: { entry: TrackerEntry }) {
             <h3 className="text-[17px]">
               {entry.title}
               {entry.isManual && (
-                <span className="ml-2 border border-line px-2 py-0.5 font-display text-[10.5px] font-bold italic text-ink-soft">
+                <span className="ml-2 rounded-full border border-line px-2 py-0.5 font-display text-[10.5px] font-bold italic text-ink-soft">
                   added manually
                 </span>
               )}

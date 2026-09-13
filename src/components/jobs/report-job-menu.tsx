@@ -152,7 +152,7 @@ export function ReportJobMenu({ jobId, jobTitle }: ReportJobMenuProps) {
                 name="details"
                 rows={3}
                 placeholder="Anything else? (optional)"
-                className="border border-line bg-bg px-2.5 py-2 font-body text-[12.5px] text-ink outline-none placeholder:font-display placeholder:italic placeholder:text-ink-soft focus:border-coral"
+                className="rounded-2xl border border-line bg-bg px-2.5 py-2 font-body text-[12.5px] text-ink outline-none placeholder:font-display placeholder:italic placeholder:text-ink-soft focus:border-coral"
               />
 
               <button

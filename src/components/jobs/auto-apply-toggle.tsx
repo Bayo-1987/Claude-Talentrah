@@ -44,7 +44,7 @@ export function AutoApplyToggle({
         <div className="min-w-0">
           <div className="flex items-center gap-2.5">
             <h2 className="font-display text-[17px] font-semibold text-ink">Auto-Apply</h2>
-            <span className="border border-line px-1.5 py-0.5 font-body text-[10.5px] font-bold tracking-[0.14em] text-ink-soft uppercase">
+            <span className="rounded-full border border-line px-1.5 py-0.5 font-body text-[10.5px] font-bold tracking-[0.14em] text-ink-soft uppercase">
               Review first
             </span>
           </div>

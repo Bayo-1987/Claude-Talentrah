@@ -94,7 +94,7 @@ export function EmployerMasthead({
               className="h-6 w-auto flex-shrink-0 min-[480px]:h-8"
             />
           </Link>
-          <span className="hidden border border-line px-2 py-1 font-body text-[11px] font-bold tracking-[0.14em] text-ink-soft uppercase min-[900px]:inline-block">
+          <span className="hidden rounded-full border border-line px-2 py-1 font-body text-[11px] font-bold tracking-[0.14em] text-ink-soft uppercase min-[900px]:inline-block">
             For employers
           </span>
           <nav className="hidden items-center gap-5.5 min-[640px]:flex">

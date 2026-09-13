@@ -99,12 +99,12 @@ export function ScholarshipCard({
         {scholarship.degree_levels.map((level) => (
           <span
             key={level}
-            className="inline-flex min-h-7 items-center border border-line px-2 text-[12px] font-semibold text-ink-soft"
+            className="inline-flex min-h-7 items-center rounded-full border border-line px-2 text-[12px] font-semibold text-ink-soft"
           >
             {DEGREE_LEVEL_LABEL[level]}
           </span>
         ))}
-        <span className="inline-flex min-h-7 items-center border border-line px-2 text-[12px] font-semibold text-ink-soft">
+        <span className="inline-flex min-h-7 items-center rounded-full border border-line px-2 text-[12px] font-semibold text-ink-soft">
           {FUNDING_TYPE_LABEL[scholarship.funding_type]}
         </span>
         {scholarship.funding_covers.length > 0 && (
