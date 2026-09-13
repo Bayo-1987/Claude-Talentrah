@@ -87,7 +87,7 @@ export function WalletTopUp({
             <button
               type="submit"
               disabled={pending}
-              className="min-h-11 border-[1.5px] border-ink bg-transparent px-4 font-body text-[13.5px] font-semibold text-ink hover:border-coral hover:text-coral disabled:opacity-50"
+              className="min-h-11 rounded-full border-[1.5px] border-ink bg-transparent px-4 font-body text-[13.5px] font-semibold text-ink hover:border-coral hover:text-coral disabled:opacity-50"
             >
               {naira(p)}
             </button>

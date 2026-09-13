@@ -82,7 +82,10 @@ export function JobBannerUpload({
           // detail page's own banner already applies (jobs/[id]/page.tsx).
           width={CROP_OUTPUT_WIDTH}
           height={CROP_OUTPUT_HEIGHT}
-          className="aspect-[4/1] w-full border-[1.5px] border-ink object-cover"
+          // rounded-2xl, matching the actual live banner render
+          // (jobs/[id]/page.tsx) — this preview should look like what a
+          // candidate will actually see, not a different, squarer version of it.
+          className="aspect-[4/1] w-full rounded-2xl border-[1.5px] border-ink object-cover"
         />
       )}
 

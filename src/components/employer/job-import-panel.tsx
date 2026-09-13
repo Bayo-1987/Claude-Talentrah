@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { importJobFromUrlAction } from "@/lib/employer/job-import/action";
 import type { ExtractedJobFields, ExtractionMethod } from "@/lib/employer/job-import/types";
-import { Button, TextField } from "@/components/ui";
+import { Button, Card, TextField } from "@/components/ui";
 import { cn } from "@/lib/cn";
 
 /**
@@ -64,7 +64,7 @@ export function JobImportPanel({
   }
 
   return (
-    <div className="flex flex-col gap-3 border-[1.5px] border-ink bg-card p-5">
+    <Card className="flex flex-col gap-3 p-5">
       <div>
         <p className="font-body text-[13px] font-semibold text-ink-soft">Import from URL</p>
         <p className="mt-1 font-body text-[13px] leading-[1.5] text-ink-soft">
@@ -99,6 +99,6 @@ export function JobImportPanel({
           {message.text}
         </p>
       )}
-    </div>
+    </Card>
   );
 }

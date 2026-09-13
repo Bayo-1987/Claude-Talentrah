@@ -79,7 +79,7 @@ export function ClaimCandidateCard({ candidate }: { candidate: ClaimCandidate })
               name="title"
               required
               defaultValue={candidate.title}
-              className="min-h-11 border-[1.5px] border-ink bg-card px-3.5 py-2.5 font-body text-[15px] text-ink outline-none focus:border-coral"
+              className="min-h-11 rounded-2xl border-[1.5px] border-ink bg-card px-3.5 py-2.5 font-body text-[15px] text-ink outline-none focus:border-coral"
             />
           </div>
           <div className="flex flex-col gap-1.5">
@@ -93,7 +93,7 @@ export function ClaimCandidateCard({ candidate }: { candidate: ClaimCandidate })
               id={`location-${candidate.id}`}
               name="location"
               defaultValue={candidate.location ?? ""}
-              className="min-h-11 border-[1.5px] border-ink bg-card px-3.5 py-2.5 font-body text-[15px] text-ink outline-none focus:border-coral"
+              className="min-h-11 rounded-2xl border-[1.5px] border-ink bg-card px-3.5 py-2.5 font-body text-[15px] text-ink outline-none focus:border-coral"
             />
           </div>
           <div className="flex flex-col gap-1.5">
@@ -109,7 +109,7 @@ export function ClaimCandidateCard({ candidate }: { candidate: ClaimCandidate })
               required
               rows={10}
               placeholder="Paste or write the description for your own posting."
-              className="border-[1.5px] border-ink bg-card px-3.5 py-2.5 font-body text-[15px] leading-[1.65] text-ink outline-none focus:border-coral"
+              className="rounded-2xl border-[1.5px] border-ink bg-card px-3.5 py-2.5 font-body text-[15px] leading-[1.65] text-ink outline-none focus:border-coral"
             />
             <p className="font-body text-[12.5px] text-ink-soft">
               This becomes a brand new posting your organisation owns — the original listing wasn&apos;t

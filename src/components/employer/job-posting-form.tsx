@@ -37,7 +37,7 @@ function ChoiceField({
         name={name}
         defaultValue={defaultValue ?? ""}
         className={cn(
-          "min-h-11 border-[1.5px] border-ink bg-card px-3.5 py-2.5 font-body text-[15px] text-ink outline-none focus:border-coral",
+          "min-h-11 rounded-2xl border-[1.5px] border-ink bg-card px-3.5 py-2.5 font-body text-[15px] text-ink outline-none focus:border-coral",
         )}
       >
         <option value="">{placeholder}</option>
@@ -177,7 +177,7 @@ function ExpiryField({ current }: { current: string | null }) {
         value={choice}
         onChange={(e) => setChoice(e.target.value)}
         className={cn(
-          "min-h-11 border-[1.5px] border-ink bg-card px-3.5 py-2.5 font-body text-[15px] text-ink outline-none focus:border-coral",
+          "min-h-11 rounded-2xl border-[1.5px] border-ink bg-card px-3.5 py-2.5 font-body text-[15px] text-ink outline-none focus:border-coral",
         )}
       >
         {currentLabel && <option value="keep">Keep current — {currentLabel}</option>}
@@ -210,7 +210,7 @@ function ExpiryField({ current }: { current: string | null }) {
             max={isoDate(MAX_EXPIRY_DAYS)}
             value={customDate}
             onChange={(e) => setCustomDate(e.target.value)}
-            className="min-h-11 border-[1.5px] border-ink bg-card px-3.5 py-2.5 font-body text-[15px] text-ink outline-none focus:border-coral"
+            className="min-h-11 rounded-2xl border-[1.5px] border-ink bg-card px-3.5 py-2.5 font-body text-[15px] text-ink outline-none focus:border-coral"
           />
         </>
       )}
@@ -376,7 +376,7 @@ export function JobPostingForm({
               rows={14}
               defaultValue={initial?.description}
               placeholder="Responsibilities, requirements, what the team is like, how to stand out."
-              className="border-[1.5px] border-ink bg-card px-3.5 py-2.5 font-body text-[15px] leading-[1.65] text-ink outline-none focus:border-coral"
+              className="rounded-2xl border-[1.5px] border-ink bg-card px-3.5 py-2.5 font-body text-[15px] leading-[1.65] text-ink outline-none focus:border-coral"
             />
             <p className="font-body text-[12.5px] text-ink-soft">
               This is what seekers are matched against — the more concrete the requirements, the

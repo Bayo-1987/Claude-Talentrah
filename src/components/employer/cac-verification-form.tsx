@@ -52,15 +52,22 @@ export function CacVerificationForm({
         </Card>
       ) : (
         <>
+          {/*
+            Not <Card> here — Card hardcodes bg-card, which would fight this
+            message's own bg-coral-soft tint under `cn`'s plain-join
+            semantics (this repo's own documented landmine: whichever class
+            wins depends on stylesheet order, not prop order). rounded-2xl
+            added directly instead.
+          */}
           {error && (
-            <p className="border-[1.5px] border-coral bg-coral-soft px-3.5 py-2.5 text-[13.5px] text-coral">
+            <p className="rounded-2xl border-[1.5px] border-coral bg-coral-soft px-3.5 py-2.5 text-[13.5px] text-coral">
               {error}
             </p>
           )}
           {saved && !error && (
-            <p className="border-[1.5px] border-ink bg-card px-3.5 py-2.5 text-[13.5px] text-ink">
+            <Card className="border-[1.5px] border-ink px-3.5 py-2.5 text-[13.5px] text-ink">
               Submitted. An admin will confirm it against the public register.
-            </p>
+            </Card>
           )}
           {status === "pending" && !saved && (
             <p className="font-display text-[13.5px] italic text-ink-soft">

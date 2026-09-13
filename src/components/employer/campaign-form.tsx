@@ -105,7 +105,7 @@ export function CampaignForm({
                 name="jobPostingId"
                 required
                 defaultValue={initial?.jobPostingId ?? ""}
-                className="min-h-11 border-[1.5px] border-ink bg-card px-3.5 py-2.5 font-body text-[15px] text-ink outline-none focus:border-coral"
+                className="min-h-11 rounded-2xl border-[1.5px] border-ink bg-card px-3.5 py-2.5 font-body text-[15px] text-ink outline-none focus:border-coral"
               >
                 <option value="">Choose a job</option>
                 {jobs.map((j) => (

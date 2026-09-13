@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { buttonClasses } from "@/components/ui";
+import { buttonClasses, Card } from "@/components/ui";
 import { ShareButtons } from "@/components/referrals/share-buttons";
 import type { JobShareVisibility } from "@/lib/employer/job-visibility";
 
@@ -79,8 +79,8 @@ export function EmployerJobShareButton({
       </button>
 
       {open && (
-        <div
-          className="absolute right-0 bottom-[calc(100%+8px)] z-[15] w-[300px] border-[1.5px] border-ink bg-card px-4 pt-3.5 pb-4"
+        <Card
+          className="absolute right-0 bottom-[calc(100%+8px)] z-[15] w-[300px] px-4 pt-3.5 pb-4"
           role="dialog"
           aria-label={`Share ${jobTitle}`}
         >
@@ -105,7 +105,7 @@ export function EmployerJobShareButton({
             subject={`We're hiring: ${jobTitle}`}
             message={`We're hiring for ${jobTitle} — take a look:`}
           />
-        </div>
+        </Card>
       )}
     </div>
   );

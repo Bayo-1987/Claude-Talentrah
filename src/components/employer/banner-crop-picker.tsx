@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Cropper, { type Area } from "react-easy-crop";
-import { Button, EyebrowLabel, IconButton } from "@/components/ui";
+import { Button, Card, EyebrowLabel, IconButton } from "@/components/ui";
 import {
   BANNER_RATIO,
   MAX_BANNER_BYTES,
@@ -242,8 +242,8 @@ function CropDialog({
     // class wins depends on Tailwind's generated stylesheet order, not on
     // prop order. A light panel sidesteps needing to try.
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/70 p-4">
-      <div
-        className="flex w-full max-w-[760px] flex-col gap-4 border-[1.5px] border-ink bg-card p-5"
+      <Card
+        className="flex w-full max-w-[760px] flex-col gap-4 p-5"
         role="dialog"
         aria-modal="true"
         aria-label="Crop your banner"
@@ -262,6 +262,13 @@ function CropDialog({
           </IconButton>
         </div>
 
+        {/*
+          Deliberately square, not Card's rounded-2xl: this is a functional
+          crop viewport, not a decorative panel — react-easy-crop draws its
+          own rectangular crop overlay inside it, and rounding the outer
+          frame around a rectangular selection tool would just misalign the
+          two rather than look intentional.
+        */}
         <div className="relative h-[240px] w-full border-[1.5px] border-ink bg-ink">
           <Cropper
             image={objectUrl}
@@ -306,7 +313,7 @@ function CropDialog({
             {busy ? "Uploading…" : "Use this crop"}
           </Button>
         </div>
-      </div>
+      </Card>
     </div>
   );
 }
