@@ -136,7 +136,22 @@ export function renderExperience({
           return (
             <div key={i}>
               <div className="flex items-baseline justify-between gap-4">
-                <span className={joinClasses(titleFont, t.entryTitle, "font-semibold")}>
+                <span
+                  className={joinClasses(
+                    titleFont,
+                    /*
+                     * TEMPORARY, send-197 follow-up (font-size isolation):
+                     * hardcoded to `renderEducation`'s literal `text-[14.5px]`
+                     * instead of `t.entryTitle` (density-driven: 15/13.5/16px,
+                     * never 14.5px) — the earlier font-weight isolation test
+                     * never actually matched education's font-size, so it
+                     * couldn't rule size in or out. Revert to `t.entryTitle`
+                     * once this question has an answer.
+                     */
+                    "text-[14.5px]",
+                    "font-semibold",
+                  )}
+                >
                   {entry.title} {entry.company && `— ${entry.company}`}
                 </span>
                 <span className={joinClasses("flex-shrink-0", t.entryMeta, "text-ink-soft")}>
