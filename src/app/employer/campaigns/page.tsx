@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireEmployer } from "@/lib/employer/membership";
 import { listCampaigns, getWalletBalance } from "@/lib/employer/campaign-queries";
-import { BorderedCard, Button, EyebrowLabel } from "@/components/ui";
+import { Card, Button, EyebrowLabel } from "@/components/ui";
 import { CampaignStatusBadge, type CampaignStatus } from "@/components/employer/campaign-controls";
 import { WalletTopUp } from "@/components/employer/wallet-topup";
 import { topUpWalletAction } from "@/lib/employer/wallet-actions";
@@ -42,12 +42,12 @@ export default async function CampaignsPage() {
       </div>
 
       {campaigns.length === 0 ? (
-        <BorderedCard className="mt-6 p-6">
+        <Card className="mt-6 p-6">
           <p className="font-body text-[15px] leading-[1.6] text-ink">
             No campaigns yet. A campaign promotes one of your open jobs higher in the seeker feed,
             charged once for each day it runs.
           </p>
-        </BorderedCard>
+        </Card>
       ) : (
         <ul className="mt-6 list-none p-0">
           {campaigns.map((c) => (
@@ -56,7 +56,7 @@ export default async function CampaignsPage() {
                 <div className="min-w-0">
                   <Link
                     href={`/employer/campaigns/${c.id}`}
-                    className="font-display text-[19px] font-semibold text-ink no-underline hover:text-rust"
+                    className="font-display text-[19px] font-semibold text-ink no-underline hover:text-coral"
                   >
                     {c.name}
                   </Link>

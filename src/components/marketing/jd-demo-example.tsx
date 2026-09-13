@@ -1,13 +1,13 @@
 import { EyebrowLabel, MatchTierBadge } from "@/components/ui";
 
 /**
- * Static worked example of a Farah result — matches Main-Editorial.dc.html's
+ * Static worked example of a Farah result — matches Main-Sunbird.dc.html's
  * "this is a live example" panel, which is itself a fixed illustrative
  * sample, not computed from the input box above it.
  */
 export function JdDemoExample() {
   return (
-    <div className="mt-3 w-full max-w-[860px] border-[1.5px] border-ink bg-card">
+    <div className="mt-3 w-full max-w-[860px] overflow-hidden rounded-[20px] bg-card shadow-[0_4px_16px_oklch(30%_0.05_35_/_0.08)]">
       <div className="flex items-center gap-2.5 border-b border-line px-6 py-3.5">
         <EyebrowLabel>What Farah sends back — this is a live example</EyebrowLabel>
       </div>
@@ -45,12 +45,12 @@ export function JdDemoExample() {
         <div className="w-px flex-shrink-0 bg-line" />
 
         <div className="flex flex-1 flex-col justify-center gap-3.5 min-[901px]:pl-7.5">
-          <div className="border border-line bg-paper p-4">
+          <div className="rounded-[14px] bg-bg p-4">
             <EyebrowLabel className="mb-2 block">Tailored resume preview</EyebrowLabel>
             <p className="text-[13.5px] leading-relaxed text-ink-soft">
               Led cross-functional squads across product, design, and engineering to ship three
               consumer fintech features in emerging markets,{" "}
-              <span className="bg-rust-soft px-1 font-semibold text-rust-hover">
+              <span className="bg-coral-soft px-1 font-semibold text-coral-hover">
                 driving stakeholder alignment
               </span>{" "}
               across compliance, ops, and executive leadership.

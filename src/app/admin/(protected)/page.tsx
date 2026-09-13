@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireAdmin } from "@/lib/admin/require-admin";
-import { Container, EyebrowLabel, BorderedCard } from "@/components/ui";
+import { Container, EyebrowLabel, Card } from "@/components/ui";
 
 /**
  * M1's landing page. Deliberately thin: it exists so /admin is a real
@@ -58,7 +58,7 @@ export default async function AdminHomePage() {
         </p>
       </div>
 
-      <BorderedCard className="flex max-w-[640px] flex-col gap-3 p-5">
+      <Card className="flex max-w-[640px] flex-col gap-3 p-5">
         <EyebrowLabel>Session</EyebrowLabel>
         <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-[14.5px]">
           <dt className="text-ink-soft">Account</dt>
@@ -70,7 +70,7 @@ export default async function AdminHomePage() {
           <dt className="text-ink-soft">Expires</dt>
           <dd>{new Date(admin.expiresAt).toLocaleString()}</dd>
         </dl>
-      </BorderedCard>
+      </Card>
 
       <div className="flex flex-col gap-3">
         <EyebrowLabel>What you can reach</EyebrowLabel>

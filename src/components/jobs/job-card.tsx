@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BorderedCard, IconButton, Button, MatchTierBadge } from "@/components/ui";
+import { Card, IconButton, Button, MatchTierBadge } from "@/components/ui";
 import { getCompanyInitials } from "@/lib/jobs/company-initials";
 import { postingAgeLine } from "@/lib/jobs/freshness";
 import { formatSalary } from "@/lib/jobs/format-salary";
@@ -124,9 +124,9 @@ export function JobCard({
     applicationStage === "hired";
 
   const card = (
-    <BorderedCard data-testid="job-card" className="flex flex-col gap-3.5 p-5">
+    <Card data-testid="job-card" className="flex flex-col gap-3.5 p-5">
       <div className="flex items-start gap-4">
-        <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center bg-ink font-display text-[15px] font-bold text-paper">
+        <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-ink font-display text-[15px] font-bold text-bg">
           {getCompanyInitials(job.company_name)}
         </div>
         <div className="min-w-0 flex-1">
@@ -163,7 +163,7 @@ export function JobCard({
               <Link
                 href={`/jobs/${job.id}`}
                 data-ad-click={isSponsored ? "true" : undefined}
-                className="text-ink no-underline hover:text-rust hover:underline"
+                className="text-ink no-underline hover:text-coral hover:underline"
               >
                 {job.title}
               </Link>
@@ -183,7 +183,7 @@ export function JobCard({
                 The word is "Sponsored" and stays "Sponsored" everywhere.
               */}
               {isSponsored && (
-                <span className="ml-2 bg-ink px-2 py-0.5 align-[0.15em] font-body text-[10px] font-bold tracking-[0.14em] text-paper uppercase">
+                <span className="ml-2 bg-ink px-2 py-0.5 align-[0.15em] font-body text-[10px] font-bold tracking-[0.14em] text-bg uppercase">
                   Sponsored
                 </span>
               )}
@@ -317,7 +317,7 @@ export function JobCard({
                 target="_blank"
                 rel="noopener noreferrer"
                 data-ad-click={isSponsored ? "true" : undefined}
-                className="inline-flex min-h-10 items-center justify-center border-none bg-ink px-[18px] py-[10px] font-body text-[13.5px] font-semibold text-paper no-underline transition-colors hover:bg-rust"
+                className="inline-flex min-h-10 items-center justify-center border-none bg-ink px-[18px] py-[10px] font-body text-[13.5px] font-semibold text-bg no-underline transition-colors hover:bg-coral"
               >
                 Apply on company site
               </a>
@@ -343,7 +343,7 @@ export function JobCard({
           )}
         </div>
       </div>
-    </BorderedCard>
+    </Card>
   );
 
   // Only a sponsored card with a real campaign to attribute to gets wrapped —

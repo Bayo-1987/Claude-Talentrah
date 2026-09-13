@@ -1,6 +1,6 @@
 import { respondToTalentDirectoryContactRequestAction } from "@/lib/talent-directory/actions";
 import type { ContactRequest } from "@/lib/talent-directory/queries";
-import { BorderedCard, Button } from "@/components/ui";
+import { Card, Button } from "@/components/ui";
 
 /**
  * send-157 — candidate-side inbox. Plain bound form actions, no client JS,
@@ -16,7 +16,7 @@ export function IncomingContactRequests({ requests }: { requests: ContactRequest
     <section className="flex flex-col gap-3">
       <h2 className="font-display text-[18px] font-semibold">Interest from employers</h2>
       {pending.map((r) => (
-        <BorderedCard key={r.id} className="flex flex-col gap-2.5 p-4">
+        <Card key={r.id} className="flex flex-col gap-2.5 p-4">
           <p className="text-[13.5px] font-semibold text-ink">{r.organizationName}</p>
           <p className="text-[13.5px] text-ink-soft">&ldquo;{r.message}&rdquo;</p>
           <p className="text-[12px] text-ink-soft">{new Date(r.createdAt).toLocaleDateString()}</p>
@@ -32,15 +32,15 @@ export function IncomingContactRequests({ requests }: { requests: ContactRequest
               </Button>
             </form>
           </div>
-        </BorderedCard>
+        </Card>
       ))}
       {decided.map((r) => (
-        <BorderedCard key={r.id} className="flex flex-col gap-1.5 p-4">
+        <Card key={r.id} className="flex flex-col gap-1.5 p-4">
           <p className="text-[13.5px] font-semibold text-ink">{r.organizationName}</p>
           <p className="text-[13px] text-ink-soft">
             {r.status === "approved" ? "You approved this request." : "You declined this request."}
           </p>
-        </BorderedCard>
+        </Card>
       ))}
     </section>
   );

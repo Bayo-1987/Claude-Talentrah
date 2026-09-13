@@ -57,7 +57,7 @@ export function EmployerJobShareButton({
     return (
       <Link
         href="/employer/profile"
-        className="font-body text-[13.5px] font-semibold text-ink-soft underline underline-offset-2 hover:text-rust"
+        className="font-body text-[13.5px] font-semibold text-ink-soft underline underline-offset-2 hover:text-coral"
         title="Sharing unlocks once your company is verified"
       >
         Unlock sharing
@@ -84,7 +84,7 @@ export function EmployerJobShareButton({
           role="dialog"
           aria-label={`Share ${jobTitle}`}
         >
-          <span className="mb-[10px] block text-[10.5px] font-bold tracking-[0.1em] text-rust uppercase">
+          <span className="mb-[10px] block text-[10.5px] font-bold tracking-[0.1em] text-coral uppercase">
             {visibility === "unlisted" ? "Share this private link" : "Share this listing"}
           </span>
           {/*
@@ -131,7 +131,7 @@ export function EmployerJobShareInline({
     return (
       <p className="font-body text-[13.5px] text-ink-soft">
         This job isn&apos;t shareable yet, so there&apos;s no link —{" "}
-        <Link href="/employer/profile" className="font-semibold text-rust underline underline-offset-2">
+        <Link href="/employer/profile" className="font-semibold text-coral underline underline-offset-2">
           verify your company
         </Link>{" "}
         to unlock it.

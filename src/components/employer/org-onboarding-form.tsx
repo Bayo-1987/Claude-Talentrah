@@ -6,7 +6,7 @@ import {
   joinOrganizationAction,
   type EmployerActionState,
 } from "@/lib/employer/actions";
-import { BorderedCard, Button, EyebrowLabel, TextField } from "@/components/ui";
+import { Card, Button, EyebrowLabel, TextField } from "@/components/ui";
 
 export interface JoinableOrg {
   id: string;
@@ -104,13 +104,13 @@ export function OrgOnboardingForm({
             Your email domain matches, so you can join without setting anything up again.
           </p>
           {joinError && (
-            <p className="mt-3 border-[1.5px] border-rust bg-rust-soft px-3.5 py-2.5 text-[13.5px] text-rust">
+            <p className="mt-3 border-[1.5px] border-coral bg-coral-soft px-3.5 py-2.5 text-[13.5px] text-coral">
               {joinError}
             </p>
           )}
           <div className="mt-4 flex flex-col gap-3">
             {joinable.map((org) => (
-              <BorderedCard key={org.id} className="flex items-center justify-between gap-4 p-4">
+              <Card key={org.id} className="flex items-center justify-between gap-4 p-4">
                 <span className="font-display text-[17px] font-semibold text-ink">{org.name}</span>
                 <form action={joinFormAction}>
                   <input type="hidden" name="organizationId" value={org.id} />
@@ -118,7 +118,7 @@ export function OrgOnboardingForm({
                     {joining ? "Joining…" : "Join"}
                   </Button>
                 </form>
-              </BorderedCard>
+              </Card>
             ))}
           </div>
         </section>
@@ -135,12 +135,12 @@ export function OrgOnboardingForm({
         </p>
 
         {createError && (
-          <p className="mt-4 border-[1.5px] border-rust bg-rust-soft px-3.5 py-2.5 text-[13.5px] text-rust">
+          <p className="mt-4 border-[1.5px] border-coral bg-coral-soft px-3.5 py-2.5 text-[13.5px] text-coral">
             {createError}
           </p>
         )}
 
-        <BorderedCard className="mt-5 p-6">
+        <Card className="mt-5 p-6">
           <form action={createFormAction} className="flex flex-col gap-5">
             <TextField label="Company name" name="name" required placeholder="e.g. Zaria Digital" />
             <div className="flex flex-col gap-1.5">
@@ -181,7 +181,7 @@ export function OrgOnboardingForm({
               </Button>
             </div>
           </form>
-        </BorderedCard>
+        </Card>
       </section>
     </div>
   );

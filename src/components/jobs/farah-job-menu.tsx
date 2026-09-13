@@ -59,7 +59,7 @@ export function FarahJobMenu({ jobId, jobTitle, companyName }: FarahJobMenuProps
         seedFarahForJob({ jobId, jobTitle, companyName });
         scrollToFarahPanel();
       }}
-      className="inline-flex min-h-10 items-center py-2 text-[13px] font-semibold text-ink-soft underline underline-offset-2 hover:text-rust"
+      className="inline-flex min-h-10 items-center py-2 text-[13px] font-semibold text-ink-soft underline underline-offset-2 hover:text-coral"
     >
       Ask Farah
     </button>

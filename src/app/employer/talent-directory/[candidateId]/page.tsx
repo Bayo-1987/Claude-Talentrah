@@ -5,7 +5,7 @@ import {
   getOwnContactRequestStatus,
   searchTalentDirectory,
 } from "@/lib/talent-directory/queries";
-import { EyebrowLabel, BorderedCard } from "@/components/ui";
+import { EyebrowLabel, Card } from "@/components/ui";
 import { ContactRequestForm } from "./contact-request-form";
 
 export const metadata = { title: "Candidate — Talent Directory" };
@@ -76,15 +76,15 @@ export default async function CandidateDetailPage({
           <p className="text-[13.5px] text-ink-soft">No work samples added.</p>
         ) : (
           portfolioItems.map((item) => (
-            <BorderedCard key={item.id} className="flex flex-col gap-1.5 p-4">
+            <Card key={item.id} className="flex flex-col gap-1.5 p-4">
               <p className="font-body text-[13.5px] font-semibold text-ink">{item.title}</p>
               {item.description && <p className="text-[13px] text-ink-soft">{item.description}</p>}
               {item.url && (
-                <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-[12.5px] text-rust">
+                <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-[12.5px] text-coral">
                   {item.url}
                 </a>
               )}
-            </BorderedCard>
+            </Card>
           ))
         )}
       </section>

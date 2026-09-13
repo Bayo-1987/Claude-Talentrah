@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BorderedCard, Button, buttonClasses } from "@/components/ui";
+import { Card, Button, buttonClasses } from "@/components/ui";
 import { requestJobReviewAction, setJobStatusAction } from "@/lib/employer/actions";
 import { formatRelativeTime } from "@/lib/format-relative-time";
 import { EmployerJobShareButton } from "@/components/employer/job-share-button";
@@ -64,12 +64,12 @@ export function PostedJobRow({
   ].filter(Boolean);
 
   return (
-    <BorderedCard className="flex flex-col gap-4 p-5 min-[760px]:flex-row min-[760px]:items-center min-[760px]:justify-between">
+    <Card className="flex flex-col gap-4 p-5 min-[760px]:flex-row min-[760px]:items-center min-[760px]:justify-between">
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2.5">
           <h3 className="font-display text-[19px] font-semibold text-ink">{job.title}</h3>
           {removed && (
-            <span className="border border-rust px-2 py-0.5 font-body text-[11px] font-bold tracking-[0.14em] text-rust uppercase">
+            <span className="border border-coral px-2 py-0.5 font-body text-[11px] font-bold tracking-[0.14em] text-coral uppercase">
               Removed
             </span>
           )}
@@ -119,7 +119,7 @@ export function PostedJobRow({
             !orgVerified &&
             job.adminReviewDecision === "rejected" && (
               <span
-                className="border border-rust px-2 py-0.5 font-body text-[11px] font-bold tracking-[0.14em] text-rust uppercase"
+                className="border border-coral px-2 py-0.5 font-body text-[11px] font-bold tracking-[0.14em] text-coral uppercase"
                 title="An admin reviewed this posting and did not approve it for the public feed"
               >
                 Review: not approved
@@ -154,7 +154,7 @@ export function PostedJobRow({
           {job.applicationCount > 0 ? (
             <Link
               href={`/employer/jobs/${job.id}/applicants`}
-              className="font-semibold text-ink underline underline-offset-2 hover:text-rust"
+              className="font-semibold text-ink underline underline-offset-2 hover:text-coral"
             >
               {job.applicationCount} {job.applicationCount === 1 ? "application" : "applications"}
             </Link>
@@ -234,6 +234,6 @@ export function PostedJobRow({
           )}
       </div>
       )}
-    </BorderedCard>
+    </Card>
   );
 }

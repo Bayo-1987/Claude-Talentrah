@@ -3,7 +3,7 @@ import { feedbackQueue, type FeedbackStatus } from "@/lib/admin/moderation/queue
 import { decideFeedbackAction } from "@/lib/admin/moderation/actions";
 import { DecisionForm } from "@/components/admin/decision-form";
 import { QueueEmpty, QueueHeader } from "@/components/admin/queue-chrome";
-import { Container, EyebrowLabel, BorderedCard } from "@/components/ui";
+import { Container, EyebrowLabel, Card } from "@/components/ui";
 
 export const metadata = {
   title: "Feedback triage — Talentrah admin",
@@ -66,7 +66,7 @@ export default async function FeedbackQueuePage() {
         <ul className="flex list-none flex-col gap-5 p-0">
           {queue.map((f) => (
             <li key={f.id}>
-              <BorderedCard className="flex flex-col gap-4 p-5">
+              <Card className="flex flex-col gap-4 p-5">
                 <div className="flex flex-wrap items-baseline justify-between gap-3">
                   <EyebrowLabel>
                     {CATEGORY_LABEL[f.category] ?? f.category}
@@ -105,7 +105,7 @@ export default async function FeedbackQueuePage() {
                     { value: "declined", label: "Decline", requiresNote: true },
                   ]}
                 />
-              </BorderedCard>
+              </Card>
             </li>
           ))}
         </ul>

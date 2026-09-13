@@ -79,7 +79,7 @@ export default async function BillingCallbackPage({
       </p>
       <Link
         href="/billing"
-        className="inline-flex min-h-10 items-center justify-center border-none bg-ink px-[18px] py-[10px] font-body text-[13.5px] font-semibold text-paper no-underline transition-colors hover:bg-rust"
+        className="inline-flex min-h-10 items-center justify-center border-none bg-ink px-[18px] py-[10px] font-body text-[13.5px] font-semibold text-bg no-underline transition-colors hover:bg-coral"
       >
         Back to Credits &amp; Passes
       </Link>

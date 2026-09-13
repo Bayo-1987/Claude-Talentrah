@@ -59,7 +59,7 @@ const FOOTER_COLUMNS = [
 ];
 
 const footerLinkClass =
-  "font-body text-[14.5px] font-medium text-[oklch(80%_0.015_60)] no-underline hover:text-paper hover:underline";
+  "font-body text-[14.5px] font-medium text-[oklch(80%_0.015_60)] no-underline hover:text-bg hover:underline";
 
 interface CommunityLink {
   key: string;
@@ -116,7 +116,7 @@ interface SocialLink {
  * icon sets (e.g. lucide-react) don't cover consistently. Bare-mark variants
  * (FaLinkedinIn, FaFacebookF, FaRedditAlien) chosen over the badged/circle
  * versions to match the existing WhatsApp/Telegram icons' plain-line style —
- * no brand-colored badges anywhere in the Editorial system.
+ * no brand-colored badges anywhere in this design system.
  */
 const SOCIAL_LINKS: SocialLink[] = [
   { key: "linkedin", url: process.env.NEXT_PUBLIC_LINKEDIN_URL, label: "LinkedIn", Icon: FaLinkedinIn },
@@ -146,7 +146,7 @@ export function MarketingFooter() {
                 height={100}
                 className="h-7 w-7"
               />
-              <span className="font-display text-[21px] font-medium text-paper">Talentrah</span>
+              <span className="font-display text-[21px] font-medium text-bg">Talentrah</span>
             </div>
             <span className="ml-1.5 font-display text-[14px] italic text-[oklch(70%_0.015_60)]">
               AI-powered career platform for job seekers in Nigeria and across Africa.
@@ -208,7 +208,7 @@ export function MarketingFooter() {
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label={label}
-                  className="flex h-8.5 w-8.5 flex-shrink-0 items-center justify-center border border-ink-line text-[oklch(75%_0.015_60)] transition-colors hover:border-[oklch(75%_0.015_60)] hover:text-paper"
+                  className="flex h-8.5 w-8.5 flex-shrink-0 items-center justify-center border border-ink-line text-[oklch(75%_0.015_60)] transition-colors hover:border-[oklch(75%_0.015_60)] hover:text-bg"
                 >
                   <Icon size={15} aria-hidden="true" />
                 </a>

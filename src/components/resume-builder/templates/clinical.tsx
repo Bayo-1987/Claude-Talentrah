@@ -18,7 +18,7 @@ export function ClinicalTemplate({ resume }: TemplateProps) {
   const { contact, summary, experience, education, skills, projects, certifications } = resume;
 
   return (
-    <div className="mx-auto max-w-[720px] bg-paper p-10 text-ink">
+    <div className="mx-auto max-w-[720px] bg-bg p-10 text-ink">
       <header className="border-b-[1.5px] border-ink pb-3">
         <h1 className="font-display text-[26px] leading-tight">{contact.name || "Your name"}</h1>
         <p className="mt-1 font-body text-[12.5px] text-ink-soft">{contactLine(contact)}</p>
@@ -26,7 +26,7 @@ export function ClinicalTemplate({ resume }: TemplateProps) {
 
       {certifications.length > 0 && (
         <section className="mt-4 border-b border-line pb-4">
-          <h2 className="font-body text-[11px] font-bold uppercase tracking-[0.14em] text-rust">
+          <h2 className="font-body text-[11px] font-bold uppercase tracking-[0.14em] text-coral">
             Licensure &amp; Certifications
           </h2>
           <ul className="mt-2 grid grid-cols-2 gap-x-6 gap-y-1">
@@ -47,7 +47,7 @@ export function ClinicalTemplate({ resume }: TemplateProps) {
 
       {experience.length > 0 && (
         <section className="mt-5">
-          <h2 className="font-body text-[11px] font-bold uppercase tracking-[0.14em] text-rust">
+          <h2 className="font-body text-[11px] font-bold uppercase tracking-[0.14em] text-coral">
             Clinical Experience
           </h2>
           <div className="mt-2 flex flex-col gap-3">
@@ -88,7 +88,7 @@ export function ClinicalTemplate({ resume }: TemplateProps) {
       <div className="mt-5 grid grid-cols-2 gap-6">
         {education.length > 0 && (
           <section>
-            <h2 className="font-body text-[11px] font-bold uppercase tracking-[0.14em] text-rust">
+            <h2 className="font-body text-[11px] font-bold uppercase tracking-[0.14em] text-coral">
               Education
             </h2>
             <div className="mt-2 flex flex-col gap-2">
@@ -108,7 +108,7 @@ export function ClinicalTemplate({ resume }: TemplateProps) {
 
         {skills.length > 0 && (
           <section>
-            <h2 className="font-body text-[11px] font-bold uppercase tracking-[0.14em] text-rust">
+            <h2 className="font-body text-[11px] font-bold uppercase tracking-[0.14em] text-coral">
               Clinical Skills
             </h2>
             <ul className="mt-2 flex flex-col gap-0.5">
@@ -124,7 +124,7 @@ export function ClinicalTemplate({ resume }: TemplateProps) {
 
       {projects.length > 0 && (
         <section className="mt-5">
-          <h2 className="font-body text-[11px] font-bold uppercase tracking-[0.14em] text-rust">
+          <h2 className="font-body text-[11px] font-bold uppercase tracking-[0.14em] text-coral">
             Research &amp; Quality Improvement
           </h2>
           <ul className="mt-2 flex flex-col gap-1">

@@ -60,28 +60,29 @@ export function buildContactRequestNoticeEmail(params: {
   ].join("\n");
 
   const html = `<!doctype html>
-<html><body style="margin:0;padding:24px;background:#f7f3ec;">
+<html><body style="margin:0;padding:24px;background:#fff6ef;">
   <div style="max-width:560px;margin:0 auto;">
-    <p style="font:400 15px/1.6 -apple-system,Segoe UI,Roboto,sans-serif;color:#2b2119;">
+    <p style="font:400 15px/1.6 -apple-system,Segoe UI,Roboto,sans-serif;color:#231715;">
       ${esc(greeting)}
     </p>
-    <p style="font:400 15px/1.6 -apple-system,Segoe UI,Roboto,sans-serif;color:#2b2119;">
+    <p style="font:400 15px/1.6 -apple-system,Segoe UI,Roboto,sans-serif;color:#231715;">
       <strong>${esc(companyName)}</strong> found your profile in the Talent Directory and would like to connect. Their note:
     </p>
-    <div style="padding:14px 16px;border-left:3px solid #d9cfc2;font:400 14px/1.6 Georgia,'Times New Roman',serif;font-style:italic;color:#2b2119;">
+    <div style="padding:14px 16px;border-left:3px solid #e3d8d2;font:400 14px/1.6 Georgia,'Times New Roman',serif;font-style:italic;color:#231715;">
       &ldquo;${esc(message)}&rdquo;
     </div>
-    <p style="font:400 15px/1.6 -apple-system,Segoe UI,Roboto,sans-serif;color:#2b2119;">
+    <p style="font:400 15px/1.6 -apple-system,Segoe UI,Roboto,sans-serif;color:#231715;">
       Nothing is shared with them unless you say yes.
     </p>
     <p style="margin:24px 0;">
       <a href="${esc(reviewUrl)}"
-         style="display:inline-block;background:#2b2119;color:#f7f3ec;text-decoration:none;
+         style="display:inline-block;background:#e4512c;color:#ffffff;text-decoration:none;
+                border-radius:24px;
                 padding:12px 20px;font:600 14px/1 -apple-system,Segoe UI,Roboto,sans-serif;">
         Review and decide
       </a>
     </p>
-    <p style="font:400 15px/1.6 -apple-system,Segoe UI,Roboto,sans-serif;color:#2b2119;">— Farah</p>
+    <p style="font:400 15px/1.6 -apple-system,Segoe UI,Roboto,sans-serif;color:#231715;">— Farah</p>
   </div>
 </body></html>`;
 
@@ -116,18 +117,18 @@ export function buildContactApprovedEmail(params: {
   ].join("\n");
 
   const html = `<!doctype html>
-<html><body style="margin:0;padding:24px;background:#f7f3ec;">
+<html><body style="margin:0;padding:24px;background:#fff6ef;">
   <div style="max-width:560px;margin:0 auto;">
-    <p style="font:400 15px/1.6 -apple-system,Segoe UI,Roboto,sans-serif;color:#2b2119;">
+    <p style="font:400 15px/1.6 -apple-system,Segoe UI,Roboto,sans-serif;color:#231715;">
       ${esc(greeting)}
     </p>
-    <p style="font:400 15px/1.6 -apple-system,Segoe UI,Roboto,sans-serif;color:#2b2119;">
+    <p style="font:400 15px/1.6 -apple-system,Segoe UI,Roboto,sans-serif;color:#231715;">
       <strong>${esc(candidateName)}</strong> has agreed to connect with you. You can reach them directly at:
     </p>
-    <p style="font:600 16px/1.4 -apple-system,Segoe UI,Roboto,sans-serif;color:#2b2119;">
-      <a href="mailto:${esc(candidateEmail)}" style="color:#6b4a3a;">${esc(candidateEmail)}</a>
+    <p style="font:600 16px/1.4 -apple-system,Segoe UI,Roboto,sans-serif;color:#231715;">
+      <a href="mailto:${esc(candidateEmail)}" style="color:#e4512c;">${esc(candidateEmail)}</a>
     </p>
-    <p style="font:400 15px/1.6 -apple-system,Segoe UI,Roboto,sans-serif;color:#2b2119;">— Talentrah</p>
+    <p style="font:400 15px/1.6 -apple-system,Segoe UI,Roboto,sans-serif;color:#231715;">— Talentrah</p>
   </div>
 </body></html>`;
 

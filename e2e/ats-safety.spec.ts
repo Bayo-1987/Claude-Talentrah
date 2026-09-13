@@ -136,8 +136,14 @@ function actualMarkerOrder(text: string, candidates: string[]): string[] {
  * more fundamental one PR3's rows inherit.
  */
 const SKELETON_CLAIMS: Record<string, boolean> = {
-  "clean-professional-demo": true, // single-column
-  "timeline-demo": true,
+  // send-197 follow-up, migration 0158: both use bodyFont "body" (DM Sans),
+  // confirmed to corrupt PDF text extraction (see the migration's own
+  // header). clean-professional-demo backs the real, live "clean-professional"
+  // catalog slug (CLEAN_PROFESSIONAL_CONFIG) — its ats_safe here MUST track
+  // that config's own field. timeline-demo is QA-only (no real catalog slug
+  // uses this exact demo config), downgraded for the same reason regardless.
+  "clean-professional-demo": false, // single-column
+  "timeline-demo": false,
   "compact-dense-demo": true,
   "sidebar-left-demo": false,
   "rail-right-demo": false,

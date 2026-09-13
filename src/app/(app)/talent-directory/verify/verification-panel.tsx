@@ -39,7 +39,7 @@ export function VerificationPanel({ status }: { status: string }) {
         {status === "rejected" ? "Try again" : "Request verification"}
       </Button>
       {message && (
-        <p className={`text-[13px] ${message.ok ? "text-green" : "text-rust"}`}>{message.text}</p>
+        <p className={`text-[13px] ${message.ok ? "text-green" : "text-coral"}`}>{message.text}</p>
       )}
     </div>
   );

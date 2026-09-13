@@ -115,12 +115,12 @@ export function ReportJobMenu({ jobId, jobTitle }: ReportJobMenuProps) {
             </p>
           ) : (
             <form action={formAction} className="flex flex-col gap-2.5">
-              <span className="block text-[10.5px] font-bold tracking-[0.1em] text-rust uppercase">
+              <span className="block text-[10.5px] font-bold tracking-[0.1em] text-coral uppercase">
                 Report this posting
               </span>
 
               {state.error && (
-                <p className="text-[12.5px] text-rust">{state.error}</p>
+                <p className="text-[12.5px] text-coral">{state.error}</p>
               )}
 
               <input type="hidden" name="jobId" value={jobId} />
@@ -130,14 +130,14 @@ export function ReportJobMenu({ jobId, jobTitle }: ReportJobMenuProps) {
                 {REPORT_REASONS.map((r, i) => (
                   <label
                     key={r.value}
-                    className="flex min-h-10 cursor-pointer items-center gap-2 text-[13px] text-ink hover:text-rust"
+                    className="flex min-h-10 cursor-pointer items-center gap-2 text-[13px] text-ink hover:text-coral"
                   >
                     <input
                       type="radio"
                       name="reason"
                       value={r.value}
                       defaultChecked={i === 0}
-                      className="accent-rust"
+                      className="accent-coral"
                     />
                     {r.label}
                   </label>
@@ -152,13 +152,13 @@ export function ReportJobMenu({ jobId, jobTitle }: ReportJobMenuProps) {
                 name="details"
                 rows={3}
                 placeholder="Anything else? (optional)"
-                className="border border-line bg-paper px-2.5 py-2 font-body text-[12.5px] text-ink outline-none placeholder:font-display placeholder:italic placeholder:text-ink-soft focus:border-rust"
+                className="border border-line bg-bg px-2.5 py-2 font-body text-[12.5px] text-ink outline-none placeholder:font-display placeholder:italic placeholder:text-ink-soft focus:border-coral"
               />
 
               <button
                 type="submit"
                 disabled={pending}
-                className="inline-flex min-h-10 min-w-10 items-center justify-center border-none bg-ink px-3.5 font-body text-[12.5px] font-semibold text-paper hover:bg-rust disabled:opacity-60"
+                className="inline-flex min-h-10 min-w-10 items-center justify-center border-none bg-ink px-3.5 font-body text-[12.5px] font-semibold text-bg hover:bg-coral disabled:opacity-60"
               >
                 {pending ? "Sending…" : "Send report"}
               </button>

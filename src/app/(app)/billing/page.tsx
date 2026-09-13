@@ -5,7 +5,7 @@ import {
   initiatePurchaseAction,
   cancelAutoRenewAction,
 } from "@/lib/billing/actions";
-import { EyebrowLabel, BorderedCard, Button } from "@/components/ui";
+import { EyebrowLabel, Card, Button } from "@/components/ui";
 import { PASS_DAILY_ACTION_CAP } from "@/lib/passes/entitlement";
 
 /**
@@ -221,14 +221,14 @@ export default async function BillingPage({
             )}
             <Link
               href={purchasedNext.href}
-              className="mt-3.5 inline-flex min-h-10 items-center justify-center border-none bg-ink px-[18px] py-[10px] font-body text-[13.5px] font-semibold text-paper no-underline transition-colors hover:bg-rust"
+              className="mt-3.5 inline-flex min-h-10 items-center justify-center border-none bg-ink px-[18px] py-[10px] font-body text-[13.5px] font-semibold text-bg no-underline transition-colors hover:bg-coral"
             >
               {purchasedNext.label}
             </Link>
           </div>
         )}
         {error === "payments_unavailable" && (
-          <p className="mt-3 max-w-[560px] border-[1.5px] border-rust bg-rust-soft px-4 py-3 text-[13.5px] text-rust">
+          <p className="mt-3 max-w-[560px] border-[1.5px] border-coral bg-coral-soft px-4 py-3 text-[13.5px] text-coral">
             That purchase couldn&apos;t start — payments aren&apos;t configured
             yet in this environment.
           </p>
@@ -249,7 +249,7 @@ export default async function BillingPage({
           <EyebrowLabel size="sm">Your active passes</EyebrowLabel>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {activePasses!.map((userPass) => (
-              <BorderedCard
+              <Card
                 key={userPass.id}
                 className="flex flex-col gap-3 p-5"
               >
@@ -286,7 +286,7 @@ export default async function BillingPage({
                   </p>
                 )}
                 {userPass.auto_renew_status === "lapsed" && (
-                  <p className="max-w-[420px] border-[1.5px] border-rust bg-rust-soft px-3 py-2 text-[13px] text-rust">
+                  <p className="max-w-[420px] border-[1.5px] border-coral bg-coral-soft px-3 py-2 text-[13px] text-coral">
                     A renewal charge failed, so this Pass won&apos;t auto-renew.
                     Buy a new one below to keep access after it expires.
                   </p>
@@ -298,7 +298,7 @@ export default async function BillingPage({
                       auto-renewal.
                     </p>
                   )}
-              </BorderedCard>
+              </Card>
             ))}
           </div>
         </div>
@@ -308,7 +308,7 @@ export default async function BillingPage({
         <EyebrowLabel size="sm">Credit packs</EyebrowLabel>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           {(packs ?? []).map((pack) => (
-            <BorderedCard key={pack.id} className="flex flex-col gap-3 p-5">
+            <Card key={pack.id} className="flex flex-col gap-3 p-5">
               <h3 className="text-[17px]">{pack.name}</h3>
               <p className="text-[13.5px] text-ink-soft">
                 {pack.credits} credits
@@ -330,7 +330,7 @@ export default async function BillingPage({
                   Buy
                 </Button>
               </form>
-            </BorderedCard>
+            </Card>
           ))}
         </div>
       </div>
@@ -339,7 +339,7 @@ export default async function BillingPage({
         <EyebrowLabel size="sm">Passes</EyebrowLabel>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {(passes ?? []).map((pass) => (
-            <BorderedCard key={pass.id} className="flex flex-col gap-3 p-5">
+            <Card key={pass.id} className="flex flex-col gap-3 p-5">
               <h3 className="text-[17px]">{pass.name}</h3>
               <p className="text-[13.5px] text-ink-soft">
                 {PASS_HEADLINE[pass.name] ?? `Unlimited access for ${pass.duration_days} days`}
@@ -361,7 +361,7 @@ export default async function BillingPage({
                   Buy
                 </Button>
               </form>
-            </BorderedCard>
+            </Card>
           ))}
         </div>
       </div>

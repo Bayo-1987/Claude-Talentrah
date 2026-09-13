@@ -30,7 +30,7 @@ export default function ContactPage() {
             </p>
             <p className="text-[15px] text-ink-soft">
               Prefer email directly?{" "}
-              <a href={`mailto:${recipient}`} className="text-rust underline underline-offset-2">
+              <a href={`mailto:${recipient}`} className="text-coral underline underline-offset-2">
                 {recipient}
               </a>
             </p>

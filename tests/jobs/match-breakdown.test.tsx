@@ -74,7 +74,7 @@ describe("industry alignment", () => {
       // appear anywhere near this cell (the whole component has no tier
       // color at all).
       expect(html).not.toContain("text-green");
-      expect(html).not.toContain("text-rust");
+      expect(html).not.toContain("text-coral");
       expect(html).not.toContain("text-amber");
     },
   );

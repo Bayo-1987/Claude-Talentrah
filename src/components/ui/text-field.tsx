@@ -19,13 +19,13 @@ export function TextField({ label, error, className, id, ...props }: TextFieldPr
       <input
         id={inputId}
         className={cn(
-          "min-h-11 border-[1.5px] border-ink bg-card px-3.5 py-2.5 font-body text-[15px] text-ink outline-none focus:border-rust",
-          error && "border-rust",
+          "min-h-11 border-[1.5px] border-ink bg-card px-3.5 py-2.5 font-body text-[15px] text-ink outline-none focus:border-coral",
+          error && "border-coral",
           className,
         )}
         {...props}
       />
-      {error && <p className="text-[12.5px] text-rust">{error}</p>}
+      {error && <p className="text-[12.5px] text-coral">{error}</p>}
     </div>
   );
 }

@@ -3,7 +3,7 @@ import { pendingCacVerifications } from "@/lib/admin/moderation/queues";
 import { decideCacVerificationAction } from "@/lib/admin/moderation/actions";
 import { DecisionForm } from "@/components/admin/decision-form";
 import { QueueEmpty, QueueHeader } from "@/components/admin/queue-chrome";
-import { Container, EyebrowLabel, BorderedCard } from "@/components/ui";
+import { Container, EyebrowLabel, Card } from "@/components/ui";
 
 export const metadata = {
   title: "Employer verification — Talentrah admin",
@@ -48,7 +48,7 @@ export default async function EmployerVerificationQueuePage() {
           href={CAC_PUBLIC_SEARCH_URL}
           target="_blank"
           rel="noopener noreferrer nofollow"
-          className="inline-flex min-h-11 items-center border-[1.5px] border-ink px-4 font-body text-[13.5px] font-semibold text-ink no-underline hover:border-rust hover:text-rust"
+          className="inline-flex min-h-11 items-center border-[1.5px] border-ink px-4 font-body text-[13.5px] font-semibold text-ink no-underline hover:border-coral hover:text-coral"
         >
           Open the CAC public register ↗
         </a>
@@ -60,7 +60,7 @@ export default async function EmployerVerificationQueuePage() {
         <ul data-testid="employer-verification-queue" className="flex list-none flex-col gap-5 p-0">
           {queue.map((org) => (
             <li key={org.organizationId}>
-              <BorderedCard className="flex flex-col gap-4 p-5">
+              <Card className="flex flex-col gap-4 p-5">
                 <div className="flex flex-col gap-1.5">
                   <EyebrowLabel>{org.organizationName}</EyebrowLabel>
                   <h2 className="font-display text-[20px] font-semibold leading-snug">
@@ -83,7 +83,7 @@ export default async function EmployerVerificationQueuePage() {
                     { value: "reject", label: "Reject", requiresNote: true },
                   ]}
                 />
-              </BorderedCard>
+              </Card>
             </li>
           ))}
         </ul>

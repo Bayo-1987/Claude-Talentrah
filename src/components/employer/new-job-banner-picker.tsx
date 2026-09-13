@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { BorderedCard, EyebrowLabel } from "@/components/ui";
+import { Card, EyebrowLabel } from "@/components/ui";
 import { BANNER_GUIDANCE } from "@/lib/employer/banner";
 import { BannerCropPicker, type BannerCropOutcome } from "./banner-crop-picker";
 import { clearPendingJobBanner, readFileAsDataUrl, writePendingJobBanner } from "@/lib/employer/pending-job-banner";
@@ -94,7 +94,7 @@ export function NewJobBannerPicker({ userId }: { userId: string }) {
   }
 
   return (
-    <BorderedCard className="flex flex-col gap-3 p-5">
+    <Card className="flex flex-col gap-3 p-5">
       <div className="flex flex-col gap-1">
         <EyebrowLabel>Banner — optional</EyebrowLabel>
         <p className="text-[13.5px] text-ink-soft">{BANNER_GUIDANCE}</p>
@@ -107,6 +107,6 @@ export function NewJobBannerPicker({ userId }: { userId: string }) {
       )}
 
       <BannerCropPicker hasStagedBanner={staged} onCropped={handleCropped} />
-    </BorderedCard>
+    </Card>
   );
 }

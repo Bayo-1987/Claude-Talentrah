@@ -41,20 +41,20 @@ export function HeaderBandSkeleton({ resume, config }: SkeletonProps) {
 
   return (
     <div
-      className={joinClasses("mx-auto max-w-[760px] bg-paper text-ink", fontScopeClassName(tokens))}
+      className={joinClasses("mx-auto max-w-[760px] bg-bg text-ink", fontScopeClassName(tokens))}
     >
-      <div className={joinClasses(bandBg, "px-10 py-8 text-paper")}>
+      <div className={joinClasses(bandBg, "px-10 py-8 text-bg")}>
         <div className="flex flex-wrap items-end justify-between gap-6">
           <div>
             <h1 className={joinClasses(fontClass(tokens.displayFont), nameSizeClass(tokens.nameScale))}>
               {contact.name || "Your name"}
             </h1>
-            <p className="mt-1.5 text-[13px] text-paper/85">{contactLine(contact)}</p>
+            <p className="mt-1.5 text-[13px] text-bg/85">{contactLine(contact)}</p>
           </div>
           {showLinks && (
             <div className="flex flex-wrap gap-x-4 gap-y-1 text-[12.5px]">
               {links!.map((link, i) => (
-                <a key={i} href={link.url} className="underline underline-offset-2 text-paper">
+                <a key={i} href={link.url} className="underline underline-offset-2 text-bg">
                   {link.label}
                 </a>
               ))}

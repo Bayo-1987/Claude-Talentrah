@@ -39,16 +39,19 @@ if (process.env.CI && !DEMO_PASSWORD) {
 }
 
 /**
- * Below `2xl` the nav is behind the disclosure; at and above it, it renders.
- * Raised from 1280 (`xl`) after an eighth nav item (send-139's "Get
- * Verified") left zero margin at 1280 on CI's Linux runner — see
- * masthead.tsx's own comment on why the fix is a real breakpoint move, not a
- * shaved margin.
+ * Below the breakpoint the nav is behind the disclosure; at and above it, it
+ * renders. Raised from 1280 (`xl`) after an eighth nav item (send-139's "Get
+ * Verified") left zero margin at 1280 on CI's Linux runner, then from 1536
+ * (`2xl`) to 1792 after the Sunbird font swap (send-197) — DM Sans paints
+ * every nav label wider than Source Sans 3 did, which ate the 1536
+ * breakpoint's margin down to exactly 0 without a single structural diff
+ * anywhere. See masthead.tsx's own comment for the measurement in both
+ * cases and why the fix is a real breakpoint move, not a shaved margin.
  */
-const NAV_BREAKPOINT = 1536;
+const NAV_BREAKPOINT = 1792;
 
 /** Boundary either side, then the widths a laptop actually reports. */
-const WIDTHS = [760, 800, 845, 900, 1024, 1160, 1280, 1360, 1440, 1535, 1536, 1728];
+const WIDTHS = [760, 800, 845, 900, 1024, 1160, 1280, 1360, 1440, 1536, 1728, 1791, 1792, 1800];
 
 /** Minimum breathing room between the nav and the right-hand group. */
 const MIN_GAP_PX = 16;
@@ -141,8 +144,9 @@ test.describe("the masthead nav fits where it is shown", () => {
 
   test("every destination survives the collapse below the breakpoint", async ({ page }) => {
     /*
-     * The breakpoint has moved twice now — 760 to 1280, then 1280 to 1536 —
-     * and each move pushed a wider band of viewports behind the disclosure.
+     * The breakpoint has moved three times now — 760 to 1280, 1280 to 1536,
+     * then 1536 to 1792 — and each move pushed a wider band of viewports
+     * behind the disclosure.
      * That is only acceptable because it stays COMPLETE at every width below
      * NAV_BREAKPOINT — asserted here rather than assumed, at a width that was
      * previously served by the horizontal bar.

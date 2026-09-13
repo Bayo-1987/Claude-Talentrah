@@ -191,7 +191,7 @@ export function BannerCropPicker({
 /**
  * The interactive crop step itself — a full-screen overlay because a
  * drag-to-pan, zoom-to-fit crop area needs real screen space, not the
- * BorderedCard's own inline width.
+ * Card's own inline width.
  *
  * No click-outside-to-dismiss: a drag that ends outside the crop frame (a
  * very plausible way to pan) must not read as "cancel" — only the explicit
@@ -237,7 +237,7 @@ function CropDialog({
     // popover uses) precisely so EyebrowLabel, IconButton and Button render
     // with their ordinary default colors here. This project's `cn` helper
     // (src/lib/cn.ts) is a plain string join, not a Tailwind-merge — a
-    // component that already hardcodes e.g. `text-rust` cannot be reliably
+    // component that already hardcodes e.g. `text-coral` cannot be reliably
     // recolored by appending another color utility after it, since which
     // class wins depends on Tailwind's generated stylesheet order, not on
     // prop order. A light panel sidesteps needing to try.
@@ -292,7 +292,7 @@ function CropDialog({
             value={zoom}
             disabled={maxZoom <= 1}
             onChange={(e) => onZoomChange(Number(e.target.value))}
-            className="w-full accent-rust"
+            className="w-full accent-coral"
           />
         </div>
 

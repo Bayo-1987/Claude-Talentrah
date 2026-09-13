@@ -5,7 +5,7 @@ import {
   getOwnPortfolioItems,
   getIncomingContactRequests,
 } from "@/lib/talent-directory/queries";
-import { Container, EyebrowLabel, BorderedCard } from "@/components/ui";
+import { Container, EyebrowLabel, Card } from "@/components/ui";
 import { CREDIT_COSTS } from "@/lib/credits/costs";
 import { VerificationPanel } from "./verification-panel";
 import { HumanReviewForm } from "./human-review-form";
@@ -60,56 +60,56 @@ export default async function TalentDirectoryVerifyPage() {
         can review it directly for {CREDIT_COSTS.talentDirectoryHumanReview} credits.
       </p>
 
-      <BorderedCard className="flex flex-col gap-3 p-5">
+      <Card className="flex flex-col gap-3 p-5">
         <p className="text-[14px] text-ink">{STATUS_COPY[state.status] ?? state.status}</p>
         {state.score != null && (
           <p className="text-[13px] text-ink-soft">Last score: {state.score}/100</p>
         )}
         <VerificationPanel status={state.status} />
         {(state.status === "unverified" || state.status === "rejected") && <HumanReviewForm />}
-      </BorderedCard>
+      </Card>
 
       {contactRequests.length > 0 && <IncomingContactRequests requests={contactRequests} />}
 
       {state.status === "verified" && (
-        <BorderedCard className="flex flex-col gap-4 p-5">
+        <Card className="flex flex-col gap-4 p-5">
           <h2 className="font-display text-[18px] font-semibold">List yourself in the directory</h2>
           <OptInToggle optIn={state.optIn} />
-        </BorderedCard>
+        </Card>
       )}
 
       {state.status === "verified" && state.optIn && (
-        <BorderedCard className="flex flex-col gap-4 p-5">
+        <Card className="flex flex-col gap-4 p-5">
           <h2 className="font-display text-[18px] font-semibold">Boost your placement</h2>
           <BoostPanel boostedUntil={state.boostedUntil} />
-        </BorderedCard>
+        </Card>
       )}
 
-      <BorderedCard className="flex flex-col gap-4 p-5">
+      <Card className="flex flex-col gap-4 p-5">
         <h2 className="font-display text-[18px] font-semibold">Availability</h2>
         <AvailabilityForm
           availableForHire={state.availableForHire}
           remoteReady={state.remoteReady}
           earliestStartDate={state.earliestStartDate}
         />
-      </BorderedCard>
+      </Card>
 
-      <BorderedCard className="flex flex-col gap-4 p-5">
+      <Card className="flex flex-col gap-4 p-5">
         <h2 className="font-display text-[18px] font-semibold">Work samples</h2>
         <PortfolioManager items={portfolioItems} />
-      </BorderedCard>
+      </Card>
 
       {history.length > 0 && (
         <section className="flex flex-col gap-3">
           <h2 className="font-display text-[18px] font-semibold">Verification history</h2>
           {history.map((h) => (
-            <BorderedCard key={h.id} className="flex flex-col gap-1.5 p-4">
+            <Card key={h.id} className="flex flex-col gap-1.5 p-4">
               <p className="text-[13.5px] text-ink">
                 {new Date(h.requestedAt).toLocaleDateString()} · {h.status}
                 {h.score != null && ` · ${h.score}/100`}
               </p>
               {h.feedback && <p className="text-[13px] text-ink-soft">{h.feedback}</p>}
-            </BorderedCard>
+            </Card>
           ))}
         </section>
       )}

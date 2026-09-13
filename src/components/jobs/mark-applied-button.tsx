@@ -16,7 +16,7 @@ export function MarkAppliedButton() {
     <button
       type="submit"
       disabled={pending}
-      className="text-[13px] font-semibold text-ink-soft underline underline-offset-2 hover:text-rust disabled:cursor-not-allowed disabled:opacity-50"
+      className="text-[13px] font-semibold text-ink-soft underline underline-offset-2 hover:text-coral disabled:cursor-not-allowed disabled:opacity-50"
     >
       Mark as applied
     </button>

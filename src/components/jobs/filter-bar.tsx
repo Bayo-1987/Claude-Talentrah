@@ -38,8 +38,8 @@ const BROWSE_LINK =
 
 function browseLink(active: boolean) {
   return active
-    ? `${BROWSE_LINK} font-semibold text-rust`
-    : `${BROWSE_LINK} text-ink-soft hover:text-rust`;
+    ? `${BROWSE_LINK} font-semibold text-coral`
+    : `${BROWSE_LINK} text-ink-soft hover:text-coral`;
 }
 
 function buildHref(
@@ -187,7 +187,7 @@ export function FilterBar({
       {/*
         THE SEARCH INSTRUMENT — unchanged shape from before Part 3, minus the
         per-filter chip row. Work type, seniority, posted and country now show
-        their own applied state directly (a rust link, a menu button's own
+        their own applied state directly (a coral link, a menu button's own
         face) — a second, redundant display of the same state inside this box
         was the "applied-filter chip row" that's gone. "Clear filters" is the
         one thing left in here with no other affordance, so it stays.
@@ -196,14 +196,20 @@ export function FilterBar({
         the free-text search term never had another visible home (an empty
         box and a box with "engineer" typed in it look identical at a
         glance), and with several facets active at once a reader has to pick
-        rust-colored words out of ~17 links across four groups to reconstruct
+        coral-colored words out of ~17 links across four groups to reconstruct
         what's filtering their results. The summary line below THE SEARCH
         INSTRUMENT is the fix — see its own comment for why it isn't the same
         thing as what was removed.
       */}
+      {/*
+        rounded-2xl rather than a full pill: this row can flex-wrap onto a
+        second line at narrow widths (the search box plus "Clear filters"),
+        and a pill radius looks wrong the moment a rounded container isn't a
+        single flat bar anymore.
+      */}
       <div
         data-testid="applied-filters"
-        className="flex flex-wrap items-stretch overflow-hidden border-[1.5px] border-ink"
+        className="flex flex-wrap items-stretch overflow-hidden rounded-2xl border border-line"
       >
         <form
           method="GET"
@@ -218,7 +224,7 @@ export function FilterBar({
           <SearchCombobox defaultValue={q ?? ""} index={searchIndex} />
           <button
             type="submit"
-            className="inline-flex min-h-[42px] min-w-10 items-center justify-center border-l border-line bg-card px-3.5 font-body text-[12.5px] font-semibold text-ink-soft no-underline transition-colors hover:text-rust"
+            className="inline-flex min-h-[42px] min-w-10 items-center justify-center border-l border-line bg-card px-3.5 font-body text-[12.5px] font-semibold text-ink-soft no-underline transition-colors hover:text-coral"
           >
             Search
           </button>
@@ -236,7 +242,7 @@ export function FilterBar({
               // just check `country` itself.
               country: countryApplicable ? "all" : undefined,
             })}
-            className="flex min-h-[42px] items-center px-3.5 text-[12.5px] font-semibold text-ink-soft no-underline transition-colors hover:text-rust"
+            className="flex min-h-[42px] items-center px-3.5 text-[12.5px] font-semibold text-ink-soft no-underline transition-colors hover:text-coral"
           >
             Clear filters
           </Link>
@@ -247,12 +253,12 @@ export function FilterBar({
         ACTIVE-FILTER SUMMARY — shown only when `anyApplied`, so it costs
         nothing in the common no-filter case. NOT a return of the removed
         per-filter chip row: that row was a permanent, redundant echo of
-        state every toggle already showed via its own rust underline. This
+        state every toggle already showed via its own coral underline. This
         is conditional, and it covers a real gap that reasoning never
         addressed — the search term, which has no other visible home (an
         empty box and a box with a real term typed in it look identical),
         plus a single place to read back everything at once once more than
-        one or two facets are active, rather than picking rust-colored words
+        one or two facets are active, rather than picking coral-colored words
         out of ~17 links across four groups.
 
         Reuses FilterChip (src/components/ui/filter-chip.tsx) — already the
@@ -264,7 +270,7 @@ export function FilterBar({
         remove one value while leaving every other filter untouched — not a
         second implementation of "remove this one thing."
 
-        The search term renders `quoted` — italic Newsreader, distinct from
+        The search term renders `quoted` — italic display serif, distinct from
         the plain facet words next to it — which is the one thing this line
         exists to fix that nothing else on the page ever showed.
       */}

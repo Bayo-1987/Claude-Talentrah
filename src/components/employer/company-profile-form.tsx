@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { updateCompanyProfileAction, type EmployerActionState } from "@/lib/employer/actions";
-import { BorderedCard, Button, TextField } from "@/components/ui";
+import { Card, Button, TextField } from "@/components/ui";
 
 export function CompanyProfileForm({
   initial,
@@ -27,7 +27,7 @@ export function CompanyProfileForm({
   return (
     <div className="flex flex-col gap-5">
       {error && (
-        <p className="border-[1.5px] border-rust bg-rust-soft px-3.5 py-2.5 text-[13.5px] text-rust">
+        <p className="border-[1.5px] border-coral bg-coral-soft px-3.5 py-2.5 text-[13.5px] text-coral">
           {error}
         </p>
       )}
@@ -37,7 +37,7 @@ export function CompanyProfileForm({
         </p>
       )}
 
-      <BorderedCard className="p-6">
+      <Card className="p-6">
         <form action={formAction} className="flex flex-col gap-5">
           <TextField label="Company name" name="name" required defaultValue={initial.name} />
           <div className="flex flex-col gap-1.5">
@@ -68,7 +68,7 @@ export function CompanyProfileForm({
             </Button>
           </div>
         </form>
-      </BorderedCard>
+      </Card>
     </div>
   );
 }

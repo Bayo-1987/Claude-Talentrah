@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requireEmployer } from "@/lib/employer/membership";
 import { deleteJobAction } from "@/lib/employer/actions";
-import { BorderedCard, Button, EyebrowLabel, buttonClasses } from "@/components/ui";
+import { Card, Button, EyebrowLabel, buttonClasses } from "@/components/ui";
 
 export const metadata = { title: "Delete job — Talentrah" };
 
@@ -53,7 +53,7 @@ export default async function DeleteJobPage({ params }: { params: Promise<{ id: 
     <div className="max-w-[640px]">
       <Link
         href="/employer/jobs"
-        className="font-body text-[13px] font-semibold text-ink-soft no-underline hover:text-rust"
+        className="font-body text-[13px] font-semibold text-ink-soft no-underline hover:text-coral"
       >
         ← Jobs Posted
       </Link>
@@ -64,7 +64,7 @@ export default async function DeleteJobPage({ params }: { params: Promise<{ id: 
         </h1>
       </div>
 
-      <BorderedCard className="mt-6 flex flex-col gap-3 p-5">
+      <Card className="mt-6 flex flex-col gap-3 p-5">
         <p className="font-body text-[14px] text-ink">
           This permanently removes the posting. It cannot be undone or reopened —
           this is different from Close, which you can reverse any time.
@@ -79,7 +79,7 @@ export default async function DeleteJobPage({ params }: { params: Promise<{ id: 
           Their own Job Tracker keeps working either way — it already keeps a frozen
           copy of what they applied to, independent of this posting.
         </p>
-      </BorderedCard>
+      </Card>
 
       <div className="mt-6 flex items-center gap-3">
         <form action={deleteJobAction.bind(null, job.id)}>

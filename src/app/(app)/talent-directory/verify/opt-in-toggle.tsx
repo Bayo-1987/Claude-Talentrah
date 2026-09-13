@@ -28,14 +28,14 @@ export function OptInToggle({ optIn }: { optIn: boolean }) {
         }
         className={[
           "relative inline-flex h-[26px] w-[46px] flex-shrink-0 items-center rounded-full border-[1.5px] border-ink transition-colors",
-          optimisticOptIn ? "bg-ink" : "bg-paper",
+          optimisticOptIn ? "bg-ink" : "bg-bg",
           isPending ? "opacity-50" : "",
         ].join(" ")}
       >
         <span
           className={[
             "inline-block h-[16px] w-[16px] rounded-full transition-transform",
-            optimisticOptIn ? "translate-x-[25px] bg-paper" : "translate-x-[4px] bg-ink",
+            optimisticOptIn ? "translate-x-[25px] bg-bg" : "translate-x-[4px] bg-ink",
           ].join(" ")}
         />
       </button>

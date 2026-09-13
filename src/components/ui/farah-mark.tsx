@@ -62,8 +62,8 @@ export function FarahMark({ size = 200 }: { size?: number }) {
 
   return (
     <svg width={size} height={size} viewBox="0 0 220 220" fill="none" aria-hidden="true">
-      <circle cx="110" cy="110" r="108" fill="var(--rust-soft)" />
-      <circle cx="88" cy="96" r="46" stroke="var(--rust)" strokeWidth={strokeWidth} fill="none" />
+      <circle cx="110" cy="110" r="108" fill="var(--coral-soft)" />
+      <circle cx="88" cy="96" r="46" stroke="var(--coral)" strokeWidth={strokeWidth} fill="none" />
       <circle cx="132" cy="128" r="46" stroke="var(--ink)" strokeWidth={strokeWidth} fill="none" />
       {/*
         The dot is FILLED, not stroked, so it thins rather than blurs — a small
@@ -72,7 +72,7 @@ export function FarahMark({ size = 200 }: { size?: number }) {
         defect. Scaling it up would put a dot where the two outlines already
         overlap and turn the middle of the mark into a blot.
       */}
-      <circle cx="110" cy="112" r="5" fill="var(--rust)" />
+      <circle cx="110" cy="112" r="5" fill="var(--coral)" />
     </svg>
   );
 }

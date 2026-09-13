@@ -153,14 +153,14 @@ export default async function ScholarshipsPage({ searchParams }: { searchParams:
       </div>
 
       {dueSoon.length > 0 && (
-        <div className="flex flex-col gap-2 border-[1.5px] border-rust bg-rust-soft p-4">
+        <div className="flex flex-col gap-2 border-[1.5px] border-coral bg-coral-soft p-4">
           <EyebrowLabel size="sm">Deadlines coming up</EyebrowLabel>
           <ul className="flex flex-col gap-1">
             {dueSoon.map((s) => (
               <li key={s.id} className="text-[13.5px] text-ink">
                 <span className="font-semibold">{s.program_name}</span> ({s.provider}) closes{" "}
                 {formatDeadline(s.application_deadline)} —{" "}
-                <span className="font-semibold text-rust">
+                <span className="font-semibold text-coral">
                   {s.left} {s.left === 1 ? "day" : "days"} left
                 </span>
                 .{" "}
@@ -168,7 +168,7 @@ export default async function ScholarshipsPage({ searchParams }: { searchParams:
                   href={s.official_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="underline underline-offset-2 hover:text-rust"
+                  className="underline underline-offset-2 hover:text-coral"
                 >
                   Official page
                 </a>
@@ -189,8 +189,8 @@ export default async function ScholarshipsPage({ searchParams }: { searchParams:
           href="/scholarships"
           className={
             tab === "all"
-              ? "font-semibold text-rust underline underline-offset-2"
-              : "text-ink-soft underline underline-offset-2 hover:text-rust"
+              ? "font-semibold text-coral underline underline-offset-2"
+              : "text-ink-soft underline underline-offset-2 hover:text-coral"
           }
         >
           All scholarships
@@ -199,8 +199,8 @@ export default async function ScholarshipsPage({ searchParams }: { searchParams:
           href="/scholarships?tab=saved"
           className={
             tab === "saved"
-              ? "font-semibold text-rust underline underline-offset-2"
-              : "text-ink-soft underline underline-offset-2 hover:text-rust"
+              ? "font-semibold text-coral underline underline-offset-2"
+              : "text-ink-soft underline underline-offset-2 hover:text-coral"
           }
         >
           Saved &amp; tracking ({saveByScholarshipId.size})
@@ -217,7 +217,7 @@ export default async function ScholarshipsPage({ searchParams }: { searchParams:
       />
 
       {error && (
-        <p className="border-[1.5px] border-rust bg-rust-soft px-4 py-3 text-[13.5px] text-rust">
+        <p className="border-[1.5px] border-coral bg-coral-soft px-4 py-3 text-[13.5px] text-coral">
           Couldn&apos;t load scholarships just now — try reloading.
         </p>
       )}
@@ -251,12 +251,12 @@ export default async function ScholarshipsPage({ searchParams }: { searchParams:
           </span>
           <div className="flex items-center gap-4">
             {page > 1 && (
-              <a href={buildPageHref(page - 1)} className="font-semibold underline underline-offset-2 hover:text-rust">
+              <a href={buildPageHref(page - 1)} className="font-semibold underline underline-offset-2 hover:text-coral">
                 Previous
               </a>
             )}
             {page < totalPages && (
-              <a href={buildPageHref(page + 1)} className="font-semibold underline underline-offset-2 hover:text-rust">
+              <a href={buildPageHref(page + 1)} className="font-semibold underline underline-offset-2 hover:text-coral">
                 Next
               </a>
             )}

@@ -8,8 +8,8 @@ import { buttonClasses, type ButtonVariant, type ButtonSize } from "@/lib/button
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
   /**
-   * "md" = marketing-site scale (Main-Editorial.dc.html), "sm" = app/dashboard
-   * scale (JobFeed-Editorial.dc.html). Only primary/secondary/ghost at "md" and
+   * "md" = marketing-site scale (Main-Sunbird.dc.html), "sm" = app/dashboard
+   * scale (JobFeed-Sunbird.dc.html). Only primary/secondary/ghost at "md" and
    * primary/text at "sm" are pixel-sourced from the reference files; other
    * combinations are a reasonable extrapolation — check against a real screen
    * before treating them as final.

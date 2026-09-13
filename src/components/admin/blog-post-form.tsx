@@ -53,7 +53,7 @@ export function BlogPostForm({ action, post, previewHtml, submitLabel }: Props) 
         <p
           className={
             state.status === "error"
-              ? "border-[1.5px] border-rust bg-rust-soft px-3.5 py-2.5 text-[13.5px] text-rust"
+              ? "border-[1.5px] border-coral bg-coral-soft px-3.5 py-2.5 text-[13.5px] text-coral"
               : "border-[1.5px] border-green px-3.5 py-2.5 text-[13.5px] text-green"
           }
         >
@@ -121,7 +121,7 @@ export function BlogPostForm({ action, post, previewHtml, submitLabel }: Props) 
             <p className="text-[12.5px] text-ink-soft">
               Markdown. Headings with ##, bullets with -, bold with **. Raw HTML is stripped.
             </p>
-            {err("body") && <p className="text-[12.5px] text-rust">{err("body")}</p>}
+            {err("body") && <p className="text-[12.5px] text-coral">{err("body")}</p>}
           </div>
 
           <Button type="submit" disabled={pending} className="self-start">

@@ -75,14 +75,14 @@ export function RoleEditor({
             {allPermissions.map((p) => (
               <label
                 key={p.key}
-                className="flex min-h-10 cursor-pointer items-center gap-2 text-[14px] text-ink hover:text-rust"
+                className="flex min-h-10 cursor-pointer items-center gap-2 text-[14px] text-ink hover:text-coral"
               >
                 <input
                   type="checkbox"
                   name="permissions"
                   value={p.key}
                   defaultChecked={role?.permissions.includes(p.key) ?? false}
-                  className="accent-rust"
+                  className="accent-coral"
                 />
                 {p.label}
               </label>
@@ -112,7 +112,7 @@ export function RoleEditor({
           className={
             "border-[1.5px] px-3.5 py-2.5 text-[13.5px] " +
             (state.status === "error"
-              ? "border-rust bg-rust-soft text-rust"
+              ? "border-coral bg-coral-soft text-coral"
               : "border-ink bg-card text-ink")
           }
         >

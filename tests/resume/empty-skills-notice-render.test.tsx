@@ -23,6 +23,15 @@ import { EmptySkillsNotice } from "@/components/resume-builder/empty-skills-noti
 
 const RESUME_ID = "11111111-1111-1111-1111-111111111111";
 const html = renderToStaticMarkup(<EmptySkillsNotice baseResumeId={RESUME_ID} />);
+/**
+ * VISIBLE TEXT ONLY, tags and attributes stripped — Card's own shadow
+ * (src/components/ui/card.tsx) is an oklch() color that itself contains the
+ * digit sequence "30%", so matching raw `html` for "a percentage" started
+ * false-positiving on the component's own styling rather than anything a
+ * person would read. The guard below cares what's rendered on screen, not
+ * what's in a class attribute.
+ */
+const visibleText = html.replace(/<[^>]*>/g, " ");
 
 describe("it points at the fix, not just the problem", () => {
   it("links to editing this specific resume", () => {
@@ -47,7 +56,7 @@ describe("it points at the fix, not just the problem", () => {
 
 describe("it is not a completion meter", () => {
   it("shows no percentage", () => {
-    expect(html).not.toMatch(/\d+\s*%/);
+    expect(visibleText).not.toMatch(/\d+\s*%/);
   });
 
   it("shows no step or progress counter", () => {
@@ -67,12 +76,10 @@ describe("it is not a completion meter", () => {
 });
 
 describe("it is in the design system's language", () => {
-  it("is a square-cornered bordered box with no shadow", () => {
-    // Editorial: no border-radius anywhere except small circular affordances,
-    // and the hero input is the only shadow in the product.
-    expect(html).toContain("border-[1.5px]");
-    expect(html).toContain("border-ink");
-    expect(html).not.toMatch(/rounded/);
-    expect(html).not.toMatch(/shadow/);
+  it("is a plain Card — rounded corners, the same soft shadow as every other card", () => {
+    // Sunbird: every card gets a rounded corner and a soft shadow by
+    // default (Card's own default, src/components/ui/card.tsx).
+    expect(html).toMatch(/rounded/);
+    expect(html).toMatch(/shadow/);
   });
 });

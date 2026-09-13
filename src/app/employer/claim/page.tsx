@@ -2,7 +2,7 @@ import Link from "next/link";
 import { requireEmployer } from "@/lib/employer/membership";
 import { createClient } from "@/lib/supabase/server";
 import { getClaimCandidates } from "@/lib/employer/claim";
-import { EyebrowLabel, BorderedCard, buttonClasses } from "@/components/ui";
+import { EyebrowLabel, Card, buttonClasses } from "@/components/ui";
 import { ClaimCandidateCard } from "@/components/employer/claim-candidate-card";
 
 export const metadata = { title: "Claim your company's listings — Talentrah" };
@@ -44,7 +44,7 @@ export default async function ClaimListingsPage({ searchParams }: { searchParams
         </p>
         <Link
           href="/employer/profile"
-          className="mt-5 inline-block font-body text-[14px] font-semibold text-rust underline underline-offset-2"
+          className="mt-5 inline-block font-body text-[14px] font-semibold text-coral underline underline-offset-2"
         >
           Go to Company Profile
         </Link>
@@ -70,13 +70,13 @@ export default async function ClaimListingsPage({ searchParams }: { searchParams
       </p>
 
       {candidates.length === 0 ? (
-        <BorderedCard className="mt-7 p-6">
+        <Card className="mt-7 p-6">
           <p className="font-body text-[14.5px] text-ink-soft">
             Nothing to claim right now. We check by matching an aggregated posting&apos;s source
             domain or company name against {organization.name} — if a role of yours shows up on
             another job board later, it will appear here.
           </p>
-        </BorderedCard>
+        </Card>
       ) : (
         <div className="mt-7 flex flex-col gap-4">
           {candidates.map((candidate) => (

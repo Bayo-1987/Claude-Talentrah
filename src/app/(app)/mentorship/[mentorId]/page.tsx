@@ -3,7 +3,7 @@ import { requireUser } from "@/lib/auth/require-user";
 import { getMentorProfile } from "@/lib/mentorship/queries";
 import { bookMentorSessionAction } from "@/lib/mentorship/actions";
 import { computeSessionPrice, type MentorshipSessionType } from "@/lib/mentorship/pricing";
-import { Container, EyebrowLabel, BorderedCard, Button } from "@/components/ui";
+import { Container, EyebrowLabel, Card, Button } from "@/components/ui";
 
 export const metadata = { title: "Book a mentor — Talentrah" };
 
@@ -59,7 +59,7 @@ export default async function MentorProfilePage({
       {mentor.openSlots.length === 0 ? (
         <p className="text-[14px] text-ink-soft">No open slots right now — check back later.</p>
       ) : (
-        <BorderedCard className="flex flex-col gap-4 p-5">
+        <Card className="flex flex-col gap-4 p-5">
           <h2 className="font-display text-[18px] font-semibold">Book a session</h2>
           <form action={book} className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
@@ -117,7 +117,7 @@ export default async function MentorProfilePage({
               {mentor.basePriceNgn != null ? "Continue to payment" : "Book this session"}
             </Button>
           </form>
-        </BorderedCard>
+        </Card>
       )}
     </Container>
   );

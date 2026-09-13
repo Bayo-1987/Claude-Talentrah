@@ -2,7 +2,7 @@ import { requirePermission } from "@/lib/admin/require-admin";
 import { courseCatalog } from "@/lib/admin/catalog/courses";
 import { CourseRowForm } from "@/components/admin/course-row-form";
 import { QueueHeader } from "@/components/admin/queue-chrome";
-import { Container, EyebrowLabel, BorderedCard } from "@/components/ui";
+import { Container, EyebrowLabel, Card } from "@/components/ui";
 
 export const metadata = {
   title: "Course catalog — Talentrah admin",
@@ -44,7 +44,7 @@ export default async function CourseCatalogPage() {
         adminLabel={admin.displayName || admin.email}
       />
 
-      <BorderedCard className="flex flex-col gap-2 p-5">
+      <Card className="flex flex-col gap-2 p-5">
         <EyebrowLabel>Status</EyebrowLabel>
         <p className="text-[15px]">
           {live} of {catalog.length} live
@@ -66,12 +66,12 @@ export default async function CourseCatalogPage() {
             action (§10 item 1), not a code change.
           </p>
         )}
-      </BorderedCard>
+      </Card>
 
       <ul className="flex list-none flex-col gap-5 p-0">
         {catalog.map((c) => (
           <li key={c.id}>
-            <BorderedCard className="flex flex-col gap-4 p-5">
+            <Card className="flex flex-col gap-4 p-5">
               <div className="flex flex-wrap items-baseline justify-between gap-3">
                 <EyebrowLabel>
                   {c.skillTag} · {c.provider}
@@ -84,7 +84,7 @@ export default async function CourseCatalogPage() {
               </div>
 
               <CourseRowForm course={c} />
-            </BorderedCard>
+            </Card>
           </li>
         ))}
       </ul>

@@ -72,7 +72,7 @@ export function ReplaceBaseResume({ onCancel }: { onCancel: () => void }) {
             type="button"
             onClick={onCancel}
             data-testid="replace-base-resume-cancel"
-            className="text-left text-[13px] font-semibold text-ink-soft underline underline-offset-2 hover:text-rust"
+            className="text-left text-[13px] font-semibold text-ink-soft underline underline-offset-2 hover:text-coral"
           >
             Cancel
           </button>
@@ -109,7 +109,7 @@ export function ReplaceBaseResume({ onCancel }: { onCancel: () => void }) {
                 setMode("upload");
               }}
               data-testid="replace-base-resume-retry"
-              className="text-left text-[13px] font-semibold text-ink-soft underline underline-offset-2 hover:text-rust"
+              className="text-left text-[13px] font-semibold text-ink-soft underline underline-offset-2 hover:text-coral"
             >
               Try a different file
             </button>
@@ -117,7 +117,7 @@ export function ReplaceBaseResume({ onCancel }: { onCancel: () => void }) {
               type="button"
               onClick={onCancel}
               data-testid="replace-base-resume-cancel"
-              className="text-left text-[13px] font-semibold text-ink-soft underline underline-offset-2 hover:text-rust"
+              className="text-left text-[13px] font-semibold text-ink-soft underline underline-offset-2 hover:text-coral"
             >
               Cancel
             </button>
@@ -125,7 +125,7 @@ export function ReplaceBaseResume({ onCancel }: { onCancel: () => void }) {
           {result.status === "error" && (
             <p
               data-testid="replace-base-resume-error"
-              className="border-[1.5px] border-rust bg-rust-soft px-3 py-1.5 text-[12.5px] text-rust"
+              className="border-[1.5px] border-coral bg-coral-soft px-3 py-1.5 text-[12.5px] text-coral"
             >
               {result.error}
             </p>
@@ -144,7 +144,7 @@ export function ReplaceBaseResume({ onCancel }: { onCancel: () => void }) {
           <button
             type="button"
             onClick={onCancel}
-            className="text-left text-[13px] font-semibold text-ink-soft underline underline-offset-2 hover:text-rust"
+            className="text-left text-[13px] font-semibold text-ink-soft underline underline-offset-2 hover:text-coral"
           >
             Close
           </button>

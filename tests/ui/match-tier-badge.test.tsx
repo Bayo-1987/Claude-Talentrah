@@ -34,7 +34,7 @@ describe("a sub-60 score", () => {
     const html = renderToStaticMarkup(<MatchTierBadge score={50} />);
     expect(html).toContain("text-ink-soft");
     expect(html).not.toContain("text-amber");
-    expect(html).not.toContain("text-rust");
+    expect(html).not.toContain("text-teal");
     expect(html).not.toContain("text-green");
   });
 
@@ -90,7 +90,9 @@ describe("60 and above still shows its tier, exactly as before", () => {
   it("70-79 is Good", () => {
     const html = renderToStaticMarkup(<MatchTierBadge score={72} />);
     expect(html).toContain("72% · Good");
-    expect(html).toContain("text-rust");
+    // Good deliberately does NOT use --coral (Sunbird's own CTA color) — see
+    // match-tier.ts's own note on why Good uses --teal instead.
+    expect(html).toContain("text-teal");
   });
 
   it("80+ is Excellent", () => {

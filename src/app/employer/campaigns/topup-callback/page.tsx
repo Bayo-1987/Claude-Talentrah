@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { fulfillPayment } from "@/lib/billing/fulfill";
 import { requireEmployer } from "@/lib/employer/membership";
-import { BorderedCard, EyebrowLabel } from "@/components/ui";
+import { Card, EyebrowLabel } from "@/components/ui";
 
 export const metadata = { title: "Top-up — Talentrah" };
 
@@ -53,17 +53,17 @@ export default async function TopUpCallbackPage({
       <h1 className="mt-2 font-display text-[30px] leading-[1.15] font-medium text-ink">
         {heading}
       </h1>
-      <BorderedCard className="mt-5 p-6">
+      <Card className="mt-5 p-6">
         <p className="font-body text-[15px] leading-[1.65] text-ink">{body}</p>
         <div className="mt-5">
           <Link
             href="/employer/campaigns"
-            className="font-body text-[14px] font-semibold text-rust no-underline hover:text-rust-hover"
+            className="font-body text-[14px] font-semibold text-coral no-underline hover:text-coral-hover"
           >
             Back to Ad Campaigns →
           </Link>
         </div>
-      </BorderedCard>
+      </Card>
     </div>
   );
 }

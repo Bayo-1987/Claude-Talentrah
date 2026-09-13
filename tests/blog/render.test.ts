@@ -40,7 +40,7 @@ describe("the editorial classes survive sanitisation", () => {
     // would have styled links correctly and made them go nowhere.
     const html = renderMarkdown("[docs](https://example.com)");
     expect(html).toContain('href="https://example.com"');
-    expect(html).toContain('class="text-rust underline underline-offset-2"');
+    expect(html).toContain('class="text-coral underline underline-offset-2"');
   });
 });
 

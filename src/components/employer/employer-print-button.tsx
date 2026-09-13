@@ -15,7 +15,7 @@ export function EmployerPrintButton() {
     <button
       type="button"
       onClick={() => window.print()}
-      className="flex min-h-10 items-center border-[1.5px] border-ink bg-card px-4 font-body text-[13px] font-semibold text-ink hover:border-rust hover:text-rust"
+      className="flex min-h-10 items-center border-[1.5px] border-ink bg-card px-4 font-body text-[13px] font-semibold text-ink hover:border-coral hover:text-coral"
     >
       Print / Save as PDF
     </button>

@@ -12,7 +12,7 @@ import {
   pauseCampaignAction,
   resumeCampaignAction,
 } from "@/lib/employer/campaign-actions";
-import { BorderedCard, EyebrowLabel } from "@/components/ui";
+import { Card, EyebrowLabel } from "@/components/ui";
 import { CampaignForm } from "@/components/employer/campaign-form";
 import {
   CampaignControls,
@@ -58,7 +58,7 @@ export default async function CampaignPage({ params }: { params: Promise<{ id: s
     <div className="max-w-[820px]">
       <Link
         href="/employer/campaigns"
-        className="font-body text-[13px] font-semibold text-ink-soft no-underline hover:text-rust"
+        className="font-body text-[13px] font-semibold text-ink-soft no-underline hover:text-coral"
       >
         ← Ad Campaigns
       </Link>
@@ -77,7 +77,7 @@ export default async function CampaignPage({ params }: { params: Promise<{ id: s
           <CampaignStatusBadge status={status} />
           <Link
             href={`/employer/campaigns/${campaign.id}/analytics`}
-            className="font-body text-[13px] font-semibold text-ink underline underline-offset-2 hover:text-rust"
+            className="font-body text-[13px] font-semibold text-ink underline underline-offset-2 hover:text-coral"
           >
             View analytics
           </Link>
@@ -87,12 +87,12 @@ export default async function CampaignPage({ params }: { params: Promise<{ id: s
       <div className="mt-5 flex flex-col gap-4 border-y border-line py-5">
         <CampaignStatusBlurb status={status} />
         {status === "rejected" && campaign.review_note && (
-          <BorderedCard className="p-4">
+          <Card className="p-4">
             <EyebrowLabel>What to change</EyebrowLabel>
             <p className="mt-2 font-body text-[14.5px] leading-[1.6] text-ink">
               {campaign.review_note}
             </p>
-          </BorderedCard>
+          </Card>
         )}
         <dl className="grid grid-cols-2 gap-4 min-[640px]:grid-cols-4">
           <div>

@@ -25,7 +25,7 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(
         ref={ref}
         disabled={disabled || pending}
         className={cn(
-          "flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full border border-line bg-transparent text-ink-soft transition-colors hover:border-rust hover:text-rust disabled:cursor-not-allowed disabled:opacity-50",
+          "flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full border border-line bg-transparent text-ink-soft transition-colors hover:border-coral hover:text-coral disabled:cursor-not-allowed disabled:opacity-50",
           className,
         )}
         {...props}

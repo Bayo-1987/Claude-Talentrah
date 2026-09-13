@@ -3,7 +3,7 @@ import { requireEmployer } from "@/lib/employer/membership";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { searchTalentDirectory } from "@/lib/talent-directory/queries";
 import { purchaseTalentDirectorySubscriptionAction } from "@/lib/talent-directory/subscription-actions";
-import { EyebrowLabel, BorderedCard, Button } from "@/components/ui";
+import { EyebrowLabel, Card, Button } from "@/components/ui";
 
 export const metadata = { title: "Talent Directory — Talentrah" };
 
@@ -49,10 +49,10 @@ export default async function EmployerTalentDirectoryPage({
     <div className="flex flex-col gap-8">
       <EyebrowLabel>Talent Directory</EyebrowLabel>
       <h1 className="font-display text-[28px] font-semibold">Search verified candidates.</h1>
-      {error && <p className="text-[13.5px] text-rust">{error}</p>}
+      {error && <p className="text-[13.5px] text-coral">{error}</p>}
 
       {!subscription ? (
-        <BorderedCard className="flex flex-col gap-4 p-6">
+        <Card className="flex flex-col gap-4 p-6">
           <p className="text-[14.5px] text-ink-soft">
             Subscribe to search verified, opted-in seekers by availability and remote-readiness.
           </p>
@@ -63,7 +63,7 @@ export default async function EmployerTalentDirectoryPage({
               </Button>
             </form>
           ))}
-        </BorderedCard>
+        </Card>
       ) : (
         <>
           <p className="text-[13px] text-ink-soft">
@@ -89,7 +89,7 @@ export default async function EmployerTalentDirectoryPage({
               {candidates.map((c) => (
                 <li key={c.userId}>
                   <Link href={`/employer/talent-directory/${c.userId}`} className="no-underline">
-                    <BorderedCard className="flex h-full flex-col gap-2 p-5">
+                    <Card className="flex h-full flex-col gap-2 p-5">
                       <h2 className="font-display text-[18px] font-semibold text-ink">
                         {[c.firstName, c.lastName].filter(Boolean).join(" ") || "A Talentrah candidate"}
                       </h2>
@@ -101,7 +101,7 @@ export default async function EmployerTalentDirectoryPage({
                       {c.verificationScore != null && (
                         <p className="text-[12.5px] font-semibold text-green">Verified — {c.verificationScore}/100</p>
                       )}
-                    </BorderedCard>
+                    </Card>
                   </Link>
                 </li>
               ))}

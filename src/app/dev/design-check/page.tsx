@@ -3,7 +3,7 @@
 import {
   Button,
   EyebrowLabel,
-  BorderedCard,
+  Card,
   IconButton,
   FilterChip,
   MatchTierBadge,
@@ -21,10 +21,10 @@ export default function DesignCheckPage() {
     <Container className="flex flex-col gap-16 py-16">
       <div className="flex flex-col gap-2">
         <EyebrowLabel>Design system check</EyebrowLabel>
-        <h1 className="text-[36px]">Talentrah — Editorial primitives</h1>
+        <h1 className="text-[36px]">Talentrah — Sunbird primitives</h1>
         <p className="text-ink-soft">
-          Newsreader for display, Source Sans 3 for body/UI. No border-radius
-          anywhere except circular affordances.
+          DM Serif Display for headings, DM Sans for body/UI. Rounded corners and a soft
+          shadow on every card; pill-shaped buttons, badges and chips.
         </p>
         <div className="mt-2 flex gap-4 text-[13.5px]">
           <a href="/signup" className="underline">
@@ -35,6 +35,29 @@ export default function DesignCheckPage() {
           </a>
         </div>
       </div>
+
+      <section className="flex flex-col gap-4">
+        <EyebrowLabel size="sm">Colors</EyebrowLabel>
+        <div className="flex flex-wrap gap-4">
+          {(
+            [
+              ["bg", "bg-bg", "border border-line"],
+              ["card", "bg-card", "border border-line"],
+              ["ink", "bg-ink", ""],
+              ["coral", "bg-coral", ""],
+              ["teal", "bg-teal", ""],
+              ["gold", "bg-gold", ""],
+              ["green", "bg-green", ""],
+              ["amber", "bg-amber", ""],
+            ] as const
+          ).map(([name, bgClass, extra]) => (
+            <div key={name} className="flex flex-col items-center gap-1.5">
+              <div className={`h-14 w-14 rounded-full ${bgClass} ${extra}`} />
+              <span className="text-[11px] text-ink-soft">{name}</span>
+            </div>
+          ))}
+        </div>
+      </section>
 
       <section className="flex flex-col gap-4">
         <EyebrowLabel size="sm">Buttons — marketing scale</EyebrowLabel>
@@ -55,15 +78,17 @@ export default function DesignCheckPage() {
       </section>
 
       <section className="flex flex-col gap-4">
-        <EyebrowLabel size="sm">Match tiers</EyebrowLabel>
+        <EyebrowLabel size="sm">
+          Match tiers — Excellent / Good / Fair, each its own color
+        </EyebrowLabel>
         <div className="flex flex-wrap items-center gap-8">
           <MatchTierBadge score={92} variant="display" />
-          <MatchTierBadge score={78} variant="display" />
+          <MatchTierBadge score={72} variant="display" />
           <MatchTierBadge score={63} variant="display" />
         </div>
         <div className="flex flex-wrap items-center gap-6">
           <MatchTierBadge score={92} />
-          <MatchTierBadge score={78} />
+          <MatchTierBadge score={72} />
           <MatchTierBadge score={63} />
         </div>
       </section>
@@ -106,20 +131,21 @@ export default function DesignCheckPage() {
       </section>
 
       <section className="flex flex-col gap-4">
-        <EyebrowLabel size="sm">Bordered card + one shadow instance</EyebrowLabel>
+        <EyebrowLabel size="sm">Cards</EyebrowLabel>
         <div className="flex flex-wrap gap-6">
-          <BorderedCard className="w-72 p-5">
+          <Card className="w-72 p-5">
             <EyebrowLabel size="sm">Sample card</EyebrowLabel>
             <p className="mt-2 text-[14px] text-ink-soft">
-              Plain bordered card, no shadow.
+              Every card gets a rounded corner and this soft shadow by default — the
+              opposite of Editorial, which reserved a shadow for exactly one element.
             </p>
-          </BorderedCard>
-          <BorderedCard shadow className="w-72 p-5">
-            <EyebrowLabel size="sm">Hero input box</EyebrowLabel>
+          </Card>
+          <Card shadow={false} className="w-72 p-5 border border-line">
+            <EyebrowLabel size="sm">Flat card</EyebrowLabel>
             <p className="mt-2 text-[14px] text-ink-soft">
-              The only element in the system with a shadow.
+              shadow=false, for a card nested inside another shadowed surface.
             </p>
-          </BorderedCard>
+          </Card>
         </div>
       </section>
     </Container>

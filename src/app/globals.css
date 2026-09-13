@@ -1,41 +1,98 @@
 @import "tailwindcss";
 
 /*
- * Talentrah "Editorial" design tokens.
- * Source of truth: talentrah-editorial-design-handoff.md + Main-Editorial.dc.html /
- * JobFeed-Editorial.dc.html. Copy exact values from those files — do not re-derive.
+ * Talentrah "Sunbird" design tokens.
+ * Source of truth: talentrah-sunbird-design-handoff.md + Main-Sunbird.dc.html /
+ * JobFeed-Sunbird.dc.html. Copy exact values from those files — do not re-derive.
  */
 :root {
-  --paper: oklch(97% 0.014 85);
-  --paper-alt: oklch(94.5% 0.018 80);
-  --ink: oklch(20% 0.018 50);
-  --ink-soft: oklch(38% 0.02 50);
-  --ink-line: oklch(30% 0.02 50);
-  --rust: oklch(52% 0.14 40);
-  --rust-hover: oklch(45% 0.14 40);
-  --rust-soft: oklch(91% 0.03 40);
-  --line: oklch(78% 0.02 60);
-  --green: oklch(48% 0.1 152);
-  --amber: oklch(52% 0.12 70);
-  --card: oklch(99% 0.006 85);
+  --bg: oklch(98% 0.015 55);
+  --card: oklch(100% 0.005 55);
+  --ink: oklch(22% 0.02 30);
+  --ink-soft: oklch(42% 0.02 30);
+  --ink-faint: oklch(58% 0.015 40);
+  --coral: oklch(63% 0.19 35);
+  --coral-hover: oklch(55% 0.19 35);
+  --teal: oklch(55% 0.11 195);
+  --teal-soft: oklch(92% 0.03 195);
+  --gold: oklch(78% 0.14 85);
+  --green: oklch(55% 0.13 150);
+  --green-soft: oklch(92% 0.04 150);
+  --line: oklch(89% 0.015 55);
+
+  /*
+   * Match-tier system — exactly three tiers, each its own color, no two
+   * sharing one. The Sunbird artboards themselves got this wrong (see
+   * talentrah-sunbird-design-handoff.md's own note): the Feed artboard's Fair
+   * badge (64%) used an undefined inline oklch pair instead of a real token,
+   * and the Detail artboard's 72% "Good match" was colored with --green, the
+   * same token an 81%/77% Excellent score uses on the Feed page — a Good
+   * score rendering visually identical to an Excellent one. Fixed here, not
+   * carried into production.
+   *
+   * Good deliberately does NOT reuse --coral, unlike Editorial's equivalent
+   * "Good reuses the primary brand accent" precedent (Good → --rust there).
+   * --coral is Sunbird's own CTA/action color, rendered directly next to
+   * match badges on the same card ("Apply on company site" sits beside the
+   * score badge on the detail page) — a coral Good-tier badge would blur
+   * "this is clickable" with "this is a score" in exactly the spot that
+   * matters most. --teal already carries a calm, informational register on
+   * these pages (the Farah panel, the skill-tag pills) rather than an
+   * actionable one, so it takes over Good's role instead.
+   */
+  --amber: oklch(45% 0.1 70);
+  --amber-soft: oklch(93% 0.03 85);
+
+  /*
+   * Three tokens the Sunbird artboards don't define at all, because neither
+   * SunbirdFeed.dc.html nor SunbirdDetail.dc.html needed them — but the app
+   * has real, structural uses for the roles Editorial's equivalents played,
+   * so removing them outright would leave those call sites with nothing.
+   * Each is derived using the same lightness/chroma relationship its
+   * Editorial equivalent had to its own base color, just recomputed at
+   * Sunbird's hues — not invented from scratch, and not blindly copied from
+   * a system these values don't belong to either:
+   *
+   *   --bg-alt      Editorial's --paper-alt (alternating section background,
+   *                 CLAUDE.md's own layout rhythm rule, direction-agnostic)
+   *                 was --paper stepped -2.5% lightness / +0.004 chroma /
+   *                 -5 hue. Same steps against Sunbird's --bg.
+   *   --coral-soft  Editorial's --rust-soft (tinted backgrounds, highlighted
+   *                 text backgrounds — ~63 call sites) was --coral stepped to
+   *                 91% lightness / 0.03 chroma at the same hue. Same steps
+   *                 against --coral, at --coral's own hue.
+   *   --ink-line    Editorial's --ink-line (footer dividers ON a dark --ink
+   *                 background) was --ink stepped +10% lightness at the same
+   *                 hue. Same step against --ink's own hue (30, not
+   *                 Editorial's 50).
+   */
+  --bg-alt: oklch(95.5% 0.019 50);
+  --coral-soft: oklch(93% 0.04 35);
+  --ink-line: oklch(32% 0.02 30);
 }
 
 @theme inline {
-  --color-paper: var(--paper);
-  --color-paper-alt: var(--paper-alt);
+  --color-bg: var(--bg);
+  --color-bg-alt: var(--bg-alt);
+  --color-card: var(--card);
   --color-ink: var(--ink);
   --color-ink-soft: var(--ink-soft);
+  --color-ink-faint: var(--ink-faint);
   --color-ink-line: var(--ink-line);
-  --color-rust: var(--rust);
-  --color-rust-hover: var(--rust-hover);
-  --color-rust-soft: var(--rust-soft);
-  --color-line: var(--line);
+  --color-coral: var(--coral);
+  --color-coral-hover: var(--coral-hover);
+  --color-coral-soft: var(--coral-soft);
+  --color-teal: var(--teal);
+  --color-teal-soft: var(--teal-soft);
+  --color-gold: var(--gold);
   --color-green: var(--green);
+  --color-green-soft: var(--green-soft);
   --color-amber: var(--amber);
-  --color-card: var(--card);
+  --color-amber-soft: var(--amber-soft);
+  --color-line: var(--line);
 
-  --font-display: var(--font-newsreader), Georgia, "Times New Roman", serif;
-  --font-body: var(--font-source-sans), Georgia, serif;
+  --font-display: var(--font-dm-serif-display), Georgia, "Times New Roman", serif;
+  --font-body: var(--font-dm-sans), Arial, Helvetica, sans-serif;
 
   /*
    * Template library PR 2 of 3 — the four extra typefaces the resume-builder
@@ -43,9 +100,11 @@
    * fonts.ts). Aliased the same way as --font-display/--font-body above: the
    * raw next/font CSS variable is only ever in scope on the skeleton subtree
    * that actually uses it (see fontScopeClassName in token-classes.ts), so
-   * these fall back to a system font stack rather than Newsreader/Source Sans
-   * when that variable isn't present — never silently rendering as the app's
-   * own fonts instead of the chosen typeface.
+   * these fall back to a system font stack rather than DM Serif Display/DM
+   * Sans when that variable isn't present — never silently rendering as the
+   * app's own fonts instead of the chosen typeface. Untouched by the
+   * Editorial→Sunbird swap: these are template choices for user-facing
+   * resumes, unrelated to the app's own chrome.
    */
   --font-geometric: var(--font-poppins), Arial, Helvetica, sans-serif;
   --font-humanist: var(--font-worksans), Arial, Helvetica, sans-serif;
@@ -54,10 +113,10 @@
 }
 
 /*
- * @layer base so these lose to utility classes like text-paper — plain
+ * @layer base so these lose to utility classes like text-bg — plain
  * (unlayered) rules after @import "tailwindcss" would otherwise beat
  * Tailwind's utility layer in the cascade and silently override things like
- * `<h1 className="text-paper">` back to --ink. Bit us once already; keep
+ * `<h1 className="text-bg">` back to --ink. Bit us once already; keep
  * every bare-selector default in here, not loose in this file.
  */
 @layer base {
@@ -66,17 +125,23 @@
   }
 
   body {
-    background: var(--paper);
+    background: var(--bg);
     color: var(--ink);
     font-family: var(--font-body);
     -webkit-font-smoothing: antialiased;
   }
 
+  /*
+   * DM Serif Display ships one weight (400, normal + italic) — there is no
+   * 500/600 cut to ask for, unlike Newsreader. Editorial's card-h3 rule that
+   * stepped up to 600 has no Sunbird equivalent for the same reason: every
+   * `.display` heading in both artboards renders at this font's one weight.
+   */
   h1,
   h2,
   h3 {
     font-family: var(--font-display);
-    font-weight: 500;
+    font-weight: 400;
     color: var(--ink);
     text-wrap: pretty;
     margin: 0;
@@ -87,14 +152,16 @@
     line-height: 1.65;
   }
 
+  /* No underline by default — both artboards' own `a{text-decoration:none}`.
+   * Components that need one still add it explicitly via a Tailwind
+   * utility, same as before. */
   a {
-    color: var(--rust);
-    text-decoration: underline;
-    text-underline-offset: 3px;
+    color: var(--coral);
+    text-decoration: none;
   }
 
   a:hover {
-    color: var(--ink);
+    color: var(--coral-hover);
   }
 
   button {

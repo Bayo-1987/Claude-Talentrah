@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BorderedCard } from "@/components/ui";
+import { Card } from "@/components/ui";
 import { DEGREE_LEVEL_LABEL, FUNDING_TYPE_LABEL } from "@/lib/scholarships/types";
 import { daysUntil, formatDeadline } from "./scholarship-card";
 import type { Tables } from "@/lib/supabase/types";
@@ -21,7 +21,7 @@ export function PublicScholarshipRow({ scholarship }: { scholarship: Tables<"sch
   const urgent = left !== null && left >= 0 && left <= 14;
 
   return (
-    <BorderedCard className="flex flex-col gap-2.5 p-5">
+    <Card className="flex flex-col gap-2.5 p-5">
       <div>
         <span className="font-body text-[12px] font-semibold uppercase tracking-[0.08em] text-ink-soft">
           {scholarship.provider}
@@ -29,7 +29,7 @@ export function PublicScholarshipRow({ scholarship }: { scholarship: Tables<"sch
         <h3 className="text-[17px]">
           <Link
             href={`/scholarships/${scholarship.id}`}
-            className="text-ink no-underline hover:text-rust hover:underline"
+            className="text-ink no-underline hover:text-coral hover:underline"
           >
             {scholarship.program_name}
           </Link>
@@ -55,12 +55,12 @@ export function PublicScholarshipRow({ scholarship }: { scholarship: Tables<"sch
 
       <span className="text-[13px] text-ink-soft">
         <span className="font-semibold">Deadline:</span>{" "}
-        <span className={urgent ? "font-semibold text-rust" : undefined}>
+        <span className={urgent ? "font-semibold text-coral" : undefined}>
           {scholarship.application_deadline
             ? formatDeadline(scholarship.application_deadline)
             : (scholarship.deadline_note ?? "Not published yet")}
         </span>
       </span>
-    </BorderedCard>
+    </Card>
   );
 }

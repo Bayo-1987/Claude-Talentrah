@@ -196,7 +196,7 @@ export function NotesForm({ applicationId, notes, updatedAt }: NotesFormProps) {
       {result?.status === "error" && mode === "editing" && (
         <p
           data-testid="notes-error-banner"
-          className="mb-2.5 border-[1.5px] border-rust bg-rust-soft px-3 py-1.5 text-[12.5px] text-rust"
+          className="mb-2.5 border-[1.5px] border-coral bg-coral-soft px-3 py-1.5 text-[12.5px] text-coral"
         >
           {result.error}
         </p>
@@ -213,7 +213,7 @@ export function NotesForm({ applicationId, notes, updatedAt }: NotesFormProps) {
           type="button"
           onClick={startEditing}
           data-testid="notes-add"
-          className="inline-flex min-h-10 items-center gap-1.5 font-body text-[12.5px] font-semibold text-rust underline underline-offset-2"
+          className="inline-flex min-h-10 items-center gap-1.5 font-body text-[12.5px] font-semibold text-coral underline underline-offset-2"
         >
           + Add a note
         </button>
@@ -238,7 +238,7 @@ export function NotesForm({ applicationId, notes, updatedAt }: NotesFormProps) {
             type="button"
             onClick={startEditing}
             data-testid="notes-edit"
-            className="inline-flex min-h-10 min-w-10 flex-shrink-0 items-center justify-center font-body text-[12px] font-semibold text-ink-soft underline underline-offset-2 hover:text-rust"
+            className="inline-flex min-h-10 min-w-10 flex-shrink-0 items-center justify-center font-body text-[12px] font-semibold text-ink-soft underline underline-offset-2 hover:text-coral"
           >
             Edit
           </button>
@@ -263,14 +263,14 @@ export function NotesForm({ applicationId, notes, updatedAt }: NotesFormProps) {
             placeholder="Interview dates, contacts, next steps…"
             rows={2}
             data-testid="notes-textarea"
-            className="min-h-[60px] w-full flex-1 resize-y overflow-hidden border-[1.5px] border-rust bg-card px-3 py-2 font-body text-[13px] text-ink outline-none"
+            className="min-h-[60px] w-full flex-1 resize-y overflow-hidden border-[1.5px] border-coral bg-card px-3 py-2 font-body text-[13px] text-ink outline-none"
           />
           <div className="flex flex-shrink-0 flex-col gap-1.5">
             <button
               type="submit"
               disabled={pending}
               data-testid="notes-save"
-              className="inline-flex min-h-10 items-center justify-center bg-ink px-3 font-body text-[12px] font-semibold text-paper hover:bg-rust disabled:opacity-60"
+              className="inline-flex min-h-10 items-center justify-center bg-ink px-3 font-body text-[12px] font-semibold text-bg hover:bg-coral disabled:opacity-60"
             >
               {pending ? "Saving…" : "Save"}
             </button>
@@ -278,7 +278,7 @@ export function NotesForm({ applicationId, notes, updatedAt }: NotesFormProps) {
               type="button"
               onClick={cancelEditing}
               data-testid="notes-cancel"
-              className="inline-flex min-h-10 items-center justify-center font-body text-[11.5px] text-ink-soft underline underline-offset-2 hover:text-rust"
+              className="inline-flex min-h-10 items-center justify-center font-body text-[11.5px] text-ink-soft underline underline-offset-2 hover:text-coral"
             >
               Cancel
             </button>

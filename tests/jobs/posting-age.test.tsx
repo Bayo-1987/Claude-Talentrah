@@ -130,13 +130,14 @@ describe("the card actually renders it", () => {
     expect(html).not.toContain("re-verified");
   });
 
-  it("sets the line in --ink-soft, not --rust", () => {
-    // The reference mock used --rust for this kind of aside. Rust is the
-    // "Good" match tier's colour, and CLAUDE.md forbids a fourth tier — a
-    // coloured line beside a tier badge is how one arrives unintentionally.
+  it("sets the line in --ink-soft, not a tier color", () => {
+    // --teal is the "Good" match tier's colour (match-tier.ts), and
+    // CLAUDE.md forbids a fourth tier — a coloured line beside a tier badge
+    // is how one arrives unintentionally.
     const html = card();
     const line = html.match(/<span[^>]*>Posted[^<]*<\/span>/)?.[0] ?? "";
     expect(line).toContain("text-ink-soft");
-    expect(line).not.toContain("rust");
+    expect(line).not.toContain("teal");
+    expect(line).not.toContain("coral");
   });
 });

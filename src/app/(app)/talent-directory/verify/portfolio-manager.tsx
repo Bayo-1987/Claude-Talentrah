@@ -26,7 +26,7 @@ export function PortfolioManager({ items }: { items: PortfolioItem[] }) {
                 <p className="font-body text-[13.5px] font-semibold text-ink">{item.title}</p>
                 {item.description && <p className="text-[13px] text-ink-soft">{item.description}</p>}
                 {item.url && (
-                  <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-[12.5px] text-rust">
+                  <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-[12.5px] text-coral">
                     {item.url}
                   </a>
                 )}
@@ -35,7 +35,7 @@ export function PortfolioManager({ items }: { items: PortfolioItem[] }) {
                 type="button"
                 disabled={deleting}
                 onClick={() => startDelete(() => deletePortfolioItemAction(item.id))}
-                className="font-body text-[12.5px] font-semibold text-rust"
+                className="font-body text-[12.5px] font-semibold text-coral"
               >
                 Remove
               </button>
@@ -49,7 +49,7 @@ export function PortfolioManager({ items }: { items: PortfolioItem[] }) {
         <TextField label="Link (optional)" name="url" type="url" placeholder="https://..." />
         <TextField label="Description (optional)" name="description" placeholder="One or two sentences" />
         {state.message && (
-          <p className={`text-[12.5px] ${state.status === "error" ? "text-rust" : "text-green"}`}>{state.message}</p>
+          <p className={`text-[12.5px] ${state.status === "error" ? "text-coral" : "text-green"}`}>{state.message}</p>
         )}
         <Button type="submit" variant="secondary" size="sm" disabled={pending}>
           Add work sample

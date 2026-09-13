@@ -40,5 +40,5 @@ export default async function TemplateSkeletonQaPage({
   const config = DEMO_CONFIGS[configKey] ?? CATALOG_TEMPLATE_CONFIGS[configKey];
   if (!config) notFound();
 
-  return <div className="bg-paper">{renderTemplateConfig(config, ATS_TEST_RESUME)}</div>;
+  return <div className="bg-bg">{renderTemplateConfig(config, ATS_TEST_RESUME)}</div>;
 }

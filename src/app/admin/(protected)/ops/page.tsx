@@ -12,7 +12,7 @@ import {
   MAX_INDETERMINATE_RENEWAL_ATTEMPTS,
 } from "@/lib/admin/ops/queries";
 import { QueueHeader } from "@/components/admin/queue-chrome";
-import { Container, EyebrowLabel, BorderedCard } from "@/components/ui";
+import { Container, EyebrowLabel, Card } from "@/components/ui";
 
 export const metadata = {
   title: "Operations — Talentrah admin",
@@ -65,15 +65,15 @@ export default async function OpsPage() {
       <section className="flex flex-col gap-3">
         <EyebrowLabel>Pass renewals awaiting an answer</EyebrowLabel>
         {renewals.length === 0 ? (
-          <BorderedCard className="p-5">
+          <Card className="p-5">
             <p className="font-display text-[15px] italic text-ink-soft">
               None outstanding. Every renewal has a known outcome.
             </p>
-          </BorderedCard>
+          </Card>
         ) : (
           <>
             {exhausted.length > 0 && (
-              <p className="border-[1.5px] border-rust bg-rust-soft px-3.5 py-2.5 text-[14px] text-rust">
+              <p className="border-[1.5px] border-coral bg-coral-soft px-3.5 py-2.5 text-[14px] text-coral">
                 {exhausted.length} {exhausted.length === 1 ? "Pass has" : "Passes have"} used all{" "}
                 {MAX_INDETERMINATE_RENEWAL_ATTEMPTS} attempts. The customer may have been debited
                 and lapsed anyway — Paystack never answered. These do not resolve on their own;
@@ -83,14 +83,14 @@ export default async function OpsPage() {
             <ul className="flex list-none flex-col gap-3 p-0">
               {renewals.map((r) => (
                 <li key={r.id}>
-                  <BorderedCard className="flex flex-col gap-1.5 p-5">
+                  <Card className="flex flex-col gap-1.5 p-5">
                     <div className="flex flex-wrap items-baseline justify-between gap-3">
                       <span className="font-display text-[17px]">
                         {r.userEmail ?? "account deleted"}
                       </span>
                       <span
                         className={
-                          "text-[13px] " + (r.exhausted ? "font-semibold text-rust" : "text-ink-soft")
+                          "text-[13px] " + (r.exhausted ? "font-semibold text-coral" : "text-ink-soft")
                         }
                       >
                         attempt {r.attempts}/{MAX_INDETERMINATE_RENEWAL_ATTEMPTS}
@@ -109,7 +109,7 @@ export default async function OpsPage() {
                       {r.lastFailureAt &&
                         ` · last failure ${new Date(r.lastFailureAt).toLocaleDateString()}`}
                     </p>
-                  </BorderedCard>
+                  </Card>
                 </li>
               ))}
             </ul>
@@ -136,18 +136,18 @@ export default async function OpsPage() {
           the reason this section exists.
         </p>
         {credentialEvents.length === 0 ? (
-          <BorderedCard className="p-5">
+          <Card className="p-5">
             <p className="font-display text-[15px] italic text-ink-soft">
               Nothing on any operator account.
             </p>
-          </BorderedCard>
+          </Card>
         ) : (
           <ul className="flex list-none flex-col gap-2 p-0">
             {credentialEvents.map((e, i) => (
                 <li key={`${e.occurredAt}-${i}`}>
-                  <BorderedCard className="flex flex-wrap items-baseline justify-between gap-3 p-4">
+                  <Card className="flex flex-wrap items-baseline justify-between gap-3 p-4">
                     <span className="text-[14.5px]">
-                      <span className={e.recent ? "font-semibold text-rust" : ""}>
+                      <span className={e.recent ? "font-semibold text-coral" : ""}>
                         {e.action === "user_recovery_requested"
                           ? "Password recovery requested"
                           : e.action === "user_modified"
@@ -160,7 +160,7 @@ export default async function OpsPage() {
                       {new Date(e.occurredAt).toLocaleString()}
                       {e.ip && ` · ${e.ip}`}
                     </span>
-                  </BorderedCard>
+                  </Card>
                 </li>
             ))}
           </ul>
@@ -193,7 +193,7 @@ export default async function OpsPage() {
           these as “when this source last produced something”, not “when the
           cron last fired”.
         </p>
-        <BorderedCard className="overflow-x-auto p-0">
+        <Card className="overflow-x-auto p-0">
           <table className="w-full border-collapse text-[14px]">
             <thead>
               <tr className="border-b border-line text-left">
@@ -218,7 +218,7 @@ export default async function OpsPage() {
                     {f.notIngested ? (
                       <span className="text-ink-soft">not ingested — employers post these</span>
                     ) : f.lastCheckedAt === null ? (
-                      <span className="font-semibold text-rust">never seen</span>
+                      <span className="font-semibold text-coral">never seen</span>
                     ) : (
                       <>
                         {f.hoursSince}h ago
@@ -232,13 +232,13 @@ export default async function OpsPage() {
               ))}
             </tbody>
           </table>
-        </BorderedCard>
+        </Card>
       </section>
 
       {/* ---------------------------------------------------------- */}
       <section className="flex flex-col gap-3">
         <EyebrowLabel>Auto-Apply queue</EyebrowLabel>
-        <BorderedCard className="flex flex-col gap-3 p-5">
+        <Card className="flex flex-col gap-3 p-5">
           <ul className="flex list-none flex-wrap gap-x-8 gap-y-2 p-0 text-[14.5px]">
             {Object.entries(queue.byStatus).length === 0 && (
               <li className="font-display italic text-ink-soft">Queue is empty.</li>
@@ -263,13 +263,13 @@ export default async function OpsPage() {
             “Handed off” is not a failure — Auto-Apply never submits to external postings,
             because there is no ATS integration.
           </p>
-        </BorderedCard>
+        </Card>
       </section>
 
       {/* ---------------------------------------------------------- */}
       <section className="flex flex-col gap-3">
         <EyebrowLabel>Rate limiting, last 24 hours</EyebrowLabel>
-        <BorderedCard className="flex flex-col gap-3 p-5">
+        <Card className="flex flex-col gap-3 p-5">
           {buckets.length === 0 ? (
             <p className="font-display text-[15px] italic text-ink-soft">
               Nothing rate-limited in the last day.
@@ -289,7 +289,7 @@ export default async function OpsPage() {
                     </span>
                     <span
                       className={
-                        b.windowsAtLimit > 0 ? "font-semibold text-rust" : "text-ink-soft"
+                        b.windowsAtLimit > 0 ? "font-semibold text-coral" : "text-ink-soft"
                       }
                     >
                       {/*
@@ -318,7 +318,7 @@ export default async function OpsPage() {
             returns before any charge or record is written, so this table is often the only
             trace one happened.
           </p>
-        </BorderedCard>
+        </Card>
       </section>
       {/* ---------------------------------------------------------- */}
       <section className="flex flex-col gap-3">
@@ -331,7 +331,7 @@ export default async function OpsPage() {
         </p>
 
         {storage.error ? (
-          <BorderedCard className="p-5">
+          <Card className="p-5">
             <p className="text-[14px] text-amber">
               Storage figures could not be read: {storage.error}
             </p>
@@ -340,10 +340,10 @@ export default async function OpsPage() {
               &ldquo;could not ask&rdquo; look identical on a dashboard and mean
               opposite things.
             </p>
-          </BorderedCard>
+          </Card>
         ) : (
           <>
-            <BorderedCard className="flex flex-col gap-1.5 p-5">
+            <Card className="flex flex-col gap-1.5 p-5">
               <div className="flex flex-wrap items-baseline justify-between gap-3">
                 <span className="font-display text-[22px]">
                   {formatBytes(storage.totalBytes)}
@@ -364,19 +364,19 @@ export default async function OpsPage() {
                 Management API token egress does, and a token dependency for one number is not
                 worth it.
               </p>
-            </BorderedCard>
+            </Card>
 
             {storage.buckets.length === 0 ? (
-              <BorderedCard className="p-5">
+              <Card className="p-5">
                 <p className="text-[14px] text-ink-soft">
                   No buckets yet. This is the real state of the project, not a failed read —
                   the first one arrives with job banners.
                 </p>
-              </BorderedCard>
+              </Card>
             ) : (
               <div className="flex flex-col gap-2">
                 {storage.buckets.map((b) => (
-                  <BorderedCard
+                  <Card
                     key={b.bucket}
                     className="flex flex-wrap items-baseline justify-between gap-3 p-4"
                   >
@@ -390,12 +390,12 @@ export default async function OpsPage() {
                       {formatBytes(b.bytes)} · {b.objects} object
                       {b.objects === 1 ? "" : "s"}
                     </span>
-                  </BorderedCard>
+                  </Card>
                 ))}
               </div>
             )}
 
-            <BorderedCard className="flex flex-col gap-1.5 p-5">
+            <Card className="flex flex-col gap-1.5 p-5">
               <span className="text-[14px] font-semibold text-ink-soft">
                 Egress — not available
               </span>
@@ -411,7 +411,7 @@ export default async function OpsPage() {
                 the 2&nbsp;MB banner cap that is roughly 2,500 job-detail views before it bites —
                 far sooner than the {formatBytes(FREE_PLAN_STORAGE_BYTES)} above runs out.
               </p>
-            </BorderedCard>
+            </Card>
           </>
         )}
       </section>

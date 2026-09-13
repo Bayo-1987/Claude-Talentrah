@@ -2,7 +2,7 @@ import Link from "next/link";
 import { requirePermission } from "@/lib/admin/require-admin";
 import { PersonLookup } from "@/components/admin/person-lookup";
 import { QueueHeader } from "@/components/admin/queue-chrome";
-import { Container, BorderedCard } from "@/components/ui";
+import { Container, Card } from "@/components/ui";
 
 export const metadata = {
   title: "Look up a person — Talentrah admin",
@@ -36,13 +36,13 @@ export default async function PersonLookupPage() {
         adminLabel={admin.displayName || admin.email}
       />
 
-      <BorderedCard className="border-ink bg-rust-soft p-4">
+      <Card className="border-ink bg-coral-soft p-4">
         <p className="text-[14px] text-ink">
           <strong>Opening a record is recorded.</strong> A successful lookup writes{" "}
           <code className="text-[13px]">person.viewed</code> to the admin audit log against your
           account and the person&apos;s id. Searches that match nobody are not recorded.
         </p>
-      </BorderedCard>
+      </Card>
 
       <PersonLookup />
 

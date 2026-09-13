@@ -27,7 +27,7 @@ export function LegalPage({ eyebrow, title, lastUpdated, children }: LegalPagePr
             <h1 className="text-[34px] leading-[1.2]">{title}</h1>
             <p className="text-[13.5px] text-ink-soft">Last updated {lastUpdated}</p>
           </div>
-          <div className="flex flex-col gap-6 text-[15px] leading-[1.7] text-ink-soft [&_a]:text-rust [&_a]:underline [&_a]:underline-offset-2 [&_h2]:mt-2 [&_h2]:text-[20px] [&_h2]:text-ink [&_li]:ml-5 [&_li]:list-disc [&_strong]:text-ink [&_ul]:flex [&_ul]:flex-col [&_ul]:gap-1.5">
+          <div className="flex flex-col gap-6 text-[15px] leading-[1.7] text-ink-soft [&_a]:text-coral [&_a]:underline [&_a]:underline-offset-2 [&_h2]:mt-2 [&_h2]:text-[20px] [&_h2]:text-ink [&_li]:ml-5 [&_li]:list-disc [&_strong]:text-ink [&_ul]:flex [&_ul]:flex-col [&_ul]:gap-1.5">
             {children}
           </div>
         </Container>

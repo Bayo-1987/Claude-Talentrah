@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Button, BorderedCard } from "@/components/ui";
+import { Button, Card } from "@/components/ui";
 import { unlockTemplateAction } from "@/lib/resume-builder/actions";
 import { TemplateThumbnail } from "@/components/resume-builder/template-thumbnail";
 import type { Tables } from "@/lib/supabase/types";
@@ -44,7 +44,7 @@ export function TemplateCard({
   }
 
   return (
-    <BorderedCard className="flex flex-col gap-3 p-5">
+    <Card className="flex flex-col gap-3 p-5">
       {/*
         The card was name, category, lock icon and a button — nothing showing
         what you were choosing between. A template gallery whose cards are
@@ -63,7 +63,7 @@ export function TemplateCard({
           rather than borrowing rust or amber.
         */}
         {locked && (
-          <span className="absolute top-2 right-2 bg-ink px-2.5 py-1 font-body text-[11px] font-bold tracking-[0.1em] text-paper uppercase">
+          <span className="absolute top-2 right-2 bg-ink px-2.5 py-1 font-body text-[11px] font-bold tracking-[0.1em] text-bg uppercase">
             Premium · {template.unlock_cost_credits} credits
           </span>
         )}
@@ -97,7 +97,7 @@ export function TemplateCard({
           <Button size="sm" variant="secondary" onClick={handleUnlock} disabled={pending}>
             {pending ? "Unlocking…" : `Unlock for ${template.unlock_cost_credits} credits`}
           </Button>
-          {error && <p className="text-[12.5px] text-rust">{error}</p>}
+          {error && <p className="text-[12.5px] text-coral">{error}</p>}
         </div>
       ) : (
         // Goes to the start-state chooser (Stage 3.1) rather than creating
@@ -111,6 +111,6 @@ export function TemplateCard({
           </Button>
         </Link>
       )}
-    </BorderedCard>
+    </Card>
   );
 }

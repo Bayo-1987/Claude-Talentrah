@@ -1,5 +1,5 @@
 import { requireUser } from "@/lib/auth/require-user";
-import { EyebrowLabel, BorderedCard } from "@/components/ui";
+import { EyebrowLabel, Card } from "@/components/ui";
 import { FeedbackForm } from "./feedback-form";
 import { feedbackSchema } from "@/lib/feedback/schemas";
 
@@ -61,7 +61,7 @@ export default async function FeedbackPage({
               href={whatsappHref}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 font-semibold text-rust underline underline-offset-2 hover:text-rust-hover"
+              className="inline-flex items-center gap-1.5 font-semibold text-coral underline underline-offset-2 hover:text-coral-hover"
             >
               <svg width="15" height="15" viewBox="0 0 20 20" fill="none" aria-hidden="true">
                 <path
@@ -79,9 +79,9 @@ export default async function FeedbackPage({
         )}
       </div>
 
-      <BorderedCard className="max-w-[620px] p-6">
+      <Card className="max-w-[620px] p-6">
         <FeedbackForm pagePath={pagePath} />
-      </BorderedCard>
+      </Card>
 
       {/*
         Said plainly rather than implied by an empty page: nothing here shows

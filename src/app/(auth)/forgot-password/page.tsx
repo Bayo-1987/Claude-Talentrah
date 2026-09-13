@@ -40,7 +40,7 @@ export default async function ForgotPasswordPage({
         Matches the way /login surfaces its own callback failures.
       */}
       {error === "link_expired" && (
-        <p className="border-[1.5px] border-rust bg-rust-soft px-3.5 py-2.5 text-[13.5px] text-rust">
+        <p className="border-[1.5px] border-coral bg-coral-soft px-3.5 py-2.5 text-[13.5px] text-coral">
           That reset link has expired or was already used. Enter your email to
           get a new one.
         </p>

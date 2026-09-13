@@ -17,7 +17,7 @@ const PROBLEMS = [
 
 export function ProblemSection() {
   return (
-    <div id="problem" className="border-y border-line bg-paper-alt py-22">
+    <div id="problem" className="border-y border-line bg-bg-alt py-22">
       <div className="mx-auto max-w-[1120px] px-10">
         <div className="mb-14 flex max-w-[640px] flex-col gap-4">
           <EyebrowLabel>The problem</EyebrowLabel>
@@ -37,7 +37,7 @@ export function ProblemSection() {
               key={problem.number}
               className="flex flex-col gap-2 border-t-[2.5px] border-ink pt-4.5"
             >
-              <span className="font-display text-[22px] italic text-rust">{problem.number}</span>
+              <span className="font-display text-[22px] italic text-coral">{problem.number}</span>
               <p className="text-[15px] text-ink-soft">{problem.copy}</p>
             </div>
           ))}

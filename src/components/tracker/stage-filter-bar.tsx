@@ -35,7 +35,7 @@ export function StageFilterBar({ stage, sort }: StageFilterBarProps) {
                *
                * `cn` in this repo is a plain join, not tailwind-merge, so a base
                * `border-transparent text-ink-soft` and a conditional
-               * `border-rust text-ink` BOTH reach the class attribute. Equal
+               * `border-coral text-ink` BOTH reach the class attribute. Equal
                * specificity means the stylesheet's own order decides, and the
                * base wins both times: measured `borderBottomColor rgba(0,0,0,0)`
                * and `color` still ink-soft on the ACTIVE tab. The active state
@@ -43,7 +43,7 @@ export function StageFilterBar({ stage, sort }: StageFilterBarProps) {
                */
               "flex min-h-10 items-center border-b-[2.5px] px-2 font-body text-[13.5px] font-bold no-underline",
               stage === s.key
-                ? "border-rust text-ink"
+                ? "border-coral text-ink"
                 : "border-transparent text-ink-soft",
             )}
           >
@@ -53,7 +53,7 @@ export function StageFilterBar({ stage, sort }: StageFilterBarProps) {
       </div>
       <Link
         href={stage === "all" ? `/tracker?sort=${nextSort}` : `/tracker?stage=${stage}&sort=${nextSort}`}
-        className="text-[12.5px] font-semibold text-ink-soft underline underline-offset-2 hover:text-rust"
+        className="text-[12.5px] font-semibold text-ink-soft underline underline-offset-2 hover:text-coral"
       >
         Sort: {sort === "newest" ? "Newest first" : "Oldest first"}
       </Link>

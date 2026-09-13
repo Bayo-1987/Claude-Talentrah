@@ -69,16 +69,22 @@ test.describe("the first-visit Farah hint", () => {
 
     /*
      * Expected sentence per width, keyed to the same breakpoints the
-     * affordances use — 760 for the mobile bar, 2xl (1536) for the nav item.
-     * `innerText` returns only VISIBLE text, so finding one variant is also
-     * proof the other two are hidden rather than merely present.
+     * affordances use — 760 for the mobile bar, `min-[1792px]` for the nav
+     * item. `innerText` returns only VISIBLE text, so finding one variant is
+     * also proof the other two are hidden rather than merely present.
+     *
+     * 1536 and 1728 used to be past the nav item's breakpoint (`2xl`) and
+     * expected the menu-bar sentence; the Sunbird font swap moved that
+     * breakpoint to 1792 (masthead.tsx has the measurement), so both widths
+     * now sit in the "panel" band and 1792 is the new boundary case.
      */
     const cases = [
       { width: 390, expect: "at the bottom of the screen", not: ["in the menu bar"] },
       { width: 1024, expect: "stays there as you scroll", not: ["at the bottom of the screen"] },
       { width: 1280, expect: "stays there as you scroll", not: ["in the menu bar"] },
-      { width: 1536, expect: "in the menu bar", not: ["stays there as you scroll"] },
-      { width: 1728, expect: "in the menu bar", not: ["at the bottom of the screen"] },
+      { width: 1536, expect: "stays there as you scroll", not: ["in the menu bar"] },
+      { width: 1728, expect: "stays there as you scroll", not: ["in the menu bar"] },
+      { width: 1792, expect: "in the menu bar", not: ["stays there as you scroll"] },
     ];
 
     for (const c of cases) {

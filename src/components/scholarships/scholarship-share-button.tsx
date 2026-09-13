@@ -89,7 +89,7 @@ export function ScholarshipShareButton({
           role="dialog"
           aria-label={`Share ${programName}`}
         >
-          <span className="mb-[10px] block text-[10.5px] font-bold tracking-[0.1em] text-rust uppercase">
+          <span className="mb-[10px] block text-[10.5px] font-bold tracking-[0.1em] text-coral uppercase">
             Share this scholarship
           </span>
           <ShareButtons

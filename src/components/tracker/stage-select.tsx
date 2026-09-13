@@ -56,7 +56,7 @@ export function StageSelect({
           formRef.current?.requestSubmit();
         }}
         className={cn(
-          "min-h-10 border-[1.5px] border-ink bg-card px-2.5 py-1.5 font-body text-[13px] font-semibold text-ink outline-none focus:border-rust",
+          "min-h-10 border-[1.5px] border-ink bg-card px-2.5 py-1.5 font-body text-[13px] font-semibold text-ink outline-none focus:border-coral",
           stage === "hired" && "border-green text-green",
         )}
       >

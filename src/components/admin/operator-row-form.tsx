@@ -107,7 +107,7 @@ export function OperatorRowForm({
           className={
             "border-[1.5px] px-3.5 py-2.5 text-[13.5px] " +
             (state.status === "error"
-              ? "border-rust bg-rust-soft text-rust"
+              ? "border-coral bg-coral-soft text-coral"
               : "border-ink bg-card text-ink")
           }
         >

@@ -3,7 +3,7 @@
  *
  * `italic` used to sit unscoped on the input's own class, so it applied to
  * whatever the user actually typed, not just the empty-state placeholder.
- * CLAUDE.md: "Italic Newsreader = quiet/secondary asides (placeholders,
+ * CLAUDE.md: "Italic display font = quiet/secondary asides (placeholders,
  * captions, taglines)" — a real, active search term is none of those.
  */
 import { describe, expect, it } from "vitest";

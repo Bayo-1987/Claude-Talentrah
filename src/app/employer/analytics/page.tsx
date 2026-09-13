@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireEmployer } from "@/lib/employer/membership";
 import { listCampaigns, getCampaignAnalytics } from "@/lib/employer/campaign-queries";
-import { BorderedCard, EyebrowLabel } from "@/components/ui";
+import { Card, EyebrowLabel } from "@/components/ui";
 import { CampaignStatusBadge, type CampaignStatus } from "@/components/employer/campaign-controls";
 import { ctrLabel } from "@/lib/ads/analytics-format";
 
@@ -56,7 +56,7 @@ export default async function EmployerAnalyticsPage() {
       {campaigns.length === 0 ? (
         <p className="mt-6 font-body text-[14.5px] text-ink-soft">
           No campaigns yet —{" "}
-          <Link href="/employer/campaigns/new" className="text-ink underline hover:text-rust">
+          <Link href="/employer/campaigns/new" className="text-ink underline hover:text-coral">
             create your first one
           </Link>{" "}
           to start seeing impressions, clicks and applies here.
@@ -64,22 +64,22 @@ export default async function EmployerAnalyticsPage() {
       ) : (
         <>
           <div className="mt-6 grid grid-cols-2 gap-4 min-[640px]:grid-cols-4">
-            <BorderedCard className="p-4">
+            <Card className="p-4">
               <EyebrowLabel>Impressions</EyebrowLabel>
               <p className="mt-2 font-display text-[24px] text-ink">{totals.impressions.toLocaleString()}</p>
-            </BorderedCard>
-            <BorderedCard className="p-4">
+            </Card>
+            <Card className="p-4">
               <EyebrowLabel>Clicks</EyebrowLabel>
               <p className="mt-2 font-display text-[24px] text-ink">{totals.clicks.toLocaleString()}</p>
-            </BorderedCard>
-            <BorderedCard className="p-4">
+            </Card>
+            <Card className="p-4">
               <EyebrowLabel>Applies</EyebrowLabel>
               <p className="mt-2 font-display text-[24px] text-ink">{totals.applies.toLocaleString()}</p>
-            </BorderedCard>
-            <BorderedCard className="p-4">
+            </Card>
+            <Card className="p-4">
               <EyebrowLabel>Spent to date</EyebrowLabel>
               <p className="mt-2 font-display text-[24px] text-ink">{naira(totals.spent)}</p>
-            </BorderedCard>
+            </Card>
           </div>
 
           <div className="mt-8 flex flex-col divide-y divide-line border-y border-line">
@@ -104,7 +104,7 @@ export default async function EmployerAnalyticsPage() {
                   <span>{ctrLabel(analytics.clicks, analytics.impressions)} CTR</span>
                   <Link
                     href={`/employer/campaigns/${campaign.id}/analytics`}
-                    className="font-semibold text-ink underline underline-offset-2 hover:text-rust"
+                    className="font-semibold text-ink underline underline-offset-2 hover:text-coral"
                   >
                     Details
                   </Link>

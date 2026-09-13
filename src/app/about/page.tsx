@@ -71,7 +71,7 @@ export default function AboutPage() {
               Talentrah isn&apos;t only a seeker-facing product. Self-serve job
               posting and advertising are in development; today, the way in is
               to talk to us directly about a role. See{" "}
-              <a href="/contact" className="text-rust underline underline-offset-2">
+              <a href="/contact" className="text-coral underline underline-offset-2">
                 Business Services
               </a>{" "}
               for more.

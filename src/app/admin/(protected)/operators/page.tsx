@@ -4,7 +4,7 @@ import { OperatorRowForm } from "@/components/admin/operator-row-form";
 import { InviteOperatorForm } from "@/components/admin/invite-operator-form";
 import { RoleEditor } from "@/components/admin/role-editor";
 import { QueueHeader } from "@/components/admin/queue-chrome";
-import { Container, EyebrowLabel, BorderedCard } from "@/components/ui";
+import { Container, EyebrowLabel, Card } from "@/components/ui";
 
 /**
  * Labels for the permission keys. The KEYS come from the database.
@@ -85,7 +85,7 @@ export default async function OperatorsPage() {
         adminLabel={admin.displayName || admin.email}
       />
 
-      <BorderedCard className="flex flex-col gap-2 p-5">
+      <Card className="flex flex-col gap-2 p-5">
         <EyebrowLabel>Status</EyebrowLabel>
         <p className="text-[15px]">
           {active} active of {operators.length} · {roles.length} role
@@ -103,14 +103,14 @@ export default async function OperatorsPage() {
             Operators first.
           </p>
         )}
-      </BorderedCard>
+      </Card>
 
       {/* ── invite ────────────────────────────────────────────────── */}
       <section className="flex flex-col gap-3">
         <EyebrowLabel>Invite an operator</EyebrowLabel>
-        <BorderedCard className="p-5">
+        <Card className="p-5">
           <InviteOperatorForm roles={roles.map((r) => ({ id: r.id, name: r.name }))} />
-        </BorderedCard>
+        </Card>
       </section>
 
       {/* ── roles ─────────────────────────────────────────────────── */}
@@ -124,7 +124,7 @@ export default async function OperatorsPage() {
         <ul className="flex list-none flex-col gap-4 p-0">
           {roles.map((r) => (
             <li key={r.id}>
-              <BorderedCard className="p-5">
+              <Card className="p-5">
                 <RoleEditor
                   role={{
                     id: r.id,
@@ -134,13 +134,13 @@ export default async function OperatorsPage() {
                   }}
                   allPermissions={permissionOptions}
                 />
-              </BorderedCard>
+              </Card>
             </li>
           ))}
           <li>
-            <BorderedCard className="p-5">
+            <Card className="p-5">
               <RoleEditor role={null} allPermissions={permissionOptions} />
-            </BorderedCard>
+            </Card>
           </li>
         </ul>
       </section>
@@ -150,7 +150,7 @@ export default async function OperatorsPage() {
       <ul className="flex list-none flex-col gap-4 p-0">
         {operators.map((o) => (
           <li key={o.id}>
-            <BorderedCard className="flex flex-col gap-4 p-5">
+            <Card className="flex flex-col gap-4 p-5">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="flex flex-col gap-1.5">
                   <EyebrowLabel>{o.roleName ?? "No role — no access"}</EyebrowLabel>
@@ -179,7 +179,7 @@ export default async function OperatorsPage() {
                 disabled={o.disabledAt !== null}
                 isSelf={o.id === admin.adminId}
               />
-            </BorderedCard>
+            </Card>
           </li>
         ))}
       </ul>

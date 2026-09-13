@@ -76,7 +76,7 @@ export function ShareButtons({
         target="_blank"
         rel="noopener noreferrer"
         onClick={() => onShare?.("whatsapp")}
-        className="inline-flex min-h-11 items-center justify-center border-none bg-ink px-[18px] py-[10px] font-body text-[13.5px] font-semibold text-paper no-underline transition-colors hover:bg-rust"
+        className="inline-flex min-h-11 items-center justify-center border-none bg-ink px-[18px] py-[10px] font-body text-[13.5px] font-semibold text-bg no-underline transition-colors hover:bg-coral"
       >
         Share on WhatsApp
       </a>
@@ -86,7 +86,7 @@ export function ShareButtons({
       <a
         href={emailHref}
         onClick={() => onShare?.("email")}
-        className="inline-flex min-h-11 items-center px-3.5 font-body text-[13.5px] font-semibold text-ink-soft underline underline-offset-2 hover:text-rust"
+        className="inline-flex min-h-11 items-center px-3.5 font-body text-[13.5px] font-semibold text-ink-soft underline underline-offset-2 hover:text-coral"
       >
         Email
       </a>
@@ -98,7 +98,7 @@ export function ShareButtons({
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => onShare?.("social")}
-            className="inline-flex min-h-11 items-center px-3.5 font-body text-[13.5px] font-semibold text-ink-soft underline underline-offset-2 hover:text-rust"
+            className="inline-flex min-h-11 items-center px-3.5 font-body text-[13.5px] font-semibold text-ink-soft underline underline-offset-2 hover:text-coral"
           >
             Share elsewhere
           </a>
@@ -110,7 +110,7 @@ export function ShareButtons({
           target="_blank"
           rel="noopener noreferrer"
           onClick={() => onShare?.("linkedin")}
-          className="inline-flex min-h-11 items-center px-3.5 font-body text-[13.5px] font-semibold text-ink-soft underline underline-offset-2 hover:text-rust"
+          className="inline-flex min-h-11 items-center px-3.5 font-body text-[13.5px] font-semibold text-ink-soft underline underline-offset-2 hover:text-coral"
         >
           Share on LinkedIn
         </a>

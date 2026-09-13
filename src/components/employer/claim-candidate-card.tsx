@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { claimJobPostingAction, type EmployerActionState } from "@/lib/employer/actions";
-import { BorderedCard, Button } from "@/components/ui";
+import { Card, Button } from "@/components/ui";
 import { formatRelativeTime } from "@/lib/format-relative-time";
 import type { ClaimCandidate } from "@/lib/employer/claim";
 
@@ -27,7 +27,7 @@ export function ClaimCandidateCard({ candidate }: { candidate: ClaimCandidate })
   const error = state && "error" in state ? state.error : null;
 
   return (
-    <BorderedCard className="p-5">
+    <Card className="p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2.5">
@@ -66,7 +66,7 @@ export function ClaimCandidateCard({ candidate }: { candidate: ClaimCandidate })
         <form action={formAction} className="mt-5 flex flex-col gap-4 border-t border-line pt-5">
           <input type="hidden" name="externalJobPostingId" value={candidate.id} />
           {error && (
-            <p className="border-[1.5px] border-rust bg-rust-soft px-3.5 py-2.5 text-[13.5px] text-rust">
+            <p className="border-[1.5px] border-coral bg-coral-soft px-3.5 py-2.5 text-[13.5px] text-coral">
               {error}
             </p>
           )}
@@ -79,7 +79,7 @@ export function ClaimCandidateCard({ candidate }: { candidate: ClaimCandidate })
               name="title"
               required
               defaultValue={candidate.title}
-              className="min-h-11 border-[1.5px] border-ink bg-card px-3.5 py-2.5 font-body text-[15px] text-ink outline-none focus:border-rust"
+              className="min-h-11 border-[1.5px] border-ink bg-card px-3.5 py-2.5 font-body text-[15px] text-ink outline-none focus:border-coral"
             />
           </div>
           <div className="flex flex-col gap-1.5">
@@ -93,7 +93,7 @@ export function ClaimCandidateCard({ candidate }: { candidate: ClaimCandidate })
               id={`location-${candidate.id}`}
               name="location"
               defaultValue={candidate.location ?? ""}
-              className="min-h-11 border-[1.5px] border-ink bg-card px-3.5 py-2.5 font-body text-[15px] text-ink outline-none focus:border-rust"
+              className="min-h-11 border-[1.5px] border-ink bg-card px-3.5 py-2.5 font-body text-[15px] text-ink outline-none focus:border-coral"
             />
           </div>
           <div className="flex flex-col gap-1.5">
@@ -109,7 +109,7 @@ export function ClaimCandidateCard({ candidate }: { candidate: ClaimCandidate })
               required
               rows={10}
               placeholder="Paste or write the description for your own posting."
-              className="border-[1.5px] border-ink bg-card px-3.5 py-2.5 font-body text-[15px] leading-[1.65] text-ink outline-none focus:border-rust"
+              className="border-[1.5px] border-ink bg-card px-3.5 py-2.5 font-body text-[15px] leading-[1.65] text-ink outline-none focus:border-coral"
             />
             <p className="font-body text-[12.5px] text-ink-soft">
               This becomes a brand new posting your organisation owns — the original listing wasn&apos;t
@@ -126,6 +126,6 @@ export function ClaimCandidateCard({ candidate }: { candidate: ClaimCandidate })
           </div>
         </form>
       )}
-    </BorderedCard>
+    </Card>
   );
 }

@@ -3,7 +3,7 @@ import { reportedPostings, removedPostings } from "@/lib/admin/moderation/queues
 import { decideJobPostingAction } from "@/lib/admin/moderation/actions";
 import { DecisionForm } from "@/components/admin/decision-form";
 import { QueueEmpty, QueueHeader } from "@/components/admin/queue-chrome";
-import { Container, EyebrowLabel, BorderedCard } from "@/components/ui";
+import { Container, EyebrowLabel, Card } from "@/components/ui";
 
 export const metadata = {
   title: "Reported postings — Talentrah admin",
@@ -57,7 +57,7 @@ export default async function ReportsQueuePage() {
         <ul data-testid="reports-queue" className="flex list-none flex-col gap-5 p-0">
           {queue.map((p) => (
             <li key={p.jobPostingId}>
-              <BorderedCard className="flex flex-col gap-4 p-5">
+              <Card className="flex flex-col gap-4 p-5">
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div className="flex flex-col gap-1.5">
                     <EyebrowLabel>{p.company}</EyebrowLabel>
@@ -139,7 +139,7 @@ export default async function ReportsQueuePage() {
                     { value: "remove", label: "Remove from the board", variant: "primary" },
                   ]}
                 />
-              </BorderedCard>
+              </Card>
             </li>
           ))}
         </ul>
@@ -155,16 +155,16 @@ export default async function ReportsQueuePage() {
           an internal one is the employer&apos;s to reopen.
         </p>
         {removed.length === 0 ? (
-          <BorderedCard className="p-5">
+          <Card className="p-5">
             <p className="font-display text-[15px] italic text-ink-soft">
               Nothing is removed.
             </p>
-          </BorderedCard>
+          </Card>
         ) : (
           <ul data-testid="removed-queue" className="flex list-none flex-col gap-4 p-0">
             {removed.map((p) => (
               <li key={p.jobPostingId}>
-                <BorderedCard className="flex flex-col gap-3 p-5">
+                <Card className="flex flex-col gap-3 p-5">
                   <div className="flex flex-col gap-1.5">
                     <EyebrowLabel>{p.company}</EyebrowLabel>
                     <h3 className="font-display text-[19px] font-semibold leading-snug">
@@ -190,7 +190,7 @@ export default async function ReportsQueuePage() {
                     notePlaceholder="Why is this being restored? Required, and kept in the audit log"
                     options={[{ value: "restore", label: "Restore to closed", variant: "primary" }]}
                   />
-                </BorderedCard>
+                </Card>
               </li>
             ))}
           </ul>

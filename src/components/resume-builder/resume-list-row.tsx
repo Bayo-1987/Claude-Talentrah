@@ -124,13 +124,13 @@ export function ResumeListRow({ id, title, isBase, updatedAt }: ResumeListRowPro
                 defaultValue={savedTitle}
                 maxLength={MAX_RESUME_TITLE_LENGTH}
                 data-testid="resume-rename-input"
-                className="min-h-11 w-full max-w-[320px] border-[1.5px] border-rust bg-card px-3 py-2 font-body text-[14.5px] text-ink outline-none"
+                className="min-h-11 w-full max-w-[320px] border-[1.5px] border-coral bg-card px-3 py-2 font-body text-[14.5px] text-ink outline-none"
               />
               <button
                 type="submit"
                 disabled={renamePending}
                 data-testid="resume-rename-save"
-                className="inline-flex min-h-10 items-center justify-center bg-ink px-3.5 font-body text-[12.5px] font-semibold text-paper hover:bg-rust disabled:opacity-60"
+                className="inline-flex min-h-10 items-center justify-center bg-ink px-3.5 font-body text-[12.5px] font-semibold text-bg hover:bg-coral disabled:opacity-60"
               >
                 {renamePending ? "Saving…" : "Save"}
               </button>
@@ -138,7 +138,7 @@ export function ResumeListRow({ id, title, isBase, updatedAt }: ResumeListRowPro
                 type="button"
                 onClick={() => setMode("read")}
                 data-testid="resume-rename-cancel"
-                className="inline-flex min-h-10 items-center justify-center font-body text-[12px] text-ink-soft underline underline-offset-2 hover:text-rust"
+                className="inline-flex min-h-10 items-center justify-center font-body text-[12px] text-ink-soft underline underline-offset-2 hover:text-coral"
               >
                 Cancel
               </button>
@@ -188,7 +188,7 @@ export function ResumeListRow({ id, title, isBase, updatedAt }: ResumeListRowPro
               type="button"
               onClick={() => setMode("renaming")}
               data-testid="resume-rename"
-              className="inline-flex min-h-10 items-center font-body text-[13px] font-semibold text-ink-soft underline underline-offset-2 hover:text-rust"
+              className="inline-flex min-h-10 items-center font-body text-[13px] font-semibold text-ink-soft underline underline-offset-2 hover:text-coral"
             >
               Rename
             </button>
@@ -201,7 +201,7 @@ export function ResumeListRow({ id, title, isBase, updatedAt }: ResumeListRowPro
                 setMode("confirming-delete");
               }}
               data-testid="resume-delete"
-              className="inline-flex min-h-10 items-center font-body text-[13px] font-semibold text-ink-soft underline underline-offset-2 hover:text-rust disabled:cursor-not-allowed disabled:no-underline disabled:opacity-50 disabled:hover:text-ink-soft"
+              className="inline-flex min-h-10 items-center font-body text-[13px] font-semibold text-ink-soft underline underline-offset-2 hover:text-coral disabled:cursor-not-allowed disabled:no-underline disabled:opacity-50 disabled:hover:text-ink-soft"
             >
               Delete
             </button>
@@ -217,7 +217,7 @@ export function ResumeListRow({ id, title, isBase, updatedAt }: ResumeListRowPro
                 type="button"
                 onClick={() => setMode("replacing")}
                 data-testid="resume-replace"
-                className="inline-flex min-h-10 items-center font-body text-[13px] font-semibold text-ink-soft underline underline-offset-2 hover:text-rust"
+                className="inline-flex min-h-10 items-center font-body text-[13px] font-semibold text-ink-soft underline underline-offset-2 hover:text-coral"
               >
                 Replace
               </button>
@@ -235,7 +235,7 @@ export function ResumeListRow({ id, title, isBase, updatedAt }: ResumeListRowPro
       {renameState.status === "error" && mode === "renaming" && (
         <p
           data-testid="resume-rename-error"
-          className="border-[1.5px] border-rust bg-rust-soft px-3 py-1.5 text-[12.5px] text-rust"
+          className="border-[1.5px] border-coral bg-coral-soft px-3 py-1.5 text-[12.5px] text-coral"
         >
           {renameState.error}
         </p>
@@ -254,7 +254,7 @@ export function ResumeListRow({ id, title, isBase, updatedAt }: ResumeListRowPro
             onClick={confirmDelete}
             disabled={deleting}
             data-testid="resume-delete-confirm-yes"
-            className="inline-flex min-h-10 items-center justify-center bg-ink px-3.5 font-body text-[12.5px] font-semibold text-paper hover:bg-rust disabled:opacity-60"
+            className="inline-flex min-h-10 items-center justify-center bg-ink px-3.5 font-body text-[12.5px] font-semibold text-bg hover:bg-coral disabled:opacity-60"
           >
             {deleting ? "Deleting…" : "Delete resume"}
           </button>
@@ -262,7 +262,7 @@ export function ResumeListRow({ id, title, isBase, updatedAt }: ResumeListRowPro
             type="button"
             onClick={() => setMode("read")}
             data-testid="resume-delete-cancel"
-            className="inline-flex min-h-10 items-center justify-center font-body text-[12px] text-ink-soft underline underline-offset-2 hover:text-rust"
+            className="inline-flex min-h-10 items-center justify-center font-body text-[12px] text-ink-soft underline underline-offset-2 hover:text-coral"
           >
             Keep it
           </button>
@@ -272,7 +272,7 @@ export function ResumeListRow({ id, title, isBase, updatedAt }: ResumeListRowPro
       {deleteState.status === "error" && (
         <p
           data-testid="resume-delete-error"
-          className="border-[1.5px] border-rust bg-rust-soft px-3 py-1.5 text-[12.5px] text-rust"
+          className="border-[1.5px] border-coral bg-coral-soft px-3 py-1.5 text-[12.5px] text-coral"
         >
           {deleteState.error}
         </p>

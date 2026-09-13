@@ -39,9 +39,9 @@ export default async function ForgotPasswordCheckEmailPage({
       </p>
 
       {email && (
-        <div className="flex items-center justify-between gap-3 border-[1.5px] border-line bg-paper px-3.5 py-3">
+        <div className="flex items-center justify-between gap-3 border-[1.5px] border-line bg-bg px-3.5 py-3">
           <span className="break-all text-[14.5px] font-semibold text-ink">{email}</span>
-          <a href="/forgot-password" className="shrink-0 whitespace-nowrap text-[12.5px] text-ink-soft underline underline-offset-2 hover:text-rust">
+          <a href="/forgot-password" className="shrink-0 whitespace-nowrap text-[12.5px] text-ink-soft underline underline-offset-2 hover:text-coral">
             Wrong address?
           </a>
         </div>
@@ -57,7 +57,7 @@ export default async function ForgotPasswordCheckEmailPage({
       <div className="border-t border-line" />
       <p className="text-[13.5px] text-ink-soft">
         Remembered it?{" "}
-        <a href="/login" className="font-semibold text-rust underline underline-offset-3">
+        <a href="/login" className="font-semibold text-coral underline underline-offset-3">
           Log in
         </a>
       </p>

@@ -23,7 +23,7 @@ export function ContactForm() {
   return (
     <form action={formAction} className="flex flex-col gap-5">
       {state.error && (
-        <p className="border-[1.5px] border-rust bg-rust-soft px-3.5 py-2.5 text-[13.5px] text-rust">
+        <p className="border-[1.5px] border-coral bg-coral-soft px-3.5 py-2.5 text-[13.5px] text-coral">
           {state.error}
         </p>
       )}
@@ -62,10 +62,10 @@ export function ContactForm() {
           name="message"
           rows={6}
           required
-          className="border-[1.5px] border-ink bg-card px-3.5 py-2.5 font-body text-[15px] text-ink outline-none focus:border-rust"
+          className="border-[1.5px] border-ink bg-card px-3.5 py-2.5 font-body text-[15px] text-ink outline-none focus:border-coral"
         />
         {state.fieldErrors?.message?.[0] && (
-          <p className="text-[12.5px] text-rust">{state.fieldErrors.message[0]}</p>
+          <p className="text-[12.5px] text-coral">{state.fieldErrors.message[0]}</p>
         )}
       </div>
 

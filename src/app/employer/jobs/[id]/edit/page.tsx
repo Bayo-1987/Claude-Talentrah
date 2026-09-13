@@ -31,7 +31,7 @@ export default async function EditJobPage({ params }: { params: Promise<{ id: st
     <div className="max-w-[820px]">
       <Link
         href="/employer/jobs"
-        className="font-body text-[13px] font-semibold text-ink-soft no-underline hover:text-rust"
+        className="font-body text-[13px] font-semibold text-ink-soft no-underline hover:text-coral"
       >
         ← Jobs Posted
       </Link>

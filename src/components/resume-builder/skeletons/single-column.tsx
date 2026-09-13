@@ -34,7 +34,7 @@ export function SingleColumnSkeleton({ resume, config }: SkeletonProps) {
   const d = flowDensityScale(tokens.density);
 
   const wrapperClass = joinClasses(
-    "mx-auto max-w-[720px] bg-paper p-10 text-ink",
+    "mx-auto max-w-[720px] bg-bg p-10 text-ink",
     fontScopeClassName(tokens),
   );
 

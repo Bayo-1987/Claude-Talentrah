@@ -6,7 +6,7 @@ import { updatePostAction } from "@/lib/admin/blog/actions";
 import { BlogStatusControls } from "@/components/admin/blog-status-controls";
 import { BlogPostForm } from "@/components/admin/blog-post-form";
 import { renderMarkdown } from "@/lib/blog/render";
-import { Container, EyebrowLabel, BorderedCard } from "@/components/ui";
+import { Container, EyebrowLabel, Card } from "@/components/ui";
 
 export const metadata = {
   title: "Edit post — Talentrah admin",
@@ -41,7 +41,7 @@ export default async function EditBlogPostPage({ params }: { params: Promise<{ i
         keeping the row keeps its history, its audit trail and its published_at,
         and a post can come back without being rewritten.
       */}
-      <BorderedCard className="flex flex-wrap items-center justify-between gap-4 p-5">
+      <Card className="flex flex-wrap items-center justify-between gap-4 p-5">
         <div>
           <p className="font-body text-[14px] font-semibold">
             {published ? "This post is live." : "This post is not public."}
@@ -53,7 +53,7 @@ export default async function EditBlogPostPage({ params }: { params: Promise<{ i
           </p>
         </div>
         <BlogStatusControls id={post.id} published={published} />
-      </BorderedCard>
+      </Card>
 
       <BlogPostForm
         action={updatePostAction}

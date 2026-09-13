@@ -6,7 +6,7 @@ import { createScholarshipAction, loadQueueAction } from "@/lib/scholarships/adm
 import { initialAdminScholarshipState } from "@/lib/scholarships/admin-state";
 import { DEGREE_LEVEL_VALUES, FUNDING_TYPE_VALUES } from "@/lib/scholarships/schemas";
 import { DEGREE_LEVEL_LABEL, FUNDING_TYPE_LABEL } from "@/lib/scholarships/types";
-import { TextField, SelectField, Button, EyebrowLabel, BorderedCard } from "@/components/ui";
+import { TextField, SelectField, Button, EyebrowLabel, Card } from "@/components/ui";
 
 const FUNDING_OPTIONS = FUNDING_TYPE_VALUES.map((value) => ({
   value,
@@ -15,7 +15,7 @@ const FUNDING_OPTIONS = FUNDING_TYPE_VALUES.map((value) => ({
 
 /** Shared field styling — the form has enough inputs that repeating it drifts. */
 const AREA_CLASS =
-  "border-[1.5px] border-ink bg-card px-3.5 py-2.5 font-body text-[15px] text-ink outline-none placeholder:font-display placeholder:text-[14px] placeholder:italic placeholder:text-ink-soft focus:border-rust";
+  "border-[1.5px] border-ink bg-card px-3.5 py-2.5 font-body text-[15px] text-ink outline-none placeholder:font-display placeholder:text-[14px] placeholder:italic placeholder:text-ink-soft focus:border-coral";
 
 export function AdminScholarshipForm() {
   const [state, formAction, pending] = useActionState(
@@ -80,7 +80,7 @@ export function AdminScholarshipForm() {
                     href={row.official_url}
                     target="_blank"
                     rel="noreferrer noopener"
-                    className="inline-flex min-h-10 min-w-10 items-center font-body text-[13px] text-rust underline underline-offset-2"
+                    className="inline-flex min-h-10 min-w-10 items-center font-body text-[13px] text-coral underline underline-offset-2"
                   >
                     Source
                   </a>
@@ -109,7 +109,7 @@ export function AdminScholarshipForm() {
         </div>
       </section>
 
-      <BorderedCard className="max-w-[720px] p-6">
+      <Card className="max-w-[720px] p-6">
         <form action={formAction} className="flex flex-col gap-5">
           <EyebrowLabel>New listing</EyebrowLabel>
 
@@ -121,7 +121,7 @@ export function AdminScholarshipForm() {
                 operator edited a published listing rather than adding a new
                 one, and that is not what they think they just did.
               */
-              <p className="border-[1.5px] border-rust bg-rust-soft px-3.5 py-2.5 text-[13.5px] text-rust">
+              <p className="border-[1.5px] border-coral bg-coral-soft px-3.5 py-2.5 text-[13.5px] text-coral">
                 That matched a listing already published, and the content
                 differs — so it&apos;s been taken off the catalog and put back in
                 the queue above. Re-approve it to make it visible again.
@@ -133,7 +133,7 @@ export function AdminScholarshipForm() {
               </p>
             ))}
           {state.status === "error" && (
-            <p className="border-[1.5px] border-rust bg-rust-soft px-3.5 py-2.5 text-[13.5px] text-rust">
+            <p className="border-[1.5px] border-coral bg-coral-soft px-3.5 py-2.5 text-[13.5px] text-coral">
               {state.error}
             </p>
           )}
@@ -179,7 +179,7 @@ export function AdminScholarshipForm() {
               ))}
             </div>
             {state.fieldErrors?.degreeLevels?.[0] && (
-              <p className="text-[12.5px] text-rust">{state.fieldErrors.degreeLevels[0]}</p>
+              <p className="text-[12.5px] text-coral">{state.fieldErrors.degreeLevels[0]}</p>
             )}
           </fieldset>
 
@@ -283,7 +283,7 @@ export function AdminScholarshipForm() {
             {pending ? "Saving…" : "Save as pending"}
           </Button>
         </form>
-      </BorderedCard>
+      </Card>
     </div>
   );
 }

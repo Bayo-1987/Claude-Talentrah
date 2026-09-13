@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { BorderedCard, Button, MatchTierBadge } from "@/components/ui";
+import { Card, Button, MatchTierBadge } from "@/components/ui";
 import { confirmAutoApplyAction, dismissAutoApplyAction } from "@/lib/auto-apply/actions";
 
 export interface QueueItem {
@@ -42,7 +42,7 @@ export function AutoApplyQueueItem({ item }: { item: QueueItem }) {
   }
 
   return (
-    <BorderedCard className="flex flex-col gap-3 p-5">
+    <Card className="flex flex-col gap-3 p-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
           <h3 className="font-display text-[18px] font-semibold text-ink">{item.jobTitle}</h3>
@@ -56,7 +56,7 @@ export function AutoApplyQueueItem({ item }: { item: QueueItem }) {
       </div>
 
       {error && (
-        <p className="border-[1.5px] border-rust bg-rust-soft px-3 py-2 text-[13px] text-rust">
+        <p className="border-[1.5px] border-coral bg-coral-soft px-3 py-2 text-[13px] text-coral">
           {error}
         </p>
       )}
@@ -80,11 +80,11 @@ export function AutoApplyQueueItem({ item }: { item: QueueItem }) {
           type="button"
           disabled={isPending}
           onClick={() => run(() => dismissAutoApplyAction(item.id))}
-          className="min-h-10 font-body text-[13px] font-semibold text-ink-soft underline underline-offset-2 hover:text-rust"
+          className="min-h-10 font-body text-[13px] font-semibold text-ink-soft underline underline-offset-2 hover:text-coral"
         >
           Not this one
         </button>
       </div>
-    </BorderedCard>
+    </Card>
   );
 }

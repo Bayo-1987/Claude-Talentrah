@@ -26,7 +26,7 @@ function ToggleButton({ isSaved }: { isSaved: boolean }) {
       aria-label={isSaved ? "Remove from saved scholarships" : "Save this scholarship"}
       className={cn(
         "flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-line transition-colors disabled:cursor-not-allowed disabled:opacity-50",
-        isSaved ? "border-rust text-rust" : "text-ink-soft hover:border-rust hover:text-rust",
+        isSaved ? "border-coral text-coral" : "text-ink-soft hover:border-coral hover:text-coral",
       )}
     >
       <svg width="16" height="16" viewBox="0 0 20 20" fill={isSaved ? "currentColor" : "none"}>

@@ -103,14 +103,14 @@ export function FarahMobileTab() {
       />
       <div
         data-testid="farah-mobile-tab"
-        className="fixed inset-x-0 bottom-0 z-[18] border-t-[2.5px] border-ink bg-paper min-[760px]:hidden print:hidden"
+        className="fixed inset-x-0 bottom-0 z-[18] border-t-[2.5px] border-ink bg-bg min-[760px]:hidden print:hidden"
         style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
       >
         <button
           type="button"
           onClick={scrollToFarahPanel}
           style={{ height: FARAH_TAB_HEIGHT }}
-          className="flex w-full items-center justify-center gap-2.5 font-body text-[14.5px] font-semibold text-ink hover:text-rust"
+          className="flex w-full items-center justify-center gap-2.5 font-body text-[14.5px] font-semibold text-ink hover:text-coral"
         >
           {/*
           The mark, at the size the bar can carry. FarahMark is already

@@ -1,7 +1,7 @@
 import { requireUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
 import { getReferralUrl } from "@/lib/referrals/url";
-import { EyebrowLabel, BorderedCard } from "@/components/ui";
+import { EyebrowLabel, Card } from "@/components/ui";
 import { ShareButtons } from "@/components/referrals/share-buttons";
 import { LeaderboardOptIn } from "@/components/referrals/leaderboard-opt-in";
 import { logShareAction } from "@/lib/referrals/actions";
@@ -92,18 +92,18 @@ export default async function ReferPage() {
         </p>
       </div>
 
-      <BorderedCard className="flex flex-col gap-4 p-5">
+      <Card className="flex flex-col gap-4 p-5">
         <EyebrowLabel size="sm">Your link</EyebrowLabel>
         <p className="break-all font-display text-[16px] italic text-ink-soft">{referralUrl}</p>
         <ShareButtons url={referralUrl} onShare={logShareAction} />
-      </BorderedCard>
+      </Card>
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         {stats.map((s) => (
-          <BorderedCard key={s.label} className="flex flex-col gap-1 p-4">
+          <Card key={s.label} className="flex flex-col gap-1 p-4">
             <span className="font-display text-[26px]">{s.value}</span>
             <span className="text-[12.5px] text-ink-soft">{s.label}</span>
-          </BorderedCard>
+          </Card>
         ))}
       </div>
 
@@ -122,7 +122,7 @@ export default async function ReferPage() {
         month's frozen standings show too, so someone who just missed the
         cutoff doesn't wonder why the board reset under them.
       */}
-      <BorderedCard className="flex flex-col gap-4 p-5">
+      <Card className="flex flex-col gap-4 p-5">
         <div>
           <EyebrowLabel size="sm">Leaderboard — this month</EyebrowLabel>
           <p className="mt-1 font-body text-[13px] text-ink-soft">
@@ -144,7 +144,7 @@ export default async function ReferPage() {
           optedIn={profile.referral_leaderboard_opt_in}
           displayName={profile.referral_leaderboard_display_name}
         />
-      </BorderedCard>
+      </Card>
 
       <div className="flex flex-col gap-3">
         <EyebrowLabel size="sm">Your referrals</EyebrowLabel>

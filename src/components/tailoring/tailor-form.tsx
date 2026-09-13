@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Button, EyebrowLabel, BorderedCard } from "@/components/ui";
+import { Button, EyebrowLabel, Card } from "@/components/ui";
 import { ResumeDocument } from "@/components/resume-builder/resume-document";
 import type { StructuredResume } from "@/lib/resume/types";
 import type { ProposedAddition, TailoringResult } from "@/lib/tailoring/types";
@@ -207,7 +207,7 @@ export function TailorForm({
           because it changes how everything below should be read.
         */}
         {result.jdTruncation && (
-          <p className="border-[1.5px] border-rust bg-rust-soft px-4 py-3 text-[13.5px] text-ink">
+          <p className="border-[1.5px] border-coral bg-coral-soft px-4 py-3 text-[13.5px] text-ink">
             <span className="font-semibold">Heads up — that job description was shortened.</span>{" "}
             It was {result.jdTruncation.originalChars.toLocaleString()} characters and Farah used
             the first {result.jdTruncation.usedChars.toLocaleString()}. Everything below is based
@@ -309,7 +309,7 @@ export function TailorForm({
                             }
                             rows={2}
                             aria-label={`Edit suggested text for ${additionTarget(addition, result.tailoredResume)}`}
-                            className="mt-1 block w-full resize-y border border-line bg-paper p-1.5 font-body text-[13.5px] text-ink outline-none focus:border-rust"
+                            className="mt-1 block w-full resize-y border border-line bg-bg p-1.5 font-body text-[13.5px] text-ink outline-none focus:border-coral"
                           />
                           <span className="mt-0.5 block text-[12px] italic text-ink-soft">{addition.reason}</span>
                         </div>
@@ -317,7 +317,7 @@ export function TailorForm({
                     );
                   })}
                 </div>
-                {applyError && <p className="mt-2 text-[13px] text-rust">{applyError}</p>}
+                {applyError && <p className="mt-2 text-[13px] text-coral">{applyError}</p>}
                 <Button
                   type="button"
                   size="sm"
@@ -369,7 +369,7 @@ export function TailorForm({
                             words — not an SEO tactic.
                           */
                           rel="sponsored noopener noreferrer"
-                          className="text-[13.5px] font-semibold text-ink no-underline hover:text-rust hover:underline"
+                          className="text-[13.5px] font-semibold text-ink no-underline hover:text-coral hover:underline"
                         >
                           {rec.course.title}
                         </a>
@@ -406,9 +406,9 @@ export function TailorForm({
             {result.coverLetter && (
               <div>
                 <EyebrowLabel size="sm">Cover letter</EyebrowLabel>
-                <BorderedCard className="mt-2 whitespace-pre-wrap p-4 text-[13.5px] leading-relaxed text-ink-soft">
+                <Card className="mt-2 whitespace-pre-wrap p-4 text-[13.5px] leading-relaxed text-ink-soft">
                   {result.coverLetter}
-                </BorderedCard>
+                </Card>
               </div>
             )}
 
@@ -441,7 +441,7 @@ export function TailorForm({
         required
         minLength={50}
         placeholder="Paste the full job description here…"
-        className="border-[1.5px] border-ink bg-card p-4 font-body text-[14.5px] outline-none focus:border-rust"
+        className="border-[1.5px] border-ink bg-card p-4 font-body text-[14.5px] outline-none focus:border-coral"
       />
       <label className="flex items-center gap-2 text-[13.5px] text-ink-soft">
         <input
@@ -452,7 +452,7 @@ export function TailorForm({
         />
         Also write a cover letter
       </label>
-      {error && <p className="text-[13.5px] text-rust">{error}</p>}
+      {error && <p className="text-[13.5px] text-coral">{error}</p>}
       <Button type="submit" disabled={status === "loading"} className="self-start">
         {status === "loading" ? "Working…" : "Tailor my resume"}
       </Button>

@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { getOptionalUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
 import { pageMetadata } from "@/lib/seo/site";
-import { BorderedCard, EyebrowLabel, buttonClasses } from "@/components/ui";
+import { Card, EyebrowLabel, buttonClasses } from "@/components/ui";
 import {
   DEGREE_LEVEL_LABEL,
   FUNDING_TYPE_LABEL,
@@ -147,7 +147,7 @@ export default async function ScholarshipDetailPage({
     <div className="flex max-w-[720px] flex-col gap-6">
       <Link
         href="/scholarships"
-        className="inline-flex min-h-10 min-w-10 items-center self-start text-[13px] font-semibold text-ink-soft no-underline hover:text-rust"
+        className="inline-flex min-h-10 min-w-10 items-center self-start text-[13px] font-semibold text-ink-soft no-underline hover:text-coral"
       >
         ← Back to scholarships
       </Link>
@@ -187,7 +187,7 @@ export default async function ScholarshipDetailPage({
         current terms, and that has to be legible before anything else on the
         page asks for an account.
       */}
-      <BorderedCard className="flex flex-col gap-1 p-4">
+      <Card className="flex flex-col gap-1 p-4">
         <span className="text-[12.5px] font-semibold text-ink-soft">
           {scholarship.source_name ? `Listed from ${scholarship.source_name}` : "Official source"}
         </span>
@@ -195,7 +195,7 @@ export default async function ScholarshipDetailPage({
           href={scholarship.official_url}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex w-fit items-center gap-1.5 font-body text-[15px] font-semibold text-rust underline underline-offset-2 hover:text-rust-hover"
+          className="inline-flex w-fit items-center gap-1.5 font-body text-[15px] font-semibold text-coral underline underline-offset-2 hover:text-coral-hover"
         >
           View the official listing
           <svg width="13" height="13" viewBox="0 0 20 20" fill="none" aria-hidden="true">
@@ -212,7 +212,7 @@ export default async function ScholarshipDetailPage({
           Talentrah lists the facts of this programme with attribution. The official page above
           is always the authority on current terms and deadlines.
         </p>
-      </BorderedCard>
+      </Card>
 
       <div className="flex flex-col gap-1 border-y border-line py-3">
         <span className="text-[13.5px] text-ink-soft">
@@ -225,7 +225,7 @@ export default async function ScholarshipDetailPage({
             not a gap, so it renders as the sourced sentence rather than a
             placeholder.
           */}
-          <span className={urgent ? "font-semibold text-rust" : undefined}>
+          <span className={urgent ? "font-semibold text-coral" : undefined}>
             {scholarship.application_deadline
               ? formatDeadline(scholarship.application_deadline)
               : (scholarship.deadline_note ?? "Not published yet")}
@@ -325,7 +325,7 @@ export default async function ScholarshipDetailPage({
             <Link
               key={l.href}
               href={l.href}
-              className="text-rust underline underline-offset-2 hover:text-rust-hover"
+              className="text-coral underline underline-offset-2 hover:text-coral-hover"
             >
               {l.label}
             </Link>

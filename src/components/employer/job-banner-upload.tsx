@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { BorderedCard, EyebrowLabel } from "@/components/ui";
+import { Card, EyebrowLabel } from "@/components/ui";
 import { BANNER_GUIDANCE } from "@/lib/employer/banner";
 import { CROP_OUTPUT_WIDTH, CROP_OUTPUT_HEIGHT } from "@/lib/employer/banner-crop";
 import { BannerCropPicker, type BannerCropOutcome } from "./banner-crop-picker";
@@ -63,7 +63,7 @@ export function JobBannerUpload({
   }
 
   return (
-    <BorderedCard className="flex flex-col gap-3 p-5">
+    <Card className="flex flex-col gap-3 p-5">
       <div className="flex flex-col gap-1">
         <EyebrowLabel>Banner — optional</EyebrowLabel>
         <p className="text-[13.5px] text-ink-soft">{BANNER_GUIDANCE}</p>
@@ -100,6 +100,6 @@ export function JobBannerUpload({
       )}
 
       <BannerCropPicker hasStagedBanner={!!currentBannerUrl} onCropped={handleCropped} />
-    </BorderedCard>
+    </Card>
   );
 }

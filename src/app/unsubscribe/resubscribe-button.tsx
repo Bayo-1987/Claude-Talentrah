@@ -46,7 +46,7 @@ export function ResubscribeButton({
         {state === "working" ? "Undoing…" : "Actually, keep sending them"}
       </Button>
       {state === "failed" && (
-        <p className="text-[13.5px] text-rust">
+        <p className="text-[13.5px] text-coral">
           That didn&apos;t work. Reply to any Talentrah email and we&apos;ll fix it by hand.
         </p>
       )}

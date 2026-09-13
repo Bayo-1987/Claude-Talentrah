@@ -66,7 +66,7 @@ export default async function BlogIndexPage() {
                 <Link
                   key={post.slug}
                   href={`/blog/${post.slug}`}
-                  className="flex flex-col gap-2 border-b border-line py-7 no-underline hover:text-rust"
+                  className="flex flex-col gap-2 border-b border-line py-7 no-underline hover:text-coral"
                 >
                   <span className="text-[12.5px] font-semibold uppercase tracking-[0.08em] text-ink-soft">
                     {formatDate(post.date)}

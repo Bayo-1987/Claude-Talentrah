@@ -26,13 +26,15 @@ import { test, expect } from "@playwright/test";
  * send-139 moved the breakpoint to 1536 for an unrelated reason (an eighth
  * nav item left no margin at 1280, see masthead.tsx's own comment and
  * e2e/masthead-nav-fit.spec.ts). Pinning the viewport here decouples this
- * test's intent from wherever that breakpoint happens to be next.
+ * test's intent from wherever that breakpoint happens to be next — which it
+ * did again: the Sunbird font swap (send-197) moved it a second time, to
+ * `min-[1792px]`, so this test's own viewport moved past that too.
  */
 const DEMO_PASSWORD = process.env.DEMO_PASSWORD;
 
 test("masthead nav shows all four links once Job Tracker (M7) and Refer a Friend (M8) have shipped", async ({ page }) => {
   test.skip(!DEMO_PASSWORD, "DEMO_PASSWORD is not set — see scripts/seed.ts");
-  await page.setViewportSize({ width: 1600, height: 900 });
+  await page.setViewportSize({ width: 1800, height: 900 });
 
   await page.goto("/login");
   await page.getByLabel("Email").fill("demo@talentrah.dev");
