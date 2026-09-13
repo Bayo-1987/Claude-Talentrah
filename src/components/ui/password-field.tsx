@@ -61,7 +61,13 @@ export function PasswordField({ label, error, className, id, name, ...rest }: Pa
           name={name}
           type={revealed ? "text" : "password"}
           className={cn(
-            "min-h-11 w-full border-[1.5px] border-ink bg-card py-2.5 pl-3.5 pr-12 font-body text-[15px] text-ink outline-none focus:border-coral",
+            // rounded-2xl — same reasoning as TextField's own comment on
+            // this exact class: matches Card's radius, not the search
+            // combobox's pill. The reveal button overlaying the right edge
+            // has no background fill of its own, so the input's own rounded
+            // corners still show through correctly rather than being clipped
+            // square by something sitting on top of them.
+            "min-h-11 w-full rounded-2xl border-[1.5px] border-ink bg-card py-2.5 pl-3.5 pr-12 font-body text-[15px] text-ink outline-none focus:border-coral",
             error && "border-coral",
             className,
           )}

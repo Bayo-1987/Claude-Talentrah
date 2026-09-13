@@ -56,7 +56,10 @@ export const SelectField = forwardRef<HTMLSelectElement, SelectFieldProps>(
           id={selectId}
           {...(unset ? { defaultValue: "" } : {})}
           className={cn(
-            "min-h-11 border-[1.5px] border-ink bg-card px-3.5 py-2.5 font-body text-[15px] text-ink outline-none focus:border-coral",
+            // rounded-2xl — same reasoning as TextField's own comment on
+            // this exact class: matches Card's radius, not the search
+            // combobox's pill.
+            "min-h-11 rounded-2xl border-[1.5px] border-ink bg-card px-3.5 py-2.5 font-body text-[15px] text-ink outline-none focus:border-coral",
             error && "border-coral",
             className,
           )}
