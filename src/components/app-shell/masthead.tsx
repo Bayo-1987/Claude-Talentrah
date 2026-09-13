@@ -454,12 +454,12 @@ export function Masthead({
           >
             Post a job
           </Link>
-          <span className="hidden min-h-10 items-center border border-line px-2.5 text-[12.5px] text-ink-soft min-[760px]:inline-flex">
+          <span className="hidden min-h-10 items-center rounded-full border border-line px-2.5 text-[12.5px] text-ink-soft min-[760px]:inline-flex">
             EN
           </span>
           <Link
             href="/billing"
-            className="inline-flex min-h-10 items-center bg-coral-soft px-3.5 text-[13px] font-bold text-coral no-underline hover:bg-[oklch(87%_0.04_40)]"
+            className="inline-flex min-h-10 items-center rounded-full bg-coral-soft px-3.5 text-[13px] font-bold text-coral no-underline hover:bg-[oklch(87%_0.04_40)]"
           >
             {activePass
               ? `${activePass.name} · ${activePass.daysRemaining}d left`
