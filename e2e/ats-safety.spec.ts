@@ -151,7 +151,7 @@ test.describe("ats_safe is a real, PDF-verified claim per skeleton", () => {
   });
 
   for (const [configKey, claimedAtsSafe] of Object.entries(SKELETON_CLAIMS)) {
-    test(`${configKey} (claimed ats_safe=${claimedAtsSafe})`, async ({ page }) => {
+    test(`${configKey} (claimed ats_safe=${claimedAtsSafe})`, async ({ page }, testInfo) => {
       const config = DEMO_CONFIGS[configKey];
       expect(config, `no demo config registered for "${configKey}"`).toBeDefined();
 
@@ -170,6 +170,45 @@ test.describe("ats_safe is a real, PDF-verified claim per skeleton", () => {
         // sections actually surface.
         const expected = expectedMarkerOrder(config);
         const actual = actualMarkerOrder(text, expected);
+        /*
+         * TEMPORARY DIAGNOSTIC (send-197 follow-up): CI has been failing a
+         * subset of these (clean-professional-demo, timeline-demo, and three
+         * PR3 catalog slugs) with a marker MISSING entirely from the
+         * extracted text — not reordered — while every one of them passes
+         * clean locally. That gap is real signal (see the masthead 1536px
+         * bug in the same PR, caught the same way: a real cross-platform
+         * difference invisible to a source diff), not a reason to assume
+         * flake. Attaching the raw PDF and its per-page text on failure so
+         * the actual CI-rendered document can be inspected directly instead
+         * of guessed at from a marker list. Remove once the cause is found.
+         */
+        if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+          ensurePdfRuntimeGlobals();
+          await testInfo.attach(`${configKey}.pdf`, { body: pdfBuffer, contentType: "application/pdf" });
+          const parser = new PDFParse({ data: pdfBuffer });
+          try {
+            const info = await parser.getInfo();
+            const full = await parser.getText();
+            await testInfo.attach(`${configKey}-diagnostic.json`, {
+              body: JSON.stringify(
+                {
+                  totalPages: info.total,
+                  perPageText: full.pages.map((p) => ({
+                    page: p.num,
+                    hasEducation: p.text.includes("ZQEDUCATION"),
+                    length: p.text.length,
+                    text: p.text,
+                  })),
+                },
+                null,
+                2,
+              ),
+              contentType: "application/json",
+            });
+          } finally {
+            await parser.destroy();
+          }
+        }
         expect(
           actual,
           `${configKey} is marked ats_safe but its extracted PDF text order was ` +
