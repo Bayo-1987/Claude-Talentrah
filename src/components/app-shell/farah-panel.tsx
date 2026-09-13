@@ -113,6 +113,14 @@ function JobSeedMarker({
       <EyebrowLabel size="sm">
         Now looking at: {seed.jobTitle} at {seed.companyName}
       </EyebrowLabel>
+      {/*
+        DELIBERATELY NOT the new teal-soft greeting box (see the empty-state
+        branches above). This is a mid-conversation divider event, not the
+        pristine first-arrival greeting the mockup's box actually shows —
+        neither Sunbird artboard has a reference for this state, and giving
+        it the same "first thing you see" treatment as a real fresh arrival
+        would overstate what it is.
+      */}
       <p className="font-display text-[14.5px] italic leading-relaxed text-ink-soft">
         {jobSeedOpener(seed)}
       </p>
@@ -122,31 +130,37 @@ function JobSeedMarker({
 }
 
 /**
- * Marginalia panel — carried over structurally unchanged from Editorial's
- * "never a boxed chat widget, no card background, no radius, no shadow"
- * rule.
+ * Elevated card, adopted from the Sunbird artboards (JobFeed-Sunbird.dc.html,
+ * ~lines 231-256) — the PR this component's own comment used to flag as
+ * "deliberately deferred" (see git history for that note). Above 760px the
+ * panel is now a floating `rounded-[18px]`/`bg-card`/shadow card, matching
+ * every other Sunbird card; below it, unchanged from before: a plain
+ * full-width section with just the coral top rule (no mockup shows a mobile
+ * treatment — see the sticky-shell comment further down for why 760px is
+ * the line).
  *
- * KNOWN DIVERGENCE FROM THE SUNBIRD ARTBOARDS, FLAGGED RATHER THAN SILENTLY
- * FIXED: both SunbirdFeed.dc.html and SunbirdDetail.dc.html actually draw
- * this panel as a full elevated card (rounded-2xl, `background:var(--card)`,
- * the same soft shadow every other card gets) — not flat marginalia. Adopting
- * that fully means restructuring this component's sticky/scroll shell (and
- * the wrapper in (app)/layout.tsx that currently owns the column's
- * background and hairline) and re-verifying every Farah e2e spec that
- * depends on its current geometry. That is a real, deliberate scope decision
- * for the PR that swaps this component, not something to guess at inside a
- * broader token/primitive sweep — left as Editorial's flat treatment for now.
+ * THE WRAPPER THAT USED TO OWN THE COLUMN'S CHROME IS GONE. Editorial's flat
+ * marginalia treatment needed a full-height tinted field + hairline painted
+ * on (app)/layout.tsx's wrapper div, because the panel itself is only ever
+ * as tall as its content (609px against a 35,000+px feed) — see that file's
+ * history for the measurement. A floating card has no equivalent: the
+ * Sunbird artboards show it sitting directly on the page's plain `--bg`,
+ * separated by its own shadow, not by a tinted column. So the wrapper div
+ * (and its `bg-bg-alt`/`border-l`) is removed entirely — this component is
+ * rendered directly as the flex child now, and `print:hidden` (the wrapper's
+ * other job) moved onto this component's own root div below.
  *
- * THE COLUMN'S OWN CHROME IS NOT ALL HERE, which is worth knowing before
- * reading the classes below and concluding something is missing. The colour
- * field (`bg-bg-alt`) and the left hairline live on the wrapper in
- * (app)/layout.tsx, because both run the length of the COLUMN and this
- * component is only ever as tall as its content. What stays here is what marks
- * where Farah's content begins: the 3px coral top rule and the mark beside the
- * eyebrow. Farah's turns are set in
- * italic display serif (matching the greeting copy this replaced); the user's
- * are plain body text — that typographic split is the only visual
- * differentiation, on purpose, rather than chat-bubble styling.
+ * THE LEFT/TOP/BOTTOM GAP FROM THE COLUMN IS NOT THE MOCKUP'S LITERAL MARGIN.
+ * JobFeed-Sunbird.dc.html sets `margin: 32px 0 40px 28px` on a static card;
+ * this one is a `position: sticky` flex child in a scrolling page, where a
+ * literal margin-top interacts with the sticky offset in ways a static
+ * mockup can't dictate. The 28px left gap is a `gap-7` on the row in
+ * (app)/layout.tsx (robust regardless of what either side's padding does);
+ * the 32px top / 40px bottom breathing room is this component's own
+ * `min-[760px]:my-8`, with the sticky `top` offset increased by the same
+ * 32px so the card keeps its gap from the masthead once stuck, rather than
+ * touching it flush — verified in a real browser at rest and mid-scroll,
+ * not assumed from the static value.
  */
 export function FarahPanel({ firstName, initialMessages, initialJobSeed }: FarahPanelProps) {
   const [messages, setMessages] = useState<FarahMessage[]>(initialMessages ?? []);
@@ -401,41 +415,21 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
   return (
     /*
       WHY THERE IS NO `self-start` HERE, having tried it.
-      
+
       The intuition — flex `align-items: stretch` makes this full height, so a
       sticky element has nowhere to travel — is right in general and wrong in
-      this layout. This component is not the flex item: (app)/layout.tsx wraps
-      it in a `print:hidden` div, and THAT is the item that stretches. Measured
-      in a browser: the panel is 609px in a 35,648px row with or without
-      `self-start`, and with or without the max-height. Both were inert.
+      this layout. This component IS the flex item now (the wrapper div that
+      used to hold it is gone — see the header comment above), so it stretches
+      to the row's full height under `align-items: stretch`. Measured in a
+      browser: the panel's rendered box stays capped at its `max-h` regardless
+      — `max-height` + `overflow-y-auto` win over a stretched intrinsic height,
+      so the stretch is inert for anything that isn't `min-[760px]` here too.
 
-      Same wrapper shape as the masthead, opposite outcome — and the two are
-      worth telling apart, because the fixes are NOT the same.
-
-        masthead   its wrapper is exactly its own height, so a sticky child has
-                   no room to travel. The `sticky` had to MOVE to the wrapper.
-        this panel its wrapper is the full page, so there is room to spare. The
-                   `sticky` stays right here on the component and works.
-
-      What the wrapper decides is whether a sticky child has anywhere to go —
-      not where the `sticky` class belongs. Before adding one to anything else
-      under this layout, measure the wrapper's height; do not assume either
-      answer from the other case.
-
-      THAT SAME FACT IS NOW LOAD-BEARING FOR THE COLUMN'S CHROME, not just for
-      the stickiness. Because this element is short and the wrapper is the full
-      column, anything meant to run the column's whole height has to be painted
-      on the wrapper: the tint sat here first and stopped 511px down while the
-      feed carried on for 36,561px, and the hairline had the same problem after
-      it. Both moved. Do not move them back on the assumption that "the panel"
-      means the column — here it does not.
-
-      `max-h` and `overflow-y-auto` stay. They do nothing for the stickiness —
-      the panel is 609px, well under the viewport — but they are what keeps a
-      long Farah conversation scrolling inside the panel rather than pushing
-      the page.
-
-      68px is the masthead's height; the panel starts below it.
+      68px is the masthead's height; 100px is that plus the 32px top gap this
+      card keeps from the masthead once stuck (see the header comment) — the
+      `top` offset and `max-h` both had to move together, or the card would
+      either sit flush under the masthead while stuck (no gap) or overflow the
+      viewport at the bottom (max-h sized for the old, smaller top offset).
 
       ALL OF THAT IS THE >=760px CASE. Stacked under the content column on a
       phone, none of it applies and each part would be actively wrong: sticky
@@ -444,27 +438,21 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
       they are min-[760px]: and the mobile case is the plain one — a full-width
       section with the coral rule along the top separating it from the feed.
 
-      The left hairline used to be in that list. It is on the wrapper now, and
-      still min-[760px]: there for the same reason: a rule down the side of a
-      full-width block would be drawing an edge that is not there.
+      THE CORAL TOP RULE IS NOW min-[760px]-EXCLUDED (`max-[759px]:` only),
+      deliberately — it isn't in the Sunbird card artboard at all
+      (JobFeed-Sunbird.dc.html's card div has no border-top), and its original
+      job — marking where Farah's content begins inside a full-height tinted
+      field — has no field to mark once the card floats on plain `--bg` with
+      its own shadow doing the separating. Kept for mobile, where the panel is
+      still the flat full-width section that rule was built for.
 
-      PADDING IS SYMMETRIC AT DESKTOP — min-[760px]:px-7, one utility, not
-      px-0 plus pl-7. It was the one-sided pair, which gave the column 28px on
-      the left and nothing on the right, so the eyebrow row, the greeting and
-      the quick-action links all ran flush to where the panel's box ends.
-
-      The reason it was ever one-sided no longer applies. When this element
-      carried the column's own chrome, a right inset would have been padding
-      against nothing. The field and its hairline are on the wrapper now, so
-      what sits to the right of this text is the column continuing — and text
-      set hard against that is text with no margin, not text meeting an edge.
-
-      If a future change reaches for pl-7 again, this is the note saying the
-      asymmetry was the bug.
+      PADDING: min-[760px]:p-5 (20px on every side, matching the artboard's
+      `padding: 20px`) replaces the old min-[760px]:px-7/unconditional py-8
+      pair outright — a single utility, not tracked as two.
     */
     <div
       data-testid="farah-panel"
-      className="flex w-full flex-col gap-5.5 border-t-[3px] border-t-coral px-6 py-8 min-[760px]:sticky min-[760px]:top-[68px] min-[760px]:max-h-[calc(100vh-68px)] min-[760px]:w-[280px] min-[760px]:flex-shrink-0 min-[760px]:overflow-y-auto min-[760px]:px-7"
+      className="flex w-full flex-col gap-5.5 max-[759px]:border-t-[3px] max-[759px]:border-t-coral px-6 py-8 print:hidden min-[760px]:sticky min-[760px]:top-[100px] min-[760px]:my-8 min-[760px]:max-h-[calc(100vh-132px)] min-[760px]:w-[280px] min-[760px]:flex-shrink-0 min-[760px]:overflow-y-auto min-[760px]:rounded-[18px] min-[760px]:bg-card min-[760px]:p-5 min-[760px]:gap-4.5 min-[760px]:shadow-[0_4px_16px_oklch(30%_0.05_35_/_0.08)]"
     >
       {/*
         The name + "View profile" block that used to sit here is gone — both
@@ -476,7 +464,7 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
         was the rule separating that block from this one. With nothing above,
         it would be a hairline across the top of the panel dividing the eyebrow
         from the panel's own edge — a line that looks like structure and marks
-        nothing. The panel's `py-8` already sets the top inset.
+        nothing. The panel's own top padding already sets the top inset.
       */}
       <div className="flex items-center gap-2.5">
         <FarahMark size={28} />
@@ -510,9 +498,17 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
               greeting it replaces here (same reasoning, same free status).
             */
             <>
-              <p className="font-display text-[14.5px] italic leading-relaxed text-ink-soft">
-                {jobSeedOpener(jobSeed)}
-              </p>
+              {/*
+                The greeting's own nested rounded box (JobFeed-Sunbird.dc.html
+                ~line 240) — `min-[760px]:` only, same reasoning as the card
+                treatment around it: no mockup shows a mobile equivalent, so
+                mobile keeps the plain text this replaced.
+              */}
+              <div className="min-[760px]:mt-2.5 min-[760px]:rounded-[14px] min-[760px]:bg-teal-soft min-[760px]:px-3.5 min-[760px]:py-3">
+                <p className="font-display text-[14.5px] italic leading-relaxed text-ink-soft">
+                  {jobSeedOpener(jobSeed)}
+                </p>
+              </div>
               {/*
                 Real generation, unchanged — same /tailor flow and same
                 credit gate the job card's old Land group already pointed
@@ -529,10 +525,12 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
             </>
           ) : (
             <>
-              <p className="font-display text-[14.5px] italic leading-relaxed text-ink-soft">
-                &ldquo;Hi {firstName} — I can tailor your resume to any of these
-                roles, or help you prep. What do you need?&rdquo;
-              </p>
+              <div className="min-[760px]:mt-2.5 min-[760px]:rounded-[14px] min-[760px]:bg-teal-soft min-[760px]:px-3.5 min-[760px]:py-3">
+                <p className="font-display text-[14.5px] italic leading-relaxed text-ink-soft">
+                  &ldquo;Hi {firstName} — I can tailor your resume to any of these
+                  roles, or help you prep. What do you need?&rdquo;
+                </p>
+              </div>
               {/*
                 The quiet line the earlier-conversation fix is actually about.
                 Only offered here, on the pristine arrival view — once the
@@ -626,9 +624,20 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
         )}
       </div>
 
+      {/*
+        THE PILL TREATMENT IS min-[760px]: ONLY, same reasoning as the card
+        and greeting box around it. Below 760px this stays the bordered
+        bg-card box it always was; above it, JobFeed-Sunbird.dc.html's row
+        (~line 253: `background: var(--bg)`, `border-radius: 999px`,
+        `padding: 10px 16px`) — no border, and `--bg` rather than `--card` so
+        it reads against the card's own now-`bg-card` background instead of
+        disappearing into it. The 44×44 send button itself is untouched: the
+        mockup's minimal inline icon isn't a real ≥40×40 hit target, and nothing
+        in this prompt asked for the button to shrink — only the row's shape.
+      */}
       <form
         onSubmit={handleSubmit}
-        className="mt-auto flex items-center gap-2 border border-line bg-card px-2.5 py-2"
+        className="mt-auto flex items-center gap-2 border border-line bg-card px-2.5 py-2 min-[760px]:rounded-full min-[760px]:border-0 min-[760px]:bg-bg min-[760px]:px-4 min-[760px]:py-2.5"
       >
         <input
           type="text"

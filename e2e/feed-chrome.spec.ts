@@ -26,6 +26,16 @@ if (process.env.CI && !DEMO_PASSWORD) {
 /** The masthead is 68px of content plus a 2.5px bottom border. */
 const MASTHEAD_BOTTOM = 71;
 
+/**
+ * The Farah panel's own stuck `top` — no longer the same as MASTHEAD_BOTTOM,
+ * since the Sunbird elevated-card adoption gave the panel a deliberate 32px
+ * gap from the masthead once stuck (`top-[100px]`, up from `top-[68px]`), so
+ * the floating card doesn't sit flush under the masthead the way the flat
+ * marginalia treatment did. The filter header (MASTHEAD_BOTTOM above) is
+ * unaffected — this PR touched only the panel.
+ */
+const FARAH_PANEL_STUCK_TOP = 100;
+
 test.use({ viewport: { width: 1280, height: 900 } });
 
 test.beforeEach(async ({ page }) => {
@@ -144,7 +154,7 @@ test("the masthead, filter header and Farah panel all survive a long scroll", as
   expect(after.header!.top).toBeGreaterThanOrEqual(0);
   expect(after.header!.top).toBeLessThanOrEqual(MASTHEAD_BOTTOM);
   expect(after.panel!.top).toBeGreaterThanOrEqual(0);
-  expect(after.panel!.top).toBeLessThanOrEqual(MASTHEAD_BOTTOM);
+  expect(after.panel!.top).toBeLessThanOrEqual(FARAH_PANEL_STUCK_TOP);
 });
 
 test("the filter header is flush at rest, not 32px adrift", async ({ page }) => {
@@ -232,6 +242,6 @@ test("the shell is sticky everywhere, not only on the feed", async ({ page }) =>
 
   expect(after.scrollY).toBeGreaterThan(400);
   expect(after.masthead).toBe(0);
-  expect(after.panel).toBeLessThanOrEqual(MASTHEAD_BOTTOM);
+  expect(after.panel).toBeLessThanOrEqual(FARAH_PANEL_STUCK_TOP);
   expect(after.panel).toBeGreaterThanOrEqual(0);
 });

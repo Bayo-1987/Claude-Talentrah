@@ -178,7 +178,7 @@ test.describe("the shell on a phone", () => {
     await expect(page.getByRole("button", { name: "Main menu" })).toBeVisible();
   });
 
-  test("the desktop layout is untouched", async ({ page }) => {
+  test("the desktop layout after the Sunbird card adoption", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await login(page);
     const r = await page.evaluate(() => {
@@ -192,25 +192,24 @@ test.describe("the shell on a phone", () => {
       };
     });
     /*
-     * The numbers this shipped with before the mobile pass, with ONE pixel
-     * moved deliberately.
+     * 919 → 892, MEASURED AGAIN AFTER THE FARAH-PANEL CARD ADOPTION, not
+     * guessed from the diff. The wrapper div that used to hold FarahPanel
+     * (and its 1px `border-l`) is gone — the panel is the row's direct flex
+     * child now — and the row gained a `min-[760px]:gap-7` (28px) between the
+     * content column and the panel, replacing that border as the visual
+     * separation between them. Losing the 1px border and gaining a 28px gap
+     * nets out to almost exactly the observed 27px shift.
      *
-     * innerCol was 920 while the panel's own div carried `border-l`. Tailwind
-     * sizes border-box, so that 1px hairline lived INSIDE the panel's
-     * `w-[280px]`. The hairline now sits on the wrapper — it had to, to run the
-     * full height of the colour field rather than stopping at the panel's 511px
-     * of content — and the wrapper has no width of its own, so the border adds
-     * to it instead of fitting within it. The field is 281px and the content
-     * column is 919.
+     * Asserted as an exact number rather than loosened to a range: the point
+     * of these numbers is that an unintended shift fails, and this one is
+     * intended and understood. A tolerance here would hide the next one.
      *
-     * Asserted as 919 rather than loosened to a range: the point of these
-     * numbers is that an unintended shift fails, and this shift is intended and
-     * understood. A tolerance here would hide the next one.
-     *
-     * panelW stays 280 — the panel itself is unchanged; only what surrounds it
-     * moved.
+     * panelW stays 280 — the panel's own width is unchanged; only what
+     * surrounds it moved. (Its padding changed too, from px-7/py-8 to a
+     * uniform p-5, but Tailwind's default border-box sizing means padding
+     * changes don't move a fixed `w-[280px]`.)
      */
-    expect(r.innerCol).toBe(919);
+    expect(r.innerCol).toBe(892);
     expect(r.panelW).toBe(280);
     expect(r.sideBySide).toBe(true);
     expect(r.position).toBe("sticky");

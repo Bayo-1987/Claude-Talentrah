@@ -146,44 +146,35 @@ export default async function AppLayout({
         conversation away on every rotation. Changing flex-direction moves the
         same mounted element, so nothing is lost crossing the breakpoint.
       */}
-      <div className="mx-auto flex w-full max-w-[1360px] flex-col min-[760px]:flex-row print:block print:max-w-none">
+      {/*
+        NO MORE WRAPPER AROUND FarahPanel, as of the Sunbird elevated-card
+        adoption. The wrapper used to exist solely to paint a full-height
+        `bg-bg-alt` tint and a left hairline the length of the column, because
+        Editorial's flat marginalia treatment needed a field to run the whole
+        column even though the panel itself is only ever as tall as its
+        content (see farah-panel.tsx's own history for the measurement). The
+        Sunbird artboards don't show a tinted column at all — the panel floats
+        directly on the page's plain `--bg`, separated by its own card shadow
+        — so there is nothing left for a wrapper to paint. FarahPanel is
+        rendered directly as this row's second flex child now, and
+        `print:hidden` (the wrapper's other job) moved onto its own root div.
+
+        `min-[760px]:gap-7` is the 28px gap JobFeed-Sunbird.dc.html's card
+        shows between the content column and itself (`margin: ... 28px` on
+        the card, read as a gap here rather than a one-sided margin — see
+        farah-panel.tsx's own header comment on why the rest of that margin
+        value isn't copied literally). Still gated to min-[760px]: the
+        stacked mobile view has no side gap to add; the panel already sits
+        flush under the feed there, exactly as before this change.
+      */}
+      <div className="mx-auto flex w-full max-w-[1360px] flex-col min-[760px]:flex-row min-[760px]:gap-7 print:block print:max-w-none">
         <div
           data-testid="content-column"
           className="min-w-0 flex-1 px-6 py-8 min-[760px]:px-10 print:p-0"
         >
           {children}
         </div>
-        {/*
-          THE TINT LIVES HERE, NOT ON THE PANEL, and the difference is visible
-          on every normal screen rather than at some far-scrolled extreme.
-
-          FarahPanel's own div is `sticky` with a max-height, so it is only ever
-          as tall as its content — measured at 511px against a content column of
-          36,327px. Painting `bg-bg-alt` there left the field stopping 511px
-          down while the feed carried on beside it: on a 900px viewport that is
-          a seam of plain --bg visible before the fold, not below it.
-
-          THIS wrapper is the flex item, so `align-items: stretch` makes it
-          exactly as tall as the content column. The tint therefore runs the
-          whole column, which is what a colour field means.
-
-          THE LEFT HAIRLINE MOVED HERE TOO, for the same reason and not merely
-          for tidiness. It is a BOUNDARY running the length of the field, not a
-          marker of where content starts, so leaving it on the panel left it
-          511px long against a 36,327px field — and CLAUDE.md's rule is to pair
-          a divider WITH a background change, which was then true of only the
-          top 1.4% of the column.
-
-          Still min-[760px]:, so the stacked mobile view has no side rule to
-          draw, exactly as before.
-
-          The coral top rule and the mark beside the eyebrow stay on the panel
-          itself: those DO mark where Farah's content begins, which is not the
-          same place as where her column begins.
-        */}
-        <div className="bg-bg-alt min-[760px]:border-l min-[760px]:border-l-line print:hidden">
-          <FarahPanel firstName={visibleName(profile.first_name) || "there"} />
-        </div>
+        <FarahPanel firstName={visibleName(profile.first_name) || "there"} />
       </div>
       {/*
         Rendered from the AUTHENTICATED shell only. The marketing pages under
