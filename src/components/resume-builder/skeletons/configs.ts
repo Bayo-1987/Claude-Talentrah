@@ -156,9 +156,13 @@ export const DEMO_CONFIGS: Record<string, TemplateConfig> = {
       showLinksInHeader: false,
       showSummary: true,
     },
-    // A single flowing column with a decorative rail down the margin — no
-    // side-by-side unrelated content — see ats-safety.test.ts.
-    atsSafe: true,
+    // send-197 follow-up, migration 0158: bodyFont "body" (DM Sans) confirmed
+    // to corrupt PDF text extraction. This config has no real catalog slug
+    // (QA-only demo), so no migration is needed, but it should still be
+    // downgraded for the same reason as every other bodyFont:"body" config —
+    // this was already the intent (see ats-safety.spec.ts's SKELETON_CLAIMS
+    // and 51029d0's own commit message) but the actual field here was missed.
+    atsSafe: false,
   },
 
   "compact-dense-demo": {

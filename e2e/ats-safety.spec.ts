@@ -156,6 +156,24 @@ test.describe("ats_safe is a real, PDF-verified claim per skeleton", () => {
     expect(Object.keys(DEMO_CONFIGS).sort()).toEqual(Object.keys(SKELETON_CLAIMS).sort());
   });
 
+  // Post-merge follow-up (PR #386): SKELETON_CLAIMS is hand-maintained and
+  // separate from each config's own `atsSafe` field, so the two can silently
+  // disagree — the key-set check above never notices, since it only checks
+  // that the same KEYS exist, not that the VALUES agree. That's exactly what
+  // happened to timeline-demo: its config still said `atsSafe: true` while
+  // SKELETON_CLAIMS said `false`, and the whole suite stayed green because
+  // `claimedAtsSafe` only picks which assertion branch runs below — it never
+  // reads `config.atsSafe` to cross-check itself.
+  test("SKELETON_CLAIMS agrees with each config's own atsSafe field", () => {
+    const mismatched = Object.entries(SKELETON_CLAIMS)
+      .filter(([configKey, claimed]) => DEMO_CONFIGS[configKey]?.atsSafe !== claimed)
+      .map(
+        ([configKey, claimed]) =>
+          `${configKey}: SKELETON_CLAIMS says ${claimed}, config.atsSafe says ${DEMO_CONFIGS[configKey]?.atsSafe}`,
+      );
+    expect(mismatched).toEqual([]);
+  });
+
   for (const [configKey, claimedAtsSafe] of Object.entries(SKELETON_CLAIMS)) {
     test(`${configKey} (claimed ats_safe=${claimedAtsSafe})`, async ({ page }) => {
       const config = DEMO_CONFIGS[configKey];
