@@ -56,12 +56,14 @@ test.describe("employer surface", () => {
      * The seeker masthead's treatment, ported — and the breakpoint is NOT the
      * same, which is why this has its own test rather than a shared one.
      *
-     * That side collapses at 760 because seven nav links need 728px. This one
-     * has three and needs 379, so it only overflows below ~380 — but the link
-     * text wraps to two lines all the way up to 640 ("Company Profile" at 59px
-     * over two lines instead of 103px over one). 640 is where it stops being
-     * cramped, so 640 is the breakpoint. Copying 760 would have hidden a nav
-     * that fits perfectly well from 640 to 759.
+     * NAV_LINKS has grown to five since this comment last described three
+     * (Analytics/0128, then Talent Directory) — send-219's sweep found the
+     * breakpoint was never re-measured for that and raised it from 640 to
+     * 1280, where it now has real margin rather than just clearing. Full
+     * measurement table and the wrapped-vs-crowded distinction live in
+     * e2e/employer-masthead-nav-fit.spec.ts, which sweeps the whole range;
+     * this test only needs to confirm the phone-width disclosure itself
+     * still works and lists every current destination.
      */
     const orgName = `E2E Employer Co ${testUser.id.slice(0, 8)}`;
     await authedPage.goto("/employer");
@@ -88,7 +90,14 @@ test.describe("employer surface", () => {
       await expect(menu).toBeVisible({ timeout: 1000 });
     }).toPass({ timeout: 15_000 });
 
-    for (const label of ["Jobs Posted", "Company Profile", "Ad Campaigns", "Looking for work?"]) {
+    for (const label of [
+      "Jobs Posted",
+      "Company Profile",
+      "Ad Campaigns",
+      "Analytics",
+      "Talent Directory",
+      "Looking for work?",
+    ]) {
       await expect(menu.getByRole("menuitem", { name: label })).toBeVisible();
     }
     await authedPage.keyboard.press("Escape");
@@ -101,7 +110,8 @@ test.describe("employer surface", () => {
     expect(spills, "the employer masthead must not overflow the viewport").toBe(false);
 
     // ---- and above the breakpoint it is the bar again ---------------------
-    await authedPage.setViewportSize({ width: 640, height: 900 });
+    // 1280, not 640 — see the comment at the top of this test.
+    await authedPage.setViewportSize({ width: 1280, height: 900 });
     await expect(authedPage.locator("nav")).toBeVisible();
     await expect(authedPage.getByRole("button", { name: "Main menu" })).toBeHidden();
   });

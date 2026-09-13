@@ -46,23 +46,41 @@ export function EmployerMasthead({
   const navRef = useRef<HTMLDivElement>(null);
 
   /*
-   * 640, NOT the seeker masthead's 760 — measured rather than inherited.
+   * 1280, NOT the 640 this used to say — re-measured after send-219's sweep
+   * found the bar wrapping at 768/850/1024, all ordinary widths, clean only
+   * at 1280+.
    *
-   * That side needed 728px because it carries seven nav links; this one has
-   * three, and the numbers are not close:
+   * 640 WAS RIGHT ONCE, FOR A NAV THAT NO LONGER EXISTS. It was measured
+   * against three links (Jobs Posted / Company Profile / Ad Campaigns) and
+   * never re-derived when Analytics (0128) and Talent Directory brought it to
+   * five — the exact mistake the seeker masthead's own header already warns
+   * about ("a threshold that only just fits is a threshold that breaks on the
+   * next one"), just not yet applied here.
    *
-   *     width   page overflows?   nav link text
-   *      360    yes (379px)       wrapped to two lines
-   *      390    no                wrapped
-   *      412    no                wrapped
-   *      560    no                wrapped
-   *      640    no                one line
+   * Re-measured the PAINTED text extent of the last link (a Range over its
+   * contents, not its box — the box stops shrinking before the text does,
+   * same lesson as e2e/masthead-nav-fit.spec.ts) against where it stops
+   * wrapping to two lines, and separately against the right-hand group's
+   * leftmost edge once it does:
    *
-   * So the page only breaks below ~380, but the nav is visibly squeezed all
-   * the way to 640 — "Company Profile" rendered 59px wide over two lines
-   * instead of 103px over one. 640 is where it stops being cramped, and it is
-   * already a breakpoint this codebase uses. Copying 760 across would have
-   * hidden a nav that fits perfectly well from 640 to 759.
+   *     width   last link wraps?   gap to right-hand group
+   *      768    yes                 —
+   *      850    yes                 —
+   *     1024    yes                 —
+   *     1160    yes                 —
+   *     1180    yes                 —
+   *     1185    no                  5px
+   *     1200    no                  20px
+   *     1230    no                  50px
+   *     1280    no                  100px
+   *
+   * 1185 is where it stops wrapping, but a 5px margin is the same mistake as
+   * 640: correct today, one font-metrics difference or one more nav item
+   * from wrapping again. 1280 buys real slack (100px), the same reasoning
+   * masthead.tsx applies to its own breakpoint — and BELOW 1280 the
+   * disclosure below must now be COMPLETE for the whole 640–1279 range, not
+   * just 360–639 as before (asserted in
+   * e2e/employer-masthead-nav-fit.spec.ts, not just assumed).
    */
   useEffect(() => {
     if (!navOpen) return;
@@ -97,7 +115,7 @@ export function EmployerMasthead({
           <span className="hidden border border-line px-2 py-1 font-body text-[11px] font-bold tracking-[0.14em] text-ink-soft uppercase min-[900px]:inline-block">
             For employers
           </span>
-          <nav className="hidden items-center gap-5.5 min-[640px]:flex">
+          <nav className="hidden items-center gap-5.5 min-[1280px]:flex">
             {NAV_LINKS.map((link) => {
               const active = pathname?.startsWith(link.href);
               return (
@@ -130,11 +148,12 @@ export function EmployerMasthead({
           </nav>
 
           {/*
-            The same three links behind a disclosure below 640, with the same
+            The same five links behind a disclosure below 1280 now (was 640,
+            three links — see the breakpoint comment above), with the same
             contract as the seeker masthead and the feed's card menus: outside
             click and Escape both close.
           */}
-          <div ref={navRef} className="relative flex items-center min-[640px]:hidden">
+          <div ref={navRef} className="relative flex items-center min-[1280px]:hidden">
             <button
               type="button"
               aria-expanded={navOpen}
@@ -197,7 +216,7 @@ export function EmployerMasthead({
           </div>
         </div>
 
-        <div className="flex items-center gap-3.5">
+        <div data-testid="employer-masthead-actions" className="flex items-center gap-3.5">
           <Link
             href="/jobs"
             className="hidden min-h-10 items-center text-[13px] font-semibold text-ink-soft no-underline underline-offset-2 hover:text-coral hover:underline min-[900px]:inline-flex"
