@@ -67,11 +67,6 @@ const MIGRATION_0110_PATH = path.resolve(
   "../../supabase/migrations/0110_template_free_tier_cut.sql",
 );
 
-const MIGRATION_0158_PATH = path.resolve(
-  __dirname,
-  "../../supabase/migrations/0158_ats_safe_dm_sans_kerning_mitigation.sql",
-);
-
 /**
  * Slugs this migration is NOT the source of truth for:
  *   - `clean-professional`'s structure_schema/ats_safe live in migration 0104.
@@ -109,98 +104,32 @@ const OUT_OF_SCOPE_SLUGS = new Set([
  * forward unchanged, plus the new `styleTokens`), so `blueprint` moves from
  * being checked against 0106 to being checked against 0111 below, alongside
  * the other 10.
- *
- * Five of the original 11 (`business-memo`, `harvest`, `specification`,
- * `foundation`, `offshore`) are superseded AGAIN, by
- * `0158_ats_safe_dm_sans_kerning_mitigation.sql` — same "true current source
- * has moved to a later migration" chain blueprint already went through
- * (0105 -> 0106 -> 0111), one hop further (0111 -> 0158). They stay in this
- * set (still not checked against 0105) but move out of `LAYOUT_RETUNE_SLUGS`
- * below and into `ATS_SAFE_MITIGATION_SLUGS`'s own dedicated test, since 0158
- * — not 0111 — is now their source of truth. The other 10 members of
- * `ATS_SAFE_MITIGATION_SLUGS` are newly added here directly (0105 was their
- * only prior source).
  */
 const STRUCTURE_SCHEMA_SUPERSEDED_BY_LATER_MIGRATION = new Set([
   "blueprint",
+  "business-memo",
+  "harvest",
   "site-plan",
   "product-tech",
   "rig-report",
+  "specification",
+  "foundation",
+  "offshore",
   "chambers",
   "schematic",
-  // The 15 slugs 0158 corrects — see ATS_SAFE_MITIGATION_SLUGS below.
-  "structured-admin",
-  "ledger",
-  "business-memo",
-  "filing-system",
-  "help-desk",
-  "compliance-brief",
-  "rounds",
-  "care-plan",
-  "gazette",
-  "civic-record",
-  "specification",
-  "harvest",
-  "offshore",
-  "foundation",
-  "manifest",
 ]);
 
-/**
- * The 16 slugs `0158_ats_safe_dm_sans_kerning_mitigation.sql` corrects —
- * every real catalog template with `styleTokens.bodyFont === "body"`
- * (confirmed exposed to the DM Sans PDF-text-extraction corruption; see the
- * migration's own header for the full investigation). `atsSafe` flips to
- * `false` for all 16; `styleTokens`/`content` are unchanged from whatever
- * Sunbird (send-197) already set. Five of these (`business-memo`, `harvest`,
- * `specification`, `foundation`, `offshore`) were previously in
- * `LAYOUT_RETUNE_SLUGS`/checked against 0111 — 0158 supersedes that for
- * them too, so they moved out of `LAYOUT_RETUNE_SLUGS` below.
- *
- * `clean-professional` is the 16th, added to the migration after the other
- * 15 were already found and fixed: it lives directly in `RESUME_TEMPLATES`
- * (`src/lib/billing/catalog.ts`), sourced from `CLEAN_PROFESSIONAL_CONFIG`
- * rather than `CATALOG_TEMPLATE_CONFIGS`, so the query that found the other
- * 15 (which only inspects `CATALOG_TEMPLATE_CONFIGS`) structurally could not
- * see it. It is NOT in `OUT_OF_SCOPE_SLUGS` above by accident either — that
- * set already excluded it from every 0105-based comparison for an unrelated
- * reason (its `ats_safe`/`structure_schema` source was always migration
- * 0104, never 0105), so this dedicated 0158 check is the only place its
- * current value is actually verified against anything.
- */
-const ATS_SAFE_MITIGATION_SLUGS = [
-  "structured-admin",
-  "ledger",
-  "business-memo",
-  "filing-system",
-  "help-desk",
-  "compliance-brief",
-  "rounds",
-  "care-plan",
-  "gazette",
-  "civic-record",
-  "specification",
-  "harvest",
-  "offshore",
-  "foundation",
-  "manifest",
-  "clean-professional",
-] as const;
-
-/**
- * `ats_safe` has no general "superseded by later migration" set the way
- * `structure_schema` does — 0105 has been the only source of truth for it
- * until now. This is exactly `ATS_SAFE_MITIGATION_SLUGS` (as a Set, for the
- * membership check below) rather than a second hand-maintained list.
- */
-const ATS_SAFE_SUPERSEDED_BY_LATER_MIGRATION = new Set<string>(ATS_SAFE_MITIGATION_SLUGS);
-
-/** The 6 slugs `0111_persona_layout_token_retune.sql` still solely corrects — the other 5 of the original 11 moved to `ATS_SAFE_MITIGATION_SLUGS`/0158 above. */
+/** The 11 slugs `0111_persona_layout_token_retune.sql` corrected — every one of `STRUCTURE_SCHEMA_SUPERSEDED_BY_LATER_MIGRATION`'s members. */
 const LAYOUT_RETUNE_SLUGS = [
   "blueprint",
+  "business-memo",
+  "harvest",
   "site-plan",
   "product-tech",
   "rig-report",
+  "specification",
+  "foundation",
+  "offshore",
   "chambers",
   "schematic",
 ] as const;
@@ -466,7 +395,6 @@ describe("RESUME_TEMPLATES vs the migration that seeds production — must never
     const mismatched: string[] = [];
     for (const t of RESUME_TEMPLATES) {
       if (OUT_OF_SCOPE_SLUGS.has(t.slug)) continue;
-      if (ATS_SAFE_SUPERSEDED_BY_LATER_MIGRATION.has(t.slug)) continue;
       const migrated = migrationBySlug.get(t.slug);
       if (!migrated) {
         mismatched.push(`${t.slug}: not found in migration 0105 at all`);
@@ -506,21 +434,11 @@ describe("RESUME_TEMPLATES vs the migration that seeds production — must never
     const rows0111 = parseFixedSlugUpdates(migration0111);
     const bySlug0111 = new Map(rows0111.map((r) => [r.slug, r]));
 
-    // 0111 ITSELF is a frozen historical file — it still names all 11
-    // original layout-retune slugs, unchanged, regardless of which of them
-    // 0158 has since superseded again. That's a fact about the file, not
-    // about current parity, so it's checked against the original 11
-    // (LAYOUT_RETUNE_SLUGS's 6 members plus the 5 ATS_SAFE_MITIGATION_SLUGS
-    // moved out below), not against LAYOUT_RETUNE_SLUGS's now-smaller list.
-    const ORIGINAL_0111_SLUGS = [...LAYOUT_RETUNE_SLUGS, "business-memo", "harvest", "specification", "foundation", "offshore"];
     expect(
       Array.from(bySlug0111.keys()).sort(),
-      "0111 should still name exactly the 11 slugs it originally corrected, no more, no fewer",
-    ).toEqual(ORIGINAL_0111_SLUGS.sort());
+      "0111 should update exactly the 11 layout-retune slugs, no more, no fewer",
+    ).toEqual(Array.from(LAYOUT_RETUNE_SLUGS).sort());
 
-    // Current parity, though, is only checked for the 6 LAYOUT_RETUNE_SLUGS
-    // still solely sourced by 0111 — the other 5 moved to 0158 and are
-    // checked against it in the next test instead.
     const mismatched: string[] = [];
     for (const slug of LAYOUT_RETUNE_SLUGS) {
       const t = RESUME_TEMPLATES.find((row) => row.slug === slug);
@@ -538,44 +456,6 @@ describe("RESUME_TEMPLATES vs the migration that seeds production — must never
       }
     }
     expect(mismatched, "structure_schema has drifted between catalog.ts and migration 0111").toEqual([]);
-  });
-
-  it("the 16 ats_safe-mitigation slugs' ats_safe and structure_schema instead agree with their corrective migration, 0158", () => {
-    // 0158 writes each slug's ats_safe via the same standalone
-    // `update ... set ats_safe = ... where slug = '...';` shape 0105's fixed
-    // rows use, then structure_schema via the same shape 0111 uses —
-    // `parseFixedSlugUpdates` already handles both without changes.
-    const migration0158 = readFileSync(MIGRATION_0158_PATH, "utf8");
-    const rows0158 = parseFixedSlugUpdates(migration0158);
-    const bySlug0158 = new Map(rows0158.map((r) => [r.slug, r]));
-
-    expect(
-      Array.from(bySlug0158.keys()).sort(),
-      "0158 should update exactly the 16 ats_safe-mitigation slugs, no more, no fewer",
-    ).toEqual(Array.from(ATS_SAFE_MITIGATION_SLUGS).sort());
-
-    const mismatched: string[] = [];
-    for (const slug of ATS_SAFE_MITIGATION_SLUGS) {
-      const t = RESUME_TEMPLATES.find((row) => row.slug === slug);
-      if (!t) {
-        mismatched.push(`${slug}: not found in RESUME_TEMPLATES`);
-        continue;
-      }
-      const migrated = bySlug0158.get(slug);
-      if (!migrated) {
-        mismatched.push(`${slug}: not found in migration 0158`);
-        continue;
-      }
-      if (migrated.atsSafe !== t.ats_safe) {
-        mismatched.push(
-          `${slug}: RESUME_TEMPLATES says ats_safe=${t.ats_safe}, migration 0158 says ${migrated.atsSafe}`,
-        );
-      }
-      if (JSON.stringify(migrated.structureSchema) !== JSON.stringify(t.structure_schema)) {
-        mismatched.push(`${slug}: RESUME_TEMPLATES and migration 0158 disagree on structure_schema`);
-      }
-    }
-    expect(mismatched, "ats_safe/structure_schema has drifted between catalog.ts and migration 0158").toEqual([]);
   });
 
   it("blueprint's structure_schema also carries 0106's sectionLabels fix forward", () => {

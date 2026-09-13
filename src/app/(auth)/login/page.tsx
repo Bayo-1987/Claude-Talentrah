@@ -51,13 +51,13 @@ export default async function LoginPage({
       </div>
 
       {error === "oauth_unavailable" && (
-        <p className="border-[1.5px] border-coral bg-coral-soft px-3.5 py-2.5 text-[13.5px] text-coral">
+        <p className="border-[1.5px] border-rust bg-rust-soft px-3.5 py-2.5 text-[13.5px] text-rust">
           That sign-in method isn&apos;t available yet — try email and password
           instead.
         </p>
       )}
       {error === "auth_callback_failed" && (
-        <p className="border-[1.5px] border-coral bg-coral-soft px-3.5 py-2.5 text-[13.5px] text-coral">
+        <p className="border-[1.5px] border-rust bg-rust-soft px-3.5 py-2.5 text-[13.5px] text-rust">
           That link has expired or was already used. Please try again.
         </p>
       )}

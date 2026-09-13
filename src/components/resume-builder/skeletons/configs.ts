@@ -37,13 +37,7 @@ export const CLEAN_PROFESSIONAL_CONFIG: TemplateConfig = {
     showLinksInHeader: false,
     showSummary: true,
   },
-  // send-197 follow-up, migration 0158: bodyFont "body" (DM Sans) confirmed to corrupt PDF text extraction; ats_safe honestly downgraded pending the real fix, not a styleTokens change.
-  // Caught after the other 15 real catalog templates — clean-professional
-  // lives directly in RESUME_TEMPLATES (src/lib/billing/catalog.ts), not in
-  // CATALOG_TEMPLATE_CONFIGS, so the earlier "17 exposed slugs" query missed
-  // it entirely: it is a real, free, likely-default template with the exact
-  // same bodyFont:"body" + education-section exposure as the rest.
-  atsSafe: false,
+  atsSafe: true,
 };
 
 /**

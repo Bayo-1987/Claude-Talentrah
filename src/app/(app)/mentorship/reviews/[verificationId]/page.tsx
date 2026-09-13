@@ -2,7 +2,7 @@ import Link from "next/link";
 import { requireUser } from "@/lib/auth/require-user";
 import { getReviewDetail } from "@/lib/talent-directory/review-queries";
 import { releaseVerificationReviewClaimAction } from "@/lib/talent-directory/reviewer-actions";
-import { Container, EyebrowLabel, Card, Button } from "@/components/ui";
+import { Container, EyebrowLabel, BorderedCard, Button } from "@/components/ui";
 import { DecideForm } from "./decide-form";
 
 export const metadata = { title: "Review a verification — Talentrah" };
@@ -41,7 +41,7 @@ export default async function ReviewDetailPage({
         <p className="text-[14.5px] text-ink-soft">
           This submission isn&apos;t claimed by you, or it&apos;s already been decided.
         </p>
-        <Link href="/mentorship/reviews" className="text-[13.5px] text-coral">
+        <Link href="/mentorship/reviews" className="text-[13.5px] text-rust">
           Back to the queue ↗
         </Link>
       </Container>
@@ -60,17 +60,17 @@ export default async function ReviewDetailPage({
         {new Date(detail.requestedAt).toLocaleString()}
       </p>
 
-      <Card className="flex flex-col gap-3 p-5">
+      <BorderedCard className="flex flex-col gap-3 p-5">
         <h2 className="font-display text-[18px] font-semibold">Resume</h2>
         <pre className="overflow-x-auto whitespace-pre-wrap font-body text-[13px] text-ink-soft">
           {JSON.stringify(detail.resume, null, 2)}
         </pre>
-      </Card>
+      </BorderedCard>
 
-      <Card className="flex flex-col gap-4 p-5">
+      <BorderedCard className="flex flex-col gap-4 p-5">
         <h2 className="font-display text-[18px] font-semibold">Your decision</h2>
         <DecideForm verificationId={detail.id} candidateId={detail.candidateId} />
-      </Card>
+      </BorderedCard>
 
       <form action={release}>
         <Button type="submit" variant="ghost" size="sm">

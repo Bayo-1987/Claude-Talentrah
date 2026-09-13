@@ -35,9 +35,9 @@ export function Lora(options: FontOptions) {
 export function Barlow_Condensed(options: FontOptions) {
   return mockFont(options);
 }
-export function DM_Serif_Display(options: FontOptions) {
+export function Newsreader(options: FontOptions) {
   return mockFont(options);
 }
-export function DM_Sans(options: FontOptions) {
+export function Source_Sans_3(options: FontOptions) {
   return mockFont(options);
 }

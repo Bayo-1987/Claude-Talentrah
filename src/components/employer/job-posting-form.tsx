@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { MAX_EXPIRY_DAYS } from "@/lib/employer/expiry-input";
-import { Card, Button, TextField } from "@/components/ui";
+import { BorderedCard, Button, TextField } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import type { EmployerActionState } from "@/lib/employer/actions";
 
@@ -37,7 +37,7 @@ function ChoiceField({
         name={name}
         defaultValue={defaultValue ?? ""}
         className={cn(
-          "min-h-11 border-[1.5px] border-ink bg-card px-3.5 py-2.5 font-body text-[15px] text-ink outline-none focus:border-coral",
+          "min-h-11 border-[1.5px] border-ink bg-card px-3.5 py-2.5 font-body text-[15px] text-ink outline-none focus:border-rust",
         )}
       >
         <option value="">{placeholder}</option>
@@ -177,7 +177,7 @@ function ExpiryField({ current }: { current: string | null }) {
         value={choice}
         onChange={(e) => setChoice(e.target.value)}
         className={cn(
-          "min-h-11 border-[1.5px] border-ink bg-card px-3.5 py-2.5 font-body text-[15px] text-ink outline-none focus:border-coral",
+          "min-h-11 border-[1.5px] border-ink bg-card px-3.5 py-2.5 font-body text-[15px] text-ink outline-none focus:border-rust",
         )}
       >
         {currentLabel && <option value="keep">Keep current — {currentLabel}</option>}
@@ -210,7 +210,7 @@ function ExpiryField({ current }: { current: string | null }) {
             max={isoDate(MAX_EXPIRY_DAYS)}
             value={customDate}
             onChange={(e) => setCustomDate(e.target.value)}
-            className="min-h-11 border-[1.5px] border-ink bg-card px-3.5 py-2.5 font-body text-[15px] text-ink outline-none focus:border-coral"
+            className="min-h-11 border-[1.5px] border-ink bg-card px-3.5 py-2.5 font-body text-[15px] text-ink outline-none focus:border-rust"
           />
         </>
       )}
@@ -277,12 +277,12 @@ export function JobPostingForm({
         </p>
       )}
       {error && (
-        <p className="border-[1.5px] border-coral bg-coral-soft px-3.5 py-2.5 text-[13.5px] text-coral">
+        <p className="border-[1.5px] border-rust bg-rust-soft px-3.5 py-2.5 text-[13.5px] text-rust">
           {error}
         </p>
       )}
 
-      <Card className="p-6">
+      <BorderedCard className="p-6">
         <form action={formAction} className="flex flex-col gap-5">
           <div className="grid grid-cols-1 gap-5 min-[640px]:grid-cols-2">
             <TextField
@@ -376,7 +376,7 @@ export function JobPostingForm({
               rows={14}
               defaultValue={initial?.description}
               placeholder="Responsibilities, requirements, what the team is like, how to stand out."
-              className="border-[1.5px] border-ink bg-card px-3.5 py-2.5 font-body text-[15px] leading-[1.65] text-ink outline-none focus:border-coral"
+              className="border-[1.5px] border-ink bg-card px-3.5 py-2.5 font-body text-[15px] leading-[1.65] text-ink outline-none focus:border-rust"
             />
             <p className="font-body text-[12.5px] text-ink-soft">
               This is what seekers are matched against — the more concrete the requirements, the
@@ -390,7 +390,7 @@ export function JobPostingForm({
             </Button>
           </div>
         </form>
-      </Card>
+      </BorderedCard>
     </div>
   );
 }
