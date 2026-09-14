@@ -5,6 +5,13 @@ import { sanitizeStructuredResume } from "@/lib/resume/sanitize";
 import { internalError } from "@/lib/api/admin-auth";
 import { consumeRateLimit, rateLimited } from "@/lib/api/rate-limit";
 
+/**
+ * Same LLM-fallback call as /api/resume/parse (both go through
+ * parseResumeFile) — see /api/tailoring's own comment for the worst-case-
+ * timing math this value is built from.
+ */
+export const maxDuration = 45;
+
 const MAX_SIZE_BYTES = 5 * 1024 * 1024;
 const ALLOWED_TYPES = new Set([
   "application/pdf",
