@@ -307,6 +307,84 @@ equally slow options, and the better one is one command.
 
 ---
 
+## 6. `e2e/job-detail.spec.ts`: the card/detail truncation check depends on which real external job sorts first
+
+**Status: open, unowned as of 2026-09-14** (a fix may already be in flight in a
+separate session — check before duplicating). Found while merging the
+2026-09-14 audit batch (nine PRs, none of which touch job ingestion, the job
+card, or the job-detail page) — surfaced as a merge blocker on
+`fix/atomic-fulfillment-credit-pack-pass` (PR #399), then reproduced
+identically on two other, unrelated PRs (#397, #402) before anyone assumed it
+was a flake.
+
+**Symptom.** `e2e/job-detail.spec.ts`'s test "the card title opens the job,
+and the job is not truncated there" fails on:
+
+```
+expect(full).toContain(cardDescription.slice(0, 100));
+```
+
+with the card's truncated text containing a literal "·" (middle dot) and a
+line break that the full-page text does not — same underlying
+`job.description`, two different renderings.
+
+**Confirmed pre-existing, not caused by any of the three PRs it hit.**
+`fix/atomic-fulfillment-credit-pack-pass` touches only
+`src/lib/billing/fulfill.ts` and its own migration/test; `chore/bundle-size-ci-safeguard` touches only CI tooling; `fix/marketing-masthead-mobile-nav`
+touches only the signed-out marketing masthead. None touch job ingestion,
+`job-card.tsx`, or the job-detail page. A `git commit --allow-empty -m "retry ci"` retry on #399
+(entry 5's own prescribed method, not `gh run rerun`) failed **identically**
+— same test, same file:line, same assertion, same Moniepoint text, byte for
+byte — ruling out ordinary run-to-run flakiness in favour of a currently-live,
+deterministic cause.
+
+**Root cause, traced to actual code, not guessed.** The test asserts on
+whichever job `page.locator("h3 a").first()` resolves to — the top of the
+"Recommended" feed, with zero control over which real posting that is.
+`src/lib/jobs/sources.config.ts` configures Moniepoint as a live Greenhouse
+source (`{ source: "greenhouse", token: "moniepoint", ... }`), not a fixture;
+`docs/phase-1-summary.md` records measuring "Moniepoint's live board: 127
+postings" directly. `scripts/seed.ts` calls
+`fetch(`${devServerUrl}/api/admin/ingest-jobs`, ...)` — CI's seed step
+genuinely fetches real external boards, Moniepoint included, on every run. A
+Moniepoint "Senior Content Designer" listing currently sorts first and its
+raw description uses a literal "·" as a bullet/separator instead of this
+app's own "- " convention.
+`stripMarkdownToPlainText()` (`src/lib/jobs/extract-jd.ts`, used for the job
+card's truncated preview) only strips `**bold**` and leading "- " — it does
+not recognise "·" and passes it through unchanged. `renderJobDescriptionMarkdown`
+(used on the full job-detail page, see `src/app/(app)/jobs/[id]/page.tsx`)
+handles the same raw text differently. Two renderings of the same posting
+therefore genuinely disagree, and will keep disagreeing on any future CI run
+where this posting — or another one shaped like it — sorts first.
+
+**This is not a one-batch exception.** It will recur on any future PR's CI,
+unrelated to that PR's own diff, for as long as (a) this test depends on
+whichever job real external ranking puts first, and (b) any live source board
+contains a posting using a bullet character `stripMarkdownToPlainText` doesn't
+strip. Nine PRs merged past this on 2026-09-14 with an explicit per-PR note
+citing this entry rather than a bare "known flake, ignoring it."
+
+**Next check, concretely.** Two independent angles, either is a real fix
+(check whether the separate in-flight session already covers one of these
+before duplicating):
+- Make `stripMarkdownToPlainText` (or the ingestion step that produces
+  `job.description`) handle the wider range of bullet/separator characters
+  real scraped HTML actually contains — not just "- ". Check for em-dash,
+  asterisk-bullet, and other Unicode bullet characters while in there; this
+  exact defect shape will recur with a different source posting otherwise.
+- Stop making this test's assertion depend on live external ranking at all —
+  seed a synthetic or internal-only job posting specifically for
+  `job-detail.spec.ts` to assert against via a stable selector, rather than
+  `.first()` on whatever the real feed currently ranks top.
+
+**Owner.** Unowned as of this writing. A separate session was started
+2026-09-14 to investigate a code-level fix — check its outcome before picking
+this up again; if it lands, this entry should be updated to point at that
+PR rather than left as a live gap.
+
+---
+
 ## Not a gap: a stacked PR gets no CI until it retargets
 
 `ci.yml` fires on three things:
