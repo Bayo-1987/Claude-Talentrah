@@ -5,6 +5,15 @@ import { upsertBaseResume } from "@/lib/resume/upsert-base-resume";
 import { internalError } from "@/lib/api/admin-auth";
 import { consumeRateLimit, rateLimited } from "@/lib/api/rate-limit";
 
+/**
+ * parseResumeFile falls back to parseResumeWithLLM (src/lib/resume/llm-fallback.ts)
+ * when the heuristic parser can't make sense of a file — one generateWithFailover
+ * round trip per attempt, same shape as /api/tailoring's call. See that
+ * route's own comment for the full worst-case-timing math behind this value;
+ * it's unchanged here because the retry/attempt structure is identical.
+ */
+export const maxDuration = 45;
+
 const MAX_SIZE_BYTES = 5 * 1024 * 1024;
 const ALLOWED_TYPES = new Set([
   "application/pdf",
