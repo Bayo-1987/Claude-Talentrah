@@ -150,6 +150,18 @@ export const KNOWN_ALIASES: Record<string, string> = {
    * would have hit a real column/index that already exists.
    */
   "0128_claim_your_listing": "0128_claimable_job_postings",
+  /*
+   * Applied to both projects as 0160 (send-229) while PR #399 (0159) was
+   * still open — chosen specifically to avoid colliding with it. A separate,
+   * unrelated PR (#401) independently claimed 0160 for its own migration in
+   * the same window; both applied fine to both live databases (the ledger
+   * keys on the full timestamp, not the prefix), but two committed files
+   * cannot both be named 0160_ on main. Per the founder's own merge-
+   * sequencing review across all five migrations open at once, #401 keeps
+   * 0160 and this one renumbers to 0163 (0161/0162 already claimed by #404/
+   * #405). Schema is identical either way — see the file's own header.
+   */
+  "0163_atomic_referral_reward_grant": "0160_atomic_referral_reward_grant",
 };
 
 export function committedMigrations(): string[] {

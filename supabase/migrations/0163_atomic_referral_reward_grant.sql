@@ -1,17 +1,34 @@
--- 0160 — Make grant_referral_reward atomic (send-229, Medium).
+-- 0163 (renumbered from 0160 pre-merge — see below) — Make grant_referral_reward
+-- atomic (send-229, Medium).
 --
--- NUMBERED AFTER 0159 DELIBERATELY, AND DEPENDS ON IT. This migration calls
--- grant_credits_atomic(), which 0159_atomic_fulfillment_credit_pack_pass.sql
--- creates. 0159 was open as its own PR (#399, send-228) when this was
--- written; `ls supabase/migrations/` on a fresh checkout of main shows 0158
--- as the highest committed number, which would ordinarily make 0159 "free" —
--- it is not, that PR has already claimed it. Numbered 0160 here specifically
--- to avoid colliding with in-flight work this session already knows about,
--- per this repo's own numbering-collision history (0033, 0035, 0045, 0060,
--- 0128, 0136, 0137, 0138, 0158 have all recurred). Merge order matters: this
--- migration must be applied AFTER 0159 (both files must already exist by the
--- time this one runs on a fresh rebuild) — if these two PRs ever land in the
--- opposite order, renumber at merge time the same way this repo always has.
+-- APPLIED TO BOTH LIVE DATABASES UNDER ITS ORIGINAL NAME,
+-- "0160_atomic_referral_reward_grant" — schema_migrations keys on that
+-- string, not on this file's current name, and an applied migration is not
+-- rewritten (this repo's own standing rule; see 0061/0132/0133 for the same
+-- shape of mismatch). See scripts/audit-migrations.ts's KNOWN_ALIASES for the
+-- entry recording this, so the drift checker reads it as "applied under a
+-- documented alias" rather than MISSING.
+--
+-- WHY RENUMBERED. Filed as 0160 while PR #399 (0159) was still open, chosen
+-- specifically to avoid colliding with it. A separate, unrelated PR
+-- (#401, fix/supabase-hardening-batch) independently claimed 0160 for its own
+-- migration in the same window — both were applied fine to both live
+-- databases (Postgres's ledger keys on the full timestamp, not the
+-- human-readable prefix, so nothing broke there), but two files cannot both
+-- be named 0160_ on `main`. Per the founder's own merge-sequencing review
+-- across all five migrations open at once (0159-0162 spread across four
+-- PRs), #401 keeps 0160 and this one moves to 0163 — the next number after
+-- 0161 (PR #404) and 0162 (PR #405), both already claimed by the time this
+-- was resolved. Content is unchanged; only the number and this header moved.
+--
+-- NUMBERED AFTER 0159 DELIBERATELY, AND DEPENDS ON IT — still true post-
+-- rename. This migration calls grant_credits_atomic(), which
+-- 0159_atomic_fulfillment_credit_pack_pass.sql creates; that file must exist
+-- before this one runs on a fresh rebuild. Per this repo's own numbering-
+-- collision history (0033, 0035, 0045, 0060, 0128, 0136, 0137, 0138, 0158
+-- have all recurred), merge order matters more than the number itself: #399
+-- before this PR, #401 before #404. If the intended order changes again
+-- before merge, renumber again rather than fight it.
 --
 -- ---------------------------------------------------------------------------
 -- What was wrong
