@@ -129,32 +129,6 @@ export function Masthead({
    * since it lives in the right-hand group. e2e/masthead-nav-fit.spec.ts
    * asserts both: the gap at every width the bar renders, and that nothing is
    * stranded below.
-   *
-   * IT BROKE AGAIN, FROM A DIRECTION THIS COMMENT DIDN'T ANTICIPATE: not a new
-   * item, but a new TYPEFACE. The Sunbird design swap (send-197) replaced
-   * Source Sans 3 with DM Sans for every one of these labels, and DM Sans
-   * paints wider at the same size and weight — measured, on this exact row at
-   * 1536px, as +64.8px across the nav's own width alone (every label grew a
-   * few px; nothing was added or removed). That took the "~256px of slack"
-   * this comment used to claim down to a bare 79.57px first (the nav had
-   * already grown by two items since that figure was written and nobody
-   * re-measured it), then the font swap finished it to exactly 0 — "Ask
-   * Farah" and "Post a job" touching, pixel for pixel. Same lesson as the
-   * paragraph above, aimed at a different kind of change: a margin measured
-   * once is a number about to go stale, and "the text got wider" is invisible
-   * to a source diff the way "a link got added" is not — nothing here changed
-   * shape, only paint.
-   *
-   * Re-measured under Sunbird's fonts and moved again, to `min-[1792px]`
-   * (Tailwind has no named breakpoint there, hence the arbitrary value — the
-   * same idiom "Post a job" and the EN chip already use below). At 1792px the
-   * gap is 226px, close to the real slack this row is supposed to carry
-   * rather than the wafer-thin 79.57px it had drifted down to. Yes, this
-   * means a 1728px-wide display (a 16" MacBook Pro's native logical width)
-   * now gets the disclosure instead of the bar — an intentional cost, for the
-   * same reason the 1536 move accepted the same cost at a smaller scale: a
-   * threshold with real margin that sometimes collapses beats one with none
-   * that sometimes overlaps.
    */
   useEffect(() => {
     if (!navOpen) return;
@@ -220,7 +194,7 @@ export function Masthead({
     */
     <div
       data-testid="masthead"
-      className="border-b-[2.5px] border-ink bg-bg"
+      className="border-b-[2.5px] border-ink bg-paper"
     >
       <div className="flex h-[68px] items-center justify-between px-8">
         <div className="flex items-center gap-4 xl:gap-9">
@@ -243,7 +217,7 @@ export function Masthead({
               className="h-6 w-auto flex-shrink-0 min-[480px]:h-8"
             />
           </Link>
-          <nav className="hidden items-center gap-5.5 min-[1792px]:flex">
+          <nav className="hidden items-center gap-5.5 2xl:flex">
             {NAV_LINKS.map((link) => {
               const active = pathname?.startsWith(link.href);
               const href = hrefFor(link);
@@ -256,29 +230,26 @@ export function Masthead({
                     // 39.1px-wide target through review in #69, and "Jobs"
                     // measured 29.5 x 40 here — the same shape, in the one
                     // component every signed-in page renders.
-                    "flex min-h-10 min-w-10 items-center justify-center border-b-[2.5px] font-body text-[14.5px] font-semibold no-underline",
+                    "flex min-h-10 min-w-10 items-center justify-center border-b-[2.5px] font-body text-[14.5px] font-semibold text-ink no-underline",
                     /*
-                     * BOTH `border-transparent`/`text-ink` and their active
-                     * counterparts belong in the branches, not the base —
+                     * `border-transparent` belongs in the INACTIVE branch, not
+                     * the base — and that is a bug fix, not tidying.
+                     *
                      * `cn` here is a plain join, not tailwind-merge, so a base
-                     * class and a conditional override of the SAME property
+                     * `border-transparent` and a conditional `border-rust`
                      * both land in the class attribute. Two single-class
                      * selectors have equal specificity, so the stylesheet's
-                     * own generated order decides, not source order in the
-                     * string. That's what silently broke the active/inactive
-                     * text-color distinction during the Sunbird swap: `text-ink`
-                     * stayed in the base while the active branch added
-                     * `text-coral`, and Tailwind's generated order happened to
-                     * favor `ink` for this pair of class names where it had
-                     * favored `rust` before — a real, measured regression
-                     * (e2e/app-chrome.spec.ts), not a hypothetical. The border
-                     * had this same bug already fixed the same way, once,
-                     * for the same reason. With every conflicting property set
-                     * in exactly one branch there is nothing left to conflict.
+                     * own order decides, and `border-transparent` wins:
+                     * measured `borderBottomColor: rgba(0,0,0,0)` on the
+                     * active item. The active underline has never rendered —
+                     * only the rust TEXT did, which is why it read as working.
+                     *
+                     * With the colour set in exactly one branch there is
+                     * nothing to conflict with.
                      */
                     active
-                      ? "border-coral text-coral"
-                      : "border-transparent text-ink hover:text-coral-hover",
+                      ? "border-rust text-rust"
+                      : "border-transparent hover:text-rust-hover",
                   )}
                 >
                   {link.label}
@@ -333,22 +304,6 @@ export function Masthead({
               At 2xl there is ~256px of slack rather than tens of pixels, which
               survives a platform that renders wider.
 
-              MOVED AGAIN, to `min-[1792px]`, when that slack ran out from a
-              direction font metrics rather than viewport width: the Sunbird
-              swap (send-197) replaced Source Sans 3 with DM Sans, which paints
-              every one of these labels a few pixels wider at the same size and
-              weight. Measured at 1536px, the whole row (not just this button)
-              grew 64.8px, and the two items either side of this button's own
-              growth left the gap to "Post a job" at exactly 0 — the same
-              zero-margin failure this section already describes for a
-              narrower viewport, reappearing for a wider typeface instead.
-              Tightening the nav's own rhythm was rejected here for the same
-              reason it was rejected above; re-measured under the new fonts,
-              1792px carries a real 226px gap rather than the 79.57px the 1536
-              breakpoint had actually degraded to by the time the font swap
-              landed (two nav items had been added since "~256px" was written,
-              and nobody had re-measured it).
-
               Nothing is lost below it. The Farah panel is a sticky column that
               is ON SCREEN at every width from 760 up, so this item is a
               convenience wherever it does not appear, never the only route. It
@@ -359,7 +314,7 @@ export function Masthead({
             <button
               type="button"
               onClick={scrollToFarahPanel}
-              className="hidden min-h-10 min-w-10 items-center justify-center gap-1.5 border-b-[2.5px] border-transparent font-body text-[14.5px] font-semibold text-ink hover:text-coral-hover min-[1792px]:flex"
+              className="hidden min-h-10 min-w-10 items-center justify-center gap-1.5 border-b-[2.5px] border-transparent font-body text-[14.5px] font-semibold text-ink hover:text-rust-hover 2xl:flex"
             >
               <FarahMark size={18} />
               Ask Farah
@@ -373,7 +328,7 @@ export function Masthead({
           */}
           <div
             ref={navRef}
-            className="relative flex items-center min-[1792px]:hidden"
+            className="relative flex items-center 2xl:hidden"
           >
             <button
               type="button"
@@ -414,7 +369,7 @@ export function Masthead({
                       onClick={() => setNavOpen(false)}
                       className={cn(
                         "flex min-h-11 items-center px-4 font-body text-[14px] font-semibold no-underline",
-                        active ? "text-coral" : "text-ink hover:text-coral",
+                        active ? "text-rust" : "text-ink hover:text-rust",
                       )}
                     >
                       {link.label}
@@ -432,7 +387,7 @@ export function Masthead({
                   href="/employer"
                   role="menuitem"
                   onClick={() => setNavOpen(false)}
-                  className="flex min-h-11 items-center px-4 font-body text-[14px] font-semibold text-ink-soft no-underline hover:text-coral"
+                  className="flex min-h-11 items-center px-4 font-body text-[14px] font-semibold text-ink-soft no-underline hover:text-rust"
                 >
                   Post a job
                 </Link>
@@ -450,7 +405,7 @@ export function Masthead({
           */}
           <Link
             href="/employer"
-            className="hidden min-h-10 items-center text-[13px] font-semibold text-ink-soft no-underline underline-offset-2 hover:text-coral hover:underline min-[900px]:inline-flex"
+            className="hidden min-h-10 items-center text-[13px] font-semibold text-ink-soft no-underline underline-offset-2 hover:text-rust hover:underline min-[900px]:inline-flex"
           >
             Post a job
           </Link>
@@ -459,7 +414,7 @@ export function Masthead({
           </span>
           <Link
             href="/billing"
-            className="inline-flex min-h-10 items-center bg-coral-soft px-3.5 text-[13px] font-bold text-coral no-underline hover:bg-[oklch(87%_0.04_40)]"
+            className="inline-flex min-h-10 items-center bg-rust-soft px-3.5 text-[13px] font-bold text-rust no-underline hover:bg-[oklch(87%_0.04_40)]"
           >
             {activePass
               ? `${activePass.name} · ${activePass.daysRemaining}d left`
@@ -486,7 +441,7 @@ export function Masthead({
               onClick={() => setAccountOpen((o) => !o)}
               className="inline-flex h-10 w-10 items-center justify-center"
             >
-              <span className="flex h-[34px] w-[34px] items-center justify-center rounded-full bg-ink font-display text-[12px] font-bold text-bg">
+              <span className="flex h-[34px] w-[34px] items-center justify-center rounded-full bg-ink font-display text-[12px] font-bold text-paper">
                 {initials}
               </span>
             </button>
@@ -525,7 +480,7 @@ export function Masthead({
                   href="/settings"
                   role="menuitem"
                   onClick={() => setAccountOpen(false)}
-                  className="flex min-h-10 items-center px-4 text-[13px] font-semibold text-ink no-underline hover:text-coral"
+                  className="flex min-h-10 items-center px-4 text-[13px] font-semibold text-ink no-underline hover:text-rust"
                 >
                   Settings
                 </Link>
@@ -536,7 +491,7 @@ export function Masthead({
                   <button
                     type="submit"
                     role="menuitem"
-                    className="flex min-h-10 w-full items-center px-4 text-left text-[13px] font-semibold text-ink-soft hover:text-coral"
+                    className="flex min-h-10 w-full items-center px-4 text-left text-[13px] font-semibold text-ink-soft hover:text-rust"
                   >
                     Sign out
                   </button>

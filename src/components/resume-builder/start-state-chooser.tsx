@@ -45,7 +45,7 @@ export function StartStateChooser({
 
       <Link
         href="/resume-builder"
-        className="text-[13.5px] font-semibold text-ink-soft underline underline-offset-2 hover:text-coral"
+        className="text-[13.5px] font-semibold text-ink-soft underline underline-offset-2 hover:text-rust"
       >
         ← Back to templates
       </Link>
@@ -107,7 +107,7 @@ function ImportPanel({ templateId, hasBaseResume }: { templateId: string; hasBas
           <button
             type="button"
             onClick={() => setMode("upload")}
-            className="text-left text-[13px] font-semibold text-ink-soft underline underline-offset-2 hover:text-coral"
+            className="text-left text-[13px] font-semibold text-ink-soft underline underline-offset-2 hover:text-rust"
           >
             Upload a different file instead
           </button>
@@ -129,7 +129,7 @@ function ImportPanel({ templateId, hasBaseResume }: { templateId: string; hasBas
             <button
               type="button"
               onClick={() => setMode("choose")}
-              className="text-left text-[13px] font-semibold text-ink-soft underline underline-offset-2 hover:text-coral"
+              className="text-left text-[13px] font-semibold text-ink-soft underline underline-offset-2 hover:text-rust"
             >
               ← Use my existing resume instead
             </button>
@@ -158,7 +158,7 @@ function ImportPanel({ templateId, hasBaseResume }: { templateId: string; hasBas
               setParsed(null);
               setMode("upload");
             }}
-            className="text-left text-[13px] font-semibold text-ink-soft underline underline-offset-2 hover:text-coral"
+            className="text-left text-[13px] font-semibold text-ink-soft underline underline-offset-2 hover:text-rust"
           >
             Try a different file
           </button>

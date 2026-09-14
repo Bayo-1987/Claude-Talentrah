@@ -1,6 +1,6 @@
 import { requireUser } from "@/lib/auth/require-user";
 import { sessionsAsMentee } from "@/lib/mentorship/queries";
-import { Container, EyebrowLabel, Card } from "@/components/ui";
+import { Container, EyebrowLabel, BorderedCard } from "@/components/ui";
 import { ReviewForm } from "./review-form";
 
 export const metadata = { title: "Your mentorship sessions — Talentrah" };
@@ -42,17 +42,17 @@ export default async function MentorshipSessionsPage({
           <p className="text-[14px] text-ink-soft">No upcoming sessions.</p>
         ) : (
           upcoming.map((s) => (
-            <Card key={s.id} className="flex flex-col gap-2 p-5">
+            <BorderedCard key={s.id} className="flex flex-col gap-2 p-5">
               <p className="font-semibold text-ink">{s.mentorName} · {s.sessionType.replace(/_/g, " ")}</p>
               <p className="text-[13.5px] text-ink-soft">
                 {new Date(s.scheduledStart).toLocaleString()} · {STATUS_LABEL[s.status] ?? s.status}
               </p>
               {s.meetingLink && (
-                <a href={s.meetingLink} target="_blank" rel="noopener noreferrer" className="text-[13.5px] text-coral">
+                <a href={s.meetingLink} target="_blank" rel="noopener noreferrer" className="text-[13.5px] text-rust">
                   Join meeting ↗
                 </a>
               )}
-            </Card>
+            </BorderedCard>
           ))
         )}
       </section>
@@ -63,13 +63,13 @@ export default async function MentorshipSessionsPage({
           <p className="text-[14px] text-ink-soft">No past sessions yet.</p>
         ) : (
           past.map((s) => (
-            <Card key={s.id} className="flex flex-col gap-2 p-5">
+            <BorderedCard key={s.id} className="flex flex-col gap-2 p-5">
               <p className="font-semibold text-ink">{s.mentorName} · {s.sessionType.replace(/_/g, " ")}</p>
               <p className="text-[13.5px] text-ink-soft">
                 {new Date(s.scheduledStart).toLocaleString()} · {STATUS_LABEL[s.status] ?? s.status}
               </p>
               {s.status === "completed" && <ReviewForm sessionId={s.id} mentorId={s.mentorId} />}
-            </Card>
+            </BorderedCard>
           ))
         )}
       </section>

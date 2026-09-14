@@ -56,7 +56,7 @@ export default async function ApplicantResumePage({
       <div className="flex items-center justify-between print:hidden">
         <Link
           href={`/employer/jobs/${id}/applicants`}
-          className="font-body text-[13px] font-semibold text-ink-soft no-underline hover:text-coral"
+          className="font-body text-[13px] font-semibold text-ink-soft no-underline hover:text-rust"
         >
           ← Applicants
         </Link>

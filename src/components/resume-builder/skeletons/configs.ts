@@ -37,13 +37,7 @@ export const CLEAN_PROFESSIONAL_CONFIG: TemplateConfig = {
     showLinksInHeader: false,
     showSummary: true,
   },
-  // send-197 follow-up, migration 0158: bodyFont "body" (DM Sans) confirmed to corrupt PDF text extraction; ats_safe honestly downgraded pending the real fix, not a styleTokens change.
-  // Caught after the other 15 real catalog templates — clean-professional
-  // lives directly in RESUME_TEMPLATES (src/lib/billing/catalog.ts), not in
-  // CATALOG_TEMPLATE_CONFIGS, so the earlier "17 exposed slugs" query missed
-  // it entirely: it is a real, free, likely-default template with the exact
-  // same bodyFont:"body" + education-section exposure as the rest.
-  atsSafe: false,
+  atsSafe: true,
 };
 
 /**
@@ -156,13 +150,9 @@ export const DEMO_CONFIGS: Record<string, TemplateConfig> = {
       showLinksInHeader: false,
       showSummary: true,
     },
-    // send-197 follow-up, migration 0158: bodyFont "body" (DM Sans) confirmed
-    // to corrupt PDF text extraction. This config has no real catalog slug
-    // (QA-only demo), so no migration is needed, but it should still be
-    // downgraded for the same reason as every other bodyFont:"body" config —
-    // this was already the intent (see ats-safety.spec.ts's SKELETON_CLAIMS
-    // and 51029d0's own commit message) but the actual field here was missed.
-    atsSafe: false,
+    // A single flowing column with a decorative rail down the margin — no
+    // side-by-side unrelated content — see ats-safety.test.ts.
+    atsSafe: true,
   },
 
   "compact-dense-demo": {

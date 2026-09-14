@@ -66,11 +66,11 @@ export function ScholarshipFilterBar({
           defaultValue={q ?? ""}
           placeholder="Search provider, programme, or field"
           aria-label="Search scholarships"
-          className="min-h-10 w-full max-w-[340px] border-[1.5px] border-ink bg-card px-3 font-body text-[13.5px] text-ink outline-none focus:border-coral"
+          className="min-h-10 w-full max-w-[340px] border-[1.5px] border-ink bg-card px-3 font-body text-[13.5px] text-ink outline-none focus:border-rust"
         />
         <button
           type="submit"
-          className="min-h-10 border-[1.5px] border-ink bg-ink px-4 font-body text-[13px] font-semibold text-bg transition-colors hover:bg-coral hover:border-coral"
+          className="min-h-10 border-[1.5px] border-ink bg-ink px-4 font-body text-[13px] font-semibold text-paper transition-colors hover:bg-rust hover:border-rust"
         >
           Search
         </button>
@@ -87,7 +87,7 @@ export function ScholarshipFilterBar({
           {field && <FilterChip label={field} />}
           <Link
             href={buildHref({ tab }, {})}
-            className="text-[12.5px] font-semibold text-ink-soft underline underline-offset-2 hover:text-coral"
+            className="text-[12.5px] font-semibold text-ink-soft underline underline-offset-2 hover:text-rust"
           >
             Clear filters
           </Link>
@@ -103,8 +103,8 @@ export function ScholarshipFilterBar({
               href={buildHref(base, { level: level === l ? undefined : l })}
               className={
                 level === l
-                  ? "font-semibold text-coral underline underline-offset-2"
-                  : "text-ink-soft underline underline-offset-2 hover:text-coral"
+                  ? "font-semibold text-rust underline underline-offset-2"
+                  : "text-ink-soft underline underline-offset-2 hover:text-rust"
               }
             >
               {DEGREE_LEVEL_LABEL[l]}
@@ -119,8 +119,8 @@ export function ScholarshipFilterBar({
               href={buildHref(base, { funding: funding === f ? undefined : f })}
               className={
                 funding === f
-                  ? "font-semibold text-coral underline underline-offset-2"
-                  : "text-ink-soft underline underline-offset-2 hover:text-coral"
+                  ? "font-semibold text-rust underline underline-offset-2"
+                  : "text-ink-soft underline underline-offset-2 hover:text-rust"
               }
             >
               {FUNDING_TYPE_LABEL[f]}
@@ -135,8 +135,8 @@ export function ScholarshipFilterBar({
               href={buildHref(base, { within: within === w.value ? undefined : w.value })}
               className={
                 within === w.value
-                  ? "font-semibold text-coral underline underline-offset-2"
-                  : "text-ink-soft underline underline-offset-2 hover:text-coral"
+                  ? "font-semibold text-rust underline underline-offset-2"
+                  : "text-ink-soft underline underline-offset-2 hover:text-rust"
               }
             >
               {w.label}
