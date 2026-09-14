@@ -368,7 +368,7 @@ number, applied in this order:
 
     0158_ats_safe_dm_sans_kerning_mitigation      CI 2026-09-13 14:02:41 UTC · prod 14:04:30 UTC
     0158b_clean_professional_ats_safe_addendum    CI 2026-09-13 14:14:23 UTC · prod 14:14:53 UTC
-    0158_ats_safe_editorial_revert                CI 2026-09-13 20:14:45 UTC · prod 20:15:33 UTC
+    0158_ats_safe_editorial_revert                CI 2026-09-13 20:14:45 UTC · prod 20:35:33 UTC
 
 The middle one has never had a corresponding file on any branch —
 `git log --all --diff-filter=A --name-only` for `0158b` returns nothing. What
