@@ -43,6 +43,13 @@ import {
  * BEFORE the model call rather than after.
  */
 
+/**
+ * Same call (`tailorResumeToJob`, one generateWithFailover round trip per
+ * attempt) as /api/tailoring — see that route's own comment for the full
+ * worst-case-timing math this value is built from.
+ */
+export const maxDuration = 45;
+
 /** A little above the 50-char floor, to catch a pasted link and nothing else. */
 const URL_ONLY = /^https?:\/\/\S+$/i;
 

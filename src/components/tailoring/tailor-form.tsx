@@ -8,6 +8,7 @@ import type { StructuredResume } from "@/lib/resume/types";
 import type { ProposedAddition, TailoringResult } from "@/lib/tailoring/types";
 import type { RankedRecommendation } from "@/lib/courses/match";
 import { buildAcceptedAdditions } from "@/lib/tailoring/accepted-payload";
+import { fetchWithTimeout, fetchErrorMessage } from "@/lib/forms/fetch-with-timeout";
 
 type ApiResult = {
   resumeId: string;
@@ -113,7 +114,7 @@ export function TailorForm({
     setError(null);
 
     try {
-      const res = await fetch("/api/tailoring", {
+      const res = await fetchWithTimeout("/api/tailoring", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ jdText, jobPostingId: jobId, includeCoverLetter }),
@@ -129,8 +130,12 @@ export function TailorForm({
       setAppliedIds(new Set());
       setEditedTexts({});
       setStatus("idle");
-    } catch {
-      setError("Couldn't reach Farah — check your connection and try again.");
+    } catch (err) {
+      // A genuine timeout (this request, or the server having taken too long
+      // to answer at all) reads very differently from a real dead-network
+      // failure — see fetch-with-timeout.ts's own header for why both used
+      // to be shown as "check your connection" and why that was wrong.
+      setError(fetchErrorMessage(err));
       setStatus("error");
     }
   }
