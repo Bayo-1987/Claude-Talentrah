@@ -134,7 +134,7 @@ export async function fulfillPayment(
     const { data, error } = await supabase.rpc("fulfill_credit_pack_or_pass", {
       p_transaction_id: transaction.id,
       p_channel: channel,
-      p_authorization_code: authorizationCode,
+      p_authorization_code: authorizationCode ?? undefined,
     });
     if (error) throw new Error(`fulfill_credit_pack_or_pass failed: ${error.message}`);
 
