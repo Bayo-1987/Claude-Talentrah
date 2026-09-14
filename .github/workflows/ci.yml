@@ -318,6 +318,18 @@ jobs:
           SEED_APP_URL: http://localhost:3000
         run: npm run seed
 
+      # Regression tripwire, not a today-is-broken alarm — see
+      # scripts/check-bundle-size.ts for why the classic Next build-output
+      # size table isn't what this reads (Turbopack dropped it) and for how
+      # the budget numbers below were measured. Runs against the SAME
+      # already-built, already-started app the seed step just used above —
+      # no second build. NEXT_PUBLIC_SUPABASE_URL / _ANON_KEY /
+      # SUPABASE_SERVICE_ROLE_KEY come from the "Start local Supabase" step
+      # earlier in this job; the script mints and deletes its own throwaway
+      # signed-in session to reach the two auth-gated routes.
+      - name: Bundle size budget (client JS, key routes)
+        run: npm run check-bundle-size
+
       - name: Typecheck
         run: npx tsc --noEmit
 
