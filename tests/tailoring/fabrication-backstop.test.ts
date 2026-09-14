@@ -27,6 +27,16 @@ vi.mock("@/lib/llm", () => ({
   generateWithFailover: (call: (p: typeof fakeProvider) => Promise<string>) => call(fakeProvider),
 }));
 
+// This suite is about the fabrication backstop, not the tailoring result
+// cache (covered separately in tests/tailoring/result-cache.test.ts) —
+// stubbed to always miss/no-op so every call here still reaches the mocked
+// LLM above rather than making real network calls to Supabase.
+vi.mock("@/lib/tailoring/cache", () => ({
+  computeTailoringCacheKey: () => ({ cacheKey: "unused", jdTextHash: "unused", resumeContentHash: "unused" }),
+  getCachedTailoringResult: async () => null,
+  saveTailoringResult: async () => {},
+}));
+
 const { tailorResumeToJob } = await import("@/lib/tailoring/tailor");
 const { EMPTY_RESUME } = await import("@/lib/resume/types");
 
