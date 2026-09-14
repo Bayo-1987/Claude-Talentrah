@@ -24,6 +24,22 @@ export const GEMINI_MODEL = "gemini-3.6-flash";
  */
 export const THINKING_CONFIG: ThinkingConfig = { thinkingLevel: ThinkingLevel.MINIMAL };
 
+/**
+ * Same fix, same reasoning as GroqProvider's GROQ_CLIENT_TIMEOUT_MS (see that
+ * file's own comment) — the SDK has no bounded timeout by default. This
+ * matters here specifically because Gemini is the FAILOVER target
+ * (generateWithFailover, src/lib/llm/index.ts): a rate-limited Groq call
+ * retries against this client, and an unbounded second leg would double the
+ * worst-case hang instead of bounding it. `httpOptions.timeout` is this SDK's
+ * equivalent of the OpenAI client's `timeout` option — a per-attempt
+ * AbortController the SDK arms internally (confirmed in
+ * node_modules/@google/genai/dist/index.cjs's `createAttemptSignal`/`apiCall`).
+ * The resulting abort surfaces as a raw `DOMException`/`AbortError`, not
+ * `ApiError`, so the catch block below maps it to `kind: "unknown"` the same
+ * way groq-provider.ts's timeout does — not retried as a second failover hop.
+ */
+export const GEMINI_CLIENT_TIMEOUT_MS = 20_000;
+
 function getGeminiClient(): GoogleGenAI {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
@@ -31,7 +47,7 @@ function getGeminiClient(): GoogleGenAI {
       "GEMINI_API_KEY is not set — Farah's AI features need it configured in .env.local.",
     );
   }
-  return new GoogleGenAI({ apiKey });
+  return new GoogleGenAI({ apiKey, httpOptions: { timeout: GEMINI_CLIENT_TIMEOUT_MS } });
 }
 
 export class GeminiProvider implements LLMProvider {

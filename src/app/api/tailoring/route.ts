@@ -11,6 +11,28 @@ import {
 import { consumeRateLimit, rateLimited } from "@/lib/api/rate-limit";
 import { recommendCoursesForGapAnalysis } from "@/lib/courses/recommend";
 
+/**
+ * Sized off the LLM client timeouts (GROQ_CLIENT_TIMEOUT_MS /
+ * GEMINI_CLIENT_TIMEOUT_MS, both 20s — src/lib/llm/groq-provider.ts /
+ * gemini-provider.ts), not picked independently of them.
+ *
+ * tailorResumeToJob calls generateWithFailover (src/lib/llm/index.ts) once
+ * per attempt. The realistic worst case is TWO full round trips: Groq times
+ * out or is rate-limited, and the retry against Gemini also runs to its own
+ * timeout — 20s + 20s = 40s. `tailorResumeToJob` can call this twice (a
+ * second attempt only when the first came back with unparseable/degenerate
+ * JSON, a fast success-shaped failure, not a slow one — see that function's
+ * own comment), so that second attempt is assumed to complete quickly rather
+ * than also hitting a full rate-limit-plus-timeout chain; covering that
+ * additional compounding case fully would mean sizing for 4 round trips
+ * (80s) against a single-digit-probability event stacked on another one, and
+ * this repo would rather state that residual risk than inflate every normal
+ * request's function-execution budget for it. 45s = 40s (two round trips) +
+ * 5s buffer for JSON parsing, the grounding backstop, and the DB write that
+ * follow a successful call.
+ */
+export const maxDuration = 45;
+
 export async function POST(request: Request) {
   const supabase = await createClient();
   const {
