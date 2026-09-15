@@ -289,6 +289,8 @@ function explain(reason: string): string {
       return "That job has since closed, so it wasn't applied to.";
     case "below_threshold":
       return `That job no longer scores ${AUTO_APPLY_MIN_SCORE}+ against your resume, so Auto-Apply won't submit it.`;
+    case "thin_match":
+      return "This match doesn't have enough verified overlap to auto-apply yet.";
     case "daily_cap":
       return `You've hit the Auto-Apply limit of ${AUTO_APPLY_DAILY_SUBMIT_CAP} submissions a day. It resets as the oldest one passes 24 hours.`;
     case "insufficient_credits":

@@ -106,10 +106,33 @@ beforeAll(async () => {
 
   // The score is written WHILE the org is still verified — exactly the
   // sequence that produces the bug (score first, un-verify after).
+  //
+  // `explanation` is populated with a rich (> THIN_SCREENABLE_TAG_MAX,
+  // src/lib/match-tier.ts) tag set so 0164's thin-match filter in
+  // `scanAndQueue` never interferes with what this file actually tests —
+  // the verification gate, not the thin-match gate
+  // (tests/auto-apply/thin-match-gate.test.ts covers that one).
+  const richExplanation = {
+    matchedSkills: ["fixture-skill-1", "fixture-skill-2", "fixture-skill-3"],
+    missingSkills: [],
+    seniorityAlignment: "unknown" as const,
+  };
   const { error: scoreErr } = await admin.from("match_scores").upsert(
     [
-      { user_id: userId, job_posting_id: verifiedJobId, score: AUTO_APPLY_MIN_SCORE, tier: "excellent" },
-      { user_id: userId, job_posting_id: staleJobId, score: AUTO_APPLY_MIN_SCORE, tier: "excellent" },
+      {
+        user_id: userId,
+        job_posting_id: verifiedJobId,
+        score: AUTO_APPLY_MIN_SCORE,
+        tier: "excellent",
+        explanation: richExplanation,
+      },
+      {
+        user_id: userId,
+        job_posting_id: staleJobId,
+        score: AUTO_APPLY_MIN_SCORE,
+        tier: "excellent",
+        explanation: richExplanation,
+      },
     ],
     { onConflict: "user_id,job_posting_id" },
   );
