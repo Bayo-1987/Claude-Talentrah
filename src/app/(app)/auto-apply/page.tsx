@@ -12,6 +12,7 @@ import { BorderedCard, EyebrowLabel } from "@/components/ui";
 import { AutoApplyQueueItem, type QueueItem } from "@/components/jobs/auto-apply-queue-item";
 import { formatRelativeTime } from "@/lib/format-relative-time";
 import { displayMatchScore } from "@/lib/match-tier";
+import type { MatchExplanation } from "@/lib/matching/score";
 
 export const metadata = { title: "Auto-Apply — Talentrah" };
 
@@ -33,7 +34,7 @@ export default async function AutoApplyPage() {
     supabase
       .from("auto_apply_queue")
       .select(
-        "id, status, match_score, tier, source_type, queued_at, decided_at, credits_spent, job_postings(title, company_name, location)",
+        "id, job_posting_id, status, match_score, tier, source_type, queued_at, decided_at, credits_spent, job_postings(title, company_name, location)",
       )
       .eq("user_id", user.id)
       .order("queued_at", { ascending: false })
@@ -43,16 +44,66 @@ export default async function AutoApplyPage() {
   ]);
 
   const all = rows ?? [];
-  const pending: QueueItem[] = all
-    .filter((r) => r.status === "pending")
-    .map((r) => ({
-      id: r.id,
-      jobTitle: r.job_postings?.title ?? "Untitled role",
-      companyName: r.job_postings?.company_name ?? "Unknown company",
-      location: r.job_postings?.location ?? null,
-      matchScore: r.match_score,
-      sourceType: r.source_type,
-    }));
+  const pendingRows = all.filter((r) => r.status === "pending");
+
+  /*
+   * `explanation` is read LIVE from `match_scores`, not carried on the queue
+   * row itself — the same reasoning as the confirm-time gate (0034/0164)
+   * re-reading the live score rather than trusting the row's own snapshot.
+   * `auto_apply_queue.match_score`/`tier` are a deliberate snapshot of what
+   * justified queuing the item (the table's own schema comment); "how thin
+   * the underlying skill overlap is" is a property of the CURRENT match, not
+   * a fact to freeze at queue time. Without this, the review queue — the
+   * literal screen a user confirms a match from — never had a way to show
+   * MatchTierBadge's thin-match qualifier or #411's cap/re-tier at all,
+   * since both depend entirely on `explanation` being passed in.
+   *
+   * A missing `match_scores` row (confirmed to exist for a small number of
+   * real queue rows in production) resolves to `null` here, same as
+   * `job-card.tsx`'s own caller does when there's nothing to explain.
+   *
+   * A malformed explanation ALSO resolves to `null`, deliberately, rather
+   * than being passed through. `explanation jsonb not null default '{}'`
+   * (0000_baseline_schema.sql) means a row written without an explicit
+   * explanation — every real one computeAndStoreMatchScores writes always
+   * has one, but a fixture or a future write path might not — stores a
+   * literal `{}`. `MatchTierBadge` does `explanation.matchedSkills.length`
+   * unconditionally once `explanation` is truthy, so a bare `{}` (present
+   * but shapeless) would throw, not silently render as "not thin" — worse
+   * than the missing-row case, which was already handled safely.
+   */
+  const explanationByJobId = new Map<string, MatchExplanation>();
+  if (pendingRows.length > 0) {
+    const { data: scores } = await supabase
+      .from("match_scores")
+      .select("job_posting_id, explanation")
+      .eq("user_id", user.id)
+      .in(
+        "job_posting_id",
+        pendingRows.map((r) => r.job_posting_id),
+      );
+    for (const s of scores ?? []) {
+      const explanation = s.explanation as unknown;
+      const isWellFormed =
+        explanation !== null &&
+        typeof explanation === "object" &&
+        Array.isArray((explanation as MatchExplanation).matchedSkills) &&
+        Array.isArray((explanation as MatchExplanation).missingSkills);
+      if (isWellFormed) {
+        explanationByJobId.set(s.job_posting_id, explanation as MatchExplanation);
+      }
+    }
+  }
+
+  const pending: QueueItem[] = pendingRows.map((r) => ({
+    id: r.id,
+    jobTitle: r.job_postings?.title ?? "Untitled role",
+    companyName: r.job_postings?.company_name ?? "Unknown company",
+    location: r.job_postings?.location ?? null,
+    matchScore: r.match_score,
+    sourceType: r.source_type,
+    explanation: explanationByJobId.get(r.job_posting_id) ?? null,
+  }));
   const history = all.filter((r) => r.status !== "pending");
 
   return (

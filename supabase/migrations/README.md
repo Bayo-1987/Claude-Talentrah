@@ -361,6 +361,51 @@ review — apply to CI, apply to production on merge — but 0060 is additive
 cannot be exercised against either project without it. Check both before
 assuming a table or function exists.
 
+### `0158b_clean_professional_ats_safe_addendum` is real, and has no file — explained, not fixed
+
+`list_migrations` against both projects shows three entries around this
+number, applied in this order:
+
+    0158_ats_safe_dm_sans_kerning_mitigation      CI 2026-09-13 14:02:41 UTC · prod 14:04:30 UTC
+    0158b_clean_professional_ats_safe_addendum    CI 2026-09-13 14:14:23 UTC · prod 14:14:53 UTC
+    0158_ats_safe_editorial_revert                CI 2026-09-13 20:14:45 UTC · prod 20:35:33 UTC
+
+The middle one has never had a corresponding file on any branch —
+`git log --all --diff-filter=A --name-only` for `0158b` returns nothing. What
+the committed `0158_ats_safe_dm_sans_kerning_mitigation.sql` actually held (before
+the Editorial revert deleted it) covered all 16 ATS-unsafe `bodyFont: "body"`
+templates, `clean-professional` included. But the ledger timestamps above show
+it was **not** applied as one run: `clean-professional` — sourced from
+`CLEAN_PROFESSIONAL_CONFIG` rather than `CATALOG_TEMPLATE_CONFIGS`, see
+`src/lib/billing/catalog.ts` — was evidently missed on the first pass and
+added roughly ten to twelve minutes later as a separate statement against both
+databases, then the committed file was retroactively edited to fold that
+addition in, rather than a second file being written for it. The result is a
+repo history that reads as "one migration, 16 slugs" while the databases'
+actual applied history is "two runs, 15 then +1" — exactly the kind of gap
+this file exists to close, per the standing rule immediately above: *the
+problem was never that the record is untidy, it's that nothing could read it.*
+
+Found during independent review of the Sunbird→Editorial design revert
+([PR #395](https://github.com/Bayo-1987/Claude-Talentrah/pull/395)), not
+caused by it — the ledger already looked like this before that PR existed.
+**Nothing here is pending or drifted**: that revert's own corrective migration,
+`0158_ats_safe_editorial_revert.sql`, was generated straight from the reverted
+TypeScript source, so it already accounts for the true combined effect of both
+the original mitigation and the `0158b` addendum together. Queried directly
+against both projects: all 16 slugs read `ats_safe = true` and
+`structure_schema->>'atsSafe' = 'true'` on both, post-revert.
+
+No new file is being added for `0158b` and its slot is not being reused —
+per this file's own rule, an applied migration is history, and there is no
+text to recover: what actually ran is unknown beyond "the `clean-professional`
+half of the same UPDATE shape as the rest," since it was never committed
+anywhere first. This section is the record instead. `committedMigrations()`
+(`scripts/audit-migrations.ts`) walks forward from files on disk and has no
+reverse check demanding every ledger entry map to one, so this does not need
+a `KNOWN_ALIASES` entry to keep `check-migration-drift.ts` clean — confirmed
+by reading that script rather than assumed.
+
 ## Still missing
 
 There is no separate test or staging database. Every suite — the RLS tests,

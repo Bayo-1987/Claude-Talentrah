@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { BorderedCard, Button, MatchTierBadge } from "@/components/ui";
 import { confirmAutoApplyAction, dismissAutoApplyAction } from "@/lib/auto-apply/actions";
+import type { MatchExplanation } from "@/lib/matching/score";
 
 export interface QueueItem {
   id: string;
@@ -11,6 +12,13 @@ export interface QueueItem {
   location: string | null;
   matchScore: number;
   sourceType: "internal" | "external";
+  /**
+   * Read live from `match_scores` by the page, not a queue-row snapshot —
+   * see that query's own comment. `null` only when the underlying
+   * `match_scores` row is gone entirely; `MatchTierBadge` already renders
+   * correctly either way.
+   */
+  explanation: MatchExplanation | null;
 }
 
 /**
@@ -52,7 +60,11 @@ export function AutoApplyQueueItem({ item }: { item: QueueItem }) {
             {!isInternal && " · sourced externally"}
           </p>
         </div>
-        <MatchTierBadge score={item.matchScore} showRawWhenCapped />
+        <MatchTierBadge
+          score={item.matchScore}
+          explanation={item.explanation ?? undefined}
+          showRawWhenCapped
+        />
       </div>
 
       {error && (
