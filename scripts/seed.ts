@@ -13,6 +13,7 @@ import { config } from "dotenv";
 config({ path: ".env.local" });
 
 import { randomBytes } from "node:crypto";
+import { appendFileSync } from "node:fs";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "../src/lib/supabase/types";
 import { computeDedupFingerprint } from "../src/lib/jobs/dedup";
@@ -59,12 +60,50 @@ const DEMO_CREDITS = 20;
  */
 const ROTATE_PASSWORDS = process.env.SEED_ROTATE_PASSWORDS === "1";
 
-const DEMO_PASSWORD = process.env.DEMO_PASSWORD;
+/*
+ * In CI only: fall back to a random, per-run value instead of throwing.
+ *
+ * This is NOT the hazard the no-default rule above guards against — that
+ * rule is about a FIXED, committed default becoming a de facto shared
+ * password. A value generated fresh per run, discarded with the ephemeral
+ * database it was created in, and never the same twice has none of that
+ * shape. It exists because GitHub Actions withholds repository secrets
+ * (including this one) from any workflow run triggered by a Dependabot pull
+ * request — confirmed against GitHub's own docs, "Accessing secrets": "the
+ * only secrets available to the workflow are Dependabot secrets. GitHub
+ * Actions secrets are not available." Every Dependabot PR hit this exact
+ * throw until this fallback was added (docs/ci-and-tooling-gaps.md, entry 7).
+ *
+ * Safe to fall back silently for `checks`: its unit tests need a seeded demo
+ * account to exist, never a specific password value (checked directly —
+ * none of tests/seo/landing-page-links.test.ts,
+ * tests/billing/pricing-catalog-rebase.test.ts,
+ * tests/rls/org-and-referral-scoping.test.ts or tests/seed/catalog.test.ts
+ * reference DEMO_PASSWORD or a login flow).
+ *
+ * `e2e` runs this same script a second time, independently, into its own
+ * ephemeral database — and several specs DO log in as this account, reading
+ * `process.env.DEMO_PASSWORD` directly. So the generated value is written to
+ * $GITHUB_ENV (same idiom as ci.yml's own per-run INGEST_SECRET) so it's
+ * visible to that job's later Playwright step, matching what was used here
+ * to create the account.
+ */
+const DEMO_PASSWORD =
+  process.env.DEMO_PASSWORD ?? (process.env.CI ? randomBytes(24).toString("hex") : undefined);
 if (!DEMO_PASSWORD) {
   throw new Error(
     "DEMO_PASSWORD is not set. Add it to .env.local (and to CI secrets for the e2e job). " +
       "It is deliberately not committed — see the note above this check.",
   );
+}
+if (!process.env.DEMO_PASSWORD && process.env.CI) {
+  console.log(
+    "DEMO_PASSWORD not set — generated a per-run value for this CI job " +
+      "(Dependabot PRs never receive repository secrets; see scripts/seed.ts).",
+  );
+  if (process.env.GITHUB_ENV) {
+    appendFileSync(process.env.GITHUB_ENV, `DEMO_PASSWORD=${DEMO_PASSWORD}\n`);
+  }
 }
 
 // RESUME_TEMPLATES, CREDIT_PACKS and PASSES now live in
@@ -786,8 +825,12 @@ async function findUserByEmail(
   console.log(`  email:    ${DEMO_EMAIL}`);
   // Not echoed. This output lands in CI logs, and the whole point of the
   // rotation was to stop the password being readable by anyone who can read
-  // this project. It is whatever DEMO_PASSWORD was set to.
-  console.log("  password: (whatever you set DEMO_PASSWORD to)");
+  // this project.
+  console.log(
+    process.env.DEMO_PASSWORD
+      ? "  password: (whatever you set DEMO_PASSWORD to)"
+      : "  password: (auto-generated for this CI run — see $GITHUB_ENV, not printed here)",
+  );
 }
 
 main().catch((err) => {
