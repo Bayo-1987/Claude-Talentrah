@@ -44,6 +44,7 @@ export function EmployerMasthead({
   const pathname = usePathname();
   const [navOpen, setNavOpen] = useState(false);
   const navRef = useRef<HTMLDivElement>(null);
+  const navTriggerRef = useRef<HTMLButtonElement>(null);
 
   /*
    * 640, NOT the seeker masthead's 760 — measured rather than inherited.
@@ -66,11 +67,36 @@ export function EmployerMasthead({
    */
   useEffect(() => {
     if (!navOpen) return;
+    /*
+     * Same focus contract as the seeker masthead's disclosures (see that
+     * file's own comment): move focus into the panel on open, since nothing
+     * here did, and return it to the trigger on a close that doesn't itself
+     * navigate — Escape or an outside click — rather than let it fall back
+     * to <body> once the focused panel unmounts. A link click still just
+     * closes the menu with no forced refocus, so Next.js's own
+     * navigation-focus behaviour isn't fought.
+     */
+    navRef.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
+
     function onPointer(e: MouseEvent) {
-      if (navRef.current && !navRef.current.contains(e.target as Node)) setNavOpen(false);
+      if (navRef.current && !navRef.current.contains(e.target as Node)) {
+        setNavOpen(false);
+        /*
+         * Deferred a tick, matching masthead.tsx's identical fix: the
+         * browser's own default action for this mousedown (reassigning
+         * focus based on the click target, which runs AFTER event
+         * listeners) would otherwise clobber a synchronous .focus() call
+         * here — measured, not assumed, against a non-focusable outside
+         * target. setTimeout(0) runs after that default action settles.
+         */
+        setTimeout(() => navTriggerRef.current?.focus(), 0);
+      }
     }
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setNavOpen(false);
+      if (e.key === "Escape") {
+        setNavOpen(false);
+        navTriggerRef.current?.focus();
+      }
     }
     document.addEventListener("mousedown", onPointer);
     document.addEventListener("keydown", onKey);
@@ -81,7 +107,7 @@ export function EmployerMasthead({
   }, [navOpen]);
 
   return (
-    <div data-testid="employer-masthead" className="border-b-[2.5px] border-ink bg-bg">
+    <div data-testid="employer-masthead" className="border-b-[2.5px] border-ink bg-paper">
       <div className="flex h-[68px] items-center justify-between px-8">
         <div className="flex items-center gap-4 min-[640px]:gap-9">
           <Link href="/employer/jobs" className="flex flex-shrink-0 items-center no-underline">
@@ -111,7 +137,7 @@ export function EmployerMasthead({
                      *
                      * `cn` in this repo is a plain join, not tailwind-merge, so a base
                      * `border-transparent text-ink-soft` and a conditional
-                     * `border-coral text-ink` BOTH reach the class attribute. Equal
+                     * `border-rust text-ink` BOTH reach the class attribute. Equal
                      * specificity means the stylesheet's own order decides, and the
                      * base wins both times: measured `borderBottomColor rgba(0,0,0,0)`
                      * and `color` still ink-soft on the ACTIVE tab. The active state
@@ -119,8 +145,8 @@ export function EmployerMasthead({
                      */
                     "flex min-h-10 items-center border-b-[2.5px] font-body text-[14.5px] font-semibold text-ink no-underline",
                     active
-                      ? "border-coral text-coral"
-                      : "border-transparent hover:text-coral-hover",
+                      ? "border-rust text-rust"
+                      : "border-transparent hover:text-rust-hover",
                   )}
                 >
                   {link.label}
@@ -136,6 +162,7 @@ export function EmployerMasthead({
           */}
           <div ref={navRef} className="relative flex items-center min-[640px]:hidden">
             <button
+              ref={navTriggerRef}
               type="button"
               aria-expanded={navOpen}
               aria-haspopup="menu"
@@ -169,7 +196,7 @@ export function EmployerMasthead({
                       onClick={() => setNavOpen(false)}
                       className={cn(
                         "flex min-h-11 items-center px-4 font-body text-[14px] font-semibold no-underline",
-                        active ? "text-coral" : "text-ink hover:text-coral",
+                        active ? "text-rust" : "text-ink hover:text-rust",
                       )}
                     >
                       {link.label}
@@ -188,7 +215,7 @@ export function EmployerMasthead({
                   href="/jobs"
                   role="menuitem"
                   onClick={() => setNavOpen(false)}
-                  className="flex min-h-11 items-center px-4 font-body text-[14px] font-semibold text-ink-soft no-underline hover:text-coral"
+                  className="flex min-h-11 items-center px-4 font-body text-[14px] font-semibold text-ink-soft no-underline hover:text-rust"
                 >
                   Looking for work?
                 </Link>
@@ -200,7 +227,7 @@ export function EmployerMasthead({
         <div className="flex items-center gap-3.5">
           <Link
             href="/jobs"
-            className="hidden min-h-10 items-center text-[13px] font-semibold text-ink-soft no-underline underline-offset-2 hover:text-coral hover:underline min-[900px]:inline-flex"
+            className="hidden min-h-10 items-center text-[13px] font-semibold text-ink-soft no-underline underline-offset-2 hover:text-rust hover:underline min-[900px]:inline-flex"
           >
             Looking for work?
           </Link>
@@ -211,7 +238,7 @@ export function EmployerMasthead({
           */}
           {orgInitials && (
             <div
-              className="flex h-[34px] w-[34px] items-center justify-center bg-ink font-display text-[12px] font-bold text-bg"
+              className="flex h-[34px] w-[34px] items-center justify-center bg-ink font-display text-[12px] font-bold text-paper"
               title={orgName}
             >
               {orgInitials}
@@ -228,7 +255,7 @@ export function EmployerMasthead({
             */}
             <button
               type="submit"
-              className="inline-flex min-h-10 min-w-10 items-center justify-center text-[13px] font-semibold text-ink-soft underline underline-offset-2 hover:text-coral"
+              className="inline-flex min-h-10 min-w-10 items-center justify-center text-[13px] font-semibold text-ink-soft underline underline-offset-2 hover:text-rust"
             >
               Sign out
             </button>

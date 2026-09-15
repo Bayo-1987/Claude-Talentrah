@@ -28,6 +28,18 @@ vi.mock("@/lib/llm", () => ({
   generateWithFailover: (call: (p: typeof fakeProvider) => Promise<string>) => call(fakeProvider),
 }));
 
+// This suite is about JD truncation, not the tailoring result cache
+// (covered separately in tests/tailoring/result-cache.test.ts) — stubbed to
+// always miss/no-op so every call here still reaches the mocked LLM above
+// (several tests below assert exact generateText call counts) rather than
+// making real network calls to Supabase, and so a cache hit never masks the
+// truncation notice this suite exists to check.
+vi.mock("@/lib/tailoring/cache", () => ({
+  computeTailoringCacheKey: () => ({ cacheKey: "unused", jdTextHash: "unused", resumeContentHash: "unused" }),
+  getCachedTailoringResult: async () => null,
+  saveTailoringResult: async () => {},
+}));
+
 const { tailorResumeToJob, JD_MAX_CHARS } = await import("@/lib/tailoring/tailor");
 const { EMPTY_RESUME } = await import("@/lib/resume/types");
 

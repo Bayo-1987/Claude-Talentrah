@@ -2635,6 +2635,45 @@ export type Database = {
           },
         ]
       }
+      tailoring_result_cache: {
+        Row: {
+          cache_key: string
+          created_at: string
+          expires_at: string
+          hit_count: number
+          id: string
+          include_cover_letter: boolean
+          jd_text_hash: string
+          last_hit_at: string | null
+          result: Json
+          resume_content_hash: string
+        }
+        Insert: {
+          cache_key: string
+          created_at?: string
+          expires_at: string
+          hit_count?: number
+          id?: string
+          include_cover_letter: boolean
+          jd_text_hash: string
+          last_hit_at?: string | null
+          result: Json
+          resume_content_hash: string
+        }
+        Update: {
+          cache_key?: string
+          created_at?: string
+          expires_at?: string
+          hit_count?: number
+          id?: string
+          include_cover_letter?: boolean
+          jd_text_hash?: string
+          last_hit_at?: string | null
+          result?: Json
+          resume_content_hash?: string
+        }
+        Relationships: []
+      }
       talent_directory_boosts: {
         Row: {
           boosted_until: string | null
@@ -3366,6 +3405,7 @@ export type Database = {
           reason: string
         }[]
       }
+      cleanup_expired_tailoring_cache: { Args: never; Returns: undefined }
       consume_anonymous_rate_limit: {
         Args: {
           p_bucket: string
@@ -3462,7 +3502,29 @@ export type Database = {
           template_slug: string
         }[]
       }
+      fulfill_credit_pack_or_pass: {
+        Args: {
+          p_authorization_code?: string
+          p_channel: string
+          p_transaction_id: string
+        }
+        Returns: {
+          claimed: boolean
+          credits_granted: number
+          pass_name: string
+          product_type: Database["public"]["Enums"]["payment_product_type"]
+        }[]
+      }
       generate_referral_code: { Args: never; Returns: string }
+      grant_credits_atomic: {
+        Args: {
+          p_amount: number
+          p_reason: Database["public"]["Enums"]["credit_reason"]
+          p_related_entity_id?: string
+          p_user_id: string
+        }
+        Returns: number
+      }
       grant_referral_reward: {
         Args: {
           p_amount: number
@@ -3572,6 +3634,10 @@ export type Database = {
       }
       record_employer_resume_view: {
         Args: { p_application_id: string }
+        Returns: undefined
+      }
+      record_tailoring_cache_hit: {
+        Args: { p_cache_key: string }
         Returns: undefined
       }
       referral_leaderboard: {

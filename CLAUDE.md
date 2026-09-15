@@ -2,9 +2,9 @@
 
 This file is a persistent summary for AI coding sessions on this project. Full detail lives in two source docs — **read them, don't just this summary, before doing real spec or design work**:
 - [talentrah-build-prompt.md](talentrah-build-prompt.md) — product spec, strategy, data model, phasing, monetization, all `[DECIDE]` open items.
-- [talentrah-editorial-design-handoff.md](talentrah-editorial-design-handoff.md) — visual/design system, content rules. Filename is a historical artifact (kept rather than churning every inbound link for a rename with no functional benefit) — its content describes the current "Sunbird" system, not Editorial; see its own header.
-- [Main-Sunbird.dc.html](Main-Sunbird.dc.html) / [JobFeed-Sunbird.dc.html](JobFeed-Sunbird.dc.html) — real working HTML/CSS reference markup (exact spacing/colors/type). Copy values from these, don't eyeball.
-- Design-direction canvas (6 directions, Direction E/Sunbird chosen): https://claude.ai/code/artifact/f939960c-d188-4cb0-8a32-69a16e8b90ff
+- [talentrah-editorial-design-handoff.md](talentrah-editorial-design-handoff.md) — visual/design system, content rules.
+- [Main-Editorial.dc.html](Main-Editorial.dc.html) / [JobFeed-Editorial.dc.html](JobFeed-Editorial.dc.html) — real working HTML/CSS reference markup (exact spacing/colors/type). Copy values from these, don't eyeball.
+- Live click-through reference: https://claude.ai/code/artifact/d150ad75-1b0f-4b3b-bcfb-a00e17cac229 ("Editorial — Full Build" page)
 
 The approved Phase 1 build plan (milestones, tech stack, data model) lives at `~/.claude/plans/adaptive-giggling-ember.md` — refer back to it during implementation rather than re-deriving scope.
 
@@ -39,7 +39,7 @@ Three consequences worth knowing before you touch either that project OR product
 - **Production (`nytwbbzfpytctjsoczzq`) and `dozaffzgqkbarxtlclsj` both need every migration.** They are intentionally allowed to diverge while a PR is in review (the ephemeral per-job CI databases always have every migration by construction; these two persistent projects don't), so check both before assuming a function exists on either.
 - **GitHub Actions' ephemeral per-job databases mean a migration bug can be caught by CI without ever touching `dozaffzgqkbarxtlclsj` or production** — which is the point, but also means a green CI run says nothing about whether that migration has actually been applied to either persistent project yet. Confirm separately before assuming a merged PR's migration is live anywhere real.
 
-**Unit tests run BEFORE `npm run seed` in the `e2e` job's own ephemeral database.** Seed lives in the Playwright job, which is `needs: checks` (a separate job, separate ephemeral database, run first only to fail fast on a broken build before spending the ~10 minutes Playwright takes) — so on a database that has never been seeded the unit tests fail first and skip the seed that would have fixed them. Reference data has to exist before the first green run.
+**`npm run seed` (the full seed, not just catalog) now runs INSIDE the `checks` job, before its own unit tests** — corrected 2026-09-15; this line previously said seed lived only in the Playwright (`e2e`) job and that a database that had never been seeded made `checks`' own unit tests fail first. That was true before Stage 2's ephemeral per-job databases; `checks` no longer inherits a previously-seeded database from a past `e2e` run the way it could on the old shared project, so `checks` builds and starts the app and runs the full `npm run seed` itself (see `ci.yml`'s own comment on that job for which specific unit tests this was found to be load-bearing for). `e2e` (`needs: checks`, kept to fail fast rather than for seed ordering) then runs the identical `npm run seed` a second time, independently, into its own separate ephemeral database — the two jobs never share one. Reference data still has to exist before either job's tests can pass; it just gets there via each job seeding itself, not via one job's leftovers.
 
 **Before starting a new branch, check whether one already exists for the same gap.** This repo runs more than one Claude Code session at once — long-lived interactive sessions and isolated background-agent worktrees both — and none of them can see another's in-progress branch. In one week this produced four independent collisions on two small bugs, each one a full second implementation plus a conflict-resolution pass to undo: the tracker-notes dead-network crash (#376 vs #377), the SEO landing-page signed-in-CTA fix (#381 vs #382), and its filter-preservation follow-up (#383 vs #384) — plus `with-network-fallback.ts` getting built a second time as its own PR (#379) after the branch that first introduced it (#376) was closed unmerged, because nothing recorded that it had already been tried. The fix costs one command: before creating a branch, run `git ls-remote --heads origin` for a name that suggests the same area, and `gh pr list --state all` for an open, merged, or recently-closed PR touching the same files or describing the same gap. Stale worktrees pile up from the same blind spot — `git worktree list` periodically, and `git worktree remove` (never a bare `rm -rf`, which leaves git's own bookkeeping pointing at a directory that no longer exists) anything whose branch is already merged or closed.
 
@@ -68,7 +68,7 @@ the guard never reads the Supabase session.
 
 Phase 1 is feature-complete except for the employer side. Read [docs/phase-1-summary.md](docs/phase-1-summary.md) before assuming any feature's status — it is kept current and lists what shipped, what is deferred, and the open defects with their evidence. Two that shape most decisions:
 
-- **The employer side exists**: org onboarding, Company Profile, free job posting, Jobs Posted (Phase 1), plus **Ad Campaigns** (Phase 2 — ad wallet 0046, campaign state machine 0047/0048, Server Actions and review gate). Billing and analytics are still Phase 2 and are deliberately **absent from the employer nav** rather than stubbed — don't add placeholder pages for them, and don't describe them as shipped. Ad Campaigns is in the nav because it is real, not because the rule changed. Building this surface is what exercised the org RLS policies for the first time and found the third hole in them (0028).
+- **The employer side exists**: org onboarding, Company Profile, free job posting, Jobs Posted (Phase 1), plus **Ad Campaigns** (Phase 2 — ad wallet 0046, campaign state machine 0047/0048, Server Actions and review gate) and **Analytics** (0128 — `/employer/analytics` reads real `ad_events` rows, not a placeholder). Only **Billing** is still Phase 2 and deliberately **absent from the employer nav** rather than stubbed — don't add a placeholder page for it, and don't describe it as shipped. Analytics and Ad Campaigns are both in the nav because they're real, not because the rule changed. Building this surface is what exercised the org RLS policies for the first time and found the third hole in them (0028).
 - **Ad campaigns are charged per DAY, not per click, and approval never starts one.** Review is about the ad's content; going live is `resume_ad_campaign`, which debits the wallet. Keeping those separate means there is exactly one path from not-running to running and it always charges — a second path would be a second place to forget the charge. CPC is deferred because it needs deduplicated attributable click events that this project has no pipeline for; billing per day charges for something the system can actually observe.
 - **Anything that gates on a counted or compared value must check and act in ONE database statement.** A read-then-write in JS is not a gate: `spendCredits` looked correct for months and let two concurrent spends both succeed at `balance == cost`, because the ledger trigger overwrites `credits_balance` absolutely rather than decrementing it. The pattern to copy is `spend_credits_atomic` (0035) — a conditional `UPDATE … WHERE balance >= amount` — or `auto_apply_claim_submission` (0034) where several conditions must hold together under one lock.
 - **`hired` is terminal on `applications` except → `archived`** (0037), enforced by a trigger rather than in the Server Action, because the owner-only `FOR ALL` policy makes any app-layer rule reachable around via a direct PATCH. Deliberately narrow: every other stage correction stays allowed, because the tracker is the user's own record and blocking mis-click fixes would be a worse product than the bug.
@@ -231,7 +231,7 @@ Mentorship marketplace (§6.11) and Talent Directory & Verification (§6.13) —
 
 **Job seeker nav** (masthead, not icon sidebar): Jobs · Job Tracker · Resume Builder · Refer a Friend · Mentorship · Feedback · Settings. Persistent: global search, notifications, language selector, "Post Job" shortcut, credits/upgrade CTA, profile menu, docked Farah panel on key screens.
 
-**Employer nav**: Jobs Posted · Company Profile · Ad Campaigns · Billing · Analytics.
+**Employer nav**: Jobs Posted · Company Profile · Ad Campaigns · Billing · Analytics · Talent Directory.
 
 ## Key feature specs (see build-prompt §6 for full detail on each)
 
@@ -269,61 +269,54 @@ The Phase 1 subset of this schema (actual table list being migrated into Supabas
 
 ---
 
-## Design system ("Sunbird")
+## Design system ("Editorial")
 
-Replaced "Editorial" (newspaper/magazine metaphor, no border-radius, no shadows) wholesale in one PR (send-197) — full swap, not phased. Full detail, including the match-tier bug found and fixed during the swap and the known gaps it left open, lives in [talentrah-editorial-design-handoff.md](talentrah-editorial-design-handoff.md) (filename is a historical artifact; its content is current). Summary below.
+Newspaper/magazine metaphor — deliberately not rounded/blue/card-heavy SaaS. **No border-radius** anywhere except small circular affordances (avatars, notification dots, toggle switches). **No drop shadows** except one deliberate soft lift on the hero's input box.
 
-The opposite of Editorial's hard rules, deliberately: **fully rounded cards** (14–20px radius) **and pill buttons/badges**, **a soft drop shadow on every card** (`0 4px 16px oklch(30% 0.05 35 / 0.08)`), geometric shape accents (circles, a triangle) as decoration.
-
-### Colors (oklch CSS custom properties — see globals.css or either .dc.html file for the exact block)
+### Colors (oklch CSS custom properties — see either .dc.html file for the exact block)
 
 ```css
---bg: oklch(98% 0.015 55);          /* page background */
---card: oklch(100% 0.005 55);       /* card/box background */
---ink: oklch(22% 0.02 30);          /* primary text, dark buttons */
---ink-soft: oklch(42% 0.02 30);     /* secondary/body text */
---ink-faint: oklch(58% 0.015 40);   /* tertiary text, timestamps */
---coral: oklch(63% 0.19 35);        /* primary accent — CTAs, links, active states */
---coral-hover: oklch(55% 0.19 35);
---teal: oklch(55% 0.11 195);        /* secondary accent — Farah panel, info, "Good" match tier */
---teal-soft: oklch(92% 0.03 195);
---gold: oklch(78% 0.14 85);         /* decorative accent — shapes/highlights only */
---green: oklch(55% 0.13 150);       /* "Excellent" match tier */
---amber: oklch(45% 0.1 70);         /* "Fair" match tier */
---line: oklch(89% 0.015 55);        /* hairline dividers, thin borders */
+--paper: oklch(97% 0.014 85);       /* page background */
+--paper-alt: oklch(94.5% 0.018 80); /* alternating section background */
+--ink: oklch(20% 0.018 50);         /* primary text, borders, dark buttons */
+--ink-soft: oklch(38% 0.02 50);     /* secondary/body text */
+--ink-line: oklch(30% 0.02 50);     /* footer dividers on dark bg */
+--rust: oklch(52% 0.14 40);         /* brand accent — links, active states, CTAs on hover */
+--rust-hover: oklch(45% 0.14 40);
+--rust-soft: oklch(91% 0.03 40);    /* accent tint backgrounds, highlighted text */
+--line: oklch(78% 0.02 60);         /* hairline dividers on paper background */
+--green: oklch(48% 0.1 152);        /* "Excellent" match tier */
+--amber: oklch(52% 0.12 70);        /* "Fair" match tier */
+--card: oklch(99% 0.006 85);        /* white-ish card/box background */
 ```
 
-Plus three tokens the Sunbird artboards don't define (no equivalent need existed in the mockups), carried forward from Editorial's roles and recomputed at Sunbird's hues: `--bg-alt` (alternating section background), `--coral-soft` (tinted backgrounds), `--ink-line` (footer dividers on dark `--ink`).
-
 **Match-tier system — exactly three tiers, used everywhere a score appears, never a 4th tier or bespoke wording:**
-- Excellent (~80%+) → `--green` / `--green-soft`
-- Good (~70–79%) → `--teal` / `--teal-soft` — **deliberately not `--coral`**, unlike Editorial's equivalent (Good → `--rust` there): `--coral` is this system's own CTA/action color, rendered directly beside match badges on the same card (a job card's "Apply" button), so a coral Good badge would blur "clickable" with "score" exactly where it matters most.
-- Fair (~60–69%) → `--amber` / `--amber-soft` — a real defined pair; the Sunbird artboards themselves used an undefined one-off inline color here, fixed rather than replicated (see the handoff doc's own note).
+- Excellent (~80%+) → `--green`
+- Good (~70–79%) → `--rust`
+- Fair (~60–69%) → `--amber`
 
 ### Typography
 
-- Headings (h1–h3): **DM Serif Display**, weight 400 (its only cut — no 500/600 to step up to). `DM+Serif+Display` (normal + italic).
-- Body/UI: **DM Sans**, weights 400–700.
-- Eyebrow labels: DM Sans, 11–12px, weight 700, `letter-spacing: 0.08em`, uppercase, `--coral`. Must literally describe the section/element directly below it — no decorative/invented mythology.
-- Italic DM Serif Display = quiet/secondary asides (placeholders, captions, taglines).
-- The four resume-builder skeleton fonts (`--font-geometric`/`--font-humanist`/`--font-serif-modern`/`--font-condensed` — Poppins/Work Sans/Lora/Barlow Condensed) are untouched by this swap: template choices for user-facing resumes, unrelated to the app's own chrome.
+- Headings (h1–h3): **Newsreader** (serif), weight 500 normal / 600 for card h3s. `Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400`
+- Body/UI: **Source Sans 3**, weights 400–700.
+- Eyebrow labels: Source Sans 3, 11–12px, weight 700, `letter-spacing: 0.14em`, uppercase, `--rust`. Must literally describe the section/element directly below it — no decorative/invented mythology.
+- Italic Newsreader = quiet/secondary asides (placeholders, captions, taglines).
 
 ### Components
 
-- **Buttons**, all `border-radius: 999px` (pill), min-height 44px: Primary (`--coral` bg, white text → hovers `--coral-hover`), Secondary (transparent, 1px `--line` border → hovers coral), Ghost (no border, hovers coral text).
-- **`Card`** (renamed from Editorial's `BorderedCard` — that name described a border-and-no-radius convention that no longer applies): rounded corners, `--card` background, a soft shadow **by default** (opposite of Editorial, which reserved a shadow for exactly one element).
-- **Classifieds-row list** (landing page job preview only): border-bottom `--line`, no card chrome, large serif match % on left — unchanged from Editorial.
-- **Dashboard job cards** (JobFeed): rounded `Card` with the shared shadow, circular 40–56px `--ink`-bg two-letter company badge (never a brand color — would look like a 4th match tier), circular 40×40px icon buttons for Save/Share, `.btn-text` for "Ask Farah", `.btn-primary` (pill) for "Apply".
+- **Buttons**, all `border-radius: 0`, min-height 44px: Primary (`--ink` bg → hovers `--rust`), Secondary (transparent, 1.5px `--ink` border → hovers rust), Ghost (no border, hovers rust text).
+- **Bordered box/card**: 1.5–2px solid `--ink`, no radius, `--card` background. Hero input box is the *only* element with a shadow.
+- **Classifieds-row list** (landing page job preview only): border-bottom `--line`, no card chrome, large serif match % on left.
+- **Dashboard job cards** (JobFeed — intentional, do not revert to rows): 1.5px `--ink` border box on `--card`, 44×44px square `--ink`-bg two-letter company badge (never a brand color — would look like a 4th match tier), circular 40×40px icon buttons for Save/Share, `.btn-text` for "Ask Farah", `.btn-primary` for "Apply".
 - **Masthead doubles as app nav** — no icon sidebar, ever. Same component signed-out and signed-in, just marketing links swapped for Jobs/Job Tracker/Resume Builder/Mentorship/Refer a Friend.
-- **Farah panel**: the artboards draw this as a full elevated card (rounded, shadowed) — a real departure from Editorial's flat marginalia rule. **Not yet adopted in `src/components/app-shell/farah-panel.tsx`** — flagged in that file's own header comment as a deliberate, deferred scope decision (its sticky/scroll shell and dependent e2e specs need care), not silently left inconsistent.
+- **Farah panel** = marginalia (280px right column, `border-left: 1px solid var(--line)`, no card bg) — never a boxed chat widget.
 - **Every interactive element** must have a real ≥40×40px hit target, even small ones (was a real shipped bug — icon glyph sized ≠ clickable area sized).
 - No emoji as icons — inline SVG only. No stock photography / fake human avatars for Farah — she's the abstract two-overlapping-circles mark only. No profile-completion bar / gamification meter anywhere (hard rule, ties to build-prompt §2.5's anti-gamification retention stance).
-- **Known gap:** ~59 files still hardcode an ad-hoc bordered box instead of using `Card` — correct tokens, just not yet the rounded/shadow treatment. Listed in the handoff doc's §9; a dedicated sweep is the natural next PR, not something this swap silently left unrecorded.
 
 ### Layout
 
 - Max content width 1120px, `padding: 0 40px`.
-- Section rhythm: 88–96px vertical padding, alternating bg/bg-alt with hairline border between (always pair divider + bg change, never just one).
+- Section rhythm: 88–96px vertical padding, alternating paper/paper-alt with hairline border between (always pair divider + bg change, never just one).
 - Grids use explicit `gap`, never margin-spaced siblings.
 
 ### Content/copy rules

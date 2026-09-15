@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, EyebrowLabel } from "@/components/ui";
 import type { StructuredResume } from "@/lib/resume/types";
+import { fetchWithTimeout, fetchErrorMessage } from "@/lib/forms/fetch-with-timeout";
 
 type Status = "idle" | "uploading" | "done" | "error";
 
@@ -84,7 +85,7 @@ export function ResumeUpload({
     formData.append("file", file);
 
     try {
-      const res = await fetch(endpoint, {
+      const res = await fetchWithTimeout(endpoint, {
         method: "POST",
         body: formData,
       });
@@ -101,8 +102,11 @@ export function ResumeUpload({
       }
       setResult({ resume: data.resume, confidence: data.confidence });
       setStatus("done");
-    } catch {
-      setError("Upload failed — check your connection and try again.");
+    } catch (err) {
+      // Distinguishes a genuine timeout from a real dead-network failure —
+      // see fetch-with-timeout.ts's own header for why conflating the two
+      // used to blame the visitor's connection for a server-side stall.
+      setError(fetchErrorMessage(err, { network: "Upload failed — check your connection and try again." }));
       setStatus("error");
     }
   }
@@ -141,7 +145,7 @@ export function ResumeUpload({
       <p className="text-[14px] text-ink-soft">
         {status === "uploading" ? "Farah is reading your resume…" : heading}
       </p>
-      {error && <p className="text-[13px] text-coral">{error}</p>}
+      {error && <p className="text-[13px] text-rust">{error}</p>}
       <div className="mt-1 flex items-center justify-center gap-4">
         <Button
           type="button"
@@ -170,7 +174,7 @@ export function ResumeUpload({
               await onSkip?.();
               router.push(next);
             }}
-            className="text-[13.5px] font-semibold text-ink-soft underline underline-offset-2 hover:text-coral"
+            className="text-[13.5px] font-semibold text-ink-soft underline underline-offset-2 hover:text-rust"
           >
             Skip for now
           </button>

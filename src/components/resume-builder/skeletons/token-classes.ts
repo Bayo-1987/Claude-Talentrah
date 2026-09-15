@@ -38,15 +38,15 @@ export function fontClass(typeface: Typeface): string {
 }
 
 export function accentTextClass(accent: AccentColor): string {
-  return accent === "rust" ? "text-coral" : "text-ink";
+  return accent === "rust" ? "text-rust" : "text-ink";
 }
 
 export function accentBorderClass(accent: AccentColor): string {
-  return accent === "rust" ? "border-coral" : "border-ink";
+  return accent === "rust" ? "border-rust" : "border-ink";
 }
 
 export function accentBgClass(accent: AccentColor): string {
-  return accent === "rust" ? "bg-coral" : "bg-ink";
+  return accent === "rust" ? "bg-rust" : "bg-ink";
 }
 
 /**

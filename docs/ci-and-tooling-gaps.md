@@ -307,6 +307,178 @@ equally slow options, and the better one is one command.
 
 ---
 
+## 6. `e2e/job-detail.spec.ts`: the card/detail truncation check depends on which real external job sorts first
+
+**Status: open, unowned as of 2026-09-14** (a fix may already be in flight in a
+separate session — check before duplicating). Found while merging the
+2026-09-14 audit batch (nine PRs, none of which touch job ingestion, the job
+card, or the job-detail page) — surfaced as a merge blocker on
+`fix/atomic-fulfillment-credit-pack-pass` (PR #399), then reproduced
+identically on two other, unrelated PRs (#397, #402) before anyone assumed it
+was a flake.
+
+**Symptom.** `e2e/job-detail.spec.ts`'s test "the card title opens the job,
+and the job is not truncated there" fails on:
+
+```
+expect(full).toContain(cardDescription.slice(0, 100));
+```
+
+with the card's truncated text containing a literal "·" (middle dot) and a
+line break that the full-page text does not — same underlying
+`job.description`, two different renderings.
+
+**Confirmed pre-existing, not caused by any of the three PRs it hit.**
+`fix/atomic-fulfillment-credit-pack-pass` touches only
+`src/lib/billing/fulfill.ts` and its own migration/test; `chore/bundle-size-ci-safeguard` touches only CI tooling; `fix/marketing-masthead-mobile-nav`
+touches only the signed-out marketing masthead. None touch job ingestion,
+`job-card.tsx`, or the job-detail page. A `git commit --allow-empty -m "retry ci"` retry on #399
+(entry 5's own prescribed method, not `gh run rerun`) failed **identically**
+— same test, same file:line, same assertion, same Moniepoint text, byte for
+byte — ruling out ordinary run-to-run flakiness in favour of a currently-live,
+deterministic cause.
+
+**Root cause, traced to actual code, not guessed.** The test asserts on
+whichever job `page.locator("h3 a").first()` resolves to — the top of the
+"Recommended" feed, with zero control over which real posting that is.
+`src/lib/jobs/sources.config.ts` configures Moniepoint as a live Greenhouse
+source (`{ source: "greenhouse", token: "moniepoint", ... }`), not a fixture;
+`docs/phase-1-summary.md` records measuring "Moniepoint's live board: 127
+postings" directly. `scripts/seed.ts` calls
+`fetch(`${devServerUrl}/api/admin/ingest-jobs`, ...)` — CI's seed step
+genuinely fetches real external boards, Moniepoint included, on every run. A
+Moniepoint "Senior Content Designer" listing currently sorts first and its
+raw description uses a literal "·" as a bullet/separator instead of this
+app's own "- " convention.
+`stripMarkdownToPlainText()` (`src/lib/jobs/extract-jd.ts`, used for the job
+card's truncated preview) only strips `**bold**` and leading "- " — it does
+not recognise "·" and passes it through unchanged. `renderJobDescriptionMarkdown`
+(used on the full job-detail page, see `src/app/(app)/jobs/[id]/page.tsx`)
+handles the same raw text differently. Two renderings of the same posting
+therefore genuinely disagree, and will keep disagreeing on any future CI run
+where this posting — or another one shaped like it — sorts first.
+
+**This is not a one-batch exception.** It will recur on any future PR's CI,
+unrelated to that PR's own diff, for as long as (a) this test depends on
+whichever job real external ranking puts first, and (b) any live source board
+contains a posting using a bullet character `stripMarkdownToPlainText` doesn't
+strip. Nine PRs merged past this on 2026-09-14 with an explicit per-PR note
+citing this entry rather than a bare "known flake, ignoring it."
+
+**Next check, concretely.** Two independent angles, either is a real fix
+(check whether the separate in-flight session already covers one of these
+before duplicating):
+- Make `stripMarkdownToPlainText` (or the ingestion step that produces
+  `job.description`) handle the wider range of bullet/separator characters
+  real scraped HTML actually contains — not just "- ". Check for em-dash,
+  asterisk-bullet, and other Unicode bullet characters while in there; this
+  exact defect shape will recur with a different source posting otherwise.
+- Stop making this test's assertion depend on live external ranking at all —
+  seed a synthetic or internal-only job posting specifically for
+  `job-detail.spec.ts` to assert against via a stable selector, rather than
+  `.first()` on whatever the real feed currently ranks top.
+
+**Owner.** Unowned as of this writing. A separate session was started
+2026-09-14 to investigate a code-level fix — check its outcome before picking
+this up again; if it lands, this entry should be updated to point at that
+PR rather than left as a live gap.
+
+---
+
+## 7. Every Dependabot PR failed CI outright on `DEMO_PASSWORD is not set` — fixed in `scripts/seed.ts`
+
+**Status: fixed, 2026-09-15** (branch `fix/dependabot-ci-demo-password`). Found
+while getting a fresh go/no-go status on seven new open PRs — five of them
+Dependabot's (`#409` npm, `#371`/`#372`/`#373`/`#374` GitHub Actions version
+pins), all failing identically on the `checks` job itself, before `e2e` even
+ran.
+
+**Symptom.** `Typecheck, lint, unit tests` fails on all five with:
+
+```
+Error: DEMO_PASSWORD is not set. Add it to .env.local (and to CI secrets for the e2e job).
+```
+
+thrown by `scripts/seed.ts`'s own guard (line 62-68 as of the previous
+revision), during the `checks` job's "Seed demo data (full)" step. `e2e`
+shows `SKIPPED`, not `FAILURE` — it never got to run.
+
+**Confirmed pre-existing and structural, not caused by any of the five PRs'
+own diffs.** A routine npm version bump and four routine Actions version pins
+do not touch `scripts/seed.ts`, `ci.yml`, or anything seed-adjacent — checked
+directly via `git diff origin/main...origin/<branch> --name-only` for each.
+The two non-Dependabot PRs checked in the same pass (`#396`, `#406`) do not
+hit this at all.
+
+**Root cause, traced to actual behaviour, not guessed.** `ci.yml:51` sets
+`DEMO_PASSWORD: ${{ secrets.DEMO_PASSWORD }}` at the workflow-`env` level,
+read by every job. All five failing runs are `pull_request` events on
+`dependabot/*` branches (confirmed via `gh run view --json event,headBranch`).
+Checked against GitHub's own docs ("Troubleshooting Dependabot on GitHub
+Actions" → "Accessing secrets"), not assumed from memory: *"When a Dependabot
+event triggers a workflow, the only secrets available to the workflow are
+Dependabot secrets. GitHub Actions secrets are not available."* Regular
+repository secrets — `DEMO_PASSWORD` included — are invisible to any
+workflow run GitHub attributes to Dependabot, regardless of what that PR's
+diff contains. `${{ secrets.DEMO_PASSWORD }}` then resolves to an empty
+string, and `scripts/seed.ts`'s unconditional guard throws.
+
+One assumption checked before picking a fix, not before: whether the repo's
+**Dependabot secrets** store (Settings → Secrets and variables → Dependabot —
+a separate mechanism from regular Actions secrets, normally used for
+Dependabot's own private-registry auth during dependency resolution) would
+even reach this `pull_request`-triggered CI workflow if `DEMO_PASSWORD` were
+added there. The same GitHub doc answers this too, and the answer is
+"yes" — Dependabot secrets ARE what a Dependabot-triggered workflow run gets
+instead of Actions secrets. So adding it there was a real, viable option; it
+was not the one chosen (see below).
+
+**Not a one-batch exception.** Every future Dependabot PR against this repo
+hits this identically, forever, until fixed — the failure has nothing to do
+with what any individual bump contains.
+
+**Fix chosen and why.** Code fix in `scripts/seed.ts`, not a settings change:
+when `DEMO_PASSWORD` is unset AND `process.env.CI` is set, generate a random
+per-run value with `randomBytes(24).toString("hex")` instead of throwing, and
+write it to `$GITHUB_ENV` (same idiom `ci.yml` already uses for its own
+per-run `INGEST_SECRET`) so the *same job's* later steps see the matching
+value. This is deliberately **not** the hazard the file's own no-fallback-default
+comment warns about — that rule is about a fixed, committed default becoming
+a de facto shared password; a value regenerated every run and thrown away
+with the ephemeral database it created has none of that shape.
+
+Checked, not assumed, before relying on this being safe for `checks`: none of
+the four unit tests the "full seed" step exists for
+(`tests/seo/landing-page-links.test.ts`,
+`tests/billing/pricing-catalog-rebase.test.ts`,
+`tests/rls/org-and-referral-scoping.test.ts`, `tests/seed/catalog.test.ts`)
+reference `DEMO_PASSWORD` or a login flow — grepped directly. They need a
+seeded demo account to exist, never a specific password value.
+
+`e2e` runs the identical `scripts/seed.ts` a second time, independently, into
+its own separate ephemeral database, and *does* have specs that log in as
+this account by reading `process.env.DEMO_PASSWORD` directly
+(`job-detail.spec.ts` among many others) — checked via grep across `e2e/`,
+not assumed to be checks-only. The `$GITHUB_ENV` write covers this case too,
+since it's the same script and the write lands before the login-driving
+Playwright step runs in the same job.
+
+Verified before merging, not just by inspection: ran the exact guard logic
+standalone with `CI=true` and `DEMO_PASSWORD` unset — confirms a value is
+generated and written to a `$GITHUB_ENV`-shaped file — and separately with
+neither `CI` nor `DEMO_PASSWORD` set, confirming local development still
+throws exactly as before (no silent fallback outside CI). Full `npm run
+build`, `npx tsc --noEmit`, and `npm run lint` all clean on the fix branch.
+
+Once past this, a Dependabot PR still hits the documented **entry 6** e2e
+issue like every other PR — this fix only removes a *different*, earlier
+blocker that stopped `e2e` from running at all.
+
+**Owner.** Fixed on `fix/dependabot-ci-demo-password`, not yet merged —
+founder approval pending, same as any other PR.
+
+---
+
 ## Not a gap: a stacked PR gets no CI until it retargets
 
 `ci.yml` fires on three things:

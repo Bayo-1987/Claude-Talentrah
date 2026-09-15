@@ -6,6 +6,24 @@ import type { LLMProvider, LLMGenerateOptions, LLMResult } from "./types";
 const GROQ_BASE_URL = "https://api.groq.com/openai/v1";
 
 /**
+ * Bounds a single Groq call. Without this the OpenAI SDK's default is
+ * effectively unbounded for practical purposes — a hung call just ran until
+ * the hosting platform killed the function, well past when the tailoring
+ * form's own "Working…" state had anything useful to say, and the resulting
+ * dropped connection surfaced client-side as a generic network error
+ * ("check your connection") for what was actually a server-side stall. 20s
+ * is generous for a single non-streaming completion capped at 4096 output
+ * tokens (see maxOutputTokens call sites) while staying well inside the
+ * `maxDuration` budget the calling routes now declare — see
+ * src/app/api/tailoring/route.ts's own comment for the full worst-case math
+ * this timeout feeds into. A timeout here surfaces as `APIConnectionTimeoutError`
+ * (no `.status`), which the catch block below maps to `kind: "unknown"` —
+ * deliberately NOT "rate_limit", so a hung Groq call does not also trigger
+ * generateWithFailover's Gemini retry on top of the wait already spent.
+ */
+export const GROQ_CLIENT_TIMEOUT_MS = 20_000;
+
+/**
  * Large model, not a small/fast variant — quality-sensitive calls
  * (tailoring, gap analysis) need it. llama-3.3-70b-versatile (the
  * originally-specced default) no longer exists on Groq's API — confirmed
@@ -41,7 +59,7 @@ function getGroqClient(): OpenAI {
   if (!apiKey) {
     throw new Error("GROQ_API_KEY is not set — set LLM_PROVIDER=gemini or add the key.");
   }
-  return new OpenAI({ apiKey, baseURL: GROQ_BASE_URL });
+  return new OpenAI({ apiKey, baseURL: GROQ_BASE_URL, timeout: GROQ_CLIENT_TIMEOUT_MS });
 }
 
 export class GroqProvider implements LLMProvider {

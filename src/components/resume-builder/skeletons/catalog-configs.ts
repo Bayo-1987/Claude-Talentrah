@@ -103,8 +103,7 @@ const STRUCTURED_ADMIN_CONFIG: TemplateConfig = {
     showLinksInHeader: false,
     showSummary: true,
   },
-  // send-197 follow-up, migration 0158: bodyFont "body" (DM Sans) confirmed to corrupt PDF text extraction; ats_safe honestly downgraded pending the real fix, not a styleTokens change.
-  atsSafe: false,
+  atsSafe: true,
 };
 
 /**
@@ -185,8 +184,7 @@ const LEDGER_CONFIG: TemplateConfig = {
     showLinksInHeader: false,
     showSummary: true,
   },
-  // send-197 follow-up, migration 0158: bodyFont "body" (DM Sans) confirmed to corrupt PDF text extraction; ats_safe honestly downgraded pending the real fix, not a styleTokens change.
-  atsSafe: false,
+  atsSafe: true,
 };
 
 // ---------------------------------------------------------------------------
@@ -247,8 +245,7 @@ const BUSINESS_MEMO_CONFIG: TemplateConfig = {
     showLinksInHeader: false,
     showSummary: true,
   },
-  // send-197 follow-up, migration 0158: bodyFont "body" (DM Sans) confirmed to corrupt PDF text extraction; ats_safe honestly downgraded pending the real fix, not a styleTokens change.
-  atsSafe: false,
+  atsSafe: true,
 };
 
 /** Administration. Rail-right: narrative on the left, a fact rail (skills/certifications) on the right — the mirror image of Structured Admin's single column, for an admin professional who wants their tool/software list visually separated. */
@@ -292,8 +289,7 @@ const FILING_SYSTEM_CONFIG: TemplateConfig = {
     showLinksInHeader: false,
     showSummary: true,
   },
-  // send-197 follow-up, migration 0158: bodyFont "body" (DM Sans) confirmed to corrupt PDF text extraction; ats_safe honestly downgraded pending the real fix, not a styleTokens change.
-  atsSafe: false,
+  atsSafe: true,
 };
 
 /** Technology. Grid-modules: projects rendered as real cards — for an engineer, shipped work is the qualification. */
@@ -425,8 +421,7 @@ const HELP_DESK_CONFIG: TemplateConfig = {
     showLinksInHeader: false,
     showSummary: true,
   },
-  // send-197 follow-up, migration 0158: bodyFont "body" (DM Sans) confirmed to corrupt PDF text extraction; ats_safe honestly downgraded pending the real fix, not a styleTokens change.
-  atsSafe: false,
+  atsSafe: true,
 };
 
 /** Banking & Finance. Sidebar-left, certifications/skills as reference facts beside a narrative main column — distinct shape from Ledger's single flowing timeline. */
@@ -470,8 +465,7 @@ const COMPLIANCE_BRIEF_CONFIG: TemplateConfig = {
     showLinksInHeader: false,
     showSummary: true,
   },
-  // send-197 follow-up, migration 0158: bodyFont "body" (DM Sans) confirmed to corrupt PDF text extraction; ats_safe honestly downgraded pending the real fix, not a styleTokens change.
-  atsSafe: false,
+  atsSafe: true,
 };
 
 /** Sales & Marketing. Header-band, campaigns-as-projects with a links row for a portfolio of campaign case studies. */
@@ -537,8 +531,7 @@ const ROUNDS_CONFIG: TemplateConfig = {
     showLinksInHeader: false,
     showSummary: true,
   },
-  // send-197 follow-up, migration 0158: bodyFont "body" (DM Sans) confirmed to corrupt PDF text extraction; ats_safe honestly downgraded pending the real fix, not a styleTokens change.
-  atsSafe: false,
+  atsSafe: true,
 };
 
 /** Healthcare. Single-column, free. */
@@ -560,8 +553,7 @@ const CARE_PLAN_CONFIG: TemplateConfig = {
     showLinksInHeader: false,
     showSummary: true,
   },
-  // send-197 follow-up, migration 0158: bodyFont "body" (DM Sans) confirmed to corrupt PDF text extraction; ats_safe honestly downgraded pending the real fix, not a styleTokens change.
-  atsSafe: false,
+  atsSafe: true,
 };
 
 /** Legal. Compact-dense — a long legal career (multiple chambers/firms) plus publications fits on one restrained page. */
@@ -597,7 +589,7 @@ const LEGAL_BRIEF_CONFIG: TemplateConfig = {
  * `headerRuleClass(tokens.ruleWeight)` — `ruleWeight` is inert for this
  * skeleton, so `double` here is a no-op kept only for schema/DB parity, not a
  * claimed visual change. What actually differs from `faculty-profile`:
- * display/body (the app's own DM Serif Display/DM Sans pairing — used by no
+ * display/body (the app's own Newsreader/Source Sans pairing — used by no
  * other sidebar-left config), a tracked-caps heading (vs `faculty-profile`'s
  * underline rule), a bigger `lg` name and a `split` contact layout (both
  * genuinely rendered — `nameSizeClass`/`contactLineClass` read those tokens
@@ -687,8 +679,7 @@ const GAZETTE_CONFIG: TemplateConfig = {
     showLinksInHeader: false,
     showSummary: true,
   },
-  // send-197 follow-up, migration 0158: bodyFont "body" (DM Sans) confirmed to corrupt PDF text extraction; ats_safe honestly downgraded pending the real fix, not a styleTokens change.
-  atsSafe: false,
+  atsSafe: true,
 };
 
 /** Government & Public Sector. Compact-dense, free. */
@@ -710,8 +701,7 @@ const CIVIC_RECORD_CONFIG: TemplateConfig = {
     showLinksInHeader: false,
     showSummary: true,
   },
-  // send-197 follow-up, migration 0158: bodyFont "body" (DM Sans) confirmed to corrupt PDF text extraction; ats_safe honestly downgraded pending the real fix, not a styleTokens change.
-  atsSafe: false,
+  atsSafe: true,
 };
 
 // ---------------------------------------------------------------------------
@@ -819,8 +809,7 @@ const SPECIFICATION_CONFIG: TemplateConfig = {
     showLinksInHeader: false,
     showSummary: true,
   },
-  // send-197 follow-up, migration 0158: bodyFont "body" (DM Sans) confirmed to corrupt PDF text extraction; ats_safe honestly downgraded pending the real fix, not a styleTokens change.
-  atsSafe: false,
+  atsSafe: true,
 };
 
 /**
@@ -1130,8 +1119,7 @@ const HARVEST_CONFIG: TemplateConfig = {
     showLinksInHeader: false,
     showSummary: true,
   },
-  // send-197 follow-up, migration 0158: bodyFont "body" (DM Sans) confirmed to corrupt PDF text extraction; ats_safe honestly downgraded pending the real fix, not a styleTokens change.
-  atsSafe: false,
+  atsSafe: true,
 };
 
 /** Premium. Timeline — seasonal/field-season postings read as a career track record. */
@@ -1243,8 +1231,7 @@ const OFFSHORE_CONFIG: TemplateConfig = {
     showLinksInHeader: false,
     showSummary: true,
   },
-  // send-197 follow-up, migration 0158: bodyFont "body" (DM Sans) confirmed to corrupt PDF text extraction; ats_safe honestly downgraded pending the real fix, not a styleTokens change.
-  atsSafe: false,
+  atsSafe: true,
 };
 
 /** Premium. Sidebar-left — certifications/skills/languages as reference facts beside a field-experience narrative. */
@@ -1404,8 +1391,7 @@ const FOUNDATION_CONFIG: TemplateConfig = {
     showLinksInHeader: false,
     showSummary: true,
   },
-  // send-197 follow-up, migration 0158: bodyFont "body" (DM Sans) confirmed to corrupt PDF text extraction; ats_safe honestly downgraded pending the real fix, not a styleTokens change.
-  atsSafe: false,
+  atsSafe: true,
 };
 
 /** Premium. Grid-modules — developments/builds as portfolio cards. */
@@ -1523,8 +1509,7 @@ const MANIFEST_CONFIG: TemplateConfig = {
     showLinksInHeader: false,
     showSummary: true,
   },
-  // send-197 follow-up, migration 0158: bodyFont "body" (DM Sans) confirmed to corrupt PDF text extraction; ats_safe honestly downgraded pending the real fix, not a styleTokens change.
-  atsSafe: false,
+  atsSafe: true,
 };
 
 /** Premium. Timeline. */

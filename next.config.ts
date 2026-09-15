@@ -1,4 +1,21 @@
 import type { NextConfig } from "next";
+import createBundleAnalyzer from "@next/bundle-analyzer";
+
+/**
+ * Bundle analyzer — opt-in only, gated behind ANALYZE=true.
+ *
+ * Wired in as a regression tripwire, not a default-on build step: the target
+ * market skews low-end Android + expensive mobile data (CLAUDE.md's
+ * non-functional requirements), so a client-bundle regression is a real
+ * product cost, not just an aesthetic one. Run `ANALYZE=true npm run build`
+ * locally to get the interactive treemap report; CI's own bundle-size-budget
+ * step (`.github/workflows/ci.yml`, `checks` job) reads `.next`'s build
+ * output directly instead of the analyzer's HTML report, so this wrapper is
+ * for local investigation, not for CI's own pass/fail check.
+ */
+const withBundleAnalyzer = createBundleAnalyzer({
+  enabled: process.env.ANALYZE === "true",
+});
 
 const nextConfig: NextConfig = {
   /**
@@ -76,7 +93,7 @@ const nextConfig: NextConfig = {
    *
    * Scoped against what this app actually loads client-side, checked
    * directly rather than assumed:
-   *   - Fonts (DM Serif Display, DM Sans) go through `next/font/google`,
+   *   - Fonts (Newsreader, Source Sans 3) go through `next/font/google`,
    *     which self-hosts the font files at build time — confirmed no
    *     runtime request to fonts.googleapis.com/fonts.gstatic.com exists
    *     anywhere in the app, so neither host needs a CSP entry.
@@ -150,4 +167,4 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default withBundleAnalyzer(nextConfig);

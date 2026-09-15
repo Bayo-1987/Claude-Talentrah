@@ -85,8 +85,7 @@ export const RESUME_TEMPLATES: readonly ResumeTemplateDefinition[] = [
     industry_category: "Business",
     is_premium: false,
     unlock_cost_credits: 0,
-    // send-197 follow-up, migration 0158: bodyFont "body" (DM Sans) confirmed to corrupt PDF text extraction; ats_safe honestly downgraded pending the real fix — see CLEAN_PROFESSIONAL_CONFIG's own comment (skeletons/configs.ts) for the full reasoning. Must stay in sync with that config's own atsSafe field, embedded below via structure_schema.
-    ats_safe: false,
+    ats_safe: true,
     // The skeleton system's own config, not a re-typed copy of it — see
     // src/components/resume-builder/skeletons/configs.ts's own header.
     // Round-tripped through JSON, the same way the test that pins this

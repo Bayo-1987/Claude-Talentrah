@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Button, EyebrowLabel, Card } from "@/components/ui";
+import { Button, EyebrowLabel, BorderedCard } from "@/components/ui";
 import { ResumeDocument } from "@/components/resume-builder/resume-document";
 import type { StructuredResume } from "@/lib/resume/types";
 import type { ProposedAddition, TailoringResult } from "@/lib/tailoring/types";
 import type { RankedRecommendation } from "@/lib/courses/match";
 import { buildAcceptedAdditions } from "@/lib/tailoring/accepted-payload";
+import { fetchWithTimeout, fetchErrorMessage } from "@/lib/forms/fetch-with-timeout";
 
 type ApiResult = {
   resumeId: string;
@@ -113,7 +114,7 @@ export function TailorForm({
     setError(null);
 
     try {
-      const res = await fetch("/api/tailoring", {
+      const res = await fetchWithTimeout("/api/tailoring", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ jdText, jobPostingId: jobId, includeCoverLetter }),
@@ -129,8 +130,12 @@ export function TailorForm({
       setAppliedIds(new Set());
       setEditedTexts({});
       setStatus("idle");
-    } catch {
-      setError("Couldn't reach Farah — check your connection and try again.");
+    } catch (err) {
+      // A genuine timeout (this request, or the server having taken too long
+      // to answer at all) reads very differently from a real dead-network
+      // failure — see fetch-with-timeout.ts's own header for why both used
+      // to be shown as "check your connection" and why that was wrong.
+      setError(fetchErrorMessage(err));
       setStatus("error");
     }
   }
@@ -207,7 +212,7 @@ export function TailorForm({
           because it changes how everything below should be read.
         */}
         {result.jdTruncation && (
-          <p className="border-[1.5px] border-coral bg-coral-soft px-4 py-3 text-[13.5px] text-ink">
+          <p className="border-[1.5px] border-rust bg-rust-soft px-4 py-3 text-[13.5px] text-ink">
             <span className="font-semibold">Heads up — that job description was shortened.</span>{" "}
             It was {result.jdTruncation.originalChars.toLocaleString()} characters and Farah used
             the first {result.jdTruncation.usedChars.toLocaleString()}. Everything below is based
@@ -309,7 +314,7 @@ export function TailorForm({
                             }
                             rows={2}
                             aria-label={`Edit suggested text for ${additionTarget(addition, result.tailoredResume)}`}
-                            className="mt-1 block w-full resize-y border border-line bg-bg p-1.5 font-body text-[13.5px] text-ink outline-none focus:border-coral"
+                            className="mt-1 block w-full resize-y border border-line bg-paper p-1.5 font-body text-[13.5px] text-ink outline-none focus:border-rust"
                           />
                           <span className="mt-0.5 block text-[12px] italic text-ink-soft">{addition.reason}</span>
                         </div>
@@ -317,7 +322,7 @@ export function TailorForm({
                     );
                   })}
                 </div>
-                {applyError && <p className="mt-2 text-[13px] text-coral">{applyError}</p>}
+                {applyError && <p className="mt-2 text-[13px] text-rust">{applyError}</p>}
                 <Button
                   type="button"
                   size="sm"
@@ -369,7 +374,7 @@ export function TailorForm({
                             words — not an SEO tactic.
                           */
                           rel="sponsored noopener noreferrer"
-                          className="text-[13.5px] font-semibold text-ink no-underline hover:text-coral hover:underline"
+                          className="text-[13.5px] font-semibold text-ink no-underline hover:text-rust hover:underline"
                         >
                           {rec.course.title}
                         </a>
@@ -406,9 +411,9 @@ export function TailorForm({
             {result.coverLetter && (
               <div>
                 <EyebrowLabel size="sm">Cover letter</EyebrowLabel>
-                <Card className="mt-2 whitespace-pre-wrap p-4 text-[13.5px] leading-relaxed text-ink-soft">
+                <BorderedCard className="mt-2 whitespace-pre-wrap p-4 text-[13.5px] leading-relaxed text-ink-soft">
                   {result.coverLetter}
-                </Card>
+                </BorderedCard>
               </div>
             )}
 
@@ -441,7 +446,7 @@ export function TailorForm({
         required
         minLength={50}
         placeholder="Paste the full job description here…"
-        className="border-[1.5px] border-ink bg-card p-4 font-body text-[14.5px] outline-none focus:border-coral"
+        className="border-[1.5px] border-ink bg-card p-4 font-body text-[14.5px] outline-none focus:border-rust"
       />
       <label className="flex items-center gap-2 text-[13.5px] text-ink-soft">
         <input
@@ -452,7 +457,7 @@ export function TailorForm({
         />
         Also write a cover letter
       </label>
-      {error && <p className="text-[13.5px] text-coral">{error}</p>}
+      {error && <p className="text-[13.5px] text-rust">{error}</p>}
       <Button type="submit" disabled={status === "loading"} className="self-start">
         {status === "loading" ? "Working…" : "Tailor my resume"}
       </Button>
