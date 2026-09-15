@@ -4,6 +4,7 @@ import { FARAH_SYSTEM_PROMPT } from "@/lib/farah/system-prompt";
 import { EMPTY_RESUME, type StructuredResume } from "@/lib/resume/types";
 import { sanitizeStructuredResume, wasDegenerate } from "@/lib/resume/sanitize";
 import { applyGroundingBackstop } from "./grounding";
+import { computeTailoringCacheKey, getCachedTailoringResult, saveTailoringResult } from "./cache";
 import { JD_MAX_CHARS, type ProposedAddition, type TailoringResult } from "./types";
 
 export { JD_MAX_CHARS };
@@ -301,6 +302,27 @@ export async function tailorResumeToJob(
       ? { originalChars: jdText.length, usedChars: JD_MAX_CHARS }
       : null;
 
+  /*
+   * Content-hash cache check — see supabase/migrations/0162_tailoring_result_cache.sql
+   * and cache.ts's own header for the full key design and TTL/version
+   * reasoning. This is the ONLY place caching happens: the credit gate
+   * (src/lib/tailoring/gate.ts) and the route (src/app/api/tailoring/route.ts)
+   * are unaware of it and unchanged — a cache hit is billed identically to a
+   * fresh generation, by construction, because there is no second path here
+   * that could forget to.
+   *
+   * jdTruncation is always recomputed fresh above from THIS call's raw
+   * jdText, never trusted from the cached blob — it's purely informational
+   * and describes what THIS caller pasted, not what an earlier caller did
+   * (whose original text, before whitespace normalization, could technically
+   * differ in length even when it hashed to the same key).
+   */
+  const cacheKeys = computeTailoringCacheKey(baseResume, jdText, includeCoverLetter);
+  const cached = await getCachedTailoringResult(cacheKeys.cacheKey);
+  if (cached) {
+    return { ...cached, jdTruncation };
+  }
+
   let attempt = await attemptTailoring(baseResume, jdText, includeCoverLetter);
   if (!attempt || attempt.bad) {
     const retry = await attemptTailoring(baseResume, jdText, includeCoverLetter);
@@ -362,7 +384,7 @@ export async function tailorResumeToJob(
       };
     });
 
-  return {
+  const result: TailoringResult = {
     structuredJd: input.structuredJd,
     gapAnalysis: input.gapAnalysis ?? [],
     tailoredResume: groundedResume,
@@ -372,4 +394,16 @@ export async function tailorResumeToJob(
     proposedAdditions: [...modelAdditions, ...backstopAdditions],
     jdTruncation,
   };
+
+  // Never cache a degenerate result (attempt.bad — both the first attempt
+  // and its retry came back needing sanitization). Caching it would
+  // perpetuate a bad generation for every future identical request instead
+  // of giving the next one a fresh chance at a clean one, and the whole
+  // point of the retry above is that a second attempt is often clean even
+  // when the first wasn't.
+  if (!attempt.bad) {
+    await saveTailoringResult(cacheKeys, includeCoverLetter, result);
+  }
+
+  return result;
 }

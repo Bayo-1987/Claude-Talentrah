@@ -67,14 +67,14 @@ jobs:
     # because the failure it prevents is the one that looks like somebody
     # else's fault.
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # Two commits is enough to diff this branch against a freshly
           # fetched main; the script fetches main itself rather than relying
           # on the checkout's depth.
           fetch-depth: 0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -114,7 +114,7 @@ jobs:
     # that only warns is a scanner people learn to scroll past, and this
     # repo's own history is the argument for that not being optional.
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # Needed to resolve base..head below. A shallow clone has no merge
           # base, and gitleaks would silently scan nothing.
@@ -224,9 +224,9 @@ jobs:
     # silently. Revisit the level (not the existence of the gate) if a
     # low-severity backlog ever makes this noisy.
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -240,9 +240,9 @@ jobs:
     name: Typecheck, lint, unit tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -318,6 +318,18 @@ jobs:
           SEED_APP_URL: http://localhost:3000
         run: npm run seed
 
+      # Regression tripwire, not a today-is-broken alarm — see
+      # scripts/check-bundle-size.ts for why the classic Next build-output
+      # size table isn't what this reads (Turbopack dropped it) and for how
+      # the budget numbers below were measured. Runs against the SAME
+      # already-built, already-started app the seed step just used above —
+      # no second build. NEXT_PUBLIC_SUPABASE_URL / _ANON_KEY /
+      # SUPABASE_SERVICE_ROLE_KEY come from the "Start local Supabase" step
+      # earlier in this job; the script mints and deletes its own throwaway
+      # signed-in session to reach the two auth-gated routes.
+      - name: Bundle size budget (client JS, key routes)
+        run: npm run check-bundle-size
+
       - name: Typecheck
         run: npx tsc --noEmit
 
@@ -336,9 +348,9 @@ jobs:
     needs: checks
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -400,7 +412,7 @@ jobs:
 
       - name: Upload Playwright report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-report
           path: playwright-report/

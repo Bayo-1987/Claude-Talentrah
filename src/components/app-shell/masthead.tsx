@@ -58,8 +58,10 @@ export function Masthead({
   const pathname = usePathname();
   const [accountOpen, setAccountOpen] = useState(false);
   const accountRef = useRef<HTMLDivElement>(null);
+  const accountTriggerRef = useRef<HTMLButtonElement>(null);
   const [navOpen, setNavOpen] = useState(false);
   const navRef = useRef<HTMLDivElement>(null);
+  const navTriggerRef = useRef<HTMLButtonElement>(null);
 
   /*
    * The nav links move behind a disclosure below `lg` (1024px), and the number
@@ -132,12 +134,41 @@ export function Masthead({
    */
   useEffect(() => {
     if (!navOpen) return;
+    /*
+     * Move focus INTO the panel the moment it opens. The menu was reachable
+     * without this — outside-click and Escape already worked, every link was
+     * a real <Link>, aria-expanded/aria-haspopup/role were all correct — but
+     * a keyboard or screen-reader user still had to Tab from wherever focus
+     * already was (the trigger itself) to reach the first item, one extra
+     * step a mouse user never pays. `navRef` wraps both the trigger and the
+     * panel, and only the panel's links carry role="menuitem", so this query
+     * can't accidentally hit the trigger button.
+     */
+    navRef.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
+
     function onPointer(e: MouseEvent) {
-      if (navRef.current && !navRef.current.contains(e.target as Node))
+      if (navRef.current && !navRef.current.contains(e.target as Node)) {
         setNavOpen(false);
+        /*
+         * The panel that held focus is about to unmount — without this,
+         * focus would fall back to <body> rather than somewhere sensible.
+         * Deferred a tick deliberately: the browser's OWN default action for
+         * this same mousedown (reassigning focus based on the click target,
+         * which runs AFTER event listeners, per spec) would otherwise
+         * clobber a synchronous .focus() call here — measured, not assumed:
+         * clicking a non-focusable element outside the menu still blurs the
+         * open menuitem and leaves focus on <body>, silently overriding an
+         * un-deferred call. setTimeout(0) runs after that default action
+         * settles, so this one wins.
+         */
+        setTimeout(() => navTriggerRef.current?.focus(), 0);
+      }
     }
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setNavOpen(false);
+      if (e.key === "Escape") {
+        setNavOpen(false);
+        navTriggerRef.current?.focus();
+      }
     }
     document.addEventListener("mousedown", onPointer);
     document.addEventListener("keydown", onKey);
@@ -167,16 +198,31 @@ export function Masthead({
    */
   useEffect(() => {
     if (!accountOpen) return;
+    // Same focus contract as the nav disclosure above: move focus into the
+    // panel on open, and back to the trigger on a close that doesn't itself
+    // navigate (Escape, outside click) rather than leaving it to fall back
+    // to <body>.
+    accountRef.current
+      ?.querySelector<HTMLElement>('[role="menuitem"]')
+      ?.focus();
+
     function onPointer(e: MouseEvent) {
       if (
         accountRef.current &&
         !accountRef.current.contains(e.target as Node)
       ) {
         setAccountOpen(false);
+        // Deferred — see the nav disclosure's onPointer above for why an
+        // un-deferred call here loses a race against the browser's own
+        // mousedown default focus behaviour.
+        setTimeout(() => accountTriggerRef.current?.focus(), 0);
       }
     }
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setAccountOpen(false);
+      if (e.key === "Escape") {
+        setAccountOpen(false);
+        accountTriggerRef.current?.focus();
+      }
     }
     document.addEventListener("mousedown", onPointer);
     document.addEventListener("keydown", onKey);
@@ -331,6 +377,7 @@ export function Masthead({
             className="relative flex items-center 2xl:hidden"
           >
             <button
+              ref={navTriggerRef}
               type="button"
               aria-expanded={navOpen}
               aria-haspopup="menu"
@@ -434,6 +481,7 @@ export function Masthead({
           */}
           <div ref={accountRef} className="relative flex items-center">
             <button
+              ref={accountTriggerRef}
               type="button"
               aria-expanded={accountOpen}
               aria-haspopup="menu"

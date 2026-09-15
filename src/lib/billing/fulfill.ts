@@ -3,7 +3,6 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { getResendClient } from "@/lib/resend/client";
 import { visibleName } from "@/lib/profile/name";
 import { verifyTransaction } from "@/lib/paystack/client";
-import { grantCredits } from "@/lib/credits/spend";
 
 export interface FulfillResult {
   status: "success" | "already_processed" | "failed" | "not_found";
@@ -100,60 +99,77 @@ export async function fulfillPayment(
   const authorizationCode = isReusableCard ? authorization!.authorization_code : null;
 
   /*
-   * `product_id` became nullable in 0050 so a wallet top-up — which has no
-   * product row — could be recorded without inventing one. A CHECK constraint
-   * keeps it REQUIRED for credit_pack and pass, so these two branches cannot
-   * see a null in practice; the guards are here because the type is now
-   * honestly nullable and skipping the grant is the right behaviour if the
-   * constraint is ever loosened. Silently doing nothing beats crashing a
-   * webhook, which Paystack would then retry forever.
-   */
-  /*
-   * What to name in the receipt. Set only by the two branches that email —
-   * left null for ad_wallet_topup, which is the employer surface and out of
+   * What to name in the receipt. Set only by the branches that email — left
+   * null for ad_wallet_topup, which is the employer surface and out of
    * scope, so "did we email?" and "is this a seeker purchase?" stay one
    * question rather than two that can disagree.
    */
   let purchased: string | null = null;
 
-  if (transaction.product_type === "credit_pack" && transaction.product_id) {
-    const { data: pack } = await supabase
-      .from("credit_packs")
-      .select("credits")
-      .eq("id", transaction.product_id)
-      .single();
-    if (pack) {
-      await grantCredits(transaction.user_id, pack.credits, "purchase", transaction.id);
-      purchased = `${pack.credits.toLocaleString()} credits`;
-    }
-  } else if (transaction.product_type === "pass" && transaction.product_id) {
-    const { data: pass } = await supabase
-      .from("passes")
-      .select("duration_days, name")
-      .eq("id", transaction.product_id)
-      .single();
-    if (pass) {
-      const expiresAt = new Date(Date.now() + pass.duration_days * 24 * 60 * 60 * 1000);
-      const autoRenew = isReusableCard;
+  if (transaction.product_type === "credit_pack" || transaction.product_type === "pass") {
+    /*
+     * ATOMIC — migration 0159 (send-228). The status check and the grant used
+     * to be separate statements: read `status`, check it in JS, and only
+     * much later write the credit_ledger row / user_passes row and flip
+     * `status`. Two near-simultaneous webhook deliveries for the same
+     * reference (Paystack retries a delivery it didn't get a clean 2xx for —
+     * 0043 already assumes this happens) both read "pending", both passed,
+     * and both granted: a customer who paid once got a credit pack or Pass
+     * twice.
+     *
+     * fulfill_credit_pack_or_pass() does the conditional
+     * `UPDATE ... WHERE status = 'pending'` claim AND the grant inside one
+     * function call/transaction, so only the caller that actually claimed
+     * the row ever grants anything — see the migration's own header for why
+     * this is also safer on a crash mid-grant than the old grant-then-flip
+     * ordering was.
+     *
+     * `product_id` can be null in principle (0050 made the column nullable
+     * for ad_wallet_topup's sake; a CHECK constraint keeps it required for
+     * credit_pack/pass in practice) — the RPC's own claim only matches rows
+     * whose product_type is credit_pack/pass, and a null product_id simply
+     * fails both internal lookups and returns `claimed: true` with nothing
+     * granted, the same silent-no-op behaviour the old per-branch guards had.
+     */
+    const { data, error } = await supabase.rpc("fulfill_credit_pack_or_pass", {
+      p_transaction_id: transaction.id,
+      p_channel: channel,
+      p_authorization_code: authorizationCode ?? undefined,
+    });
+    if (error) throw new Error(`fulfill_credit_pack_or_pass failed: ${error.message}`);
 
-      await supabase.from("user_passes").insert({
-        user_id: transaction.user_id,
-        pass_id: transaction.product_id,
-        expires_at: expiresAt.toISOString(),
-        // Per build-prompt §6.9: card auto-renews, every other rail
-        // (bank/bank_transfer/ussd on Paystack for NGN — see NGN_CHANNELS)
-        // is prepaid/non-renewing. This is a binary bucket, not a literal
-        // echo of Paystack's channel string.
-        payment_method: channel === "card" ? "card" : "mobile_money",
-        auto_renew: autoRenew,
-        auto_renew_status: autoRenew ? "active" : null,
-        next_renewal_date: autoRenew ? toDateOnly(expiresAt) : null,
-        authorization_code: authorizationCode,
-        payment_transaction_id: transaction.id,
-        status: "active",
-      });
-      purchased = pass.name;
+    const result = data?.[0];
+    if (!result?.claimed) {
+      // Lost the race (or the top-level check above was already stale by the
+      // time we got here) — another call already fulfilled this reference.
+      return { status: "already_processed" };
     }
+
+    if (result.product_type === "credit_pack" && result.credits_granted != null) {
+      purchased = `${result.credits_granted.toLocaleString()} credits`;
+    } else if (result.product_type === "pass" && result.pass_name) {
+      purchased = result.pass_name;
+    }
+
+    // The RPC already flipped payment_transactions to "success" with the
+    // right channel/authorization_code, inside the same transaction as the
+    // grant — the unconditional flip below this if/else chain would just be
+    // a redundant, harmless rewrite of the same values, but returning here
+    // directly avoids relying on that and keeps this branch's own atomicity
+    // story self-contained. Same receipt-sending shape as the tail below.
+    if (purchased) {
+      try {
+        await sendPurchaseReceipt(supabase, {
+          userId: transaction.user_id,
+          productName: purchased,
+          amountNgn: transaction.amount,
+          reference,
+        });
+      } catch (err) {
+        console.error("[fulfill] purchase receipt failed to send", err);
+      }
+    }
+    return { status: "success" };
   } else if (transaction.product_type === "talent_directory_subscription" && transaction.product_id) {
     /*
      * The org's Talent Directory subscription — a fixed-price, fixed-date
@@ -272,12 +288,24 @@ export async function fulfillPayment(
     }
   }
 
+  // Reached only by talent_directory_subscription, ad_wallet_topup and
+  // mentor_session — credit_pack/pass return early above, already flipped to
+  // "success" atomically with their grant (migration 0159, send-228).
+  //
   // Marked success only after the grant above has run. Ordering matches the
   // original code deliberately: flipping status first would close the
   // webhook/callback double-grant race but replace it with a worse one — a
   // crash in between would leave the user charged, unfulfilled, and unable to
-  // retry (the "pending" guard above would short-circuit). Making this
-  // genuinely atomic is out of scope here.
+  // retry (the "pending" guard above would short-circuit). ad_wallet_topup
+  // has its own separate defence (a unique index on paystack_reference,
+  // see that branch's own comment); talent_directory_subscription and
+  // mentor_session each already guard their OWN row's state transition with
+  // a conditional `.eq("status", "pending_payment")` UPDATE, which is
+  // already race-safe for that row — what remains genuinely non-atomic here
+  // is only the unconditional `payment_transactions` status flip below,
+  // which for these three product types carries no grant of its own to
+  // double up on. Out of scope for send-228, which was scoped to
+  // credit_pack/pass specifically.
   await supabase
     .from("payment_transactions")
     .update({

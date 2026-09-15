@@ -44,6 +44,7 @@ export function EmployerMasthead({
   const pathname = usePathname();
   const [navOpen, setNavOpen] = useState(false);
   const navRef = useRef<HTMLDivElement>(null);
+  const navTriggerRef = useRef<HTMLButtonElement>(null);
 
   /*
    * 640, NOT the seeker masthead's 760 — measured rather than inherited.
@@ -66,11 +67,36 @@ export function EmployerMasthead({
    */
   useEffect(() => {
     if (!navOpen) return;
+    /*
+     * Same focus contract as the seeker masthead's disclosures (see that
+     * file's own comment): move focus into the panel on open, since nothing
+     * here did, and return it to the trigger on a close that doesn't itself
+     * navigate — Escape or an outside click — rather than let it fall back
+     * to <body> once the focused panel unmounts. A link click still just
+     * closes the menu with no forced refocus, so Next.js's own
+     * navigation-focus behaviour isn't fought.
+     */
+    navRef.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
+
     function onPointer(e: MouseEvent) {
-      if (navRef.current && !navRef.current.contains(e.target as Node)) setNavOpen(false);
+      if (navRef.current && !navRef.current.contains(e.target as Node)) {
+        setNavOpen(false);
+        /*
+         * Deferred a tick, matching masthead.tsx's identical fix: the
+         * browser's own default action for this mousedown (reassigning
+         * focus based on the click target, which runs AFTER event
+         * listeners) would otherwise clobber a synchronous .focus() call
+         * here — measured, not assumed, against a non-focusable outside
+         * target. setTimeout(0) runs after that default action settles.
+         */
+        setTimeout(() => navTriggerRef.current?.focus(), 0);
+      }
     }
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setNavOpen(false);
+      if (e.key === "Escape") {
+        setNavOpen(false);
+        navTriggerRef.current?.focus();
+      }
     }
     document.addEventListener("mousedown", onPointer);
     document.addEventListener("keydown", onKey);
@@ -136,6 +162,7 @@ export function EmployerMasthead({
           */}
           <div ref={navRef} className="relative flex items-center min-[640px]:hidden">
             <button
+              ref={navTriggerRef}
               type="button"
               aria-expanded={navOpen}
               aria-haspopup="menu"

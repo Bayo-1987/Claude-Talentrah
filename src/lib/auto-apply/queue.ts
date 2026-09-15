@@ -8,6 +8,8 @@ import {
 } from "./config";
 import { checkPassCoverage } from "@/lib/passes/entitlement";
 import { freshnessFloorISO } from "@/lib/jobs/freshness";
+import { isThinScreenableTagSet } from "@/lib/match-tier";
+import type { MatchExplanation } from "@/lib/matching/score";
 
 /**
  * Server-side Auto-Apply mechanics: what gets queued, what the caps say, and
@@ -134,6 +136,35 @@ export function filterQueueableJobs(
 }
 
 /**
+ * Screenable-tag total from a raw `match_scores.explanation` read — the same
+ * arithmetic `match-tier-badge.tsx` and `match-breakdown.tsx` already use
+ * (`matchedSkills.length + missingSkills.length`), just tolerant of the value
+ * arriving as Supabase's untyped `Json` column type rather than the real
+ * `MatchExplanation` shape `computeMatchScore` writes.
+ */
+function screenableTagTotal(explanation: unknown): number {
+  const e = (explanation ?? {}) as Partial<MatchExplanation>;
+  const matched = Array.isArray(e.matchedSkills) ? e.matchedSkills.length : 0;
+  const missing = Array.isArray(e.missingSkills) ? e.missingSkills.length : 0;
+  return matched + missing;
+}
+
+/**
+ * A thin screenable-tag denominator (`isThinScreenableTagSet`, match-tier.ts)
+ * must never reach the review queue in the first place: `auto_apply_claim_submission`
+ * (0034/0164) is the real backstop and refuses it unconditionally at confirm
+ * time regardless of what got queued, but showing a user a "candidate" the
+ * atomic gate is only ever going to reject is a worse product than not
+ * showing it — see docs/stage8-match-accuracy.md for why 65%+ of "Excellent"
+ * scores on this board are exactly this shape. Exported and pure so this is
+ * testable without a database, matching `filterQueueableJobs`'s own
+ * convention.
+ */
+export function isQueueableMatchScore(explanation: unknown): boolean {
+  return !isThinScreenableTagSet(screenableTagTotal(explanation));
+}
+
+/**
  * Finds jobs worth queuing and queues them.
  *
  * The threshold is applied against `match_scores` in the DATABASE, not against
@@ -170,15 +201,23 @@ export async function scanAndQueue(userId: string): Promise<ScanResult> {
   if (room <= 0) return { queued: 0, skippedBelowThreshold: 0, reason: "queue_full" };
 
   // Above-threshold scores for this user, best first.
-  const { data: scores, error: scoreErr } = await admin
+  const { data: allScores, error: scoreErr } = await admin
     .from("match_scores")
-    .select("job_posting_id, score, tier")
+    .select("job_posting_id, score, tier, explanation")
     .eq("user_id", userId)
     .gte("score", AUTO_APPLY_MIN_SCORE)
     .order("score", { ascending: false })
     .limit(200);
   if (scoreErr) throw new Error(`Couldn't read match scores: ${scoreErr.message}`);
-  if (!scores?.length) return { queued: 0, skippedBelowThreshold: 0, reason: "no_matches" };
+  if (!allScores?.length) return { queued: 0, skippedBelowThreshold: 0, reason: "no_matches" };
+
+  // A thin screenable-tag denominator never gets queued for review — see
+  // isQueueableMatchScore's own comment. `auto_apply_claim_submission`
+  // (0034/0164) is the real backstop and refuses these unconditionally at
+  // confirm time regardless, so the two can never disagree about what
+  // counts as thin; this just keeps a doomed candidate off the review screen.
+  const scores = allScores.filter((s) => isQueueableMatchScore(s.explanation));
+  if (!scores.length) return { queued: 0, skippedBelowThreshold: 0, reason: "no_matches" };
 
   const jobIds = scores.map((s) => s.job_posting_id);
 
