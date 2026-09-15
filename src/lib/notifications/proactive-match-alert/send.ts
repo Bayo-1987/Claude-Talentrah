@@ -116,6 +116,7 @@ export async function sendProactiveMatchAlerts(
           companyName: p.companyName,
           location: p.location,
           score: result.score,
+          explanation: result.explanation,
         };
       });
 
