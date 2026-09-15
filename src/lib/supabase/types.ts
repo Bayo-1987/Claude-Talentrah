@@ -3462,7 +3462,29 @@ export type Database = {
           template_slug: string
         }[]
       }
+      fulfill_credit_pack_or_pass: {
+        Args: {
+          p_authorization_code?: string
+          p_channel: string
+          p_transaction_id: string
+        }
+        Returns: {
+          claimed: boolean
+          credits_granted: number
+          pass_name: string
+          product_type: Database["public"]["Enums"]["payment_product_type"]
+        }[]
+      }
       generate_referral_code: { Args: never; Returns: string }
+      grant_credits_atomic: {
+        Args: {
+          p_amount: number
+          p_reason: Database["public"]["Enums"]["credit_reason"]
+          p_related_entity_id?: string
+          p_user_id: string
+        }
+        Returns: number
+      }
       grant_referral_reward: {
         Args: {
           p_amount: number

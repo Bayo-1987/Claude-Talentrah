@@ -6,6 +6,7 @@ import Link from "next/link";
 import { EyebrowLabel } from "@/components/ui";
 import { JdDemoExample } from "./jd-demo-example";
 import { JdDemoResult, type JdDemoResultData } from "./jd-demo-result";
+import { fetchWithTimeout, fetchErrorMessage } from "@/lib/forms/fetch-with-timeout";
 
 // Quick, unauthenticated actions only — "Talk to a mentor" isn't one: booking
 // a real mentor needs an account and a session to book, not a single click
@@ -131,7 +132,7 @@ export function JdDemoInput() {
     }
 
     try {
-      const response = await fetch(signedIn ? "/api/tailoring" : "/api/public/jd-demo", {
+      const response = await fetchWithTimeout(signedIn ? "/api/tailoring" : "/api/public/jd-demo", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         // Never for either path. §6.9 makes the first cover letter a one-time
@@ -184,10 +185,17 @@ export function JdDemoInput() {
       // that signed-in code already depends on.
       const data: JdDemoResultData = payload.result ?? payload;
       setState({ kind: "done", data });
-    } catch {
+    } catch (err) {
+      // Same distinction tailor-form.tsx makes (fetch-with-timeout.ts's own
+      // header explains why): a slow server answer is not the same problem
+      // as a dead connection, and telling a visitor on a slow, expensive
+      // mobile connection to "check your connection" for a server-side
+      // stall is the wrong diagnosis.
       setState({
         kind: "error",
-        message: "That didn't go through — check your connection and try again.",
+        message: fetchErrorMessage(err, {
+          network: "That didn't go through — check your connection and try again.",
+        }),
       });
     }
   }
