@@ -209,11 +209,20 @@ export interface RawScoredPosting {
  *
  * Pure and exported so this is testable without a database, matching this
  * repo's own convention (`selectDigestJobs`, `getJobShareVisibility`).
+ *
+ * Generic over `T extends RawScoredPosting` rather than fixed to the base
+ * shape: `loadCandidates` below carries an extra `explanation` field it
+ * needs to survive this filter unharmed, and `proactive-match-alert/send.ts`
+ * carries its own extra `structuredJd`/`seniority` fields for the same
+ * reason. A non-generic signature would silently narrow the return type
+ * back to `RawScoredPosting[]`, dropping those fields from the type even
+ * though the objects still carry them at runtime — exactly the kind of
+ * quiet mismatch this file's own callers have no reason to work around.
  */
-export function filterListablePostings(
-  postings: RawScoredPosting[],
+export function filterListablePostings<T extends RawScoredPosting>(
+  postings: T[],
   verifiedOrganizationIds: ReadonlySet<string>,
-): RawScoredPosting[] {
+): T[] {
   return postings.filter((p) => {
     if (p.unlistedAt) return false;
     if (p.organizationId === null) return true; // external — nothing to verify
@@ -237,7 +246,7 @@ async function loadCandidates(
   const { data, error } = await supabase
     .from("match_scores")
     .select(
-      "score, job_posting_id, job_postings!inner(id, title, company_name, location, posted_at, status, organization_id, unlisted_at)",
+      "score, explanation, job_posting_id, job_postings!inner(id, title, company_name, location, posted_at, status, organization_id, unlisted_at)",
     )
     .eq("user_id", userId)
     .eq("job_postings.status", "open")
@@ -254,7 +263,18 @@ async function loadCandidates(
     unlisted_at: string | null;
   };
 
-  const rawPostings: RawScoredPosting[] = (data ?? []).map((row) => {
+  /*
+   * Carries `explanation` alongside `RawScoredPosting`'s own fields so
+   * `buildDigestEmail` (digest/template.ts) can call the same
+   * `describeMatchConfidence` every other render site does, instead of this
+   * module's own `${score}% ${MATCH_TIER_LABEL[tier]}` interpolation — the
+   * exact shape of the gap docs/match-confidence-invariant.md documents.
+   * `filterListablePostings` is generic over this now (see its own header)
+   * specifically so this field survives the filter below.
+   */
+  type ScoredPostingWithExplanation = RawScoredPosting & { explanation: unknown };
+
+  const rawPostings: ScoredPostingWithExplanation[] = (data ?? []).map((row) => {
     const job = row.job_postings as unknown as JoinedJob;
     return {
       jobId: job.id,
@@ -265,6 +285,7 @@ async function loadCandidates(
       postedAt: job.posted_at,
       organizationId: job.organization_id,
       unlistedAt: job.unlisted_at,
+      explanation: row.explanation,
     };
   });
   if (rawPostings.length === 0) return [];
@@ -320,5 +341,6 @@ async function loadCandidates(
     score: p.score,
     postedAt: p.postedAt,
     alreadyActedOn: seen.has(p.jobId),
+    explanation: p.explanation,
   }));
 }

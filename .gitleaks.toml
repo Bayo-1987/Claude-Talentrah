@@ -142,6 +142,22 @@ regexes = [
   # of the rule's own trigger keywords and the fetch option happens to be
   # spelled the same way. There is no secret here to rotate.
   '''same-origin''',
+
+  # tests/llm/jd-extraction-provider.test.ts, Stage 8 Step 1b — four
+  # human-readable fixture values exercising the isolation guard that stops
+  # this feature from silently sharing Farah's Groq token budget
+  # (GroqJdExtractionProvider throws if JD_EXTRACTION_GROQ_API_KEY ===
+  # GROQ_API_KEY). Each is assigned directly to `process.env.*_API_KEY` in a
+  # test, matching this rule's own keyword list — but the whole point of
+  # these specific strings is to be an obviously-fake placeholder in an
+  # assertion, the same role `access-token`/`refresh-token` play above. None
+  # of them is shaped like a real Groq key (`gsk_...`), and no real network
+  # call is ever made in this test file (the `openai` SDK is mocked at the
+  # module boundary).
+  '''same-key-both-vars''',
+  '''farahs-production-key''',
+  '''a-genuinely-different-isolated-key''',
+  '''isolated-key''',
 ]
 
 paths = [

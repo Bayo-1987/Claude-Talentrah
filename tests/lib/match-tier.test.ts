@@ -12,6 +12,10 @@ import {
   THIN_SCREENABLE_TAG_MAX,
   hasNoScreenableSkills,
   screenedFirstCompare,
+  capThinMatchDisplayScore,
+  THIN_MATCH_DISPLAY_CEILING,
+  screenableTagTotalFromExplanation,
+  describeMatchConfidence,
 } from "@/lib/match-tier";
 
 describe("getMatchTier", () => {
@@ -142,5 +146,115 @@ describe("screenedFirstCompare", () => {
     // (12 tags, score 25) — docs/zero-skill-scoring.md's own live example.
     const baseComparison = 25 - 55; // plain "higher score wins" comparator, negative = unscreened wins
     expect(screenedFirstCompare(true, false, baseComparison)).toBeGreaterThan(0); // now the measured one wins
+  });
+});
+
+describe("capThinMatchDisplayScore", () => {
+  it(
+    "SABOTAGE-PROOF TARGET: caps below the Excellent floor, and the capped value re-tiers to Good, not a bespoke fourth tier",
+    () => {
+      expect(capThinMatchDisplayScore(99)).toBe(THIN_MATCH_DISPLAY_CEILING);
+      expect(capThinMatchDisplayScore(100)).toBe(THIN_MATCH_DISPLAY_CEILING);
+      expect(getMatchTier(capThinMatchDisplayScore(99))).toBe("good");
+    },
+  );
+
+  it("the ceiling itself sits just under the 80 Excellent boundary", () => {
+    expect(THIN_MATCH_DISPLAY_CEILING).toBeLessThan(80);
+    expect(THIN_MATCH_DISPLAY_CEILING).toBeGreaterThanOrEqual(70);
+  });
+
+  it("is a distinct threshold from THIN_SCREENABLE_TAG_MAX — different numbers, different jobs", () => {
+    expect(THIN_MATCH_DISPLAY_CEILING).not.toBe(THIN_SCREENABLE_TAG_MAX);
+  });
+
+  it("never raises a score that was already below the ceiling", () => {
+    expect(capThinMatchDisplayScore(60)).toBe(60);
+    expect(capThinMatchDisplayScore(0)).toBe(0);
+  });
+
+  it("is a no-op exactly at the ceiling", () => {
+    expect(capThinMatchDisplayScore(THIN_MATCH_DISPLAY_CEILING)).toBe(THIN_MATCH_DISPLAY_CEILING);
+  });
+});
+
+describe("screenableTagTotalFromExplanation", () => {
+  it("null means no explanation was given at all, distinct from a real zero-tag explanation", () => {
+    expect(screenableTagTotalFromExplanation(null)).toBeNull();
+    expect(screenableTagTotalFromExplanation(undefined)).toBeNull();
+    expect(screenableTagTotalFromExplanation({ matchedSkills: [], missingSkills: [] })).toBe(0);
+  });
+
+  it("adds matched and missing together", () => {
+    expect(
+      screenableTagTotalFromExplanation({ matchedSkills: ["sql", "aws"], missingSkills: ["react"] }),
+    ).toBe(3);
+  });
+
+  it("tolerates a malformed/untyped Json value rather than throwing — a raw DB read is not guaranteed to validate", () => {
+    expect(screenableTagTotalFromExplanation({})).toBe(0);
+    expect(screenableTagTotalFromExplanation({ matchedSkills: "not an array" })).toBe(0);
+  });
+});
+
+describe("describeMatchConfidence — the single source of truth every render site calls", () => {
+  it(
+    "SABOTAGE-PROOF TARGET: a thin-tag Excellent (One Acre Fund / ALX Africa shape) is capped and re-tiered, not just qualified",
+    () => {
+      const result = describeMatchConfidence(99, {
+        matchedSkills: ["project management"],
+        missingSkills: [],
+      });
+      expect(result.displayScore).toBe(THIN_MATCH_DISPLAY_CEILING);
+      expect(result.tier).toBe("good");
+      expect(result.label).toBe("Good — thin match");
+      expect(result.isThin).toBe(true);
+      expect(result.isUnscreened).toBe(false);
+    },
+  );
+
+  it("POSITIVE CONTROL: a genuinely rich-tag Excellent renders plainly — the fix must not over-correct", () => {
+    const result = describeMatchConfidence(92, {
+      matchedSkills: ["sql", "python", "aws", "docker", "kubernetes"],
+      missingSkills: ["react"],
+    });
+    expect(result.displayScore).toBe(92);
+    expect(result.tier).toBe("excellent");
+    expect(result.label).toBe("Excellent");
+    expect(result.isThin).toBe(false);
+  });
+
+  it("a genuine zero-tag score renders 'Unscreened', never a tier word", () => {
+    const result = describeMatchConfidence(55, { matchedSkills: [], missingSkills: [] });
+    expect(result.label).toBe("Unscreened");
+    expect(result.tier).toBeNull();
+    expect(result.isUnscreened).toBe(true);
+  });
+
+  it("no explanation given at all renders exactly as before — no qualifier without data to justify it", () => {
+    const result = describeMatchConfidence(92);
+    expect(result.label).toBe("Excellent");
+    expect(result.isThin).toBe(false);
+  });
+
+  it("a thin denominator on a non-Excellent tier is untouched — the contradiction is specific to Excellent", () => {
+    const result = describeMatchConfidence(72, { matchedSkills: ["sql"], missingSkills: [] });
+    expect(result.label).toBe("Good");
+    expect(result.isThin).toBe(false);
+  });
+
+  it("below the display floor there is nothing to say at all", () => {
+    const result = describeMatchConfidence(50);
+    expect(result.tier).toBeNull();
+    expect(result.label).toBeNull();
+  });
+
+  it("still applies Stage 12's 99-cap on a non-thin score", () => {
+    const result = describeMatchConfidence(100, {
+      matchedSkills: ["sql", "python", "aws", "docker", "kubernetes"],
+      missingSkills: [],
+    });
+    expect(result.displayScore).toBe(99);
+    expect(result.tier).toBe("excellent");
   });
 });
