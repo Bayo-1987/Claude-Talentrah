@@ -28,7 +28,7 @@ open blockers below — before flipping it.
 - `src/lib/jobs/ingest.ts`'s `ingestAllSources()` calls `enrichThinPostings()`
   once per run, after every configured source has been fetched and upserted
   — wrapped so a failure there can never take down the ingest run itself.
-- `supabase/migrations/0164_ingest_time_llm_enrichment.sql` — the additive
+- `supabase/migrations/0165_ingest_time_llm_enrichment.sql` — the additive
   schema this needs: `job_postings.llm_enrichment_attempted_at` (nullable,
   marks an attempt so a posting is never retried automatically) and the
   `ingest_llm_enrichment` feature-flag row (`enabled = false`).
