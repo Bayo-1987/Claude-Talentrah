@@ -387,7 +387,9 @@ PR rather than left as a live gap.
 
 ## 7. Every Dependabot PR failed CI outright on `DEMO_PASSWORD is not set` — fixed in `scripts/seed.ts`
 
-**Status: fixed, 2026-09-15** (branch `fix/dependabot-ci-demo-password`). Found
+**Status: fixed and confirmed, 2026-09-15** (merged to `main`, PR #410).
+Confirmed against five real Dependabot CI runs post-merge — see Owner below,
+not just the intended fix. Found
 while getting a fresh go/no-go status on seven new open PRs — five of them
 Dependabot's (`#409` npm, `#371`/`#372`/`#373`/`#374` GitHub Actions version
 pins), all failing identically on the `checks` job itself, before `e2e` even
@@ -474,8 +476,26 @@ Once past this, a Dependabot PR still hits the documented **entry 6** e2e
 issue like every other PR — this fix only removes a *different*, earlier
 blocker that stopped `e2e` from running at all.
 
-**Owner.** Fixed on `fix/dependabot-ci-demo-password`, not yet merged —
-founder approval pending, same as any other PR.
+**Owner.** Merged to `main` via PR #410, merge commit `3d6cbd8`
+(2026-09-15). Confirmed against real Dependabot CI runs, not just the
+intended fix: retried CI (empty "retry ci" commits, entry 5's method, not
+`gh run rerun`) on all five PRs that were failing before this
+merged — `#409` (npm), `#371`/`#372`/`#373`/`#374` (GitHub Actions version
+pins). All five came back with `checks` genuinely green (the seed step that
+was throwing now passes) and `e2e` running to completion rather than being
+skipped — each hitting only the documented **entry 6** truncation assertion
+on `job-detail.spec.ts:54`, nothing new, and none showing the old
+`DEMO_PASSWORD is not set` error. Runs checked directly:
+[#409](https://github.com/Bayo-1987/Claude-Talentrah/actions/runs/34921680094/job/104232104300),
+[#371](https://github.com/Bayo-1987/Claude-Talentrah/actions/runs/34921688575/job/104232162959),
+[#372](https://github.com/Bayo-1987/Claude-Talentrah/actions/runs/34921698585/job/104232186641),
+[#373](https://github.com/Bayo-1987/Claude-Talentrah/actions/runs/34921706277/job/104232204835),
+[#374](https://github.com/Bayo-1987/Claude-Talentrah/actions/runs/34921716334/job/104232283123).
+This confirms the mechanism relied on for the fix to reach these
+branches at all — `actions/checkout`'s default ref for a `pull_request`
+event is a merge of the PR's head with the current base (`refs/pull/N/merge`,
+per GitHub's own docs), so none of the five needed their own branch touched;
+retriggering their CI against the now-fixed `main` was sufficient.
 
 ---
 
