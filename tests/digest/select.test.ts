@@ -71,11 +71,20 @@ describe("what qualifies", () => {
     expect(out.every((j) => j.score >= MIN_DIGEST_SCORE)).toBe(true);
   });
 
-  it("labels each job with the shared tier vocabulary, never its own", () => {
-    const out = selectDigestJobs([candidate({ score: 92 }), candidate({ score: 74 })]);
-    expect(out.map((j) => j.tier)).toEqual(["excellent", "good"]);
-    // Fair can never appear: it is below the floor by construction.
-    expect(out.some((j) => j.tier === "fair")).toBe(false);
+  it("threads the explanation straight through unmodified — tier/label wording is derived at render time, not precomputed here", () => {
+    // Tier wording and thin-match capping now live entirely in
+    // describeMatchConfidence (match-tier.ts), called once by
+    // buildDigestEmail — see tests/digest/template.test.ts and
+    // tests/lib/match-tier.test.ts for that behaviour. DigestJob no longer
+    // carries its own precomputed `tier` field to avoid a second, potentially
+    // drifting source of truth for the same fact.
+    const explanation = { matchedSkills: ["sql"], missingSkills: [] };
+    // Two candidates so selectDigestJobs' own MIN_JOBS=2 silence floor
+    // doesn't discard the week entirely — this test is about what a
+    // qualifying job carries, not about the silence rule (covered above).
+    const out = selectDigestJobs([candidate({ score: 92, explanation }), candidate({ score: 85 })]);
+    expect(Object.keys(out[0])).not.toContain("tier");
+    expect(out[0].explanation).toBe(explanation);
   });
 
   it("drops anything already saved or applied to", () => {

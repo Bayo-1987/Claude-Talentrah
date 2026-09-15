@@ -42,7 +42,18 @@ vi.mock("@/lib/matching/score", () => ({
     // single new posting at a time for exactly this reason — see each
     // describe block's own fixture.
     score: scoreByJob.get("current") ?? 0,
-    explanation: { matchedSkills: [], missingSkills: [], seniorityMatch: true },
+    // A genuinely thick tag set on purpose: these tests exercise the
+    // activity/rate-limit/lock pipeline, not the thin-match eligibility gate
+    // (docs/match-confidence-invariant.md) — that gate has its own dedicated
+    // coverage in tests/notifications/proactive-match-alert-select.test.ts.
+    // A thin (e.g. empty) explanation here would make `isExcellentMatch`
+    // correctly refuse every "Excellent" fixture in this file, for a reason
+    // unrelated to what each test is actually checking.
+    explanation: {
+      matchedSkills: ["sql", "python", "aws"],
+      missingSkills: ["kubernetes"],
+      seniorityAlignment: "unknown",
+    },
   }),
 }));
 
