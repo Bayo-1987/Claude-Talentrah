@@ -1,4 +1,5 @@
-import { getMatchTier } from "@/lib/match-tier";
+import { getMatchTier, isThinScreenableTagSet, screenableTagTotalFromExplanation } from "@/lib/match-tier";
+import type { MatchExplanation } from "@/lib/matching/score";
 
 /**
  * send-138 — Farah's proactive "exceptional match, even if you're not
@@ -62,10 +63,33 @@ export function isWithinRateLimit(lastAlertSentAt: string | null, now: Date): bo
   return daysSince(lastAlertSentAt, now) < RATE_LIMIT_DAYS;
 }
 
-/** Reuses the system's own Excellent boundary — see match-tier.ts's own
- * header on why a bespoke cutoff here would be a fourth tier in disguise. */
-export function isExcellentMatch(score: number): boolean {
-  return getMatchTier(score) === "excellent";
+/**
+ * Reuses the system's own Excellent boundary — see match-tier.ts's own
+ * header on why a bespoke cutoff here would be a fourth tier in disguise —
+ * AND, as of docs/match-confidence-invariant.md, requires a real screenable-
+ * tag denominator behind that tier before this alert type may fire at all.
+ *
+ * This is deliberately an ELIGIBILITY gate, not a display fix. `MatchTierBadge`
+ * and the digest both handle a thin-denominator "excellent" by capping and
+ * qualifying what they show — appropriate for a passive browsing surface,
+ * where the honest, capped number still has a place in a list. This alert's
+ * entire premise is different: §6.10's own copy tells the recipient "this one
+ * is too strong to sit on" and "you'll only hear from me like this for
+ * matches this strong" — an ESCALATION claim, not a label. A thin-denominator
+ * match (per docs/stage8-match-accuracy.md, 65% of every "Excellent" this
+ * system has ever computed) has no business making that claim regardless of
+ * how honestly the number afterward gets capped, the same way Auto-Apply's
+ * own gate (0164) excludes a thin match from its queue rather than just
+ * labeling it honestly once queued. `explanation` is optional only so a
+ * caller with genuinely nothing to give still degrades to the old,
+ * tier-only behaviour rather than crashing — this module's own real flow
+ * always has one, from `computeMatchScore`.
+ */
+export function isExcellentMatch(score: number, explanation?: unknown): boolean {
+  if (getMatchTier(score) !== "excellent") return false;
+  const screenableTagTotal = screenableTagTotalFromExplanation(explanation);
+  if (screenableTagTotal !== null && isThinScreenableTagSet(screenableTagTotal)) return false;
+  return true;
 }
 
 export interface ProactiveAlertCandidate {
@@ -100,6 +124,14 @@ export interface ScoredNewJob {
   companyName: string;
   location: string | null;
   score: number;
+  /**
+   * `computeMatchScore`'s own return value (src/lib/matching/score.ts),
+   * carried through so `isExcellentMatch` above can apply the thin-match
+   * gate and `describeMatchConfidence` (match-tier.ts) can cap what the
+   * email/in-app template actually displays — one field now feeding both
+   * mechanisms, per this module's own header on why they're separate.
+   */
+  explanation: MatchExplanation;
 }
 
 /**
@@ -110,7 +142,7 @@ export interface ScoredNewJob {
  * matches in the same message would undercut the word.
  */
 export function pickBestJobForCandidate(scoredJobs: ScoredNewJob[]): ScoredNewJob | null {
-  const excellent = scoredJobs.filter((j) => isExcellentMatch(j.score));
+  const excellent = scoredJobs.filter((j) => isExcellentMatch(j.score, j.explanation));
   if (excellent.length === 0) return null;
   return excellent.sort((a, b) => b.score - a.score || a.title.localeCompare(b.title))[0];
 }

@@ -1,4 +1,4 @@
-import { MATCH_TIER_LABEL } from "@/lib/match-tier";
+import { describeMatchConfidence } from "@/lib/match-tier";
 import { absoluteUrl } from "@/lib/seo/site";
 import type { DigestJob } from "./select";
 
@@ -25,10 +25,17 @@ import type { DigestJob } from "./select";
  *
  * ── THE TIER WORDING IS THE SYSTEM'S, NOT THIS FILE'S ─────────────────────
  *
- * Excellent / Good / Fair come from MATCH_TIER_LABEL. Writing "a great match"
- * here would be a fourth tier in prose, which the design system forbids
- * precisely because it makes the score mean different things on different
- * screens.
+ * Excellent / Good / Fair — and whether a score gets capped/qualified as a
+ * thin match — come from `describeMatchConfidence` (match-tier.ts), the same
+ * function `MatchTierBadge` calls for every on-screen render. This file used
+ * to build its own `${score}% ${MATCH_TIER_LABEL[tier]}` string directly,
+ * which is exactly how a thin-denominator "99% Excellent" (see
+ * docs/stage8-match-accuracy.md) could have emailed a real inbox an
+ * unqualified score the feed itself no longer shows bare — see
+ * docs/match-confidence-invariant.md for the standing rule this now follows.
+ * Writing "a great match" here would additionally be a fourth tier in prose,
+ * which the design system forbids for the same reason: it would make the
+ * score mean different things on different screens.
  */
 
 export interface DigestEmail {
@@ -41,6 +48,26 @@ function greeting(firstName: string | null): string {
   const name = firstName?.trim();
   // No name is common and normal — "Hi," reads fine, "Hi null," does not.
   return name ? `Hi ${name},` : "Hi,";
+}
+
+/**
+ * `describeMatchConfidence`, asserted non-null for a digest job specifically.
+ * Every `DigestJob` here already cleared `selectDigestJobs`'s own
+ * `MIN_DIGEST_SCORE = 70` filter, so `getDisplayMatchTier`'s 60-floor can
+ * never return `null` for one — there is always a real tier word to show.
+ * Asserting it here (rather than silently falling back to an empty string)
+ * means a future change to that filter that broke this assumption would
+ * throw loudly building the email, not print a blank label in someone's inbox.
+ */
+function confidenceLabel(job: DigestJob): { displayScore: number; label: string } {
+  const { displayScore, label } = describeMatchConfidence(job.score, job.explanation);
+  if (label === null) {
+    throw new Error(
+      `buildDigestEmail: job ${job.jobId} scored ${job.score}, below MIN_DIGEST_SCORE's floor — ` +
+        `selectDigestJobs should never have let this through.`,
+    );
+  }
+  return { displayScore, label };
 }
 
 /** Escapes for HTML text nodes and attribute values alike. */
@@ -88,7 +115,8 @@ export function buildDigestEmail(params: {
 
   const lines = jobs.map((j) => {
     const where = j.location ? ` · ${j.location}` : "";
-    return `${j.score}% ${MATCH_TIER_LABEL[j.tier]} — ${j.title}, ${j.companyName}${where}`;
+    const { displayScore, label } = confidenceLabel(j);
+    return `${displayScore}% ${label} — ${j.title}, ${j.companyName}${where}`;
   });
 
   const text = [
@@ -116,7 +144,7 @@ export function buildDigestEmail(params: {
       <tr>
         <td style="padding:12px 0;border-bottom:1px solid #d9cfc2;">
           <div style="font:600 13px/1.4 -apple-system,Segoe UI,Roboto,sans-serif;color:#6b4a3a;">
-            ${esc(String(j.score))}% · ${esc(MATCH_TIER_LABEL[j.tier])}
+            ${esc(String(confidenceLabel(j).displayScore))}% · ${esc(confidenceLabel(j).label)}
           </div>
           <div style="font:500 17px/1.35 Georgia,'Times New Roman',serif;color:#2b2119;margin-top:2px;">
             ${esc(j.title)}

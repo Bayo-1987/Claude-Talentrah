@@ -1,4 +1,5 @@
 import { absoluteUrl } from "@/lib/seo/site";
+import { describeMatchConfidence } from "@/lib/match-tier";
 import type { ScoredNewJob } from "./select";
 
 /**
@@ -41,10 +42,23 @@ function esc(value: string): string {
     .replace(/'/g, "&#39;");
 }
 
+/**
+ * `job.score` is never interpolated raw here — `select.ts`'s own
+ * `isExcellentMatch` already refuses a thin-denominator match at eligibility
+ * time, so this display cap only ever does Stage 12's ordinary 99-ceiling
+ * work for a job that reaches this template at all. Routed through the same
+ * `describeMatchConfidence` every other render site uses anyway, rather than
+ * this file keeping its own copy of `displayMatchScore` — see
+ * docs/match-confidence-invariant.md.
+ */
+function displayScoreFor(job: ScoredNewJob): number {
+  return describeMatchConfidence(job.score, job.explanation).displayScore;
+}
+
 export function buildProactiveAlertInApp(job: ScoredNewJob): ProactiveAlertInApp {
   return {
     title: "An exceptional match just for you",
-    body: `${job.title} at ${job.companyName} is a ${job.score}% match — worth a look even if you weren't searching.`,
+    body: `${job.title} at ${job.companyName} is a ${displayScoreFor(job)}% match — worth a look even if you weren't searching.`,
     link: `/jobs/${job.jobId}`,
   };
 }
@@ -60,6 +74,7 @@ export function buildProactiveAlertEmail(params: {
     `/unsubscribe?token=${encodeURIComponent(unsubscribeToken)}&pref=proactive_match_alert`,
   );
   const where = job.location ? ` · ${job.location}` : "";
+  const displayScore = displayScoreFor(job);
 
   const subject = `An exceptional match: ${job.title} at ${job.companyName}`;
 
@@ -67,7 +82,7 @@ export function buildProactiveAlertEmail(params: {
     greeting(firstName),
     "",
     `I know you haven't been actively looking, but this one is too strong to sit on: ` +
-      `${job.title} at ${job.companyName}${where} is a ${job.score}% match against your resume.`,
+      `${job.title} at ${job.companyName}${where} is a ${displayScore}% match against your resume.`,
     "",
     `You'll only hear from me like this for matches this strong.`,
     "",
@@ -89,7 +104,7 @@ export function buildProactiveAlertEmail(params: {
     </p>
     <div style="padding:16px 0;border-top:1px solid #d9cfc2;border-bottom:1px solid #d9cfc2;">
       <div style="font:600 13px/1.4 -apple-system,Segoe UI,Roboto,sans-serif;color:#6b4a3a;">
-        ${esc(String(job.score))}% match
+        ${esc(String(displayScore))}% match
       </div>
       <div style="font:500 17px/1.35 Georgia,'Times New Roman',serif;color:#2b2119;margin-top:2px;">
         ${esc(job.title)}

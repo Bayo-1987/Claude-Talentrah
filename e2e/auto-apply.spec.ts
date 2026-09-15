@@ -73,9 +73,27 @@ test.describe("auto-apply", () => {
      * genuinely earns. The scan itself has its own coverage in
      * tests/auto-apply/enforcement.test.ts; what this test is for is the
      * confirmation path.
+     *
+     * `explanation` is rich enough (> THIN_SCREENABLE_TAG_MAX,
+     * src/lib/match-tier.ts) to clear 0164's thin-match gate deliberately —
+     * this test is about the general confirm-success path, not the
+     * thin-match gate itself (see the two tests below this one, and
+     * tests/auto-apply/thin-match-gate.test.ts). Without this, the gate
+     * correctly rejects the DB default `explanation: '{}'` as thin (0 tags),
+     * and the queue item never disappears — caught live in CI, not assumed.
      */
     await admin.from("match_scores").upsert(
-      { user_id: testUser.id, job_posting_id: job!.id, score: HIGH_SCORE, tier: "excellent" },
+      {
+        user_id: testUser.id,
+        job_posting_id: job!.id,
+        score: HIGH_SCORE,
+        tier: "excellent",
+        explanation: {
+          matchedSkills: ["sql", "python", "leadership", "stakeholder management"],
+          missingSkills: ["kubernetes"],
+          seniorityAlignment: "match",
+        },
+      },
       { onConflict: "user_id,job_posting_id" },
     );
     await admin.from("auto_apply_settings").upsert(
@@ -144,6 +162,100 @@ test.describe("auto-apply", () => {
     // And it shows up where the user tracks their applications.
     await authedPage.goto("/tracker");
     await expect(authedPage.getByText(job!.title).first()).toBeVisible();
+  });
+
+  test("a thin-tag match in the review queue shows the honest qualified badge, not a bare Excellent", async ({
+    authedPage,
+    testUser,
+  }) => {
+    /*
+     * This is the exact gap send-249 found: the review queue built each
+     * QueueItem from auto_apply_queue's own columns only, never reading
+     * match_scores.explanation, so MatchTierBadge's thin-match logic
+     * (isThin, screenableTagTotal) was unconditionally inert on this one
+     * screen — the literal page a user confirms a match from. One
+     * screenable tag, exactly the One Acre Fund / Global MEL Manager shape.
+     */
+    const { data: job } = await admin
+      .from("job_postings")
+      .select("id, title")
+      .eq("source_type", "internal")
+      .eq("status", "open")
+      .limit(1)
+      .single();
+
+    await admin.from("match_scores").upsert(
+      {
+        user_id: testUser.id,
+        job_posting_id: job!.id,
+        score: HIGH_SCORE,
+        tier: "excellent",
+        explanation: {
+          matchedSkills: ["project management"],
+          missingSkills: [],
+          seniorityAlignment: "unknown",
+        },
+      },
+      { onConflict: "user_id,job_posting_id" },
+    );
+    await admin.from("auto_apply_queue").insert({
+      user_id: testUser.id,
+      job_posting_id: job!.id,
+      match_score: HIGH_SCORE,
+      tier: "excellent",
+      source_type: "internal",
+      status: "pending",
+    });
+
+    await authedPage.goto("/auto-apply");
+    await expect(authedPage.getByRole("heading", { name: job!.title })).toBeVisible();
+    // The honesty signal must reach this screen — this is the assertion
+    // that would have failed before the fix, since explanation never
+    // reached MatchTierBadge here at all.
+    await expect(authedPage.getByText(/thin match/i)).toBeVisible();
+  });
+
+  test("a genuinely well-supported match in the review queue still shows a plain Excellent", async ({
+    authedPage,
+    testUser,
+  }) => {
+    // The other half of the same proof: wiring explanation through must not
+    // make every match look thin — only ones that actually are.
+    const { data: job } = await admin
+      .from("job_postings")
+      .select("id, title")
+      .eq("source_type", "internal")
+      .eq("status", "open")
+      .limit(1)
+      .single();
+
+    await admin.from("match_scores").upsert(
+      {
+        user_id: testUser.id,
+        job_posting_id: job!.id,
+        score: HIGH_SCORE,
+        tier: "excellent",
+        explanation: {
+          matchedSkills: ["sql", "python", "leadership", "stakeholder management"],
+          missingSkills: ["kubernetes"],
+          seniorityAlignment: "match",
+        },
+      },
+      { onConflict: "user_id,job_posting_id" },
+    );
+    await admin.from("auto_apply_queue").insert({
+      user_id: testUser.id,
+      job_posting_id: job!.id,
+      match_score: HIGH_SCORE,
+      tier: "excellent",
+      source_type: "internal",
+      status: "pending",
+    });
+
+    await authedPage.goto("/auto-apply");
+    await expect(authedPage.getByRole("heading", { name: job!.title })).toBeVisible();
+    await expect(authedPage.getByText(`${HIGH_SCORE}% · Excellent`)).toBeVisible();
+    await expect(authedPage.getByText(/thin match/i)).toHaveCount(0);
   });
 
   test("dismissing leaves no application behind", async ({ authedPage, testUser }) => {

@@ -1,13 +1,4 @@
-import {
-  MATCH_TIER_LABEL,
-  MATCH_TIER_TEXT_CLASS,
-  getDisplayMatchTier,
-  getMatchTier,
-  displayMatchScore,
-  isThinScreenableTagSet,
-  hasNoScreenableSkills,
-  capThinMatchDisplayScore,
-} from "@/lib/match-tier";
+import { MATCH_TIER_TEXT_CLASS, describeMatchConfidence } from "@/lib/match-tier";
 import { cn } from "@/lib/cn";
 import type { MatchExplanation } from "@/lib/matching/score";
 
@@ -25,21 +16,10 @@ export interface MatchTierBadgeProps {
    * scored job/resume pairing has this on hand (see job-card.tsx and
    * jobs/[id]/page.tsx); the marketing demo's hardcoded sample scores and the
    * dev design-check page have no explanation to give and render exactly as
-   * before. When present and the tier is "excellent", a thin screenable-tag
-   * denominator (`isThinScreenableTagSet`, match-tier.ts) caps the displayed
-   * score below the Excellent floor and re-derives the tier from that capped
-   * number (landing on "Good"), with the "— thin match" qualifier attached to
-   * whatever tier actually displays — instead of showing an unqualified,
-   * confidently green "Excellent" next to a sub-score line that already says
-   * "thin". See `THIN_MATCH_DISPLAY_CEILING`'s own header in match-tier.ts
-   * for the real production case this fixes.
-   *
-   * A ZERO-tag denominator (`hasNoScreenableSkills`) is a different case, not
-   * a more extreme "thin": it always scores below 60 (score.ts's neutral 0.5
-   * fallback), so `tier` is already null and there's no tier word to suffix.
-   * This renders "Unscreened" as the label itself instead of a bare
-   * percentage — see match-tier.ts's own header for why this needs its own
-   * predicate rather than reusing `isThinScreenableTagSet`.
+   * before. Passed straight through to `describeMatchConfidence`
+   * (match-tier.ts) — see that function's own header for what it does with
+   * a thin or zero-tag denominator. This component no longer carries its own
+   * copy of that logic; it only renders what the shared function returns.
    */
   explanation?: MatchExplanation;
   /**
@@ -67,32 +47,11 @@ export function MatchTierBadge({
   explanation,
   showRawWhenCapped = false,
 }: MatchTierBadgeProps) {
-  const tier = getDisplayMatchTier(score);
-  const screenableTagTotal = explanation
-    ? explanation.matchedSkills.length + explanation.missingSkills.length
-    : null;
-  const isThin =
-    tier === "excellent" && screenableTagTotal !== null && isThinScreenableTagSet(screenableTagTotal);
-  const isUnscreened = screenableTagTotal !== null && hasNoScreenableSkills(screenableTagTotal);
-
-  // A thin-denominator "excellent" doesn't just get a qualifier suffix
-  // anymore (see THIN_MATCH_DISPLAY_CEILING's own comment in match-tier.ts)
-  // — the headline number and color are capped and re-tiered too, so a
-  // confident green 99% never sits next to small print walking it back.
-  // This is the ONE computation both variants below branch on; there is no
-  // second copy of this logic.
-  const rawDisplayScore = displayMatchScore(score);
-  const displayScore = isThin ? capThinMatchDisplayScore(rawDisplayScore) : rawDisplayScore;
-  const effectiveTier = isThin ? getMatchTier(displayScore) : tier;
+  // THE one computation both variants below branch on — describeMatchConfidence
+  // (match-tier.ts) is the single source of truth for what this component may
+  // say about a score; see docs/match-confidence-invariant.md.
+  const { displayScore, tier: effectiveTier, label } = describeMatchConfidence(score, explanation);
   const colorClass = effectiveTier ? MATCH_TIER_TEXT_CLASS[effectiveTier] : "text-ink-soft";
-
-  const label = effectiveTier
-    ? isThin
-      ? `${MATCH_TIER_LABEL[effectiveTier]} — thin match`
-      : MATCH_TIER_LABEL[effectiveTier]
-    : isUnscreened
-      ? "Unscreened"
-      : null;
   const isCapped = showRawWhenCapped && score > 99;
 
   if (variant === "display") {

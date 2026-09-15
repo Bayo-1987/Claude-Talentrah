@@ -22,7 +22,12 @@ const job = (over: Partial<DigestJob> = {}): DigestJob => ({
   companyName: "Zaria Digital",
   location: "Lagos, Nigeria",
   score: 88,
-  tier: "excellent",
+  // No `tier` field any more — buildDigestEmail derives it (and applies the
+  // thin-match cap) from `score` + `explanation` via describeMatchConfidence.
+  // No explanation given here means "nothing to say about thinness", which
+  // is exactly the marketing-demo/no-data case describeMatchConfidence
+  // handles by rendering the plain tier, unqualified — see
+  // tests/lib/match-tier.test.ts for the thin/rich cases themselves.
   ...over,
 });
 
@@ -42,7 +47,7 @@ describe("it refuses to render an empty digest", () => {
 
 describe("voice and vocabulary", () => {
   it("signs off as Farah, and never calls her the AI or a bot", () => {
-    const { text, html } = build([job(), job({ jobId: "j2", score: 74, tier: "good" })]);
+    const { text, html } = build([job(), job({ jobId: "j2", score: 74 })]);
     expect(text).toContain("— Farah");
     for (const banned of ["the AI", "the bot", "chatbot", "assistant"]) {
       expect(text.toLowerCase(), `copy called Farah "${banned}"`).not.toContain(banned.toLowerCase());
@@ -51,7 +56,7 @@ describe("voice and vocabulary", () => {
   });
 
   it("uses only the three system tier words", () => {
-    const { text } = build([job({ score: 91, tier: "excellent" }), job({ score: 73, tier: "good" })]);
+    const { text } = build([job({ score: 91 }), job({ score: 73 })]);
     expect(text).toContain("Excellent");
     expect(text).toContain("Good");
     for (const invented of ["great match", "strong match", "perfect match", "top match"]) {
@@ -62,6 +67,47 @@ describe("voice and vocabulary", () => {
   it("counts correctly in the subject, singular and plural", () => {
     expect(build([job(), job({ jobId: "j2" })]).subject).toContain("2 new jobs");
     expect(build([job()]).subject).toMatch(/^1 new job worth/);
+  });
+
+  describe("thin-denominator match confidence (docs/match-confidence-invariant.md)", () => {
+    it(
+      "SABOTAGE-PROOF TARGET: a thin-tag score >=80 does not email a confident, unqualified Excellent",
+      () => {
+        // The exact One Acre Fund / ALX Africa shape from docs/stage8-match-accuracy.md:
+        // a single generic screenable tag behind a 99% score. Before this fix,
+        // buildDigestEmail built `${score}% ${MATCH_TIER_LABEL[tier]}` directly
+        // and would have mailed "99% Excellent" verbatim.
+        const thin = job({
+          score: 99,
+          explanation: { matchedSkills: ["project management"], missingSkills: [] },
+        });
+        const { text, html } = build([thin, job({ jobId: "j2", score: 74 })]);
+        expect(text, "mailed an unqualified 99% Excellent for a one-tag match").not.toContain("99%");
+        expect(text).not.toMatch(/99% Excellent/);
+        expect(text).toContain("79% Good — thin match");
+        expect(html).toContain("79% · Good — thin match");
+      },
+    );
+
+    it("POSITIVE CONTROL: a genuinely rich-tag Excellent still emails plainly — the fix must not over-correct", () => {
+      const rich = job({
+        score: 92,
+        explanation: {
+          matchedSkills: ["sql", "python", "aws", "docker", "kubernetes"],
+          missingSkills: ["react"],
+        },
+      });
+      const { text, html } = build([rich, job({ jobId: "j2", score: 74 })]);
+      expect(text).toContain("92% Excellent");
+      expect(text).not.toContain("thin match");
+      expect(html).toContain("92% · Excellent");
+    });
+
+    it("no explanation on the row at all renders exactly as before — no qualifier without data to justify it", () => {
+      const { text } = build([job({ score: 92 }), job({ jobId: "j2", score: 74 })]);
+      expect(text).toContain("92% Excellent");
+      expect(text).not.toContain("thin match");
+    });
   });
 
   it("greets without a name rather than printing an empty one", () => {

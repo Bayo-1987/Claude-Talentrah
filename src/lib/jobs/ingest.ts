@@ -7,6 +7,7 @@ import { fetchSchemaOrgJobs } from "./sources/schema-org";
 import { JOB_SOURCES } from "./sources.config";
 import { disambiguateFingerprint } from "./dedup";
 import { externalSourceKey } from "./types";
+import { enrichThinPostings } from "./enrich-thin";
 import type { JobSourceConfig, NormalizedJobPosting } from "./types";
 
 export interface IngestSourceResult {
@@ -307,6 +308,30 @@ export async function ingestAllSources(): Promise<IngestSourceResult[]> {
               })(),
       });
     }
+  }
+
+  /*
+   * Stage 8 Step 1b (docs/stage8-match-accuracy.md, src/lib/jobs/enrich-
+   * thin.ts) — runs once per ingest run, across every source's postings
+   * together, not per-source, because the per-run CAP it enforces has to be
+   * a single shared budget regardless of which source produced a given thin
+   * posting. Gated behind the `ingest_llm_enrichment` feature flag, which is
+   * OFF: `enrichThinPostings` returns immediately without touching
+   * job_postings when the flag is off, so this call is inert today. Wrapped
+   * so a future failure in enrichment (a provider outage, a bad response)
+   * can never take down the ingest run itself — this feature is additive,
+   * never load-bearing for ingest succeeding.
+   */
+  try {
+    const enrichment = await enrichThinPostings();
+    if (enrichment.enabled) {
+      console.info(
+        `[ingest:llm-enrichment] attempted ${enrichment.attempted}, enriched ${enrichment.enriched}` +
+          (enrichment.errors.length > 0 ? `, ${enrichment.errors.length} error(s)` : ""),
+      );
+    }
+  } catch (err) {
+    console.error("[ingest:llm-enrichment] run failed", err);
   }
 
   return results;

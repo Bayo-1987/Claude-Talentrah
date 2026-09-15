@@ -1,3 +1,5 @@
+import type { MatchExplanation } from "@/lib/matching/score";
+
 /**
  * Match-tier system — exactly three tiers, used everywhere a score appears.
  * Thresholds and color mapping are fixed by the design handoff doc; never add a
@@ -137,9 +139,22 @@ export function screenedFirstCompare(
 }
 
 /**
- * Stage 8 continued yet again — the qualifier suffix above ("Excellent —
- * thin match") turned out not to be enough: real recruiter feedback on the
- * One Acre Fund / Global MEL Manager case confirmed the qualifier fires
+ * Stage 12: two consecutive "100% · Excellent" cards on the same feed load
+ * (observed live) reads as the product overclaiming — a skill-overlap score
+ * cannot support the certainty "100%" implies. Display-only: this never
+ * touches the stored score, the tier boundaries above, Auto-Apply's
+ * threshold, or anything the scoring algorithm itself does (that's Stage 8).
+ * Only ever changes a value that was already >= 99 — every other score
+ * renders exactly as computed.
+ */
+export function displayMatchScore(score: number): number {
+  return Math.min(score, 99);
+}
+
+/**
+ * Stage 8 continued yet again — the qualifier suffix ("Excellent — thin
+ * match") turned out not to be enough on its own: real recruiter feedback on
+ * the One Acre Fund / Global MEL Manager case confirmed the qualifier fires
  * correctly, but it's small italic text sitting next to a giant, confidently
  * green 99%. The headline number and color still say "Excellent" at a
  * glance, and that's the part that overclaims — the qualifier text was never
@@ -165,14 +180,89 @@ export function capThinMatchDisplayScore(displayScore: number): number {
 }
 
 /**
- * Stage 12: two consecutive "100% · Excellent" cards on the same feed load
- * (observed live) reads as the product overclaiming — a skill-overlap score
- * cannot support the certainty "100%" implies. Display-only: this never
- * touches the stored score, the tier boundaries above, Auto-Apply's
- * threshold, or anything the scoring algorithm itself does (that's Stage 8).
- * Only ever changes a value that was already >= 99 — every other score
- * renders exactly as computed.
+ * Tolerant extraction of a screenable-tag total from whatever shape a
+ * `match_scores.explanation` value actually arrives in.
+ *
+ * Two real shapes reach this: a `MatchExplanation` object still in-process
+ * from `computeMatchScore`'s own return value (fully trustworthy — its
+ * `matchedSkills`/`missingSkills` are always real arrays), and a value read
+ * back off Supabase's untyped `Json` column (trustworthy in practice today,
+ * but not something the type system can promise). `Array.isArray` guards
+ * make this safe either way rather than assuming the column round-trips
+ * exactly. `null`/`undefined` means "no explanation available to this
+ * caller" — the marketing demo's hardcoded sample scores and the dev
+ * design-check page have nothing to give — and returns `null`, distinct from
+ * a genuine zero-tag explanation (`hasNoScreenableSkills`'s own case), which
+ * returns `0`. Collapsing those two into the same value is exactly the kind
+ * of thing that made this worth a shared function in the first place: a
+ * caller with real data and a caller with none must not render identically.
  */
-export function displayMatchScore(score: number): number {
-  return Math.min(score, 99);
+export function screenableTagTotalFromExplanation(explanation: unknown): number | null {
+  if (explanation === null || explanation === undefined) return null;
+  const e = explanation as Partial<MatchExplanation>;
+  const matched = Array.isArray(e.matchedSkills) ? e.matchedSkills.length : 0;
+  const missing = Array.isArray(e.missingSkills) ? e.missingSkills.length : 0;
+  return matched + missing;
+}
+
+export interface MatchConfidenceDescription {
+  /** The number to print next to a "%" sign — Stage 12's 99-cap always
+   * applied, and Stage 8's thin-match cap applied on top of that when the
+   * tier is a thin-denominator "excellent". */
+  displayScore: number;
+  /** The tier this description actually renders as, after any thin-match
+   * re-tiering — never a bespoke fourth tier. `null` below the display floor
+   * (`getDisplayMatchTier`'s own 60 floor) and no screenable data to justify
+   * an "Unscreened" label either. */
+  tier: MatchTier | null;
+  /** The exact word(s) to render next to the score, or `null` when there is
+   * nothing honest to say (sub-60, no explanation). Never build a label by
+   * hand from `tier` elsewhere — this is the one place `MATCH_TIER_LABEL` is
+   * looked up for a render site. */
+  label: string | null;
+  /** True when this is a thin-tag "excellent" that got capped and re-tiered
+   * — the qualifier is already folded into `label`; exposed separately so a
+   * caller can add its own "why" copy (a footnote, a tooltip) if it wants to. */
+  isThin: boolean;
+  /** True for a genuine zero-screenable-tag score — `label` is "Unscreened"
+   * in this case, never a tier word. */
+  isUnscreened: boolean;
+}
+
+/**
+ * THE single source of truth for "what may this render site say about a
+ * match score" — factored out of `MatchTierBadge` so every other renderer
+ * (the weekly digest email, the proactive "exceptional match" alert, and
+ * whatever ships next) calls the exact same function rather than keeping its
+ * own copy of this logic to drift out of sync with. See
+ * docs/match-confidence-invariant.md for the standing rule this exists to
+ * enforce and `tests/lib/match-confidence-enforcement.test.ts` for the check
+ * that a new render site did not forget to call it.
+ *
+ * Pure — no React, no DOM, safe to call from an email-template module that
+ * has neither.
+ */
+export function describeMatchConfidence(
+  score: number,
+  explanation?: unknown,
+): MatchConfidenceDescription {
+  const tier = getDisplayMatchTier(score);
+  const screenableTagTotal = screenableTagTotalFromExplanation(explanation);
+  const isThin =
+    tier === "excellent" && screenableTagTotal !== null && isThinScreenableTagSet(screenableTagTotal);
+  const isUnscreened = screenableTagTotal !== null && hasNoScreenableSkills(screenableTagTotal);
+
+  const rawDisplayScore = displayMatchScore(score);
+  const displayScore = isThin ? capThinMatchDisplayScore(rawDisplayScore) : rawDisplayScore;
+  const effectiveTier = isThin ? getMatchTier(displayScore) : tier;
+
+  const label = effectiveTier
+    ? isThin
+      ? `${MATCH_TIER_LABEL[effectiveTier]} — thin match`
+      : MATCH_TIER_LABEL[effectiveTier]
+    : isUnscreened
+      ? "Unscreened"
+      : null;
+
+  return { displayScore, tier: effectiveTier, label, isThin, isUnscreened };
 }

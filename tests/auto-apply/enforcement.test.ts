@@ -183,12 +183,32 @@ afterAll(async () => {
   if (user) await admin.auth.admin.deleteUser(user.id);
 });
 
+/**
+ * Rich enough (> THIN_SCREENABLE_TAG_MAX, see src/lib/match-tier.ts) that
+ * every fixture score in this file clears the 0164 thin-match gate — this
+ * file is testing the cap/threshold/hand-off mechanics, not the thin-match
+ * gate, so its fixtures need a denominator the new gate never touches.
+ * `tests/auto-apply/thin-match-gate.test.ts` is where the thin case itself
+ * is exercised.
+ */
+const RICH_EXPLANATION = {
+  matchedSkills: ["fixture-skill-1", "fixture-skill-2", "fixture-skill-3"],
+  missingSkills: [],
+  seniorityAlignment: "unknown" as const,
+};
+
 /** Puts a score and a pending queue row in place, the way a real scan would. */
 async function seedQueued(jobId: string, score: number, sourceType: "internal" | "external") {
   await admin
     .from("match_scores")
     .upsert(
-      { user_id: user.id, job_posting_id: jobId, score, tier: score >= 80 ? "excellent" : "good" },
+      {
+        user_id: user.id,
+        job_posting_id: jobId,
+        score,
+        tier: score >= 80 ? "excellent" : "good",
+        explanation: RICH_EXPLANATION,
+      },
       { onConflict: "user_id,job_posting_id" },
     );
   const { data, error } = await admin

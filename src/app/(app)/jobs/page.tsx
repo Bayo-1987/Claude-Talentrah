@@ -522,6 +522,11 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
     // anyway, and the feed has no use for who claimed it.
     | "claimed_by_organization_id"
     | "claimed_at"
+    // 0164 (Stage 8 Step 1b, ingest-time LLM enrichment): a bookkeeping
+    // column for the ingest pipeline's own retry logic, not selected by
+    // FEED_COLUMNS and never rendered by any card — same reasoning as the
+    // other omitted columns above.
+    | "llm_enrichment_attempted_at"
   >;
   const matchingFilters: FeedJobPosting[] = jobsRaw ?? [];
 
