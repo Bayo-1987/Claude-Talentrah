@@ -1,6 +1,3 @@
-import type { MatchTier } from "@/lib/match-tier";
-import { getMatchTier } from "@/lib/match-tier";
-
 /**
  * Which jobs go in one person's weekly digest.
  *
@@ -54,6 +51,16 @@ export interface DigestCandidate {
   postedAt: string;
   /** True when the person has saved or applied to this posting already. */
   alreadyActedOn: boolean;
+  /**
+   * The same `match_scores.explanation` `MatchTierBadge` renders elsewhere —
+   * threaded through here so `buildDigestEmail` (digest/template.ts) can call
+   * the shared `describeMatchConfidence` (match-tier.ts) instead of printing
+   * `score`/`tier` itself. `unknown` because this arrives off Supabase's
+   * untyped `Json` column, not a validated `MatchExplanation` — the shared
+   * function's own `screenableTagTotalFromExplanation` is tolerant of that.
+   * `null`/`undefined` when the row genuinely has none.
+   */
+  explanation?: unknown;
 }
 
 export interface DigestJob {
@@ -62,7 +69,15 @@ export interface DigestJob {
   companyName: string;
   location: string | null;
   score: number;
-  tier: MatchTier;
+  /**
+   * See `DigestCandidate.explanation` — carried straight through unchanged.
+   * No precomputed `tier` field anymore: `buildDigestEmail` derives the tier
+   * (and whether to qualify or cap it) from `score` + `explanation` via
+   * `describeMatchConfidence`, once, in the one place that renders it — a
+   * second, independently-computed `tier` field here is exactly the kind of
+   * duplicate that let the digest disagree with the badge in the first place.
+   */
+  explanation?: unknown;
 }
 
 /**
@@ -90,6 +105,6 @@ export function selectDigestJobs(candidates: DigestCandidate[]): DigestJob[] {
     companyName: c.companyName,
     location: c.location,
     score: c.score,
-    tier: getMatchTier(c.score),
+    explanation: c.explanation,
   }));
 }

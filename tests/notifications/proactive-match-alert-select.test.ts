@@ -72,6 +72,37 @@ describe("isExcellentMatch — reuses the system's own tier boundary", () => {
     expect(isExcellentMatch(70)).toBe(false);
     expect(isExcellentMatch(50)).toBe(false);
   });
+
+  it(
+    "SABOTAGE-PROOF TARGET: a thin-denominator Excellent (docs/stage8-match-accuracy.md's own case) " +
+      "is not excellent enough for THIS alert, even though the badge/digest would still show it, capped",
+    () => {
+      // Exactly the One Acre Fund / ALX Africa shape: score 99, one real
+      // screenable tag. isThinScreenableTagSet's own threshold (<=2) fires.
+      expect(
+        isExcellentMatch(99, { matchedSkills: ["project management"], missingSkills: [] }),
+      ).toBe(false);
+    },
+  );
+
+  it("a genuinely thick, well-matched skill set still counts — this must not over-correct", () => {
+    expect(
+      isExcellentMatch(92, {
+        matchedSkills: ["sql", "python", "aws", "docker", "kubernetes"],
+        missingSkills: ["react"],
+      }),
+    ).toBe(true);
+  });
+
+  it("no explanation given at all falls back to the old tier-only behaviour, not a crash", () => {
+    expect(isExcellentMatch(92)).toBe(true);
+  });
+
+  it("a thin denominator on a non-excellent score changes nothing — it was already false", () => {
+    expect(
+      isExcellentMatch(72, { matchedSkills: ["sql"], missingSkills: [] }),
+    ).toBe(false);
+  });
 });
 
 describe("candidateIsEligible — the three independent gates on ONE candidate", () => {
@@ -121,6 +152,10 @@ describe("pickBestJobForCandidate — one alert, the strongest match, never a li
     companyName: "Co",
     location: null,
     score: 85,
+    // A genuinely thick skill set by default, so these ordering/selection
+    // tests aren't incidentally exercising the thin-match gate too —
+    // that gate has its own dedicated tests above.
+    explanation: { matchedSkills: ["sql", "python", "aws"], missingSkills: ["react"], seniorityAlignment: "unknown" },
     ...over,
   });
 
@@ -140,5 +175,17 @@ describe("pickBestJobForCandidate — one alert, the strongest match, never a li
   it("ignores a Good match sitting alongside an Excellent one", () => {
     const best = pickBestJobForCandidate([job({ jobId: "good", score: 74 }), job({ jobId: "excellent", score: 91 })]);
     expect(best?.jobId).toBe("excellent");
+  });
+
+  it("also ignores a thin-denominator Excellent sitting alongside a genuine one", () => {
+    const best = pickBestJobForCandidate([
+      job({
+        jobId: "thin",
+        score: 99,
+        explanation: { matchedSkills: ["project management"], missingSkills: [], seniorityAlignment: "unknown" },
+      }),
+      job({ jobId: "genuine", score: 85 }),
+    ]);
+    expect(best?.jobId).toBe("genuine");
   });
 });
