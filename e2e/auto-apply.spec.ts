@@ -73,9 +73,27 @@ test.describe("auto-apply", () => {
      * genuinely earns. The scan itself has its own coverage in
      * tests/auto-apply/enforcement.test.ts; what this test is for is the
      * confirmation path.
+     *
+     * `explanation` is rich enough (> THIN_SCREENABLE_TAG_MAX,
+     * src/lib/match-tier.ts) to clear 0164's thin-match gate deliberately —
+     * this test is about the general confirm-success path, not the
+     * thin-match gate itself (see the two tests below this one, and
+     * tests/auto-apply/thin-match-gate.test.ts). Without this, the gate
+     * correctly rejects the DB default `explanation: '{}'` as thin (0 tags),
+     * and the queue item never disappears — caught live in CI, not assumed.
      */
     await admin.from("match_scores").upsert(
-      { user_id: testUser.id, job_posting_id: job!.id, score: HIGH_SCORE, tier: "excellent" },
+      {
+        user_id: testUser.id,
+        job_posting_id: job!.id,
+        score: HIGH_SCORE,
+        tier: "excellent",
+        explanation: {
+          matchedSkills: ["sql", "python", "leadership", "stakeholder management"],
+          missingSkills: ["kubernetes"],
+          seniorityAlignment: "match",
+        },
+      },
       { onConflict: "user_id,job_posting_id" },
     );
     await admin.from("auto_apply_settings").upsert(
