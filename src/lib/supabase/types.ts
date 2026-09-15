@@ -1357,6 +1357,7 @@ export type Database = {
           external_url: string | null
           id: string
           last_checked_at: string
+          llm_enrichment_attempted_at: string | null
           location: string | null
           organization_id: string | null
           posted_at: string
@@ -1401,6 +1402,7 @@ export type Database = {
           external_url?: string | null
           id?: string
           last_checked_at?: string
+          llm_enrichment_attempted_at?: string | null
           location?: string | null
           organization_id?: string | null
           posted_at?: string
@@ -1445,6 +1447,7 @@ export type Database = {
           external_url?: string | null
           id?: string
           last_checked_at?: string
+          llm_enrichment_attempted_at?: string | null
           location?: string | null
           organization_id?: string | null
           posted_at?: string

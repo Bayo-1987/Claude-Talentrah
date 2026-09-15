@@ -108,11 +108,20 @@ label computed from a screenable-tag denominator this thin is now qualified
 that already says "thin". It does not change what gets extracted or scored —
 that gap is still open and is what this section documents.
 
-## Step 1b — proposal: LLM-assisted extraction for postings the heuristic leaves thin (NOT BUILT)
+## Step 1b — LLM-assisted extraction for postings the heuristic leaves thin (INFRASTRUCTURE BUILT, FLAG OFF)
 
-This section is a proposal, not an implementation. Nothing described here has
-been wired up; it needs a founder decision on the budget/key question before
-any of it is built.
+**Update:** the infrastructure this section proposes has since been built —
+provider abstraction, batching/cap logic, ingest wiring, migration, tests —
+but it is NOT enabled. See `docs/ingest-llm-enrichment.md` for the full
+current status, including why: no genuinely isolated LLM account has been
+provisioned yet (a second key on Farah's own Groq account is NOT isolation —
+Groq's TPD cap is shared per account, not per key, per CLAUDE.md's own
+incident history), and this feature has a real structural dependency on the
+ESCO taxonomy decision (Step 1c below, PR #415) — today's ~34% thin-share
+figure is an upper-bound ceiling this would run against, not the smaller
+residual population it should actually target once/if ESCO ships. The
+proposal text below is kept as-written for its own reasoning; treat
+`docs/ingest-llm-enrichment.md` as the authoritative status.
 
 ### The idea
 

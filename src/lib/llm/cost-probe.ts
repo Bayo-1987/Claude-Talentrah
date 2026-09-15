@@ -5,6 +5,7 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { tailorResumeToJob } from "@/lib/tailoring/tailor";
 import { rewriteBullet } from "@/lib/farah/rewrite-bullet";
 import { checkEligibility, draftPersonalStatement } from "@/lib/scholarships/farah";
+import { getJdExtractionProvider } from "@/lib/llm/jd-extraction";
 import { EMPTY_RESUME, type StructuredResume } from "@/lib/resume/types";
 
 /**
@@ -78,8 +79,8 @@ async function measure(
   };
 }
 
-export type ProbeGroup = "tailoring" | "bullet" | "scholarship";
-export const PROBE_GROUPS: ProbeGroup[] = ["tailoring", "bullet", "scholarship"];
+export type ProbeGroup = "tailoring" | "bullet" | "scholarship" | "jd_extraction";
+export const PROBE_GROUPS: ProbeGroup[] = ["tailoring", "bullet", "scholarship", "jd_extraction"];
 
 /**
  * Runs one group at a time. Split by group because a single request running
@@ -154,6 +155,42 @@ export async function runCostProbe(group: ProbeGroup): Promise<ProbeReport> {
     firstDescription.split(/(?<=[.!?])\s+/)[0]?.trim() ||
     "Worked on the payments team and helped improve the checkout flow.";
   fixtureNotes.push(`bullet: "${bulletText.slice(0, 60)}…"`);
+
+  /*
+   * jd_extraction (Stage 8 Step 1b, docs/stage8-match-accuracy.md) is its
+   * own early return, deliberately BEFORE the Farah-provider usage capture
+   * below: it measures `getJdExtractionProvider()` — a structurally
+   * separate provider selection (src/lib/llm/jd-extraction/), gated on its
+   * own env var, that must never be confused with Farah's `getLLMProvider()`
+   * singleton. Running this probe does not construct or touch Farah's
+   * provider at all. As documented in docs/ingest-llm-enrichment.md, this
+   * has only ever been run against the offline stub in this codebase's
+   * history — no genuinely isolated Groq account was provisioned to run it
+   * for real yet, so a real report from this group does not exist.
+   */
+  if (group === "jd_extraction") {
+    const provider = getJdExtractionProvider();
+    const samples: ProbeSample[] = [];
+    for (const jd of jdFixtures) {
+      let result: { skills: string[]; usage: LLMUsage | null } | undefined;
+      let error: string | undefined;
+      try {
+        result = await provider.extractSkills(jd.text);
+      } catch (err) {
+        error = err instanceof Error ? err.message : String(err);
+      }
+      samples.push({
+        action: "jd_extraction",
+        fixture: jd.label,
+        calls: result ? 1 : 0,
+        inputTokens: result?.usage?.inputTokens ?? 0,
+        outputTokens: result?.usage?.outputTokens ?? 0,
+        reasoningTokens: result?.usage?.reasoningTokens ?? null,
+        ...(error ? { error } : {}),
+      });
+    }
+    return { provider: provider.name, model: provider.model, samples, fixtureNotes };
+  }
 
   // --- Usage capture -----------------------------------------------------
   const provider = getLLMProvider();
