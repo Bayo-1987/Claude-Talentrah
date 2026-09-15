@@ -10,7 +10,11 @@ import type { ExtractedJobFields } from "@/lib/employer/job-import/types";
  * ExtractedJobFields doesn't carry (yearsExperienceMin, expiresAt — neither
  * is something a job posting's own text reliably states as a fact, as
  * opposed to a policy the employer sets) stays at its "nothing chosen yet"
- * value, same as a hand-opened blank form. */
+ * value, same as a hand-opened blank form. `skills` is the same story:
+ * nothing here extracts them from the imported source, so it starts empty
+ * and JobPostingForm's own mount-time seed (SkillsAutocomplete, run against
+ * `fields.description` once this remounts under a fresh `formKey`) fills it
+ * in from the imported description text instead. */
 function toFormValues(fields: ExtractedJobFields): JobFormValues {
   return {
     title: fields.title ?? "",
@@ -25,6 +29,7 @@ function toFormValues(fields: ExtractedJobFields): JobFormValues {
     salaryMax: fields.salaryMax,
     salaryCurrency: fields.salaryCurrency,
     salaryUnit: fields.salaryUnit,
+    skills: [],
   };
 }
 

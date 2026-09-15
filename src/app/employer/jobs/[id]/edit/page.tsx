@@ -27,6 +27,13 @@ export default async function EditJobPage({ params }: { params: Promise<{ id: st
 
   if (!job) notFound();
 
+  // `structured_jd` is a loose `Json` column — a legacy row from before this
+  // field existed defaults to `{}` with no `skills` key at all, which reads
+  // the same as "no skills chosen yet" and lets JobPostingForm's own
+  // mount-time seed (extractStructuredJd against the stored description) take
+  // over, same as a brand-new blank form.
+  const structuredJd = job.structured_jd as { skills?: string[] } | null;
+
   return (
     <div className="max-w-[820px]">
       <Link
@@ -81,6 +88,7 @@ export default async function EditJobPage({ params }: { params: Promise<{ id: st
             salaryMax: job.salary_max,
             salaryCurrency: job.salary_currency,
             salaryUnit: job.salary_unit,
+            skills: structuredJd?.skills ?? [],
           }}
         />
       </div>

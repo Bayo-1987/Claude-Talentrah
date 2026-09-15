@@ -18,7 +18,7 @@ import { runCleanups } from "../tests/support/teardown";
 import { deleteOrgsCascade } from "../tests/support/delete-orgs";
 
 const DESCRIPTION =
-  "A real role with a description long enough to clear the minimum length the posting form enforces on submission.";
+  "A real compliance role, with a description long enough to clear the minimum length the posting form enforces on submission.";
 
 test.describe("job expiry", () => {
   test.afterEach(async () => {

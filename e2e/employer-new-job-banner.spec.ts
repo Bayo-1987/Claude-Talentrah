@@ -92,7 +92,7 @@ test.describe("create-form banner picker", () => {
     await authedPage
       .getByLabel("Job description")
       .fill(
-        "A role posted specifically to prove a staged create-form banner attaches to the right job after publishing.",
+        "An operations role posted specifically to prove a staged create-form banner attaches to the right job after publishing.",
       );
     await authedPage.getByRole("button", { name: "Publish job" }).click();
     await expect(authedPage).toHaveURL(/\/employer\/jobs\?posted=.+$/);
@@ -147,7 +147,7 @@ test.describe("create-form banner picker", () => {
     await authedPage.getByLabel("Job title").fill("E2E Banner No Banner Role");
     await authedPage
       .getByLabel("Job description")
-      .fill("A role posted with no banner picked, to prove that path is completely unchanged.");
+      .fill("A recruiting role posted with no banner picked, to prove that path is completely unchanged.");
     await authedPage.getByRole("button", { name: "Publish job" }).click();
     await expect(authedPage).toHaveURL(/\/employer\/jobs\?posted=.+$/);
 
@@ -188,7 +188,7 @@ test.describe("create-form banner picker", () => {
     await authedPage.getByLabel("Job title").fill("E2E Banner Unrelated Role");
     await authedPage
       .getByLabel("Job description")
-      .fill("A second, unrelated posting that must not inherit the abandoned banner from the first visit.");
+      .fill("A second, unrelated procurement posting that must not inherit the abandoned banner from the first visit.");
     await authedPage.getByRole("button", { name: "Publish job" }).click();
     await expect(authedPage).toHaveURL(/\/employer\/jobs\?posted=.+$/);
 
@@ -219,7 +219,7 @@ test.describe("create-form banner picker", () => {
     await authedPage.getByLabel("Job title").fill("E2E Banner Failed Upload Role");
     await authedPage
       .getByLabel("Job description")
-      .fill("A posting whose deferred banner upload is forced to fail, to prove it degrades visibly.");
+      .fill("An accounting posting whose deferred banner upload is forced to fail, to prove it degrades visibly.");
     await authedPage.getByRole("button", { name: "Publish job" }).click();
     await expect(authedPage).toHaveURL(/\/employer\/jobs\?posted=.+$/);
 

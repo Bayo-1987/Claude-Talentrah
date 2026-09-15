@@ -146,7 +146,7 @@ test.describe("employer surface", () => {
     await authedPage
       .getByLabel("Job description")
       .fill(
-        "We are hiring a backend engineer to work on payment APIs. You will design services, review code, and mentor other engineers.",
+        "We are hiring a backend engineer to work on payment APIs. You will design services, write SQL queries, review code, and mentor other engineers.",
       );
     await authedPage.getByRole("button", { name: "Publish job" }).click();
 
@@ -265,7 +265,7 @@ test.describe("employer surface", () => {
     await authedPage
       .getByLabel("Job description")
       .fill(
-        "A verified company posting a real role, with a description long enough to clear the minimum length the form enforces.",
+        "A verified company posting a real operations role, responsible for logistics coordination and vendor management across multiple warehouses.",
       );
     await authedPage.getByRole("button", { name: "Publish job" }).click();
     await expect(authedPage).toHaveURL(/\/employer\/jobs\?posted=.+$/);
