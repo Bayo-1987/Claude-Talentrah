@@ -70,11 +70,22 @@ afterAll(async () => {
   if (userId) await deleteTestUsers([userId]);
 }, 60_000);
 
+/**
+ * Rich enough (> THIN_SCREENABLE_TAG_MAX, src/lib/match-tier.ts) to clear the
+ * 0164 thin-match gate — this file tests pass-coverage mechanics, not the
+ * thin-match gate itself (see tests/auto-apply/thin-match-gate.test.ts).
+ */
+const RICH_EXPLANATION = {
+  matchedSkills: ["fixture-skill-1", "fixture-skill-2", "fixture-skill-3"],
+  missingSkills: [],
+  seniorityAlignment: "unknown" as const,
+};
+
 async function seedQueued(jobId: string): Promise<string> {
   await admin
     .from("match_scores")
     .upsert(
-      { user_id: userId, job_posting_id: jobId, score: 90, tier: "excellent" },
+      { user_id: userId, job_posting_id: jobId, score: 90, tier: "excellent", explanation: RICH_EXPLANATION },
       { onConflict: "user_id,job_posting_id" },
     );
   const { data, error } = await admin
