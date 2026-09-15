@@ -12,6 +12,8 @@ import {
   THIN_SCREENABLE_TAG_MAX,
   hasNoScreenableSkills,
   screenedFirstCompare,
+  capThinMatchDisplayScore,
+  THIN_MATCH_DISPLAY_CEILING,
 } from "@/lib/match-tier";
 
 describe("getMatchTier", () => {
@@ -120,6 +122,35 @@ describe("hasNoScreenableSkills", () => {
 
   it("a thick skill set is not unscreened", () => {
     expect(hasNoScreenableSkills(12)).toBe(false);
+  });
+});
+
+describe("capThinMatchDisplayScore", () => {
+  it(
+    "SABOTAGE-PROOF TARGET: caps below the Excellent floor, and the capped value re-tiers to Good, not a bespoke fourth tier",
+    () => {
+      expect(capThinMatchDisplayScore(99)).toBe(THIN_MATCH_DISPLAY_CEILING);
+      expect(capThinMatchDisplayScore(100)).toBe(THIN_MATCH_DISPLAY_CEILING);
+      expect(getMatchTier(capThinMatchDisplayScore(99))).toBe("good");
+    },
+  );
+
+  it("the ceiling itself sits just under the 80 Excellent boundary", () => {
+    expect(THIN_MATCH_DISPLAY_CEILING).toBeLessThan(80);
+    expect(THIN_MATCH_DISPLAY_CEILING).toBeGreaterThanOrEqual(70);
+  });
+
+  it("is a distinct threshold from THIN_SCREENABLE_TAG_MAX — different numbers, different jobs", () => {
+    expect(THIN_MATCH_DISPLAY_CEILING).not.toBe(THIN_SCREENABLE_TAG_MAX);
+  });
+
+  it("never raises a score that was already below the ceiling", () => {
+    expect(capThinMatchDisplayScore(60)).toBe(60);
+    expect(capThinMatchDisplayScore(0)).toBe(0);
+  });
+
+  it("is a no-op exactly at the ceiling", () => {
+    expect(capThinMatchDisplayScore(THIN_MATCH_DISPLAY_CEILING)).toBe(THIN_MATCH_DISPLAY_CEILING);
   });
 });
 

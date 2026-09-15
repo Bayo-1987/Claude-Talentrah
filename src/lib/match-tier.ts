@@ -137,6 +137,34 @@ export function screenedFirstCompare(
 }
 
 /**
+ * Stage 8 continued yet again — the qualifier suffix above ("Excellent —
+ * thin match") turned out not to be enough: real recruiter feedback on the
+ * One Acre Fund / Global MEL Manager case confirmed the qualifier fires
+ * correctly, but it's small italic text sitting next to a giant, confidently
+ * green 99%. The headline number and color still say "Excellent" at a
+ * glance, and that's the part that overclaims — the qualifier text was never
+ * the problem.
+ *
+ * This caps what gets DISPLAYED (never the stored score, never
+ * `computeMatchScore`, never `match_scores.tier`) to just under the
+ * Excellent floor whenever `isThinScreenableTagSet` says the denominator
+ * backing an "excellent" tier is too thin to support it. The capped number
+ * then gets its tier RE-DERIVED from `getMatchTier` — landing naturally on
+ * "Good" at 79 — rather than inventing any bespoke fourth label or color.
+ * The three-tier system stays exactly three tiers.
+ *
+ * Deliberately a different number from `THIN_SCREENABLE_TAG_MAX` above: that
+ * one decides WHETHER a screenable-tag count counts as thin at all; this one
+ * decides how far to cap the display score once it does. Two different
+ * numbers doing two different jobs — don't conflate them.
+ */
+export const THIN_MATCH_DISPLAY_CEILING = 79;
+
+export function capThinMatchDisplayScore(displayScore: number): number {
+  return Math.min(displayScore, THIN_MATCH_DISPLAY_CEILING);
+}
+
+/**
  * Stage 12: two consecutive "100% · Excellent" cards on the same feed load
  * (observed live) reads as the product overclaiming — a skill-overlap score
  * cannot support the certainty "100%" implies. Display-only: this never

@@ -2,9 +2,11 @@ import {
   MATCH_TIER_LABEL,
   MATCH_TIER_TEXT_CLASS,
   getDisplayMatchTier,
+  getMatchTier,
   displayMatchScore,
   isThinScreenableTagSet,
   hasNoScreenableSkills,
+  capThinMatchDisplayScore,
 } from "@/lib/match-tier";
 import { cn } from "@/lib/cn";
 import type { MatchExplanation } from "@/lib/matching/score";
@@ -24,10 +26,13 @@ export interface MatchTierBadgeProps {
    * jobs/[id]/page.tsx); the marketing demo's hardcoded sample scores and the
    * dev design-check page have no explanation to give and render exactly as
    * before. When present and the tier is "excellent", a thin screenable-tag
-   * denominator (`isThinScreenableTagSet`, match-tier.ts) qualifies the label
-   * instead of showing an unqualified "Excellent" next to a sub-score line
-   * that already says "thin" — see match-tier.ts's own header for the real
-   * production case this fixes.
+   * denominator (`isThinScreenableTagSet`, match-tier.ts) caps the displayed
+   * score below the Excellent floor and re-derives the tier from that capped
+   * number (landing on "Good"), with the "— thin match" qualifier attached to
+   * whatever tier actually displays — instead of showing an unqualified,
+   * confidently green "Excellent" next to a sub-score line that already says
+   * "thin". See `THIN_MATCH_DISPLAY_CEILING`'s own header in match-tier.ts
+   * for the real production case this fixes.
    *
    * A ZERO-tag denominator (`hasNoScreenableSkills`) is a different case, not
    * a more extreme "thin": it always scores below 60 (score.ts's neutral 0.5
@@ -63,21 +68,31 @@ export function MatchTierBadge({
   showRawWhenCapped = false,
 }: MatchTierBadgeProps) {
   const tier = getDisplayMatchTier(score);
-  const colorClass = tier ? MATCH_TIER_TEXT_CLASS[tier] : "text-ink-soft";
   const screenableTagTotal = explanation
     ? explanation.matchedSkills.length + explanation.missingSkills.length
     : null;
   const isThin =
     tier === "excellent" && screenableTagTotal !== null && isThinScreenableTagSet(screenableTagTotal);
   const isUnscreened = screenableTagTotal !== null && hasNoScreenableSkills(screenableTagTotal);
-  const label = tier
+
+  // A thin-denominator "excellent" doesn't just get a qualifier suffix
+  // anymore (see THIN_MATCH_DISPLAY_CEILING's own comment in match-tier.ts)
+  // — the headline number and color are capped and re-tiered too, so a
+  // confident green 99% never sits next to small print walking it back.
+  // This is the ONE computation both variants below branch on; there is no
+  // second copy of this logic.
+  const rawDisplayScore = displayMatchScore(score);
+  const displayScore = isThin ? capThinMatchDisplayScore(rawDisplayScore) : rawDisplayScore;
+  const effectiveTier = isThin ? getMatchTier(displayScore) : tier;
+  const colorClass = effectiveTier ? MATCH_TIER_TEXT_CLASS[effectiveTier] : "text-ink-soft";
+
+  const label = effectiveTier
     ? isThin
-      ? `${MATCH_TIER_LABEL[tier]} — thin match`
-      : MATCH_TIER_LABEL[tier]
+      ? `${MATCH_TIER_LABEL[effectiveTier]} — thin match`
+      : MATCH_TIER_LABEL[effectiveTier]
     : isUnscreened
       ? "Unscreened"
       : null;
-  const displayScore = displayMatchScore(score);
   const isCapped = showRawWhenCapped && score > 99;
 
   if (variant === "display") {
