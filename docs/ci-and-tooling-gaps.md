@@ -385,6 +385,100 @@ PR rather than left as a live gap.
 
 ---
 
+## 7. Every Dependabot PR failed CI outright on `DEMO_PASSWORD is not set` — fixed in `scripts/seed.ts`
+
+**Status: fixed, 2026-09-15** (branch `fix/dependabot-ci-demo-password`). Found
+while getting a fresh go/no-go status on seven new open PRs — five of them
+Dependabot's (`#409` npm, `#371`/`#372`/`#373`/`#374` GitHub Actions version
+pins), all failing identically on the `checks` job itself, before `e2e` even
+ran.
+
+**Symptom.** `Typecheck, lint, unit tests` fails on all five with:
+
+```
+Error: DEMO_PASSWORD is not set. Add it to .env.local (and to CI secrets for the e2e job).
+```
+
+thrown by `scripts/seed.ts`'s own guard (line 62-68 as of the previous
+revision), during the `checks` job's "Seed demo data (full)" step. `e2e`
+shows `SKIPPED`, not `FAILURE` — it never got to run.
+
+**Confirmed pre-existing and structural, not caused by any of the five PRs'
+own diffs.** A routine npm version bump and four routine Actions version pins
+do not touch `scripts/seed.ts`, `ci.yml`, or anything seed-adjacent — checked
+directly via `git diff origin/main...origin/<branch> --name-only` for each.
+The two non-Dependabot PRs checked in the same pass (`#396`, `#406`) do not
+hit this at all.
+
+**Root cause, traced to actual behaviour, not guessed.** `ci.yml:51` sets
+`DEMO_PASSWORD: ${{ secrets.DEMO_PASSWORD }}` at the workflow-`env` level,
+read by every job. All five failing runs are `pull_request` events on
+`dependabot/*` branches (confirmed via `gh run view --json event,headBranch`).
+Checked against GitHub's own docs ("Troubleshooting Dependabot on GitHub
+Actions" → "Accessing secrets"), not assumed from memory: *"When a Dependabot
+event triggers a workflow, the only secrets available to the workflow are
+Dependabot secrets. GitHub Actions secrets are not available."* Regular
+repository secrets — `DEMO_PASSWORD` included — are invisible to any
+workflow run GitHub attributes to Dependabot, regardless of what that PR's
+diff contains. `${{ secrets.DEMO_PASSWORD }}` then resolves to an empty
+string, and `scripts/seed.ts`'s unconditional guard throws.
+
+One assumption checked before picking a fix, not before: whether the repo's
+**Dependabot secrets** store (Settings → Secrets and variables → Dependabot —
+a separate mechanism from regular Actions secrets, normally used for
+Dependabot's own private-registry auth during dependency resolution) would
+even reach this `pull_request`-triggered CI workflow if `DEMO_PASSWORD` were
+added there. The same GitHub doc answers this too, and the answer is
+"yes" — Dependabot secrets ARE what a Dependabot-triggered workflow run gets
+instead of Actions secrets. So adding it there was a real, viable option; it
+was not the one chosen (see below).
+
+**Not a one-batch exception.** Every future Dependabot PR against this repo
+hits this identically, forever, until fixed — the failure has nothing to do
+with what any individual bump contains.
+
+**Fix chosen and why.** Code fix in `scripts/seed.ts`, not a settings change:
+when `DEMO_PASSWORD` is unset AND `process.env.CI` is set, generate a random
+per-run value with `randomBytes(24).toString("hex")` instead of throwing, and
+write it to `$GITHUB_ENV` (same idiom `ci.yml` already uses for its own
+per-run `INGEST_SECRET`) so the *same job's* later steps see the matching
+value. This is deliberately **not** the hazard the file's own no-fallback-default
+comment warns about — that rule is about a fixed, committed default becoming
+a de facto shared password; a value regenerated every run and thrown away
+with the ephemeral database it created has none of that shape.
+
+Checked, not assumed, before relying on this being safe for `checks`: none of
+the four unit tests the "full seed" step exists for
+(`tests/seo/landing-page-links.test.ts`,
+`tests/billing/pricing-catalog-rebase.test.ts`,
+`tests/rls/org-and-referral-scoping.test.ts`, `tests/seed/catalog.test.ts`)
+reference `DEMO_PASSWORD` or a login flow — grepped directly. They need a
+seeded demo account to exist, never a specific password value.
+
+`e2e` runs the identical `scripts/seed.ts` a second time, independently, into
+its own separate ephemeral database, and *does* have specs that log in as
+this account by reading `process.env.DEMO_PASSWORD` directly
+(`job-detail.spec.ts` among many others) — checked via grep across `e2e/`,
+not assumed to be checks-only. The `$GITHUB_ENV` write covers this case too,
+since it's the same script and the write lands before the login-driving
+Playwright step runs in the same job.
+
+Verified before merging, not just by inspection: ran the exact guard logic
+standalone with `CI=true` and `DEMO_PASSWORD` unset — confirms a value is
+generated and written to a `$GITHUB_ENV`-shaped file — and separately with
+neither `CI` nor `DEMO_PASSWORD` set, confirming local development still
+throws exactly as before (no silent fallback outside CI). Full `npm run
+build`, `npx tsc --noEmit`, and `npm run lint` all clean on the fix branch.
+
+Once past this, a Dependabot PR still hits the documented **entry 6** e2e
+issue like every other PR — this fix only removes a *different*, earlier
+blocker that stopped `e2e` from running at all.
+
+**Owner.** Fixed on `fix/dependabot-ci-demo-password`, not yet merged —
+founder approval pending, same as any other PR.
+
+---
+
 ## Not a gap: a stacked PR gets no CI until it retargets
 
 `ci.yml` fires on three things:
