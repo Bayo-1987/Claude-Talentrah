@@ -1,8 +1,29 @@
--- 0164 — Stage 8 "Step 1b" infrastructure: ingest-time LLM enrichment for
+-- 0165 — Stage 8 "Step 1b" infrastructure: ingest-time LLM enrichment for
 -- postings that are still thin after the heuristic extraction pipeline
 -- (docs/stage8-match-accuracy.md's own Step 1b section; the code lives at
 -- src/lib/jobs/enrich-thin.ts and src/lib/llm/jd-extraction/, see
 -- docs/ingest-llm-enrichment.md for the full picture).
+--
+-- ---------------------------------------------------------------------------
+-- RENAMED FROM 0164, BEFORE EITHER APPLY. No ledger mismatch results.
+-- ---------------------------------------------------------------------------
+--
+-- This PR (#417) and #412 (0164_auto_apply_thin_match_gate.sql) both claimed
+-- 0164 on separate branches the same day and merged into main within about an
+-- hour of each other, producing two files with the same numeric prefix — the
+-- exact collision this repo's own migration-numbering CI check and "take the
+-- number right before opening the PR" convention exist to prevent. It broke
+-- CI outright: every fresh per-job database replay hit
+-- `duplicate key value violates unique constraint "schema_migrations_pkey"`.
+--
+-- Checked directly via the Supabase MCP connector's list_migrations before
+-- renaming, not assumed: only 0164_auto_apply_thin_match_gate has ever been
+-- applied to either dozaffzgqkbarxtlclsj (CI) or production
+-- (nytwbbzfpytctjsoczzq) — this migration is applied to neither, under
+-- either name. So unlike 0061's precedent (renamed after its apply, leaving
+-- a permanent filename/ledger mismatch), this rename has nothing to leave
+-- mismatched: whichever project applies it next records it as 0165, and no
+-- KNOWN_ALIASES entry in scripts/audit-migrations.ts is needed.
 --
 -- ── PURELY ADDITIVE, AND OFF ──────────────────────────────────────────────
 --

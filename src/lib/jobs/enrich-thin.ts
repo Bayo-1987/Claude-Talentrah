@@ -24,7 +24,7 @@ import type { StructuredJD } from "./types";
  *
  * ── WHY THIS IS OFF ────────────────────────────────────────────────────────
  *
- * Gated on the `ingest_llm_enrichment` feature flag (0164, same primitive as
+ * Gated on the `ingest_llm_enrichment` feature flag (0165, same primitive as
  * job_match_digest/proactive_match_alert — 0080/0131), checked FIRST and
  * before any query. `isFeatureEnabled` fails closed on any error, so a
  * flags-table read failure disables this rather than silently enabling it.
