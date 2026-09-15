@@ -2635,6 +2635,45 @@ export type Database = {
           },
         ]
       }
+      tailoring_result_cache: {
+        Row: {
+          cache_key: string
+          created_at: string
+          expires_at: string
+          hit_count: number
+          id: string
+          include_cover_letter: boolean
+          jd_text_hash: string
+          last_hit_at: string | null
+          result: Json
+          resume_content_hash: string
+        }
+        Insert: {
+          cache_key: string
+          created_at?: string
+          expires_at: string
+          hit_count?: number
+          id?: string
+          include_cover_letter: boolean
+          jd_text_hash: string
+          last_hit_at?: string | null
+          result: Json
+          resume_content_hash: string
+        }
+        Update: {
+          cache_key?: string
+          created_at?: string
+          expires_at?: string
+          hit_count?: number
+          id?: string
+          include_cover_letter?: boolean
+          jd_text_hash?: string
+          last_hit_at?: string | null
+          result?: Json
+          resume_content_hash?: string
+        }
+        Relationships: []
+      }
       talent_directory_boosts: {
         Row: {
           boosted_until: string | null
@@ -3366,6 +3405,7 @@ export type Database = {
           reason: string
         }[]
       }
+      cleanup_expired_tailoring_cache: { Args: never; Returns: undefined }
       consume_anonymous_rate_limit: {
         Args: {
           p_bucket: string
@@ -3594,6 +3634,10 @@ export type Database = {
       }
       record_employer_resume_view: {
         Args: { p_application_id: string }
+        Returns: undefined
+      }
+      record_tailoring_cache_hit: {
+        Args: { p_cache_key: string }
         Returns: undefined
       }
       referral_leaderboard: {
