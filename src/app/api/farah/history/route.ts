@@ -80,18 +80,35 @@ export async function GET() {
    * below still reports the pre-mark state, so the dot shows for this load;
    * the row is cleared for the next.
    */
-  const { data: unread } = await supabase
+  const { data: unread, error: unreadError } = await supabase
     .from("user_notifications")
     .select("id")
     .eq("user_id", user.id)
     .is("read_at", null);
+  // Logged, not thrown: a rejected Supabase call resolves with an `error`
+  // rather than throwing (CLAUDE.md's own standing rule, documented for
+  // deletes but the same client behaviour applies here), so this is the
+  // difference between a silent failure and a visible one. Low-severity
+  // either way — a failed read just leaves the dot off this load, same as
+  // genuinely having nothing unread — but silent is still wrong.
+  if (unreadError) {
+    console.error(`[farah-history] could not check unread notifications for ${user.id}: ${unreadError.message}`);
+  }
   const hasUnreadNotification = (unread?.length ?? 0) > 0;
   if (hasUnreadNotification) {
-    await supabase
+    const { error: markReadError } = await supabase
       .from("user_notifications")
       .update({ read_at: new Date().toISOString() })
       .eq("user_id", user.id)
       .is("read_at", null);
+    // Same reasoning as above, and lower-stakes than it looks: an unlogged
+    // failure here would just mean the row stays unread and the same check
+    // (and the same attempt to mark it read) runs again next page load —
+    // not silent data loss, but still worth knowing about rather than
+    // guessing at from a dot that never clears.
+    if (markReadError) {
+      console.error(`[farah-history] could not mark notifications read for ${user.id}: ${markReadError.message}`);
+    }
   }
 
   // Newest-first out of the query (so the LIMIT takes the most recent turns),
