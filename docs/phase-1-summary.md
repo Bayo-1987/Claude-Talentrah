@@ -78,6 +78,7 @@ Each stands in for an open `[DECIDE]` item and should be revisited, not inherite
 - **The demo account's password was committed in a public repo** while owning the org whose postings are live in the feed (2026-08-25). See *Published demo credentials* below.
 - **A second published credential**, shared by the two seeded referral accounts, found by the follow-up history-wide sweep and still live at the time — rotated, old value confirmed dead. Full results in [docs/secrets-audit.md](secrets-audit.md).
 - **Organisation-membership RLS, two defects, both live until 2026-08-24** (`0026`). Any authenticated user could `INSERT` themselves into **any** organisation with a caller-chosen role of `owner` — the policy checked only `user_id = auth.uid()` and never asked whether the caller had any relationship to the org (verified against the live project: HTTP 201, real row). Separately, the `organization_members` SELECT policy referenced its own table, so it — and every policy resolving membership through it (`organizations` UPDATE, `job_postings` INSERT/UPDATE) — failed with "infinite recursion detected in policy". The second masked the first: the escalation could not go anywhere because the downstream rules crashed before they could allow anything, so fixing the recursion alone would have switched it on. Both fixed together in one migration, with `tests/rls/org-and-referral-scoping.test.ts` proven to fail twice against the unfixed database and a positive control proving the legitimate path (create org → join → read → edit → post) still works.
+- **Nav clicks appeared to hang for 11 days after the fix for that broke real 404s** (`#218`→`#221`, regression open 2026-09-05 to 2026-09-16, restored by `#430`–`#433`). See *Nav clicks appeared to hang, then the fix silently broke real 404s* below.
 
 ## Forensic audit — was the org-membership escalation ever used?
 
@@ -949,3 +950,111 @@ rolled-back SQL transaction instead (see commit), but the new test itself
 still needs a real CI run — the same "typecheck, lint, unit tests" gate every
 other PR in this repo goes through — before this is treated as fully verified
 by this project's own four-point standard.
+
+## Nav clicks appeared to hang, then the fix silently broke real 404s (`#218` → `#433`)
+
+A real user report — "clicking things feels dead" — turned into an 11-day,
+known, `describe.skip`'d regression before it was fully resolved. Worth
+recording carefully because the final fix isn't the one that was planned
+partway through, and the reason it changed is itself the useful part.
+
+**`#218` (`7e1c234`, 2026-09-04) — the original fix.** Added eleven
+`loading.tsx` files across the app, including a site-wide root one at
+`(app)/loading.tsx`, so every nav click painted a skeleton immediately
+instead of leaving the previous page frozen on screen until the destination
+finished rendering.
+
+**`#221` (`2459a1e`, 2026-09-05) — the regression, and the actual mechanism.**
+Next.js commits the HTTP response to **200** the instant it decides a route
+*can* stream at all — which is to say, the moment **any** `loading.tsx` exists
+anywhere in that route's ancestor chain — and it commits to that status
+*before* the route's own `redirect()` or `notFound()` call has run. The
+redirect or 404 still happens, client-side, a moment later; the first byte a
+browser or a crawler receives is already a 200. Bisected against real
+production data: a missing job, a missing or pending scholarship, and a
+below-threshold degree-level landing page were all being served as silent
+200s instead of 404s the moment `#218` gave them (or an ancestor of theirs) a
+`loading.tsx`. `#221` had to remove four of `#218`'s eleven files to stop
+this — the root `(app)/loading.tsx` among them — which is what reintroduced
+the frozen-click symptom `#218` had just fixed, app-wide. `e2e/nav-
+responsiveness.spec.ts` was written to pin the fix and immediately
+`describe.skip`'d, with its own header documenting a measured 657ms
+regression (`/billing` → `/tracker`, a route pair where *neither* end had
+lost its own `loading.tsx` — the root boundary's absence degraded navigation
+everywhere, not only on the two routes that needed fixing) and two
+fix theories that were tried and ruled out (starting navigation from a
+different page; moving the `notFound()` decision into `generateMetadata`).
+Left skipped rather than deleted or loosened, specifically so the next person
+would pick it back up deliberately.
+
+**11 days open, then restored in three PRs on 2026-09-16:**
+
+- **`#430`** — a scoped fix for `/jobs` specifically:
+  `src/app/(app)/jobs/(feed)/loading.tsx`, placed in a route group that is a
+  *sibling* of `jobs/[id]` rather than its ancestor, so the boundary never
+  reaches `jobs/[id]`'s own `notFound()` (confirmed with a real request for a
+  nonexistent job id — still a genuine 404). Paired with a `useTransition`-
+  based immediate-feedback fix for the feed's own tab clicks
+  (`feed-tabs.tsx`), since the route-level boundary doesn't fire for a
+  same-segment `?tab=` navigation at all. Took two CI rounds: the first found
+  a skeleton overflowing a 360px viewport and a shared login helper racing
+  the new loading state, both fixed before merge.
+- **`#431`** — pure refactor, no behaviour change: extracted
+  `(app)/layout.tsx`'s shell into a shared `AppShell` component so a second,
+  sibling `layout.tsx` could render the identical shell without duplicating
+  the logic — preparing for the route-group split `#433` was expected to need.
+- **`#433`** — the site-wide restoration, and **the one where the shipped
+  design is not the one that was planned.** Its first commit (`502ecb3`)
+  built exactly what `#431` had prepared for: move the three `notFound()`-
+  capable routes (`jobs/[id]`, `scholarships/[id]`,
+  `scholarships/degree/[level]`) into a new sibling `(public)` route group,
+  and restore one root `(app)/loading.tsx`. CI caught a real regression in
+  that design before it merged: `farah-panel-job-context-switch.spec.ts`
+  failed because rendering those three routes through a *different*
+  `layout.tsx` file makes Next.js remount everything under that boundary on
+  navigation into them — including the docked Farah panel's in-memory
+  conversation, which the product depends on surviving a same-app
+  client-side navigation (a reader mid-conversation about one job, who then
+  clicks into a second job's own detail page, used to keep talking to Farah
+  about the first; the route-group version silently reset the panel instead).
+  Investigated whether `FarahPanel`'s own history refetch could paper over
+  this — it can't, by design: the component deliberately holds fetched
+  history behind an explicit "Continue" click rather than auto-revealing it,
+  so even a perfect remount-triggered refetch would show a prompt, not an
+  unbroken conversation. The second commit (`4064671`) reverted the
+  route-group split entirely — every route that had moved into `(public)`
+  moved back into `(app)`, and the root `(app)/loading.tsx` was deleted again
+  — and replaced it with **individual `loading.tsx` files at each leaf route
+  that needed one** (`feedback/`, `mentorship/(list)/`, `mentorship/apply/`,
+  `mentorship/book/`, `mentorship/reviews/`, `mentorship/sessions/`,
+  `scholarships/(list)/`, `settings/`, `talent-directory/verify/`), using the
+  same sibling-route-group trick as `#430` wherever a leaf's own
+  `notFound()`-capable neighbour needed excluding. `jobs/[id]`,
+  `scholarships/[id]` and `scholarships/degree/[level]` were left with **no**
+  `loading.tsx` anywhere in their ancestor chain — the exact thing `#221` had
+  to protect, now preserved by construction rather than by a route-group
+  boundary that turned out to cost something else. That same investigation
+  also found `/mentorship` (all eight of its routes) and
+  `/talent-directory/verify` had never been added to `seekerAppGate`'s
+  protected-path list — protected only by a page-level `requireUser()` call,
+  which meant giving any of them a `loading.tsx` would have reintroduced
+  `#221`'s bug on nine routes nobody had flagged. Fixed by adding both
+  prefixes to `seekerAppGate` (a scope expansion, confirmed before doing it)
+  — the same migration `#221` already did for every other protected route,
+  not a new product decision about what should be public.
+
+**`#435` (`afd4c64`, same day) — a related but separate, same-day fix, not
+part of this thread.** The collapsed masthead's hamburger trigger had no
+label and wasn't being recognised as the way to the rest of the app — a
+*discoverability* defect, not a *latency* one. Fixed by giving the collapsed
+trigger a labelled, two-affordance design. Noted here because it landed
+alongside the restoration above and is easy to conflate with it; the
+mechanism and the fix are unrelated.
+
+**Current verified state** (checked directly against `main`, not assumed):
+`e2e/nav-responsiveness.spec.ts` runs at its original `FEEDBACK_BUDGET_MS =
+100` (asserting `<= 300ms`), not loosened, and its `describe` block is no
+longer skipped. No root `(app)/loading.tsx` exists anywhere in the tree.
+`jobs/[id]`, `scholarships/[id]` and `scholarships/degree/[level]` all still
+return a genuine HTTP `404` for missing, missing, and below-threshold content
+respectively.
