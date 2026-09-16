@@ -93,6 +93,11 @@ test("a saved job is not an applicant", async ({ page }) => {
   // no country in the string) would silently disappear from a concern this
   // test isn't exercising.
   await page.goto("/jobs?tab=recent&country=all");
+  // This is a second, separate navigation from the beforeEach's — the same
+  // race applies: wait for the skeleton to clear before the one-shot
+  // `.count()` below, which (unlike `expect(locator).toBeVisible()`) does
+  // not retry and would otherwise count placeholder blocks, not real cards.
+  await expect(page.getByTestId(ROUTE_LOADING_TESTID)).toHaveCount(0, { timeout: 15000 });
   // By heading text, not by link role: card titles are plain text on this
   // branch. A role selector silently matched nothing and turned the most
   // valuable assertion in this file into a skip.
