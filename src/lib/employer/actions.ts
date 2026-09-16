@@ -714,14 +714,34 @@ export async function setJobStatusAction(jobId: string, status: Enums<"job_statu
   if (!error && updated?.length) {
     const admin = createServiceRoleClient();
     if (status === "closed") {
-      await admin.from("job_postings").update({ closed_at: new Date().toISOString() }).eq("id", jobId);
+      const { error: closedAtError } = await admin
+        .from("job_postings")
+        .update({ closed_at: new Date().toISOString() })
+        .eq("id", jobId);
+      // A rejected update RESOLVES with `error`, it does not throw (same
+      // rule this repo applies to deletes). Left unchecked, this is the one
+      // path among the five that can land `status = 'closed'` where a
+      // transient failure here would leave a closed posting with a NULL
+      // closed_at — the exact state posting-deletion.ts's own comment calls
+      // "structurally impossible" and the 30-day deletion sweep would then
+      // never pick the row up. ingest.ts and expiry.ts already check this;
+      // this call site was the outlier.
+      if (closedAtError) {
+        console.error("[employer] closed job but could not stamp closed_at", jobId, closedAtError.message);
+      }
     } else if (status === "open") {
       // Reopening clears it, the same convention 0079's restore branch
       // already uses for removed_at: a posting that isn't closed must not
       // carry a stale closed_at the 30-day deletion job could act on if the
       // row is ever closed-then-reopened-then-closed and something upstream
       // regresses.
-      await admin.from("job_postings").update({ closed_at: null }).eq("id", jobId);
+      const { error: reopenError } = await admin
+        .from("job_postings")
+        .update({ closed_at: null })
+        .eq("id", jobId);
+      if (reopenError) {
+        console.error("[employer] reopened job but could not clear closed_at", jobId, reopenError.message);
+      }
     }
   }
 
