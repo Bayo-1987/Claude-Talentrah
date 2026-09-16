@@ -20,4 +20,10 @@ export default defineConfig({
   // Browser pane's `npm run dev`; in CI, ci.yml builds and starts it itself
   // and seeds demo data before this runs) — not launching a webServer here
   // to avoid a second Next.js instance fighting over :3000 locally.
+  //
+  // A failure that only reproduces against `npm run dev` and NOT against
+  // `npm run build && npm run start` (CI's actual e2e-job commands, see
+  // .github/workflows/ci.yml) is a strong signal the failure is a dev-mode
+  // artifact, not a real regression — check that before spending time
+  // instrumenting a bug that may not exist outside dev mode.
 });
