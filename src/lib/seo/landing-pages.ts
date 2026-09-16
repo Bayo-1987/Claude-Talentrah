@@ -56,12 +56,46 @@ export function currentApplicationCycle(now: Date = new Date()): string {
  *
  * So: a short, explicit, reviewed list. Adding a city is a deliberate
  * decision — check the live count first (see docs on LANDING_PAGE_MIN_ENTRIES
- * above) — not an automatic inference. Measured against production
- * 2026-09-02, open postings only: Lagos 32, Abuja/FCT 3, Nairobi 3, Kano 3,
- * Port Harcourt 0 — only Lagos currently clears the threshold, which is why
- * it is the only entry. The LIVE check still runs on every request even
- * for this curated list — a city can be listed here and still 404 if its
- * count drops, exactly like every other landing page in this feature.
+ * above) — not an automatic inference.
+ *
+ * Re-measured against production 2026-09-16 (audit of whether the
+ * 2026-09-02 near-threshold cities were real supply or a matching-pattern
+ * undercount — same open/unlisted/30-day-freshness filter loadCityJobs
+ * itself applies): Lagos 54, Abuja 17, Nairobi 14, Kano 1-2, Port Harcourt 3.
+ * (The 2026-09-02 note recorded Lagos 32, Abuja/FCT 3, Nairobi 3, Kano 3,
+ * Port Harcourt 0 — most of the growth here is real new supply in the
+ * 14 days between measurements, not a matching fix; see below for the one
+ * genuine matching gap that was found and closed.)
+ *
+ * Abuja and Nairobi both clear the threshold now even under a single bare
+ * `%abuja%` / `%nairobi%` pattern (14 and 14 respectively) — the case for
+ * adding them is supply growth, not a matching bug. Abuja's pattern list
+ * below adds `%fct%` and `%federal capital territory%` on top of that
+ * because "FCT, Nigeria" and "Federal Capital Ter[ritory], Nigeria" are real,
+ * distinct free-text ways sources state the same territory (Nigeria's
+ * Federal Capital Territory contains only Abuja and its satellite towns —
+ * there is no other city FCT could mean, unlike Kano State's LGAs), and
+ * without them 3 genuinely-Abuja postings were invisible to the page. `%fct%`
+ * was checked against every location string in the table (not just the
+ * Abuja-looking ones) before adding it, specifically to rule out an
+ * accidental substring match — it never matches anything unrelated.
+ * Nairobi's count needed no broadening: real Kenyan locations that are NOT
+ * Nairobi turned up in the same query (Mombasa, Kakamega, Lamu, Rukanga,
+ * Sagana, Tatu City are all distinct cities/towns, not synonyms for
+ * Nairobi) and bare "Kenya" / "Remote, Kenya" postings are genuinely
+ * ambiguous about which city — none of those were folded in.
+ *
+ * Kano stays OUT. Its real count (excluding one multi-state remote listing
+ * that names 7 states including Kano as one of many, not a Kano-specific
+ * posting) is 1, or 2 if that ambiguous row is generously included — no
+ * spelling/abbreviation variant was found under a broad net for "kano",
+ * "kano state", or similar. This is a real supply gap, not a matching bug,
+ * and per this file's own header comment a thin category must not be
+ * propped up with a widened pattern just to clear the bar.
+ *
+ * The LIVE check still runs on every request even for this curated list —
+ * a city can be listed here and still 404 if its count drops, exactly like
+ * every other landing page in this feature.
  */
 export interface CityLandingPage {
   slug: string;
@@ -72,6 +106,12 @@ export interface CityLandingPage {
 
 export const CITY_LANDING_PAGES: CityLandingPage[] = [
   { slug: "lagos", displayName: "Lagos", locationPatterns: ["%lagos%"] },
+  {
+    slug: "abuja",
+    displayName: "Abuja",
+    locationPatterns: ["%abuja%", "%fct%", "%federal capital territory%"],
+  },
+  { slug: "nairobi", displayName: "Nairobi", locationPatterns: ["%nairobi%"] },
 ];
 
 export function findCityLandingPage(slug: string): CityLandingPage | undefined {
