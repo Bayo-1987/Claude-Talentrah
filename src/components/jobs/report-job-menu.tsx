@@ -5,6 +5,7 @@ import { reportJobPostingAction } from "@/lib/reports/actions";
 import { initialReportActionState } from "@/lib/reports/state";
 import { REPORT_REASONS } from "@/lib/reports/schemas";
 import { IconButton } from "@/components/ui";
+import { useMounted, mountedTriggerProps } from "@/hooks/use-mounted";
 
 /**
  * "Report" on a job card — the seeker-side input to 0056's removal power.
@@ -35,6 +36,10 @@ export function ReportJobMenu({ jobId, jobTitle }: ReportJobMenuProps) {
     initialReportActionState,
   );
   const wrapRef = useRef<HTMLDivElement>(null);
+  // #142: this trigger is a bare onClick, not a progressively-enhancing
+  // <form>, so it must stay inert until hydration has actually attached the
+  // handler — see src/hooks/use-mounted.ts.
+  const mounted = useMounted();
 
   useEffect(() => {
     if (!open) return;
@@ -78,6 +83,7 @@ export function ReportJobMenu({ jobId, jobTitle }: ReportJobMenuProps) {
         aria-expanded={open}
         aria-haspopup="true"
         onClick={() => setOpen((o) => !o)}
+        {...mountedTriggerProps(mounted)}
       >
         {/*
           Outline flag, 1.4 stroke and currentColor — the same weight and

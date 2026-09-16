@@ -71,7 +71,21 @@ const FARAH_TAB_HEIGHT = 56;
  */
 const FARAH_TAB_BORDER = 2.5;
 
-export function FarahMobileTab() {
+export interface FarahMobileTabProps {
+  /**
+   * The design review's notification dot, threaded down from (app)/layout.tsx
+   * (src/lib/notifications/unread.ts) rather than fetched here — this
+   * component fetches nothing of its own, and a second fetch of the same
+   * signal FarahPanel already reads would risk two independent writers
+   * racing to mark the same rows read on one page load. Below 760px this is
+   * the ONLY on-screen Farah affordance (the panel is stacked off screen),
+   * which is why the dot lives here and not on the masthead's icon — see
+   * PR description for the full reasoning.
+   */
+  hasUnreadNotification?: boolean;
+}
+
+export function FarahMobileTab({ hasUnreadNotification = false }: FarahMobileTabProps) {
   return (
     <>
       {/*
@@ -118,7 +132,7 @@ export function FarahMobileTab() {
           aria-label here, which would override the visible text with a
           duplicate of itself.
         */}
-          <FarahMark size={22} />
+          <FarahMark size={22} hasUnread={hasUnreadNotification} />
           Ask Farah
         </button>
       </div>

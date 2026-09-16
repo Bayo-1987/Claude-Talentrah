@@ -2,6 +2,7 @@
 
 import { seedFarahForJob } from "@/lib/farah/job-seed";
 import { scrollToFarahPanel } from "@/lib/farah/scroll-to-panel";
+import { useMounted, mountedTriggerProps } from "@/hooks/use-mounted";
 
 /**
  * "Ask Farah" for ONE posting (send-100) — a single button, no dropdown.
@@ -52,6 +53,9 @@ export interface FarahJobMenuProps {
 }
 
 export function FarahJobMenu({ jobId, jobTitle, companyName }: FarahJobMenuProps) {
+  // #142: bare onClick, not a <form> — stays inert until hydration attaches
+  // it. See src/hooks/use-mounted.ts.
+  const mounted = useMounted();
   return (
     <button
       type="button"
@@ -59,7 +63,8 @@ export function FarahJobMenu({ jobId, jobTitle, companyName }: FarahJobMenuProps
         seedFarahForJob({ jobId, jobTitle, companyName });
         scrollToFarahPanel();
       }}
-      className="inline-flex min-h-10 items-center py-2 text-[13px] font-semibold text-ink-soft underline underline-offset-2 hover:text-rust"
+      className="inline-flex min-h-10 items-center py-2 text-[13px] font-semibold text-ink-soft underline underline-offset-2 hover:text-rust disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:text-ink-soft"
+      {...mountedTriggerProps(mounted)}
     >
       Ask Farah
     </button>
