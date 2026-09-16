@@ -68,7 +68,15 @@ export async function generateMetadata({ params }: { params: Promise<{ city: str
   const { city, total } = result;
   const title = `Jobs in ${city.displayName}, Nigeria — ${total} Open Roles | Talentrah`;
   const description = `Browse ${total} open job openings in ${city.displayName} from verified employers. Get matched against your resume, tailor your application and apply free.`;
-  return pageMetadata({ title, description, path: `/jobs/in/${city.slug}` });
+  // `segment`: opengraph-image.tsx next door renders the live count onto a
+  // real 1200x630 card. See pageMetadata's own comment for why declaring
+  // `images` here as well would silently disable that file.
+  return pageMetadata({
+    title,
+    description,
+    path: `/jobs/in/${city.slug}`,
+    shareImage: "segment",
+  });
 }
 
 export default async function CityJobsPage({ params }: { params: Promise<{ city: string }> }) {

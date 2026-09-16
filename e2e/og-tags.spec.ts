@@ -49,6 +49,8 @@ async function head(page: import("@playwright/test").Page, path: string) {
     ogDescription: await read('meta[property="og:description"]'),
     ogImage: await read('meta[property="og:image"]'),
     twTitle: await read('meta[name="twitter:title"]'),
+    twCard: await read('meta[name="twitter:card"]'),
+    twImage: await read('meta[name="twitter:image"]'),
   };
 }
 
@@ -77,7 +79,9 @@ test.describe("public pages carry their own social title", () => {
     expect(h.ogTitle).not.toBe("Blog — Talentrah");
     expect(h.ogTitle).toBe(h.title);
     expect(h.ogDescription).toBeTruthy();
-    expect(h.ogImage).toContain("talentrah-mark");
+    // A blog post is one of the three families with its own rendered card.
+    expect(h.ogImage, "a blog post fell back to the static mark").not.toContain("talentrah-mark");
+    expect(h.ogImage).toContain(`${href}/opengraph-image`);
   });
 
   test("a scholarship listing carries its OWN title, not the list page's", async ({ page }) => {
@@ -110,6 +114,128 @@ test.describe("public pages carry their own social title", () => {
     // and must not be empty, since scholarships carry no description column
     // the way a job posting does.
     expect(h.ogDescription).toBeTruthy();
+  });
+
+  /**
+   * ── THE PER-PAGE SHARE CARD, AND THE ONE WAY IT SILENTLY DIES ───────────
+   *
+   * Three page families (job detail, blog post, city/remote landing) render
+   * their own 1200x630 card from a colocated `opengraph-image.tsx`. Next
+   * merges a file-based image in ONLY when the same level does not declare
+   * `openGraph.images` itself — `mergeStaticMetadata` tests
+   * `hasOwnProperty('images')` — so restoring that key in generateMetadata
+   * would silently disable the whole feature while the image route kept
+   * compiling, kept passing lint, and kept serving a perfectly good PNG that
+   * nothing points at.
+   *
+   * That is invisible everywhere except the rendered <head>, which is why it
+   * is asserted here and not in a unit test over the metadata object: the
+   * page's own object is CORRECT in both the working and the broken case.
+   *
+   * The image route is also fetched, not just referenced. A `<meta>` pointing
+   * at a route that 500s or renders blank is the same bug with better
+   * paperwork — and Satori fails quietly (an unsupported CSS property does
+   * nothing rather than throwing), so "the URL is right" is not evidence.
+   *
+   * ── FETCH THE PATH, NEVER THE URL IN THE TAG ────────────────────────────
+   *
+   * `og:image` is ABSOLUTE and points at `metadataBase` — the canonical
+   * production origin (SITE_ORIGIN, see layout.tsx for why it is deliberately
+   * not VERCEL_URL). That is correct: a crawler must be able to follow it, and
+   * a relative og:image is itself a real bug.
+   *
+   * It also means passing that URL straight to `request.get()` fetches
+   * www.talentrah.com — the DEPLOYED site — instead of the server under test,
+   * which is a green-looking assertion about the wrong machine and a 404 as
+   * soon as the branch adds a route production does not have yet. That is not
+   * hypothetical: it is exactly how this test first failed in CI, passing
+   * locally the whole time because `next dev` emits the localhost origin for
+   * file-convention metadata routes while `next build` emits metadataBase.
+   *
+   * So: assert the tag is absolute, then fetch its PATH against Playwright's
+   * baseURL. The origin itself is deliberately NOT asserted against a literal
+   * — it comes from metadataBase and an env override is a supported
+   * deployment, so pinning the string here would fail for a reason that has
+   * nothing to do with share cards.
+   */
+
+  /**
+   * The path+query of an absolute metadata URL, for requesting against the
+   * server under test. Also asserts the tag really is absolute — a crawler
+   * cannot follow a relative og:image, so that is worth pinning here rather
+   * than quietly tolerating.
+   */
+  function samePath(absolute: string | null): string {
+    expect(absolute, "og:image is missing").toBeTruthy();
+    expect(absolute, "og:image must be absolute for a crawler to follow it").toMatch(
+      /^https?:\/\//,
+    );
+    const u = new URL(absolute!);
+    return `${u.pathname}${u.search}`;
+  }
+  test("a job detail page renders its OWN share card, not the static mark", async ({ page }) => {
+    /*
+     * Sampled from a public listing rather than resolved by natural key. This
+     * asserts nothing about WHICH posting — any public one exercises the same
+     * wiring — so a fixture lookup would only add a way to fail for an
+     * unrelated reason. /jobs/in/lagos is guaranteed to carry at least
+     * LANDING_PAGE_MIN_ENTRIES links or it would not be a live page at all,
+     * which seo-landing-pages-sitemap.spec.ts already pins independently.
+     */
+    await page.goto("/jobs/in/lagos");
+    // Filtered to an id-shaped href, not just the first `/jobs/` link — the
+    // "Also browsing:" row at the top of the page links to /jobs/remote.
+    const hrefs = await page.locator('a[href^="/jobs/"]').evaluateAll((els) =>
+      els.map((e) => e.getAttribute("href") ?? ""),
+    );
+    const href = hrefs.find((h) => /^\/jobs\/[0-9a-f-]{36}$/.test(h));
+    expect(href, "no public job link to sample").toBeTruthy();
+
+    const h = await head(page, href!);
+    expect(h.ogImage, "the job page fell back to the static mark").not.toContain("talentrah-mark");
+    expect(h.ogImage).toContain(`${href}/opengraph-image`);
+    // twitter:image must move with it. Declaring it in generateMetadata is the
+    // OTHER half of the same footgun — the file convention skips the merge on
+    // either key independently.
+    expect(h.twImage, "twitter kept the static mark").not.toContain("talentrah-mark");
+    expect(h.twImage).toContain(`${href}/opengraph-image`);
+    // 1200x630 wants the wide card; the square mark did not. Both settings
+    // describe one decision, so they must agree.
+    expect(h.twCard).toBe("summary_large_image");
+
+    // Absolute for the crawler, fetched by path against the server under test
+    // — which is the only machine this run can actually speak to.
+    const img = await page.request.get(samePath(h.ogImage));
+    expect(img.status(), "the og:image route must serve an image").toBe(200);
+    expect(img.headers()["content-type"]).toContain("image/png");
+    // A blank or errored ImageResponse is still a PNG. A real card carries
+    // rendered type on a paper ground and does not compress to a few hundred
+    // bytes the way an empty canvas does.
+    expect((await img.body()).byteLength).toBeGreaterThan(5_000);
+  });
+
+  test("a city landing page's card is live, and 404s when the page does", async ({ page }) => {
+    const h = await head(page, "/jobs/in/lagos");
+    expect(h.ogImage).toContain("/jobs/in/lagos/opengraph-image");
+    expect(h.twCard).toBe("summary_large_image");
+    const livePath = samePath(h.ogImage);
+    expect((await page.request.get(livePath)).status()).toBe(200);
+
+    /*
+     * The gate that matters. A landing page below LANDING_PAGE_MIN_ENTRIES is
+     * doorway spam and 404s; a share card for it would be that same thin page
+     * with better packaging. The image route re-runs the live count itself
+     * rather than trusting that the page already did — they are separate
+     * requests, and a crawler can ask for either one.
+     *
+     * `kano` is deliberately NOT in CITY_LANDING_PAGES (see landing-pages.ts
+     * for why the list is short and curated), so this is the no-such-city arm
+     * of the same gate and needs no seeded row to hold.
+     */
+    const pageRes = await page.request.get("/jobs/in/kano");
+    expect(pageRes.status(), "an unlisted city must 404").toBe(404);
+    const imgRes = await page.request.get(livePath.replace("/lagos/", "/kano/"));
+    expect(imgRes.status(), "the IMAGE route must 404 wherever the page does").toBe(404);
   });
 
   test("the home page keeps the generic title, which is correct there", async ({ page }) => {

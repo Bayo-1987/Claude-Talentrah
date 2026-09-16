@@ -62,6 +62,10 @@ export async function generateMetadata({ params }: BlogPostPageProps): Promise<M
     description: post.description,
     path: `/blog/${slug}`,
     type: "article",
+    // `segment`: opengraph-image.tsx next door renders this post's own title
+    // onto a real 1200x630 card. See pageMetadata's own comment for why
+    // declaring `images` here as well would silently disable that file.
+    shareImage: "segment",
   });
 }
 
