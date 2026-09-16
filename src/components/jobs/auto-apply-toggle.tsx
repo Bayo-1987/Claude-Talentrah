@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useOptimistic, useTransition } from "react";
 import { setAutoApplyEnabledAction } from "@/lib/auto-apply/actions";
 import { AUTO_APPLY_DAILY_SUBMIT_CAP, AUTO_APPLY_MIN_SCORE } from "@/lib/auto-apply/config";
+import { useMounted } from "@/hooks/use-mounted";
 
 /**
  * Auto-Apply toggle, in the job feed per build-prompt §6.2.
@@ -26,6 +27,11 @@ export function AutoApplyToggle({
   pendingCount: number;
 }) {
   const [isPending, startTransition] = useTransition();
+  // #142: bare onClick, not a <form> — stays inert until hydration attaches
+  // it. See src/hooks/use-mounted.ts. Combined with `isPending` below since
+  // both are "don't let this be clicked right now" states for the same
+  // control, not two different controls.
+  const mounted = useMounted();
   /*
    * The switch reflects an optimistic value, not the server prop directly.
    *
@@ -60,7 +66,8 @@ export function AutoApplyToggle({
           role="switch"
           aria-checked={optimisticEnabled}
           aria-label="Auto-Apply"
-          disabled={isPending}
+          aria-disabled={isPending || !mounted}
+          disabled={isPending || !mounted}
           onClick={() =>
             startTransition(async () => {
               setOptimisticEnabled(!enabled);
@@ -70,7 +77,7 @@ export function AutoApplyToggle({
           className={[
             "relative inline-flex h-[26px] w-[46px] flex-shrink-0 items-center rounded-full border-[1.5px] border-ink transition-colors",
             optimisticEnabled ? "bg-ink" : "bg-paper",
-            isPending ? "opacity-50" : "",
+            isPending || !mounted ? "cursor-not-allowed opacity-50" : "",
           ].join(" ")}
         >
           <span
