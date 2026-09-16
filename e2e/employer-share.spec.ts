@@ -62,7 +62,7 @@ test.describe("employer share link", () => {
     await authedPage.getByLabel("Location").fill("Lagos, Nigeria");
     await authedPage
       .getByLabel("Job description")
-      .fill("A role posted specifically to prove the share link that comes out of it actually works.");
+      .fill("A logistics coordinator role, posted specifically to prove the share link that comes out of it actually works.");
     await authedPage.getByRole("button", { name: "Publish job" }).click();
 
     // ---- Post-success surface -------------------------------------------
@@ -139,7 +139,7 @@ test.describe("employer share link", () => {
     await authedPage.getByLabel("Location").fill("Lagos, Nigeria");
     await authedPage
       .getByLabel("Job description")
-      .fill("A role that must never come with a shareable link while the org is unverified.");
+      .fill("A sales role that must never come with a shareable link while the org is unverified.");
     await authedPage.getByRole("button", { name: "Publish job" }).click();
 
     // ---- Post-success surface: no link, no share targets ------------------

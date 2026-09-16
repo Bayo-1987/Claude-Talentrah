@@ -1,9 +1,10 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { MAX_EXPIRY_DAYS } from "@/lib/employer/expiry-input";
-import { BorderedCard, Button, TextField } from "@/components/ui";
+import { BorderedCard, Button, FilterChip, TextField } from "@/components/ui";
 import { cn } from "@/lib/cn";
+import { extractStructuredJd, SKILL_VOCABULARY } from "@/lib/jobs/extract-jd";
 import type { EmployerActionState } from "@/lib/employer/actions";
 
 /**
@@ -233,6 +234,125 @@ function ExpiryField({ current }: { current: string | null }) {
   );
 }
 
+/**
+ * Autocomplete-only skill picker, feeding `structured_jd.skills` (the exact
+ * denominator `computeMatchScore` divides by — see docs/stage8-match-
+ * accuracy.md). An employer-posted job used to get NO structured skills at
+ * all, which tripped `computeMatchScore`'s own "nothing to compare against"
+ * branch and scored every candidate a flat 50%, Excellent-eligible included.
+ *
+ * ── WHY THIS IS AUTOCOMPLETE-ONLY, NOT A FREE-TEXT TAG INPUT ───────────────
+ *
+ * A custom tag an employer invents ("rockstar energy", "10x developer") would
+ * sit in `structured_jd.skills` looking exactly like a real requirement, but
+ * no resume's `skills` array will ever echo it back — this is precisely the
+ * `NON_SCREENABLE_SKILLS` failure mode this file's own header (extract-jd.ts)
+ * already warns about, self-inflicted at the source instead of discovered
+ * after the fact by document-frequency measurement. Rather than build a
+ * second, separately-stored "extra tags" bucket that never feeds scoring
+ * (real but unused complexity) or let free text quietly join the screenable
+ * set (reintroducing the exact bug Stage 8 has been closing), suggestions are
+ * restricted to `SKILL_VOCABULARY` and nothing else can be added. The
+ * options this form's own vocabulary can't yet name are a real gap (see
+ * `docs/stage8-match-accuracy.md`'s step 1b), but it is a vocabulary-coverage
+ * problem to fix in one place, not a per-posting escape hatch to reopen here.
+ *
+ * ── WHY IT PRE-POPULATES FROM THE DESCRIPTION ──────────────────────────────
+ *
+ * A field that starts empty and is merely optional to fill in gets skipped —
+ * that was this bug's entire mechanism. `extractStructuredJd` (the SAME
+ * function, not a reimplementation, that the aggregation pipeline runs
+ * against every ingested posting) runs once against whatever the employer
+ * has already typed into the description, either at mount (editing a
+ * posting, or a URL import that remounts this form with fresh `initial`
+ * values — see NewJobForm's own `formKey` note) or on the description
+ * field's blur for a hand-typed blank-form post. It never overwrites a
+ * choice the employer already made — see the blur handler below.
+ */
+function SkillsAutocomplete({
+  skills,
+  onChange,
+}: {
+  skills: string[];
+  onChange: (next: string[]) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const normalizedQuery = query.trim().toLowerCase();
+  const suggestions = normalizedQuery
+    ? SKILL_VOCABULARY.filter(
+        (skill) => skill.includes(normalizedQuery) && !skills.includes(skill),
+      ).slice(0, 8)
+    : [];
+
+  function addSkill(skill: string) {
+    if (!skills.includes(skill)) onChange([...skills, skill]);
+    setQuery("");
+  }
+
+  function removeSkill(skill: string) {
+    onChange(skills.filter((s) => s !== skill));
+  }
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label htmlFor="skills-autocomplete" className="font-body text-[13px] font-semibold text-ink-soft">
+        Skills seekers are matched against
+      </label>
+      {skills.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {skills.map((skill) => (
+            <FilterChip key={skill} label={skill} onRemove={() => removeSkill(skill)} />
+          ))}
+        </div>
+      )}
+      <div className="relative">
+        <input
+          id="skills-autocomplete"
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={(e) => {
+            // Enter commits the top suggestion — never the raw typed text,
+            // which is how "autocomplete-only" stays true even from the
+            // keyboard.
+            if (e.key === "Enter") {
+              e.preventDefault();
+              if (suggestions[0]) addSkill(suggestions[0]);
+            }
+          }}
+          placeholder="Start typing a skill — e.g. Excel, SQL, procurement…"
+          className="min-h-11 w-full border-[1.5px] border-ink bg-card px-3.5 py-2.5 font-body text-[15px] text-ink outline-none focus:border-rust"
+        />
+        {suggestions.length > 0 && (
+          <ul className="absolute z-10 mt-1 w-full border-[1.5px] border-ink bg-card">
+            {suggestions.map((skill) => (
+              <li key={skill}>
+                <button
+                  type="button"
+                  onClick={() => addSkill(skill)}
+                  className="block min-h-10 w-full px-3.5 py-2 text-left font-body text-[14px] text-ink hover:bg-rust-soft"
+                >
+                  {skill}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+      <p className="font-body text-[12.5px] text-ink-soft">
+        {skills.length > 0
+          ? "Pre-filled from your description where we recognised a skill — add or remove to match what the role actually needs."
+          : "Add at least one skill so seekers are matched against real requirements, not scored a flat, meaningless number."}
+      </p>
+      {/* Multi-value the plain FormData way: one hidden input per selection,
+       * read back with form.getAll("skills") — see readJobForm in actions.ts. */}
+      {skills.map((skill) => (
+        <input key={skill} type="hidden" name="skills" value={skill} />
+      ))}
+    </div>
+  );
+}
+
 export interface JobFormValues {
   title: string;
   location: string;
@@ -250,6 +370,10 @@ export interface JobFormValues {
   salaryMax: number | null;
   salaryCurrency: string | null;
   salaryUnit: string | null;
+  /** Canonical `SKILL_VOCABULARY` entries only — see SkillsAutocomplete's own
+   * header for why free text never joins this list. Feeds
+   * `structured_jd.skills`, the denominator `computeMatchScore` divides by. */
+  skills: string[];
 }
 
 export function JobPostingForm({
@@ -268,6 +392,56 @@ export function JobPostingForm({
 }) {
   const [state, formAction, pending] = useActionState<EmployerActionState, FormData>(action, null);
   const error = state && "error" in state ? state.error : null;
+
+  // Editing an already-tagged posting, or a URL import that already found
+  // skills (JobImportPanel doesn't run extraction itself, but a future
+  // import source could), wins. Otherwise, seed from whatever description
+  // text arrived with this mount — the same extractor the aggregation
+  // pipeline runs, not a reimplementation.
+  const [skills, setSkills] = useState<string[]>(() => {
+    if (initial?.skills && initial.skills.length > 0) return initial.skills;
+    if (initial?.description) return extractStructuredJd(initial.description).skills;
+    return [];
+  });
+  const descriptionRef = useRef<HTMLTextAreaElement>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  /**
+   * Covers the blank-form case the mount-time seed above can't: an employer
+   * who opens a brand-new posting, types a description by hand, and never
+   * touches the skills field. Never overwrites a real choice — including a
+   * deliberate "none of these" — which is why the functional update below
+   * only applies while `skills` is still at its untouched empty starting
+   * point, checked at the moment it actually commits rather than against a
+   * value captured when the timer was scheduled.
+   *
+   * Debounced off onChange rather than triggered on blur (the original
+   * shape): blur fires as a side effect of whatever the employer clicks
+   * next, which is "Publish job" for anyone who goes straight from typing
+   * to submitting. That makes the population's own re-render — new chips
+   * appear directly above the button — race the click already in flight:
+   * the button's on-screen position shifts out from under a pointer that
+   * already committed to the pre-shift coordinates, so the click lands on
+   * nothing and the submission never happens. Reacting to typing instead
+   * means the chips settle while the employer is still writing, long before
+   * any click near the button is possible.
+   */
+  function handleDescriptionChange() {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      const text = descriptionRef.current?.value ?? "";
+      if (!text) return;
+      const suggested = extractStructuredJd(text).skills;
+      if (suggested.length === 0) return;
+      setSkills((current) => (current.length > 0 ? current : suggested));
+    }, 400);
+  }
+
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, []);
 
   return (
     <div className="flex flex-col gap-5">
@@ -374,7 +548,9 @@ export function JobPostingForm({
               name="description"
               required
               rows={14}
+              ref={descriptionRef}
               defaultValue={initial?.description}
+              onChange={handleDescriptionChange}
               placeholder="Responsibilities, requirements, what the team is like, how to stand out."
               className="border-[1.5px] border-ink bg-card px-3.5 py-2.5 font-body text-[15px] leading-[1.65] text-ink outline-none focus:border-rust"
             />
@@ -383,6 +559,8 @@ export function JobPostingForm({
               better the match scores.
             </p>
           </div>
+
+          <SkillsAutocomplete skills={skills} onChange={setSkills} />
 
           <div>
             <Button type="submit" disabled={pending}>

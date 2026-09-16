@@ -15,7 +15,19 @@ import {
   isConsumerEmailDomain,
   normalizeDomain,
 } from "@/lib/employer/verification";
-import { Constants, type Enums } from "@/lib/supabase/types";
+import { extractStructuredJd, SKILL_VOCABULARY } from "@/lib/jobs/extract-jd";
+import { Constants, type Enums, type Json } from "@/lib/supabase/types";
+
+/**
+ * The only skill strings a client-submitted `skills` field is trusted for.
+ * SkillsAutocomplete (job-posting-form.tsx) is autocomplete-only against this
+ * same vocabulary so a real employer session never sends anything else, but
+ * this is the server-side re-check for a hand-crafted POST — see that
+ * component's own header for why a custom tag must never reach
+ * `structured_jd.skills` (the NON_SCREENABLE_SKILLS failure mode in a new
+ * disguise: an unscreenable tag nothing can ever be measured against).
+ */
+const SCREENABLE_SKILL_SET = new Set(SKILL_VOCABULARY);
 
 /**
  * useActionState's contract: every action takes the previous state first. The
@@ -402,10 +414,46 @@ export async function submitCacVerificationAction(
  * -------------------------------------------------------------------------- */
 
 function readJobForm(form: FormData) {
+  // One hidden <input name="skills"> per selection (job-posting-form.tsx),
+  // so getAll is the plain-FormData way to read a multi-value field back.
+  // Re-checked against SCREENABLE_SKILL_SET rather than trusted, and
+  // deduplicated — the client only ever sends canonical, unique values, but
+  // this is the boundary where a hand-crafted request is caught rather than
+  // silently writing an arbitrary string into computeMatchScore's own
+  // denominator.
+  const submittedSkills = Array.from(
+    new Set(
+      form
+        .getAll("skills")
+        .map((v) => String(v).trim().toLowerCase())
+        .filter((v) => SCREENABLE_SKILL_SET.has(v)),
+    ),
+  );
+
+  const description = str(form, "description");
+
+  /*
+   * Fallback, not the primary path: SkillsAutocomplete pre-populates from the
+   * description client-side (on mount and on typing) so this should rarely
+   * actually run for an employer who wrote a real description. It exists
+   * because that pre-population's correctness depended on client-side timing
+   * relative to the moment "Publish job" is clicked, and there IS no timing
+   * that is safe against every input device and interaction speed — a fast
+   * click right after finishing the description can submit before a
+   * debounced update commits, the same way it could previously race a
+   * blur-triggered one (caught by e2e/employer.spec.ts and its siblings,
+   * which fill the description and click Publish back to back, exactly the
+   * shape a fast typist or a password-manager-style fast form-fill produces).
+   * Re-running the same extractor here means correctness never depends on
+   * whether the client's own copy finished in time.
+   */
+  const skills =
+    submittedSkills.length > 0 ? submittedSkills : extractStructuredJd(description).skills;
+
   return {
     title: str(form, "title"),
     location: str(form, "location"),
-    description: str(form, "description"),
+    description,
     work_type: optionalEnum<Enums<"work_type">>(form, "workType", Constants.public.Enums.work_type),
     employment_type: optionalEnum<Enums<"employment_type">>(
       form,
@@ -420,6 +468,7 @@ function readJobForm(form: FormData) {
     years_experience_min: str(form, "yearsExperienceMin")
       ? Number(str(form, "yearsExperienceMin"))
       : null,
+    skills,
   };
 }
 
@@ -478,6 +527,22 @@ export async function postJobAction(
   if (fields.description.length < 40) {
     return { error: "Add a real job description — at least a couple of sentences." };
   }
+  /*
+   * Hard block, not a warning. An internal posting with an empty
+   * `structured_jd.skills` is exactly the landmine docs/stage8-match-
+   * accuracy.md's own gating rules exist to keep out of the feed: every
+   * candidate scores the same flat 50/100 "nothing to compare against"
+   * neutral, Excellent-eligible (Auto-Apply is Excellent-only) included.
+   * SkillsAutocomplete pre-populates from the description on both mount and
+   * blur, so this should rarely actually surface to an employer who wrote a
+   * real description — a soft nudge would rely on that same pre-population
+   * doing all the work AND on nobody clearing the list afterward, which is
+   * not a guarantee. Blocking here is the actual guarantee, the same shape
+   * as the description-length check immediately above it.
+   */
+  if (fields.skills.length === 0) {
+    return { error: "Add at least one skill so seekers can be matched against this posting." };
+  }
 
   // A custom date the person typed can be refused; a preset never is.
   const expiry = readExpiry(form);
@@ -512,6 +577,13 @@ export async function postJobAction(
       ...salary.value,
       status: "open",
       dedup_fingerprint: internalDedupFingerprint(organization.id, fields.title, fields.location),
+      // Only `skills` — the one key every match-scoring read site
+      // (compute-and-store.ts, refresh-job.ts) actually reads. `keywords`/
+      // `responsibilities` are the rest of `StructuredJD`'s shape, but
+      // nothing reads them off an internal posting's own row, and inventing
+      // values for them here would just be more surface for the two copies
+      // to drift.
+      structured_jd: { skills: fields.skills } as Json,
     })
     .select("id")
     .single();
@@ -544,6 +616,13 @@ export async function updateJobAction(
   if (!fields.title) return { error: "Job title is required." };
   if (fields.description.length < 40) {
     return { error: "Add a real job description — at least a couple of sentences." };
+  }
+  // Same hard block as postJobAction, same reasoning — see its own comment.
+  // An edit that clears every skill is indistinguishable from a posting that
+  // never had any, and both collapse every candidate's score to the same
+  // flat 50/100 neutral.
+  if (fields.skills.length === 0) {
+    return { error: "Add at least one skill so seekers can be matched against this posting." };
   }
 
   // A custom date the person typed can be refused; a preset never is.
@@ -580,6 +659,10 @@ export async function updateJobAction(
       // unconditionally on every edit is correct, not a countdown reset.
       ...salary.value,
       dedup_fingerprint: internalDedupFingerprint(organization.id, fields.title, fields.location),
+      // Same as salary: the form always submits the full current skill set
+      // (SkillsAutocomplete's own state, not a delta), so this is an
+      // unconditional overwrite, not a "keep current" field.
+      structured_jd: { skills: fields.skills } as Json,
     })
     .eq("id", jobId)
     .eq("organization_id", organization.id);
