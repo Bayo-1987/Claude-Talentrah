@@ -20,6 +20,73 @@ const NAV_LINKS = [
   { href: "/feedback", label: "Feedback" },
 ];
 
+/**
+ * The idle label-cycling animation on the collapsed nav trigger.
+ *
+ * 2600ms of dwell, 260ms of fade — the founder-approved prototype's own
+ * numbers, not tuned here. The text is swapped at the fade's MIDPOINT (i.e.
+ * after the fade-out completes, before the fade-in starts), so a reader never
+ * sees the new word cross-dissolve with the old one.
+ */
+const LABEL_DWELL_MS = 2600;
+const LABEL_FADE_MS = 260;
+
+/**
+ * What the label says when the reader has asked for reduced motion.
+ *
+ * Deliberately NOT `NAV_LINKS[0].label`. Freezing on "Jobs" is what the
+ * prototype did, and it makes the trigger claim to be a link to one page
+ * rather than the opener of a menu of nine — the cycling is the only thing
+ * that tells you it is a sample rather than a destination, and reduced motion
+ * removes exactly that. A static "Menu" says what the control does.
+ */
+const REDUCED_MOTION_LABEL = "Menu";
+
+/**
+ * Below this width the trigger drops its label and falls back to the bare 40px
+ * icon that shipped before. MEASURED, NOT CHOSEN — and the first thing the
+ * measurement showed is that the obvious test does not catch this.
+ *
+ * `document.scrollWidth <= clientWidth` — what e2e/mobile-shell.spec.ts asserts
+ * at 360/390/412 — is SATISFIED at every phone width with the label rendered.
+ * It is still broken there. The labelled box is 178px wide, the left group does
+ * not shrink it, and it simply paints over the right-hand group: at 360 the
+ * box's right edge is 322 while `[data-testid="masthead-actions"]` begins at
+ * 226, a 96px overlap, with the document never once wider than the viewport.
+ * This is the same failure the NAV_LINKS note below describes ("the document
+ * never overflows, so nothing catches it"), so the number comes from the same
+ * place it does: the gap between the box's right edge and the right-hand
+ * group's left edge.
+ *
+ * That gap depends on the READER, not just the viewport, because the billing
+ * pill's text is per-account. Measured at the real extremes (Chromium, macOS,
+ * demo account, label forced visible):
+ *
+ *     width   "0 credits · Top up"   "10000 credits"   "7-Day Sprint Pass · 7d left"
+ *      560            -3                  -21                    -35
+ *      580           +16                   -3                    -23
+ *      600           +36                  +15                     -8
+ *      620           +56                  +28                     +7   <- worst case clears
+ *      660           +96                  +68                    +47
+ *      700          +136                 +108                    +87
+ *
+ * So the zero-margin crossover for the widest pill a real account can show —
+ * "7-Day Sprint Pass · 7d left", the longest of the three seeded pass names —
+ * is ~613px. 620 is NOT the answer for the reason this file has already
+ * learned twice: a margin of single-digit pixels on macOS measured EXACTLY 0
+ * on CI's Linux runner, whose font metrics render this row about 18px wider.
+ * A threshold that only just fits is a threshold that breaks on the next
+ * platform, the next pass name, or the next digit of a credits balance.
+ *
+ * 700 buys +87px in the worst measured case — roughly five times that
+ * documented cross-platform variance — and it is deliberately NOT 760: the gap
+ * is comparable there (+90, since the EN chip appears at 760 and takes 51px of
+ * what the wider viewport just gave back), so 760 would cost the 700-759 band
+ * for nothing. Below 700 the reader gets the icon-only trigger exactly as it
+ * shipped, which is a weaker affordance but not a broken one.
+ */
+const LABEL_BREAKPOINT_CLASS = "min-[700px]:inline-flex";
+
 export interface MastheadProps {
   creditsBalance: number;
   /**
@@ -62,6 +129,126 @@ export function Masthead({
   const [navOpen, setNavOpen] = useState(false);
   const navRef = useRef<HTMLDivElement>(null);
   const navTriggerRef = useRef<HTMLButtonElement>(null);
+
+  /*
+   * ── THE COLLAPSED TRIGGER'S LABEL ───────────────────────────────────────
+   *
+   * Below 2xl the entire nav lives behind this control, and until now the
+   * control was a bare 40x40 hamburger with no text: correct by every
+   * accessibility rule (real aria-label, real hit target) and still routinely
+   * not recognised as the way to the rest of the app. The fix is a label
+   * beside the icon that cycles through the real destinations, so the trigger
+   * advertises what is behind it rather than merely being operable.
+   *
+   * `activeIndex` is whichever nav item the label is showing right now;
+   * `highlightIndex` is the one the panel marks when it was the LABEL that
+   * opened it, so the click lands on the item the reader was looking at
+   * rather than dumping them at the top of an undifferentiated list. The two
+   * are separate on purpose: the label keeps cycling only while the panel is
+   * shut, so once open the highlight must stop tracking it.
+   */
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [highlightIndex, setHighlightIndex] = useState<number | null>(null);
+  const [labelCyclingOut, setLabelCyclingOut] = useState(false);
+  const [reducedMotion, setReducedMotion] = useState(false);
+  const [navBarVisible, setNavBarVisible] = useState(false);
+
+  /*
+   * Read as a ref, not a dependency, and that is the difference between
+   * "pauses" and "restarts".
+   *
+   * The interval must keep its own rhythm while the panel is open and simply
+   * decline to act — putting `navOpen` in the effect's dependency list instead
+   * would tear the interval down and build a fresh one on every open and
+   * close, so a reader who opens the menu repeatedly would reset the dwell
+   * each time and could sit on one word indefinitely.
+   */
+  const navOpenRef = useRef(navOpen);
+  useEffect(() => {
+    navOpenRef.current = navOpen;
+  }, [navOpen]);
+
+  /*
+   * Two media queries, one listener each, because they gate different things.
+   *
+   * `prefers-reduced-motion` stops the cycling and swaps in a static label —
+   * a word that silently rewrites itself every 2.6s is exactly the kind of
+   * unrequested movement that setting exists to refuse.
+   *
+   * `2xl` stops it as well, for a plainer reason: above 1536px this whole
+   * disclosure is `2xl:hidden`, so the animation is invisible there and a
+   * setState every 2.6s forever would be a re-render of the one component
+   * that renders on every signed-in page, burning battery to animate
+   * something nobody can see. CLAUDE.md treats low-end Android as a real
+   * constraint rather than a nicety; this is the cheap end of honouring that.
+   *
+   * Both start false on the server and are corrected on mount, which is the
+   * hydration-safe order — matchMedia does not exist during SSR, so reading
+   * it in a `useState` initialiser would make the server and client trees
+   * disagree.
+   */
+  useEffect(() => {
+    const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const wide = window.matchMedia("(min-width: 1536px)");
+    const syncMotion = () => setReducedMotion(motion.matches);
+    const syncWide = () => setNavBarVisible(wide.matches);
+    syncMotion();
+    syncWide();
+    motion.addEventListener("change", syncMotion);
+    wide.addEventListener("change", syncWide);
+    return () => {
+      motion.removeEventListener("change", syncMotion);
+      wide.removeEventListener("change", syncWide);
+    };
+  }, []);
+
+  const fadeRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  useEffect(() => {
+    if (reducedMotion || navBarVisible) return;
+    const cycle = setInterval(() => {
+      // The pause. The timer keeps its cadence; it just does nothing while
+      // the reader is actually looking at the open list.
+      if (navOpenRef.current) return;
+      setLabelCyclingOut(true);
+      fadeRef.current = setTimeout(() => {
+        setActiveIndex((i) => (i + 1) % NAV_LINKS.length);
+        setLabelCyclingOut(false);
+      }, LABEL_FADE_MS);
+    }, LABEL_DWELL_MS);
+    return () => {
+      clearInterval(cycle);
+      if (fadeRef.current) clearTimeout(fadeRef.current);
+    };
+  }, [reducedMotion, navBarVisible]);
+
+  /*
+   * Checking `navOpenRef` at the top of the interval is not enough on its own,
+   * because a fade ALREADY IN FLIGHT when the panel opens would still land.
+   *
+   * The window is small and the result is wrong in a way a reader would
+   * actually notice: the interval fires, the label starts fading out, the
+   * reader clicks it 100ms later, `highlightIndex` is captured from the
+   * current `activeIndex` — and then the pending timeout advances the label to
+   * the NEXT item, so the open panel marks one row while the trigger above it
+   * names a different one. Cancelling the pending swap (rather than letting it
+   * complete) keeps the word the reader actually clicked on, which is the one
+   * the highlight is a promise about.
+   *
+   * Done in the click handlers rather than in an effect keyed off `navOpen`,
+   * which is where this started and which eslint correctly rejected: setting
+   * state synchronously inside an effect triggers a cascading render for
+   * something that is not derived state at all. Cancelling a pending swap is
+   * a direct consequence of the reader clicking, so it belongs on the click.
+   */
+  function cancelPendingLabelSwap() {
+    if (fadeRef.current) clearTimeout(fadeRef.current);
+    setLabelCyclingOut(false);
+  }
+
+  const activeLabel = reducedMotion
+    ? REDUCED_MOTION_LABEL
+    : NAV_LINKS[activeIndex].label;
 
   /*
    * The nav links move behind a disclosure below `lg` (1024px), and the number
@@ -376,47 +563,166 @@ export function Masthead({
             ref={navRef}
             className="relative flex items-center 2xl:hidden"
           >
-            <button
-              ref={navTriggerRef}
-              type="button"
-              aria-expanded={navOpen}
-              aria-haspopup="menu"
-              aria-label="Main menu"
-              onClick={() => setNavOpen((o) => !o)}
-              className="inline-flex h-10 w-10 items-center justify-center"
+            {/*
+              One bordered box, TWO buttons. The box is a plain div — it is
+              not itself focusable or clickable, so the accessible names below
+              stay on the real controls rather than on a wrapper a screen
+              reader would announce as one thing that does two.
+            */}
+            {/*
+              NO HEIGHT ON THE BOX, and that is a measured correction to the
+              approved prototype rather than a liberty taken with it.
+
+              The prototype sets the box to `height: 40px` and each button to
+              `height: 100%`. Tailwind and the prototype both size border-box,
+              so the 1.5px border top and bottom comes OUT of the 40: the icon
+              button lands at 37px tall, under the >=40x40 hit target CLAUDE.md
+              makes a hard rule. e2e/mobile-shell.spec.ts caught it at all
+              three phone widths — it was not visible by eye.
+
+              So the buttons carry the 40 and the box takes its height from
+              them (40 + 3 of border = 43 outer). `items-stretch` still makes
+              the label's border-left run the full height, which is the part
+              of the prototype's construction that was load-bearing.
+            */}
+            <div
+              className={cn(
+                "group inline-flex items-stretch overflow-hidden border-[1.5px] transition-colors duration-150",
+                navOpen ? "border-rust" : "border-ink hover:border-rust",
+              )}
             >
-              <svg
-                width="18"
-                height="14"
-                viewBox="0 0 18 14"
-                fill="none"
-                aria-hidden="true"
+              <button
+                ref={navTriggerRef}
+                type="button"
+                aria-expanded={navOpen}
+                aria-haspopup="menu"
+                /*
+                  "Main menu" is load-bearing, not descriptive. SIX e2e specs
+                  address this button by exactly this accessible name
+                  (employer, farah-discoverability, marketing-masthead-nav,
+                  masthead-nav-fit, masthead-nav-focus, mobile-shell). The
+                  approved prototype said "Toggle main menu"; using that here
+                  would have broken all six. The sibling below therefore gets
+                  a name that does NOT contain this string — Playwright's
+                  `getByRole` name matching is substring-based by default, so
+                  a second button named "Main menu, showing Jobs" would make
+                  every one of those lookups ambiguous.
+                */
+                aria-label="Main menu"
+                onClick={() => {
+                  cancelPendingLabelSwap();
+                  setNavOpen((o) => !o);
+                  // The icon is the plain toggle: it never claims the reader
+                  // was looking at any particular item, so it always clears
+                  // the highlight the label button may have set.
+                  setHighlightIndex(null);
+                }}
+                className={cn(
+                  "inline-flex h-10 w-10 items-center justify-center transition-colors duration-150 group-hover:text-rust",
+                  navOpen ? "text-rust" : "text-ink",
+                )}
               >
-                <path
-                  d="M1 1h16M1 7h16M1 13h16"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                />
-              </svg>
-            </button>
+                <svg
+                  width="16"
+                  height="12"
+                  viewBox="0 0 18 14"
+                  fill="none"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M1 1h16M1 7h16M1 13h16"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </button>
+
+              {/*
+                The label, and the second click target.
+
+                It ALWAYS opens — it is not a toggle. A reader who clicks the
+                word they were just shown means "take me to that", and a
+                toggle would close the menu they just asked for whenever the
+                panel happened to be open already.
+
+                Hidden below a measured width: see the collapse note above
+                NAV_LINKS. The box falls back to the bare 40px icon there,
+                which is exactly what shipped before, so nothing is lost on
+                the narrowest phones beyond the affordance itself.
+              */}
+              <button
+                type="button"
+                aria-expanded={navOpen}
+                aria-haspopup="menu"
+                aria-label={`Open menu, currently showing ${activeLabel}`}
+                onClick={() => {
+                  cancelPendingLabelSwap();
+                  setNavOpen(true);
+                  /*
+                   * Under reduced motion the label reads "Menu" and points at
+                   * nothing in particular, so there is no item to mark —
+                   * highlighting NAV_LINKS[0] there would mark an item the
+                   * reader was never shown.
+                   */
+                  setHighlightIndex(reducedMotion ? null : activeIndex);
+                }}
+                className={cn(
+                  "hidden h-10 w-[136px] items-center overflow-hidden border-l border-line pr-3.5 transition-colors duration-150 group-hover:text-rust hover:bg-rust-soft",
+                  navOpen ? "text-rust" : "text-ink",
+                  LABEL_BREAKPOINT_CLASS,
+                )}
+              >
+                <span
+                  data-testid="masthead-nav-trigger-label"
+                  className={cn(
+                    "inline-block w-full overflow-hidden text-ellipsis whitespace-nowrap font-body text-[14px] font-semibold transition-[opacity,transform] duration-[260ms] ease-in-out motion-reduce:transition-none",
+                    labelCyclingOut
+                      ? "-translate-y-[5px] opacity-0"
+                      : "translate-y-0 opacity-100",
+                  )}
+                >
+                  {activeLabel}
+                </span>
+              </button>
+            </div>
 
             {navOpen && (
               <div
                 role="menu"
                 className="absolute top-[calc(100%+8px)] left-0 z-20 w-[240px] border-[1.5px] border-ink bg-card"
               >
-                {NAV_LINKS.map((link) => {
+                {NAV_LINKS.map((link, i) => {
                   const active = pathname?.startsWith(link.href);
+                  /*
+                   * Set only when the LABEL opened this panel, and cleared by
+                   * the icon — so the mark means "this is the one you just
+                   * clicked on", never "this is the page you are on". The
+                   * pathname's own `active` state keeps that second meaning.
+                   *
+                   * Exposed as a data attribute rather than `aria-current`
+                   * deliberately: aria-current="true" on a menuitem is read as
+                   * "the current page", which this is not, and the panel
+                   * already has a real current-page state that would then be
+                   * indistinguishable from it. The label button's own
+                   * accessible name ("…currently showing Jobs") is what
+                   * carries this to a screen reader.
+                   */
+                  const highlighted = highlightIndex === i;
                   return (
                     <Link
                       key={link.href}
                       href={hrefFor(link)}
                       role="menuitem"
+                      data-nav-highlight={highlighted ? "true" : undefined}
                       onClick={() => setNavOpen(false)}
                       className={cn(
-                        "flex min-h-11 items-center px-4 font-body text-[14px] font-semibold no-underline",
-                        active ? "text-rust" : "text-ink hover:text-rust",
+                        "flex min-h-11 items-center px-4 font-body text-[14px] font-semibold no-underline hover:bg-rust-soft",
+                        highlighted
+                          ? "bg-rust-soft text-rust"
+                          : active
+                            ? "text-rust"
+                            : "text-ink hover:text-rust",
                       )}
                     >
                       {link.label}
