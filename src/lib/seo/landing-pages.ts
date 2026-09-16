@@ -58,7 +58,7 @@ export function currentApplicationCycle(now: Date = new Date()): string {
  * decision — check the live count first (see docs on LANDING_PAGE_MIN_ENTRIES
  * above) — not an automatic inference.
  *
- * Re-measured against production 2026-09-16 (send-XXX audit of whether the
+ * Re-measured against production 2026-09-16 (audit of whether the
  * 2026-09-02 near-threshold cities were real supply or a matching-pattern
  * undercount — same open/unlisted/30-day-freshness filter loadCityJobs
  * itself applies): Lagos 54, Abuja 17, Nairobi 14, Kano 1-2, Port Harcourt 3.
