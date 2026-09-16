@@ -12,6 +12,8 @@ The approved Phase 1 build plan (milestones, tech stack, data model) lives at `~
 
 This repo root is also the Next.js app root (App Router + TypeScript + Tailwind, scaffolded via `create-next-app`). `AGENTS.md` is auto-generated/re-added by `next dev` — it points at `node_modules/next/dist/docs/` for version-specific API/convention docs and should be committed as-is, not deleted from diffs. Don't hand-edit `CLAUDE.md` back to a `@AGENTS.md` stub — that was the scaffolder's default and got overwritten with this file on first setup.
 
+**A `husky` pre-commit hook now runs `lint-staged`** (`eslint`, no `--fix`) against staged `*.{js,jsx,ts,tsx}` files only — not a whole-project `npm run lint`, since this repo carries pre-existing warnings elsewhere that shouldn't block an unrelated commit. `"prepare": "husky"` in `package.json` installs it automatically on `npm install`/`npm ci`, including in every worktree (git hooks are configured repo-wide via the shared `.git/config`, not per-checkout). CI's `checks` job still runs the full `npm run lint` regardless — this hook is a faster local backstop, not a replacement. Don't bypass a real failure with `--no-verify`; fix the lint error instead.
+
 Supabase backend: project **"Talentrah"** already exists in the connected Supabase org (`Bayo-1987's Org`), project id `nytwbbzfpytctjsoczzq`, region `eu-north-1`. Reuse it — don't create a new project. It free-tier-pauses when idle; `restore_project` before running migrations/queries if `get_project` shows `INACTIVE`.
 
 **Apply additive migrations BEFORE merging, destructive ones AFTER the deploy**
