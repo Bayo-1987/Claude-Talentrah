@@ -86,8 +86,33 @@ export function pageMetadata(input: {
   path: string;
   /** `article` for blog posts; anything else is a plain page. */
   type?: "website" | "article";
+  /**
+   * Which share image this page gets. Default `"static"` — the square brand
+   * mark above, correct for every page whose card would only ever say
+   * "Talentrah" (/about, /employer, the legal pages).
+   *
+   * `"segment"` means: this route has a colocated `opengraph-image.tsx` that
+   * renders a real 1200x630 card for THIS page's subject, so omit `images`
+   * entirely and let the file convention fill both og:image and twitter:image.
+   *
+   * OMITTING THE KEY IS THE WHOLE MECHANISM, not a shortcut. Next merges a
+   * file-based image in ONLY when the same level does not declare one —
+   * `mergeStaticMetadata` (next/dist/lib/metadata/resolve-metadata.js) tests
+   * `hasOwnProperty('images')` on both `openGraph` and `twitter` and skips the
+   * merge if either is present. Passing `images: [SHARE_IMAGE_META]` here as
+   * well would not layer a fallback under the dynamic card; it would WIN, and
+   * the opengraph-image route would render for nobody while still compiling,
+   * still passing lint, and still serving a perfectly good PNG that no crawler
+   * is ever pointed at.
+   *
+   * The card size is why the Twitter card type moves with it: `summary` is
+   * right for a 512 square (a wide card crops a square into a sliver) and
+   * `summary_large_image` is right for 1200x630. Two settings, one decision.
+   */
+  shareImage?: "static" | "segment";
 }) {
-  const { title, description, path, type = "website" } = input;
+  const { title, description, path, type = "website", shareImage = "static" } = input;
+  const segmentImage = shareImage === "segment";
   return {
     title,
     description,
@@ -97,14 +122,14 @@ export function pageMetadata(input: {
       description,
       url: path,
       type,
-      images: [SHARE_IMAGE_META],
+      ...(segmentImage ? {} : { images: [SHARE_IMAGE_META] }),
     },
     twitter: {
       // `summary`, not `summary_large_image` — see SHARE_IMAGE above.
-      card: "summary" as const,
+      card: segmentImage ? ("summary_large_image" as const) : ("summary" as const),
       title,
       description,
-      images: [SHARE_IMAGE],
+      ...(segmentImage ? {} : { images: [SHARE_IMAGE] }),
     },
   };
 }

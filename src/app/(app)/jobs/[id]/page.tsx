@@ -1,17 +1,15 @@
-import { cache } from "react";
 import { JsonLd } from "@/components/seo/json-ld";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getOptionalUser } from "@/lib/auth/require-user";
 import { buildJobPostingJsonLd } from "@/lib/seo/job-posting-jsonld";
-import { SHARE_IMAGE, SHARE_IMAGE_META } from "@/lib/seo/site";
-import { createClient } from "@/lib/supabase/server";
+import { jobForRequest } from "./job-for-request";
 import { BorderedCard, Button, EyebrowLabel, MatchTierBadge, buttonClasses } from "@/components/ui";
 import { dedupeMetaParts } from "@/components/jobs/job-card";
 import { FarahJobMenu } from "@/components/jobs/farah-job-menu";
 import { renderJobDescriptionMarkdown } from "@/lib/farah/render-markdown";
 import { getCompanyInitials } from "@/lib/jobs/company-initials";
-import { postingAgeLine, freshnessFloorISO } from "@/lib/jobs/freshness";
+import { postingAgeLine } from "@/lib/jobs/freshness";
 import { formatSalary } from "@/lib/jobs/format-salary";
 import { relevantJobLandingLinks } from "@/lib/seo/landing-page-links";
 import { skillsOf } from "@/lib/jobs/skill-facet";
@@ -48,51 +46,6 @@ const EMPLOYMENT_LABEL: Record<string, string> = {
   contract: "Contract",
   internship: "Internship",
 };
-
-/**
- * ONE loader call per request, not two. Next.js runs generateMetadata and the
- * default export in the SAME request and both need this row, so before this
- * fix each visit issued two separate `job_postings` queries — one narrow
- * (metadata's own column list), one `select("*")` (the page's). React's
- * `cache()` is request-scoped memoization: the page's own call below hits
- * this same cached result rather than re-querying, and gets the full row for
- * free since metadata's fields are a subset of it.
- *
- * Client created INSIDE the helper, argument is the plain id string, because
- * `cache()` memoizes on ARGUMENT IDENTITY — same reasoning as the sibling SEO
- * landing pages' own `*ForRequest` loaders (scholarships/degree/[level],
- * jobs/remote/[country], jobs/in/[city]).
- *
- * generateMetadata's own notFound() below does NOT fix this route's
- * status-code bug by itself — TESTED empirically against a real built
- * server, see (app)/scholarships/degree/[level]/page.tsx's comment on the
- * same call for the full result. The actual fix is this segment (and its
- * ancestors) carrying no loading.tsx at all; this loader exists for the
- * query dedup, and notFound() here is honest (a reader/crawler asking about
- * a missing job shouldn't get that job's own metadata shape back) rather
- * than load-bearing for the status code.
- */
-const jobForRequest = cache(async (id: string) => {
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("job_postings")
-    /*
-     * `organizations(verified)` is joined for ONE reason: the banner (0115).
-     * The posting's own visibility is still RLS's decision — this adds no gate
-     * — but whether the banner renders is a different, stricter question that
-     * the row alone cannot answer.
-     *
-     * `!job_postings_organization_id_fkey` hints WHICH relationship: 0128
-     * added a second FK to organizations (claimed_by_organization_id), so an
-     * unhinted embed is ambiguous to PostgREST — this must stay the poster's
-     * own org, never the org that claimed some OTHER external row.
-     */
-    .select("*, organizations!job_postings_organization_id_fkey(verified)")
-    .eq("id", id)
-    .gte("posted_at", freshnessFloorISO())
-    .maybeSingle();
-  return { supabase, data };
-});
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -131,20 +84,39 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
     description,
     alternates: { canonical: `/jobs/${id}` },
     /*
-       `images` is restated, not inherited. Next REPLACES the parent openGraph
-       object when a child declares one, so omitting it here left the pages
-       people actually share — job links in WhatsApp — with no share image.
+       NO `images` KEY HERE, AND THAT IS THE POINT — it is what lets the
+       sibling opengraph-image.tsx supply the card instead.
+
+       This block used to restate `images: [SHARE_IMAGE_META]`, because Next
+       REPLACES the parent openGraph object when a child declares one and
+       omitting it left shared job links with no image at all. The file
+       convention changes the rule rather than the reasoning: Next merges a
+       file-based image in ONLY when this level does not declare `openGraph`
+       .images itself (mergeStaticMetadata in next/dist/lib/metadata/
+       resolve-metadata.js checks `hasOwnProperty('images')` on both openGraph
+       and twitter). So restating the static mark here would not "also" set
+       the mark — it would silently WIN, and opengraph-image.tsx would render
+       for nobody. Same for twitter.images below, which is likewise absent.
+
+       The image is still guaranteed: it now comes from the colocated
+       opengraph-image.tsx, which cannot be forgotten the way a restated key
+       could be, because it IS the file.
     */
     openGraph: {
       title,
       description,
       type: "article",
       url: `/jobs/${id}`,
-      images: [SHARE_IMAGE_META],
     },
-    // `summary`, matching the root layout: the default share image is the
-    // square 512 mark and the large card would centre-crop it. See layout.tsx.
-    twitter: { card: "summary", title, description, images: [SHARE_IMAGE] },
+    /*
+       `summary_large_image` for THIS page family only. The site-wide default
+       stays `summary` (layout.tsx, pageMetadata) because the default share
+       image is the square 512 mark and a wide card centre-crops a square into
+       a sliver — see SHARE_IMAGE in lib/seo/site.ts. That reasoning is about
+       the SHAPE, and this route's shape is now 1200x630, which is exactly
+       what the large card wants.
+    */
+    twitter: { card: "summary_large_image" as const, title, description },
   };
 }
 

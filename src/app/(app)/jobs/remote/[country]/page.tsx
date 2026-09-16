@@ -70,7 +70,15 @@ export async function generateMetadata({ params }: { params: Promise<{ country: 
   const { country, total } = result;
   const title = `Remote Jobs in ${country} — ${total} Open Roles | Talentrah`;
   const description = `Browse ${total} remote job openings based in or restricted to ${country}, from verified employers and boards. Get matched, tailor your resume and apply free.`;
-  return pageMetadata({ title, description, path: `/jobs/remote/${COUNTRY_LANDING_SLUG[country]}` });
+  // `segment`: opengraph-image.tsx next door renders the live count onto a
+  // real 1200x630 card. See pageMetadata's own comment for why declaring
+  // `images` here as well would silently disable that file.
+  return pageMetadata({
+    title,
+    description,
+    path: `/jobs/remote/${COUNTRY_LANDING_SLUG[country]}`,
+    shareImage: "segment",
+  });
 }
 
 export default async function CountryRemoteJobsPage({
