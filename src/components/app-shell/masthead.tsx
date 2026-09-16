@@ -438,6 +438,28 @@ export function Masthead({
                 >
                   Post a job
                 </Link>
+
+                {/*
+                  760-1535px is exactly the band where the inline "Ask Farah"
+                  button above (2xl-gated, see its own comment) doesn't
+                  render — the Farah panel is on screen there (it stacks off
+                  screen only below 760), but with no persistent way to jump
+                  to it once FarahFirstVisitHint's one-time nudge is
+                  dismissed. Same action as the inline button
+                  (scrollToFarahPanel — a DOM scroll, not a route, so this is
+                  a button, not a Link), not a second implementation of it.
+                */}
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setNavOpen(false);
+                    scrollToFarahPanel();
+                  }}
+                  className="flex min-h-11 w-full items-center px-4 text-left font-body text-[14px] font-semibold text-ink-soft hover:text-rust"
+                >
+                  Ask Farah
+                </button>
               </div>
             )}
           </div>

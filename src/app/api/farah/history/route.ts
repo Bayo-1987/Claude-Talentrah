@@ -65,11 +65,41 @@ export async function GET() {
   const isPassHolder = await hasActivePass(user.id);
   const freeMessagesRemaining = isPassHolder ? null : await farahChatFreeMessagesRemaining(user.id);
 
+  /*
+   * The Farah-visibility design review's notification dot — wired to the
+   * REAL "something new" signal 0131 already built for the proactive match
+   * alert (user_notifications, owner-readable RLS, read_at owner-writable),
+   * not a proxy invented for this. This route is the one round trip the
+   * panel already makes on mount, so this rides along rather than adding a
+   * second fetch.
+   *
+   * Marked read here, not left for a separate action: `read_at` exists
+   * specifically for "the owner has seen this" (0131's own header — "only
+   * read_at is owner-writable"), and this route runs exactly when that
+   * becomes true — the panel carrying the mark is on screen. The RESPONSE
+   * below still reports the pre-mark state, so the dot shows for this load;
+   * the row is cleared for the next.
+   */
+  const { data: unread } = await supabase
+    .from("user_notifications")
+    .select("id")
+    .eq("user_id", user.id)
+    .is("read_at", null);
+  const hasUnreadNotification = (unread?.length ?? 0) > 0;
+  if (hasUnreadNotification) {
+    await supabase
+      .from("user_notifications")
+      .update({ read_at: new Date().toISOString() })
+      .eq("user_id", user.id)
+      .is("read_at", null);
+  }
+
   // Newest-first out of the query (so the LIMIT takes the most recent turns),
   // oldest-first for the panel (so it reads top to bottom). Same two-step the
   // layout did.
   return NextResponse.json({
     messages: [...(data ?? [])].reverse(),
     freeMessagesRemaining,
+    hasUnreadNotification,
   });
 }

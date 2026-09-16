@@ -210,6 +210,14 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
    * while unknown, rather than a placeholder number that might be wrong.
    */
   const [freeRemaining, setFreeRemaining] = useState<number | null>(null);
+  /*
+   * The design review's notification dot — real signal (user_notifications,
+   * 0131), fetched alongside history below rather than as a separate round
+   * trip. See farah/history/route.ts's own comment: that route marks the
+   * rows read the instant it answers this true, so the dot is accurate for
+   * THIS load and cleared for the next — never a proxy, never stuck on.
+   */
+  const [hasUnreadNotification, setHasUnreadNotification] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const localIdCounter = useRef(0);
   /*
@@ -278,6 +286,7 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
         if (typeof data.freeMessagesRemaining === "number" || data.freeMessagesRemaining === null) {
           setFreeRemaining(data.freeMessagesRemaining);
         }
+        if (data.hasUnreadNotification === true) setHasUnreadNotification(true);
         if (!Array.isArray(data.messages) || data.messages.length === 0) return;
         // Held, not shown — see historyRevealed above. Nothing here decides
         // whether the reader sees it; "Continue" below does.
@@ -467,7 +476,7 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
         nothing. The panel's `py-8` already sets the top inset.
       */}
       <div className="flex items-center gap-2.5">
-        <FarahMark size={28} />
+        <FarahMark size={28} hasUnread={hasUnreadNotification} />
         <EyebrowLabel size="sm">Farah — your co-pilot</EyebrowLabel>
       </div>
 
@@ -616,7 +625,7 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
 
       <form
         onSubmit={handleSubmit}
-        className="mt-auto flex items-center gap-2 border border-line bg-card px-2.5 py-2"
+        className="mt-auto flex items-center gap-2 border-[1.5px] border-ink bg-card px-2.5 py-2"
       >
         <input
           type="text"

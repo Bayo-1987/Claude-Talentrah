@@ -45,7 +45,20 @@ const MIN_STROKE_PX = 1.25;
 const VIEWBOX = 220;
 const DRAWN_STROKE = 2.2;
 
-export function FarahMark({ size = 200 }: { size?: number }) {
+export function FarahMark({
+  size = 200,
+  hasUnread = false,
+}: {
+  size?: number;
+  /**
+   * A small filled rust dot at the mark's corner — the design review's fix
+   * for "something new to see," wired by callers to a real signal
+   * (`user_notifications`, 0131) rather than decorative. Small circular
+   * affordance, inside the design system's existing radius exception
+   * (avatars, notification dots, toggles) — not a new pattern.
+   */
+  hasUnread?: boolean;
+}) {
   /*
    * Rendered width is `strokeWidth * size / VIEWBOX`, so the width that yields
    * MIN_STROKE_PX at this size is `MIN_STROKE_PX * VIEWBOX / size`. Taking the
@@ -60,7 +73,7 @@ export function FarahMark({ size = 200 }: { size?: number }) {
    */
   const strokeWidth = Math.max(DRAWN_STROKE, (MIN_STROKE_PX * VIEWBOX) / size);
 
-  return (
+  const mark = (
     <svg width={size} height={size} viewBox="0 0 220 220" fill="none" aria-hidden="true">
       <circle cx="110" cy="110" r="108" fill="var(--rust-soft)" />
       <circle cx="88" cy="96" r="46" stroke="var(--rust)" strokeWidth={strokeWidth} fill="none" />
@@ -74,5 +87,21 @@ export function FarahMark({ size = 200 }: { size?: number }) {
       */}
       <circle cx="110" cy="112" r="5" fill="var(--rust)" />
     </svg>
+  );
+
+  if (!hasUnread) return mark;
+
+  // Unconditional-wrap avoided on purpose: every existing caller renders a
+  // bare <svg> today, and wrapping it in a span whether or not there is a
+  // dot is a layout change nobody asked for. Only the unread path pays for
+  // the wrapper.
+  return (
+    <span className="relative inline-flex" style={{ width: size, height: size }}>
+      {mark}
+      <span
+        aria-hidden="true"
+        className="absolute top-0 right-0 h-2 w-2 rounded-full bg-rust"
+      />
+    </span>
   );
 }
