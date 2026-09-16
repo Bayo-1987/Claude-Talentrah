@@ -103,58 +103,54 @@ const NAV_LINKS = [
 const FEEDBACK_BUDGET_MS = 100;
 
 /*
- * SKIPPED FOR ALL SIX LINKS — a real, measured regression from removing
- * (app)/loading.tsx (see src/proxy.ts's seekerAppGate and the PR fixing the
- * CI-blocking status-code bug), not a scoping mistake and not a flake.
+ * UN-SKIPPED — the route-group split this comment itself proposed as the
+ * real fix ("split the notFound()-capable routes out of (app)'s file-tree
+ * ancestry via a route group so they stop sharing a loading.tsx boundary
+ * with everything else while still resolving to the same URLs") is what
+ * actually landed, in two steps: #430 did it narrowly for jobs/(feed) vs.
+ * jobs/[id]; this PR extends it to every other genuinely-public
+ * notFound()-capable route (jobs/[id] again in its new home, jobs/in/[city],
+ * jobs/remote + jobs/remote/[country], scholarships/[id],
+ * scholarships/degree/[level], scholarships/fully-funded — all moved into a
+ * sibling `(public)` route group, see that group's own layout.tsx) and
+ * restores (app)/loading.tsx at the root for everything that's left.
  *
- * FIRST THEORY, WRONG: that only navigation ORIGINATING from /jobs or
- * /scholarships would be affected. Changing the neutral start page to
- * /billing did NOT fix it in real CI.
+ * WHAT WAS TRIED AND RULED OUT, for whoever finds this again: starting
+ * navigation from /billing instead of /jobs or /scholarships did not help
+ * (first theory); moving the notFound() decision into generateMetadata did
+ * not help either — Next commits to HTTP 200 the moment it decides a route
+ * CAN stream at all, the mere presence of a loading.tsx anywhere in the
+ * ancestor chain, regardless of when notFound() itself resolves (second
+ * theory). Both confirmed wrong against a real built server, not assumed.
+ * The measured cost of leaving the root boundary removed was real too:
+ * /billing → /tracker took 657ms for a skeleton to attach against the
+ * "tens of ms" a working root boundary gives, because NO route in the
+ * signed-in app had anything to swap in until the root boundary came back.
  *
- * SECOND THEORY, ALSO TESTED, ALSO WRONG: that moving the notFound() decision
- * into generateMetadata — which resolves before a route's own render, so in
- * theory before any loading.tsx starts streaming — would let every affected
- * loading.tsx be restored while keeping correct status codes. Tested against
- * a real built server (fresh build, unique port, confirmed LISTEN, not the
- * earlier stale-process-contaminated run): with generateMetadata calling
- * notFound() in all four affected routes AND every one of (app)'s ancestor
- * loading.tsx files restored, a missing job (/jobs/<uuid-that-does-not-
- * exist>) and a below-threshold degree page (/scholarships/degree/phd, 4
- * live entries against a 5-entry floor) both rendered correct 404 body
- * content — the RSC payload genuinely carries `NEXT_HTTP_ERROR_FALLBACK;404`
- * — while the outer HTTP status stayed 200. Removing loading.tsx files one
- * ancestor at a time (the route's own, then its parent, then the (app) root)
- * showed the same 200 at every step until NONE remained in the chain, at
- * which point it correctly became 404. So the mechanism is not "does
- * generateMetadata resolve before streaming begins" — Next commits to HTTP
- * 200 the moment it decides a route CAN stream at all (i.e. the mere
- * presence of a loading.tsx anywhere in the segment's ancestor chain), and an
- * earlier notFound() doesn't change a status that was already locked in.
- *
- * ACTUAL SCOPE, measured directly in a real browser (click instrumented with
- * a MutationObserver, not just Playwright's own assertion): clicking to
- * /tracker from /billing — a route pair where NEITHER end lost a
- * loading.tsx — still took 657ms for the skeleton to attach, against a
- * budget the working mechanism used to clear in "the tens of ms" (this
- * file's own header comment, below). Removing the ROOT (app)/loading.tsx
- * degrades EVERY client-side navigation's skeleton-paint latency, not only
- * ones touching the two routes that needed it removed for correctness.
- * Restoring (app)/loading.tsx removes the slowdown but reopens the exact bug
- * this fix exists for — confirmed empirically both before and after trying
- * the generateMetadata route, not assumed.
- *
- * This is a genuine, unresolved conflict between two real things this
- * codebase wants (instant nav feedback everywhere; correct HTTP status codes
- * on every route), not a bug in this test or in the fix. The available
- * options — loosen this budget and accept slower feedback app-wide, or split
- * the notFound()-capable routes out of (app)'s file-tree ancestry via a route
- * group so they stop sharing a loading.tsx boundary with everything else
- * while still resolving to the same URLs — are a product/architecture call,
- * not one to make silently inside a CI-unblocking fix. Left skipped, not
- * deleted or loosened, so the next person picks this back up deliberately
- * instead of inheriting a quietly-relaxed number.
+ * TWO KNOWN, DELIBERATE EXCEPTIONS still short-circuit this fix's coverage,
+ * not fixed by this PR and not silently swept under it: mentorship/[mentorId]
+ * gates itself with a page-level requireUser() rather than through
+ * seekerAppGate, so it doesn't belong in the public group and still
+ * regresses under the restored root boundary; tracker/[applicationId]/sent
+ * was ALREADY broken via tracker/loading.tsx's own closer ancestor before
+ * this PR existed, independent of anything here. Neither is one of the six
+ * NAV_LINKS below, so neither affects this suite's own assertions — see
+ * (app)/loading.tsx's own comment for the full accounting.
  */
-test.describe.skip("a nav click always shows something immediately", () => {
+test.describe("a nav click always shows something immediately", () => {
+  /*
+   * Wide enough to clear the masthead nav's own breakpoint — same fix,
+   * same reason as app-chrome.spec.ts and farah-discoverability.spec.ts's
+   * own test.use() calls. masthead.tsx's nav links only render at 2xl
+   * (1536px+); below that they're behind the "Main menu" disclosure, which
+   * renders no <a> elements at all until clicked. The breakpoint moved up
+   * from 1280 (send-139's "Get Verified") after this suite was written and
+   * left skipped, so un-skipping it without this fails every case at
+   * `getByRole("link", ...)` itself — never even reaching a click, let
+   * alone timing one — which is a stale precondition, not a timing result.
+   */
+  test.use({ viewport: { width: 1600, height: 900 } });
+
   /*
    * 60s, against the suite's 30s default, and NOT because these tests are
    * slow — warm, each one finishes in three or four seconds.
@@ -178,6 +174,18 @@ test.describe.skip("a nav click always shows something immediately", () => {
       // navigation rather than a no-op that would trivially "pass".
       await authedPage.goto("/billing");
       await authedPage.waitForLoadState("domcontentloaded");
+      // Let Link's own prefetch (IntersectionObserver-triggered on mount,
+      // unthrottled) complete before throttling — a real user reads the
+      // page for a moment before clicking; an instant automated click
+      // races prefetch in a way no human click would, and that race is
+      // what produced a flaky ~80ms/~900ms split for the SAME route across
+      // identical runs before this wait was added. Confirmed directly:
+      // throttling from before the very first navigation (denying prefetch
+      // any head start at all) made every one of the six links land at a
+      // uniform ~1.3s, proving the boundary itself is correctly configured
+      // everywhere and the variance was purely this race, not a per-route
+      // defect.
+      await authedPage.waitForLoadState("networkidle");
 
       await throttle(authedPage);
 
