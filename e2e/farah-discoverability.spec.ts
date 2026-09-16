@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { ROUTE_LOADING_TESTID } from "@/components/ui/skeleton";
 
 /**
  * Reaching Farah from either end of the shell.
@@ -43,6 +44,10 @@ async function login(page: Page) {
   await page.getByLabel("Password", { exact: true }).fill(DEMO_PASSWORD!);
   await page.getByRole("button", { name: "Log in" }).click();
   await page.waitForURL("**/jobs");
+  // jobs/(feed)/loading.tsx means waitForURL can resolve before the real
+  // feed content (and its final page height/scroll geometry) replaces the
+  // skeleton — wait for it to clear before any geometry-based assertion.
+  await expect(page.getByTestId(ROUTE_LOADING_TESTID)).toHaveCount(0, { timeout: 15000 });
 }
 
 test.describe("reaching Farah on a phone", () => {

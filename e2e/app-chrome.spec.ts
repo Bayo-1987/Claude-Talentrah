@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { ROUTE_LOADING_TESTID } from "@/components/ui/skeleton";
 
 /**
  * The chrome every signed-in page renders: the masthead and the Farah panel.
@@ -57,6 +58,11 @@ test.beforeEach(async ({ page }) => {
   await page.getByLabel("Password", { exact: true }).fill(DEMO_PASSWORD!);
   await page.getByRole("button", { name: "Log in" }).click();
   await page.waitForURL("**/jobs");
+  // /jobs now has a real loading.tsx boundary (jobs/(feed)/loading.tsx):
+  // waitForURL resolves the instant the client-side URL changes, which can
+  // be before the real feed content replaces the skeleton. Wait for it to
+  // clear so the assertions below read real DOM, not placeholder blocks.
+  await expect(page.getByTestId(ROUTE_LOADING_TESTID)).toHaveCount(0, { timeout: 15000 });
 });
 
 test("every interactive element in the masthead and panel is at least 40x40", async ({ page }) => {

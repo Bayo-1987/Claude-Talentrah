@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { ROUTE_LOADING_TESTID } from "@/components/ui/skeleton";
 
 /**
  * Two things a seeker steers by on the feed: how contested a job is, and
@@ -35,6 +36,10 @@ test.beforeEach(async ({ page }) => {
   await page.getByLabel("Password", { exact: true }).fill(DEMO_PASSWORD!);
   await page.getByRole("button", { name: "Log in" }).click();
   await page.waitForURL("**/jobs");
+  // jobs/(feed)/loading.tsx means waitForURL can resolve before the real
+  // feed content replaces the skeleton — wait for it to clear so every test
+  // below reads real cards, not placeholder blocks.
+  await expect(page.getByTestId(ROUTE_LOADING_TESTID)).toHaveCount(0, { timeout: 15000 });
 });
 
 test("every card states an applicant count or says it cannot", async ({ page }) => {

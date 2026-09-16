@@ -55,10 +55,24 @@ export default function JobsFeedLoading() {
           the honest state: "a tab row is coming," not "here is which one."
           Same shape (gap-6, min-h-10, border-b) as the real component so the
           row's height and position don't shift once it's replaced.
+
+          `overflow-x-hidden` on the wrapper, deliberately, not just tidiness:
+          four `w-20` blocks plus three `gap-6`s are 392px of intrinsic
+          content — wider than a 360px phone viewport (CLAUDE.md's own
+          low-end-Android constraint) — and unlike the real FeedTabs' text,
+          which is short enough to fit, a fixed-width placeholder has no
+          content-driven reason to shrink. Measured directly: without this,
+          `document.scrollWidth` on a 360px viewport was 416px, a real
+          horizontal-scroll bug for the split second this skeleton is on
+          screen. Clipping is harmless here — it's a decorative placeholder,
+          not fully-visible real information.
         */}
-        <div className="mt-2 flex items-center gap-6">
+        <div className="mt-2 flex items-center gap-6 overflow-x-hidden">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="flex min-h-10 items-center border-b-[2.5px] border-transparent">
+            <div
+              key={i}
+              className="flex min-h-10 flex-shrink-0 items-center border-b-[2.5px] border-transparent"
+            >
               <SkeletonBlock className="h-3.5 w-20" />
             </div>
           ))}
