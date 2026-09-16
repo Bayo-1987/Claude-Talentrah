@@ -8,6 +8,24 @@ import type { MentorshipSessionType } from "@/lib/mentorship/pricing";
  * signed-in user to see (approved mentors publicly, their own row otherwise,
  * their own sessions either side), so there is nothing here a service-role
  * bypass would add except risk.
+ *
+ * ONE EXCEPTION: a mentor's display NAME. `mentor_profiles` does have a
+ * public-when-approved SELECT policy, but the name itself lives on
+ * `profiles`, which carries only two self-scoped policies ("profiles are
+ * self-readable"/"...-updatable", both `auth.uid() = id`) — no carve-out for
+ * a mentor's name being publicly visible. An embedded
+ * `profiles!mentor_profiles_user_id_fkey(...)` join through this same
+ * authenticated client silently returned null for any viewer who wasn't the
+ * row owner (not an error — RLS just filters the joined row out), so every
+ * mentor's name showed as the generic fallback to every viewer except
+ * themselves. Fixed (0167) the same way `talent_directory_portfolio_items()`
+ * (0135) already solved the identical shape of problem for another table:
+ * a narrow, SECURITY DEFINER `mentor_public_names()` function, re-deriving
+ * eligibility itself (an approved `mentor_profiles` row) rather than relying
+ * on `profiles`' own RLS — never a widened SELECT policy on `profiles`
+ * itself (0030's own lesson: RLS row policies don't restrict columns, so a
+ * broader read policy plus the existing self-write policy is a bigger
+ * surface than it looks).
  */
 
 export interface MentorListing {
@@ -28,18 +46,31 @@ export async function browseMentors(): Promise<MentorListing[]> {
   const { data, error } = await supabase
     .from("mentor_profiles")
     .select(
-      "user_id, bio, expertise_roles, expertise_industries, expertise_seniority, years_experience, base_price_ngn, profiles!mentor_profiles_user_id_fkey(first_name, last_name), mentorship_reviews(rating)",
+      "user_id, bio, expertise_roles, expertise_industries, expertise_seniority, years_experience, base_price_ngn, mentorship_reviews(rating)",
     )
     .eq("status", "approved");
 
   if (error) throw error;
-  return (data ?? []).map((r) => {
-    const profile = r.profiles;
-    const name = profile ? [profile.first_name, profile.last_name].filter(Boolean).join(" ").trim() : "";
+  const rows = data ?? [];
+
+  // Batched, not one call per mentor — see mentor_public_names' own comment
+  // (0167) for why the name can't come from an embedded profiles join.
+  const { data: names, error: namesError } = await supabase.rpc("mentor_public_names", {
+    p_mentor_ids: rows.map((r) => r.user_id),
+  });
+  if (namesError) throw namesError;
+  const nameById = new Map(
+    (names ?? []).map((n) => [n.user_id, [n.first_name, n.last_name].filter(Boolean).join(" ").trim()]),
+  );
+
+  return rows.map((r) => {
     const ratings = (r.mentorship_reviews ?? []).map((rev) => rev.rating);
     return {
       userId: r.user_id,
-      name: name || "A Talentrah mentor",
+      // Only reachable if mentor_public_names returned nothing for an id its
+      // own gate should have matched — status='approved' here and there
+      // disagreeing, which would itself be a bug worth a second look.
+      name: nameById.get(r.user_id) || "A Talentrah mentor",
       bio: r.bio,
       expertiseRoles: r.expertise_roles,
       expertiseIndustries: r.expertise_industries,
@@ -67,7 +98,7 @@ export async function getMentorProfile(mentorUserId: string): Promise<MentorProf
   const { data: mentor, error } = await supabase
     .from("mentor_profiles")
     .select(
-      "user_id, bio, expertise_roles, expertise_industries, expertise_seniority, years_experience, base_price_ngn, profiles!mentor_profiles_user_id_fkey(first_name, last_name), mentorship_reviews(rating)",
+      "user_id, bio, expertise_roles, expertise_industries, expertise_seniority, years_experience, base_price_ngn, mentorship_reviews(rating)",
     )
     .eq("status", "approved")
     .eq("user_id", mentorUserId)
@@ -76,20 +107,29 @@ export async function getMentorProfile(mentorUserId: string): Promise<MentorProf
   if (error) throw error;
   if (!mentor) return null;
 
-  const { data: slots } = await supabase
-    .from("mentor_availability_slots")
-    .select("id, start_at, end_at")
-    .eq("mentor_id", mentorUserId)
-    .eq("is_booked", false)
-    .gt("start_at", new Date().toISOString())
-    .order("start_at", { ascending: true });
+  const [{ data: slots }, { data: names, error: namesError }] = await Promise.all([
+    supabase
+      .from("mentor_availability_slots")
+      .select("id, start_at, end_at")
+      .eq("mentor_id", mentorUserId)
+      .eq("is_booked", false)
+      .gt("start_at", new Date().toISOString())
+      .order("start_at", { ascending: true }),
+    // Single-element array — same batched function browseMentors() uses
+    // (0167); see mentor_public_names' own comment for why the name can't
+    // come from an embedded profiles join.
+    supabase.rpc("mentor_public_names", { p_mentor_ids: [mentorUserId] }),
+  ]);
+  if (namesError) throw namesError;
 
-  const profile = mentor.profiles;
-  const name = profile ? [profile.first_name, profile.last_name].filter(Boolean).join(" ").trim() : "";
+  const found = (names ?? [])[0];
+  const name = found ? [found.first_name, found.last_name].filter(Boolean).join(" ").trim() : "";
   const ratings = (mentor.mentorship_reviews ?? []).map((rev) => rev.rating);
 
   return {
     userId: mentor.user_id,
+    // Only reachable if mentor_public_names returned nothing for an id the
+    // query above just confirmed is approved — see browseMentors' own note.
     name: name || "A Talentrah mentor",
     bio: mentor.bio,
     expertiseRoles: mentor.expertise_roles,

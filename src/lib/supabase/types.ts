@@ -3579,6 +3579,14 @@ export type Database = {
         }
         Returns: boolean
       }
+      mentor_public_names: {
+        Args: { p_mentor_ids: string[] }
+        Returns: {
+          first_name: string
+          last_name: string
+          user_id: string
+        }[]
+      }
       normalize_company_name: { Args: { p_name: string }; Returns: string }
       normalize_email_for_self_referral: {
         Args: { p_email: string }
