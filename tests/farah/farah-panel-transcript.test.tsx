@@ -37,7 +37,7 @@ describe("the default arrival view (no initialMessages — the self-fetching pat
     // is the state a reader's very first paint is in, before any history
     // request could possibly have resolved.
     const html = renderToStaticMarkup(<FarahPanel firstName="Ada" />);
-    expect(html).toContain("I can tailor your resume");
+    expect(html).toContain("I can help you prep for an interview");
     expect(html).not.toContain(OLD_TURN.content);
   });
 
@@ -62,7 +62,7 @@ describe("an explicit initialMessages override (the documented escape hatch, e.g
 
   it("still shows the greeting for an explicit empty array, not a Continue offer", () => {
     const html = renderToStaticMarkup(<FarahPanel firstName="Ada" initialMessages={[]} />);
-    expect(html).toContain("I can tailor your resume");
+    expect(html).toContain("I can help you prep for an interview");
     expect(html).not.toContain("Continue where you left off");
   });
 });
@@ -84,7 +84,7 @@ describe("a job seed present on arrival (initialJobSeed — the same kind of esc
     const html = renderToStaticMarkup(<FarahPanel firstName="Ada" initialJobSeed={SEED} />);
     expect(html).toContain("Backend Engineer");
     expect(html).toContain("Flutterwave");
-    expect(html).not.toContain("I can tailor your resume to any of these");
+    expect(html).not.toContain("I can help you prep for an interview");
   });
 
   it("renders all four starters, the two chat ones before the two /tailor links", () => {
