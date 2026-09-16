@@ -194,6 +194,26 @@ pointed at the tools instead of the code: a test that passes for the wrong
 reason and a grep that matches nothing for the wrong reason are the same
 mistake wearing different clothes.
 
+**A test failure reproduced only under `npm run dev` is the same failure
+wearing yet another hat: it looks like a real regression, and it can be a
+dev-mode artifact instead.** CI's `e2e` job never runs `next dev` — it runs
+`npm run build` then `npm run start` (`.github/workflows/ci.yml`) — so a
+local repro against a dev server is testing a different thing than CI
+actually runs, and the two have already disagreed twice in one session for
+two different reasons:
+
+| what failed under `next dev` | why | how it was caught |
+|---|---|---|
+| PR #429's per-page OG share images: `og:image` resolved to a URL nothing at that address would serve | `next dev` and `next build`/`next start` resolve `metadataBase`-derived absolute URLs differently for file-convention metadata routes | re-verified against a real `npm run build && npm run start`, where it served the correct image |
+| `e2e/employer.spec.ts`'s "Close a posting" test: the "Closed" badge never appeared, 30s timeout | a `next dev`-only overlay rendered a button labelled "Rendering…" — a string that does not exist anywhere in this app's own source — while the real product behaviour (the POST, the `job_postings.status` write, `revalidatePath`) was already correct | re-ran under `npm run build && npm run start`: passed cleanly, and the same commit's actual CI run showed the identical pass |
+
+So: before spending real time instrumenting a failure that only reproduces
+locally, reproduce it again against `npm run build && npm run start` (the
+exact commands CI's `e2e` job runs) first. If it disappears there, the bug
+was in the reproduction method, not the product — check real CI history for
+that commit too, the same way the table above says to widen a truncated
+search rather than trust the first empty result.
+
 ---
 
 ## What Talentrah is
