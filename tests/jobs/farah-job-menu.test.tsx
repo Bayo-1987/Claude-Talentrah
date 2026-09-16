@@ -150,6 +150,20 @@ describe("the per-job button, post send-100", () => {
     expect(markup.match(/<button/g)?.length).toBe(1);
     expect(markup).not.toContain("<a ");
   });
+
+  /*
+   * #142: this is a bare onClick, not a <form action>, so it does not work
+   * before React attaches the handler — a click in that window used to be
+   * silently dropped (the feed renders 150+ of these, which multiplies the
+   * window). `renderToStaticMarkup` never runs `useEffect`, so it IS the
+   * pre-hydration render: this pins that the server/first-paint markup is
+   * genuinely inert rather than a clickable-looking button with nothing
+   * wired up behind it yet.
+   */
+  it("renders disabled before hydration (useMounted has not flipped yet)", () => {
+    expect(markup).toContain("disabled=\"\"");
+    expect(markup).toContain('aria-disabled="true"');
+  });
 });
 
 describe("the seeded panel's two generation links do not resolve to the same page state", () => {

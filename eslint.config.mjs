@@ -32,6 +32,21 @@ const eslintConfig = defineConfig([
     files: ["e2e/fixtures/**/*.ts"],
     rules: { "react-hooks/rules-of-hooks": "off" },
   },
+  {
+    // useMounted's whole job (#142) is the canonical post-hydration mount
+    // flag: flip a boolean inside an empty-deps useEffect so client-only
+    // controls stay honestly disabled until it is actually safe to click
+    // them. That IS "setState synchronously inside a bare effect" — the
+    // exact shape this rule exists to catch, because it's usually a sign an
+    // effect should be a plain event handler or derived value instead. Here
+    // it's the one legitimate exception: there is no event to handle and no
+    // value to derive, only "has the browser committed and attached
+    // handlers yet", which nothing but an effect can answer. See the
+    // hook's own docblock for the full reasoning. Scoped to this one file
+    // so the rule keeps its teeth everywhere else.
+    files: ["src/hooks/use-mounted.ts"],
+    rules: { "react-hooks/set-state-in-effect": "off" },
+  },
 ]);
 
 export default eslintConfig;
