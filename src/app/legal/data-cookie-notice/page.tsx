@@ -66,9 +66,11 @@ export default function DataCookieNoticePage() {
           and application history.
         </li>
         <li>
-          <strong>Google (Gemini API)</strong> — resume and job-description
-          content you submit for matching, tailoring, and Farah&apos;s chat
-          responses.
+          <strong>Groq, and Google&apos;s Gemini API as an automatic backup</strong>{" "}
+          — resume and job-description content you submit for matching,
+          tailoring, and Farah&apos;s chat responses. See the{" "}
+          <a href="/legal/privacy">Privacy Policy</a>&apos;s &quot;AI
+          processing&quot; section for how the two are used.
         </li>
         <li>
           <strong>Paystack</strong> — payment processing for credits and
