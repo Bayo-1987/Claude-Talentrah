@@ -45,6 +45,7 @@ export function ApplicationForm({ existing }: { existing: OwnMentorProfile | nul
         name="yearsExperience"
         type="number"
         min={0}
+        defaultValue={existing?.yearsExperience ?? ""}
       />
       <TextField
         label="Price per session, in Naira (leave blank if free/volunteer)"

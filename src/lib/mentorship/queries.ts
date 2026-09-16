@@ -108,6 +108,8 @@ export interface OwnMentorProfile {
   bio: string | null;
   expertiseRoles: string[];
   expertiseIndustries: string[];
+  /** Never selected before this fix — the edit form silently dropped it on every save that didn't re-type it. */
+  yearsExperience: number | null;
   basePriceNgn: number | null;
   reviewNote: string | null;
   /** Second, independent opt-in on top of status='approved' (0142) — see reviews-verifications-toggle.tsx. */
@@ -119,7 +121,7 @@ export async function getOwnMentorProfile(userId: string): Promise<OwnMentorProf
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("mentor_profiles")
-    .select("status, bio, expertise_roles, expertise_industries, base_price_ngn, review_note, reviews_verifications")
+    .select("status, bio, expertise_roles, expertise_industries, years_experience, base_price_ngn, review_note, reviews_verifications")
     .eq("user_id", userId)
     .maybeSingle();
   if (error) throw error;
@@ -129,6 +131,7 @@ export async function getOwnMentorProfile(userId: string): Promise<OwnMentorProf
     bio: data.bio,
     expertiseRoles: data.expertise_roles,
     expertiseIndustries: data.expertise_industries,
+    yearsExperience: data.years_experience,
     basePriceNgn: data.base_price_ngn,
     reviewNote: data.review_note,
     reviewsVerifications: data.reviews_verifications,
