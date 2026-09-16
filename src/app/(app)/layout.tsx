@@ -7,6 +7,7 @@ import { FarahMobileTab } from "@/components/app-shell/farah-mobile-tab";
 import { FarahFirstVisitHint } from "@/components/app-shell/farah-first-visit-hint";
 import { visibleName, fullVisibleName, nameInitials } from "@/lib/profile/name";
 import { getActivePass } from "@/lib/passes/entitlement";
+import { hasUnreadNotification } from "@/lib/notifications/unread";
 
 export default async function AppLayout({
   children,
@@ -96,8 +97,24 @@ export default async function AppLayout({
    * the pass chip is chrome on this layout, not content on a page — and it
    * is request-memoized, so a page that also needs pass state shares this
    * one call rather than making a second.
+   *
+   * `hasUnreadNotification` is a NEW query here, added for FarahMobileTab's
+   * own notification dot — and it belongs in this file for the same reason
+   * `getActivePass` does, not despite the warning above it. It is chrome
+   * (the mobile tab's dot), not content: a single indexed EXISTENCE check
+   * against a small per-user table (src/lib/notifications/unread.ts), not
+   * the `farah_messages` HISTORY fetch this comment is actually about — that
+   * one was expensive and almost always empty; this one is cheap and answers
+   * a question the tab has no other way to ask, since it renders on every
+   * signed-in page and — unlike FarahPanel — has no fetch of its own to
+   * piggyback on. Run alongside `getActivePass` rather than after it, so
+   * this does not add a second sequential round trip to a layout that
+   * already fought to remove one.
    */
-  const activePass = await getActivePass(session.user.id);
+  const [activePass, hasUnread] = await Promise.all([
+    getActivePass(session.user.id),
+    hasUnreadNotification(session.user.id),
+  ]);
 
   return (
     <div className="min-h-screen">
@@ -190,7 +207,7 @@ export default async function AppLayout({
         (marketing) have their own layout and no Farah panel, so a global tab
         would point at an element that is not there.
       */}
-      <FarahMobileTab />
+      <FarahMobileTab hasUnreadNotification={hasUnread} />
       {/*
         The first-visit hint, gated on the SERVER rather than in the client.
 
