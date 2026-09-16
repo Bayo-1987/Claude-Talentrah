@@ -68,6 +68,23 @@ const PROTECTED_PATH_PREFIXES = [
   "/onboarding",
   "/dashboard",
   "/employer",
+  /*
+   * Added as part of restoring site-wide loading.tsx boundaries. Both were
+   * previously protected ONLY by a page-level requireUser() call — never
+   * added here when they shipped — which is exactly the shape #221 fixed
+   * for everything else: a redirect that only a React Server Component can
+   * issue is a redirect a loading.tsx anywhere in that component's ancestor
+   * chain turns into a 200-with-skeleton instead of a clean 307. Confirmed
+   * directly: adding a loading.tsx to talent-directory/verify with no
+   * middleware backstop measured 200 for a signed-out request; adding these
+   * two lines and re-measuring after is what makes that safe. mentorship/
+   * covers mentorship/[mentorId] too, whose own notFound() is a SEPARATE
+   * concern (a missing mentor, not a missing session) — see that route's
+   * own directory for why it still deliberately gets no loading.tsx of its
+   * own despite being covered by this gate now.
+   */
+  "/mentorship",
+  "/talent-directory",
 ];
 
 export function isProtectedSeekerPath(pathname: string): boolean {
