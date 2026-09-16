@@ -36,7 +36,7 @@ export const metadata: Metadata = pageMetadata({
  */
 export default function TermsOfServicePage() {
   return (
-    <LegalPage eyebrow="Legal" title="Terms of Service" lastUpdated="[DATE — set at launch]">
+    <LegalPage eyebrow="Legal" title="Terms of Service" lastUpdated="September 16, 2026">
       <p>
         These Terms govern your use of Talentrah&apos;s website and app. By
         creating an account or using Talentrah, you agree to them. If you

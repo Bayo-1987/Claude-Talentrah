@@ -19,7 +19,7 @@ export default function DataCookieNoticePage() {
     <LegalPage
       eyebrow="Legal"
       title="Data & Cookie Notice"
-      lastUpdated="[DATE — set at launch]"
+      lastUpdated="September 16, 2026"
     >
       <p>
         This notice explains, in plain terms, the technical side of how
