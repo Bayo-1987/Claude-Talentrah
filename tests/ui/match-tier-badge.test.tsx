@@ -110,10 +110,10 @@ describe("thin screenable-tag denominator (One Acre Fund / ALX Africa case)", ()
           explanation={explanation({ matchedSkills: ["project management"], missingSkills: [] })}
         />,
       );
-      // Real recruiter feedback (docs/stage8-match-accuracy.md): the
-      // qualifier text alone wasn't enough — a giant confidently-green 99%
-      // next to small italic "thin match" text still overclaims. Neither the
-      // raw 99% nor "Excellent" nor green may appear at all now.
+      // Real recruiter feedback: the qualifier text alone wasn't enough —
+      // a giant confidently-green 99% next to small italic "thin match" text
+      // still overclaims. Neither the raw 99% nor "Excellent" nor green may
+      // appear at all now.
       expect(html).not.toContain("99%");
       expect(html).not.toContain("Excellent");
       expect(html).not.toContain("text-green");
@@ -125,16 +125,17 @@ describe("thin screenable-tag denominator (One Acre Fund / ALX Africa case)", ()
     },
   );
 
-  it("0 screenable tags (thinner still) also caps and re-tiers", () => {
+  it("0 screenable tags (thinner still) also caps and qualifies the label", () => {
     const html = renderToStaticMarkup(
       <MatchTierBadge score={100} explanation={explanation()} />,
     );
     expect(html).not.toContain("100%");
     expect(html).not.toContain("Excellent");
+    expect(html).not.toContain("text-green");
     expect(html).toContain("79% · Good — thin match");
   });
 
-  it("2 screenable tags, both matched, still caps — same threshold as MatchBreakdown's own 'thin' cutoff", () => {
+  it("2 screenable tags, both matched, still caps and qualifies — same threshold as MatchBreakdown's own 'thin' cutoff", () => {
     const html = renderToStaticMarkup(
       <MatchTierBadge
         score={100}
@@ -144,7 +145,7 @@ describe("thin screenable-tag denominator (One Acre Fund / ALX Africa case)", ()
     expect(html).toContain("79% · Good — thin match");
   });
 
-  it("does NOT break the common case: a genuinely thick, well-matched skill set still renders plain Excellent", () => {
+  it("SABOTAGE-PROOF TARGET: does NOT break the common case — a genuinely thick, well-supported skill set (well above the thin threshold) still renders plain, uncapped Excellent", () => {
     const html = renderToStaticMarkup(
       <MatchTierBadge
         score={92}
@@ -155,7 +156,9 @@ describe("thin screenable-tag denominator (One Acre Fund / ALX Africa case)", ()
       />,
     );
     expect(html).toContain("92% · Excellent");
+    expect(html).toContain("text-green");
     expect(html).not.toContain("thin");
+    expect(html).not.toContain("79%");
   });
 
   it("no explanation supplied at all renders exactly as before (marketing demo / dev design-check callers)", () => {
@@ -175,7 +178,7 @@ describe("thin screenable-tag denominator (One Acre Fund / ALX Africa case)", ()
     expect(html).not.toContain("thin");
   });
 
-  it("renders the capped tier and qualifier in the display variant too", () => {
+  it("renders the capped score, re-tiered label and qualifier in the display variant too", () => {
     const html = renderToStaticMarkup(
       <MatchTierBadge
         score={99}
@@ -184,8 +187,11 @@ describe("thin screenable-tag denominator (One Acre Fund / ALX Africa case)", ()
       />,
     );
     expect(html).toContain("thin");
-    expect(html).toContain("text-rust");
     expect(html).not.toContain("text-green");
+    expect(html).not.toContain("99");
+    expect(html).toContain("79");
+    expect(html).toContain("text-rust");
+    expect(html).toContain("Good");
   });
 });
 
