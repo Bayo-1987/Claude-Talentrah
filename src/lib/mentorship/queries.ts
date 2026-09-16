@@ -247,6 +247,20 @@ export interface MentorshipSessionSummary {
  * unhelpful schema-cache error. Two queries, one lookup map, is cheaper than
  * being wrong about a guessed embed path — the same call `fulfill.ts` makes
  * for its own receipt lookup.
+ *
+ * THE SECOND QUERY IS AN RPC, NOT A PLAIN `profiles` SELECT — the same shape
+ * of bug 0167 fixed for mentor_public_names(): `profiles` carries only two
+ * self-scoped RLS policies, so `.from("profiles").select(...).in("id",
+ * profileIds)` through this authenticated client silently returned only the
+ * CALLER's own row, never the other party's — a mentee viewing their own
+ * booked session saw the generic "Mentor" fallback instead of the mentor's
+ * real name, and vice versa for a mentor viewing theirs. Confirmed live
+ * before fixing. mentorship_session_counterparty_names() (0168) is NOT
+ * mentor_public_names() reused — a session counterparty is not public the
+ * way an approved mentor's listing is; the function derives its own
+ * eligibility from `auth.uid()` (only the name of someone the caller
+ * actually shares a real mentorship_sessions row with), never a
+ * client-supplied id.
  */
 async function loadSessions(userId: string, side: "mentor_id" | "mentee_id"): Promise<MentorshipSessionSummary[]> {
   const supabase = await createClient();
@@ -261,18 +275,24 @@ async function loadSessions(userId: string, side: "mentor_id" | "mentee_id"): Pr
   if (rows.length === 0) return [];
 
   const profileIds = [...new Set(rows.flatMap((r) => [r.mentor_id, r.mentee_id]))];
-  const { data: profiles } = await supabase
-    .from("profiles")
-    .select("id, first_name, last_name")
-    .in("id", profileIds);
+  const { data: names, error: namesError } = await supabase.rpc("mentorship_session_counterparty_names", {
+    p_user_ids: profileIds,
+  });
+  if (namesError) throw namesError;
   const nameById = new Map(
-    (profiles ?? []).map((p) => [p.id, [p.first_name, p.last_name].filter(Boolean).join(" ").trim()]),
+    (names ?? []).map((p) => [p.user_id, [p.first_name, p.last_name].filter(Boolean).join(" ").trim()]),
   );
 
   return rows.map((r) => ({
     id: r.id,
     mentorId: r.mentor_id,
     menteeId: r.mentee_id,
+    // The caller's OWN id never resolves here — mentorship_session_
+    // counterparty_names() only returns a session's OTHER party, by design
+    // (see its own comment). Harmless: sessions/page.tsx only ever renders
+    // mentorName, and sessions/mentor/page.tsx only ever renders menteeName
+    // — each caller only ever sees the field naming the party that isn't
+    // them, so the caller's own row missing from this map never surfaces.
     mentorName: nameById.get(r.mentor_id) || "Mentor",
     menteeName: nameById.get(r.mentee_id) || "Mentee",
     sessionType: r.session_type as MentorshipSessionType,
