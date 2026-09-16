@@ -136,7 +136,43 @@ test.describe("public pages carry their own social title", () => {
    * at a route that 500s or renders blank is the same bug with better
    * paperwork — and Satori fails quietly (an unsupported CSS property does
    * nothing rather than throwing), so "the URL is right" is not evidence.
+   *
+   * ── FETCH THE PATH, NEVER THE URL IN THE TAG ────────────────────────────
+   *
+   * `og:image` is ABSOLUTE and points at `metadataBase` — the canonical
+   * production origin (SITE_ORIGIN, see layout.tsx for why it is deliberately
+   * not VERCEL_URL). That is correct: a crawler must be able to follow it, and
+   * a relative og:image is itself a real bug.
+   *
+   * It also means passing that URL straight to `request.get()` fetches
+   * www.talentrah.com — the DEPLOYED site — instead of the server under test,
+   * which is a green-looking assertion about the wrong machine and a 404 as
+   * soon as the branch adds a route production does not have yet. That is not
+   * hypothetical: it is exactly how this test first failed in CI, passing
+   * locally the whole time because `next dev` emits the localhost origin for
+   * file-convention metadata routes while `next build` emits metadataBase.
+   *
+   * So: assert the tag is absolute, then fetch its PATH against Playwright's
+   * baseURL. The origin itself is deliberately NOT asserted against a literal
+   * — it comes from metadataBase and an env override is a supported
+   * deployment, so pinning the string here would fail for a reason that has
+   * nothing to do with share cards.
    */
+
+  /**
+   * The path+query of an absolute metadata URL, for requesting against the
+   * server under test. Also asserts the tag really is absolute — a crawler
+   * cannot follow a relative og:image, so that is worth pinning here rather
+   * than quietly tolerating.
+   */
+  function samePath(absolute: string | null): string {
+    expect(absolute, "og:image is missing").toBeTruthy();
+    expect(absolute, "og:image must be absolute for a crawler to follow it").toMatch(
+      /^https?:\/\//,
+    );
+    const u = new URL(absolute!);
+    return `${u.pathname}${u.search}`;
+  }
   test("a job detail page renders its OWN share card, not the static mark", async ({ page }) => {
     /*
      * Sampled from a public listing rather than resolved by natural key. This
@@ -167,8 +203,10 @@ test.describe("public pages carry their own social title", () => {
     // describe one decision, so they must agree.
     expect(h.twCard).toBe("summary_large_image");
 
-    const img = await page.request.get(h.ogImage!);
-    expect(img.status(), "the og:image URL itself must serve an image").toBe(200);
+    // Absolute for the crawler, fetched by path against the server under test
+    // — which is the only machine this run can actually speak to.
+    const img = await page.request.get(samePath(h.ogImage));
+    expect(img.status(), "the og:image route must serve an image").toBe(200);
     expect(img.headers()["content-type"]).toContain("image/png");
     // A blank or errored ImageResponse is still a PNG. A real card carries
     // rendered type on a paper ground and does not compress to a few hundred
@@ -180,7 +218,8 @@ test.describe("public pages carry their own social title", () => {
     const h = await head(page, "/jobs/in/lagos");
     expect(h.ogImage).toContain("/jobs/in/lagos/opengraph-image");
     expect(h.twCard).toBe("summary_large_image");
-    expect((await page.request.get(h.ogImage!)).status()).toBe(200);
+    const livePath = samePath(h.ogImage);
+    expect((await page.request.get(livePath)).status()).toBe(200);
 
     /*
      * The gate that matters. A landing page below LANDING_PAGE_MIN_ENTRIES is
@@ -195,7 +234,7 @@ test.describe("public pages carry their own social title", () => {
      */
     const pageRes = await page.request.get("/jobs/in/kano");
     expect(pageRes.status(), "an unlisted city must 404").toBe(404);
-    const imgRes = await page.request.get(h.ogImage!.replace("/lagos/", "/kano/"));
+    const imgRes = await page.request.get(livePath.replace("/lagos/", "/kano/"));
     expect(imgRes.status(), "the IMAGE route must 404 wherever the page does").toBe(404);
   });
 
