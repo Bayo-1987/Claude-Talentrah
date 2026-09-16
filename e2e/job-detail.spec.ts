@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { ROUTE_LOADING_TESTID } from "@/components/ui/skeleton";
 
 /**
  * Reading a job in full.
@@ -29,6 +30,10 @@ test.beforeEach(async ({ page }) => {
   await page.getByLabel("Password", { exact: true }).fill(DEMO_PASSWORD!);
   await page.getByRole("button", { name: "Log in" }).click();
   await page.waitForURL("**/jobs");
+  // jobs/(feed)/loading.tsx means waitForURL can resolve before the real
+  // feed content replaces the skeleton — wait for it to clear so the tests
+  // below read real cards, not placeholder blocks.
+  await expect(page.getByTestId(ROUTE_LOADING_TESTID)).toHaveCount(0, { timeout: 15000 });
 });
 
 test("the card title opens the job, and the job is not truncated there", async ({ page }) => {

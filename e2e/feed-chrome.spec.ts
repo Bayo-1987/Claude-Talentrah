@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { ROUTE_LOADING_TESTID } from "@/components/ui/skeleton";
 
 /**
  * Two things a seeker steers by on the feed: how contested a job is, and
@@ -35,6 +36,10 @@ test.beforeEach(async ({ page }) => {
   await page.getByLabel("Password", { exact: true }).fill(DEMO_PASSWORD!);
   await page.getByRole("button", { name: "Log in" }).click();
   await page.waitForURL("**/jobs");
+  // jobs/(feed)/loading.tsx means waitForURL can resolve before the real
+  // feed content replaces the skeleton — wait for it to clear so every test
+  // below reads real cards, not placeholder blocks.
+  await expect(page.getByTestId(ROUTE_LOADING_TESTID)).toHaveCount(0, { timeout: 15000 });
 });
 
 test("every card states an applicant count or says it cannot", async ({ page }) => {
@@ -88,6 +93,11 @@ test("a saved job is not an applicant", async ({ page }) => {
   // no country in the string) would silently disappear from a concern this
   // test isn't exercising.
   await page.goto("/jobs?tab=recent&country=all");
+  // This is a second, separate navigation from the beforeEach's — the same
+  // race applies: wait for the skeleton to clear before the one-shot
+  // `.count()` below, which (unlike `expect(locator).toBeVisible()`) does
+  // not retry and would otherwise count placeholder blocks, not real cards.
+  await expect(page.getByTestId(ROUTE_LOADING_TESTID)).toHaveCount(0, { timeout: 15000 });
   // By heading text, not by link role: card titles are plain text on this
   // branch. A role selector silently matched nothing and turned the most
   // valuable assertion in this file into a skip.
