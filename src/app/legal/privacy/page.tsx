@@ -16,17 +16,20 @@ export const metadata: Metadata = pageMetadata({
  * payments, Google/LinkedIn OAuth) but has not had a legal review pass. Do
  * not treat as final/binding until reviewed against the Nigeria Data
  * Protection Act (and any other jurisdiction Talentrah actually operates
- * in) by counsel. [Registered legal entity name / RC number / registered
- * address] is a placeholder pending that review — fill in before launch.
+ * in) by counsel. The registered legal entity name and address below are
+ * now filled in with founder-supplied real values — that is not the same
+ * thing as a legal review having happened, and this page still has not had
+ * one; do not treat it as final/binding until it does.
  */
 export default function PrivacyPolicyPage() {
   return (
-    <LegalPage eyebrow="Legal" title="Privacy Policy" lastUpdated="[DATE — set at launch]">
+    <LegalPage eyebrow="Legal" title="Privacy Policy" lastUpdated="September 16, 2026">
       <p>
         This Privacy Policy explains what personal data Talentrah (&quot;Talentrah,&quot;
         &quot;we,&quot; &quot;us&quot;) collects when you use our website and app, why we collect
-        it, and the choices you have. Talentrah is operated by [Talentrah&apos;s
-        registered legal entity name], [registered address].
+        it, and the choices you have. Talentrah is operated by Talentrah
+        Technologies Ltd, JF4, Sky Memorial Complex, Zone 5, Wuse, Abuja,
+        Nigeria.
       </p>
 
       <h2>Information we collect</h2>
