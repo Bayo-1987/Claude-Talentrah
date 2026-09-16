@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { IconButton } from "@/components/ui";
 import { ShareButtons } from "@/components/referrals/share-buttons";
+import { useMounted, mountedTriggerProps } from "@/hooks/use-mounted";
 
 /**
  * Sharing one job.
@@ -42,6 +43,9 @@ export function ShareJobButton({
 }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
+  // #142: bare onClick, not a <form> — stays inert until hydration attaches
+  // it. See src/hooks/use-mounted.ts.
+  const mounted = useMounted();
 
   // Same dismissal contract as the Farah and Report menus on this card:
   // outside click and Escape. Three popovers behaving differently in one
@@ -71,6 +75,7 @@ export function ShareJobButton({
         aria-expanded={open}
         type="button"
         onClick={() => setOpen((o) => !o)}
+        {...mountedTriggerProps(mounted)}
       >
         <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true">
           <circle cx="15" cy="5" r="2.2" stroke="currentColor" strokeWidth="1.4" />
