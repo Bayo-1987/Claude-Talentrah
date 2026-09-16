@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useRef, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { MAX_EXPIRY_DAYS } from "@/lib/employer/expiry-input";
 import { BorderedCard, Button, FilterChip, TextField } from "@/components/ui";
 import { cn } from "@/lib/cn";
@@ -404,21 +404,44 @@ export function JobPostingForm({
     return [];
   });
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   /**
    * Covers the blank-form case the mount-time seed above can't: an employer
    * who opens a brand-new posting, types a description by hand, and never
    * touches the skills field. Never overwrites a real choice — including a
-   * deliberate "none of these" — which is why this only fires while `skills`
-   * is still at its untouched empty starting point.
+   * deliberate "none of these" — which is why the functional update below
+   * only applies while `skills` is still at its untouched empty starting
+   * point, checked at the moment it actually commits rather than against a
+   * value captured when the timer was scheduled.
+   *
+   * Debounced off onChange rather than triggered on blur (the original
+   * shape): blur fires as a side effect of whatever the employer clicks
+   * next, which is "Publish job" for anyone who goes straight from typing
+   * to submitting. That makes the population's own re-render — new chips
+   * appear directly above the button — race the click already in flight:
+   * the button's on-screen position shifts out from under a pointer that
+   * already committed to the pre-shift coordinates, so the click lands on
+   * nothing and the submission never happens. Reacting to typing instead
+   * means the chips settle while the employer is still writing, long before
+   * any click near the button is possible.
    */
-  function handleDescriptionBlur() {
-    if (skills.length > 0) return;
-    const text = descriptionRef.current?.value ?? "";
-    if (!text) return;
-    const suggested = extractStructuredJd(text).skills;
-    if (suggested.length > 0) setSkills(suggested);
+  function handleDescriptionChange() {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      const text = descriptionRef.current?.value ?? "";
+      if (!text) return;
+      const suggested = extractStructuredJd(text).skills;
+      if (suggested.length === 0) return;
+      setSkills((current) => (current.length > 0 ? current : suggested));
+    }, 400);
   }
+
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, []);
 
   return (
     <div className="flex flex-col gap-5">
@@ -527,7 +550,7 @@ export function JobPostingForm({
               rows={14}
               ref={descriptionRef}
               defaultValue={initial?.description}
-              onBlur={handleDescriptionBlur}
+              onChange={handleDescriptionChange}
               placeholder="Responsibilities, requirements, what the team is like, how to stand out."
               className="border-[1.5px] border-ink bg-card px-3.5 py-2.5 font-body text-[15px] leading-[1.65] text-ink outline-none focus:border-rust"
             />

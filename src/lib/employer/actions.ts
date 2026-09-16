@@ -15,7 +15,7 @@ import {
   isConsumerEmailDomain,
   normalizeDomain,
 } from "@/lib/employer/verification";
-import { SKILL_VOCABULARY } from "@/lib/jobs/extract-jd";
+import { extractStructuredJd, SKILL_VOCABULARY } from "@/lib/jobs/extract-jd";
 import { Constants, type Enums, type Json } from "@/lib/supabase/types";
 
 /**
@@ -421,7 +421,7 @@ function readJobForm(form: FormData) {
   // this is the boundary where a hand-crafted request is caught rather than
   // silently writing an arbitrary string into computeMatchScore's own
   // denominator.
-  const skills = Array.from(
+  const submittedSkills = Array.from(
     new Set(
       form
         .getAll("skills")
@@ -430,10 +430,30 @@ function readJobForm(form: FormData) {
     ),
   );
 
+  const description = str(form, "description");
+
+  /*
+   * Fallback, not the primary path: SkillsAutocomplete pre-populates from the
+   * description client-side (on mount and on typing) so this should rarely
+   * actually run for an employer who wrote a real description. It exists
+   * because that pre-population's correctness depended on client-side timing
+   * relative to the moment "Publish job" is clicked, and there IS no timing
+   * that is safe against every input device and interaction speed — a fast
+   * click right after finishing the description can submit before a
+   * debounced update commits, the same way it could previously race a
+   * blur-triggered one (caught by e2e/employer.spec.ts and its siblings,
+   * which fill the description and click Publish back to back, exactly the
+   * shape a fast typist or a password-manager-style fast form-fill produces).
+   * Re-running the same extractor here means correctness never depends on
+   * whether the client's own copy finished in time.
+   */
+  const skills =
+    submittedSkills.length > 0 ? submittedSkills : extractStructuredJd(description).skills;
+
   return {
     title: str(form, "title"),
     location: str(form, "location"),
-    description: str(form, "description"),
+    description,
     work_type: optionalEnum<Enums<"work_type">>(form, "workType", Constants.public.Enums.work_type),
     employment_type: optionalEnum<Enums<"employment_type">>(
       form,
