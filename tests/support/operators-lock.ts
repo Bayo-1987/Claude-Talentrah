@@ -5,7 +5,7 @@ import type { Database } from "../../src/lib/supabase/types";
 /**
  * A mutex for suites that assert on a GLOBAL invariant — one that is NOT
  * scoped to rows a single test run created, so per-run naming (RUN_TAG, see
- * tests/support/list-users.ts) cannot protect it. Two kinds of "global" have
+ * tests/support/list-users.ts) cannot protect it. Three kinds of "global" have
  * needed this so far, and the distinction is worth keeping straight:
  *
  *   admin_operators_covered()   asks "does ANY active admin hold `operators`
@@ -15,6 +15,16 @@ import type { Database } from "../../src/lib/supabase/types";
  *                                the whole point of the table is a single
  *                                shared budget, so there is no run-scoped name
  *                                to give it.
+ *   pass renewal job            `runPassRenewalJob` (src/lib/billing/renewals.ts)
+ *                                selects every due `user_passes` row
+ *                                ACCOUNT-WIDE — `next_renewal_date <= today`,
+ *                                no run scoping possible — so a second process
+ *                                calling it concurrently claims and mutates
+ *                                THIS run's due Pass with ITS OWN mocked
+ *                                Paystack client. See tests/billing/
+ *                                renewal-failure-modes.test.ts's own lock
+ *                                acquisition for the reproduction that proved
+ *                                it (issue #136).
  *
  * See supabase/migrations/0082_ci_test_locks.sql for the lease's own
  * reasoning (why a table, why it expires, why acquire-or-renew is one
@@ -61,6 +71,19 @@ export const OPERATORS_COVERAGE_LOCK = "admin_operators_coverage";
  * measured numbers.
  */
 export const ANONYMOUS_DEMO_DAILY_LOCK = "anonymous_demo_daily_invariant";
+
+/**
+ * `runPassRenewalJob` processes every due `user_passes` row account-wide —
+ * there is no per-run name to scope it by, the same reason
+ * ANONYMOUS_DEMO_DAILY_LOCK exists. Two concurrent test processes each seed
+ * their own due Pass and each call the job; without this lock, either
+ * process's job can select and mutate the OTHER's due Pass using its own
+ * mocked Paystack client, corrupting both runs' assertions. Reproduced
+ * directly: three concurrent `renewal-failure-modes.test.ts` processes
+ * against the shared hosted project failed 3/3, with cross-process mock-call
+ * counts and MISMATCH-currency logging naming the OTHER run's fixture.
+ */
+export const PASS_RENEWAL_JOB_LOCK = "pass_renewal_job_invariant";
 
 export interface OperatorsLockOptions {
   /**
@@ -201,4 +224,13 @@ export function acquireAnonymousDemoDailyLock(
   opts: OperatorsLockOptions = {},
 ): Promise<() => Promise<void>> {
   return acquireLock(admin, ANONYMOUS_DEMO_DAILY_LOCK, label, opts);
+}
+
+/** `acquireLock` pinned to the pass-renewal-job invariant. */
+export function acquirePassRenewalJobLock(
+  admin: SupabaseClient<Database>,
+  label: string,
+  opts: OperatorsLockOptions = {},
+): Promise<() => Promise<void>> {
+  return acquireLock(admin, PASS_RENEWAL_JOB_LOCK, label, opts);
 }

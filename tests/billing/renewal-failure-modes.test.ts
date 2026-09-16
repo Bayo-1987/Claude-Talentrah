@@ -30,11 +30,38 @@
  * only the Paystack client mocked — the lapse decision, the transaction row and
  * the Pass mutation are all real. Verified before writing them that production
  * holds zero `user_passes` rows, so the job has no real card to touch.
+ *
+ * ── WHY THIS FILE TAKES A LEASE (issue #136) ──────────────────────────────
+ *
+ * `runPassRenewalJob` selects every due `user_passes` row ACCOUNT-WIDE
+ * (`next_renewal_date <= today`) — there is no per-run column to scope that
+ * query by, the same shape as `anonymous_demo_daily` in
+ * tests/demo/anonymous-limit.test.ts. RUN_TAG (tests/support/list-users.ts)
+ * cannot help here: it scopes rows a run OWNS and can find again to delete,
+ * not a query that reads every account's due rows regardless of who created
+ * them.
+ *
+ * REPRODUCED directly against the shared hosted project: three concurrent
+ * `vitest run tests/billing/renewal-failure-modes.test.ts` processes, no
+ * lock, failed 3/3 — each process's `runPassRenewalJob()` claimed and charged
+ * ANOTHER process's due Pass with ITS OWN mocked `chargeAuthorization`, so
+ * assertions like "must NOT charge again" and "expected 1 transaction, got 2"
+ * failed for reasons that had nothing to do with the code under test. One run
+ * even logged a currency MISMATCH against a Pass it had never created,
+ * naming the amount/currency another process's own test had set up.
+ *
+ * Fixed the same way anonymous-limit.test.ts was: a lease from
+ * tests/support/operators-lock.ts, acquired before the shared fixture user
+ * exists and released only after every fixture this file created is gone —
+ * releasing earlier would hand the lock to a waiter while a due Pass from
+ * this run might still be sitting in the table for that waiter's own
+ * `runPassRenewalJob()` call to find.
  */
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/types";
 import { createTestUser, deleteTestUsers } from "../support/auth";
+import { acquirePassRenewalJobLock } from "../support/operators-lock";
 
 for (const key of ["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"] as const) {
   if (!process.env[key]) throw new Error(`Renewal failure-mode test cannot run: ${key} is not set.`);
@@ -139,7 +166,19 @@ async function transactionsForPass() {
   return data ?? [];
 }
 
-beforeAll(setUpSharedUser);
+let releaseLock: (() => Promise<void>) | undefined;
+
+/*
+ * SERIALIZED against every other process running this file — the whole file,
+ * not per-test, because `runPassRenewalJob` is called from many tests below
+ * and any one of them left unlocked is a reintroduction of the race. Acquired
+ * before the shared fixture user even exists, so nothing here can interleave
+ * with another process's due Pass.
+ */
+beforeAll(async () => {
+  releaseLock = await acquirePassRenewalJobLock(admin, "renewal-failure-modes");
+  await setUpSharedUser();
+}, 300_000); // this hook QUEUES on the lease; the default 60s is too short.
 
 beforeEach(async () => {
   charge.mockReset();
@@ -164,6 +203,10 @@ afterAll(async () => {
     await deleteTestUsers([userId]);
   }
   vi.restoreAllMocks();
+  // Released LAST, after every fixture above is gone — releasing earlier
+  // would hand the lease to a waiter while a due Pass from this run might
+  // still be sitting in the table for that waiter's own job call to find.
+  await releaseLock?.();
 }, 60_000);
 
 /** A network-level failure: Paystack never answered. */

@@ -305,7 +305,18 @@ test.describe("golden path", () => {
     // the DEEPEST element containing the phrase, which here is the <span>
     // wrapping only the headline — its textContent has none of the numbers.
     const notice = page.locator("p", { hasText: "that job description was shortened" });
-    await expect(notice, "an over-cap JD must say so").toBeVisible();
+    // Same explicit timeout as the "ATS score" wait above, not the 5s
+    // implicit default. tailor-form.tsx renders the notice and "ATS score"
+    // from the same `result` object in one return (verified by reading the
+    // component directly) — they are never in separate paint frames, and
+    // jdTruncation is a pure function of jdText.length recomputed fresh on
+    // every call (src/lib/tailoring/tailor.ts), never read from a cache
+    // blob — so this isn't papering over app nondeterminism. The result
+    // panel is large (ATS score, gap analysis, proposed additions, course
+    // recommendations, the full resume preview), and a slow CI runner
+    // occasionally needs more than 5s to finish laying it all out after the
+    // state update that made "ATS score" visible — see #160.
+    await expect(notice, "an over-cap JD must say so").toBeVisible({ timeout: 30_000 });
 
     // The real character counts, not just the presence of a warning — a
     // notice with wrong numbers would be worse than none.
