@@ -170,6 +170,7 @@ test.describe("the masthead nav fits where it is shown", () => {
       "Mentorship",
       "Feedback",
       "Post a job",
+      "Ask Farah",
     ]) {
       await expect(
         menu.getByRole("menuitem", { name: label }),

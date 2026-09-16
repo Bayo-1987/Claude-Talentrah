@@ -164,6 +164,72 @@ test.describe("reaching Farah on a phone", () => {
   }
 });
 
+test.describe("reaching Farah between 760 and 1535px", () => {
+  test.skip(!DEMO_PASSWORD, "DEMO_PASSWORD is not set — see scripts/seed.ts");
+
+  /*
+   * THE GAP THIS DESCRIBE BLOCK CLOSES. Below 760 the mobile tab covers it;
+   * at and above 2xl (1536) the inline masthead item does. Between those two
+   * — which includes every common laptop resolution (1280/1366/1440/1512) —
+   * there was no persistent Farah affordance at all once FarahFirstVisitHint's
+   * one-time nudge is dismissed. The fix is a new "Ask Farah" entry in the
+   * masthead's hamburger disclosure (masthead.tsx), grouped with "Post a job"
+   * — this asserts it is actually there and actually works, at real widths
+   * across the band rather than just one.
+   */
+  const BAND_WIDTHS = [760, 1024, 1280, 1366, 1440, 1512, 1535];
+
+  for (const width of BAND_WIDTHS) {
+    test(`at ${width}px the hamburger menu carries a reachable "Ask Farah" entry`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width, height: 900 });
+      await login(page);
+
+      // Precondition: the inline masthead item (2xl-gated) must NOT be
+      // rendering here — otherwise this test would pass for the wrong
+      // reason, proving the old affordance rather than the new one.
+      await expect(
+        page.getByTestId("masthead").getByRole("button", { name: "Ask Farah" }),
+      ).toHaveCount(0);
+
+      const trigger = page.getByRole("button", { name: "Main menu" });
+      await expect(trigger).toBeVisible();
+
+      const menu = page.getByRole("menu").first();
+      await expect(async () => {
+        await trigger.click();
+        await expect(menu).toBeVisible({ timeout: 1000 });
+      }).toPass({ timeout: 15_000 });
+
+      const item = menu.getByRole("menuitem", { name: "Ask Farah" });
+      await expect(item).toBeVisible();
+
+      // Every interactive element needs a real hit target (CLAUDE.md) —
+      // pinned the same way the phone tab's own button is pinned above.
+      const box = await item.boundingBox();
+      expect(box!.height).toBeGreaterThanOrEqual(44);
+
+      await item.click();
+
+      // Same contract as every other menuitem in this disclosure: activating
+      // it closes the menu. No special-casing in masthead.tsx for this one —
+      // confirmed here rather than assumed.
+      await expect(menu).toBeHidden();
+
+      // The panel is a sticky column at these widths (farah-panel.tsx), so a
+      // fresh page load often already has it in view — this asserts the
+      // click didn't error and the panel ends up on screen, not that it
+      // necessarily moved.
+      const inView = await page.evaluate(() => {
+        const p = document.querySelector('[data-testid="farah-panel"]')!.getBoundingClientRect();
+        return p.top < window.innerHeight && p.bottom > 0;
+      });
+      expect(inView, "the panel is not on screen after activating the dropdown entry").toBe(true);
+    });
+  }
+});
+
 test.describe("reaching Farah on a desktop", () => {
   test.skip(!DEMO_PASSWORD, "DEMO_PASSWORD is not set — see scripts/seed.ts");
 
