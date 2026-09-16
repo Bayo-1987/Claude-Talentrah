@@ -526,9 +526,22 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
             </>
           ) : (
             <>
+              {/*
+                Matches the three FARAH_QUICK_ACTIONS actually rendered below
+                this greeting on every (app) page — CV Builder and Cover
+                Letter were deliberately dropped from that list 2026-09-08
+                (see quick-actions.ts's own header) as redundant navigation
+                shortcuts, but this greeting used to still promise "tailor
+                your resume", a capability that isn't one of the options
+                right underneath it anywhere this panel is mounted. This is
+                the pristine empty-state — no job in view — so it has to be
+                genuinely page-agnostic, not job-feed-specific wording that
+                happens to also render on /settings or /mentorship/apply.
+              */}
               <p className="font-display text-[14.5px] italic leading-relaxed text-ink-soft">
-                &ldquo;Hi {firstName} — I can tailor your resume to any of these
-                roles, or help you prep. What do you need?&rdquo;
+                &ldquo;Hi {firstName} — I can help you prep for an interview,
+                think through your next career move, or get ready for a
+                salary conversation. What do you need?&rdquo;
               </p>
               {/*
                 The quiet line the earlier-conversation fix is actually about.

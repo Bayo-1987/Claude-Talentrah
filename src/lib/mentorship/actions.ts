@@ -38,6 +38,12 @@ export async function applyToBecomeMentorAction(_prev: unknown, formData: FormDa
     bio: String(formData.get("bio") ?? "").trim() || null,
     expertise_roles: splitTags(String(formData.get("expertiseRoles") ?? "")),
     expertise_industries: splitTags(String(formData.get("expertiseIndustries") ?? "")),
+    // Deliberately optional, not required: 0133's own column definition
+    // (`years_experience integer check (years_experience is null or
+    // years_experience >= 0)`) explicitly permits null rather than being
+    // written as a plain NOT NULL >= 0 check, the same shape base_price_ngn
+    // uses for its own documented "null = free/volunteer" case just below —
+    // an empty field maps to null rather than a validation failure here too.
     years_experience: yearsRaw ? Number(yearsRaw) : null,
     // Empty means free/volunteer — 0133's own recommended v1 default, not an
     // error state, so an empty field maps to null rather than a validation
