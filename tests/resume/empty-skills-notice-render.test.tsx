@@ -33,7 +33,14 @@ describe("it points at the fix, not just the problem", () => {
   it("offers re-uploading, because the original file is gone", () => {
     // There is no stored file to reprocess — resumes keeps only the parsed
     // output — so re-uploading is genuinely the other half of the remedy.
-    expect(html).toContain("/onboarding");
+    //
+    // NOT /onboarding: this notice only ever renders for a user who already
+    // HAS a base resume, and /onboarding's own page redirects away
+    // immediately whenever any base resume exists, regardless of content —
+    // a real dead link this exact assertion used to pin. /resume-builder is
+    // where that row's own "Replace" control actually lives.
+    expect(html).toContain("/resume-builder");
+    expect(html).not.toContain("/onboarding");
   });
 
   it("says why it matters in terms of matching, not in terms of completeness", () => {

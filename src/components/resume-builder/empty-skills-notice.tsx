@@ -71,8 +71,18 @@ export function EmptySkillsNotice({ baseResumeId }: { baseResumeId: string }) {
         >
           Add your skills
         </Link>
+        {/*
+          NOT /onboarding. This notice only ever renders for a user who
+          already HAS a base resume (shouldShowEmptySkillsNotice returns
+          false without one) — and /onboarding's own page redirects away
+          immediately whenever ANY base resume exists, regardless of its
+          content, sending this exact user straight back to /jobs without
+          ever seeing the upload form. /resume-builder is honest: that row
+          already shows a working "Replace" control (ResumeListRow, gated on
+          isBase), which this user's row always is.
+        */}
         <Link
-          href="/onboarding"
+          href="/resume-builder"
           className="text-[13.5px] font-semibold underline underline-offset-2 hover:text-rust"
         >
           Upload your resume again
