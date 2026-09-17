@@ -34,6 +34,21 @@ vi.mock("@/lib/auth/require-user", () => ({
   requireUser: async () => ({ user: { id: USER_ID } }),
 }));
 
+/*
+ * FirstBaseResumePanel (rendered whenever the fixture's baseResume is null,
+ * same as the empty-skills-notice cases below) pulls in ResumeUpload, which
+ * calls useRouter() unconditionally at render time. renderToStaticMarkup
+ * has no Next.js app-router context to satisfy that with, so without this
+ * mock every "no base resume" fixture throws "invariant expected app router
+ * to be mounted" the moment this page starts covering that case — not a
+ * product bug, just this test's own bare-React-SSR harness reaching a hook
+ * it was never set up to provide, the same reason require-user and
+ * supabase/server are mocked above rather than exercised for real.
+ */
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: () => {} }),
+}));
+
 interface Fixture {
   baseResume: { id: string; structured_content: unknown } | null;
   dismissedAt: string | null;
