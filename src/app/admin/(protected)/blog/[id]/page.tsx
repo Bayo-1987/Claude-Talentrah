@@ -20,6 +20,7 @@ export default async function EditBlogPostPage({ params }: { params: Promise<{ i
   if (!post) notFound();
 
   const published = post.status === "published";
+  const previewHtml = await renderMarkdown(post.body);
 
   return (
     <Container className="flex max-w-[900px] flex-col gap-8 py-12">
@@ -65,7 +66,7 @@ export default async function EditBlogPostPage({ params }: { params: Promise<{ i
           author: post.author,
           body: post.body,
         }}
-        previewHtml={renderMarkdown(post.body)}
+        previewHtml={previewHtml}
         submitLabel="Save changes"
       />
 

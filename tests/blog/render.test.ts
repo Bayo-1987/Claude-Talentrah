@@ -31,54 +31,54 @@ describe("the editorial classes survive sanitisation", () => {
     ["A paragraph.", 'class="text-[15.5px] leading-[1.75] text-ink-soft"'],
     ["**bold**", 'class="text-ink"'],
     ["- item", 'class="ml-5 list-disc"'],
-  ])("%s keeps its class", (md, cls) => {
-    expect(renderMarkdown(md)).toContain(cls);
+  ])("%s keeps its class", async (md, cls) => {
+    expect(await renderMarkdown(md)).toContain(cls);
   });
 
-  it("gives links their class AND keeps the href", () => {
+  it("gives links their class AND keeps the href", async () => {
     // Both halves matter: an earlier draft replaced every attribute, which
     // would have styled links correctly and made them go nowhere.
-    const html = renderMarkdown("[docs](https://example.com)");
+    const html = await renderMarkdown("[docs](https://example.com)");
     expect(html).toContain('href="https://example.com"');
     expect(html).toContain('class="text-rust underline underline-offset-2"');
   });
 });
 
 describe("what must not survive", () => {
-  it("strips a script tag", () => {
-    const html = renderMarkdown("Hello\n\n<script>alert(1)</script>\n\nWorld");
+  it("strips a script tag", async () => {
+    const html = await renderMarkdown("Hello\n\n<script>alert(1)</script>\n\nWorld");
     expect(html).not.toContain("<script");
     expect(html).not.toContain("alert(1)");
   });
 
-  it("strips inline event handlers", () => {
-    expect(renderMarkdown('<p onclick="steal()">hi</p>')).not.toContain("onclick");
+  it("strips inline event handlers", async () => {
+    expect(await renderMarkdown('<p onclick="steal()">hi</p>')).not.toContain("onclick");
   });
 
-  it("drops a javascript: link target", () => {
+  it("drops a javascript: link target", async () => {
     // The oldest XSS in the Markdown format.
-    const html = renderMarkdown("[click](javascript:alert(1))");
+    const html = await renderMarkdown("[click](javascript:alert(1))");
     expect(html).not.toContain("javascript:");
   });
 
-  it("does not let an author smuggle in their own classes", () => {
+  it("does not let an author smuggle in their own classes", async () => {
     // merge:false on the transform — our class replaces theirs rather than
     // joining, so a body cannot restyle the page around itself.
-    const html = renderMarkdown('<p class="fixed inset-0 z-50 bg-ink">covering the page</p>');
+    const html = await renderMarkdown('<p class="fixed inset-0 z-50 bg-ink">covering the page</p>');
     expect(html).not.toContain("fixed inset-0");
     expect(html).toContain('class="text-[15.5px] leading-[1.75] text-ink-soft"');
   });
 
-  it("demotes an h1 so it cannot compete with the page title", () => {
-    const html = renderMarkdown("# Shouting");
+  it("demotes an h1 so it cannot compete with the page title", async () => {
+    const html = await renderMarkdown("# Shouting");
     expect(html).not.toContain("<h1");
     expect(html).toContain("<h2");
   });
 });
 
 describe("the constructs the migrated posts actually use", () => {
-  it("renders the exact shape those four posts are made of", () => {
-    const html = renderMarkdown("Intro paragraph.\n\n## A heading\n\n- one **bold** item\n- two");
+  it("renders the exact shape those four posts are made of", async () => {
+    const html = await renderMarkdown("Intro paragraph.\n\n## A heading\n\n- one **bold** item\n- two");
     for (const frag of [
       '<p class="text-[15.5px] leading-[1.75] text-ink-soft">',
       '<h2 class="mt-2 text-[22px] text-ink">',
