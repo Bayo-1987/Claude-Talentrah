@@ -11,6 +11,7 @@ import { initializeTransaction, NGN_CHANNELS } from "@/lib/paystack/client";
 import { generateMeetingLink } from "@/lib/mentorship/meeting-link";
 import { notifySessionConfirmed } from "@/lib/mentorship/notifications";
 import type { MentorshipSessionType } from "@/lib/mentorship/pricing";
+import { captureEvent } from "@/lib/analytics/posthog";
 
 function splitTags(raw: string): string[] {
   return raw
@@ -164,6 +165,12 @@ export async function bookMentorSessionAction(availabilitySlotId: string, sessio
   }
 
   const { session_id: sessionId, price_ngn: priceNgn } = rows[0];
+
+  // A real funnel completion regardless of price — a free/volunteer-mentor
+  // booking counts the same as one that goes on to Paystack. Payment
+  // confirmation for a paid session is a separate, later event this
+  // doesn't add.
+  captureEvent(user.id, "mentor_session_booked");
 
   if (priceNgn === 0) {
     revalidatePath("/mentorship/sessions");

@@ -3,6 +3,7 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { getResendClient } from "@/lib/resend/client";
 import { visibleName } from "@/lib/profile/name";
 import { verifyTransaction } from "@/lib/paystack/client";
+import { captureEvent } from "@/lib/analytics/posthog";
 
 export interface FulfillResult {
   status: "success" | "already_processed" | "failed" | "not_found";
@@ -169,6 +170,16 @@ export async function fulfillPayment(
         console.error("[fulfill] purchase receipt failed to send", err);
       }
     }
+    // Only this branch's own success return — not the shared return at the
+    // end of this function, which talent_directory_subscription,
+    // ad_wallet_topup and mentor_session also reach. Not the
+    // "already_processed" branch above either: the webhook/callback race
+    // this function's own header documents would otherwise double-count
+    // the same purchase.
+    captureEvent(transaction.user_id, "credit_purchase_completed", {
+      amount_ngn: transaction.amount,
+      product_type: result.product_type,
+    });
     return { status: "success" };
   } else if (transaction.product_type === "talent_directory_subscription" && transaction.product_id) {
     /*
