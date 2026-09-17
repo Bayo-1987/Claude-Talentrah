@@ -158,6 +158,26 @@ async function sweepStaleAccounts(db: ReturnType<typeof createClient<Database>>)
   const stale = candidates.filter((a) => new Date(a.created_at).getTime() < cutoff);
   if (!stale.length) return;
 
+  /*
+   * Logged for #156: this age-gated sweep is the one deletion path in this
+   * file that is NOT scoped to a single run's RUN_TAG (it is deliberately
+   * global, by design). Its own email already carries whichever run created
+   * it, so logging email + id + timestamp here — rather than this sweep's
+   * own, meaningless-in-context RUN_TAG — is what actually lets a future
+   * organic occurrence be checked against: did this sweep delete an account
+   * younger than the 2h cutoff should have allowed, or one still in use by
+   * a live run?
+   */
+  const deletedAt = new Date().toISOString();
+  for (const a of stale) {
+    // process.stdout.write, not console.warn — see tests/support/auth.ts's
+    // deleteTestUsers for why (empirically confirmed: Vitest's default
+    // reporter can drop hook-level console output on a passing file/run).
+    process.stdout.write(
+      `[test-cleanup] global-sweep deleting user=${a.id} email=${a.email} at=${deletedAt}\n`,
+    );
+  }
+
   const failures = (
     await Promise.all(
       stale.map((a) =>
