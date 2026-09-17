@@ -7,6 +7,7 @@ import { ApplicationForm } from "./application-form";
 import { AvailabilityManager } from "./availability-manager";
 import { PayoutDetailsForm } from "./payout-details-form";
 import { ReviewsVerificationsToggle } from "./reviews-verifications-toggle";
+import { SelfPauseToggle } from "./self-pause-toggle";
 
 export const metadata = { title: "Become a mentor — Talentrah" };
 
@@ -54,7 +55,7 @@ export default async function MentorApplyPage() {
         <>
           <BorderedCard className="flex flex-col gap-3 p-5">
             <p className="text-[14px] text-ink">{STATUS_COPY[profile.status] ?? profile.status}</p>
-            {profile.status === "rejected" && profile.reviewNote && (
+            {(profile.status === "rejected" || profile.status === "suspended") && profile.reviewNote && (
               <p className="text-[13px] text-ink-soft">Reviewer note: {profile.reviewNote}</p>
             )}
           </BorderedCard>
@@ -63,6 +64,10 @@ export default async function MentorApplyPage() {
             <>
               <AvailabilityManager slots={slots} />
               <PayoutDetailsForm existing={payoutDetails} banks={banks} banksError={banksError} />
+              <BorderedCard className="flex flex-col gap-3 p-5">
+                <h2 className="font-display text-[18px] font-semibold">Your listing</h2>
+                <SelfPauseToggle paused={profile.selfPaused} />
+              </BorderedCard>
               <BorderedCard className="flex flex-col gap-3 p-5">
                 <h2 className="font-display text-[18px] font-semibold">Talent Directory reviews</h2>
                 <ReviewsVerificationsToggle optIn={profile.reviewsVerifications} />

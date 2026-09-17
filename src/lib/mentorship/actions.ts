@@ -106,6 +106,28 @@ export async function setReviewsVerificationsOptInAction(optIn: boolean) {
   revalidatePath("/mentorship/apply");
 }
 
+/**
+ * Mentor's own pause on their public listing (0174) — orthogonal to
+ * `status`, never a write to it. `status` is deliberately excluded from
+ * 0133's own column grant so a client can never move it directly; this
+ * writes only the new `self_paused` column, which 0174 grants separately,
+ * same 0030 column-grant discipline as setReviewsVerificationsOptInAction
+ * above. Going through the authenticated client (not service role) means
+ * this can only ever succeed on the caller's own row AND only touch this one
+ * column — a mentor cannot use this action to reach `status` even if the
+ * request body were forged.
+ */
+export async function setSelfPausedAction(paused: boolean) {
+  const { user } = await requireUser();
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("mentor_profiles")
+    .update({ self_paused: paused })
+    .eq("user_id", user.id);
+  if (error) throw error;
+  revalidatePath("/mentorship/apply");
+}
+
 export async function postAvailabilitySlotAction(startAt: string, endAt: string) {
   const { user } = await requireUser();
   const supabase = await createClient();
@@ -160,7 +182,9 @@ export async function bookMentorSessionAction(availabilitySlotId: string, sessio
         ? "That slot was just booked by someone else."
         : error?.message.includes("MENTOR_NOT_APPROVED")
           ? "This mentor isn't currently bookable."
-          : "Could not book that session.";
+          : error?.message.includes("MENTOR_PAUSED")
+            ? "This mentor has paused their listing and isn't taking new bookings right now."
+            : "Could not book that session.";
     redirect(`/mentorship?error=${encodeURIComponent(reason)}`);
   }
 

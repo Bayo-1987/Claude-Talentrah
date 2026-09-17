@@ -1822,6 +1822,7 @@ export type Database = {
           reviewed_at: string | null
           reviewed_by: string | null
           reviews_verifications: boolean
+          self_paused: boolean
           status: string
           user_id: string
           years_experience: number | null
@@ -1842,6 +1843,7 @@ export type Database = {
           reviewed_at?: string | null
           reviewed_by?: string | null
           reviews_verifications?: boolean
+          self_paused?: boolean
           status?: string
           user_id: string
           years_experience?: number | null
@@ -1862,6 +1864,7 @@ export type Database = {
           reviewed_at?: string | null
           reviewed_by?: string | null
           reviews_verifications?: boolean
+          self_paused?: boolean
           status?: string
           user_id?: string
           years_experience?: number | null
@@ -3326,6 +3329,13 @@ export type Database = {
           permission: Database["public"]["Enums"]["admin_permission"]
         }[]
       }
+      admin_reinstate_mentor: {
+        Args: { p_actor: string; p_mentor_user_id: string }
+        Returns: {
+          ok: boolean
+          reason: string
+        }[]
+      }
       admin_session_validate: {
         Args: { p_token_hash: string }
         Returns: {
@@ -3350,6 +3360,13 @@ export type Database = {
           p_role_id?: string
           p_target: string
         }
+        Returns: {
+          ok: boolean
+          reason: string
+        }[]
+      }
+      admin_suspend_mentor: {
+        Args: { p_actor: string; p_mentor_user_id: string; p_note: string }
         Returns: {
           ok: boolean
           reason: string

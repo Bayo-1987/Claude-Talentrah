@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { requirePermission } from "@/lib/admin/require-admin";
 import { recordAdminAction } from "@/lib/admin/audit";
+import { notifyMentorApplicationDecision } from "@/lib/mentorship/notifications";
 import type { ModerationState } from "./state";
 
 /**
@@ -594,6 +595,11 @@ export async function decideMentorApplicationAction(
     detail: { name: name || null, note: note || null },
   });
 
+  // Best-effort, never throws — see notifyMentorApplicationDecision's own
+  // header. The RPC above already committed the status change, so a
+  // notification failure must not surface as a decision error here.
+  await notifyMentorApplicationDecision(id, decision, note || null);
+
   revalidatePath("/admin/mentor-review");
   return {
     status: "success",
@@ -602,6 +608,84 @@ export async function decideMentorApplicationAction(
       decision === "approved"
         ? `Approved — ${name || "this mentor"} is now listed in Mentorship.`
         : `Rejected, with your reason recorded.`,
+  };
+}
+
+/**
+ * Suspend or reinstate an ALREADY-APPROVED mentor (send-137's own gap-3
+ * follow-up). Deliberately a separate action from decideMentorApplicationAction
+ * above, calling separate RPCs (admin_suspend_mentor / admin_reinstate_mentor,
+ * 0173) rather than extending admin_moderate_mentor_application — vetting a
+ * new application and disciplining an existing one are different actions
+ * with different preconditions (`status = 'pending'` vs `status = 'approved'`
+ * or `'suspended'`), so folding them into one RPC would mean a single
+ * function guarding two unrelated state machines.
+ *
+ * Same required-note-on-suspend convention as a rejection above — an
+ * admin-suspended mentor needs something to know what to fix.
+ */
+export async function decideMentorStatusAction(
+  _prev: ModerationState,
+  formData: FormData,
+): Promise<ModerationState> {
+  const admin = await requirePermission("mentor_review");
+  const id = String(formData.get("id") ?? "");
+  const decision = String(formData.get("decision") ?? "");
+  const note = String(formData.get("note") ?? "").trim();
+
+  if (!id || (decision !== "suspend" && decision !== "reinstate")) {
+    return { status: "error", message: "Pick suspend or reinstate.", targetId: id };
+  }
+  if (decision === "suspend" && !note) {
+    return { status: "error", message: "A suspension needs a reason.", targetId: id };
+  }
+
+  const supabase = createServiceRoleClient();
+
+  const { data: res, error } =
+    decision === "suspend"
+      ? await supabase.rpc("admin_suspend_mentor", { p_actor: admin.adminId, p_mentor_user_id: id, p_note: note })
+      : await supabase.rpc("admin_reinstate_mentor", { p_actor: admin.adminId, p_mentor_user_id: id });
+
+  if (error) {
+    console.error("[admin-moderation] mentor status", error);
+    return { status: "error", message: "Something went wrong on our end.", targetId: id };
+  }
+  const row = res?.[0];
+  if (!row?.ok) {
+    return {
+      status: "error",
+      message:
+        row?.reason === "not_authorised"
+          ? "You do not have permission to review mentors."
+          : "Already changed by someone else — reload to see the current state.",
+      targetId: id,
+    };
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("first_name, last_name")
+    .eq("id", id)
+    .maybeSingle();
+  const name = profile ? [profile.first_name, profile.last_name].filter(Boolean).join(" ") : "";
+
+  await recordAdminAction({
+    identity: admin,
+    action: decision === "suspend" ? "mentor.suspended" : "mentor.reinstated",
+    targetTable: "mentor_profiles",
+    targetId: id,
+    detail: { name: name || null, note: decision === "suspend" ? note || null : null },
+  });
+
+  revalidatePath("/admin/mentor-review");
+  return {
+    status: "success",
+    targetId: id,
+    message:
+      decision === "suspend"
+        ? `Suspended — ${name || "this mentor"} is no longer publicly listed.`
+        : `Reinstated — ${name || "this mentor"} is listed again.`,
   };
 }
 

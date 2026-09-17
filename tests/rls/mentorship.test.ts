@@ -132,6 +132,159 @@ describe("mentor_profiles visibility", () => {
     const { data } = await admin.from("mentor_profiles").select("bio").eq("user_id", mentor.id).single();
     expect(data?.bio).toBe("Updated bio via RLS test");
   });
+
+  /*
+   * 0174's self-pause column grant, proven alongside 0030's status
+   * discipline rather than in a second test — this IS the trap the task
+   * exists to close: adding a new mentor-writable column must never widen
+   * the grant to also cover `status`. One UPDATE, both columns, so a
+   * grant that accidentally covers both would pass a self_paused-only test
+   * and only fail here.
+   */
+  it("the owner CAN write self_paused, but the SAME UPDATE still cannot move status", async () => {
+    const { error } = await mentor.client
+      .from("mentor_profiles")
+      .update({ self_paused: true, status: "suspended" })
+      .eq("user_id", mentor.id);
+    expect(
+      error,
+      "COLUMN-PRIVILEGE BUG: adding the self_paused grant (0174) also widened status write access",
+    ).not.toBeNull();
+
+    const { data: afterRejected } = await admin
+      .from("mentor_profiles")
+      .select("self_paused, status")
+      .eq("user_id", mentor.id)
+      .single();
+    expect(afterRejected?.self_paused, "a rejected multi-column UPDATE must not partially apply").toBe(false);
+    expect(afterRejected?.status).toBe("approved");
+
+    const { error: selfPauseOnlyError } = await mentor.client
+      .from("mentor_profiles")
+      .update({ self_paused: true })
+      .eq("user_id", mentor.id);
+    expect(selfPauseOnlyError, "0174's own grant must let a mentor pause their own listing").toBeNull();
+
+    const { data: paused } = await admin.from("mentor_profiles").select("self_paused").eq("user_id", mentor.id).single();
+    expect(paused?.self_paused).toBe(true);
+
+    // Reset for the rest of the suite, which assumes mentor is unpaused.
+    await admin.from("mentor_profiles").update({ self_paused: false }).eq("user_id", mentor.id);
+  });
+});
+
+describe("0174: self_paused excludes a mentor from every public-visibility surface", () => {
+  afterAll(async () => {
+    await admin.from("mentor_profiles").update({ self_paused: false }).eq("user_id", mentor.id);
+  });
+
+  it("mentor_profiles' own SELECT policy hides a self-paused mentor from everyone but themself", async () => {
+    await admin.from("mentor_profiles").update({ self_paused: true }).eq("user_id", mentor.id);
+
+    const { data: seenByOutsider } = await outsider.client
+      .from("mentor_profiles")
+      .select("user_id")
+      .eq("user_id", mentor.id)
+      .maybeSingle();
+    expect(seenByOutsider, "a self-paused mentor must not be publicly visible").toBeNull();
+
+    const { data: seenBySelf } = await mentor.client
+      .from("mentor_profiles")
+      .select("user_id")
+      .eq("user_id", mentor.id)
+      .maybeSingle();
+    expect(seenBySelf?.user_id, "a mentor must always see (and be able to unpause) their own row").toBe(mentor.id);
+  });
+
+  it("mentor_availability_slots' own SELECT policy hides a self-paused mentor's open slots from other users", async () => {
+    await admin.from("mentor_profiles").update({ self_paused: true }).eq("user_id", mentor.id);
+
+    const { data: slot } = await admin
+      .from("mentor_availability_slots")
+      .insert({
+        mentor_id: mentor.id,
+        start_at: new Date(Date.now() + 10 * 3600_000).toISOString(),
+        end_at: new Date(Date.now() + 11 * 3600_000).toISOString(),
+      })
+      .select("id")
+      .single();
+    expect(slot).not.toBeNull();
+
+    try {
+      const { data: seenByOutsider } = await outsider.client
+        .from("mentor_availability_slots")
+        .select("id")
+        .eq("id", slot!.id)
+        .maybeSingle();
+      expect(seenByOutsider, "a self-paused mentor's open slot must not be visible to other users").toBeNull();
+
+      const { data: seenByMentor } = await mentor.client
+        .from("mentor_availability_slots")
+        .select("id")
+        .eq("id", slot!.id)
+        .maybeSingle();
+      expect(seenByMentor?.id, "a mentor must always see their own slots").toBe(slot!.id);
+    } finally {
+      await admin.from("mentor_availability_slots").delete().eq("id", slot!.id);
+    }
+  });
+
+  it("mentor_public_names() (0167) excludes a self-paused mentor's name", async () => {
+    await admin.from("mentor_profiles").update({ self_paused: true }).eq("user_id", mentor.id);
+
+    const { data, error } = await outsider.client.rpc("mentor_public_names", { p_mentor_ids: [mentor.id] });
+    expect(error).toBeNull();
+    expect(
+      data ?? [],
+      "SECURITY-DEFINER GAP: mentor_public_names bypasses RLS and did not independently check self_paused",
+    ).toHaveLength(0);
+  });
+
+  it("book_mentor_session() refuses a self-paused mentor's slot at booking time, and rolls the lock back", async () => {
+    await admin.from("mentor_profiles").update({ self_paused: true }).eq("user_id", mentor.id);
+
+    const { data: slot } = await admin
+      .from("mentor_availability_slots")
+      .insert({
+        mentor_id: mentor.id,
+        start_at: new Date(Date.now() + 20 * 3600_000).toISOString(),
+        end_at: new Date(Date.now() + 21 * 3600_000).toISOString(),
+      })
+      .select("id")
+      .single();
+    expect(slot).not.toBeNull();
+
+    try {
+      // book_mentor_session is service_role-only (0133's own header: the
+      // calling Server Action already resolved p_mentee_id via requireUser()
+      // before this call), same as the fixture's own booking above — calling
+      // it via an authenticated client would fail on a grant refusal (42501)
+      // before ever reaching the MENTOR_PAUSED check this test is about.
+      const { data: booking, error } = await admin.rpc("book_mentor_session", {
+        p_availability_slot_id: slot!.id,
+        p_mentee_id: mentee.id,
+        p_session_type: "resume_review",
+      });
+      expect(
+        booking,
+        "BOOKING-TIME GAP: book_mentor_session let a mentee book a self-paused mentor's slot",
+      ).toBeNull();
+      expect(error?.message, "expected the MENTOR_PAUSED exception this function's own comment anticipates").toContain(
+        "MENTOR_PAUSED",
+      );
+
+      // The atomic backstop's whole point: the slot must be releasable again,
+      // not stuck locked by the rolled-back attempt.
+      const { data: afterAttempt } = await admin
+        .from("mentor_availability_slots")
+        .select("is_booked")
+        .eq("id", slot!.id)
+        .single();
+      expect(afterAttempt?.is_booked, "a refused booking must roll the is_booked lock back").toBe(false);
+    } finally {
+      await admin.from("mentor_availability_slots").delete().eq("id", slot!.id);
+    }
+  });
 });
 
 describe("mentor_availability_slots", () => {
