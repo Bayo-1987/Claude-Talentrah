@@ -143,8 +143,16 @@ export default async function ResumeBuilderPage({ searchParams }: { searchParams
         closes) — every downstream feature (match scores, tailoring,
         Auto-Apply, cover letters) reads it, so this goes above both the
         start-state cards and "Your resumes" rather than waiting to be found.
+
+        ALWAYS MOUNTED — NOT `{!hasBaseResume && <FirstBaseResumePanel />}`.
+        A successful upload's own confirmation step needs to survive the
+        automatic router refresh replaceBaseResumeAction's revalidatePath
+        triggers (which re-renders this page with hasBaseResume now true);
+        a conditional mount here would unmount the whole component — done
+        state included — before that confirmation ever painted. See the
+        component's own header for the real CI failure this fixed.
       */}
-      {!hasBaseResume && <FirstBaseResumePanel />}
+      <FirstBaseResumePanel hasBaseResume={hasBaseResume} />
 
       {/*
         Cover-letter generation used to have exactly one mention on this whole
