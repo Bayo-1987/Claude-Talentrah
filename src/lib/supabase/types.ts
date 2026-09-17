@@ -3496,6 +3496,8 @@ export type Database = {
           resume_id: string
           seniority_alignment: string | null
           status: Database["public"]["Enums"]["applicant_review_status"]
+          talent_verification_score: number | null
+          talent_verification_status: string
         }[]
       }
       employer_view_resume: {
