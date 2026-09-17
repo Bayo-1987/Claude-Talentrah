@@ -8,6 +8,7 @@ import { MeetFarahSection } from "@/components/marketing/meet-farah-section";
 import { FaqSection } from "@/components/marketing/faq-section";
 import { FinalCtaSection } from "@/components/marketing/final-cta-section";
 import { MarketingFooter } from "@/components/marketing/marketing-footer";
+import { MarketingStickyCta } from "@/components/marketing/marketing-sticky-cta";
 
 /**
  * The marketing homepage — statically rendered, for everyone.
@@ -39,6 +40,12 @@ import { MarketingFooter } from "@/components/marketing/marketing-footer";
  * decides for itself, client-side, whether this particular visitor is
  * signed out — the same "flag decided in the client" shape as the JD demo
  * input this comment already describes.
+ *
+ * MarketingStickyCta (the mobile "Get started for free" bar) follows the
+ * exact same shape for the exact same reason: it needs to hide itself for a
+ * signed-in visitor, and since nothing on this page already knows that
+ * answer, it does its own client-side `getSession()` check rather than the
+ * page doing one server-side. See that component's own comment.
  */
 export default function Home() {
   return (
@@ -53,6 +60,7 @@ export default function Home() {
       <FaqSection />
       <FinalCtaSection />
       <MarketingFooter />
+      <MarketingStickyCta />
     </>
   );
 }

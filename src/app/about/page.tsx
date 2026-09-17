@@ -68,13 +68,19 @@ export default function AboutPage() {
           <div className="flex flex-col gap-4 border-t border-line pt-10">
             <h2 className="text-[22px]">For employers too</h2>
             <p className="text-[15px] text-ink-soft">
-              Talentrah isn&apos;t only a seeker-facing product. Self-serve job
-              posting and advertising are in development; today, the way in is
-              to talk to us directly about a role. See{" "}
-              <a href="/contact" className="text-rust underline underline-offset-2">
-                Business Services
+              Talentrah isn&apos;t only a seeker-facing product. Posting a job is
+              self-serve and free today, not something still on our roadmap —
+              create a free account, confirm your company with a work email on
+              its domain, and the role goes straight into the same feed
+              seekers already use.{" "}
+              <a href="/employer" className="text-rust underline underline-offset-2">
+                Post a job
               </a>{" "}
-              for more.
+              to get started, or{" "}
+              <a href="/contact" className="text-rust underline underline-offset-2">
+                talk to us directly
+              </a>{" "}
+              about a role if you&apos;d rather start with a conversation.
             </p>
           </div>
         </Container>
