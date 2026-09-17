@@ -216,6 +216,10 @@ describe("employer_job_applicants — identity-bearing, org-scoped", () => {
     // score, the same "honest, not missing" answer match_score gets above.
     expect(row?.talent_verification_status).toBe("unverified");
     expect(row?.talent_verification_score).toBeNull();
+    // 0171/send-327: this fixture's job has no screening questions at all —
+    // screening_passed must read null, never false, for "no gate exists"
+    // (see 0171's own header for the three-valued meaning).
+    expect(row?.screening_passed).toBeNull();
     // Never anything from applications.stage, notes, or the seeker's email —
     // only the columns the function's own return type declares.
     expect(Object.keys(row ?? {}).sort()).toEqual(
@@ -229,6 +233,7 @@ describe("employer_job_applicants — identity-bearing, org-scoped", () => {
         "matched_skills",
         "missing_skills",
         "resume_id",
+        "screening_passed",
         "seniority_alignment",
         "status",
         "talent_verification_score",
