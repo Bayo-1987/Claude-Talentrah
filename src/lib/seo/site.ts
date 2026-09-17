@@ -110,13 +110,23 @@ export function pageMetadata(input: {
    * `summary_large_image` is right for 1200x630. Two settings, one decision.
    */
   shareImage?: "static" | "segment";
+  /**
+   * Set `"noindex"` for a page that must never appear in search results (the
+   * custom 404, most concretely — a URL that returns 404 has no canonical
+   * content to rank, and letting crawlers index it would surface a page with
+   * nothing but "this doesn't exist" as the result). Omit for every normal,
+   * indexable page — this is additive and every existing caller is unaffected
+   * by its absence.
+   */
+  robots?: "noindex";
 }) {
-  const { title, description, path, type = "website", shareImage = "static" } = input;
+  const { title, description, path, type = "website", shareImage = "static", robots } = input;
   const segmentImage = shareImage === "segment";
   return {
     title,
     description,
     alternates: { canonical: path },
+    ...(robots === "noindex" ? { robots: { index: false, follow: false } } : {}),
     openGraph: {
       title,
       description,
