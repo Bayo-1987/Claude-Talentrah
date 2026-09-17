@@ -211,6 +211,11 @@ describe("employer_job_applicants — identity-bearing, org-scoped", () => {
     expect(row?.matched_skills).toBeNull();
     expect(row?.missing_skills).toBeNull();
     expect(row?.seniority_alignment).toBeNull();
+    // 0170: this fixture's seeker never touched Talent Directory — the
+    // column default (0135: not null default 'unverified') and a null
+    // score, the same "honest, not missing" answer match_score gets above.
+    expect(row?.talent_verification_status).toBe("unverified");
+    expect(row?.talent_verification_score).toBeNull();
     // Never anything from applications.stage, notes, or the seeker's email —
     // only the columns the function's own return type declares.
     expect(Object.keys(row ?? {}).sort()).toEqual(
@@ -226,6 +231,8 @@ describe("employer_job_applicants — identity-bearing, org-scoped", () => {
         "resume_id",
         "seniority_alignment",
         "status",
+        "talent_verification_score",
+        "talent_verification_status",
       ].sort(),
     );
   });
