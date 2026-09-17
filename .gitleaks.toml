@@ -158,6 +158,16 @@ regexes = [
   '''farahs-production-key''',
   '''a-genuinely-different-isolated-key''',
   '''isolated-key''',
+
+  # tests/lib/analytics/posthog.test.ts — assigned directly to
+  # process.env.POSTHOG_API_KEY, matching this rule's own keyword list for
+  # the same reason as the jd-extraction-provider.test.ts entries above:
+  # the whole point of this string is to be an obviously-fake placeholder
+  # that makes captureEvent() take its "configured" branch in a test, never
+  # a real PostHog project key (which is prefixed phc_ and never looks like
+  # this). No real network call is made in this test file — posthog-node's
+  # PostHog client is mocked at the module boundary.
+  '''posthog-test-placeholder''',
 ]
 
 paths = [

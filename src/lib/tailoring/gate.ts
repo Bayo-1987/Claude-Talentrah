@@ -4,6 +4,7 @@ import { CREDIT_COSTS } from "@/lib/credits/costs";
 import { spendCredits, InsufficientCreditsError } from "@/lib/credits/spend";
 import { logCreditGateEvent } from "@/lib/credits/gate-events";
 import { checkPassCoverage, DAILY_CAP_MESSAGE } from "@/lib/passes/entitlement";
+import { captureEvent } from "@/lib/analytics/posthog";
 import type { Database } from "@/lib/supabase/types";
 
 type CreditReason = Database["public"]["Enums"]["credit_reason"];
@@ -137,6 +138,13 @@ export async function commitTailoringAllowance(
   kind: TailoringActionKind,
   allowance: AllowanceResult,
 ): Promise<void> {
+  // Fired unconditionally, regardless of which branch below actually runs —
+  // this function's own contract ("call only after the LLM call succeeds")
+  // already guarantees a real run by the time it's invoked at all.
+  // is_first_run is only ever true when the free trial itself is what
+  // covered this run, not on every call.
+  captureEvent(userId, "tailoring_run", { kind, is_first_run: allowance.isFreeTrial });
+
   // Pass-covered: no credit spend, and — the specific thing Part A rules
   // out — no free-trial flag flip either, since isFreeTrial is false for a
   // pass-covered run and this branch is checked first. The gate event IS

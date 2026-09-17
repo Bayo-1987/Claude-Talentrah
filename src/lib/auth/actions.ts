@@ -17,6 +17,7 @@ import { consumeResendRateLimit } from "./resend-rate-limit";
 import { consumeLoginRateLimit } from "@/lib/security/login-rate-limit";
 import { getRequestIp } from "@/lib/security/request-ip";
 import type { ResendState } from "./resend-state";
+import { captureEvent } from "@/lib/analytics/posthog";
 
 export interface AuthActionState {
   error: string | null;
@@ -79,6 +80,18 @@ export async function signUpAction(
 
   if (error) {
     return { error: error.message };
+  }
+
+  // Fired here, not on form submit — data.user is only real once signUp()
+  // has actually succeeded (handle_new_user, 0000, creates the profile row
+  // as a trigger on the same insert). referral_signup captures the signup
+  // side of the funnel only — see src/lib/referrals/rewards.ts's own header
+  // on why the activation-bonus half has no TypeScript call site to hook.
+  if (data.user) {
+    captureEvent(data.user.id, "signup");
+    if (referredByCode) {
+      captureEvent(data.user.id, "referral_signup", { referral_code: referredByCode });
+    }
   }
 
   /*
