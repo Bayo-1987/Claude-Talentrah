@@ -98,6 +98,8 @@ export default async function JobApplicantsPage({
       // header for the consent reasoning.
       talentVerificationStatus: applicant.talent_verification_status,
       talentVerificationScore: applicant.talent_verification_score,
+      // send-327 — null means no screening questions, or answers incomplete.
+      screeningPassed: applicant.screening_passed,
     };
   });
 

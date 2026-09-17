@@ -537,6 +537,51 @@ export type Database = {
           },
         ]
       }
+      application_screening_answers: {
+        Row: {
+          answer_number: number | null
+          answer_yes_no: boolean | null
+          application_id: string
+          created_at: string
+          id: string
+          passed: boolean
+          question_id: string
+        }
+        Insert: {
+          answer_number?: number | null
+          answer_yes_no?: boolean | null
+          application_id: string
+          created_at?: string
+          id?: string
+          passed: boolean
+          question_id: string
+        }
+        Update: {
+          answer_number?: number | null
+          answer_yes_no?: boolean | null
+          application_id?: string
+          created_at?: string
+          id?: string
+          passed?: boolean
+          question_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "application_screening_answers_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "applications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "application_screening_answers_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "job_posting_screening_questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       application_stage_events: {
         Row: {
           application_id: string
@@ -588,6 +633,7 @@ export type Database = {
           notes: string | null
           resume_id: string | null
           resume_snapshot: Json | null
+          screening_passed: boolean | null
           source: Database["public"]["Enums"]["application_source"]
           stage: Database["public"]["Enums"]["application_stage"]
           updated_at: string
@@ -604,6 +650,7 @@ export type Database = {
           notes?: string | null
           resume_id?: string | null
           resume_snapshot?: Json | null
+          screening_passed?: boolean | null
           source?: Database["public"]["Enums"]["application_source"]
           stage?: Database["public"]["Enums"]["application_stage"]
           updated_at?: string
@@ -620,6 +667,7 @@ export type Database = {
           notes?: string | null
           resume_id?: string | null
           resume_snapshot?: Json | null
+          screening_passed?: boolean | null
           source?: Database["public"]["Enums"]["application_source"]
           stage?: Database["public"]["Enums"]["application_stage"]
           updated_at?: string
@@ -1330,6 +1378,50 @@ export type Database = {
             columns: ["reporter_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      job_posting_screening_questions: {
+        Row: {
+          created_at: string
+          expected_yes_no: boolean | null
+          id: string
+          job_posting_id: string
+          min_value: number | null
+          question_text: string
+          question_type: string
+          required: boolean
+          sort_order: number
+        }
+        Insert: {
+          created_at?: string
+          expected_yes_no?: boolean | null
+          id?: string
+          job_posting_id: string
+          min_value?: number | null
+          question_text: string
+          question_type: string
+          required?: boolean
+          sort_order?: number
+        }
+        Update: {
+          created_at?: string
+          expected_yes_no?: boolean | null
+          id?: string
+          job_posting_id?: string
+          min_value?: number | null
+          question_text?: string
+          question_type?: string
+          required?: boolean
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_posting_screening_questions_job_posting_id_fkey"
+            columns: ["job_posting_id"]
+            isOneToOne: false
+            referencedRelation: "job_postings"
             referencedColumns: ["id"]
           },
         ]
@@ -3494,6 +3586,7 @@ export type Database = {
           matched_skills: Json | null
           missing_skills: Json | null
           resume_id: string
+          screening_passed: boolean | null
           seniority_alignment: string | null
           status: Database["public"]["Enums"]["applicant_review_status"]
           talent_verification_score: number | null
@@ -3803,6 +3896,10 @@ export type Database = {
       submit_ad_campaign_for_review: {
         Args: { p_actor_user_id: string; p_campaign_id: string }
         Returns: Database["public"]["Enums"]["ad_campaign_status"]
+      }
+      submit_screening_answers: {
+        Args: { p_answers: Json; p_application_id: string }
+        Returns: boolean
       }
       sync_mentor_payout_rows: { Args: never; Returns: number }
       talent_directory_portfolio_items: {

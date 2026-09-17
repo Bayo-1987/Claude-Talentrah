@@ -61,15 +61,18 @@ export async function toggleSaveAction(jobId: string) {
 }
 
 /**
- * Internal jobs: applies in-app using the user's base resume.
- *
- * `countryState` is Stage 12 instrumentation only ("kept"/"cleared"/"none" —
- * see src/lib/jobs/country-events.ts) — bound in from whichever page rendered
- * the Apply button, the same way `jobId` already is. It never gates or
- * changes what this action does; a logging failure inside it is swallowed by
- * logCountryDefaultEvent itself and cannot fail the apply.
+ * The actual apply write, factored out of `applyInAppAction` (send-327) so
+ * `applyWithScreeningAction` (screening-actions.ts) can reuse the identical
+ * logic and get the resulting application id back — `applyInAppAction`
+ * itself never needed one, since every existing call site is a plain
+ * `<form action={applyInAppAction.bind(...)}>` with nothing to do with a
+ * return value. `applyInAppAction`'s own behavior is UNCHANGED: it calls
+ * this and discards the id.
  */
-export async function applyInAppAction(jobId: string, countryState: CountryState) {
+async function performInAppApply(
+  jobId: string,
+  countryState: CountryState,
+): Promise<{ applicationId: string }> {
   const { supabase, userId } = await getAuthedUserId();
 
   /*
@@ -148,12 +151,19 @@ export async function applyInAppAction(jobId: string, countryState: CountryState
   // alternative is an Apply click that reports success over a row that was
   // never written, which is exactly indistinguishable from a real apply
   // until someone goes looking at the tracker and finds nothing there.
+  let applicationId: string;
   if (existing) {
     const { error } = await supabase.from("applications").update(payload).eq("id", existing.id);
     if (error) throw new Error(`Couldn't record your application: ${error.message}`);
+    applicationId = existing.id;
   } else {
-    const { error } = await supabase.from("applications").insert(payload);
+    const { data: inserted, error } = await supabase
+      .from("applications")
+      .insert(payload)
+      .select("id")
+      .single();
     if (error) throw new Error(`Couldn't record your application: ${error.message}`);
+    applicationId = inserted.id;
   }
 
   // Deferred, not awaited: logCountryDefaultEvent's own header documents
@@ -213,6 +223,69 @@ export async function applyInAppAction(jobId: string, countryState: CountryState
    */
   revalidatePath("/jobs/[id]", "page");
   revalidatePath("/tracker");
+
+  return { applicationId };
+}
+
+/**
+ * Internal jobs: applies in-app using the user's base resume.
+ *
+ * `countryState` is Stage 12 instrumentation only ("kept"/"cleared"/"none" —
+ * see src/lib/jobs/country-events.ts) — bound in from whichever page rendered
+ * the Apply button, the same way `jobId` already is. It never gates or
+ * changes what this action does; a logging failure inside it is swallowed by
+ * logCountryDefaultEvent itself and cannot fail the apply.
+ */
+export async function applyInAppAction(jobId: string, countryState: CountryState) {
+  await performInAppApply(jobId, countryState);
+}
+
+export interface ScreeningAnswerInput {
+  questionId: string;
+  answerYesNo?: boolean;
+  answerNumber?: number;
+}
+
+/**
+ * send-327 — the apply flow for a job that has screening questions. Does
+ * the SAME write `applyInAppAction` does (via the shared `performInAppApply`
+ * core, so nothing about the application itself is a second implementation),
+ * then records the candidate's answers via `submit_screening_answers`
+ * (0171) — a single SECURITY DEFINER call that computes `passed` per answer
+ * and `applications.screening_passed` overall, atomically.
+ *
+ * A failed screening question NEVER blocks the application — see 0171's own
+ * header for the block-vs-flag decision. If the answers write itself fails
+ * for some other reason (a real error, not a failed question), the
+ * application the candidate cares about has ALREADY been recorded by the
+ * time this runs; the error is surfaced but nothing here rolls the apply
+ * back, the same "a partial success is reported honestly, not hidden behind
+ * an all-or-nothing illusion this isn't actually a transaction" stance
+ * postJobAction's own screening-question write takes.
+ */
+export async function applyWithScreeningAction(
+  jobId: string,
+  countryState: CountryState,
+  answers: ScreeningAnswerInput[],
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const { applicationId } = await performInAppApply(jobId, countryState);
+
+  if (answers.length === 0) return { ok: true };
+
+  const { supabase } = await getAuthedUserId();
+  const { error } = await supabase.rpc("submit_screening_answers", {
+    p_application_id: applicationId,
+    p_answers: answers.map((a) => ({
+      question_id: a.questionId,
+      answer_yes_no: a.answerYesNo ?? null,
+      answer_number: a.answerNumber ?? null,
+    })),
+  });
+
+  if (error) {
+    return { ok: false, error: `Your application was recorded, but we couldn't save your answers: ${error.message}` };
+  }
+  return { ok: true };
 }
 
 /**

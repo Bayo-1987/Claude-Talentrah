@@ -7,6 +7,7 @@ import { jobForRequest } from "./job-for-request";
 import { BorderedCard, Button, EyebrowLabel, MatchTierBadge, buttonClasses } from "@/components/ui";
 import { dedupeMetaParts } from "@/components/jobs/job-card";
 import { FarahJobMenu } from "@/components/jobs/farah-job-menu";
+import { ScreeningGateApply } from "@/components/jobs/screening-gate-apply";
 import { renderJobDescriptionMarkdown } from "@/lib/farah/render-markdown";
 import { getCompanyInitials } from "@/lib/jobs/company-initials";
 import { postingAgeLine } from "@/lib/jobs/freshness";
@@ -157,7 +158,7 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
    */
   const { supabase, data: job } = await jobForRequest(id);
 
-  const [baseResumeResult, applicationResult] = await Promise.all([
+  const [baseResumeResult, applicationResult, screeningQuestionsResult] = await Promise.all([
     /*
      * Skipped entirely when signed out rather than run and discarded. Both are
      * owner-scoped by RLS so they would return nothing anyway, but issuing two
@@ -180,9 +181,18 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
           .eq("job_posting_id", id)
           .maybeSingle()
       : Promise.resolve({ data: null, error: null }),
+    // send-327 — publicly readable (same RLS shape as job_postings itself,
+    // 0171), so this runs regardless of sign-in state. One job's worth of
+    // rows, at most 5 — cheap even for a crawler hit.
+    supabase
+      .from("job_posting_screening_questions")
+      .select("id, question_text, question_type, required")
+      .eq("job_posting_id", id)
+      .order("sort_order", { ascending: true }),
   ]);
   const { data: baseResume, error: baseResumeError } = baseResumeResult;
   const { data: application } = applicationResult;
+  const screeningQuestions = screeningQuestionsResult.data ?? [];
 
   if (!job) notFound();
 
@@ -488,6 +498,20 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
               </button>
             </form>
           </>
+        ) : screeningQuestions.length > 0 ? (
+          // send-327 — the self-assessment gate, only when the posting
+          // actually has questions. See ScreeningGateApply's own header for
+          // why a job with none keeps today's exact one-click form instead.
+          <ScreeningGateApply
+            jobId={job.id}
+            countryState={detailCountryState}
+            questions={screeningQuestions.map((q) => ({
+              id: q.id,
+              questionText: q.question_text,
+              questionType: q.question_type as "yes_no" | "min_number",
+              required: q.required,
+            }))}
+          />
         ) : (
           <form action={applyInAppAction.bind(null, job.id, detailCountryState)}>
             <Button size="sm" type="submit">

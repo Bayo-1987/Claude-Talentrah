@@ -5,6 +5,8 @@ import { MAX_EXPIRY_DAYS } from "@/lib/employer/expiry-input";
 import { BorderedCard, Button, FilterChip, TextField } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { extractStructuredJd, SKILL_VOCABULARY } from "@/lib/jobs/extract-jd";
+import { ScreeningQuestionsEditor } from "./screening-questions-editor";
+import type { ScreeningQuestionInput } from "@/lib/employer/screening-questions";
 import type { EmployerActionState } from "@/lib/employer/actions";
 
 /**
@@ -374,6 +376,8 @@ export interface JobFormValues {
    * header for why free text never joins this list. Feeds
    * `structured_jd.skills`, the denominator `computeMatchScore` divides by. */
   skills: string[];
+  /** send-327 — empty for a brand-new posting or one that never had any. */
+  screeningQuestions?: ScreeningQuestionInput[];
 }
 
 export function JobPostingForm({
@@ -561,6 +565,8 @@ export function JobPostingForm({
           </div>
 
           <SkillsAutocomplete skills={skills} onChange={setSkills} />
+
+          <ScreeningQuestionsEditor initial={initial?.screeningQuestions} />
 
           <div>
             <Button type="submit" disabled={pending}>
