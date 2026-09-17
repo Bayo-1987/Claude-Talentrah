@@ -9,7 +9,8 @@ import {
 } from "@/lib/auto-apply/config";
 import { CREDIT_COSTS } from "@/lib/credits/costs";
 import { BorderedCard, EyebrowLabel } from "@/components/ui";
-import { AutoApplyQueueItem, type QueueItem } from "@/components/jobs/auto-apply-queue-item";
+import type { QueueItem } from "@/components/jobs/auto-apply-queue-item";
+import { AutoApplyQueueList } from "@/components/jobs/auto-apply-queue-list";
 import { formatRelativeTime } from "@/lib/format-relative-time";
 import { displayMatchScore } from "@/lib/match-tier";
 import type { MatchExplanation } from "@/lib/matching/score";
@@ -143,19 +144,7 @@ export default async function AutoApplyPage() {
         </p>
       </BorderedCard>
 
-      <section className="flex flex-col gap-3.5">
-        {pending.length === 0 ? (
-          <BorderedCard className="p-8 text-center">
-            <p className="font-display text-[19px] font-medium text-ink">Nothing waiting</p>
-            <p className="mx-auto mt-2 max-w-[46ch] font-body text-[14px] text-ink-soft">
-              Auto-Apply only queues Excellent matches, so an empty queue usually means there
-              aren&apos;t any right now — not that it isn&apos;t working.
-            </p>
-          </BorderedCard>
-        ) : (
-          pending.map((item) => <AutoApplyQueueItem key={item.id} item={item} />)
-        )}
-      </section>
+      <AutoApplyQueueList items={pending} />
 
       {history.length > 0 && (
         <section>
