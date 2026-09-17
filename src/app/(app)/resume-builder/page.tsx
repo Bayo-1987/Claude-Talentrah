@@ -6,6 +6,7 @@ import { TemplateCard } from "@/components/resume-builder/template-card";
 import { EmptySkillsNotice } from "@/components/resume-builder/empty-skills-notice";
 import { ResumeListRow } from "@/components/resume-builder/resume-list-row";
 import { PanelShell } from "@/components/resume-builder/panel-shell";
+import { FirstBaseResumePanel } from "./first-base-resume-panel";
 import { shouldShowEmptySkillsNotice } from "@/lib/resume/empty-skills-notice";
 import { buildGalleryHref } from "@/lib/resume-builder/gallery-href";
 
@@ -112,6 +113,7 @@ export default async function ResumeBuilderPage({ searchParams }: { searchParams
     baseResume,
     profile?.resume_skills_notice_dismissed_at,
   );
+  const hasBaseResume = !!baseResume;
 
   const categories = Array.from(new Set((categoryRows ?? []).map((r) => r.industry_category))).sort();
   const unlockedIds = new Set((unlocks ?? []).map((u) => u.template_id));
@@ -132,6 +134,25 @@ export default async function ResumeBuilderPage({ searchParams }: { searchParams
           Pick a template, fill in your details, and let Farah help sharpen the wording.
         </p>
       </div>
+
+      {/*
+        The highest-priority action on this whole page, when it applies: a
+        user who skipped /onboarding and has never uploaded a resume any
+        other way has NO other reachable path to a base resume (see
+        first-base-resume-panel.tsx's own header for the dead end this
+        closes) — every downstream feature (match scores, tailoring,
+        Auto-Apply, cover letters) reads it, so this goes above both the
+        start-state cards and "Your resumes" rather than waiting to be found.
+
+        ALWAYS MOUNTED — NOT `{!hasBaseResume && <FirstBaseResumePanel />}`.
+        A successful upload's own confirmation step needs to survive the
+        automatic router refresh replaceBaseResumeAction's revalidatePath
+        triggers (which re-renders this page with hasBaseResume now true);
+        a conditional mount here would unmount the whole component — done
+        state included — before that confirmation ever painted. See the
+        component's own header for the real CI failure this fixed.
+      */}
+      <FirstBaseResumePanel hasBaseResume={hasBaseResume} />
 
       {/*
         Cover-letter generation used to have exactly one mention on this whole
