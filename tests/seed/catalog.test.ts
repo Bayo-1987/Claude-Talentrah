@@ -98,6 +98,6 @@ describe("the catalog the seed ships", () => {
     // Anchors from build-prompt §6.9. Pinned so a price change is a deliberate
     // edit to two places, not a silent drift in one.
     expect((packs ?? []).find((p) => p.name === "Starter")?.price_ngn).toBe(2500);
-    expect((passes ?? []).find((p) => p.name === "30-Day Pass")?.price_ngn).toBe(6500);
+    expect((passes ?? []).find((p) => p.name === "30-Day Pass")?.price_ngn).toBe(13500);
   });
 });
