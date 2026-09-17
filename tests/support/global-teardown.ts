@@ -189,12 +189,18 @@ async function sweepStaleAccounts(db: ReturnType<typeof createClient<Database>>)
     )
   ).filter((f): f is string => f !== null);
 
-  console.warn(
+  // process.stdout.write, and every failure listed, not just the first —
+  // same reasoning and same fix as deleteTestUsers's own failure line in
+  // tests/support/auth.ts, kept consistent even though this specific path
+  // doesn't need the stdout switch to be visible (globalTeardown runs in
+  // its own process, not subject to per-file console suppression).
+  process.stdout.write(
     `[global-teardown] swept ${stale.length - failures.length}/${stale.length} stale ` +
       `${TEST_ACCOUNT_DOMAIN} accounts` +
       (failures.length
-        ? ` — ${failures.length} could not be deleted, left for a later run. First: ${failures[0]}`
-        : ""),
+        ? ` — ${failures.length} could not be deleted, left for a later run. Failures: ${failures.join("; ")}`
+        : "") +
+      "\n",
   );
 }
 

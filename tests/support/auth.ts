@@ -334,7 +334,8 @@ export async function createAuthedTestUser(
  * account's fixture email, rather than having no record of who deleted it
  * or when.
  *
- * `process.stdout.write`, NOT `console.warn` — checked empirically, not
+ * BOTH log lines below (the "deleting user=X" line and the failure summary)
+ * use `process.stdout.write`, NOT `console.warn` — checked empirically, not
  * assumed. Vitest's default reporter (no `--reporter` flag, which is what
  * `npm test`/CI both use) silently drops `console.*` output from a hook on
  * a FULLY PASSING file; it only surfaces with `--reporter=verbose`. That is
@@ -344,7 +345,11 @@ export async function createAuthedTestUser(
  * VICTIM file is the one that fails. A trail that only survives on the
  * failing file is not a trail. Raw stdout writes bypass Vitest's console
  * interception and print unconditionally, confirmed by direct comparison
- * of both under CI's actual invocation (`vitest run`, no reporter flag).
+ * of both under CI's actual invocation (`vitest run`, no reporter flag) —
+ * for BOTH lines, not generalized from one to the other: the failure line
+ * is arguably the more important of the two, since it is the one place
+ * that would show a delete genuinely failing inside a passing file's own
+ * teardown, so it got the same empirical check rather than an assumption.
  */
 export async function deleteTestUsers(ids: string[]): Promise<void> {
   const deletedAt = new Date().toISOString();
@@ -361,9 +366,15 @@ export async function deleteTestUsers(ids: string[]): Promise<void> {
   );
   const failed = results.filter((r): r is string => r !== null);
   if (failed.length) {
-    console.warn(
+    // process.stdout.write, not console.warn, and every failure listed, not
+    // just the first — same reasoning as the "deleting user=X" line above,
+    // applied to the line that matters more: this is the ONE place that
+    // would show a delete genuinely failing inside a passing file's
+    // teardown, which is exactly the case #156 needs visible and exactly
+    // the case the default reporter drops console.* output for.
+    process.stdout.write(
       `[cleanup] ${failed.length}/${ids.length} test accounts could not be deleted; ` +
-        `the global sweep will remove them on a later run. First: ${failed[0]}`,
+        `the global sweep will remove them on a later run. Failures: ${failed.join("; ")}\n`,
     );
   }
 }
