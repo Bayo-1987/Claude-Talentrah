@@ -2,6 +2,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
 import jwt from "jsonwebtoken";
 import type { Database } from "@/lib/supabase/types";
+import { RUN_TAG } from "./list-users";
 
 /**
  * Shared throwaway-account helper for the integration suites.
@@ -324,8 +325,37 @@ export async function createAuthedTestUser(
  * 48 leaked accounts deleted all 48 with zero failures. Accounts leak when the
  * process is killed before the hook runs at all — which is what the global
  * sweep on this branch is for.
+ *
+ * Logs each deletion (RUN_TAG, id, timestamp) — see #156. This is the
+ * shared path most suites' teardown routes through, so it is the cheapest
+ * place to leave a forensic trail for a live occurrence: if a `profiles`
+ * row disappears mid-run again, these lines let you check whether the
+ * deleting process's own RUN_TAG matches the one embedded in the deleted
+ * account's fixture email, rather than having no record of who deleted it
+ * or when.
+ *
+ * BOTH log lines below (the "deleting user=X" line and the failure summary)
+ * use `process.stdout.write`, NOT `console.warn` — checked empirically, not
+ * assumed. Vitest's default reporter (no `--reporter` flag, which is what
+ * `npm test`/CI both use) silently drops `console.*` output from a hook on
+ * a FULLY PASSING file; it only surfaces with `--reporter=verbose`. That is
+ * exactly backwards for this: the process whose teardown deletes another
+ * run's live fixture is very likely to be reported as passing itself — its
+ * own assertions never touch the account it just deleted — while the
+ * VICTIM file is the one that fails. A trail that only survives on the
+ * failing file is not a trail. Raw stdout writes bypass Vitest's console
+ * interception and print unconditionally, confirmed by direct comparison
+ * of both under CI's actual invocation (`vitest run`, no reporter flag) —
+ * for BOTH lines, not generalized from one to the other: the failure line
+ * is arguably the more important of the two, since it is the one place
+ * that would show a delete genuinely failing inside a passing file's own
+ * teardown, so it got the same empirical check rather than an assumption.
  */
 export async function deleteTestUsers(ids: string[]): Promise<void> {
+  const deletedAt = new Date().toISOString();
+  for (const id of ids) {
+    process.stdout.write(`[test-cleanup] run=${RUN_TAG} deleting user=${id} at=${deletedAt}\n`);
+  }
   const results = await Promise.all(
     ids.map((id) =>
       admin.auth.admin
@@ -336,9 +366,15 @@ export async function deleteTestUsers(ids: string[]): Promise<void> {
   );
   const failed = results.filter((r): r is string => r !== null);
   if (failed.length) {
-    console.warn(
+    // process.stdout.write, not console.warn, and every failure listed, not
+    // just the first — same reasoning as the "deleting user=X" line above,
+    // applied to the line that matters more: this is the ONE place that
+    // would show a delete genuinely failing inside a passing file's
+    // teardown, which is exactly the case #156 needs visible and exactly
+    // the case the default reporter drops console.* output for.
+    process.stdout.write(
       `[cleanup] ${failed.length}/${ids.length} test accounts could not be deleted; ` +
-        `the global sweep will remove them on a later run. First: ${failed[0]}`,
+        `the global sweep will remove them on a later run. Failures: ${failed.join("; ")}\n`,
     );
   }
 }
