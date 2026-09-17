@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { SITE_ORIGIN, SHARE_IMAGE, SHARE_IMAGE_META } from "@/lib/seo/site";
 import { Newsreader, Source_Sans_3 } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
 
 const newsreader = Newsreader({
@@ -103,6 +104,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-full flex flex-col bg-paper text-ink">
         {children}
         <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );
