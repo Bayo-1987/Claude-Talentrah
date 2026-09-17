@@ -2,6 +2,7 @@ import { cache } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getOptionalUser } from "@/lib/auth/require-user";
 import { pageMetadata } from "@/lib/seo/site";
 import { LANDING_PAGE_MIN_ENTRIES, currentApplicationCycle } from "@/lib/seo/landing-pages";
 import { liveScholarshipLandingLinks } from "@/lib/seo/landing-page-links";
@@ -67,11 +68,15 @@ export default async function FullyFundedScholarshipsPage() {
 
   const cycle = currentApplicationCycle();
   const relatedLinks = await liveScholarshipLandingLinks(supabase, "/scholarships/fully-funded");
+  // send-186 fixed this split on the three jobs landing pages but never
+  // reached these two scholarship pages — a returning visitor should not be
+  // pitched the account they already have. See the CTA block below.
+  const session = await getOptionalUser();
 
   return (
     <div className="flex max-w-[820px] flex-col gap-6">
       <Link
-        href="/"
+        href={session ? "/jobs" : "/"}
         className="inline-flex min-h-10 min-w-10 items-center self-start text-[13px] font-semibold text-ink-soft no-underline hover:text-rust"
       >
         ← Talentrah home
@@ -113,18 +118,33 @@ export default async function FullyFundedScholarshipsPage() {
         </p>
       )}
 
-      <div className="flex flex-col gap-2 border-t border-line pt-5">
-        <Link
-          href={`/signup?redirectTo=${encodeURIComponent("/scholarships")}`}
-          className={buttonClasses("primary", "sm", "no-underline w-fit")}
-        >
-          Create a free account to save and track these
-        </Link>
-        <p className="text-[12.5px] text-ink-soft">
-          Saving and tracking deadlines is free and unlimited. Farah can also check your
-          eligibility against any listing here for a small number of credits.
-        </p>
-      </div>
+      {session ? (
+        <div className="flex flex-col gap-2 border-t border-line pt-5">
+          <Link
+            href="/scholarships"
+            className={buttonClasses("primary", "sm", "no-underline w-fit")}
+          >
+            Go to Scholarships to track these
+          </Link>
+          <p className="text-[12.5px] text-ink-soft">
+            You already have an account — save any listing here and Farah can check your
+            eligibility against it for a small number of credits.
+          </p>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-2 border-t border-line pt-5">
+          <Link
+            href={`/signup?redirectTo=${encodeURIComponent("/scholarships")}`}
+            className={buttonClasses("primary", "sm", "no-underline w-fit")}
+          >
+            Create a free account to save and track these
+          </Link>
+          <p className="text-[12.5px] text-ink-soft">
+            Saving and tracking deadlines is free and unlimited. Farah can also check your
+            eligibility against any listing here for a small number of credits.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

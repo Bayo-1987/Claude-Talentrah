@@ -100,7 +100,7 @@ export default async function CountryRemoteJobsPage({
   return (
     <div className="flex max-w-[820px] flex-col gap-6">
       <Link
-        href="/"
+        href={session ? "/jobs" : "/"}
         className="inline-flex min-h-10 min-w-10 items-center self-start text-[13px] font-semibold text-ink-soft no-underline hover:text-rust"
       >
         ← Talentrah home
