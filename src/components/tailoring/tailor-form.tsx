@@ -9,6 +9,7 @@ import type { ProposedAddition, TailoringResult } from "@/lib/tailoring/types";
 import type { RankedRecommendation } from "@/lib/courses/match";
 import { buildAcceptedAdditions } from "@/lib/tailoring/accepted-payload";
 import { fetchWithTimeout, fetchErrorMessage } from "@/lib/forms/fetch-with-timeout";
+import { MicroFeedbackPrompt } from "@/components/feedback/micro-feedback-prompt";
 
 type ApiResult = {
   resumeId: string;
@@ -433,6 +434,12 @@ export function TailorForm({
             <ResumeDocument resume={result.tailoredResume} />
           </div>
         </div>
+
+        <MicroFeedbackPrompt
+          context="tailoring_result"
+          prompt="Was this tailored resume useful?"
+          pagePath="/tailor"
+        />
       </div>
     );
   }

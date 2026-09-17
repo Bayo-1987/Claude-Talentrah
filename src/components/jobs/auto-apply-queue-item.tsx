@@ -2,8 +2,23 @@
 
 import { useState, useTransition } from "react";
 import { BorderedCard, Button, MatchTierBadge } from "@/components/ui";
-import { confirmAutoApplyAction, dismissAutoApplyAction } from "@/lib/auto-apply/actions";
+import {
+  confirmAutoApplyAction,
+  dismissAutoApplyAction,
+  type AutoApplyResult,
+} from "@/lib/auto-apply/actions";
 import type { MatchExplanation } from "@/lib/matching/score";
+
+/**
+ * The one piece of real judgment this call site needs: "confirmed" means
+ * specifically an internal submission that actually went through — not a
+ * dismiss, and not an external hand-off (which opens a new tab and records
+ * a save, but never submits anything Talentrah could ask "how'd that go"
+ * about). Exported standalone so it's testable without rendering anything.
+ */
+export function isSuccessfulInternalConfirm(result: AutoApplyResult): boolean {
+  return result.ok && result.outcome === "submitted";
+}
 
 export interface QueueItem {
   id: string;
@@ -29,15 +44,29 @@ export interface QueueItem {
  * postings and cannot submit to Greenhouse or Lever on anyone's behalf.
  * Labelling both "Apply" would be the dishonest simplification.
  */
-export function AutoApplyQueueItem({ item }: { item: QueueItem }) {
+export function AutoApplyQueueItem({
+  item,
+  onConfirmed,
+}: {
+  item: QueueItem;
+  /**
+   * Called once, only when `confirmAutoApplyAction` actually submitted
+   * internally — see `isSuccessfulInternalConfirm` above. This component is
+   * about to unmount (the confirmed row leaves `pending`, via the same
+   * `revalidatePath` that re-fetches this page's data), so anything that
+   * needs to survive past this moment — the micro-feedback prompt included
+   * — belongs one level up, not in this component's own state.
+   */
+  onConfirmed?: (jobTitle: string) => void;
+}) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const isInternal = item.sourceType === "internal";
 
-  function run(fn: () => Promise<{ ok: boolean; error?: string; externalUrl?: string | null }>) {
+  function runConfirm() {
     setError(null);
     startTransition(async () => {
-      const result = await fn();
+      const result = await confirmAutoApplyAction(item.id);
       if (!result.ok) {
         setError(result.error ?? "Something went wrong.");
         return;
@@ -46,6 +75,15 @@ export function AutoApplyQueueItem({ item }: { item: QueueItem }) {
       // after the server call so the tab only appears if the hand-off was
       // actually recorded.
       if (result.externalUrl) window.open(result.externalUrl, "_blank", "noopener,noreferrer");
+      if (isSuccessfulInternalConfirm(result)) onConfirmed?.(item.jobTitle);
+    });
+  }
+
+  function runDismiss() {
+    setError(null);
+    startTransition(async () => {
+      const result = await dismissAutoApplyAction(item.id);
+      if (!result.ok) setError(result.error ?? "Something went wrong.");
     });
   }
 
@@ -80,18 +118,13 @@ export function AutoApplyQueueItem({ item }: { item: QueueItem }) {
       </p>
 
       <div className="flex flex-wrap items-center gap-3">
-        <Button
-          type="button"
-          size="sm"
-          disabled={isPending}
-          onClick={() => run(() => confirmAutoApplyAction(item.id))}
-        >
+        <Button type="button" size="sm" disabled={isPending} onClick={runConfirm}>
           {isPending ? "Working…" : isInternal ? "Confirm and apply" : "Open posting"}
         </Button>
         <button
           type="button"
           disabled={isPending}
-          onClick={() => run(() => dismissAutoApplyAction(item.id))}
+          onClick={runDismiss}
           className="min-h-10 font-body text-[13px] font-semibold text-ink-soft underline underline-offset-2 hover:text-rust"
         >
           Not this one

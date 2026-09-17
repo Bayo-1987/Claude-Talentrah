@@ -3,7 +3,7 @@ import { after } from "next/server";
 import { PostHog } from "posthog-node";
 
 /**
- * The 8 server-side product events this app actually captures, mapped 1:1
+ * The 9 server-side product events this app actually captures, mapped 1:1
  * to real Server Action / API route call sites — not a speculative list.
  * Kept as a union (not a bare `string`) so a typo in an event name is a
  * type error, not a silent miss in the PostHog dashboard.
@@ -16,7 +16,8 @@ export type PostHogEventName =
   | "application_submitted"
   | "auto_apply_toggled"
   | "credit_purchase_completed"
-  | "mentor_session_booked";
+  | "mentor_session_booked"
+  | "micro_feedback_reaction";
 
 let client: PostHog | null | undefined;
 
@@ -58,7 +59,7 @@ function getClient(): PostHog | null {
 
 /**
  * Fire-and-forget product event capture. Deliberately synchronous (returns
- * `void`, never awaited by callers) — every one of the 8 real call sites
+ * `void`, never awaited by callers) — every one of the 9 real call sites
  * already has everything it needs by the time it calls this, and a
  * PostHog outage must never add latency to, or fail, the action that
  * triggered the event.

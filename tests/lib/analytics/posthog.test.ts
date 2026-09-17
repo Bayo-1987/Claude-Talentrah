@@ -1,7 +1,7 @@
 /**
- * `captureEvent` (src/lib/analytics/posthog.ts) is the one shared path all 8
+ * `captureEvent` (src/lib/analytics/posthog.ts) is the one shared path all 9
  * real product-event call sites route through, so its own resilience is
- * tested once, here, rather than reproducing the same proof 8 times.
+ * tested once, here, rather than reproducing the same proof 9 times.
  *
  * TWO SEPARATE FAILURE MODES, both load-bearing, both proven directly rather
  * than assumed:
