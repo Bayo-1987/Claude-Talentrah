@@ -136,35 +136,23 @@ export function MarketingFooter() {
   return (
     <div className="bg-ink pb-8 pt-16">
       <div className="mx-auto max-w-[1120px] px-10">
-        <div className="flex flex-col gap-3 pb-10">
-          <div className="flex flex-wrap items-center justify-between gap-6">
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="flex items-center gap-2.5">
-                {/* eslint-disable-next-line @next/next/no-img-element -- static brand SVG, next/image's optimizer needs SVG allow-listing for no real benefit here */}
-                <img
-                  src="/talentrah-mark-reversed.svg"
-                  alt=""
-                  width={100}
-                  height={100}
-                  className="h-7 w-7"
-                />
-                <span className="font-display text-[21px] font-medium text-paper">Talentrah</span>
-              </div>
-              <span className="ml-1.5 font-display text-[14px] italic text-[oklch(70%_0.015_60)]">
-                AI-powered career platform for job seekers in Nigeria and across Africa.
-              </span>
+        <div className="flex flex-wrap items-center justify-between gap-6 pb-10">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2.5">
+              {/* eslint-disable-next-line @next/next/no-img-element -- static brand SVG, next/image's optimizer needs SVG allow-listing for no real benefit here */}
+              <img
+                src="/talentrah-mark-reversed.svg"
+                alt=""
+                width={100}
+                height={100}
+                className="h-7 w-7"
+              />
+              <span className="font-display text-[21px] font-medium text-paper">Talentrah</span>
             </div>
+            <span className="ml-1.5 font-display text-[14px] italic text-[oklch(70%_0.015_60)]">
+              AI-powered career platform for job seekers in Nigeria and across Africa.
+            </span>
           </div>
-          {/*
-            The "What we believe" stance from the About page, restated here in
-            the footer's own shorter, more declarative voice rather than
-            copied verbatim — this is the one place on the site that's
-            visible from every page, so it's the right place to actually
-            state the stance instead of leaving it to live only on /about.
-          */}
-          <p className="font-body text-[13.5px] text-[oklch(70%_0.015_60)]">
-            If we can&apos;t back a number up, it doesn&apos;t go on the page.
-          </p>
         </div>
 
         <div className="grid grid-cols-2 gap-10 border-y border-ink-line py-10 min-[901px]:grid-cols-4">

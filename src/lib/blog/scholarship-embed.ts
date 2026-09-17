@@ -39,7 +39,7 @@ const publicClient = createClient<Database>(
  * CommonMark HTML block, that's what makes `marked` pass the substituted
  * `<aside>` through untouched instead of folding it into a paragraph.
  */
-const SCHOLARSHIP_TOKEN =
+export const SCHOLARSHIP_TOKEN =
   /\[\[scholarship:([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\]\]/gi;
 
 /**
