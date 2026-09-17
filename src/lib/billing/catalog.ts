@@ -229,8 +229,13 @@ export interface PassDefinition {
   price_ngn: number;
 }
 
+/**
+ * Founder-decided repricing, 2026-09-17 (see 0169_pass_price_increase.sql) —
+ * repositions Passes as a premium/heavy-usage product rather than a
+ * mainstream cheaper-than-credits alternative.
+ */
 export const PASSES: readonly PassDefinition[] = [
-  { name: "7-Day Sprint Pass", duration_days: 7, price_ngn: 4000 },
-  { name: "30-Day Pass", duration_days: 30, price_ngn: 6500 },
-  { name: "90-Day Pass", duration_days: 90, price_ngn: 15000 },
+  { name: "7-Day Sprint Pass", duration_days: 7, price_ngn: 6500 },
+  { name: "30-Day Pass", duration_days: 30, price_ngn: 13500 },
+  { name: "90-Day Pass", duration_days: 90, price_ngn: 30000 },
 ];
