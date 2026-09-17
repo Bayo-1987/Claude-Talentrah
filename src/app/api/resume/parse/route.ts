@@ -4,6 +4,7 @@ import { parseResumeFile } from "@/lib/resume/parse";
 import { upsertBaseResume } from "@/lib/resume/upsert-base-resume";
 import { internalError } from "@/lib/api/admin-auth";
 import { consumeRateLimit, rateLimited } from "@/lib/api/rate-limit";
+import { captureEvent } from "@/lib/analytics/posthog";
 
 /**
  * parseResumeFile falls back to parseResumeWithLLM (src/lib/resume/llm-fallback.ts)
@@ -108,6 +109,11 @@ export async function POST(request: Request) {
   } catch (err) {
     return internalError("resume-parse:save", err);
   }
+
+  // Only this route — not upsertBaseResume itself, which the Resume
+  // Builder's "Replace" flow (resume-builder/actions.ts) also calls for a
+  // manual re-style import that isn't a fresh upload.
+  captureEvent(user.id, "resume_uploaded");
 
   return NextResponse.json({
     resumeId,

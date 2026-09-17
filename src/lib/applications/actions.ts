@@ -7,6 +7,7 @@ import { loadJobSnapshot } from "./job-snapshot";
 import { logCountryDefaultEvent, type CountryState } from "@/lib/jobs/country-events";
 import { findActiveCampaignForJobPosting, recordAdEvent } from "@/lib/ads/promoted";
 import { computeAndStoreApplicationMatchScore } from "@/lib/matching/compute-and-store";
+import { captureEvent } from "@/lib/analytics/posthog";
 
 async function getAuthedUserId() {
   const supabase = await createClient();
@@ -156,6 +157,12 @@ export async function applyInAppAction(jobId: string, countryState: CountryState
     if (error) throw new Error(`Couldn't record your application: ${error.message}`);
   }
 
+  // channel distinguishes this from markAppliedExternallyAction's own
+  // capture below — CLAUDE.md is explicit that Auto-Apply's external
+  // matches are handed_off, never applied, and that distinction should
+  // survive into analytics rather than being flattened into one event.
+  captureEvent(userId, "application_submitted", { channel: "in_app" });
+
   // Deferred, not awaited: logCountryDefaultEvent's own header documents
   // that a logging failure inside it is swallowed (caught and console.error'd,
   // never thrown) and cannot fail the apply — exactly the kind of write
@@ -250,6 +257,10 @@ export async function markAppliedExternallyAction(jobId: string, countryState: C
     const { error } = await supabase.from("applications").insert(payload);
     if (error) throw new Error(`Couldn't record this as applied: ${error.message}`);
   }
+
+  // Same event as applyInAppAction, channel: "external" — see that
+  // function's own comment.
+  captureEvent(userId, "application_submitted", { channel: "external" });
 
   await logCountryDefaultEvent({ userId, eventType: "apply", countryState, jobPostingId: jobId });
 

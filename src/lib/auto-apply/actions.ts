@@ -16,6 +16,7 @@ import {
 } from "./config";
 import { scanAndQueue } from "./queue";
 import { loadJobSnapshot } from "@/lib/applications/job-snapshot";
+import { captureEvent } from "@/lib/analytics/posthog";
 
 export type AutoApplyResult =
   | { ok: true; outcome: "submitted" | "handed_off" | "dismissed"; externalUrl?: string | null }
@@ -53,6 +54,9 @@ export async function setAutoApplyEnabledAction(enabled: boolean): Promise<AutoA
     { onConflict: "user_id" },
   );
   if (error) return { ok: false, error: `Couldn't update Auto-Apply: ${error.message}` };
+
+  // Both directions are a real signal, not just noise when turned on.
+  captureEvent(userId, "auto_apply_toggled", { enabled });
 
   // Turning it on should produce something to review immediately, otherwise the
   // feature looks broken until the next feed load.
