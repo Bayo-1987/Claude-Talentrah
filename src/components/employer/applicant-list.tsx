@@ -32,6 +32,14 @@ export interface ApplicantRow {
    */
   talentVerificationStatus: string;
   talentVerificationScore: number | null;
+  /**
+   * send-327 — null means the job has no screening questions, or this
+   * application's required questions aren't all answered yet (0171's own
+   * three-valued meaning). Never rendered as a reason the application itself
+   * was or wasn't accepted — see 0171's header for the block-vs-flag
+   * decision this reflects.
+   */
+  screeningPassed: boolean | null;
 }
 
 const BULK_ACTIONS: { status: ApplicantReviewStatus; label: string }[] = [
@@ -157,6 +165,15 @@ export function ApplicantList({ jobId, applicants }: { jobId: string; applicants
                   {applicant.talentVerificationStatus === "verified" && (
                     <p className="mt-0.5 text-[12.5px] font-semibold text-green">
                       Verified — {applicant.talentVerificationScore}/100
+                    </p>
+                  )}
+                  {applicant.screeningPassed !== null && (
+                    <p
+                      className={`mt-0.5 text-[12.5px] font-semibold ${
+                        applicant.screeningPassed ? "text-green" : "text-ink-soft"
+                      }`}
+                    >
+                      {applicant.screeningPassed ? "Passed screening" : "Didn't pass screening"}
                     </p>
                   )}
                 </div>

@@ -325,6 +325,17 @@ export function JobCard({
           ) : (
             <form action={applyInAppAction.bind(null, job.id, countryState)}>
               {/*
+                send-327 scope note: this card's one-click apply is
+                deliberately UNCHANGED even for a job that has screening
+                questions — those only gate the job DETAIL page's own Apply
+                control (jobs/[id]/page.tsx, ScreeningGateApply). Checking
+                per-card here would mean either an N+1 query across the whole
+                feed or widening the feed's own job-loading query, and the
+                feed's value is fast scanning, not filling in a form inline
+                — a deliberate v1 scope line, not an oversight. A candidate
+                who wants to answer screening questions clicks through to the
+                detail page, which already shows the full JD.
+
                 Deliberately NOT `data-ad-click` here, unlike the title link
                 and the external "Apply on company site" anchor above. Both
                 of those are plain navigations the delegated click tracker is

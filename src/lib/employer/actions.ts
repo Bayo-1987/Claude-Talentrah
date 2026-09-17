@@ -16,6 +16,7 @@ import {
   normalizeDomain,
 } from "@/lib/employer/verification";
 import { extractStructuredJd, SKILL_VOCABULARY } from "@/lib/jobs/extract-jd";
+import { parseScreeningQuestionsForm, reconcileScreeningQuestions } from "@/lib/employer/screening-questions";
 import { Constants, type Enums, type Json } from "@/lib/supabase/types";
 
 /**
@@ -551,6 +552,9 @@ export async function postJobAction(
   const salary = readSalaryForm(form);
   if (!salary.ok) return { error: salary.error };
 
+  const screeningQuestions = parseScreeningQuestionsForm(form);
+  if (!screeningQuestions.ok) return { error: screeningQuestions.error };
+
   // Inserted through the user's client on purpose. The 0027 policy
   // (`source_type = 'internal' and is_org_member(organization_id)`) is what
   // authorises it, so a regression in that policy breaks posting loudly here
@@ -595,6 +599,20 @@ export async function postJobAction(
     return { error: `Couldn't publish the job: ${error.message}` };
   }
 
+  // A brand-new posting has no existing questions to reconcile against —
+  // this is a plain insert of whatever the form submitted. If it fails, the
+  // posting itself still exists and is already public; surfacing the error
+  // here rather than rolling back the posting matches this repo's own stance
+  // (0043's "a charge of unknown outcome is not a failure") that a partial
+  // success should be reported honestly, not hidden behind an all-or-nothing
+  // illusion this isn't actually a single transaction.
+  if (screeningQuestions.value.length > 0) {
+    const result = await reconcileScreeningQuestions(supabase, created.id, screeningQuestions.value);
+    if (!result.ok) {
+      return { error: `Job published, but couldn't save its screening questions: ${result.error}` };
+    }
+  }
+
   revalidatePath("/employer/jobs");
   revalidatePath("/jobs");
   // `?posted=<id>` is how Jobs Posted knows to surface the share link right
@@ -631,6 +649,9 @@ export async function updateJobAction(
 
   const salary = readSalaryForm(form);
   if (!salary.ok) return { error: salary.error };
+
+  const screeningQuestions = parseScreeningQuestionsForm(form);
+  if (!screeningQuestions.ok) return { error: screeningQuestions.error };
 
   // .eq("organization_id") is belt-and-braces on top of the RLS UPDATE policy.
   // Both must agree; neither is trusted alone.
@@ -673,6 +694,12 @@ export async function updateJobAction(
     }
     return { error: `Couldn't save the job: ${error.message}` };
   }
+
+  // Reconciled, not blindly replaced — see reconcileScreeningQuestions'
+  // own header for why a delete-and-reinsert (the pattern `skills` above
+  // uses) would risk cascading away a candidate's already-submitted answers.
+  const screeningResult = await reconcileScreeningQuestions(supabase, jobId, screeningQuestions.value);
+  if (!screeningResult.ok) return { error: screeningResult.error };
 
   revalidatePath("/employer/jobs");
   revalidatePath("/jobs");

@@ -27,6 +27,12 @@ export default async function EditJobPage({ params }: { params: Promise<{ id: st
 
   if (!job) notFound();
 
+  const { data: screeningQuestions } = await supabase
+    .from("job_posting_screening_questions")
+    .select("id, question_text, question_type, required, expected_yes_no, min_value")
+    .eq("job_posting_id", id)
+    .order("sort_order", { ascending: true });
+
   // `structured_jd` is a loose `Json` column — a legacy row from before this
   // field existed defaults to `{}` with no `skills` key at all, which reads
   // the same as "no skills chosen yet" and lets JobPostingForm's own
@@ -89,6 +95,14 @@ export default async function EditJobPage({ params }: { params: Promise<{ id: st
             salaryCurrency: job.salary_currency,
             salaryUnit: job.salary_unit,
             skills: structuredJd?.skills ?? [],
+            screeningQuestions: (screeningQuestions ?? []).map((q) => ({
+              id: q.id,
+              questionText: q.question_text,
+              questionType: q.question_type as "yes_no" | "min_number",
+              required: q.required,
+              expectedYesNo: q.expected_yes_no,
+              minValue: q.min_value,
+            })),
           }}
         />
       </div>
