@@ -3587,6 +3587,14 @@ export type Database = {
           user_id: string
         }[]
       }
+      mentorship_session_counterparty_names: {
+        Args: { p_user_ids: string[] }
+        Returns: {
+          first_name: string
+          last_name: string
+          user_id: string
+        }[]
+      }
       normalize_company_name: { Args: { p_name: string }; Returns: string }
       normalize_email_for_self_referral: {
         Args: { p_email: string }
