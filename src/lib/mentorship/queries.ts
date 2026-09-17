@@ -48,7 +48,8 @@ export async function browseMentors(): Promise<MentorListing[]> {
     .select(
       "user_id, bio, expertise_roles, expertise_industries, expertise_seniority, years_experience, base_price_ngn, mentorship_reviews(rating)",
     )
-    .eq("status", "approved");
+    .eq("status", "approved")
+    .eq("self_paused", false);
 
   if (error) throw error;
   const rows = data ?? [];
@@ -101,6 +102,7 @@ export async function getMentorProfile(mentorUserId: string): Promise<MentorProf
       "user_id, bio, expertise_roles, expertise_industries, expertise_seniority, years_experience, base_price_ngn, mentorship_reviews(rating)",
     )
     .eq("status", "approved")
+    .eq("self_paused", false)
     .eq("user_id", mentorUserId)
     .maybeSingle();
 
@@ -154,6 +156,8 @@ export interface OwnMentorProfile {
   reviewNote: string | null;
   /** Second, independent opt-in on top of status='approved' (0142) — see reviews-verifications-toggle.tsx. */
   reviewsVerifications: boolean;
+  /** Mentor's own pause on their public listing, independent of status (0174) — see self-pause-toggle.tsx. Never filtered here: a mentor must always see and control their own pause state, regardless of its value. */
+  selfPaused: boolean;
 }
 
 /** The signed-in user's own mentor application/profile, whatever its status — unlike browseMentors, this bypasses the approved-only filter via the SELECT policy's own `user_id = auth.uid()` half. */
@@ -161,7 +165,9 @@ export async function getOwnMentorProfile(userId: string): Promise<OwnMentorProf
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("mentor_profiles")
-    .select("status, bio, expertise_roles, expertise_industries, years_experience, base_price_ngn, review_note, reviews_verifications")
+    .select(
+      "status, bio, expertise_roles, expertise_industries, years_experience, base_price_ngn, review_note, reviews_verifications, self_paused",
+    )
     .eq("user_id", userId)
     .maybeSingle();
   if (error) throw error;
@@ -175,6 +181,7 @@ export async function getOwnMentorProfile(userId: string): Promise<OwnMentorProf
     basePriceNgn: data.base_price_ngn,
     reviewNote: data.review_note,
     reviewsVerifications: data.reviews_verifications,
+    selfPaused: data.self_paused,
   };
 }
 

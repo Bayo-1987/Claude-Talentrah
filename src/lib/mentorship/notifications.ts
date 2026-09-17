@@ -2,6 +2,7 @@ import "server-only";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { getResendClient } from "@/lib/resend/client";
 import { fullVisibleName } from "@/lib/profile/name";
+import { absoluteUrl } from "@/lib/seo/site";
 import {
   buildSessionInvite,
   buildSessionConfirmedEmail,
@@ -181,6 +182,88 @@ export async function notifySessionConfirmed(sessionId: string): Promise<void> {
     }
   } catch (err) {
     console.error(`[mentorship-notifications] notifySessionConfirmed(${sessionId}) failed:`, err);
+  }
+}
+
+/**
+ * Notifies an applicant the moment `decideMentorApplicationAction` decides
+ * their application — approved or rejected. Before this, the only way to
+ * learn the outcome was revisiting /mentorship/apply yourself.
+ *
+ * SAME SHAPE AND SAME GUARANTEE AS notifySessionConfirmed above: a guaranteed
+ * `user_notifications` row, a best-effort email on top, and this never
+ * throws back into the caller — decideMentorApplicationAction's own RPC call
+ * has already committed the status change by the time this runs, so a
+ * notification failure must not turn a successful decision into a
+ * user-facing error for the admin.
+ */
+export async function notifyMentorApplicationDecision(
+  userId: string,
+  decision: "approved" | "rejected",
+  note: string | null,
+): Promise<void> {
+  const supabase = createServiceRoleClient();
+  try {
+    const { data: profile, error } = await supabase
+      .from("profiles")
+      .select("email, first_name, last_name")
+      .eq("id", userId)
+      .maybeSingle();
+    if (error) throw error;
+    if (!profile?.email) {
+      console.error(`[mentorship-notifications] mentor ${userId} has no email on file — decision notice not sent`);
+      return;
+    }
+    const name = fullVisibleName(profile.first_name, profile.last_name) || "there";
+    const link = "/mentorship/apply";
+
+    const inApp =
+      decision === "approved"
+        ? {
+            title: "You're an approved mentor",
+            body: "Your mentor application was approved — you're now listed in Mentorship. Set your availability and payout details to start taking sessions.",
+            link,
+          }
+        : {
+            title: "Your mentor application was not approved",
+            body: note ? `Reviewer note: ${note}` : "Your mentor application was not approved this time.",
+            link,
+          };
+    await writeInAppNotification(supabase, userId, "mentor_application_decision", inApp);
+
+    const resend = getResendClient();
+    if (!resend) {
+      console.error(
+        "[mentorship-notifications] RESEND_API_KEY is not set — mentor application decision email not sent, in-app notice still written",
+      );
+      return;
+    }
+
+    const applyUrl = absoluteUrl(link);
+    const subject =
+      decision === "approved" ? "You're an approved Talentrah mentor" : "Update on your Talentrah mentor application";
+    const text =
+      decision === "approved"
+        ? `Hi ${name},\n\nGood news — your mentor application has been approved. You're now listed in Mentorship.\n\nSet up your availability and payout details here: ${applyUrl}\n\n— Talentrah`
+        : `Hi ${name},\n\nYour mentor application was not approved this time.${note ? `\n\nReviewer note: ${note}` : ""}\n\nYou're welcome to update your application and reapply here: ${applyUrl}\n\n— Talentrah`;
+    const html =
+      decision === "approved"
+        ? `<p>Hi ${name},</p><p>Good news — your mentor application has been approved. You're now listed in Mentorship.</p><p><a href="${applyUrl}">Set up your availability and payout details</a>.</p><p>— Talentrah</p>`
+        : `<p>Hi ${name},</p><p>Your mentor application was not approved this time.</p>${note ? `<p>Reviewer note: ${note}</p>` : ""}<p>You're welcome to <a href="${applyUrl}">update your application and reapply</a>.</p><p>— Talentrah</p>`;
+
+    try {
+      await resend.emails.send({
+        from: "Talentrah Mentorship <mentorship@talentrah.com>",
+        to: profile.email,
+        subject,
+        text,
+        html,
+      });
+    } catch (err) {
+      console.error(`[mentorship-notifications] decision email failed for mentor ${userId}:`, err);
+    }
+  } catch (err) {
+    console.error(`[mentorship-notifications] notifyMentorApplicationDecision(${userId}, ${decision}) failed:`, err);
   }
 }
 

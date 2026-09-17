@@ -1,6 +1,6 @@
 import { requirePermission } from "@/lib/admin/require-admin";
-import { pendingMentorApplications } from "@/lib/admin/moderation/queues";
-import { decideMentorApplicationAction } from "@/lib/admin/moderation/actions";
+import { pendingMentorApplications, approvedMentors } from "@/lib/admin/moderation/queues";
+import { decideMentorApplicationAction, decideMentorStatusAction } from "@/lib/admin/moderation/actions";
 import { DecisionForm } from "@/components/admin/decision-form";
 import { QueueEmpty, QueueHeader } from "@/components/admin/queue-chrome";
 import { Container, EyebrowLabel, BorderedCard } from "@/components/ui";
@@ -26,7 +26,7 @@ export const metadata = {
  */
 export default async function MentorReviewQueuePage() {
   const admin = await requirePermission("mentor_review");
-  const queue = await pendingMentorApplications();
+  const [queue, approved] = await Promise.all([pendingMentorApplications(), approvedMentors()]);
 
   return (
     <Container className="flex max-w-[900px] flex-col gap-8 py-12">
@@ -84,6 +84,51 @@ export default async function MentorReviewQueuePage() {
           ))}
         </ul>
       )}
+
+      <div className="flex flex-col gap-4">
+        <QueueHeader
+          eyebrow="Approved mentors"
+          title="Suspend or reinstate a listed mentor."
+          blurb="Suspending removes them from Mentorship immediately and requires a reason. Reinstating restores their listing."
+          adminLabel={admin.displayName || admin.email}
+        />
+
+        {approved.length === 0 ? (
+          <QueueEmpty>No approved or suspended mentors yet.</QueueEmpty>
+        ) : (
+          <ul data-testid="approved-mentors-queue" className="flex list-none flex-col gap-5 p-0">
+            {approved.map((mentor) => (
+              <li key={mentor.userId}>
+                <BorderedCard className="flex flex-col gap-4 p-5">
+                  <div className="flex flex-col gap-1.5">
+                    <EyebrowLabel>{mentor.email}</EyebrowLabel>
+                    <h2 className="font-display text-[20px] font-semibold leading-snug">{mentor.name}</h2>
+                    <p className="text-[13.5px] text-ink-soft">
+                      {mentor.status === "approved" ? "Currently listed" : "Currently suspended"}
+                    </p>
+                    {mentor.status === "suspended" && mentor.reviewNote && (
+                      <p className="text-[13px] text-ink-soft">Suspension note: {mentor.reviewNote}</p>
+                    )}
+                  </div>
+
+                  <DecisionForm
+                    id={mentor.userId}
+                    action={decideMentorStatusAction}
+                    decisionName="decision"
+                    noteName="note"
+                    notePlaceholder="Note (required to suspend, kept in the audit log)"
+                    options={
+                      mentor.status === "approved"
+                        ? [{ value: "suspend", label: "Suspend", requiresNote: true }]
+                        : [{ value: "reinstate", label: "Reinstate", variant: "primary" }]
+                    }
+                  />
+                </BorderedCard>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </Container>
   );
 }

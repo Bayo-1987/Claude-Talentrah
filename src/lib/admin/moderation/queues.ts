@@ -445,6 +445,48 @@ export async function pendingMentorApplications(): Promise<PendingMentorApplicat
   });
 }
 
+export interface ApprovedMentor {
+  userId: string;
+  name: string;
+  email: string;
+  status: "approved" | "suspended";
+  reviewNote: string | null;
+}
+
+/**
+ * Every currently-approved or currently-suspended mentor (send-137's own
+ * gap-3 follow-up: admin can suspend an already-approved mentor). Service
+ * role, same as pendingMentorApplications() above — this view needs to see
+ * every row regardless of `self_paused`, which is a mentor's own choice and
+ * irrelevant to whether an admin can discipline them.
+ */
+export async function approvedMentors(): Promise<ApprovedMentor[]> {
+  const supabase = createServiceRoleClient();
+  const { data, error } = await supabase
+    .from("mentor_profiles")
+    .select(
+      "user_id, status, review_note, profiles!mentor_profiles_user_id_fkey(first_name, last_name, email)",
+    )
+    .in("status", ["approved", "suspended"])
+    .order("status", { ascending: true })
+    .order("reviewed_at", { ascending: false });
+
+  if (error) throw error;
+  return (data ?? []).map((r) => {
+    const profile = r.profiles;
+    const name = profile
+      ? [profile.first_name, profile.last_name].filter(Boolean).join(" ").trim()
+      : "";
+    return {
+      userId: r.user_id,
+      name: name || "(no name on file)",
+      email: profile?.email ?? "",
+      status: r.status as "approved" | "suspended",
+      reviewNote: r.review_note,
+    };
+  });
+}
+
 /** Counts for the nav, in one place so the screens and the shell agree. */
 export async function queueCounts(): Promise<{
   scholarships: number;
