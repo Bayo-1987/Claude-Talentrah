@@ -2,10 +2,14 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requireEmployer } from "@/lib/employer/membership";
-import { BorderedCard, EyebrowLabel, MatchTierBadge } from "@/components/ui";
-import { ApplicantStatusSelect } from "@/components/employer/applicant-status-select";
-import { MatchBreakdown } from "@/components/jobs/match-breakdown";
-import { formatTrackerDate } from "@/lib/tracker/format-date";
+import { BorderedCard, EyebrowLabel } from "@/components/ui";
+import { ApplicantFilterBar } from "@/components/employer/applicant-filter-bar";
+import { ApplicantList, type ApplicantRow } from "@/components/employer/applicant-list";
+import {
+  applicantMatchesFilter,
+  effectiveTierFor,
+  parseApplicantFilterParams,
+} from "@/lib/employer/applicant-filters";
 import type { MatchExplanation } from "@/lib/matching/score";
 
 export const metadata = { title: "Applicants — Talentrah" };
@@ -29,8 +33,15 @@ export const metadata = { title: "Applicants — Talentrah" };
  * checks the CALLER's membership in it — a second, independent gate from
  * the one above, not a duplicate of it.
  */
-export default async function JobApplicantsPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function JobApplicantsPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ tier?: string; unscored?: string }>;
+}) {
   const { id } = await params;
+  const filterState = parseApplicantFilterParams(await searchParams);
   const { organization } = await requireEmployer();
   const supabase = await createClient();
 
@@ -55,6 +66,43 @@ export default async function JobApplicantsPage({ params }: { params: Promise<{ 
 
   if (!job) notFound();
 
+  /*
+   * send-158's explanation derivation, unchanged — still the assistive
+   * ranking display, not a filter. `effectiveTierFor` (applicant-filters.ts)
+   * reuses this same explanation to compute the tier the badge will
+   * actually show, so the tier chips below can never disagree with what a
+   * recruiter sees on the row itself.
+   */
+  const rows: ApplicantRow[] = (applicants ?? []).map((applicant) => {
+    const explanation: MatchExplanation | null =
+      applicant.match_score !== null &&
+      applicant.matched_skills !== null &&
+      applicant.missing_skills !== null &&
+      applicant.seniority_alignment !== null
+        ? {
+            matchedSkills: applicant.matched_skills as string[],
+            missingSkills: applicant.missing_skills as string[],
+            seniorityAlignment: applicant.seniority_alignment as MatchExplanation["seniorityAlignment"],
+          }
+        : null;
+    return {
+      application_id: applicant.application_id,
+      first_name: applicant.first_name,
+      last_name: applicant.last_name,
+      applied_at: applicant.applied_at,
+      match_score: applicant.match_score,
+      resume_id: applicant.resume_id,
+      status: applicant.status,
+      explanation,
+    };
+  });
+
+  // send-326 — a page-level filter over the array the RPC already returned;
+  // no new query, no change to employer_job_applicants itself.
+  const filteredRows = rows.filter((row) =>
+    applicantMatchesFilter(row.match_score, effectiveTierFor(row.match_score, row.explanation), filterState),
+  );
+
   return (
     <div className="flex flex-col gap-6">
       <div>
@@ -76,7 +124,7 @@ export default async function JobApplicantsPage({ params }: { params: Promise<{ 
         </p>
       )}
 
-      {(applicants ?? []).length === 0 ? (
+      {rows.length === 0 ? (
         <BorderedCard className="p-8 text-center">
           <p className="font-display text-[18px] font-medium text-ink">No applicants yet.</p>
           <p className="mx-auto mt-2 max-w-[46ch] font-body text-[14px] text-ink-soft">
@@ -84,68 +132,19 @@ export default async function JobApplicantsPage({ params }: { params: Promise<{ 
           </p>
         </BorderedCard>
       ) : (
-        <div className="flex flex-col divide-y divide-line border-y border-line">
-          {(applicants ?? []).map((applicant) => {
-            /*
-             * send-158: assistive ranking, not a filter or a replacement for
-             * ApplicantStatusSelect below — the sort itself already happened
-             * server-side (employer_job_applicants' own ORDER BY, 0154), this
-             * just renders what's already in the row. Null whenever
-             * computeAndStoreApplicationMatchScore hasn't run for this
-             * (user, job) pair yet — an application that predates this
-             * feature, or one whose resume lookup failed at apply time —
-             * rendered as "not yet scored" rather than a fabricated number.
-             */
-            const explanation: MatchExplanation | null =
-              applicant.match_score !== null &&
-              applicant.matched_skills !== null &&
-              applicant.missing_skills !== null &&
-              applicant.seniority_alignment !== null
-                ? {
-                    matchedSkills: applicant.matched_skills as string[],
-                    missingSkills: applicant.missing_skills as string[],
-                    seniorityAlignment: applicant.seniority_alignment as MatchExplanation["seniorityAlignment"],
-                  }
-                : null;
-
-            return (
-              <div key={applicant.application_id} className="flex flex-col gap-3 py-4">
-                <div className="flex flex-col gap-3 min-[640px]:flex-row min-[640px]:items-center min-[640px]:justify-between">
-                  <div className="min-w-0">
-                    <p className="font-body text-[14.5px] font-semibold text-ink">
-                      {[applicant.first_name, applicant.last_name].filter(Boolean).join(" ") || "Applicant"}
-                    </p>
-                    <p className="mt-0.5 font-body text-[12.5px] text-ink-soft">
-                      Applied {applicant.applied_at ? formatTrackerDate(applicant.applied_at) : "—"}
-                    </p>
-                  </div>
-                  <div className="flex flex-shrink-0 items-center gap-4">
-                    {applicant.match_score !== null ? (
-                      <MatchTierBadge score={applicant.match_score} explanation={explanation ?? undefined} />
-                    ) : (
-                      <span className="font-body text-[11px] font-bold tracking-[0.14em] text-ink-soft uppercase">
-                        Not yet scored
-                      </span>
-                    )}
-                    {applicant.resume_id && (
-                      <Link
-                        href={`/employer/jobs/${job.id}/applicants/${applicant.application_id}/resume`}
-                        className="font-body text-[13px] font-semibold text-ink underline underline-offset-2 hover:text-rust"
-                      >
-                        View resume
-                      </Link>
-                    )}
-                    <ApplicantStatusSelect
-                      applicationId={applicant.application_id}
-                      initialStatus={applicant.status}
-                    />
-                  </div>
-                </div>
-                {explanation && <MatchBreakdown explanation={explanation} />}
-              </div>
-            );
-          })}
-        </div>
+        <>
+          <ApplicantFilterBar jobId={job.id} tiers={filterState.tiers} hideUnscored={filterState.hideUnscored} />
+          {filteredRows.length === 0 ? (
+            <BorderedCard className="p-8 text-center">
+              <p className="font-display text-[18px] font-medium text-ink">No applicants match these filters.</p>
+              <p className="mx-auto mt-2 max-w-[46ch] font-body text-[14px] text-ink-soft">
+                Clear a filter above to see the rest of your applicants.
+              </p>
+            </BorderedCard>
+          ) : (
+            <ApplicantList jobId={job.id} applicants={filteredRows} />
+          )}
+        </>
       )}
     </div>
   );

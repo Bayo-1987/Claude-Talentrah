@@ -135,6 +135,11 @@ const ALLOWLIST: Record<string, { labelOk?: boolean; scorePercentOk?: boolean; r
     reason:
       "the canonical shared renderer. Its own `displayScore` variable never trips (A) after this fix, since the label now comes pre-built from describeMatchConfidence — but it deliberately keeps ONE raw `${score}%` (the showRawWhenCapped hover annotation, for Auto-Apply's review-before-submit context, where the real uncapped number is the thing being acted on) — see the component's own prop comment.",
   },
+  "components/employer/applicant-filter-bar.tsx": {
+    labelOk: true,
+    reason:
+      "send-326: MATCH_TIER_LABEL names a FILTER CATEGORY ('Excellent'/'Good'/'Fair' as facets to toggle), not a confidence claim about any specific applicant's score — there is no score in scope here to overclaim about. The per-applicant badge that DOES render a real confidence claim (applicant-list.tsx, via MatchTierBadge) is unaffected and still routes through describeMatchConfidence as required.",
+  },
 };
 
 const sourceFiles = findSourceFiles(SRC_ROOT);
