@@ -94,6 +94,10 @@ export default async function JobApplicantsPage({
       resume_id: applicant.resume_id,
       status: applicant.status,
       explanation,
+      // send-328 — never gated on talent_directory_opt_in, see 0170's own
+      // header for the consent reasoning.
+      talentVerificationStatus: applicant.talent_verification_status,
+      talentVerificationScore: applicant.talent_verification_score,
     };
   });
 

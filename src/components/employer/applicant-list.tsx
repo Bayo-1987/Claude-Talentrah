@@ -22,6 +22,16 @@ export interface ApplicantRow {
   resume_id: string | null;
   status: ApplicantReviewStatus;
   explanation: MatchExplanation | null;
+  /**
+   * send-328 — deliberately NOT gated on talent_directory_opt_in (see
+   * migration 0170's own header for the consent reasoning): a verified
+   * skill credential is closer to a resume fact than to directory
+   * discoverability, and the candidate has already chosen to be seen by
+   * THIS employer by applying. Render the badge for 'verified' only, never
+   * a partial-credit display for 'pending'/'rejected'/'unverified'.
+   */
+  talentVerificationStatus: string;
+  talentVerificationScore: number | null;
 }
 
 const BULK_ACTIONS: { status: ApplicantReviewStatus; label: string }[] = [
@@ -144,6 +154,11 @@ export function ApplicantList({ jobId, applicants }: { jobId: string; applicants
                   <p className="mt-0.5 font-body text-[12.5px] text-ink-soft">
                     Applied {applicant.applied_at ? formatTrackerDate(applicant.applied_at) : "—"}
                   </p>
+                  {applicant.talentVerificationStatus === "verified" && (
+                    <p className="mt-0.5 text-[12.5px] font-semibold text-green">
+                      Verified — {applicant.talentVerificationScore}/100
+                    </p>
+                  )}
                 </div>
               </div>
               <div className="flex flex-shrink-0 items-center gap-4">
