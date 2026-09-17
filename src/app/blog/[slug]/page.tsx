@@ -82,6 +82,8 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
   const post = await getPostBySlug(slug);
   if (!post) notFound();
 
+  const html = await renderMarkdown(post.content);
+
   return (
     <>
       <JsonLd data={buildBlogPostingJsonLd(post)} />
@@ -102,7 +104,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
               executable. `renderMarkdown` emits the same element classes
               mdxComponents did, so the migrated posts render unchanged.
             */}
-            <div dangerouslySetInnerHTML={{ __html: renderMarkdown(post.content) }} />
+            <div dangerouslySetInnerHTML={{ __html: html }} />
           </div>
         </Container>
       </div>

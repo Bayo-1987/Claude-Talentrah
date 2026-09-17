@@ -15,33 +15,7 @@ import { SaveStatusSelect } from "@/components/scholarships/save-status-select";
 import { FarahActions } from "@/components/scholarships/farah-actions";
 import { relevantScholarshipLandingLinks } from "@/lib/seo/landing-page-links";
 import { checkPassCoverage } from "@/lib/passes/entitlement";
-
-/**
- * Columns the public page actually renders. Not `select("*")`.
- *
- * RLS already governs which ROWS are visible (see 0084 and
- * tests/rls/scholarship-public-read.test.ts) — a pending or rejected listing
- * is invisible to every role regardless of what this list contains. This is
- * a narrower, separate decision: `moderation_note` and `moderated_by` are an
- * admin's internal review trail (see ingest.ts's mapping of `reviewNote`),
- * not the listing, and have zero value to a reader while being the kind of
- * thing an operator would not expect to see rendered on a page the entire
- * internet can load. Nothing stops a direct REST call from reading them
- * regardless — this is about what THIS page puts in front of a person and a
- * crawler, not a security boundary.
- */
-const PUBLIC_COLUMNS =
-  "id, provider, program_name, host_institution, degree_levels, field_tags, funding_type, funding_covers, eligibility_nationalities, eligibility_prior_degree, eligibility_age, eligibility_other, application_deadline, deadline_note, cycle_year, official_url, source_name, moderation_status";
-
-async function loadPublicScholarship(id: string) {
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("scholarships")
-    .select(PUBLIC_COLUMNS)
-    .eq("id", id)
-    .maybeSingle();
-  return data;
-}
+import { loadPublicScholarship } from "@/lib/scholarships/public";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

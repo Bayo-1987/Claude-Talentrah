@@ -1,5 +1,6 @@
 import { marked } from "marked";
 import sanitizeHtml from "sanitize-html";
+import { resolveScholarshipEmbeds } from "@/lib/blog/scholarship-embed";
 
 /**
  * Markdown → HTML for blog bodies.
@@ -49,15 +50,24 @@ const CLASS_MAP: Record<string, string> = {
   blockquote: "border-l-2 border-line pl-4 text-[15.5px] italic text-ink-soft",
   code: "bg-paper-alt px-1 text-[14px]",
   pre: "overflow-x-auto border border-line bg-paper-alt p-4 text-[13.5px]",
+  /*
+   * The scholarship fact-card embed's container (scholarship-embed.ts). Not
+   * claimed by any Markdown construct, so this can only ever appear where
+   * the resolution pass put it — an admin typing a literal <aside> in a post
+   * would just opt into looking like an embed, not a security concern.
+   * Editorial bordered-box treatment, matching BorderedCard's own classes.
+   */
+  aside: "rounded-none border-[1.5px] border-ink bg-card p-4 flex flex-col gap-1.5",
 };
 
-export function renderMarkdown(body: string): string {
-  const raw = marked.parse(body, { async: false, gfm: true, breaks: false }) as string;
+export async function renderMarkdown(body: string): Promise<string> {
+  const resolved = await resolveScholarshipEmbeds(body);
+  const raw = marked.parse(resolved, { async: false, gfm: true, breaks: false }) as string;
 
   return sanitizeHtml(raw, {
     allowedTags: [
       "h2", "h3", "h4", "p", "ul", "ol", "li", "strong", "em", "a",
-      "code", "pre", "blockquote", "hr", "br",
+      "code", "pre", "blockquote", "hr", "br", "aside",
       "table", "thead", "tbody", "tr", "th", "td",
     ],
     /*

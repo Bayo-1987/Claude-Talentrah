@@ -120,6 +120,13 @@ export function BlogPostForm({ action, post, previewHtml, submitLabel }: Props) 
             />
             <p className="text-[12.5px] text-ink-soft">
               Markdown. Headings with ##, bullets with -, bold with **. Raw HTML is stripped.
+              To embed a live scholarship fact card (provider, deadline, a link — always current,
+              never frozen at publish time), put{" "}
+              <code className="bg-paper-alt px-1">
+                [[scholarship:&lt;its id&gt;]]
+              </code>{" "}
+              on its own line. If the listing later closes, it falls back to a plain notice
+              automatically.
             </p>
             {err("body") && <p className="text-[12.5px] text-rust">{err("body")}</p>}
           </div>
