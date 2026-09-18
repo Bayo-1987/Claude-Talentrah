@@ -57,6 +57,35 @@ export interface JobLandingResult {
   jobs: LandingJobPosting[];
 }
 
+/**
+ * NO ItemList/CollectionPage STRUCTURED DATA ON ANY PAGE THAT CALLS THESE
+ * LOADERS, DELIBERATELY — checked against Google's current documentation
+ * rather than shipped on an SEO checklist's assumption of what "good schema"
+ * looks like, the same discipline `faq-section.tsx` already applies to
+ * FAQPage. Two independent checks (2026-09-18), not one:
+ *
+ *   1. Google's own JobPosting documentation states outright: "Don't add
+ *      structured data to pages intended to present a list of jobs (for
+ *      example, search result pages)" — and, in its troubleshooting section,
+ *      "JobPosting structured data must only be on a job posting page (a
+ *      page that contains a single job and isn't a search results page)."
+ *      `/jobs/remote`, `/jobs/in/[city]` and `/jobs/remote/[country]` are
+ *      exactly that shape of page.
+ *   2. Google's separate Carousel (ItemList) documentation lists its own
+ *      closed set of eligible content types — Course list, Movie, Recipe,
+ *      Restaurant — and JobPosting is not among them, so ItemList would not
+ *      even be a mechanism Google recognises for this content type, in
+ *      addition to (1) actively telling sites not to try.
+ *
+ * So this would ship dead markup — no rich result, no carousel eligibility —
+ * while costing payload on a low-end-Android-targeted product for zero
+ * return, the identical shape of cost `faq-section.tsx`'s own FAQPage
+ * decision already reasons through. If this ever needs revisiting, it's
+ * because Google's guidance changed again — re-check both docs before
+ * undoing this, don't undo it on the strength of a checklist that doesn't
+ * know this repo already made the call.
+ */
+
 export async function loadRemoteJobs(
   supabase: Client,
 ): Promise<JobLandingResult> {

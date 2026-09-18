@@ -44,7 +44,17 @@ const STATIC_PATHS: { path: string; priority: number; changeFrequency: MetadataR
   { path: "/", priority: 1, changeFrequency: "weekly" },
   { path: "/about", priority: 0.6, changeFrequency: "monthly" },
   { path: "/contact", priority: 0.5, changeFrequency: "yearly" },
-  { path: "/employer", priority: 0.7, changeFrequency: "monthly" },
+  /*
+   * NOT /employer, removed 2026-09-18 — it violated this file's own rule
+   * above. /employer's first act is getEmployerContext() -> requireUser(),
+   * so a signed-out visitor (every crawler) gets a 307 to /login, not a 200;
+   * robots.ts already fully disallows the whole /employer surface for
+   * exactly this reason. Listing it here was the anti-pattern this file
+   * warns against, happening to itself. If a public "for employers"
+   * marketing page is ever built (robots.ts's own comment already
+   * anticipates this), it earns its own Allow AND its own row here at that
+   * point — not before.
+   */
   { path: "/blog", priority: 0.7, changeFrequency: "weekly" },
   { path: "/legal/privacy", priority: 0.3, changeFrequency: "yearly" },
   { path: "/legal/terms", priority: 0.3, changeFrequency: "yearly" },

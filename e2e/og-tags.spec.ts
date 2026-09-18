@@ -34,6 +34,7 @@ const GENERIC = "Talentrah";
 
 /** A representative sample: one of each shape that sets its own title. */
 const PAGES = [
+  { path: "/", expect: "AI Job Search Copilot for Nigeria & Africa — Talentrah" },
   { path: "/about", expect: "About — Talentrah" },
   { path: "/contact", expect: "Contact — Talentrah" },
   { path: "/blog", expect: "Blog — Talentrah" },
@@ -238,12 +239,15 @@ test.describe("public pages carry their own social title", () => {
     expect(imgRes.status(), "the IMAGE route must 404 wherever the page does").toBe(404);
   });
 
-  test("the home page keeps the generic title, which is correct there", async ({ page }) => {
-    // The negative control. "/" sets no title of its own, so the site-wide
-    // value IS its real title — a test that flagged every generic og:title
-    // would fail here and be wrong.
-    const h = await head(page, "/");
-    expect(h.title).toBe(GENERIC);
-    expect(h.ogTitle).toBe(GENERIC);
-  });
+  /*
+   * NO MORE "home page keeps the generic title" negative control here — that
+   * test asserted "/" deliberately had no title of its own, which was true
+   * until it wasn't: the homepage now calls pageMetadata() like every other
+   * real page (2026-09-18, closing the gap where it was the one major page
+   * with no metadata export at all). "/" moved into the PAGES loop above
+   * instead, which already proves the positive case this file exists to
+   * check — its own title, its own og:title, its own og:image — the same
+   * way every other real page is proven. Nothing here still needs a
+   * generic-title negative control to stay meaningful.
+   */
 });
