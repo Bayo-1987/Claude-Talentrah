@@ -111,6 +111,11 @@ export function ApplicantList({
   const [screeningAnswers, setScreeningAnswers] = useState<
     Record<string, ScreeningAnswerDetail[] | "loading" | "error">
   >({});
+  // A separate transition from the bulk-action one above: "View answers" is a
+  // read-only, single-row fetch and must never disable the bulk-action bar or
+  // show its "Updating…" label while it's in flight — the two are unrelated
+  // operations that happened to share `pending` before this fix.
+  const [, startAnswersTransition] = useTransition();
 
   function toggleAnswers(applicationId: string) {
     if (applicationId in screeningAnswers) {
@@ -121,7 +126,7 @@ export function ApplicantList({
     }
 
     setScreeningAnswers((prev) => ({ ...prev, [applicationId]: "loading" }));
-    startTransition(async () => {
+    startAnswersTransition(async () => {
       const result = await getApplicationScreeningAnswersAction(applicationId);
       setScreeningAnswers((prev) => ({
         ...prev,
