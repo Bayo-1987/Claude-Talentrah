@@ -69,6 +69,55 @@ function formatScreeningAnswer(a: ScreeningAnswerDetail): string {
 }
 
 /**
+ * send-345 — Strong/Adequate/Weak, Farah's own qualitative vocabulary
+ * (0176's own header on why this is deliberately NOT the match-score
+ * system's Excellent/Good/Fair).
+ */
+const FARAH_TIER_LABEL: Record<string, string> = {
+  strong: "Strong",
+  adequate: "Adequate",
+  weak: "Weak",
+};
+
+/**
+ * send-345 — Farah's advisory annotation for one farah-mode free_text
+ * answer, rendered separately from the raw answer above it and clearly
+ * labeled as hers, never blended into it. Three states, none of which touch
+ * `passed` (0176's own header): a completed review shows tier + summary; a
+ * skipped one explains why in plain language, with a top-up link only for
+ * the balance case (an error isn't fixed by paying); no review yet (still
+ * in flight, or the answer predates the employer turning Farah mode on)
+ * renders nothing. No retry control for v1, matching the spec exactly.
+ */
+function FarahReviewNote({ a }: { a: ScreeningAnswerDetail }) {
+  if (a.screeningMode !== "farah") return null;
+
+  if (a.farahReviewStatus === "completed" && a.farahTier && a.farahSummary) {
+    return (
+      <p className="mt-1 border-l-[3px] border-rust-soft pl-2.5 font-body text-[12.5px] text-ink-soft">
+        <span className="font-semibold text-ink">Farah — {FARAH_TIER_LABEL[a.farahTier] ?? a.farahTier}:</span>{" "}
+        {a.farahSummary}
+      </p>
+    );
+  }
+  if (a.farahReviewStatus === "skipped_insufficient_balance") {
+    return (
+      <p className="mt-1 font-body text-[12.5px] text-ink-soft">
+        Farah couldn&apos;t review this — your ad wallet balance was too low.{" "}
+        <Link href="/employer/campaigns" className="font-semibold text-ink underline underline-offset-2 hover:text-rust">
+          Top up
+        </Link>{" "}
+        to review future answers.
+      </p>
+    );
+  }
+  if (a.farahReviewStatus === "skipped_error") {
+    return <p className="mt-1 font-body text-[12.5px] text-ink-soft">Farah couldn&apos;t review this answer.</p>;
+  }
+  return null;
+}
+
+/**
  * send-326 — checkboxes + a bulk-action bar over the SAME per-applicant
  * write `ApplicantStatusSelect` already uses (`setApplicantStatusAction`),
  * one call per selected id via `Promise.all`. No new backend: bulk is a
@@ -306,6 +355,7 @@ export function ApplicantList({
                       <p className="font-body text-[13px] whitespace-pre-wrap text-ink-soft">
                         {formatScreeningAnswer(a)}
                       </p>
+                      <FarahReviewNote a={a} />
                     </div>
                   ))}
                 </div>

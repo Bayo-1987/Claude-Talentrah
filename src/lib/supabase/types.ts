@@ -544,6 +544,9 @@ export type Database = {
           answer_yes_no: boolean | null
           application_id: string
           created_at: string
+          farah_review_status: string | null
+          farah_summary: string | null
+          farah_tier: string | null
           id: string
           passed: boolean
           question_id: string
@@ -554,6 +557,9 @@ export type Database = {
           answer_yes_no?: boolean | null
           application_id: string
           created_at?: string
+          farah_review_status?: string | null
+          farah_summary?: string | null
+          farah_tier?: string | null
           id?: string
           passed: boolean
           question_id: string
@@ -564,6 +570,9 @@ export type Database = {
           answer_yes_no?: boolean | null
           application_id?: string
           created_at?: string
+          farah_review_status?: string | null
+          farah_summary?: string | null
+          farah_tier?: string | null
           id?: string
           passed?: boolean
           question_id?: string
@@ -1395,6 +1404,7 @@ export type Database = {
           question_text: string
           question_type: string
           required: boolean
+          screening_mode: string
           sort_order: number
         }
         Insert: {
@@ -1406,6 +1416,7 @@ export type Database = {
           question_text: string
           question_type: string
           required?: boolean
+          screening_mode?: string
           sort_order?: number
         }
         Update: {
@@ -1417,6 +1428,7 @@ export type Database = {
           question_text?: string
           question_type?: string
           required?: boolean
+          screening_mode?: string
           sort_order?: number
         }
         Relationships: [
@@ -3600,10 +3612,14 @@ export type Database = {
           answer_number: number | null
           answer_text: string | null
           answer_yes_no: boolean | null
+          farah_review_status: string | null
+          farah_summary: string | null
+          farah_tier: string | null
           passed: boolean | null
           question_text: string
           question_type: string
           required: boolean
+          screening_mode: string
         }[]
       }
       employer_job_applicants: {
@@ -3781,6 +3797,16 @@ export type Database = {
       record_employer_resume_view: {
         Args: { p_application_id: string }
         Returns: undefined
+      }
+      record_farah_screening_review: {
+        Args: {
+          p_amount_ngn: number
+          p_application_id: string
+          p_question_id: string
+          p_summary: string
+          p_tier: string
+        }
+        Returns: { balance_after_ngn: number; ok: boolean; status: string }[]
       }
       record_tailoring_cache_hit: {
         Args: { p_cache_key: string }
@@ -4013,6 +4039,7 @@ export type Database = {
         | "campaign_charge"
         | "admin_adjustment"
         | "reversal"
+        | "farah_screening_charge"
       admin_permission:
         | "scholarships"
         | "reported_postings"
@@ -4254,6 +4281,7 @@ export const Constants = {
         "campaign_charge",
         "admin_adjustment",
         "reversal",
+        "farah_screening_charge",
       ],
       admin_permission: [
         "scholarships",
