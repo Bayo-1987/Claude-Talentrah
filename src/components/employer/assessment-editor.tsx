@@ -1,8 +1,7 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { MarkdownToolbar } from "./markdown-toolbar";
-import { renderJobDescriptionMarkdown } from "@/lib/farah/render-markdown";
+import { useState } from "react";
+import { RichMarkdownEditor } from "./rich-markdown-editor";
 import type { JobPostingAssessmentInput } from "@/lib/employer/job-posting-assessment";
 
 /**
@@ -26,13 +25,6 @@ export function AssessmentEditor({ initial }: { initial?: JobPostingAssessmentIn
   const [instructions, setInstructions] = useState(initial?.instructions ?? "");
   const [exerciseLink, setExerciseLink] = useState(initial?.exerciseLink ?? "");
   const [required, setRequired] = useState(initial?.required ?? true);
-  const [previewText, setPreviewText] = useState<string | null>(null);
-
-  const instructionsRef = useRef<HTMLTextAreaElement>(null);
-
-  function syncInstructionsState() {
-    setInstructions(instructionsRef.current?.value ?? "");
-  }
 
   const payload = enabled
     ? JSON.stringify({
@@ -76,44 +68,22 @@ export function AssessmentEditor({ initial }: { initial?: JobPostingAssessmentIn
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <div className="flex items-center justify-between">
-              <label htmlFor="assessment-instructions" className="font-body text-[12.5px] font-semibold text-ink-soft">
-                Instructions
-              </label>
-              <button
-                type="button"
-                aria-label={previewText === null ? "Preview instructions" : "Edit instructions"}
-                onClick={() =>
-                  setPreviewText((current) => (current === null ? instructionsRef.current?.value ?? "" : null))
-                }
-                className="min-h-10 border-[1.5px] border-ink px-3.5 font-body text-[13px] font-semibold text-ink hover:border-rust hover:text-rust"
-              >
-                {previewText === null ? "Preview" : "Edit"}
-              </button>
-            </div>
-
-            <div className={previewText !== null ? "hidden" : "flex flex-col gap-1.5"}>
-              <MarkdownToolbar textareaRef={instructionsRef} onFormat={syncInstructionsState} />
-              <textarea
-                id="assessment-instructions"
-                ref={instructionsRef}
-                defaultValue={instructions}
-                onChange={syncInstructionsState}
-                rows={6}
-                placeholder="What should the candidate do, and how should they submit it?"
-                className="border-[1.5px] border-ink bg-card px-3.5 py-2.5 font-body text-[15px] leading-[1.65] text-ink outline-none focus:border-rust"
-              />
-            </div>
-
-            {previewText !== null && (
-              <div className="min-h-[120px] border-[1.5px] border-ink bg-card px-3.5 py-2.5">
-                {previewText.trim() ? (
-                  renderJobDescriptionMarkdown(previewText)
-                ) : (
-                  <p className="font-body text-[15px] italic text-ink-soft">Nothing to preview yet.</p>
-                )}
-              </div>
-            )}
+            {/*
+              send-367 — same rich editor as the job description field, no
+              `name` (its serialized text feeds `instructions` state below
+              via onTextChange, then travels inside this component's own
+              `jobPostingAssessment` JSON hidden input, not as its own form
+              field). See rich-markdown-editor.tsx's own header for why the
+              stored/rendered format is unaffected either way.
+            */}
+            <RichMarkdownEditor
+              id="assessment-instructions"
+              label="Instructions"
+              defaultValue={instructions}
+              placeholder="What should the candidate do, and how should they submit it?"
+              minHeightClassName="min-h-[160px]"
+              onTextChange={setInstructions}
+            />
           </div>
 
           <div className="flex flex-col gap-1.5">

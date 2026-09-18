@@ -73,24 +73,34 @@ import { Fragment, type ReactNode } from "react";
  */
 
 /** A `* item` or `- item` marker: the marker, a space, then content. Not `*text*` (no space) — that's italic. */
-const UNORDERED_ITEM = /^[-*]\s+(.*)$/;
+export const UNORDERED_ITEM = /^[-*]\s+(.*)$/;
 /** A `1. item` marker — digits, a literal dot, a space, then content. */
-const ORDERED_ITEM = /^\d+\.\s+(.*)$/;
+export const ORDERED_ITEM = /^\d+\.\s+(.*)$/;
 /** `#` through `######`, a space, then content — every heading level renders identically, just bold text at one modestly larger size. */
-const HEADING = /^#{1,6}\s+(.*)$/;
+export const HEADING = /^#{1,6}\s+(.*)$/;
 /** Three or more bare hyphens and nothing else. Not `- - -` or any other hr variant — the model's own output only ever used bare `---`. */
-const RULE = /^-{3,}$/;
+export const RULE = /^-{3,}$/;
 /** A `> ` marker, optionally followed by content (`>` alone is a valid empty quote line). */
-const QUOTE_LINE = /^>\s?(.*)$/;
+export const QUOTE_LINE = /^>\s?(.*)$/;
 
-type Block =
+export type Block =
   | { kind: "paragraph"; text: string }
   | { kind: "list"; ordered: boolean; items: string[] }
   | { kind: "heading"; text: string }
   | { kind: "rule" }
   | { kind: "quote"; text: string };
 
-function parseBlocks(content: string): Block[] {
+/**
+ * Exported for the rich-text job-description/assessment-instructions editor
+ * (send-367) — the deserializer that loads an existing stored string into
+ * the editor reuses THIS function's exact block-boundary/classification
+ * decisions rather than a second hand-rolled parser of the same grammar, per
+ * this codebase's standing single-source-of-truth rule (see
+ * describeMatchConfidence in CLAUDE.md for the same reasoning applied
+ * elsewhere). Zero behavior change to either existing caller of this file —
+ * this is the same function, just visible outside the module now.
+ */
+export function parseBlocks(content: string): Block[] {
   const lines = content.split(/\r\n|\r|\n/);
   const blocks: Block[] = [];
   let paragraphLines: string[] = [];
@@ -204,7 +214,7 @@ const INLINE = /\*\*(.+?)\*\*|\*(.+?)\*|_(.+?)_/;
  * the match instead (see trimTrailingUrlPunctuation below); this is the
  * standard trade-off every plain-text autolinker makes.
  */
-const INLINE_WITH_URL = /\*\*(.+?)\*\*|\*(.+?)\*|_(.+?)_|(\bhttps?:\/\/[^\s<>"'\)\]]+)/;
+export const INLINE_WITH_URL = /\*\*(.+?)\*\*|\*(.+?)\*|_(.+?)_|(\bhttps?:\/\/[^\s<>"'\)\]]+)/;
 
 /**
  * Sentence punctuation right after a URL ("...see https://x.com/a. Next
@@ -212,7 +222,7 @@ const INLINE_WITH_URL = /\*\*(.+?)\*\*|\*(.+?)\*|_(.+?)_|(\bhttps?:\/\/[^\s<>"'\
  * because INLINE_WITH_URL's character class already excludes them from the
  * match entirely — they can never reach here.
  */
-const TRAILING_URL_PUNCTUATION = /[.,!?;:]+$/;
+export const TRAILING_URL_PUNCTUATION = /[.,!?;:]+$/;
 
 function renderInline(
   text: string,
