@@ -420,15 +420,29 @@ export function ApplicantList({
                   {state.responseText && (
                     <p className="font-body text-[13px] whitespace-pre-wrap text-ink-soft">{state.responseText}</p>
                   )}
-                  {state.responseFileUrl && (
-                    <a
-                      href={state.responseFileUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="w-fit font-body text-[13px] font-semibold text-ink underline underline-offset-2 hover:text-rust"
-                    >
-                      View response file
-                    </a>
+                  {state.responseFiles.length > 0 && (
+                    <div className="flex flex-col gap-1">
+                      {state.responseFiles.map((file, index) =>
+                        file.url ? (
+                          <a
+                            key={`${file.originalFilename}-${index}`}
+                            href={file.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="w-fit font-body text-[13px] font-semibold text-ink underline underline-offset-2 hover:text-rust"
+                          >
+                            View response file: {file.originalFilename}
+                          </a>
+                        ) : (
+                          <p
+                            key={`${file.originalFilename}-${index}`}
+                            className="font-body text-[13px] text-rust"
+                          >
+                            {file.originalFilename} — couldn&apos;t generate a link, try refreshing.
+                          </p>
+                        ),
+                      )}
+                    </div>
                   )}
                   {state.responseLink && (
                     <a
@@ -440,7 +454,7 @@ export function ApplicantList({
                       Open response link
                     </a>
                   )}
-                  {!state.responseText && !state.responseFileUrl && !state.responseLink && (
+                  {!state.responseText && state.responseFiles.length === 0 && !state.responseLink && (
                     <p className="font-body text-[13px] text-ink-soft">Empty response.</p>
                   )}
                 </div>

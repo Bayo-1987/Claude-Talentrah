@@ -6,6 +6,12 @@ import { Button } from "@/components/ui";
 import { renderJobDescriptionMarkdown } from "@/lib/farah/render-markdown";
 import { applyWithScreeningAction, type ScreeningAnswerInput } from "@/lib/applications/actions";
 import type { CountryState } from "@/lib/jobs/country-events";
+import { MAX_ASSESSMENT_FILES } from "@/lib/employer/assessment-document";
+
+function formatBytes(bytes: number): string {
+  if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+  return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+}
 
 export interface PublicScreeningQuestion {
   id: string;
@@ -57,15 +63,23 @@ interface AnswerState {
  * not a test: plain yes/no and number inputs, one "Submit application"
  * action at the end.
  *
- * ── THE FILE UPLOAD, IF ANY, HAPPENS INSIDE THE SAME SUBMIT CLICK ─────────
+ * ── THE FILE UPLOADS, IF ANY, HAPPEN INSIDE THE SAME SUBMIT CLICK ─────────
  *
  * A File cannot travel through applyWithScreeningAction's plain-argument
- * Server Action call, so if the candidate picked a file, handleSubmit
- * uploads it FIRST to /api/jobs/assessment-response to get back a stored
- * path, THEN calls applyWithScreeningAction with that path as a plain
- * string — the same two-step shape the employer's own exercise upload
- * already uses (AssessmentExerciseUpload), just both steps behind one
- * click instead of two separate ones.
+ * Server Action call, so if the candidate picked files (up to
+ * MAX_ASSESSMENT_FILES, send-365), handleSubmit uploads each one FIRST to
+ * /api/jobs/assessment-response — one call per file, that route's own
+ * contract — to get back stored paths, THEN calls applyWithScreeningAction
+ * with the resulting array as plain strings — the same two-step shape the
+ * employer's own exercise upload already uses, just N uploads instead of
+ * one, all still behind a single click.
+ *
+ * There is no cross-page redirect between picking and submitting here
+ * (unlike the employer's create-form picker, which has to survive
+ * postJobAction's redirect) — the picked File objects just sit in this
+ * component's own React state until Submit is clicked, the identical
+ * pattern the single-file version already used. No IndexedDB staging is
+ * needed on this side of the feature.
  */
 export function ScreeningGateApply({
   jobId,
@@ -82,7 +96,7 @@ export function ScreeningGateApply({
   const [answers, setAnswers] = useState<Record<string, AnswerState>>({});
   const [responseText, setResponseText] = useState("");
   const [responseLink, setResponseLink] = useState("");
-  const [responseFile, setResponseFile] = useState<File | null>(null);
+  const [responseFiles, setResponseFiles] = useState<File[]>([]);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -98,7 +112,7 @@ export function ScreeningGateApply({
     (!!assessment?.required &&
       !responseText.trim() &&
       !responseLink.trim() &&
-      !responseFile);
+      responseFiles.length === 0);
 
   function handleSubmit() {
     setError(null);
@@ -117,18 +131,20 @@ export function ScreeningGateApply({
     }
 
     startTransition(async () => {
-      let responseFilePath: string | undefined;
-      if (assessment && responseFile) {
-        const body = new FormData();
-        body.set("jobPostingId", jobId);
-        body.set("file", responseFile);
-        const res = await fetch("/api/jobs/assessment-response", { method: "POST", body });
-        const json = (await res.json().catch(() => ({}))) as { error?: string; path?: string };
-        if (!res.ok || !json.path) {
-          setError(json.error ?? "That file didn't upload. Try again.");
-          return;
+      const uploadedFiles: { path: string; originalFilename: string; byteSize: number }[] = [];
+      if (assessment) {
+        for (const file of responseFiles) {
+          const body = new FormData();
+          body.set("jobPostingId", jobId);
+          body.set("file", file);
+          const res = await fetch("/api/jobs/assessment-response", { method: "POST", body });
+          const json = (await res.json().catch(() => ({}))) as { error?: string; path?: string };
+          if (!res.ok || !json.path) {
+            setError(json.error ?? `"${file.name}" didn't upload. Try again.`);
+            return;
+          }
+          uploadedFiles.push({ path: json.path, originalFilename: file.name, byteSize: file.size });
         }
-        responseFilePath = json.path;
       }
 
       const result = await applyWithScreeningAction(
@@ -138,11 +154,11 @@ export function ScreeningGateApply({
         assessment
           ? {
               responseText: responseText.trim() || undefined,
-              responseFilePath,
-              // A link is only meaningful when no file was uploaded — the
-              // exercise/response split is "alternatives, not both" on
+              responseFiles: uploadedFiles.length > 0 ? uploadedFiles : undefined,
+              // A link is only meaningful when no files were uploaded —
+              // the exercise/response split is "alternatives, not both" on
               // both sides of this feature.
-              responseLink: !responseFilePath ? responseLink.trim() || undefined : undefined,
+              responseLink: uploadedFiles.length === 0 ? responseLink.trim() || undefined : undefined,
             }
           : undefined,
       );
@@ -286,18 +302,61 @@ export function ScreeningGateApply({
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="assessment-response-file" className="font-body text-[13.5px] text-ink">
-              Or attach a file
-            </label>
-            <input
-              id="assessment-response-file"
-              type="file"
-              accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
-              onChange={(e) => setResponseFile(e.target.files?.[0] ?? null)}
-              className="font-body text-[13px] text-ink-soft"
-            />
-            {responseFile && (
-              <p className="font-body text-[12.5px] text-ink-soft">Selected: {responseFile.name}</p>
+            <span className="font-body text-[13.5px] text-ink">
+              Or attach up to {MAX_ASSESSMENT_FILES} files
+            </span>
+
+            {responseFiles.length > 0 && (
+              <ul className="flex flex-col gap-1.5">
+                {responseFiles.map((file, index) => (
+                  <li
+                    key={`${file.name}-${index}`}
+                    className="flex items-center justify-between gap-3 border-[1.5px] border-ink bg-card px-3 py-2"
+                  >
+                    <span className="truncate font-body text-[13px] text-ink-soft">
+                      Selected: {file.name} ({formatBytes(file.size)})
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setResponseFiles((prev) => prev.filter((_, i) => i !== index))}
+                      className="min-h-8 shrink-0 px-2 font-body text-[12.5px] font-semibold text-ink-soft hover:text-rust"
+                    >
+                      Remove
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {responseFiles.length >= MAX_ASSESSMENT_FILES ? (
+              <p className="font-body text-[12.5px] text-ink-soft">
+                {MAX_ASSESSMENT_FILES} of {MAX_ASSESSMENT_FILES} attached.
+              </p>
+            ) : (
+              <label className="flex min-h-10 w-fit cursor-pointer items-center border-[1.5px] border-ink px-3.5 font-body text-[13px] font-semibold text-ink hover:border-rust hover:text-rust">
+                Add file
+                <input
+                  id="assessment-response-file"
+                  type="file"
+                  multiple
+                  accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
+                  className="hidden"
+                  onChange={(e) => {
+                    // Convert the live FileList to a real array BEFORE
+                    // resetting the input's value below — `e.target.files`
+                    // is a live view over the input's own selection, so
+                    // clearing `value` empties it in place; a `const`
+                    // holding the FileList reference (not a copy) would
+                    // see it emptied too if read after the reset.
+                    const picked = e.target.files ? Array.from(e.target.files) : [];
+                    e.target.value = "";
+                    if (picked.length === 0) return;
+                    const room = MAX_ASSESSMENT_FILES - responseFiles.length;
+                    if (room <= 0) return;
+                    setResponseFiles((prev) => [...prev, ...picked.slice(0, room)]);
+                  }}
+                />
+              </label>
             )}
           </div>
         </div>

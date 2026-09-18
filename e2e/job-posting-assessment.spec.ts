@@ -14,9 +14,9 @@
  * authenticated context per test.
  *
  * Sabotage-verified at the APPLICATION layer: temporarily made
- * getApplicationAssessmentSubmissionAction always return a null
- * responseFileUrl regardless of what's on file, confirmed this test's own
- * "View response file" link assertion failed exactly where expected, then
+ * getApplicationAssessmentSubmissionAction always return no working file
+ * links regardless of what's on file, confirmed this test's own "View
+ * response file" link assertion failed exactly where expected, then
  * restored the real signed-URL logic and re-confirmed green. (A live
  * mutation of the shared dev database's own can_access_assessment_
  * submission function — the more direct sabotage target for the storage
@@ -24,6 +24,12 @@
  * shared-resource risk; that policy's four read combinations are instead
  * pinned directly, and independently sabotage-worthy in their own right,
  * by tests/employer/assessment-storage-rls.test.ts.)
+ *
+ * send-365 (migration 0179) widened the candidate's response from a
+ * single file to up to MAX_ASSESSMENT_FILES — this spec's own single-file
+ * upload above still exercises the real end-to-end loop (one file is a
+ * valid subset of "up to 5"); the multiple-files case has its own
+ * dedicated e2e test further down this file.
  */
 import { randomUUID } from "node:crypto";
 import { test as base, expect } from "@playwright/test";
@@ -542,6 +548,170 @@ base.describe("job posting assessment — multiple files staged at create time (
       expect(await stillWorkingResponse.text()).toBe(SHEET_CONTENT);
 
       await employerContext.close();
+    },
+  );
+});
+
+/**
+ * send-365 (migration 0179) — the candidate-side mirror of send-364: a
+ * seeker attaches MULTIPLE files to their assessment response (up to
+ * MAX_ASSESSMENT_FILES), not just one. No IndexedDB staging is involved
+ * here (see screening-gate-apply.tsx's own header on why the candidate
+ * side doesn't need it — there is no cross-page redirect between picking
+ * and submitting), but the same "each file must genuinely resolve, not
+ * just have a row" discipline this whole feature already holds itself to
+ * applies: both files are fetched via their real signed URLs and their
+ * content is checked byte-for-byte, and the employer's applicant view is
+ * confirmed to show BOTH, not just the first.
+ */
+base.describe("job posting assessment — candidate attaches multiple response files (send-365)", () => {
+  let employerUserId: string;
+  let seekerUserId: string;
+  let orgId: string;
+
+  base.afterEach(async () => {
+    await runCleanups(
+      [
+        "assessment multi-response-file e2e organisation",
+        async () => {
+          if (orgId) await deleteOrgsCascade(admin, [orgId]);
+        },
+      ],
+      [
+        "assessment multi-response-file e2e users",
+        async () => {
+          if (employerUserId) await admin.auth.admin.deleteUser(employerUserId).catch(() => {});
+          if (seekerUserId) await admin.auth.admin.deleteUser(seekerUserId).catch(() => {});
+        },
+      ],
+    );
+  });
+
+  base(
+    "a seeker attaches 2 response files; both land atomically and both resolve real, correct content to the employer",
+    async ({ browser, baseURL }) => {
+      base.setTimeout(60_000);
+      const domain = `${randomUUID().slice(0, 12)}.talentrah.test`;
+      const employerEmail = `employer-${randomUUID()}@${domain}`;
+      const seekerEmail = `seeker-${randomUUID()}@${domain}`;
+
+      const { data: employerUser, error: eErr } = await admin.auth.admin.createUser({
+        email: employerEmail,
+        email_confirm: true,
+      });
+      if (eErr) throw eErr;
+      employerUserId = employerUser.user.id;
+
+      const { data: seekerUser, error: sErr } = await admin.auth.admin.createUser({
+        email: seekerEmail,
+        email_confirm: true,
+      });
+      if (sErr) throw sErr;
+      seekerUserId = seekerUser.user.id;
+      await seedBaseResume(seekerUserId);
+
+      const orgName = `E2E Assessment Multi-Response Co ${randomUUID().slice(0, 8)}`;
+      const { data: org, error: orgErr } = await admin
+        .from("organizations")
+        .insert({ name: orgName, created_by: employerUserId, verified: true })
+        .select("id")
+        .single();
+      if (orgErr || !org) throw new Error(`fixture org: ${orgErr?.message}`);
+      orgId = org.id;
+      const { error: memErr } = await admin
+        .from("organization_members")
+        .insert({ organization_id: orgId, user_id: employerUserId, role: "owner" });
+      if (memErr) throw new Error(`fixture membership: ${memErr.message}`);
+
+      const url = new URL(baseURL ?? "http://localhost:3000");
+
+      // ---- Employer: post a job with a required assessment, no exercise
+      //      file/link needed for this test -------------------------------
+      const employerCookie = await mintSessionCookie(employerEmail);
+      const employerContext = await browser.newContext();
+      await employerContext.addCookies([
+        { name: employerCookie.name, value: employerCookie.value, domain: url.hostname, path: "/" },
+      ]);
+      const employerPage = await employerContext.newPage();
+
+      await employerPage.goto("/employer/jobs/new");
+      const jobTitle = `E2E Multi-Response Backend Engineer ${randomUUID().slice(0, 6)}`;
+      await employerPage.getByLabel("Job title").fill(jobTitle);
+      await employerPage
+        .getByLabel("Job description")
+        .fill(
+          "We are hiring a backend engineer to work on payment APIs. You will design services, write SQL queries, review code, and mentor other engineers.",
+        );
+      await employerPage.getByLabel("Attach an assessment (optional)").check();
+      await employerPage.getByLabel("Title", { exact: true }).fill("Short writing sample");
+      await employerPage
+        .getByLabel("Instructions", { exact: true })
+        .fill("Attach up to a few files describing your approach.");
+
+      await employerPage.getByRole("button", { name: "Publish job" }).click();
+      await expect(employerPage).toHaveURL(/\/employer\/jobs\?posted=.+$/);
+      const jobId = new URL(employerPage.url()).searchParams.get("posted")!;
+      await employerContext.close();
+
+      // ---- Seeker: attach 2 response files -------------------------------
+      const seekerCookie = await mintSessionCookie(seekerEmail);
+      const seekerContext = await browser.newContext();
+      await seekerContext.addCookies([
+        { name: seekerCookie.name, value: seekerCookie.value, domain: url.hostname, path: "/" },
+      ]);
+      const seekerPage = await seekerContext.newPage();
+
+      const APPROACH_CONTENT = "My approach: normalize the schema, then add targeted indexes.";
+      const NOTES_CONTENT = "Extra notes: watch for N+1 queries in the reporting job.";
+
+      await seekerPage.goto(`/jobs/${jobId}`);
+      await expect(seekerPage.getByText("Short writing sample")).toBeVisible();
+
+      await seekerPage.setInputFiles("#assessment-response-file", [
+        { name: "approach.txt", mimeType: "text/plain", buffer: Buffer.from(APPROACH_CONTENT) },
+        { name: "notes.txt", mimeType: "text/plain", buffer: Buffer.from(NOTES_CONTENT) },
+      ]);
+      await expect(seekerPage.getByText("Selected: approach.txt")).toBeVisible();
+      await expect(seekerPage.getByText("Selected: notes.txt")).toBeVisible();
+
+      const submitButton = seekerPage.getByRole("button", { name: "Submit application" });
+      await expect(submitButton).toBeEnabled();
+      await submitButton.click();
+      await expect(seekerPage.getByText("A quick self-assessment before you apply")).toHaveCount(0, {
+        timeout: 20_000,
+      });
+      await seekerContext.close();
+
+      // ---- Employer: both files show, both resolve real, correct content ---
+      const employerCookie2 = await mintSessionCookie(employerEmail);
+      const employerContext2 = await browser.newContext();
+      await employerContext2.addCookies([
+        { name: employerCookie2.name, value: employerCookie2.value, domain: url.hostname, path: "/" },
+      ]);
+      const employerPage2 = await employerContext2.newPage();
+
+      await employerPage2.goto(`/employer/jobs/${jobId}/applicants`);
+      await employerPage2.getByRole("button", { name: "View assessment response" }).click();
+
+      const approachLink = employerPage2.getByRole("link", { name: /approach\.txt/ });
+      const notesLink = employerPage2.getByRole("link", { name: /notes\.txt/ });
+      await expect(approachLink).toBeVisible();
+      await expect(notesLink).toBeVisible();
+
+      const approachHref = await approachLink.getAttribute("href");
+      const notesHref = await notesLink.getAttribute("href");
+      expect(approachHref).toBeTruthy();
+      expect(notesHref).toBeTruthy();
+
+      const approachResponse = await employerPage2.request.get(approachHref!);
+      expect(approachResponse.ok()).toBe(true);
+      expect(await approachResponse.text()).toBe(APPROACH_CONTENT);
+
+      const notesResponse = await employerPage2.request.get(notesHref!);
+      expect(notesResponse.ok()).toBe(true);
+      expect(await notesResponse.text()).toBe(NOTES_CONTENT);
+
+      await employerContext2.close();
     },
   );
 });
