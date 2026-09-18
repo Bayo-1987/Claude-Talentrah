@@ -1,5 +1,6 @@
 import { describeMatchConfidence } from "@/lib/match-tier";
 import { absoluteUrl } from "@/lib/seo/site";
+import { emailButton, emailHeadline, emailLabel, emailParagraph, renderBrandedEmail } from "@/lib/email/layout";
 import type { DigestJob } from "./select";
 
 /**
@@ -133,22 +134,13 @@ export function buildDigestEmail(params: {
     `Don't want these? Unsubscribe: ${unsubscribeUrl}`,
   ].join("\n");
 
-  /*
-   * Table-free, inline-styled, no images, no web fonts. Editorial's serif is a
-   * Google font and mail clients will not load it, so this asks for a serif
-   * stack and accepts what it gets rather than shipping a font nobody renders.
-   */
   const rows = jobs
     .map(
       (j) => `
       <tr>
         <td style="padding:12px 0;border-bottom:1px solid #d9cfc2;">
-          <div style="font:600 13px/1.4 -apple-system,Segoe UI,Roboto,sans-serif;color:#6b4a3a;">
-            ${esc(String(confidenceLabel(j).displayScore))}% · ${esc(confidenceLabel(j).label)}
-          </div>
-          <div style="font:500 17px/1.35 Georgia,'Times New Roman',serif;color:#2b2119;margin-top:2px;">
-            ${esc(j.title)}
-          </div>
+          ${emailLabel(`${esc(String(confidenceLabel(j).displayScore))}% · ${esc(confidenceLabel(j).label)}`)}
+          ${emailHeadline(esc(j.title))}
           <div style="font:400 14px/1.4 -apple-system,Segoe UI,Roboto,sans-serif;color:#5a4a3f;margin-top:2px;">
             ${esc(j.companyName)}${j.location ? ` · ${esc(j.location)}` : ""}
           </div>
@@ -157,33 +149,17 @@ export function buildDigestEmail(params: {
     )
     .join("");
 
-  const html = `<!doctype html>
-<html><body style="margin:0;padding:24px;background:#f7f3ec;">
-  <div style="max-width:560px;margin:0 auto;">
-    <p style="font:400 15px/1.6 -apple-system,Segoe UI,Roboto,sans-serif;color:#2b2119;">
-      ${esc(greeting(firstName))}
-    </p>
-    <p style="font:400 15px/1.6 -apple-system,Segoe UI,Roboto,sans-serif;color:#2b2119;">
-      ${esc(lead)}
-    </p>
-    <table role="presentation" cellpadding="0" cellspacing="0" width="100%"
-           style="border-collapse:collapse;border-top:1px solid #d9cfc2;">
-      ${rows}
-    </table>
-    <p style="margin:24px 0;">
-      <a href="${esc(feedUrl)}"
-         style="display:inline-block;background:#2b2119;color:#f7f3ec;text-decoration:none;
-                padding:12px 20px;font:600 14px/1 -apple-system,Segoe UI,Roboto,sans-serif;">
-        See them on your feed
-      </a>
-    </p>
-    <p style="font:400 15px/1.6 -apple-system,Segoe UI,Roboto,sans-serif;color:#2b2119;">— Farah</p>
-    <p style="font:400 12px/1.5 -apple-system,Segoe UI,Roboto,sans-serif;color:#6b5c50;
-              border-top:1px solid #d9cfc2;padding-top:12px;">
-      Don't want these? <a href="${esc(unsubscribeUrl)}" style="color:#6b4a3a;">Unsubscribe</a>.
-    </p>
-  </div>
-</body></html>`;
+  const bodyHtml = [
+    emailParagraph(esc(greeting(firstName))),
+    emailParagraph(esc(lead)),
+    `<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;border-top:1px solid #d9cfc2;">${rows}</table>`,
+    emailButton("See them on your feed", feedUrl),
+    emailParagraph("— Farah"),
+  ].join("\n");
+
+  const footerHtml = `Don't want these? <a href="${esc(unsubscribeUrl)}" style="color:#6b4a3a;">Unsubscribe</a>.`;
+
+  const html = renderBrandedEmail({ bodyHtml, footerHtml });
 
   return { subject, text, html };
 }

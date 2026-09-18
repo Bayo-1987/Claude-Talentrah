@@ -4,6 +4,8 @@ import { getResendClient } from "@/lib/resend/client";
 import { visibleName } from "@/lib/profile/name";
 import { verifyTransaction } from "@/lib/paystack/client";
 import { captureEvent } from "@/lib/analytics/posthog";
+import { absoluteUrl } from "@/lib/seo/site";
+import { emailParagraph, escEmail, renderBrandedEmail } from "@/lib/email/layout";
 
 export interface FulfillResult {
   status: "success" | "already_processed" | "failed" | "not_found";
@@ -403,6 +405,18 @@ async function sendPurchaseReceipt(
   if (!profile?.email) return;
 
   const greeting = visibleName(profile.first_name);
+  const amountText = `₦${args.amountNgn.toLocaleString()}`;
+  const billingUrl = absoluteUrl("/billing");
+
+  const receiptBox = `<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">
+      <tr><td style="padding:4px 0;font:400 14px/1.5 -apple-system,Segoe UI,Roboto,sans-serif;color:#5a4a3f;">What you bought</td>
+          <td style="padding:4px 0;font:600 14px/1.5 -apple-system,Segoe UI,Roboto,sans-serif;color:#2b2119;text-align:right;">${escEmail(args.productName)}</td></tr>
+      <tr><td style="padding:4px 0;font:400 14px/1.5 -apple-system,Segoe UI,Roboto,sans-serif;color:#5a4a3f;">Amount</td>
+          <td style="padding:4px 0;font:600 14px/1.5 -apple-system,Segoe UI,Roboto,sans-serif;color:#2b2119;text-align:right;">${escEmail(amountText)}</td></tr>
+      <tr><td style="padding:4px 0;font:400 14px/1.5 -apple-system,Segoe UI,Roboto,sans-serif;color:#5a4a3f;">Receipt number</td>
+          <td style="padding:4px 0;font:600 14px/1.5 -apple-system,Segoe UI,Roboto,sans-serif;color:#2b2119;text-align:right;">${escEmail(args.reference)}</td></tr>
+    </table>`;
+
   await resend.emails.send({
     from: "Talentrah <billing@talentrah.com>",
     to: profile.email,
@@ -411,10 +425,21 @@ async function sendPurchaseReceipt(
       `Hi${greeting ? ` ${greeting}` : ""},\n\n` +
       `Thanks — your payment went through.\n\n` +
       `What you bought: ${args.productName}\n` +
-      `Amount: ₦${args.amountNgn.toLocaleString()}\n` +
+      `Amount: ${amountText}\n` +
       `Receipt number: ${args.reference}\n\n` +
       `Quote the receipt number if you ever need to ask us about this payment. ` +
       `You can see all your purchases on your Billing page.\n\n— Talentrah`,
+    html: renderBrandedEmail({
+      bodyHtml: [
+        emailParagraph(`Hi${greeting ? ` ${escEmail(greeting)}` : ""},`),
+        emailParagraph("Thanks — your payment went through."),
+        receiptBox,
+        emailParagraph(
+          `Quote the receipt number if you ever need to ask us about this payment. You can see all your purchases on your <a href="${escEmail(billingUrl)}" style="color:#6b4a3a;">Billing page</a>.`,
+        ),
+        emailParagraph("— Talentrah"),
+      ].join("\n"),
+    }),
   });
 }
 
