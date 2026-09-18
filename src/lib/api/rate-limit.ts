@@ -47,6 +47,21 @@ export const RATE_LIMITS = {
    * fill a free-plan bucket nobody is watching yet.
    */
   jobBannerUpload: { limit: 20, windowSeconds: 60 * 60 * 24 },
+  /*
+   * Assessment exercise uploads (0177) — an employer attaching/replacing
+   * the one document on their own posting. Same shape and same reasoning
+   * as jobBannerUpload just above: infrequent by nature (0-or-1 per
+   * posting), generous against real use, bounds how fast one account could
+   * otherwise fill a free-plan bucket.
+   */
+  jobAssessmentExerciseUpload: { limit: 20, windowSeconds: 60 * 60 * 24 },
+  /*
+   * Assessment response uploads (0177) — a candidate attaching their
+   * answer to one posting's assessment as part of applying. Same limit as
+   * resumeParse: a real applicant uploads at most a handful of times a day
+   * (one per application, plus the occasional "wrong file, try again").
+   */
+  jobAssessmentSubmissionUpload: { limit: 20, windowSeconds: 60 * 60 * 24 },
 } as const;
 
 export interface RateLimitOutcome {

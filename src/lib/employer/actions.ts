@@ -17,6 +17,8 @@ import {
 } from "@/lib/employer/verification";
 import { extractStructuredJd, SKILL_VOCABULARY } from "@/lib/jobs/extract-jd";
 import { parseScreeningQuestionsForm, reconcileScreeningQuestions } from "@/lib/employer/screening-questions";
+import { parseJobPostingAssessmentForm, reconcileJobPostingAssessment } from "@/lib/employer/job-posting-assessment";
+import { ASSESSMENT_SUBMISSION_BUCKET } from "@/lib/employer/assessment-document";
 import { Constants, type Enums, type Json } from "@/lib/supabase/types";
 
 /**
@@ -520,7 +522,7 @@ export async function postJobAction(
   _prev: EmployerActionState,
   form: FormData,
 ): Promise<EmployerActionState> {
-  const { supabase } = await getAuthedUser();
+  const { supabase, user } = await getAuthedUser();
   const { organization } = await requireEmployer();
   const fields = readJobForm(form);
 
@@ -554,6 +556,9 @@ export async function postJobAction(
 
   const screeningQuestions = parseScreeningQuestionsForm(form);
   if (!screeningQuestions.ok) return { error: screeningQuestions.error };
+
+  const assessment = parseJobPostingAssessmentForm(form);
+  if (!assessment.ok) return { error: assessment.error };
 
   // Inserted through the user's client on purpose. The 0027 policy
   // (`source_type = 'internal' and is_org_member(organization_id)`) is what
@@ -613,6 +618,18 @@ export async function postJobAction(
     }
   }
 
+  // Same honest-partial-failure stance as the screening questions just
+  // above. Title/instructions/link/required are all a brand-new posting
+  // can set here — the exercise FILE, if any, is added afterward from
+  // Edit, once created.id exists for its storage path to be built from
+  // (see /api/employer/job-assessment-exercise's own header).
+  if (assessment.value) {
+    const result = await reconcileJobPostingAssessment(supabase, created.id, organization.id, user.id, assessment.value);
+    if (!result.ok) {
+      return { error: `Job published, but couldn't save its assessment: ${result.error}` };
+    }
+  }
+
   revalidatePath("/employer/jobs");
   revalidatePath("/jobs");
   // `?posted=<id>` is how Jobs Posted knows to surface the share link right
@@ -627,7 +644,7 @@ export async function updateJobAction(
   _prev: EmployerActionState,
   form: FormData,
 ): Promise<EmployerActionState> {
-  const { supabase } = await getAuthedUser();
+  const { supabase, user } = await getAuthedUser();
   const { organization } = await requireEmployer();
   const fields = readJobForm(form);
 
@@ -652,6 +669,9 @@ export async function updateJobAction(
 
   const screeningQuestions = parseScreeningQuestionsForm(form);
   if (!screeningQuestions.ok) return { error: screeningQuestions.error };
+
+  const assessment = parseJobPostingAssessmentForm(form);
+  if (!assessment.ok) return { error: assessment.error };
 
   // .eq("organization_id") is belt-and-braces on top of the RLS UPDATE policy.
   // Both must agree; neither is trusted alone.
@@ -700,6 +720,9 @@ export async function updateJobAction(
   // uses) would risk cascading away a candidate's already-submitted answers.
   const screeningResult = await reconcileScreeningQuestions(supabase, jobId, screeningQuestions.value);
   if (!screeningResult.ok) return { error: screeningResult.error };
+
+  const assessmentResult = await reconcileJobPostingAssessment(supabase, jobId, organization.id, user.id, assessment.value);
+  if (!assessmentResult.ok) return { error: assessmentResult.error };
 
   revalidatePath("/employer/jobs");
   revalidatePath("/jobs");
@@ -949,6 +972,69 @@ export async function getApplicationScreeningAnswersAction(
       farahTier: row.farah_tier,
       farahSummary: row.farah_summary,
     })),
+  };
+}
+
+export interface AssessmentSubmissionDetail {
+  responseText: string | null;
+  /** A short-lived signed URL, or null if no file was submitted — never a public URL, since job-assessment-submissions is a private bucket. */
+  responseFileUrl: string | null;
+  responseLink: string | null;
+  submittedAt: string;
+}
+
+/**
+ * send-346 v2 — on-demand read of a candidate's assessment submission,
+ * mirroring getApplicationScreeningAnswersAction's own shape.
+ *
+ * UNLIKE the screening-answers read above, this does NOT go through a
+ * SECURITY DEFINER function — application_assessment_submissions' own
+ * table RLS (0177: the submitting candidate OR is_org_member(organization_id))
+ * already lets an org member read the row directly through their own
+ * session client, so a second privileged layer would just duplicate what
+ * RLS already grants.
+ *
+ * The file, if any, is resolved to a SIGNED url via the caller's own
+ * client — `createSignedUrl` itself is subject to the bucket's RLS SELECT
+ * policy (0177's two-party check), so an employer outside the owning org
+ * gets refused here the same way a direct download would be, not because
+ * of an extra check in this function but because Storage evaluates the
+ * identical policy either way.
+ */
+export async function getApplicationAssessmentSubmissionAction(
+  applicationId: string,
+): Promise<{ error: string } | { ok: true; submission: AssessmentSubmissionDetail | null }> {
+  const { supabase } = await getAuthedUser();
+  await requireEmployer();
+
+  const { data, error } = await supabase
+    .from("application_assessment_submissions")
+    .select("response_text, response_file_path, response_link, submitted_at")
+    .eq("application_id", applicationId)
+    .maybeSingle();
+  if (error) return { error: `Couldn't load the assessment response: ${error.message}` };
+  if (!data) return { ok: true, submission: null };
+
+  let responseFileUrl: string | null = null;
+  if (data.response_file_path) {
+    const { data: signed, error: signError } = await supabase.storage
+      .from(ASSESSMENT_SUBMISSION_BUCKET)
+      .createSignedUrl(data.response_file_path, 3600);
+    if (signError) {
+      console.error(`[assessment-submission] could not sign ${data.response_file_path}:`, signError.message);
+    } else {
+      responseFileUrl = signed.signedUrl;
+    }
+  }
+
+  return {
+    ok: true,
+    submission: {
+      responseText: data.response_text,
+      responseFileUrl,
+      responseLink: data.response_link,
+      submittedAt: data.submitted_at,
+    },
   };
 }
 
