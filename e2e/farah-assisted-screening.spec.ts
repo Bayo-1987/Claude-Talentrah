@@ -34,7 +34,7 @@
  */
 import { randomUUID } from "node:crypto";
 import { test as base, expect, type Page } from "@playwright/test";
-import { admin } from "./fixtures/authed";
+import { admin, seedBaseResume } from "./fixtures/authed";
 import { createServerClient } from "@supabase/ssr";
 import { runCleanups } from "../tests/support/teardown";
 import { deleteOrgsCascade } from "../tests/support/delete-orgs";
@@ -151,6 +151,11 @@ base.describe("Farah-assisted screening review — funded and zero-balance, same
       });
       if (sErr) throw sErr;
       seekerUserId = seekerUser.user.id;
+      // A resume-less seeker now sees "Add a resume to apply" instead of
+      // the self-assessment gate at all (see e2e/apply-requires-resume.spec.ts)
+      // — correct, but this test is about the Farah review/wallet pipeline,
+      // not that gate, so it needs a seeker who can actually reach Apply.
+      await seedBaseResume(seekerUserId);
 
       const orgName = `E2E Farah Review Co ${randomUUID().slice(0, 8)}`;
       const { data: org, error: orgErr } = await admin
