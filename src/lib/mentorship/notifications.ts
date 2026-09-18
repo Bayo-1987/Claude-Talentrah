@@ -3,6 +3,7 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { getResendClient } from "@/lib/resend/client";
 import { fullVisibleName } from "@/lib/profile/name";
 import { absoluteUrl } from "@/lib/seo/site";
+import { emailButton, emailParagraph, escEmail, renderBrandedEmail } from "@/lib/email/layout";
 import {
   buildSessionInvite,
   buildSessionConfirmedEmail,
@@ -246,10 +247,26 @@ export async function notifyMentorApplicationDecision(
       decision === "approved"
         ? `Hi ${name},\n\nGood news — your mentor application has been approved. You're now listed in Mentorship.\n\nSet up your availability and payout details here: ${applyUrl}\n\n— Talentrah`
         : `Hi ${name},\n\nYour mentor application was not approved this time.${note ? `\n\nReviewer note: ${note}` : ""}\n\nYou're welcome to update your application and reapply here: ${applyUrl}\n\n— Talentrah`;
-    const html =
+    // logo: true — a one-time, high-stakes moment for the applicant, unlike
+    // the digest's frequent, expected send that reasonably skips it.
+    const bodyHtml =
       decision === "approved"
-        ? `<p>Hi ${name},</p><p>Good news — your mentor application has been approved. You're now listed in Mentorship.</p><p><a href="${applyUrl}">Set up your availability and payout details</a>.</p><p>— Talentrah</p>`
-        : `<p>Hi ${name},</p><p>Your mentor application was not approved this time.</p>${note ? `<p>Reviewer note: ${note}</p>` : ""}<p>You're welcome to <a href="${applyUrl}">update your application and reapply</a>.</p><p>— Talentrah</p>`;
+        ? [
+            emailParagraph(`Hi ${escEmail(name)},`),
+            emailParagraph(
+              "Good news — your mentor application has been approved. You&rsquo;re now listed in Mentorship.",
+            ),
+            emailButton("Set up your availability and payout details", applyUrl),
+            emailParagraph("— Talentrah"),
+          ].join("\n")
+        : [
+            emailParagraph(`Hi ${escEmail(name)},`),
+            emailParagraph("Your mentor application was not approved this time."),
+            ...(note ? [emailParagraph(`Reviewer note: ${escEmail(note)}`)] : []),
+            emailButton("Update your application and reapply", applyUrl),
+            emailParagraph("— Talentrah"),
+          ].join("\n");
+    const html = renderBrandedEmail({ logo: true, bodyHtml });
 
     try {
       await resend.emails.send({

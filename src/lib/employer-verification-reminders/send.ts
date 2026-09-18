@@ -2,6 +2,7 @@ import "server-only";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { getResendClient } from "@/lib/resend/client";
 import { absoluteUrl } from "@/lib/seo/site";
+import { emailButton, emailParagraph, escEmail, renderBrandedEmail } from "@/lib/email/layout";
 import { dueVerificationReminder } from "./due";
 
 /**
@@ -195,7 +196,15 @@ function buildReminderEmail(args: {
       : `Still unverified: ${args.orgName}'s posting isn't reaching candidates`;
 
   const text = `${greeting}\n\n${body}\n\nCompany Profile: ${profileUrl}\n\n— Talentrah`;
-  const html = `<p>${greeting}</p><p>${body}</p><p><a href="${profileUrl}">Company Profile</a></p><p>— Talentrah</p>`;
+  // logo: true — a real problem with the org's own listing, and at most two
+  // of these are ever sent, unlike the digest's frequent, expected send.
+  const bodyHtml = [
+    emailParagraph(escEmail(greeting)),
+    emailParagraph(escEmail(body)),
+    emailButton("Company Profile", profileUrl),
+    emailParagraph("— Talentrah"),
+  ].join("\n");
+  const html = renderBrandedEmail({ logo: true, bodyHtml });
 
   return { subject, text, html };
 }
