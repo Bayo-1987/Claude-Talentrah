@@ -10,7 +10,7 @@ import { dedupeMetaParts } from "@/components/jobs/job-card";
 import { FarahJobMenu } from "@/components/jobs/farah-job-menu";
 import { ScreeningGateApply } from "@/components/jobs/screening-gate-apply";
 import { renderJobDescriptionMarkdown } from "@/lib/farah/render-markdown";
-import { assessmentExerciseUrl } from "@/lib/employer/assessment-document";
+import { assessmentExerciseFileUrl } from "@/lib/employer/assessment-document";
 import { getCompanyInitials } from "@/lib/jobs/company-initials";
 import { postingAgeLine } from "@/lib/jobs/freshness";
 import { formatSalary } from "@/lib/jobs/format-salary";
@@ -202,7 +202,7 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
     // At most one row.
     supabase
       .from("job_posting_assessments")
-      .select("title, instructions, exercise_file_path, exercise_link, required")
+      .select("id, title, instructions, exercise_link, required")
       .eq("job_posting_id", id)
       .maybeSingle(),
   ]);
@@ -210,6 +210,17 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
   const { data: application } = applicationResult;
   const screeningQuestions = screeningQuestionsResult.data ?? [];
   const assessmentRow = assessmentResult.data ?? null;
+
+  // send-364 — up to MAX_ASSESSMENT_FILES rows now, not one column. Depends
+  // on assessmentRow.id, so it can't join the Promise.all above; only run
+  // when an assessment actually exists. Also publicly readable, same shape.
+  const { data: assessmentFileRows } = assessmentRow
+    ? await supabase
+        .from("job_posting_assessment_files")
+        .select("file_path, original_filename")
+        .eq("job_posting_assessment_id", assessmentRow.id)
+        .order("created_at", { ascending: true })
+    : { data: null };
 
   if (!job) notFound();
 
@@ -311,17 +322,26 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
 
   // send-346 v2 — resolved here, once, the same "never trust the raw
   // column past this point" discipline bannerUrl already applies just
-  // below: ScreeningGateApply only ever sees the already-checked public
-  // URL, never the raw exercise_file_path.
+  // below: ScreeningGateApply only ever sees already-checked public URLs,
+  // never a raw file_path. send-364 widened this from one file to a list —
+  // a file whose path fails validation (organizationId.jobPostingId
+  // mismatch) is dropped from the list entirely rather than rendered with
+  // a broken link.
   const assessment = assessmentRow
     ? {
         title: assessmentRow.title,
         instructions: assessmentRow.instructions,
-        exerciseFileUrl: assessmentExerciseUrl({
-          supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
-          exerciseFilePath: assessmentRow.exercise_file_path,
-          organizationId: job.organization_id,
-        }),
+        exerciseFiles: (assessmentFileRows ?? [])
+          .map((row) => {
+            const url = assessmentExerciseFileUrl({
+              supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
+              filePath: row.file_path,
+              organizationId: job.organization_id ?? "",
+              jobPostingId: job.id,
+            });
+            return url ? { url, name: row.original_filename } : null;
+          })
+          .filter((f): f is { url: string; name: string } => f !== null),
         exerciseLink: assessmentRow.exercise_link,
         required: assessmentRow.required,
       }

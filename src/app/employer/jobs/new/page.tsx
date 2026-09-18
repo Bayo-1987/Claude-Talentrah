@@ -4,6 +4,7 @@ import { postJobAction } from "@/lib/employer/actions";
 import { EyebrowLabel } from "@/components/ui";
 import { NewJobForm } from "@/components/employer/new-job-form";
 import { NewJobBannerPicker } from "@/components/employer/new-job-banner-picker";
+import { NewJobAssessmentFilesPicker } from "@/components/employer/new-job-assessment-files-picker";
 
 export const metadata = { title: "Post a job — Talentrah" };
 
@@ -35,6 +36,17 @@ export default async function NewJobPage() {
       */}
       <div className="mt-6">
         <NewJobBannerPicker userId={userId} />
+      </div>
+      {/*
+        send-364: same placement/reasoning as the banner picker just above —
+        an assessment's exercise FILES can't travel through a hidden form
+        field either, and staging them here (see
+        new-job-assessment-files-picker.tsx) is what makes "upload while
+        creating the job" possible at all, closing the gap
+        AssessmentExerciseUpload's own header used to point at directly.
+      */}
+      <div className="mt-6">
+        <NewJobAssessmentFilesPicker userId={userId} />
       </div>
       <div className="mt-6">
         <NewJobForm

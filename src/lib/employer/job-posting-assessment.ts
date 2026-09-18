@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/types";
+import { ASSESSMENT_EXERCISE_BUCKET } from "./assessment-document";
 
 /**
  * send-346 v2 — the shape the client editor produces, JSON-encoded into one
@@ -10,10 +11,12 @@ import type { Database } from "@/lib/supabase/types";
  * cleared" the same way parseScreeningQuestionsForm's own hidden field
  * distinguishes an empty array from a missing one.
  *
- * The exercise FILE is deliberately not part of this shape — a File can't
- * travel through a hidden JSON input, so it's uploaded separately via
- * /api/employer/job-assessment-exercise, which writes exercise_file_path
- * directly. This type only ever carries the plain-text fields.
+ * The exercise FILES are deliberately not part of this shape — a File
+ * can't travel through a hidden JSON input, so each one is uploaded
+ * separately via /api/employer/job-assessment-exercise, which inserts a
+ * `job_posting_assessment_files` row (send-364 — up to
+ * MAX_ASSESSMENT_FILES of them, was a single `exercise_file_path` column
+ * before this). This type only ever carries the plain-text fields.
  */
 export interface JobPostingAssessmentInput {
   title: string;
@@ -73,6 +76,54 @@ export function parseJobPostingAssessmentForm(
 type DB = SupabaseClient<Database>;
 
 /**
+ * Deletes every `job_posting_assessment_files` row (AND their storage
+ * objects) for one assessment — the cross-table half of "a link and files
+ * are alternatives, not both" that 0177's single-table CHECK constraint
+ * used to enforce on its own before 0178 moved files into a child table
+ * (see that migration's own header on why this is application code now,
+ * not a constraint: Postgres can't CHECK across tables, and this repo's
+ * existing stance for this exact rule is "self-reported, no server-side
+ * hard block," matching `required`'s own treatment).
+ *
+ * Storage removal goes through the CALLER'S OWN client — 0177's "job
+ * assessment exercises are deletable by the owning org" policy is what
+ * authorises it, the same "caller's client, RLS is the real authority"
+ * discipline every other write in this feature already follows. Best-
+ * effort on the storage side: if a storage object is already gone (or the
+ * remove call otherwise fails), the DB rows are still deleted — an orphaned
+ * object with no DB row pointing at it is inert (nothing resolves a URL to
+ * it), the opposite of a DB row pointing at a missing object.
+ */
+export async function clearAssessmentExerciseFiles(supabase: DB, assessmentId: string): Promise<void> {
+  const { data: files } = await supabase
+    .from("job_posting_assessment_files")
+    .select("id, file_path")
+    .eq("job_posting_assessment_id", assessmentId);
+
+  if (!files || files.length === 0) return;
+
+  await supabase.storage
+    .from(ASSESSMENT_EXERCISE_BUCKET)
+    .remove(files.map((f) => f.file_path))
+    .catch(() => null);
+
+  await supabase.from("job_posting_assessment_files").delete().eq("job_posting_assessment_id", assessmentId);
+}
+
+/**
+ * The other direction of the same exclusivity rule: uploading a file is an
+ * alternative to a link, not an addition — called by
+ * /api/employer/job-assessment-exercise's own POST handler right after a
+ * successful storage upload, kept here (exported, matched pair with
+ * clearAssessmentExerciseFiles above) rather than left as an inline update
+ * inside the route, specifically so both directions of the rule live in one
+ * place and can both be tested the same way.
+ */
+export async function clearAssessmentExerciseLink(supabase: DB, assessmentId: string): Promise<void> {
+  await supabase.from("job_posting_assessments").update({ exercise_link: null }).eq("id", assessmentId);
+}
+
+/**
  * Writes (or removes) a job posting's assessment, mirroring
  * reconcileScreeningQuestions' own shape: an existing row is updated in
  * place, a genuinely new one is inserted, and removal is refused once a
@@ -121,12 +172,6 @@ export async function reconcileJobPostingAssessment(
     title: input.title,
     instructions: input.instructions,
     exercise_link: input.exerciseLink,
-    // A newly-set link is an alternative to an uploaded file, not an
-    // addition alongside one — clearing exercise_file_path here is what
-    // keeps the table's own mutual-exclusivity CHECK constraint satisfied
-    // when an employer switches from "uploaded a file" to "pasted a link"
-    // in one edit.
-    ...(input.exerciseLink ? { exercise_file_path: null } : {}),
     required: input.required,
     updated_at: new Date().toISOString(),
   };
@@ -134,7 +179,19 @@ export async function reconcileJobPostingAssessment(
   if (existing) {
     const { error } = await supabase.from("job_posting_assessments").update(row).eq("id", existing.id);
     if (error) return { ok: false, error: `Couldn't save the assessment: ${error.message}` };
+
+    // A newly-set link is an alternative to any uploaded files, not an
+    // addition alongside them — this is the file-table half of the same
+    // exclusivity rule the row write above can no longer enforce with a
+    // CHECK constraint (see clearAssessmentExerciseFiles's own header).
+    // Only runs when a link was actually SET: leaving the link blank must
+    // not touch files an earlier edit already attached.
+    if (input.exerciseLink) {
+      await clearAssessmentExerciseFiles(supabase, existing.id);
+    }
   } else {
+    // A genuinely new assessment can't have files yet, so there is nothing
+    // to clear regardless of whether a link was set.
     const { error } = await supabase
       .from("job_posting_assessments")
       .insert({ ...row, created_by: createdBy });

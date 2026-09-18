@@ -1410,11 +1410,55 @@ export type Database = {
           },
         ]
       }
+      job_posting_assessment_files: {
+        Row: {
+          byte_size: number
+          created_at: string
+          file_path: string
+          id: string
+          job_posting_assessment_id: string
+          organization_id: string
+          original_filename: string
+        }
+        Insert: {
+          byte_size: number
+          created_at?: string
+          file_path: string
+          id?: string
+          job_posting_assessment_id: string
+          organization_id: string
+          original_filename: string
+        }
+        Update: {
+          byte_size?: number
+          created_at?: string
+          file_path?: string
+          id?: string
+          job_posting_assessment_id?: string
+          organization_id?: string
+          original_filename?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_posting_assessment_files_assessment_id_fkey"
+            columns: ["job_posting_assessment_id"]
+            isOneToOne: false
+            referencedRelation: "job_posting_assessments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_posting_assessment_files_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       job_posting_assessments: {
         Row: {
           created_at: string
           created_by: string | null
-          exercise_file_path: string | null
           exercise_link: string | null
           id: string
           instructions: string
@@ -1427,7 +1471,6 @@ export type Database = {
         Insert: {
           created_at?: string
           created_by?: string | null
-          exercise_file_path?: string | null
           exercise_link?: string | null
           id?: string
           instructions: string
@@ -1440,7 +1483,6 @@ export type Database = {
         Update: {
           created_at?: string
           created_by?: string | null
-          exercise_file_path?: string | null
           exercise_link?: string | null
           id?: string
           instructions?: string
