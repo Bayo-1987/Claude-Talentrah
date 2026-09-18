@@ -8,6 +8,10 @@
  * src/lib/employer/banner.ts's own shape exactly (that file's header
  * explains why: "every branch is testable and the rules can be asserted
  * rather than described").
+ *
+ * NEITHER assessment bucket is scanned for viruses/malware — a known,
+ * pre-existing gap, not one this feature opens or closes: no upload this
+ * app accepts today (resumes, banners) gets malware scanning either.
  */
 
 /** Public: the employer's own exercise document. No more sensitive than the job description text sitting next to it. */
