@@ -38,7 +38,7 @@ export default async function JobApplicantsPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ tier?: string; unscored?: string }>;
+  searchParams: Promise<{ tier?: string; unscored?: string; screening?: string }>;
 }) {
   const { id } = await params;
   const filterState = parseApplicantFilterParams(await searchParams);
@@ -62,8 +62,9 @@ export default async function JobApplicantsPage({
       .eq("organization_id", organization.id)
       .maybeSingle(),
     supabase.rpc("employer_job_applicants", { p_job_posting_id: id }),
-    // send-344 — "View answers" only makes sense to show at all when the
-    // posting actually has screening questions; a plain count, not a full
+    // "View answers" (send-344) and the screening filter chips (send-326's
+    // own screening dimension) both only make sense to show at all when the
+    // posting actually has screening questions — a plain count, not a full
     // fetch, since only the boolean matters here.
     supabase
       .from("job_posting_screening_questions")
@@ -112,9 +113,15 @@ export default async function JobApplicantsPage({
   });
 
   // send-326 — a page-level filter over the array the RPC already returned;
-  // no new query, no change to employer_job_applicants itself.
+  // no new query, no change to employer_job_applicants itself. The
+  // screening dimension follows the identical pattern, added later.
   const filteredRows = rows.filter((row) =>
-    applicantMatchesFilter(row.match_score, effectiveTierFor(row.match_score, row.explanation), filterState),
+    applicantMatchesFilter(
+      row.match_score,
+      effectiveTierFor(row.match_score, row.explanation),
+      filterState,
+      row.screeningPassed,
+    ),
   );
 
   return (
@@ -147,7 +154,13 @@ export default async function JobApplicantsPage({
         </BorderedCard>
       ) : (
         <>
-          <ApplicantFilterBar jobId={job.id} tiers={filterState.tiers} hideUnscored={filterState.hideUnscored} />
+          <ApplicantFilterBar
+            jobId={job.id}
+            tiers={filterState.tiers}
+            hideUnscored={filterState.hideUnscored}
+            screening={filterState.screening}
+            hasScreeningQuestions={hasScreeningQuestions}
+          />
           {filteredRows.length === 0 ? (
             <BorderedCard className="p-8 text-center">
               <p className="font-display text-[18px] font-medium text-ink">No applicants match these filters.</p>
