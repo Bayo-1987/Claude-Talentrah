@@ -9,13 +9,14 @@ import type { CountryState } from "@/lib/jobs/country-events";
 export interface PublicScreeningQuestion {
   id: string;
   questionText: string;
-  questionType: "yes_no" | "min_number";
+  questionType: "yes_no" | "min_number" | "free_text";
   required: boolean;
 }
 
 interface AnswerState {
   yesNo?: boolean;
   number?: string;
+  text?: string;
 }
 
 /**
@@ -52,7 +53,9 @@ export function ScreeningGateApply({
     if (!q.required) return false;
     const a = answers[q.id];
     if (!a) return true;
-    return q.questionType === "yes_no" ? a.yesNo === undefined : !a.number;
+    if (q.questionType === "yes_no") return a.yesNo === undefined;
+    if (q.questionType === "min_number") return !a.number;
+    return !a.text || a.text.trim() === "";
   });
 
   function handleSubmit() {
@@ -66,6 +69,8 @@ export function ScreeningGateApply({
       } else if (q.questionType === "min_number" && a.number) {
         const n = Number(a.number);
         if (Number.isFinite(n)) payload.push({ questionId: q.id, answerNumber: n });
+      } else if (q.questionType === "free_text" && a.text && a.text.trim() !== "") {
+        payload.push({ questionId: q.id, answerText: a.text.trim() });
       }
     }
 
@@ -93,7 +98,10 @@ export function ScreeningGateApply({
 
       {questions.map((q) => (
         <div key={q.id} className="flex flex-col gap-1.5">
-          <label className="font-body text-[13.5px] text-ink">
+          <label
+            htmlFor={q.questionType !== "yes_no" ? `screening-answer-${q.id}` : undefined}
+            className="font-body text-[13.5px] text-ink"
+          >
             {q.questionText}
             {q.required && <span className="text-rust"> *</span>}
           </label>
@@ -114,14 +122,26 @@ export function ScreeningGateApply({
                 </label>
               ))}
             </div>
-          ) : (
+          ) : q.questionType === "min_number" ? (
             <input
+              id={`screening-answer-${q.id}`}
               type="number"
               value={answers[q.id]?.number ?? ""}
               onChange={(e) =>
                 setAnswers((prev) => ({ ...prev, [q.id]: { number: e.target.value } }))
               }
               className="min-h-10 w-32 border-[1.5px] border-ink bg-card px-3 py-2 font-body text-[14px] text-ink outline-none focus:border-rust"
+            />
+          ) : (
+            <textarea
+              id={`screening-answer-${q.id}`}
+              value={answers[q.id]?.text ?? ""}
+              onChange={(e) =>
+                setAnswers((prev) => ({ ...prev, [q.id]: { text: e.target.value } }))
+              }
+              maxLength={2000}
+              rows={4}
+              className="w-full border-[1.5px] border-ink bg-card px-3 py-2 font-body text-[14px] text-ink outline-none focus:border-rust"
             />
           )}
         </div>

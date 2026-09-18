@@ -54,7 +54,7 @@ export default async function JobApplicantsPage({
    * for a mistyped/foreign job id that will 404 anyway — the RPC's own gate
    * means that case returns nothing regardless.
    */
-  const [{ data: job }, { data: applicants, error }] = await Promise.all([
+  const [{ data: job }, { data: applicants, error }, { count: screeningQuestionCount }] = await Promise.all([
     supabase
       .from("job_postings")
       .select("id, title")
@@ -62,9 +62,17 @@ export default async function JobApplicantsPage({
       .eq("organization_id", organization.id)
       .maybeSingle(),
     supabase.rpc("employer_job_applicants", { p_job_posting_id: id }),
+    // send-344 — "View answers" only makes sense to show at all when the
+    // posting actually has screening questions; a plain count, not a full
+    // fetch, since only the boolean matters here.
+    supabase
+      .from("job_posting_screening_questions")
+      .select("id", { count: "exact", head: true })
+      .eq("job_posting_id", id),
   ]);
 
   if (!job) notFound();
+  const hasScreeningQuestions = (screeningQuestionCount ?? 0) > 0;
 
   /*
    * send-158's explanation derivation, unchanged — still the assistive
@@ -148,7 +156,7 @@ export default async function JobApplicantsPage({
               </p>
             </BorderedCard>
           ) : (
-            <ApplicantList jobId={job.id} applicants={filteredRows} />
+            <ApplicantList jobId={job.id} applicants={filteredRows} hasScreeningQuestions={hasScreeningQuestions} />
           )}
         </>
       )}

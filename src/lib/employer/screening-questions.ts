@@ -3,7 +3,7 @@ import type { Database } from "@/lib/supabase/types";
 
 export const MAX_SCREENING_QUESTIONS = 5;
 
-export type ScreeningQuestionType = "yes_no" | "min_number";
+export type ScreeningQuestionType = "yes_no" | "min_number" | "free_text";
 
 /** The shape the client editor produces, JSON-encoded into one hidden input. */
 export interface ScreeningQuestionInput {
@@ -55,7 +55,7 @@ export function parseScreeningQuestionsForm(
     if (!questionText) return { ok: false, error: "Every screening question needs its question text filled in." };
 
     const questionType = q.questionType;
-    if (questionType !== "yes_no" && questionType !== "min_number") {
+    if (questionType !== "yes_no" && questionType !== "min_number" && questionType !== "free_text") {
       return { ok: false, error: `"${questionText}" has an invalid question type.` };
     }
 
@@ -67,12 +67,16 @@ export function parseScreeningQuestionsForm(
         return { ok: false, error: `"${questionText}" needs a Yes or No answer marked as passing.` };
       }
       value.push({ id, questionText, questionType, required, expectedYesNo: q.expectedYesNo, minValue: null });
-    } else {
+    } else if (questionType === "min_number") {
       const minValue = typeof q.minValue === "number" ? q.minValue : Number(q.minValue);
       if (!Number.isFinite(minValue)) {
         return { ok: false, error: `"${questionText}" needs a minimum number to pass.` };
       }
       value.push({ id, questionText, questionType, required, expectedYesNo: null, minValue });
+    } else {
+      // free_text — no grading config at all, just the question text and
+      // whether it's required. See 0175's own header for why.
+      value.push({ id, questionText, questionType, required, expectedYesNo: null, minValue: null });
     }
   }
 
