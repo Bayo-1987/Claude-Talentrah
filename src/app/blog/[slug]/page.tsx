@@ -4,8 +4,10 @@ import { notFound } from "next/navigation";
 import { MarketingMasthead } from "@/components/marketing/marketing-masthead";
 import { MarketingFooter } from "@/components/marketing/marketing-footer";
 import { Container, EyebrowLabel } from "@/components/ui";
+import Link from "next/link";
 import { getAllPosts, getPostBySlug } from "@/lib/blog/posts";
 import { renderMarkdown } from "@/lib/blog/render";
+import { relatedLinksForPost } from "@/lib/blog/related-links";
 import { buildBlogPostingJsonLd } from "@/lib/seo/blog-posting-jsonld";
 import { JsonLd } from "@/components/seo/json-ld";
 
@@ -106,6 +108,20 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
             */}
             <div dangerouslySetInnerHTML={{ __html: html }} />
           </div>
+          {relatedLinksForPost(post.slug).length > 0 && (
+            <div className="flex flex-col gap-3 border-t border-line pt-8">
+              <EyebrowLabel>Continue on Talentrah</EyebrowLabel>
+              <ul className="flex list-none flex-col gap-2 p-0">
+                {relatedLinksForPost(post.slug).map((link) => (
+                  <li key={link.href}>
+                    <Link href={link.href} className="text-[14.5px] font-semibold underline underline-offset-2 hover:text-rust">
+                      {link.label} →
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </Container>
       </div>
       <MarketingFooter />

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getOptionalUser } from "@/lib/auth/require-user";
 import { buildJobPostingJsonLd } from "@/lib/seo/job-posting-jsonld";
+import { stripRedundantJobHeader } from "@/lib/seo/job-description-snippet";
 import { jobForRequest } from "./job-for-request";
 import { BorderedCard, Button, EyebrowLabel, MatchTierBadge, buttonClasses } from "@/components/ui";
 import { dedupeMetaParts } from "@/components/jobs/job-card";
@@ -67,6 +68,12 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
    * Shape: role at company, where, then the opening of the JD itself. Cut on a
    * WORD boundary at ~155 characters — around where Google truncates, and a
    * mid-word cut reads as broken rather than as elided.
+   *
+   * `stripRedundantJobHeader` runs first because a handful of raw postings
+   * open their own description with a "Job Title: X / Type: Y / Location: Z"
+   * header that just restates `lead` above — see that function's own header
+   * for the real, measured extent of this (4 of 704 open postings, two
+   * employers, not a per-source formatting quirk).
    */
   const lead = [
     `${data.title} at ${data.company_name}`,
@@ -74,7 +81,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   ]
     .filter(Boolean)
     .join(" · ");
-  const body = (data.description ?? "").replace(/\s+/g, " ").trim();
+  const body = stripRedundantJobHeader((data.description ?? "").replace(/\s+/g, " ").trim());
   const room = 155 - lead.length - 2;
   const snippet =
     body.length > room ? `${body.slice(0, Math.max(0, room)).replace(/\s+\S*$/, "")}…` : body;
@@ -267,8 +274,17 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
    * for Google for Jobs at all.
    *
    * Null when the posting cannot satisfy Google's REQUIRED set (most often a
-   * location naming no country), and nothing is rendered in that case. 130 of
-   * the 155 live postings currently qualify. Emitting partial markup would
+   * location naming no country), and nothing is rendered in that case.
+   * Re-measured 2026-09-18 against production directly (not assumed from
+   * this stale count, which was last true at 155 live postings): 558 of 704
+   * open postings qualify (79.3%). `loc.unresolved` (a place with no country,
+   * e.g. a bare "Lagos") is the single largest rejection reason (84 of the
+   * 146 rejected), concentrated in `greenhouse` (60) and the standalone
+   * per-company `workable` boards (22) — an upstream location-format gap in
+   * those specific sources, not a schema problem. The next largest,
+   * `loc.no_usable_location` (61 — no location text at all, or a bare
+   * "Remote" naming no country) spreads across most of the `schema-org`
+   * Workable search-page sources instead. Emitting partial markup would
    * trade "not eligible" for "eligible and erroring in Search Console", which
    * is worse because it looks fine on the page.
    *

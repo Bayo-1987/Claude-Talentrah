@@ -6,6 +6,9 @@ import { getOptionalUser } from "@/lib/auth/require-user";
 import { pageMetadata } from "@/lib/seo/site";
 import { LANDING_PAGE_MIN_ENTRIES } from "@/lib/seo/landing-pages";
 import { liveJobLandingLinks } from "@/lib/seo/landing-page-links";
+// No ItemList/CollectionPage structured data on this page, deliberately —
+// see loadCountryRemoteJobs's own import site (landing-page-data.ts) for
+// why, checked against Google's current documentation rather than assumed.
 import { loadCountryRemoteJobs } from "@/lib/seo/landing-page-data";
 import { COUNTRY_LANDING_SLUG } from "@/lib/jobs/country";
 import { PublicJobRow } from "@/components/jobs/public-job-row";

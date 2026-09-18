@@ -6,6 +6,9 @@ import { getOptionalUser } from "@/lib/auth/require-user";
 import { pageMetadata } from "@/lib/seo/site";
 import { LANDING_PAGE_MIN_ENTRIES } from "@/lib/seo/landing-pages";
 import { liveJobLandingLinks } from "@/lib/seo/landing-page-links";
+// No ItemList/CollectionPage structured data on this page, deliberately —
+// see loadCityJobs's own import site (landing-page-data.ts) for why, checked
+// against Google's current documentation rather than assumed.
 import { loadCityJobs } from "@/lib/seo/landing-page-data";
 import { PublicJobRow } from "@/components/jobs/public-job-row";
 import { EyebrowLabel, buttonClasses } from "@/components/ui";

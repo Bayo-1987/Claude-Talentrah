@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { MarketingMasthead } from "@/components/marketing/marketing-masthead";
 import { GoogleOneTap } from "@/components/auth/google-one-tap";
 import { HeroSection } from "@/components/marketing/hero-section";
@@ -9,6 +10,29 @@ import { FaqSection } from "@/components/marketing/faq-section";
 import { FinalCtaSection } from "@/components/marketing/final-cta-section";
 import { MarketingFooter } from "@/components/marketing/marketing-footer";
 import { MarketingStickyCta } from "@/components/marketing/marketing-sticky-cta";
+import { pageMetadata } from "@/lib/seo/site";
+
+/**
+ * The one page in this codebase that had no metadata export at all — every
+ * other major page (37+, per layout.tsx's own comment on why title is a
+ * plain string, not a template) writes its own title via pageMetadata(), so
+ * the homepage silently inheriting the root layout's generic "Talentrah" /
+ * "AI-powered career platform for job seekers in Nigeria and across Africa"
+ * was backwards: it's the page most backlinks and brand searches land on.
+ *
+ * COPY BELOW IS A SUGGESTED DIRECTION, NOT SIGNED-OFF FINAL WORDING — flagged
+ * for founder review before this ships, per the audit that found this gap.
+ * States the product and claims the "AI job search copilot for Nigeria &
+ * Africa" positioning explicitly in the title itself, since that's the one
+ * tag most likely to be quoted back in a search result — Jobright (the
+ * closest global equivalent) says neither Nigeria nor Africa anywhere.
+ */
+export const metadata: Metadata = pageMetadata({
+  title: "AI Job Search Copilot for Nigeria & Africa — Talentrah",
+  description:
+    "Talentrah matches you to real jobs across Nigeria and Africa, tailors your resume and cover letter with AI, and preps you for interviews — free to start.",
+  path: "/",
+});
 
 /**
  * The marketing homepage — statically rendered, for everyone.
