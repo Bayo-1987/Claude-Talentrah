@@ -256,24 +256,38 @@ export interface ScreeningAnswerInput {
 }
 
 /**
+ * A candidate's file already uploaded via /api/jobs/assessment-response —
+ * `originalFilename`/`byteSize` travel alongside the path because
+ * submit_assessment_response (0179) inserts the
+ * application_assessment_response_files row itself, in the same
+ * transaction as the parent submission, and that row needs both columns;
+ * the upload route's own response never carried them (the client already
+ * has the picked File object, which is where these come from).
+ */
+export interface AssessmentResponseFileInput {
+  path: string;
+  originalFilename: string;
+  byteSize: number;
+}
+
+/**
  * send-346 v2 — a candidate's response to a job posting's assessment,
  * submitted alongside screening answers in the same combined apply call.
- * At most one of `responseFilePath`/`responseLink` is meaningful — the
- * table's own CHECK constraint (0177) and submit_assessment_response's own
- * guard both refuse both being set, matching the "alternatives, not both"
- * framing files/exercise_link already has on the employer side (0178
- * widened the employer side to multiple files; the response side here is
- * still deliberately single-file/single-link — send-364 was scoped to the
- * employer's exercise attachment only, not the candidate's response).
+ * `responseFiles`/`responseLink` are alternatives, not both — the
+ * exclusivity check moved from a single-table CHECK constraint (0177) to
+ * submit_assessment_response's own guard once send-365/0179 widened files
+ * to a child table, same direction 0178 already took on the employer's
+ * exercise side. Up to MAX_ASSESSMENT_FILES files per response (send-365 —
+ * was exactly one before this).
  */
 export interface AssessmentResponseInput {
   responseText?: string;
-  responseFilePath?: string;
+  responseFiles?: AssessmentResponseFileInput[];
   responseLink?: string;
 }
 
 function hasAssessmentResponse(input: AssessmentResponseInput | undefined): input is AssessmentResponseInput {
-  return !!input && !!(input.responseText || input.responseFilePath || input.responseLink);
+  return !!input && !!(input.responseText || (input.responseFiles && input.responseFiles.length > 0) || input.responseLink);
 }
 
 /**
@@ -373,7 +387,17 @@ export async function applyWithScreeningAction(
     const { error } = await supabase.rpc("submit_assessment_response", {
       p_application_id: applicationId,
       p_response_text: assessmentResponse.responseText ?? null,
-      p_response_file_path: assessmentResponse.responseFilePath ?? null,
+      // Keys must match what 0179's submit_assessment_response reads off
+      // each jsonb array element (`path`, `originalFilename`, `byteSize`)
+      // — rebuilt as plain object literals (not the named
+      // AssessmentResponseFileInput type directly) so TypeScript accepts
+      // this as Json, the same way submit_screening_answers' own p_answers
+      // does just above.
+      p_response_files: (assessmentResponse.responseFiles ?? []).map((f) => ({
+        path: f.path,
+        originalFilename: f.originalFilename,
+        byteSize: f.byteSize,
+      })),
       p_response_link: assessmentResponse.responseLink ?? null,
     });
 

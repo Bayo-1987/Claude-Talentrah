@@ -975,31 +975,41 @@ export async function getApplicationScreeningAnswersAction(
   };
 }
 
+export interface AssessmentSubmissionResponseFile {
+  /** A short-lived signed URL — never a public one, since job-assessment-submissions is a private bucket. Null if signing itself failed. */
+  url: string | null;
+  originalFilename: string;
+}
+
 export interface AssessmentSubmissionDetail {
   responseText: string | null;
-  /** A short-lived signed URL, or null if no file was submitted — never a public URL, since job-assessment-submissions is a private bucket. */
-  responseFileUrl: string | null;
+  /** Up to MAX_ASSESSMENT_FILES entries (send-365 — was a single responseFileUrl before this). */
+  responseFiles: AssessmentSubmissionResponseFile[];
   responseLink: string | null;
   submittedAt: string;
 }
 
 /**
  * send-346 v2 — on-demand read of a candidate's assessment submission,
- * mirroring getApplicationScreeningAnswersAction's own shape.
+ * mirroring getApplicationScreeningAnswersAction's own shape. Widened by
+ * send-365/0179 from a single file to a list.
  *
  * UNLIKE the screening-answers read above, this does NOT go through a
  * SECURITY DEFINER function — application_assessment_submissions' own
  * table RLS (0177: the submitting candidate OR is_org_member(organization_id))
  * already lets an org member read the row directly through their own
- * session client, so a second privileged layer would just duplicate what
- * RLS already grants.
+ * session client, and 0179's own new table RLS on
+ * application_assessment_response_files makes the identical two-party
+ * check available for the child rows, so a second privileged layer would
+ * just duplicate what RLS already grants.
  *
- * The file, if any, is resolved to a SIGNED url via the caller's own
- * client — `createSignedUrl` itself is subject to the bucket's RLS SELECT
- * policy (0177's two-party check), so an employer outside the owning org
- * gets refused here the same way a direct download would be, not because
- * of an extra check in this function but because Storage evaluates the
- * identical policy either way.
+ * Each file is resolved to a SIGNED url via the caller's own client —
+ * `createSignedUrl` itself is subject to the bucket's RLS SELECT policy
+ * (can_access_assessment_submission, rewritten by 0179 to join through the
+ * new child table), so an employer outside the owning org is refused here
+ * the same way a direct download would be, not because of an extra check
+ * in this function but because Storage evaluates the identical policy
+ * either way.
  */
 export async function getApplicationAssessmentSubmissionAction(
   applicationId: string,
@@ -1009,29 +1019,35 @@ export async function getApplicationAssessmentSubmissionAction(
 
   const { data, error } = await supabase
     .from("application_assessment_submissions")
-    .select("response_text, response_file_path, response_link, submitted_at")
+    .select("id, response_text, response_link, submitted_at")
     .eq("application_id", applicationId)
     .maybeSingle();
   if (error) return { error: `Couldn't load the assessment response: ${error.message}` };
   if (!data) return { ok: true, submission: null };
 
-  let responseFileUrl: string | null = null;
-  if (data.response_file_path) {
+  const { data: fileRows, error: filesError } = await supabase
+    .from("application_assessment_response_files")
+    .select("file_path, original_filename")
+    .eq("application_assessment_submission_id", data.id)
+    .order("created_at", { ascending: true });
+  if (filesError) return { error: `Couldn't load the response's files: ${filesError.message}` };
+
+  const responseFiles: AssessmentSubmissionResponseFile[] = [];
+  for (const row of fileRows ?? []) {
     const { data: signed, error: signError } = await supabase.storage
       .from(ASSESSMENT_SUBMISSION_BUCKET)
-      .createSignedUrl(data.response_file_path, 3600);
+      .createSignedUrl(row.file_path, 3600);
     if (signError) {
-      console.error(`[assessment-submission] could not sign ${data.response_file_path}:`, signError.message);
-    } else {
-      responseFileUrl = signed.signedUrl;
+      console.error(`[assessment-submission] could not sign ${row.file_path}:`, signError.message);
     }
+    responseFiles.push({ url: signError ? null : signed.signedUrl, originalFilename: row.original_filename });
   }
 
   return {
     ok: true,
     submission: {
       responseText: data.response_text,
-      responseFileUrl,
+      responseFiles,
       responseLink: data.response_link,
       submittedAt: data.submitted_at,
     },

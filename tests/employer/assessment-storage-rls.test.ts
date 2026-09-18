@@ -44,7 +44,14 @@ let applicationId: string;
 const resumeIds: string[] = [];
 const uploadedExercisePaths: string[] = [];
 
-const submissionPath = () => `${candidate1.id}/${jobId}.txt`;
+// send-365/0179 widened this from `<uid>/<job>.txt` (one object) to
+// `<uid>/<job>/<file id>.txt` (a folder of them), same shape change 0178
+// already made on the exercises side — confirmed directly against this
+// project's real storage.foldername behavior in 0179's own migration
+// comment, not assumed: `(storage.foldername(name))[1]` is still the
+// uploader's own auth.uid() under this three-segment shape.
+const submissionFileId = () => randomUUID();
+const submissionPath = (fileId: string) => `${candidate1.id}/${jobId}/${fileId}.txt`;
 // send-364/0178 widened this from `<org>/<job>.pdf` (one object) to
 // `<org>/<job>/<file id>.pdf` (a folder of them) — confirmed directly
 // against this project's real storage.foldername behavior in 0178's own
@@ -140,8 +147,12 @@ beforeAll(async () => {
   applicationId = application.id;
 }, 60_000);
 
+let submittedFileId: string;
+
 afterAll(async () => {
-  await admin.storage.from("job-assessment-submissions").remove([submissionPath()]);
+  if (submittedFileId) {
+    await admin.storage.from("job-assessment-submissions").remove([submissionPath(submittedFileId)]);
+  }
   if (uploadedExercisePaths.length > 0) {
     await admin.storage.from("job-assessment-exercises").remove(uploadedExercisePaths);
   }
@@ -155,15 +166,16 @@ afterAll(async () => {
 
 describe("job-assessment-submissions — private, two-party read", () => {
   it("the candidate can upload into their own folder", async () => {
+    submittedFileId = submissionFileId();
     const bytes = new TextEncoder().encode("My assessment response.");
     const { error } = await candidate1.client.storage
       .from("job-assessment-submissions")
-      .upload(submissionPath(), bytes, { contentType: "text/plain", upsert: true });
+      .upload(submissionPath(submittedFileId), bytes, { contentType: "text/plain", upsert: true });
     expect(error).toBeNull();
   });
 
   it("a DIFFERENT candidate cannot write into candidate1's folder", async () => {
-    const forged = `${candidate1.id}/${jobId}-forged.txt`;
+    const forged = `${candidate1.id}/${jobId}/${submissionFileId()}-forged.txt`;
     const { error } = await candidate2.client.storage
       .from("job-assessment-submissions")
       .upload(forged, new TextEncoder().encode("forged"), { contentType: "text/plain", upsert: true });
@@ -174,7 +186,9 @@ describe("job-assessment-submissions — private, two-party read", () => {
     const { data, error } = await candidate1.client.rpc("submit_assessment_response", {
       p_application_id: applicationId,
       p_response_text: null,
-      p_response_file_path: submissionPath(),
+      p_response_files: [
+        { path: submissionPath(submittedFileId), originalFilename: "response.txt", byteSize: 24 },
+      ],
       p_response_link: null,
     });
     expect(error).toBeNull();
@@ -184,7 +198,7 @@ describe("job-assessment-submissions — private, two-party read", () => {
   it("the SUBMITTING CANDIDATE can read their own file", async () => {
     const { data, error } = await candidate1.client.storage
       .from("job-assessment-submissions")
-      .download(submissionPath());
+      .download(submissionPath(submittedFileId));
     expect(error).toBeNull();
     expect(data?.size).toBeGreaterThan(0);
   });
@@ -192,7 +206,7 @@ describe("job-assessment-submissions — private, two-party read", () => {
   it("a member of the OWNING organisation can read the file", async () => {
     const { data, error } = await orgAOwner.client.storage
       .from("job-assessment-submissions")
-      .download(submissionPath());
+      .download(submissionPath(submittedFileId));
     expect(error).toBeNull();
     expect(data?.size).toBeGreaterThan(0);
   });
@@ -200,7 +214,7 @@ describe("job-assessment-submissions — private, two-party read", () => {
   it("a member of a DIFFERENT organisation CANNOT read the file", async () => {
     const { data, error } = await orgBOwner.client.storage
       .from("job-assessment-submissions")
-      .download(submissionPath());
+      .download(submissionPath(submittedFileId));
     expect(error, "a different org's member must be refused").not.toBeNull();
     expect(data).toBeNull();
   });
@@ -208,7 +222,7 @@ describe("job-assessment-submissions — private, two-party read", () => {
   it("a DIFFERENT candidate CANNOT read the file", async () => {
     const { data, error } = await candidate2.client.storage
       .from("job-assessment-submissions")
-      .download(submissionPath());
+      .download(submissionPath(submittedFileId));
     expect(error, "a different candidate must be refused").not.toBeNull();
     expect(data).toBeNull();
   });
@@ -237,7 +251,7 @@ describe("job-assessment-submissions — private, two-party read", () => {
        */
       const { data, error } = await orgAOwner.client.storage
         .from("job-assessment-submissions")
-        .download(submissionPath());
+        .download(submissionPath(submittedFileId));
       expect(
         error,
         "a non-null error here most likely means EXECUTE is not granted to authenticated on can_access_assessment_submission",

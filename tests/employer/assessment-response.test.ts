@@ -160,14 +160,14 @@ describe("submit_assessment_response + application_assessment_submissions RLS", 
     const { error } = await seeker.client.rpc("submit_assessment_response", {
       p_application_id: applicationId,
       p_response_text: "An answer.",
-      p_response_file_path: null,
+      p_response_files: [],
       p_response_link: null,
     });
     expect(error).not.toBeNull();
     expect(error?.message).toMatch(/no assessment/i);
   });
 
-  it("refuses a response with both a file path and a link", async () => {
+  it("refuses a response with both files and a link", async () => {
     // Add the assessment now, so this and later tests have one to respond to.
     const { error: assessErr } = await admin.from("job_posting_assessments").insert({
       job_posting_id: jobId,
@@ -181,7 +181,9 @@ describe("submit_assessment_response + application_assessment_submissions RLS", 
     const { error } = await seeker.client.rpc("submit_assessment_response", {
       p_application_id: applicationId,
       p_response_text: null,
-      p_response_file_path: `${seeker.id}/${jobId}.txt`,
+      p_response_files: [
+        { path: `${seeker.id}/${jobId}/${randomUUID()}.txt`, originalFilename: "answer.txt", byteSize: 10 },
+      ],
       p_response_link: "https://example.com/answer",
     });
     expect(error).not.toBeNull();
@@ -192,18 +194,36 @@ describe("submit_assessment_response + application_assessment_submissions RLS", 
     const { error } = await seeker.client.rpc("submit_assessment_response", {
       p_application_id: applicationId,
       p_response_text: null,
-      p_response_file_path: `${randomUUID()}/${jobId}.txt`,
+      p_response_files: [
+        { path: `${randomUUID()}/${jobId}/${randomUUID()}.txt`, originalFilename: "answer.txt", byteSize: 10 },
+      ],
       p_response_link: null,
     });
     expect(error).not.toBeNull();
     expect(error?.message).toMatch(/not uploaded by you/i);
   });
 
+  it("refuses more than 5 files in one submission", async () => {
+    const files = Array.from({ length: 6 }, (_, i) => ({
+      path: `${seeker.id}/${jobId}/${randomUUID()}.txt`,
+      originalFilename: `file-${i}.txt`,
+      byteSize: 10,
+    }));
+    const { error } = await seeker.client.rpc("submit_assessment_response", {
+      p_application_id: applicationId,
+      p_response_text: null,
+      p_response_files: files,
+      p_response_link: null,
+    });
+    expect(error).not.toBeNull();
+    expect(error?.message).toMatch(/at most 5/i);
+  });
+
   it("succeeds with just text, and the row is readable by the candidate and the owning org", async () => {
     const { data, error } = await seeker.client.rpc("submit_assessment_response", {
       p_application_id: applicationId,
       p_response_text: "  A real written answer.  ",
-      p_response_file_path: null,
+      p_response_files: [],
       p_response_link: null,
     });
     expect(error).toBeNull();
@@ -239,12 +259,219 @@ describe("submit_assessment_response + application_assessment_submissions RLS", 
     const { error } = await seeker.client.rpc("submit_assessment_response", {
       p_application_id: applicationId,
       p_response_text: "A different answer, trying to overwrite.",
-      p_response_file_path: null,
+      p_response_files: [],
       p_response_link: null,
     });
     expect(error).not.toBeNull();
     expect(error?.message).toMatch(/already been submitted/i);
   });
+});
+
+describe("submit_assessment_response — multiple files (send-365)", () => {
+  let orgOwner: AuthedTestUser;
+  let outsiderOwner: AuthedTestUser;
+  let seeker: AuthedTestUser;
+  let orgId: string;
+  let outsiderOrgId: string;
+  let jobId: string;
+  let applicationId: string;
+  const resumeIds: string[] = [];
+  const uploadedPaths: string[] = [];
+
+  beforeAll(async () => {
+    orgOwner = await createAuthedTestUser("assess-response-mf-owner");
+    outsiderOwner = await createAuthedTestUser("assess-response-mf-outsider");
+    seeker = await createAuthedTestUser("assess-response-mf-seeker");
+
+    const { data: org, error: orgErr } = await admin
+      .from("organizations")
+      .insert({ name: `Assess Response MF Org ${randomUUID().slice(0, 8)}`, created_by: orgOwner.id, verified: true })
+      .select("id")
+      .single();
+    if (orgErr || !org) throw new Error(`fixture org: ${orgErr?.message}`);
+    orgId = org.id;
+
+    const { data: outsiderOrg, error: outsiderErr } = await admin
+      .from("organizations")
+      .insert({
+        name: `Assess Response MF Outsider Org ${randomUUID().slice(0, 8)}`,
+        created_by: outsiderOwner.id,
+        verified: true,
+      })
+      .select("id")
+      .single();
+    if (outsiderErr || !outsiderOrg) throw new Error(`fixture outsider org: ${outsiderErr?.message}`);
+    outsiderOrgId = outsiderOrg.id;
+
+    await admin.from("organization_members").insert([
+      { organization_id: orgId, user_id: orgOwner.id, role: "owner" },
+      { organization_id: outsiderOrgId, user_id: outsiderOwner.id, role: "owner" },
+    ]);
+
+    const { data: job, error: jobErr } = await admin
+      .from("job_postings")
+      .insert({
+        source_type: "internal",
+        organization_id: orgId,
+        company_name: "Assess Response MF Test Co",
+        title: `Assess Response MF Test Role ${randomUUID().slice(0, 8)}`,
+        description: "Fixture posting for submit_assessment_response's multi-file case.",
+        structured_jd: {},
+        status: "open",
+        posted_at: new Date().toISOString(),
+        dedup_fingerprint: randomUUID(),
+      })
+      .select("id")
+      .single();
+    if (jobErr || !job) throw new Error(`fixture job: ${jobErr?.message}`);
+    jobId = job.id;
+
+    const { error: assessErr } = await admin.from("job_posting_assessments").insert({
+      job_posting_id: jobId,
+      organization_id: orgId,
+      title: "Test assessment",
+      instructions: "Do the thing.",
+      required: false,
+    });
+    if (assessErr) throw new Error(`fixture assessment: ${assessErr.message}`);
+
+    const { data: resume, error: resumeErr } = await admin
+      .from("resumes")
+      .insert({
+        user_id: seeker.id,
+        structured_content: { contact: {}, summary: "", experience: [], education: [], skills: [] },
+      })
+      .select("id")
+      .single();
+    if (resumeErr || !resume) throw new Error(`fixture resume: ${resumeErr?.message}`);
+    resumeIds.push(resume.id);
+
+    const { data: application, error: appErr } = await admin
+      .from("applications")
+      .insert({
+        user_id: seeker.id,
+        job_posting_id: jobId,
+        resume_id: resume.id,
+        stage: "applied",
+        source: "internal_apply",
+        applied_at: new Date().toISOString(),
+      })
+      .select("id")
+      .single();
+    if (appErr || !application) throw new Error(`fixture application: ${appErr?.message}`);
+    applicationId = application.id;
+  }, 60_000);
+
+  afterAll(async () => {
+    if (uploadedPaths.length > 0) {
+      await admin.storage.from("job-assessment-submissions").remove(uploadedPaths);
+    }
+    await admin.from("applications").delete().eq("id", applicationId);
+    for (const id of resumeIds) await admin.from("resumes").delete().eq("id", id);
+    await deleteOrgsCascade(admin, [orgId, outsiderOrgId].filter(Boolean));
+    await deleteTestUsers([orgOwner.id, outsiderOwner.id, seeker.id].filter(Boolean));
+  });
+
+  it(
+    "accepts 3 files atomically alongside the parent row, readable by the candidate and the owning org, not by an outsider",
+    async () => {
+      // Real storage objects, the same way the candidate's own browser
+      // would have uploaded them via /api/jobs/assessment-response before
+      // this RPC call — the RPC's own ownership-prefix check reads real
+      // paths, and the two-party read policy needs real rows to test.
+      const files = await Promise.all(
+        ["brief.txt", "notes.txt", "summary.txt"].map(async (name) => {
+          const path = `${seeker.id}/${jobId}/${randomUUID()}.txt`;
+          uploadedPaths.push(path);
+          const content = `Response content for ${name}`;
+          const { error: uploadErr } = await seeker.client.storage
+            .from("job-assessment-submissions")
+            .upload(path, new TextEncoder().encode(content), { contentType: "text/plain" });
+          if (uploadErr) throw new Error(`fixture upload ${name}: ${uploadErr.message}`);
+          return { path, originalFilename: name, byteSize: content.length };
+        }),
+      );
+
+      const { data, error } = await seeker.client.rpc("submit_assessment_response", {
+        p_application_id: applicationId,
+        p_response_text: null,
+        p_response_files: files,
+        p_response_link: null,
+      });
+      expect(error).toBeNull();
+      expect(data).toBe(true);
+
+      const { data: submission } = await admin
+        .from("application_assessment_submissions")
+        .select("id")
+        .eq("application_id", applicationId)
+        .single();
+
+      const { data: rows, count } = await admin
+        .from("application_assessment_response_files")
+        .select("original_filename, byte_size", { count: "exact" })
+        .eq("application_assessment_submission_id", submission!.id)
+        .order("original_filename", { ascending: true });
+      expect(count, "all 3 files should have landed atomically alongside the parent row").toBe(3);
+      expect((rows ?? []).map((r) => r.original_filename)).toEqual(["brief.txt", "notes.txt", "summary.txt"]);
+
+      const { data: candidateRows, error: candidateErr } = await seeker.client
+        .from("application_assessment_response_files")
+        .select("id")
+        .eq("application_assessment_submission_id", submission!.id);
+      expect(candidateErr).toBeNull();
+      expect(candidateRows).toHaveLength(3);
+
+      const { data: orgRows, error: orgErr } = await orgOwner.client
+        .from("application_assessment_response_files")
+        .select("id")
+        .eq("application_assessment_submission_id", submission!.id);
+      expect(orgErr).toBeNull();
+      expect(orgRows).toHaveLength(3);
+
+      const { data: outsiderRows } = await outsiderOwner.client
+        .from("application_assessment_response_files")
+        .select("id")
+        .eq("application_assessment_submission_id", submission!.id);
+      expect(outsiderRows, "a different org's member must see none of these rows").toEqual([]);
+    },
+  );
+
+  it(
+    "IMMUTABLE, MULTI-FILE VARIANT: a second submit_assessment_response call for the same application is refused, even with a different file set — this does not just assume the single-file test above generalizes",
+    async () => {
+      const secondPath = `${seeker.id}/${jobId}/${randomUUID()}.txt`;
+      const { error: uploadErr } = await seeker.client.storage
+        .from("job-assessment-submissions")
+        .upload(secondPath, new TextEncoder().encode("A second attempt."), { contentType: "text/plain" });
+      if (uploadErr) throw new Error(`fixture second upload: ${uploadErr.message}`);
+      uploadedPaths.push(secondPath);
+
+      const { error } = await seeker.client.rpc("submit_assessment_response", {
+        p_application_id: applicationId,
+        p_response_text: null,
+        p_response_files: [{ path: secondPath, originalFilename: "second-attempt.txt", byteSize: 18 }],
+        p_response_link: null,
+      });
+      expect(error).not.toBeNull();
+      expect(error?.message).toMatch(/already been submitted/i);
+
+      // The refused call's own file must not have landed either — the
+      // immutability guarantee has to cover the child rows, not just the
+      // parent, or a refused-looking call could still leave an orphaned
+      // file row with no corresponding "current" submission content.
+      const { data: submission } = await admin
+        .from("application_assessment_submissions")
+        .select("id")
+        .eq("application_id", applicationId)
+        .single();
+      const { count } = await admin
+        .from("application_assessment_response_files")
+        .select("id", { count: "exact", head: true })
+        .eq("application_assessment_submission_id", submission!.id);
+      expect(count, "still exactly the original 3 files — the refused second call inserted nothing").toBe(3);
+    },
+  );
 });
 
 describe("reconcileJobPostingAssessment", () => {

@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { consumeRateLimit, rateLimited } from "@/lib/api/rate-limit";
@@ -9,8 +10,9 @@ import {
 } from "@/lib/employer/assessment-document";
 
 /**
- * Upload a candidate's assessment RESPONSE document (send-346 v2, 0177),
- * gated by the candidate's OWN session — modeled on
+ * Upload ONE of a candidate's assessment RESPONSE documents (send-346 v2,
+ * 0177; widened to up to MAX_ASSESSMENT_FILES by send-365/0179), gated by
+ * the candidate's OWN session — modeled on
  * /api/employer/job-banner/route.ts, adapted for a caller who does not yet
  * own the row the file will eventually be attached to.
  *
@@ -18,18 +20,31 @@ import {
  *
  * Mirrors the two-step shape job-banner already established: a File cannot
  * be threaded through applyWithScreeningAction's plain-argument Server
- * Action call, so the candidate's browser uploads the file HERE first (if
- * they picked one at all) to get back a stored path, then that path
- * travels as a plain string into the same combined apply call that already
- * carries screening answers.
+ * Action call, so the candidate's browser uploads each file HERE first (if
+ * any were picked at all) to get back a stored path, then the resulting
+ * paths travel as a plain array into the same combined apply call that
+ * already carries screening answers.
  *
  * There is no application row yet at upload time — the object path is
- * `<uploader's own user id>/<job_posting_id>.<ext>` specifically because
- * that is authorisable with nothing but the caller's own session (0177's
- * storage insert policy checks only that the first folder segment is
- * `auth.uid()`). This route's own job posting check is a courtesy/abuse
- * guard on top of that — refusing an upload for a posting with no
- * assessment at all — not the security boundary; the storage policy is.
+ * `<uploader's own user id>/<job_posting_id>/<file_id>.<ext>` specifically
+ * because that is authorisable with nothing but the caller's own session
+ * (0177's storage insert policy checks only that the first folder segment
+ * is `auth.uid()`, unaffected by 0179's extra path segment — see that
+ * migration's own header). This route's own job posting check is a
+ * courtesy/abuse guard on top of that — refusing an upload for a posting
+ * with no assessment at all — not the security boundary; the storage
+ * policy is.
+ *
+ * ── THIS ROUTE DOES NOT ENFORCE THE 5-FILE CAP ──────────────────────────
+ *
+ * Unlike 0178's employer-side upload route (which counts existing rows
+ * before each call, since a real row already exists to count), there is no
+ * application_assessment_submissions row yet at upload time here — nothing
+ * to count against. The cap is tracked client-side across the picker's own
+ * in-progress selections (screening-gate-apply.tsx) for THIS one apply
+ * attempt, and the real backstop is submit_assessment_response's own
+ * `v_file_count > 5` check, which runs once, atomically, when the whole
+ * batch of paths is finally submitted.
  */
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -97,7 +112,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: verdict.reason }, { status: 400 });
   }
 
-  const path = submissionObjectPath(user.id, jobPostingId, verdict.type);
+  const path = submissionObjectPath(user.id, jobPostingId, randomUUID(), verdict.type);
 
   const { error: uploadError } = await supabase.storage
     .from(ASSESSMENT_SUBMISSION_BUCKET)

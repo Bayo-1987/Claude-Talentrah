@@ -537,6 +537,51 @@ export type Database = {
           },
         ]
       }
+      application_assessment_response_files: {
+        Row: {
+          application_assessment_submission_id: string
+          byte_size: number
+          created_at: string
+          file_path: string
+          id: string
+          organization_id: string
+          original_filename: string
+        }
+        Insert: {
+          application_assessment_submission_id: string
+          byte_size: number
+          created_at?: string
+          file_path: string
+          id?: string
+          organization_id: string
+          original_filename: string
+        }
+        Update: {
+          application_assessment_submission_id?: string
+          byte_size?: number
+          created_at?: string
+          file_path?: string
+          id?: string
+          organization_id?: string
+          original_filename?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "application_assessment_response_files_submission_id_fkey"
+            columns: ["application_assessment_submission_id"]
+            isOneToOne: false
+            referencedRelation: "application_assessment_submissions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "application_assessment_response_files_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       application_assessment_submissions: {
         Row: {
           application_id: string
@@ -544,7 +589,6 @@ export type Database = {
           id: string
           job_posting_id: string
           organization_id: string
-          response_file_path: string | null
           response_link: string | null
           response_text: string | null
           submitted_at: string
@@ -555,7 +599,6 @@ export type Database = {
           id?: string
           job_posting_id: string
           organization_id: string
-          response_file_path?: string | null
           response_link?: string | null
           response_text?: string | null
           submitted_at?: string
@@ -566,7 +609,6 @@ export type Database = {
           id?: string
           job_posting_id?: string
           organization_id?: string
-          response_file_path?: string | null
           response_link?: string | null
           response_text?: string | null
           submitted_at?: string
@@ -4122,7 +4164,7 @@ export type Database = {
       submit_assessment_response: {
         Args: {
           p_application_id: string
-          p_response_file_path: string | null
+          p_response_files: Json
           p_response_link: string | null
           p_response_text: string | null
         }

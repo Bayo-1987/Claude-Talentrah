@@ -174,16 +174,28 @@ export function exerciseObjectPath(
 }
 
 /**
- * The object path a candidate's RESPONSE document lives at.
+ * The object path ONE of a candidate's RESPONSE documents lives at
+ * (send-365 — up to MAX_ASSESSMENT_FILES per response, was exactly one
+ * before this, same widening 0178 already did on the employer's exercise
+ * side).
  *
- * `<uploader's own user id>/<job_posting_id>.<ext>` — NOT the organisation,
- * because at upload time (before the candidate has finished applying) no
- * application row exists yet for an org-scoped path to be checked against.
- * The uploader's own id is the one thing already known and already theirs
- * — see 0177's own header on why the write policy is self-contained.
+ * `<uploader's own user id>/<job_posting_id>/<file_id>.<ext>` — NOT the
+ * organisation, because at upload time (before the candidate has finished
+ * applying) no application row exists yet for an org-scoped path to be
+ * checked against. The uploader's own id is the one thing already known
+ * and already theirs — see 0177's own header on why the write policy is
+ * self-contained. Confirmed directly against this project's real
+ * `storage.foldername` behavior in 0179's own migration comment before
+ * this shape changed, not assumed: `(storage.foldername(name))[1]` is
+ * still the uploader's own auth.uid() under the three-segment shape.
  */
-export function submissionObjectPath(userId: string, jobPostingId: string, type: AssessmentDocumentMimeType): string {
-  return `${userId}/${jobPostingId}.${EXTENSION_FOR[type]}`;
+export function submissionObjectPath(
+  userId: string,
+  jobPostingId: string,
+  fileId: string,
+  type: AssessmentDocumentMimeType,
+): string {
+  return `${userId}/${jobPostingId}/${fileId}.${EXTENSION_FOR[type]}`;
 }
 
 const EXERCISE_PATH_SHAPE = /^([0-9a-fA-F-]{36})\/([0-9a-fA-F-]{36})\/([0-9a-fA-F-]{36})\.(pdf|docx|txt)$/;
