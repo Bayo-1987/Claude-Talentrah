@@ -8,6 +8,7 @@ import { logCountryDefaultEvent, type CountryState } from "@/lib/jobs/country-ev
 import { findActiveCampaignForJobPosting, recordAdEvent } from "@/lib/ads/promoted";
 import { computeAndStoreApplicationMatchScore } from "@/lib/matching/compute-and-store";
 import { captureEvent } from "@/lib/analytics/posthog";
+import { runFarahScreeningReview } from "@/lib/screening/farah-review";
 
 async function getAuthedUserId() {
   const supabase = await createClient();
@@ -294,6 +295,53 @@ export async function applyWithScreeningAction(
   if (error) {
     return { ok: false, error: `Your application was recorded, but we couldn't save your answers: ${error.message}` };
   }
+
+  /*
+   * send-345 Part B — kick off Farah's review of any farah-mode free_text
+   * question, deferred via `after()` for the SAME reason the ad-funnel
+   * instrumentation above is: an LLM round trip must never add latency to
+   * the candidate's apply response, and a failure here must never surface
+   * to the candidate or block/delay the application, which has already been
+   * recorded by this point.
+   *
+   * Reads the just-persisted, TRIMMED answer_text back from the database
+   * rather than the raw candidate-submitted `answers` array — an
+   * all-whitespace submission is stored as null (0175's own trim rule) and
+   * correctly has nothing here to review; a genuinely answered farah-mode
+   * question gets exactly the text the employer will actually see.
+   */
+  const { data: farahQuestions } = await supabase
+    .from("job_posting_screening_questions")
+    .select("id, question_text")
+    .eq("job_posting_id", jobId)
+    .eq("screening_mode", "farah");
+
+  if (farahQuestions && farahQuestions.length > 0) {
+    const { data: persistedAnswers } = await supabase
+      .from("application_screening_answers")
+      .select("question_id, answer_text")
+      .eq("application_id", applicationId)
+      .in(
+        "question_id",
+        farahQuestions.map((q) => q.id),
+      )
+      .not("answer_text", "is", null);
+
+    for (const row of persistedAnswers ?? []) {
+      const question = farahQuestions.find((q) => q.id === row.question_id);
+      const answerText = row.answer_text;
+      if (!question || !answerText) continue;
+      after(() =>
+        runFarahScreeningReview({
+          applicationId,
+          questionId: row.question_id,
+          questionText: question.question_text,
+          answerText,
+        }),
+      );
+    }
+  }
+
   return { ok: true };
 }
 

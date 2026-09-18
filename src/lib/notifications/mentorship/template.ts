@@ -1,5 +1,14 @@
 import { buildSessionCalendarInvite, type CalendarInviteAttendee } from "@/lib/mentorship/calendar-invite";
 import type { MentorshipSessionType } from "@/lib/mentorship/pricing";
+import {
+  EMAIL_COLORS,
+  emailButton,
+  emailFootnote,
+  emailHeadline,
+  emailLabel,
+  emailParagraph,
+  renderBrandedEmail,
+} from "@/lib/email/layout";
 
 /**
  * Mentorship session notifications — confirmation invite and pre-session
@@ -107,33 +116,19 @@ export interface SessionEmail {
 }
 
 function baseEmailHtml(bodyParagraphs: string[], sessionType: MentorshipSessionType, when: string, meetingLink: string): string {
-  return `<!doctype html>
-<html><body style="margin:0;padding:24px;background:#f7f3ec;">
-  <div style="max-width:560px;margin:0 auto;">
-    ${bodyParagraphs
-      .map(
-        (p) =>
-          `<p style="font:400 15px/1.6 -apple-system,Segoe UI,Roboto,sans-serif;color:#2b2119;">${p}</p>`,
-      )
-      .join("\n    ")}
-    <div style="padding:16px 0;border-top:1px solid #d9cfc2;border-bottom:1px solid #d9cfc2;">
-      <div style="font:600 13px/1.4 -apple-system,Segoe UI,Roboto,sans-serif;color:#6b4a3a;">
-        ${esc(sessionTypeLabel(sessionType))}
-      </div>
-      <div style="font:500 17px/1.35 Georgia,'Times New Roman',serif;color:#2b2119;margin-top:2px;">
-        ${esc(when)}
-      </div>
-    </div>
-    <p style="margin:24px 0;">
-      <a href="${esc(meetingLink)}"
-         style="display:inline-block;background:#2b2119;color:#f7f3ec;text-decoration:none;
-                padding:12px 20px;font:600 14px/1 -apple-system,Segoe UI,Roboto,sans-serif;">
-        Join the call
-      </a>
-    </p>
-    <p style="font:400 12px/1.5 -apple-system,Segoe UI,Roboto,sans-serif;color:#6b5c50;">— Talentrah</p>
-  </div>
-</body></html>`;
+  const infoBox = `<div style="padding:16px 0;border-top:1px solid ${EMAIL_COLORS.line};border-bottom:1px solid ${EMAIL_COLORS.line};">
+      ${emailLabel(esc(sessionTypeLabel(sessionType)))}
+      ${emailHeadline(esc(when))}
+    </div>`;
+
+  const bodyHtml = [
+    ...bodyParagraphs.map((p) => emailParagraph(p)),
+    infoBox,
+    emailButton("Join the call", meetingLink),
+    emailFootnote("— Talentrah"),
+  ].join("\n    ");
+
+  return renderBrandedEmail({ bodyHtml });
 }
 
 /**

@@ -29,7 +29,7 @@ export default async function EditJobPage({ params }: { params: Promise<{ id: st
 
   const { data: screeningQuestions } = await supabase
     .from("job_posting_screening_questions")
-    .select("id, question_text, question_type, required, expected_yes_no, min_value")
+    .select("id, question_text, question_type, required, expected_yes_no, min_value, screening_mode")
     .eq("job_posting_id", id)
     .order("sort_order", { ascending: true });
 
@@ -102,6 +102,7 @@ export default async function EditJobPage({ params }: { params: Promise<{ id: st
               required: q.required,
               expectedYesNo: q.expected_yes_no,
               minValue: q.min_value,
+              screeningMode: q.screening_mode as "self" | "farah",
             })),
           }}
         />

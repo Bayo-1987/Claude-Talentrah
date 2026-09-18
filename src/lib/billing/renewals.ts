@@ -4,6 +4,8 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { chargeAuthorization, verifyTransaction, isDecline } from "@/lib/paystack/client";
 import { getResendClient } from "@/lib/resend/client";
 import { visibleName } from "@/lib/profile/name";
+import { absoluteUrl } from "@/lib/seo/site";
+import { emailButton, emailParagraph, escEmail, renderBrandedEmail } from "@/lib/email/layout";
 
 /**
  * How many consecutive INDETERMINATE failures a Pass tolerates before it
@@ -165,11 +167,25 @@ async function sendReminderEmail(row: {
   const resend = getResendClient();
   if (!resend || !row.profiles?.email) return;
 
+  const greeting = visibleName(row.profiles.first_name) ? `Hi ${visibleName(row.profiles.first_name)},` : "Hi,";
+  const passName = row.passes?.name ?? "Talentrah Pass";
+  const priceText = `₦${(row.passes?.price_ngn ?? 0).toLocaleString()}`;
+  const billingUrl = absoluteUrl("/billing");
+  const body = `Your ${passName} will auto-renew on ${row.next_renewal_date} for ${priceText}, charged to the card on file. You can cancel auto-renewal anytime from your Billing page — this won't affect your current access either way.`;
+
   await resend.emails.send({
     from: "Talentrah <billing@talentrah.com>",
     to: row.profiles.email,
     subject: `Your ${row.passes?.name ?? "Pass"} renews soon`,
-    text: `Hi${visibleName(row.profiles.first_name) ? ` ${visibleName(row.profiles.first_name)}` : ""},\n\nYour ${row.passes?.name ?? "Talentrah Pass"} will auto-renew on ${row.next_renewal_date} for ₦${(row.passes?.price_ngn ?? 0).toLocaleString()}, charged to the card on file. You can cancel auto-renewal anytime from your Billing page — this won't affect your current access either way.\n\n— Talentrah`,
+    text: `${greeting}\n\n${body}\n\n— Talentrah`,
+    html: renderBrandedEmail({
+      bodyHtml: [
+        emailParagraph(escEmail(greeting)),
+        emailParagraph(escEmail(body)),
+        emailButton("Billing", billingUrl),
+        emailParagraph("— Talentrah"),
+      ].join("\n"),
+    }),
   });
 }
 

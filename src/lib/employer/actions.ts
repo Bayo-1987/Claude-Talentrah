@@ -902,6 +902,11 @@ export interface ScreeningAnswerDetail {
   answerNumber: number | null;
   answerText: string | null;
   passed: boolean | null;
+  /** send-345 — 'self' unless the employer opted this free_text question into a paid Farah review (0176). */
+  screeningMode: string;
+  farahReviewStatus: string | null;
+  farahTier: string | null;
+  farahSummary: string | null;
 }
 
 /**
@@ -939,6 +944,10 @@ export async function getApplicationScreeningAnswersAction(
       answerNumber: row.answer_number,
       answerText: row.answer_text,
       passed: row.passed,
+      screeningMode: row.screening_mode,
+      farahReviewStatus: row.farah_review_status,
+      farahTier: row.farah_tier,
+      farahSummary: row.farah_summary,
     })),
   };
 }

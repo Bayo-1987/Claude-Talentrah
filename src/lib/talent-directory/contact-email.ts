@@ -1,4 +1,5 @@
 import { absoluteUrl } from "@/lib/seo/site";
+import { EMAIL_COLORS, emailButton, emailParagraph, renderBrandedEmail } from "@/lib/email/layout";
 
 /**
  * Two emails for the Talent Directory contact flow (send-157), voiced per
@@ -59,31 +60,20 @@ export function buildContactRequestNoticeEmail(params: {
     "— Farah",
   ].join("\n");
 
-  const html = `<!doctype html>
-<html><body style="margin:0;padding:24px;background:#f7f3ec;">
-  <div style="max-width:560px;margin:0 auto;">
-    <p style="font:400 15px/1.6 -apple-system,Segoe UI,Roboto,sans-serif;color:#2b2119;">
-      ${esc(greeting)}
-    </p>
-    <p style="font:400 15px/1.6 -apple-system,Segoe UI,Roboto,sans-serif;color:#2b2119;">
-      <strong>${esc(companyName)}</strong> found your profile in the Talent Directory and would like to connect. Their note:
-    </p>
-    <div style="padding:14px 16px;border-left:3px solid #d9cfc2;font:400 14px/1.6 Georgia,'Times New Roman',serif;font-style:italic;color:#2b2119;">
+  const messageBlock = `<div style="padding:14px 16px;border-left:3px solid ${EMAIL_COLORS.line};font:400 14px/1.6 Georgia,'Times New Roman',serif;font-style:italic;color:${EMAIL_COLORS.ink};">
       &ldquo;${esc(message)}&rdquo;
-    </div>
-    <p style="font:400 15px/1.6 -apple-system,Segoe UI,Roboto,sans-serif;color:#2b2119;">
-      Nothing is shared with them unless you say yes.
-    </p>
-    <p style="margin:24px 0;">
-      <a href="${esc(reviewUrl)}"
-         style="display:inline-block;background:#2b2119;color:#f7f3ec;text-decoration:none;
-                padding:12px 20px;font:600 14px/1 -apple-system,Segoe UI,Roboto,sans-serif;">
-        Review and decide
-      </a>
-    </p>
-    <p style="font:400 15px/1.6 -apple-system,Segoe UI,Roboto,sans-serif;color:#2b2119;">— Farah</p>
-  </div>
-</body></html>`;
+    </div>`;
+
+  const bodyHtml = [
+    emailParagraph(esc(greeting)),
+    emailParagraph(`<strong>${esc(companyName)}</strong> found your profile in the Talent Directory and would like to connect. Their note:`),
+    messageBlock,
+    emailParagraph("Nothing is shared with them unless you say yes."),
+    emailButton("Review and decide", reviewUrl),
+    emailParagraph("— Farah"),
+  ].join("\n    ");
+
+  const html = renderBrandedEmail({ bodyHtml });
 
   return { subject, text, html };
 }
@@ -115,21 +105,18 @@ export function buildContactApprovedEmail(params: {
     "— Talentrah",
   ].join("\n");
 
-  const html = `<!doctype html>
-<html><body style="margin:0;padding:24px;background:#f7f3ec;">
-  <div style="max-width:560px;margin:0 auto;">
-    <p style="font:400 15px/1.6 -apple-system,Segoe UI,Roboto,sans-serif;color:#2b2119;">
-      ${esc(greeting)}
-    </p>
-    <p style="font:400 15px/1.6 -apple-system,Segoe UI,Roboto,sans-serif;color:#2b2119;">
-      <strong>${esc(candidateName)}</strong> has agreed to connect with you. You can reach them directly at:
-    </p>
-    <p style="font:600 16px/1.4 -apple-system,Segoe UI,Roboto,sans-serif;color:#2b2119;">
-      <a href="mailto:${esc(candidateEmail)}" style="color:#6b4a3a;">${esc(candidateEmail)}</a>
-    </p>
-    <p style="font:400 15px/1.6 -apple-system,Segoe UI,Roboto,sans-serif;color:#2b2119;">— Talentrah</p>
-  </div>
-</body></html>`;
+  const emailLine = `<p style="font:600 16px/1.4 -apple-system,Segoe UI,Roboto,sans-serif;color:${EMAIL_COLORS.ink};">
+      <a href="mailto:${esc(candidateEmail)}" style="color:${EMAIL_COLORS.accent};">${esc(candidateEmail)}</a>
+    </p>`;
+
+  const bodyHtml = [
+    emailParagraph(esc(greeting)),
+    emailParagraph(`<strong>${esc(candidateName)}</strong> has agreed to connect with you. You can reach them directly at:`),
+    emailLine,
+    emailParagraph("— Talentrah"),
+  ].join("\n    ");
+
+  const html = renderBrandedEmail({ bodyHtml });
 
   return { subject, text, html };
 }

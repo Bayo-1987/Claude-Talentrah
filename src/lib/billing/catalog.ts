@@ -239,3 +239,15 @@ export const PASSES: readonly PassDefinition[] = [
   { name: "30-Day Pass", duration_days: 30, price_ngn: 13500 },
   { name: "90-Day Pass", duration_days: 90, price_ngn: 30000 },
 ];
+
+/**
+ * send-345 Part B — "Let Farah screen this for you," a paid, per-question,
+ * opt-in AI review of a free_text screening answer (0176), charged from the
+ * EMPLOYER's ad wallet, not credits — see `record_farah_screening_review`.
+ *
+ * A ₦100 PLACEHOLDER GUESS, not a researched anchor, unlike the credit-pack
+ * and pass numbers above — this exists because the code needs a number, not
+ * because anyone has priced this feature. Revisit before treating it as
+ * considered.
+ */
+export const FARAH_SCREENING_REVIEW_NGN = 100;
