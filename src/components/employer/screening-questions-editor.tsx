@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { MAX_SCREENING_QUESTIONS, type ScreeningQuestionInput } from "@/lib/employer/screening-questions";
+import { FARAH_SCREENING_REVIEW_NGN } from "@/lib/billing/catalog";
 
 let nextKey = 0;
 function freshKey(): string {
@@ -34,6 +35,7 @@ const emptyRow = (): Row => ({
   required: true,
   expectedYesNo: true,
   minValue: null,
+  screeningMode: "self",
 });
 
 /** ≥40×40 hit target on add/remove — the same rule every other control on this app follows. */
@@ -75,6 +77,10 @@ export function ScreeningQuestionsEditor({ initial = [] }: { initial?: Screening
     required: r.required,
     expectedYesNo: r.questionType === "yes_no" ? r.expectedYesNo : null,
     minValue: r.questionType === "min_number" ? r.minValue : null,
+    // screening_mode is only ever meaningful on free_text (0176's own CHECK
+    // constraint) — forced back to 'self' for the other two types here too,
+    // matching parseScreeningQuestionsForm's own server-side re-check.
+    screeningMode: r.questionType === "free_text" ? r.screeningMode : "self",
   }));
 
   return (
@@ -108,6 +114,29 @@ export function ScreeningQuestionsEditor({ initial = [] }: { initial?: Screening
                 <p className="font-body text-[12px] text-ink-soft">
                   Candidates will type a short written answer — there&apos;s no pass/fail for this one.
                 </p>
+              )}
+              {row.questionType === "free_text" && (
+                <div className="mt-1 flex flex-col gap-1.5">
+                  <label htmlFor={`screening-mode-${row.key}`} className="font-body text-[12.5px] font-semibold text-ink-soft">
+                    Who reviews the answer
+                  </label>
+                  <select
+                    id={`screening-mode-${row.key}`}
+                    value={row.screeningMode}
+                    onChange={(e) => update(row.key, { screeningMode: e.target.value === "farah" ? "farah" : "self" })}
+                    className="min-h-11 w-fit border-[1.5px] border-ink bg-card px-3.5 py-2.5 font-body text-[15px] text-ink outline-none focus:border-rust"
+                  >
+                    <option value="self">I&apos;ll review these myself</option>
+                    <option value="farah">Let Farah screen these for me — ₦{FARAH_SCREENING_REVIEW_NGN}/answer</option>
+                  </select>
+                  {row.screeningMode === "farah" && (
+                    <p className="font-body text-[12px] text-ink-soft">
+                      Farah adds a Strong/Adequate/Weak read plus a short summary next to the raw answer, charged
+                      from your ad wallet per answer reviewed. It never affects whether the application counts as
+                      passing screening.
+                    </p>
+                  )}
+                </div>
               )}
             </div>
             <button

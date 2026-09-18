@@ -5,6 +5,16 @@ export const MAX_SCREENING_QUESTIONS = 5;
 
 export type ScreeningQuestionType = "yes_no" | "min_number" | "free_text";
 
+/**
+ * send-345 Part B (0176) — 'self' (default): the employer reads the raw
+ * answer themselves, today's behaviour unchanged. 'farah': an LLM-generated
+ * advisory tier/summary is attached on top, billed per review from the
+ * employer's ad wallet. Only valid on a free_text question — the database
+ * CHECK constraint (0176) is the real enforcement; the parse/reconcile below
+ * just refuses to submit an invalid combination.
+ */
+export type ScreeningMode = "self" | "farah";
+
 /** The shape the client editor produces, JSON-encoded into one hidden input. */
 export interface ScreeningQuestionInput {
   /** Present only for a question that already exists (editing) — absent for a new one. */
@@ -14,6 +24,7 @@ export interface ScreeningQuestionInput {
   required: boolean;
   expectedYesNo: boolean | null;
   minValue: number | null;
+  screeningMode: ScreeningMode;
 }
 
 /**
@@ -62,21 +73,29 @@ export function parseScreeningQuestionsForm(
     const required = q.required !== false;
     const id = typeof q.id === "string" && q.id ? q.id : undefined;
 
+    // screening_mode is only ever meaningful on a free_text question (0176's
+    // own CHECK constraint) — a yes_no/min_number question is silently
+    // forced back to 'self' here rather than trusted from the client, the
+    // same defensive stance this function already takes on every other
+    // field a hand-crafted request could otherwise abuse.
+    const screeningMode: ScreeningMode = questionType === "free_text" && q.screeningMode === "farah" ? "farah" : "self";
+
     if (questionType === "yes_no") {
       if (typeof q.expectedYesNo !== "boolean") {
         return { ok: false, error: `"${questionText}" needs a Yes or No answer marked as passing.` };
       }
-      value.push({ id, questionText, questionType, required, expectedYesNo: q.expectedYesNo, minValue: null });
+      value.push({ id, questionText, questionType, required, expectedYesNo: q.expectedYesNo, minValue: null, screeningMode });
     } else if (questionType === "min_number") {
       const minValue = typeof q.minValue === "number" ? q.minValue : Number(q.minValue);
       if (!Number.isFinite(minValue)) {
         return { ok: false, error: `"${questionText}" needs a minimum number to pass.` };
       }
-      value.push({ id, questionText, questionType, required, expectedYesNo: null, minValue });
+      value.push({ id, questionText, questionType, required, expectedYesNo: null, minValue, screeningMode });
     } else {
-      // free_text — no grading config at all, just the question text and
-      // whether it's required. See 0175's own header for why.
-      value.push({ id, questionText, questionType, required, expectedYesNo: null, minValue: null });
+      // free_text — no grading config at all, just the question text,
+      // whether it's required, and (send-345) who screens it. See 0175's
+      // own header for why there's no pass/fail to configure.
+      value.push({ id, questionText, questionType, required, expectedYesNo: null, minValue: null, screeningMode });
     }
   }
 
@@ -160,6 +179,7 @@ export async function reconcileScreeningQuestions(
       expected_yes_no: q.expectedYesNo,
       min_value: q.minValue,
       sort_order: index,
+      screening_mode: q.screeningMode,
     };
     if (q.id) {
       const { error } = await supabase.from("job_posting_screening_questions").update(row).eq("id", q.id);
