@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState } from "react";
+import { useActionState, useEffect, useRef, useState, type RefObject } from "react";
 import { MAX_EXPIRY_DAYS } from "@/lib/employer/expiry-input";
 import { BorderedCard, Button, FilterChip, TextField } from "@/components/ui";
 import { cn } from "@/lib/cn";
@@ -8,6 +8,7 @@ import { extractStructuredJd, SKILL_VOCABULARY } from "@/lib/jobs/extract-jd";
 import { ScreeningQuestionsEditor } from "./screening-questions-editor";
 import type { ScreeningQuestionInput } from "@/lib/employer/screening-questions";
 import type { EmployerActionState } from "@/lib/employer/actions";
+import { renderJobDescriptionMarkdown } from "@/lib/farah/render-markdown";
 
 /**
  * A select whose option labels differ from their stored values.
@@ -355,6 +356,123 @@ function SkillsAutocomplete({
   );
 }
 
+/** ≥40×40 hit target, same rule every other interactive element on this app follows. */
+const TOOLBAR_BUTTON =
+  "flex min-h-10 min-w-10 items-center justify-center border-[1.5px] border-ink px-2.5 font-body text-[13px] font-semibold text-ink hover:border-rust hover:text-rust";
+
+/**
+ * Wraps the textarea's current selection in `before`/`after` (bold/italic).
+ * An empty selection still inserts both markers with the cursor left
+ * between them, ready to type — the same behavior most editors give a
+ * "Bold" button pressed with nothing selected.
+ */
+function wrapSelection(el: HTMLTextAreaElement, before: string, after: string = before) {
+  const { selectionStart, selectionEnd, value } = el;
+  const selected = value.slice(selectionStart, selectionEnd);
+  el.value = value.slice(0, selectionStart) + before + selected + after + value.slice(selectionEnd);
+  const cursorStart = selectionStart + before.length;
+  el.focus();
+  el.setSelectionRange(cursorStart, cursorStart + selected.length);
+}
+
+/**
+ * Applies `transform` to every line touched by the current selection, not
+ * just the line the cursor happens to sit on — a multi-line selection turned
+ * into a list should turn EVERY selected line into a list item.
+ */
+function transformSelectedLines(el: HTMLTextAreaElement, transform: (lines: string[]) => string[]) {
+  const { selectionStart, selectionEnd, value } = el;
+  const lineStart = value.lastIndexOf("\n", selectionStart - 1) + 1;
+  const nextBreak = value.indexOf("\n", selectionEnd);
+  const lineEnd = nextBreak === -1 ? value.length : nextBreak;
+  const selectedLines = value.slice(lineStart, lineEnd);
+  const newSelectedLines = transform(selectedLines.split("\n")).join("\n");
+  el.value = value.slice(0, lineStart) + newSelectedLines + value.slice(lineEnd);
+  el.focus();
+  el.setSelectionRange(lineStart, lineStart + newSelectedLines.length);
+}
+
+/**
+ * send-346 — the description field's markdown-formatting toolbar. Bold,
+ * italic, and lists are the whole subset: `renderJobDescriptionMarkdown`
+ * (src/lib/farah/render-markdown.tsx) already parses this syntax today,
+ * unchanged — the gap this closes is that nothing in the form let an
+ * employer PRODUCE it without knowing to hand-type `**`/`-`/`1.`. No new
+ * dependency, no rich-text editor, no contentEditable: the field stays a
+ * plain textarea storing the same plain markdown-subset text the renderer
+ * already expects, which is also exactly what keeps this safe — there is
+ * nothing new here to sanitize.
+ *
+ * Deliberately excludes a "justify" control — see this feature's own PR
+ * description for why: alignment isn't a markdown construct at all (it's an
+ * HTML/CSS idea with no plain-text encoding), and the two ways to fake it —
+ * a bespoke non-standard syntax, or storing HTML — either invent a format
+ * nothing else here reads or reopen the injection surface this renderer's
+ * whole design (no `<a>`, no `<img>`, no `dangerouslySetInnerHTML`) exists
+ * to avoid.
+ *
+ * `onFormat` is called after every change so the caller's own debounced
+ * skill-extraction (handleDescriptionChange) still fires — a toolbar click
+ * is a real edit to the description, the same as typing.
+ */
+function DescriptionToolbar({
+  textareaRef,
+  onFormat,
+}: {
+  textareaRef: RefObject<HTMLTextAreaElement | null>;
+  onFormat: () => void;
+}) {
+  function run(mutate: (el: HTMLTextAreaElement) => void) {
+    const el = textareaRef.current;
+    if (!el) return;
+    mutate(el);
+    onFormat();
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <button
+        type="button"
+        aria-label="Bold"
+        title="Bold"
+        onClick={() => run((el) => wrapSelection(el, "**"))}
+        className={TOOLBAR_BUTTON}
+      >
+        B
+      </button>
+      <button
+        type="button"
+        aria-label="Italic"
+        title="Italic"
+        onClick={() => run((el) => wrapSelection(el, "*"))}
+        className={cn(TOOLBAR_BUTTON, "italic")}
+      >
+        I
+      </button>
+      <button
+        type="button"
+        aria-label="Bulleted list"
+        title="Bulleted list"
+        onClick={() => run((el) => transformSelectedLines(el, (lines) => lines.map((l) => `- ${l}`)))}
+        className={TOOLBAR_BUTTON}
+      >
+        •
+      </button>
+      <button
+        type="button"
+        aria-label="Numbered list"
+        title="Numbered list"
+        onClick={() =>
+          run((el) => transformSelectedLines(el, (lines) => lines.map((l, i) => `${i + 1}. ${l}`)))
+        }
+        className={cn(TOOLBAR_BUTTON, "text-[12px]")}
+      >
+        1.
+      </button>
+    </div>
+  );
+}
+
 export interface JobFormValues {
   title: string;
   location: string;
@@ -409,6 +527,13 @@ export function JobPostingForm({
   });
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // null = editing (the textarea is the source of truth); a string = a
+  // snapshot taken the moment "Preview" was clicked, rendered through the
+  // SAME renderJobDescriptionMarkdown the live job page uses. The textarea
+  // itself is never unmounted while previewing — it's uncontrolled
+  // (defaultValue, not value), so removing it from the tree would throw away
+  // whatever was typed the moment the employer switched back to "Edit".
+  const [previewText, setPreviewText] = useState<string | null>(null);
 
   /**
    * Covers the blank-form case the mount-time seed above can't: an employer
@@ -541,26 +666,58 @@ export function JobPostingForm({
           )}
 
           <div className="flex flex-col gap-1.5">
-            <label
-              htmlFor="description"
-              className="font-body text-[13px] font-semibold text-ink-soft"
-            >
-              Job description
-            </label>
-            <textarea
-              id="description"
-              name="description"
-              required
-              rows={14}
-              ref={descriptionRef}
-              defaultValue={initial?.description}
-              onChange={handleDescriptionChange}
-              placeholder="Responsibilities, requirements, what the team is like, how to stand out."
-              className="border-[1.5px] border-ink bg-card px-3.5 py-2.5 font-body text-[15px] leading-[1.65] text-ink outline-none focus:border-rust"
-            />
+            <div className="flex items-center justify-between">
+              <label
+                htmlFor="description"
+                className="font-body text-[13px] font-semibold text-ink-soft"
+              >
+                Job description
+              </label>
+              <button
+                type="button"
+                onClick={() =>
+                  setPreviewText((current) => (current === null ? descriptionRef.current?.value ?? "" : null))
+                }
+                className="min-h-10 border-[1.5px] border-ink px-3.5 font-body text-[13px] font-semibold text-ink hover:border-rust hover:text-rust"
+              >
+                {previewText === null ? "Preview" : "Edit"}
+              </button>
+            </div>
+
+            {/*
+              The textarea (and its toolbar) stay MOUNTED while previewing,
+              just visually hidden — see the previewText state comment above
+              for why unmounting would lose an uncontrolled field's value.
+            */}
+            <div className={cn("flex flex-col gap-1.5", previewText !== null && "hidden")}>
+              <DescriptionToolbar textareaRef={descriptionRef} onFormat={handleDescriptionChange} />
+              <textarea
+                id="description"
+                name="description"
+                required
+                rows={14}
+                ref={descriptionRef}
+                defaultValue={initial?.description}
+                onChange={handleDescriptionChange}
+                placeholder="Responsibilities, requirements, what the team is like, how to stand out."
+                className="border-[1.5px] border-ink bg-card px-3.5 py-2.5 font-body text-[15px] leading-[1.65] text-ink outline-none focus:border-rust"
+              />
+            </div>
+
+            {previewText !== null && (
+              <div className="min-h-[280px] border-[1.5px] border-ink bg-card px-3.5 py-2.5">
+                {previewText.trim() ? (
+                  renderJobDescriptionMarkdown(previewText)
+                ) : (
+                  <p className="font-body text-[15px] italic text-ink-soft">Nothing to preview yet.</p>
+                )}
+              </div>
+            )}
+
             <p className="font-body text-[12.5px] text-ink-soft">
               This is what seekers are matched against — the more concrete the requirements, the
-              better the match scores.
+              better the match scores. Use bold, bullets, or numbered steps to make responsibilities
+              and requirements easy to scan.
             </p>
           </div>
 
