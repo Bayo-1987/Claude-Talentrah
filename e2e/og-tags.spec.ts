@@ -34,7 +34,7 @@ const GENERIC = "Talentrah";
 
 /** A representative sample: one of each shape that sets its own title. */
 const PAGES = [
-  { path: "/", expect: "AI Job Search Copilot for Nigeria & Africa — Talentrah" },
+  { path: "/", expect: "AI Job Search Copilot — Talentrah" },
   { path: "/about", expect: "About — Talentrah" },
   { path: "/contact", expect: "Contact — Talentrah" },
   { path: "/blog", expect: "Blog — Talentrah" },

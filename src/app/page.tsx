@@ -20,15 +20,15 @@ import { pageMetadata } from "@/lib/seo/site";
  * "AI-powered career platform for job seekers in Nigeria and across Africa"
  * was backwards: it's the page most backlinks and brand searches land on.
  *
- * COPY BELOW IS A SUGGESTED DIRECTION, NOT SIGNED-OFF FINAL WORDING — flagged
- * for founder review before this ships, per the audit that found this gap.
- * States the product and claims the "AI job search copilot for Nigeria &
- * Africa" positioning explicitly in the title itself, since that's the one
- * tag most likely to be quoted back in a search result — Jobright (the
- * closest global equivalent) says neither Nigeria nor Africa anywhere.
+ * FOUNDER-REVIEWED 2026-09-18: the audit's original draft put the "Nigeria &
+ * Africa" positioning in the title itself, on the theory that the title is
+ * the tag most likely to get quoted back in a search result. The founder's
+ * call was to keep the title short and let the description carry the
+ * geography instead — description still names Nigeria and Africa explicitly,
+ * this is a title-length decision, not a retreat from the positioning.
  */
 export const metadata: Metadata = pageMetadata({
-  title: "AI Job Search Copilot for Nigeria & Africa — Talentrah",
+  title: "AI Job Search Copilot — Talentrah",
   description:
     "Talentrah matches you to real jobs across Nigeria and Africa, tailors your resume and cover letter with AI, and preps you for interviews — free to start.",
   path: "/",
