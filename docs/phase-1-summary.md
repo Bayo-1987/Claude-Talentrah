@@ -1,9 +1,12 @@
 # Talentrah Phase 1 — end-of-build summary
 
 Required by build-prompt §11 and the plan doc's M10. First written 2026-08-24;
-re-verified against `main` after PRs #17–#22; **last updated 2026-08-25 after a
-forensic audit of the org-membership escalation** (see *Forensic audit* below),
-which is also when the second route to the same privilege was found.
+re-verified against `main` after PRs #17–#22; **last updated 2026-09-18 after
+closing the resume-upload onboarding dead end** (`#457`, `#458`) — see *Resume
+upload at onboarding was a permanent dead end* below. Previously updated
+2026-08-25 after a forensic audit of the org-membership escalation (see
+*Forensic audit* below), which is also when the second route to the same
+privilege was found.
 
 Milestone names below follow **the plan doc** (`~/.claude/plans/adaptive-giggling-ember.md`), not the PR labels — those diverged partway through, which is itself worth knowing (see *Numbering drift*).
 
@@ -79,6 +82,7 @@ Each stands in for an open `[DECIDE]` item and should be revisited, not inherite
 - **A second published credential**, shared by the two seeded referral accounts, found by the follow-up history-wide sweep and still live at the time — rotated, old value confirmed dead. Full results in [docs/secrets-audit.md](secrets-audit.md).
 - **Organisation-membership RLS, two defects, both live until 2026-08-24** (`0026`). Any authenticated user could `INSERT` themselves into **any** organisation with a caller-chosen role of `owner` — the policy checked only `user_id = auth.uid()` and never asked whether the caller had any relationship to the org (verified against the live project: HTTP 201, real row). Separately, the `organization_members` SELECT policy referenced its own table, so it — and every policy resolving membership through it (`organizations` UPDATE, `job_postings` INSERT/UPDATE) — failed with "infinite recursion detected in policy". The second masked the first: the escalation could not go anywhere because the downstream rules crashed before they could allow anything, so fixing the recursion alone would have switched it on. Both fixed together in one migration, with `tests/rls/org-and-referral-scoping.test.ts` proven to fail twice against the unfixed database and a positive control proving the legitimate path (create org → join → read → edit → post) still works.
 - **Nav clicks appeared to hang for 11 days after the fix for that broke real 404s** (`#218`→`#221`, regression open 2026-09-05 to 2026-09-16, restored by `#430`–`#433`). See *Nav clicks appeared to hang, then the fix silently broke real 404s* below.
+- **Skipping resume upload at onboarding was a permanent dead end — no UI path anywhere in the product could ever create a base resume afterward** (`#457`, `#458`, 2026-09-17/18). Real user report, root-caused by reading the code rather than guessed from the symptom. See *Resume upload at onboarding was a permanent dead end* below.
 
 ## Forensic audit — was the org-membership escalation ever used?
 
@@ -1058,3 +1062,105 @@ longer skipped. No root `(app)/loading.tsx` exists anywhere in the tree.
 `jobs/[id]`, `scholarships/[id]` and `scholarships/degree/[level]` all still
 return a genuine HTTP `404` for missing, missing, and below-threshold content
 respectively.
+
+## Resume upload at onboarding was a permanent dead end (`#457`, `#458`)
+
+A real user report — founder tested it himself: create an account, click
+"Skip for now" on the onboarding resume upload, later use "Build a resume" or
+"Import my resume" in the Resume Builder, and the jobs feed still shows "You
+don't have a resume yet" / 0% match scores **forever**, even with a resume
+sitting right there in "Your resumes." Root-caused by reading the actual code,
+not guessed from the symptom.
+
+**The gap, exactly.** Two independent facts collided. `/onboarding`
+permanently redirects away once `onboarding_skipped_at` is set — deliberate,
+first-skip-wins (0112), specifically so a legitimate skipper is never re-nagged
+— but that makes the page's own `<ResumeUpload>` (the only component
+configuration anywhere that calls `upsertBaseResume`) permanently unreachable
+for that user. Separately, `ResumeListRow`'s "Replace" button — the only
+*other* UI entry point to `upsertBaseResume` — only renders on a row that is
+**already** `is_base: true`. "Build a resume" and "Import my resume" are the
+founder's own deliberately-corrected flow (Stage 3.1/send-119): they create
+`is_base: false` builder rows on purpose, so styling a resume for export never
+silently repoints the canonical resume Auto-Apply submits. Put together, a
+user with zero `is_base` resumes had **no reachable UI path anywhere in the
+product** to ever create one — not a bug in `upsertBaseResume` itself, which
+already handled "no existing row" correctly as a plain INSERT. Beyond match
+scoring/tailoring/Auto-Apply/cover letters, this silently affected referral
+activation too: `check_and_activate_referral` treats activation as "has a base
+resume OR has an application with `applied_at` set" (see *Referral
+activation* above), so a referred signup who skipped onboarding and never got
+around to applying stayed permanently un-activated with no obvious reason why.
+
+**The fix (`#457`).** Did not touch `/onboarding`'s redirect — that behaviour
+is correct and deliberate. Instead, `ReplaceBaseResume` (the existing,
+three-step upload → preview → confirm component) gained an optional `variant`
+prop: `"replace"` (default) preserves every existing copy string byte for
+byte; `"first-upload"` swaps "replaces your current base resume"/"has been
+updated" for "becomes your base resume"/"has been saved," since there is
+nothing to replace yet. Same component, same `replaceBaseResumeAction`, same
+`upsertBaseResume` call either way — only the words differ. A new
+`FirstBaseResumePanel`, mounted on `/resume-builder` whenever `!hasBaseResume`
+(reusing the page's own existing query), sits above "Three ways to start" and
+"Your resumes" as the highest-priority action for this user segment, expanded
+by default so uploading takes zero extra clicks. Once this shipped, the jobs
+feed's pre-existing "Add one in the Resume Builder" link became honest for the
+first time — same href, now something real to click.
+
+**A second, related dead link, found in passing and fixed separately
+(`#458`).** `EmptySkillsNotice` — shown only to a user who already *has* a
+base resume, just one with an empty skills array — offered "Upload your
+resume again" pointing at `/onboarding`. Same root cause as above, mirror
+image: `/onboarding` redirects away immediately for **any** existing base
+resume regardless of its content, so this link was dead for exactly the
+segment the notice targets. Not a total dead end (that user's row already has
+a working "Replace" button in "Your resumes"), just a dead link to the wrong
+page — repointed at `/resume-builder`, and the pre-existing test that pinned
+the old destination (`empty-skills-notice-render.test.tsx`) was extended with
+an explicit negative assertion rather than left to bit-rot.
+
+**A real race condition, caught by CI and root-caused rather than dismissed as
+a flake.** `#457`'s own new e2e test (`resume-builder-first-upload.spec.ts`)
+failed on GitHub Actions with a 15s timeout waiting for "Your resume has been
+saved" — but passed reliably in every local run first. The failure's own
+accessibility snapshot was the tell: the base resume had already been
+correctly created and was listed under "Your resumes" by the time the
+assertion ran, with `FirstBaseResumePanel` already gone and the confirmation
+message never having rendered at all. Cause: `replaceBaseResumeAction`'s own
+`revalidatePath("/resume-builder")` triggers Next's automatic
+post-Server-Action router refresh the instant the confirm click's `await`
+resolves; that refresh re-renders the page with `hasBaseResume` now `true`,
+and since the panel was mounted via `{!hasBaseResume && <FirstBaseResumePanel
+/>}`, the refresh unmounted the whole component — confirmation state included
+— before the "done" screen it was about to show could ever paint. Passing
+locally and failing in CI is exactly the shape this class of bug takes; see
+*A test failure reproduced only under `npm run dev`* above for the general
+pattern this is one more instance of, one layer further in (this one
+reproduced locally too, under `build && start` — it just won the race
+differently each time depending on machine timing). Fixed by mounting the
+panel unconditionally and reading `hasBaseResume` only as a `useState`
+initializer, which runs once on mount: a same-render revalidation refresh now
+updates the prop without resetting that state, so the confirmation survives
+it, while an actual fresh navigation (a real new mount) still correctly
+re-evaluates the initial value. Verified with 5 consecutive local e2e runs
+plus a subsequent real CI run where `resume-builder-first-upload.spec.ts`
+went from an 18.2s timeout to a clean 3.4s pass.
+
+**Also surfaced, and worth recording separately: the entry-6 Playwright flake,
+confirmed six times over, not touched.** Across the six CI runs this batch of
+PRs produced (`#455`, `#456`, `#457`×2, `#458`×2), `e2e/job-detail.spec.ts`
+failed on every single one with the byte-for-byte identical assertion — a
+live Moniepoint job description's `·`-vs-space bullet-character mismatch
+against real, externally-hosted content this project does not control. Worth
+naming explicitly rather than waving at as "the known flake" each time: it is
+the same one test, the same one cause, confirmed six times running, and none
+of the other five CI runs' failures (`resume-builder-first-upload.spec.ts` on
+one `#457` run, fixed above; `employer-new-job-banner.spec.ts` on one `#458`
+run, a genuine one-off crop-dialog timing issue that did not reproduce on a
+second run) were this test — a real, useful data point for the next person
+tempted to write this whole class of CI noise off as one thing.
+
+**Current verified state:** `#457` and `#458` both merged to `main`
+(`d889848`, `5ead39a`), `FirstBaseResumePanel` confirmed green in CI
+post-fix, `resume-builder-import.spec.ts` and `resume-builder-replace.spec.ts`
+both still pass unmodified.
