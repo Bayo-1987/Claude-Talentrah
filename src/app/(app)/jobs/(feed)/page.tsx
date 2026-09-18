@@ -1101,6 +1101,7 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
               explanation={explanation}
             origin={origin}
             countryState={countryState}
+            hasBaseResume={hasBaseResume}
             /*
               null vs 0 is the distinction the card renders. A posting with no
               row in the map has had nobody apply — that is 0, not unknown.
