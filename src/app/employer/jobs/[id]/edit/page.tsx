@@ -3,10 +3,12 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requireEmployer } from "@/lib/employer/membership";
 import { updateJobAction } from "@/lib/employer/actions";
-import { EyebrowLabel } from "@/components/ui";
+import { BorderedCard, EyebrowLabel } from "@/components/ui";
 import { JobPostingForm } from "@/components/employer/job-posting-form";
 import { JobBannerUpload } from "@/components/employer/job-banner-upload";
 import { bannerPublicUrl } from "@/lib/employer/banner";
+import { AssessmentExerciseUpload } from "@/components/employer/assessment-exercise-upload";
+import { assessmentExerciseUrl } from "@/lib/employer/assessment-document";
 
 export const metadata = { title: "Edit job — Talentrah" };
 
@@ -32,6 +34,12 @@ export default async function EditJobPage({ params }: { params: Promise<{ id: st
     .select("id, question_text, question_type, required, expected_yes_no, min_value, screening_mode")
     .eq("job_posting_id", id)
     .order("sort_order", { ascending: true });
+
+  const { data: assessment } = await supabase
+    .from("job_posting_assessments")
+    .select("title, instructions, exercise_file_path, exercise_link, required")
+    .eq("job_posting_id", id)
+    .maybeSingle();
 
   // `structured_jd` is a loose `Json` column — a legacy row from before this
   // field existed defaults to `{}` with no `skills` key at all, which reads
@@ -104,9 +112,42 @@ export default async function EditJobPage({ params }: { params: Promise<{ id: st
               minValue: q.min_value,
               screeningMode: q.screening_mode as "self" | "farah",
             })),
+            assessment: assessment
+              ? {
+                  title: assessment.title,
+                  instructions: assessment.instructions,
+                  exerciseLink: assessment.exercise_link,
+                  required: assessment.required,
+                }
+              : null,
           }}
         />
       </div>
+      {/*
+        A separate card, same reason JobBannerUpload is one above rather
+        than living inside JobPostingForm's own <form>: a File upload
+        can't be threaded through a hidden form field the way title/
+        instructions/link/required are, and this needs job.id to build its
+        storage path from — see AssessmentExerciseUpload's own header.
+      */}
+      {assessment && (
+        <BorderedCard className="mt-6 flex flex-col gap-3 p-6">
+          <EyebrowLabel>Assessment exercise file</EyebrowLabel>
+          <AssessmentExerciseUpload
+            jobId={job.id}
+            hasAssessment
+            currentFileUrl={assessmentExerciseUrl({
+              supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
+              exerciseFilePath: assessment.exercise_file_path,
+              // organization.id, not job.organization_id: the initial job
+              // fetch above is already scoped `.eq("organization_id",
+              // organization.id)`, so the two are proven equal and this
+              // one is non-nullable.
+              organizationId: organization.id,
+            })}
+          />
+        </BorderedCard>
+      )}
     </div>
   );
 }

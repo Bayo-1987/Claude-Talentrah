@@ -537,6 +537,64 @@ export type Database = {
           },
         ]
       }
+      application_assessment_submissions: {
+        Row: {
+          application_id: string
+          created_at: string
+          id: string
+          job_posting_id: string
+          organization_id: string
+          response_file_path: string | null
+          response_link: string | null
+          response_text: string | null
+          submitted_at: string
+        }
+        Insert: {
+          application_id: string
+          created_at?: string
+          id?: string
+          job_posting_id: string
+          organization_id: string
+          response_file_path?: string | null
+          response_link?: string | null
+          response_text?: string | null
+          submitted_at?: string
+        }
+        Update: {
+          application_id?: string
+          created_at?: string
+          id?: string
+          job_posting_id?: string
+          organization_id?: string
+          response_file_path?: string | null
+          response_link?: string | null
+          response_text?: string | null
+          submitted_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "application_assessment_submissions_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: true
+            referencedRelation: "applications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "application_assessment_submissions_job_posting_id_fkey"
+            columns: ["job_posting_id"]
+            isOneToOne: false
+            referencedRelation: "job_postings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "application_assessment_submissions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       application_screening_answers: {
         Row: {
           answer_number: number | null
@@ -1348,6 +1406,70 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      job_posting_assessments: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          exercise_file_path: string | null
+          exercise_link: string | null
+          id: string
+          instructions: string
+          job_posting_id: string
+          organization_id: string
+          required: boolean
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          exercise_file_path?: string | null
+          exercise_link?: string | null
+          id?: string
+          instructions: string
+          job_posting_id: string
+          organization_id: string
+          required?: boolean
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          exercise_file_path?: string | null
+          exercise_link?: string | null
+          id?: string
+          instructions?: string
+          job_posting_id?: string
+          organization_id?: string
+          required?: boolean
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_posting_assessments_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_posting_assessments_job_posting_id_fkey"
+            columns: ["job_posting_id"]
+            isOneToOne: true
+            referencedRelation: "job_postings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_posting_assessments_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -3954,6 +4076,15 @@ export type Database = {
       submit_ad_campaign_for_review: {
         Args: { p_actor_user_id: string; p_campaign_id: string }
         Returns: Database["public"]["Enums"]["ad_campaign_status"]
+      }
+      submit_assessment_response: {
+        Args: {
+          p_application_id: string
+          p_response_file_path: string | null
+          p_response_link: string | null
+          p_response_text: string | null
+        }
+        Returns: boolean
       }
       submit_screening_answers: {
         Args: { p_answers: Json; p_application_id: string }

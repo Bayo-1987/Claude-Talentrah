@@ -256,89 +256,129 @@ export interface ScreeningAnswerInput {
 }
 
 /**
- * send-327 — the apply flow for a job that has screening questions. Does
- * the SAME write `applyInAppAction` does (via the shared `performInAppApply`
- * core, so nothing about the application itself is a second implementation),
- * then records the candidate's answers via `submit_screening_answers`
- * (0171) — a single SECURITY DEFINER call that computes `passed` per answer
- * and `applications.screening_passed` overall, atomically.
+ * send-346 v2 — a candidate's response to a job posting's assessment,
+ * submitted alongside screening answers in the same combined apply call.
+ * At most one of `responseFilePath`/`responseLink` is meaningful — the
+ * table's own CHECK constraint (0177) and submit_assessment_response's own
+ * guard both refuse both being set, matching the "alternatives, not both"
+ * framing exercise_file_path/exercise_link already has on the employer side.
+ */
+export interface AssessmentResponseInput {
+  responseText?: string;
+  responseFilePath?: string;
+  responseLink?: string;
+}
+
+function hasAssessmentResponse(input: AssessmentResponseInput | undefined): input is AssessmentResponseInput {
+  return !!input && !!(input.responseText || input.responseFilePath || input.responseLink);
+}
+
+/**
+ * send-327 — the apply flow for a job that has screening questions and/or
+ * an assessment (send-346 v2 widened this beyond just screening — the name
+ * stayed to avoid a second near-identical function, since both additions
+ * share the exact same "apply first, attach more data second, report a
+ * partial failure honestly" shape). Does the SAME write `applyInAppAction`
+ * does (via the shared `performInAppApply` core, so nothing about the
+ * application itself is a second implementation), then records the
+ * candidate's screening answers via `submit_screening_answers` (0171) and/or
+ * their assessment response via `submit_assessment_response` (0177) — two
+ * independent SECURITY DEFINER calls, each atomic on its own.
  *
- * A failed screening question NEVER blocks the application — see 0171's own
- * header for the block-vs-flag decision. If the answers write itself fails
- * for some other reason (a real error, not a failed question), the
- * application the candidate cares about has ALREADY been recorded by the
- * time this runs; the error is surfaced but nothing here rolls the apply
- * back, the same "a partial success is reported honestly, not hidden behind
- * an all-or-nothing illusion this isn't actually a transaction" stance
+ * Neither ever blocks the application — see 0171's own header for the
+ * block-vs-flag decision, which 0177's assessment table deliberately
+ * mirrors (no grading exists to block on in the first place). If either
+ * write fails for a real reason (not "nothing to submit"), the application
+ * the candidate cares about has ALREADY been recorded by the time this
+ * runs; the error is surfaced but nothing here rolls the apply back, the
+ * same "a partial success is reported honestly, not hidden behind an
+ * all-or-nothing illusion this isn't actually a transaction" stance
  * postJobAction's own screening-question write takes.
  */
 export async function applyWithScreeningAction(
   jobId: string,
   countryState: CountryState,
   answers: ScreeningAnswerInput[],
+  assessmentResponse?: AssessmentResponseInput,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const { applicationId } = await performInAppApply(jobId, countryState);
-
-  if (answers.length === 0) return { ok: true };
-
   const { supabase } = await getAuthedUserId();
-  const { error } = await supabase.rpc("submit_screening_answers", {
-    p_application_id: applicationId,
-    p_answers: answers.map((a) => ({
-      question_id: a.questionId,
-      answer_yes_no: a.answerYesNo ?? null,
-      answer_number: a.answerNumber ?? null,
-      answer_text: a.answerText ?? null,
-    })),
-  });
 
-  if (error) {
-    return { ok: false, error: `Your application was recorded, but we couldn't save your answers: ${error.message}` };
+  if (answers.length > 0) {
+    const { error } = await supabase.rpc("submit_screening_answers", {
+      p_application_id: applicationId,
+      p_answers: answers.map((a) => ({
+        question_id: a.questionId,
+        answer_yes_no: a.answerYesNo ?? null,
+        answer_number: a.answerNumber ?? null,
+        answer_text: a.answerText ?? null,
+      })),
+    });
+
+    if (error) {
+      return { ok: false, error: `Your application was recorded, but we couldn't save your answers: ${error.message}` };
+    }
+
+    /*
+     * send-345 Part B — kick off Farah's review of any farah-mode free_text
+     * question, deferred via `after()` for the SAME reason the ad-funnel
+     * instrumentation above is: an LLM round trip must never add latency to
+     * the candidate's apply response, and a failure here must never surface
+     * to the candidate or block/delay the application, which has already been
+     * recorded by this point.
+     *
+     * Reads the just-persisted, TRIMMED answer_text back from the database
+     * rather than the raw candidate-submitted `answers` array — an
+     * all-whitespace submission is stored as null (0175's own trim rule) and
+     * correctly has nothing here to review; a genuinely answered farah-mode
+     * question gets exactly the text the employer will actually see.
+     */
+    const { data: farahQuestions } = await supabase
+      .from("job_posting_screening_questions")
+      .select("id, question_text")
+      .eq("job_posting_id", jobId)
+      .eq("screening_mode", "farah");
+
+    if (farahQuestions && farahQuestions.length > 0) {
+      const { data: persistedAnswers } = await supabase
+        .from("application_screening_answers")
+        .select("question_id, answer_text")
+        .eq("application_id", applicationId)
+        .in(
+          "question_id",
+          farahQuestions.map((q) => q.id),
+        )
+        .not("answer_text", "is", null);
+
+      for (const row of persistedAnswers ?? []) {
+        const question = farahQuestions.find((q) => q.id === row.question_id);
+        const answerText = row.answer_text;
+        if (!question || !answerText) continue;
+        after(() =>
+          runFarahScreeningReview({
+            applicationId,
+            questionId: row.question_id,
+            questionText: question.question_text,
+            answerText,
+          }),
+        );
+      }
+    }
   }
 
-  /*
-   * send-345 Part B — kick off Farah's review of any farah-mode free_text
-   * question, deferred via `after()` for the SAME reason the ad-funnel
-   * instrumentation above is: an LLM round trip must never add latency to
-   * the candidate's apply response, and a failure here must never surface
-   * to the candidate or block/delay the application, which has already been
-   * recorded by this point.
-   *
-   * Reads the just-persisted, TRIMMED answer_text back from the database
-   * rather than the raw candidate-submitted `answers` array — an
-   * all-whitespace submission is stored as null (0175's own trim rule) and
-   * correctly has nothing here to review; a genuinely answered farah-mode
-   * question gets exactly the text the employer will actually see.
-   */
-  const { data: farahQuestions } = await supabase
-    .from("job_posting_screening_questions")
-    .select("id, question_text")
-    .eq("job_posting_id", jobId)
-    .eq("screening_mode", "farah");
+  if (hasAssessmentResponse(assessmentResponse)) {
+    const { error } = await supabase.rpc("submit_assessment_response", {
+      p_application_id: applicationId,
+      p_response_text: assessmentResponse.responseText ?? null,
+      p_response_file_path: assessmentResponse.responseFilePath ?? null,
+      p_response_link: assessmentResponse.responseLink ?? null,
+    });
 
-  if (farahQuestions && farahQuestions.length > 0) {
-    const { data: persistedAnswers } = await supabase
-      .from("application_screening_answers")
-      .select("question_id, answer_text")
-      .eq("application_id", applicationId)
-      .in(
-        "question_id",
-        farahQuestions.map((q) => q.id),
-      )
-      .not("answer_text", "is", null);
-
-    for (const row of persistedAnswers ?? []) {
-      const question = farahQuestions.find((q) => q.id === row.question_id);
-      const answerText = row.answer_text;
-      if (!question || !answerText) continue;
-      after(() =>
-        runFarahScreeningReview({
-          applicationId,
-          questionId: row.question_id,
-          questionText: question.question_text,
-          answerText,
-        }),
-      );
+    if (error) {
+      return {
+        ok: false,
+        error: `Your application was recorded, but we couldn't save your assessment response: ${error.message}`,
+      };
     }
   }
 

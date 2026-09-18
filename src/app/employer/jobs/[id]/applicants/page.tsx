@@ -54,26 +54,35 @@ export default async function JobApplicantsPage({
    * for a mistyped/foreign job id that will 404 anyway — the RPC's own gate
    * means that case returns nothing regardless.
    */
-  const [{ data: job }, { data: applicants, error }, { count: screeningQuestionCount }] = await Promise.all([
-    supabase
-      .from("job_postings")
-      .select("id, title")
-      .eq("id", id)
-      .eq("organization_id", organization.id)
-      .maybeSingle(),
-    supabase.rpc("employer_job_applicants", { p_job_posting_id: id }),
-    // "View answers" (send-344) and the screening filter chips (send-326's
-    // own screening dimension) both only make sense to show at all when the
-    // posting actually has screening questions — a plain count, not a full
-    // fetch, since only the boolean matters here.
-    supabase
-      .from("job_posting_screening_questions")
-      .select("id", { count: "exact", head: true })
-      .eq("job_posting_id", id),
-  ]);
+  const [{ data: job }, { data: applicants, error }, { count: screeningQuestionCount }, { count: assessmentCount }] =
+    await Promise.all([
+      supabase
+        .from("job_postings")
+        .select("id, title")
+        .eq("id", id)
+        .eq("organization_id", organization.id)
+        .maybeSingle(),
+      supabase.rpc("employer_job_applicants", { p_job_posting_id: id }),
+      // "View answers" (send-344) and the screening filter chips (send-326's
+      // own screening dimension) both only make sense to show at all when the
+      // posting actually has screening questions — a plain count, not a full
+      // fetch, since only the boolean matters here.
+      supabase
+        .from("job_posting_screening_questions")
+        .select("id", { count: "exact", head: true })
+        .eq("job_posting_id", id),
+      // send-346 v2 — same "plain count, only the boolean matters" shape,
+      // independent of screening questions: a posting can have one without
+      // the other, or both.
+      supabase
+        .from("job_posting_assessments")
+        .select("id", { count: "exact", head: true })
+        .eq("job_posting_id", id),
+    ]);
 
   if (!job) notFound();
   const hasScreeningQuestions = (screeningQuestionCount ?? 0) > 0;
+  const hasAssessment = (assessmentCount ?? 0) > 0;
 
   /*
    * send-158's explanation derivation, unchanged — still the assistive
@@ -169,7 +178,12 @@ export default async function JobApplicantsPage({
               </p>
             </BorderedCard>
           ) : (
-            <ApplicantList jobId={job.id} applicants={filteredRows} hasScreeningQuestions={hasScreeningQuestions} />
+            <ApplicantList
+              jobId={job.id}
+              applicants={filteredRows}
+              hasScreeningQuestions={hasScreeningQuestions}
+              hasAssessment={hasAssessment}
+            />
           )}
         </>
       )}

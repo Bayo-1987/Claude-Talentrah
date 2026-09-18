@@ -10,6 +10,7 @@ import { dedupeMetaParts } from "@/components/jobs/job-card";
 import { FarahJobMenu } from "@/components/jobs/farah-job-menu";
 import { ScreeningGateApply } from "@/components/jobs/screening-gate-apply";
 import { renderJobDescriptionMarkdown } from "@/lib/farah/render-markdown";
+import { assessmentExerciseUrl } from "@/lib/employer/assessment-document";
 import { getCompanyInitials } from "@/lib/jobs/company-initials";
 import { postingAgeLine } from "@/lib/jobs/freshness";
 import { formatSalary } from "@/lib/jobs/format-salary";
@@ -165,7 +166,7 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
    */
   const { supabase, data: job } = await jobForRequest(id);
 
-  const [baseResumeResult, applicationResult, screeningQuestionsResult] = await Promise.all([
+  const [baseResumeResult, applicationResult, screeningQuestionsResult, assessmentResult] = await Promise.all([
     /*
      * Skipped entirely when signed out rather than run and discarded. Both are
      * owner-scoped by RLS so they would return nothing anyway, but issuing two
@@ -196,10 +197,19 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
       .select("id, question_text, question_type, required")
       .eq("job_posting_id", id)
       .order("sort_order", { ascending: true }),
+    // send-346 v2 — publicly readable (same RLS shape as job_postings/
+    // screening questions), so this also runs regardless of sign-in state.
+    // At most one row.
+    supabase
+      .from("job_posting_assessments")
+      .select("title, instructions, exercise_file_path, exercise_link, required")
+      .eq("job_posting_id", id)
+      .maybeSingle(),
   ]);
   const { data: baseResume, error: baseResumeError } = baseResumeResult;
   const { data: application } = applicationResult;
   const screeningQuestions = screeningQuestionsResult.data ?? [];
+  const assessmentRow = assessmentResult.data ?? null;
 
   if (!job) notFound();
 
@@ -298,6 +308,24 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
    * a human's browser sees — which is cloaking, and is penalised as such.
    */
   const jsonLd = buildJobPostingJsonLd(job);
+
+  // send-346 v2 — resolved here, once, the same "never trust the raw
+  // column past this point" discipline bannerUrl already applies just
+  // below: ScreeningGateApply only ever sees the already-checked public
+  // URL, never the raw exercise_file_path.
+  const assessment = assessmentRow
+    ? {
+        title: assessmentRow.title,
+        instructions: assessmentRow.instructions,
+        exerciseFileUrl: assessmentExerciseUrl({
+          supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
+          exerciseFilePath: assessmentRow.exercise_file_path,
+          organizationId: job.organization_id,
+        }),
+        exerciseLink: assessmentRow.exercise_link,
+        required: assessmentRow.required,
+      }
+    : null;
 
   // The feed's own parser, not a second reading of structured_jd — it already
   // tolerates a missing key, a non-array, and non-string members.
@@ -539,10 +567,11 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
           >
             Add a resume to apply
           </Link>
-        ) : screeningQuestions.length > 0 ? (
-          // send-327 — the self-assessment gate, only when the posting
-          // actually has questions. See ScreeningGateApply's own header for
-          // why a job with none keeps today's exact one-click form instead.
+        ) : screeningQuestions.length > 0 || assessment ? (
+          // send-327 / send-346 v2 — the self-assessment gate, whenever the
+          // posting has screening questions OR an assessment (or both). See
+          // ScreeningGateApply's own header for why a job with neither
+          // keeps today's exact one-click form instead.
           <ScreeningGateApply
             jobId={job.id}
             countryState={detailCountryState}
@@ -552,6 +581,7 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
               questionType: q.question_type as "yes_no" | "min_number" | "free_text",
               required: q.required,
             }))}
+            assessment={assessment}
           />
         ) : (
           <form action={applyInAppAction.bind(null, job.id, detailCountryState)}>
