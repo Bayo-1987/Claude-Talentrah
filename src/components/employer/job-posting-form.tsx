@@ -8,8 +8,7 @@ import { extractStructuredJd, SKILL_VOCABULARY } from "@/lib/jobs/extract-jd";
 import { ScreeningQuestionsEditor } from "./screening-questions-editor";
 import type { ScreeningQuestionInput } from "@/lib/employer/screening-questions";
 import type { EmployerActionState } from "@/lib/employer/actions";
-import { renderJobDescriptionMarkdown } from "@/lib/farah/render-markdown";
-import { MarkdownToolbar } from "./markdown-toolbar";
+import { RichMarkdownEditor } from "./rich-markdown-editor";
 import { AssessmentEditor } from "./assessment-editor";
 import type { JobPostingAssessmentInput } from "@/lib/employer/job-posting-assessment";
 
@@ -413,15 +412,7 @@ export function JobPostingForm({
     if (initial?.description) return extractStructuredJd(initial.description).skills;
     return [];
   });
-  const descriptionRef = useRef<HTMLTextAreaElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // null = editing (the textarea is the source of truth); a string = a
-  // snapshot taken the moment "Preview" was clicked, rendered through the
-  // SAME renderJobDescriptionMarkdown the live job page uses. The textarea
-  // itself is never unmounted while previewing — it's uncontrolled
-  // (defaultValue, not value), so removing it from the tree would throw away
-  // whatever was typed the moment the employer switched back to "Edit".
-  const [previewText, setPreviewText] = useState<string | null>(null);
 
   /**
    * Covers the blank-form case the mount-time seed above can't: an employer
@@ -432,21 +423,25 @@ export function JobPostingForm({
    * point, checked at the moment it actually commits rather than against a
    * value captured when the timer was scheduled.
    *
-   * Debounced off onChange rather than triggered on blur (the original
-   * shape): blur fires as a side effect of whatever the employer clicks
-   * next, which is "Publish job" for anyone who goes straight from typing
-   * to submitting. That makes the population's own re-render — new chips
-   * appear directly above the button — race the click already in flight:
-   * the button's on-screen position shifts out from under a pointer that
-   * already committed to the pre-shift coordinates, so the click lands on
-   * nothing and the submission never happens. Reacting to typing instead
+   * Debounced off every editor update rather than triggered on blur (the
+   * original shape): blur fires as a side effect of whatever the employer
+   * clicks next, which is "Publish job" for anyone who goes straight from
+   * typing to submitting. That makes the population's own re-render — new
+   * chips appear directly above the button — race the click already in
+   * flight: the button's on-screen position shifts out from under a pointer
+   * that already committed to the pre-shift coordinates, so the click lands
+   * on nothing and the submission never happens. Reacting to typing instead
    * means the chips settle while the employer is still writing, long before
    * any click near the button is possible.
+   *
+   * `text` arrives already serialized back to the same markdown-subset
+   * string `extractStructuredJd` has always read (send-367's rich editor
+   * only changes the AUTHORING surface — see rich-markdown-editor.tsx's own
+   * header for why the stored/extracted format is untouched).
    */
-  function handleDescriptionChange() {
+  function handleDescriptionChange(text: string) {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
-      const text = descriptionRef.current?.value ?? "";
       if (!text) return;
       const suggested = extractStructuredJd(text).skills;
       if (suggested.length === 0) return;
@@ -554,54 +549,23 @@ export function JobPostingForm({
           )}
 
           <div className="flex flex-col gap-1.5">
-            <div className="flex items-center justify-between">
-              <label
-                htmlFor="description"
-                className="font-body text-[13px] font-semibold text-ink-soft"
-              >
-                Job description
-              </label>
-              <button
-                type="button"
-                aria-label={previewText === null ? "Preview description" : "Edit description"}
-                onClick={() =>
-                  setPreviewText((current) => (current === null ? descriptionRef.current?.value ?? "" : null))
-                }
-                className="min-h-10 border-[1.5px] border-ink px-3.5 font-body text-[13px] font-semibold text-ink hover:border-rust hover:text-rust"
-              >
-                {previewText === null ? "Preview" : "Edit"}
-              </button>
-            </div>
-
             {/*
-              The textarea (and its toolbar) stay MOUNTED while previewing,
-              just visually hidden — see the previewText state comment above
-              for why unmounting would lose an uncontrolled field's value.
+              send-367 — a real WYSIWYG editor replaces the old textarea +
+              toolbar + separate Preview toggle: what the employer sees while
+              typing IS the formatted result now, so a second "Preview" mode
+              would just be showing the same thing twice. See
+              rich-markdown-editor.tsx's own header for the one rule that
+              keeps this safe (the stored string's format never changes).
             */}
-            <div className={cn("flex flex-col gap-1.5", previewText !== null && "hidden")}>
-              <MarkdownToolbar textareaRef={descriptionRef} onFormat={handleDescriptionChange} />
-              <textarea
-                id="description"
-                name="description"
-                required
-                rows={14}
-                ref={descriptionRef}
-                defaultValue={initial?.description}
-                onChange={handleDescriptionChange}
-                placeholder="Responsibilities, requirements, what the team is like, how to stand out."
-                className="border-[1.5px] border-ink bg-card px-3.5 py-2.5 font-body text-[15px] leading-[1.65] text-ink outline-none focus:border-rust"
-              />
-            </div>
-
-            {previewText !== null && (
-              <div className="min-h-[280px] border-[1.5px] border-ink bg-card px-3.5 py-2.5">
-                {previewText.trim() ? (
-                  renderJobDescriptionMarkdown(previewText)
-                ) : (
-                  <p className="font-body text-[15px] italic text-ink-soft">Nothing to preview yet.</p>
-                )}
-              </div>
-            )}
+            <RichMarkdownEditor
+              id="description"
+              name="description"
+              label="Job description"
+              required
+              defaultValue={initial?.description}
+              placeholder="Responsibilities, requirements, what the team is like, how to stand out."
+              onTextChange={handleDescriptionChange}
+            />
 
             <p className="font-body text-[12.5px] text-ink-soft">
               This is what seekers are matched against — the more concrete the requirements, the
