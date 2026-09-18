@@ -524,7 +524,7 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
             questions={screeningQuestions.map((q) => ({
               id: q.id,
               questionText: q.question_text,
-              questionType: q.question_type as "yes_no" | "min_number",
+              questionType: q.question_type as "yes_no" | "min_number" | "free_text",
               required: q.required,
             }))}
           />

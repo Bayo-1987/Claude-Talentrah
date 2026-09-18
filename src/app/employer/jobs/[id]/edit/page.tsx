@@ -98,7 +98,7 @@ export default async function EditJobPage({ params }: { params: Promise<{ id: st
             screeningQuestions: (screeningQuestions ?? []).map((q) => ({
               id: q.id,
               questionText: q.question_text,
-              questionType: q.question_type as "yes_no" | "min_number",
+              questionType: q.question_type as "yes_no" | "min_number" | "free_text",
               required: q.required,
               expectedYesNo: q.expected_yes_no,
               minValue: q.min_value,

@@ -251,6 +251,7 @@ export interface ScreeningAnswerInput {
   questionId: string;
   answerYesNo?: boolean;
   answerNumber?: number;
+  answerText?: string;
 }
 
 /**
@@ -286,6 +287,7 @@ export async function applyWithScreeningAction(
       question_id: a.questionId,
       answer_yes_no: a.answerYesNo ?? null,
       answer_number: a.answerNumber ?? null,
+      answer_text: a.answerText ?? null,
     })),
   });
 

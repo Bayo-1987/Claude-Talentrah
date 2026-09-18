@@ -42,8 +42,9 @@ const ICON_BUTTON =
 
 /**
  * send-327 — up to 5 employer-authored screening questions per posting.
- * Two types only (yes_no / min_number), matching migration 0171's own
- * constraint. Encodes the whole array as ONE hidden JSON input
+ * Three types (yes_no / min_number / free_text, send-344 added the third),
+ * matching migration 0171/0175's own constraint. Encodes the whole array as
+ * ONE hidden JSON input
  * (`screeningQuestions`) rather than indexed field names, the same reason a
  * `structured_jd` payload is JSON rather than fifty named columns — this
  * has real per-row structure (four sub-fields, one of two shapes) that a
@@ -92,14 +93,22 @@ export function ScreeningQuestionsEditor({ initial = [] }: { initial?: Screening
         <div key={row.key} className="flex flex-col gap-3 border-[1.5px] border-ink bg-card p-4">
           <div className="flex items-start gap-3">
             <div className="flex flex-1 flex-col gap-1.5">
-              <label className="font-body text-[12.5px] font-semibold text-ink-soft">Question</label>
+              <label htmlFor={`screening-question-${row.key}`} className="font-body text-[12.5px] font-semibold text-ink-soft">
+                Question
+              </label>
               <input
+                id={`screening-question-${row.key}`}
                 type="text"
                 value={row.questionText}
                 onChange={(e) => update(row.key, { questionText: e.target.value })}
                 placeholder="e.g. Authorised to work in Nigeria?"
                 className="min-h-11 border-[1.5px] border-ink bg-card px-3.5 py-2.5 font-body text-[15px] text-ink outline-none focus:border-rust"
               />
+              {row.questionType === "free_text" && (
+                <p className="font-body text-[12px] text-ink-soft">
+                  Candidates will type a short written answer — there&apos;s no pass/fail for this one.
+                </p>
+              )}
             </div>
             <button
               type="button"
@@ -113,8 +122,11 @@ export function ScreeningQuestionsEditor({ initial = [] }: { initial?: Screening
 
           <div className="flex flex-wrap items-end gap-3">
             <div className="flex flex-col gap-1.5">
-              <label className="font-body text-[12.5px] font-semibold text-ink-soft">Type</label>
+              <label htmlFor={`screening-type-${row.key}`} className="font-body text-[12.5px] font-semibold text-ink-soft">
+                Type
+              </label>
               <select
+                id={`screening-type-${row.key}`}
                 value={row.questionType}
                 onChange={(e) =>
                   update(row.key, { questionType: e.target.value as ScreeningQuestionInput["questionType"] })
@@ -123,13 +135,17 @@ export function ScreeningQuestionsEditor({ initial = [] }: { initial?: Screening
               >
                 <option value="yes_no">Yes / No</option>
                 <option value="min_number">Minimum number</option>
+                <option value="free_text">Written answer</option>
               </select>
             </div>
 
             {row.questionType === "yes_no" ? (
               <div className="flex flex-col gap-1.5">
-                <label className="font-body text-[12.5px] font-semibold text-ink-soft">Passing answer</label>
+                <label htmlFor={`screening-expected-${row.key}`} className="font-body text-[12.5px] font-semibold text-ink-soft">
+                  Passing answer
+                </label>
                 <select
+                  id={`screening-expected-${row.key}`}
                   value={row.expectedYesNo ? "yes" : "no"}
                   onChange={(e) => update(row.key, { expectedYesNo: e.target.value === "yes" })}
                   className="min-h-11 border-[1.5px] border-ink bg-card px-3.5 py-2.5 font-body text-[15px] text-ink outline-none focus:border-rust"
@@ -138,19 +154,20 @@ export function ScreeningQuestionsEditor({ initial = [] }: { initial?: Screening
                   <option value="no">No</option>
                 </select>
               </div>
-            ) : (
+            ) : row.questionType === "min_number" ? (
               <div className="flex flex-col gap-1.5">
-                <label className="font-body text-[12.5px] font-semibold text-ink-soft">
+                <label htmlFor={`screening-min-${row.key}`} className="font-body text-[12.5px] font-semibold text-ink-soft">
                   Minimum to pass
                 </label>
                 <input
+                  id={`screening-min-${row.key}`}
                   type="number"
                   value={row.minValue ?? ""}
                   onChange={(e) => update(row.key, { minValue: e.target.value ? Number(e.target.value) : null })}
                   className="min-h-11 w-32 border-[1.5px] border-ink bg-card px-3.5 py-2.5 font-body text-[15px] text-ink outline-none focus:border-rust"
                 />
               </div>
-            )}
+            ) : null}
 
             <label className="mb-2.5 flex min-h-10 cursor-pointer items-center gap-2 font-body text-[13px] text-ink-soft">
               <input

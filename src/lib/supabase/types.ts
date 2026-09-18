@@ -540,6 +540,7 @@ export type Database = {
       application_screening_answers: {
         Row: {
           answer_number: number | null
+          answer_text: string | null
           answer_yes_no: boolean | null
           application_id: string
           created_at: string
@@ -549,6 +550,7 @@ export type Database = {
         }
         Insert: {
           answer_number?: number | null
+          answer_text?: string | null
           answer_yes_no?: boolean | null
           application_id: string
           created_at?: string
@@ -558,6 +560,7 @@ export type Database = {
         }
         Update: {
           answer_number?: number | null
+          answer_text?: string | null
           answer_yes_no?: boolean | null
           application_id?: string
           created_at?: string
@@ -3589,6 +3592,18 @@ export type Database = {
         Returns: {
           job_match_digest: boolean
           matched: boolean
+        }[]
+      }
+      employer_application_screening_answers: {
+        Args: { p_application_id: string }
+        Returns: {
+          answer_number: number | null
+          answer_text: string | null
+          answer_yes_no: boolean | null
+          passed: boolean | null
+          question_text: string
+          question_type: string
+          required: boolean
         }[]
       }
       employer_job_applicants: {

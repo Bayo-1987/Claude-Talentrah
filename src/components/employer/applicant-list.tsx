@@ -7,7 +7,11 @@ import { MatchTierBadge } from "@/components/ui";
 import { ApplicantStatusSelect } from "./applicant-status-select";
 import { MatchBreakdown } from "@/components/jobs/match-breakdown";
 import { formatTrackerDate } from "@/lib/tracker/format-date";
-import { setApplicantStatusAction } from "@/lib/employer/actions";
+import {
+  setApplicantStatusAction,
+  getApplicationScreeningAnswersAction,
+  type ScreeningAnswerDetail,
+} from "@/lib/employer/actions";
 import type { MatchExplanation } from "@/lib/matching/score";
 import type { Enums } from "@/lib/supabase/types";
 
@@ -48,6 +52,23 @@ const BULK_ACTIONS: { status: ApplicantReviewStatus; label: string }[] = [
 ];
 
 /**
+ * send-344 — plain, per-type formatting for one screening answer. No
+ * pass/fail styling anywhere here, on any type: the summary line above
+ * already surfaces the overall verdict for the graded types, and a
+ * free_text answer was never graded at all — color-coding it next to
+ * questions that were would imply a verdict that doesn't exist for it.
+ */
+function formatScreeningAnswer(a: ScreeningAnswerDetail): string {
+  if (a.questionType === "yes_no") {
+    return a.answerYesNo === null ? "Not answered" : a.answerYesNo ? "Yes" : "No";
+  }
+  if (a.questionType === "min_number") {
+    return a.answerNumber === null ? "Not answered" : String(a.answerNumber);
+  }
+  return a.answerText === null || a.answerText === "" ? "Not answered" : a.answerText;
+}
+
+/**
  * send-326 — checkboxes + a bulk-action bar over the SAME per-applicant
  * write `ApplicantStatusSelect` already uses (`setApplicantStatusAction`),
  * one call per selected id via `Promise.all`. No new backend: bulk is a
@@ -66,11 +87,53 @@ const BULK_ACTIONS: { status: ApplicantReviewStatus; label: string }[] = [
  * feel than a single-row flip, but it never claims a status changed before
  * it genuinely did.
  */
-export function ApplicantList({ jobId, applicants }: { jobId: string; applicants: ApplicantRow[] }) {
+export function ApplicantList({
+  jobId,
+  applicants,
+  hasScreeningQuestions,
+}: {
+  jobId: string;
+  applicants: ApplicantRow[];
+  /**
+   * send-344 — shown whenever the POSTING has any screening questions at
+   * all, not only when a given row's `screeningPassed !== null`: an
+   * all-optional or all-free_text posting can legitimately leave
+   * `screening_passed` at null forever while still having real answers
+   * worth reading. Computed once by the page (it already fetches the job),
+   * not inferred per-row.
+   */
+  hasScreeningQuestions: boolean;
+}) {
   const router = useRouter();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [screeningAnswers, setScreeningAnswers] = useState<
+    Record<string, ScreeningAnswerDetail[] | "loading" | "error">
+  >({});
+  // A separate transition from the bulk-action one above: "View answers" is a
+  // read-only, single-row fetch and must never disable the bulk-action bar or
+  // show its "Updating…" label while it's in flight — the two are unrelated
+  // operations that happened to share `pending` before this fix.
+  const [, startAnswersTransition] = useTransition();
+
+  function toggleAnswers(applicationId: string) {
+    if (applicationId in screeningAnswers) {
+      setScreeningAnswers((prev) =>
+        Object.fromEntries(Object.entries(prev).filter(([id]) => id !== applicationId)),
+      );
+      return;
+    }
+
+    setScreeningAnswers((prev) => ({ ...prev, [applicationId]: "loading" }));
+    startAnswersTransition(async () => {
+      const result = await getApplicationScreeningAnswersAction(applicationId);
+      setScreeningAnswers((prev) => ({
+        ...prev,
+        [applicationId]: "error" in result ? "error" : result.answers,
+      }));
+    });
+  }
 
   const allSelected = applicants.length > 0 && selected.size === applicants.length;
 
@@ -176,6 +239,15 @@ export function ApplicantList({ jobId, applicants }: { jobId: string; applicants
                       {applicant.screeningPassed ? "Passed screening" : "Didn't pass screening"}
                     </p>
                   )}
+                  {hasScreeningQuestions && (
+                    <button
+                      type="button"
+                      onClick={() => toggleAnswers(applicant.application_id)}
+                      className="mt-0.5 min-h-6 font-body text-[12.5px] font-semibold text-ink underline underline-offset-2 hover:text-rust"
+                    >
+                      {applicant.application_id in screeningAnswers ? "Hide answers" : "View answers"}
+                    </button>
+                  )}
                 </div>
               </div>
               <div className="flex flex-shrink-0 items-center gap-4">
@@ -212,6 +284,33 @@ export function ApplicantList({ jobId, applicants }: { jobId: string; applicants
               </div>
             </div>
             {applicant.explanation && <MatchBreakdown explanation={applicant.explanation} />}
+            {(() => {
+              const state = screeningAnswers[applicant.application_id];
+              if (!state) return null;
+              if (state === "loading") {
+                return <p className="font-body text-[12.5px] text-ink-soft">Loading answers…</p>;
+              }
+              if (state === "error") {
+                return (
+                  <p className="font-body text-[12.5px] text-rust">Couldn&apos;t load answers — try again.</p>
+                );
+              }
+              return (
+                <div className="flex flex-col gap-3 border-[1.5px] border-ink bg-card p-4">
+                  {state.map((a, i) => (
+                    <div key={i} className="flex flex-col gap-0.5">
+                      <p className="font-body text-[13px] font-semibold text-ink">
+                        {a.questionText}
+                        {a.required && <span className="text-rust"> *</span>}
+                      </p>
+                      <p className="font-body text-[13px] whitespace-pre-wrap text-ink-soft">
+                        {formatScreeningAnswer(a)}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
           </div>
         ))}
       </div>

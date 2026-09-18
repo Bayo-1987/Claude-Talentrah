@@ -894,6 +894,55 @@ export async function setApplicantStatusAction(
   return { ok: true };
 }
 
+export interface ScreeningAnswerDetail {
+  questionText: string;
+  questionType: string;
+  required: boolean;
+  answerYesNo: boolean | null;
+  answerNumber: number | null;
+  answerText: string | null;
+  passed: boolean | null;
+}
+
+/**
+ * send-344 — on-demand detail read for one application's screening answers.
+ * NOT embedded in `employer_job_applicants` (already widened three times;
+ * see 0175's own header for why raw answer text is a different shape of
+ * read, fetched only when a recruiter actually opens it). Mirrors the same
+ * on-demand precedent the resume view already uses, just as a Server Action
+ * rather than a route — a handful of short fields, not a full page nav.
+ *
+ * `employer_application_screening_answers` (0175) is itself the real
+ * authorization boundary — SECURITY DEFINER, derives the job posting's
+ * organization_id from the application and checks is_org_member, no
+ * client-supplied org id. This wrapper does not re-check membership itself,
+ * same as `setApplicantStatusAction` above trusting RLS as the real gate.
+ */
+export async function getApplicationScreeningAnswersAction(
+  applicationId: string,
+): Promise<{ error: string } | { ok: true; answers: ScreeningAnswerDetail[] }> {
+  const { supabase } = await getAuthedUser();
+  await requireEmployer();
+
+  const { data, error } = await supabase.rpc("employer_application_screening_answers", {
+    p_application_id: applicationId,
+  });
+  if (error) return { error: `Couldn't load screening answers: ${error.message}` };
+
+  return {
+    ok: true,
+    answers: (data ?? []).map((row) => ({
+      questionText: row.question_text,
+      questionType: row.question_type,
+      required: row.required,
+      answerYesNo: row.answer_yes_no,
+      answerNumber: row.answer_number,
+      answerText: row.answer_text,
+      passed: row.passed,
+    })),
+  };
+}
+
 /* -------------------------------------------------------------------------- *
  * "Claim your listing" (0128)
  * -------------------------------------------------------------------------- */

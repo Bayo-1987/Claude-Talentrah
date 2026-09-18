@@ -62,7 +62,8 @@ export default async function JobApplicantsPage({
       .eq("organization_id", organization.id)
       .maybeSingle(),
     supabase.rpc("employer_job_applicants", { p_job_posting_id: id }),
-    // The screening filter chips only make sense to show at all when this
+    // "View answers" (send-344) and the screening filter chips (send-326's
+    // own screening dimension) both only make sense to show at all when the
     // posting actually has screening questions — a plain count, not a full
     // fetch, since only the boolean matters here.
     supabase
@@ -168,7 +169,7 @@ export default async function JobApplicantsPage({
               </p>
             </BorderedCard>
           ) : (
-            <ApplicantList jobId={job.id} applicants={filteredRows} />
+            <ApplicantList jobId={job.id} applicants={filteredRows} hasScreeningQuestions={hasScreeningQuestions} />
           )}
         </>
       )}
