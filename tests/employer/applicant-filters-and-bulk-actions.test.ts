@@ -32,6 +32,7 @@ describe("parseApplicantFilterParams", () => {
     expect(parseApplicantFilterParams({ tier: "excellent,fair" })).toEqual({
       tiers: ["excellent", "fair"],
       hideUnscored: false,
+      screening: undefined,
     });
   });
 
@@ -46,6 +47,16 @@ describe("parseApplicantFilterParams", () => {
     expect(parseApplicantFilterParams({}).hideUnscored).toBe(false);
     expect(parseApplicantFilterParams({ unscored: "show" }).hideUnscored).toBe(false);
     expect(parseApplicantFilterParams({ unscored: "hide" }).hideUnscored).toBe(true);
+  });
+
+  it("parses screening=passed and screening=failed", () => {
+    expect(parseApplicantFilterParams({ screening: "passed" }).screening).toBe("passed");
+    expect(parseApplicantFilterParams({ screening: "failed" }).screening).toBe("failed");
+  });
+
+  it("drops a garbled screening value back to unset, same stance as garbage tier values", () => {
+    expect(parseApplicantFilterParams({ screening: "bogus" }).screening).toBeUndefined();
+    expect(parseApplicantFilterParams({}).screening).toBeUndefined();
   });
 });
 
@@ -79,30 +90,103 @@ describe("effectiveTierFor — must agree with what MatchTierBadge actually rend
 
 describe("applicantMatchesFilter — tier and unscored are independent axes", () => {
   it("with no tier filter active, every scored applicant passes regardless of tier", () => {
-    expect(applicantMatchesFilter(65, "fair", { tiers: [], hideUnscored: false })).toBe(true);
-    expect(applicantMatchesFilter(95, "excellent", { tiers: [], hideUnscored: false })).toBe(true);
+    expect(
+      applicantMatchesFilter(65, "fair", { tiers: [], hideUnscored: false, screening: undefined }, null),
+    ).toBe(true);
+    expect(
+      applicantMatchesFilter(
+        95,
+        "excellent",
+        { tiers: [], hideUnscored: false, screening: undefined },
+        null,
+      ),
+    ).toBe(true);
   });
 
   it("a selected tier excludes a scored applicant in a different tier", () => {
-    expect(applicantMatchesFilter(65, "fair", { tiers: ["excellent"], hideUnscored: false })).toBe(
-      false,
-    );
+    expect(
+      applicantMatchesFilter(
+        65,
+        "fair",
+        { tiers: ["excellent"], hideUnscored: false, screening: undefined },
+        null,
+      ),
+    ).toBe(false);
   });
 
   it("clearing the tier filter brings back an applicant it had excluded", () => {
-    const excluded = applicantMatchesFilter(65, "fair", { tiers: ["excellent"], hideUnscored: false });
-    const cleared = applicantMatchesFilter(65, "fair", { tiers: [], hideUnscored: false });
+    const excluded = applicantMatchesFilter(
+      65,
+      "fair",
+      { tiers: ["excellent"], hideUnscored: false, screening: undefined },
+      null,
+    );
+    const cleared = applicantMatchesFilter(
+      65,
+      "fair",
+      { tiers: [], hideUnscored: false, screening: undefined },
+      null,
+    );
     expect(excluded).toBe(false);
     expect(cleared).toBe(true);
   });
 
   it("an active tier filter never hides an unscored applicant — unscored is a separate axis", () => {
-    expect(applicantMatchesFilter(null, null, { tiers: ["excellent"], hideUnscored: false })).toBe(true);
+    expect(
+      applicantMatchesFilter(
+        null,
+        null,
+        { tiers: ["excellent"], hideUnscored: false, screening: undefined },
+        null,
+      ),
+    ).toBe(true);
   });
 
   it("hideUnscored hides only unscored applicants, never a scored one outside the tier filter", () => {
-    expect(applicantMatchesFilter(null, null, { tiers: [], hideUnscored: true })).toBe(false);
-    expect(applicantMatchesFilter(65, "fair", { tiers: [], hideUnscored: true })).toBe(true);
+    expect(
+      applicantMatchesFilter(null, null, { tiers: [], hideUnscored: true, screening: undefined }, null),
+    ).toBe(false);
+    expect(
+      applicantMatchesFilter(65, "fair", { tiers: [], hideUnscored: true, screening: undefined }, null),
+    ).toBe(true);
+  });
+});
+
+describe("applicantMatchesFilter — screening is a third, independent axis", () => {
+  const noOtherFilter = { tiers: [], hideUnscored: false };
+
+  it("unset (undefined) keeps every row, including null (no questions / incomplete)", () => {
+    for (const screeningPassed of [true, false, null]) {
+      expect(
+        applicantMatchesFilter(65, "fair", { ...noOtherFilter, screening: undefined }, screeningPassed),
+      ).toBe(true);
+    }
+  });
+
+  it("'passed' keeps only screeningPassed === true — never null, never false", () => {
+    expect(applicantMatchesFilter(65, "fair", { ...noOtherFilter, screening: "passed" }, true)).toBe(true);
+    expect(applicantMatchesFilter(65, "fair", { ...noOtherFilter, screening: "passed" }, false)).toBe(false);
+    expect(applicantMatchesFilter(65, "fair", { ...noOtherFilter, screening: "passed" }, null)).toBe(false);
+  });
+
+  it("'failed' keeps only screeningPassed === false — never null, never true", () => {
+    expect(applicantMatchesFilter(65, "fair", { ...noOtherFilter, screening: "failed" }, false)).toBe(true);
+    expect(applicantMatchesFilter(65, "fair", { ...noOtherFilter, screening: "failed" }, true)).toBe(false);
+    expect(applicantMatchesFilter(65, "fair", { ...noOtherFilter, screening: "failed" }, null)).toBe(false);
+  });
+
+  it("screening is independent of tier and unscored — an active tier filter doesn't leak into it", () => {
+    // A row that would be excluded by the tier filter must ALSO stay
+    // excluded once a screening filter is layered on — the two axes never
+    // rescue each other.
+    expect(
+      applicantMatchesFilter(65, "fair", { tiers: ["excellent"], hideUnscored: false, screening: "passed" }, true),
+    ).toBe(false);
+    // And a row a screening filter would exclude must stay excluded even
+    // when no tier filter is active at all.
+    expect(
+      applicantMatchesFilter(65, "fair", { tiers: [], hideUnscored: false, screening: "passed" }, false),
+    ).toBe(false);
   });
 });
 
