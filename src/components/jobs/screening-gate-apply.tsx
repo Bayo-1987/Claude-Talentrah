@@ -16,16 +16,17 @@ export interface PublicScreeningQuestion {
 
 /**
  * send-346 v2 — the public-facing shape of a job posting's optional
- * assessment. `exerciseFileUrl` is already the resolved, path-shape-
- * checked public URL (assessmentExerciseUrl in
- * src/lib/employer/assessment-document.ts) — this component never sees
- * the raw `exercise_file_path` column, the same "resolve before it reaches
- * a client component" discipline bannerPublicUrl's own callers use.
+ * assessment. `exerciseFiles` entries are already resolved, path-shape-
+ * checked public URLs (assessmentExerciseFileUrl in
+ * src/lib/employer/assessment-document.ts) — this component never sees a
+ * raw `file_path` column, the same "resolve before it reaches a client
+ * component" discipline bannerPublicUrl's own callers use. Widened by
+ * send-364 from a single `exerciseFileUrl` to a list.
  */
 export interface PublicAssessment {
   title: string;
   instructions: string;
-  exerciseFileUrl: string | null;
+  exerciseFiles: { url: string; name: string }[];
   exerciseLink: string | null;
   required: boolean;
 }
@@ -229,15 +230,20 @@ export function ScreeningGateApply({
             <div className="font-body text-[13.5px] leading-relaxed text-ink-soft">
               {renderJobDescriptionMarkdown(assessment.instructions)}
             </div>
-            {assessment.exerciseFileUrl && (
-              <a
-                href={assessment.exerciseFileUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="font-body text-[13px] font-semibold text-ink underline underline-offset-2 hover:text-rust"
-              >
-                Download the exercise
-              </a>
+            {assessment.exerciseFiles.length > 0 && (
+              <div className="flex flex-col gap-0.5">
+                {assessment.exerciseFiles.map((file) => (
+                  <a
+                    key={file.url}
+                    href={file.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="font-body text-[13px] font-semibold text-ink underline underline-offset-2 hover:text-rust"
+                  >
+                    Download: {file.name}
+                  </a>
+                ))}
+              </div>
             )}
             {assessment.exerciseLink && (
               <a

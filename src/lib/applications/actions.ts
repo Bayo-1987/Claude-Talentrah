@@ -261,7 +261,10 @@ export interface ScreeningAnswerInput {
  * At most one of `responseFilePath`/`responseLink` is meaningful — the
  * table's own CHECK constraint (0177) and submit_assessment_response's own
  * guard both refuse both being set, matching the "alternatives, not both"
- * framing exercise_file_path/exercise_link already has on the employer side.
+ * framing files/exercise_link already has on the employer side (0178
+ * widened the employer side to multiple files; the response side here is
+ * still deliberately single-file/single-link — send-364 was scoped to the
+ * employer's exercise attachment only, not the candidate's response).
  */
 export interface AssessmentResponseInput {
   responseText?: string;

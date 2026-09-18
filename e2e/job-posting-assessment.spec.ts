@@ -386,3 +386,162 @@ base.describe("job posting assessment — required: false", () => {
     },
   );
 });
+
+/**
+ * send-364 (migration 0178) — the actual capability this send exists to
+ * deliver: an employer attaches MULTIPLE exercise files while CREATING the
+ * job posting, not as a separate trip to Edit afterward. Drives the real
+ * staging path end to end: pick 2 files on /employer/jobs/new (staged into
+ * IndexedDB by new-job-assessment-files-picker.tsx, since no jobId exists
+ * yet), publish, let PostSuccessAssessmentFilesNote consume-and-upload them
+ * once a real jobId does exist, then confirm on Edit that both are genuinely
+ * attached — not just that two rows exist, but that each one resolves a
+ * WORKING public URL whose content matches exactly what was picked.
+ */
+base.describe("job posting assessment — multiple files staged at create time (send-364)", () => {
+  let employerUserId: string;
+  let orgId: string;
+
+  base.afterEach(async () => {
+    await runCleanups(
+      [
+        "assessment create-time files e2e organisation",
+        async () => {
+          if (orgId) await deleteOrgsCascade(admin, [orgId]);
+        },
+      ],
+      [
+        "assessment create-time files e2e user",
+        async () => {
+          if (employerUserId) await admin.auth.admin.deleteUser(employerUserId).catch(() => {});
+        },
+      ],
+    );
+  });
+
+  base(
+    "two files picked on the create form attach automatically after publishing, and both resolve real, correct content",
+    async ({ browser, baseURL }) => {
+      base.setTimeout(60_000);
+      const domain = `${randomUUID().slice(0, 12)}.talentrah.test`;
+      const employerEmail = `employer-${randomUUID()}@${domain}`;
+
+      const { data: employerUser, error: eErr } = await admin.auth.admin.createUser({
+        email: employerEmail,
+        email_confirm: true,
+      });
+      if (eErr) throw eErr;
+      employerUserId = employerUser.user.id;
+
+      const orgName = `E2E Assessment Create-Files Co ${randomUUID().slice(0, 8)}`;
+      const { data: org, error: orgErr } = await admin
+        .from("organizations")
+        .insert({ name: orgName, created_by: employerUserId, verified: true })
+        .select("id")
+        .single();
+      if (orgErr || !org) throw new Error(`fixture org: ${orgErr?.message}`);
+      orgId = org.id;
+      const { error: memErr } = await admin
+        .from("organization_members")
+        .insert({ organization_id: orgId, user_id: employerUserId, role: "owner" });
+      if (memErr) throw new Error(`fixture membership: ${memErr.message}`);
+
+      const url = new URL(baseURL ?? "http://localhost:3000");
+      const employerCookie = await mintSessionCookie(employerEmail);
+      const employerContext = await browser.newContext();
+      await employerContext.addCookies([
+        { name: employerCookie.name, value: employerCookie.value, domain: url.hostname, path: "/" },
+      ]);
+      const employerPage = await employerContext.newPage();
+
+      const BRIEF_CONTENT = "Design a schema for a multi-tenant SaaS billing system.";
+      const SHEET_CONTENT = "task,owner,due\nSchema draft,you,Friday\n";
+
+      await employerPage.goto("/employer/jobs/new");
+      const jobTitle = `E2E Create-Time Files Backend Engineer ${randomUUID().slice(0, 6)}`;
+      await employerPage.getByLabel("Job title").fill(jobTitle);
+      await employerPage
+        .getByLabel("Job description")
+        .fill(
+          "We are hiring a backend engineer to work on payment APIs. You will design services, write SQL queries, review code, and mentor other engineers.",
+        );
+
+      // ---- The new multi-file picker, on the CREATE form, before any
+      //      job_posting_id exists at all. ------------------------------
+      await employerPage.setInputFiles("#new-job-assessment-files", [
+        { name: "brief.txt", mimeType: "text/plain", buffer: Buffer.from(BRIEF_CONTENT) },
+        { name: "tasks.csv", mimeType: "text/plain", buffer: Buffer.from(SHEET_CONTENT) },
+      ]);
+
+      await expect(employerPage.getByText("brief.txt")).toBeVisible();
+      await expect(employerPage.getByText("tasks.csv")).toBeVisible();
+
+      await employerPage.getByLabel("Attach an assessment (optional)").check();
+      await employerPage.getByLabel("Title", { exact: true }).fill("Schema design exercise");
+      await employerPage
+        .getByLabel("Instructions", { exact: true })
+        .fill("Read the attached brief and spreadsheet, then design the schema.");
+
+      await employerPage.getByRole("button", { name: "Publish job" }).click();
+      await expect(employerPage).toHaveURL(/\/employer\/jobs\?posted=.+$/);
+      const jobId = new URL(employerPage.url()).searchParams.get("posted")!;
+
+      // ---- The post-success card's own deferred upload — this is the
+      //      actual moment the staged files get attached, once a real
+      //      jobId finally exists. ----------------------------------------
+      await expect(employerPage.getByText("Assessment files added.")).toBeVisible({ timeout: 20_000 });
+
+      // ---- Confirm on Edit: both files genuinely attached, each with a
+      //      WORKING link whose content matches exactly what was picked —
+      //      not just that two rows exist. -----------------------------
+      await employerPage.goto(`/employer/jobs/${jobId}/edit`);
+      const briefLink = employerPage.getByRole("link", { name: /brief\.txt/ });
+      const sheetLink = employerPage.getByRole("link", { name: /tasks\.csv/ });
+      await expect(briefLink).toBeVisible();
+      await expect(sheetLink).toBeVisible();
+
+      const briefHref = await briefLink.getAttribute("href");
+      const sheetHref = await sheetLink.getAttribute("href");
+      expect(briefHref).toBeTruthy();
+      expect(sheetHref).toBeTruthy();
+
+      const briefResponse = await employerPage.request.get(briefHref!);
+      expect(briefResponse.ok()).toBe(true);
+      expect(await briefResponse.text()).toBe(BRIEF_CONTENT);
+
+      const sheetResponse = await employerPage.request.get(sheetHref!);
+      expect(sheetResponse.ok()).toBe(true);
+      expect(await sheetResponse.text()).toBe(SHEET_CONTENT);
+
+      // ---- The DELETE route (send-364 closing send-363's own "can't
+      //      remove just one file" gap): removing ONE file leaves the
+      //      OTHER genuinely untouched, and the removed one is actually
+      //      gone at the STORAGE level, not just hidden client-side.
+      //      Checked directly against storage.objects, not the removed
+      //      file's public URL — this bucket's objects upload with
+      //      `cacheControl: max-age=3600`, so a CDN can keep serving a
+      //      just-deleted object's bytes for up to an hour, which would
+      //      make a URL-based check flaky for a reason that has nothing to
+      //      do with whether the removal itself actually worked. ---------
+      const briefPath = new URL(briefHref!).pathname.split(`/job-assessment-exercises/`)[1]!;
+      const briefRow = employerPage.locator("li", { hasText: "brief.txt" });
+      await briefRow.getByRole("button", { name: "Remove" }).click();
+      await expect(employerPage.getByText("brief.txt")).toHaveCount(0, { timeout: 10_000 });
+      await expect(sheetLink).toBeVisible();
+
+      const { data: stillListed } = await admin.storage
+        .from("job-assessment-exercises")
+        .list(briefPath.split("/").slice(0, -1).join("/"), { search: briefPath.split("/").pop() });
+      expect(
+        (stillListed ?? []).some((f) => briefPath.endsWith(f.name)),
+        "the removed file's storage object must actually be gone, not just its DB row",
+      ).toBe(false);
+
+      const stillWorkingResponse = await employerPage.request.get(sheetHref!);
+      expect(stillWorkingResponse.ok(), "removing one file must not disturb the other").toBe(true);
+      expect(await stillWorkingResponse.text()).toBe(SHEET_CONTENT);
+
+      await employerContext.close();
+    },
+  );
+});

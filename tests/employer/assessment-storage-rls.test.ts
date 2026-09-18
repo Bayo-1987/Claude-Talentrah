@@ -39,11 +39,20 @@ let candidate2: AuthedTestUser;
 let orgAId: string;
 let orgBId: string;
 let jobId: string;
+let assessmentId: string;
 let applicationId: string;
 const resumeIds: string[] = [];
+const uploadedExercisePaths: string[] = [];
 
 const submissionPath = () => `${candidate1.id}/${jobId}.txt`;
-const exercisePath = () => `${orgAId}/${jobId}.pdf`;
+// send-364/0178 widened this from `<org>/<job>.pdf` (one object) to
+// `<org>/<job>/<file id>.pdf` (a folder of them) — confirmed directly
+// against this project's real storage.foldername behavior in 0178's own
+// migration comment, not assumed: `(storage.foldername(name))[1]` is still
+// the org id under this three-segment shape, so every policy below is
+// exercised exactly the way it would be against real application traffic.
+const exerciseFileId = () => randomUUID();
+const exercisePath = (fileId: string) => `${orgAId}/${jobId}/${fileId}.pdf`;
 
 beforeAll(async () => {
   orgAOwner = await createAuthedTestUser("assess-storage-orgA-owner");
@@ -90,14 +99,19 @@ beforeAll(async () => {
   if (jobErr || !job) throw new Error(`fixture job: ${jobErr?.message}`);
   jobId = job.id;
 
-  const { error: assessErr } = await admin.from("job_posting_assessments").insert({
-    job_posting_id: jobId,
-    organization_id: orgAId,
-    title: "Test assessment",
-    instructions: "Do the thing.",
-    required: false,
-  });
-  if (assessErr) throw new Error(`fixture assessment: ${assessErr.message}`);
+  const { data: assessment, error: assessErr } = await admin
+    .from("job_posting_assessments")
+    .insert({
+      job_posting_id: jobId,
+      organization_id: orgAId,
+      title: "Test assessment",
+      instructions: "Do the thing.",
+      required: false,
+    })
+    .select("id")
+    .single();
+  if (assessErr || !assessment) throw new Error(`fixture assessment: ${assessErr?.message}`);
+  assessmentId = assessment.id;
 
   const { data: resume, error: resumeErr } = await admin
     .from("resumes")
@@ -128,7 +142,9 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await admin.storage.from("job-assessment-submissions").remove([submissionPath()]);
-  await admin.storage.from("job-assessment-exercises").remove([exercisePath()]);
+  if (uploadedExercisePaths.length > 0) {
+    await admin.storage.from("job-assessment-exercises").remove(uploadedExercisePaths);
+  }
   await admin.from("applications").delete().eq("id", applicationId);
   for (const id of resumeIds) await admin.from("resumes").delete().eq("id", id);
   await deleteOrgsCascade(admin, [orgAId, orgBId].filter(Boolean));
@@ -232,29 +248,159 @@ describe("job-assessment-submissions — private, two-party read", () => {
 });
 
 describe("job-assessment-exercises — public read, org-scoped write", () => {
-  it("orgA can upload its own exercise document", async () => {
+  let sharedFileId: string;
+
+  it("orgA can upload its own exercise document under the new <org>/<job>/<file id>.<ext> path", async () => {
+    sharedFileId = exerciseFileId();
+    const path = exercisePath(sharedFileId);
+    uploadedExercisePaths.push(path);
     const bytes = new TextEncoder().encode("%PDF-1.4\nfixture pdf content");
     const { error } = await orgAOwner.client.storage
       .from("job-assessment-exercises")
-      .upload(exercisePath(), bytes, { contentType: "application/pdf", upsert: true });
+      .upload(path, bytes, { contentType: "application/pdf", upsert: true });
     expect(error).toBeNull();
   });
 
   it("a SIGNED-OUT visitor can read the exercise document — same as a public job description", async () => {
     const { createClient } = await import("@supabase/supabase-js");
     const anon = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
-    const { data, error } = await anon.storage.from("job-assessment-exercises").download(exercisePath());
+    const { data, error } = await anon.storage.from("job-assessment-exercises").download(exercisePath(sharedFileId));
     expect(error).toBeNull();
     expect(data?.size).toBeGreaterThan(0);
   });
 
-  it("orgB CANNOT overwrite orgA's exercise file — write stays org-scoped", async () => {
+  it("orgB CANNOT write under orgA's exercise folder — write stays org-scoped, first path segment only", async () => {
+    // A DIFFERENT file id, still under orgA's own folder — the point is not
+    // literally overwriting orgA's object, it's that org membership gates
+    // the whole folder (storage.foldername(name)[1]), the exact thing 0178
+    // widening the path to three segments needed to leave unchanged.
+    const foreignPath = exercisePath(exerciseFileId());
     const { error } = await orgBOwner.client.storage
       .from("job-assessment-exercises")
-      .upload(exercisePath(), new TextEncoder().encode("%PDF-1.4\nmalicious overwrite"), {
+      .upload(foreignPath, new TextEncoder().encode("%PDF-1.4\nmalicious write"), {
         contentType: "application/pdf",
         upsert: true,
       });
-    expect(error, "a different org must be refused a write to orgA's own path").not.toBeNull();
+    expect(error, "a different org must be refused a write under orgA's own folder").not.toBeNull();
   });
+});
+
+/**
+ * send-364/0178 — the child table's own RLS (publicly readable, org-member
+ * management), and the file cap's REAL enforcement: a database trigger, not
+ * just this repo's own UI or the API route's nicer-error pre-check. Tested
+ * here against a real signed-in, non-superuser org-member client — the
+ * same "prove it against the actual authority, not just read the SQL"
+ * discipline this file already applies to the storage policies above.
+ */
+describe("job_posting_assessment_files — table RLS and the 5-file cap", () => {
+  const capTestFileIds: string[] = [];
+  const capTestPaths: string[] = [];
+
+  afterAll(async () => {
+    if (capTestPaths.length > 0) {
+      await admin.storage.from("job-assessment-exercises").remove(capTestPaths);
+    }
+    await admin.from("job_posting_assessment_files").delete().eq("job_posting_assessment_id", assessmentId);
+  });
+
+  it("a member of the owning org can insert a file row for their own assessment", async () => {
+    const fileId = exerciseFileId();
+    const path = exercisePath(fileId);
+    uploadedExercisePaths.push(path);
+    const { error: uploadErr } = await orgAOwner.client.storage
+      .from("job-assessment-exercises")
+      .upload(path, new TextEncoder().encode("%PDF-1.4\nrow test"), { contentType: "application/pdf" });
+    if (uploadErr) throw new Error(`fixture upload: ${uploadErr.message}`);
+
+    const { error } = await orgAOwner.client.from("job_posting_assessment_files").insert({
+      id: fileId,
+      job_posting_assessment_id: assessmentId,
+      organization_id: orgAId,
+      file_path: path,
+      original_filename: "row-test.pdf",
+      byte_size: 20,
+    });
+    expect(error).toBeNull();
+    capTestFileIds.push(fileId);
+  });
+
+  it("a SIGNED-OUT visitor can read the file row — same public-readable stance as the parent assessment", async () => {
+    const { createClient } = await import("@supabase/supabase-js");
+    const anon = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
+    const { data, error } = await anon
+      .from("job_posting_assessment_files")
+      .select("id")
+      .eq("id", capTestFileIds[0]!)
+      .maybeSingle();
+    expect(error).toBeNull();
+    expect(data?.id).toBe(capTestFileIds[0]);
+  });
+
+  it("a member of a DIFFERENT org CANNOT insert a file row into orgA's assessment", async () => {
+    const fileId = exerciseFileId();
+    const { error } = await orgBOwner.client.from("job_posting_assessment_files").insert({
+      id: fileId,
+      job_posting_assessment_id: assessmentId,
+      organization_id: orgAId,
+      file_path: exercisePath(fileId),
+      original_filename: "forged.pdf",
+      byte_size: 20,
+    });
+    expect(error, "a different org's member must be refused a row on orgA's assessment").not.toBeNull();
+  });
+
+  it(
+    "THE CAP IS ENFORCED SERVER-SIDE, NOT JUST HIDDEN IN THE UI: a real org-member client is refused a 6th file",
+    async () => {
+      // One row already exists from the first test above — 4 more brings
+      // this assessment to exactly 5, the cap.
+      for (let i = 0; i < 4; i += 1) {
+        const fileId = exerciseFileId();
+        const path = exercisePath(fileId);
+        uploadedExercisePaths.push(path);
+        const { error } = await orgAOwner.client.from("job_posting_assessment_files").insert({
+          id: fileId,
+          job_posting_assessment_id: assessmentId,
+          organization_id: orgAId,
+          file_path: path,
+          original_filename: `cap-${i}.pdf`,
+          byte_size: 20,
+        });
+        if (error) throw new Error(`fixture cap file ${i}: ${error.message}`);
+        capTestFileIds.push(fileId);
+        capTestPaths.push(path);
+      }
+
+      const { count } = await admin
+        .from("job_posting_assessment_files")
+        .select("id", { count: "exact", head: true })
+        .eq("job_posting_assessment_id", assessmentId);
+      expect(count, "exactly 5 files should exist before the 6th is attempted").toBe(5);
+
+      // The 6th, as the REAL org-member client — not the service role, not
+      // a raw admin SQL session — the same caller the API route itself
+      // uses for this insert.
+      const sixthFileId = exerciseFileId();
+      const { error: sixthError } = await orgAOwner.client.from("job_posting_assessment_files").insert({
+        id: sixthFileId,
+        job_posting_assessment_id: assessmentId,
+        organization_id: orgAId,
+        file_path: exercisePath(sixthFileId),
+        original_filename: "sixth.pdf",
+        byte_size: 20,
+      });
+      expect(
+        sixthError,
+        "the enforce_max_assessment_files trigger must refuse a 6th row for the same assessment",
+      ).not.toBeNull();
+      expect(sixthError?.message).toMatch(/at most 5/i);
+
+      const { count: finalCount } = await admin
+        .from("job_posting_assessment_files")
+        .select("id", { count: "exact", head: true })
+        .eq("job_posting_assessment_id", assessmentId);
+      expect(finalCount, "the rejected 6th insert must not have landed").toBe(5);
+    },
+  );
 });

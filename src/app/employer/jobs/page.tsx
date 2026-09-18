@@ -5,6 +5,7 @@ import { BorderedCard, EyebrowLabel, buttonClasses } from "@/components/ui";
 import { PostedJobRow, type PostedJob } from "@/components/employer/posted-job-row";
 import { EmployerJobShareInline } from "@/components/employer/job-share-button";
 import { PostSuccessBannerNote } from "@/components/employer/post-success-banner-note";
+import { PostSuccessAssessmentFilesNote } from "@/components/employer/post-success-assessment-files-note";
 import { getJobShareVisibility } from "@/lib/employer/job-visibility";
 import { evaluateDomainVerification, employerBannerMessage } from "@/lib/employer/verification";
 import { mintUnlistedLink } from "@/lib/employer/mint-unlisted-link";
@@ -252,6 +253,14 @@ export default async function JobsPostedPage({
             outcome rather than getting a distinct error state.
           */}
           <PostSuccessBannerNote jobId={postedJob.id} userId={userId} />
+          {/*
+            send-364: the assessment exercise files' own deferred upload,
+            same reasoning as PostSuccessBannerNote just above — whatever
+            was staged on the create form (new-job-assessment-files-picker.tsx)
+            uploads here, now that a real jobId exists. Renders nothing if
+            nothing was staged.
+          */}
+          <PostSuccessAssessmentFilesNote jobId={postedJob.id} userId={userId} />
         </BorderedCard>
       )}
 

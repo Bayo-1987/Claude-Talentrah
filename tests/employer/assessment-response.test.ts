@@ -14,7 +14,7 @@ import { randomUUID } from "node:crypto";
 import { admin, createAuthedTestUser, deleteTestUsers } from "../support/auth";
 import { deleteOrgsCascade } from "../support/delete-orgs";
 import { parseJobPostingAssessmentForm } from "@/lib/employer/job-posting-assessment";
-import { reconcileJobPostingAssessment } from "@/lib/employer/job-posting-assessment";
+import { reconcileJobPostingAssessment, clearAssessmentExerciseLink } from "@/lib/employer/job-posting-assessment";
 
 describe("parseJobPostingAssessmentForm", () => {
   function formWith(value: string | null): FormData {
@@ -352,6 +352,88 @@ describe("reconcileJobPostingAssessment", () => {
     expect(data?.[0]?.required).toBe(false);
     expect(data?.[0]?.exercise_link).toBe("https://example.com/exercise");
   });
+
+  it(
+    "EXCLUSIVITY (send-364): setting a link clears existing files (rows AND storage objects); uploading clears an existing link",
+    async () => {
+      const { data: assessmentRow } = await admin
+        .from("job_posting_assessments")
+        .select("id")
+        .eq("job_posting_id", jobId)
+        .single();
+      const assessmentId = assessmentRow!.id;
+
+      // ---- Attach 2 files, the same way the upload route itself would:
+      //      a real storage object via the org's own client, then a row. ----
+      const filePaths = [`${orgId}/${jobId}/${randomUUID()}.txt`, `${orgId}/${jobId}/${randomUUID()}.txt`];
+      for (const path of filePaths) {
+        const { error: uploadErr } = await orgOwner.client.storage
+          .from("job-assessment-exercises")
+          .upload(path, new TextEncoder().encode("fixture content"), { contentType: "text/plain" });
+        if (uploadErr) throw new Error(`fixture file upload: ${uploadErr.message}`);
+      }
+      const { error: insertFilesErr } = await orgOwner.client.from("job_posting_assessment_files").insert(
+        filePaths.map((file_path) => ({
+          job_posting_assessment_id: assessmentId,
+          organization_id: orgId,
+          file_path,
+          original_filename: "fixture.txt",
+          byte_size: 16,
+        })),
+      );
+      if (insertFilesErr) throw new Error(`fixture file rows: ${insertFilesErr.message}`);
+
+      const { count: beforeCount } = await admin
+        .from("job_posting_assessment_files")
+        .select("id", { count: "exact", head: true })
+        .eq("job_posting_assessment_id", assessmentId);
+      expect(beforeCount, "both fixture files should be attached before the link is set").toBe(2);
+
+      // ---- Setting a link must clear both file rows AND their storage
+      //      objects — attach 2 files, then set a link, confirm both file
+      //      rows are gone. ----------------------------------------------
+      const result = await reconcileJobPostingAssessment(orgOwner.client, jobId, orgId, orgOwner.id, {
+        title: "Take-home exercise (revised again)",
+        instructions: "Build a small API, v3.",
+        exerciseLink: "https://example.com/exercise-2",
+        required: false,
+      });
+      expect(result).toEqual({ ok: true });
+
+      const { count: afterCount } = await admin
+        .from("job_posting_assessment_files")
+        .select("id", { count: "exact", head: true })
+        .eq("job_posting_assessment_id", assessmentId);
+      expect(afterCount, "setting a link must delete every existing file row").toBe(0);
+
+      for (const path of filePaths) {
+        const { error: downloadErr } = await admin.storage.from("job-assessment-exercises").download(path);
+        expect(downloadErr, `the storage object at ${path} should have been removed, not just the row`).not.toBeNull();
+      }
+
+      // ---- Uploading a file must clear an existing link — attach a file
+      //      when a link is set, confirm the link clears. The reconcile
+      //      call just above already set exercise_link to a real value;
+      //      this exercises the OTHER direction of the same rule, the exact
+      //      helper /api/employer/job-assessment-exercise's own POST
+      //      handler calls right after a successful storage upload. -------
+      const { data: beforeClear } = await admin
+        .from("job_posting_assessments")
+        .select("exercise_link")
+        .eq("id", assessmentId)
+        .single();
+      expect(beforeClear?.exercise_link, "a link should be set before exercising the clear").not.toBeNull();
+
+      await clearAssessmentExerciseLink(orgOwner.client, assessmentId);
+
+      const { data: afterClear } = await admin
+        .from("job_posting_assessments")
+        .select("exercise_link")
+        .eq("id", assessmentId)
+        .single();
+      expect(afterClear?.exercise_link, "uploading a file must clear any existing link").toBeNull();
+    },
+  );
 
   it("REFUSES removal once a candidate has responded — the same protective instinct reconcileScreeningQuestions already has", async () => {
     const { error: submitErr } = await admin.from("application_assessment_submissions").insert({

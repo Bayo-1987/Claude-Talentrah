@@ -48,13 +48,26 @@ export const RATE_LIMITS = {
    */
   jobBannerUpload: { limit: 20, windowSeconds: 60 * 60 * 24 },
   /*
-   * Assessment exercise uploads (0177) — an employer attaching/replacing
-   * the one document on their own posting. Same shape and same reasoning
-   * as jobBannerUpload just above: infrequent by nature (0-or-1 per
-   * posting), generous against real use, bounds how fast one account could
-   * otherwise fill a free-plan bucket.
+   * Assessment exercise uploads (0177, widened to up to 5 files per
+   * posting by 0178/send-364 — was 0-or-1). Bumped from 20 to 40/day for
+   * the same reason: one posting can now take up to 5 calls to this route
+   * instead of 1, and the create-flow's own deferred upload
+   * (post-success-assessment-files-note.tsx) can make several of those
+   * calls back-to-back right after publishing. Still generous against real
+   * use (a handful of live postings, each attaching a handful of files a
+   * few times) and still bounds how fast one account could fill a
+   * free-plan bucket.
    */
-  jobAssessmentExerciseUpload: { limit: 20, windowSeconds: 60 * 60 * 24 },
+  jobAssessmentExerciseUpload: { limit: 40, windowSeconds: 60 * 60 * 24 },
+  /*
+   * Removing one previously-uploaded exercise file (0178/send-364). Higher
+   * than the upload limit on purpose: a delete is cheap (no storage
+   * validation, no bytes read) and the realistic abuse case — repeatedly
+   * deleting your own org's own files — costs the abuser nothing to gain,
+   * so this exists to bound accidental loops, not to ration a scarce or
+   * costly action the way the upload limit does.
+   */
+  jobAssessmentExerciseDelete: { limit: 60, windowSeconds: 60 * 60 * 24 },
   /*
    * Assessment response uploads (0177) — a candidate attaching their
    * answer to one posting's assessment as part of applying. Same limit as

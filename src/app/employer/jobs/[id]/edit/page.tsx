@@ -7,8 +7,8 @@ import { BorderedCard, EyebrowLabel } from "@/components/ui";
 import { JobPostingForm } from "@/components/employer/job-posting-form";
 import { JobBannerUpload } from "@/components/employer/job-banner-upload";
 import { bannerPublicUrl } from "@/lib/employer/banner";
-import { AssessmentExerciseUpload } from "@/components/employer/assessment-exercise-upload";
-import { assessmentExerciseUrl } from "@/lib/employer/assessment-document";
+import { AssessmentExerciseUpload, type AssessmentExerciseFile } from "@/components/employer/assessment-exercise-upload";
+import { assessmentExerciseFileUrl } from "@/lib/employer/assessment-document";
 
 export const metadata = { title: "Edit job — Talentrah" };
 
@@ -37,9 +37,35 @@ export default async function EditJobPage({ params }: { params: Promise<{ id: st
 
   const { data: assessment } = await supabase
     .from("job_posting_assessments")
-    .select("title, instructions, exercise_file_path, exercise_link, required")
+    .select("id, title, instructions, exercise_link, required")
     .eq("job_posting_id", id)
     .maybeSingle();
+
+  // send-364 — up to MAX_ASSESSMENT_FILES rows now, not one column. Only
+  // queried when an assessment actually exists; a posting with none has no
+  // job_posting_assessment_id to look up files by.
+  const { data: assessmentFileRows } = assessment
+    ? await supabase
+        .from("job_posting_assessment_files")
+        .select("id, file_path, original_filename, byte_size")
+        .eq("job_posting_assessment_id", assessment.id)
+        .order("created_at", { ascending: true })
+    : { data: null };
+
+  const assessmentFiles: AssessmentExerciseFile[] = (assessmentFileRows ?? []).map((row) => ({
+    id: row.id,
+    url: assessmentExerciseFileUrl({
+      supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
+      filePath: row.file_path,
+      // organization.id, not job.organization_id: the initial job fetch
+      // above is already scoped `.eq("organization_id", organization.id)`,
+      // so the two are proven equal and this one is non-nullable.
+      organizationId: organization.id,
+      jobPostingId: job.id,
+    }),
+    originalFilename: row.original_filename,
+    byteSize: row.byte_size,
+  }));
 
   // `structured_jd` is a loose `Json` column — a legacy row from before this
   // field existed defaults to `{}` with no `skills` key at all, which reads
@@ -132,20 +158,8 @@ export default async function EditJobPage({ params }: { params: Promise<{ id: st
       */}
       {assessment && (
         <BorderedCard className="mt-6 flex flex-col gap-3 p-6">
-          <EyebrowLabel>Assessment exercise file</EyebrowLabel>
-          <AssessmentExerciseUpload
-            jobId={job.id}
-            hasAssessment
-            currentFileUrl={assessmentExerciseUrl({
-              supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
-              exerciseFilePath: assessment.exercise_file_path,
-              // organization.id, not job.organization_id: the initial job
-              // fetch above is already scoped `.eq("organization_id",
-              // organization.id)`, so the two are proven equal and this
-              // one is non-nullable.
-              organizationId: organization.id,
-            })}
-          />
+          <EyebrowLabel>Assessment exercise files</EyebrowLabel>
+          <AssessmentExerciseUpload jobId={job.id} hasAssessment files={assessmentFiles} />
         </BorderedCard>
       )}
     </div>
