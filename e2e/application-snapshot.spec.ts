@@ -10,7 +10,7 @@
  * button reports success.
  */
 import { randomUUID } from "node:crypto";
-import { test, expect, admin } from "./fixtures/authed";
+import { test, expect, admin, seedBaseResume } from "./fixtures/authed";
 import { runCleanups } from "../tests/support/teardown";
 import { deletePostingsCascade, deleteOrgsCascade } from "../tests/support/delete-orgs";
 
@@ -121,6 +121,11 @@ test.describe("application snapshot at creation (Stage 5a)", () => {
     const orgId = await fixtureOrg(testUser.id, orgName);
     const title = `E2E Snapshot Apply Role ${randomUUID().slice(0, 6)}`;
     const jobId = await fixtureJob(orgId, orgName, title);
+    // A resume-less user now sees "Add a resume to apply" instead of the
+    // Apply button at all (see e2e/apply-requires-resume.spec.ts) — correct,
+    // but this test is exercising the snapshot written by a SUCCESSFUL
+    // apply, not that gate, so it needs a base resume to reach the button.
+    await seedBaseResume(testUser.id);
 
     await authedPage.goto(`/jobs/${jobId}`);
     // See the Save test above (and golden-path.spec.ts) for the full

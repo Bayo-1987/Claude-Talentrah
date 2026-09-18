@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BorderedCard, IconButton, Button, MatchTierBadge } from "@/components/ui";
+import { BorderedCard, IconButton, Button, MatchTierBadge, buttonClasses } from "@/components/ui";
 import { getCompanyInitials } from "@/lib/jobs/company-initials";
 import { postingAgeLine } from "@/lib/jobs/freshness";
 import { formatSalary } from "@/lib/jobs/format-salary";
@@ -91,6 +91,19 @@ export interface JobCardProps {
   applicantCount?: number | null;
   /** Stage 12 apply-rate instrumentation — see src/lib/jobs/country-events.ts. */
   countryState: CountryState;
+  /**
+   * Whether the signed-in viewer has a base resume at all.
+   *
+   * `performInAppApply` (applications/actions.ts) accepts `resume_id: null`
+   * by design — a query error there is fatal, a genuinely missing resume is
+   * "legitimate", because the RECRUITER-facing answer still needs to be
+   * correct in that case. What was missing was upstream of it: nothing
+   * stopped the click from happening in the first place, so a resume-less
+   * signed-in user could submit an application with nothing for the
+   * recruiter to read. This gates that click, the same way `!user` already
+   * gates it on the detail page for a signed-out visitor.
+   */
+  hasBaseResume: boolean;
 }
 
 export function JobCard({
@@ -104,6 +117,7 @@ export function JobCard({
   origin,
   applicantCount = null,
   countryState,
+  hasBaseResume,
 }: JobCardProps) {
   const metaParts = dedupeMetaParts([
     job.company_name,
@@ -322,6 +336,32 @@ export function JobCard({
                 Apply on company site
               </a>
             </>
+          ) : !hasBaseResume ? (
+            /*
+             * A signed-in seeker with no base resume at all could still
+             * click Apply — `performInAppApply` treats a missing resume as
+             * "legitimate" and inserts `resume_id: null`, which is correct
+             * for the RECRUITER-facing case, but nothing here stopped the
+             * click from happening in the first place. Confirmed live in
+             * production, not hypothetical: one real internal application
+             * exists with `resume_id IS NULL`, from a user who deliberately
+             * skipped resume upload at onboarding.
+             *
+             * `/resume-builder`, NOT `/onboarding` — `/onboarding` redirects
+             * away immediately for anyone with `onboarding_skipped_at` set
+             * (see that page's own comment), which is exactly the user this
+             * gate exists for: it would silently bounce them straight back
+             * here with still no resume, the identical dead-end shape
+             * `first-base-resume-panel.tsx` already had to fix once.
+             * `/resume-builder` mounts its upload panel unconditionally,
+             * regardless of skip status.
+             */
+            <Link
+              href="/resume-builder"
+              className={buttonClasses("primary", "sm", "no-underline")}
+            >
+              Add a resume to apply
+            </Link>
           ) : (
             <form action={applyInAppAction.bind(null, job.id, countryState)}>
               {/*

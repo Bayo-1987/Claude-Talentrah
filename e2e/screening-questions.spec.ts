@@ -28,7 +28,7 @@
  */
 import { randomUUID } from "node:crypto";
 import { test as base, expect } from "@playwright/test";
-import { admin } from "./fixtures/authed";
+import { admin, seedBaseResume } from "./fixtures/authed";
 import { createServerClient } from "@supabase/ssr";
 import { runCleanups } from "../tests/support/teardown";
 import { deleteOrgsCascade } from "../tests/support/delete-orgs";
@@ -114,6 +114,12 @@ base.describe("screening questions — full loop", () => {
       });
       if (sErr) throw sErr;
       seekerUserId = seekerUser.user.id;
+      // A resume-less seeker now sees the "Add a resume to apply" gate
+      // instead of ScreeningGateApply at all (see e2e/apply-requires-
+      // resume.spec.ts) — correct, but this test is exercising the
+      // screening self-assessment flow specifically, so it needs a seeker
+      // who actually has a base resume to reach that flow.
+      await seedBaseResume(seekerUserId);
 
       const orgName = `E2E Screening Co ${randomUUID().slice(0, 8)}`;
       const { data: org, error: orgErr } = await admin

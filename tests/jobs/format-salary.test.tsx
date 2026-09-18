@@ -154,6 +154,7 @@ describe("the card actually renders it", () => {
         explanation={{ matchedSkills: [], missingSkills: [], seniorityAlignment: "unknown" }}
         origin="https://talentrah.test"
         countryState="none"
+        hasBaseResume={true}
       />,
     );
   }

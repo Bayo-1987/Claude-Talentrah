@@ -264,6 +264,11 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
     : null;
 
   const isExternal = job.source_type === "external";
+  // Mirrors the feed's own `hasBaseResume` shape exactly (jobs/(feed)/page.tsx)
+  // so the two surfaces can never disagree about whether this signed-in user
+  // has a resume to apply with. `null` only for a signed-out reader, who
+  // never reaches the apply controls below anyway.
+  const hasBaseResume = user ? !baseResumeError && !!baseResume : null;
   const stage = application?.stage ?? null;
   const isSaved = stage === "saved";
   const alreadyApplied =
@@ -514,6 +519,26 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
               </button>
             </form>
           </>
+        ) : !hasBaseResume ? (
+          /*
+           * Checked BEFORE the screening-questions branch on purpose — a
+           * resume-less user filling out a whole self-assessment for an
+           * application the recruiter still can't act on is worse than
+           * never seeing the questions at all. Same gate and same
+           * reasoning as job-card.tsx's own comment: `performInAppApply`
+           * treats a missing resume as legitimate (`resume_id: null`),
+           * which is correct once someone commits to applying, but nothing
+           * upstream stopped the click. `/resume-builder`, not
+           * `/onboarding` — see job-card.tsx's comment for why `/onboarding`
+           * is a dead end for exactly the user this gate is for (anyone
+           * with `onboarding_skipped_at` set bounces straight back out).
+           */
+          <Link
+            href="/resume-builder"
+            className={buttonClasses("primary", "sm", "no-underline")}
+          >
+            Add a resume to apply
+          </Link>
         ) : screeningQuestions.length > 0 ? (
           // send-327 — the self-assessment gate, only when the posting
           // actually has questions. See ScreeningGateApply's own header for
