@@ -75,7 +75,7 @@ export function AutoApplyToggle({
             })
           }
           className={[
-            "relative inline-flex h-[26px] w-[46px] flex-shrink-0 items-center rounded-full border-[1.5px] border-ink transition-colors",
+            "relative inline-flex h-[26px] w-[46px] flex-shrink-0 items-center rounded-full border-[1.5px] border-ink transition-colors before:absolute before:-inset-[7px] before:content-['']",
             optimisticEnabled ? "bg-ink" : "bg-paper",
             isPending || !mounted ? "cursor-not-allowed opacity-50" : "",
           ].join(" ")}
