@@ -70,4 +70,25 @@ describe("rewriteBullet", () => {
 
     expect(result).toBe("Quoted line one.\nQuoted line two.");
   });
+
+  it("send-370 Part B: strips **bold**/*italic* markdown from a bullet before it reaches Farah's prompt", async () => {
+    askFarah.mockResolvedValueOnce("rewritten");
+
+    await rewriteBullet("Led a **cross-functional** team of *five* engineers.", "impact");
+
+    const [prompt] = askFarah.mock.calls[0];
+    expect(prompt).toContain('Original bullet: "Led a cross-functional team of five engineers."');
+    expect(prompt).not.toContain("**");
+  });
+
+  it("send-370 Part B: strips markdown from EACH line of a multi-bullet rewrite, independently", async () => {
+    askFarah.mockResolvedValueOnce("A.\nB.");
+
+    await rewriteBullet("Shipped the **payments** API.\nMentored *two* juniors.", "concise");
+
+    const [prompt] = askFarah.mock.calls[0];
+    expect(prompt).toContain("- Shipped the payments API.");
+    expect(prompt).toContain("- Mentored two juniors.");
+    expect(prompt).not.toContain("*");
+  });
 });

@@ -1,5 +1,5 @@
 import { getExperienceBullets, getExperienceText, type StructuredResume } from "@/lib/resume/types";
-import { renderMarkdownParagraphs } from "@/lib/farah/render-markdown";
+import { renderMarkdownParagraphs, renderInlineMarkdown } from "@/lib/farah/render-markdown";
 import { contactLine, dateRange } from "../templates/shared";
 import {
   bodyTextScale,
@@ -154,13 +154,13 @@ export function renderExperience({
                   )}
                 >
                   {bullets.map((bullet, bi) => (
-                    <li key={bi}>{bullet}</li>
+                    <li key={bi}>{renderInlineMarkdown(bullet)}</li>
                   ))}
                 </ul>
               ) : (
                 body && (
                   <p className={joinClasses(d.experienceEntryTextTop, t.entryText, "leading-relaxed text-ink-soft")}>
-                    {body}
+                    {renderInlineMarkdown(body)}
                   </p>
                 )
               )}

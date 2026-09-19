@@ -1,5 +1,6 @@
 import { getExperienceBullets, getExperienceText } from "@/lib/resume/types";
 import { contactLine, dateRange, type TemplateProps } from "./shared";
+import { renderMarkdownParagraphs, renderInlineMarkdown } from "@/lib/farah/render-markdown";
 
 /**
  * Clinical — Healthcare.
@@ -41,7 +42,7 @@ export function ClinicalTemplate({ resume }: TemplateProps) {
 
       {summary && (
         <section className="mt-4">
-          <p className="font-body text-[13.5px] leading-relaxed text-ink-soft">{summary}</p>
+          {renderMarkdownParagraphs(summary, "font-body text-[13.5px] leading-relaxed text-ink-soft")}
         </section>
       )}
 
@@ -68,13 +69,13 @@ export function ClinicalTemplate({ resume }: TemplateProps) {
                   {bullets ? (
                     <ul className="mt-1 list-disc pl-[18px] font-body text-[13px] leading-snug text-ink-soft">
                       {bullets.map((bullet, bi) => (
-                        <li key={bi}>{bullet}</li>
+                        <li key={bi}>{renderInlineMarkdown(bullet)}</li>
                       ))}
                     </ul>
                   ) : (
                     text && (
                       <p className="mt-1 font-body text-[13px] leading-snug text-ink-soft">
-                        {text}
+                        {renderInlineMarkdown(text)}
                       </p>
                     )
                   )}

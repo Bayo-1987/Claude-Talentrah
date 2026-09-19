@@ -1,5 +1,6 @@
 import { getExperienceBullets, getExperienceText } from "@/lib/resume/types";
 import { contactLine, dateRange, type TemplateProps } from "./shared";
+import { renderMarkdownParagraphs, renderInlineMarkdown } from "@/lib/farah/render-markdown";
 
 /**
  * Statute — Legal.
@@ -38,7 +39,7 @@ export function StatuteTemplate({ resume }: TemplateProps) {
 
       {summary && (
         <section className="mt-5 border-t border-line pt-4">
-          <p className="font-display text-[14px] leading-[1.7] text-ink-soft">{summary}</p>
+          {renderMarkdownParagraphs(summary, "font-display text-[14px] leading-[1.7] text-ink-soft")}
         </section>
       )}
 
@@ -68,13 +69,13 @@ export function StatuteTemplate({ resume }: TemplateProps) {
                   {bullets ? (
                     <ul className="mt-1.5 list-disc pl-[18px] font-display text-[13.5px] leading-[1.7] text-ink-soft">
                       {bullets.map((bullet, bi) => (
-                        <li key={bi}>{bullet}</li>
+                        <li key={bi}>{renderInlineMarkdown(bullet)}</li>
                       ))}
                     </ul>
                   ) : (
                     text && (
                       <p className="mt-1.5 font-display text-[13.5px] leading-[1.7] text-ink-soft">
-                        {text}
+                        {renderInlineMarkdown(text)}
                       </p>
                     )
                   )}

@@ -106,4 +106,39 @@ test.describe("bold/italic marks survive print-to-PDF text extraction", () => {
     expect(text).not.toContain("ZQBOLDWORDis");
     expect(text).toContain("ZQBOLDWORD is followed by ZQITALICWORD in one sentence.");
   });
+
+  test(
+    "send-370 Part B: a bolded/italicized experience bullet inside <ul><li> extracts intact, in order, across multiple bullets",
+    async ({ page }) => {
+      // Exactly the markup section-blocks.tsx's renderExperience (and the
+      // six standalone templates) produce for a role with bullets: a real
+      // <ul> whose <li> children each go through renderInlineMarkdown —
+      // the one thing NOT already covered by ats-safety.spec.ts's own
+      // marker-order assertions, which never exercise a bolded/italicized
+      // bullet specifically.
+      await page.setContent(`
+        <html>
+          <body style="font-family: sans-serif; font-size: 14px;">
+            <ul style="list-style: disc; padding-left: 18px;">
+              <li>Led the <strong>ZQENGINEERING</strong> team</li>
+              <li>Shipped <em>ZQTHREEFEATURES</em> on time</li>
+            </ul>
+          </body>
+        </html>
+      `);
+
+      const pdfBuffer = await page.pdf({ printBackground: true });
+      expect(pdfBuffer.length, "generated PDF was empty").toBeGreaterThan(0);
+
+      const text = await extractPdfText(pdfBuffer);
+
+      expect(text, "bolded word inside a bullet did not extract intact").toContain("ZQENGINEERING");
+      expect(text, "italicized word inside a bullet did not extract intact").toContain("ZQTHREEFEATURES");
+      // Reading order across bullets must survive too — the first bullet's
+      // text must extract before the second's, not interleaved or reversed.
+      expect(text.indexOf("ZQENGINEERING")).toBeLessThan(text.indexOf("ZQTHREEFEATURES"));
+      expect(text).toContain("Led the ZQENGINEERING team");
+      expect(text).toContain("Shipped ZQTHREEFEATURES on time");
+    },
+  );
 });
