@@ -56,6 +56,7 @@ const STATIC_PATHS: { path: string; priority: number; changeFrequency: MetadataR
    * point — not before.
    */
   { path: "/blog", priority: 0.7, changeFrequency: "weekly" },
+  { path: "/how-auto-apply-works", priority: 0.6, changeFrequency: "monthly" },
   { path: "/legal/privacy", priority: 0.3, changeFrequency: "yearly" },
   { path: "/legal/terms", priority: 0.3, changeFrequency: "yearly" },
   { path: "/legal/data-cookie-notice", priority: 0.3, changeFrequency: "yearly" },

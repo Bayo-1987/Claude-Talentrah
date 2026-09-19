@@ -18,8 +18,10 @@ import type { IconType } from "react-icons";
  * employer account system exists to log into. Removed rather than reworded;
  * add each back when the feature ships, with a real href. "Mentorship" is
  * back (2026-09-10, PR #341/send-137); the employer link below points at
- * `/employer` (2026-09-17) now that self-serve posting is real — the rest
- * are still unbuilt.
+ * `/employer` (2026-09-17) now that self-serve posting is real; "Auto-Apply"
+ * is back too (send-387), pointing at the explainer page rather than the
+ * gated `/auto-apply` queue itself, since a signed-out visitor would just
+ * be redirected to /login from there — the rest are still unbuilt.
  *
  * The employer column keeps its place — §6.1 wants employers addressed in
  * the footer — and now points at the real, free, self-serve flow.
@@ -35,6 +37,7 @@ const FOOTER_COLUMNS = [
       "Scholarships",
       "Refer & Earn",
       { label: "Mentorship", href: "/mentorship" },
+      { label: "Auto-Apply", href: "/how-auto-apply-works" },
     ],
   },
   {
