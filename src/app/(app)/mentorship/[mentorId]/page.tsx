@@ -4,6 +4,7 @@ import { getMentorProfile } from "@/lib/mentorship/queries";
 import { bookMentorSessionAction } from "@/lib/mentorship/actions";
 import { computeSessionPrice, type MentorshipSessionType } from "@/lib/mentorship/pricing";
 import { Container, EyebrowLabel, BorderedCard, Button } from "@/components/ui";
+import { renderJobDescriptionMarkdown } from "@/lib/farah/render-markdown";
 
 export const metadata = { title: "Book a mentor — Talentrah" };
 
@@ -48,7 +49,18 @@ export default async function MentorProfilePage({
       <div className="flex flex-col gap-2">
         <EyebrowLabel>Mentorship</EyebrowLabel>
         <h1 className="font-display text-[28px] font-semibold">{mentor.name}</h1>
-        {mentor.bio && <p className="text-[14.5px] text-ink-soft">{mentor.bio}</p>}
+        {/*
+          send-369 — bio can now carry bold/italic/autolink (see
+          RichMarkdownEditor's toolbar="minimal" on the apply/edit form). Same
+          face and safety guarantees as a job description (renderJobDescriptionMarkdown
+          -> render-markdown.tsx's parseBlocks/renderInline: no `<a>`, no
+          `<img>`, no dangerouslySetInnerHTML) — reused as-is rather than a
+          new alias, since a full profile page is the same "main content of
+          its own page" register a job description is. See render-markdown.tsx
+          for why "job description" naming here is a smaller diff than
+          inventing a third MarkdownFace.
+        */}
+        {mentor.bio && renderJobDescriptionMarkdown(mentor.bio)}
         {[...mentor.expertiseRoles, ...mentor.expertiseIndustries].length > 0 && (
           <p className="text-[13px] font-semibold text-ink">
             {[...mentor.expertiseRoles, ...mentor.expertiseIndustries].join(" · ")}

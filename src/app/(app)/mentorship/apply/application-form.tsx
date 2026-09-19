@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { applyToBecomeMentorAction, updateMentorProfileAction } from "@/lib/mentorship/actions";
 import { TextField, Button } from "@/components/ui";
+import { RichMarkdownEditor } from "@/components/employer/rich-markdown-editor";
 import type { OwnMentorProfile } from "@/lib/mentorship/queries";
 
 const initialState: { status: "idle" | "success" | "error"; message: string } = {
@@ -16,17 +17,20 @@ export function ApplicationForm({ existing }: { existing: OwnMentorProfile | nul
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor="bio" className="font-body text-[13px] font-semibold text-ink-soft">
-          Bio
-        </label>
-        <textarea
-          id="bio"
-          name="bio"
-          defaultValue={existing?.bio ?? ""}
-          className="min-h-24 border-[1.5px] border-ink bg-card p-2.5 font-body text-[15px] text-ink"
-        />
-      </div>
+      {/*
+        send-369 — same rich editor send-367 built for job descriptions, but
+        with toolbar="minimal": a bio is a 1-3 sentence register, not a
+        document, so no headings/lists/quote/rule — bold, italic, and the
+        same bare-https:// autolink every RichMarkdownEditor already has.
+      */}
+      <RichMarkdownEditor
+        id="bio"
+        name="bio"
+        label="Bio"
+        defaultValue={existing?.bio ?? ""}
+        toolbar="minimal"
+        minHeightClassName="min-h-24"
+      />
 
       <TextField
         label="Roles you can speak to (comma-separated)"

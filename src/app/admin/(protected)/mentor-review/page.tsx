@@ -4,6 +4,7 @@ import { decideMentorApplicationAction, decideMentorStatusAction } from "@/lib/a
 import { DecisionForm } from "@/components/admin/decision-form";
 import { QueueEmpty, QueueHeader } from "@/components/admin/queue-chrome";
 import { Container, EyebrowLabel, BorderedCard } from "@/components/ui";
+import { renderJobDescriptionMarkdown } from "@/lib/farah/render-markdown";
 
 export const metadata = {
   title: "Mentor applications — Talentrah admin",
@@ -65,7 +66,17 @@ export default async function MentorReviewQueuePage() {
                       {[...application.expertiseRoles, ...application.expertiseIndustries].join(" · ")}
                     </p>
                   )}
-                  {application.bio && <p className="text-[14px] text-ink">{application.bio}</p>}
+                  {/*
+                    send-369 — a bio can now contain bold/italic markdown
+                    syntax. Rendered here, not stripped: unlike the directory
+                    list's clamped one-line excerpt, this is a full review
+                    page where a moderator judging an application's
+                    professionalism should see the formatting the applicant
+                    actually intended, not raw markdown characters — the
+                    same "full render" register mentorId/page.tsx uses, not
+                    the "short preview" register the list card uses.
+                  */}
+                  {application.bio && renderJobDescriptionMarkdown(application.bio)}
                 </div>
 
                 <DecisionForm
