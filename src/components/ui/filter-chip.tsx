@@ -45,12 +45,21 @@ function RemoveGlyph() {
 */
 const REMOVE_TARGET_CLASS = "-mr-3 flex min-h-10 min-w-10 items-center justify-center";
 
-/** Bordered, removable filter tag. */
+/**
+ * Bordered, removable filter tag.
+ *
+ * send-381 — same fix as IconButton: `border-line` (1.84:1 against `--paper`
+ * and `--card`) fails WCAG 1.4.11's 3:1 minimum for a component whose border
+ * is its entire visible shape, no fill. Swapped for `border-ink-soft`,
+ * matching the chip's own resting text color — already proven to clear the
+ * higher 4.5:1 text bar against these backgrounds, so it clears the lower
+ * 3:1 border bar too.
+ */
 export function FilterChip({ label, quoted = false, onRemove, removeHref, className }: FilterChipProps) {
   return (
     <span
       className={cn(
-        "inline-flex min-h-10 items-center gap-1.5 border border-line px-3 text-[12.5px] font-semibold text-ink-soft",
+        "inline-flex min-h-10 items-center gap-1.5 border border-ink-soft px-3 text-[12.5px] font-semibold text-ink-soft",
         className,
       )}
     >

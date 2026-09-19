@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { getOptionalUser } from "@/lib/auth/require-user";
 import { buildJobPostingJsonLd } from "@/lib/seo/job-posting-jsonld";
 import { stripRedundantJobHeader } from "@/lib/seo/job-description-snippet";
+import { stripMarkdownToPlainText } from "@/lib/jobs/extract-jd";
 import { jobForRequest } from "./job-for-request";
 import { BorderedCard, Button, EyebrowLabel, MatchTierBadge, buttonClasses } from "@/components/ui";
 import { dedupeMetaParts } from "@/components/jobs/job-card";
@@ -70,11 +71,31 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
    * WORD boundary at ~155 characters — around where Google truncates, and a
    * mid-word cut reads as broken rather than as elided.
    *
-   * `stripRedundantJobHeader` runs first because a handful of raw postings
-   * open their own description with a "Job Title: X / Type: Y / Location: Z"
-   * header that just restates `lead` above — see that function's own header
-   * for the real, measured extent of this (4 of 704 open postings, two
-   * employers, not a per-source formatting quirk).
+   * `stripMarkdownToPlainText` (extract-jd.ts) runs FIRST, on the RAW
+   * description, before whitespace is collapsed — a job description is
+   * markdown-formatted text (the same `**bold**`/`- bullet` grammar the
+   * WYSIWYG editor, send-367/368/369, writes and reads), and a `<meta
+   * name="description">`/JSON-LD `description` are read as plain text by
+   * everything that consumes them (Google's snippet, WhatsApp/Slack/X link
+   * unfurls) — none of them render markdown, so the literal syntax
+   * characters must be gone before either surface ever sees this string.
+   * Order matters here and is not arbitrary: `stripMarkdownToPlainText`'s
+   * own bullet-marker strip is `^-[ \t]+` with the multiline flag, anchored
+   * to the START OF EACH LINE in the ORIGINAL text — collapsing whitespace
+   * (which turns every newline into a single space) first would leave only
+   * the very first line's leading "- " reachable by that anchor, silently
+   * leaking every other bullet's own leading dash through untouched.
+   * Confirmed directly against this exact posting's real content, which has
+   * more than one bulleted section. `stripRedundantJobHeader` runs LAST,
+   * after both markdown and whitespace are gone, because a handful of raw
+   * postings open their own description with a "Job Title: X / Type: Y /
+   * Location: Z" header that just restates `lead` above — see that
+   * function's own header for the real, measured extent of this (4 of 704
+   * open postings, two employers, not a per-source formatting quirk).
+   * Running markdown-strip first doesn't break that function's own leading-
+   * `**`-tolerant matching — its regexes match a leading `**` when present
+   * and equally match none, so there's simply nothing left for that part of
+   * the pattern to match once this has already removed it.
    */
   const lead = [
     `${data.title} at ${data.company_name}`,
@@ -82,7 +103,9 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   ]
     .filter(Boolean)
     .join(" · ");
-  const body = stripRedundantJobHeader((data.description ?? "").replace(/\s+/g, " ").trim());
+  const body = stripRedundantJobHeader(
+    stripMarkdownToPlainText(data.description ?? "").replace(/\s+/g, " ").trim(),
+  );
   const room = 155 - lead.length - 2;
   const snippet =
     body.length > room ? `${body.slice(0, Math.max(0, room)).replace(/\s+\S*$/, "")}…` : body;

@@ -8,7 +8,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         <AuthHero />
       </div>
       <div className="flex flex-col">
-        <div className="flex items-center justify-between border-b border-line px-6 py-5 md:hidden">
+        <header className="flex items-center justify-between border-b border-line px-6 py-5 md:hidden">
           <Link href="/" className="flex items-center no-underline">
             {/* eslint-disable-next-line @next/next/no-img-element -- static brand SVG, next/image's optimizer needs SVG allow-listing for no real benefit here */}
             <img
@@ -19,10 +19,10 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
               className="h-7 w-auto"
             />
           </Link>
-        </div>
-        <div className="flex flex-1 items-center justify-center px-6 py-12">
+        </header>
+        <main id="main-content" className="flex flex-1 items-center justify-center px-6 py-12">
           <div className="w-full max-w-[440px]">{children}</div>
-        </div>
+        </main>
       </div>
     </div>
   );

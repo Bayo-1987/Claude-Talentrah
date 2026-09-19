@@ -36,16 +36,25 @@ const DEMO_PASSWORD = process.env.DEMO_PASSWORD;
 let JOB: string;
 
 test.beforeAll(async () => {
+  /*
+   * `.limit(1)` rather than `.single()`. CI's ephemeral per-job database
+   * seeds this row exactly once, but a shared local dev database
+   * (dozaffzgqkbarxtlclsj, reused across concurrent sessions per
+   * CLAUDE.md) can accumulate more than one row with this exact
+   * company/title pair across repeated seed runs — `.single()` treats
+   * that as an error instead of picking one. Any one of them exercises
+   * the same public-page code path this spec is actually about.
+   */
   const { data, error } = await admin
     .from("job_postings")
     .select("id")
     .eq("company_name", "Zaria Digital")
     .eq("title", "Backend Engineer (Node.js)")
-    .single();
-  if (error || !data) {
+    .limit(1);
+  if (error || !data?.length) {
     throw new Error(`seeded "Backend Engineer (Node.js)" posting not found — run \`npm run seed\`: ${error?.message ?? "no row"}`);
   }
-  JOB = data.id;
+  JOB = data[0].id;
 });
 
 async function login(page: Page) {
