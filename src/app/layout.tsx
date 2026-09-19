@@ -3,6 +3,7 @@ import { SITE_ORIGIN, SHARE_IMAGE, SHARE_IMAGE_META } from "@/lib/seo/site";
 import { Newsreader, Source_Sans_3 } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import { CookieConsentBanner } from "@/components/legal/cookie-consent-banner";
 import "./globals.css";
 
 const newsreader = Newsreader({
@@ -102,6 +103,18 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${newsreader.variable} ${sourceSans.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-paper text-ink">
+        {/*
+          send-406 — site-wide, not marketing-only: rendered here, in the
+          ROOT layout, so it covers both the marketing pages and the
+          signed-in app shell with one insertion point, rather than adding
+          it separately to (app)/layout.tsx too. A signed-in visitor who
+          never saw it pre-signup (a different device/session, or one who
+          signed up before this shipped) still gets it once, the same as any
+          other visitor — cookie consent isn't specific to being signed out.
+          First child of <body>, not fixed/sticky: see the component's own
+          header for why a plain in-flow block was chosen over a fixed bar.
+        */}
+        <CookieConsentBanner />
         {children}
         <Analytics />
         <SpeedInsights />
