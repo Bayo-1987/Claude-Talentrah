@@ -70,9 +70,21 @@ interface Metrics {
   left: number;
   width: number;
   height: number;
+  /** Viewport-relative distance from the top: the masthead's real bottom edge. */
+  top: number;
 }
 
-/** Distance from the top of the viewport: the masthead's height. */
+/**
+ * Fallback distance from the top of the viewport, used only if the masthead
+ * band cannot be found in the DOM. In the normal case `top` is measured live
+ * (see `measure` below) rather than assumed, because the masthead is no
+ * longer guaranteed to be the first thing in the viewport: send-406's cookie
+ * consent banner renders in the root layout ABOVE the app shell, so on a
+ * first visit (before the banner is dismissed) the masthead's own sticky
+ * resting position is pushed down by the banner's height. A hardcoded 68
+ * here reproduced exactly that regression — this row pinned itself under a
+ * masthead that, at rest, was no longer where 68 assumed it was.
+ */
 export const FEED_HEADER_TOP = 68;
 
 function sameBox(a: Metrics | null, b: Metrics): boolean {
@@ -83,8 +95,14 @@ function sameBox(a: Metrics | null, b: Metrics): boolean {
   return (
     Math.abs(a.left - b.left) < 0.5 &&
     Math.abs(a.width - b.width) < 0.5 &&
-    Math.abs(a.height - b.height) < 0.5
+    Math.abs(a.height - b.height) < 0.5 &&
+    Math.abs(a.top - b.top) < 0.5
   );
+}
+
+function measureTop(): number {
+  const masthead = document.querySelector('[data-testid="masthead-band"]');
+  return masthead ? masthead.getBoundingClientRect().bottom : FEED_HEADER_TOP;
 }
 
 export function FixedFeedHeader({ children }: { children: ReactNode }) {
@@ -105,6 +123,7 @@ export function FixedFeedHeader({ children }: { children: ReactNode }) {
         left: s.left,
         width: s.width,
         height: bar.getBoundingClientRect().height,
+        top: measureTop(),
       };
       setMetrics((prev) => (sameBox(prev, next) ? prev : next));
     };
@@ -130,10 +149,38 @@ export function FixedFeedHeader({ children }: { children: ReactNode }) {
     observer.observe(bar);
     window.addEventListener("resize", schedule);
 
+    /*
+     * The masthead band doesn't resize when the cookie consent banner mounts
+     * or unmounts above it — its own height is unchanged, only its position
+     * shifts, which ResizeObserver cannot see. A mutation on <body>'s direct
+     * children (the banner's own mount point, right beside the app shell) is
+     * what actually fires when that happens, so that's what re-triggers the
+     * `top` measurement above rather than leaving it stale until some
+     * unrelated resize happens to run it again.
+     */
+    const bodyObserver = new MutationObserver(schedule);
+    bodyObserver.observe(document.body, { childList: true });
+
+    /*
+     * While the banner is visible it is real, in-flow content ABOVE the
+     * masthead, so the masthead's own sticky "at rest" position (before any
+     * scroll) sits below it — not at 0. Scrolling past the banner's height
+     * is what lets the masthead's `sticky top-0` reach its stuck position at
+     * the very top. Those are two different real values now, not a constant,
+     * so `top` has to keep tracking the masthead's live bottom edge through
+     * the scroll itself, the same way a plain `position: sticky` element
+     * would for free — this is the one piece of tracking `fixed` doesn't get
+     * for free and still needs, on top of the width/height problems in this
+     * file's own header comment.
+     */
+    window.addEventListener("scroll", schedule, { passive: true });
+
     return () => {
       cancelAnimationFrame(frame);
       observer.disconnect();
+      bodyObserver.disconnect();
       window.removeEventListener("resize", schedule);
+      window.removeEventListener("scroll", schedule);
     };
   }, []);
 
@@ -161,7 +208,7 @@ export function FixedFeedHeader({ children }: { children: ReactNode }) {
           fixed
             ? {
                 position: "fixed",
-                top: FEED_HEADER_TOP,
+                top: metrics.top,
                 left: metrics.left,
                 width: metrics.width,
               }

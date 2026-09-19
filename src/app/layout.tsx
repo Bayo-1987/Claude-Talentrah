@@ -104,16 +104,27 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="min-h-full flex flex-col bg-paper text-ink">
         {/*
-          send-406 — site-wide, not marketing-only: rendered here, in the
-          ROOT layout, so it covers both the marketing pages and the
-          signed-in app shell with one insertion point, rather than adding
-          it separately to (app)/layout.tsx too. A signed-in visitor who
-          never saw it pre-signup (a different device/session, or one who
-          signed up before this shipped) still gets it once, the same as any
-          other visitor — cookie consent isn't specific to being signed out.
-          First child of <body>, not fixed/sticky: see the component's own
-          header for why a plain in-flow block was chosen over a fixed bar.
+          send-406 follow-up — the cookie banner below is real, focusable
+          chrome (a "Learn more" link, Decline/Accept buttons) inserted
+          ahead of every masthead in the DOM, which silently broke the
+          existing "skip link is the very first Tab stop" guarantee both
+          mastheads' own skip links relied on (send-381; see
+          e2e/app-shell-landmarks.spec.ts's "the skip link actually moves
+          focus target to #main-content, not just decoration"). Rather than
+          have two skip links fight over whose tab order wins, this is now
+          the ONE shared instance, sr-only until focused so it adds no
+          layout height and doesn't shift the banner/masthead measurements
+          below — and the two masthead-embedded copies were removed so a
+          focused-role query for "Skip to main content" still resolves to
+          exactly one element. It targets the same #main-content id every
+          page already provides.
         */}
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:border-[1.5px] focus:border-ink focus:bg-card focus:px-4 focus:py-2.5 focus:font-body focus:text-[14px] focus:font-semibold focus:text-ink"
+        >
+          Skip to main content
+        </a>
         <CookieConsentBanner />
         {children}
         <Analytics />

@@ -40,6 +40,30 @@ test.beforeEach(async ({ page }) => {
   // feed content replaces the skeleton — wait for it to clear so every test
   // below reads real cards, not placeholder blocks.
   await expect(page.getByTestId(ROUTE_LOADING_TESTID)).toHaveCount(0, { timeout: 15000 });
+  /*
+   * send-406's cookie consent banner is real, in-flow content above the
+   * masthead until a fresh browser context makes a choice. This file's own
+   * concern is masthead/header/panel stickiness, not the banner
+   * (e2e/cookie-consent-banner.spec.ts already owns that), so settle it out
+   * of the way first rather than measuring a masthead still pushed down by
+   * a banner none of these tests are actually about.
+   */
+  const banner = page.locator('[data-testid="cookie-consent-banner"]');
+  await page.waitForTimeout(300);
+  if (await banner.isVisible().catch(() => false)) {
+    await page.getByRole("button", { name: "Accept" }).click();
+    await expect(banner).toBeHidden();
+    /*
+     * The banner's own removal from the DOM is not the same instant as
+     * fixed-feed-header.tsx catching up: it re-measures via a
+     * MutationObserver-triggered, rAF-scheduled callback, one tick after
+     * the mutation and one more for the scheduled measurement itself. Two
+     * animation frames is exactly that, not an arbitrary wait.
+     */
+    await page.evaluate(
+      () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))),
+    );
+  }
 });
 
 test("every card states an applicant count or says it cannot", async ({ page }) => {

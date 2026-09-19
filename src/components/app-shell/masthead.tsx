@@ -451,17 +451,12 @@ export function Masthead({
       className="border-b-[2.5px] border-ink bg-paper"
     >
       {/*
-        send-381 follow-up — the signed-in shell had the identical
-        no-skip-link gap the marketing masthead's own fix (send-381) already
-        covers. Same pattern: off-screen until focused, targets the same
-        #main-content id app-shell.tsx now renders <main> with.
+        send-381 follow-up's own skip link used to live here. It's now a
+        single shared instance in the root layout (src/app/layout.tsx),
+        rendered before send-406's cookie consent banner — see that file's
+        comment for why. Still targets the same #main-content id
+        app-shell.tsx always renders.
       */}
-      <a
-        href="#main-content"
-        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:border-[1.5px] focus:border-ink focus:bg-card focus:px-4 focus:py-2.5 focus:font-body focus:text-[14px] focus:font-semibold focus:text-ink"
-      >
-        Skip to main content
-      </a>
       <div className="flex h-[68px] items-center justify-between px-8">
         <div className="flex items-center gap-4 xl:gap-9">
           {/*
