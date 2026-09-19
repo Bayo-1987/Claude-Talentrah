@@ -12,7 +12,7 @@ import {
   pauseCampaignAction,
   resumeCampaignAction,
 } from "@/lib/employer/campaign-actions";
-import { BorderedCard, EyebrowLabel } from "@/components/ui";
+import { BorderedCard, EyebrowLabel, NairaAmount } from "@/components/ui";
 import { renderInlineMarkdown } from "@/lib/farah/render-markdown";
 import { CampaignForm } from "@/components/employer/campaign-form";
 import {
@@ -23,8 +23,6 @@ import {
 } from "@/components/employer/campaign-controls";
 
 export const metadata = { title: "Campaign — Talentrah" };
-
-const naira = (n: number) => `₦${n.toLocaleString("en-NG")}`;
 
 export default async function CampaignPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -98,16 +96,20 @@ export default async function CampaignPage({ params }: { params: Promise<{ id: s
         <dl className="grid grid-cols-2 gap-4 min-[640px]:grid-cols-4">
           <div>
             <dt className="font-body text-[12.5px] text-ink-soft">Daily</dt>
-            <dd className="font-display text-[19px] text-ink">{naira(campaign.daily_rate_ngn)}</dd>
+            <dd className="font-display text-[19px] text-ink">
+              <NairaAmount amount={campaign.daily_rate_ngn} />
+            </dd>
           </div>
           <div>
             <dt className="font-body text-[12.5px] text-ink-soft">Spent</dt>
-            <dd className="font-display text-[19px] text-ink">{naira(campaign.spent_ngn)}</dd>
+            <dd className="font-display text-[19px] text-ink">
+              <NairaAmount amount={campaign.spent_ngn} />
+            </dd>
           </div>
           <div>
             <dt className="font-body text-[12.5px] text-ink-soft">Budget left</dt>
             <dd className="font-display text-[19px] text-ink">
-              {naira(remaining)}
+              <NairaAmount amount={remaining} />
               <span className="ml-1 font-body text-[13px] text-ink-soft">
                 ({daysLeft} {daysLeft === 1 ? "day" : "days"})
               </span>
@@ -115,7 +117,9 @@ export default async function CampaignPage({ params }: { params: Promise<{ id: s
           </div>
           <div>
             <dt className="font-body text-[12.5px] text-ink-soft">Ad wallet</dt>
-            <dd className="font-display text-[19px] text-ink">{naira(balance)}</dd>
+            <dd className="font-display text-[19px] text-ink">
+              <NairaAmount amount={balance} />
+            </dd>
           </div>
         </dl>
         <CampaignControls

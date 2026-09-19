@@ -2,13 +2,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireEmployer } from "@/lib/employer/membership";
 import { getCampaign, getCampaignAnalytics } from "@/lib/employer/campaign-queries";
-import { BorderedCard, EyebrowLabel } from "@/components/ui";
+import { BorderedCard, EyebrowLabel, NairaAmount } from "@/components/ui";
 import { CampaignStatusBadge, type CampaignStatus } from "@/components/employer/campaign-controls";
 import { ctrLabel } from "@/lib/ads/analytics-format";
 
 export const metadata = { title: "Campaign analytics — Talentrah" };
-
-const naira = (n: number) => `₦${n.toLocaleString("en-NG")}`;
 
 /**
  * The read side of the ad funnel (0128) — impressions, clicks, applies, and
@@ -81,15 +79,21 @@ export default async function CampaignAnalyticsPage({ params }: { params: Promis
       <div className="mt-4 grid grid-cols-2 gap-4 min-[640px]:grid-cols-3">
         <div>
           <dt className="font-body text-[12.5px] text-ink-soft">Spent to date</dt>
-          <dd className="font-display text-[19px] text-ink">{naira(campaign.spent_ngn)}</dd>
+          <dd className="font-display text-[19px] text-ink">
+            <NairaAmount amount={campaign.spent_ngn} />
+          </dd>
         </div>
         <div>
           <dt className="font-body text-[12.5px] text-ink-soft">Daily rate</dt>
-          <dd className="font-display text-[19px] text-ink">{naira(campaign.daily_rate_ngn)}</dd>
+          <dd className="font-display text-[19px] text-ink">
+            <NairaAmount amount={campaign.daily_rate_ngn} />
+          </dd>
         </div>
         <div>
           <dt className="font-body text-[12.5px] text-ink-soft">Budget left</dt>
-          <dd className="font-display text-[19px] text-ink">{naira(remaining)}</dd>
+          <dd className="font-display text-[19px] text-ink">
+            <NairaAmount amount={remaining} />
+          </dd>
         </div>
       </div>
 
