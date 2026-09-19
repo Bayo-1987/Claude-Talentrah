@@ -204,7 +204,12 @@ export function JdDemoInput() {
     <div className="flex w-full max-w-[860px] flex-col items-center gap-4">
       <form
         onSubmit={handleSubmit}
-        className="w-full max-w-[680px] border-[1.5px] border-ink bg-card p-5 shadow-[0_24px_48px_-28px_oklch(20%_0.018_50_/_0.3)]"
+        // send-381 — the textarea inside is border-none/outline-none by
+        // design (it sits flush inside this box), so the WCAG 2.4.7 focus
+        // indicator has to land on the one element here that actually has a
+        // border: this form. `focus-within`, not `focus`, because the form
+        // itself is never the focused element.
+        className="w-full max-w-[680px] border-[1.5px] border-ink bg-card p-5 shadow-[0_24px_48px_-28px_oklch(20%_0.018_50_/_0.3)] focus-within:border-rust"
       >
         <EyebrowLabel className="mb-3 block">Paste a job description</EyebrowLabel>
         <div className="mb-4 flex items-start gap-3.5 border-b border-dashed border-line pb-4">
