@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { BorderedCard, EyebrowLabel, buttonClasses, NairaAmount } from "@/components/ui";
+import { getApprovedMentorPriceRangeNgn } from "@/lib/mentorship/public-price-range";
 
 /**
  * send-389 — Mentorship's entire above-the-fold presence used to be one
@@ -34,18 +35,26 @@ import { BorderedCard, EyebrowLabel, buttonClasses, NairaAmount } from "@/compon
  * meet-farah-section.tsx itself already is (it doesn't name a mentor
  * either) — never an invented individual, name, photo, or bio.
  *
- * ── THE PRICING ANCHOR ─────────────────────────────────────────────────────
+ * ── THE PRICING ANCHOR IS READ LIVE, NOT HARDCODED ─────────────────────────
  *
- * "From ₦15,000" is the real, current floor of the two live mentors' own
- * `base_price_ngn` (₦15,000 and ₦20,000) — queried directly against
- * production rather than copied from CLAUDE.md's own "₦5k–₦100k+" build-prompt
- * figure, which this section's own investigation found to be stale against
- * the real, current, much narrower distribution. Not the full range: a
- * ₦5k–₦100k+ spread reads as "could be anything" rather than reassuring, and
- * showing the low end of a range this narrow would currently be untrue for
- * both live mentors.
+ * send-403 fast-follow: this used to hardcode `amount={15000}` directly —
+ * the correct figure at the time it was written, but a second hardcoded
+ * copy of the exact number `src/lib/mentorship/public-price-range.ts`'s
+ * `getApprovedMentorPriceRangeNgn()` already exists specifically to avoid
+ * (see that file's own header for the full story: the stale-price bug
+ * send-393 fixed on the `/mentorship` page itself, which hardcoded this
+ * same ₦15,000 figure). This section now calls that identical helper,
+ * exactly the way `mentorship/(list)/page.tsx`'s own `generateMetadata()`
+ * does, so both surfaces read the same live number and can never drift
+ * apart from each other or from reality the way the two-hardcoded-copies
+ * shape already had once. Null (zero qualifying mentors) drops the price
+ * block entirely — the same "say nothing rather than guess" fallback that
+ * function's own header specifies, not a synthesized number or a silent
+ * revert to the old hardcoded ₦15,000.
  */
-export function MentorshipSection() {
+export async function MentorshipSection() {
+  const priceRange = await getApprovedMentorPriceRangeNgn();
+
   return (
     <div id="mentorship" className="py-24">
       <div className="mx-auto grid max-w-[1120px] grid-cols-1 items-center gap-10 px-10 min-[901px]:grid-cols-[1fr_380px] min-[901px]:gap-16">
@@ -64,14 +73,20 @@ export function MentorshipSection() {
           </p>
         </div>
         <BorderedCard className="flex flex-col gap-5 p-7">
-          <div className="flex flex-col gap-1.5">
+          {priceRange !== null ? (
+            <div className="flex flex-col gap-1.5">
+              <span className="font-body text-[12px] font-bold uppercase tracking-[0.14em] text-rust">
+                Sessions from
+              </span>
+              <span className="font-display text-[32px] leading-none">
+                <NairaAmount amount={priceRange.minNgn} />
+              </span>
+            </div>
+          ) : (
             <span className="font-body text-[12px] font-bold uppercase tracking-[0.14em] text-rust">
-              Sessions from
+              Mentors set their own rates
             </span>
-            <span className="font-display text-[32px] leading-none">
-              <NairaAmount amount={15000} />
-            </span>
-          </div>
+          )}
           <p className="text-[14px] text-ink-soft">
             Mock interviews, offer negotiation, career strategy, and resume review — pick the
             moment, pick a mentor, book directly.
