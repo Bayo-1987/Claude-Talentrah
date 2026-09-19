@@ -64,6 +64,7 @@ export function RichMarkdownEditor({
 }) {
   const hiddenInputRef = useRef<HTMLInputElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const labelId = `${id}-label`;
   // Native `required` on a `type="hidden"` input is not user-visibly
   // enforced (a hidden element can't receive focus, so the browser has
   // nothing to point a validation bubble at) — this is the same missing-
@@ -81,9 +82,24 @@ export function RichMarkdownEditor({
         id,
         role: "textbox",
         "aria-multiline": "true",
-        "aria-label": label,
-        class:
-          "min-h-[inherit] border-[1.5px] border-t-0 border-ink bg-card px-3.5 py-2.5 font-body text-[15px] leading-[1.65] text-ink outline-none focus:border-rust [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_blockquote]:border-l-2 [&_blockquote]:border-line [&_blockquote]:pl-3 [&_blockquote]:text-ink-soft [&_hr]:my-2 [&_hr]:border-line [&_h1]:text-[15px] [&_h1]:font-semibold [&_h2]:text-[15px] [&_h2]:font-semibold [&_h3]:text-[15px] [&_h3]:font-semibold [&_a]:text-rust [&_a]:underline [&_p.is-editor-empty:first-child::before]:pointer-events-none [&_p.is-editor-empty:first-child::before]:float-left [&_p.is-editor-empty:first-child::before]:h-0 [&_p.is-editor-empty:first-child::before]:text-ink-soft [&_p.is-editor-empty:first-child::before]:content-[attr(data-placeholder)]",
+        // A real, visible <label> (below) carries this now — see that
+        // element's own comment on why aria-labelledby replaces aria-label
+        // rather than sitting alongside it (a screen reader would
+        // otherwise announce the same text twice).
+        "aria-labelledby": labelId,
+        class: cn(
+          // The literal minHeightClassName value, not `min-h-[inherit]`.
+          // `inherit` only ever pulls from this element's IMMEDIATE DOM
+          // parent (TipTap's own `.h-full` EditorContent wrapper, which
+          // has no min-height of its own), so it always resolved to
+          // nothing — the visible box collapsed to one empty line
+          // regardless of what the outer wrapper two levels up reserved.
+          // Applying the real class directly here means an override (e.g.
+          // assessment-editor.tsx's own 160px) is honored on the actual
+          // bordered box, not just on an ancestor nothing reads from.
+          minHeightClassName,
+          "border-[1.5px] border-t-0 border-ink bg-card px-3.5 py-2.5 font-body text-[15px] leading-[1.65] text-ink outline-none focus:border-rust [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_blockquote]:border-l-2 [&_blockquote]:border-line [&_blockquote]:pl-3 [&_blockquote]:text-ink-soft [&_hr]:my-2 [&_hr]:border-line [&_h1]:text-[15px] [&_h1]:font-semibold [&_h2]:text-[15px] [&_h2]:font-semibold [&_h3]:text-[15px] [&_h3]:font-semibold [&_a]:text-rust [&_a]:underline [&_p.is-editor-empty:first-child::before]:pointer-events-none [&_p.is-editor-empty:first-child::before]:float-left [&_p.is-editor-empty:first-child::before]:h-0 [&_p.is-editor-empty:first-child::before]:text-ink-soft [&_p.is-editor-empty:first-child::before]:content-[attr(data-placeholder)]",
+        ),
         "data-placeholder": placeholder ?? "",
       },
       transformPastedHTML: sanitizePastedHtml,
@@ -127,6 +143,20 @@ export function RichMarkdownEditor({
 
   return (
     <div ref={wrapperRef} className="flex flex-col gap-1.5">
+      {/*
+        A real, visible element — TextField's own exact visual treatment
+        (font-body text-[13px] font-semibold text-ink-soft) — where before
+        `label` only ever reached an aria-label (screen-reader-only) and
+        the post-submit "X is required" error text, leaving a sighted user
+        filling out the form with no on-screen indication of what this box
+        is at all. The editable region isn't a native input `htmlFor` can
+        target, so this pairs with `aria-labelledby` on it instead of
+        `<label htmlFor>` — and the editable div's own `aria-label` was
+        removed so the label isn't announced twice.
+      */}
+      <label id={labelId} className="font-body text-[13px] font-semibold text-ink-soft">
+        {label}
+      </label>
       <div
         role="toolbar"
         // Deliberately NOT `${label} formatting` — Playwright's (and most
@@ -203,9 +233,15 @@ export function RichMarkdownEditor({
         </button>
       </div>
 
-      <div className={minHeightClassName}>
-        <EditorContent editor={editor} className="h-full" />
-      </div>
+      {/*
+        No min-height class here any more — it lives on the editable div
+        itself now (editorProps.attributes.class, above), which is the
+        element `min-h-[inherit]` was always meant to reach. Keeping a
+        second copy here too would just be a second place to fall out of
+        sync with minHeightClassName if a future caller only updated one
+        of the two.
+      */}
+      <EditorContent editor={editor} />
 
       {showRequiredError && (
         <p className="font-body text-[12.5px] text-rust">{label} is required.</p>
