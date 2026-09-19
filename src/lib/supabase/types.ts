@@ -4255,6 +4255,7 @@ export type Database = {
         | "admin_adjustment"
         | "reversal"
         | "farah_screening_charge"
+        | "farah_jd_draft_charge"
       admin_permission:
         | "scholarships"
         | "reported_postings"
@@ -4497,6 +4498,7 @@ export const Constants = {
         "admin_adjustment",
         "reversal",
         "farah_screening_charge",
+        "farah_jd_draft_charge",
       ],
       admin_permission: [
         "scholarships",

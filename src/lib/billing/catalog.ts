@@ -251,3 +251,21 @@ export const PASSES: readonly PassDefinition[] = [
  * considered.
  */
 export const FARAH_SCREENING_REVIEW_NGN = 100;
+
+/**
+ * send-368 — "Draft with Farah," a paid, opt-in, single-click AI draft of a
+ * job description plus a handful of suggested fields (see
+ * src/lib/employer/draft-job.ts), charged from the EMPLOYER's ad wallet —
+ * same mechanism as FARAH_SCREENING_REVIEW_NGN above, debited directly via
+ * debit_ad_wallet/credit_ad_wallet (0046) rather than through a dedicated
+ * SQL wrapper function (see 0181's own header for why).
+ *
+ * ANOTHER PLACEHOLDER GUESS, scaled up from FARAH_SCREENING_REVIEW_NGN's
+ * ₦100 to reflect that this call does more work (a full description plus
+ * several structured suggestions, not one short verdict on an existing
+ * answer) — not a researched anchor, and not derived from FARAH_SCREENING_
+ * REVIEW_NGN by any formula, just a separate guess in the same ₦300-₦500
+ * range the founder's own request named. Revisit before treating it as
+ * considered.
+ */
+export const FARAH_JD_DRAFT_NGN = 400;

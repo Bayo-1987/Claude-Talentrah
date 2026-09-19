@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState } from "react";
+import { useActionState, useEffect, useRef, useState, type ChangeEvent } from "react";
+import Link from "next/link";
 import { MAX_EXPIRY_DAYS } from "@/lib/employer/expiry-input";
 import { BorderedCard, Button, FilterChip, TextField } from "@/components/ui";
 import { cn } from "@/lib/cn";
@@ -8,9 +9,10 @@ import { extractStructuredJd, SKILL_VOCABULARY } from "@/lib/jobs/extract-jd";
 import { ScreeningQuestionsEditor } from "./screening-questions-editor";
 import type { ScreeningQuestionInput } from "@/lib/employer/screening-questions";
 import type { EmployerActionState } from "@/lib/employer/actions";
-import { RichMarkdownEditor } from "./rich-markdown-editor";
+import { RichMarkdownEditor, type RichMarkdownEditorHandle } from "./rich-markdown-editor";
 import { AssessmentEditor } from "./assessment-editor";
 import type { JobPostingAssessmentInput } from "@/lib/employer/job-posting-assessment";
+import { draftJobWithFarahAction } from "@/lib/employer/draft-job-action";
 
 /**
  * A select whose option labels differ from their stored values.
@@ -20,17 +22,29 @@ import type { JobPostingAssessmentInput } from "@/lib/employer/job-posting-asses
  * `full_time`, and "Full_time" is not a thing to show an employer. Kept local
  * rather than widening the shared primitive for one caller.
  */
+/**
+ * `value`/`onChange` are optional — omitting both keeps this exactly the
+ * plain `defaultValue`-only uncontrolled select every existing caller here
+ * already uses. The one caller that needs to read/set this field
+ * programmatically (send-368's "Draft with Farah" button, which fills
+ * `employmentType` and `seniority` from a generated suggestion) passes them;
+ * nothing else in this file needs to change.
+ */
 function ChoiceField({
   label,
   name,
   options,
   defaultValue,
+  value,
+  onChange,
   placeholder = "Not specified",
 }: {
   label: string;
   name: string;
   options: readonly { value: string; label: string }[];
   defaultValue?: string | null;
+  value?: string;
+  onChange?: (next: string) => void;
   placeholder?: string;
 }) {
   return (
@@ -41,7 +55,9 @@ function ChoiceField({
       <select
         id={name}
         name={name}
-        defaultValue={defaultValue ?? ""}
+        {...(onChange
+          ? { value: value ?? "", onChange: (e: ChangeEvent<HTMLSelectElement>) => onChange(e.target.value) }
+          : { defaultValue: defaultValue ?? "" })}
         className={cn(
           "min-h-11 border-[1.5px] border-ink bg-card px-3.5 py-2.5 font-body text-[15px] text-ink outline-none focus:border-rust",
         )}
@@ -402,6 +418,26 @@ export function JobPostingForm({
   const [state, formAction, pending] = useActionState<EmployerActionState, FormData>(action, null);
   const error = state && "error" in state ? state.error : null;
 
+  // send-368 — "Draft with Farah" needs to READ title (to enable/disable the
+  // button and send it to the action) and WRITE location/workType/
+  // employmentType/seniority/yearsExperienceMin (the fill-rules below only
+  // touch a field that's still empty). Every other field on this form stays
+  // plain/uncontrolled, unchanged from before this feature — lifting these
+  // five is the smallest diff that makes the button possible.
+  const [title, setTitle] = useState(initial?.title ?? "");
+  const [location, setLocation] = useState(initial?.location ?? "");
+  const [workType, setWorkType] = useState(initial?.workType ?? "");
+  const [employmentType, setEmploymentType] = useState(initial?.employmentType ?? "");
+  const [seniority, setSeniority] = useState(initial?.seniority ?? "");
+  const [yearsExperienceMin, setYearsExperienceMin] = useState(
+    initial?.yearsExperienceMin != null ? String(initial.yearsExperienceMin) : "",
+  );
+  const descriptionRef = useRef<RichMarkdownEditorHandle>(null);
+  const [descriptionText, setDescriptionText] = useState(initial?.description ?? "");
+  const [drafting, setDrafting] = useState(false);
+  const [draftError, setDraftError] = useState<string | null>(null);
+  const [draftErrorKind, setDraftErrorKind] = useState<"insufficient_balance" | "generation_error" | null>(null);
+
   // Editing an already-tagged posting, or a URL import that already found
   // skills (JobImportPanel doesn't run extraction itself, but a future
   // import source could), wins. Otherwise, seed from whatever description
@@ -440,6 +476,7 @@ export function JobPostingForm({
    * header for why the stored/extracted format is untouched).
    */
   function handleDescriptionChange(text: string) {
+    setDescriptionText(text);
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
       if (!text) return;
@@ -454,6 +491,58 @@ export function JobPostingForm({
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
   }, []);
+
+  /**
+   * send-368 — "Draft with Farah". Modeled directly on resume-editor.tsx's
+   * RewriteButtons/handleRewrite shape: a plain awaited call (this employer
+   * is actively watching the result, unlike farah-review.ts's fire-and-
+   * forget `after()` pattern), one `drafting` boolean, one `draftError`
+   * string.
+   *
+   * Money and generation happen entirely server-side
+   * (draft-job-action.ts) — this function only decides whether to ask for
+   * confirmation, and which currently-empty fields to fill afterward.
+   */
+  async function handleDraftWithFarah() {
+    if (!title.trim()) return;
+    if (
+      descriptionText.trim().length > 0 &&
+      !window.confirm("This will replace the current job description with Farah's draft. Continue?")
+    ) {
+      return;
+    }
+    setDrafting(true);
+    setDraftError(null);
+    setDraftErrorKind(null);
+    try {
+      const result = await draftJobWithFarahAction({ title, location });
+      if (!result.ok) {
+        setDraftError(result.error);
+        setDraftErrorKind(result.kind);
+        return;
+      }
+      // Description and skills are tied 1:1 to this draft, so both are
+      // always overwritten on confirm — the confirm dialog above is the
+      // "are you sure" for this pair, not a per-field one. Every other
+      // suggested field is filled ONLY where the employer hasn't already
+      // made a choice: the moment this silently clobbers a deliberate
+      // choice, it stops being a helpful draft and starts being data loss.
+      descriptionRef.current?.setMarkdown(result.description);
+      setDescriptionText(result.description);
+      setSkills(result.skills);
+      if (!seniority && result.seniority) setSeniority(result.seniority);
+      if (!workType && result.workType) setWorkType(result.workType);
+      if (!employmentType && result.employmentType) setEmploymentType(result.employmentType);
+      if (!yearsExperienceMin && result.yearsExperienceMin != null) {
+        setYearsExperienceMin(String(result.yearsExperienceMin));
+      }
+    } catch {
+      setDraftError("Farah couldn't draft that just now — try again.");
+      setDraftErrorKind("generation_error");
+    } finally {
+      setDrafting(false);
+    }
+  }
 
   return (
     <div className="flex flex-col gap-5">
@@ -471,36 +560,76 @@ export function JobPostingForm({
       <BorderedCard className="p-6">
         <form action={formAction} className="flex flex-col gap-5">
           <div className="grid grid-cols-1 gap-5 min-[640px]:grid-cols-2">
-            <TextField
-              label="Job title"
-              name="title"
-              required
-              defaultValue={initial?.title}
-              placeholder="e.g. Backend Engineer (Node.js)"
-            />
+            <div className="flex flex-col gap-1.5">
+              <TextField
+                label="Job title"
+                name="title"
+                required
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="e.g. Backend Engineer (Node.js)"
+              />
+              {/*
+                send-368 — "Draft with Farah": a paid, opt-in, single-click AI
+                draft of the job description plus a handful of suggested
+                fields (src/lib/employer/draft-job.ts). Disabled until a title
+                exists, since the LLM prompt is built from it — never
+                auto-runs, and every field on this form stays directly
+                editable with or without ever touching this button (a
+                zero-ad-wallet-balance org just sees "not enough balance" on
+                click and posting is otherwise unaffected).
+              */}
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled={!title.trim() || drafting}
+                  onClick={handleDraftWithFarah}
+                >
+                  {drafting ? "Farah is scoping this job…" : "✦ Let Farah scope this job"}
+                </Button>
+              </div>
+              {draftError && (
+                <p className="font-body text-[12.5px] text-rust">
+                  {draftError}{" "}
+                  {draftErrorKind === "insufficient_balance" && (
+                    <Link
+                      href="/employer/campaigns"
+                      className="font-semibold underline underline-offset-2 hover:text-rust"
+                    >
+                      Top up
+                    </Link>
+                  )}
+                </p>
+              )}
+            </div>
             <TextField
               label="Location"
               name="location"
-              defaultValue={initial?.location}
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
               placeholder="e.g. Lagos, Nigeria"
             />
             <ChoiceField
               label="Work type"
               name="workType"
               options={WORK_TYPES}
-              defaultValue={initial?.workType}
+              value={workType ?? ""}
+              onChange={setWorkType}
             />
             <ChoiceField
               label="Employment type"
               name="employmentType"
               options={EMPLOYMENT_TYPES}
-              defaultValue={initial?.employmentType}
+              value={employmentType ?? ""}
+              onChange={setEmploymentType}
             />
             <ChoiceField
               label="Seniority"
               name="seniority"
               options={SENIORITIES}
-              defaultValue={initial?.seniority}
+              value={seniority ?? ""}
+              onChange={setSeniority}
             />
             <ExpiryField current={initial?.expiresAt ?? null} />
             <TextField
@@ -509,7 +638,8 @@ export function JobPostingForm({
               type="number"
               min={0}
               max={40}
-              defaultValue={initial?.yearsExperienceMin ?? undefined}
+              value={yearsExperienceMin}
+              onChange={(e) => setYearsExperienceMin(e.target.value)}
               placeholder="Optional"
             />
             <TextField
@@ -558,6 +688,7 @@ export function JobPostingForm({
               keeps this safe (the stored string's format never changes).
             */}
             <RichMarkdownEditor
+              ref={descriptionRef}
               id="description"
               name="description"
               label="Job description"

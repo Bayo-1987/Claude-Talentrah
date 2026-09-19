@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import { MARKDOWN_EDITOR_EXTENSIONS } from "@/lib/employer/markdown-editor/extensions";
 import { markdownToDoc, docToMarkdown } from "@/lib/employer/markdown-editor/document";
@@ -35,17 +35,28 @@ const TOOLBAR_BUTTON =
  * supports and nothing more — no underline, color, font, alignment, tables,
  * or link/image insertion. See extensions.ts's own header for why each is
  * excluded, not just unbuilt.
+ *
+ * ── THE IMPERATIVE HANDLE (send-368) ────────────────────────────────────────
+ *
+ * `RichMarkdownEditorHandle.setMarkdown` exists for exactly one caller so
+ * far: job-posting-form.tsx's "Draft with Farah" button, which needs to
+ * REPLACE this field's content with a generated draft — something no prop
+ * on this component could do, since `defaultValue` is read only once at
+ * mount (the same reason NewJobForm remounts the whole form on a URL
+ * import, via `formKey`, rather than trying to update `defaultValue` after
+ * the fact). A full form remount is wrong here specifically because
+ * Draft-with-Farah must not wipe title/location/anything else the employer
+ * already typed — only this one field's content should change. `setContent`
+ * emits TipTap's own update event by default, which already runs through
+ * the exact same `onUpdate` handler below that a real keystroke would (sync
+ * the hidden input, clear the required-error state, call `onTextChange`) —
+ * nothing here duplicates that sync logic a second time.
  */
-export function RichMarkdownEditor({
-  id,
-  name,
-  label,
-  defaultValue,
-  placeholder,
-  required,
-  minHeightClassName = "min-h-[280px]",
-  onTextChange,
-}: {
+export interface RichMarkdownEditorHandle {
+  setMarkdown: (markdown: string) => void;
+}
+
+export const RichMarkdownEditor = forwardRef<RichMarkdownEditorHandle, {
   id: string;
   /**
    * Omit when a parent embeds the serialized markdown into its own payload
@@ -61,7 +72,10 @@ export function RichMarkdownEditor({
   required?: boolean;
   minHeightClassName?: string;
   onTextChange?: (markdown: string) => void;
-}) {
+}>(function RichMarkdownEditor(
+  { id, name, label, defaultValue, placeholder, required, minHeightClassName = "min-h-[280px]", onTextChange },
+  ref,
+) {
   const hiddenInputRef = useRef<HTMLInputElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const labelId = `${id}-label`;
@@ -111,6 +125,16 @@ export function RichMarkdownEditor({
       onTextChange?.(markdown);
     },
   });
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      setMarkdown: (markdown: string) => {
+        editor?.commands.setContent(markdownToDoc(markdown));
+      },
+    }),
+    [editor],
+  );
 
   // Keeps the hidden input's initial value derived from the SAME
   // deserialize -> serialize path the editor's own content went through
@@ -250,4 +274,4 @@ export function RichMarkdownEditor({
       <input ref={hiddenInputRef} type="hidden" name={name} />
     </div>
   );
-}
+});
