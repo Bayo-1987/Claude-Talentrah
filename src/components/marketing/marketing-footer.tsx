@@ -19,7 +19,12 @@ import type { IconType } from "react-icons";
  * add each back when the feature ships, with a real href. "Mentorship" is
  * back (2026-09-10, PR #341/send-137); the employer link below points at
  * `/employer` (2026-09-17) now that self-serve posting is real — the rest
- * are still unbuilt.
+ * are still unbuilt. "Resume Tailoring" gets its own href (2026-09-19,
+ * send-386) pointing at the new standalone /ai-resume-tailoring page rather
+ * than /tailor directly — that page carries this feature's own real SEO
+ * copy and metadata and is the better landing spot for a footer visitor,
+ * with its own CTA into /tailor. "ATS Resume Checker" is new alongside it,
+ * same reasoning.
  *
  * The employer column keeps its place — §6.1 wants employers addressed in
  * the footer — and now points at the real, free, self-serve flow.
@@ -30,7 +35,8 @@ const FOOTER_COLUMNS = [
     links: [
       "Job Matching",
       "Resume Builder",
-      "Resume Tailoring",
+      { label: "Resume Tailoring", href: "/ai-resume-tailoring" },
+      { label: "ATS Resume Checker", href: "/ats-resume-checker" },
       "Job Tracker",
       "Scholarships",
       "Refer & Earn",
