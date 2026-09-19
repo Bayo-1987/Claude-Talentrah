@@ -14,6 +14,13 @@ import { MentorshipSection } from "@/components/marketing/mentorship-section";
 
 describe("the homepage Mentorship section", () => {
   const html = renderToStaticMarkup(<MentorshipSection />);
+  // send-401's NairaAmount wraps the ₦ sign in its own <span> (a real,
+  // deliberate fix for Newsreader's missing glyph — see naira-amount.tsx's
+  // own header), so raw HTML no longer has "₦15,000" as one contiguous
+  // substring even though it's the correct, visually-adjacent rendering.
+  // Strip tags for text-content assertions the same way a reader (or a
+  // screen reader) actually experiences the page.
+  const text = html.replace(/<[^>]+>/g, "");
 
   it("links to the real /mentorship route", () => {
     // Attribute order on the rendered <a> isn't guaranteed to match JSX prop
@@ -27,9 +34,9 @@ describe("the homepage Mentorship section", () => {
     // queried directly against production before writing this copy — NOT
     // CLAUDE.md's own "₦5k–₦100k+" figure, which this send's own
     // investigation found to be stale against the real, current data.
-    expect(html).toContain("₦15,000");
-    expect(html).not.toContain("₦5,000");
-    expect(html).not.toContain("100,000");
+    expect(text).toContain("₦15,000");
+    expect(text).not.toContain("₦5,000");
+    expect(text).not.toContain("100,000");
   });
 
   it("names no individual mentor and cites no fabricated or unverifiable stat", () => {
