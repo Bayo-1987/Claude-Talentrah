@@ -249,10 +249,39 @@ otp_expiry = 3600
 # admin_email = "admin@email.com"
 # sender_name = "Admin"
 
-# Uncomment to customize email template
-# [auth.email.template.invite]
-# subject = "You have been invited"
-# content_path = "./supabase/templates/invite.html"
+# send-395 — branded templates for the three auth emails Supabase's own
+# mailer sends (see supabase/templates/*.html's own header comments for why
+# each is a hand-copy of src/lib/email/layout.ts's palette rather than an
+# import, and which merge fields each one relies on). This changes ONLY
+# what these emails look like — no change to enable_confirmations, rate
+# limits, or when any of these actually send.
+#
+# IMPORTANT: this file is Supabase CLI config, read by `supabase start`
+# for LOCAL DEV ONLY. Nothing in .github/workflows/ pushes it to the
+# hosted project (confirmed by inspecting ci.yml and every other workflow
+# — none call `supabase link` or `supabase config push`), and neither this
+# file's own git history nor any doc/script in this repo shows that ever
+# having been run against nytwbbzfpytctjsoczzq. So this change alone does
+# NOT brand the live production auth emails — a manual step is still
+# needed after this PR merges: paste each template's HTML (confirmation,
+# recovery, invite — supabase/templates/*.html) into the Supabase
+# Dashboard's Authentication → Email Templates screen for the hosted
+# project. That is the only path confirmed to have ever been used for
+# this project; a one-off authenticated `supabase link` +
+# `supabase config push` from a developer's own machine is the CLI
+# alternative Supabase itself supports, but this repo has no record of it
+# and doing it now is a deliberate choice, not something this PR performs.
+[auth.email.template.confirmation]
+subject = "Confirm your email — Talentrah"
+content_path = "./supabase/templates/confirmation.html"
+
+[auth.email.template.recovery]
+subject = "Reset your Talentrah password"
+content_path = "./supabase/templates/recovery.html"
+
+[auth.email.template.invite]
+subject = "You've been invited to join Talentrah"
+content_path = "./supabase/templates/invite.html"
 
 # Uncomment to customize notification email template
 # [auth.email.notification.password_changed]
