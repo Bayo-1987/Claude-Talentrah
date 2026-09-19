@@ -44,7 +44,7 @@ import { TRACKED_COUNTRIES, COUNTRY_LANDING_SLUG, countryOrFilter } from "@/lib/
 export const dynamic = "force-dynamic";
 
 /** Marketing and legal pages that render without a session. */
-const STATIC_PATHS: { path: string; priority: number; changeFrequency: MetadataRoute.Sitemap[number]["changeFrequency"] }[] = [
+export const STATIC_PATHS: { path: string; priority: number; changeFrequency: MetadataRoute.Sitemap[number]["changeFrequency"] }[] = [
   { path: "/", priority: 1, changeFrequency: "weekly" },
   { path: "/about", priority: 0.6, changeFrequency: "monthly" },
   { path: "/contact", priority: 0.5, changeFrequency: "yearly" },
@@ -78,6 +78,11 @@ const STATIC_PATHS: { path: string; priority: number; changeFrequency: MetadataR
   { path: "/ats-resume-checker", priority: 0.6, changeFrequency: "monthly" },
   // send-387 Part 2 — another standalone, hand-authored explainer page, same shape as the two above.
   { path: "/how-auto-apply-works", priority: 0.6, changeFrequency: "monthly" },
+  // send-387 Part 1: unlike the count-gated entries in landingPageEntries below,
+  // this hub always renders a real 200 (hero + CTA card render even with
+  // zero matching posts and zero qualifying landing-page links), so it
+  // belongs here rather than behind a live-count check.
+  { path: "/scholarships/apply-now", priority: 0.6, changeFrequency: "weekly" },
   { path: "/legal/privacy", priority: 0.3, changeFrequency: "yearly" },
   { path: "/legal/terms", priority: 0.3, changeFrequency: "yearly" },
   { path: "/legal/data-cookie-notice", priority: 0.3, changeFrequency: "yearly" },
