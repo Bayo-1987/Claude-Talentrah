@@ -2,7 +2,7 @@ import Link from "next/link";
 import { requireUser } from "@/lib/auth/require-user";
 import { browseMentors } from "@/lib/mentorship/queries";
 import { Container, EyebrowLabel, BorderedCard } from "@/components/ui";
-import { stripBioMarkdownToPlainText } from "@/lib/mentorship/bio-preview";
+import { stripInlineMarkdown } from "@/lib/farah/render-markdown";
 
 export const metadata = { title: "Mentorship — Talentrah" };
 
@@ -77,11 +77,15 @@ export default async function MentorshipPage({
                     formatting (same reasoning as extract-jd.ts's
                     stripMarkdownToPlainText for the job feed card), so this
                     card strips to plain text and only the full profile page
-                    (mentorId/page.tsx) renders it richly.
+                    (mentorId/page.tsx) renders it richly. stripInlineMarkdown
+                    (send-370/371/373's shared minimal-grammar plumbing) is
+                    now the one canonical plain-text stripper for this
+                    grammar — a bare URL has no syntax to strip either way,
+                    so it survives untouched here same as everywhere else.
                   */}
                   {mentor.bio && (
                     <p className="line-clamp-3 text-[13.5px] text-ink-soft">
-                      {stripBioMarkdownToPlainText(mentor.bio)}
+                      {stripInlineMarkdown(mentor.bio)}
                     </p>
                   )}
                   {[...mentor.expertiseRoles, ...mentor.expertiseIndustries].length > 0 && (

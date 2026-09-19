@@ -4,7 +4,9 @@ import { Text } from "@tiptap/extension-text";
 import { Bold } from "@tiptap/extension-bold";
 import { Italic } from "@tiptap/extension-italic";
 import { History } from "@tiptap/extension-history";
+import { Link } from "@tiptap/extension-link";
 import type { AnyExtension } from "@tiptap/core";
+import { Autolink } from "@/lib/employer/markdown-editor/autolink";
 
 /**
  * send-370/371/373 — bold and italic only, and nothing else: no Heading,
@@ -23,3 +25,21 @@ import type { AnyExtension } from "@tiptap/core";
  * something other than a paragraph boundary).
  */
 export const MINIMAL_MARKDOWN_EXTENSIONS: AnyExtension[] = [Document, Text, Paragraph, Bold, Italic, History];
+
+/**
+ * send-369 — mentor bio is the ONE minimal-grammar consumer whose own spec
+ * explicitly wants a bare-https:// autolink (a portfolio/LinkedIn link).
+ * Reuses the exact same `Link`/`Autolink` extensions
+ * `employer/markdown-editor/extensions.ts` already established for the
+ * full grammar — not a second implementation — with the same
+ * `autolink: false, openOnClick: false` configuration and the same
+ * reasoning: TipTap/linkifyjs's own broader bare-URL detection would risk
+ * linking text render-markdown.tsx's own narrower `INLINE_WITH_URL`
+ * wouldn't, so live-as-you-type linking stays driven by that one shared
+ * regex via the `Autolink` extension, not a second recognizer.
+ */
+export const MINIMAL_MARKDOWN_EXTENSIONS_LINKABLE: AnyExtension[] = [
+  ...MINIMAL_MARKDOWN_EXTENSIONS,
+  Link.configure({ autolink: false, openOnClick: false }),
+  Autolink,
+];

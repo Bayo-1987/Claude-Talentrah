@@ -2,8 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
-import { MINIMAL_MARKDOWN_EXTENSIONS } from "@/lib/rich-text/minimal-extensions";
+import { MINIMAL_MARKDOWN_EXTENSIONS, MINIMAL_MARKDOWN_EXTENSIONS_LINKABLE } from "@/lib/rich-text/minimal-extensions";
 import { minimalMarkdownToDoc, minimalDocToMarkdown } from "@/lib/rich-text/minimal-document";
+import { sanitizePastedHtml } from "@/lib/employer/markdown-editor/paste-sanitize";
 import { cn } from "@/lib/cn";
 
 /** Same ≥40×40 hit-target rule as RichMarkdownEditor's own toolbar buttons. */
@@ -25,6 +26,11 @@ const TOOLBAR_BUTTON =
  * hidden input always carries `minimalDocToMarkdown(editor.getJSON())`, a
  * plain bold/italic markdown-subset string. Nothing downstream needs to
  * know a rich editor produced it.
+ *
+ * `linkable` (send-369, default false) is the one opt-in escape hatch: bio
+ * is the sole consumer whose own spec wants a bare-https:// autolink. See
+ * minimal-extensions.ts's own header for why this is additive rather than
+ * a second grammar.
  */
 export function MinimalRichEditor({
   id,
@@ -34,6 +40,7 @@ export function MinimalRichEditor({
   placeholder,
   required,
   minHeightClassName = "min-h-[120px]",
+  linkable = false,
   onTextChange,
 }: {
   id: string;
@@ -44,6 +51,8 @@ export function MinimalRichEditor({
   placeholder?: string;
   required?: boolean;
   minHeightClassName?: string;
+  /** send-369 — mentor bio only: adds a bare-https:// autolink (see minimal-extensions.ts's own header). Every other caller omits this. */
+  linkable?: boolean;
   onTextChange?: (markdown: string) => void;
 }) {
   const hiddenInputRef = useRef<HTMLInputElement>(null);
@@ -52,8 +61,8 @@ export function MinimalRichEditor({
   const [showRequiredError, setShowRequiredError] = useState(false);
 
   const editor = useEditor({
-    extensions: MINIMAL_MARKDOWN_EXTENSIONS,
-    content: minimalMarkdownToDoc(defaultValue ?? ""),
+    extensions: linkable ? MINIMAL_MARKDOWN_EXTENSIONS_LINKABLE : MINIMAL_MARKDOWN_EXTENSIONS,
+    content: minimalMarkdownToDoc(defaultValue ?? "", { linkable }),
     immediatelyRender: false,
     editorProps: {
       attributes: {
@@ -64,9 +73,15 @@ export function MinimalRichEditor({
         class: cn(
           minHeightClassName,
           "border-[1.5px] border-t-0 border-ink bg-card px-3.5 py-2.5 font-body text-[15px] leading-[1.65] text-ink outline-none focus:border-rust [&_p.is-editor-empty:first-child::before]:pointer-events-none [&_p.is-editor-empty:first-child::before]:float-left [&_p.is-editor-empty:first-child::before]:h-0 [&_p.is-editor-empty:first-child::before]:text-ink-soft [&_p.is-editor-empty:first-child::before]:content-[attr(data-placeholder)]",
+          linkable && "[&_a]:text-rust [&_a]:underline",
         ),
         "data-placeholder": placeholder ?? "",
       },
+      // Only needed when Link is registered at all — see paste-sanitize.ts's
+      // own header on why a non-linkable schema has no equivalent risk to
+      // guard against (ProseMirror can't create a mark type its schema
+      // never registered, autolink or not).
+      ...(linkable ? { transformPastedHTML: sanitizePastedHtml } : {}),
     },
     onUpdate: ({ editor: e }) => {
       const markdown = minimalDocToMarkdown(e.getJSON());

@@ -454,30 +454,47 @@ export function splitMarkdownParagraphs(content: string): string[] {
 
 /**
  * Renders a single unit of text (one bullet, one already-separated field)
- * with bold/italic marks only — no paragraph splitting, no autolink. The
- * caller already knows this string is one display unit (a `<li>`, an
- * existing `<p>` wrapper); wrapping it again here would be the caller's
- * decision to make, not this function's.
+ * with bold/italic marks only, and no autolink UNLESS the caller passes
+ * `opts.autoLinkUrls` — the exact same opt-in shape `renderMarkdownBlocks`
+ * already threads into `renderInline` for `JOB_DESCRIPTION_FACE`, reused
+ * rather than re-derived. Every current caller (resume summary, screening
+ * answers, DecisionForm notes) omits it and stays bold/italic-only, as
+ * documented above; mentor bio (send-369) is the one minimal-grammar
+ * consumer whose own spec explicitly asked for a bare-URL portfolio/
+ * LinkedIn link, which is why this needs the option at all. The caller
+ * already knows this string is one display unit (a `<li>`, an existing
+ * `<p>` wrapper); wrapping it again here would be the caller's decision to
+ * make, not this function's.
  */
-export function renderInlineMarkdown(text: string, keyPrefix = "im"): ReactNode[] {
-  return renderInline(text, keyPrefix);
+export function renderInlineMarkdown(
+  text: string,
+  keyPrefix = "im",
+  opts?: { autoLinkUrls?: boolean; linkClassName?: string },
+): ReactNode[] {
+  return renderInline(text, keyPrefix, opts);
 }
 
 /**
  * Renders a plain string field that DOES want paragraph breaks (screening
  * answers, send-373's own explicit ask) as one `<p className>` per
- * blank-line-separated paragraph, each still bold/italic-only, never
- * autolinked. Returns `null` for empty/whitespace-only content, matching
- * `renderMarkdownBlocks`'s own never-crash-on-empty-input behavior.
+ * blank-line-separated paragraph, each still bold/italic-only unless
+ * `opts.autoLinkUrls` is passed (see renderInlineMarkdown's own comment —
+ * mentor bio is the one caller that needs it). Returns `null` for
+ * empty/whitespace-only content, matching `renderMarkdownBlocks`'s own
+ * never-crash-on-empty-input behavior.
  */
-export function renderMarkdownParagraphs(content: string, className?: string): ReactNode {
+export function renderMarkdownParagraphs(
+  content: string,
+  className?: string,
+  opts?: { autoLinkUrls?: boolean; linkClassName?: string },
+): ReactNode {
   const paragraphs = splitMarkdownParagraphs(content);
   if (paragraphs.length === 0) return null;
   return (
     <>
       {paragraphs.map((p, i) => (
         <p key={i} className={className}>
-          {renderInline(p, `mp${i}`)}
+          {renderInline(p, `mp${i}`, opts)}
         </p>
       ))}
     </>

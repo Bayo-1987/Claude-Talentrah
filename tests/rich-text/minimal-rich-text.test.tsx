@@ -147,3 +147,79 @@ describe("stripInlineMarkdown — LLM-prompt safety (send-370's tailor.ts fix, s
     expect(stripInlineMarkdown("Plain text, no markers at all.")).toBe("Plain text, no markers at all.");
   });
 });
+
+/**
+ * send-369 — mentor bio is the ONE minimal-grammar consumer that also wants
+ * a bare-https:// autolink (a portfolio/LinkedIn link), added as an opt-in
+ * `{ linkable: true }` on top of this same shared plumbing rather than a
+ * second component or a resurrection of RichMarkdownEditor's own removed
+ * `toolbar="minimal"` mode (see that file's own header on the real bug that
+ * mode had). Every test above this block passes no such option and must
+ * stay completely unaffected — the first two tests here just re-confirm
+ * that explicitly.
+ */
+describe("minimal grammar, linkable variant (send-369 mentor bio)", () => {
+  function roundTripLinkable(markdown: string): string {
+    return minimalDocToMarkdown(minimalMarkdownToDoc(markdown, { linkable: true }));
+  }
+
+  it("non-linkable callers are unaffected: a bare URL is plain text, never a link mark", () => {
+    const md = "Portfolio: https://example.com/jane";
+    expect(roundTripLinkable(md)).toBe(md); // sanity: also true for linkable
+    expect(minimalDocToMarkdown(minimalMarkdownToDoc(md))).toBe(md); // the real assertion: default (non-linkable) path
+    const doc = minimalMarkdownToDoc(md);
+    const hasLinkMark = doc.content?.[0]?.content?.some((n) => n.marks?.some((m) => m.type === "link"));
+    expect(hasLinkMark).toBeFalsy();
+  });
+
+  it("a bare https:// URL becomes a link mark and round-trips byte-for-byte", () => {
+    const doc = minimalMarkdownToDoc("Portfolio: https://example.com/jane", { linkable: true });
+    const hasLinkMark = doc.content?.[0]?.content?.some((n) => n.marks?.some((m) => m.type === "link"));
+    expect(hasLinkMark).toBe(true);
+    expect(minimalDocToMarkdown(doc)).toBe("Portfolio: https://example.com/jane");
+  });
+
+  it("bold + italic + a bare URL all round-trip together, byte-for-byte", () => {
+    const md = "Ex-**Paystack** engineering manager. *Loves* mock interviews — portfolio at https://example.com/jane.";
+    expect(roundTripLinkable(md)).toBe(md);
+  });
+
+  it("SAFETY: a link mark whose href disagrees with its own text never emits the href — plain text only", () => {
+    // Constructs the doc directly rather than through the parser, since the
+    // parser itself can never produce a mismatched mark — this proves the
+    // SERIALIZER's own guard, matching employer/markdown-editor/document.ts's
+    // identical test for the full-grammar editor.
+    const maliciousDoc = {
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [
+            { type: "text", text: "Click here", marks: [{ type: "link", attrs: { href: "javascript:alert(1)" } }] },
+          ],
+        },
+      ],
+    };
+    expect(minimalDocToMarkdown(maliciousDoc)).toBe("Click here");
+    expect(minimalDocToMarkdown(maliciousDoc)).not.toContain("javascript:");
+  });
+
+  it("renderMarkdownParagraphs with autoLinkUrls renders a real <a href>, matching the linkClassName", () => {
+    const html = renderToStaticMarkup(
+      <>
+        {renderMarkdownParagraphs("Portfolio: https://example.com/jane", "bio-class", {
+          autoLinkUrls: true,
+          linkClassName: "link-class",
+        })}
+      </>,
+    );
+    expect(html).toContain('<a href="https://example.com/jane"');
+    expect(html).toContain('class="link-class"');
+  });
+
+  it("renderMarkdownParagraphs without autoLinkUrls never produces an <a>, even for a bare URL", () => {
+    const html = renderToStaticMarkup(<>{renderMarkdownParagraphs("Portfolio: https://example.com/jane")}</>);
+    expect(html).not.toContain("<a ");
+    expect(html).toContain("https://example.com/jane");
+  });
+});
