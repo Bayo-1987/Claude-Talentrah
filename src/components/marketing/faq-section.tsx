@@ -27,7 +27,7 @@ import { EyebrowLabel } from "@/components/ui";
 const FAQS = [
   {
     q: "Is Talentrah free to use?",
-    a: "Checking your match score and previewing a tailored resume needs no account. Deeper AI actions — full tailoring, applying, interview prep — use credits: you get a free allotment when you create a free account, with more available if you need them.",
+    a: "Browsing jobs, tracking applications, and building your resume are always free. When you create a free account, your first resume tailoring and your first cover letter are free too. After that, tailoring, cover letters, and other AI-powered actions run on Talentrah Credits, which you buy in packs as you need them.",
   },
   {
     q: "What's the difference between Farah and a human mentor?",

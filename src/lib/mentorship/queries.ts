@@ -60,8 +60,13 @@ export async function browseMentors(): Promise<MentorListing[]> {
     p_mentor_ids: rows.map((r) => r.user_id),
   });
   if (namesError) throw namesError;
+  // send-418: display_name (mentor-set, mentor_profiles) wins when present —
+  // it exists specifically to override the onboarding-signup name below.
   const nameById = new Map(
-    (names ?? []).map((n) => [n.user_id, [n.first_name, n.last_name].filter(Boolean).join(" ").trim()]),
+    (names ?? []).map((n) => [
+      n.user_id,
+      n.display_name?.trim() || [n.first_name, n.last_name].filter(Boolean).join(" ").trim(),
+    ]),
   );
 
   return rows.map((r) => {
@@ -125,7 +130,8 @@ export async function getMentorProfile(mentorUserId: string): Promise<MentorProf
   if (namesError) throw namesError;
 
   const found = (names ?? [])[0];
-  const name = found ? [found.first_name, found.last_name].filter(Boolean).join(" ").trim() : "";
+  // send-418: same display_name-first preference as browseMentors() above.
+  const name = found ? found.display_name?.trim() || [found.first_name, found.last_name].filter(Boolean).join(" ").trim() : "";
   const ratings = (mentor.mentorship_reviews ?? []).map((rev) => rev.rating);
 
   return {
@@ -147,6 +153,8 @@ export async function getMentorProfile(mentorUserId: string): Promise<MentorProf
 
 export interface OwnMentorProfile {
   status: string;
+  /** send-418: mentor-settable, decoupled from profiles.first_name/last_name — see application-form.tsx. */
+  displayName: string | null;
   bio: string | null;
   expertiseRoles: string[];
   expertiseIndustries: string[];
@@ -166,7 +174,7 @@ export async function getOwnMentorProfile(userId: string): Promise<OwnMentorProf
   const { data, error } = await supabase
     .from("mentor_profiles")
     .select(
-      "status, bio, expertise_roles, expertise_industries, years_experience, base_price_ngn, review_note, reviews_verifications, self_paused",
+      "status, display_name, bio, expertise_roles, expertise_industries, years_experience, base_price_ngn, review_note, reviews_verifications, self_paused",
     )
     .eq("user_id", userId)
     .maybeSingle();
@@ -174,6 +182,7 @@ export async function getOwnMentorProfile(userId: string): Promise<OwnMentorProf
   if (!data) return null;
   return {
     status: data.status,
+    displayName: data.display_name,
     bio: data.bio,
     expertiseRoles: data.expertise_roles,
     expertiseIndustries: data.expertise_industries,
@@ -286,8 +295,14 @@ async function loadSessions(userId: string, side: "mentor_id" | "mentee_id"): Pr
     p_user_ids: profileIds,
   });
   if (namesError) throw namesError;
+  // send-418: same display_name-first preference as the public-facing name
+  // resolution above — a session counterparty who is also an approved
+  // mentor shows their mentor display_name here too, not the onboarding name.
   const nameById = new Map(
-    (names ?? []).map((p) => [p.user_id, [p.first_name, p.last_name].filter(Boolean).join(" ").trim()]),
+    (names ?? []).map((p) => [
+      p.user_id,
+      p.display_name?.trim() || [p.first_name, p.last_name].filter(Boolean).join(" ").trim(),
+    ]),
   );
 
   return rows.map((r) => ({
