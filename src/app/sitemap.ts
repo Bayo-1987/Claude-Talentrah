@@ -76,6 +76,8 @@ const STATIC_PATHS: { path: string; priority: number; changeFrequency: MetadataR
    */
   { path: "/ai-resume-tailoring", priority: 0.6, changeFrequency: "monthly" },
   { path: "/ats-resume-checker", priority: 0.6, changeFrequency: "monthly" },
+  // send-387 Part 2 — another standalone, hand-authored explainer page, same shape as the two above.
+  { path: "/how-auto-apply-works", priority: 0.6, changeFrequency: "monthly" },
   { path: "/legal/privacy", priority: 0.3, changeFrequency: "yearly" },
   { path: "/legal/terms", priority: 0.3, changeFrequency: "yearly" },
   { path: "/legal/data-cookie-notice", priority: 0.3, changeFrequency: "yearly" },
