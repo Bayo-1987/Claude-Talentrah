@@ -63,7 +63,21 @@ export function MarketingMasthead() {
   }, [navOpen]);
 
   return (
-    <div className="sticky top-0 z-20 border-b-[2.5px] border-ink bg-paper/95 backdrop-blur-sm">
+    <header className="sticky top-0 z-20 border-b-[2.5px] border-ink bg-paper/95 backdrop-blur-sm">
+      {/*
+        send-381 — a screen reader/keyboard user had no way to jump past this
+        persistent masthead straight to page content. Off-screen until
+        focused (Tab from the very top of the page lands here first), then
+        pinned in view so a sighted keyboard user can see it too. Targets
+        `#main-content`, which every page using this masthead now renders on
+        its own <main> — see page.tsx / legal-page.tsx / etc.
+      */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:border-[1.5px] focus:border-ink focus:bg-card focus:px-4 focus:py-2.5 focus:font-body focus:text-[14px] focus:font-semibold focus:text-ink"
+      >
+        Skip to main content
+      </a>
       <div className="mx-auto flex h-[78px] max-w-[1120px] items-center justify-between px-10">
         <Link href="/" className="flex flex-shrink-0 items-center no-underline">
           {/* eslint-disable-next-line @next/next/no-img-element -- static brand SVG, next/image's optimizer needs SVG allow-listing for no real benefit here */}
@@ -148,6 +162,6 @@ export function MarketingMasthead() {
           </Link>
         </div>
       </div>
-    </div>
+    </header>
   );
 }

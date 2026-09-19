@@ -83,6 +83,18 @@ test("every interactive element in the masthead and panel is at least 40x40", as
         const r = el.getBoundingClientRect();
         if (r.width === 0 && r.height === 0) return;
         if ((el as HTMLInputElement).type === "hidden") return;
+        /*
+         * The skip-to-content link (send-381 follow-up) is deliberately
+         * `sr-only` — clipped to ~1x1 — until it receives keyboard focus,
+         * then expands to a real, comfortably-sized box (measured 158x43).
+         * That is the correct, standard pattern (WCAG technique G1): no
+         * pointer user can hover or tap a `clip`-hidden element in its
+         * resting state, so its resting size is not a hit-target bug the
+         * way an always-visible undersized icon button is. The test just
+         * below asserts its FOCUSED size directly, so this exclusion can't
+         * silently hide a regression in the size that actually matters.
+         */
+        if (el.getAttribute("href") === "#main-content") return;
         all.push({
           region: name,
           text: (el.textContent || el.getAttribute("aria-label") || el.getAttribute("placeholder") || el.tagName)
@@ -100,6 +112,16 @@ test("every interactive element in the masthead and panel is at least 40x40", as
   // The masthead alone renders eleven, and the panel eight.
   expect(measured.total).toBeGreaterThanOrEqual(15);
   expect(measured.undersized).toEqual([]);
+});
+
+test("the skip-to-content link is excluded above because it's genuinely 40x40+ once focused, not because it's exempt", async ({
+  page,
+}) => {
+  await page.goto("/feedback");
+  await page.keyboard.press("Tab");
+  const box = await page.getByRole("link", { name: "Skip to main content" }).boundingBox();
+  expect(box?.width, "skip link too narrow once focused").toBeGreaterThanOrEqual(MIN);
+  expect(box?.height, "skip link too short once focused").toBeGreaterThanOrEqual(MIN);
 });
 
 test("the active nav item is visibly distinguishable from the inactive ones", async ({ page }) => {
