@@ -2,6 +2,7 @@ import { CLEAN_PROFESSIONAL_CONFIG } from "@/components/resume-builder/skeletons
 import { CATALOG_TEMPLATE_CONFIGS } from "@/components/resume-builder/skeletons/catalog-configs";
 import type { TemplateConfig } from "@/components/resume-builder/skeletons/types";
 import type { Json } from "@/lib/supabase/types";
+import { CREDIT_COSTS } from "@/lib/credits/costs";
 
 /**
  * `structure_schema` for every PR3 slug (the 4 fixed PR2 fallback rows and
@@ -214,14 +215,47 @@ export interface CreditPackDefinition {
  * Only the currently-sellable packs — Popular and Power are retired below,
  * not listed here, since every writer of this list only ever touches the
  * rows it names.
+ *
+ * send-417 (2026-09-19, migration 0183): Plus corrected 45 -> 50. 45 was
+ * `talentDirectoryVerification + tailoringRun` (25 + 20) — a relationship
+ * that happened to produce a plausible-looking number but was never what
+ * the pack's own marketing copy (billing/page.tsx's PACK_DESCRIPTIONS,
+ * "2 tailorings + a cover letter, or a Directory verification") actually
+ * promises: 2×tailoringRun + coverLetterRun = 40 + 10 = 50. See
+ * CREDIT_PACK_BUNDLE_CREDITS below, which encodes the real bundle so this
+ * can't silently drift again — verified against production
+ * (nytwbbzfpytctjsoczzq): zero Plus-pack purchases and zero 45-credit
+ * credit_ledger grants ever existed, so this is a forward-only fix with
+ * nothing to backfill.
  */
 export const CREDIT_PACKS: readonly CreditPackDefinition[] = [
   { name: "Starter", credits: 20, price_ngn: 2500 },
-  { name: "Plus", credits: 45, price_ngn: 5000 },
+  { name: "Plus", credits: 50, price_ngn: 5000 },
 ];
 
 /** Deactivated by 0089, never deleted (payment_transactions still references them). */
 export const RETIRED_CREDIT_PACKS: readonly string[] = ["Popular", "Power"];
+
+/**
+ * What each active pack's own marketing copy (billing/page.tsx's
+ * PACK_DESCRIPTIONS) says it buys, expressed as real CREDIT_COSTS actions
+ * rather than a bare number — the same "denominate in the action, not a
+ * literal" discipline src/lib/referrals/rewards.ts already uses for the
+ * referral rewards, and for the same reason: a future CREDIT_COSTS
+ * repricing has no way to know this copy exists unless something reads
+ * both and compares them. CREDIT_PACKS' own `credits` field stays a literal
+ * per this file's header above — this is the independent cross-check, not
+ * a second source of truth for what a pack is sold for.
+ *
+ * tests/billing/pricing-catalog-rebase.test.ts asserts every entry in
+ * CREDIT_PACKS equals its expectation here — add a row whenever a new pack
+ * is added, or that test fails with a clear "no bundle-expectation entry"
+ * message instead of silently skipping the new pack.
+ */
+export const CREDIT_PACK_BUNDLE_CREDITS: Readonly<Record<string, number>> = {
+  Starter: CREDIT_COSTS.tailoringRun, // "1 CV tailoring"
+  Plus: 2 * CREDIT_COSTS.tailoringRun + CREDIT_COSTS.coverLetterRun, // "2 tailorings + a cover letter"
+};
 
 export interface PassDefinition {
   name: string;
