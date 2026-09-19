@@ -251,6 +251,27 @@ export function Masthead({
     : NAV_LINKS[activeIndex].label;
 
   /*
+   * The label BUTTON's accessible name — deliberately NOT "…currently
+   * showing X", which is what this shipped with and is exactly the
+   * confusion the highlight's own comment below (near `highlighted`) already
+   * reasoned around for `aria-current`: a screen-reader user on /jobs who
+   * hears "currently showing Get Verified" a few seconds later is being told
+   * something false, not just shown something surprising. This idles through
+   * NAV_LINKS regardless of `pathname` — it is a rotating suggestion of where
+   * to go, never a statement of where the reader IS — so the name says
+   * "suggestion", not "currently". Confirmed against the 2026-09-19 UX
+   * audit's own observation (values flickering across pages unrelated to
+   * them) before landing on this wording rather than moving the control.
+   *
+   * Reduced motion gets its own plain "Open menu": REDUCED_MOTION_LABEL
+   * ("Menu") is not a real nav destination, so "suggestion: Menu" would be
+   * nonsense a screen-reader user has no way to act on.
+   */
+  const navTriggerLabel = reducedMotion
+    ? "Open menu"
+    : `Open menu — suggestion: ${activeLabel}`;
+
+  /*
    * The nav links move behind a disclosure below `lg` (1024px), and the number
    * is measured rather than chosen.
    *
@@ -667,7 +688,7 @@ export function Masthead({
                 type="button"
                 aria-expanded={navOpen}
                 aria-haspopup="menu"
-                aria-label={`Open menu, currently showing ${activeLabel}`}
+                aria-label={navTriggerLabel}
                 onClick={() => {
                   cancelPendingLabelSwap();
                   setNavOpen(true);
@@ -717,8 +738,11 @@ export function Masthead({
                    * "the current page", which this is not, and the panel
                    * already has a real current-page state that would then be
                    * indistinguishable from it. The label button's own
-                   * accessible name ("…currently showing Jobs") is what
-                   * carries this to a screen reader.
+                   * accessible name ("…suggestion: Jobs") is what carries
+                   * this to a screen reader — deliberately not phrased as
+                   * "currently showing", for the same reason `aria-current`
+                   * is avoided here: this is a suggestion, not a claim about
+                   * where the reader is.
                    */
                   const highlighted = highlightIndex === i;
                   return (
