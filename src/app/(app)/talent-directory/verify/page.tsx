@@ -7,6 +7,7 @@ import {
 } from "@/lib/talent-directory/queries";
 import { Container, EyebrowLabel, BorderedCard } from "@/components/ui";
 import { CREDIT_COSTS } from "@/lib/credits/costs";
+import { renderInlineMarkdown } from "@/lib/farah/render-markdown";
 import { VerificationPanel } from "./verification-panel";
 import { HumanReviewForm } from "./human-review-form";
 import { OptInToggle } from "./opt-in-toggle";
@@ -102,13 +103,29 @@ export default async function TalentDirectoryVerifyPage() {
       {history.length > 0 && (
         <section className="flex flex-col gap-3">
           <h2 className="font-display text-[18px] font-semibold">Verification history</h2>
+          {/*
+           * send-372 — h.feedback (queries.ts's `ai_feedback` column, despite
+           * the name) is the ONE candidate-facing read site for this text,
+           * shared by two different authors: the AI grader's own LLM output
+           * (verification-runner.ts) and a human reviewer's "Notes for the
+           * candidate" (decide-form.tsx → resolveVerificationReview, which
+           * writes the SAME string here AND into the separate, never-read
+           * `reviewer_notes` column — that column is a dead write, not a
+           * second display site, and is out of this ticket's scope to fix).
+           * renderInlineMarkdown already tolerates plain prose with stray
+           * `*`/`_` characters (the same assumption every other consumer of
+           * this helper makes for free-text/LLM-adjacent input), so widening
+           * this one render call covers both authors without a format flag.
+           */}
           {history.map((h) => (
             <BorderedCard key={h.id} className="flex flex-col gap-1.5 p-4">
               <p className="text-[13.5px] text-ink">
                 {new Date(h.requestedAt).toLocaleDateString()} · {h.status}
                 {h.score != null && ` · ${h.score}/100`}
               </p>
-              {h.feedback && <p className="text-[13px] text-ink-soft">{h.feedback}</p>}
+              {h.feedback && (
+                <p className="text-[13px] text-ink-soft">{renderInlineMarkdown(h.feedback)}</p>
+              )}
             </BorderedCard>
           ))}
         </section>
