@@ -74,22 +74,23 @@ const ROTATE_PASSWORDS = process.env.SEED_ROTATE_PASSWORDS === "1";
  * Actions secrets are not available." Every Dependabot PR hit this exact
  * throw until this fallback was added (docs/ci-and-tooling-gaps.md, entry 7).
  *
- * Safe to fall back silently for `checks`: its unit tests need a seeded demo
- * account to exist, never a specific password value (checked directly —
- * none of tests/seo/landing-page-links.test.ts,
- * tests/billing/pricing-catalog-rebase.test.ts,
- * tests/rls/org-and-referral-scoping.test.ts or tests/seed/catalog.test.ts
- * reference DEMO_PASSWORD or a login flow).
- *
- * `e2e` runs this same script a second time, independently, into its own
- * ephemeral database — and several specs DO log in as this account, reading
- * `process.env.DEMO_PASSWORD` directly. So the generated value is written to
- * $GITHUB_ENV (same idiom as ci.yml's own per-run INGEST_SECRET) so it's
- * visible to that job's later Playwright step, matching what was used here
- * to create the account.
+ * `||`, not `??`. Confirmed directly against a real, currently-failing
+ * Dependabot run (#492) before changing this: `ci.yml` sets `DEMO_PASSWORD:
+ * ${{ secrets.DEMO_PASSWORD }}` at the workflow-env level unconditionally,
+ * and for a Dependabot-triggered run that expression resolves to an EMPTY
+ * STRING, not an absent key — the job's own printed `env:` block showed
+ * `DEMO_PASSWORD: ` with nothing after the colon, distinguishable from the
+ * `***`-masked real secrets right next to it. `??` only substitutes for
+ * `null`/`undefined`, so `"" ?? fallback` evaluates to `""`, the CI branch
+ * below never ran, and `!DEMO_PASSWORD` still threw — this is the exact
+ * same throw entry 7 already describes, recurring because the original fix
+ * treated "withheld" as "absent" rather than as "empty," which is what a
+ * withheld secret referenced via `${{ secrets.X }}` actually is on this
+ * platform. `||` falls through for any falsy value, which is correct here
+ * specifically because a real DEMO_PASSWORD is never itself falsy.
  */
 const DEMO_PASSWORD =
-  process.env.DEMO_PASSWORD ?? (process.env.CI ? randomBytes(24).toString("hex") : undefined);
+  process.env.DEMO_PASSWORD || (process.env.CI ? randomBytes(24).toString("hex") : undefined);
 if (!DEMO_PASSWORD) {
   throw new Error(
     "DEMO_PASSWORD is not set. Add it to .env.local (and to CI secrets for the e2e job). " +
