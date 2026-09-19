@@ -210,4 +210,50 @@ describe("stripMarkdownToPlainText undoes what stripHtml produces, for consumers
     // separate from there, but "Moniepoint" still needs a space after it.
     expect(stripMarkdownToPlainText("Moniepoint**Who We Are**")).toBe("Moniepoint Who We Are");
   });
+
+  /**
+   * send-413: the ACTUAL originally-reported live artifact — literal,
+   * visible "**" characters on screen — traced to the real raw
+   * `description` of production job_postings id
+   * 6d94d5dc-2caf-4864-ad05-2512e89e6fa0 (Moniepoint, "Site Reliability
+   * Engineer", Remote India), pulled directly from the production Supabase
+   * project on 2026-09-19: `**Location:** India******Who We Are**\n\n…` —
+   * two bold markers glued together with no separating whitespace, forming
+   * a run of six consecutive asterisks. send-397's own fixture two tests
+   * above ("Location: India**Who We Are** Moniepoint…") was a simplified
+   * two-star stand-in, verified by that session but not the literal
+   * production text — this is the literal production text.
+   *
+   * Ruled out the alternative "location field joined against description
+   * with no separator, at the CARD level" theory before writing this:
+   * job-card.tsx renders `metaParts.join(" · ")` (which never includes
+   * `location` bare — see WORK_TYPE_LABEL usage) in one <div> and the
+   * stripped description in a separate, sibling <p> — two distinct DOM
+   * nodes, never concatenated into one JS string. public-job-row.tsx (the
+   * other consumer named in PR #499) does the same. So a join-point fix
+   * would touch nothing real; the "Location: India" text seen live is part
+   * of the raw JD body itself (that employer's own ad copy literally opens
+   * with a "**Location:** <value>" line), not code-assembled — this
+   * function is the only place that can fix it.
+   *
+   * Proved this test catches the bug: reverting just the `\*{2,}` collapse
+   * line (keeping the send-397 boundary-space fix intact) reproduces
+   * literal asterisks in the output — `"Location: India * *Who We Are …"` —
+   * failing this assertion exactly as production did.
+   */
+  it("send-413: collapses a run of 3+ consecutive asterisks (two bold markers glued together) instead of leaving literal '*' behind", () => {
+    const description =
+      "**Location:** India******Who We Are**\n\nMoniepoint Inc. is Africa's all-in-one financial platform, helping 20 million businesses and individuals access seamless payments, banking, credit, cross-border, and business management tools each month.";
+    const out = stripMarkdownToPlainText(description);
+    expect(out).not.toContain("*");
+    expect(out).toBe(
+      "Location: India Who We Are\n\nMoniepoint Inc. is Africa's all-in-one financial platform, helping 20 million businesses and individuals access seamless payments, banking, credit, cross-border, and business management tools each month.",
+    );
+  });
+
+  it("send-413: a well-formed, correctly-spaced bold pair is unaffected by the run-collapse", () => {
+    expect(stripMarkdownToPlainText("Own the roadmap for **merchant payments** end to end.")).toBe(
+      "Own the roadmap for merchant payments end to end.",
+    );
+  });
 });
