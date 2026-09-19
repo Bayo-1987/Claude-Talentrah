@@ -61,7 +61,26 @@ name: Lighthouse performance budget
 # .tsx:64 uses the `--line` token, meant for hairline borders at ~1.84:1
 # non-text contrast, as actual text — a DIFFERENT gap than PR #482's own
 # WCAG batch fixed, which only covered `--line` used as a non-text BORDER on
-# IconButton/FilterChip); /mentorship's 92 SEO is a missing meta description.
+# IconButton/FilterChip); /mentorship's 92 SEO is NOT a missing description —
+# send-424 corrected this after independent verification showed a real one
+# exists (generateMetadata's signed-out branch, send-385/393, confirmed live
+# via curl and in a real hydrated browser: exactly one populated
+# `<meta name="description">`). The real cause: `mentorship/(list)/loading.tsx`
+# gives this route an implicit Suspense boundary, so Next streams the page
+# shell before generateMetadata's own async calls (getOptionalUser,
+# getApprovedMentorPriceRangeNgn) resolve — the description tag arrives later
+# in the stream and lands as a direct child of <body>, confirmed both in the
+# raw HTML (byte offset of the tag is ~64,850, well after `</head>` closes at
+# ~1,383) and in a live browser's final DOM (`document.head.contains(meta)`
+# is false, `document.body.contains(meta)` is true). Lighthouse's own
+# meta-description audit checks specifically for a <head>-scoped tag, so it
+# correctly reports one missing THERE even though a real, correctly-worded
+# description exists in the document — sibling pages with async
+# generateMetadata but no loading.tsx of their own (homepage, /jobs/remote,
+# job detail) render it inside <head> as expected, confirming the loading.tsx
+# streaming boundary is what's different about this one page. Not fixed here
+# — untangling this page's streaming/metadata-timing interaction is a real
+# fix, not a citation correction, and is out of this gate's own scope.
 # None of these are fixed here — this send is the gate, not the fix, per its
 # own explicit scope.
 on:
