@@ -150,11 +150,11 @@ export function SignupForm({
           className="mt-0.5 h-4 w-4 flex-shrink-0 accent-[var(--ink)]"
         />
         I agree to Talentrah&apos;s{" "}
-        <a href="/terms" className="underline">
+        <a href="/legal/terms" className="underline">
           Terms of Service
         </a>{" "}
         and{" "}
-        <a href="/privacy" className="underline">
+        <a href="/legal/privacy" className="underline">
           Privacy Policy
         </a>
         .
