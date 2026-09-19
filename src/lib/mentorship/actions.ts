@@ -12,6 +12,7 @@ import { generateMeetingLink } from "@/lib/mentorship/meeting-link";
 import { notifySessionConfirmed } from "@/lib/mentorship/notifications";
 import type { MentorshipSessionType } from "@/lib/mentorship/pricing";
 import { captureEvent } from "@/lib/analytics/posthog";
+import { warnIfNameLooksLikeOwnOrg } from "@/lib/mentorship/name-validation";
 
 function splitTags(raw: string): string[] {
   return raw
@@ -33,9 +34,14 @@ export async function applyToBecomeMentorAction(_prev: unknown, formData: FormDa
 
   const yearsRaw = String(formData.get("yearsExperience") ?? "").trim();
   const priceRaw = String(formData.get("basePriceNgn") ?? "").trim();
+  const displayName = String(formData.get("displayName") ?? "").trim() || null;
 
   const { error } = await supabase.from("mentor_profiles").insert({
     user_id: user.id,
+    // send-418: optional at application time — null falls back to
+    // profiles.first_name/last_name (mentor_public_names' own preference,
+    // see queries.ts) until the mentor sets this themselves.
+    display_name: displayName,
     bio: String(formData.get("bio") ?? "").trim() || null,
     expertise_roles: splitTags(String(formData.get("expertiseRoles") ?? "")),
     expertise_industries: splitTags(String(formData.get("expertiseIndustries") ?? "")),
@@ -58,6 +64,10 @@ export async function applyToBecomeMentorAction(_prev: unknown, formData: FormDa
   }
 
   revalidatePath("/mentorship/apply");
+  if (displayName) {
+    const warning = await warnIfNameLooksLikeOwnOrg(supabase, user.id, displayName);
+    if (warning) return { status: "warning" as const, message: `Application submitted. ${warning}` };
+  }
   return { status: "success" as const, message: "Application submitted — you'll hear back once an admin reviews it." };
 }
 
@@ -68,10 +78,12 @@ export async function updateMentorProfileAction(_prev: unknown, formData: FormDa
 
   const yearsRaw = String(formData.get("yearsExperience") ?? "").trim();
   const priceRaw = String(formData.get("basePriceNgn") ?? "").trim();
+  const displayName = String(formData.get("displayName") ?? "").trim() || null;
 
   const { error } = await supabase
     .from("mentor_profiles")
     .update({
+      display_name: displayName,
       bio: String(formData.get("bio") ?? "").trim() || null,
       expertise_roles: splitTags(String(formData.get("expertiseRoles") ?? "")),
       expertise_industries: splitTags(String(formData.get("expertiseIndustries") ?? "")),
@@ -82,6 +94,11 @@ export async function updateMentorProfileAction(_prev: unknown, formData: FormDa
 
   if (error) return { status: "error" as const, message: "Something went wrong." };
   revalidatePath("/mentorship/apply");
+
+  if (displayName) {
+    const warning = await warnIfNameLooksLikeOwnOrg(supabase, user.id, displayName);
+    if (warning) return { status: "warning" as const, message: warning };
+  }
   return { status: "success" as const, message: "Saved." };
 }
 

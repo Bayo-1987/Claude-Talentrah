@@ -78,6 +78,13 @@ export const STATIC_PATHS: { path: string; priority: number; changeFrequency: Me
   { path: "/ats-resume-checker", priority: 0.6, changeFrequency: "monthly" },
   // send-387 Part 2 — another standalone, hand-authored explainer page, same shape as the two above.
   { path: "/how-auto-apply-works", priority: 0.6, changeFrequency: "monthly" },
+  // Same shape again — public landing pages for Resume Builder and Farah's
+  // interview-prep quick action, the two named feature gaps that had zero
+  // indexable URL: previously described only inline on the homepage (Meet
+  // Farah) or not described publicly at all (Resume Builder had no homepage
+  // copy either — see ai-resume-builder/page.tsx's own header).
+  { path: "/ai-resume-builder", priority: 0.6, changeFrequency: "monthly" },
+  { path: "/ai-interview-prep", priority: 0.6, changeFrequency: "monthly" },
   // send-387 Part 1: unlike the count-gated entries in landingPageEntries below,
   // this hub always renders a real 200 (hero + CTA card render even with
   // zero matching posts and zero qualifying landing-page links), so it
