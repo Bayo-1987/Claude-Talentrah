@@ -406,6 +406,85 @@ reverse check demanding every ledger entry map to one, so this does not need
 a `KNOWN_ALIASES` entry to keep `check-migration-drift.ts` clean — confirmed
 by reading that script rather than assumed.
 
+### `0180_trigger_search_path_hardening` was deleted, not left in place — here's why this one is different
+
+Before, on both projects:
+
+| project | version | name | file on `main`? |
+| --- | --- | --- | --- |
+| production | `20260919054141` | `fix_trigger_function_search_path` | yes — `0180_fix_trigger_function_search_path.sql` |
+| production | `20260919060608` | `0180_trigger_search_path_hardening` | no |
+| CI | `20260919054130` | `fix_trigger_function_search_path` | yes — same file |
+| CI | `20260919054141` | `0180_trigger_search_path_hardening` | no |
+
+(The CI orphan's version and production's real-fix version happen to share
+the same digits, `20260919054141` — coincidence, not the same row. Each
+project mints its own timestamp independently.)
+
+**The second row on each project is gone now. The first is untouched.**
+
+`0180_trigger_search_path_hardening` came from `fix/trigger-search-path-hardening`
+(PR #474, "Fix mutable search_path on two trigger functions," closed
+unmerged) — applied directly to both databases ahead of that PR's own merge,
+the usual apply-before-merge habit, for a migration whose PR then never
+landed. The identical fix — `set search_path = ''` on the same two
+functions, `enforce_max_screening_questions` and
+`enforce_max_assessment_files` — shipped correctly a different way, under a
+different name, via PR #475 (`0180_fix_trigger_function_search_path.sql`,
+recorded on both ledgers as `fix_trigger_function_search_path` — see
+"applied without its numeric prefix" above). The abandoned branch itself was
+deleted from git separately, as housekeeping in the PR that found this
+(send-404, #503) — this section is about the ledger row it left behind, not
+the branch, which is already gone.
+
+**Why this one was deleted rather than joining 0071 and 0158b above.** Read
+those two sections again before assuming this one contradicts them: in both,
+the extra row was the ONLY surviving record of something that genuinely
+happened to the schema — 0071's pair records a real drop-then-restore that
+took place; 0158b's row is the only trace that `clean-professional` was ever
+switched on as a second statement, since no file for it was ever committed
+anywhere. Deleting either would have erased a fact nothing else remembers.
+`0180_trigger_search_path_hardening` isn't that: it is a byte-identical
+duplicate of a change that is still completely, correctly on record under
+`fix_trigger_function_search_path` — same two function bodies, same single
+`set search_path = ''` addition, confirmed line-for-line before either row
+was touched. Nothing about what changed, when, or why is lost by removing
+the duplicate; the surviving row a few minutes earlier already says all of
+it. A phantom name with no file anywhere that could ever explain it isn't
+"history" being preserved — it's exactly the untidiness this file's own
+standing rule is about, in the one shape where removing it is the fix,
+because there was no fact left to protect.
+
+**Verified before and after, both projects, not assumed:**
+
+- Row counts: production 186 → 185, CI 163 → 162 — each drop is exactly the
+  one row above, nothing else.
+- The two functions' `search_path`, queried directly from `pg_proc.proconfig`
+  before and after the delete on both projects: `search_path=""` on both,
+  unchanged either side — a ledger row is bookkeeping, and removing one does
+  not touch the function it used to describe.
+- **Any other orphan?** Checked with this repo's own tooling, not a manual
+  diff — `compareMigrations`/`findAppliedButNotCommitted`
+  (`scripts/migration-drift-compare.ts`) against a fresh pull from both
+  projects. After the already-explained noise above (the pre-0026 gap, the
+  `zz_temp_sabotage_*`/`zz_revert_sabotage_*` drill pairs on CI, the 0071 and
+  0158b rows this file already accounts for, and
+  `0182_gate_screening_assessment_public_read` — correctly ahead of its own
+  still-open PR #503 under apply-before-merge, not an orphan at all) —
+  `0180_trigger_search_path_hardening` was the only genuinely unexplained
+  name on either project. Nothing else needed the same treatment.
+
+Deleted via the Supabase MCP connector directly against
+`supabase_migrations.schema_migrations` — the same operation the Supabase
+CLI's `migration repair <version> --status reverted` performs (that table
+carries no status column to set instead; the command's own effect is exactly
+this delete), replicated by hand because production access here goes
+through the connector, not a linked CLI. Documented here rather than as a
+`KNOWN_ALIASES` entry for the same reason 0158b's section gives: an alias
+claims two names describe the SAME migration, and these are two different
+ones that happened to converge on the same schema — there is nothing to
+alias, only a duplicate to remove.
+
 ## Still missing
 
 There is no separate test or staging database. Every suite — the RLS tests,
