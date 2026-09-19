@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { Button, TextField } from "@/components/ui";
+import { Button, TextField, NairaAmount } from "@/components/ui";
 import type { EmployerActionState } from "@/lib/employer/actions";
 
 const PRESETS = [10_000, 25_000, 50_000] as const;
@@ -30,7 +30,9 @@ export function WalletTopUp({
     <div className="flex flex-col gap-3 border-y border-line py-5">
       <div className="flex flex-wrap items-baseline gap-x-2">
         <span className="font-body text-[13px] font-semibold text-ink-soft">Ad wallet</span>
-        <span className="font-display text-[22px] font-medium text-ink">{naira(balanceNgn)}</span>
+        <span className="font-display text-[22px] font-medium text-ink">
+          <NairaAmount amount={balanceNgn} />
+        </span>
         <span className="font-body text-[13px] text-ink-soft">
           {daysLeft === null ? (
             <>— campaigns draw from this, separately from your Talentrah credits.</>

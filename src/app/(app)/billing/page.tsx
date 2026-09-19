@@ -5,7 +5,7 @@ import {
   initiatePurchaseAction,
   cancelAutoRenewAction,
 } from "@/lib/billing/actions";
-import { EyebrowLabel, BorderedCard, Button } from "@/components/ui";
+import { EyebrowLabel, BorderedCard, Button, NairaAmount } from "@/components/ui";
 import { PASS_DAILY_ACTION_CAP } from "@/lib/passes/entitlement";
 
 /**
@@ -317,7 +317,7 @@ export default async function BillingPage({
                 <p className="text-[13px] text-ink-soft">{PACK_DESCRIPTION[pack.name]}</p>
               )}
               <p className="font-display text-[24px]">
-                ₦{pack.price_ngn.toLocaleString()}
+                <NairaAmount amount={pack.price_ngn} />
               </p>
               <form
                 action={initiatePurchaseAction.bind(
@@ -354,7 +354,7 @@ export default async function BillingPage({
                 money.
               </p>
               <p className="font-display text-[24px]">
-                ₦{pass.price_ngn.toLocaleString()}
+                <NairaAmount amount={pass.price_ngn} />
               </p>
               <form action={initiatePurchaseAction.bind(null, "pass", pass.id)}>
                 <Button type="submit" size="sm">
@@ -400,7 +400,7 @@ export default async function BillingPage({
                 </div>
                 <div className="flex flex-col items-end">
                   <span className="font-display text-[16px] text-ink">
-                    ₦{p.amount.toLocaleString()}
+                    <NairaAmount amount={p.amount} />
                   </span>
                   {/*
                     The Paystack reference IS the receipt number — the same
