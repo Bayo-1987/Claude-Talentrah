@@ -47,6 +47,19 @@ export default function robots(): MetadataRoute.Robots {
           "/jobs$",
           "/scholarships$",
           /*
+           * send-385 — the INVERSE of the /jobs$/scholarships$ shape above:
+           * `/mentorship` itself is now the real, signed-out-visitor public
+           * page (components/mentorship/public-landing.tsx), so it must stay
+           * OFF this list — but every sub-route still needs a session and was
+           * found, while investigating this send, to have the exact same
+           * "crawlable, unblocked, serves a generic login redirect" gap the
+           * SEO audit flagged for /mentorship itself: [mentorId], apply,
+           * book/callback, reviews(/[verificationId]), sessions(/mentor). A
+           * trailing-slash, non-anchored prefix disallow catches all of them
+           * in one line while leaving the bare /mentorship path untouched.
+           */
+          "/mentorship/",
+          /*
            * The whole employer surface, INCLUDING /employer itself.
            *
            * An earlier version of this file allowed /employer on the belief

@@ -19,9 +19,13 @@ import { TRACKED_COUNTRIES, COUNTRY_LANDING_SLUG, countryOrFilter } from "@/lib/
  * problem with the site, not as a hint to try harder.
  *
  * So job postings appear here ONLY because /jobs/[id] was made public in the
- * same change, and scholarships ONLY because /scholarships/[id] was made
- * public the same way, later. Every other route under (app) still requires a
- * session and is deliberately absent.
+ * same change, scholarships ONLY because /scholarships/[id] was made public
+ * the same way later, and /mentorship (send-385) ONLY because it now branches
+ * to a real signed-out landing page instead of redirecting. Every other route
+ * under (app) — including /mentorship's own sub-routes ([mentorId], apply,
+ * book, reviews, sessions — still authenticated-only, see robots.ts's
+ * `/mentorship/` disallow — still requires a session and is deliberately
+ * absent.
  *
  * ── WHY THE JOBS AND SCHOLARSHIPS QUERIES ARE NOT CACHED ──────────────────
  *
@@ -56,6 +60,15 @@ const STATIC_PATHS: { path: string; priority: number; changeFrequency: MetadataR
    * point — not before.
    */
   { path: "/blog", priority: 0.7, changeFrequency: "weekly" },
+  /*
+   * send-385 — /mentorship now has its own real, signed-out-visitor page
+   * (components/mentorship/public-landing.tsx) instead of a login redirect,
+   * so it belongs here by this file's own rule. Static, not a DB-backed
+   * block below, because the content itself is hand-authored copy, not a
+   * live count of open postings/scholarships — there is nothing here that
+   * can go stale between deploys.
+   */
+  { path: "/mentorship", priority: 0.6, changeFrequency: "monthly" },
   { path: "/legal/privacy", priority: 0.3, changeFrequency: "yearly" },
   { path: "/legal/terms", priority: 0.3, changeFrequency: "yearly" },
   { path: "/legal/data-cookie-notice", priority: 0.3, changeFrequency: "yearly" },
