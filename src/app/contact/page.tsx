@@ -18,7 +18,7 @@ export default function ContactPage() {
   return (
     <>
       <MarketingMasthead />
-      <div className="py-20">
+      <main id="main-content" className="py-20">
         <Container className="grid max-w-[1120px] gap-16 min-[901px]:grid-cols-[1fr_1.2fr]">
           <div className="flex flex-col gap-4">
             <EyebrowLabel>Contact</EyebrowLabel>
@@ -37,7 +37,7 @@ export default function ContactPage() {
           </div>
           <ContactForm />
         </Container>
-      </div>
+      </main>
       <MarketingFooter />
     </>
   );

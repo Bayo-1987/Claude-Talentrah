@@ -1,10 +1,43 @@
 import Link from "next/link";
-import { requireUser } from "@/lib/auth/require-user";
+import { getOptionalUser } from "@/lib/auth/require-user";
 import { browseMentors } from "@/lib/mentorship/queries";
 import { Container, EyebrowLabel, BorderedCard } from "@/components/ui";
 import { stripInlineMarkdown } from "@/lib/farah/render-markdown";
+import { MentorshipPublicLanding } from "@/components/mentorship/public-landing";
+import { pageMetadata } from "@/lib/seo/site";
+import { getApprovedMentorPriceRangeNgn } from "@/lib/mentorship/public-price-range";
 
-export const metadata = { title: "Mentorship — Talentrah" };
+/**
+ * send-385 — real metadata for the signed-out visitor, who is now served a
+ * real page instead of the redirect-to-/login this route always used to
+ * carry. `getOptionalUser()` (not `requireUser()`, and cheap: React `cache()`
+ * de-dupes it against the identical call the page component below makes in
+ * the same request) is what makes this a BRANCH rather than a fork — a
+ * signed-in visitor keeps the exact plain title this page always had, no
+ * regression to the authenticated experience's own metadata.
+ *
+ * send-393 — the description's price clause now reads the real, current
+ * floor from getApprovedMentorPriceRangeNgn() rather than a hardcoded
+ * figure (see that function's own header for why "from ₦5,000" was wrong
+ * and why this reads live rather than trusting any snapshot, including this
+ * comment's own). No price clause at all when there are zero qualifying
+ * mentors — see that same header for why that beats a fallback number.
+ */
+export async function generateMetadata() {
+  const session = await getOptionalUser();
+  if (session) return { title: "Mentorship — Talentrah" };
+
+  const priceRange = await getApprovedMentorPriceRangeNgn();
+  const priceClause =
+    priceRange !== null ? `, from ₦${priceRange.minNgn.toLocaleString("en-NG")} a session` : "";
+
+  return pageMetadata({
+    title: "Mentorship for Job Seekers in Nigeria & Africa — Talentrah",
+    description:
+      `Book a real career mentor for a mock interview, offer negotiation, or resume review — human mentorship for job seekers across Nigeria and Africa${priceClause}.`,
+    path: "/mentorship",
+  });
+}
 
 /**
  * Discovery (send-137, build-prompt §6.11 v1 slice). Approved mentors only —
@@ -16,13 +49,26 @@ export const metadata = { title: "Mentorship — Talentrah" };
  * mentor) needs no special handling on this page, because `mentor_profiles`
  * is keyed to `profiles.id` rather than columns on `profiles` itself, so
  * being a mentor never changes what a person sees as a mentee.
+ *
+ * send-385 — signed-out branch added above the existing signed-in body,
+ * which is otherwise untouched: same query, same markup, same behavior. See
+ * components/mentorship/public-landing.tsx's own header for why that public
+ * page describes session TYPES and pricing TIERS rather than previewing any
+ * individual mentor's identity.
  */
 export default async function MentorshipPage({
   searchParams,
 }: {
   searchParams: Promise<{ error?: string }>;
 }) {
-  await requireUser();
+  const session = await getOptionalUser();
+  if (!session) {
+    // React cache() dedupes this against generateMetadata()'s identical
+    // call in the same request — see public-price-range.ts's own header.
+    const priceRange = await getApprovedMentorPriceRangeNgn();
+    return <MentorshipPublicLanding priceRangeNgn={priceRange} />;
+  }
+
   const [mentors, { error }] = await Promise.all([browseMentors(), searchParams]);
 
   return (

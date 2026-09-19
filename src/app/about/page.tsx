@@ -22,7 +22,7 @@ export default function AboutPage() {
   return (
     <>
       <MarketingMasthead />
-      <div className="py-20">
+      <main id="main-content" className="py-20">
         <Container className="flex max-w-[760px] flex-col gap-14">
           <div className="flex flex-col gap-4">
             <EyebrowLabel>About</EyebrowLabel>
@@ -84,7 +84,7 @@ export default function AboutPage() {
             </p>
           </div>
         </Container>
-      </div>
+      </main>
       <MarketingFooter />
     </>
   );

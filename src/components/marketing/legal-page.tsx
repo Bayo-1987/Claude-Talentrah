@@ -20,7 +20,7 @@ export function LegalPage({ eyebrow, title, lastUpdated, children }: LegalPagePr
   return (
     <>
       <MarketingMasthead />
-      <div className="py-20">
+      <main id="main-content" className="py-20">
         <Container className="flex max-w-[760px] flex-col gap-10">
           <div className="flex flex-col gap-4 border-b border-line pb-10">
             <EyebrowLabel>{eyebrow}</EyebrowLabel>
@@ -31,7 +31,7 @@ export function LegalPage({ eyebrow, title, lastUpdated, children }: LegalPagePr
             {children}
           </div>
         </Container>
-      </div>
+      </main>
       <MarketingFooter />
     </>
   );

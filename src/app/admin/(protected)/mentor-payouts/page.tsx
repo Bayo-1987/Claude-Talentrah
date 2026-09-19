@@ -1,7 +1,7 @@
 import { requirePermission } from "@/lib/admin/require-admin";
 import { listMentorPayouts } from "@/lib/admin/mentor-payouts/queries";
 import { QueueHeader, QueueEmpty } from "@/components/admin/queue-chrome";
-import { Container, EyebrowLabel, BorderedCard } from "@/components/ui";
+import { Container, EyebrowLabel, BorderedCard, NairaAmount } from "@/components/ui";
 import { RetryButton } from "./retry-button";
 
 export const metadata = {
@@ -34,8 +34,6 @@ export default async function MentorPayoutsPage() {
   const admin = await requirePermission("mentor_review");
   const payouts = await listMentorPayouts();
 
-  const money = (ngn: number) => `₦${ngn.toLocaleString()}`;
-
   return (
     <Container className="flex max-w-[1000px] flex-col gap-8 py-12">
       <QueueHeader
@@ -67,7 +65,9 @@ export default async function MentorPayoutsPage() {
                   <td className="px-4 py-3">
                     <EyebrowLabel>{p.mentorName}</EyebrowLabel>
                   </td>
-                  <td className="px-4 py-3 font-display">{money(p.amountNgn)}</td>
+                  <td className="px-4 py-3 font-display">
+                    <NairaAmount amount={p.amountNgn} />
+                  </td>
                   <td className="px-4 py-3">
                     <span
                       className={

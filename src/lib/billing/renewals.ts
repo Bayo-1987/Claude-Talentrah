@@ -150,13 +150,16 @@ async function sendReminders(summary: RenewalJobSummary) {
 }
 
 /**
- * Best-effort — this repo has no general notification pipeline yet
- * (Resend is currently only wired to the Contact form, see
- * src/lib/resend/client.ts). Reusing that same client here rather than
- * building new delivery infra, per the fix-prompt's explicit scope note.
- * If RESEND_API_KEY isn't configured, this silently no-ops rather than
- * blocking the recharge step — the billing page's "renews on <date>"
- * copy is the actual guaranteed in-app surface either way.
+ * Best-effort — this repo has no general notification pipeline yet, just
+ * the shared Resend client (src/lib/resend/client.ts) each transactional
+ * sender calls directly (corrected send-395: this comment used to say
+ * Resend was "only wired to the Contact form", which stopped being true
+ * once the digest, mentorship, billing and talent-directory emails were
+ * added). Reusing that same client here rather than building new delivery
+ * infra, per the fix-prompt's explicit scope note. If RESEND_API_KEY isn't
+ * configured, this silently no-ops rather than blocking the recharge step
+ * — the billing page's "renews on <date>" copy is the actual guaranteed
+ * in-app surface either way.
  */
 async function sendReminderEmail(row: {
   id: string;
