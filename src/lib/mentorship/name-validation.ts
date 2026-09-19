@@ -26,6 +26,8 @@
  * info@talentrah.com, not a public provider) and the organisation-name
  * check (it belongs to the "Talentrah Portal" org on the employer side).
  */
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/lib/supabase/types";
 
 const COMPANY_WORD =
   /\b(technologies?|tech|ltd|limited|llc|inc|incorporated|corp|corporation|enterprises?|solutions?|group|company|ventures?|holdings?|portal|services?|consulting|systems?|agency|studio|networks?)\b/i;
@@ -106,4 +108,27 @@ export function checkMentorDisplayName(name: string, email: string, orgNames: st
   }
 
   return NOT_SUSPICIOUS;
+}
+
+/**
+ * send-418: the same check `pendingMentorApplications()` runs (send-400),
+ * now also run at the moment a mentor actually chooses their own
+ * display_name (application-form.tsx / actions.ts) rather than only when an
+ * admin later reviews the application. `supabase` is the caller's own
+ * AUTHENTICATED client — `organization_members`' "members can see their own
+ * membership rows" policy and `organizations`' public-read policy both allow
+ * reading exactly what this needs, no service role required.
+ */
+export async function warnIfNameLooksLikeOwnOrg(
+  supabase: SupabaseClient<Database>,
+  userId: string,
+  candidateName: string,
+): Promise<string | null> {
+  const [{ data: profile }, { data: memberships }] = await Promise.all([
+    supabase.from("profiles").select("email").eq("id", userId).single(),
+    supabase.from("organization_members").select("organizations(name)").eq("user_id", userId),
+  ]);
+  const orgNames = (memberships ?? []).map((m) => m.organizations?.name).filter((n): n is string => Boolean(n));
+  const { suspicious, reason } = checkMentorDisplayName(candidateName, profile?.email ?? "", orgNames);
+  return suspicious ? reason : null;
 }
