@@ -343,4 +343,37 @@ test.describe("employer surface", () => {
       "a verified company's job should appear in the feed",
     ).toBeVisible();
   });
+
+  test("the Analytics page's eyebrow describes Analytics, not Ad Campaigns", async ({
+    authedPage,
+    testUser,
+  }) => {
+    /*
+     * Regression test for send-402 (§6.4 of the 2026-09-19 UX audit): this
+     * eyebrow shipped in the same commit that built the whole page (PR #337,
+     * f238e6c2) reading "Every campaign, one place" — copy that describes a
+     * campaign-management/listing surface, not the performance metrics
+     * (impressions, clicks, applies, spend) this page actually shows. Since
+     * Analytics and Ad Campaigns are adjacent nav items, a mismatched eyebrow
+     * invites the two being confused with each other.
+     */
+    const orgName = `E2E Employer Co ${testUser.id.slice(0, 8)}`;
+    await authedPage.goto("/employer");
+    await authedPage.getByLabel("Company name").fill(orgName);
+    await authedPage.getByLabel("Company website domain").fill("e2e-employer.example");
+    await authedPage.getByRole("button", { name: "Create company" }).click();
+    await expect(authedPage).toHaveURL(/\/employer\/jobs$/);
+
+    await authedPage.goto("/employer/analytics");
+    await expect(
+      authedPage.getByRole("heading", { name: "Analytics" }),
+    ).toBeVisible();
+    await expect(
+      authedPage.getByText("Every campaign, one place"),
+      "the old Ad-Campaigns-flavoured copy must be gone",
+    ).toHaveCount(0);
+    await expect(
+      authedPage.getByText("Performance across every campaign"),
+    ).toBeVisible();
+  });
 });

@@ -50,7 +50,7 @@ export default async function EmployerAnalyticsPage() {
 
   return (
     <div className="max-w-[960px]">
-      <EyebrowLabel>Every campaign, one place</EyebrowLabel>
+      <EyebrowLabel>Performance across every campaign</EyebrowLabel>
       <h1 className="mt-2 font-display text-[30px] leading-[1.15] font-medium text-ink">Analytics</h1>
 
       {campaigns.length === 0 ? (
