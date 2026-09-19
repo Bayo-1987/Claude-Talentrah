@@ -5,6 +5,7 @@ import { claimJobPostingAction, type EmployerActionState } from "@/lib/employer/
 import { BorderedCard, Button } from "@/components/ui";
 import { formatRelativeTime } from "@/lib/format-relative-time";
 import type { ClaimCandidate } from "@/lib/employer/claim";
+import { RichMarkdownEditor } from "./rich-markdown-editor";
 
 /**
  * One suggested match on the "Claim your company's listings" review screen
@@ -97,19 +98,21 @@ export function ClaimCandidateCard({ candidate }: { candidate: ClaimCandidate })
             />
           </div>
           <div className="flex flex-col gap-1.5">
-            <label
-              htmlFor={`description-${candidate.id}`}
-              className="font-body text-[13px] font-semibold text-ink-soft"
-            >
-              Job description
-            </label>
-            <textarea
+            {/*
+              send-375 — the same RichMarkdownEditor job-posting-form.tsx
+              uses for this exact column (send-367), not a second plain
+              textarea for a second doorway into it. This is the field the
+              founder's original "pasted description flattened to a wall of
+              text" bug was ALSO still reachable through — same column, same
+              renderer, just a different form that writes to it.
+            */}
+            <RichMarkdownEditor
               id={`description-${candidate.id}`}
               name="description"
+              label="Job description"
               required
-              rows={10}
               placeholder="Paste or write the description for your own posting."
-              className="border-[1.5px] border-ink bg-card px-3.5 py-2.5 font-body text-[15px] leading-[1.65] text-ink outline-none focus:border-rust"
+              minHeightClassName="min-h-[240px]"
             />
             <p className="font-body text-[12.5px] text-ink-soft">
               This becomes a brand new posting your organisation owns — the original listing wasn&apos;t
