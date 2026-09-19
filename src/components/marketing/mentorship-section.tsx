@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BorderedCard, EyebrowLabel, buttonClasses } from "@/components/ui";
+import { BorderedCard, EyebrowLabel, buttonClasses, NairaAmount } from "@/components/ui";
 
 /**
  * send-389 — Mentorship's entire above-the-fold presence used to be one
@@ -68,7 +68,9 @@ export function MentorshipSection() {
             <span className="font-body text-[12px] font-bold uppercase tracking-[0.14em] text-rust">
               Sessions from
             </span>
-            <span className="font-display text-[32px] leading-none">₦15,000</span>
+            <span className="font-display text-[32px] leading-none">
+              <NairaAmount amount={15000} />
+            </span>
           </div>
           <p className="text-[14px] text-ink-soft">
             Mock interviews, offer negotiation, career strategy, and resume review — pick the
