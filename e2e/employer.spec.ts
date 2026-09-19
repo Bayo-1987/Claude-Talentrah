@@ -237,6 +237,70 @@ test.describe("employer surface", () => {
     await expect(authedPage.getByText("Closed")).toBeVisible();
   });
 
+  /**
+   * send-368 — "Draft with Farah" must never gate the plain manual path. A
+   * fresh org has no `ad_wallets` row at all (one is only ever created by a
+   * top-up or a debit) — the common case, not a contrived edge case — so this
+   * is the real zero-balance org the founder's own spec named explicitly:
+   * "a fresh org with a zero ad wallet balance, that never interacts with
+   * this button at all, can still create and publish a job posting through
+   * the existing manual fields, unchanged."
+   */
+  test("a zero-ad-wallet-balance org publishes through the manual fields alone, never touching Draft with Farah", async ({
+    authedPage,
+    testUser,
+  }) => {
+    const orgName = `E2E Employer Co ZB${testUser.id.slice(0, 8)}`;
+    await authedPage.goto("/employer/onboarding");
+    await authedPage.getByLabel("Company name").fill(orgName);
+    await authedPage.getByLabel("Company website domain").fill("e2e-employer-zb.example");
+    await authedPage.getByRole("button", { name: "Create company" }).click();
+    await expect(authedPage).toHaveURL(/\/employer\/jobs$/);
+
+    const { data: org } = await admin.from("organizations").select("id").eq("name", orgName).single();
+    expect(org).toBeTruthy();
+    const { data: wallet } = await admin
+      .from("ad_wallets")
+      .select("balance_ngn")
+      .eq("organization_id", org!.id)
+      .maybeSingle();
+    // No row at all — debit_ad_wallet's own "no row updated" branch is what
+    // this org's own click on the button would hit, not a row with 0 in it.
+    expect(wallet).toBeNull();
+
+    await authedPage.getByRole("link", { name: "Post a job" }).first().click();
+    await expect(authedPage).toHaveURL(/\/employer\/jobs\/new$/);
+
+    // The button is present — this is not a feature the employer can't see —
+    // but the test below never clicks it, matching the founder's own
+    // explicit requirement that the manual path is completely unaffected by
+    // whether this button exists at all.
+    await expect(authedPage.getByRole("button", { name: "✦ Let Farah scope this job" })).toBeVisible();
+
+    await authedPage.getByLabel("Job title").fill("E2E Zero Balance Ops Analyst");
+    await authedPage.getByLabel("Location").fill("Abuja, Nigeria");
+    await authedPage
+      .getByLabel("Job description")
+      .fill(
+        "We are hiring an operations analyst to track KPIs, build reports, and support process improvements across the team.",
+      );
+    await authedPage.getByRole("button", { name: "Publish job" }).click();
+
+    await expect(authedPage).toHaveURL(/\/employer\/jobs\?posted=.+$/);
+    await expect(
+      authedPage.getByRole("heading", { name: "E2E Zero Balance Ops Analyst" }),
+    ).toBeVisible();
+
+    // Still no ad_wallets row — publishing never touched the wallet, because
+    // the button was never clicked.
+    const { data: walletAfter } = await admin
+      .from("ad_wallets")
+      .select("balance_ngn")
+      .eq("organization_id", org!.id)
+      .maybeSingle();
+    expect(walletAfter).toBeNull();
+  });
+
   test("a verified company's posting does reach the seeker feed", async ({
     authedPage,
     testUser,
