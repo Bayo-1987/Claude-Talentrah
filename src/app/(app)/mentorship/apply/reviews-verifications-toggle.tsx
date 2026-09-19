@@ -32,7 +32,7 @@ export function ReviewsVerificationsToggle({ optIn }: { optIn: boolean }) {
           })
         }
         className={[
-          "relative inline-flex h-[26px] w-[46px] flex-shrink-0 items-center rounded-full border-[1.5px] border-ink transition-colors",
+          "relative inline-flex h-[26px] w-[46px] flex-shrink-0 items-center rounded-full border-[1.5px] border-ink transition-colors before:absolute before:-inset-[7px] before:content-['']",
           optimisticOptIn ? "bg-ink" : "bg-paper",
           isPending ? "opacity-50" : "",
         ].join(" ")}
