@@ -1,5 +1,6 @@
 import { getExperienceBullets, getExperienceText } from "@/lib/resume/types";
 import { contactLine, dateRange, type TemplateProps } from "./shared";
+import { renderMarkdownParagraphs, renderInlineMarkdown } from "@/lib/farah/render-markdown";
 
 /**
  * Pipeline — Sales & Marketing.
@@ -30,9 +31,7 @@ export function PipelineTemplate({ resume }: TemplateProps) {
         </p>
       )}
 
-      {summary && (
-        <p className="mt-4 font-display text-[17px] leading-[1.55] text-ink">{summary}</p>
-      )}
+      {summary && renderMarkdownParagraphs(summary, "mt-4 font-display text-[17px] leading-[1.55] text-ink")}
 
       {experience.length > 0 && (
         <section className="mt-6">
@@ -60,13 +59,13 @@ export function PipelineTemplate({ resume }: TemplateProps) {
                   {bullets ? (
                     <ul className="mt-1.5 list-disc pl-[18px] font-body text-[14px] leading-[1.65] text-ink-soft">
                       {bullets.map((bullet, bi) => (
-                        <li key={bi}>{bullet}</li>
+                        <li key={bi}>{renderInlineMarkdown(bullet)}</li>
                       ))}
                     </ul>
                   ) : (
                     text && (
                       <p className="mt-1.5 font-body text-[14px] leading-[1.65] text-ink-soft">
-                        {text}
+                        {renderInlineMarkdown(text)}
                       </p>
                     )
                   )}

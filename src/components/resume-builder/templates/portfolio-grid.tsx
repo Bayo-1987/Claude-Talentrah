@@ -1,5 +1,6 @@
 import { getExperienceBullets, getExperienceText } from "@/lib/resume/types";
 import { contactLine, dateRange, type TemplateProps } from "./shared";
+import { renderMarkdownParagraphs, renderInlineMarkdown } from "@/lib/farah/render-markdown";
 
 /**
  * Portfolio Grid — Design.
@@ -27,9 +28,7 @@ export function PortfolioGridTemplate({ resume }: TemplateProps) {
         <p className="mt-2 font-body text-[12.5px] text-ink-soft">{contactLine(contact)}</p>
       </header>
 
-      {summary && (
-        <p className="mt-5 font-display text-[16px] leading-[1.6] text-ink">{summary}</p>
-      )}
+      {summary && renderMarkdownParagraphs(summary, "mt-5 font-display text-[16px] leading-[1.6] text-ink")}
 
       {projects.length > 0 && (
         <section className="mt-6">
@@ -71,13 +70,13 @@ export function PortfolioGridTemplate({ resume }: TemplateProps) {
                     {bullets ? (
                       <ul className="mt-0.5 list-disc pl-[18px] font-body text-[13px] leading-snug text-ink-soft">
                         {bullets.map((bullet, bi) => (
-                          <li key={bi}>{bullet}</li>
+                          <li key={bi}>{renderInlineMarkdown(bullet)}</li>
                         ))}
                       </ul>
                     ) : (
                       text && (
                         <p className="mt-0.5 font-body text-[13px] leading-snug text-ink-soft">
-                          {text}
+                          {renderInlineMarkdown(text)}
                         </p>
                       )
                     )}

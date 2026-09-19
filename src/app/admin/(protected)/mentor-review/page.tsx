@@ -4,7 +4,9 @@ import { decideMentorApplicationAction, decideMentorStatusAction } from "@/lib/a
 import { DecisionForm } from "@/components/admin/decision-form";
 import { QueueEmpty, QueueHeader } from "@/components/admin/queue-chrome";
 import { Container, EyebrowLabel, BorderedCard } from "@/components/ui";
-import { renderJobDescriptionMarkdown } from "@/lib/farah/render-markdown";
+import { renderMarkdownParagraphs, renderInlineMarkdown } from "@/lib/farah/render-markdown";
+
+const BIO_LINK_CLASS = "text-rust underline underline-offset-2 hover:text-rust-hover";
 
 export const metadata = {
   title: "Mentor applications — Talentrah admin",
@@ -67,16 +69,22 @@ export default async function MentorReviewQueuePage() {
                     </p>
                   )}
                   {/*
-                    send-369 — a bio can now contain bold/italic markdown
-                    syntax. Rendered here, not stripped: unlike the directory
-                    list's clamped one-line excerpt, this is a full review
-                    page where a moderator judging an application's
-                    professionalism should see the formatting the applicant
-                    actually intended, not raw markdown characters — the
-                    same "full render" register mentorId/page.tsx uses, not
-                    the "short preview" register the list card uses.
+                    send-369, moved onto send-370/371/373's shared minimal-
+                    grammar stack (see application-form.tsx's own note) — a
+                    bio can contain bold/italic/autolink. Rendered here, not
+                    stripped: unlike the directory list's clamped one-line
+                    excerpt, this is a full review page where a moderator
+                    judging an application's professionalism should see the
+                    formatting the applicant actually intended, not raw
+                    markdown characters — the same "full render" register
+                    mentorId/page.tsx uses, not the "short preview" register
+                    the list card uses.
                   */}
-                  {application.bio && renderJobDescriptionMarkdown(application.bio)}
+                  {application.bio &&
+                    renderMarkdownParagraphs(application.bio, "text-[14px] text-ink", {
+                      autoLinkUrls: true,
+                      linkClassName: BIO_LINK_CLASS,
+                    })}
                 </div>
 
                 <DecisionForm
@@ -85,6 +93,7 @@ export default async function MentorReviewQueuePage() {
                   decisionName="decision"
                   noteName="note"
                   notePlaceholder="Note (required to reject, kept in the audit log)"
+                  richNote
                   options={[
                     { value: "approved", label: "Approve as mentor", variant: "primary" },
                     { value: "rejected", label: "Reject", requiresNote: true },
@@ -118,7 +127,9 @@ export default async function MentorReviewQueuePage() {
                       {mentor.status === "approved" ? "Currently listed" : "Currently suspended"}
                     </p>
                     {mentor.status === "suspended" && mentor.reviewNote && (
-                      <p className="text-[13px] text-ink-soft">Suspension note: {mentor.reviewNote}</p>
+                      <p className="text-[13px] text-ink-soft">
+                        Suspension note: {renderInlineMarkdown(mentor.reviewNote)}
+                      </p>
                     )}
                   </div>
 
@@ -128,6 +139,7 @@ export default async function MentorReviewQueuePage() {
                     decisionName="decision"
                     noteName="note"
                     notePlaceholder="Note (required to suspend, kept in the audit log)"
+                    richNote
                     options={
                       mentor.status === "approved"
                         ? [{ value: "suspend", label: "Suspend", requiresNote: true }]

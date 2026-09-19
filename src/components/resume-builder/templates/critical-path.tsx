@@ -1,5 +1,6 @@
 import { getExperienceBullets, getExperienceText } from "@/lib/resume/types";
 import { contactLine, dateRange, type TemplateProps } from "./shared";
+import { renderMarkdownParagraphs, renderInlineMarkdown } from "@/lib/farah/render-markdown";
 
 /**
  * Critical Path — Project Management.
@@ -26,9 +27,7 @@ export function CriticalPathTemplate({ resume }: TemplateProps) {
         </p>
       </header>
 
-      {summary && (
-        <p className="mt-4 font-body text-[14px] leading-relaxed text-ink-soft">{summary}</p>
-      )}
+      {summary && renderMarkdownParagraphs(summary, "mt-4 font-body text-[14px] leading-relaxed text-ink-soft")}
 
       {skills.length > 0 && (
         <section className="mt-4 border-y border-line py-3">
@@ -69,13 +68,13 @@ export function CriticalPathTemplate({ resume }: TemplateProps) {
                   {bullets ? (
                     <ul className="mt-1 list-disc pl-[18px] font-body text-[13.5px] leading-relaxed text-ink-soft">
                       {bullets.map((bullet, bi) => (
-                        <li key={bi}>{bullet}</li>
+                        <li key={bi}>{renderInlineMarkdown(bullet)}</li>
                       ))}
                     </ul>
                   ) : (
                     text && (
                       <p className="mt-1 font-body text-[13.5px] leading-relaxed text-ink-soft">
-                        {text}
+                        {renderInlineMarkdown(text)}
                       </p>
                     )
                   )}

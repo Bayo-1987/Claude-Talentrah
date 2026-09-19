@@ -186,7 +186,7 @@ export function parseBlocks(content: string): Block[] {
  * the brief: nested emphasis is a real markdown feature this does not claim
  * to support.
  */
-const INLINE = /\*\*(.+?)\*\*|\*(.+?)\*|_(.+?)_/;
+export const INLINE = /\*\*(.+?)\*\*|\*(.+?)\*|_(.+?)_/;
 
 /**
  * The same three groups, plus a fourth: a BARE url, http(s) only, no bracket
@@ -418,4 +418,104 @@ const JOB_DESCRIPTION_FACE: MarkdownFace = {
 
 export function renderJobDescriptionMarkdown(content: string): ReactNode {
   return renderMarkdownBlocks(content, JOB_DESCRIPTION_FACE);
+}
+
+/**
+ * send-370/371/373 — the render half of a SEPARATE, deliberately narrower
+ * grammar than `parseBlocks`/`renderMarkdownBlocks` above: bold and italic
+ * only, no heading/list/rule/quote recognition at all, for fields whose own
+ * editor (`MinimalRichEditor`, src/components/rich-text/) never offers a way
+ * to create any of those — a resume summary, an experience bullet, a
+ * DecisionForm rejection note, a screening answer. Reusing `parseBlocks`
+ * here would be a real correctness bug, not just unnecessary scope: those
+ * fields still store a plain string a user could type a literal `# ` or
+ * `> ` into (e.g. "# not a heading, just my opinion"), and `parseBlocks`
+ * recognizes that SYNTAX unconditionally regardless of which face is
+ * passed — it would misinterpret literal text as structure the field's own
+ * toolbar never offered a way to create. So this does its own minimal
+ * blank-line paragraph split (`splitMarkdownParagraphs`, exported so
+ * `minimal-document.ts`'s TipTap bridge can use the exact same split rather
+ * than a second hand-rolled copy) and renders only through the same
+ * `renderInline` bold/italic engine above — never `parseBlocks`.
+ */
+export function splitMarkdownParagraphs(content: string): string[] {
+  return content
+    .replace(/\r\n|\r/g, "\n")
+    .split(/\n\s*\n/)
+    .map((p) =>
+      p
+        .split("\n")
+        .map((l) => l.trim())
+        .join(" ")
+        .trim(),
+    )
+    .filter((p) => p.length > 0);
+}
+
+/**
+ * Renders a single unit of text (one bullet, one already-separated field)
+ * with bold/italic marks only, and no autolink UNLESS the caller passes
+ * `opts.autoLinkUrls` — the exact same opt-in shape `renderMarkdownBlocks`
+ * already threads into `renderInline` for `JOB_DESCRIPTION_FACE`, reused
+ * rather than re-derived. Every current caller (resume summary, screening
+ * answers, DecisionForm notes) omits it and stays bold/italic-only, as
+ * documented above; mentor bio (send-369) is the one minimal-grammar
+ * consumer whose own spec explicitly asked for a bare-URL portfolio/
+ * LinkedIn link, which is why this needs the option at all. The caller
+ * already knows this string is one display unit (a `<li>`, an existing
+ * `<p>` wrapper); wrapping it again here would be the caller's decision to
+ * make, not this function's.
+ */
+export function renderInlineMarkdown(
+  text: string,
+  keyPrefix = "im",
+  opts?: { autoLinkUrls?: boolean; linkClassName?: string },
+): ReactNode[] {
+  return renderInline(text, keyPrefix, opts);
+}
+
+/**
+ * Renders a plain string field that DOES want paragraph breaks (screening
+ * answers, send-373's own explicit ask) as one `<p className>` per
+ * blank-line-separated paragraph, each still bold/italic-only unless
+ * `opts.autoLinkUrls` is passed (see renderInlineMarkdown's own comment —
+ * mentor bio is the one caller that needs it). Returns `null` for
+ * empty/whitespace-only content, matching `renderMarkdownBlocks`'s own
+ * never-crash-on-empty-input behavior.
+ */
+export function renderMarkdownParagraphs(
+  content: string,
+  className?: string,
+  opts?: { autoLinkUrls?: boolean; linkClassName?: string },
+): ReactNode {
+  const paragraphs = splitMarkdownParagraphs(content);
+  if (paragraphs.length === 0) return null;
+  return (
+    <>
+      {paragraphs.map((p, i) => (
+        <p key={i} className={className}>
+          {renderInline(p, `mp${i}`, opts)}
+        </p>
+      ))}
+    </>
+  );
+}
+
+/**
+ * The inverse of the two render functions above — strips bold/italic
+ * markdown syntax back to plain text. Needed anywhere one of these fields'
+ * stored value reaches an LLM prompt: the model should see "This role
+ * required strong communication skills", not
+ * "This role required **strong** communication skills", since the marker
+ * characters are authoring syntax for this app's own editor, not part of
+ * the user's actual words. Best-effort only (checked directly against the
+ * same INLINE grammar's precedence — bold's `**` matched before italic's
+ * single `*`, so `**bold** and *italic*` strips correctly in one left-to-
+ * right pass over each), not a security boundary.
+ */
+export function stripInlineMarkdown(text: string): string {
+  return text
+    .replace(/\*\*(.+?)\*\*/g, "$1")
+    .replace(/\*(.+?)\*/g, "$1")
+    .replace(/_(.+?)_/g, "$1");
 }

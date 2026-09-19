@@ -7,6 +7,8 @@ import { saveResumeAction, rewriteBulletAction } from "@/lib/resume-builder/acti
 import { findUneditedExampleFields } from "@/lib/resume-builder/example-guard";
 import { TemplateRenderer } from "@/components/resume-builder/templates";
 import { PrintButton } from "@/components/resume-builder/print-button";
+import { MinimalRichEditor } from "@/components/rich-text/minimal-rich-editor";
+import { MinimalRichEditorList } from "@/components/rich-text/minimal-rich-editor-list";
 import {
   getExperienceBullets,
   type StructuredResume,
@@ -49,6 +51,40 @@ function narrativePatch(rawText: string): { description: string; bullets: string
     .map((l) => l.trim())
     .filter((l) => l.length > 0);
   return { description: rawText, bullets: lines.length > 1 ? lines : undefined };
+}
+
+/**
+ * send-370 Part B — the rich editor's own display value for an entry: one
+ * array entry per top-level editor paragraph, seeded from `bullets` when
+ * they exist, falling back to a single-paragraph array holding
+ * `description` otherwise (or an empty array for a brand-new entry, which
+ * MinimalRichEditorList already renders as one empty paragraph). Mirrors
+ * `experienceTextareaValue`'s own precedence, just shaped as an array
+ * instead of a joined string, since the array IS the editor's own
+ * paragraph boundaries now — no join step for a keystroke to desync from.
+ */
+function experienceBulletParagraphs(entry: ResumeExperienceEntry): string[] {
+  const bullets = getExperienceBullets(entry);
+  if (bullets) return bullets;
+  return entry.description ? [entry.description] : [];
+}
+
+/**
+ * The inverse of `experienceBulletParagraphs` — turns the editor's own
+ * paragraph array back into the patch to apply to an entry. Same
+ * "single paragraph reads as plain text, not a one-item bulleted list"
+ * convention `narrativePatch` already established for the textarea this
+ * replaces: `bullets` is only set once there are genuinely 2+ non-blank
+ * paragraphs, and `description` always gets a plain-text fallback (bullets
+ * joined with a space, matching `getExperienceText`'s own convention) so
+ * any caller still reading `.description` directly stays consistent.
+ */
+function bulletsPatch(paragraphs: string[]): { description: string; bullets: string[] | undefined } {
+  const nonBlank = paragraphs.map((p) => p.trim()).filter((p) => p.length > 0);
+  return {
+    description: nonBlank.join(" "),
+    bullets: nonBlank.length > 1 ? nonBlank : undefined,
+  };
 }
 
 function moveItem<T>(arr: T[], from: number, to: number): T[] {
@@ -144,6 +180,13 @@ export function ResumeEditor({ resumeId, initialTitle, initialContent, templateS
   const [pending, startTransition] = useTransition();
   const [dragExperienceIndex, setDragExperienceIndex] = useState<number | null>(null);
   const [dragEducationIndex, setDragEducationIndex] = useState<number | null>(null);
+  // MinimalRichEditor is uncontrolled (TipTap's own document is the source
+  // of truth once mounted, same as RichMarkdownEditor) — bumping this key
+  // forces a remount so an EXTERNAL change to content.summary (only
+  // "Clear example content?" below causes one; the editor's own typing
+  // never does) actually reaches the editor instead of being silently
+  // ignored by React's own "same key, don't recreate" rule.
+  const [summaryEditorKey, setSummaryEditorKey] = useState(0);
   const router = useRouter();
 
   // Recomputed from `content` every render — the same driftless signal
@@ -302,13 +345,13 @@ export function ResumeEditor({ resumeId, initialTitle, initialContent, templateS
 
       {/* Summary */}
       <section className="flex flex-col gap-2">
-        <EyebrowLabel size="sm">Summary</EyebrowLabel>
-        <textarea
+        <MinimalRichEditor
+          key={summaryEditorKey}
           id="summary-field"
-          value={content.summary ?? ""}
-          onChange={(e) => update("summary", e.target.value)}
-          rows={3}
-          className={`border-[1.5px] ${flaggedPaths.has("summary") ? "border-rust" : "border-ink"} bg-card p-3 font-body text-[14.5px] outline-none focus:border-rust`}
+          label="Summary"
+          defaultValue={content.summary ?? ""}
+          onTextChange={(markdown) => update("summary", markdown)}
+          minHeightClassName="min-h-[84px]"
           placeholder="A two- to three-sentence summary of your experience."
         />
         {flaggedPaths.has("summary") && <ExampleFlagNotice text="Still the example summary." />}
@@ -356,12 +399,13 @@ export function ResumeEditor({ resumeId, initialTitle, initialContent, templateS
                 </div>
                 <RemoveControl onRemove={() => update("experience", content.experience.filter((_, j) => j !== i))} />
               </div>
-              <textarea
-                value={experienceTextareaValue(entry)}
-                onChange={(e) => updateExperience(i, narrativePatch(e.target.value))}
-                rows={3}
-                className="border-[1.5px] border-ink bg-card p-3 font-body text-[14px] outline-none focus:border-rust"
-                placeholder={"One achievement per line — each line becomes its own bullet point."}
+              <MinimalRichEditorList
+                id={`experience-${i}-bullets`}
+                label="Achievements"
+                paragraphs={experienceBulletParagraphs(entry)}
+                onParagraphsChange={(paragraphs) => updateExperience(i, bulletsPatch(paragraphs))}
+                minHeightClassName="min-h-[84px]"
+                placeholder="One achievement per paragraph — press Enter to start the next bullet point."
               />
               <RewriteButtons onRewrite={(instr) => handleRewrite(i, instr)} />
               {rewritingKey === `${i}` && <span className="text-[12px] text-ink-soft">Farah is rewriting…</span>}
@@ -758,6 +802,7 @@ export function ResumeEditor({ resumeId, initialTitle, initialContent, templateS
           onClearExample={(next) => {
             setContent(next);
             setSaved(false);
+            setSummaryEditorKey((k) => k + 1);
           }}
         />
       </div>

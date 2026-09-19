@@ -3,6 +3,7 @@ import { generateWithFailover } from "@/lib/llm";
 import { FARAH_SYSTEM_PROMPT } from "@/lib/farah/system-prompt";
 import { EMPTY_RESUME, type StructuredResume } from "@/lib/resume/types";
 import { sanitizeStructuredResume, wasDegenerate } from "@/lib/resume/sanitize";
+import { stripInlineMarkdown } from "@/lib/farah/render-markdown";
 import { applyGroundingBackstop } from "./grounding";
 import { computeTailoringCacheKey, getCachedTailoringResult, saveTailoringResult } from "./cache";
 import { JD_MAX_CHARS, type ProposedAddition, type TailoringResult } from "./types";
@@ -214,18 +215,40 @@ interface RawTailoringInput {
   proposedAdditions?: RawProposedAddition[];
 }
 
+/**
+ * send-370 — `summary` and each experience entry's `bullets` can now carry
+ * `**bold**`/`*italic*` markdown syntax (the resume builder's own rich
+ * editor). The model should see the user's actual words, not this app's own
+ * authoring syntax mixed into them, so both are stripped before this
+ * resume ever reaches the prompt below. A shallow clone, not a mutation of
+ * `baseResume` itself — `applyGroundingBackstop`/`groundExperienceDescriptions`
+ * (grounding.ts) compare the MODEL'S OUTPUT against this same base resume
+ * afterwards and need the real stored value, markdown syntax and all, since
+ * that's what the base resume record actually is.
+ */
+function stripResumeMarkdownForPrompt(resume: StructuredResume): StructuredResume {
+  return {
+    ...resume,
+    summary: resume.summary ? stripInlineMarkdown(resume.summary) : resume.summary,
+    experience: resume.experience.map((entry) =>
+      entry.bullets ? { ...entry, bullets: entry.bullets.map((b) => stripInlineMarkdown(b)) } : entry,
+    ),
+  };
+}
+
 async function callLLMRaw(
   baseResume: StructuredResume,
   jdText: string,
   includeCoverLetter: boolean,
 ): Promise<string> {
+  const promptResume = stripResumeMarkdownForPrompt(baseResume);
   const text = await generateWithFailover((provider) =>
     provider.generateText({
       systemPrompt: FARAH_SYSTEM_PROMPT,
       turns: [
         {
           role: "user",
-          content: `Here is my base resume as JSON:\n${JSON.stringify(baseResume)}\n\nHere is the job description I want to tailor it to:\n${jdText.slice(0, JD_MAX_CHARS)}\n\n${includeCoverLetter ? "Include a cover letter." : "Do not include a cover letter."}`,
+          content: `Here is my base resume as JSON:\n${JSON.stringify(promptResume)}\n\nHere is the job description I want to tailor it to:\n${jdText.slice(0, JD_MAX_CHARS)}\n\n${includeCoverLetter ? "Include a cover letter." : "Do not include a cover letter."}`,
         },
       ],
       maxOutputTokens: 4096,

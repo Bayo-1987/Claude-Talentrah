@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 import { applyToBecomeMentorAction, updateMentorProfileAction } from "@/lib/mentorship/actions";
 import { TextField, Button } from "@/components/ui";
-import { RichMarkdownEditor } from "@/components/employer/rich-markdown-editor";
+import { MinimalRichEditor } from "@/components/rich-text/minimal-rich-editor";
 import type { OwnMentorProfile } from "@/lib/mentorship/queries";
 
 const initialState: { status: "idle" | "success" | "error"; message: string } = {
@@ -18,17 +18,18 @@ export function ApplicationForm({ existing }: { existing: OwnMentorProfile | nul
   return (
     <form action={formAction} className="flex flex-col gap-4">
       {/*
-        send-369 — same rich editor send-367 built for job descriptions, but
-        with toolbar="minimal": a bio is a 1-3 sentence register, not a
-        document, so no headings/lists/quote/rule — bold, italic, and the
-        same bare-https:// autolink every RichMarkdownEditor already has.
+        send-369, superseded by send-370/371/373's shared minimal-grammar
+        stack — a bio is a 1-3 sentence register like a resume summary or a
+        screening answer, not a document: bold, italic, no headings/lists/
+        quote/rule. `linkable` is bio's own one addition on top of that
+        shared stack (a portfolio/LinkedIn link) — see minimal-extensions.ts.
       */}
-      <RichMarkdownEditor
+      <MinimalRichEditor
         id="bio"
         name="bio"
         label="Bio"
         defaultValue={existing?.bio ?? ""}
-        toolbar="minimal"
+        linkable
         minHeightClassName="min-h-24"
       />
 

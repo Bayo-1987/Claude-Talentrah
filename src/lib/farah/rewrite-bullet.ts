@@ -1,5 +1,6 @@
 import "server-only";
 import { askFarah } from "./client";
+import { stripInlineMarkdown } from "./render-markdown";
 
 export type BulletInstruction = "impact" | "quantify" | "concise";
 
@@ -25,7 +26,15 @@ export async function rewriteBullet(
   text: string,
   instruction: BulletInstruction,
 ): Promise<string> {
-  const lines = text.split("\n").map((l) => l.trim()).filter((l) => l.length > 0);
+  // send-370 Part B — a bullet can now carry `**bold**`/`*italic*` markdown
+  // syntax (the resume builder's own rich editor). Farah should judge and
+  // rewrite the candidate's actual words, not this app's own authoring
+  // syntax mixed into them — same reasoning, and same stripInlineMarkdown
+  // call, as tailor.ts's prompt construction and farah-review.ts's.
+  const lines = text
+    .split("\n")
+    .map((l) => stripInlineMarkdown(l.trim()))
+    .filter((l) => l.length > 0);
   const isMultiple = lines.length > 1;
 
   // Multi-bullet prompt is a distinct shape, not just the single-bullet one
@@ -45,7 +54,7 @@ ${lines.map((l) => `- ${l}`).join("\n")}`
 
 Return ONLY the rewritten bullet text, no preamble, no quotation marks, no explanation.
 
-Original bullet: "${text}"`;
+Original bullet: "${lines[0] ?? ""}"`;
 
   // Scales with how much there actually is to rewrite, capped so a role
   // with many bullets can't balloon into a request that eats into Groq's

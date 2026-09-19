@@ -1,5 +1,6 @@
 import { getExperienceBullets, getExperienceText } from "@/lib/resume/types";
 import { contactLine, dateRange, type TemplateProps } from "./shared";
+import { renderMarkdownParagraphs, renderInlineMarkdown } from "@/lib/farah/render-markdown";
 
 /**
  * Public Record — Government & Public Sector.
@@ -44,7 +45,7 @@ export function PublicRecordTemplate({ resume }: TemplateProps) {
           <h2 className="font-body text-[11px] font-bold uppercase tracking-[0.14em] text-rust">
             Statement of Suitability
           </h2>
-          <p className="mt-2 font-body text-[13.5px] leading-[1.75] text-ink-soft">{summary}</p>
+          {renderMarkdownParagraphs(summary, "mt-2 font-body text-[13.5px] leading-[1.75] text-ink-soft")}
         </section>
       )}
 
@@ -66,13 +67,13 @@ export function PublicRecordTemplate({ resume }: TemplateProps) {
                   {bullets ? (
                     <ul className="mt-2 list-disc pl-[18px] font-body text-[13.5px] leading-[1.75] text-ink-soft">
                       {bullets.map((bullet, bi) => (
-                        <li key={bi}>{bullet}</li>
+                        <li key={bi}>{renderInlineMarkdown(bullet)}</li>
                       ))}
                     </ul>
                   ) : (
                     text && (
                       <p className="mt-2 font-body text-[13.5px] leading-[1.75] text-ink-soft">
-                        {text}
+                        {renderInlineMarkdown(text)}
                       </p>
                     )
                   )}

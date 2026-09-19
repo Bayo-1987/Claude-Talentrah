@@ -4,7 +4,9 @@ import { getMentorProfile } from "@/lib/mentorship/queries";
 import { bookMentorSessionAction } from "@/lib/mentorship/actions";
 import { computeSessionPrice, type MentorshipSessionType } from "@/lib/mentorship/pricing";
 import { Container, EyebrowLabel, BorderedCard, Button } from "@/components/ui";
-import { renderJobDescriptionMarkdown } from "@/lib/farah/render-markdown";
+import { renderMarkdownParagraphs } from "@/lib/farah/render-markdown";
+
+const BIO_LINK_CLASS = "text-rust underline underline-offset-2 hover:text-rust-hover";
 
 export const metadata = { title: "Book a mentor — Talentrah" };
 
@@ -50,17 +52,22 @@ export default async function MentorProfilePage({
         <EyebrowLabel>Mentorship</EyebrowLabel>
         <h1 className="font-display text-[28px] font-semibold">{mentor.name}</h1>
         {/*
-          send-369 — bio can now carry bold/italic/autolink (see
-          RichMarkdownEditor's toolbar="minimal" on the apply/edit form). Same
-          face and safety guarantees as a job description (renderJobDescriptionMarkdown
-          -> render-markdown.tsx's parseBlocks/renderInline: no `<a>`, no
-          `<img>`, no dangerouslySetInnerHTML) — reused as-is rather than a
-          new alias, since a full profile page is the same "main content of
-          its own page" register a job description is. See render-markdown.tsx
-          for why "job description" naming here is a smaller diff than
-          inventing a third MarkdownFace.
+          send-369, moved onto send-370/371/373's shared minimal-grammar
+          stack (see application-form.tsx's own note) — bold/italic/autolink
+          only, via the same renderMarkdownParagraphs/renderInline engine
+          that never recognizes `#`/`-`/`>` as structure (unlike
+          renderJobDescriptionMarkdown's parseBlocks, which this used to go
+          through and which would have silently turned a literal
+          "- I've helped 50 people" bio line into a real bullet list, since
+          the bio toolbar never taught the author those characters are
+          special). `autoLinkUrls` is bio's own one addition on top of the
+          shared stack.
         */}
-        {mentor.bio && renderJobDescriptionMarkdown(mentor.bio)}
+        {mentor.bio &&
+          renderMarkdownParagraphs(mentor.bio, "text-[14.5px] text-ink-soft", {
+            autoLinkUrls: true,
+            linkClassName: BIO_LINK_CLASS,
+          })}
         {[...mentor.expertiseRoles, ...mentor.expertiseIndustries].length > 0 && (
           <p className="text-[13px] font-semibold text-ink">
             {[...mentor.expertiseRoles, ...mentor.expertiseIndustries].join(" · ")}
