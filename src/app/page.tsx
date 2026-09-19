@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { JsonLd } from "@/components/seo/json-ld";
+import { buildOrganizationJsonLd, buildWebSiteJsonLd } from "@/lib/seo/organization-jsonld";
 import { MarketingMasthead } from "@/components/marketing/marketing-masthead";
 import { GoogleOneTap } from "@/components/auth/google-one-tap";
 import { HeroSection } from "@/components/marketing/hero-section";
@@ -74,6 +76,8 @@ export const metadata: Metadata = pageMetadata({
 export default function Home() {
   return (
     <>
+      <JsonLd data={buildOrganizationJsonLd()} />
+      <JsonLd data={buildWebSiteJsonLd()} />
       <MarketingMasthead />
       <GoogleOneTap />
       <HeroSection />
