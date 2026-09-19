@@ -56,7 +56,22 @@ test("the card title opens the job, and the job is not truncated there", async (
   // rendering the same truncation it exists to undo.
   expect(full.length).toBeGreaterThan(cardDescription.length);
   expect(full.length).toBeGreaterThan(280);
-  expect(full).toContain(cardDescription.slice(0, 100));
+  /*
+   * Whitespace/separator-insensitive, not a raw substring match. This is
+   * REAL ingested job data (Greenhouse et al.), not a fixture, and the card
+   * (stripMarkdownToPlainText) and the full page (renderJobDescriptionMarkdown,
+   * HTML flattened via textContent) are two independent text-transform paths
+   * over the same source. A real posting tripped this: its source text has a
+   * "·" directly after a bold heading, which the card's plain-text slice
+   * keeps and the markdown renderer's HTML→textContent silently absorbs
+   * along with the adjacent whitespace — neither path is wrong, they just
+   * don't preserve whitespace/separator punctuation identically. Stripping
+   * both to their bare characters keeps the assertion's actual intent (the
+   * full page opens with the SAME content the card previewed) without being
+   * brittle to that legitimate divergence.
+   */
+  const bareChars = (s: string) => s.replace(/[\s·•‧∙]+/g, "");
+  expect(bareChars(full)).toContain(bareChars(cardDescription).slice(0, 100));
 });
 
 test("a job that does not exist is a 404, not a blank page", async ({ page }) => {

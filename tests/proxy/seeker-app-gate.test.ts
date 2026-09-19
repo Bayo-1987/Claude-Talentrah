@@ -63,6 +63,25 @@ describe("isProtectedSeekerPath", () => {
     }
   });
 
+  it("send-385: gates every mentorship sub-path but leaves the bare list page open", () => {
+    // The mirror image of the /jobs and /scholarships case above: here the
+    // BARE path is the deliberately public one (a real signed-out landing
+    // page as of send-385, closing a real SEO indexation gap), and every
+    // sub-path stays gated. /mentorship used to sit in the plain prefix set
+    // (added for #221's loading.tsx fix, before anything under it was
+    // public) — this is what replaced it.
+    expect(isProtectedSeekerPath("/mentorship")).toBe(false);
+    expect(isProtectedSeekerPath("/mentorship/f977d1ea-c4e9-4bab-91fa-1c4661f787a3")).toBe(true);
+    expect(isProtectedSeekerPath("/mentorship/apply")).toBe(true);
+    expect(isProtectedSeekerPath("/mentorship/book/callback")).toBe(true);
+    expect(isProtectedSeekerPath("/mentorship/reviews")).toBe(true);
+    expect(isProtectedSeekerPath("/mentorship/reviews/6082edbd-bab1-4462-830e-8d40a6572463")).toBe(
+      true,
+    );
+    expect(isProtectedSeekerPath("/mentorship/sessions")).toBe(true);
+    expect(isProtectedSeekerPath("/mentorship/sessions/mentor")).toBe(true);
+  });
+
   it("never flags a route that merely starts with the same letters", () => {
     // "/jobsomething" starts with "/jobs" as a raw string but is not under
     // it — the exact-match set must not accidentally become a prefix match.
