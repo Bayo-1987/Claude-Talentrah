@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Container, EyebrowLabel, BorderedCard, buttonClasses } from "@/components/ui";
+import type { MentorPriceRangeNgn } from "@/lib/mentorship/public-price-range";
 
 /**
  * send-385 — the signed-out-visitor entry point at `/mentorship`, replacing
@@ -56,7 +57,16 @@ const SESSION_TYPES: { label: string; description: string }[] = [
   },
 ];
 
-export function MentorshipPublicLanding() {
+/**
+ * send-393 — priceRangeNgn is the real, current range among approved,
+ * non-paused mentors (getApprovedMentorPriceRangeNgn, called once by the
+ * page and passed down so this stays a plain presentational component with
+ * no DB access of its own). `null` means zero qualifying mentors exist right
+ * now — see that function's own header for why the paragraph below drops
+ * the specific numbers entirely in that case rather than falling back to
+ * the stale ₦5,000–₦100,000+ range this replaces.
+ */
+export function MentorshipPublicLanding({ priceRangeNgn }: { priceRangeNgn: MentorPriceRangeNgn | null }) {
   return (
     <Container className="flex max-w-[900px] flex-col gap-14 py-16">
       <div className="flex flex-col gap-4">
@@ -113,9 +123,10 @@ export function MentorshipPublicLanding() {
       <div className="flex flex-col gap-3 border-t border-line pt-10">
         <EyebrowLabel>Pricing</EyebrowLabel>
         <p className="max-w-[620px] text-[15px] leading-[1.65] text-ink-soft">
-          Mentors set their own rates, typically from around ₦5,000 to
-          ₦100,000+ depending on their experience and the kind of session —
-          you pay the mentor directly for the session you book, not from
+          {priceRangeNgn !== null
+            ? `Mentors set their own rates — sessions currently range from ₦${priceRangeNgn.minNgn.toLocaleString("en-NG")} to ₦${priceRangeNgn.maxNgn.toLocaleString("en-NG")}, depending on their experience and the kind of session. `
+            : "Mentors set their own rates depending on their experience and the kind of session. "}
+          You pay the mentor directly for the session you book, not from
           Talentrah Credits. Some mentors offer sessions for free or as
           volunteers; that&apos;s always shown on their profile before you
           book, never a surprise afterward.

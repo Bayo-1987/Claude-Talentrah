@@ -48,7 +48,15 @@ test.describe("signed-out visitor at /mentorship", () => {
     await expect(
       page.getByRole("heading", { name: "Negotiation strategy for a specific offer" }),
     ).toBeVisible();
-    await expect(page.getByText(/₦5,000/)).toBeVisible();
+    // send-393: not a hardcoded "₦5,000" — that number was never real (see
+    // e2e/mentorship-live-pricing.spec.ts, which checks the actual live
+    // figure). This just proves the Pricing section renders real content,
+    // one way or another: either a live naira range, or the honest
+    // zero-qualifying-mentors fallback sentence.
+    const pricingSectionVisible =
+      (await page.getByText(/₦[\d,]+/).count()) > 0 ||
+      (await page.getByText(/Mentors set their own rates/).count()) > 0;
+    expect(pricingSectionVisible, "Pricing section rendered neither a live price nor its fallback copy").toBe(true);
   });
 
   test("never previews an individual mentor's name, bio, or rate — only session types and price tiers", async ({
