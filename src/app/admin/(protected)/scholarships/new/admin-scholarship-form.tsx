@@ -7,6 +7,7 @@ import { initialAdminScholarshipState } from "@/lib/scholarships/admin-state";
 import { DEGREE_LEVEL_VALUES, FUNDING_TYPE_VALUES } from "@/lib/scholarships/schemas";
 import { DEGREE_LEVEL_LABEL, FUNDING_TYPE_LABEL } from "@/lib/scholarships/types";
 import { TextField, SelectField, Button, EyebrowLabel, BorderedCard } from "@/components/ui";
+import { MinimalRichEditor } from "@/components/rich-text/minimal-rich-editor";
 
 const FUNDING_OPTIONS = FUNDING_TYPE_VALUES.map((value) => ({
   value,
@@ -221,15 +222,23 @@ export function AdminScholarshipForm() {
             error={state.fieldErrors?.eligibilityAge?.[0]}
           />
 
-          <div className="flex flex-col gap-1.5">
-            <label
-              htmlFor="eligibilityOther"
-              className="font-body text-[13px] font-semibold text-ink-soft"
-            >
-              Other eligibility notes (optional)
-            </label>
-            <textarea id="eligibilityOther" name="eligibilityOther" rows={3} className={AREA_CLASS} />
-          </div>
+          {/*
+           * send-377 — bold/italic + paragraph breaks only, matching real
+           * production data (dense, citation-heavy quoted provider prose,
+           * no lists/headings in the wild). This same column is also
+           * written directly by the ingest pipeline (ingest.ts) as a plain
+           * scraped string with no markdown syntax at all — the render side
+           * (public scholarship page) and the Farah eligibility-check
+           * grounding string (farah.ts, via stripInlineMarkdown) both
+           * already handle a plain string with zero formatting exactly as
+           * before, so a scraped value isn't a second case to special-case.
+           */}
+          <MinimalRichEditor
+            id="eligibilityOther"
+            name="eligibilityOther"
+            label="Other eligibility notes (optional)"
+            minHeightClassName="min-h-[76px]"
+          />
 
           <div className="flex flex-wrap gap-4">
             <div className="min-w-[200px] flex-1">
