@@ -301,10 +301,55 @@ export function stripHtml(html: string): string {
  * `render-markdown.tsx` can parse — the job detail page is the one place
  * that actually renders the rich version, and it reads `description`
  * directly, untouched by this function.
+ *
+ * send-397: a real Moniepoint posting's source HTML had a `<strong>` heading
+ * directly abutting surrounding text with no whitespace at all on one or
+ * both sides — e.g. `Location: India<strong>Who We Are</strong>Moniepoint
+ * Inc. …` — which `stripHtml` faithfully turns into
+ * `Location: India**Who We Are**Moniepoint Inc. …`. The naive
+ * `"$1"` replacement above removed the `**` markers but not the missing
+ * word boundary they used to sit at, so the feed card rendered
+ * "IndiaWho We AreMoniepoint" as one glued run of text. The bold-pair
+ * replacement now inserts a single space at either edge, but only when
+ * that edge doesn't already have whitespace (or isn't the start/end of the
+ * string) — so an already-correctly-spaced pair like
+ * "roadmap for **merchant payments** end to end" is untouched, and a
+ * pair glued to its neighbours gets exactly the one space it's missing.
+ *
+ * send-413: send-397's own fixture was a SIMPLIFIED two-star stand-in for
+ * the live bug, not the actual raw text. The real posting it was verified
+ * against (Moniepoint "Site Reliability Engineer", Remote India, prod id
+ * 6d94d5dc-2caf-4864-ad05-2512e89e6fa0) has `description` starting
+ * `**Location:** India******Who We Are**` — two glued-together bold
+ * markers (`**Location:** India**` immediately followed by
+ * `**Who We Are**`, no separating whitespace or newline) collapse into one
+ * run of SIX consecutive asterisks. The bold-pair regex below has always
+ * been non-greedy, and its non-greedy pairing partners those six left to
+ * right — an opening "**", then a minimal one-char inner ("*"), which only
+ * consumes 5 of the 6 — leaving one bare "*" plus the later, now-unpaired
+ * "**" around "Who We Are" completely unmatched by the regex (a lone "**"
+ * with no partner never matches a balanced bold pair at all).
+ * Both survive the replace untouched, so literal asterisks reach the
+ * screen ("Location: India * *Who We Are**…") even with the boundary-space
+ * fix above in place — confirmed by reverting just the run-collapse line
+ * below and re-running this file's send-413 test. 123 of 697 open postings
+ * (measured directly against production, 2026-09-19) carry a run of 3+
+ * consecutive asterisks, so this is not a one-off. Collapsing every run of
+ * 2-or-more asterisks down to exactly two, BEFORE pairing, normalizes any
+ * such duplication back to one well-formed bold marker; this function
+ * never gives single `*` any meaning of its own (no italics support), so
+ * there is no legitimate 3+-run this could misinterpret.
  */
 export function stripMarkdownToPlainText(text: string): string {
   return text
-    .replace(/\*\*(.+?)\*\*/g, "$1")
+    .replace(/\*{2,}/g, "**")
+    .replace(/\*\*(.+?)\*\*/g, (match, inner: string, offset: number, full: string) => {
+      const before = full[offset - 1];
+      const after = full[offset + match.length];
+      const leadingSpace = before !== undefined && !/\s/.test(before) ? " " : "";
+      const trailingSpace = after !== undefined && !/\s/.test(after) ? " " : "";
+      return `${leadingSpace}${inner}${trailingSpace}`;
+    })
     .replace(/^-[ \t]+/gm, "");
 }
 

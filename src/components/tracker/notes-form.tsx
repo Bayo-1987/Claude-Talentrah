@@ -263,7 +263,13 @@ export function NotesForm({ applicationId, notes, updatedAt }: NotesFormProps) {
             placeholder="Interview dates, contacts, next steps…"
             rows={2}
             data-testid="notes-textarea"
-            className="min-h-[60px] w-full flex-1 resize-y overflow-hidden border-[1.5px] border-rust bg-card px-3 py-2 font-body text-[13px] text-ink outline-none"
+            // send-381 — border-rust here means "currently editing", not
+            // "currently focused", so a keyboard user tabbing away and back
+            // (or another focusable control appearing beside it) had no way
+            // to tell whether THIS field held focus. box-sizing: border-box
+            // (globals.css) means the extra 1.5px grows inward, not outward
+            // — no layout shift on focus.
+            className="min-h-[60px] w-full flex-1 resize-y overflow-hidden border-[1.5px] border-rust bg-card px-3 py-2 font-body text-[13px] text-ink outline-none focus:border-[3px]"
           />
           <div className="flex flex-shrink-0 flex-col gap-1.5">
             <button

@@ -309,8 +309,10 @@ equally slow options, and the better one is one command.
 
 ## 6. `e2e/job-detail.spec.ts`: the card/detail truncation check depends on which real external job sorts first
 
-**Status: open, unowned as of 2026-09-14** (a fix may already be in flight in a
-separate session — check before duplicating). Found while merging the
+**Status: the specific "·" symptom fixed and confirmed, 2026-09-19** (commit
+`3406f04` on PR #482, `fix/a11y-wcag-gaps`); **the underlying "depends on live
+ranking" root cause below is still open.** Read both halves — the fix narrows
+this entry's blast radius, it does not close it. Found while merging the
 2026-09-14 audit batch (nine PRs, none of which touch job ingestion, the job
 card, or the job-detail page) — surfaced as a merge blocker on
 `fix/atomic-fulfillment-credit-pack-pass` (PR #399), then reproduced
@@ -365,9 +367,8 @@ contains a posting using a bullet character `stripMarkdownToPlainText` doesn't
 strip. Nine PRs merged past this on 2026-09-14 with an explicit per-PR note
 citing this entry rather than a bare "known flake, ignoring it."
 
-**Next check, concretely.** Two independent angles, either is a real fix
-(check whether the separate in-flight session already covers one of these
-before duplicating):
+**Next check, concretely.** Two independent angles were on the table; only the
+first is done (see below) — the second is exactly what's still open:
 - Make `stripMarkdownToPlainText` (or the ingestion step that produces
   `job.description`) handle the wider range of bullet/separator characters
   real scraped HTML actually contains — not just "- ". Check for em-dash,
@@ -378,10 +379,39 @@ before duplicating):
   `job-detail.spec.ts` to assert against via a stable selector, rather than
   `.first()` on whatever the real feed currently ranks top.
 
-**Owner.** Unowned as of this writing. A separate session was started
-2026-09-14 to investigate a code-level fix — check its outcome before picking
-this up again; if it lands, this entry should be updated to point at that
-PR rather than left as a live gap.
+**What was actually fixed, 2026-09-19, and how it differs from the first
+option above.** Rather than extending `stripMarkdownToPlainText`'s character
+list (which would still be one Unicode bullet variant behind the next live
+posting that trips it), the test's own comparison
+(`e2e/job-detail.spec.ts:74`) now strips ALL whitespace and separator-dot
+characters (`/[\s·•‧∙]+/g`) from both the card and full-page text before
+comparing, via a `bareChars()` helper. This makes the assertion
+whitespace/separator-agnostic rather than exact-substring, which is what it
+was always supposed to mean ("the full page opens with the same content the
+card previewed") — not "byte-identical whitespace across two independent
+text-rendering paths." Verified directly against the exact strings from the
+CI failure log (the Moniepoint "·" case) before merging, and confirmed the
+fix doesn't loosen the check to the point of vacuity — it still requires the
+actual characters to match, just not the whitespace/punctuation around them.
+
+**What's still open, confirmed by reproducing it again the same day.**
+Re-running this same test locally (against the shared dev database, whose
+"first" job in the Recommended feed differs from CI's) hit a DIFFERENT
+assertion in the same test — `full.length > cardDescription.length` — because
+a completely different job (an 86-character description, shorter than the
+card's 280-char truncation limit) happened to sort first. This is the SECOND
+option above, untouched: the test still asserts on `.first()` of whatever the
+real feed currently ranks top, so any sufficiently short or unusually-shaped
+live description can still trip some assertion in this test, on any given CI
+run, for a reason that has nothing to do with the "·" fix above. Whoever picks
+up the second option should not read the 2026-09-19 fix as this entry's
+closure — narrower failure surface, same open root cause.
+
+**Owner.** The "·"/whitespace half above is fixed (commit `3406f04`, PR #482).
+The "depends on live ranking" half is unowned as of this writing — the
+2026-09-14 note's "separate in-flight session" was never confirmed to have
+landed a fix for it; check current `main` for a stable-fixture rewrite of this
+test before assuming it's still open.
 
 ---
 

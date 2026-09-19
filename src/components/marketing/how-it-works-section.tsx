@@ -1,5 +1,30 @@
 import { EyebrowLabel } from "@/components/ui";
+import { AUTO_APPLY_FREE_PER_WEEK } from "@/lib/auto-apply/config";
 
+/**
+ * send-390 — step 4 used to describe the mechanism ("let Farah apply on
+ * your behalf with your review") without ever naming Auto-Apply or saying
+ * anything about the restraint that's the actual point of it. Per CLAUDE.md's
+ * own differentiation thesis, Auto-Apply was deliberately built as a trust
+ * feature — conservative threshold, review-gated, server-capped — precisely
+ * so it doesn't read like a "blast your resume at every job" tool. The cap
+ * number is interpolated from AUTO_APPLY_FREE_PER_WEEK (src/lib/auto-apply/
+ * config.ts: "5 free confirmed submissions per rolling 7 days") rather than
+ * hardcoded, so this copy can't silently drift from the real, enforced
+ * value if that constant ever changes. Deliberately NOT
+ * AUTO_APPLY_DAILY_SUBMIT_CAP — same numeric value today (5) but a
+ * different constant, a different window (rolling 24h vs. rolling 7 days),
+ * and a different purpose (a burst-prevention safety cap, not the free-tier
+ * line); citing the wrong one here would still read correctly today and
+ * silently mean something else the day either number changes.
+ *
+ * Scoped to what Auto-Apply actually submits, per docs/auto-apply.md: it
+ * never submits to external postings (no ATS integration — those are
+ * handed off, marked `handed_off`, never `applied`). This copy doesn't
+ * claim "any job on the board" for exactly that reason — "your best
+ * matches" ties to the existing Excellent/Good/Fair match-tier language
+ * already used everywhere else on the site, not a new claim about scope.
+ */
 const STEPS = [
   {
     number: "01",
@@ -18,8 +43,8 @@ const STEPS = [
   },
   {
     number: "04",
-    title: "Apply with confidence",
-    copy: "Manually, or let Farah apply on your behalf with your review.",
+    title: "Apply — or let Auto-Apply do it",
+    copy: `Auto-Apply only submits your best matches, always with your review, capped at ${AUTO_APPLY_FREE_PER_WEEK} free applications a week — never blind, never spam.`,
   },
 ];
 

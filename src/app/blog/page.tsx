@@ -49,7 +49,7 @@ export default async function BlogIndexPage() {
   return (
     <>
       <MarketingMasthead />
-      <div className="py-20">
+      <main id="main-content" className="py-20">
         <Container className="flex max-w-[760px] flex-col gap-12">
           <div className="flex flex-col gap-4">
             <EyebrowLabel>Blog</EyebrowLabel>
@@ -78,7 +78,7 @@ export default async function BlogIndexPage() {
             </div>
           )}
         </Container>
-      </div>
+      </main>
       <MarketingFooter />
     </>
   );

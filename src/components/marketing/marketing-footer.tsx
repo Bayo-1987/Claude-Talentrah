@@ -18,8 +18,19 @@ import type { IconType } from "react-icons";
  * employer account system exists to log into. Removed rather than reworded;
  * add each back when the feature ships, with a real href. "Mentorship" is
  * back (2026-09-10, PR #341/send-137); the employer link below points at
- * `/employer` (2026-09-17) now that self-serve posting is real — the rest
- * are still unbuilt.
+ * `/employer` (2026-09-17) now that self-serve posting is real. "Resume
+ * Tailoring" gets its own href (2026-09-19, send-386) pointing at the new
+ * standalone /ai-resume-tailoring page rather than /tailor directly — that
+ * page carries this feature's own real SEO copy and metadata and is the
+ * better landing spot for a footer visitor, with its own CTA into /tailor.
+ * "ATS Resume Checker" is new alongside it, same reasoning. "Auto-Apply" is
+ * back too (send-387), pointing at the explainer page rather than the gated
+ * `/auto-apply` queue itself, since a signed-out visitor would just be
+ * redirected to /login from there. The remaining five Product entries (Job
+ * Matching, Resume Builder, Job Tracker, Scholarships, Refer & Earn) were
+ * plain strings — real, shipped features with no href at all, silently
+ * rendering as dead `#` anchors — until send-388 wired each to its real
+ * route. Every entry in this file now has a real destination.
  *
  * The employer column keeps its place — §6.1 wants employers addressed in
  * the footer — and now points at the real, free, self-serve flow.
@@ -30,11 +41,13 @@ const FOOTER_COLUMNS = [
     links: [
       { label: "Job Matching", href: "/jobs" },
       { label: "Resume Builder", href: "/resume-builder" },
-      { label: "Resume Tailoring", href: "/tailor" },
+      { label: "Resume Tailoring", href: "/ai-resume-tailoring" },
+      { label: "ATS Resume Checker", href: "/ats-resume-checker" },
       { label: "Job Tracker", href: "/tracker" },
       { label: "Scholarships", href: "/scholarships" },
       { label: "Refer & Earn", href: "/refer" },
       { label: "Mentorship", href: "/mentorship" },
+      { label: "Auto-Apply", href: "/how-auto-apply-works" },
     ],
   },
   {
@@ -134,7 +147,7 @@ export function MarketingFooter() {
   const socialLinks = SOCIAL_LINKS.filter((l): l is SocialLink & { url: string } => !!l.url);
 
   return (
-    <div className="bg-ink pb-8 pt-16">
+    <footer className="bg-ink pb-8 pt-16">
       <div className="mx-auto max-w-[1120px] px-10">
         <div className="flex flex-wrap items-center justify-between gap-6 pb-10">
           <div className="flex flex-wrap items-center gap-3">
@@ -227,6 +240,6 @@ export function MarketingFooter() {
           </span>
         </div>
       </div>
-    </div>
+    </footer>
   );
 }
