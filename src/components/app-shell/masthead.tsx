@@ -425,10 +425,22 @@ export function Masthead({
       here — see the note there. Putting it on this div looked right, built
       clean, and did nothing: measured at top:-2500 after a 2500px scroll.
     */
-    <div
+    <header
       data-testid="masthead"
       className="border-b-[2.5px] border-ink bg-paper"
     >
+      {/*
+        send-381 follow-up — the signed-in shell had the identical
+        no-skip-link gap the marketing masthead's own fix (send-381) already
+        covers. Same pattern: off-screen until focused, targets the same
+        #main-content id app-shell.tsx now renders <main> with.
+      */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:border-[1.5px] focus:border-ink focus:bg-card focus:px-4 focus:py-2.5 focus:font-body focus:text-[14px] focus:font-semibold focus:text-ink"
+      >
+        Skip to main content
+      </a>
       <div className="flex h-[68px] items-center justify-between px-8">
         <div className="flex items-center gap-4 xl:gap-9">
           {/*
@@ -877,6 +889,6 @@ export function Masthead({
           </div>
         </div>
       </div>
-    </div>
+    </header>
   );
 }

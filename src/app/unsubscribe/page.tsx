@@ -90,7 +90,7 @@ export default async function UnsubscribePage({
   return (
     <>
       <MarketingMasthead />
-      <div className="py-24">
+      <main id="main-content" className="py-24">
         <Container className="flex max-w-[620px] flex-col gap-5">
           <EyebrowLabel>Email preferences</EyebrowLabel>
           {matched ? (
@@ -112,7 +112,7 @@ export default async function UnsubscribePage({
             </>
           )}
         </Container>
-      </div>
+      </main>
       <MarketingFooter />
     </>
   );

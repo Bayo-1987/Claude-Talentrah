@@ -638,7 +638,10 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
 
       <form
         onSubmit={handleSubmit}
-        className="mt-auto flex items-center gap-2 border-[1.5px] border-ink bg-card px-2.5 py-2"
+        // send-381 — same shape as jd-demo-input.tsx: the input inside is
+        // border-none/outline-none, so the visible focus change has to land
+        // on this form's own border via focus-within.
+        className="mt-auto flex items-center gap-2 border-[1.5px] border-ink bg-card px-2.5 py-2 focus-within:border-rust"
       >
         <input
           type="text"

@@ -80,13 +80,15 @@ export default function Home() {
       <JsonLd data={buildWebSiteJsonLd()} />
       <MarketingMasthead />
       <GoogleOneTap />
-      <HeroSection />
-      <JobBoardPreview />
-      <ProblemSection />
-      <HowItWorksSection />
-      <MeetFarahSection />
-      <FaqSection />
-      <FinalCtaSection />
+      <main id="main-content">
+        <HeroSection />
+        <JobBoardPreview />
+        <ProblemSection />
+        <HowItWorksSection />
+        <MeetFarahSection />
+        <FaqSection />
+        <FinalCtaSection />
+      </main>
       <MarketingFooter />
       <MarketingStickyCta />
     </>
