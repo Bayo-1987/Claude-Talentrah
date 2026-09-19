@@ -28,12 +28,12 @@ const FOOTER_COLUMNS = [
   {
     heading: "Product",
     links: [
-      "Job Matching",
-      "Resume Builder",
-      "Resume Tailoring",
-      "Job Tracker",
-      "Scholarships",
-      "Refer & Earn",
+      { label: "Job Matching", href: "/jobs" },
+      { label: "Resume Builder", href: "/resume-builder" },
+      { label: "Resume Tailoring", href: "/tailor" },
+      { label: "Job Tracker", href: "/tracker" },
+      { label: "Scholarships", href: "/scholarships" },
+      { label: "Refer & Earn", href: "/refer" },
       { label: "Mentorship", href: "/mentorship" },
     ],
   },
