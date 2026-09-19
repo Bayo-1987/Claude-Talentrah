@@ -13,6 +13,7 @@ import {
   resumeCampaignAction,
 } from "@/lib/employer/campaign-actions";
 import { BorderedCard, EyebrowLabel } from "@/components/ui";
+import { renderInlineMarkdown } from "@/lib/farah/render-markdown";
 import { CampaignForm } from "@/components/employer/campaign-form";
 import {
   CampaignControls,
@@ -90,7 +91,7 @@ export default async function CampaignPage({ params }: { params: Promise<{ id: s
           <BorderedCard className="p-4">
             <EyebrowLabel>What to change</EyebrowLabel>
             <p className="mt-2 font-body text-[14.5px] leading-[1.6] text-ink">
-              {campaign.review_note}
+              {renderInlineMarkdown(campaign.review_note)}
             </p>
           </BorderedCard>
         )}

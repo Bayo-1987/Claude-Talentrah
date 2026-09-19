@@ -3,6 +3,7 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { generateWithFailover } from "@/lib/llm";
 import { FARAH_SYSTEM_PROMPT } from "@/lib/farah/system-prompt";
 import { FARAH_SCREENING_REVIEW_NGN } from "@/lib/billing/catalog";
+import { stripInlineMarkdown } from "@/lib/farah/render-markdown";
 
 /**
  * send-345 Part B — Farah's advisory review of one free_text screening
@@ -43,6 +44,12 @@ interface FarahReviewVerdict {
 }
 
 async function gradeAnswer(questionText: string, answerText: string): Promise<FarahReviewVerdict> {
+  // send-373 — answerText can now carry bold/italic markdown syntax
+  // (screening-gate-apply.tsx's own MinimalRichEditor). Farah should judge
+  // the candidate's actual words, not this app's own authoring syntax mixed
+  // into them — a `**` a candidate never typed as emphasis-for-Farah's-
+  // benefit shouldn't read as if it were part of "what's actually written."
+  const plainAnswerText = stripInlineMarkdown(answerText);
   const raw = await generateWithFailover((provider) =>
     provider.generateText({
       systemPrompt: FARAH_SYSTEM_PROMPT,
@@ -53,7 +60,7 @@ async function gradeAnswer(questionText: string, answerText: string): Promise<Fa
 
 QUESTION: ${questionText}
 
-ANSWER: ${answerText}`,
+ANSWER: ${plainAnswerText}`,
         },
       ],
       maxOutputTokens: 512,

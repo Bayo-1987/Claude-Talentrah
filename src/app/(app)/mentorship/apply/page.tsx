@@ -3,6 +3,7 @@ import { requireUser } from "@/lib/auth/require-user";
 import { getOwnMentorProfile, getOwnAvailabilitySlots, getOwnPayoutDetails } from "@/lib/mentorship/queries";
 import { listBanksForForm } from "@/lib/mentorship/payout-details";
 import { Container, EyebrowLabel, BorderedCard } from "@/components/ui";
+import { renderInlineMarkdown } from "@/lib/farah/render-markdown";
 import { ApplicationForm } from "./application-form";
 import { AvailabilityManager } from "./availability-manager";
 import { PayoutDetailsForm } from "./payout-details-form";
@@ -56,7 +57,7 @@ export default async function MentorApplyPage() {
           <BorderedCard className="flex flex-col gap-3 p-5">
             <p className="text-[14px] text-ink">{STATUS_COPY[profile.status] ?? profile.status}</p>
             {(profile.status === "rejected" || profile.status === "suspended") && profile.reviewNote && (
-              <p className="text-[13px] text-ink-soft">Reviewer note: {profile.reviewNote}</p>
+              <p className="text-[13px] text-ink-soft">Reviewer note: {renderInlineMarkdown(profile.reviewNote)}</p>
             )}
           </BorderedCard>
           <ApplicationForm existing={profile} />

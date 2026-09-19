@@ -77,6 +77,7 @@ export default async function CampaignQueuePage() {
                   id={c.id}
                   action={decideCampaignAction}
                   notePlaceholder="Note — required to reject, shown to the employer"
+                  richNote
                   options={[
                     { value: "approve", label: "Approve (stays paused)", variant: "primary" },
                     { value: "reject", label: "Reject", requiresNote: true },

@@ -4,7 +4,7 @@ import { decideMentorApplicationAction, decideMentorStatusAction } from "@/lib/a
 import { DecisionForm } from "@/components/admin/decision-form";
 import { QueueEmpty, QueueHeader } from "@/components/admin/queue-chrome";
 import { Container, EyebrowLabel, BorderedCard } from "@/components/ui";
-import { renderJobDescriptionMarkdown } from "@/lib/farah/render-markdown";
+import { renderJobDescriptionMarkdown, renderInlineMarkdown } from "@/lib/farah/render-markdown";
 
 export const metadata = {
   title: "Mentor applications — Talentrah admin",
@@ -85,6 +85,7 @@ export default async function MentorReviewQueuePage() {
                   decisionName="decision"
                   noteName="note"
                   notePlaceholder="Note (required to reject, kept in the audit log)"
+                  richNote
                   options={[
                     { value: "approved", label: "Approve as mentor", variant: "primary" },
                     { value: "rejected", label: "Reject", requiresNote: true },
@@ -118,7 +119,9 @@ export default async function MentorReviewQueuePage() {
                       {mentor.status === "approved" ? "Currently listed" : "Currently suspended"}
                     </p>
                     {mentor.status === "suspended" && mentor.reviewNote && (
-                      <p className="text-[13px] text-ink-soft">Suspension note: {mentor.reviewNote}</p>
+                      <p className="text-[13px] text-ink-soft">
+                        Suspension note: {renderInlineMarkdown(mentor.reviewNote)}
+                      </p>
                     )}
                   </div>
 
@@ -128,6 +131,7 @@ export default async function MentorReviewQueuePage() {
                     decisionName="decision"
                     noteName="note"
                     notePlaceholder="Note (required to suspend, kept in the audit log)"
+                    richNote
                     options={
                       mentor.status === "approved"
                         ? [{ value: "suspend", label: "Suspend", requiresNote: true }]

@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { MatchTierBadge } from "@/components/ui";
 import { ApplicantStatusSelect } from "./applicant-status-select";
 import { MatchBreakdown } from "@/components/jobs/match-breakdown";
 import { formatTrackerDate } from "@/lib/tracker/format-date";
+import { renderInlineMarkdown } from "@/lib/farah/render-markdown";
 import {
   setApplicantStatusAction,
   getApplicationScreeningAnswersAction,
@@ -68,6 +69,23 @@ function formatScreeningAnswer(a: ScreeningAnswerDetail): string {
     return a.answerNumber === null ? "Not answered" : String(a.answerNumber);
   }
   return a.answerText === null || a.answerText === "" ? "Not answered" : a.answerText;
+}
+
+/**
+ * send-373 — free_text answers can now carry bold/italic markdown syntax
+ * (screening-gate-apply.tsx's own MinimalRichEditor); yes_no/min_number
+ * answers never do, so they keep rendering as the plain string
+ * formatScreeningAnswer already produced. The wrapping `<p>` this replaces
+ * (`whitespace-pre-wrap`) already turns a stored `\n\n` into a visual
+ * paragraph break via CSS — renderInlineMarkdown deliberately does its own
+ * paragraph splitting (see render-markdown.tsx's header) rather than
+ * duplicating that with a second `<p>`-per-paragraph nesting.
+ */
+function renderScreeningAnswer(a: ScreeningAnswerDetail): ReactNode {
+  if (a.questionType !== "free_text" || a.answerText === null || a.answerText === "") {
+    return formatScreeningAnswer(a);
+  }
+  return renderInlineMarkdown(a.answerText);
 }
 
 /**
@@ -391,7 +409,7 @@ export function ApplicantList({
                         {a.required && <span className="text-rust"> *</span>}
                       </p>
                       <p className="font-body text-[13px] whitespace-pre-wrap text-ink-soft">
-                        {formatScreeningAnswer(a)}
+                        {renderScreeningAnswer(a)}
                       </p>
                       <FarahReviewNote a={a} />
                     </div>

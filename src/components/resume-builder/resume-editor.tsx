@@ -7,6 +7,7 @@ import { saveResumeAction, rewriteBulletAction } from "@/lib/resume-builder/acti
 import { findUneditedExampleFields } from "@/lib/resume-builder/example-guard";
 import { TemplateRenderer } from "@/components/resume-builder/templates";
 import { PrintButton } from "@/components/resume-builder/print-button";
+import { MinimalRichEditor } from "@/components/rich-text/minimal-rich-editor";
 import {
   getExperienceBullets,
   type StructuredResume,
@@ -144,6 +145,13 @@ export function ResumeEditor({ resumeId, initialTitle, initialContent, templateS
   const [pending, startTransition] = useTransition();
   const [dragExperienceIndex, setDragExperienceIndex] = useState<number | null>(null);
   const [dragEducationIndex, setDragEducationIndex] = useState<number | null>(null);
+  // MinimalRichEditor is uncontrolled (TipTap's own document is the source
+  // of truth once mounted, same as RichMarkdownEditor) — bumping this key
+  // forces a remount so an EXTERNAL change to content.summary (only
+  // "Clear example content?" below causes one; the editor's own typing
+  // never does) actually reaches the editor instead of being silently
+  // ignored by React's own "same key, don't recreate" rule.
+  const [summaryEditorKey, setSummaryEditorKey] = useState(0);
   const router = useRouter();
 
   // Recomputed from `content` every render — the same driftless signal
@@ -302,13 +310,13 @@ export function ResumeEditor({ resumeId, initialTitle, initialContent, templateS
 
       {/* Summary */}
       <section className="flex flex-col gap-2">
-        <EyebrowLabel size="sm">Summary</EyebrowLabel>
-        <textarea
+        <MinimalRichEditor
+          key={summaryEditorKey}
           id="summary-field"
-          value={content.summary ?? ""}
-          onChange={(e) => update("summary", e.target.value)}
-          rows={3}
-          className={`border-[1.5px] ${flaggedPaths.has("summary") ? "border-rust" : "border-ink"} bg-card p-3 font-body text-[14.5px] outline-none focus:border-rust`}
+          label="Summary"
+          defaultValue={content.summary ?? ""}
+          onTextChange={(markdown) => update("summary", markdown)}
+          minHeightClassName="min-h-[84px]"
           placeholder="A two- to three-sentence summary of your experience."
         />
         {flaggedPaths.has("summary") && <ExampleFlagNotice text="Still the example summary." />}
@@ -758,6 +766,7 @@ export function ResumeEditor({ resumeId, initialTitle, initialContent, templateS
           onClearExample={(next) => {
             setContent(next);
             setSaved(false);
+            setSummaryEditorKey((k) => k + 1);
           }}
         />
       </div>

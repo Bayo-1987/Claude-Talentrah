@@ -1,4 +1,5 @@
 import { getExperienceBullets, getExperienceText, type StructuredResume } from "@/lib/resume/types";
+import { renderMarkdownParagraphs } from "@/lib/farah/render-markdown";
 import { contactLine, dateRange } from "../templates/shared";
 import {
   bodyTextScale,
@@ -99,9 +100,7 @@ export function renderSummary({
 }) {
   if (!content.showSummary || !resume.summary) return null;
   return (
-    <section className={className}>
-      <p className={summaryTextClass(tokens.density)}>{resume.summary}</p>
-    </section>
+    <section className={className}>{renderMarkdownParagraphs(resume.summary, summaryTextClass(tokens.density))}</section>
   );
 }
 

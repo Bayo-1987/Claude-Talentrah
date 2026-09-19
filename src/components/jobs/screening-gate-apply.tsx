@@ -7,6 +7,25 @@ import { renderJobDescriptionMarkdown } from "@/lib/farah/render-markdown";
 import { applyWithScreeningAction, type ScreeningAnswerInput } from "@/lib/applications/actions";
 import type { CountryState } from "@/lib/jobs/country-events";
 import { MAX_ASSESSMENT_FILES } from "@/lib/employer/assessment-document";
+import { MinimalRichEditor } from "@/components/rich-text/minimal-rich-editor";
+
+/**
+ * send-373 — matches `application_screening_answers`'s own real DB check
+ * constraint (`application_screening_answers_answer_text_length_check`,
+ * 0175: `char_length(answer_text) <= 2000`), not a made-up client number.
+ * The plain `<textarea maxLength={2000}>` this replaces made that
+ * constraint unreachable from this UI — a native `maxLength` counts raw
+ * characters typed, so 2000 typed characters was always exactly 2000
+ * stored characters. MinimalRichEditor has no native character cap (bold/
+ * italic marker characters are added AFTER what the candidate typed, not
+ * interceptable by one), so the same guarantee now has to be enforced
+ * explicitly: this constant, plus the over-limit check wired into
+ * `missingRequired` below, blocking Submit rather than letting a
+ * markdown-inflated answer reach `submit_screening_answers` and surface
+ * that constraint's raw Postgres message to a candidate (see
+ * applications/actions.ts's own `error.message` passthrough).
+ */
+const FREE_TEXT_ANSWER_MAX = 2000;
 
 function formatBytes(bytes: number): string {
   if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
@@ -114,7 +133,15 @@ export function ScreeningGateApply({
       !responseLink.trim() &&
       responseFiles.length === 0);
 
+  const hasOverLongAnswer = questions.some(
+    (q) => q.questionType === "free_text" && (answers[q.id]?.text?.length ?? 0) > FREE_TEXT_ANSWER_MAX,
+  );
+
   function handleSubmit() {
+    // Defensive re-check — Submit is already disabled while an answer is
+    // over the limit, but a disabled attribute is a rendering detail, not
+    // a guarantee (same convention as print-button.tsx's own handleClick).
+    if (hasOverLongAnswer) return;
     setError(null);
     const payload: ScreeningAnswerInput[] = [];
     for (const q of questions) {
@@ -187,13 +214,23 @@ export function ScreeningGateApply({
 
       {questions.map((q) => (
         <div key={q.id} className="flex flex-col gap-1.5">
-          <label
-            htmlFor={q.questionType !== "yes_no" ? `screening-answer-${q.id}` : undefined}
-            className="font-body text-[13.5px] text-ink"
-          >
-            {q.questionText}
-            {q.required && <span className="text-rust"> *</span>}
-          </label>
+          {/*
+            MinimalRichEditor renders its own visible+accessible label
+            internally (same as RichMarkdownEditor's own pattern) — this
+            wrapping label is only for the yes_no/min_number inputs, which
+            have no label of their own. Rendering both here AND inside
+            MinimalRichEditor for the free_text case would show the
+            question text twice.
+          */}
+          {q.questionType !== "free_text" && (
+            <label
+              htmlFor={q.questionType !== "yes_no" ? `screening-answer-${q.id}` : undefined}
+              className="font-body text-[13.5px] text-ink"
+            >
+              {q.questionText}
+              {q.required && <span className="text-rust"> *</span>}
+            </label>
+          )}
           {q.questionType === "yes_no" ? (
             <div className="flex gap-4">
               {(["yes", "no"] as const).map((opt) => (
@@ -222,16 +259,21 @@ export function ScreeningGateApply({
               className="min-h-10 w-32 border-[1.5px] border-ink bg-card px-3 py-2 font-body text-[14px] text-ink outline-none focus:border-rust"
             />
           ) : (
-            <textarea
-              id={`screening-answer-${q.id}`}
-              value={answers[q.id]?.text ?? ""}
-              onChange={(e) =>
-                setAnswers((prev) => ({ ...prev, [q.id]: { text: e.target.value } }))
-              }
-              maxLength={2000}
-              rows={4}
-              className="w-full border-[1.5px] border-ink bg-card px-3 py-2 font-body text-[14px] text-ink outline-none focus:border-rust"
-            />
+            <>
+              <MinimalRichEditor
+                id={`screening-answer-${q.id}`}
+                label={q.required ? `${q.questionText} *` : q.questionText}
+                defaultValue={answers[q.id]?.text ?? ""}
+                onTextChange={(text) => setAnswers((prev) => ({ ...prev, [q.id]: { text } }))}
+                minHeightClassName="min-h-[96px]"
+              />
+              {(answers[q.id]?.text?.length ?? 0) > FREE_TEXT_ANSWER_MAX && (
+                <p className="font-body text-[12.5px] text-rust">
+                  {(answers[q.id]?.text?.length ?? 0) - FREE_TEXT_ANSWER_MAX} characters over the{" "}
+                  {FREE_TEXT_ANSWER_MAX}-character limit — shorten your answer to submit.
+                </p>
+              )}
+            </>
           )}
         </div>
       ))}
@@ -365,7 +407,7 @@ export function ScreeningGateApply({
       {error && <p className="font-body text-[12.5px] text-rust">{error}</p>}
 
       <div>
-        <Button size="sm" type="button" disabled={pending || missingRequired} onClick={handleSubmit}>
+        <Button size="sm" type="button" disabled={pending || missingRequired || hasOverLongAnswer} onClick={handleSubmit}>
           {pending ? "Submitting…" : "Submit application"}
         </Button>
       </div>
