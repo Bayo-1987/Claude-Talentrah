@@ -69,27 +69,46 @@ const PROTECTED_PATH_PREFIXES = [
   "/dashboard",
   "/employer",
   /*
-   * Added as part of restoring site-wide loading.tsx boundaries. Both were
-   * previously protected ONLY by a page-level requireUser() call — never
-   * added here when they shipped — which is exactly the shape #221 fixed
-   * for everything else: a redirect that only a React Server Component can
-   * issue is a redirect a loading.tsx anywhere in that component's ancestor
-   * chain turns into a 200-with-skeleton instead of a clean 307. Confirmed
-   * directly: adding a loading.tsx to talent-directory/verify with no
-   * middleware backstop measured 200 for a signed-out request; adding these
-   * two lines and re-measuring after is what makes that safe. mentorship/
-   * covers mentorship/[mentorId] too, whose own notFound() is a SEPARATE
-   * concern (a missing mentor, not a missing session) — see that route's
-   * own directory for why it still deliberately gets no loading.tsx of its
-   * own despite being covered by this gate now.
+   * Added as part of restoring site-wide loading.tsx boundaries. Previously
+   * protected ONLY by a page-level requireUser() call — never added here
+   * when it shipped — which is exactly the shape #221 fixed for everything
+   * else: a redirect that only a React Server Component can issue is a
+   * redirect a loading.tsx anywhere in that component's ancestor chain turns
+   * into a 200-with-skeleton instead of a clean 307. Confirmed directly:
+   * adding a loading.tsx to talent-directory/verify with no middleware
+   * backstop measured 200 for a signed-out request; adding this line and
+   * re-measuring after is what makes that safe.
    */
-  "/mentorship",
   "/talent-directory",
 ];
 
+/**
+ * Paths whose SUB-PATHS require a session at every depth, but the bare path
+ * itself deliberately does not — the mirror image of PROTECTED_EXACT_PATHS
+ * above, for the same reason in reverse. `/mentorship` used to sit in
+ * PROTECTED_PATH_PREFIXES (blocking it AND everything under it), added for
+ * #221's loading.tsx-streaming fix — real then, since nothing under
+ * /mentorship was public. send-385 made the bare list page itself a genuine
+ * signed-out landing page (closing a real SEO indexation gap: crawlable,
+ * unblocked in robots.ts, but serving a redirect with zero unique content),
+ * while mentorship/[mentorId], /apply, /book, /reviews(/[verificationId])
+ * and /sessions(/mentor) all stayed authenticated-only — found to have the
+ * exact same "crawlable but login-gated" pattern while investigating this
+ * send, so robots.ts now disallows `/mentorship/` (trailing slash, no `$`)
+ * to keep them out of the index the same way this gate keeps them out of a
+ * streamed-200. A generic PROTECTED_PATH_PREFIXES entry can't express "cover
+ * every sub-path except the bare path" — `pathname === prefix` is exactly
+ * the case that must now return false here — so this is its own small set
+ * rather than overloading that one with a boolean nobody else needs.
+ */
+const PROTECTED_SUBPATH_ONLY_PREFIXES = ["/mentorship"];
+
 export function isProtectedSeekerPath(pathname: string): boolean {
   if (PROTECTED_EXACT_PATHS.has(pathname)) return true;
-  return PROTECTED_PATH_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+  if (PROTECTED_PATH_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))) {
+    return true;
+  }
+  return PROTECTED_SUBPATH_ONLY_PREFIXES.some((prefix) => pathname.startsWith(`${prefix}/`));
 }
 
 /**

@@ -1,0 +1,57 @@
+<!--
+  send-395 — operator invite, sent by Supabase's own mailer
+  (supabase.auth.admin.inviteUserByEmail(), src/lib/admin/operators/
+  invite.ts). Lowest reach of the three auth emails, but a real Talentrah-
+  branded moment for a new team member. Same palette/type as
+  confirmation.html — see that file's own header for why this is a
+  hand-copy of layout.ts's colors, not an import.
+
+  Talentrah voice, matching confirmation.html — this is a welcoming,
+  internal moment (invite.ts's own header: "NO PASSWORD IS COLLECTED, SET,
+  OR SEEN — anywhere, by anyone... the person follows it and chooses their
+  own password against their own mailbox"), not a security-sensitive action
+  like recovery.html's password reset.
+
+  The ConfirmationURL merge field carries `type=invite` and invite.ts's own
+  redirectTo (`${origin}/auth/callback?next=/reset-password`, the same
+  destination signup and password reset already share, so the invitee lands
+  signed in and sets a password without ever having had one). Copy below
+  says "set your password" rather than "sign in" for exactly that reason —
+  wording that implied an existing account/password would be wrong here.
+  See confirmation.html's own comment for why no merge field name appears
+  in doubled-brace syntax anywhere in prose here.
+-->
+<!doctype html>
+<html>
+  <body style="margin:0;padding:24px;background:#f7f3ec;">
+    <div style="max-width:560px;margin:0 auto;">
+      <img
+        src="{{ .SiteURL }}/icons/talentrah-mark-48.png"
+        width="40"
+        height="40"
+        alt="Talentrah"
+        style="display:block;border:0;margin-bottom:20px;"
+      />
+      <p style="font:400 15px/1.6 -apple-system,Segoe UI,Roboto,sans-serif;color:#2b2119;">
+        You&rsquo;ve been invited to join the Talentrah team.
+      </p>
+      <p style="font:400 15px/1.6 -apple-system,Segoe UI,Roboto,sans-serif;color:#2b2119;">
+        Accept the invitation below and set your own password to get started — nobody else has seen or chosen it.
+      </p>
+      <p style="margin:24px 0;">
+        <a
+          href="{{ .ConfirmationURL }}"
+          style="display:inline-block;background:#2b2119;color:#f7f3ec;text-decoration:none;padding:12px 20px;font:600 14px/1 -apple-system,Segoe UI,Roboto,sans-serif;"
+        >
+          Accept invitation
+        </a>
+      </p>
+      <p style="font:400 15px/1.6 -apple-system,Segoe UI,Roboto,sans-serif;color:#2b2119;">
+        — The Talentrah team
+      </p>
+      <p style="font:400 12px/1.5 -apple-system,Segoe UI,Roboto,sans-serif;color:#6b5c50;border-top:1px solid #d9cfc2;padding-top:12px;">
+        If you weren&rsquo;t expecting this invitation, you can safely ignore this email.
+      </p>
+    </div>
+  </body>
+</html>

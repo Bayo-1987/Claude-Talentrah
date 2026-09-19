@@ -251,6 +251,27 @@ export function Masthead({
     : NAV_LINKS[activeIndex].label;
 
   /*
+   * The label BUTTON's accessible name — deliberately NOT "…currently
+   * showing X", which is what this shipped with and is exactly the
+   * confusion the highlight's own comment below (near `highlighted`) already
+   * reasoned around for `aria-current`: a screen-reader user on /jobs who
+   * hears "currently showing Get Verified" a few seconds later is being told
+   * something false, not just shown something surprising. This idles through
+   * NAV_LINKS regardless of `pathname` — it is a rotating suggestion of where
+   * to go, never a statement of where the reader IS — so the name says
+   * "suggestion", not "currently". Confirmed against the 2026-09-19 UX
+   * audit's own observation (values flickering across pages unrelated to
+   * them) before landing on this wording rather than moving the control.
+   *
+   * Reduced motion gets its own plain "Open menu": REDUCED_MOTION_LABEL
+   * ("Menu") is not a real nav destination, so "suggestion: Menu" would be
+   * nonsense a screen-reader user has no way to act on.
+   */
+  const navTriggerLabel = reducedMotion
+    ? "Open menu"
+    : `Open menu — suggestion: ${activeLabel}`;
+
+  /*
    * The nav links move behind a disclosure below `lg` (1024px), and the number
    * is measured rather than chosen.
    *
@@ -425,10 +446,22 @@ export function Masthead({
       here — see the note there. Putting it on this div looked right, built
       clean, and did nothing: measured at top:-2500 after a 2500px scroll.
     */
-    <div
+    <header
       data-testid="masthead"
       className="border-b-[2.5px] border-ink bg-paper"
     >
+      {/*
+        send-381 follow-up — the signed-in shell had the identical
+        no-skip-link gap the marketing masthead's own fix (send-381) already
+        covers. Same pattern: off-screen until focused, targets the same
+        #main-content id app-shell.tsx now renders <main> with.
+      */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:border-[1.5px] focus:border-ink focus:bg-card focus:px-4 focus:py-2.5 focus:font-body focus:text-[14px] focus:font-semibold focus:text-ink"
+      >
+        Skip to main content
+      </a>
       <div className="flex h-[68px] items-center justify-between px-8">
         <div className="flex items-center gap-4 xl:gap-9">
           {/*
@@ -655,7 +688,7 @@ export function Masthead({
                 type="button"
                 aria-expanded={navOpen}
                 aria-haspopup="menu"
-                aria-label={`Open menu, currently showing ${activeLabel}`}
+                aria-label={navTriggerLabel}
                 onClick={() => {
                   cancelPendingLabelSwap();
                   setNavOpen(true);
@@ -705,8 +738,11 @@ export function Masthead({
                    * "the current page", which this is not, and the panel
                    * already has a real current-page state that would then be
                    * indistinguishable from it. The label button's own
-                   * accessible name ("…currently showing Jobs") is what
-                   * carries this to a screen reader.
+                   * accessible name ("…suggestion: Jobs") is what carries
+                   * this to a screen reader — deliberately not phrased as
+                   * "currently showing", for the same reason `aria-current`
+                   * is avoided here: this is a suggestion, not a claim about
+                   * where the reader is.
                    */
                   const highlighted = highlightIndex === i;
                   return (
@@ -877,6 +913,6 @@ export function Masthead({
           </div>
         </div>
       </div>
-    </div>
+    </header>
   );
 }

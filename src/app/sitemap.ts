@@ -19,9 +19,13 @@ import { TRACKED_COUNTRIES, COUNTRY_LANDING_SLUG, countryOrFilter } from "@/lib/
  * problem with the site, not as a hint to try harder.
  *
  * So job postings appear here ONLY because /jobs/[id] was made public in the
- * same change, and scholarships ONLY because /scholarships/[id] was made
- * public the same way, later. Every other route under (app) still requires a
- * session and is deliberately absent.
+ * same change, scholarships ONLY because /scholarships/[id] was made public
+ * the same way later, and /mentorship (send-385) ONLY because it now branches
+ * to a real signed-out landing page instead of redirecting. Every other route
+ * under (app) — including /mentorship's own sub-routes ([mentorId], apply,
+ * book, reviews, sessions — still authenticated-only, see robots.ts's
+ * `/mentorship/` disallow — still requires a session and is deliberately
+ * absent.
  *
  * ── WHY THE JOBS AND SCHOLARSHIPS QUERIES ARE NOT CACHED ──────────────────
  *
@@ -56,7 +60,25 @@ const STATIC_PATHS: { path: string; priority: number; changeFrequency: MetadataR
    * point — not before.
    */
   { path: "/blog", priority: 0.7, changeFrequency: "weekly" },
-  // send-387: unlike the count-gated entries in landingPageEntries below,
+  /*
+   * send-385 — /mentorship now has its own real, signed-out-visitor page
+   * (components/mentorship/public-landing.tsx) instead of a login redirect,
+   * so it belongs here by this file's own rule. Static, not a DB-backed
+   * block below, because the content itself is hand-authored copy, not a
+   * live count of open postings/scholarships — there is nothing here that
+   * can go stale between deploys.
+   */
+  { path: "/mentorship", priority: 0.6, changeFrequency: "monthly" },
+  /*
+   * send-386 — two standalone, hand-authored SEO landing pages (not
+   * programmatic — no live count to go stale, so static like /about rather
+   * than one of the DB-backed blocks below).
+   */
+  { path: "/ai-resume-tailoring", priority: 0.6, changeFrequency: "monthly" },
+  { path: "/ats-resume-checker", priority: 0.6, changeFrequency: "monthly" },
+  // send-387 Part 2 — another standalone, hand-authored explainer page, same shape as the two above.
+  { path: "/how-auto-apply-works", priority: 0.6, changeFrequency: "monthly" },
+  // send-387 Part 1: unlike the count-gated entries in landingPageEntries below,
   // this hub always renders a real 200 (hero + CTA card render even with
   // zero matching posts and zero qualifying landing-page links), so it
   // belongs here rather than behind a live-count check.

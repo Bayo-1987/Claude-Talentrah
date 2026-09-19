@@ -1,13 +1,11 @@
 import Link from "next/link";
 import { requireEmployer } from "@/lib/employer/membership";
 import { listCampaigns, getCampaignAnalytics } from "@/lib/employer/campaign-queries";
-import { BorderedCard, EyebrowLabel } from "@/components/ui";
+import { BorderedCard, EyebrowLabel, NairaAmount } from "@/components/ui";
 import { CampaignStatusBadge, type CampaignStatus } from "@/components/employer/campaign-controls";
 import { ctrLabel } from "@/lib/ads/analytics-format";
 
 export const metadata = { title: "Analytics — Talentrah" };
-
-const naira = (n: number) => `₦${n.toLocaleString("en-NG")}`;
 
 /**
  * The nav-level "Analytics" landing (0128) — CLAUDE.md's own §5 nav list
@@ -50,7 +48,7 @@ export default async function EmployerAnalyticsPage() {
 
   return (
     <div className="max-w-[960px]">
-      <EyebrowLabel>Every campaign, one place</EyebrowLabel>
+      <EyebrowLabel>Performance across every campaign</EyebrowLabel>
       <h1 className="mt-2 font-display text-[30px] leading-[1.15] font-medium text-ink">Analytics</h1>
 
       {campaigns.length === 0 ? (
@@ -78,7 +76,9 @@ export default async function EmployerAnalyticsPage() {
             </BorderedCard>
             <BorderedCard className="p-4">
               <EyebrowLabel>Spent to date</EyebrowLabel>
-              <p className="mt-2 font-display text-[24px] text-ink">{naira(totals.spent)}</p>
+              <p className="mt-2 font-display text-[24px] text-ink">
+                <NairaAmount amount={totals.spent} />
+              </p>
             </BorderedCard>
           </div>
 

@@ -66,14 +66,17 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
         <div className="sticky top-0 z-20 print:hidden" data-testid="masthead-band">
           <MarketingMasthead />
         </div>
-        <div className="mx-auto flex w-full max-w-[1360px] flex-col print:block print:max-w-none">
+        <main
+          id="main-content"
+          className="mx-auto flex w-full max-w-[1360px] flex-col print:block print:max-w-none"
+        >
           <div
             data-testid="content-column"
             className="min-w-0 flex-1 px-6 py-8 min-[760px]:px-10 print:p-0"
           >
             {children}
           </div>
-        </div>
+        </main>
       </div>
     );
   }
@@ -175,7 +178,10 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
         conversation away on every rotation. Changing flex-direction moves the
         same mounted element, so nothing is lost crossing the breakpoint.
       */}
-      <div className="mx-auto flex w-full max-w-[1360px] flex-col min-[760px]:flex-row print:block print:max-w-none">
+      <main
+        id="main-content"
+        className="mx-auto flex w-full max-w-[1360px] flex-col min-[760px]:flex-row print:block print:max-w-none"
+      >
         <div
           data-testid="content-column"
           className="min-w-0 flex-1 px-6 py-8 min-[760px]:px-10 print:p-0"
@@ -213,7 +219,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
         <div className="bg-paper-alt min-[760px]:border-l min-[760px]:border-l-line print:hidden">
           <FarahPanel firstName={visibleName(profile.first_name) || "there"} />
         </div>
-      </div>
+      </main>
       {/*
         Rendered from the AUTHENTICATED shell only. The marketing pages under
         (marketing) have their own layout and no Farah panel, so a global tab
