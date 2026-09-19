@@ -1,5 +1,6 @@
 import type { Tables } from "@/lib/supabase/types";
 import { absoluteUrl } from "./site";
+import { stripMarkdownToPlainText } from "@/lib/jobs/extract-jd";
 
 /**
  * schema.org JobPosting markup, built to Google's own required/recommended
@@ -181,6 +182,29 @@ function tidy(text: string): string {
 }
 
 /**
+ * send-382 — `description` is markdown-formatted text (the same
+ * `**bold**`/`- bullet` grammar the job-description WYSIWYG editor,
+ * send-367/368/369, writes and reads), but the `JobPosting` JSON-LD's own
+ * `description` field is read as plain text by whatever actually parses
+ * this markup (Google's rich-results indexer) — it does not render
+ * markdown, so the literal syntax characters must be gone before this
+ * function ever builds the object. `stripMarkdownToPlainText` runs BEFORE
+ * `tidy`, not after: its own bullet-marker strip (`^-[ \t]+`, multiline)
+ * needs the description's real newlines still intact to find each bullet
+ * line's own start — `tidy`'s whitespace-collapse turns every newline into
+ * a single space, which would leave only the first line's leading "- "
+ * reachable and silently let every other bullet's dash through. This
+ * mirrors the identical fix (and identical order-of-operations reasoning)
+ * applied to `generateMetadata`'s own `body` in jobs/[id]/page.tsx — this
+ * function used to derive its OWN `description` independently from the raw
+ * `job.description` column rather than reusing that already-cleaned value,
+ * which is why this needs its own fix here rather than one shared call.
+ */
+function plainDescription(text: string): string {
+  return tidy(stripMarkdownToPlainText(text));
+}
+
+/**
  * The JSON-LD object, or null when Google's required set cannot be satisfied.
  *
  * Returning null is a real outcome, not an error path — see the header.
@@ -222,7 +246,7 @@ export function buildJobPostingJsonLd(job: JobPosting): Record<string, unknown> 
    */
   if (job.expires_at && new Date(job.expires_at).getTime() <= Date.now()) return null;
 
-  const description = tidy(job.description ?? "");
+  const description = plainDescription(job.description ?? "");
   // `description` is required, and Google rejects one identical to the title.
   if (!job.title?.trim() || !description || description === tidy(job.title)) return null;
   if (!job.posted_at) return null;

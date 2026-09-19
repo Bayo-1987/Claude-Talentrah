@@ -202,3 +202,39 @@ describe("the recommended properties, and the ones deliberately withheld", () =>
     expect(buildJobPostingJsonLd(base({ source_type: "external" }))!.directApply).toBe(false);
   });
 });
+
+describe("send-382 — description is markdown-formatted text, but this field is read as plain text", () => {
+  it("strips **bold** markers and leading '- ' bullet markers from the description", () => {
+    // Verbatim shape of a real, live posting (Moniepoint / Senior Data
+    // Analyst - Fraud, source_type "external") that shipped with literal
+    // "**Who We Are**" in its JSON-LD description before this fix.
+    const raw = [
+      "**Who We Are**",
+      "",
+      "Moniepoint is a financial technology company.",
+      "",
+      "**What you will get to do**",
+      "",
+      "- Investigate fraud attacks",
+      "- Propose rule-based mitigations",
+    ].join("\n");
+    const ld = buildJobPostingJsonLd(base({ description: raw }))!;
+    expect(ld).not.toBeNull();
+    expect(ld.description, "raw ** markers leaked into the JSON-LD description").not.toContain("**");
+    expect(ld.description, "a leading bullet dash leaked into the JSON-LD description").not.toContain(
+      "- Investigate",
+    );
+    expect(ld.description).toBe(
+      "Who We Are Moniepoint is a financial technology company. What you will get to do Investigate fraud attacks Propose rule-based mitigations",
+    );
+  });
+
+  it("a plain-text description with no markdown is byte-identical before and after this change", () => {
+    // The unaffected-path guarantee: stripMarkdownToPlainText/tidy must be a
+    // true no-op (beyond ordinary whitespace collapsing, which `tidy` already
+    // did before this fix) on content that never had markdown syntax at all.
+    const plain = "Build and maintain the payment services. Node.js, TypeScript, PostgreSQL.";
+    const ld = buildJobPostingJsonLd(base({ description: plain }))!;
+    expect(ld.description).toBe(plain);
+  });
+});
