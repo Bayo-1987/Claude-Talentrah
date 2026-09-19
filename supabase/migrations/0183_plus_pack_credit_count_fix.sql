@@ -1,0 +1,25 @@
+-- 0183 — send-417: correct the Plus credit pack's credit count, 45 -> 50.
+--
+-- 0089's own comment for this row said "45 = one Talent Directory
+-- verification (25) + one tailoring (20) exactly" — but the pack's actual
+-- marketing copy on /billing (PACK_DESCRIPTIONS in
+-- src/app/(app)/billing/page.tsx) has always said "2 tailorings + a cover
+-- letter, or a Directory verification". At CREDIT_COSTS.tailoringRun (20)
+-- and .coverLetterRun (10), that bundle is 2*20 + 10 = 50, not 45 — the
+-- pack was short by one tailoring's worth of what its own copy promised.
+-- Founder-decided fix (send-417, 2026-09-19): reprice to 50 credits, keep
+-- the ₦5,000 price and the existing description text unchanged. The
+-- "or a Directory verification" alternative (25 credits) still holds at 50
+-- — it was never claimed to use the whole bundle exactly, just to be one
+-- thing the credits can buy.
+--
+-- Checked before writing this: zero Plus-pack purchases and zero 45-credit
+-- credit_ledger grants have ever existed on production
+-- (nytwbbzfpytctjsoczzq) — this is a forward-only correction, nothing to
+-- backfill for past buyers.
+--
+-- Additive-in-effect (a value correction, not a schema change or a
+-- narrowing of anything already granted) — safe to apply before merging,
+-- per supabase/migrations/README.md's own rule for changes that don't
+-- break currently-deployed code.
+update public.credit_packs set credits = 50 where name = 'Plus';
