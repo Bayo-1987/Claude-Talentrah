@@ -301,10 +301,30 @@ export function stripHtml(html: string): string {
  * `render-markdown.tsx` can parse — the job detail page is the one place
  * that actually renders the rich version, and it reads `description`
  * directly, untouched by this function.
+ *
+ * send-397: a real Moniepoint posting's source HTML had a `<strong>` heading
+ * directly abutting surrounding text with no whitespace at all on one or
+ * both sides — e.g. `Location: India<strong>Who We Are</strong>Moniepoint
+ * Inc. …` — which `stripHtml` faithfully turns into
+ * `Location: India**Who We Are**Moniepoint Inc. …`. The naive
+ * `"$1"` replacement above removed the `**` markers but not the missing
+ * word boundary they used to sit at, so the feed card rendered
+ * "IndiaWho We AreMoniepoint" as one glued run of text. The bold-pair
+ * replacement now inserts a single space at either edge, but only when
+ * that edge doesn't already have whitespace (or isn't the start/end of the
+ * string) — so an already-correctly-spaced pair like
+ * "roadmap for **merchant payments** end to end" is untouched, and a
+ * pair glued to its neighbours gets exactly the one space it's missing.
  */
 export function stripMarkdownToPlainText(text: string): string {
   return text
-    .replace(/\*\*(.+?)\*\*/g, "$1")
+    .replace(/\*\*(.+?)\*\*/g, (match, inner: string, offset: number, full: string) => {
+      const before = full[offset - 1];
+      const after = full[offset + match.length];
+      const leadingSpace = before !== undefined && !/\s/.test(before) ? " " : "";
+      const trailingSpace = after !== undefined && !/\s/.test(after) ? " " : "";
+      return `${leadingSpace}${inner}${trailingSpace}`;
+    })
     .replace(/^-[ \t]+/gm, "");
 }
 

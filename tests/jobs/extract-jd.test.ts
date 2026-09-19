@@ -162,4 +162,52 @@ describe("stripMarkdownToPlainText undoes what stripHtml produces, for consumers
     const plain = "Own the merchant payments dashboard used by 40,000+ SMB merchants.";
     expect(stripMarkdownToPlainText(plain)).toBe(plain);
   });
+
+  /**
+   * send-397: live-production regression, verified word for word against
+   * https://claude-talentrah.vercel.app/jobs/remote on 2026-09-19 — the
+   * "Site Reliability Engineer" (Moniepoint, Remote India) card there
+   * literally rendered:
+   *
+   *   Location: India**Who We Are** Moniepoint Inc. is Africa's
+   *   all-in-one financial platform...
+   *
+   * i.e. genuine, un-rendered `**` characters on screen — confirming the
+   * bug is exactly as reported and distinct from send-382's
+   * meta-description/JSON-LD fix (`plainDescription()`), which this
+   * component never touches. The source posting's `<strong>Who We
+   * Are</strong>` sits directly against "India" with no whitespace on that
+   * side, while whitespace already exists on the OTHER side (before
+   * "Moniepoint") — a one-sided boundary case, not a symmetric one. This
+   * pins `stripMarkdownToPlainText`'s own contract directly: the OLD bare
+   * `"$1"` replacement strips the `**` markers but glues "India" and "Who"
+   * into one word with no separator ("IndiaWho We Are Moniepoint") — a
+   * distinct, still-visible defect from the literal asterisks seen live,
+   * but the same root cause (no boundary handling), and this is the
+   * behaviour actually reachable by unit-testing the function in isolation.
+   */
+  it("send-397: inserts a word boundary when a bold pair has no whitespace on either side (the live Moniepoint case)", () => {
+    const description =
+      "Location: India**Who We Are** Moniepoint Inc. is Africa's all-in-one financial platform, helping 20 million businesses and individuals access seamless payments, banking, credit, cross-border, and business management tools each month.";
+    const out = stripMarkdownToPlainText(description);
+    expect(out).not.toContain("**");
+    expect(out).not.toContain("IndiaWho");
+    expect(out).toBe(
+      "Location: India Who We Are Moniepoint Inc. is Africa's all-in-one financial platform, helping 20 million businesses and individuals access seamless payments, banking, credit, cross-border, and business management tools each month.",
+    );
+  });
+
+  it("send-397: only adds a boundary space on the side that's actually missing one — a pair glued on one side and spaced on the other doesn't get a double space", () => {
+    expect(stripMarkdownToPlainText("India**Who We Are** Moniepoint")).toBe("India Who We Are Moniepoint");
+    expect(stripMarkdownToPlainText("India **Who We Are**Moniepoint")).toBe("India Who We Are Moniepoint");
+  });
+
+  it("send-397: a bold pair at the very start or end of the string only grows the boundary that actually needs it", () => {
+    // No character before the opening "**" (start of string) — nothing to
+    // separate from there, but "Moniepoint" still needs a space before it.
+    expect(stripMarkdownToPlainText("**Who We Are**Moniepoint")).toBe("Who We Are Moniepoint");
+    // No character after the closing "**" (end of string) — nothing to
+    // separate from there, but "Moniepoint" still needs a space after it.
+    expect(stripMarkdownToPlainText("Moniepoint**Who We Are**")).toBe("Moniepoint Who We Are");
+  });
 });
