@@ -2031,6 +2031,7 @@ export type Database = {
           applied_at: string
           base_price_ngn: number | null
           bio: string | null
+          display_name: string | null
           expertise_industries: string[]
           expertise_roles: string[]
           expertise_seniority: Database["public"]["Enums"]["seniority_level"][]
@@ -2052,6 +2053,7 @@ export type Database = {
           applied_at?: string
           base_price_ngn?: number | null
           bio?: string | null
+          display_name?: string | null
           expertise_industries?: string[]
           expertise_roles?: string[]
           expertise_seniority?: Database["public"]["Enums"]["seniority_level"][]
@@ -2073,6 +2075,7 @@ export type Database = {
           applied_at?: string
           base_price_ngn?: number | null
           bio?: string | null
+          display_name?: string | null
           expertise_industries?: string[]
           expertise_roles?: string[]
           expertise_seniority?: Database["public"]["Enums"]["seniority_level"][]
@@ -3931,6 +3934,7 @@ export type Database = {
       mentor_public_names: {
         Args: { p_mentor_ids: string[] }
         Returns: {
+          display_name: string
           first_name: string
           last_name: string
           user_id: string
@@ -3939,6 +3943,7 @@ export type Database = {
       mentorship_session_counterparty_names: {
         Args: { p_user_ids: string[] }
         Returns: {
+          display_name: string
           first_name: string
           last_name: string
           user_id: string

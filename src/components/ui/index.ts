@@ -11,3 +11,4 @@ export * from "./password-field";
 export * from "./select-field";
 export * from "./farah-mark";
 export * from "./skeleton";
+export * from "./naira-amount";

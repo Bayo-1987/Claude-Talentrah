@@ -52,6 +52,14 @@ export default async function MentorReviewQueuePage() {
                   <h2 className="font-display text-[20px] font-semibold leading-snug">
                     {application.name}
                   </h2>
+                  {application.nameWarning && (
+                    <p
+                      data-testid="mentor-name-warning"
+                      className="border-[1.5px] border-rust bg-rust-soft px-3.5 py-2.5 text-[13.5px] text-rust"
+                    >
+                      <strong>Check this name before approving.</strong> {application.nameWarning}
+                    </p>
+                  )}
                   <p className="text-[13.5px] text-ink-soft">
                     {application.yearsExperience != null
                       ? `${application.yearsExperience} years experience`

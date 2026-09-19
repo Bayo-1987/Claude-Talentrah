@@ -1,6 +1,7 @@
 import { absoluteUrl } from "@/lib/seo/site";
 import { describeMatchConfidence } from "@/lib/match-tier";
 import type { ScoredNewJob } from "./select";
+import { EMAIL_COLORS, emailButton, emailHeadline, emailLabel, emailParagraph, escEmail, renderBrandedEmail } from "@/lib/email/layout";
 
 /**
  * Farah-voiced, per §6.10's own split (matches/referrals speak as Farah,
@@ -14,6 +15,18 @@ import type { ScoredNewJob } from "./select";
  * Structured like the digest's own email (a line of context, the one job,
  * one action) rather than a chatty paragraph — voice varies BY CHANNEL, and
  * email stays structured even when the sender is personal.
+ *
+ * send-395 — the HTML below used to hand-code this same palette as its own
+ * inline hex literals instead of importing EMAIL_COLORS from layout.ts: not
+ * visually wrong (the values matched), but an independent copy that
+ * layout.ts's own future changes would silently stop reaching. Now wired
+ * onto the same emailParagraph/emailLabel/emailHeadline/emailButton/
+ * renderBrandedEmail helpers digest/template.ts and mentorship/
+ * notifications.ts already use — same visual result, same copy, just no
+ * second palette. The job-info block (score label, title, company/location,
+ * inside a bordered box) has no dedicated layout.ts helper of its own
+ * either; digest/template.ts's identical block is the precedent this
+ * mirrors rather than inventing a new one.
  */
 
 export interface ProactiveAlertEmail {
@@ -31,15 +44,6 @@ export interface ProactiveAlertInApp {
 function greeting(firstName: string | null): string {
   const name = firstName?.trim();
   return name ? `Hi ${name},` : "Hi,";
-}
-
-function esc(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
 }
 
 /**
@@ -93,43 +97,30 @@ export function buildProactiveAlertEmail(params: {
     `Don't want these rare alerts? Unsubscribe: ${unsubscribeUrl}`,
   ].join("\n");
 
-  const html = `<!doctype html>
-<html><body style="margin:0;padding:24px;background:#f7f3ec;">
-  <div style="max-width:560px;margin:0 auto;">
-    <p style="font:400 15px/1.6 -apple-system,Segoe UI,Roboto,sans-serif;color:#2b2119;">
-      ${esc(greeting(firstName))}
-    </p>
-    <p style="font:400 15px/1.6 -apple-system,Segoe UI,Roboto,sans-serif;color:#2b2119;">
-      I know you haven&rsquo;t been actively looking, but this one is too strong to sit on:
-    </p>
-    <div style="padding:16px 0;border-top:1px solid #d9cfc2;border-bottom:1px solid #d9cfc2;">
-      <div style="font:600 13px/1.4 -apple-system,Segoe UI,Roboto,sans-serif;color:#6b4a3a;">
-        ${esc(String(displayScore))}% match
+  // Same bordered job-info block digest/template.ts's own job rows use —
+  // no dedicated layout.ts helper covers this shape (label + headline +
+  // muted company/location line inside a top/bottom-bordered box), so this
+  // mirrors that file's block rather than inventing a second one.
+  const jobInfoBlock = `<div style="padding:16px 0;border-top:1px solid ${EMAIL_COLORS.line};border-bottom:1px solid ${EMAIL_COLORS.line};">
+      ${emailLabel(`${escEmail(String(displayScore))}% match`)}
+      ${emailHeadline(escEmail(job.title))}
+      <div style="font:400 14px/1.4 -apple-system,Segoe UI,Roboto,sans-serif;color:${EMAIL_COLORS.bodyMuted};margin-top:2px;">
+        ${escEmail(job.companyName)}${job.location ? ` · ${escEmail(job.location)}` : ""}
       </div>
-      <div style="font:500 17px/1.35 Georgia,'Times New Roman',serif;color:#2b2119;margin-top:2px;">
-        ${esc(job.title)}
-      </div>
-      <div style="font:400 14px/1.4 -apple-system,Segoe UI,Roboto,sans-serif;color:#5a4a3f;margin-top:2px;">
-        ${esc(job.companyName)}${job.location ? ` · ${esc(job.location)}` : ""}
-      </div>
-    </div>
-    <p style="font:400 15px/1.6 -apple-system,Segoe UI,Roboto,sans-serif;color:#2b2119;">
-      You&rsquo;ll only hear from me like this for matches this strong.
-    </p>
-    <p style="margin:24px 0;">
-      <a href="${esc(jobUrl)}"
-         style="display:inline-block;background:#2b2119;color:#f7f3ec;text-decoration:none;
-                padding:12px 20px;font:600 14px/1 -apple-system,Segoe UI,Roboto,sans-serif;">
-        Take a look
-      </a>
-    </p>
-    <p style="font:400 15px/1.6 -apple-system,Segoe UI,Roboto,sans-serif;color:#2b2119;">— Farah</p>
-    <p style="font:400 12px/1.5 -apple-system,Segoe UI,Roboto,sans-serif;color:#6b5c50;
-              border-top:1px solid #d9cfc2;padding-top:12px;">
-      Don&rsquo;t want these rare alerts? <a href="${esc(unsubscribeUrl)}" style="color:#6b4a3a;">Unsubscribe</a>.
-    </p>
-  </div>
-</body></html>`;
+    </div>`;
+
+  const bodyHtml = [
+    emailParagraph(escEmail(greeting(firstName))),
+    emailParagraph("I know you haven&rsquo;t been actively looking, but this one is too strong to sit on:"),
+    jobInfoBlock,
+    emailParagraph("You&rsquo;ll only hear from me like this for matches this strong."),
+    emailButton("Take a look", jobUrl),
+    emailParagraph("— Farah"),
+  ].join("\n");
+
+  const footerHtml = `Don&rsquo;t want these rare alerts? <a href="${escEmail(unsubscribeUrl)}" style="color:${EMAIL_COLORS.accent};">Unsubscribe</a>.`;
+
+  const html = renderBrandedEmail({ bodyHtml, footerHtml });
 
   return { subject, text, html };
 }

@@ -44,7 +44,7 @@ import { TRACKED_COUNTRIES, COUNTRY_LANDING_SLUG, countryOrFilter } from "@/lib/
 export const dynamic = "force-dynamic";
 
 /** Marketing and legal pages that render without a session. */
-const STATIC_PATHS: { path: string; priority: number; changeFrequency: MetadataRoute.Sitemap[number]["changeFrequency"] }[] = [
+export const STATIC_PATHS: { path: string; priority: number; changeFrequency: MetadataRoute.Sitemap[number]["changeFrequency"] }[] = [
   { path: "/", priority: 1, changeFrequency: "weekly" },
   { path: "/about", priority: 0.6, changeFrequency: "monthly" },
   { path: "/contact", priority: 0.5, changeFrequency: "yearly" },
@@ -69,6 +69,27 @@ const STATIC_PATHS: { path: string; priority: number; changeFrequency: MetadataR
    * can go stale between deploys.
    */
   { path: "/mentorship", priority: 0.6, changeFrequency: "monthly" },
+  /*
+   * send-386 — two standalone, hand-authored SEO landing pages (not
+   * programmatic — no live count to go stale, so static like /about rather
+   * than one of the DB-backed blocks below).
+   */
+  { path: "/ai-resume-tailoring", priority: 0.6, changeFrequency: "monthly" },
+  { path: "/ats-resume-checker", priority: 0.6, changeFrequency: "monthly" },
+  // send-387 Part 2 — another standalone, hand-authored explainer page, same shape as the two above.
+  { path: "/how-auto-apply-works", priority: 0.6, changeFrequency: "monthly" },
+  // Same shape again — public landing pages for Resume Builder and Farah's
+  // interview-prep quick action, the two named feature gaps that had zero
+  // indexable URL: previously described only inline on the homepage (Meet
+  // Farah) or not described publicly at all (Resume Builder had no homepage
+  // copy either — see ai-resume-builder/page.tsx's own header).
+  { path: "/ai-resume-builder", priority: 0.6, changeFrequency: "monthly" },
+  { path: "/ai-interview-prep", priority: 0.6, changeFrequency: "monthly" },
+  // send-387 Part 1: unlike the count-gated entries in landingPageEntries below,
+  // this hub always renders a real 200 (hero + CTA card render even with
+  // zero matching posts and zero qualifying landing-page links), so it
+  // belongs here rather than behind a live-count check.
+  { path: "/scholarships/apply-now", priority: 0.6, changeFrequency: "weekly" },
   { path: "/legal/privacy", priority: 0.3, changeFrequency: "yearly" },
   { path: "/legal/terms", priority: 0.3, changeFrequency: "yearly" },
   { path: "/legal/data-cookie-notice", priority: 0.3, changeFrequency: "yearly" },

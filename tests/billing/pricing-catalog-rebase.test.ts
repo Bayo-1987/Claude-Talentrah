@@ -7,7 +7,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { admin } from "../support/auth";
-import { CREDIT_PACKS, RETIRED_CREDIT_PACKS, PASSES } from "@/lib/billing/catalog";
+import { CREDIT_PACKS, RETIRED_CREDIT_PACKS, PASSES, CREDIT_PACK_BUNDLE_CREDITS } from "@/lib/billing/catalog";
 import { CREDIT_COSTS } from "@/lib/credits/costs";
 
 describe("Part C — the founder-decided catalog", () => {
@@ -23,9 +23,32 @@ describe("Part C — the founder-decided catalog", () => {
     expect(data).toEqual([...CREDIT_PACKS]);
   });
 
-  it(`Plus's credits equal exactly one Directory verification (${CREDIT_COSTS.talentDirectoryVerification}) plus one tailoring (${CREDIT_COSTS.tailoringRun})`, async () => {
-    const { data } = await admin.from("credit_packs").select("credits").eq("name", "Plus").single();
-    expect(data?.credits).toBe(CREDIT_COSTS.talentDirectoryVerification + CREDIT_COSTS.tailoringRun);
+  /**
+   * send-417 regression guard. Plus was 45 credits for years while its own
+   * marketing copy ("2 tailorings + a cover letter") actually promised 50 —
+   * the old version of this test asserted `talentDirectoryVerification +
+   * tailoringRun` (25 + 20 = 45), which happened to equal the bug's own
+   * number and so locked it in rather than catching it. This asserts every
+   * active pack's real credit count against CREDIT_PACK_BUNDLE_CREDITS
+   * (catalog.ts), which is derived from CREDIT_COSTS the way the pack's own
+   * copy actually reads — so the NEXT CREDIT_COSTS repricing that forgets to
+   * touch a pack's credit count fails this test instead of shipping silently
+   * stale copy a second time.
+   *
+   * Proved to catch the bug it guards against: temporarily setting Plus back
+   * to 45 in CREDIT_PACKS while leaving CREDIT_PACK_BUNDLE_CREDITS at 50
+   * fails this test with a clear "Plus's 45 credits no longer matches..."
+   * message; reverting makes it pass again.
+   */
+  it("every active pack's advertised bundle still adds up to its real credit count", () => {
+    for (const pack of CREDIT_PACKS) {
+      const expected = CREDIT_PACK_BUNDLE_CREDITS[pack.name];
+      expect(expected, `no CREDIT_PACK_BUNDLE_CREDITS entry for pack "${pack.name}" — add one`).toBeDefined();
+      expect(
+        pack.credits,
+        `${pack.name}'s ${pack.credits} credits no longer matches what its own marketing copy promises (${expected})`,
+      ).toBe(expected);
+    }
   });
 
   it("Popular and Power are retired — deactivated, not deleted", async () => {
