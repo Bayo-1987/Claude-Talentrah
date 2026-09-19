@@ -3,6 +3,7 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { placeholderCourseCount } from "@/lib/admin/catalog/courses";
 import { opsAttentionCount } from "@/lib/admin/ops/queries";
 import { financialHealth } from "@/lib/admin/finance/queries";
+import { checkMentorDisplayName } from "@/lib/mentorship/name-validation";
 
 /**
  * The three queues, read for the dashboard.
@@ -405,6 +406,15 @@ export interface PendingMentorApplication {
   yearsExperience: number | null;
   basePriceNgn: number | null;
   appliedAt: string;
+  /**
+   * send-400: non-null when `name` reads like an organisation/account name
+   * rather than a person's — see name-validation.ts's own header for why
+   * this is a review-time flag, never an auto-reject. Both of production's
+   * only two approved mentors ("Zimcrest Technologies", "Info Talentrah")
+   * had exactly this problem and neither was caught before going live,
+   * because nothing at this review step called it out.
+   */
+  nameWarning: string | null;
 }
 
 /**
@@ -426,21 +436,46 @@ export async function pendingMentorApplications(): Promise<PendingMentorApplicat
     .order("applied_at", { ascending: true });
 
   if (error) throw error;
-  return (data ?? []).map((r) => {
+  const rows = data ?? [];
+
+  // Batched, not one query per applicant — same reasoning as
+  // mentor_public_names' own batching (0167): a handful of pending
+  // applications is normal, N+1 queries for them is not.
+  const userIds = rows.map((r) => r.user_id);
+  const orgNamesByUser = new Map<string, string[]>();
+  if (userIds.length > 0) {
+    const { data: memberships, error: orgError } = await supabase
+      .from("organization_members")
+      .select("user_id, organizations(name)")
+      .in("user_id", userIds);
+    if (orgError) throw orgError;
+    for (const m of memberships ?? []) {
+      const orgName = m.organizations?.name;
+      if (!orgName) continue;
+      const existing = orgNamesByUser.get(m.user_id) ?? [];
+      existing.push(orgName);
+      orgNamesByUser.set(m.user_id, existing);
+    }
+  }
+
+  return rows.map((r) => {
     const profile = r.profiles;
     const name = profile
       ? [profile.first_name, profile.last_name].filter(Boolean).join(" ").trim()
       : "";
+    const email = profile?.email ?? "";
+    const { suspicious, reason } = checkMentorDisplayName(name, email, orgNamesByUser.get(r.user_id) ?? []);
     return {
       userId: r.user_id,
       name: name || "(no name on file)",
-      email: profile?.email ?? "",
+      email,
       bio: r.bio,
       expertiseRoles: r.expertise_roles,
       expertiseIndustries: r.expertise_industries,
       yearsExperience: r.years_experience,
       basePriceNgn: r.base_price_ngn,
       appliedAt: r.applied_at,
+      nameWarning: suspicious ? reason : null,
     };
   });
 }
