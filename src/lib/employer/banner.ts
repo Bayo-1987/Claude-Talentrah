@@ -3,6 +3,16 @@
  *
  * Pure functions with no database and no network, so every branch is testable
  * and the rules can be asserted rather than described.
+ *
+ * DELIBERATELY NO `sharp` IMPORT HERE, even though this file owns
+ * `SERVER_ENCODE_MAX_WIDTH`, the constant the sharp-based re-encoder
+ * (`banner-reencode.ts`) resizes to. This file is imported by CLIENT
+ * components too (`new-job-banner-picker.tsx`, `job-banner-upload.tsx`, for
+ * `BANNER_GUIDANCE`) — `sharp` is a native Node addon, and pulling it in here
+ * broke the client bundle outright (`next build` failed on
+ * `detect-libc`'s `require('fs')` reaching a browser bundle) the first time
+ * this was tried. `reencodeBannerForStorage` lives in its own file for
+ * exactly that reason: nothing client-side imports it.
  */
 
 /** The one bucket banners live in. Public read; writes are org-scoped (0115). */
@@ -18,11 +28,13 @@ export const BANNER_BUCKET = "job-banners";
  * 150–400 KB, so this is a guard against a pathological upload rather than the
  * expected size.
  *
- * Worth stating plainly because it changes what the right fix is later: with
- * no server-side re-encoding, THE CAP IS THE WORST CASE. If egress starts to
- * bite, re-encode on upload (sharp) rather than lowering this — a lower cap
- * rejects legitimate artwork, re-encoding fixes the bytes actually served.
- * Supabase's image transformations would solve it outright but are Pro-only.
+ * This is still the pre-encoding cap, unchanged, on purpose (send-408): it
+ * rejects a pathological upload BEFORE the cost of decoding it is ever spent,
+ * which `reencodeBannerForStorage` cannot do anything about after the fact.
+ * What changed is that this is no longer the worst case actually served —
+ * `reencodeBannerForStorage` now resizes and recompresses every accepted
+ * upload before it reaches storage, so the bytes served are bounded by that
+ * pass's own output (routinely far below 2 MB), not by this cap.
  */
 export const MAX_BANNER_BYTES = 2 * 1024 * 1024;
 
@@ -53,6 +65,21 @@ export const MIN_BANNER_WIDTH = 1200;
 export const MIN_BANNER_HEIGHT = 300;
 /** Bounds decode cost for something displayed 760px wide. */
 export const MAX_BANNER_WIDTH = 3000;
+
+/**
+ * The server-side re-encode target width (send-408) — same 1600 number
+ * `banner-crop.ts`'s `CROP_OUTPUT_WIDTH` already uses for its own client-side
+ * crop, arrived at independently from the same math: the banner is only ever
+ * rendered 760 CSS px wide (`jobs/[id]/page.tsx`'s `max-w-[760px]` column),
+ * so 1600 comfortably covers a 2× display (~1520px) with no visible margin
+ * left on the table.
+ *
+ * Deliberately NOT imported from `banner-crop.ts` — that file's own header
+ * says its constants are "the client-only half" and "none of it is trusted
+ * by the server". Restated here, on the server side of that line, rather
+ * than reached across it.
+ */
+export const SERVER_ENCODE_MAX_WIDTH = 1600;
 
 /**
  * What the upload UI tells someone BEFORE they pick a file.
