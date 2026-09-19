@@ -19,6 +19,13 @@
  * Groq's shared daily token budget — see CLAUDE.md's Groq TPD section).
  * Treat this as the mechanical half of the fix's verification, not the
  * whole thing.
+ *
+ * send-412 correction: the fix above introduced its own absolute claim —
+ * "credits are only ever bought, never granted" — which is false. A
+ * successful referral grants real credits with zero purchase involved
+ * (grant_referral_reward, hardened atomic in 0163_atomic_referral_reward_
+ * grant.sql). Same mistake shape as the original bug, just relocated to a
+ * narrower claim; the last two tests below guard against both directions.
  */
 import { describe, expect, it } from "vitest";
 import { FARAH_SYSTEM_PROMPT } from "@/lib/farah/system-prompt";
@@ -41,8 +48,25 @@ describe("FARAH_SYSTEM_PROMPT credits framing", () => {
     expect(lower).toMatch(/first cover letter/);
   });
 
-  it("tells Farah credits are bought, never granted, beyond the two one-time freebies", () => {
+  it("does not claim credits are only ever bought, never granted — referrals genuinely grant them", () => {
+    // send-412: this exact absolute was the fix's own regression, introduced
+    // while removing the "starter pack" one — grant_referral_reward()
+    // (0000_baseline_schema.sql, hardened atomic in 0163) genuinely credits
+    // a referrer with no purchase involved, a real, intentional feature
+    // (build-prompt's "Refer & Earn (credits-only)"), not an edge case.
     const lower = FARAH_SYSTEM_PROMPT.toLowerCase();
-    expect(lower).toMatch(/credits are only ever bought, never granted/);
+    expect(lower).not.toMatch(/credits are only ever bought, never granted/);
+    expect(lower).not.toMatch(/\bonly ever bought\b/);
+  });
+
+  it("tells Farah a referral is a real, non-purchase way to earn credits, without a hardcoded reward amount", () => {
+    const lower = FARAH_SYSTEM_PROMPT.toLowerCase();
+    expect(lower).toMatch(/referral/);
+    expect(lower).toMatch(/earns? real credits|earns? credits/);
+    expect(lower).toMatch(/no purchase involved|without (a )?purchase/);
+    // The real reward (5-40 credits, 0092_referral_reward_repricing.sql) is
+    // a number that can be repriced independently of this prompt — same
+    // discipline as not quoting an exact credit price.
+    expect(lower).not.toMatch(/\b5\b.*\b40\b credits|\b40\b.*\b5\b credits/);
   });
 });
