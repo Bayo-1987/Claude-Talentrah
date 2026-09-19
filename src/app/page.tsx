@@ -8,6 +8,7 @@ import { JobBoardPreview } from "@/components/marketing/job-board-preview";
 import { ProblemSection } from "@/components/marketing/problem-section";
 import { HowItWorksSection } from "@/components/marketing/how-it-works-section";
 import { MeetFarahSection } from "@/components/marketing/meet-farah-section";
+import { MentorshipSection } from "@/components/marketing/mentorship-section";
 import { FaqSection } from "@/components/marketing/faq-section";
 import { FinalCtaSection } from "@/components/marketing/final-cta-section";
 import { MarketingFooter } from "@/components/marketing/marketing-footer";
@@ -85,6 +86,7 @@ export default function Home() {
       <ProblemSection />
       <HowItWorksSection />
       <MeetFarahSection />
+      <MentorshipSection />
       <FaqSection />
       <FinalCtaSection />
       <MarketingFooter />
