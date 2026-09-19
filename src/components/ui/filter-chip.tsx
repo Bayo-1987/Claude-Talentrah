@@ -50,7 +50,11 @@ export function FilterChip({ label, quoted = false, onRemove, removeHref, classN
   return (
     <span
       className={cn(
-        "inline-flex min-h-10 items-center gap-1.5 border border-line px-3 text-[12.5px] font-semibold text-ink-soft",
+        // send-381 (WCAG 1.4.11) — same fix and reasoning as icon-button.tsx:
+        // border-line is under the 3:1 minimum for a fill-less interactive
+        // control's own boundary; border-line-strong (globals.css) passes
+        // on both --paper and --card.
+        "inline-flex min-h-10 items-center gap-1.5 border border-line-strong px-3 text-[12.5px] font-semibold text-ink-soft",
         className,
       )}
     >

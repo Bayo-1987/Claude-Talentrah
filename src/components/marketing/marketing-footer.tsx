@@ -134,7 +134,10 @@ export function MarketingFooter() {
   const socialLinks = SOCIAL_LINKS.filter((l): l is SocialLink & { url: string } => !!l.url);
 
   return (
-    <div className="bg-ink pb-8 pt-16">
+    // send-381 (WCAG 1.3.1/2.4.1) — was a plain <div>; a top-level <footer>
+    // (not nested inside another sectioning element, which this isn't) is
+    // exposed as the "contentinfo" landmark automatically.
+    <footer className="bg-ink pb-8 pt-16">
       <div className="mx-auto max-w-[1120px] px-10">
         <div className="flex flex-wrap items-center justify-between gap-6 pb-10">
           <div className="flex flex-wrap items-center gap-3">
@@ -227,6 +230,6 @@ export function MarketingFooter() {
           </span>
         </div>
       </div>
-    </div>
+    </footer>
   );
 }

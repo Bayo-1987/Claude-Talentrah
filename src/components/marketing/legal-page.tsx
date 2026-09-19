@@ -20,7 +20,8 @@ export function LegalPage({ eyebrow, title, lastUpdated, children }: LegalPagePr
   return (
     <>
       <MarketingMasthead />
-      <div className="py-20">
+      {/* send-381 (WCAG 1.3.1/2.4.1) — retagged from a plain <div>; fixes all three /legal/* pages that share this component. id="main-content" is the skip link's target. */}
+      <main id="main-content" className="py-20">
         <Container className="flex max-w-[760px] flex-col gap-10">
           <div className="flex flex-col gap-4 border-b border-line pb-10">
             <EyebrowLabel>{eyebrow}</EyebrowLabel>
@@ -31,7 +32,7 @@ export function LegalPage({ eyebrow, title, lastUpdated, children }: LegalPagePr
             {children}
           </div>
         </Container>
-      </div>
+      </main>
       <MarketingFooter />
     </>
   );

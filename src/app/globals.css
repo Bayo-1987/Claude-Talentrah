@@ -15,6 +15,21 @@
   --rust-hover: oklch(45% 0.14 40);
   --rust-soft: oklch(91% 0.03 40);
   --line: oklch(78% 0.02 60);
+  /*
+   * send-381 (WCAG 1.4.11) — `--line` measures 1.84:1 against `--paper`
+   * (1.95:1 against `--card`), real numbers computed from these exact oklch
+   * values, both under the 3:1 minimum a non-text UI-component boundary
+   * needs. That's fine for `--line`'s decorative uses (a section divider,
+   * a hairline under text) — 1.4.11 only applies to a control's own visible
+   * boundary. It fails specifically where icon-button.tsx/filter-chip.tsx
+   * use it as a fill-less interactive border, their component's ENTIRE
+   * visible shape at rest. Same hue/chroma family as `--line` (still reads
+   * as a neutral line, not a new color), darkened to L=62% — 3.35:1 against
+   * `--paper`, 3.55:1 against `--card`, both with real margin over 3:1.
+   * Scoped to this one use — don't touch `--line` itself or any of its
+   * other (decorative, text-adjacent) uses.
+   */
+  --line-strong: oklch(62% 0.02 60);
   --green: oklch(48% 0.1 152);
   --amber: oklch(52% 0.12 70);
   --card: oklch(99% 0.006 85);
@@ -30,6 +45,7 @@
   --color-rust-hover: var(--rust-hover);
   --color-rust-soft: var(--rust-soft);
   --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
   --color-green: var(--green);
   --color-amber: var(--amber);
   --color-card: var(--card);

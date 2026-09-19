@@ -18,7 +18,8 @@ export default function ContactPage() {
   return (
     <>
       <MarketingMasthead />
-      <div className="py-20">
+      {/* send-381 (WCAG 1.3.1/2.4.1) — retagged from a plain <div>; id="main-content" is the skip link's target. */}
+      <main id="main-content" className="py-20">
         <Container className="grid max-w-[1120px] gap-16 min-[901px]:grid-cols-[1fr_1.2fr]">
           <div className="flex flex-col gap-4">
             <EyebrowLabel>Contact</EyebrowLabel>
@@ -37,7 +38,7 @@ export default function ContactPage() {
           </div>
           <ContactForm />
         </Container>
-      </div>
+      </main>
       <MarketingFooter />
     </>
   );

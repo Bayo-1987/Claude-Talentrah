@@ -124,7 +124,8 @@ export function ResumeListRow({ id, title, isBase, updatedAt }: ResumeListRowPro
                 defaultValue={savedTitle}
                 maxLength={MAX_RESUME_TITLE_LENGTH}
                 data-testid="resume-rename-input"
-                className="min-h-11 w-full max-w-[320px] border-[1.5px] border-rust bg-card px-3 py-2 font-body text-[14.5px] text-ink outline-none"
+                /* send-381 (WCAG 2.4.7) — same fix as notes-form.tsx's textarea: a real border-weight change on focus, distinct from this field's own always-on rust rename-mode border. */
+                className="min-h-11 w-full max-w-[320px] border-[1.5px] border-rust bg-card px-3 py-2 font-body text-[14.5px] text-ink outline-none focus:border-[3px]"
               />
               <button
                 type="submit"

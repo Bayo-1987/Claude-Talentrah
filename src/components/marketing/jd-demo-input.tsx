@@ -204,7 +204,17 @@ export function JdDemoInput() {
     <div className="flex w-full max-w-[860px] flex-col items-center gap-4">
       <form
         onSubmit={handleSubmit}
-        className="w-full max-w-[680px] border-[1.5px] border-ink bg-card p-5 shadow-[0_24px_48px_-28px_oklch(20%_0.018_50_/_0.3)]"
+        /*
+         * send-381 (WCAG 2.4.7) — the textarea below has `border-none` (this
+         * box's own border is the component's real visible boundary), so its
+         * `outline-none` had no visible focus replacement anywhere: tabbing
+         * in produced zero change. `focus-within:border-rust` reacts THIS
+         * box's own existing border — the same `outline-none` ->
+         * `focus:border-rust` pattern most of the app already uses, just
+         * applied one level up since the focusable element itself carries no
+         * border of its own.
+         */
+        className="w-full max-w-[680px] border-[1.5px] border-ink bg-card p-5 shadow-[0_24px_48px_-28px_oklch(20%_0.018_50_/_0.3)] focus-within:border-rust"
       >
         <EyebrowLabel className="mb-3 block">Paste a job description</EyebrowLabel>
         <div className="mb-4 flex items-start gap-3.5 border-b border-dashed border-line pb-4">

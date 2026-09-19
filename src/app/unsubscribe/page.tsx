@@ -90,7 +90,8 @@ export default async function UnsubscribePage({
   return (
     <>
       <MarketingMasthead />
-      <div className="py-24">
+      {/* send-381 (WCAG 1.3.1/2.4.1) — retagged from a plain <div>; id="main-content" is the skip link's target. */}
+      <main id="main-content" className="py-24">
         <Container className="flex max-w-[620px] flex-col gap-5">
           <EyebrowLabel>Email preferences</EyebrowLabel>
           {matched ? (
@@ -112,7 +113,7 @@ export default async function UnsubscribePage({
             </>
           )}
         </Container>
-      </div>
+      </main>
       <MarketingFooter />
     </>
   );

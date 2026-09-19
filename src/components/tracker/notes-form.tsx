@@ -263,7 +263,15 @@ export function NotesForm({ applicationId, notes, updatedAt }: NotesFormProps) {
             placeholder="Interview dates, contacts, next steps…"
             rows={2}
             data-testid="notes-textarea"
-            className="min-h-[60px] w-full flex-1 resize-y overflow-hidden border-[1.5px] border-rust bg-card px-3 py-2 font-body text-[13px] text-ink outline-none"
+            /*
+             * send-381 (WCAG 2.4.7) — this field is always border-rust while
+             * editing, so a keyboard user couldn't tell whether it currently
+             * has focus or is just sitting in its normal edit state.
+             * `focus:border-[3px]` is a real, visible weight change on top
+             * of that — not a shadow, which CLAUDE.md's design system
+             * reserves for the hero input box alone.
+             */
+            className="min-h-[60px] w-full flex-1 resize-y overflow-hidden border-[1.5px] border-rust bg-card px-3 py-2 font-body text-[13px] text-ink outline-none focus:border-[3px]"
           />
           <div className="flex flex-shrink-0 flex-col gap-1.5">
             <button

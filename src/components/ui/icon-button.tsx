@@ -25,7 +25,13 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(
         ref={ref}
         disabled={disabled || pending}
         className={cn(
-          "flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full border border-line bg-transparent text-ink-soft transition-colors hover:border-rust hover:text-rust disabled:cursor-not-allowed disabled:opacity-50",
+          // send-381 (WCAG 1.4.11) — border-line measures 1.84:1 against
+          // --paper (1.95:1 against --card), under the 3:1 a fill-less
+          // interactive control's own boundary needs. border-line-strong
+          // (globals.css) is the same neutral hue, darkened to pass on both
+          // backgrounds. hover:border-rust already passes (5.38:1) and is
+          // unchanged.
+          "flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full border border-line-strong bg-transparent text-ink-soft transition-colors hover:border-rust hover:text-rust disabled:cursor-not-allowed disabled:opacity-50",
           className,
         )}
         {...props}

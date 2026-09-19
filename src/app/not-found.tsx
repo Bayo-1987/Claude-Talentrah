@@ -20,7 +20,8 @@ export default function NotFound() {
   return (
     <>
       <MarketingMasthead />
-      <div className="py-20">
+      {/* send-381 (WCAG 1.3.1/2.4.1) — retagged from a plain <div>; id="main-content" is the skip link's target. */}
+      <main id="main-content" className="py-20">
         <Container className="flex max-w-[760px] flex-col gap-8">
           <EyebrowLabel>404</EyebrowLabel>
           <h1 className="text-[36px] leading-[1.2]">This page doesn&apos;t exist.</h1>
@@ -37,7 +38,7 @@ export default function NotFound() {
             </Link>
           </div>
         </Container>
-      </div>
+      </main>
       <MarketingFooter />
     </>
   );

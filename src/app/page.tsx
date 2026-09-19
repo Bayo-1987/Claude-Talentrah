@@ -76,13 +76,16 @@ export default function Home() {
     <>
       <MarketingMasthead />
       <GoogleOneTap />
-      <HeroSection />
-      <JobBoardPreview />
-      <ProblemSection />
-      <HowItWorksSection />
-      <MeetFarahSection />
-      <FaqSection />
-      <FinalCtaSection />
+      {/* send-381 (WCAG 1.3.1/2.4.1) — the homepage had no <main> landmark at all; id="main-content" is the skip link's target. */}
+      <main id="main-content">
+        <HeroSection />
+        <JobBoardPreview />
+        <ProblemSection />
+        <HowItWorksSection />
+        <MeetFarahSection />
+        <FaqSection />
+        <FinalCtaSection />
+      </main>
       <MarketingFooter />
       <MarketingStickyCta />
     </>

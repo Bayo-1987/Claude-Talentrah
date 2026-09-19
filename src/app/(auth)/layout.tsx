@@ -20,9 +20,10 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
             />
           </Link>
         </div>
-        <div className="flex flex-1 items-center justify-center px-6 py-12">
+        {/* send-381 (WCAG 1.3.1) — the audit specifically covered the login page and found it had no landmarks either; this shared layout covers login/signup/forgot-password/reset-password in one fix. */}
+        <main className="flex flex-1 items-center justify-center px-6 py-12">
           <div className="w-full max-w-[440px]">{children}</div>
-        </div>
+        </main>
       </div>
     </div>
   );

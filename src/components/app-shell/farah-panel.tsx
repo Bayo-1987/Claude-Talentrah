@@ -638,7 +638,13 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
 
       <form
         onSubmit={handleSubmit}
-        className="mt-auto flex items-center gap-2 border-[1.5px] border-ink bg-card px-2.5 py-2"
+        /*
+         * send-381 (WCAG 2.4.7) — the input below has `border-none`, so its
+         * `outline-none` had no visible focus replacement: tabbing in
+         * produced zero change. `focus-within:border-rust` reacts this
+         * form's own existing border, same pattern as jd-demo-input.tsx.
+         */
+        className="mt-auto flex items-center gap-2 border-[1.5px] border-ink bg-card px-2.5 py-2 focus-within:border-rust"
       >
         <input
           type="text"

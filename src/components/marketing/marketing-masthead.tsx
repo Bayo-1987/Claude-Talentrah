@@ -63,7 +63,25 @@ export function MarketingMasthead() {
   }, [navOpen]);
 
   return (
-    <div className="sticky top-0 z-20 border-b-[2.5px] border-ink bg-paper/95 backdrop-blur-sm">
+    // send-381 (WCAG 1.3.1/2.4.1) — was a plain <div>, the site's persistent
+    // masthead had no landmark at all. A top-level <header> (not nested
+    // inside another sectioning element, which this isn't) is exposed as
+    // the "banner" landmark automatically — no explicit role needed.
+    <header className="sticky top-0 z-20 border-b-[2.5px] border-ink bg-paper/95 backdrop-blur-sm">
+      {/*
+        send-381 (WCAG 2.4.1) — the audit found no skip-to-content link
+        anywhere on the marketing site, so a screen-reader/keyboard user had
+        no way to bypass this persistent masthead. Off-screen until focused
+        (sr-only / focus:not-sr-only is the standard pattern), then a real,
+        visible, on-brand target — not a native blue outline box.
+        `#main-content` is the id every marketing <main> now carries.
+      */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-30 focus:border-[1.5px] focus:border-ink focus:bg-paper focus:px-4 focus:py-2.5 focus:font-body focus:text-[13.5px] focus:font-semibold focus:text-ink focus:no-underline focus:outline-2 focus:outline-rust"
+      >
+        Skip to content
+      </a>
       <div className="mx-auto flex h-[78px] max-w-[1120px] items-center justify-between px-10">
         <Link href="/" className="flex flex-shrink-0 items-center no-underline">
           {/* eslint-disable-next-line @next/next/no-img-element -- static brand SVG, next/image's optimizer needs SVG allow-listing for no real benefit here */}
@@ -148,6 +166,6 @@ export function MarketingMasthead() {
           </Link>
         </div>
       </div>
-    </div>
+    </header>
   );
 }

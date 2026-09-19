@@ -425,7 +425,13 @@ export function Masthead({
       here — see the note there. Putting it on this div looked right, built
       clean, and did nothing: measured at top:-2500 after a 2500px scroll.
     */
-    <div
+    // send-381 (WCAG 1.3.1/2.4.1) — found while fixing the marketing site's
+    // identical gap (marketing-masthead.tsx): the signed-in app shell has
+    // the same missing-landmark issue. A top-level <header> (this component
+    // is never nested inside another sectioning element — see the sticky
+    // comment above for exactly how app-shell.tsx wraps it) is exposed as
+    // the "banner" landmark automatically.
+    <header
       data-testid="masthead"
       className="border-b-[2.5px] border-ink bg-paper"
     >
@@ -877,6 +883,6 @@ export function Masthead({
           </div>
         </div>
       </div>
-    </div>
+    </header>
   );
 }

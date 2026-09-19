@@ -49,7 +49,8 @@ export default async function BlogIndexPage() {
   return (
     <>
       <MarketingMasthead />
-      <div className="py-20">
+      {/* send-381 (WCAG 1.3.1/2.4.1) — retagged from a plain <div>; id="main-content" is the skip link's target. */}
+      <main id="main-content" className="py-20">
         <Container className="flex max-w-[760px] flex-col gap-12">
           <div className="flex flex-col gap-4">
             <EyebrowLabel>Blog</EyebrowLabel>
@@ -78,7 +79,7 @@ export default async function BlogIndexPage() {
             </div>
           )}
         </Container>
-      </div>
+      </main>
       <MarketingFooter />
     </>
   );

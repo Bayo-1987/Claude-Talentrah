@@ -90,7 +90,8 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
     <>
       <JsonLd data={buildBlogPostingJsonLd(post)} />
       <MarketingMasthead />
-      <div className="py-20">
+      {/* send-381 (WCAG 1.3.1/2.4.1) — retagged from a plain <div>; id="main-content" is the skip link's target. */}
+      <main id="main-content" className="py-20">
         <Container className="flex max-w-[760px] flex-col gap-10">
           <div className="flex flex-col gap-4 border-b border-line pb-10">
             <EyebrowLabel>Blog</EyebrowLabel>
@@ -123,7 +124,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
             </div>
           )}
         </Container>
-      </div>
+      </main>
       <MarketingFooter />
     </>
   );
