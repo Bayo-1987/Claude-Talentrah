@@ -6,7 +6,7 @@ import { TextField, Button } from "@/components/ui";
 import { MinimalRichEditor } from "@/components/rich-text/minimal-rich-editor";
 import type { OwnMentorProfile } from "@/lib/mentorship/queries";
 
-const initialState: { status: "idle" | "success" | "error"; message: string } = {
+const initialState: { status: "idle" | "success" | "warning" | "error"; message: string } = {
   status: "idle",
   message: "",
 };
@@ -17,6 +17,21 @@ export function ApplicationForm({ existing }: { existing: OwnMentorProfile | nul
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
+      {/*
+        send-418: the name mentees actually see (mentor_public_names' own
+        display_name-first preference, queries.ts) — separate from whatever
+        was typed into first/last name at ordinary account signup, which for
+        two production mentors turned out to be a company/account name
+        instead of a person's ("Zimcrest Technologies", "Info Talentrah").
+        Optional: left blank, the onboarding name is still the fallback.
+      */}
+      <TextField
+        label="Display name (shown to mentees)"
+        name="displayName"
+        defaultValue={existing?.displayName ?? ""}
+        placeholder="Your own name — not your company's"
+      />
+
       {/*
         send-369, superseded by send-370/371/373's shared minimal-grammar
         stack — a bio is a 1-3 sentence register like a resume summary or a
@@ -61,7 +76,13 @@ export function ApplicationForm({ existing }: { existing: OwnMentorProfile | nul
       />
 
       {state.message && (
-        <p className={`text-[13px] ${state.status === "error" ? "text-rust" : "text-green"}`}>{state.message}</p>
+        <p
+          className={`text-[13px] ${
+            state.status === "error" ? "text-rust" : state.status === "warning" ? "text-amber" : "text-green"
+          }`}
+        >
+          {state.message}
+        </p>
       )}
 
       <Button type="submit" variant="primary" disabled={pending}>

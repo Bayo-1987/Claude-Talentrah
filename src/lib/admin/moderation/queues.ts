@@ -430,7 +430,7 @@ export async function pendingMentorApplications(): Promise<PendingMentorApplicat
   const { data, error } = await supabase
     .from("mentor_profiles")
     .select(
-      "user_id, bio, expertise_roles, expertise_industries, years_experience, base_price_ngn, applied_at, profiles!mentor_profiles_user_id_fkey(first_name, last_name, email)",
+      "user_id, display_name, bio, expertise_roles, expertise_industries, years_experience, base_price_ngn, applied_at, profiles!mentor_profiles_user_id_fkey(first_name, last_name, email)",
     )
     .eq("status", "pending")
     .order("applied_at", { ascending: true });
@@ -460,9 +460,14 @@ export async function pendingMentorApplications(): Promise<PendingMentorApplicat
 
   return rows.map((r) => {
     const profile = r.profiles;
-    const name = profile
+    const onboardingName = profile
       ? [profile.first_name, profile.last_name].filter(Boolean).join(" ").trim()
       : "";
+    // send-418: check whichever name would actually be shown publicly if
+    // this application is approved — the mentor's own display_name once
+    // they've set one (mentor_public_names' own preference, queries.ts),
+    // the onboarding name otherwise.
+    const name = r.display_name?.trim() || onboardingName;
     const email = profile?.email ?? "";
     const { suspicious, reason } = checkMentorDisplayName(name, email, orgNamesByUser.get(r.user_id) ?? []);
     return {
@@ -500,7 +505,7 @@ export async function approvedMentors(): Promise<ApprovedMentor[]> {
   const { data, error } = await supabase
     .from("mentor_profiles")
     .select(
-      "user_id, status, review_note, profiles!mentor_profiles_user_id_fkey(first_name, last_name, email)",
+      "user_id, status, display_name, review_note, profiles!mentor_profiles_user_id_fkey(first_name, last_name, email)",
     )
     .in("status", ["approved", "suspended"])
     .order("status", { ascending: true })
@@ -509,9 +514,9 @@ export async function approvedMentors(): Promise<ApprovedMentor[]> {
   if (error) throw error;
   return (data ?? []).map((r) => {
     const profile = r.profiles;
-    const name = profile
-      ? [profile.first_name, profile.last_name].filter(Boolean).join(" ").trim()
-      : "";
+    // send-418: same display_name-first preference used everywhere else a
+    // mentor's name is resolved (mentor_public_names, queries.ts).
+    const name = r.display_name?.trim() || (profile ? [profile.first_name, profile.last_name].filter(Boolean).join(" ").trim() : "");
     return {
       userId: r.user_id,
       name: name || "(no name on file)",
