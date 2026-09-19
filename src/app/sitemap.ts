@@ -69,6 +69,15 @@ const STATIC_PATHS: { path: string; priority: number; changeFrequency: MetadataR
    * can go stale between deploys.
    */
   { path: "/mentorship", priority: 0.6, changeFrequency: "monthly" },
+  /*
+   * send-386 — two standalone, hand-authored SEO landing pages (not
+   * programmatic — no live count to go stale, so static like /about rather
+   * than one of the DB-backed blocks below).
+   */
+  { path: "/ai-resume-tailoring", priority: 0.6, changeFrequency: "monthly" },
+  { path: "/ats-resume-checker", priority: 0.6, changeFrequency: "monthly" },
+  // send-387 Part 2 — another standalone, hand-authored explainer page, same shape as the two above.
+  { path: "/how-auto-apply-works", priority: 0.6, changeFrequency: "monthly" },
   { path: "/legal/privacy", priority: 0.3, changeFrequency: "yearly" },
   { path: "/legal/terms", priority: 0.3, changeFrequency: "yearly" },
   { path: "/legal/data-cookie-notice", priority: 0.3, changeFrequency: "yearly" },
