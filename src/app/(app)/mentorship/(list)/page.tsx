@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireUser } from "@/lib/auth/require-user";
 import { browseMentors } from "@/lib/mentorship/queries";
 import { Container, EyebrowLabel, BorderedCard } from "@/components/ui";
+import { stripBioMarkdownToPlainText } from "@/lib/mentorship/bio-preview";
 
 export const metadata = { title: "Mentorship — Talentrah" };
 
@@ -70,8 +71,18 @@ export default async function MentorshipPage({
                       <> · {mentor.averageRating.toFixed(1)}★ ({mentor.reviewCount})</>
                     )}
                   </p>
+                  {/*
+                    send-369 — bio can now carry markdown syntax; a
+                    line-clamp-3 excerpt is the wrong register for rich
+                    formatting (same reasoning as extract-jd.ts's
+                    stripMarkdownToPlainText for the job feed card), so this
+                    card strips to plain text and only the full profile page
+                    (mentorId/page.tsx) renders it richly.
+                  */}
                   {mentor.bio && (
-                    <p className="line-clamp-3 text-[13.5px] text-ink-soft">{mentor.bio}</p>
+                    <p className="line-clamp-3 text-[13.5px] text-ink-soft">
+                      {stripBioMarkdownToPlainText(mentor.bio)}
+                    </p>
                   )}
                   {[...mentor.expertiseRoles, ...mentor.expertiseIndustries].length > 0 && (
                     <p className="text-[12.5px] font-semibold text-ink">

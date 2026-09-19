@@ -51,6 +51,16 @@ const TOOLBAR_BUTTON =
  * the exact same `onUpdate` handler below that a real keystroke would (sync
  * the hidden input, clear the required-error state, call `onTextChange`) —
  * nothing here duplicates that sync logic a second time.
+ *
+ * ── toolbar="minimal" (send-369) ────────────────────────────────────────────
+ *
+ * Narrows the exposed buttons to bold/italic only, for short-register fields
+ * like a mentor bio that shouldn't invite headings/lists/quotes/rules — a
+ * toolbar-only restriction, same "toolbar scope ≠ parser scope" split as
+ * above: `MARKDOWN_EDITOR_EXTENSIONS` and the underlying `parseBlocks`
+ * grammar are unchanged, so a document already containing those constructs
+ * (e.g. from before a field was narrowed) still loads and round-trips
+ * correctly, it just can't be newly authored from the toolbar.
  */
 export interface RichMarkdownEditorHandle {
   setMarkdown: (markdown: string) => void;
@@ -71,9 +81,11 @@ export const RichMarkdownEditor = forwardRef<RichMarkdownEditorHandle, {
   placeholder?: string;
   required?: boolean;
   minHeightClassName?: string;
+  /** "minimal" = bold/italic only (autolink is always on regardless, see extensions.ts). */
+  toolbar?: "full" | "minimal";
   onTextChange?: (markdown: string) => void;
 }>(function RichMarkdownEditor(
-  { id, name, label, defaultValue, placeholder, required, minHeightClassName = "min-h-[280px]", onTextChange },
+  { id, name, label, defaultValue, placeholder, required, minHeightClassName = "min-h-[280px]", toolbar = "full", onTextChange },
   ref,
 ) {
   const hiddenInputRef = useRef<HTMLInputElement>(null);
@@ -211,50 +223,54 @@ export const RichMarkdownEditor = forwardRef<RichMarkdownEditorHandle, {
         >
           i
         </button>
-        <button
-          type="button"
-          aria-label="Heading"
-          aria-pressed={editor.isActive("heading")}
-          onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-          className={TOOLBAR_BUTTON}
-        >
-          H
-        </button>
-        <button
-          type="button"
-          aria-label="Bulleted list"
-          aria-pressed={editor.isActive("bulletList")}
-          onClick={() => editor.chain().focus().toggleBulletList().run()}
-          className={TOOLBAR_BUTTON}
-        >
-          •—
-        </button>
-        <button
-          type="button"
-          aria-label="Numbered list"
-          aria-pressed={editor.isActive("orderedList")}
-          onClick={() => editor.chain().focus().toggleOrderedList().run()}
-          className={TOOLBAR_BUTTON}
-        >
-          1.
-        </button>
-        <button
-          type="button"
-          aria-label="Quote"
-          aria-pressed={editor.isActive("blockquote")}
-          onClick={() => editor.chain().focus().toggleBlockquote().run()}
-          className={TOOLBAR_BUTTON}
-        >
-          &ldquo;
-        </button>
-        <button
-          type="button"
-          aria-label="Horizontal rule"
-          onClick={() => editor.chain().focus().setHorizontalRule().run()}
-          className={TOOLBAR_BUTTON}
-        >
-          —
-        </button>
+        {toolbar === "full" && (
+          <>
+            <button
+              type="button"
+              aria-label="Heading"
+              aria-pressed={editor.isActive("heading")}
+              onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+              className={TOOLBAR_BUTTON}
+            >
+              H
+            </button>
+            <button
+              type="button"
+              aria-label="Bulleted list"
+              aria-pressed={editor.isActive("bulletList")}
+              onClick={() => editor.chain().focus().toggleBulletList().run()}
+              className={TOOLBAR_BUTTON}
+            >
+              •—
+            </button>
+            <button
+              type="button"
+              aria-label="Numbered list"
+              aria-pressed={editor.isActive("orderedList")}
+              onClick={() => editor.chain().focus().toggleOrderedList().run()}
+              className={TOOLBAR_BUTTON}
+            >
+              1.
+            </button>
+            <button
+              type="button"
+              aria-label="Quote"
+              aria-pressed={editor.isActive("blockquote")}
+              onClick={() => editor.chain().focus().toggleBlockquote().run()}
+              className={TOOLBAR_BUTTON}
+            >
+              &ldquo;
+            </button>
+            <button
+              type="button"
+              aria-label="Horizontal rule"
+              onClick={() => editor.chain().focus().setHorizontalRule().run()}
+              className={TOOLBAR_BUTTON}
+            >
+              —
+            </button>
+          </>
+        )}
       </div>
 
       {/*
