@@ -56,6 +56,11 @@ const STATIC_PATHS: { path: string; priority: number; changeFrequency: MetadataR
    * point — not before.
    */
   { path: "/blog", priority: 0.7, changeFrequency: "weekly" },
+  // send-387: unlike the count-gated entries in landingPageEntries below,
+  // this hub always renders a real 200 (hero + CTA card render even with
+  // zero matching posts and zero qualifying landing-page links), so it
+  // belongs here rather than behind a live-count check.
+  { path: "/scholarships/apply-now", priority: 0.6, changeFrequency: "weekly" },
   { path: "/legal/privacy", priority: 0.3, changeFrequency: "yearly" },
   { path: "/legal/terms", priority: 0.3, changeFrequency: "yearly" },
   { path: "/legal/data-cookie-notice", priority: 0.3, changeFrequency: "yearly" },
