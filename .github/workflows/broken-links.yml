@@ -1,0 +1,47 @@
+name: Broken link check (production)
+
+# send-409 — scripts/check-broken-links.ts (send-384, PR #485) was written but
+# never wired into CI; its own header comment says exactly this is a
+# deliberate follow-up: "meant to be run by hand or on a schedule (e.g. a
+# weekly GitHub Actions cron, not wired up here)". This is that follow-up.
+#
+# SCHEDULE ONLY, NOT ON PUSH. Unlike migration-drift.yml, a broken link isn't
+# something a merge to main newly introduces in a way only the next push would
+# catch — it crawls the live production site over the network (453+ sitemap
+# entries plus a one-level crawl), which is the wrong thing to run on every
+# push per the script's own header and CLAUDE.md's CI-load guidance. A weekly
+# cadence is enough to catch pages that quietly rotted (a partner site
+# reshaping URLs, a scholarship listing pulled) without adding merge-time load.
+#
+# FAILURE SIGNALING: nothing custom here, by design. GitHub automatically
+# emails the repository's watchers when a SCHEDULED workflow run fails — the
+# same mechanism migration-drift.yml already relies on and documents in its
+# own header. The script's own exit code is what makes this work at all: it
+# sets `process.exitCode = 1` only when an INTERNAL link is broken (this
+# site's own bug); external link issues are reported in the log but never
+# fail the run, since third-party flakiness isn't this repo's problem to fix
+# and a check that failed on it would get disabled within a week.
+on:
+  schedule:
+    # 05:17 UTC every Monday — off the top of the hour, per GitHub's own
+    # guidance to avoid the load spike every scheduled workflow on the
+    # platform competes for at :00.
+    - cron: "17 5 * * 1"
+  workflow_dispatch: {}
+
+jobs:
+  check:
+    name: Crawl the live site for broken internal links
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Check for broken links
+        run: npm run check-broken-links
