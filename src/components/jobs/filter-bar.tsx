@@ -203,7 +203,11 @@ export function FilterBar({
       */}
       <div
         data-testid="applied-filters"
-        className="flex flex-wrap items-stretch overflow-hidden border-[1.5px] border-ink"
+        // send-381 — SearchCombobox's own <input> is border-none/outline-none
+        // (it sits flush inside this bordered box), so the WCAG 2.4.7 focus
+        // change has to land on this outer border via focus-within, the same
+        // pattern as jd-demo-input.tsx and farah-panel.tsx's forms.
+        className="flex flex-wrap items-stretch overflow-hidden border-[1.5px] border-ink focus-within:border-rust"
       >
         <form
           method="GET"

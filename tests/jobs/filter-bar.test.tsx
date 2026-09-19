@@ -26,7 +26,11 @@ function render(props: Partial<Parameters<typeof FilterBar>[0]> = {}) {
   return renderToStaticMarkup(<FilterBar tab="recommended" {...props} />);
 }
 
-const CONTAINER = 'class="flex flex-wrap items-stretch overflow-hidden border-[1.5px] border-ink"';
+// send-381 added focus-within:border-rust to this container's own border (a
+// real WCAG 2.4.7 focus-indicator fix — see filter-bar.tsx's own comment),
+// so this exact-string match has to include it too.
+const CONTAINER =
+  'class="flex flex-wrap items-stretch overflow-hidden border-[1.5px] border-ink focus-within:border-rust"';
 
 /**
  * The search instrument's markup, tags balanced.
