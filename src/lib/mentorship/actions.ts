@@ -203,7 +203,7 @@ export async function bookMentorSessionAction(availabilitySlotId: string, sessio
 
   const reference = `mentor_session_${randomUUID()}`;
   const origin = await getOrigin();
-  await serviceClient.from("payment_transactions").insert({
+  const { error: insertError } = await serviceClient.from("payment_transactions").insert({
     user_id: user.id,
     rail: "paystack",
     amount: priceNgn,
@@ -213,6 +213,14 @@ export async function bookMentorSessionAction(availabilitySlotId: string, sessio
     paystack_reference: reference,
     status: "pending",
   });
+  if (insertError) {
+    // fulfillPayment (both the webhook and the checkout callback) confirms a
+    // paid session by looking this row up via paystack_reference — sending
+    // the mentee to a real Paystack checkout without it first landing would
+    // mean a genuine charge that nothing here can ever reconcile back to a
+    // session.
+    redirect(`/mentorship?error=${encodeURIComponent("Could not start checkout. Please try again.")}`);
+  }
 
   let authorizationUrl: string;
   try {
