@@ -308,4 +308,97 @@ test.describe("rich job-description editor", () => {
       "Please complete the attached **SQL exercise** and reply within 48 hours.",
     );
   });
+
+  test(
+    "send-382: the <meta name=\"description\"> tag and the JobPosting JSON-LD description are clean plain " +
+      "text, not raw markdown — real live bug (Moniepoint posting shipped with literal \"**Who We Are**\")",
+    async ({ authedPage, testUser }) => {
+      // The org name keeps the "E2E Rich Editor Co" prefix this file's own
+      // afterEach cleanup filters on (`.like("name", "E2E Rich Editor Co%")`
+      // below) — a shorter, differently-prefixed name here would silently
+      // stop matching that filter and leak orgs. The job TITLE is what's
+      // deliberately kept short instead: generateMetadata's own meta
+      // description is cut to ~155 chars total (`lead` + a snippet of
+      // `body`), and a long `lead` here would leave too little `room` for
+      // the snippet to reach the bulleted content below, confounding this
+      // test with that separate, pre-existing truncation logic rather than
+      // testing markdown-stripping specifically.
+      const shortId = testUser.id.slice(0, 6);
+      await createVerifiedOrg(authedPage, `E2E Rich Editor Co ${shortId}`);
+      await authedPage.goto("/employer/jobs/new");
+      await authedPage.getByLabel("Job title").fill(`Meta Role ${shortId}`);
+      await authedPage.getByLabel("Location").fill("Lagos, Nigeria");
+
+      // A heading, a bold run, and a bulleted list — the exact real-shaped
+      // combination the internal editor can produce (and, separately, the
+      // exact **bold**/- bullet shape stripHtml produces for an EXTERNAL,
+      // schema.org-ingested posting like the real Moniepoint one this bug
+      // was found on).
+      await pasteHtml(
+        authedPage,
+        "#description",
+        "<h2>Who We Are</h2><p>We build <strong>payment infrastructure</strong> across Africa.</p><ul><li>Investigate fraud attacks</li><li>Propose mitigations</li></ul>",
+        "Who We Are\nWe build payment infrastructure across Africa.\nInvestigate fraud attacks\nPropose mitigations",
+      );
+
+      await addSkill(authedPage, "sql");
+      await authedPage.getByRole("button", { name: "Publish job" }).click();
+      await expect(authedPage).toHaveURL(/\/employer\/jobs\?posted=.+$/);
+      const jobId = new URL(authedPage.url()).searchParams.get("posted")!;
+
+      await authedPage.goto(`/jobs/${jobId}`);
+
+      const metaDescription = await authedPage
+        .locator('meta[name="description"]')
+        .getAttribute("content");
+      expect(metaDescription, "meta description was missing entirely").not.toBeNull();
+      expect(metaDescription, "raw ** bold markers leaked into the meta description").not.toContain("**");
+      expect(
+        metaDescription,
+        "a leading bullet dash leaked into the meta description",
+      ).not.toContain("- Investigate");
+      expect(metaDescription).toContain("payment infrastructure across Africa");
+      // NOT asserting "Investigate fraud attacks" survives here — the meta
+      // description's own ~155-char snippet cap (generateMetadata's `room`)
+      // is a separate, pre-existing, unrelated piece of logic, and whether
+      // the tail end of a long description survives it depends on exactly
+      // how many characters `lead` and the un-stripped "## " (see the known-
+      // gap block below) ate into that budget. The JSON-LD description below
+      // has no such cap, so it's the one that checks the bulleted content
+      // itself survived stripping intact.
+
+      const jsonLdRaw = await authedPage.locator('script[type="application/ld+json"]').textContent();
+      expect(jsonLdRaw, "no JobPosting JSON-LD script tag on the page").not.toBeNull();
+      const jsonLd = JSON.parse(jsonLdRaw!);
+      expect(jsonLd.description, "raw ** bold markers leaked into the JSON-LD description").not.toContain(
+        "**",
+      );
+      expect(
+        jsonLd.description,
+        "a leading bullet dash leaked into the JSON-LD description",
+      ).not.toContain("- Investigate");
+      expect(jsonLd.description).toContain("payment infrastructure across Africa");
+      expect(jsonLd.description).toContain("Investigate fraud attacks");
+      expect(jsonLd.description).toContain("Propose mitigations");
+
+      /*
+       * KNOWN, DELIBERATELY UNFIXED GAP — confirmed here, not just asserted
+       * in a comment: stripMarkdownToPlainText (extract-jd.ts) was built for
+       * stripHtml's own narrow output grammar (`**bold**` and leading `- `
+       * bullets only — see that function's own doc comment), not the FULL
+       * grammar the internal job-description WYSIWYG editor supports
+       * (headings, single-`*`/`_` italic, numbered lists, blockquotes,
+       * horizontal rules, links). A `## ` heading marker is NOT stripped by
+       * either fix in this send, so it survives into both surfaces below.
+       * send-382 explicitly scoped its fix to reusing stripMarkdownToPlainText
+       * "rather than writing a second stripper" — this assertion exists so
+       * that scoping decision stays a documented, tested fact instead of an
+       * assumption, and so a future full-grammar stripper (if one is ever
+       * built) has a failing test here to turn green rather than a silent
+       * gap nobody is watching.
+       */
+      expect(metaDescription).toContain("## Who We Are");
+      expect(jsonLd.description).toContain("## Who We Are");
+    },
+  );
 });
