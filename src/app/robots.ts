@@ -42,6 +42,21 @@ export default function robots(): MetadataRoute.Robots {
           "/tracker",
           "/onboarding",
           "/dashboard",
+          /*
+           * send-407 — same class of gap /mentorship's own sub-routes had
+           * (send-385, this file's own comment below): a seeker-nav-linked
+           * (masthead.tsx's NAV_LINKS, "Get Verified") route whose own
+           * page.tsx calls requireUser(), crawlable and unblocked, serving a
+           * generic login redirect to anything that fetched it. Checked
+           * every other requireUser()-gated page.tsx against this file
+           * systematically while finding this one — it was the only gap;
+           * every other gated route (auto-apply, billing, feedback, refer,
+           * resume-builder incl. its /edit and /new, settings, tailor,
+           * tracker incl. its /[applicationId]/sent, onboarding,
+           * employer/onboarding — covered by the blanket /employer entry
+           * below) already has a matching disallow.
+           */
+          "/talent-directory/verify",
           // The feed and list themselves need a session; individual detail
           // pages do not.
           "/jobs$",
