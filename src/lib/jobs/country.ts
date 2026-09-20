@@ -66,6 +66,14 @@ const COUNTRY_NAME_PATTERNS: Record<TrackedCountry, RegExp> = {
  */
 export const SOURCE_COUNTRY_FALLBACK: Partial<Record<string, TrackedCountry>> = {
   "schema-org:workable-nigeria": "Nigeria",
+  // Nigeria city pages (sources.config.ts) — same single-country search URL
+  // shape as workable-nigeria itself, so the same fallback rule applies: a
+  // blind row from one of these is Nigeria, never a guess, because the
+  // source is scoped to a Nigerian city by construction, not by inference.
+  "schema-org:workable-lagos": "Nigeria",
+  "schema-org:workable-abuja": "Nigeria",
+  "schema-org:workable-ibadan": "Nigeria",
+  "schema-org:workable-port-harcourt": "Nigeria",
   "schema-org:workable-ghana": "Ghana",
   "schema-org:workable-kenya": "Kenya",
   "schema-org:workable-south-africa": "South Africa",
@@ -123,14 +131,25 @@ export function countryFromSlug(slug: string): TrackedCountry | undefined {
 }
 
 /**
- * A country's own SOURCE_COUNTRY_FALLBACK key, reversed — for building the
+ * A country's own SOURCE_COUNTRY_FALLBACK keys, reversed — for building the
  * `.or()` filter public landing pages need (they query the database
  * directly rather than filtering an already-fetched array; see
  * jobs/page.tsx's own header for why the authenticated feed can do the
  * latter and these pages cannot).
+ *
+ * ALL matches, not just the first — Nigeria alone now has five fallback
+ * sources (workable-nigeria plus four city pages), and a `.find()` here
+ * would silently only ever filter on whichever one happens to be first in
+ * SOURCE_COUNTRY_FALLBACK's own key order, missing blind rows from every
+ * other one. That would be exactly the kind of independent drift this
+ * function's own header says can't happen between the JS and SQL paths —
+ * deriveCountry already checks every fallback source for a country via a
+ * single object lookup; this has to do the same via every matching key.
  */
-function fallbackSourceFor(country: TrackedCountry): string | undefined {
-  return Object.entries(SOURCE_COUNTRY_FALLBACK).find(([, c]) => c === country)?.[0];
+function fallbackSourcesFor(country: TrackedCountry): string[] {
+  return Object.entries(SOURCE_COUNTRY_FALLBACK)
+    .filter(([, c]) => c === country)
+    .map(([source]) => source);
 }
 
 /**
@@ -144,8 +163,9 @@ function fallbackSourceFor(country: TrackedCountry): string | undefined {
  */
 export function countryOrFilter(country: TrackedCountry): string {
   const clauses = [`location.ilike.%${country}%`];
-  const fallbackSource = fallbackSourceFor(country);
-  if (fallbackSource) clauses.push(`external_source.eq.${fallbackSource}`);
+  for (const fallbackSource of fallbackSourcesFor(country)) {
+    clauses.push(`external_source.eq.${fallbackSource}`);
+  }
   return clauses.join(",");
 }
 
