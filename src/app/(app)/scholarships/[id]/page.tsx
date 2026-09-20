@@ -16,6 +16,7 @@ import { FarahActions } from "@/components/scholarships/farah-actions";
 import { relevantScholarshipLandingLinks } from "@/lib/seo/landing-page-links";
 import { checkPassCoverage } from "@/lib/passes/entitlement";
 import { loadPublicScholarship } from "@/lib/scholarships/public";
+import { renderMarkdownParagraphs } from "@/lib/farah/render-markdown";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -238,9 +239,17 @@ export default async function ScholarshipDetailPage({
                 <dd className="text-ink-soft">{scholarship.eligibility_age}</dd>
               </div>
             )}
-            {scholarship.eligibility_other && (
-              <p className="text-ink-soft">{scholarship.eligibility_other}</p>
-            )}
+            {/*
+             * send-377 — bold/italic + paragraph breaks only (real
+             * production data is dense, citation-heavy quoted provider
+             * prose with no lists/headings), matching send-373's screening-
+             * answer variant of this same helper. Handles a plain scraped
+             * string (ingest.ts) identically to an admin-formatted one —
+             * plain text has no paragraph breaks or markdown syntax to
+             * interpret, so it renders exactly as it did before this change.
+             */}
+            {scholarship.eligibility_other &&
+              renderMarkdownParagraphs(scholarship.eligibility_other, "text-ink-soft")}
           </dl>
         </div>
       )}

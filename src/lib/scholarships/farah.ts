@@ -4,6 +4,7 @@ import { FARAH_SYSTEM_PROMPT } from "@/lib/farah/system-prompt";
 import type { StructuredResume } from "@/lib/resume/types";
 import type { Tables } from "@/lib/supabase/types";
 import { DEGREE_LEVEL_LABEL, FUNDING_TYPE_LABEL } from "./types";
+import { stripInlineMarkdown } from "@/lib/farah/render-markdown";
 
 type ScholarshipRow = Tables<"scholarships">;
 
@@ -53,8 +54,13 @@ const ELIGIBILITY_SCHEMA = {
   required: ["verdict", "summary", "criteria", "suggestedNextSteps"],
 } as const;
 
-/** Renders the stated criteria as text so the model compares against the real listing, not a summary of it. */
-function describeScholarship(s: ScholarshipRow): string {
+/**
+ * Renders the stated criteria as text so the model compares against the real
+ * listing, not a summary of it. Exported (send-377) purely so the grounding
+ * string can be asserted on directly in tests/scholarships/farah-eligibility-markdown.test.ts
+ * — no behavior change, this was previously a private helper.
+ */
+export function describeScholarship(s: ScholarshipRow): string {
   const levels = s.degree_levels.map((l) => DEGREE_LEVEL_LABEL[l]).join(", ");
   return [
     `Programme: ${s.program_name}`,
@@ -66,7 +72,15 @@ function describeScholarship(s: ScholarshipRow): string {
     `Stated nationality eligibility: ${s.eligibility_nationalities.join(", ") || "not stated"}`,
     s.eligibility_prior_degree ? `Prior degree required: ${s.eligibility_prior_degree}` : null,
     s.eligibility_age ? `Age requirement: ${s.eligibility_age}` : null,
-    s.eligibility_other ? `Other stated requirements: ${s.eligibility_other}` : null,
+    // send-377 — eligibility_other can now hold bold/italic markdown syntax
+    // (admin-scholarship-form.tsx's MinimalRichEditor); stripInlineMarkdown
+    // keeps the grounding string genuinely plain, same rule send-373's
+    // screening-answer grading already follows for the same reason (a
+    // model comparing against **bold** syntax is comparing against noise
+    // the applicant never actually wrote).
+    s.eligibility_other
+      ? `Other stated requirements: ${stripInlineMarkdown(s.eligibility_other)}`
+      : null,
     s.application_deadline ? `Application deadline: ${s.application_deadline}` : "Deadline: not published",
   ]
     .filter(Boolean)
