@@ -1,0 +1,151 @@
+name: Lighthouse performance budget
+
+# send-410 — @vercel/speed-insights (PR #449) gives real-user performance
+# data, but only AFTER a regression is already live in production. Nothing
+# caught a regression before merge. This is that pre-merge gate; Speed
+# Insights stays exactly as it is (post-deploy monitoring, a different job
+# than a merge-time budget).
+#
+# RUNS AGAINST THE PR'S OWN VERCEL PREVIEW, NOT A LOCAL BUILD. This repo's
+# Vercel GitHub integration already deploys a real preview for every branch
+# push (confirmed directly against the Vercel API before writing this — every
+# push, not just main, gets its own READY deployment with a real URL) on the
+# same edge/CDN infrastructure production runs on. A `next build && next
+# start` inside the runner would not reflect that, and CLAUDE.md's own
+# next-dev-vs-build-trap entry is a reminder that "close enough" local
+# reproductions of this app's runtime have burned real time here before.
+# wait-for-vercel-preview polls the GitHub Deployments API that Vercel's own
+# GitHub App already populates — no Vercel token needed.
+#
+# NO PATH FILTERING — every PR, deliberately. ci.yml's own checks/e2e jobs
+# don't path-scope either, and a real Vercel preview already gets built for
+# every push in this repo regardless of what changed, so skipping this job
+# for some PRs would not actually save the expensive part (the deploy still
+# happens); it would only save ~2-4 Lighthouse runs against a preview that
+# already exists. Erring toward the simpler, uniform rule per this ticket's
+# own guidance.
+#
+# THE FOUR PAGES, AND WHY JOB-DETAIL IS RESOLVED AT RUNTIME, NOT HARDCODED.
+# Homepage, /jobs/remote (the real public job-search surface — plain /jobs is
+# NOT public, robots.ts's own comment already documents it as a 307-to-login
+# redirect for a signed-out visitor, so it would not have been a representative
+# choice), a job detail page, and /mentorship. A job detail page is keyed to
+# one specific posting id that can close or expire, so hardcoding one risks
+# this workflow failing on an unrelated 404 months from now — the "resolve"
+# step below pulls the first real /jobs/<uuid> straight out of the preview's
+# own live sitemap.xml instead, the same source of truth
+# scripts/check-broken-links.ts already treats as canonical.
+#
+# BUDGETS: see .lighthouserc.json's own assert.assertions — set at or
+# slightly below the real baseline measured directly against production
+# (2026-09-19, mobile form factor + simulated throttling, Lighthouse's own
+# default — deliberately not desktop, given CLAUDE.md's own "target market
+# skews low-end Android" constraint):
+#
+#   page          performance  accessibility  best-practices  seo
+#   /                    95           96            92         100
+#   /jobs/remote         92           98            92         100
+#   job detail           91          100            92         100
+#   /mentorship          94          100            92          92
+#
+# Thresholds (88 / 93 / 90 / 90) sit a few points under each category's own
+# worst real page, not at an arbitrary "ideal" number — enough margin to
+# absorb normal Lighthouse run-to-run variance (simulated throttling still
+# has some) without masking a genuine regression. Every score below 100 has
+# a real, cited cause, not a shrug: best-practices' uniform 92 everywhere is
+# Google Identity Services logging "not signed in with the identity
+# provider" in Lighthouse's own signed-out headless run (expected in this
+# environment, not a real defect — every future run hits the same
+# condition, so it's already baked into the baseline); accessibility's 96 on
+# the homepage is a real WCAG 1.4.3 text-contrast gap (how-it-works-section
+# .tsx:64 uses the `--line` token, meant for hairline borders at ~1.84:1
+# non-text contrast, as actual text — a DIFFERENT gap than PR #482's own
+# WCAG batch fixed, which only covered `--line` used as a non-text BORDER on
+# IconButton/FilterChip); /mentorship's 92 SEO is NOT a missing description —
+# send-424 corrected this after independent verification showed a real one
+# exists (generateMetadata's signed-out branch, send-385/393, confirmed live
+# via curl and in a real hydrated browser: exactly one populated
+# `<meta name="description">`). The real cause: `mentorship/(list)/loading.tsx`
+# gives this route an implicit Suspense boundary, so Next streams the page
+# shell before generateMetadata's own async calls (getOptionalUser,
+# getApprovedMentorPriceRangeNgn) resolve — the description tag arrives later
+# in the stream and lands as a direct child of <body>, confirmed both in the
+# raw HTML (byte offset of the tag is ~64,850, well after `</head>` closes at
+# ~1,383) and in a live browser's final DOM (`document.head.contains(meta)`
+# is false, `document.body.contains(meta)` is true). Lighthouse's own
+# meta-description audit checks specifically for a <head>-scoped tag, so it
+# correctly reports one missing THERE even though a real, correctly-worded
+# description exists in the document — sibling pages with async
+# generateMetadata but no loading.tsx of their own (homepage, /jobs/remote,
+# job detail) render it inside <head> as expected, confirming the loading.tsx
+# streaming boundary is what's different about this one page. Not fixed here
+# — untangling this page's streaming/metadata-timing interaction is a real
+# fix, not a citation correction, and is out of this gate's own scope.
+# None of these are fixed here — this send is the gate, not the fix, per its
+# own explicit scope.
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch: {}
+
+jobs:
+  lighthouse:
+    name: Lighthouse CI against the PR's own Vercel preview
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # max_timeout generous on purpose: a real Next.js build+deploy, not a
+      # dev server — the default 60s is tuned for much smaller apps.
+      - name: Wait for the Vercel preview deployment
+        # Pinned to a real tag, not @master — that ref doesn't even resolve
+        # any more (the action's own repo renamed its default branch to
+        # `main`), caught by this workflow's own first real CI run. A
+        # floating branch ref is also just worse practice for a third-party
+        # action generally.
+        uses: patrickedqvist/wait-for-vercel-preview@v1.3.3
+        id: vercel_preview
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          max_timeout: 600
+
+      - name: Resolve a real, currently-live job detail URL from the preview's own sitemap
+        id: resolve_urls
+        run: |
+          set -euo pipefail
+          JOB_URL=$(curl -fsS "${{ steps.vercel_preview.outputs.url }}/sitemap.xml" \
+            | grep -oE 'https://[^<]*/jobs/[0-9a-f-]{36}' \
+            | head -1)
+          if [ -z "$JOB_URL" ]; then
+            echo "::error::No /jobs/<uuid> URL found in the preview's sitemap.xml — cannot pick a job detail page to audit."
+            exit 1
+          fi
+          echo "job_url=$JOB_URL" >> "$GITHUB_OUTPUT"
+
+      - name: Run Lighthouse CI against the 4 key pages
+        # @lhci/cli@0.15.1 pinned by exact version HERE, not in package.json.
+        # It was a committed devDependency for one commit and that broke the
+        # "Dependency audit" job (npm audit --audit-level=high) — its own
+        # bundled lighthouse/puppeteer-core pulls in extract-zip and tmp at
+        # versions with real, if CI-only, high-severity symlink/path-traversal
+        # advisories. That gate has no existing carve-out mechanism and its
+        # own comment in ci.yml is explicit that there is nothing
+        # already-known to except — so the fix is keeping this tool OUT of
+        # the audited tree entirely, not adding an exception to a
+        # deliberately absolute gate. npx still gives full reproducibility
+        # (exact version pinned in the command itself) without ever writing
+        # these transitive deps into package-lock.json.
+        run: |
+          npx --yes @lhci/cli@0.15.1 autorun \
+            --collect.url="${{ steps.vercel_preview.outputs.url }}/" \
+            --collect.url="${{ steps.vercel_preview.outputs.url }}/jobs/remote" \
+            --collect.url="${{ steps.resolve_urls.outputs.job_url }}" \
+            --collect.url="${{ steps.vercel_preview.outputs.url }}/mentorship" \
+            --collect.settings.chromeFlags="--headless --no-sandbox --disable-gpu"
