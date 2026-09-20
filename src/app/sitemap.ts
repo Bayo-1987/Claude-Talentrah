@@ -49,16 +49,16 @@ export const STATIC_PATHS: { path: string; priority: number; changeFrequency: Me
   { path: "/about", priority: 0.6, changeFrequency: "monthly" },
   { path: "/contact", priority: 0.5, changeFrequency: "yearly" },
   /*
-   * NOT /employer, removed 2026-09-18 — it violated this file's own rule
-   * above. /employer's first act is getEmployerContext() -> requireUser(),
-   * so a signed-out visitor (every crawler) gets a 307 to /login, not a 200;
-   * robots.ts already fully disallows the whole /employer surface for
-   * exactly this reason. Listing it here was the anti-pattern this file
-   * warns against, happening to itself. If a public "for employers"
-   * marketing page is ever built (robots.ts's own comment already
-   * anticipates this), it earns its own Allow AND its own row here at that
-   * point — not before.
+   * send-350 — /employer now has its own real, signed-out-visitor page
+   * (components/employer/employer-public-landing.tsx) instead of a login
+   * redirect, so it belongs here again by this file's own rule — reversing
+   * the 2026-09-18 removal note this comment used to carry (that removal
+   * was correct at the time: the page genuinely didn't exist yet). Static,
+   * not a DB-backed block below, for the same reason /mentorship is: the
+   * content is hand-authored marketing copy, not a live count that can go
+   * stale between deploys.
    */
+  { path: "/employer", priority: 0.6, changeFrequency: "monthly" },
   { path: "/blog", priority: 0.7, changeFrequency: "weekly" },
   /*
    * send-385 — /mentorship now has its own real, signed-out-visitor page
@@ -78,6 +78,13 @@ export const STATIC_PATHS: { path: string; priority: number; changeFrequency: Me
   { path: "/ats-resume-checker", priority: 0.6, changeFrequency: "monthly" },
   // send-387 Part 2 — another standalone, hand-authored explainer page, same shape as the two above.
   { path: "/how-auto-apply-works", priority: 0.6, changeFrequency: "monthly" },
+  // Same shape again — public landing pages for Resume Builder and Farah's
+  // interview-prep quick action, the two named feature gaps that had zero
+  // indexable URL: previously described only inline on the homepage (Meet
+  // Farah) or not described publicly at all (Resume Builder had no homepage
+  // copy either — see ai-resume-builder/page.tsx's own header).
+  { path: "/ai-resume-builder", priority: 0.6, changeFrequency: "monthly" },
+  { path: "/ai-interview-prep", priority: 0.6, changeFrequency: "monthly" },
   // send-387 Part 1: unlike the count-gated entries in landingPageEntries below,
   // this hub always renders a real 200 (hero + CTA card render even with
   // zero matching posts and zero qualifying landing-page links), so it

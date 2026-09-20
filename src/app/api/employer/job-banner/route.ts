@@ -9,6 +9,7 @@ import {
   readImageDimensions,
   validateBanner,
 } from "@/lib/employer/banner";
+import { reencodeBannerForStorage } from "@/lib/employer/banner-reencode";
 
 /**
  * Upload (or replace) one job posting's banner.
@@ -36,6 +37,9 @@ import {
  * Size before bytes, bytes before dimensions, dimensions before any network
  * call. Each step is cheaper than the next and each one that fails means the
  * later ones would have been wasted work on a file we are going to reject.
+ * Re-encoding (send-408) runs AFTER `validateBanner` accepts the file, for
+ * the same reason — spending sharp's decode cost on something we were going
+ * to reject anyway would be exactly the wasted work this ordering avoids.
  */
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -116,11 +120,38 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: verdict.reason }, { status: 400 });
   }
 
+  /*
+   * Re-encoded here rather than trusting the upload UI's own crop step
+   * (banner-crop.ts) to have already done it: that step is client-side only
+   * and this route accepts anything that clears `validateBanner`, including
+   * a direct POST that skips the crop UI entirely (send-408). This is what
+   * actually bounds the bytes stored and served, not `MAX_BANNER_BYTES` —
+   * see that constant's own comment.
+   */
+  let finalBytes: Uint8Array;
+  let finalWidth = verdict.width;
+  let finalHeight = verdict.height;
+  try {
+    const reencoded = await reencodeBannerForStorage({ bytes, type: verdict.type });
+    finalBytes = reencoded.bytes;
+    finalWidth = reencoded.width;
+    finalHeight = reencoded.height;
+  } catch (err) {
+    console.error(
+      "[job-banner] re-encoding failed:",
+      err instanceof Error ? err.message : err,
+    );
+    return NextResponse.json(
+      { error: "Couldn't process that image. Try a different file." },
+      { status: 400 },
+    );
+  }
+
   const path = bannerObjectPath(job.organization_id, job.id, verdict.type);
 
   const { error: uploadError } = await supabase.storage
     .from(BANNER_BUCKET)
-    .upload(path, bytes, { contentType: verdict.type, upsert: true });
+    .upload(path, finalBytes, { contentType: verdict.type, upsert: true });
 
   if (uploadError) {
     // Checked, and surfaced rather than swallowed. A refused upload is the
@@ -154,5 +185,5 @@ export async function POST(request: Request) {
     );
   }
 
-  return NextResponse.json({ ok: true, width: verdict.width, height: verdict.height });
+  return NextResponse.json({ ok: true, width: finalWidth, height: finalHeight });
 }

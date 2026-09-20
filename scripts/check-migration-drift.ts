@@ -162,7 +162,12 @@ void (async () => {
       `\n⚠ ${extra.length} migration${extra.length === 1 ? " is" : "s are"} applied on production but not committed on main:\n` +
         extra.map((m) => `  - ${m}`).join("\n") +
         `\n\nExpected briefly under apply-before-merge (docs/production-migration-apply.md).` +
-        `\nIf the PR that applied one was abandoned, the migration needs committing or reverting.`,
+        `\nIf the PR that applied one was abandoned, the migration needs committing or reverting.` +
+        `\nMost orphans are real history and belong documented in place (see supabase/migrations/` +
+        `\nREADME.md's 0071 and 0158b entries) — reverting is the exception, not the default. See` +
+        `\nthat file's 0180_trigger_search_path_hardening entry for when reverting is the right call` +
+        `\nand why: only when the orphan is a byte-identical duplicate of a change that is already` +
+        `\ncorrectly recorded under a different name, so nothing is lost by removing it.`,
     );
   }
 

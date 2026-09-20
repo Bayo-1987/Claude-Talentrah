@@ -81,7 +81,14 @@ export interface LoginRateLimitOutcome {
  */
 const LOOPBACK_LITERALS = new Set(["127.0.0.1", "::1", "::ffff:127.0.0.1"]);
 
-function isUnidentifiableCaller(ip: string | null): boolean {
+/**
+ * Exported so other per-IP anonymous-caller limiters (send-405's signup and
+ * contact-form limiters) can share this exact check rather than
+ * re-discovering the "::1" CI bug this file's own header documents finding
+ * the hard way — both run against the identical shared-loopback CI
+ * environment this was written for.
+ */
+export function isUnidentifiableCaller(ip: string | null): boolean {
   return !ip || LOOPBACK_LITERALS.has(ip);
 }
 
