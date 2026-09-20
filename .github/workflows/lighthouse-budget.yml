@@ -83,6 +83,29 @@ name: Lighthouse performance budget
 # fix, not a citation correction, and is out of this gate's own scope.
 # None of these are fixed here — this send is the gate, not the fix, per its
 # own explicit scope.
+#
+# DEPLOYMENT PROTECTION BYPASS (send-425). This repo's Vercel project has
+# Deployment Protection (SSO) on, which blocks anonymous requests to a preview
+# URL — including wait-for-vercel-preview's own readiness polling, this
+# workflow's own curl, and Lighthouse's own navigations — with a 401. Every
+# request this workflow makes against steps.vercel_preview.outputs.url
+# carries the `x-vercel-protection-bypass` header for that reason, at all
+# THREE call sites: `wait-for-vercel-preview`'s own `vercel_protection_bypass_header`
+# input (this one matters most — this step polls the URL first, so it's the
+# one that actually 401s and times out if the header is missing here, even
+# with it present everywhere else), the `resolve_urls` step's curl call, and
+# `--collect.settings.extraHeaders` on the `autorun` call so it's applied to
+# every request Lighthouse itself makes, not just the top-level navigation.
+# The secret value is a Vercel "Protection Bypass for Automation" token the
+# founder generated in the Vercel dashboard; Vercel auto-injects it as
+# VERCEL_AUTOMATION_BYPASS_SECRET on every deployment, and the identical value
+# was manually added as a GitHub Actions repo secret under the same name so
+# this workflow can read it. Without this, the job doesn't fail loudly on a
+# real problem — it retries against a 401 until wait-for-vercel-preview's own
+# timeout, which is what happened on every PR before this was added (and
+# still happened on the first attempt at this very fix, which covered the
+# other two call sites but missed this one — wait-for-vercel-preview's own
+# polling never even reaches the later steps).
 on:
   pull_request:
     branches: [main]
@@ -110,19 +133,54 @@ jobs:
         # `main`), caught by this workflow's own first real CI run. A
         # floating branch ref is also just worse practice for a third-party
         # action generally.
+        #
+        # vercel_protection_bypass_header (send-425): this action polls the
+        # preview URL itself to detect readiness, so it needs the same
+        # Deployment Protection bypass as every other request in this
+        # workflow — without it, this step is the one that actually 401s and
+        # times out, even after the later curl/lhci calls also had the header
+        # added, because it runs first and never gets past its own polling
+        # loop. Confirmed via this action's own action.yml/source
+        # (dist/index.js) that this input is passed straight through as the
+        # `x-vercel-protection-bypass` header — this isn't a guess.
         uses: patrickedqvist/wait-for-vercel-preview@v1.3.3
         id: vercel_preview
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           max_timeout: 600
+          vercel_protection_bypass_header: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
 
       - name: Resolve a real, currently-live job detail URL from the preview's own sitemap
         id: resolve_urls
+        # Vercel Deployment Protection (SSO) blocks anonymous requests to a PR
+        # preview, including this workflow's own curl call — every preview
+        # request needs the x-vercel-protection-bypass header or it 401s.
+        # VERCEL_AUTOMATION_BYPASS_SECRET is the "Protection Bypass for
+        # Automation" secret Vercel generates and auto-wires onto every
+        # deployment; it was manually mirrored into this repo's GitHub
+        # Actions secrets under the identical name so this workflow can read
+        # it too.
+        env:
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
         run: |
-          set -euo pipefail
-          JOB_URL=$(curl -fsS "${{ steps.vercel_preview.outputs.url }}/sitemap.xml" \
-            | grep -oE 'https://[^<]*/jobs/[0-9a-f-]{36}' \
-            | head -1)
+          set -uo pipefail
+          # No -f here deliberately: -f makes curl exit non-zero on a 4xx/5xx
+          # with NO body and NO status code printed anywhere, which is why
+          # this step's first real failure gave zero diagnostic information
+          # (a silent exit 1, no error text at all). -w appends the status
+          # code as the response body's last line instead, so a genuine
+          # failure is at least legible in the log rather than a bare
+          # "Process completed with exit code 1."
+          RESPONSE=$(curl -sS "${{ steps.vercel_preview.outputs.url }}/sitemap.xml" \
+            -H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" \
+            -w '\n%{http_code}')
+          STATUS=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+          if [ "$STATUS" != "200" ]; then
+            echo "::error::sitemap.xml request failed with HTTP $STATUS. First 500 chars of response: $(echo "$BODY" | head -c 500)"
+            exit 1
+          fi
+          JOB_URL=$(echo "$BODY" | grep -oE 'https://[^<]*/jobs/[0-9a-f-]{36}' | head -1)
           if [ -z "$JOB_URL" ]; then
             echo "::error::No /jobs/<uuid> URL found in the preview's sitemap.xml — cannot pick a job detail page to audit."
             exit 1
@@ -142,10 +200,31 @@ jobs:
         # deliberately absolute gate. npx still gives full reproducibility
         # (exact version pinned in the command itself) without ever writing
         # these transitive deps into package-lock.json.
+        #
+        # Same Deployment Protection problem as the resolve_urls step above:
+        # Lighthouse's own navigations and every sub-request it makes against
+        # the preview need the bypass header too, or Chrome just hits the SSO
+        # wall instead of the page. @lhci/cli@0.15.1 has no --extraHeaders (or
+        # --collect.extraHeaders) flag of its own — confirmed against its
+        # actual --help output and source (src/collect/collect.js,
+        # node-runner.js), which pass a generic --settings object through to
+        # Lighthouse's own configSettings essentially unmodified. Lighthouse's
+        # native settings key for this is camelCase `extraHeaders` (the
+        # kebab-case `--extra-headers` is Lighthouse's own separate top-level
+        # CLI flag, not a settings key), and autorun's nested-override syntax
+        # is the same dot-path form already used for
+        # --collect.settings.chromeFlags below — so
+        # --collect.settings.extraHeaders is the correct spelling. Verified
+        # with a real local smoke test (a header-echo HTTP server) that the
+        # header lands on every request Lighthouse makes, not just the top
+        # navigation, before wiring this into CI.
+        env:
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
         run: |
           npx --yes @lhci/cli@0.15.1 autorun \
             --collect.url="${{ steps.vercel_preview.outputs.url }}/" \
             --collect.url="${{ steps.vercel_preview.outputs.url }}/jobs/remote" \
             --collect.url="${{ steps.resolve_urls.outputs.job_url }}" \
             --collect.url="${{ steps.vercel_preview.outputs.url }}/mentorship" \
-            --collect.settings.chromeFlags="--headless --no-sandbox --disable-gpu"
+            --collect.settings.chromeFlags="--headless --no-sandbox --disable-gpu" \
+            --collect.settings.extraHeaders="{\"x-vercel-protection-bypass\":\"$VERCEL_AUTOMATION_BYPASS_SECRET\"}"
