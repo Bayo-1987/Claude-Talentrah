@@ -120,6 +120,29 @@ const nextConfig: NextConfig = {
    * real traffic, remove `'unsafe-inline'` once nothing depends on it, and
    * only then switch this to the enforcing header name.
    */
+  /**
+   * send-429 — the first slug redirect this repo has ever needed. Two
+   * concurrent sessions independently ran the same competitor-comparison
+   * content task and each published its own blog post under a different
+   * slug 23 minutes apart; the founder's call was to keep
+   * `ai-job-search-tools-nigeria-africa` (mirrored on both databases,
+   * verified end-to-end first) as canonical and retire the other. The
+   * `-compared` post was genuinely live and indexable for that ~20-minute
+   * window, so this exists to send anyone who already hit, bookmarked, or
+   * had it briefly indexed to the real post instead of a 404 — not a
+   * theoretical precaution. `permanent: true` (308) because this is a
+   * genuine content merge, not a temporary reroute.
+   */
+  async redirects() {
+    return [
+      {
+        source: "/blog/ai-job-search-tools-nigeria-africa-compared",
+        destination: "/blog/ai-job-search-tools-nigeria-africa",
+        permanent: true,
+      },
+    ];
+  },
+
   async headers() {
     const csp = [
       "default-src 'self'",
