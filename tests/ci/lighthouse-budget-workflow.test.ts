@@ -57,6 +57,27 @@ describe("lighthouse-budget.yml wires Lighthouse CI against the real Vercel prev
     expect(workflow).toMatch(/pull_request:\s*\n\s*branches:\s*\[main\]/);
     expect(workflow).not.toMatch(/paths:/);
   });
+
+  it("REGRESSION (send-425): sends the Vercel protection-bypass header at all three call sites — wait-for-vercel-preview's own polling, the sitemap curl, and the lhci autorun call — without it, Deployment Protection 401s every request to the preview until wait-for-vercel-preview's own timeout", () => {
+    // The secret must be sourced from GitHub Actions secrets, never hardcoded.
+    expect(workflow).toMatch(/VERCEL_AUTOMATION_BYPASS_SECRET:\s*\$\{\{\s*secrets\.VERCEL_AUTOMATION_BYPASS_SECRET\s*\}\}/);
+    // wait-for-vercel-preview polls the URL itself before any later step
+    // runs — its own vercel_protection_bypass_header input (confirmed via
+    // that action's own action.yml/source to map straight to this header)
+    // is the one that actually matters: this step 401s and times out first
+    // if the header is missing here, even with it present everywhere else.
+    expect(workflow).toMatch(/vercel_protection_bypass_header:\s*\$\{\{\s*secrets\.VERCEL_AUTOMATION_BYPASS_SECRET\s*\}\}/);
+    // The resolve_urls step's curl call carries the header directly. No -f:
+    // it would swallow both the body and the status code on a real failure,
+    // which is exactly what made this step's first real failure a bare
+    // "exit 1" with no diagnostic text at all.
+    expect(workflow).toMatch(/curl -sS[^\n]*\n\s*-H "x-vercel-protection-bypass: \$VERCEL_AUTOMATION_BYPASS_SECRET"/);
+    expect(workflow).not.toMatch(/curl -fsS/);
+    // The autorun call applies it via Lighthouse's own settings object (no
+    // --extraHeaders/--collect.extraHeaders flag exists on @lhci/cli — the
+    // camelCase settings key nested under --collect.settings is correct).
+    expect(workflow).toMatch(/--collect\.settings\.extraHeaders="\{\\"x-vercel-protection-bypass\\":\\"\$VERCEL_AUTOMATION_BYPASS_SECRET\\"\}"/);
+  });
 });
 
 describe(".lighthouserc.json's budgets are real numbers with real thresholds, not placeholders", () => {
