@@ -17,6 +17,19 @@ export const contactSchema = z.object({
 });
 
 /**
+ * send-405 — the honeypot field name, shared between the form and the
+ * Server Action so they can't drift apart. Deliberately NOT part of
+ * `contactSchema`: it isn't real form data, it's an anti-bot signal checked
+ * before validation even runs, and folding it into the schema would risk it
+ * showing up in `fieldErrors` like a real field.
+ *
+ * "website" — a classic honeypot bait name generic form-filling bots target
+ * by default, and not a label a real visitor to a support contact form
+ * would ever expect to see or need.
+ */
+export const CONTACT_HONEYPOT_FIELD = "website";
+
+/**
  * Lives here, not in actions.ts, because actions.ts carries "use server" —
  * Next.js requires every export from a "use server" module to be an async
  * function, and a plain interface/object breaks that at build time. This is

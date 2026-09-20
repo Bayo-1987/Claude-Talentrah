@@ -67,7 +67,6 @@ const PROTECTED_PATH_PREFIXES = [
   "/tracker",
   "/onboarding",
   "/dashboard",
-  "/employer",
   /*
    * Added as part of restoring site-wide loading.tsx boundaries. Previously
    * protected ONLY by a page-level requireUser() call — never added here
@@ -100,8 +99,16 @@ const PROTECTED_PATH_PREFIXES = [
  * every sub-path except the bare path" — `pathname === prefix` is exactly
  * the case that must now return false here — so this is its own small set
  * rather than overloading that one with a boolean nobody else needs.
+ *
+ * send-350 — `/employer` joins this set for the identical reason
+ * `/mentorship` is here: its bare path is now a real, signed-out-visitor
+ * marketing page (components/employer/employer-public-landing.tsx), while
+ * every actual sub-route (jobs, profile, campaigns, analytics,
+ * talent-directory, claim, onboarding) still requires a session, each
+ * checked at its own page — see employer/layout.tsx's own comment for why
+ * the layout no longer forces that check for the whole subtree.
  */
-const PROTECTED_SUBPATH_ONLY_PREFIXES = ["/mentorship"];
+const PROTECTED_SUBPATH_ONLY_PREFIXES = ["/mentorship", "/employer"];
 
 export function isProtectedSeekerPath(pathname: string): boolean {
   if (PROTECTED_EXACT_PATHS.has(pathname)) return true;
