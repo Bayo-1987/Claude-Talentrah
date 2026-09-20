@@ -58,9 +58,15 @@ describe("lighthouse-budget.yml wires Lighthouse CI against the real Vercel prev
     expect(workflow).not.toMatch(/paths:/);
   });
 
-  it("REGRESSION (send-425): sends the Vercel protection-bypass header on both the sitemap curl and the lhci autorun call — without it, Deployment Protection 401s every request to the preview until wait-for-vercel-preview's own timeout", () => {
+  it("REGRESSION (send-425): sends the Vercel protection-bypass header at all three call sites — wait-for-vercel-preview's own polling, the sitemap curl, and the lhci autorun call — without it, Deployment Protection 401s every request to the preview until wait-for-vercel-preview's own timeout", () => {
     // The secret must be sourced from GitHub Actions secrets, never hardcoded.
     expect(workflow).toMatch(/VERCEL_AUTOMATION_BYPASS_SECRET:\s*\$\{\{\s*secrets\.VERCEL_AUTOMATION_BYPASS_SECRET\s*\}\}/);
+    // wait-for-vercel-preview polls the URL itself before any later step
+    // runs — its own vercel_protection_bypass_header input (confirmed via
+    // that action's own action.yml/source to map straight to this header)
+    // is the one that actually matters: this step 401s and times out first
+    // if the header is missing here, even with it present everywhere else.
+    expect(workflow).toMatch(/vercel_protection_bypass_header:\s*\$\{\{\s*secrets\.VERCEL_AUTOMATION_BYPASS_SECRET\s*\}\}/);
     // The resolve_urls step's curl call carries the header directly.
     expect(workflow).toMatch(/curl -fsS[^\n]*\n\s*-H "x-vercel-protection-bypass: \$VERCEL_AUTOMATION_BYPASS_SECRET"/);
     // The autorun call applies it via Lighthouse's own settings object (no

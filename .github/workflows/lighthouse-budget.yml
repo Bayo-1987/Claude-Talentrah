@@ -86,11 +86,14 @@ name: Lighthouse performance budget
 #
 # DEPLOYMENT PROTECTION BYPASS (send-425). This repo's Vercel project has
 # Deployment Protection (SSO) on, which blocks anonymous requests to a preview
-# URL — including this workflow's own curl and Lighthouse's own navigations —
-# with a 401. Every request this workflow makes against
-# steps.vercel_preview.outputs.url carries the
-# `x-vercel-protection-bypass` header for that reason: once on the
-# `resolve_urls` step's curl call, and once as
+# URL — including wait-for-vercel-preview's own readiness polling, this
+# workflow's own curl, and Lighthouse's own navigations — with a 401. Every
+# request this workflow makes against steps.vercel_preview.outputs.url
+# carries the `x-vercel-protection-bypass` header for that reason, at all
+# THREE call sites: `wait-for-vercel-preview`'s own `vercel_protection_bypass_header`
+# input (this one matters most — this step polls the URL first, so it's the
+# one that actually 401s and times out if the header is missing here, even
+# with it present everywhere else), the `resolve_urls` step's curl call, and
 # `--collect.settings.extraHeaders` on the `autorun` call so it's applied to
 # every request Lighthouse itself makes, not just the top-level navigation.
 # The secret value is a Vercel "Protection Bypass for Automation" token the
@@ -99,7 +102,10 @@ name: Lighthouse performance budget
 # was manually added as a GitHub Actions repo secret under the same name so
 # this workflow can read it. Without this, the job doesn't fail loudly on a
 # real problem — it retries against a 401 until wait-for-vercel-preview's own
-# timeout, which is what happened on every PR before this was added.
+# timeout, which is what happened on every PR before this was added (and
+# still happened on the first attempt at this very fix, which covered the
+# other two call sites but missed this one — wait-for-vercel-preview's own
+# polling never even reaches the later steps).
 on:
   pull_request:
     branches: [main]
@@ -127,11 +133,22 @@ jobs:
         # `main`), caught by this workflow's own first real CI run. A
         # floating branch ref is also just worse practice for a third-party
         # action generally.
+        #
+        # vercel_protection_bypass_header (send-425): this action polls the
+        # preview URL itself to detect readiness, so it needs the same
+        # Deployment Protection bypass as every other request in this
+        # workflow — without it, this step is the one that actually 401s and
+        # times out, even after the later curl/lhci calls also had the header
+        # added, because it runs first and never gets past its own polling
+        # loop. Confirmed via this action's own action.yml/source
+        # (dist/index.js) that this input is passed straight through as the
+        # `x-vercel-protection-bypass` header — this isn't a guess.
         uses: patrickedqvist/wait-for-vercel-preview@v1.3.3
         id: vercel_preview
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           max_timeout: 600
+          vercel_protection_bypass_header: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
 
       - name: Resolve a real, currently-live job detail URL from the preview's own sitemap
         id: resolve_urls
