@@ -75,24 +75,35 @@ export default function robots(): MetadataRoute.Robots {
            */
           "/mentorship/",
           /*
-           * The whole employer surface, INCLUDING /employer itself.
+           * The employer DASHBOARD surface — everything under /employer
+           * except the bare path itself.
            *
-           * An earlier version of this file allowed /employer on the belief
-           * that it was a public landing page. It is not: it is a redirect-only
-           * route whose first act is `getEmployerContext()`, which calls
-           * `requireUser()`. A signed-out visitor gets 307 -> /login, so there
-           * is no page there to index and no title to give it — Next's redirect
-           * boilerplate carries the root title, which is what made it look like
-           * a real page from the outside.
+           * send-350 — `/employer` (bare) is now a real, public "for
+           * employers" marketing page (components/employer/employer-public-
+           * landing.tsx) rather than the redirect-only route it used to be,
+           * so it comes OFF this list — the exact "if a public marketing
+           * page is ever built, it earns its own Allow" this comment used to
+           * anticipate. Every sub-route below still requires a session
+           * (`requireEmployer()` or, for onboarding, `requireUser()`,
+           * checked directly in each page — see employer/layout.tsx's own
+           * comment for why the layout itself no longer forces this) and
+           * stays disallowed for the same "don't waste crawl budget
+           * discovering a redirect" reason as ever.
            *
-           * If a public "for employers" marketing page is ever built, it earns
-           * its own Allow and its own title at that point.
+           * /employer/analytics, /employer/talent-directory and
+           * /employer/claim are ALSO requireEmployer()-gated
+           * (confirmed by reading each page directly) but were never added
+           * here — found while touching this exact block for send-350, the
+           * same "crawlable, unblocked, serves a generic login redirect"
+           * shape send-385 already fixed for /mentorship's own sub-routes.
            */
-          "/employer",
           "/employer/campaigns",
           "/employer/jobs",
           "/employer/onboarding",
           "/employer/profile",
+          "/employer/analytics",
+          "/employer/talent-directory",
+          "/employer/claim",
           // Auth and one-time flows: nothing to index, and some carry tokens.
           "/login",
           "/signup",
