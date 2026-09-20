@@ -56,7 +56,6 @@ describe("isProtectedSeekerPath", () => {
       "/tracker",
       "/onboarding",
       "/dashboard",
-      "/employer",
     ]) {
       expect(isProtectedSeekerPath(base), base).toBe(true);
       expect(isProtectedSeekerPath(`${base}/edit`), `${base}/edit`).toBe(true);
@@ -80,6 +79,22 @@ describe("isProtectedSeekerPath", () => {
     );
     expect(isProtectedSeekerPath("/mentorship/sessions")).toBe(true);
     expect(isProtectedSeekerPath("/mentorship/sessions/mentor")).toBe(true);
+  });
+
+  it("send-350: gates every employer dashboard sub-path but leaves the bare landing page open", () => {
+    // Same mirror-image shape as /mentorship above, moved here for the
+    // identical reason: /employer's bare path is now a real, signed-out
+    // marketing page (components/employer/employer-public-landing.tsx),
+    // while every actual dashboard route stays gated, each at its own page.
+    expect(isProtectedSeekerPath("/employer")).toBe(false);
+    expect(isProtectedSeekerPath("/employer/jobs")).toBe(true);
+    expect(isProtectedSeekerPath("/employer/jobs/new")).toBe(true);
+    expect(isProtectedSeekerPath("/employer/profile")).toBe(true);
+    expect(isProtectedSeekerPath("/employer/campaigns")).toBe(true);
+    expect(isProtectedSeekerPath("/employer/analytics")).toBe(true);
+    expect(isProtectedSeekerPath("/employer/talent-directory")).toBe(true);
+    expect(isProtectedSeekerPath("/employer/claim")).toBe(true);
+    expect(isProtectedSeekerPath("/employer/onboarding")).toBe(true);
   });
 
   it("never flags a route that merely starts with the same letters", () => {
