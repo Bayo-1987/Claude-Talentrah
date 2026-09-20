@@ -105,7 +105,12 @@ jobs:
       # max_timeout generous on purpose: a real Next.js build+deploy, not a
       # dev server — the default 60s is tuned for much smaller apps.
       - name: Wait for the Vercel preview deployment
-        uses: patrickedqvist/wait-for-vercel-preview@master
+        # Pinned to a real tag, not @master — that ref doesn't even resolve
+        # any more (the action's own repo renamed its default branch to
+        # `main`), caught by this workflow's own first real CI run. A
+        # floating branch ref is also just worse practice for a third-party
+        # action generally.
+        uses: patrickedqvist/wait-for-vercel-preview@v1.3.3
         id: vercel_preview
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -125,8 +130,20 @@ jobs:
           echo "job_url=$JOB_URL" >> "$GITHUB_OUTPUT"
 
       - name: Run Lighthouse CI against the 4 key pages
+        # @lhci/cli@0.15.1 pinned by exact version HERE, not in package.json.
+        # It was a committed devDependency for one commit and that broke the
+        # "Dependency audit" job (npm audit --audit-level=high) — its own
+        # bundled lighthouse/puppeteer-core pulls in extract-zip and tmp at
+        # versions with real, if CI-only, high-severity symlink/path-traversal
+        # advisories. That gate has no existing carve-out mechanism and its
+        # own comment in ci.yml is explicit that there is nothing
+        # already-known to except — so the fix is keeping this tool OUT of
+        # the audited tree entirely, not adding an exception to a
+        # deliberately absolute gate. npx still gives full reproducibility
+        # (exact version pinned in the command itself) without ever writing
+        # these transitive deps into package-lock.json.
         run: |
-          npx @lhci/cli autorun \
+          npx --yes @lhci/cli@0.15.1 autorun \
             --collect.url="${{ steps.vercel_preview.outputs.url }}/" \
             --collect.url="${{ steps.vercel_preview.outputs.url }}/jobs/remote" \
             --collect.url="${{ steps.resolve_urls.outputs.job_url }}" \

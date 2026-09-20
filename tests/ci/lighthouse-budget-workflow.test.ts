@@ -22,13 +22,19 @@ const config = JSON.parse(readFileSync(CONFIG_PATH, "utf-8")) as {
   ci: { assert: { assertions: Record<string, [string, { minScore: number }]> } };
 };
 
+const PACKAGE_JSON_PATH = join(process.cwd(), "package.json");
+const packageJson = JSON.parse(readFileSync(PACKAGE_JSON_PATH, "utf-8")) as {
+  dependencies?: Record<string, string>;
+  devDependencies?: Record<string, string>;
+};
+
 describe("lighthouse-budget.yml wires Lighthouse CI against the real Vercel preview", () => {
   it("waits for the Vercel preview deployment rather than building locally", () => {
     expect(workflow).toMatch(/uses:\s*patrickedqvist\/wait-for-vercel-preview/);
   });
 
   it("actually runs lhci autorun, not just collect", () => {
-    expect(workflow).toMatch(/@lhci\/cli autorun/);
+    expect(workflow).toMatch(/@lhci\/cli(@[\w.-]+)? autorun/);
   });
 
   it("resolves the job detail URL at runtime from the preview's own sitemap, never a hardcoded job id", () => {
@@ -36,6 +42,15 @@ describe("lighthouse-budget.yml wires Lighthouse CI against the real Vercel prev
     // A hardcoded UUID job id would be exactly the kind of thing that
     // silently rots when that posting closes — assert none is present.
     expect(workflow).not.toMatch(/\/jobs\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/);
+  });
+
+  it("pins the exact @lhci/cli version inside the npx call, not in package.json", () => {
+    expect(workflow).toMatch(/@lhci\/cli@\d+\.\d+\.\d+/);
+  });
+
+  it("REGRESSION: @lhci/cli is NOT a committed dependency — it broke the Dependency audit job (npm audit --audit-level=high) the one time it was, via its own bundled lighthouse/puppeteer-core pulling in extract-zip and tmp at high-severity-advisory versions", () => {
+    expect(packageJson.dependencies?.["@lhci/cli"]).toBeUndefined();
+    expect(packageJson.devDependencies?.["@lhci/cli"]).toBeUndefined();
   });
 
   it("triggers on every pull_request, with no path filtering", () => {
