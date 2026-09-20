@@ -49,16 +49,16 @@ export const STATIC_PATHS: { path: string; priority: number; changeFrequency: Me
   { path: "/about", priority: 0.6, changeFrequency: "monthly" },
   { path: "/contact", priority: 0.5, changeFrequency: "yearly" },
   /*
-   * NOT /employer, removed 2026-09-18 — it violated this file's own rule
-   * above. /employer's first act is getEmployerContext() -> requireUser(),
-   * so a signed-out visitor (every crawler) gets a 307 to /login, not a 200;
-   * robots.ts already fully disallows the whole /employer surface for
-   * exactly this reason. Listing it here was the anti-pattern this file
-   * warns against, happening to itself. If a public "for employers"
-   * marketing page is ever built (robots.ts's own comment already
-   * anticipates this), it earns its own Allow AND its own row here at that
-   * point — not before.
+   * send-350 — /employer now has its own real, signed-out-visitor page
+   * (components/employer/employer-public-landing.tsx) instead of a login
+   * redirect, so it belongs here again by this file's own rule — reversing
+   * the 2026-09-18 removal note this comment used to carry (that removal
+   * was correct at the time: the page genuinely didn't exist yet). Static,
+   * not a DB-backed block below, for the same reason /mentorship is: the
+   * content is hand-authored marketing copy, not a live count that can go
+   * stale between deploys.
    */
+  { path: "/employer", priority: 0.6, changeFrequency: "monthly" },
   { path: "/blog", priority: 0.7, changeFrequency: "weekly" },
   /*
    * send-385 — /mentorship now has its own real, signed-out-visitor page

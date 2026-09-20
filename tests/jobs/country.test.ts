@@ -28,6 +28,17 @@ describe("deriveCountry", () => {
     },
   );
 
+  it(
+    "send-424: a blind posting from each of the four Nigeria CITY sources also derives " +
+      "Nigeria via the source fallback, not just workable-nigeria itself",
+    () => {
+      expect(deriveCountry(job("Remote", "schema-org:workable-lagos"))).toBe("Nigeria");
+      expect(deriveCountry(job("Remote", "schema-org:workable-abuja"))).toBe("Nigeria");
+      expect(deriveCountry(job("Remote", "schema-org:workable-ibadan"))).toBe("Nigeria");
+      expect(deriveCountry(job("Remote", "schema-org:workable-port-harcourt"))).toBe("Nigeria");
+    },
+  );
+
   it("a literal country name in the location wins even without a source fallback", () => {
     expect(deriveCountry(job("Lagos, Nigeria", null))).toBe("Nigeria");
     expect(deriveCountry(job("Accra, Greater Accra Region, Ghana", null))).toBe("Ghana");
@@ -94,6 +105,30 @@ describe("countryOrFilter / countryFromSlug", () => {
     expect(filter).toContain("location.ilike.%Nigeria%");
     expect(filter).toContain("external_source.eq.schema-org:workable-nigeria");
   });
+
+  it(
+    "REGRESSION (send-424): includes ALL five Nigeria fallback sources, not just the " +
+      "first one found — a public landing page's own SQL filter must recognise a blind " +
+      "row from any of the city sources, the same way deriveCountry's in-memory check " +
+      "already does via one object lookup covering every key",
+    () => {
+      const filter = countryOrFilter("Nigeria");
+      for (const source of [
+        "schema-org:workable-nigeria",
+        "schema-org:workable-lagos",
+        "schema-org:workable-abuja",
+        "schema-org:workable-ibadan",
+        "schema-org:workable-port-harcourt",
+      ]) {
+        expect(filter, `missing fallback source: ${source}`).toContain(`external_source.eq.${source}`);
+      }
+      // Sibling countries still get exactly their one real source each —
+      // this isn't every country suddenly getting every Nigeria source too.
+      expect(countryOrFilter("Ghana")).toBe(
+        "location.ilike.%Ghana%,external_source.eq.schema-org:workable-ghana",
+      );
+    },
+  );
 
   it("round-trips every tracked country through its landing slug", () => {
     for (const c of TRACKED_COUNTRIES) {
