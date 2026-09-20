@@ -80,9 +80,67 @@
  *    update might be delayed. This is a genuine fix, not a longer
  *    timeout — it waits for the real condition rather than sampling once
  *    and hoping enough time has already passed.
+ *
+ * 3. Even (1) and (2) together did not stop this file's own CI runs from
+ *    failing at the exact same assertion — confirmed by re-running PR #521
+ *    (the branch containing both fixes) itself, which failed identically:
+ *    "expected true, received false", 13 retries over the full 5000ms
+ *    timeout, meaning the click genuinely never toggled the switch at all —
+ *    not a stale-attribute read. The real cause, found by checking what
+ *    else changed on `/jobs` around the same time: send-406's
+ *    `CookieConsentBanner` (src/components/legal/cookie-consent-banner.tsx)
+ *    now renders site-wide in the root layout, starts hidden, and resolves
+ *    to visible asynchronously after mount (a microtask reading
+ *    localStorage) on any fresh browser context — which every `authedPage`
+ *    test gets, by design (see fixtures/authed.ts). Its appearance is real
+ *    in-flow content ABOVE the masthead, pushing everything below it
+ *    (including this file's own switches) down by the banner's height.
+ *    `FixedFeedHeader` (src/components/jobs/fixed-feed-header.tsx, also
+ *    touched by send-406) has to re-measure its own `top` offset in
+ *    response, via a MutationObserver-triggered, rAF-scheduled callback —
+ *    itself a further one-or-two-frame lag behind the banner's own
+ *    appearance. `clickSwitchPoint` re-probing the SWITCH's own
+ *    `getBoundingClientRect()` immediately before each click (fix 1) does
+ *    NOT catch this: the switch's own box may be measured correctly at
+ *    that instant while a still-repositioning fixed header sits on top of
+ *    the exact pixel the click is aimed at, so the click lands on the
+ *    header instead and the switch never receives it. This is not
+ *    intermittent bad luck in a network round-trip — it is a real,
+ *    reproducible layout race between two independent pieces of
+ *    send-406 (the banner's async mount, the header's async re-measure)
+ *    and this test's very first interaction on a freshly-authenticated
+ *    page. `e2e/feed-chrome.spec.ts` and `e2e/fixed-tab-row.spec.ts`
+ *    (both already touched by send-406 itself) already established the
+ *    correct fix for exactly this: settle the banner — wait for its
+ *    async resolution, dismiss it if present, then wait two animation
+ *    frames for `FixedFeedHeader` to catch up — before doing anything
+ *    that depends on layout being stable. `settleCookieBanner` below is
+ *    that same pattern, applied here for the same reason.
  */
 import { test, expect, admin } from "./fixtures/authed";
 import type { Page } from "@playwright/test";
+
+/**
+ * send-424 (finding 3, see this file's own header) — settles send-406's
+ * cookie consent banner before any coordinate-based interaction. Every
+ * `authedPage` test gets a fresh browser context with no stored consent, so
+ * the banner WILL start hidden and resolve to visible shortly after mount,
+ * shifting layout out from under a test that hasn't waited for it. Mirrors
+ * e2e/feed-chrome.spec.ts's own `beforeEach`, including the two-animation-
+ * frame wait for `FixedFeedHeader`'s own async re-measurement to catch up
+ * with the shift.
+ */
+async function settleCookieBanner(page: Page): Promise<void> {
+  const banner = page.locator('[data-testid="cookie-consent-banner"]');
+  await page.waitForTimeout(300);
+  if (await banner.isVisible().catch(() => false)) {
+    await page.getByRole("button", { name: "Accept" }).click();
+    await expect(banner).toBeHidden();
+    await page.evaluate(
+      () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))),
+    );
+  }
+}
 
 interface SwitchProbe {
   visible: { w: number; h: number };
@@ -156,6 +214,7 @@ async function clickSwitchPoint(
 test.describe("switch toggle hit targets extend beyond the visible 26x46px track", () => {
   test("Auto-Apply toggle (job feed)", async ({ authedPage }) => {
     await authedPage.goto("/jobs");
+    await settleCookieBanner(authedPage);
     const label = "Auto-Apply";
     await authedPage.locator(`[role="switch"][aria-label="${label}"]`).scrollIntoViewIfNeeded();
 
@@ -183,6 +242,7 @@ test.describe("switch toggle hit targets extend beyond the visible 26x46px track
       "stale-coordinate click",
     async ({ authedPage }) => {
       await authedPage.goto("/jobs");
+      await settleCookieBanner(authedPage);
       const label = "Auto-Apply";
       await authedPage.locator(`[role="switch"][aria-label="${label}"]`).scrollIntoViewIfNeeded();
 
@@ -232,6 +292,7 @@ test.describe("switch toggle hit targets extend beyond the visible 26x46px track
 
   test("referral leaderboard opt-in toggle", async ({ authedPage }) => {
     await authedPage.goto("/refer");
+    await settleCookieBanner(authedPage);
     const label = "Appear on the referral leaderboard";
     await authedPage.locator(`[role="switch"][aria-label="${label}"]`).scrollIntoViewIfNeeded();
 
@@ -253,6 +314,7 @@ test.describe("switch toggle hit targets extend beyond the visible 26x46px track
     if (error) throw error;
 
     await authedPage.goto("/mentorship/apply");
+    await settleCookieBanner(authedPage);
     const label = "Pause your mentor listing";
     await authedPage.locator(`[role="switch"][aria-label="${label}"]`).scrollIntoViewIfNeeded();
 
@@ -276,6 +338,7 @@ test.describe("switch toggle hit targets extend beyond the visible 26x46px track
     if (error) throw error;
 
     await authedPage.goto("/mentorship/apply");
+    await settleCookieBanner(authedPage);
     const label = "Review Talent Directory verifications";
     await authedPage.locator(`[role="switch"][aria-label="${label}"]`).scrollIntoViewIfNeeded();
 
@@ -300,6 +363,7 @@ test.describe("switch toggle hit targets extend beyond the visible 26x46px track
     if (error) throw error;
 
     await authedPage.goto("/talent-directory/verify");
+    await settleCookieBanner(authedPage);
     const firstSwitch = authedPage.locator('[role="switch"]').first();
     await firstSwitch.scrollIntoViewIfNeeded();
     const resolvedLabel = await firstSwitch.getAttribute("aria-label");
