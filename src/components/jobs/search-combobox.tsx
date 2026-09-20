@@ -230,7 +230,23 @@ export function SearchCombobox({
         // (placeholders, captions, taglines)" doesn't cover an active search
         // term. Scoped to `placeholder:italic` so only the empty-state text
         // is italic; what a person actually types renders upright.
-        className="min-h-[42px] w-full min-w-0 flex-1 border-none bg-card px-3.5 font-display text-[13px] text-ink outline-none placeholder:italic placeholder:text-ink-soft"
+        //
+        // send-381 (WCAG 2.4.7) — `outline-none` had no focus replacement:
+        // tabbing in produced zero visible change. This input has no border
+        // of its own (filter-bar.tsx's shared outer box is the search bar's
+        // real boundary), so a real, un-suppressed `outline` — not a border,
+        // which would shift layout — is the fix, offset inward so it renders
+        // inside this input's own bounds rather than clipping against the
+        // shared box's edge.
+        //
+        // `focus:outline-solid` is load-bearing, not decorative: Tailwind
+        // v4's `outline-none` sets a shared `--tw-outline-style: none`
+        // variable, and `outline-2` alone just re-reads that same (still
+        // "none") variable rather than overriding it — confirmed live: the
+        // outline never actually rendered without this, despite every other
+        // class being present and correct. `outline-solid` is what resets
+        // the variable back to a real style.
+        className="min-h-[42px] w-full min-w-0 flex-1 border-none bg-card px-3.5 font-display text-[13px] text-ink outline-none placeholder:italic placeholder:text-ink-soft focus:outline-solid focus:outline-2 focus:outline-rust focus:outline-offset-[-2px]"
       />
 
       {/*
