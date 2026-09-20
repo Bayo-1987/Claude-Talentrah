@@ -67,8 +67,12 @@ describe("lighthouse-budget.yml wires Lighthouse CI against the real Vercel prev
     // is the one that actually matters: this step 401s and times out first
     // if the header is missing here, even with it present everywhere else.
     expect(workflow).toMatch(/vercel_protection_bypass_header:\s*\$\{\{\s*secrets\.VERCEL_AUTOMATION_BYPASS_SECRET\s*\}\}/);
-    // The resolve_urls step's curl call carries the header directly.
-    expect(workflow).toMatch(/curl -fsS[^\n]*\n\s*-H "x-vercel-protection-bypass: \$VERCEL_AUTOMATION_BYPASS_SECRET"/);
+    // The resolve_urls step's curl call carries the header directly. No -f:
+    // it would swallow both the body and the status code on a real failure,
+    // which is exactly what made this step's first real failure a bare
+    // "exit 1" with no diagnostic text at all.
+    expect(workflow).toMatch(/curl -sS[^\n]*\n\s*-H "x-vercel-protection-bypass: \$VERCEL_AUTOMATION_BYPASS_SECRET"/);
+    expect(workflow).not.toMatch(/curl -fsS/);
     // The autorun call applies it via Lighthouse's own settings object (no
     // --extraHeaders/--collect.extraHeaders flag exists on @lhci/cli — the
     // camelCase settings key nested under --collect.settings is correct).

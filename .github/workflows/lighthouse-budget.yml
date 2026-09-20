@@ -163,11 +163,24 @@ jobs:
         env:
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
         run: |
-          set -euo pipefail
-          JOB_URL=$(curl -fsS "${{ steps.vercel_preview.outputs.url }}/sitemap.xml" \
+          set -uo pipefail
+          # No -f here deliberately: -f makes curl exit non-zero on a 4xx/5xx
+          # with NO body and NO status code printed anywhere, which is why
+          # this step's first real failure gave zero diagnostic information
+          # (a silent exit 1, no error text at all). -w appends the status
+          # code as the response body's last line instead, so a genuine
+          # failure is at least legible in the log rather than a bare
+          # "Process completed with exit code 1."
+          RESPONSE=$(curl -sS "${{ steps.vercel_preview.outputs.url }}/sitemap.xml" \
             -H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" \
-            | grep -oE 'https://[^<]*/jobs/[0-9a-f-]{36}' \
-            | head -1)
+            -w '\n%{http_code}')
+          STATUS=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+          if [ "$STATUS" != "200" ]; then
+            echo "::error::sitemap.xml request failed with HTTP $STATUS. First 500 chars of response: $(echo "$BODY" | head -c 500)"
+            exit 1
+          fi
+          JOB_URL=$(echo "$BODY" | grep -oE 'https://[^<]*/jobs/[0-9a-f-]{36}' | head -1)
           if [ -z "$JOB_URL" ]; then
             echo "::error::No /jobs/<uuid> URL found in the preview's sitemap.xml — cannot pick a job detail page to audit."
             exit 1
