@@ -19,8 +19,17 @@ if (process.env.CI && !DEMO_PASSWORD) {
   throw new Error("fixed-tab-row spec cannot run in CI: DEMO_PASSWORD is not set");
 }
 
-/** The masthead's height, and therefore where this row is pinned. */
-const TOP = 68;
+async function mastheadBottom(page: Page): Promise<number> {
+  /*
+   * Not a hardcoded 68: fixed-feed-header.tsx itself measures the masthead
+   * band's REAL bottom edge (content height plus its own border), which
+   * this suite should match rather than approximate — a hardcoded number
+   * here silently drifted from that already, off by the ~2.5px border this
+   * file's sibling e2e/feed-chrome.spec.ts already documents in its own
+   * `MASTHEAD_BOTTOM = 71`.
+   */
+  return page.locator('[data-testid="masthead-band"]').evaluate((el) => el.getBoundingClientRect().bottom);
+}
 
 async function login(page: Page) {
   await page.goto("/login");
@@ -28,6 +37,33 @@ async function login(page: Page) {
   await page.getByLabel("Password", { exact: true }).fill(DEMO_PASSWORD!);
   await page.getByRole("button", { name: "Log in" }).click();
   await page.waitForURL("**/jobs");
+  /*
+   * send-406's cookie consent banner is real, in-flow content that renders
+   * above the masthead until a fresh browser context makes a choice — this
+   * suite's own concern is the row's fixed-positioning behaviour, not the
+   * banner (e2e/cookie-consent-banner.spec.ts already owns that), so settle
+   * it out of the way first rather than asserting position against a masthead
+   * that's still sitting below the banner.
+   */
+  const banner = page.locator('[data-testid="cookie-consent-banner"]');
+  // The banner starts hidden and resolves visibility asynchronously after
+  // mount (see its own component header) — give that a moment to land
+  // before deciding whether there's anything to dismiss.
+  await page.waitForTimeout(300);
+  if (await banner.isVisible().catch(() => false)) {
+    await page.getByRole("button", { name: "Accept" }).click();
+    await expect(banner).toBeHidden();
+    /*
+     * The banner's own removal from the DOM is not the same instant as
+     * fixed-feed-header.tsx catching up: it re-measures via a
+     * MutationObserver-triggered, rAF-scheduled callback, one tick after
+     * the mutation and one more for the scheduled measurement itself. Two
+     * animation frames is exactly that, not an arbitrary wait.
+     */
+    await page.evaluate(
+      () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))),
+    );
+  }
   // The row measures itself in a layout effect; wait for it to have taken.
   await page.locator('[data-testid="feed-header"]').waitFor();
 }
@@ -47,7 +83,7 @@ test.describe("the feed's tab row is fixed to the viewport", () => {
     await login(page);
 
     const before = await boxOf(page, "feed-header");
-    expect(before.top).toBeCloseTo(TOP, 0);
+    expect(before.top).toBeCloseTo(await mastheadBottom(page), 0);
 
     // Far enough that a sticky-inside-a-transformed-ancestor bug, or a plain
     // static element, would be unmistakably gone from this position.
@@ -202,7 +238,7 @@ test.describe("at a mobile width, where the row wraps", () => {
     await page.evaluate(() => window.scrollTo(0, 800));
     await page.waitForFunction(() => window.scrollY === 800);
     const after = await boxOf(page, "feed-header");
-    expect(after.top).toBeCloseTo(TOP, 0);
+    expect(after.top).toBeCloseTo(await mastheadBottom(page), 0);
     expect(after.left).toBeCloseTo(bar.left, 0);
 
     /*
