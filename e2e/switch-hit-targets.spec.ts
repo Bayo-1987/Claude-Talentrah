@@ -74,6 +74,36 @@ async function ariaChecked(page: import("@playwright/test").Page, ariaLabel: str
   );
 }
 
+/**
+ * send-424 — root cause of this file's own historical CI flake (the
+ * Auto-Apply toggle test, /jobs, failed intermittently — documented first
+ * around PR #488, then again three more times in one day across unrelated
+ * PRs). Every test in this file used to call `probeSwitch` ONCE per case and
+ * reuse that single coordinate pair for BOTH the outside- and inside-
+ * extension clicks. If the page's layout shifts at all between that one
+ * probe and either click — exactly what a job feed with async, match-scored
+ * cards streaming in does far more than the simpler /refer,
+ * /mentorship/apply or /talent-directory/verify pages the sibling tests hit,
+ * which is why only the Auto-Apply case was ever observed to flake — the
+ * cached coordinate goes stale and the click lands on whatever is now at
+ * that point instead of the switch.
+ *
+ * The fix: re-probe immediately before EVERY click, never reuse a snapshot
+ * across an await boundary. This closes the staleness window entirely
+ * regardless of why a shift happens, rather than reducing its likelihood
+ * with a longer wait — see the "REGRESSION" test below, which proves this
+ * directly by injecting a real shift and confirming a stale coordinate would
+ * have mis-clicked while this helper still lands correctly.
+ */
+async function clickSwitchPoint(
+  page: import("@playwright/test").Page,
+  ariaLabel: string,
+  which: "insideExtension" | "outsideExtension",
+): Promise<void> {
+  const probe = await probeSwitch(page, ariaLabel);
+  await page.mouse.click(probe[which].x, probe[which].y);
+}
+
 test.describe("switch toggle hit targets extend beyond the visible 26x46px track", () => {
   test("Auto-Apply toggle (job feed)", async ({ authedPage }) => {
     await authedPage.goto("/jobs");
@@ -84,10 +114,10 @@ test.describe("switch toggle hit targets extend beyond the visible 26x46px track
     expect(before.visible).toEqual({ w: 46, h: 26 });
     expect(await ariaChecked(authedPage, label)).toBe("false");
 
-    await authedPage.mouse.click(before.outsideExtension.x, before.outsideExtension.y);
+    await clickSwitchPoint(authedPage, label, "outsideExtension");
     expect(await ariaChecked(authedPage, label), "a click past the extended zone must NOT toggle it").toBe("false");
 
-    await authedPage.mouse.click(before.insideExtension.x, before.insideExtension.y);
+    await clickSwitchPoint(authedPage, label, "insideExtension");
     expect(await ariaChecked(authedPage, label), "a click inside the extended zone, outside the visible pill, must toggle it").toBe(
       "true",
     );
@@ -95,6 +125,55 @@ test.describe("switch toggle hit targets extend beyond the visible 26x46px track
     const after = await probeSwitch(authedPage, label);
     expect(after.visible, "the visible track must not have grown").toEqual({ w: 46, h: 26 });
   });
+
+  test(
+    "REGRESSION (send-424): a layout shift between probing and clicking must not produce a " +
+      "stale-coordinate click — the actual root cause of this suite's own historical CI flake",
+    async ({ authedPage }) => {
+      await authedPage.goto("/jobs");
+      const label = "Auto-Apply";
+      await authedPage.locator(`[role="switch"][aria-label="${label}"]`).scrollIntoViewIfNeeded();
+
+      const before = await probeSwitch(authedPage, label);
+      expect(before.visible).toEqual({ w: 46, h: 26 });
+      expect(await ariaChecked(authedPage, label)).toBe("false");
+
+      // Simulate exactly the class of shift a job feed with async,
+      // match-scored cards streaming in produces — content arriving above
+      // the toggle and pushing it down, after the FIRST probe already ran.
+      await authedPage.evaluate(() => {
+        const spacer = document.createElement("div");
+        spacer.style.height = "80px";
+        spacer.id = "e2e-injected-shift";
+        document.body.prepend(spacer);
+      });
+
+      // Prove the shift is real and would genuinely break the OLD
+      // (probe-once, reuse-the-coordinate) pattern: at the position the
+      // FIRST probe recorded, the switch is no longer there.
+      const staleCoordinateStillHitsTheSwitch = await authedPage.evaluate(({ x, y }) => {
+        const el = document.elementFromPoint(x, y);
+        return el?.getAttribute("role") === "switch";
+      }, before.insideExtension);
+      expect(
+        staleCoordinateStillHitsTheSwitch,
+        "the injected shift didn't move the target — this run isn't exercising the real race",
+      ).toBe(false);
+
+      // The fix under test: clickSwitchPoint re-probes immediately before
+      // clicking, so it lands correctly despite the shift that already
+      // invalidated `before`'s own coordinates.
+      await clickSwitchPoint(authedPage, label, "outsideExtension");
+      expect(await ariaChecked(authedPage, label), "a click past the extended zone must NOT toggle it").toBe("false");
+
+      await clickSwitchPoint(authedPage, label, "insideExtension");
+      expect(await ariaChecked(authedPage, label), "a fresh-probed click must toggle it despite the earlier shift").toBe(
+        "true",
+      );
+
+      await authedPage.evaluate(() => document.getElementById("e2e-injected-shift")?.remove());
+    },
+  );
 
   test("referral leaderboard opt-in toggle", async ({ authedPage }) => {
     await authedPage.goto("/refer");
@@ -105,10 +184,10 @@ test.describe("switch toggle hit targets extend beyond the visible 26x46px track
     expect(before.visible).toEqual({ w: 46, h: 26 });
     expect(await ariaChecked(authedPage, label)).toBe("false");
 
-    await authedPage.mouse.click(before.outsideExtension.x, before.outsideExtension.y);
+    await clickSwitchPoint(authedPage, label, "outsideExtension");
     expect(await ariaChecked(authedPage, label)).toBe("false");
 
-    await authedPage.mouse.click(before.insideExtension.x, before.insideExtension.y);
+    await clickSwitchPoint(authedPage, label, "insideExtension");
     expect(await ariaChecked(authedPage, label)).toBe("true");
   });
 
@@ -126,10 +205,10 @@ test.describe("switch toggle hit targets extend beyond the visible 26x46px track
     expect(before.visible).toEqual({ w: 46, h: 26 });
     expect(await ariaChecked(authedPage, label)).toBe("false");
 
-    await authedPage.mouse.click(before.outsideExtension.x, before.outsideExtension.y);
+    await clickSwitchPoint(authedPage, label, "outsideExtension");
     expect(await ariaChecked(authedPage, label)).toBe("false");
 
-    await authedPage.mouse.click(before.insideExtension.x, before.insideExtension.y);
+    await clickSwitchPoint(authedPage, label, "insideExtension");
     expect(await ariaChecked(authedPage, label)).toBe("true");
 
     await admin.from("mentor_profiles").delete().eq("user_id", testUser.id);
@@ -149,10 +228,10 @@ test.describe("switch toggle hit targets extend beyond the visible 26x46px track
     expect(before.visible).toEqual({ w: 46, h: 26 });
     expect(await ariaChecked(authedPage, label)).toBe("false");
 
-    await authedPage.mouse.click(before.outsideExtension.x, before.outsideExtension.y);
+    await clickSwitchPoint(authedPage, label, "outsideExtension");
     expect(await ariaChecked(authedPage, label)).toBe("false");
 
-    await authedPage.mouse.click(before.insideExtension.x, before.insideExtension.y);
+    await clickSwitchPoint(authedPage, label, "insideExtension");
     expect(await ariaChecked(authedPage, label)).toBe("true");
 
     await admin.from("mentor_profiles").delete().eq("user_id", testUser.id);
@@ -175,10 +254,10 @@ test.describe("switch toggle hit targets extend beyond the visible 26x46px track
     expect(before.visible).toEqual({ w: 46, h: 26 });
     expect(await ariaChecked(authedPage, resolvedLabel!)).toBe("false");
 
-    await authedPage.mouse.click(before.outsideExtension.x, before.outsideExtension.y);
+    await clickSwitchPoint(authedPage, resolvedLabel!, "outsideExtension");
     expect(await ariaChecked(authedPage, resolvedLabel!)).toBe("false");
 
-    await authedPage.mouse.click(before.insideExtension.x, before.insideExtension.y);
+    await clickSwitchPoint(authedPage, resolvedLabel!, "insideExtension");
     expect(await ariaChecked(authedPage, resolvedLabel!)).toBe("true");
   });
 });
