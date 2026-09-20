@@ -146,6 +146,59 @@ describe("stripInlineMarkdown — LLM-prompt safety (send-370's tailor.ts fix, s
   it("plain text with no marks is returned unchanged", () => {
     expect(stripInlineMarkdown("Plain text, no markers at all.")).toBe("Plain text, no markers at all.");
   });
+
+  /**
+   * send-416 — same defect class as send-413's `stripMarkdownToPlainText`
+   * fix in src/lib/jobs/extract-jd.ts, confirmed independently for THIS
+   * sibling function: a run of 3+ glued asterisks left literal asterisks
+   * visible instead of being stripped. This exact string is the one PR
+   * #499's own send-413 commit used to reproduce the sibling bug; run here
+   * against stripInlineMarkdown it demonstrated the identical symptom
+   * before this fix ("Location: India*Who We Are*", literal asterisks
+   * surviving).
+   */
+  it("send-416: collapses a run of 5+ glued asterisks instead of leaving literal asterisks visible", () => {
+    expect(stripInlineMarkdown("**Location:** India******Who We Are**")).toBe("Location: IndiaWho We Are");
+  });
+
+  it("send-416: a real LLM-sloppy run of glued bold labels (no gap between two bold segments) strips clean", () => {
+    // Realistic for tailor.ts/rewrite-bullet.ts's callers: an LLM emitting
+    // two "**Label:**"-style bold segments with NOTHING between the first's
+    // close and the second's open (not even a space) — a formatting glitch
+    // distinct from the HTML-stripping origin of the sibling function's
+    // bug, but producing the identical glued-run shape (5+ consecutive
+    // asterisks) since the close of one bold marker and the open of the
+    // next collide directly.
+    expect(stripInlineMarkdown("**Impact: cut costs 30%*****Scope: led 5 engineers**")).toBe(
+      "Impact: cut costs 30%Scope: led 5 engineers",
+    );
+  });
+
+  /**
+   * send-416 — the case send-413's fix could NOT be mechanically copied
+   * for: unlike stripMarkdownToPlainText (no italics support at all), this
+   * function gives a single "*" real meaning. A run of exactly 3 asterisks
+   * is a genuine, producible boundary between an adjacent bold segment and
+   * an italic segment with no separating character — confirmed from
+   * minimal-document.ts's own inlineToMarkdown serializer, which emits
+   * "**text**" for a bold node and "*text*" for an italic node with
+   * nothing inserted between two adjacent nodes of different marks. A
+   * mentor bio editor produces exactly this by bolding one word/phrase and
+   * italicizing the very next one with no space typed in between. This
+   * must NOT be broken by the run-collapse fix above (the collapse only
+   * targets runs of 5+, deliberately below this run's length of 3).
+   */
+  it("send-416: a genuine adjacent bold-then-italic boundary (run of 3, real editor output) still strips correctly", () => {
+    expect(stripInlineMarkdown("**Ex-Google.***Loves hiking*")).toBe("Ex-Google.Loves hiking");
+  });
+
+  it("send-416: a genuine adjacent italic-then-bold boundary (run of 3, the other order) still strips correctly", () => {
+    expect(stripInlineMarkdown("*Loves hiking***Ex-Google.**")).toBe("Loves hikingEx-Google.");
+  });
+
+  it("send-416: two adjacent bold segments (run of exactly 4) still strip correctly, unaffected by the collapse threshold", () => {
+    expect(stripInlineMarkdown("**Ex-Google.****Ex-Paystack.**")).toBe("Ex-Google.Ex-Paystack.");
+  });
 });
 
 /**
