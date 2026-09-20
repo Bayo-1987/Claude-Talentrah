@@ -14,6 +14,7 @@ import {
   emailSchema,
 } from "./schemas";
 import { consumeResendRateLimit } from "./resend-rate-limit";
+import { consumeSignupRateLimit } from "./signup-rate-limit";
 import { consumeLoginRateLimit } from "@/lib/security/login-rate-limit";
 import { getRequestIp } from "@/lib/security/request-ip";
 import type { ResendState } from "./resend-state";
@@ -60,6 +61,20 @@ export async function signUpAction(
 
   const { firstName, lastName, email, country, password, referredByCode } =
     parsed.data;
+
+  /*
+   * Per-IP throttle BEFORE the real Supabase call — send-405 (signup had
+   * zero abuse protection: no rate limit, no CAPTCHA, no honeypot). Same
+   * ordering as the seeker login check just above: schema validation first,
+   * so malformed input never consumes a real caller's budget, then the
+   * rate-limit check, then the real signUp() call — so a caller already over
+   * their own limit never reaches Supabase's endpoint at all.
+   */
+  const ip = await getRequestIp();
+  const signupRateLimit = await consumeSignupRateLimit(ip);
+  if (!signupRateLimit.allowed) {
+    return { error: "Too many signup attempts from this connection — try again later." };
+  }
 
   const supabase = await createClient();
   const origin = await getOrigin();

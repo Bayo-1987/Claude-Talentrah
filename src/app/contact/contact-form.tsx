@@ -2,7 +2,11 @@
 
 import { useActionState } from "react";
 import { sendContactMessageAction } from "@/lib/contact/actions";
-import { CONTACT_TOPICS, initialContactActionState } from "@/lib/contact/schemas";
+import {
+  CONTACT_TOPICS,
+  CONTACT_HONEYPOT_FIELD,
+  initialContactActionState,
+} from "@/lib/contact/schemas";
 import { TextField, SelectField, Button } from "@/components/ui";
 
 export function ContactForm() {
@@ -27,6 +31,24 @@ export function ContactForm() {
           {state.error}
         </p>
       )}
+
+      {/*
+        send-405 honeypot: invisible to a real visitor by every path —
+        moved off-screen (not display:none/hidden, which naive bots already
+        skip), pulled out of the accessibility tree so a screen reader never
+        announces it, and out of the Tab order so keyboard navigation never
+        lands on it. A bot that fills every input it finds fills this one;
+        a human never sees or reaches it. See sendContactMessageAction's own
+        comment for what happens when it's filled (silent success, no email).
+      */}
+      <input
+        type="text"
+        name={CONTACT_HONEYPOT_FIELD}
+        tabIndex={-1}
+        aria-hidden="true"
+        autoComplete="off"
+        className="absolute left-[-9999px] top-[-9999px] h-px w-px overflow-hidden"
+      />
 
       <TextField
         label="Your name"
