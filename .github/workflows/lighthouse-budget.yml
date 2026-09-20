@@ -83,6 +83,23 @@ name: Lighthouse performance budget
 # fix, not a citation correction, and is out of this gate's own scope.
 # None of these are fixed here — this send is the gate, not the fix, per its
 # own explicit scope.
+#
+# DEPLOYMENT PROTECTION BYPASS (send-425). This repo's Vercel project has
+# Deployment Protection (SSO) on, which blocks anonymous requests to a preview
+# URL — including this workflow's own curl and Lighthouse's own navigations —
+# with a 401. Every request this workflow makes against
+# steps.vercel_preview.outputs.url carries the
+# `x-vercel-protection-bypass` header for that reason: once on the
+# `resolve_urls` step's curl call, and once as
+# `--collect.settings.extraHeaders` on the `autorun` call so it's applied to
+# every request Lighthouse itself makes, not just the top-level navigation.
+# The secret value is a Vercel "Protection Bypass for Automation" token the
+# founder generated in the Vercel dashboard; Vercel auto-injects it as
+# VERCEL_AUTOMATION_BYPASS_SECRET on every deployment, and the identical value
+# was manually added as a GitHub Actions repo secret under the same name so
+# this workflow can read it. Without this, the job doesn't fail loudly on a
+# real problem — it retries against a 401 until wait-for-vercel-preview's own
+# timeout, which is what happened on every PR before this was added.
 on:
   pull_request:
     branches: [main]
@@ -118,9 +135,20 @@ jobs:
 
       - name: Resolve a real, currently-live job detail URL from the preview's own sitemap
         id: resolve_urls
+        # Vercel Deployment Protection (SSO) blocks anonymous requests to a PR
+        # preview, including this workflow's own curl call — every preview
+        # request needs the x-vercel-protection-bypass header or it 401s.
+        # VERCEL_AUTOMATION_BYPASS_SECRET is the "Protection Bypass for
+        # Automation" secret Vercel generates and auto-wires onto every
+        # deployment; it was manually mirrored into this repo's GitHub
+        # Actions secrets under the identical name so this workflow can read
+        # it too.
+        env:
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
         run: |
           set -euo pipefail
           JOB_URL=$(curl -fsS "${{ steps.vercel_preview.outputs.url }}/sitemap.xml" \
+            -H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" \
             | grep -oE 'https://[^<]*/jobs/[0-9a-f-]{36}' \
             | head -1)
           if [ -z "$JOB_URL" ]; then
@@ -142,10 +170,31 @@ jobs:
         # deliberately absolute gate. npx still gives full reproducibility
         # (exact version pinned in the command itself) without ever writing
         # these transitive deps into package-lock.json.
+        #
+        # Same Deployment Protection problem as the resolve_urls step above:
+        # Lighthouse's own navigations and every sub-request it makes against
+        # the preview need the bypass header too, or Chrome just hits the SSO
+        # wall instead of the page. @lhci/cli@0.15.1 has no --extraHeaders (or
+        # --collect.extraHeaders) flag of its own — confirmed against its
+        # actual --help output and source (src/collect/collect.js,
+        # node-runner.js), which pass a generic --settings object through to
+        # Lighthouse's own configSettings essentially unmodified. Lighthouse's
+        # native settings key for this is camelCase `extraHeaders` (the
+        # kebab-case `--extra-headers` is Lighthouse's own separate top-level
+        # CLI flag, not a settings key), and autorun's nested-override syntax
+        # is the same dot-path form already used for
+        # --collect.settings.chromeFlags below — so
+        # --collect.settings.extraHeaders is the correct spelling. Verified
+        # with a real local smoke test (a header-echo HTTP server) that the
+        # header lands on every request Lighthouse makes, not just the top
+        # navigation, before wiring this into CI.
+        env:
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
         run: |
           npx --yes @lhci/cli@0.15.1 autorun \
             --collect.url="${{ steps.vercel_preview.outputs.url }}/" \
             --collect.url="${{ steps.vercel_preview.outputs.url }}/jobs/remote" \
             --collect.url="${{ steps.resolve_urls.outputs.job_url }}" \
             --collect.url="${{ steps.vercel_preview.outputs.url }}/mentorship" \
-            --collect.settings.chromeFlags="--headless --no-sandbox --disable-gpu"
+            --collect.settings.chromeFlags="--headless --no-sandbox --disable-gpu" \
+            --collect.settings.extraHeaders="{\"x-vercel-protection-bypass\":\"$VERCEL_AUTOMATION_BYPASS_SECRET\"}"

@@ -57,6 +57,17 @@ describe("lighthouse-budget.yml wires Lighthouse CI against the real Vercel prev
     expect(workflow).toMatch(/pull_request:\s*\n\s*branches:\s*\[main\]/);
     expect(workflow).not.toMatch(/paths:/);
   });
+
+  it("REGRESSION (send-425): sends the Vercel protection-bypass header on both the sitemap curl and the lhci autorun call — without it, Deployment Protection 401s every request to the preview until wait-for-vercel-preview's own timeout", () => {
+    // The secret must be sourced from GitHub Actions secrets, never hardcoded.
+    expect(workflow).toMatch(/VERCEL_AUTOMATION_BYPASS_SECRET:\s*\$\{\{\s*secrets\.VERCEL_AUTOMATION_BYPASS_SECRET\s*\}\}/);
+    // The resolve_urls step's curl call carries the header directly.
+    expect(workflow).toMatch(/curl -fsS[^\n]*\n\s*-H "x-vercel-protection-bypass: \$VERCEL_AUTOMATION_BYPASS_SECRET"/);
+    // The autorun call applies it via Lighthouse's own settings object (no
+    // --extraHeaders/--collect.extraHeaders flag exists on @lhci/cli — the
+    // camelCase settings key nested under --collect.settings is correct).
+    expect(workflow).toMatch(/--collect\.settings\.extraHeaders="\{\\"x-vercel-protection-bypass\\":\\"\$VERCEL_AUTOMATION_BYPASS_SECRET\\"\}"/);
+  });
 });
 
 describe(".lighthouserc.json's budgets are real numbers with real thresholds, not placeholders", () => {
