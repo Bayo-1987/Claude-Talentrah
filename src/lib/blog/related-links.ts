@@ -49,6 +49,10 @@ const RELATED_LINKS: Record<string, RelatedLink[]> = {
   "chevening-scholarships-2027": [SCHOLARSHIP_CATALOG],
   "trudeau-foundation-doctoral-scholarship": [SCHOLARSHIP_CATALOG],
   "ptdf-overseas-scholarship-nigeria": [SCHOLARSHIP_CATALOG],
+  "ai-job-search-tools-nigeria-africa-compared": [
+    { href: "/ai-resume-tailoring", label: "Try the AI resume tailoring" },
+    { href: "/mentorship", label: "Browse mentors on Talentrah" },
+  ],
 };
 
 /** Every entry above is a fixed app route, never empty. Unknown slugs (a
