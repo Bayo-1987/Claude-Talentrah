@@ -512,10 +512,67 @@ export function renderMarkdownParagraphs(
  * same INLINE grammar's precedence — bold's `**` matched before italic's
  * single `*`, so `**bold** and *italic*` strips correctly in one left-to-
  * right pass over each), not a security boundary.
+ *
+ * send-416: this has the SAME underlying defect class send-413 fixed in the
+ * sibling function `stripMarkdownToPlainText` (src/lib/jobs/extract-jd.ts)
+ * — a run of 3+ glued asterisks (e.g. from two adjacent bold text nodes
+ * serialized back-to-back with no separating space, which
+ * `minimal-document.ts`'s own `inlineToMarkdown` can genuinely produce —
+ * see below) makes the non-greedy `\*\*(.+?)\*\*` mis-pair across the run,
+ * either capturing a literal asterisk as "bold content" or leaving orphan
+ * asterisks the regex never touches. Confirmed directly:
+ * `stripInlineMarkdown("**Location:** India******Who We Are**")` returned
+ * `"Location: India*Who We Are*"` before this fix — literal asterisks
+ * survived exactly like the job-card bug send-413 fixed.
+ *
+ * send-413's OWN fix (collapse any run of 2+ asterisks down to exactly 2)
+ * does NOT transfer here unmodified: that function has no italics of its
+ * own, so a single "*" never means anything and any 2+ run is safely just
+ * duplicated bold markers. THIS function gives a single "*" real meaning
+ * (italic), and a run of exactly 3 is a genuinely legitimate, producible
+ * boundary between an adjacent bold segment and an italic segment with no
+ * separating character — e.g. two adjacent TipTap text nodes, one bold
+ * ("Ex-Google.") and the next italic ("Loves hiking"), serialize via
+ * `minimal-document.ts`'s `inlineToMarkdown` (bold -> "**text**", italic ->
+ * "*text*", no space inserted between adjacent nodes) to
+ * "**Ex-Google.***Loves hiking*" — a real run of 3 asterisks a user can
+ * actually produce by bolding one word and italicizing the very next one.
+ * Checked directly: the existing (unmodified) two-pass regex below already
+ * strips a run of exactly 3 correctly (bold-close(2)+italic-open(1) or the
+ * reverse both resolve to clean text, no leftover asterisks) — the bug is
+ * specific to LONGER runs (5+), which can only arise from more than one
+ * marker boundary colliding at the same point and can never be a single
+ * legitimate boundary (the longest a single boundary can produce is 4:
+ * bold-close + bold-open, e.g. "**A****B**", which the unmodified regex
+ * below also already strips correctly — proved by the revert-and-rerun
+ * step in this file's own PR). So the fix collapses ONLY runs of 5 or more
+ * down to a clean "**" before the existing passes run — parity (whether
+ * the run has an even or odd number of stars) turned out not to matter
+ * (tested both), so this always resolves to a single bold boundary rather
+ * than trying to guess how many markers were glued. A final cleanup pass
+ * removes any run of 2+ asterisks STILL present after all three passes —
+ * a genuine safety net, not the primary fix: a run of exactly 4 in certain
+ * surrounding contexts (an already-open marker immediately before it) can
+ * still leave orphan asterisks pushed to the very end of a match; that
+ * residue is always a run of 2+ once the real content has already been
+ * correctly extracted, so the final pass is provably safe to delete
+ * outright without touching anything else. A genuinely isolated, unpaired
+ * single "*" (not part of a 2+ run) is deliberately left untouched, same
+ * as before this fix — that is not glued-marker debris, it is either a
+ * real unclosed marker or a literal character the user typed, and this
+ * function has never claimed to resolve that ambiguity.
+ *
+ * Proved the test catches the bug: reverted just the run-collapse and the
+ * final cleanup, reran — the new send-416 test failed reproducing the
+ * exact artifact above; restored the fix, reran — passes, and the existing
+ * tests in this file (nested-safe bold+italic, adjacent bold+italic,
+ * plain text) are unaffected.
  */
 export function stripInlineMarkdown(text: string): string {
-  return text
+  const collapsed = text.replace(/\*{5,}/g, "**");
+  return collapsed
     .replace(/\*\*(.+?)\*\*/g, "$1")
     .replace(/\*(.+?)\*/g, "$1")
-    .replace(/_(.+?)_/g, "$1");
+    .replace(/_(.+?)_/g, "$1")
+    .replace(/\*{2,}/g, "");
 }
