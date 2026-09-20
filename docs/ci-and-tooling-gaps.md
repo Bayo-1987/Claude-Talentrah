@@ -594,3 +594,60 @@ employer form already collects it for) make up a larger share of the board.
 Nothing here calls for inferring the field — recorded so a future pass at
 Search Console findings does not spend time "fixing" a warning that is already
 the correct behaviour.
+
+---
+
+## 8. Production `sitemap.xml` looked stale despite `force-dynamic` — it was a deploy-lag window, not a caching bug
+
+**Status: not a bug, confirmed live, 2026-09-19** (send-407). A pre-launch
+audit flagged `https://talentrah.com/sitemap.xml` as stale: still listing
+`/employer` (removed from `sitemap.ts` in commit `6676014`) and missing
+`/mentorship` (added in `718215c`), with every URL's `<lastmod>` frozen at one
+identical timestamp — despite `sitemap.ts` exporting `dynamic =
+"force-dynamic"` and stamping the homepage with `new Date()` at request time.
+
+**Checked live before writing any code**, per this file's own standing rule
+about verifying rather than assuming a fix is needed:
+
+```
+$ curl -sD - https://www.talentrah.com/sitemap.xml | grep -i 'cache-control\|x-vercel-cache\|age:'
+cache-control: public, max-age=0, must-revalidate
+x-vercel-cache: MISS
+age: 0
+```
+
+No caching layer is involved — `MISS` and `age: 0` on every request means
+Vercel's edge is not serving a cached copy, `force-dynamic` is doing exactly
+what it says. The homepage's own `<lastmod>` read `2026-09-19T20:00:40.182Z`
+against a `curl` made at `20:01:06Z` the same request — a live, current
+timestamp, not a frozen one. `/employer` was absent and `/mentorship` was
+present, matching current `main` exactly. **The sitemap was not stale at the
+moment this was checked.**
+
+**Root cause: this project auto-deploys every push to `main` to production**
+(confirmed via the Vercel API's own deployment list — every one of the ~20
+most recent merge commits has its own `READY`, `target: "production"`
+deployment, each created within seconds of the merge). The audit's finding
+was real at the moment it was taken: production was very likely still serving
+the deployment from *before* `6676014`/`718215c` had finished building and
+rolling out — an ordinary, bounded propagation window (Vercel's own build +
+deploy time), not a persistent misconfiguration. By the time this was
+investigated, several more merges (including the send-403 batch) had already
+triggered their own fresh production deployments, which is why the live check
+above found nothing wrong: **the issue had already self-resolved through
+ordinary continuous deployment**, exactly as this file's own standing
+discipline would predict for a stale-deploy hypothesis rather than a caching
+one.
+
+**No code change and no new CI gate were added for this.** A several-minute
+propagation window after every deploy is normal, expected behavior for
+continuous deployment, not a bug to engineer around — building a scheduled
+post-deploy content-freshness check for a self-correcting, bounded window
+would be disproportionate to what this actually was. If the sitemap is ever
+found stale for a *sustained* period (materially longer than one deploy
+cycle, or a specific route disallow that never sunsets after a subsequent
+deploy), that is a different, real bug and should be investigated as one —
+starting with the same two checks used here: the Vercel deployment list (is
+production actually running current `main`?) and the response headers on the
+live URL (is something actually caching it?), in that order, before assuming
+a code fix is needed.
