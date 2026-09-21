@@ -115,6 +115,7 @@ export default async function EditJobPage({ params }: { params: Promise<{ id: st
           action={updateJobAction.bind(null, job.id)}
           submitLabel="Save changes"
           pendingLabel="Saving…"
+          assessmentFilesUnlockAfterSave
           initial={{
             title: job.title,
             location: job.location ?? "",

@@ -408,12 +408,15 @@ export function JobPostingForm({
   pendingLabel,
   /** Shown above the form when the org can't publish publicly yet. */
   unverifiedNotice,
+  /** send-438 — true only on the Edit page; see AssessmentEditor's own header. */
+  assessmentFilesUnlockAfterSave,
 }: {
   action: (state: EmployerActionState, form: FormData) => Promise<EmployerActionState>;
   initial?: JobFormValues;
   submitLabel: string;
   pendingLabel: string;
   unverifiedNotice?: string;
+  assessmentFilesUnlockAfterSave?: boolean;
 }) {
   const [state, formAction, pending] = useActionState<EmployerActionState, FormData>(action, null);
   const error = state && "error" in state ? state.error : null;
@@ -709,7 +712,10 @@ export function JobPostingForm({
 
           <ScreeningQuestionsEditor initial={initial?.screeningQuestions} />
 
-          <AssessmentEditor initial={initial?.assessment} />
+          <AssessmentEditor
+            initial={initial?.assessment}
+            filesUnlockAfterSave={assessmentFilesUnlockAfterSave}
+          />
 
           <div>
             <Button type="submit" disabled={pending}>
