@@ -197,6 +197,22 @@ Phase 1 is feature-complete except for the employer side. Read [docs/phase-1-sum
     lighthouse-budget.yml` by adding `set +e`) layered on top of this
     Supabase misconfiguration. Fixing the script made the failure legible;
     it did not make the check pass — that needed both fixes together.
+  - **A THIRD, still-unresolved consequence of previews now pointing at the
+    CI project**: `lighthouse-budget.yml` hardcodes `/jobs/remote` as "the
+    real public job-search surface" specifically because it's reliably
+    non-empty on production (365+ open postings). The CI project is a much
+    smaller, test-fixture-churned dataset — measured live during this same
+    incident at as few as 4 open remote postings, one below
+    `LANDING_PAGE_MIN_ENTRIES` (5) — and `/jobs/remote` genuinely,
+    correctly `notFound()`s below that line (confirmed via the response
+    body's own `"digest":"NEXT_HTTP_ERROR_FALLBACK;404"`, not an
+    infra/auth problem). This makes the Lighthouse check intermittently red
+    for a reason that has nothing to do with any PR's own change, purely
+    because of which project previews now point at. Not fixed here — the
+    real fix is either resolving a guaranteed-non-thin URL dynamically (the
+    same pattern the job-detail step already uses via sitemap.xml, rather
+    than a hardcoded route) or seeding the CI project with enough stable
+    remote postings to keep this page reliably above threshold.
 
 Verification convention this repo holds itself to, visible throughout its PR history: **check real current state before building; prove a fix by first proving the test catches the bug.** Several milestones caught real defects specifically by re-testing what earlier work had assumed — an RLS policy that had never been run, a retry heuristic that looked like model behaviour, an OAuth name mapping where the intuitive fix would have repaired the wrong provider, and an org-membership policy that read as safe and was not. That last one is also the standing example of a second habit: after fixing a policy, ask what *else* grants the same privilege — the first fix closed one route and, in doing so, opened a second.
 
