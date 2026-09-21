@@ -18,8 +18,26 @@ import type { JobPostingAssessmentInput } from "@/lib/employer/job-posting-asses
  * mirroring JobBannerUpload's own identical split for the identical
  * reason: the upload needs a job_posting_id that doesn't exist yet on a
  * brand-new posting.
+ *
+ * send-438 — `filesUnlockAfterSave` exists because that split above is
+ * invisible from inside this component: nothing on the page said a file
+ * upload becomes available after the FIRST save, so an employer who
+ * checked the box, typed a title, and looked for a file control found
+ * nothing and no explanation. This can't be inferred from `initial` alone
+ * (`!initial` is also true on the CREATE page, where
+ * NewJobAssessmentFilesPicker already lets files be staged before the job
+ * exists — showing this hint there would be actively wrong). So it's an
+ * explicit prop, threaded down from the one caller whose picture actually
+ * matches it (the Edit page), defaulting to false everywhere else.
  */
-export function AssessmentEditor({ initial }: { initial?: JobPostingAssessmentInput | null }) {
+export function AssessmentEditor({
+  initial,
+  filesUnlockAfterSave = false,
+}: {
+  initial?: JobPostingAssessmentInput | null;
+  /** True only on the Edit page — see this component's own header. */
+  filesUnlockAfterSave?: boolean;
+}) {
   const [enabled, setEnabled] = useState(!!initial);
   const [title, setTitle] = useState(initial?.title ?? "");
   const [instructions, setInstructions] = useState(initial?.instructions ?? "");
@@ -99,6 +117,13 @@ export function AssessmentEditor({ initial }: { initial?: JobPostingAssessmentIn
               className="min-h-11 border-[1.5px] border-ink bg-card px-3.5 py-2.5 font-body text-[15px] text-ink outline-none focus:border-rust"
             />
           </div>
+
+          {filesUnlockAfterSave && !initial && (
+            <p className="font-body text-[12.5px] text-ink-soft">
+              Save this job to unlock attaching an exercise file here — until then, only the link
+              above works.
+            </p>
+          )}
 
           {/*
             "Required to apply", not the bare "Required" screening
