@@ -561,7 +561,53 @@ export function JobPostingForm({
       )}
 
       <BorderedCard className="p-6">
-        <form action={formAction} className="flex flex-col gap-5">
+        <form
+          action={formAction}
+          className="flex flex-col gap-5"
+          /*
+           * send-445 — a plain single-line <input> inside a <form> with one
+           * submit button triggers the browser's native implicit
+           * submission on Enter; this is standard HTML behaviour, not a
+           * bug in any one field. Title, location, salary, years of
+           * experience and every screening-question field are all plain
+           * inputs with no keydown handling of their own, so pressing
+           * Enter out of habit while finishing a line (typing a screening
+           * question, say) submits the whole job with whatever is in
+           * state at that instant — confirmed against real production
+           * evidence: a job saved with exactly 2 of 5 typed screening
+           * questions, one clean POST, no error, no truncation anywhere
+           * in the save path.
+           *
+           * Excluded on purpose:
+           *  - `isContentEditable` / TEXTAREA: the rich description and
+           *    assessment-instructions editors (rich-markdown-editor.tsx,
+           *    a TipTap/ProseMirror contenteditable surface) need Enter
+           *    for real newlines. A contenteditable div is not a
+           *    form-associated control in the first place, so it was
+           *    never part of the browser's implicit-submission hazard
+           *    this guard exists for — excluded here anyway so this
+           *    handler can't fight ProseMirror's own Enter handling for
+           *    that surface, not because it would otherwise submit.
+           *  - BUTTON: pressing Enter on the focused "Save"/"Publish"
+           *    button must still submit — that is the one place Enter is
+           *    supposed to do exactly this.
+           *  - SkillsAutocomplete's own input already calls
+           *    `preventDefault()` in its own onKeyDown to commit the top
+           *    suggestion instead of submitting. This handler still runs
+           *    afterward (React's synthetic events keep bubbling after a
+           *    child calls preventDefault() — only stopPropagation() would
+           *    stop that), and calls preventDefault() again, which is a
+           *    harmless no-op alongside logic that already ran.
+           */
+          onKeyDown={(e) => {
+            if (e.key !== "Enter") return;
+            const target = e.target as HTMLElement;
+            if (target.tagName === "TEXTAREA" || target.tagName === "BUTTON" || target.isContentEditable) {
+              return;
+            }
+            e.preventDefault();
+          }}
+        >
           <div className="grid grid-cols-1 gap-5 min-[640px]:grid-cols-2">
             <div className="flex flex-col gap-1.5">
               <TextField
