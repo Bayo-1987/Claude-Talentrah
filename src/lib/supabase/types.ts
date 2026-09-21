@@ -1503,7 +1503,7 @@ export type Database = {
           created_by: string | null
           exercise_link: string | null
           id: string
-          instructions: string
+          instructions: string | null
           job_posting_id: string
           organization_id: string
           required: boolean
@@ -1515,7 +1515,7 @@ export type Database = {
           created_by?: string | null
           exercise_link?: string | null
           id?: string
-          instructions: string
+          instructions?: string | null
           job_posting_id: string
           organization_id: string
           required?: boolean
@@ -1527,7 +1527,7 @@ export type Database = {
           created_by?: string | null
           exercise_link?: string | null
           id?: string
-          instructions?: string
+          instructions?: string | null
           job_posting_id?: string
           organization_id?: string
           required?: boolean

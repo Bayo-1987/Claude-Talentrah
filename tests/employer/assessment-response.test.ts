@@ -39,13 +39,40 @@ describe("parseJobPostingAssessmentForm", () => {
     });
   });
 
-  it("requires a title and instructions", () => {
+  it("still requires a title", () => {
     expect(
       parseJobPostingAssessmentForm(formWith(JSON.stringify({ title: "", instructions: "Do X.", required: true }))),
     ).toEqual({ ok: false, error: "The assessment needs a title." });
-    expect(
-      parseJobPostingAssessmentForm(formWith(JSON.stringify({ title: "T", instructions: "", required: true }))),
-    ).toEqual({ ok: false, error: "The assessment needs instructions." });
+  });
+
+  // send-448 — instructions is no longer required: a link or an uploaded
+  // exercise file can carry the actual content instead, so forcing
+  // separate written instructions on top duplicated it with no way
+  // around that. `null` (not `""`) is what "nothing written" becomes,
+  // matching exerciseLink's own existing null-when-blank convention.
+  it("REGRESSION (send-448): instructions is optional — omitted, blank, or whitespace-only all save as null, not an error", () => {
+    const omitted = parseJobPostingAssessmentForm(formWith(JSON.stringify({ title: "T", required: true })));
+    expect(omitted).toEqual({ ok: true, value: { title: "T", instructions: null, exerciseLink: null, required: true } });
+
+    const blank = parseJobPostingAssessmentForm(
+      formWith(JSON.stringify({ title: "T", instructions: "", required: true })),
+    );
+    expect(blank).toEqual({ ok: true, value: { title: "T", instructions: null, exerciseLink: null, required: true } });
+
+    const whitespaceOnly = parseJobPostingAssessmentForm(
+      formWith(JSON.stringify({ title: "T", instructions: "   ", required: true })),
+    );
+    expect(whitespaceOnly).toEqual({
+      ok: true,
+      value: { title: "T", instructions: null, exerciseLink: null, required: true },
+    });
+  });
+
+  it("real instructions text still saves and round-trips exactly, unchanged from before send-448", () => {
+    const result = parseJobPostingAssessmentForm(
+      formWith(JSON.stringify({ title: "T", instructions: "Do X.", required: true })),
+    );
+    expect(result).toEqual({ ok: true, value: { title: "T", instructions: "Do X.", exerciseLink: null, required: true } });
   });
 
   it("rejects an exercise link that isn't a real URL", () => {
@@ -678,5 +705,76 @@ describe("reconcileJobPostingAssessment", () => {
     // Still there, unchanged — the refusal must be a genuine no-op.
     const { data } = await admin.from("job_posting_assessments").select("id").eq("job_posting_id", jobId).maybeSingle();
     expect(data).not.toBeNull();
+  });
+});
+
+// send-448 — a dedicated fixture rather than slotting into the
+// describe block above: that block's own tests deliberately chain on
+// ONE shared job/assessment row across the whole sequence (insert, then
+// revise, then attach files, then block removal), so inserting a case
+// in the middle would change what the next test starts from. This is
+// its own posting, independent of that ordering.
+describe("reconcileJobPostingAssessment — instructions is optional (send-448)", () => {
+  let orgOwner: AuthedTestUser;
+  let orgId: string;
+  let jobId: string;
+
+  beforeAll(async () => {
+    orgOwner = await createAuthedTestUser("assess-optional-instructions-owner");
+
+    const { data: org, error: orgErr } = await admin
+      .from("organizations")
+      .insert({ name: `Assess Optional Instructions Org ${randomUUID().slice(0, 8)}`, created_by: orgOwner.id, verified: true })
+      .select("id")
+      .single();
+    if (orgErr || !org) throw new Error(`fixture org: ${orgErr?.message}`);
+    orgId = org.id;
+    await admin.from("organization_members").insert({ organization_id: orgId, user_id: orgOwner.id, role: "owner" });
+
+    const { data: job, error: jobErr } = await admin
+      .from("job_postings")
+      .insert({
+        source_type: "internal",
+        organization_id: orgId,
+        company_name: "Assess Optional Instructions Test Co",
+        title: `Assess Optional Instructions Role ${randomUUID().slice(0, 8)}`,
+        description: "Fixture posting for send-448's optional-instructions regression.",
+        structured_jd: {},
+        status: "open",
+        posted_at: new Date().toISOString(),
+        dedup_fingerprint: randomUUID(),
+      })
+      .select("id")
+      .single();
+    if (jobErr || !job) throw new Error(`fixture job: ${jobErr?.message}`);
+    jobId = job.id;
+  }, 60_000);
+
+  afterAll(async () => {
+    await deleteOrgsCascade(admin, [orgId].filter(Boolean));
+    await deleteTestUsers([orgOwner.id].filter(Boolean));
+  });
+
+  it("REGRESSION (send-448): a title + real link + null instructions saves successfully, and the DB round-trips instructions as null, not an empty string", async () => {
+    const result = await reconcileJobPostingAssessment(orgOwner.client, jobId, orgId, orgOwner.id, {
+      title: "Link-only exercise",
+      instructions: null,
+      exerciseLink: "https://example.com/exercise-brief",
+      required: true,
+    });
+    expect(result).toEqual({ ok: true });
+
+    const { data, error } = await admin
+      .from("job_posting_assessments")
+      .select("title, instructions, exercise_link")
+      .eq("job_posting_id", jobId)
+      .single();
+    if (error) throw error;
+    expect(data.title).toBe("Link-only exercise");
+    expect(data.exercise_link).toBe("https://example.com/exercise-brief");
+    // The real assertion this test exists for: NOT an empty string. Before
+    // 0187 dropped the column's NOT NULL, this exact insert would have
+    // 500'd at the database rather than silently coercing to "".
+    expect(data.instructions).toBeNull();
   });
 });
