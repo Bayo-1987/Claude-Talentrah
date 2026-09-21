@@ -33,14 +33,18 @@ export type JobShareVisibility = "public" | "unlisted" | "unreachable";
  * a claim about call sites.
  */
 export function getJobShareVisibility(args: {
-  status: "open" | "closed" | "removed";
+  status: "open" | "closed" | "removed" | "draft";
   organizationVerified: boolean;
   /** Non-null once a private link has been minted for this posting (0107). */
   unlistedAt?: string | null;
 }): JobShareVisibility {
   // First, and shared by every branch of the policy: a removed posting is
-  // reachable by nobody, whatever else is true of it.
-  if (args.status === "removed") return "unreachable";
+  // reachable by nobody, whatever else is true of it. A draft joins it here
+  // (send-447) for the same reason, not a coincidence: nothing has ever
+  // decided this posting is ready for anyone but its own org to see, so
+  // there is nothing to hand out a link to — same "nothing to share" answer
+  // as removed, for the opposite reason (never published, not un-published).
+  if (args.status === "removed" || args.status === "draft") return "unreachable";
   if (args.organizationVerified) return "public";
   if (args.unlistedAt) return "unlisted";
   return "unreachable";
@@ -59,11 +63,14 @@ export function getJobShareVisibility(args: {
  * make the feature unreachable for exactly the accounts it exists to serve.
  */
 export function canMintUnlistedLink(args: {
-  status: "open" | "closed" | "removed";
+  status: "open" | "closed" | "removed" | "draft";
   emailConfirmed: boolean;
   underRateLimit: boolean;
 }): boolean {
-  if (args.status === "removed") return false;
+  // A draft (send-447) is not eligible for the same reason removed is not:
+  // nothing has decided this posting is ready to be seen by anyone it
+  // wasn't already visible to, so there is nothing here for a link to grant.
+  if (args.status === "removed" || args.status === "draft") return false;
   if (!args.emailConfirmed) return false;
   return args.underRateLimit;
 }

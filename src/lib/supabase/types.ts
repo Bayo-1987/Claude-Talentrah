@@ -4385,7 +4385,7 @@ export type Database = {
         | "discriminatory"
         | "other"
       job_source_type: "internal" | "external"
-      job_status: "open" | "closed" | "removed"
+      job_status: "open" | "closed" | "removed" | "draft"
       market_segment: "home" | "diaspora"
       org_member_role: "owner" | "admin"
       pass_auto_renew_status: "active" | "canceled" | "lapsed"
@@ -4636,7 +4636,7 @@ export const Constants = {
         "other",
       ],
       job_source_type: ["internal", "external"],
-      job_status: ["open", "closed", "removed"],
+      job_status: ["open", "closed", "removed", "draft"],
       market_segment: ["home", "diaspora"],
       org_member_role: ["owner", "admin"],
       pass_auto_renew_status: ["active", "canceled", "lapsed"],

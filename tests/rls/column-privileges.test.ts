@@ -956,6 +956,84 @@ describe("job_postings: closed_at cannot be written directly by the org (0102)",
   });
 });
 
+describe("job_postings: posted_at cannot be written directly by the org (0188, send-447)", () => {
+  /**
+   * NEGATIVE CONTROL, the direct sibling of closed_at above — and a REAL,
+   * live gap this migration closed rather than confirmed already closed.
+   * Checked against the database before writing 0188: `posted_at` was
+   * UPDATE-grantable to BOTH `authenticated` and `anon`, unlike closed_at,
+   * which 0056 already withheld. Any org member — arguably any signed-in
+   * session at all — could PATCH their own posting's `posted_at` directly,
+   * which is exactly the freshness-gaming surface `freshnessFloorISO()` and
+   * "Most Recent" sort assume nobody can reach. Draft support is what made
+   * this concrete: publishing a draft needs posted_at stamped at the moment
+   * it goes public, through a channel the org itself cannot also reach.
+   *
+   * Same shape as the closed_at test: own org + explicit membership + a job
+   * inserted through the user's own client, so a refusal here is provably
+   * the COLUMN grant and not the ROW policy — the same client can update
+   * this same row's `status` a moment later.
+   */
+  it("an org cannot set posted_at on its own posting", async () => {
+    const { data: org } = await user.client
+      .from("organizations")
+      .insert({ name: `COLPRIV-TEST ${randomUUID().slice(0, 8)}`, created_by: user.id })
+      .select("id")
+      .single();
+    try {
+      await user.client.from("organization_members").insert({
+        organization_id: org!.id,
+        user_id: user.id,
+        role: "owner",
+      });
+
+      const { data: job, error: insertError } = await user.client
+        .from("job_postings")
+        .insert({
+          source_type: "internal",
+          organization_id: org!.id,
+          company_name: "COLPRIV-TEST Co",
+          title: "COLPRIV-TEST Posted-At Role",
+          description: "Fixture posting for the posted_at column-privilege test.",
+          structured_jd: {},
+          status: "draft",
+          dedup_fingerprint: randomUUID(),
+        })
+        .select("id, posted_at")
+        .single();
+      expect(insertError).toBeNull();
+
+      const { error: postedAtError } = await user.client
+        .from("job_postings")
+        .update({ posted_at: "2020-01-01T00:00:00.000Z" })
+        .eq("id", job!.id);
+      expect(postedAtError, "an org must not be able to backdate or forward-date posted_at").not.toBeNull();
+      expect(postedAtError!.code).toBe("42501");
+
+      // Proves the refusal above was the column grant, not a row policy that
+      // would also block this: the exact same client, same row, a column
+      // that IS in the UPDATE grant list and IS in the WITH CHECK's allowed
+      // status set (0188).
+      const { error: statusError } = await user.client
+        .from("job_postings")
+        .update({ status: "open" })
+        .eq("id", job!.id);
+      expect(statusError, "the row policy itself must still allow this org to publish its own draft").toBeNull();
+
+      const { data: after } = await admin
+        .from("job_postings")
+        .select("posted_at, status")
+        .eq("id", job!.id)
+        .single();
+      // Untouched by the refused PATCH — still whatever the insert produced.
+      expect(after?.posted_at).toBe(job!.posted_at);
+      expect(after?.status).toBe("open");
+    } finally {
+      await deleteTestOrgs([org!.id]);
+    }
+  });
+});
+
 describe("tables with no UPDATE policy stay unwritable", () => {
   /**
    * These carry money, entitlements and role grants, and none of them has an

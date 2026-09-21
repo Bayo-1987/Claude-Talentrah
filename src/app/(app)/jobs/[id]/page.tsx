@@ -5,6 +5,7 @@ import { getOptionalUser } from "@/lib/auth/require-user";
 import { buildJobPostingJsonLd } from "@/lib/seo/job-posting-jsonld";
 import { stripRedundantJobHeader } from "@/lib/seo/job-description-snippet";
 import { stripMarkdownToPlainText } from "@/lib/jobs/extract-jd";
+import { jobPostingStatusMessage } from "@/lib/jobs/posting-status-message";
 import { jobForRequest } from "./job-for-request";
 import { BorderedCard, Button, EyebrowLabel, MatchTierBadge, buttonClasses } from "@/components/ui";
 import { dedupeMetaParts } from "@/components/jobs/job-card";
@@ -506,9 +507,21 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
           {postingAgeLine(job)}
           {isExternal && " · sourced externally"}
         </span>
-        {job.status !== "open" && (
+        {/*
+          send-447 — "no longer open" is false for a draft an org member is
+          previewing through their own RLS access: it was never open to
+          begin with, so "no longer" claims a history that didn't happen.
+          jobPostingStatusMessage branches on the actual status rather than
+          one string for every non-open state, the same way the badge
+          treatment elsewhere in this codebase (posted-job-row.tsx) gives
+          draft/closed/removed each their own copy instead of a shared
+          "not available" catch-all — extracted to a pure function so this
+          mapping is directly testable, the same reason getJobShareVisibility
+          is one.
+        */}
+        {jobPostingStatusMessage(job.status) && (
           <span className="text-[12.5px] font-semibold text-amber">
-            This posting is no longer open.
+            {jobPostingStatusMessage(job.status)}
           </span>
         )}
       </div>

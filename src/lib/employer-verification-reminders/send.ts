@@ -79,12 +79,20 @@ export async function sendVerificationReminders(
   // Earliest posting per org, computed in JS rather than a new RPC — the
   // unverified-org count is small (production: 1-2 at a time) and this
   // avoids adding a database function for what is, today, a handful of rows.
+  //
+  // `.neq("status", "draft")` (send-447) — this whole reminder exists to
+  // tell an org "your posting isn't reaching anyone until you verify," and a
+  // draft was never trying to reach anyone regardless of verification. Left
+  // unfiltered, a draft's own insert-time `posted_at` would count toward
+  // "earliest posting" and could trigger a reminder about exposure that
+  // doesn't exist yet.
   const orgIds = orgs.map((o) => o.id);
   const { data: postings, error: postingsError } = await supabase
     .from("job_postings")
     .select("organization_id, posted_at")
     .in("organization_id", orgIds)
-    .eq("source_type", "internal");
+    .eq("source_type", "internal")
+    .neq("status", "draft");
   if (postingsError) {
     console.error("[verification-reminders] could not read job_postings:", postingsError.message);
     return { ...base, reason: postingsError.message };
