@@ -26,7 +26,16 @@ export function AvailabilityManager({ slots }: { slots: MentorAvailabilitySlot[]
               </span>
               <button
                 type="button"
-                onClick={() => startTransition(() => deleteAvailabilitySlotAction(slot.id))}
+                onClick={() =>
+                  startTransition(async () => {
+                    try {
+                      await deleteAvailabilitySlotAction(slot.id);
+                      setError(null);
+                    } catch {
+                      setError("Could not remove that slot — try again.");
+                    }
+                  })
+                }
                 className="font-body text-[12.5px] font-semibold text-rust"
               >
                 Remove
