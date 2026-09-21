@@ -7,17 +7,17 @@ import { RUN_TAG } from "./list-users";
 /**
  * Shared throwaway-account helper for the integration suites.
  *
- * WHY THIS EXISTS. Every suite here runs against the one real Supabase project
- * and mints real auth users, and Supabase Auth rate-limits its admin endpoints.
- * Once the referral and tracker suites landed, a full CI run created enough
- * accounts in a burst to trip it — and the failure is genuinely confusing,
- * because it does not surface as "rate limited": the account simply isn't
- * created, so a later assertion fails with something like
- * "expected [] to have a length of 1" in a completely unrelated suite whose
- * fixture user never existed. One CI run failed six tests across three files
- * that way, none of which had anything wrong with them.
+ * WHY THIS EXISTS. Every suite here runs against the one real Supabase project,
+ * and Supabase Auth rate-limits its admin endpoints. Once the referral and
+ * tracker suites landed, a full CI run created enough fresh accounts in a
+ * burst to trip it — and the failure is genuinely confusing, because it does
+ * not surface as "rate limited": the account simply isn't created, so a later
+ * assertion fails with something like "expected [] to have a length of 1" in
+ * a completely unrelated suite whose fixture user never existed. One CI run
+ * failed six tests across three files that way, none of which had anything
+ * wrong with them.
  *
- * Two mitigations, both needed:
+ * Two mitigations, both needed at the time:
  *   1. RETRY with backoff here, so a transient limit costs seconds not a run.
  *   2. Create FEWER users — the retry only buys headroom, it does not create
  *      budget. Suites should seed state directly with the service role wherever
@@ -26,9 +26,15 @@ import { RUN_TAG } from "./list-users";
  *
  * Neither was enough, because the call being limited was `verifyOtp` and no
  * amount of backoff fits inside a 60s hook. `sessionFor` no longer logs in at
- * all — see the note on it. `createUser` is still a real auth call, so the
- * retry below still earns its place, but the burst it has to survive is now a
- * third of what it was.
+ * all — see the note on it.
+ *
+ * send-453 — `createTestUser` NO LONGER mints a fresh account on every call.
+ * It claims a reused identity from `test_user_pool` (migration 0188) first,
+ * and only creates a genuinely new `auth.users` row when the pool is empty or
+ * fully leased (see `claimFromPool`'s own header below) — so the rate-limit
+ * pressure this section describes is now the OVERFLOW case, not the common
+ * one. `withRateLimitRetry` still earns its place for that overflow path and
+ * for the pool's own initial self-seeding, but a warm pool hits it rarely.
  */
 
 const URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -82,13 +88,168 @@ export interface TestUser {
 }
 
 /**
- * Creates a confirmed throwaway account. `prefix` should identify the suite so
- * a leaked account is traceable to the file that made it.
+ * ── send-453: A FIXED, REUSED POOL INSTEAD OF create-THEN-delete ───────────
+ *
+ * Measured directly (CLAUDE.md's send-441-follow-up entry): local/agent runs
+ * against the shared `dozaffzgqkbarxtlclsj` were producing 1,564
+ * `user_deleted` + 559 `user_signedup` auth-audit events in a single 24h
+ * window. `db:local` (an ephemeral Postgres per run, the same mechanism CI's
+ * own `.github/actions/local-supabase` already uses) was the lower-risk
+ * alternative and was checked first — it needs Docker, and Docker is not
+ * merely "off" on the machine this was investigated from, it is not
+ * installed at all (no `docker`, no Docker Desktop, no Colima/Podman/Lima),
+ * which is the actual, checked reason `db:local` cannot be made the default
+ * rather than an assumption that it can't.
+ *
+ * So this file's create/delete cycle is replaced with a claim/release cycle
+ * against migration 0188's `test_user_pool` table — `claim_test_pool_user`
+ * atomically hands out one already-existing, already-reset auth user
+ * (`FOR UPDATE SKIP LOCKED`, so two concurrent processes/sessions can never
+ * claim the same row or block on each other), and `deleteTestUsers` releases
+ * it back rather than deleting it. `createTestUser`'s signature and return
+ * shape are UNCHANGED — every one of the dozens of existing call sites needs
+ * no edit at all, because the pooled user is re-labelled with the caller's
+ * own `prefix` and a fresh random suffix, indistinguishable from a genuinely
+ * new account to anything reading `TestUser.email`.
+ *
+ * WHAT "RESET" COVERS. `claim_test_pool_user` (0188) wipes every row in
+ * every table with a direct foreign key to `auth.users.id`/`profiles.id` —
+ * resumes, applications, credit ledger entries, referrals, and so on — via
+ * catalog introspection, so it can't silently miss a table added later. It
+ * deliberately does NOT reach through a second FK hop (an org's job
+ * postings, a posting's assessment files) — those are owned via
+ * `organizations`/`job_postings`, not the user directly, and every suite
+ * that creates one already cleans it up itself (`deleteOrgsCascade` and
+ * friends) regardless of whether the auth user is pooled or fresh. That
+ * discipline predates this change and this change does not touch it.
+ *
+ * OVERFLOW, NOT BLOCKING. If the pool is empty and below `POOL_MAX_SIZE`,
+ * a fresh user is created and ADDED to the pool for future reuse (the pool
+ * self-seeds; nothing needs to pre-populate it). If the pool is already at
+ * `POOL_MAX_SIZE` and every row is genuinely leased (heavy concurrent load),
+ * `claimFromPool` returns null and the caller falls back to creating a
+ * plain, unpooled throwaway user exactly as before this change — a run
+ * never waits on the pool and never fails because of it.
+ *
+ * STALE LEASES SELF-HEAL. `claim_test_pool_user`'s own `WHERE leased_by IS
+ * NULL OR leased_at < now() - stale_after` treats an abandoned lease (a
+ * process killed mid-test, the same failure mode fixture-accounts.ts's own
+ * header documents for the unpooled path) as available again after
+ * `POOL_STALE_AFTER_SECONDS` — no separate sweep needed, and
+ * `release_test_pool_user` only clears a lease it can prove `p_lease_id`
+ * (this file's `RUN_TAG`) still holds, so a slow former holder finally
+ * calling release cannot undo a DIFFERENT process's legitimate reclaim.
+ *
+ * POOL USERS ARE INVISIBLE TO THE EXISTING GLOBAL SWEEP ON PURPOSE.
+ * global-teardown.ts's `sweepStaleAccounts` deletes any `@talentrah.test`
+ * account older than `SWEEP_STALE_AFTER_MS` — exactly what would happen to
+ * a long-lived pool member if it used that domain, undoing the pooling the
+ * moment the sweep runs. Pool users are minted under `@talentrah.pool` (see
+ * `POOL_EMAIL_DOMAIN` below) specifically so `TEST_ACCOUNT_DOMAIN`'s
+ * `endsWith` check never matches them; they're managed exclusively by this
+ * file's own claim/reset/stale-reclaim cycle.
+ */
+
+const POOL_MAX_SIZE = 40;
+const POOL_STALE_AFTER_SECONDS = 600;
+const POOL_EMAIL_DOMAIN = "@talentrah.pool";
+
+async function poolSize(): Promise<number> {
+  const { count, error } = await admin
+    .from("test_user_pool")
+    .select("user_id", { count: "exact", head: true });
+  if (error) throw error;
+  return count ?? 0;
+}
+
+/**
+ * Tries to hand back a pooled user relabelled for this caller. Returns null
+ * — never throws for "no room" — when the pool doesn't exist yet (an older
+ * project not yet migrated), is fully leased at `POOL_MAX_SIZE`, or a claim
+ * genuinely finds nothing (a benign race against another concurrent
+ * claimant, since SKIP LOCKED means "try the next" rather than "wait").
+ */
+async function claimFromPool(prefix: string, meta?: Record<string, unknown>): Promise<TestUser | null> {
+  const email = `${prefix}-${randomUUID()}${POOL_EMAIL_DOMAIN}`;
+
+  const { data: claimed, error: claimErr } = await admin.rpc("claim_test_pool_user", {
+    p_lease_id: RUN_TAG,
+    p_prefix: prefix,
+    p_new_email: email,
+    p_stale_after_seconds: POOL_STALE_AFTER_SECONDS,
+  });
+  // A project that hasn't run migration 0188 yet (e.g. an older local
+  // db:local snapshot) simply doesn't have this function — fall back to the
+  // pre-pool behaviour rather than failing every suite outright.
+  if (claimErr) {
+    if (/function .*claim_test_pool_user.* does not exist/i.test(claimErr.message)) return null;
+    throw claimErr;
+  }
+
+  let userId = claimed as string | null;
+
+  if (!userId) {
+    if ((await poolSize()) >= POOL_MAX_SIZE) return null; // fully leased under load — overflow to a fresh user.
+
+    const { data, error } = await withRateLimitRetry(() =>
+      admin.auth.admin.createUser({ email, email_confirm: true, user_metadata: meta }).then((r) => {
+        if (r.error) throw r.error;
+        return r;
+      }),
+    );
+    if (error) throw error;
+    userId = data.user!.id;
+
+    const { error: addErr } = await admin.rpc("add_test_pool_user", {
+      p_user_id: userId,
+      p_lease_id: RUN_TAG,
+    });
+    if (addErr) throw addErr;
+    return { id: userId, email };
+  }
+
+  const { error: renameErr } = await admin.auth.admin.updateUserById(userId, {
+    email,
+    email_confirm: true,
+    user_metadata: meta ?? {},
+  });
+  if (renameErr) throw renameErr;
+
+  // `updateUserById` above only touches `auth.users.raw_user_meta_data` —
+  // `handle_new_user` (the trigger that copies first_name/last_name/country
+  // out of that metadata into `profiles`) fires on INSERT only, and this is
+  // an UPDATE against an already-existing row. A genuinely new (overflow)
+  // user gets this for free via the trigger; a reused pool user does not,
+  // so it's applied explicitly here — otherwise `meta` silently stops doing
+  // anything the moment a caller's user happens to come from the pool
+  // instead of overflow. Caught by referral-leaderboard.test.ts's own
+  // "B never set a custom display name — falls back to first_name" case,
+  // which creates its fixture via `createAuthedTestUser(prefix, { first_name })`
+  // and asserts on that exact fallback.
+  if (meta && ("first_name" in meta || "last_name" in meta || "country" in meta)) {
+    const profileFields: { first_name?: string; last_name?: string; country?: string } = {};
+    if (typeof meta.first_name === "string") profileFields.first_name = meta.first_name;
+    if (typeof meta.last_name === "string") profileFields.last_name = meta.last_name;
+    if (typeof meta.country === "string") profileFields.country = meta.country;
+    const { error: profileErr } = await admin.from("profiles").update(profileFields).eq("id", userId);
+    if (profileErr) throw profileErr;
+  }
+
+  return { id: userId, email };
+}
+
+/**
+ * Creates (or, per the header above, claims and relabels a pooled) confirmed
+ * throwaway account. `prefix` should identify the suite so a leaked/traced
+ * account is attributable to the file that used it.
  */
 export async function createTestUser(
   prefix: string,
   meta?: Record<string, unknown>,
 ): Promise<TestUser> {
+  const pooled = await claimFromPool(prefix, meta);
+  if (pooled) return pooled;
+
   const email = `${prefix}-${randomUUID()}@talentrah.test`;
   const { data, error } = await withRateLimitRetry(() =>
     admin.auth.admin.createUser({ email, email_confirm: true, user_metadata: meta }).then((r) => {
@@ -350,21 +511,58 @@ export async function createAuthedTestUser(
  * is arguably the more important of the two, since it is the one place
  * that would show a delete genuinely failing inside a passing file's own
  * teardown, so it got the same empirical check rather than an assumption.
+ *
+ * send-453 — an id that belongs to `test_user_pool` is RELEASED
+ * (`release_test_pool_user`, scoped to this file's own `RUN_TAG` so a
+ * stale-reclaim by another process is never undone — see the pool header
+ * above `createTestUser`), not deleted; only genuine overflow ids (created
+ * when the pool was already at `POOL_MAX_SIZE`) still go through
+ * `admin.auth.admin.deleteUser`. Both are logged the same way, so a leaked
+ * id is traceable regardless of which path handled it.
  */
 export async function deleteTestUsers(ids: string[]): Promise<void> {
+  if (!ids.length) return;
+
+  const { data: poolRows, error: poolErr } = await admin
+    .from("test_user_pool")
+    .select("user_id")
+    .in("user_id", ids);
+  // Same fallback as claimFromPool: a project without migration 0188 yet
+  // just has no pool at all, so every id is treated as unpooled below.
+  const pooledIds = new Set(
+    poolErr && /relation .*test_user_pool.* does not exist/i.test(poolErr.message)
+      ? []
+      : (poolRows ?? []).map((r) => r.user_id),
+  );
+  const toRelease = ids.filter((id) => pooledIds.has(id));
+  const toDelete = ids.filter((id) => !pooledIds.has(id));
+
+  const releasedAt = new Date().toISOString();
+  for (const id of toRelease) {
+    process.stdout.write(`[test-cleanup] run=${RUN_TAG} releasing pooled user=${id} at=${releasedAt}\n`);
+  }
+  const releaseResults = await Promise.all(
+    toRelease.map((id) =>
+      Promise.resolve(admin.rpc("release_test_pool_user", { p_user_id: id, p_lease_id: RUN_TAG }))
+        .then((r) => (r.error ? `${id}: ${r.error.message}` : null))
+        .catch((e) => `${id}: ${e instanceof Error ? e.message : String(e)}`),
+    ),
+  );
+
   const deletedAt = new Date().toISOString();
-  for (const id of ids) {
+  for (const id of toDelete) {
     process.stdout.write(`[test-cleanup] run=${RUN_TAG} deleting user=${id} at=${deletedAt}\n`);
   }
-  const results = await Promise.all(
-    ids.map((id) =>
+  const deleteResults = await Promise.all(
+    toDelete.map((id) =>
       admin.auth.admin
         .deleteUser(id)
         .then((r) => (r.error ? `${id}: ${r.error.message}` : null))
         .catch((e) => `${id}: ${e instanceof Error ? e.message : String(e)}`),
     ),
   );
-  const failed = results.filter((r): r is string => r !== null);
+
+  const failed = [...releaseResults, ...deleteResults].filter((r): r is string => r !== null);
   if (failed.length) {
     // process.stdout.write, not console.warn, and every failure listed, not
     // just the first — same reasoning as the "deleting user=X" line above,
@@ -373,8 +571,9 @@ export async function deleteTestUsers(ids: string[]): Promise<void> {
     // teardown, which is exactly the case #156 needs visible and exactly
     // the case the default reporter drops console.* output for.
     process.stdout.write(
-      `[cleanup] ${failed.length}/${ids.length} test accounts could not be deleted; ` +
-        `the global sweep will remove them on a later run. Failures: ${failed.join("; ")}\n`,
+      `[cleanup] ${failed.length}/${ids.length} test accounts could not be released/deleted; ` +
+        `a stale pooled lease self-heals after ${POOL_STALE_AFTER_SECONDS}s, and the global sweep ` +
+        `will remove any unpooled straggler on a later run. Failures: ${failed.join("; ")}\n`,
     );
   }
 }

@@ -410,6 +410,24 @@ export function JobPostingForm({
   unverifiedNotice,
   /** send-449 — present only on the Edit page; see AssessmentEditor's own header. */
   assessmentEditContext,
+  /**
+   * send-447 — Create only; Edit never passes this. See new-job-form.tsx's
+   * own comment for why Edit doesn't need a second button: an already-`open`
+   * posting has nothing left to draft into, and publishing an existing draft
+   * is a Jobs Posted row action (posted-job-row.tsx's Publish button), not a
+   * second submit here.
+   *
+   * Both buttons submit through the SAME `action`/`useActionState` pair —
+   * there is no second action function, just a second `<button
+   * name="intent">` inside the one `<form>`. Native HTML form semantics
+   * already put whichever button was actually clicked into the submitted
+   * FormData; postJobAction reads `form.get("intent")` to decide `status`.
+   * This is what keeps ONE `pending` boolean honest for both buttons —
+   * `useActionState` only ever tracks one action, and there is only one
+   * here.
+   */
+  secondarySubmitLabel,
+  secondaryPendingLabel,
 }: {
   action: (state: EmployerActionState, form: FormData) => Promise<EmployerActionState>;
   initial?: JobFormValues;
@@ -417,9 +435,21 @@ export function JobPostingForm({
   pendingLabel: string;
   unverifiedNotice?: string;
   assessmentEditContext?: { jobId: string; userId: string };
+  secondarySubmitLabel?: string;
+  secondaryPendingLabel?: string;
 }) {
   const [state, formAction, pending] = useActionState<EmployerActionState, FormData>(action, null);
   const error = state && "error" in state ? state.error : null;
+
+  /*
+   * WHICH button is pending, not just whether one is. `pending` alone can't
+   * tell "Publish job" from "Save as draft" — both submit through the same
+   * `formAction`/`useActionState` pair (see this component's own prop
+   * comment on `secondarySubmitLabel`), so this is set from each button's
+   * own click, read only while `pending` is true, and irrelevant (never
+   * read) on the single-button Edit form.
+   */
+  const [pendingIntent, setPendingIntent] = useState<"primary" | "secondary" | null>(null);
 
   // send-368 — "Draft with Farah" needs to READ title (to enable/disable the
   // button and send it to the action) and WRITE location/workType/
@@ -763,10 +793,28 @@ export function JobPostingForm({
             editContext={assessmentEditContext}
           />
 
-          <div>
-            <Button type="submit" disabled={pending}>
-              {pending ? pendingLabel : submitLabel}
+          <div className="flex items-center gap-3">
+            <Button
+              type="submit"
+              name={secondarySubmitLabel ? "intent" : undefined}
+              value={secondarySubmitLabel ? "publish" : undefined}
+              disabled={pending}
+              onClick={() => setPendingIntent("primary")}
+            >
+              {pending && pendingIntent === "primary" ? pendingLabel : submitLabel}
             </Button>
+            {secondarySubmitLabel && (
+              <Button
+                type="submit"
+                variant="secondary"
+                name="intent"
+                value="draft"
+                disabled={pending}
+                onClick={() => setPendingIntent("secondary")}
+              >
+                {pending && pendingIntent === "secondary" ? secondaryPendingLabel : secondarySubmitLabel}
+              </Button>
+            )}
           </div>
         </form>
       </BorderedCard>

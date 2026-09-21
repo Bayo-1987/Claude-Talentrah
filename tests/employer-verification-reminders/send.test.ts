@@ -47,6 +47,13 @@ vi.mock("@/lib/supabase/service-role", () => ({
       const builder = {
         select: () => builder,
         eq: () => builder,
+        // send-447 — added alongside `eq`/`in` when sendVerificationReminders
+        // gained its own `.neq("status", "draft")` filter. Same reasoning as
+        // every other chainable method here: `then` resolves purely off the
+        // table name below, so which filters were actually chained doesn't
+        // change the mocked result — this just has to exist for the real
+        // call chain not to throw.
+        neq: () => builder,
         in: () => builder,
         limit: () => builder,
         update: (payload: unknown) => ({

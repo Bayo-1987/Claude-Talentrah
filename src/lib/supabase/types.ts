@@ -3343,6 +3343,30 @@ export type Database = {
           },
         ]
       }
+      test_user_pool: {
+        Row: {
+          created_at: string
+          leased_at: string | null
+          leased_by: string | null
+          prefix: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          leased_at?: string | null
+          leased_by?: string | null
+          prefix?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          leased_at?: string | null
+          leased_by?: string | null
+          prefix?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_notifications: {
         Row: {
           body: string
@@ -3509,6 +3533,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      add_test_pool_user: {
+        Args: { p_lease_id: string; p_user_id: string }
+        Returns: undefined
+      }
       admin_create_operator: {
         Args: {
           p_actor: string
@@ -3767,6 +3795,15 @@ export type Database = {
           ok: boolean
           reason: string
         }[]
+      }
+      claim_test_pool_user: {
+        Args: {
+          p_lease_id: string
+          p_new_email: string
+          p_prefix: string
+          p_stale_after_seconds?: number
+        }
+        Returns: string
       }
       cleanup_expired_tailoring_cache: { Args: never; Returns: undefined }
       consume_anonymous_rate_limit: {
@@ -4083,6 +4120,10 @@ export type Database = {
         Args: { p_reviewer_id: string; p_verification_id: string }
         Returns: boolean
       }
+      release_test_pool_user: {
+        Args: { p_lease_id: string; p_user_id: string }
+        Returns: undefined
+      }
       request_talent_directory_contact: {
         Args: {
           p_candidate_id: string
@@ -4095,6 +4136,10 @@ export type Database = {
           reason: string
           request_id: string | null
         }[]
+      }
+      reset_test_pool_user: {
+        Args: { p_new_email: string; p_user_id: string }
+        Returns: undefined
       }
       resolve_talent_directory_boost: {
         Args: { p_boost_id: string; p_days: number; p_user_id: string }
@@ -4385,7 +4430,7 @@ export type Database = {
         | "discriminatory"
         | "other"
       job_source_type: "internal" | "external"
-      job_status: "open" | "closed" | "removed"
+      job_status: "open" | "closed" | "removed" | "draft"
       market_segment: "home" | "diaspora"
       org_member_role: "owner" | "admin"
       pass_auto_renew_status: "active" | "canceled" | "lapsed"
@@ -4636,7 +4681,7 @@ export const Constants = {
         "other",
       ],
       job_source_type: ["internal", "external"],
-      job_status: ["open", "closed", "removed"],
+      job_status: ["open", "closed", "removed", "draft"],
       market_segment: ["home", "diaspora"],
       org_member_role: ["owner", "admin"],
       pass_auto_renew_status: ["active", "canceled", "lapsed"],

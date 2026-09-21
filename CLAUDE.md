@@ -222,6 +222,66 @@ Phase 1 is feature-complete except for the employer side. Read [docs/phase-1-sum
     job-detail step already uses via sitemap.xml, rather than a hardcoded
     route) or seeding the CI project with enough stable
     remote postings to keep this page reliably above threshold.
+  - **Re-verified independently, 2026-09-21 afternoon, directly against live
+    `edge_logs` (send-441 follow-up)**: zero 401s against production from
+    any client since `07:37:10` that morning — the fix held. The facet-count
+    consolidation above (0185, `job_landing_facet_counts`/
+    `scholarship_landing_facet_counts`) is also real and live, already
+    merged — production's own recent traffic shows a single
+    `rpc/job_landing_facet_counts` POST per landing-page render, not the old
+    8/6-query fan-out. **A separate, still-open finding from the same
+    follow-up**: `dozaffzgqkbarxtlclsj`'s `auth_audit_logs` show real,
+    substantial local/agent-test churn — 1,564 `user_deleted` + 559
+    `user_signedup` events in a single 24h window (measured via
+    `query_logs`, not the Postgres `auth.audit_log_entries` table, which is
+    empty on this project — log-stream and DB-table auth auditing are
+    evidently not the same mechanism here). That reconciles much closer to
+    the original ~37k/14-day estimate than the disputed lower figure ever
+    did.
+  - **Fixed, send-453 (0188, `tests/support/auth.ts`)**: `db:local` was
+    checked first as the lower-risk option and ruled out for a real,
+    checked reason, not an assumption — Docker is not merely off but not
+    installed at all on the machine this was investigated from (no
+    `docker`, no Docker Desktop, no Colima/Podman/Lima), and that machine
+    is one of the actual local/agent environments this churn comes from.
+    So `createTestUser`/`deleteTestUsers` now claim/release a pool of
+    reused auth users (migration 0188 — `test_user_pool` +
+    `claim_test_pool_user`/`release_test_pool_user`, `FOR UPDATE SKIP
+    LOCKED` for safe concurrent claiming across separate processes)
+    instead of creating and deleting a fresh one every time; every
+    existing call site needed zero edits. A single full 3,801-test suite
+    run against a warm pool now produces ~186 `user_deleted` + ~137
+    `user_signedup` (vs. 1,564 + 559 measured over 24h before) — the
+    residue is genuine overflow under peak parallelism (the pool caps at
+    40) plus the handful of suites that mint auth users directly rather
+    than through `createTestUser`.
+    **Real bugs this surfaced, each found by testing against the actual
+    live schema rather than an empty one** (see 0188's own header for the
+    full reasoning): the first version walked `information_schema` for
+    every table with ANY foreign key to `auth.users`/`profiles` and
+    deleted all of it — including actor/reviewer columns on OTHER
+    people's rows (`job_postings.admin_reviewed_by`,
+    `organizations.cac_confirmed_by`) and, worse, `profiles.referred_by`
+    itself, which would have deleted other real accounts' profile rows
+    the first time a referrer got reused. Replaced with a hand-reviewed
+    allowlist. Two narrower gaps surfaced only under a real full-suite
+    run: `admin_users` and `mentor_profiles` aren't touched by deleting
+    `auth.users` (pooling never does that), so a reused identity that had
+    once been an admin or a mentor kept that row indefinitely and the next
+    claim's fresh insert hit a duplicate key — fixed by adding
+    `admin_users` to the wipe list and nulling
+    `talent_verifications.reviewer_id` (mentor_profiles's own NOT NULL
+    mentor-side FKs on sessions/reviews/payouts are a known, accepted
+    residual: a pool user that ran a real mentor session keeps its mentor
+    row). `email_preferences` needed the opposite fix — it's a 1:1 row a
+    trigger creates on `profiles` INSERT, which never re-fires for a
+    reused id, so it's reset in place (fresh `unsubscribe_token` included)
+    rather than deleted. And `createTestUser(prefix, meta)`'s `meta`
+    (first_name/last_name/country) silently stopped reaching `profiles`
+    for a reused identity, because `handle_new_user` only fires on INSERT
+    and reuse is an UPDATE — caught by `referral-leaderboard.test.ts`'s
+    own display-name-fallback assertion, fixed by applying those fields
+    directly after claim.
 
 Verification convention this repo holds itself to, visible throughout its PR history: **check real current state before building; prove a fix by first proving the test catches the bug.** Several milestones caught real defects specifically by re-testing what earlier work had assumed — an RLS policy that had never been run, a retry heuristic that looked like model behaviour, an OAuth name mapping where the intuitive fix would have repaired the wrong provider, and an org-membership policy that read as safe and was not. That last one is also the standing example of a second habit: after fixing a policy, ask what *else* grants the same privilege — the first fix closed one route and, in doing so, opened a second.
 

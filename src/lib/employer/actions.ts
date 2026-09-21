@@ -560,10 +560,25 @@ export async function postJobAction(
   const assessment = parseJobPostingAssessmentForm(form);
   if (!assessment.ok) return { error: assessment.error };
 
+  /*
+   * TWO SUBMIT BUTTONS, ONE ACTION, ONE FORM — see job-posting-form.tsx's own
+   * header on why. Each button sets `name="intent"` to its own value; only
+   * the CLICKED button's value reaches FormData, which is plain HTML form
+   * semantics, not something either button's onClick has to implement. An
+   * unrecognised or missing intent defaults to "publish" — the form's own
+   * primary/first button — rather than silently drafting a submission whose
+   * intent this server didn't understand.
+   */
+  const intent = form.get("intent") === "draft" ? "draft" : "publish";
+  const status: Enums<"job_status"> = intent === "draft" ? "draft" : "open";
+
   // Inserted through the user's client on purpose. The 0027 policy
   // (`source_type = 'internal' and is_org_member(organization_id)`) is what
   // authorises it, so a regression in that policy breaks posting loudly here
-  // instead of being silently bypassed by a service-role write.
+  // instead of being silently bypassed by a service-role write. `status`
+  // covers both "open" and "draft" the same way — the INSERT policy (0114)
+  // never restricted which status a new row may carry, only the UPDATE
+  // policy did (0188 is what taught THAT check about draft).
   const { data: created, error } = await supabase
     .from("job_postings")
     .insert({
@@ -584,7 +599,7 @@ export async function postJobAction(
       // expire".
       expires_at: expiry.value ?? null,
       ...salary.value,
-      status: "open",
+      status,
       dedup_fingerprint: internalDedupFingerprint(organization.id, fields.title, fields.location),
       // Only `skills` — the one key every match-scoring read site
       // (compute-and-store.ts, refresh-job.ts) actually reads. `keywords`/
@@ -601,20 +616,25 @@ export async function postJobAction(
     if (error.code === "23505") {
       return { error: "You've already posted this role in this location." };
     }
-    return { error: `Couldn't publish the job: ${error.message}` };
+    return {
+      error: `Couldn't ${intent === "draft" ? "save the draft" : "publish the job"}: ${error.message}`,
+    };
   }
 
   // A brand-new posting has no existing questions to reconcile against —
   // this is a plain insert of whatever the form submitted. If it fails, the
-  // posting itself still exists and is already public; surfacing the error
-  // here rather than rolling back the posting matches this repo's own stance
-  // (0043's "a charge of unknown outcome is not a failure") that a partial
-  // success should be reported honestly, not hidden behind an all-or-nothing
-  // illusion this isn't actually a single transaction.
+  // posting itself still exists (public if published, private if drafted);
+  // surfacing the error here rather than rolling back the posting matches
+  // this repo's own stance (0043's "a charge of unknown outcome is not a
+  // failure") that a partial success should be reported honestly, not
+  // hidden behind an all-or-nothing illusion this isn't actually a single
+  // transaction.
   if (screeningQuestions.value.length > 0) {
     const result = await reconcileScreeningQuestions(supabase, created.id, screeningQuestions.value);
     if (!result.ok) {
-      return { error: `Job published, but couldn't save its screening questions: ${result.error}` };
+      return {
+        error: `${intent === "draft" ? "Draft saved" : "Job published"}, but couldn't save its screening questions: ${result.error}`,
+      };
     }
   }
 
@@ -626,16 +646,22 @@ export async function postJobAction(
   if (assessment.value) {
     const result = await reconcileJobPostingAssessment(supabase, created.id, organization.id, user.id, assessment.value);
     if (!result.ok) {
-      return { error: `Job published, but couldn't save its assessment: ${result.error}` };
+      return {
+        error: `${intent === "draft" ? "Draft saved" : "Job published"}, but couldn't save its assessment: ${result.error}`,
+      };
     }
   }
 
   revalidatePath("/employer/jobs");
   revalidatePath("/jobs");
-  // `?posted=<id>` is how Jobs Posted knows to surface the share link right
-  // away (src/app/employer/jobs/page.tsx) — there is no other confirmation
-  // screen, so this is the only moment an employer sees it without a second
-  // trip back to find their own row.
+  // `?posted=<id>` is how Jobs Posted knows to surface the "your posting now
+  // has a real id" confirmation card and its deferred banner/assessment-file
+  // uploads (src/app/employer/jobs/page.tsx) — that plumbing is genuinely
+  // status-agnostic (a draft has a real id the instant it's inserted, same
+  // as a published posting), so the SAME query param and the SAME redirect
+  // target serve both intents. The card's own copy and share block are what
+  // read `postedJob.status` to say something true about a draft rather than
+  // claiming it is "posted".
   redirect(`/employer/jobs?posted=${created.id}`);
 }
 
@@ -809,6 +835,66 @@ export async function setJobStatusAction(jobId: string, status: Enums<"job_statu
 }
 
 /**
+ * The employer's own draft -> open transition (posted-job-row.tsx's Publish
+ * button on a draft row) — NOT `setJobStatusAction` above, on purpose.
+ *
+ * That action's own reopen branch treats "open" as a RETURN to a state the
+ * posting already visited once (it clears a stale `closed_at`). A draft has
+ * never been open, so this is a first publish, not a reopen, and it needs
+ * the opposite stamp: `posted_at`, set to the moment publication actually
+ * happens, not left at whatever the row's insert-time default already was.
+ *
+ * `posted_at` is what every freshness-gated surface measures a posting's age
+ * from (`freshnessFloorISO()`, the sitemap's own `.gte("posted_at", ...)`,
+ * "Most Recent" sort, the age line on the card and the detail page) — if
+ * this action left it untouched, a draft quietly started weeks before being
+ * published would look that many weeks stale the instant it went live,
+ * which is a silent staleness bug, not a hypothetical one.
+ *
+ * Same two-step shape as `setJobStatusAction`'s closed_at stamp, for the
+ * identical reason: `posted_at` is no longer UPDATE-grantable to
+ * `authenticated` (0188 closed that off — it used to be, which was itself a
+ * pre-existing freshness-gaming hole this fix also closes) so the session
+ * client can AUTHORISE the transition but cannot stamp the trust column
+ * itself. `.eq("status", "draft")` on the session-client update is
+ * deliberate belt-and-braces beyond what RLS alone requires: this action
+ * exists to publish a DRAFT specifically, and scoping the WHERE clause to
+ * the one status it is meant to act on means a forged call against an
+ * already-open, closed, or removed posting is a no-op (zero rows updated)
+ * rather than a status change this action was never meant to make.
+ */
+export async function publishJobAction(jobId: string) {
+  const { supabase } = await getAuthedUser();
+  const { organization } = await requireEmployer();
+
+  const { data: updated, error } = await supabase
+    .from("job_postings")
+    .update({ status: "open" })
+    .eq("id", jobId)
+    .eq("organization_id", organization.id)
+    .eq("status", "draft")
+    .select("id");
+
+  // Same rule as setJobStatusAction just above: a rejected update RESOLVES
+  // with `error`, and a policy/status mismatch resolves with zero rows —
+  // neither throws. posted_at must not be stamped for a publish that didn't
+  // actually happen.
+  if (!error && updated?.length) {
+    const admin = createServiceRoleClient();
+    const { error: postedAtError } = await admin
+      .from("job_postings")
+      .update({ posted_at: new Date().toISOString() })
+      .eq("id", jobId);
+    if (postedAtError) {
+      console.error("[employer] published job but could not stamp posted_at", jobId, postedAtError.message);
+    }
+  }
+
+  revalidatePath("/employer/jobs");
+  revalidatePath("/jobs");
+}
+
+/**
  * Permanent, employer-triggered deletion — the manual counterpart to the
  * 30-day automatic sweep (`deleteStaleClosedPostings`,
  * src/lib/jobs/posting-deletion.ts), for an org that doesn't want to wait a
@@ -879,11 +965,23 @@ export async function requestJobReviewAction(jobId: string) {
   const { supabase } = await getAuthedUser();
   const { organization } = await requireEmployer();
 
+  /*
+   * `.eq("status", "open")` — found while auditing this action for draft
+   * support (send-447), not something it already had: nothing here checked
+   * status at all before this. The UI's own "Submit for review" button
+   * already only renders for `job.status === "open"`, but that is a
+   * rendering condition, not a server-side check — a direct call against a
+   * draft's id would otherwise have queued a posting that was never trying
+   * to reach the public feed for an admin's Path 3 review, and an approval
+   * on it would need re-reviewing the moment the posting's real content
+   * later changed under Edit before ever being published.
+   */
   await supabase
     .from("job_postings")
     .update({ admin_review_requested_at: new Date().toISOString() })
     .eq("id", jobId)
     .eq("organization_id", organization.id)
+    .eq("status", "open")
     .is("admin_review_requested_at", null);
 
   revalidatePath("/employer/jobs");

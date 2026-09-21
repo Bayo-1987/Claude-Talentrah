@@ -85,7 +85,11 @@ export default async function JobsPostedPage({
   const mintedAt = new Map<string, string>();
   if (!organization.verified) {
     for (const job of jobs ?? []) {
-      if (job.status === "removed") continue;
+      // A draft (send-447) has nothing to mint a link for, same reason
+      // removed doesn't — canMintUnlistedLink already says so, but skipping
+      // it here too means a draft never even touches the rate limit this
+      // loop otherwise spends on a genuinely new grant.
+      if (job.status === "removed" || job.status === "draft") continue;
       if (job.unlisted_at) {
         mintedAt.set(job.id, job.unlisted_at);
         continue;
@@ -243,20 +247,43 @@ export default async function JobsPostedPage({
       */}
       {postedJob && (
         <BorderedCard className="border-ink p-5">
+          {/*
+            send-447 — "is posted" is false for a draft: `?posted=<id>` fires
+            for both intents (see postJobAction's own redirect comment — the
+            id existing is what this card is actually reacting to, not
+            publication), so the headline has to say something true about
+            whichever one actually happened.
+          */}
           <p className="font-display text-[16px] font-medium text-ink">
-            &quot;{postedJob.title}&quot; is posted.
+            &quot;{postedJob.title}&quot;{" "}
+            {postedJob.status === "draft" ? "is saved as a draft." : "is posted."}
           </p>
-          <div className="mt-3">
-            <EmployerJobShareInline
-              jobId={postedJob.id}
-              jobTitle={postedJob.title}
-              origin={origin}
-              visibility={getJobShareVisibility({
-                status: postedJob.status,
-                organizationVerified: organization.verified,
-              })}
-            />
-          </div>
+          {/*
+            Omitted entirely for a draft, not rendered with "unreachable"
+            visibility (send-447, found live: `getJobShareVisibility`
+            returns "unreachable" for BOTH "draft" and "unverified with no
+            unlisted link", and the share components' own copy for that
+            state — "verify your company to unlock it" — is only true for
+            the second reason. Verifying the company would not make a draft
+            shareable; publishing it would. Rather than teach two shared,
+            widely-used components a second "unreachable" reason, this one
+            call site just skips the block entirely for a draft, mirroring
+            posted-job-row.tsx's own row-level treatment (no share button
+            for a draft row either).
+          */}
+          {postedJob.status !== "draft" && (
+            <div className="mt-3">
+              <EmployerJobShareInline
+                jobId={postedJob.id}
+                jobTitle={postedJob.title}
+                origin={origin}
+                visibility={getJobShareVisibility({
+                  status: postedJob.status,
+                  organizationVerified: organization.verified,
+                })}
+              />
+            </div>
+          )}
           {/*
             send-132 put a pointer to Edit here, since a banner can't be
             uploaded before this posting exists. send-134 goes further: an

@@ -56,12 +56,13 @@ test.describe("employer surface", () => {
      * The seeker masthead's treatment, ported — and the breakpoint is NOT the
      * same, which is why this has its own test rather than a shared one.
      *
-     * That side collapses at 760 because seven nav links need 728px. This one
-     * has three and needs 379, so it only overflows below ~380 — but the link
-     * text wraps to two lines all the way up to 640 ("Company Profile" at 59px
-     * over two lines instead of 103px over one). 640 is where it stops being
-     * cramped, so 640 is the breakpoint. Copying 760 would have hidden a nav
-     * that fits perfectly well from 640 to 759.
+     * 1200, not 640 (send-388) — re-measured after Analytics (0128) and
+     * Talent Directory (0135) brought NAV_LINKS from three links to five;
+     * this comment used to describe the three-link measurement long after
+     * the array itself had moved on. See employer-masthead.tsx's own
+     * breakpoint comment and e2e/employer-masthead-nav-fit.spec.ts's header
+     * for the real sweep data (non-monotonic below 990px) behind this
+     * number.
      */
     const orgName = `E2E Employer Co ${testUser.id.slice(0, 8)}`;
     await authedPage.goto("/employer");
@@ -88,7 +89,17 @@ test.describe("employer surface", () => {
       await expect(menu).toBeVisible({ timeout: 1000 });
     }).toPass({ timeout: 15_000 });
 
-    for (const label of ["Jobs Posted", "Company Profile", "Ad Campaigns", "Looking for work?"]) {
+    // All 5 nav links, not just the 3 this list stopped at before Analytics
+    // and Talent Directory shipped (send-388) — a stale list here would pass
+    // even if a future link never made it into the disclosure at all.
+    for (const label of [
+      "Jobs Posted",
+      "Company Profile",
+      "Ad Campaigns",
+      "Analytics",
+      "Talent Directory",
+      "Looking for work?",
+    ]) {
       await expect(menu.getByRole("menuitem", { name: label })).toBeVisible();
     }
     await authedPage.keyboard.press("Escape");
@@ -101,7 +112,7 @@ test.describe("employer surface", () => {
     expect(spills, "the employer masthead must not overflow the viewport").toBe(false);
 
     // ---- and above the breakpoint it is the bar again ---------------------
-    await authedPage.setViewportSize({ width: 640, height: 900 });
+    await authedPage.setViewportSize({ width: 1200, height: 900 });
     await expect(authedPage.locator("nav")).toBeVisible();
     await expect(authedPage.getByRole("button", { name: "Main menu" })).toBeHidden();
   });

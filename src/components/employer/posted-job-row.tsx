@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { BorderedCard, Button, buttonClasses } from "@/components/ui";
-import { requestJobReviewAction, setJobStatusAction } from "@/lib/employer/actions";
+import { publishJobAction, requestJobReviewAction, setJobStatusAction } from "@/lib/employer/actions";
 import { formatRelativeTime } from "@/lib/format-relative-time";
 import { EmployerJobShareButton } from "@/components/employer/job-share-button";
 import { getJobShareVisibility } from "@/lib/employer/job-visibility";
@@ -9,7 +9,7 @@ export interface PostedJob {
   id: string;
   title: string;
   location: string | null;
-  status: "open" | "closed" | "removed";
+  status: "open" | "closed" | "removed" | "draft";
   /** Set only when status is "removed". Operator-written; shown to the org. */
   removalReason: string | null;
   postedAt: string;
@@ -56,6 +56,16 @@ export function PostedJobRow({
    * removed rows. A button that always errors is worse than no button.
    */
   const removed = job.status === "removed";
+  /*
+   * send-447 — a draft gets its own restricted action set (Edit + Publish),
+   * the same way removed gets its own (nothing but the reason). The
+   * close/reopen toggle below is deliberately NOT reused for draft -> open:
+   * that toggle calls setJobStatusAction, which stamps closed_at but never
+   * posted_at, so routing a first publish through it would leave posted_at
+   * at whatever the draft's insert-time default already was — the exact
+   * silent staleness bug publishJobAction exists to prevent.
+   */
+  const draft = job.status === "draft";
 
   const meta = [
     job.location,
@@ -68,6 +78,11 @@ export function PostedJobRow({
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2.5">
           <h3 className="font-display text-[19px] font-semibold text-ink">{job.title}</h3>
+          {draft && (
+            <span className="border border-amber px-2 py-0.5 font-body text-[11px] font-bold tracking-[0.14em] text-amber uppercase">
+              Draft
+            </span>
+          )}
           {removed && (
             <span className="border border-rust px-2 py-0.5 font-body text-[11px] font-bold tracking-[0.14em] text-rust uppercase">
               Removed
@@ -172,6 +187,28 @@ export function PostedJobRow({
           {job.removalReason ? `: ${job.removalReason}` : "."}{" "}
           Reply to your verification email if you think this is wrong.
         </p>
+      ) : draft ? (
+        /*
+         * Edit + Publish only. No Close/Reopen (nothing has ever been open),
+         * no Delete (that action is closed-only, see deleteJobAction's own
+         * header), no share button (getJobShareVisibility already says
+         * "unreachable" for a draft — there is nothing to hand out a link
+         * to), no "Submit for review" (Path 3 review is about admitting an
+         * already-public-attempt posting to the feed; a draft isn't
+         * attempting that yet, and requestJobReviewAction now refuses a
+         * non-open posting server-side regardless of what this row shows).
+         */
+        <div className="flex flex-shrink-0 items-center gap-3">
+          <Link href={`/employer/jobs/${job.id}/edit`} className={buttonClasses("secondary", "sm", "no-underline")}>
+            Edit
+          </Link>
+          {/* Server action bound per row — no client JS needed to publish. */}
+          <form action={publishJobAction.bind(null, job.id)}>
+            <button type="submit" className={buttonClasses("primary", "sm")}>
+              Publish
+            </button>
+          </form>
+        </div>
       ) : (
       <div className="flex flex-shrink-0 items-center gap-3">
         <Link href={`/employer/jobs/${job.id}/edit`} className={buttonClasses("secondary", "sm", "no-underline")}>
