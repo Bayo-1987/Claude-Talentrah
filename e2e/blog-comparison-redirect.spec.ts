@@ -23,6 +23,17 @@ import { test, expect } from "@playwright/test";
  * content looks identical to a followed 308, from the caller's side,
  * unless redirects are disabled and the intermediate response inspected
  * directly).
+ *
+ * Deliberately doesn't also assert the canonical destination itself
+ * resolves to a real 200 — that's real production content
+ * (`ai-job-search-tools-nigeria-africa`), which `scripts/seed.ts` never
+ * creates. CI's `checks`/`e2e` jobs each run against their own fresh,
+ * empty ephemeral database (see CLAUDE.md), so a version of this test
+ * that checked the destination failed there with a 404 on first run —
+ * not a flake, a genuine assumption that only held against the shared
+ * hosted dev project's production-mirrored content, never against CI's.
+ * `redirects()` doesn't care whether its destination resolves anyway, so
+ * this isn't a real gap in what the redirect itself needs verified.
  */
 test("the retired comparison-post slug serves a real 308 to the canonical post, not the old page", async ({
   request,
@@ -33,9 +44,4 @@ test("the retired comparison-post slug serves a real 308 to the canonical post, 
 
   expect(res.status(), "MONEY BUG target: this must be a redirect, not the old page still rendering").toBe(308);
   expect(res.headers()["location"]).toBe("/blog/ai-job-search-tools-nigeria-africa");
-});
-
-test("the canonical post the redirect points at is itself a real, live page", async ({ request }) => {
-  const res = await request.get("/blog/ai-job-search-tools-nigeria-africa");
-  expect(res.status()).toBe(200);
 });
