@@ -47,23 +47,57 @@ export function EmployerMasthead({
   const navTriggerRef = useRef<HTMLButtonElement>(null);
 
   /*
-   * 640, NOT the seeker masthead's 760 — measured rather than inherited.
+   * 1200, NOT 640 — re-measured (send-388), not inherited from this
+   * comment's own stale history.
    *
-   * That side needed 728px because it carries seven nav links; this one has
-   * three, and the numbers are not close:
+   * 640 was correct once, for THREE links. Analytics (0128) and Talent
+   * Directory (0135) brought NAV_LINKS to five, and nobody re-derived the
+   * breakpoint — this comment kept saying "three, and the numbers are not
+   * close" long after the array itself said otherwise. A prior attempt to
+   * fix this (PR #388, "send-219 phase 1") measured a real 1185px crossover
+   * and raised the breakpoint to 1280 — but it was written against the
+   * Sunbird design system, reverted back to Editorial the same day (PR
+   * #395), and closed unmerged as moot. Its DIAGNOSIS was right; its patch
+   * no longer applied. Re-measured fresh against current Editorial markup,
+   * signed in as an org owner, via a Range over each link's TEXT content
+   * (not the link's own box — `min-h-10` stays 40px whether the label wraps
+   * or not, so a box-height check would have missed this the same way it
+   * did on the right-hand group, see this file's other breakpoint comment
+   * below):
    *
-   *     width   page overflows?   nav link text
-   *      360    yes (379px)       wrapped to two lines
-   *      390    no                wrapped
-   *      412    no                wrapped
-   *      560    no                wrapped
-   *      640    no                one line
+   *     width   wraps?
+   *      640     yes
+   *      700     yes
+   *      768     yes
+   *      800     yes
+   *      850     no   <- an isolated gap, not a real threshold
+   *      900     yes
+   *      950     yes
+   *      975     yes
+   *      985     yes
+   *      990     no   <- first width in a CONTINUOUS clean run
+   *     1024     no
+   *     1150     no
+   *     1200     no
    *
-   * So the page only breaks below ~380, but the nav is visibly squeezed all
-   * the way to 640 — "Company Profile" rendered 59px wide over two lines
-   * instead of 103px over one. 640 is where it stops being cramped, and it is
-   * already a breakpoint this codebase uses. Copying 760 across would have
-   * hidden a nav that fits perfectly well from 640 to 759.
+   * Non-monotonic, not a clean step function — "Jobs Posted"/"Company
+   * Profile"/"Ad Campaigns"/"Talent Directory" wrap and un-wrap across
+   * several nearby widths before finally settling clean at 990 and staying
+   * clean afterward ("Analytics", the one single-word label, never wraps).
+   * That instability is exactly why a threshold picked from the first clean
+   * width found (850, or even 990 itself) would be fragile — a single-digit
+   * pixel margin has already burned this codebase twice (the seeker
+   * masthead's 700px and 2xl breakpoints, both re-measured after passing
+   * with 0px margin on CI's Linux runner, where font metrics render this
+   * exact row wider than they do here).
+   *
+   * 1200 — not a fresh number, the SAME value the right-hand group's own
+   * breakpoint below already uses (send-442) — buys 210px of real margin
+   * over the measured 985px crossover, keeps this masthead down to a single
+   * "desktop layout" threshold instead of two adjacent almost-matching
+   * magic numbers, and was confirmed to still leave 67px of clearance
+   * between this nav's last link and the right-hand group at exactly 1200px
+   * (measured live, not assumed from the numbers alone).
    */
   useEffect(() => {
     if (!navOpen) return;
@@ -109,7 +143,7 @@ export function EmployerMasthead({
   return (
     <div data-testid="employer-masthead" className="border-b-[2.5px] border-ink bg-paper">
       <div className="flex h-[68px] items-center justify-between px-8">
-        <div className="flex items-center gap-4 min-[640px]:gap-9">
+        <div className="flex items-center gap-4 min-[1200px]:gap-9">
           <Link href="/employer/jobs" className="flex flex-shrink-0 items-center no-underline">
             {/* eslint-disable-next-line @next/next/no-img-element -- static brand SVG, matches Masthead */}
             <img
@@ -123,7 +157,7 @@ export function EmployerMasthead({
           <span className="hidden border border-line px-2 py-1 font-body text-[11px] font-bold tracking-[0.14em] text-ink-soft uppercase min-[900px]:inline-block">
             For employers
           </span>
-          <nav className="hidden items-center gap-5.5 min-[640px]:flex">
+          <nav className="hidden items-center gap-5.5 min-[1200px]:flex">
             {NAV_LINKS.map((link) => {
               const active = pathname?.startsWith(link.href);
               return (
@@ -156,11 +190,12 @@ export function EmployerMasthead({
           </nav>
 
           {/*
-            The same three links behind a disclosure below 640, with the same
-            contract as the seeker masthead and the feed's card menus: outside
-            click and Escape both close.
+            The same five links behind a disclosure below 1200 (was 640 —
+            see the nav's own breakpoint comment above for why), with the
+            same contract as the seeker masthead and the feed's card menus:
+            outside click and Escape both close.
           */}
-          <div ref={navRef} className="relative flex items-center min-[640px]:hidden">
+          <div ref={navRef} className="relative flex items-center min-[1200px]:hidden">
             <button
               ref={navTriggerRef}
               type="button"
