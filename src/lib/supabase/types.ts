@@ -2247,6 +2247,33 @@ export type Database = {
           },
         ]
       }
+      one_tap_moments: {
+        Row: {
+          created_at: string
+          id: string
+          moment_type: string
+          page: string
+          reason: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          moment_type: string
+          page: string
+          reason?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          moment_type?: string
+          page?: string
+          reason?: string | null
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
       organization_members: {
         Row: {
           created_at: string
