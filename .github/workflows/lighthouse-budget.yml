@@ -163,14 +163,23 @@ jobs:
         env:
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
         run: |
-          set -uo pipefail
-          # No -f here deliberately: -f makes curl exit non-zero on a 4xx/5xx
-          # with NO body and NO status code printed anywhere, which is why
-          # this step's first real failure gave zero diagnostic information
-          # (a silent exit 1, no error text at all). -w appends the status
-          # code as the response body's last line instead, so a genuine
-          # failure is at least legible in the log rather than a bare
-          # "Process completed with exit code 1."
+          # +e, not just -uo pipefail: GitHub Actions runs every `run:` block
+          # as `bash -e {0}` (confirmed in this step's own "shell:" log line)
+          # — that -e is already active BEFORE this line runs, stacking with
+          # whatever this script sets. That is the actual root cause of the
+          # "silent exit 1, no error text at all" this comment used to
+          # describe as if -w alone had fixed it: -w makes a checked failure
+          # legible, but pipefail (needed so a failed `grep | head` pipeline
+          # is even detectable at all) also makes bash's own -e treat that
+          # pipeline's exit status as a reason to kill the script immediately
+          # — before the very next line's `if [ -z "$JOB_URL" ]` check, the
+          # one place this script actually intended to report that failure,
+          # ever runs. Every failing run of this job showed exactly that
+          # shape: exit code 1, zero output. `set +e` here overrides the
+          # invocation's own -e for the rest of this script, so `pipefail`
+          # still catches a genuinely broken pipe but only this script's own
+          # explicit `if`/`exit 1` checks below decide when it actually stops.
+          set +e -uo pipefail
           RESPONSE=$(curl -sS "${{ steps.vercel_preview.outputs.url }}/sitemap.xml" \
             -H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" \
             -w '\n%{http_code}')
