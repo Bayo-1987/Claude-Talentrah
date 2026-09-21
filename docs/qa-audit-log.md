@@ -22,6 +22,75 @@ hit the same ones blind otherwise.
 
 ---
 
+## 2026-09-21 — send-451: signup-form password-field-clears-everything quirk, closed
+
+Follow-up to the first run's own "one dead end worth recording" note
+(below): that run saw `/signup`'s First name/Last name/Email/Country fields
+sometimes empty the moment Password was filled via Playwright's `.fill()`
+(a single synthetic `input` event — the same shape a password-manager
+autofill or a paste produces), did not reproduce via real keystroke-by-
+keystroke typing, and could not run `next build` in its own sandbox
+(`fonts.googleapis.com` blocked) to check whether it was a real bug or a
+dev-mode artifact — so it was correctly left unfiled rather than reported.
+
+**This send ran from an environment that CAN run a real build, and did.**
+`npm run build && npm run start` completed cleanly (no network
+restrictions here); `/signup` served normally.
+
+**Reproduced or not, stated explicitly: NOT reproduced, against a genuine
+production build.** Three independent trials against the running
+`next start` server, each starting from a fresh page load with cookies
+cleared (a stray signed-in session from earlier in this browser profile
+caused a `/signup → /jobs` redirect on the first attempt — cleared and
+confirmed a genuine signed-out render before each trial):
+
+1. Filled First name/Last name/Email via the native-input-setter +
+   dispatched `input`/`change` event technique (matching what `.fill()`
+   does under the hood), then bulk-filled Password the same way. All four
+   fields read back correctly afterward.
+2. Repeated with different values and the Country `<select>` also set via
+   its own native setter + `change` event, ruling out an ordering-specific
+   or field-specific effect.
+3. Repeated a third time using this session's own form-filling tool (a
+   different internal mechanism from the raw JS in trials 1–2) for the
+   bulk password fill specifically, for trigger diversity.
+
+All three: First name, Last name, Email, and Country stayed exactly as
+set; only Password changed.
+
+**Root-caused why, not just confirmed clean.** Read
+`src/components/auth/signup-form.tsx` in full, including its own top
+comment about the React 19 native-form-reset quirk. That mechanism fires
+*after a `<form action={fn}>` submission's result commits* — including on
+a validation-error "failure" — and only affects the `<select>`/checkbox
+pair (`country`/`termsAccepted`), which is exactly why the file's own
+`useEffect` only re-asserts those two. It has no code path that runs on a
+plain field `onChange` mid-fill, before any submission — so it structurally
+cannot be the mechanism behind a password-field-clears-siblings quirk.
+Separately, `set(key)` (the shared onChange factory) does an isolated
+`setFields(prev => ({ ...prev, [key]: value }))` per field, with no shared
+mutable reference, debounce, or batching that could let one field's update
+clear another's. **Genuinely a different, and non-existent-in-production,
+mechanism** — not the same bug wearing a different hat.
+
+**Closed as: confirmed dev-mode-only artifact, not a real bug.** No code
+change made — per this repo's own "prove a fix by first proving the test
+catches the bug" discipline, there was nothing to prove a fix against.
+Likely cause of the original dev-mode observation (not verified further,
+since it's moot once production is confirmed clean): Next.js dev's
+on-demand per-route compilation/Fast Refresh, which the original run's own
+note already flagged as the variable that made it stop reproducing once
+`/signup` was warm. If a similar "fields clear on bulk-fill" report
+surfaces again, checking against `npm run build && npm run start` first
+(not `next dev`) should be the very first step, not a follow-up — this
+repo's own CLAUDE.md already documents two prior cases of a `next dev`-only
+failure evaporating under a real build (the per-page OG image URL and a
+Playwright test that hit a dev-only "Rendering…" overlay); this is now a
+third, one level earlier — never confirmed as a real product failure in the
+first place, only suspected from a dev-mode sandbox.
+
+---
+
 ## 2026-09-21 — first run
 
 This is the first run of this practice; no prior entry existed to diff
