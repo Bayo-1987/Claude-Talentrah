@@ -1,10 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { BorderedCard, EyebrowLabel } from "@/components/ui";
 import { ASSESSMENT_DOCUMENT_GUIDANCE, MAX_ASSESSMENT_FILES } from "@/lib/employer/assessment-document";
 import {
-  CREATE_SCOPE,
   clearIfNothingStagedThisSession,
   writePendingAssessmentFiles,
 } from "@/lib/employer/pending-job-assessment-files";
@@ -15,49 +13,54 @@ function formatBytes(bytes: number): string {
 }
 
 const STAGE_FAILED_MESSAGE =
-  "Couldn't hold onto these files for after publishing — add them from the job's edit page once it's posted.";
+  "Couldn't hold onto these files for after saving — try attaching it again from here once the job's saved.";
 
 /**
- * send-364 — the create form's own multi-file picker for the assessment's
- * exercise documents, mirroring new-job-banner-picker.tsx's own pattern: an
- * independent card rendered ABOVE the form (files can't travel through a
- * hidden form field), staging into IndexedDB (see
- * pending-job-assessment-files.ts's own header for why IndexedDB rather
- * than the banner's sessionStorage, and why the write happens at pick/
- * remove time rather than at submit time the way the banner's does).
+ * send-449 — the Edit-page counterpart to NewJobAssessmentFilesPicker,
+ * shown ONLY while checking "Attach an assessment" for the FIRST time on
+ * an already-existing job (`editContext && !initial` in AssessmentEditor —
+ * the exact condition send-438's now-removed hint used).
+ * Once an assessment exists, AssessmentExerciseUpload (the real,
+ * immediately-usable widget) takes over and this never renders again.
  *
- * Deliberately does NOT know whether the employer has checked "Attach an
- * assessment" in AssessmentEditor (a sibling INSIDE JobPostingForm's own
- * `<form>` — this card has to live outside it, so there's no cheap way to
- * share that boolean without touching that component's own contract, which
- * is more than this fix needs). If files are staged but no assessment ever
- * gets created, the post-success upload attempt fails gracefully with the
- * same "add it from Edit" pointer PostSuccessAssessmentFilesNote already
- * falls back to for any other deferred-upload failure — not a special case,
- * just this component's copy making the relationship clear up front instead.
+ * SAME staging module, SAME pattern as Create — reused, not reinvented —
+ * with two differences the Edit case actually calls for, not stylistic
+ * ones:
+ *
+ *  1. `scope` is this job's own real id, not the `CREATE_SCOPE` constant.
+ *     A `job_posting_id` already exists here (only the assessment attached
+ *     to it doesn't) — see pending-job-assessment-files.ts's own header on
+ *     why a fixed key would let two different jobs' staged files collide,
+ *     and why this component existing at all is what made that a real risk
+ *     rather than a theoretical one.
+ *  2. No BorderedCard/EyebrowLabel — this renders INSIDE AssessmentEditor's
+ *     own bordered box, in the exact slot the old hint paragraph occupied,
+ *     not as a second freestanding card the way Create's sits above the
+ *     whole form.
+ *
+ * The submit-time cleanup still matters here even though Edit's own submit
+ * navigates the whole page away (no same-page remount race to guard
+ * against the way Create's pending-transition redirect has): unchecking
+ * "Attach an assessment" after picking a file, then saving, sends no
+ * assessment JSON at all — nothing will ever consume this scope's staged
+ * entry, and it would sit in IndexedDB indefinitely without this.
  */
-export function NewJobAssessmentFilesPicker({ userId }: { userId: string }) {
+export function EditJobAssessmentFilesPicker({ userId, jobId }: { userId: string; jobId: string }) {
   const [files, setFiles] = useState<File[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  // Re-registered whenever `files` changes so the closure below always
-  // sees the current list — simpler than a ref kept in sync during render,
-  // which React's own rules disallow (refs are for effects/handlers, not
-  // render). A capturing listener with a fresh closure per render is cheap
-  // enough here: this component re-renders only on pick/remove, not on
-  // every keystroke.
   useEffect(() => {
     function onSubmit() {
-      clearIfNothingStagedThisSession(CREATE_SCOPE, files.length > 0);
+      clearIfNothingStagedThisSession(jobId, files.length > 0);
     }
     document.addEventListener("submit", onSubmit, true);
     return () => document.removeEventListener("submit", onSubmit, true);
-  }, [files]);
+  }, [files, jobId]);
 
   async function stage(next: File[]) {
     setFiles(next);
     try {
-      await writePendingAssessmentFiles(CREATE_SCOPE, userId, next);
+      await writePendingAssessmentFiles(jobId, userId, next);
       setError(null);
     } catch {
       setError(STAGE_FAILED_MESSAGE);
@@ -79,15 +82,11 @@ export function NewJobAssessmentFilesPicker({ userId }: { userId: string }) {
   const atCap = files.length >= MAX_ASSESSMENT_FILES;
 
   return (
-    <BorderedCard className="flex flex-col gap-3 p-5">
-      <div className="flex flex-col gap-1">
-        <EyebrowLabel>Assessment exercise files — optional</EyebrowLabel>
-        <p className="text-[13.5px] text-ink-soft">
-          If you&rsquo;re attaching an assessment below, add up to {MAX_ASSESSMENT_FILES} supporting files
-          here (a written brief, a spreadsheet, etc.) — {ASSESSMENT_DOCUMENT_GUIDANCE} They&rsquo;ll attach
-          automatically once you publish.
-        </p>
-      </div>
+    <div className="flex flex-col gap-2.5 border-t border-line pt-3">
+      <p className="font-body text-[12.5px] text-ink-soft">
+        Add up to {MAX_ASSESSMENT_FILES} exercise files here — {ASSESSMENT_DOCUMENT_GUIDANCE} They&rsquo;ll
+        attach automatically once you save this job.
+      </p>
 
       {files.length > 0 && (
         <ul className="flex flex-col gap-1.5">
@@ -119,7 +118,7 @@ export function NewJobAssessmentFilesPicker({ userId }: { userId: string }) {
         <label className="flex min-h-10 w-fit cursor-pointer items-center border-[1.5px] border-ink px-3.5 font-body text-[13px] font-semibold text-ink hover:border-rust hover:text-rust">
           Add file
           <input
-            id="new-job-assessment-files"
+            id="edit-job-assessment-files"
             type="file"
             multiple
             accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
@@ -133,6 +132,6 @@ export function NewJobAssessmentFilesPicker({ userId }: { userId: string }) {
       )}
 
       {error && <p className="font-body text-[12.5px] text-rust">{error}</p>}
-    </BorderedCard>
+    </div>
   );
 }

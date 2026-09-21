@@ -156,6 +156,13 @@ export async function clearAssessmentExerciseLink(supabase: DB, assessmentId: st
  * silent drop" instinct, and for the same reason: destroying a real
  * candidate submission's context as a side effect of an unrelated posting
  * edit would be worse than a blocked removal.
+ *
+ * `created` (send-449) is true ONLY on a genuine insert — the one moment
+ * updateJobAction needs to know about, because it's the one moment a
+ * client-staged exercise file (EditJobAssessmentFilesPicker) has a real
+ * `job_posting_assessments.id` to attach to for the first time. An update
+ * to an already-existing row reports `created: false` even though the
+ * caller changed real fields, same as a no-op removal.
  */
 export async function reconcileJobPostingAssessment(
   supabase: DB,
@@ -163,7 +170,7 @@ export async function reconcileJobPostingAssessment(
   organizationId: string,
   createdBy: string,
   input: JobPostingAssessmentInput | null,
-): Promise<{ ok: true } | { ok: false; error: string }> {
+): Promise<{ ok: true; created: boolean } | { ok: false; error: string }> {
   const { data: existing, error: loadErr } = await supabase
     .from("job_posting_assessments")
     .select("id")
@@ -172,7 +179,7 @@ export async function reconcileJobPostingAssessment(
   if (loadErr) return { ok: false, error: `Couldn't load the existing assessment: ${loadErr.message}` };
 
   if (input === null) {
-    if (!existing) return { ok: true };
+    if (!existing) return { ok: true, created: false };
 
     const { count, error: countErr } = await supabase
       .from("application_assessment_submissions")
@@ -188,7 +195,7 @@ export async function reconcileJobPostingAssessment(
 
     const { error: deleteErr } = await supabase.from("job_posting_assessments").delete().eq("id", existing.id);
     if (deleteErr) return { ok: false, error: `Couldn't remove the assessment: ${deleteErr.message}` };
-    return { ok: true };
+    return { ok: true, created: false };
   }
 
   const row = {
@@ -214,14 +221,14 @@ export async function reconcileJobPostingAssessment(
     if (input.exerciseLink) {
       await clearAssessmentExerciseFiles(supabase, existing.id);
     }
-  } else {
-    // A genuinely new assessment can't have files yet, so there is nothing
-    // to clear regardless of whether a link was set.
-    const { error } = await supabase
-      .from("job_posting_assessments")
-      .insert({ ...row, created_by: createdBy });
-    if (error) return { ok: false, error: `Couldn't save the assessment: ${error.message}` };
+    return { ok: true, created: false };
   }
 
-  return { ok: true };
+  // A genuinely new assessment can't have EXISTING files to clear
+  // regardless of whether a link was set — but it CAN have files staged
+  // client-side, waiting for exactly this id (send-449). created: true is
+  // the caller's signal to trigger that upload.
+  const { error } = await supabase.from("job_posting_assessments").insert({ ...row, created_by: createdBy });
+  if (error) return { ok: false, error: `Couldn't save the assessment: ${error.message}` };
+  return { ok: true, created: true };
 }

@@ -63,11 +63,31 @@
  * `takePendingAssessmentFiles` always clears the staged entry before
  * returning, win or lose — same reasoning as takePendingJobBanner: a failed
  * attach must not retry against a LATER, unrelated job posting.
+ *
+ * ── SCOPED BY CALLER, NOT ONE GLOBAL RECORD (send-449) ──────────────────────
+ *
+ * Originally a single fixed record key — fine while this module had exactly
+ * one caller (the Create form, which only ever has one "not yet a real job"
+ * draft in flight per tab). send-449 added a second caller (the Edit page,
+ * staging files for an assessment being attached to an ALREADY-existing,
+ * specific job) — and a fixed key means those two callers, or two Edit tabs
+ * open on two different jobs, would silently overwrite each other's staged
+ * files, IndexedDB being per-origin rather than per-tab. Every function here
+ * now takes an explicit `scope`: the Create picker passes the constant
+ * `CREATE_SCOPE` below, and Edit passes the specific job's own id — so two
+ * different real jobs, or a job versus the create form, never collide.
+ * (Two SEPARATE Create-form tabs at once still share `CREATE_SCOPE` and can
+ * still collide with each other — a real, pre-existing gap, unchanged and
+ * out of this send's scope: it was true before, and scoping by "which job"
+ * has no more specific answer to give the create form, which has none yet.)
  */
 
 const DB_NAME = "talentrah-pending-job-assessment-files";
 const STORE_NAME = "staged";
-const RECORD_KEY = "pending";
+
+/** The Create form's own scope — stable and never a valid job UUID, so it
+ * can never collide with a real jobId passed by the Edit-page caller. */
+export const CREATE_SCOPE = "create";
 
 export interface PendingAssessmentFileEntry {
   name: string;
@@ -132,7 +152,7 @@ function openDb(): Promise<IDBDatabase> {
  * caller decides what to do with that; see isIndexedDbAvailable for a
  * before-the-fact check.
  */
-export async function writePendingAssessmentFiles(userId: string, files: File[]): Promise<void> {
+export async function writePendingAssessmentFiles(scope: string, userId: string, files: File[]): Promise<void> {
   const db = await openDb();
   try {
     await new Promise<void>((resolve, reject) => {
@@ -141,7 +161,7 @@ export async function writePendingAssessmentFiles(userId: string, files: File[])
         userId,
         files: files.map((f) => ({ name: f.name, type: f.type, blob: f })),
       };
-      tx.objectStore(STORE_NAME).put(record, RECORD_KEY);
+      tx.objectStore(STORE_NAME).put(record, scope);
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error ?? new Error("Could not stage the files."));
     });
@@ -155,13 +175,13 @@ export async function writePendingAssessmentFiles(userId: string, files: File[])
  * is just "don't leave this lying around" and a failure here isn't worth
  * surfacing (mirrors clearPendingJobBanner's own stance).
  */
-export async function clearPendingAssessmentFiles(): Promise<void> {
+export async function clearPendingAssessmentFiles(scope: string): Promise<void> {
   try {
     const db = await openDb();
     try {
       await new Promise<void>((resolve) => {
         const tx = db.transaction(STORE_NAME, "readwrite");
-        tx.objectStore(STORE_NAME).delete(RECORD_KEY);
+        tx.objectStore(STORE_NAME).delete(scope);
         tx.oncomplete = () => resolve();
         tx.onerror = () => resolve();
       });
@@ -180,18 +200,19 @@ export async function clearPendingAssessmentFiles(): Promise<void> {
  * never clears out files the employer just picked for the posting actually
  * being published right now.
  */
-export function clearIfNothingStagedThisSession(hasStagedThisSession: boolean): void {
+export function clearIfNothingStagedThisSession(scope: string, hasStagedThisSession: boolean): void {
   if (hasStagedThisSession) return;
-  void clearPendingAssessmentFiles();
+  void clearPendingAssessmentFiles(scope);
 }
 
 /**
- * Reads and immediately clears whatever is staged, returning it as Files
- * ready for the same upload assessment-exercise-upload.tsx already does —
- * or an empty array if there was nothing staged, it couldn't be read, or it
- * belonged to a different signed-in user than `currentUserId`.
+ * Reads and immediately clears whatever is staged for this scope, returning
+ * it as Files ready for the same upload assessment-exercise-upload.tsx
+ * already does — or an empty array if there was nothing staged for this
+ * scope, it couldn't be read, or it belonged to a different signed-in user
+ * than `currentUserId`.
  */
-export async function takePendingAssessmentFiles(currentUserId: string): Promise<File[]> {
+export async function takePendingAssessmentFiles(scope: string, currentUserId: string): Promise<File[]> {
   let db: IDBDatabase;
   try {
     db = await openDb();
@@ -203,7 +224,7 @@ export async function takePendingAssessmentFiles(currentUserId: string): Promise
   try {
     record = await new Promise<PendingRecord | undefined>((resolve, reject) => {
       const tx = db.transaction(STORE_NAME, "readonly");
-      const req = tx.objectStore(STORE_NAME).get(RECORD_KEY);
+      const req = tx.objectStore(STORE_NAME).get(scope);
       req.onsuccess = () => resolve(req.result as PendingRecord | undefined);
       req.onerror = () => reject(req.error ?? new Error("Could not read staged files."));
     });
@@ -213,7 +234,7 @@ export async function takePendingAssessmentFiles(currentUserId: string): Promise
     db.close();
   }
 
-  await clearPendingAssessmentFiles();
+  await clearPendingAssessmentFiles(scope);
 
   if (!isOwnedPendingRecord(record, currentUserId)) return [];
   return record.files.map((f) => new File([f.blob], f.name, { type: f.type }));
