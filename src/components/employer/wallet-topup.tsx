@@ -4,7 +4,7 @@ import { useActionState } from "react";
 import { Button, TextField, NairaAmount } from "@/components/ui";
 import type { EmployerActionState } from "@/lib/employer/actions";
 
-const PRESETS = [10_000, 25_000, 50_000] as const;
+const PRESETS = [2_500, 5_000, 10_000, 25_000, 50_000] as const;
 const naira = (n: number) => `₦${n.toLocaleString("en-NG")}`;
 
 export function WalletTopUp({
