@@ -66,8 +66,8 @@ describe("deleteTestUsers (tests/support/auth.ts)", () => {
     expect(callerOf(authSource, "deleting user=${id} at=${deletedAt}")).toBe("process.stdout.write");
   });
 
-  it("logs a delete failure via process.stdout.write, not console", () => {
-    expect(callerOf(authSource, "test accounts could not be deleted")).toBe("process.stdout.write");
+  it("logs a release/delete failure via process.stdout.write, not console", () => {
+    expect(callerOf(authSource, "test accounts could not be released/deleted")).toBe("process.stdout.write");
   });
 });
 
