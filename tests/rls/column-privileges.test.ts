@@ -956,11 +956,11 @@ describe("job_postings: closed_at cannot be written directly by the org (0102)",
   });
 });
 
-describe("job_postings: posted_at cannot be written directly by the org (0188, send-447)", () => {
+describe("job_postings: posted_at cannot be written directly by the org (0190, send-447)", () => {
   /**
    * NEGATIVE CONTROL, the direct sibling of closed_at above — and a REAL,
    * live gap this migration closed rather than confirmed already closed.
-   * Checked against the database before writing 0188: `posted_at` was
+   * Checked against the database before writing 0190: `posted_at` was
    * UPDATE-grantable to BOTH `authenticated` and `anon`, unlike closed_at,
    * which 0056 already withheld. Any org member — arguably any signed-in
    * session at all — could PATCH their own posting's `posted_at` directly,
@@ -1013,7 +1013,7 @@ describe("job_postings: posted_at cannot be written directly by the org (0188, s
       // Proves the refusal above was the column grant, not a row policy that
       // would also block this: the exact same client, same row, a column
       // that IS in the UPDATE grant list and IS in the WITH CHECK's allowed
-      // status set (0188).
+      // status set (0190).
       const { error: statusError } = await user.client
         .from("job_postings")
         .update({ status: "open" })

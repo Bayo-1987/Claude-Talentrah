@@ -13,10 +13,10 @@
  * here isn't just "can a stranger see a draft" (the SELECT policy, same
  * shape as 'removed') — it's "does editing a draft you never intended to
  * touch the status of get silently rejected by RLS" (the UPDATE policy's
- * WITH CHECK, which had exactly this bug until 0188 added 'draft' to its
+ * WITH CHECK, which had exactly this bug until 0190 added 'draft' to its
  * allowed list).
  *
- * Also covers the two column-grant changes 0188 makes: `posted_at` is no
+ * Also covers the two column-grant changes 0190 makes: `posted_at` is no
  * longer UPDATE-grantable to a client role at all (closed here, not just
  * documented — see tests/rls/column-privileges.test.ts for the standing,
  * broader check), and `requestJobReviewAction`'s own new `status = 'open'`
@@ -153,7 +153,7 @@ describe("2. a draft is editable by its own org without touching status", () => 
     /*
      * THE BUG THIS SEND FOUND AND FIXED: `updateJobAction` never includes
      * `status` in its own UPDATE payload, so this edit leaves it at
-     * whatever it already was. Before 0188 added 'draft' to the UPDATE
+     * whatever it already was. Before 0190 added 'draft' to the UPDATE
      * policy's WITH CHECK, Postgres would re-evaluate the post-update row
      * (still status = 'draft') against a check that only allowed
      * ('open', 'closed') and reject EVERY edit to an existing draft,
@@ -189,9 +189,9 @@ describe("3. posted_at is no longer something a client can set directly", () => 
   it("the owning org cannot PATCH posted_at on its own draft", async () => {
     /*
      * The grant, not the row policy — the row is theirs and the UPDATE
-     * policy would allow it, so only the column-level revoke (0188) refuses
+     * policy would allow it, so only the column-level revoke (0190) refuses
      * this, which is why it raises (42501) rather than matching zero rows.
-     * Confirmed live before 0188: posted_at was UPDATE-grantable to BOTH
+     * Confirmed live before 0190: posted_at was UPDATE-grantable to BOTH
      * authenticated and anon — a real, pre-existing freshness-gaming hole,
      * not something already closed.
      */
