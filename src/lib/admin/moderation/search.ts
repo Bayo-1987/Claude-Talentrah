@@ -18,6 +18,17 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
  * board" list (where Restore actually lives), not in a search meant to find
  * something to remove.
  *
+ * ALSO EXCLUDES `draft` POSTINGS (send-447, found while auditing every
+ * service-role reader of `job_postings` for the new status — this function
+ * was a genuine gap, not one already covered). This is a service-role
+ * client, so it bypasses the RLS policy that otherwise keeps a draft
+ * invisible to everyone but its own org; without this filter, any admin
+ * using this tool — including the empty-query "browse" path, which needs no
+ * search term at all — would see another org's still-private, unpublished
+ * draft, by title, company and location, and could act on it as if it were
+ * a real, live posting to moderate. A draft was never public, so there is
+ * nothing here for this tool to find.
+ *
  * THREE SEPARATE ILIKE QUERIES, MERGED IN JS, RATHER THAN ONE `.or()` STRING.
  * A `.or()` filter is a raw string PostgREST parses on commas and dots —
  * interpolating a searcher's own free-text query straight into that string
@@ -95,6 +106,7 @@ export async function searchJobPostings(query: string): Promise<SearchedPosting[
       .from("job_postings")
       .select(SELECT_COLUMNS)
       .neq("status", "removed")
+      .neq("status", "draft")
       .order("posted_at", { ascending: false })
       .limit(RESULT_LIMIT);
     if (error) throw error;
@@ -115,6 +127,7 @@ export async function searchJobPostings(query: string): Promise<SearchedPosting[
       .from("job_postings")
       .select(SELECT_COLUMNS)
       .neq("status", "removed")
+      .neq("status", "draft")
       .ilike("title", like)
       .order("posted_at", { ascending: false })
       .limit(RESULT_LIMIT),
@@ -122,6 +135,7 @@ export async function searchJobPostings(query: string): Promise<SearchedPosting[
       .from("job_postings")
       .select(SELECT_COLUMNS)
       .neq("status", "removed")
+      .neq("status", "draft")
       .ilike("company_name", like)
       .order("posted_at", { ascending: false })
       .limit(RESULT_LIMIT),
@@ -132,6 +146,7 @@ export async function searchJobPostings(query: string): Promise<SearchedPosting[
         .from("job_postings")
         .select(SELECT_COLUMNS)
         .neq("status", "removed")
+        .neq("status", "draft")
         .in("organization_id", orgIds)
         .order("posted_at", { ascending: false })
         .limit(RESULT_LIMIT),
