@@ -53,6 +53,8 @@ export default async function NewJobPage() {
           action={postJobAction}
           submitLabel="Publish job"
           pendingLabel="Publishing…"
+          secondarySubmitLabel="Save as draft"
+          secondaryPendingLabel="Saving…"
           unverifiedNotice={
             organization.verified
               ? undefined

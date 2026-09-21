@@ -33,7 +33,7 @@ export type MintResult =
 export async function mintUnlistedLink(args: {
   jobId: string;
   userId: string;
-  status: "open" | "closed" | "removed";
+  status: "open" | "closed" | "removed" | "draft";
   emailConfirmed: boolean;
 }): Promise<MintResult> {
   const admin = createServiceRoleClient();

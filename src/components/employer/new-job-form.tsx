@@ -55,11 +55,16 @@ export function NewJobForm({
   submitLabel,
   pendingLabel,
   unverifiedNotice,
+  secondarySubmitLabel,
+  secondaryPendingLabel,
 }: {
   action: (state: EmployerActionState, form: FormData) => Promise<EmployerActionState>;
   submitLabel: string;
   pendingLabel: string;
   unverifiedNotice?: string;
+  /** send-447 — see JobPostingForm's own comment; only NewJobPage passes these. */
+  secondarySubmitLabel?: string;
+  secondaryPendingLabel?: string;
 }) {
   const [initial, setInitial] = useState<JobFormValues | undefined>(undefined);
   const [formKey, setFormKey] = useState(0);
@@ -79,6 +84,8 @@ export function NewJobForm({
         pendingLabel={pendingLabel}
         unverifiedNotice={unverifiedNotice}
         initial={initial}
+        secondarySubmitLabel={secondarySubmitLabel}
+        secondaryPendingLabel={secondaryPendingLabel}
       />
     </div>
   );
