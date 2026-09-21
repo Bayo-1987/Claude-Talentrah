@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { RichMarkdownEditor } from "./rich-markdown-editor";
+import { EditJobAssessmentFilesPicker } from "./edit-job-assessment-files-picker";
 import type { JobPostingAssessmentInput } from "@/lib/employer/job-posting-assessment";
 
 /**
@@ -19,24 +20,25 @@ import type { JobPostingAssessmentInput } from "@/lib/employer/job-posting-asses
  * reason: the upload needs a job_posting_id that doesn't exist yet on a
  * brand-new posting.
  *
- * send-438 — `filesUnlockAfterSave` exists because that split above is
- * invisible from inside this component: nothing on the page said a file
- * upload becomes available after the FIRST save, so an employer who
- * checked the box, typed a title, and looked for a file control found
- * nothing and no explanation. This can't be inferred from `initial` alone
- * (`!initial` is also true on the CREATE page, where
- * NewJobAssessmentFilesPicker already lets files be staged before the job
- * exists — showing this hint there would be actively wrong). So it's an
- * explicit prop, threaded down from the one caller whose picture actually
- * matches it (the Edit page), defaulting to false everywhere else.
+ * send-438 introduced `filesUnlockAfterSave`, a hint explaining that gap
+ * ("save this job to unlock attaching a file here"). send-449 replaces the
+ * explanation with the actual capability: `editContext`, present only on
+ * the Edit page, renders EditJobAssessmentFilesPicker instead — the same
+ * staging-then-upload-on-save pattern NewJobAssessmentFilesPicker already
+ * uses on Create, extended to cover "the posting exists, the assessment
+ * doesn't yet." Still can't be inferred from `initial` alone (`!initial`
+ * is also true on Create, where files can already be staged a completely
+ * different way — passing `editContext` there would be actively wrong,
+ * not just redundant), so it's still an explicit prop from the one caller
+ * whose picture matches it, undefined everywhere else.
  */
 export function AssessmentEditor({
   initial,
-  filesUnlockAfterSave = false,
+  editContext,
 }: {
   initial?: JobPostingAssessmentInput | null;
-  /** True only on the Edit page — see this component's own header. */
-  filesUnlockAfterSave?: boolean;
+  /** Present only on the Edit page — see this component's own header. */
+  editContext?: { jobId: string; userId: string };
 }) {
   const [enabled, setEnabled] = useState(!!initial);
   const [title, setTitle] = useState(initial?.title ?? "");
@@ -127,11 +129,8 @@ export function AssessmentEditor({
             />
           </div>
 
-          {filesUnlockAfterSave && !initial && (
-            <p className="font-body text-[12.5px] text-ink-soft">
-              Save this job to unlock attaching an exercise file here — until then, only the link
-              above works.
-            </p>
+          {editContext && !initial && (
+            <EditJobAssessmentFilesPicker userId={editContext.userId} jobId={editContext.jobId} />
           )}
 
           {/*

@@ -726,7 +726,16 @@ export async function updateJobAction(
 
   revalidatePath("/employer/jobs");
   revalidatePath("/jobs");
-  redirect("/employer/jobs");
+  // `?assessmentCreated=<jobId>` (send-449) is how Jobs Posted knows to run
+  // the same deferred-upload step Create's own `?posted=<id>` already
+  // triggers (PostSuccessAssessmentFilesNote) — the files EditJobAssessment-
+  // FilesPicker staged client-side for this job can only be uploaded now
+  // that job_posting_assessments.id exists, and this Server Action has no
+  // way to reach IndexedDB itself to do it here. Only set on a genuine
+  // INSERT (reconcileJobPostingAssessment's own `created` flag): an update
+  // to an already-existing assessment already has its real
+  // AssessmentExerciseUpload widget and nothing was ever staged for it.
+  redirect(assessmentResult.created ? `/employer/jobs?assessmentCreated=${jobId}` : "/employer/jobs");
 }
 
 /**

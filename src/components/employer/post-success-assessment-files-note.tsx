@@ -7,12 +7,20 @@ import { takePendingAssessmentFiles } from "@/lib/employer/pending-job-assessmen
 type Phase = "checking" | "idle" | "uploading" | "done" | "partial";
 
 /**
- * The other half of send-364's create-form file picker: whatever the
+ * The other half of the create-form file picker (send-364): whatever the
  * employer staged on /employer/jobs/new (new-job-assessment-files-picker.tsx)
  * gets uploaded HERE, once a real jobId exists — the exact same
  * /api/employer/job-assessment-exercise route assessment-exercise-upload.tsx
  * (Edit) already uses, called once per staged file since that route accepts
  * one file per call.
+ *
+ * send-449 reuses this SAME component for a second caller: the Edit page's
+ * own first-time-attaching-an-assessment case (EditJobAssessmentFilesPicker
+ * stages under this job's own real id, not CREATE_SCOPE). `scope` is an
+ * explicit, required prop rather than a default — the two callers stage
+ * under genuinely different keys (pending-job-assessment-files.ts's own
+ * header explains why), and a wrong default here would silently look up
+ * the OTHER caller's staged files instead of failing loudly.
  *
  * Renders NOTHING by default (unlike PostSuccessBannerNote, which always
  * shows a persistent "add one from Edit" pointer even with nothing staged)
@@ -45,7 +53,17 @@ type Phase = "checking" | "idle" | "uploading" | "done" | "partial";
  * takes elsewhere (applyWithScreeningAction, postJobAction's own screening/
  * assessment reconcile calls).
  */
-export function PostSuccessAssessmentFilesNote({ jobId, userId }: { jobId: string; userId: string }) {
+export function PostSuccessAssessmentFilesNote({
+  jobId,
+  userId,
+  scope,
+}: {
+  jobId: string;
+  userId: string;
+  /** CREATE_SCOPE for the Create-page caller, or this job's own real id for
+   * the Edit-page caller — see this component's own header. */
+  scope: string;
+}) {
   const [phase, setPhase] = useState<Phase>("checking");
   const [counts, setCounts] = useState({ succeeded: 0, total: 0 });
 
@@ -56,7 +74,7 @@ export function PostSuccessAssessmentFilesNote({ jobId, userId }: { jobId: strin
       await Promise.resolve();
       if (cancelled) return;
 
-      const files = await takePendingAssessmentFiles(userId).catch(() => [] as File[]);
+      const files = await takePendingAssessmentFiles(scope, userId).catch(() => [] as File[]);
       if (cancelled) return;
       if (files.length === 0) {
         setPhase("idle");
@@ -85,7 +103,7 @@ export function PostSuccessAssessmentFilesNote({ jobId, userId }: { jobId: strin
     return () => {
       cancelled = true;
     };
-  }, [jobId, userId]);
+  }, [jobId, userId, scope]);
 
   if (phase === "checking" || phase === "idle") return null;
   if (phase === "uploading") {

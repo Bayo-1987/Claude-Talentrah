@@ -6,6 +6,7 @@ import { PostedJobRow, type PostedJob } from "@/components/employer/posted-job-r
 import { EmployerJobShareInline } from "@/components/employer/job-share-button";
 import { PostSuccessBannerNote } from "@/components/employer/post-success-banner-note";
 import { PostSuccessAssessmentFilesNote } from "@/components/employer/post-success-assessment-files-note";
+import { CREATE_SCOPE } from "@/lib/employer/pending-job-assessment-files";
 import { getJobShareVisibility } from "@/lib/employer/job-visibility";
 import { evaluateDomainVerification, employerBannerMessage } from "@/lib/employer/verification";
 import { mintUnlistedLink } from "@/lib/employer/mint-unlisted-link";
@@ -15,7 +16,13 @@ import { getSiteOrigin } from "@/lib/referrals/url";
 
 export const metadata = { title: "Jobs Posted — Talentrah" };
 
-type SearchParams = Promise<{ posted?: string; claimed?: string; deleted?: string; error?: string }>;
+type SearchParams = Promise<{
+  posted?: string;
+  claimed?: string;
+  deleted?: string;
+  error?: string;
+  assessmentCreated?: string;
+}>;
 
 export default async function JobsPostedPage({
   searchParams,
@@ -23,7 +30,7 @@ export default async function JobsPostedPage({
   searchParams: SearchParams;
 }) {
   const { organization, userId, userEmail, emailConfirmed } = await requireEmployer();
-  const { posted, claimed, deleted, error: actionError } = await searchParams;
+  const { posted, claimed, deleted, error: actionError, assessmentCreated } = await searchParams;
   const supabase = await createClient();
   const origin = await getSiteOrigin();
 
@@ -118,6 +125,15 @@ export default async function JobsPostedPage({
   // (`?claimed=<id>`) — the new posting is internal and owned by this org, so
   // it's already in `rows` from the same query above.
   const claimedJob = claimed ? rows.find((r) => r.id === claimed) : undefined;
+  // send-449 — updateJobAction's own redirect target for the one moment
+  // Edit needs the same deferred-upload step Create's `postedJob` already
+  // triggers below: a NEW assessment row was just created (not merely
+  // edited), so any files EditJobAssessmentFilesPicker staged for THIS job
+  // can finally be uploaded. Unlike postedJob/claimedJob this never renders
+  // the "is posted"/share-link card — the job isn't new, only its
+  // assessment is — just PostSuccessAssessmentFilesNote itself, which
+  // already renders nothing when there was nothing staged.
+  const assessmentCreatedJob = assessmentCreated ? rows.find((r) => r.id === assessmentCreated) : undefined;
 
   /*
    * The stored `organization.verified` bit and a fresh recompute of the same
@@ -260,8 +276,20 @@ export default async function JobsPostedPage({
             uploads here, now that a real jobId exists. Renders nothing if
             nothing was staged.
           */}
-          <PostSuccessAssessmentFilesNote jobId={postedJob.id} userId={userId} />
+          <PostSuccessAssessmentFilesNote jobId={postedJob.id} userId={userId} scope={CREATE_SCOPE} />
         </BorderedCard>
+      )}
+
+      {/*
+        send-449 — the Edit-page counterpart to the card just above, minus
+        the "is posted"/share-link parts that only make sense for a
+        brand-new posting. This job already existed; only its assessment is
+        new, so the only thing worth surfacing here is whether the staged
+        files actually attached. Renders nothing if nothing was staged, or
+        if the id doesn't match a row here (a stale/copied link).
+      */}
+      {assessmentCreatedJob && (
+        <PostSuccessAssessmentFilesNote jobId={assessmentCreatedJob.id} userId={userId} scope={assessmentCreatedJob.id} />
       )}
 
       {/*

@@ -574,28 +574,28 @@ describe("reconcileJobPostingAssessment", () => {
     await deleteTestUsers([orgOwner.id, seeker.id].filter(Boolean));
   });
 
-  it("inserts a new assessment", async () => {
+  it("inserts a new assessment, and reports created: true (send-449 — the signal an upload-staged-files caller depends on)", async () => {
     const result = await reconcileJobPostingAssessment(orgOwner.client, jobId, orgId, orgOwner.id, {
       title: "Take-home exercise",
       instructions: "Build a small API.",
       exerciseLink: null,
       required: true,
     });
-    expect(result).toEqual({ ok: true });
+    expect(result).toEqual({ ok: true, created: true });
 
     const { data } = await admin.from("job_posting_assessments").select("title, required").eq("job_posting_id", jobId).single();
     expect(data?.title).toBe("Take-home exercise");
     expect(data?.required).toBe(true);
   });
 
-  it("updates the existing assessment in place rather than duplicating it", async () => {
+  it("updates the existing assessment in place rather than duplicating it, and reports created: false", async () => {
     const result = await reconcileJobPostingAssessment(orgOwner.client, jobId, orgId, orgOwner.id, {
       title: "Take-home exercise (revised)",
       instructions: "Build a small API, v2.",
       exerciseLink: "https://example.com/exercise",
       required: false,
     });
-    expect(result).toEqual({ ok: true });
+    expect(result).toEqual({ ok: true, created: false });
 
     const { data, count } = await admin
       .from("job_posting_assessments")
@@ -652,7 +652,7 @@ describe("reconcileJobPostingAssessment", () => {
         exerciseLink: "https://example.com/exercise-2",
         required: false,
       });
-      expect(result).toEqual({ ok: true });
+      expect(result).toEqual({ ok: true, created: false });
 
       const { count: afterCount } = await admin
         .from("job_posting_assessment_files")
@@ -762,7 +762,7 @@ describe("reconcileJobPostingAssessment — instructions is optional (send-448)"
       exerciseLink: "https://example.com/exercise-brief",
       required: true,
     });
-    expect(result).toEqual({ ok: true });
+    expect(result).toEqual({ ok: true, created: true });
 
     const { data, error } = await admin
       .from("job_posting_assessments")
