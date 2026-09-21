@@ -7,17 +7,17 @@ import { RUN_TAG } from "./list-users";
 /**
  * Shared throwaway-account helper for the integration suites.
  *
- * WHY THIS EXISTS. Every suite here runs against the one real Supabase project
- * and mints real auth users, and Supabase Auth rate-limits its admin endpoints.
- * Once the referral and tracker suites landed, a full CI run created enough
- * accounts in a burst to trip it — and the failure is genuinely confusing,
- * because it does not surface as "rate limited": the account simply isn't
- * created, so a later assertion fails with something like
- * "expected [] to have a length of 1" in a completely unrelated suite whose
- * fixture user never existed. One CI run failed six tests across three files
- * that way, none of which had anything wrong with them.
+ * WHY THIS EXISTS. Every suite here runs against the one real Supabase project,
+ * and Supabase Auth rate-limits its admin endpoints. Once the referral and
+ * tracker suites landed, a full CI run created enough fresh accounts in a
+ * burst to trip it — and the failure is genuinely confusing, because it does
+ * not surface as "rate limited": the account simply isn't created, so a later
+ * assertion fails with something like "expected [] to have a length of 1" in
+ * a completely unrelated suite whose fixture user never existed. One CI run
+ * failed six tests across three files that way, none of which had anything
+ * wrong with them.
  *
- * Two mitigations, both needed:
+ * Two mitigations, both needed at the time:
  *   1. RETRY with backoff here, so a transient limit costs seconds not a run.
  *   2. Create FEWER users — the retry only buys headroom, it does not create
  *      budget. Suites should seed state directly with the service role wherever
@@ -26,9 +26,15 @@ import { RUN_TAG } from "./list-users";
  *
  * Neither was enough, because the call being limited was `verifyOtp` and no
  * amount of backoff fits inside a 60s hook. `sessionFor` no longer logs in at
- * all — see the note on it. `createUser` is still a real auth call, so the
- * retry below still earns its place, but the burst it has to survive is now a
- * third of what it was.
+ * all — see the note on it.
+ *
+ * send-453 — `createTestUser` NO LONGER mints a fresh account on every call.
+ * It claims a reused identity from `test_user_pool` (migration 0188) first,
+ * and only creates a genuinely new `auth.users` row when the pool is empty or
+ * fully leased (see `claimFromPool`'s own header below) — so the rate-limit
+ * pressure this section describes is now the OVERFLOW case, not the common
+ * one. `withRateLimitRetry` still earns its place for that overflow path and
+ * for the pool's own initial self-seeding, but a warm pool hits it rarely.
  */
 
 const URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
