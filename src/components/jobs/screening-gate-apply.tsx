@@ -50,7 +50,9 @@ export interface PublicScreeningQuestion {
  */
 export interface PublicAssessment {
   title: string;
-  instructions: string;
+  /** send-448 — optional: a link or an uploaded file can carry the actual
+   * content instead, so null (not "") means nothing was written. */
+  instructions: string | null;
   exerciseFiles: { url: string; name: string }[];
   exerciseLink: string | null;
   required: boolean;
@@ -285,9 +287,11 @@ export function ScreeningGateApply({
               {assessment.title}
               {assessment.required && <span className="text-rust"> *</span>}
             </span>
-            <div className="font-body text-[13.5px] leading-relaxed text-ink-soft">
-              {renderJobDescriptionMarkdown(assessment.instructions)}
-            </div>
+            {assessment.instructions && (
+              <div className="font-body text-[13.5px] leading-relaxed text-ink-soft">
+                {renderJobDescriptionMarkdown(assessment.instructions)}
+              </div>
+            )}
             {assessment.exerciseFiles.length > 0 && (
               <div className="flex flex-col gap-0.5">
                 {assessment.exerciseFiles.map((file) => (

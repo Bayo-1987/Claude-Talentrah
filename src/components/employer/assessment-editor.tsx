@@ -98,7 +98,16 @@ export function AssessmentEditor({
               id="assessment-instructions"
               label="Instructions"
               defaultValue={instructions}
-              placeholder="What should the candidate do, and how should they submit it?"
+              // send-448 — "Optional" up front now that submitting this
+              // blank is genuinely valid: a link or an uploaded file can
+              // carry the actual content instead. Left the visible <label>
+              // text itself as plain "Instructions" — e2e/job-posting-
+              // assessment.spec.ts's getByLabel("Instructions", { exact:
+              // true }) depends on that exact accessible name in four
+              // places, and the placeholder is where this repo's own
+              // convention (see the link field just below) already signals
+              // optionality for a field whose label doesn't carry it.
+              placeholder="Optional — what should the candidate do, and how should they submit it? Skip this if a link or file below covers it."
               minHeightClassName="min-h-[160px]"
               onTextChange={setInstructions}
             />

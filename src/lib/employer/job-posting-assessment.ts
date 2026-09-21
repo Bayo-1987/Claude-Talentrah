@@ -20,7 +20,9 @@ import { ASSESSMENT_EXERCISE_BUCKET } from "./assessment-document";
  */
 export interface JobPostingAssessmentInput {
   title: string;
-  instructions: string;
+  /** send-448 — optional: a link or an uploaded exercise file can carry the
+   * actual content instead, so null means "nothing written," not invalid. */
+  instructions: string | null;
   exerciseLink: string | null;
   required: boolean;
 }
@@ -59,9 +61,18 @@ export function parseJobPostingAssessmentForm(
 
   const a = parsed as Record<string, unknown>;
   const title = typeof a.title === "string" ? a.title.trim() : "";
-  const instructions = typeof a.instructions === "string" ? a.instructions.trim() : "";
   if (!title) return { ok: false, error: "The assessment needs a title." };
-  if (!instructions) return { ok: false, error: "The assessment needs instructions." };
+
+  // send-448 — optional, same "present-or-empty, both fine" treatment
+  // exerciseLink already gets: a link or an uploaded exercise file can
+  // already carry the actual content, so forcing separate written
+  // instructions on top duplicated it with no way around that. `null`
+  // (not `""`) represents "nothing written," matching exerciseLink's own
+  // `rawLink || null` a few lines down and the column's own nullable
+  // definition (0187) — deliberately not a second "empty means unset"
+  // convention for the same table.
+  const rawInstructions = typeof a.instructions === "string" ? a.instructions.trim() : "";
+  const instructions = rawInstructions || null;
 
   const rawLink = typeof a.exerciseLink === "string" ? a.exerciseLink.trim() : "";
   if (rawLink && !isHttpUrl(rawLink)) {
@@ -70,6 +81,20 @@ export function parseJobPostingAssessmentForm(
   const exerciseLink = rawLink || null;
   const required = a.required !== false;
 
+  // send-448 — deliberately NOT blocking "title, no instructions, no
+  // link" here, even though that combination currently leaves nothing
+  // for a candidate to act on. This function has no visibility into
+  // whether an exercise FILE is about to be attached — on Create, files
+  // are staged separately (new-job-assessment-files-picker.tsx) and
+  // uploaded only after this same save creates the posting/assessment
+  // row; on Edit, today's flow is check the box, save once, THEN attach
+  // a file. Blocking here would reject exactly that legitimate
+  // file-only path, which this function structurally cannot distinguish
+  // from a genuinely empty assessment. The same gap already exists
+  // today in narrower form (an assessment saved with instructions but no
+  // file yet, mid-way through that same two-step flow) — this send
+  // widens the reachable window slightly but doesn't introduce the class
+  // of problem.
   return { ok: true, value: { title, instructions, exerciseLink, required } };
 }
 
