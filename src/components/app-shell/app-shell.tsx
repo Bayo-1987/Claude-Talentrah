@@ -1,5 +1,6 @@
 import { getOptionalUser } from "@/lib/auth/require-user";
 import { MarketingMasthead } from "@/components/marketing/marketing-masthead";
+import { MarketingFooter } from "@/components/marketing/marketing-footer";
 import { GoogleOneTap } from "@/components/auth/google-one-tap";
 import { Masthead } from "@/components/app-shell/masthead";
 import { FarahPanel } from "@/components/app-shell/farah-panel";
@@ -77,6 +78,24 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
             {children}
           </div>
         </main>
+        {/*
+          send-432 — every route reachable through this branch (jobs/[id],
+          jobs/in/[city], jobs/remote(/[country]), scholarships/[id],
+          scholarships/fully-funded, scholarships/apply-now,
+          scholarships/degree/[level], mentorship) is a real, indexed
+          marketing/content page for a signed-out visitor, exactly like
+          /about or /employer — it was just missing the footer every other
+          such page gets, because this shell's signed-out branch never
+          rendered one. `{children}` and this sit as SIBLINGS inside the
+          same min-h-screen wrapper the sticky masthead already measures
+          itself against, not inside <main> — matching how every other
+          marketing page composes MarketingMasthead + content + this
+          component, and leaving the sticky-masthead math (see the
+          signed-in branch's own comment on why the sticky wrapper's height
+          has to equal the masthead's) untouched: that wrapper's parent is
+          still the whole page.
+        */}
+        <MarketingFooter />
       </div>
     );
   }
