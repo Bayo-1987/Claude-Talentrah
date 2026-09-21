@@ -225,9 +225,51 @@ export function EmployerMasthead({
         </div>
 
         <div className="flex items-center gap-3.5">
+          {/*
+            MEASURED, NOT 900 — a real git-stash A/B test (send-442) found
+            "Looking for work?" and "Sign out" wrapping onto two lines at
+            1024px, clean at 1160px, with the LEFT nav (already showing from
+            640px) and this chip's own min-[900px] reveal never checked
+            together. Swept the actual combined-width interaction in 4-20px
+            steps, logged in signed in as the demo org owner (so the
+            orgInitials badge is present, the widest right-hand-group state):
+
+                width   "Looking for work?" / "Sign out"
+                 900    wrapped
+                1024    wrapped
+                1120    wrapped
+                1128    wrapped
+                1132    wrapped
+                1136    clean          <- crossover
+                1140    clean
+                1160    clean
+
+            Confirmed identical under `next build && next start`, not just
+            `next dev`, per this repo's own dev/prod e2e divergence history.
+
+            1136 is the true crossover, but a threshold that only just fits
+            is the state this repo has been burned by twice already (the
+            seeker masthead's 700px and 2xl breakpoints, both derived after a
+            single-digit-pixel margin measured 0 on CI's Linux runner —
+            different font metrics render this row wider there). 1200 buys
+            ~64px over the measured crossover rather than shipping the bare
+            number. Below 1200 this chip stays hidden — "Looking for work?"
+            is already unreachable in the bar between 640px (where the left
+            nav's own hamburger disappears) and this breakpoint; that gap
+            already existed below 900px before this fix and widening it
+            slightly is the accepted trade-off here, not a new dead zone —
+            fixing THAT is a nav redesign, out of scope for a width-fit bug.
+
+            whitespace-nowrap on this and "Sign out" below is the second half
+            of the fix: it stops the flex row from shrinking either box below
+            its content width, so a future breakpoint-vs-nav collision
+            overflows visibly (easy to catch — e.g. by
+            e2e/employer-masthead-nav-fit.spec.ts's own text-wrap check)
+            instead of silently reflowing into two lines the way this bug did.
+          */}
           <Link
             href="/jobs"
-            className="hidden min-h-10 items-center bg-rust-soft px-3.5 text-[13px] font-bold text-rust no-underline hover:bg-[oklch(87%_0.04_40)] min-[900px]:inline-flex"
+            className="hidden min-h-10 items-center whitespace-nowrap bg-rust-soft px-3.5 text-[13px] font-bold text-rust no-underline hover:bg-[oklch(87%_0.04_40)] min-[1200px]:inline-flex"
           >
             Looking for work?
           </Link>
@@ -255,7 +297,7 @@ export function EmployerMasthead({
             */}
             <button
               type="submit"
-              className="inline-flex min-h-10 min-w-10 items-center justify-center text-[13px] font-semibold text-ink-soft underline underline-offset-2 hover:text-rust"
+              className="inline-flex min-h-10 min-w-10 items-center justify-center whitespace-nowrap text-[13px] font-semibold text-ink-soft underline underline-offset-2 hover:text-rust"
             >
               Sign out
             </button>
