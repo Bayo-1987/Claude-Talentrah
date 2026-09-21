@@ -1,4 +1,4 @@
--- 0188 — a `draft` posting is invisible to everyone except its own org,
+-- 0190 — a `draft` posting is invisible to everyone except its own org,
 -- and editable by its own org while it stays a draft. send-447.
 --
 -- ── THE SELECT POLICY: THE SAME EXCLUSION 'removed' ALREADY GETS ─────────
