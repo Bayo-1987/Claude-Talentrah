@@ -44,6 +44,30 @@
  * parallel with every other file. A future addition to this file should
  * assume CI-wide contention is real, not assume the ephemeral database
  * makes it moot.
+ *
+ * A THIRD CI FAILURE (2026-09-21, send-444/PR #531's own CI run — this
+ * file's own diff was untouched, and #531's actual changes never go near
+ * job_postings/match_scores) — deliberately NOT filed alongside the two
+ * above, because unlike those it is NOT understood, and folding it into
+ * "two real sources, both fixed" would overclaim. What's known:
+ *   - `expect(verified, "an open, verified-org, listed posting must be
+ *     scored").not.toBeNull()` failed — the exact assertion #1/#2 above
+ *     were about — on an otherwise-unmodified rerun of the identical
+ *     commit; the rerun passed clean with no code change, so it is real
+ *     and reproducible-on-CI but not reproducible on demand.
+ *   - It is NOT #1's bug recurring: MAX_ELIGIBLE_POSTINGS is 20,000, and
+ *     no realistic CI-wide fixture count from this suite gets within
+ *     orders of magnitude of that cap, so `.limit()` excluding this
+ *     fixture's posting is not a plausible mechanism here.
+ *   - It is NOT a Groq/LLM rate-limit flake (CLAUDE.md's own documented
+ *     TPM/TPD incidents): `computeMatchScore` (src/lib/matching/score.ts)
+ *     is confirmed algorithmic, synchronous, and makes no LLM or network
+ *     call at all, so a provider-side rate limit cannot be the cause.
+ *   - The actual mechanism is undetermined. Whoever picks this up next
+ *     should not assume it is #1 or #2's class just because the symptom
+ *     (a real, own-fixture posting scored null when it shouldn't be)
+ *     looks similar — that similarity was checked and ruled out above,
+ *     not assumed.
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { randomUUID } from "node:crypto";
