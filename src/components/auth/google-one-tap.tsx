@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { getOneTapNonceAction } from "@/lib/auth/one-tap-actions";
 import { completeOneTapSignIn, oneTapSuccessDestination } from "@/lib/auth/one-tap-client";
+import { oneTapMomentAction } from "@/lib/auth/one-tap-events";
 
 const SCRIPT_ID = "google-identity-services";
 const SCRIPT_SRC = "https://accounts.google.com/gsi/client";
@@ -21,9 +22,26 @@ interface GoogleIdConfig {
   auto_select?: boolean;
   cancel_on_tap_outside?: boolean;
 }
+/**
+ * The subset of GIS's PromptMomentNotification this file reads to log why
+ * a prompt did or didn't show — send-446. Google's own three top-level
+ * moment types are 'display' | 'skipped' | 'dismissed'; a display moment
+ * can still mean "not actually shown" (isNotDisplayed(), e.g. suppressed by
+ * a FedCM cooldown or no active Google session) as distinct from a genuine
+ * "skipped" (the user or the page dismissed it) or "dismissed" (closed
+ * after being shown) moment.
+ */
+interface PromptMomentNotification {
+  isNotDisplayed: () => boolean;
+  getNotDisplayedReason: () => string;
+  isSkippedMoment: () => boolean;
+  getSkippedReason: () => string;
+  isDismissedMoment: () => boolean;
+  getDismissedReason: () => string;
+}
 interface GoogleAccountsId {
   initialize: (config: GoogleIdConfig) => void;
-  prompt: () => void;
+  prompt: (momentListener?: (notification: PromptMomentNotification) => void) => void;
   cancel: () => void;
 }
 declare global {
@@ -148,7 +166,45 @@ export function GoogleOneTap() {
           },
         });
 
-        window.google.accounts.id.prompt();
+        // send-446: log the moment-notification outcome, anonymously and
+        // best-effort — see one-tap-events.ts's own header for why this is
+        // a Server Action rather than the server-only pattern
+        // credit_gate_events/country_default_events use, and for why there
+        // is no user_id (this fires before any credential exchange). This
+        // callback only ever runs once GIS actually returned a real
+        // response to `prompt()`, so it cannot fire on any of this
+        // component's existing silent-failure paths (missing client ID,
+        // already-signed-in, script blocked) — none of those reach here.
+        window.google.accounts.id.prompt((notification) => {
+          if (cancelled) return;
+          const page = window.location.pathname;
+          const userAgent = navigator.userAgent;
+          if (notification.isNotDisplayed()) {
+            void oneTapMomentAction({
+              momentType: "display",
+              reason: notification.getNotDisplayedReason(),
+              page,
+              userAgent,
+            });
+          } else if (notification.isSkippedMoment()) {
+            void oneTapMomentAction({
+              momentType: "skipped",
+              reason: notification.getSkippedReason(),
+              page,
+              userAgent,
+            });
+          } else if (notification.isDismissedMoment()) {
+            void oneTapMomentAction({
+              momentType: "dismissed",
+              reason: notification.getDismissedReason(),
+              page,
+              userAgent,
+            });
+          } else {
+            // A genuine, successful display — shown, not suppressed.
+            void oneTapMomentAction({ momentType: "display", reason: null, page, userAgent });
+          }
+        });
       } catch {
         // Script blocked, network failure, or any other surprise: silent,
         // by design — see the class comment above.
