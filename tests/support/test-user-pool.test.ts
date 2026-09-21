@@ -17,43 +17,80 @@
  * `claim_test_pool_user` intentionally has no way to ask for a SPECIFIC
  * row — it hands back whichever available row it finds, which is the
  * whole point (callers never know or care which physical row they get).
- * That makes "prove THIS exact row gets reused" non-deterministic the
- * moment the pool has more than one free row, which is the normal,
- * expected steady state once this suite (or real usage) has run more than
- * once. `holdRestOfPool` claims every OTHER currently-available row under
- * a throwaway lease first, so the one row a test cares about is briefly
- * the only claimable one — then releases them all back afterward, exactly
- * as if nothing happened.
+ *
+ * ── WHY "HOLD EVERYTHING ELSE, THEN CLAIM ONCE" WAS WRONG ───────────────
+ *
+ * An earlier version of this file claimed every OTHER currently-available
+ * row first (`holdRestOfPool`), so the target row was briefly the only
+ * claimable one, then asserted the next claim equalled it. That is racy
+ * against this repo's own real concurrency model, not a hypothetical:
+ * vitest.config.ts's own comment documents 21 test files running in
+ * parallel against this same shared `dozaffzgqkbarxtlclsj` pool, and any
+ * of them can add a fresh overflow row (`add_test_pool_user`) or release
+ * one of their own mid-enumeration. That is exactly what happened in CI —
+ * `expect(claimedId).toBe(user.id)` failed once with a genuinely different
+ * (also-legitimate) row, because something else freed up between
+ * `holdRestOfPool` finishing and the real claim.
+ *
+ * `claimUntilTarget` fixes this by not caring how many other rows are
+ * free: it drains claims one at a time (releasing every non-matching one
+ * as it goes) until the SPECIFIC target row comes back, or the pool is
+ * genuinely exhausted without ever producing it — which is the only
+ * shape of failure that means something is actually wrong (the target
+ * was stolen by a real concurrent claimant and never released, or isn't
+ * in the pool at all). New rows appearing mid-drain no longer matter;
+ * rows disappearing mid-drain (because a genuinely concurrent process
+ * claims one first) is fine too — SKIP LOCKED just means that row is
+ * unavailable this loop, exactly as it should be.
  */
-import { randomUUID } from "node:crypto";
 import { describe, it, expect, afterAll } from "vitest";
 import { admin, createTestUser, deleteTestUsers } from "./auth";
 import { RUN_TAG } from "./list-users";
 
-const HOLD_LEASE = `pool-test-hold-${RUN_TAG}`;
-
-/** Claims every currently-available pool row (except any this test has
- *  itself leased under a DIFFERENT lease id) so a subsequent claim can
- *  only land on the one row the test is about to free. */
-async function holdRestOfPool(): Promise<string[]> {
-  const held: string[] = [];
-  for (;;) {
+/**
+ * Drains pool claims one at a time under `leaseId` until `targetUserId`
+ * comes back, releasing every other row it passes through along the way.
+ * Bounded at 50 attempts (comfortably above `POOL_MAX_SIZE` in auth.ts)
+ * so a genuine bug — the target permanently gone — fails loudly instead
+ * of hanging.
+ */
+async function claimUntilTarget(
+  targetUserId: string,
+  leaseId: string,
+  prefix: string,
+  makeEmail: (attempt: number) => string,
+): Promise<{ drained: string[]; matchedEmail: string }> {
+  const drained: string[] = [];
+  for (let attempt = 0; attempt < 50; attempt++) {
+    const email = makeEmail(attempt);
     const { data, error } = await admin.rpc("claim_test_pool_user", {
-      p_lease_id: HOLD_LEASE,
-      p_prefix: "pool-test-isolation-hold",
-      p_new_email: `pool-test-isolation-hold-${randomUUID()}@talentrah.pool`,
+      p_lease_id: leaseId,
+      p_prefix: prefix,
+      p_new_email: email,
       p_stale_after_seconds: 600,
     });
-    if (error) throw error;
-    if (!data) break;
-    held.push(data);
+    if (error) {
+      await releaseDrained(drained, leaseId);
+      throw error;
+    }
+    if (!data) {
+      await releaseDrained(drained, leaseId);
+      throw new Error(
+        `claimUntilTarget: drained the entire pool (${attempt} row${attempt === 1 ? "" : "s"}) under ` +
+          `lease "${leaseId}" without ever seeing ${targetUserId} — either it was claimed by a genuinely ` +
+          `different process and never released, or it isn't in the pool.`,
+      );
+    }
+    if (data === targetUserId) return { drained, matchedEmail: email };
+    drained.push(data);
   }
-  return held;
+  await releaseDrained(drained, leaseId);
+  throw new Error(`claimUntilTarget: exceeded 50 attempts without finding ${targetUserId}`);
 }
 
-async function releaseHeld(ids: string[]): Promise<void> {
+async function releaseDrained(ids: string[], leaseId: string): Promise<void> {
   await Promise.all(
-    ids.map((id) => admin.rpc("release_test_pool_user", { p_user_id: id, p_lease_id: HOLD_LEASE })),
+    ids.map((id) => admin.rpc("release_test_pool_user", { p_user_id: id, p_lease_id: leaseId })),
   );
 }
 
@@ -107,25 +144,20 @@ describe("send-453: test_user_pool claim/release/reset", () => {
       .eq("id", user.id);
     expect(dirtyErr).toBeNull();
 
-    const held = await holdRestOfPool();
+    const { error: releaseErr } = await admin.rpc("release_test_pool_user", {
+      p_user_id: user.id,
+      p_lease_id: RUN_TAG,
+    });
+    expect(releaseErr).toBeNull();
+
+    const leaseId = "claim-check";
+    const { drained, matchedEmail } = await claimUntilTarget(
+      user.id,
+      leaseId,
+      "pool-reset-check",
+      (attempt) => `pool-reset-check-claimed-${user.id.slice(0, 8)}-${attempt}@talentrah.pool`,
+    );
     try {
-      const { error: releaseErr } = await admin.rpc("release_test_pool_user", {
-        p_user_id: user.id,
-        p_lease_id: RUN_TAG,
-      });
-      expect(releaseErr).toBeNull();
-
-      const newEmail = `pool-reset-check-claimed-${user.id.slice(0, 8)}@talentrah.pool`;
-      const { data: claimedId, error: claimErr } = await admin.rpc("claim_test_pool_user", {
-        p_lease_id: "claim-check",
-        p_prefix: "pool-reset-check",
-        p_new_email: newEmail,
-        p_stale_after_seconds: 600,
-      });
-      expect(claimErr).toBeNull();
-      // Everything else is held, so this is the only row left claimable.
-      expect(claimedId).toBe(user.id);
-
       const { data: profile } = await admin
         .from("profiles")
         .select("first_name, credits_balance, email")
@@ -133,11 +165,10 @@ describe("send-453: test_user_pool claim/release/reset", () => {
         .single();
       expect(profile?.first_name).toBeNull();
       expect(profile?.credits_balance).toBe(0);
-      expect(profile?.email).toBe(newEmail);
-
-      await admin.rpc("release_test_pool_user", { p_user_id: user.id, p_lease_id: "claim-check" });
+      expect(profile?.email).toBe(matchedEmail);
     } finally {
-      await releaseHeld(held);
+      await admin.rpc("release_test_pool_user", { p_user_id: user.id, p_lease_id: leaseId });
+      await releaseDrained(drained, leaseId);
     }
   });
 
@@ -208,33 +239,28 @@ describe("send-453: test_user_pool claim/release/reset", () => {
     const user = await createTestUser("pool-stale-check");
     createdUserIds.push(user.id);
 
-    // Hold every OTHER currently-available row BEFORE backdating this
-    // one's lease, so once it becomes the only stale-eligible row, it's
-    // also the only claimable row, period.
-    const held = await holdRestOfPool();
-    try {
-      // Already leased by this file's own RUN_TAG (createTestUser's
-      // claim). Simulate "claimed a long time ago, process died before
-      // releasing" by backdating that lease rather than waiting out the
-      // real window — reclaim doesn't care WHO the stale lease belongs
-      // to, only how old it is.
-      await admin
-        .from("test_user_pool")
-        .update({ leased_at: new Date(Date.now() - 3_600_000).toISOString() })
-        .eq("user_id", user.id);
+    // Already leased by this file's own RUN_TAG (createTestUser's claim).
+    // Simulate "claimed a long time ago, process died before releasing" by
+    // backdating that lease rather than waiting out the real window —
+    // reclaim doesn't care WHO the stale lease belongs to, only how old
+    // it is. A row that is neither unleased nor stale never matches
+    // claim_test_pool_user's own WHERE clause, so claimUntilTarget's drain
+    // below only ever touches rows that were already legitimately
+    // claimable — it can't accidentally steal a different, genuinely
+    // active lease from a real concurrent test.
+    await admin
+      .from("test_user_pool")
+      .update({ leased_at: new Date(Date.now() - 3_600_000).toISOString() })
+      .eq("user_id", user.id);
 
-      const { data: reclaimed, error } = await admin.rpc("claim_test_pool_user", {
-        p_lease_id: "reclaimer",
-        p_prefix: "pool-stale-check",
-        p_new_email: `pool-stale-reclaimed-${user.id.slice(0, 6)}@talentrah.pool`,
-        p_stale_after_seconds: 600, // 10 minutes; the lease above is backdated 1 hour
-      });
-      expect(error).toBeNull();
-      expect(reclaimed).toBe(user.id);
-
-      await admin.rpc("release_test_pool_user", { p_user_id: user.id, p_lease_id: "reclaimer" });
-    } finally {
-      await releaseHeld(held);
-    }
+    const leaseId = "reclaimer";
+    const { drained } = await claimUntilTarget(
+      user.id,
+      leaseId,
+      "pool-stale-check",
+      (attempt) => `pool-stale-reclaimed-${user.id.slice(0, 6)}-${attempt}@talentrah.pool`,
+    );
+    await admin.rpc("release_test_pool_user", { p_user_id: user.id, p_lease_id: leaseId });
+    await releaseDrained(drained, leaseId);
   });
 });

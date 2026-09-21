@@ -14,7 +14,7 @@ export const metadata = { title: "Edit job — Talentrah" };
 
 export default async function EditJobPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { organization } = await requireEmployer();
+  const { organization, userId } = await requireEmployer();
   const supabase = await createClient();
 
   // Scoped to the org as well as the id. RLS would already stop a write to
@@ -115,7 +115,7 @@ export default async function EditJobPage({ params }: { params: Promise<{ id: st
           action={updateJobAction.bind(null, job.id)}
           submitLabel="Save changes"
           pendingLabel="Saving…"
-          assessmentFilesUnlockAfterSave
+          assessmentEditContext={{ jobId: job.id, userId }}
           initial={{
             title: job.title,
             location: job.location ?? "",
