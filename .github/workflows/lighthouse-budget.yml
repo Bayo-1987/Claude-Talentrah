@@ -150,6 +150,14 @@ jobs:
           max_timeout: 600
           vercel_protection_bypass_header: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
 
+      # Self-test first, before this job ever depends on a real Vercel
+      # preview: proves resolve-sitemap-job-url.sh reports its failures
+      # instead of dying silently (the original bug — see that script's own
+      # header and .github/scripts/test-resolve-sitemap-job-url.sh's) on
+      # every run of this workflow, not just once at the time it was fixed.
+      - name: Self-test the sitemap job-URL resolver
+        run: .github/scripts/test-resolve-sitemap-job-url.sh
+
       - name: Resolve a real, currently-live job detail URL from the preview's own sitemap
         id: resolve_urls
         # Vercel Deployment Protection (SSO) blocks anonymous requests to a PR
@@ -160,32 +168,31 @@ jobs:
         # deployment; it was manually mirrored into this repo's GitHub
         # Actions secrets under the identical name so this workflow can read
         # it too.
+        #
+        # The actual resolve logic lives in
+        # .github/scripts/resolve-sitemap-job-url.sh, extracted so it can be
+        # unit tested with a stubbed curl (see the self-test step above)
+        # instead of only ever being exercised for real inside a full CI
+        # run. `set +e` here is still necessary for THIS wrapper: GitHub
+        # Actions runs every `run:` block as `bash -e {0}` (confirmed via
+        # this step's own "shell:" log line), so a bare
+        # `OUTPUT=$(script...)` assignment would trip that same -e the
+        # moment the script exits non-zero — before this wrapper's own `if`
+        # check below could print the diagnostic and exit 1 itself. Wrapping
+        # the assignment as an `if` condition (rather than `set +e`) would
+        # also work, but `set +e` here matches the script's own convention
+        # and keeps this wrapper trivially short.
         env:
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
         run: |
-          set -uo pipefail
-          # No -f here deliberately: -f makes curl exit non-zero on a 4xx/5xx
-          # with NO body and NO status code printed anywhere, which is why
-          # this step's first real failure gave zero diagnostic information
-          # (a silent exit 1, no error text at all). -w appends the status
-          # code as the response body's last line instead, so a genuine
-          # failure is at least legible in the log rather than a bare
-          # "Process completed with exit code 1."
-          RESPONSE=$(curl -sS "${{ steps.vercel_preview.outputs.url }}/sitemap.xml" \
-            -H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET" \
-            -w '\n%{http_code}')
-          STATUS=$(echo "$RESPONSE" | tail -1)
-          BODY=$(echo "$RESPONSE" | sed '$d')
-          if [ "$STATUS" != "200" ]; then
-            echo "::error::sitemap.xml request failed with HTTP $STATUS. First 500 chars of response: $(echo "$BODY" | head -c 500)"
+          set +e
+          OUTPUT=$(.github/scripts/resolve-sitemap-job-url.sh "${{ steps.vercel_preview.outputs.url }}")
+          STATUS=$?
+          echo "$OUTPUT"
+          if [ "$STATUS" -ne 0 ]; then
             exit 1
           fi
-          JOB_URL=$(echo "$BODY" | grep -oE 'https://[^<]*/jobs/[0-9a-f-]{36}' | head -1)
-          if [ -z "$JOB_URL" ]; then
-            echo "::error::No /jobs/<uuid> URL found in the preview's sitemap.xml — cannot pick a job detail page to audit."
-            exit 1
-          fi
-          echo "job_url=$JOB_URL" >> "$GITHUB_OUTPUT"
+          echo "$OUTPUT" >> "$GITHUB_OUTPUT"
 
       - name: Run Lighthouse CI against the 4 key pages
         # @lhci/cli@0.15.1 pinned by exact version HERE, not in package.json.

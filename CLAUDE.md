@@ -153,6 +153,76 @@ Phase 1 is feature-complete except for the employer side. Read [docs/phase-1-sum
     pre-existing generic "try again in a moment" message on anything it can't
     parse.
 
+- **Vercel's Preview environment pointed `NEXT_PUBLIC_SUPABASE_URL` at
+  production with a leaked Groq key as the anon key** (found via send-441,
+  fixed via send-443, 2026-09-21). Every PR preview's Supabase calls 401'd
+  against production, `user_agent: "node"`, `x-client-info: supabase-ssr/…
+  createServerClient` — confirmed two independent ways: production's own
+  `edge_logs` showing ~344 of these 401s/day matching this app's own
+  SEO-landing-page query shapes, and separately, by tracing why the
+  Lighthouse CI check's sitemap-resolve step kept finding an empty sitemap
+  (`sitemap.ts`'s own try/catch silently drops ALL dynamic sections — jobs,
+  scholarships, blog posts — to `[]` on any Supabase error, so a broken
+  preview key looks like "no content" from the outside, not a crash). Fixed
+  by pointing Preview's `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY`
+  at the CI project (`dozaffzgqkbarxtlclsj`) instead — confirmed live: a
+  rebuilt preview's sitemap now returns real job/scholarship/blog rows whose
+  IDs do **not** appear in production's own sitemap, proving previews
+  route to the CI project, not production, going forward. Flag the exposed
+  Groq key for rotation if that hasn't happened yet — it was live in
+  production traffic, not just sitting in a `.env` file.
+  - **A SEPARATE, worse failure mode surfaced mid-fix**: an intermediate
+    redeploy left `SUPABASE_SERVICE_ROLE_KEY` empty on Preview.
+    `createServiceRoleClient()` (`src/lib/supabase/service-role.ts`) has no
+    runtime guard against an empty key — it just builds a client with a
+    blank `apikey` header, and Supabase's gateway answers "Invalid API key"
+    (a different message than the well-formed-but-wrong-key 401 above).
+    The reason this is worse than the empty-sitemap symptom: this
+    particular call (`getApprovedMentorPriceRangeNgn`,
+    `src/lib/mentorship/public-price-range.ts`) runs at **build time**, from
+    the homepage's marketing mentorship section, during `next build`'s
+    static prerender of `/` — so an empty service-role key doesn't degrade
+    one page, it fails the **entire deployment** (`readyState: ERROR`,
+    `Error: getApprovedMentorPriceRangeNgn: Invalid API key`, confirmed from
+    the actual failed build's own log). Any other `createServiceRoleClient()`
+    or anon-client call reachable from a page that gets statically
+    prerendered has the same exposure — check both Supabase keys together
+    when fixing either one, not just whichever symptom you started from.
+  - **A CI check can fail for two independent, stacked reasons at once.**
+    The Lighthouse CI check's own confusing symptom (`Process completed with
+    exit code 1`, zero diagnostic output) was a real, separate bug in the
+    workflow script itself (GitHub Actions runs every `run:` block as
+    `bash -e {0}`, which was killing the script before its own intended
+    `::error::` message could print — fixed in `.github/workflows/
+    lighthouse-budget.yml` by adding `set +e`) layered on top of this
+    Supabase misconfiguration. Fixing the script made the failure legible;
+    it did not make the check pass — that needed both fixes together.
+  - **A THIRD, still-unresolved consequence of previews now pointing at the
+    CI project**: `lighthouse-budget.yml` hardcodes `/jobs/remote` as "the
+    real public job-search surface" specifically because it's reliably
+    non-empty on production (365+ open postings). The CI project is a much
+    smaller, test-fixture-churned dataset — measured live during this same
+    incident at as few as 4 open remote postings, one below
+    `LANDING_PAGE_MIN_ENTRIES` (5) — and `/jobs/remote` genuinely,
+    correctly `notFound()`s below that line (confirmed via the response
+    body's own `"digest":"NEXT_HTTP_ERROR_FALLBACK;404"`, not an
+    infra/auth problem). **The risk is not specific to `/jobs/remote`** —
+    `LANDING_PAGE_MIN_ENTRIES` gates all five programmatic SEO landing
+    pages identically (`/jobs/remote`, `/jobs/remote/[country]`,
+    `/jobs/in/[city]`, `/scholarships/fully-funded`,
+    `/scholarships/degree/[level]`, per `landing-pages.ts`); Lighthouse
+    just happens to be the one caller that hardcodes a single one of them
+    and so is the one that surfaced it. Any of the other four can 404 the
+    same way on a CI-project-backed preview whenever ITS OWN facet count
+    dips below 5, whether or not anything ever hardcodes its URL. This
+    makes the Lighthouse check intermittently red for a reason that has
+    nothing to do with any PR's own change, purely because of which
+    project previews now point at. Not fixed here — the real fix is either
+    resolving a guaranteed-non-thin URL dynamically (the same pattern the
+    job-detail step already uses via sitemap.xml, rather than a hardcoded
+    route) or seeding the CI project with enough stable
+    remote postings to keep this page reliably above threshold.
+
 Verification convention this repo holds itself to, visible throughout its PR history: **check real current state before building; prove a fix by first proving the test catches the bug.** Several milestones caught real defects specifically by re-testing what earlier work had assumed — an RLS policy that had never been run, a retry heuristic that looked like model behaviour, an OAuth name mapping where the intuitive fix would have repaired the wrong provider, and an org-membership policy that read as safe and was not. That last one is also the standing example of a second habit: after fixing a policy, ask what *else* grants the same privilege — the first fix closed one route and, in doing so, opened a second.
 
 **A clean check result is not proof that there is nothing there.** An empty

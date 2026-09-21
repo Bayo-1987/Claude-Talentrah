@@ -17,6 +17,13 @@ import { join } from "node:path";
 const WORKFLOW_PATH = join(process.cwd(), ".github/workflows/lighthouse-budget.yml");
 const workflow = readFileSync(WORKFLOW_PATH, "utf-8");
 
+// send-443/PR #532 pulled the resolve_urls step's curl call out of this YAML
+// into its own tested script (.github/scripts/resolve-sitemap-job-url.sh,
+// covered separately by .github/scripts/test-resolve-sitemap-job-url.sh) —
+// the curl-header assertion below now checks the script, not this file.
+const RESOLVER_SCRIPT_PATH = join(process.cwd(), ".github/scripts/resolve-sitemap-job-url.sh");
+const resolverScript = readFileSync(RESOLVER_SCRIPT_PATH, "utf-8");
+
 const CONFIG_PATH = join(process.cwd(), ".lighthouserc.json");
 const config = JSON.parse(readFileSync(CONFIG_PATH, "utf-8")) as {
   ci: { assert: { assertions: Record<string, [string, { minScore: number }]> } };
@@ -44,6 +51,11 @@ describe("lighthouse-budget.yml wires Lighthouse CI against the real Vercel prev
     expect(workflow).not.toMatch(/\/jobs\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/);
   });
 
+  it("REGRESSION (send-443): calls the extracted, unit-tested resolver script, and self-tests it on every run — not an inline curl script that can only ever be exercised for real inside a full CI run", () => {
+    expect(workflow).toMatch(/\.github\/scripts\/resolve-sitemap-job-url\.sh/);
+    expect(workflow).toMatch(/\.github\/scripts\/test-resolve-sitemap-job-url\.sh/);
+  });
+
   it("pins the exact @lhci/cli version inside the npx call, not in package.json", () => {
     expect(workflow).toMatch(/@lhci\/cli@\d+\.\d+\.\d+/);
   });
@@ -67,12 +79,13 @@ describe("lighthouse-budget.yml wires Lighthouse CI against the real Vercel prev
     // is the one that actually matters: this step 401s and times out first
     // if the header is missing here, even with it present everywhere else.
     expect(workflow).toMatch(/vercel_protection_bypass_header:\s*\$\{\{\s*secrets\.VERCEL_AUTOMATION_BYPASS_SECRET\s*\}\}/);
-    // The resolve_urls step's curl call carries the header directly. No -f:
-    // it would swallow both the body and the status code on a real failure,
-    // which is exactly what made this step's first real failure a bare
-    // "exit 1" with no diagnostic text at all.
-    expect(workflow).toMatch(/curl -sS[^\n]*\n\s*-H "x-vercel-protection-bypass: \$VERCEL_AUTOMATION_BYPASS_SECRET"/);
-    expect(workflow).not.toMatch(/curl -fsS/);
+    // The curl call carries the header directly — now inside the extracted
+    // resolver script (send-443/PR #532), not this YAML. No -f: it would
+    // swallow both the body and the status code on a real failure, which is
+    // exactly what made this step's first real failure a bare "exit 1" with
+    // no diagnostic text at all.
+    expect(resolverScript).toMatch(/curl -sS[^\n]*\n\s*-H "x-vercel-protection-bypass: \$\{VERCEL_AUTOMATION_BYPASS_SECRET/);
+    expect(resolverScript).not.toMatch(/curl -fsS/);
     // The autorun call applies it via Lighthouse's own settings object (no
     // --extraHeaders/--collect.extraHeaders flag exists on @lhci/cli — the
     // camelCase settings key nested under --collect.settings is correct).
