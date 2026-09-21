@@ -7,15 +7,29 @@
  * <header>/<main>/<footer> anywhere in src/components/app-shell/*.tsx.
  *
  * app-shell.tsx has TWO branches — signed-in (Masthead + Farah panel) and
- * signed-out (MarketingMasthead, used only by the public, existence-gated
- * routes under (app): jobs/[id], scholarships/[id],
- * scholarships/degree/[level] — see that file's own comment). Both needed
- * their own <main id="main-content">. The signed-out branch's masthead
+ * signed-out (MarketingMasthead). Both needed their own
+ * <main id="main-content">. The signed-out branch's masthead
  * (MarketingMasthead) already gets its own <header> + skip link from
  * send-381's marketing-site fix independently — that is a SEPARATE
  * component this file doesn't touch, so the signed-out test below only
  * asserts the <main> half of the fix, not header count, to avoid coupling
  * this PR's pass/fail to whichever of the two merges first.
+ *
+ * send-432 — the signed-out branch never rendered a footer at all, on ANY
+ * of the routes that reach it. Grepping the whole (app) tree against
+ * proxy.ts's own isProtectedSeekerPath (not just this file's own stale
+ * comment, which only named three routes) found NINE reachable when
+ * signed out, not three: jobs/[id], jobs/in/[city], jobs/remote,
+ * jobs/remote/[country], scholarships/[id], scholarships/fully-funded,
+ * scholarships/apply-now, scholarships/degree/[level], and mentorship
+ * (the bare path only — every mentorship sub-route stays gated). All nine
+ * render through this one shared AppShell, so the fix (MarketingFooter
+ * added once, in the signed-out branch) and this regression coverage both
+ * only need to touch one file each. The tests below cover a representative
+ * sample across both content types (jobs, scholarships) and the shortest
+ * page (mentorship) — not all nine, since they share the exact same render
+ * path and the point is proving the SHELL has a footer, not re-testing
+ * each route's own content.
  */
 import { test, expect, admin } from "./fixtures/authed";
 import type { Page } from "@playwright/test";
@@ -96,5 +110,55 @@ test.describe("signed-out app shell branch (public job detail page) — main lan
       mainHasId: !!document.getElementById("main-content"),
     }));
     expect(found).toEqual({ main: 1, mainHasId: true });
+  });
+
+  /*
+   * send-432 — the actual regression: a signed-out visitor on this exact
+   * page saw content end abruptly after the masthead, with no footer, no
+   * legal links, no About/Contact. Asserting a real <footer> exists, not
+   * just counting it, so a future change that drops MarketingFooter back
+   * out (or swaps in some other element that happens to also be a
+   * <footer>) still has to leave real, expected content behind — a link
+   * this footer always carries, per marketing-footer.tsx's own fixed
+   * column list.
+   */
+  test("send-432 REGRESSION: the public job detail page renders the real site footer", async ({ page }) => {
+    await page.goto(`/jobs/${JOB}`);
+    await expect(page.locator("footer")).toHaveCount(1);
+    await expect(page.locator("footer").getByRole("link", { name: "Privacy Policy" })).toBeVisible();
+  });
+});
+
+test.describe("send-432 REGRESSION — signed-out app shell branch has a footer on every route type that reaches it", () => {
+  let SCHOLARSHIP: string;
+
+  test.beforeAll(async () => {
+    const { data, error } = await admin
+      .from("scholarships")
+      .select("id")
+      .eq("moderation_status", "verified")
+      .limit(1);
+    if (error || !data?.length) {
+      throw new Error(`no verified scholarship found — run \`npm run seed:catalog\`: ${error?.message ?? "no row"}`);
+    }
+    SCHOLARSHIP = data[0].id;
+  });
+
+  test("a scholarship detail page renders the footer, signed out", async ({ page }) => {
+    const res = await page.goto(`/scholarships/${SCHOLARSHIP}`);
+    expect(res?.status(), "signed-out request must not redirect").toBe(200);
+    await expect(page.locator("footer")).toHaveCount(1);
+  });
+
+  test("a degree-level scholarship landing page renders the footer, signed out", async ({ page }) => {
+    const res = await page.goto("/scholarships/degree/msc");
+    expect(res?.status(), "signed-out request must not redirect").toBe(200);
+    await expect(page.locator("footer")).toHaveCount(1);
+  });
+
+  test("/mentorship renders the footer, signed out", async ({ page }) => {
+    const res = await page.goto("/mentorship");
+    expect(res?.status(), "signed-out request must not redirect").toBe(200);
+    await expect(page.locator("footer")).toHaveCount(1);
   });
 });
