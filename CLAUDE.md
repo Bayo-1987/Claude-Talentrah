@@ -222,6 +222,33 @@ Phase 1 is feature-complete except for the employer side. Read [docs/phase-1-sum
     job-detail step already uses via sitemap.xml, rather than a hardcoded
     route) or seeding the CI project with enough stable
     remote postings to keep this page reliably above threshold.
+  - **Re-verified independently, 2026-09-21 afternoon, directly against live
+    `edge_logs` (send-441 follow-up)**: zero 401s against production from
+    any client since `07:37:10` that morning — the fix held. The facet-count
+    consolidation above (0185, `job_landing_facet_counts`/
+    `scholarship_landing_facet_counts`) is also real and live, already
+    merged — production's own recent traffic shows a single
+    `rpc/job_landing_facet_counts` POST per landing-page render, not the old
+    8/6-query fan-out. **A separate, still-open finding from the same
+    follow-up**: `dozaffzgqkbarxtlclsj`'s `auth_audit_logs` show real,
+    substantial local/agent-test churn — 1,564 `user_deleted` + 559
+    `user_signedup` events in a single 24h window (measured via
+    `query_logs`, not the Postgres `auth.audit_log_entries` table, which is
+    empty on this project — log-stream and DB-table auth auditing are
+    evidently not the same mechanism here). That reconciles much closer to
+    the original ~37k/14-day estimate than the disputed lower figure ever
+    did. **Not yet fixed**: a fixed/reused test-user pool would need to
+    replace `createTestUser`'s per-test create-then-`deleteTestUsers` cycle
+    in `tests/support/auth.ts` — real scope (dozens of call sites) and real
+    risk to the hard-won rate-limit/no-login design already documented in
+    that file's own header, so treat this as a recommendation for its own
+    dedicated send rather than something to bolt on quickly. The
+    lower-risk, already-proven-out alternative is pushing `npm run db:local`
+    (ephemeral local Postgres, same mechanism CI's own `local-supabase`
+    action already uses) as the default for local/agent runs instead of
+    `dozaffzgqkbarxtlclsj` — Docker not being reliably available on every
+    dev/agent machine is the real, checked reason this isn't already the
+    default, not an oversight.
 
 Verification convention this repo holds itself to, visible throughout its PR history: **check real current state before building; prove a fix by first proving the test catches the bug.** Several milestones caught real defects specifically by re-testing what earlier work had assumed — an RLS policy that had never been run, a retry heuristic that looked like model behaviour, an OAuth name mapping where the intuitive fix would have repaired the wrong provider, and an org-membership policy that read as safe and was not. That last one is also the standing example of a second habit: after fixing a policy, ask what *else* grants the same privilege — the first fix closed one route and, in doing so, opened a second.
 
