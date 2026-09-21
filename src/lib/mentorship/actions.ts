@@ -157,11 +157,26 @@ export async function postAvailabilitySlotAction(startAt: string, endAt: string)
   revalidatePath("/mentorship/apply");
 }
 
-/** RLS's own precondition (`is_booked = false`) is the entire guard — a booked slot simply won't match and the delete is a silent no-op. */
+/**
+ * RLS's own precondition (`is_booked = false`) is the entire guard for WHICH
+ * rows a caller may remove — a booked slot simply won't match and the delete
+ * is a legitimate no-op (0 rows affected, no `error`). That is a different
+ * thing from the query itself failing (permission denied, a dropped
+ * connection, a future constraint) — CLAUDE.md's own documented incident is
+ * exactly this shape: a Supabase delete that is rejected resolves with an
+ * `error` rather than throwing, so a caller that never reads it reports
+ * success regardless of what actually happened. This was that caller; it now
+ * matches `postAvailabilitySlotAction` just above.
+ */
 export async function deleteAvailabilitySlotAction(slotId: string) {
   const { user } = await requireUser();
   const supabase = await createClient();
-  await supabase.from("mentor_availability_slots").delete().eq("id", slotId).eq("mentor_id", user.id);
+  const { error } = await supabase
+    .from("mentor_availability_slots")
+    .delete()
+    .eq("id", slotId)
+    .eq("mentor_id", user.id);
+  if (error) throw new Error("Could not remove that slot.");
   revalidatePath("/mentorship/apply");
 }
 
