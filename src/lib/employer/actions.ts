@@ -578,7 +578,7 @@ export async function postJobAction(
   // instead of being silently bypassed by a service-role write. `status`
   // covers both "open" and "draft" the same way — the INSERT policy (0114)
   // never restricted which status a new row may carry, only the UPDATE
-  // policy did (0188 is what taught THAT check about draft).
+  // policy did (0190 is what taught THAT check about draft).
   const { data: created, error } = await supabase
     .from("job_postings")
     .insert({
@@ -844,7 +844,7 @@ export async function setJobStatusAction(jobId: string, status: Enums<"job_statu
  *
  * Same two-step shape as `setJobStatusAction`'s closed_at stamp, for the
  * identical reason: `posted_at` is no longer UPDATE-grantable to
- * `authenticated` (0188 closed that off — it used to be, which was itself a
+ * `authenticated` (0190 closed that off — it used to be, which was itself a
  * pre-existing freshness-gaming hole this fix also closes) so the session
  * client can AUTHORISE the transition but cannot stamp the trust column
  * itself. `.eq("status", "draft")` on the session-client update is
