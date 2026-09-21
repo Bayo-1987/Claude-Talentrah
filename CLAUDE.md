@@ -206,12 +206,21 @@ Phase 1 is feature-complete except for the employer side. Read [docs/phase-1-sum
     `LANDING_PAGE_MIN_ENTRIES` (5) — and `/jobs/remote` genuinely,
     correctly `notFound()`s below that line (confirmed via the response
     body's own `"digest":"NEXT_HTTP_ERROR_FALLBACK;404"`, not an
-    infra/auth problem). This makes the Lighthouse check intermittently red
-    for a reason that has nothing to do with any PR's own change, purely
-    because of which project previews now point at. Not fixed here — the
-    real fix is either resolving a guaranteed-non-thin URL dynamically (the
-    same pattern the job-detail step already uses via sitemap.xml, rather
-    than a hardcoded route) or seeding the CI project with enough stable
+    infra/auth problem). **The risk is not specific to `/jobs/remote`** —
+    `LANDING_PAGE_MIN_ENTRIES` gates all five programmatic SEO landing
+    pages identically (`/jobs/remote`, `/jobs/remote/[country]`,
+    `/jobs/in/[city]`, `/scholarships/fully-funded`,
+    `/scholarships/degree/[level]`, per `landing-pages.ts`); Lighthouse
+    just happens to be the one caller that hardcodes a single one of them
+    and so is the one that surfaced it. Any of the other four can 404 the
+    same way on a CI-project-backed preview whenever ITS OWN facet count
+    dips below 5, whether or not anything ever hardcodes its URL. This
+    makes the Lighthouse check intermittently red for a reason that has
+    nothing to do with any PR's own change, purely because of which
+    project previews now point at. Not fixed here — the real fix is either
+    resolving a guaranteed-non-thin URL dynamically (the same pattern the
+    job-detail step already uses via sitemap.xml, rather than a hardcoded
+    route) or seeding the CI project with enough stable
     remote postings to keep this page reliably above threshold.
 
 Verification convention this repo holds itself to, visible throughout its PR history: **check real current state before building; prove a fix by first proving the test catches the bug.** Several milestones caught real defects specifically by re-testing what earlier work had assumed — an RLS policy that had never been run, a retry heuristic that looked like model behaviour, an OAuth name mapping where the intuitive fix would have repaired the wrong provider, and an org-membership policy that read as safe and was not. That last one is also the standing example of a second habit: after fixing a policy, ask what *else* grants the same privilege — the first fix closed one route and, in doing so, opened a second.
