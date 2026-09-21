@@ -2,9 +2,9 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { CITY_LANDING_PAGES, DEGREE_LEVEL_SLUG, LANDING_PAGE_MIN_ENTRIES } from "./landing-pages";
 import { Constants, type Database, type Tables } from "@/lib/supabase/types";
-import { DEGREE_LEVEL_LABEL } from "@/lib/scholarships/types";
+import { DEGREE_LEVEL_LABEL, type DegreeLevel } from "@/lib/scholarships/types";
 import { freshnessFloorISO } from "@/lib/jobs/freshness";
-import { TRACKED_COUNTRIES, COUNTRY_LANDING_SLUG, countryOrFilter, deriveCountry } from "@/lib/jobs/country";
+import { TRACKED_COUNTRIES, COUNTRY_LANDING_SLUG, deriveCountry } from "@/lib/jobs/country";
 
 // See landing-page-data.ts's identical type for why this is generic rather
 // than the request-scoped createClient()'s own return type.
@@ -20,6 +20,16 @@ export interface LandingLink {
  * more" links on each one — live-checked the same way the page itself is,
  * so this never links to a category that would 404 if clicked. Pass the
  * current page's own href in `excludeHref` so a page never links to itself.
+ *
+ * ONE round trip, not eight (send-441). This used to run 1 (remote) + 4
+ * (tracked countries) + 3 (curated cities) separate count(*) queries — on
+ * every job landing page render AND every /jobs/[id] render, via
+ * relevantJobLandingLinks below, which only ever needs one or two of them.
+ * `job_landing_facet_counts` (0185) computes every facet in a single scan;
+ * see that migration's own comment for why the per-facet SQL is copied from,
+ * not derived from, TRACKED_COUNTRIES/SOURCE_COUNTRY_FALLBACK/
+ * CITY_LANDING_PAGES, and tests/seo/landing-page-facet-rpc.test.ts for the
+ * drift check that keeps the two sides honest.
  */
 export async function liveJobLandingLinks(
   supabase: SupabaseServerClient,
@@ -32,39 +42,23 @@ export async function liveJobLandingLinks(
   // toward LANDING_PAGE_MIN_ENTRIES for a page that no longer shows it.
   const floor = freshnessFloorISO();
 
-  const { count: remoteCount } = await supabase
-    .from("job_postings")
-    .select("id", { count: "exact", head: true })
-    // 0107: never list an unlisted posting.
-    .is("unlisted_at", null)
-    .eq("status", "open")
-    .eq("work_type", "remote")
-    .gte("posted_at", floor);
-  if ((remoteCount ?? 0) >= LANDING_PAGE_MIN_ENTRIES) {
+  const { data, error } = await supabase
+    .rpc("job_landing_facet_counts", { p_floor: floor })
+    .single();
+  if (error) throw new Error(error.message);
+
+  if (data.remote_count >= LANDING_PAGE_MIN_ENTRIES) {
     links.push({ href: "/jobs/remote", label: "Remote jobs" });
   }
 
-  // Parallel, not sequential — this runs on every job landing page render
-  // AND every /jobs/[id] render (via relevantJobLandingLinks below), so four
-  // more independent round trips added here on the hot path is worth
-  // avoiding rather than assuming is fine (see sitemap.ts's identical fix
-  // and its measured before/after for why this was checked, not assumed).
-  const countryRemoteCounts = await Promise.all(
-    TRACKED_COUNTRIES.map((country) =>
-      supabase
-        .from("job_postings")
-        .select("id", { count: "exact", head: true })
-        // 0107: never list an unlisted posting.
-        .is("unlisted_at", null)
-        .eq("status", "open")
-        .eq("work_type", "remote")
-        .or(countryOrFilter(country))
-        .gte("posted_at", floor)
-        .then(({ count }) => ({ country, count: count ?? 0 })),
-    ),
-  );
-  for (const { country, count } of countryRemoteCounts) {
-    if (count >= LANDING_PAGE_MIN_ENTRIES) {
+  const countryCounts: Record<(typeof TRACKED_COUNTRIES)[number], number> = {
+    Nigeria: data.nigeria_count,
+    Ghana: data.ghana_count,
+    Kenya: data.kenya_count,
+    "South Africa": data.south_africa_count,
+  };
+  for (const country of TRACKED_COUNTRIES) {
+    if (countryCounts[country] >= LANDING_PAGE_MIN_ENTRIES) {
       links.push({
         href: `/jobs/remote/${COUNTRY_LANDING_SLUG[country]}`,
         label: `Remote jobs in ${country}`,
@@ -72,17 +66,13 @@ export async function liveJobLandingLinks(
     }
   }
 
+  const cityCounts: Record<string, number> = {
+    lagos: data.lagos_count,
+    abuja: data.abuja_count,
+    nairobi: data.nairobi_count,
+  };
   for (const city of CITY_LANDING_PAGES) {
-    let query = supabase
-      .from("job_postings")
-      .select("id", { count: "exact", head: true })
-      // 0107: never count an unlisted posting toward a landing page.
-      .is("unlisted_at", null)
-      .eq("status", "open");
-    query = query.or(city.locationPatterns.map((p) => `location.ilike.${p}`).join(","));
-    query = query.gte("posted_at", floor);
-    const { count } = await query;
-    if ((count ?? 0) >= LANDING_PAGE_MIN_ENTRIES) {
+    if ((cityCounts[city.slug] ?? 0) >= LANDING_PAGE_MIN_ENTRIES) {
       links.push({ href: `/jobs/in/${city.slug}`, label: `Jobs in ${city.displayName}` });
     }
   }
@@ -124,7 +114,9 @@ export async function relevantJobLandingLinks(
 
 /**
  * Every OTHER scholarship landing page currently live — same live-checked
- * contract as liveJobLandingLinks.
+ * contract as liveJobLandingLinks, and the same one-round-trip fix
+ * (send-441): `scholarship_landing_facet_counts` (0185) replaces this file's
+ * 1 (fully-funded) + 5 (degree level) separate count(*) queries.
  */
 export async function liveScholarshipLandingLinks(
   supabase: SupabaseServerClient,
@@ -133,24 +125,24 @@ export async function liveScholarshipLandingLinks(
   const links: LandingLink[] = [];
   const today = new Date().toISOString().slice(0, 10);
 
-  const { count: fullyFundedCount } = await supabase
-    .from("scholarships")
-    .select("id", { count: "exact", head: true })
-    .eq("moderation_status", "verified")
-    .eq("funding_type", "full")
-    .or(`application_deadline.is.null,application_deadline.gte.${today}`);
-  if ((fullyFundedCount ?? 0) >= LANDING_PAGE_MIN_ENTRIES) {
+  const { data, error } = await supabase
+    .rpc("scholarship_landing_facet_counts", { p_today: today })
+    .single();
+  if (error) throw new Error(error.message);
+
+  if (data.fully_funded_count >= LANDING_PAGE_MIN_ENTRIES) {
     links.push({ href: "/scholarships/fully-funded", label: "Fully funded scholarships" });
   }
 
+  const degreeLevelCounts: Record<DegreeLevel, number> = {
+    bsc: data.bsc_count,
+    msc: data.msc_count,
+    phd: data.phd_count,
+    postgraduate_diploma: data.postgraduate_diploma_count,
+    other: data.other_count,
+  };
   for (const level of Constants.public.Enums.scholarship_degree_level) {
-    const { count } = await supabase
-      .from("scholarships")
-      .select("id", { count: "exact", head: true })
-      .eq("moderation_status", "verified")
-      .contains("degree_levels", [level])
-      .or(`application_deadline.is.null,application_deadline.gte.${today}`);
-    if ((count ?? 0) >= LANDING_PAGE_MIN_ENTRIES) {
+    if (degreeLevelCounts[level] >= LANDING_PAGE_MIN_ENTRIES) {
       links.push({
         href: `/scholarships/degree/${DEGREE_LEVEL_SLUG[level]}`,
         label: `${DEGREE_LEVEL_LABEL[level]} scholarships`,

@@ -3903,6 +3903,19 @@ export type Database = {
         Returns: boolean
       }
       is_valid_referral_code: { Args: { p_code: string }; Returns: boolean }
+      job_landing_facet_counts: {
+        Args: { p_floor: string }
+        Returns: {
+          abuja_count: number
+          ghana_count: number
+          kenya_count: number
+          lagos_count: number
+          nairobi_count: number
+          nigeria_count: number
+          remote_count: number
+          south_africa_count: number
+        }[]
+      }
       job_posting_claim_candidates: {
         Args: { p_organization_id: string }
         Returns: {
@@ -4082,6 +4095,17 @@ export type Database = {
           balance_after_ngn: number
           ok: boolean
           status: Database["public"]["Enums"]["ad_campaign_status"]
+        }[]
+      }
+      scholarship_landing_facet_counts: {
+        Args: { p_today: string }
+        Returns: {
+          bsc_count: number
+          fully_funded_count: number
+          msc_count: number
+          other_count: number
+          phd_count: number
+          postgraduate_diploma_count: number
         }[]
       }
       search_job_postings: {
