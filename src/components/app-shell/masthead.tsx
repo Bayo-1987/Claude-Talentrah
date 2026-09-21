@@ -811,7 +811,7 @@ export function Masthead({
           */}
           <Link
             href="/employer"
-            className="hidden min-h-10 items-center text-[13px] font-semibold text-ink-soft no-underline underline-offset-2 hover:text-rust hover:underline min-[900px]:inline-flex"
+            className="hidden min-h-10 items-center bg-rust-soft px-3.5 text-[13px] font-bold text-rust no-underline hover:bg-[oklch(87%_0.04_40)] min-[900px]:inline-flex"
           >
             Post a job
           </Link>

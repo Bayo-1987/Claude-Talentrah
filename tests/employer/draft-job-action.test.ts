@@ -136,6 +136,12 @@ describe("draftJobWithFarahAction — insufficient balance refuses BEFORE any LL
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.kind).toBe("insufficient_balance");
+      // send-437 — the discriminant alone doesn't pin the copy: this must
+      // actually state the real, current cost, not a silent "top up and
+      // find out." Pulled from FARAH_JD_DRAFT_NGN itself, not hardcoded, so
+      // this keeps passing (correctly) if that price ever changes and only
+      // fails if the message stops including whatever it currently is.
+      expect(result.error).toContain(`₦${FARAH_JD_DRAFT_NGN.toLocaleString("en-NG")}`);
     }
     expect(generateText).not.toHaveBeenCalled();
   });

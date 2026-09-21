@@ -98,7 +98,7 @@ export async function draftJobWithFarahAction(
     return {
       ok: false,
       kind: "insufficient_balance",
-      error: "Not enough ad wallet balance — top up to use this.",
+      error: `Not enough ad wallet balance — Farah's job scoping costs ₦${FARAH_JD_DRAFT_NGN.toLocaleString("en-NG")}. Top up to use this.`,
     };
   }
 
