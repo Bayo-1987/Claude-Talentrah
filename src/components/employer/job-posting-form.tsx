@@ -440,6 +440,17 @@ export function JobPostingForm({
 }) {
   const [state, formAction, pending] = useActionState<EmployerActionState, FormData>(action, null);
   const error = state && "error" in state ? state.error : null;
+  // send-457 — on a page this long (title down through description,
+  // screening questions, assessment), a rejected save renders this banner
+  // above the whole form while the person is still scrolled down at the
+  // button they just clicked. The page never navigates away either, so
+  // without this the natural read is "nothing happened" rather than "here's
+  // what's wrong" — which is exactly how the salary validation bug above
+  // went unnoticed. Scrolled into view on every NEW error, not on mount.
+  const errorRef = useRef<HTMLParagraphElement>(null);
+  useEffect(() => {
+    if (error) errorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [error]);
 
   /*
    * WHICH button is pending, not just whether one is. `pending` alone can't
@@ -454,9 +465,9 @@ export function JobPostingForm({
   // send-368 — "Draft with Farah" needs to READ title (to enable/disable the
   // button and send it to the action) and WRITE location/workType/
   // employmentType/seniority/yearsExperienceMin (the fill-rules below only
-  // touch a field that's still empty). Every other field on this form stays
-  // plain/uncontrolled, unchanged from before this feature — lifting these
-  // five is the smallest diff that makes the button possible.
+  // touch a field that's still empty) — lifting these five was the smallest
+  // diff that made the button possible. (salaryMin/salaryMax are lifted
+  // separately, for a different reason — see their own comment below.)
   const [title, setTitle] = useState(initial?.title ?? "");
   const [location, setLocation] = useState(initial?.location ?? "");
   const [workType, setWorkType] = useState(initial?.workType ?? "");
@@ -465,6 +476,14 @@ export function JobPostingForm({
   const [yearsExperienceMin, setYearsExperienceMin] = useState(
     initial?.yearsExperienceMin != null ? String(initial.yearsExperienceMin) : "",
   );
+  // send-457 — lifted from defaultValue so the "add a currency" hint below
+  // can read the LIVE value. Gating it on `initial?.salaryMin` instead meant
+  // the one person who most needed the reminder — someone typing a salary
+  // amount for the first time, on a brand-new posting or one that never had
+  // one — never saw it, because `initial` is only ever what was loaded from
+  // the database at page load.
+  const [salaryMin, setSalaryMin] = useState(initial?.salaryMin != null ? String(initial.salaryMin) : "");
+  const [salaryMax, setSalaryMax] = useState(initial?.salaryMax != null ? String(initial.salaryMax) : "");
   const descriptionRef = useRef<RichMarkdownEditorHandle>(null);
   const [descriptionText, setDescriptionText] = useState(initial?.description ?? "");
   const [drafting, setDrafting] = useState(false);
@@ -585,7 +604,10 @@ export function JobPostingForm({
         </p>
       )}
       {error && (
-        <p className="border-[1.5px] border-rust bg-rust-soft px-3.5 py-2.5 text-[13.5px] text-rust">
+        <p
+          ref={errorRef}
+          className="border-[1.5px] border-rust bg-rust-soft px-3.5 py-2.5 text-[13.5px] text-rust"
+        >
           {error}
         </p>
       )}
@@ -726,7 +748,8 @@ export function JobPostingForm({
               name="salaryMin"
               type="number"
               min={0}
-              defaultValue={initial?.salaryMin ?? undefined}
+              value={salaryMin}
+              onChange={(e) => setSalaryMin(e.target.value)}
               placeholder="Optional"
             />
             <TextField
@@ -734,7 +757,8 @@ export function JobPostingForm({
               name="salaryMax"
               type="number"
               min={0}
-              defaultValue={initial?.salaryMax ?? undefined}
+              value={salaryMax}
+              onChange={(e) => setSalaryMax(e.target.value)}
               placeholder="Optional"
             />
             <TextField
@@ -742,6 +766,12 @@ export function JobPostingForm({
               name="salaryCurrency"
               defaultValue={initial?.salaryCurrency ?? undefined}
               placeholder="e.g. NGN, USD"
+              // send-457 — the browser's own validation catches the missing-
+              // currency case before a round trip: required only once an
+              // amount is actually present, so leaving both blank (the
+              // "no salary" case readSalaryForm itself treats as valid)
+              // still submits fine.
+              required={Boolean(salaryMin || salaryMax)}
             />
             <ChoiceField
               label="Salary period"
@@ -750,7 +780,7 @@ export function JobPostingForm({
               defaultValue={initial?.salaryUnit}
             />
           </div>
-          {(initial?.salaryMin || initial?.salaryMax) && (
+          {(salaryMin || salaryMax) && (
             <p className="-mt-3 font-body text-[12.5px] text-ink-soft">
               Salary is shown to seekers and included in the job&rsquo;s search listing data. Add a
               currency if you set an amount, or leave both blank to keep the salary private.

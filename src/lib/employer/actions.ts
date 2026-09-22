@@ -690,8 +690,15 @@ export async function updateJobAction(
   const expiry = readExpiry(form);
   if (!expiry.ok) return { error: expiry.error };
 
+  // NOT early-returned on failure, unlike every check above it — see the
+  // comment on the salary spread below and the final check before redirect.
+  // send-457: an invalid salary (an amount typed with no currency) used to
+  // abort this entire action, silently dropping every other field in the
+  // same submission — title, description, years of experience, all of it —
+  // because nothing told the person their edit hadn't saved. The columns
+  // this form's own fields touch don't depend on each other; salary being
+  // wrong is no reason to also refuse the title change.
   const salary = readSalaryForm(form);
-  if (!salary.ok) return { error: salary.error };
 
   const screeningQuestions = parseScreeningQuestionsForm(form);
   if (!screeningQuestions.ok) return { error: screeningQuestions.error };
@@ -721,10 +728,14 @@ export async function updateJobAction(
        * because that is a decision rather than an absence.
        */
       ...(expiry.value === undefined ? {} : { expires_at: expiry.value }),
-      // Unlike expiry, salary has no "keep current" state to preserve — the
-      // form always submits all four fields together, so writing them
-      // unconditionally on every edit is correct, not a countdown reset.
-      ...salary.value,
+      // Unlike expiry, salary normally has no "keep current" state to
+      // preserve — the form submits all four fields together, so writing
+      // them unconditionally is correct, not a countdown reset. But an
+      // INVALID salary (caught above, not early-returned) genuinely does
+      // need a "keep current": omitting the columns here leaves whatever
+      // was already saved untouched rather than guessing at a value, the
+      // same shape expiry's own omission already uses.
+      ...(salary.ok ? salary.value : {}),
       dedup_fingerprint: internalDedupFingerprint(organization.id, fields.title, fields.location),
       // Same as salary: the form always submits the full current skill set
       // (SkillsAutocomplete's own state, not a delta), so this is an
@@ -749,6 +760,13 @@ export async function updateJobAction(
 
   const assessmentResult = await reconcileJobPostingAssessment(supabase, jobId, organization.id, user.id, assessment.value);
   if (!assessmentResult.ok) return { error: assessmentResult.error };
+
+  // Checked LAST, after every other field in this submission has already
+  // been persisted above — this is the one error return in this function
+  // that does NOT mean "nothing was saved." The person sees exactly what's
+  // wrong with salary specifically, without losing the rest of their edit
+  // to it.
+  if (!salary.ok) return { error: salary.error };
 
   revalidatePath("/employer/jobs");
   revalidatePath("/jobs");
