@@ -165,3 +165,32 @@ describe("what a local run is allowed to write to", () => {
     }
   });
 });
+
+/**
+ * send-456 — every test above exercises the LOGIC around HOSTED_CI_REF
+ * (using `https://${HOSTED_CI_REF}.supabase.co` throughout), never the
+ * constant's own value. If it were accidentally reverted to the deleted
+ * dozaffzgqkbarxtlclsj (a stale merge, a bad rebase, a copy-paste from an
+ * old branch), every test above would still pass unchanged — this is the
+ * same shape of gap CLAUDE.md's "verification convention" section already
+ * warns about: a check that exercises the code path around a value without
+ * ever pinning the value itself.
+ */
+describe("HOSTED_CI_REF's own value", () => {
+  it("HOSTED_CI_REF points at the live talentrah-preview project, not the deleted CI project", () => {
+    expect(HOSTED_CI_REF).toBe("gtiksnbhnqmwpeckfqwk");
+    expect(HOSTED_CI_REF).not.toBe("dozaffzgqkbarxtlclsj"); // deleted 2026-09-22, send-455
+  });
+
+  it("describeDbTarget's label names the current hosted-preview ref (the same string announceDbTarget prints)", () => {
+    // announceDbTarget(context) is a thin wrapper — it calls describeDbTarget()
+    // with no arguments (reads NEXT_PUBLIC_SUPABASE_URL itself) and writes
+    // target.label to stderr. Testing describeDbTarget directly with an
+    // explicit URL, the way every other test in this file already does,
+    // exercises the identical label-building logic without needing to mutate
+    // process.env — don't add an announceDbTarget-specific test, it would just
+    // be this same assertion behind extra env-mocking machinery.
+    const target = describeDbTarget(`https://${HOSTED_CI_REF}.supabase.co`);
+    expect(target.label).toContain("gtiksnbhnqmwpeckfqwk");
+  });
+});
