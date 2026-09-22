@@ -33,10 +33,19 @@ export const PRODUCTION_REF = "nytwbbzfpytctjsoczzq";
  * It is no longer CI's — Stage 2 (#214) gave every CI job its own ephemeral
  * stack, and `ci.yml` reads no hosted Supabase secret at all. What is left is a
  * shared scratch database that only local runs still point at, which is the
- * sharing this module exists to end. The name is kept because that is what the
- * project is still called in the dashboard.
+ * sharing this module exists to end.
+ *
+ * send-455, 2026-09-22: the project this constant used to name
+ * (`dozaffzgqkbarxtlclsj`, "Talentrah CI") was permanently deleted after it
+ * drove its shared org (`Bayo-1987's Org`) over Supabase's Fair Use egress
+ * cap and triggered a 402 outage across every project in that org, including
+ * production. Its replacement, `talentrah-preview`
+ * (`gtiksnbhnqmwpeckfqwk`), deliberately lives in a NEW org
+ * (`Talentrah Infra`) rather than the old one — the point is that local-dev
+ * usage can never again share a billing quota with production, not just
+ * that the dashboard has a fresh name.
  */
-export const HOSTED_CI_REF = "dozaffzgqkbarxtlclsj";
+export const HOSTED_CI_REF = "gtiksnbhnqmwpeckfqwk";
 
 export type DbKind = "local" | "production" | "hosted-ci" | "unknown" | "unset";
 

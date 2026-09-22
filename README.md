@@ -34,7 +34,7 @@ before doing anything:
 
 ```
 [test suite] ✓ database: local ephemeral stack (http://127.0.0.1:54321)
-[seed]       ! database: the shared hosted project (dozaffzgqkbarxtlclsj)
+[seed]       ! database: the shared hosted project (gtiksnbhnqmwpeckfqwk)
 ```
 
 That exists because "it works locally" is unfalsifiable when the sentence does
@@ -46,7 +46,7 @@ unnoticed.
 | target | to use it anyway |
 |---|---|
 | production `nytwbbzfpytctjsoczzq` | `ALLOW_TESTS_AGAINST_PRODUCTION=yes-i-mean-it` |
-| shared hosted `dozaffzgqkbarxtlclsj` | `ALLOW_TESTS_AGAINST_HOSTED=yes-i-mean-it` |
+| shared hosted `gtiksnbhnqmwpeckfqwk` | `ALLOW_TESTS_AGAINST_HOSTED=yes-i-mean-it` |
 
 Both have real uses — reproducing something that only happens on a live
 project. Neither is reachable by drift.

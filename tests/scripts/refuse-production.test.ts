@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 import { refuseIfProduction } from "../../scripts/refuse-production";
 
 const PRODUCTION_URL = "https://nytwbbzfpytctjsoczzq.supabase.co";
-const CI_URL = "https://dozaffzgqkbarxtlclsj.supabase.co";
+const CI_URL = "https://gtiksnbhnqmwpeckfqwk.supabase.co";
 
 describe("refuseIfProduction", () => {
   it("throws — refuses to run — when the URL is production's own project ref", () => {

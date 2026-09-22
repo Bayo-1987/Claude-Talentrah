@@ -282,6 +282,24 @@ Phase 1 is feature-complete except for the employer side. Read [docs/phase-1-sum
     and reuse is an UPDATE — caught by `referral-leaderboard.test.ts`'s
     own display-name-fallback assertion, fixed by applying those fields
     directly after claim.
+  - **send-455, 2026-09-22: `dozaffzgqkbarxtlclsj` was permanently deleted**,
+    after it drove its shared organization (`Bayo-1987's Org`) over
+    Supabase's Fair Use egress cap and triggered a 402 outage across every
+    project in that org, including production. Its replacement,
+    `talentrah-preview` (`gtiksnbhnqmwpeckfqwk`), is **not in the same
+    organization** — it lives in a new org, `Talentrah Infra`, specifically
+    so local-dev/Preview usage can never again share a billing quota with
+    production. Everything above in this section about `dozaffzgqkbarxtlclsj`
+    (local dev target, `HOSTED_CI_REF`, needing hand-bootstrapped reference
+    data, needing migrations applied manually, the egress incident) describes
+    real history and stays accurate as written — just read every reference
+    to that project ref as now pointing at `gtiksnbhnqmwpeckfqwk` going
+    forward. `scripts/db-target.ts`'s `HOSTED_CI_REF`, `.env.example`,
+    `README.md`, and `tests/scripts/refuse-production.test.ts` were all
+    repointed to the new ref in this same send; every other historical
+    mention of `dozaffzgqkbarxtlclsj` in this repo (incident write-ups,
+    audit logs, investigation docs) was deliberately left alone as a
+    point-in-time record.
 
 Verification convention this repo holds itself to, visible throughout its PR history: **check real current state before building; prove a fix by first proving the test catches the bug.** Several milestones caught real defects specifically by re-testing what earlier work had assumed — an RLS policy that had never been run, a retry heuristic that looked like model behaviour, an OAuth name mapping where the intuitive fix would have repaired the wrong provider, and an org-membership policy that read as safe and was not. That last one is also the standing example of a second habit: after fixing a policy, ask what *else* grants the same privilege — the first fix closed one route and, in doing so, opened a second.
 
