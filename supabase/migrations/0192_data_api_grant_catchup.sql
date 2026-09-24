@@ -97,4 +97,60 @@ begin
   ) then
     raise exception 'country_default_events still has an anon grant after revoke';
   end if;
+
+  if not exists (
+    select 1 from information_schema.role_table_grants
+    where table_schema = 'public' and table_name = 'resume_builder_start_events'
+      and grantee = 'authenticated' and privilege_type = 'SELECT'
+  ) then
+    raise exception 'resume_builder_start_events did not end up with authenticated SELECT';
+  end if;
+
+  if exists (
+    select 1 from information_schema.role_table_grants
+    where table_schema = 'public' and table_name = 'resume_builder_start_events'
+      and grantee = 'anon'
+  ) then
+    raise exception 'resume_builder_start_events still has an anon grant after revoke';
+  end if;
+
+  if not exists (
+    select 1 from information_schema.role_table_grants
+    where table_schema = 'public' and table_name = 'farah_session_events'
+      and grantee = 'authenticated' and privilege_type = 'SELECT'
+  ) then
+    raise exception 'farah_session_events did not end up with authenticated SELECT';
+  end if;
+
+  if exists (
+    select 1 from information_schema.role_table_grants
+    where table_schema = 'public' and table_name = 'farah_session_events'
+      and grantee = 'anon'
+  ) then
+    raise exception 'farah_session_events still has an anon grant after revoke';
+  end if;
+
+  if not exists (
+    select 1 from information_schema.role_table_grants
+    where table_schema = 'public' and table_name = 'job_posting_assessment_files'
+      and grantee = 'anon' and privilege_type = 'SELECT'
+  ) then
+    raise exception 'job_posting_assessment_files did not end up with anon SELECT';
+  end if;
+
+  if not exists (
+    select 1 from information_schema.role_table_grants
+    where table_schema = 'public' and table_name = 'job_posting_assessment_files'
+      and grantee = 'authenticated' and privilege_type = 'UPDATE'
+  ) then
+    raise exception 'job_posting_assessment_files did not end up with authenticated UPDATE';
+  end if;
+
+  if not exists (
+    select 1 from information_schema.role_table_grants
+    where table_schema = 'public' and table_name = 'job_posting_assessment_files'
+      and grantee = 'authenticated' and privilege_type = 'DELETE'
+  ) then
+    raise exception 'job_posting_assessment_files did not end up with authenticated DELETE';
+  end if;
 end $$;
