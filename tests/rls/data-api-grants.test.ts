@@ -78,4 +78,16 @@ describe("Data API grant catch-up (0192) holds — send-458/459", () => {
     expect(hasGrant(snapshot, "farah_session_events", "authenticated", "SELECT")).toBe(true);
     expect(hasGrant(snapshot, "farah_session_events", "anon")).toBe(false);
   });
+
+  it("job_posting_reports: anon has no INSERT", async () => {
+    const snapshot = await grantsSnapshot();
+    expect(hasGrant(snapshot, "job_posting_reports", "anon", "INSERT")).toBe(false);
+  });
+
+  it("job_posting_assessment_files: anon has no INSERT, UPDATE, or DELETE", async () => {
+    const snapshot = await grantsSnapshot();
+    expect(hasGrant(snapshot, "job_posting_assessment_files", "anon", "INSERT")).toBe(false);
+    expect(hasGrant(snapshot, "job_posting_assessment_files", "anon", "UPDATE")).toBe(false);
+    expect(hasGrant(snapshot, "job_posting_assessment_files", "anon", "DELETE")).toBe(false);
+  });
 });
