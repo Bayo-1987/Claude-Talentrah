@@ -3850,6 +3850,14 @@ export type Database = {
           ok: boolean
         }[]
       }
+      data_api_grants_snapshot: {
+        Args: never
+        Returns: {
+          grantee: string
+          privilege_type: string
+          table_name: string
+        }[]
+      }
       debit_ad_wallet: {
         Args: {
           p_actor_user_id?: string
