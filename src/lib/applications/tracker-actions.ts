@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { sendHiredMomentEmail } from "@/lib/notifications/hired-moment/send";
 import type { Enums } from "@/lib/supabase/types";
 
 async function getAuthedUserId() {
@@ -126,6 +127,18 @@ export async function updateStageAction(applicationId: string, formData: FormDat
   // about prompting *this* user to refer someone, not about them having been
   // referred themselves.
   if (stage === "hired") {
+    // Best-effort second channel for the exact same moment — see
+    // sendHiredMomentEmail's own header for why this never throws and is
+    // not gated on an email_preferences column. Awaited so the send is
+    // actually attempted before the redirect fires (redirect() throws
+    // internally as its own navigation mechanism, so nothing after this
+    // line would run), but wrapped so a slow or failing send can never
+    // delay or prevent the redirect the referral banner depends on.
+    try {
+      await sendHiredMomentEmail({ userId, applicationId });
+    } catch (err) {
+      console.error(`[tracker] sendHiredMomentEmail(${applicationId}) failed:`, err);
+    }
     redirect(`/tracker?justHired=${applicationId}`);
   }
 }
