@@ -17,7 +17,7 @@ import { selectAutoApplyDigestSummary, type AutoApplyQueueEntryLike } from "./se
  *
  * ── WHY job_match_digest, NOT A NEW COLUMN ──────────────────────────────────
  *
- * See migration 0195's own header for the full reasoning — a new,
+ * See migration 0196's own header for the full reasoning — a new,
  * unwired preference column would be worse than sharing the one unsubscribe
  * link that already exists and already works. This send is out of scope for
  * building a second one.

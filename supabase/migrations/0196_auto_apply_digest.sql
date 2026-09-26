@@ -1,6 +1,16 @@
 -- send-463 — "here's what Farah did for you this week": Auto-Apply
 -- proof-of-work digest.
 --
+-- RENUMBERED FROM 0195. Written and applied to both talentrah-preview and
+-- production as 0195_auto_apply_digest while send-462's own
+-- 0195_referral_reward_events was still in review on a separate branch —
+-- both were legitimately 0195 the moment each was written, and send-462
+-- merged first. Content is unchanged; only the number and this note moved,
+-- same precedent as 0061's own header. `scripts/audit-migrations.ts`'s
+-- KNOWN_ALIASES records the mismatch so the drift checker reads this as
+-- "applied under a documented alias" rather than MISSING — nothing here
+-- needs re-running against either database.
+--
 -- ── WHY THIS REUSES email_preferences.job_match_digest, NOT A NEW COLUMN ───
 --
 -- 0131's own header argues for a SEPARATE preference column per notification
