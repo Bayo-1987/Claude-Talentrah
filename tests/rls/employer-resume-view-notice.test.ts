@@ -9,6 +9,14 @@
  *   - `seeker_application_view_status` (seeker side, SECURITY DEFINER, gated
  *     on the CALLER'S OWN `applications.user_id`, not org membership)
  *
+ * 0195 (send-464) changed `record_employer_resume_view`'s return type from
+ * `void` to `boolean` — true iff THIS call was the one that just set
+ * first_viewed_at for the first time — so this suite's own `data` assertions
+ * below double as the regression test for that change staying "first call
+ * true, everything else false", on top of proving
+ * `seeker_application_view_status` (untouched by 0195) still behaves
+ * identically.
+ *
  * The isolation bar is the same one 0125 set: prove the unrelated-party case
  * fails (or in this case, has no effect and leaks nothing) before trusting
  * the legitimate case works.
@@ -169,10 +177,11 @@ describe("record_employer_resume_view — the employer side", () => {
     "SABOTAGE-PROOF TARGET: an unrelated org (B) calling this for org A's application has no effect " +
       "— not an error that would confirm the application exists, no row created",
     async () => {
-      const { error } = await orgOwnerB.client.rpc("record_employer_resume_view", {
+      const { data, error } = await orgOwnerB.client.rpc("record_employer_resume_view", {
         p_application_id: applicationIdA,
       });
       expect(error).toBeNull();
+      expect(data, "a non-member's call must report false, same as a true no-op").toBe(false);
 
       const { data: real } = await admin
         .from("employer_applicant_status")
@@ -184,10 +193,13 @@ describe("record_employer_resume_view — the employer side", () => {
   );
 
   it("the owning org's call creates the row, defaults status to 'new', and stamps first_viewed_at", async () => {
-    const { error } = await orgOwnerA.client.rpc("record_employer_resume_view", {
+    const { data: wasFirstView, error } = await orgOwnerA.client.rpc("record_employer_resume_view", {
       p_application_id: applicationIdA,
     });
     expect(error).toBeNull();
+    expect(wasFirstView, "the genuine first view must report true — this is what fires the seeker notification").toBe(
+      true,
+    );
 
     const { data, error: readErr } = await admin
       .from("employer_applicant_status")
@@ -208,10 +220,13 @@ describe("record_employer_resume_view — the employer side", () => {
       .single();
     expect(before?.first_viewed_at).toBeTruthy();
 
-    const { error } = await orgOwnerA.client.rpc("record_employer_resume_view", {
+    const { data: wasFirstView, error } = await orgOwnerA.client.rpc("record_employer_resume_view", {
       p_application_id: applicationIdA,
     });
     expect(error).toBeNull();
+    expect(wasFirstView, "a repeat view must report false — a true here would fire a duplicate notification").toBe(
+      false,
+    );
 
     const { data: after } = await admin
       .from("employer_applicant_status")
@@ -234,7 +249,10 @@ describe("record_employer_resume_view — the employer side", () => {
         .eq("application_id", applicationIdA)
         .single();
 
-      await orgOwnerB.client.rpc("record_employer_resume_view", { p_application_id: applicationIdA });
+      const { data: wasFirstView } = await orgOwnerB.client.rpc("record_employer_resume_view", {
+        p_application_id: applicationIdA,
+      });
+      expect(wasFirstView, "an unrelated org's second call must still report false").toBe(false);
 
       const { data: after } = await admin
         .from("employer_applicant_status")
@@ -322,6 +340,7 @@ describe("end-to-end: employer opens resume, seeker sees it, a second open doesn
       p_application_id: applicationIdB,
     });
     expect(first.error).toBeNull();
+    expect(first.data, "the first open of this application must report true").toBe(true);
 
     const seekerView = await seekerB.client.rpc("seeker_application_view_status", {
       p_application_ids: [applicationIdB],
@@ -334,6 +353,7 @@ describe("end-to-end: employer opens resume, seeker sees it, a second open doesn
       p_application_id: applicationIdB,
     });
     expect(second.error).toBeNull();
+    expect(second.data, "the second open of the SAME application must report false").toBe(false);
 
     const seekerViewAgain = await seekerB.client.rpc("seeker_application_view_status", {
       p_application_ids: [applicationIdB],
