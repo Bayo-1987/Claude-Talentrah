@@ -526,6 +526,8 @@ describe("§2 — cron GETs fail closed too", () => {
         import("@/app/api/admin/mentorship-session-reminders/route"),
       "/api/admin/mentor-payouts": () => import("@/app/api/admin/mentor-payouts/route"),
       "/api/admin/refresh-match-scores": () => import("@/app/api/admin/refresh-match-scores/route"),
+      "/api/admin/send-scholarship-deadline-alerts": () =>
+        import("@/app/api/admin/send-scholarship-deadline-alerts/route"),
     };
 
     expect(vercelConfig.crons.length).toBeGreaterThan(0);
