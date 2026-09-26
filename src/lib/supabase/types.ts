@@ -2622,6 +2622,61 @@ export type Database = {
           },
         ]
       }
+      referral_reward_events: {
+        Row: {
+          created_at: string
+          credits_granted: number
+          id: string
+          notified_at: string | null
+          reason: Database["public"]["Enums"]["credit_reason"]
+          referral_id: string
+          referred_user_id: string
+          referrer_id: string
+        }
+        Insert: {
+          created_at?: string
+          credits_granted: number
+          id?: string
+          notified_at?: string | null
+          reason: Database["public"]["Enums"]["credit_reason"]
+          referral_id: string
+          referred_user_id: string
+          referrer_id: string
+        }
+        Update: {
+          created_at?: string
+          credits_granted?: number
+          id?: string
+          notified_at?: string | null
+          reason?: Database["public"]["Enums"]["credit_reason"]
+          referral_id?: string
+          referred_user_id?: string
+          referrer_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "referral_reward_events_referral_id_fkey"
+            columns: ["referral_id"]
+            isOneToOne: false
+            referencedRelation: "referrals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referral_reward_events_referred_user_id_fkey"
+            columns: ["referred_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referral_reward_events_referrer_id_fkey"
+            columns: ["referrer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       referral_shares: {
         Row: {
           channel: string

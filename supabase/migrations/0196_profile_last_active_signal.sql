@@ -1,4 +1,4 @@
--- 0195 — send-467, part 1: a real, independent "last active" signal.
+-- 0196 — send-467, part 1: a real, independent "last active" signal.
 --
 -- ── THE BUG THIS EXISTS TO FIX ─────────────────────────────────────────────
 --
@@ -83,7 +83,7 @@ alter table public.profiles
   add column last_active_at timestamptz;
 
 comment on column public.profiles.last_active_at is
-  'Stamped ONLY by touch_last_active() below, from a real authenticated page view, throttled to once/hour. NOT a general "last touched this row" column — refresh-job.ts and every other service-role job has no grant to write it, by design (send-467). The dormancy signal for isNotActivelySearching() (proactive-match-alert/select.ts) and the win-back email (0196) both read this, never match_scores.computed_at.';
+  'Stamped ONLY by touch_last_active() below, from a real authenticated page view, throttled to once/hour. NOT a general "last touched this row" column — refresh-job.ts and every other service-role job has no grant to write it, by design (send-467). The dormancy signal for isNotActivelySearching() (proactive-match-alert/select.ts) and the win-back email (0197) both read this, never match_scores.computed_at.';
 
 create or replace function public.touch_last_active()
 returns void

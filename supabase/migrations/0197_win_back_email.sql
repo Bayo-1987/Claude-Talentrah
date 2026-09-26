@@ -1,6 +1,6 @@
--- 0196 — send-467, part 3: the calendar-driven win-back email.
+-- 0197 — send-467, part 3: the calendar-driven win-back email.
 --
--- Fixing the dormancy signal (0195) only repairs the EXISTING proactive
+-- Fixing the dormancy signal (0196) only repairs the EXISTING proactive
 -- "exceptional match" alert (send-138) — and that alert only ever fires when
 -- a new Excellent match also shows up in the same ingest run. A user who has
 -- been gone 20 days with no fresh Excellent match in that window currently
@@ -29,7 +29,7 @@
 -- and `win_back_last_sent_at >= last_active_at` — the dedup condition below
 -- (`win_back_last_sent_at is null or win_back_last_sent_at < last_active_at`)
 -- correctly evaluates to "already sent, skip". The moment the user becomes
--- active again, `touch_last_active()` (0195) moves `last_active_at` forward
+-- active again, `touch_last_active()` (0196) moves `last_active_at` forward
 -- past the old `win_back_last_sent_at`, and the condition flips back to
 -- "eligible" the next time they drift past 14 days again — a new episode,
 -- correctly detected, with no second table and no explicit "episode id" to

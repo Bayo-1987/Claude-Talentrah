@@ -18,7 +18,7 @@ import {
  * a SEPARATE send from the proactive "exceptional match" alert rather than a
  * fold-in: a calendar trigger, not an ingest-event trigger, and the two must
  * stay independently controllable (own flag, own preference, own dedup —
- * 0196).
+ * 0197).
  *
  * ── THE THREE SWITCHES, SAME SHAPE AS THE DIGEST AND THE PROACTIVE ALERT ───
  *
@@ -32,7 +32,7 @@ import {
  * read, kept populated for every user with a base resume by
  * `refresh-job.ts`'s daily recompute. That job's own side effect
  * (`computed_at` moving) is exactly what broke the OTHER alert's dormancy
- * check (0195's own header) — but the SCORES it writes are correct and
+ * check (0196's own header) — but the SCORES it writes are correct and
  * exactly the right input here: this run does not recompute anything, it
  * just reads what the existing recompute already produced since the
  * candidate went dormant.
@@ -91,7 +91,7 @@ export async function sendWinbackEmails(now: Date = new Date()): Promise<Winback
         // the digest's own "a quiet week is a silent week" rule, applied to
         // an episode instead of a week. Deliberately does NOT stamp
         // win_back_last_sent_at: nothing was sent, so this user stays
-        // eligible on tomorrow's run for as long as the window (0195/select.ts)
+        // eligible on tomorrow's run for as long as the window (0196/select.ts)
         // still holds.
         summary.skippedNoPostings++;
         continue;

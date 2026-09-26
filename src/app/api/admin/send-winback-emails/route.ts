@@ -7,11 +7,13 @@ import { requireAdminSecret, requireCronSecret, internalError } from "@/lib/api/
  * one send later.
  *
  * GET  — Vercel Cron (`Authorization: Bearer <CRON_SECRET>`), scheduled daily
- *        in vercel.json at 17:00 UTC — deliberately ONE HOUR AFTER
- *        refresh-match-scores (16:00 UTC), the same ordering reasoning
- *        CLAUDE.md documents for ingest-jobs vs. the proactive alert: this
- *        run reads `match_scores` to build "what's new", and it should read
- *        the SAME day's freshly recomputed scores, not yesterday's. Daily,
+ *        in vercel.json at 18:00 UTC — deliberately AFTER refresh-match-scores
+ *        (16:00 UTC), the same ordering reasoning CLAUDE.md documents for
+ *        ingest-jobs vs. the proactive alert: this run reads `match_scores`
+ *        to build "what's new", and it should read the SAME day's freshly
+ *        recomputed scores, not yesterday's. (17:00 was taken by
+ *        send-referral-reward-notifications by the time this merged — the
+ *        exact hour doesn't matter, only that it's after 16:00.) Daily,
  *        not weekly like the digest: this send's own eligibility window
  *        (14-21 days since `last_active_at`) is what limits how often any
  *        ONE person can be mailed, not the cron's own cadence — the cron

@@ -51,8 +51,12 @@
       "schedule": "0 16 * * *"
     },
     {
-      "path": "/api/admin/send-winback-emails",
+      "path": "/api/admin/send-referral-reward-notifications",
       "schedule": "0 17 * * *"
+    },
+    {
+      "path": "/api/admin/send-winback-emails",
+      "schedule": "0 18 * * *"
     }
   ]
 }
