@@ -85,6 +85,14 @@ export const STATIC_PATHS: { path: string; priority: number; changeFrequency: Me
   // copy either — see ai-resume-builder/page.tsx's own header).
   { path: "/ai-resume-builder", priority: 0.6, changeFrequency: "monthly" },
   { path: "/ai-interview-prep", priority: 0.6, changeFrequency: "monthly" },
+  /*
+   * send-461 — two hand-authored comparison/alternative-seeking SEO pages,
+   * same shape as the standalone pages above (static, no live count to go
+   * stale). These rank for "jobright alternative nigeria" and "jobcopilot
+   * vs talentrah" style searches, not the bare competitor brand name.
+   */
+  { path: "/vs/jobright", priority: 0.6, changeFrequency: "monthly" },
+  { path: "/vs/jobcopilot", priority: 0.6, changeFrequency: "monthly" },
   // send-387 Part 1: unlike the count-gated entries in landingPageEntries below,
   // this hub always renders a real 200 (hero + CTA card render even with
   // zero matching posts and zero qualifying landing-page links), so it

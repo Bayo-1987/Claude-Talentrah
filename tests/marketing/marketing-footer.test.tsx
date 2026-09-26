@@ -15,6 +15,10 @@
  * /tailor, making it the better landing spot for a footer visitor. This
  * file's own fixture reflects the actual final 9-entry column, not the
  * 7-entry snapshot this test was originally written against.
+ *
+ * send-461 — a new "Compare" column (Jobright Alternative, vs. JobCopilot)
+ * pinned the same way, so a future edit can't silently turn either into a
+ * dead `#` anchor the way the original Product entries used to be.
  */
 import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -32,6 +36,11 @@ const PRODUCT_LINKS: Record<string, string> = {
   "Auto-Apply": "/how-auto-apply-works",
 };
 
+const COMPARE_LINKS: Record<string, string> = {
+  "Jobright Alternative": "/vs/jobright",
+  "vs. JobCopilot": "/vs/jobcopilot",
+};
+
 describe("the footer's Product column", () => {
   const html = renderToStaticMarkup(<MarketingFooter />);
 
@@ -47,5 +56,16 @@ describe("the footer's Product column", () => {
     // assertion can't pass just because the footer has zero anchors at all.
     expect(html).toContain('href="/legal/privacy"');
     expect(html).not.toMatch(/href="#"/);
+  });
+});
+
+describe("the footer's Compare column (send-461)", () => {
+  const html = renderToStaticMarkup(<MarketingFooter />);
+
+  it("renders a real href for both comparison pages, never a dead '#' anchor", () => {
+    for (const [label, href] of Object.entries(COMPARE_LINKS)) {
+      const anchor = new RegExp(`<a href="${href}"[^>]*>${label}<`);
+      expect(html, `${label} did not link to ${href}`).toMatch(anchor);
+    }
   });
 });
