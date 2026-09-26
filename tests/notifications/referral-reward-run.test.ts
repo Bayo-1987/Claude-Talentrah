@@ -106,7 +106,11 @@ describe("runReferralRewardNotifications", () => {
 
     const { data: row } = await admin.from("referral_reward_events").select("notified_at").eq("id", eventId).single();
     // Untouched — still the original stamp, not overwritten by this run.
-    expect(row?.notified_at).toBe(alreadyNotified);
+    // Compared as Date values, not raw strings: PostgREST serializes a
+    // timestamptz as "...+00:00", not the "...Z" ISO form new Date().toISOString()
+    // produces, so a string-equality check here would fail on a correct result.
+    expect(row?.notified_at).not.toBeNull();
+    expect(new Date(row!.notified_at!).getTime()).toBe(new Date(alreadyNotified).getTime());
   });
 
   it("a second concurrent claim of the same event sees zero rows — the conditional UPDATE is the lock", async () => {
