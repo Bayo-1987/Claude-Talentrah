@@ -15,6 +15,10 @@
       "schedule": "0 7 * * *"
     },
     {
+      "path": "/api/admin/send-scholarship-deadline-alerts",
+      "schedule": "30 7 * * *"
+    },
+    {
       "path": "/api/admin/charge-campaigns",
       "schedule": "0 8 * * *"
     },

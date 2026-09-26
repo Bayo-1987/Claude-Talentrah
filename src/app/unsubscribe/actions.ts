@@ -10,12 +10,13 @@ import type { UnsubscribablePreference } from "./preference";
  * plain boolean rather than the row, so nothing about who the token belongs to
  * reaches the browser.
  *
- * `preference` picks which of the two independently-flippable columns this
- * resubscribes, and therefore which RPC — the two functions take differently
+ * `preference` picks which of the three independently-flippable columns this
+ * resubscribes, and therefore which RPC — the functions take differently
  * named parameters (`p_subscribed` vs `p_enabled`), so this calls each by its
  * own shape rather than forcing one call site to guess a shared signature.
  * See 0128's own header for why send-138's alert has its own column and its
- * own function rather than sharing the digest's.
+ * own function rather than sharing the digest's, and 0197 for send-466's
+ * scholarship deadline alert following the same precedent.
  */
 export async function resubscribeAction(
   token: string,
@@ -27,7 +28,9 @@ export async function resubscribeAction(
   const { data, error } =
     preference === "proactive_match_alert"
       ? await supabase.rpc("proactive_match_alert_set_preference", { p_token: token, p_enabled: true })
-      : await supabase.rpc("email_unsubscribe", { p_token: token, p_subscribed: true });
+      : preference === "scholarship_deadline_alert"
+        ? await supabase.rpc("scholarship_deadline_alert_set_preference", { p_token: token, p_enabled: true })
+        : await supabase.rpc("email_unsubscribe", { p_token: token, p_subscribed: true });
 
   if (error) {
     console.error("[unsubscribe] resubscribe failed:", error.message);

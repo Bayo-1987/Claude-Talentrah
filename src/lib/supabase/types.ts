@@ -1225,6 +1225,7 @@ export type Database = {
           digest_last_sent_at: string | null
           job_match_digest: boolean
           proactive_match_alert: boolean
+          scholarship_deadline_alert: boolean
           unsubscribe_token: string
           updated_at: string
           user_id: string
@@ -1234,6 +1235,7 @@ export type Database = {
           digest_last_sent_at?: string | null
           job_match_digest?: boolean
           proactive_match_alert?: boolean
+          scholarship_deadline_alert?: boolean
           unsubscribe_token?: string
           updated_at?: string
           user_id: string
@@ -1243,6 +1245,7 @@ export type Database = {
           digest_last_sent_at?: string | null
           job_match_digest?: boolean
           proactive_match_alert?: boolean
+          scholarship_deadline_alert?: boolean
           unsubscribe_token?: string
           updated_at?: string
           user_id?: string
@@ -2844,6 +2847,7 @@ export type Database = {
       scholarship_saves: {
         Row: {
           created_at: string
+          deadline_reminder_sent_at: string | null
           id: string
           notes: string | null
           outcome_note: string | null
@@ -2854,6 +2858,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          deadline_reminder_sent_at?: string | null
           id?: string
           notes?: string | null
           outcome_note?: string | null
@@ -2864,6 +2869,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          deadline_reminder_sent_at?: string | null
           id?: string
           notes?: string | null
           outcome_note?: string | null
@@ -4175,6 +4181,13 @@ export type Database = {
           balance_after_ngn: number
           ok: boolean
           status: Database["public"]["Enums"]["ad_campaign_status"]
+        }[]
+      }
+      scholarship_deadline_alert_set_preference: {
+        Args: { p_enabled?: boolean; p_token: string }
+        Returns: {
+          matched: boolean
+          scholarship_deadline_alert: boolean
         }[]
       }
       scholarship_landing_facet_counts: {
