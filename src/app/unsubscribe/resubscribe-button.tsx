@@ -17,6 +17,8 @@ const CONFIRMATION_COPY: Record<UnsubscribablePreference, string> = {
   job_match_digest: "You're subscribed again — the weekly job-match email will keep coming.",
   proactive_match_alert:
     "You're subscribed again — you'll hear from Farah if an exceptional match turns up.",
+  win_back_email:
+    "You're subscribed again — Farah will let you know what's new if you go quiet for a while.",
 };
 
 export function ResubscribeButton({

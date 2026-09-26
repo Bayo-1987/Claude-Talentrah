@@ -8,10 +8,11 @@ import { ResubscribeButton } from "./resubscribe-button";
 import { parsePreference } from "./preference";
 
 /**
- * Unsubscribe, reached from a link in either the digest or send-138's
- * proactive match alert — `pref` in the query string picks which
- * (defaulting to the digest, so every digest email already sent before
- * send-138 existed still points at valid behaviour with no `pref` at all).
+ * Unsubscribe, reached from a link in the digest, send-138's proactive match
+ * alert, or send-467's win-back email — `pref` in the query string picks
+ * which (defaulting to the digest, so every digest email already sent before
+ * send-138/send-467 existed still points at valid behaviour with no `pref`
+ * at all).
  *
  * ── NO SESSION, BY NECESSITY ──────────────────────────────────────────────
  *
@@ -61,6 +62,12 @@ const COPY = {
       body: "Farah won't send the rare \"exceptional match\" alert to your inbox again. This doesn't affect your account, your weekly digest (if you're subscribed to it), or anything else Talentrah sends.",
     },
   },
+  win_back_email: {
+    unsubscribed: {
+      heading: "You're unsubscribed.",
+      body: "Farah won't email you a \"here's what you missed\" summary if you go quiet for a while. This doesn't affect your account, or anything else Talentrah sends.",
+    },
+  },
 } as const;
 
 export default async function UnsubscribePage({
@@ -77,7 +84,9 @@ export default async function UnsubscribePage({
     const { data, error } =
       preference === "proactive_match_alert"
         ? await supabase.rpc("proactive_match_alert_set_preference", { p_token: token, p_enabled: false })
-        : await supabase.rpc("email_unsubscribe", { p_token: token, p_subscribed: false });
+        : preference === "win_back_email"
+          ? await supabase.rpc("win_back_email_set_preference", { p_token: token, p_enabled: false })
+          : await supabase.rpc("email_unsubscribe", { p_token: token, p_subscribed: false });
     if (error) {
       console.error("[unsubscribe] rpc failed:", error.message);
     } else {

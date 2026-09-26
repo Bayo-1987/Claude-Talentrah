@@ -1853,3 +1853,78 @@ describe("resume_templates is catalog data, not user input (0042)", () => {
     expect(error, "a user must not be able to add catalog rows either").not.toBeNull();
   });
 });
+
+describe("profiles: last_active_at cannot be written directly by the user (0195, send-467)", () => {
+  /**
+   * NEGATIVE CONTROL for send-467's dormancy-signal fix — the direct sibling
+   * of the closed_at/posted_at tests above, on `profiles` instead of
+   * `job_postings`. `last_active_at` is the ENTIRE reason 0195 exists: it
+   * must be a signal `refresh-job.ts` (and every other background job)
+   * structurally cannot fake, and a user's own session client writing it
+   * directly on demand would defeat that exactly as thoroughly as a
+   * background job doing so — either way the column would stop meaning "a
+   * real, unprompted visit happened".
+   *
+   * Checked against the live database before writing 0195 (this is what
+   * that migration's own header cites): `profiles` already has its
+   * table-level UPDATE grant revoked from `authenticated`/`anon` (0030,
+   * restated by 0135), so a brand new column is refused by default unless a
+   * migration explicitly adds it to the per-column grant list — 0195
+   * deliberately does not. Same shape as the posted_at test: own account,
+   * refused with 42501, and the SAME client can still update an allowed
+   * column (first_name) on the exact same row a moment later, proving the
+   * refusal is the COLUMN grant and not a row policy that would also block
+   * that second write.
+   */
+  it("a user cannot set their own last_active_at directly", async () => {
+    const { error: lastActiveError } = await user.client
+      .from("profiles")
+      .update({ last_active_at: new Date().toISOString() })
+      .eq("id", user.id);
+    expect(
+      lastActiveError,
+      "a user must not be able to fabricate their own last_active_at",
+    ).not.toBeNull();
+    expect(lastActiveError!.code).toBe("42501");
+
+    // Proves the refusal above was the column grant, not a row policy that
+    // would also block this: the exact same client, same row, a column
+    // that IS in the UPDATE grant list (0030).
+    const { error: firstNameError } = await user.client
+      .from("profiles")
+      .update({ first_name: "COLPRIV-LASTACTIVE-TEST" })
+      .eq("id", user.id);
+    expect(
+      firstNameError,
+      "the row policy itself must still allow a user to edit their own profile",
+    ).toBeNull();
+
+    const { data: after } = await admin
+      .from("profiles")
+      .select("last_active_at, first_name")
+      .eq("id", user.id)
+      .single();
+    // Untouched by the refused PATCH — still whatever it was before.
+    expect(after?.last_active_at, "last_active_at must not have moved").toBeNull();
+    expect(after?.first_name).toBe("COLPRIV-LASTACTIVE-TEST");
+  });
+
+  /**
+   * The mirror image of the test above, proving the RPC path is exactly as
+   * open as the direct path is closed — a locked column with no legitimate
+   * way to write it at all would just be a broken feature, not a fix. This
+   * does not (and cannot, without a real HTTP request cycle) test the
+   * one-hour THROTTLE itself — see tests/rls/touch-last-active.test.ts for
+   * that, which manipulates the stored timestamp directly through the admin
+   * client to simulate "an hour ago" without a real wait.
+   */
+  it("POSITIVE CONTROL: touch_last_active() can still set it for the calling user", async () => {
+    await admin.from("profiles").update({ last_active_at: null }).eq("id", user.id);
+
+    const { error } = await user.client.rpc("touch_last_active");
+    expect(error, "the RPC path must still work — 0195 locks the COLUMN, not the signal itself").toBeNull();
+
+    const { data } = await admin.from("profiles").select("last_active_at").eq("id", user.id).single();
+    expect(data?.last_active_at, "touch_last_active() should have stamped this user's own row").not.toBeNull();
+  });
+});

@@ -5,33 +5,51 @@ import type { MatchExplanation } from "@/lib/matching/score";
  * send-138 — Farah's proactive "exceptional match, even if you're not
  * looking" alert (build-prompt §6.10's own worked example).
  *
- * ── "NOT ACTIVELY SEARCHING", DEFINED ──────────────────────────────────────
+ * ── "NOT ACTIVELY SEARCHING", DEFINED (CORRECTED, send-467) ────────────────
  *
- * No column in this schema already tracks this, so this is a judgment call,
- * stated plainly rather than assumed: a user counts as not actively
- * searching when their MOST RECENT `match_scores.computed_at` (across every
- * job they've been scored against) is older than `NOT_ACTIVELY_SEARCHING_DAYS`
- * — or they have no `match_scores` row at all.
+ * A user counts as not actively searching when `profiles.last_active_at`
+ * (0195) is older than `NOT_ACTIVELY_SEARCHING_DAYS` — or is null, meaning
+ * they have never registered a real visit since that column existed.
  *
- * Chosen over a login-time proxy (`auth.users.last_sign_in_at`) for a
- * concrete reason, not by default: Supabase only stamps `last_sign_in_at` on
- * a real re-authentication, not on every request a persisted session serves —
- * someone who signed in once and has been browsing daily since on a
- * refresh-token session would read as "just signed in" forever. `match_scores
- * .computed_at` updates on every real feed/job-detail visit
- * (persistMatchScores, compute-and-store.ts), because that is precisely when
- * this app recomputes it — so it is a true recency-of-engagement signal
- * already sitting in the schema, not a new column and not a second,
- * auth-schema-crossing lookup (see 0067's own header for why reaching into
- * `auth.*` at all is a real cost this app has paid once already and should
- * not pay again for something `match_scores` already answers for free).
+ * THIS USED TO READ `match_scores.computed_at` INSTEAD, AND THAT WAS WRONG —
+ * stated here rather than quietly dropped, because the reasoning that
+ * justified it is exactly the reasoning that broke it one day later.
+ * `computed_at` was chosen because it "updates on every real feed/job-detail
+ * visit ... because that is precisely when this app recomputes it" — true
+ * the day this file shipped (send-138), and false again the moment
+ * `src/lib/matching/refresh-job.ts`'s daily `refresh-match-scores` cron
+ * shipped (send-138+1): that job ALSO writes `computed_at = now()`, for
+ * EVERY user with a base resume, whenever a new eligible posting appears
+ * they have not been scored against yet. Given continuous ingestion, a
+ * genuinely dormant user's `computed_at` keeps getting re-touched by the
+ * background job on a near-daily cadence — indistinguishable from a real
+ * visit. Confirmed against production before this fix (send-467): of every
+ * user with a `match_scores` row, the single oldest `computed_at` was 16
+ * days and every other one was under 8; four users shared a `computed_at`
+ * within 34 seconds of each other, the signature of the refresh job's own
+ * per-user loop, not four independent visits. Zero proactive match alerts
+ * had ever been sent in production — this gate was, in effect, permanently
+ * closed for anyone with a base resume the moment the background job had
+ * touched them once.
+ *
+ * `last_active_at` fixes this the structural way, not the conventional way:
+ * it is stamped ONLY by `touch_last_active()` (0195), a SECURITY DEFINER
+ * function scoped to `auth.uid()` with EXECUTE granted to `authenticated`
+ * ONLY — never `service_role`, so `refresh-job.ts` and every other
+ * background job in this codebase has no privilege that lets it write this
+ * column, by construction, not by a rule someone has to remember. See
+ * 0195's own migration header for the full account, including how a live
+ * check caught `service_role` retaining EXECUTE via Supabase's own default
+ * per-schema grant even after `revoke ... from public` — the exact same
+ * "table grant overrides a narrower revoke" trap CLAUDE.md documents for
+ * tables, on a function instead.
  *
  * 14 DAYS, not the digest's own 7: the digest's cadence is "everyone still
  * opted in, every week" — a much lower bar than "has this person drifted
- * away". Two weeks of no feed/detail visit is long enough that a genuinely
- * active seeker (visiting even sporadically) never qualifies, short enough
- * that a real dormant user is caught within one or two ingest cycles of
- * drifting past it.
+ * away". Two weeks of no real visit is long enough that a genuinely active
+ * seeker (visiting even sporadically) never qualifies, short enough that a
+ * real dormant user is caught within one or two ingest cycles of drifting
+ * past it. Unchanged by this fix — only the underlying signal was wrong.
  */
 export const NOT_ACTIVELY_SEARCHING_DAYS = 14;
 
@@ -48,9 +66,12 @@ function daysSince(isoTimestamp: string, now: Date): number {
   return (now.getTime() - new Date(isoTimestamp).getTime()) / 86_400_000;
 }
 
-/** `lastActiveAt` is the MAX `match_scores.computed_at` for this user, or
- * null if they have no match_scores row at all — which counts as "not
- * actively searching" (nothing to the contrary), not as an exclusion. */
+/** `lastActiveAt` is `profiles.last_active_at` (0195) — stamped only by a
+ * real authenticated page view, never by a background job — or null if this
+ * user has never registered one, which counts as "not actively searching"
+ * (nothing to the contrary), not as an exclusion. Do NOT feed this
+ * `match_scores.computed_at`: send.ts used to, and that was the send-467 bug
+ * — see this file's own header for the full account. */
 export function isNotActivelySearching(lastActiveAt: string | null, now: Date): boolean {
   if (!lastActiveAt) return true;
   return daysSince(lastActiveAt, now) >= NOT_ACTIVELY_SEARCHING_DAYS;
@@ -100,6 +121,8 @@ export interface ProactiveAlertCandidate {
    * to compute a match from, so they are never eligible regardless of
    * activity or rate-limit state. */
   hasBaseResume: boolean;
+  /** `profiles.last_active_at` (0195) — see `isNotActivelySearching`'s own
+   * doc for why this is no longer `match_scores.computed_at`. */
   lastActiveAt: string | null;
   lastAlertSentAt: string | null;
 }

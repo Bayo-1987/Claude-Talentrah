@@ -1,4 +1,4 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { NextResponse, type NextFetchEvent, type NextRequest } from "next/server";
 import type { User } from "@supabase/supabase-js";
 import { updateSession } from "@/lib/supabase/middleware";
 import { ADMIN_COOKIE } from "@/lib/admin/cookie";
@@ -233,6 +233,51 @@ async function captureReferral(request: NextRequest, response: NextResponse, use
 }
 
 /**
+ * send-467 — stamps `profiles.last_active_at` (0195) for a real signed-in
+ * visit, which is the whole reason that column exists: it must be a signal
+ * `refresh-job.ts` and every other background job structurally cannot fake
+ * (see 0195's own migration header and select.ts's header on the bug this
+ * fixes — `match_scores.computed_at` looked like this signal and was not).
+ *
+ * FIRE-AND-FORGET, THROTTLED, AND THAT IS ALL THIS FUNCTION DOES. The actual
+ * "once per hour" throttle lives entirely inside `touch_last_active()`'s own
+ * SQL (`WHERE last_active_at IS NULL OR last_active_at < now() - interval
+ * '1 hour'`) — this call site does not read the column first and does not
+ * decide whether to call; it calls on every request with a session and lets
+ * the RPC's own atomic UPDATE be the no-op on the other 23 requests out of a
+ * day's 24. Wrapped in `event.waitUntil` rather than awaited inline: the
+ * whole point (per this send's own spec) is that this must never add
+ * latency or a failure mode to a real page load, and the Edge runtime this
+ * proxy runs under does not guarantee an un-awaited promise finishes after
+ * the response is already sent — `waitUntil` is what makes "fire and forget"
+ * mean "still actually runs" rather than "may get cut off".
+ *
+ * NO USER, NO CALL. Only ever invoked when `updateSession` already found a
+ * signed-in user for this request — a signed-out visitor has no session for
+ * `touch_last_active()`'s `auth.uid()` to resolve, and the RPC has no grant
+ * for `anon` regardless (0195).
+ *
+ * Errors are swallowed, deliberately and loudly logged rather than thrown:
+ * a page view must never fail, or even visibly slow down, because a
+ * best-effort activity timestamp could not be written.
+ */
+function touchLastActive(
+  event: NextFetchEvent,
+  user: User | null,
+  supabase: Awaited<ReturnType<typeof updateSession>>["supabase"],
+) {
+  if (!user) return;
+  event.waitUntil(
+    // `.rpc()` returns a thenable PostgrestFilterBuilder, not a real
+    // Promise — waitUntil's own type requires Promise<any>, so this is
+    // wrapped rather than passed straight through.
+    Promise.resolve(supabase.rpc("touch_last_active")).then(({ error }) => {
+      if (error) console.error("[touch-last-active] rpc failed:", error.message);
+    }),
+  );
+}
+
+/**
  * THE CRON AND INGEST ROUTES ARE NOT TOUCHED BY ANY OF THIS, and that is a
  * decision rather than an omission.
  *
@@ -261,11 +306,13 @@ async function captureReferral(request: NextRequest, response: NextResponse, use
  *
  * What survives here is the cron set above, unchanged and correctly so.
  */
-export async function proxy(request: NextRequest) {
+export async function proxy(request: NextRequest, event: NextFetchEvent) {
   const gated = adminGate(request);
   if (gated) return gated;
 
-  const { response, user } = await updateSession(request);
+  const { response, user, supabase } = await updateSession(request);
+
+  touchLastActive(event, user, supabase);
 
   const seekerGated = seekerAppGate(request, user);
   const finalResponse = seekerGated ?? response;

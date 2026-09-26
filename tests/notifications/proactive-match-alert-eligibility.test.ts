@@ -9,6 +9,13 @@
  * own correctness is covered in tests/matching/. What THESE tests prove is
  * the pipeline built around it: who gets scored, who gets skipped, and what
  * happens once a score comes back.
+ *
+ * send-467 repointed the activity signal `loadCandidates` reads from
+ * `match_scores.computed_at` to `profiles.last_active_at` (0195) — see
+ * select.ts's own header for the bug that fixed. The fixtures below carry
+ * BOTH an `activity` (match_scores) and a `profiles.last_active_at` value on
+ * purpose, so the send-467 regression test can prove the former is now
+ * ignored.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -182,12 +189,21 @@ beforeEach(() => {
   fixtures.lastAlerts = [];
 });
 
+/**
+ * `last_active_at` defaults to null (never registered a real visit) —
+ * send-467 repointed this signal from `match_scores.computed_at` to
+ * `profiles.last_active_at` (0195), so it now travels on the SAME joined
+ * `profiles` object as email/first_name, not via the separate `activity`
+ * fixture below (which now models `match_scores` rows for a DIFFERENT
+ * reason — see the FAIL-BEFORE/PASS-AFTER block for why it is still useful
+ * to populate).
+ */
 function recipient(userId: string, over: Record<string, unknown> = {}) {
   return {
     user_id: userId,
     unsubscribe_token: `tok-${userId}`,
     proactive_match_alert: true,
-    profiles: { email: `${userId}@example.test`, first_name: "Ada" },
+    profiles: { email: `${userId}@example.test`, first_name: "Ada", last_active_at: null },
     ...over,
   };
 }
@@ -204,7 +220,9 @@ describe("FAIL-BEFORE / PASS-AFTER: a not-actively-searching user with an Excell
   it("PASS-AFTER: a genuinely inactive user with an Excellent match gets a real alert today", async () => {
     fixtures.recipients = [recipient("inactive-user")];
     fixtures.baseResumeUserIds = [{ user_id: "inactive-user", structured_content: {}, is_base: true }];
-    fixtures.activity = []; // no match_scores rows at all -> not actively searching
+    // last_active_at defaults to null in recipient() -> not actively searching.
+    // fixtures.activity is deliberately left empty too — see the send-467
+    // regression test below, which populates it to prove it is IGNORED.
     scoreByJob.set("current", 90);
 
     const summary = await sendProactiveMatchAlerts(SINCE, NOW);
@@ -218,15 +236,61 @@ describe("FAIL-BEFORE / PASS-AFTER: a not-actively-searching user with an Excell
   });
 
   it("FAIL-BEFORE control: the SAME user does NOT get an alert once recent activity marks them actively searching", async () => {
-    fixtures.recipients = [recipient("active-user")];
+    fixtures.recipients = [
+      recipient("active-user", {
+        profiles: { email: "active-user@example.test", first_name: "Ada", last_active_at: daysAgo(1) }, // visited yesterday
+      }),
+    ];
     fixtures.baseResumeUserIds = [{ user_id: "active-user", structured_content: {}, is_base: true }];
-    fixtures.activity = [{ user_id: "active-user", computed_at: daysAgo(1) }]; // visited yesterday
     scoreByJob.set("current", 90); // same Excellent match as the passing case above
 
     const summary = await sendProactiveMatchAlerts(SINCE, NOW);
 
     expect(summary.sent).toBe(0);
     expect(sentEmails).toHaveLength(0);
+  });
+
+  /**
+   * send-467 — THE REGRESSION TEST FOR THE ACTUAL BUG BEING FIXED.
+   *
+   * Constructs exactly the scenario 0195's own migration header describes:
+   * `match_scores.computed_at` is RECENT (simulating the daily refresh-job
+   * touching this user's row even though they never visited), while
+   * `profiles.last_active_at` is null (they have never registered a real
+   * visit). Before this send's fix, `loadCandidates` read `match_scores` for
+   * activity and this user would have incorrectly come back as "actively
+   * searching" — no alert, ever, for anyone the background job had ever
+   * touched. `fixtures.activity` below is populated specifically to prove
+   * the CURRENT code ignores it: if a future change accidentally reintroduces
+   * a `match_scores` read for activity, this is the test that catches it.
+   */
+  it("send-467 FAIL-BEFORE/PASS-AFTER: a recent match_scores.computed_at (background-job touch) must NOT count as activity", async () => {
+    fixtures.recipients = [
+      recipient("background-touched-user", {
+        profiles: {
+          email: "background-touched-user@example.test",
+          first_name: "Ada",
+          last_active_at: null, // never a real visit
+        },
+      }),
+    ];
+    fixtures.baseResumeUserIds = [
+      { user_id: "background-touched-user", structured_content: {}, is_base: true },
+    ];
+    // The refresh-job's own signature: a computed_at from moments ago, with
+    // no corresponding real visit. Present in the fixture but MUST be
+    // ignored by the fixed code.
+    fixtures.activity = [{ user_id: "background-touched-user", computed_at: daysAgo(0) }];
+    scoreByJob.set("current", 90);
+
+    const summary = await sendProactiveMatchAlerts(SINCE, NOW);
+
+    expect(
+      summary.sent,
+      "a null last_active_at must read as dormant regardless of a fresh match_scores.computed_at",
+    ).toBe(1);
+    expect(sentEmails).toHaveLength(1);
+    expect(sentEmails[0].to).toBe("background-touched-user@example.test");
   });
 
   it("does not alert when the match is only Good, not Excellent", async () => {

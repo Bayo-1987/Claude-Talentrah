@@ -237,9 +237,18 @@ async function loadNewListablePostings(
 async function loadCandidates(
   supabase: ReturnType<typeof createServiceRoleClient>,
 ): Promise<(ProactiveAlertCandidate & { unsubscribeToken: string })[]> {
+  /*
+   * send-467: `last_active_at` now comes off `profiles` (0195), joined here
+   * rather than a separate `match_scores` query the way this used to work —
+   * one fewer query, and it is the fix itself: `match_scores.computed_at` is
+   * touched by the background refresh job (see select.ts's own header), so
+   * reading it here is exactly the bug this send corrects. `profiles` is
+   * already joined for email/first_name, so this is one extra column, not a
+   * new round trip.
+   */
   const { data: recipients, error } = await supabase
     .from("email_preferences")
-    .select("user_id, unsubscribe_token, profiles!inner(email, first_name)")
+    .select("user_id, unsubscribe_token, profiles!inner(email, first_name, last_active_at)")
     .eq("proactive_match_alert", true)
     .limit(MAX_CANDIDATES_PER_RUN);
   if (error) throw error;
@@ -247,7 +256,7 @@ async function loadCandidates(
 
   const userIds = recipients.map((r) => r.user_id);
 
-  const [{ data: baseResumeUsers, error: resumesError }, { data: activity, error: activityError }, { data: lastAlerts, error: alertsError }] =
+  const [{ data: baseResumeUsers, error: resumesError }, { data: lastAlerts, error: alertsError }] =
     await Promise.all([
       // Existence only — the full resume is fetched once, per eligible
       // candidate, by loadBaseResume below. Most of this batch will fail the
@@ -256,20 +265,12 @@ async function loadCandidates(
       // JSONB blob loaded into memory for nothing, up to MAX_CANDIDATES_PER_RUN
       // times over.
       supabase.from("resumes").select("user_id").eq("is_base", true).in("user_id", userIds),
-      supabase.from("match_scores").select("user_id, computed_at").in("user_id", userIds),
       supabase.from("proactive_match_alerts").select("user_id, sent_at").in("user_id", userIds),
     ]);
   if (resumesError) throw resumesError;
-  if (activityError) throw activityError;
   if (alertsError) throw alertsError;
 
   const usersWithBaseResume = new Set((baseResumeUsers ?? []).map((r) => r.user_id));
-
-  const lastActiveByUser = new Map<string, string>();
-  for (const row of activity ?? []) {
-    const current = lastActiveByUser.get(row.user_id);
-    if (!current || row.computed_at > current) lastActiveByUser.set(row.user_id, row.computed_at);
-  }
 
   const lastAlertByUser = new Map<string, string>();
   for (const row of lastAlerts ?? []) {
@@ -279,7 +280,11 @@ async function loadCandidates(
 
   return recipients
     .map((r) => {
-      const profile = r.profiles as unknown as { email: string; first_name: string | null };
+      const profile = r.profiles as unknown as {
+        email: string;
+        first_name: string | null;
+        last_active_at: string | null;
+      };
       if (!profile?.email) return null;
       return {
         userId: r.user_id,
@@ -287,7 +292,7 @@ async function loadCandidates(
         firstName: profile.first_name,
         unsubscribeToken: r.unsubscribe_token,
         hasBaseResume: usersWithBaseResume.has(r.user_id),
-        lastActiveAt: lastActiveByUser.get(r.user_id) ?? null,
+        lastActiveAt: profile.last_active_at,
         lastAlertSentAt: lastAlertByUser.get(r.user_id) ?? null,
       };
     })

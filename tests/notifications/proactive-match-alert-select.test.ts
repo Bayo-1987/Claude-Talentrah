@@ -26,7 +26,7 @@ function daysAgo(days: number): string {
 }
 
 describe("isNotActivelySearching — the definition, stated as a threshold", () => {
-  it("treats no match_scores row at all as not actively searching", () => {
+  it("treats a null last_active_at (never a real visit) as not actively searching", () => {
     expect(isNotActivelySearching(null, NOW)).toBe(true);
   });
 
@@ -124,7 +124,7 @@ describe("candidateIsEligible — the three independent gates on ONE candidate",
     expect(candidateIsEligible(base({ hasBaseResume: false }), NOW)).toBe(false);
   });
 
-  it("is NOT eligible for an actively-searching user (recent match_scores activity)", () => {
+  it("is NOT eligible for an actively-searching user (recent last_active_at)", () => {
     expect(candidateIsEligible(base({ lastActiveAt: daysAgo(1) }), NOW)).toBe(false);
   });
 

@@ -14,10 +14,16 @@ import { PATH_HEADER } from "@/lib/auth/redirect-to";
  * gate (see there) can decide whether to redirect WITHOUT a second
  * `auth.getUser()` round trip — this is the one call that was always going to
  * happen anyway.
+ *
+ * Also returns the `supabase` client itself (send-467) so `proxy.ts` can fire
+ * `touch_last_active()` (0195) through the SAME session-bound client, rather
+ * than building a second one from the same cookies — that RPC call has to run
+ * as this request's authenticated user (the function is `auth.uid()`-scoped),
+ * and this client is already carrying that session.
  */
 export async function updateSession(
   request: NextRequest,
-): Promise<{ response: NextResponse; user: User | null }> {
+): Promise<{ response: NextResponse; user: User | null; supabase: ReturnType<typeof createServerClient<Database>> }> {
   /*
    * Stamp the path onto the request so a Server Component can know where it
    * is. `requireUser()` needs it to build a return trip, and a Server
@@ -57,5 +63,5 @@ export async function updateSession(
     data: { user },
   } = await supabase.auth.getUser();
 
-  return { response, user };
+  return { response, user, supabase };
 }
