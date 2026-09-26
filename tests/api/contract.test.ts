@@ -453,6 +453,10 @@ describe("§2 — cron GETs fail closed too", () => {
       "send-referral-reward-notifications",
       () => import("@/app/api/admin/send-referral-reward-notifications/route"),
     ],
+    // Sends the weekly Auto-Apply proof-of-work digest (send-463) — no money
+    // moved, but the same fail-closed guard as every other admin/cron route,
+    // registered in the same commit that created the route.
+    ["send-auto-apply-digest", () => import("@/app/api/admin/send-auto-apply-digest/route")],
   ] as const;
 
   for (const [name, load] of CRON_ROUTES) {
@@ -535,6 +539,7 @@ describe("§2 — cron GETs fail closed too", () => {
       "/api/admin/refresh-match-scores": () => import("@/app/api/admin/refresh-match-scores/route"),
       "/api/admin/send-referral-reward-notifications": () =>
         import("@/app/api/admin/send-referral-reward-notifications/route"),
+      "/api/admin/send-auto-apply-digest": () => import("@/app/api/admin/send-auto-apply-digest/route"),
     };
 
     expect(vercelConfig.crons.length).toBeGreaterThan(0);
