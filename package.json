@@ -28,9 +28,9 @@
     "*.{js,jsx,ts,tsx}": "eslint"
   },
   "dependencies": {
-    "@google/genai": "^2.22.0",
+    "@google/genai": "^2.24.0",
     "@supabase/ssr": "^0.12.7",
-    "@supabase/supabase-js": "^2.112.3",
+    "@supabase/supabase-js": "^2.117.1",
     "@tiptap/extension-blockquote": "^3.31.3",
     "@tiptap/extension-bold": "^3.31.3",
     "@tiptap/extension-bullet-list": "^3.31.3",
@@ -50,11 +50,11 @@
     "@vercel/analytics": "^2.0.1",
     "@vercel/speed-insights": "^2.0.0",
     "mammoth": "^1.12.3",
-    "marked": "^18.0.13",
-    "next": "16.3.5",
-    "openai": "^7.15.0",
+    "marked": "^18.0.14",
+    "next": "16.3.6",
+    "openai": "^7.23.0",
     "pdf-parse": "^2.4.5",
-    "posthog-node": "^5.52.4",
+    "posthog-node": "^5.52.6",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "react-easy-crop": "^6.2.3",
@@ -66,7 +66,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
-    "@next/bundle-analyzer": "^16.3.5",
+    "@next/bundle-analyzer": "^16.3.6",
     "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4",
     "@types/jsonwebtoken": "^9.0.10",
@@ -77,12 +77,12 @@
     "@vitejs/plugin-react": "^6.1.1",
     "dotenv": "^17.4.2",
     "eslint": "^9",
-    "eslint-config-next": "16.3.5",
+    "eslint-config-next": "16.3.6",
     "husky": "^9.1.7",
     "jsonwebtoken": "^9.0.3",
     "lint-staged": "^17.5.1",
     "tailwindcss": "^4",
-    "tsx": "^4.23.13",
+    "tsx": "^4.23.15",
     "typescript": "^5",
     "vitest": "^4.1.11"
   }
