@@ -446,6 +446,13 @@ describe("§2 — cron GETs fail closed too", () => {
     // guard as every other admin/cron route, registered in the same commit
     // that created the route.
     ["refresh-match-scores", () => import("@/app/api/admin/refresh-match-scores/route")],
+    // Drains the referral-reward outbox (send-462) — no money moved, but the
+    // same fail-closed guard as every other admin/cron route, registered in
+    // the same commit that created the route.
+    [
+      "send-referral-reward-notifications",
+      () => import("@/app/api/admin/send-referral-reward-notifications/route"),
+    ],
   ] as const;
 
   for (const [name, load] of CRON_ROUTES) {
@@ -526,6 +533,8 @@ describe("§2 — cron GETs fail closed too", () => {
         import("@/app/api/admin/mentorship-session-reminders/route"),
       "/api/admin/mentor-payouts": () => import("@/app/api/admin/mentor-payouts/route"),
       "/api/admin/refresh-match-scores": () => import("@/app/api/admin/refresh-match-scores/route"),
+      "/api/admin/send-referral-reward-notifications": () =>
+        import("@/app/api/admin/send-referral-reward-notifications/route"),
       "/api/admin/send-scholarship-deadline-alerts": () =>
         import("@/app/api/admin/send-scholarship-deadline-alerts/route"),
     };
