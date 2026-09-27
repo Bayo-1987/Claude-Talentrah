@@ -11,7 +11,7 @@
  * happens once a score comes back.
  *
  * send-467 repointed the activity signal `loadCandidates` reads from
- * `match_scores.computed_at` to `profiles.last_active_at` (0196) — see
+ * `match_scores.computed_at` to `profiles.last_active_at` (0197) — see
  * select.ts's own header for the bug that fixed. The fixtures below carry
  * BOTH an `activity` (match_scores) and a `profiles.last_active_at` value on
  * purpose, so the send-467 regression test can prove the former is now
@@ -192,7 +192,7 @@ beforeEach(() => {
 /**
  * `last_active_at` defaults to null (never registered a real visit) —
  * send-467 repointed this signal from `match_scores.computed_at` to
- * `profiles.last_active_at` (0196), so it now travels on the SAME joined
+ * `profiles.last_active_at` (0197), so it now travels on the SAME joined
  * `profiles` object as email/first_name, not via the separate `activity`
  * fixture below (which now models `match_scores` rows for a DIFFERENT
  * reason — see the FAIL-BEFORE/PASS-AFTER block for why it is still useful
@@ -253,7 +253,7 @@ describe("FAIL-BEFORE / PASS-AFTER: a not-actively-searching user with an Excell
   /**
    * send-467 — THE REGRESSION TEST FOR THE ACTUAL BUG BEING FIXED.
    *
-   * Constructs exactly the scenario 0196's own migration header describes:
+   * Constructs exactly the scenario 0197's own migration header describes:
    * `match_scores.computed_at` is RECENT (simulating the daily refresh-job
    * touching this user's row even though they never visited), while
    * `profiles.last_active_at` is null (they have never registered a real

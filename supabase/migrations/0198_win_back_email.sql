@@ -1,6 +1,12 @@
--- 0197 — send-467, part 3: the calendar-driven win-back email.
+-- 0198 — send-467, part 3: the calendar-driven win-back email.
 --
--- Fixing the dormancy signal (0196) only repairs the EXISTING proactive
+-- RENUMBERED TWICE, FROM 0196 THEN 0197, for the same reasons and at the
+-- same times as 0197's own header explains for its own renumbering from
+-- 0195 then 0196 — see that file. Applied to both Supabase projects under
+-- 0196; the ledger entry still reads `0196_win_back_email`, unchanged.
+-- Nothing here needs re-running.
+--
+-- Fixing the dormancy signal (0197) only repairs the EXISTING proactive
 -- "exceptional match" alert (send-138) — and that alert only ever fires when
 -- a new Excellent match also shows up in the same ingest run. A user who has
 -- been gone 20 days with no fresh Excellent match in that window currently
@@ -29,7 +35,7 @@
 -- and `win_back_last_sent_at >= last_active_at` — the dedup condition below
 -- (`win_back_last_sent_at is null or win_back_last_sent_at < last_active_at`)
 -- correctly evaluates to "already sent, skip". The moment the user becomes
--- active again, `touch_last_active()` (0196) moves `last_active_at` forward
+-- active again, `touch_last_active()` (0197) moves `last_active_at` forward
 -- past the old `win_back_last_sent_at`, and the condition flips back to
 -- "eligible" the next time they drift past 14 days again — a new episode,
 -- correctly detected, with no second table and no explicit "episode id" to

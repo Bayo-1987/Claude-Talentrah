@@ -16,7 +16,7 @@ import { PATH_HEADER } from "@/lib/auth/redirect-to";
  * happen anyway.
  *
  * Also returns the `supabase` client itself (send-467) so `proxy.ts` can fire
- * `touch_last_active()` (0196) through the SAME session-bound client, rather
+ * `touch_last_active()` (0197) through the SAME session-bound client, rather
  * than building a second one from the same cookies — that RPC call has to run
  * as this request's authenticated user (the function is `auth.uid()`-scoped),
  * and this client is already carrying that session.

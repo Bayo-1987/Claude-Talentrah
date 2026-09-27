@@ -238,7 +238,7 @@ async function loadCandidates(
   supabase: ReturnType<typeof createServiceRoleClient>,
 ): Promise<(ProactiveAlertCandidate & { unsubscribeToken: string })[]> {
   /*
-   * send-467: `last_active_at` now comes off `profiles` (0196), joined here
+   * send-467: `last_active_at` now comes off `profiles` (0197), joined here
    * rather than a separate `match_scores` query the way this used to work —
    * one fewer query, and it is the fix itself: `match_scores.computed_at` is
    * touched by the background refresh job (see select.ts's own header), so

@@ -1,5 +1,5 @@
 /**
- * send-467 — `touch_last_active()`'s own one-hour throttle (0196).
+ * send-467 — `touch_last_active()`'s own one-hour throttle (0197).
  *
  * The throttle lives entirely inside the RPC's own SQL (`WHERE last_active_at
  * IS NULL OR last_active_at < now() - interval '1 hour'`), not in the caller
@@ -38,7 +38,7 @@ async function readLastActiveAt(): Promise<string | null> {
   return data.last_active_at;
 }
 
-describe("touch_last_active() throttling (0196)", () => {
+describe("touch_last_active() throttling (0197)", () => {
   it("stamps last_active_at on the first call, from null", async () => {
     await admin.from("profiles").update({ last_active_at: null }).eq("id", user.id);
 
@@ -87,7 +87,7 @@ describe("touch_last_active() throttling (0196)", () => {
 
   it("is a no-op for a caller with no session (auth.uid() resolves to nothing)", async () => {
     // Sanity check on the design itself, not just the happy path: an anon
-    // client has no EXECUTE grant on this function at all (0196), so this
+    // client has no EXECUTE grant on this function at all (0197), so this
     // must be refused outright rather than silently updating some row.
     const { createClient } = await import("@supabase/supabase-js");
     const anonClient = createClient(
@@ -96,6 +96,6 @@ describe("touch_last_active() throttling (0196)", () => {
       { auth: { autoRefreshToken: false, persistSession: false } },
     );
     const { error } = await anonClient.rpc("touch_last_active");
-    expect(error, "anon must not be able to call touch_last_active at all (0196)").not.toBeNull();
+    expect(error, "anon must not be able to call touch_last_active at all (0197)").not.toBeNull();
   });
 });

@@ -8,7 +8,7 @@ import type { MatchExplanation } from "@/lib/matching/score";
  * ── "NOT ACTIVELY SEARCHING", DEFINED (CORRECTED, send-467) ────────────────
  *
  * A user counts as not actively searching when `profiles.last_active_at`
- * (0196) is older than `NOT_ACTIVELY_SEARCHING_DAYS` — or is null, meaning
+ * (0197) is older than `NOT_ACTIVELY_SEARCHING_DAYS` — or is null, meaning
  * they have never registered a real visit since that column existed.
  *
  * THIS USED TO READ `match_scores.computed_at` INSTEAD, AND THAT WAS WRONG —
@@ -33,12 +33,12 @@ import type { MatchExplanation } from "@/lib/matching/score";
  * touched them once.
  *
  * `last_active_at` fixes this the structural way, not the conventional way:
- * it is stamped ONLY by `touch_last_active()` (0196), a SECURITY DEFINER
+ * it is stamped ONLY by `touch_last_active()` (0197), a SECURITY DEFINER
  * function scoped to `auth.uid()` with EXECUTE granted to `authenticated`
  * ONLY — never `service_role`, so `refresh-job.ts` and every other
  * background job in this codebase has no privilege that lets it write this
  * column, by construction, not by a rule someone has to remember. See
- * 0196's own migration header for the full account, including how a live
+ * 0197's own migration header for the full account, including how a live
  * check caught `service_role` retaining EXECUTE via Supabase's own default
  * per-schema grant even after `revoke ... from public` — the exact same
  * "table grant overrides a narrower revoke" trap CLAUDE.md documents for
@@ -66,7 +66,7 @@ function daysSince(isoTimestamp: string, now: Date): number {
   return (now.getTime() - new Date(isoTimestamp).getTime()) / 86_400_000;
 }
 
-/** `lastActiveAt` is `profiles.last_active_at` (0196) — stamped only by a
+/** `lastActiveAt` is `profiles.last_active_at` (0197) — stamped only by a
  * real authenticated page view, never by a background job — or null if this
  * user has never registered one, which counts as "not actively searching"
  * (nothing to the contrary), not as an exclusion. Do NOT feed this
@@ -121,7 +121,7 @@ export interface ProactiveAlertCandidate {
    * to compute a match from, so they are never eligible regardless of
    * activity or rate-limit state. */
   hasBaseResume: boolean;
-  /** `profiles.last_active_at` (0196) — see `isNotActivelySearching`'s own
+  /** `profiles.last_active_at` (0197) — see `isNotActivelySearching`'s own
    * doc for why this is no longer `match_scores.computed_at`. */
   lastActiveAt: string | null;
   lastAlertSentAt: string | null;

@@ -15,7 +15,7 @@ import type { UnsubscribablePreference } from "./preference";
  * named parameters (`p_subscribed` vs `p_enabled`), so this calls each by its
  * own shape rather than forcing one call site to guess a shared signature.
  * See 0128's own header for why send-138's alert has its own column and its
- * own function rather than sharing the digest's, and 0197's for send-467's
+ * own function rather than sharing the digest's, and 0198's for send-467's
  * win-back email doing the same.
  */
 export async function resubscribeAction(

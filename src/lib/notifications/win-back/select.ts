@@ -3,7 +3,7 @@
  *
  * ── WHY THIS EXISTS SEPARATELY FROM THE PROACTIVE "EXCEPTIONAL MATCH" ALERT ─
  *
- * Fixing the dormancy signal (0196, and see
+ * Fixing the dormancy signal (0197, and see
  * `proactive-match-alert/select.ts`'s own header for the bug) only repairs
  * that EXISTING alert — and that alert only ever fires when a new Excellent
  * match ALSO shows up in the same ingest run. A user who has been gone 20
@@ -28,9 +28,9 @@
  * later has already been told once and does not need a second, third, and
  * thirtieth copy of the same message.
  *
- * ── DEDUP: SEE THE MIGRATION (0197), NOT A SEPARATE TABLE HERE ─────────────
+ * ── DEDUP: SEE THE MIGRATION (0198), NOT A SEPARATE TABLE HERE ─────────────
  *
- * `isEligibleForWinbackDedup` below is the one-line policy; 0197's own header
+ * `isEligibleForWinbackDedup` below is the one-line policy; 0198's own header
  * has the full reasoning for why comparing `win_back_last_sent_at` against
  * `last_active_at` (rather than a fixed lookback, or a separate per-episode
  * table) is sufficient to guarantee "at most once per dormancy episode".
@@ -59,7 +59,7 @@ function daysSince(isoTimestamp: string, now: Date): number {
 }
 
 /**
- * `lastActiveAt` is `profiles.last_active_at` (0196). A user who has never
+ * `lastActiveAt` is `profiles.last_active_at` (0197). A user who has never
  * registered a real visit (null) has no known episode start to measure a
  * window from, so — unlike `isNotActivelySearching`'s null-means-dormant
  * reading for the OTHER alert — this returns false rather than guessing:
@@ -73,7 +73,7 @@ export function isWithinWinbackWindow(lastActiveAt: string | null, now: Date): b
 
 /**
  * True unless a win-back email has already gone out SINCE this user's
- * current episode started (i.e. since `lastActiveAt`). See 0197's own
+ * current episode started (i.e. since `lastActiveAt`). See 0198's own
  * header for why this one comparison is the whole dedup mechanism.
  */
 export function isEligibleForWinbackDedup(lastActiveAt: string, lastWinbackSentAt: string | null): boolean {
