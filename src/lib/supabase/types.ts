@@ -1221,6 +1221,7 @@ export type Database = {
       }
       email_preferences: {
         Row: {
+          auto_apply_digest_last_sent_at: string | null
           created_at: string
           digest_last_sent_at: string | null
           job_match_digest: boolean
@@ -1231,6 +1232,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          auto_apply_digest_last_sent_at?: string | null
           created_at?: string
           digest_last_sent_at?: string | null
           job_match_digest?: boolean
@@ -1241,6 +1243,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          auto_apply_digest_last_sent_at?: string | null
           created_at?: string
           digest_last_sent_at?: string | null
           job_match_digest?: boolean

@@ -162,6 +162,15 @@ export const KNOWN_ALIASES: Record<string, string> = {
    * #405). Schema is identical either way — see the file's own header.
    */
   "0163_atomic_referral_reward_grant": "0160_atomic_referral_reward_grant",
+  /*
+   * Applied to both talentrah-preview and production as
+   * 0195_auto_apply_digest (send-463) while send-462's own
+   * 0195_referral_reward_events was still in review on a separate branch —
+   * both were legitimately 0195 the moment each was written, and send-462
+   * merged first. Content is unchanged; only the file's number and its own
+   * header note moved to 0196, same resolution as every other pair above.
+   */
+  "0196_auto_apply_digest": "0195_auto_apply_digest",
 };
 
 export function committedMigrations(): string[] {
