@@ -38,6 +38,16 @@ export function Barlow_Condensed(options: FontOptions) {
 export function Newsreader(options: FontOptions) {
   return mockFont(options);
 }
+export function IBM_Plex_Sans(options: FontOptions) {
+  return mockFont(options);
+}
+/*
+ * Re-added (send-470 follow-up): removed when layout.tsx stopped loading
+ * Source Sans 3 as the app's own body font, then needed again the moment
+ * resume-builder/templates/fonts.ts started loading it as the six direct
+ * templates' own, deliberately app-independent body font. Two distinct real
+ * `next/font/google` call sites now, so both need a stub.
+ */
 export function Source_Sans_3(options: FontOptions) {
   return mockFont(options);
 }

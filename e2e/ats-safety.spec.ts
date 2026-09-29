@@ -1,17 +1,17 @@
 import { test, expect } from "@playwright/test";
-import { PDFParse } from "pdf-parse";
+import { extractPdfText } from "./support/pdf-text";
+import { SECTION_MARKERS, expectedMarkerOrder, actualMarkerOrder } from "./support/ats-markers";
 // Imported from the leaf modules, deliberately NOT from
 // "@/components/resume-builder/skeletons" (the barrel): that barrel also
 // exports the skeleton COMPONENTS, which import fonts.ts, which calls
 // `next/font/google` — a function that only exists inside Next's own build
-// (see e2e/ats-safety.spec.ts's other comment on why this file can't import
-// extract-text.ts directly, same underlying cause). This spec never renders
+// (see e2e/support/pdf-text.ts on why e2e can't import extract-text.ts
+// directly, same underlying cause). This spec never renders
 // a component itself — it only needs the plain-data config shapes to compute
 // an expected marker order — so importing the data modules directly avoids
 // dragging that in.
 import { DEMO_CONFIGS } from "@/components/resume-builder/skeletons/configs";
 import { CATALOG_TEMPLATE_CONFIGS } from "@/components/resume-builder/skeletons/catalog-configs";
-import type { SectionKey, TemplateConfig } from "@/components/resume-builder/skeletons/types";
 
 /**
  * The real verification behind Template library PR 2 of 3's `ats_safe`
@@ -28,105 +28,11 @@ import type { SectionKey, TemplateConfig } from "@/components/resume-builder/ske
  * `/api/resume/parse` uses on a user's uploaded resume — not a different,
  * more forgiving text-extraction path.
  *
- * WHY THIS FILE DOESN'T IMPORT `src/lib/resume/extract-text.ts` DIRECTLY.
- * That file starts with `import "server-only"`, which unconditionally
- * throws when required outside Next's own server bundle (see
- * `node_modules/server-only/index.js` — Next's build resolves the
- * `"react-server"` export condition to a no-op instead; plain Node, which is
- * what a Playwright test runs in, does not). `ensurePdfRuntimeGlobals` below
- * is a deliberate, minimal duplicate of `pdf-runtime-polyfill.ts` for that
- * reason — small enough that keeping it in sync by inspection is more
- * reliable than a shared import that would need its own carve-out.
+ * The PDF text extraction itself lives in ./support/pdf-text.ts (shared with
+ * e2e/print-button-fonts.spec.ts) — see that file for why it duplicates
+ * `pdf-runtime-polyfill.ts` instead of importing `extract-text.ts`.
  */
-class InertDOMMatrix {
-  a = 1;
-  b = 0;
-  c = 0;
-  d = 1;
-  e = 0;
-  f = 0;
-  constructor(init?: number[]) {
-    if (Array.isArray(init) && init.length >= 6) [this.a, this.b, this.c, this.d, this.e, this.f] = init;
-  }
-  multiplySelf() {
-    return this;
-  }
-  preMultiplySelf() {
-    return this;
-  }
-  invertSelf() {
-    return this;
-  }
-  translate() {
-    return this;
-  }
-  scale() {
-    return this;
-  }
-}
 
-function ensurePdfRuntimeGlobals() {
-  const g = globalThis as unknown as Record<string, unknown>;
-  if (!g.DOMMatrix) g.DOMMatrix = InertDOMMatrix;
-  if (!g.ImageData) {
-    g.ImageData = class {
-      constructor(
-        public width = 0,
-        public height = 0,
-      ) {}
-    };
-  }
-  if (!g.Path2D) {
-    g.Path2D = class {
-      addPath() {}
-      moveTo() {}
-      lineTo() {}
-      closePath() {}
-    };
-  }
-}
-
-async function extractPdfText(pdfBuffer: Buffer): Promise<string> {
-  ensurePdfRuntimeGlobals();
-  const parser = new PDFParse({ data: pdfBuffer });
-  try {
-    const result = await parser.getText();
-    return result.text;
-  } finally {
-    await parser.destroy();
-  }
-}
-
-/**
- * Which marker(s) `ATS_TEST_RESUME` (src/lib/resume-builder/ats-test-fixture.ts)
- * carries for each section, IN THE ORDER THEY APPEAR WITHIN THAT SECTION —
- * e.g. an experience entry's title renders before its body text.
- */
-const SECTION_MARKERS: Partial<Record<SectionKey, string[]>> = {
-  experience: ["ZQEXPERIENCE", "ZQEXPERIENCEBODY"],
-  education: ["ZQEDUCATION"],
-  skills: ["ZQSKILLS"],
-  projects: ["ZQPROJECTS"],
-  certifications: ["ZQCERTIFICATIONS"],
-  links: ["ZQLINKS"],
-  languages: ["ZQLANGUAGES"],
-  awards: ["ZQAWARDS"],
-};
-
-/** The order a human reading THIS config's rendered page would encounter each marker — header name, then summary, then `content.sectionOrder` flattened through `SECTION_MARKERS`. Only correct for configs where `showLinksInHeader` is off, which is true of every skeleton this file asserts a strict order for (see the per-config comment below). */
-function expectedMarkerOrder(config: TemplateConfig): string[] {
-  const markers: string[] = ["ZQNAME"];
-  if (config.content.showSummary) markers.push("ZQSUMMARY");
-  for (const key of config.content.sectionOrder) {
-    markers.push(...(SECTION_MARKERS[key] ?? []));
-  }
-  return markers;
-}
-
-function actualMarkerOrder(text: string, candidates: string[]): string[] {
-  const present = candidates.filter((m) => text.includes(m));
-  return [...present].sort((a, b) => text.indexOf(a) - text.indexOf(b));
-}
 
 /**
  * Every skeleton, and whether ITS demo config is marked `ats_safe`
@@ -206,6 +112,12 @@ test.describe("ats_safe is a real, PDF-verified claim per skeleton", () => {
        * state — the only state a real reader or a real ATS would ever
        * receive from a "download PDF" click a user makes at their own
        * pace, never mid-swap.
+       *
+       * That wait protects THIS harness only. A real user does not run it:
+       * PrintButton now does the equivalent itself before `window.print()`
+       * (send-473, src/lib/resume-builder/wait-for-fonts.ts), and
+       * e2e/print-button-fonts.spec.ts drives the real button on a
+       * throttled font load to keep it that way.
        */
       await page.waitForLoadState("networkidle");
       await page.evaluate(() => document.fonts.ready);

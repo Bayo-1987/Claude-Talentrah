@@ -1,6 +1,7 @@
 import { getExperienceBullets, getExperienceText } from "@/lib/resume/types";
 import { contactLine, dateRange, type TemplateProps } from "./shared";
 import { renderMarkdownParagraphs, renderInlineMarkdown } from "@/lib/farah/render-markdown";
+import { resumeSourceSans } from "./fonts";
 
 /**
  * Public Record — Government & Public Sector.
@@ -19,10 +20,10 @@ import { renderMarkdownParagraphs, renderInlineMarkdown } from "@/lib/farah/rend
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="grid grid-cols-[128px_1fr] gap-3 border-b border-line py-1.5">
-      <span className="font-body text-[11px] uppercase tracking-[0.1em] text-ink-soft">
+      <span className="font-resume-body text-[11px] uppercase tracking-[0.1em] text-ink-soft">
         {label}
       </span>
-      <span className="font-body text-[13.5px] text-ink">{children}</span>
+      <span className="font-resume-body text-[13.5px] text-ink">{children}</span>
     </div>
   );
 }
@@ -31,7 +32,7 @@ export function PublicRecordTemplate({ resume }: TemplateProps) {
   const { contact, summary, experience, education, skills, projects, certifications } = resume;
 
   return (
-    <div className="mx-auto max-w-[720px] bg-resume-paper p-10 text-ink">
+    <div className={`mx-auto max-w-[720px] bg-resume-paper p-10 text-ink ${resumeSourceSans.variable}`}>
       <header className="border-b-[2.5px] border-ink pb-3">
         <h1 className="font-display text-[26px]">{contact.name || "Your name"}</h1>
       </header>
@@ -42,16 +43,16 @@ export function PublicRecordTemplate({ resume }: TemplateProps) {
 
       {summary && (
         <section className="mt-5">
-          <h2 className="font-body text-[11px] font-bold uppercase tracking-[0.14em] text-rust">
+          <h2 className="font-resume-body text-[11px] font-bold uppercase tracking-[0.14em] text-rust">
             Statement of Suitability
           </h2>
-          {renderMarkdownParagraphs(summary, "mt-2 font-body text-[13.5px] leading-[1.75] text-ink-soft")}
+          {renderMarkdownParagraphs(summary, "mt-2 font-resume-body text-[13.5px] leading-[1.75] text-ink-soft")}
         </section>
       )}
 
       {experience.length > 0 && (
         <section className="mt-6">
-          <h2 className="font-body text-[11px] font-bold uppercase tracking-[0.14em] text-rust">
+          <h2 className="font-resume-body text-[11px] font-bold uppercase tracking-[0.14em] text-rust">
             Employment History
           </h2>
           <div className="mt-2 flex flex-col gap-4">
@@ -65,14 +66,14 @@ export function PublicRecordTemplate({ resume }: TemplateProps) {
                   <Field label="Dates">{dateRange(entry.startDate, entry.endDate) || "—"}</Field>
                   {entry.location && <Field label="Location">{entry.location}</Field>}
                   {bullets ? (
-                    <ul className="mt-2 list-disc pl-[18px] font-body text-[13.5px] leading-[1.75] text-ink-soft">
+                    <ul className="mt-2 list-disc pl-[18px] font-resume-body text-[13.5px] leading-[1.75] text-ink-soft">
                       {bullets.map((bullet, bi) => (
                         <li key={bi}>{renderInlineMarkdown(bullet)}</li>
                       ))}
                     </ul>
                   ) : (
                     text && (
-                      <p className="mt-2 font-body text-[13.5px] leading-[1.75] text-ink-soft">
+                      <p className="mt-2 font-resume-body text-[13.5px] leading-[1.75] text-ink-soft">
                         {renderInlineMarkdown(text)}
                       </p>
                     )
@@ -86,7 +87,7 @@ export function PublicRecordTemplate({ resume }: TemplateProps) {
 
       {education.length > 0 && (
         <section className="mt-6">
-          <h2 className="font-body text-[11px] font-bold uppercase tracking-[0.14em] text-rust">
+          <h2 className="font-resume-body text-[11px] font-bold uppercase tracking-[0.14em] text-rust">
             Education &amp; Qualifications
           </h2>
           <div className="mt-2 flex flex-col gap-3">
@@ -103,7 +104,7 @@ export function PublicRecordTemplate({ resume }: TemplateProps) {
 
       {certifications.length > 0 && (
         <section className="mt-6">
-          <h2 className="font-body text-[11px] font-bold uppercase tracking-[0.14em] text-rust">
+          <h2 className="font-resume-body text-[11px] font-bold uppercase tracking-[0.14em] text-rust">
             Professional Registration
           </h2>
           <div className="mt-2">
@@ -118,12 +119,12 @@ export function PublicRecordTemplate({ resume }: TemplateProps) {
 
       {skills.length > 0 && (
         <section className="mt-6">
-          <h2 className="font-body text-[11px] font-bold uppercase tracking-[0.14em] text-rust">
+          <h2 className="font-resume-body text-[11px] font-bold uppercase tracking-[0.14em] text-rust">
             Competencies
           </h2>
           <ul className="mt-2 flex flex-col gap-1">
             {skills.map((s, i) => (
-              <li key={i} className="font-body text-[13.5px] text-ink-soft">
+              <li key={i} className="font-resume-body text-[13.5px] text-ink-soft">
                 {s}
               </li>
             ))}
@@ -133,12 +134,12 @@ export function PublicRecordTemplate({ resume }: TemplateProps) {
 
       {projects.length > 0 && (
         <section className="mt-6">
-          <h2 className="font-body text-[11px] font-bold uppercase tracking-[0.14em] text-rust">
+          <h2 className="font-resume-body text-[11px] font-bold uppercase tracking-[0.14em] text-rust">
             Projects &amp; Assignments
           </h2>
           <ul className="mt-2 flex flex-col gap-1.5">
             {projects.map((p, i) => (
-              <li key={i} className="font-body text-[13.5px] leading-[1.75] text-ink-soft">
+              <li key={i} className="font-resume-body text-[13.5px] leading-[1.75] text-ink-soft">
                 {p}
               </li>
             ))}

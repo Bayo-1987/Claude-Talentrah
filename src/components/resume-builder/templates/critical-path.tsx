@@ -1,6 +1,7 @@
 import { getExperienceBullets, getExperienceText } from "@/lib/resume/types";
 import { contactLine, dateRange, type TemplateProps } from "./shared";
 import { renderMarkdownParagraphs, renderInlineMarkdown } from "@/lib/farah/render-markdown";
+import { resumeSourceSans } from "./fonts";
 
 /**
  * Critical Path — Project Management.
@@ -19,15 +20,15 @@ export function CriticalPathTemplate({ resume }: TemplateProps) {
   const { contact, summary, experience, education, skills, projects, certifications } = resume;
 
   return (
-    <div className="mx-auto max-w-[720px] bg-resume-paper p-10 text-ink">
+    <div className={`mx-auto max-w-[720px] bg-resume-paper p-10 text-ink ${resumeSourceSans.variable}`}>
       <header className="flex items-end justify-between gap-6 border-b-[2.5px] border-ink pb-3">
         <h1 className="font-display text-[28px] leading-none">{contact.name || "Your name"}</h1>
-        <p className="pb-0.5 text-right font-body text-[12px] leading-snug text-ink-soft">
+        <p className="pb-0.5 text-right font-resume-body text-[12px] leading-snug text-ink-soft">
           {contactLine(contact)}
         </p>
       </header>
 
-      {summary && renderMarkdownParagraphs(summary, "mt-4 font-body text-[14px] leading-relaxed text-ink-soft")}
+      {summary && renderMarkdownParagraphs(summary, "mt-4 font-resume-body text-[14px] leading-relaxed text-ink-soft")}
 
       {skills.length > 0 && (
         <section className="mt-4 border-y border-line py-3">
@@ -35,7 +36,7 @@ export function CriticalPathTemplate({ resume }: TemplateProps) {
             {skills.map((s, i) => (
               <span
                 key={i}
-                className="border border-line px-2 py-0.5 font-body text-[12px] text-ink-soft"
+                className="border border-line px-2 py-0.5 font-resume-body text-[12px] text-ink-soft"
               >
                 {s}
               </span>
@@ -46,7 +47,7 @@ export function CriticalPathTemplate({ resume }: TemplateProps) {
 
       {experience.length > 0 && (
         <section className="mt-5">
-          <h2 className="font-body text-[11px] font-bold uppercase tracking-[0.14em] text-rust">
+          <h2 className="font-resume-body text-[11px] font-bold uppercase tracking-[0.14em] text-rust">
             Delivery Experience
           </h2>
           <div className="mt-3 flex flex-col gap-4 border-l-2 border-rust pl-4">
@@ -55,25 +56,25 @@ export function CriticalPathTemplate({ resume }: TemplateProps) {
               const text = getExperienceText(entry);
               return (
                 <div key={i}>
-                  <div className="font-body text-[11.5px] uppercase tracking-[0.08em] text-ink-soft">
+                  <div className="font-resume-body text-[11.5px] uppercase tracking-[0.08em] text-ink-soft">
                     {dateRange(entry.startDate, entry.endDate)}
                   </div>
-                  <div className="font-body text-[15px] font-semibold leading-snug">
+                  <div className="font-resume-body text-[15px] font-semibold leading-snug">
                     {entry.title}
                     {entry.company && <span className="font-normal"> · {entry.company}</span>}
                   </div>
                   {entry.location && (
-                    <div className="font-body text-[12px] text-ink-soft">{entry.location}</div>
+                    <div className="font-resume-body text-[12px] text-ink-soft">{entry.location}</div>
                   )}
                   {bullets ? (
-                    <ul className="mt-1 list-disc pl-[18px] font-body text-[13.5px] leading-relaxed text-ink-soft">
+                    <ul className="mt-1 list-disc pl-[18px] font-resume-body text-[13.5px] leading-relaxed text-ink-soft">
                       {bullets.map((bullet, bi) => (
                         <li key={bi}>{renderInlineMarkdown(bullet)}</li>
                       ))}
                     </ul>
                   ) : (
                     text && (
-                      <p className="mt-1 font-body text-[13.5px] leading-relaxed text-ink-soft">
+                      <p className="mt-1 font-resume-body text-[13.5px] leading-relaxed text-ink-soft">
                         {renderInlineMarkdown(text)}
                       </p>
                     )
@@ -87,12 +88,12 @@ export function CriticalPathTemplate({ resume }: TemplateProps) {
 
       {projects.length > 0 && (
         <section className="mt-5">
-          <h2 className="font-body text-[11px] font-bold uppercase tracking-[0.14em] text-rust">
+          <h2 className="font-resume-body text-[11px] font-bold uppercase tracking-[0.14em] text-rust">
             Programmes &amp; Initiatives
           </h2>
           <ul className="mt-2 flex flex-col gap-1">
             {projects.map((p, i) => (
-              <li key={i} className="font-body text-[13.5px] leading-relaxed text-ink-soft">
+              <li key={i} className="font-resume-body text-[13.5px] leading-relaxed text-ink-soft">
                 {p}
               </li>
             ))}
@@ -103,12 +104,12 @@ export function CriticalPathTemplate({ resume }: TemplateProps) {
       <div className="mt-5 grid grid-cols-2 gap-6 border-t border-line pt-4">
         {education.length > 0 && (
           <section>
-            <h2 className="font-body text-[11px] font-bold uppercase tracking-[0.14em] text-rust">
+            <h2 className="font-resume-body text-[11px] font-bold uppercase tracking-[0.14em] text-rust">
               Education
             </h2>
             <div className="mt-2 flex flex-col gap-1.5">
               {education.map((entry, i) => (
-                <div key={i} className="font-body text-[13px]">
+                <div key={i} className="font-resume-body text-[13px]">
                   <span className="font-semibold">{entry.school}</span>
                   {entry.degree && <span className="text-ink-soft"> — {entry.degree}</span>}
                 </div>
@@ -118,12 +119,12 @@ export function CriticalPathTemplate({ resume }: TemplateProps) {
         )}
         {certifications.length > 0 && (
           <section>
-            <h2 className="font-body text-[11px] font-bold uppercase tracking-[0.14em] text-rust">
+            <h2 className="font-resume-body text-[11px] font-bold uppercase tracking-[0.14em] text-rust">
               Certifications
             </h2>
             <ul className="mt-2 flex flex-col gap-1">
               {certifications.map((c, i) => (
-                <li key={i} className="font-body text-[13px] text-ink-soft">
+                <li key={i} className="font-resume-body text-[13px] text-ink-soft">
                   {c}
                 </li>
               ))}

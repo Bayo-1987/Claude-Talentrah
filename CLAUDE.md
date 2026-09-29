@@ -469,8 +469,8 @@ Newspaper/magazine metaphor — deliberately not rounded/blue/card-heavy SaaS. *
 ### Typography
 
 - Headings (h1–h3): **Newsreader** (serif), weight 500 normal / 600 for card h3s. `Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400`
-- Body/UI: **Source Sans 3**, weights 400–700.
-- Eyebrow labels: Source Sans 3, 11–12px, weight 700, `letter-spacing: 0.14em`, uppercase, `--rust`. Must literally describe the section/element directly below it — no decorative/invented mythology.
+- Body/UI: **IBM Plex Sans**, weights 400–700 (send-470/473; Source Sans 3 before that). The **resume document** is deliberately not themed by this: its six fixed templates and the skeleton system's `body` typeface use a dedicated Source Sans 3 load (`resume-builder/templates/fonts.ts`), so a downloaded/ATS-graded resume never reflows when the app font changes. **Any print/PDF capture must wait for fonts** — every family is `font-display: swap`, and a `window.print()`/`page.pdf()` fired mid-swap can drop whole sections from the PDF (`PrintButton` awaits `waitForFontsSettled`; `e2e/print-button-fonts.spec.ts` guards it).
+- Eyebrow labels: IBM Plex Sans, 11–12px, weight 700, `letter-spacing: 0.14em`, uppercase, `--rust`. Must literally describe the section/element directly below it — no decorative/invented mythology.
 - Italic Newsreader = quiet/secondary asides (placeholders, captions, taglines).
 
 ### Components
