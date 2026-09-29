@@ -80,43 +80,37 @@ test("font matrix extraction v2 (one block per page)", async ({ page }) => {
   }
 });
 
-test("every registered template: computed fonts + real-prose extraction", async ({ page }) => {
-  test.setTimeout(600_000);
+test("every registered template x {source-sans, plex}: pdfjs + poppler on real prose", async ({ page }) => {
+  test.setTimeout(1_500_000);
   await page.goto("/dev/font-probe/slugs");
-  const slugs: string[] = JSON.parse((await page.locator("#slugs").innerText()) || "[]");
-  console.log(`DOC slugs=${slugs.length}`);
+  let slugs: string[] = JSON.parse((await page.locator("#slugs").innerText()) || "[]");
+  if (process.env.PROBE_LIMIT) slugs = slugs.slice(0, Number(process.env.PROBE_LIMIT));
+  console.log(`DOC2 slugs=${slugs.length}`);
   for (const slug of slugs) {
-    try {
-      await page.goto(`/dev/font-probe/doc/${slug}`);
-      await page.waitForLoadState("networkidle");
-      await page.evaluate(() => document.fonts.ready);
-      const info = await page.evaluate(() => {
-        const root = document.querySelector("[class*='bg-resume-paper']");
-        const fams = new Map<string, number>();
-        let plexLeaves = 0;
-        const leaves = root ? [...root.querySelectorAll("*")].filter((e) => e.children.length === 0 && e.textContent?.trim()) : [];
-        for (const e of leaves) {
-          const f = getComputedStyle(e).fontFamily.split(",")[0].replace(/"/g, "").trim();
-          fams.set(f, (fams.get(f) ?? 0) + 1);
-          if (/plex/i.test(getComputedStyle(e).fontFamily)) plexLeaves++;
+    for (const variant of ["source-sans", "plex"] as const) {
+      try {
+        await page.goto(`/dev/font-probe/doc/${slug}`);
+        await page.waitForLoadState("networkidle");
+        if (variant === "plex") {
+          await page.addStyleTag({ content: "[class*='bg-resume-paper'], [class*='bg-resume-paper'] * { font-family: var(--font-body) !important; }" });
         }
-        const own = root ? getComputedStyle(root).fontFamily.split(",")[0].replace(/"/g, "") : "NO-ROOT";
-        const isTracked = (e: Element) => { const cs = getComputedStyle(e); return cs.textTransform === "uppercase" || (cs.letterSpacing !== "normal" && parseFloat(cs.letterSpacing) > 0.2); };
-        return {
-          hasRoot: !!root, rootFont: own, plexLeaves, fams: Object.fromEntries(fams),
-          text: leaves.filter((e) => !isTracked(e)).map((e) => e.textContent ?? "").join(" "),
-          trackedText: leaves.filter(isTracked).map((e) => e.textContent ?? "").join(" "),
-        };
-      });
-      const pdf = await page.pdf({ printBackground: true });
-      const extracted = await extractPdfText(pdf);
-      const src = words(info.text.replace(/[^\x20-\x7E\n]/g, " "));
-      const miss = missingWords(src, extracted);
-      const trackedSrc = words(info.trackedText.replace(/[^\x20-\x7E\n]/g, " "));
-      const trackedMiss = missingWords(trackedSrc, extracted);
-      console.log(`DOC ${slug} root=${info.hasRoot} rootFont=${info.rootFont} plexLeaves=${info.plexLeaves} fams=${JSON.stringify(info.fams)} bodyWords=${src.length} bodyMissing=${miss.length} ${JSON.stringify(miss.slice(0, 8))} trackedWords=${trackedSrc.length} trackedMissing=${trackedMiss.length}`);
-    } catch (e) {
-      console.log(`DOC ${slug} ERROR ${(e as Error).message.slice(0, 120)}`);
+        await page.evaluate(() => document.fonts.ready);
+        const info = await page.evaluate(() => {
+          const root = document.querySelector("[class*='bg-resume-paper']");
+          const leaves = root ? [...root.querySelectorAll("*")].filter((e) => e.children.length === 0 && e.textContent?.trim()) : [];
+          const isTracked = (e: Element) => { const cs = getComputedStyle(e); return cs.textTransform === "uppercase" || parseFloat(cs.letterSpacing) > 0.2; };
+          const fams = new Set(leaves.map((e) => getComputedStyle(e).fontFamily.split(",")[0].replace(/"/g, "").trim()));
+          return { fams: [...fams].join("|"), body: leaves.filter((e) => !isTracked(e)).map((e) => e.textContent ?? "").join(" ") };
+        });
+        const pdf = await page.pdf({ printBackground: true });
+        const src = words(info.body.replace(/[^\x20-\x7E\n]/g, " "));
+        const a = missingWords(src, await extractPdfText(pdf));
+        const popText = pdftotext(pdf);
+        const b = popText === null ? null : missingWords(src, popText);
+        console.log(`DOC2 ${slug} ${variant} fams=${info.fams} words=${src.length} pdfjsMissing=${a.length} poppler=${b === null ? "n/a" : b.length} ${JSON.stringify(a.slice(0, 4))} ${JSON.stringify((b ?? []).slice(0, 4))}`);
+      } catch (e) {
+        console.log(`DOC2 ${slug} ${variant} ERROR ${(e as Error).message.slice(0, 100)}`);
+      }
     }
   }
 });
