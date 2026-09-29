@@ -171,6 +171,17 @@ export const KNOWN_ALIASES: Record<string, string> = {
    * header note moved to 0196, same resolution as every other pair above.
    */
   "0196_auto_apply_digest": "0195_auto_apply_digest",
+  /*
+   * Applied to both production and talentrah-preview as
+   * 0195_employer_resume_view_notification (send-464) while send-462's own
+   * 0195_referral_reward_events was still in review on a separate branch —
+   * both were legitimately 0195 the moment each was written, and send-462
+   * merged first. Content is unchanged; only the file's number and its own
+   * header/comment self-references moved to 0198 (the first open gap in the
+   * sequence once 0196/0197/0199/0200 were already claimed), same
+   * resolution as every other pair above.
+   */
+  "0198_employer_resume_view_notification": "0195_employer_resume_view_notification",
 };
 
 export function committedMigrations(): string[] {

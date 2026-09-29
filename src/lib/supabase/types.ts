@@ -1224,6 +1224,7 @@ export type Database = {
           auto_apply_digest_last_sent_at: string | null
           created_at: string
           digest_last_sent_at: string | null
+          employer_resume_view: boolean
           job_match_digest: boolean
           proactive_match_alert: boolean
           scholarship_deadline_alert: boolean
@@ -1237,6 +1238,7 @@ export type Database = {
           auto_apply_digest_last_sent_at?: string | null
           created_at?: string
           digest_last_sent_at?: string | null
+          employer_resume_view?: boolean
           job_match_digest?: boolean
           proactive_match_alert?: boolean
           scholarship_deadline_alert?: boolean
@@ -1250,6 +1252,7 @@ export type Database = {
           auto_apply_digest_last_sent_at?: string | null
           created_at?: string
           digest_last_sent_at?: string | null
+          employer_resume_view?: boolean
           job_match_digest?: boolean
           proactive_match_alert?: boolean
           scholarship_deadline_alert?: boolean
@@ -3995,6 +3998,14 @@ export type Database = {
           talent_verification_status: string
         }[]
       }
+      employer_resume_view_context: {
+        Args: { p_application_id: string }
+        Returns: {
+          company_name: string
+          job_title: string
+          seeker_id: string
+        }[]
+      }
       employer_view_resume: {
         Args: { p_application_id: string }
         Returns: {
@@ -4165,7 +4176,7 @@ export type Database = {
       }
       record_employer_resume_view: {
         Args: { p_application_id: string }
-        Returns: undefined
+        Returns: boolean
       }
       record_farah_screening_review: {
         Args: {
