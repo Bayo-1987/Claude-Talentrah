@@ -9,10 +9,10 @@ import { parsePreference } from "./preference";
 
 /**
  * Unsubscribe, reached from a link in the digest, send-138's proactive match
- * alert, or send-467's win-back email — `pref` in the query string picks
- * which (defaulting to the digest, so every digest email already sent before
- * send-138/send-467 existed still points at valid behaviour with no `pref`
- * at all).
+ * alert, send-466's scholarship deadline alert, or send-467's win-back
+ * email — `pref` in the query string picks which (defaulting to the digest,
+ * so every digest email already sent before the others existed still points
+ * at valid behaviour with no `pref` at all).
  *
  * ── NO SESSION, BY NECESSITY ──────────────────────────────────────────────
  *
@@ -62,6 +62,12 @@ const COPY = {
       body: "Farah won't send the rare \"exceptional match\" alert to your inbox again. This doesn't affect your account, your weekly digest (if you're subscribed to it), or anything else Talentrah sends.",
     },
   },
+  scholarship_deadline_alert: {
+    unsubscribed: {
+      heading: "You're unsubscribed.",
+      body: "We won't send you a reminder when a saved scholarship's deadline is approaching. This doesn't affect your account, your saved scholarships, or anything else Talentrah sends.",
+    },
+  },
   win_back_email: {
     unsubscribed: {
       heading: "You're unsubscribed.",
@@ -84,9 +90,11 @@ export default async function UnsubscribePage({
     const { data, error } =
       preference === "proactive_match_alert"
         ? await supabase.rpc("proactive_match_alert_set_preference", { p_token: token, p_enabled: false })
-        : preference === "win_back_email"
-          ? await supabase.rpc("win_back_email_set_preference", { p_token: token, p_enabled: false })
-          : await supabase.rpc("email_unsubscribe", { p_token: token, p_subscribed: false });
+        : preference === "scholarship_deadline_alert"
+          ? await supabase.rpc("scholarship_deadline_alert_set_preference", { p_token: token, p_enabled: false })
+          : preference === "win_back_email"
+            ? await supabase.rpc("win_back_email_set_preference", { p_token: token, p_enabled: false })
+            : await supabase.rpc("email_unsubscribe", { p_token: token, p_subscribed: false });
     if (error) {
       console.error("[unsubscribe] rpc failed:", error.message);
     } else {

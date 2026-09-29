@@ -1854,22 +1854,22 @@ describe("resume_templates is catalog data, not user input (0042)", () => {
   });
 });
 
-describe("profiles: last_active_at cannot be written directly by the user (0197, send-467)", () => {
+describe("profiles: last_active_at cannot be written directly by the user (0199, send-467)", () => {
   /**
    * NEGATIVE CONTROL for send-467's dormancy-signal fix — the direct sibling
    * of the closed_at/posted_at tests above, on `profiles` instead of
-   * `job_postings`. `last_active_at` is the ENTIRE reason 0197 exists: it
+   * `job_postings`. `last_active_at` is the ENTIRE reason 0199 exists: it
    * must be a signal `refresh-job.ts` (and every other background job)
    * structurally cannot fake, and a user's own session client writing it
    * directly on demand would defeat that exactly as thoroughly as a
    * background job doing so — either way the column would stop meaning "a
    * real, unprompted visit happened".
    *
-   * Checked against the live database before writing 0197 (this is what
+   * Checked against the live database before writing 0199 (this is what
    * that migration's own header cites): `profiles` already has its
    * table-level UPDATE grant revoked from `authenticated`/`anon` (0030,
    * restated by 0135), so a brand new column is refused by default unless a
-   * migration explicitly adds it to the per-column grant list — 0197
+   * migration explicitly adds it to the per-column grant list — 0199
    * deliberately does not. Same shape as the posted_at test: own account,
    * refused with 42501, and the SAME client can still update an allowed
    * column (first_name) on the exact same row a moment later, proving the
@@ -1922,7 +1922,7 @@ describe("profiles: last_active_at cannot be written directly by the user (0197,
     await admin.from("profiles").update({ last_active_at: null }).eq("id", user.id);
 
     const { error } = await user.client.rpc("touch_last_active");
-    expect(error, "the RPC path must still work — 0197 locks the COLUMN, not the signal itself").toBeNull();
+    expect(error, "the RPC path must still work — 0199 locks the COLUMN, not the signal itself").toBeNull();
 
     const { data } = await admin.from("profiles").select("last_active_at").eq("id", user.id).single();
     expect(data?.last_active_at, "touch_last_active() should have stamped this user's own row").not.toBeNull();

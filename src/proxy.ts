@@ -233,10 +233,10 @@ async function captureReferral(request: NextRequest, response: NextResponse, use
 }
 
 /**
- * send-467 — stamps `profiles.last_active_at` (0197) for a real signed-in
+ * send-467 — stamps `profiles.last_active_at` (0199) for a real signed-in
  * visit, which is the whole reason that column exists: it must be a signal
  * `refresh-job.ts` and every other background job structurally cannot fake
- * (see 0197's own migration header and select.ts's header on the bug this
+ * (see 0199's own migration header and select.ts's header on the bug this
  * fixes — `match_scores.computed_at` looked like this signal and was not).
  *
  * FIRE-AND-FORGET, THROTTLED, AND THAT IS ALL THIS FUNCTION DOES. The actual
@@ -255,7 +255,7 @@ async function captureReferral(request: NextRequest, response: NextResponse, use
  * NO USER, NO CALL. Only ever invoked when `updateSession` already found a
  * signed-in user for this request — a signed-out visitor has no session for
  * `touch_last_active()`'s `auth.uid()` to resolve, and the RPC has no grant
- * for `anon` regardless (0197).
+ * for `anon` regardless (0199).
  *
  * Errors are swallowed, deliberately and loudly logged rather than thrown:
  * a page view must never fail, or even visibly slow down, because a

@@ -544,6 +544,8 @@ describe("§2 — cron GETs fail closed too", () => {
       "/api/admin/send-referral-reward-notifications": () =>
         import("@/app/api/admin/send-referral-reward-notifications/route"),
       "/api/admin/send-auto-apply-digest": () => import("@/app/api/admin/send-auto-apply-digest/route"),
+      "/api/admin/send-scholarship-deadline-alerts": () =>
+        import("@/app/api/admin/send-scholarship-deadline-alerts/route"),
       "/api/admin/send-winback-emails": () => import("@/app/api/admin/send-winback-emails/route"),
     };
 

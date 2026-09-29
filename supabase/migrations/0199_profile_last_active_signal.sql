@@ -1,17 +1,21 @@
--- 0197 — send-467, part 1: a real, independent "last active" signal.
+-- 0199 — send-467, part 1: a real, independent "last active" signal.
 --
--- RENUMBERED TWICE, FROM 0195 THEN 0196. Applied to both Supabase projects
--- (gtiksnbhnqmwpeckfqwk and production, nytwbbzfpytctjsoczzq) under 0195
--- while send-462 (referral-reward notifications) was independently in
--- flight on the same repo; that branch took 0195 and merged first, so this
--- was renumbered to 0196 in-repo. Before THIS branch's own merge landed,
--- send-463 (Auto-Apply proof-of-work digest) took 0196 and merged too, so
--- this moved again to 0197. The content below is exactly what ran both
--- times — this is a filename change for the directory's own sequencing, not
--- a second apply: the ledger entry these statements produced on both
--- projects still reads `0195_profile_last_active_signal`, unchanged,
--- matching 0131's own precedent for the identical situation. Nothing here
--- needs re-running against either database.
+-- RENUMBERED THREE TIMES, FROM 0195 THEN 0196 THEN 0197. Applied to both
+-- Supabase projects (gtiksnbhnqmwpeckfqwk and production, nytwbbzfpytctjsoczzq)
+-- under 0195 while send-462 (referral-reward notifications) was independently
+-- in flight on the same repo; that branch took 0195 and merged first, so
+-- this was renumbered to 0196 in-repo. Before THIS branch's own merge
+-- landed, send-463 (Auto-Apply proof-of-work digest) took 0196 and merged
+-- too, so this moved to 0197. Then send-466 (scholarship deadline alerts)
+-- ALSO independently took 0197 and merged first, so this moved a third
+-- time, to 0199 (0198 is this branch's own win-back email migration, and
+-- moving both by two keeps them in their original relative order). The
+-- content below is exactly what ran every time — this is a filename change
+-- for the directory's own sequencing, not a second apply: the ledger entry
+-- these statements produced on both projects still reads
+-- `0195_profile_last_active_signal`, unchanged, matching 0131's own
+-- precedent for the identical situation. Nothing here needs re-running
+-- against either database.
 -- `scripts/migration-drift-compare.ts` tolerates this via its own
 -- documented "applied without its numeric prefix" rule.
 --
@@ -98,7 +102,7 @@ alter table public.profiles
   add column last_active_at timestamptz;
 
 comment on column public.profiles.last_active_at is
-  'Stamped ONLY by touch_last_active() below, from a real authenticated page view, throttled to once/hour. NOT a general "last touched this row" column — refresh-job.ts and every other service-role job has no grant to write it, by design (send-467). The dormancy signal for isNotActivelySearching() (proactive-match-alert/select.ts) and the win-back email (0198) both read this, never match_scores.computed_at.';
+  'Stamped ONLY by touch_last_active() below, from a real authenticated page view, throttled to once/hour. NOT a general "last touched this row" column — refresh-job.ts and every other service-role job has no grant to write it, by design (send-467). The dormancy signal for isNotActivelySearching() (proactive-match-alert/select.ts) and the win-back email (0200) both read this, never match_scores.computed_at.';
 
 create or replace function public.touch_last_active()
 returns void
