@@ -54,6 +54,27 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
  * worse, silently falling back to the exact stale hardcoded figures this
  * file exists to remove. A page that says nothing about price is honest;
  * one that guesses is the bug being fixed here, recreated as a fallback.
+ *
+ * ── send-472: A SUPABASE ERROR FAILS SOFT TOO, NOT JUST "ZERO ROWS" ───────
+ *
+ * This function runs at BUILD TIME, from the homepage's static prerender of
+ * `/` (mentorship-section.tsx) — the exact exposure CLAUDE.md's own
+ * send-441/443 write-up already names: "an empty service-role key doesn't
+ * degrade one page, it fails the entire deployment." That write-up covered
+ * one trigger (an empty key); a transient Supabase error is the same
+ * exposure through a different trigger, and it happened for real —
+ * production served a WEEK-OLD build while 13 consecutive deploys failed
+ * here with `exceed_egress_quota` (send-472's own incident). The original
+ * `if (error) throw` treated a transient read failure as fatal to the
+ * entire site, which is backwards: a homepage pricing chip is not worth
+ * more than the deployment pipeline itself.
+ *
+ * Same narrow scope sitemap.ts's own try/catch already uses (see that
+ * file's three identical blocks): only the Supabase client error is
+ * caught and logged, degrading to the same `null` "no price data yet"
+ * fallback the zero-rows case already returns — never a caught bug in the
+ * `.select()`/`.gt()` chain itself, which should still surface loudly in
+ * development and in tests.
  */
 export interface MentorPriceRangeNgn {
   minNgn: number;
@@ -62,20 +83,27 @@ export interface MentorPriceRangeNgn {
 
 export const getApprovedMentorPriceRangeNgn = cache(async (): Promise<MentorPriceRangeNgn | null> => {
   const supabase = createServiceRoleClient();
-  const { data, error } = await supabase
-    .from("mentor_profiles")
-    .select("base_price_ngn")
-    .eq("status", "approved")
-    .eq("self_paused", false)
-    .not("base_price_ngn", "is", null)
-    .gt("base_price_ngn", 0);
+  try {
+    const { data, error } = await supabase
+      .from("mentor_profiles")
+      .select("base_price_ngn")
+      .eq("status", "approved")
+      .eq("self_paused", false)
+      .not("base_price_ngn", "is", null)
+      .gt("base_price_ngn", 0);
 
-  if (error) throw new Error(`getApprovedMentorPriceRangeNgn: ${error.message}`);
+    if (error) throw new Error(`getApprovedMentorPriceRangeNgn: ${error.message}`);
 
-  const prices = (data ?? [])
-    .map((row) => row.base_price_ngn)
-    .filter((price): price is number => price !== null);
+    const prices = (data ?? [])
+      .map((row) => row.base_price_ngn)
+      .filter((price): price is number => price !== null);
 
-  if (prices.length === 0) return null;
-  return { minNgn: Math.min(...prices), maxNgn: Math.max(...prices) };
+    if (prices.length === 0) return null;
+    return { minNgn: Math.min(...prices), maxNgn: Math.max(...prices) };
+  } catch (err) {
+    // Logged, not fatal — see this function's own header. A homepage
+    // pricing chip must never be able to fail the entire static build.
+    console.error("[mentorship] could not read approved mentor price range:", err);
+    return null;
+  }
 });
