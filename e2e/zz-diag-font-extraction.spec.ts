@@ -43,26 +43,41 @@ function segments(text: string): Record<string, string> {
   return out;
 }
 
-test("font matrix extraction", async ({ page }) => {
+test("font matrix extraction v2 (one block per page)", async ({ page }) => {
   await page.goto("/dev/font-probe");
   await page.waitForLoadState("networkidle");
   await page.evaluate(() => document.fonts.ready);
+  const notes: Record<string, string> = await page.evaluate(() =>
+    Object.fromEntries([...document.querySelectorAll("section")].map((s) => {
+      const t = (s.querySelector("p")?.textContent ?? "");
+      return [t.slice(1, 4), t.slice(6)];
+    })));
+  const prose: string[] = await page.evaluate(() => [...document.querySelectorAll("section")[0].querySelectorAll("p")].slice(1).map((p) => p.textContent ?? ""));
+  const sourceWords = words(prose.join(" "));
   const pdf = await page.pdf({ printBackground: true });
-  const engines: Array<[string, string | null]> = [["pdfjs", await extractPdfText(pdf)], ["poppler", pdftotext(pdf)]];
-  const sourceWords = words(Object.values(S).join(" "));
-  const notes: Record<string, string> = {};
-  const html = await page.content();
-  void html;
-  for (const [engine, text] of engines) {
-    if (text === null) { console.log(`MATRIX ${engine} UNAVAILABLE`); continue; }
-    const seg = segments(text);
-    for (const id of Object.keys(seg).sort()) {
-      const miss = missingWords(sourceWords, seg[id]);
-      const markerOk = ["ZQCERTIFICATIONS", "ZQPROJECTS", "ZQSKILLS", "ZQEXPERIENCE", "ZQEDUCATION", "ZQSUMMARY"].filter((m) => seg[id].includes(m)).length;
-      console.log(`MATRIX ${engine} ${id} missing=${miss.length}/${sourceWords.length} markers=${markerOk}/6 broken=${JSON.stringify(miss.slice(0, 12))}`);
+  // per-page text
+  const { PDFParse } = await import("pdf-parse");
+  const parser = new PDFParse({ data: pdf });
+  const r = await parser.getText();
+  await parser.destroy();
+  const pdfjsPages = (r.pages ?? []).map((p: { text: string }) => p.text);
+  const pop = pdftotext(pdf);
+  const popPages = pop === null ? null : pop.split("\f");
+  console.log(`MATRIX2 sourceWords=${sourceWords.length} pdfjsPages=${pdfjsPages.length} popplerPages=${popPages?.length ?? "n/a"}`);
+  for (const [engine, pages] of [["pdfjs", pdfjsPages], ["poppler", popPages]] as const) {
+    if (!pages) continue;
+    for (const pageText of pages) {
+      const idm = pageText.match(/\[(F\d\d)\]/);
+      if (!idm) continue;
+      const id = idm[1];
+      const miss = missingWords(sourceWords, pageText);
+      const snippets = miss.slice(0, 6).map((w) => {
+        const i = pageText.toLowerCase().indexOf(w.slice(0, 4).toLowerCase());
+        return i < 0 ? `${w}=>(absent)` : `${w}=>${JSON.stringify(pageText.slice(i, i + w.length + 4))}`;
+      });
+      console.log(`MATRIX2 ${engine} ${id} [${notes[id] ?? ""}] missing=${miss.length}/${sourceWords.length} ${snippets.join(" ")}`);
     }
   }
-  void notes;
 });
 
 test("every registered template: computed fonts + real-prose extraction", async ({ page }) => {
