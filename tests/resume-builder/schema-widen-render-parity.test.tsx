@@ -63,11 +63,12 @@ function render(Component: ComponentType<TemplateProps>, resume: StructuredResum
 }
 
 /**
- * send-470 follow-up: the six direct templates now render with bg-resume-paper
- * instead of bg-paper — a deliberate, already-verified color decoupling from
- * the app's own design tokens (a resume document must not silently repaint
- * itself with a future app redesign), not the kind of accidental drift this
- * file exists to catch. The PRE_CHANGE_COMPONENTS fixtures are a verbatim,
+ * send-470 follow-up: the six direct templates now render with bg-resume-paper/
+ * font-resume-body (plus the resume-only font's scope-variable className on
+ * the root div) instead of bg-paper/font-body — a deliberate, already-verified
+ * decoupling from the app's own design tokens (see resume-builder/templates/
+ * fonts.ts's own header for why), not the kind of accidental drift this file
+ * exists to catch. The PRE_CHANGE_COMPONENTS fixtures are a verbatim,
  * intentionally-frozen `git show` of the templates from BEFORE that rename —
  * rewriting them would defeat their whole point (an actual old snapshot, not
  * a guess at one) — so the known, reviewed rename is normalized out of the
@@ -75,7 +76,16 @@ function render(Component: ComponentType<TemplateProps>, resume: StructuredResum
  * unintended difference exactly as before.
  */
 function normalizeKnownSend470Rename(html: string): string {
-  return html.replace(/bg-resume-paper/g, "bg-paper");
+  return html
+    // send-473: every document root now declares its own base font (and has
+    // its variable in scope) instead of inheriting the app's — the one
+    // ` text-ink font-resume-body --font-resume-source-sans` tail that only a
+    // root wrapper carries. Stripped first so it is not mistaken for the
+    // per-element font-resume-body -> font-body rename below.
+    .replace(/ text-ink font-resume-body --font-resume-source-sans/g, " text-ink")
+    .replace(/ --font-resume-source-sans/g, "")
+    .replace(/bg-resume-paper/g, "bg-paper")
+    .replace(/font-resume-body/g, "font-body");
 }
 
 /** A resume using ONLY fields that existed before this PR — no new field is set at all. */

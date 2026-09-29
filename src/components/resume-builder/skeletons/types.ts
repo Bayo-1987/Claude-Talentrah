@@ -57,8 +57,17 @@ export type SectionKey =
   | "references";
 
 /**
- * Six typefaces total. `display`/`body` reuse the app's actual current
- * fonts (Newsreader/Source Sans 3, via `--font-display`/`--font-body`).
+ * Six typefaces total. `display` reuses the app's actual current display
+ * font (Newsreader, via `--font-display`) — genuinely "whatever the app
+ * shell uses today." `body` is NOT the same kind of reuse any more: it's a
+ * fixed reference to Source Sans 3 (`--font-resume-body`, the same face the
+ * six direct templates use), independent of whatever the app shell's own
+ * `--font-body` currently resolves to. That split exists because "body"
+ * used to be a literal alias for `--font-body`, and send-470's app-wide
+ * IBM Plex Sans swap silently changed these five presets' page-break
+ * points and broke their ATS-safety ordering — a resume document must not
+ * change with the next redesign. `display`/Newsreader was never touched by
+ * that swap and has no such problem, so it stays a real, live reuse.
  * Plus the four new ones added for the template library. See `fonts.ts`
  * for which real family each maps to and why.
  */

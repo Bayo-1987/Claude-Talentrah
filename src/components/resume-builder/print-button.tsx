@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Button } from "@/components/ui";
 import {
   findUneditedExampleFields,
@@ -7,6 +8,7 @@ import {
   clearFlaggedExampleFields,
 } from "@/lib/resume-builder/example-guard";
 import { recordResumeBuilderCompletionAction } from "@/lib/resume-builder/actions";
+import { waitForFontsSettled } from "@/lib/resume-builder/wait-for-fonts";
 import type { StructuredResume } from "@/lib/resume/types";
 
 function focusFlaggedField(path: string) {
@@ -49,6 +51,20 @@ function focusFlaggedField(path: string) {
  * owns no resume state — resume-editor.tsx does). A `window.confirm` is the
  * whole undo story, matching this repo's existing pattern (see
  * stage-select.tsx's Hired confirm) — no separate undo/redo stack.
+ *
+ * WAITS FOR FONTS BEFORE PRINTING (send-473). Every font here is
+ * `display: "swap"`, so a click that lands while a face is still arriving —
+ * a first visit on a cold cache, a slow connection — used to print while the
+ * page was still on fallback fonts, so the PDF could be laid out and embedded
+ * with the wrong face. (That the print fires with faces still loading is
+ * proven by e2e/print-button-fonts.spec.ts; a loss of CONTENT from it was
+ * never demonstrated — the `blueprint` ATS failure that first suggested one
+ * turned out to have a different cause, see skeletons/token-classes.ts.)
+ * `waitForFontsSettled` holds the print until fonts have settled, bounded so
+ * a stuck font request falls back to printing rather than hanging the
+ * button, and the button reads "Preparing PDF…" while it waits so that
+ * window doesn't look like a dead click. It waits on the whole document's
+ * fonts, so the app shell's face and the resume's own are both covered.
  */
 export function PrintButton({
   resumeId,
@@ -61,8 +77,10 @@ export function PrintButton({
   onClearExample?: (next: StructuredResume) => void;
 }) {
   const flags = findUneditedExampleFields(content);
+  const [preparing, setPreparing] = useState(false);
 
-  function handleClick() {
+  async function handleClick() {
+    if (preparing) return;
     // Defensive re-check — the button below is already disabled while flags
     // exist, but a disabled attribute is a rendering detail, not a guarantee.
     if (findUneditedExampleFields(content).length > 0) return;
@@ -70,6 +88,12 @@ export function PrintButton({
     // or dropped analytics write must never delay the export the user asked
     // for.
     void recordResumeBuilderCompletionAction(resumeId);
+    setPreparing(true);
+    try {
+      await waitForFontsSettled();
+    } finally {
+      setPreparing(false);
+    }
     window.print();
   }
 
@@ -80,9 +104,18 @@ export function PrintButton({
 
   return (
     <div className="flex flex-col items-end gap-2 print:hidden">
-      <Button size="sm" onClick={handleClick} disabled={flags.length > 0} className="disabled:opacity-50">
-        Download PDF
+      <Button
+        size="sm"
+        onClick={handleClick}
+        disabled={flags.length > 0 || preparing}
+        aria-busy={preparing}
+        className="disabled:opacity-50"
+      >
+        {preparing ? "Preparing PDF…" : "Download PDF"}
       </Button>
+      <span role="status" className="sr-only">
+        {preparing ? "Preparing PDF" : ""}
+      </span>
       {flags.length > 0 && (
         <div className="max-w-[260px] text-right text-[12.5px] text-rust">
           <p>Still the example content — update before exporting:</p>

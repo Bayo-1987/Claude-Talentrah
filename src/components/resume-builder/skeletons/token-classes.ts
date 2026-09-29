@@ -25,7 +25,7 @@ export function fontClass(typeface: Typeface): string {
     case "display":
       return "font-display";
     case "body":
-      return "font-body";
+      return "font-resume-body";
     case "geometric":
       return "font-geometric";
     case "humanist":
@@ -50,18 +50,35 @@ export function accentBgClass(accent: AccentColor): string {
 }
 
 /**
- * classNames to put on a skeleton's OUTERMOST element so the CSS variables
- * the chosen typefaces need are actually in scope. Empty for "display" and
- * "body" — both genuine app-global reuses (Newsreader, Source Sans 3)
- * already scoped by `layout.tsx`.
+ * classNames to put on a skeleton's OUTERMOST element: the document's own
+ * base font, plus the CSS variables every chosen typeface needs in scope.
+ *
+ * THE BASE FONT IS DECLARED HERE, ALWAYS, NOT LEFT TO INHERITANCE. Text with
+ * no explicit `font-*` class of its own (`renderSimpleStringList`'s
+ * projects/certifications `<li>`s are the live example) inherits its
+ * font-family from wherever it is mounted — which, without this, is the app
+ * shell's `<body>` and so the app's `--font-body` (IBM Plex Sans). That
+ * quietly re-couples the resume to the app font in exactly the places no
+ * per-element class reaches — the resume document would then change whenever
+ * the app font does, which is the one thing this decoupling exists to
+ * prevent. (It is also what first surfaced as a `blueprint` ATS-test
+ * failure: those unclassed `<li>`s were rendered in the app's font, which the
+ * test's pdf.js extraction happened to word-split. That was a symptom of the
+ * leak, not a claim that any particular font is unsafe for extraction.)
+ * `font-resume-body` on the root makes the fixed Source Sans 3 the default
+ * for everything inside the document; a per-element class still overrides it.
+ *
+ * Its variable is therefore ALWAYS in scope (`typefaceVariable("body")`),
+ * whether or not a config's `bodyFont` is "body". "display" alone stays
+ * empty — Newsreader is genuinely app-global and is scoped by `layout.tsx`.
  */
 export function fontScopeClassName(tokens: Pick<StyleTokens, "displayFont" | "bodyFont">): string {
   const vars = new Set<string>();
-  for (const t of [tokens.displayFont, tokens.bodyFont]) {
+  for (const t of ["body", tokens.displayFont, tokens.bodyFont] as const) {
     const v = typefaceVariable(t);
     if (v) vars.add(v);
   }
-  return Array.from(vars).join(" ");
+  return ["font-resume-body", ...vars].join(" ");
 }
 
 /** Section heading treatment. `uppercase-tracked` + `rust` + `display` reproduces clean-professional's original heading class exactly. */
