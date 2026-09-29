@@ -48,12 +48,28 @@ beforeAll(async () => {
   unapprovedReviewerId = unapproved.id;
   notOptedInReviewerId = notOptedIn.id;
 
-  const { error } = await admin.from("mentor_profiles").insert([
-    { user_id: reviewerAId, status: "approved", reviews_verifications: true },
-    { user_id: reviewerBId, status: "approved", reviews_verifications: true },
-    { user_id: unapprovedReviewerId, status: "pending", reviews_verifications: true },
-    { user_id: notOptedInReviewerId, status: "approved", reviews_verifications: false },
-  ]);
+  /*
+   * upsert, not insert: a claimed pool user (send-453/0188) can already carry
+   * a `mentor_profiles` row from a PRIOR life as a real mentor —
+   * reset_test_pool_user's own delete for this table is best-effort and
+   * deliberately leaves the row in place when blocked by mentorship_sessions/
+   * mentorship_reviews/mentor_payouts' NOT NULL FKs (CLAUDE.md calls this out
+   * as an accepted residual, not a bug to fix there). A bare insert here hit
+   * that residual and collided on mentor_profiles_pkey — this test only
+   * needs THIS row's status/reviews_verifications to be correct for the
+   * claim logic under test, not a guarantee that no row existed before, so
+   * "reset in place" (same shape reset_test_pool_user already uses for
+   * email_preferences) is the right fix, not a second cleanup pass.
+   */
+  const { error } = await admin.from("mentor_profiles").upsert(
+    [
+      { user_id: reviewerAId, status: "approved", reviews_verifications: true },
+      { user_id: reviewerBId, status: "approved", reviews_verifications: true },
+      { user_id: unapprovedReviewerId, status: "pending", reviews_verifications: true },
+      { user_id: notOptedInReviewerId, status: "approved", reviews_verifications: false },
+    ],
+    { onConflict: "user_id" },
+  );
   if (error) throw error;
 }, 60_000);
 
@@ -135,7 +151,11 @@ describe("claim_talent_verification_review's atomic pick step", () => {
   });
 
   it("rejects a candidate reviewing their own submission, even if they are also an eligible mentor", async () => {
-    await admin.from("mentor_profiles").insert({ user_id: candidateId, status: "approved", reviews_verifications: true });
+    // upsert for the same reason as the beforeAll block above — candidateId
+    // is also a pool user and can carry the same residual row.
+    await admin
+      .from("mentor_profiles")
+      .upsert({ user_id: candidateId, status: "approved", reviews_verifications: true }, { onConflict: "user_id" });
     try {
       const verificationId = await queueOneSubmission();
       const result = await claimVerificationReview(candidateId, verificationId);
@@ -219,5 +239,57 @@ describe("resolveVerificationReview: the human-review decision path", () => {
 
     const { data: row } = await admin.from("talent_verifications").select("status").eq("id", verificationId).single();
     expect(row?.status, "a non-holder must not be able to resolve someone else's claim").toBe("claimed");
+  });
+});
+
+/**
+ * Regression for the `mentor_profiles_pkey` flake that hit this file's own
+ * `beforeAll` on CI (independently, across at least 4 unrelated PRs):
+ * `reset_test_pool_user` (0188) best-effort-deletes a claimed pool user's
+ * `mentor_profiles` row and deliberately leaves it in place when a real
+ * mentor session/review/payout still NOT NULL-references it — an accepted
+ * residual, not a bug there (see that migration's own header). This
+ * suite's setup used a bare `insert`, which assumed a clean slate and
+ * collided whenever a reused pool user carried that residual row.
+ *
+ * Proves the bug first (a bare insert really does collide for a reused
+ * id), then proves the fix (the upsert this file's own `beforeAll` and
+ * "dual-role" test now use instead succeeds and correctly overwrites the
+ * stale row) — CLAUDE.md's own "prove the test catches the bug" rule,
+ * applied to test infrastructure rather than product code.
+ */
+describe("mentor_profiles setup survives pool-user reuse (regression for the pkey flake)", () => {
+  it("upserting a reviewer row succeeds even when one already exists from a prior life", async () => {
+    const probe = await createTestUser("reviewer-reuse-probe");
+    try {
+      const first = await admin
+        .from("mentor_profiles")
+        .insert({ user_id: probe.id, status: "pending", reviews_verifications: false });
+      expect(first.error).toBeNull();
+
+      const bareInsertRetry = await admin
+        .from("mentor_profiles")
+        .insert({ user_id: probe.id, status: "approved", reviews_verifications: true });
+      expect(
+        bareInsertRetry.error?.code,
+        "a bare insert must collide on mentor_profiles_pkey for a reused id — this is the exact bug this suite guards against",
+      ).toBe("23505");
+
+      const upserted = await admin
+        .from("mentor_profiles")
+        .upsert({ user_id: probe.id, status: "approved", reviews_verifications: true }, { onConflict: "user_id" });
+      expect(upserted.error).toBeNull();
+
+      const { data } = await admin
+        .from("mentor_profiles")
+        .select("status, reviews_verifications")
+        .eq("user_id", probe.id)
+        .single();
+      expect(data?.status).toBe("approved");
+      expect(data?.reviews_verifications).toBe(true);
+    } finally {
+      await admin.from("mentor_profiles").delete().eq("user_id", probe.id);
+      await deleteTestUsers([probe.id]);
+    }
   });
 });
