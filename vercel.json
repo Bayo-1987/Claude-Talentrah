@@ -15,12 +15,20 @@
       "schedule": "0 7 * * *"
     },
     {
+      "path": "/api/admin/send-scholarship-deadline-alerts",
+      "schedule": "30 7 * * *"
+    },
+    {
       "path": "/api/admin/charge-campaigns",
       "schedule": "0 8 * * *"
     },
     {
       "path": "/api/admin/send-job-digest",
       "schedule": "0 9 * * 1"
+    },
+    {
+      "path": "/api/admin/send-auto-apply-digest",
+      "schedule": "30 9 * * 1"
     },
     {
       "path": "/api/admin/send-verification-reminders",
@@ -49,6 +57,14 @@
     {
       "path": "/api/admin/refresh-match-scores",
       "schedule": "0 16 * * *"
+    },
+    {
+      "path": "/api/admin/send-referral-reward-notifications",
+      "schedule": "0 17 * * *"
+    },
+    {
+      "path": "/api/admin/send-winback-emails",
+      "schedule": "0 18 * * *"
     }
   ]
 }
