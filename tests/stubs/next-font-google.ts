@@ -38,6 +38,6 @@ export function Barlow_Condensed(options: FontOptions) {
 export function Newsreader(options: FontOptions) {
   return mockFont(options);
 }
-export function Source_Sans_3(options: FontOptions) {
+export function IBM_Plex_Sans(options: FontOptions) {
   return mockFont(options);
 }
