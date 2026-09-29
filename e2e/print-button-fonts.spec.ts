@@ -1,9 +1,9 @@
 import { test, expect, admin } from "./fixtures/authed";
-import type { Page } from "@playwright/test";
 import { ATS_TEST_RESUME } from "@/lib/resume-builder/ats-test-fixture";
 import { CATALOG_TEMPLATE_CONFIGS } from "@/components/resume-builder/skeletons/catalog-configs";
 import { extractPdfText } from "./support/pdf-text";
 import { expectedMarkerOrder, actualMarkerOrder } from "./support/ats-markers";
+import { installPrintStub } from "./support/print-stub";
 
 /**
  * send-473 — the REAL "Download PDF" click path, on a cold font cache.
@@ -34,27 +34,6 @@ import { expectedMarkerOrder, actualMarkerOrder } from "./support/ats-markers";
 
 const SLUG = "blueprint";
 const FONT_DELAY_MS = 2000;
-
-declare global {
-  interface Window {
-    __printCalls: Array<{ fontsStatus: string; loadingFaces: number }>;
-    __capturePdfNow: () => Promise<void>;
-  }
-}
-
-async function installPrintStub(page: Page, onPrint: () => Promise<void>) {
-  await page.exposeFunction("__capturePdfNow", onPrint);
-  await page.addInitScript(() => {
-    window.__printCalls = [];
-    window.print = () => {
-      window.__printCalls.push({
-        fontsStatus: document.fonts.status,
-        loadingFaces: [...document.fonts].filter((f) => f.status === "loading").length,
-      });
-      void window.__capturePdfNow();
-    };
-  });
-}
 
 test("Download PDF on a cold font cache prints the settled document, not a mid-swap one", async ({
   authedPage: page,
