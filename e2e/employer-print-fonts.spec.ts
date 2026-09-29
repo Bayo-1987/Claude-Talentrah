@@ -9,17 +9,22 @@ import { installPrintStub } from "./support/print-stub";
 
 /**
  * The employer's "Print / Save as PDF" on an applicant's resume, on a cold
- * font cache — the same export race e2e/print-button-fonts.spec.ts guards for
- * the seeker's own button.
+ * font cache — the same guard e2e/print-button-fonts.spec.ts gives the
+ * seeker's own button.
  *
  * `EmployerPrintButton` used to call `window.print()` synchronously. Every
  * font here is `font-display: swap`, so an employer clicking on a first visit
- * or a slow connection printed a mid-swap layout, which Chromium can lock page
- * breaks in from and then reflow, dropping sections from the PDF. It now
- * waits for fonts (bounded) like the seeker's button. This drives the real
- * page and real button with every font file held back 2s, stubs
- * `window.print` to snapshot font state and `page.pdf()` at the instant it is
- * called, and asserts what a real click would have printed.
+ * or a slow connection printed while faces were still loading, i.e. on
+ * fallback fonts. It now waits for fonts (bounded) like the seeker's button.
+ * This drives the real page and real button with every font file held back
+ * 2s, stubs `window.print` to snapshot font state and `page.pdf()` at the
+ * instant it is called, and asserts what a real click would have printed.
+ *
+ * WHAT IS AND ISN'T PROVEN. With the wait removed the FONT-STATE assertion
+ * fails (8 faces still loading at print time); with it, it passes — that is
+ * the guard. The PDF-content assertion is a general completeness/order check
+ * and does not distinguish the two cases; no loss of content from printing
+ * early has been reproduced.
  */
 
 const SLUG = "blueprint";
@@ -29,6 +34,10 @@ test("Print / Save as PDF on a cold font cache prints the settled applicant resu
   authedPage: page,
   testUser,
 }) => {
+  // Seeding (org, posting, seeker, resume, application) is several round trips
+  // to Supabase; against a remote project that alone has run 22-34s, right at
+  // Playwright's default 30s. The font delay itself adds ~2s.
+  test.setTimeout(120_000);
   const suffix = randomUUID().slice(0, 8);
   let orgId: string | undefined;
   let seekerId: string | undefined;
@@ -139,14 +148,14 @@ test("Print / Save as PDF on a cold font cache prints the settled applicant resu
     // soft: a failure here must not hide whether the captured PDF is also wrong.
     expect.soft(
       calls[0],
-      "window.print() ran while fonts were still loading — the export race: page breaks lock in from the fallback layout",
+      "window.print() ran while fonts were still loading — the PDF would be captured on fallback fonts",
     ).toEqual({ fontsStatus: "loaded", loadingFaces: 0 });
 
     const expected = expectedMarkerOrder(CATALOG_TEMPLATE_CONFIGS[SLUG]);
     const text = await extractPdfText(pdfBuffer!);
     expect(
       actualMarkerOrder(text, expected),
-      `the PDF captured at print time was missing or misordering sections; expected [${expected.join(", ")}]`,
+      `the PDF captured at print time was incomplete or misordered; expected [${expected.join(", ")}]`,
     ).toEqual(expected);
 
     expect(await sawPreparing, 'the button never showed "Preparing PDF…" while waiting for fonts').toBe(true);
