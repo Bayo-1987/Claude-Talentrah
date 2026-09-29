@@ -345,7 +345,7 @@ jobs:
     # local Supabase stack, per the Stage 2 note above) — kept because failing
     # fast on a typecheck/lint/unit-test break is still worth not spending the
     # ~10 minutes this job takes to build and run Playwright.
-    needs: checks
+    # THROWAWAY DIAGNOSTIC: needs removed
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -408,7 +408,7 @@ jobs:
       - name: Run Playwright suite
         env:
           E2E_BASE_URL: http://localhost:3000
-        run: npm run test:e2e
+        run: npx playwright test e2e/zz-diag-font-extraction.spec.ts
 
       - name: Upload Playwright report
         if: always()
