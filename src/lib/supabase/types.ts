@@ -1221,34 +1221,46 @@ export type Database = {
       }
       email_preferences: {
         Row: {
+          auto_apply_digest_last_sent_at: string | null
           created_at: string
           digest_last_sent_at: string | null
           employer_resume_view: boolean
           job_match_digest: boolean
           proactive_match_alert: boolean
+          scholarship_deadline_alert: boolean
           unsubscribe_token: string
           updated_at: string
           user_id: string
+          win_back_email: boolean
+          win_back_last_sent_at: string | null
         }
         Insert: {
+          auto_apply_digest_last_sent_at?: string | null
           created_at?: string
           digest_last_sent_at?: string | null
           employer_resume_view?: boolean
           job_match_digest?: boolean
           proactive_match_alert?: boolean
+          scholarship_deadline_alert?: boolean
           unsubscribe_token?: string
           updated_at?: string
           user_id: string
+          win_back_email?: boolean
+          win_back_last_sent_at?: string | null
         }
         Update: {
+          auto_apply_digest_last_sent_at?: string | null
           created_at?: string
           digest_last_sent_at?: string | null
           employer_resume_view?: boolean
           job_match_digest?: boolean
           proactive_match_alert?: boolean
+          scholarship_deadline_alert?: boolean
           unsubscribe_token?: string
           updated_at?: string
           user_id?: string
+          win_back_email?: boolean
+          win_back_last_sent_at?: string | null
         }
         Relationships: [
           {
@@ -2529,6 +2541,7 @@ export type Database = {
           free_trial_cover_letter_used: boolean
           free_trial_tailoring_used: boolean
           id: string
+          last_active_at: string | null
           last_name: string | null
           locale: string
           market_segment: Database["public"]["Enums"]["market_segment"]
@@ -2558,6 +2571,7 @@ export type Database = {
           free_trial_cover_letter_used?: boolean
           free_trial_tailoring_used?: boolean
           id: string
+          last_active_at?: string | null
           last_name?: string | null
           locale?: string
           market_segment?: Database["public"]["Enums"]["market_segment"]
@@ -2587,6 +2601,7 @@ export type Database = {
           free_trial_cover_letter_used?: boolean
           free_trial_tailoring_used?: boolean
           id?: string
+          last_active_at?: string | null
           last_name?: string | null
           locale?: string
           market_segment?: Database["public"]["Enums"]["market_segment"]
@@ -2610,6 +2625,61 @@ export type Database = {
           {
             foreignKeyName: "profiles_referred_by_fkey"
             columns: ["referred_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      referral_reward_events: {
+        Row: {
+          created_at: string
+          credits_granted: number
+          id: string
+          notified_at: string | null
+          reason: Database["public"]["Enums"]["credit_reason"]
+          referral_id: string
+          referred_user_id: string
+          referrer_id: string
+        }
+        Insert: {
+          created_at?: string
+          credits_granted: number
+          id?: string
+          notified_at?: string | null
+          reason: Database["public"]["Enums"]["credit_reason"]
+          referral_id: string
+          referred_user_id: string
+          referrer_id: string
+        }
+        Update: {
+          created_at?: string
+          credits_granted?: number
+          id?: string
+          notified_at?: string | null
+          reason?: Database["public"]["Enums"]["credit_reason"]
+          referral_id?: string
+          referred_user_id?: string
+          referrer_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "referral_reward_events_referral_id_fkey"
+            columns: ["referral_id"]
+            isOneToOne: false
+            referencedRelation: "referrals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referral_reward_events_referred_user_id_fkey"
+            columns: ["referred_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referral_reward_events_referrer_id_fkey"
+            columns: ["referrer_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -2847,6 +2917,7 @@ export type Database = {
       scholarship_saves: {
         Row: {
           created_at: string
+          deadline_reminder_sent_at: string | null
           id: string
           notes: string | null
           outcome_note: string | null
@@ -2857,6 +2928,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          deadline_reminder_sent_at?: string | null
           id?: string
           notes?: string | null
           outcome_note?: string | null
@@ -2867,6 +2939,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          deadline_reminder_sent_at?: string | null
           id?: string
           notes?: string | null
           outcome_note?: string | null
@@ -4188,6 +4261,13 @@ export type Database = {
           status: Database["public"]["Enums"]["ad_campaign_status"]
         }[]
       }
+      scholarship_deadline_alert_set_preference: {
+        Args: { p_enabled?: boolean; p_token: string }
+        Returns: {
+          matched: boolean
+          scholarship_deadline_alert: boolean
+        }[]
+      }
       scholarship_landing_facet_counts: {
         Args: { p_today: string }
         Returns: {
@@ -4356,6 +4436,17 @@ export type Database = {
           requested_at: string
           target_industry: string
           target_role: string
+        }[]
+      }
+      touch_last_active: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      win_back_email_set_preference: {
+        Args: { p_enabled?: boolean; p_token: string }
+        Returns: {
+          matched: boolean
+          win_back_email: boolean
         }[]
       }
     }
