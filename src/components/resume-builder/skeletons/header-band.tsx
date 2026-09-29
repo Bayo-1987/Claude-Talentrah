@@ -41,7 +41,7 @@ export function HeaderBandSkeleton({ resume, config }: SkeletonProps) {
 
   return (
     <div
-      className={joinClasses("mx-auto max-w-[760px] bg-paper text-ink", fontScopeClassName(tokens))}
+      className={joinClasses("mx-auto max-w-[760px] bg-resume-paper text-ink", fontScopeClassName(tokens))}
     >
       <div className={joinClasses(bandBg, "px-10 py-8 text-paper")}>
         <div className="flex flex-wrap items-end justify-between gap-6">

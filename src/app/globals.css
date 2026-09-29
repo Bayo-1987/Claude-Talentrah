@@ -6,18 +6,32 @@
  * JobFeed-Editorial.dc.html. Copy exact values from those files — do not re-derive.
  */
 :root {
-  --paper: oklch(97% 0.014 85);
-  --paper-alt: oklch(94.5% 0.018 80);
-  --ink: oklch(20% 0.018 50);
-  --ink-soft: oklch(38% 0.02 50);
-  --ink-line: oklch(30% 0.02 50);
+  --paper: oklch(98% 0.004 90);
+  --paper-alt: oklch(95% 0.01 250);
+  --ink: oklch(22% 0.03 250);
+  --ink-soft: oklch(42% 0.03 250);
+  --ink-line: oklch(30% 0.03 250);
   --rust: oklch(52% 0.14 40);
   --rust-hover: oklch(45% 0.14 40);
   --rust-soft: oklch(91% 0.03 40);
-  --line: oklch(78% 0.02 60);
+  --line: oklch(85% 0.01 250);
   --green: oklch(48% 0.1 152);
   --amber: oklch(52% 0.12 70);
-  --card: oklch(99% 0.006 85);
+  --card: oklch(100% 0 0);
+  --gold: oklch(74% 0.14 80);
+  --gold-hover: oklch(68% 0.15 80);
+  --gold-soft: oklch(94% 0.03 80);
+  --gold-ink: oklch(45% 0.12 75);
+  /*
+   * Fixed, permanent white for the resume document (screen preview + PDF
+   * export, which are the same rendered DOM/CSS — see
+   * resume-builder/templates/fonts.ts's own header). Never redefined by
+   * dark mode or a future redesign, unlike --paper/--card, which are the
+   * app SHELL's own tokens and are expected to change. A resume the user
+   * has downloaded or been ATS-graded on must not silently repaint itself
+   * the next time the app's palette does.
+   */
+  --resume-paper: oklch(100% 0 0);
 }
 
 @theme inline {
@@ -33,9 +47,14 @@
   --color-green: var(--green);
   --color-amber: var(--amber);
   --color-card: var(--card);
+  --color-gold: var(--gold);
+  --color-gold-hover: var(--gold-hover);
+  --color-gold-soft: var(--gold-soft);
+  --color-gold-ink: var(--gold-ink);
+  --color-resume-paper: var(--resume-paper);
 
   --font-display: var(--font-newsreader), Georgia, "Times New Roman", serif;
-  --font-body: var(--font-source-sans), Georgia, serif;
+  --font-body: var(--font-source-sans), Arial, Helvetica, sans-serif;
 
   /*
    * Template library PR 2 of 3 — the four extra typefaces the resume-builder

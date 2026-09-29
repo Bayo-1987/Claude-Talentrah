@@ -57,10 +57,10 @@ export type SectionKey =
   | "references";
 
 /**
- * Six typefaces total: the app's own two (`display`/`body`, Newsreader /
- * Source Sans — reused so a template can deliberately look like "the app's
- * own voice") plus the four new ones added for the template library. See
- * `fonts.ts` for which real family each maps to and why.
+ * Six typefaces total. `display`/`body` reuse the app's actual current
+ * fonts (Newsreader/Source Sans 3, via `--font-display`/`--font-body`).
+ * Plus the four new ones added for the template library. See `fonts.ts`
+ * for which real family each maps to and why.
  */
 export type Typeface =
   | "display"

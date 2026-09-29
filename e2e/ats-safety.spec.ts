@@ -174,6 +174,41 @@ test.describe("ats_safe is a real, PDF-verified claim per skeleton", () => {
       expect(config, `no demo config registered for "${configKey}"`).toBeDefined();
 
       await page.goto(`/dev/template-skeletons/${configKey}`);
+      /*
+       * WAIT FOR THE NETWORK TO SETTLE, THEN FOR FONTS, BEFORE PRINTING —
+       * both found via a real, reproducible failure (send-470 follow-up),
+       * not added speculatively. `networkidle` first: `page.goto()`'s
+       * default `load` wait does not guarantee every in-flight request this
+       * page kicked off (font files among them) has resolved, and a test
+       * asserting on the FINAL, settled page must not act on an interim
+       * one. Every `font-display: "swap"` font (layout.tsx's app fonts, skeletons/
+       * fonts.ts's four extra typefaces, templates/fonts.ts's resume-only
+       * Source Sans 3) is DESIGNED not to block `page.goto()`'s own `load`
+       * event — the whole point of `swap` is that the page paints on a
+       * fallback font immediately and swaps in the real one once it
+       * arrives, later and asynchronously. `page.pdf()` right after `goto`
+       * was therefore always racing an unbounded number of in-flight font
+       * swaps; it happened to never lose that race before because every PR
+       * before this one loaded the exact same, already-warm set of fonts.
+       * This one is the first to change what the root layout loads (IBM
+       * Plex Sans replacing Source Sans 3) and add a genuinely new font
+       * load (Source Sans 3 again, now for the resume templates alone) —
+       * enough extra loading time to tip a config whose content already
+       * sat close to a page-break boundary. `blueprint` (single-column,
+       * density: "spacious", nameScale: "xl") did: its PDF started missing
+       * entire trailing sections (ZQCERTIFICATIONS/ZQPROJECTS), not just
+       * reordering them — a pre-swap layout genuinely being a different
+       * height than the post-swap one, mid-pagination. Reproduced
+       * deterministically 3/3 times on the branch that added those font
+       * loads, and did not reproduce on a sibling PR that didn't — timing,
+       * not content. Waiting on `document.fonts.ready` before printing
+       * makes `page.pdf()` capture the page in its FINAL, settled font
+       * state — the only state a real reader or a real ATS would ever
+       * receive from a "download PDF" click a user makes at their own
+       * pace, never mid-swap.
+       */
+      await page.waitForLoadState("networkidle");
+      await page.evaluate(() => document.fonts.ready);
       // Real browser print, same mechanism print-button.tsx uses
       // (window.print()) modulo the save-dialog — page.pdf() IS Chromium's
       // print-to-PDF pipeline, not a separate renderer.
@@ -262,6 +297,10 @@ test.describe("ats_safe is a real, PDF-verified claim per PR3 catalog slug", () 
     const config = CATALOG_TEMPLATE_CONFIGS[slug];
     test(`${slug} (skeleton: ${config.skeleton}, claimed ats_safe=${config.atsSafe})`, async ({ page }) => {
       await page.goto(`/dev/template-skeletons/${slug}`);
+      // See the "per skeleton" describe block above for why these waits
+      // exist — same fix, same root cause, same two call sites in this file.
+      await page.waitForLoadState("networkidle");
+      await page.evaluate(() => document.fonts.ready);
       const pdfBuffer = await page.pdf({ printBackground: true });
       expect(pdfBuffer.length, "generated PDF was empty").toBeGreaterThan(0);
 

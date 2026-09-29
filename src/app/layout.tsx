@@ -13,7 +13,7 @@ const newsreader = Newsreader({
   variable: "--font-newsreader",
 });
 
-const sourceSans = Source_Sans_3({
+const sourceSans3 = Source_Sans_3({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
   variable: "--font-source-sans",
@@ -100,7 +100,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${newsreader.variable} ${sourceSans.variable} h-full antialiased`}
+      className={`${newsreader.variable} ${sourceSans3.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-paper text-ink">
         {/*

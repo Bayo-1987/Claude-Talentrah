@@ -37,11 +37,18 @@ describe("a mentor cannot book their own listing as a mentee", () => {
     mentorId = mentor.id;
     otherMenteeId = mentee.id;
 
-    const { error } = await admin.from("mentor_profiles").insert({
-      user_id: mentorId,
-      status: "approved",
-      base_price_ngn: 10_000,
-    });
+    /*
+     * upsert, not insert: a claimed pool user (send-453/0188) can already
+     * carry a `mentor_profiles` row from a prior life as a real mentor —
+     * `reset_test_pool_user`'s own delete for this table is best-effort and
+     * deliberately leaves the row in place when blocked by
+     * mentorship_sessions/mentorship_reviews/mentor_payouts' NOT NULL FKs
+     * (an accepted residual, not a bug there — see that migration's own
+     * header, and the identical fix in reviewer-claim-race.test.ts).
+     */
+    const { error } = await admin
+      .from("mentor_profiles")
+      .upsert({ user_id: mentorId, status: "approved", base_price_ngn: 10_000 }, { onConflict: "user_id" });
     if (error) throw error;
   }, 60_000);
 
@@ -105,10 +112,11 @@ describe("a mentee cannot approve their own mentor application via any admin pat
     const applicant = await createTestUser("dualrole-applicant");
     applicantId = applicant.id;
 
-    const { error } = await admin.from("mentor_profiles").insert({
-      user_id: applicantId,
-      status: "pending",
-    });
+    // upsert for the same reason as the beforeAll block above — applicantId
+    // is also a pool user and can carry the same residual row.
+    const { error } = await admin
+      .from("mentor_profiles")
+      .upsert({ user_id: applicantId, status: "pending" }, { onConflict: "user_id" });
     if (error) throw error;
   }, 60_000);
 

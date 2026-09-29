@@ -142,7 +142,22 @@ export function EmployerMasthead({
 
   return (
     <div data-testid="employer-masthead" className="border-b-[2.5px] border-ink bg-paper">
-      <div className="flex h-[68px] items-center justify-between px-8">
+      {/*
+        gap-x-6 (send-470 follow-up, same reasoning as the seeker masthead's
+        identical fix) — this row's two direct children had no guaranteed
+        minimum clearance, only whatever `justify-between` left over. Adding
+        `whitespace-nowrap` to the left nav's links (below) fixes the actual
+        reported bug (wrapping onto two lines at 1200px under IBM Plex Sans)
+        but also means that content can no longer shrink onto a second line
+        to make room — so without a real floor here, a font that renders
+        even slightly wider on another platform (this file's own 1200px
+        breakpoint comment above documents exactly this kind of cross-platform
+        variance already) could turn a wrap failure into a new overlap
+        failure instead. `gap` on a flex row applies as a floor even under
+        `justify-content: space-between`, so this guarantees real separation
+        regardless of either side's content width.
+      */}
+      <div className="flex h-[68px] items-center justify-between gap-x-6 px-8">
         <div className="flex items-center gap-4 min-[1200px]:gap-9">
           <Link href="/employer/jobs" className="flex flex-shrink-0 items-center no-underline">
             {/* eslint-disable-next-line @next/next/no-img-element -- static brand SVG, matches Masthead */}
@@ -176,8 +191,21 @@ export function EmployerMasthead({
                      * base wins both times: measured `borderBottomColor rgba(0,0,0,0)`
                      * and `color` still ink-soft on the ACTIVE tab. The active state
                      * was rendering identically to the inactive ones.
+                     *
+                     * whitespace-nowrap (send-470 follow-up) — this row had none, unlike
+                     * "Looking for work?"/"Sign out" in the right-hand group, which
+                     * already got this exact fix in send-442. Without it, a font whose
+                     * metrics render this row even slightly wider than Source Sans 3 did
+                     * (IBM Plex Sans measured wrapping these labels onto two lines at
+                     * 1200px on CI's Linux runner, confirmed via
+                     * e2e/employer-masthead-nav-fit.spec.ts) reflows the label onto a
+                     * second line instead of the row simply running tight. This is a
+                     * robustness fix, not a font-specific one: it makes a future
+                     * breakpoint-vs-content collision overflow visibly (easy to catch)
+                     * rather than silently wrap, the same trade-off send-442 already
+                     * made for the group on the other side of this bar.
                      */
-                    "flex min-h-10 items-center border-b-[2.5px] font-body text-[14.5px] font-semibold text-ink no-underline",
+                    "flex min-h-10 items-center whitespace-nowrap border-b-[2.5px] font-body text-[14.5px] font-semibold text-ink no-underline",
                     active
                       ? "border-rust text-rust"
                       : "border-transparent hover:text-rust-hover",

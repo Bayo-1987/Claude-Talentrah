@@ -51,13 +51,9 @@ export function accentBgClass(accent: AccentColor): string {
 
 /**
  * classNames to put on a skeleton's OUTERMOST element so the CSS variables
- * the chosen typefaces need are actually in scope. Empty for the two
- * app-global fonts ("display"/"body") — which is what lets the migrated
- * `clean-professional` config keep its wrapper `<div>` className
- * byte-identical to the pre-skeleton `ResumeDocument` (it uses only those
- * two), while a config that reaches for one of the four new families gets
- * its variable scoped to exactly the document that needs it rather than the
- * whole app (see fonts.ts).
+ * the chosen typefaces need are actually in scope. Empty for "display" and
+ * "body" — both genuine app-global reuses (Newsreader, Source Sans 3)
+ * already scoped by `layout.tsx`.
  */
 export function fontScopeClassName(tokens: Pick<StyleTokens, "displayFont" | "bodyFont">): string {
   const vars = new Set<string>();

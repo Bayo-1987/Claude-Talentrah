@@ -62,6 +62,22 @@ function render(Component: ComponentType<TemplateProps>, resume: StructuredResum
   return renderToStaticMarkup(<Component resume={resume} />);
 }
 
+/**
+ * send-470 follow-up: the six direct templates now render with bg-resume-paper
+ * instead of bg-paper — a deliberate, already-verified color decoupling from
+ * the app's own design tokens (a resume document must not silently repaint
+ * itself with a future app redesign), not the kind of accidental drift this
+ * file exists to catch. The PRE_CHANGE_COMPONENTS fixtures are a verbatim,
+ * intentionally-frozen `git show` of the templates from BEFORE that rename —
+ * rewriting them would defeat their whole point (an actual old snapshot, not
+ * a guess at one) — so the known, reviewed rename is normalized out of the
+ * CURRENT render before comparing, leaving this test free to catch any OTHER,
+ * unintended difference exactly as before.
+ */
+function normalizeKnownSend470Rename(html: string): string {
+  return html.replace(/bg-resume-paper/g, "bg-paper");
+}
+
 /** A resume using ONLY fields that existed before this PR — no new field is set at all. */
 const OLD_SHAPE_RESUME: StructuredResume = {
   contact: {
@@ -148,7 +164,7 @@ describe("a resume with NONE of the new fields renders byte-identical to before 
       const preComponent = PRE_CHANGE_COMPONENTS[slug];
 
       const before = render(preComponent, OLD_SHAPE_RESUME);
-      const after = render(getTemplateComponent(slug), OLD_SHAPE_RESUME);
+      const after = normalizeKnownSend470Rename(render(getTemplateComponent(slug), OLD_SHAPE_RESUME));
 
       expect(after, `${slug} changed its rendered output for a resume with no new fields`).toBe(before);
     });
@@ -156,7 +172,7 @@ describe("a resume with NONE of the new fields renders byte-identical to before 
     it(`${slug}: matches its pre-widen output for an EMPTY resume too`, () => {
       const preComponent = PRE_CHANGE_COMPONENTS[slug];
       const before = render(preComponent, EMPTY_RESUME);
-      const after = render(getTemplateComponent(slug), EMPTY_RESUME);
+      const after = normalizeKnownSend470Rename(render(getTemplateComponent(slug), EMPTY_RESUME));
       expect(after).toBe(before);
     });
   }
