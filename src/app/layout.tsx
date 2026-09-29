@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { SITE_ORIGIN, SHARE_IMAGE, SHARE_IMAGE_META } from "@/lib/seo/site";
-import { Newsreader, IBM_Plex_Sans } from "next/font/google";
+import { Newsreader, Source_Sans_3 } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { CookieConsentBanner } from "@/components/legal/cookie-consent-banner";
@@ -13,10 +13,10 @@ const newsreader = Newsreader({
   variable: "--font-newsreader",
 });
 
-const ibmPlexSans = IBM_Plex_Sans({
+const sourceSans3 = Source_Sans_3({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
-  variable: "--font-ibm-plex-sans",
+  variable: "--font-source-sans",
 });
 
 const SITE_NAME = "Talentrah";
@@ -100,7 +100,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${newsreader.variable} ${ibmPlexSans.variable} h-full antialiased`}
+      className={`${newsreader.variable} ${sourceSans3.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-paper text-ink">
         {/*

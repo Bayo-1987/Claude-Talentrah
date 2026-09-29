@@ -54,17 +54,7 @@
   --color-resume-paper: var(--resume-paper);
 
   --font-display: var(--font-newsreader), Georgia, "Times New Roman", serif;
-  --font-body: var(--font-ibm-plex-sans), Arial, Helvetica, sans-serif;
-
-  /*
-   * The six FIXED resume templates' own body font (resume-builder/templates/
-   * fonts.ts) — always Source Sans 3, deliberately never --font-body. See
-   * that file's own header for why: --font-body is the app shell's, free to
-   * change on redesign, and a resume document must not change with it. Not
-   * to be confused with the skeleton system's separate, user-selectable
-   * --font-geometric/--font-humanist/etc. below, which stays exactly as-is.
-   */
-  --font-resume-body: var(--font-resume-source-sans), Arial, Helvetica, sans-serif;
+  --font-body: var(--font-source-sans), Arial, Helvetica, sans-serif;
 
   /*
    * Template library PR 2 of 3 — the four extra typefaces the resume-builder
