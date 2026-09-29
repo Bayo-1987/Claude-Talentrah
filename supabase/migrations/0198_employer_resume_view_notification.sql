@@ -1,4 +1,4 @@
--- 0195 — send-464: tell the seeker THE MOMENT an employer views their resume,
+-- 0198 — send-464: tell the seeker THE MOMENT an employer views their resume,
 -- not just show a passive Job Tracker badge for it.
 --
 -- 0126 already stamps `employer_applicant_status.first_viewed_at` (set once,

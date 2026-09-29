@@ -9,12 +9,12 @@
  *   - `seeker_application_view_status` (seeker side, SECURITY DEFINER, gated
  *     on the CALLER'S OWN `applications.user_id`, not org membership)
  *
- * 0195 (send-464) changed `record_employer_resume_view`'s return type from
+ * 0198 (send-464) changed `record_employer_resume_view`'s return type from
  * `void` to `boolean` — true iff THIS call was the one that just set
  * first_viewed_at for the first time — so this suite's own `data` assertions
  * below double as the regression test for that change staying "first call
  * true, everything else false", on top of proving
- * `seeker_application_view_status` (untouched by 0195) still behaves
+ * `seeker_application_view_status` (untouched by 0198) still behaves
  * identically.
  *
  * The isolation bar is the same one 0125 set: prove the unrelated-party case

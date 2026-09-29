@@ -17,7 +17,7 @@ export interface NotifySeekerResumeViewedParams {
  * send-464 — tell the seeker the moment an employer opens their resume, not
  * just show the passive Job Tracker badge 0126 already built.
  *
- * ONLY EVER CALL THIS WHEN record_employer_resume_view (0195) RETURNED TRUE —
+ * ONLY EVER CALL THIS WHEN record_employer_resume_view (0198) RETURNED TRUE —
  * i.e. THIS call was the one that just set first_viewed_at for the first
  * time. The real call site (resume/page.tsx) checks that return value before
  * reaching this function at all, so a repeat view of the same application
@@ -25,7 +25,7 @@ export interface NotifySeekerResumeViewedParams {
  * non-member caller, or an application with no resume attached never even
  * calls record_employer_resume_view). This function itself does not
  * re-derive "was this the first view" — that check happened once, atomically,
- * inside the RPC's own single SQL statement (0195's own header on why a
+ * inside the RPC's own single SQL statement (0198's own header on why a
  * second, JS-side check here would be exactly the read-then-act race
  * CLAUDE.md warns against), so it always sends when called.
  *
