@@ -1230,6 +1230,8 @@ export type Database = {
           unsubscribe_token: string
           updated_at: string
           user_id: string
+          win_back_email: boolean
+          win_back_last_sent_at: string | null
         }
         Insert: {
           auto_apply_digest_last_sent_at?: string | null
@@ -1241,6 +1243,8 @@ export type Database = {
           unsubscribe_token?: string
           updated_at?: string
           user_id: string
+          win_back_email?: boolean
+          win_back_last_sent_at?: string | null
         }
         Update: {
           auto_apply_digest_last_sent_at?: string | null
@@ -1252,6 +1256,8 @@ export type Database = {
           unsubscribe_token?: string
           updated_at?: string
           user_id?: string
+          win_back_email?: boolean
+          win_back_last_sent_at?: string | null
         }
         Relationships: [
           {
@@ -2532,6 +2538,7 @@ export type Database = {
           free_trial_cover_letter_used: boolean
           free_trial_tailoring_used: boolean
           id: string
+          last_active_at: string | null
           last_name: string | null
           locale: string
           market_segment: Database["public"]["Enums"]["market_segment"]
@@ -2561,6 +2568,7 @@ export type Database = {
           free_trial_cover_letter_used?: boolean
           free_trial_tailoring_used?: boolean
           id: string
+          last_active_at?: string | null
           last_name?: string | null
           locale?: string
           market_segment?: Database["public"]["Enums"]["market_segment"]
@@ -2590,6 +2598,7 @@ export type Database = {
           free_trial_cover_letter_used?: boolean
           free_trial_tailoring_used?: boolean
           id?: string
+          last_active_at?: string | null
           last_name?: string | null
           locale?: string
           market_segment?: Database["public"]["Enums"]["market_segment"]
@@ -4416,6 +4425,17 @@ export type Database = {
           requested_at: string
           target_industry: string
           target_role: string
+        }[]
+      }
+      touch_last_active: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      win_back_email_set_preference: {
+        Args: { p_enabled?: boolean; p_token: string }
+        Returns: {
+          matched: boolean
+          win_back_email: boolean
         }[]
       }
     }

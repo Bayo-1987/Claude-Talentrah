@@ -15,8 +15,9 @@ import type { UnsubscribablePreference } from "./preference";
  * named parameters (`p_subscribed` vs `p_enabled`), so this calls each by its
  * own shape rather than forcing one call site to guess a shared signature.
  * See 0128's own header for why send-138's alert has its own column and its
- * own function rather than sharing the digest's, and 0197 for send-466's
- * scholarship deadline alert following the same precedent.
+ * own function rather than sharing the digest's, 0197 for send-466's
+ * scholarship deadline alert following the same precedent, and 0200's for
+ * send-467's win-back email doing the same.
  */
 export async function resubscribeAction(
   token: string,
@@ -30,7 +31,9 @@ export async function resubscribeAction(
       ? await supabase.rpc("proactive_match_alert_set_preference", { p_token: token, p_enabled: true })
       : preference === "scholarship_deadline_alert"
         ? await supabase.rpc("scholarship_deadline_alert_set_preference", { p_token: token, p_enabled: true })
-        : await supabase.rpc("email_unsubscribe", { p_token: token, p_subscribed: true });
+        : preference === "win_back_email"
+          ? await supabase.rpc("win_back_email_set_preference", { p_token: token, p_enabled: true })
+          : await supabase.rpc("email_unsubscribe", { p_token: token, p_subscribed: true });
 
   if (error) {
     console.error("[unsubscribe] resubscribe failed:", error.message);
