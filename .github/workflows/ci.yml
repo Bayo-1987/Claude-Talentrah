@@ -405,6 +405,12 @@ jobs:
           SEED_APP_URL: http://localhost:3000
         run: npm run seed
 
+      - name: Install poppler once (diagnostic) and record its version
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq poppler-utils
+          echo "POPPLER_VERSION: $(pdftotext -v 2>&1 | head -1)"
+
       - name: Run Playwright suite
         env:
           E2E_BASE_URL: http://localhost:3000
