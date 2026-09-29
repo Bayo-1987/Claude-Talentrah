@@ -270,10 +270,19 @@ Phase 1 is feature-complete except for the employer side. Read [docs/phase-1-sum
     once been an admin or a mentor kept that row indefinitely and the next
     claim's fresh insert hit a duplicate key — fixed by adding
     `admin_users` to the wipe list and nulling
-    `talent_verifications.reviewer_id` (mentor_profiles's own NOT NULL
-    mentor-side FKs on sessions/reviews/payouts are a known, accepted
-    residual: a pool user that ran a real mentor session keeps its mentor
-    row). `email_preferences` needed the opposite fix — it's a 1:1 row a
+    `talent_verifications.reviewer_id`. (This paragraph used to call
+    `mentor_profiles`'s NOT NULL mentor-side FKs on sessions/reviews/payouts
+    "a known, accepted residual" — a pool user that ran a real mentor session
+    kept its mentor row. **That was wrong, and it was the root cause of the
+    recurring `mentor_profiles_pkey` CI flake** that hit three test files in
+    one day (#562, #563, display-name.test.ts on #572) with ~20 more carrying
+    the same bare insert. They CAN be resolved, child-first — payouts, reviews,
+    then sessions — and 0201 now does it in `reset_test_pool_user`, for the
+    mentor side and for a mentee's sessions that a payout references, without
+    touching the counterparty's rows. Pinned by
+    `tests/support/test-user-pool-mentor-reset.test.ts`, proven red-then-green.
+    The per-file `upsert` fixes stay as harmless defence in depth.)
+    `email_preferences` needed the opposite fix — it's a 1:1 row a
     trigger creates on `profiles` INSERT, which never re-fires for a
     reused id, so it's reset in place (fresh `unsubscribe_token` included)
     rather than deleted. And `createTestUser(prefix, meta)`'s `meta`

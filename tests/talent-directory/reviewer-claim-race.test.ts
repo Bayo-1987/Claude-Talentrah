@@ -51,11 +51,11 @@ beforeAll(async () => {
   /*
    * upsert, not insert: a claimed pool user (send-453/0188) can already carry
    * a `mentor_profiles` row from a PRIOR life as a real mentor —
-   * reset_test_pool_user's own delete for this table is best-effort and
-   * deliberately leaves the row in place when blocked by mentorship_sessions/
-   * mentorship_reviews/mentor_payouts' NOT NULL FKs (CLAUDE.md calls this out
-   * as an accepted residual, not a bug to fix there). A bare insert here hit
-   * that residual and collided on mentor_profiles_pkey — this test only
+   * reset_test_pool_user used to leave the row in place when blocked by
+   * mentorship_sessions/mentorship_reviews/mentor_payouts' NOT NULL FKs — 0201
+   * now fixes that at the source, so this upsert is defence in depth (it was
+   * the per-file fix, #562, before the root cause was found). A bare insert
+   * here hit that residual and collided on mentor_profiles_pkey — this test only
    * needs THIS row's status/reviews_verifications to be correct for the
    * claim logic under test, not a guarantee that no row existed before, so
    * "reset in place" (same shape reset_test_pool_user already uses for
