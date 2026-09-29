@@ -40,11 +40,11 @@ describe("a mentor cannot book their own listing as a mentee", () => {
     /*
      * upsert, not insert: a claimed pool user (send-453/0188) can already
      * carry a `mentor_profiles` row from a prior life as a real mentor —
-     * `reset_test_pool_user`'s own delete for this table is best-effort and
-     * deliberately leaves the row in place when blocked by
-     * mentorship_sessions/mentorship_reviews/mentor_payouts' NOT NULL FKs
-     * (an accepted residual, not a bug there — see that migration's own
-     * header, and the identical fix in reviewer-claim-race.test.ts).
+     * `reset_test_pool_user` used to leave the row in place when blocked by
+     * mentorship_sessions/mentorship_reviews/mentor_payouts' NOT NULL FKs;
+     * 0201 fixed that at the source, so this upsert is now defence in depth
+     * rather than the fix (see 0201's header and the identical upsert in
+     * reviewer-claim-race.test.ts).
      */
     const { error } = await admin
       .from("mentor_profiles")
