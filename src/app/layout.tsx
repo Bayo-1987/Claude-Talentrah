@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { SITE_ORIGIN, SHARE_IMAGE, SHARE_IMAGE_META } from "@/lib/seo/site";
-import { Newsreader, IBM_Plex_Sans } from "next/font/google";
+import { Newsreader, Source_Sans_3 } from "next/font/google"; // BISECT-3: temp revert to test if the app font swap causes blueprint's failure
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { CookieConsentBanner } from "@/components/legal/cookie-consent-banner";
@@ -13,7 +13,7 @@ const newsreader = Newsreader({
   variable: "--font-newsreader",
 });
 
-const ibmPlexSans = IBM_Plex_Sans({
+const ibmPlexSans = Source_Sans_3({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
   variable: "--font-ibm-plex-sans",
