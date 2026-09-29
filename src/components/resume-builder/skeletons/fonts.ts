@@ -1,5 +1,5 @@
 import { Poppins, Work_Sans, Lora, Barlow_Condensed } from "next/font/google";
-import { resumeSourceSans } from "../templates/fonts";
+// BISECT-2: temporarily removed `import { resumeSourceSans } from "../templates/fonts";`
 
 /**
  * The four typefaces added for the template library, beyond `display`
@@ -99,7 +99,7 @@ export function typefaceVariable(typeface: import("./types").Typeface): string |
     case "display":
       return null;
     case "body":
-      return resumeSourceSans.variable;
+      return null; // BISECT-2: temp revert, testing if this specifically causes blueprint's failure
     case "geometric":
       return poppins.variable;
     case "humanist":
