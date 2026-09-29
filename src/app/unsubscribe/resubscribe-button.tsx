@@ -19,6 +19,8 @@ const CONFIRMATION_COPY: Record<UnsubscribablePreference, string> = {
     "You're subscribed again — you'll hear from Farah if an exceptional match turns up.",
   scholarship_deadline_alert:
     "You're subscribed again — we'll remind you when a saved scholarship's deadline is approaching.",
+  win_back_email:
+    "You're subscribed again — Farah will let you know what's new if you go quiet for a while.",
 };
 
 export function ResubscribeButton({
