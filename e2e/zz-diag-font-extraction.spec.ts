@@ -80,37 +80,53 @@ test("font matrix extraction v2 (one block per page)", async ({ page }) => {
   }
 });
 
-test("every registered template x {source-sans, plex}: pdfjs + poppler on real prose", async ({ page }) => {
-  test.setTimeout(1_500_000);
-  await page.goto("/dev/font-probe/slugs");
-  let slugs: string[] = JSON.parse((await page.locator("#slugs").innerText()) || "[]");
-  if (process.env.PROBE_LIMIT) slugs = slugs.slice(0, Number(process.env.PROBE_LIMIT));
-  console.log(`DOC2 slugs=${slugs.length}`);
-  for (const slug of slugs) {
-    for (const variant of ["source-sans", "plex"] as const) {
+const VARIANTS: Record<string, string | null> = {
+  "source-sans": null, // current resume font, no override
+  plex: "var(--font-body)",
+  "work-sans": "var(--font-worksans)",
+  newsreader: "var(--font-newsreader)",
+  poppins: "var(--font-poppins)",
+  lora: "var(--font-lora)",
+  "barlow-condensed": "var(--font-barlow-condensed)",
+};
+
+test.describe.configure({ mode: "parallel" });
+
+for (const [variant, family] of Object.entries(VARIANTS)) {
+  test(`FONTS all templates: ${variant}`, async ({ page }) => {
+    test.setTimeout(1_500_000);
+    await page.goto("/dev/font-probe/slugs");
+    let slugs: string[] = JSON.parse((await page.locator("#slugs").innerText()) || "[]");
+    if (process.env.PROBE_LIMIT) slugs = slugs.slice(0, Number(process.env.PROBE_LIMIT));
+    for (const slug of slugs) {
       try {
         await page.goto(`/dev/font-probe/doc/${slug}`);
         await page.waitForLoadState("networkidle");
-        if (variant === "plex") {
-          await page.addStyleTag({ content: "[class*='bg-resume-paper'], [class*='bg-resume-paper'] * { font-family: var(--font-body) !important; }" });
+        if (family) {
+          await page.addStyleTag({ content: `[class*='bg-resume-paper'], [class*='bg-resume-paper'] * { font-family: ${family}, Arial, sans-serif !important; }` });
+          await page.waitForLoadState("networkidle");
         }
-        await page.evaluate(() => document.fonts.ready);
+        await page.evaluate(async () => {
+          await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+          await document.fonts.ready;
+        });
         const info = await page.evaluate(() => {
           const root = document.querySelector("[class*='bg-resume-paper']");
           const leaves = root ? [...root.querySelectorAll("*")].filter((e) => e.children.length === 0 && e.textContent?.trim()) : [];
           const isTracked = (e: Element) => { const cs = getComputedStyle(e); return cs.textTransform === "uppercase" || parseFloat(cs.letterSpacing) > 0.2; };
           const fams = new Set(leaves.map((e) => getComputedStyle(e).fontFamily.split(",")[0].replace(/"/g, "").trim()));
-          return { fams: [...fams].join("|"), body: leaves.filter((e) => !isTracked(e)).map((e) => e.textContent ?? "").join(" ") };
+          const loaded = new Set([...document.fonts].filter((f) => f.status === "loaded").map((f) => f.family.replace(/"/g, "")));
+          return { fams: [...fams].join("|"), loaded: [...loaded].join("|"), body: leaves.filter((e) => !isTracked(e)).map((e) => e.textContent ?? "").join(" ") };
         });
         const pdf = await page.pdf({ printBackground: true });
         const src = words(info.body.replace(/[^\x20-\x7E\n]/g, " "));
         const a = missingWords(src, await extractPdfText(pdf));
         const popText = pdftotext(pdf);
         const b = popText === null ? null : missingWords(src, popText);
-        console.log(`DOC2 ${slug} ${variant} fams=${info.fams} words=${src.length} pdfjsMissing=${a.length} poppler=${b === null ? "n/a" : b.length} ${JSON.stringify(a.slice(0, 4))} ${JSON.stringify((b ?? []).slice(0, 4))}`);
+        console.log(`FONTS3 ${variant} ${slug} fams=${info.fams} loaded=${info.loaded} words=${src.length} pdfjs=${a.length} poppler=${b === null ? "n/a" : b.length}`);
       } catch (e) {
-        console.log(`DOC2 ${slug} ${variant} ERROR ${(e as Error).message.slice(0, 100)}`);
+        console.log(`FONTS3 ${variant} ${slug} ERROR ${(e as Error).message.slice(0, 100)}`);
       }
     }
-  }
-});
+  });
+}

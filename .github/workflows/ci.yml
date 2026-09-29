@@ -408,7 +408,7 @@ jobs:
       - name: Run Playwright suite
         env:
           E2E_BASE_URL: http://localhost:3000
-        run: npx playwright test e2e/zz-diag-font-extraction.spec.ts
+        run: npx playwright test e2e/zz-diag-font-extraction.spec.ts -g FONTS --workers=4
 
       - name: Upload Playwright report
         if: always()
