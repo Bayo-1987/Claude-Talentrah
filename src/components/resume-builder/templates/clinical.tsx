@@ -20,7 +20,7 @@ export function ClinicalTemplate({ resume }: TemplateProps) {
   const { contact, summary, experience, education, skills, projects, certifications } = resume;
 
   return (
-    <div className={`mx-auto max-w-[720px] bg-resume-paper p-10 text-ink ${resumeSourceSans.variable}`}>
+    <div className={`mx-auto max-w-[720px] bg-resume-paper p-10 text-ink font-resume-body ${resumeSourceSans.variable}`}>
       <header className="border-b-[1.5px] border-ink pb-3">
         <h1 className="font-display text-[26px] leading-tight">{contact.name || "Your name"}</h1>
         <p className="mt-1 font-resume-body text-[12.5px] text-ink-soft">{contactLine(contact)}</p>

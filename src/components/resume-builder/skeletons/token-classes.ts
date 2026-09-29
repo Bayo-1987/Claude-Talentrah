@@ -50,25 +50,32 @@ export function accentBgClass(accent: AccentColor): string {
 }
 
 /**
- * classNames to put on a skeleton's OUTERMOST element so the CSS variables
- * the chosen typefaces need are actually in scope. Empty only for "display"
- * (the one typeface still a genuine app-global reuse, Newsreader). "body"
- * used to be empty here too — reusing `layout.tsx`'s own scope — but it's
- * now `resumeSourceSans`'s variable (see fonts.ts's `typefaceVariable`),
- * scoped here like any of the four template-only families, since it's no
- * longer the app's own font. A config using only "display"/"body" (e.g.
- * `clean-professional`) picks up exactly one scoped variable now instead of
- * zero — a real, deliberate behavior change from before send-470, not a
- * regression: the whole point is that this document no longer moves when
- * the app shell's own body font does.
+ * classNames to put on a skeleton's OUTERMOST element: the document's own
+ * base font, plus the CSS variables every chosen typeface needs in scope.
+ *
+ * THE BASE FONT IS DECLARED HERE, ALWAYS, NOT LEFT TO INHERITANCE. Text with
+ * no explicit `font-*` class of its own (`renderSimpleStringList`'s
+ * projects/certifications `<li>`s are the live example) inherits its
+ * font-family from wherever it is mounted — which, without this, is the app
+ * shell's `<body>` and so the app's `--font-body` (IBM Plex Sans). That
+ * quietly re-couples the resume to the app font in exactly the places no
+ * per-element class reaches, and on CI's Linux Chromium that text came out of
+ * the exported PDF missing entirely from extraction (`blueprint`, whose
+ * `bodyFont` is a template-only face so nothing else pulled Source Sans in).
+ * `font-resume-body` on the root makes the fixed Source Sans 3 the default
+ * for everything inside the document; a per-element class still overrides it.
+ *
+ * Its variable is therefore ALWAYS in scope (`typefaceVariable("body")`),
+ * whether or not a config's `bodyFont` is "body". "display" alone stays
+ * empty — Newsreader is genuinely app-global and is scoped by `layout.tsx`.
  */
 export function fontScopeClassName(tokens: Pick<StyleTokens, "displayFont" | "bodyFont">): string {
   const vars = new Set<string>();
-  for (const t of [tokens.displayFont, tokens.bodyFont]) {
+  for (const t of ["body", tokens.displayFont, tokens.bodyFont] as const) {
     const v = typefaceVariable(t);
     if (v) vars.add(v);
   }
-  return Array.from(vars).join(" ");
+  return ["font-resume-body", ...vars].join(" ");
 }
 
 /** Section heading treatment. `uppercase-tracked` + `rust` + `display` reproduces clean-professional's original heading class exactly. */

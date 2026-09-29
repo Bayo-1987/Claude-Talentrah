@@ -20,7 +20,7 @@ export function PipelineTemplate({ resume }: TemplateProps) {
   const { contact, summary, experience, education, skills, projects, certifications } = resume;
 
   return (
-    <div className={`mx-auto max-w-[720px] bg-resume-paper p-10 text-ink ${resumeSourceSans.variable}`}>
+    <div className={`mx-auto max-w-[720px] bg-resume-paper p-10 text-ink font-resume-body ${resumeSourceSans.variable}`}>
       <header className="pb-3">
         <h1 className="font-display text-[30px] leading-none">{contact.name || "Your name"}</h1>
         <p className="mt-1.5 font-resume-body text-[12.5px] text-ink-soft">{contactLine(contact)}</p>

@@ -1,6 +1,7 @@
 import { getExperienceBullets, getExperienceText } from "@/lib/resume/types";
 import { contactLine, dateRange, type TemplateProps } from "./shared";
 import { renderMarkdownParagraphs, renderInlineMarkdown } from "@/lib/farah/render-markdown";
+import { resumeSourceSans } from "./fonts";
 
 /**
  * Statute — Legal.
@@ -18,7 +19,7 @@ export function StatuteTemplate({ resume }: TemplateProps) {
   const { contact, summary, experience, education, skills, projects, certifications } = resume;
 
   return (
-    <div className="mx-auto max-w-[680px] bg-resume-paper px-12 py-10 text-ink">
+    <div className={`mx-auto max-w-[680px] bg-resume-paper px-12 py-10 text-ink font-resume-body ${resumeSourceSans.variable}`}>
       <header className="border-b border-ink pb-4 text-center">
         <h1 className="font-display text-[27px] tracking-[0.01em]">{contact.name || "Your name"}</h1>
         <p className="mt-1.5 font-display text-[12.5px] italic text-ink-soft">

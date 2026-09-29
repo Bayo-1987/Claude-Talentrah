@@ -77,6 +77,12 @@ function render(Component: ComponentType<TemplateProps>, resume: StructuredResum
  */
 function normalizeKnownSend470Rename(html: string): string {
   return html
+    // send-473: every document root now declares its own base font (and has
+    // its variable in scope) instead of inheriting the app's — the one
+    // ` text-ink font-resume-body --font-resume-source-sans` tail that only a
+    // root wrapper carries. Stripped first so it is not mistaken for the
+    // per-element font-resume-body -> font-body rename below.
+    .replace(/ text-ink font-resume-body --font-resume-source-sans/g, " text-ink")
     .replace(/ --font-resume-source-sans/g, "")
     .replace(/bg-resume-paper/g, "bg-paper")
     .replace(/font-resume-body/g, "font-body");
