@@ -54,10 +54,12 @@ function focusFlaggedField(path: string) {
  *
  * WAITS FOR FONTS BEFORE PRINTING (send-473). Every font here is
  * `display: "swap"`, so a click that lands while a face is still arriving —
- * a first visit on a cold cache, a slow connection — used to hand the print
- * engine a mid-swap layout, and Chromium can lock page breaks in from that
- * layout and then reflow, dropping whole sections from the exported PDF.
- * Reproduced deterministically in CI (`blueprint`, e2e/ats-safety.spec.ts).
+ * a first visit on a cold cache, a slow connection — used to print while the
+ * page was still on fallback fonts, so the PDF could be laid out and embedded
+ * with the wrong face. (That the print fires with faces still loading is
+ * proven by e2e/print-button-fonts.spec.ts; a loss of CONTENT from it was
+ * never demonstrated — the `blueprint` ATS failure that first suggested one
+ * turned out to have a different cause, see skeletons/token-classes.ts.)
  * `waitForFontsSettled` holds the print until fonts have settled, bounded so
  * a stuck font request falls back to printing rather than hanging the
  * button, and the button reads "Preparing PDF…" while it waits so that

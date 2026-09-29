@@ -13,22 +13,23 @@ import { expectedMarkerOrder, actualMarkerOrder } from "./support/ats-markers";
  * `document.fonts.ready` itself before `page.pdf()`. A real user never runs
  * that wait — they click PrintButton, which calls `window.print()`. Every
  * font here is `font-display: swap`, so a click on a first visit or a slow
- * connection landed mid-swap and Chromium locked page breaks in from the
- * fallback layout, dropping whole sections from the exported PDF
- * (reproduced in CI as `blueprint`'s trailing sections vanishing).
+ * connection used to print while faces were still loading, i.e. on fallback
+ * fonts. PrintButton now waits (src/lib/resume-builder/wait-for-fonts.ts).
  *
  * This drives the actual editor, with every font file held back for 2s so
  * the click is guaranteed to land while fonts are still arriving, and clicks
  * the actual button. `window.print` is replaced by a stub that, at the exact
  * moment PrintButton calls it, (1) records the document's font state and
  * (2) asks Node to capture `page.pdf()` — Chromium's own print-to-PDF
- * pipeline, the same one `window.print()` feeds. So what is asserted is what
- * a real click would have printed, not what a page that has long since
- * settled would.
+ * pipeline, the same one `window.print()` feeds — so what is asserted is what
+ * a real click would have printed, not what a settled page would.
  *
- * Proven both ways: with PrintButton's wait removed this fails (fonts still
- * loading at print time, and the captured PDF is missing/misordered), with it
- * present it passes.
+ * WHAT IS AND ISN'T PROVEN. With PrintButton's wait removed, the FONT-STATE
+ * assertion fails (8-10 faces still loading when `print()` fires); with it,
+ * it passes. That is the guard. The PDF-content assertion is a general
+ * check that the exported document is complete and in reading order; it did
+ * NOT distinguish the two cases (it passes or fails the same either way), and
+ * no loss of content from printing early has been reproduced.
  */
 
 const SLUG = "blueprint";
@@ -107,17 +108,17 @@ test("Download PDF on a cold font cache prints the settled document, not a mid-s
   // soft: a failure here must not hide whether the captured PDF is also wrong.
   expect.soft(
     calls[0],
-    "window.print() ran while fonts were still loading — the export race: page breaks lock in from the fallback layout",
+    "window.print() ran while fonts were still loading — the PDF would be captured on fallback fonts",
   ).toEqual({ fontsStatus: "loaded", loadingFaces: 0 });
 
   // What was actually captured at print time must be the whole document, in
-  // reading order — `blueprint` is where trailing sections went missing.
+  // reading order.
   const config = CATALOG_TEMPLATE_CONFIGS[SLUG];
   const text = await extractPdfText(pdfBuffer!);
   const expected = expectedMarkerOrder(config);
   expect(
     actualMarkerOrder(text, expected),
-    `the PDF captured at print time was missing or misordering sections; expected [${expected.join(", ")}]`,
+    `the PDF captured at print time was incomplete or misordered; expected [${expected.join(", ")}]`,
   ).toEqual(expected);
 
   // Feedback while it waited (not a dead click), and usable again afterwards.

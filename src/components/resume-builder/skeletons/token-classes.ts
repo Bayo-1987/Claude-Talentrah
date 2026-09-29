@@ -59,9 +59,12 @@ export function accentBgClass(accent: AccentColor): string {
  * font-family from wherever it is mounted — which, without this, is the app
  * shell's `<body>` and so the app's `--font-body` (IBM Plex Sans). That
  * quietly re-couples the resume to the app font in exactly the places no
- * per-element class reaches, and on CI's Linux Chromium that text came out of
- * the exported PDF missing entirely from extraction (`blueprint`, whose
- * `bodyFont` is a template-only face so nothing else pulled Source Sans in).
+ * per-element class reaches — the resume document would then change whenever
+ * the app font does, which is the one thing this decoupling exists to
+ * prevent. (It is also what first surfaced as a `blueprint` ATS-test
+ * failure: those unclassed `<li>`s were rendered in the app's font, which the
+ * test's pdf.js extraction happened to word-split. That was a symptom of the
+ * leak, not a claim that any particular font is unsafe for extraction.)
  * `font-resume-body` on the root makes the fixed Source Sans 3 the default
  * for everything inside the document; a per-element class still overrides it.
  *

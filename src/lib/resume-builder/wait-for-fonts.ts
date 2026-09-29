@@ -27,11 +27,10 @@ function nextFrame(): Promise<void> {
  *
  * WHY THIS EXISTS. Every next/font family here is `display: "swap"`: the page
  * paints on a fallback face immediately and swaps in the real one later. A
- * print/PDF capture that fires mid-swap can lock page breaks in from the
- * fallback layout and then reflow, stranding whole sections off the exported
- * document (reproduced in CI as `blueprint`'s trailing sections vanishing —
- * see e2e/ats-safety.spec.ts). Waiting here means a click always prints the
- * settled layout, which is the only one a reader or an ATS should receive.
+ * print/PDF capture that fires in that window prints on the fallback face.
+ * Waiting here means a click prints the page in its final fonts. (Verified:
+ * without the wait, `print()` fires with faces still loading. Not verified:
+ * any loss of content from doing so — none has been reproduced.)
  *
  * `document.fonts.ready` alone is not enough, for two reasons this handles:
  *  - it can resolve before style/layout has discovered a face that a

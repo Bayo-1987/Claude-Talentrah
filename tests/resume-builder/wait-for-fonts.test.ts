@@ -1,10 +1,10 @@
 /**
  * The gate behind PrintButton's "Download PDF" (send-473). What it must
- * guarantee, each a distinct way an export silently loses content:
+ * guarantee, each a distinct way an export can be captured too early:
  *
  *  1. It does NOT resolve while a font is still loading — resolving early is
- *     the original bug (print fires mid-`font-display: swap`, page breaks
- *     lock in from the fallback layout, sections vanish from the PDF).
+ *     the original bug (print fires mid-`font-display: swap`, on fallback
+ *     fonts).
  *  2. It asks for two animation frames BEFORE consulting `fonts.ready` —
  *     `ready` resolves immediately for a face layout hasn't discovered yet.
  *  3. It re-checks `status` after `ready` — a face discovered while waiting
