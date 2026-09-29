@@ -1,28 +1,33 @@
 import { Poppins, Work_Sans, Lora, Barlow_Condensed } from "next/font/google";
+import { resumeSourceSans } from "../templates/fonts";
 
 /**
- * The four typefaces added for the template library, beyond the app's own
- * Newsreader/Source Sans (`--font-display`/`--font-body`, declared in
- * `src/app/layout.tsx`). Each is self-hosted at build by `next/font/google` —
+ * The four typefaces added for the template library, beyond `display`
+ * (Newsreader, a genuine live reuse of the app's own `--font-display`) and
+ * `body` (Source Sans 3, `resumeSourceSans` — imported from
+ * `templates/fonts.ts` rather than reusing the app's OWN body font, which is
+ * IBM Plex Sans since send-470; see types.ts's `Typeface` header for why
+ * that split exists). Each is self-hosted at build by `next/font/google` —
  * no runtime Google Fonts request, and nothing served from Supabase storage,
  * so none of this touches the org's egress cap (CLAUDE.md).
  *
- * `preload: false` ON PURPOSE, unlike the two in `layout.tsx`. Those two are
- * the app's own chrome and load on every page. These four are template-only —
- * a given resume uses at most two of them (`displayFont`/`bodyFont` per
- * `StyleTokens`) — and `layout.tsx` never imports this module, so a
- * `preload: true` here would mean an eager `<link rel="preload">` for all
- * four families on every resume-builder page regardless of which template is
- * open. That is real payload on the low-end-Android/expensive-mobile-data
- * target market this product is built for (CLAUDE.md non-functional
- * requirements). With `preload: false` the browser still only fetches a
- * family's font file when text on the page actually needs its glyphs — i.e.
- * when a skeleton's font-scope wrapper (`fontScopeClassName` below) has
- * actually put that family's CSS variable in scope AND some element carries
- * the matching `font-*` utility class.
+ * `preload: false` ON PURPOSE, unlike `layout.tsx`'s own Newsreader/IBM Plex
+ * Sans load. Those two are the app's own chrome and load on every page.
+ * These four (plus `resumeSourceSans`, loaded from its own module) are
+ * template-only — a given resume uses at most two of the six typefaces
+ * (`displayFont`/`bodyFont` per `StyleTokens`) — and `layout.tsx` never
+ * imports this module, so a `preload: true` here would mean an eager
+ * `<link rel="preload">` for every family on every resume-builder page
+ * regardless of which template is open. That is real payload on the
+ * low-end-Android/expensive-mobile-data target market this product is built
+ * for (CLAUDE.md non-functional requirements). With `preload: false` the
+ * browser still only fetches a family's font file when text on the page
+ * actually needs its glyphs — i.e. when a skeleton's font-scope wrapper
+ * (`fontScopeClassName` below) has actually put that family's CSS variable
+ * in scope AND some element carries the matching `font-*` utility class.
  *
  * `display: "swap"` so an unloaded family never blocks first paint of the
- * document — same choice `layout.tsx` already makes for the two app fonts.
+ * document — same choice `layout.tsx` and `templates/fonts.ts` already make.
  */
 
 // Geometric sans — Poppins. Genuinely geometric construction (near-circular
@@ -78,12 +83,23 @@ export const barlowCondensed = Barlow_Condensed({
   preload: false,
 });
 
-/** Which next/font `.variable` a given `Typeface` token needs in scope, or `null` for the two app fonts already scoped globally by `layout.tsx`. */
+/**
+ * Which next/font `.variable` a given `Typeface` token needs in scope.
+ *
+ * `null` only for `display` — the one typeface still a genuine live reuse of
+ * an app font (Newsreader), already scoped globally by `layout.tsx`. `body`
+ * is NOT in that case any more: it's `resumeSourceSans` from
+ * `templates/fonts.ts`, the same fixed Source Sans 3 the six direct
+ * templates use, deliberately independent of the app shell's own
+ * `--font-body`/`layout.tsx` font load — see types.ts's own header on
+ * `Typeface` for why.
+ */
 export function typefaceVariable(typeface: import("./types").Typeface): string | null {
   switch (typeface) {
     case "display":
-    case "body":
       return null;
+    case "body":
+      return resumeSourceSans.variable;
     case "geometric":
       return poppins.variable;
     case "humanist":

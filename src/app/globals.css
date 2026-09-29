@@ -22,6 +22,16 @@
   --gold-hover: oklch(68% 0.15 80);
   --gold-soft: oklch(94% 0.03 80);
   --gold-ink: oklch(45% 0.12 75);
+  /*
+   * Fixed, permanent white for the resume document (screen preview + PDF
+   * export, which are the same rendered DOM/CSS — see
+   * resume-builder/templates/fonts.ts's own header). Never redefined by
+   * dark mode or a future redesign, unlike --paper/--card, which are the
+   * app SHELL's own tokens and are expected to change. A resume the user
+   * has downloaded or been ATS-graded on must not silently repaint itself
+   * the next time the app's palette does.
+   */
+  --resume-paper: oklch(100% 0 0);
 }
 
 @theme inline {
@@ -41,9 +51,20 @@
   --color-gold-hover: var(--gold-hover);
   --color-gold-soft: var(--gold-soft);
   --color-gold-ink: var(--gold-ink);
+  --color-resume-paper: var(--resume-paper);
 
   --font-display: var(--font-newsreader), Georgia, "Times New Roman", serif;
   --font-body: var(--font-ibm-plex-sans), Arial, Helvetica, sans-serif;
+
+  /*
+   * The six FIXED resume templates' own body font (resume-builder/templates/
+   * fonts.ts) — always Source Sans 3, deliberately never --font-body. See
+   * that file's own header for why: --font-body is the app shell's, free to
+   * change on redesign, and a resume document must not change with it. Not
+   * to be confused with the skeleton system's separate, user-selectable
+   * --font-geometric/--font-humanist/etc. below, which stays exactly as-is.
+   */
+  --font-resume-body: var(--font-resume-source-sans), Arial, Helvetica, sans-serif;
 
   /*
    * Template library PR 2 of 3 — the four extra typefaces the resume-builder

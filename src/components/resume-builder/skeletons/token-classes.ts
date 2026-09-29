@@ -25,7 +25,7 @@ export function fontClass(typeface: Typeface): string {
     case "display":
       return "font-display";
     case "body":
-      return "font-body";
+      return "font-resume-body";
     case "geometric":
       return "font-geometric";
     case "humanist":
@@ -51,13 +51,16 @@ export function accentBgClass(accent: AccentColor): string {
 
 /**
  * classNames to put on a skeleton's OUTERMOST element so the CSS variables
- * the chosen typefaces need are actually in scope. Empty for the two
- * app-global fonts ("display"/"body") — which is what lets the migrated
- * `clean-professional` config keep its wrapper `<div>` className
- * byte-identical to the pre-skeleton `ResumeDocument` (it uses only those
- * two), while a config that reaches for one of the four new families gets
- * its variable scoped to exactly the document that needs it rather than the
- * whole app (see fonts.ts).
+ * the chosen typefaces need are actually in scope. Empty only for "display"
+ * (the one typeface still a genuine app-global reuse, Newsreader). "body"
+ * used to be empty here too — reusing `layout.tsx`'s own scope — but it's
+ * now `resumeSourceSans`'s variable (see fonts.ts's `typefaceVariable`),
+ * scoped here like any of the four template-only families, since it's no
+ * longer the app's own font. A config using only "display"/"body" (e.g.
+ * `clean-professional`) picks up exactly one scoped variable now instead of
+ * zero — a real, deliberate behavior change from before send-470, not a
+ * regression: the whole point is that this document no longer moves when
+ * the app shell's own body font does.
  */
 export function fontScopeClassName(tokens: Pick<StyleTokens, "displayFont" | "bodyFont">): string {
   const vars = new Set<string>();

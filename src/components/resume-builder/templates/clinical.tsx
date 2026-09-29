@@ -1,6 +1,7 @@
 import { getExperienceBullets, getExperienceText } from "@/lib/resume/types";
 import { contactLine, dateRange, type TemplateProps } from "./shared";
 import { renderMarkdownParagraphs, renderInlineMarkdown } from "@/lib/farah/render-markdown";
+import { resumeSourceSans } from "./fonts";
 
 /**
  * Clinical — Healthcare.
@@ -19,20 +20,20 @@ export function ClinicalTemplate({ resume }: TemplateProps) {
   const { contact, summary, experience, education, skills, projects, certifications } = resume;
 
   return (
-    <div className="mx-auto max-w-[720px] bg-paper p-10 text-ink">
+    <div className={`mx-auto max-w-[720px] bg-resume-paper p-10 text-ink ${resumeSourceSans.variable}`}>
       <header className="border-b-[1.5px] border-ink pb-3">
         <h1 className="font-display text-[26px] leading-tight">{contact.name || "Your name"}</h1>
-        <p className="mt-1 font-body text-[12.5px] text-ink-soft">{contactLine(contact)}</p>
+        <p className="mt-1 font-resume-body text-[12.5px] text-ink-soft">{contactLine(contact)}</p>
       </header>
 
       {certifications.length > 0 && (
         <section className="mt-4 border-b border-line pb-4">
-          <h2 className="font-body text-[11px] font-bold uppercase tracking-[0.14em] text-rust">
+          <h2 className="font-resume-body text-[11px] font-bold uppercase tracking-[0.14em] text-rust">
             Licensure &amp; Certifications
           </h2>
           <ul className="mt-2 grid grid-cols-2 gap-x-6 gap-y-1">
             {certifications.map((c, i) => (
-              <li key={i} className="font-body text-[13px] text-ink">
+              <li key={i} className="font-resume-body text-[13px] text-ink">
                 {c}
               </li>
             ))}
@@ -42,13 +43,13 @@ export function ClinicalTemplate({ resume }: TemplateProps) {
 
       {summary && (
         <section className="mt-4">
-          {renderMarkdownParagraphs(summary, "font-body text-[13.5px] leading-relaxed text-ink-soft")}
+          {renderMarkdownParagraphs(summary, "font-resume-body text-[13.5px] leading-relaxed text-ink-soft")}
         </section>
       )}
 
       {experience.length > 0 && (
         <section className="mt-5">
-          <h2 className="font-body text-[11px] font-bold uppercase tracking-[0.14em] text-rust">
+          <h2 className="font-resume-body text-[11px] font-bold uppercase tracking-[0.14em] text-rust">
             Clinical Experience
           </h2>
           <div className="mt-2 flex flex-col gap-3">
@@ -58,23 +59,23 @@ export function ClinicalTemplate({ resume }: TemplateProps) {
               return (
                 <div key={i} className="border-l-2 border-line pl-3">
                   <div className="flex items-baseline justify-between gap-4">
-                    <span className="font-body text-[14px] font-semibold">{entry.title}</span>
-                    <span className="flex-shrink-0 font-body text-[11.5px] text-ink-soft">
+                    <span className="font-resume-body text-[14px] font-semibold">{entry.title}</span>
+                    <span className="flex-shrink-0 font-resume-body text-[11.5px] text-ink-soft">
                       {dateRange(entry.startDate, entry.endDate)}
                     </span>
                   </div>
-                  <div className="font-body text-[12.5px] text-ink-soft">
+                  <div className="font-resume-body text-[12.5px] text-ink-soft">
                     {[entry.company, entry.location].filter(Boolean).join(" · ")}
                   </div>
                   {bullets ? (
-                    <ul className="mt-1 list-disc pl-[18px] font-body text-[13px] leading-snug text-ink-soft">
+                    <ul className="mt-1 list-disc pl-[18px] font-resume-body text-[13px] leading-snug text-ink-soft">
                       {bullets.map((bullet, bi) => (
                         <li key={bi}>{renderInlineMarkdown(bullet)}</li>
                       ))}
                     </ul>
                   ) : (
                     text && (
-                      <p className="mt-1 font-body text-[13px] leading-snug text-ink-soft">
+                      <p className="mt-1 font-resume-body text-[13px] leading-snug text-ink-soft">
                         {renderInlineMarkdown(text)}
                       </p>
                     )
@@ -89,14 +90,14 @@ export function ClinicalTemplate({ resume }: TemplateProps) {
       <div className="mt-5 grid grid-cols-2 gap-6">
         {education.length > 0 && (
           <section>
-            <h2 className="font-body text-[11px] font-bold uppercase tracking-[0.14em] text-rust">
+            <h2 className="font-resume-body text-[11px] font-bold uppercase tracking-[0.14em] text-rust">
               Education
             </h2>
             <div className="mt-2 flex flex-col gap-2">
               {education.map((entry, i) => (
                 <div key={i}>
-                  <div className="font-body text-[13.5px] font-semibold">{entry.school}</div>
-                  <div className="font-body text-[12px] text-ink-soft">
+                  <div className="font-resume-body text-[13.5px] font-semibold">{entry.school}</div>
+                  <div className="font-resume-body text-[12px] text-ink-soft">
                     {[entry.degree, dateRange(entry.startDate, entry.endDate)]
                       .filter(Boolean)
                       .join(" · ")}
@@ -109,12 +110,12 @@ export function ClinicalTemplate({ resume }: TemplateProps) {
 
         {skills.length > 0 && (
           <section>
-            <h2 className="font-body text-[11px] font-bold uppercase tracking-[0.14em] text-rust">
+            <h2 className="font-resume-body text-[11px] font-bold uppercase tracking-[0.14em] text-rust">
               Clinical Skills
             </h2>
             <ul className="mt-2 flex flex-col gap-0.5">
               {skills.map((s, i) => (
-                <li key={i} className="font-body text-[13px] text-ink-soft">
+                <li key={i} className="font-resume-body text-[13px] text-ink-soft">
                   {s}
                 </li>
               ))}
@@ -125,12 +126,12 @@ export function ClinicalTemplate({ resume }: TemplateProps) {
 
       {projects.length > 0 && (
         <section className="mt-5">
-          <h2 className="font-body text-[11px] font-bold uppercase tracking-[0.14em] text-rust">
+          <h2 className="font-resume-body text-[11px] font-bold uppercase tracking-[0.14em] text-rust">
             Research &amp; Quality Improvement
           </h2>
           <ul className="mt-2 flex flex-col gap-1">
             {projects.map((p, i) => (
-              <li key={i} className="font-body text-[13px] text-ink-soft">
+              <li key={i} className="font-resume-body text-[13px] text-ink-soft">
                 {p}
               </li>
             ))}

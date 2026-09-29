@@ -457,7 +457,23 @@ export function Masthead({
         comment for why. Still targets the same #main-content id
         app-shell.tsx always renders.
       */}
-      <div className="flex h-[68px] items-center justify-between px-8">
+      {/*
+        gap-x-6 (send-470 follow-up) — this row's two direct children (the
+        left nav group and `masthead-actions` on the right) had no minimum
+        clearance between them, only whatever `justify-between` left over
+        after each side's own natural width. That leftover isn't a margin,
+        it's whatever's left: at 2xl, "Ask Farah"/"Post a job" measured 0px
+        apart under IBM Plex Sans (they'd already measured 0px on CI's Linux
+        runner under the OLD font too, per this file's own history a few
+        lines below — this was always fragile, the font swap just made it
+        fragile on more platforms at once). `gap` on a flex row still applies
+        as a floor even under `justify-content: space-between` — it adds to
+        whatever space-between already computes rather than being overridden
+        by it — so this guarantees real separation regardless of either
+        side's content width or font metrics, not a number re-measured for
+        one specific font that breaks again on the next redesign.
+      */}
+      <div className="flex h-[68px] items-center justify-between gap-x-6 px-8">
         <div className="flex items-center gap-4 xl:gap-9">
           {/*
             min-h-10 on the brand link, not on the image. The mark itself is
