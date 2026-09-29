@@ -88,7 +88,7 @@ export function PrintButton({
     void recordResumeBuilderCompletionAction(resumeId);
     setPreparing(true);
     try {
-      await waitForFontsSettled();
+      void waitForFontsSettled; // THROWAWAY: wait stripped to prove e2e/print-button-fonts.spec.ts fails on CI without it
     } finally {
       setPreparing(false);
     }
