@@ -175,9 +175,13 @@ test.describe("ats_safe is a real, PDF-verified claim per skeleton", () => {
 
       await page.goto(`/dev/template-skeletons/${configKey}`);
       /*
-       * WAIT FOR FONTS BEFORE PRINTING — found via a real, reproducible
-       * failure (send-470 follow-up), not added speculatively. Every
-       * `font-display: "swap"` font (layout.tsx's app fonts, skeletons/
+       * WAIT FOR THE NETWORK TO SETTLE, THEN FOR FONTS, BEFORE PRINTING —
+       * both found via a real, reproducible failure (send-470 follow-up),
+       * not added speculatively. `networkidle` first: `page.goto()`'s
+       * default `load` wait does not guarantee every in-flight request this
+       * page kicked off (font files among them) has resolved, and a test
+       * asserting on the FINAL, settled page must not act on an interim
+       * one. Every `font-display: "swap"` font (layout.tsx's app fonts, skeletons/
        * fonts.ts's four extra typefaces, templates/fonts.ts's resume-only
        * Source Sans 3) is DESIGNED not to block `page.goto()`'s own `load`
        * event — the whole point of `swap` is that the page paints on a
@@ -203,6 +207,7 @@ test.describe("ats_safe is a real, PDF-verified claim per skeleton", () => {
        * receive from a "download PDF" click a user makes at their own
        * pace, never mid-swap.
        */
+      await page.waitForLoadState("networkidle");
       await page.evaluate(() => document.fonts.ready);
       // Real browser print, same mechanism print-button.tsx uses
       // (window.print()) modulo the save-dialog — page.pdf() IS Chromium's
@@ -292,8 +297,9 @@ test.describe("ats_safe is a real, PDF-verified claim per PR3 catalog slug", () 
     const config = CATALOG_TEMPLATE_CONFIGS[slug];
     test(`${slug} (skeleton: ${config.skeleton}, claimed ats_safe=${config.atsSafe})`, async ({ page }) => {
       await page.goto(`/dev/template-skeletons/${slug}`);
-      // See the "per skeleton" describe block above for why this wait
-      // exists — same fix, same root cause, same two call sites in this file.
+      // See the "per skeleton" describe block above for why these waits
+      // exist — same fix, same root cause, same two call sites in this file.
+      await page.waitForLoadState("networkidle");
       await page.evaluate(() => document.fonts.ready);
       const pdfBuffer = await page.pdf({ printBackground: true });
       expect(pdfBuffer.length, "generated PDF was empty").toBeGreaterThan(0);
