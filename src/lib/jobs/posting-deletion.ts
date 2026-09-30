@@ -1,6 +1,7 @@
 import "server-only";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { BANNER_BUCKET } from "@/lib/employer/banner";
+import { chunkInList } from "@/lib/supabase/in-list";
 
 /**
  * Stage 5b: permanently delete a job posting once it has been CLOSED for 30+
@@ -265,12 +266,10 @@ export async function deleteStaleClosedPostings(
    * idempotency guarantee this job needs — re-running finds the eligible set
    * empty (already gone) or smaller (someone reopened one), never an error.
    */
-  const DELETE_BATCH_SIZE = 200;
   let deletedCount = 0;
   const deletedIds: string[] = [];
 
-  for (let i = 0; i < eligibleIds.length; i += DELETE_BATCH_SIZE) {
-    const batch = eligibleIds.slice(i, i + DELETE_BATCH_SIZE);
+  for (const batch of chunkInList(eligibleIds)) {
     const { data: deletedRows, error: deleteError } = await supabase
       .from("job_postings")
       .delete()
