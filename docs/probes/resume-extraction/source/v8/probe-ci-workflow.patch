@@ -1,0 +1,58 @@
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+index 501cccf..4d2d6de 100644
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -345,7 +345,7 @@ jobs:
+     # local Supabase stack, per the Stage 2 note above) — kept because failing
+     # fast on a typecheck/lint/unit-test break is still worth not spending the
+     # ~10 minutes this job takes to build and run Playwright.
+-    needs: checks
++    # THROWAWAY DIAGNOSTIC: needs removed
+     runs-on: ubuntu-latest
+     steps:
+       - uses: actions/checkout@v7
+@@ -405,10 +405,42 @@ jobs:
+           SEED_APP_URL: http://localhost:3000
+         run: npm run seed
+ 
+-      - name: Run Playwright suite
++      - name: Install the extra PDF text extractors (diagnostic) and record their versions
++        run: |
++          sudo apt-get update -qq
++          sudo apt-get install -y -qq poppler-utils mupdf-tools
++          python3 -m venv /tmp/venv
++          /tmp/venv/bin/pip install --quiet pdfminer.six==20240706
++          PDFBOX_VER=3.0.3
++          BASE=https://repo1.maven.org/maven2/org/apache/pdfbox/pdfbox-app/$PDFBOX_VER
++          curl -fsSL -o /tmp/pdfbox-app.jar $BASE/pdfbox-app-$PDFBOX_VER.jar
++          curl -fsSL -o /tmp/pdfbox-app.jar.sha1 $BASE/pdfbox-app-$PDFBOX_VER.jar.sha1
++          echo "$(cat /tmp/pdfbox-app.jar.sha1)  /tmp/pdfbox-app.jar" | sha1sum -c -
++          echo "POPPLER_VERSION: $(pdftotext -v 2>&1 | head -1)"
++          echo "MUTOOL_VERSION: $(mutool -v 2>&1 | head -1)"
++          echo "PDFMINER_VERSION: $(/tmp/venv/bin/pip show pdfminer.six | grep ^Version)"
++          echo "PDFBOX_VERSION: $PDFBOX_VER (sha1 verified)"
++          echo "JAVA: $(java -version 2>&1 | head -1)"
++
++      - name: Run Playwright suite (stage 1 - render and save PDFs)
+         env:
+           E2E_BASE_URL: http://localhost:3000
+-        run: npm run test:e2e
++        run: npx playwright test e2e/zz-diag-font-extraction.spec.ts -g WSPROBE --workers=4
++
++      - name: Stage 2 - run every extractor over the saved PDFs
++        env:
++          PDFBOX_JAR: /tmp/pdfbox-app.jar
++        run: /tmp/venv/bin/python scripts/zz-extract-all.py /tmp/pdfs 2>&1 | tee /tmp/stage2.log
++
++      - name: Upload the PDFs and results (artifact only - never committed)
++        if: always()
++        uses: actions/upload-artifact@v7
++        with:
++          name: probe-wordspacing-fine
++          path: |
++            /tmp/pdfs
++            /tmp/stage2.log
++          retention-days: 14
+ 
+       - name: Upload Playwright report
+         if: always()
