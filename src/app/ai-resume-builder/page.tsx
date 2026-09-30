@@ -58,7 +58,7 @@ export default function AiResumeBuilderPage() {
                   </h2>
                   <p className="text-[13.5px] leading-[1.5] text-ink-soft">
                     A gallery organized by field — tech, finance, healthcare,
-                    government, and dozens more — instead of one generic
+                    government, oil &amp; gas and more — instead of one generic
                     layout stretched to fit every role.
                   </p>
                 </BorderedCard>

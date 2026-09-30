@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { pageMetadata } from "@/lib/seo/site";
 import { MarketingMasthead } from "@/components/marketing/marketing-masthead";
@@ -21,32 +22,34 @@ import { Container, EyebrowLabel, BorderedCard, buttonClasses } from "@/componen
  * JobCopilot's real advantage (broader continental + global reach) is
  * stated rather than omitted.
  *
- * ── EVERY JOBCOPILOT CLAIM BELOW TRACES TO ITS OWN SITE, VERIFIED 2026-09-26 ──
+ * ── SOURCES, CHECKED 2026-09-30 (send-478) ─────────────────────────────────
  *
- * jobcopilot.freshtalent.africa (first-party): covers all 54 African
- * countries, matches roles in 150+ countries globally, with explicit
- * emphasis on global-remote employers and visa-sponsorship roles. Scans
- * 500,000+ company career pages plus job boards; up to 50 automatic
- * applications/day with role-specific CV variants and generated cover
- * letters (paid plan); AI resume builder + ATS checker; role-specific mock
- * interviews (STAR method) with instant feedback; centralized application
- * tracker with funnel analytics. Free plan: AI job search, match scores,
- * resume builder, application tracker, no card required. Paid plan adds
- * automatic applications, unlimited ATS scans, AI cover letters, interview
- * coaching, salary insights — exact paid price is NOT published on their
- * site, so no number for it appears here. No mention anywhere on their
- * public pages of scholarships or mentorship — stated below as "not offered
- * ... as of this writing," not as a permanent gap, since absence of a
- * mention today doesn't prove it never will exist.
+ * The product is "FreshTalent JobCopilot" throughout, exactly as FreshTalent
+ * brands it. A different product, jobcopilot.com, exists, and FreshTalent's
+ * own sign-up host is recruitmentroom.jobcopilot.com; the relationship between
+ * them is not established here, so no claim depends on it.
  *
- * The one comparative claim made here — "JobCopilot's free plan doesn't
- * include automatic applications; Talentrah's does" — is checked against
- * both sides' own public copy before being written: JobCopilot's own
- * pricing page states automatic applications are a paid-plan feature;
- * Talentrah's docs/auto-apply.md states a free weekly allowance (5 free /
- * rolling 7 days) before Auto-Apply draws on credits — no account tier or
- * payment required to use it at all. No price comparison is made beyond
- * that, because JobCopilot's paid price isn't published.
+ * jobcopilot.freshtalent.africa (home, /pricing, sitemap):
+ * - 54 African countries, roles in 150+ countries, 500,000+ career pages:
+ *   homepage and FAQ.
+ * - Automatic applications: paid plans only (FAQ); 5/day Basic, 20/day
+ *   Premium, up to 50/day Elite (/pricing). FAQ: you can require approval
+ *   before each submission. Interview prep is on paid plans; the resume
+ *   builder is on the free plan.
+ * - Prices ARE published, per region (/pricing). Nigeria, NGN: Basic
+ *   ₦2,900/week or ₦8,000/month; Premium ₦7,000/₦21,000; Elite ₦9,000/₦27,000;
+ *   Career Intelligence ₦21,000/year; 30-day money-back. This page used to say
+ *   the paid price was "not published"; that stopped being true. Basic costs
+ *   less than our 7-Day Pass, and the page says so.
+ * - Scholarships / mentorship: absent from the homepage's 12 features and from
+ *   the sitemap (12,845 URLs; none of the 452 non-listing pages mention
+ *   scholarship, mentor, coach or advisor). Caveat: the Elite plan lists "AI
+ *   offer negotiation and career advisors" and the pricing page does not say
+ *   who the advisors are, so the page quotes it and claims neither AI nor
+ *   human. Signed-in features cannot be checked from outside.
+ *
+ * quarterly re-check: every competitor fact above (see the follow-up in the
+ * send-478 PR).
  *
  * Talentrah's own job-sourcing scope is deliberately NOT overstated as
  * "Nigeria-specific" — src/lib/jobs/country.ts's own audit shows the feed
@@ -57,13 +60,19 @@ import { Container, EyebrowLabel, BorderedCard, buttonClasses } from "@/componen
  * where JobCopilot's own reach is broader and said so plainly below.
  */
 export const metadata: Metadata = pageMetadata({
-  title: "Talentrah vs. JobCopilot — AI Job Search Compared",
+  title: "Talentrah vs. FreshTalent JobCopilot — AI Job Search Compared",
   description:
-    "How Talentrah compares to FreshTalent's JobCopilot: AI job matching, Auto-Apply, resume tools, and interview prep — feature by feature, with what each one doesn't offer.",
+    "How Talentrah compares to FreshTalent JobCopilot: AI job matching, Auto-Apply, resume tools, and interview prep — feature by feature, with what each one doesn't offer.",
   path: "/vs/jobcopilot",
 });
 
-const COMPARISON_ROWS: { feature: string; jobcopilot: string; talentrah: string }[] = [
+const FRESHTALENT_HOME = "https://jobcopilot.freshtalent.africa";
+const FRESHTALENT_PRICING = "https://jobcopilot.freshtalent.africa/pricing";
+const ZPLATFORM_REVIEW = "https://zplatform.ai/ai-reviews/jobright-ai/";
+
+const SOURCE_LINK_CLASS = "underline underline-offset-2";
+
+const COMPARISON_ROWS: { feature: string; jobcopilot: ReactNode; talentrah: string }[] = [
   {
     feature: "Coverage",
     jobcopilot: "All 54 African countries, matching roles in 150+ countries globally — its clearest advantage",
@@ -76,17 +85,19 @@ const COMPARISON_ROWS: { feature: string; jobcopilot: string; talentrah: string 
   },
   {
     feature: "Auto-Apply",
-    jobcopilot: "Up to 50 automatic applications/day with role-specific CV variants (paid plan only)",
-    talentrah: "Review-before-submit by default; free weekly allowance before it draws on credits — no plan required to start",
+    jobcopilot:
+      "Automatic applications on paid plans only: 5/day (Basic), 20/day (Premium), up to 50/day (Elite); approval before submitting is optional",
+    talentrah:
+      "Matches wait in a review queue for your confirmation before anything is submitted; a free weekly allowance before it draws on credits — no plan required to start",
   },
   {
     feature: "Resume tools",
-    jobcopilot: "AI resume builder, unlimited ATS scans (paid plan)",
+    jobcopilot: "AI resume builder (free plan); unlimited ATS scans (paid plans)",
     talentrah: "AI resume builder with industry templates, plus JD-paste tailoring and an ATS score",
   },
   {
     feature: "Interview prep",
-    jobcopilot: "Role-specific mock interviews (STAR method) with instant feedback",
+    jobcopilot: "Role-specific mock interviews (STAR method) with instant feedback (paid plans)",
     talentrah: "Conversational prep with Farah — talking points and practice Q&A for a specific role",
   },
   {
@@ -96,17 +107,35 @@ const COMPARISON_ROWS: { feature: string; jobcopilot: string; talentrah: string 
   },
   {
     feature: "Pricing",
-    jobcopilot: "Free plan, no card required; paid plan's price is not published",
+    jobcopilot: (
+      <>
+        Free plan, no card required. Paid plans in Nigeria, per{" "}
+        <a href={FRESHTALENT_PRICING} target="_blank" rel="noopener noreferrer nofollow" className={SOURCE_LINK_CLASS}>
+          its pricing page
+        </a>
+        , September 2026: Basic ₦2,900/week or ₦8,000/month; Premium ₦7,000/week or ₦21,000/month; Elite ₦9,000/week
+        or ₦27,000/month; Career Intelligence ₦21,000/year
+      </>
+    ),
     talentrah: "Free trial + free weekly Auto-Apply, then NGN credit packs from ₦2,500 or a Pass from ₦6,500",
   },
   {
     feature: "Scholarships",
-    jobcopilot: "Not offered on JobCopilot's public pages as of this writing",
+    jobcopilot: "Not on FreshTalent JobCopilot's public pages as of September 2026",
     talentrah: "Yes — a public, attributed catalog for Nigerian and African applicants",
   },
   {
     feature: "Human mentorship",
-    jobcopilot: "Not offered on JobCopilot's public pages as of this writing",
+    jobcopilot: (
+      <>
+        No mentor marketplace on its public pages as of September 2026. Its Elite plan lists &ldquo;AI offer
+        negotiation and career advisors&rdquo;; its{" "}
+        <a href={FRESHTALENT_PRICING} target="_blank" rel="noopener noreferrer nofollow" className={SOURCE_LINK_CLASS}>
+          pricing page
+        </a>{" "}
+        doesn&apos;t say more.
+      </>
+    ),
     talentrah: "Yes — real mentors for mock interviews and negotiation, not just AI coaching",
   },
 ];
@@ -118,24 +147,24 @@ export default function JobCopilotComparisonPage() {
       <main id="main-content" className="py-20">
         <Container className="flex max-w-[860px] flex-col gap-14">
           <div className="flex flex-col gap-4">
-            <EyebrowLabel>Talentrah vs. JobCopilot</EyebrowLabel>
+            <EyebrowLabel>Talentrah vs. FreshTalent JobCopilot</EyebrowLabel>
             <h1 className="font-display text-[36px] leading-[1.15]">
               Two AI job copilots built for Africa. Here&apos;s how they differ.
             </h1>
             <p className="max-w-[660px] text-[16px] leading-[1.6] text-ink-soft">
               <a
-                href="https://jobcopilot.freshtalent.africa"
+                href={FRESHTALENT_HOME}
                 target="_blank"
                 rel="noopener noreferrer nofollow"
                 className="font-semibold text-rust underline underline-offset-2"
               >
-                JobCopilot
-              </a>
-              , FreshTalent&apos;s AI job search product, and Talentrah both
-              offer AI job matching, Auto-Apply, resume tools, interview
-              prep, and application tracking. This is a genuine overlap, not
-              a stretch — so this page compares them feature by feature
-              rather than pretending one is obviously better.
+                FreshTalent JobCopilot
+              </a>{" "}
+              and Talentrah both offer AI job matching, Auto-Apply, resume
+              tools, interview prep, and application tracking. This is a
+              genuine overlap, not a stretch — so this page compares them
+              feature by feature rather than pretending one is obviously
+              better.
             </p>
             <div className="mt-2">
               <Link href="/signup" className={buttonClasses("primary", "md", "no-underline w-fit")}>
@@ -145,9 +174,9 @@ export default function JobCopilotComparisonPage() {
           </div>
 
           <div className="flex flex-col gap-4 border-t border-line pt-10">
-            <EyebrowLabel>Where JobCopilot has the edge</EyebrowLabel>
+            <EyebrowLabel>Where FreshTalent JobCopilot has the edge</EyebrowLabel>
             <p className="max-w-[660px] text-[15px] leading-[1.65] text-ink-soft">
-              JobCopilot covers all 54 African countries and matches roles in
+              FreshTalent JobCopilot covers all 54 African countries and matches roles in
               150+ countries globally, with a real emphasis on
               global-remote employers and visa-sponsorship roles. If broad
               continental and international reach is what you&apos;re
@@ -159,7 +188,7 @@ export default function JobCopilotComparisonPage() {
           <div className="flex flex-col gap-4 border-t border-line pt-10">
             <EyebrowLabel>Where Talentrah differs</EyebrowLabel>
             <p className="max-w-[660px] text-[15px] leading-[1.65] text-ink-soft">
-              Talentrah adds two things that aren&apos;t part of
+              Talentrah adds two things that aren&apos;t part of FreshTalent
               JobCopilot&apos;s current public feature set:{" "}
               <Link href="/scholarships/apply-now" className="font-semibold text-rust underline underline-offset-2">
                 scholarships
@@ -169,10 +198,25 @@ export default function JobCopilotComparisonPage() {
                 human mentorship
               </Link>{" "}
               — real mentors for mock interviews and offer negotiation, not
-              just AI coaching. On pricing, JobCopilot&apos;s free plan
-              doesn&apos;t include automatic applications; Talentrah&apos;s
-              free tier does, up to a weekly allowance, before drawing on
-              credits — no plan required to start.
+              just AI coaching. Auto-Apply works differently too: Talentrah
+              holds matches in a review queue for your confirmation before
+              anything is submitted, while FreshTalent JobCopilot&apos;s own
+              FAQ says approval before each submission is something you can
+              choose to require. On the free tier, FreshTalent JobCopilot&apos;s
+              free plan doesn&apos;t include automatic applications;
+              Talentrah&apos;s does, up to a weekly allowance, before drawing on
+              credits. On price, FreshTalent JobCopilot&apos;s cheapest paid
+              plan (Basic, ₦2,900 a week in Nigeria, per{" "}
+              <a
+                href={FRESHTALENT_PRICING}
+                target="_blank"
+                rel="noopener noreferrer nofollow"
+                className="underline underline-offset-2"
+              >
+                its pricing page
+              </a>
+              , September 2026) costs less than our 7-Day Pass (₦6,500) — so
+              compare what each includes, not just the number.
             </p>
           </div>
 
@@ -186,7 +230,7 @@ export default function JobCopilotComparisonPage() {
                       Feature
                     </th>
                     <th className="px-4 py-3 font-body text-[11.5px] font-bold uppercase tracking-[0.14em] text-ink-soft">
-                      JobCopilot
+                      FreshTalent JobCopilot
                     </th>
                     <th className="px-4 py-3 font-body text-[11.5px] font-bold uppercase tracking-[0.14em] text-ink-soft">
                       Talentrah
@@ -207,18 +251,25 @@ export default function JobCopilotComparisonPage() {
               </table>
             </div>
             <p className="text-[12.5px] leading-[1.6] text-ink-soft">
-              JobCopilot details are from{" "}
+              FreshTalent JobCopilot details are from{" "}
               <a
-                href="https://jobcopilot.freshtalent.africa"
+                href={FRESHTALENT_HOME}
                 target="_blank"
                 rel="noopener noreferrer nofollow"
                 className="underline underline-offset-2"
               >
                 jobcopilot.freshtalent.africa
+              </a>{" "}
+              and{" "}
+              <a
+                href={FRESHTALENT_PRICING}
+                target="_blank"
+                rel="noopener noreferrer nofollow"
+                className="underline underline-offset-2"
+              >
+                its pricing page
               </a>
-              , its own site — including that its paid-plan price isn&apos;t
-              published, which is why no price comparison is made beyond
-              what each free plan includes. Talentrah pricing is from{" "}
+              , checked September 2026. Talentrah pricing is from{" "}
               <Link href="/ai-resume-tailoring" className="underline underline-offset-2">
                 Talentrah&apos;s own current catalog
               </Link>
@@ -229,9 +280,17 @@ export default function JobCopilotComparisonPage() {
           <div className="flex flex-col gap-3 border-t border-line pt-10">
             <EyebrowLabel>Also weighing US-market tools?</EyebrowLabel>
             <p className="max-w-[640px] text-[15px] leading-[1.65] text-ink-soft">
-              Some AI job copilots, like Jobright, are built for the US
-              market and don&apos;t return usable results from Nigeria at
-              all — a different comparison than this one. See{" "}
+              Some AI job copilots, like Jobright, are built for the US market
+              and are reported to return nothing usable outside it (
+              <a
+                href={ZPLATFORM_REVIEW}
+                target="_blank"
+                rel="noopener noreferrer nofollow"
+                className="underline underline-offset-2"
+              >
+                zPlatform, September 2026
+              </a>
+              ) — a different comparison than this one. See{" "}
               <Link href="/vs/jobright" className="font-semibold text-rust underline underline-offset-2">
                 how Talentrah compares to Jobright →
               </Link>
