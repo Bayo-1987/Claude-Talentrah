@@ -1,0 +1,934 @@
+VER {"poppler": "pdftotext version 24.02.0", "mutool": "mutool version 1.23.10", "java": "openjdk version \"17.0.20.1\" 2026-08-18", "pdfminer": "pdfminer.six 20240706", "pdfbox": "pdfbox-app.jar"}
+VER pdf_count=780 dir=/tmp/pdfs
+ROW 0 newsreader balance-sheet 119 0 0 0 0 0
+ROW 0 newsreader blueprint 113 0 0 0 0 0
+ROW 0 newsreader business-boardroom 119 0 0 0 0 0
+ROW 0 newsreader business-memo 118 0 0 0 0 0
+ROW 0 newsreader byline 119 0 0 0 0 0
+ROW 0 newsreader care-plan 113 0 0 0 0 0
+ROW 0 newsreader chambers 113 0 0 0 0 0
+ROW 0 newsreader civic-record 113 0 0 0 0 0
+ROW 0 newsreader clean-professional 113 0 0 0 0 0
+ROW 0 newsreader clinical 113 0 1 0 0 0
+ROW 0 newsreader compliance-brief 113 0 0 0 0 0
+ROW 0 newsreader concierge 118 0 0 0 0 0
+ROW 0 newsreader critical-path 110 1 0 1 0 0
+ROW 0 newsreader curriculum-vitae 119 0 0 0 0 0
+ROW 0 newsreader design-showcase 113 0 0 0 0 0
+ROW 0 newsreader faculty-profile 118 0 0 0 0 0
+ROW 0 newsreader field-mission 119 0 0 0 0 0
+ROW 0 newsreader field-notes 113 0 0 0 0 0
+ROW 0 newsreader field-season 113 0 0 0 0 0
+ROW 0 newsreader filing-system 113 0 0 0 0 0
+ROW 0 newsreader foundation 113 0 0 0 0 0
+ROW 0 newsreader front-desk 120 0 0 0 0 0
+ROW 0 newsreader front-office 113 0 0 0 0 0
+ROW 0 newsreader funnel 113 0 0 0 0 0
+ROW 0 newsreader gantt 113 0 0 0 0 0
+ROW 0 newsreader gazette 113 0 0 0 0 0
+ROW 0 newsreader grant-proposal 118 0 0 0 0 0
+ROW 0 newsreader harvest 113 0 0 0 0 0
+ROW 0 newsreader help-desk 119 0 0 0 0 0
+ROW 0 newsreader impact-report 113 0 0 0 0 0
+ROW 0 newsreader itinerary 113 0 0 0 0 0
+ROW 0 newsreader lecture-notes 113 0 0 0 0 0
+ROW 0 newsreader ledger 113 0 0 0 0 0
+ROW 0 newsreader legal-brief 113 0 0 0 0 0
+ROW 0 newsreader manifest 113 0 0 0 0 0
+ROW 0 newsreader network-ops 113 0 0 0 0 0
+ROW 0 newsreader offshore 113 0 0 0 0 0
+ROW 0 newsreader pipeline 98 0 0 0 0 0
+ROW 0 newsreader pitch-deck 113 0 0 0 0 0
+ROW 0 newsreader portfolio-grid 112 0 1 0 0 0
+ROW 0 newsreader press-kit 113 0 0 0 0 0
+ROW 0 newsreader product-tech 113 0 0 0 0 0
+ROW 0 newsreader property-portfolio 113 0 0 0 0 0
+ROW 0 newsreader public-record 113 0 0 0 0 0
+ROW 0 newsreader reel 113 0 0 0 0 0
+ROW 0 newsreader research-record 119 0 0 0 0 0
+ROW 0 newsreader rig-report 113 0 0 0 0 0
+ROW 0 newsreader rounds 119 0 0 0 0 0
+ROW 0 newsreader route-plan 113 0 0 0 0 0
+ROW 0 newsreader schematic 118 0 0 0 0 0
+ROW 0 newsreader signal 113 0 0 0 0 0
+ROW 0 newsreader site-plan 113 0 0 0 0 0
+ROW 0 newsreader site-report 113 0 0 0 0 0
+ROW 0 newsreader specification 119 0 0 0 0 0
+ROW 0 newsreader sprint-board 113 0 0 0 0 0
+ROW 0 newsreader stack-trace 113 0 0 0 0 0
+ROW 0 newsreader statute 111 0 0 0 0 0
+ROW 0 newsreader structured-admin 113 0 0 0 0 0
+ROW 0 newsreader studio-brief 113 0 0 0 0 0
+ROW 0 newsreader success-story 119 0 0 0 0 0
+ROW 0 newsreader supply-chain 113 0 0 0 0 0
+ROW 0 newsreader terminal 113 0 0 0 0 0
+ROW 0 newsreader uptime 113 0 0 0 0 0
+ROW 0 newsreader value-chain 113 0 0 0 0 0
+ROW 0 newsreader wellhead 113 0 0 0 0 0
+ROW 0 plex balance-sheet 119 4 0 4 0 0
+ROW 0 plex blueprint 113 1 0 1 0 3
+ROW 0 plex business-boardroom 119 3 0 3 0 0
+ROW 0 plex business-memo 118 3 0 3 0 0
+ROW 0 plex byline 119 3 0 3 0 0
+ROW 0 plex care-plan 113 3 0 3 0 0
+ROW 0 plex chambers 113 3 0 3 0 0
+ROW 0 plex civic-record 113 1 0 1 0 0
+ROW 0 plex clean-professional 113 3 0 3 0 0
+ROW 0 plex clinical 113 0 0 0 0 0
+ROW 0 plex compliance-brief 113 3 0 3 0 0
+ROW 0 plex concierge 118 3 0 3 0 0
+ROW 0 plex critical-path 110 2 0 2 0 0
+ROW 0 plex curriculum-vitae 119 3 0 3 0 0
+ROW 0 plex design-showcase 113 1 0 1 0 2
+ROW 0 plex faculty-profile 118 3 0 3 0 0
+ROW 0 plex field-mission 119 3 0 3 0 0
+ROW 0 plex field-notes 113 1 0 1 0 0
+ROW 0 plex field-season 113 3 0 3 0 0
+ROW 0 plex filing-system 113 1 0 1 0 0
+ROW 0 plex foundation 113 3 0 3 0 0
+ROW 0 plex front-desk 120 3 0 3 0 0
+ROW 0 plex front-office 113 3 0 3 0 0
+ROW 0 plex funnel 113 3 0 3 0 0
+ROW 0 plex gantt 113 3 0 3 0 0
+ROW 0 plex gazette 113 3 0 3 0 0
+ROW 0 plex grant-proposal 118 3 0 3 0 0
+ROW 0 plex harvest 113 1 0 1 0 0
+ROW 0 plex help-desk 119 3 0 3 0 0
+ROW 0 plex impact-report 113 3 0 3 0 0
+ROW 0 plex itinerary 113 1 0 1 0 0
+ROW 0 plex lecture-notes 113 1 0 1 0 0
+ROW 0 plex ledger 113 3 0 3 0 0
+ROW 0 plex legal-brief 113 1 0 1 0 0
+ROW 0 plex manifest 113 3 0 3 0 0
+ROW 0 plex network-ops 113 3 0 3 0 0
+ROW 0 plex offshore 113 3 0 3 0 0
+ROW 0 plex pipeline 98 9 0 9 0 5
+ROW 0 plex pitch-deck 113 3 0 3 0 0
+ROW 0 plex portfolio-grid 112 0 0 0 0 0
+ROW 0 plex press-kit 113 3 0 3 0 0
+ROW 0 plex product-tech 113 3 0 3 0 0
+ROW 0 plex property-portfolio 113 3 0 3 0 0
+ROW 0 plex public-record 113 0 0 0 0 0
+ROW 0 plex reel 113 1 0 1 0 2
+ROW 0 plex research-record 119 3 0 3 0 0
+ROW 0 plex rig-report 113 1 0 1 0 0
+ROW 0 plex rounds 119 3 0 3 0 0
+ROW 0 plex route-plan 113 3 0 3 0 0
+ROW 0 plex schematic 118 1 0 1 0 2
+ROW 0 plex signal 113 3 0 3 0 0
+ROW 0 plex site-plan 113 3 0 3 0 0
+ROW 0 plex site-report 113 3 0 3 0 0
+ROW 0 plex specification 119 1 0 1 0 0
+ROW 0 plex sprint-board 113 3 0 3 0 0
+ROW 0 plex stack-trace 113 3 0 3 0 0
+ROW 0 plex statute 111 3 0 3 0 0
+ROW 0 plex structured-admin 113 3 0 3 0 0
+ROW 0 plex studio-brief 113 3 0 3 0 0
+ROW 0 plex success-story 119 3 0 3 0 0
+ROW 0 plex supply-chain 113 3 0 3 0 0
+ROW 0 plex terminal 113 1 0 1 0 0
+ROW 0 plex uptime 113 3 0 3 0 0
+ROW 0 plex value-chain 113 3 0 3 0 0
+ROW 0 plex wellhead 113 3 0 3 0 0
+ROW 0 source-sans balance-sheet 119 3 30 3 0 3
+ROW 0 source-sans blueprint 113 0 22 0 0 0
+ROW 0 source-sans business-boardroom 119 0 29 0 0 0
+ROW 0 source-sans business-memo 118 3 33 3 0 3
+ROW 0 source-sans byline 119 0 32 0 0 0
+ROW 0 source-sans care-plan 113 3 33 3 0 3
+ROW 0 source-sans chambers 113 3 30 3 0 3
+ROW 0 source-sans civic-record 113 1 50 1 0 1
+ROW 0 source-sans clean-professional 113 3 33 3 0 3
+ROW 0 source-sans clinical 113 0 14 0 0 0
+ROW 0 source-sans compliance-brief 113 3 33 3 0 3
+ROW 0 source-sans concierge 118 0 29 0 0 0
+ROW 0 source-sans critical-path 110 0 31 1 0 1
+ROW 0 source-sans curriculum-vitae 119 0 32 0 0 0
+ROW 0 source-sans design-showcase 113 0 24 0 0 0
+ROW 0 source-sans faculty-profile 118 0 29 0 0 0
+ROW 0 source-sans field-mission 119 0 32 0 0 0
+ROW 0 source-sans field-notes 113 1 49 1 0 3
+ROW 0 source-sans field-season 113 0 32 0 0 0
+ROW 0 source-sans filing-system 113 1 50 1 0 1
+ROW 0 source-sans foundation 113 3 33 3 0 3
+ROW 0 source-sans front-desk 120 0 32 0 0 0
+ROW 0 source-sans front-office 113 0 29 0 0 0
+ROW 0 source-sans funnel 113 0 29 0 0 0
+ROW 0 source-sans gantt 113 0 32 0 0 0
+ROW 0 source-sans gazette 113 3 33 3 0 3
+ROW 0 source-sans grant-proposal 118 0 29 0 0 0
+ROW 0 source-sans harvest 113 1 50 1 0 1
+ROW 0 source-sans help-desk 119 3 32 6 0 6
+ROW 0 source-sans impact-report 113 0 32 0 0 0
+ROW 0 source-sans itinerary 113 1 49 1 0 0
+ROW 0 source-sans lecture-notes 113 1 49 1 0 0
+ROW 0 source-sans ledger 113 3 33 3 0 3
+ROW 0 source-sans legal-brief 113 1 49 1 0 0
+ROW 0 source-sans manifest 113 3 33 3 0 3
+ROW 0 source-sans network-ops 113 0 32 0 0 0
+ROW 0 source-sans offshore 113 3 33 3 0 3
+ROW 0 source-sans pipeline 98 0 12 1 0 1
+ROW 0 source-sans pitch-deck 113 0 29 0 0 0
+ROW 0 source-sans portfolio-grid 112 0 10 0 0 0
+ROW 0 source-sans press-kit 113 0 29 0 0 0
+ROW 0 source-sans product-tech 113 0 29 0 0 0
+ROW 0 source-sans property-portfolio 113 0 29 0 0 0
+ROW 0 source-sans public-record 113 0 41 0 0 0
+ROW 0 source-sans reel 113 0 24 0 0 0
+ROW 0 source-sans research-record 119 0 31 0 0 0
+ROW 0 source-sans rig-report 113 1 49 1 0 0
+ROW 0 source-sans rounds 119 3 33 3 0 3
+ROW 0 source-sans route-plan 113 0 32 0 0 0
+ROW 0 source-sans schematic 118 3 24 3 0 3
+ROW 0 source-sans signal 113 0 29 0 0 0
+ROW 0 source-sans site-plan 113 0 32 0 0 0
+ROW 0 source-sans site-report 113 0 32 0 0 0
+ROW 0 source-sans specification 119 1 50 1 0 1
+ROW 0 source-sans sprint-board 113 0 29 0 0 0
+ROW 0 source-sans stack-trace 113 0 29 0 0 0
+ROW 0 source-sans statute 111 0 0 0 0 0
+ROW 0 source-sans structured-admin 113 3 33 3 0 3
+ROW 0 source-sans studio-brief 113 0 29 0 0 0
+ROW 0 source-sans success-story 119 0 32 0 0 0
+ROW 0 source-sans supply-chain 113 0 29 0 0 0
+ROW 0 source-sans terminal 113 1 49 1 0 3
+ROW 0 source-sans uptime 113 0 29 0 0 0
+ROW 0 source-sans value-chain 113 0 29 0 0 0
+ROW 0 source-sans wellhead 113 0 29 0 0 0
+ROW 0 work-sans balance-sheet 119 0 0 0 0 0
+ROW 0 work-sans blueprint 113 0 0 0 0 0
+ROW 0 work-sans business-boardroom 119 0 0 0 0 0
+ROW 0 work-sans business-memo 118 0 0 0 0 0
+ROW 0 work-sans byline 119 0 0 0 0 0
+ROW 0 work-sans care-plan 113 0 0 0 0 0
+ROW 0 work-sans chambers 113 0 0 0 0 0
+ROW 0 work-sans civic-record 113 3 0 3 0 0
+ROW 0 work-sans clean-professional 113 0 0 0 0 0
+ROW 0 work-sans clinical 113 2 0 2 0 0
+ROW 0 work-sans compliance-brief 113 0 0 0 0 0
+ROW 0 work-sans concierge 118 0 0 0 0 0
+ROW 0 work-sans critical-path 110 0 0 0 0 0
+ROW 0 work-sans curriculum-vitae 119 0 0 0 0 0
+ROW 0 work-sans design-showcase 113 0 0 0 0 0
+ROW 0 work-sans faculty-profile 118 0 0 0 0 0
+ROW 0 work-sans field-mission 119 0 0 0 0 0
+ROW 0 work-sans field-notes 113 3 0 3 0 0
+ROW 0 work-sans field-season 113 0 0 0 0 0
+ROW 0 work-sans filing-system 113 3 0 3 0 0
+ROW 0 work-sans foundation 113 0 0 0 0 0
+ROW 0 work-sans front-desk 120 0 0 0 0 0
+ROW 0 work-sans front-office 113 0 0 0 0 0
+ROW 0 work-sans funnel 113 0 0 0 0 0
+ROW 0 work-sans gantt 113 0 0 0 0 0
+ROW 0 work-sans gazette 113 0 0 0 0 0
+ROW 0 work-sans grant-proposal 118 0 0 0 0 0
+ROW 0 work-sans harvest 113 3 0 3 0 0
+ROW 0 work-sans help-desk 119 0 0 0 0 0
+ROW 0 work-sans impact-report 113 0 0 0 0 0
+ROW 0 work-sans itinerary 113 3 0 3 0 0
+ROW 0 work-sans lecture-notes 113 3 0 3 0 0
+ROW 0 work-sans ledger 113 0 0 0 0 0
+ROW 0 work-sans legal-brief 113 3 0 3 0 0
+ROW 0 work-sans manifest 113 0 0 0 0 0
+ROW 0 work-sans network-ops 113 0 0 0 0 0
+ROW 0 work-sans offshore 113 0 0 0 0 0
+ROW 0 work-sans pipeline 98 0 0 0 0 0
+ROW 0 work-sans pitch-deck 113 0 0 0 0 0
+ROW 0 work-sans portfolio-grid 112 1 0 1 0 0
+ROW 0 work-sans press-kit 113 0 0 0 0 0
+ROW 0 work-sans product-tech 113 0 0 0 0 0
+ROW 0 work-sans property-portfolio 113 0 0 0 0 0
+ROW 0 work-sans public-record 113 0 0 0 0 0
+ROW 0 work-sans reel 113 0 0 0 0 0
+ROW 0 work-sans research-record 119 0 0 0 0 0
+ROW 0 work-sans rig-report 113 3 0 3 0 0
+ROW 0 work-sans rounds 119 0 0 0 0 0
+ROW 0 work-sans route-plan 113 0 0 0 0 0
+ROW 0 work-sans schematic 118 0 0 0 0 0
+ROW 0 work-sans signal 113 0 0 0 0 0
+ROW 0 work-sans site-plan 113 0 0 0 0 0
+ROW 0 work-sans site-report 113 0 0 0 0 0
+ROW 0 work-sans specification 119 3 0 3 0 0
+ROW 0 work-sans sprint-board 113 0 0 0 0 0
+ROW 0 work-sans stack-trace 113 0 0 0 0 0
+ROW 0 work-sans statute 111 0 0 0 0 0
+ROW 0 work-sans structured-admin 113 0 0 0 0 0
+ROW 0 work-sans studio-brief 113 0 0 0 0 0
+ROW 0 work-sans success-story 119 0 0 0 0 0
+ROW 0 work-sans supply-chain 113 0 0 0 0 0
+ROW 0 work-sans terminal 113 3 0 3 0 0
+ROW 0 work-sans uptime 113 0 0 0 0 0
+ROW 0 work-sans value-chain 113 0 0 0 0 0
+ROW 0 work-sans wellhead 113 0 0 0 0 0
+ROW 1 newsreader balance-sheet 154 0 0 0 0 0
+ROW 1 newsreader blueprint 148 2 1 2 0 0
+ROW 1 newsreader business-boardroom 154 0 0 0 0 0
+ROW 1 newsreader business-memo 153 0 0 0 0 0
+ROW 1 newsreader byline 154 0 0 0 0 0
+ROW 1 newsreader care-plan 148 0 0 0 0 0
+ROW 1 newsreader chambers 148 0 0 0 0 0
+ROW 1 newsreader civic-record 148 0 0 0 0 0
+ROW 1 newsreader clean-professional 148 0 0 0 0 0
+ROW 1 newsreader clinical 148 0 0 0 0 0
+ROW 1 newsreader compliance-brief 148 0 0 0 0 0
+ROW 1 newsreader concierge 153 0 0 0 0 0
+ROW 1 newsreader critical-path 144 2 0 2 0 0
+ROW 1 newsreader curriculum-vitae 154 0 0 0 0 0
+ROW 1 newsreader design-showcase 148 2 0 2 0 0
+ROW 1 newsreader faculty-profile 153 0 0 0 0 0
+ROW 1 newsreader field-mission 154 0 0 0 0 0
+ROW 1 newsreader field-notes 148 0 0 0 0 0
+ROW 1 newsreader field-season 148 0 0 0 0 0
+ROW 1 newsreader filing-system 148 0 0 0 0 0
+ROW 1 newsreader foundation 148 0 0 0 0 0
+ROW 1 newsreader front-desk 155 0 0 0 0 0
+ROW 1 newsreader front-office 148 0 0 0 0 0
+ROW 1 newsreader funnel 148 0 0 0 0 0
+ROW 1 newsreader gantt 148 0 0 0 0 0
+ROW 1 newsreader gazette 148 0 0 0 0 0
+ROW 1 newsreader grant-proposal 153 0 0 0 0 0
+ROW 1 newsreader harvest 148 0 0 0 0 0
+ROW 1 newsreader help-desk 154 0 0 0 0 0
+ROW 1 newsreader impact-report 148 0 0 0 0 0
+ROW 1 newsreader itinerary 148 0 0 0 0 0
+ROW 1 newsreader lecture-notes 148 0 0 0 0 0
+ROW 1 newsreader ledger 148 0 0 0 0 0
+ROW 1 newsreader legal-brief 148 0 0 0 0 0
+ROW 1 newsreader manifest 148 0 0 0 0 0
+ROW 1 newsreader network-ops 148 0 0 0 0 0
+ROW 1 newsreader offshore 148 0 0 0 0 0
+ROW 1 newsreader pipeline 134 0 0 0 0 0
+ROW 1 newsreader pitch-deck 148 0 0 0 0 0
+ROW 1 newsreader portfolio-grid 144 0 0 0 0 0
+ROW 1 newsreader press-kit 148 0 0 0 0 0
+ROW 1 newsreader product-tech 148 0 0 0 0 0
+ROW 1 newsreader property-portfolio 148 0 0 0 0 0
+ROW 1 newsreader public-record 148 0 0 0 0 0
+ROW 1 newsreader reel 148 2 0 2 0 0
+ROW 1 newsreader research-record 154 0 0 0 0 0
+ROW 1 newsreader rig-report 148 0 0 0 0 0
+ROW 1 newsreader rounds 154 0 0 0 0 0
+ROW 1 newsreader route-plan 148 0 0 0 0 0
+ROW 1 newsreader schematic 153 2 0 2 0 0
+ROW 1 newsreader signal 148 0 0 0 0 0
+ROW 1 newsreader site-plan 148 0 0 0 0 0
+ROW 1 newsreader site-report 148 0 0 0 0 0
+ROW 1 newsreader specification 154 0 0 0 0 0
+ROW 1 newsreader sprint-board 148 0 0 0 0 0
+ROW 1 newsreader stack-trace 148 0 0 0 0 0
+ROW 1 newsreader statute 146 0 0 0 0 0
+ROW 1 newsreader structured-admin 148 0 0 0 0 0
+ROW 1 newsreader studio-brief 148 0 0 0 0 0
+ROW 1 newsreader success-story 154 0 0 0 0 0
+ROW 1 newsreader supply-chain 148 0 0 0 0 0
+ROW 1 newsreader terminal 148 0 0 0 0 0
+ROW 1 newsreader uptime 148 0 0 0 0 0
+ROW 1 newsreader value-chain 148 0 0 0 0 0
+ROW 1 newsreader wellhead 148 0 0 0 0 0
+ROW 1 plex balance-sheet 154 5 0 5 0 0
+ROW 1 plex blueprint 148 2 0 2 0 0
+ROW 1 plex business-boardroom 154 4 0 4 0 0
+ROW 1 plex business-memo 153 4 0 4 0 0
+ROW 1 plex byline 154 4 0 4 0 0
+ROW 1 plex care-plan 148 4 0 4 0 0
+ROW 1 plex chambers 148 4 0 4 0 0
+ROW 1 plex civic-record 148 1 0 1 0 0
+ROW 1 plex clean-professional 148 4 0 4 0 0
+ROW 1 plex clinical 148 0 0 0 0 0
+ROW 1 plex compliance-brief 148 4 0 4 0 0
+ROW 1 plex concierge 153 4 0 4 0 0
+ROW 1 plex critical-path 144 3 0 3 0 0
+ROW 1 plex curriculum-vitae 154 4 0 4 0 0
+ROW 1 plex design-showcase 148 2 0 2 0 0
+ROW 1 plex faculty-profile 153 4 0 4 0 0
+ROW 1 plex field-mission 154 4 0 4 0 0
+ROW 1 plex field-notes 148 1 0 1 0 0
+ROW 1 plex field-season 148 4 0 4 0 0
+ROW 1 plex filing-system 148 1 0 1 0 0
+ROW 1 plex foundation 148 4 0 4 0 0
+ROW 1 plex front-desk 155 4 0 4 0 0
+ROW 1 plex front-office 148 4 0 4 0 0
+ROW 1 plex funnel 148 4 0 4 0 0
+ROW 1 plex gantt 148 4 0 4 0 0
+ROW 1 plex gazette 148 4 0 4 0 0
+ROW 1 plex grant-proposal 153 4 0 4 0 0
+ROW 1 plex harvest 148 1 0 1 0 0
+ROW 1 plex help-desk 154 4 0 4 0 0
+ROW 1 plex impact-report 148 4 0 4 0 0
+ROW 1 plex itinerary 148 1 0 1 0 0
+ROW 1 plex lecture-notes 148 1 0 1 0 0
+ROW 1 plex ledger 148 4 0 4 0 0
+ROW 1 plex legal-brief 148 1 0 1 0 0
+ROW 1 plex manifest 148 4 0 4 0 0
+ROW 1 plex network-ops 148 4 0 4 0 0
+ROW 1 plex offshore 148 4 0 4 0 0
+ROW 1 plex pipeline 134 5 0 5 0 0
+ROW 1 plex pitch-deck 148 4 0 4 0 0
+ROW 1 plex portfolio-grid 144 0 0 0 0 0
+ROW 1 plex press-kit 148 4 0 4 0 0
+ROW 1 plex product-tech 148 4 0 4 0 0
+ROW 1 plex property-portfolio 148 4 0 4 0 0
+ROW 1 plex public-record 148 0 0 0 0 0
+ROW 1 plex reel 148 2 0 2 0 0
+ROW 1 plex research-record 154 4 0 4 0 0
+ROW 1 plex rig-report 148 1 0 1 0 0
+ROW 1 plex rounds 154 4 0 4 0 0
+ROW 1 plex route-plan 148 4 0 4 0 0
+ROW 1 plex schematic 153 2 0 2 0 0
+ROW 1 plex signal 148 4 0 4 0 0
+ROW 1 plex site-plan 148 4 0 4 0 0
+ROW 1 plex site-report 148 4 0 4 0 0
+ROW 1 plex specification 154 1 0 1 0 0
+ROW 1 plex sprint-board 148 4 0 4 0 0
+ROW 1 plex stack-trace 148 4 0 4 0 0
+ROW 1 plex statute 146 4 0 4 0 0
+ROW 1 plex structured-admin 148 4 0 4 0 0
+ROW 1 plex studio-brief 148 4 0 4 0 0
+ROW 1 plex success-story 154 4 0 4 0 0
+ROW 1 plex supply-chain 148 4 0 4 0 0
+ROW 1 plex terminal 148 1 0 1 0 0
+ROW 1 plex uptime 148 4 0 4 0 0
+ROW 1 plex value-chain 148 4 0 4 0 0
+ROW 1 plex wellhead 148 4 0 4 0 0
+ROW 1 source-sans balance-sheet 154 3 41 3 0 4
+ROW 1 source-sans blueprint 148 0 25 0 0 0
+ROW 1 source-sans business-boardroom 154 0 40 0 0 1
+ROW 1 source-sans business-memo 153 3 47 3 0 4
+ROW 1 source-sans byline 154 0 46 0 0 1
+ROW 1 source-sans care-plan 148 3 47 3 0 4
+ROW 1 source-sans chambers 148 3 41 3 0 4
+ROW 1 source-sans civic-record 148 1 73 1 0 1
+ROW 1 source-sans clean-professional 148 3 47 3 0 4
+ROW 1 source-sans clinical 148 0 21 0 0 0
+ROW 1 source-sans compliance-brief 148 3 47 3 0 4
+ROW 1 source-sans concierge 153 0 40 0 0 1
+ROW 1 source-sans critical-path 144 0 52 1 0 2
+ROW 1 source-sans curriculum-vitae 154 0 46 0 0 1
+ROW 1 source-sans design-showcase 148 0 25 0 0 0
+ROW 1 source-sans faculty-profile 153 0 40 0 0 1
+ROW 1 source-sans field-mission 154 0 46 0 0 1
+ROW 1 source-sans field-notes 148 1 72 1 0 1
+ROW 1 source-sans field-season 148 0 46 0 0 1
+ROW 1 source-sans filing-system 148 1 73 1 0 1
+ROW 1 source-sans foundation 148 3 47 3 0 4
+ROW 1 source-sans front-desk 155 0 46 0 0 1
+ROW 1 source-sans front-office 148 0 40 0 0 1
+ROW 1 source-sans funnel 148 0 40 0 0 1
+ROW 1 source-sans gantt 148 0 46 0 0 1
+ROW 1 source-sans gazette 148 3 47 3 0 4
+ROW 1 source-sans grant-proposal 153 0 40 0 0 1
+ROW 1 source-sans harvest 148 1 73 1 0 1
+ROW 1 source-sans help-desk 154 3 47 5 0 6
+ROW 1 source-sans impact-report 148 0 46 0 0 1
+ROW 1 source-sans itinerary 148 2 72 2 0 0
+ROW 1 source-sans lecture-notes 148 2 72 2 0 0
+ROW 1 source-sans ledger 148 3 47 3 0 4
+ROW 1 source-sans legal-brief 148 2 72 2 0 0
+ROW 1 source-sans manifest 148 3 47 3 0 4
+ROW 1 source-sans network-ops 148 0 46 0 0 1
+ROW 1 source-sans offshore 148 3 47 3 0 4
+ROW 1 source-sans pipeline 134 1 15 2 0 2
+ROW 1 source-sans pitch-deck 148 0 44 0 0 1
+ROW 1 source-sans portfolio-grid 144 0 8 0 0 0
+ROW 1 source-sans press-kit 148 0 44 0 0 1
+ROW 1 source-sans product-tech 148 0 44 0 0 1
+ROW 1 source-sans property-portfolio 148 0 44 0 0 1
+ROW 1 source-sans public-record 148 0 55 0 0 1
+ROW 1 source-sans reel 148 0 25 0 0 0
+ROW 1 source-sans research-record 154 0 46 0 0 1
+ROW 1 source-sans rig-report 148 2 72 2 0 0
+ROW 1 source-sans rounds 154 3 47 3 0 4
+ROW 1 source-sans route-plan 148 0 46 0 0 1
+ROW 1 source-sans schematic 153 3 25 3 0 3
+ROW 1 source-sans signal 148 0 44 0 0 1
+ROW 1 source-sans site-plan 148 0 46 0 0 1
+ROW 1 source-sans site-report 148 0 46 0 0 1
+ROW 1 source-sans specification 154 1 73 1 0 1
+ROW 1 source-sans sprint-board 148 0 44 0 0 1
+ROW 1 source-sans stack-trace 148 0 44 0 0 1
+ROW 1 source-sans statute 146 0 0 0 0 0
+ROW 1 source-sans structured-admin 148 3 47 3 0 4
+ROW 1 source-sans studio-brief 148 0 44 0 0 1
+ROW 1 source-sans success-story 154 0 46 0 0 1
+ROW 1 source-sans supply-chain 148 0 40 0 0 1
+ROW 1 source-sans terminal 148 1 72 1 0 1
+ROW 1 source-sans uptime 148 0 44 0 0 1
+ROW 1 source-sans value-chain 148 0 40 0 0 1
+ROW 1 source-sans wellhead 148 0 40 0 0 1
+ROW 1 work-sans balance-sheet 154 1 0 1 0 0
+ROW 1 work-sans blueprint 148 1 0 1 0 0
+ROW 1 work-sans business-boardroom 154 1 0 1 0 0
+ROW 1 work-sans business-memo 153 1 0 1 0 0
+ROW 1 work-sans byline 154 1 0 1 0 0
+ROW 1 work-sans care-plan 148 1 0 1 0 0
+ROW 1 work-sans chambers 148 1 0 1 0 0
+ROW 1 work-sans civic-record 148 7 0 7 0 0
+ROW 1 work-sans clean-professional 148 1 0 1 0 0
+ROW 1 work-sans clinical 148 3 0 3 0 0
+ROW 1 work-sans compliance-brief 148 1 0 1 0 0
+ROW 1 work-sans concierge 153 1 0 1 0 0
+ROW 1 work-sans critical-path 144 0 0 0 0 0
+ROW 1 work-sans curriculum-vitae 154 1 0 1 0 0
+ROW 1 work-sans design-showcase 148 1 0 1 0 0
+ROW 1 work-sans faculty-profile 153 1 0 1 0 0
+ROW 1 work-sans field-mission 154 1 0 1 0 0
+ROW 1 work-sans field-notes 148 7 0 7 0 0
+ROW 1 work-sans field-season 148 1 0 1 0 0
+ROW 1 work-sans filing-system 148 7 0 7 0 0
+ROW 1 work-sans foundation 148 1 0 1 0 0
+ROW 1 work-sans front-desk 155 1 0 1 0 0
+ROW 1 work-sans front-office 148 1 0 1 0 0
+ROW 1 work-sans funnel 148 1 0 1 0 0
+ROW 1 work-sans gantt 148 1 0 1 0 0
+ROW 1 work-sans gazette 148 1 0 1 0 0
+ROW 1 work-sans grant-proposal 153 1 0 1 0 0
+ROW 1 work-sans harvest 148 7 0 7 0 0
+ROW 1 work-sans help-desk 154 1 0 1 0 0
+ROW 1 work-sans impact-report 148 1 0 1 0 0
+ROW 1 work-sans itinerary 148 7 0 7 0 0
+ROW 1 work-sans lecture-notes 148 7 0 7 0 0
+ROW 1 work-sans ledger 148 1 0 1 0 0
+ROW 1 work-sans legal-brief 148 7 0 7 0 0
+ROW 1 work-sans manifest 148 1 0 1 0 0
+ROW 1 work-sans network-ops 148 1 0 1 0 0
+ROW 1 work-sans offshore 148 1 0 1 0 0
+ROW 1 work-sans pipeline 134 1 0 1 0 0
+ROW 1 work-sans pitch-deck 148 1 0 1 0 0
+ROW 1 work-sans portfolio-grid 144 0 0 0 0 0
+ROW 1 work-sans press-kit 148 1 0 1 0 0
+ROW 1 work-sans product-tech 148 1 0 1 0 0
+ROW 1 work-sans property-portfolio 148 1 0 1 0 0
+ROW 1 work-sans public-record 148 0 0 0 0 0
+ROW 1 work-sans reel 148 1 0 1 0 0
+ROW 1 work-sans research-record 154 1 0 1 0 0
+ROW 1 work-sans rig-report 148 7 0 7 0 0
+ROW 1 work-sans rounds 154 1 0 1 0 0
+ROW 1 work-sans route-plan 148 1 0 1 0 0
+ROW 1 work-sans schematic 153 1 0 1 0 0
+ROW 1 work-sans signal 148 1 0 1 0 0
+ROW 1 work-sans site-plan 148 1 0 1 0 0
+ROW 1 work-sans site-report 148 1 0 1 0 0
+ROW 1 work-sans specification 154 7 0 7 0 0
+ROW 1 work-sans sprint-board 148 1 0 1 0 0
+ROW 1 work-sans stack-trace 148 1 0 1 0 0
+ROW 1 work-sans statute 146 0 0 0 0 0
+ROW 1 work-sans structured-admin 148 1 0 1 0 0
+ROW 1 work-sans studio-brief 148 1 0 1 0 0
+ROW 1 work-sans success-story 154 1 0 1 0 0
+ROW 1 work-sans supply-chain 148 1 0 1 0 0
+ROW 1 work-sans terminal 148 7 0 7 0 0
+ROW 1 work-sans uptime 148 1 0 1 0 0
+ROW 1 work-sans value-chain 148 1 0 1 0 0
+ROW 1 work-sans wellhead 148 1 0 1 0 0
+ROW 2 newsreader balance-sheet 146 0 1 0 0 0
+ROW 2 newsreader blueprint 140 4 0 4 0 0
+ROW 2 newsreader business-boardroom 146 0 1 0 0 0
+ROW 2 newsreader business-memo 145 0 1 0 0 0
+ROW 2 newsreader byline 146 0 1 0 0 0
+ROW 2 newsreader care-plan 140 0 1 0 0 0
+ROW 2 newsreader chambers 146 0 1 0 0 0
+ROW 2 newsreader civic-record 140 0 1 0 0 0
+ROW 2 newsreader clean-professional 140 0 1 0 0 0
+ROW 2 newsreader clinical 140 0 0 0 0 0
+ROW 2 newsreader compliance-brief 140 0 1 0 0 0
+ROW 2 newsreader concierge 152 0 1 0 0 0
+ROW 2 newsreader critical-path 134 0 0 0 0 0
+ROW 2 newsreader curriculum-vitae 146 0 1 0 0 0
+ROW 2 newsreader design-showcase 140 4 0 4 0 0
+ROW 2 newsreader faculty-profile 152 0 1 0 0 0
+ROW 2 newsreader field-mission 163 0 2 0 0 0
+ROW 2 newsreader field-notes 140 0 1 0 0 0
+ROW 2 newsreader field-season 140 0 1 0 0 0
+ROW 2 newsreader filing-system 140 0 1 0 0 0
+ROW 2 newsreader foundation 140 0 1 0 0 0
+ROW 2 newsreader front-desk 154 0 1 0 0 0
+ROW 2 newsreader front-office 140 0 1 0 0 0
+ROW 2 newsreader funnel 146 0 1 0 0 0
+ROW 2 newsreader gantt 140 0 1 0 0 0
+ROW 2 newsreader gazette 140 0 1 0 0 0
+ROW 2 newsreader grant-proposal 170 0 3 0 0 0
+ROW 2 newsreader harvest 140 0 1 0 0 0
+ROW 2 newsreader help-desk 146 0 1 0 0 0
+ROW 2 newsreader impact-report 157 0 3 0 0 0
+ROW 2 newsreader itinerary 146 0 1 0 0 0
+ROW 2 newsreader lecture-notes 140 0 1 0 0 0
+ROW 2 newsreader ledger 140 0 1 0 0 0
+ROW 2 newsreader legal-brief 140 0 1 0 0 0
+ROW 2 newsreader manifest 140 0 1 0 0 0
+ROW 2 newsreader network-ops 140 0 1 0 0 0
+ROW 2 newsreader offshore 140 0 1 0 0 0
+ROW 2 newsreader pipeline 122 0 0 0 0 0
+ROW 2 newsreader pitch-deck 140 0 1 0 0 0
+ROW 2 newsreader portfolio-grid 137 0 0 0 0 0
+ROW 2 newsreader press-kit 140 0 1 0 0 0
+ROW 2 newsreader product-tech 140 0 1 0 0 0
+ROW 2 newsreader property-portfolio 140 0 1 0 0 0
+ROW 2 newsreader public-record 140 0 0 0 0 0
+ROW 2 newsreader reel 140 4 0 4 0 0
+ROW 2 newsreader research-record 146 0 1 0 0 0
+ROW 2 newsreader rig-report 140 0 1 0 0 0
+ROW 2 newsreader rounds 146 0 1 0 0 0
+ROW 2 newsreader route-plan 140 0 1 0 0 0
+ROW 2 newsreader schematic 146 4 0 4 0 0
+ROW 2 newsreader signal 140 0 1 0 0 0
+ROW 2 newsreader site-plan 140 0 1 0 0 0
+ROW 2 newsreader site-report 140 0 1 0 0 0
+ROW 2 newsreader specification 146 0 1 0 0 0
+ROW 2 newsreader sprint-board 140 0 1 0 0 0
+ROW 2 newsreader stack-trace 140 0 1 0 0 0
+ROW 2 newsreader statute 138 0 0 0 0 0
+ROW 2 newsreader structured-admin 140 0 1 0 0 0
+ROW 2 newsreader studio-brief 140 0 1 0 0 0
+ROW 2 newsreader success-story 146 0 1 0 0 0
+ROW 2 newsreader supply-chain 146 0 1 0 0 0
+ROW 2 newsreader terminal 140 0 1 0 0 0
+ROW 2 newsreader uptime 140 0 1 0 0 0
+ROW 2 newsreader value-chain 146 0 1 0 0 0
+ROW 2 newsreader wellhead 146 0 1 0 0 0
+ROW 2 plex balance-sheet 146 8 1 8 0 0
+ROW 2 plex blueprint 140 1 0 1 0 0
+ROW 2 plex business-boardroom 146 7 1 7 0 0
+ROW 2 plex business-memo 145 7 1 7 0 0
+ROW 2 plex byline 146 7 1 7 0 0
+ROW 2 plex care-plan 140 7 1 7 0 0
+ROW 2 plex chambers 146 7 1 7 0 0
+ROW 2 plex civic-record 140 1 0 1 0 0
+ROW 2 plex clean-professional 140 7 1 7 0 0
+ROW 2 plex clinical 140 0 0 0 0 0
+ROW 2 plex compliance-brief 140 7 1 7 0 0
+ROW 2 plex concierge 152 7 1 7 0 0
+ROW 2 plex critical-path 134 5 1 5 0 0
+ROW 2 plex curriculum-vitae 146 7 1 7 0 0
+ROW 2 plex design-showcase 140 1 0 1 0 0
+ROW 2 plex faculty-profile 152 7 1 7 0 0
+ROW 2 plex field-mission 163 7 1 7 0 0
+ROW 2 plex field-notes 140 1 0 1 0 0
+ROW 2 plex field-season 140 7 1 7 0 0
+ROW 2 plex filing-system 140 1 0 1 0 0
+ROW 2 plex foundation 140 7 1 7 0 0
+ROW 2 plex front-desk 154 7 1 7 0 0
+ROW 2 plex front-office 140 7 1 7 0 0
+ROW 2 plex funnel 146 7 1 7 0 0
+ROW 2 plex gantt 140 7 1 7 0 0
+ROW 2 plex gazette 140 7 1 7 0 0
+ROW 2 plex grant-proposal 170 7 1 7 0 0
+ROW 2 plex harvest 140 1 0 1 0 0
+ROW 2 plex help-desk 146 7 1 7 0 0
+ROW 2 plex impact-report 157 7 1 7 0 0
+ROW 2 plex itinerary 146 1 0 1 0 0
+ROW 2 plex lecture-notes 140 1 0 1 0 0
+ROW 2 plex ledger 140 7 1 7 0 0
+ROW 2 plex legal-brief 140 1 0 1 0 0
+ROW 2 plex manifest 140 7 1 7 0 0
+ROW 2 plex network-ops 140 7 1 7 0 0
+ROW 2 plex offshore 140 7 1 7 0 0
+ROW 2 plex pipeline 122 8 2 8 0 2
+ROW 2 plex pitch-deck 140 7 1 7 0 0
+ROW 2 plex portfolio-grid 137 0 0 0 0 0
+ROW 2 plex press-kit 140 7 1 7 0 0
+ROW 2 plex product-tech 140 7 1 7 0 0
+ROW 2 plex property-portfolio 140 7 1 7 0 0
+ROW 2 plex public-record 140 0 0 0 0 0
+ROW 2 plex reel 140 1 0 1 0 0
+ROW 2 plex research-record 146 7 1 7 0 0
+ROW 2 plex rig-report 140 1 0 1 0 0
+ROW 2 plex rounds 146 7 1 7 0 0
+ROW 2 plex route-plan 140 7 1 7 0 0
+ROW 2 plex schematic 146 1 0 1 0 0
+ROW 2 plex signal 140 7 1 7 0 0
+ROW 2 plex site-plan 140 7 1 7 0 0
+ROW 2 plex site-report 140 7 1 7 0 0
+ROW 2 plex specification 146 1 0 1 0 0
+ROW 2 plex sprint-board 140 7 1 7 0 0
+ROW 2 plex stack-trace 140 7 1 7 0 0
+ROW 2 plex statute 138 5 1 5 0 0
+ROW 2 plex structured-admin 140 7 1 7 0 0
+ROW 2 plex studio-brief 140 7 1 7 0 0
+ROW 2 plex success-story 146 7 1 7 0 0
+ROW 2 plex supply-chain 146 7 1 7 0 0
+ROW 2 plex terminal 140 1 0 1 0 0
+ROW 2 plex uptime 140 7 1 7 0 0
+ROW 2 plex value-chain 146 7 1 7 0 0
+ROW 2 plex wellhead 146 7 1 7 0 0
+ROW 2 source-sans balance-sheet 146 4 44 4 0 4
+ROW 2 source-sans blueprint 140 0 19 0 0 0
+ROW 2 source-sans business-boardroom 146 0 40 0 0 0
+ROW 2 source-sans business-memo 145 4 46 4 0 4
+ROW 2 source-sans byline 146 0 42 0 0 0
+ROW 2 source-sans care-plan 140 4 45 4 0 4
+ROW 2 source-sans chambers 146 4 44 4 0 4
+ROW 2 source-sans civic-record 140 1 61 1 0 1
+ROW 2 source-sans clean-professional 140 4 46 4 0 4
+ROW 2 source-sans clinical 140 0 19 0 0 0
+ROW 2 source-sans compliance-brief 140 4 46 4 0 4
+ROW 2 source-sans concierge 152 0 40 0 0 0
+ROW 2 source-sans critical-path 134 0 45 1 0 1
+ROW 2 source-sans curriculum-vitae 146 0 42 0 0 0
+ROW 2 source-sans design-showcase 140 0 20 0 0 0
+ROW 2 source-sans faculty-profile 152 0 40 0 0 0
+ROW 2 source-sans field-mission 163 0 45 0 0 0
+ROW 2 source-sans field-notes 140 1 60 1 0 1
+ROW 2 source-sans field-season 140 0 41 0 0 0
+ROW 2 source-sans filing-system 140 1 61 1 0 1
+ROW 2 source-sans foundation 140 4 46 4 0 4
+ROW 2 source-sans front-desk 154 0 42 0 0 0
+ROW 2 source-sans front-office 140 0 40 0 0 0
+ROW 2 source-sans funnel 146 0 40 0 0 0
+ROW 2 source-sans gantt 140 0 42 0 0 0
+ROW 2 source-sans gazette 140 4 46 4 0 4
+ROW 2 source-sans grant-proposal 170 0 43 0 0 0
+ROW 2 source-sans harvest 140 1 59 1 0 1
+ROW 2 source-sans help-desk 146 4 46 7 0 7
+ROW 2 source-sans impact-report 157 0 45 0 0 0
+ROW 2 source-sans itinerary 146 0 59 0 0 0
+ROW 2 source-sans lecture-notes 140 0 60 0 0 0
+ROW 2 source-sans ledger 140 4 46 4 0 4
+ROW 2 source-sans legal-brief 140 0 60 0 0 0
+ROW 2 source-sans manifest 140 4 46 4 0 4
+ROW 2 source-sans network-ops 140 0 42 0 0 0
+ROW 2 source-sans offshore 140 4 46 4 0 4
+ROW 2 source-sans pipeline 122 0 14 1 0 1
+ROW 2 source-sans pitch-deck 140 0 43 0 0 0
+ROW 2 source-sans portfolio-grid 137 0 14 0 0 0
+ROW 2 source-sans press-kit 140 0 43 0 0 0
+ROW 2 source-sans product-tech 140 0 43 0 0 0
+ROW 2 source-sans property-portfolio 140 0 41 0 0 0
+ROW 2 source-sans public-record 140 0 50 0 0 0
+ROW 2 source-sans reel 140 0 20 0 0 0
+ROW 2 source-sans research-record 146 0 42 0 0 0
+ROW 2 source-sans rig-report 140 0 60 0 0 0
+ROW 2 source-sans rounds 146 4 46 4 0 4
+ROW 2 source-sans route-plan 140 0 42 0 0 0
+ROW 2 source-sans schematic 146 3 20 3 0 3
+ROW 2 source-sans signal 140 0 43 0 0 0
+ROW 2 source-sans site-plan 140 0 42 0 0 0
+ROW 2 source-sans site-report 140 0 41 0 0 0
+ROW 2 source-sans specification 146 1 61 1 0 1
+ROW 2 source-sans sprint-board 140 0 41 0 0 0
+ROW 2 source-sans stack-trace 140 0 41 0 0 0
+ROW 2 source-sans statute 138 0 0 0 0 0
+ROW 2 source-sans structured-admin 140 4 46 4 0 4
+ROW 2 source-sans studio-brief 140 0 43 0 0 0
+ROW 2 source-sans success-story 146 0 42 0 0 0
+ROW 2 source-sans supply-chain 146 0 40 0 0 0
+ROW 2 source-sans terminal 140 1 60 1 0 1
+ROW 2 source-sans uptime 140 0 41 0 0 0
+ROW 2 source-sans value-chain 146 0 40 0 0 0
+ROW 2 source-sans wellhead 146 0 40 0 0 0
+ROW 2 work-sans balance-sheet 146 0 0 0 0 0
+ROW 2 work-sans blueprint 140 0 0 0 0 0
+ROW 2 work-sans business-boardroom 146 0 0 0 0 0
+ROW 2 work-sans business-memo 145 0 0 0 0 0
+ROW 2 work-sans byline 146 0 0 0 0 0
+ROW 2 work-sans care-plan 140 0 0 0 0 0
+ROW 2 work-sans chambers 146 0 0 0 0 0
+ROW 2 work-sans civic-record 140 4 0 4 0 0
+ROW 2 work-sans clean-professional 140 0 0 0 0 0
+ROW 2 work-sans clinical 140 0 0 0 0 0
+ROW 2 work-sans compliance-brief 140 0 0 0 0 0
+ROW 2 work-sans concierge 152 0 0 0 0 0
+ROW 2 work-sans critical-path 134 0 0 0 0 0
+ROW 2 work-sans curriculum-vitae 146 0 0 0 0 0
+ROW 2 work-sans design-showcase 140 0 0 0 0 0
+ROW 2 work-sans faculty-profile 152 0 0 0 0 0
+ROW 2 work-sans field-mission 163 0 0 0 0 0
+ROW 2 work-sans field-notes 140 4 0 4 0 0
+ROW 2 work-sans field-season 140 0 0 0 0 0
+ROW 2 work-sans filing-system 140 4 0 4 0 0
+ROW 2 work-sans foundation 140 0 0 0 0 0
+ROW 2 work-sans front-desk 154 0 0 0 0 0
+ROW 2 work-sans front-office 140 0 0 0 0 0
+ROW 2 work-sans funnel 146 0 0 0 0 0
+ROW 2 work-sans gantt 140 0 0 0 0 0
+ROW 2 work-sans gazette 140 0 0 0 0 0
+ROW 2 work-sans grant-proposal 170 0 0 0 0 0
+ROW 2 work-sans harvest 140 4 0 4 0 0
+ROW 2 work-sans help-desk 146 0 0 0 0 0
+ROW 2 work-sans impact-report 157 0 0 0 0 0
+ROW 2 work-sans itinerary 146 4 0 4 0 0
+ROW 2 work-sans lecture-notes 140 4 0 4 0 0
+ROW 2 work-sans ledger 140 0 0 0 0 0
+ROW 2 work-sans legal-brief 140 4 0 4 0 0
+ROW 2 work-sans manifest 140 0 0 0 0 0
+ROW 2 work-sans network-ops 140 0 0 0 0 0
+ROW 2 work-sans offshore 140 0 0 0 0 0
+ROW 2 work-sans pipeline 122 0 0 0 0 0
+ROW 2 work-sans pitch-deck 140 0 0 0 0 0
+ROW 2 work-sans portfolio-grid 137 0 0 0 0 0
+ROW 2 work-sans press-kit 140 0 0 0 0 0
+ROW 2 work-sans product-tech 140 0 0 0 0 0
+ROW 2 work-sans property-portfolio 140 0 0 0 0 0
+ROW 2 work-sans public-record 140 0 0 0 0 0
+ROW 2 work-sans reel 140 0 0 0 0 0
+ROW 2 work-sans research-record 146 0 0 0 0 0
+ROW 2 work-sans rig-report 140 4 0 4 0 0
+ROW 2 work-sans rounds 146 0 0 0 0 0
+ROW 2 work-sans route-plan 140 0 0 0 0 0
+ROW 2 work-sans schematic 146 0 0 0 0 0
+ROW 2 work-sans signal 140 0 0 0 0 0
+ROW 2 work-sans site-plan 140 0 0 0 0 0
+ROW 2 work-sans site-report 140 0 0 0 0 0
+ROW 2 work-sans specification 146 4 0 4 0 0
+ROW 2 work-sans sprint-board 140 0 0 0 0 0
+ROW 2 work-sans stack-trace 140 0 0 0 0 0
+ROW 2 work-sans statute 138 0 0 0 0 0
+ROW 2 work-sans structured-admin 140 0 0 0 0 0
+ROW 2 work-sans studio-brief 140 0 0 0 0 0
+ROW 2 work-sans success-story 146 0 0 0 0 0
+ROW 2 work-sans supply-chain 146 0 0 0 0 0
+ROW 2 work-sans terminal 140 4 0 4 0 0
+ROW 2 work-sans uptime 140 0 0 0 0 0
+ROW 2 work-sans value-chain 146 0 0 0 0 0
+ROW 2 work-sans wellhead 146 0 0 0 0 0
+AGG face=newsreader persona=0 all pdfjs templates_hit=1/65 words=1/7416 pct=0.01
+AGG face=newsreader persona=0 all poppler templates_hit=2/65 words=2/7416 pct=0.03
+AGG face=newsreader persona=0 all pdfminer templates_hit=1/65 words=1/7416 pct=0.01
+AGG face=newsreader persona=0 all mutool templates_hit=0/65 words=0/7416 pct=0.00
+AGG face=newsreader persona=0 all pdfbox templates_hit=0/65 words=0/7416 pct=0.00
+AGG face=newsreader persona=1 all pdfjs templates_hit=5/65 words=10/9688 pct=0.10
+AGG face=newsreader persona=1 all poppler templates_hit=1/65 words=1/9688 pct=0.01
+AGG face=newsreader persona=1 all pdfminer templates_hit=5/65 words=10/9688 pct=0.10
+AGG face=newsreader persona=1 all mutool templates_hit=0/65 words=0/9688 pct=0.00
+AGG face=newsreader persona=1 all pdfbox templates_hit=0/65 words=0/9688 pct=0.00
+AGG face=newsreader persona=2 all pdfjs templates_hit=4/65 words=16/9280 pct=0.17
+AGG face=newsreader persona=2 all poppler templates_hit=55/65 words=60/9280 pct=0.65
+AGG face=newsreader persona=2 all pdfminer templates_hit=4/65 words=16/9280 pct=0.17
+AGG face=newsreader persona=2 all mutool templates_hit=0/65 words=0/9280 pct=0.00
+AGG face=newsreader persona=2 all pdfbox templates_hit=0/65 words=0/9280 pct=0.00
+AGG face=newsreader personas=all all pdfjs templates_hit=10/195 words=27/26384 pct=0.10
+AGG face=newsreader personas=all all poppler templates_hit=58/195 words=63/26384 pct=0.24
+AGG face=newsreader personas=all all pdfminer templates_hit=10/195 words=27/26384 pct=0.10
+AGG face=newsreader personas=all all mutool templates_hit=0/195 words=0/26384 pct=0.00
+AGG face=newsreader personas=all all pdfbox templates_hit=0/195 words=0/26384 pct=0.00
+AGG face=newsreader personas=all ats_safe pdfjs templates_hit=2/114 words=6/15459 pct=0.04
+AGG face=newsreader personas=all ats_safe poppler templates_hit=36/114 words=39/15459 pct=0.25
+AGG face=newsreader personas=all ats_safe pdfminer templates_hit=2/114 words=6/15459 pct=0.04
+AGG face=newsreader personas=all ats_safe mutool templates_hit=0/114 words=0/15459 pct=0.00
+AGG face=newsreader personas=all ats_safe pdfbox templates_hit=0/114 words=0/15459 pct=0.00
+AGG face=newsreader personas=all not_ats_safe pdfjs templates_hit=8/81 words=21/10925 pct=0.19
+AGG face=newsreader personas=all not_ats_safe poppler templates_hit=22/81 words=24/10925 pct=0.22
+AGG face=newsreader personas=all not_ats_safe pdfminer templates_hit=8/81 words=21/10925 pct=0.19
+AGG face=newsreader personas=all not_ats_safe mutool templates_hit=0/81 words=0/10925 pct=0.00
+AGG face=newsreader personas=all not_ats_safe pdfbox templates_hit=0/81 words=0/10925 pct=0.00
+AGG face=plex persona=0 all pdfjs templates_hit=62/65 words=164/7416 pct=2.21
+AGG face=plex persona=0 all poppler templates_hit=0/65 words=0/7416 pct=0.00
+AGG face=plex persona=0 all pdfminer templates_hit=62/65 words=164/7416 pct=2.21
+AGG face=plex persona=0 all mutool templates_hit=0/65 words=0/7416 pct=0.00
+AGG face=plex persona=0 all pdfbox templates_hit=5/65 words=14/7416 pct=0.19
+AGG face=plex persona=1 all pdfjs templates_hit=62/65 words=211/9688 pct=2.18
+AGG face=plex persona=1 all poppler templates_hit=0/65 words=0/9688 pct=0.00
+AGG face=plex persona=1 all pdfminer templates_hit=62/65 words=211/9688 pct=2.18
+AGG face=plex persona=1 all mutool templates_hit=0/65 words=0/9688 pct=0.00
+AGG face=plex persona=1 all pdfbox templates_hit=0/65 words=0/9688 pct=0.00
+AGG face=plex persona=2 all pdfjs templates_hit=62/65 words=348/9280 pct=3.75
+AGG face=plex persona=2 all poppler templates_hit=48/65 words=49/9280 pct=0.53
+AGG face=plex persona=2 all pdfminer templates_hit=62/65 words=348/9280 pct=3.75
+AGG face=plex persona=2 all mutool templates_hit=0/65 words=0/9280 pct=0.00
+AGG face=plex persona=2 all pdfbox templates_hit=1/65 words=2/9280 pct=0.02
+AGG face=plex personas=all all pdfjs templates_hit=186/195 words=723/26384 pct=2.74
+AGG face=plex personas=all all poppler templates_hit=48/195 words=49/26384 pct=0.19
+AGG face=plex personas=all all pdfminer templates_hit=186/195 words=723/26384 pct=2.74
+AGG face=plex personas=all all mutool templates_hit=0/195 words=0/26384 pct=0.00
+AGG face=plex personas=all all pdfbox templates_hit=6/195 words=16/26384 pct=0.06
+AGG face=plex personas=all ats_safe pdfjs templates_hit=111/114 words=396/15459 pct=2.56
+AGG face=plex personas=all ats_safe poppler templates_hit=26/114 words=26/15459 pct=0.17
+AGG face=plex personas=all ats_safe pdfminer templates_hit=111/114 words=396/15459 pct=2.56
+AGG face=plex personas=all ats_safe mutool templates_hit=0/114 words=0/15459 pct=0.00
+AGG face=plex personas=all ats_safe pdfbox templates_hit=1/114 words=3/15459 pct=0.02
+AGG face=plex personas=all not_ats_safe pdfjs templates_hit=75/81 words=327/10925 pct=2.99
+AGG face=plex personas=all not_ats_safe poppler templates_hit=22/81 words=23/10925 pct=0.21
+AGG face=plex personas=all not_ats_safe pdfminer templates_hit=75/81 words=327/10925 pct=2.99
+AGG face=plex personas=all not_ats_safe mutool templates_hit=0/81 words=0/10925 pct=0.00
+AGG face=plex personas=all not_ats_safe pdfbox templates_hit=5/81 words=13/10925 pct=0.12
+AGG face=source-sans persona=0 all pdfjs templates_hit=25/65 words=55/7416 pct=0.74
+AGG face=source-sans persona=0 all poppler templates_hit=64/65 words=2088/7416 pct=28.16
+AGG face=source-sans persona=0 all pdfminer templates_hit=27/65 words=60/7416 pct=0.81
+AGG face=source-sans persona=0 all mutool templates_hit=0/65 words=0/7416 pct=0.00
+AGG face=source-sans persona=0 all pdfbox templates_hit=23/65 words=60/7416 pct=0.81
+AGG face=source-sans persona=1 all pdfjs templates_hit=26/65 words=60/9688 pct=0.62
+AGG face=source-sans persona=1 all poppler templates_hit=64/65 words=2975/9688 pct=30.71
+AGG face=source-sans persona=1 all pdfminer templates_hit=27/65 words=64/9688 pct=0.66
+AGG face=source-sans persona=1 all mutool templates_hit=0/65 words=0/9688 pct=0.00
+AGG face=source-sans persona=1 all pdfbox templates_hit=55/65 words=103/9688 pct=1.06
+AGG face=source-sans persona=2 all pdfjs templates_hit=21/65 words=65/9280 pct=0.70
+AGG face=source-sans persona=2 all poppler templates_hit=64/65 words=2753/9280 pct=29.67
+AGG face=source-sans persona=2 all pdfminer templates_hit=23/65 words=70/9280 pct=0.75
+AGG face=source-sans persona=2 all mutool templates_hit=0/65 words=0/9280 pct=0.00
+AGG face=source-sans persona=2 all pdfbox templates_hit=23/65 words=70/9280 pct=0.75
+AGG face=source-sans personas=all all pdfjs templates_hit=72/195 words=180/26384 pct=0.68
+AGG face=source-sans personas=all all poppler templates_hit=192/195 words=7816/26384 pct=29.62
+AGG face=source-sans personas=all all pdfminer templates_hit=77/195 words=194/26384 pct=0.74
+AGG face=source-sans personas=all all mutool templates_hit=0/195 words=0/26384 pct=0.00
+AGG face=source-sans personas=all all pdfbox templates_hit=101/195 words=233/26384 pct=0.88
+AGG face=source-sans personas=all ats_safe pdfjs templates_hit=62/114 words=150/15459 pct=0.97
+AGG face=source-sans personas=all ats_safe poppler templates_hit=111/114 words=5104/15459 pct=33.02
+AGG face=source-sans personas=all ats_safe pdfminer templates_hit=62/114 words=158/15459 pct=1.02
+AGG face=source-sans personas=all ats_safe mutool templates_hit=0/114 words=0/15459 pct=0.00
+AGG face=source-sans personas=all ats_safe pdfbox templates_hit=68/114 words=176/15459 pct=1.14
+AGG face=source-sans personas=all not_ats_safe pdfjs templates_hit=10/81 words=30/10925 pct=0.27
+AGG face=source-sans personas=all not_ats_safe poppler templates_hit=81/81 words=2712/10925 pct=24.82
+AGG face=source-sans personas=all not_ats_safe pdfminer templates_hit=15/81 words=36/10925 pct=0.33
+AGG face=source-sans personas=all not_ats_safe mutool templates_hit=0/81 words=0/10925 pct=0.00
+AGG face=source-sans personas=all not_ats_safe pdfbox templates_hit=33/81 words=57/10925 pct=0.52
+AGG face=work-sans persona=0 all pdfjs templates_hit=12/65 words=33/7416 pct=0.44
+AGG face=work-sans persona=0 all poppler templates_hit=0/65 words=0/7416 pct=0.00
+AGG face=work-sans persona=0 all pdfminer templates_hit=12/65 words=33/7416 pct=0.44
+AGG face=work-sans persona=0 all mutool templates_hit=0/65 words=0/7416 pct=0.00
+AGG face=work-sans persona=0 all pdfbox templates_hit=0/65 words=0/7416 pct=0.00
+AGG face=work-sans persona=1 all pdfjs templates_hit=61/65 words=123/9688 pct=1.27
+AGG face=work-sans persona=1 all poppler templates_hit=0/65 words=0/9688 pct=0.00
+AGG face=work-sans persona=1 all pdfminer templates_hit=61/65 words=123/9688 pct=1.27
+AGG face=work-sans persona=1 all mutool templates_hit=0/65 words=0/9688 pct=0.00
+AGG face=work-sans persona=1 all pdfbox templates_hit=0/65 words=0/9688 pct=0.00
+AGG face=work-sans persona=2 all pdfjs templates_hit=10/65 words=40/9280 pct=0.43
+AGG face=work-sans persona=2 all poppler templates_hit=0/65 words=0/9280 pct=0.00
+AGG face=work-sans persona=2 all pdfminer templates_hit=10/65 words=40/9280 pct=0.43
+AGG face=work-sans persona=2 all mutool templates_hit=0/65 words=0/9280 pct=0.00
+AGG face=work-sans persona=2 all pdfbox templates_hit=0/65 words=0/9280 pct=0.00
+AGG face=work-sans personas=all all pdfjs templates_hit=83/195 words=196/26384 pct=0.74
+AGG face=work-sans personas=all all poppler templates_hit=0/195 words=0/26384 pct=0.00
+AGG face=work-sans personas=all all pdfminer templates_hit=83/195 words=196/26384 pct=0.74
+AGG face=work-sans personas=all all mutool templates_hit=0/195 words=0/26384 pct=0.00
+AGG face=work-sans personas=all all pdfbox templates_hit=0/195 words=0/26384 pct=0.00
+AGG face=work-sans personas=all ats_safe pdfjs templates_hit=56/114 words=166/15459 pct=1.07
+AGG face=work-sans personas=all ats_safe poppler templates_hit=0/114 words=0/15459 pct=0.00
+AGG face=work-sans personas=all ats_safe pdfminer templates_hit=56/114 words=166/15459 pct=1.07
+AGG face=work-sans personas=all ats_safe mutool templates_hit=0/114 words=0/15459 pct=0.00
+AGG face=work-sans personas=all ats_safe pdfbox templates_hit=0/114 words=0/15459 pct=0.00
+AGG face=work-sans personas=all not_ats_safe pdfjs templates_hit=27/81 words=30/10925 pct=0.27
+AGG face=work-sans personas=all not_ats_safe poppler templates_hit=0/81 words=0/10925 pct=0.00
+AGG face=work-sans personas=all not_ats_safe pdfminer templates_hit=27/81 words=30/10925 pct=0.27
+AGG face=work-sans personas=all not_ats_safe mutool templates_hit=0/81 words=0/10925 pct=0.00
+AGG face=work-sans personas=all not_ats_safe pdfbox templates_hit=0/81 words=0/10925 pct=0.00
+STAT statute persona=0 face=newsreader computed_families=Newsreader pdfjs=0 poppler=0 pdfminer=0 mutool=0 pdfbox=0
+STAT statute persona=0 face=plex computed_families=IBM Plex Sans pdfjs=3 poppler=0 pdfminer=3 mutool=0 pdfbox=0
+STAT statute persona=0 face=source-sans computed_families=Newsreader pdfjs=0 poppler=0 pdfminer=0 mutool=0 pdfbox=0
+STAT statute persona=0 face=work-sans computed_families=Work Sans pdfjs=0 poppler=0 pdfminer=0 mutool=0 pdfbox=0
+STAT statute persona=1 face=newsreader computed_families=Newsreader pdfjs=0 poppler=0 pdfminer=0 mutool=0 pdfbox=0
+STAT statute persona=1 face=plex computed_families=IBM Plex Sans pdfjs=4 poppler=0 pdfminer=4 mutool=0 pdfbox=0
+STAT statute persona=1 face=source-sans computed_families=Newsreader pdfjs=0 poppler=0 pdfminer=0 mutool=0 pdfbox=0
+STAT statute persona=1 face=work-sans computed_families=Work Sans pdfjs=0 poppler=0 pdfminer=0 mutool=0 pdfbox=0
+STAT statute persona=2 face=newsreader computed_families=Newsreader pdfjs=0 poppler=0 pdfminer=0 mutool=0 pdfbox=0
+STAT statute persona=2 face=plex computed_families=IBM Plex Sans pdfjs=5 poppler=1 pdfminer=5 mutool=0 pdfbox=0
+STAT   poppler damaged words: ['proposal']
+STAT statute persona=2 face=source-sans computed_families=Newsreader pdfjs=0 poppler=0 pdfminer=0 mutool=0 pdfbox=0
+STAT statute persona=2 face=work-sans computed_families=Work Sans pdfjs=0 poppler=0 pdfminer=0 mutool=0 pdfbox=0
+STAT pdffonts p0 source-sans: name                                 type              encoding         emb sub uni object ID
+STAT pdffonts p0 source-sans: ------------------------------------ ----------------- ---------------- --- --- --- ---------
+STAT pdffonts p0 source-sans: AAAAAA+Newsreader16pt16pt-Regular    Type 3            Custom           yes yes yes      4  0
+STAT pdffonts p0 source-sans: BAAAAA+Newsreader16pt16pt-Italic     Type 3            Custom           yes yes yes      5  0
+STAT pdffonts p0 source-sans: CAAAAA+Newsreader16pt16pt-Regular    Type 3            Custom           yes yes yes      6  0
+STAT pdffonts p0 source-sans: DAAAAA+Newsreader16pt16pt-Regular    Type 3            Custom           yes yes yes      7  0
+STAT pdffonts p0 source-sans: EAAAAA+Newsreader16pt16pt-Regular    Type 3            Custom           yes yes yes      8  0
+STAT pdffonts p0 source-sans: FAAAAA+Newsreader16pt16pt-Regular    Type 3            Custom           yes yes yes      9  0
+STAT pdffonts p0 source-sans: DAAAAA+Newsreader16pt16pt-Regular    Type 3            Custom           yes yes yes     12  0
+STAT pdffonts p0 newsreader: name                                 type              encoding         emb sub uni object ID
+STAT pdffonts p0 newsreader: ------------------------------------ ----------------- ---------------- --- --- --- ---------
+STAT pdffonts p0 newsreader: AAAAAA+Newsreader16pt16pt-Regular    Type 3            Custom           yes yes yes      4  0
+STAT pdffonts p0 newsreader: BAAAAA+Newsreader16pt16pt-Italic     Type 3            Custom           yes yes yes      5  0
+STAT pdffonts p0 newsreader: CAAAAA+Newsreader16pt16pt-Regular    Type 3            Custom           yes yes yes      6  0
+STAT pdffonts p0 newsreader: DAAAAA+Newsreader16pt16pt-Regular    Type 3            Custom           yes yes yes      7  0
+STAT pdffonts p0 newsreader: EAAAAA+Newsreader16pt16pt-Regular    Type 3            Custom           yes yes yes      8  0
+STAT pdffonts p0 newsreader: FAAAAA+Newsreader16pt16pt-Regular    Type 3            Custom           yes yes yes      9  0
+STAT pdffonts p0 newsreader: DAAAAA+Newsreader16pt16pt-Regular    Type 3            Custom           yes yes yes     12  0
+STAT   source-sans statute poppler damaged words: []
