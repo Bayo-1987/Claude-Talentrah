@@ -164,22 +164,22 @@ describe("send-453: test_user_pool claim/release/reset", () => {
  * real `claim_test_pool_user` / `release_test_pool_user` on whatever database the suite runs against. Each scenario
  * runs ITERATIONS times in one go, so a single run reports n/n rather than "it passed once".
  *
- * B — the drain. `claim_test_pool_user` takes the OLDEST claimable row first, so a just-released (or just-backdated)
- *     target is the NEWEST and comes last. A drain that claims "everything until the target" leaves the target as the
- *     only claimable row until its final claim. One claim by any other lease in that gap takes it; the drain's next
- *     claim returns null and it throws "drained the entire pool (N rows) … without ever seeing <id>". The other lease
- *     is a legitimate claimant (another file's `createTestUser`), so the drain cannot treat that as a bug.
- *     The interposing lease is fired from `hooks.beforeClaim` the moment the target is the only claimable row.
+ * B — the old drain. `claim_test_pool_user` returns the first claimable row its scan meets (equal `leased_at` ties
+ *     break by physical order, which the caller does not control). A drain that claims "everything until the target"
+ *     therefore has a moment when the target is the next row in line; one claim by any other lease then takes it, the
+ *     drain's next claim returns null, and it threw "drained the entire pool (N rows) … without ever seeing <id>". The
+ *     checks no longer drain. Here a second lease is fired from `hooks.beforeClaim` just before each claim a check
+ *     makes and takes every claimable row, the target included, whatever order the scan returns them in. The checks
+ *     must pass anyway, and the run fails if the target was never taken, so a scenario that never fires cannot pass
+ *     quietly.
  *
- * A — a leaseless fixture row. A row a test inserts without `leased_by` is claimable. Here a second lease claims it
- *     while it is the only claimable row, the file that made it deletes the auth user as
+ * A — a leaseless fixture row. A row a test inserts without `leased_by` is claimable. Here a second lease claims it,
+ *     the file that made it deletes the auth user as
  *     `tests/rls/test-user-pool-privileges.test.ts` does, and the claimant's `updateUserById` (what `claimFromPool`
  *     does next, tests/support/auth.ts) fails.
  *
- * Other files share the pool while this runs. Before acting, each scenario checks through a direct SELECT that the row it
- * cares about is the ONLY claimable one, and claims any other claimable row under its own lease first (releasing them
- * afterwards). The interposing claim is fired only when that check holds. A scenario that never reaches the check does
- * not fail here: on code that still has the race, the failure text below is what shows it was reached.
+ * Other files share the pool while this runs, so neither scenario relies on which row a claim returns: B empties the
+ * claimable set around the check's claim, A claims until the fixture row comes back (or it is found not to be claimable).
  */
 /*
  * WHY THE INTERLEAVINGS LIVE IN THIS FILE. They hold every claimable pool row under their own leases for a moment, and
@@ -212,20 +212,25 @@ async function claimAs(lease: string): Promise<string | null> {
 
 const release = (id: string, lease: string) => admin.rpc("release_test_pool_user", { p_user_id: id, p_lease_id: lease });
 
-describe("B: a second lease claims the drain's target in the final-row gap", () => {
+describe("B: a second lease takes every claimable row, the target included, just before a check claims", () => {
   async function interleaved(check: (hooks: ClaimCheckHooks) => Promise<void>) {
     const failures: string[] = [];
+    let targetTaken = 0;
     for (let i = 0; i < ITERATIONS; i++) {
       const lease = `interposer-${randomUUID().slice(0, 8)}`;
-      let interposed: string | null = null;
+      const taken: string[] = [];
       const hooks: ClaimCheckHooks = {
         async beforeClaim({ target }) {
-          if (interposed) return;
-          const ids = await claimableIds();
-          if (ids.length !== 1 || ids[0] !== target) return;
-          const got = await claimAs(lease); // another file's createTestUser: one claim, at the worst moment
-          if (got === target) interposed = got;
-          else if (got) await release(got, lease);
+          if (taken.length) return;
+          // Other files' createTestUser, at the worst moment: claim until the pool has nothing claimable left,
+          // whatever order the claims return the rows in.
+          for (let k = 0; k < 50; k++) {
+            if (!(await claimableIds()).includes(target)) return;
+            const got = await claimAs(lease);
+            if (!got) return;
+            taken.push(got);
+            if (got === target) targetTaken++;
+          }
         },
       };
       try {
@@ -233,24 +238,26 @@ describe("B: a second lease claims the drain's target in the final-row gap", () 
       } catch (e) {
         failures.push(`#${i + 1}: ${e instanceof Error ? e.message : String(e)}`);
       } finally {
-        if (interposed) await release(interposed, lease);
+        await Promise.all(taken.map((id) => release(id, lease)));
       }
     }
-    return { failures };
+    return { failures, targetTaken };
   }
 
-  it("the wipe check still passes when the target is taken by another lease", async () => {
-    const { failures } = await interleaved(checkClaimResetsPooledUser);
+  it("the wipe check still passes when the pool is emptied under it", async () => {
+    const { failures, targetTaken } = await interleaved(checkClaimResetsPooledUser);
     expect(failures.length, `${failures.length}/${ITERATIONS} interleavings failed the wipe check; first: ${failures[0]}`).toBe(0);
+    expect(targetTaken, "the interleaving never took the target: this run proved nothing").toBeGreaterThan(0);
   }, 180_000);
 
-  it("the stale-lease check still passes when the target is taken by another lease", async () => {
-    const { failures } = await interleaved(checkStaleLeaseIsReclaimable);
+  it("the stale-lease check still passes when the pool is emptied under it", async () => {
+    const { failures, targetTaken } = await interleaved(checkStaleLeaseIsReclaimable);
     expect(failures.length, `${failures.length}/${ITERATIONS} interleavings failed the stale-lease check; first: ${failures[0]}`).toBe(0);
+    expect(targetTaken, "the interleaving never took the target: this run proved nothing").toBeGreaterThan(0);
   }, 180_000);
 });
 
-describe("A: a leaseless fixture row is claimed while it is the only claimable row", () => {
+describe("A: a leaseless fixture row is claimed by another lease", () => {
   it("a fixture row inserted by insertPoolFixtureRow is never handed to another lease", async () => {
     const claimedLeaseless: string[] = [];
     for (let i = 0; i < ITERATIONS; i++) {
@@ -260,50 +267,39 @@ describe("A: a leaseless fixture row is claimed while it is the only claimable r
       });
       if (error) throw error;
       const rawId = data.user!.id;
-      const holdLease = `hold-${randomUUID().slice(0, 8)}`;
       const claimantLease = `claimant-${randomUUID().slice(0, 8)}`;
       const held: string[] = [];
       try {
         const { error: insertErr } = await insertPoolFixtureRow(rawId, "pool-fixture-check");
         expect(insertErr, "the service role must be able to insert the fixture row").toBeNull();
 
+        // Another file's createTestUser, repeatedly: claim until nothing is claimable or the fixture row comes back.
         for (let attempt = 0; attempt < 50; attempt++) {
-          const ids = await claimableIds();
-          if (!ids.includes(rawId)) break; // a leased row is skipped: nothing to interleave
-          if (ids.length === 1) {
-            // the raw row is the only claimable row: a second lease claims it
-            const got = await claimAs(claimantLease);
-            if (got === rawId) {
-              // …and the file that made it cleans up, as test-user-pool-privileges.test.ts's afterAll does
-              await admin.auth.admin.deleteUser(rawId);
-              const { error: updErr } = await admin.auth.admin.updateUserById(rawId, {
-                email: `pool-fixture-relabel-${randomUUID()}@talentrah.pool`,
-                email_confirm: true,
-              });
-              claimedLeaseless.push(
-                `claimed, then its auth user was deleted; the claimant's updateUserById failed with ${updErr?.status} ${updErr?.code ?? updErr?.name}: ${updErr?.message}`,
-              );
-            } else if (got) {
-              held.push(got); // someone else's row got in first; keep it out of the way and look again
-            }
-            break;
+          const got = await claimAs(claimantLease);
+          if (!got) break;
+          if (got !== rawId) {
+            held.push(got);
+            continue;
           }
-          const other = await claimAs(holdLease); // drain the older claimable rows so the raw row is the only one left
-          if (other === rawId) {
-            claimedLeaseless.push("claimed while it was still the oldest claimable row");
-            break;
-          }
-          if (other) held.push(other);
+          // …and the file that made the row cleans up, as test-user-pool-privileges.test.ts's afterAll does
+          await admin.auth.admin.deleteUser(rawId);
+          const { error: updErr } = await admin.auth.admin.updateUserById(rawId, {
+            email: `pool-fixture-relabel-${randomUUID()}@talentrah.pool`,
+            email_confirm: true,
+          });
+          claimedLeaseless.push(
+            `claimed after ${held.length} other claimable row(s); its auth user was then deleted and the claimant's updateUserById failed with ${updErr?.status} ${updErr?.code ?? updErr?.name}: ${updErr?.message}`,
+          );
+          break;
         }
       } finally {
-        await Promise.all(held.map((id) => release(id, holdLease)));
-        await release(rawId, claimantLease);
+        await Promise.all([...held, rawId].map((id) => release(id, claimantLease)));
         await admin.auth.admin.deleteUser(rawId).catch(() => {});
       }
     }
     expect(
       claimedLeaseless.length,
-      `${claimedLeaseless.length}/${ITERATIONS} fixture rows were claimed by a second lease while they were the only claimable row; e.g. ${claimedLeaseless[0]}`,
+      `${claimedLeaseless.length}/${ITERATIONS} fixture rows were handed to a second lease; e.g. ${claimedLeaseless[0]}`,
     ).toBe(0);
   }, 180_000);
 });
