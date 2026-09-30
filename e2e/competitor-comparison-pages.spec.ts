@@ -108,16 +108,23 @@ test.describe("send-461: /vs/jobright and /vs/jobcopilot", () => {
     expect(body).not.toMatch(/Disallow:\s*\/vs\b/);
   });
 
-  test("are linked from the marketing footer's Compare column with a real href, not a dead anchor", async ({
-    page,
-  }) => {
+  test("are no longer in the marketing footer (send-486), and stay reachable from each other", async ({ page }) => {
+    // send-486: the footer's Compare column was removed. This test used to assert that column's two
+    // links; it now asserts they are GONE from the footer, with controls so "absent" cannot pass on
+    // a page that simply did not render a footer.
     await page.goto("/");
-    const jobrightLink = page.getByRole("link", { name: "Jobright Alternative" });
-    const jobcopilotLink = page.getByRole("link", { name: "vs. FreshTalent JobCopilot" });
-    await expect(jobrightLink).toBeVisible();
-    await expect(jobcopilotLink).toBeVisible();
-    expect(await jobrightLink.getAttribute("href")).toBe("/vs/jobright");
-    expect(await jobcopilotLink.getAttribute("href")).toBe("/vs/jobcopilot");
+    const footer = page.locator("footer");
+    await expect(footer.getByRole("link", { name: "Privacy Policy" })).toBeVisible(); // control: the footer rendered
+    await expect(footer.getByRole("link", { name: "Jobright Alternative" })).toHaveCount(0);
+    await expect(footer.getByRole("link", { name: "vs. FreshTalent JobCopilot" })).toHaveCount(0);
+    await expect(footer.locator('a[href^="/vs/"]')).toHaveCount(0);
+    await expect(footer.getByText("Compare", { exact: true })).toHaveCount(0);
+
+    // The pages themselves are untouched and still link to each other (so neither is an orphan).
+    await page.goto("/vs/jobright");
+    await expect(page.locator('main a[href="/vs/jobcopilot"]').first()).toBeVisible();
+    await page.goto("/vs/jobcopilot");
+    await expect(page.locator('main a[href="/vs/jobright"]').first()).toBeVisible();
   });
 
   test("no competitor comparison claim is presented as Talentrah's own published pricing", async ({ page }) => {
