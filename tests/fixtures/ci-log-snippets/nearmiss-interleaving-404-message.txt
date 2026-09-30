@@ -1,0 +1,18 @@
+2026-09-30T19:08:07.5856367Z  FAIL  tests/support/test-user-pool.test.ts > A: a leaseless fixture row is claimed by another lease > a fixture row inserted by insertPoolFixtureRow is never handed to another lease
+2026-09-30T19:08:07.5859789Z AssertionError: 19/20 fixture rows were handed to a second lease; e.g. claimed after 17 other claimable row(s); its auth user was then deleted and the claimant's updateUserById failed with 404 user_not_found: User not found: expected 19 to be +0 // Object.is equality
+2026-09-30T19:08:07.5875224Z  Test Files  3 failed | 364 passed (367)
+2026-09-30T19:08:07.5876391Z 
+2026-09-30T19:08:07.5876954Z - Expected
+2026-09-30T19:08:07.5877662Z + Received
+2026-09-30T19:08:07.5878133Z 
+2026-09-30T19:08:07.5878868Z - 0
+2026-09-30T19:08:07.5879444Z + 19
+2026-09-30T19:08:07.5879817Z 
+2026-09-30T19:08:07.5880561Z  ❯ tests/support/test-user-pool.test.ts:303:7
+2026-09-30T19:08:07.5886663Z     301|       claimedLeaseless.length,
+2026-09-30T19:08:07.5888090Z     302|       `${claimedLeaseless.length}/${ITERATIONS} fixture rows were hand…
+2026-09-30T19:08:07.5889359Z     303|     ).toBe(0);
+2026-09-30T19:08:07.5890266Z        |       ^
+2026-09-30T19:08:07.5891131Z     304|   }, 180_000);
+2026-09-30T19:08:07.5891960Z     305| });
+2026-09-30T19:08:07.5892446Z 
