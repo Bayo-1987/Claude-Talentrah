@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { SITE_ORIGIN, SHARE_IMAGE, SHARE_IMAGE_META } from "@/lib/seo/site";
+import { preload } from "react-dom";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { CookieConsentBanner } from "@/components/legal/cookie-consent-banner";
@@ -94,15 +95,18 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
+  /*
+   * The resource-hint API, not a <link> element: a <link rel="preload"> in this tree is emitted twice — once as React's
+   * hint, once again when the element itself is rendered — so each of the three files was preloaded two times a page.
+   * `preload()` emits the hint once, in the same form next/font's preloads had: rel, href, as, crossorigin, type.
+   */
+  for (const href of PRELOADED_FONT_URLS) preload(href, { as: "font", type: "font/woff2", crossOrigin: "" });
   return (
     <html
       lang="en"
       className={`${newsreader.variable} ${ibmPlexSans.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-paper text-ink">
-        {PRELOADED_FONT_URLS.map((href) => (
-          <link key={href} rel="preload" href={href} as="font" type="font/woff2" crossOrigin="" />
-        ))}
         {/*
           send-406 follow-up — the cookie banner below is real, focusable
           chrome (a "Learn more" link, Decline/Accept buttons) inserted

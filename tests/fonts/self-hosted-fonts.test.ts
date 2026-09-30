@@ -155,7 +155,8 @@ describe("the preloaded files", () => {
   it("layout.tsx renders them and imports no other font source", () => {
     const layout = readFileSync(join(process.cwd(), "src", "app", "layout.tsx"), "utf8");
     expect(layout).toContain("PRELOADED_FONT_URLS");
-    expect(layout).toMatch(/rel="preload"[^>]*as="font"[^>]*type="font\/woff2"/);
+    expect(layout).toMatch(/preload\(href, \{ as: "font", type: "font\/woff2"/);
+    expect(layout, "a <link rel=preload> element is emitted twice; use preload()").not.toMatch(/<link[^>]*rel="preload"/);
     expect(layout).toContain("@/fonts/newsreader/newsreader.css");
     expect(layout).toContain("@/fonts/ibm-plex-sans/ibm-plex-sans.css");
   });
