@@ -15,6 +15,11 @@ export interface LandingLink {
   label: string;
 }
 
+/** A landing link that also carries its live count (send-480: the /scholarships "Browse by" card shows it). */
+export interface LandingLinkWithCount extends LandingLink {
+  count: number;
+}
+
 /**
  * Every OTHER job landing page that is currently live, for the "explore
  * more" links on each one — live-checked the same way the page itself is,
@@ -117,12 +122,16 @@ export async function relevantJobLandingLinks(
  * contract as liveJobLandingLinks, and the same one-round-trip fix
  * (send-441): `scholarship_landing_facet_counts` (0185) replaces this file's
  * 1 (fully-funded) + 5 (degree level) separate count(*) queries.
+ *
+ * send-480 — each link now also carries its live `count`. Additive: every existing caller
+ * only reads `href` and `label`. Still one round trip, and still the same
+ * >= LANDING_PAGE_MIN_ENTRIES rule that decides whether the page behind a link exists.
  */
 export async function liveScholarshipLandingLinks(
   supabase: SupabaseServerClient,
   excludeHref?: string,
-): Promise<LandingLink[]> {
-  const links: LandingLink[] = [];
+): Promise<LandingLinkWithCount[]> {
+  const links: LandingLinkWithCount[] = [];
   const today = new Date().toISOString().slice(0, 10);
 
   const { data, error } = await supabase
@@ -131,7 +140,11 @@ export async function liveScholarshipLandingLinks(
   if (error) throw new Error(error.message);
 
   if (data.fully_funded_count >= LANDING_PAGE_MIN_ENTRIES) {
-    links.push({ href: "/scholarships/fully-funded", label: "Fully funded scholarships" });
+    links.push({
+      href: "/scholarships/fully-funded",
+      label: "Fully funded scholarships",
+      count: data.fully_funded_count,
+    });
   }
 
   const degreeLevelCounts: Record<DegreeLevel, number> = {
@@ -146,6 +159,7 @@ export async function liveScholarshipLandingLinks(
       links.push({
         href: `/scholarships/degree/${DEGREE_LEVEL_SLUG[level]}`,
         label: `${DEGREE_LEVEL_LABEL[level]} scholarships`,
+        count: degreeLevelCounts[level],
       });
     }
   }
