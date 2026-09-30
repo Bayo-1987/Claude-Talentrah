@@ -14,7 +14,11 @@ record of a measurement, not of a decision: what to do about the findings is tra
 | `source/zz-diag-font-extraction.spec.ts.txt` | Stage 1: renders every template and saves the PDF. `DUMP …` tests = the faces run, `WSPROBE …` tests = the word-spacing run. |
 | `source/zz-extract-all.py` | Stage 2: runs every extractor over the saved PDFs and counts damaged words. |
 | `source/font-probe-*.tsx.txt` | The three throwaway dev routes the probe rendered through (`/dev/font-probe/…`). |
-| `source/probe-ci-workflow.patch` | The `.github/workflows/ci.yml` changes the probe ran under (install the extractors, run both stages, upload results). |
+| `source/probe-ci-workflow.patch` | The `.github/workflows/ci.yml` changes the first two probes ran under (install the extractors, run both stages, upload results). |
+| `results-wordspacing-fine.csv` | 1,170 rows: 65 templates × 3 personas × 6 variants (a control + root `word-spacing` 0.02 / 0.03 / 0.04 / 0.05 / 0.1em) — the **fine word-spacing run**, below. Adds `last_page_fill`. |
+| `stage2-wordspacing-fine.log` | Stage-2 output of that run, including the `GAINED`, `GAINED-FIRST`, `FILLSTATS` and `FILLTOP` lines. |
+| `source/v8/` | The stage-1 spec, stage-2 script and CI patch of the fine run (they differ from `source/` above only in the variant list and in the page-gain / last-page-fill / 150-dpi additions). |
+| `../../../scripts/ci-flake-tally.py` | A separate tool: tallies a flaky test over CI first attempts, bucketed by whether the tested commit contained a fix. See the last section. |
 
 The TypeScript sources are stored as `.txt` **on purpose**: a `.ts`/`.tsx` file under `docs/` would be picked up by
 `tsc` and ESLint and fail on its `@/…` and `./support/…` imports. Rename them (drop `.txt`) to use them.
@@ -28,9 +32,10 @@ Branch `chore/diag-font-extraction-473` (PR #573, a throwaway that is never merg
 
 - Faces run: commit `59eeca88` — CI run `36673358288`, artifact `probe-pdfs-and-results`.
 - Word-spacing run: commit `352cd0c7` — CI run `36677597805`, artifact `probe-wordspacing-results`.
-- The source files here are those at `352cd0c7`. `results-faces.csv` was produced by the earlier stage-2 script, which
+- The source files in `source/` are those at `352cd0c7`; those in `source/v8/` are at `eabaaf41`. `results-faces.csv` was produced by the earlier stage-2 script, which
   did not yet write the `pages` and `ws` columns; the extraction logic is the same.
-- Artifacts expire **2026-10-14**. Once the branch is deleted its commits stay fetchable through the pull request's
+- Fine word-spacing run: branch `chore/diag-wordspacing-fine`, commit `eabaaf41` — CI run `36707624170`, **attempt 2** (attempt 1 failed in `Build app` with the CI font-build error tracked in issue #585, before any probe code ran), artifact `probe-wordspacing-fine`, **which includes the 1,170 PDFs** (110 MB; not committed here).
+- Artifact expiry, from the GitHub API: `probe-pdfs-and-results` 2026-10-14T05:39Z, `probe-wordspacing-results` 2026-10-14T06:38Z, `probe-wordspacing-fine` **2026-10-14T11:45Z**. Once the branch is deleted its commits stay fetchable through the pull request's
   head ref: `git fetch origin pull/573/head`.
 
 ## Environment (both runs)
@@ -45,7 +50,9 @@ GitHub `ubuntu-latest`; Playwright's bundled Chromium (`@playwright/test` `^1.63
 | MuPDF | `mutool version 1.23.10` | `mutool draw -q -F text -o - <pdf>` |
 | Apache PDFBox | app jar `3.0.3` from Maven Central, SHA-1 verified in CI | `java -jar pdfbox-app.jar export:text -i <pdf> -o <out>` (OpenJDK 17.0.20.1) |
 
-Page counts (word-spacing run only) come from poppler's `pdfinfo`.
+Page counts (both word-spacing runs) come from poppler's `pdfinfo`; the last-page fill of the fine run comes from `pdftotext -bbox` on the last page.
+
+Also fixed by the environment (read from the repository and the run, not assumed): Playwright **1.63.0**, whose pinned Chromium is **153.0.8010.12** (`playwright-core/browsers.json`, revision 1243); Node **22** (`ci.yml`); runner image **ubuntu-24.04**, version 20260920.314.1; `pdf-parse` **2.4.5** on `pdfjs-dist` **5.4.296** (`package-lock.json`); PDFs made with `page.pdf({ printBackground: true })`, so the default **Letter** page (612 × 792 pt). The resume font is **Source Sans 3** loaded by `src/components/resume-builder/templates/fonts.ts`: `next/font/google`, `subsets: ["latin"]`, weights 400 / 500 / 600 / 700, `display: "swap"`, `preload: false`, exposed as `--font-resume-source-sans`.
 
 ## What was rendered
 
@@ -84,11 +91,13 @@ order (that is what `e2e/ats-safety.spec.ts` checks, with pdf.js only).
 families of the text, `|`-separated), and in `results-wordspacing.csv` also `pages` (page count) and `ws` (the distinct
 computed `word-spacing` values on the text, `|`-separated).
 
+`results-wordspacing-fine.csv` also has `last_page_fill` — the lowest word on the **last** page divided by the page height, from `pdftotext -bbox` (poppler). `results-faces.csv` has neither `pages`, `ws` nor `last_page_fill`.
+
 ### The CSVs contain no resume text
 
-Both files were checked cell by cell: every `persona`, `words`, extractor and `pages` cell is an integer; every `slug` is a
+All three files were checked cell by cell (the fine file again on 2026-09-30: 0 of 1,170 rows had a cell outside these patterns): every `persona`, `words`, extractor and `pages` cell is an integer; `last_page_fill` is a decimal between 0 and 1; every `slug` is a
 kebab-case template id; every `face` is an id; `fams` holds only font-family names (`Source Sans 3`, `IBM Plex Sans`,
-`Work Sans`, `Newsreader`, `Lora`, `Poppins`, `Barlow Condensed`); `ws` holds only lengths such as `0.8px`. **Neither CSV
+`Work Sans`, `Newsreader`, `Lora`, `Poppins`, `Barlow Condensed`); `ws` holds only lengths such as `0.8px`. **None of the CSVs
 contains any words from a resume, fictional or otherwise.** The `.log` files do quote a few damaged words (for example the
 most frequently damaged ones); those words come from the fictional example personas above, which are already in the repository.
 
@@ -108,6 +117,86 @@ Poppler under a small `word-spacing` (the four other extractors are identical to
 variant): `each 0.05em` 0.90%, `root 0.05em` 0.56%, `0.1em` 0.00%, `0.02em` 12.5–18.2%. At 0.05em the page count rises in 11 of
 195 renders; at 0.1em in 12 (each) or 21 (root).
 
+## Fine word-spacing run
+
+**Question.** The first word-spacing run found that a small `word-spacing` on the Source Sans 3 resume root removes poppler's word-gluing without moving the other extractors, at the price of some renders gaining a page. This run asks the follow-ups: what do finer values (0.03em, 0.04em) do, **which renders gain a page and how full were they**, and can a person see the gluing in a proper-resolution render? **`word-spacing` is not adopted and no production change is proposed** — this is a measurement.
+
+**What was varied.** Only `word-spacing`, only on the resume root (`[class*='bg-resume-paper'] { word-spacing: X !important; }`, descendants inherit the length computed there); the face is untouched (Source Sans 3). Variants: `ss-ws0` (control, nothing added), and `ss-ws-root-{0.02, 0.03, 0.04, 0.05, 0.1}em`. 65 templates × 3 personas (`EXAMPLE_PERSONAS[0]`, `[1]`, `[2]`) × 6 variants = **1,170 PDFs**, every one saved and run through all five extractors.
+
+**Exact commands** (Linux; `poppler-utils`, `mupdf-tools`, a JDK, `pdfminer.six==20240706` in a venv, and the PDFBox 3.0.3 app jar installed as in `source/v8/probe-ci-workflow.patch`; the app built and started as in `ci.yml`):
+
+```bash
+# stage 1 — render every template x persona x variant and save each PDF plus a sidecar (words to check, pdf.js result)
+E2E_BASE_URL=http://localhost:3000 npx playwright test e2e/zz-diag-font-extraction.spec.ts -g WSPROBE --workers=4
+# stage 2 — run poppler, pdfminer.six, MuPDF and PDFBox over the identical files; writes /tmp/pdfs/results.csv
+PDFBOX_JAR=/tmp/pdfbox-app.jar /tmp/venv/bin/python scripts/zz-extract-all.py /tmp/pdfs 2>&1 | tee /tmp/stage2.log
+```
+
+Engines and settings: the five extractors and their invocations are in the Environment table above; "damaged" is counted exactly as described above. The dev routes the spec renders through (`/dev/font-probe/…`) are those in `source/`, and render static sample data, needing no database rows.
+
+### Results — percent of body words damaged, all three personas
+
+| variant | poppler, all 65 (damaged / total) | poppler, 38 `ats_safe` | pdf.js | pdfminer.six | MuPDF | PDFBox | renders gaining a page (of 195) |
+|---|---|---|---|---|---|---|---|
+| control (no `word-spacing`) | 29.62% (7,816 / 26,384) | 33.02% (5,104 / 15,459) | 0.68% | 0.74% | 0.00% | 0.88% | 0 |
+| root 0.02em | 12.52% (3,304 / 26,384) | 14.89% (2,302 / 15,459) | 0.68% | 0.74% | 0.00% | 0.88% | 1 |
+| root 0.03em | 1.91% (505 / 26,384) | 2.61% (404 / 15,459) | 0.68% | 0.74% | 0.00% | 0.88% | 10 |
+| root 0.04em | 0.90% (238 / 26,384) | 1.14% (176 / 15,459) | 0.68% | 0.74% | 0.00% | 0.88% | 11 |
+| root 0.05em | 0.56% (147 / 26,384) | 0.87% (135 / 15,459) | 0.68% | 0.74% | 0.00% | 0.88% | 11 |
+| root 0.1em | 0.00% (0 / 26,384) | 0.00% (0 / 15,459) | 0.68% | 0.74% | 0.00% | 0.88% | 21 |
+
+The four non-poppler extractors are identical to the control render by render at every value: renders whose count differs from the control's, per variant: {'ss-ws-root-0.02em': 0, 'ss-ws-root-0.03em': 0, 'ss-ws-root-0.04em': 0, 'ss-ws-root-0.05em': 0, 'ss-ws-root-0.1em': 0}.
+
+### Which renders gain a page — all 21 of 195, sorted by the control's last-page fill
+
+Control single-page renders: n = 122; of the 195 controls, 73 are already multi-page and **none of those gained a page**. `last_page_fill` = the lowest word on the last page ÷ page height (`pdftotext -bbox`); the fullest page in the set is 0.960 (the template's own bottom padding).
+
+| template | persona | `ats_safe` | control pages | control last-page fill | first value at which it gains a page | values at which it gains |
+|---|---|---|---|---|---|---|
+| `pitch-deck` | 1 | no | 1 | 0.96 | root 0.1em | 0.1 em |
+| `signal` | 1 | no | 1 | 0.96 | root 0.1em | 0.1 em |
+| `product-tech` | 1 | no | 1 | 0.958 | root 0.1em | 0.1 em |
+| `ledger` | 2 | yes | 1 | 0.955 | root 0.1em | 0.1 em |
+| `field-season` | 2 | yes | 1 | 0.953 | root 0.1em | 0.1 em |
+| `route-plan` | 2 | yes | 1 | 0.953 | root 0.1em | 0.1 em |
+| `site-report` | 2 | yes | 1 | 0.953 | root 0.1em | 0.1 em |
+| `foundation` | 2 | yes | 1 | 0.95 | root 0.1em | 0.1 em |
+| `business-boardroom` | 1 | no | 1 | 0.948 | root 0.03em | 0.03, 0.04, 0.05, 0.1 em |
+| `gantt` | 2 | yes | 1 | 0.948 | root 0.1em | 0.1 em |
+| `clinical` | 1 | no | 1 | 0.946 | root 0.02em | 0.02, 0.03, 0.04, 0.05, 0.1 em |
+| `concierge` | 1 | no | 1 | 0.946 | root 0.03em | 0.03, 0.04, 0.05, 0.1 em |
+| `faculty-profile` | 1 | no | 1 | 0.945 | root 0.03em | 0.03, 0.04, 0.05, 0.1 em |
+| `grant-proposal` | 1 | no | 1 | 0.945 | root 0.03em | 0.03, 0.04, 0.05, 0.1 em |
+| `supply-chain` | 1 | no | 1 | 0.936 | root 0.03em | 0.03, 0.04, 0.05, 0.1 em |
+| `front-office` | 1 | no | 1 | 0.935 | root 0.03em | 0.03, 0.04, 0.05, 0.1 em |
+| `wellhead` | 1 | no | 1 | 0.931 | root 0.03em | 0.03, 0.04, 0.05, 0.1 em |
+| `funnel` | 1 | no | 1 | 0.928 | root 0.03em | 0.03, 0.04, 0.05, 0.1 em |
+| `value-chain` | 1 | no | 1 | 0.928 | root 0.03em | 0.03, 0.04, 0.05, 0.1 em |
+| `balance-sheet` | 1 | no | 1 | 0.903 | root 0.04em | 0.04, 0.05, 0.1 em |
+| `chambers` | 1 | no | 1 | 0.889 | root 0.1em | 0.1 em |
+
+Control last-page fill, single-page renders (n = 122): min 0.741, median 0.909, max 0.960. Renders that gained a page (n = 21): min 0.889, median 0.946, max 0.960.
+
+| control last-page fill | single-page control renders | gain at 0.02 em | gain at 0.03 em | gain at 0.04 em | gain at 0.05 em | gain at 0.1 em |
+|---|---|---|---|---|---|---|
+| 0.00–0.85 | 42 | 0 | 0 | 0 | 0 | 0 |
+| 0.85–0.90 | 6 | 0 | 0 | 0 | 0 | 1 |
+| 0.90–0.93 | 35 | 0 | 2 | 3 | 3 | 3 |
+| 0.93–0.95 | 23 | 1 | 8 | 8 | 8 | 9 |
+| 0.95–0.97 | 16 | 0 | 0 | 0 | 0 | 8 |
+
+**What the page-gain data does and does not say.** Every render that gained a page (n = 21) was already at least 88.9% full in the control, and none of the 73 already-multi-page controls gained a page. **Fullness alone did not predict which renders gained:** the fullest band (0.95–0.97, 16 renders) gains nothing until 0.1em (8 of 16 then), while at 0.03–0.05em the gains fall in the 0.90–0.95 bands. Why the fullest band holds until 0.1em was not investigated. At 0.03–0.05em **every gaining render is persona 1 on a template not flagged `ats_safe`** (11 renders); the six `ats_safe` renders that gain a page do so only at 0.1em and are all persona 2. That is **one persona**, so it may not generalise to other resumes.
+
+**150-dpi first pages** (poppler `pdftoppm -r 150`, page 1, persona 0; control and root 0.05em; `clean-professional` and `blueprint`; 4 images, not committed): in all four, the gaps between words are visible; in the control a few word gaps are visibly tighter than others; 0.05em reads slightly airier and wraps a little earlier in the paragraphs viewed. Both versions show uneven spacing *inside* some words. An earlier 70-dpi raster suggested glued word pairs in the control; **that was a low-resolution artifact** — at 150 dpi the gluing poppler's text extraction reports is not visible to a person in these two renders. This applies to the *word gaps* only: a resume that gains a page **is** visible (a one-page resume becomes two). Two templates, one persona, one renderer (poppler's).
+
+## CI flake tally (`scripts/ci-flake-tally.py`)
+
+Counts a flaky test's failures over CI **first attempts** (a re-run only happens after a failure, so counting re-runs biases the rate up), for `push` and `pull_request` runs of `ci.yml` in a window, bucketed by whether the commit each job actually tested contained a given fix commit (`with-fix` / `without-fix` / `unknown`). For a `pull_request` run the workflow tests the merge ref, so the tested commit contains the fix if the PR head or its base does; the script reads the `Merge <head> into <base>` line of the checkout step's log and asks GitHub's compare API. It prints, per bucket, the denominators, the failing runs, a Wilson 95% interval, the rule-of-three upper bound when there are 0 failures, and counts of two refresh-job diagnostic lines (`recovered` and `could not verify stale postings`). It reads only public CI data through the GitHub CLI and holds no token.
+
+```bash
+python3 scripts/ci-flake-tally.py --since 2026-09-30T13:37:34Z --until 2026-10-02T13:37:34Z --fix-sha 03df723169490013a1479a5641f143d5c804211d
+```
+
 ## Reproducing
 
 On Linux with `poppler-utils`, `mupdf-tools`, a JDK, `pdfminer.six` and the PDFBox app jar installed
@@ -125,8 +214,7 @@ On Linux with `poppler-utils`, `mupdf-tools`, a JDK, `pdfminer.six` and the PDFB
 - **Linux Chromium only.** PDFs produced on macOS, Windows or Android were not measured (beyond one early pdf.js-only macOS
   check). Poppler on non-Linux PDFs is untested.
 - **Five open-source extractors.** No commercial parser and no real applicant tracking system was run.
-- **Three of 66 personas.** Damage scales with the words a template contains.
+- **Three of 66 personas.** Damage scales with the words a template contains. In the fine run, every page gain at 0.03–0.05em is on persona 1 — one persona, so it may not generalise.
 - **The mechanism is not established:** these files show *that* poppler reports no word gaps in the current PDFs and *that* a
   larger `word-spacing` removes the effect, not *why*.
-- The word-spacing run kept only first-page PNGs of two templates, not the PDFs, so how the spacing looks at proper resolution
-  was not reviewed.
+- The first word-spacing run kept only 70-dpi first-page PNGs of two templates, which is why its "visibly glued" impression was wrong; the fine run kept the PDFs (as a CI artifact, not committed) and checked 150 dpi — but only two templates, one persona, one renderer.

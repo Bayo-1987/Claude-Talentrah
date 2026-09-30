@@ -1,0 +1,1525 @@
+VER {"poppler": "pdftotext version 24.02.0", "mutool": "mutool version 1.23.10", "java": "openjdk version \"17.0.20.1\" 2026-08-18", "pdfminer": "pdfminer.six 20240706", "pdfbox": "pdfbox-app.jar"}
+VER pdf_count=1170 dir=/tmp/pdfs
+ROW 0 ss-ws-root-0.02em balance-sheet 119 3 10 3 0 3
+ROW 0 ss-ws-root-0.02em blueprint 113 0 8 0 0 0
+ROW 0 ss-ws-root-0.02em business-boardroom 119 0 10 0 0 0
+ROW 0 ss-ws-root-0.02em business-memo 118 3 13 3 0 3
+ROW 0 ss-ws-root-0.02em byline 119 0 13 0 0 0
+ROW 0 ss-ws-root-0.02em care-plan 113 3 13 3 0 3
+ROW 0 ss-ws-root-0.02em chambers 113 3 10 3 0 3
+ROW 0 ss-ws-root-0.02em civic-record 113 1 29 1 0 1
+ROW 0 ss-ws-root-0.02em clean-professional 113 3 13 3 0 3
+ROW 0 ss-ws-root-0.02em clinical 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.02em compliance-brief 113 3 13 3 0 3
+ROW 0 ss-ws-root-0.02em concierge 118 0 10 0 0 0
+ROW 0 ss-ws-root-0.02em critical-path 110 0 14 1 0 1
+ROW 0 ss-ws-root-0.02em curriculum-vitae 119 0 13 0 0 0
+ROW 0 ss-ws-root-0.02em design-showcase 113 0 8 0 0 0
+ROW 0 ss-ws-root-0.02em faculty-profile 118 0 10 0 0 0
+ROW 0 ss-ws-root-0.02em field-mission 119 0 13 0 0 0
+ROW 0 ss-ws-root-0.02em field-notes 113 1 29 1 0 3
+ROW 0 ss-ws-root-0.02em field-season 113 0 13 0 0 0
+ROW 0 ss-ws-root-0.02em filing-system 113 1 29 1 0 1
+ROW 0 ss-ws-root-0.02em foundation 113 3 13 3 0 3
+ROW 0 ss-ws-root-0.02em front-desk 120 0 13 0 0 0
+ROW 0 ss-ws-root-0.02em front-office 113 0 10 0 0 0
+ROW 0 ss-ws-root-0.02em funnel 113 0 10 0 0 0
+ROW 0 ss-ws-root-0.02em gantt 113 0 13 0 0 0
+ROW 0 ss-ws-root-0.02em gazette 113 3 13 3 0 3
+ROW 0 ss-ws-root-0.02em grant-proposal 118 0 10 0 0 0
+ROW 0 ss-ws-root-0.02em harvest 113 1 29 1 0 1
+ROW 0 ss-ws-root-0.02em help-desk 119 3 13 6 0 6
+ROW 0 ss-ws-root-0.02em impact-report 113 0 13 0 0 0
+ROW 0 ss-ws-root-0.02em itinerary 113 1 29 1 0 0
+ROW 0 ss-ws-root-0.02em lecture-notes 113 1 29 1 0 0
+ROW 0 ss-ws-root-0.02em ledger 113 3 13 3 0 3
+ROW 0 ss-ws-root-0.02em legal-brief 113 1 29 1 0 0
+ROW 0 ss-ws-root-0.02em manifest 113 3 13 3 0 3
+ROW 0 ss-ws-root-0.02em network-ops 113 0 13 0 0 0
+ROW 0 ss-ws-root-0.02em offshore 113 3 13 3 0 3
+ROW 0 ss-ws-root-0.02em pipeline 98 0 10 1 0 1
+ROW 0 ss-ws-root-0.02em pitch-deck 113 0 12 0 0 0
+ROW 0 ss-ws-root-0.02em portfolio-grid 112 0 3 0 0 0
+ROW 0 ss-ws-root-0.02em press-kit 113 0 12 0 0 0
+ROW 0 ss-ws-root-0.02em product-tech 113 0 12 0 0 0
+ROW 0 ss-ws-root-0.02em property-portfolio 113 0 12 0 0 0
+ROW 0 ss-ws-root-0.02em public-record 113 0 11 0 0 0
+ROW 0 ss-ws-root-0.02em reel 113 0 8 0 0 0
+ROW 0 ss-ws-root-0.02em research-record 119 0 12 0 0 0
+ROW 0 ss-ws-root-0.02em rig-report 113 1 29 1 0 0
+ROW 0 ss-ws-root-0.02em rounds 119 3 13 3 0 3
+ROW 0 ss-ws-root-0.02em route-plan 113 0 13 0 0 0
+ROW 0 ss-ws-root-0.02em schematic 118 3 8 3 0 3
+ROW 0 ss-ws-root-0.02em signal 113 0 12 0 0 0
+ROW 0 ss-ws-root-0.02em site-plan 113 0 13 0 0 0
+ROW 0 ss-ws-root-0.02em site-report 113 0 13 0 0 0
+ROW 0 ss-ws-root-0.02em specification 119 1 29 1 0 1
+ROW 0 ss-ws-root-0.02em sprint-board 113 0 12 0 0 0
+ROW 0 ss-ws-root-0.02em stack-trace 113 0 12 0 0 0
+ROW 0 ss-ws-root-0.02em statute 111 0 0 0 0 0
+ROW 0 ss-ws-root-0.02em structured-admin 113 3 13 3 0 3
+ROW 0 ss-ws-root-0.02em studio-brief 113 0 12 0 0 0
+ROW 0 ss-ws-root-0.02em success-story 119 0 13 0 0 0
+ROW 0 ss-ws-root-0.02em supply-chain 113 0 10 0 0 0
+ROW 0 ss-ws-root-0.02em terminal 113 1 29 1 0 3
+ROW 0 ss-ws-root-0.02em uptime 113 0 12 0 0 0
+ROW 0 ss-ws-root-0.02em value-chain 113 0 10 0 0 0
+ROW 0 ss-ws-root-0.02em wellhead 113 0 10 0 0 0
+ROW 0 ss-ws-root-0.03em balance-sheet 119 3 0 3 0 3
+ROW 0 ss-ws-root-0.03em blueprint 113 0 8 0 0 0
+ROW 0 ss-ws-root-0.03em business-boardroom 119 0 0 0 0 0
+ROW 0 ss-ws-root-0.03em business-memo 118 3 0 3 0 3
+ROW 0 ss-ws-root-0.03em byline 119 0 0 0 0 0
+ROW 0 ss-ws-root-0.03em care-plan 113 3 0 3 0 3
+ROW 0 ss-ws-root-0.03em chambers 113 3 0 3 0 3
+ROW 0 ss-ws-root-0.03em civic-record 113 1 7 1 0 1
+ROW 0 ss-ws-root-0.03em clean-professional 113 3 0 3 0 3
+ROW 0 ss-ws-root-0.03em clinical 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.03em compliance-brief 113 3 0 3 0 3
+ROW 0 ss-ws-root-0.03em concierge 118 0 0 0 0 0
+ROW 0 ss-ws-root-0.03em critical-path 110 0 4 1 0 1
+ROW 0 ss-ws-root-0.03em curriculum-vitae 119 0 0 0 0 0
+ROW 0 ss-ws-root-0.03em design-showcase 113 0 3 0 0 0
+ROW 0 ss-ws-root-0.03em faculty-profile 118 0 0 0 0 0
+ROW 0 ss-ws-root-0.03em field-mission 119 0 0 0 0 0
+ROW 0 ss-ws-root-0.03em field-notes 113 1 7 1 0 3
+ROW 0 ss-ws-root-0.03em field-season 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.03em filing-system 113 1 7 1 0 1
+ROW 0 ss-ws-root-0.03em foundation 113 3 0 3 0 3
+ROW 0 ss-ws-root-0.03em front-desk 120 0 0 0 0 0
+ROW 0 ss-ws-root-0.03em front-office 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.03em funnel 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.03em gantt 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.03em gazette 113 3 0 3 0 3
+ROW 0 ss-ws-root-0.03em grant-proposal 118 0 0 0 0 0
+ROW 0 ss-ws-root-0.03em harvest 113 1 7 1 0 1
+ROW 0 ss-ws-root-0.03em help-desk 119 3 0 6 0 6
+ROW 0 ss-ws-root-0.03em impact-report 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.03em itinerary 113 1 7 1 0 0
+ROW 0 ss-ws-root-0.03em lecture-notes 113 1 7 1 0 0
+ROW 0 ss-ws-root-0.03em ledger 113 3 0 3 0 3
+ROW 0 ss-ws-root-0.03em legal-brief 113 1 7 1 0 0
+ROW 0 ss-ws-root-0.03em manifest 113 3 0 3 0 3
+ROW 0 ss-ws-root-0.03em network-ops 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.03em offshore 113 3 0 3 0 3
+ROW 0 ss-ws-root-0.03em pipeline 98 0 2 1 0 1
+ROW 0 ss-ws-root-0.03em pitch-deck 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.03em portfolio-grid 112 0 0 0 0 0
+ROW 0 ss-ws-root-0.03em press-kit 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.03em product-tech 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.03em property-portfolio 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.03em public-record 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.03em reel 113 0 3 0 0 0
+ROW 0 ss-ws-root-0.03em research-record 119 0 0 0 0 0
+ROW 0 ss-ws-root-0.03em rig-report 113 1 7 1 0 0
+ROW 0 ss-ws-root-0.03em rounds 119 3 0 3 0 3
+ROW 0 ss-ws-root-0.03em route-plan 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.03em schematic 118 3 3 3 0 3
+ROW 0 ss-ws-root-0.03em signal 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.03em site-plan 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.03em site-report 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.03em specification 119 1 7 1 0 1
+ROW 0 ss-ws-root-0.03em sprint-board 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.03em stack-trace 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.03em statute 111 0 0 0 0 0
+ROW 0 ss-ws-root-0.03em structured-admin 113 3 0 3 0 3
+ROW 0 ss-ws-root-0.03em studio-brief 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.03em success-story 119 0 0 0 0 0
+ROW 0 ss-ws-root-0.03em supply-chain 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.03em terminal 113 1 7 1 0 3
+ROW 0 ss-ws-root-0.03em uptime 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.03em value-chain 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.03em wellhead 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.04em balance-sheet 119 3 0 3 0 3
+ROW 0 ss-ws-root-0.04em blueprint 113 0 8 0 0 0
+ROW 0 ss-ws-root-0.04em business-boardroom 119 0 0 0 0 0
+ROW 0 ss-ws-root-0.04em business-memo 118 3 0 3 0 3
+ROW 0 ss-ws-root-0.04em byline 119 0 0 0 0 0
+ROW 0 ss-ws-root-0.04em care-plan 113 3 0 3 0 3
+ROW 0 ss-ws-root-0.04em chambers 113 3 0 3 0 3
+ROW 0 ss-ws-root-0.04em civic-record 113 1 1 1 0 1
+ROW 0 ss-ws-root-0.04em clean-professional 113 3 0 3 0 3
+ROW 0 ss-ws-root-0.04em clinical 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.04em compliance-brief 113 3 0 3 0 3
+ROW 0 ss-ws-root-0.04em concierge 118 0 0 0 0 0
+ROW 0 ss-ws-root-0.04em critical-path 110 0 1 1 0 1
+ROW 0 ss-ws-root-0.04em curriculum-vitae 119 0 0 0 0 0
+ROW 0 ss-ws-root-0.04em design-showcase 113 0 3 0 0 0
+ROW 0 ss-ws-root-0.04em faculty-profile 118 0 0 0 0 0
+ROW 0 ss-ws-root-0.04em field-mission 119 0 0 0 0 0
+ROW 0 ss-ws-root-0.04em field-notes 113 1 1 1 0 3
+ROW 0 ss-ws-root-0.04em field-season 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.04em filing-system 113 1 1 1 0 1
+ROW 0 ss-ws-root-0.04em foundation 113 3 0 3 0 3
+ROW 0 ss-ws-root-0.04em front-desk 120 0 0 0 0 0
+ROW 0 ss-ws-root-0.04em front-office 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.04em funnel 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.04em gantt 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.04em gazette 113 3 0 3 0 3
+ROW 0 ss-ws-root-0.04em grant-proposal 118 0 0 0 0 0
+ROW 0 ss-ws-root-0.04em harvest 113 1 1 1 0 1
+ROW 0 ss-ws-root-0.04em help-desk 119 3 0 6 0 6
+ROW 0 ss-ws-root-0.04em impact-report 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.04em itinerary 113 1 1 1 0 0
+ROW 0 ss-ws-root-0.04em lecture-notes 113 1 1 1 0 0
+ROW 0 ss-ws-root-0.04em ledger 113 3 0 3 0 3
+ROW 0 ss-ws-root-0.04em legal-brief 113 1 1 1 0 0
+ROW 0 ss-ws-root-0.04em manifest 113 3 0 3 0 3
+ROW 0 ss-ws-root-0.04em network-ops 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.04em offshore 113 3 0 3 0 3
+ROW 0 ss-ws-root-0.04em pipeline 98 0 0 1 0 1
+ROW 0 ss-ws-root-0.04em pitch-deck 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.04em portfolio-grid 112 0 0 0 0 0
+ROW 0 ss-ws-root-0.04em press-kit 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.04em product-tech 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.04em property-portfolio 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.04em public-record 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.04em reel 113 0 3 0 0 0
+ROW 0 ss-ws-root-0.04em research-record 119 0 0 0 0 0
+ROW 0 ss-ws-root-0.04em rig-report 113 1 1 1 0 0
+ROW 0 ss-ws-root-0.04em rounds 119 3 0 3 0 3
+ROW 0 ss-ws-root-0.04em route-plan 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.04em schematic 118 3 3 3 0 3
+ROW 0 ss-ws-root-0.04em signal 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.04em site-plan 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.04em site-report 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.04em specification 119 1 1 1 0 1
+ROW 0 ss-ws-root-0.04em sprint-board 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.04em stack-trace 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.04em statute 111 0 0 0 0 0
+ROW 0 ss-ws-root-0.04em structured-admin 113 3 0 3 0 3
+ROW 0 ss-ws-root-0.04em studio-brief 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.04em success-story 119 0 0 0 0 0
+ROW 0 ss-ws-root-0.04em supply-chain 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.04em terminal 113 1 1 1 0 3
+ROW 0 ss-ws-root-0.04em uptime 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.04em value-chain 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.04em wellhead 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.05em balance-sheet 119 3 0 3 0 3
+ROW 0 ss-ws-root-0.05em blueprint 113 0 1 0 0 0
+ROW 0 ss-ws-root-0.05em business-boardroom 119 0 0 0 0 0
+ROW 0 ss-ws-root-0.05em business-memo 118 3 0 3 0 3
+ROW 0 ss-ws-root-0.05em byline 119 0 0 0 0 0
+ROW 0 ss-ws-root-0.05em care-plan 113 3 0 3 0 3
+ROW 0 ss-ws-root-0.05em chambers 113 3 0 3 0 3
+ROW 0 ss-ws-root-0.05em civic-record 113 1 1 1 0 1
+ROW 0 ss-ws-root-0.05em clean-professional 113 3 0 3 0 3
+ROW 0 ss-ws-root-0.05em clinical 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.05em compliance-brief 113 3 0 3 0 3
+ROW 0 ss-ws-root-0.05em concierge 118 0 0 0 0 0
+ROW 0 ss-ws-root-0.05em critical-path 110 0 1 1 0 1
+ROW 0 ss-ws-root-0.05em curriculum-vitae 119 0 0 0 0 0
+ROW 0 ss-ws-root-0.05em design-showcase 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.05em faculty-profile 118 0 0 0 0 0
+ROW 0 ss-ws-root-0.05em field-mission 119 0 0 0 0 0
+ROW 0 ss-ws-root-0.05em field-notes 113 1 1 1 0 3
+ROW 0 ss-ws-root-0.05em field-season 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.05em filing-system 113 1 1 1 0 1
+ROW 0 ss-ws-root-0.05em foundation 113 3 0 3 0 3
+ROW 0 ss-ws-root-0.05em front-desk 120 0 0 0 0 0
+ROW 0 ss-ws-root-0.05em front-office 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.05em funnel 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.05em gantt 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.05em gazette 113 3 0 3 0 3
+ROW 0 ss-ws-root-0.05em grant-proposal 118 0 0 0 0 0
+ROW 0 ss-ws-root-0.05em harvest 113 1 1 1 0 1
+ROW 0 ss-ws-root-0.05em help-desk 119 3 0 6 0 6
+ROW 0 ss-ws-root-0.05em impact-report 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.05em itinerary 113 1 1 1 0 0
+ROW 0 ss-ws-root-0.05em lecture-notes 113 1 1 1 0 0
+ROW 0 ss-ws-root-0.05em ledger 113 3 0 3 0 3
+ROW 0 ss-ws-root-0.05em legal-brief 113 1 1 1 0 0
+ROW 0 ss-ws-root-0.05em manifest 113 3 0 3 0 3
+ROW 0 ss-ws-root-0.05em network-ops 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.05em offshore 113 3 0 3 0 3
+ROW 0 ss-ws-root-0.05em pipeline 98 0 0 1 0 1
+ROW 0 ss-ws-root-0.05em pitch-deck 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.05em portfolio-grid 112 0 0 0 0 0
+ROW 0 ss-ws-root-0.05em press-kit 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.05em product-tech 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.05em property-portfolio 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.05em public-record 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.05em reel 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.05em research-record 119 0 0 0 0 0
+ROW 0 ss-ws-root-0.05em rig-report 113 1 1 1 0 0
+ROW 0 ss-ws-root-0.05em rounds 119 3 0 3 0 3
+ROW 0 ss-ws-root-0.05em route-plan 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.05em schematic 118 3 0 3 0 3
+ROW 0 ss-ws-root-0.05em signal 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.05em site-plan 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.05em site-report 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.05em specification 119 1 1 1 0 1
+ROW 0 ss-ws-root-0.05em sprint-board 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.05em stack-trace 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.05em statute 111 0 0 0 0 0
+ROW 0 ss-ws-root-0.05em structured-admin 113 3 0 3 0 3
+ROW 0 ss-ws-root-0.05em studio-brief 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.05em success-story 119 0 0 0 0 0
+ROW 0 ss-ws-root-0.05em supply-chain 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.05em terminal 113 1 1 1 0 3
+ROW 0 ss-ws-root-0.05em uptime 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.05em value-chain 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.05em wellhead 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.1em balance-sheet 119 3 0 3 0 3
+ROW 0 ss-ws-root-0.1em blueprint 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.1em business-boardroom 119 0 0 0 0 0
+ROW 0 ss-ws-root-0.1em business-memo 118 3 0 3 0 3
+ROW 0 ss-ws-root-0.1em byline 119 0 0 0 0 0
+ROW 0 ss-ws-root-0.1em care-plan 113 3 0 3 0 3
+ROW 0 ss-ws-root-0.1em chambers 113 3 0 3 0 3
+ROW 0 ss-ws-root-0.1em civic-record 113 1 0 1 0 1
+ROW 0 ss-ws-root-0.1em clean-professional 113 3 0 3 0 3
+ROW 0 ss-ws-root-0.1em clinical 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.1em compliance-brief 113 3 0 3 0 3
+ROW 0 ss-ws-root-0.1em concierge 118 0 0 0 0 0
+ROW 0 ss-ws-root-0.1em critical-path 110 0 0 1 0 1
+ROW 0 ss-ws-root-0.1em curriculum-vitae 119 0 0 0 0 0
+ROW 0 ss-ws-root-0.1em design-showcase 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.1em faculty-profile 118 0 0 0 0 0
+ROW 0 ss-ws-root-0.1em field-mission 119 0 0 0 0 0
+ROW 0 ss-ws-root-0.1em field-notes 113 1 0 1 0 3
+ROW 0 ss-ws-root-0.1em field-season 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.1em filing-system 113 1 0 1 0 1
+ROW 0 ss-ws-root-0.1em foundation 113 3 0 3 0 3
+ROW 0 ss-ws-root-0.1em front-desk 120 0 0 0 0 0
+ROW 0 ss-ws-root-0.1em front-office 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.1em funnel 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.1em gantt 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.1em gazette 113 3 0 3 0 3
+ROW 0 ss-ws-root-0.1em grant-proposal 118 0 0 0 0 0
+ROW 0 ss-ws-root-0.1em harvest 113 1 0 1 0 1
+ROW 0 ss-ws-root-0.1em help-desk 119 3 0 6 0 6
+ROW 0 ss-ws-root-0.1em impact-report 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.1em itinerary 113 1 0 1 0 0
+ROW 0 ss-ws-root-0.1em lecture-notes 113 1 0 1 0 0
+ROW 0 ss-ws-root-0.1em ledger 113 3 0 3 0 3
+ROW 0 ss-ws-root-0.1em legal-brief 113 1 0 1 0 0
+ROW 0 ss-ws-root-0.1em manifest 113 3 0 3 0 3
+ROW 0 ss-ws-root-0.1em network-ops 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.1em offshore 113 3 0 3 0 3
+ROW 0 ss-ws-root-0.1em pipeline 98 0 0 1 0 1
+ROW 0 ss-ws-root-0.1em pitch-deck 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.1em portfolio-grid 112 0 0 0 0 0
+ROW 0 ss-ws-root-0.1em press-kit 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.1em product-tech 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.1em property-portfolio 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.1em public-record 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.1em reel 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.1em research-record 119 0 0 0 0 0
+ROW 0 ss-ws-root-0.1em rig-report 113 1 0 1 0 0
+ROW 0 ss-ws-root-0.1em rounds 119 3 0 3 0 3
+ROW 0 ss-ws-root-0.1em route-plan 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.1em schematic 118 3 0 3 0 3
+ROW 0 ss-ws-root-0.1em signal 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.1em site-plan 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.1em site-report 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.1em specification 119 1 0 1 0 1
+ROW 0 ss-ws-root-0.1em sprint-board 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.1em stack-trace 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.1em statute 111 0 0 0 0 0
+ROW 0 ss-ws-root-0.1em structured-admin 113 3 0 3 0 3
+ROW 0 ss-ws-root-0.1em studio-brief 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.1em success-story 119 0 0 0 0 0
+ROW 0 ss-ws-root-0.1em supply-chain 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.1em terminal 113 1 0 1 0 3
+ROW 0 ss-ws-root-0.1em uptime 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.1em value-chain 113 0 0 0 0 0
+ROW 0 ss-ws-root-0.1em wellhead 113 0 0 0 0 0
+ROW 0 ss-ws0 balance-sheet 119 3 30 3 0 3
+ROW 0 ss-ws0 blueprint 113 0 22 0 0 0
+ROW 0 ss-ws0 business-boardroom 119 0 29 0 0 0
+ROW 0 ss-ws0 business-memo 118 3 33 3 0 3
+ROW 0 ss-ws0 byline 119 0 32 0 0 0
+ROW 0 ss-ws0 care-plan 113 3 33 3 0 3
+ROW 0 ss-ws0 chambers 113 3 30 3 0 3
+ROW 0 ss-ws0 civic-record 113 1 50 1 0 1
+ROW 0 ss-ws0 clean-professional 113 3 33 3 0 3
+ROW 0 ss-ws0 clinical 113 0 14 0 0 0
+ROW 0 ss-ws0 compliance-brief 113 3 33 3 0 3
+ROW 0 ss-ws0 concierge 118 0 29 0 0 0
+ROW 0 ss-ws0 critical-path 110 0 31 1 0 1
+ROW 0 ss-ws0 curriculum-vitae 119 0 32 0 0 0
+ROW 0 ss-ws0 design-showcase 113 0 24 0 0 0
+ROW 0 ss-ws0 faculty-profile 118 0 29 0 0 0
+ROW 0 ss-ws0 field-mission 119 0 32 0 0 0
+ROW 0 ss-ws0 field-notes 113 1 49 1 0 3
+ROW 0 ss-ws0 field-season 113 0 32 0 0 0
+ROW 0 ss-ws0 filing-system 113 1 50 1 0 1
+ROW 0 ss-ws0 foundation 113 3 33 3 0 3
+ROW 0 ss-ws0 front-desk 120 0 32 0 0 0
+ROW 0 ss-ws0 front-office 113 0 29 0 0 0
+ROW 0 ss-ws0 funnel 113 0 29 0 0 0
+ROW 0 ss-ws0 gantt 113 0 32 0 0 0
+ROW 0 ss-ws0 gazette 113 3 33 3 0 3
+ROW 0 ss-ws0 grant-proposal 118 0 29 0 0 0
+ROW 0 ss-ws0 harvest 113 1 50 1 0 1
+ROW 0 ss-ws0 help-desk 119 3 32 6 0 6
+ROW 0 ss-ws0 impact-report 113 0 32 0 0 0
+ROW 0 ss-ws0 itinerary 113 1 49 1 0 0
+ROW 0 ss-ws0 lecture-notes 113 1 49 1 0 0
+ROW 0 ss-ws0 ledger 113 3 33 3 0 3
+ROW 0 ss-ws0 legal-brief 113 1 49 1 0 0
+ROW 0 ss-ws0 manifest 113 3 33 3 0 3
+ROW 0 ss-ws0 network-ops 113 0 32 0 0 0
+ROW 0 ss-ws0 offshore 113 3 33 3 0 3
+ROW 0 ss-ws0 pipeline 98 0 12 1 0 1
+ROW 0 ss-ws0 pitch-deck 113 0 29 0 0 0
+ROW 0 ss-ws0 portfolio-grid 112 0 10 0 0 0
+ROW 0 ss-ws0 press-kit 113 0 29 0 0 0
+ROW 0 ss-ws0 product-tech 113 0 29 0 0 0
+ROW 0 ss-ws0 property-portfolio 113 0 29 0 0 0
+ROW 0 ss-ws0 public-record 113 0 41 0 0 0
+ROW 0 ss-ws0 reel 113 0 24 0 0 0
+ROW 0 ss-ws0 research-record 119 0 31 0 0 0
+ROW 0 ss-ws0 rig-report 113 1 49 1 0 0
+ROW 0 ss-ws0 rounds 119 3 33 3 0 3
+ROW 0 ss-ws0 route-plan 113 0 32 0 0 0
+ROW 0 ss-ws0 schematic 118 3 24 3 0 3
+ROW 0 ss-ws0 signal 113 0 29 0 0 0
+ROW 0 ss-ws0 site-plan 113 0 32 0 0 0
+ROW 0 ss-ws0 site-report 113 0 32 0 0 0
+ROW 0 ss-ws0 specification 119 1 50 1 0 1
+ROW 0 ss-ws0 sprint-board 113 0 29 0 0 0
+ROW 0 ss-ws0 stack-trace 113 0 29 0 0 0
+ROW 0 ss-ws0 statute 111 0 0 0 0 0
+ROW 0 ss-ws0 structured-admin 113 3 33 3 0 3
+ROW 0 ss-ws0 studio-brief 113 0 29 0 0 0
+ROW 0 ss-ws0 success-story 119 0 32 0 0 0
+ROW 0 ss-ws0 supply-chain 113 0 29 0 0 0
+ROW 0 ss-ws0 terminal 113 1 49 1 0 3
+ROW 0 ss-ws0 uptime 113 0 29 0 0 0
+ROW 0 ss-ws0 value-chain 113 0 29 0 0 0
+ROW 0 ss-ws0 wellhead 113 0 29 0 0 0
+ROW 1 ss-ws-root-0.02em balance-sheet 154 3 14 3 0 4
+ROW 1 ss-ws-root-0.02em blueprint 148 0 13 0 0 0
+ROW 1 ss-ws-root-0.02em business-boardroom 154 0 14 0 0 1
+ROW 1 ss-ws-root-0.02em business-memo 153 3 16 3 0 4
+ROW 1 ss-ws-root-0.02em byline 154 0 16 0 0 1
+ROW 1 ss-ws-root-0.02em care-plan 148 3 16 3 0 4
+ROW 1 ss-ws-root-0.02em chambers 148 3 14 3 0 4
+ROW 1 ss-ws-root-0.02em civic-record 148 1 43 1 0 1
+ROW 1 ss-ws-root-0.02em clean-professional 148 3 16 3 0 4
+ROW 1 ss-ws-root-0.02em clinical 148 0 2 0 0 0
+ROW 1 ss-ws-root-0.02em compliance-brief 148 3 16 3 0 4
+ROW 1 ss-ws-root-0.02em concierge 153 0 14 0 0 1
+ROW 1 ss-ws-root-0.02em critical-path 144 0 19 1 0 2
+ROW 1 ss-ws-root-0.02em curriculum-vitae 154 0 16 0 0 1
+ROW 1 ss-ws-root-0.02em design-showcase 148 0 13 0 0 0
+ROW 1 ss-ws-root-0.02em faculty-profile 153 0 14 0 0 1
+ROW 1 ss-ws-root-0.02em field-mission 154 0 16 0 0 1
+ROW 1 ss-ws-root-0.02em field-notes 148 1 43 1 0 1
+ROW 1 ss-ws-root-0.02em field-season 148 0 16 0 0 1
+ROW 1 ss-ws-root-0.02em filing-system 148 1 43 1 0 1
+ROW 1 ss-ws-root-0.02em foundation 148 3 16 3 0 4
+ROW 1 ss-ws-root-0.02em front-desk 155 0 16 0 0 1
+ROW 1 ss-ws-root-0.02em front-office 148 0 14 0 0 1
+ROW 1 ss-ws-root-0.02em funnel 148 0 14 0 0 1
+ROW 1 ss-ws-root-0.02em gantt 148 0 16 0 0 1
+ROW 1 ss-ws-root-0.02em gazette 148 3 16 3 0 4
+ROW 1 ss-ws-root-0.02em grant-proposal 153 0 14 0 0 1
+ROW 1 ss-ws-root-0.02em harvest 148 1 43 1 0 1
+ROW 1 ss-ws-root-0.02em help-desk 154 3 16 5 0 6
+ROW 1 ss-ws-root-0.02em impact-report 148 0 16 0 0 1
+ROW 1 ss-ws-root-0.02em itinerary 148 2 43 2 0 0
+ROW 1 ss-ws-root-0.02em lecture-notes 148 2 43 2 0 0
+ROW 1 ss-ws-root-0.02em ledger 148 3 16 3 0 4
+ROW 1 ss-ws-root-0.02em legal-brief 148 2 43 2 0 0
+ROW 1 ss-ws-root-0.02em manifest 148 3 16 3 0 4
+ROW 1 ss-ws-root-0.02em network-ops 148 0 16 0 0 1
+ROW 1 ss-ws-root-0.02em offshore 148 3 16 3 0 4
+ROW 1 ss-ws-root-0.02em pipeline 134 1 4 2 0 2
+ROW 1 ss-ws-root-0.02em pitch-deck 148 0 16 0 0 1
+ROW 1 ss-ws-root-0.02em portfolio-grid 144 0 0 0 0 0
+ROW 1 ss-ws-root-0.02em press-kit 148 0 16 0 0 1
+ROW 1 ss-ws-root-0.02em product-tech 148 0 16 0 0 1
+ROW 1 ss-ws-root-0.02em property-portfolio 148 0 16 0 0 1
+ROW 1 ss-ws-root-0.02em public-record 148 0 16 0 0 1
+ROW 1 ss-ws-root-0.02em reel 148 0 13 0 0 0
+ROW 1 ss-ws-root-0.02em research-record 154 0 16 0 0 1
+ROW 1 ss-ws-root-0.02em rig-report 148 2 43 2 0 0
+ROW 1 ss-ws-root-0.02em rounds 154 3 16 3 0 4
+ROW 1 ss-ws-root-0.02em route-plan 148 0 16 0 0 1
+ROW 1 ss-ws-root-0.02em schematic 153 3 13 3 0 3
+ROW 1 ss-ws-root-0.02em signal 148 0 16 0 0 1
+ROW 1 ss-ws-root-0.02em site-plan 148 0 16 0 0 1
+ROW 1 ss-ws-root-0.02em site-report 148 0 16 0 0 1
+ROW 1 ss-ws-root-0.02em specification 154 1 43 1 0 1
+ROW 1 ss-ws-root-0.02em sprint-board 148 0 16 0 0 1
+ROW 1 ss-ws-root-0.02em stack-trace 148 0 16 0 0 1
+ROW 1 ss-ws-root-0.02em statute 146 0 0 0 0 0
+ROW 1 ss-ws-root-0.02em structured-admin 148 3 16 3 0 4
+ROW 1 ss-ws-root-0.02em studio-brief 148 0 16 0 0 1
+ROW 1 ss-ws-root-0.02em success-story 154 0 16 0 0 1
+ROW 1 ss-ws-root-0.02em supply-chain 148 0 14 0 0 1
+ROW 1 ss-ws-root-0.02em terminal 148 1 43 1 0 1
+ROW 1 ss-ws-root-0.02em uptime 148 0 16 0 0 1
+ROW 1 ss-ws-root-0.02em value-chain 148 0 14 0 0 1
+ROW 1 ss-ws-root-0.02em wellhead 148 0 14 0 0 1
+ROW 1 ss-ws-root-0.03em balance-sheet 154 3 0 3 0 4
+ROW 1 ss-ws-root-0.03em blueprint 148 0 13 0 0 0
+ROW 1 ss-ws-root-0.03em business-boardroom 154 0 0 0 0 1
+ROW 1 ss-ws-root-0.03em business-memo 153 3 0 3 0 4
+ROW 1 ss-ws-root-0.03em byline 154 0 0 0 0 1
+ROW 1 ss-ws-root-0.03em care-plan 148 3 0 3 0 4
+ROW 1 ss-ws-root-0.03em chambers 148 3 0 3 0 4
+ROW 1 ss-ws-root-0.03em civic-record 148 1 15 1 0 1
+ROW 1 ss-ws-root-0.03em clean-professional 148 3 0 3 0 4
+ROW 1 ss-ws-root-0.03em clinical 148 0 0 0 0 0
+ROW 1 ss-ws-root-0.03em compliance-brief 148 3 0 3 0 4
+ROW 1 ss-ws-root-0.03em concierge 153 0 0 0 0 1
+ROW 1 ss-ws-root-0.03em critical-path 144 0 2 1 0 2
+ROW 1 ss-ws-root-0.03em curriculum-vitae 154 0 0 0 0 1
+ROW 1 ss-ws-root-0.03em design-showcase 148 0 13 0 0 0
+ROW 1 ss-ws-root-0.03em faculty-profile 153 0 0 0 0 1
+ROW 1 ss-ws-root-0.03em field-mission 154 0 0 0 0 1
+ROW 1 ss-ws-root-0.03em field-notes 148 1 15 1 0 1
+ROW 1 ss-ws-root-0.03em field-season 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.03em filing-system 148 1 15 1 0 1
+ROW 1 ss-ws-root-0.03em foundation 148 3 0 3 0 4
+ROW 1 ss-ws-root-0.03em front-desk 155 0 0 0 0 1
+ROW 1 ss-ws-root-0.03em front-office 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.03em funnel 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.03em gantt 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.03em gazette 148 3 0 3 0 4
+ROW 1 ss-ws-root-0.03em grant-proposal 153 0 0 0 0 1
+ROW 1 ss-ws-root-0.03em harvest 148 1 15 1 0 1
+ROW 1 ss-ws-root-0.03em help-desk 154 3 0 5 0 6
+ROW 1 ss-ws-root-0.03em impact-report 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.03em itinerary 148 2 15 2 0 0
+ROW 1 ss-ws-root-0.03em lecture-notes 148 2 15 2 0 0
+ROW 1 ss-ws-root-0.03em ledger 148 3 0 3 0 4
+ROW 1 ss-ws-root-0.03em legal-brief 148 2 15 2 0 0
+ROW 1 ss-ws-root-0.03em manifest 148 3 0 3 0 4
+ROW 1 ss-ws-root-0.03em network-ops 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.03em offshore 148 3 0 3 0 4
+ROW 1 ss-ws-root-0.03em pipeline 134 1 0 2 0 2
+ROW 1 ss-ws-root-0.03em pitch-deck 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.03em portfolio-grid 144 0 0 0 0 0
+ROW 1 ss-ws-root-0.03em press-kit 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.03em product-tech 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.03em property-portfolio 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.03em public-record 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.03em reel 148 0 13 0 0 0
+ROW 1 ss-ws-root-0.03em research-record 154 0 0 0 0 1
+ROW 1 ss-ws-root-0.03em rig-report 148 2 15 2 0 0
+ROW 1 ss-ws-root-0.03em rounds 154 3 0 3 0 4
+ROW 1 ss-ws-root-0.03em route-plan 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.03em schematic 153 3 13 3 0 3
+ROW 1 ss-ws-root-0.03em signal 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.03em site-plan 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.03em site-report 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.03em specification 154 1 15 1 0 1
+ROW 1 ss-ws-root-0.03em sprint-board 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.03em stack-trace 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.03em statute 146 0 0 0 0 0
+ROW 1 ss-ws-root-0.03em structured-admin 148 3 0 3 0 4
+ROW 1 ss-ws-root-0.03em studio-brief 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.03em success-story 154 0 0 0 0 1
+ROW 1 ss-ws-root-0.03em supply-chain 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.03em terminal 148 1 15 1 0 1
+ROW 1 ss-ws-root-0.03em uptime 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.03em value-chain 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.03em wellhead 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.04em balance-sheet 154 3 0 3 0 4
+ROW 1 ss-ws-root-0.04em blueprint 148 0 5 0 0 0
+ROW 1 ss-ws-root-0.04em business-boardroom 154 0 0 0 0 1
+ROW 1 ss-ws-root-0.04em business-memo 153 3 0 3 0 4
+ROW 1 ss-ws-root-0.04em byline 154 0 0 0 0 1
+ROW 1 ss-ws-root-0.04em care-plan 148 3 0 3 0 4
+ROW 1 ss-ws-root-0.04em chambers 148 3 0 3 0 4
+ROW 1 ss-ws-root-0.04em civic-record 148 1 6 1 0 1
+ROW 1 ss-ws-root-0.04em clean-professional 148 3 0 3 0 4
+ROW 1 ss-ws-root-0.04em clinical 148 0 0 0 0 0
+ROW 1 ss-ws-root-0.04em compliance-brief 148 3 0 3 0 4
+ROW 1 ss-ws-root-0.04em concierge 153 0 0 0 0 1
+ROW 1 ss-ws-root-0.04em critical-path 144 0 0 1 0 2
+ROW 1 ss-ws-root-0.04em curriculum-vitae 154 0 0 0 0 1
+ROW 1 ss-ws-root-0.04em design-showcase 148 0 4 0 0 0
+ROW 1 ss-ws-root-0.04em faculty-profile 153 0 0 0 0 1
+ROW 1 ss-ws-root-0.04em field-mission 154 0 0 0 0 1
+ROW 1 ss-ws-root-0.04em field-notes 148 1 6 1 0 1
+ROW 1 ss-ws-root-0.04em field-season 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.04em filing-system 148 1 6 1 0 1
+ROW 1 ss-ws-root-0.04em foundation 148 3 0 3 0 4
+ROW 1 ss-ws-root-0.04em front-desk 155 0 0 0 0 1
+ROW 1 ss-ws-root-0.04em front-office 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.04em funnel 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.04em gantt 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.04em gazette 148 3 0 3 0 4
+ROW 1 ss-ws-root-0.04em grant-proposal 153 0 0 0 0 1
+ROW 1 ss-ws-root-0.04em harvest 148 1 6 1 0 1
+ROW 1 ss-ws-root-0.04em help-desk 154 3 0 5 0 6
+ROW 1 ss-ws-root-0.04em impact-report 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.04em itinerary 148 2 6 2 0 0
+ROW 1 ss-ws-root-0.04em lecture-notes 148 2 6 2 0 0
+ROW 1 ss-ws-root-0.04em ledger 148 3 0 3 0 4
+ROW 1 ss-ws-root-0.04em legal-brief 148 2 6 2 0 0
+ROW 1 ss-ws-root-0.04em manifest 148 3 0 3 0 4
+ROW 1 ss-ws-root-0.04em network-ops 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.04em offshore 148 3 0 3 0 4
+ROW 1 ss-ws-root-0.04em pipeline 134 1 0 2 0 2
+ROW 1 ss-ws-root-0.04em pitch-deck 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.04em portfolio-grid 144 0 0 0 0 0
+ROW 1 ss-ws-root-0.04em press-kit 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.04em product-tech 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.04em property-portfolio 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.04em public-record 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.04em reel 148 0 4 0 0 0
+ROW 1 ss-ws-root-0.04em research-record 154 0 0 0 0 1
+ROW 1 ss-ws-root-0.04em rig-report 148 2 6 2 0 0
+ROW 1 ss-ws-root-0.04em rounds 154 3 0 3 0 4
+ROW 1 ss-ws-root-0.04em route-plan 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.04em schematic 153 3 4 3 0 3
+ROW 1 ss-ws-root-0.04em signal 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.04em site-plan 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.04em site-report 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.04em specification 154 1 6 1 0 1
+ROW 1 ss-ws-root-0.04em sprint-board 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.04em stack-trace 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.04em statute 146 0 0 0 0 0
+ROW 1 ss-ws-root-0.04em structured-admin 148 3 0 3 0 4
+ROW 1 ss-ws-root-0.04em studio-brief 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.04em success-story 154 0 0 0 0 1
+ROW 1 ss-ws-root-0.04em supply-chain 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.04em terminal 148 1 6 1 0 1
+ROW 1 ss-ws-root-0.04em uptime 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.04em value-chain 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.04em wellhead 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.05em balance-sheet 154 3 0 3 0 4
+ROW 1 ss-ws-root-0.05em blueprint 148 0 1 0 0 0
+ROW 1 ss-ws-root-0.05em business-boardroom 154 0 0 0 0 1
+ROW 1 ss-ws-root-0.05em business-memo 153 3 0 3 0 4
+ROW 1 ss-ws-root-0.05em byline 154 0 0 0 0 1
+ROW 1 ss-ws-root-0.05em care-plan 148 3 0 3 0 4
+ROW 1 ss-ws-root-0.05em chambers 148 3 0 3 0 4
+ROW 1 ss-ws-root-0.05em civic-record 148 1 5 1 0 1
+ROW 1 ss-ws-root-0.05em clean-professional 148 3 0 3 0 4
+ROW 1 ss-ws-root-0.05em clinical 148 0 0 0 0 0
+ROW 1 ss-ws-root-0.05em compliance-brief 148 3 0 3 0 4
+ROW 1 ss-ws-root-0.05em concierge 153 0 0 0 0 1
+ROW 1 ss-ws-root-0.05em critical-path 144 0 0 1 0 2
+ROW 1 ss-ws-root-0.05em curriculum-vitae 154 0 0 0 0 1
+ROW 1 ss-ws-root-0.05em design-showcase 148 0 0 0 0 0
+ROW 1 ss-ws-root-0.05em faculty-profile 153 0 0 0 0 1
+ROW 1 ss-ws-root-0.05em field-mission 154 0 0 0 0 1
+ROW 1 ss-ws-root-0.05em field-notes 148 1 5 1 0 1
+ROW 1 ss-ws-root-0.05em field-season 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.05em filing-system 148 1 5 1 0 1
+ROW 1 ss-ws-root-0.05em foundation 148 3 0 3 0 4
+ROW 1 ss-ws-root-0.05em front-desk 155 0 0 0 0 1
+ROW 1 ss-ws-root-0.05em front-office 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.05em funnel 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.05em gantt 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.05em gazette 148 3 0 3 0 4
+ROW 1 ss-ws-root-0.05em grant-proposal 153 0 0 0 0 1
+ROW 1 ss-ws-root-0.05em harvest 148 1 5 1 0 1
+ROW 1 ss-ws-root-0.05em help-desk 154 3 0 5 0 6
+ROW 1 ss-ws-root-0.05em impact-report 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.05em itinerary 148 2 5 2 0 0
+ROW 1 ss-ws-root-0.05em lecture-notes 148 2 5 2 0 0
+ROW 1 ss-ws-root-0.05em ledger 148 3 0 3 0 4
+ROW 1 ss-ws-root-0.05em legal-brief 148 2 5 2 0 0
+ROW 1 ss-ws-root-0.05em manifest 148 3 0 3 0 4
+ROW 1 ss-ws-root-0.05em network-ops 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.05em offshore 148 3 0 3 0 4
+ROW 1 ss-ws-root-0.05em pipeline 134 1 0 2 0 2
+ROW 1 ss-ws-root-0.05em pitch-deck 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.05em portfolio-grid 144 0 0 0 0 0
+ROW 1 ss-ws-root-0.05em press-kit 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.05em product-tech 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.05em property-portfolio 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.05em public-record 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.05em reel 148 0 0 0 0 0
+ROW 1 ss-ws-root-0.05em research-record 154 0 0 0 0 1
+ROW 1 ss-ws-root-0.05em rig-report 148 2 5 2 0 0
+ROW 1 ss-ws-root-0.05em rounds 154 3 0 3 0 4
+ROW 1 ss-ws-root-0.05em route-plan 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.05em schematic 153 3 0 3 0 3
+ROW 1 ss-ws-root-0.05em signal 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.05em site-plan 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.05em site-report 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.05em specification 154 1 5 1 0 1
+ROW 1 ss-ws-root-0.05em sprint-board 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.05em stack-trace 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.05em statute 146 0 0 0 0 0
+ROW 1 ss-ws-root-0.05em structured-admin 148 3 0 3 0 4
+ROW 1 ss-ws-root-0.05em studio-brief 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.05em success-story 154 0 0 0 0 1
+ROW 1 ss-ws-root-0.05em supply-chain 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.05em terminal 148 1 5 1 0 1
+ROW 1 ss-ws-root-0.05em uptime 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.05em value-chain 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.05em wellhead 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.1em balance-sheet 154 3 0 3 0 4
+ROW 1 ss-ws-root-0.1em blueprint 148 0 0 0 0 0
+ROW 1 ss-ws-root-0.1em business-boardroom 154 0 0 0 0 1
+ROW 1 ss-ws-root-0.1em business-memo 153 3 0 3 0 4
+ROW 1 ss-ws-root-0.1em byline 154 0 0 0 0 1
+ROW 1 ss-ws-root-0.1em care-plan 148 3 0 3 0 4
+ROW 1 ss-ws-root-0.1em chambers 148 3 0 3 0 4
+ROW 1 ss-ws-root-0.1em civic-record 148 1 0 1 0 1
+ROW 1 ss-ws-root-0.1em clean-professional 148 3 0 3 0 4
+ROW 1 ss-ws-root-0.1em clinical 148 0 0 0 0 0
+ROW 1 ss-ws-root-0.1em compliance-brief 148 3 0 3 0 4
+ROW 1 ss-ws-root-0.1em concierge 153 0 0 0 0 1
+ROW 1 ss-ws-root-0.1em critical-path 144 0 0 1 0 2
+ROW 1 ss-ws-root-0.1em curriculum-vitae 154 0 0 0 0 1
+ROW 1 ss-ws-root-0.1em design-showcase 148 0 0 0 0 0
+ROW 1 ss-ws-root-0.1em faculty-profile 153 0 0 0 0 1
+ROW 1 ss-ws-root-0.1em field-mission 154 0 0 0 0 1
+ROW 1 ss-ws-root-0.1em field-notes 148 1 0 1 0 1
+ROW 1 ss-ws-root-0.1em field-season 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.1em filing-system 148 1 0 1 0 1
+ROW 1 ss-ws-root-0.1em foundation 148 3 0 3 0 4
+ROW 1 ss-ws-root-0.1em front-desk 155 0 0 0 0 1
+ROW 1 ss-ws-root-0.1em front-office 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.1em funnel 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.1em gantt 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.1em gazette 148 3 0 3 0 4
+ROW 1 ss-ws-root-0.1em grant-proposal 153 0 0 0 0 1
+ROW 1 ss-ws-root-0.1em harvest 148 1 0 1 0 1
+ROW 1 ss-ws-root-0.1em help-desk 154 3 0 5 0 6
+ROW 1 ss-ws-root-0.1em impact-report 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.1em itinerary 148 2 0 2 0 0
+ROW 1 ss-ws-root-0.1em lecture-notes 148 2 0 2 0 0
+ROW 1 ss-ws-root-0.1em ledger 148 3 0 3 0 4
+ROW 1 ss-ws-root-0.1em legal-brief 148 2 0 2 0 0
+ROW 1 ss-ws-root-0.1em manifest 148 3 0 3 0 4
+ROW 1 ss-ws-root-0.1em network-ops 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.1em offshore 148 3 0 3 0 4
+ROW 1 ss-ws-root-0.1em pipeline 134 1 0 2 0 2
+ROW 1 ss-ws-root-0.1em pitch-deck 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.1em portfolio-grid 144 0 0 0 0 0
+ROW 1 ss-ws-root-0.1em press-kit 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.1em product-tech 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.1em property-portfolio 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.1em public-record 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.1em reel 148 0 0 0 0 0
+ROW 1 ss-ws-root-0.1em research-record 154 0 0 0 0 1
+ROW 1 ss-ws-root-0.1em rig-report 148 2 0 2 0 0
+ROW 1 ss-ws-root-0.1em rounds 154 3 0 3 0 4
+ROW 1 ss-ws-root-0.1em route-plan 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.1em schematic 153 3 0 3 0 3
+ROW 1 ss-ws-root-0.1em signal 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.1em site-plan 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.1em site-report 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.1em specification 154 1 0 1 0 1
+ROW 1 ss-ws-root-0.1em sprint-board 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.1em stack-trace 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.1em statute 146 0 0 0 0 0
+ROW 1 ss-ws-root-0.1em structured-admin 148 3 0 3 0 4
+ROW 1 ss-ws-root-0.1em studio-brief 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.1em success-story 154 0 0 0 0 1
+ROW 1 ss-ws-root-0.1em supply-chain 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.1em terminal 148 1 0 1 0 1
+ROW 1 ss-ws-root-0.1em uptime 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.1em value-chain 148 0 0 0 0 1
+ROW 1 ss-ws-root-0.1em wellhead 148 0 0 0 0 1
+ROW 1 ss-ws0 balance-sheet 154 3 41 3 0 4
+ROW 1 ss-ws0 blueprint 148 0 25 0 0 0
+ROW 1 ss-ws0 business-boardroom 154 0 40 0 0 1
+ROW 1 ss-ws0 business-memo 153 3 47 3 0 4
+ROW 1 ss-ws0 byline 154 0 46 0 0 1
+ROW 1 ss-ws0 care-plan 148 3 47 3 0 4
+ROW 1 ss-ws0 chambers 148 3 41 3 0 4
+ROW 1 ss-ws0 civic-record 148 1 73 1 0 1
+ROW 1 ss-ws0 clean-professional 148 3 47 3 0 4
+ROW 1 ss-ws0 clinical 148 0 21 0 0 0
+ROW 1 ss-ws0 compliance-brief 148 3 47 3 0 4
+ROW 1 ss-ws0 concierge 153 0 40 0 0 1
+ROW 1 ss-ws0 critical-path 144 0 52 1 0 2
+ROW 1 ss-ws0 curriculum-vitae 154 0 46 0 0 1
+ROW 1 ss-ws0 design-showcase 148 0 25 0 0 0
+ROW 1 ss-ws0 faculty-profile 153 0 40 0 0 1
+ROW 1 ss-ws0 field-mission 154 0 46 0 0 1
+ROW 1 ss-ws0 field-notes 148 1 72 1 0 1
+ROW 1 ss-ws0 field-season 148 0 46 0 0 1
+ROW 1 ss-ws0 filing-system 148 1 73 1 0 1
+ROW 1 ss-ws0 foundation 148 3 47 3 0 4
+ROW 1 ss-ws0 front-desk 155 0 46 0 0 1
+ROW 1 ss-ws0 front-office 148 0 40 0 0 1
+ROW 1 ss-ws0 funnel 148 0 40 0 0 1
+ROW 1 ss-ws0 gantt 148 0 46 0 0 1
+ROW 1 ss-ws0 gazette 148 3 47 3 0 4
+ROW 1 ss-ws0 grant-proposal 153 0 40 0 0 1
+ROW 1 ss-ws0 harvest 148 1 73 1 0 1
+ROW 1 ss-ws0 help-desk 154 3 47 5 0 6
+ROW 1 ss-ws0 impact-report 148 0 46 0 0 1
+ROW 1 ss-ws0 itinerary 148 2 72 2 0 0
+ROW 1 ss-ws0 lecture-notes 148 2 72 2 0 0
+ROW 1 ss-ws0 ledger 148 3 47 3 0 4
+ROW 1 ss-ws0 legal-brief 148 2 72 2 0 0
+ROW 1 ss-ws0 manifest 148 3 47 3 0 4
+ROW 1 ss-ws0 network-ops 148 0 46 0 0 1
+ROW 1 ss-ws0 offshore 148 3 47 3 0 4
+ROW 1 ss-ws0 pipeline 134 1 15 2 0 2
+ROW 1 ss-ws0 pitch-deck 148 0 44 0 0 1
+ROW 1 ss-ws0 portfolio-grid 144 0 8 0 0 0
+ROW 1 ss-ws0 press-kit 148 0 44 0 0 1
+ROW 1 ss-ws0 product-tech 148 0 44 0 0 1
+ROW 1 ss-ws0 property-portfolio 148 0 44 0 0 1
+ROW 1 ss-ws0 public-record 148 0 55 0 0 1
+ROW 1 ss-ws0 reel 148 0 25 0 0 0
+ROW 1 ss-ws0 research-record 154 0 46 0 0 1
+ROW 1 ss-ws0 rig-report 148 2 72 2 0 0
+ROW 1 ss-ws0 rounds 154 3 47 3 0 4
+ROW 1 ss-ws0 route-plan 148 0 46 0 0 1
+ROW 1 ss-ws0 schematic 153 3 25 3 0 3
+ROW 1 ss-ws0 signal 148 0 44 0 0 1
+ROW 1 ss-ws0 site-plan 148 0 46 0 0 1
+ROW 1 ss-ws0 site-report 148 0 46 0 0 1
+ROW 1 ss-ws0 specification 154 1 73 1 0 1
+ROW 1 ss-ws0 sprint-board 148 0 44 0 0 1
+ROW 1 ss-ws0 stack-trace 148 0 44 0 0 1
+ROW 1 ss-ws0 statute 146 0 0 0 0 0
+ROW 1 ss-ws0 structured-admin 148 3 47 3 0 4
+ROW 1 ss-ws0 studio-brief 148 0 44 0 0 1
+ROW 1 ss-ws0 success-story 154 0 46 0 0 1
+ROW 1 ss-ws0 supply-chain 148 0 40 0 0 1
+ROW 1 ss-ws0 terminal 148 1 72 1 0 1
+ROW 1 ss-ws0 uptime 148 0 44 0 0 1
+ROW 1 ss-ws0 value-chain 148 0 40 0 0 1
+ROW 1 ss-ws0 wellhead 148 0 40 0 0 1
+ROW 2 ss-ws-root-0.02em balance-sheet 146 4 15 4 0 4
+ROW 2 ss-ws-root-0.02em blueprint 140 0 12 0 0 0
+ROW 2 ss-ws-root-0.02em business-boardroom 146 0 14 0 0 0
+ROW 2 ss-ws-root-0.02em business-memo 145 4 16 4 0 4
+ROW 2 ss-ws-root-0.02em byline 146 0 15 0 0 0
+ROW 2 ss-ws-root-0.02em care-plan 140 4 16 4 0 4
+ROW 2 ss-ws-root-0.02em chambers 146 4 15 4 0 4
+ROW 2 ss-ws-root-0.02em civic-record 140 1 40 1 0 1
+ROW 2 ss-ws-root-0.02em clean-professional 140 4 16 4 0 4
+ROW 2 ss-ws-root-0.02em clinical 140 0 1 0 0 0
+ROW 2 ss-ws-root-0.02em compliance-brief 140 4 16 4 0 4
+ROW 2 ss-ws-root-0.02em concierge 152 0 14 0 0 0
+ROW 2 ss-ws-root-0.02em critical-path 134 0 22 1 0 1
+ROW 2 ss-ws-root-0.02em curriculum-vitae 146 0 15 0 0 0
+ROW 2 ss-ws-root-0.02em design-showcase 140 0 13 0 0 0
+ROW 2 ss-ws-root-0.02em faculty-profile 152 0 14 0 0 0
+ROW 2 ss-ws-root-0.02em field-mission 163 0 15 0 0 0
+ROW 2 ss-ws-root-0.02em field-notes 140 1 40 1 0 1
+ROW 2 ss-ws-root-0.02em field-season 140 0 15 0 0 0
+ROW 2 ss-ws-root-0.02em filing-system 140 1 40 1 0 1
+ROW 2 ss-ws-root-0.02em foundation 140 4 16 4 0 4
+ROW 2 ss-ws-root-0.02em front-desk 154 0 15 0 0 0
+ROW 2 ss-ws-root-0.02em front-office 140 0 14 0 0 0
+ROW 2 ss-ws-root-0.02em funnel 146 0 14 0 0 0
+ROW 2 ss-ws-root-0.02em gantt 140 0 15 0 0 0
+ROW 2 ss-ws-root-0.02em gazette 140 4 16 4 0 4
+ROW 2 ss-ws-root-0.02em grant-proposal 170 0 14 0 0 0
+ROW 2 ss-ws-root-0.02em harvest 140 1 40 1 0 1
+ROW 2 ss-ws-root-0.02em help-desk 146 4 16 7 0 7
+ROW 2 ss-ws-root-0.02em impact-report 157 0 15 0 0 0
+ROW 2 ss-ws-root-0.02em itinerary 146 0 39 0 0 0
+ROW 2 ss-ws-root-0.02em lecture-notes 140 0 40 0 0 0
+ROW 2 ss-ws-root-0.02em ledger 140 4 16 4 0 4
+ROW 2 ss-ws-root-0.02em legal-brief 140 0 40 0 0 0
+ROW 2 ss-ws-root-0.02em manifest 140 4 16 4 0 4
+ROW 2 ss-ws-root-0.02em network-ops 140 0 15 0 0 0
+ROW 2 ss-ws-root-0.02em offshore 140 4 16 4 0 4
+ROW 2 ss-ws-root-0.02em pipeline 122 0 8 1 0 1
+ROW 2 ss-ws-root-0.02em pitch-deck 140 0 16 0 0 0
+ROW 2 ss-ws-root-0.02em portfolio-grid 137 0 1 0 0 0
+ROW 2 ss-ws-root-0.02em press-kit 140 0 16 0 0 0
+ROW 2 ss-ws-root-0.02em product-tech 140 0 16 0 0 0
+ROW 2 ss-ws-root-0.02em property-portfolio 140 0 16 0 0 0
+ROW 2 ss-ws-root-0.02em public-record 140 0 12 0 0 0
+ROW 2 ss-ws-root-0.02em reel 140 0 13 0 0 0
+ROW 2 ss-ws-root-0.02em research-record 146 0 15 0 0 0
+ROW 2 ss-ws-root-0.02em rig-report 140 0 40 0 0 0
+ROW 2 ss-ws-root-0.02em rounds 146 4 16 4 0 4
+ROW 2 ss-ws-root-0.02em route-plan 140 0 15 0 0 0
+ROW 2 ss-ws-root-0.02em schematic 146 3 13 3 0 3
+ROW 2 ss-ws-root-0.02em signal 140 0 16 0 0 0
+ROW 2 ss-ws-root-0.02em site-plan 140 0 15 0 0 0
+ROW 2 ss-ws-root-0.02em site-report 140 0 15 0 0 0
+ROW 2 ss-ws-root-0.02em specification 146 1 40 1 0 1
+ROW 2 ss-ws-root-0.02em sprint-board 140 0 16 0 0 0
+ROW 2 ss-ws-root-0.02em stack-trace 140 0 16 0 0 0
+ROW 2 ss-ws-root-0.02em statute 138 0 0 0 0 0
+ROW 2 ss-ws-root-0.02em structured-admin 140 4 16 4 0 4
+ROW 2 ss-ws-root-0.02em studio-brief 140 0 16 0 0 0
+ROW 2 ss-ws-root-0.02em success-story 146 0 15 0 0 0
+ROW 2 ss-ws-root-0.02em supply-chain 146 0 14 0 0 0
+ROW 2 ss-ws-root-0.02em terminal 140 1 40 1 0 1
+ROW 2 ss-ws-root-0.02em uptime 140 0 16 0 0 0
+ROW 2 ss-ws-root-0.02em value-chain 146 0 14 0 0 0
+ROW 2 ss-ws-root-0.02em wellhead 146 0 14 0 0 0
+ROW 2 ss-ws-root-0.03em balance-sheet 146 4 0 4 0 4
+ROW 2 ss-ws-root-0.03em blueprint 140 0 13 0 0 0
+ROW 2 ss-ws-root-0.03em business-boardroom 146 0 0 0 0 0
+ROW 2 ss-ws-root-0.03em business-memo 145 4 0 4 0 4
+ROW 2 ss-ws-root-0.03em byline 146 0 0 0 0 0
+ROW 2 ss-ws-root-0.03em care-plan 140 4 0 4 0 4
+ROW 2 ss-ws-root-0.03em chambers 146 4 0 4 0 4
+ROW 2 ss-ws-root-0.03em civic-record 140 1 15 1 0 1
+ROW 2 ss-ws-root-0.03em clean-professional 140 4 0 4 0 4
+ROW 2 ss-ws-root-0.03em clinical 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.03em compliance-brief 140 4 0 4 0 4
+ROW 2 ss-ws-root-0.03em concierge 152 0 0 0 0 0
+ROW 2 ss-ws-root-0.03em critical-path 134 0 6 1 0 1
+ROW 2 ss-ws-root-0.03em curriculum-vitae 146 0 0 0 0 0
+ROW 2 ss-ws-root-0.03em design-showcase 140 0 13 0 0 0
+ROW 2 ss-ws-root-0.03em faculty-profile 152 0 0 0 0 0
+ROW 2 ss-ws-root-0.03em field-mission 163 0 0 0 0 0
+ROW 2 ss-ws-root-0.03em field-notes 140 1 15 1 0 1
+ROW 2 ss-ws-root-0.03em field-season 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.03em filing-system 140 1 15 1 0 1
+ROW 2 ss-ws-root-0.03em foundation 140 4 0 4 0 4
+ROW 2 ss-ws-root-0.03em front-desk 154 0 0 0 0 0
+ROW 2 ss-ws-root-0.03em front-office 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.03em funnel 146 0 0 0 0 0
+ROW 2 ss-ws-root-0.03em gantt 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.03em gazette 140 4 0 4 0 4
+ROW 2 ss-ws-root-0.03em grant-proposal 170 0 0 0 0 0
+ROW 2 ss-ws-root-0.03em harvest 140 1 15 1 0 1
+ROW 2 ss-ws-root-0.03em help-desk 146 4 0 7 0 7
+ROW 2 ss-ws-root-0.03em impact-report 157 0 0 0 0 0
+ROW 2 ss-ws-root-0.03em itinerary 146 0 15 0 0 0
+ROW 2 ss-ws-root-0.03em lecture-notes 140 0 15 0 0 0
+ROW 2 ss-ws-root-0.03em ledger 140 4 0 4 0 4
+ROW 2 ss-ws-root-0.03em legal-brief 140 0 15 0 0 0
+ROW 2 ss-ws-root-0.03em manifest 140 4 0 4 0 4
+ROW 2 ss-ws-root-0.03em network-ops 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.03em offshore 140 4 0 4 0 4
+ROW 2 ss-ws-root-0.03em pipeline 122 0 0 1 0 1
+ROW 2 ss-ws-root-0.03em pitch-deck 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.03em portfolio-grid 137 0 0 0 0 0
+ROW 2 ss-ws-root-0.03em press-kit 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.03em product-tech 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.03em property-portfolio 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.03em public-record 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.03em reel 140 0 13 0 0 0
+ROW 2 ss-ws-root-0.03em research-record 146 0 0 0 0 0
+ROW 2 ss-ws-root-0.03em rig-report 140 0 15 0 0 0
+ROW 2 ss-ws-root-0.03em rounds 146 4 0 4 0 4
+ROW 2 ss-ws-root-0.03em route-plan 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.03em schematic 146 3 13 3 0 3
+ROW 2 ss-ws-root-0.03em signal 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.03em site-plan 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.03em site-report 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.03em specification 146 1 15 1 0 1
+ROW 2 ss-ws-root-0.03em sprint-board 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.03em stack-trace 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.03em statute 138 0 0 0 0 0
+ROW 2 ss-ws-root-0.03em structured-admin 140 4 0 4 0 4
+ROW 2 ss-ws-root-0.03em studio-brief 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.03em success-story 146 0 0 0 0 0
+ROW 2 ss-ws-root-0.03em supply-chain 146 0 0 0 0 0
+ROW 2 ss-ws-root-0.03em terminal 140 1 15 1 0 1
+ROW 2 ss-ws-root-0.03em uptime 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.03em value-chain 146 0 0 0 0 0
+ROW 2 ss-ws-root-0.03em wellhead 146 0 0 0 0 0
+ROW 2 ss-ws-root-0.04em balance-sheet 146 4 0 4 0 4
+ROW 2 ss-ws-root-0.04em blueprint 140 0 13 0 0 0
+ROW 2 ss-ws-root-0.04em business-boardroom 146 0 0 0 0 0
+ROW 2 ss-ws-root-0.04em business-memo 145 4 0 4 0 4
+ROW 2 ss-ws-root-0.04em byline 146 0 0 0 0 0
+ROW 2 ss-ws-root-0.04em care-plan 140 4 0 4 0 4
+ROW 2 ss-ws-root-0.04em chambers 146 4 0 4 0 4
+ROW 2 ss-ws-root-0.04em civic-record 140 1 8 1 0 1
+ROW 2 ss-ws-root-0.04em clean-professional 140 4 0 4 0 4
+ROW 2 ss-ws-root-0.04em clinical 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.04em compliance-brief 140 4 0 4 0 4
+ROW 2 ss-ws-root-0.04em concierge 152 0 0 0 0 0
+ROW 2 ss-ws-root-0.04em critical-path 134 0 4 1 0 1
+ROW 2 ss-ws-root-0.04em curriculum-vitae 146 0 0 0 0 0
+ROW 2 ss-ws-root-0.04em design-showcase 140 0 12 0 0 0
+ROW 2 ss-ws-root-0.04em faculty-profile 152 0 0 0 0 0
+ROW 2 ss-ws-root-0.04em field-mission 163 0 0 0 0 0
+ROW 2 ss-ws-root-0.04em field-notes 140 1 8 1 0 1
+ROW 2 ss-ws-root-0.04em field-season 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.04em filing-system 140 1 8 1 0 1
+ROW 2 ss-ws-root-0.04em foundation 140 4 0 4 0 4
+ROW 2 ss-ws-root-0.04em front-desk 154 0 0 0 0 0
+ROW 2 ss-ws-root-0.04em front-office 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.04em funnel 146 0 0 0 0 0
+ROW 2 ss-ws-root-0.04em gantt 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.04em gazette 140 4 0 4 0 4
+ROW 2 ss-ws-root-0.04em grant-proposal 170 0 0 0 0 0
+ROW 2 ss-ws-root-0.04em harvest 140 1 8 1 0 1
+ROW 2 ss-ws-root-0.04em help-desk 146 4 0 7 0 7
+ROW 2 ss-ws-root-0.04em impact-report 157 0 0 0 0 0
+ROW 2 ss-ws-root-0.04em itinerary 146 0 8 0 0 0
+ROW 2 ss-ws-root-0.04em lecture-notes 140 0 8 0 0 0
+ROW 2 ss-ws-root-0.04em ledger 140 4 0 4 0 4
+ROW 2 ss-ws-root-0.04em legal-brief 140 0 8 0 0 0
+ROW 2 ss-ws-root-0.04em manifest 140 4 0 4 0 4
+ROW 2 ss-ws-root-0.04em network-ops 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.04em offshore 140 4 0 4 0 4
+ROW 2 ss-ws-root-0.04em pipeline 122 0 0 1 0 1
+ROW 2 ss-ws-root-0.04em pitch-deck 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.04em portfolio-grid 137 0 0 0 0 0
+ROW 2 ss-ws-root-0.04em press-kit 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.04em product-tech 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.04em property-portfolio 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.04em public-record 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.04em reel 140 0 12 0 0 0
+ROW 2 ss-ws-root-0.04em research-record 146 0 0 0 0 0
+ROW 2 ss-ws-root-0.04em rig-report 140 0 8 0 0 0
+ROW 2 ss-ws-root-0.04em rounds 146 4 0 4 0 4
+ROW 2 ss-ws-root-0.04em route-plan 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.04em schematic 146 3 12 3 0 3
+ROW 2 ss-ws-root-0.04em signal 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.04em site-plan 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.04em site-report 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.04em specification 146 1 8 1 0 1
+ROW 2 ss-ws-root-0.04em sprint-board 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.04em stack-trace 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.04em statute 138 0 0 0 0 0
+ROW 2 ss-ws-root-0.04em structured-admin 140 4 0 4 0 4
+ROW 2 ss-ws-root-0.04em studio-brief 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.04em success-story 146 0 0 0 0 0
+ROW 2 ss-ws-root-0.04em supply-chain 146 0 0 0 0 0
+ROW 2 ss-ws-root-0.04em terminal 140 1 8 1 0 1
+ROW 2 ss-ws-root-0.04em uptime 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.04em value-chain 146 0 0 0 0 0
+ROW 2 ss-ws-root-0.04em wellhead 146 0 0 0 0 0
+ROW 2 ss-ws-root-0.05em balance-sheet 146 4 0 4 0 4
+ROW 2 ss-ws-root-0.05em blueprint 140 0 3 0 0 0
+ROW 2 ss-ws-root-0.05em business-boardroom 146 0 0 0 0 0
+ROW 2 ss-ws-root-0.05em business-memo 145 4 0 4 0 4
+ROW 2 ss-ws-root-0.05em byline 146 0 0 0 0 0
+ROW 2 ss-ws-root-0.05em care-plan 140 4 0 4 0 4
+ROW 2 ss-ws-root-0.05em chambers 146 4 0 4 0 4
+ROW 2 ss-ws-root-0.05em civic-record 140 1 7 1 0 1
+ROW 2 ss-ws-root-0.05em clean-professional 140 4 0 4 0 4
+ROW 2 ss-ws-root-0.05em clinical 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.05em compliance-brief 140 4 0 4 0 4
+ROW 2 ss-ws-root-0.05em concierge 152 0 0 0 0 0
+ROW 2 ss-ws-root-0.05em critical-path 134 0 2 1 0 1
+ROW 2 ss-ws-root-0.05em curriculum-vitae 146 0 0 0 0 0
+ROW 2 ss-ws-root-0.05em design-showcase 140 0 3 0 0 0
+ROW 2 ss-ws-root-0.05em faculty-profile 152 0 0 0 0 0
+ROW 2 ss-ws-root-0.05em field-mission 163 0 0 0 0 0
+ROW 2 ss-ws-root-0.05em field-notes 140 1 7 1 0 1
+ROW 2 ss-ws-root-0.05em field-season 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.05em filing-system 140 1 7 1 0 1
+ROW 2 ss-ws-root-0.05em foundation 140 4 0 4 0 4
+ROW 2 ss-ws-root-0.05em front-desk 154 0 0 0 0 0
+ROW 2 ss-ws-root-0.05em front-office 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.05em funnel 146 0 0 0 0 0
+ROW 2 ss-ws-root-0.05em gantt 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.05em gazette 140 4 0 4 0 4
+ROW 2 ss-ws-root-0.05em grant-proposal 170 0 0 0 0 0
+ROW 2 ss-ws-root-0.05em harvest 140 1 7 1 0 1
+ROW 2 ss-ws-root-0.05em help-desk 146 4 0 7 0 7
+ROW 2 ss-ws-root-0.05em impact-report 157 0 0 0 0 0
+ROW 2 ss-ws-root-0.05em itinerary 146 0 7 0 0 0
+ROW 2 ss-ws-root-0.05em lecture-notes 140 0 7 0 0 0
+ROW 2 ss-ws-root-0.05em ledger 140 4 0 4 0 4
+ROW 2 ss-ws-root-0.05em legal-brief 140 0 7 0 0 0
+ROW 2 ss-ws-root-0.05em manifest 140 4 0 4 0 4
+ROW 2 ss-ws-root-0.05em network-ops 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.05em offshore 140 4 0 4 0 4
+ROW 2 ss-ws-root-0.05em pipeline 122 0 0 1 0 1
+ROW 2 ss-ws-root-0.05em pitch-deck 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.05em portfolio-grid 137 0 0 0 0 0
+ROW 2 ss-ws-root-0.05em press-kit 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.05em product-tech 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.05em property-portfolio 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.05em public-record 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.05em reel 140 0 3 0 0 0
+ROW 2 ss-ws-root-0.05em research-record 146 0 0 0 0 0
+ROW 2 ss-ws-root-0.05em rig-report 140 0 7 0 0 0
+ROW 2 ss-ws-root-0.05em rounds 146 4 0 4 0 4
+ROW 2 ss-ws-root-0.05em route-plan 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.05em schematic 146 3 3 3 0 3
+ROW 2 ss-ws-root-0.05em signal 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.05em site-plan 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.05em site-report 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.05em specification 146 1 7 1 0 1
+ROW 2 ss-ws-root-0.05em sprint-board 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.05em stack-trace 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.05em statute 138 0 0 0 0 0
+ROW 2 ss-ws-root-0.05em structured-admin 140 4 0 4 0 4
+ROW 2 ss-ws-root-0.05em studio-brief 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.05em success-story 146 0 0 0 0 0
+ROW 2 ss-ws-root-0.05em supply-chain 146 0 0 0 0 0
+ROW 2 ss-ws-root-0.05em terminal 140 1 7 1 0 1
+ROW 2 ss-ws-root-0.05em uptime 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.05em value-chain 146 0 0 0 0 0
+ROW 2 ss-ws-root-0.05em wellhead 146 0 0 0 0 0
+ROW 2 ss-ws-root-0.1em balance-sheet 146 4 0 4 0 4
+ROW 2 ss-ws-root-0.1em blueprint 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.1em business-boardroom 146 0 0 0 0 0
+ROW 2 ss-ws-root-0.1em business-memo 145 4 0 4 0 4
+ROW 2 ss-ws-root-0.1em byline 146 0 0 0 0 0
+ROW 2 ss-ws-root-0.1em care-plan 140 4 0 4 0 4
+ROW 2 ss-ws-root-0.1em chambers 146 4 0 4 0 4
+ROW 2 ss-ws-root-0.1em civic-record 140 1 0 1 0 1
+ROW 2 ss-ws-root-0.1em clean-professional 140 4 0 4 0 4
+ROW 2 ss-ws-root-0.1em clinical 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.1em compliance-brief 140 4 0 4 0 4
+ROW 2 ss-ws-root-0.1em concierge 152 0 0 0 0 0
+ROW 2 ss-ws-root-0.1em critical-path 134 0 0 1 0 1
+ROW 2 ss-ws-root-0.1em curriculum-vitae 146 0 0 0 0 0
+ROW 2 ss-ws-root-0.1em design-showcase 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.1em faculty-profile 152 0 0 0 0 0
+ROW 2 ss-ws-root-0.1em field-mission 163 0 0 0 0 0
+ROW 2 ss-ws-root-0.1em field-notes 140 1 0 1 0 1
+ROW 2 ss-ws-root-0.1em field-season 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.1em filing-system 140 1 0 1 0 1
+ROW 2 ss-ws-root-0.1em foundation 140 4 0 4 0 4
+ROW 2 ss-ws-root-0.1em front-desk 154 0 0 0 0 0
+ROW 2 ss-ws-root-0.1em front-office 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.1em funnel 146 0 0 0 0 0
+ROW 2 ss-ws-root-0.1em gantt 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.1em gazette 140 4 0 4 0 4
+ROW 2 ss-ws-root-0.1em grant-proposal 170 0 0 0 0 0
+ROW 2 ss-ws-root-0.1em harvest 140 1 0 1 0 1
+ROW 2 ss-ws-root-0.1em help-desk 146 4 0 7 0 7
+ROW 2 ss-ws-root-0.1em impact-report 157 0 0 0 0 0
+ROW 2 ss-ws-root-0.1em itinerary 146 0 0 0 0 0
+ROW 2 ss-ws-root-0.1em lecture-notes 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.1em ledger 140 4 0 4 0 4
+ROW 2 ss-ws-root-0.1em legal-brief 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.1em manifest 140 4 0 4 0 4
+ROW 2 ss-ws-root-0.1em network-ops 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.1em offshore 140 4 0 4 0 4
+ROW 2 ss-ws-root-0.1em pipeline 122 0 0 1 0 1
+ROW 2 ss-ws-root-0.1em pitch-deck 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.1em portfolio-grid 137 0 0 0 0 0
+ROW 2 ss-ws-root-0.1em press-kit 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.1em product-tech 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.1em property-portfolio 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.1em public-record 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.1em reel 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.1em research-record 146 0 0 0 0 0
+ROW 2 ss-ws-root-0.1em rig-report 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.1em rounds 146 4 0 4 0 4
+ROW 2 ss-ws-root-0.1em route-plan 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.1em schematic 146 3 0 3 0 3
+ROW 2 ss-ws-root-0.1em signal 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.1em site-plan 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.1em site-report 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.1em specification 146 1 0 1 0 1
+ROW 2 ss-ws-root-0.1em sprint-board 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.1em stack-trace 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.1em statute 138 0 0 0 0 0
+ROW 2 ss-ws-root-0.1em structured-admin 140 4 0 4 0 4
+ROW 2 ss-ws-root-0.1em studio-brief 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.1em success-story 146 0 0 0 0 0
+ROW 2 ss-ws-root-0.1em supply-chain 146 0 0 0 0 0
+ROW 2 ss-ws-root-0.1em terminal 140 1 0 1 0 1
+ROW 2 ss-ws-root-0.1em uptime 140 0 0 0 0 0
+ROW 2 ss-ws-root-0.1em value-chain 146 0 0 0 0 0
+ROW 2 ss-ws-root-0.1em wellhead 146 0 0 0 0 0
+ROW 2 ss-ws0 balance-sheet 146 4 44 4 0 4
+ROW 2 ss-ws0 blueprint 140 0 19 0 0 0
+ROW 2 ss-ws0 business-boardroom 146 0 40 0 0 0
+ROW 2 ss-ws0 business-memo 145 4 46 4 0 4
+ROW 2 ss-ws0 byline 146 0 42 0 0 0
+ROW 2 ss-ws0 care-plan 140 4 45 4 0 4
+ROW 2 ss-ws0 chambers 146 4 44 4 0 4
+ROW 2 ss-ws0 civic-record 140 1 61 1 0 1
+ROW 2 ss-ws0 clean-professional 140 4 46 4 0 4
+ROW 2 ss-ws0 clinical 140 0 19 0 0 0
+ROW 2 ss-ws0 compliance-brief 140 4 46 4 0 4
+ROW 2 ss-ws0 concierge 152 0 40 0 0 0
+ROW 2 ss-ws0 critical-path 134 0 45 1 0 1
+ROW 2 ss-ws0 curriculum-vitae 146 0 42 0 0 0
+ROW 2 ss-ws0 design-showcase 140 0 20 0 0 0
+ROW 2 ss-ws0 faculty-profile 152 0 40 0 0 0
+ROW 2 ss-ws0 field-mission 163 0 45 0 0 0
+ROW 2 ss-ws0 field-notes 140 1 60 1 0 1
+ROW 2 ss-ws0 field-season 140 0 41 0 0 0
+ROW 2 ss-ws0 filing-system 140 1 61 1 0 1
+ROW 2 ss-ws0 foundation 140 4 46 4 0 4
+ROW 2 ss-ws0 front-desk 154 0 42 0 0 0
+ROW 2 ss-ws0 front-office 140 0 40 0 0 0
+ROW 2 ss-ws0 funnel 146 0 40 0 0 0
+ROW 2 ss-ws0 gantt 140 0 42 0 0 0
+ROW 2 ss-ws0 gazette 140 4 46 4 0 4
+ROW 2 ss-ws0 grant-proposal 170 0 43 0 0 0
+ROW 2 ss-ws0 harvest 140 1 59 1 0 1
+ROW 2 ss-ws0 help-desk 146 4 46 7 0 7
+ROW 2 ss-ws0 impact-report 157 0 45 0 0 0
+ROW 2 ss-ws0 itinerary 146 0 59 0 0 0
+ROW 2 ss-ws0 lecture-notes 140 0 60 0 0 0
+ROW 2 ss-ws0 ledger 140 4 46 4 0 4
+ROW 2 ss-ws0 legal-brief 140 0 60 0 0 0
+ROW 2 ss-ws0 manifest 140 4 46 4 0 4
+ROW 2 ss-ws0 network-ops 140 0 42 0 0 0
+ROW 2 ss-ws0 offshore 140 4 46 4 0 4
+ROW 2 ss-ws0 pipeline 122 0 14 1 0 1
+ROW 2 ss-ws0 pitch-deck 140 0 43 0 0 0
+ROW 2 ss-ws0 portfolio-grid 137 0 14 0 0 0
+ROW 2 ss-ws0 press-kit 140 0 43 0 0 0
+ROW 2 ss-ws0 product-tech 140 0 43 0 0 0
+ROW 2 ss-ws0 property-portfolio 140 0 41 0 0 0
+ROW 2 ss-ws0 public-record 140 0 50 0 0 0
+ROW 2 ss-ws0 reel 140 0 20 0 0 0
+ROW 2 ss-ws0 research-record 146 0 42 0 0 0
+ROW 2 ss-ws0 rig-report 140 0 60 0 0 0
+ROW 2 ss-ws0 rounds 146 4 46 4 0 4
+ROW 2 ss-ws0 route-plan 140 0 42 0 0 0
+ROW 2 ss-ws0 schematic 146 3 20 3 0 3
+ROW 2 ss-ws0 signal 140 0 43 0 0 0
+ROW 2 ss-ws0 site-plan 140 0 42 0 0 0
+ROW 2 ss-ws0 site-report 140 0 41 0 0 0
+ROW 2 ss-ws0 specification 146 1 61 1 0 1
+ROW 2 ss-ws0 sprint-board 140 0 41 0 0 0
+ROW 2 ss-ws0 stack-trace 140 0 41 0 0 0
+ROW 2 ss-ws0 statute 138 0 0 0 0 0
+ROW 2 ss-ws0 structured-admin 140 4 46 4 0 4
+ROW 2 ss-ws0 studio-brief 140 0 43 0 0 0
+ROW 2 ss-ws0 success-story 146 0 42 0 0 0
+ROW 2 ss-ws0 supply-chain 146 0 40 0 0 0
+ROW 2 ss-ws0 terminal 140 1 60 1 0 1
+ROW 2 ss-ws0 uptime 140 0 41 0 0 0
+ROW 2 ss-ws0 value-chain 146 0 40 0 0 0
+ROW 2 ss-ws0 wellhead 146 0 40 0 0 0
+AGG face=ss-ws-root-0.02em persona=0 all pdfjs templates_hit=25/65 words=55/7416 pct=0.74
+AGG face=ss-ws-root-0.02em persona=0 all poppler templates_hit=63/65 words=902/7416 pct=12.16
+AGG face=ss-ws-root-0.02em persona=0 all pdfminer templates_hit=27/65 words=60/7416 pct=0.81
+AGG face=ss-ws-root-0.02em persona=0 all mutool templates_hit=0/65 words=0/7416 pct=0.00
+AGG face=ss-ws-root-0.02em persona=0 all pdfbox templates_hit=23/65 words=60/7416 pct=0.81
+AGG face=ss-ws-root-0.02em persona=1 all pdfjs templates_hit=26/65 words=60/9688 pct=0.62
+AGG face=ss-ws-root-0.02em persona=1 all poppler templates_hit=63/65 words=1221/9688 pct=12.60
+AGG face=ss-ws-root-0.02em persona=1 all pdfminer templates_hit=27/65 words=64/9688 pct=0.66
+AGG face=ss-ws-root-0.02em persona=1 all mutool templates_hit=0/65 words=0/9688 pct=0.00
+AGG face=ss-ws-root-0.02em persona=1 all pdfbox templates_hit=55/65 words=103/9688 pct=1.06
+AGG face=ss-ws-root-0.02em persona=2 all pdfjs templates_hit=21/65 words=65/9280 pct=0.70
+AGG face=ss-ws-root-0.02em persona=2 all poppler templates_hit=64/65 words=1181/9280 pct=12.73
+AGG face=ss-ws-root-0.02em persona=2 all pdfminer templates_hit=23/65 words=70/9280 pct=0.75
+AGG face=ss-ws-root-0.02em persona=2 all mutool templates_hit=0/65 words=0/9280 pct=0.00
+AGG face=ss-ws-root-0.02em persona=2 all pdfbox templates_hit=23/65 words=70/9280 pct=0.75
+AGG face=ss-ws-root-0.02em personas=all all pdfjs templates_hit=72/195 words=180/26384 pct=0.68
+AGG face=ss-ws-root-0.02em personas=all all poppler templates_hit=190/195 words=3304/26384 pct=12.52
+AGG face=ss-ws-root-0.02em personas=all all pdfminer templates_hit=77/195 words=194/26384 pct=0.74
+AGG face=ss-ws-root-0.02em personas=all all mutool templates_hit=0/195 words=0/26384 pct=0.00
+AGG face=ss-ws-root-0.02em personas=all all pdfbox templates_hit=101/195 words=233/26384 pct=0.88
+AGG face=ss-ws-root-0.02em personas=all ats_safe pdfjs templates_hit=62/114 words=150/15459 pct=0.97
+AGG face=ss-ws-root-0.02em personas=all ats_safe poppler templates_hit=111/114 words=2302/15459 pct=14.89
+AGG face=ss-ws-root-0.02em personas=all ats_safe pdfminer templates_hit=62/114 words=158/15459 pct=1.02
+AGG face=ss-ws-root-0.02em personas=all ats_safe mutool templates_hit=0/114 words=0/15459 pct=0.00
+AGG face=ss-ws-root-0.02em personas=all ats_safe pdfbox templates_hit=68/114 words=176/15459 pct=1.14
+AGG face=ss-ws-root-0.02em personas=all not_ats_safe pdfjs templates_hit=10/81 words=30/10925 pct=0.27
+AGG face=ss-ws-root-0.02em personas=all not_ats_safe poppler templates_hit=79/81 words=1002/10925 pct=9.17
+AGG face=ss-ws-root-0.02em personas=all not_ats_safe pdfminer templates_hit=15/81 words=36/10925 pct=0.33
+AGG face=ss-ws-root-0.02em personas=all not_ats_safe mutool templates_hit=0/81 words=0/10925 pct=0.00
+AGG face=ss-ws-root-0.02em personas=all not_ats_safe pdfbox templates_hit=33/81 words=57/10925 pct=0.52
+AGG face=ss-ws-root-0.03em persona=0 all pdfjs templates_hit=25/65 words=55/7416 pct=0.74
+AGG face=ss-ws-root-0.03em persona=0 all poppler templates_hit=16/65 words=93/7416 pct=1.25
+AGG face=ss-ws-root-0.03em persona=0 all pdfminer templates_hit=27/65 words=60/7416 pct=0.81
+AGG face=ss-ws-root-0.03em persona=0 all mutool templates_hit=0/65 words=0/7416 pct=0.00
+AGG face=ss-ws-root-0.03em persona=0 all pdfbox templates_hit=23/65 words=60/7416 pct=0.81
+AGG face=ss-ws-root-0.03em persona=1 all pdfjs templates_hit=26/65 words=60/9688 pct=0.62
+AGG face=ss-ws-root-0.03em persona=1 all poppler templates_hit=15/65 words=204/9688 pct=2.11
+AGG face=ss-ws-root-0.03em persona=1 all pdfminer templates_hit=27/65 words=64/9688 pct=0.66
+AGG face=ss-ws-root-0.03em persona=1 all mutool templates_hit=0/65 words=0/9688 pct=0.00
+AGG face=ss-ws-root-0.03em persona=1 all pdfbox templates_hit=55/65 words=103/9688 pct=1.06
+AGG face=ss-ws-root-0.03em persona=2 all pdfjs templates_hit=21/65 words=65/9280 pct=0.70
+AGG face=ss-ws-root-0.03em persona=2 all poppler templates_hit=15/65 words=208/9280 pct=2.24
+AGG face=ss-ws-root-0.03em persona=2 all pdfminer templates_hit=23/65 words=70/9280 pct=0.75
+AGG face=ss-ws-root-0.03em persona=2 all mutool templates_hit=0/65 words=0/9280 pct=0.00
+AGG face=ss-ws-root-0.03em persona=2 all pdfbox templates_hit=23/65 words=70/9280 pct=0.75
+AGG face=ss-ws-root-0.03em personas=all all pdfjs templates_hit=72/195 words=180/26384 pct=0.68
+AGG face=ss-ws-root-0.03em personas=all all poppler templates_hit=46/195 words=505/26384 pct=1.91
+AGG face=ss-ws-root-0.03em personas=all all pdfminer templates_hit=77/195 words=194/26384 pct=0.74
+AGG face=ss-ws-root-0.03em personas=all all mutool templates_hit=0/195 words=0/26384 pct=0.00
+AGG face=ss-ws-root-0.03em personas=all all pdfbox templates_hit=101/195 words=233/26384 pct=0.88
+AGG face=ss-ws-root-0.03em personas=all ats_safe pdfjs templates_hit=62/114 words=150/15459 pct=0.97
+AGG face=ss-ws-root-0.03em personas=all ats_safe poppler templates_hit=33/114 words=404/15459 pct=2.61
+AGG face=ss-ws-root-0.03em personas=all ats_safe pdfminer templates_hit=62/114 words=158/15459 pct=1.02
+AGG face=ss-ws-root-0.03em personas=all ats_safe mutool templates_hit=0/114 words=0/15459 pct=0.00
+AGG face=ss-ws-root-0.03em personas=all ats_safe pdfbox templates_hit=68/114 words=176/15459 pct=1.14
+AGG face=ss-ws-root-0.03em personas=all not_ats_safe pdfjs templates_hit=10/81 words=30/10925 pct=0.27
+AGG face=ss-ws-root-0.03em personas=all not_ats_safe poppler templates_hit=13/81 words=101/10925 pct=0.92
+AGG face=ss-ws-root-0.03em personas=all not_ats_safe pdfminer templates_hit=15/81 words=36/10925 pct=0.33
+AGG face=ss-ws-root-0.03em personas=all not_ats_safe mutool templates_hit=0/81 words=0/10925 pct=0.00
+AGG face=ss-ws-root-0.03em personas=all not_ats_safe pdfbox templates_hit=33/81 words=57/10925 pct=0.52
+AGG face=ss-ws-root-0.04em persona=0 all pdfjs templates_hit=25/65 words=55/7416 pct=0.74
+AGG face=ss-ws-root-0.04em persona=0 all poppler templates_hit=15/65 words=28/7416 pct=0.38
+AGG face=ss-ws-root-0.04em persona=0 all pdfminer templates_hit=27/65 words=60/7416 pct=0.81
+AGG face=ss-ws-root-0.04em persona=0 all mutool templates_hit=0/65 words=0/7416 pct=0.00
+AGG face=ss-ws-root-0.04em persona=0 all pdfbox templates_hit=23/65 words=60/7416 pct=0.81
+AGG face=ss-ws-root-0.04em persona=1 all pdfjs templates_hit=26/65 words=60/9688 pct=0.62
+AGG face=ss-ws-root-0.04em persona=1 all poppler templates_hit=14/65 words=77/9688 pct=0.79
+AGG face=ss-ws-root-0.04em persona=1 all pdfminer templates_hit=27/65 words=64/9688 pct=0.66
+AGG face=ss-ws-root-0.04em persona=1 all mutool templates_hit=0/65 words=0/9688 pct=0.00
+AGG face=ss-ws-root-0.04em persona=1 all pdfbox templates_hit=55/65 words=103/9688 pct=1.06
+AGG face=ss-ws-root-0.04em persona=2 all pdfjs templates_hit=21/65 words=65/9280 pct=0.70
+AGG face=ss-ws-root-0.04em persona=2 all poppler templates_hit=15/65 words=133/9280 pct=1.43
+AGG face=ss-ws-root-0.04em persona=2 all pdfminer templates_hit=23/65 words=70/9280 pct=0.75
+AGG face=ss-ws-root-0.04em persona=2 all mutool templates_hit=0/65 words=0/9280 pct=0.00
+AGG face=ss-ws-root-0.04em persona=2 all pdfbox templates_hit=23/65 words=70/9280 pct=0.75
+AGG face=ss-ws-root-0.04em personas=all all pdfjs templates_hit=72/195 words=180/26384 pct=0.68
+AGG face=ss-ws-root-0.04em personas=all all poppler templates_hit=44/195 words=238/26384 pct=0.90
+AGG face=ss-ws-root-0.04em personas=all all pdfminer templates_hit=77/195 words=194/26384 pct=0.74
+AGG face=ss-ws-root-0.04em personas=all all mutool templates_hit=0/195 words=0/26384 pct=0.00
+AGG face=ss-ws-root-0.04em personas=all all pdfbox templates_hit=101/195 words=233/26384 pct=0.88
+AGG face=ss-ws-root-0.04em personas=all ats_safe pdfjs templates_hit=62/114 words=150/15459 pct=0.97
+AGG face=ss-ws-root-0.04em personas=all ats_safe poppler templates_hit=33/114 words=176/15459 pct=1.14
+AGG face=ss-ws-root-0.04em personas=all ats_safe pdfminer templates_hit=62/114 words=158/15459 pct=1.02
+AGG face=ss-ws-root-0.04em personas=all ats_safe mutool templates_hit=0/114 words=0/15459 pct=0.00
+AGG face=ss-ws-root-0.04em personas=all ats_safe pdfbox templates_hit=68/114 words=176/15459 pct=1.14
+AGG face=ss-ws-root-0.04em personas=all not_ats_safe pdfjs templates_hit=10/81 words=30/10925 pct=0.27
+AGG face=ss-ws-root-0.04em personas=all not_ats_safe poppler templates_hit=11/81 words=62/10925 pct=0.57
+AGG face=ss-ws-root-0.04em personas=all not_ats_safe pdfminer templates_hit=15/81 words=36/10925 pct=0.33
+AGG face=ss-ws-root-0.04em personas=all not_ats_safe mutool templates_hit=0/81 words=0/10925 pct=0.00
+AGG face=ss-ws-root-0.04em personas=all not_ats_safe pdfbox templates_hit=33/81 words=57/10925 pct=0.52
+AGG face=ss-ws-root-0.05em persona=0 all pdfjs templates_hit=25/65 words=55/7416 pct=0.74
+AGG face=ss-ws-root-0.05em persona=0 all poppler templates_hit=12/65 words=12/7416 pct=0.16
+AGG face=ss-ws-root-0.05em persona=0 all pdfminer templates_hit=27/65 words=60/7416 pct=0.81
+AGG face=ss-ws-root-0.05em persona=0 all mutool templates_hit=0/65 words=0/7416 pct=0.00
+AGG face=ss-ws-root-0.05em persona=0 all pdfbox templates_hit=23/65 words=60/7416 pct=0.81
+AGG face=ss-ws-root-0.05em persona=1 all pdfjs templates_hit=26/65 words=60/9688 pct=0.62
+AGG face=ss-ws-root-0.05em persona=1 all poppler templates_hit=11/65 words=51/9688 pct=0.53
+AGG face=ss-ws-root-0.05em persona=1 all pdfminer templates_hit=27/65 words=64/9688 pct=0.66
+AGG face=ss-ws-root-0.05em persona=1 all mutool templates_hit=0/65 words=0/9688 pct=0.00
+AGG face=ss-ws-root-0.05em persona=1 all pdfbox templates_hit=55/65 words=103/9688 pct=1.06
+AGG face=ss-ws-root-0.05em persona=2 all pdfjs templates_hit=21/65 words=65/9280 pct=0.70
+AGG face=ss-ws-root-0.05em persona=2 all poppler templates_hit=15/65 words=84/9280 pct=0.91
+AGG face=ss-ws-root-0.05em persona=2 all pdfminer templates_hit=23/65 words=70/9280 pct=0.75
+AGG face=ss-ws-root-0.05em persona=2 all mutool templates_hit=0/65 words=0/9280 pct=0.00
+AGG face=ss-ws-root-0.05em persona=2 all pdfbox templates_hit=23/65 words=70/9280 pct=0.75
+AGG face=ss-ws-root-0.05em personas=all all pdfjs templates_hit=72/195 words=180/26384 pct=0.68
+AGG face=ss-ws-root-0.05em personas=all all poppler templates_hit=38/195 words=147/26384 pct=0.56
+AGG face=ss-ws-root-0.05em personas=all all pdfminer templates_hit=77/195 words=194/26384 pct=0.74
+AGG face=ss-ws-root-0.05em personas=all all mutool templates_hit=0/195 words=0/26384 pct=0.00
+AGG face=ss-ws-root-0.05em personas=all all pdfbox templates_hit=101/195 words=233/26384 pct=0.88
+AGG face=ss-ws-root-0.05em personas=all ats_safe pdfjs templates_hit=62/114 words=150/15459 pct=0.97
+AGG face=ss-ws-root-0.05em personas=all ats_safe poppler templates_hit=33/114 words=135/15459 pct=0.87
+AGG face=ss-ws-root-0.05em personas=all ats_safe pdfminer templates_hit=62/114 words=158/15459 pct=1.02
+AGG face=ss-ws-root-0.05em personas=all ats_safe mutool templates_hit=0/114 words=0/15459 pct=0.00
+AGG face=ss-ws-root-0.05em personas=all ats_safe pdfbox templates_hit=68/114 words=176/15459 pct=1.14
+AGG face=ss-ws-root-0.05em personas=all not_ats_safe pdfjs templates_hit=10/81 words=30/10925 pct=0.27
+AGG face=ss-ws-root-0.05em personas=all not_ats_safe poppler templates_hit=5/81 words=12/10925 pct=0.11
+AGG face=ss-ws-root-0.05em personas=all not_ats_safe pdfminer templates_hit=15/81 words=36/10925 pct=0.33
+AGG face=ss-ws-root-0.05em personas=all not_ats_safe mutool templates_hit=0/81 words=0/10925 pct=0.00
+AGG face=ss-ws-root-0.05em personas=all not_ats_safe pdfbox templates_hit=33/81 words=57/10925 pct=0.52
+AGG face=ss-ws-root-0.1em persona=0 all pdfjs templates_hit=25/65 words=55/7416 pct=0.74
+AGG face=ss-ws-root-0.1em persona=0 all poppler templates_hit=0/65 words=0/7416 pct=0.00
+AGG face=ss-ws-root-0.1em persona=0 all pdfminer templates_hit=27/65 words=60/7416 pct=0.81
+AGG face=ss-ws-root-0.1em persona=0 all mutool templates_hit=0/65 words=0/7416 pct=0.00
+AGG face=ss-ws-root-0.1em persona=0 all pdfbox templates_hit=23/65 words=60/7416 pct=0.81
+AGG face=ss-ws-root-0.1em persona=1 all pdfjs templates_hit=26/65 words=60/9688 pct=0.62
+AGG face=ss-ws-root-0.1em persona=1 all poppler templates_hit=0/65 words=0/9688 pct=0.00
+AGG face=ss-ws-root-0.1em persona=1 all pdfminer templates_hit=27/65 words=64/9688 pct=0.66
+AGG face=ss-ws-root-0.1em persona=1 all mutool templates_hit=0/65 words=0/9688 pct=0.00
+AGG face=ss-ws-root-0.1em persona=1 all pdfbox templates_hit=55/65 words=103/9688 pct=1.06
+AGG face=ss-ws-root-0.1em persona=2 all pdfjs templates_hit=21/65 words=65/9280 pct=0.70
+AGG face=ss-ws-root-0.1em persona=2 all poppler templates_hit=0/65 words=0/9280 pct=0.00
+AGG face=ss-ws-root-0.1em persona=2 all pdfminer templates_hit=23/65 words=70/9280 pct=0.75
+AGG face=ss-ws-root-0.1em persona=2 all mutool templates_hit=0/65 words=0/9280 pct=0.00
+AGG face=ss-ws-root-0.1em persona=2 all pdfbox templates_hit=23/65 words=70/9280 pct=0.75
+AGG face=ss-ws-root-0.1em personas=all all pdfjs templates_hit=72/195 words=180/26384 pct=0.68
+AGG face=ss-ws-root-0.1em personas=all all poppler templates_hit=0/195 words=0/26384 pct=0.00
+AGG face=ss-ws-root-0.1em personas=all all pdfminer templates_hit=77/195 words=194/26384 pct=0.74
+AGG face=ss-ws-root-0.1em personas=all all mutool templates_hit=0/195 words=0/26384 pct=0.00
+AGG face=ss-ws-root-0.1em personas=all all pdfbox templates_hit=101/195 words=233/26384 pct=0.88
+AGG face=ss-ws-root-0.1em personas=all ats_safe pdfjs templates_hit=62/114 words=150/15459 pct=0.97
+AGG face=ss-ws-root-0.1em personas=all ats_safe poppler templates_hit=0/114 words=0/15459 pct=0.00
+AGG face=ss-ws-root-0.1em personas=all ats_safe pdfminer templates_hit=62/114 words=158/15459 pct=1.02
+AGG face=ss-ws-root-0.1em personas=all ats_safe mutool templates_hit=0/114 words=0/15459 pct=0.00
+AGG face=ss-ws-root-0.1em personas=all ats_safe pdfbox templates_hit=68/114 words=176/15459 pct=1.14
+AGG face=ss-ws-root-0.1em personas=all not_ats_safe pdfjs templates_hit=10/81 words=30/10925 pct=0.27
+AGG face=ss-ws-root-0.1em personas=all not_ats_safe poppler templates_hit=0/81 words=0/10925 pct=0.00
+AGG face=ss-ws-root-0.1em personas=all not_ats_safe pdfminer templates_hit=15/81 words=36/10925 pct=0.33
+AGG face=ss-ws-root-0.1em personas=all not_ats_safe mutool templates_hit=0/81 words=0/10925 pct=0.00
+AGG face=ss-ws-root-0.1em personas=all not_ats_safe pdfbox templates_hit=33/81 words=57/10925 pct=0.52
+AGG face=ss-ws0 persona=0 all pdfjs templates_hit=25/65 words=55/7416 pct=0.74
+AGG face=ss-ws0 persona=0 all poppler templates_hit=64/65 words=2088/7416 pct=28.16
+AGG face=ss-ws0 persona=0 all pdfminer templates_hit=27/65 words=60/7416 pct=0.81
+AGG face=ss-ws0 persona=0 all mutool templates_hit=0/65 words=0/7416 pct=0.00
+AGG face=ss-ws0 persona=0 all pdfbox templates_hit=23/65 words=60/7416 pct=0.81
+AGG face=ss-ws0 persona=1 all pdfjs templates_hit=26/65 words=60/9688 pct=0.62
+AGG face=ss-ws0 persona=1 all poppler templates_hit=64/65 words=2975/9688 pct=30.71
+AGG face=ss-ws0 persona=1 all pdfminer templates_hit=27/65 words=64/9688 pct=0.66
+AGG face=ss-ws0 persona=1 all mutool templates_hit=0/65 words=0/9688 pct=0.00
+AGG face=ss-ws0 persona=1 all pdfbox templates_hit=55/65 words=103/9688 pct=1.06
+AGG face=ss-ws0 persona=2 all pdfjs templates_hit=21/65 words=65/9280 pct=0.70
+AGG face=ss-ws0 persona=2 all poppler templates_hit=64/65 words=2753/9280 pct=29.67
+AGG face=ss-ws0 persona=2 all pdfminer templates_hit=23/65 words=70/9280 pct=0.75
+AGG face=ss-ws0 persona=2 all mutool templates_hit=0/65 words=0/9280 pct=0.00
+AGG face=ss-ws0 persona=2 all pdfbox templates_hit=23/65 words=70/9280 pct=0.75
+AGG face=ss-ws0 personas=all all pdfjs templates_hit=72/195 words=180/26384 pct=0.68
+AGG face=ss-ws0 personas=all all poppler templates_hit=192/195 words=7816/26384 pct=29.62
+AGG face=ss-ws0 personas=all all pdfminer templates_hit=77/195 words=194/26384 pct=0.74
+AGG face=ss-ws0 personas=all all mutool templates_hit=0/195 words=0/26384 pct=0.00
+AGG face=ss-ws0 personas=all all pdfbox templates_hit=101/195 words=233/26384 pct=0.88
+AGG face=ss-ws0 personas=all ats_safe pdfjs templates_hit=62/114 words=150/15459 pct=0.97
+AGG face=ss-ws0 personas=all ats_safe poppler templates_hit=111/114 words=5104/15459 pct=33.02
+AGG face=ss-ws0 personas=all ats_safe pdfminer templates_hit=62/114 words=158/15459 pct=1.02
+AGG face=ss-ws0 personas=all ats_safe mutool templates_hit=0/114 words=0/15459 pct=0.00
+AGG face=ss-ws0 personas=all ats_safe pdfbox templates_hit=68/114 words=176/15459 pct=1.14
+AGG face=ss-ws0 personas=all not_ats_safe pdfjs templates_hit=10/81 words=30/10925 pct=0.27
+AGG face=ss-ws0 personas=all not_ats_safe poppler templates_hit=81/81 words=2712/10925 pct=24.82
+AGG face=ss-ws0 personas=all not_ats_safe pdfminer templates_hit=15/81 words=36/10925 pct=0.33
+AGG face=ss-ws0 personas=all not_ats_safe mutool templates_hit=0/81 words=0/10925 pct=0.00
+AGG face=ss-ws0 personas=all not_ats_safe pdfbox templates_hit=33/81 words=57/10925 pct=0.52
+PAGES ss-ws-root-0.02em renders=195 pagecount_changed_vs_control=1 more_pages=1 fewer_pages=0
+PAGES   ss-ws-root-0.02em slug=clinical persona=1 control_pages=1 pages=2
+WSVALUES ss-ws-root-0.02em distinct_computed_word_spacing_sets=['0.32px']
+TOPDAMAGED ss-ws-root-0.02em poppler [('four', 114), ('stakeholder', 95), ('for', 93), ('reporting', 68), ('two', 67), ('tier', 62), ('pricing', 62), ('faster', 61), ('rework', 61), ('International', 60), ('user', 57), ('incidents', 57)]
+PAGES ss-ws-root-0.03em renders=195 pagecount_changed_vs_control=10 more_pages=10 fewer_pages=0
+PAGES   ss-ws-root-0.03em slug=business-boardroom persona=1 control_pages=1 pages=2
+PAGES   ss-ws-root-0.03em slug=clinical persona=1 control_pages=1 pages=2
+PAGES   ss-ws-root-0.03em slug=concierge persona=1 control_pages=1 pages=2
+PAGES   ss-ws-root-0.03em slug=faculty-profile persona=1 control_pages=1 pages=2
+PAGES   ss-ws-root-0.03em slug=front-office persona=1 control_pages=1 pages=2
+PAGES   ss-ws-root-0.03em slug=funnel persona=1 control_pages=1 pages=2
+PAGES   ss-ws-root-0.03em slug=grant-proposal persona=1 control_pages=1 pages=2
+PAGES   ss-ws-root-0.03em slug=supply-chain persona=1 control_pages=1 pages=2
+PAGES   ss-ws-root-0.03em slug=value-chain persona=1 control_pages=1 pages=2
+PAGES   ss-ws-root-0.03em slug=wellhead persona=1 control_pages=1 pages=2
+WSVALUES ss-ws-root-0.03em distinct_computed_word_spacing_sets=['0.48px']
+TOPDAMAGED ss-ws-root-0.03em poppler [('two', 20), ('four', 20), ('stakeholder', 12), ('user', 11), ('research', 11), ('testing', 11), ('engagement', 11), ('kobo', 11), ('toolbox', 11), ('for', 10), ('faster', 10), ('tier', 10)]
+PAGES ss-ws-root-0.04em renders=195 pagecount_changed_vs_control=11 more_pages=11 fewer_pages=0
+PAGES   ss-ws-root-0.04em slug=balance-sheet persona=1 control_pages=1 pages=2
+PAGES   ss-ws-root-0.04em slug=business-boardroom persona=1 control_pages=1 pages=2
+PAGES   ss-ws-root-0.04em slug=clinical persona=1 control_pages=1 pages=2
+PAGES   ss-ws-root-0.04em slug=concierge persona=1 control_pages=1 pages=2
+PAGES   ss-ws-root-0.04em slug=faculty-profile persona=1 control_pages=1 pages=2
+PAGES   ss-ws-root-0.04em slug=front-office persona=1 control_pages=1 pages=2
+PAGES   ss-ws-root-0.04em slug=funnel persona=1 control_pages=1 pages=2
+PAGES   ss-ws-root-0.04em slug=grant-proposal persona=1 control_pages=1 pages=2
+PAGES   ss-ws-root-0.04em slug=supply-chain persona=1 control_pages=1 pages=2
+PAGES   ss-ws-root-0.04em slug=value-chain persona=1 control_pages=1 pages=2
+PAGES   ss-ws-root-0.04em slug=wellhead persona=1 control_pages=1 pages=2
+WSVALUES ss-ws-root-0.04em distinct_computed_word_spacing_sets=['0.64px']
+TOPDAMAGED ss-ws-root-0.04em poppler [('two', 20), ('testing', 11), ('kobo', 11), ('toolbox', 11), ('weeks', 10), ('schedule', 10), ('zero', 10), ('lost', 10), ('non', 10), ('unit', 10), ('planting', 10), ('certified', 10)]
+PAGES ss-ws-root-0.05em renders=195 pagecount_changed_vs_control=11 more_pages=11 fewer_pages=0
+PAGES   ss-ws-root-0.05em slug=balance-sheet persona=1 control_pages=1 pages=2
+PAGES   ss-ws-root-0.05em slug=business-boardroom persona=1 control_pages=1 pages=2
+PAGES   ss-ws-root-0.05em slug=clinical persona=1 control_pages=1 pages=2
+PAGES   ss-ws-root-0.05em slug=concierge persona=1 control_pages=1 pages=2
+PAGES   ss-ws-root-0.05em slug=faculty-profile persona=1 control_pages=1 pages=2
+PAGES   ss-ws-root-0.05em slug=front-office persona=1 control_pages=1 pages=2
+PAGES   ss-ws-root-0.05em slug=funnel persona=1 control_pages=1 pages=2
+PAGES   ss-ws-root-0.05em slug=grant-proposal persona=1 control_pages=1 pages=2
+PAGES   ss-ws-root-0.05em slug=supply-chain persona=1 control_pages=1 pages=2
+PAGES   ss-ws-root-0.05em slug=value-chain persona=1 control_pages=1 pages=2
+PAGES   ss-ws-root-0.05em slug=wellhead persona=1 control_pages=1 pages=2
+WSVALUES ss-ws-root-0.05em distinct_computed_word_spacing_sets=['0.8px']
+TOPDAMAGED ss-ws-root-0.05em poppler [('two', 20), ('testing', 11), ('kobo', 11), ('toolbox', 11), ('weeks', 10), ('schedule', 10), ('zero', 10), ('lost', 10), ('planting', 10), ('certified', 10), ('Pro', 10), ('Level', 10)]
+PAGES ss-ws-root-0.1em renders=195 pagecount_changed_vs_control=21 more_pages=21 fewer_pages=0
+PAGES   ss-ws-root-0.1em slug=balance-sheet persona=1 control_pages=1 pages=2
+PAGES   ss-ws-root-0.1em slug=business-boardroom persona=1 control_pages=1 pages=2
+PAGES   ss-ws-root-0.1em slug=chambers persona=1 control_pages=1 pages=2
+PAGES   ss-ws-root-0.1em slug=clinical persona=1 control_pages=1 pages=2
+PAGES   ss-ws-root-0.1em slug=concierge persona=1 control_pages=1 pages=2
+PAGES   ss-ws-root-0.1em slug=faculty-profile persona=1 control_pages=1 pages=2
+PAGES   ss-ws-root-0.1em slug=field-season persona=2 control_pages=1 pages=2
+PAGES   ss-ws-root-0.1em slug=foundation persona=2 control_pages=1 pages=2
+PAGES   ss-ws-root-0.1em slug=front-office persona=1 control_pages=1 pages=2
+PAGES   ss-ws-root-0.1em slug=funnel persona=1 control_pages=1 pages=2
+PAGES   ss-ws-root-0.1em slug=gantt persona=2 control_pages=1 pages=2
+PAGES   ss-ws-root-0.1em slug=grant-proposal persona=1 control_pages=1 pages=2
+WSVALUES ss-ws-root-0.1em distinct_computed_word_spacing_sets=['1.6px']
+TOPDAMAGED ss-ws-root-0.1em poppler []
+PAGES ss-ws0 renders=195 pagecount_changed_vs_control=0 more_pages=0 fewer_pages=0
+WSVALUES ss-ws0 distinct_computed_word_spacing_sets=['0px']
+TOPDAMAGED ss-ws0 poppler [('that', 175), ('cut', 171), ('four', 118), ('reporting', 116), ('audits', 115), ('for', 109), ('stakeholder', 98), ('built', 95), ('two', 69), ('dashboard', 67), ('used', 67), ('tracking', 67)]
+GAINED ss-ws-root-0.02em persona=1 slug=clinical ats_safe=False control_pages=1 control_last_page_fill=0.946 pages_now=2 fill_now=0.018
+GAINED ss-ws-root-0.03em persona=1 slug=business-boardroom ats_safe=False control_pages=1 control_last_page_fill=0.948 pages_now=2 fill_now=0.846
+GAINED ss-ws-root-0.03em persona=1 slug=clinical ats_safe=False control_pages=1 control_last_page_fill=0.946 pages_now=2 fill_now=0.018
+GAINED ss-ws-root-0.03em persona=1 slug=concierge ats_safe=False control_pages=1 control_last_page_fill=0.946 pages_now=2 fill_now=0.846
+GAINED ss-ws-root-0.03em persona=1 slug=faculty-profile ats_safe=False control_pages=1 control_last_page_fill=0.945 pages_now=2 fill_now=0.846
+GAINED ss-ws-root-0.03em persona=1 slug=front-office ats_safe=False control_pages=1 control_last_page_fill=0.935 pages_now=2 fill_now=0.836
+GAINED ss-ws-root-0.03em persona=1 slug=funnel ats_safe=False control_pages=1 control_last_page_fill=0.928 pages_now=2 fill_now=0.831
+GAINED ss-ws-root-0.03em persona=1 slug=grant-proposal ats_safe=False control_pages=1 control_last_page_fill=0.945 pages_now=2 fill_now=0.846
+GAINED ss-ws-root-0.03em persona=1 slug=supply-chain ats_safe=False control_pages=1 control_last_page_fill=0.936 pages_now=2 fill_now=0.836
+GAINED ss-ws-root-0.03em persona=1 slug=value-chain ats_safe=False control_pages=1 control_last_page_fill=0.928 pages_now=2 fill_now=0.831
+GAINED ss-ws-root-0.03em persona=1 slug=wellhead ats_safe=False control_pages=1 control_last_page_fill=0.931 pages_now=2 fill_now=0.832
+GAINED ss-ws-root-0.04em persona=1 slug=balance-sheet ats_safe=False control_pages=1 control_last_page_fill=0.903 pages_now=2 fill_now=0.824
+GAINED ss-ws-root-0.04em persona=1 slug=business-boardroom ats_safe=False control_pages=1 control_last_page_fill=0.948 pages_now=2 fill_now=0.038
+GAINED ss-ws-root-0.04em persona=1 slug=clinical ats_safe=False control_pages=1 control_last_page_fill=0.946 pages_now=2 fill_now=0.018
+GAINED ss-ws-root-0.04em persona=1 slug=concierge ats_safe=False control_pages=1 control_last_page_fill=0.946 pages_now=2 fill_now=0.038
+GAINED ss-ws-root-0.04em persona=1 slug=faculty-profile ats_safe=False control_pages=1 control_last_page_fill=0.945 pages_now=2 fill_now=0.038
+GAINED ss-ws-root-0.04em persona=1 slug=front-office ats_safe=False control_pages=1 control_last_page_fill=0.935 pages_now=2 fill_now=0.857
+GAINED ss-ws-root-0.04em persona=1 slug=funnel ats_safe=False control_pages=1 control_last_page_fill=0.928 pages_now=2 fill_now=0.852
+GAINED ss-ws-root-0.04em persona=1 slug=grant-proposal ats_safe=False control_pages=1 control_last_page_fill=0.945 pages_now=2 fill_now=0.038
+GAINED ss-ws-root-0.04em persona=1 slug=supply-chain ats_safe=False control_pages=1 control_last_page_fill=0.936 pages_now=2 fill_now=0.857
+GAINED ss-ws-root-0.04em persona=1 slug=value-chain ats_safe=False control_pages=1 control_last_page_fill=0.928 pages_now=2 fill_now=0.852
+GAINED ss-ws-root-0.04em persona=1 slug=wellhead ats_safe=False control_pages=1 control_last_page_fill=0.931 pages_now=2 fill_now=0.852
+GAINED ss-ws-root-0.05em persona=1 slug=balance-sheet ats_safe=False control_pages=1 control_last_page_fill=0.903 pages_now=2 fill_now=0.824
+GAINED ss-ws-root-0.05em persona=1 slug=business-boardroom ats_safe=False control_pages=1 control_last_page_fill=0.948 pages_now=2 fill_now=0.038
+GAINED ss-ws-root-0.05em persona=1 slug=clinical ats_safe=False control_pages=1 control_last_page_fill=0.946 pages_now=2 fill_now=0.018
+GAINED ss-ws-root-0.05em persona=1 slug=concierge ats_safe=False control_pages=1 control_last_page_fill=0.946 pages_now=2 fill_now=0.038
+GAINED ss-ws-root-0.05em persona=1 slug=faculty-profile ats_safe=False control_pages=1 control_last_page_fill=0.945 pages_now=2 fill_now=0.038
+GAINED ss-ws-root-0.05em persona=1 slug=front-office ats_safe=False control_pages=1 control_last_page_fill=0.935 pages_now=2 fill_now=0.857
+GAINED ss-ws-root-0.05em persona=1 slug=funnel ats_safe=False control_pages=1 control_last_page_fill=0.928 pages_now=2 fill_now=0.852
+GAINED ss-ws-root-0.05em persona=1 slug=grant-proposal ats_safe=False control_pages=1 control_last_page_fill=0.945 pages_now=2 fill_now=0.038
+GAINED ss-ws-root-0.05em persona=1 slug=supply-chain ats_safe=False control_pages=1 control_last_page_fill=0.936 pages_now=2 fill_now=0.857
+GAINED ss-ws-root-0.05em persona=1 slug=value-chain ats_safe=False control_pages=1 control_last_page_fill=0.928 pages_now=2 fill_now=0.852
+GAINED ss-ws-root-0.05em persona=1 slug=wellhead ats_safe=False control_pages=1 control_last_page_fill=0.931 pages_now=2 fill_now=0.852
+GAINED ss-ws-root-0.1em persona=1 slug=balance-sheet ats_safe=False control_pages=1 control_last_page_fill=0.903 pages_now=2 fill_now=0.846
+GAINED ss-ws-root-0.1em persona=1 slug=business-boardroom ats_safe=False control_pages=1 control_last_page_fill=0.948 pages_now=2 fill_now=0.038
+GAINED ss-ws-root-0.1em persona=1 slug=chambers ats_safe=False control_pages=1 control_last_page_fill=0.889 pages_now=2 fill_now=0.832
+GAINED ss-ws-root-0.1em persona=1 slug=clinical ats_safe=False control_pages=1 control_last_page_fill=0.946 pages_now=2 fill_now=0.018
+GAINED ss-ws-root-0.1em persona=1 slug=concierge ats_safe=False control_pages=1 control_last_page_fill=0.946 pages_now=2 fill_now=0.038
+GAINED ss-ws-root-0.1em persona=1 slug=faculty-profile ats_safe=False control_pages=1 control_last_page_fill=0.945 pages_now=2 fill_now=0.038
+GAINED ss-ws-root-0.1em persona=1 slug=front-office ats_safe=False control_pages=1 control_last_page_fill=0.935 pages_now=2 fill_now=0.857
+GAINED ss-ws-root-0.1em persona=1 slug=funnel ats_safe=False control_pages=1 control_last_page_fill=0.928 pages_now=2 fill_now=0.852
+GAINED ss-ws-root-0.1em persona=1 slug=grant-proposal ats_safe=False control_pages=1 control_last_page_fill=0.945 pages_now=2 fill_now=0.038
+GAINED ss-ws-root-0.1em persona=1 slug=pitch-deck ats_safe=False control_pages=1 control_last_page_fill=0.96 pages_now=2 fill_now=0.019
+GAINED ss-ws-root-0.1em persona=1 slug=product-tech ats_safe=False control_pages=1 control_last_page_fill=0.958 pages_now=2 fill_now=0.019
+GAINED ss-ws-root-0.1em persona=1 slug=signal ats_safe=False control_pages=1 control_last_page_fill=0.96 pages_now=2 fill_now=0.019
+GAINED ss-ws-root-0.1em persona=1 slug=supply-chain ats_safe=False control_pages=1 control_last_page_fill=0.936 pages_now=2 fill_now=0.857
+GAINED ss-ws-root-0.1em persona=1 slug=value-chain ats_safe=False control_pages=1 control_last_page_fill=0.928 pages_now=2 fill_now=0.852
+GAINED ss-ws-root-0.1em persona=1 slug=wellhead ats_safe=False control_pages=1 control_last_page_fill=0.931 pages_now=2 fill_now=0.852
+GAINED ss-ws-root-0.1em persona=2 slug=field-season ats_safe=True control_pages=1 control_last_page_fill=0.953 pages_now=2 fill_now=0.019
+GAINED ss-ws-root-0.1em persona=2 slug=foundation ats_safe=True control_pages=1 control_last_page_fill=0.95 pages_now=2 fill_now=0.019
+GAINED ss-ws-root-0.1em persona=2 slug=gantt ats_safe=True control_pages=1 control_last_page_fill=0.948 pages_now=2 fill_now=0.019
+GAINED ss-ws-root-0.1em persona=2 slug=ledger ats_safe=True control_pages=1 control_last_page_fill=0.955 pages_now=2 fill_now=0.019
+GAINED ss-ws-root-0.1em persona=2 slug=route-plan ats_safe=True control_pages=1 control_last_page_fill=0.953 pages_now=2 fill_now=0.019
+GAINED ss-ws-root-0.1em persona=2 slug=site-report ats_safe=True control_pages=1 control_last_page_fill=0.953 pages_now=2 fill_now=0.019
+GAINED-FIRST slug=clinical persona=1 ats_safe=False first_value=ss-ws-root-0.02em control_pages=1 control_last_page_fill=0.946
+GAINED-FIRST slug=business-boardroom persona=1 ats_safe=False first_value=ss-ws-root-0.03em control_pages=1 control_last_page_fill=0.948
+GAINED-FIRST slug=concierge persona=1 ats_safe=False first_value=ss-ws-root-0.03em control_pages=1 control_last_page_fill=0.946
+GAINED-FIRST slug=faculty-profile persona=1 ats_safe=False first_value=ss-ws-root-0.03em control_pages=1 control_last_page_fill=0.945
+GAINED-FIRST slug=front-office persona=1 ats_safe=False first_value=ss-ws-root-0.03em control_pages=1 control_last_page_fill=0.935
+GAINED-FIRST slug=funnel persona=1 ats_safe=False first_value=ss-ws-root-0.03em control_pages=1 control_last_page_fill=0.928
+GAINED-FIRST slug=grant-proposal persona=1 ats_safe=False first_value=ss-ws-root-0.03em control_pages=1 control_last_page_fill=0.945
+GAINED-FIRST slug=supply-chain persona=1 ats_safe=False first_value=ss-ws-root-0.03em control_pages=1 control_last_page_fill=0.936
+GAINED-FIRST slug=value-chain persona=1 ats_safe=False first_value=ss-ws-root-0.03em control_pages=1 control_last_page_fill=0.928
+GAINED-FIRST slug=wellhead persona=1 ats_safe=False first_value=ss-ws-root-0.03em control_pages=1 control_last_page_fill=0.931
+GAINED-FIRST slug=balance-sheet persona=1 ats_safe=False first_value=ss-ws-root-0.04em control_pages=1 control_last_page_fill=0.903
+GAINED-FIRST slug=chambers persona=1 ats_safe=False first_value=ss-ws-root-0.1em control_pages=1 control_last_page_fill=0.889
+GAINED-FIRST slug=pitch-deck persona=1 ats_safe=False first_value=ss-ws-root-0.1em control_pages=1 control_last_page_fill=0.96
+GAINED-FIRST slug=product-tech persona=1 ats_safe=False first_value=ss-ws-root-0.1em control_pages=1 control_last_page_fill=0.958
+GAINED-FIRST slug=signal persona=1 ats_safe=False first_value=ss-ws-root-0.1em control_pages=1 control_last_page_fill=0.96
+GAINED-FIRST slug=field-season persona=2 ats_safe=True first_value=ss-ws-root-0.1em control_pages=1 control_last_page_fill=0.953
+GAINED-FIRST slug=foundation persona=2 ats_safe=True first_value=ss-ws-root-0.1em control_pages=1 control_last_page_fill=0.95
+GAINED-FIRST slug=gantt persona=2 ats_safe=True first_value=ss-ws-root-0.1em control_pages=1 control_last_page_fill=0.948
+GAINED-FIRST slug=ledger persona=2 ats_safe=True first_value=ss-ws-root-0.1em control_pages=1 control_last_page_fill=0.955
+GAINED-FIRST slug=route-plan persona=2 ats_safe=True first_value=ss-ws-root-0.1em control_pages=1 control_last_page_fill=0.953
+GAINED-FIRST slug=site-report persona=2 ats_safe=True first_value=ss-ws-root-0.1em control_pages=1 control_last_page_fill=0.953
+FILLSTATS control single-page renders n=122 fill p50=0.91 p75=0.936 p90=0.951 p95=0.958 max=0.96
+FILLTOP slug=signal persona=2 control_fill=0.96 gained_at=None
+FILLTOP slug=pitch-deck persona=2 control_fill=0.96 gained_at=None
+FILLTOP slug=signal persona=1 control_fill=0.96 gained_at=ss-ws-root-0.1em
+FILLTOP slug=pitch-deck persona=1 control_fill=0.96 gained_at=ss-ws-root-0.1em
+FILLTOP slug=product-tech persona=2 control_fill=0.959 gained_at=None
+FILLTOP slug=gazette persona=2 control_fill=0.958 gained_at=None
+FILLTOP slug=product-tech persona=1 control_fill=0.958 gained_at=ss-ws-root-0.1em
+FILLTOP slug=pipeline persona=2 control_fill=0.956 gained_at=None
+FILLTOP slug=ledger persona=2 control_fill=0.955 gained_at=ss-ws-root-0.1em
+FILLTOP slug=site-report persona=2 control_fill=0.953 gained_at=ss-ws-root-0.1em
+FILLTOP slug=route-plan persona=2 control_fill=0.953 gained_at=ss-ws-root-0.1em
+FILLTOP slug=field-season persona=2 control_fill=0.953 gained_at=ss-ws-root-0.1em
+FILLTOP slug=portfolio-grid persona=1 control_fill=0.951 gained_at=None
+FILLTOP slug=foundation persona=2 control_fill=0.95 gained_at=ss-ws-root-0.1em
+FILLTOP slug=studio-brief persona=0 control_fill=0.95 gained_at=None
+STAT statute persona=0 face=ss-ws-root-0.02em computed_families=Newsreader pdfjs=0 poppler=0 pdfminer=0 mutool=0 pdfbox=0
+STAT statute persona=0 face=ss-ws-root-0.03em computed_families=Newsreader pdfjs=0 poppler=0 pdfminer=0 mutool=0 pdfbox=0
+STAT statute persona=0 face=ss-ws-root-0.04em computed_families=Newsreader pdfjs=0 poppler=0 pdfminer=0 mutool=0 pdfbox=0
+STAT statute persona=0 face=ss-ws-root-0.05em computed_families=Newsreader pdfjs=0 poppler=0 pdfminer=0 mutool=0 pdfbox=0
+STAT statute persona=0 face=ss-ws-root-0.1em computed_families=Newsreader pdfjs=0 poppler=0 pdfminer=0 mutool=0 pdfbox=0
+STAT statute persona=0 face=ss-ws0 computed_families=Newsreader pdfjs=0 poppler=0 pdfminer=0 mutool=0 pdfbox=0
+STAT statute persona=1 face=ss-ws-root-0.02em computed_families=Newsreader pdfjs=0 poppler=0 pdfminer=0 mutool=0 pdfbox=0
+STAT statute persona=1 face=ss-ws-root-0.03em computed_families=Newsreader pdfjs=0 poppler=0 pdfminer=0 mutool=0 pdfbox=0
+STAT statute persona=1 face=ss-ws-root-0.04em computed_families=Newsreader pdfjs=0 poppler=0 pdfminer=0 mutool=0 pdfbox=0
+STAT statute persona=1 face=ss-ws-root-0.05em computed_families=Newsreader pdfjs=0 poppler=0 pdfminer=0 mutool=0 pdfbox=0
+STAT statute persona=1 face=ss-ws-root-0.1em computed_families=Newsreader pdfjs=0 poppler=0 pdfminer=0 mutool=0 pdfbox=0
+STAT statute persona=1 face=ss-ws0 computed_families=Newsreader pdfjs=0 poppler=0 pdfminer=0 mutool=0 pdfbox=0
+STAT statute persona=2 face=ss-ws-root-0.02em computed_families=Newsreader pdfjs=0 poppler=0 pdfminer=0 mutool=0 pdfbox=0
+STAT statute persona=2 face=ss-ws-root-0.03em computed_families=Newsreader pdfjs=0 poppler=0 pdfminer=0 mutool=0 pdfbox=0
+STAT statute persona=2 face=ss-ws-root-0.04em computed_families=Newsreader pdfjs=0 poppler=0 pdfminer=0 mutool=0 pdfbox=0
+STAT statute persona=2 face=ss-ws-root-0.05em computed_families=Newsreader pdfjs=0 poppler=0 pdfminer=0 mutool=0 pdfbox=0
+STAT statute persona=2 face=ss-ws-root-0.1em computed_families=Newsreader pdfjs=0 poppler=0 pdfminer=0 mutool=0 pdfbox=0
+STAT statute persona=2 face=ss-ws0 computed_families=Newsreader pdfjs=0 poppler=0 pdfminer=0 mutool=0 pdfbox=0
+STAT   source-sans statute poppler damaged words: None
