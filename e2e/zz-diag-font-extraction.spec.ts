@@ -187,3 +187,65 @@ for (const persona of DUMP_PERSONAS) {
     });
   }
 }
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// WORD-SPACING PROBE — a cheap candidate fix for the poppler word-gluing measured above.
+// The FACE stays as it is today (Source Sans 3, no override). Only `word-spacing` is added to the
+// resume document, in two plausible ways a real CSS fix could be written:
+//   each — every descendant gets `word-spacing: <X>em`, so `em` resolves against ITS OWN font size
+//   root — only the resume root gets it; descendants inherit the ABSOLUTE px computed at the root
+// plus a control with nothing added. Same slugs, personas and stage-2 extractors as above; the variant
+// id is written into the same filename slot the face used, so stage 2 needs no change to group it.
+// ─────────────────────────────────────────────────────────────────────────────
+const WS_ROOT = "[class*='bg-resume-paper']";
+const WS_VARIANTS: Array<{ id: string; css: string | null }> = [
+  { id: "ss-ws0", css: null },
+  ...["0.02em", "0.05em", "0.1em"].flatMap((v) => [
+    { id: `ss-ws-each-${v}`, css: `${WS_ROOT}, ${WS_ROOT} * { word-spacing: ${v} !important; }` },
+    { id: `ss-ws-root-${v}`, css: `${WS_ROOT} { word-spacing: ${v} !important; }` },
+  ]),
+];
+
+for (const persona of DUMP_PERSONAS) {
+  for (const variant of WS_VARIANTS) {
+    test(`WSPROBE persona ${persona}: ${variant.id}`, async ({ page }) => {
+      test.setTimeout(1_500_000);
+      mkdirSync(OUT, { recursive: true });
+      await page.goto("/dev/font-probe/slugs");
+      let slugs: string[] = JSON.parse((await page.locator("#slugs").innerText()) || "[]");
+      if (process.env.PROBE_LIMIT) slugs = slugs.slice(0, Number(process.env.PROBE_LIMIT));
+      for (const slug of slugs) {
+        try {
+          await page.goto(`/dev/font-probe/doc/${slug}?p=${persona}`);
+          await page.waitForLoadState("networkidle");
+          if (variant.css) {
+            await page.addStyleTag({ content: variant.css });
+            await page.waitForLoadState("networkidle");
+          }
+          await page.evaluate(async () => {
+            await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+            await document.fonts.ready;
+          });
+          const info = await page.evaluate(() => {
+            const root = document.querySelector("[class*='bg-resume-paper']");
+            const leaves = root ? [...root.querySelectorAll("*")].filter((e) => e.children.length === 0 && e.textContent?.trim()) : [];
+            const isTracked = (e: Element) => { const cs = getComputedStyle(e); return cs.textTransform === "uppercase" || parseFloat(cs.letterSpacing) > 0.2; };
+            const fams = new Set(leaves.map((e) => getComputedStyle(e).fontFamily.split(",")[0].replace(/"/g, "").trim()));
+            const ws = new Set(leaves.map((e) => getComputedStyle(e).wordSpacing));
+            return { fams: [...fams], ws: [...ws].sort(), body: leaves.filter((e) => !isTracked(e)).map((e) => e.textContent ?? "").join(" ") };
+          });
+          const pdf = await page.pdf({ printBackground: true });
+          const src = words(info.body.replace(/[^\x20-\x7E\n]/g, " "));
+          const pdfjsMissing = missingWords(src, await extractPdfText(pdf));
+          const base = `${OUT}/p${persona}__${variant.id}__${slug}`;
+          writeFile(`${base}.pdf`, pdf);
+          writeFile(`${base}.json`, JSON.stringify({ persona, face: variant.id, slug, words: src, pdfjsMissing, fams: info.fams, wsValues: info.ws }));
+        } catch (e) {
+          console.log(`WSPROBE ${persona} ${variant.id} ${slug} ERROR ${(e as Error).message.slice(0, 100)}`);
+        }
+      }
+      console.log(`WSPROBE persona ${persona} ${variant.id} done`);
+    });
+  }
+}

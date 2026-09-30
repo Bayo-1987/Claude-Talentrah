@@ -425,20 +425,21 @@ jobs:
       - name: Run Playwright suite (stage 1 - render and save PDFs)
         env:
           E2E_BASE_URL: http://localhost:3000
-        run: npx playwright test e2e/zz-diag-font-extraction.spec.ts -g DUMP --workers=4
+        run: npx playwright test e2e/zz-diag-font-extraction.spec.ts -g WSPROBE --workers=4
 
       - name: Stage 2 - run every extractor over the saved PDFs
         env:
           PDFBOX_JAR: /tmp/pdfbox-app.jar
         run: /tmp/venv/bin/python scripts/zz-extract-all.py /tmp/pdfs 2>&1 | tee /tmp/stage2.log
 
-      - name: Upload the PDFs and results
+      - name: Upload the results (no PDFs - stage 2's log, results.csv and first-page PNGs only)
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: probe-pdfs-and-results
+          name: probe-wordspacing-results
           path: |
-            /tmp/pdfs
+            /tmp/pdfs/results.csv
+            /tmp/pdfs/shots
             /tmp/stage2.log
           retention-days: 14
 

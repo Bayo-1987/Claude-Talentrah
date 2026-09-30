@@ -103,11 +103,21 @@ def missing(words, text):
 TOOLS = ["poppler", "pdfminer", "mutool", "pdfbox"]
 
 
+def page_count(pdf):
+    """Pages in the rendered PDF (poppler's pdfinfo). A layout side effect check: a fix that fixes
+    extraction but pushes a one-page resume onto a second page has not been free."""
+    if not shutil.which("pdfinfo"):
+        return ""
+    m = re.search(r"^Pages:\s+(\d+)", run(["pdfinfo", pdf]).stdout, re.M)
+    return int(m.group(1)) if m else ""
+
+
 def process(jpath):
     meta = json.load(open(jpath))
     pdf = jpath[:-5] + ".pdf"
     row = {"persona": meta["persona"], "face": meta["face"], "slug": meta["slug"],
-           "words": len(meta["words"]), "pdfjs": len(meta["pdfjsMissing"]), "fams": "|".join(meta["fams"])}
+           "words": len(meta["words"]), "pdfjs": len(meta["pdfjsMissing"]), "fams": "|".join(meta["fams"]),
+           "pages": page_count(pdf), "ws": "|".join(meta.get("wsValues", []))}
     detail = {}
     for t in TOOLS:
         txt = extract(t, pdf)
@@ -130,7 +140,7 @@ def main():
             rows.append(row)
             details[(row["persona"], row["face"], row["slug"])] = (detail, pj)
     with open(os.path.join(DIR, "results.csv"), "w", newline="") as fh:
-        w = csv.DictWriter(fh, fieldnames=["persona", "face", "slug", "words", "pdfjs"] + TOOLS + ["fams"])
+        w = csv.DictWriter(fh, fieldnames=["persona", "face", "slug", "words", "pdfjs"] + TOOLS + ["fams", "pages", "ws"])
         w.writeheader()
         w.writerows(rows)
     for r in rows:
@@ -157,6 +167,36 @@ def main():
         agg([r for r in rows if r["face"] == f], f"face={f} personas=all all")
         agg([r for r in rows if r["face"] == f and r["slug"] in ATS_SAFE], f"face={f} personas=all ats_safe")
         agg([r for r in rows if r["face"] == f and r["slug"] not in ATS_SAFE], f"face={f} personas=all not_ats_safe")
+
+    # ── word-spacing probe extras (harmless no-ops for the plain face run) ──
+    ctrl = {(r["persona"], r["slug"]): r["pages"] for r in rows if r["face"] == "ss-ws0"}
+    for f in faces:
+        if not f.startswith("ss-ws"):
+            continue
+        changed = [(r["slug"], r["persona"], ctrl.get((r["persona"], r["slug"])), r["pages"]) for r in rows
+                   if r["face"] == f and ctrl.get((r["persona"], r["slug"])) not in ("", None) and r["pages"] != "" and r["pages"] != ctrl.get((r["persona"], r["slug"]))]
+        n = sum(1 for r in rows if r["face"] == f)
+        print(f"PAGES {f} renders={n} pagecount_changed_vs_control={len(changed)} "
+              f"more_pages={sum(1 for c in changed if c[3] > c[2])} fewer_pages={sum(1 for c in changed if c[3] < c[2])}", flush=True)
+        for c in sorted(changed)[:12]:
+            print(f"PAGES   {f} slug={c[0]} persona={c[1]} control_pages={c[2]} pages={c[3]}", flush=True)
+        wsv = sorted({r["ws"] for r in rows if r["face"] == f})
+        print(f"WSVALUES {f} distinct_computed_word_spacing_sets={wsv[:6]}", flush=True)
+        # what still breaks under poppler, most frequent first
+        from collections import Counter
+        cnt = Counter()
+        for r in rows:
+            if r["face"] == f:
+                cnt.update(details[(r["persona"], r["face"], r["slug"])][0].get("poppler", []))
+        print(f"TOPDAMAGED {f} poppler {cnt.most_common(12)}", flush=True)
+    if shutil.which("pdftoppm"):
+        shots = os.path.join(DIR, "shots")
+        os.makedirs(shots, exist_ok=True)
+        for f in faces:
+            for slug in ("clean-professional", "blueprint"):
+                pdf = os.path.join(DIR, f"p0__{f}__{slug}.pdf")
+                if os.path.exists(pdf):
+                    run(["pdftoppm", "-r", "70", "-png", "-f", "1", "-l", "1", pdf, os.path.join(shots, f"{f}__{slug}")])
 
     # ── statute: which face does it really render in, and why do two 'faces' disagree on it? ──
     for r in sorted((r for r in rows if r["slug"] == "statute"), key=lambda r: (r["persona"], r["face"])):
