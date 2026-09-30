@@ -170,3 +170,96 @@ export async function classifyUrl(
 
   return { url, kind: "too-many-redirects", chain };
 }
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * send-477 — signed-out gated-link check. Additive: everything above this line
+ * is send-384's and is unchanged. See e2e/signed-out-link-gate.spec.ts.
+ * ────────────────────────────────────────────────────────────────────────── */
+
+export type LinkRegion = "header" | "footer" | "main";
+
+export interface RegionLink {
+  region: LinkRegion;
+  /** Absolute, rewritten onto the page's own origin, `#fragment` stripped. */
+  url: string;
+  pathname: string;
+  /** Includes the leading `?`, or "". */
+  search: string;
+  text: string;
+}
+
+export function extractRegionLinks(
+  html: string,
+  pageUrl: string,
+  opts: { internalOrigins?: string[] } = {},
+): RegionLink[] {
+  void html;
+  void pageUrl;
+  void opts;
+  throw new Error("not implemented");
+}
+
+export function pageGroup(pathname: string): string {
+  void pathname;
+  throw new Error("not implemented");
+}
+
+export function loginRedirectKind(result: LinkCheckResult): "login" | "admin-login" | null {
+  void result;
+  throw new Error("not implemented");
+}
+
+/** `footer:* -> /jobs`, `main:/blog/* -> /tailor?coverLetter=1`. Chrome (header/footer) is keyed `*`: it repeats on every page. */
+export function offenderKey(region: LinkRegion, group: string, target: string): string {
+  return `${region}:${region === "main" ? group : "*"} -> ${target}`;
+}
+
+export interface CrawlSource {
+  /** Path (and optional query) on the site being crawled. */
+  path: string;
+  /** Overrides `pageGroup(path)`, e.g. "404" for the not-found page. */
+  group?: string;
+}
+
+export interface GatedLinkObservation {
+  key: string;
+  region: LinkRegion;
+  group: string;
+  /** pathname + search of the gated target. */
+  target: string;
+  texts: string[];
+  sourcePaths: string[];
+}
+
+export interface CrawlTarget {
+  url: string;
+  pathname: string;
+  search: string;
+  login: "login" | "admin-login" | null;
+  kind: LinkCheckResult["kind"];
+}
+
+export interface CrawlReport {
+  sourcesFetched: number;
+  sourceFailures: Array<{ path: string; problem: string }>;
+  /** How many sources were crawled per page group — shows what a run actually covered. */
+  groupCounts: Record<string, number>;
+  /** Every distinct same-origin link target that was followed. */
+  targets: CrawlTarget[];
+  /** Only the targets that end at a login page. */
+  observations: GatedLinkObservation[];
+}
+
+export async function crawlSignedOutLinks(opts: {
+  baseUrl: string;
+  sources: CrawlSource[];
+  fetchImpl: FetchLike;
+  internalOrigins?: string[];
+  concurrency?: number;
+  userAgent?: string;
+  timeoutMs?: number;
+}): Promise<CrawlReport> {
+  void opts;
+  throw new Error("not implemented");
+}
+
