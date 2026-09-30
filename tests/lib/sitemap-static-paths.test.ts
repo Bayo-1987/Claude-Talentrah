@@ -7,11 +7,15 @@ import { STATIC_PATHS } from "@/app/sitemap";
  * /scholarships/apply-now), and a mechanical conflict resolution that picks
  * one side instead of keeping both would silently drop a real, indexable
  * page from the sitemap with no build or type error to catch it.
+ *
+ * send-480 — /scholarships is a static entry now that it renders a real signed-out
+ * landing page. Static, not count-gated like /scholarships/fully-funded: the page
+ * answers 200 even with zero open listings, so a live-count check would be wrong.
  */
 describe("sitemap STATIC_PATHS", () => {
   it("includes every hand-authored public page currently known to be live", () => {
     const paths = STATIC_PATHS.map((p) => p.path);
-    for (const expected of ["/", "/about", "/contact", "/blog", "/mentorship", "/scholarships/apply-now", "/legal/privacy", "/legal/terms", "/legal/data-cookie-notice"]) {
+    for (const expected of ["/", "/about", "/contact", "/blog", "/mentorship", "/scholarships", "/scholarships/apply-now", "/legal/privacy", "/legal/terms", "/legal/data-cookie-notice"]) {
       expect(paths, `missing ${expected}`).toContain(expected);
     }
   });

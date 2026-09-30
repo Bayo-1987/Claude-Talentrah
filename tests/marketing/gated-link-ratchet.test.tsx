@@ -52,9 +52,11 @@ function gatedKeys(region: "footer" | "main", group: string, hrefs: string[]): s
 
 describe("the gate function these checks rely on", () => {
   it("still gates the paths the allowlist is about (a control: an always-false gate would pass everything else here)", () => {
-    for (const p of ["/jobs", "/scholarships", "/tracker", "/refer", "/resume-builder", "/tailor"]) {
+    for (const p of ["/jobs", "/tracker", "/refer", "/resume-builder", "/tailor"]) {
       expect(isProtectedSeekerPath(p), p).toBe(true);
     }
+    // send-480: /scholarships became a public landing page, so it is no longer in this list.
+    expect(isProtectedSeekerPath("/scholarships")).toBe(false);
     expect(isProtectedSeekerPath("/scholarships/apply-now")).toBe(false);
     expect(isProtectedSeekerPath("/mentorship")).toBe(false);
   });
@@ -119,6 +121,16 @@ describe("the allowlist itself", () => {
         expect(fs.existsSync(file), `${r.key}: ${s.file} does not exist`).toBe(true);
         expect(fs.readFileSync(file, "utf8"), `${r.key}: ${s.file} no longer contains "${s.label}"`).toContain(s.label);
       }
+    }
+  });
+
+  it("lists only targets the real gate STILL gates (a row for a page that went public is stale)", () => {
+    // send-480: un-gating /scholarships must delete its rows. The crawl catches this in CI
+    // and in production, but only where those pages exist; this catches it in milliseconds.
+    for (const r of rows) {
+      const target = r.key.split(" -> ")[1];
+      const pathname = new URL(target, "http://site.test").pathname;
+      expect(isProtectedSeekerPath(pathname), `${r.key}: ${pathname} is no longer gated — delete this row`).toBe(true);
     }
   });
 

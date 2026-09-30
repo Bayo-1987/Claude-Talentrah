@@ -277,3 +277,29 @@ export async function loadScholarshipsByLevel(
 
   return { level, total: count ?? 0, scholarships: (data ?? []) as Tables<"scholarships">[] };
 }
+
+/*
+ * send-480 — TESTS-FIRST STUB (see tests/seo/open-scholarships-preview.test.ts). The real loader
+ * replaces this in the next commit.
+ */
+export type OpenScholarshipPreview = Pick<
+  Tables<"scholarships">,
+  | "id"
+  | "provider"
+  | "program_name"
+  | "host_institution"
+  | "degree_levels"
+  | "funding_type"
+  | "application_deadline"
+  | "deadline_note"
+  | "official_url"
+>;
+
+export async function loadOpenScholarshipsPreview(
+  supabase: Client,
+  limit = 4,
+): Promise<OpenScholarshipPreview[]> {
+  void supabase;
+  void limit;
+  throw new Error("not implemented");
+}

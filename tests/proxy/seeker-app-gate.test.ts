@@ -30,9 +30,16 @@ import { describe, expect, it } from "vitest";
 import { isProtectedSeekerPath } from "@/lib/auth/seeker-gate-paths";
 
 describe("isProtectedSeekerPath", () => {
-  it("gates the bare list routes but not their public detail pages", () => {
+  it("gates the bare /jobs list but not its public detail pages", () => {
+    // Control: the gate still gates. If isProtectedSeekerPath ever answered false for
+    // everything, the /scholarships assertion below would pass for the wrong reason.
     expect(isProtectedSeekerPath("/jobs")).toBe(true);
-    expect(isProtectedSeekerPath("/scholarships")).toBe(true);
+
+    // send-480 — /scholarships is NOT gated any more: its bare path is a real signed-out
+    // landing page (components/scholarships/public-landing.tsx), the same shape
+    // /mentorship and /employer took (send-385, send-350). Every sub-path was already
+    // public, so unlike those two there is no sub-path rule to add.
+    expect(isProtectedSeekerPath("/scholarships")).toBe(false);
 
     // The whole reason this is a separate exact-match set rather than a
     // prefix: /jobs/[id] and /scholarships/[id] are deliberately public.
@@ -42,6 +49,7 @@ describe("isProtectedSeekerPath", () => {
     );
     expect(isProtectedSeekerPath("/scholarships/degree/phd")).toBe(false);
     expect(isProtectedSeekerPath("/scholarships/fully-funded")).toBe(false);
+    expect(isProtectedSeekerPath("/scholarships/apply-now")).toBe(false);
   });
 
   it("gates every depth under the prefix routes", () => {
