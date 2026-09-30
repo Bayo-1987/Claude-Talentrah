@@ -130,3 +130,60 @@ for (const [variant, family] of Object.entries(VARIANTS)) {
     }
   });
 }
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STAGE 1 of the multi-extractor, multi-persona run: render every template to a PDF on this
+// (Linux) machine and SAVE it, with a sidecar of the body words to check, so stage 2
+// (scripts/zz-extract-all.py) can run pdfminer.six / mutool / PDFBox / poppler over the
+// identical files. pdf.js is measured here, in-process, exactly as before.
+// ─────────────────────────────────────────────────────────────────────────────
+import { mkdirSync, writeFileSync as writeFile } from "node:fs";
+
+const DUMP_FACES = ["source-sans", "plex", "work-sans", "newsreader"] as const;
+const DUMP_PERSONAS = [0, 1, 2];
+const OUT = process.env.PDF_OUT_DIR ?? "/tmp/pdfs";
+
+for (const persona of DUMP_PERSONAS) {
+  for (const face of DUMP_FACES) {
+    test(`DUMP persona ${persona}: ${face}`, async ({ page }) => {
+      test.setTimeout(1_500_000);
+      mkdirSync(OUT, { recursive: true });
+      await page.goto("/dev/font-probe/slugs");
+      let slugs: string[] = JSON.parse((await page.locator("#slugs").innerText()) || "[]");
+      if (process.env.PROBE_LIMIT) slugs = slugs.slice(0, Number(process.env.PROBE_LIMIT));
+      const family = VARIANTS[face];
+      for (const slug of slugs) {
+        try {
+          await page.goto(`/dev/font-probe/doc/${slug}?p=${persona}`);
+          await page.waitForLoadState("networkidle");
+          if (family) {
+            await page.addStyleTag({ content: `[class*='bg-resume-paper'], [class*='bg-resume-paper'] * { font-family: ${family}, Arial, sans-serif !important; }` });
+            await page.waitForLoadState("networkidle");
+          }
+          await page.evaluate(async () => {
+            await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+            await document.fonts.ready;
+          });
+          const info = await page.evaluate(() => {
+            const root = document.querySelector("[class*='bg-resume-paper']");
+            const leaves = root ? [...root.querySelectorAll("*")].filter((e) => e.children.length === 0 && e.textContent?.trim()) : [];
+            const isTracked = (e: Element) => { const cs = getComputedStyle(e); return cs.textTransform === "uppercase" || parseFloat(cs.letterSpacing) > 0.2; };
+            const fams = new Set(leaves.map((e) => getComputedStyle(e).fontFamily.split(",")[0].replace(/"/g, "").trim()));
+            const loaded = new Set([...document.fonts].filter((f) => f.status === "loaded").map((f) => f.family.replace(/"/g, "")));
+            return { fams: [...fams], loaded: [...loaded], body: leaves.filter((e) => !isTracked(e)).map((e) => e.textContent ?? "").join(" ") };
+          });
+          const pdf = await page.pdf({ printBackground: true });
+          const src = words(info.body.replace(/[^\x20-\x7E\n]/g, " "));
+          const pdfjsMissing = missingWords(src, await extractPdfText(pdf));
+          const base = `${OUT}/p${persona}__${face}__${slug}`;
+          writeFile(`${base}.pdf`, pdf);
+          writeFile(`${base}.json`, JSON.stringify({ persona, face, slug, words: src, pdfjsMissing, fams: info.fams, loaded: info.loaded }));
+        } catch (e) {
+          console.log(`DUMP ${persona} ${face} ${slug} ERROR ${(e as Error).message.slice(0, 100)}`);
+        }
+      }
+      console.log(`DUMP persona ${persona} ${face} done`);
+    });
+  }
+}
