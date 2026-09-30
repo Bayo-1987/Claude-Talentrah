@@ -1,18 +1,6 @@
 import Link from "next/link";
 import { EyebrowLabel, BorderedCard } from "@/components/ui";
 
-/**
- * Fictional persona, per build-prompt open decision #2 — the reference
- * design used a real public figure's name here, which would imply a false
- * endorsement. Invented from scratch, not adapted from anyone real.
- */
-const TESTIMONIAL = {
-  quote:
-    "Farah showed me exactly why my resume wasn't landing interviews — then fixed it in one sitting. I had three interviews booked within two weeks.",
-  name: "Amaka O.",
-  role: "Product Manager, Lagos",
-};
-
 export function AuthHero() {
   return (
     <div className="flex h-full flex-col justify-between bg-ink p-10 text-paper md:p-14">
@@ -48,15 +36,14 @@ export function AuthHero() {
           backgroundColor: "oklch(24% 0.018 50)",
         }}
       >
-        <EyebrowLabel size="sm">What job seekers say</EyebrowLabel>
+        <EyebrowLabel size="sm">How Farah works</EyebrowLabel>
         <p
           className="mt-3 font-display text-[16px] italic leading-relaxed"
           style={{ color: "var(--paper)" }}
         >
-          &ldquo;{TESTIMONIAL.quote}&rdquo;
-        </p>
-        <p className="mt-3 text-[13px]" style={{ color: "oklch(75% 0.015 60)" }}>
-          {TESTIMONIAL.name} — {TESTIMONIAL.role}
+          She reads the job description, compares it with your resume, and
+          rewrites your resume&apos;s wording to fit the role &mdash; using only
+          the experience you already have.
         </p>
       </BorderedCard>
     </div>
