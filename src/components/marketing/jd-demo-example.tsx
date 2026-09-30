@@ -2,14 +2,15 @@ import { EyebrowLabel, MatchTierBadge } from "@/components/ui";
 
 /**
  * Static worked example of a Farah result — matches Main-Editorial.dc.html's
- * "this is a live example" panel, which is itself a fixed illustrative
- * sample, not computed from the input box above it.
+ * example panel, which is a fixed illustrative sample, not computed from the
+ * input box above it. The label therefore says "an example", never "live":
+ * nothing here is live (send-476).
  */
 export function JdDemoExample() {
   return (
     <div className="mt-3 w-full max-w-[860px] border-[1.5px] border-ink bg-card">
       <div className="flex items-center gap-2.5 border-b border-line px-6 py-3.5">
-        <EyebrowLabel>What Farah sends back — this is a live example</EyebrowLabel>
+        <EyebrowLabel>What Farah sends back — this is an example</EyebrowLabel>
       </div>
       <div className="flex flex-col gap-6 p-7.5 min-[901px]:flex-row">
         <div className="flex flex-1 flex-col gap-4.5 min-[901px]:pr-7.5">
