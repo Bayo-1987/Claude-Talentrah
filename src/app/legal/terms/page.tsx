@@ -100,7 +100,7 @@ export default function TermsOfServicePage() {
         source as authority, no application-channel claim, provider
         takedown honoured, daily re-check.
       */}
-      <h2>Scholarship listings</h2>
+      <h2 id="scholarship-listings">Scholarship listings</h2>
       <p>
         Scholarship listings on Talentrah are facts we&apos;ve verified against
         each provider&apos;s own official page — provider, eligibility, funding,

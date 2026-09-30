@@ -72,14 +72,6 @@ export const GATED_LINK_ALLOWLIST: readonly GatedLinkAllowance[] = [
     ],
     owner: "prompt-2",
   },
-  {
-    key: "main:/ -> /scholarships",
-    coverage: "ci",
-    sources: [
-      { file: "src/components/marketing/jd-demo-input.tsx", label: "Find a scholarship" },
-    ],
-    owner: "scholarships-landing",
-  },
   // Two sources, one key. #582 kept the homepage job-board button on /jobs deliberately.
   {
     key: "main:/ -> /jobs",
@@ -105,24 +97,6 @@ export const GATED_LINK_ALLOWLIST: readonly GatedLinkAllowance[] = [
       { file: "src/app/(app)/jobs/[id]/page.tsx", label: "Back to jobs" },
     ],
     owner: "prompt-2",
-  },
-  {
-    key: "main:/scholarships/* -> /scholarships",
-    coverage: "ci",
-    sources: [
-      { file: "src/app/(app)/scholarships/[id]/page.tsx", label: "Back to scholarships" },
-    ],
-    owner: "scholarships-landing",
-  },
-  // prod-only: the six scholarship posts exist only in production content, not in CI's seeded
-  // database. tests/marketing/gated-link-ratchet.test.tsx still enforces it in CI, from RELATED_LINKS.
-  {
-    key: "main:/blog/* -> /scholarships",
-    coverage: "prod-only",
-    sources: [
-      { file: "src/lib/blog/related-links.ts", label: "Browse the scholarship catalog" },
-    ],
-    owner: "scholarships-landing",
   },
   {
     key: "main:/blog/* -> /jobs",

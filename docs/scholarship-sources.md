@@ -232,8 +232,10 @@ page — the scholarship-side equivalent of #152's `/jobs/[id]`. Every listing's
 facts (provider, programme, eligibility, funding, deadline) are now readable
 without an account, with the official source linked prominently on the page,
 matching the approved policy below. `/scholarships` itself — the
-authenticated, filterable list — stayed behind a session; only the single-item
-canonical page moved.
+authenticated, filterable list — stayed behind a session at that point; only the
+single-item canonical page moved. **Since send-480 (2026-09-30)** the bare
+`/scholarships` path is a real signed-out landing page (the filterable list is
+unchanged for signed-in visitors); `/jobs` is the list that is still gated.
 
 **Structured data was researched before building, and the finding was: don't.**
 Google's structured data gallery (`developers.google.com/search/docs/appearance
