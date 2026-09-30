@@ -157,7 +157,7 @@ test.describe("the links that used to lead a signed-out visitor to /login now le
   test("the footer's Job Matching and Job Tracker links land on the landing pages", async ({ page }) => {
     for (const [label, path, h1] of [
       ["Job Matching", "/jobs", /jobs/i],
-      ["Job Tracker", "/tracker", /Job Tracker|tracker/i],
+      ["Job Tracker", "/tracker", /every application/i],
     ] as const) {
       await page.goto("/about");
       await page.locator("footer").getByRole("link", { name: label }).click();
