@@ -6,6 +6,7 @@ import { EyebrowLabel, FarahMark } from "@/components/ui";
 import { FARAH_QUICK_ACTIONS } from "@/lib/farah/quick-actions";
 import { renderFarahMarkdown } from "@/lib/farah/render-markdown";
 import { readFarahChatStream } from "@/lib/farah/read-chat-stream";
+import { useReportCreditsBalance } from "@/components/app-shell/credits-balance";
 import {
   JOB_SEED_CHAT_STARTERS,
   coverLetterHref,
@@ -137,6 +138,7 @@ function JobSeedMarker({
  * differentiation, on purpose, rather than chat-bubble styling.
  */
 export function FarahPanel({ firstName, initialMessages, initialJobSeed }: FarahPanelProps) {
+  const reportCreditsBalance = useReportCreditsBalance();
   const [messages, setMessages] = useState<FarahMessage[]>(initialMessages ?? []);
   const [input, setInput] = useState("");
   const [pending, setPending] = useState(false);
@@ -379,6 +381,8 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
           if (typeof event.freeMessagesRemaining === "number" || event.freeMessagesRemaining === null) {
             setFreeRemaining(event.freeMessagesRemaining ?? null);
           }
+          // A paid message: tell the masthead its new balance (issue #605). null / absent = nothing spent.
+          if (typeof event.creditsBalance === "number") reportCreditsBalance(event.creditsBalance);
         }
       }
     } catch {
