@@ -12,18 +12,17 @@ import type { StructuredResume } from "@/lib/resume/types";
  * consistent across the marketing surface; sharing the CODE would couple two
  * things that only look alike.
  *
- * It also makes an existing promise true rather than louder.
- * `job-board-preview.tsx` already tells visitors "match scores shown are
- * calculated against a sample resume". Until this file existed there was no
- * sample resume anywhere — those preview scores are hardcoded, and that
- * sentence was a claim about nothing. This endpoint now genuinely scores
- * against this constant.
+ * It also backs the demo's own framing: the result panel says "Scored against
+ * a sample resume", and this endpoint genuinely does score against this
+ * constant.
  *
- * KNOWN FOLLOW-UP, not fixed here: job-board-preview.tsx's numbers are still
- * hardcoded and still do not come from this resume. Making them real means
- * scoring the preview's sample postings against SAMPLE_RESUME at build time,
- * which is a separate change to a separate component. The sentence is true of
- * THIS demo today and remains untrue of that grid.
+ * NOT the homepage job-board grid. `job-board-preview.tsx`'s sample rows and
+ * their 92/78/63 scores are hardcoded illustrations that never came from this
+ * resume. That block used to say its scores were "calculated against a sample
+ * resume", which was untrue of it; it now labels itself as example listings
+ * with fictional roles and scores (send-476). Making those numbers real would
+ * mean scoring sample postings against SAMPLE_RESUME at build time — a separate
+ * change, and not needed while the block is honestly labelled.
  */
 export const SAMPLE_RESUME: StructuredResume = {
   contact: {
