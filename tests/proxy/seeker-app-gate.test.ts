@@ -27,7 +27,7 @@
  * than one silently absorbing the other's exceptions.
  */
 import { describe, expect, it } from "vitest";
-import { isProtectedSeekerPath } from "@/proxy";
+import { isProtectedSeekerPath } from "@/lib/auth/seeker-gate-paths";
 
 describe("isProtectedSeekerPath", () => {
   it("gates the bare list routes but not their public detail pages", () => {
