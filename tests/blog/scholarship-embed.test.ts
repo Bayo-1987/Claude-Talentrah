@@ -119,7 +119,7 @@ function expectFallbackLinkIsPublic(html: string) {
 describe("a token for a scholarship that is no longer visible", () => {
   it("falls back to a plain notice for a random id that was never real", async () => {
     const html = await resolveScholarshipEmbeds(`[[scholarship:${randomUUID()}]]`);
-    expect(html).toContain("since closed");
+    expect(html).toContain("isn't currently available");
     expectFallbackLinkIsPublic(html);
   });
 
@@ -134,7 +134,7 @@ describe("a token for a scholarship that is no longer visible", () => {
 
     try {
       const html = await resolveScholarshipEmbeds(`[[scholarship:${scholarshipId}]]`);
-      expect(html).toContain("since closed");
+      expect(html).toContain("isn't currently available");
       expect(html).not.toContain(`Embed-Test Programme ${tag}`);
       expectFallbackLinkIsPublic(html);
     } finally {

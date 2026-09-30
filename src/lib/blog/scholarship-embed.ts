@@ -44,16 +44,28 @@ export const SCHOLARSHIP_TOKEN =
 
 /**
  * Rendered when the token's id doesn't resolve to a currently-visible
- * listing — deleted, or moved off `verified` by the daily expiry sweep or a
- * provider takedown since the post was written. A post that goes on
- * referencing a closed listing with no explanation is worse than one that
- * says so plainly; this can never render as a broken embed or a stale
- * "Deadline: —".
+ * listing — deleted, or moved off `verified` by the daily expiry sweep, a
+ * provider takedown, or a content change sent back to review since the post
+ * was written. A post that goes on referencing an unavailable listing with no
+ * explanation is worse than one that says so plainly; this can never render as
+ * a broken embed or a stale "Deadline: —".
+ *
+ * The copy says "isn't currently available … may have closed, or be under
+ * review" rather than "has closed": an ingest-time content change returns a
+ * published listing to `pending` (see ingest.ts), which would make "closed" a
+ * false statement about a listing that may well reopen.
+ *
+ * The link goes to `/scholarships/apply-now`, NOT the bare `/scholarships`:
+ * blog posts are public and this fallback appears exactly when a deadline has
+ * passed — when readers are most likely to click it — but `/scholarships` is
+ * login-gated (proxy.ts), so a signed-out reader was sent to /login.
+ * apply-now is public, in the sitemap, and lists every open scholarship.
+ * tests/blog/scholarship-embed.test.ts checks this against the real gate.
  */
 const FALLBACK_HTML =
   "<aside>" +
-  "<p>This scholarship's listing has since closed — " +
-  '<a href="/scholarships">browse current opportunities</a>.</p>' +
+  "<p>This scholarship's listing isn't currently available — it may have closed, or be under review. " +
+  '<a href="/scholarships/apply-now">Browse the scholarships open now</a>.</p>' +
   "</aside>";
 
 function escapeHtml(value: string): string {
