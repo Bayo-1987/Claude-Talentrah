@@ -432,14 +432,13 @@ jobs:
           PDFBOX_JAR: /tmp/pdfbox-app.jar
         run: /tmp/venv/bin/python scripts/zz-extract-all.py /tmp/pdfs 2>&1 | tee /tmp/stage2.log
 
-      - name: Upload the results (no PDFs - stage 2's log, results.csv and first-page PNGs only)
+      - name: Upload the PDFs and results (artifact only - never committed)
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: probe-wordspacing-results
+          name: probe-wordspacing-fine
           path: |
-            /tmp/pdfs/results.csv
-            /tmp/pdfs/shots
+            /tmp/pdfs
             /tmp/stage2.log
           retention-days: 14
 

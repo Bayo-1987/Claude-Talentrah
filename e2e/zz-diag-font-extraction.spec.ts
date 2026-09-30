@@ -201,10 +201,10 @@ for (const persona of DUMP_PERSONAS) {
 const WS_ROOT = "[class*='bg-resume-paper']";
 const WS_VARIANTS: Array<{ id: string; css: string | null }> = [
   { id: "ss-ws0", css: null },
-  ...["0.02em", "0.05em", "0.1em"].flatMap((v) => [
-    { id: `ss-ws-each-${v}`, css: `${WS_ROOT}, ${WS_ROOT} * { word-spacing: ${v} !important; }` },
-    { id: `ss-ws-root-${v}`, css: `${WS_ROOT} { word-spacing: ${v} !important; }` },
-  ]),
+  ...["0.02em", "0.03em", "0.04em", "0.05em", "0.1em"].map((v) => ({
+    id: `ss-ws-root-${v}`,
+    css: `${WS_ROOT} { word-spacing: ${v} !important; }`,
+  })),
 ];
 
 for (const persona of DUMP_PERSONAS) {

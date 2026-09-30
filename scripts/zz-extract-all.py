@@ -103,6 +103,25 @@ def missing(words, text):
 TOOLS = ["poppler", "pdfminer", "mutool", "pdfbox"]
 
 
+def parse_fill(bbox_text):
+    """Fraction of the page height reached by the lowest text on a `pdftotext -bbox` page: max(yMax)/page height."""
+    m = re.search(r'<page width="([\d.]+)" height="([\d.]+)"', bbox_text)
+    ys = [float(y) for y in re.findall(r'yMax="([\d.]+)"', bbox_text)]
+    if not m or not ys:
+        return ""
+    return round(max(ys) / float(m.group(2)), 3)
+
+
+def last_page_fill(pdf):
+    """How full the LAST page is (0..1), by the lowest word on it. '' when poppler is unavailable."""
+    if not (shutil.which("pdfinfo") and shutil.which("pdftotext")):
+        return ""
+    n = page_count(pdf)
+    if n == "":
+        return ""
+    return parse_fill(run(["pdftotext", "-bbox", "-f", str(n), "-l", str(n), pdf, "-"]).stdout)
+
+
 def page_count(pdf):
     """Pages in the rendered PDF (poppler's pdfinfo). A layout side effect check: a fix that fixes
     extraction but pushes a one-page resume onto a second page has not been free."""
@@ -117,7 +136,8 @@ def process(jpath):
     pdf = jpath[:-5] + ".pdf"
     row = {"persona": meta["persona"], "face": meta["face"], "slug": meta["slug"],
            "words": len(meta["words"]), "pdfjs": len(meta["pdfjsMissing"]), "fams": "|".join(meta["fams"]),
-           "pages": page_count(pdf), "ws": "|".join(meta.get("wsValues", []))}
+           "pages": page_count(pdf), "ws": "|".join(meta.get("wsValues", [])),
+           "last_page_fill": last_page_fill(pdf)}
     detail = {}
     for t in TOOLS:
         txt = extract(t, pdf)
@@ -140,7 +160,7 @@ def main():
             rows.append(row)
             details[(row["persona"], row["face"], row["slug"])] = (detail, pj)
     with open(os.path.join(DIR, "results.csv"), "w", newline="") as fh:
-        w = csv.DictWriter(fh, fieldnames=["persona", "face", "slug", "words", "pdfjs"] + TOOLS + ["fams", "pages", "ws"])
+        w = csv.DictWriter(fh, fieldnames=["persona", "face", "slug", "words", "pdfjs"] + TOOLS + ["fams", "pages", "ws", "last_page_fill"])
         w.writeheader()
         w.writerows(rows)
     for r in rows:
@@ -197,6 +217,40 @@ def main():
                 pdf = os.path.join(DIR, f"p0__{f}__{slug}.pdf")
                 if os.path.exists(pdf):
                     run(["pdftoppm", "-r", "70", "-png", "-f", "1", "-l", "1", pdf, os.path.join(shots, f"{f}__{slug}")])
+
+    # ── which renders GAIN a page, and how full the control's last page was ──
+    cfill = {(r["persona"], r["slug"]): r["last_page_fill"] for r in rows if r["face"] == "ss-ws0"}
+    cpages = {(r["persona"], r["slug"]): r["pages"] for r in rows if r["face"] == "ss-ws0"}
+    order = sorted({r["face"] for r in rows if r["face"].startswith("ss-ws-root-")}, key=lambda v: float(re.search(r"([\d.]+)em", v).group(1)))
+    first_gain = {}
+    for v in order:
+        for r in rows:
+            if r["face"] != v:
+                continue
+            k = (r["persona"], r["slug"])
+            if cpages.get(k) not in ("", None) and r["pages"] != "" and r["pages"] > cpages[k]:
+                first_gain.setdefault(k, v)
+                print(f"GAINED {v} persona={r['persona']} slug={r['slug']} ats_safe={r['slug'] in ATS_SAFE} "
+                      f"control_pages={cpages[k]} control_last_page_fill={cfill.get(k)} pages_now={r['pages']} fill_now={r['last_page_fill']}", flush=True)
+    for k, v in sorted(first_gain.items(), key=lambda kv: (kv[1], kv[0])):
+        print(f"GAINED-FIRST slug={k[1]} persona={k[0]} ats_safe={k[1] in ATS_SAFE} first_value={v} "
+              f"control_pages={cpages[k]} control_last_page_fill={cfill.get(k)}", flush=True)
+    single = sorted(float(f) for k, f in cfill.items() if f != "" and cpages.get(k) == 1)
+    if single:
+        q = lambda p: single[min(len(single) - 1, int(p * len(single)))]
+        print(f"FILLSTATS control single-page renders n={len(single)} fill p50={q(.5)} p75={q(.75)} p90={q(.9)} p95={q(.95)} max={single[-1]}", flush=True)
+    top = sorted(((float(f), k) for k, f in cfill.items() if f != "" and cpages.get(k) == 1), reverse=True)[:15]
+    for f, k in top:
+        print(f"FILLTOP slug={k[1]} persona={k[0]} control_fill={f} gained_at={first_gain.get(k)}", flush=True)
+
+    if shutil.which("pdftoppm"):
+        hi = os.path.join(DIR, "shots150")
+        os.makedirs(hi, exist_ok=True)
+        for f in ("ss-ws0", "ss-ws-root-0.05em"):
+            for slug in ("clean-professional", "blueprint"):
+                pdf = os.path.join(DIR, f"p0__{f}__{slug}.pdf")
+                if os.path.exists(pdf):
+                    run(["pdftoppm", "-r", "150", "-png", "-f", "1", "-l", "1", pdf, os.path.join(hi, f"{f}__{slug}")])
 
     # ── statute: which face does it really render in, and why do two 'faces' disagree on it? ──
     for r in sorted((r for r in rows if r["slug"] == "statute"), key=lambda r: (r["persona"], r["face"])):
