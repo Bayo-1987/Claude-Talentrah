@@ -288,7 +288,7 @@ describe("the provider's deadline note is shown only when it reads like a note (
 describe("when the listings could not be loaded", () => {
   it("says so plainly, instead of claiming nothing is open", () => {
     const html = renderToStaticMarkup(<ScholarshipsPublicLanding facets={[]} listings={[]} listingsError />);
-    expect(html).toContain("We couldn't load the programmes just now. Try reloading.");
+    expect(html).toContain("We couldn&#x27;t load the programmes just now. Try reloading.");
     expect(html).not.toContain("No programmes are open in the catalog right now");
     expect(html.match(/<h1[\s>]/g)?.length).toBe(1);
   });

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireUser } from "@/lib/auth/require-user";
+import { getOptionalUser, requireUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
 import { EyebrowLabel } from "@/components/ui";
 import { ScholarshipFilterBar } from "@/components/scholarships/scholarship-filter-bar";
@@ -12,8 +12,31 @@ import { Constants, type Tables } from "@/lib/supabase/types";
 import type { DegreeLevel, FundingType, SaveStatus } from "@/lib/scholarships/types";
 import { checkPassCoverage } from "@/lib/passes/entitlement";
 import { getSiteOrigin } from "@/lib/referrals/url";
+import { pageMetadata } from "@/lib/seo/site";
+import { liveScholarshipLandingLinks } from "@/lib/seo/landing-page-links";
+import { loadOpenScholarshipsPreview } from "@/lib/seo/landing-page-data";
+import { ScholarshipsPublicLanding } from "@/components/scholarships/public-landing";
 
-export const metadata = { title: "Scholarships — Talentrah" };
+/**
+ * send-480 — /scholarships used to redirect every signed-out visitor to /login (a 307 from
+ * proxy.ts, before this page ran). It is now a real public landing page for them, so its
+ * metadata branches on auth state exactly as /mentorship's does (send-385).
+ * `getOptionalUser()` is React `cache()`d, so this costs nothing beyond the identical call
+ * the page below makes in the same request. A signed-in visitor keeps the plain title this
+ * page always had — deep-equal-tested in tests/scholarships/list-metadata.test.ts, because
+ * an added description or canonical would be a change to the authenticated page's head.
+ */
+export async function generateMetadata() {
+  const session = await getOptionalUser();
+  if (session) return { title: "Scholarships — Talentrah" };
+
+  return pageMetadata({
+    title: "Scholarships for Nigerian & African Students — Talentrah",
+    description:
+      "Fully and partly funded BSc, MSc and PhD scholarships for Nigerian and African students. Each names the funder, who can apply, and links to the official page.",
+    path: "/scholarships",
+  });
+}
 
 type SearchParams = Promise<{
   tab?: string;
@@ -33,6 +56,38 @@ const VALID_LEVELS: readonly string[] = Constants.public.Enums.scholarship_degre
 const VALID_FUNDING: readonly string[] = Constants.public.Enums.scholarship_funding_type;
 
 export default async function ScholarshipsPage({ searchParams }: { searchParams: SearchParams }) {
+  /*
+   * send-480 — signed-out branch, added ABOVE the existing signed-in body, which is otherwise
+   * untouched: same requireUser(), same queries, same markup. A session with no profile row
+   * degrades to "signed out" here (getOptionalUser's documented behaviour) rather than
+   * redirecting — the same thing /mentorship and /scholarships/apply-now already do.
+   *
+   * Failure here degrades rather than throws: this page is in the sitemap on the promise of
+   * a real 200, so a failed count or listing query hides its own block instead of 500ing.
+   * Not cached — see src/lib/seo/landing-page-data.ts's own rule.
+   */
+  const session = await getOptionalUser();
+  if (!session) {
+    const publicClient = await createClient();
+    const [facetsResult, listingsResult] = await Promise.allSettled([
+      liveScholarshipLandingLinks(publicClient),
+      loadOpenScholarshipsPreview(publicClient),
+    ]);
+    if (facetsResult.status === "rejected") {
+      console.error("[scholarships landing] could not load category counts:", facetsResult.reason);
+    }
+    if (listingsResult.status === "rejected") {
+      console.error("[scholarships landing] could not load open listings:", listingsResult.reason);
+    }
+    return (
+      <ScholarshipsPublicLanding
+        facets={facetsResult.status === "fulfilled" ? facetsResult.value : []}
+        listings={listingsResult.status === "fulfilled" ? listingsResult.value : []}
+        listingsError={listingsResult.status === "rejected"}
+      />
+    );
+  }
+
   const { user, profile } = await requireUser();
   const params = await searchParams;
   // Three independent reads, none needing anything but `user.id` (or

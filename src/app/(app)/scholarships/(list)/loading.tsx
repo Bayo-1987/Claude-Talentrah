@@ -1,32 +1,32 @@
 import { EyebrowLabel, SkeletonBlock, SkeletonCard, SkeletonStatus } from "@/components/ui";
 
 /**
- * The scholarships list, loading. Eyebrow, heading and the "browsing is
- * free" copy are all constants in page.tsx, so they render for real; the
- * deadline-alert banner, filter bar, and the listings themselves are what
- * genuinely depend on a fetch.
+ * The scholarships list, loading — and the FIRST thing a visitor on a slow connection reads,
+ * for BOTH kinds of visitor: since send-480 a signed-out visitor reaches this route too.
  *
- * LIVES IN A (list) NESTED GROUP, SIBLING OF [id]/degree/[level]/
- * fully-funded/, not directly under scholarships/ — same reason
- * jobs/(feed)/loading.tsx isn't a bare jobs/loading.tsx: those three routes
- * each carry a live notFound() and a loading.tsx anywhere in their ancestor
- * chain would break that route's HTTP status the way #221 documented.
- * (list) is a route group — same URL (`/scholarships`), but a real sibling
- * boundary those routes never inherit.
+ * So it carries nothing that is specific to either. It used to render the signed-in heading and
+ * "Browsing, saving and tracking are free and unlimited", which (a) told a signed-out visitor
+ * the wrong page, (b) scoped "free" wrongly — saving and tracking need an account — and (c)
+ * then jumped to a different, taller page. Measured on production /mentorship, which has the
+ * same shape: on a throttled mobile profile the signed-in heading is what a signed-out visitor
+ * sees first (0.9 s on Fast 3G, 1.5 s on Slow 3G), then a different <h1> replaces it.
+ *
+ * NO HEADING AT ALL, on purpose: a streamed loading fallback lands in the RAW HTML next to the
+ * page, so a placeholder <h1> plus the page's own <h1> is two <h1>s in the response a crawler
+ * reads (e2e/scholarships-public-landing.spec.ts asserts exactly one, in the raw bytes).
+ *
+ * LIVES IN A (list) NESTED GROUP, SIBLING OF [id]/degree/[level]/fully-funded/, not directly
+ * under scholarships/ — same reason jobs/(feed)/loading.tsx isn't a bare jobs/loading.tsx:
+ * those three routes each carry a live notFound() and a loading.tsx anywhere in their ancestor
+ * chain would break that route's HTTP status the way #221 documented. (list) is a route group —
+ * same URL (`/scholarships`), but a real sibling boundary those routes never inherit.
  */
 export default function ScholarshipsListLoading() {
   return (
     <div className="flex flex-col gap-5">
       <SkeletonStatus>Loading scholarships…</SkeletonStatus>
 
-      <div>
-        <EyebrowLabel>Funding for your next degree</EyebrowLabel>
-        <h1 className="mt-1.5 text-[26px]">Scholarships</h1>
-        <p className="mt-1 max-w-[620px] text-[14px] text-ink-soft">
-          Browsing, saving and tracking are free and unlimited. Every listing links
-          out to the official page — that page is always the authority on current terms.
-        </p>
-      </div>
+      <EyebrowLabel>Scholarships</EyebrowLabel>
 
       <SkeletonBlock className="h-11 w-full" />
 
