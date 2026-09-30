@@ -1,0 +1,1366 @@
+persona,face,slug,words,pdfjs,poppler,pdfminer,mutool,pdfbox,fams,pages,ws
+0,ss-ws-each-0.02em,balance-sheet,119,3,16,3,0,3,Lora|Source Sans 3,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+0,ss-ws-each-0.02em,blueprint,113,0,8,0,0,0,Barlow Condensed|Source Sans 3|Work Sans,2,0.24px|0.25px|0.26px|0.29px|0.32px|0.3px|0.68px
+0,ss-ws-each-0.02em,business-boardroom,119,0,16,0,0,0,Lora|Source Sans 3|Work Sans,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.56px
+0,ss-ws-each-0.02em,business-memo,118,3,19,3,0,3,Lora|Source Sans 3,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+0,ss-ws-each-0.02em,byline,119,0,19,0,0,0,Lora|Source Sans 3|Work Sans,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.56px
+0,ss-ws-each-0.02em,care-plan,113,3,19,3,0,3,Source Sans 3,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+0,ss-ws-each-0.02em,chambers,113,3,16,3,0,3,Newsreader|Source Sans 3,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.56px
+0,ss-ws-each-0.02em,civic-record,113,1,39,1,0,1,Newsreader|Source Sans 3,1,0.22px|0.24px|0.25px|0.26px|0.27px|0.29px|0.44px
+0,ss-ws-each-0.02em,clean-professional,113,3,19,3,0,3,Newsreader|Source Sans 3,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.56px
+0,ss-ws-each-0.02em,clinical,113,0,3,0,0,0,Newsreader|Source Sans 3,1,0.22px|0.23px|0.24px|0.25px|0.26px|0.27px|0.28px|0.52px
+0,ss-ws-each-0.02em,compliance-brief,113,3,19,3,0,3,Newsreader|Source Sans 3,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+0,ss-ws-each-0.02em,concierge,118,0,16,0,0,0,Lora|Source Sans 3|Work Sans,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+0,ss-ws-each-0.02em,critical-path,110,0,20,1,0,1,Newsreader|Source Sans 3,1,0.22px|0.23px|0.24px|0.26px|0.27px|0.28px|0.3px|0.56px
+0,ss-ws-each-0.02em,curriculum-vitae,119,0,19,0,0,0,Lora|Source Sans 3|Work Sans,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+0,ss-ws-each-0.02em,design-showcase,113,0,8,0,0,0,Lora|Source Sans 3|Work Sans,2,0.22px|0.24px|0.25px|0.26px|0.27px|0.29px|0.32px|0.3px|0.68px
+0,ss-ws-each-0.02em,faculty-profile,118,0,16,0,0,0,Lora|Source Sans 3|Work Sans,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+0,ss-ws-each-0.02em,field-mission,119,0,19,0,0,0,Work Sans|Source Sans 3,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+0,ss-ws-each-0.02em,field-notes,113,1,39,1,0,3,Barlow Condensed|Source Sans 3,1,0.22px|0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.44px
+0,ss-ws-each-0.02em,field-season,113,0,19,0,0,0,Work Sans|Source Sans 3,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+0,ss-ws-each-0.02em,filing-system,113,1,39,1,0,1,Newsreader|Source Sans 3,1,0.22px|0.24px|0.25px|0.26px|0.27px|0.29px|0.44px
+0,ss-ws-each-0.02em,foundation,113,3,19,3,0,3,Barlow Condensed|Source Sans 3,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+0,ss-ws-each-0.02em,front-desk,120,0,19,0,0,0,Work Sans|Source Sans 3,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+0,ss-ws-each-0.02em,front-office,113,0,16,0,0,0,Work Sans|Source Sans 3,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+0,ss-ws-each-0.02em,funnel,113,0,16,0,0,0,Poppins|Source Sans 3|Work Sans,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+0,ss-ws-each-0.02em,gantt,113,0,19,0,0,0,Poppins|Source Sans 3|Work Sans,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.56px
+0,ss-ws-each-0.02em,gazette,113,3,19,3,0,3,Newsreader|Source Sans 3,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.56px
+0,ss-ws-each-0.02em,grant-proposal,118,0,16,0,0,0,Work Sans|Source Sans 3,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+0,ss-ws-each-0.02em,harvest,113,1,38,1,0,1,Work Sans|Source Sans 3,1,0.22px|0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.44px
+0,ss-ws-each-0.02em,help-desk,119,3,19,6,0,6,Source Sans 3,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+0,ss-ws-each-0.02em,impact-report,113,0,19,0,0,0,Newsreader|Source Sans 3|Work Sans,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+0,ss-ws-each-0.02em,itinerary,113,1,39,1,0,0,Work Sans|Source Sans 3,1,0.22px|0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.44px
+0,ss-ws-each-0.02em,lecture-notes,113,1,39,1,0,0,Lora|Source Sans 3|Work Sans,1,0.22px|0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.44px
+0,ss-ws-each-0.02em,ledger,113,3,19,3,0,3,Newsreader|Source Sans 3,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.56px
+0,ss-ws-each-0.02em,legal-brief,113,1,39,1,0,0,Lora|Source Sans 3|Work Sans,1,0.22px|0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.44px
+0,ss-ws-each-0.02em,manifest,113,3,19,3,0,3,Barlow Condensed|Source Sans 3,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+0,ss-ws-each-0.02em,network-ops,113,0,19,0,0,0,Poppins|Source Sans 3|Work Sans,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+0,ss-ws-each-0.02em,offshore,113,3,19,3,0,3,Poppins|Source Sans 3,1,0.22px|0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.68px
+0,ss-ws-each-0.02em,pipeline,98,0,10,1,0,1,Newsreader|Source Sans 3,1,0.22px|0.24px|0.25px|0.26px|0.27px|0.28px|0.31px|0.34px|0.6px
+0,ss-ws-each-0.02em,pitch-deck,113,0,18,0,0,0,Poppins|Source Sans 3|Work Sans,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.56px
+0,ss-ws-each-0.02em,portfolio-grid,112,0,3,0,0,0,Newsreader|Source Sans 3,1,0.22px|0.23px|0.25px|0.26px|0.27px|0.28px|0.32px|0.64px
+0,ss-ws-each-0.02em,press-kit,113,0,18,0,0,0,Lora|Source Sans 3|Work Sans,1,0.22px|0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.68px
+0,ss-ws-each-0.02em,product-tech,113,0,18,0,0,0,Barlow Condensed|Source Sans 3|Work Sans,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.44px
+0,ss-ws-each-0.02em,property-portfolio,113,0,18,0,0,0,Lora|Source Sans 3|Work Sans,2,0.22px|0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.56px
+0,ss-ws-each-0.02em,public-record,113,0,20,0,0,0,Newsreader|Source Sans 3,2,0.22px|0.27px|0.52px
+0,ss-ws-each-0.02em,reel,113,0,8,0,0,0,Poppins|Source Sans 3|Work Sans,2,0.22px|0.24px|0.25px|0.26px|0.27px|0.29px|0.32px|0.3px|0.68px
+0,ss-ws-each-0.02em,research-record,119,0,18,0,0,0,Lora|Source Sans 3|Work Sans,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+0,ss-ws-each-0.02em,rig-report,113,1,39,1,0,0,Poppins|Source Sans 3|Work Sans,1,0.22px|0.24px|0.25px|0.26px|0.27px|0.29px|0.52px
+0,ss-ws-each-0.02em,rounds,119,3,19,3,0,3,Newsreader|Source Sans 3,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+0,ss-ws-each-0.02em,route-plan,113,0,19,0,0,0,Barlow Condensed|Source Sans 3|Work Sans,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+0,ss-ws-each-0.02em,schematic,118,3,8,3,0,3,Barlow Condensed|Source Sans 3|Work Sans,2,0.22px|0.24px|0.25px|0.26px|0.27px|0.29px|0.32px|0.3px|0.44px
+0,ss-ws-each-0.02em,signal,113,0,18,0,0,0,Poppins|Source Sans 3|Work Sans,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.56px
+0,ss-ws-each-0.02em,site-plan,113,0,19,0,0,0,Poppins|Source Sans 3|Work Sans,1,0.22px|0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.56px
+0,ss-ws-each-0.02em,site-report,113,0,19,0,0,0,Poppins|Source Sans 3|Work Sans,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+0,ss-ws-each-0.02em,specification,119,1,39,1,0,1,Lora|Source Sans 3,1,0.22px|0.24px|0.25px|0.26px|0.27px|0.29px|0.52px
+0,ss-ws-each-0.02em,sprint-board,113,0,18,0,0,0,Poppins|Source Sans 3|Work Sans,2,0.22px|0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+0,ss-ws-each-0.02em,stack-trace,113,0,18,0,0,0,Poppins|Source Sans 3|Work Sans,2,0.22px|0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.56px
+0,ss-ws-each-0.02em,statute,111,0,0,0,0,0,Newsreader,2,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.54px
+0,ss-ws-each-0.02em,structured-admin,113,3,19,3,0,3,Newsreader|Source Sans 3,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+0,ss-ws-each-0.02em,studio-brief,113,0,18,0,0,0,Lora|Source Sans 3|Work Sans,1,0.22px|0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.68px
+0,ss-ws-each-0.02em,success-story,119,0,19,0,0,0,Newsreader|Source Sans 3|Work Sans,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.56px
+0,ss-ws-each-0.02em,supply-chain,113,0,16,0,0,0,Barlow Condensed|Source Sans 3|Work Sans,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+0,ss-ws-each-0.02em,terminal,113,1,39,1,0,3,Barlow Condensed|Source Sans 3,1,0.22px|0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.44px
+0,ss-ws-each-0.02em,uptime,113,0,18,0,0,0,Poppins|Source Sans 3|Work Sans,2,0.22px|0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.56px
+0,ss-ws-each-0.02em,value-chain,113,0,16,0,0,0,Work Sans|Source Sans 3,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+0,ss-ws-each-0.02em,wellhead,113,0,16,0,0,0,Poppins|Source Sans 3|Work Sans,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+0,ss-ws-each-0.05em,balance-sheet,119,3,0,3,0,3,Lora|Source Sans 3,1,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+0,ss-ws-each-0.05em,blueprint,113,0,8,0,0,0,Barlow Condensed|Source Sans 3|Work Sans,2,0.625px|0.65px|0.6px|0.725px|0.75px|0.8px|1.7px
+0,ss-ws-each-0.05em,business-boardroom,119,0,0,0,0,0,Lora|Source Sans 3|Work Sans,1,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.4px
+0,ss-ws-each-0.05em,business-memo,118,3,0,3,0,3,Lora|Source Sans 3,1,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+0,ss-ws-each-0.05em,byline,119,0,0,0,0,0,Lora|Source Sans 3|Work Sans,1,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.4px
+0,ss-ws-each-0.05em,care-plan,113,3,0,3,0,3,Source Sans 3,1,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+0,ss-ws-each-0.05em,chambers,113,3,0,3,0,3,Newsreader|Source Sans 3,1,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.4px
+0,ss-ws-each-0.05em,civic-record,113,1,1,1,0,1,Newsreader|Source Sans 3,1,0.55px|0.625px|0.65px|0.675px|0.6px|0.725px|1.1px
+0,ss-ws-each-0.05em,clean-professional,113,3,0,3,0,3,Newsreader|Source Sans 3,1,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.4px
+0,ss-ws-each-0.05em,clinical,113,0,0,0,0,0,Newsreader|Source Sans 3,1,0.55px|0.575px|0.625px|0.65px|0.675px|0.6px|0.7px|1.3px
+0,ss-ws-each-0.05em,compliance-brief,113,3,0,3,0,3,Newsreader|Source Sans 3,1,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+0,ss-ws-each-0.05em,concierge,118,0,0,0,0,0,Lora|Source Sans 3|Work Sans,1,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+0,ss-ws-each-0.05em,critical-path,110,0,1,1,0,1,Newsreader|Source Sans 3,1,0.55px|0.575px|0.65px|0.675px|0.6px|0.75px|0.7px|1.4px
+0,ss-ws-each-0.05em,curriculum-vitae,119,0,0,0,0,0,Lora|Source Sans 3|Work Sans,1,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+0,ss-ws-each-0.05em,design-showcase,113,0,3,0,0,0,Lora|Source Sans 3|Work Sans,2,0.55px|0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.8px|1.7px
+0,ss-ws-each-0.05em,faculty-profile,118,0,0,0,0,0,Lora|Source Sans 3|Work Sans,1,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+0,ss-ws-each-0.05em,field-mission,119,0,0,0,0,0,Work Sans|Source Sans 3,1,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+0,ss-ws-each-0.05em,field-notes,113,1,1,1,0,3,Barlow Condensed|Source Sans 3,1,0.55px|0.625px|0.65px|0.675px|0.6px|0.725px|0.7px|1.1px
+0,ss-ws-each-0.05em,field-season,113,0,0,0,0,0,Work Sans|Source Sans 3,1,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+0,ss-ws-each-0.05em,filing-system,113,1,1,1,0,1,Newsreader|Source Sans 3,1,0.55px|0.625px|0.65px|0.675px|0.6px|0.725px|1.1px
+0,ss-ws-each-0.05em,foundation,113,3,0,3,0,3,Barlow Condensed|Source Sans 3,1,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+0,ss-ws-each-0.05em,front-desk,120,0,0,0,0,0,Work Sans|Source Sans 3,1,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+0,ss-ws-each-0.05em,front-office,113,0,0,0,0,0,Work Sans|Source Sans 3,1,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+0,ss-ws-each-0.05em,funnel,113,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,1,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+0,ss-ws-each-0.05em,gantt,113,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,1,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.4px
+0,ss-ws-each-0.05em,gazette,113,3,0,3,0,3,Newsreader|Source Sans 3,1,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.4px
+0,ss-ws-each-0.05em,grant-proposal,118,0,0,0,0,0,Work Sans|Source Sans 3,1,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+0,ss-ws-each-0.05em,harvest,113,1,1,1,0,1,Work Sans|Source Sans 3,1,0.55px|0.625px|0.65px|0.675px|0.6px|0.725px|0.7px|1.1px
+0,ss-ws-each-0.05em,help-desk,119,3,0,6,0,6,Source Sans 3,1,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+0,ss-ws-each-0.05em,impact-report,113,0,0,0,0,0,Newsreader|Source Sans 3|Work Sans,1,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+0,ss-ws-each-0.05em,itinerary,113,1,1,1,0,0,Work Sans|Source Sans 3,1,0.55px|0.625px|0.65px|0.675px|0.6px|0.725px|0.7px|1.1px
+0,ss-ws-each-0.05em,lecture-notes,113,1,1,1,0,0,Lora|Source Sans 3|Work Sans,1,0.55px|0.625px|0.65px|0.675px|0.6px|0.725px|0.7px|1.1px
+0,ss-ws-each-0.05em,ledger,113,3,0,3,0,3,Newsreader|Source Sans 3,1,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.4px
+0,ss-ws-each-0.05em,legal-brief,113,1,1,1,0,0,Lora|Source Sans 3|Work Sans,1,0.55px|0.625px|0.65px|0.675px|0.6px|0.725px|0.7px|1.1px
+0,ss-ws-each-0.05em,manifest,113,3,0,3,0,3,Barlow Condensed|Source Sans 3,1,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+0,ss-ws-each-0.05em,network-ops,113,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,1,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+0,ss-ws-each-0.05em,offshore,113,3,0,3,0,3,Poppins|Source Sans 3,1,0.55px|0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.7px
+0,ss-ws-each-0.05em,pipeline,98,0,0,1,0,1,Newsreader|Source Sans 3,1,0.55px|0.625px|0.65px|0.675px|0.6px|0.775px|0.7px|0.85px|1.5px
+0,ss-ws-each-0.05em,pitch-deck,113,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,1,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.4px
+0,ss-ws-each-0.05em,portfolio-grid,112,0,0,0,0,0,Newsreader|Source Sans 3,1,0.55px|0.575px|0.625px|0.65px|0.675px|0.7px|0.8px|1.6px
+0,ss-ws-each-0.05em,press-kit,113,0,0,0,0,0,Lora|Source Sans 3|Work Sans,1,0.55px|0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.7px
+0,ss-ws-each-0.05em,product-tech,113,0,0,0,0,0,Barlow Condensed|Source Sans 3|Work Sans,1,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.1px
+0,ss-ws-each-0.05em,property-portfolio,113,0,0,0,0,0,Lora|Source Sans 3|Work Sans,2,0.55px|0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.4px
+0,ss-ws-each-0.05em,public-record,113,0,0,0,0,0,Newsreader|Source Sans 3,2,0.55px|0.675px|1.3px
+0,ss-ws-each-0.05em,reel,113,0,3,0,0,0,Poppins|Source Sans 3|Work Sans,2,0.55px|0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.8px|1.7px
+0,ss-ws-each-0.05em,research-record,119,0,0,0,0,0,Lora|Source Sans 3|Work Sans,1,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+0,ss-ws-each-0.05em,rig-report,113,1,1,1,0,0,Poppins|Source Sans 3|Work Sans,1,0.55px|0.625px|0.65px|0.675px|0.6px|0.725px|1.3px
+0,ss-ws-each-0.05em,rounds,119,3,0,3,0,3,Newsreader|Source Sans 3,1,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+0,ss-ws-each-0.05em,route-plan,113,0,0,0,0,0,Barlow Condensed|Source Sans 3|Work Sans,1,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+0,ss-ws-each-0.05em,schematic,118,3,3,3,0,3,Barlow Condensed|Source Sans 3|Work Sans,2,0.55px|0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.8px|1.1px
+0,ss-ws-each-0.05em,signal,113,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,1,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.4px
+0,ss-ws-each-0.05em,site-plan,113,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,1,0.55px|0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.4px
+0,ss-ws-each-0.05em,site-report,113,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,1,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+0,ss-ws-each-0.05em,specification,119,1,1,1,0,1,Lora|Source Sans 3,1,0.55px|0.625px|0.65px|0.675px|0.6px|0.725px|1.3px
+0,ss-ws-each-0.05em,sprint-board,113,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,2,0.55px|0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+0,ss-ws-each-0.05em,stack-trace,113,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,2,0.55px|0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.4px
+0,ss-ws-each-0.05em,statute,111,0,0,0,0,0,Newsreader,2,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.35px
+0,ss-ws-each-0.05em,structured-admin,113,3,0,3,0,3,Newsreader|Source Sans 3,1,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+0,ss-ws-each-0.05em,studio-brief,113,0,0,0,0,0,Lora|Source Sans 3|Work Sans,1,0.55px|0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.7px
+0,ss-ws-each-0.05em,success-story,119,0,0,0,0,0,Newsreader|Source Sans 3|Work Sans,1,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.4px
+0,ss-ws-each-0.05em,supply-chain,113,0,0,0,0,0,Barlow Condensed|Source Sans 3|Work Sans,1,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+0,ss-ws-each-0.05em,terminal,113,1,1,1,0,3,Barlow Condensed|Source Sans 3,1,0.55px|0.625px|0.65px|0.675px|0.6px|0.725px|0.7px|1.1px
+0,ss-ws-each-0.05em,uptime,113,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,2,0.55px|0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.4px
+0,ss-ws-each-0.05em,value-chain,113,0,0,0,0,0,Work Sans|Source Sans 3,1,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+0,ss-ws-each-0.05em,wellhead,113,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,1,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+0,ss-ws-each-0.1em,balance-sheet,119,3,0,3,0,3,Lora|Source Sans 3,1,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+0,ss-ws-each-0.1em,blueprint,113,0,0,0,0,0,Barlow Condensed|Source Sans 3|Work Sans,2,1.25px|1.2px|1.3px|1.45px|1.5px|1.6px|3.4px
+0,ss-ws-each-0.1em,business-boardroom,119,0,0,0,0,0,Lora|Source Sans 3|Work Sans,1,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.8px
+0,ss-ws-each-0.1em,business-memo,118,3,0,3,0,3,Lora|Source Sans 3,1,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+0,ss-ws-each-0.1em,byline,119,0,0,0,0,0,Lora|Source Sans 3|Work Sans,1,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.8px
+0,ss-ws-each-0.1em,care-plan,113,3,0,3,0,3,Source Sans 3,1,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+0,ss-ws-each-0.1em,chambers,113,3,0,3,0,3,Newsreader|Source Sans 3,1,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.8px
+0,ss-ws-each-0.1em,civic-record,113,1,0,1,0,1,Newsreader|Source Sans 3,1,1.1px|1.25px|1.2px|1.35px|1.3px|1.45px|2.2px
+0,ss-ws-each-0.1em,clean-professional,113,3,0,3,0,3,Newsreader|Source Sans 3,1,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.8px
+0,ss-ws-each-0.1em,clinical,113,0,0,0,0,0,Newsreader|Source Sans 3,1,1.15px|1.1px|1.25px|1.2px|1.35px|1.3px|1.4px|2.6px
+0,ss-ws-each-0.1em,compliance-brief,113,3,0,3,0,3,Newsreader|Source Sans 3,1,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+0,ss-ws-each-0.1em,concierge,118,0,0,0,0,0,Lora|Source Sans 3|Work Sans,1,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+0,ss-ws-each-0.1em,critical-path,110,0,0,1,0,1,Newsreader|Source Sans 3,1,1.15px|1.1px|1.2px|1.35px|1.3px|1.4px|1.5px|2.8px
+0,ss-ws-each-0.1em,curriculum-vitae,119,0,0,0,0,0,Lora|Source Sans 3|Work Sans,1,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+0,ss-ws-each-0.1em,design-showcase,113,0,0,0,0,0,Lora|Source Sans 3|Work Sans,2,1.1px|1.25px|1.2px|1.35px|1.3px|1.45px|1.5px|1.6px|3.4px
+0,ss-ws-each-0.1em,faculty-profile,118,0,0,0,0,0,Lora|Source Sans 3|Work Sans,1,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+0,ss-ws-each-0.1em,field-mission,119,0,0,0,0,0,Work Sans|Source Sans 3,1,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+0,ss-ws-each-0.1em,field-notes,113,1,0,1,0,3,Barlow Condensed|Source Sans 3,1,1.1px|1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|2.2px
+0,ss-ws-each-0.1em,field-season,113,0,0,0,0,0,Work Sans|Source Sans 3,1,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+0,ss-ws-each-0.1em,filing-system,113,1,0,1,0,1,Newsreader|Source Sans 3,1,1.1px|1.25px|1.2px|1.35px|1.3px|1.45px|2.2px
+0,ss-ws-each-0.1em,foundation,113,3,0,3,0,3,Barlow Condensed|Source Sans 3,1,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+0,ss-ws-each-0.1em,front-desk,120,0,0,0,0,0,Work Sans|Source Sans 3,1,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+0,ss-ws-each-0.1em,front-office,113,0,0,0,0,0,Work Sans|Source Sans 3,1,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+0,ss-ws-each-0.1em,funnel,113,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,1,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+0,ss-ws-each-0.1em,gantt,113,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,1,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.8px
+0,ss-ws-each-0.1em,gazette,113,3,0,3,0,3,Newsreader|Source Sans 3,1,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.8px
+0,ss-ws-each-0.1em,grant-proposal,118,0,0,0,0,0,Work Sans|Source Sans 3,1,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+0,ss-ws-each-0.1em,harvest,113,1,0,1,0,1,Work Sans|Source Sans 3,1,1.1px|1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|2.2px
+0,ss-ws-each-0.1em,help-desk,119,3,0,6,0,6,Source Sans 3,1,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+0,ss-ws-each-0.1em,impact-report,113,0,0,0,0,0,Newsreader|Source Sans 3|Work Sans,1,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+0,ss-ws-each-0.1em,itinerary,113,1,0,1,0,0,Work Sans|Source Sans 3,1,1.1px|1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|2.2px
+0,ss-ws-each-0.1em,lecture-notes,113,1,0,1,0,0,Lora|Source Sans 3|Work Sans,1,1.1px|1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|2.2px
+0,ss-ws-each-0.1em,ledger,113,3,0,3,0,3,Newsreader|Source Sans 3,1,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.8px
+0,ss-ws-each-0.1em,legal-brief,113,1,0,1,0,0,Lora|Source Sans 3|Work Sans,1,1.1px|1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|2.2px
+0,ss-ws-each-0.1em,manifest,113,3,0,3,0,3,Barlow Condensed|Source Sans 3,1,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+0,ss-ws-each-0.1em,network-ops,113,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,1,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+0,ss-ws-each-0.1em,offshore,113,3,0,3,0,3,Poppins|Source Sans 3,1,1.1px|1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|3.4px
+0,ss-ws-each-0.1em,pipeline,98,0,0,1,0,1,Newsreader|Source Sans 3,1,1.1px|1.25px|1.2px|1.35px|1.3px|1.4px|1.55px|1.7px|3px
+0,ss-ws-each-0.1em,pitch-deck,113,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,1,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.8px
+0,ss-ws-each-0.1em,portfolio-grid,112,0,0,0,0,0,Newsreader|Source Sans 3,1,1.15px|1.1px|1.25px|1.35px|1.3px|1.4px|1.6px|3.2px
+0,ss-ws-each-0.1em,press-kit,113,0,0,0,0,0,Lora|Source Sans 3|Work Sans,1,1.1px|1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|3.4px
+0,ss-ws-each-0.1em,product-tech,113,0,0,0,0,0,Barlow Condensed|Source Sans 3|Work Sans,1,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.2px
+0,ss-ws-each-0.1em,property-portfolio,113,0,0,0,0,0,Lora|Source Sans 3|Work Sans,2,1.1px|1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.8px
+0,ss-ws-each-0.1em,public-record,113,0,0,0,0,0,Newsreader|Source Sans 3,2,1.1px|1.35px|2.6px
+0,ss-ws-each-0.1em,reel,113,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,2,1.1px|1.25px|1.2px|1.35px|1.3px|1.45px|1.5px|1.6px|3.4px
+0,ss-ws-each-0.1em,research-record,119,0,0,0,0,0,Lora|Source Sans 3|Work Sans,1,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+0,ss-ws-each-0.1em,rig-report,113,1,0,1,0,0,Poppins|Source Sans 3|Work Sans,1,1.1px|1.25px|1.2px|1.35px|1.3px|1.45px|2.6px
+0,ss-ws-each-0.1em,rounds,119,3,0,3,0,3,Newsreader|Source Sans 3,1,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+0,ss-ws-each-0.1em,route-plan,113,0,0,0,0,0,Barlow Condensed|Source Sans 3|Work Sans,1,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+0,ss-ws-each-0.1em,schematic,118,3,0,3,0,3,Barlow Condensed|Source Sans 3|Work Sans,2,1.1px|1.25px|1.2px|1.35px|1.3px|1.45px|1.5px|1.6px|2.2px
+0,ss-ws-each-0.1em,signal,113,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,1,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.8px
+0,ss-ws-each-0.1em,site-plan,113,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,1,1.1px|1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.8px
+0,ss-ws-each-0.1em,site-report,113,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,1,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+0,ss-ws-each-0.1em,specification,119,1,0,1,0,1,Lora|Source Sans 3,1,1.1px|1.25px|1.2px|1.35px|1.3px|1.45px|2.6px
+0,ss-ws-each-0.1em,sprint-board,113,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,2,1.1px|1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+0,ss-ws-each-0.1em,stack-trace,113,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,2,1.1px|1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.8px
+0,ss-ws-each-0.1em,statute,111,0,0,0,0,0,Newsreader,2,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.7px
+0,ss-ws-each-0.1em,structured-admin,113,3,0,3,0,3,Newsreader|Source Sans 3,1,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+0,ss-ws-each-0.1em,studio-brief,113,0,0,0,0,0,Lora|Source Sans 3|Work Sans,1,1.1px|1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|3.4px
+0,ss-ws-each-0.1em,success-story,119,0,0,0,0,0,Newsreader|Source Sans 3|Work Sans,1,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.8px
+0,ss-ws-each-0.1em,supply-chain,113,0,0,0,0,0,Barlow Condensed|Source Sans 3|Work Sans,1,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+0,ss-ws-each-0.1em,terminal,113,1,0,1,0,3,Barlow Condensed|Source Sans 3,1,1.1px|1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|2.2px
+0,ss-ws-each-0.1em,uptime,113,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,2,1.1px|1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.8px
+0,ss-ws-each-0.1em,value-chain,113,0,0,0,0,0,Work Sans|Source Sans 3,1,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+0,ss-ws-each-0.1em,wellhead,113,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,1,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+0,ss-ws-root-0.02em,balance-sheet,119,3,10,3,0,3,Lora|Source Sans 3,1,0.32px
+0,ss-ws-root-0.02em,blueprint,113,0,8,0,0,0,Barlow Condensed|Source Sans 3|Work Sans,2,0.32px
+0,ss-ws-root-0.02em,business-boardroom,119,0,10,0,0,0,Lora|Source Sans 3|Work Sans,1,0.32px
+0,ss-ws-root-0.02em,business-memo,118,3,13,3,0,3,Lora|Source Sans 3,1,0.32px
+0,ss-ws-root-0.02em,byline,119,0,13,0,0,0,Lora|Source Sans 3|Work Sans,1,0.32px
+0,ss-ws-root-0.02em,care-plan,113,3,13,3,0,3,Source Sans 3,1,0.32px
+0,ss-ws-root-0.02em,chambers,113,3,10,3,0,3,Newsreader|Source Sans 3,1,0.32px
+0,ss-ws-root-0.02em,civic-record,113,1,29,1,0,1,Newsreader|Source Sans 3,1,0.32px
+0,ss-ws-root-0.02em,clean-professional,113,3,13,3,0,3,Newsreader|Source Sans 3,1,0.32px
+0,ss-ws-root-0.02em,clinical,113,0,0,0,0,0,Newsreader|Source Sans 3,1,0.32px
+0,ss-ws-root-0.02em,compliance-brief,113,3,13,3,0,3,Newsreader|Source Sans 3,1,0.32px
+0,ss-ws-root-0.02em,concierge,118,0,10,0,0,0,Lora|Source Sans 3|Work Sans,1,0.32px
+0,ss-ws-root-0.02em,critical-path,110,0,14,1,0,1,Newsreader|Source Sans 3,1,0.32px
+0,ss-ws-root-0.02em,curriculum-vitae,119,0,13,0,0,0,Lora|Source Sans 3|Work Sans,1,0.32px
+0,ss-ws-root-0.02em,design-showcase,113,0,8,0,0,0,Lora|Source Sans 3|Work Sans,2,0.32px
+0,ss-ws-root-0.02em,faculty-profile,118,0,10,0,0,0,Lora|Source Sans 3|Work Sans,1,0.32px
+0,ss-ws-root-0.02em,field-mission,119,0,13,0,0,0,Work Sans|Source Sans 3,1,0.32px
+0,ss-ws-root-0.02em,field-notes,113,1,29,1,0,3,Barlow Condensed|Source Sans 3,1,0.32px
+0,ss-ws-root-0.02em,field-season,113,0,13,0,0,0,Work Sans|Source Sans 3,1,0.32px
+0,ss-ws-root-0.02em,filing-system,113,1,29,1,0,1,Newsreader|Source Sans 3,1,0.32px
+0,ss-ws-root-0.02em,foundation,113,3,13,3,0,3,Barlow Condensed|Source Sans 3,1,0.32px
+0,ss-ws-root-0.02em,front-desk,120,0,13,0,0,0,Work Sans|Source Sans 3,1,0.32px
+0,ss-ws-root-0.02em,front-office,113,0,10,0,0,0,Work Sans|Source Sans 3,1,0.32px
+0,ss-ws-root-0.02em,funnel,113,0,10,0,0,0,Poppins|Source Sans 3|Work Sans,1,0.32px
+0,ss-ws-root-0.02em,gantt,113,0,13,0,0,0,Poppins|Source Sans 3|Work Sans,1,0.32px
+0,ss-ws-root-0.02em,gazette,113,3,13,3,0,3,Newsreader|Source Sans 3,1,0.32px
+0,ss-ws-root-0.02em,grant-proposal,118,0,10,0,0,0,Work Sans|Source Sans 3,1,0.32px
+0,ss-ws-root-0.02em,harvest,113,1,29,1,0,1,Work Sans|Source Sans 3,1,0.32px
+0,ss-ws-root-0.02em,help-desk,119,3,13,6,0,6,Source Sans 3,1,0.32px
+0,ss-ws-root-0.02em,impact-report,113,0,13,0,0,0,Newsreader|Source Sans 3|Work Sans,1,0.32px
+0,ss-ws-root-0.02em,itinerary,113,1,29,1,0,0,Work Sans|Source Sans 3,1,0.32px
+0,ss-ws-root-0.02em,lecture-notes,113,1,29,1,0,0,Lora|Source Sans 3|Work Sans,1,0.32px
+0,ss-ws-root-0.02em,ledger,113,3,13,3,0,3,Newsreader|Source Sans 3,1,0.32px
+0,ss-ws-root-0.02em,legal-brief,113,1,29,1,0,0,Lora|Source Sans 3|Work Sans,1,0.32px
+0,ss-ws-root-0.02em,manifest,113,3,13,3,0,3,Barlow Condensed|Source Sans 3,1,0.32px
+0,ss-ws-root-0.02em,network-ops,113,0,13,0,0,0,Poppins|Source Sans 3|Work Sans,1,0.32px
+0,ss-ws-root-0.02em,offshore,113,3,13,3,0,3,Poppins|Source Sans 3,1,0.32px
+0,ss-ws-root-0.02em,pipeline,98,0,10,1,0,1,Newsreader|Source Sans 3,1,0.32px
+0,ss-ws-root-0.02em,pitch-deck,113,0,12,0,0,0,Poppins|Source Sans 3|Work Sans,1,0.32px
+0,ss-ws-root-0.02em,portfolio-grid,112,0,3,0,0,0,Newsreader|Source Sans 3,1,0.32px
+0,ss-ws-root-0.02em,press-kit,113,0,12,0,0,0,Lora|Source Sans 3|Work Sans,1,0.32px
+0,ss-ws-root-0.02em,product-tech,113,0,12,0,0,0,Barlow Condensed|Source Sans 3|Work Sans,1,0.32px
+0,ss-ws-root-0.02em,property-portfolio,113,0,12,0,0,0,Lora|Source Sans 3|Work Sans,2,0.32px
+0,ss-ws-root-0.02em,public-record,113,0,11,0,0,0,Newsreader|Source Sans 3,2,0.32px
+0,ss-ws-root-0.02em,reel,113,0,8,0,0,0,Poppins|Source Sans 3|Work Sans,2,0.32px
+0,ss-ws-root-0.02em,research-record,119,0,12,0,0,0,Lora|Source Sans 3|Work Sans,1,0.32px
+0,ss-ws-root-0.02em,rig-report,113,1,29,1,0,0,Poppins|Source Sans 3|Work Sans,1,0.32px
+0,ss-ws-root-0.02em,rounds,119,3,13,3,0,3,Newsreader|Source Sans 3,1,0.32px
+0,ss-ws-root-0.02em,route-plan,113,0,13,0,0,0,Barlow Condensed|Source Sans 3|Work Sans,1,0.32px
+0,ss-ws-root-0.02em,schematic,118,3,8,3,0,3,Barlow Condensed|Source Sans 3|Work Sans,2,0.32px
+0,ss-ws-root-0.02em,signal,113,0,12,0,0,0,Poppins|Source Sans 3|Work Sans,1,0.32px
+0,ss-ws-root-0.02em,site-plan,113,0,13,0,0,0,Poppins|Source Sans 3|Work Sans,1,0.32px
+0,ss-ws-root-0.02em,site-report,113,0,13,0,0,0,Poppins|Source Sans 3|Work Sans,1,0.32px
+0,ss-ws-root-0.02em,specification,119,1,29,1,0,1,Lora|Source Sans 3,1,0.32px
+0,ss-ws-root-0.02em,sprint-board,113,0,12,0,0,0,Poppins|Source Sans 3|Work Sans,2,0.32px
+0,ss-ws-root-0.02em,stack-trace,113,0,12,0,0,0,Poppins|Source Sans 3|Work Sans,2,0.32px
+0,ss-ws-root-0.02em,statute,111,0,0,0,0,0,Newsreader,2,0.32px
+0,ss-ws-root-0.02em,structured-admin,113,3,13,3,0,3,Newsreader|Source Sans 3,1,0.32px
+0,ss-ws-root-0.02em,studio-brief,113,0,12,0,0,0,Lora|Source Sans 3|Work Sans,1,0.32px
+0,ss-ws-root-0.02em,success-story,119,0,13,0,0,0,Newsreader|Source Sans 3|Work Sans,1,0.32px
+0,ss-ws-root-0.02em,supply-chain,113,0,10,0,0,0,Barlow Condensed|Source Sans 3|Work Sans,1,0.32px
+0,ss-ws-root-0.02em,terminal,113,1,29,1,0,3,Barlow Condensed|Source Sans 3,1,0.32px
+0,ss-ws-root-0.02em,uptime,113,0,12,0,0,0,Poppins|Source Sans 3|Work Sans,2,0.32px
+0,ss-ws-root-0.02em,value-chain,113,0,10,0,0,0,Work Sans|Source Sans 3,1,0.32px
+0,ss-ws-root-0.02em,wellhead,113,0,10,0,0,0,Poppins|Source Sans 3|Work Sans,1,0.32px
+0,ss-ws-root-0.05em,balance-sheet,119,3,0,3,0,3,Lora|Source Sans 3,1,0.8px
+0,ss-ws-root-0.05em,blueprint,113,0,1,0,0,0,Barlow Condensed|Source Sans 3|Work Sans,2,0.8px
+0,ss-ws-root-0.05em,business-boardroom,119,0,0,0,0,0,Lora|Source Sans 3|Work Sans,1,0.8px
+0,ss-ws-root-0.05em,business-memo,118,3,0,3,0,3,Lora|Source Sans 3,1,0.8px
+0,ss-ws-root-0.05em,byline,119,0,0,0,0,0,Lora|Source Sans 3|Work Sans,1,0.8px
+0,ss-ws-root-0.05em,care-plan,113,3,0,3,0,3,Source Sans 3,1,0.8px
+0,ss-ws-root-0.05em,chambers,113,3,0,3,0,3,Newsreader|Source Sans 3,1,0.8px
+0,ss-ws-root-0.05em,civic-record,113,1,1,1,0,1,Newsreader|Source Sans 3,1,0.8px
+0,ss-ws-root-0.05em,clean-professional,113,3,0,3,0,3,Newsreader|Source Sans 3,1,0.8px
+0,ss-ws-root-0.05em,clinical,113,0,0,0,0,0,Newsreader|Source Sans 3,1,0.8px
+0,ss-ws-root-0.05em,compliance-brief,113,3,0,3,0,3,Newsreader|Source Sans 3,1,0.8px
+0,ss-ws-root-0.05em,concierge,118,0,0,0,0,0,Lora|Source Sans 3|Work Sans,1,0.8px
+0,ss-ws-root-0.05em,critical-path,110,0,1,1,0,1,Newsreader|Source Sans 3,1,0.8px
+0,ss-ws-root-0.05em,curriculum-vitae,119,0,0,0,0,0,Lora|Source Sans 3|Work Sans,1,0.8px
+0,ss-ws-root-0.05em,design-showcase,113,0,0,0,0,0,Lora|Source Sans 3|Work Sans,2,0.8px
+0,ss-ws-root-0.05em,faculty-profile,118,0,0,0,0,0,Lora|Source Sans 3|Work Sans,1,0.8px
+0,ss-ws-root-0.05em,field-mission,119,0,0,0,0,0,Work Sans|Source Sans 3,1,0.8px
+0,ss-ws-root-0.05em,field-notes,113,1,1,1,0,3,Barlow Condensed|Source Sans 3,1,0.8px
+0,ss-ws-root-0.05em,field-season,113,0,0,0,0,0,Work Sans|Source Sans 3,1,0.8px
+0,ss-ws-root-0.05em,filing-system,113,1,1,1,0,1,Newsreader|Source Sans 3,1,0.8px
+0,ss-ws-root-0.05em,foundation,113,3,0,3,0,3,Barlow Condensed|Source Sans 3,1,0.8px
+0,ss-ws-root-0.05em,front-desk,120,0,0,0,0,0,Work Sans|Source Sans 3,1,0.8px
+0,ss-ws-root-0.05em,front-office,113,0,0,0,0,0,Work Sans|Source Sans 3,1,0.8px
+0,ss-ws-root-0.05em,funnel,113,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,1,0.8px
+0,ss-ws-root-0.05em,gantt,113,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,1,0.8px
+0,ss-ws-root-0.05em,gazette,113,3,0,3,0,3,Newsreader|Source Sans 3,1,0.8px
+0,ss-ws-root-0.05em,grant-proposal,118,0,0,0,0,0,Work Sans|Source Sans 3,1,0.8px
+0,ss-ws-root-0.05em,harvest,113,1,1,1,0,1,Work Sans|Source Sans 3,1,0.8px
+0,ss-ws-root-0.05em,help-desk,119,3,0,6,0,6,Source Sans 3,1,0.8px
+0,ss-ws-root-0.05em,impact-report,113,0,0,0,0,0,Newsreader|Source Sans 3|Work Sans,1,0.8px
+0,ss-ws-root-0.05em,itinerary,113,1,1,1,0,0,Work Sans|Source Sans 3,1,0.8px
+0,ss-ws-root-0.05em,lecture-notes,113,1,1,1,0,0,Lora|Source Sans 3|Work Sans,1,0.8px
+0,ss-ws-root-0.05em,ledger,113,3,0,3,0,3,Newsreader|Source Sans 3,1,0.8px
+0,ss-ws-root-0.05em,legal-brief,113,1,1,1,0,0,Lora|Source Sans 3|Work Sans,1,0.8px
+0,ss-ws-root-0.05em,manifest,113,3,0,3,0,3,Barlow Condensed|Source Sans 3,1,0.8px
+0,ss-ws-root-0.05em,network-ops,113,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,1,0.8px
+0,ss-ws-root-0.05em,offshore,113,3,0,3,0,3,Poppins|Source Sans 3,1,0.8px
+0,ss-ws-root-0.05em,pipeline,98,0,0,1,0,1,Newsreader|Source Sans 3,1,0.8px
+0,ss-ws-root-0.05em,pitch-deck,113,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,1,0.8px
+0,ss-ws-root-0.05em,portfolio-grid,112,0,0,0,0,0,Newsreader|Source Sans 3,1,0.8px
+0,ss-ws-root-0.05em,press-kit,113,0,0,0,0,0,Lora|Source Sans 3|Work Sans,1,0.8px
+0,ss-ws-root-0.05em,product-tech,113,0,0,0,0,0,Barlow Condensed|Source Sans 3|Work Sans,1,0.8px
+0,ss-ws-root-0.05em,property-portfolio,113,0,0,0,0,0,Lora|Source Sans 3|Work Sans,2,0.8px
+0,ss-ws-root-0.05em,public-record,113,0,0,0,0,0,Newsreader|Source Sans 3,2,0.8px
+0,ss-ws-root-0.05em,reel,113,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,2,0.8px
+0,ss-ws-root-0.05em,research-record,119,0,0,0,0,0,Lora|Source Sans 3|Work Sans,1,0.8px
+0,ss-ws-root-0.05em,rig-report,113,1,1,1,0,0,Poppins|Source Sans 3|Work Sans,1,0.8px
+0,ss-ws-root-0.05em,rounds,119,3,0,3,0,3,Newsreader|Source Sans 3,1,0.8px
+0,ss-ws-root-0.05em,route-plan,113,0,0,0,0,0,Barlow Condensed|Source Sans 3|Work Sans,1,0.8px
+0,ss-ws-root-0.05em,schematic,118,3,0,3,0,3,Barlow Condensed|Source Sans 3|Work Sans,2,0.8px
+0,ss-ws-root-0.05em,signal,113,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,1,0.8px
+0,ss-ws-root-0.05em,site-plan,113,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,1,0.8px
+0,ss-ws-root-0.05em,site-report,113,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,1,0.8px
+0,ss-ws-root-0.05em,specification,119,1,1,1,0,1,Lora|Source Sans 3,1,0.8px
+0,ss-ws-root-0.05em,sprint-board,113,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,2,0.8px
+0,ss-ws-root-0.05em,stack-trace,113,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,2,0.8px
+0,ss-ws-root-0.05em,statute,111,0,0,0,0,0,Newsreader,2,0.8px
+0,ss-ws-root-0.05em,structured-admin,113,3,0,3,0,3,Newsreader|Source Sans 3,1,0.8px
+0,ss-ws-root-0.05em,studio-brief,113,0,0,0,0,0,Lora|Source Sans 3|Work Sans,1,0.8px
+0,ss-ws-root-0.05em,success-story,119,0,0,0,0,0,Newsreader|Source Sans 3|Work Sans,1,0.8px
+0,ss-ws-root-0.05em,supply-chain,113,0,0,0,0,0,Barlow Condensed|Source Sans 3|Work Sans,1,0.8px
+0,ss-ws-root-0.05em,terminal,113,1,1,1,0,3,Barlow Condensed|Source Sans 3,1,0.8px
+0,ss-ws-root-0.05em,uptime,113,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,2,0.8px
+0,ss-ws-root-0.05em,value-chain,113,0,0,0,0,0,Work Sans|Source Sans 3,1,0.8px
+0,ss-ws-root-0.05em,wellhead,113,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,1,0.8px
+0,ss-ws-root-0.1em,balance-sheet,119,3,0,3,0,3,Lora|Source Sans 3,1,1.6px
+0,ss-ws-root-0.1em,blueprint,113,0,0,0,0,0,Barlow Condensed|Source Sans 3|Work Sans,2,1.6px
+0,ss-ws-root-0.1em,business-boardroom,119,0,0,0,0,0,Lora|Source Sans 3|Work Sans,1,1.6px
+0,ss-ws-root-0.1em,business-memo,118,3,0,3,0,3,Lora|Source Sans 3,1,1.6px
+0,ss-ws-root-0.1em,byline,119,0,0,0,0,0,Lora|Source Sans 3|Work Sans,1,1.6px
+0,ss-ws-root-0.1em,care-plan,113,3,0,3,0,3,Source Sans 3,1,1.6px
+0,ss-ws-root-0.1em,chambers,113,3,0,3,0,3,Newsreader|Source Sans 3,1,1.6px
+0,ss-ws-root-0.1em,civic-record,113,1,0,1,0,1,Newsreader|Source Sans 3,1,1.6px
+0,ss-ws-root-0.1em,clean-professional,113,3,0,3,0,3,Newsreader|Source Sans 3,1,1.6px
+0,ss-ws-root-0.1em,clinical,113,0,0,0,0,0,Newsreader|Source Sans 3,1,1.6px
+0,ss-ws-root-0.1em,compliance-brief,113,3,0,3,0,3,Newsreader|Source Sans 3,1,1.6px
+0,ss-ws-root-0.1em,concierge,118,0,0,0,0,0,Lora|Source Sans 3|Work Sans,1,1.6px
+0,ss-ws-root-0.1em,critical-path,110,0,0,1,0,1,Newsreader|Source Sans 3,1,1.6px
+0,ss-ws-root-0.1em,curriculum-vitae,119,0,0,0,0,0,Lora|Source Sans 3|Work Sans,1,1.6px
+0,ss-ws-root-0.1em,design-showcase,113,0,0,0,0,0,Lora|Source Sans 3|Work Sans,2,1.6px
+0,ss-ws-root-0.1em,faculty-profile,118,0,0,0,0,0,Lora|Source Sans 3|Work Sans,1,1.6px
+0,ss-ws-root-0.1em,field-mission,119,0,0,0,0,0,Work Sans|Source Sans 3,1,1.6px
+0,ss-ws-root-0.1em,field-notes,113,1,0,1,0,3,Barlow Condensed|Source Sans 3,1,1.6px
+0,ss-ws-root-0.1em,field-season,113,0,0,0,0,0,Work Sans|Source Sans 3,1,1.6px
+0,ss-ws-root-0.1em,filing-system,113,1,0,1,0,1,Newsreader|Source Sans 3,1,1.6px
+0,ss-ws-root-0.1em,foundation,113,3,0,3,0,3,Barlow Condensed|Source Sans 3,1,1.6px
+0,ss-ws-root-0.1em,front-desk,120,0,0,0,0,0,Work Sans|Source Sans 3,1,1.6px
+0,ss-ws-root-0.1em,front-office,113,0,0,0,0,0,Work Sans|Source Sans 3,1,1.6px
+0,ss-ws-root-0.1em,funnel,113,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,1,1.6px
+0,ss-ws-root-0.1em,gantt,113,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,1,1.6px
+0,ss-ws-root-0.1em,gazette,113,3,0,3,0,3,Newsreader|Source Sans 3,1,1.6px
+0,ss-ws-root-0.1em,grant-proposal,118,0,0,0,0,0,Work Sans|Source Sans 3,1,1.6px
+0,ss-ws-root-0.1em,harvest,113,1,0,1,0,1,Work Sans|Source Sans 3,1,1.6px
+0,ss-ws-root-0.1em,help-desk,119,3,0,6,0,6,Source Sans 3,1,1.6px
+0,ss-ws-root-0.1em,impact-report,113,0,0,0,0,0,Newsreader|Source Sans 3|Work Sans,1,1.6px
+0,ss-ws-root-0.1em,itinerary,113,1,0,1,0,0,Work Sans|Source Sans 3,1,1.6px
+0,ss-ws-root-0.1em,lecture-notes,113,1,0,1,0,0,Lora|Source Sans 3|Work Sans,1,1.6px
+0,ss-ws-root-0.1em,ledger,113,3,0,3,0,3,Newsreader|Source Sans 3,1,1.6px
+0,ss-ws-root-0.1em,legal-brief,113,1,0,1,0,0,Lora|Source Sans 3|Work Sans,1,1.6px
+0,ss-ws-root-0.1em,manifest,113,3,0,3,0,3,Barlow Condensed|Source Sans 3,1,1.6px
+0,ss-ws-root-0.1em,network-ops,113,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,1,1.6px
+0,ss-ws-root-0.1em,offshore,113,3,0,3,0,3,Poppins|Source Sans 3,1,1.6px
+0,ss-ws-root-0.1em,pipeline,98,0,0,1,0,1,Newsreader|Source Sans 3,1,1.6px
+0,ss-ws-root-0.1em,pitch-deck,113,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,1,1.6px
+0,ss-ws-root-0.1em,portfolio-grid,112,0,0,0,0,0,Newsreader|Source Sans 3,1,1.6px
+0,ss-ws-root-0.1em,press-kit,113,0,0,0,0,0,Lora|Source Sans 3|Work Sans,1,1.6px
+0,ss-ws-root-0.1em,product-tech,113,0,0,0,0,0,Barlow Condensed|Source Sans 3|Work Sans,1,1.6px
+0,ss-ws-root-0.1em,property-portfolio,113,0,0,0,0,0,Lora|Source Sans 3|Work Sans,2,1.6px
+0,ss-ws-root-0.1em,public-record,113,0,0,0,0,0,Newsreader|Source Sans 3,2,1.6px
+0,ss-ws-root-0.1em,reel,113,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,2,1.6px
+0,ss-ws-root-0.1em,research-record,119,0,0,0,0,0,Lora|Source Sans 3|Work Sans,1,1.6px
+0,ss-ws-root-0.1em,rig-report,113,1,0,1,0,0,Poppins|Source Sans 3|Work Sans,1,1.6px
+0,ss-ws-root-0.1em,rounds,119,3,0,3,0,3,Newsreader|Source Sans 3,1,1.6px
+0,ss-ws-root-0.1em,route-plan,113,0,0,0,0,0,Barlow Condensed|Source Sans 3|Work Sans,1,1.6px
+0,ss-ws-root-0.1em,schematic,118,3,0,3,0,3,Barlow Condensed|Source Sans 3|Work Sans,2,1.6px
+0,ss-ws-root-0.1em,signal,113,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,1,1.6px
+0,ss-ws-root-0.1em,site-plan,113,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,1,1.6px
+0,ss-ws-root-0.1em,site-report,113,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,1,1.6px
+0,ss-ws-root-0.1em,specification,119,1,0,1,0,1,Lora|Source Sans 3,1,1.6px
+0,ss-ws-root-0.1em,sprint-board,113,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,2,1.6px
+0,ss-ws-root-0.1em,stack-trace,113,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,2,1.6px
+0,ss-ws-root-0.1em,statute,111,0,0,0,0,0,Newsreader,2,1.6px
+0,ss-ws-root-0.1em,structured-admin,113,3,0,3,0,3,Newsreader|Source Sans 3,1,1.6px
+0,ss-ws-root-0.1em,studio-brief,113,0,0,0,0,0,Lora|Source Sans 3|Work Sans,1,1.6px
+0,ss-ws-root-0.1em,success-story,119,0,0,0,0,0,Newsreader|Source Sans 3|Work Sans,1,1.6px
+0,ss-ws-root-0.1em,supply-chain,113,0,0,0,0,0,Barlow Condensed|Source Sans 3|Work Sans,1,1.6px
+0,ss-ws-root-0.1em,terminal,113,1,0,1,0,3,Barlow Condensed|Source Sans 3,1,1.6px
+0,ss-ws-root-0.1em,uptime,113,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,2,1.6px
+0,ss-ws-root-0.1em,value-chain,113,0,0,0,0,0,Work Sans|Source Sans 3,1,1.6px
+0,ss-ws-root-0.1em,wellhead,113,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,1,1.6px
+0,ss-ws0,balance-sheet,119,3,30,3,0,3,Lora|Source Sans 3,1,0px
+0,ss-ws0,blueprint,113,0,22,0,0,0,Barlow Condensed|Source Sans 3|Work Sans,2,0px
+0,ss-ws0,business-boardroom,119,0,29,0,0,0,Lora|Source Sans 3|Work Sans,1,0px
+0,ss-ws0,business-memo,118,3,33,3,0,3,Lora|Source Sans 3,1,0px
+0,ss-ws0,byline,119,0,32,0,0,0,Lora|Source Sans 3|Work Sans,1,0px
+0,ss-ws0,care-plan,113,3,33,3,0,3,Source Sans 3,1,0px
+0,ss-ws0,chambers,113,3,30,3,0,3,Newsreader|Source Sans 3,1,0px
+0,ss-ws0,civic-record,113,1,50,1,0,1,Newsreader|Source Sans 3,1,0px
+0,ss-ws0,clean-professional,113,3,33,3,0,3,Newsreader|Source Sans 3,1,0px
+0,ss-ws0,clinical,113,0,14,0,0,0,Newsreader|Source Sans 3,1,0px
+0,ss-ws0,compliance-brief,113,3,33,3,0,3,Newsreader|Source Sans 3,1,0px
+0,ss-ws0,concierge,118,0,29,0,0,0,Lora|Source Sans 3|Work Sans,1,0px
+0,ss-ws0,critical-path,110,0,31,1,0,1,Newsreader|Source Sans 3,1,0px
+0,ss-ws0,curriculum-vitae,119,0,32,0,0,0,Lora|Source Sans 3|Work Sans,1,0px
+0,ss-ws0,design-showcase,113,0,24,0,0,0,Lora|Source Sans 3|Work Sans,2,0px
+0,ss-ws0,faculty-profile,118,0,29,0,0,0,Lora|Source Sans 3|Work Sans,1,0px
+0,ss-ws0,field-mission,119,0,32,0,0,0,Work Sans|Source Sans 3,1,0px
+0,ss-ws0,field-notes,113,1,49,1,0,3,Barlow Condensed|Source Sans 3,1,0px
+0,ss-ws0,field-season,113,0,32,0,0,0,Work Sans|Source Sans 3,1,0px
+0,ss-ws0,filing-system,113,1,50,1,0,1,Newsreader|Source Sans 3,1,0px
+0,ss-ws0,foundation,113,3,33,3,0,3,Barlow Condensed|Source Sans 3,1,0px
+0,ss-ws0,front-desk,120,0,32,0,0,0,Work Sans|Source Sans 3,1,0px
+0,ss-ws0,front-office,113,0,29,0,0,0,Work Sans|Source Sans 3,1,0px
+0,ss-ws0,funnel,113,0,29,0,0,0,Poppins|Source Sans 3|Work Sans,1,0px
+0,ss-ws0,gantt,113,0,32,0,0,0,Poppins|Source Sans 3|Work Sans,1,0px
+0,ss-ws0,gazette,113,3,33,3,0,3,Newsreader|Source Sans 3,1,0px
+0,ss-ws0,grant-proposal,118,0,29,0,0,0,Work Sans|Source Sans 3,1,0px
+0,ss-ws0,harvest,113,1,50,1,0,1,Work Sans|Source Sans 3,1,0px
+0,ss-ws0,help-desk,119,3,32,6,0,6,Source Sans 3,1,0px
+0,ss-ws0,impact-report,113,0,32,0,0,0,Newsreader|Source Sans 3|Work Sans,1,0px
+0,ss-ws0,itinerary,113,1,49,1,0,0,Work Sans|Source Sans 3,1,0px
+0,ss-ws0,lecture-notes,113,1,49,1,0,0,Lora|Source Sans 3|Work Sans,1,0px
+0,ss-ws0,ledger,113,3,33,3,0,3,Newsreader|Source Sans 3,1,0px
+0,ss-ws0,legal-brief,113,1,49,1,0,0,Lora|Source Sans 3|Work Sans,1,0px
+0,ss-ws0,manifest,113,3,33,3,0,3,Barlow Condensed|Source Sans 3,1,0px
+0,ss-ws0,network-ops,113,0,32,0,0,0,Poppins|Source Sans 3|Work Sans,1,0px
+0,ss-ws0,offshore,113,3,33,3,0,3,Poppins|Source Sans 3,1,0px
+0,ss-ws0,pipeline,98,0,12,1,0,1,Newsreader|Source Sans 3,1,0px
+0,ss-ws0,pitch-deck,113,0,29,0,0,0,Poppins|Source Sans 3|Work Sans,1,0px
+0,ss-ws0,portfolio-grid,112,0,10,0,0,0,Newsreader|Source Sans 3,1,0px
+0,ss-ws0,press-kit,113,0,29,0,0,0,Lora|Source Sans 3|Work Sans,1,0px
+0,ss-ws0,product-tech,113,0,29,0,0,0,Barlow Condensed|Source Sans 3|Work Sans,1,0px
+0,ss-ws0,property-portfolio,113,0,29,0,0,0,Lora|Source Sans 3|Work Sans,2,0px
+0,ss-ws0,public-record,113,0,41,0,0,0,Newsreader|Source Sans 3,2,0px
+0,ss-ws0,reel,113,0,24,0,0,0,Poppins|Source Sans 3|Work Sans,2,0px
+0,ss-ws0,research-record,119,0,31,0,0,0,Lora|Source Sans 3|Work Sans,1,0px
+0,ss-ws0,rig-report,113,1,49,1,0,0,Poppins|Source Sans 3|Work Sans,1,0px
+0,ss-ws0,rounds,119,3,33,3,0,3,Newsreader|Source Sans 3,1,0px
+0,ss-ws0,route-plan,113,0,32,0,0,0,Barlow Condensed|Source Sans 3|Work Sans,1,0px
+0,ss-ws0,schematic,118,3,24,3,0,3,Barlow Condensed|Source Sans 3|Work Sans,2,0px
+0,ss-ws0,signal,113,0,29,0,0,0,Poppins|Source Sans 3|Work Sans,1,0px
+0,ss-ws0,site-plan,113,0,32,0,0,0,Poppins|Source Sans 3|Work Sans,1,0px
+0,ss-ws0,site-report,113,0,32,0,0,0,Poppins|Source Sans 3|Work Sans,1,0px
+0,ss-ws0,specification,119,1,50,1,0,1,Lora|Source Sans 3,1,0px
+0,ss-ws0,sprint-board,113,0,29,0,0,0,Poppins|Source Sans 3|Work Sans,2,0px
+0,ss-ws0,stack-trace,113,0,29,0,0,0,Poppins|Source Sans 3|Work Sans,2,0px
+0,ss-ws0,statute,111,0,0,0,0,0,Newsreader,2,0px
+0,ss-ws0,structured-admin,113,3,33,3,0,3,Newsreader|Source Sans 3,1,0px
+0,ss-ws0,studio-brief,113,0,29,0,0,0,Lora|Source Sans 3|Work Sans,1,0px
+0,ss-ws0,success-story,119,0,32,0,0,0,Newsreader|Source Sans 3|Work Sans,1,0px
+0,ss-ws0,supply-chain,113,0,29,0,0,0,Barlow Condensed|Source Sans 3|Work Sans,1,0px
+0,ss-ws0,terminal,113,1,49,1,0,3,Barlow Condensed|Source Sans 3,1,0px
+0,ss-ws0,uptime,113,0,29,0,0,0,Poppins|Source Sans 3|Work Sans,2,0px
+0,ss-ws0,value-chain,113,0,29,0,0,0,Work Sans|Source Sans 3,1,0px
+0,ss-ws0,wellhead,113,0,29,0,0,0,Poppins|Source Sans 3|Work Sans,1,0px
+1,ss-ws-each-0.02em,balance-sheet,154,3,23,3,0,4,Lora|Source Sans 3,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+1,ss-ws-each-0.02em,blueprint,148,0,13,0,0,0,Barlow Condensed|Source Sans 3|Work Sans,2,0.24px|0.25px|0.26px|0.29px|0.32px|0.3px|0.68px
+1,ss-ws-each-0.02em,business-boardroom,154,0,23,0,0,1,Lora|Source Sans 3|Work Sans,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.56px
+1,ss-ws-each-0.02em,business-memo,153,3,25,3,0,4,Lora|Source Sans 3,2,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+1,ss-ws-each-0.02em,byline,154,0,25,0,0,1,Lora|Source Sans 3|Work Sans,2,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.56px
+1,ss-ws-each-0.02em,care-plan,148,3,25,3,0,4,Source Sans 3,2,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+1,ss-ws-each-0.02em,chambers,148,3,23,3,0,4,Newsreader|Source Sans 3,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.56px
+1,ss-ws-each-0.02em,civic-record,148,1,58,1,0,1,Newsreader|Source Sans 3,1,0.22px|0.24px|0.25px|0.26px|0.27px|0.29px|0.44px
+1,ss-ws-each-0.02em,clean-professional,148,3,25,3,0,4,Newsreader|Source Sans 3,2,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.56px
+1,ss-ws-each-0.02em,clinical,148,0,5,0,0,0,Newsreader|Source Sans 3,2,0.22px|0.23px|0.24px|0.25px|0.26px|0.27px|0.28px|0.52px
+1,ss-ws-each-0.02em,compliance-brief,148,3,25,3,0,4,Newsreader|Source Sans 3,2,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+1,ss-ws-each-0.02em,concierge,153,0,23,0,0,1,Lora|Source Sans 3|Work Sans,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+1,ss-ws-each-0.02em,critical-path,144,0,29,1,0,2,Newsreader|Source Sans 3,1,0.22px|0.23px|0.24px|0.26px|0.27px|0.28px|0.3px|0.56px
+1,ss-ws-each-0.02em,curriculum-vitae,154,0,25,0,0,1,Lora|Source Sans 3|Work Sans,2,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+1,ss-ws-each-0.02em,design-showcase,148,0,14,0,0,0,Lora|Source Sans 3|Work Sans,2,0.22px|0.24px|0.25px|0.26px|0.27px|0.29px|0.32px|0.3px|0.68px
+1,ss-ws-each-0.02em,faculty-profile,153,0,23,0,0,1,Lora|Source Sans 3|Work Sans,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+1,ss-ws-each-0.02em,field-mission,154,0,25,0,0,1,Work Sans|Source Sans 3,2,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+1,ss-ws-each-0.02em,field-notes,148,1,58,1,0,1,Barlow Condensed|Source Sans 3,1,0.22px|0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.44px
+1,ss-ws-each-0.02em,field-season,148,0,25,0,0,1,Work Sans|Source Sans 3,2,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+1,ss-ws-each-0.02em,filing-system,148,1,58,1,0,1,Newsreader|Source Sans 3,1,0.22px|0.24px|0.25px|0.26px|0.27px|0.29px|0.44px
+1,ss-ws-each-0.02em,foundation,148,3,25,3,0,4,Barlow Condensed|Source Sans 3,2,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+1,ss-ws-each-0.02em,front-desk,155,0,25,0,0,1,Work Sans|Source Sans 3,2,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+1,ss-ws-each-0.02em,front-office,148,0,23,0,0,1,Work Sans|Source Sans 3,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+1,ss-ws-each-0.02em,funnel,148,0,23,0,0,1,Poppins|Source Sans 3|Work Sans,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+1,ss-ws-each-0.02em,gantt,148,0,25,0,0,1,Poppins|Source Sans 3|Work Sans,2,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.56px
+1,ss-ws-each-0.02em,gazette,148,3,25,3,0,4,Newsreader|Source Sans 3,2,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.56px
+1,ss-ws-each-0.02em,grant-proposal,153,0,23,0,0,1,Work Sans|Source Sans 3,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+1,ss-ws-each-0.02em,harvest,148,1,58,1,0,1,Work Sans|Source Sans 3,1,0.22px|0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.44px
+1,ss-ws-each-0.02em,help-desk,154,3,25,5,0,6,Source Sans 3,2,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+1,ss-ws-each-0.02em,impact-report,148,0,25,0,0,1,Newsreader|Source Sans 3|Work Sans,2,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+1,ss-ws-each-0.02em,itinerary,148,2,58,2,0,0,Work Sans|Source Sans 3,1,0.22px|0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.44px
+1,ss-ws-each-0.02em,lecture-notes,148,2,58,2,0,0,Lora|Source Sans 3|Work Sans,1,0.22px|0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.44px
+1,ss-ws-each-0.02em,ledger,148,3,25,3,0,4,Newsreader|Source Sans 3,2,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.56px
+1,ss-ws-each-0.02em,legal-brief,148,2,58,2,0,0,Lora|Source Sans 3|Work Sans,1,0.22px|0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.44px
+1,ss-ws-each-0.02em,manifest,148,3,25,3,0,4,Barlow Condensed|Source Sans 3,2,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+1,ss-ws-each-0.02em,network-ops,148,0,25,0,0,1,Poppins|Source Sans 3|Work Sans,2,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+1,ss-ws-each-0.02em,offshore,148,3,25,3,0,4,Poppins|Source Sans 3,2,0.22px|0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.68px
+1,ss-ws-each-0.02em,pipeline,134,1,8,2,0,2,Newsreader|Source Sans 3,2,0.22px|0.24px|0.25px|0.26px|0.27px|0.28px|0.31px|0.34px|0.6px
+1,ss-ws-each-0.02em,pitch-deck,148,0,25,0,0,1,Poppins|Source Sans 3|Work Sans,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.56px
+1,ss-ws-each-0.02em,portfolio-grid,144,0,0,0,0,0,Newsreader|Source Sans 3,1,0.22px|0.23px|0.25px|0.26px|0.27px|0.28px|0.32px|0.64px
+1,ss-ws-each-0.02em,press-kit,148,0,25,0,0,1,Lora|Source Sans 3|Work Sans,2,0.22px|0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.68px
+1,ss-ws-each-0.02em,product-tech,148,0,25,0,0,1,Barlow Condensed|Source Sans 3|Work Sans,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.44px
+1,ss-ws-each-0.02em,property-portfolio,148,0,25,0,0,1,Lora|Source Sans 3|Work Sans,2,0.22px|0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.56px
+1,ss-ws-each-0.02em,public-record,148,0,27,0,0,1,Newsreader|Source Sans 3,2,0.22px|0.27px|0.52px
+1,ss-ws-each-0.02em,reel,148,0,14,0,0,0,Poppins|Source Sans 3|Work Sans,2,0.22px|0.24px|0.25px|0.26px|0.27px|0.29px|0.32px|0.3px|0.68px
+1,ss-ws-each-0.02em,research-record,154,0,25,0,0,1,Lora|Source Sans 3|Work Sans,2,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+1,ss-ws-each-0.02em,rig-report,148,2,58,2,0,0,Poppins|Source Sans 3|Work Sans,1,0.22px|0.24px|0.25px|0.26px|0.27px|0.29px|0.52px
+1,ss-ws-each-0.02em,rounds,154,3,25,3,0,4,Newsreader|Source Sans 3,2,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+1,ss-ws-each-0.02em,route-plan,148,0,25,0,0,1,Barlow Condensed|Source Sans 3|Work Sans,2,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+1,ss-ws-each-0.02em,schematic,153,3,14,3,0,3,Barlow Condensed|Source Sans 3|Work Sans,2,0.22px|0.24px|0.25px|0.26px|0.27px|0.29px|0.32px|0.3px|0.44px
+1,ss-ws-each-0.02em,signal,148,0,25,0,0,1,Poppins|Source Sans 3|Work Sans,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.56px
+1,ss-ws-each-0.02em,site-plan,148,0,25,0,0,1,Poppins|Source Sans 3|Work Sans,2,0.22px|0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.56px
+1,ss-ws-each-0.02em,site-report,148,0,25,0,0,1,Poppins|Source Sans 3|Work Sans,2,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+1,ss-ws-each-0.02em,specification,154,1,58,1,0,1,Lora|Source Sans 3,1,0.22px|0.24px|0.25px|0.26px|0.27px|0.29px|0.52px
+1,ss-ws-each-0.02em,sprint-board,148,0,25,0,0,1,Poppins|Source Sans 3|Work Sans,2,0.22px|0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+1,ss-ws-each-0.02em,stack-trace,148,0,25,0,0,1,Poppins|Source Sans 3|Work Sans,2,0.22px|0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.56px
+1,ss-ws-each-0.02em,statute,146,0,0,0,0,0,Newsreader,2,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.54px
+1,ss-ws-each-0.02em,structured-admin,148,3,25,3,0,4,Newsreader|Source Sans 3,2,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+1,ss-ws-each-0.02em,studio-brief,148,0,25,0,0,1,Lora|Source Sans 3|Work Sans,2,0.22px|0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.68px
+1,ss-ws-each-0.02em,success-story,154,0,25,0,0,1,Newsreader|Source Sans 3|Work Sans,2,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.56px
+1,ss-ws-each-0.02em,supply-chain,148,0,23,0,0,1,Barlow Condensed|Source Sans 3|Work Sans,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+1,ss-ws-each-0.02em,terminal,148,1,58,1,0,1,Barlow Condensed|Source Sans 3,1,0.22px|0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.44px
+1,ss-ws-each-0.02em,uptime,148,0,25,0,0,1,Poppins|Source Sans 3|Work Sans,2,0.22px|0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.56px
+1,ss-ws-each-0.02em,value-chain,148,0,23,0,0,1,Work Sans|Source Sans 3,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+1,ss-ws-each-0.02em,wellhead,148,0,23,0,0,1,Poppins|Source Sans 3|Work Sans,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+1,ss-ws-each-0.05em,balance-sheet,154,3,0,3,0,4,Lora|Source Sans 3,2,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+1,ss-ws-each-0.05em,blueprint,148,0,5,0,0,0,Barlow Condensed|Source Sans 3|Work Sans,2,0.625px|0.65px|0.6px|0.725px|0.75px|0.8px|1.7px
+1,ss-ws-each-0.05em,business-boardroom,154,0,0,0,0,1,Lora|Source Sans 3|Work Sans,2,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.4px
+1,ss-ws-each-0.05em,business-memo,153,3,0,3,0,4,Lora|Source Sans 3,2,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+1,ss-ws-each-0.05em,byline,154,0,0,0,0,1,Lora|Source Sans 3|Work Sans,2,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.4px
+1,ss-ws-each-0.05em,care-plan,148,3,0,3,0,4,Source Sans 3,2,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+1,ss-ws-each-0.05em,chambers,148,3,0,3,0,4,Newsreader|Source Sans 3,1,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.4px
+1,ss-ws-each-0.05em,civic-record,148,1,6,1,0,1,Newsreader|Source Sans 3,1,0.55px|0.625px|0.65px|0.675px|0.6px|0.725px|1.1px
+1,ss-ws-each-0.05em,clean-professional,148,3,0,3,0,4,Newsreader|Source Sans 3,2,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.4px
+1,ss-ws-each-0.05em,clinical,148,0,0,0,0,0,Newsreader|Source Sans 3,2,0.55px|0.575px|0.625px|0.65px|0.675px|0.6px|0.7px|1.3px
+1,ss-ws-each-0.05em,compliance-brief,148,3,0,3,0,4,Newsreader|Source Sans 3,2,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+1,ss-ws-each-0.05em,concierge,153,0,0,0,0,1,Lora|Source Sans 3|Work Sans,2,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+1,ss-ws-each-0.05em,critical-path,144,0,0,1,0,2,Newsreader|Source Sans 3,1,0.55px|0.575px|0.65px|0.675px|0.6px|0.75px|0.7px|1.4px
+1,ss-ws-each-0.05em,curriculum-vitae,154,0,0,0,0,1,Lora|Source Sans 3|Work Sans,2,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+1,ss-ws-each-0.05em,design-showcase,148,0,4,0,0,0,Lora|Source Sans 3|Work Sans,2,0.55px|0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.8px|1.7px
+1,ss-ws-each-0.05em,faculty-profile,153,0,0,0,0,1,Lora|Source Sans 3|Work Sans,2,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+1,ss-ws-each-0.05em,field-mission,154,0,0,0,0,1,Work Sans|Source Sans 3,2,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+1,ss-ws-each-0.05em,field-notes,148,1,6,1,0,1,Barlow Condensed|Source Sans 3,1,0.55px|0.625px|0.65px|0.675px|0.6px|0.725px|0.7px|1.1px
+1,ss-ws-each-0.05em,field-season,148,0,0,0,0,1,Work Sans|Source Sans 3,2,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+1,ss-ws-each-0.05em,filing-system,148,1,6,1,0,1,Newsreader|Source Sans 3,1,0.55px|0.625px|0.65px|0.675px|0.6px|0.725px|1.1px
+1,ss-ws-each-0.05em,foundation,148,3,0,3,0,4,Barlow Condensed|Source Sans 3,2,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+1,ss-ws-each-0.05em,front-desk,155,0,0,0,0,1,Work Sans|Source Sans 3,2,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+1,ss-ws-each-0.05em,front-office,148,0,0,0,0,1,Work Sans|Source Sans 3,2,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+1,ss-ws-each-0.05em,funnel,148,0,0,0,0,1,Poppins|Source Sans 3|Work Sans,2,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+1,ss-ws-each-0.05em,gantt,148,0,0,0,0,1,Poppins|Source Sans 3|Work Sans,2,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.4px
+1,ss-ws-each-0.05em,gazette,148,3,0,3,0,4,Newsreader|Source Sans 3,2,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.4px
+1,ss-ws-each-0.05em,grant-proposal,153,0,0,0,0,1,Work Sans|Source Sans 3,2,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+1,ss-ws-each-0.05em,harvest,148,1,6,1,0,1,Work Sans|Source Sans 3,1,0.55px|0.625px|0.65px|0.675px|0.6px|0.725px|0.7px|1.1px
+1,ss-ws-each-0.05em,help-desk,154,3,0,5,0,6,Source Sans 3,2,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+1,ss-ws-each-0.05em,impact-report,148,0,0,0,0,1,Newsreader|Source Sans 3|Work Sans,2,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+1,ss-ws-each-0.05em,itinerary,148,2,6,2,0,0,Work Sans|Source Sans 3,1,0.55px|0.625px|0.65px|0.675px|0.6px|0.725px|0.7px|1.1px
+1,ss-ws-each-0.05em,lecture-notes,148,2,6,2,0,0,Lora|Source Sans 3|Work Sans,1,0.55px|0.625px|0.65px|0.675px|0.6px|0.725px|0.7px|1.1px
+1,ss-ws-each-0.05em,ledger,148,3,0,3,0,4,Newsreader|Source Sans 3,2,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.4px
+1,ss-ws-each-0.05em,legal-brief,148,2,6,2,0,0,Lora|Source Sans 3|Work Sans,1,0.55px|0.625px|0.65px|0.675px|0.6px|0.725px|0.7px|1.1px
+1,ss-ws-each-0.05em,manifest,148,3,0,3,0,4,Barlow Condensed|Source Sans 3,2,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+1,ss-ws-each-0.05em,network-ops,148,0,0,0,0,1,Poppins|Source Sans 3|Work Sans,2,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+1,ss-ws-each-0.05em,offshore,148,3,0,3,0,4,Poppins|Source Sans 3,2,0.55px|0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.7px
+1,ss-ws-each-0.05em,pipeline,134,1,0,2,0,2,Newsreader|Source Sans 3,2,0.55px|0.625px|0.65px|0.675px|0.6px|0.775px|0.7px|0.85px|1.5px
+1,ss-ws-each-0.05em,pitch-deck,148,0,0,0,0,1,Poppins|Source Sans 3|Work Sans,1,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.4px
+1,ss-ws-each-0.05em,portfolio-grid,144,0,0,0,0,0,Newsreader|Source Sans 3,1,0.55px|0.575px|0.625px|0.65px|0.675px|0.7px|0.8px|1.6px
+1,ss-ws-each-0.05em,press-kit,148,0,0,0,0,1,Lora|Source Sans 3|Work Sans,2,0.55px|0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.7px
+1,ss-ws-each-0.05em,product-tech,148,0,0,0,0,1,Barlow Condensed|Source Sans 3|Work Sans,1,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.1px
+1,ss-ws-each-0.05em,property-portfolio,148,0,0,0,0,1,Lora|Source Sans 3|Work Sans,2,0.55px|0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.4px
+1,ss-ws-each-0.05em,public-record,148,0,0,0,0,1,Newsreader|Source Sans 3,2,0.55px|0.675px|1.3px
+1,ss-ws-each-0.05em,reel,148,0,4,0,0,0,Poppins|Source Sans 3|Work Sans,2,0.55px|0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.8px|1.7px
+1,ss-ws-each-0.05em,research-record,154,0,0,0,0,1,Lora|Source Sans 3|Work Sans,2,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+1,ss-ws-each-0.05em,rig-report,148,2,6,2,0,0,Poppins|Source Sans 3|Work Sans,1,0.55px|0.625px|0.65px|0.675px|0.6px|0.725px|1.3px
+1,ss-ws-each-0.05em,rounds,154,3,0,3,0,4,Newsreader|Source Sans 3,2,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+1,ss-ws-each-0.05em,route-plan,148,0,0,0,0,1,Barlow Condensed|Source Sans 3|Work Sans,2,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+1,ss-ws-each-0.05em,schematic,153,3,4,3,0,3,Barlow Condensed|Source Sans 3|Work Sans,2,0.55px|0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.8px|1.1px
+1,ss-ws-each-0.05em,signal,148,0,0,0,0,1,Poppins|Source Sans 3|Work Sans,1,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.4px
+1,ss-ws-each-0.05em,site-plan,148,0,0,0,0,1,Poppins|Source Sans 3|Work Sans,2,0.55px|0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.4px
+1,ss-ws-each-0.05em,site-report,148,0,0,0,0,1,Poppins|Source Sans 3|Work Sans,2,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+1,ss-ws-each-0.05em,specification,154,1,6,1,0,1,Lora|Source Sans 3,1,0.55px|0.625px|0.65px|0.675px|0.6px|0.725px|1.3px
+1,ss-ws-each-0.05em,sprint-board,148,0,0,0,0,1,Poppins|Source Sans 3|Work Sans,2,0.55px|0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+1,ss-ws-each-0.05em,stack-trace,148,0,0,0,0,1,Poppins|Source Sans 3|Work Sans,2,0.55px|0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.4px
+1,ss-ws-each-0.05em,statute,146,0,0,0,0,0,Newsreader,2,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.35px
+1,ss-ws-each-0.05em,structured-admin,148,3,0,3,0,4,Newsreader|Source Sans 3,2,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+1,ss-ws-each-0.05em,studio-brief,148,0,0,0,0,1,Lora|Source Sans 3|Work Sans,2,0.55px|0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.7px
+1,ss-ws-each-0.05em,success-story,154,0,0,0,0,1,Newsreader|Source Sans 3|Work Sans,2,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.4px
+1,ss-ws-each-0.05em,supply-chain,148,0,0,0,0,1,Barlow Condensed|Source Sans 3|Work Sans,2,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+1,ss-ws-each-0.05em,terminal,148,1,6,1,0,1,Barlow Condensed|Source Sans 3,1,0.55px|0.625px|0.65px|0.675px|0.6px|0.725px|0.7px|1.1px
+1,ss-ws-each-0.05em,uptime,148,0,0,0,0,1,Poppins|Source Sans 3|Work Sans,2,0.55px|0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.4px
+1,ss-ws-each-0.05em,value-chain,148,0,0,0,0,1,Work Sans|Source Sans 3,2,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+1,ss-ws-each-0.05em,wellhead,148,0,0,0,0,1,Poppins|Source Sans 3|Work Sans,2,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+1,ss-ws-each-0.1em,balance-sheet,154,3,0,3,0,4,Lora|Source Sans 3,2,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+1,ss-ws-each-0.1em,blueprint,148,0,0,0,0,0,Barlow Condensed|Source Sans 3|Work Sans,2,1.25px|1.2px|1.3px|1.45px|1.5px|1.6px|3.4px
+1,ss-ws-each-0.1em,business-boardroom,154,0,0,0,0,1,Lora|Source Sans 3|Work Sans,2,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.8px
+1,ss-ws-each-0.1em,business-memo,153,3,0,3,0,4,Lora|Source Sans 3,2,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+1,ss-ws-each-0.1em,byline,154,0,0,0,0,1,Lora|Source Sans 3|Work Sans,2,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.8px
+1,ss-ws-each-0.1em,care-plan,148,3,0,3,0,4,Source Sans 3,2,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+1,ss-ws-each-0.1em,chambers,148,3,0,3,0,4,Newsreader|Source Sans 3,2,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.8px
+1,ss-ws-each-0.1em,civic-record,148,1,0,1,0,1,Newsreader|Source Sans 3,1,1.1px|1.25px|1.2px|1.35px|1.3px|1.45px|2.2px
+1,ss-ws-each-0.1em,clean-professional,148,3,0,3,0,4,Newsreader|Source Sans 3,2,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.8px
+1,ss-ws-each-0.1em,clinical,148,0,0,0,0,0,Newsreader|Source Sans 3,2,1.15px|1.1px|1.25px|1.2px|1.35px|1.3px|1.4px|2.6px
+1,ss-ws-each-0.1em,compliance-brief,148,3,0,3,0,4,Newsreader|Source Sans 3,2,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+1,ss-ws-each-0.1em,concierge,153,0,0,0,0,1,Lora|Source Sans 3|Work Sans,2,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+1,ss-ws-each-0.1em,critical-path,144,0,0,1,0,2,Newsreader|Source Sans 3,1,1.15px|1.1px|1.2px|1.35px|1.3px|1.4px|1.5px|2.8px
+1,ss-ws-each-0.1em,curriculum-vitae,154,0,0,0,0,1,Lora|Source Sans 3|Work Sans,2,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+1,ss-ws-each-0.1em,design-showcase,148,0,0,0,0,0,Lora|Source Sans 3|Work Sans,2,1.1px|1.25px|1.2px|1.35px|1.3px|1.45px|1.5px|1.6px|3.4px
+1,ss-ws-each-0.1em,faculty-profile,153,0,0,0,0,1,Lora|Source Sans 3|Work Sans,2,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+1,ss-ws-each-0.1em,field-mission,154,0,0,0,0,1,Work Sans|Source Sans 3,2,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+1,ss-ws-each-0.1em,field-notes,148,1,0,1,0,1,Barlow Condensed|Source Sans 3,1,1.1px|1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|2.2px
+1,ss-ws-each-0.1em,field-season,148,0,0,0,0,1,Work Sans|Source Sans 3,2,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+1,ss-ws-each-0.1em,filing-system,148,1,0,1,0,1,Newsreader|Source Sans 3,1,1.1px|1.25px|1.2px|1.35px|1.3px|1.45px|2.2px
+1,ss-ws-each-0.1em,foundation,148,3,0,3,0,4,Barlow Condensed|Source Sans 3,2,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+1,ss-ws-each-0.1em,front-desk,155,0,0,0,0,1,Work Sans|Source Sans 3,2,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+1,ss-ws-each-0.1em,front-office,148,0,0,0,0,1,Work Sans|Source Sans 3,2,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+1,ss-ws-each-0.1em,funnel,148,0,0,0,0,1,Poppins|Source Sans 3|Work Sans,2,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+1,ss-ws-each-0.1em,gantt,148,0,0,0,0,1,Poppins|Source Sans 3|Work Sans,2,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.8px
+1,ss-ws-each-0.1em,gazette,148,3,0,3,0,4,Newsreader|Source Sans 3,2,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.8px
+1,ss-ws-each-0.1em,grant-proposal,153,0,0,0,0,1,Work Sans|Source Sans 3,2,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+1,ss-ws-each-0.1em,harvest,148,1,0,1,0,1,Work Sans|Source Sans 3,1,1.1px|1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|2.2px
+1,ss-ws-each-0.1em,help-desk,154,3,0,5,0,6,Source Sans 3,2,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+1,ss-ws-each-0.1em,impact-report,148,0,0,0,0,1,Newsreader|Source Sans 3|Work Sans,2,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+1,ss-ws-each-0.1em,itinerary,148,2,0,2,0,0,Work Sans|Source Sans 3,1,1.1px|1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|2.2px
+1,ss-ws-each-0.1em,lecture-notes,148,2,0,2,0,0,Lora|Source Sans 3|Work Sans,1,1.1px|1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|2.2px
+1,ss-ws-each-0.1em,ledger,148,3,0,3,0,4,Newsreader|Source Sans 3,2,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.8px
+1,ss-ws-each-0.1em,legal-brief,148,2,0,2,0,0,Lora|Source Sans 3|Work Sans,1,1.1px|1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|2.2px
+1,ss-ws-each-0.1em,manifest,148,3,0,3,0,4,Barlow Condensed|Source Sans 3,2,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+1,ss-ws-each-0.1em,network-ops,148,0,0,0,0,1,Poppins|Source Sans 3|Work Sans,2,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+1,ss-ws-each-0.1em,offshore,148,3,0,3,0,4,Poppins|Source Sans 3,2,1.1px|1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|3.4px
+1,ss-ws-each-0.1em,pipeline,134,1,0,2,0,2,Newsreader|Source Sans 3,2,1.1px|1.25px|1.2px|1.35px|1.3px|1.4px|1.55px|1.7px|3px
+1,ss-ws-each-0.1em,pitch-deck,148,0,0,0,0,1,Poppins|Source Sans 3|Work Sans,1,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.8px
+1,ss-ws-each-0.1em,portfolio-grid,144,0,0,0,0,0,Newsreader|Source Sans 3,1,1.15px|1.1px|1.25px|1.35px|1.3px|1.4px|1.6px|3.2px
+1,ss-ws-each-0.1em,press-kit,148,0,0,0,0,1,Lora|Source Sans 3|Work Sans,2,1.1px|1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|3.4px
+1,ss-ws-each-0.1em,product-tech,148,0,0,0,0,1,Barlow Condensed|Source Sans 3|Work Sans,1,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.2px
+1,ss-ws-each-0.1em,property-portfolio,148,0,0,0,0,1,Lora|Source Sans 3|Work Sans,2,1.1px|1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.8px
+1,ss-ws-each-0.1em,public-record,148,0,0,0,0,1,Newsreader|Source Sans 3,2,1.1px|1.35px|2.6px
+1,ss-ws-each-0.1em,reel,148,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,2,1.1px|1.25px|1.2px|1.35px|1.3px|1.45px|1.5px|1.6px|3.4px
+1,ss-ws-each-0.1em,research-record,154,0,0,0,0,1,Lora|Source Sans 3|Work Sans,2,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+1,ss-ws-each-0.1em,rig-report,148,2,0,2,0,0,Poppins|Source Sans 3|Work Sans,1,1.1px|1.25px|1.2px|1.35px|1.3px|1.45px|2.6px
+1,ss-ws-each-0.1em,rounds,154,3,0,3,0,4,Newsreader|Source Sans 3,2,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+1,ss-ws-each-0.1em,route-plan,148,0,0,0,0,1,Barlow Condensed|Source Sans 3|Work Sans,2,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+1,ss-ws-each-0.1em,schematic,153,3,0,3,0,3,Barlow Condensed|Source Sans 3|Work Sans,2,1.1px|1.25px|1.2px|1.35px|1.3px|1.45px|1.5px|1.6px|2.2px
+1,ss-ws-each-0.1em,signal,148,0,0,0,0,1,Poppins|Source Sans 3|Work Sans,1,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.8px
+1,ss-ws-each-0.1em,site-plan,148,0,0,0,0,1,Poppins|Source Sans 3|Work Sans,2,1.1px|1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.8px
+1,ss-ws-each-0.1em,site-report,148,0,0,0,0,1,Poppins|Source Sans 3|Work Sans,2,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+1,ss-ws-each-0.1em,specification,154,1,0,1,0,1,Lora|Source Sans 3,1,1.1px|1.25px|1.2px|1.35px|1.3px|1.45px|2.6px
+1,ss-ws-each-0.1em,sprint-board,148,0,0,0,0,1,Poppins|Source Sans 3|Work Sans,2,1.1px|1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+1,ss-ws-each-0.1em,stack-trace,148,0,0,0,0,1,Poppins|Source Sans 3|Work Sans,2,1.1px|1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.8px
+1,ss-ws-each-0.1em,statute,146,0,0,0,0,0,Newsreader,2,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.7px
+1,ss-ws-each-0.1em,structured-admin,148,3,0,3,0,4,Newsreader|Source Sans 3,2,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+1,ss-ws-each-0.1em,studio-brief,148,0,0,0,0,1,Lora|Source Sans 3|Work Sans,2,1.1px|1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|3.4px
+1,ss-ws-each-0.1em,success-story,154,0,0,0,0,1,Newsreader|Source Sans 3|Work Sans,2,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.8px
+1,ss-ws-each-0.1em,supply-chain,148,0,0,0,0,1,Barlow Condensed|Source Sans 3|Work Sans,2,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+1,ss-ws-each-0.1em,terminal,148,1,0,1,0,1,Barlow Condensed|Source Sans 3,1,1.1px|1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|2.2px
+1,ss-ws-each-0.1em,uptime,148,0,0,0,0,1,Poppins|Source Sans 3|Work Sans,2,1.1px|1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.8px
+1,ss-ws-each-0.1em,value-chain,148,0,0,0,0,1,Work Sans|Source Sans 3,2,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+1,ss-ws-each-0.1em,wellhead,148,0,0,0,0,1,Poppins|Source Sans 3|Work Sans,2,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+1,ss-ws-root-0.02em,balance-sheet,154,3,14,3,0,4,Lora|Source Sans 3,1,0.32px
+1,ss-ws-root-0.02em,blueprint,148,0,13,0,0,0,Barlow Condensed|Source Sans 3|Work Sans,2,0.32px
+1,ss-ws-root-0.02em,business-boardroom,154,0,14,0,0,1,Lora|Source Sans 3|Work Sans,1,0.32px
+1,ss-ws-root-0.02em,business-memo,153,3,16,3,0,4,Lora|Source Sans 3,2,0.32px
+1,ss-ws-root-0.02em,byline,154,0,16,0,0,1,Lora|Source Sans 3|Work Sans,2,0.32px
+1,ss-ws-root-0.02em,care-plan,148,3,16,3,0,4,Source Sans 3,2,0.32px
+1,ss-ws-root-0.02em,chambers,148,3,14,3,0,4,Newsreader|Source Sans 3,1,0.32px
+1,ss-ws-root-0.02em,civic-record,148,1,43,1,0,1,Newsreader|Source Sans 3,1,0.32px
+1,ss-ws-root-0.02em,clean-professional,148,3,16,3,0,4,Newsreader|Source Sans 3,2,0.32px
+1,ss-ws-root-0.02em,clinical,148,0,2,0,0,0,Newsreader|Source Sans 3,2,0.32px
+1,ss-ws-root-0.02em,compliance-brief,148,3,16,3,0,4,Newsreader|Source Sans 3,2,0.32px
+1,ss-ws-root-0.02em,concierge,153,0,14,0,0,1,Lora|Source Sans 3|Work Sans,1,0.32px
+1,ss-ws-root-0.02em,critical-path,144,0,19,1,0,2,Newsreader|Source Sans 3,1,0.32px
+1,ss-ws-root-0.02em,curriculum-vitae,154,0,16,0,0,1,Lora|Source Sans 3|Work Sans,2,0.32px
+1,ss-ws-root-0.02em,design-showcase,148,0,13,0,0,0,Lora|Source Sans 3|Work Sans,2,0.32px
+1,ss-ws-root-0.02em,faculty-profile,153,0,14,0,0,1,Lora|Source Sans 3|Work Sans,1,0.32px
+1,ss-ws-root-0.02em,field-mission,154,0,16,0,0,1,Work Sans|Source Sans 3,2,0.32px
+1,ss-ws-root-0.02em,field-notes,148,1,43,1,0,1,Barlow Condensed|Source Sans 3,1,0.32px
+1,ss-ws-root-0.02em,field-season,148,0,16,0,0,1,Work Sans|Source Sans 3,2,0.32px
+1,ss-ws-root-0.02em,filing-system,148,1,43,1,0,1,Newsreader|Source Sans 3,1,0.32px
+1,ss-ws-root-0.02em,foundation,148,3,16,3,0,4,Barlow Condensed|Source Sans 3,2,0.32px
+1,ss-ws-root-0.02em,front-desk,155,0,16,0,0,1,Work Sans|Source Sans 3,2,0.32px
+1,ss-ws-root-0.02em,front-office,148,0,14,0,0,1,Work Sans|Source Sans 3,1,0.32px
+1,ss-ws-root-0.02em,funnel,148,0,14,0,0,1,Poppins|Source Sans 3|Work Sans,1,0.32px
+1,ss-ws-root-0.02em,gantt,148,0,16,0,0,1,Poppins|Source Sans 3|Work Sans,2,0.32px
+1,ss-ws-root-0.02em,gazette,148,3,16,3,0,4,Newsreader|Source Sans 3,2,0.32px
+1,ss-ws-root-0.02em,grant-proposal,153,0,14,0,0,1,Work Sans|Source Sans 3,1,0.32px
+1,ss-ws-root-0.02em,harvest,148,1,43,1,0,1,Work Sans|Source Sans 3,1,0.32px
+1,ss-ws-root-0.02em,help-desk,154,3,16,5,0,6,Source Sans 3,2,0.32px
+1,ss-ws-root-0.02em,impact-report,148,0,16,0,0,1,Newsreader|Source Sans 3|Work Sans,2,0.32px
+1,ss-ws-root-0.02em,itinerary,148,2,43,2,0,0,Work Sans|Source Sans 3,1,0.32px
+1,ss-ws-root-0.02em,lecture-notes,148,2,43,2,0,0,Lora|Source Sans 3|Work Sans,1,0.32px
+1,ss-ws-root-0.02em,ledger,148,3,16,3,0,4,Newsreader|Source Sans 3,2,0.32px
+1,ss-ws-root-0.02em,legal-brief,148,2,43,2,0,0,Lora|Source Sans 3|Work Sans,1,0.32px
+1,ss-ws-root-0.02em,manifest,148,3,16,3,0,4,Barlow Condensed|Source Sans 3,2,0.32px
+1,ss-ws-root-0.02em,network-ops,148,0,16,0,0,1,Poppins|Source Sans 3|Work Sans,2,0.32px
+1,ss-ws-root-0.02em,offshore,148,3,16,3,0,4,Poppins|Source Sans 3,2,0.32px
+1,ss-ws-root-0.02em,pipeline,134,1,4,2,0,2,Newsreader|Source Sans 3,2,0.32px
+1,ss-ws-root-0.02em,pitch-deck,148,0,16,0,0,1,Poppins|Source Sans 3|Work Sans,1,0.32px
+1,ss-ws-root-0.02em,portfolio-grid,144,0,0,0,0,0,Newsreader|Source Sans 3,1,0.32px
+1,ss-ws-root-0.02em,press-kit,148,0,16,0,0,1,Lora|Source Sans 3|Work Sans,2,0.32px
+1,ss-ws-root-0.02em,product-tech,148,0,16,0,0,1,Barlow Condensed|Source Sans 3|Work Sans,1,0.32px
+1,ss-ws-root-0.02em,property-portfolio,148,0,16,0,0,1,Lora|Source Sans 3|Work Sans,2,0.32px
+1,ss-ws-root-0.02em,public-record,148,0,16,0,0,1,Newsreader|Source Sans 3,2,0.32px
+1,ss-ws-root-0.02em,reel,148,0,13,0,0,0,Poppins|Source Sans 3|Work Sans,2,0.32px
+1,ss-ws-root-0.02em,research-record,154,0,16,0,0,1,Lora|Source Sans 3|Work Sans,2,0.32px
+1,ss-ws-root-0.02em,rig-report,148,2,43,2,0,0,Poppins|Source Sans 3|Work Sans,1,0.32px
+1,ss-ws-root-0.02em,rounds,154,3,16,3,0,4,Newsreader|Source Sans 3,2,0.32px
+1,ss-ws-root-0.02em,route-plan,148,0,16,0,0,1,Barlow Condensed|Source Sans 3|Work Sans,2,0.32px
+1,ss-ws-root-0.02em,schematic,153,3,13,3,0,3,Barlow Condensed|Source Sans 3|Work Sans,2,0.32px
+1,ss-ws-root-0.02em,signal,148,0,16,0,0,1,Poppins|Source Sans 3|Work Sans,1,0.32px
+1,ss-ws-root-0.02em,site-plan,148,0,16,0,0,1,Poppins|Source Sans 3|Work Sans,2,0.32px
+1,ss-ws-root-0.02em,site-report,148,0,16,0,0,1,Poppins|Source Sans 3|Work Sans,2,0.32px
+1,ss-ws-root-0.02em,specification,154,1,43,1,0,1,Lora|Source Sans 3,1,0.32px
+1,ss-ws-root-0.02em,sprint-board,148,0,16,0,0,1,Poppins|Source Sans 3|Work Sans,2,0.32px
+1,ss-ws-root-0.02em,stack-trace,148,0,16,0,0,1,Poppins|Source Sans 3|Work Sans,2,0.32px
+1,ss-ws-root-0.02em,statute,146,0,0,0,0,0,Newsreader,2,0.32px
+1,ss-ws-root-0.02em,structured-admin,148,3,16,3,0,4,Newsreader|Source Sans 3,2,0.32px
+1,ss-ws-root-0.02em,studio-brief,148,0,16,0,0,1,Lora|Source Sans 3|Work Sans,2,0.32px
+1,ss-ws-root-0.02em,success-story,154,0,16,0,0,1,Newsreader|Source Sans 3|Work Sans,2,0.32px
+1,ss-ws-root-0.02em,supply-chain,148,0,14,0,0,1,Barlow Condensed|Source Sans 3|Work Sans,1,0.32px
+1,ss-ws-root-0.02em,terminal,148,1,43,1,0,1,Barlow Condensed|Source Sans 3,1,0.32px
+1,ss-ws-root-0.02em,uptime,148,0,16,0,0,1,Poppins|Source Sans 3|Work Sans,2,0.32px
+1,ss-ws-root-0.02em,value-chain,148,0,14,0,0,1,Work Sans|Source Sans 3,1,0.32px
+1,ss-ws-root-0.02em,wellhead,148,0,14,0,0,1,Poppins|Source Sans 3|Work Sans,1,0.32px
+1,ss-ws-root-0.05em,balance-sheet,154,3,0,3,0,4,Lora|Source Sans 3,2,0.8px
+1,ss-ws-root-0.05em,blueprint,148,0,1,0,0,0,Barlow Condensed|Source Sans 3|Work Sans,2,0.8px
+1,ss-ws-root-0.05em,business-boardroom,154,0,0,0,0,1,Lora|Source Sans 3|Work Sans,2,0.8px
+1,ss-ws-root-0.05em,business-memo,153,3,0,3,0,4,Lora|Source Sans 3,2,0.8px
+1,ss-ws-root-0.05em,byline,154,0,0,0,0,1,Lora|Source Sans 3|Work Sans,2,0.8px
+1,ss-ws-root-0.05em,care-plan,148,3,0,3,0,4,Source Sans 3,2,0.8px
+1,ss-ws-root-0.05em,chambers,148,3,0,3,0,4,Newsreader|Source Sans 3,1,0.8px
+1,ss-ws-root-0.05em,civic-record,148,1,5,1,0,1,Newsreader|Source Sans 3,1,0.8px
+1,ss-ws-root-0.05em,clean-professional,148,3,0,3,0,4,Newsreader|Source Sans 3,2,0.8px
+1,ss-ws-root-0.05em,clinical,148,0,0,0,0,0,Newsreader|Source Sans 3,2,0.8px
+1,ss-ws-root-0.05em,compliance-brief,148,3,0,3,0,4,Newsreader|Source Sans 3,2,0.8px
+1,ss-ws-root-0.05em,concierge,153,0,0,0,0,1,Lora|Source Sans 3|Work Sans,2,0.8px
+1,ss-ws-root-0.05em,critical-path,144,0,0,1,0,2,Newsreader|Source Sans 3,1,0.8px
+1,ss-ws-root-0.05em,curriculum-vitae,154,0,0,0,0,1,Lora|Source Sans 3|Work Sans,2,0.8px
+1,ss-ws-root-0.05em,design-showcase,148,0,0,0,0,0,Lora|Source Sans 3|Work Sans,2,0.8px
+1,ss-ws-root-0.05em,faculty-profile,153,0,0,0,0,1,Lora|Source Sans 3|Work Sans,2,0.8px
+1,ss-ws-root-0.05em,field-mission,154,0,0,0,0,1,Work Sans|Source Sans 3,2,0.8px
+1,ss-ws-root-0.05em,field-notes,148,1,5,1,0,1,Barlow Condensed|Source Sans 3,1,0.8px
+1,ss-ws-root-0.05em,field-season,148,0,0,0,0,1,Work Sans|Source Sans 3,2,0.8px
+1,ss-ws-root-0.05em,filing-system,148,1,5,1,0,1,Newsreader|Source Sans 3,1,0.8px
+1,ss-ws-root-0.05em,foundation,148,3,0,3,0,4,Barlow Condensed|Source Sans 3,2,0.8px
+1,ss-ws-root-0.05em,front-desk,155,0,0,0,0,1,Work Sans|Source Sans 3,2,0.8px
+1,ss-ws-root-0.05em,front-office,148,0,0,0,0,1,Work Sans|Source Sans 3,2,0.8px
+1,ss-ws-root-0.05em,funnel,148,0,0,0,0,1,Poppins|Source Sans 3|Work Sans,2,0.8px
+1,ss-ws-root-0.05em,gantt,148,0,0,0,0,1,Poppins|Source Sans 3|Work Sans,2,0.8px
+1,ss-ws-root-0.05em,gazette,148,3,0,3,0,4,Newsreader|Source Sans 3,2,0.8px
+1,ss-ws-root-0.05em,grant-proposal,153,0,0,0,0,1,Work Sans|Source Sans 3,2,0.8px
+1,ss-ws-root-0.05em,harvest,148,1,5,1,0,1,Work Sans|Source Sans 3,1,0.8px
+1,ss-ws-root-0.05em,help-desk,154,3,0,5,0,6,Source Sans 3,2,0.8px
+1,ss-ws-root-0.05em,impact-report,148,0,0,0,0,1,Newsreader|Source Sans 3|Work Sans,2,0.8px
+1,ss-ws-root-0.05em,itinerary,148,2,5,2,0,0,Work Sans|Source Sans 3,1,0.8px
+1,ss-ws-root-0.05em,lecture-notes,148,2,5,2,0,0,Lora|Source Sans 3|Work Sans,1,0.8px
+1,ss-ws-root-0.05em,ledger,148,3,0,3,0,4,Newsreader|Source Sans 3,2,0.8px
+1,ss-ws-root-0.05em,legal-brief,148,2,5,2,0,0,Lora|Source Sans 3|Work Sans,1,0.8px
+1,ss-ws-root-0.05em,manifest,148,3,0,3,0,4,Barlow Condensed|Source Sans 3,2,0.8px
+1,ss-ws-root-0.05em,network-ops,148,0,0,0,0,1,Poppins|Source Sans 3|Work Sans,2,0.8px
+1,ss-ws-root-0.05em,offshore,148,3,0,3,0,4,Poppins|Source Sans 3,2,0.8px
+1,ss-ws-root-0.05em,pipeline,134,1,0,2,0,2,Newsreader|Source Sans 3,2,0.8px
+1,ss-ws-root-0.05em,pitch-deck,148,0,0,0,0,1,Poppins|Source Sans 3|Work Sans,1,0.8px
+1,ss-ws-root-0.05em,portfolio-grid,144,0,0,0,0,0,Newsreader|Source Sans 3,1,0.8px
+1,ss-ws-root-0.05em,press-kit,148,0,0,0,0,1,Lora|Source Sans 3|Work Sans,2,0.8px
+1,ss-ws-root-0.05em,product-tech,148,0,0,0,0,1,Barlow Condensed|Source Sans 3|Work Sans,1,0.8px
+1,ss-ws-root-0.05em,property-portfolio,148,0,0,0,0,1,Lora|Source Sans 3|Work Sans,2,0.8px
+1,ss-ws-root-0.05em,public-record,148,0,0,0,0,1,Newsreader|Source Sans 3,2,0.8px
+1,ss-ws-root-0.05em,reel,148,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,2,0.8px
+1,ss-ws-root-0.05em,research-record,154,0,0,0,0,1,Lora|Source Sans 3|Work Sans,2,0.8px
+1,ss-ws-root-0.05em,rig-report,148,2,5,2,0,0,Poppins|Source Sans 3|Work Sans,1,0.8px
+1,ss-ws-root-0.05em,rounds,154,3,0,3,0,4,Newsreader|Source Sans 3,2,0.8px
+1,ss-ws-root-0.05em,route-plan,148,0,0,0,0,1,Barlow Condensed|Source Sans 3|Work Sans,2,0.8px
+1,ss-ws-root-0.05em,schematic,153,3,0,3,0,3,Barlow Condensed|Source Sans 3|Work Sans,2,0.8px
+1,ss-ws-root-0.05em,signal,148,0,0,0,0,1,Poppins|Source Sans 3|Work Sans,1,0.8px
+1,ss-ws-root-0.05em,site-plan,148,0,0,0,0,1,Poppins|Source Sans 3|Work Sans,2,0.8px
+1,ss-ws-root-0.05em,site-report,148,0,0,0,0,1,Poppins|Source Sans 3|Work Sans,2,0.8px
+1,ss-ws-root-0.05em,specification,154,1,5,1,0,1,Lora|Source Sans 3,1,0.8px
+1,ss-ws-root-0.05em,sprint-board,148,0,0,0,0,1,Poppins|Source Sans 3|Work Sans,2,0.8px
+1,ss-ws-root-0.05em,stack-trace,148,0,0,0,0,1,Poppins|Source Sans 3|Work Sans,2,0.8px
+1,ss-ws-root-0.05em,statute,146,0,0,0,0,0,Newsreader,2,0.8px
+1,ss-ws-root-0.05em,structured-admin,148,3,0,3,0,4,Newsreader|Source Sans 3,2,0.8px
+1,ss-ws-root-0.05em,studio-brief,148,0,0,0,0,1,Lora|Source Sans 3|Work Sans,2,0.8px
+1,ss-ws-root-0.05em,success-story,154,0,0,0,0,1,Newsreader|Source Sans 3|Work Sans,2,0.8px
+1,ss-ws-root-0.05em,supply-chain,148,0,0,0,0,1,Barlow Condensed|Source Sans 3|Work Sans,2,0.8px
+1,ss-ws-root-0.05em,terminal,148,1,5,1,0,1,Barlow Condensed|Source Sans 3,1,0.8px
+1,ss-ws-root-0.05em,uptime,148,0,0,0,0,1,Poppins|Source Sans 3|Work Sans,2,0.8px
+1,ss-ws-root-0.05em,value-chain,148,0,0,0,0,1,Work Sans|Source Sans 3,2,0.8px
+1,ss-ws-root-0.05em,wellhead,148,0,0,0,0,1,Poppins|Source Sans 3|Work Sans,2,0.8px
+1,ss-ws-root-0.1em,balance-sheet,154,3,0,3,0,4,Lora|Source Sans 3,2,1.6px
+1,ss-ws-root-0.1em,blueprint,148,0,0,0,0,0,Barlow Condensed|Source Sans 3|Work Sans,2,1.6px
+1,ss-ws-root-0.1em,business-boardroom,154,0,0,0,0,1,Lora|Source Sans 3|Work Sans,2,1.6px
+1,ss-ws-root-0.1em,business-memo,153,3,0,3,0,4,Lora|Source Sans 3,2,1.6px
+1,ss-ws-root-0.1em,byline,154,0,0,0,0,1,Lora|Source Sans 3|Work Sans,2,1.6px
+1,ss-ws-root-0.1em,care-plan,148,3,0,3,0,4,Source Sans 3,2,1.6px
+1,ss-ws-root-0.1em,chambers,148,3,0,3,0,4,Newsreader|Source Sans 3,2,1.6px
+1,ss-ws-root-0.1em,civic-record,148,1,0,1,0,1,Newsreader|Source Sans 3,1,1.6px
+1,ss-ws-root-0.1em,clean-professional,148,3,0,3,0,4,Newsreader|Source Sans 3,2,1.6px
+1,ss-ws-root-0.1em,clinical,148,0,0,0,0,0,Newsreader|Source Sans 3,2,1.6px
+1,ss-ws-root-0.1em,compliance-brief,148,3,0,3,0,4,Newsreader|Source Sans 3,2,1.6px
+1,ss-ws-root-0.1em,concierge,153,0,0,0,0,1,Lora|Source Sans 3|Work Sans,2,1.6px
+1,ss-ws-root-0.1em,critical-path,144,0,0,1,0,2,Newsreader|Source Sans 3,1,1.6px
+1,ss-ws-root-0.1em,curriculum-vitae,154,0,0,0,0,1,Lora|Source Sans 3|Work Sans,2,1.6px
+1,ss-ws-root-0.1em,design-showcase,148,0,0,0,0,0,Lora|Source Sans 3|Work Sans,2,1.6px
+1,ss-ws-root-0.1em,faculty-profile,153,0,0,0,0,1,Lora|Source Sans 3|Work Sans,2,1.6px
+1,ss-ws-root-0.1em,field-mission,154,0,0,0,0,1,Work Sans|Source Sans 3,2,1.6px
+1,ss-ws-root-0.1em,field-notes,148,1,0,1,0,1,Barlow Condensed|Source Sans 3,1,1.6px
+1,ss-ws-root-0.1em,field-season,148,0,0,0,0,1,Work Sans|Source Sans 3,2,1.6px
+1,ss-ws-root-0.1em,filing-system,148,1,0,1,0,1,Newsreader|Source Sans 3,1,1.6px
+1,ss-ws-root-0.1em,foundation,148,3,0,3,0,4,Barlow Condensed|Source Sans 3,2,1.6px
+1,ss-ws-root-0.1em,front-desk,155,0,0,0,0,1,Work Sans|Source Sans 3,2,1.6px
+1,ss-ws-root-0.1em,front-office,148,0,0,0,0,1,Work Sans|Source Sans 3,2,1.6px
+1,ss-ws-root-0.1em,funnel,148,0,0,0,0,1,Poppins|Source Sans 3|Work Sans,2,1.6px
+1,ss-ws-root-0.1em,gantt,148,0,0,0,0,1,Poppins|Source Sans 3|Work Sans,2,1.6px
+1,ss-ws-root-0.1em,gazette,148,3,0,3,0,4,Newsreader|Source Sans 3,2,1.6px
+1,ss-ws-root-0.1em,grant-proposal,153,0,0,0,0,1,Work Sans|Source Sans 3,2,1.6px
+1,ss-ws-root-0.1em,harvest,148,1,0,1,0,1,Work Sans|Source Sans 3,1,1.6px
+1,ss-ws-root-0.1em,help-desk,154,3,0,5,0,6,Source Sans 3,2,1.6px
+1,ss-ws-root-0.1em,impact-report,148,0,0,0,0,1,Newsreader|Source Sans 3|Work Sans,2,1.6px
+1,ss-ws-root-0.1em,itinerary,148,2,0,2,0,0,Work Sans|Source Sans 3,1,1.6px
+1,ss-ws-root-0.1em,lecture-notes,148,2,0,2,0,0,Lora|Source Sans 3|Work Sans,1,1.6px
+1,ss-ws-root-0.1em,ledger,148,3,0,3,0,4,Newsreader|Source Sans 3,2,1.6px
+1,ss-ws-root-0.1em,legal-brief,148,2,0,2,0,0,Lora|Source Sans 3|Work Sans,1,1.6px
+1,ss-ws-root-0.1em,manifest,148,3,0,3,0,4,Barlow Condensed|Source Sans 3,2,1.6px
+1,ss-ws-root-0.1em,network-ops,148,0,0,0,0,1,Poppins|Source Sans 3|Work Sans,2,1.6px
+1,ss-ws-root-0.1em,offshore,148,3,0,3,0,4,Poppins|Source Sans 3,2,1.6px
+1,ss-ws-root-0.1em,pipeline,134,1,0,2,0,2,Newsreader|Source Sans 3,2,1.6px
+1,ss-ws-root-0.1em,pitch-deck,148,0,0,0,0,1,Poppins|Source Sans 3|Work Sans,2,1.6px
+1,ss-ws-root-0.1em,portfolio-grid,144,0,0,0,0,0,Newsreader|Source Sans 3,1,1.6px
+1,ss-ws-root-0.1em,press-kit,148,0,0,0,0,1,Lora|Source Sans 3|Work Sans,2,1.6px
+1,ss-ws-root-0.1em,product-tech,148,0,0,0,0,1,Barlow Condensed|Source Sans 3|Work Sans,2,1.6px
+1,ss-ws-root-0.1em,property-portfolio,148,0,0,0,0,1,Lora|Source Sans 3|Work Sans,2,1.6px
+1,ss-ws-root-0.1em,public-record,148,0,0,0,0,1,Newsreader|Source Sans 3,2,1.6px
+1,ss-ws-root-0.1em,reel,148,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,2,1.6px
+1,ss-ws-root-0.1em,research-record,154,0,0,0,0,1,Lora|Source Sans 3|Work Sans,2,1.6px
+1,ss-ws-root-0.1em,rig-report,148,2,0,2,0,0,Poppins|Source Sans 3|Work Sans,1,1.6px
+1,ss-ws-root-0.1em,rounds,154,3,0,3,0,4,Newsreader|Source Sans 3,2,1.6px
+1,ss-ws-root-0.1em,route-plan,148,0,0,0,0,1,Barlow Condensed|Source Sans 3|Work Sans,2,1.6px
+1,ss-ws-root-0.1em,schematic,153,3,0,3,0,3,Barlow Condensed|Source Sans 3|Work Sans,2,1.6px
+1,ss-ws-root-0.1em,signal,148,0,0,0,0,1,Poppins|Source Sans 3|Work Sans,2,1.6px
+1,ss-ws-root-0.1em,site-plan,148,0,0,0,0,1,Poppins|Source Sans 3|Work Sans,2,1.6px
+1,ss-ws-root-0.1em,site-report,148,0,0,0,0,1,Poppins|Source Sans 3|Work Sans,2,1.6px
+1,ss-ws-root-0.1em,specification,154,1,0,1,0,1,Lora|Source Sans 3,1,1.6px
+1,ss-ws-root-0.1em,sprint-board,148,0,0,0,0,1,Poppins|Source Sans 3|Work Sans,2,1.6px
+1,ss-ws-root-0.1em,stack-trace,148,0,0,0,0,1,Poppins|Source Sans 3|Work Sans,2,1.6px
+1,ss-ws-root-0.1em,statute,146,0,0,0,0,0,Newsreader,2,1.6px
+1,ss-ws-root-0.1em,structured-admin,148,3,0,3,0,4,Newsreader|Source Sans 3,2,1.6px
+1,ss-ws-root-0.1em,studio-brief,148,0,0,0,0,1,Lora|Source Sans 3|Work Sans,2,1.6px
+1,ss-ws-root-0.1em,success-story,154,0,0,0,0,1,Newsreader|Source Sans 3|Work Sans,2,1.6px
+1,ss-ws-root-0.1em,supply-chain,148,0,0,0,0,1,Barlow Condensed|Source Sans 3|Work Sans,2,1.6px
+1,ss-ws-root-0.1em,terminal,148,1,0,1,0,1,Barlow Condensed|Source Sans 3,1,1.6px
+1,ss-ws-root-0.1em,uptime,148,0,0,0,0,1,Poppins|Source Sans 3|Work Sans,2,1.6px
+1,ss-ws-root-0.1em,value-chain,148,0,0,0,0,1,Work Sans|Source Sans 3,2,1.6px
+1,ss-ws-root-0.1em,wellhead,148,0,0,0,0,1,Poppins|Source Sans 3|Work Sans,2,1.6px
+1,ss-ws0,balance-sheet,154,3,41,3,0,4,Lora|Source Sans 3,1,0px
+1,ss-ws0,blueprint,148,0,25,0,0,0,Barlow Condensed|Source Sans 3|Work Sans,2,0px
+1,ss-ws0,business-boardroom,154,0,40,0,0,1,Lora|Source Sans 3|Work Sans,1,0px
+1,ss-ws0,business-memo,153,3,47,3,0,4,Lora|Source Sans 3,2,0px
+1,ss-ws0,byline,154,0,46,0,0,1,Lora|Source Sans 3|Work Sans,2,0px
+1,ss-ws0,care-plan,148,3,47,3,0,4,Source Sans 3,2,0px
+1,ss-ws0,chambers,148,3,41,3,0,4,Newsreader|Source Sans 3,1,0px
+1,ss-ws0,civic-record,148,1,73,1,0,1,Newsreader|Source Sans 3,1,0px
+1,ss-ws0,clean-professional,148,3,47,3,0,4,Newsreader|Source Sans 3,2,0px
+1,ss-ws0,clinical,148,0,21,0,0,0,Newsreader|Source Sans 3,1,0px
+1,ss-ws0,compliance-brief,148,3,47,3,0,4,Newsreader|Source Sans 3,2,0px
+1,ss-ws0,concierge,153,0,40,0,0,1,Lora|Source Sans 3|Work Sans,1,0px
+1,ss-ws0,critical-path,144,0,52,1,0,2,Newsreader|Source Sans 3,1,0px
+1,ss-ws0,curriculum-vitae,154,0,46,0,0,1,Lora|Source Sans 3|Work Sans,2,0px
+1,ss-ws0,design-showcase,148,0,25,0,0,0,Lora|Source Sans 3|Work Sans,2,0px
+1,ss-ws0,faculty-profile,153,0,40,0,0,1,Lora|Source Sans 3|Work Sans,1,0px
+1,ss-ws0,field-mission,154,0,46,0,0,1,Work Sans|Source Sans 3,2,0px
+1,ss-ws0,field-notes,148,1,72,1,0,1,Barlow Condensed|Source Sans 3,1,0px
+1,ss-ws0,field-season,148,0,46,0,0,1,Work Sans|Source Sans 3,2,0px
+1,ss-ws0,filing-system,148,1,73,1,0,1,Newsreader|Source Sans 3,1,0px
+1,ss-ws0,foundation,148,3,47,3,0,4,Barlow Condensed|Source Sans 3,2,0px
+1,ss-ws0,front-desk,155,0,46,0,0,1,Work Sans|Source Sans 3,2,0px
+1,ss-ws0,front-office,148,0,40,0,0,1,Work Sans|Source Sans 3,1,0px
+1,ss-ws0,funnel,148,0,40,0,0,1,Poppins|Source Sans 3|Work Sans,1,0px
+1,ss-ws0,gantt,148,0,46,0,0,1,Poppins|Source Sans 3|Work Sans,2,0px
+1,ss-ws0,gazette,148,3,47,3,0,4,Newsreader|Source Sans 3,2,0px
+1,ss-ws0,grant-proposal,153,0,40,0,0,1,Work Sans|Source Sans 3,1,0px
+1,ss-ws0,harvest,148,1,73,1,0,1,Work Sans|Source Sans 3,1,0px
+1,ss-ws0,help-desk,154,3,47,5,0,6,Source Sans 3,2,0px
+1,ss-ws0,impact-report,148,0,46,0,0,1,Newsreader|Source Sans 3|Work Sans,2,0px
+1,ss-ws0,itinerary,148,2,72,2,0,0,Work Sans|Source Sans 3,1,0px
+1,ss-ws0,lecture-notes,148,2,72,2,0,0,Lora|Source Sans 3|Work Sans,1,0px
+1,ss-ws0,ledger,148,3,47,3,0,4,Newsreader|Source Sans 3,2,0px
+1,ss-ws0,legal-brief,148,2,72,2,0,0,Lora|Source Sans 3|Work Sans,1,0px
+1,ss-ws0,manifest,148,3,47,3,0,4,Barlow Condensed|Source Sans 3,2,0px
+1,ss-ws0,network-ops,148,0,46,0,0,1,Poppins|Source Sans 3|Work Sans,2,0px
+1,ss-ws0,offshore,148,3,47,3,0,4,Poppins|Source Sans 3,2,0px
+1,ss-ws0,pipeline,134,1,15,2,0,2,Newsreader|Source Sans 3,2,0px
+1,ss-ws0,pitch-deck,148,0,44,0,0,1,Poppins|Source Sans 3|Work Sans,1,0px
+1,ss-ws0,portfolio-grid,144,0,8,0,0,0,Newsreader|Source Sans 3,1,0px
+1,ss-ws0,press-kit,148,0,44,0,0,1,Lora|Source Sans 3|Work Sans,2,0px
+1,ss-ws0,product-tech,148,0,44,0,0,1,Barlow Condensed|Source Sans 3|Work Sans,1,0px
+1,ss-ws0,property-portfolio,148,0,44,0,0,1,Lora|Source Sans 3|Work Sans,2,0px
+1,ss-ws0,public-record,148,0,55,0,0,1,Newsreader|Source Sans 3,2,0px
+1,ss-ws0,reel,148,0,25,0,0,0,Poppins|Source Sans 3|Work Sans,2,0px
+1,ss-ws0,research-record,154,0,46,0,0,1,Lora|Source Sans 3|Work Sans,2,0px
+1,ss-ws0,rig-report,148,2,72,2,0,0,Poppins|Source Sans 3|Work Sans,1,0px
+1,ss-ws0,rounds,154,3,47,3,0,4,Newsreader|Source Sans 3,2,0px
+1,ss-ws0,route-plan,148,0,46,0,0,1,Barlow Condensed|Source Sans 3|Work Sans,2,0px
+1,ss-ws0,schematic,153,3,25,3,0,3,Barlow Condensed|Source Sans 3|Work Sans,2,0px
+1,ss-ws0,signal,148,0,44,0,0,1,Poppins|Source Sans 3|Work Sans,1,0px
+1,ss-ws0,site-plan,148,0,46,0,0,1,Poppins|Source Sans 3|Work Sans,2,0px
+1,ss-ws0,site-report,148,0,46,0,0,1,Poppins|Source Sans 3|Work Sans,2,0px
+1,ss-ws0,specification,154,1,73,1,0,1,Lora|Source Sans 3,1,0px
+1,ss-ws0,sprint-board,148,0,44,0,0,1,Poppins|Source Sans 3|Work Sans,2,0px
+1,ss-ws0,stack-trace,148,0,44,0,0,1,Poppins|Source Sans 3|Work Sans,2,0px
+1,ss-ws0,statute,146,0,0,0,0,0,Newsreader,2,0px
+1,ss-ws0,structured-admin,148,3,47,3,0,4,Newsreader|Source Sans 3,2,0px
+1,ss-ws0,studio-brief,148,0,44,0,0,1,Lora|Source Sans 3|Work Sans,2,0px
+1,ss-ws0,success-story,154,0,46,0,0,1,Newsreader|Source Sans 3|Work Sans,2,0px
+1,ss-ws0,supply-chain,148,0,40,0,0,1,Barlow Condensed|Source Sans 3|Work Sans,1,0px
+1,ss-ws0,terminal,148,1,72,1,0,1,Barlow Condensed|Source Sans 3,1,0px
+1,ss-ws0,uptime,148,0,44,0,0,1,Poppins|Source Sans 3|Work Sans,2,0px
+1,ss-ws0,value-chain,148,0,40,0,0,1,Work Sans|Source Sans 3,1,0px
+1,ss-ws0,wellhead,148,0,40,0,0,1,Poppins|Source Sans 3|Work Sans,1,0px
+2,ss-ws-each-0.02em,balance-sheet,146,4,25,4,0,4,Lora|Source Sans 3,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+2,ss-ws-each-0.02em,blueprint,140,0,12,0,0,0,Barlow Condensed|Source Sans 3|Work Sans,2,0.24px|0.25px|0.26px|0.29px|0.32px|0.3px|0.68px
+2,ss-ws-each-0.02em,business-boardroom,146,0,24,0,0,0,Lora|Source Sans 3|Work Sans,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.56px
+2,ss-ws-each-0.02em,business-memo,145,4,25,4,0,4,Lora|Source Sans 3,2,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+2,ss-ws-each-0.02em,byline,146,0,24,0,0,0,Lora|Source Sans 3|Work Sans,2,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.56px
+2,ss-ws-each-0.02em,care-plan,140,4,25,4,0,4,Source Sans 3,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+2,ss-ws-each-0.02em,chambers,146,4,25,4,0,4,Newsreader|Source Sans 3,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.56px
+2,ss-ws-each-0.02em,civic-record,140,1,49,1,0,1,Newsreader|Source Sans 3,1,0.22px|0.24px|0.25px|0.26px|0.27px|0.29px|0.44px
+2,ss-ws-each-0.02em,clean-professional,140,4,25,4,0,4,Newsreader|Source Sans 3,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.56px
+2,ss-ws-each-0.02em,clinical,140,0,4,0,0,0,Newsreader|Source Sans 3,1,0.22px|0.23px|0.24px|0.25px|0.26px|0.27px|0.28px|0.52px
+2,ss-ws-each-0.02em,compliance-brief,140,4,25,4,0,4,Newsreader|Source Sans 3,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+2,ss-ws-each-0.02em,concierge,152,0,24,0,0,0,Lora|Source Sans 3|Work Sans,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+2,ss-ws-each-0.02em,critical-path,134,0,29,1,0,1,Newsreader|Source Sans 3,1,0.22px|0.23px|0.24px|0.26px|0.27px|0.28px|0.3px|0.56px
+2,ss-ws-each-0.02em,curriculum-vitae,146,0,24,0,0,0,Lora|Source Sans 3|Work Sans,2,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+2,ss-ws-each-0.02em,design-showcase,140,0,13,0,0,0,Lora|Source Sans 3|Work Sans,2,0.22px|0.24px|0.25px|0.26px|0.27px|0.29px|0.32px|0.3px|0.68px
+2,ss-ws-each-0.02em,faculty-profile,152,0,24,0,0,0,Lora|Source Sans 3|Work Sans,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+2,ss-ws-each-0.02em,field-mission,163,0,24,0,0,0,Work Sans|Source Sans 3,2,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+2,ss-ws-each-0.02em,field-notes,140,1,49,1,0,1,Barlow Condensed|Source Sans 3,1,0.22px|0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.44px
+2,ss-ws-each-0.02em,field-season,140,0,22,0,0,0,Work Sans|Source Sans 3,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+2,ss-ws-each-0.02em,filing-system,140,1,49,1,0,1,Newsreader|Source Sans 3,1,0.22px|0.24px|0.25px|0.26px|0.27px|0.29px|0.44px
+2,ss-ws-each-0.02em,foundation,140,4,23,4,0,4,Barlow Condensed|Source Sans 3,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+2,ss-ws-each-0.02em,front-desk,154,0,24,0,0,0,Work Sans|Source Sans 3,2,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+2,ss-ws-each-0.02em,front-office,140,0,24,0,0,0,Work Sans|Source Sans 3,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+2,ss-ws-each-0.02em,funnel,146,0,24,0,0,0,Poppins|Source Sans 3|Work Sans,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+2,ss-ws-each-0.02em,gantt,140,0,22,0,0,0,Poppins|Source Sans 3|Work Sans,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.56px
+2,ss-ws-each-0.02em,gazette,140,4,25,4,0,4,Newsreader|Source Sans 3,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.56px
+2,ss-ws-each-0.02em,grant-proposal,170,0,26,0,0,0,Work Sans|Source Sans 3,2,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+2,ss-ws-each-0.02em,harvest,140,1,49,1,0,1,Work Sans|Source Sans 3,1,0.22px|0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.44px
+2,ss-ws-each-0.02em,help-desk,146,4,25,7,0,7,Source Sans 3,2,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+2,ss-ws-each-0.02em,impact-report,157,0,26,0,0,0,Newsreader|Source Sans 3|Work Sans,2,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+2,ss-ws-each-0.02em,itinerary,146,0,48,0,0,0,Work Sans|Source Sans 3,1,0.22px|0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.44px
+2,ss-ws-each-0.02em,lecture-notes,140,0,49,0,0,0,Lora|Source Sans 3|Work Sans,1,0.22px|0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.44px
+2,ss-ws-each-0.02em,ledger,140,4,23,4,0,4,Newsreader|Source Sans 3,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.56px
+2,ss-ws-each-0.02em,legal-brief,140,0,49,0,0,0,Lora|Source Sans 3|Work Sans,1,0.22px|0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.44px
+2,ss-ws-each-0.02em,manifest,140,4,25,4,0,4,Barlow Condensed|Source Sans 3,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+2,ss-ws-each-0.02em,network-ops,140,0,24,0,0,0,Poppins|Source Sans 3|Work Sans,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+2,ss-ws-each-0.02em,offshore,140,4,23,4,0,4,Poppins|Source Sans 3,2,0.22px|0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.68px
+2,ss-ws-each-0.02em,pipeline,122,0,8,1,0,1,Newsreader|Source Sans 3,1,0.22px|0.24px|0.25px|0.26px|0.27px|0.28px|0.31px|0.34px|0.6px
+2,ss-ws-each-0.02em,pitch-deck,140,0,25,0,0,0,Poppins|Source Sans 3|Work Sans,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.56px
+2,ss-ws-each-0.02em,portfolio-grid,137,0,1,0,0,0,Newsreader|Source Sans 3,1,0.22px|0.23px|0.25px|0.26px|0.27px|0.28px|0.32px|0.64px
+2,ss-ws-each-0.02em,press-kit,140,0,25,0,0,0,Lora|Source Sans 3|Work Sans,2,0.22px|0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.68px
+2,ss-ws-each-0.02em,product-tech,140,0,25,0,0,0,Barlow Condensed|Source Sans 3|Work Sans,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.44px
+2,ss-ws-each-0.02em,property-portfolio,140,0,25,0,0,0,Lora|Source Sans 3|Work Sans,2,0.22px|0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.56px
+2,ss-ws-each-0.02em,public-record,140,0,25,0,0,0,Newsreader|Source Sans 3,2,0.22px|0.27px|0.52px
+2,ss-ws-each-0.02em,reel,140,0,13,0,0,0,Poppins|Source Sans 3|Work Sans,2,0.22px|0.24px|0.25px|0.26px|0.27px|0.29px|0.32px|0.3px|0.68px
+2,ss-ws-each-0.02em,research-record,146,0,22,0,0,0,Lora|Source Sans 3|Work Sans,2,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+2,ss-ws-each-0.02em,rig-report,140,0,49,0,0,0,Poppins|Source Sans 3|Work Sans,1,0.22px|0.24px|0.25px|0.26px|0.27px|0.29px|0.52px
+2,ss-ws-each-0.02em,rounds,146,4,23,4,0,4,Newsreader|Source Sans 3,2,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+2,ss-ws-each-0.02em,route-plan,140,0,22,0,0,0,Barlow Condensed|Source Sans 3|Work Sans,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+2,ss-ws-each-0.02em,schematic,146,3,13,3,0,3,Barlow Condensed|Source Sans 3|Work Sans,2,0.22px|0.24px|0.25px|0.26px|0.27px|0.29px|0.32px|0.3px|0.44px
+2,ss-ws-each-0.02em,signal,140,0,25,0,0,0,Poppins|Source Sans 3|Work Sans,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.56px
+2,ss-ws-each-0.02em,site-plan,140,0,24,0,0,0,Poppins|Source Sans 3|Work Sans,2,0.22px|0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.56px
+2,ss-ws-each-0.02em,site-report,140,0,22,0,0,0,Poppins|Source Sans 3|Work Sans,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+2,ss-ws-each-0.02em,specification,146,1,49,1,0,1,Lora|Source Sans 3,1,0.22px|0.24px|0.25px|0.26px|0.27px|0.29px|0.52px
+2,ss-ws-each-0.02em,sprint-board,140,0,25,0,0,0,Poppins|Source Sans 3|Work Sans,2,0.22px|0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+2,ss-ws-each-0.02em,stack-trace,140,0,25,0,0,0,Poppins|Source Sans 3|Work Sans,2,0.22px|0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.56px
+2,ss-ws-each-0.02em,statute,138,0,0,0,0,0,Newsreader,2,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.54px
+2,ss-ws-each-0.02em,structured-admin,140,4,25,4,0,4,Newsreader|Source Sans 3,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+2,ss-ws-each-0.02em,studio-brief,140,0,25,0,0,0,Lora|Source Sans 3|Work Sans,2,0.22px|0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.68px
+2,ss-ws-each-0.02em,success-story,146,0,22,0,0,0,Newsreader|Source Sans 3|Work Sans,2,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.56px
+2,ss-ws-each-0.02em,supply-chain,146,0,24,0,0,0,Barlow Condensed|Source Sans 3|Work Sans,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+2,ss-ws-each-0.02em,terminal,140,1,49,1,0,1,Barlow Condensed|Source Sans 3,1,0.22px|0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.44px
+2,ss-ws-each-0.02em,uptime,140,0,25,0,0,0,Poppins|Source Sans 3|Work Sans,2,0.22px|0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.56px
+2,ss-ws-each-0.02em,value-chain,146,0,24,0,0,0,Work Sans|Source Sans 3,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+2,ss-ws-each-0.02em,wellhead,146,0,24,0,0,0,Poppins|Source Sans 3|Work Sans,1,0.24px|0.25px|0.26px|0.27px|0.28px|0.29px|0.3px|0.52px
+2,ss-ws-each-0.05em,balance-sheet,146,4,0,4,0,4,Lora|Source Sans 3,1,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+2,ss-ws-each-0.05em,blueprint,140,0,13,0,0,0,Barlow Condensed|Source Sans 3|Work Sans,2,0.625px|0.65px|0.6px|0.725px|0.75px|0.8px|1.7px
+2,ss-ws-each-0.05em,business-boardroom,146,0,0,0,0,0,Lora|Source Sans 3|Work Sans,1,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.4px
+2,ss-ws-each-0.05em,business-memo,145,4,0,4,0,4,Lora|Source Sans 3,2,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+2,ss-ws-each-0.05em,byline,146,0,0,0,0,0,Lora|Source Sans 3|Work Sans,2,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.4px
+2,ss-ws-each-0.05em,care-plan,140,4,0,4,0,4,Source Sans 3,1,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+2,ss-ws-each-0.05em,chambers,146,4,0,4,0,4,Newsreader|Source Sans 3,1,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.4px
+2,ss-ws-each-0.05em,civic-record,140,1,8,1,0,1,Newsreader|Source Sans 3,1,0.55px|0.625px|0.65px|0.675px|0.6px|0.725px|1.1px
+2,ss-ws-each-0.05em,clean-professional,140,4,0,4,0,4,Newsreader|Source Sans 3,1,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.4px
+2,ss-ws-each-0.05em,clinical,140,0,0,0,0,0,Newsreader|Source Sans 3,1,0.55px|0.575px|0.625px|0.65px|0.675px|0.6px|0.7px|1.3px
+2,ss-ws-each-0.05em,compliance-brief,140,4,0,4,0,4,Newsreader|Source Sans 3,1,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+2,ss-ws-each-0.05em,concierge,152,0,0,0,0,0,Lora|Source Sans 3|Work Sans,1,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+2,ss-ws-each-0.05em,critical-path,134,0,4,1,0,1,Newsreader|Source Sans 3,1,0.55px|0.575px|0.65px|0.675px|0.6px|0.75px|0.7px|1.4px
+2,ss-ws-each-0.05em,curriculum-vitae,146,0,0,0,0,0,Lora|Source Sans 3|Work Sans,2,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+2,ss-ws-each-0.05em,design-showcase,140,0,12,0,0,0,Lora|Source Sans 3|Work Sans,2,0.55px|0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.8px|1.7px
+2,ss-ws-each-0.05em,faculty-profile,152,0,0,0,0,0,Lora|Source Sans 3|Work Sans,1,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+2,ss-ws-each-0.05em,field-mission,163,0,0,0,0,0,Work Sans|Source Sans 3,2,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+2,ss-ws-each-0.05em,field-notes,140,1,8,1,0,1,Barlow Condensed|Source Sans 3,1,0.55px|0.625px|0.65px|0.675px|0.6px|0.725px|0.7px|1.1px
+2,ss-ws-each-0.05em,field-season,140,0,0,0,0,0,Work Sans|Source Sans 3,1,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+2,ss-ws-each-0.05em,filing-system,140,1,8,1,0,1,Newsreader|Source Sans 3,1,0.55px|0.625px|0.65px|0.675px|0.6px|0.725px|1.1px
+2,ss-ws-each-0.05em,foundation,140,4,0,4,0,4,Barlow Condensed|Source Sans 3,1,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+2,ss-ws-each-0.05em,front-desk,154,0,0,0,0,0,Work Sans|Source Sans 3,2,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+2,ss-ws-each-0.05em,front-office,140,0,0,0,0,0,Work Sans|Source Sans 3,1,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+2,ss-ws-each-0.05em,funnel,146,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,1,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+2,ss-ws-each-0.05em,gantt,140,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,1,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.4px
+2,ss-ws-each-0.05em,gazette,140,4,0,4,0,4,Newsreader|Source Sans 3,1,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.4px
+2,ss-ws-each-0.05em,grant-proposal,170,0,0,0,0,0,Work Sans|Source Sans 3,2,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+2,ss-ws-each-0.05em,harvest,140,1,8,1,0,1,Work Sans|Source Sans 3,1,0.55px|0.625px|0.65px|0.675px|0.6px|0.725px|0.7px|1.1px
+2,ss-ws-each-0.05em,help-desk,146,4,0,7,0,7,Source Sans 3,2,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+2,ss-ws-each-0.05em,impact-report,157,0,0,0,0,0,Newsreader|Source Sans 3|Work Sans,2,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+2,ss-ws-each-0.05em,itinerary,146,0,8,0,0,0,Work Sans|Source Sans 3,1,0.55px|0.625px|0.65px|0.675px|0.6px|0.725px|0.7px|1.1px
+2,ss-ws-each-0.05em,lecture-notes,140,0,8,0,0,0,Lora|Source Sans 3|Work Sans,1,0.55px|0.625px|0.65px|0.675px|0.6px|0.725px|0.7px|1.1px
+2,ss-ws-each-0.05em,ledger,140,4,0,4,0,4,Newsreader|Source Sans 3,1,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.4px
+2,ss-ws-each-0.05em,legal-brief,140,0,8,0,0,0,Lora|Source Sans 3|Work Sans,1,0.55px|0.625px|0.65px|0.675px|0.6px|0.725px|0.7px|1.1px
+2,ss-ws-each-0.05em,manifest,140,4,0,4,0,4,Barlow Condensed|Source Sans 3,1,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+2,ss-ws-each-0.05em,network-ops,140,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,1,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+2,ss-ws-each-0.05em,offshore,140,4,0,4,0,4,Poppins|Source Sans 3,2,0.55px|0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.7px
+2,ss-ws-each-0.05em,pipeline,122,0,0,1,0,1,Newsreader|Source Sans 3,1,0.55px|0.625px|0.65px|0.675px|0.6px|0.775px|0.7px|0.85px|1.5px
+2,ss-ws-each-0.05em,pitch-deck,140,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,1,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.4px
+2,ss-ws-each-0.05em,portfolio-grid,137,0,0,0,0,0,Newsreader|Source Sans 3,1,0.55px|0.575px|0.625px|0.65px|0.675px|0.7px|0.8px|1.6px
+2,ss-ws-each-0.05em,press-kit,140,0,0,0,0,0,Lora|Source Sans 3|Work Sans,2,0.55px|0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.7px
+2,ss-ws-each-0.05em,product-tech,140,0,0,0,0,0,Barlow Condensed|Source Sans 3|Work Sans,1,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.1px
+2,ss-ws-each-0.05em,property-portfolio,140,0,0,0,0,0,Lora|Source Sans 3|Work Sans,2,0.55px|0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.4px
+2,ss-ws-each-0.05em,public-record,140,0,0,0,0,0,Newsreader|Source Sans 3,2,0.55px|0.675px|1.3px
+2,ss-ws-each-0.05em,reel,140,0,12,0,0,0,Poppins|Source Sans 3|Work Sans,2,0.55px|0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.8px|1.7px
+2,ss-ws-each-0.05em,research-record,146,0,0,0,0,0,Lora|Source Sans 3|Work Sans,2,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+2,ss-ws-each-0.05em,rig-report,140,0,8,0,0,0,Poppins|Source Sans 3|Work Sans,1,0.55px|0.625px|0.65px|0.675px|0.6px|0.725px|1.3px
+2,ss-ws-each-0.05em,rounds,146,4,0,4,0,4,Newsreader|Source Sans 3,2,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+2,ss-ws-each-0.05em,route-plan,140,0,0,0,0,0,Barlow Condensed|Source Sans 3|Work Sans,1,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+2,ss-ws-each-0.05em,schematic,146,3,12,3,0,3,Barlow Condensed|Source Sans 3|Work Sans,2,0.55px|0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.8px|1.1px
+2,ss-ws-each-0.05em,signal,140,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,1,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.4px
+2,ss-ws-each-0.05em,site-plan,140,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,2,0.55px|0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.4px
+2,ss-ws-each-0.05em,site-report,140,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,1,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+2,ss-ws-each-0.05em,specification,146,1,8,1,0,1,Lora|Source Sans 3,1,0.55px|0.625px|0.65px|0.675px|0.6px|0.725px|1.3px
+2,ss-ws-each-0.05em,sprint-board,140,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,2,0.55px|0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+2,ss-ws-each-0.05em,stack-trace,140,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,2,0.55px|0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.4px
+2,ss-ws-each-0.05em,statute,138,0,0,0,0,0,Newsreader,2,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.35px
+2,ss-ws-each-0.05em,structured-admin,140,4,0,4,0,4,Newsreader|Source Sans 3,1,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+2,ss-ws-each-0.05em,studio-brief,140,0,0,0,0,0,Lora|Source Sans 3|Work Sans,2,0.55px|0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.7px
+2,ss-ws-each-0.05em,success-story,146,0,0,0,0,0,Newsreader|Source Sans 3|Work Sans,2,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.4px
+2,ss-ws-each-0.05em,supply-chain,146,0,0,0,0,0,Barlow Condensed|Source Sans 3|Work Sans,1,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+2,ss-ws-each-0.05em,terminal,140,1,8,1,0,1,Barlow Condensed|Source Sans 3,1,0.55px|0.625px|0.65px|0.675px|0.6px|0.725px|0.7px|1.1px
+2,ss-ws-each-0.05em,uptime,140,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,2,0.55px|0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.4px
+2,ss-ws-each-0.05em,value-chain,146,0,0,0,0,0,Work Sans|Source Sans 3,1,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+2,ss-ws-each-0.05em,wellhead,146,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,1,0.625px|0.65px|0.675px|0.6px|0.725px|0.75px|0.7px|1.3px
+2,ss-ws-each-0.1em,balance-sheet,146,4,0,4,0,4,Lora|Source Sans 3,1,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+2,ss-ws-each-0.1em,blueprint,140,0,0,0,0,0,Barlow Condensed|Source Sans 3|Work Sans,2,1.25px|1.2px|1.3px|1.45px|1.5px|1.6px|3.4px
+2,ss-ws-each-0.1em,business-boardroom,146,0,0,0,0,0,Lora|Source Sans 3|Work Sans,1,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.8px
+2,ss-ws-each-0.1em,business-memo,145,4,0,4,0,4,Lora|Source Sans 3,2,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+2,ss-ws-each-0.1em,byline,146,0,0,0,0,0,Lora|Source Sans 3|Work Sans,2,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.8px
+2,ss-ws-each-0.1em,care-plan,140,4,0,4,0,4,Source Sans 3,1,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+2,ss-ws-each-0.1em,chambers,146,4,0,4,0,4,Newsreader|Source Sans 3,1,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.8px
+2,ss-ws-each-0.1em,civic-record,140,1,0,1,0,1,Newsreader|Source Sans 3,1,1.1px|1.25px|1.2px|1.35px|1.3px|1.45px|2.2px
+2,ss-ws-each-0.1em,clean-professional,140,4,0,4,0,4,Newsreader|Source Sans 3,1,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.8px
+2,ss-ws-each-0.1em,clinical,140,0,0,0,0,0,Newsreader|Source Sans 3,1,1.15px|1.1px|1.25px|1.2px|1.35px|1.3px|1.4px|2.6px
+2,ss-ws-each-0.1em,compliance-brief,140,4,0,4,0,4,Newsreader|Source Sans 3,1,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+2,ss-ws-each-0.1em,concierge,152,0,0,0,0,0,Lora|Source Sans 3|Work Sans,1,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+2,ss-ws-each-0.1em,critical-path,134,0,0,1,0,1,Newsreader|Source Sans 3,1,1.15px|1.1px|1.2px|1.35px|1.3px|1.4px|1.5px|2.8px
+2,ss-ws-each-0.1em,curriculum-vitae,146,0,0,0,0,0,Lora|Source Sans 3|Work Sans,2,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+2,ss-ws-each-0.1em,design-showcase,140,0,0,0,0,0,Lora|Source Sans 3|Work Sans,2,1.1px|1.25px|1.2px|1.35px|1.3px|1.45px|1.5px|1.6px|3.4px
+2,ss-ws-each-0.1em,faculty-profile,152,0,0,0,0,0,Lora|Source Sans 3|Work Sans,1,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+2,ss-ws-each-0.1em,field-mission,163,0,0,0,0,0,Work Sans|Source Sans 3,2,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+2,ss-ws-each-0.1em,field-notes,140,1,0,1,0,1,Barlow Condensed|Source Sans 3,1,1.1px|1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|2.2px
+2,ss-ws-each-0.1em,field-season,140,0,0,0,0,0,Work Sans|Source Sans 3,1,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+2,ss-ws-each-0.1em,filing-system,140,1,0,1,0,1,Newsreader|Source Sans 3,1,1.1px|1.25px|1.2px|1.35px|1.3px|1.45px|2.2px
+2,ss-ws-each-0.1em,foundation,140,4,0,4,0,4,Barlow Condensed|Source Sans 3,1,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+2,ss-ws-each-0.1em,front-desk,154,0,0,0,0,0,Work Sans|Source Sans 3,2,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+2,ss-ws-each-0.1em,front-office,140,0,0,0,0,0,Work Sans|Source Sans 3,1,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+2,ss-ws-each-0.1em,funnel,146,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,1,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+2,ss-ws-each-0.1em,gantt,140,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,1,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.8px
+2,ss-ws-each-0.1em,gazette,140,4,0,4,0,4,Newsreader|Source Sans 3,1,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.8px
+2,ss-ws-each-0.1em,grant-proposal,170,0,0,0,0,0,Work Sans|Source Sans 3,2,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+2,ss-ws-each-0.1em,harvest,140,1,0,1,0,1,Work Sans|Source Sans 3,1,1.1px|1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|2.2px
+2,ss-ws-each-0.1em,help-desk,146,4,0,7,0,7,Source Sans 3,2,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+2,ss-ws-each-0.1em,impact-report,157,0,0,0,0,0,Newsreader|Source Sans 3|Work Sans,2,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+2,ss-ws-each-0.1em,itinerary,146,0,0,0,0,0,Work Sans|Source Sans 3,1,1.1px|1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|2.2px
+2,ss-ws-each-0.1em,lecture-notes,140,0,0,0,0,0,Lora|Source Sans 3|Work Sans,1,1.1px|1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|2.2px
+2,ss-ws-each-0.1em,ledger,140,4,0,4,0,4,Newsreader|Source Sans 3,1,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.8px
+2,ss-ws-each-0.1em,legal-brief,140,0,0,0,0,0,Lora|Source Sans 3|Work Sans,1,1.1px|1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|2.2px
+2,ss-ws-each-0.1em,manifest,140,4,0,4,0,4,Barlow Condensed|Source Sans 3,1,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+2,ss-ws-each-0.1em,network-ops,140,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,1,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+2,ss-ws-each-0.1em,offshore,140,4,0,4,0,4,Poppins|Source Sans 3,2,1.1px|1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|3.4px
+2,ss-ws-each-0.1em,pipeline,122,0,0,1,0,1,Newsreader|Source Sans 3,1,1.1px|1.25px|1.2px|1.35px|1.3px|1.4px|1.55px|1.7px|3px
+2,ss-ws-each-0.1em,pitch-deck,140,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,1,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.8px
+2,ss-ws-each-0.1em,portfolio-grid,137,0,0,0,0,0,Newsreader|Source Sans 3,1,1.15px|1.1px|1.25px|1.35px|1.3px|1.4px|1.6px|3.2px
+2,ss-ws-each-0.1em,press-kit,140,0,0,0,0,0,Lora|Source Sans 3|Work Sans,2,1.1px|1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|3.4px
+2,ss-ws-each-0.1em,product-tech,140,0,0,0,0,0,Barlow Condensed|Source Sans 3|Work Sans,1,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.2px
+2,ss-ws-each-0.1em,property-portfolio,140,0,0,0,0,0,Lora|Source Sans 3|Work Sans,2,1.1px|1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.8px
+2,ss-ws-each-0.1em,public-record,140,0,0,0,0,0,Newsreader|Source Sans 3,2,1.1px|1.35px|2.6px
+2,ss-ws-each-0.1em,reel,140,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,2,1.1px|1.25px|1.2px|1.35px|1.3px|1.45px|1.5px|1.6px|3.4px
+2,ss-ws-each-0.1em,research-record,146,0,0,0,0,0,Lora|Source Sans 3|Work Sans,2,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+2,ss-ws-each-0.1em,rig-report,140,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,1,1.1px|1.25px|1.2px|1.35px|1.3px|1.45px|2.6px
+2,ss-ws-each-0.1em,rounds,146,4,0,4,0,4,Newsreader|Source Sans 3,2,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+2,ss-ws-each-0.1em,route-plan,140,0,0,0,0,0,Barlow Condensed|Source Sans 3|Work Sans,1,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+2,ss-ws-each-0.1em,schematic,146,3,0,3,0,3,Barlow Condensed|Source Sans 3|Work Sans,2,1.1px|1.25px|1.2px|1.35px|1.3px|1.45px|1.5px|1.6px|2.2px
+2,ss-ws-each-0.1em,signal,140,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,1,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.8px
+2,ss-ws-each-0.1em,site-plan,140,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,2,1.1px|1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.8px
+2,ss-ws-each-0.1em,site-report,140,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,1,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+2,ss-ws-each-0.1em,specification,146,1,0,1,0,1,Lora|Source Sans 3,1,1.1px|1.25px|1.2px|1.35px|1.3px|1.45px|2.6px
+2,ss-ws-each-0.1em,sprint-board,140,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,2,1.1px|1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+2,ss-ws-each-0.1em,stack-trace,140,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,2,1.1px|1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.8px
+2,ss-ws-each-0.1em,statute,138,0,0,0,0,0,Newsreader,2,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.7px
+2,ss-ws-each-0.1em,structured-admin,140,4,0,4,0,4,Newsreader|Source Sans 3,1,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+2,ss-ws-each-0.1em,studio-brief,140,0,0,0,0,0,Lora|Source Sans 3|Work Sans,2,1.1px|1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|3.4px
+2,ss-ws-each-0.1em,success-story,146,0,0,0,0,0,Newsreader|Source Sans 3|Work Sans,2,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.8px
+2,ss-ws-each-0.1em,supply-chain,146,0,0,0,0,0,Barlow Condensed|Source Sans 3|Work Sans,1,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+2,ss-ws-each-0.1em,terminal,140,1,0,1,0,1,Barlow Condensed|Source Sans 3,1,1.1px|1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|2.2px
+2,ss-ws-each-0.1em,uptime,140,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,2,1.1px|1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.8px
+2,ss-ws-each-0.1em,value-chain,146,0,0,0,0,0,Work Sans|Source Sans 3,1,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+2,ss-ws-each-0.1em,wellhead,146,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,1,1.25px|1.2px|1.35px|1.3px|1.45px|1.4px|1.5px|2.6px
+2,ss-ws-root-0.02em,balance-sheet,146,4,15,4,0,4,Lora|Source Sans 3,1,0.32px
+2,ss-ws-root-0.02em,blueprint,140,0,12,0,0,0,Barlow Condensed|Source Sans 3|Work Sans,2,0.32px
+2,ss-ws-root-0.02em,business-boardroom,146,0,14,0,0,0,Lora|Source Sans 3|Work Sans,1,0.32px
+2,ss-ws-root-0.02em,business-memo,145,4,16,4,0,4,Lora|Source Sans 3,2,0.32px
+2,ss-ws-root-0.02em,byline,146,0,15,0,0,0,Lora|Source Sans 3|Work Sans,2,0.32px
+2,ss-ws-root-0.02em,care-plan,140,4,16,4,0,4,Source Sans 3,1,0.32px
+2,ss-ws-root-0.02em,chambers,146,4,15,4,0,4,Newsreader|Source Sans 3,1,0.32px
+2,ss-ws-root-0.02em,civic-record,140,1,40,1,0,1,Newsreader|Source Sans 3,1,0.32px
+2,ss-ws-root-0.02em,clean-professional,140,4,16,4,0,4,Newsreader|Source Sans 3,1,0.32px
+2,ss-ws-root-0.02em,clinical,140,0,1,0,0,0,Newsreader|Source Sans 3,1,0.32px
+2,ss-ws-root-0.02em,compliance-brief,140,4,16,4,0,4,Newsreader|Source Sans 3,1,0.32px
+2,ss-ws-root-0.02em,concierge,152,0,14,0,0,0,Lora|Source Sans 3|Work Sans,1,0.32px
+2,ss-ws-root-0.02em,critical-path,134,0,22,1,0,1,Newsreader|Source Sans 3,1,0.32px
+2,ss-ws-root-0.02em,curriculum-vitae,146,0,15,0,0,0,Lora|Source Sans 3|Work Sans,2,0.32px
+2,ss-ws-root-0.02em,design-showcase,140,0,13,0,0,0,Lora|Source Sans 3|Work Sans,2,0.32px
+2,ss-ws-root-0.02em,faculty-profile,152,0,14,0,0,0,Lora|Source Sans 3|Work Sans,1,0.32px
+2,ss-ws-root-0.02em,field-mission,163,0,15,0,0,0,Work Sans|Source Sans 3,2,0.32px
+2,ss-ws-root-0.02em,field-notes,140,1,40,1,0,1,Barlow Condensed|Source Sans 3,1,0.32px
+2,ss-ws-root-0.02em,field-season,140,0,15,0,0,0,Work Sans|Source Sans 3,1,0.32px
+2,ss-ws-root-0.02em,filing-system,140,1,40,1,0,1,Newsreader|Source Sans 3,1,0.32px
+2,ss-ws-root-0.02em,foundation,140,4,16,4,0,4,Barlow Condensed|Source Sans 3,1,0.32px
+2,ss-ws-root-0.02em,front-desk,154,0,15,0,0,0,Work Sans|Source Sans 3,2,0.32px
+2,ss-ws-root-0.02em,front-office,140,0,14,0,0,0,Work Sans|Source Sans 3,1,0.32px
+2,ss-ws-root-0.02em,funnel,146,0,14,0,0,0,Poppins|Source Sans 3|Work Sans,1,0.32px
+2,ss-ws-root-0.02em,gantt,140,0,15,0,0,0,Poppins|Source Sans 3|Work Sans,1,0.32px
+2,ss-ws-root-0.02em,gazette,140,4,16,4,0,4,Newsreader|Source Sans 3,1,0.32px
+2,ss-ws-root-0.02em,grant-proposal,170,0,14,0,0,0,Work Sans|Source Sans 3,2,0.32px
+2,ss-ws-root-0.02em,harvest,140,1,40,1,0,1,Work Sans|Source Sans 3,1,0.32px
+2,ss-ws-root-0.02em,help-desk,146,4,16,7,0,7,Source Sans 3,2,0.32px
+2,ss-ws-root-0.02em,impact-report,157,0,15,0,0,0,Newsreader|Source Sans 3|Work Sans,2,0.32px
+2,ss-ws-root-0.02em,itinerary,146,0,39,0,0,0,Work Sans|Source Sans 3,1,0.32px
+2,ss-ws-root-0.02em,lecture-notes,140,0,40,0,0,0,Lora|Source Sans 3|Work Sans,1,0.32px
+2,ss-ws-root-0.02em,ledger,140,4,16,4,0,4,Newsreader|Source Sans 3,1,0.32px
+2,ss-ws-root-0.02em,legal-brief,140,0,40,0,0,0,Lora|Source Sans 3|Work Sans,1,0.32px
+2,ss-ws-root-0.02em,manifest,140,4,16,4,0,4,Barlow Condensed|Source Sans 3,1,0.32px
+2,ss-ws-root-0.02em,network-ops,140,0,15,0,0,0,Poppins|Source Sans 3|Work Sans,1,0.32px
+2,ss-ws-root-0.02em,offshore,140,4,16,4,0,4,Poppins|Source Sans 3,2,0.32px
+2,ss-ws-root-0.02em,pipeline,122,0,8,1,0,1,Newsreader|Source Sans 3,1,0.32px
+2,ss-ws-root-0.02em,pitch-deck,140,0,16,0,0,0,Poppins|Source Sans 3|Work Sans,1,0.32px
+2,ss-ws-root-0.02em,portfolio-grid,137,0,1,0,0,0,Newsreader|Source Sans 3,1,0.32px
+2,ss-ws-root-0.02em,press-kit,140,0,16,0,0,0,Lora|Source Sans 3|Work Sans,2,0.32px
+2,ss-ws-root-0.02em,product-tech,140,0,16,0,0,0,Barlow Condensed|Source Sans 3|Work Sans,1,0.32px
+2,ss-ws-root-0.02em,property-portfolio,140,0,16,0,0,0,Lora|Source Sans 3|Work Sans,2,0.32px
+2,ss-ws-root-0.02em,public-record,140,0,12,0,0,0,Newsreader|Source Sans 3,2,0.32px
+2,ss-ws-root-0.02em,reel,140,0,13,0,0,0,Poppins|Source Sans 3|Work Sans,2,0.32px
+2,ss-ws-root-0.02em,research-record,146,0,15,0,0,0,Lora|Source Sans 3|Work Sans,2,0.32px
+2,ss-ws-root-0.02em,rig-report,140,0,40,0,0,0,Poppins|Source Sans 3|Work Sans,1,0.32px
+2,ss-ws-root-0.02em,rounds,146,4,16,4,0,4,Newsreader|Source Sans 3,2,0.32px
+2,ss-ws-root-0.02em,route-plan,140,0,15,0,0,0,Barlow Condensed|Source Sans 3|Work Sans,1,0.32px
+2,ss-ws-root-0.02em,schematic,146,3,13,3,0,3,Barlow Condensed|Source Sans 3|Work Sans,2,0.32px
+2,ss-ws-root-0.02em,signal,140,0,16,0,0,0,Poppins|Source Sans 3|Work Sans,1,0.32px
+2,ss-ws-root-0.02em,site-plan,140,0,15,0,0,0,Poppins|Source Sans 3|Work Sans,2,0.32px
+2,ss-ws-root-0.02em,site-report,140,0,15,0,0,0,Poppins|Source Sans 3|Work Sans,1,0.32px
+2,ss-ws-root-0.02em,specification,146,1,40,1,0,1,Lora|Source Sans 3,1,0.32px
+2,ss-ws-root-0.02em,sprint-board,140,0,16,0,0,0,Poppins|Source Sans 3|Work Sans,2,0.32px
+2,ss-ws-root-0.02em,stack-trace,140,0,16,0,0,0,Poppins|Source Sans 3|Work Sans,2,0.32px
+2,ss-ws-root-0.02em,statute,138,0,0,0,0,0,Newsreader,2,0.32px
+2,ss-ws-root-0.02em,structured-admin,140,4,16,4,0,4,Newsreader|Source Sans 3,1,0.32px
+2,ss-ws-root-0.02em,studio-brief,140,0,16,0,0,0,Lora|Source Sans 3|Work Sans,2,0.32px
+2,ss-ws-root-0.02em,success-story,146,0,15,0,0,0,Newsreader|Source Sans 3|Work Sans,2,0.32px
+2,ss-ws-root-0.02em,supply-chain,146,0,14,0,0,0,Barlow Condensed|Source Sans 3|Work Sans,1,0.32px
+2,ss-ws-root-0.02em,terminal,140,1,40,1,0,1,Barlow Condensed|Source Sans 3,1,0.32px
+2,ss-ws-root-0.02em,uptime,140,0,16,0,0,0,Poppins|Source Sans 3|Work Sans,2,0.32px
+2,ss-ws-root-0.02em,value-chain,146,0,14,0,0,0,Work Sans|Source Sans 3,1,0.32px
+2,ss-ws-root-0.02em,wellhead,146,0,14,0,0,0,Poppins|Source Sans 3|Work Sans,1,0.32px
+2,ss-ws-root-0.05em,balance-sheet,146,4,0,4,0,4,Lora|Source Sans 3,1,0.8px
+2,ss-ws-root-0.05em,blueprint,140,0,3,0,0,0,Barlow Condensed|Source Sans 3|Work Sans,2,0.8px
+2,ss-ws-root-0.05em,business-boardroom,146,0,0,0,0,0,Lora|Source Sans 3|Work Sans,1,0.8px
+2,ss-ws-root-0.05em,business-memo,145,4,0,4,0,4,Lora|Source Sans 3,2,0.8px
+2,ss-ws-root-0.05em,byline,146,0,0,0,0,0,Lora|Source Sans 3|Work Sans,2,0.8px
+2,ss-ws-root-0.05em,care-plan,140,4,0,4,0,4,Source Sans 3,1,0.8px
+2,ss-ws-root-0.05em,chambers,146,4,0,4,0,4,Newsreader|Source Sans 3,1,0.8px
+2,ss-ws-root-0.05em,civic-record,140,1,7,1,0,1,Newsreader|Source Sans 3,1,0.8px
+2,ss-ws-root-0.05em,clean-professional,140,4,0,4,0,4,Newsreader|Source Sans 3,1,0.8px
+2,ss-ws-root-0.05em,clinical,140,0,0,0,0,0,Newsreader|Source Sans 3,1,0.8px
+2,ss-ws-root-0.05em,compliance-brief,140,4,0,4,0,4,Newsreader|Source Sans 3,1,0.8px
+2,ss-ws-root-0.05em,concierge,152,0,0,0,0,0,Lora|Source Sans 3|Work Sans,1,0.8px
+2,ss-ws-root-0.05em,critical-path,134,0,2,1,0,1,Newsreader|Source Sans 3,1,0.8px
+2,ss-ws-root-0.05em,curriculum-vitae,146,0,0,0,0,0,Lora|Source Sans 3|Work Sans,2,0.8px
+2,ss-ws-root-0.05em,design-showcase,140,0,3,0,0,0,Lora|Source Sans 3|Work Sans,2,0.8px
+2,ss-ws-root-0.05em,faculty-profile,152,0,0,0,0,0,Lora|Source Sans 3|Work Sans,1,0.8px
+2,ss-ws-root-0.05em,field-mission,163,0,0,0,0,0,Work Sans|Source Sans 3,2,0.8px
+2,ss-ws-root-0.05em,field-notes,140,1,7,1,0,1,Barlow Condensed|Source Sans 3,1,0.8px
+2,ss-ws-root-0.05em,field-season,140,0,0,0,0,0,Work Sans|Source Sans 3,1,0.8px
+2,ss-ws-root-0.05em,filing-system,140,1,7,1,0,1,Newsreader|Source Sans 3,1,0.8px
+2,ss-ws-root-0.05em,foundation,140,4,0,4,0,4,Barlow Condensed|Source Sans 3,1,0.8px
+2,ss-ws-root-0.05em,front-desk,154,0,0,0,0,0,Work Sans|Source Sans 3,2,0.8px
+2,ss-ws-root-0.05em,front-office,140,0,0,0,0,0,Work Sans|Source Sans 3,1,0.8px
+2,ss-ws-root-0.05em,funnel,146,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,1,0.8px
+2,ss-ws-root-0.05em,gantt,140,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,1,0.8px
+2,ss-ws-root-0.05em,gazette,140,4,0,4,0,4,Newsreader|Source Sans 3,1,0.8px
+2,ss-ws-root-0.05em,grant-proposal,170,0,0,0,0,0,Work Sans|Source Sans 3,2,0.8px
+2,ss-ws-root-0.05em,harvest,140,1,7,1,0,1,Work Sans|Source Sans 3,1,0.8px
+2,ss-ws-root-0.05em,help-desk,146,4,0,7,0,7,Source Sans 3,2,0.8px
+2,ss-ws-root-0.05em,impact-report,157,0,0,0,0,0,Newsreader|Source Sans 3|Work Sans,2,0.8px
+2,ss-ws-root-0.05em,itinerary,146,0,7,0,0,0,Work Sans|Source Sans 3,1,0.8px
+2,ss-ws-root-0.05em,lecture-notes,140,0,7,0,0,0,Lora|Source Sans 3|Work Sans,1,0.8px
+2,ss-ws-root-0.05em,ledger,140,4,0,4,0,4,Newsreader|Source Sans 3,1,0.8px
+2,ss-ws-root-0.05em,legal-brief,140,0,7,0,0,0,Lora|Source Sans 3|Work Sans,1,0.8px
+2,ss-ws-root-0.05em,manifest,140,4,0,4,0,4,Barlow Condensed|Source Sans 3,1,0.8px
+2,ss-ws-root-0.05em,network-ops,140,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,1,0.8px
+2,ss-ws-root-0.05em,offshore,140,4,0,4,0,4,Poppins|Source Sans 3,2,0.8px
+2,ss-ws-root-0.05em,pipeline,122,0,0,1,0,1,Newsreader|Source Sans 3,1,0.8px
+2,ss-ws-root-0.05em,pitch-deck,140,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,1,0.8px
+2,ss-ws-root-0.05em,portfolio-grid,137,0,0,0,0,0,Newsreader|Source Sans 3,1,0.8px
+2,ss-ws-root-0.05em,press-kit,140,0,0,0,0,0,Lora|Source Sans 3|Work Sans,2,0.8px
+2,ss-ws-root-0.05em,product-tech,140,0,0,0,0,0,Barlow Condensed|Source Sans 3|Work Sans,1,0.8px
+2,ss-ws-root-0.05em,property-portfolio,140,0,0,0,0,0,Lora|Source Sans 3|Work Sans,2,0.8px
+2,ss-ws-root-0.05em,public-record,140,0,0,0,0,0,Newsreader|Source Sans 3,2,0.8px
+2,ss-ws-root-0.05em,reel,140,0,3,0,0,0,Poppins|Source Sans 3|Work Sans,2,0.8px
+2,ss-ws-root-0.05em,research-record,146,0,0,0,0,0,Lora|Source Sans 3|Work Sans,2,0.8px
+2,ss-ws-root-0.05em,rig-report,140,0,7,0,0,0,Poppins|Source Sans 3|Work Sans,1,0.8px
+2,ss-ws-root-0.05em,rounds,146,4,0,4,0,4,Newsreader|Source Sans 3,2,0.8px
+2,ss-ws-root-0.05em,route-plan,140,0,0,0,0,0,Barlow Condensed|Source Sans 3|Work Sans,1,0.8px
+2,ss-ws-root-0.05em,schematic,146,3,3,3,0,3,Barlow Condensed|Source Sans 3|Work Sans,2,0.8px
+2,ss-ws-root-0.05em,signal,140,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,1,0.8px
+2,ss-ws-root-0.05em,site-plan,140,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,2,0.8px
+2,ss-ws-root-0.05em,site-report,140,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,1,0.8px
+2,ss-ws-root-0.05em,specification,146,1,7,1,0,1,Lora|Source Sans 3,1,0.8px
+2,ss-ws-root-0.05em,sprint-board,140,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,2,0.8px
+2,ss-ws-root-0.05em,stack-trace,140,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,2,0.8px
+2,ss-ws-root-0.05em,statute,138,0,0,0,0,0,Newsreader,2,0.8px
+2,ss-ws-root-0.05em,structured-admin,140,4,0,4,0,4,Newsreader|Source Sans 3,1,0.8px
+2,ss-ws-root-0.05em,studio-brief,140,0,0,0,0,0,Lora|Source Sans 3|Work Sans,2,0.8px
+2,ss-ws-root-0.05em,success-story,146,0,0,0,0,0,Newsreader|Source Sans 3|Work Sans,2,0.8px
+2,ss-ws-root-0.05em,supply-chain,146,0,0,0,0,0,Barlow Condensed|Source Sans 3|Work Sans,1,0.8px
+2,ss-ws-root-0.05em,terminal,140,1,7,1,0,1,Barlow Condensed|Source Sans 3,1,0.8px
+2,ss-ws-root-0.05em,uptime,140,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,2,0.8px
+2,ss-ws-root-0.05em,value-chain,146,0,0,0,0,0,Work Sans|Source Sans 3,1,0.8px
+2,ss-ws-root-0.05em,wellhead,146,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,1,0.8px
+2,ss-ws-root-0.1em,balance-sheet,146,4,0,4,0,4,Lora|Source Sans 3,1,1.6px
+2,ss-ws-root-0.1em,blueprint,140,0,0,0,0,0,Barlow Condensed|Source Sans 3|Work Sans,2,1.6px
+2,ss-ws-root-0.1em,business-boardroom,146,0,0,0,0,0,Lora|Source Sans 3|Work Sans,1,1.6px
+2,ss-ws-root-0.1em,business-memo,145,4,0,4,0,4,Lora|Source Sans 3,2,1.6px
+2,ss-ws-root-0.1em,byline,146,0,0,0,0,0,Lora|Source Sans 3|Work Sans,2,1.6px
+2,ss-ws-root-0.1em,care-plan,140,4,0,4,0,4,Source Sans 3,1,1.6px
+2,ss-ws-root-0.1em,chambers,146,4,0,4,0,4,Newsreader|Source Sans 3,1,1.6px
+2,ss-ws-root-0.1em,civic-record,140,1,0,1,0,1,Newsreader|Source Sans 3,1,1.6px
+2,ss-ws-root-0.1em,clean-professional,140,4,0,4,0,4,Newsreader|Source Sans 3,1,1.6px
+2,ss-ws-root-0.1em,clinical,140,0,0,0,0,0,Newsreader|Source Sans 3,1,1.6px
+2,ss-ws-root-0.1em,compliance-brief,140,4,0,4,0,4,Newsreader|Source Sans 3,1,1.6px
+2,ss-ws-root-0.1em,concierge,152,0,0,0,0,0,Lora|Source Sans 3|Work Sans,1,1.6px
+2,ss-ws-root-0.1em,critical-path,134,0,0,1,0,1,Newsreader|Source Sans 3,1,1.6px
+2,ss-ws-root-0.1em,curriculum-vitae,146,0,0,0,0,0,Lora|Source Sans 3|Work Sans,2,1.6px
+2,ss-ws-root-0.1em,design-showcase,140,0,0,0,0,0,Lora|Source Sans 3|Work Sans,2,1.6px
+2,ss-ws-root-0.1em,faculty-profile,152,0,0,0,0,0,Lora|Source Sans 3|Work Sans,1,1.6px
+2,ss-ws-root-0.1em,field-mission,163,0,0,0,0,0,Work Sans|Source Sans 3,2,1.6px
+2,ss-ws-root-0.1em,field-notes,140,1,0,1,0,1,Barlow Condensed|Source Sans 3,1,1.6px
+2,ss-ws-root-0.1em,field-season,140,0,0,0,0,0,Work Sans|Source Sans 3,2,1.6px
+2,ss-ws-root-0.1em,filing-system,140,1,0,1,0,1,Newsreader|Source Sans 3,1,1.6px
+2,ss-ws-root-0.1em,foundation,140,4,0,4,0,4,Barlow Condensed|Source Sans 3,2,1.6px
+2,ss-ws-root-0.1em,front-desk,154,0,0,0,0,0,Work Sans|Source Sans 3,2,1.6px
+2,ss-ws-root-0.1em,front-office,140,0,0,0,0,0,Work Sans|Source Sans 3,1,1.6px
+2,ss-ws-root-0.1em,funnel,146,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,1,1.6px
+2,ss-ws-root-0.1em,gantt,140,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,2,1.6px
+2,ss-ws-root-0.1em,gazette,140,4,0,4,0,4,Newsreader|Source Sans 3,1,1.6px
+2,ss-ws-root-0.1em,grant-proposal,170,0,0,0,0,0,Work Sans|Source Sans 3,2,1.6px
+2,ss-ws-root-0.1em,harvest,140,1,0,1,0,1,Work Sans|Source Sans 3,1,1.6px
+2,ss-ws-root-0.1em,help-desk,146,4,0,7,0,7,Source Sans 3,2,1.6px
+2,ss-ws-root-0.1em,impact-report,157,0,0,0,0,0,Newsreader|Source Sans 3|Work Sans,2,1.6px
+2,ss-ws-root-0.1em,itinerary,146,0,0,0,0,0,Work Sans|Source Sans 3,1,1.6px
+2,ss-ws-root-0.1em,lecture-notes,140,0,0,0,0,0,Lora|Source Sans 3|Work Sans,1,1.6px
+2,ss-ws-root-0.1em,ledger,140,4,0,4,0,4,Newsreader|Source Sans 3,2,1.6px
+2,ss-ws-root-0.1em,legal-brief,140,0,0,0,0,0,Lora|Source Sans 3|Work Sans,1,1.6px
+2,ss-ws-root-0.1em,manifest,140,4,0,4,0,4,Barlow Condensed|Source Sans 3,1,1.6px
+2,ss-ws-root-0.1em,network-ops,140,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,1,1.6px
+2,ss-ws-root-0.1em,offshore,140,4,0,4,0,4,Poppins|Source Sans 3,2,1.6px
+2,ss-ws-root-0.1em,pipeline,122,0,0,1,0,1,Newsreader|Source Sans 3,1,1.6px
+2,ss-ws-root-0.1em,pitch-deck,140,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,1,1.6px
+2,ss-ws-root-0.1em,portfolio-grid,137,0,0,0,0,0,Newsreader|Source Sans 3,1,1.6px
+2,ss-ws-root-0.1em,press-kit,140,0,0,0,0,0,Lora|Source Sans 3|Work Sans,2,1.6px
+2,ss-ws-root-0.1em,product-tech,140,0,0,0,0,0,Barlow Condensed|Source Sans 3|Work Sans,1,1.6px
+2,ss-ws-root-0.1em,property-portfolio,140,0,0,0,0,0,Lora|Source Sans 3|Work Sans,2,1.6px
+2,ss-ws-root-0.1em,public-record,140,0,0,0,0,0,Newsreader|Source Sans 3,2,1.6px
+2,ss-ws-root-0.1em,reel,140,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,2,1.6px
+2,ss-ws-root-0.1em,research-record,146,0,0,0,0,0,Lora|Source Sans 3|Work Sans,2,1.6px
+2,ss-ws-root-0.1em,rig-report,140,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,1,1.6px
+2,ss-ws-root-0.1em,rounds,146,4,0,4,0,4,Newsreader|Source Sans 3,2,1.6px
+2,ss-ws-root-0.1em,route-plan,140,0,0,0,0,0,Barlow Condensed|Source Sans 3|Work Sans,2,1.6px
+2,ss-ws-root-0.1em,schematic,146,3,0,3,0,3,Barlow Condensed|Source Sans 3|Work Sans,2,1.6px
+2,ss-ws-root-0.1em,signal,140,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,1,1.6px
+2,ss-ws-root-0.1em,site-plan,140,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,2,1.6px
+2,ss-ws-root-0.1em,site-report,140,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,2,1.6px
+2,ss-ws-root-0.1em,specification,146,1,0,1,0,1,Lora|Source Sans 3,1,1.6px
+2,ss-ws-root-0.1em,sprint-board,140,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,2,1.6px
+2,ss-ws-root-0.1em,stack-trace,140,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,2,1.6px
+2,ss-ws-root-0.1em,statute,138,0,0,0,0,0,Newsreader,2,1.6px
+2,ss-ws-root-0.1em,structured-admin,140,4,0,4,0,4,Newsreader|Source Sans 3,1,1.6px
+2,ss-ws-root-0.1em,studio-brief,140,0,0,0,0,0,Lora|Source Sans 3|Work Sans,2,1.6px
+2,ss-ws-root-0.1em,success-story,146,0,0,0,0,0,Newsreader|Source Sans 3|Work Sans,2,1.6px
+2,ss-ws-root-0.1em,supply-chain,146,0,0,0,0,0,Barlow Condensed|Source Sans 3|Work Sans,1,1.6px
+2,ss-ws-root-0.1em,terminal,140,1,0,1,0,1,Barlow Condensed|Source Sans 3,1,1.6px
+2,ss-ws-root-0.1em,uptime,140,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,2,1.6px
+2,ss-ws-root-0.1em,value-chain,146,0,0,0,0,0,Work Sans|Source Sans 3,1,1.6px
+2,ss-ws-root-0.1em,wellhead,146,0,0,0,0,0,Poppins|Source Sans 3|Work Sans,1,1.6px
+2,ss-ws0,balance-sheet,146,4,44,4,0,4,Lora|Source Sans 3,1,0px
+2,ss-ws0,blueprint,140,0,19,0,0,0,Barlow Condensed|Source Sans 3|Work Sans,2,0px
+2,ss-ws0,business-boardroom,146,0,40,0,0,0,Lora|Source Sans 3|Work Sans,1,0px
+2,ss-ws0,business-memo,145,4,46,4,0,4,Lora|Source Sans 3,2,0px
+2,ss-ws0,byline,146,0,42,0,0,0,Lora|Source Sans 3|Work Sans,2,0px
+2,ss-ws0,care-plan,140,4,45,4,0,4,Source Sans 3,1,0px
+2,ss-ws0,chambers,146,4,44,4,0,4,Newsreader|Source Sans 3,1,0px
+2,ss-ws0,civic-record,140,1,61,1,0,1,Newsreader|Source Sans 3,1,0px
+2,ss-ws0,clean-professional,140,4,46,4,0,4,Newsreader|Source Sans 3,1,0px
+2,ss-ws0,clinical,140,0,19,0,0,0,Newsreader|Source Sans 3,1,0px
+2,ss-ws0,compliance-brief,140,4,46,4,0,4,Newsreader|Source Sans 3,1,0px
+2,ss-ws0,concierge,152,0,40,0,0,0,Lora|Source Sans 3|Work Sans,1,0px
+2,ss-ws0,critical-path,134,0,45,1,0,1,Newsreader|Source Sans 3,1,0px
+2,ss-ws0,curriculum-vitae,146,0,42,0,0,0,Lora|Source Sans 3|Work Sans,2,0px
+2,ss-ws0,design-showcase,140,0,20,0,0,0,Lora|Source Sans 3|Work Sans,2,0px
+2,ss-ws0,faculty-profile,152,0,40,0,0,0,Lora|Source Sans 3|Work Sans,1,0px
+2,ss-ws0,field-mission,163,0,45,0,0,0,Work Sans|Source Sans 3,2,0px
+2,ss-ws0,field-notes,140,1,60,1,0,1,Barlow Condensed|Source Sans 3,1,0px
+2,ss-ws0,field-season,140,0,41,0,0,0,Work Sans|Source Sans 3,1,0px
+2,ss-ws0,filing-system,140,1,61,1,0,1,Newsreader|Source Sans 3,1,0px
+2,ss-ws0,foundation,140,4,46,4,0,4,Barlow Condensed|Source Sans 3,1,0px
+2,ss-ws0,front-desk,154,0,42,0,0,0,Work Sans|Source Sans 3,2,0px
+2,ss-ws0,front-office,140,0,40,0,0,0,Work Sans|Source Sans 3,1,0px
+2,ss-ws0,funnel,146,0,40,0,0,0,Poppins|Source Sans 3|Work Sans,1,0px
+2,ss-ws0,gantt,140,0,42,0,0,0,Poppins|Source Sans 3|Work Sans,1,0px
+2,ss-ws0,gazette,140,4,46,4,0,4,Newsreader|Source Sans 3,1,0px
+2,ss-ws0,grant-proposal,170,0,43,0,0,0,Work Sans|Source Sans 3,2,0px
+2,ss-ws0,harvest,140,1,59,1,0,1,Work Sans|Source Sans 3,1,0px
+2,ss-ws0,help-desk,146,4,46,7,0,7,Source Sans 3,2,0px
+2,ss-ws0,impact-report,157,0,45,0,0,0,Newsreader|Source Sans 3|Work Sans,2,0px
+2,ss-ws0,itinerary,146,0,59,0,0,0,Work Sans|Source Sans 3,1,0px
+2,ss-ws0,lecture-notes,140,0,60,0,0,0,Lora|Source Sans 3|Work Sans,1,0px
+2,ss-ws0,ledger,140,4,46,4,0,4,Newsreader|Source Sans 3,1,0px
+2,ss-ws0,legal-brief,140,0,60,0,0,0,Lora|Source Sans 3|Work Sans,1,0px
+2,ss-ws0,manifest,140,4,46,4,0,4,Barlow Condensed|Source Sans 3,1,0px
+2,ss-ws0,network-ops,140,0,42,0,0,0,Poppins|Source Sans 3|Work Sans,1,0px
+2,ss-ws0,offshore,140,4,46,4,0,4,Poppins|Source Sans 3,2,0px
+2,ss-ws0,pipeline,122,0,14,1,0,1,Newsreader|Source Sans 3,1,0px
+2,ss-ws0,pitch-deck,140,0,43,0,0,0,Poppins|Source Sans 3|Work Sans,1,0px
+2,ss-ws0,portfolio-grid,137,0,14,0,0,0,Newsreader|Source Sans 3,1,0px
+2,ss-ws0,press-kit,140,0,43,0,0,0,Lora|Source Sans 3|Work Sans,2,0px
+2,ss-ws0,product-tech,140,0,43,0,0,0,Barlow Condensed|Source Sans 3|Work Sans,1,0px
+2,ss-ws0,property-portfolio,140,0,41,0,0,0,Lora|Source Sans 3|Work Sans,2,0px
+2,ss-ws0,public-record,140,0,50,0,0,0,Newsreader|Source Sans 3,2,0px
+2,ss-ws0,reel,140,0,20,0,0,0,Poppins|Source Sans 3|Work Sans,2,0px
+2,ss-ws0,research-record,146,0,42,0,0,0,Lora|Source Sans 3|Work Sans,2,0px
+2,ss-ws0,rig-report,140,0,60,0,0,0,Poppins|Source Sans 3|Work Sans,1,0px
+2,ss-ws0,rounds,146,4,46,4,0,4,Newsreader|Source Sans 3,2,0px
+2,ss-ws0,route-plan,140,0,42,0,0,0,Barlow Condensed|Source Sans 3|Work Sans,1,0px
+2,ss-ws0,schematic,146,3,20,3,0,3,Barlow Condensed|Source Sans 3|Work Sans,2,0px
+2,ss-ws0,signal,140,0,43,0,0,0,Poppins|Source Sans 3|Work Sans,1,0px
+2,ss-ws0,site-plan,140,0,42,0,0,0,Poppins|Source Sans 3|Work Sans,2,0px
+2,ss-ws0,site-report,140,0,41,0,0,0,Poppins|Source Sans 3|Work Sans,1,0px
+2,ss-ws0,specification,146,1,61,1,0,1,Lora|Source Sans 3,1,0px
+2,ss-ws0,sprint-board,140,0,41,0,0,0,Poppins|Source Sans 3|Work Sans,2,0px
+2,ss-ws0,stack-trace,140,0,41,0,0,0,Poppins|Source Sans 3|Work Sans,2,0px
+2,ss-ws0,statute,138,0,0,0,0,0,Newsreader,2,0px
+2,ss-ws0,structured-admin,140,4,46,4,0,4,Newsreader|Source Sans 3,1,0px
+2,ss-ws0,studio-brief,140,0,43,0,0,0,Lora|Source Sans 3|Work Sans,2,0px
+2,ss-ws0,success-story,146,0,42,0,0,0,Newsreader|Source Sans 3|Work Sans,2,0px
+2,ss-ws0,supply-chain,146,0,40,0,0,0,Barlow Condensed|Source Sans 3|Work Sans,1,0px
+2,ss-ws0,terminal,140,1,60,1,0,1,Barlow Condensed|Source Sans 3,1,0px
+2,ss-ws0,uptime,140,0,41,0,0,0,Poppins|Source Sans 3|Work Sans,2,0px
+2,ss-ws0,value-chain,146,0,40,0,0,0,Work Sans|Source Sans 3,1,0px
+2,ss-ws0,wellhead,146,0,40,0,0,0,Poppins|Source Sans 3|Work Sans,1,0px
