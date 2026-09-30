@@ -101,7 +101,7 @@ Dependency audit, Secret scan: success   (Migration numbering: skipped on push e
 `Migration drift (production)` also ran ([run 36755240848](https://github.com/Bayo-1987/Claude-Talentrah/actions/runs/36755240848)): success.
 
 ### Not covered / still open
-- The `openai` 7.15.0 → 7.23.0 bump, merged in the same PR as mammoth, had no equivalent test; see PR #600 (open).
+- The `openai` 7.15.0 → 7.23.0 bump, merged in the same PR as mammoth, had no equivalent test; PR #600 (merged 2026-09-30 18:40 UTC, `9e80518`) added one.
 
 ---
 
@@ -130,7 +130,7 @@ Dependency audit, Secret scan: success   (Migration numbering: skipped on push e
 - mammoth 1.13.0 was smoke-tested by hand in a scratch directory (a real minimal `.docx` extracted correctly; bad
   input rejects). **It is now covered in CI by PR #598.**
 - **`openai` 7.23.0 is our Groq client and has NOT been exercised in production.** The post-deploy window below saw
-  no Farah, tailoring or other LLM request, so an empty error log says nothing about it. PR #600 (open) drives the
+  no Farah, tailoring or other LLM request, so an empty error log says nothing about it. PR #600 (merged 2026-09-30 18:40 UTC, `9e80518`) drives the
   real package with only `fetch` mocked and shows the same 14 tests pass on 7.15.0 and 7.23.0; a real-traffic
   re-check of production logs was agreed for after the founder's own Farah request.
 
@@ -205,9 +205,10 @@ Dependabot-triggered runs get the Dependabot secret store, which is empty here, 
 `VERCEL_AUTOMATION_BYPASS_SECRET` (recorded on [#575](https://github.com/Bayo-1987/Claude-Talentrah/issues/575)).
 
 ### Not covered / still open
-- `openai` not exercised in production (above); PR #600 open.
+- `openai` not exercised in production (above); PR #600 (merged 18:40 UTC, `9e80518`) now covers the request/response/error
+  surface in CI, but production real-traffic exposure is still to be re-checked.
 - Flakes seen while merging this: banner spec (#591), test-user pool (#593), font-fetch build (#585), the
-  `login-rate-limit` window boundary (PR #599, open).
+  `login-rate-limit` window boundary (PR #599, not merged at the time of writing).
 
 ---
 
