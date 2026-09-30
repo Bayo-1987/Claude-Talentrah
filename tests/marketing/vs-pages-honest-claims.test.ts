@@ -48,7 +48,14 @@ const VS_PAGES = [JOBRIGHT, JOBCOPILOT];
  * which would let a phrase slip past a naive match.
  */
 function rendered(path: string): string {
-  return readFileSync(path, "utf8")
+  const raw = readFileSync(path, "utf8");
+  // A link written as href={SOME_CONST} is still a link: swap in the URL the
+  // constant holds, so the price rule sees it where it is used.
+  const urls = new Map([...raw.matchAll(/const (\w+) = "(https?:\/\/[^"]+)"/g)].map((m) => [m[1]!, m[2]!]));
+  const resolved = raw.replace(/href=\{(\w+)\}/g, (whole, name: string) =>
+    urls.has(name) ? `href="${urls.get(name)}"` : whole,
+  );
+  return resolved
     .replace(/\/\*[\s\S]*?\*\//g, "")
     .replace(/^\s*\/\/.*$/gm, "")
     .replace(/&apos;|&#39;|&rsquo;|’/g, "'")
@@ -130,7 +137,7 @@ describe("the /vs comparison pages make honest, sourced claims (send-478)", () =
 
   it("case 4 — the competitor is always named FreshTalent JobCopilot, in the metadata and the copy", () => {
     const text = rendered(JOBCOPILOT).replace(/https?:\/\/[^\s"'<>)]+/g, "");
-    const bare = [...text.matchAll(/(?<!FreshTalent )JobCopilot/g)].length;
+    const bare = [...text.matchAll(/(?<!FreshTalent )JobCopilot\b/g)].length;
     expect(bare, `${bare} mention(s) of "JobCopilot" not preceded by "FreshTalent"`).toBe(0);
 
     const src = readFileSync(JOBCOPILOT, "utf8");
@@ -140,6 +147,6 @@ describe("the /vs comparison pages make honest, sourced claims (send-478)", () =
     expect(description).toContain("FreshTalent JobCopilot");
     // The Jobright page links across to it: same name there.
     const across = rendered(JOBRIGHT).replace(/https?:\/\/[^\s"'<>)]+/g, "");
-    expect([...across.matchAll(/(?<!FreshTalent )JobCopilot/g)].length).toBe(0);
+    expect([...across.matchAll(/(?<!FreshTalent )JobCopilot\b/g)].length).toBe(0);
   });
 });
