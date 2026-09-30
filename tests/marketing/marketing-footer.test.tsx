@@ -23,7 +23,7 @@
 import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { MarketingFooter } from "@/components/marketing/marketing-footer";
-import { isProtectedSeekerPath } from "@/proxy";
+import { isProtectedSeekerPath } from "@/lib/auth/seeker-gate-paths";
 import robots from "@/app/robots";
 
 const PRODUCT_LINKS: Record<string, string> = {
