@@ -70,7 +70,7 @@ const FOOTER_COLUMNS = [
     heading: "Compare",
     links: [
       { label: "Jobright Alternative", href: "/vs/jobright" },
-      { label: "vs. JobCopilot", href: "/vs/jobcopilot" },
+      { label: "vs. FreshTalent JobCopilot", href: "/vs/jobcopilot" },
     ],
   },
   {
