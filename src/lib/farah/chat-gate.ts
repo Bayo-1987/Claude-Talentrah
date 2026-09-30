@@ -181,11 +181,24 @@ export async function checkFarahChatAllowance(
   };
 }
 
+/**
+ * What a commit left the account with, for the `done` event (issue #605).
+ *
+ * `balanceAfter` is the LEDGER's own `balance_after` for a spend — the value spend_credits_atomic
+ * computed under its lock and spendCredits returns — never `creditsAvailableAtCheck - cost`: anything
+ * else that touched the balance between the check and this commit (another tab, a tailoring run, a
+ * top-up) would make a recomputed number wrong. `null` when nothing was spent (free allowance or Pass),
+ * so the client leaves the masthead alone.
+ */
+export interface FarahChatCommitResult {
+  balanceAfter: number | null;
+}
+
 /** Actually records the free-allowance/Pass use or spends credits — call only after the LLM call succeeds. */
 export async function commitFarahChatAllowance(
   userId: string,
   allowance: FarahChatAllowanceResult,
-): Promise<void> {
+): Promise<FarahChatCommitResult> {
   if (allowance.isFreeAllowance) {
     await logCreditGateEvent({
       userId,
@@ -194,7 +207,7 @@ export async function commitFarahChatAllowance(
       creditsAvailable: allowance.creditsAvailableAtCheck,
       outcome: "covered_by_free_allowance",
     });
-    return;
+    return { balanceAfter: null };
   }
   if (allowance.isPassCovered) {
     await logCreditGateEvent({
@@ -204,7 +217,8 @@ export async function commitFarahChatAllowance(
       creditsAvailable: allowance.creditsAvailableAtCheck,
       outcome: "covered_by_pass",
     });
-    return;
+    return { balanceAfter: null };
   }
-  await spendCredits(userId, allowance.creditsSpent, FARAH_CHAT_REASON);
+  const balanceAfter = await spendCredits(userId, allowance.creditsSpent, FARAH_CHAT_REASON);
+  return { balanceAfter };
 }

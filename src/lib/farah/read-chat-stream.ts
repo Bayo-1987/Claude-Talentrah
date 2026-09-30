@@ -1,7 +1,14 @@
 export type FarahChatStreamEvent =
   | { type: "delta"; fullText: string }
   | { type: "error"; message?: string }
-  | { type: "done"; id?: string | null; createdAt?: string; freeMessagesRemaining?: number | null };
+  | {
+      type: "done";
+      id?: string | null;
+      createdAt?: string;
+      freeMessagesRemaining?: number | null;
+      /** The account's new credit balance after a PAID message; null when nothing was spent, absent from an older server. */
+      creditsBalance?: number | null;
+    };
 
 /**
  * Parses the NDJSON stream `POST /api/farah/chat` returns once the request
@@ -47,6 +54,7 @@ export async function* readFarahChatStream(response: Response): AsyncGenerator<F
           id: event.id,
           createdAt: event.createdAt,
           freeMessagesRemaining: event.freeMessagesRemaining,
+          creditsBalance: event.creditsBalance,
         };
       }
     }
