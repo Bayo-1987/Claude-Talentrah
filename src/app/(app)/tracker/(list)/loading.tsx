@@ -11,6 +11,13 @@ import { EyebrowLabel, SkeletonBlock, SkeletonStatus } from "@/components/ui";
  *
  * NO HEADING AT ALL, on purpose (e2e/jobs-tracker-public-landing.spec.ts asserts exactly one <h1> in the
  * raw bytes). The eyebrow is the name of the page, which is true for both.
+ *
+ * LIVES IN A (list) ROUTE GROUP, SIBLING OF [applicationId]/, not directly under tracker/ — same reason
+ * jobs/(feed)/loading.tsx and scholarships/(list)/loading.tsx do. tracker/[applicationId]/sent calls
+ * notFound(), and a loading.tsx anywhere in a route's ancestor chain makes Next commit to HTTP 200 before
+ * the notFound runs (#221). MEASURED, not assumed: with this file directly under tracker/, a signed-in
+ * request for /tracker/<missing-id>/sent returned 200 in CI (e2e/jobs-tracker-public-landing-data.spec.ts,
+ * red on f4e4f90). (list) keeps the URL (`/tracker`) and gives that route a boundary it never inherits.
  */
 export default function TrackerLoading() {
   return (

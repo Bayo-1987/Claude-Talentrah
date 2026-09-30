@@ -156,7 +156,7 @@ test.describe("the signed-out landing pages are dynamically rendered and never s
 test.describe("the links that used to lead a signed-out visitor to /login now lead somewhere real", () => {
   test("the footer's Job Matching and Job Tracker links land on the landing pages", async ({ page }) => {
     for (const [label, path, h1] of [
-      ["Job Matching", "/jobs", /Jobs/],
+      ["Job Matching", "/jobs", /jobs/i],
       ["Job Tracker", "/tracker", /Job Tracker|tracker/i],
     ] as const) {
       await page.goto("/about");

@@ -20,7 +20,7 @@ type Meta = { title?: unknown; description?: string; alternates?: { canonical?: 
 
 /** Narrowed dynamic import: typechecks both before the export exists (tests-first) and after. */
 async function pageModule() {
-  return (await import("@/app/(app)/tracker/page")) as { metadata?: Meta; generateMetadata?: (...a: unknown[]) => Promise<Meta> };
+  return (await import("@/app/(app)/tracker/(list)/page")) as { metadata?: Meta; generateMetadata?: (...a: unknown[]) => Promise<Meta> };
 }
 async function generateMetadata(): Promise<Meta> {
   return (await pageModule()).generateMetadata!();

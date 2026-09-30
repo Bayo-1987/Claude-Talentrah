@@ -10,9 +10,9 @@
  *    bar, and none of the landing pages' content. Branching one shared route on auth state is the
  *    regression risk this whole change carries.
  *  - /tracker/<id>/sent keeps a real 404. A loading.tsx in an ancestor of a route that calls notFound()
- *    makes Next commit to 200 before the notFound runs (#221); tracker/loading.tsx is exactly that
- *    ancestor. If the test below is red, the fix is a (list) route group, as jobs/(feed) and
- *    scholarships/(list) already do — not a change to the test.
+ *    makes Next commit to 200 before the notFound runs (#221). tracker/loading.tsx was exactly that
+ *    ancestor, and this test was RED on it (200) — see e2e/nav-responsiveness.spec.ts, which already noted
+ *    the route was broken. The fix is the (list) route group, as jobs/(feed) and scholarships/(list) do.
  *  - The signed-out checks use a genuinely SEPARATE browser context: `authedPage` adds the session cookie
  *    to the same underlying context a test receives when it destructures both fixtures.
  */

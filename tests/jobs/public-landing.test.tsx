@@ -154,6 +154,15 @@ describe("the live preview", () => {
     expect(row("Direct Role")).not.toContain("sourced externally");
   });
 
+  it("does not repeat the work type when the location already says it (\"Remote · Remote\")", async () => {
+    const html = await render({ jobs: [job(1, { location: "Remote", work_type: "remote", title: "Dup Role" })] });
+    expect(html).toContain("Fixture Co 1 · Remote<");
+    expect(html).not.toContain("Remote · Remote");
+    // ...and still shows it when the location does not say it.
+    const other = await render({ jobs: [job(2, { location: "Lagos, Nigeria", work_type: "hybrid" })] });
+    expect(other).toContain("Fixture Co 2 · Lagos, Nigeria · Hybrid");
+  });
+
   it("shows no match score, percentage or tier anywhere (a signed-out visitor has no resume to score)", async () => {
     const html = await render();
     expect(html).not.toMatch(/\d+\s?%/);

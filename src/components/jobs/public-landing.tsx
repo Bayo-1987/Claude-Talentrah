@@ -57,7 +57,10 @@ const SECTION = "flex flex-col gap-5 border-t border-line pt-10";
 
 function JobRow({ job }: { job: LandingJob }) {
   const isExternal = job.source_type === "external";
-  const meta = [job.company_name, job.location, job.work_type ? WORK_TYPE_LABEL[job.work_type] : null].filter(Boolean);
+  const workType = job.work_type ? WORK_TYPE_LABEL[job.work_type] : null;
+  // A location of just "Remote" plus a "Remote" work type would read "Company · Remote · Remote".
+  const workTypeAddsInfo = workType && !(job.location ?? "").toLowerCase().includes(workType.toLowerCase());
+  const meta = [job.company_name, job.location, workTypeAddsInfo ? workType : null].filter(Boolean);
   return (
     <li>
       <BorderedCard className="flex items-start gap-3 p-5">

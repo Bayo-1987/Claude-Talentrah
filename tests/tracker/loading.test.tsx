@@ -7,7 +7,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
-import TrackerLoading from "@/app/(app)/tracker/loading";
+import TrackerLoading from "@/app/(app)/tracker/(list)/loading";
 import { ROUTE_LOADING_TESTID } from "@/components/ui/skeleton";
 
 describe("tracker loading.tsx", () => {
