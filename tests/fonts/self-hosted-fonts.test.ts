@@ -153,7 +153,8 @@ describe("the preloaded files", () => {
   });
 
   it("layout.tsx renders them and imports no other font source", () => {
-    const layout = readFileSync(join(process.cwd(), "src", "app", "layout.tsx"), "utf8");
+    // code only: layout.tsx's own comment explains why a <link rel="preload"> is wrong, and must not trip the check
+    const layout = readFileSync(join(process.cwd(), "src", "app", "layout.tsx"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
     expect(layout).toContain("PRELOADED_FONT_URLS");
     expect(layout).toMatch(/preload\(href, \{ as: "font", type: "font\/woff2"/);
     expect(layout, "a <link rel=preload> element is emitted twice; use preload()").not.toMatch(/<link[^>]*rel="preload"/);
