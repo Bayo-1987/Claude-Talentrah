@@ -19,7 +19,16 @@ import { join, relative } from "node:path";
 import { describe, expect, it } from "vitest";
 
 /** Every reference the scan accepts, by file and the exact text it accepts there, each with its reason. */
-const ALLOWED: ReadonlyArray<{ file: string; text: string; why: string }> = [];
+const ALLOWED: ReadonlyArray<{ file: string; text: string; why: string }> = [
+  {
+    file: "src/lib/seo/og-card.tsx",
+    text: "fonts.googleapis.com",
+    why:
+      "the share-card image route fetches Newsreader and Source Sans 3 as ttf, at request time on the server, because " +
+      "Satori cannot read woff2 and these routes render per crawl, not at build; on any failure it renders with next/og's " +
+      "own font. A server-to-Google request that cannot fail a build.",
+  },
+];
 
 const FORBIDDEN = /next\/font\/google|fonts\.googleapis\.com|fonts\.gstatic\.com/g;
 

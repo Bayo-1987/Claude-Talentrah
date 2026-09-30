@@ -1,23 +1,20 @@
 import type { Metadata } from "next";
 import { SITE_ORIGIN, SHARE_IMAGE, SHARE_IMAGE_META } from "@/lib/seo/site";
-import { Newsreader, IBM_Plex_Sans } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { CookieConsentBanner } from "@/components/legal/cookie-consent-banner";
 import "./globals.css";
+import "@/fonts/newsreader/newsreader.css";
+import "@/fonts/ibm-plex-sans/ibm-plex-sans.css";
+import { selfHostedFont } from "@/fonts/self-hosted-font";
+import { PRELOADED_FONT_URLS } from "@/fonts/preload";
 
-const newsreader = Newsreader({
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
-  style: ["normal", "italic"],
-  variable: "--font-newsreader",
-});
-
-const ibmPlexSans = IBM_Plex_Sans({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-ibm-plex-sans",
-});
+/*
+ * Self-hosted since #585: the woff2 files and their @font-face CSS are committed under src/fonts, so a build never asks
+ * Google for a font. Same families, weights, subsets, fallback metrics and `--font-*` variables as before.
+ */
+const newsreader = selfHostedFont({ slug: "newsreader", family: "Newsreader", singleStyle: false });
+const ibmPlexSans = selfHostedFont({ slug: "ibm-plex-sans", family: "IBM Plex Sans", singleStyle: true });
 
 const SITE_NAME = "Talentrah";
 const SITE_DESCRIPTION =
@@ -103,6 +100,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${newsreader.variable} ${ibmPlexSans.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-paper text-ink">
+        {PRELOADED_FONT_URLS.map((href) => (
+          <link key={href} rel="preload" href={href} as="font" type="font/woff2" crossOrigin="" />
+        ))}
         {/*
           send-406 follow-up — the cookie banner below is real, focusable
           chrome (a "Learn more" link, Decline/Accept buttons) inserted
