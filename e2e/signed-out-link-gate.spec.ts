@@ -52,6 +52,7 @@ import { isProtectedSeekerPath } from "../src/lib/auth/seeker-gate-paths";
 import {
   GATED_LINK_ALLOWLIST,
   enforcedForScope,
+  ratchetDiff,
   type EnforcementScope,
 } from "../tests/support/gated-link-allowlist";
 
@@ -161,23 +162,23 @@ test("a signed-out visitor is never sent to /login by an internal link on a publ
   ).toEqual([]);
 
   // ── the ratchet ───────────────────────────────────────────────────────────
-  const allowed = new Set(GATED_LINK_ALLOWLIST.map((r) => r.key));
-  const observed = new Set(report.observations.map((o) => o.key));
-
-  const fresh = report.observations.filter((o) => !allowed.has(o.key));
+  const { fresh, stale } = ratchetDiff(
+    report.observations.map((o) => o.key),
+    scope,
+  );
+  const byKey = new Map(report.observations.map((o) => [o.key, o]));
   expect(
-    fresh.map((o) => o.key),
+    fresh,
     "NEW links that send a signed-out visitor to /login. Point them at a public page (or make them session-aware); " +
       "do not add them to the allowlist unless a follow-up is genuinely assigned:\n" +
       fresh
-        .map((o) => `  ${o.key}   [${o.texts.slice(0, 3).join(" | ")}]   found on ${o.sourcePaths.slice(0, 3).join(", ")}`)
+        .map((k) => `  ${k}   [${byKey.get(k)!.texts.slice(0, 3).join(" | ")}]   found on ${byKey.get(k)!.sourcePaths.slice(0, 3).join(", ")}`)
         .join("\n"),
   ).toEqual([]);
 
-  const stale = enforced.filter((r) => !observed.has(r.key));
   expect(
-    stale.map((r) => r.key),
+    stale,
     "STALE allowlist rows — the link is gone, so delete the row (the list may only shrink):\n" +
-      stale.map((r) => `  ${r.key}   (was: ${r.sources.map((s) => s.file).join(", ")})`).join("\n"),
+      stale.map((k) => `  ${k}`).join("\n"),
   ).toEqual([]);
 });

@@ -29,6 +29,7 @@ import { offenderKey } from "../../scripts/link-check";
 import {
   GATED_LINK_ALLOWLIST,
   enforcedForScope,
+  ratchetDiff,
   type GatedLinkAllowance,
 } from "../support/gated-link-allowlist";
 
@@ -118,5 +119,43 @@ describe("the allowlist itself", () => {
     expect(enforcedForScope(ci, "ci")).toBe(true);
     expect(enforcedForScope(prod, "ci")).toBe(false);
     expect(enforcedForScope(prod, "all")).toBe(true);
+  });
+});
+
+describe("ratchetDiff — the comparison the crawl applies", () => {
+  const row = (key: string, coverage: "ci" | "prod-only" = "ci"): GatedLinkAllowance => ({
+    key,
+    coverage,
+    sources: [],
+    followUp: "x",
+  });
+  const rows = [row("footer:* -> /a"), row("main:/ -> /b"), row("main:/blog/* -> /c", "prod-only")];
+
+  it("passes when observed and listed match exactly", () => {
+    expect(ratchetDiff(["footer:* -> /a", "main:/ -> /b", "main:/blog/* -> /c"], "all", rows)).toEqual({ fresh: [], stale: [] });
+  });
+
+  it("fails a NEW offender: a gated link no row accounts for", () => {
+    const diff = ratchetDiff(["footer:* -> /a", "main:/ -> /b", "main:/about -> /tracker"], "ci", rows);
+    expect(diff.fresh).toEqual(["main:/about -> /tracker"]);
+  });
+
+  it("fails an offender that was fixed but whose row was left behind", () => {
+    const diff = ratchetDiff(["main:/ -> /b"], "ci", rows);
+    expect(diff.stale).toEqual(["footer:* -> /a"]);
+  });
+
+  it("does not treat a prod-only row as stale in CI scope, but does in 'all' scope", () => {
+    const observed = ["footer:* -> /a", "main:/ -> /b"];
+    expect(ratchetDiff(observed, "ci", rows).stale).toEqual([]);
+    expect(ratchetDiff(observed, "all", rows).stale).toEqual(["main:/blog/* -> /c"]);
+  });
+
+  it("a crawl that observed nothing cannot pass against a non-empty list", () => {
+    expect(ratchetDiff([], "ci", rows).stale.length).toBeGreaterThan(0);
+  });
+
+  it("holds for the real allowlist: observing exactly its own keys is clean", () => {
+    expect(ratchetDiff(GATED_LINK_ALLOWLIST.map((r) => r.key), "all")).toEqual({ fresh: [], stale: [] });
   });
 });
