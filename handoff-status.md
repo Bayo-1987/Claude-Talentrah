@@ -33,6 +33,129 @@ both served stale content in this project's history. Don't rely on either.
 
 ---
 
+## Merged 2026-09-29 — PR #574, `reset_test_pool_user` clears a former mentor's/mentee's mentorship rows (0201)
+
+| PR | Branch | Merged at (UTC) | Merge SHA |
+|----|--------|-----------------|-----------|
+| [#574](https://github.com/Bayo-1987/Claude-Talentrah/pull/574) | `fix/mentor-profiles-pkey-root-cause` | 21:23:40 | `82643bbc3d13be6c01af436c83be0906b9ff59d2` |
+
+> **Maintenance gap, stated plainly.** Before this entry, the last thing recorded
+> in this file was PR #64 (2026-08-26). Every PR between #65 and #573 (about 510
+> PR numbers; not all of them merged) is **not** recorded here, and this entry does
+> not backfill them. Reconstruct anything
+> from those from `git log` / `gh pr view`, not from this file.
+
+**What it fixed.** The recurring `mentor_profiles_pkey` CI flake (three test
+files in one day: #562, #563, and `display-name.test.ts` on #572's CI; ~29 bare
+inserts across ~20 files carry the same exposure). Root cause, verified against
+the live FK graph: 0188's `reset_test_pool_user` deleted `mentor_profiles` first,
+blocked by three NO ACTION NOT NULL FKs (`mentorship_sessions.mentor_id`,
+`mentorship_reviews.mentor_id`, `mentor_payouts.mentor_id`), only cleared sessions
+where the user was the *mentee*, and never touched `mentor_payouts`; the blocked
+delete was swallowed by its `foreign_key_violation` handler, so the residual was
+silent until the next claimant's bare insert collided. 0188's "accepted residual"
+note was wrong — the FKs resolve child-first. 0201 adds four guarded child-first
+deletes above the existing loop. Function body only; grants and signature
+untouched. It never touches the counterparty's rows.
+
+**This one touched production directly.** 0201 was applied to production **before**
+merge (the repo's rule for additive migrations, `supabase/migrations/README.md`),
+by `apply_migration` through the connector with the same statement applied to the
+dev project. It is a no-op there today: production's test pool has 0 rows.
+
+### Scope: test-only, with evidence (checked before touching production)
+- **Repo:** every reference to `reset_test_pool_user` / `claim_` / `release_` /
+  `add_test_pool_user` is in `tests/`, `supabase/migrations/`, docs, or the
+  *generated* `src/lib/supabase/types.ts` (declarations, not calls). Nothing under
+  `src/app`, `src/lib`, `scripts/` or `.github/` calls them.
+- **Production database:** all four are `SECURITY DEFINER`; `anon` and
+  `authenticated` have no `EXECUTE`, only `service_role`; the only other function
+  whose body references `reset_test_pool_user` is `claim_test_pool_user`; no
+  policy, view or trigger mentions the pool; `pg_cron` is not installed. The
+  privilege lock is also pinned by `tests/rls/test-user-pool-privileges.test.ts`.
+
+### Verification (all four, per the standard above)
+
+**1. GitHub API** — `GET /repos/Bayo-1987/Claude-Talentrah/pulls/574`:
+```
+{"merged": true, "merged_at": "2026-09-29T21:23:40Z",
+ "merge_commit_sha": "82643bbc3d13be6c01af436c83be0906b9ff59d2", "state": "closed"}
+```
+
+**2. Fresh shallow clone** (`git clone --depth 20`, a temp dir, not the working copy):
+```
+HEAD: 82643bbc3d13be6c01af436c83be0906b9ff59d2   (Merge pull request #574 …)
+merge SHA is an ancestor of / equal to HEAD: YES
+PRESENT: supabase/migrations/0201_reset_test_pool_user_clear_mentorship.sql (200 lines)
+PRESENT: tests/support/test-user-pool-mentor-reset.test.ts (200 lines)
+new-block warning strings in the migration: 4
+CLAUDE.md corrected paragraph present ("0201 now does it"): 1
+highest migration number on main: 0201_reset_test_pool_user_clear_mentorship.sql
+```
+
+**3. Live production probe, post-merge** (2026-09-29 21:24:24 UTC, 44 s after merge;
+project `nytwbbzfpytctjsoczzq`, read-only):
+```sql
+select now() as probed_at,
+  (select count(*) from supabase_migrations.schema_migrations
+     where name = '0201_reset_test_pool_user_clear_mentorship') as ledger_0201_count,
+  (select position('mentor_payouts (as mentor)' in prosrc) > 0 from pg_proc p
+     join pg_namespace n on n.oid = p.pronamespace
+     where n.nspname = 'public' and p.proname = 'reset_test_pool_user') as live_fn_has_0201_blocks,
+  (select md5(prosrc) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+     where n.nspname = 'public' and p.proname = 'reset_test_pool_user') as live_fn_md5,
+  (select count(*) from public.test_user_pool) as pool_rows;
+```
+```
+ledger_0201_count = 1   (newest entry: version 20260929211020, applied 21:10:20 — before merge)
+live_fn_has_0201_blocks = true
+live_fn_md5 = 3fe4efed69cbd21bfff68bb9d32b3f93   (identical to the md5 right after apply)
+pool_rows = 0
+anon/authenticated can execute = false
+```
+Before apply the same probe read md5 `0d116c15aa1412f1fd799a3b9e145bc7` (3,450 chars,
+no new blocks, ledger count 0); after, 4,471 chars, new blocks present. The repo's
+own **"Migration drift (production)"** workflow also ran on the merge commit
+([run 36632970393](https://github.com/Bayo-1987/Claude-Talentrah/actions/runs/36632970393))
+and concluded `success`.
+
+**4. Full suite against merged `main`** — the CI run GitHub started on the merge
+commit ([run 36632970518](https://github.com/Bayo-1987/Claude-Talentrah/actions/runs/36632970518),
+head `82643bb`), concluded `success`:
+```
+Typecheck, lint, unit tests : success   Test Files 357 passed (357)   Tests 4030 passed (4030)
+Playwright e2e              : success   390 passed (8.9m)
+Dependency audit, Secret scan: success   (Migration numbering: skipped on push events)
+```
+The new regression test ran in that run (`test-user-pool-mentor-reset.test.ts`,
+2 tests passed), as did `tests/mentorship/display-name.test.ts` (4 tests passed) —
+the file that had failed on #572's CI.
+
+### Proof the fix fixes something (red, then green)
+`tests/support/test-user-pool-mentor-reset.test.ts` was written first and run
+against the *unfixed* function on the dev project: both tests failed on exactly the
+two expected assertions (the former mentor's `mentor_profiles` row survived; the
+former mentee's session survived because a payout referenced it). After 0201 both
+pass, and the 5 existing `test-user-pool.test.ts` tests still pass (7/7).
+
+### Not covered / still open (do not read this entry as saying otherwise)
+- **A single green CI run cannot prove a probabilistic flake is gone.** The
+  deterministic regression test is what proves the mechanism; the flake's absence
+  over time is not something one run demonstrates.
+- **`refresh-job.test.ts` is a different flake and is NOT fixed by this.**
+  ("a genuinely missing pair must still be filled…", documented at the head of that
+  test file, PR #534.) It failed three separate CI runs on 2026-09-29
+  (runs 36618200475, 36618265505, 36621550012) and no issue tracks it.
+- **Lighthouse** is red on every recent run for an unrelated reason; tracked in
+  issue [#575](https://github.com/Bayo-1987/Claude-Talentrah/issues/575).
+- Local runs against the dev project fail for tests that mint a JWT session with
+  `No suitable key or wrong key type` (an environment/signing-key mismatch that
+  predates this change); those tests were only ever verified green in CI.
+- The statement applied to the two projects omitted 0201's leading header comment
+  block (documentation only); the function statement is identical to the file.
+
+---
+
 ## Merged 2026-08-26 — PR #64, local runs cannot hit production; CI seeds before testing
 
 | PR | Branch | Merged at (UTC) | Merge SHA |
