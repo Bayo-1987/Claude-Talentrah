@@ -79,16 +79,19 @@ export function TemplateCard({
 
       {/*
         Plain language, not just an icon (PR brief) — "ATS-safe" as a bare
-        badge would mean nothing to someone who has never heard the term, and
-        the whole point of the claim is that it is a real, checked property
-        (ats-safety.ts, ats-safety.test.ts's PDF-extraction proof), not
-        decoration. The negative case says WHY, not just that it fails,
-        because "not ATS-safe" alone reads as a defect rather than a
-        deliberate visual trade-off a candidate might still want.
+        badge would mean nothing to someone who has never heard the term.
+        The flag is a real, checked property of the LAYOUT (ats-safety.ts,
+        e2e/ats-safety.spec.ts's PDF-extraction check), but that check runs
+        one extractor (pdf.js) and applicant tracking systems do not all read
+        a PDF the same way — so the copy claims the layout, not the outcome,
+        and says systems differ (pinned by template-card-ats-copy.test.tsx).
+        The negative case says WHY, not just that it fails, because "not
+        ATS-safe" alone reads as a defect rather than a deliberate visual
+        trade-off a candidate might still want.
       */}
       <p className="text-[12px] text-ink-soft">
         {template.ats_safe
-          ? "ATS-safe — a standard single-column layout that reads correctly to applicant tracking systems."
+          ? "ATS-safe — a standard single-column layout, built to keep your text in reading order. Applicant tracking systems differ in how cleanly they read any PDF."
           : "Not ATS-safe — this layout's columns can scramble in some applicant tracking systems."}
       </p>
 
