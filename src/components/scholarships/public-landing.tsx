@@ -241,7 +241,7 @@ export function ScholarshipsPublicLanding({
             <h2 className="font-display text-[24px] leading-[1.2]">A few programmes currently in the catalog</h2>
           </div>
           <Link href={SIGNUP_HREF} className={buttonClasses("secondary", "md", "no-underline")}>
-            See the full catalog with a free account →
+            See the full catalog with a free account&nbsp;→
           </Link>
         </div>
         {listingsError ? (
