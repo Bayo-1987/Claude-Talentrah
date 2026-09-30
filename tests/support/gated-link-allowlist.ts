@@ -7,19 +7,28 @@
 
 export type Coverage = "ci" | "prod-only";
 
+/** Who removes the row, by name. A row without one of these fails the integrity test. */
+export const ALLOWLIST_OWNERS = ["prompt-2", "prompt-3", "scholarships-landing"] as const;
+export type AllowlistOwner = (typeof ALLOWLIST_OWNERS)[number];
+
+export function isValidOwner(owner: unknown): owner is AllowlistOwner {
+  return typeof owner === "string" && (ALLOWLIST_OWNERS as readonly string[]).includes(owner);
+}
+
 export interface GatedLinkAllowance {
   /** `region:page-group -> target`, built by offenderKey() in scripts/link-check.ts. */
   key: string;
   /**
    * "ci": reachable in CI's seeded database, so the crawl must see it there — a
    * row the crawl no longer sees is STALE and fails. "prod-only": only exists
-   * in production content; enforced only by `npm run check-signed-out-links`.
+   * in production content; enforced only by `npm run check-signed-out-links`
+   * (and, for code-defined links, by the unit companion).
    */
   coverage: Coverage;
   /** Where the link comes from, as file + the label it renders (not a line number — those rot). */
   sources: Array<{ file: string; label: string }>;
-  /** What removes it. Say "UNASSIGNED" rather than guess. */
-  followUp: string;
+  /** The piece of work that removes this row (and deletes it here). */
+  owner: AllowlistOwner;
 }
 
 export const GATED_LINK_ALLOWLIST: readonly GatedLinkAllowance[] = [
@@ -29,7 +38,7 @@ export const GATED_LINK_ALLOWLIST: readonly GatedLinkAllowance[] = [
     sources: [
       { file: "src/components/marketing/marketing-footer.tsx", label: "Job Matching" },
     ],
-    followUp: "UNASSIGNED",
+    owner: "prompt-3",
   },
   {
     key: "footer:* -> /resume-builder",
@@ -37,7 +46,7 @@ export const GATED_LINK_ALLOWLIST: readonly GatedLinkAllowance[] = [
     sources: [
       { file: "src/components/marketing/marketing-footer.tsx", label: "Resume Builder" },
     ],
-    followUp: "UNASSIGNED",
+    owner: "prompt-2",
   },
   {
     key: "footer:* -> /tracker",
@@ -45,7 +54,7 @@ export const GATED_LINK_ALLOWLIST: readonly GatedLinkAllowance[] = [
     sources: [
       { file: "src/components/marketing/marketing-footer.tsx", label: "Job Tracker" },
     ],
-    followUp: "UNASSIGNED",
+    owner: "prompt-3",
   },
   {
     key: "footer:* -> /refer",
@@ -53,7 +62,7 @@ export const GATED_LINK_ALLOWLIST: readonly GatedLinkAllowance[] = [
     sources: [
       { file: "src/components/marketing/marketing-footer.tsx", label: "Refer & Earn" },
     ],
-    followUp: "UNASSIGNED",
+    owner: "prompt-3",
   },
   {
     key: "main:/ -> /resume-builder",
@@ -61,7 +70,7 @@ export const GATED_LINK_ALLOWLIST: readonly GatedLinkAllowance[] = [
     sources: [
       { file: "src/components/marketing/jd-demo-input.tsx", label: "Build a resume" },
     ],
-    followUp: "UNASSIGNED",
+    owner: "prompt-2",
   },
   {
     key: "main:/ -> /scholarships",
@@ -69,8 +78,9 @@ export const GATED_LINK_ALLOWLIST: readonly GatedLinkAllowance[] = [
     sources: [
       { file: "src/components/marketing/jd-demo-input.tsx", label: "Find a scholarship" },
     ],
-    followUp: "signed-out /scholarships landing build: makes /scholarships public, which removes this row (delete it in that PR)",
+    owner: "scholarships-landing",
   },
+  // Two sources, one key. #582 kept the homepage job-board button on /jobs deliberately.
   {
     key: "main:/ -> /jobs",
     coverage: "ci",
@@ -78,7 +88,7 @@ export const GATED_LINK_ALLOWLIST: readonly GatedLinkAllowance[] = [
       { file: "src/components/marketing/jd-demo-input.tsx", label: "Browse jobs instead" },
       { file: "src/components/marketing/job-board-preview.tsx", label: "Browse all jobs" },
     ],
-    followUp: "UNASSIGNED (#582 kept the homepage job-board button on /jobs deliberately)",
+    owner: "prompt-3",
   },
   {
     key: "main:404 -> /jobs",
@@ -86,7 +96,7 @@ export const GATED_LINK_ALLOWLIST: readonly GatedLinkAllowance[] = [
     sources: [
       { file: "src/app/not-found.tsx", label: "Browse jobs" },
     ],
-    followUp: "UNASSIGNED",
+    owner: "prompt-3",
   },
   {
     key: "main:/jobs/* -> /jobs",
@@ -94,7 +104,7 @@ export const GATED_LINK_ALLOWLIST: readonly GatedLinkAllowance[] = [
     sources: [
       { file: "src/app/(app)/jobs/[id]/page.tsx", label: "Back to jobs" },
     ],
-    followUp: "UNASSIGNED",
+    owner: "prompt-2",
   },
   {
     key: "main:/scholarships/* -> /scholarships",
@@ -102,15 +112,17 @@ export const GATED_LINK_ALLOWLIST: readonly GatedLinkAllowance[] = [
     sources: [
       { file: "src/app/(app)/scholarships/[id]/page.tsx", label: "Back to scholarships" },
     ],
-    followUp: "signed-out /scholarships landing build: makes /scholarships public, which removes this row (delete it in that PR)",
+    owner: "scholarships-landing",
   },
+  // prod-only: the six scholarship posts exist only in production content, not in CI's seeded
+  // database. tests/marketing/gated-link-ratchet.test.tsx still enforces it in CI, from RELATED_LINKS.
   {
     key: "main:/blog/* -> /scholarships",
     coverage: "prod-only",
     sources: [
       { file: "src/lib/blog/related-links.ts", label: "Browse the scholarship catalog" },
     ],
-    followUp: "signed-out /scholarships landing build: makes /scholarships public, which removes this row (delete it in that PR). prod-only: the six scholarship posts exist only in production content, not in CI's seeded database; the unit companion (tests/marketing/gated-link-ratchet.test.tsx) still enforces it in CI",
+    owner: "scholarships-landing",
   },
   {
     key: "main:/blog/* -> /jobs",
@@ -118,7 +130,7 @@ export const GATED_LINK_ALLOWLIST: readonly GatedLinkAllowance[] = [
     sources: [
       { file: "src/lib/blog/related-links.ts", label: "See your own Match Scores in the jobs feed" },
     ],
-    followUp: "UNASSIGNED (same file as the Prompt 2 fix for the cover-letter link; confirm whether it covers this entry)",
+    owner: "prompt-3",
   },
   {
     key: "main:/blog/* -> /tailor",
@@ -127,7 +139,7 @@ export const GATED_LINK_ALLOWLIST: readonly GatedLinkAllowance[] = [
       { file: "src/lib/blog/related-links.ts", label: "Tailor your resume to a specific job" },
       { file: "src/lib/blog/related-links.ts", label: "Tailor your resume with Farah" },
     ],
-    followUp: "UNASSIGNED (same file as the Prompt 2 fix for the cover-letter link; confirm whether it covers these entries)",
+    owner: "prompt-2",
   },
   {
     key: "main:/blog/* -> /resume-builder",
@@ -135,15 +147,16 @@ export const GATED_LINK_ALLOWLIST: readonly GatedLinkAllowance[] = [
     sources: [
       { file: "src/lib/blog/related-links.ts", label: "Build a resume from an ATS-safe template" },
     ],
-    followUp: "UNASSIGNED (same file as the Prompt 2 fix for the cover-letter link; confirm whether it covers this entry)",
+    owner: "prompt-2",
   },
+  // The database fix removed the in-body link; this is the page-chrome link from related-links.ts.
   {
     key: "main:/blog/* -> /tailor?coverLetter=1",
     coverage: "ci",
     sources: [
       { file: "src/lib/blog/related-links.ts", label: "Write your cover letter with Farah" },
     ],
-    followUp: "Prompt 2 (stated by the founder: it fixes related-links.ts). The database fix removed the in-body link; this is the page-chrome link from code",
+    owner: "prompt-2",
   },
 ];
 

@@ -27,8 +27,10 @@ import { RELATED_LINKS } from "@/lib/blog/related-links";
 import { isProtectedSeekerPath } from "@/lib/auth/seeker-gate-paths";
 import { offenderKey } from "../../scripts/link-check";
 import {
+  ALLOWLIST_OWNERS,
   GATED_LINK_ALLOWLIST,
   enforcedForScope,
+  isValidOwner,
   ratchetDiff,
   type GatedLinkAllowance,
 } from "../support/gated-link-allowlist";
@@ -96,11 +98,18 @@ describe("the allowlist itself", () => {
     }
   });
 
-  it("says what removes each row, and where each link comes from", () => {
+  it("names an owner for every row, from the fixed list, and where each link comes from", () => {
     for (const r of rows) {
-      expect(r.followUp.trim().length, `${r.key}: followUp`).toBeGreaterThan(0);
+      expect(isValidOwner(r.owner), `${r.key}: owner "${String(r.owner)}" is not one of ${ALLOWLIST_OWNERS.join(" | ")}`).toBe(true);
       expect(r.sources.length, `${r.key}: sources`).toBeGreaterThan(0);
     }
+  });
+
+  it("rejects an owner that is missing, empty, free text or not on the list (so the check above can fail)", () => {
+    for (const bad of [undefined, null, "", "UNASSIGNED", "someone", "prompt-4", "Prompt-2"]) {
+      expect(isValidOwner(bad), String(bad)).toBe(false);
+    }
+    for (const good of ALLOWLIST_OWNERS) expect(isValidOwner(good), good).toBe(true);
   });
 
   it("points at files that exist and still contain the label they name (line numbers rot, labels don't)", () => {
@@ -114,7 +123,7 @@ describe("the allowlist itself", () => {
   });
 
   it("enforces staleness on ci rows always and on prod-only rows only in the 'all' scope", () => {
-    const ci: GatedLinkAllowance = { key: "footer:* -> /x", coverage: "ci", sources: [], followUp: "x" };
+    const ci: GatedLinkAllowance = { key: "footer:* -> /x", coverage: "ci", sources: [], owner: "prompt-2" };
     const prod: GatedLinkAllowance = { ...ci, coverage: "prod-only" };
     expect(enforcedForScope(ci, "ci")).toBe(true);
     expect(enforcedForScope(prod, "ci")).toBe(false);
@@ -127,7 +136,7 @@ describe("ratchetDiff — the comparison the crawl applies", () => {
     key,
     coverage,
     sources: [],
-    followUp: "x",
+    owner: "prompt-2",
   });
   const rows = [row("footer:* -> /a"), row("main:/ -> /b"), row("main:/blog/* -> /c", "prod-only")];
 

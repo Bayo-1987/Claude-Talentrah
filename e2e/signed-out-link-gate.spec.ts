@@ -31,8 +31,11 @@
  *     E2E_BASE_URL=https://staging.example npm run check-signed-out-links
  *
  * That sets LINK_GATE_SCOPE=all, which enforces every allowlist row, not just the
- * CI-reachable ones. It sends read-only, signed-out GETs (about 1,000 for the
- * current site), each identified as TalentrahLinkGate.
+ * CI-reachable ones. It sends read-only, signed-out GETs — ABOUT 1,000 PER RUN for
+ * the current site, each identified as TalentrahLinkGate. Run it rarely: never in a
+ * loop, never on a schedule, never from a workflow. (package.json cannot carry a
+ * comment, so the warning lives here, is printed at the start of every manual run,
+ * and manual mode refuses to run when CI is set.)
  *
  * KNOWN BLIND SPOTS: links that only exist after client-side state (the demo's
  * result panel), links added by JavaScript after load, and public pages that are
@@ -91,6 +94,15 @@ test("a signed-out visitor is never sent to /login by an internal link on a publ
   test.setTimeout(240_000);
   const base = baseURL!;
   const scope: EnforcementScope = process.env.LINK_GATE_SCOPE === "all" ? "all" : "ci";
+  if (scope === "all") {
+    expect(
+      process.env.CI,
+      "LINK_GATE_SCOPE=all is the manual production mode and must not run in CI or on a schedule — see this file's header",
+    ).toBeFalsy();
+    console.log(
+      `[signed-out-link-gate] MANUAL MODE: about 1,000 signed-out GETs to ${base}. Run it rarely — never in a loop or on a schedule.`,
+    );
+  }
 
   // ── sources: the sitemap plus the seeds ───────────────────────────────────
   const sitemapRes = await fetch(new URL("/sitemap.xml", base), { redirect: "manual" });
