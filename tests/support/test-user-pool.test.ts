@@ -12,36 +12,42 @@
  * same project — must never see or corrupt each other's data through a
  * shared pool row.
  *
- * ── WHY SOME TESTS "HOLD" THE REST OF THE POOL FIRST ────────────────────
+ * ── WHY NO TEST HERE ASKS FOR A SPECIFIC ROW ────────────────────────────
  *
  * `claim_test_pool_user` intentionally has no way to ask for a SPECIFIC
- * row — it hands back whichever available row it finds, which is the
- * whole point (callers never know or care which physical row they get).
+ * row — it hands back the OLDEST claimable row it finds, which is the whole
+ * point (callers never know or care which physical row they get). Two
+ * earlier versions of the wipe and stale-lease checks tried to get one
+ * specific row back anyway, and both were racy against this repo's real
+ * concurrency model (other test files call `createTestUser` — one claim —
+ * at any moment):
  *
- * ── WHY "HOLD EVERYTHING ELSE, THEN CLAIM ONCE" WAS WRONG ───────────────
+ *   1. "hold every OTHER row, then claim once" — failed in CI when something
+ *      else freed a row between the holding and the claim (#545).
+ *   2. "drain claims until the target comes back" (`claimUntilTarget`, #545) — this
+ *      only moved the race. The drain claims rows one at a time, in an order it
+ *      does not control (among rows with equal `leased_at` the function returns
+ *      whichever the scan meets first, which is physical order, not age). At
+ *      some point the target is the next row in line, and one claim by any
+ *      other lease in that gap takes it; the drain's next claim then returns
+ *      null and it throws "drained the entire pool (N rows) … without ever
+ *      seeing <id>". The old comment here called that "the only shape of
+ *      failure that means something is actually wrong". It does not: a
+ *      concurrent `createTestUser` is a legitimate claimant, so losing the
+ *      target to it is the pool working. It failed in CI five times between
+ *      2026-09-22 and 2026-09-30 (#593).
  *
- * An earlier version of this file claimed every OTHER currently-available
- * row first (`holdRestOfPool`), so the target row was briefly the only
- * claimable one, then asserted the next claim equalled it. That is racy
- * against this repo's own real concurrency model, not a hypothetical:
- * vitest.config.ts's own comment documents 21 test files running in
- * parallel against this same shared `dozaffzgqkbarxtlclsj` pool, and any
- * of them can add a fresh overflow row (`add_test_pool_user`) or release
- * one of their own mid-enumeration. That is exactly what happened in CI —
- * `expect(claimedId).toBe(user.id)` failed once with a genuinely different
- * (also-legitimate) row, because something else freed up between
- * `holdRestOfPool` finishing and the real claim.
+ * The checks now never need that row. The wipe check calls
+ * `reset_test_pool_user` on the row it owns and separately shows that a claim
+ * runs the reset on whatever row it returns; the stale-lease check reads the
+ * lease after its own claims, which must no longer be this file's whoever took
+ * it. `tests/support/pool-claim-checks.ts` has the detail, and the
+ * "interleavings" blocks at the bottom of this file put a second lease at
+ * exactly the point that used to break them — 20 times per run.
  *
- * `claimUntilTarget` fixes this by not caring how many other rows are
- * free: it drains claims one at a time (releasing every non-matching one
- * as it goes) until the SPECIFIC target row comes back, or the pool is
- * genuinely exhausted without ever producing it — which is the only
- * shape of failure that means something is actually wrong (the target
- * was stolen by a real concurrent claimant and never released, or isn't
- * in the pool at all). New rows appearing mid-drain no longer matter;
- * rows disappearing mid-drain (because a genuinely concurrent process
- * claims one first) is fine too — SKIP LOCKED just means that row is
- * unavailable this loop, exactly as it should be.
+ * A second, separate cause of #593 — a test that inserted a LEASELESS row into
+ * `test_user_pool` — is closed by `pool-fixtures.ts` and guarded by
+ * `test-user-pool-fixture-guard.test.ts`.
  */
 import { describe, it, expect, afterAll } from "vitest";
 import { randomUUID } from "node:crypto";
