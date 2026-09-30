@@ -18,6 +18,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
 import type { Database } from "@/lib/supabase/types";
 import { consumeLoginRateLimit } from "@/lib/security/login-rate-limit";
+import { inOneWindow } from "../support/single-window";
 
 for (const key of ["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"] as const) {
   if (!process.env[key]) throw new Error(`Login rate-limit test cannot run: ${key} is not set.`);
@@ -44,40 +45,57 @@ afterAll(async () => {
 
 describe("consumeLoginRateLimit enforces its own configured limits", () => {
   it("seeker login: allows exactly the configured limit, denies the rest", async () => {
-    const ip = testIp();
-    testKeys.push(ip);
-
     // 20/15min per LOGIN_RATE_LIMITS.seekerLogin — driven at +3 over so both
     // the allowed and the denied side are actually exercised.
-    const results = await Promise.all(
-      Array.from({ length: 23 }, () => consumeLoginRateLimit(ip, "seekerLogin")),
-    );
+    //
+    // `inOneWindow`: the counter uses FIXED clock-aligned windows, so a burst
+    // that straddles a boundary (:00/:15/:30/:45) is counted in two and admits
+    // more than 20 — this test failed once in CI exactly that way (send-482;
+    // see login-rate-limit-window.test.ts). Such a run is repeated on a fresh
+    // key rather than asserted on.
+    const { results } = await inOneWindow(async () => {
+      const ip = testIp();
+      testKeys.push(ip);
+      const results = await Promise.all(
+        Array.from({ length: 23 }, () => consumeLoginRateLimit(ip, "seekerLogin")),
+      );
+      return { results, outcomes: results };
+    });
     expect(results.filter((r) => r.allowed).length).toBe(20);
     expect(results.filter((r) => !r.allowed).length).toBe(3);
   });
 
   it("admin login: allows exactly its OWN (tighter) configured limit", async () => {
-    const ip = testIp();
-    testKeys.push(ip);
-
-    const results = await Promise.all(
-      Array.from({ length: 11 }, () => consumeLoginRateLimit(ip, "adminLogin")),
-    );
+    const { results } = await inOneWindow(async () => {
+      const ip = testIp();
+      testKeys.push(ip);
+      const results = await Promise.all(
+        Array.from({ length: 11 }, () => consumeLoginRateLimit(ip, "adminLogin")),
+      );
+      return { results, outcomes: results };
+    });
     expect(results.filter((r) => r.allowed).length).toBe(8);
     expect(results.filter((r) => !r.allowed).length).toBe(3);
   });
 
   it("the same IP gets independent budgets for seeker vs admin login — exhausting one does not close the other", async () => {
-    const ip = testIp();
-    testKeys.push(ip);
+    // One window for the whole scenario: the 9th admin call is only "denied" if
+    // it is counted in the SAME window as the 8 before it (send-482).
+    const { adminNowDenied, seekerStillAllowed } = await inOneWindow(async () => {
+      const ip = testIp();
+      testKeys.push(ip);
 
-    // Exhaust the (tighter) admin bucket for this IP.
-    await Promise.all(Array.from({ length: 8 }, () => consumeLoginRateLimit(ip, "adminLogin")));
-    const adminNowDenied = await consumeLoginRateLimit(ip, "adminLogin");
+      // Exhaust the (tighter) admin bucket for this IP.
+      const exhaust = await Promise.all(
+        Array.from({ length: 8 }, () => consumeLoginRateLimit(ip, "adminLogin")),
+      );
+      const adminNowDenied = await consumeLoginRateLimit(ip, "adminLogin");
+      // The seeker bucket, same IP, is untouched. (A different bucket has its own
+      // window end, so it is not part of the one-window check on the admin calls.)
+      const seekerStillAllowed = await consumeLoginRateLimit(ip, "seekerLogin");
+      return { adminNowDenied, seekerStillAllowed, outcomes: [...exhaust, adminNowDenied] };
+    });
     expect(adminNowDenied.allowed).toBe(false);
-
-    // The seeker bucket, same IP, is untouched.
-    const seekerStillAllowed = await consumeLoginRateLimit(ip, "seekerLogin");
     expect(seekerStillAllowed.allowed).toBe(true);
   });
 
@@ -120,16 +138,19 @@ describe("an unidentifiable caller is skipped, not denied outright", () => {
   });
 
   it("skipping for loopback never touches the real counter — a genuine attacker IP is still tracked independently", async () => {
-    const attackerIp = testIp();
-    testKeys.push(attackerIp);
-
     // Loopback calls interleaved with real ones must not share a bucket or
     // otherwise perturb the real IP's own count.
-    await consumeLoginRateLimit("::1", "seekerLogin");
-    const results = await Promise.all(
-      Array.from({ length: 22 }, () => consumeLoginRateLimit(attackerIp, "seekerLogin")),
-    );
-    await consumeLoginRateLimit(null, "seekerLogin");
+    const { results } = await inOneWindow(async () => {
+      const attackerIp = testIp();
+      testKeys.push(attackerIp);
+
+      await consumeLoginRateLimit("::1", "seekerLogin");
+      const results = await Promise.all(
+        Array.from({ length: 22 }, () => consumeLoginRateLimit(attackerIp, "seekerLogin")),
+      );
+      await consumeLoginRateLimit(null, "seekerLogin");
+      return { results, outcomes: results };
+    });
 
     expect(results.filter((r) => r.allowed).length).toBe(20);
     expect(results.filter((r) => !r.allowed).length).toBe(2);
