@@ -1,28 +1,24 @@
 import { EyebrowLabel, SkeletonBlock, SkeletonStatus } from "@/components/ui";
 
 /**
- * The Job Tracker, loading.
+ * The Job Tracker, loading — for BOTH kinds of visitor since send-484, because a signed-out visitor now
+ * reaches this route too (/tracker is a public landing page).
  *
- * Both the eyebrow and the heading are constants in page.tsx, so both are
- * rendered for real — the reader lands on a page that already says "Job
- * Tracker" while the rows are still being fetched.
+ * So it carries nothing that is specific to either. It used to render `<h1>Job Tracker</h1>` and the
+ * eyebrow "Every job, one place", both copied from the signed-in page: a signed-out visitor on a slow
+ * connection read the signed-in heading first, and a streamed fallback lands in the RAW HTML, so the
+ * placeholder <h1> plus the page's own made two <h1>s in the response a crawler reads.
  *
- * The five stage columns (Saved → Applied → Interviewing → Offer →
- * Rejected/Archived) are the tracker's whole structure and do not depend on
- * the data, so their headings hold their positions and only the entries
- * inside them settle.
+ * NO HEADING AT ALL, on purpose (e2e/jobs-tracker-public-landing.spec.ts asserts exactly one <h1> in the
+ * raw bytes). The eyebrow is the name of the page, which is true for both.
  */
 export default function TrackerLoading() {
   return (
     <div className="flex flex-col gap-5">
-      <SkeletonStatus>Loading your job tracker…</SkeletonStatus>
+      <SkeletonStatus>Loading the job tracker…</SkeletonStatus>
 
-      <div>
-        <EyebrowLabel>Every job, one place</EyebrowLabel>
-        <h1 className="mt-1.5 text-[26px]">Job Tracker</h1>
-      </div>
+      <EyebrowLabel>Job Tracker</EyebrowLabel>
 
-      {/* The manual-entry form. */}
       <SkeletonBlock className="h-12 w-full" />
 
       <div className="flex flex-col gap-4">

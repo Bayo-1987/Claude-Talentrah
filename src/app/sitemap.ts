@@ -80,6 +80,15 @@ export const STATIC_PATHS: { path: string; priority: number; changeFrequency: Me
    */
   { path: "/scholarships", priority: 0.7, changeFrequency: "daily" },
   /*
+   * send-484 — /jobs and /tracker the same way: each renders a real signed-out landing page instead of a
+   * login redirect, so each belongs here by this file's own rule. STATIC, not count-gated: both always
+   * answer 200 — /jobs hides its preview rather than 404ing when the board is thin, and /tracker is
+   * hand-authored copy — so a live-count check would be wrong. (The threshold that gates /jobs/remote and
+   * friends is about a page that has nothing to show below it; this page always does.)
+   */
+  { path: "/jobs", priority: 0.8, changeFrequency: "daily" },
+  { path: "/tracker", priority: 0.5, changeFrequency: "monthly" },
+  /*
    * send-386 — two standalone, hand-authored SEO landing pages (not
    * programmatic — no live count to go stale, so static like /about rather
    * than one of the DB-backed blocks below).

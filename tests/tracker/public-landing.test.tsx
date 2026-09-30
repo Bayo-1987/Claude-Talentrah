@@ -41,8 +41,10 @@ describe("structure", () => {
   it("scopes what is free: reading this page needs no account, tracking does", async () => {
     const html = await render();
     expect(html).toMatch(/needs a free account|with a free account/i);
-    expect(html).not.toMatch(/\bsign(ing)? ?up\b/i);
-    expect(html).not.toMatch(/\bsign(ing)? ?in\b/i);
+    // Visible text only: the hrefs legitimately contain "/signup".
+    const text = html.replace(/<[^>]+>/g, " ");
+    expect(text).not.toMatch(/\bsign(ing)? ?up\b/i);
+    expect(text).not.toMatch(/\bsign(ing)? ?in\b/i);
   });
 });
 

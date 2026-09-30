@@ -59,7 +59,8 @@ const FOOTER_COLUMNS = [
       // point at a gated page: tests/marketing/marketing-footer.test.tsx asserts the
       // target is not gated and not disallowed, with controls on paths that stay both.
       { label: "Scholarships", href: "/scholarships" },
-      { label: "Refer & Earn", href: "/refer" },
+      // send-484 — /refer has no signed-out page, so this goes through signup and comes back to /refer.
+      { label: "Refer & Earn", href: "/signup?redirectTo=%2Frefer" },
       { label: "Mentorship", href: "/mentorship" },
       { label: "Auto-Apply", href: "/how-auto-apply-works" },
     ],

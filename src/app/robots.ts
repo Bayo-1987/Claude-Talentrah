@@ -12,8 +12,12 @@ import { absoluteUrl, SITE_ORIGIN } from "@/lib/seo/site";
  * pages out of the index. A path that were only protected by this line would
  * be public.
  *
- * `/jobs/` IS CRAWLABLE, deliberately: each job detail page is public and the
- * feed behind it is not, hence the `/jobs$` exact-match entry below.
+ * `/jobs` AND `/tracker` HAVE NO DISALLOW FOR THEIR BARE PATHS (send-484). `/jobs$` existed because the
+ * feed only ever redirected while each job detail page beneath it was public; both bare paths are now real
+ * signed-out landing pages, exactly as /scholarships became in send-480 (next paragraph), so disallowing
+ * them would un-list the pages built to be found. `/tracker` became `/tracker/` — the trailing-slash form
+ * /mentorship/ already uses — because what sits under it, /tracker/[applicationId]/sent, is the seeker's
+ * own sent document and stays gated. No `$`-anchored rule is left in this file.
  *
  * `/scholarships` HAS NO DISALLOW AT ALL (send-480). It had `/scholarships$` for
  * the same reason `/jobs$` exists — a list that only ever redirected — until its
@@ -43,7 +47,7 @@ export default function robots(): MetadataRoute.Robots {
           "/resume-builder",
           "/settings",
           "/tailor",
-          "/tracker",
+          "/tracker/",
           "/onboarding",
           "/dashboard",
           /*
@@ -56,15 +60,13 @@ export default function robots(): MetadataRoute.Robots {
            * systematically while finding this one — it was the only gap;
            * every other gated route (auto-apply, billing, feedback, refer,
            * resume-builder incl. its /edit and /new, settings, tailor,
-           * tracker incl. its /[applicationId]/sent, onboarding,
+           * tracker's /[applicationId]/sent (via "/tracker/" below), onboarding,
            * employer/onboarding — covered by the blanket /employer entry
            * below) already has a matching disallow.
            */
           "/talent-directory/verify",
-          // The job feed itself needs a session; individual detail pages do not.
-          // (send-480: `/scholarships$` used to sit here too and is gone — the bare
-          // /scholarships path is a public landing page now.)
-          "/jobs$",
+          // (send-480 removed `/scholarships$` and send-484 `/jobs$`: each bare path is a public landing
+          // page now. No exact-match rule remains.)
           /*
            * send-385 — the INVERSE of the /jobs$ shape above (and of what
            * /scholarships$ was, before send-480):

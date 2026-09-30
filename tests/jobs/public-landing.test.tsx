@@ -83,8 +83,10 @@ describe("structure", () => {
   it("scopes 'free' where it is claimed, and never says 'sign up' (one term per concept)", async () => {
     const html = await render();
     expect(html).toContain("Reading every listing is free and needs no account.");
-    expect(html).not.toMatch(/\bsign(ing)? ?up\b/i);
-    expect(html).not.toMatch(/\bsign(ing)? ?in\b/i);
+    // Visible text only: the hrefs legitimately contain "/signup".
+    const text = html.replace(/<[^>]+>/g, " ");
+    expect(text).not.toMatch(/\bsign(ing)? ?up\b/i);
+    expect(text).not.toMatch(/\bsign(ing)? ?in\b/i);
   });
 
   it("names what needs an account, so the free claim is not read as covering it", async () => {
@@ -125,9 +127,10 @@ describe("the live preview", () => {
   });
 
   it("is hidden when there are no rows (a failed query degrades to 'nothing to show', never a 500 or an empty shell)", async () => {
-    const html = await render({ total: 0, jobs: [] });
+    const html = await render({ total: 0, jobs: [], facets: [] });
     expect(html).not.toContain('href="/jobs/0');
-    expect(html).not.toMatch(/open (listings|jobs)/i);
+    // The preview's own sentence ("A few of the N open listings from the last D days") is absent.
+    expect(html).not.toMatch(/from the last \d+ days/);
     // The rest of the page is intact.
     expect(html.match(/<h1[\s>]/g)?.length).toBe(1);
     expect(html).toContain("Create a free account");
@@ -143,7 +146,8 @@ describe("the live preview", () => {
     const html = await render({
       jobs: [job(1, { source_type: "external", title: "Aggregated Role" }), job(2, { source_type: "internal", title: "Direct Role" })],
     });
-    const row = (title: string) => html.slice(html.indexOf(title), html.indexOf(title) + 900);
+    // One <li> per row: split on it so a row's assertions cannot see its neighbour's label.
+    const row = (title: string) => html.split("<li").find((chunk) => chunk.includes(title)) ?? "";
     expect(row("Aggregated Role")).toContain("sourced externally");
     expect(row("Aggregated Role")).not.toContain("Posted on Talentrah");
     expect(row("Direct Role")).toContain("Posted on Talentrah");
