@@ -86,7 +86,7 @@ describe("the CSS uses exactly the files in the manifest", () => {
   it.each(Object.keys(VARIABLES))("%s: no remote URL, font-display is swap, every face's style and weight are the file's", (slug) => {
     const text = css(slug);
     expect(text).not.toMatch(/https?:|\/\//);
-    const faces = [...text.matchAll(/@font-face \{\n  font-family: ([^\n]+);\n  font-style: (\w+);\n  font-weight: (\d+);\n  font-display: swap;\n  src: url\(\.\/([^)]+)\) format\("woff2"\);/g)];
+    const faces = [...text.matchAll(/@font-face \{\n  font-family: ([^\n]+);\n  font-style: (\w+);\n  font-weight: (\d+);\n(?:  font-stretch: [^\n]+;\n)?  font-display: swap;\n  src: url\(\.\/([^)]+)\) format\("woff2"\);/g)];
     expect(faces.length).toBeGreaterThan(0);
     for (const [, , style, weight, file] of faces) {
       const entry = manifest.files.find((f) => f.path === `${slug}/${file}`);
@@ -94,6 +94,14 @@ describe("the CSS uses exactly the files in the manifest", () => {
       expect(entry!.style).toBe(style);
       expect(entry!.weights).toContain(weight);
     }
+  });
+});
+
+describe("every descriptor next/font emitted is kept", () => {
+  it("IBM Plex Sans's 24 faces carry font-stretch: 100% (Google sends it for that family); no other family has one", () => {
+    // Found by diffing a build of this change against a build of main: the first version of the generator dropped it.
+    expect(css("ibm-plex-sans").match(/^  font-stretch: 100%;$/gm)).toHaveLength(24);
+    for (const slug of Object.keys(VARIABLES).filter((s) => s !== "ibm-plex-sans")) expect(css(slug)).not.toContain("font-stretch");
   });
 });
 

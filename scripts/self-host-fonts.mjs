@@ -83,6 +83,8 @@ async function fetchFamily(f) {
     weight: m[2].match(/font-weight:\s*(\d+)/)[1],
     unicodeRange: m[2].match(/unicode-range:\s*([^;]+);/)[1].trim(),
     gstatic: m[2].match(/src:\s*url\((https:[^)]+\.woff2)\)/)[1],
+    // every descriptor Google returned, in its order (IBM Plex Sans also carries `font-stretch: 100%`)
+    declarations: [...m[2].matchAll(/([\w-]+):\s*([^;]+);/g)].map((d) => [d[1], d[2].trim()]),
   }));
   if (!faces.length) throw new Error(`no @font-face blocks for ${f.family}`);
   const bytes = new Map();
@@ -116,12 +118,11 @@ function build(f, { faces, bytes }) {
   const blocks = faces.map((face) =>
     [
       "@font-face {",
-      `  font-family: ${famCss};`,
-      `  font-style: ${face.style};`,
-      `  font-weight: ${face.weight};`,
-      "  font-display: swap;",
-      `  src: url(./${byGstatic.get(face.gstatic).name}) format("woff2");`,
-      `  unicode-range: ${face.unicodeRange};`,
+      ...face.declarations.map(([prop, value]) => {
+        if (prop === "font-family") return `  font-family: ${famCss};`;
+        if (prop === "src") return `  src: url(./${byGstatic.get(face.gstatic).name}) format("woff2");`;
+        return `  ${prop}: ${value};`;
+      }),
       "}",
     ].join("\n"),
   );
