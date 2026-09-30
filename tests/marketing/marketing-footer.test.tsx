@@ -16,7 +16,7 @@
  * file's own fixture reflects the actual final 9-entry column, not the
  * 7-entry snapshot this test was originally written against.
  *
- * send-461 — a new "Compare" column (Jobright Alternative, vs. JobCopilot)
+ * send-461 — a new "Compare" column (Jobright Alternative, vs. FreshTalent JobCopilot)
  * pinned the same way, so a future edit can't silently turn either into a
  * dead `#` anchor the way the original Product entries used to be.
  */
@@ -40,7 +40,7 @@ const PRODUCT_LINKS: Record<string, string> = {
 
 const COMPARE_LINKS: Record<string, string> = {
   "Jobright Alternative": "/vs/jobright",
-  "vs. JobCopilot": "/vs/jobcopilot",
+  "vs. FreshTalent JobCopilot": "/vs/jobcopilot",
 };
 
 describe("the footer's Product column", () => {

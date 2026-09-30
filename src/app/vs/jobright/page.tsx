@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { pageMetadata } from "@/lib/seo/site";
 import { MarketingMasthead } from "@/components/marketing/marketing-masthead";
@@ -14,29 +15,38 @@ import { Container, EyebrowLabel, BorderedCard, buttonClasses } from "@/componen
  * displacing a company's own site from its own branded search result
  * doesn't happen from content alone.
  *
- * ── EVERY JOBRIGHT CLAIM BELOW TRACES TO A SOURCE VERIFIED 2026-09-26 ──────
+ * ── SOURCES, CHECKED 2026-09-30 (send-478) ─────────────────────────────────
  *
- * - US-only, no workaround from outside the US: a third-party review
- *   (zplatform.ai) states Jobright "built around the American market,"
- *   defaults to US listings/salary data, has a dedicated H-1B visa filter,
- *   and returns nothing usable for searches from the UK, Europe, or India.
- *   Jobright said in June 2025 it would expand globally; as of this
- *   verification no countries or dates have been announced, and there is no
- *   Nigeria or Africa coverage today. Cited to Jobright directly (jobright.ai)
- *   for what it IS, and to the review for what it does NOT do — Jobright's
- *   own site doesn't state the negative.
- * - Reported pricing ($17.99/week, $39.99/month, $89.99/quarter for
- *   "Turbo") comes from third-party reviews (zplatform.ai, outapply.com),
- *   NOT a Jobright-published pricing page — labelled "reported" throughout,
- *   never presented as Jobright's own number.
- * - Feature list (AI Agent / "90% Job Search Automation," Resume AI
- *   Builder, AI Job Matching, Auto-Apply, interview prep, cover letters,
- *   job tracking, referral networking) is first-party, from
- *   jobright.ai/ai-agent.
- * - No claim appears here about anything Jobright's own sources didn't
- *   state — scholarships and mentorship aren't mentioned anywhere in
- *   Jobright's own material, so the table below states that plainly rather
- *   than inferring a permanent gap.
+ * Every competitor fact on this page is dated on the page and linked to where
+ * it came from, and none is stated as an absolute: a source saw certain places
+ * on a certain date. Nothing here is something we tested ourselves.
+ *
+ * - "US-only in practice", the H-1B filter, US listings/salary defaults, and
+ *   "searches from the UK, Europe and India return nothing usable": the
+ *   zPlatform review (zplatform.ai/ai-reviews/jobright-ai/, updated
+ *   2026-09-24, checked by them 2026-09-14). NO source tested Nigeria, so the
+ *   page says "built for the US market" and never that Jobright does not work
+ *   from Nigeria. The Jobright pages we checked (jobright.ai/, /ai-agent)
+ *   contain no mention of Nigeria or Africa; Jobright's own FAQ answer on
+ *   country coverage is rendered client-side and could not be read.
+ * - June 2025 "expanding into new markets": Jobright's own funding release
+ *   (finance.yahoo.com/news/jobright-launches-first-ai-agent-120000547.html);
+ *   no countries or dates since, per zPlatform as of 2026-09-14.
+ * - Reported pricing ($17.99/week, $39.99/month, $89.99/quarter): third-party
+ *   reviews (outapply.com/blog/jobright-ai-pricing and zPlatform; also
+ *   FavTutor and careerkit). Jobright publishes no pricing page — /pricing,
+ *   /plans and /upgrade all 404 (2026-09-30) — and one review reports a 33%
+ *   rise from $29.99, so these move: they are labelled "reported, September
+ *   2026".
+ * - "90% Job Search Automation" and Auto-Apply: first-party, jobright.ai/ai-agent.
+ * - Human coaching: Turbo is reported to include live career-coach
+ *   consultations (zPlatform, Wobo), so the mentorship row says "not a mentor
+ *   marketplace", not "no human help".
+ * - No "well-reviewed" and no rating: dropped rather than cited, because the
+ *   same sources also report billing complaints.
+ *
+ * quarterly re-check: every competitor fact above (see the follow-up in the
+ * send-478 PR).
  *
  * Talentrah's own figures (NGN pricing, free weekly Auto-Apply allowance,
  * template/tailoring free tier) are pulled from src/lib/billing/catalog.ts,
@@ -47,19 +57,45 @@ import { Container, EyebrowLabel, BorderedCard, buttonClasses } from "@/componen
 export const metadata: Metadata = pageMetadata({
   title: "Jobright Alternative for Nigeria & Africa — Talentrah",
   description:
-    "Jobright is a well-reviewed AI job search copilot built for the US market. Here's what actually works for job seekers searching from Nigeria and across Africa.",
+    "Jobright is an AI job search copilot built for the US market. Here's what works for job seekers searching from Nigeria and across Africa.",
   path: "/vs/jobright",
 });
 
-const COMPARISON_ROWS: { feature: string; jobright: string; talentrah: string }[] = [
+const ZPLATFORM_REVIEW = "https://zplatform.ai/ai-reviews/jobright-ai/";
+const OUTAPPLY_PRICING = "https://outapply.com/blog/jobright-ai-pricing";
+const JUNE_2025_RELEASE = "https://finance.yahoo.com/news/jobright-launches-first-ai-agent-120000547.html";
+
+const SOURCE_LINK_CLASS = "underline underline-offset-2";
+
+const COMPARISON_ROWS: { feature: string; jobright: ReactNode; talentrah: string }[] = [
   {
     feature: "Where it actually works",
-    jobright: "Built for the US market — no usable results from outside the US, no Nigeria or Africa coverage today",
+    jobright: (
+      <>
+        Built for the US market; reported as US-only in practice (
+        <a href={ZPLATFORM_REVIEW} target="_blank" rel="noopener noreferrer nofollow" className={SOURCE_LINK_CLASS}>
+          zPlatform
+        </a>
+        , September 2026)
+      </>
+    ),
     talentrah: "Built for job seekers in Nigeria and across Africa",
   },
   {
     feature: "Pricing",
-    jobright: "Reported: $17.99/week, $39.99/month, or $89.99/quarter (USD)",
+    jobright: (
+      <>
+        Reported by third-party reviews, September 2026: $17.99/week, $39.99/month or $89.99/quarter (USD) (
+        <a href={OUTAPPLY_PRICING} target="_blank" rel="noopener noreferrer nofollow" className={SOURCE_LINK_CLASS}>
+          OutApply
+        </a>
+        ,{" "}
+        <a href={ZPLATFORM_REVIEW} target="_blank" rel="noopener noreferrer nofollow" className={SOURCE_LINK_CLASS}>
+          zPlatform
+        </a>
+        ). Jobright publishes no pricing page.
+      </>
+    ),
     talentrah: "NGN credit packs from ₦2,500, or a Pass from ₦6,500 — priced for the Nigerian market",
   },
   {
@@ -89,7 +125,15 @@ const COMPARISON_ROWS: { feature: string; jobright: string; talentrah: string }[
   },
   {
     feature: "Human mentorship",
-    jobright: "Not part of Jobright's public feature set",
+    jobright: (
+      <>
+        Not a mentor marketplace. Turbo is reported to include live career-coach consultations (
+        <a href={ZPLATFORM_REVIEW} target="_blank" rel="noopener noreferrer nofollow" className={SOURCE_LINK_CLASS}>
+          zPlatform
+        </a>
+        , September 2026)
+      </>
+    ),
     talentrah: "Yes — real mentors for mock interviews and negotiation, not just AI coaching",
   },
 ];
@@ -103,7 +147,7 @@ export default function JobrightAlternativePage() {
           <div className="flex flex-col gap-4">
             <EyebrowLabel>Jobright alternative</EyebrowLabel>
             <h1 className="font-display text-[36px] leading-[1.15]">
-              Jobright doesn&apos;t work outside the US. Here&apos;s what does.
+              Looking for a Jobright alternative in Nigeria? Jobright is built for the US market.
             </h1>
             <p className="max-w-[660px] text-[16px] leading-[1.6] text-ink-soft">
               <a
@@ -114,13 +158,12 @@ export default function JobrightAlternativePage() {
               >
                 Jobright
               </a>{" "}
-              is a well-reviewed AI job search copilot — for the US market. If
-              you&apos;re searching from Nigeria, it doesn&apos;t return usable
-              results, and there&apos;s no workaround: it defaults to US
-              listings and salary data and has no Nigeria or Africa coverage
-              today. Talentrah is built for exactly that gap — AI job
-              matching, resume tailoring, and Auto-Apply, priced and designed
-              for the Nigerian and African job market.
+              is an AI job search copilot built for the US market. Its search
+              defaults to US listings and salary data, and the Jobright pages
+              we checked in September 2026 don&apos;t mention Nigeria or
+              Africa. Talentrah is built for job seekers in Nigeria and across
+              Africa — AI job matching, resume tailoring, and Auto-Apply,
+              priced and designed for that market.
             </p>
             <div className="mt-2">
               <Link href="/signup" className={buttonClasses("primary", "md", "no-underline w-fit")}>
@@ -130,18 +173,32 @@ export default function JobrightAlternativePage() {
           </div>
 
           <div className="flex flex-col gap-4 border-t border-line pt-10">
-            <EyebrowLabel>Why Jobright doesn&apos;t work from Nigeria</EyebrowLabel>
+            <EyebrowLabel>What reviews say about Jobright&apos;s coverage</EyebrowLabel>
             <p className="max-w-[660px] text-[15px] leading-[1.65] text-ink-soft">
-              This isn&apos;t a subjective knock — it&apos;s a verifiable
-              feature gap. A third-party review of Jobright describes it as
-              &ldquo;built around the American market,&rdquo; noting it
-              defaults to US job listings and salary data and ships a
-              dedicated H-1B visa filter with no equivalent for anywhere
-              else. The same review reports that searches from the UK,
-              Europe, and India return nothing functional — there&apos;s no
-              partial version that works outside the US. Jobright said in
-              June 2025 it planned to expand globally; as of this writing, no
-              countries or dates have been announced.
+              An independent review (
+              <a
+                href={ZPLATFORM_REVIEW}
+                target="_blank"
+                rel="noopener noreferrer nofollow"
+                className={SOURCE_LINK_CLASS}
+              >
+                zPlatform, updated September 2026
+              </a>
+              ) describes Jobright as &ldquo;built around the American
+              market&rdquo;: its job search defaults to the United States, and
+              it ships a dedicated H-1B visa filter. It reports that searches
+              from the UK, Europe and India return nothing usable. Jobright
+              said in its{" "}
+              <a
+                href={JUNE_2025_RELEASE}
+                target="_blank"
+                rel="noopener noreferrer nofollow"
+                className={SOURCE_LINK_CLASS}
+              >
+                June 2025 funding announcement
+              </a>{" "}
+              that it is &ldquo;expanding into new markets&rdquo;; no countries
+              or dates had been named as of September 2026.
             </p>
           </div>
 
@@ -176,16 +233,26 @@ export default function JobrightAlternativePage() {
               </table>
             </div>
             <p className="text-[12.5px] leading-[1.6] text-ink-soft">
-              Jobright pricing is reported by third-party reviews (
+              Jobright publishes no pricing page; the figures above are reported
+              by third-party reviews (
               <a
-                href="https://outapply.com"
+                href={OUTAPPLY_PRICING}
                 target="_blank"
                 rel="noopener noreferrer nofollow"
-                className="underline underline-offset-2"
+                className={SOURCE_LINK_CLASS}
               >
-                outapply.com
+                OutApply
               </a>
-              ), not published by Jobright itself. Talentrah pricing is from{" "}
+              ,{" "}
+              <a
+                href={ZPLATFORM_REVIEW}
+                target="_blank"
+                rel="noopener noreferrer nofollow"
+                className={SOURCE_LINK_CLASS}
+              >
+                zPlatform
+              </a>
+              ), September 2026. Talentrah pricing is from{" "}
               <Link href="/ai-resume-tailoring" className="underline underline-offset-2">
                 Talentrah&apos;s own current catalog
               </Link>
@@ -203,17 +270,17 @@ export default function JobrightAlternativePage() {
               queues your best matches for review instead of submitting
               silently, and the free weekly allowance means you don&apos;t
               need to pay anything to try it. If you&apos;re also weighing
-              JobCopilot, an African-focused AI job copilot with broader
+              FreshTalent JobCopilot, an African-focused AI job copilot with broader
               continental reach, see{" "}
               <Link href="/vs/jobcopilot" className="font-semibold text-rust underline underline-offset-2">
-                how Talentrah compares to JobCopilot →
+                how Talentrah compares to FreshTalent JobCopilot →
               </Link>
             </p>
           </div>
 
           <BorderedCard className="flex flex-col gap-3 p-8">
             <h2 className="font-display text-[20px] font-semibold">
-              Built for the market Jobright doesn&apos;t reach
+              Built for job seekers in Nigeria and across Africa
             </h2>
             <p className="max-w-[560px] text-[14px] text-ink-soft">
               Create a free account, upload your resume, and see your first

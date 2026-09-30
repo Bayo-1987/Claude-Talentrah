@@ -11,12 +11,12 @@ const PAGES = [
   {
     path: "/vs/jobright",
     titleContains: "Jobright Alternative",
-    h1: "Jobright doesn't work outside the US. Here's what does.",
-    otherPageLinkText: "how Talentrah compares to JobCopilot →",
+    h1: "Looking for a Jobright alternative in Nigeria? Jobright is built for the US market.",
+    otherPageLinkText: "how Talentrah compares to FreshTalent JobCopilot →",
   },
   {
     path: "/vs/jobcopilot",
-    titleContains: "Talentrah vs. JobCopilot",
+    titleContains: "Talentrah vs. FreshTalent JobCopilot",
     h1: "Two AI job copilots built for Africa. Here's how they differ.",
     otherPageLinkText: "how Talentrah compares to Jobright →",
   },
@@ -113,7 +113,7 @@ test.describe("send-461: /vs/jobright and /vs/jobcopilot", () => {
   }) => {
     await page.goto("/");
     const jobrightLink = page.getByRole("link", { name: "Jobright Alternative" });
-    const jobcopilotLink = page.getByRole("link", { name: "vs. JobCopilot" });
+    const jobcopilotLink = page.getByRole("link", { name: "vs. FreshTalent JobCopilot" });
     await expect(jobrightLink).toBeVisible();
     await expect(jobcopilotLink).toBeVisible();
     expect(await jobrightLink.getAttribute("href")).toBe("/vs/jobright");
