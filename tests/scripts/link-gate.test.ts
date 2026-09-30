@@ -62,6 +62,11 @@ describe("extractRegionLinks", () => {
     expect(link.search).toBe("?coverLetter=1&x=2");
   });
 
+  it("still finds an anchor whose class attribute contains a '>' before its href (send-384's pattern stops at that '>')", () => {
+    const html = `<a class="inline-flex [&>svg]:h-4" href="/tracker">Job Tracker</a>`;
+    expect(extractRegionLinks(html, PAGE).map((l) => l.pathname)).toEqual(["/tracker"]);
+  });
+
   it("collapses whitespace and tags in the link text", () => {
     const [link] = extractRegionLinks(`<a href="/x"> Browse\n  <span>jobs</span>  →</a>`, PAGE);
     expect(link.text).toBe("Browse jobs →");
@@ -190,7 +195,7 @@ const SITE: Record<string, FetchLikeResponse> = {
   ...CLEAN_TARGETS,
   ...GATED_TARGETS,
   "/": res(200, {
-    body: `<header><a href="/pricing">Pricing</a></header>
+    body: `<header><a href="/pricing">Pricing</a><a href="/login">Log in</a></header>
            <main><a href="/jobs">Browse jobs</a><a href="/scholarships/apply-now">Apply</a></main>${FOOTER}`,
   }),
   "/about": res(200, {
