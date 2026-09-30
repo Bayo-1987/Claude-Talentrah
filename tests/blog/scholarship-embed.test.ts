@@ -28,7 +28,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { randomUUID } from "node:crypto";
 import { admin } from "../support/auth";
 import { resolveScholarshipEmbeds } from "@/lib/blog/scholarship-embed";
-import { isProtectedSeekerPath } from "@/proxy";
+import { isProtectedSeekerPath } from "@/lib/auth/seeker-gate-paths";
 
 const tag = randomUUID().slice(0, 8);
 let scholarshipId: string;

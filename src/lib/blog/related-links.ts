@@ -30,7 +30,7 @@ export interface RelatedLink {
 
 const SCHOLARSHIP_CATALOG: RelatedLink = { href: "/scholarships", label: "Browse the scholarship catalog" };
 
-const RELATED_LINKS: Record<string, RelatedLink[]> = {
+export const RELATED_LINKS: Record<string, RelatedLink[]> = {
   "reading-your-match-score": [
     { href: "/jobs", label: "See your own Match Scores in the jobs feed" },
     { href: "/tailor", label: "Tailor your resume to a specific job" },
