@@ -138,7 +138,7 @@ test("other app routes still require a session, and the scholarships list no lon
   page,
 }) => {
   // The layout gate is shared; each page's own requireUser must still hold.
-  for (const path of ["/jobs", "/tracker", "/settings", "/billing"]) {
+  for (const path of ["/refer", "/settings", "/billing"]) {
     await page.goto(path);
     expect(page.url(), `${path} did not redirect a signed-out visitor`).toContain("/login");
   }

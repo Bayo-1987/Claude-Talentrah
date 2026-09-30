@@ -138,8 +138,8 @@ test("a signed-out visitor is never sent to /login by an internal link on a publ
 
   // ── live controls: the check can see a redirect, and does not invent one ──
   const controlOpts = { timeoutMs: 20_000, userAgent: "TalentrahLinkGate/1.0 (signed-out link check)" };
-  const gated = await classifyUrl(new URL("/tracker", base).toString(), fetchLike, controlOpts);
-  expect(loginRedirectKind(gated), "control: /tracker must redirect a signed-out request to /login").toBe("login");
+  const gated = await classifyUrl(new URL("/billing", base).toString(), fetchLike, controlOpts);
+  expect(loginRedirectKind(gated), "control: /billing must redirect a signed-out request to /login").toBe("login");
   const open = await classifyUrl(new URL("/scholarships/apply-now", base).toString(), fetchLike, controlOpts);
   expect(loginRedirectKind(open), "control: /scholarships/apply-now must NOT redirect a signed-out request").toBeNull();
 

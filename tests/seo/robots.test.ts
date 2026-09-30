@@ -81,7 +81,7 @@ describe("robots.ts disallows every requireUser()-gated route", () => {
    * could tell these apart automatically; an explicit, documented exception
    * is simpler and more honest about what a text scan can't actually prove.
    */
-  const KNOWN_DUAL_PURPOSE_ROUTES = ["/mentorship", "/scholarships"];
+  const KNOWN_DUAL_PURPOSE_ROUTES = ["/mentorship", "/scholarships", "/jobs", "/tracker"];
 
   it("has no OTHER requireUser()-gated route missing a matching disallow (the systematic check)", () => {
     const gatedRoutes = findRequireUserGatedRoutes(APP_DIR).filter(
@@ -108,14 +108,28 @@ describe("robots.ts disallows every requireUser()-gated route", () => {
    * send-480 — /scholarships joins /mentorship as a dual-purpose route: its
    * (list)/page.tsx still calls requireUser() (in the signed-in branch, so the
    * text scan above flags it) but a signed-out visitor now gets a real public
-   * landing page, so it must have NO disallow. The `/jobs$` entry is the control:
-   * it must still be there and still cover exactly the bare /jobs path, which
-   * proves this check can still fail and that only /scholarships moved.
+   * landing page, so it must have NO disallow.
+   *
+   * send-484 — /jobs and /tracker join them, for the identical reason. The `/jobs$`
+   * entry is gone (it was the only `$` rule left), and `/tracker` became `/tracker/`
+   * so the bare path is crawlable while /tracker/[applicationId]/sent is not. `/refer`
+   * is the control: it is gated, needs no landing page of its own (the footer sends
+   * signed-out visitors to /signup?redirectTo=%2Frefer), and must stay disallowed.
    */
-  it("does NOT disallow /scholarships itself, but still disallows the bare /jobs list", () => {
-    expect(isCoveredByDisallow("/jobs", disallow), "control: /jobs$ must still be disallowed").toBe(true);
-    expect(isCoveredByDisallow("/jobs/some-id", disallow), "control: a job detail page stays crawlable").toBe(false);
+  it("does NOT disallow /scholarships, /jobs or /tracker themselves, and has no `$`-anchored rule left", () => {
+    expect(isCoveredByDisallow("/refer", disallow), "control: /refer must still be disallowed").toBe(true);
+    expect(isCoveredByDisallow("/billing", disallow), "control: /billing must still be disallowed").toBe(true);
     expect(disallow).not.toContain("/scholarships$");
-    expect(isCoveredByDisallow("/scholarships", disallow)).toBe(false);
+    expect(disallow).not.toContain("/jobs$");
+    expect(disallow.filter((d) => d.endsWith("$")), "an exact-match rule is back").toEqual([]);
+    for (const path of ["/scholarships", "/jobs", "/jobs/some-id", "/tracker"]) {
+      expect(isCoveredByDisallow(path, disallow), `${path} must be crawlable`).toBe(false);
+    }
+  });
+
+  it("send-484: disallows everything UNDER /tracker via the trailing-slash prefix, like /mentorship/", () => {
+    expect(disallow).toContain("/tracker/");
+    expect(disallow).not.toContain("/tracker");
+    expect(isCoveredByDisallow("/tracker/[applicationId]/sent", disallow)).toBe(true);
   });
 });

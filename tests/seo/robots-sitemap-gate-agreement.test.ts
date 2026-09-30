@@ -31,15 +31,30 @@ describe("every static sitemap entry is readable and crawlable signed out", () =
     });
   }
 
-  it("includes /scholarships (send-480) — public in all three places at once", () => {
-    expect(STATIC_PATHS.map((p) => p.path)).toContain("/scholarships");
-    expect(isProtectedSeekerPath("/scholarships")).toBe(false);
-    expect(isDisallowed("/scholarships")).toBe(false);
-  });
+  // send-480 (/scholarships) and send-484 (/jobs, /tracker): each became a real signed-out landing
+  // page, so each must be public in all three places at once.
+  for (const path of ["/scholarships", "/jobs", "/tracker"]) {
+    it(`includes ${path} — public in all three places at once`, () => {
+      expect(STATIC_PATHS.map((p) => p.path)).toContain(path);
+      expect(isProtectedSeekerPath(path)).toBe(false);
+      expect(isDisallowed(path)).toBe(false);
+    });
+  }
 });
 
 describe("every gated path is disallowed in robots.txt and absent from the sitemap", () => {
-  const GATED = ["/jobs", "/tracker", "/refer", "/resume-builder", "/tailor", "/billing", "/settings", "/auto-apply", "/dashboard", "/mentorship/apply", "/employer/jobs"];
+  const GATED = [
+    "/tracker/0b6f3a0e-7a52-4f33-8a3b-0d8b0c3a1f11/sent",
+    "/refer",
+    "/resume-builder",
+    "/tailor",
+    "/billing",
+    "/settings",
+    "/auto-apply",
+    "/dashboard",
+    "/mentorship/apply",
+    "/employer/jobs",
+  ];
   for (const path of GATED) {
     it(`${path}`, () => {
       expect(isProtectedSeekerPath(path), `control: ${path} must be gated`).toBe(true);
@@ -48,9 +63,11 @@ describe("every gated path is disallowed in robots.txt and absent from the sitem
     });
   }
 
-  it("the matcher can tell a gated list from its public detail page (so the loops above are not vacuous)", () => {
-    expect(isDisallowed("/jobs")).toBe(true);
-    expect(isDisallowed("/jobs/some-id")).toBe(false);
-    expect(isProtectedSeekerPath("/jobs/some-id")).toBe(false);
+  it("the matcher can tell a gated sub-path from its public bare page (so the loops above are not vacuous)", () => {
+    // /employer is the long-standing example of the shape /tracker now has: bare path public, sub-paths gated.
+    expect(isDisallowed("/employer/jobs")).toBe(true);
+    expect(isDisallowed("/employer")).toBe(false);
+    expect(isProtectedSeekerPath("/employer/jobs")).toBe(true);
+    expect(isProtectedSeekerPath("/employer")).toBe(false);
   });
 });
