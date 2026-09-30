@@ -28,6 +28,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { randomUUID } from "node:crypto";
 import { admin } from "../support/auth";
 import { resolveScholarshipEmbeds } from "@/lib/blog/scholarship-embed";
+import { isProtectedSeekerPath } from "@/lib/auth/seeker-gate-paths";
 
 const tag = randomUUID().slice(0, 8);
 let scholarshipId: string;
@@ -89,11 +90,37 @@ describe("a token for a verified scholarship", () => {
   });
 });
 
+/**
+ * send-475 — the fallback's link must be somewhere a SIGNED-OUT reader can
+ * actually land. Blog posts are public and this fallback appears exactly when
+ * a listing has been swept off `verified` (a passed deadline, per
+ * ingest.ts's markExpiredCycles) — which is when readers are most likely to
+ * click it. It used to point at the bare `/scholarships`, which proxy.ts
+ * login-gates, so those readers were sent to /login.
+ *
+ * Asserted against the real gate function rather than a hardcoded "this path
+ * is public" list, so re-gating the target (or pointing back at a gated path)
+ * fails here instead of silently reintroducing the dead end.
+ */
+function expectFallbackLinkIsPublic(html: string) {
+  // Control: the gate function CAN return true, so a pass below is not just
+  // isProtectedSeekerPath answering false for everything. /tracker is used
+  // because it stays gated whatever happens to /scholarships later.
+  expect(isProtectedSeekerPath("/tracker")).toBe(true);
+
+  const hrefs = [...html.matchAll(/href="([^"]+)"/g)].map((m) => m[1]!);
+  expect(hrefs, `fallback rendered no link: ${html}`).toHaveLength(1);
+  const path = new URL(hrefs[0]!, "https://talentrah.test").pathname;
+
+  expect(isProtectedSeekerPath(path), `fallback links to ${path}, which login-gates signed-out readers`).toBe(false);
+  expect(path).toBe("/scholarships/apply-now");
+}
+
 describe("a token for a scholarship that is no longer visible", () => {
   it("falls back to a plain notice for a random id that was never real", async () => {
     const html = await resolveScholarshipEmbeds(`[[scholarship:${randomUUID()}]]`);
-    expect(html).toContain("since closed");
-    expect(html).toContain('href="/scholarships"');
+    expect(html).toContain("isn't currently available");
+    expectFallbackLinkIsPublic(html);
   });
 
   it("falls back once the real fixture is moved off verified — sabotage-and-restore", async () => {
@@ -107,8 +134,9 @@ describe("a token for a scholarship that is no longer visible", () => {
 
     try {
       const html = await resolveScholarshipEmbeds(`[[scholarship:${scholarshipId}]]`);
-      expect(html).toContain("since closed");
+      expect(html).toContain("isn't currently available");
       expect(html).not.toContain(`Embed-Test Programme ${tag}`);
+      expectFallbackLinkIsPublic(html);
     } finally {
       // RESTORE, so the earlier-declared `describe` block's fixture is intact
       // regardless of vitest's execution order.

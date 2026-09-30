@@ -115,7 +115,7 @@ test.describe("the anonymous demo", () => {
     await page.goto("/");
 
     // The static worked example is what's on screen until there is a real one.
-    await expect(page.getByText("this is a live example")).toBeVisible();
+    await expect(page.getByText("this is an example")).toBeVisible();
 
     await page.getByLabel("Job description").fill(JD);
     await page.getByRole("button", { name: "Send to Farah" }).click();
@@ -142,7 +142,7 @@ test.describe("the anonymous demo", () => {
     await expect(page.getByText("What Farah sent back")).toBeVisible({ timeout: 90000 });
     // The framing is the honest half of the demo: this is not their resume.
     await expect(page.getByText("Scored against a sample resume")).toBeVisible();
-    await expect(page.getByText("this is a live example")).toHaveCount(0);
+    await expect(page.getByText("this is an example")).toHaveCount(0);
 
     // Second attempt, same browser context — the cookie carries the limit.
     await page.reload();

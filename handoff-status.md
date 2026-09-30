@@ -33,6 +33,463 @@ both served stale content in this project's history. Don't rely on either.
 
 ---
 
+## Merged 2026-09-30 — PR #590, signed-out gated-link ratchet (send-477)
+
+| PR | Branch | Merged at (UTC) | Merge SHA |
+|----|--------|-----------------|-----------|
+| [#590](https://github.com/Bayo-1987/Claude-Talentrah/pull/590) | `test/signed-out-link-gate-477` | 10:45:51 | `6cb4e26aaf27cbc57e7c9967f0fb1dfbeb39c36b` |
+
+**What it added.** A standing regression net so a signed-out visitor is never sent to
+`/login` by an internal link on a public page. Nothing user-facing changed: no page or
+link was modified.
+- **Refactor (no behaviour change):** `isProtectedSeekerPath` and its three path sets moved
+  verbatim from `src/proxy.ts` into `src/lib/auth/seeker-gate-paths.ts`, a module with no
+  imports, so tests and the crawl can ask "is this path gated?" without loading
+  `next/server`. `proxy.ts` imports it; there is exactly one definition.
+- **Crawl (`e2e/signed-out-link-gate.spec.ts`, in the existing Playwright job):** fetches
+  every sitemap URL plus seeds the sitemap does not list (the real 404 page, `/login`,
+  `/signup`, `/employer`, `/mentorship`) with no session, collects same-origin links by
+  region (masthead / main / footer), and follows every distinct target hop by hop. A chain
+  through `/login` or `/admin/login` is a gated link, keyed `region:page-group -> target`.
+- **Ratchet:** the known offenders live in `tests/support/gated-link-allowlist.ts` (15 rows;
+  14 tagged `ci`, 1 `prod-only`; each with a fixed owner: `prompt-2` x6, `prompt-3` x6,
+  `scholarships-landing` x3). A new gated link fails; a row whose link is gone also fails, so
+  the list can only shrink.
+- **Unit companion** (`tests/marketing/gated-link-ratchet.test.tsx`): runs the real footer and
+  every `RELATED_LINKS` entry through the real gate, both directions. `RELATED_LINKS` gained
+  the `export` keyword, the only change to `related-links.ts`.
+- **Manual production mode:** `npm run check-signed-out-links` runs the same spec against
+  production (`LINK_GATE_SCOPE=all`). About 1,000 signed-out requests per run: run it rarely,
+  never in a loop or on a schedule. It refuses to run when `CI` is set, and is in no workflow.
+
+### Verification (all four, per the standard above)
+
+**1. GitHub API** — `GET /repos/Bayo-1987/Claude-Talentrah/pulls/590`:
+```
+{"merged": true, "merged_at": "2026-09-30T10:45:51Z",
+ "merge_commit_sha": "6cb4e26aaf27cbc57e7c9967f0fb1dfbeb39c36b", "state": "closed",
+ "head_sha": "009634fb606f67f897d2abc8c28e5a3e3418d706"}
+```
+Merged with a merge commit, `--match-head-commit` given the PR's own `headRefOid`, read at
+merge time with the branch 0 commits behind `main`.
+
+**2. Fresh shallow clone** (`git clone --depth 30`, a temp dir, not the working copy):
+```
+HEAD: 6cb4e26aaf27cbc57e7c9967f0fb1dfbeb39c36b   (Merge pull request #590 …)
+merge SHA is an ancestor of / equal to HEAD: YES   (2 parents)
+PRESENT: src/lib/auth/seeker-gate-paths.ts (93 lines)
+PRESENT: e2e/signed-out-link-gate.spec.ts (196 lines)
+PRESENT: tests/support/gated-link-allowlist.ts (190 lines)
+PRESENT: tests/marketing/gated-link-ratchet.test.tsx (170 lines)
+PRESENT: tests/scripts/link-gate.test.ts (307 lines)
+proxy.ts imports the gate from the new module: 1     proxy.ts still defines the sets: 0
+definitions of isProtectedSeekerPath in src: 1 (seeker-gate-paths.ts)
+RELATED_LINKS exported: 1     npm script check-signed-out-links: 1
+allowlist rows with an owner: 15     followUp fields left: 0
+control: the module is absent at the merge commit's first parent
+```
+
+**3. Live production probe, post-merge** (2026-09-30 10:48:09 UTC, 2 min 18 s after merge; signed-out, read-only).
+Vercel deployment `dpl_2bFKmGD1wxeBzzSvnLT3FCUruaxZ`: `readyState: READY`, `target: production`,
+`githubCommitSha: 6cb4e26aaf27cbc57e7c9967f0fb1dfbeb39c36b`, aliased to `www.talentrah.com`
+and `talentrah.com` (`aliasError: null`); created 10:45:55, ready 10:46:53.
+The change is a refactor plus tests, so the probe checks that the gate behaves exactly as before:
+```
+GET /                        200, footer Scholarships anchor href="/scholarships/apply-now"
+GET /tracker                 307 -> /login?redirectTo=%2Ftracker
+GET /jobs                    307 -> /login?redirectTo=%2Fjobs
+GET /scholarships            307 -> /login?redirectTo=%2Fscholarships
+GET /mentorship/apply        307 -> /login?redirectTo=%2Fmentorship%2Fapply
+GET /scholarships/apply-now  200, no redirect
+GET /mentorship              200      GET /employer   200      GET /jobs/remote   200
+GET /sitemap.xml             200, 462 URLs, lists /scholarships/apply-now
+```
+The repo's own **"Migration drift (production)"** workflow also ran on the merge commit
+([run 36704398117](https://github.com/Bayo-1987/Claude-Talentrah/actions/runs/36704398117))
+and concluded `success`. The 1,000-request crawl was deliberately not repeated after merge:
+the manual mode was run against production at the final pre-merge commit (see below).
+
+**4. Full suite against merged `main`** — the CI run GitHub started on the merge commit
+([run 36704397981](https://github.com/Bayo-1987/Claude-Talentrah/actions/runs/36704397981),
+head `6cb4e26`), concluded `success`:
+```
+Typecheck, lint, unit tests : success   Test Files 361 passed (361)   Tests 4089 passed (4089)
+Playwright e2e              : success   392 passed (7.5m)
+Dependency audit, Secret scan: success   (Migration numbering: skipped on push events)
+```
+The new tests ran there: `link-gate.test.ts` (31 tests), `gated-link-ratchet.test.tsx` (16),
+`marketing-footer.test.tsx` (6), `seeker-app-gate.test.ts` (6), `scholarship-embed.test.ts` (5); and
+the crawl spec (`✓ 368 e2e/signed-out-link-gate.spec.ts:93:5 … (8.0s)`), which reported
+`http://localhost:3000  scope=ci`, 428 sources, 568 targets, 14 gated links.
+
+### Proof it can fail (red, then green)
+- **Refactor is a pure move:** the moved block is byte-identical to `origin/main`'s (79 lines);
+  `proxy.ts` equals the old file minus that block plus one import line; old-vs-new gate function
+  over 370 paths (205 crawled + 165 edge cases) gave 0 differences.
+- **CI red** (run [36692990419](https://github.com/Bayo-1987/Claude-Talentrah/actions/runs/36692990419),
+  tests only, allowlist empty, stubs throwing): 2 files failed, 30 of 4076 tests failed; `tsc` and
+  lint passed first. The two ratchet companions listed exactly the 4 footer and 5 blog gated links.
+- **Against production, allowlist empty:** `npm run check-signed-out-links` failed with 15 NEW links
+  (466 sources, 637 targets followed, 2.2 min). **With the allowlist:** `1 passed (2.2m)`, re-run at
+  the final commit.
+- **A bug in send-384's link pattern, pinned:** `extractLinks` returns `[]` for an anchor whose class
+  contains `>` (`[&>svg]:h-4`); the new extractor finds it (`tests/scripts/link-gate.test.ts`).
+- **The ratchet comparison** (`ratchetDiff`) is pure and unit-tested in both directions, including
+  the `ci` versus `prod-only` scoping and that a crawl observing nothing cannot pass a non-empty list.
+
+### What CI showed on the PR, on the merged head `009634f` (run [36701134155](https://github.com/Bayo-1987/Claude-Talentrah/actions/runs/36701134155))
+```
+Typecheck, lint, unit tests : success   Test Files 361 passed (361)   Tests 4089 passed (4089)
+Playwright e2e              : success   392 passed (9.1m)
+Migration numbering, Secret scan, Dependency audit: success     Lighthouse: failure (known, #575; not required)
+```
+- **The crawl spec ran in CI, not vacuously:** `✓ 368 e2e/signed-out-link-gate.spec.ts:93:5 › a signed-out
+  visitor is never sent to /login by an internal link on a public page (11.0s)`, report header
+  `http://localhost:3000  scope=ci`, 428 sources, 568 targets, 14 gated links. Rows
+  `main:/jobs/* -> /jobs` (379 pages) and `main:/scholarships/* -> /scholarships` were observed, so
+  no seed data was added.
+- **Time added to e2e:** the spec's own 11.0 s. The e2e job's wall-clock was 13m22s against
+  `main`'s mean of 13m02s over its last 8 successful runs (range 10m48s–14m13s).
+- The branch was updated with `main` three times (`aa6f8ac`, `8ca9ca0`, `009634f`) as `main` moved;
+  the run on `8ca9ca0` failed only on the known `refresh-job.test.ts` flake (#577: 4083 of 4084
+  tests), and `main` had moved again by the time it finished, so the branch was updated (to
+  `009634f`) instead of re-running that head; the fresh run was green.
+
+### Not covered / still open (do not read this entry as saying otherwise)
+- **The 15 gated links still exist.** This PR records them; it fixes none. Owners: `prompt-2`
+  (footer `/resume-builder`; homepage `/resume-builder`; `/jobs/*` back link; blog `/tailor`,
+  `/resume-builder`, `/tailor?coverLetter=1`), `prompt-3` (footer `/jobs`, `/tracker`, `/refer`;
+  homepage `/jobs`; the 404 page; blog `/jobs`), `scholarships-landing` (homepage, `/scholarships/*`
+  and blog links to `/scholarships`).
+- **Blind spots:** links that only exist after client-side state (`jd-demo-input.tsx:309`, a
+  result-state `/resume-builder` link), links added by JavaScript, and public pages that are neither
+  in the sitemap nor in the seeds.
+- **Page groups are coarse** (`/jobs/remote` shares `/jobs/*` with detail pages): a second page of an
+  already-listed kind linking to an already-listed target is not caught by the crawl.
+- **One row is `prod-only`** (`main:/blog/* -> /scholarships`): the six scholarship posts exist only in
+  production content, so the CI crawl cannot see it; the unit companion and the manual mode do.
+- **Follow-ups, deliberately not in this PR:** `src/app/robots.ts` hand-mirrors the same gate list; the
+  `marketing-footer.tsx` comment still names `proxy.ts PROTECTED_EXACT_PATHS`, which now lives in
+  `seeker-gate-paths.ts`; a wildcard guard for the robots check in the footer test (a `*` rule could be
+  misjudged as a prefix).
+- **Lighthouse** is red on every recent PR run for an unrelated reason; tracked in issue
+  [#575](https://github.com/Bayo-1987/Claude-Talentrah/issues/575).
+
+---
+
+## Merged 2026-09-30 — PR #578, footer Scholarships link points at the public apply-now hub (send-474)
+
+| PR | Branch | Merged at (UTC) | Merge SHA |
+|----|--------|-----------------|-----------|
+| [#578](https://github.com/Bayo-1987/Claude-Talentrah/pull/578) | `fix/footer-scholarships-link-474` | 06:43:58 | `04fb1d6906ed002ae84bc1fa128d992104015a6f` |
+
+**What it fixed.** The footer's "Scholarships" link pointed at the bare `/scholarships`, which is
+login-gated (`src/proxy.ts` `PROTECTED_EXACT_PATHS`; the page calls `requireUser()`; `robots.ts`
+disallows `/scholarships$`), so a signed-out visitor or crawler following it was redirected to
+`/login`. It now points at `/scholarships/apply-now`, which is public, in the sitemap, and routes
+signed-in visitors on to `/scholarships` and signed-out ones to signup with a `redirectTo`. Footer
+only: one `href` changed, no other link touched. The regression tests assert the footer's `href`
+against the real gate function and the real `robots()` rules (each with a control assertion), not a
+hardcoded path.
+
+### Verification (all four, per the standard above)
+
+**1. GitHub API** — `GET /repos/Bayo-1987/Claude-Talentrah/pulls/578`:
+```
+{"merged": true, "merged_at": "2026-09-30T06:43:58Z",
+ "merge_commit_sha": "04fb1d6906ed002ae84bc1fa128d992104015a6f", "state": "closed",
+ "head_sha": "ea3a48fdc6cea8b1bffe0fd0f89f36f94b66b09d"}
+```
+Merge commit (2 parents), like #572, #574, #569 and #564.
+
+**2. Fresh shallow clone** (`git clone --depth 20`, a temp dir, not the working copy):
+```
+HEAD: 04fb1d6906ed002ae84bc1fa128d992104015a6f   (Merge pull request #578 …)
+merge SHA is an ancestor of / equal to HEAD: YES   (2 parents)
+files changed by the merge: src/components/marketing/marketing-footer.tsx, tests/marketing/marketing-footer.test.tsx (53 insertions, 2 deletions)
+footer line 59: { label: "Scholarships", href: "/scholarships/apply-now" }
+old bare href at the merge SHA: 0     the same grep against the first parent: 1   (so the grep can match)
+test file: send-474 block present
+```
+
+**3. Live production probe, post-merge** (2026-09-30 06:45:19–06:45:34 UTC, signed-out, read-only).
+Vercel deployment `dpl_5bAsyodUu1U9UYQ3pYszHzLkBq7d`: `READY`, `target: production`,
+`githubCommitSha: 04fb1d6906ed002ae84bc1fa128d992104015a6f`, aliased to `www.talentrah.com` and
+`talentrah.com` (`aliasError: null`).
+```
+GET /                        200, exactly one Scholarships anchor: href="/scholarships/apply-now"
+                             anchors to the bare /scholarships: 0   (control: the /refer anchor present)
+GET /scholarships/apply-now  200, no Location header, title "Scholarships Open for 2026/2027: Every Deadline in One Place — Talentrah" (not the login title)
+GET /scholarships            307 -> /login?redirectTo=%2Fscholarships   (control: the probe can see a redirect)
+GET /sitemap.xml             200, 464 URLs, lists /scholarships/apply-now, does not list the bare /scholarships
+```
+
+**4. Full suite against merged `main`** — the CI run GitHub started on the merge commit
+([run 36679776785](https://github.com/Bayo-1987/Claude-Talentrah/actions/runs/36679776785), head `04fb1d6`):
+```
+Typecheck, lint, unit tests : success   Test Files 357 passed (357)   Tests 4033 passed (4033)
+Playwright e2e              : success   391 passed (6.9m)
+Secret scan                 : success   (Migration numbering: skipped on push events)
+Dependency audit            : failure   (see below; not a required check)
+```
+
+### Proof the test catches the bug (red, then green)
+Written first, with no database configured: against the unchanged footer `4 failed | 2 passed`
+(the Product-column check, the apply-now `href`, the gate check reporting `/scholarships` as gated,
+and the robots check reporting it disallowed); with the one-line fix `6 passed (6)`, and the restored
+file identical to the committed one.
+
+### What CI showed on the PR
+- **Playwright e2e failed once in infrastructure, not in a test:** the "Start local Supabase" step
+  hit Docker `toomanyrequests: Rate exceeded`, then `supabase db reset` exited 1 during "Initialising
+  schema"; no test ran. One re-run of the failed jobs passed (`391 passed (9.1m)`). Not shown to be a
+  recurring failure on `main`.
+- **Dependency audit was red** on the PR and on `main`: a `brace-expansion` high-severity advisory
+  (`GHSA-q2hr-2g5m-vwhr`, `GHSA-qhr7-859c-m2p7`, `GHSA-6j4f-fj2g-mc7p`) that turned `main`'s audit red from
+  ~05:00Z that day, dev-only, not a required check; fixed separately by #584. **Lighthouse** was red for
+  the known #575. Branch protection on `main` (strict mode) requires only Migration numbering,
+  Typecheck/lint/unit tests, Playwright e2e and Secret scan.
+
+### Process note
+The first RED run of the new tests used `ALLOW_TESTS_AGAINST_HOSTED=yes-i-mean-it`, although the test
+needs no database. That pointed the run at the shared preview project (`gtiksnbhnqmwpeckfqwk`, not
+production), and the global teardown swept 2 stale `@talentrah.test` auth users
+(`335b398e-f4d0-4e79-9003-b83511da3ae3`, `6a1c4ff0-b0bb-482b-8692-c00924573d38`): created 2026-09-29
+21:02:46/47Z, deleted 05:30:56Z, so about 8.5 hours old against the sweep's 2-hour cutoff, throwaway
+fixtures from two test files that had left them behind. Nothing needed restoring. Every later run used
+no database configuration at all.
+
+### Not covered / still open
+- Scope was the footer only. Other surfaces that linked the bare `/scholarships` to signed-out
+  visitors were listed as a follow-up decision: the blog `scholarship-embed` fallback was fixed by
+  #579; the rest are now recorded, with owners, in #590's allowlist.
+- **Lighthouse** stays red for #575.
+
+---
+
+## Merged 2026-09-30 — PR #572, EmployerPrintButton waits for fonts before printing
+
+| PR | Branch | Merged at (UTC) | Merge SHA |
+|----|--------|-----------------|-----------|
+| [#572](https://github.com/Bayo-1987/Claude-Talentrah/pull/572) | `feat/employer-print-fonts-wait-473` | 2026-09-30 05:08:32 | `d1033091a57914e481e208cf3c229a038f7dfa03` |
+
+**What it did.** `EmployerPrintButton` (the employer's "Print / Save as PDF" on an
+applicant's resume) called `window.print()` synchronously; it now awaits
+`waitForFontsSettled()` (bounded 3 s) and shows a disabled "Preparing PDF…" state.
+No migration, no production data touched.
+
+**What is and is not proven (do not over-read this).** With the wait removed the
+font-state assertion in `e2e/employer-print-fonts.spec.ts` fails (8 faces still loading
+when `print()` fires); with it, it passes. **No loss of content from printing early has
+ever been reproduced** — the `blueprint` ATS failure that first suggested one was a
+different cause (see #569). This is fidelity protection, not a proven ATS fix.
+
+### Verification (all four)
+
+**1. GitHub API** — `GET /repos/Bayo-1987/Claude-Talentrah/pulls/572`:
+```
+{"merged": true, "merged_at": "2026-09-30T05:08:32Z",
+ "merge_commit_sha": "d1033091a57914e481e208cf3c229a038f7dfa03", "state": "closed", "base": "main"}
+```
+
+**2. Fresh clone** (`git clone --depth 30`, temp dir; `git checkout d1033091…`):
+```
+HEAD: d1033091a57914e481e208cf3c229a038f7dfa03   (Merge pull request #572 …)
+is an ancestor of the current origin/main: YES
+PRESENT src/components/employer/employer-print-button.tsx (53 lines)
+PRESENT e2e/employer-print-fonts.spec.ts (169 lines)
+PRESENT e2e/support/print-stub.ts (31 lines)
+PRESENT src/lib/resume-builder/wait-for-fonts.ts (86 lines)
+PRESENT supabase/migrations/0201_reset_test_pool_user_clear_mentorship.sql (200 lines)
+button awaits the font wait: 1   imports wait-for-fonts: 2   synchronous onClick={() => window.print()} left: 0
+```
+
+**3. Live production probe** — *what this can and cannot show.* The change itself is
+behind employer login, so it is not observable from outside; the probe therefore
+establishes what production serves, via two independent routes:
+- **Vercel API** (project `prj_Dhr20nuHigzGC27ZoYfBMdOawmdo`): the newest production
+  deployment is `dpl_Ay9Rr6bASWA3ArBzcz9iyv32za26`, state `READY`, target `production`,
+  created 2026-09-30T05:08:36Z (4 s after the merge), `meta.githubCommitSha` =
+  `d1033091a57914e481e208cf3c229a038f7dfa03`. Its aliases include `www.talentrah.com` and
+  `talentrah.com` (which redirects to `www`).
+- **The live site** (2026-09-30 05:35:39 UTC): `talentrah.com` → one redirect → `www.talentrah.com`
+  HTTP 200, `server: Vercel`, `x-vercel-cache: HIT`, `age: 1409` (cached since ~05:12, i.e. after
+  the deploy).
+- **Limit, stated plainly:** the live site exposes no build ID or commit (no `dpl_…` in the HTML,
+  no deployment header), so the commit could *not* be read off the live site itself; this rests on
+  Vercel's alias records plus the timing above. Earlier production deployments in the same list
+  (`00ac9e0` #569, `82643bb` #574) are `READY`; one older one, `90219877` (send-465), is `ERROR`.
+
+**4. Full suite against merged `main`** — CI run
+[36672048430](https://github.com/Bayo-1987/Claude-Talentrah/actions/runs/36672048430) (head `d1033091`):
+```
+Typecheck, lint, unit tests : success   Test Files 357 passed (357)   Tests 4030 passed (4030)
+Playwright e2e              : success   391 passed (9.4m)   (includes employer-print-fonts, print-button-fonts)
+Secret scan                 : success
+Dependency audit            : FAILURE   -> overall run conclusion = failure
+```
+**The run is red for one reason only, and it is not this change:** three newly published
+high-severity `brace-expansion` advisories (GHSA-q2hr-2g5m-vwhr, GHSA-qhr7-859c-m2p7,
+GHSA-6j4f-fj2g-mc7p) now fail `npm audit --audit-level=high`. The audit passed on `main` at
+2026-09-30 03:10 UTC (run 36663187293) and was red by 05:08, so the advisory landed in that
+window. `brace-expansion` is not a production dependency (`npm ls brace-expansion --omit=dev`
+is empty; it is pulled in by dev tooling). `Migration drift (production)` also ran on the
+merge commit ([run 36672048535](https://github.com/Bayo-1987/Claude-Talentrah/actions/runs/36672048535)): success.
+
+**Required checks (branch protection, read via the API):** `main` requires exactly
+`Migration numbering`, `Typecheck, lint, unit tests`, `Playwright e2e`, `Secret scan`, with
+`strict: true` (branches must be up to date). **`Lighthouse CI…` and `Dependency audit` are
+not required**; no rulesets are configured. All four required checks passed on #572.
+
+### Not covered / still open
+- `Dependency audit` is red on `main` today (advisory above); a fix (`npm audit fix` or an override)
+  is a separate change and is not made here.
+- Lighthouse is red on every recent run; tracked in [#575](https://github.com/Bayo-1987/Claude-Talentrah/issues/575).
+- `refresh-job.test.ts` flake: [#577](https://github.com/Bayo-1987/Claude-Talentrah/issues/577).
+
+---
+
+## Work chain: the `mentor_profiles_pkey` flake (PRs #562, #563, #574), 2026-09-29
+
+Recorded together because the fix arrived in three steps and only the last one is a root-cause fix.
+- **#562** — per-file: `reviewer-claim-race.test.ts` bare inserts → `upsert`.
+- **#563** (commit `e682f16`) — per-file: `dual-role-isolation.test.ts` the same.
+- **#574** — root cause: `reset_test_pool_user` now clears a former mentor's/mentee's mentorship rows
+  child-first (migration `0201`; see the #574 entry below for the mechanism and its four-part
+  verification, including the production apply).
+- **Empirical check, and its limit.** A recount of the CI history found **6 pkey-class failures on
+  2026-09-29** (`dual-role-isolation` ×5, `display-name` ×1), **all before `0201` merged**
+  (latest 20:43:05 UTC; `0201` merged 21:23:40 UTC). Since the merge, **0 of the 6** unit-job attempts
+  that started failed this way. **Six clean attempts is far too few to claim the flake is gone**
+  (rule of three: a 95% upper bound of ~50%); what proves the *mechanism* is the deterministic
+  regression test, written red-first. Treat the absence of recurrence as encouraging, not as proof.
+
+---
+
+## Merged 2026-09-29 — PR #574, `reset_test_pool_user` clears a former mentor's/mentee's mentorship rows (0201)
+
+| PR | Branch | Merged at (UTC) | Merge SHA |
+|----|--------|-----------------|-----------|
+| [#574](https://github.com/Bayo-1987/Claude-Talentrah/pull/574) | `fix/mentor-profiles-pkey-root-cause` | 21:23:40 | `82643bbc3d13be6c01af436c83be0906b9ff59d2` |
+
+> **Maintenance gap, stated plainly.** Before this entry, the last thing recorded
+> in this file was PR #64 (2026-08-26). Every PR between #65 and #573 (about 510
+> PR numbers; not all of them merged) is **not** recorded here, and this entry does
+> not backfill them. Reconstruct anything
+> from those from `git log` / `gh pr view`, not from this file.
+
+**What it fixed.** The recurring `mentor_profiles_pkey` CI flake (three test
+files in one day: #562, #563, and `display-name.test.ts` on #572's CI; ~29 bare
+inserts across ~20 files carry the same exposure). Root cause, verified against
+the live FK graph: 0188's `reset_test_pool_user` deleted `mentor_profiles` first,
+blocked by three NO ACTION NOT NULL FKs (`mentorship_sessions.mentor_id`,
+`mentorship_reviews.mentor_id`, `mentor_payouts.mentor_id`), only cleared sessions
+where the user was the *mentee*, and never touched `mentor_payouts`; the blocked
+delete was swallowed by its `foreign_key_violation` handler, so the residual was
+silent until the next claimant's bare insert collided. 0188's "accepted residual"
+note was wrong — the FKs resolve child-first. 0201 adds four guarded child-first
+deletes above the existing loop. Function body only; grants and signature
+untouched. It never touches the counterparty's rows.
+
+**This one touched production directly.** 0201 was applied to production **before**
+merge (the repo's rule for additive migrations, `supabase/migrations/README.md`),
+by `apply_migration` through the connector with the same statement applied to the
+dev project. It is a no-op there today: production's test pool has 0 rows.
+
+### Scope: test-only, with evidence (checked before touching production)
+- **Repo:** every reference to `reset_test_pool_user` / `claim_` / `release_` /
+  `add_test_pool_user` is in `tests/`, `supabase/migrations/`, docs, or the
+  *generated* `src/lib/supabase/types.ts` (declarations, not calls). Nothing under
+  `src/app`, `src/lib`, `scripts/` or `.github/` calls them.
+- **Production database:** all four are `SECURITY DEFINER`; `anon` and
+  `authenticated` have no `EXECUTE`, only `service_role`; the only other function
+  whose body references `reset_test_pool_user` is `claim_test_pool_user`; no
+  policy, view or trigger mentions the pool; `pg_cron` is not installed. The
+  privilege lock is also pinned by `tests/rls/test-user-pool-privileges.test.ts`.
+
+### Verification (all four, per the standard above)
+
+**1. GitHub API** — `GET /repos/Bayo-1987/Claude-Talentrah/pulls/574`:
+```
+{"merged": true, "merged_at": "2026-09-29T21:23:40Z",
+ "merge_commit_sha": "82643bbc3d13be6c01af436c83be0906b9ff59d2", "state": "closed"}
+```
+
+**2. Fresh shallow clone** (`git clone --depth 20`, a temp dir, not the working copy):
+```
+HEAD: 82643bbc3d13be6c01af436c83be0906b9ff59d2   (Merge pull request #574 …)
+merge SHA is an ancestor of / equal to HEAD: YES
+PRESENT: supabase/migrations/0201_reset_test_pool_user_clear_mentorship.sql (200 lines)
+PRESENT: tests/support/test-user-pool-mentor-reset.test.ts (200 lines)
+new-block warning strings in the migration: 4
+CLAUDE.md corrected paragraph present ("0201 now does it"): 1
+highest migration number on main: 0201_reset_test_pool_user_clear_mentorship.sql
+```
+
+**3. Live production probe, post-merge** (2026-09-29 21:24:24 UTC, 44 s after merge;
+project `nytwbbzfpytctjsoczzq`, read-only):
+```sql
+select now() as probed_at,
+  (select count(*) from supabase_migrations.schema_migrations
+     where name = '0201_reset_test_pool_user_clear_mentorship') as ledger_0201_count,
+  (select position('mentor_payouts (as mentor)' in prosrc) > 0 from pg_proc p
+     join pg_namespace n on n.oid = p.pronamespace
+     where n.nspname = 'public' and p.proname = 'reset_test_pool_user') as live_fn_has_0201_blocks,
+  (select md5(prosrc) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+     where n.nspname = 'public' and p.proname = 'reset_test_pool_user') as live_fn_md5,
+  (select count(*) from public.test_user_pool) as pool_rows;
+```
+```
+ledger_0201_count = 1   (newest entry: version 20260929211020, applied 21:10:20 — before merge)
+live_fn_has_0201_blocks = true
+live_fn_md5 = 3fe4efed69cbd21bfff68bb9d32b3f93   (identical to the md5 right after apply)
+pool_rows = 0
+anon/authenticated can execute = false
+```
+Before apply the same probe read md5 `0d116c15aa1412f1fd799a3b9e145bc7` (3,450 chars,
+no new blocks, ledger count 0); after, 4,471 chars, new blocks present. The repo's
+own **"Migration drift (production)"** workflow also ran on the merge commit
+([run 36632970393](https://github.com/Bayo-1987/Claude-Talentrah/actions/runs/36632970393))
+and concluded `success`.
+
+**4. Full suite against merged `main`** — the CI run GitHub started on the merge
+commit ([run 36632970518](https://github.com/Bayo-1987/Claude-Talentrah/actions/runs/36632970518),
+head `82643bb`), concluded `success`:
+```
+Typecheck, lint, unit tests : success   Test Files 357 passed (357)   Tests 4030 passed (4030)
+Playwright e2e              : success   390 passed (8.9m)
+Dependency audit, Secret scan: success   (Migration numbering: skipped on push events)
+```
+The new regression test ran in that run (`test-user-pool-mentor-reset.test.ts`,
+2 tests passed), as did `tests/mentorship/display-name.test.ts` (4 tests passed) —
+the file that had failed on #572's CI.
+
+### Proof the fix fixes something (red, then green)
+`tests/support/test-user-pool-mentor-reset.test.ts` was written first and run
+against the *unfixed* function on the dev project: both tests failed on exactly the
+two expected assertions (the former mentor's `mentor_profiles` row survived; the
+former mentee's session survived because a payout referenced it). After 0201 both
+pass, and the 5 existing `test-user-pool.test.ts` tests still pass (7/7).
+
+### Not covered / still open (do not read this entry as saying otherwise)
+- **A single green CI run cannot prove a probabilistic flake is gone.** The
+  deterministic regression test is what proves the mechanism; the flake's absence
+  over time is not something one run demonstrates.
+- **`refresh-job.test.ts` is a different flake and is NOT fixed by this.** Tracked in
+  issue [#577](https://github.com/Bayo-1987/Claude-Talentrah/issues/577). (An earlier
+  version of this bullet said "three runs, no issue" — superseded: a defensible recount
+  found **8 failures in 47 first attempts, 17.0%, 95% CI 8.9–30.1%**, and the failing logs
+  show a concrete mechanism, described in #577.)
+- **Lighthouse** is red on every recent run for an unrelated reason; tracked in
+  issue [#575](https://github.com/Bayo-1987/Claude-Talentrah/issues/575).
+- Local runs against the dev project fail for tests that mint a JWT session with
+  `No suitable key or wrong key type` (an environment/signing-key mismatch that
+  predates this change); those tests were only ever verified green in CI.
+- The statement applied to the two projects omitted 0201's leading header comment
+  block (documentation only); the function statement is identical to the file.
+
+---
+
 ## Merged 2026-08-26 — PR #64, local runs cannot hit production; CI seeds before testing
 
 | PR | Branch | Merged at (UTC) | Merge SHA |

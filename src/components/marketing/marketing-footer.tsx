@@ -50,7 +50,13 @@ const FOOTER_COLUMNS = [
       { label: "Resume Tailoring", href: "/ai-resume-tailoring" },
       { label: "ATS Resume Checker", href: "/ats-resume-checker" },
       { label: "Job Tracker", href: "/tracker" },
-      { label: "Scholarships", href: "/scholarships" },
+      // send-474 — NOT the bare `/scholarships`. That path is the login-gated
+      // list (proxy.ts PROTECTED_EXACT_PATHS; robots.ts disallows `/scholarships$`),
+      // so a signed-out visitor or crawler following this link was redirected
+      // to /login — the same dead end /mentorship had before send-385. The
+      // apply-now hub is public, in the sitemap, and routes signed-in visitors
+      // on to /scholarships and signed-out ones to signup with a redirectTo.
+      { label: "Scholarships", href: "/scholarships/apply-now" },
       { label: "Refer & Earn", href: "/refer" },
       { label: "Mentorship", href: "/mentorship" },
       { label: "Auto-Apply", href: "/how-auto-apply-works" },
@@ -64,7 +70,7 @@ const FOOTER_COLUMNS = [
     heading: "Compare",
     links: [
       { label: "Jobright Alternative", href: "/vs/jobright" },
-      { label: "vs. JobCopilot", href: "/vs/jobcopilot" },
+      { label: "vs. FreshTalent JobCopilot", href: "/vs/jobcopilot" },
     ],
   },
   {

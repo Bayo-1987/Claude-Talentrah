@@ -5,7 +5,7 @@
  * ── WHY THIS EXISTS ─────────────────────────────────────────────────────
  *
  * scholarship-embed.ts's resolution pass already degrades gracefully when a
- * token's id doesn't resolve — it renders the "since closed" fallback rather
+ * token's id doesn't resolve — it renders the "isn't currently available" fallback rather
  * than breaking the page (see scholarship-embed.test.ts for that behaviour).
  * That's the right outcome for a scholarship that legitimately closes AFTER
  * a post is published — expected, not a mistake. But nothing distinguishes
