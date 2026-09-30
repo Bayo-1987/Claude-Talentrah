@@ -4,6 +4,7 @@ import { computeMatchScore } from "./score";
 import { getMatchTier } from "@/lib/match-tier";
 import type { ScoredJobLike } from "./compute-and-store";
 import { freshnessFloorISO } from "@/lib/jobs/freshness";
+import { chunkInList } from "@/lib/supabase/in-list";
 import type { StructuredResume } from "@/lib/resume/types";
 import type { SeniorityLevel } from "@/lib/jobs/types";
 
@@ -119,6 +120,9 @@ export interface MatchScoreRefreshSummary {
  */
 const MAX_USERS_PER_RUN = 500;
 
+/** Log a capacity warning once the candidate-user query returns this fraction of MAX_USERS_PER_RUN. */
+const USER_CAP_WARN_FRACTION = 0.8;
+
 /**
  * Deliberately much larger than jobs/page.tsx's own RECOMMENDED_HARD_CAP
  * (2000), even though both exist for the same reason (production headroom
@@ -214,15 +218,21 @@ export async function persistScoresOrRetryStale(
 
   if (error.code === "23503") {
     const ids = rows.map((r) => r.job_posting_id);
-    const { data: stillExist, error: existError } = await admin
-      .from("job_postings")
-      .select("id")
-      .in("id", ids);
-    if (existError) {
-      console.error(`[match-score-refresh] could not verify stale postings for ${userId}: ${existError.message}`);
-      return { persisted: 0, ok: false };
+    // Chunked: `.in()` carries every id in the request URL, and the whole board (~370-390 ids) is over the
+    // gateway's limit — one lookup for all of it was refused ("URI too long"), which lost the user's whole batch
+    // (#577). A batch that fits in one chunk still makes exactly one lookup.
+    const existingIds = new Set<string>();
+    for (const chunk of chunkInList(ids)) {
+      const { data: stillExist, error: existError } = await admin
+        .from("job_postings")
+        .select("id")
+        .in("id", chunk);
+      if (existError) {
+        console.error(`[match-score-refresh] could not verify stale postings for ${userId}: ${existError.message}`);
+        return { persisted: 0, ok: false };
+      }
+      for (const r of stillExist ?? []) existingIds.add(r.id);
     }
-    const existingIds = new Set((stillExist ?? []).map((r) => r.id));
     const survivors = rows.filter((r) => existingIds.has(r.job_posting_id));
     if (survivors.length === 0) return { persisted: 0, ok: false };
 
@@ -235,6 +245,11 @@ export async function persistScoresOrRetryStale(
       );
       return { persisted: 0, ok: false };
     }
+    // Not an error, but not silent either: this is the only trace that the recovery path ran and worked.
+    console.warn(
+      `[match-score-refresh] recovered ${userId}: persisted ${survivors.length} of ${rows.length} scores ` +
+        `after dropping ${rows.length - survivors.length} stale posting(s) deleted mid-run`,
+    );
     return { persisted: survivors.length, ok: true };
   }
 
@@ -331,6 +346,15 @@ export async function runMatchScoreRefreshJob(): Promise<MatchScoreRefreshSummar
   }
 
   summary.usersConsidered = candidates?.length ?? 0;
+  // The candidate query is capped and unordered, so users past the cap are silently never refreshed. Real headroom
+  // today is 7 users against 500; this is the early warning the header promises ("needs to become set-based").
+  if (summary.usersConsidered >= Math.ceil(MAX_USERS_PER_RUN * USER_CAP_WARN_FRACTION)) {
+    console.warn(
+      `[match-score-refresh] ${summary.usersConsidered} candidate users has reached ` +
+        `${Math.round(USER_CAP_WARN_FRACTION * 100)}% of MAX_USERS_PER_RUN (${MAX_USERS_PER_RUN}); users beyond the ` +
+        `cap are never refreshed — this job needs to become set-based before it is hit`,
+    );
+  }
 
   for (const { user_id: userId } of candidates ?? []) {
     try {

@@ -8,6 +8,7 @@ import { JOB_SOURCES } from "./sources.config";
 import { disambiguateFingerprint } from "./dedup";
 import { externalSourceKey } from "./types";
 import { enrichThinPostings } from "./enrich-thin";
+import { chunkInList } from "@/lib/supabase/in-list";
 import type { JobSourceConfig, NormalizedJobPosting } from "./types";
 
 export interface IngestSourceResult {
@@ -257,10 +258,8 @@ export async function ingestAllSources(): Promise<IngestSourceResult[]> {
         .filter((row) => !seenFingerprints.has(row.dedup_fingerprint))
         .map((row) => row.id);
 
-      const CLOSE_BATCH_SIZE = 200;
       let closed = 0;
-      for (let i = 0; i < staleIds.length; i += CLOSE_BATCH_SIZE) {
-        const batch = staleIds.slice(i, i + CLOSE_BATCH_SIZE);
+      for (const batch of chunkInList(staleIds)) {
         const { data: closedRows, error: closeError } = await supabase
           .from("job_postings")
           // closed_at (0102): this is one of five places `status` can become
