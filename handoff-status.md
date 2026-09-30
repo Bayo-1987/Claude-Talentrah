@@ -208,7 +208,7 @@ Dependabot-triggered runs get the Dependabot secret store, which is empty here, 
 - `openai` not exercised in production (above); PR #600 (merged 18:40 UTC, `9e80518`) now covers the request/response/error
   surface in CI, but production real-traffic exposure is still to be re-checked.
 - Flakes seen while merging this: banner spec (#591), test-user pool (#593), font-fetch build (#585), the
-  `login-rate-limit` window boundary (PR #599, not merged at the time of writing).
+  `login-rate-limit` window boundary (PR #599, merged 2026-09-30 19:01 UTC, `1020f70`).
 
 ---
 
