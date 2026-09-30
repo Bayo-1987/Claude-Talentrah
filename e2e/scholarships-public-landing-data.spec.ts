@@ -61,17 +61,26 @@ test.describe("signed-out /scholarships shows real, verified listings only", () 
       const page = await context.newPage();
       const res = await page.goto("/scholarships");
       expect(res?.status()).toBe(200);
-      const text = await page.locator("body").innerText();
 
-      // Positive control first: the page really lists open scholarships.
-      expect(text, "the verified fixture must be listed").toContain(verified.program_name);
-      expect(text, "the pending fixture leaked onto a public page").not.toContain(pending.program_name);
+      /*
+       * AUTO-RETRYING assertions, never an innerText snapshot: `goto` resolves on `load`, which can
+       * come before the streamed page replaces the route's loading fallback ("Loading scholarships…").
+       * A snapshot taken then contains neither fixture (CI failure on the send-480 branch) and, worse,
+       * would let the negative assertion below pass vacuously.
+       *
+       * Positive control first: the page really lists the verified fixture. Only then, and only once
+       * the skeleton is gone, is "the pending fixture is absent" a statement about a rendered page.
+       */
+      await expect(page.getByText(verified.program_name), "the verified fixture must be listed").toBeVisible();
+      await expect(page.getByText("Loading scholarships…")).toHaveCount(0);
+      await expect(page.getByText(pending.program_name), "the pending fixture leaked onto a public page").toHaveCount(0);
       await expect(page.getByRole("link", { name: verified.program_name })).toHaveAttribute(
         "href",
         `/scholarships/${verified.id}`,
       );
       // At most four rows, and each one links out to its official page safely.
       const official = page.getByRole("link", { name: /Official listing/ });
+      await expect(official.first()).toBeVisible();
       expect(await official.count()).toBeLessThanOrEqual(4);
       await expect(official.first()).toHaveAttribute("rel", "noopener noreferrer");
       await expect(official.first()).toHaveAttribute("target", "_blank");
@@ -89,8 +98,10 @@ test.describe("signed-out /scholarships shows real, verified listings only", () 
     try {
       const page = await context.newPage();
       await page.goto("/scholarships");
+      // The page must have rendered (real <h1>, skeleton gone) before "absent" means anything.
       await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-      expect(await page.locator("body").innerText()).not.toContain(expired.program_name);
+      await expect(page.getByText("Loading scholarships…")).toHaveCount(0);
+      await expect(page.getByText(expired.program_name)).toHaveCount(0);
     } finally {
       await context.close();
       await removeFixture(expired.id);
@@ -104,9 +115,12 @@ test.describe("signed-in /scholarships is unchanged (send-480 regression check)"
   }) => {
     const res = await authedPage.goto("/scholarships");
     expect(res?.status()).toBe(200);
-    expect(await authedPage.title()).toBe("Scholarships — Talentrah");
 
+    // The heading only exists on the real page (the loading fallback has none), so this waits for it;
+    // every read and every "is absent" assertion below is on the rendered page, not the skeleton.
     await expect(authedPage.getByRole("heading", { level: 1 })).toHaveText("Scholarships");
+    await expect(authedPage.getByText("Loading scholarships…")).toHaveCount(0);
+    await expect(authedPage).toHaveTitle("Scholarships — Talentrah");
     await expect(authedPage.getByText("Funding for your next degree")).toBeVisible();
     await expect(authedPage.getByRole("link", { name: "All scholarships" })).toBeVisible();
     await expect(authedPage.getByRole("link", { name: /Saved & tracking/ })).toBeVisible();
@@ -115,7 +129,7 @@ test.describe("signed-in /scholarships is unchanged (send-480 regression check)"
     // The real authenticated branch, not the public landing page rendered by mistake.
     await expect(authedPage.getByText("Scholarships open to applicants from Nigeria")).toHaveCount(0);
     await expect(authedPage.getByRole("link", { name: "Create a free account" })).toHaveCount(0);
-    expect(await authedPage.locator("h1").count()).toBe(1);
+    await expect(authedPage.locator("h1")).toHaveCount(1);
   });
 
   test("a signed-in user's saved tab still works", async ({ authedPage }) => {

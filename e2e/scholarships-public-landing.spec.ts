@@ -12,10 +12,22 @@
  * shared with any signed-in state) — see e2e/mentorship-public-landing.spec.ts for
  * why the distinction matters.
  */
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 
 /** The common low-end Android widths this product's market actually uses. */
 const PHONE_WIDTHS = [360, 390, 412];
+
+/**
+ * The route's streamed loading fallback ("Loading scholarships…") is in the DOM until the real page
+ * replaces it, and `goto` resolves on `load`, which can come first. A one-shot read straight after
+ * `goto` (innerText, title(), count()) can therefore see the skeleton, and a NEGATIVE assertion
+ * ("there is no X") passes vacuously on it. Everything below that reads the page waits for this
+ * first: the skeleton is gone AND the page's own <h1> (the skeleton has none) is there.
+ */
+async function pageSettled(page: Page) {
+  await expect(page.getByText("Loading scholarships…")).toHaveCount(0);
+  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+}
 
 test.describe("signed-out visitor at /scholarships", () => {
   test("gets a real 200 — not the 307 to /login this route always used to send", async ({ request }) => {
@@ -27,14 +39,18 @@ test.describe("signed-out visitor at /scholarships", () => {
     const response = await page.goto("/scholarships");
     expect(response?.status()).toBe(200);
     expect(page.url()).not.toContain("/login");
+    await pageSettled(page);
 
-    const title = await page.title();
-    expect(title).not.toBe("Log in — Talentrah");
-    expect(title).toContain("Scholarships");
-    expect(title, "the signed-in page's plain title must not be what a visitor gets").not.toBe("Scholarships — Talentrah");
+    // Auto-retrying: head metadata can stream in after the shell, so no one-shot title() read.
+    await expect(page).toHaveTitle(/Scholarships/);
+    await expect(page).not.toHaveTitle("Log in — Talentrah");
+    await expect(page, "the signed-in page's plain title must not be what a visitor gets").not.toHaveTitle(
+      "Scholarships — Talentrah",
+    );
 
-    const description = await page.locator('meta[name="description"]').first().getAttribute("content");
-    expect(description).toBeTruthy();
+    const descriptionTag = page.locator('meta[name="description"]').first();
+    await expect(descriptionTag).toHaveAttribute("content", /\S/);
+    const description = await descriptionTag.getAttribute("content");
     expect(description!.length, "meta description must fit a search result").toBeLessThanOrEqual(160);
 
     // A <head> fixed while the body still bounced client-side would pass the title checks alone.
@@ -72,6 +88,7 @@ test.describe("signed-out visitor at /scholarships", () => {
 
   test("renders the approved <h1>, one <main> landmark and one footer", async ({ page }) => {
     await page.goto("/scholarships");
+    await pageSettled(page);
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(
       "Scholarships open to applicants from Nigeria and across Africa — deadline confirmed at the source, or not shown at all.",
     );
@@ -85,13 +102,14 @@ test.describe("signed-out visitor at /scholarships", () => {
 
   test("offers a real path to create an account, scoped to what is actually free", async ({ page }) => {
     await page.goto("/scholarships");
+    await pageSettled(page);
     await expect(page.getByRole("link", { name: "Create a free account" }).first()).toBeVisible();
     await expect(page.locator('a[href="/signup?redirectTo=%2Fscholarships"]').first()).toBeVisible();
     await expect(page.locator('a[href="/login?redirectTo=%2Fscholarships"]')).toBeVisible();
     await expect(page.locator('a[href="/scholarships/apply-now"]').first()).toBeVisible();
-    const body = await page.locator("body").innerText();
-    expect(body).toContain("Reading every listing is free and needs no account.");
-    expect(body.toLowerCase()).not.toMatch(/\bsign(ing)? up\b/);
+    // Auto-retrying text assertions on the settled page, not an innerText snapshot.
+    await expect(page.locator("body")).toContainText("Reading every listing is free and needs no account.");
+    await expect(page.locator("body")).not.toContainText(/\bsign(ing)? up\b/i);
   });
 
   for (const width of PHONE_WIDTHS) {
@@ -99,7 +117,7 @@ test.describe("signed-out visitor at /scholarships", () => {
       const context = await browser.newContext({ viewport: { width, height: 844 } });
       const page = await context.newPage();
       await page.goto("/scholarships");
-      await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+      await pageSettled(page);
       const geometry = await page.evaluate(() => ({
         clientW: document.documentElement.clientWidth,
         scrollW: document.documentElement.scrollWidth,
