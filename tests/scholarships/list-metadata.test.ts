@@ -40,7 +40,17 @@ describe("/scholarships generateMetadata", () => {
     expect(String(meta.title)).not.toBe("Scholarships — Talentrah");
     expect(meta.description, "signed-out description").toBeTruthy();
     expect(meta.description!.length).toBeLessThanOrEqual(160);
-    expect(meta.alternates?.canonical, "canonical must be the bare /scholarships, so ?level=… variants collapse").toMatch(/\/scholarships$/);
+    // Exact, not "ends with": the canonical is the bare path with NO query string. With the
+    // /scholarships$ disallow gone, /scholarships?level=phd (and every other filter URL) serves
+    // this same signed-out landing to crawlers, and this is what collapses them into one URL.
+    expect(meta.alternates?.canonical).toBe("/scholarships");
+    expect(String(meta.alternates?.canonical)).not.toContain("?");
+  });
+
+  it("does not vary with the query string: generateMetadata takes no searchParams at all", async () => {
+    getOptionalUser.mockResolvedValue(null);
+    const page = (await import("@/app/(app)/scholarships/(list)/page")) as { generateMetadata?: (...a: unknown[]) => Promise<unknown> };
+    expect(page.generateMetadata!.length, "a metadata function that reads searchParams could emit per-filter canonicals").toBe(0);
   });
 
   it("treats a session with no profile row as signed out (getOptionalUser's documented degradation)", async () => {

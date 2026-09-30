@@ -55,6 +55,21 @@ test.describe("signed-out visitor at /scholarships", () => {
     expect(html.match(/<h1[\s>]/g)?.length ?? 0, "expected exactly one <h1> in the raw HTML").toBe(1);
   });
 
+  test("every query-string variant serves the same landing (200, one <h1>, canonical without the query)", async ({ request }) => {
+    /*
+     * With the /scholarships$ disallow gone, /scholarships?level=phd (and every other filter URL) is
+     * crawlable and serves this same page to a signed-out visitor. It must not error, must not show a
+     * second <h1>, and must name the bare path as its canonical so the variants collapse into one URL.
+     */
+    for (const qs of ["?level=phd", "?tab=saved&page=2", "?q=chevening&within=30&funding=full", "?anything=at-all", "?level=%ZZ&page=-1"]) {
+      const res = await request.get(`/scholarships${qs}`, { maxRedirects: 0 });
+      expect(res.status(), `/scholarships${qs}`).toBe(200);
+      const html = await res.text();
+      expect(html.match(/<h1[\s>]/g)?.length ?? 0, `/scholarships${qs}: expected exactly one <h1>`).toBe(1);
+      expect(html, `/scholarships${qs}: canonical`).toMatch(/<link rel="canonical" href="https?:\/\/[^"?]*\/scholarships"\s*\/?>/);
+    }
+  });
+
   test("renders the approved <h1>, one <main> landmark and one footer", async ({ page }) => {
     await page.goto("/scholarships");
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(

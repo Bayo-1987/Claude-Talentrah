@@ -64,6 +64,7 @@ describe("isProtectedSeekerPath", () => {
       "/tracker",
       "/onboarding",
       "/dashboard",
+      "/talent-directory",
     ]) {
       expect(isProtectedSeekerPath(base), base).toBe(true);
       expect(isProtectedSeekerPath(`${base}/edit`), `${base}/edit`).toBe(true);

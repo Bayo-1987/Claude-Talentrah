@@ -16,7 +16,7 @@
  *  - Copy rules from CLAUDE.md: "create a free account" not "sign up", and every
  *    "free" claim scoped at the point it is made.
  */
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
   ScholarshipsPublicLanding,
@@ -342,5 +342,56 @@ describe("the approved copy (send-480 self-review corrections)", () => {
     expect(html).toContain("remove or correct");
     expect(html).toMatch(/<a [^>]*href="\/contact"[^>]*>ask us<\/a>/);
     expect(html).toContain('href="/legal/terms#scholarship-listings"');
+  });
+});
+
+describe("which clock decides 'closes today' and 'N days left' (pinned, send-480)", () => {
+  /*
+   * THE RULE: the SERVER'S LOCAL calendar date. `daysUntil` (scholarship-card.tsx, shared with the
+   * cards) parses the DATE column as a local date and compares it with local midnight today. On Vercel
+   * the server runs in UTC, so in production this is "the UTC date": a deadline of 2 Oct is 'closes
+   * today' for the whole of 2 Oct UTC (01:00 to 00:59 in Lagos, WAT = UTC+1) and is gone from the
+   * 3 Oct 00:00 UTC render. The still-open FILTER (landing-page-data.ts) uses the UTC date explicitly
+   * (toISOString), so on Vercel the two agree; on a machine in another time zone they can differ by a
+   * day. These tests pin TZ=UTC and a fixed clock, so they say exactly which rule they are pinning.
+   */
+  const ORIGINAL_TZ = process.env.TZ;
+  beforeEach(() => {
+    process.env.TZ = "UTC";
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    if (ORIGINAL_TZ === undefined) delete process.env.TZ;
+    else process.env.TZ = ORIGINAL_TZ;
+  });
+
+  const at = (iso: string, deadline: string | null) => {
+    vi.setSystemTime(new Date(iso));
+    return render(FACETS, [listing({ application_deadline: deadline, deadline_note: null })]);
+  };
+
+  it("a deadline of 2 Oct, at 23:30 UTC on 2 Oct: still open, and it says 'closes today'", () => {
+    const span = deadlineSpan(at("2026-10-02T23:30:00Z", "2026-10-02"))!;
+    expect(span[1]).toBe("2 Oct 2026 · closes today");
+    expect(span[0]).toContain("text-rust");
+  });
+
+  it("the same deadline, at 00:30 UTC on 3 Oct: it has passed, so the date shows with no countdown and no rust", () => {
+    const span = deadlineSpan(at("2026-10-03T00:30:00Z", "2026-10-02"))!;
+    expect(span[1]).toBe("2 Oct 2026");
+    expect(span[0]).not.toContain("text-rust");
+  });
+
+  it("the day before the boundary: 3 Oct at 23:30 UTC on 2 Oct is '1 day left', and at 00:30 UTC on 3 Oct it is 'closes today'", () => {
+    expect(deadlineSpan(at("2026-10-02T23:30:00Z", "2026-10-03"))![1]).toBe("3 Oct 2026 · 1 day left");
+    expect(deadlineSpan(at("2026-10-03T00:30:00Z", "2026-10-03"))![1]).toBe("3 Oct 2026 · closes today");
+  });
+
+  it("the countdown never changes with the time of day, only with the date", () => {
+    const morning = deadlineSpan(at("2026-09-20T00:00:01Z", "2026-10-02"))![1];
+    const night = deadlineSpan(at("2026-09-20T23:59:59Z", "2026-10-02"))![1];
+    expect(morning).toBe(night);
+    expect(morning).toBe("2 Oct 2026 · 12 days left");
   });
 });
