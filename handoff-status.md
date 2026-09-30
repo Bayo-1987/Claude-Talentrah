@@ -33,6 +33,229 @@ both served stale content in this project's history. Don't rely on either.
 
 ---
 
+## Merged 2026-09-30 — PR #572, EmployerPrintButton waits for fonts before printing
+
+| PR | Branch | Merged at (UTC) | Merge SHA |
+|----|--------|-----------------|-----------|
+| [#572](https://github.com/Bayo-1987/Claude-Talentrah/pull/572) | `feat/employer-print-fonts-wait-473` | 2026-09-30 05:08:32 | `d1033091a57914e481e208cf3c229a038f7dfa03` |
+
+**What it did.** `EmployerPrintButton` (the employer's "Print / Save as PDF" on an
+applicant's resume) called `window.print()` synchronously; it now awaits
+`waitForFontsSettled()` (bounded 3 s) and shows a disabled "Preparing PDF…" state.
+No migration, no production data touched.
+
+**What is and is not proven (do not over-read this).** With the wait removed the
+font-state assertion in `e2e/employer-print-fonts.spec.ts` fails (8 faces still loading
+when `print()` fires); with it, it passes. **No loss of content from printing early has
+ever been reproduced** — the `blueprint` ATS failure that first suggested one was a
+different cause (see #569). This is fidelity protection, not a proven ATS fix.
+
+### Verification (all four)
+
+**1. GitHub API** — `GET /repos/Bayo-1987/Claude-Talentrah/pulls/572`:
+```
+{"merged": true, "merged_at": "2026-09-30T05:08:32Z",
+ "merge_commit_sha": "d1033091a57914e481e208cf3c229a038f7dfa03", "state": "closed", "base": "main"}
+```
+
+**2. Fresh clone** (`git clone --depth 30`, temp dir; `git checkout d1033091…`):
+```
+HEAD: d1033091a57914e481e208cf3c229a038f7dfa03   (Merge pull request #572 …)
+is an ancestor of the current origin/main: YES
+PRESENT src/components/employer/employer-print-button.tsx (53 lines)
+PRESENT e2e/employer-print-fonts.spec.ts (169 lines)
+PRESENT e2e/support/print-stub.ts (31 lines)
+PRESENT src/lib/resume-builder/wait-for-fonts.ts (86 lines)
+PRESENT supabase/migrations/0201_reset_test_pool_user_clear_mentorship.sql (200 lines)
+button awaits the font wait: 1   imports wait-for-fonts: 2   synchronous onClick={() => window.print()} left: 0
+```
+
+**3. Live production probe** — *what this can and cannot show.* The change itself is
+behind employer login, so it is not observable from outside; the probe therefore
+establishes what production serves, via two independent routes:
+- **Vercel API** (project `prj_Dhr20nuHigzGC27ZoYfBMdOawmdo`): the newest production
+  deployment is `dpl_Ay9Rr6bASWA3ArBzcz9iyv32za26`, state `READY`, target `production`,
+  created 2026-09-30T05:08:36Z (4 s after the merge), `meta.githubCommitSha` =
+  `d1033091a57914e481e208cf3c229a038f7dfa03`. Its aliases include `www.talentrah.com` and
+  `talentrah.com` (which redirects to `www`).
+- **The live site** (2026-09-30 05:35:39 UTC): `talentrah.com` → one redirect → `www.talentrah.com`
+  HTTP 200, `server: Vercel`, `x-vercel-cache: HIT`, `age: 1409` (cached since ~05:12, i.e. after
+  the deploy).
+- **Limit, stated plainly:** the live site exposes no build ID or commit (no `dpl_…` in the HTML,
+  no deployment header), so the commit could *not* be read off the live site itself; this rests on
+  Vercel's alias records plus the timing above. Earlier production deployments in the same list
+  (`00ac9e0` #569, `82643bb` #574) are `READY`; one older one, `90219877` (send-465), is `ERROR`.
+
+**4. Full suite against merged `main`** — CI run
+[36672048430](https://github.com/Bayo-1987/Claude-Talentrah/actions/runs/36672048430) (head `d1033091`):
+```
+Typecheck, lint, unit tests : success   Test Files 357 passed (357)   Tests 4030 passed (4030)
+Playwright e2e              : success   391 passed (9.4m)   (includes employer-print-fonts, print-button-fonts)
+Secret scan                 : success
+Dependency audit            : FAILURE   -> overall run conclusion = failure
+```
+**The run is red for one reason only, and it is not this change:** three newly published
+high-severity `brace-expansion` advisories (GHSA-q2hr-2g5m-vwhr, GHSA-qhr7-859c-m2p7,
+GHSA-6j4f-fj2g-mc7p) now fail `npm audit --audit-level=high`. The audit passed on `main` at
+2026-09-30 03:10 UTC (run 36663187293) and was red by 05:08, so the advisory landed in that
+window. `brace-expansion` is not a production dependency (`npm ls brace-expansion --omit=dev`
+is empty; it is pulled in by dev tooling). `Migration drift (production)` also ran on the
+merge commit ([run 36672048535](https://github.com/Bayo-1987/Claude-Talentrah/actions/runs/36672048535)): success.
+
+**Required checks (branch protection, read via the API):** `main` requires exactly
+`Migration numbering`, `Typecheck, lint, unit tests`, `Playwright e2e`, `Secret scan`, with
+`strict: true` (branches must be up to date). **`Lighthouse CI…` and `Dependency audit` are
+not required**; no rulesets are configured. All four required checks passed on #572.
+
+### Not covered / still open
+- `Dependency audit` is red on `main` today (advisory above); a fix (`npm audit fix` or an override)
+  is a separate change and is not made here.
+- Lighthouse is red on every recent run; tracked in [#575](https://github.com/Bayo-1987/Claude-Talentrah/issues/575).
+- `refresh-job.test.ts` flake: [#577](https://github.com/Bayo-1987/Claude-Talentrah/issues/577).
+
+---
+
+## Work chain: the `mentor_profiles_pkey` flake (PRs #562, #563, #574), 2026-09-29
+
+Recorded together because the fix arrived in three steps and only the last one is a root-cause fix.
+- **#562** — per-file: `reviewer-claim-race.test.ts` bare inserts → `upsert`.
+- **#563** (commit `e682f16`) — per-file: `dual-role-isolation.test.ts` the same.
+- **#574** — root cause: `reset_test_pool_user` now clears a former mentor's/mentee's mentorship rows
+  child-first (migration `0201`; see the #574 entry below for the mechanism and its four-part
+  verification, including the production apply).
+- **Empirical check, and its limit.** A recount of the CI history found **6 pkey-class failures on
+  2026-09-29** (`dual-role-isolation` ×5, `display-name` ×1), **all before `0201` merged**
+  (latest 20:43:05 UTC; `0201` merged 21:23:40 UTC). Since the merge, **0 of the 6** unit-job attempts
+  that started failed this way. **Six clean attempts is far too few to claim the flake is gone**
+  (rule of three: a 95% upper bound of ~50%); what proves the *mechanism* is the deterministic
+  regression test, written red-first. Treat the absence of recurrence as encouraging, not as proof.
+
+---
+
+## Merged 2026-09-29 — PR #574, `reset_test_pool_user` clears a former mentor's/mentee's mentorship rows (0201)
+
+| PR | Branch | Merged at (UTC) | Merge SHA |
+|----|--------|-----------------|-----------|
+| [#574](https://github.com/Bayo-1987/Claude-Talentrah/pull/574) | `fix/mentor-profiles-pkey-root-cause` | 21:23:40 | `82643bbc3d13be6c01af436c83be0906b9ff59d2` |
+
+> **Maintenance gap, stated plainly.** Before this entry, the last thing recorded
+> in this file was PR #64 (2026-08-26). Every PR between #65 and #573 (about 510
+> PR numbers; not all of them merged) is **not** recorded here, and this entry does
+> not backfill them. Reconstruct anything
+> from those from `git log` / `gh pr view`, not from this file.
+
+**What it fixed.** The recurring `mentor_profiles_pkey` CI flake (three test
+files in one day: #562, #563, and `display-name.test.ts` on #572's CI; ~29 bare
+inserts across ~20 files carry the same exposure). Root cause, verified against
+the live FK graph: 0188's `reset_test_pool_user` deleted `mentor_profiles` first,
+blocked by three NO ACTION NOT NULL FKs (`mentorship_sessions.mentor_id`,
+`mentorship_reviews.mentor_id`, `mentor_payouts.mentor_id`), only cleared sessions
+where the user was the *mentee*, and never touched `mentor_payouts`; the blocked
+delete was swallowed by its `foreign_key_violation` handler, so the residual was
+silent until the next claimant's bare insert collided. 0188's "accepted residual"
+note was wrong — the FKs resolve child-first. 0201 adds four guarded child-first
+deletes above the existing loop. Function body only; grants and signature
+untouched. It never touches the counterparty's rows.
+
+**This one touched production directly.** 0201 was applied to production **before**
+merge (the repo's rule for additive migrations, `supabase/migrations/README.md`),
+by `apply_migration` through the connector with the same statement applied to the
+dev project. It is a no-op there today: production's test pool has 0 rows.
+
+### Scope: test-only, with evidence (checked before touching production)
+- **Repo:** every reference to `reset_test_pool_user` / `claim_` / `release_` /
+  `add_test_pool_user` is in `tests/`, `supabase/migrations/`, docs, or the
+  *generated* `src/lib/supabase/types.ts` (declarations, not calls). Nothing under
+  `src/app`, `src/lib`, `scripts/` or `.github/` calls them.
+- **Production database:** all four are `SECURITY DEFINER`; `anon` and
+  `authenticated` have no `EXECUTE`, only `service_role`; the only other function
+  whose body references `reset_test_pool_user` is `claim_test_pool_user`; no
+  policy, view or trigger mentions the pool; `pg_cron` is not installed. The
+  privilege lock is also pinned by `tests/rls/test-user-pool-privileges.test.ts`.
+
+### Verification (all four, per the standard above)
+
+**1. GitHub API** — `GET /repos/Bayo-1987/Claude-Talentrah/pulls/574`:
+```
+{"merged": true, "merged_at": "2026-09-29T21:23:40Z",
+ "merge_commit_sha": "82643bbc3d13be6c01af436c83be0906b9ff59d2", "state": "closed"}
+```
+
+**2. Fresh shallow clone** (`git clone --depth 20`, a temp dir, not the working copy):
+```
+HEAD: 82643bbc3d13be6c01af436c83be0906b9ff59d2   (Merge pull request #574 …)
+merge SHA is an ancestor of / equal to HEAD: YES
+PRESENT: supabase/migrations/0201_reset_test_pool_user_clear_mentorship.sql (200 lines)
+PRESENT: tests/support/test-user-pool-mentor-reset.test.ts (200 lines)
+new-block warning strings in the migration: 4
+CLAUDE.md corrected paragraph present ("0201 now does it"): 1
+highest migration number on main: 0201_reset_test_pool_user_clear_mentorship.sql
+```
+
+**3. Live production probe, post-merge** (2026-09-29 21:24:24 UTC, 44 s after merge;
+project `nytwbbzfpytctjsoczzq`, read-only):
+```sql
+select now() as probed_at,
+  (select count(*) from supabase_migrations.schema_migrations
+     where name = '0201_reset_test_pool_user_clear_mentorship') as ledger_0201_count,
+  (select position('mentor_payouts (as mentor)' in prosrc) > 0 from pg_proc p
+     join pg_namespace n on n.oid = p.pronamespace
+     where n.nspname = 'public' and p.proname = 'reset_test_pool_user') as live_fn_has_0201_blocks,
+  (select md5(prosrc) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+     where n.nspname = 'public' and p.proname = 'reset_test_pool_user') as live_fn_md5,
+  (select count(*) from public.test_user_pool) as pool_rows;
+```
+```
+ledger_0201_count = 1   (newest entry: version 20260929211020, applied 21:10:20 — before merge)
+live_fn_has_0201_blocks = true
+live_fn_md5 = 3fe4efed69cbd21bfff68bb9d32b3f93   (identical to the md5 right after apply)
+pool_rows = 0
+anon/authenticated can execute = false
+```
+Before apply the same probe read md5 `0d116c15aa1412f1fd799a3b9e145bc7` (3,450 chars,
+no new blocks, ledger count 0); after, 4,471 chars, new blocks present. The repo's
+own **"Migration drift (production)"** workflow also ran on the merge commit
+([run 36632970393](https://github.com/Bayo-1987/Claude-Talentrah/actions/runs/36632970393))
+and concluded `success`.
+
+**4. Full suite against merged `main`** — the CI run GitHub started on the merge
+commit ([run 36632970518](https://github.com/Bayo-1987/Claude-Talentrah/actions/runs/36632970518),
+head `82643bb`), concluded `success`:
+```
+Typecheck, lint, unit tests : success   Test Files 357 passed (357)   Tests 4030 passed (4030)
+Playwright e2e              : success   390 passed (8.9m)
+Dependency audit, Secret scan: success   (Migration numbering: skipped on push events)
+```
+The new regression test ran in that run (`test-user-pool-mentor-reset.test.ts`,
+2 tests passed), as did `tests/mentorship/display-name.test.ts` (4 tests passed) —
+the file that had failed on #572's CI.
+
+### Proof the fix fixes something (red, then green)
+`tests/support/test-user-pool-mentor-reset.test.ts` was written first and run
+against the *unfixed* function on the dev project: both tests failed on exactly the
+two expected assertions (the former mentor's `mentor_profiles` row survived; the
+former mentee's session survived because a payout referenced it). After 0201 both
+pass, and the 5 existing `test-user-pool.test.ts` tests still pass (7/7).
+
+### Not covered / still open (do not read this entry as saying otherwise)
+- **A single green CI run cannot prove a probabilistic flake is gone.** The
+  deterministic regression test is what proves the mechanism; the flake's absence
+  over time is not something one run demonstrates.
+- **`refresh-job.test.ts` is a different flake and is NOT fixed by this.** Tracked in
+  issue [#577](https://github.com/Bayo-1987/Claude-Talentrah/issues/577). (An earlier
+  version of this bullet said "three runs, no issue" — superseded: a defensible recount
+  found **8 failures in 47 first attempts, 17.0%, 95% CI 8.9–30.1%**, and the failing logs
+  show a concrete mechanism, described in #577.)
+- **Lighthouse** is red on every recent run for an unrelated reason; tracked in
+  issue [#575](https://github.com/Bayo-1987/Claude-Talentrah/issues/575).
+- Local runs against the dev project fail for tests that mint a JWT session with
+  `No suitable key or wrong key type` (an environment/signing-key mismatch that
+  predates this change); those tests were only ever verified green in CI.
+- The statement applied to the two projects omitted 0201's leading header comment
+  block (documentation only); the function statement is identical to the file.
+
+---
+
 ## Merged 2026-08-26 — PR #64, local runs cannot hit production; CI seeds before testing
 
 | PR | Branch | Merged at (UTC) | Merge SHA |
