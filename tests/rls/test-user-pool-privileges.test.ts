@@ -28,6 +28,7 @@ import { randomUUID } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/types";
 import { admin, createAuthedTestUser, deleteTestUsers, type DB } from "../support/auth";
+import { insertPoolFixtureRow } from "../support/pool-fixtures";
 
 const anon: DB = createClient<Database>(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -99,9 +100,7 @@ describe("test_user_pool: authenticated/anon have no privileges (0188), RLS is o
   });
 
   it("the service role — what claim_test_pool_user/release_test_pool_user actually run as — can still select, insert and update", async () => {
-    const { error: insertErr } = await admin
-      .from("test_user_pool")
-      .insert({ user_id: rawUserId, prefix: "pool-privileges-check" });
+    const { error: insertErr } = await insertPoolFixtureRow(rawUserId, "pool-privileges-check");
     expect(insertErr, "the lockdown must not also lock out the service role").toBeNull();
 
     const { data: selected, error: selectErr } = await admin
