@@ -1,6 +1,6 @@
 import "server-only";
 import { computeDedupFingerprint } from "../dedup";
-import { extractStructuredJd, inferSeniority, inferWorkType, stripHtml } from "../extract-jd";
+import { extractStructuredJd, inferJobSeniority, inferWorkType, stripHtml } from "../extract-jd";
 import type { NormalizedJobPosting } from "../types";
 
 interface GreenhouseJob {
@@ -47,7 +47,7 @@ export async function fetchGreenhouseJobs(
       companyName: job.company_name || companyName,
       location,
       workType: inferWorkType(job.title, location),
-      seniority: inferSeniority(job.title),
+      seniority: inferJobSeniority(job.title),
       description,
       structuredJd: extractStructuredJd(description),
       externalUrl: job.absolute_url,

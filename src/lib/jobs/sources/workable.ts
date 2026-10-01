@@ -1,6 +1,6 @@
 import "server-only";
 import { computeDedupFingerprint } from "../dedup";
-import { extractStructuredJd, inferSeniority, inferWorkType, stripHtml } from "../extract-jd";
+import { extractStructuredJd, inferJobSeniority, inferWorkType, stripHtml } from "../extract-jd";
 import type { EmploymentType, NormalizedJobPosting, WorkType } from "../types";
 
 const FETCH_TIMEOUT_MS = 15_000;
@@ -164,7 +164,7 @@ export async function fetchWorkableJobs(
       location,
       workType: mapWorkType(job, location),
       employmentType: mapEmploymentType(job.employment_type),
-      seniority: inferSeniority(job.title),
+      seniority: inferJobSeniority(job.title),
       description,
       structuredJd: extractStructuredJd(description),
       // The job's own page (title, full description, apply link from there),
