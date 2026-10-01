@@ -4,9 +4,9 @@
  * The page used to put everything that was not completed, cancelled or refunded under "Upcoming", so an unpaid booking
  * whose slot started two weeks ago sat there as "Upcoming · Awaiting payment" with nothing to do about it. Owner's call:
  * Upcoming shows only paid or confirmed sessions that have not ended; an unpaid booking that can still be paid has its
- * own section; an unpaid booking whose slot has started is past. That is a DISPLAY rule only: until the expiry PR (a real
- * status, the slot released in the same statement) the row is still `pending_payment` and its slot is still held, so
- * nothing here may say the booking expired or the slot was released.
+ * own section; an unpaid booking whose slot has started is past. Until the sweep has run that is a DISPLAY rule only (the row
+ * is still `pending_payment` and its slot still held), so such a row says "Not paid — the slot has passed", never "expired".
+ * Once migration 0203's sweep has expired it, the row is `expired_unpaid` with its slot released, and says "Expired — not paid".
  *
  * Pure, so the rule is tested at the exact boundary minute without rendering the page.
  */
@@ -36,6 +36,10 @@ const MENTEE_LABELS: Record<string, string> = {
   completed: "Completed",
   cancelled_mentor_no_confirm: "Cancelled — mentor didn't confirm in time",
   refunded: "Refunded",
+  // 0203: real statuses now, set by the sweep, the mentee's own Cancel, and fulfilment of a payment that arrived too late.
+  expired_unpaid: "Expired — not paid",
+  cancelled_by_mentee: "Cancelled by you",
+  payment_needs_refund: "Payment received — refund being arranged",
 };
 
 const MENTOR_LABELS: Record<string, string> = {
@@ -45,6 +49,10 @@ const MENTOR_LABELS: Record<string, string> = {
   completed: "Completed",
   cancelled_mentor_no_confirm: "Auto-cancelled — you didn't confirm in time",
   refunded: "Refunded",
+  expired_unpaid: "Expired — not paid",
+  cancelled_by_mentee: "Cancelled by the mentee",
+  // The mentor is told that this booking will not happen, not what happened to the money.
+  payment_needs_refund: "Cancelled — the payment arrived too late",
 };
 
 /**
