@@ -144,6 +144,9 @@ const SPENDERS: Spender[] = [
     surface: "Auto-Apply queue: Confirm button once the free weekly allowance is used",
     render: async () => {
       const { AutoApplyQueueItem } = await import("@/components/jobs/auto-apply-queue-item");
+      // The page passes the price down; the test reads it from the price list in force for THIS render
+      // (the swapped one in the "follows a changed price list" cases), as the page does.
+      const { CREDIT_COSTS: costs } = await import("@/lib/credits/costs");
       return text(
         make(AutoApplyQueueItem, {
           item: {
@@ -155,7 +158,7 @@ const SPENDERS: Spender[] = [
             sourceType: "internal",
             explanation: null,
           },
-          confirmCostCredits: CREDIT_COSTS.autoApplySubmission,
+          confirmCostCredits: costs.autoApplySubmission,
         }),
       );
     },
@@ -178,6 +181,9 @@ const SPENDERS: Spender[] = [
     surface: "Template gallery: Unlock button (already priced — kept so it cannot regress)",
     render: async () => {
       const { TemplateCard } = await import("@/components/resume-builder/template-card");
+      // The card prints the template row's own unlock_cost_credits (a database column); the row carries the
+      // price list in force for this render, exactly as a seeded row carries the real one.
+      const { CREDIT_COSTS: costs } = await import("@/lib/credits/costs");
       const template = {
         id: "t1",
         slug: "x",
@@ -185,7 +191,7 @@ const SPENDERS: Spender[] = [
         industry_category: "General",
         ats_safe: true,
         is_premium: true,
-        unlock_cost_credits: CREDIT_COSTS.templateUnlock,
+        unlock_cost_credits: costs.templateUnlock,
       } as never;
       return text(<TemplateCard template={template} isUnlocked={false} />);
     },

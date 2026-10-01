@@ -4,6 +4,9 @@ import { Fragment, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { EyebrowLabel, FarahMark } from "@/components/ui";
 import { FARAH_QUICK_ACTIONS } from "@/lib/farah/quick-actions";
+import { FarahAllowanceNote, FarahQuickActions } from "@/components/app-shell/farah-quick-actions";
+import { chargeAnnouncement, quickActionMode } from "@/lib/credits/price-labels";
+import { CREDIT_COSTS } from "@/lib/credits/costs";
 import { renderFarahMarkdown } from "@/lib/farah/render-markdown";
 import { readFarahChatStream } from "@/lib/farah/read-chat-stream";
 import { useReportCreditsBalance } from "@/components/app-shell/credits-balance";
@@ -141,6 +144,16 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
   const reportCreditsBalance = useReportCreditsBalance();
   const [messages, setMessages] = useState<FarahMessage[]>(initialMessages ?? []);
   const [input, setInput] = useState("");
+  /*
+   * Set when a chip PREFILLED the input instead of sending (once the free messages are used, a click would
+   * charge). Remembered so that pressing Send on the untouched prefilled text still goes out as that quick
+   * action — with the same quickAction key and job context a direct click would have carried — rather than as
+   * anonymous free text. Forgotten the moment the text is edited or sent.
+   */
+  const [prefilled, setPrefilled] = useState<{ text: string; quickAction?: string; jobId?: string } | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  /** The polite live region's text: each reply and what it cost, e.g. "Farah replied — 1 credit used". */
+  const [announcement, setAnnouncement] = useState("");
   const [pending, setPending] = useState(false);
   /**
    * True from the moment a request is sent until the first streamed chunk
@@ -331,6 +344,8 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
     setPending(true);
     setAwaitingFirstToken(true);
     setInput("");
+    setPrefilled(null);
+    setAnnouncement("");
 
     const optimisticId = `optimistic-${localIdCounter.current++}`;
     setMessages((prev) => [
@@ -383,6 +398,10 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
           }
           // A paid message: tell the masthead its new balance (issue #605). null / absent = nothing spent.
           if (typeof event.creditsBalance === "number") reportCreditsBalance(event.creditsBalance);
+          // The reply and its charge, announced together. A balance in the event means the message was paid.
+          setAnnouncement(
+            chargeAnnouncement("Farah replied", typeof event.creditsBalance === "number" ? CREDIT_COSTS.farahChatMessage : 0),
+          );
         }
       }
     } catch {
@@ -396,7 +415,26 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    void send(input);
+    // Untouched prefilled text goes out as the quick action that prefilled it; anything edited is free text.
+    if (prefilled && input.trim() === prefilled.text) {
+      void send(prefilled.text, prefilled.quickAction, prefilled.jobId);
+    } else {
+      void send(input);
+    }
+  }
+
+  /**
+   * One entry point for every chip that would START a conversation turn: send it while the message is free,
+   * prefill the input once it would cost credits (see quickActionMode). The user then presses Send.
+   */
+  function sendOrPrefill(text: string, quickAction?: string, jobId?: string) {
+    if (quickActionMode(freeRemaining) === "send") {
+      void send(text, quickAction, jobId);
+      return;
+    }
+    setInput(text);
+    setPrefilled({ text, quickAction, jobId });
+    inputRef.current?.focus();
   }
 
   return (
@@ -491,13 +529,7 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
         silence is correct there, it's only a hard 0 with no warning that
         reads as broken.
       */}
-      {freeRemaining !== null && (
-        <p className="text-[12px] text-ink-soft">
-          {freeRemaining > 0
-            ? `${freeRemaining} free message${freeRemaining === 1 ? "" : "s"} left in the last 30 days.`
-            : "You've used your free messages in the last 30 days — further messages use credits."}
-        </p>
-      )}
+      <FarahAllowanceNote freeRemaining={freeRemaining} />
 
       <div ref={scrollRef} className="flex max-h-80 flex-col gap-3 overflow-y-auto">
         {messages.length === 0 ? (
@@ -524,7 +556,7 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
               <JobSeedActions
                 seed={jobSeed}
                 pending={pending}
-                onStarter={(label, quickAction, jobId) => void send(label, quickAction, jobId)}
+                onStarter={(label, quickAction, jobId) => sendOrPrefill(label, quickAction, jobId)}
                 keyPrefix="empty-state"
               />
             </>
@@ -580,7 +612,7 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
                       markerId={marker.id}
                       seed={marker.seed}
                       pending={pending}
-                      onStarter={(label, quickAction, jobId) => void send(label, quickAction, jobId)}
+                      onStarter={(label, quickAction, jobId) => sendOrPrefill(label, quickAction, jobId)}
                     />
                   ))}
                 {m.role === "farah" ? (
@@ -604,7 +636,7 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
                   markerId={marker.id}
                   seed={marker.seed}
                   pending={pending}
-                  onStarter={(label, quickAction, jobId) => void send(label, quickAction, jobId)}
+                  onStarter={(label, quickAction, jobId) => sendOrPrefill(label, quickAction, jobId)}
                 />
               ))}
           </>
@@ -616,29 +648,22 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
         <p className="border border-rust bg-rust-soft px-2.5 py-2 text-[12px] text-rust">{error}</p>
       )}
 
-      <div className="flex flex-col border-t border-dashed border-line pt-4">
-        {FARAH_QUICK_ACTIONS.map((action) =>
-          action.href ? (
-            <Link
-              key={action.key}
-              href={action.href}
-              className="flex min-h-10 items-center py-1 font-body text-[13.5px] font-semibold text-ink underline underline-offset-2 hover:text-rust"
-            >
-              {action.label}
-            </Link>
-          ) : (
-            <button
-              key={action.key}
-              type="button"
-              disabled={pending}
-              onClick={() => void send(action.starterPrompt as string, action.key)}
-              className="flex min-h-10 items-center py-1 text-left font-body text-[13.5px] font-semibold text-ink underline underline-offset-2 hover:text-rust disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {action.label}
-            </button>
-          ),
-        )}
-      </div>
+      <FarahQuickActions
+        freeRemaining={freeRemaining}
+        pending={pending}
+        onSend={(key) => {
+          const action = FARAH_QUICK_ACTIONS.find((x) => x.key === key);
+          if (action?.starterPrompt) void send(action.starterPrompt, action.key);
+        }}
+        onPrefill={(key) => {
+          const action = FARAH_QUICK_ACTIONS.find((x) => x.key === key);
+          if (action?.starterPrompt) sendOrPrefill(action.starterPrompt, action.key);
+        }}
+      />
+
+      <p role="status" aria-live="polite" className="sr-only">
+        {announcement}
+      </p>
 
       <form
         onSubmit={handleSubmit}
@@ -649,6 +674,7 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
       >
         <input
           type="text"
+          ref={inputRef}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="Ask me anything…"

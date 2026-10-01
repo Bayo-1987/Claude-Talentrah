@@ -227,6 +227,18 @@ test.describe("bullet rewrite", () => {
     await expect(pill(page, START - CREDIT_COSTS.bulletRewrite)).toBeVisible();
   });
 
+  test("leaving an editor where nothing was changed does not prompt", async ({ authedPage: page, testUser }) => {
+    await openEditor(page, testUser.id);
+    let prompted = false;
+    page.on("dialog", async (d) => {
+      prompted = true;
+      await d.accept();
+    });
+    await page.getByRole("link", { name: "Resume Builder" }).first().click();
+    await expect(page).not.toHaveURL(/\/resume-builder\/edit/);
+    expect(prompted, "an untouched editor must never warn").toBe(false);
+  });
+
   test("leaving with an unsaved (kept) rewrite asks first; staying keeps the work, leaving anyway is allowed, Save clears it", async ({
     authedPage: page,
     testUser,
