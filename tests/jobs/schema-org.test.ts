@@ -533,7 +533,8 @@ describe("fetchSchemaOrgJobs", () => {
       const { jobs, skipped } = await fetchSchemaOrgJobs(listingUrl, "test-source");
       expect(skipped).toEqual([]);
       expect(jobs[0].workType).toBe("onsite");
-      expect(jobs[0].location).toBe("Lagos, Lagos, Nigeria");
+      // city == region in the source address; stored once (S12 c, normalizeLocation)
+      expect(jobs[0].location).toBe("Lagos, Nigeria");
     });
 
     /**
