@@ -17,6 +17,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/types";
 import { admin, createAuthedTestUser, deleteTestUsers, type DB } from "../support/auth";
+import { deleteTestOrgs } from "../support/cleanup";
 
 const RUN = randomUUID().slice(0, 8);
 const CO = `Supersession Co ${RUN}`;
@@ -273,20 +274,61 @@ describe("the sitemap and public pages never list a superseded row", () => {
 });
 
 describe("no client can write supersession", () => {
-  it("an authenticated user cannot set it on a row, and cannot insert a posting that carries it", async () => {
+  it("an authenticated user cannot set it on a row", async () => {
     const user = await createAuthedTestUser("sup-write");
     try {
       const target = await post({ company_name: `${CO} write` });
       const upd = await user.client.from("job_postings").update({ superseded_at: new Date().toISOString() }).eq("id", target.id).select("id");
-      expect(upd.data ?? []).toHaveLength(0); // RLS/column grants: nothing updated
+      expect(upd.data ?? []).toHaveLength(0); // no UPDATE grant on the column, and no policy that reaches an external row
       expect((await row(target.id)).superseded_at).toBeNull();
-
-      const ins = await user.client.from("job_postings").insert({
-        source_type: "internal", title: "x", company_name: "x", description: "x", dedup_fingerprint: randomUUID(),
-        superseded_at: new Date().toISOString(),
-      } as never);
-      expect(ins.error).not.toBeNull();
     } finally {
+      await deleteTestUsers([user.id]);
+    }
+  });
+
+  it("an org member creating their OWN posting cannot carry supersession in (the INSERT is a table-level grant, so the trigger is what stops it)", async () => {
+    const user = await createAuthedTestUser("sup-insert");
+    const { data: org } = await user.client
+      .from("organizations")
+      .insert({ name: `SUPERSESSION-TEST ${randomUUID().slice(0, 8)}`, created_by: user.id })
+      .select("id")
+      .single();
+    try {
+      await user.client.from("organization_members").insert({ organization_id: org!.id, user_id: user.id, role: "owner" });
+      const fields = (label: string) => ({
+        source_type: "internal" as const,
+        organization_id: org!.id,
+        company_name: "SUPERSESSION-TEST Co",
+        title: `SUPERSESSION-TEST-${label} ${randomUUID().slice(0, 8)}`,
+        description: "Fixture posting for the supersession INSERT test.",
+        structured_jd: {},
+        status: "open" as const,
+        posted_at: new Date().toISOString(),
+        dedup_fingerprint: randomUUID(),
+      });
+
+      const { data: good, error: goodError } = await user.client.from("job_postings").insert(fields("good")).select("id, superseded_at, superseded_by").single();
+      try {
+        expect(goodError, "an ordinary posting creation must still succeed").toBeNull();
+        expect(good?.superseded_at).toBeNull();
+        expect(good?.superseded_by).toBeNull();
+      } finally {
+        if (good?.id) await admin.from("job_postings").delete().eq("id", good.id);
+      }
+
+      const bad = await user.client
+        .from("job_postings")
+        .insert({ ...fields("bad"), superseded_at: new Date().toISOString() })
+        .select("id");
+      expect(bad.error?.message ?? "no error", "the refusal must be the supersession trigger's, not an unrelated RLS failure").toMatch(/server-managed/);
+
+      const badBy = await user.client
+        .from("job_postings")
+        .insert({ ...fields("bad-by"), superseded_by: created[0] ?? randomUUID(), superseded_at: new Date().toISOString() })
+        .select("id");
+      expect(badBy.error?.message ?? "no error").toMatch(/server-managed/);
+    } finally {
+      await deleteTestOrgs([org!.id]);
       await deleteTestUsers([user.id]);
     }
   });
