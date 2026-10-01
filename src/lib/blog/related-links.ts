@@ -30,18 +30,30 @@ export interface RelatedLink {
 
 const SCHOLARSHIP_CATALOG: RelatedLink = { href: "/scholarships", label: "Browse the scholarship catalog" };
 
+/*
+ * send-491 — EVERY href here must be a page a signed-out reader can open. /tailor and /resume-builder are
+ * login-gated, so the "Tailor…" and "Build a resume…" links point at their public landing pages
+ * (/ai-resume-tailoring, /ai-resume-builder; each carries a session-aware CTA into the tool) and the
+ * cover-letter link goes through signup with its destination as `redirectTo`. This map is the one thing the
+ * blog's ISR pages read, so it cannot vary by session: a signup link is safe here because /signup forwards a
+ * signed-in reader straight to `redirectTo`. tests/marketing/gated-link-ratchet.test.tsx fails on any gated
+ * href added to it.
+ */
 export const RELATED_LINKS: Record<string, RelatedLink[]> = {
   "reading-your-match-score": [
     { href: "/jobs", label: "See your own Match Scores in the jobs feed" },
-    { href: "/tailor", label: "Tailor your resume to a specific job" },
+    { href: "/ai-resume-tailoring", label: "Tailor your resume to a specific job" },
   ],
   "beating-the-ats": [
-    { href: "/tailor", label: "Tailor your resume with Farah" },
-    { href: "/resume-builder", label: "Build a resume from an ATS-safe template" },
+    { href: "/ai-resume-tailoring", label: "Tailor your resume with Farah" },
+    { href: "/ai-resume-builder", label: "Build a resume from an ATS-safe template" },
   ],
   "when-to-bring-in-a-mentor": [{ href: "/mentorship", label: "Browse mentors on Talentrah" }],
   "cover-letters-that-dont-sound-like-a-template": [
-    { href: "/tailor?coverLetter=1", label: "Write your cover letter with Farah" },
+    // No public cover-letter page exists, so this goes through signup, which returns the account to the tailoring
+    // flow in cover-letter mode. The redirect is the encoded path AND query (/tailor?coverLetter=1); the signup
+    // page passes it on verbatim, and forwards an already-signed-in reader straight there.
+    { href: "/signup?redirectTo=%2Ftailor%3FcoverLetter%3D1", label: "Write your cover letter with Farah" },
   ],
   "gates-cambridge-scholarship-2027": [SCHOLARSHIP_CATALOG],
   "mastercard-foundation-scholars-program": [SCHOLARSHIP_CATALOG],

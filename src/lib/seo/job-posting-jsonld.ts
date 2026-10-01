@@ -1,6 +1,7 @@
 import type { Tables } from "@/lib/supabase/types";
 import { absoluteUrl } from "./site";
 import { stripMarkdownToPlainText } from "@/lib/jobs/extract-jd";
+import { resolveCountry } from "@/lib/jobs/countries";
 
 /**
  * schema.org JobPosting markup, built to Google's own required/recommended
@@ -145,9 +146,25 @@ export function parseJobLocation(raw: string | null): LocationParse {
        * Getting this wrong is not academic — treating that single token as a
        * locality dropped 58 of the 155 live postings, a third of the board,
        * because it is the single most common shape in the column.
+       *
+       * ONE EXCEPTION, added after measuring production (S12): when the ONLY
+       * token after "Remote" is not a country we can name, it is not claimed as
+       * one. "Remote, Bangalore" (3 open postings) used to emit a Country
+       * called "Bangalore" — a wrong fact, not a missing one. A single token
+       * is checked against the ISO country names (see jobs/countries.ts); two
+       * or more tokens keep the positional rule, where the last IS the country.
        */
       out.remote = true;
-      const country = parts[parts.length - 1]!;
+      let country: string | null;
+      if (parts.length === 1) {
+        country = resolveCountry(parts[0]!);
+        if (!country) {
+          out.unresolved = true;
+          continue;
+        }
+      } else {
+        country = parts[parts.length - 1]!;
+      }
       if (!out.remoteCountries.includes(country)) out.remoteCountries.push(country);
       // "Remote, Lagos, Nigeria" also pins a physical place.
       if (parts.length >= 2) {
@@ -160,10 +177,17 @@ export function parseJobLocation(raw: string | null): LocationParse {
     }
 
     if (parts.length === 1) {
-      // A place with no country, e.g. a bare "Lagos". Cannot fill Google's
-      // mandatory addressCountry, and this entry gives no remote fallback, so
-      // it is recorded as unresolved rather than guessed at.
-      out.unresolved = true;
+      // One token. If it is a country ("Ghana", "UK") the entry is a country-only
+      // address, which Google accepts (addressCountry is the only mandatory
+      // part). Otherwise it is a place with no country, e.g. a bare "Lagos":
+      // cannot fill addressCountry, so it is recorded as unresolved rather than
+      // guessed at. "Georgia" and "Jersey" are deliberately NOT countries here.
+      const only = resolveCountry(parts[0]!);
+      if (only) {
+        if (!out.places.some((p) => p.country === only && !p.locality)) out.places.push({ country: only });
+      } else {
+        out.unresolved = true;
+      }
       continue;
     }
 
