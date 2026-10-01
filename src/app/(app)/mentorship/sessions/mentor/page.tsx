@@ -2,17 +2,9 @@ import { requireUser } from "@/lib/auth/require-user";
 import { sessionsAsMentor } from "@/lib/mentorship/queries";
 import { confirmMentorSessionAction } from "@/lib/mentorship/actions";
 import { Container, EyebrowLabel, BorderedCard, Button } from "@/components/ui";
+import { bucketSession, sessionStatusLabel } from "@/lib/mentorship/session-buckets";
 
 export const metadata = { title: "Your mentees — Talentrah" };
-
-const STATUS_LABEL: Record<string, string> = {
-  pending_payment: "Awaiting the mentee's payment",
-  awaiting_confirmation: "Awaiting your confirmation",
-  confirmed: "Confirmed",
-  completed: "Completed",
-  cancelled_mentor_no_confirm: "Auto-cancelled — you didn't confirm in time",
-  refunded: "Refunded",
-};
 
 /**
  * The mentor side of session lifecycle. `confirmMentorSessionAction`
@@ -23,8 +15,17 @@ export default async function MentorSessionsPage() {
   const { user } = await requireUser();
   const sessions = await sessionsAsMentor(user.id);
 
-  const needsConfirmation = sessions.filter((s) => s.status === "awaiting_confirmation");
-  const rest = sessions.filter((s) => s.status !== "awaiting_confirmation");
+  /*
+   * Same rule as the mentee's page (send-497): paid sessions that have not ended are upcoming, an unpaid booking still
+   * ahead is "awaiting payment", an unpaid booking whose slot has started is past. A paid session still waiting on the
+   * mentor needs confirming only while it is ahead; once its slot has passed it is past.
+   */
+  const now = new Date();
+  const bucket = (s: (typeof sessions)[number]) => bucketSession(s, now);
+  const needsConfirmation = sessions.filter((s) => s.status === "awaiting_confirmation" && bucket(s) === "upcoming");
+  const upcoming = sessions.filter((s) => s.status !== "awaiting_confirmation" && bucket(s) === "upcoming");
+  const awaitingPayment = sessions.filter((s) => bucket(s) === "awaiting_payment");
+  const past = sessions.filter((s) => bucket(s) === "past");
 
   async function confirm(formData: FormData) {
     "use server";
@@ -61,24 +62,50 @@ export default async function MentorSessionsPage() {
             </section>
           )}
 
-          <section className="flex flex-col gap-4">
-            <h2 className="font-display text-[18px] font-semibold">Everything else</h2>
-            {rest.map((s) => (
-              <BorderedCard key={s.id} className="flex flex-col gap-2 p-5">
-                <p className="font-semibold text-ink">{s.menteeName} · {s.sessionType.replace(/_/g, " ")}</p>
-                <p className="text-[13.5px] text-ink-soft">
-                  {new Date(s.scheduledStart).toLocaleString()} · {STATUS_LABEL[s.status] ?? s.status}
-                </p>
-                {s.meetingLink && (
-                  <a href={s.meetingLink} target="_blank" rel="noopener noreferrer" className="text-[13.5px] text-rust">
-                    Join meeting ↗
-                  </a>
-                )}
-              </BorderedCard>
-            ))}
-          </section>
+          {upcoming.length > 0 && (
+            <section className="flex flex-col gap-4">
+              <h2 className="font-display text-[18px] font-semibold">Upcoming</h2>
+              {upcoming.map((s) => (
+                <SessionRow key={s.id} s={s} now={now} />
+              ))}
+            </section>
+          )}
+
+          {awaitingPayment.length > 0 && (
+            <section className="flex flex-col gap-4">
+              <h2 className="font-display text-[18px] font-semibold">Awaiting payment</h2>
+              {awaitingPayment.map((s) => (
+                <SessionRow key={s.id} s={s} now={now} />
+              ))}
+            </section>
+          )}
+
+          {past.length > 0 && (
+            <section className="flex flex-col gap-4">
+              <h2 className="font-display text-[18px] font-semibold">Past</h2>
+              {past.map((s) => (
+                <SessionRow key={s.id} s={s} now={now} />
+              ))}
+            </section>
+          )}
         </>
       )}
     </Container>
+  );
+}
+
+function SessionRow({ s, now }: { s: Awaited<ReturnType<typeof sessionsAsMentor>>[number]; now: Date }) {
+  return (
+    <BorderedCard className="flex flex-col gap-2 p-5">
+      <p className="font-semibold text-ink">{s.menteeName} · {s.sessionType.replace(/_/g, " ")}</p>
+      <p className="text-[13.5px] text-ink-soft">
+        {new Date(s.scheduledStart).toLocaleString()} · {sessionStatusLabel(s.status, s.scheduledStart, now, "mentor")}
+      </p>
+      {s.meetingLink && (
+        <a href={s.meetingLink} target="_blank" rel="noopener noreferrer" className="text-[13.5px] text-rust">
+          Join meeting ↗
+        </a>
+      )}
+    </BorderedCard>
   );
 }

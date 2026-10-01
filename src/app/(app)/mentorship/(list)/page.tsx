@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getOptionalUser } from "@/lib/auth/require-user";
 import { browseMentors } from "@/lib/mentorship/queries";
+import { mentorCardPriceLine } from "@/lib/mentorship/mentor-card";
 import { Container, EyebrowLabel, BorderedCard } from "@/components/ui";
 import { stripInlineMarkdown } from "@/lib/farah/render-markdown";
 import { MentorshipPublicLanding } from "@/components/mentorship/public-landing";
@@ -110,9 +111,8 @@ export default async function MentorshipPage({
                     {mentor.name}
                   </h2>
                   <p className="text-[13px] text-ink-soft">
-                    {mentor.basePriceNgn != null
-                      ? `From ₦${mentor.basePriceNgn.toLocaleString()} / session`
-                      : "Free / volunteer"}
+                    {/* Says "No open slots right now" instead of a price when there is nothing to book (send-497). */}
+                    {mentorCardPriceLine(mentor)}
                     {mentor.reviewCount > 0 && mentor.averageRating != null && (
                       <> · {mentor.averageRating.toFixed(1)}★ ({mentor.reviewCount})</>
                     )}
