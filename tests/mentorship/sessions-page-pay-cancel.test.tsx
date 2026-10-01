@@ -19,7 +19,8 @@ vi.mock("@/lib/mentorship/queries", () => ({ sessionsAsMentee: async () => sessi
 
 import MentorshipSessionsPage from "@/app/(app)/mentorship/sessions/page";
 
-const row = (id: string, status: string, start: string, end: string) => ({
+const row = (id: string, status: string, start: string, end: string, createdAt = "2026-10-01T11:45:00.000Z") => ({
+  createdAt,
   id,
   mentorId: "m1",
   menteeId: "mentee-1",
@@ -102,5 +103,30 @@ describe("a refused Pay or Cancel is explained, not silent", () => {
   it("shows the error the action redirected with", async () => {
     sessions.rows = [];
     expect(text(await render({ error: "That booking can no longer be paid for." }))).toContain("That booking can no longer be paid for.");
+  });
+});
+
+describe("the 30-minute hold on the page (send-502)", () => {
+  it("an awaiting-payment row tells the mentee how long they have, in these words", async () => {
+    // Booked 15 minutes before the fixed clock (12:00Z): hold still running.
+    sessions.rows = [row("held", "pending_payment", ...FUTURE, "2026-10-01T11:45:00.000Z")];
+    expect(text(section(await render(), "Awaiting payment") ?? "")).toContain("Complete payment within 30 minutes to keep this slot");
+  });
+
+  it("a booking whose hold has lapsed is not offered Pay or Cancel, and says why", async () => {
+    // Booked 31 minutes before the clock.
+    sessions.rows = [row("lapsed", "pending_payment", ...FUTURE, "2026-10-01T11:29:00.000Z")];
+    const html = await render();
+    expect(section(html, "Awaiting payment")).toBeNull();
+    const past = text(section(html, "Past") ?? "");
+    expect(past).toContain("Not paid — the 30-minute hold ended");
+    expect(past).not.toMatch(/\bPay\b|Cancel booking/);
+  });
+
+  it("a held booking 29:59 old is still payable; one 30:01 old is not", async () => {
+    sessions.rows = [row("a", "pending_payment", ...FUTURE, "2026-10-01T11:30:01.000Z")];
+    expect(section(await render(), "Awaiting payment")).not.toBeNull();
+    sessions.rows = [row("b", "pending_payment", ...FUTURE, "2026-10-01T11:29:59.000Z")];
+    expect(section(await render(), "Awaiting payment")).toBeNull();
   });
 });

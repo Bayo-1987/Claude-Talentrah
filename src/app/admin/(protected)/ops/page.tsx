@@ -13,7 +13,8 @@ import {
   MAX_INDETERMINATE_RENEWAL_ATTEMPTS,
 } from "@/lib/admin/ops/queries";
 import { QueueHeader } from "@/components/admin/queue-chrome";
-import { Container, EyebrowLabel, BorderedCard } from "@/components/ui";
+import { Container, EyebrowLabel, BorderedCard, Button } from "@/components/ui";
+import { markMentorPaymentRefundedAction } from "@/lib/admin/ops/refund-actions";
 
 export const metadata = {
   title: "Operations — Talentrah admin",
@@ -79,6 +80,12 @@ export default async function OpsPage() {
               lapsed and the slot could not be restored. The mentee has paid for a session that will not happen: refund the
               charge in Paystack using the reference below. These do not resolve on their own.
             </p>
+            {/* The runbook (send-502): three steps, in the order a person does them. */}
+            <ol className="m-0 flex list-decimal flex-col gap-1 border-[1.5px] border-ink bg-card py-3 pl-8 pr-4 text-[13.5px] text-ink-soft">
+              <li>Find the Paystack reference on the entry below (it is the charge to refund).</li>
+              <li>Refund the charge in the Paystack dashboard: search the reference under Transactions, then Refund.</li>
+              <li>Come back here and press Mark refunded. It leaves this list and the nav badge. Marking it resolved never moves money.</li>
+            </ol>
             <ul className="flex list-none flex-col gap-3 p-0">
               {refunds.map((r) => (
                 <li key={r.sessionId}>
@@ -94,6 +101,11 @@ export default async function OpsPage() {
                       Paystack reference{" "}
                       {r.reference ? <code className="text-[12.5px]">{r.reference}</code> : "none on record (check the payment rows)"}
                     </p>
+                    <form action={markMentorPaymentRefundedAction.bind(null, r.sessionId)}>
+                      <Button type="submit" variant="secondary" size="sm">
+                        Mark refunded
+                      </Button>
+                    </form>
                   </BorderedCard>
                 </li>
               ))}

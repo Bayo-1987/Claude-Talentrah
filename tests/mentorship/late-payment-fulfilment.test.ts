@@ -180,3 +180,114 @@ describe("a payment lands on a booking that already lapsed", () => {
     expect(await sessionStatus(session!.id)).toBe("awaiting_confirmation");
   });
 });
+
+/**
+ * THE OWNER'S EXACT SHAPE (send-502): the 17 Sep 2026 10:00Z booking, 25,000, never paid, with an abandoned Paystack checkout
+ * still pending. The sweep expires it, and later someone pays that old link.
+ */
+describe("the 17 Sep booking: an abandoned checkout paid after the sweep expired the booking", () => {
+  const SEP17 = "2026-09-17T10:00:00.000Z";
+
+  async function sep17Booking() {
+    const { data: slot, error: slotError } = await admin
+      .from("mentor_availability_slots")
+      .insert({ mentor_id: mentorId, start_at: SEP17, end_at: "2026-09-17T11:00:00.000Z", is_booked: true })
+      .select("id")
+      .single();
+    if (slotError || !slot) throw slotError ?? new Error("no slot");
+    slotIds.push(slot.id);
+    const { data: session, error } = await admin
+      .from("mentorship_sessions")
+      .insert({ mentor_id: mentorId, mentee_id: menteeId, availability_slot_id: slot.id, session_type: "mock_interview", scheduled_start: SEP17, scheduled_end: "2026-09-17T11:00:00.000Z", price_ngn: PRICE, platform_commission_ngn: 3_750, mentor_payout_ngn: 21_250, status: "pending_payment" })
+      .select("id")
+      .single();
+    if (error || !session) throw error ?? new Error("no session");
+    sessionIds.push(session.id);
+    const reference = `mentor_session_${randomUUID()}`;
+    const { data: txn } = await admin
+      .from("payment_transactions")
+      .insert({ user_id: menteeId, rail: "paystack", amount: PRICE, currency: "NGN", product_type: "mentor_session", product_id: session.id, paystack_reference: reference, status: "pending" })
+      .select("id")
+      .single();
+    transactionIds.push(txn!.id);
+    verify.mockResolvedValue({ status: "success", reference, amount: PRICE * 100, currency: "NGN", channel: "card" });
+    return { sessionId: session.id, slotId: slot.id, reference, transactionId: txn!.id };
+  }
+
+  it("sweep expires it and releases the slot; then the old link is paid: payment_needs_refund, the money recorded, an alert emailed, no receipt", async () => {
+    const saved = process.env.ADMIN_ALERT_EMAIL;
+    process.env.ADMIN_ALERT_EMAIL = "ops@example.test";
+    try {
+      const b = await sep17Booking();
+      const swept = await admin.rpc("expire_unpaid_mentor_sessions", { p_now: new Date().toISOString() });
+      expect(swept.error).toBeNull();
+      expect(await sessionStatus(b.sessionId)).toBe("expired_unpaid");
+
+      const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+      const result = await fulfillPayment(b.reference);
+
+      expect(result.status).toBe("success");
+      expect(await sessionStatus(b.sessionId)).toBe("payment_needs_refund");
+      expect(await txnStatus(b.transactionId)).toBe("success");
+      expect(errors.mock.calls.map((c) => c.join(" ")).join("\n")).toMatch(/NEEDS REFUND/);
+      // Exactly one email, and it is the operator alert (not a mentee receipt), to the configured address.
+      expect(send).toHaveBeenCalledTimes(1);
+      const mail = send.mock.calls[0] as unknown as [{ to: string; text: string; subject: string }];
+      expect(mail[0].to).toBe("ops@example.test");
+      expect(mail[0].text).toContain(b.reference);
+      expect(mail[0].text).toContain("25,000");
+      expect(mail[0].subject).toMatch(/refund/i);
+    } finally {
+      if (saved === undefined) delete process.env.ADMIN_ALERT_EMAIL;
+      else process.env.ADMIN_ALERT_EMAIL = saved;
+    }
+  });
+
+  it("with ADMIN_ALERT_EMAIL unset the payment is still recorded and flagged: it logs loudly and never throws", async () => {
+    const saved = process.env.ADMIN_ALERT_EMAIL;
+    delete process.env.ADMIN_ALERT_EMAIL;
+    try {
+      const b = await sep17Booking();
+      await admin.rpc("expire_unpaid_mentor_sessions", { p_now: new Date().toISOString() });
+      const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+      await expect(fulfillPayment(b.reference)).resolves.toMatchObject({ status: "success" });
+      expect(await sessionStatus(b.sessionId)).toBe("payment_needs_refund");
+      expect(errors.mock.calls.map((c) => c.join(" ")).join("\n")).toMatch(/ADMIN_ALERT_EMAIL/);
+      expect(send).not.toHaveBeenCalled();
+    } finally {
+      if (saved !== undefined) process.env.ADMIN_ALERT_EMAIL = saved;
+    }
+  });
+});
+
+describe("a payment for a booking whose 30-minute hold lapsed (send-502)", () => {
+  async function staleBooking(minutesOld: number) {
+    const b = await lapsedBookingWithPendingPayment("expired_unpaid", 24, true);
+    await admin.from("mentorship_sessions").update({ status: "pending_payment", created_at: new Date(Date.now() - minutesOld * 60_000).toISOString() }).eq("id", b.sessionId);
+    return b;
+  }
+
+  it("slot untouched since: the payment is simply honoured (the session was never expired, nobody else took the slot)", async () => {
+    const b = await staleBooking(45);
+    await fulfillPayment(b.reference);
+    expect(await sessionStatus(b.sessionId)).toBe("awaiting_confirmation");
+  });
+
+  it("someone else booked the lapsed slot first: the displaced mentee's payment goes to needs_refund, the new booking is untouched", async () => {
+    const b = await staleBooking(45);
+    const other = await createTestUser("latepay-other");
+    try {
+      const booked = await admin.rpc("book_mentor_session", { p_availability_slot_id: b.slotId, p_mentee_id: other.id, p_session_type: "mock_interview" });
+      expect(booked.error).toBeNull();
+      expect(await sessionStatus(b.sessionId)).toBe("expired_unpaid");
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      await fulfillPayment(b.reference);
+      expect(await sessionStatus(b.sessionId)).toBe("payment_needs_refund");
+      const newId = booked.data![0].session_id;
+      expect(await sessionStatus(newId)).toBe("pending_payment");
+      await admin.from("mentorship_sessions").delete().eq("id", newId);
+    } finally {
+      await deleteTestUsers([other.id]);
+    }
+  });
+});

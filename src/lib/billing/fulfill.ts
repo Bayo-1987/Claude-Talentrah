@@ -6,6 +6,7 @@ import { verifyTransaction } from "@/lib/paystack/client";
 import { captureEvent } from "@/lib/analytics/posthog";
 import { absoluteUrl } from "@/lib/seo/site";
 import { emailParagraph, escEmail, renderBrandedEmail } from "@/lib/email/layout";
+import { alertPaymentNeedsRefund } from "@/lib/mentorship/refund-alert";
 
 export interface FulfillResult {
   status: "success" | "already_processed" | "failed" | "not_found";
@@ -329,11 +330,11 @@ export async function fulfillPayment(
         if (restored) purchased = `Mentorship session (${restored.session_type.replace(/_/g, " ")})`;
       } else if (outcome === "needs_refund") {
         // `purchased` stays unset: no purchase receipt for a payment that is about to be refunded.
-        console.error(
-          `[fulfill] NEEDS REFUND: payment ${reference} (₦${transaction.amount.toLocaleString()}) landed on mentor session ` +
-            `${transaction.product_id}, which had already lapsed and whose slot could not be restored. The session is marked ` +
-            `payment_needs_refund and counted on the admin ops badge. Refund the transaction in Paystack.`,
-        );
+        await alertPaymentNeedsRefund({
+          reference,
+          amountNgn: transaction.amount,
+          sessionId: transaction.product_id,
+        });
       }
     }
   }

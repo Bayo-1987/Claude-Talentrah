@@ -16,8 +16,8 @@ import { loadModule } from "../support/load-module";
 
 type Bucket = "upcoming" | "awaiting_payment" | "past";
 interface Mod {
-  bucketSession?: (s: { status: string; scheduledStart: string; scheduledEnd: string }, now: Date) => Bucket;
-  sessionStatusLabel?: (status: string, scheduledStart: string, now: Date, side?: "mentee" | "mentor") => string;
+  bucketSession?: (s: { status: string; scheduledStart: string; scheduledEnd: string; createdAt?: string }, now: Date) => Bucket;
+  sessionStatusLabel?: (status: string, scheduledStart: string, now: Date, side?: "mentee" | "mentor", createdAt?: string) => string;
 }
 const mod = () => loadModule<Mod>("@/lib/mentorship/session-buckets");
 const need = <T>(fn: T | undefined, name: string): T => {
@@ -140,5 +140,35 @@ describe("sessionStatusLabel", () => {
   it("an unknown status falls back to the raw status rather than blank", async () => {
     const { sessionStatusLabel } = await mod();
     expect(need(sessionStatusLabel, "sessionStatusLabel")("something_new", FUTURE[0], NOW)).toBe("something_new");
+  });
+});
+
+describe("the 30-minute hold on an unpaid booking (send-502)", () => {
+  // Booked at 11:30Z. The slot is days away; only the hold can end this booking's claim.
+  const BOOKED = "2026-10-01T11:30:00.000Z";
+  const at = (hh: string) => new Date(`2026-10-01T${hh}Z`);
+
+  it("29:59 in: still awaiting payment", async () => {
+    const { bucketSession } = await mod();
+    expect(need(bucketSession, "bucketSession")({ ...session("pending_payment", ...FUTURE), createdAt: BOOKED }, at("11:59:59.000"))).toBe("awaiting_payment");
+  });
+
+  it("30:01 in: past, whatever the sweep has or has not done yet", async () => {
+    const { bucketSession } = await mod();
+    expect(need(bucketSession, "bucketSession")({ ...session("pending_payment", ...FUTURE), createdAt: BOOKED }, at("12:00:01.000"))).toBe("past");
+  });
+
+  it("a lapsed hold before the slot says the hold ended, from each side", async () => {
+    const { sessionStatusLabel } = await mod();
+    const l = need(sessionStatusLabel, "sessionStatusLabel") as (s: string, start: string, now: Date, side?: "mentee" | "mentor", createdAt?: string) => string;
+    expect(l("pending_payment", FUTURE[0], at("12:00:01.000"), "mentee", BOOKED)).toBe("Not paid — the 30-minute hold ended");
+    expect(l("pending_payment", FUTURE[0], at("12:00:01.000"), "mentor", BOOKED)).toBe("Not paid — the 30-minute hold ended");
+    expect(l("pending_payment", FUTURE[0], at("11:59:59.000"), "mentee", BOOKED)).toBe("Awaiting payment");
+  });
+
+  it("when the slot has also passed, the slot-passed wording still wins", async () => {
+    const { sessionStatusLabel } = await mod();
+    const l = need(sessionStatusLabel, "sessionStatusLabel") as (s: string, start: string, now: Date, side?: "mentee" | "mentor", createdAt?: string) => string;
+    expect(l("pending_payment", PAST[0], NOW, "mentee", "2026-09-10T10:00:00.000Z")).toBe("Not paid — the slot has passed");
   });
 });

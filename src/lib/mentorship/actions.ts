@@ -13,6 +13,7 @@ import { notifySessionConfirmed } from "@/lib/mentorship/notifications";
 import type { MentorshipSessionType } from "@/lib/mentorship/pricing";
 import { captureEvent } from "@/lib/analytics/posthog";
 import { warnIfNameLooksLikeOwnOrg } from "@/lib/mentorship/name-validation";
+import { unpaidHoldLapsed } from "@/lib/mentorship/unpaid-hold";
 
 function splitTags(raw: string): string[] {
   return raw
@@ -311,7 +312,7 @@ export async function payForMentorSessionAction(sessionId: string) {
 
   const { data: session } = await serviceClient
     .from("mentorship_sessions")
-    .select("id, mentee_id, status, price_ngn, scheduled_start")
+    .select("id, mentee_id, status, price_ngn, scheduled_start, created_at")
     .eq("id", sessionId)
     .maybeSingle();
 
@@ -319,6 +320,12 @@ export async function payForMentorSessionAction(sessionId: string) {
   if (session.status !== "pending_payment") return fail("That booking can no longer be paid for.");
   if (!(Date.parse(session.scheduled_start) > Date.now())) {
     return fail("That session's time has already started, so it can no longer be paid for.");
+  }
+  // The 30-minute hold (0203). Once it has lapsed the slot counts as open to anyone else, so a NEW checkout is not started
+  // for it; booking the slot again is the way back. A payment already in flight from a link opened inside the hold is still
+  // honoured by fulfilment (see settle_late_mentor_payment), so nothing paid is ever lost.
+  if (unpaidHoldLapsed(session.created_at, new Date())) {
+    return fail("The 30-minute hold on that slot has ended. Book it again from the mentor's page if it's still open.");
   }
 
   await startMentorSessionCheckout({

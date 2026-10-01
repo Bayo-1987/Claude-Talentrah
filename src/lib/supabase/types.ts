@@ -2242,7 +2242,7 @@ export type Database = {
           {
             foreignKeyName: "mentorship_sessions_availability_slot_id_fkey"
             columns: ["availability_slot_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "mentor_availability_slots"
             referencedColumns: ["id"]
           },
@@ -4015,6 +4015,15 @@ export type Database = {
         Returns: {
           structured_content: Json
           template_slug: string
+        }[]
+      }
+      open_mentor_slots: {
+        Args: { p_mentor_ids: string[]; p_now?: string }
+        Returns: {
+          id: string
+          mentor_id: string
+          start_at: string
+          end_at: string
         }[]
       }
       expire_unpaid_mentor_sessions: {

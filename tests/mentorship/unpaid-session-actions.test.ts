@@ -140,6 +140,20 @@ describe("payForMentorSessionAction", () => {
     expect(await txnCount()).toBe(0);
   });
 
+  it("refuses to start a NEW checkout once the 30-minute hold has lapsed (31 min in), and still allows one at 29 min in", async () => {
+    const lapsed = await makeBooking(24);
+    await admin.from("mentorship_sessions").update({ created_at: new Date(Date.now() - 31 * 60_000).toISOString() }).eq("id", lapsed.sessionId);
+    const url = await run("payForMentorSessionAction", lapsed.sessionId);
+    expect(url).toMatch(/^\/mentorship\/sessions\?error=.*30-minute/);
+    expect(initializeTransaction).not.toHaveBeenCalled();
+    expect(await txnCount()).toBe(0);
+
+    const held = await makeBooking(24);
+    await admin.from("mentorship_sessions").update({ created_at: new Date(Date.now() - 29 * 60_000).toISOString() }).eq("id", held.sessionId);
+    initializeTransaction.mockResolvedValue({ authorization_url: "https://paystack.test/pay/held", reference: "x", access_code: "y" });
+    expect(await run("payForMentorSessionAction", held.sessionId)).toBe("https://paystack.test/pay/held");
+  });
+
   it("when Paystack is unavailable it marks the new transaction failed and explains, instead of leaving a pending ghost", async () => {
     const { sessionId } = await makeBooking(24);
     initializeTransaction.mockRejectedValue(new Error("down"));

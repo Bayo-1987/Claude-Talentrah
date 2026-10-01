@@ -99,7 +99,7 @@ function SessionRow({ s, now }: { s: Awaited<ReturnType<typeof sessionsAsMentor>
     <BorderedCard className="flex flex-col gap-2 p-5">
       <p className="font-semibold text-ink">{s.menteeName} · {s.sessionType.replace(/_/g, " ")}</p>
       <p className="text-[13.5px] text-ink-soft">
-        {new Date(s.scheduledStart).toLocaleString()} · {sessionStatusLabel(s.status, s.scheduledStart, now, "mentor")}
+        {new Date(s.scheduledStart).toLocaleString()} · {sessionStatusLabel(s.status, s.scheduledStart, now, "mentor", s.createdAt)}
       </p>
       {s.meetingLink && (
         <a href={s.meetingLink} target="_blank" rel="noopener noreferrer" className="text-[13.5px] text-rust">

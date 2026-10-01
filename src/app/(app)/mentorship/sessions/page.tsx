@@ -5,6 +5,7 @@ import { ReviewForm } from "./review-form";
 import { Button } from "@/components/ui";
 import { cancelUnpaidMentorSessionAction, payForMentorSessionAction } from "@/lib/mentorship/actions";
 import { bucketSession, sessionStatusLabel } from "@/lib/mentorship/session-buckets";
+import { UNPAID_HOLD_NOTICE } from "@/lib/mentorship/unpaid-hold";
 
 export const metadata = { title: "Your mentorship sessions — Talentrah" };
 
@@ -47,7 +48,7 @@ export default async function MentorshipSessionsPage({
             <BorderedCard key={s.id} className="flex flex-col gap-2 p-5">
               <p className="font-semibold text-ink">{s.mentorName} · {s.sessionType.replace(/_/g, " ")}</p>
               <p className="text-[13.5px] text-ink-soft">
-                {new Date(s.scheduledStart).toLocaleString()} · {sessionStatusLabel(s.status, s.scheduledStart, now)}
+                {new Date(s.scheduledStart).toLocaleString()} · {sessionStatusLabel(s.status, s.scheduledStart, now, "mentee", s.createdAt)}
               </p>
               {s.meetingLink && (
                 <a href={s.meetingLink} target="_blank" rel="noopener noreferrer" className="text-[13.5px] text-rust">
@@ -66,8 +67,9 @@ export default async function MentorshipSessionsPage({
             <BorderedCard key={s.id} className="flex flex-col gap-2 p-5">
               <p className="font-semibold text-ink">{s.mentorName} · {s.sessionType.replace(/_/g, " ")}</p>
               <p className="text-[13.5px] text-ink-soft">
-                {new Date(s.scheduledStart).toLocaleString()} · {sessionStatusLabel(s.status, s.scheduledStart, now)}
+                {new Date(s.scheduledStart).toLocaleString()} · {sessionStatusLabel(s.status, s.scheduledStart, now, "mentee", s.createdAt)}
               </p>
+              <p className="text-[13.5px] text-ink">{UNPAID_HOLD_NOTICE}</p>
               {/*
                 Pay and Cancel (send-502). Only here: these are the rows that can still be paid for. Pay sends the mentee to
                 Paystack for the booking's own price; Cancel releases the slot. Both are real form submits.
@@ -98,7 +100,7 @@ export default async function MentorshipSessionsPage({
             <BorderedCard key={s.id} className="flex flex-col gap-2 p-5">
               <p className="font-semibold text-ink">{s.mentorName} · {s.sessionType.replace(/_/g, " ")}</p>
               <p className="text-[13.5px] text-ink-soft">
-                {new Date(s.scheduledStart).toLocaleString()} · {sessionStatusLabel(s.status, s.scheduledStart, now)}
+                {new Date(s.scheduledStart).toLocaleString()} · {sessionStatusLabel(s.status, s.scheduledStart, now, "mentee", s.createdAt)}
               </p>
               {s.status === "completed" && <ReviewForm sessionId={s.id} mentorId={s.mentorId} />}
             </BorderedCard>

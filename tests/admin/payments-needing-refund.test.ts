@@ -70,3 +70,15 @@ describe("the ops attention badge counts them", () => {
     expect(withRefunds - baseline).toBe(3);
   });
 });
+
+describe("the ops page tells the operator what to do (send-502 runbook)", () => {
+  it("has a runbook: where to find the reference, how to refund, how to mark it resolved", async () => {
+    const { readFileSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const page = readFileSync(join(__dirname, "../../src/app/admin/(protected)/ops/page.tsx"), "utf8");
+    const flat = page.replace(/\s+/g, " ");
+    expect(flat, "where to find the reference").toMatch(/Paystack reference/);
+    expect(flat, "how to refund").toMatch(/Refund the charge in the Paystack dashboard/);
+    expect(flat, "how to mark it resolved").toMatch(/mark(ing)? (it|the session) resolved|Mark resolved/i);
+  });
+});
