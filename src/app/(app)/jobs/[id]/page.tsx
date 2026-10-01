@@ -7,6 +7,7 @@ import { stripRedundantJobHeader } from "@/lib/seo/job-description-snippet";
 import { stripMarkdownToPlainText } from "@/lib/jobs/extract-jd";
 import { jobPostingStatusMessage } from "@/lib/jobs/posting-status-message";
 import { jobForRequest } from "./job-for-request";
+import { buildJobPageTitle } from "@/lib/seo/job-page-title";
 import { BorderedCard, Button, EyebrowLabel, MatchTierBadge, buttonClasses } from "@/components/ui";
 import { dedupeMetaParts } from "@/components/jobs/job-card";
 import { FarahJobMenu } from "@/components/jobs/farah-job-menu";
@@ -58,7 +59,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 
   if (!data) notFound();
 
-  const title = `${data.title} — ${data.company_name} — Talentrah`;
+  const title = buildJobPageTitle(data);
 
   /*
    * A description built from the posting, not a placeholder.
