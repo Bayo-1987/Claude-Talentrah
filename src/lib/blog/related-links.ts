@@ -49,7 +49,11 @@ export const RELATED_LINKS: Record<string, RelatedLink[]> = {
   "chevening-scholarships-2027": [SCHOLARSHIP_CATALOG],
   "trudeau-foundation-doctoral-scholarship": [SCHOLARSHIP_CATALOG],
   "ptdf-overseas-scholarship-nigeria": [SCHOLARSHIP_CATALOG],
+  // send-486 — the footer's Compare column was removed, so the two comparison pages are linked
+  // from the post that compares the products, AHEAD of the two links this post already had.
   "ai-job-search-tools-nigeria-africa": [
+    { href: "/vs/jobright", label: "Talentrah vs Jobright, side by side" },
+    { href: "/vs/jobcopilot", label: "Talentrah vs FreshTalent JobCopilot, side by side" },
     { href: "/ai-resume-tailoring", label: "Try the AI resume tailoring" },
     { href: "/mentorship", label: "Browse mentors on Talentrah" },
   ],

@@ -20,6 +20,15 @@
  * pinned the same way, so a future edit can't silently turn either into a
  * dead `#` anchor the way the original Product entries used to be.
  *
+ * send-486 — the Compare column is REMOVED (founder's call). The two /vs pages stay live
+ * and in the sitemap, and link to each other; the comparison blog post now links to both
+ * (src/lib/blog/related-links.ts, pinned in tests/blog/related-links.test.ts). With it
+ * gone the four remaining columns are Product | For Employers | Company & Support |
+ * Legal & Trust: one row on desktop (Legal & Trust used to wrap under Product because
+ * five columns sat in a four-column grid) and a 2x2 block on a phone with no empty cell.
+ * The "Compare column" block at the bottom of this file was rewritten, not deleted: it
+ * now asserts the column is GONE, and pins every other link against a snapshot.
+ *
  * send-480 — the Scholarships entry is `/scholarships` again (it was
  * `/scholarships/apply-now` for send-474 while `/scholarships` was login-gated).
  * The send-474 block below is the guard that keeps it that way.
@@ -51,11 +60,6 @@ const PRODUCT_LINKS: Record<string, string> = {
   "Refer &amp; Earn": "/signup?redirectTo=%2Frefer",
   Mentorship: "/mentorship",
   "Auto-Apply": "/how-auto-apply-works",
-};
-
-const COMPARE_LINKS: Record<string, string> = {
-  "Jobright Alternative": "/vs/jobright",
-  "vs. FreshTalent JobCopilot": "/vs/jobcopilot",
 };
 
 describe("the footer's Product column", () => {
@@ -154,13 +158,102 @@ describe("the footer's Scholarships link (send-474, revised by send-480)", () =>
   });
 });
 
-describe("the footer's Compare column (send-461)", () => {
-  const html = renderToStaticMarkup(<MarketingFooter />);
+/**
+ * send-486 — the Compare column is gone; nothing else in the footer moved.
+ *
+ * SNAPSHOT_BEFORE is the footer's complete link list (column heading, label, href) exactly as it
+ * stood before this change, copied from the component as it was on main at 28ed666 (#595). The
+ * regression guard is that the footer after the change is that list MINUS the two Compare links,
+ * in the same order: so a link accidentally lost, re-pointed or re-labelled while restructuring
+ * fails here, rather than being noticed in production. Labels are the literal text, "&" included.
+ */
+const SNAPSHOT_BEFORE = [
+  { heading: "Product", label: "Job Matching", href: "/jobs" },
+  { heading: "Product", label: "Resume Builder", href: "/resume-builder" },
+  { heading: "Product", label: "Resume Tailoring", href: "/ai-resume-tailoring" },
+  { heading: "Product", label: "ATS Resume Checker", href: "/ats-resume-checker" },
+  { heading: "Product", label: "Job Tracker", href: "/tracker" },
+  { heading: "Product", label: "Scholarships", href: "/scholarships" },
+  { heading: "Product", label: "Refer & Earn", href: "/refer" },
+  { heading: "Product", label: "Mentorship", href: "/mentorship" },
+  { heading: "Product", label: "Auto-Apply", href: "/how-auto-apply-works" },
+  { heading: "For Employers", label: "Hire through Talentrah", href: "/employer" },
+  { heading: "Compare", label: "Jobright Alternative", href: "/vs/jobright" },
+  { heading: "Compare", label: "vs. FreshTalent JobCopilot", href: "/vs/jobcopilot" },
+  { heading: "Company & Support", label: "About", href: "/about" },
+  { heading: "Company & Support", label: "Contact", href: "/contact" },
+  { heading: "Company & Support", label: "Blog", href: "/blog" },
+  { heading: "Legal & Trust", label: "Privacy Policy", href: "/legal/privacy" },
+  { heading: "Legal & Trust", label: "Terms of Service", href: "/legal/terms" },
+  { heading: "Legal & Trust", label: "Data & Cookie Notice", href: "/legal/data-cookie-notice" },
+];
 
-  it("renders a real href for both comparison pages, never a dead '#' anchor", () => {
-    for (const [label, href] of Object.entries(COMPARE_LINKS)) {
-      const anchor = new RegExp(`<a href="${href}"[^>]*>${label}<`);
-      expect(html, `${label} did not link to ${href}`).toMatch(anchor);
-    }
+const unescape = (t: string) => t.replace(/&amp;/g, "&");
+
+/**
+ * The link columns, read from the real server-rendered footer. A column is the
+ * `flex flex-col gap-3.5` div holding a heading div and its anchors; the community and social
+ * rows use different markup, so they cannot leak in. Asserts it found columns at all, so a change
+ * to the markup fails loudly instead of yielding an empty list that every "is absent" check passes.
+ */
+function footerColumns(html: string) {
+  const re = /<div class="flex flex-col gap-3\.5"><div class="[^"]*">([^<]*)<\/div>((?:<a [^>]*>[^<]*<\/a>)*)<\/div>/g;
+  const columns: { heading: string; links: { label: string; href: string }[] }[] = [];
+  for (const m of html.matchAll(re)) {
+    const links = [...m[2].matchAll(/<a href="([^"]*)"[^>]*>([^<]*)<\/a>/g)].map((a) => ({
+      href: a[1],
+      label: unescape(a[2]),
+    }));
+    columns.push({ heading: unescape(m[1]), links });
+  }
+  expect(columns.length, "found no link columns: did the footer markup change?").toBeGreaterThan(0);
+  return columns;
+}
+
+describe("the footer's columns (send-486: Compare removed, Legal & Trust in the top row)", () => {
+  const html = renderToStaticMarkup(<MarketingFooter />);
+  const columns = footerColumns(html);
+
+  it("has no Compare heading and no link to any /vs/ page", () => {
+    expect(columns.map((c) => c.heading)).not.toContain("Compare");
+    expect(html).not.toContain(">Compare<");
+    expect(html).not.toMatch(/href="\/vs(\/|")/);
+    expect(html).not.toContain("Jobright Alternative");
+    expect(html).not.toContain("JobCopilot");
+    // Control: the parser does see real links, so "no /vs/ link" is not an empty-parse pass.
+    expect(columns.flatMap((c) => c.links).length).toBeGreaterThan(10);
+  });
+
+  it("lists the column headings in this order: Product, For Employers, Company & Support, Legal & Trust", () => {
+    expect(columns.map((c) => c.heading)).toEqual(["Product", "For Employers", "Company & Support", "Legal & Trust"]);
+  });
+
+  it("Legal & Trust is its own column, not inside the Product column", () => {
+    const product = columns.find((c) => c.heading === "Product")!;
+    const legal = columns.find((c) => c.heading === "Legal & Trust")!;
+    expect(legal.links.map((l) => l.label)).toEqual(["Privacy Policy", "Terms of Service", "Data & Cookie Notice"]);
+    expect(product.links.map((l) => l.href).filter((h) => h.startsWith("/legal/"))).toEqual([]);
+  });
+
+  it("fills one row of four on desktop and a 2x2 block on a phone: no empty cell where Compare was", () => {
+    // The grid is `grid-cols-2` with a four-column override from 901px. An odd number of columns
+    // would leave an empty cell at 2-up; five columns at 4-up wrapped Legal & Trust under Product.
+    expect(html).toContain("min-[901px]:grid-cols-4");
+    expect(html).toMatch(/class="grid grid-cols-2 [^"]*min-\[901px\]:grid-cols-4"/);
+    expect(columns).toHaveLength(4);
+    expect(columns.length % 2).toBe(0);
+  });
+
+  it("every other link is unchanged: the footer is exactly the pre-change list minus the two Compare links", () => {
+    const rendered = columns.flatMap((c) => c.links.map((l) => ({ heading: c.heading, label: l.label, href: l.href })));
+    const expected = SNAPSHOT_BEFORE.filter((l) => l.heading !== "Compare");
+    expect(expected).toHaveLength(SNAPSHOT_BEFORE.length - 2);
+    expect(rendered).toEqual(expected);
+  });
+
+  it("the rest of the footer is untouched: tagline, copyright line and closing line", () => {
+    expect(html).toContain("AI-powered career platform for job seekers in Nigeria and across Africa.");
+    expect(html).toContain("© 2026 Talentrah. All rights reserved.");
+    expect(html).toContain("Built for job seekers in Nigeria and beyond.");
   });
 });

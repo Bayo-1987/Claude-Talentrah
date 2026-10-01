@@ -35,11 +35,14 @@ import type { IconType } from "react-icons";
  * The employer column keeps its place — §6.1 wants employers addressed in
  * the footer — and now points at the real, free, self-serve flow.
  *
- * send-461 — a new "Compare" column, not more Product entries: these two
- * pages (/vs/jobright, /vs/jobcopilot) are comparison content aimed at a
- * different search intent than the Product column's own feature pages, and
- * an orphan comparison page with no internal links pointing at it won't
- * rank — this is that internal link.
+ * send-461 added a "Compare" column here (Jobright Alternative, vs. FreshTalent
+ * JobCopilot) so the two /vs pages had an internal link. send-486 REMOVED it on
+ * the founder's call: the pages stay live and in the sitemap, link to each other,
+ * and are now linked from the comparison blog post instead
+ * (src/lib/blog/related-links.ts). Four columns remain: Product | For Employers |
+ * Company & Support | Legal & Trust. That is also what the grid below is sized
+ * for: one row of four from 901px, and an even 2x2 block on a phone. Five columns
+ * in a four-column grid wrapped Legal & Trust under Product.
  */
 const FOOTER_COLUMNS = [
   {
@@ -68,13 +71,6 @@ const FOOTER_COLUMNS = [
   {
     heading: "For Employers",
     links: [{ label: "Hire through Talentrah", href: "/employer" }],
-  },
-  {
-    heading: "Compare",
-    links: [
-      { label: "Jobright Alternative", href: "/vs/jobright" },
-      { label: "vs. FreshTalent JobCopilot", href: "/vs/jobcopilot" },
-    ],
   },
   {
     heading: "Company & Support",
