@@ -6,8 +6,14 @@ import { Button, TextField, EyebrowLabel, BorderedCard } from "@/components/ui";
 import { saveResumeAction, rewriteBulletAction } from "@/lib/resume-builder/actions";
 import { useReportCreditsBalance } from "@/components/app-shell/credits-balance";
 import { findUneditedExampleFields } from "@/lib/resume-builder/example-guard";
+import {
+  bulletsPatch,
+  canTurnOffBullets,
+  experienceBulletParagraphs,
+} from "@/lib/resume-builder/achievements-editor";
 import { TemplateRenderer } from "@/components/resume-builder/templates";
 import { PrintButton } from "@/components/resume-builder/print-button";
+import { ResumePrintSurface } from "@/components/resume-builder/resume-print-surface";
 import { MinimalRichEditor } from "@/components/rich-text/minimal-rich-editor";
 import { MinimalRichEditorList } from "@/components/rich-text/minimal-rich-editor-list";
 import {
@@ -54,39 +60,9 @@ function narrativePatch(rawText: string): { description: string; bullets: string
   return { description: rawText, bullets: lines.length > 1 ? lines : undefined };
 }
 
-/**
- * send-370 Part B — the rich editor's own display value for an entry: one
- * array entry per top-level editor paragraph, seeded from `bullets` when
- * they exist, falling back to a single-paragraph array holding
- * `description` otherwise (or an empty array for a brand-new entry, which
- * MinimalRichEditorList already renders as one empty paragraph). Mirrors
- * `experienceTextareaValue`'s own precedence, just shaped as an array
- * instead of a joined string, since the array IS the editor's own
- * paragraph boundaries now — no join step for a keystroke to desync from.
- */
-function experienceBulletParagraphs(entry: ResumeExperienceEntry): string[] {
-  const bullets = getExperienceBullets(entry);
-  if (bullets) return bullets;
-  return entry.description ? [entry.description] : [];
-}
-
-/**
- * The inverse of `experienceBulletParagraphs` — turns the editor's own
- * paragraph array back into the patch to apply to an entry. Same
- * "single paragraph reads as plain text, not a one-item bulleted list"
- * convention `narrativePatch` already established for the textarea this
- * replaces: `bullets` is only set once there are genuinely 2+ non-blank
- * paragraphs, and `description` always gets a plain-text fallback (bullets
- * joined with a space, matching `getExperienceText`'s own convention) so
- * any caller still reading `.description` directly stays consistent.
- */
-function bulletsPatch(paragraphs: string[]): { description: string; bullets: string[] | undefined } {
-  const nonBlank = paragraphs.map((p) => p.trim()).filter((p) => p.length > 0);
-  return {
-    description: nonBlank.join(" "),
-    bullets: nonBlank.length > 1 ? nonBlank : undefined,
-  };
-}
+// send-370 Part B: the Achievements field's paragraph-per-bullet rules —
+// experienceBulletParagraphs / bulletsPatch / canTurnOffBullets — live in
+// lib/resume-builder/achievements-editor.ts so they can be unit-tested.
 
 function moveItem<T>(arr: T[], from: number, to: number): T[] {
   if (to < 0 || to >= arr.length) return arr;
@@ -407,7 +383,12 @@ export function ResumeEditor({ resumeId, initialTitle, initialContent, templateS
                 id={`experience-${i}-bullets`}
                 label="Achievements"
                 paragraphs={experienceBulletParagraphs(entry)}
-                onParagraphsChange={(paragraphs) => updateExperience(i, bulletsPatch(paragraphs))}
+                bulleted={getExperienceBullets(entry) !== undefined}
+                canTurnOffBullets={canTurnOffBullets(experienceBulletParagraphs(entry))}
+                onParagraphsChange={(paragraphs, bulleted) => updateExperience(i, bulletsPatch(paragraphs, bulleted))}
+                onBulletedChange={(bulleted) =>
+                  updateExperience(i, bulletsPatch(experienceBulletParagraphs(entry), bulleted))
+                }
                 minHeightClassName="min-h-[84px]"
                 placeholder="One achievement per paragraph — press Enter to start the next bullet point."
               />
@@ -810,9 +791,9 @@ export function ResumeEditor({ resumeId, initialTitle, initialContent, templateS
           }}
         />
       </div>
-      <div className="border-[1.5px] border-ink print:border-none">
+      <ResumePrintSurface>
         <TemplateRenderer slug={templateSlug} resume={content} />
-      </div>
+      </ResumePrintSurface>
     </div>
   </div>
   );

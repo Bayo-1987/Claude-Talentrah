@@ -1,3 +1,5 @@
+import { achievementsFromTypedList } from "./achievements";
+
 export interface ResumeExperienceEntry {
   title: string;
   company: string;
@@ -130,7 +132,7 @@ function cleanBullets(bullets: string[] | undefined): string[] | undefined {
  * preview, in particular) needs to change to keep working.
  */
 export function getExperienceText(entry: ResumeExperienceEntry): string | undefined {
-  const bullets = cleanBullets(entry.bullets);
+  const bullets = getExperienceBullets(entry);
   if (bullets) {
     return bullets.join(" ");
   }
@@ -143,7 +145,12 @@ export function getExperienceText(entry: ResumeExperienceEntry): string | undefi
  * (no bullets, or only blank ones), so the two stay in lockstep: a caller
  * that checks this first and falls back to `getExperienceText`'s string
  * for its `<p>` can never end up rendering neither, or both.
+ *
+ * A `description` that is really a typed list ("- a\n- b", "• a\n• b",
+ * "1. a\n2. b") also reads as bullets, markers removed (achievements.ts).
+ * Without that, every template would print the dashes as text inside one
+ * paragraph — HTML collapses the newlines — instead of as list items.
  */
 export function getExperienceBullets(entry: ResumeExperienceEntry): string[] | undefined {
-  return cleanBullets(entry.bullets);
+  return cleanBullets(entry.bullets) ?? achievementsFromTypedList(entry.description);
 }
