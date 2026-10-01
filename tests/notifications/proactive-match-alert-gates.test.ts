@@ -37,7 +37,7 @@ vi.mock("@/lib/supabase/service-role", () => ({
     from: (table: string) => {
       tablesRead.push(table);
       const chain: Record<string, unknown> = {};
-      for (const m of ["select", "eq", "gte", "in", "limit", "insert", "maybeSingle"]) {
+      for (const m of ["select", "eq", "gte", "in", "is", "limit", "insert", "maybeSingle"]) {
         chain[m] = () => chain;
       }
       // Terminal: resolves to an empty set, same as flag-gate.test.ts's own
