@@ -84,6 +84,11 @@ vi.mock("@/lib/supabase/service-role", () => ({
           );
           return chain;
         },
+        // `.is(col, null)` — a column absent from a fixture row counts as null, as PostgREST reads it (0202's superseded_at).
+        is: (col: string, val: unknown) => {
+          rows = rows.filter((r) => (resolve_(r, col) ?? null) === val);
+          return chain;
+        },
         limit: () => chain,
         update: (payload: Record<string, unknown>) => {
           isUpdate = true;
@@ -170,6 +175,18 @@ describe("the calendar window — a dormant user with a fresh Good/Excellent mat
     expect(sentEmails[0].to).toBe("dormant-user@example.test");
     expect(stampedUpdates).toHaveLength(1);
     expect(stampedUpdates[0].user_id).toBe("dormant-user");
+  });
+
+  it("never emails a superseded duplicate (0202): the only match is a hidden copy, so there is nothing to send", async () => {
+    fixtures.recipients = [recipient("dormant-user")];
+    fixtures.baseResumeUserIds = [{ user_id: "dormant-user", is_base: true }];
+    const row = matchScoreRow("dormant-user", "job-hidden", 82) as { job_postings: Record<string, unknown> };
+    row.job_postings.superseded_at = "2026-10-01T09:00:00.000Z";
+    fixtures.matchScores = [row];
+
+    const summary = await sendWinbackEmails(NOW);
+    expect(summary.sent).toBe(0);
+    expect(sentEmails).toHaveLength(0);
   });
 
   it("does not send to a user active only 5 days ago (not dormant yet)", async () => {

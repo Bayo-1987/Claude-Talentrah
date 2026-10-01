@@ -3,6 +3,8 @@
 import { useState, useTransition } from "react";
 import { requestTalentVerificationAction } from "@/lib/talent-directory/actions";
 import { Button } from "@/components/ui";
+import { CREDIT_COSTS } from "@/lib/credits/costs";
+import { priced } from "@/lib/credits/price-labels";
 
 export function VerificationPanel({ status }: { status: string }) {
   const [pending, startTransition] = useTransition();
@@ -36,7 +38,7 @@ export function VerificationPanel({ status }: { status: string }) {
           })
         }
       >
-        {status === "rejected" ? "Try again" : "Request verification"}
+        {priced(status === "rejected" ? "Try again" : "Request verification", CREDIT_COSTS.talentDirectoryVerification)}
       </Button>
       {message && (
         <p className={`text-[13px] ${message.ok ? "text-green" : "text-rust"}`}>{message.text}</p>

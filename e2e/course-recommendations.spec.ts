@@ -111,6 +111,13 @@ async function runTailoring(page: import("@playwright/test").Page) {
         "dashboards, and work with stakeholders across the business on SQL.",
     );
   await page.getByRole("button", { name: "Tailor my resume" }).click();
+  // This account's free run may already be spent, in which case the run asks before charging (send-493).
+  // The courses are what these tests are about, so confirm if asked and carry on if not.
+  const confirm = page.getByTestId("tailor-confirm");
+  await confirm
+    .waitFor({ state: "visible", timeout: 1_500 })
+    .then(() => confirm.getByRole("button", { name: "Confirm and tailor" }).click())
+    .catch(() => {});
 }
 
 test.describe("course recommendations", () => {
