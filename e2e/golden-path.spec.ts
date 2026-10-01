@@ -248,6 +248,8 @@ test.describe("golden path", () => {
     await page.goto("/tailor");
     await page.locator("textarea").fill(SHORT_JD);
     await page.getByRole("button", { name: "Tailor my resume" }).click();
+    // A charged run asks first (send-493); the free run above did not.
+    await page.getByTestId("tailor-confirm").getByRole("button", { name: "Confirm and tailor" }).click();
     await expect(page.getByText("credits used", { exact: false })).toBeVisible({ timeout: 30_000 });
 
     await page.goto("/billing");

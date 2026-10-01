@@ -250,6 +250,8 @@ async function loadCandidates(
     )
     .eq("user_id", userId)
     .eq("job_postings.status", "open")
+    // 0202: a superseded duplicate is never emailed — this client bypasses RLS, so the policy does not do it.
+    .is("job_postings.superseded_at", null)
     .gte("job_postings.posted_at", since);
   if (error) throw error;
 

@@ -3,6 +3,13 @@ export interface LLMChatTurn {
   content: string;
 }
 
+/**
+ * Why a streamed reply stopped, provider-neutral. `length` means the model hit `maxOutputTokens`, i.e. the text
+ * is cut off mid-thought. Anything else a provider reports that is not a clean stop is `other`, never `length`:
+ * only a real length stop may be treated as "incomplete".
+ */
+export type LLMFinishReason = "stop" | "length" | "other";
+
 export interface LLMGenerateOptions {
   /** Omitted entirely by the resume-parse fallback — not every call site uses one. */
   systemPrompt?: string;
@@ -17,6 +24,13 @@ export interface LLMGenerateOptions {
    * contract here, not a regression.
    */
   jsonSchema?: Record<string, unknown>;
+  /**
+   * Streaming only. Called once, when the stream ends, with why it stopped. Not called if the provider's stream
+   * carried no reason (callers treat "never told" as finished), and not called if the stream threw. A callback
+   * rather than a return value because `generateTextStream` is an async generator of text and every existing
+   * caller consumes it as one.
+   */
+  onFinish?: (reason: LLMFinishReason) => void;
 }
 
 /**

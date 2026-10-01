@@ -3,25 +3,18 @@
 import { useRef } from "react";
 import { updateStageAction } from "@/lib/applications/tracker-actions";
 import { cn } from "@/lib/cn";
-
-const STAGE_OPTIONS: { value: string; label: string }[] = [
-  { value: "saved", label: "Saved" },
-  { value: "applied", label: "Applied" },
-  { value: "interviewing", label: "Interviewing" },
-  { value: "offer", label: "Offer" },
-  { value: "hired", label: "Hired" },
-  { value: "rejected", label: "Rejected" },
-  { value: "archived", label: "Archived" },
-];
+import { TRACKER_STAGES } from "@/lib/tracker/stages";
 
 export function StageSelect({
   applicationId,
   stage,
   jobTitle,
+  companyName,
 }: {
   applicationId: string;
   stage: string;
   jobTitle: string;
+  companyName: string;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
   const selectRef = useRef<HTMLSelectElement>(null);
@@ -41,6 +34,11 @@ export function StageSelect({
       <select
         ref={selectRef}
         name="stage"
+        /*
+          Without a name every card's control is announced as just "combobox, Applied", with nothing saying which
+          job it changes (X2). Title and company together, because two postings can share a title.
+        */
+        aria-label={`Stage for ${jobTitle} at ${companyName}`}
         defaultValue={stage}
         onChange={(e) => {
           // Marking "Hired" is the highest-trust, highest-goodwill moment in
@@ -60,9 +58,9 @@ export function StageSelect({
           stage === "hired" && "border-green text-green",
         )}
       >
-        {STAGE_OPTIONS.map((opt) => (
-          <option key={opt.value} value={opt.value}>
-            {opt.label}
+        {TRACKER_STAGES.map((s) => (
+          <option key={s.key} value={s.key}>
+            {s.label}
           </option>
         ))}
       </select>

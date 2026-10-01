@@ -60,7 +60,9 @@ describe("fetchWorkableJobs", () => {
     const posting = jobs[0];
     expect(posting.title).toBe("Backend Engineer");
     expect(posting.companyName).toBe("Kuda Technologies Ltd");
-    expect(posting.location).toBe("Lagos, Lagos, Nigeria");
+    // The source sends city, state, country with state == city; stored once (S12 c, normalizeLocation). The fingerprint is
+    // still computed from the raw string: tests/jobs/normalize-location.test.ts.
+    expect(posting.location).toBe("Lagos, Nigeria");
     expect(posting.employmentType).toBe("full_time");
     expect(posting.externalUrl).toBe("https://apply.workable.com/j/E96B878F8B");
     expect(posting.externalSource).toBe("workable");

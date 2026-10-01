@@ -78,6 +78,16 @@ function render(Component: ComponentType<TemplateProps>, resume: StructuredResum
  */
 function normalizeKnownSend470Rename(html: string): string {
   return html
+    // Resume PDF work (S2-11): certifications render in two columns only from 8
+    // entries (templates/shared.tsx `certificationListClass`). The frozen
+    // clinical fixture always used two columns; this fixture has 2
+    // certifications, so the current single-column list is the deliberate,
+    // reviewed difference — normalised back so every OTHER difference is
+    // still caught. Anchored on the section heading so no other list matches.
+    .replace(
+      /(Licensure &amp; Certifications<\/h2><ul class=")mt-2 flex flex-col gap-1(")/g,
+      "$1mt-2 grid grid-cols-2 gap-x-6 gap-y-1$2",
+    )
     // send-473: every document root now declares its own base font (and has
     // its variable in scope) instead of inheriting the app's — the one
     // ` text-ink font-resume-body <font scope class>` tail that only a
