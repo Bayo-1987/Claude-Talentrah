@@ -1,8 +1,19 @@
 import { Container, EyebrowLabel, SkeletonCard, SkeletonStatus } from "@/components/ui";
 
 /**
- * Mentor discovery, loading. Eyebrow, heading and intro copy are constants
- * in page.tsx; the mentor cards are the only genuinely-fetched content.
+ * Mentor discovery, loading — for BOTH kinds of visitor. Since send-385 a signed-out visitor reaches this
+ * route too, so it carries nothing specific to either.
+ *
+ * send-487 — it used to render the signed-in page's heading ("Talk to someone who's done it.") and intro
+ * paragraph. MEASURED (send-480, on this route): on a throttled mobile profile a signed-out visitor read that
+ * signed-in heading first (0.9 s on Fast 3G, 1.5 s on Slow 3G) before a different <h1> replaced it; and a
+ * streamed fallback lands in the RAW HTML beside the page, so the response a crawler reads had TWO <h1>s
+ * (production, probed signed out: the signed-in one at byte 4458, the landing's at 96864).
+ *
+ * NO HEADING AT ALL, on purpose: eyebrow + status + skeleton cards, the same neutral shape as
+ * scholarships/(list)/loading.tsx, jobs/(feed)/loading.tsx and tracker/(list)/loading.tsx
+ * (tests/mentorship/list-loading.test.tsx; e2e/mentorship-public-landing.spec.ts counts the raw <h1>s).
+ * The `Container` wrapper stays so the signed-in loading-to-page transition does not shift.
  *
  * LIVES IN A (list) NESTED GROUP, SIBLING OF [mentorId]/, not directly under
  * mentorship/ — same reason jobs/(feed)/loading.tsx isn't a bare
@@ -20,18 +31,7 @@ export default function MentorshipListLoading() {
     <Container className="flex max-w-[900px] flex-col gap-8 py-12">
       <SkeletonStatus>Loading mentors…</SkeletonStatus>
 
-      <div className="flex flex-col gap-2">
-        <EyebrowLabel>Mentorship</EyebrowLabel>
-        <h1 className="font-display text-[28px] font-semibold">
-          Talk to someone who&apos;s done it.
-        </h1>
-        <p className="max-w-[560px] text-[14.5px] text-ink-soft">
-          Farah can benchmark and coach — a human mentor is for the moments
-          that carry real stakes: a mock interview, a negotiation for a
-          specific offer, or a second opinion on your resume from someone
-          who&apos;s hired.
-        </p>
-      </div>
+      <EyebrowLabel>Mentorship</EyebrowLabel>
 
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
         {Array.from({ length: 4 }).map((_, i) => (
