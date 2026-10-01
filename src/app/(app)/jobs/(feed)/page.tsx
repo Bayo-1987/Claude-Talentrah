@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { after } from "next/server";
 import { getOptionalUser, requireUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
@@ -14,6 +15,17 @@ import { Constants, type Tables } from "@/lib/supabase/types";
 import { hasVisibleName, visibleName } from "@/lib/profile/name";
 import { parseMultiSelect } from "@/lib/jobs/multi-select";
 import { buildSuggestionIndex } from "@/lib/jobs/search-suggestions";
+import { searchJobs } from "@/lib/jobs/search";
+import { SavedEntryCard } from "@/components/jobs/saved-entry-card";
+import {
+  buildSavedPostingsQuery,
+  loadSavedRows,
+  partitionSavedSet,
+  savedCapNotice,
+  entryMatchesQuery,
+  savedEmptyState,
+  type SavedEntry,
+} from "@/lib/jobs/saved-set";
 import { getSiteOrigin } from "@/lib/referrals/url";
 import {
   fetchPromotedJobs,
@@ -175,6 +187,17 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
     country = defaultCountryForProfile(profile.country);
     countryState = country ? "kept" : "none";
   }
+  /*
+   * send-496 — the Saved tab has NO country filter. It is the user's own set (every tracker application at stage
+   * "saved"), not a discovery feed, so country is not a concept there: it filtered the owner's saved jobs, and below
+   * COUNTRY_THIN_THRESHOLD it printed "No jobs in Nigeria… showing roles from elsewhere below" beside "No saved jobs yet".
+   * "none" is the existing state for "country does not apply", so the FilterBar's Clear link, the caption and the
+   * fallback notice below all follow without a second condition.
+   */
+  if (tab === "saved") {
+    country = undefined;
+    countryState = "none";
+  }
 
   /*
    * RECENT-TAB PAGINATION (egress fix). Only Recent, and only when there is
@@ -263,7 +286,7 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
    */
   const BOARD_AGGREGATE_COLUMNS = "title, company_name, location, external_source, work_type, structured_jd";
 
-  function postingsQuery(viewerOrgIds: string[], savedIds?: string[]) {
+  function postingsQuery(viewerOrgIds: string[]) {
     let query = supabase
       .from("job_postings")
       .select(FEED_COLUMNS)
@@ -303,14 +326,12 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
        * and postings, so the common path is unchanged.
        */
       .eq("status", "open")
-      // The ambient 30-day floor always applies (src/lib/jobs/freshness.ts),
-      // to every tab including Saved — this page is the discovery feed, and
-      // a saved-but-aged-out posting disappearing from THIS tab does not
-      // lose anything: /tracker shows every stage (including "saved")
-      // through its own, entirely separate query with no freshness floor,
-      // so a user's actual history is unaffected regardless of what this
-      // feed hides. `posted` narrows the floor further when the reader
-      // picked a shorter window.
+      // The ambient 30-day floor applies (src/lib/jobs/freshness.ts) to every
+      // DISCOVERY tab. It no longer applies to Saved (send-496): that tab is
+      // the user's own set, built by buildSavedPostingsQuery with none of
+      // these rules, and hiding a saved-but-aged-out or closed posting there
+      // is what made the owner's five saved jobs vanish. `posted` narrows the
+      // floor further when the reader picked a shorter window.
       .gte("posted_at", jobDateFilterSinceISO(posted));
     query = viewerOrgIds.length
       ? query.or(
@@ -322,16 +343,13 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
     // case is handled by never calling it, so "no filter" stays "no filter".
     if (workTypes.length) query = query.in("work_type", workTypes);
     if (seniorities.length) query = query.in("seniority", seniorities);
-    if (savedIds) {
-      query = query.in("id", savedIds.length ? savedIds : ["00000000-0000-0000-0000-000000000000"]);
-    }
     return query;
   }
 
   /*
    * Recent tab's board-wide aggregate fetch — same status/freshness/
    * unlisted-org/work-type/seniority filters as postingsQuery above, minus
-   * savedIds and the external-tab branch (both dead here: this only ever
+   * the saved-tab and external-tab branches (both dead here: this only ever
    * runs for tab === "recent"). Kept as its own function rather than a
    * parameter to postingsQuery for the same select()-literal-typing reason
    * BOARD_AGGREGATE_COLUMNS is its own constant, not a slice of FEED_COLUMNS.
@@ -407,20 +425,11 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
   }
 
   /*
-   * Saved-tab ids, computed once and shared below by both the base postings
-   * query and the search RPC. This is a plain promise, not a second read:
-   * `applicationsQuery` is an already-resolved Promise from an async IIFE, so
-   * chaining `.then()` on it twice (here and, when searching, again below)
-   * reads the same response rather than firing a second request.
+   * The Saved tab's rows (send-496): the user's most recent applications at stage "saved" (bounded: SAVED_TAB_MAX), with the
+   * snapshot taken when each was saved and the true total. A promise, so awaiting it in two places reads one response. Only
+   * the Saved tab pays for it; the discovery tabs never read the snapshot column.
    */
-  const savedIds: Promise<string[]> =
-    tab === "saved"
-      ? applicationsQuery.then(({ data }) =>
-          (data ?? [])
-            .filter((a) => a.job_posting_id !== null && a.stage === "saved")
-            .map((a) => a.job_posting_id as string),
-        )
-      : Promise.resolve([]);
+  const savedRowsQuery = tab === "saved" ? loadSavedRows(supabase, user.id) : undefined;
 
   /*
    * The viewer's own organisations, for the unlisted exclusion above.
@@ -480,8 +489,19 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
       };
     }
     if (tab === "saved") {
-      const [orgIds, ids] = await Promise.all([viewerOrgIds, savedIds]);
-      return { result: await postingsQuery(orgIds, ids) };
+      const { rows: savedRows } = await savedRowsQuery!;
+      const ids = savedRows.flatMap((r) => (r.job_posting_id ? [r.job_posting_id] : []));
+      /*
+       * Without the discovery rules (no status, freshness or unlisted filter; no viewer-org lookup, since that exists
+       * only to keep an employer's own unlisted postings in the discovery feed). The user's own work-type, seniority
+       * and "posted within" choices still apply. Cast to the row type postingsQuery resolves to: same FEED_COLUMNS.
+       */
+      const result = (await buildSavedPostingsQuery(supabase, ids, FEED_COLUMNS, {
+        workTypes,
+        seniorities,
+        postedSince: posted ? jobDateFilterSinceISO(posted) : undefined,
+      })) as unknown as Awaited<ReturnType<typeof postingsQuery>>;
+      return { result };
     }
     const orgIds = await viewerOrgIds;
     return { result: await postingsQuery(orgIds) };
@@ -506,22 +526,22 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
    * an optional array/enum parameter doesn't itself include `| null` even
    * though the SQL side defaults it to null.
    */
-  const searchQuery = q
-    ? savedIds.then((ids) =>
-        supabase.rpc("search_job_postings", {
-          p_query: q,
-          p_since: jobDateFilterSinceISO(posted),
-          p_source_type: (tab === "external" ? "external" : null) as never,
-          p_work_types: (workTypes.length ? workTypes : null) as never,
-          p_seniorities: (seniorities.length ? seniorities : null) as never,
-          p_ids: (tab === "saved"
-            ? ids.length
-              ? ids
-              : ["00000000-0000-0000-0000-000000000000"]
-            : null) as never,
-        }),
-      )
-    : undefined;
+  /*
+   * Not on Saved (send-496): the RPC returns open postings only, which would drop a saved closed role from a search of
+   * the user's own set. Saved is searched in memory below, over the saved rows alone.
+   */
+  const searchQuery =
+    q && tab !== "saved"
+      ? (async () =>
+          supabase.rpc("search_job_postings", {
+            p_query: q,
+            p_since: jobDateFilterSinceISO(posted),
+            p_source_type: (tab === "external" ? "external" : null) as never,
+            p_work_types: (workTypes.length ? workTypes : null) as never,
+            p_seniorities: (seniorities.length ? seniorities : null) as never,
+            p_ids: null as never,
+          }))()
+      : undefined;
 
   const [
     { data: baseResume, error: baseResumeError },
@@ -568,6 +588,8 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
     | "search_vector"
     | "closed_at"
     | "unlisted_at"
+    | "superseded_by"
+    | "superseded_at"
     | "banner_path"
     | "admin_review_decision"
     | "admin_review_note"
@@ -613,7 +635,27 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
    * the one thing this codebase treats as worse than a visible one.
    */
   let jobs: FeedJobPosting[];
-  if (q) {
+  /*
+   * The Saved tab's non-posting cards (send-496): closed, removed and manual saved entries, rendered by SavedEntryCard,
+   * and the size of the whole saved set, which is what tells "nothing saved" from "your filters hide all of it".
+   */
+  let savedEntries: SavedEntry[] = [];
+  let savedTotal = 0;
+  let savedLoaded = 0;
+  if (tab === "saved") {
+    const { rows, total } = await savedRowsQuery!;
+    savedTotal = total;
+    savedLoaded = rows.length;
+    // The work-type / seniority / posted filters run in the database query, so a saved row whose posting is merely
+    // ABSENT from the result may just not match them; a snapshot cannot prove it does. Snapshot-only entries are shown
+    // only when none of those filters is on.
+    const filtersActive = workTypes.length > 0 || seniorities.length > 0 || !!posted;
+    const { openPostingIds, entries } = partitionSavedSet(rows, matchingFilters, { snapshotOnly: !filtersActive });
+    const open = new Set(openPostingIds);
+    jobs = matchingFilters.filter((j) => open.has(j.id));
+    if (q) jobs = searchJobs(jobs as never, q) as unknown as FeedJobPosting[];
+    savedEntries = entries.filter((e) => entryMatchesQuery(e, q));
+  } else if (q) {
     if (searchResult?.error) {
       console.error("[jobs] full-text search failed:", searchResult.error);
     }
@@ -1138,10 +1180,12 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
         </p>
       )}
 
-      {scored.length === 0 ? (
+      {scored.length === 0 && savedEntries.length === 0 ? (
         <p className="py-12 text-center text-[14.5px] text-ink-soft">
           {tab === "saved"
-            ? "No saved jobs yet — tap the heart icon on a job to save it here."
+            ? savedEmptyState({ savedTotal, shown: 0 }) === "filtered"
+              ? "None of your saved jobs match these filters — try clearing them."
+              : "No saved jobs yet — tap the heart icon on a job to save it here."
             : "No jobs match these filters right now — try clearing them."}
         </p>
       ) : (
@@ -1172,6 +1216,19 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
             }
             />
           ))}
+          {/* Saved only: closed, removed and manual entries, after the open postings (send-496). */}
+          {savedEntries.map((entry) => (
+            <SavedEntryCard key={entry.applicationId} entry={entry} />
+          ))}
+          {tab === "saved" && savedCapNotice({ total: savedTotal, loaded: savedLoaded }) && (
+            <p className="text-[13px] text-ink-soft">
+              {savedCapNotice({ total: savedTotal, loaded: savedLoaded })}{" "}
+              <Link href="/tracker?stage=saved" className="font-semibold underline underline-offset-2 hover:text-rust">
+                See them all in your tracker
+              </Link>
+              .
+            </p>
+          )}
         </div>
       )}
 

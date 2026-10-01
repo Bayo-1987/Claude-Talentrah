@@ -1,6 +1,7 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import type { MentorshipSessionType } from "@/lib/mentorship/pricing";
+import { countOpenSlotsByMentor } from "@/lib/mentorship/mentor-card";
 
 /**
  * All reads here go through the AUTHENTICATED client, not service role —
@@ -39,6 +40,8 @@ export interface MentorListing {
   basePriceNgn: number | null;
   reviewCount: number;
   averageRating: number | null;
+  /** Unbooked slots still ahead (send-497): what the card needs to say "No open slots" instead of quoting a price. */
+  openSlotCount: number;
 }
 
 export async function browseMentors(): Promise<MentorListing[]> {
@@ -56,10 +59,23 @@ export async function browseMentors(): Promise<MentorListing[]> {
 
   // Batched, not one call per mentor — see mentor_public_names' own comment
   // (0167) for why the name can't come from an embedded profiles join.
-  const { data: names, error: namesError } = await supabase.rpc("mentor_public_names", {
-    p_mentor_ids: rows.map((r) => r.user_id),
-  });
+  //
+  // The slots are the same shape of batch: ONE query over every listed mentor, filtered exactly as the mentor's own
+  // profile page filters them (unbooked, in the future). The card used to read a price off the mentor row and never
+  // look at slots, so it quoted "From ₦20,000" for a mentor whose profile said "No open slots right now" (send-497).
+  const mentorIds = rows.map((r) => r.user_id);
+  const [{ data: names, error: namesError }, { data: slotRows, error: slotsError }] = await Promise.all([
+    supabase.rpc("mentor_public_names", { p_mentor_ids: mentorIds }),
+    supabase
+      .from("mentor_availability_slots")
+      .select("mentor_id")
+      .in("mentor_id", mentorIds)
+      .eq("is_booked", false)
+      .gt("start_at", new Date().toISOString()),
+  ]);
   if (namesError) throw namesError;
+  if (slotsError) throw slotsError;
+  const openSlots = countOpenSlotsByMentor(slotRows ?? []);
   // send-418: display_name (mentor-set, mentor_profiles) wins when present —
   // it exists specifically to override the onboarding-signup name below.
   const nameById = new Map(
@@ -85,6 +101,7 @@ export async function browseMentors(): Promise<MentorListing[]> {
       basePriceNgn: r.base_price_ngn,
       reviewCount: ratings.length,
       averageRating: ratings.length ? ratings.reduce((a, b) => a + b, 0) / ratings.length : null,
+      openSlotCount: openSlots.get(r.user_id) ?? 0,
     };
   });
 }
@@ -147,6 +164,7 @@ export async function getMentorProfile(mentorUserId: string): Promise<MentorProf
     basePriceNgn: mentor.base_price_ngn,
     reviewCount: ratings.length,
     averageRating: ratings.length ? ratings.reduce((a, b) => a + b, 0) / ratings.length : null,
+    openSlotCount: (slots ?? []).length,
     openSlots: (slots ?? []).map((s) => ({ id: s.id, startAt: s.start_at, endAt: s.end_at })),
   };
 }

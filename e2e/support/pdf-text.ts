@@ -44,7 +44,7 @@ class InertDOMMatrix {
   }
 }
 
-function ensurePdfRuntimeGlobals() {
+export function ensurePdfRuntimeGlobals() {
   const g = globalThis as unknown as Record<string, unknown>;
   if (!g.DOMMatrix) g.DOMMatrix = InertDOMMatrix;
   if (!g.ImageData) {

@@ -154,6 +154,19 @@ test.describe("reporting a posting", () => {
       expect(l.h).toBeGreaterThanOrEqual(40);
     }
 
+    // send-494: the panel opens with NOTHING chosen (it used to arrive with "It looks like a scam" pre-checked,
+    // so an unread "Send report" filed a fraud accusation), and Send does nothing until a reason is picked.
+    for (const reason of ["scam", "closed_but_listed", "discriminatory", "other"]) {
+      await expect(page.locator(`input[name="reason"][value="${reason}"]`)).not.toBeChecked();
+    }
+    await page.getByRole("button", { name: "Send report" }).click();
+    await expect(panel).toBeVisible();
+    await expect(page.getByText("that's with our team")).toHaveCount(0);
+    expect(
+      await panel.locator("form").evaluate((f) => (f as HTMLFormElement).checkValidity()),
+      "the form must not be submittable with no reason chosen",
+    ).toBe(false);
+
     // Clicking the label, not the dot, must select the radio.
     await page.getByText("The posting is discriminatory").click();
     expect(
@@ -180,6 +193,8 @@ test.describe("reporting a posting", () => {
       page,
       page.getByRole("button", { name: "Report" }).first(),
     );
+    // A reason is required now, so the repeat report chooses one like a person would.
+    await page.getByText("It looks like a scam").click();
     await page.getByRole("button", { name: "Send report" }).click();
     await expect(page.getByText("already reported this one")).toBeVisible({
       timeout: 15000,

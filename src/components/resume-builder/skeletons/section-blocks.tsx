@@ -1,6 +1,6 @@
 import { getExperienceBullets, getExperienceText, type StructuredResume } from "@/lib/resume/types";
 import { renderMarkdownParagraphs, renderInlineMarkdown } from "@/lib/farah/render-markdown";
-import { contactLine, dateRange } from "../templates/shared";
+import { certificationListClass, contactLine, dateRange } from "../templates/shared";
 import {
   bodyTextScale,
   flowDensityScale,
@@ -236,12 +236,15 @@ function renderSimpleStringList({
   content,
   sectionClassName,
   sectionKey,
+  twoColumns = false,
 }: {
   items: string[];
   tokens: StyleTokens;
   content: ContentConfig;
   sectionClassName: string;
   sectionKey: SectionKey;
+  /** Certifications only: two compact columns from 8 entries (templates/shared.tsx). */
+  twoColumns?: boolean;
 }) {
   if (items.length === 0) return null;
   const d = density(tokens.density);
@@ -249,7 +252,7 @@ function renderSimpleStringList({
   return (
     <section className={sectionClassName}>
       <SectionHeading tokens={tokens} label={sectionLabel(content, sectionKey)} />
-      <ul className={d.simpleListGap}>
+      <ul className={twoColumns ? certificationListClass(items.length, d.simpleListGap) : d.simpleListGap}>
         {items.map((item, i) => (
           <li key={i} className={joinClasses(t.listItem, "text-ink-soft")}>
             {item}
@@ -274,8 +277,16 @@ export function renderCertifications(args: {
   tokens: StyleTokens;
   content: ContentConfig;
   sectionClassName: string;
+  /** A narrow column (the sidebar/rail skeletons' 200px aside) cannot take two columns. */
+  narrow?: boolean;
 }) {
-  return renderSimpleStringList({ ...args, items: args.resume.certifications, sectionKey: "certifications" });
+  const { narrow, ...rest } = args;
+  return renderSimpleStringList({
+    ...rest,
+    items: args.resume.certifications,
+    sectionKey: "certifications",
+    twoColumns: !narrow,
+  });
 }
 
 export function renderAwards(args: {
@@ -459,6 +470,7 @@ export const SECTION_RENDERERS: Record<
     tokens: StyleTokens;
     content: ContentConfig;
     sectionClassName: string;
+    narrow?: boolean;
   }) => React.ReactNode
 > = {
   experience: renderExperience,

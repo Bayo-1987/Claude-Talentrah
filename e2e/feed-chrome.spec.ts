@@ -66,18 +66,21 @@ test.beforeEach(async ({ page }) => {
   }
 });
 
-test("every card states an applicant count or says it cannot", async ({ page }) => {
-  // No card may be silent about it. Omitting the line at zero would make its
-  // absence ambiguous with the unknown case, which is the whole distinction.
+test("every card prints a KNOWN applicant count and says nothing when it is unknown", async ({ page }) => {
+  // send-498 (owner's QA audit): "Applicant count unavailable" was printed on every external card, about something
+  // the reader cannot act on, and is gone. A KNOWN count still prints, zero included: "0 applicants" is a real fact,
+  // and omitting it would make its absence ambiguous with unknown, so it is shown; unknown is simply not mentioned.
   const lines = await page.evaluate(() =>
     [...document.querySelectorAll("p, span")]
       .map((el) => (el as HTMLElement).innerText?.trim() ?? "")
-      .filter((t) => /^Posted .+ ago · /.test(t)),
+      .filter((t) => /^Posted .+ ago/.test(t)),
   );
 
   expect(lines.length).toBeGreaterThan(0);
   for (const line of lines) {
-    expect(line).toMatch(/· (\d+ applicants?|Applicant count unavailable)$/);
+    expect(line).not.toContain("Applicant count unavailable");
+    // Anything that mentions applicants is a real count, at the end of the line.
+    if (/applicant/i.test(line)) expect(line).toMatch(/· \d+ applicants?$/);
   }
 });
 
@@ -89,7 +92,7 @@ test("external postings never claim a count", async ({ page }) => {
       const card = h.closest("div[class*='border-[1.5px]']");
       const posted = [...(card?.querySelectorAll("span") ?? [])]
         .map((s) => (s as HTMLElement).innerText?.trim() ?? "")
-        .find((t) => /^Posted .+ ago · /.test(t));
+        .find((t) => /^Posted .+ ago/.test(t));
       if (posted) out.push(posted);
     });
     return out;
@@ -97,8 +100,9 @@ test("external postings never claim a count", async ({ page }) => {
 
   expect(externalLines.length).toBeGreaterThan(0);
   for (const line of externalLines) {
-    expect(line).toContain("Applicant count unavailable");
-    expect(line).not.toMatch(/\d+ applicants?/);
+    // Unknown is not mentioned at all (send-498), and a number is never invented.
+    expect(line).not.toContain("Applicant count unavailable");
+    expect(line).not.toMatch(/applicants?/i);
   }
 });
 

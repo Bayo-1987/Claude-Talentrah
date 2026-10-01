@@ -102,6 +102,7 @@ vi.mock("@/lib/supabase/service-role", () => ({
         eq: () => chain,
         or: () => chain,
         gte: () => chain,
+        is: () => chain, // 0202: `.is("job_postings.superseded_at", null)`; no fixture row is superseded
         in: () => chain,
         limit: () => chain,
         update: () => chain,

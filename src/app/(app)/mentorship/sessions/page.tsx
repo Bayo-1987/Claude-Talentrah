@@ -2,17 +2,9 @@ import { requireUser } from "@/lib/auth/require-user";
 import { sessionsAsMentee } from "@/lib/mentorship/queries";
 import { Container, EyebrowLabel, BorderedCard } from "@/components/ui";
 import { ReviewForm } from "./review-form";
+import { bucketSession, sessionStatusLabel } from "@/lib/mentorship/session-buckets";
 
 export const metadata = { title: "Your mentorship sessions — Talentrah" };
-
-const STATUS_LABEL: Record<string, string> = {
-  pending_payment: "Awaiting payment",
-  awaiting_confirmation: "Waiting on the mentor to confirm",
-  confirmed: "Confirmed",
-  completed: "Completed",
-  cancelled_mentor_no_confirm: "Cancelled — mentor didn't confirm in time",
-  refunded: "Refunded",
-};
 
 /** The mentee side of session lifecycle (send-137, build-prompt §6.11 v1 slice). */
 export default async function MentorshipSessionsPage({
@@ -23,8 +15,15 @@ export default async function MentorshipSessionsPage({
   const { user } = await requireUser();
   const [sessions, { booked }] = await Promise.all([sessionsAsMentee(user.id), searchParams]);
 
-  const upcoming = sessions.filter((s) => !["completed", "cancelled_mentor_no_confirm", "refunded"].includes(s.status));
-  const past = sessions.filter((s) => ["completed", "cancelled_mentor_no_confirm", "refunded"].includes(s.status));
+  /*
+   * send-497: Upcoming is paid-or-confirmed sessions that have not ended; an unpaid booking still ahead has its own
+   * section; an unpaid booking whose slot has started is past ("Not paid — the slot has passed"). This used to be "everything that
+   * is not completed, cancelled or refunded", which kept a 17 Sep unpaid booking under Upcoming for two weeks.
+   */
+  const now = new Date();
+  const upcoming = sessions.filter((s) => bucketSession(s, now) === "upcoming");
+  const awaitingPayment = sessions.filter((s) => bucketSession(s, now) === "awaiting_payment");
+  const past = sessions.filter((s) => bucketSession(s, now) === "past");
 
   return (
     <Container className="flex max-w-[720px] flex-col gap-8 py-12">
@@ -45,7 +44,7 @@ export default async function MentorshipSessionsPage({
             <BorderedCard key={s.id} className="flex flex-col gap-2 p-5">
               <p className="font-semibold text-ink">{s.mentorName} · {s.sessionType.replace(/_/g, " ")}</p>
               <p className="text-[13.5px] text-ink-soft">
-                {new Date(s.scheduledStart).toLocaleString()} · {STATUS_LABEL[s.status] ?? s.status}
+                {new Date(s.scheduledStart).toLocaleString()} · {sessionStatusLabel(s.status, s.scheduledStart, now)}
               </p>
               {s.meetingLink && (
                 <a href={s.meetingLink} target="_blank" rel="noopener noreferrer" className="text-[13.5px] text-rust">
@@ -57,6 +56,20 @@ export default async function MentorshipSessionsPage({
         )}
       </section>
 
+      {awaitingPayment.length > 0 && (
+        <section className="flex flex-col gap-4">
+          <h2 className="font-display text-[18px] font-semibold">Awaiting payment</h2>
+          {awaitingPayment.map((s) => (
+            <BorderedCard key={s.id} className="flex flex-col gap-2 p-5">
+              <p className="font-semibold text-ink">{s.mentorName} · {s.sessionType.replace(/_/g, " ")}</p>
+              <p className="text-[13.5px] text-ink-soft">
+                {new Date(s.scheduledStart).toLocaleString()} · {sessionStatusLabel(s.status, s.scheduledStart, now)}
+              </p>
+            </BorderedCard>
+          ))}
+        </section>
+      )}
+
       <section className="flex flex-col gap-4">
         <h2 className="font-display text-[18px] font-semibold">Past</h2>
         {past.length === 0 ? (
@@ -66,7 +79,7 @@ export default async function MentorshipSessionsPage({
             <BorderedCard key={s.id} className="flex flex-col gap-2 p-5">
               <p className="font-semibold text-ink">{s.mentorName} · {s.sessionType.replace(/_/g, " ")}</p>
               <p className="text-[13.5px] text-ink-soft">
-                {new Date(s.scheduledStart).toLocaleString()} · {STATUS_LABEL[s.status] ?? s.status}
+                {new Date(s.scheduledStart).toLocaleString()} · {sessionStatusLabel(s.status, s.scheduledStart, now)}
               </p>
               {s.status === "completed" && <ReviewForm sessionId={s.id} mentorId={s.mentorId} />}
             </BorderedCard>

@@ -73,7 +73,7 @@ export default async function ReferPage() {
       <div>
         <EyebrowLabel>Refer & earn</EyebrowLabel>
         <h1 className="mt-1.5 text-[26px]">
-          Bring a friend, earn {REFERRAL_ACTIVATION_BONUS_TAILORING_RUNS} free CV tailorings.
+          Bring a friend, earn {REFERRAL_ACTIVATION_BONUS_TAILORING_RUNS} free resume tailorings.
         </h1>
         {/*
           Leads with what the reward BUYS, not a credit count the reader has
@@ -84,7 +84,7 @@ export default async function ReferPage() {
         <p className="mt-2 max-w-[560px] text-[14.5px] text-ink-soft">
           When a friend signs up with your link, you get {REFERRAL_SIGNUP_BONUS_CREDITS} credits.
           Once they get set up on Talentrah, you get {REFERRAL_ACTIVATION_BONUS_CREDITS} more —{" "}
-          {REFERRAL_ACTIVATION_BONUS_TAILORING_RUNS} free CV tailorings, the real reward. Up to 10
+          {REFERRAL_ACTIVATION_BONUS_TAILORING_RUNS} free resume tailorings, the real reward. Up to 10
           rewarded referrals every 30 days.
         </p>
       </div>

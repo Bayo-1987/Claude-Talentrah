@@ -1,5 +1,5 @@
 import { getExperienceBullets, getExperienceText } from "@/lib/resume/types";
-import { contactLine, dateRange, type TemplateProps } from "./shared";
+import { certificationListClass, contactLine, dateRange, type TemplateProps } from "./shared";
 import { renderMarkdownParagraphs, renderInlineMarkdown } from "@/lib/farah/render-markdown";
 import { resumeSourceSans } from "./fonts";
 
@@ -31,7 +31,7 @@ export function ClinicalTemplate({ resume }: TemplateProps) {
           <h2 className="font-resume-body text-[11px] font-bold uppercase tracking-[0.14em] text-rust">
             Licensure &amp; Certifications
           </h2>
-          <ul className="mt-2 grid grid-cols-2 gap-x-6 gap-y-1">
+          <ul className={certificationListClass(certifications.length, "mt-2 flex flex-col gap-1")}>
             {certifications.map((c, i) => (
               <li key={i} className="font-resume-body text-[13px] text-ink">
                 {c}
