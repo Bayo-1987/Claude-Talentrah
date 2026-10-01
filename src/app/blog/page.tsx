@@ -5,20 +5,13 @@ import { MarketingMasthead } from "@/components/marketing/marketing-masthead";
 import { MarketingFooter } from "@/components/marketing/marketing-footer";
 import { Container, EyebrowLabel } from "@/components/ui";
 import { getAllPosts } from "@/lib/blog/posts";
+import { formatDate } from "@/lib/format/datetime";
 
 export const metadata: Metadata = pageMetadata({
   title: "Blog — Talentrah",
   description: "Career advice from the Talentrah team.",
   path: "/blog",
 });
-
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
-}
 
 /**
  * A BACKSTOP, not the mechanism.

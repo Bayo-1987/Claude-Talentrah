@@ -16,6 +16,7 @@ import { BoostPanel } from "./boost-panel";
 import { AvailabilityForm } from "./availability-form";
 import { PortfolioManager } from "./portfolio-manager";
 import { IncomingContactRequests } from "./incoming-contact-requests";
+import { formatDate } from "@/lib/format/datetime";
 
 export const metadata = { title: "Get Verified — Talentrah" };
 
@@ -116,7 +117,7 @@ export default async function TalentDirectoryVerifyPage() {
           {history.map((h) => (
             <BorderedCard key={h.id} className="flex flex-col gap-1.5 p-4">
               <p className="text-[13.5px] text-ink">
-                {new Date(h.requestedAt).toLocaleDateString()} · {h.status}
+                {formatDate(h.requestedAt)} · {h.status}
                 {h.score != null && ` · ${h.score}/100`}
               </p>
               {h.feedback && (
