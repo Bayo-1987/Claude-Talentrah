@@ -64,3 +64,49 @@ test("the job page title, og:title and twitter:title agree; canonical and the re
     await admin.from("job_postings").delete().eq("id", data.id);
   }
 });
+
+test("one role posted once per applicant country: each page's title carries its own country, and only those do", async ({ page }) => {
+  if (!admin) return;
+  const tag = randomUUID().slice(0, 8);
+  const company = `Title Probe Co ${tag}`;
+  const base = {
+    source_type: "external" as const,
+    title: "Head of Supply Chain",
+    company_name: company,
+    work_type: "remote" as const,
+    external_source: "e2e",
+    status: "open" as const,
+    description: `Fixture posting for the job-page title collision e2e (${tag}). It runs the supply chain end to end across several countries.`,
+  };
+  const ids: string[] = [];
+  try {
+    for (const country of ["Poland", "Spain"]) {
+      const { data, error } = await admin
+        .from("job_postings")
+        .insert({ ...base, location: `Remote, ${country}`, external_url: `https://example.invalid/e2e/${tag}/${country}`, dedup_fingerprint: `e2e-title-${country}-${tag}` })
+        .select("id")
+        .single();
+      if (error || !data) throw new Error(`fixture: ${error?.message}`);
+      ids.push(data.id);
+    }
+    const lone = await admin
+      .from("job_postings")
+      .insert({ ...base, title: "Head of Procurement", location: "Remote, Kenya", external_url: `https://example.invalid/e2e/${tag}/lone`, dedup_fingerprint: `e2e-title-lone-${tag}` })
+      .select("id")
+      .single();
+    if (lone.error || !lone.data) throw new Error(`fixture: ${lone.error?.message}`);
+    ids.push(lone.data.id);
+
+    const titles: string[] = [];
+    for (const id of ids) {
+      await page.goto(`/jobs/${id}`);
+      titles.push(await page.title());
+    }
+    expect(titles[0]).toBe(`Head of Supply Chain at ${company} — Remote, Poland`);
+    expect(titles[1]).toBe(`Head of Supply Chain at ${company} — Remote, Spain`);
+    // collides with nothing, so it keeps the short place
+    expect(titles[2]).toBe(`Head of Procurement at ${company} — Remote`);
+  } finally {
+    if (ids.length) await admin.from("job_postings").delete().in("id", ids);
+  }
+});
