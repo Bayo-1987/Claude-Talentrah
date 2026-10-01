@@ -25,6 +25,14 @@ export interface IconButtonProps
  * and keeps the same relationship the hover state already has — border and
  * icon change color together, just ink-soft -> rust instead of line -> rust.
  * Hover is untouched.
+ *
+ * send-498 — a PRESSED button (`aria-pressed="true"`: the Save toggle on a job
+ * card) is drawn differently, by more than its glyph: rust border, rust icon
+ * and the rust tint as fill. `aria-pressed:` is Tailwind's attribute variant,
+ * so the state is the attribute itself, one source of truth for what a screen
+ * reader is told and what a sighted user sees, and its specificity beats the
+ * base classes without relying on stylesheet order. Rust and its tint are the
+ * design system's accent; no match-tier colour is borrowed.
  */
 export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(
   function IconButton({ className, disabled, ...props }, ref) {
@@ -36,7 +44,7 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(
         ref={ref}
         disabled={disabled || pending}
         className={cn(
-          "flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full border border-ink-soft bg-transparent text-ink-soft transition-colors hover:border-rust hover:text-rust disabled:cursor-not-allowed disabled:opacity-50",
+          "flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full border border-ink-soft bg-transparent text-ink-soft transition-colors hover:border-rust hover:text-rust aria-pressed:border-rust aria-pressed:bg-rust-soft aria-pressed:text-rust disabled:cursor-not-allowed disabled:opacity-50",
           className,
         )}
         {...props}
