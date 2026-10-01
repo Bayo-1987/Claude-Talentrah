@@ -1,23 +1,21 @@
 import type { Metadata } from "next";
 import { SITE_ORIGIN, SHARE_IMAGE, SHARE_IMAGE_META } from "@/lib/seo/site";
-import { Newsreader, IBM_Plex_Sans } from "next/font/google";
+import { preload } from "react-dom";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { CookieConsentBanner } from "@/components/legal/cookie-consent-banner";
 import "./globals.css";
+import "@/fonts/newsreader/newsreader.css";
+import "@/fonts/ibm-plex-sans/ibm-plex-sans.css";
+import { selfHostedFont } from "@/fonts/self-hosted-font";
+import { PRELOADED_FONT_URLS } from "@/fonts/preload";
 
-const newsreader = Newsreader({
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
-  style: ["normal", "italic"],
-  variable: "--font-newsreader",
-});
-
-const ibmPlexSans = IBM_Plex_Sans({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-ibm-plex-sans",
-});
+/*
+ * Self-hosted since #585: the woff2 files and their @font-face CSS are committed under src/fonts, so a build never asks
+ * Google for a font. Same families, weights, subsets, fallback metrics and `--font-*` variables as before.
+ */
+const newsreader = selfHostedFont({ slug: "newsreader", family: "Newsreader", singleStyle: false });
+const ibmPlexSans = selfHostedFont({ slug: "ibm-plex-sans", family: "IBM Plex Sans", singleStyle: true });
 
 const SITE_NAME = "Talentrah";
 const SITE_DESCRIPTION =
@@ -97,6 +95,12 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
+  /*
+   * The resource-hint API, not a <link> element: a <link rel="preload"> in this tree is emitted twice — once as React's
+   * hint, once again when the element itself is rendered — so each of the three files was preloaded two times a page.
+   * `preload()` emits the hint once, in the same form next/font's preloads had: rel, href, as, crossorigin, type.
+   */
+  for (const href of PRELOADED_FONT_URLS) preload(href, { as: "font", type: "font/woff2", crossOrigin: "" });
   return (
     <html
       lang="en"

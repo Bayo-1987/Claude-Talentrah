@@ -1,4 +1,5 @@
-import { Source_Sans_3 } from "next/font/google";
+import "@/fonts/source-sans-3/source-sans-3.css";
+import { selfHostedFont } from "@/fonts/self-hosted-font";
 
 /**
  * The six fixed templates' own body font — deliberately independent of the
@@ -26,10 +27,4 @@ import { Source_Sans_3 } from "next/font/google";
  * document's fonts before `window.print()` (src/lib/resume-builder/
  * wait-for-fonts.ts); a new resume typeface needs no registration there.
  */
-export const resumeSourceSans = Source_Sans_3({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-resume-source-sans",
-  display: "swap",
-  preload: false,
-});
+export const resumeSourceSans = selfHostedFont({ slug: "source-sans-3", family: "Source Sans 3", singleStyle: true });

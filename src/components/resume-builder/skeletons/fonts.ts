@@ -1,4 +1,8 @@
-import { Poppins, Work_Sans, Lora, Barlow_Condensed } from "next/font/google";
+import "@/fonts/poppins/poppins.css";
+import "@/fonts/work-sans/work-sans.css";
+import "@/fonts/lora/lora.css";
+import "@/fonts/barlow-condensed/barlow-condensed.css";
+import { selfHostedFont } from "@/fonts/self-hosted-font";
 import { resumeSourceSans } from "../templates/fonts";
 
 /**
@@ -7,8 +11,9 @@ import { resumeSourceSans } from "../templates/fonts";
  * `body` (Source Sans 3, `resumeSourceSans` — imported from
  * `templates/fonts.ts` rather than reusing the app's OWN body font, which is
  * IBM Plex Sans since send-470; see types.ts's `Typeface` header for why
- * that split exists). Each is self-hosted at build by `next/font/google` —
- * no runtime Google Fonts request, and nothing served from Supabase storage,
+ * that split exists). Each is self-hosted from src/fonts (committed woff2 and
+ * CSS; `next/font/google` before #585) — no Google Fonts request at build or at
+ * runtime, and nothing served from Supabase storage,
  * so none of this touches the org's egress cap (CLAUDE.md).
  *
  * `preload: false` ON PURPOSE, unlike `layout.tsx`'s own Newsreader/IBM Plex
@@ -35,56 +40,31 @@ import { resumeSourceSans } from "../templates/fonts";
 // sans" style-token bucket is named for. Distinct in voice from Source Sans
 // (the app's own humanist body face) so choosing it for a resume reads as a
 // real style decision, not the app's own UI font leaking into the document.
-export const poppins = Poppins({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-poppins",
-  display: "swap",
-  preload: false,
-});
+export const poppins = selfHostedFont({ slug: "poppins", family: "Poppins", singleStyle: true });
 
 // Humanist sans — Work Sans. Warmer, more open letterforms and a taller
 // x-height than a geometric face, built specifically for UI/body reading at
 // small sizes. Picked over reusing Source Sans (already the app's own body
 // font) so a template that asks for "humanist sans" is visibly different from
 // the app shell, not the default rendered twice.
-export const workSans = Work_Sans({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-worksans",
-  display: "swap",
-  preload: false,
-});
+export const workSans = selfHostedFont({ slug: "work-sans", family: "Work Sans", singleStyle: true });
 
 // Modern serif — Lora. Moderate, book-like contrast built for body text
 // rather than Newsreader's higher-contrast editorial/display voice. The two
 // need to read as different registers since a gallery can show both at once —
 // Newsreader stays the app's own display serif; Lora is the "print resume"
 // serif choice inside a template.
-export const lora = Lora({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  style: ["normal", "italic"],
-  variable: "--font-lora",
-  display: "swap",
-  preload: false,
-});
+export const lora = selfHostedFont({ slug: "lora", family: "Lora", singleStyle: false });
 
 // Grotesque/condensed — Barlow Condensed. A true condensed grotesque (drawn
 // narrow, not a regular face squeezed by a CSS transform), for the
 // dense/timeline-heavy configurations where a long senior history needs to
 // fit without shrinking type past legibility — the literal brief for
 // `compact-dense`.
-export const barlowCondensed = Barlow_Condensed({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-barlow-condensed",
-  display: "swap",
-  preload: false,
-});
+export const barlowCondensed = selfHostedFont({ slug: "barlow-condensed", family: "Barlow Condensed", singleStyle: true });
 
 /**
- * Which next/font `.variable` a given `Typeface` token needs in scope.
+ * Which font `.variable` class a given `Typeface` token needs in scope.
  *
  * `null` only for `display` — the one typeface still a genuine live reuse of
  * an app font (Newsreader), already scoped globally by `layout.tsx`. `body`
