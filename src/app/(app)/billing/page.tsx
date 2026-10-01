@@ -329,7 +329,7 @@ export default async function BillingPage({
               {PACK_DESCRIPTION[pack.name] && (
                 <p className="text-[13px] text-ink-soft">{PACK_DESCRIPTION[pack.name]}</p>
               )}
-              <p className="font-display text-[24px]">
+              <p data-testid="credit-pack-price" className="font-display text-[24px]">
                 <NairaAmount amount={pack.price_ngn} />
               </p>
               <form
