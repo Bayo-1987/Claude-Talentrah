@@ -123,6 +123,13 @@ export function JobsPublicLanding({
   facets: LandingFacet[];
 }) {
   const showPreview = jobs.length > 0 && total >= LANDING_PAGE_MIN_ENTRIES;
+  const shown = jobs.slice(0, JOB_PREVIEW_MAX);
+  // "The 6 open listings" when that is all of them; "A few of the 378" when it is a sample. Compared with
+  // the rows actually SHOWN (after the cap), not the rows supplied.
+  const previewHeading =
+    total === shown.length
+      ? `The ${total} open ${total === 1 ? "listing" : "listings"} from the last ${JOB_FRESHNESS_WINDOW_DAYS} days`
+      : `A few of the ${total} open listings from the last ${JOB_FRESHNESS_WINDOW_DAYS} days`;
 
   return (
     <div className="mx-auto flex w-full max-w-[1120px] flex-col gap-14 py-6 sm:py-10">
@@ -131,10 +138,10 @@ export function JobsPublicLanding({
         <div className="flex flex-col gap-5">
           <EyebrowLabel>Jobs</EyebrowLabel>
           <h1 className="font-display text-[30px] leading-[1.15] sm:text-[36px]">
-            Open jobs, each labelled by where it came from — with a match score once you add your resume.
+            Open jobs, each labelled by where it came from.
           </h1>
           <p className="max-w-[640px] text-[16px] leading-[1.6] text-ink-soft">
-            Browse listings posted directly on Talentrah and ones we source from other job boards. Every listing names the company, the place and the source, and a sourced one links back to the original posting.
+            Browse listings posted directly on Talentrah and ones we source from other job boards, each with a match score once you add your resume. Every listing names the company, the place and the source, and a sourced one links back to the original posting.
           </p>
           <div className="flex flex-wrap gap-3">
             <Link href={SIGNUP_HREF} className={buttonClasses("primary", "md", "no-underline")}>
@@ -180,16 +187,14 @@ export function JobsPublicLanding({
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div className="flex flex-col gap-2">
               <EyebrowLabel>Newest listings</EyebrowLabel>
-              <h2 className="font-display text-[24px] leading-[1.2]">
-                {`A few of the ${total} open listings from the last ${JOB_FRESHNESS_WINDOW_DAYS} days`}
-              </h2>
+              <h2 className="font-display text-[24px] leading-[1.2]">{previewHeading}</h2>
             </div>
             <Link href={SIGNUP_HREF} className={buttonClasses("secondary", "md", "no-underline")}>
               See them all, matched to your resume&nbsp;→
             </Link>
           </div>
           <ul className="grid list-none grid-cols-1 gap-4 p-0 md:grid-cols-2">
-            {jobs.slice(0, JOB_PREVIEW_MAX).map((j) => (
+            {shown.map((j) => (
               <JobRow key={j.id} job={j} />
             ))}
           </ul>

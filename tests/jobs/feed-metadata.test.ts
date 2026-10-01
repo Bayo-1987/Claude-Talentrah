@@ -56,6 +56,17 @@ describe("/jobs generateMetadata", () => {
     expect(String(meta.alternates?.canonical)).not.toContain("?");
   });
 
+  it("title and description agree with the headline: the same promise (open jobs, labelled), and no country", async () => {
+    getOptionalUser.mockResolvedValue(null);
+    const meta = await generateMetadata();
+    expect(String(meta.title)).toMatch(/open jobs/i);
+    expect(meta.description).toMatch(/open jobs/i);
+    expect(meta.description).toMatch(/labelled/i);
+    for (const text of [String(meta.title), meta.description!]) {
+      expect(text).not.toMatch(/nigeria|africa|lagos|abuja|nairobi/i);
+    }
+  });
+
   it("never says 'Nigeria' in the signed-out title or description", async () => {
     getOptionalUser.mockResolvedValue(null);
     const meta = await generateMetadata();

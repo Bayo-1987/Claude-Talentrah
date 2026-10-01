@@ -64,6 +64,22 @@ async function render(props: Partial<{ total: number; jobs: Job[]; facets: Facet
   );
 }
 
+describe("the headline and the lede (send-484 review)", () => {
+  it("h1 is exactly 'Open jobs, each labelled by where it came from.' — no score claim, no country", async () => {
+    const html = await render();
+    const h1 = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/)![1];
+    expect(h1).toBe("Open jobs, each labelled by where it came from.");
+  });
+
+  it("the lede's FIRST sentence carries the match-score promise", async () => {
+    const html = await render();
+    const lede = html.match(/<p class="max-w-\[640px\][^>]*>([\s\S]*?)<\/p>/)![1];
+    const first = lede.split(/(?<=[.!?])\s/)[0];
+    expect(first).toMatch(/match score once you add your resume/);
+    expect(lede).not.toMatch(/nigeria/i);
+  });
+});
+
 describe("structure", () => {
   it("has exactly one <h1>, a 'Jobs' eyebrow, and no 'Nigeria' in the headline (the audience is global)", async () => {
     const html = await render();
@@ -98,10 +114,11 @@ describe("structure", () => {
 });
 
 describe("the live preview", () => {
-  it("links every row to its own public detail page", async () => {
+  it("links every row to its own public detail page, with the title as the link text", async () => {
     const jobs = [job(1), job(2), job(3)];
     const html = await render({ jobs });
     for (const j of jobs) {
+      expect(html).toMatch(new RegExp(`<a [^>]*href="/jobs/${j.id}"[^>]*>${j.title}</a>`));
       expect(html).toContain(`href="/jobs/${j.id}"`);
       expect(html).toContain(j.title);
       expect(html).toContain(j.company_name);
@@ -142,6 +159,44 @@ describe("the live preview", () => {
     expect(html).toContain(`${JOB_FRESHNESS_WINDOW_DAYS} days`);
   });
 
+  describe("the preview heading says 'The N' when every listing is shown and 'A few of the N' when not", () => {
+    const heading = (html: string) => html.match(/<h2[^>]*>(A few of the|The) [^<]*listings? from the last[^<]*<\/h2>/)?.[0].replace(/<[^>]+>/g, "") ?? "";
+
+    it("total equals the rows shown (6 of 6): 'The 6 open listings from the last 30 days'", async () => {
+      const jobs = Array.from({ length: 6 }, (_, i) => job(i + 1));
+      expect(heading(await render({ total: 6, jobs }))).toBe(`The 6 open listings from the last ${JOB_FRESHNESS_WINDOW_DAYS} days`);
+    });
+
+    it("total larger than the rows shown (6 of 378): 'A few of the 378 ...'", async () => {
+      const jobs = Array.from({ length: 6 }, (_, i) => job(i + 1));
+      expect(heading(await render({ total: 378, jobs }))).toBe(`A few of the 378 open listings from the last ${JOB_FRESHNESS_WINDOW_DAYS} days`);
+    });
+
+    it("compares with the rows actually SHOWN, not the rows supplied: 8 supplied, 6 shown, total 8 is still 'A few of the 8'", async () => {
+      const jobs = Array.from({ length: 8 }, (_, i) => job(i + 1));
+      expect(heading(await render({ total: 8, jobs }))).toBe(`A few of the 8 open listings from the last ${JOB_FRESHNESS_WINDOW_DAYS} days`);
+    });
+
+    it("fewer than the cap, all of them shown (5 of 5): 'The 5 ...'", async () => {
+      const jobs = Array.from({ length: 5 }, (_, i) => job(i + 1));
+      expect(heading(await render({ total: 5, jobs }))).toBe(`The 5 open listings from the last ${JOB_FRESHNESS_WINDOW_DAYS} days`);
+    });
+
+    it("the singular: with the threshold stubbed to 1, one listing of one reads 'The 1 open listing' (not 'listings')", async () => {
+      vi.resetModules();
+      const pages = await vi.importActual<typeof import("@/lib/seo/landing-pages")>("@/lib/seo/landing-pages");
+      vi.doMock("@/lib/seo/landing-pages", () => ({ ...pages, LANDING_PAGE_MIN_ENTRIES: 1 }));
+      try {
+        const { JobsPublicLanding } = await loadModule<LandingModule>("@/components/jobs/public-landing");
+        const html = renderToStaticMarkup(<JobsPublicLanding total={1} jobs={[job(1)]} facets={[]} />);
+        expect(heading(html)).toBe(`The 1 open listing from the last ${JOB_FRESHNESS_WINDOW_DAYS} days`);
+      } finally {
+        vi.doUnmock("@/lib/seo/landing-pages");
+        vi.resetModules();
+      }
+    });
+  });
+
   it("says where a listing came from, in the signed-in card's own words", async () => {
     const html = await render({
       jobs: [job(1, { source_type: "external", title: "Aggregated Role" }), job(2, { source_type: "internal", title: "Direct Role" })],
@@ -152,6 +207,17 @@ describe("the live preview", () => {
     expect(row("Aggregated Role")).not.toContain("Posted on Talentrah");
     expect(row("Direct Role")).toContain("Posted on Talentrah");
     expect(row("Direct Role")).not.toContain("sourced externally");
+  });
+
+  it("the reported card — 'Customer Success Associate · Zaria Digital · Remote' — does not double 'Remote'", async () => {
+    const html = await render({
+      jobs: [job(1, { title: "Customer Success Associate", company_name: "Zaria Digital", location: "Remote", work_type: "remote" })],
+    });
+    expect(html).toContain("Zaria Digital · Remote<");
+    expect(html).not.toContain("Remote · Remote");
+    // Case-insensitive on the location, so a lower-case source value does not slip through either.
+    const lower = await render({ jobs: [job(2, { company_name: "Zaria Digital", location: "remote", work_type: "remote" })] });
+    expect(lower).not.toMatch(/remote · Remote/i);
   });
 
   it("does not repeat the work type when the location already says it (\"Remote · Remote\")", async () => {

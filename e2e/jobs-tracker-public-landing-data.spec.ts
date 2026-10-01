@@ -86,6 +86,17 @@ test.describe("signed-out /jobs shows real, listed, fresh postings only", () => 
       // A plain, aggregated listing is labelled as such, and nothing shows a score.
       await expect(page.getByText("sourced externally").first()).toBeVisible();
       await expect(page.locator("main")).not.toContainText(/\d+\s?%\s*match/i);
+
+      // A card is a real way in: clicking its title, signed out, lands on that posting's PUBLIC page
+      // with a 200 — not on /login. (The link's href was asserted above; this follows it.)
+      const [navigation] = await Promise.all([
+        page.waitForResponse((r) => r.request().isNavigationRequest() && new URL(r.url()).pathname === `/jobs/${newest.id}`),
+        page.getByRole("link", { name: newest.title }).click(),
+      ]);
+      expect(navigation.status(), "the job page behind a card must be a 200, not a redirect to /login").toBe(200);
+      await expect(page).toHaveURL(new RegExp(`/jobs/${newest.id}$`));
+      expect(page.url()).not.toContain("/login");
+      await expect(page.getByText(newest.title).first()).toBeVisible();
     } finally {
       await context.close();
       await deletePostingsCascade(admin, all.map((j) => j.id));
