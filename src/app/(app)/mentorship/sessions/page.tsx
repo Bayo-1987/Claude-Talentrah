@@ -17,7 +17,7 @@ export default async function MentorshipSessionsPage({
 
   /*
    * send-497: Upcoming is paid-or-confirmed sessions that have not ended; an unpaid booking still ahead has its own
-   * section; an unpaid booking whose slot has started is past ("Expired — not paid"). This used to be "everything that
+   * section; an unpaid booking whose slot has started is past ("Not paid — the slot has passed"). This used to be "everything that
    * is not completed, cancelled or refunded", which kept a 17 Sep unpaid booking under Upcoming for two weeks.
    */
   const now = new Date();

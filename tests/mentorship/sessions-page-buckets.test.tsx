@@ -61,7 +61,8 @@ describe("the sessions page, with the owner's stale unpaid booking among others"
     expect(upcoming, "an unpaid, already-started booking must not be 'Upcoming'").not.toContain("Stale Unpaid");
     expect(upcoming).not.toMatch(/Awaiting payment/);
     expect(past).toContain("Stale Unpaid");
-    expect(past).toContain("Expired — not paid");
+    expect(past).toContain("Not paid — the slot has passed");
+    expect(past, "no copy may claim the booking expired or the slot was released (that is the next PR)").not.toMatch(/expire|releas/i);
     expect(past).not.toContain("Awaiting payment");
   });
 
@@ -83,6 +84,11 @@ describe("the sessions page, with the owner's stale unpaid booking among others"
   it("shows no 'Awaiting payment' section when there is nothing to pay", async () => {
     sessions.rows = [row("paid", "confirmed", "2026-10-05T10:00:00.000Z", "2026-10-05T11:00:00.000Z")];
     expect(section(await render(), "Awaiting payment")).toBeNull();
+  });
+
+  it("never uses the words expired or released anywhere on the page", async () => {
+    sessions.rows = [row("stale", "pending_payment", "2026-09-17T10:00:00.000Z", "2026-09-17T11:00:00.000Z")];
+    expect((await render()).replace(/<[^>]+>/g, " ")).not.toMatch(/expire|releas/i);
   });
 
   it("says 'No upcoming sessions.' when the only sessions are unpaid or past", async () => {

@@ -4,8 +4,9 @@
  * The page used to put everything that was not completed, cancelled or refunded under "Upcoming", so an unpaid booking
  * whose slot started two weeks ago sat there as "Upcoming · Awaiting payment" with nothing to do about it. Owner's call:
  * Upcoming shows only paid or confirmed sessions that have not ended; an unpaid booking that can still be paid has its
- * own section; an unpaid booking whose slot has started is past (it expires when the slot starts: the same rule the
- * sweep will enforce for real, and release the slot, in the migration PR that follows).
+ * own section; an unpaid booking whose slot has started is past. That is a DISPLAY rule only: until the expiry PR (a real
+ * status, the slot released in the same statement) the row is still `pending_payment` and its slot is still held, so
+ * nothing here may say the booking expired or the slot was released.
  *
  * Pure, so the rule is tested at the exact boundary minute without rendering the page.
  */
@@ -28,7 +29,7 @@ export function bucketSession(
   return "past";
 }
 
-const STATUS_LABEL: Record<string, string> = {
+const MENTEE_LABELS: Record<string, string> = {
   pending_payment: "Awaiting payment",
   awaiting_confirmation: "Waiting on the mentor to confirm",
   confirmed: "Confirmed",
@@ -37,8 +38,21 @@ const STATUS_LABEL: Record<string, string> = {
   refunded: "Refunded",
 };
 
-/** The status line for a session. An unpaid booking whose slot has started says it expired rather than "Awaiting payment". */
-export function sessionStatusLabel(status: string, scheduledStart: string, now: Date): string {
-  if (status === "pending_payment" && !(Date.parse(scheduledStart) > now.getTime())) return "Expired — not paid";
-  return STATUS_LABEL[status] ?? status;
+const MENTOR_LABELS: Record<string, string> = {
+  pending_payment: "Awaiting the mentee's payment",
+  awaiting_confirmation: "Awaiting your confirmation",
+  confirmed: "Confirmed",
+  completed: "Completed",
+  cancelled_mentor_no_confirm: "Auto-cancelled — you didn't confirm in time",
+  refunded: "Refunded",
+};
+
+/**
+ * The status line for a session, worded for the mentee (default) or the mentor. An unpaid booking whose slot has started
+ * says what is true and no more: it was not paid and the slot has passed. It does not say "expired" (nothing has expired
+ * yet) or that the slot was released (it has not been).
+ */
+export function sessionStatusLabel(status: string, scheduledStart: string, now: Date, side: "mentee" | "mentor" = "mentee"): string {
+  if (status === "pending_payment" && !(Date.parse(scheduledStart) > now.getTime())) return "Not paid — the slot has passed";
+  return (side === "mentor" ? MENTOR_LABELS : MENTEE_LABELS)[status] ?? status;
 }

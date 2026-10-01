@@ -6,8 +6,10 @@
  * cancelled or refunded is upcoming", so an unpaid booking whose slot had already started stayed there forever.
  *
  * Founder call: Upcoming shows only paid or confirmed future sessions. An unpaid booking that can still be paid sits in
- * its own "Awaiting payment" section; one whose slot has started is past (it expires when the slot starts; the expiry
- * itself, and Pay / Cancel actions, are the next PR). Pure rules, reached through loadModule so this compiles first.
+ * its own "Awaiting payment" section; one whose slot has started is past. The expiry itself (a real status, the slot
+ * released) and Pay / Cancel actions are the next PR, so until then the row is still `pending_payment` and its slot is
+ * still held: NOTHING here may say the booking expired or the slot was released. The label is the plain fact, "Not paid —
+ * the slot has passed". Pure rules, reached through loadModule so this compiles first.
  */
 import { describe, expect, it } from "vitest";
 import { loadModule } from "../support/load-module";
@@ -15,7 +17,7 @@ import { loadModule } from "../support/load-module";
 type Bucket = "upcoming" | "awaiting_payment" | "past";
 interface Mod {
   bucketSession?: (s: { status: string; scheduledStart: string; scheduledEnd: string }, now: Date) => Bucket;
-  sessionStatusLabel?: (status: string, scheduledStart: string, now: Date) => string;
+  sessionStatusLabel?: (status: string, scheduledStart: string, now: Date, side?: "mentee" | "mentor") => string;
 }
 const mod = () => loadModule<Mod>("@/lib/mentorship/session-buckets");
 const need = <T>(fn: T | undefined, name: string): T => {
@@ -98,9 +100,21 @@ describe("sessionStatusLabel", () => {
     expect(l("refunded", PAST[0], NOW)).toBe("Refunded");
   });
 
-  it("an unpaid booking whose slot has started says it expired, not 'Awaiting payment'", async () => {
+  it("an unpaid booking whose slot has started says so plainly, and never claims it expired or the slot was released", async () => {
     const { sessionStatusLabel } = await mod();
-    expect(need(sessionStatusLabel, "sessionStatusLabel")("pending_payment", PAST[0], NOW)).toBe("Expired — not paid");
+    const label = need(sessionStatusLabel, "sessionStatusLabel")("pending_payment", PAST[0], NOW);
+    expect(label).toBe("Not paid — the slot has passed");
+    expect(label).not.toMatch(/expire|releas|cancel/i);
+  });
+
+  it("the mentor's side words the same states from the mentor's point of view", async () => {
+    const { sessionStatusLabel } = await mod();
+    const l = need(sessionStatusLabel, "sessionStatusLabel");
+    expect(l("pending_payment", FUTURE[0], NOW, "mentor")).toBe("Awaiting the mentee's payment");
+    expect(l("awaiting_confirmation", FUTURE[0], NOW, "mentor")).toBe("Awaiting your confirmation");
+    expect(l("cancelled_mentor_no_confirm", PAST[0], NOW, "mentor")).toBe("Auto-cancelled — you didn't confirm in time");
+    expect(l("pending_payment", PAST[0], NOW, "mentor")).toBe("Not paid — the slot has passed");
+    expect(l("confirmed", FUTURE[0], NOW, "mentor")).toBe("Confirmed");
   });
 
   it("an unknown status falls back to the raw status rather than blank", async () => {
