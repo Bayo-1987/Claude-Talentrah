@@ -33,6 +33,116 @@ both served stale content in this project's history. Don't rely on either.
 
 ---
 
+## Merged 2026-10-01 — PR #607, real signed-out landing pages at `/jobs` and `/tracker` (send-484)
+
+| PR | Branch | Merged at (UTC) | Merge SHA |
+|----|--------|-----------------|-----------|
+| [#607](https://github.com/Bayo-1987/Claude-Talentrah/pull/607) | `feat/jobs-tracker-public-landing-484` | 2026-10-01 07:40:01 | `fd705e088d23167380d7b9d340abe70795df3321` |
+
+**What it changed.** `/jobs` and `/tracker` used to 307 every signed-out visitor to `/login` (the `proxy.ts` gate). Both are now real public landing
+pages, the shape `/scholarships` took in send-480. **Signed-in visitors get the feed and the tracker unchanged** (signed-in metadata is deep-equal
+tested, and the e2e checks the signed-in titles and chrome). No migration.
+- **Gate** (`seeker-gate-paths.ts`): `/jobs` leaves the exact-path set (now empty, deleted); `/tracker` moves from the prefix list to
+  `PROTECTED_SUBPATH_ONLY_PREFIXES`, so `/tracker/[applicationId]/sent` stays gated; `/refer` stays gated. **robots.ts:** `/jobs$` removed (the last
+  `$` rule), `/tracker` becomes `/tracker/`. **sitemap.ts:** `/jobs` and `/tracker` are static entries (both always answer 200).
+- **/jobs:** `components/jobs/public-landing.tsx`, a presentational component. A live preview of at most six rows, shown only when the live total is at
+  least `LANDING_PAGE_MIN_ENTRIES`, hidden (not apologised for) when the query fails; aggregated vs direct labelled ("sourced externally" / "Posted on
+  Talentrah", the signed-in card's own wording); no match score anywhere; every card title links to its public `/jobs/<id>`. New
+  `loadOpenJobsPreview` reads seven columns only: measured **1,484 B for six rows against 14,323 B** with the wide landing columns (about 9.7x), and the
+  exact key set is pinned. **Not cached** (the repo has no data-cache pattern and the landing-page rule is a fresh query per call). The heading reads
+  "The 6 open listings…" when every listing is shown and "A few of the 376…" when it is a sample.
+- **/tracker:** `components/tracker/public-landing.tsx`, static copy, stages read from the new `TRACKER_STAGES`
+  (`src/lib/tracker/stages.ts`), extracted behaviour-preservingly from `stage-filter-bar` and `tracker-card` (characterisation tests of both pass on
+  main and after).
+- `generateMetadata()` on both pages: signed-in metadata unchanged, signed-out gets a real title/description/canonical (bare path, no query), **no
+  country claim**. Both `loading.tsx` files are neutral for both visitors with **no heading** (a streamed fallback lands in the raw HTML, so a
+  heading would be a second `<h1>`).
+- `liveJobLandingLinks` also returns each live `count` (additive, same single RPC). Footer: **only "Refer & Earn" changed**,
+  `/refer` → `/signup?redirectTo=%2Frefer`; the footer test's RegExp matcher now escapes the href (a `?` broke it).
+- Allowlist rows deleted (12 → 5 remain): `footer:* -> /jobs`, `/tracker`, `/refer`; `main:/ -> /jobs` (two sources); `main:404 -> /jobs`;
+  `main:/blog/* -> /jobs`; and `main:/jobs/* -> /jobs` ("Back to jobs"). **Prompt 2 must not touch "Back to jobs"**: its row is gone only because
+  `/jobs` is public now.
+
+**A pre-existing bug this fixed: `/tracker/<missing>/sent` returned 200, not 404.** `tracker/loading.tsx` sat directly above
+`tracker/[applicationId]/sent`, which calls `notFound()`; a `loading.tsx` in a route's ancestors makes Next commit to 200 before `notFound()` runs
+(#221). It dates from #218 (2026-09-04) / #220 (2026-09-05) and **was live in production at `e281dc5`** until this merge. The signed-in e2e written
+for this PR was **red on it** (`Expected: 404 Received: 200`, CI run [36780368340](https://github.com/Bayo-1987/Claude-Talentrah/actions/runs/36780368340)),
+so both files moved into a `(list)` route group, as `jobs/(feed)` and `scholarships/(list)` already do. The URL is unchanged. **Not probed in
+production** (that needs a signed-in session); the evidence is the file layout and the red-then-green CI.
+
+**Proof the tests can fail (red, then green).** Tests-first commit `96930f7` on a draft PR: CI red, unit job **15 test files failed, 370 passed**
+(run [36778911877](https://github.com/Bayo-1987/Claude-Talentrah/actions/runs/36778911877)), with `tsc` passing so the tests actually ran and failed on
+their own assertions (a helper, `tests/support/load-module.ts`, lets tests for not-yet-existing modules typecheck). The characterisation tests
+(signed-in metadata, both components' stage lists) were green before and after. Implementation commit `f4e4f90`: unit green. e2e then went red on **three runs: one real failure and three test mistakes of mine, each fixed in
+the test, none by loosening it**: (1) the tracker 404 above (real, fixed in the app); (2) a footer-link assertion with a case-sensitive `/Jobs/` against
+"Open jobs"; (3) a guessed `/tracker` heading; (4) the card click-through waited for a *document* navigation, but a Next `<Link>` click is a soft
+navigation (an RSC fetch), so it timed out at 30 s. One unit run also died starting Supabase's Docker containers ("failed to set up container
+networking", run [36821079046](https://github.com/Bayo-1987/Claude-Talentrah/actions/runs/36821079046)) before any test ran: runner infrastructure, cleared by
+the next push. The CI-only checks (the DB-backed
+`open-jobs-preview` test and the e2e specs) could not be run locally (no database on that machine).
+
+**A footer collision with send-486 (#610), handled by the standing rule.** #610 landed first and pins the footer to its pre-change link list; this PR
+deliberately re-points Refer & Earn, so that guard failed after the merge of `main`. The merge was textually clean (no conflicting hunk). As the
+second PR to land, this one updated the guard: a documented `REPOINTED_SINCE` map in `tests/marketing/marketing-footer.test.tsx` carries the one
+deliberate change and any other changed link still fails it. The owner was told this in the same message as the merge.
+
+### Verification (all four)
+
+**1. GitHub API** — `GET /repos/Bayo-1987/Claude-Talentrah/pulls/607`:
+```
+{"merged": true, "merged_at": "2026-10-01T07:40:01Z", "merge_commit_sha": "fd705e088d23167380d7b9d340abe70795df3321",
+ "state": "closed", "head_sha": "40f3bb332f22bf4174c8ac4fd0c169c1969efb6d", "merged_by": "Bayo-1987"}
+```
+Merged with `--match-head-commit` on that head. Main moved under this PR three times (#604 fonts, #610 footer, #611 docs); the branch was brought up to
+date each time (`5638fec`, `0d52bb1` by a local merge of #610, `40f3bb3`), with `git merge-tree` clean before each and a full CI cycle after.
+
+**2. Fresh shallow clone** (`git clone --depth 30`, a temp dir):
+```
+HEAD: fd705e088d23167380d7b9d340abe70795df3321   contains fd705e0: yes
+PRESENT: components/jobs/public-landing.tsx, components/tracker/public-landing.tsx, lib/tracker/stages.ts,
+         app/(app)/tracker/(list)/page.tsx, app/(app)/tracker/(list)/loading.tsx, both new e2e specs
+GONE:    app/(app)/tracker/page.tsx, app/(app)/tracker/loading.tsx (old paths)
+seeker-gate-paths.ts:81  PROTECTED_SUBPATH_ONLY_PREFIXES = ["/mentorship", "/employer", "/tracker"]   (no PROTECTED_EXACT_PATHS)
+robots.ts:50 "/tracker/"   (no "/jobs$")   sitemap.ts:89-90 /jobs, /tracker   marketing-footer.tsx:66 href "/signup?redirectTo=%2Frefer"
+```
+
+**3. Live production probe** (2026-10-01 07:41 UTC, **signed out**, read-only). Production deployment `dpl_61ciZhQ5g7T7P76FPq1rzViybPH9`: `READY`,
+`target: production`, `githubCommitSha` = `fd705e08…`, created 07:40:05.
+```
+GET /jobs                              200  one <h1>  canonical https://www.talentrah.com/jobs
+GET /tracker                           200  one <h1>  canonical https://www.talentrah.com/tracker
+GET /jobs?tab=saved&q=engineer         200  one <h1>  canonical https://www.talentrah.com/jobs         (query collapsed)
+GET /tracker?stage=offer&sort=oldest   200  one <h1>  canonical https://www.talentrah.com/tracker      (query collapsed)
+GET /scholarships (control)            200  one <h1>
+all five: cache-control: private, no-cache, no-store, max-age=0, must-revalidate   x-vercel-cache: MISS   no x-nextjs-prerender   no set-cookie
+/jobs content: "A few of the 376 open listings from the last 30 days", 6 cards, "Browse by" with live counts, 0 × "Remote · Remote";
+               first card link /jobs/0a7cf7a9-… → 200 (no redirect)
+robots.txt: no "Disallow: /jobs" or "/jobs$" or bare "/tracker"; "Disallow: /tracker/" and "Disallow: /refer" present
+sitemap.xml (fresh): lists /jobs, /tracker (and /scholarships)
+footer "Refer & Earn" on / and /about: href="/signup?redirectTo=%2Frefer"
+controls: /refer, /settings, /billing, /tracker/<id>/sent  each 307 → /login?redirectTo=…   /jobs/<unknown id> 404
+```
+**No signed-in production probe was done.** Signed-in behaviour rests on e2e tests in CI and the metadata deep-equal unit test.
+
+**4. Full suite against merged `main`** — CI run [36831648443](https://github.com/Bayo-1987/Claude-Talentrah/actions/runs/36831648443) (push, `fd705e0`):
+```
+Typecheck, lint, unit tests : success   Test Files 393 passed (393)   Tests 4430 passed (4430)
+Playwright e2e              : attempt 1 FAILED (1 failed, 453 passed), attempt 2 success (454 passed, 8.7m), see below
+Dependency audit, Secret scan, Migration drift (production): success   (Migration numbering: skipped on push events)
+```
+**Attempt 1 failed on `e2e/employer-new-job-banner.spec.ts:76` ("Crop your banner" dialog not found), the known banner-spec flake tracked in
+[#591](https://github.com/Bayo-1987/Claude-Talentrah/issues/591); an employer spec this change does not touch, and 453 other tests passed, including both new landing
+specs.** One `--failed` rerun (job [110276205725](https://github.com/Bayo-1987/Claude-Talentrah/actions/runs/36831648443/job/110276205725)) passed all 454 at
+08:14:17Z. No new evidence was added to #591.
+
+### Not covered / still open
+- **Lighthouse CI is red on this PR** (not required): it requests `/jobs/remote`, which 404s on a CI-project-backed preview with fewer than 5 remote postings (the known thin-preview-data issue, #575).
+- **The preview's data is the CI project's**, so the owner's screenshots showed 6 fixture listings, not production's 376 (378 when first measured).
+- **The round button on the right edge in the preview screenshots is Vercel's preview toolbar** (`vercel-live-feedback`); production HTML has no reference to it.
+- Follow-ups listed in the PR, not built: **`StageSelect` has a third private copy of the stage list** (pinned to `TRACKER_STAGES` by a drift test); **the signed-out masthead is cramped at 390px** on every page (pre-existing, shared with `/scholarships`); `mentorship/(list)/loading.tsx` still has the duplicate-heading-while-loading leak.
+
+---
+
 ## Merged 2026-10-01 — PR #610, footer: Compare column removed, Legal & Trust in the top row, /vs pages linked from the comparison post (send-486)
 
 | PR | Branch | Merged at (UTC) | Merge SHA |
@@ -113,6 +223,69 @@ The footer-layout spec (4 tests), the rewritten comparison-pages test and `signe
 - **SEO trade-off, the owner's call:** the footer was the two `/vs` pages' only sitewide internal link. They are now linked from each other, the comparison blog post and the sitemap only; no ranking effect has been measured.
 - #607 (`/jobs` and `/tracker` landing pages, still an open draft) also edits `marketing-footer.tsx` (the Refer & Earn href) and its test; a footer conflict when it updates is expected to be small but was not tested.
 - The footer's 390px layout leaves white space under "For Employers" (the tall Product column beside a one-link column); unchanged from before.
+
+---
+
+## Merged 2026-09-30 — PR #609, the masthead credit balance updates after a paid Farah message; one success log line per Farah call (send-485, issue #605)
+
+| PR | Branch | Merged at (UTC) | Merge SHA |
+|----|--------|-----------------|-----------|
+| [#609](https://github.com/Bayo-1987/Claude-Talentrah/pull/609) | `fix/farah-balance-and-call-log-485-v2` | 2026-09-30 22:21:44 | `e281dc50b2b92f66290528fcd7c0bb0fbefca329` |
+
+**Replaces #608**, closed unmerged: its secret-scan check failed because two *test constants were named* `SECRET` / `SECRET_REPLY` (the repo's
+`talentrah-hardcoded-credential` rule keys on the variable name; the values were fake markers). Renamed on a clean branch rather than force-pushing;
+#608's branch was then deleted. Issue [#605](https://github.com/Bayo-1987/Claude-Talentrah/issues/605) (low severity; the label `severity: low` was created for it).
+
+**What it changed.** Two commits, no migration, **charging logic unchanged**.
+- **(a)** After a credit-paid Farah message the masthead kept showing the pre-charge balance until the next navigation (the ledger and
+  `profiles.credits_balance` were already right; display only). The chat stream's `done` event now carries `creditsBalance`: the **ledger's own
+  `balance_after`** for a paid message (`spendCredits` already returned it; `commitFarahChatAllowance` now passes it on, never recomputed from the
+  check-time balance), `null` for a free or Pass-covered one, and also on the `persisted: false` `done`. The panel reports it; the masthead shows it in
+  place of the page-load value with no reload (`src/components/app-shell/credits-balance.tsx`). A reported value carries the server value it was
+  reported against and **expires as soon as the server hands down a different number**, so a stale client value cannot outlive fresher server truth.
+- **(b)** One structured success log line per Farah call (`askFarah`, `askFarahChat`, `askFarahChatStream`), `console.info` of one JSON object:
+  `{"event":"farah_call","provider","model","latency_ms","failover","request_id"}`. `provider` is the one that **served** the reply (the fallback's name
+  after a failover); `latency_ms` is the whole call, and for a stream the whole reply; `request_id` is a fresh UUID. No message, reply, system prompt,
+  user id or email can appear (five scalars). `generateWithFailover` / `generateChatStreamWithFailover` gained an optional `onServed` callback.
+
+**Proof the tests can fail.** On the old code 10 of the new tests failed at assertion level (`expected undefined to be 40`, `expected undefined to
+deeply equal { balanceAfter: 35 }`, no `farah_call` line). A mutation that recomputes the balance instead of using the ledger's was caught; three
+mutations of the log line (an extra key, a stray `console.info` echoing the message, a wrong failover flag) were each caught. The "41 → 40 without a
+reload" and "free leaves it" checks are **Playwright, not component tests**: this repo has no DOM test tooling (no jsdom/testing-library). They passed
+in CI; they could not be run locally (no database).
+
+### Verification (all four)
+
+**1. GitHub API** — `pulls/609`: `merged: true`, `merged_at` 2026-09-30T22:21:44Z, `merge_commit_sha` `e281dc50b2b92f66290528fcd7c0bb0fbefca329`,
+head `ba320ecd64044b8f57ee4152816e3efff969fd7c`, 0 commits behind `main`.
+
+**2. Fresh shallow clone** of `main` at `e281dc5`: `creditsBalance` in 13 source files, `balanceAfter` in 4, `farah_call` in `src/lib/farah/call-log.ts`,
+`useDisplayedCreditsBalance` in 2; `route.ts:279` `const creditsBalance = committed?.balanceAfter ?? null` and on both `done` events; no `SECRET` constant
+in `tests/farah/call-log.test.ts`.
+
+**3. Live production check**, read-only (2026-10-01), against one **real paid message** the owner sent after the deploy. The owner saw the masthead go
+**40 → 39 by itself, with no reload** (not independently observed by me). From production:
+```
+credit_gate_events  2026-10-01 05:27:27.715  outcome proceeded  credits_required 1  credits_available 40
+credit_ledger       2026-10-01 05:27:28.391  delta -1  balance_after 39  reason farah_chat_message     (the only farah_chat_message row 22:22Z–05:28Z)
+farah_messages      05:27:28.46 (farah)  05:27:28.47 (user)
+=> exactly one gate event and one ledger row: exactly one charge.
+Vercel runtime log, POST /api/farah/chat 200, dpl_CWdnc1Y9bqtUXFiRWhX5xdKFNPHB (githubCommitSha e281dc50…, READY, target production):
+  {"event":"farah_call","provider":"groq","model":"openai/gpt-oss-120b","latency_ms":472,"failover":false,"request_id":"ef396f02-f99a-4232-b74b-e198ac94b6f6"}
+```
+No message text, user id or email appears in that line or in any other line in that window (the rest are page GETs with no console output). The
+account then sent a second paid message at 05:31:53Z (one more −1, balance 38, its own `farah_call` line, `latency_ms` 2234), also exactly one charge.
+
+**4. Full suite against merged `main`** — CI on `e281dc5`: `Typecheck, lint, unit tests` success (22:28:54Z, run
+[36785124605](https://github.com/Bayo-1987/Claude-Talentrah/actions/runs/36785124605)), `Playwright e2e` success (22:40:58Z), `Dependency audit`, `Secret scan`
+and `Migration drift (production)` success. The PR's own Lighthouse check was red (the same `/jobs/remote` preview-data cause as above; not required).
+
+### Not covered / still open
+- **The same staleness likely exists on other credit-spending paths**: audited read-only in an [issue #605 comment](https://github.com/Bayo-1987/Claude-Talentrah/issues/605#issuecomment-5925475957).
+  **Likely stale** by the code: tailoring / cover letter (`tailor-form.tsx` is a plain `fetch`, no refresh) and bullet rewrite. **Refreshes**: template unlock
+  (`router.refresh()`). **Mechanism present but unmeasured**: the two scholarship actions, Auto-Apply confirm and the Talent Directory actions
+  (`revalidatePath`). No fix yet.
+- The log line's latency for a stream is the whole reply, not time to first token.
 
 ---
 
