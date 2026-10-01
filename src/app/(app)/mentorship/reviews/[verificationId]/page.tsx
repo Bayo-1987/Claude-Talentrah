@@ -4,6 +4,7 @@ import { getReviewDetail } from "@/lib/talent-directory/review-queries";
 import { releaseVerificationReviewClaimAction } from "@/lib/talent-directory/reviewer-actions";
 import { Container, EyebrowLabel, BorderedCard, Button } from "@/components/ui";
 import { DecideForm } from "./decide-form";
+import { formatDateTime } from "@/lib/format/datetime";
 
 export const metadata = { title: "Review a verification — Talentrah" };
 
@@ -57,7 +58,7 @@ export default async function ReviewDetailPage({
       <p className="text-[13.5px] text-ink-soft">
         {detail.targetRole ?? "No target role stated"}
         {detail.targetIndustry ? ` · ${detail.targetIndustry}` : ""} · requested{" "}
-        {new Date(detail.requestedAt).toLocaleString()}
+        {formatDateTime(detail.requestedAt)}
       </p>
 
       <BorderedCard className="flex flex-col gap-3 p-5">

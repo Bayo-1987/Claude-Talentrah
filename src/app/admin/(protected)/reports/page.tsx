@@ -4,6 +4,7 @@ import { decideJobPostingAction } from "@/lib/admin/moderation/actions";
 import { DecisionForm } from "@/components/admin/decision-form";
 import { QueueEmpty, QueueHeader } from "@/components/admin/queue-chrome";
 import { Container, EyebrowLabel, BorderedCard } from "@/components/ui";
+import { formatDate } from "@/lib/format/datetime";
 
 export const metadata = {
   title: "Reported postings — Talentrah admin",
@@ -67,7 +68,7 @@ export default async function ReportsQueuePage() {
                     <p className="text-[13.5px] text-ink-soft">
                       {p.sourceType === "external" ? "External listing" : "Posted on Talentrah"} ·{" "}
                       status {p.status} · latest report{" "}
-                      {new Date(p.latestAt).toLocaleDateString()}
+                      {formatDate(p.latestAt)}
                     </p>
                     {p.externalUrl && (
                       <a
@@ -172,7 +173,7 @@ export default async function ReportsQueuePage() {
                     </h3>
                     <p className="text-[13.5px] text-ink-soft">
                       {p.sourceType === "external" ? "External listing" : "Posted on Talentrah"}
-                      {p.removedAt && ` · removed ${new Date(p.removedAt).toLocaleDateString()}`}
+                      {p.removedAt && ` · removed ${formatDate(p.removedAt)}`}
                       {p.removedByName ? ` by ${p.removedByName}` : " · remover not recorded"}
                     </p>
                     {p.removalReason && (

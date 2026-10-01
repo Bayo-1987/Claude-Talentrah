@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { postAvailabilitySlotAction, deleteAvailabilitySlotAction } from "@/lib/mentorship/actions";
 import { Button, BorderedCard } from "@/components/ui";
 import type { MentorAvailabilitySlot } from "@/lib/mentorship/queries";
+import { formatDateTime, formatTime } from "@/lib/format/datetime";
 
 export function AvailabilityManager({ slots }: { slots: MentorAvailabilitySlot[] }) {
   const [start, setStart] = useState("");
@@ -22,7 +23,7 @@ export function AvailabilityManager({ slots }: { slots: MentorAvailabilitySlot[]
           {slots.map((slot) => (
             <li key={slot.id} className="flex items-center justify-between gap-3 border-b border-line pb-2">
               <span className="text-[13.5px] text-ink">
-                {new Date(slot.startAt).toLocaleString()} – {new Date(slot.endAt).toLocaleTimeString()}
+                {formatDateTime(slot.startAt)} – {formatTime(slot.endAt)}
               </span>
               <button
                 type="button"

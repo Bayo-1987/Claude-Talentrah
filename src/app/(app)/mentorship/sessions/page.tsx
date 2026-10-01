@@ -3,6 +3,7 @@ import { sessionsAsMentee } from "@/lib/mentorship/queries";
 import { Container, EyebrowLabel, BorderedCard } from "@/components/ui";
 import { ReviewForm } from "./review-form";
 import { bucketSession, sessionStatusLabel } from "@/lib/mentorship/session-buckets";
+import { formatDateTime } from "@/lib/format/datetime";
 
 export const metadata = { title: "Your mentorship sessions — Talentrah" };
 
@@ -44,7 +45,7 @@ export default async function MentorshipSessionsPage({
             <BorderedCard key={s.id} className="flex flex-col gap-2 p-5">
               <p className="font-semibold text-ink">{s.mentorName} · {s.sessionType.replace(/_/g, " ")}</p>
               <p className="text-[13.5px] text-ink-soft">
-                {new Date(s.scheduledStart).toLocaleString()} · {sessionStatusLabel(s.status, s.scheduledStart, now)}
+                {formatDateTime(s.scheduledStart)} · {sessionStatusLabel(s.status, s.scheduledStart, now)}
               </p>
               {s.meetingLink && (
                 <a href={s.meetingLink} target="_blank" rel="noopener noreferrer" className="text-[13.5px] text-rust">
@@ -63,7 +64,7 @@ export default async function MentorshipSessionsPage({
             <BorderedCard key={s.id} className="flex flex-col gap-2 p-5">
               <p className="font-semibold text-ink">{s.mentorName} · {s.sessionType.replace(/_/g, " ")}</p>
               <p className="text-[13.5px] text-ink-soft">
-                {new Date(s.scheduledStart).toLocaleString()} · {sessionStatusLabel(s.status, s.scheduledStart, now)}
+                {formatDateTime(s.scheduledStart)} · {sessionStatusLabel(s.status, s.scheduledStart, now)}
               </p>
             </BorderedCard>
           ))}
@@ -79,7 +80,7 @@ export default async function MentorshipSessionsPage({
             <BorderedCard key={s.id} className="flex flex-col gap-2 p-5">
               <p className="font-semibold text-ink">{s.mentorName} · {s.sessionType.replace(/_/g, " ")}</p>
               <p className="text-[13.5px] text-ink-soft">
-                {new Date(s.scheduledStart).toLocaleString()} · {sessionStatusLabel(s.status, s.scheduledStart, now)}
+                {formatDateTime(s.scheduledStart)} · {sessionStatusLabel(s.status, s.scheduledStart, now)}
               </p>
               {s.status === "completed" && <ReviewForm sessionId={s.id} mentorId={s.mentorId} />}
             </BorderedCard>

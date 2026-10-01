@@ -18,12 +18,13 @@
  * NO BACKFILL. Existing duplicates are fixed by the rename control, not by a
  * migration guessing at what the user meant.
  */
+import { formatDate } from "@/lib/format/datetime";
 
 /** Longest title the list can show without the row wrapping unreadably. */
 export const MAX_RESUME_TITLE_LENGTH = 80;
 
 /**
- * "Clean Professional — Sep 4".
+ * "Clean Professional — 4 Sep 2026".
  *
  * Day-level, not time-level: two resumes started in the same minute is a real
  * case (a mis-click, a back button) and a timestamp would make the list read
@@ -31,13 +32,12 @@ export const MAX_RESUME_TITLE_LENGTH = 80;
  * is for, and a machine-generated "(2)" suffix would be a worse answer than
  * asking.
  *
- * `en-US` is pinned rather than left to the server's locale so the format does
- * not depend on where this happens to run; the app's copy is English
- * throughout. `new Date()` is injectable so a test can assert the exact string
- * rather than reconstructing today's date and hoping.
+ * The house date format (src/lib/format/datetime.ts), in WAT, so the title does not
+ * depend on where this happens to run. `new Date()` is injectable so a test can
+ * assert the exact string rather than reconstructing today's date and hoping.
  */
 export function defaultBuilderResumeTitle(templateName: string, now: Date = new Date()): string {
-  const stamp = now.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  const stamp = formatDate(now);
   return truncateResumeTitle(`${templateName} — ${stamp}`);
 }
 

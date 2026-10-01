@@ -6,6 +6,7 @@ import { PAGE_SIZE, describeFilters, parseSignupListParams } from "@/lib/admin/p
 import { NewSignupsBadge } from "@/components/admin/new-signups-badge";
 import { QueueHeader } from "@/components/admin/queue-chrome";
 import { Container, BorderedCard, Button, TextField } from "@/components/ui";
+import { formatDateTime } from "@/lib/format/datetime";
 
 export const metadata = {
   title: "Job-seeker signups — Talentrah admin",
@@ -166,7 +167,7 @@ export default async function SignupsPage({
                   <td className="py-2.5 pr-4 break-all">{r.email}</td>
                   <td className="py-2.5 pr-4">{r.country ?? "—"}</td>
                   <td className="py-2.5 pr-4 tabular-nums">
-                    {new Date(r.createdAt).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}
+                    {formatDateTime(r.createdAt)}
                   </td>
                   <td className="py-2.5 pr-4 tabular-nums">{r.creditsBalance}</td>
                   <td className="py-2.5 pr-4">{r.marketSegment}</td>
