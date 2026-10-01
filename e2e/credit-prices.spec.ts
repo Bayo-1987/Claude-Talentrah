@@ -263,8 +263,9 @@ test.describe("bullet rewrite", () => {
     await expect(page).toHaveURL(/\/resume-builder\/edit/);
 
     // Saving clears it: no prompt, the navigation happens.
-    await page.getByRole("button", { name: "Save", exact: true }).click();
-    await expect(page.getByRole("button", { name: "Saved", exact: true })).toBeVisible();
+    // The editor has a Save button at the top and one at the bottom, so take the first of each.
+    await page.getByRole("button", { name: "Save", exact: true }).first().click();
+    await expect(page.getByRole("button", { name: "Saved", exact: true }).first()).toBeVisible();
     let prompted = false;
     page.on("dialog", async (d) => {
       prompted = true;
