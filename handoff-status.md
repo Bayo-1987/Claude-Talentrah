@@ -33,6 +33,88 @@ both served stale content in this project's history. Don't rely on either.
 
 ---
 
+## Merged 2026-10-01 — PR #614, the signed-out masthead on a phone: short CTA label below 640px, 44px targets (send-488)
+
+| PR | Branch | Merged at (UTC) | Merge SHA |
+|----|--------|-----------------|-----------|
+| [#614](https://github.com/Bayo-1987/Claude-Talentrah/pull/614) | `feat/masthead-mobile-fit-488` | 2026-10-01 10:22:10 | `8dd9ee0658a6fe8380dc3ac41c87474d05748563` |
+
+**The bug.** On every page that renders `MarketingMasthead` (about 15 marketing pages, the legal pages, `not-found` and the signed-out app shell, so `/scholarships`,
+`/jobs` and `/tracker` too), at phone widths "Log in" wrapped onto two lines and "Get started for free" onto up to four (360px: 110x120). The bar's row is a fixed 78px,
+so the CTA stuck out of it. **The document did not overflow** (`scrollWidth === clientWidth` at every width), so a scrollWidth check passed on the broken layout. Root cause: the
+bar had `px-10` (40px a side) on every viewport, leaving 310px of content on a 390px phone for controls that need about 398px.
+
+**What changed** (`src/components/marketing/marketing-masthead.tsx` only; the owner picked Option B from two real renders, A = full label squeezed to 8px margins and 13px text):
+- below 640px the visible CTA label is "Get started"; the link keeps `aria-label="Get started for free"` (the visible words are the start of the name, WCAG 2.5.3; the short span
+  is `aria-hidden`); from 640px up the full label shows;
+- Log in and the CTA are `whitespace-nowrap`; below 640px the bar's side padding is 20px and the gap 8px (`max-sm:` variants only);
+- the hamburger is 44x44 (was 40x40) and the logo link has a 44px-tall hit area (`min-h-11`, no visual change).
+
+Measured after, at 360, 375, 390 and 412px on `/`, `/about`, `/scholarships`, `/jobs`, `/tracker`: Log in 52.8x44, CTA 110.4x48, hamburger 44x44, logo link 96x44, every control on one
+line, inside the bar, symmetric 20px margins. **Desktop is unchanged:** header screenshots from local production builds of `main` and of the branch are byte-identical at 1280, 1000, 900, 899, 700 and
+640px on all five pages and differ only at 639px and below.
+
+**Proof the tests can fail (red, then green).** On unchanged `main`: e2e `9 failed | 14 passed`, unit `5 failed | 3 passed`; the overflow, accessible-name, menu and desktop tests pass on `main`,
+which is the scrollWidth lesson in test form. Green after: the new spec 23/23, 230/230 under `--repeat-each=10`; unit 8/8. `e2e/masthead-signed-out-mobile.spec.ts` measures what scrollWidth cannot
+(visible text-node line boxes, each control against the bar's row, real hit areas at 44px for this masthead only; the repo-wide 40px floor in `hit-targets.spec.ts` is unchanged), plus the menu at 390px
+(opens, the same four links pinned in order, Escape closes it with focus on the hamburger), visible keyboard focus on Log in, the CTA and the hamburger, and the 640px-and-up pins.
+
+**The lesson from this PR's first CI run: rendered text widths are platform-dependent.** The first version of the "desktop is unchanged" pins asserted widths measured on macOS (Log in 52.8px); CI's Linux
+rendered the same CSS at 55px and three tests failed (3 of 477; every other assertion passed on Linux). Pins now assert the CSS that produces the layout, which is identical everywhere: padding (Log in
+6/6/10/10, CTA 30/30/15/15), font size 15, the **computed font-family stack and font-weight 600** on both controls (so a font swap cannot slip through a padding-only pin), min-height, the 78px bar, the 40px side
+padding, the full label on one line. Proven able to fail: temporarily changing the ghost button's padding 6px to 7px and the base weight semibold to medium turned all three desktop tests red
+(`fontWeight 600 -> 500`, `padL 6 -> 7`); reverted. A layout test must pin CSS or assert relations, never an absolute rendered width measured on one machine.
+
+**Process.** Collision check re-run immediately before creating the branch (send-487 was taken, so 488) and again before the first push. Head history: `4537b2b` (CI red, the width pins) then the fix and a
+merge of `main` (#613, no overlap) into `3f20f58`, which was merged with `--match-head-commit` after all four required checks passed on that head (0 commits behind `main`). Found while measuring and filed,
+not fixed here: [#617](https://github.com/Bayo-1987/Claude-Talentrah/issues/617) (a11y, low): pressing Escape while focus is inside the open menu drops focus to `<body>` instead of the hamburger.
+
+### Verification (all four)
+
+**1. GitHub API** — `GET /repos/Bayo-1987/Claude-Talentrah/pulls/614`:
+```
+{"merged": true, "merged_at": "2026-10-01T10:22:10Z",
+ "merge_commit_sha": "8dd9ee0658a6fe8380dc3ac41c87474d05748563", "state": "closed",
+ "head_sha": "3f20f58f03eabe64f2a126caa1f4cbf40a3651a1", "merged_by": "Bayo-1987"}
+```
+
+**2. Fresh shallow clone** (`git clone --depth 30`, a temp dir):
+```
+HEAD: 8dd9ee0658a6fe8380dc3ac41c87474d05748563   (Merge pull request #614 …)
+marketing-masthead.tsx: aria-label "Get started for free" present; long span (max-sm:hidden) and short span (sm:hidden, aria-hidden) present;
+  logo link min-h-11; hamburger h-11 w-11; bar max-sm:px-5
+PRESENT: e2e/masthead-signed-out-mobile.spec.ts (pins include fontWeight "600"), tests/marketing/marketing-masthead.test.tsx
+src/lib/button-classes.ts: ghost padding px-[6px] and base font-semibold still present (the mutation used to prove the pins was reverted)
+```
+
+**3. Live production probe** (2026-10-01 10:24 UTC, **signed out**, read-only, 390px and 360px on `/`, `/jobs` and `/scholarships`). Vercel deployment `dpl_hvSWo8zeNfyZCTMceTy2dM6ANSvU`: `READY`,
+`target: production`, `githubCommitSha` = `8dd9ee06…`, aliased to `www.talentrah.com`; created 10:22:14, ready 10:22:53.
+```
+all six page x width combinations: HTTP 200, no redirect to /login, scrollWidth == clientWidth (390 / 360), no overlapping controls, rightmost control edge 370 / 340
+  logo link      96 x 44  (x=20)           hamburger  44 x 44         Log in  52.8 x 44, 1 line
+  sign-up CTA   110.4 x 48, 1 line, visible text "Get started"; accessible name "Get started for free"
+  inside the 78px bar: yes   every control >= 44 x 44: yes
+  accessible names present once each: link "Log in", link "Get started for free", button "Main menu", link "Talentrah"
+```
+Identical to the local build's measurements. **Not probed live:** 375px, 412px and desktop (covered by the local byte-identical screenshots and by CI). **No signed-in production probe was done.**
+
+**4. Full suite against merged `main`** — CI run
+[36848700787](https://github.com/Bayo-1987/Claude-Talentrah/actions/runs/36848700787) (push, `8dd9ee0`), `success`:
+```
+Typecheck, lint, unit tests : success   Test Files 395 passed (395)   Tests 4443 passed (4443)
+Playwright e2e              : success   478 passed (7.5m)
+Dependency audit, Secret scan: success   (Migration numbering: skipped on push events)
+```
+All 23 tests of the new masthead spec ran and passed, and `signed-out-link-gate.spec.ts` (`scope=ci`) passed. `Migration drift (production)`
+([run 36848700801](https://github.com/Bayo-1987/Claude-Talentrah/actions/runs/36848700801)): success.
+
+### Not covered / still open
+- **#617:** Escape from inside the open menu loses keyboard focus (a11y, low). The click-open path is pinned; the keyboard-inside path is not.
+- **Follow-ups listed in the PR, not built:** raise the repo-wide hit-target floor from 40px to 44px (only the masthead is held to 44 here); the CTA's `px-[22px] py-[11px] text-[14px]` override is dead on desktop (the variant's classes win in `cn()`'s plain join), so the desktop CTA renders at 15px with 30px padding, and fixing it would change desktop.
+- Below 640px the visible label no longer says "for free" (the full phrase is the accessible name; the homepage hero and mobile sticky bar still say it). The hamburger still sits between the logo and Log in, as before.
+
+---
+
 ## Merged 2026-10-01 — PR #607, real signed-out landing pages at `/jobs` and `/tracker` (send-484)
 
 | PR | Branch | Merged at (UTC) | Merge SHA |
