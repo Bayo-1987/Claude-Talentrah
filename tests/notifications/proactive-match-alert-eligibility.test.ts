@@ -115,6 +115,7 @@ vi.mock("@/lib/supabase/service-role", () => ({
           return chain;
         },
         gte: () => chain, // every fixture row is already "new enough" for these tests
+        is: () => chain, // 0202: `.is("superseded_at", null)`; no fixture row is superseded
         limit: () => chain,
         maybeSingle: () => {
           single = true;

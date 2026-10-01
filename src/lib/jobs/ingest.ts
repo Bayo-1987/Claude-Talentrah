@@ -8,8 +8,11 @@ import { JOB_SOURCES } from "./sources.config";
 import { disambiguateFingerprint } from "./dedup";
 import { externalSourceKey } from "./types";
 import { enrichThinPostings } from "./enrich-thin";
+import { isFeatureEnabled } from "@/lib/flags/read";
 import { chunkInList } from "@/lib/supabase/in-list";
 import type { JobSourceConfig, NormalizedJobPosting } from "./types";
+
+export const JOB_SUPERSESSION_FLAG = "job_supersession";
 
 export interface IngestSourceResult {
   source: string;
@@ -78,6 +81,8 @@ function configIdentifier(config: JobSourceConfig): string {
 export async function ingestAllSources(): Promise<IngestSourceResult[]> {
   const supabase = createServiceRoleClient();
   const results: IngestSourceResult[] = [];
+  /** Companies whose postings this run fetched or closed — the scope supersession is re-evaluated over (0202). */
+  const touchedCompanies = new Set<string>();
 
   for (const config of JOB_SOURCES) {
     try {
@@ -96,6 +101,7 @@ export async function ingestAllSources(): Promise<IngestSourceResult[]> {
        * and what it trades away.
        */
       const { jobs, collided } = resolveFingerprintCollisions(fetchedJobs);
+      for (const job of jobs) touchedCompanies.add(job.companyName);
       if (collided > 0) {
         console.warn(
           `[ingest:${config.source}/${configIdentifier(config)}] ${collided} posting(s) shared a canonical ` +
@@ -239,7 +245,7 @@ export async function ingestAllSources(): Promise<IngestSourceResult[]> {
        */
       let openQueryForClose = supabase
         .from("job_postings")
-        .select("id, dedup_fingerprint")
+        .select("id, dedup_fingerprint, company_name")
         // `externalSourceKey`, not `config.source` — for schema-org that is
         // `schema-org:<label>`, the same value the fetcher wrote. Matching on
         // the bare discriminator here scoped every schema-org config to the
@@ -257,6 +263,10 @@ export async function ingestAllSources(): Promise<IngestSourceResult[]> {
       const staleIds = (openRows ?? [])
         .filter((row) => !seenFingerprints.has(row.dedup_fingerprint))
         .map((row) => row.id);
+      // A keeper that closes can leave a sibling as the only open copy; that sibling's company must be re-evaluated.
+      for (const row of openRows ?? []) {
+        if (!seenFingerprints.has(row.dedup_fingerprint)) touchedCompanies.add(row.company_name);
+      }
 
       let closed = 0;
       for (const batch of chunkInList(staleIds)) {
@@ -307,6 +317,29 @@ export async function ingestAllSources(): Promise<IngestSourceResult[]> {
               })(),
       });
     }
+  }
+
+  /*
+   * S12 (b), migration 0202 — after every source has been upserted and swept, hide same-location duplicates: the
+   * freshest of each group of open external postings with the same company, title, location and description stays;
+   * the others get `superseded_by`/`superseded_at` and vanish from every public read. Nothing is deleted and no status
+   * changes, so ingestion's reopen path cannot undo it: an upsert that touches a superseded row leaves both columns
+   * alone (they are not in the upsert's column list), and the next pass re-evaluates the whole table.
+   *
+   * Gated on the `job_supersession` flag, which migration 0202 creates OFF: marking rows is a production write that
+   * waits for a reviewed dry run (`select * from job_supersession_plan()`). Wrapped like the enrichment below so a
+   * failure here can never take the ingest run itself down.
+   */
+  try {
+    if (touchedCompanies.size > 0 && (await isFeatureEnabled(JOB_SUPERSESSION_FLAG))) {
+      // Scoped to the companies this run touched: bounded work, and the groups are per company so none is split.
+      const { data, error } = await supabase.rpc("apply_job_supersession", { p_companies: [...touchedCompanies] });
+      if (error) throw error;
+      const row = data?.[0];
+      console.info(`[ingest:supersession] superseded ${row?.superseded ?? 0}, restored ${row?.restored ?? 0}`);
+    }
+  } catch (err) {
+    console.error("[ingest:supersession] run failed", err);
   }
 
   /*
