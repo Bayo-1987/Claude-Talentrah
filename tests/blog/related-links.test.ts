@@ -20,19 +20,23 @@ import { RELATED_LINKS, relatedLinksForPost } from "@/lib/blog/related-links";
 
 const SCHOLARSHIP_CATALOG = [{ href: "/scholarships", label: "Browse the scholarship catalog" }];
 
-/** Every slug's list, as it must be. Only the last entry differs from what shipped before send-486. */
+/**
+ * Every slug's list, as it must be. send-486 added the two /vs links to the comparison post; send-491 re-pointed
+ * the four links that led a signed-out reader to /login (/tailor, /resume-builder, /tailor?coverLetter=1):
+ * labels and order are unchanged, only the hrefs moved. Every other slug is exactly as it was.
+ */
 const EXPECTED: Record<string, { href: string; label: string }[]> = {
   "reading-your-match-score": [
     { href: "/jobs", label: "See your own Match Scores in the jobs feed" },
-    { href: "/tailor", label: "Tailor your resume to a specific job" },
+    { href: "/ai-resume-tailoring", label: "Tailor your resume to a specific job" },
   ],
   "beating-the-ats": [
-    { href: "/tailor", label: "Tailor your resume with Farah" },
-    { href: "/resume-builder", label: "Build a resume from an ATS-safe template" },
+    { href: "/ai-resume-tailoring", label: "Tailor your resume with Farah" },
+    { href: "/ai-resume-builder", label: "Build a resume from an ATS-safe template" },
   ],
   "when-to-bring-in-a-mentor": [{ href: "/mentorship", label: "Browse mentors on Talentrah" }],
   "cover-letters-that-dont-sound-like-a-template": [
-    { href: "/tailor?coverLetter=1", label: "Write your cover letter with Farah" },
+    { href: "/signup?redirectTo=%2Ftailor%3FcoverLetter%3D1", label: "Write your cover letter with Farah" },
   ],
   "gates-cambridge-scholarship-2027": SCHOLARSHIP_CATALOG,
   "mastercard-foundation-scholars-program": SCHOLARSHIP_CATALOG,
