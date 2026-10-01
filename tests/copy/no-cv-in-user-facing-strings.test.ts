@@ -7,8 +7,9 @@
  * compiler and checks only string literals, template-literal text and JSX text. Comments are not nodes, so they
  * never trip it.
  *
- * It is a RATCHET: a new seeker-facing "CV" fails here. The one allowlisted string is billing/page.tsx's
- * "1 CV tailoring", which belongs to the billing-copy PR (S18); that PR deletes the entry along with the string,
+ * It is a RATCHET: a new seeker-facing "CV" fails here. The allowlisted strings are billing/page.tsx's
+ * "1 CV tailoring" (belongs to the billing-copy PR, S18; that PR deletes the entry along with the string) and the ISO
+ * country code "CV" (Cabo Verde) in lib/jobs/countries.ts,
  * and the test below fails if an entry outlives its string, so it cannot be forgotten.
  *
  * The scanner is proven able to fail (positive controls below) and proven not to be vacuous (it must have read
@@ -46,6 +47,8 @@ function sourceFiles(dir: string): string[] {
 /** file (relative to src/) -> the exact string that is allowed to say CV, with who removes it. */
 const ALLOWED: Record<string, { text: string; removedBy: string }> = {
   "app/(app)/billing/page.tsx": { text: "1 CV tailoring · credits never expire", removedBy: "the S18 billing-copy PR" },
+  // Not the word: ISO 3166-1 alpha-2 for Cabo Verde, in the country-code table ("CV" -> "Cape Verde"). Found when S12 added the file.
+  "lib/jobs/countries.ts": { text: "CV", removedBy: "nobody: it is a country code, not copy" },
 };
 
 const files = sourceFiles(SRC);
@@ -68,10 +71,17 @@ describe("the scanner itself", () => {
     expect(textNodes(`// Import my CV\n/* CV */ const CVBuilder = 1; const x = "ACVB";`).filter((t) => CV.test(t))).toEqual([]);
   });
 
-  it("is not vacuous: it read real source files and found the one allowlisted string", () => {
+  it("is not vacuous: it read real source files and found every allowlisted string where it says it is", () => {
     expect(files.length).toBeGreaterThan(200);
-    const entry = ALLOWED["app/(app)/billing/page.tsx"];
-    expect(hits.some((h) => h.file === "app/(app)/billing/page.tsx" && h.text === entry.text), "the allowlisted string is gone: delete its ALLOWED entry").toBe(true);
+    for (const [file, entry] of Object.entries(ALLOWED)) {
+      expect(hits.some((h) => h.file === file && h.text === entry.text), `${file}: the allowlisted string is gone: delete its ALLOWED entry`).toBe(true);
+    }
+  });
+
+  it("the country-code exemption is exactly that: a bare CV elsewhere still fails", () => {
+    // Same text, different file: not allowed. (ALLOWED is keyed by file.)
+    expect(ALLOWED["app/(app)/refer/page.tsx"]).toBeUndefined();
+    expect(ALLOWED["lib/jobs/countries.ts"]?.text).toBe("CV");
   });
 });
 
