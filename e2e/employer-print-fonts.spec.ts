@@ -8,7 +8,7 @@ import { expectedMarkerOrder, actualMarkerOrder } from "./support/ats-markers";
 import { installPrintStub } from "./support/print-stub";
 
 /**
- * The employer's "Print / Save as PDF" on an applicant's resume, on a cold
+ * The employer's "Save as PDF" on an applicant's resume, on a cold
  * font cache — the same guard e2e/print-button-fonts.spec.ts gives the
  * seeker's own button.
  *
@@ -30,7 +30,7 @@ import { installPrintStub } from "./support/print-stub";
 const SLUG = "blueprint";
 const FONT_DELAY_MS = 2000;
 
-test("Print / Save as PDF on a cold font cache prints the settled applicant resume", async ({
+test("Save as PDF on a cold font cache prints the settled applicant resume", async ({
   authedPage: page,
   testUser,
 }) => {
@@ -130,8 +130,13 @@ test("Print / Save as PDF on a cold font cache prints the settled applicant resu
       waitUntil: "domcontentloaded",
     });
 
-    const button = page.getByRole("button", { name: "Print / Save as PDF" });
+    const button = page.getByRole("button", { name: "Save as PDF" });
     await expect(button).toBeEnabled();
+
+    // What the employer saves must be the resume, not the employer app's own chrome.
+    await page.emulateMedia({ media: "print" });
+    await expect(page.getByTestId("employer-masthead"), "the employer masthead would be printed onto the applicant's resume").toBeHidden();
+    await page.emulateMedia({ media: null });
     // Observed concurrently, asserted last: it is transient, and asserting it
     // first would hide whether the print itself fired at the right moment.
     const sawPreparing = page
@@ -149,7 +154,14 @@ test("Print / Save as PDF on a cold font cache prints the settled applicant resu
     expect.soft(
       calls[0],
       "window.print() ran while fonts were still loading — the PDF would be captured on fallback fonts",
-    ).toEqual({ fontsStatus: "loaded", loadingFaces: 0 });
+    ).toMatchObject({ fontsStatus: "loaded", loadingFaces: 0 });
+    // The saved PDF is named from document.title: the applicant/author name, not the app's page title,
+    // and the page's own title is back once the browser reports afterprint.
+    expect(calls[0].title, "the print ran under the app's page title, so the PDF would be saved as that").toBe(
+      "ZQNAME-Eze-Resume",
+    );
+    await page.waitForFunction(() => window.__titlesAfterPrint.length > 0);
+    expect(await page.evaluate(() => window.__titlesAfterPrint[0])).not.toBe("ZQNAME-Eze-Resume");
 
     const expected = expectedMarkerOrder(CATALOG_TEMPLATE_CONFIGS[SLUG]);
     const text = await extractPdfText(pdfBuffer!);
@@ -159,7 +171,7 @@ test("Print / Save as PDF on a cold font cache prints the settled applicant resu
     ).toEqual(expected);
 
     expect(await sawPreparing, 'the button never showed "Preparing PDF…" while waiting for fonts').toBe(true);
-    await expect(page.getByRole("button", { name: "Print / Save as PDF" })).toBeEnabled();
+    await expect(page.getByRole("button", { name: "Save as PDF" })).toBeEnabled();
   } finally {
     if (applicationId) await admin.from("applications").delete().eq("id", applicationId);
     if (resumeId) await admin.from("resumes").delete().eq("id", resumeId);

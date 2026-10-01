@@ -165,6 +165,12 @@
    * entirely on this browser-supplied margin. Without that companion
    * change, this rule alone would print resume text flush against the
    * physical page edge.
+   *
+   * That left the TOP and BOTTOM of every page after the first (and the
+   * bottom of page 1) with no margin at all — a page breaks wherever the
+   * content runs out. `ResumePrintSurface`
+   * (resume-builder/resume-print-surface.tsx) restores 0.5in there with a
+   * `box-decoration-break: clone` frame, so `@page { margin: 0 }` can stay.
    */
   @page {
     margin: 0;

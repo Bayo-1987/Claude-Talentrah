@@ -141,7 +141,7 @@ export function EmployerMasthead({
   }, [navOpen]);
 
   return (
-    <div data-testid="employer-masthead" className="border-b-[2.5px] border-ink bg-paper">
+    <div data-testid="employer-masthead" className="border-b-[2.5px] border-ink bg-paper print:hidden">
       {/*
         gap-x-6 (send-470 follow-up, same reasoning as the seeker masthead's
         identical fix) — this row's two direct children had no guaranteed

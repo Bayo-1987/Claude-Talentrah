@@ -167,6 +167,27 @@ export function groundSkills(tailoredSkills: string[], baseResume: StructuredRes
   return { grounded, ungrounded };
 }
 
+function nonBlankBullets(entry: ResumeExperienceEntry): string[] {
+  return (entry.bullets ?? []).filter((b) => b.trim().length > 0);
+}
+
+/** Everything a role says, for searching: its description and its bullets. */
+function experienceNarrative(entry: ResumeExperienceEntry): string {
+  return [entry.description ?? "", ...nonBlankBullets(entry)].join(" \n ");
+}
+
+/**
+ * The text a person reviews when Farah's rewrite of a role is offered as an
+ * addition: one bullet per line when the role has bullets (what renders),
+ * else its description. `mergeAcceptedAdditions` reads the lines back into
+ * bullets, so an edit in the review box cannot merge two achievements.
+ */
+function experienceReviewText(entry: ResumeExperienceEntry | undefined): string {
+  if (!entry) return "";
+  const bullets = nonBlankBullets(entry);
+  return bullets.length > 0 ? bullets.join("\n") : (entry.description ?? "");
+}
+
 export interface ExperienceGroundingResult {
   experience: ResumeExperienceEntry[];
   /** Index into the returned array, plus the specific JD phrase that triggered the revert. */
@@ -196,11 +217,13 @@ export function groundExperienceDescriptions(
   const violations: ExperienceGroundingResult["violations"] = [];
 
   const experience = tailoredExperience.map((entry, index) => {
-    const description = normalize(entry.description ?? "");
-    if (!description) return entry;
+    // A role's narrative lives in `description` OR in `bullets` (the tailoring
+    // schema asks for bullets), and either can carry a JD-lifted claim.
+    const narrative = normalize(experienceNarrative(entry));
+    if (!narrative) return entry;
 
     const suspiciousPhrase = jdPhrases.find(
-      (phrase) => containsAsWords(description, phrase) && !containsAsWords(vocab, phrase),
+      (phrase) => containsAsWords(narrative, phrase) && !containsAsWords(vocab, phrase),
     );
     if (!suspiciousPhrase) return entry;
 
@@ -209,7 +232,10 @@ export function groundExperienceDescriptions(
     );
     const revertedTo = baseEntry?.description ?? "";
     violations.push({ index, phrase: suspiciousPhrase, revertedTo });
-    return { ...entry, description: revertedTo };
+    // Both fields go back to the candidate's own: reverting only `description`
+    // would leave the offending bullets in place, and a role with bullets
+    // renders them instead of the description.
+    return { ...entry, description: revertedTo, bullets: baseEntry?.bullets };
   });
 
   return { experience, violations };
@@ -257,7 +283,7 @@ export function applyGroundingBackstop(
         id: nextProposedAdditionId(),
         section: "experience",
         experienceIndex: v.index,
-        text: tailoredResume.experience[v.index]?.description ?? "",
+        text: experienceReviewText(tailoredResume.experience[v.index]),
         reason: `Farah's rewrite of this role included "${v.phrase}" — from the job description, not your base resume. Your original wording was kept instead; accept this to use Farah's version.`,
         source: "backstop",
       }),
