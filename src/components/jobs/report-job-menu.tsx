@@ -29,6 +29,31 @@ export interface ReportJobMenuProps {
   jobTitle: string;
 }
 
+/**
+ * The reason radios, on their own so they can be rendered and tested without the menu's open/close state.
+ *
+ * NOTHING IS PRE-CHECKED (send-494). The first radio used to be `defaultChecked`, so "It looks like a scam" arrived
+ * already answered and an unread "Send report" filed a fraud accusation against an employer. `required` on every
+ * radio makes the browser refuse to submit until one is picked (one required radio makes its whole group required);
+ * the action still refuses an empty reason server-side ("Pick a reason before sending.").
+ */
+export function ReportReasonFields() {
+  return (
+    <fieldset className="flex flex-col gap-0">
+      <legend className="sr-only">Reason</legend>
+      {REPORT_REASONS.map((r) => (
+        <label
+          key={r.value}
+          className="flex min-h-10 cursor-pointer items-center gap-2 text-[13px] text-ink hover:text-rust"
+        >
+          <input type="radio" name="reason" value={r.value} required className="accent-rust" />
+          {r.label}
+        </label>
+      ))}
+    </fieldset>
+  );
+}
+
 export function ReportJobMenu({ jobId, jobTitle }: ReportJobMenuProps) {
   const [open, setOpen] = useState(false);
   const [state, formAction, pending] = useActionState(
@@ -131,24 +156,7 @@ export function ReportJobMenu({ jobId, jobTitle }: ReportJobMenuProps) {
 
               <input type="hidden" name="jobId" value={jobId} />
 
-              <fieldset className="flex flex-col gap-0">
-                <legend className="sr-only">Reason</legend>
-                {REPORT_REASONS.map((r, i) => (
-                  <label
-                    key={r.value}
-                    className="flex min-h-10 cursor-pointer items-center gap-2 text-[13px] text-ink hover:text-rust"
-                  >
-                    <input
-                      type="radio"
-                      name="reason"
-                      value={r.value}
-                      defaultChecked={i === 0}
-                      className="accent-rust"
-                    />
-                    {r.label}
-                  </label>
-                ))}
-              </fieldset>
+              <ReportReasonFields />
 
               <label className="sr-only" htmlFor={`details-${jobId}`}>
                 Anything else we should know
