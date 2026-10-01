@@ -50,13 +50,15 @@ const FOOTER_COLUMNS = [
       { label: "Resume Tailoring", href: "/ai-resume-tailoring" },
       { label: "ATS Resume Checker", href: "/ats-resume-checker" },
       { label: "Job Tracker", href: "/tracker" },
-      // send-474 — NOT the bare `/scholarships`. That path is the login-gated
-      // list (proxy.ts PROTECTED_EXACT_PATHS; robots.ts disallows `/scholarships$`),
-      // so a signed-out visitor or crawler following this link was redirected
-      // to /login — the same dead end /mentorship had before send-385. The
-      // apply-now hub is public, in the sitemap, and routes signed-in visitors
-      // on to /scholarships and signed-out ones to signup with a redirectTo.
-      { label: "Scholarships", href: "/scholarships/apply-now" },
+      // send-480 — `/scholarships` again. send-474 pointed this at
+      // `/scholarships/apply-now` while `/scholarships` was login-gated (a signed-out
+      // visitor or crawler following it was redirected to /login). send-480 made the bare
+      // path a real signed-out landing page (seeker-gate-paths.ts no longer gates it;
+      // robots.ts no longer disallows it; it is in the sitemap), and moved this link back
+      // IN THE SAME CHANGE, so it can never lead the un-gating. A footer link must never
+      // point at a gated page: tests/marketing/marketing-footer.test.tsx asserts the
+      // target is not gated and not disallowed, with controls on paths that stay both.
+      { label: "Scholarships", href: "/scholarships" },
       { label: "Refer & Earn", href: "/refer" },
       { label: "Mentorship", href: "/mentorship" },
       { label: "Auto-Apply", href: "/how-auto-apply-works" },

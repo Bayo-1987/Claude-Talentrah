@@ -20,8 +20,9 @@ import { TRACKED_COUNTRIES, COUNTRY_LANDING_SLUG, countryOrFilter } from "@/lib/
  *
  * So job postings appear here ONLY because /jobs/[id] was made public in the
  * same change, scholarships ONLY because /scholarships/[id] was made public
- * the same way later, and /mentorship (send-385) ONLY because it now branches
- * to a real signed-out landing page instead of redirecting. Every other route
+ * the same way later, and /mentorship (send-385) and /scholarships (send-480)
+ * ONLY because each now branches to a real signed-out landing page instead of
+ * redirecting. Every other route
  * under (app) — including /mentorship's own sub-routes ([mentorId], apply,
  * book, reviews, sessions — still authenticated-only, see robots.ts's
  * `/mentorship/` disallow — still requires a session and is deliberately
@@ -69,6 +70,15 @@ export const STATIC_PATHS: { path: string; priority: number; changeFrequency: Me
    * can go stale between deploys.
    */
   { path: "/mentorship", priority: 0.6, changeFrequency: "monthly" },
+  /*
+   * send-480 — /scholarships now renders a real signed-out landing page
+   * (components/scholarships/public-landing.tsx) instead of a login redirect, so it
+   * belongs here by this file's own rule. STATIC, not count-gated like
+   * /scholarships/fully-funded below: the page always answers 200 — with zero open
+   * listings it shows a plain sentence, never a 404 — so it sits with
+   * /scholarships/apply-now, and a live-count check here would be wrong.
+   */
+  { path: "/scholarships", priority: 0.7, changeFrequency: "daily" },
   /*
    * send-386 — two standalone, hand-authored SEO landing pages (not
    * programmatic — no live count to go stale, so static like /about rather

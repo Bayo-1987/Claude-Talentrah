@@ -1,5 +1,6 @@
 /**
- * The scholarship detail page is public; the list behind it is not.
+ * The scholarship detail page is public. (The list behind it was not until send-480, which
+ * made /scholarships a real signed-out landing page — see the last test.)
  *
  * ── WHY THIS PAGE EXISTS ──────────────────────────────────────────────────
  *
@@ -133,12 +134,19 @@ test("signed IN: the account-gated controls are back and nothing regressed", asy
   );
 });
 
-test("other app routes, including the scholarships list, still require a session", async ({
+test("other app routes still require a session, and the scholarships list no longer does (send-480)", async ({
   page,
 }) => {
   // The layout gate is shared; each page's own requireUser must still hold.
-  for (const path of ["/scholarships", "/jobs", "/tracker", "/settings", "/billing"]) {
+  for (const path of ["/jobs", "/tracker", "/settings", "/billing"]) {
     await page.goto(path);
     expect(page.url(), `${path} did not redirect a signed-out visitor`).toContain("/login");
   }
+
+  // send-480: the scholarships LIST is now a real signed-out landing page (see
+  // e2e/scholarships-public-landing.spec.ts for its own coverage). This is the control that
+  // proves the loop above can still detect a redirect — and that only this route moved.
+  const res = await page.goto("/scholarships");
+  expect(res?.status()).toBe(200);
+  expect(page.url()).not.toContain("/login");
 });

@@ -12,14 +12,18 @@ import { absoluteUrl, SITE_ORIGIN } from "@/lib/seo/site";
  * pages out of the index. A path that were only protected by this line would
  * be public.
  *
- * `/jobs/` AND `/scholarships/` ARE CRAWLABLE, deliberately: each detail page
- * is public and the feed/list behind it is not, hence the trailing-slash
- * distinction below on both. Scholarships followed the same move for the same
- * reason job postings did first (#152) — the catalog carries "fully funded
- * scholarships for Nigerians"-class search demand, and a blanket disallow on
- * `/scholarships` made every listing invisible to it. RLS is what actually
- * keeps a pending listing out (0084); this line only stops crawl budget being
- * spent discovering that the authenticated list route redirects.
+ * `/jobs/` IS CRAWLABLE, deliberately: each job detail page is public and the
+ * feed behind it is not, hence the `/jobs$` exact-match entry below.
+ *
+ * `/scholarships` HAS NO DISALLOW AT ALL (send-480). It had `/scholarships$` for
+ * the same reason `/jobs$` exists — a list that only ever redirected — until its
+ * bare path became a real signed-out landing page, at which point disallowing it
+ * would have un-listed the very page built to be found. Every scholarship URL is
+ * now crawlable: the landing page, the detail pages, apply-now, fully-funded and
+ * degree/[level]. Scholarships originally followed job postings' move (#152) — the
+ * catalog carries "fully funded scholarships for Nigerians"-class search demand,
+ * and a blanket disallow on `/scholarships` once made every listing invisible to
+ * it. RLS is what actually keeps a pending listing out (0084).
  */
 export default function robots(): MetadataRoute.Robots {
   return {
@@ -57,12 +61,13 @@ export default function robots(): MetadataRoute.Robots {
            * below) already has a matching disallow.
            */
           "/talent-directory/verify",
-          // The feed and list themselves need a session; individual detail
-          // pages do not.
+          // The job feed itself needs a session; individual detail pages do not.
+          // (send-480: `/scholarships$` used to sit here too and is gone — the bare
+          // /scholarships path is a public landing page now.)
           "/jobs$",
-          "/scholarships$",
           /*
-           * send-385 — the INVERSE of the /jobs$/scholarships$ shape above:
+           * send-385 — the INVERSE of the /jobs$ shape above (and of what
+           * /scholarships$ was, before send-480):
            * `/mentorship` itself is now the real, signed-out-visitor public
            * page (components/mentorship/public-landing.tsx), so it must stay
            * OFF this list — but every sub-route still needs a session and was

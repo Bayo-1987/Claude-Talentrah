@@ -81,7 +81,7 @@ describe("robots.ts disallows every requireUser()-gated route", () => {
    * could tell these apart automatically; an explicit, documented exception
    * is simpler and more honest about what a text scan can't actually prove.
    */
-  const KNOWN_DUAL_PURPOSE_ROUTES = ["/mentorship"];
+  const KNOWN_DUAL_PURPOSE_ROUTES = ["/mentorship", "/scholarships"];
 
   it("has no OTHER requireUser()-gated route missing a matching disallow (the systematic check)", () => {
     const gatedRoutes = findRequireUserGatedRoutes(APP_DIR).filter(
@@ -98,9 +98,24 @@ describe("robots.ts disallows every requireUser()-gated route", () => {
     );
   });
 
-  it("does NOT disallow /mentorship itself — the one deliberate exception", () => {
+  it("does NOT disallow /mentorship itself — a deliberate exception", () => {
     // The inverse mistake would be just as real: over-broadly disallowing
     // /mentorship would un-list the real public landing page send-385 built.
     expect(isCoveredByDisallow("/mentorship", disallow)).toBe(false);
+  });
+
+  /*
+   * send-480 — /scholarships joins /mentorship as a dual-purpose route: its
+   * (list)/page.tsx still calls requireUser() (in the signed-in branch, so the
+   * text scan above flags it) but a signed-out visitor now gets a real public
+   * landing page, so it must have NO disallow. The `/jobs$` entry is the control:
+   * it must still be there and still cover exactly the bare /jobs path, which
+   * proves this check can still fail and that only /scholarships moved.
+   */
+  it("does NOT disallow /scholarships itself, but still disallows the bare /jobs list", () => {
+    expect(isCoveredByDisallow("/jobs", disallow), "control: /jobs$ must still be disallowed").toBe(true);
+    expect(isCoveredByDisallow("/jobs/some-id", disallow), "control: a job detail page stays crawlable").toBe(false);
+    expect(disallow).not.toContain("/scholarships$");
+    expect(isCoveredByDisallow("/scholarships", disallow)).toBe(false);
   });
 });

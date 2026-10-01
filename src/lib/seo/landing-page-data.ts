@@ -277,3 +277,50 @@ export async function loadScholarshipsByLevel(
 
   return { level, total: count ?? 0, scholarships: (data ?? []) as Tables<"scholarships">[] };
 }
+
+/**
+ * send-480 — the four real rows on the signed-out /scholarships landing page ("Open this
+ * cycle"): verified, still open (same filter as every loader above), nearest deadline first
+ * with undated listings after every dated one.
+ *
+ * Only the columns a landing row renders — NOT `select("*")` like the loaders above. RLS
+ * decides which ROWS are visible, but this is a separate decision about which COLUMNS reach
+ * a public page: the moderation trail (`moderation_note`, `moderated_by`) has no business
+ * being fetched by a surface anyone on the internet can load, even though a server component
+ * would not serialise it. Same discipline as `PUBLIC_COLUMNS` in src/lib/scholarships/public.ts.
+ *
+ * `moderation_status = 'verified'` is filtered explicitly, and that is deliberate defence in
+ * depth rather than a duplicate of RLS: the sibling loaders do the same, and
+ * tests/seo/open-scholarships-preview.test.ts proves a client that BYPASSES RLS still never
+ * sees a pending row through this function. NOT cached, per this file's own rule above.
+ */
+const LANDING_PREVIEW_COLUMNS =
+  "id, provider, program_name, host_institution, degree_levels, funding_type, application_deadline, deadline_note, official_url";
+
+export type OpenScholarshipPreview = Pick<
+  Tables<"scholarships">,
+  | "id"
+  | "provider"
+  | "program_name"
+  | "host_institution"
+  | "degree_levels"
+  | "funding_type"
+  | "application_deadline"
+  | "deadline_note"
+  | "official_url"
+>;
+
+export async function loadOpenScholarshipsPreview(
+  supabase: Client,
+  limit = 4,
+): Promise<OpenScholarshipPreview[]> {
+  const { data, error } = await supabase
+    .from("scholarships")
+    .select(LANDING_PREVIEW_COLUMNS)
+    .eq("moderation_status", "verified")
+    .or(stillOpenFilter())
+    .order("application_deadline", { ascending: true, nullsFirst: false })
+    .limit(limit);
+  if (error) throw new Error(error.message);
+  return (data ?? []) as OpenScholarshipPreview[];
+}

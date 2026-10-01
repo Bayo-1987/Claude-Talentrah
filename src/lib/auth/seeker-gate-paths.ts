@@ -14,21 +14,27 @@
 
 /**
  * Exact paths that require a session ONLY at that exact URL — a sub-path is a
- * different, public page. `/jobs/[id]` and `/scholarships/[id]` are the
- * reason this exists as its own set rather than folding into
- * PROTECTED_PATH_PREFIXES: the LIST is gated, the DETAIL page underneath it
- * is deliberately public (see (app)/layout.tsx's own comment on why
- * /jobs/[id] had to stop redirecting Googlebot). Kept in sync with
- * src/app/robots.ts's `/jobs$` / `/scholarships$` entries by hand — same
- * distinction, different reason (crawl budget there, a redirect here).
+ * different, public page. `/jobs/[id]` is the reason this exists as its own set
+ * rather than folding into PROTECTED_PATH_PREFIXES: the LIST is gated, the DETAIL
+ * page underneath it is deliberately public (see (app)/layout.tsx's own comment
+ * on why /jobs/[id] had to stop redirecting Googlebot). Kept in sync with
+ * src/app/robots.ts's `/jobs$` entry by hand — same distinction, different reason
+ * (crawl budget there, a redirect here).
+ *
+ * send-480 — `/scholarships` used to be in this set for the same reason, and is
+ * gone: its bare path is now a real signed-out landing page
+ * (components/scholarships/public-landing.tsx), like /mentorship and /employer
+ * below. Unlike those two it needs no sub-path rule: nothing under
+ * /scholarships/ was ever gated ([id], apply-now, fully-funded and degree/[level]
+ * were all public already), checked by listing the route directory.
  */
-const PROTECTED_EXACT_PATHS = new Set(["/jobs", "/scholarships"]);
+const PROTECTED_EXACT_PATHS = new Set(["/jobs"]);
 
 /**
  * Path prefixes that require a session at every depth — nothing under these
  * is meant to be public. Mirrors src/app/robots.ts's disallow list (minus
- * /admin, /api, the auth pages and /jobs$ / /scholarships$, which are handled
- * elsewhere or above).
+ * /admin, /api, the auth pages and /jobs$, which are handled elsewhere or
+ * above).
  */
 const PROTECTED_PATH_PREFIXES = [
   "/auto-apply",

@@ -19,6 +19,10 @@
  * send-461 — a new "Compare" column (Jobright Alternative, vs. FreshTalent JobCopilot)
  * pinned the same way, so a future edit can't silently turn either into a
  * dead `#` anchor the way the original Product entries used to be.
+ *
+ * send-480 — the Scholarships entry is `/scholarships` again (it was
+ * `/scholarships/apply-now` for send-474 while `/scholarships` was login-gated).
+ * The send-474 block below is the guard that keeps it that way.
  */
 import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -32,7 +36,7 @@ const PRODUCT_LINKS: Record<string, string> = {
   "Resume Tailoring": "/ai-resume-tailoring",
   "ATS Resume Checker": "/ats-resume-checker",
   "Job Tracker": "/tracker",
-  Scholarships: "/scholarships/apply-now",
+  Scholarships: "/scholarships",
   "Refer &amp; Earn": "/refer",
   Mentorship: "/mentorship",
   "Auto-Apply": "/how-auto-apply-works",
@@ -62,45 +66,57 @@ describe("the footer's Product column", () => {
 });
 
 /**
- * send-474 — the footer's Scholarships link used to point at the bare
- * `/scholarships`, which proxy.ts login-gates (and robots.ts disallows). A
- * signed-out visitor or crawler following it landed on /login. The link must
- * point at a page a signed-out visitor can actually read, and this asserts that
- * against the real gate function rather than a hardcoded path, so re-gating
- * /scholarships/apply-now — or pointing the link back at the gated list — fails
- * here instead of silently reintroducing the dead end.
+ * send-474, revised by send-480. The footer link must NEVER point at a gated page:
+ * a signed-out visitor or crawler following it would land on /login. It pointed at
+ * `/scholarships/apply-now` while `/scholarships` was gated; send-480 un-gated
+ * `/scholarships` (a real signed-out landing page) and pointed the link back at it,
+ * in the same change so it could not lead the un-gating.
+ *
+ * The two "not gated" / "not disallowed" assertions are the standing guard against
+ * `/scholarships` going back behind login. They check the real gate function and the
+ * real robots rules, and each carries controls on a path that STAYS gated and
+ * disallowed (`/billing` — NOT `/tracker`, which is about to be made public), so a
+ * matcher that always answers "not blocked" cannot pass them.
  */
-describe("the footer's Scholarships link (send-474)", () => {
+describe("the footer's Scholarships link (send-474, revised by send-480)", () => {
   const html = renderToStaticMarkup(<MarketingFooter />);
   const match = html.match(/<a href="([^"]+)"[^>]*>Scholarships</);
 
-  it("links to the public apply-now hub, not the login-gated list", () => {
+  const rules = robots().rules;
+  const disallowed: string[] = (Array.isArray(rules) ? rules : [rules]).flatMap((r) =>
+    Array.isArray(r.disallow) ? r.disallow : r.disallow ? [r.disallow] : [],
+  );
+  // robots patterns here are prefixes, or `$`-anchored exact paths.
+  const isDisallowed = (path: string) =>
+    disallowed.some((rule) => (rule.endsWith("$") ? path === rule.slice(0, -1) : path.startsWith(rule)));
+
+  it("links to /scholarships, the public landing page", () => {
     expect(match, "no Scholarships anchor found in the footer").not.toBeNull();
-    expect(match![1]).toBe("/scholarships/apply-now");
-    expect(match![1]).not.toBe("/scholarships");
+    expect(match![1]).toBe("/scholarships");
   });
 
   it("targets a path the seeker-app gate does NOT redirect signed-out visitors away from", () => {
-    // Control: the bare list IS gated — proves this check can fail, i.e. it
-    // isn't passing just because isProtectedSeekerPath always returns false.
-    expect(isProtectedSeekerPath("/scholarships")).toBe(true);
+    // Controls: these stay gated, so the check demonstrably can fail.
+    expect(isProtectedSeekerPath("/billing")).toBe(true);
+    expect(isProtectedSeekerPath("/jobs")).toBe(true);
     expect(isProtectedSeekerPath(match![1])).toBe(false);
   });
 
   it("targets a path robots.ts does not disallow", () => {
-    const href = match![1];
-    const rules = robots().rules;
-    const disallowed = (Array.isArray(rules) ? rules : [rules]).flatMap((r) =>
-      Array.isArray(r.disallow) ? r.disallow : r.disallow ? [r.disallow] : [],
-    );
-    // Control: robots.ts DOES disallow the bare list, so a broken matcher
-    // can't pass this by finding no rules at all.
-    expect(disallowed).toContain("/scholarships$");
-    // robots patterns here are prefixes, or `$`-anchored exact paths.
-    const blocked = disallowed.some((rule) =>
-      rule.endsWith("$") ? href === rule.slice(0, -1) : href.startsWith(rule),
-    );
-    expect(blocked, `robots.ts disallows ${href}`).toBe(false);
+    // Controls: the matcher blocks a prefix rule (/billing) and an anchored one (/jobs$)
+    // and lets a sub-path through, so "not blocked" below cannot be a matcher that never blocks.
+    expect(disallowed).toContain("/billing");
+    expect(isDisallowed("/billing")).toBe(true);
+    expect(isDisallowed("/jobs")).toBe(true);
+    expect(isDisallowed("/jobs/some-id")).toBe(false);
+    expect(isDisallowed(match![1]), `robots.ts disallows ${match![1]}`).toBe(false);
+  });
+
+  it("relies on a matcher that is exact for THIS robots.ts: no disallow rule contains a wildcard", () => {
+    // isDisallowed above understands prefixes and `$`-anchored paths only. A rule such as
+    // "/*?ref=" would be misjudged silently, so adding one must fail here, on purpose,
+    // until the matcher is taught about it (follow-up from send-474).
+    expect(disallowed.filter((rule) => rule.includes("*")), "wildcard disallow rule(s)").toEqual([]);
   });
 });
 
