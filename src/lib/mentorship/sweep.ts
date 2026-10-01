@@ -15,6 +15,8 @@ const CONFIRMATION_DEADLINE_HOURS = 24;
 export interface MentorshipSweepSummary {
   /** False only if the work-list query itself failed — see recordQueryFailure below. */
   ok: boolean;
+  /** Unpaid bookings expired (their slot started without payment) and their slots released, this run (0203). */
+  expired: number;
   considered: number;
   cancelled: number;
   refunded: number;
@@ -59,6 +61,7 @@ export async function completeFinishedSessions(): Promise<number> {
 export async function runMentorshipSweep(): Promise<MentorshipSweepSummary> {
   const summary: MentorshipSweepSummary = {
     ok: true,
+    expired: 0,
     considered: 0,
     cancelled: 0,
     refunded: 0,
@@ -69,6 +72,26 @@ export async function runMentorshipSweep(): Promise<MentorshipSweepSummary> {
   await completeFinishedSessions();
 
   const supabase = createServiceRoleClient();
+
+  /*
+   * Unpaid bookings expire when their slot starts, and the slot is released (0203, send-502). book_mentor_session locks the
+   * slot and creates the session `pending_payment` BEFORE any payment exists, and nothing used to undo it: a mentee who never
+   * paid held the slot, and the mentor's profile said "No open slots", forever. The expiry and the release are ONE statement
+   * inside the function (the 0035 pattern), so there is no read-then-write here for a concurrent booking to slip through.
+   *
+   * Reported, not swallowed: a failure marks the run not-ok and the rest of the sweep still runs, because the no-show
+   * cancellations below do not depend on it.
+   */
+  const { data: expiredRows, error: expireError } = await supabase.rpc("expire_unpaid_mentor_sessions", {
+    p_now: new Date().toISOString(),
+  });
+  if (expireError) {
+    console.error(`[mentorship-sweep] expire_unpaid_mentor_sessions failed: ${expireError.message}`);
+    summary.ok = false;
+    summary.errors.push({ sessionId: "expire_unpaid_mentor_sessions", message: expireError.message });
+  } else {
+    summary.expired = expiredRows?.length ?? 0;
+  }
   const deadline = new Date(Date.now() + CONFIRMATION_DEADLINE_HOURS * 60 * 60 * 1000).toISOString();
 
   const { data: overdue, error } = await supabase

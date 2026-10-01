@@ -5,6 +5,7 @@ import { visibleName } from "@/lib/profile/name";
 import { buildPurchaseReceiptEmail } from "@/lib/billing/receipt-email";
 import { verifyTransaction } from "@/lib/paystack/client";
 import { captureEvent } from "@/lib/analytics/posthog";
+import { alertPaymentNeedsRefund } from "@/lib/mentorship/refund-alert";
 
 export interface FulfillResult {
   status: "success" | "already_processed" | "failed" | "not_found";
@@ -298,6 +299,43 @@ export async function fulfillPayment(
       .maybeSingle();
     if (session) {
       purchased = `Mentorship session (${session.session_type.replace(/_/g, " ")})`;
+    } else {
+      /*
+       * NOT pending_payment any more. Before 0203 that could only mean "already settled" (a redelivery), and falling through
+       * to "mark the transaction success" was harmless. Now an unpaid booking EXPIRES when its slot starts, or the mentee can
+       * cancel it, and a Paystack confirmation can still arrive afterwards (an abandoned checkout link paid later: the owner's
+       * own 17 Sep booking has exactly such a pending transaction). Falling through here would record the charge, leave the
+       * booking dead, and keep the money without a word.
+       *
+       * settle_late_mentor_payment decides, atomically: slot still free and ahead -> REINSTATE the booking (awaiting the
+       * mentor, slot locked again); otherwise mark it payment_needs_refund, which the admin ops badge counts. Never silent.
+       *
+       * A failure of the RPC itself THROWS, before the transaction is marked success: the transaction stays `pending`, so the
+       * webhook's own retry runs this again. Recording a success we could not act on is the one outcome to avoid.
+       */
+      const { data: outcome, error: settleError } = await supabase.rpc("settle_late_mentor_payment", {
+        p_session_id: transaction.product_id,
+      });
+      if (settleError) {
+        throw new Error(
+          `[fulfill] could not settle a late payment for mentor session ${transaction.product_id} (reference ${reference}): ${settleError.message}`,
+        );
+      }
+      if (outcome === "reinstated") {
+        const { data: restored } = await supabase
+          .from("mentorship_sessions")
+          .select("session_type")
+          .eq("id", transaction.product_id)
+          .maybeSingle();
+        if (restored) purchased = `Mentorship session (${restored.session_type.replace(/_/g, " ")})`;
+      } else if (outcome === "needs_refund") {
+        // `purchased` stays unset: no purchase receipt for a payment that is about to be refunded.
+        await alertPaymentNeedsRefund({
+          reference,
+          amountNgn: transaction.amount,
+          sessionId: transaction.product_id,
+        });
+      }
     }
   }
 

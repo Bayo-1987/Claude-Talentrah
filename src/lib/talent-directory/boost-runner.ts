@@ -3,6 +3,7 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { spendCredits, InsufficientCreditsError } from "@/lib/credits/spend";
 import { CREDIT_COSTS } from "@/lib/credits/costs";
 import { TALENT_DIRECTORY_BOOST_DAYS } from "./boost-constants";
+import { formatDate } from "@/lib/format/datetime";
 
 /**
  * Talent Directory v2, part 1: the seeker-paid search boost (§6.13's third
@@ -105,7 +106,7 @@ export async function runTalentDirectoryBoostPurchase(userId: string): Promise<B
 
   return {
     status: "success",
-    message: `You're now boosted to the top of search results until ${new Date(boostedUntil).toLocaleDateString()}.`,
+    message: `You're now boosted to the top of search results until ${formatDate(boostedUntil)}.`,
     boostedUntil,
   };
 }

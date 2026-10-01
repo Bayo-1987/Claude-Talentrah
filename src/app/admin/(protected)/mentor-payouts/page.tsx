@@ -3,6 +3,7 @@ import { listMentorPayouts } from "@/lib/admin/mentor-payouts/queries";
 import { QueueHeader, QueueEmpty } from "@/components/admin/queue-chrome";
 import { Container, EyebrowLabel, BorderedCard, NairaAmount } from "@/components/ui";
 import { RetryButton } from "./retry-button";
+import { formatDate } from "@/lib/format/datetime";
 
 export const metadata = {
   title: "Mentor payouts — Talentrah admin",
@@ -79,7 +80,7 @@ export default async function MentorPayoutsPage() {
                     </span>
                   </td>
                   <td className="px-4 py-3 text-[12.5px] text-ink-soft">
-                    {new Date(p.eligibleAt).toLocaleDateString()}
+                    {formatDate(p.eligibleAt)}
                   </td>
                   <td className="px-4 py-3">{p.attemptCount}</td>
                   <td className="px-4 py-3 max-w-[280px] text-[12.5px] text-ink-soft">

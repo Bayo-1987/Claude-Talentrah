@@ -13,6 +13,7 @@ import { RichMarkdownEditor, type RichMarkdownEditorHandle } from "./rich-markdo
 import { AssessmentEditor } from "./assessment-editor";
 import type { JobPostingAssessmentInput } from "@/lib/employer/job-posting-assessment";
 import { draftJobWithFarahAction } from "@/lib/employer/draft-job-action";
+import { formatCalendarDate, formatDate } from "@/lib/format/datetime";
 
 /**
  * A select whose option labels differ from their stored values.
@@ -175,7 +176,7 @@ function isoDate(offsetDays: number): string {
 function formatExpiry(days: number): string {
   const d = new Date();
   d.setDate(d.getDate() + days);
-  return d.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+  return formatDate(d);
 }
 
 function ExpiryField({ current }: { current: string | null }) {
@@ -185,7 +186,7 @@ function ExpiryField({ current }: { current: string | null }) {
   const [customDate, setCustomDate] = useState("");
   const preset = EXPIRY_PRESETS.find((p) => p.value === choice);
   const currentLabel = current
-    ? new Date(current).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })
+    ? formatDate(current)
     : null;
 
   return (
@@ -241,11 +242,7 @@ function ExpiryField({ current }: { current: string | null }) {
           ? `Closes ${formatExpiry(preset.days)}.`
           : choice === "custom"
             ? customDate
-              ? `Closes ${new Date(`${customDate}T12:00:00Z`).toLocaleDateString("en-GB", {
-                  day: "numeric",
-                  month: "long",
-                  year: "numeric",
-                })}, at the end of that day.`
+              ? `Closes ${formatCalendarDate(customDate)}, at the end of that day.`
               : `Pick any date up to ${MAX_EXPIRY_DAYS} days from now.`
             : choice === "keep" && currentLabel
               ? `Closes ${currentLabel}. Choose a duration to change it, or “No expiry” to remove it.`

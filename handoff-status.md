@@ -33,6 +33,63 @@ both served stale content in this project's history. Don't rely on either.
 
 ---
 
+## Merged 2026-10-01 — PR #639, the resume PDF output: filename, page margins, wording, bullets, tailoring-time normalisation, certification columns (S2-11)
+
+| PR | Branch | Merged at (UTC) | Merge SHA |
+|----|--------|-----------------|-----------|
+| [#639](https://github.com/Bayo-1987/Claude-Talentrah/pull/639) | `fix/resume-pdf-print-s2-11` | 2026-10-01 18:56:56 | `61ac4591341ace7e750c4e3f97827a7847396436` |
+
+**What it changed.** `window.print()` stays the export. (1) The saved PDF is named `<First>-<Last>-Resume` (`src/lib/resume-builder/print-title.ts`): `document.title` is set before print and restored on `afterprint`, on a thrown `print()`, and by a 60 s fallback; the employer button uses the applicant's name. (2) **Real top and bottom space on every printed page** with `@page { margin: 0 }` kept (so Chrome still draws no header/footer): `ResumePrintSurface` uses `box-decoration-break: clone` with 0.5 in padding. Measured on the 2-page A4 fixture: **page 2 top 4 pt -> 40 pt, page 1 bottom 28 pt -> 55 pt**. A `<thead>/<tfoot>` spacer table measured the same in Chromium 153; clone was chosen because it adds no table to a document ATS parsers read, and a browser that ignores the property falls back to the old output. The employer print used to print the employer masthead and a border around the resume; both are hidden in print. (3) The button reads **Save as PDF** with the line "In the print window, choose 'Save as PDF'." (4) The Achievements editor has a Bulleted list toggle; tailoring asks for a `bullets` array and splits glued or marker-prefixed text into one achievement per bullet. Two bugs found on the way: **glued bullets over 200 characters were dropped by the sanitizer, and the base resume's bullets overwrote the model's rewrite.** (5) `src/lib/tailoring/normalise.ts`, **tailoring time only**: "Sep 2022" dates, near-duplicate skills, and casing for a 36-term list applied only when a **whole skill-list entry** equals a term, never inside longer entries or prose (Go, Swift, Rust, Excel are not in it). The tailoring cache version is bumped 1 -> 2. (6) Certifications render in two columns from 8 entries, **except** the sidebar and rail skeletons, Statute, Public Record, Portfolio Grid, Pipeline and Critical Path (the founder confirmed that exception: a 200 px rail is too narrow; Critical Path's list is in a half-width column). Plan only: `docs/resume-pdf-server-side-plan.md` (recommendation: keep print; spike `@sparticuz/chromium-min` only if browser variance is evidenced; its cold-start figures are quoted, not measured).
+
+**Reversed after the founder's review (and why).** The first version also split typed `- ` / `•` descriptions at **render** time, which would have changed how every already-saved resume looks. Removed: splitting is tailoring-time only, and `tests/resume-builder/old-format-resume-render.test.tsx` (every template and skeleton; red with 73 failures before the fix) pins that an old-format saved resume renders exactly as stored. `tests/tailoring/cache-version-compat.test.ts` pins that the cache bump only changes whether NEW generations reuse a `tailoring_result_cache` row: its only reader is `getCachedTailoringResult`, called only from `tailorResumeToJob`, and a user reopens tailored resumes from `resumes`, which the cache never touches. `tests/tailoring/bullets-consumers.test.tsx` (33 tests) pins every reader of the output with the array shape and both old shapes; the ATS score and cover letter do not read stored output.
+
+### Verification (all four, against live state)
+
+**1. API.** `…/pulls/639` -> `merged: true`, `merged_at` 2026-10-01T18:56:56Z, `merge_commit_sha` `61ac4591…`.
+
+**2. Fresh shallow clone** (`GIT_TERMINAL_PROMPT=0 git clone --depth 1`), HEAD `61ac4591341ace7e750c4e3f97827a7847396436`: PRESENT `src/components/resume-builder/resume-print-surface.tsx`, `src/lib/resume-builder/print-title.ts`, `src/lib/tailoring/normalise.ts`, `docs/resume-pdf-server-side-plan.md`, `e2e/print-button-title.spec.ts`, `tests/resume-builder/old-format-resume-render.test.tsx`, `tests/tailoring/cache-version-compat.test.ts`, `tests/tailoring/bullets-consumers.test.tsx`, `tests/tailoring/normalise.test.ts`; `poppler-utils` appears once in `.github/workflows/ci.yml` (the `Playwright e2e` job) and nowhere else in `.github/workflows`.
+
+**3. Live production probe.** Vercel deployment `dpl_8WJt3yn4xJyu5uhxfCZQZu3hwV6C`, `READY`, `target: production`, `githubCommitSha` = `61ac4591…`. Signed out: `/` 200, `/login` 200, `/resume-builder` 307 (to login). **The change itself is behind sign-in and `window.print()`, so no signed-out probe can observe it**; its evidence is the built-app Playwright run below, not a live production page. Not covered: a signed-in print on production by a person.
+
+**4. Test suites on the merged head.** Unit **424 files passed (424)**; Playwright **532 passed**, including **the first real CI run** of `e2e/print-button-fonts.spec.ts`, `e2e/employer-print-fonts.spec.ts` and `e2e/print-button-title.spec.ts` (all passed; they could not be run locally) and the 2-page PDF white-space measurement for 9 templates plus Letter for one (at least 36 pt on every page, measured with real `pdftoppm`). The `Install poppler (pdftoppm)` step took **54 s** (16:51:03 -> 16:51:57Z) in the `Playwright e2e` job only.
+
+### Not covered / open
+- A signed-in human print-to-PDF on production, in a real browser, and an employer-side print of a real applicant resume.
+- Browser variance: the margin technique was measured in one Chromium (153); Safari and Firefox were not measured. A browser that ignores `box-decoration-break` prints as before.
+- The sidebar after-render (18 certifications) is 2 pages; on its page 1 the summary paragraph sits flush against the "Experience" heading. Whether that spacing pre-dates this PR was not checked.
+- Lighthouse failed (the known thin-CI-project `/jobs/remote` 404); not a required check.
+
+---
+
+## Merged 2026-10-01 — S12 job data quality, parts 3 and 4: PR #638 (cleaned location text) and PR #634 (job page titles)
+
+| PR | Branch | Merged at (UTC) | Merge SHA |
+|----|--------|-----------------|-----------|
+| [#638](https://github.com/Bayo-1987/Claude-Talentrah/pull/638) | `feat/job-location-normalise` | 2026-10-01 16:24:01 | `0f60fa2cd25d40b41e819aaca6ed491b1cff6cb1` |
+| [#634](https://github.com/Bayo-1987/Claude-Talentrah/pull/634) | `feat/job-page-titles` | 2026-10-01 17:29:22 | `aa55eb6fc64b72c6c3bb67194cdf96811ff5eb3b` |
+
+**What #638 changed.** `normalizeLocation` (`src/lib/jobs/location.ts`) cleans the stored `location` text at ingestion in all four adapters: a part repeating an earlier part of the same entry is dropped (`Lagos, Lagos, Nigeria` -> `Lagos, Nigeria`), duplicate `;` entries, a trailing ISO code that is that country's own (`Cameroon (CM)`), a stray full stop, ragged spacing, and a template placeholder (`City, Country`) becomes no location. It never invents or reorders and is idempotent. **Identity does not move**: every adapter still computes `dedup_fingerprint` from the raw string. No migration, no data written; rows take the cleaned text on their next ingest.
+
+**What #634 changed.** The `/jobs/[id]` title is `<Role> at <Company> — <City or Remote> | Talentrah` (`src/lib/seo/job-page-title.ts`), about 65 characters, under the founder's policy of 2026-10-01: **the company is never dropped**. Trim order: the suffix, then the place is the city or `Remote`, then the role at a word boundary; past that the title runs long. A posting whose title equals a sibling's (one bounded query per page render, `siblingPostingsFor`) gets its country, and only those, in a form that is never shortened (shortening the role would rebuild the collisions). `og:title` and `twitter:title` are that same string; canonical and the rest of the head are unchanged.
+
+### Verification (all four, against live state)
+
+**1. API.** `…/pulls/638` -> `merged: true`, `merged_at` 2026-10-01T16:24:01Z, `merge_commit_sha` `0f60fa2c…`. `…/pulls/634` -> `merged: true`, `merged_at` 2026-10-01T17:29:22Z, `merge_commit_sha` `aa55eb6f…`.
+
+**2. Fresh shallow clone** (`GIT_TERMINAL_PROMPT=0 git clone --depth 1`), HEAD `aa55eb6fc64b72c6c3bb67194cdf96811ff5eb3b`: PRESENT `src/lib/jobs/location.ts`, `tests/jobs/normalize-location.test.ts`, `src/lib/seo/job-page-title.ts`, `tests/seo/job-page-title.test.ts`, `e2e/job-page-title-head.spec.ts`; `siblingPostingsFor` appears 2 times in `src/app/(app)/jobs/[id]/page.tsx`; `normalizeLocation` appears 2 times in each of the four adapters.
+
+**3. Live production probe** (signed out, 2026-10-01 after Vercel deployments `dpl_23SiXw9NMdkcqkRWnuFmkotxJtVB` (#638) and `dpl_FaWbHPs8sVScnDGarULTCpZTcbdE` (#634, `githubCommitSha` `aa55eb6f…`), both `READY`, `target: production`). A crawl of **all 380 job URLs in `sitemap.xml`** (title, `og:title`, canonical): **380/380** `<title>` equal `og:title`; **380/380** canonicals are the page's own path; **0** still in the old `— Talentrah` format; 142 carry the ` | Talentrah` suffix, 74 carry a country (`— Remote, Poland`), the rest the short place. Duplicate titles: **3 groups / 7 rows** (Optimal Group x3, Monaco Solicitors x2, and Sales Network Manager - Regional - Jumia x2 in Nigeria, two postings with the same company, role and location). The first two are the rows #632 supersedes (once marked: 1 group / 2 rows left, the Jumia pair, which no title can separate). **58 titles are over 65 characters, 40 over 70, the longest 100**: the policy lets a title run long rather than lose its company, and the unshortened country-bearing form is the long one. The SQL estimate before the change was 28 duplicate groups / 107 rows and 120 titles over 65 (the founder's own crawl is the authoritative before/after). Production database, read-only, **before the next ingest** (so these are the "before" numbers for #638 and #629): open external postings with a repeated location part **126**, with a trailing ISO code **9**, bare `Remote` **62**, `Remote, <country>` **77**.
+
+**4. Test suites on the merged heads.** #638's final head: unit 410 files passed (410), Playwright 512 passed. #634's final head: unit 415 files passed (415), Playwright 517 passed, including the new `e2e/job-page-title-head.spec.ts` (title = `og:title` = `twitter:title`, and a real Poland/Spain collision).
+
+### Not covered / open
+- **#638's effect on data is not yet observable**: the last production ingest ran at 12:07Z, before both deploys. After the next run: the repeated-part, ISO-code, bare-Remote and Remote-country counts above should fall to 0 / 0 / (Workable rows that state a country) / rise; the before/after on the 142 markup-ineligible rows and the Rich Results test on 3 remote jobs follow it.
+- The title duplicate count above is on **unmarked** data; marking the 3 superseded rows is still waiting on the founder's go.
+- Lighthouse failed on both PRs (known: the thin CI-project `/jobs/remote` 404); not a required check. The SQL replica of the title rule is an approximation of the TypeScript; the crawl above is the real measurement.
+- One `tests/jobs` file (`freshness-visibility`) fails locally against the shared test database on remote-posting counts (other sessions' data); it passed in CI on both heads.
+
+---
+
 ## Merged 2026-10-01 — S12 job data quality, parts 1 and 2: PR #629 (countries and Workable's stated remote country in JobPosting markup) and PR #632 (superseded duplicates, migration 0202)
 
 | PR | Branch | Merged at (UTC) | Merge SHA |

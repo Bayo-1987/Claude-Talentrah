@@ -65,7 +65,9 @@ describe("content", () => {
 
   it("names the exact deadline date, not just a relative count", () => {
     const email = build({ applicationDeadline: "2026-10-01" });
-    expect(email.text).toContain("October 1, 2026");
+    // House format (send-499): day, short month, year; was the US-order "October 1, 2026".
+    expect(email.text).toContain("1 Oct 2026");
+    expect(email.text).not.toContain("October 1, 2026");
   });
 
   it("carries a working unsubscribe link scoped to this preference, not the digest's default", () => {

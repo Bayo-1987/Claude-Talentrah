@@ -13,16 +13,16 @@ import {
 } from "@/lib/resume-builder/resume-title";
 
 describe("defaultBuilderResumeTitle", () => {
-  // A fixed date, so this asserts the exact string rather than reconstructing
-  // today's and hoping the two agree.
-  const sep4 = new Date(2026, 8, 4, 12, 0, 0);
+  // A fixed instant, so this asserts the exact string rather than reconstructing today's and hoping the two agree. Noon UTC,
+  // so it is the same calendar day in WAT (the formatter's default zone) whatever zone the test runner is in.
+  const sep4 = new Date(Date.UTC(2026, 8, 4, 12, 0, 0));
 
-  it("is the template name plus a short date", () => {
-    expect(defaultBuilderResumeTitle("Clean Professional", sep4)).toBe("Clean Professional — Sep 4");
+  it("is the template name plus the house date format (send-499: '4 Sep 2026', not the US 'Sep 4')", () => {
+    expect(defaultBuilderResumeTitle("Clean Professional", sep4)).toBe("Clean Professional — 4 Sep 2026");
   });
 
   it("distinguishes repeats across days, which is the whole point", () => {
-    const sep2 = new Date(2026, 8, 2, 12, 0, 0);
+    const sep2 = new Date(Date.UTC(2026, 8, 2, 12, 0, 0));
     expect(defaultBuilderResumeTitle("Clean Professional", sep2)).not.toBe(
       defaultBuilderResumeTitle("Clean Professional", sep4),
     );

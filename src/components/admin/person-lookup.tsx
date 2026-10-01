@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { lookUpPersonAction } from "@/lib/admin/finance/actions";
 import { initialPersonLookupState } from "@/lib/admin/finance/state";
 import { Button, TextField, BorderedCard, EyebrowLabel } from "@/components/ui";
+import { formatDate } from "@/lib/format/datetime";
 
 const naira = (minor: number, currency: string) =>
   new Intl.NumberFormat("en-NG", { style: "currency", currency, maximumFractionDigits: 2 }).format(
@@ -70,7 +71,7 @@ export function PersonLookup() {
             <p className="text-[14px] text-ink-soft">{person.email}</p>
             <p className="text-[13.5px] text-ink-soft">
               {person.country ?? "country not set"} · joined{" "}
-              {new Date(person.createdAt).toLocaleDateString()} ·{" "}
+              {formatDate(person.createdAt)} ·{" "}
               <span className="font-semibold text-ink">{person.creditsBalance} credits</span>
             </p>
             <p className="font-mono text-[12px] text-ink-soft">{person.id}</p>
@@ -86,7 +87,7 @@ export function PersonLookup() {
                   <tbody>
                     {person.payments.map((p) => (
                       <tr key={p.id} className="border-b border-line last:border-b-0">
-                        <td className="px-4 py-2.5">{new Date(p.createdAt).toLocaleDateString()}</td>
+                        <td className="px-4 py-2.5">{formatDate(p.createdAt)}</td>
                         <td className="px-4 py-2.5">{p.productType}</td>
                         <td className="px-4 py-2.5">{naira(p.amount, p.currency)}</td>
                         <td className="px-4 py-2.5">
@@ -123,7 +124,7 @@ export function PersonLookup() {
                       <span>
                         {p.status}
                         {p.autoRenewStatus && ` · auto-renew ${p.autoRenewStatus}`} · expires{" "}
-                        {new Date(p.expiresAt).toLocaleDateString()}
+                        {formatDate(p.expiresAt)}
                       </span>
                       {p.pendingRenewalReference && (
                         /*
@@ -154,7 +155,7 @@ export function PersonLookup() {
                   <tbody>
                     {person.credits.map((c) => (
                       <tr key={c.id} className="border-b border-line last:border-b-0">
-                        <td className="px-4 py-2.5">{new Date(c.createdAt).toLocaleDateString()}</td>
+                        <td className="px-4 py-2.5">{formatDate(c.createdAt)}</td>
                         <td className="px-4 py-2.5">{c.reason}</td>
                         <td className="px-4 py-2.5">
                           {c.delta > 0 ? `+${c.delta}` : c.delta}

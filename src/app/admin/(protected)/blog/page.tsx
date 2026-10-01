@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requirePermission } from "@/lib/admin/require-admin";
 import { listAllPosts } from "@/lib/admin/blog/posts";
 import { Container, EyebrowLabel, BorderedCard, buttonClasses } from "@/components/ui";
+import { formatDate } from "@/lib/format/datetime";
 
 export const metadata = {
   title: "Blog — Talentrah admin",
@@ -69,7 +70,7 @@ export default async function AdminBlogPage() {
                   <span className="truncate font-body text-[14.5px] font-semibold">{post.title}</span>
                 </div>
                 <div className="mt-0.5 truncate text-[12.5px] text-ink-soft">
-                  /blog/{post.slug} · updated {new Date(post.updated_at).toLocaleDateString()}
+                  /blog/{post.slug} · updated {formatDate(post.updated_at)}
                 </div>
               </div>
               <div className="flex flex-shrink-0 items-center gap-4">

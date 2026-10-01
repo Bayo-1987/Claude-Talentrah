@@ -71,12 +71,15 @@ test.describe("a note with nothing in it", () => {
       "Called recruiter, follow up Friday",
     );
 
-    // "Edited <today>" in the same format the card's "Applied" line uses.
-    const today = new Date().toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
+    // "Edited <today>" in the same format the card's "Applied" line uses: the house format, "1 Oct 2026" (send-499), in WAT,
+    // the app's default zone. Computed here independently of the formatter, from the zone's own calendar parts.
+    const parts = Object.fromEntries(
+      new Intl.DateTimeFormat("en-US", { timeZone: "Africa/Lagos", day: "numeric", month: "numeric", year: "numeric" })
+        .formatToParts(new Date())
+        .map((p) => [p.type, p.value]),
+    );
+    const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const today = `${parts.day} ${MONTHS[Number(parts.month) - 1]} ${parts.year}`;
     await expect(authedPage.getByTestId("notes-read")).toContainText(`Edited ${today}`);
 
     // The banner is temporary; the read view is the lasting proof.

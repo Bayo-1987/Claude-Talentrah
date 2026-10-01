@@ -6,6 +6,7 @@ import { SaveToggle } from "./save-toggle";
 import { SaveStatusSelect } from "./save-status-select";
 import { FarahActions } from "./farah-actions";
 import { ScholarshipShareButton } from "./scholarship-share-button";
+import { formatCalendarDate } from "@/lib/format/datetime";
 
 export interface ScholarshipCardProps {
   scholarship: Tables<"scholarships">;
@@ -30,18 +31,13 @@ export function daysUntil(deadline: string | null): number | null {
 }
 
 /**
- * Date-only column, so build it in local time — a bare new Date() would
- * shift it a day back west of UTC. Guards the malformed case explicitly
- * rather than letting an unparseable value reach toLocaleDateString and
- * render the string "Invalid Date" at the user.
+ * A date-only column, in the app's one calendar-date format ("2 Oct 2026", src/lib/format/datetime.ts): never shifted by a
+ * time zone, never the runtime's locale ("10/2/2026" read as 10 February). A malformed value says "Not published yet"
+ * rather than "Invalid Date".
  */
 export function formatDeadline(deadline: string | null): string {
   if (!deadline) return "Not published yet";
-  const [y, m, d] = deadline.split("-").map(Number);
-  if (!y || !m || !d) return "Not published yet";
-  const parsed = new Date(y, m - 1, d);
-  if (Number.isNaN(parsed.getTime())) return "Not published yet";
-  return parsed.toLocaleDateString();
+  return formatCalendarDate(deadline) || "Not published yet";
 }
 
 export function ScholarshipCard({
