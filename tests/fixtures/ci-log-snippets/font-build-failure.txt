@@ -1,0 +1,12 @@
+2026-09-30T13:19:53.1924260Z > Build error occurred
+2026-09-30T13:19:53.2016091Z Error: Turbopack build failed with 12 errors:
+2026-09-30T13:19:53.2017198Z [next]/internal/font/google/work_sans_ac0de85f.module.css:7:8
+2026-09-30T13:19:53.2018427Z Error: Module not found: Can't resolve '@vercel/turbopack-next/internal/font/google/font'
+2026-09-30T13:19:53.2019800Z    5 |   font-weight: 400;
+2026-09-30T13:19:53.2020641Z    6 |   font-display: swap;
+2026-09-30T13:19:53.2022705Z >  7 |   src: url(@vercel/turbopack-next/internal/font/google/font?{%22url%22:%22https://fonts.gs...
+2026-09-30T13:19:53.2023490Z      |        ^
+2026-09-30T13:19:53.2024843Z    8 |   unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-0...
+2026-09-30T13:19:53.2025935Z    9 | }
+2026-09-30T13:19:53.2026267Z   10 | /* latin-ext */
+2026-09-30T13:19:53.2026495Z 

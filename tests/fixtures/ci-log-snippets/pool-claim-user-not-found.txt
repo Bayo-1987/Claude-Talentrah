@@ -1,0 +1,17 @@
+2026-09-30T11:45:28.4148212Z  FAIL  tests/rls/course-catalog.test.ts [ tests/rls/course-catalog.test.ts ]
+2026-09-30T11:45:28.4156113Z AuthApiError: User not found
+2026-09-30T11:45:28.4157299Z  ❯ handleError node_modules/@supabase/auth-js/src/lib/fetch.ts:145:8
+2026-09-30T11:45:28.4158365Z  ❯ _handleRequest node_modules/@supabase/auth-js/src/lib/fetch.ts:239:4
+2026-09-30T11:45:28.4159175Z  ❯ _request node_modules/@supabase/auth-js/src/lib/fetch.ts:200:15
+2026-09-30T11:45:28.4159903Z  ❯ GoTrueAdminApi.updateUserById node_modules/@supabase/auth-js/src/GoTrueAdminApi.ts:788:13
+2026-09-30T11:45:28.4160522Z  ❯ claimFromPool tests/support/auth.ts:211:32
+2026-09-30T11:45:28.4206649Z     209|   }
+2026-09-30T11:45:28.4207006Z     210|
+2026-09-30T11:45:28.4207655Z     211|   const { error: renameErr } = await admin.auth.admin.updateUserById(u…
+2026-09-30T11:45:28.4208358Z        |                                ^
+2026-09-30T11:45:28.4208832Z     212|     email,
+2026-09-30T11:45:28.4209724Z     213|     email_confirm: true,
+2026-09-30T11:45:28.4210511Z  ❯ createTestUser tests/support/auth.ts:250:18
+2026-09-30T11:45:28.4211356Z  ❯ createAuthedTestUser tests/support/auth.ts:469:16
+2026-09-30T11:45:28.4212131Z  ❯ tests/rls/course-catalog.test.ts:34:12
+2026-09-30T11:45:28.4212464Z 

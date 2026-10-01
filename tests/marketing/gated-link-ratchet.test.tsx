@@ -111,7 +111,9 @@ describe("the allowlist itself", () => {
   });
 
   it("rejects an owner that is missing, empty, free text or not on the list (so the check above can fail)", () => {
-    for (const bad of [undefined, null, "", "UNASSIGNED", "someone", "prompt-4", "Prompt-2"]) {
+    // "prompt-3" and "scholarships-landing" owned the rows send-484 and send-480 deleted; they are no longer
+    // valid owners (send-491), so a row naming either fails here instead of passing as a leftover.
+    for (const bad of [undefined, null, "", "UNASSIGNED", "someone", "prompt-4", "Prompt-2", "prompt-3", "scholarships-landing"]) {
       expect(isValidOwner(bad), String(bad)).toBe(false);
     }
     for (const good of ALLOWLIST_OWNERS) expect(isValidOwner(good), good).toBe(true);
@@ -145,6 +147,19 @@ describe("the allowlist itself", () => {
     // The "Back to jobs" link on /jobs/[id] is prompt-2's to change, not this PR's — but its row
     // was keyed to a target that is public now, so it goes too.
     expect(rows.map((r) => r.key)).not.toContain("main:/jobs/* -> /jobs");
+  });
+
+  it("send-491: the allowlist is EMPTY, so any future gated link needs a deliberate change to this test", () => {
+    /*
+     * The last five rows (the footer's and the hero demo's /resume-builder, and the blog's /tailor, /resume-builder and
+     * /tailor?coverLetter=1) were re-pointed at public pages or the signup redirect, and the production crawl
+     * (LINK_GATE_SCOPE=all) found 0 gated links afterwards. From here the ratchet is zero-tolerance: a NEW gated
+     * link fails the crawl and the unit companion, and the only way to allow one is to add a row AND edit this test,
+     * which is a visible, reviewed act rather than a quiet append to a list.
+     */
+    expect(GATED_LINK_ALLOWLIST.map((r) => r.key)).toEqual([]);
+    // The only owner left is the one that did the work; the two dead owners are gone.
+    expect([...ALLOWLIST_OWNERS]).toEqual(["prompt-2"]);
   });
 
   it("enforces staleness on ci rows always and on prod-only rows only in the 'all' scope", () => {

@@ -588,6 +588,8 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
     | "search_vector"
     | "closed_at"
     | "unlisted_at"
+    | "superseded_by"
+    | "superseded_at"
     | "banner_path"
     | "admin_review_decision"
     | "admin_review_note"

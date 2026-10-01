@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireEmployer } from "@/lib/employer/membership";
 import { TemplateRenderer } from "@/components/resume-builder/templates";
 import { EmployerPrintButton } from "@/components/employer/employer-print-button";
+import { ResumePrintSurface } from "@/components/resume-builder/resume-print-surface";
 import { notifySeekerResumeViewed } from "@/lib/notifications/employer-resume-view/notify";
 import type { StructuredResume } from "@/lib/resume/types";
 
@@ -99,14 +100,16 @@ export default async function ApplicantResumePage({
         >
           ← Applicants
         </Link>
-        <EmployerPrintButton />
+        <EmployerPrintButton
+          applicantName={(data.structured_content as unknown as StructuredResume).contact?.name}
+        />
       </div>
-      <div className="border-[1.5px] border-ink">
+      <ResumePrintSurface>
         <TemplateRenderer
           slug={data.template_slug}
           resume={data.structured_content as unknown as StructuredResume}
         />
-      </div>
+      </ResumePrintSurface>
     </div>
   );
 }

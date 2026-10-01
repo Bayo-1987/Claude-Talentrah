@@ -1,7 +1,13 @@
 import { BorderedCard, Button, TextField, SelectField } from "@/components/ui";
 import { addManualEntryAction } from "@/lib/applications/tracker-actions";
+import { TRACKER_STAGES } from "@/lib/tracker/stages";
 
-const STAGE_OPTIONS = ["saved", "applied", "interviewing", "offer", "rejected", "archived"];
+/**
+ * The tracker's one stage list, with real labels. This used to be six lowercase strings capitalised by CSS and
+ * missing Hired. A manually added Hired entry is backfilled history: addManualEntryAction sends no hired-moment
+ * email for it (that flow belongs to moving an application to Hired, in updateStageAction).
+ */
+const STAGE_OPTIONS = TRACKER_STAGES.map((s) => ({ value: s.key, label: s.label }));
 
 /**
  * Native <details>/<summary> disclosure — no client JS needed to expand
@@ -28,7 +34,6 @@ export function ManualEntryForm() {
             name="stage"
             options={STAGE_OPTIONS}
             defaultValue="saved"
-            className="capitalize"
           />
           <div className="min-[640px]:col-span-2">
             <TextField label="Notes (optional)" name="notes" />

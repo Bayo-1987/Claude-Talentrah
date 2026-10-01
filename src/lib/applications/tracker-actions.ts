@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { sendHiredMomentEmail } from "@/lib/notifications/hired-moment/send";
 import type { Enums } from "@/lib/supabase/types";
+import { isTrackerStage } from "@/lib/tracker/stages";
 
 async function getAuthedUserId() {
   const supabase = await createClient();
@@ -23,14 +24,29 @@ export async function addManualEntryAction(formData: FormData) {
   const title = String(formData.get("title") ?? "").trim();
   const url = String(formData.get("url") ?? "").trim();
   const location = String(formData.get("location") ?? "").trim();
-  const stage = String(formData.get("stage") ?? "saved") as Enums<"application_stage">;
   const notes = String(formData.get("notes") ?? "").trim();
+
+  /*
+   * The stage is checked, not cast. This used to be `String(...) as Enums<"application_stage">`, so any posted value
+   * went straight into the INSERT. A Server Action is a public POST endpoint; the form's <select> only offers valid
+   * options, which constrains nobody who builds the request by hand. An absent field is the form's own default.
+   */
+  const rawStage = formData.get("stage");
+  const stage = rawStage === null ? "saved" : rawStage;
 
   if (!companyName || !title) {
     throw new Error("Company and title are required.");
   }
+  if (!isTrackerStage(stage)) {
+    throw new Error("Pick a valid stage.");
+  }
 
-  await supabase.from("applications").insert({
+  /*
+   * Not sent for a manually added Hired entry: the hired-moment email and the referral banner belong to MOVING an
+   * application to Hired (updateStageAction), not to recording a job the person already got. Hired stays terminal
+   * afterwards (0037, which fires on UPDATE only).
+   */
+  const { error } = await supabase.from("applications").insert({
     user_id: userId,
     job_posting_id: null,
     manual_job_snapshot: {
@@ -44,6 +60,12 @@ export async function addManualEntryAction(formData: FormData) {
     notes: notes || null,
     applied_at: stage === "saved" ? null : new Date().toISOString(),
   });
+
+  /*
+   * The insert's result is read. It used to be dropped, so a row the database refused looked exactly like one that
+   * landed: the page revalidated, the form closed, and nothing appeared.
+   */
+  if (error) throw new Error("Could not add that job. Please try again.");
 
   revalidatePath("/tracker");
 }

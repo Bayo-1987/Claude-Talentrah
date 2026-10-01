@@ -43,7 +43,8 @@ export default async function EmployerLayout({ children }: { children: React.Rea
   return (
     <div className="min-h-screen">
       <EmployerMasthead orgInitials={orgInitials} orgName={orgName} />
-      <div className="mx-auto w-full max-w-[1120px] px-10 py-8">{children}</div>
+      {/* print: the applicant resume page prints through here, and its own margin is ResumePrintSurface's. */}
+      <div className="mx-auto w-full max-w-[1120px] px-10 py-8 print:max-w-none print:p-0">{children}</div>
     </div>
   );
 }
