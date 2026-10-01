@@ -1,0 +1,10 @@
+2026-09-30T18:48:36.3941520Z  FAIL  tests/employer/applicant-filters-and-bulk-actions.test.ts [ tests/employer/applicant-filters-and-bulk-actions.test.ts ]
+2026-09-30T18:48:36.3948553Z Error: fixture resume: insert or update on table "resumes" violates foreign key constraint "resumes_user_id_fkey"
+2026-09-30T18:48:36.3950935Z  ❯ tests/employer/applicant-filters-and-bulk-actions.test.ts:265:37
+2026-09-30T18:48:36.4004032Z     263|       .select("id")
+2026-09-30T18:48:36.4005199Z     264|       .single();
+2026-09-30T18:48:36.4006626Z     265|     if (resumeErr || !resume) throw new Error(`fixture resume: ${resum…
+2026-09-30T18:48:36.4007602Z        |                                     ^
+2026-09-30T18:48:36.4008572Z     266|     resumeIds.push(resume.id);
+2026-09-30T18:48:36.4009332Z     267|
+2026-09-30T18:48:36.4009590Z 
