@@ -5,16 +5,14 @@
  * commit. tests/format/no-direct-locale-formatting.test.ts holds the allowlist exactly equal to the real hits, so a new
  * violation fails, a converted site that is still listed fails, and the ceiling can never exceed what it started at.
  *
- * Why these four: the mentorship sessions pages. The PR that makes "Upcoming" mean paid-and-upcoming rewrites those exact
- * lines, so converting them here would conflict with it; they convert right after it merges, and these entries are deleted.
+ * It is EMPTY now: the last four entries were the mentorship sessions pages, which the "Upcoming means paid and upcoming" PR (#633)
+ * rewrote; they were converted right after it merged and their entries deleted. The structure stays so that a future, deliberate
+ * exception is a visible, reviewed addition to this file (and to the ceiling), not a quiet new call in a component.
  */
-export const ALLOWLIST: Record<string, number> = {
-  "src/app/(app)/mentorship/sessions/page.tsx": 2,
-  "src/app/(app)/mentorship/sessions/mentor/page.tsx": 2,
-};
+export const ALLOWLIST: Record<string, number> = {};
 
 /** Must equal the sum of ALLOWLIST. Lower it with every conversion; raising it is a visible, reviewed act. */
-export const ALLOWLIST_CEILING = 4;
+export const ALLOWLIST_CEILING = 0;
 
 /** How many violations existed when the ratchet was introduced. Never changes: the ceiling may not exceed it. */
 export const INITIAL_VIOLATIONS = 57;
