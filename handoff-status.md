@@ -33,6 +33,37 @@ both served stale content in this project's history. Don't rely on either.
 
 ---
 
+## Merged 2026-10-01 — S12 job data quality, parts 1 and 2: PR #629 (countries and Workable's stated remote country in JobPosting markup) and PR #632 (superseded duplicates, migration 0202)
+
+| PR | Branch | Merged at (UTC) | Merge SHA |
+|----|--------|-----------------|-----------|
+| [#629](https://github.com/Bayo-1987/Claude-Talentrah/pull/629) | `fix/jobs-location-country-jsonld` | 2026-10-01 14:26:31 | `dbf0af19c1159e7719dd3452d55e3a6fd47093c2` |
+| [#632](https://github.com/Bayo-1987/Claude-Talentrah/pull/632) | `feat/job-supersession` | 2026-10-01 15:09:30 | `1c263fad6c583eaf7f3582e668f00fd90371ea75` |
+
+**What #629 changed.** `src/lib/jobs/countries.ts` (the 249 ISO 3166-1 names as committed CLDR data, plus an explicit, tested alias table; `Georgia`, `Jersey` and `Congo` never resolve from free text). `parseJobLocation`: a lone country token is a country-only address, a remote role gets `TELECOMMUTE` + `applicantLocationRequirements`; `Remote, Bangalore` no longer claims a country called "Bangalore". Workable's `formatLocation` keeps the Country the source states (`Remote, Nigeria`), never invents "Worldwide", and the row's `dedup_fingerprint` is computed from the pre-enrichment location so no live row changes identity. No migration, no data written: existing rows take the new location text on their next ingest (daily 05:00 UTC).
+
+**What #632 changed.** Migration `0202` (applied to production BEFORE the merge, 2026-10-01 ~15:00 UTC, after the PR's required checks were green on its head): `job_postings.superseded_by` / `superseded_at`; the public SELECT policy gains `superseded_at is null` in each of the four non-member branches (self-checked: four mentions); a trigger refusing the columns from `authenticated`/`anon`; `job_supersession_plan(p_companies)` (the dry run) and `apply_job_supersession(p_companies)` (the write), service-role only; `superseded_job_target(id)`; `auto_apply_claim_submission` and `promoted_jobs` redefined with one added condition each; the `job_supersession` feature flag, created OFF. App side: service-role readers that bypass RLS exclude superseded rows (Auto-Apply scan, digest, win-back, proactive alert, match refresh, LLM enrichment) with `tests/jobs/supersession-read-paths.test.ts` as the standing check; `/jobs/[id]` answers 308 to the kept row; ingest runs `apply_job_supersession` scoped to the companies it touched, only while the flag is on. **Nothing is marked in production.**
+
+**Found by measuring (both are in the PR).** The 308 was a **404** on a real `next build && next start` until the redirect check moved into the page body as well as `generateMetadata`: the body runs concurrently and its `notFound()` won the race. And a global `apply_job_supersession` was unsafe for parallel test files sharing one database (my own ingest test marked another file's fixtures), hence the `p_companies` scope. CI on #632's first head also failed 20 unit tests in 5 files, because their hand-written Supabase fakes had no `.is()`; fixed, and win-back's fake now has a mutation-checked test that a superseded copy is never emailed.
+
+### Verification (all four, against live state)
+
+**1. API.** `GET /repos/Bayo-1987/Claude-Talentrah/pulls/629` -> `merged: true`, `merged_at` 2026-10-01T14:26:31Z, `merge_commit_sha` `dbf0af19…`. `…/pulls/632` -> `merged: true`, `merged_at` 2026-10-01T15:09:30Z, `merge_commit_sha` `1c263fad…`.
+
+**2. Fresh shallow clone** (`GIT_TERMINAL_PROMPT=0 git clone --depth 1`), HEAD `1c263fad6c583eaf7f3582e668f00fd90371ea75`: PRESENT `supabase/migrations/0202_job_posting_supersession.sql`, `src/lib/jobs/countries.ts`, `tests/jobs/supersession.test.ts`, `tests/jobs/supersession-read-paths.test.ts`, `e2e/job-superseded-redirect.spec.ts`, `tests/jobs/country-resolver.test.ts`; `supersededTargetFor` appears 3 times in `src/app/(app)/jobs/[id]/page.tsx`; `superseded_at` 21 times in the migration.
+
+**3. Live production probe** (signed out, 2026-10-01, Vercel deployment `dpl_Em1XVS6nedVoL61aaiwmr5vAGUuZ`, `READY`, `target: production`, `githubCommitSha` = `1c263fad…`): `/`, `/jobs`, `/jobs/remote`, `/jobs/remote/nigeria`, `/jobs/in/lagos` and a sitemap-listed `/jobs/<id>` all 200; `sitemap.xml` 200 listing 380 job URLs. Production database, read-only: both columns present, **0 rows marked**, the policy mentions `superseded_at` 4 times, flag `job_supersession` = false, `anon` cannot execute `apply_job_supersession`, `anon` can execute `superseded_job_target`, `authenticated` kept `EXECUTE` on `promoted_jobs`, `job_supersession_plan()` returns exactly the 3 dry-run rows, 662 open postings unchanged.
+
+**4. Test suites on the merged heads.** #629's final head: unit 404 files passed (404), Playwright 495 passed. #632's final head: unit 407 files passed (407), Playwright 496 passed, which includes the new `e2e/job-superseded-redirect.spec.ts` (308 on the built app) and the database tests that could not mint an authenticated session locally.
+
+### Not covered / open
+- **Marking the 3 rows waits for the founder's yes** on the dry-run list (Optimal Group x2, Monaco Solicitors x1; none has an application or a queue entry). After it: probe `/jobs/remote`, the country and city pages (a hidden row can lower a facet below `LANDING_PAGE_MIN_ENTRIES`) and the old URLs' 308. The flag stays off until asked about separately.
+- **#629's effect on data is not yet observable**: the Workable remote rows take "Remote, <country>" on the next ingest (05:00 UTC, 2 Oct). Before/after on the 142 markup-ineligible rows (62 bare Remote, 80 single token) and the Rich Results test on 3 remote jobs are due then.
+- The Lighthouse check failed on both PRs (the known thin-CI-project `/jobs/remote` 404, CLAUDE.md's third consequence) and Vercel reported a build-rate-limit failure on #629; neither is a required check.
+- Authenticated-session tests could not run locally against the test project (`No suitable key or wrong key type`); CI's ephemeral stack was their first run. The `INSERT` guard trigger's own test could not be mutation-checked (dropping a trigger on the shared test project was refused by the permission layer); it asserts the trigger's own message, which nothing else raises.
+
+---
+
 ## Merged 2026-10-01 — PR #604, the seven font families self-hosted so `next build` never asks Google for a font (refs #585)
 
 | PR | Branch | Merged at (UTC) | Merge SHA |
