@@ -3,6 +3,7 @@ import { listFeatureFlags } from "@/lib/admin/flags/list";
 import { FeatureFlagRow } from "@/components/admin/feature-flag-row";
 import { QueueHeader } from "@/components/admin/queue-chrome";
 import { Container, EyebrowLabel, BorderedCard } from "@/components/ui";
+import { formatDate } from "@/lib/format/datetime";
 
 export const metadata = {
   title: "Feature flags — Talentrah admin",
@@ -54,7 +55,7 @@ export default async function FeatureFlagsPage() {
                 {/* The key, because it is what appears in the code and in a log. */}
                 <p className="font-body text-[13px] text-ink-soft">{f.key}</p>
                 <p className="text-[13.5px] text-ink-soft">
-                  Last changed {new Date(f.updatedAt).toLocaleDateString()}
+                  Last changed {formatDate(f.updatedAt)}
                   {f.updatedByName ? ` by ${f.updatedByName}` : " · who changed it is not recorded"}
                 </p>
               </div>

@@ -5,6 +5,7 @@ import { DecisionForm } from "@/components/admin/decision-form";
 import { QueueEmpty, QueueHeader } from "@/components/admin/queue-chrome";
 import { Container, EyebrowLabel, BorderedCard } from "@/components/ui";
 import { renderMarkdownParagraphs, renderInlineMarkdown } from "@/lib/farah/render-markdown";
+import { formatDate } from "@/lib/format/datetime";
 
 const BIO_LINK_CLASS = "text-rust underline underline-offset-2 hover:text-rust-hover";
 
@@ -69,7 +70,7 @@ export default async function MentorReviewQueuePage() {
                       ? `₦${application.basePriceNgn.toLocaleString()} / session`
                       : "Free / volunteer"}
                     {" · applied "}
-                    {new Date(application.appliedAt).toLocaleDateString()}
+                    {formatDate(application.appliedAt)}
                   </p>
                   {(application.expertiseRoles.length > 0 || application.expertiseIndustries.length > 0) && (
                     <p className="text-[13.5px] text-ink-soft">

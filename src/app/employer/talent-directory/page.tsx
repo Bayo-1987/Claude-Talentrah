@@ -4,6 +4,7 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { searchTalentDirectory } from "@/lib/talent-directory/queries";
 import { purchaseTalentDirectorySubscriptionAction } from "@/lib/talent-directory/subscription-actions";
 import { EyebrowLabel, BorderedCard, Button } from "@/components/ui";
+import { formatDate } from "@/lib/format/datetime";
 
 export const metadata = { title: "Talent Directory — Talentrah" };
 
@@ -67,7 +68,7 @@ export default async function EmployerTalentDirectoryPage({
       ) : (
         <>
           <p className="text-[13px] text-ink-soft">
-            Subscription active until {new Date(subscription.expires_at).toLocaleDateString()}.
+            Subscription active until {formatDate(subscription.expires_at)}.
           </p>
 
           <form className="flex flex-wrap items-center gap-4" method="get">

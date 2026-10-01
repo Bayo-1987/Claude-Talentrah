@@ -7,6 +7,7 @@ import {
 } from "@/lib/billing/actions";
 import { EyebrowLabel, BorderedCard, Button, NairaAmount } from "@/components/ui";
 import { PASS_DAILY_ACTION_CAP } from "@/lib/passes/entitlement";
+import { formatCalendarDate, formatDate } from "@/lib/format/datetime";
 
 /**
  * What each product_type is called on a receipt.
@@ -78,8 +79,7 @@ export const metadata = { title: "Credits & Passes — Talentrah" };
  */
 function formatDateOnly(value: string | null): string {
   if (!value) return "";
-  const [year, month, day] = value.split("-").map(Number);
-  return new Date(year, month - 1, day).toLocaleDateString();
+  return formatCalendarDate(value);
 }
 
 export default async function BillingPage({
@@ -258,7 +258,7 @@ export default async function BillingPage({
                 </h3>
                 <p className="text-[13.5px] text-ink-soft">
                   Active until{" "}
-                  {new Date(userPass.expires_at).toLocaleDateString()} · paid by{" "}
+                  {formatDate(userPass.expires_at)} · paid by{" "}
                   {userPass.payment_method === "card"
                     ? "card"
                     : "mobile money / bank"}
@@ -386,11 +386,7 @@ export default async function BillingPage({
                     {PRODUCT_LABEL[p.product_type] ?? p.product_type}
                   </span>
                   <span className="font-body text-[12.5px] text-ink-soft">
-                    {new Date(p.created_at).toLocaleDateString("en-NG", {
-                      day: "numeric",
-                      month: "short",
-                      year: "numeric",
-                    })}
+                    {formatDate(p.created_at)}
                     {p.channel
                       ? ` · ${p.channel}`
                       : p.rail

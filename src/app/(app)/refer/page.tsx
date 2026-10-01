@@ -11,6 +11,7 @@ import {
   REFERRAL_ACTIVATION_BONUS_TAILORING_RUNS,
 } from "@/lib/referrals/rewards";
 import { isWithinRolloverGrace, monthRange } from "@/lib/referrals/leaderboard";
+import { formatDate } from "@/lib/format/datetime";
 
 export const metadata = { title: "Refer a Friend — Talentrah" };
 
@@ -19,10 +20,6 @@ const STATUS_LABEL: Record<string, string> = {
   signed_up: "Signed up",
   activated: "Activated",
 };
-
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-}
 
 export default async function ReferPage() {
   const { user, profile } = await requireUser();
