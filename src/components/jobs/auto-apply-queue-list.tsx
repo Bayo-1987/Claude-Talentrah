@@ -31,7 +31,14 @@ import { MicroFeedbackPrompt } from "@/components/feedback/micro-feedback-prompt
  * length (the parent always renders it), and deciding what to show
  * internally.
  */
-export function AutoApplyQueueList({ items }: { items: QueueItem[] }) {
+export function AutoApplyQueueList({
+  items,
+  confirmCostCredits = null,
+}: {
+  items: QueueItem[];
+  /** What the next confirmation will cost, or null when it is free this week or covered by a Pass. */
+  confirmCostCredits?: number | null;
+}) {
   const [justConfirmedJobTitle, setJustConfirmedJobTitle] = useState<string | null>(null);
 
   return (
@@ -46,7 +53,12 @@ export function AutoApplyQueueList({ items }: { items: QueueItem[] }) {
         </BorderedCard>
       ) : (
         items.map((item) => (
-          <AutoApplyQueueItem key={item.id} item={item} onConfirmed={setJustConfirmedJobTitle} />
+          <AutoApplyQueueItem
+            key={item.id}
+            item={item}
+            onConfirmed={setJustConfirmedJobTitle}
+            confirmCostCredits={confirmCostCredits}
+          />
         ))
       )}
       {justConfirmedJobTitle && (

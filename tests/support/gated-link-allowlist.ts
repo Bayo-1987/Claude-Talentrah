@@ -8,7 +8,7 @@
 export type Coverage = "ci" | "prod-only";
 
 /** Who removes the row, by name. A row without one of these fails the integrity test. */
-export const ALLOWLIST_OWNERS = ["prompt-2", "prompt-3", "scholarships-landing"] as const;
+export const ALLOWLIST_OWNERS = ["prompt-2"] as const;
 export type AllowlistOwner = (typeof ALLOWLIST_OWNERS)[number];
 
 export function isValidOwner(owner: unknown): owner is AllowlistOwner {
@@ -32,48 +32,12 @@ export interface GatedLinkAllowance {
 }
 
 export const GATED_LINK_ALLOWLIST: readonly GatedLinkAllowance[] = [
-  {
-    key: "footer:* -> /resume-builder",
-    coverage: "ci",
-    sources: [
-      { file: "src/components/marketing/marketing-footer.tsx", label: "Resume Builder" },
-    ],
-    owner: "prompt-2",
-  },
-  {
-    key: "main:/ -> /resume-builder",
-    coverage: "ci",
-    sources: [
-      { file: "src/components/marketing/jd-demo-input.tsx", label: "Build a resume" },
-    ],
-    owner: "prompt-2",
-  },
-  {
-    key: "main:/blog/* -> /tailor",
-    coverage: "ci",
-    sources: [
-      { file: "src/lib/blog/related-links.ts", label: "Tailor your resume to a specific job" },
-      { file: "src/lib/blog/related-links.ts", label: "Tailor your resume with Farah" },
-    ],
-    owner: "prompt-2",
-  },
-  {
-    key: "main:/blog/* -> /resume-builder",
-    coverage: "ci",
-    sources: [
-      { file: "src/lib/blog/related-links.ts", label: "Build a resume from an ATS-safe template" },
-    ],
-    owner: "prompt-2",
-  },
-  // The database fix removed the in-body link; this is the page-chrome link from related-links.ts.
-  {
-    key: "main:/blog/* -> /tailor?coverLetter=1",
-    coverage: "ci",
-    sources: [
-      { file: "src/lib/blog/related-links.ts", label: "Write your cover letter with Farah" },
-    ],
-    owner: "prompt-2",
-  },
+  /*
+   * EMPTY since send-491. The last five rows (the footer's and the hero demo's /resume-builder, and the blog's
+   * /tailor, /resume-builder and /tailor?coverLetter=1) were re-pointed at public pages or the signup redirect;
+   * the production crawl (LINK_GATE_SCOPE=all) found 0 gated links afterwards. Adding a row now needs a deliberate
+   * edit to the "allowlist is EMPTY" test in tests/marketing/gated-link-ratchet.test.tsx as well, on purpose.
+   */
 ];
 
 export type EnforcementScope = "ci" | "all";

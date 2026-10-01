@@ -1701,6 +1701,8 @@ export type Database = {
           source_type: Database["public"]["Enums"]["job_source_type"]
           status: Database["public"]["Enums"]["job_status"]
           structured_jd: Json
+          superseded_at: string | null
+          superseded_by: string | null
           title: string
           unlisted_at: string | null
           work_type: Database["public"]["Enums"]["work_type"] | null
@@ -1746,6 +1748,8 @@ export type Database = {
           source_type: Database["public"]["Enums"]["job_source_type"]
           status?: Database["public"]["Enums"]["job_status"]
           structured_jd?: Json
+          superseded_at?: string | null
+          superseded_by?: string | null
           title: string
           unlisted_at?: string | null
           work_type?: Database["public"]["Enums"]["work_type"] | null
@@ -1791,6 +1795,8 @@ export type Database = {
           source_type?: Database["public"]["Enums"]["job_source_type"]
           status?: Database["public"]["Enums"]["job_status"]
           structured_jd?: Json
+          superseded_at?: string | null
+          superseded_by?: string | null
           title?: string
           unlisted_at?: string | null
           work_type?: Database["public"]["Enums"]["work_type"] | null
@@ -1823,6 +1829,13 @@ export type Database = {
             columns: ["removed_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_postings_superseded_by_fkey"
+            columns: ["superseded_by"]
+            isOneToOne: false
+            referencedRelation: "job_postings"
             referencedColumns: ["id"]
           },
         ]
@@ -4091,6 +4104,32 @@ export type Database = {
           remote_count: number
           south_africa_count: number
         }[]
+      }
+      apply_job_supersession: {
+        Args: { p_companies?: string[] }
+        Returns: {
+          restored: number
+          superseded: number
+        }[]
+      }
+      job_supersession_plan: {
+        Args: { p_companies?: string[] }
+        Returns: {
+          company_name: string
+          external_url: string
+          group_size: number
+          job_id: string
+          keeper_external_url: string
+          keeper_id: string
+          keeper_posted_at: string
+          location: string
+          posted_at: string
+          title: string
+        }[]
+      }
+      superseded_job_target: {
+        Args: { p_id: string }
+        Returns: string
       }
       job_posting_claim_candidates: {
         Args: { p_organization_id: string }

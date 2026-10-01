@@ -1,7 +1,7 @@
 import "server-only";
 import { GoogleGenAI, ApiError, ThinkingLevel, type ThinkingConfig } from "@google/genai";
 import { LLMProviderError } from "./errors";
-import type { LLMProvider, LLMGenerateOptions, LLMResult } from "./types";
+import type { LLMProvider, LLMGenerateOptions, LLMResult, LLMFinishReason } from "./types";
 
 /**
  * Shared across every Gemini call Farah makes — chat, tailoring/gap
@@ -48,6 +48,17 @@ function getGeminiClient(): GoogleGenAI {
     );
   }
   return new GoogleGenAI({ apiKey, httpOptions: { timeout: GEMINI_CLIENT_TIMEOUT_MS } });
+}
+
+/**
+ * Gemini's `finishReason` as the provider-neutral LLMFinishReason. `MAX_TOKENS` is the cut-off; only a real
+ * STOP is a clean stop; every other value (SAFETY, RECITATION, ...) is "other", never "length".
+ */
+export function mapGeminiFinishReason(reason: string | undefined): LLMFinishReason | undefined {
+  if (!reason) return undefined;
+  if (reason === "STOP") return "stop";
+  if (reason === "MAX_TOKENS") return "length";
+  return "other";
 }
 
 export class GeminiProvider implements LLMProvider {
@@ -139,6 +150,7 @@ export class GeminiProvider implements LLMProvider {
     turns,
     maxOutputTokens,
     jsonSchema,
+    onFinish,
   }: LLMGenerateOptions): AsyncGenerator<string> {
     const client = getGeminiClient();
 
@@ -159,9 +171,14 @@ export class GeminiProvider implements LLMProvider {
         },
       });
 
+      let finishReason: string | undefined;
       for await (const chunk of stream) {
+        const reason = chunk.candidates?.[0]?.finishReason;
+        if (reason) finishReason = String(reason);
         if (chunk.text) yield chunk.text;
       }
+      const mapped = mapGeminiFinishReason(finishReason);
+      if (mapped) onFinish?.(mapped);
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.status === 429) {

@@ -8,6 +8,11 @@ export type FarahChatStreamEvent =
       freeMessagesRemaining?: number | null;
       /** The account's new credit balance after a PAID message; null when nothing was spent, absent from an older server. */
       creditsBalance?: number | null;
+      /**
+       * The reply stopped because it hit the output ceiling, so it is cut off. It was not charged and did not use
+       * up a free message. Only ever `true` or absent.
+       */
+      truncated?: boolean;
     };
 
 /**
@@ -55,6 +60,7 @@ export async function* readFarahChatStream(response: Response): AsyncGenerator<F
           createdAt: event.createdAt,
           freeMessagesRemaining: event.freeMessagesRemaining,
           creditsBalance: event.creditsBalance,
+          ...(event.truncated === true ? { truncated: true } : {}),
         };
       }
     }

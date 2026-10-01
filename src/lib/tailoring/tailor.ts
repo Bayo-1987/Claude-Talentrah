@@ -1,10 +1,12 @@
 import "server-only";
 import { generateWithFailover } from "@/lib/llm";
 import { FARAH_SYSTEM_PROMPT } from "@/lib/farah/system-prompt";
-import { EMPTY_RESUME, type StructuredResume } from "@/lib/resume/types";
+import { EMPTY_RESUME, getExperienceBullets, type StructuredResume } from "@/lib/resume/types";
 import { sanitizeStructuredResume, wasDegenerate } from "@/lib/resume/sanitize";
 import { stripInlineMarkdown } from "@/lib/farah/render-markdown";
 import { applyGroundingBackstop } from "./grounding";
+import { achievementsFromTypedList } from "@/lib/resume/achievements";
+import { normaliseTailoredAchievements, normaliseTailoredResume } from "./normalise";
 import { computeTailoringCacheKey, getCachedTailoringResult, saveTailoringResult } from "./cache";
 import { JD_MAX_CHARS, type ProposedAddition, type TailoringResult } from "./types";
 
@@ -42,7 +44,16 @@ const RESUME_SCHEMA = {
           location: { type: "string", description: OPTIONAL_FIELD_NOTE },
           startDate: { type: "string", description: OPTIONAL_FIELD_NOTE },
           endDate: { type: "string", description: OPTIONAL_FIELD_NOTE },
-          description: { type: "string", description: OPTIONAL_FIELD_NOTE },
+          description: {
+            type: "string",
+            description: `Only for a role the base resume describes as one prose paragraph (no bullets). When the base role has bullets, put them in "bullets" and leave this empty. ${OPTIONAL_FIELD_NOTE}`,
+          },
+          bullets: {
+            type: "array",
+            items: { type: "string" },
+            description:
+              "The role's achievements, one array entry per achievement, in the same order as the base resume's bullets. Never merge several achievements into one string, never join them with newlines or separators inside one entry, and never start an entry with a bullet character, dash or number — the page draws the bullet. Omit this field (or leave it empty) for a role the base resume describes as prose.",
+          },
         },
         required: ["title", "company"],
       },
@@ -145,7 +156,7 @@ const TAILOR_RESPONSE_SCHEMA = {
           text: {
             type: "string",
             description:
-              "For section \"skills\": the exact skill string to add. For section \"experience\": the FULL replacement description for that entry if accepted — not just a clause to append, the complete text that entry's description would become. Accepting an item always replaces, never appends, so this must stand alone as the whole description.",
+              "For section \"skills\": the exact skill string to add. For section \"experience\": the FULL replacement description for that entry if accepted — not just a clause to append, the complete text that entry's description would become. Accepting an item always replaces, never appends, so this must stand alone as the whole description. For a role that has bullets, write one achievement per line, with no bullet character or dash at the start of a line.",
           },
           reason: { type: "string", description: "One short sentence: what in the JD this addresses." },
         },
@@ -181,6 +192,11 @@ function preserveNewFields(
     company.trim().toLowerCase() === base.company.trim().toLowerCase();
 
   const experience = tailoredResume.experience.map((entry) => {
+    // Bullets the model wrote for this role win: they are the tailoring.
+    // Replacing them with the base resume's would quietly throw the rewrite
+    // away, since a role with bullets renders them in place of `description`.
+    // (A description that is a typed list counts too: normalise splits it into bullets next.)
+    if (getExperienceBullets(entry) || achievementsFromTypedList(entry.description)) return entry;
     const baseEntry = baseResume.experience.find((b) => sameRole(entry.title, entry.company, b));
     return baseEntry?.bullets ? { ...entry, bullets: baseEntry.bullets } : entry;
   });
@@ -297,11 +313,15 @@ async function attemptTailoring(
     return null;
   }
 
-  const rawResume: StructuredResume = {
+  // Achievements are split BEFORE sanitizing: several of them glued into one
+  // string easily exceed sanitize's per-item cap, which would drop the whole
+  // bullet as degenerate output (and fall back to the base resume's bullets),
+  // throwing away exactly the tailoring this field exists to carry.
+  const rawResume = normaliseTailoredAchievements({
     ...EMPTY_RESUME,
     ...input.tailoredResume,
     contact: { ...EMPTY_RESUME.contact, ...input.tailoredResume.contact },
-  };
+  });
   const tailoredResume = sanitizeStructuredResume(rawResume);
   return { input, tailoredResume, bad: wasDegenerate(rawResume, tailoredResume) };
 }
@@ -380,7 +400,11 @@ export async function tailorResumeToJob(
   // ask the model about any of the fields added while widening the resume
   // schema, so they carry over from the base resume unchanged rather than
   // disappearing.
-  const groundedResume = preserveNewFields(backstopResume, baseResume);
+  //
+  // Normalisation (dates, near-duplicate skills, one achievement per bullet)
+  // runs last, on what is about to be saved — after grounding, so it can never
+  // change what the backstop judged, and only here, never on a render.
+  const groundedResume = normaliseTailoredResume(preserveNewFields(backstopResume, baseResume));
 
   let modelAdditionCounter = 0;
   const modelAdditions: ProposedAddition[] = (input.proposedAdditions ?? [])

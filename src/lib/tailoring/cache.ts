@@ -15,7 +15,7 @@ import type { TailoringResult } from "./types";
  * See supabase/migrations/0162_tailoring_result_cache.sql's header for the
  * full reasoning on why this exists alongside (not instead of) the TTL.
  */
-const TAILORING_CACHE_VERSION = 1;
+const TAILORING_CACHE_VERSION = 2; // v2: experience bullets in the response schema + tailoring-time normalisation
 
 /**
  * Storage hygiene only, NOT the mechanism that protects correctness against
