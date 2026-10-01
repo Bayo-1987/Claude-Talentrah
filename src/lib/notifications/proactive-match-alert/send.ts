@@ -196,6 +196,8 @@ async function loadNewListablePostings(
     .from("job_postings")
     .select("id, title, company_name, location, posted_at, status, organization_id, unlisted_at, structured_jd, seniority")
     .eq("status", "open")
+    // 0202: this client bypasses RLS, so a superseded duplicate must be excluded here.
+    .is("superseded_at", null)
     .gte("created_at", sinceIso)
     .limit(MAX_NEW_POSTINGS_PER_RUN);
   if (error) throw error;
