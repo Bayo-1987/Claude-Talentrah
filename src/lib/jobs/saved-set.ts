@@ -143,6 +143,43 @@ export function savedEmptyState(input: { savedTotal: number; shown: number }): "
   return input.savedTotal === 0 ? "none" : "filtered";
 }
 
+/**
+ * The most saved jobs the Saved tab loads (send-496). A user can save without limit, and the tab fetches the postings for
+ * every id it loads in one `.in()` query: 36-character uuids make that list a URL, so it cannot grow unbounded. 100 keeps it
+ * near 4 KB, comfortably inside a gateway's limit, and is already more than one screenful of cards. The newest saves win;
+ * the rest are in the tracker, and the tab says so (savedCapNotice).
+ */
+export const SAVED_TAB_MAX = 100;
+
+/**
+ * The user's saved rows, newest first, at most `max`, plus the true total from the same query (`count: "exact"`, no second
+ * round trip). `capped` is whether some saved rows were left out.
+ */
+export async function loadSavedRows(
+  supabase: SupabaseClient<Database>,
+  userId: string,
+  max: number = SAVED_TAB_MAX,
+): Promise<{ rows: SavedApplicationRow[]; total: number; capped: boolean }> {
+  const { data, count, error } = await supabase
+    .from("applications")
+    .select("id, job_posting_id, manual_job_snapshot", { count: "exact" })
+    .eq("user_id", userId)
+    .eq("stage", "saved")
+    .order("created_at", { ascending: false })
+    .limit(max);
+  if (error) throw new Error(`Couldn't load your saved jobs: ${error.message}`);
+  const rows = data ?? [];
+  const total = count ?? rows.length;
+  return { rows, total, capped: total > rows.length };
+}
+
+/** The line under a capped Saved tab: how many are shown, how many are not, and where the rest are. Null when nothing is left out. */
+export function savedCapNotice(input: { total: number; loaded: number }): string | null {
+  const hidden = input.total - input.loaded;
+  if (hidden <= 0) return null;
+  return `Showing your ${input.loaded} most recently saved jobs. The other ${hidden} saved ${hidden === 1 ? "job is" : "jobs are"} in your tracker.`;
+}
+
 /** An id no posting has. An empty `.in()` list is dropped by PostgREST (it would match everything), so "nothing saved" asks for this. */
 const NOTHING = "00000000-0000-0000-0000-000000000000";
 

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { after } from "next/server";
 import { getOptionalUser, requireUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
@@ -18,7 +19,9 @@ import { searchJobs } from "@/lib/jobs/search";
 import { SavedEntryCard } from "@/components/jobs/saved-entry-card";
 import {
   buildSavedPostingsQuery,
+  loadSavedRows,
   partitionSavedSet,
+  savedCapNotice,
   entryMatchesQuery,
   savedEmptyState,
   type SavedEntry,
@@ -422,20 +425,11 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
   }
 
   /*
-   * The Saved tab's rows (send-496): every application at stage "saved", with the snapshot taken when it was saved. An
-   * async IIFE, not a bare builder, so awaiting it in two places reads one response (same reason as the queries above).
-   * Only the Saved tab pays for it; the discovery tabs never read the snapshot column.
+   * The Saved tab's rows (send-496): the user's most recent applications at stage "saved" (bounded: SAVED_TAB_MAX), with the
+   * snapshot taken when each was saved and the true total. A promise, so awaiting it in two places reads one response. Only
+   * the Saved tab pays for it; the discovery tabs never read the snapshot column.
    */
-  const savedRowsQuery =
-    tab === "saved"
-      ? (async () =>
-          supabase
-            .from("applications")
-            .select("id, job_posting_id, manual_job_snapshot")
-            .eq("user_id", user.id)
-            .eq("stage", "saved")
-            .order("created_at", { ascending: false }))()
-      : undefined;
+  const savedRowsQuery = tab === "saved" ? loadSavedRows(supabase, user.id) : undefined;
 
   /*
    * The viewer's own organisations, for the unlisted exclusion above.
@@ -495,8 +489,8 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
       };
     }
     if (tab === "saved") {
-      const { data: savedRows } = await savedRowsQuery!;
-      const ids = (savedRows ?? []).flatMap((r) => (r.job_posting_id ? [r.job_posting_id] : []));
+      const { rows: savedRows } = await savedRowsQuery!;
+      const ids = savedRows.flatMap((r) => (r.job_posting_id ? [r.job_posting_id] : []));
       /*
        * Without the discovery rules (no status, freshness or unlisted filter; no viewer-org lookup, since that exists
        * only to keep an employer's own unlisted postings in the discovery feed). The user's own work-type, seniority
@@ -645,10 +639,11 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
    */
   let savedEntries: SavedEntry[] = [];
   let savedTotal = 0;
+  let savedLoaded = 0;
   if (tab === "saved") {
-    const { data: savedRows } = await savedRowsQuery!;
-    const rows = savedRows ?? [];
-    savedTotal = rows.length;
+    const { rows, total } = await savedRowsQuery!;
+    savedTotal = total;
+    savedLoaded = rows.length;
     // The work-type / seniority / posted filters run in the database query, so a saved row whose posting is merely
     // ABSENT from the result may just not match them; a snapshot cannot prove it does. Snapshot-only entries are shown
     // only when none of those filters is on.
@@ -1223,6 +1218,15 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
           {savedEntries.map((entry) => (
             <SavedEntryCard key={entry.applicationId} entry={entry} />
           ))}
+          {tab === "saved" && savedCapNotice({ total: savedTotal, loaded: savedLoaded }) && (
+            <p className="text-[13px] text-ink-soft">
+              {savedCapNotice({ total: savedTotal, loaded: savedLoaded })}{" "}
+              <Link href="/tracker?stage=saved" className="font-semibold underline underline-offset-2 hover:text-rust">
+                See them all in your tracker
+              </Link>
+              .
+            </p>
+          )}
         </div>
       )}
 

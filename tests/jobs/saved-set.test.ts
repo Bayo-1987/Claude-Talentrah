@@ -33,6 +33,13 @@ interface Mod {
   ) => { openPostingIds: string[]; entries: Entry[] };
   entryMatchesQuery?: (entry: Pick<Entry, "title" | "companyName" | "location">, q: string | undefined) => boolean;
   savedEmptyState?: (input: { savedTotal: number; shown: number }) => "none" | "filtered" | null;
+  SAVED_TAB_MAX?: number;
+  loadSavedRows?: (
+    supabase: unknown,
+    userId: string,
+    max?: number,
+  ) => Promise<{ rows: Array<{ id: string; job_posting_id: string | null; manual_job_snapshot: unknown }>; total: number; capped: boolean }>;
+  savedCapNotice?: (input: { total: number; loaded: number }) => string | null;
   buildSavedPostingsQuery?: (
     supabase: unknown,
     savedIds: string[],
@@ -197,5 +204,115 @@ describe("buildSavedPostingsQuery: the saved ids are the user's own set, not a d
     expect(inId, "an id filter must always be applied").toBeDefined();
     expect((inId![1][1] as string[]).length).toBe(1);
     expect((inId![1][1] as string[])[0]).toMatch(/^0{8}-/);
+  });
+});
+
+describe("the Saved tab is bounded (a user with hundreds of saved jobs must not make the page grow without limit)", () => {
+  /** A fake client over a 250-row saved set that honours order(), limit() and count: "exact", like PostgREST does. */
+  function fakeApplications(total: number) {
+    const all = Array.from({ length: total }, (_, i) => ({
+      id: `a${String(i).padStart(3, "0")}`,
+      job_posting_id: i % 5 === 0 ? null : `00000000-0000-4000-8000-${String(i).padStart(12, "0")}`,
+      manual_job_snapshot: { companyName: "Co", title: `Role ${i}` },
+      created_at: new Date(Date.UTC(2026, 0, 1, 0, i)).toISOString(),
+    }));
+    const calls: Array<[string, unknown[]]> = [];
+    const state = { limit: Infinity, desc: false };
+    const chain: Record<string, unknown> = new Proxy(
+      {},
+      {
+        get: (_t, prop) => {
+          if (prop === "then") {
+            return (resolve: (v: unknown) => unknown) => {
+              const sorted = [...all].sort((a, b) => (state.desc ? b.created_at.localeCompare(a.created_at) : a.created_at.localeCompare(b.created_at)));
+              return resolve({ data: sorted.slice(0, state.limit), count: total, error: null });
+            };
+          }
+          return (...args: unknown[]) => {
+            calls.push([String(prop), args]);
+            if (prop === "limit") state.limit = args[0] as number;
+            if (prop === "order") state.desc = (args[1] as { ascending?: boolean } | undefined)?.ascending === false;
+            return chain;
+          };
+        },
+      },
+    );
+    return { supabase: { from: (t: string) => (calls.push(["from", [t]]), chain) }, calls };
+  }
+
+  it("has a cap that keeps the posting lookup's id list well inside a URL", async () => {
+    const { SAVED_TAB_MAX } = await mod();
+    expect(SAVED_TAB_MAX, "SAVED_TAB_MAX must be exported from saved-set.ts").toBeTypeOf("number");
+    // 36-character uuids plus commas: the cap must keep the comma-joined id list far below a gateway's URL limit (~8 KB).
+    expect(SAVED_TAB_MAX! * 37).toBeLessThan(5000);
+    expect(SAVED_TAB_MAX).toBeGreaterThanOrEqual(50);
+  });
+
+  it("loads at most the cap, newest saved first, and reports the true total", async () => {
+    const { loadSavedRows, SAVED_TAB_MAX } = await mod();
+    const { supabase, calls } = fakeApplications(250);
+    const out = await need(loadSavedRows, "loadSavedRows")(supabase, "user-1");
+    expect(out.rows).toHaveLength(SAVED_TAB_MAX!);
+    expect(out.total).toBe(250);
+    expect(out.capped).toBe(true);
+    expect(calls).toContainEqual(["limit", [SAVED_TAB_MAX]]);
+    expect(calls).toContainEqual(["order", ["created_at", { ascending: false }]]);
+    expect(calls).toContainEqual(["eq", ["stage", "saved"]]);
+    expect(calls).toContainEqual(["eq", ["user_id", "user-1"]]);
+    // Newest first: the cap keeps the most recently saved, not the oldest.
+    expect(out.rows[0].id).toBe("a249");
+  });
+
+  it("asks the database for the exact count in the same query (no second round trip)", async () => {
+    const { loadSavedRows } = await mod();
+    const { supabase, calls } = fakeApplications(10);
+    await need(loadSavedRows, "loadSavedRows")(supabase, "u");
+    const select = calls.find(([n]) => n === "select");
+    expect(select?.[1][1]).toEqual({ count: "exact" });
+  });
+
+  it("is not capped when the set is within the cap", async () => {
+    const { loadSavedRows } = await mod();
+    const { supabase } = fakeApplications(7);
+    const out = await need(loadSavedRows, "loadSavedRows")(supabase, "u");
+    expect(out.rows).toHaveLength(7);
+    expect(out.total).toBe(7);
+    expect(out.capped).toBe(false);
+  });
+
+  it("the ids it hands to the postings query stay under the cap, so the lookup URL stays small", async () => {
+    const { loadSavedRows, partitionSavedSet, buildSavedPostingsQuery } = await mod();
+    const { supabase } = fakeApplications(250);
+    const { rows } = await need(loadSavedRows, "loadSavedRows")(supabase, "u");
+    const ids = rows.flatMap((r) => (r.job_posting_id ? [r.job_posting_id] : []));
+    expect(ids.join(",").length).toBeLessThan(5000);
+    // And the partition over a full page is cheap and total: every loaded row is accounted for exactly once.
+    const { openPostingIds, entries } = need(partitionSavedSet, "partitionSavedSet")(rows, []);
+    expect(openPostingIds.length + entries.length).toBe(rows.length);
+    const calls: Array<[string, unknown[]]> = [];
+    const chain: Record<string, unknown> = new Proxy({}, { get: (_t, p) => (...a: unknown[]) => (calls.push([String(p), a]), chain) });
+    need(buildSavedPostingsQuery, "buildSavedPostingsQuery")({ from: () => chain }, ids, "id", { workTypes: [], seniorities: [] });
+    const inId = calls.find(([n, a]) => n === "in" && a[0] === "id");
+    expect((inId![1][1] as string[]).length).toBeLessThanOrEqual(rows.length);
+  });
+});
+
+describe("savedCapNotice: tells the user the list is partial, and where the rest is", () => {
+  it("says nothing when everything is shown", async () => {
+    const { savedCapNotice } = await mod();
+    expect(need(savedCapNotice, "savedCapNotice")({ total: 7, loaded: 7 })).toBeNull();
+  });
+
+  it("when capped, says how many are shown and how many are not, and points at the tracker", async () => {
+    const { savedCapNotice } = await mod();
+    const msg = need(savedCapNotice, "savedCapNotice")({ total: 250, loaded: 100 });
+    expect(msg).toContain("100");
+    expect(msg).toContain("150");
+    expect(msg).toMatch(/tracker/i);
+  });
+
+  it("uses the singular properly for one hidden job", async () => {
+    const { savedCapNotice } = await mod();
+    expect(need(savedCapNotice, "savedCapNotice")({ total: 101, loaded: 100 })).toMatch(/The other 1 saved job is in your tracker/);
   });
 });
