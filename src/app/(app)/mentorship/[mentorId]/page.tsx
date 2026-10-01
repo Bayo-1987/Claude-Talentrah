@@ -5,6 +5,7 @@ import { bookMentorSessionAction } from "@/lib/mentorship/actions";
 import { computeSessionPrice, type MentorshipSessionType } from "@/lib/mentorship/pricing";
 import { Container, EyebrowLabel, BorderedCard, Button } from "@/components/ui";
 import { renderMarkdownParagraphs } from "@/lib/farah/render-markdown";
+import { UNPAID_HOLD_NOTICE } from "@/lib/mentorship/unpaid-hold";
 import { formatDateTime } from "@/lib/format/datetime";
 
 const BIO_LINK_CLASS = "text-rust underline underline-offset-2 hover:text-rust-hover";
@@ -126,6 +127,9 @@ export default async function MentorProfilePage({
               don&apos;t confirm within 24 hours of the scheduled time, the
               booking is cancelled and any payment is refunded automatically.
             </p>
+
+            {/* A paid booking holds the slot for 30 minutes (0203); free ones are never unpaid. */}
+            {mentor.basePriceNgn != null && <p className="text-[12.5px] text-ink">{UNPAID_HOLD_NOTICE}</p>}
 
             <Button type="submit" variant="primary">
               {mentor.basePriceNgn != null ? "Continue to payment" : "Book this session"}
