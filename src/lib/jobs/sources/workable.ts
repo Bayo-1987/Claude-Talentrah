@@ -1,6 +1,7 @@
 import "server-only";
 import { computeDedupFingerprint } from "../dedup";
 import { extractStructuredJd, inferSeniority, inferWorkType, stripHtml } from "../extract-jd";
+import { normalizeLocation } from "../location";
 import type { EmploymentType, NormalizedJobPosting, WorkType } from "../types";
 
 const FETCH_TIMEOUT_MS = 15_000;
@@ -161,7 +162,7 @@ export async function fetchWorkableJobs(
     return {
       title: job.title,
       companyName: resolvedCompanyName,
-      location,
+      location: normalizeLocation(location),
       workType: mapWorkType(job, location),
       employmentType: mapEmploymentType(job.employment_type),
       seniority: inferSeniority(job.title),
