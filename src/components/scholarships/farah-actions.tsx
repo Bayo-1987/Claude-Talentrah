@@ -7,7 +7,6 @@ import { CREDIT_COSTS } from "@/lib/credits/costs";
 import { runEligibilityCheckAction, draftSopAction } from "@/lib/scholarships/actions";
 import type { EligibilityCheckResult } from "@/lib/scholarships/farah";
 import { cn } from "@/lib/cn";
-import { useDisplayedCreditsBalance, useReportCreditsBalance } from "@/components/app-shell/credits-balance";
 
 const VERDICT_LABEL: Record<EligibilityCheckResult["verdict"], string> = {
   likely_eligible: "Likely eligible",
@@ -45,10 +44,6 @@ export function FarahActions({
   passCovered: boolean;
 }) {
   const [pending, startTransition] = useTransition();
-  // The balance as the page rendered it, updated for any credit a check or draft has spent since: the
-  // masthead pill and the "You have N credits" line below must never disagree (issue #605).
-  const shownBalance = useDisplayedCreditsBalance(creditsBalance);
-  const reportCreditsBalance = useReportCreditsBalance();
   const [open, setOpen] = useState<"none" | "eligibility" | "sop">("none");
   const [eligibility, setEligibility] = useState<EligibilityCheckResult | null>(null);
   const [statement, setStatement] = useState<string | null>(null);
@@ -66,7 +61,6 @@ export function FarahActions({
       else {
         setEligibility(res.result ?? null);
         setOpen("eligibility");
-        if (typeof res.creditsBalance === "number") reportCreditsBalance(res.creditsBalance);
       }
     });
   }
@@ -76,10 +70,7 @@ export function FarahActions({
     startTransition(async () => {
       const res = await draftSopAction(scholarshipId, motivation);
       if (res.error) setError(res.error);
-      else {
-        setStatement(res.statement ?? null);
-        if (typeof res.creditsBalance === "number") reportCreditsBalance(res.creditsBalance);
-      }
+      else setStatement(res.statement ?? null);
     });
   }
 
@@ -111,7 +102,7 @@ export function FarahActions({
             : `Draft my personal statement · ${sopCost} credits`}
         </Button>
         <span className="text-[12.5px] text-ink-soft">
-          {passCovered ? "Included with your Pass" : `You have ${shownBalance} credits`}
+          {passCovered ? "Included with your Pass" : `You have ${creditsBalance} credits`}
         </span>
       </div>
 

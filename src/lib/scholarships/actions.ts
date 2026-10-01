@@ -120,13 +120,6 @@ async function getBalance(
 export interface EligibilityActionResult {
   result?: EligibilityCheckResult;
   error?: string;
-  /**
-   * The account's balance after a PAID check: the ledger's own `balance_after` (spendCredits' return), never
-   * recomputed. Absent when nothing was spent (Pass-covered, or any error return) so the client leaves the
-   * masthead alone (issue #605). Needed because `revalidatePath("/scholarships")` below only refreshes the
-   * UI when the visitor is ON that path, and these buttons also render on /scholarships/[id].
-   */
-  creditsBalance?: number;
 }
 
 export async function runEligibilityCheckAction(
@@ -212,9 +205,8 @@ export async function runEligibilityCheckAction(
    * run and been paid for. The user still gets the answer they were charged
    * nothing for; they just also get told the balance moved.
    */
-  let balanceAfter: number;
   try {
-    balanceAfter = await spendCredits(userId, cost, "scholarship_eligibility_check", scholarshipId);
+    await spendCredits(userId, cost, "scholarship_eligibility_check", scholarshipId);
   } catch (err) {
     if (err instanceof InsufficientCreditsError) {
       return { error: "Your credit balance changed while that ran — top up and try again." };
@@ -223,14 +215,12 @@ export async function runEligibilityCheckAction(
   }
 
   revalidatePath("/scholarships");
-  return { result, creditsBalance: balanceAfter };
+  return { result };
 }
 
 export interface SopActionResult {
   statement?: string;
   error?: string;
-  /** See EligibilityActionResult.creditsBalance: the ledger's own balance_after for a paid draft, else absent. */
-  creditsBalance?: number;
 }
 
 export async function draftSopAction(
@@ -301,9 +291,8 @@ export async function draftSopAction(
   }
 
   // Same reasoning as the eligibility check above.
-  let balanceAfter: number;
   try {
-    balanceAfter = await spendCredits(userId, cost, "scholarship_sop_draft", scholarshipId);
+    await spendCredits(userId, cost, "scholarship_sop_draft", scholarshipId);
   } catch (err) {
     if (err instanceof InsufficientCreditsError) {
       return { error: "Your credit balance changed while that ran — top up and try again." };
@@ -312,7 +301,7 @@ export async function draftSopAction(
   }
 
   revalidatePath("/scholarships");
-  return { statement, creditsBalance: balanceAfter };
+  return { statement };
 }
 
 /*

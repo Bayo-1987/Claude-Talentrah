@@ -5,16 +5,24 @@
  * on the LIST page), Auto-Apply confirm, and the three Talent Directory purchases.
  *
  * WHAT EACH TEST PROVES, in this order:
- *   1. the action really ran and really charged (the database balance fell: a positive control, so a test
- *      for an action that silently did nothing cannot pass by "the pill is unchanged");
- *   2. the masthead pill now shows EXACTLY that database balance, which is "dropped by exactly the charge"
- *      (the charge is read back from the ledger, never hardcoded, so a pricing change cannot make this lie);
+ *   1. the action really ran and charged EXACTLY what the price list says (CREDIT_COSTS; a positive control, so a
+ *      test for an action that silently did nothing cannot pass by "the pill is unchanged");
+ *   2. the masthead pill now shows EXACTLY the database balance after that charge (the price comes from
+ *      CREDIT_COSTS, so a pricing change cannot make this lie);
  *   3. the page was never reloaded or navigated: a marker set on `window` before the action must survive.
  * The pill is compared to the database, not to a number computed here, so a UI that invented a number fails.
  *
- * Where a path is expected to refresh by itself (Auto-Apply and the Talent Directory call revalidatePath on
- * the page they are used from; the scholarships LIST is the path scholarships' revalidatePath names), these
- * tests are the CONFIRMATION the issue asks for, not a fix: if one is red, the fix is the same as #609's.
+ * MEASURED, not predicted (this file was run against unfixed `main` on a throwaway PR before the fix, #616):
+ *   - RED on unfixed main, fixed by this PR: tailoring / cover letter (a plain `fetch` to a route handler) and
+ *     bullet rewrite (a server action that never revalidates anything). Nothing re-renders the layout, so the
+ *     pill kept the pre-charge number.
+ *   - GREEN on unfixed main, so these tests are CONFIRMATIONS, not fixes: the two scholarship actions (on the
+ *     DETAIL page and on the LIST page), Auto-Apply confirm, and the three Talent Directory purchases. Each calls
+ *     `revalidatePath` after the spend, and that re-renders the layout, so the masthead follows.
+ *     Next's own documentation says a Server Function "updates the UI immediately (if viewing the affected
+ *     path)", and the scholarship actions revalidate `/scholarships` while the buttons also render on
+ *     `/scholarships/[id]`, which suggested the detail page would stay stale. It does not: measured, it refreshes.
+ *     The documented caveat is conservative for this app version.
  *
  * Runs against the stub LLM (LLM_PROVIDER=stub), like the golden path.
  */
@@ -24,6 +32,7 @@ import { test, expect, admin, grantTestCredits, requireStubbedLlm, seedBaseResum
 import { runCleanups } from "../tests/support/teardown";
 import { deletePostingsCascade, deleteOrgsCascade } from "../tests/support/delete-orgs";
 import { AUTO_APPLY_FREE_PER_WEEK } from "../src/lib/auto-apply/config";
+import { CREDIT_COSTS } from "../src/lib/credits/costs";
 
 const START = 200;
 const JD = `We are looking for an engineer to build and operate payment APIs at scale. You will work with Node.js,
@@ -60,9 +69,10 @@ async function waitForCharge(userId: string): Promise<number> {
 }
 
 /** The three assertions above, for whichever page the action ran on. */
-async function expectMastheadDropped(page: Page, userId: string) {
+async function expectMastheadDropped(page: Page, userId: string, expectedCharge: number) {
   const after = await waitForCharge(userId);
-  expect(START - after, "positive control: the charge must be a real, positive amount").toBeGreaterThan(0);
+  // "Exactly the charge": the price list says what this action costs, and that is what left the account.
+  expect(START - after, `the charge should be exactly ${expectedCharge}`).toBe(expectedCharge);
   await expect(pill(page, after), `the masthead must show the post-charge balance (${after}), not ${START}`).toBeVisible();
   await expect(pill(page, START)).toHaveCount(0);
   await expectNoReload(page);
@@ -88,7 +98,7 @@ test.describe("tailoring and cover letter", () => {
     await authedPage.getByRole("button", { name: "Tailor my resume" }).click();
     await expect(authedPage.getByText("credits used", { exact: false })).toBeVisible({ timeout: 30_000 });
 
-    await expectMastheadDropped(authedPage, testUser.id);
+    await expectMastheadDropped(authedPage, testUser.id, CREDIT_COSTS.tailoringRun);
   });
 });
 
@@ -103,11 +113,11 @@ test.describe("bullet rewrite", () => {
     await markNoReload(authedPage);
     await authedPage.getByRole("button", { name: "More concise" }).first().click();
 
-    await expectMastheadDropped(authedPage, testUser.id);
+    await expectMastheadDropped(authedPage, testUser.id, CREDIT_COSTS.bulletRewrite);
   });
 });
 
-test.describe("scholarship actions", () => {
+test.describe("scholarship actions (already refresh via revalidatePath: confirmation)", () => {
   const created: string[] = [];
   test.afterEach(async () => {
     await runCleanups([
@@ -158,7 +168,7 @@ test.describe("scholarship actions", () => {
     await authedPage.getByRole("button", { name: /Check my eligibility/ }).click();
     await expect(authedPage.getByText("Likely eligible")).toBeVisible({ timeout: 30_000 });
 
-    const after = await expectMastheadDropped(authedPage, testUser.id);
+    const after = await expectMastheadDropped(authedPage, testUser.id, CREDIT_COSTS.scholarshipEligibilityCheck);
     await expect(youHave(authedPage, after), "FarahActions' own balance line is stale").toBeVisible();
   });
 
@@ -172,7 +182,7 @@ test.describe("scholarship actions", () => {
     await authedPage.getByRole("button", { name: /^Draft it/ }).click();
     await expect(authedPage.getByText("Your draft statement")).toBeVisible({ timeout: 30_000 });
 
-    const after = await expectMastheadDropped(authedPage, testUser.id);
+    const after = await expectMastheadDropped(authedPage, testUser.id, CREDIT_COSTS.scholarshipSopDraft);
     await expect(youHave(authedPage, after), "FarahActions' own balance line is stale").toBeVisible();
   });
 
@@ -187,7 +197,7 @@ test.describe("scholarship actions", () => {
     await authedPage.getByRole("button", { name: /Check my eligibility/ }).first().click();
     await expect(authedPage.getByText("Likely eligible")).toBeVisible({ timeout: 30_000 });
 
-    await expectMastheadDropped(authedPage, testUser.id);
+    await expectMastheadDropped(authedPage, testUser.id, CREDIT_COSTS.scholarshipEligibilityCheck);
   });
 });
 
@@ -290,7 +300,7 @@ test.describe("Auto-Apply confirm", () => {
     const { data: row } = await admin.from("auto_apply_queue").select("credits_spent, status").eq("user_id", testUser.id).eq("job_posting_id", target.id).single();
     expect(row?.status).toBe("submitted");
     expect(row?.credits_spent, "this confirmation should have been charged: the free allowance was used up").toBeGreaterThan(0);
-    await expectMastheadDropped(authedPage, testUser.id);
+    await expectMastheadDropped(authedPage, testUser.id, CREDIT_COSTS.autoApplySubmission);
   });
 });
 
@@ -302,7 +312,7 @@ test.describe("Talent Directory purchases", () => {
     await expect(pill(authedPage, START)).toBeVisible();
     await markNoReload(authedPage);
     await authedPage.getByRole("button", { name: "Request verification" }).click();
-    await expectMastheadDropped(authedPage, testUser.id);
+    await expectMastheadDropped(authedPage, testUser.id, CREDIT_COSTS.talentDirectoryVerification);
   });
 
   test("human review drops the masthead by exactly the charge, no reload", async ({ authedPage, testUser }) => {
@@ -312,7 +322,7 @@ test.describe("Talent Directory purchases", () => {
     await expect(pill(authedPage, START)).toBeVisible();
     await markNoReload(authedPage);
     await authedPage.getByRole("button", { name: "Request human review" }).click();
-    await expectMastheadDropped(authedPage, testUser.id);
+    await expectMastheadDropped(authedPage, testUser.id, CREDIT_COSTS.talentDirectoryHumanReview);
   });
 
   test("a boost drops the masthead by exactly the charge, no reload", async ({ authedPage, testUser }) => {
@@ -322,6 +332,6 @@ test.describe("Talent Directory purchases", () => {
     await expect(pill(authedPage, START)).toBeVisible();
     await markNoReload(authedPage);
     await authedPage.getByRole("button", { name: "Boost my placement" }).click();
-    await expectMastheadDropped(authedPage, testUser.id);
+    await expectMastheadDropped(authedPage, testUser.id, CREDIT_COSTS.talentDirectoryBoost);
   });
 });
