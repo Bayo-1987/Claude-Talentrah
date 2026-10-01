@@ -11,8 +11,8 @@
  *  2. THE EXTRACTION ITSELF — the new module exists, holds the stages in this order, and agrees with
  *     the database enum. Red until the module is added.
  *
- * `StageSelect` (the per-card dropdown) carries a THIRD private copy. It is deliberately not touched
- * here; the drift test below pins it equal to the shared list so the copies cannot diverge silently.
+ * `StageSelect` (the per-card dropdown) carried a THIRD private copy. send-494 made it render from the shared list
+ * too; the test below still pins what it renders equal to that list (now a guard that nobody re-adds a private copy).
  */
 import { describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -116,9 +116,9 @@ describe("the extraction — TRACKER_STAGES", () => {
     expect(TRACKER_STAGES.map((s) => s.key)).not.toContain("all");
   });
 
-  it("agrees with the third private copy in StageSelect, which this change does not touch (drift guard)", async () => {
+  it("StageSelect renders exactly the shared list (guard against a private copy creeping back, send-494)", async () => {
     const { TRACKER_STAGES } = await loadModule<StagesModule>("@/lib/tracker/stages");
-    const select = renderToStaticMarkup(<StageSelect applicationId="a" stage="applied" jobTitle="t" />);
+    const select = renderToStaticMarkup(<StageSelect applicationId="a" stage="applied" jobTitle="t" companyName="c" />);
     const options = [...select.matchAll(/<option value="([^"]+)"[^>]*>([^<]+)<\/option>/g)].map((m) => ({ key: m[1], label: m[2] }));
     expect(options, "no <option> elements rendered").not.toEqual([]);
     expect(options).toEqual(TRACKER_STAGES.map((s) => ({ key: s.key, label: s.label })));

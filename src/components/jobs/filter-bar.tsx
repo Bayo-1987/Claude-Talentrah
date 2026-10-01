@@ -129,12 +129,20 @@ export function FilterBar({
   workTypes = [],
   seniorities = [],
   posted,
-  country,
-  countryApplicable = false,
+  country: countryProp,
+  countryApplicable: countryApplicableProp = false,
   countryCounts,
   everyCountryCount,
   searchIndex = [],
 }: FilterBarProps) {
+  /*
+   * The Saved tab has no country filter (send-496): it is the user's own set, not a discovery feed, so a country menu
+   * there would be a control that does nothing. Dropped here, not just by the page passing nothing, so the menu cannot
+   * come back through a prop and the tab's own links and search form never carry a `country` param.
+   */
+  const onSaved = tab === "saved";
+  const country = onSaved ? undefined : countryProp;
+  const countryApplicable = onSaved ? false : countryApplicableProp;
   const workTypeParam = workTypes.length ? workTypes.join(",") : undefined;
   const seniorityParam = seniorities.length ? seniorities.join(",") : undefined;
   const base = { tab, workType: workTypeParam, seniority: seniorityParam, q, posted, country };
@@ -360,13 +368,15 @@ export function FilterBar({
         data-testid="filter-bar-desktop"
         className="hidden min-[1140px]:flex min-[1140px]:flex-nowrap min-[1140px]:items-center min-[1140px]:gap-2.5 text-[12.5px]"
       >
-        <FilterMenu
-          faceLabel={countryFace}
-          items={countryItems}
-          sentinel={countrySentinel}
-          testId="filter-menu-country-desktop"
-        />
-        <span className="flex items-center gap-2 border-l border-line pl-2">
+        {!onSaved && (
+          <FilterMenu
+            faceLabel={countryFace}
+            items={countryItems}
+            sentinel={countrySentinel}
+            testId="filter-menu-country-desktop"
+          />
+        )}
+        <span className={`flex items-center gap-2 ${onSaved ? "" : "border-l border-line pl-2"}`}>
           <span className="font-semibold text-ink-soft">Work type:</span>
           {WORK_TYPES.map((wt) => (
             <Link
@@ -417,12 +427,14 @@ export function FilterBar({
         shipping no client-side filter state at all.
       */}
       <div data-testid="filter-bar-mobile" className="flex flex-wrap items-center gap-2.5 min-[1140px]:hidden">
-        <FilterMenu
-          faceLabel={countryFace}
-          items={countryItems}
-          sentinel={countrySentinel}
-          testId="filter-menu-country-mobile"
-        />
+        {!onSaved && (
+          <FilterMenu
+            faceLabel={countryFace}
+            items={countryItems}
+            sentinel={countrySentinel}
+            testId="filter-menu-country-mobile"
+          />
+        )}
         <FilterMenu
           faceLabel="Work type"
           ariaLabel="Work type"

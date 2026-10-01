@@ -9,6 +9,7 @@ import {
 } from "@/lib/resume-builder/example-guard";
 import { recordResumeBuilderCompletionAction } from "@/lib/resume-builder/actions";
 import { waitForFontsSettled } from "@/lib/resume-builder/wait-for-fonts";
+import { printWithTitle, resumePrintTitle } from "@/lib/resume-builder/print-title";
 import type { StructuredResume } from "@/lib/resume/types";
 
 function focusFlaggedField(path: string) {
@@ -52,6 +53,11 @@ function focusFlaggedField(path: string) {
  * whole undo story, matching this repo's existing pattern (see
  * stage-select.tsx's Hired confirm) — no separate undo/redo stack.
  *
+ * THE BUTTON IS "Save as PDF", with a help line under it, because the browser's
+ * print window is what actually makes the file and its destination menu also
+ * lists real printers: "Download PDF" promised a download this button cannot
+ * make by itself. The file is named `<First>-<Last>-Resume.pdf` (print-title.ts).
+ *
  * WAITS FOR FONTS BEFORE PRINTING (send-473). Every font here is
  * `display: "swap"`, so a click that lands while a face is still arriving —
  * a first visit on a cold cache, a slow connection — used to print while the
@@ -94,7 +100,10 @@ export function PrintButton({
     } finally {
       setPreparing(false);
     }
-    window.print();
+    // The browser names the saved file after document.title, so the print runs
+    // under `<First>-<Last>-Resume` (print-title.ts) and the real title comes
+    // back on afterprint or if print() throws.
+    printWithTitle(resumePrintTitle(content.contact.name));
   }
 
   function handleClearExample() {
@@ -111,8 +120,11 @@ export function PrintButton({
         aria-busy={preparing}
         className="disabled:opacity-50"
       >
-        {preparing ? "Preparing PDF…" : "Download PDF"}
+        {preparing ? "Preparing PDF…" : "Save as PDF"}
       </Button>
+      <p className="max-w-[260px] text-right text-[12.5px] text-ink-soft">
+        {"In the print window, choose 'Save as PDF'."}
+      </p>
       <span role="status" className="sr-only">
         {preparing ? "Preparing PDF" : ""}
       </span>
