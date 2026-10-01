@@ -52,7 +52,7 @@ const footerAnchor = (href: string, label: string) =>
 
 const PRODUCT_LINKS: Record<string, string> = {
   "Job Matching": "/jobs",
-  "Resume Builder": "/resume-builder",
+  "Resume Builder": "/ai-resume-builder",
   "Resume Tailoring": "/ai-resume-tailoring",
   "ATS Resume Checker": "/ats-resume-checker",
   "Job Tracker": "/tracker",
@@ -214,11 +214,15 @@ function footerColumns(html: string) {
  * Links a LATER change re-pointed on purpose, so the snapshot above can stay exactly as it was at 28ed666
  * while the guard below still means "nothing ELSE moved". send-484 landed after send-486 and re-pointed
  * Refer & Earn: /refer has no signed-out page and stays login-gated, so the footer sends a signed-out
- * visitor through signup, which returns them to /refer. Adding to this map is a deliberate, reviewed act;
- * any other link that changes still fails the guard.
+ * visitor through signup, which returns them to /refer. send-491 re-pointed Resume Builder: /resume-builder
+ * is login-gated too, so the footer links the public /ai-resume-builder landing page instead (the same shape as
+ * its siblings Resume Tailoring and ATS Resume Checker), whose own CTA is session-aware. Adding to this map is
+ * a deliberate, reviewed act; any other link that changes still fails the guard, and SNAPSHOT_BEFORE itself is
+ * never re-baselined.
  */
 const REPOINTED_SINCE: Record<string, string> = {
   "Refer & Earn": "/signup?redirectTo=%2Frefer",
+  "Resume Builder": "/ai-resume-builder",
 };
 
 describe("the footer's columns (send-486: Compare removed, Legal & Trust in the top row)", () => {

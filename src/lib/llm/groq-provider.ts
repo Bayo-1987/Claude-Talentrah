@@ -163,6 +163,7 @@ export class GroqProvider implements LLMProvider {
     turns,
     maxOutputTokens,
     jsonSchema,
+    onFinish,
   }: LLMGenerateOptions): AsyncGenerator<string> {
     const client = getGroqClient();
 
@@ -190,10 +191,16 @@ export class GroqProvider implements LLMProvider {
         ...(jsonSchema ? { response_format: { type: "json_object" as const } } : {}),
       });
 
+      let finishReason: string | null = null;
       for await (const chunk of stream) {
-        const delta = chunk.choices[0]?.delta?.content;
+        const choice = chunk.choices[0];
+        if (choice?.finish_reason) finishReason = choice.finish_reason;
+        const delta = choice?.delta?.content;
         if (delta) yield delta;
       }
+      // `length` is the model hitting max_tokens: the reply is cut off. Reasoning tokens count toward that same
+      // budget (REASONING_EFFORT above), so a reply can be cut short even when the visible text is not long.
+      if (finishReason) onFinish?.(finishReason === "stop" ? "stop" : finishReason === "length" ? "length" : "other");
     } catch (err) {
       if (err instanceof APIError) {
         if (err.status === 429) {

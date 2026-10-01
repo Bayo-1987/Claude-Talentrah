@@ -12,12 +12,25 @@ import { fetchWithTimeout, fetchErrorMessage } from "@/lib/forms/fetch-with-time
 // a real mentor needs an account and a session to book, not a single click
 // from a signed-out demo widget. Mentorship itself has since shipped (see
 // /mentorship), this widget just isn't its entry point.
-const QUICK_ACTIONS = [
-  { label: "Tailor my resume to a job", href: "/signup" },
-  { label: "Check my match score", href: "/signup" },
-  { label: "Build a resume", href: "/resume-builder" },
-  { label: "Find a scholarship", href: "/scholarships" },
-];
+/**
+ * send-491 — "Build a resume" is the one quick action whose destination depends on who is looking.
+ * /resume-builder is login-gated: linked unconditionally it sent every signed-out visitor to /login (the
+ * production crawl's gated-link list, and the founder QA audit's top signed-out dead end). So:
+ *   signed in  -> /resume-builder, the tool itself;
+ *   signed out -> /signup?redirectTo=%2Fresume-builder, the same shape as its sibling quick actions (which go
+ *                 to /signup), and signup returns the new account to the builder.
+ * `signedIn` comes from the browser-side cookie read below, so the page's static HTML (what every stranger,
+ * and the crawl, gets) carries the signed-out link; a signed-in visitor who clicks before the swap lands is
+ * forwarded by /signup itself. Exported so the mapping can be pinned without a browser.
+ */
+export function quickActionsFor(signedIn: boolean): Array<{ label: string; href: string }> {
+  return [
+    { label: "Tailor my resume to a job", href: "/signup" },
+    { label: "Check my match score", href: "/signup" },
+    { label: "Build a resume", href: signedIn ? "/resume-builder" : "/signup?redirectTo=%2Fresume-builder" },
+    { label: "Find a scholarship", href: "/scholarships" },
+  ];
+}
 
 const MIN_CHARS = 50;
 
@@ -261,7 +274,7 @@ export function JdDemoInput() {
           </button>
         </div>
         <div className="flex flex-wrap items-center justify-center gap-5.5">
-          {QUICK_ACTIONS.map((action) => (
+          {quickActionsFor(isSignedIn).map((action) => (
             <Link
               key={action.label}
               href={action.href}

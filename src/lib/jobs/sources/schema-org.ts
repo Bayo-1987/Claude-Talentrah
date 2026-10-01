@@ -1,6 +1,7 @@
 import "server-only";
 import { computeDedupFingerprint } from "../dedup";
 import { extractStructuredJd, inferSeniority, stripHtml } from "../extract-jd";
+import { normalizeLocation } from "../location";
 import { schemaOrgSourceKey } from "../types";
 import type { EmploymentType, NormalizedJobPosting, SalaryUnit, WorkType } from "../types";
 
@@ -306,14 +307,50 @@ export function mapBaseSalary(raw: unknown): ParsedSalary | undefined {
   return { min, max, currency, unit };
 }
 
+/**
+ * The countries a posting STATES applicants may work from: `@type: Country` nodes in `applicantLocationRequirements`
+ * (one node or an array), in the source's order, de-duplicated. Anything else is ignored — an AdministrativeArea (a
+ * state or region) is not a country and must not be reported as one, and a bare string has no `@type` to say what it
+ * is. Empty when the source stated nothing: this never supplies a country the source did not.
+ */
+export function statedApplicantCountries(block: ValidJobPostingBlock): string[] {
+  const raw = block.applicantLocationRequirements;
+  const nodes = Array.isArray(raw) ? raw : raw === undefined ? [] : [raw];
+  const out: string[] = [];
+  for (const node of nodes) {
+    if (!isRecord(node) || node["@type"] !== "Country") continue;
+    const name = typeof node.name === "string" ? node.name.trim() : "";
+    if (name && !out.includes(name)) out.push(name);
+  }
+  return out;
+}
+
 /** Shares `hasUsableAddress` with `mapWorkType` — see that function's header
- * for why the test lives in one place rather than being re-derived here. */
+ * for why the test lives in one place rather than being re-derived here.
+ *
+ * A TELECOMMUTE posting with no address used to be stored as a bare "Remote" even when the source stated the country
+ * (Workable's `applicantLocationRequirements`, e.g. Country "Nigeria" in the real captured fixture), and a bare "Remote"
+ * cannot produce valid JobPosting markup. It is now "Remote, Nigeria" — the shape `parseJobLocation` already reads — or
+ * "Remote, A; Remote, B" for several. When the source states none it stays "Remote": no "Worldwide", no guess. */
 export function formatLocation(block: ValidJobPostingBlock): string | undefined {
   const parts = usableAddressParts(block);
   if (parts.length === 0) {
-    return block.jobLocationType === "TELECOMMUTE" ? "Remote" : undefined;
+    if (block.jobLocationType !== "TELECOMMUTE") return undefined;
+    const countries = statedApplicantCountries(block);
+    return countries.length > 0 ? countries.map((c) => `Remote, ${c}`).join("; ") : "Remote";
   }
   return parts.join(", ");
+}
+
+/**
+ * The location the row's IDENTITY is computed from. Identical to `formatLocation` except that stating a country for a
+ * remote posting does not change it: `dedup_fingerprint` is what an upsert uses to UPDATE a row rather than create one
+ * (dedup.ts), so enriching "Remote" to "Remote, South Africa" must not mint a new identity — that would close every
+ * live remote Workable row on the next run and re-open it under a new id, losing saves and Tracker links.
+ */
+function identityLocation(block: ValidJobPostingBlock): string | undefined {
+  if (usableAddressParts(block).length === 0 && block.jobLocationType === "TELECOMMUTE") return "Remote";
+  return formatLocation(block);
 }
 
 function toNormalizedJobPosting(
@@ -331,7 +368,7 @@ function toNormalizedJobPosting(
     title: block.title,
     companyName,
     companyLogoUrl: block.hiringOrganization.logo,
-    location,
+    location: normalizeLocation(location),
     workType: mapWorkType(block),
     employmentType: mapEmploymentType(block.employmentType),
     seniority: inferSeniority(block.title),
@@ -340,7 +377,7 @@ function toNormalizedJobPosting(
     externalUrl,
     externalSource: schemaOrgSourceKey(sourceLabel),
     postedAt: block.datePosted ?? new Date().toISOString(),
-    dedupFingerprint: computeDedupFingerprint(companyName, block.title, location),
+    dedupFingerprint: computeDedupFingerprint(companyName, block.title, identityLocation(block)),
     expiresAt: mapValidThrough(block.validThrough),
     salaryMin: salary?.min,
     salaryMax: salary?.max,

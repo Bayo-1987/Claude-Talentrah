@@ -49,7 +49,12 @@ const FOOTER_COLUMNS = [
     heading: "Product",
     links: [
       { label: "Job Matching", href: "/jobs" },
-      { label: "Resume Builder", href: "/resume-builder" },
+      // send-491 — the public landing page, not the tool: /resume-builder is login-gated, so this link sent
+      // every signed-out visitor to /login (the production crawl listed it on all 461 footer pages). Same shape as
+      // its siblings below (Resume Tailoring -> /ai-resume-tailoring, ATS Resume Checker -> /ats-resume-checker):
+      // the landing page explains the tool and carries a session-aware CTA (signed in -> /resume-builder, signed
+      // out -> signup that returns to it).
+      { label: "Resume Builder", href: "/ai-resume-builder" },
       { label: "Resume Tailoring", href: "/ai-resume-tailoring" },
       { label: "ATS Resume Checker", href: "/ats-resume-checker" },
       { label: "Job Tracker", href: "/tracker" },

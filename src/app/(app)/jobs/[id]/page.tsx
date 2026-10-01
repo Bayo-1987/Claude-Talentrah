@@ -1,12 +1,13 @@
 import { JsonLd } from "@/components/seo/json-ld";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { getOptionalUser } from "@/lib/auth/require-user";
 import { buildJobPostingJsonLd } from "@/lib/seo/job-posting-jsonld";
 import { stripRedundantJobHeader } from "@/lib/seo/job-description-snippet";
 import { stripMarkdownToPlainText } from "@/lib/jobs/extract-jd";
 import { jobPostingStatusMessage } from "@/lib/jobs/posting-status-message";
-import { jobForRequest } from "./job-for-request";
+import { jobForRequest, siblingPostingsFor, supersededTargetFor } from "./job-for-request";
+import { buildJobPageTitle } from "@/lib/seo/job-page-title";
 import { BorderedCard, Button, EyebrowLabel, MatchTierBadge, buttonClasses } from "@/components/ui";
 import { dedupeMetaParts } from "@/components/jobs/job-card";
 import { FarahJobMenu } from "@/components/jobs/farah-job-menu";
@@ -56,9 +57,16 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const { id } = await params;
   const { data } = await jobForRequest(id);
 
-  if (!data) notFound();
+  if (!data) {
+    // 0202: a duplicate we stopped listing keeps a working link — a permanent redirect to the row that replaced it.
+    // Resolved HERE, in generateMetadata, because that is what runs before the response starts: a redirect thrown from
+    // the page body would arrive after headers are sent.
+    const target = await supersededTargetFor(id);
+    if (target) permanentRedirect(`/jobs/${target}`);
+    notFound();
+  }
 
-  const title = `${data.title} — ${data.company_name} — Talentrah`;
+  const title = buildJobPageTitle(data, await siblingPostingsFor(id, data.company_name));
 
   /*
    * A description built from the posting, not a placeholder.
@@ -189,6 +197,18 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
    * the primary gate.
    */
   const { supabase, data: job } = await jobForRequest(id);
+
+  /*
+   * 0202. The page body and generateMetadata run CONCURRENTLY and whichever throws first decides the response, so the
+   * redirect must be decided here too, before this body goes on to issue its other queries and reaches the notFound()
+   * below. Measured on a built server: with only the generateMetadata check, a superseded id answered 404, because this
+   * body's notFound() won the race.
+   */
+  if (!job) {
+    const target = await supersededTargetFor(id);
+    if (target) permanentRedirect(`/jobs/${target}`);
+    notFound();
+  }
 
   const [baseResumeResult, applicationResult, screeningQuestionsResult, assessmentResult] = await Promise.all([
     /*

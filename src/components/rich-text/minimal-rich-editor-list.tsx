@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import { MINIMAL_MARKDOWN_EXTENSIONS } from "@/lib/rich-text/minimal-extensions";
 import { minimalParagraphsToDoc, minimalDocToParagraphs } from "@/lib/rich-text/minimal-document";
@@ -54,15 +54,41 @@ export function MinimalRichEditorList({
   onParagraphsChange,
   placeholder,
   minHeightClassName = "min-h-[96px]",
+  bulleted = false,
+  canTurnOffBullets = true,
+  onBulletedChange,
 }: {
   id: string;
   label: string;
   paragraphs: string[];
-  onParagraphsChange: (paragraphs: string[]) => void;
+  /** Receives the paragraphs and whether the field is currently in bulleted-list mode. */
+  onParagraphsChange: (paragraphs: string[], bulleted: boolean) => void;
   placeholder?: string;
   minHeightClassName?: string;
+  /**
+   * Whether the stored value renders as a bulleted list. Passing
+   * `onBulletedChange` adds the "Bulleted list" toolbar control; omit it and
+   * the field behaves exactly as before (resume summary-style callers).
+   */
+  bulleted?: boolean;
+  /** False when each paragraph is already its own bullet and there is no prose form to go back to. */
+  canTurnOffBullets?: boolean;
+  onBulletedChange?: (bulleted: boolean) => void;
 }) {
   const labelId = `${id}-label`;
+  // Bulleted-list mode switched on while the field is still empty has nothing
+  // in `bulleted` (the stored value) to carry it yet; remember it here until
+  // the first achievement is typed. Once there is content, the stored value is
+  // the truth, which is also what keeps this correct when a drag-reorder
+  // hands this same instance a different entry.
+  const [armed, setArmed] = useState(false);
+  const hasContent = paragraphs.some((p) => p.trim().length > 0);
+  const listMode = hasContent ? bulleted : armed;
+  // Read from inside the editor's own onUpdate, which must see the current value without re-creating the editor.
+  const listModeRef = useRef(listMode);
+  useEffect(() => {
+    listModeRef.current = listMode;
+  }, [listMode]);
 
   const editor = useEditor({
     extensions: MINIMAL_MARKDOWN_EXTENSIONS,
@@ -82,7 +108,7 @@ export function MinimalRichEditorList({
       },
     },
     onUpdate: ({ editor: e }) => {
-      onParagraphsChange(minimalDocToParagraphs(e.getJSON()));
+      onParagraphsChange(minimalDocToParagraphs(e.getJSON()), listModeRef.current);
     },
   });
 
@@ -130,9 +156,45 @@ export function MinimalRichEditorList({
         >
           i
         </button>
+        {onBulletedChange && (
+          <button
+            type="button"
+            aria-label="Bulleted list"
+            aria-pressed={listMode}
+            disabled={listMode && !canTurnOffBullets}
+            title={
+              listMode && !canTurnOffBullets
+                ? "Each paragraph is its own bullet. Remove all but one achievement to turn this off."
+                : "Bulleted list"
+            }
+            onClick={() => {
+              const next = !listMode;
+              setArmed(next);
+              onBulletedChange(next);
+            }}
+            className={cn(TOOLBAR_BUTTON, "disabled:cursor-not-allowed disabled:opacity-60")}
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+              <circle cx="2.5" cy="3.5" r="1.4" />
+              <circle cx="2.5" cy="8" r="1.4" />
+              <circle cx="2.5" cy="12.5" r="1.4" />
+              <rect x="6" y="2.75" width="9" height="1.5" />
+              <rect x="6" y="7.25" width="9" height="1.5" />
+              <rect x="6" y="11.75" width="9" height="1.5" />
+            </svg>
+          </button>
+        )}
       </div>
 
-      <EditorContent editor={editor} />
+      <div
+        className={
+          listMode
+            ? "[&_.ProseMirror_p]:ml-[18px] [&_.ProseMirror_p]:list-item [&_.ProseMirror_p]:list-disc"
+            : undefined
+        }
+      >
+        <EditorContent editor={editor} />
+      </div>
     </div>
   );
 }

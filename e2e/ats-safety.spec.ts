@@ -87,7 +87,7 @@ test.describe("ats_safe is a real, PDF-verified claim per skeleton", () => {
        * `font-display: "swap"` font is designed not to block `load`, so a
        * `page.pdf()` straight after `goto` can capture the page on fallback
        * fonts. Waiting makes this harness print the page in its final fonts,
-       * which is what a user who clicks Download PDF at their own pace gets.
+       * which is what a user who clicks Save as PDF at their own pace gets.
        * Plain test hygiene; it is not what any past failure turned on.
        *
        * HISTORY, CORRECTED (send-473). This comment used to say `blueprint`'s
