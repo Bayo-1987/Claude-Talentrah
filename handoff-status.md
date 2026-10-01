@@ -33,6 +33,35 @@ both served stale content in this project's history. Don't rely on either.
 
 ---
 
+## Merged 2026-10-01 — S12 job data quality, parts 3 and 4: PR #638 (cleaned location text) and PR #634 (job page titles)
+
+| PR | Branch | Merged at (UTC) | Merge SHA |
+|----|--------|-----------------|-----------|
+| [#638](https://github.com/Bayo-1987/Claude-Talentrah/pull/638) | `feat/job-location-normalise` | 2026-10-01 16:24:01 | `0f60fa2cd25d40b41e819aaca6ed491b1cff6cb1` |
+| [#634](https://github.com/Bayo-1987/Claude-Talentrah/pull/634) | `feat/job-page-titles` | 2026-10-01 17:29:22 | `aa55eb6fc64b72c6c3bb67194cdf96811ff5eb3b` |
+
+**What #638 changed.** `normalizeLocation` (`src/lib/jobs/location.ts`) cleans the stored `location` text at ingestion in all four adapters: a part repeating an earlier part of the same entry is dropped (`Lagos, Lagos, Nigeria` -> `Lagos, Nigeria`), duplicate `;` entries, a trailing ISO code that is that country's own (`Cameroon (CM)`), a stray full stop, ragged spacing, and a template placeholder (`City, Country`) becomes no location. It never invents or reorders and is idempotent. **Identity does not move**: every adapter still computes `dedup_fingerprint` from the raw string. No migration, no data written; rows take the cleaned text on their next ingest.
+
+**What #634 changed.** The `/jobs/[id]` title is `<Role> at <Company> — <City or Remote> | Talentrah` (`src/lib/seo/job-page-title.ts`), about 65 characters, under the founder's policy of 2026-10-01: **the company is never dropped**. Trim order: the suffix, then the place is the city or `Remote`, then the role at a word boundary; past that the title runs long. A posting whose title equals a sibling's (one bounded query per page render, `siblingPostingsFor`) gets its country, and only those, in a form that is never shortened (shortening the role would rebuild the collisions). `og:title` and `twitter:title` are that same string; canonical and the rest of the head are unchanged.
+
+### Verification (all four, against live state)
+
+**1. API.** `…/pulls/638` -> `merged: true`, `merged_at` 2026-10-01T16:24:01Z, `merge_commit_sha` `0f60fa2c…`. `…/pulls/634` -> `merged: true`, `merged_at` 2026-10-01T17:29:22Z, `merge_commit_sha` `aa55eb6f…`.
+
+**2. Fresh shallow clone** (`GIT_TERMINAL_PROMPT=0 git clone --depth 1`), HEAD `aa55eb6fc64b72c6c3bb67194cdf96811ff5eb3b`: PRESENT `src/lib/jobs/location.ts`, `tests/jobs/normalize-location.test.ts`, `src/lib/seo/job-page-title.ts`, `tests/seo/job-page-title.test.ts`, `e2e/job-page-title-head.spec.ts`; `siblingPostingsFor` appears 2 times in `src/app/(app)/jobs/[id]/page.tsx`; `normalizeLocation` appears 2 times in each of the four adapters.
+
+**3. Live production probe** (signed out, 2026-10-01 after Vercel deployments `dpl_23SiXw9NMdkcqkRWnuFmkotxJtVB` (#638) and `dpl_FaWbHPs8sVScnDGarULTCpZTcbdE` (#634, `githubCommitSha` `aa55eb6f…`), both `READY`, `target: production`). A crawl of **all 380 job URLs in `sitemap.xml`** (title, `og:title`, canonical): **380/380** `<title>` equal `og:title`; **380/380** canonicals are the page's own path; **0** still in the old `— Talentrah` format; 142 carry the ` | Talentrah` suffix, 74 carry a country (`— Remote, Poland`), the rest the short place. Duplicate titles: **3 groups / 7 rows** (Optimal Group x3, Monaco Solicitors x2, and Sales Network Manager - Regional - Jumia x2 in Nigeria, two postings with the same company, role and location). The first two are the rows #632 supersedes (once marked: 1 group / 2 rows left, the Jumia pair, which no title can separate). **58 titles are over 65 characters, 40 over 70, the longest 100**: the policy lets a title run long rather than lose its company, and the unshortened country-bearing form is the long one. The SQL estimate before the change was 28 duplicate groups / 107 rows and 120 titles over 65 (the founder's own crawl is the authoritative before/after). Production database, read-only, **before the next ingest** (so these are the "before" numbers for #638 and #629): open external postings with a repeated location part **126**, with a trailing ISO code **9**, bare `Remote` **62**, `Remote, <country>` **77**.
+
+**4. Test suites on the merged heads.** #638's final head: unit 410 files passed (410), Playwright 512 passed. #634's final head: unit 415 files passed (415), Playwright 517 passed, including the new `e2e/job-page-title-head.spec.ts` (title = `og:title` = `twitter:title`, and a real Poland/Spain collision).
+
+### Not covered / open
+- **#638's effect on data is not yet observable**: the last production ingest ran at 12:07Z, before both deploys. After the next run: the repeated-part, ISO-code, bare-Remote and Remote-country counts above should fall to 0 / 0 / (Workable rows that state a country) / rise; the before/after on the 142 markup-ineligible rows and the Rich Results test on 3 remote jobs follow it.
+- The title duplicate count above is on **unmarked** data; marking the 3 superseded rows is still waiting on the founder's go.
+- Lighthouse failed on both PRs (known: the thin CI-project `/jobs/remote` 404); not a required check. The SQL replica of the title rule is an approximation of the TypeScript; the crawl above is the real measurement.
+- One `tests/jobs` file (`freshness-visibility`) fails locally against the shared test database on remote-posting counts (other sessions' data); it passed in CI on both heads.
+
+---
+
 ## Merged 2026-10-01 — S12 job data quality, parts 1 and 2: PR #629 (countries and Workable's stated remote country in JobPosting markup) and PR #632 (superseded duplicates, migration 0202)
 
 | PR | Branch | Merged at (UTC) | Merge SHA |
