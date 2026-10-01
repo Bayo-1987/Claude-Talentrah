@@ -451,6 +451,33 @@ export type Database = {
           },
         ]
       }
+      anonymous_demo_attempts: {
+        Row: {
+          created_at: string
+          error_class: string | null
+          id: string
+          ip_rule_active: boolean
+          outcome: string
+          reason: string | null
+        }
+        Insert: {
+          created_at?: string
+          error_class?: string | null
+          id?: string
+          ip_rule_active?: boolean
+          outcome: string
+          reason?: string | null
+        }
+        Update: {
+          created_at?: string
+          error_class?: string | null
+          id?: string
+          ip_rule_active?: boolean
+          outcome?: string
+          reason?: string | null
+        }
+        Relationships: []
+      }
       anonymous_demo_daily: {
         Row: {
           day: string
@@ -3619,7 +3646,16 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      anonymous_demo_outcomes_7d: {
+        Row: {
+          attempts: number | null
+          error_class: string | null
+          last_at: string | null
+          outcome: string | null
+          reason: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       add_test_pool_user: {
