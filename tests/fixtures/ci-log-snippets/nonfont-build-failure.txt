@@ -1,0 +1,20 @@
+2026-09-30T21:31:48.0088411Z ▲ Next.js 16.3.6 (Turbopack)
+2026-09-30T21:31:48.0394209Z ✓ Running next.config.ts took 30ms
+2026-09-30T21:31:48.0397289Z ⚠ No build cache found. Please configure build caching for faster rebuilds. Read more: https://nextjs.org/docs/messages/no-cache
+2026-09-30T21:31:48.0463025Z Attention: Next.js now collects completely anonymous telemetry regarding usage.
+2026-09-30T21:31:48.0464362Z This information is used to shape Next.js' roadmap and prioritize features.
+2026-09-30T21:31:48.0466594Z You can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:
+2026-09-30T21:31:48.0468918Z https://nextjs.org/telemetry
+2026-09-30T21:31:48.0469479Z 
+2026-09-30T21:31:48.0745989Z 
+2026-09-30T21:31:48.2210785Z   Creating an optimized production build ...
+2026-09-30T21:32:07.9998681Z ✓ Compiled successfully in 19.4s
+2026-09-30T21:32:08.0138266Z   Running TypeScript ...
+2026-09-30T21:32:35.4245000Z ##[error]proof/zz-diag-font-extraction.spec.ts(4,32): error TS2307: Cannot find module './support/pdf-text' or its corresponding type declarations.
+2026-09-30T21:32:35.4254861Z ##[error]proof/zz-font-proof.spec.ts(1,30): error TS2307: Cannot find module './fixtures/authed' or its corresponding type declarations.
+2026-09-30T21:32:35.4256585Z ##[error]proof/zz-font-proof.spec.ts(40,120): error TS7031: Binding element 'page' implicitly has an 'any' type.
+2026-09-30T21:32:35.4258456Z ##[error]proof/zz-font-proof.spec.ts(71,89): error TS7031: Binding element 'browser' implicitly has an 'any' type.
+2026-09-30T21:32:35.4259888Z ##[error]proof/zz-font-proof.spec.ts(90,49): error TS7006: Parameter 'route' implicitly has an 'any' type.
+2026-09-30T21:32:35.5691274Z Failed to type check.
+2026-09-30T21:32:35.5691539Z 
+2026-09-30T21:32:35.6616787Z ##[error]Process completed with exit code 1.

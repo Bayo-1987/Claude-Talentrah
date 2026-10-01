@@ -12,6 +12,9 @@
  *   nonpool-refresh-job.txt               run 36704506607 attempt 1 — a refresh-job.test.ts failure (must NOT match)
  *   nearmiss-interleaving-404-message.txt run 36762714706 attempt 1 — the red-state interleaving's own assertion text,
  *                                         which quotes `404 user_not_found` but is not a claimFromPool failure (must NOT match)
+ *   font-build-failure.txt                run 36720469297 attempt 1 — `Build app` failing on the next/font/google fetch (#585)
+ *   nonfont-build-failure.txt             a real `Build app` failure that is not the font one (a TypeScript error in a
+ *                                         throwaway probe; must NOT match the font class)
  */
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
@@ -30,6 +33,42 @@ function classify(log: string): Record<string, number> {
   expect(r.status, r.stderr).toBe(0);
   return JSON.parse(r.stdout);
 }
+
+function classifyFont(log: string): Record<string, number> {
+  const r = spawnSync("python3", [join(process.cwd(), "scripts", "ci-flake-tally.py"), "--classify-font"], {
+    input: log,
+    encoding: "utf8",
+  });
+  expect(r.error, "python3 must be runnable").toBeUndefined();
+  expect(r.status, r.stderr).toBe(0);
+  return JSON.parse(r.stdout);
+}
+
+describe("ci-flake-tally.py --classify-font, on logs from real runs (#585)", () => {
+  it("finds the next/font/google build failure", () => {
+    expect(classifyFont(fixture("font-build-failure.txt"))).toEqual({ "font-build": 1 });
+  });
+
+  it("a Build app failure that is not the font fetch is not counted", () => {
+    expect(classifyFont(fixture("nonfont-build-failure.txt"))).toEqual({});
+  });
+
+  it("a different Turbopack 'Can't resolve' (synthetic: not from a real run) is not the font failure", () => {
+    expect(classifyFont("Error: Module not found: Can't resolve '@/lib/does-not-exist'\n")).toEqual({});
+    expect(classifyFont("Error: Module not found: Can't resolve '@vercel/turbopack-next/internal/something-else'\n")).toEqual({});
+  });
+
+  it("none of the pool or refresh-job failures is a font failure, and the font failure is not a pool failure", () => {
+    for (const f of ["pool-drained.txt", "pool-claim-user-not-found.txt", "pool-claim-retryable.txt", "pool-resumes-fkey-setup.txt", "nonpool-refresh-job.txt", "nearmiss-interleaving-404-message.txt"]) {
+      expect(classifyFont(fixture(f)), f).toEqual({});
+    }
+    expect(classify(fixture("font-build-failure.txt"))).toEqual({});
+  });
+
+  it("an empty log has no failures", () => {
+    expect(classifyFont("")).toEqual({});
+  });
+});
 
 describe("ci-flake-tally.py --classify-pool, on blocks from real runs", () => {
   it.each([

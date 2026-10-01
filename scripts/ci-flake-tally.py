@@ -26,7 +26,7 @@ Which commit a job actually tested
   PR-head commits that are not on any branch of a local clone. Verify against a local clone with
   `git merge-base --is-ancestor <fix> <sha>` for any commit that is fetchable.
 
-Two modes (`--mode`):
+Three modes (`--mode`):
   * `test` (default): count jobs whose log has `FAIL <--test file>` — the refresh-job tally;
   * `pool`: count jobs whose unit-job log has a failure block of one of the test-user-pool classes below. Counted over the
     unit job's own log only (not the e2e job's), one count per job however many blocks match, so the `##[error]`
@@ -37,6 +37,11 @@ Two modes (`--mode`):
       resumes-fkey          `resumes_user_id_fkey` (a fixture user deleted under its file's setup)
     A block is a vitest `FAIL …` entry up to the next `FAIL` or `⎯⎯⎯` rule. `--classify-pool` reads a log on stdin and prints
     the classes as JSON (used by tests/scripts/ci-flake-tally.test.ts against real log snippets).
+  * `font`: count jobs whose log has the `next/font/google` build failure (#585): the Turbopack error
+    `Can't resolve '@vercel/turbopack-next/internal/font/google/font'`. Both the `Typecheck, lint, unit tests` job and the
+    `Playwright e2e` job build the app on their own, so BOTH are counted (each first attempt is one observation).
+    A = first-attempt jobs of those two names that completed; B = those that REACHED the `Build app` step (a job that never
+    got there cannot fail it). `--classify-font` reads a log on stdin and prints `{"font-build": N}`.
   `--exclude-branch` drops runs of a head branch before counting, and says how many: use it for a PR that deliberately
   contains red-state tests (#602's own first runs), so they are not read as baseline failures.
 
@@ -88,6 +93,16 @@ class Contains:
             st = api(f"repos/{self.repo}/compare/{self.fix}...{sha}").get("status")
             self.cache[sha] = None if st is None else st in ("ahead", "identical")
         return self.cache[sha]
+
+
+FONT_BUILD_SIGNATURE = re.compile(r"Can't resolve '@vercel/turbopack-next/internal/font/google/font'")
+E2E = "Playwright e2e"
+
+
+def classify_font_build_failure(log_text):
+    """{"font-build": N} where N counts the Turbopack font-resolve errors in the log; empty when there are none."""
+    n = len(FONT_BUILD_SIGNATURE.findall(_ANSI.sub("", log_text)))
+    return {"font-build": n} if n else {}
 
 
 POOL_CLASSES = ("drained", "claim-user-not-found", "claim-retryable", "resumes-fkey")
@@ -147,7 +162,8 @@ def main():
     ap.add_argument("--since")
     ap.add_argument("--until")
     ap.add_argument("--fix-sha")
-    ap.add_argument("--mode", choices=("test", "pool"), default="test")
+    ap.add_argument("--mode", choices=("test", "pool", "font"), default="test")
+    ap.add_argument("--classify-font", action="store_true", help="read a log on stdin, print its font-build failure count as JSON, exit")
     ap.add_argument("--classify-pool", action="store_true", help="read a log on stdin, print its pool failure classes as JSON, exit")
     ap.add_argument("--exclude-branch", action="append", default=[], help="drop runs of this head branch before counting (repeatable)")
     ap.add_argument("--repo", default="Bayo-1987/Claude-Talentrah")
@@ -158,6 +174,9 @@ def main():
     a = ap.parse_args()
     if a.classify_pool:
         print(json.dumps(classify_pool_failures(sys.stdin.read()), sort_keys=True))
+        return 0
+    if a.classify_font:
+        print(json.dumps(classify_font_build_failure(sys.stdin.read()), sort_keys=True))
         return 0
     if not (a.since and a.until and a.fix_sha):
         ap.error("--since, --until and --fix-sha are required")
@@ -181,8 +200,10 @@ def main():
     jobs = []
     for r in runs:
         for j in api(f"repos/{a.repo}/actions/runs/{r['id']}/attempts/1/jobs?per_page=50").get("jobs", []):
-            if j["name"] == UNIT and j["conclusion"] in ("success", "failure"):
-                reached = any(s["name"] == "Unit tests (Vitest)" and s["conclusion"] in ("success", "failure") for s in j["steps"])
+            wanted = (UNIT, E2E) if a.mode == "font" else (UNIT,)
+            if j["name"] in wanted and j["conclusion"] in ("success", "failure"):
+                step = "Build app" if a.mode == "font" else "Unit tests (Vitest)"
+                reached = any(s["name"] == step and s["conclusion"] in ("success", "failure") for s in j["steps"])
                 jobs.append((r, j, reached))
 
     fail_re = re.compile(r"FAIL\s+" + re.escape(a.test))
@@ -197,12 +218,14 @@ def main():
         if a.mode == "pool":
             # the unit job's own log only: the e2e job's log is a different population
             names = [n for n in zz.namelist() if n.endswith(".txt") and "/" not in n and UNIT in n]
+        elif a.mode == "font":
+            names = [n for n in zz.namelist() if n.endswith(".txt") and "/" not in n and j["name"] in n]
         else:
             names = [n for n in zz.namelist() if n.endswith(".txt")]
         t = "".join(re.sub(r"\x1b\[[0-9;]*m", "", zz.read(n).decode("utf8", "ignore")) for n in names)
-        classes = classify_pool_failures(t) if a.mode == "pool" else {}
+        classes = classify_pool_failures(t) if a.mode == "pool" else (classify_font_build_failure(t) if a.mode == "font" else {})
         return (x, {
-            "fail": bool(classes) if a.mode == "pool" else bool(fail_re.search(t)),
+            "fail": bool(classes) if a.mode in ("pool", "font") else bool(fail_re.search(t)),
             "classes": classes,
             "recovered": len(re.findall(r"\[match-score-refresh\] recovered", t)),
             "uri": len(re.findall(r"could not verify stale postings", t)),
@@ -226,7 +249,7 @@ def main():
         else:
             buckets["with-fix" if any(verdicts) else "without-fix"].append((x, v))
 
-    label_name = "pool-class failure (" + ", ".join(POOL_CLASSES) + ")" if a.mode == "pool" else a.test
+    label_name = {"pool": "pool-class failure (" + ", ".join(POOL_CLASSES) + ")", "font": "font-build failure (Build app)"}.get(a.mode, a.test)
     for name in ("with-fix", "without-fix", "unknown"):
         items = buckets[name]
         A = len(items)
@@ -249,12 +272,16 @@ def main():
                       + ("" if ub < a.baseline_lower else "  (N too small to call it fixed)"))
         for (r, j, reached), v in sorted(items, key=lambda i: i[0][1]["started_at"]):
             if v["fail"]:
-                cl = f" classes={sorted(v['classes'])}" if a.mode == "pool" else ""
-                print(f"   FAILED first attempt: {j['started_at'][:16]}Z run {r['id']} job {j['id']} {r['event']} {r['head_branch']}{cl}")
+                cl = f" classes={sorted(v['classes'])}" if a.mode in ("pool", "font") else ""
+                print(f"   FAILED first attempt: {j['started_at'][:16]}Z run {r['id']} job {j['id']} ({j['name']}) {r['event']} {r['head_branch']}{cl}")
         if a.mode == "pool":
             for c in POOL_CLASSES:
                 ids = [r["id"] for (r, j, _), v in items if v["classes"].get(c)]
                 print(f"   class {c}: {len(ids)} job(s) {ids}")
+        elif a.mode == "font":
+            for jn in (UNIT, E2E):
+                sub = [(it, v) for it, v in items if it[1]["name"] == jn]
+                print(f"   {jn}: A={len(sub)} B(reached Build app)={sum(1 for (r, j, rc), _ in sub if rc)} failures={sum(1 for _, v in sub if v['fail'])}")
         else:
             rec = [(r["id"], v["recovered"]) for (r, j, _), v in items if v["recovered"]]
             uri = [(r["id"], v["uri"]) for (r, j, _), v in items if v["uri"]]
