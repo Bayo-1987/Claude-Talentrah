@@ -30,7 +30,7 @@ interface PriceLabels {
     includeCoverLetter: boolean;
   }): Charge;
   tailorButtonLabel(charge: Charge, balance: number): string;
-  quickActionMode(freeRemaining: number | null): "send" | "prefill";
+  quickActionMode(freeRemaining: number | null | undefined): "send" | "prefill";
   farahAllowanceLine(freeRemaining: number): string;
   chargeAnnouncement(verb: string, credits: number): string;
 }
@@ -129,6 +129,18 @@ describe("quickActionMode — a Farah quick action must never send a charged mes
     const { quickActionMode } = await load();
     expect(quickActionMode(0)).toBe("prefill");
   });
+
+  it(
+    "prefills while the allowance is still UNKNOWN (undefined: the history fetch has not answered yet) — a click " +
+      "in that window must not send what might be a paid message. Found by the e2e, not predicted: it clicked a " +
+      "chip straight after page load and the message was sent",
+    async () => {
+      const { quickActionMode } = await load();
+      expect(quickActionMode(undefined)).toBe("prefill");
+      // null is KNOWN-and-unrationed (a Pass holder), which is not the same thing as unknown.
+      expect(quickActionMode(null)).toBe("send");
+    },
+  );
 });
 
 describe("farahAllowanceLine", () => {

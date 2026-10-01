@@ -9,8 +9,8 @@ import { farahAllowanceLine, quickActionMode } from "@/lib/credits/price-labels"
  *
  * Plain body text, no pill/badge/meter, per the Editorial system's rule against gamification.
  */
-export function FarahAllowanceNote({ freeRemaining }: { freeRemaining: number | null }) {
-  if (freeRemaining === null) return null;
+export function FarahAllowanceNote({ freeRemaining }: { freeRemaining: number | null | undefined }) {
+  if (freeRemaining === null || freeRemaining === undefined) return null;
   return <p className="text-[12px] text-ink-soft">{farahAllowanceLine(freeRemaining)}</p>;
 }
 
@@ -28,11 +28,20 @@ export function FarahAllowanceNote({ freeRemaining }: { freeRemaining: number | 
  */
 export function FarahQuickActions({
   freeRemaining,
+  allowanceLoading = false,
   pending,
   onSend,
   onPrefill,
 }: {
-  freeRemaining: number | null;
+  /** `undefined` = not known yet (see quickActionMode); `null` = known, unrationed (a Pass holder). */
+  freeRemaining: number | null | undefined;
+  /**
+   * The count is still being fetched. The chips are disabled for that moment rather than guessed at: a chip
+   * clicked before the count arrived used to SEND, and the message could be a paid one. Disabled (not
+   * prefill) so the moment is invisible to anyone using the chips normally and a test's click simply waits
+   * for it to end. If the fetch fails the panel stops reporting "loading" and the chips fall back to prefill.
+   */
+  allowanceLoading?: boolean;
   pending: boolean;
   onSend: (actionKey: string) => void;
   onPrefill: (actionKey: string) => void;
@@ -53,7 +62,7 @@ export function FarahQuickActions({
           <button
             key={action.key}
             type="button"
-            disabled={pending}
+            disabled={pending || allowanceLoading}
             onClick={() => (mode === "send" ? onSend(action.key) : onPrefill(action.key))}
             className="flex min-h-11 items-center py-1 text-left font-body text-[13.5px] font-semibold text-ink underline underline-offset-2 hover:text-rust disabled:cursor-not-allowed disabled:opacity-50"
           >

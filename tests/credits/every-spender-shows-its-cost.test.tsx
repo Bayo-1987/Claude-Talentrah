@@ -355,6 +355,32 @@ describe("Farah quick actions", () => {
     for (const label of ["Job Interview Prep", "Career Advisor", "Salary Negotiation"]) expect(html).toContain(label);
   });
 
+  it("chips are disabled while the free-message count is still loading, so an early click cannot send a paid message", async () => {
+    const { FarahQuickActions } = await loadModule<{
+      FarahQuickActions: (p: Record<string, unknown>) => ReactElement;
+    }>("@/components/app-shell/farah-quick-actions");
+    const loading = renderToStaticMarkup(
+      make(FarahQuickActions, {
+        freeRemaining: undefined,
+        allowanceLoading: true,
+        pending: false,
+        onSend: () => {},
+        onPrefill: () => {},
+      }),
+    );
+    expect(loading.match(/<button[^>]*\sdisabled(=|\s|>)/g)?.length, "all three chips are disabled while loading").toBe(3);
+    const ready = renderToStaticMarkup(
+      make(FarahQuickActions, {
+        freeRemaining: 3,
+        allowanceLoading: false,
+        pending: false,
+        onSend: () => {},
+        onPrefill: () => {},
+      }),
+    );
+    expect(ready).not.toMatch(/<button[^>]*\sdisabled(=|\s|>)/);
+  });
+
   it("each chip is at least 44px tall (the hit-target rule)", async () => {
     const { FarahQuickActions } = await loadModule<{ FarahQuickActions: QA }>(
       "@/components/app-shell/farah-quick-actions",

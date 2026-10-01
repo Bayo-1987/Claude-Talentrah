@@ -91,12 +91,16 @@ export function tailoringIntro(p: { tailoringFree: boolean; coverLetterFree: boo
 }
 
 /**
- * Whether a Farah quick-action chip may SEND on click. It sends only while the message is free (`freeRemaining`
- * above zero) or when the count is unknown/null (a Pass holder, whom the free counter does not ration). Once
- * the free messages are used a click would charge, so it prefills the input and the user presses Send.
+ * Whether a Farah quick-action chip may SEND on click. Three different answers hide in `freeRemaining`:
+ *   - a number above zero: the message is free, send;
+ *   - `null`: KNOWN and unrationed (a Pass holder, whom the free counter does not ration), send;
+ *   - `0`: the free messages are used, so a send would charge: prefill and let the user press Send;
+ *   - `undefined`: NOT KNOWN YET (the panel loads the count from /api/farah/history after it mounts). Prefill
+ *     here too. A click in that window used to send, and the message could be a paid one: found by the e2e,
+ *     which clicked a chip straight after page load.
  */
-export function quickActionMode(freeRemaining: number | null): "send" | "prefill" {
-  return freeRemaining === 0 ? "prefill" : "send";
+export function quickActionMode(freeRemaining: number | null | undefined): "send" | "prefill" {
+  return freeRemaining === null || (typeof freeRemaining === "number" && freeRemaining > 0) ? "send" : "prefill";
 }
 
 export function farahAllowanceLine(freeRemaining: number): string {

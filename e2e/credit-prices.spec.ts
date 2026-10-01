@@ -163,6 +163,9 @@ test.describe("bullet rewrite", () => {
     await requireStubbedLlm(page);
     await seedBaseResume(userId);
     await grantTestCredits(userId, START);
+    // Wide, so the masthead's own nav links are on screen: below the nav's breakpoint they collapse into a menu
+    // and "Resume Builder" is not a visible link, which is what the leave-the-page tests click.
+    await page.setViewportSize({ width: 1600, height: 900 });
     await page.goto(`/resume-builder/edit?resumeId=${await baseResumeId(userId)}`);
     await expect(pill(page, START)).toBeVisible();
   }

@@ -219,12 +219,18 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
     [],
   );
   /*
-   * The gate's own indicator (0123) — `null` until the history fetch below
-   * resolves, and stays `null` for a Pass holder (the route itself omits it
+   * The gate's own indicator (0123) — `undefined` until the history fetch below
+   * resolves, then a number, or `null` for a Pass holder (the route itself omits it
    * then; see /api/farah/history's own comment for why). Not shown at all
-   * while unknown, rather than a placeholder number that might be wrong.
+   * while unknown, rather than a placeholder number that might be wrong. The
+   * difference between `undefined` and `null` matters to the quick-action chips:
+   * see quickActionMode.
    */
-  const [freeRemaining, setFreeRemaining] = useState<number | null>(null);
+  const [freeRemaining, setFreeRemaining] = useState<number | null | undefined>(undefined);
+  // The history fetch settled without giving a count (a non-OK response or a network error): stop calling the
+  // count "loading" so the chips fall back to prefill instead of staying disabled for the whole session.
+  const [historyFailed, setHistoryFailed] = useState(false);
+  const allowanceLoading = freeRemaining === undefined && !historyFailed && !initialMessages;
   /*
    * The design review's notification dot — real signal (user_notifications,
    * 0131), fetched alongside history below rather than as a separate round
@@ -295,7 +301,10 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
     void (async () => {
       try {
         const res = await fetch("/api/farah/history");
-        if (!res.ok) return;
+        if (!res.ok) {
+          if (!ignore) setHistoryFailed(true);
+          return;
+        }
         const data = await res.json();
         if (ignore) return;
         if (typeof data.freeMessagesRemaining === "number" || data.freeMessagesRemaining === null) {
@@ -307,6 +316,7 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
         // whether the reader sees it; "Continue" below does.
         setPendingHistory(data.messages as FarahMessage[]);
       } catch {
+        if (!ignore) setHistoryFailed(true);
         // Silent: history is an enhancement. The panel is fully usable
         // without it, and an error banner over a side column for something
         // the reader never asked for would be noise.
@@ -555,7 +565,7 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
               */}
               <JobSeedActions
                 seed={jobSeed}
-                pending={pending}
+                pending={pending || allowanceLoading}
                 onStarter={(label, quickAction, jobId) => sendOrPrefill(label, quickAction, jobId)}
                 keyPrefix="empty-state"
               />
@@ -611,7 +621,7 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
                       key={marker.id}
                       markerId={marker.id}
                       seed={marker.seed}
-                      pending={pending}
+                      pending={pending || allowanceLoading}
                       onStarter={(label, quickAction, jobId) => sendOrPrefill(label, quickAction, jobId)}
                     />
                   ))}
@@ -635,7 +645,7 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
                   key={marker.id}
                   markerId={marker.id}
                   seed={marker.seed}
-                  pending={pending}
+                  pending={pending || allowanceLoading}
                   onStarter={(label, quickAction, jobId) => sendOrPrefill(label, quickAction, jobId)}
                 />
               ))}
@@ -650,6 +660,7 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
 
       <FarahQuickActions
         freeRemaining={freeRemaining}
+        allowanceLoading={allowanceLoading}
         pending={pending}
         onSend={(key) => {
           const action = FARAH_QUICK_ACTIONS.find((x) => x.key === key);
