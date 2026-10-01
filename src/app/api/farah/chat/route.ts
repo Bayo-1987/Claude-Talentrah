@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { askFarahChatStream, type FarahChatTurn } from "@/lib/farah/client";
 import { logFarahSessionMessage, type FarahEntryPoint } from "@/lib/farah/session-events";
 import { LLMProviderError } from "@/lib/llm";
+import type { LLMFinishReason } from "@/lib/llm/types";
 import { GENERIC_FARAH_UNAVAILABLE_MESSAGE, farahRateLimitMessage } from "@/lib/farah/rate-limit-message";
 import type { StructuredResume } from "@/lib/resume/types";
 import {
@@ -234,8 +235,16 @@ export async function POST(request: Request) {
       }
 
       let fullText = "";
+      // Why the model stopped, as the provider reported it. Stays undefined when the provider never said, which
+      // is treated as "finished": only a REAL length stop (the model hit the output ceiling) is an incomplete reply.
+      let finishReason: LLMFinishReason | undefined;
       try {
-        for await (const chunk of askFarahChatStream(turns, extraContext)) {
+        for await (const chunk of askFarahChatStream(turns, extraContext, undefined, {
+          quickAction,
+          onFinish: (reason) => {
+            finishReason = reason;
+          },
+        })) {
           fullText += chunk;
           send({ type: "delta", text: chunk });
         }
@@ -270,21 +279,43 @@ export async function POST(request: Request) {
         return;
       }
 
+      /*
+       * A reply that stopped because it hit the output ceiling is cut off mid-thought, and is NOT a complete
+       * answer — so it is not charged, and does not use up a free message or a Pass's daily slot (send-500).
+       * The owner paid a credit for a reply that ended "I'm a FinTech Product Manager with". It is still shown
+       * (the user already read it as it streamed) and still saved, marked truncated, so nothing they saw
+       * disappears; the client tells them it was cut off and cost nothing.
+       *
+       * Why not "continue it" with a second call instead: that replays the whole prompt and history again for
+       * one user action, and Farah's production failure mode is the provider's per-minute token cap (send-109,
+       * token-budget.ts). Not charging is deterministic and adds no cost. Trade-off: someone could try to
+       * provoke length stops for free replies; the hourly message cap still counts their saved messages, and
+       * the reply-size instruction (chat-prompt.ts) makes a length stop the exception.
+       */
+      const truncated = finishReason === "length";
+
       // Only now — after the LLM call actually succeeded in full — commit
       // the free allowance/Pass use or the credit spend. See
       // checkFarahChatAllowance's own header for why this can't happen any
-      // earlier.
-      const committed = await commitFarahChatAllowance(user.id, allowance);
+      // earlier. Skipped for a cut-off reply, above.
+      const committed = truncated ? undefined : await commitFarahChatAllowance(user.id, allowance);
       // The new balance for a paid message; null when nothing was spent (issue #605).
       const creditsBalance = committed?.balanceAfter ?? null;
+      // The free-message count the gate reported is "left AFTER this one"; a cut-off message used none, so the
+      // count the user sees must be the one from before it.
+      const freeMessagesRemaining =
+        truncated && allowance.isFreeAllowance && allowance.freeMessagesRemaining !== null
+          ? allowance.freeMessagesRemaining + 1
+          : allowance.freeMessagesRemaining;
+      const rowContext = truncated ? { ...context, truncated: true } : context;
 
       // Two independent writes (different rows, neither reads the other) —
       // run together rather than one after the other.
       const [{ error: insertUserError }, { data: farahRow, error: insertFarahError }] = await Promise.all([
-        supabase.from("farah_messages").insert({ user_id: user.id, role: "user", content: message, context }),
+        supabase.from("farah_messages").insert({ user_id: user.id, role: "user", content: message, context: rowContext }),
         supabase
           .from("farah_messages")
-          .insert({ user_id: user.id, role: "farah", content: fullText, context })
+          .insert({ user_id: user.id, role: "farah", content: fullText, context: rowContext })
           .select("id, created_at")
           .single(),
       ]);
@@ -298,8 +329,9 @@ export async function POST(request: Request) {
           id: null,
           createdAt: new Date().toISOString(),
           persisted: false,
-          freeMessagesRemaining: allowance.freeMessagesRemaining,
+          freeMessagesRemaining,
           creditsBalance,
+          ...(truncated ? { truncated: true } : {}),
         });
       } else {
         send({
@@ -307,8 +339,9 @@ export async function POST(request: Request) {
           id: farahRow.id,
           createdAt: farahRow.created_at,
           persisted: true,
-          freeMessagesRemaining: allowance.freeMessagesRemaining,
+          freeMessagesRemaining,
           creditsBalance,
+          ...(truncated ? { truncated: true } : {}),
         });
       }
       controller.close();

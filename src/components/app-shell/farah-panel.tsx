@@ -154,6 +154,8 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
   const inputRef = useRef<HTMLInputElement>(null);
   /** The polite live region's text: each reply and what it cost, e.g. "Farah replied — 1 credit used". */
   const [announcement, setAnnouncement] = useState("");
+  /** The last reply was cut off by the output ceiling: shown under it, cleared on the next send. */
+  const [lastReplyTruncated, setLastReplyTruncated] = useState(false);
   const [pending, setPending] = useState(false);
   /**
    * True from the moment a request is sent until the first streamed chunk
@@ -356,6 +358,7 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
     setInput("");
     setPrefilled(null);
     setAnnouncement("");
+    setLastReplyTruncated(false);
 
     const optimisticId = `optimistic-${localIdCounter.current++}`;
     setMessages((prev) => [
@@ -409,9 +412,15 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
           // A paid message: tell the masthead its new balance (issue #605). null / absent = nothing spent.
           if (typeof event.creditsBalance === "number") reportCreditsBalance(event.creditsBalance);
           // The reply and its charge, announced together. A balance in the event means the message was paid.
-          setAnnouncement(
-            chargeAnnouncement("Farah replied", typeof event.creditsBalance === "number" ? CREDIT_COSTS.farahChatMessage : 0),
-          );
+          if (event.truncated) {
+            // Cut off by the output ceiling: not charged (the server skipped the commit), and the user is told.
+            setLastReplyTruncated(true);
+            setAnnouncement("Farah's reply was cut off — no credits used");
+          } else {
+            setAnnouncement(
+              chargeAnnouncement("Farah replied", typeof event.creditsBalance === "number" ? CREDIT_COSTS.farahChatMessage : 0),
+            );
+          }
         }
       }
     } catch {
@@ -652,6 +661,11 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
           </>
         )}
         {awaitingFirstToken && <p className="font-display text-[13px] italic text-ink-soft">Farah is thinking…</p>}
+        {lastReplyTruncated && !pending && (
+          <p data-testid="farah-truncated-note" className="font-display text-[13px] italic text-ink-soft">
+            That reply was cut off, so it wasn&apos;t charged. Ask me to continue, or ask for a shorter answer.
+          </p>
+        )}
       </div>
 
       {error && (
