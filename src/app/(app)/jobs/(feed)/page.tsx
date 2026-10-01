@@ -1,5 +1,5 @@
 import { after } from "next/server";
-import { requireUser } from "@/lib/auth/require-user";
+import { getOptionalUser, requireUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
 import { scoreJobs, persistMatchScores } from "@/lib/matching/compute-and-store";
 import { scanAndQueue } from "@/lib/auto-apply/queue";
@@ -38,8 +38,34 @@ import {
 import { sortFeedResults } from "@/lib/jobs/ranking";
 import { getViewerOrganizationIds } from "@/lib/employer/membership";
 import { logCountryDefaultEvent, type CountryState } from "@/lib/jobs/country-events";
+import { pageMetadata } from "@/lib/seo/site";
+import { liveJobLandingLinks } from "@/lib/seo/landing-page-links";
+import { loadOpenJobsPreview } from "@/lib/seo/landing-page-data";
+import { JobsPublicLanding } from "@/components/jobs/public-landing";
 
-export const metadata = { title: "Jobs — Talentrah" };
+/**
+ * send-484 — /jobs used to redirect every signed-out visitor to /login (a 307 from proxy.ts, before this
+ * page ran). It is now a real public landing page for them, so its metadata branches on auth state exactly
+ * as /scholarships' does (send-480). `getOptionalUser()` is React `cache()`d, so this costs nothing beyond
+ * the identical call the page below makes in the same request. A signed-in visitor keeps the plain title
+ * this page always had — deep-equal-tested in tests/jobs/feed-metadata.test.ts, because an added
+ * description or canonical would be a change to the authenticated page's head.
+ *
+ * Takes no searchParams, deliberately: the canonical is the bare path, so every /jobs?tab=…&q=… variant
+ * (crawlable now that the `/jobs$` disallow is gone) collapses into it. No "Nigeria" in the title or
+ * description — the audience is going global, and the page only claims what its own rows show.
+ */
+export async function generateMetadata() {
+  const session = await getOptionalUser();
+  if (session) return { title: "Jobs — Talentrah" };
+
+  return pageMetadata({
+    title: "Open Jobs from Employers and Trusted Job Boards — Talentrah",
+    description:
+      "Browse open jobs posted on Talentrah or sourced from other job boards, each labelled. Create a free account to see how well each matches your resume.",
+    path: "/jobs",
+  });
+}
 
 type SearchParams = Promise<{
   tab?: string;
@@ -78,6 +104,37 @@ const VALID_SENIORITIES: readonly string[] = Constants.public.Enums.seniority_le
 const RECOMMENDED_HARD_CAP = 2000;
 
 export default async function JobsPage({ searchParams }: { searchParams: SearchParams }) {
+  /*
+   * send-484 — signed-out branch, added ABOVE the existing signed-in body, which is otherwise untouched:
+   * same requireUser(), same queries, same markup. A session with no profile row degrades to "signed out"
+   * here (getOptionalUser's documented behaviour) rather than redirecting.
+   *
+   * Failure degrades rather than throws: this page is in the sitemap on the promise of a real 200, so a
+   * failed count or listing query hides its own block instead of 500ing, and is logged so a silently
+   * empty page is distinguishable from a quiet board. NOT cached — see landing-page-data.ts's own rule —
+   * and the page is dynamic because it reads the session cookie.
+   */
+  if (!(await getOptionalUser())) {
+    const publicClient = await createClient();
+    const [facetsResult, previewResult] = await Promise.allSettled([
+      liveJobLandingLinks(publicClient),
+      loadOpenJobsPreview(publicClient),
+    ]);
+    if (facetsResult.status === "rejected") {
+      console.error("[jobs landing] could not load category counts:", facetsResult.reason);
+    }
+    if (previewResult.status === "rejected") {
+      console.error("[jobs landing] could not load open listings:", previewResult.reason);
+    }
+    return (
+      <JobsPublicLanding
+        facets={facetsResult.status === "fulfilled" ? facetsResult.value : []}
+        total={previewResult.status === "fulfilled" ? previewResult.value.total : 0}
+        jobs={previewResult.status === "fulfilled" ? previewResult.value.jobs : []}
+      />
+    );
+  }
+
   const { user, profile } = await requireUser();
   const params = await searchParams;
   const tab = params.tab ?? "recommended";

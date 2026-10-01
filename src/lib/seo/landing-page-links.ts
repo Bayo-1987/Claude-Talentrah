@@ -15,7 +15,10 @@ export interface LandingLink {
   label: string;
 }
 
-/** A landing link that also carries its live count (send-480: the /scholarships "Browse by" card shows it). */
+/**
+ * A landing link that also carries its live count (send-480: the /scholarships "Browse by" card shows it;
+ * send-484: so does the /jobs one). Additive: every existing caller reads `href` and `label` only.
+ */
 export interface LandingLinkWithCount extends LandingLink {
   count: number;
 }
@@ -39,8 +42,8 @@ export interface LandingLinkWithCount extends LandingLink {
 export async function liveJobLandingLinks(
   supabase: SupabaseServerClient,
   excludeHref?: string,
-): Promise<LandingLink[]> {
-  const links: LandingLink[] = [];
+): Promise<LandingLinkWithCount[]> {
+  const links: LandingLinkWithCount[] = [];
   // Same 30-day floor as loadRemoteJobs/loadCityJobs — a category link here
   // must agree with whether the page it points to would actually list
   // anything, and a stale-but-still-open posting would otherwise count
@@ -53,7 +56,7 @@ export async function liveJobLandingLinks(
   if (error) throw new Error(error.message);
 
   if (data.remote_count >= LANDING_PAGE_MIN_ENTRIES) {
-    links.push({ href: "/jobs/remote", label: "Remote jobs" });
+    links.push({ href: "/jobs/remote", label: "Remote jobs", count: data.remote_count });
   }
 
   const countryCounts: Record<(typeof TRACKED_COUNTRIES)[number], number> = {
@@ -67,6 +70,7 @@ export async function liveJobLandingLinks(
       links.push({
         href: `/jobs/remote/${COUNTRY_LANDING_SLUG[country]}`,
         label: `Remote jobs in ${country}`,
+        count: countryCounts[country],
       });
     }
   }
@@ -78,7 +82,11 @@ export async function liveJobLandingLinks(
   };
   for (const city of CITY_LANDING_PAGES) {
     if ((cityCounts[city.slug] ?? 0) >= LANDING_PAGE_MIN_ENTRIES) {
-      links.push({ href: `/jobs/in/${city.slug}`, label: `Jobs in ${city.displayName}` });
+      links.push({
+        href: `/jobs/in/${city.slug}`,
+        label: `Jobs in ${city.displayName}`,
+        count: cityCounts[city.slug],
+      });
     }
   }
 

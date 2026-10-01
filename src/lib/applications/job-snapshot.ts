@@ -17,7 +17,7 @@ export interface ManualJobSnapshot {
  * Denormalized onto an `applications` row at write time, in the EXACT shape
  * addManualEntryAction (tracker-actions.ts) already writes for a manually-
  * entered tracker item — {companyName, title, url, location}. That shape
- * already has a reader: the Job Tracker (src/app/(app)/tracker/page.tsx)
+ * already has a reader: the Job Tracker (src/app/(app)/tracker/(list)/page.tsx)
  * falls back to it whenever `job_postings` is absent (`job?.title ??
  * snapshot?.title`), which today only happens for a manual entry with no
  * `job_posting_id` at all.

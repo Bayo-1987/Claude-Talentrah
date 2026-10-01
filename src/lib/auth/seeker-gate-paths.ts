@@ -13,28 +13,15 @@
  */
 
 /**
- * Exact paths that require a session ONLY at that exact URL — a sub-path is a
- * different, public page. `/jobs/[id]` is the reason this exists as its own set
- * rather than folding into PROTECTED_PATH_PREFIXES: the LIST is gated, the DETAIL
- * page underneath it is deliberately public (see (app)/layout.tsx's own comment
- * on why /jobs/[id] had to stop redirecting Googlebot). Kept in sync with
- * src/app/robots.ts's `/jobs$` entry by hand — same distinction, different reason
- * (crawl budget there, a redirect here).
- *
- * send-480 — `/scholarships` used to be in this set for the same reason, and is
- * gone: its bare path is now a real signed-out landing page
- * (components/scholarships/public-landing.tsx), like /mentorship and /employer
- * below. Unlike those two it needs no sub-path rule: nothing under
- * /scholarships/ was ever gated ([id], apply-now, fully-funded and degree/[level]
- * were all public already), checked by listing the route directory.
- */
-const PROTECTED_EXACT_PATHS = new Set(["/jobs"]);
-
-/**
  * Path prefixes that require a session at every depth — nothing under these
  * is meant to be public. Mirrors src/app/robots.ts's disallow list (minus
- * /admin, /api, the auth pages and /jobs$, which are handled elsewhere or
- * above).
+ * /admin, /api and the auth pages, which are handled elsewhere).
+ *
+ * send-484 — `/jobs` and `/tracker` are not here. /jobs had its own exact-path entry (the LIST was gated,
+ * /jobs/[id] underneath it deliberately public) and /tracker sat in this list; each is now a real
+ * signed-out landing page (components/jobs/public-landing.tsx, components/tracker/public-landing.tsx), like
+ * /scholarships (send-480). /jobs needs no sub-path rule — nothing under /jobs/ was ever gated. /tracker
+ * does (see below): /tracker/[applicationId]/sent is the seeker's own sent document.
  */
 const PROTECTED_PATH_PREFIXES = [
   "/auto-apply",
@@ -44,7 +31,6 @@ const PROTECTED_PATH_PREFIXES = [
   "/resume-builder",
   "/settings",
   "/tailor",
-  "/tracker",
   "/onboarding",
   "/dashboard",
   /*
@@ -63,8 +49,9 @@ const PROTECTED_PATH_PREFIXES = [
 
 /**
  * Paths whose SUB-PATHS require a session at every depth, but the bare path
- * itself deliberately does not — the mirror image of PROTECTED_EXACT_PATHS
- * above, for the same reason in reverse. `/mentorship` used to sit in
+ * itself deliberately does not. (Until send-484 there was also an exact-path
+ * set here, for the opposite shape — `/jobs`, gated while /jobs/[id] was
+ * public; it is gone now that /jobs is a landing page.) `/mentorship` used to sit in
  * PROTECTED_PATH_PREFIXES (blocking it AND everything under it), added for
  * #221's loading.tsx-streaming fix — real then, since nothing under
  * /mentorship was public. send-385 made the bare list page itself a genuine
@@ -87,11 +74,13 @@ const PROTECTED_PATH_PREFIXES = [
  * talent-directory, claim, onboarding) still requires a session, each
  * checked at its own page — see employer/layout.tsx's own comment for why
  * the layout no longer forces that check for the whole subtree.
+ *
+ * send-484 — `/tracker` joins this set for the identical reason: its bare path
+ * is a signed-out landing page; /tracker/[applicationId]/sent stays gated.
  */
-const PROTECTED_SUBPATH_ONLY_PREFIXES = ["/mentorship", "/employer"];
+const PROTECTED_SUBPATH_ONLY_PREFIXES = ["/mentorship", "/employer", "/tracker"];
 
 export function isProtectedSeekerPath(pathname: string): boolean {
-  if (PROTECTED_EXACT_PATHS.has(pathname)) return true;
   if (PROTECTED_PATH_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))) {
     return true;
   }

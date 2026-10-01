@@ -30,10 +30,17 @@ import { describe, expect, it } from "vitest";
 import { isProtectedSeekerPath } from "@/lib/auth/seeker-gate-paths";
 
 describe("isProtectedSeekerPath", () => {
-  it("gates the bare /jobs list but not its public detail pages", () => {
+  it("send-484: does NOT gate the bare /jobs list, /jobs/[id] or any other /jobs page", () => {
     // Control: the gate still gates. If isProtectedSeekerPath ever answered false for
-    // everything, the /scholarships assertion below would pass for the wrong reason.
-    expect(isProtectedSeekerPath("/jobs")).toBe(true);
+    // everything, every "false" below would pass for the wrong reason.
+    expect(isProtectedSeekerPath("/billing")).toBe(true);
+
+    // /jobs is a real signed-out landing page now (components/jobs/public-landing.tsx), the
+    // same shape /scholarships took in send-480. It needs no sub-path rule: /jobs/[id],
+    // /jobs/remote, /jobs/in/[city] and /jobs/remote/[country] were all public already.
+    expect(isProtectedSeekerPath("/jobs")).toBe(false);
+    expect(isProtectedSeekerPath("/jobs/remote")).toBe(false);
+    expect(isProtectedSeekerPath("/jobs/in/lagos")).toBe(false);
 
     // send-480 — /scholarships is NOT gated any more: its bare path is a real signed-out
     // landing page (components/scholarships/public-landing.tsx), the same shape
@@ -41,8 +48,7 @@ describe("isProtectedSeekerPath", () => {
     // public, so unlike those two there is no sub-path rule to add.
     expect(isProtectedSeekerPath("/scholarships")).toBe(false);
 
-    // The whole reason this is a separate exact-match set rather than a
-    // prefix: /jobs/[id] and /scholarships/[id] are deliberately public.
+    // /jobs/[id] and /scholarships/[id] are deliberately public.
     expect(isProtectedSeekerPath("/jobs/1ad10994-e497-4bd6-ba59-7e6611d8ec2b")).toBe(false);
     expect(isProtectedSeekerPath("/scholarships/6082edbd-bab1-4462-830e-8d40a6572463")).toBe(
       false,
@@ -61,7 +67,6 @@ describe("isProtectedSeekerPath", () => {
       "/resume-builder",
       "/settings",
       "/tailor",
-      "/tracker",
       "/onboarding",
       "/dashboard",
       "/talent-directory",
@@ -69,6 +74,21 @@ describe("isProtectedSeekerPath", () => {
       expect(isProtectedSeekerPath(base), base).toBe(true);
       expect(isProtectedSeekerPath(`${base}/edit`), `${base}/edit`).toBe(true);
     }
+  });
+
+  it("send-484: gates every tracker sub-path but leaves the bare /tracker landing page open", () => {
+    // Same mirror-image shape as /mentorship and /employer below. The bare path is a signed-out
+    // landing page; /tracker/[applicationId]/sent is the seeker's own sent document and stays gated.
+    expect(isProtectedSeekerPath("/tracker")).toBe(false);
+    expect(isProtectedSeekerPath("/tracker/0b6f3a0e-7a52-4f33-8a3b-0d8b0c3a1f11/sent")).toBe(true);
+    expect(isProtectedSeekerPath("/tracker/anything")).toBe(true);
+    // A path that merely starts with the same letters is not under it.
+    expect(isProtectedSeekerPath("/trackers")).toBe(false);
+  });
+
+  it("send-484: /refer stays gated — only /jobs and /tracker were opened up", () => {
+    expect(isProtectedSeekerPath("/refer")).toBe(true);
+    expect(isProtectedSeekerPath("/refer/anything")).toBe(true);
   });
 
   it("send-385: gates every mentorship sub-path but leaves the bare list page open", () => {
@@ -107,9 +127,7 @@ describe("isProtectedSeekerPath", () => {
   });
 
   it("never flags a route that merely starts with the same letters", () => {
-    // "/jobsomething" starts with "/jobs" as a raw string but is not under
-    // it — the exact-match set must not accidentally become a prefix match.
-    expect(isProtectedSeekerPath("/jobsomething")).toBe(false);
+    // "/tailoring" starts with "/tailor" as a raw string but is not under it.
     expect(isProtectedSeekerPath("/tailoring")).toBe(false);
   });
 

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireUser } from "@/lib/auth/require-user";
+import { getOptionalUser, requireUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
 import { EyebrowLabel } from "@/components/ui";
 import { StageFilterBar } from "@/components/tracker/stage-filter-bar";
@@ -8,8 +8,31 @@ import { TrackerCard, type TrackerEntry } from "@/components/tracker/tracker-car
 import { HiredReferralBanner } from "@/components/tracker/hired-referral-banner";
 import { Constants, type Enums } from "@/lib/supabase/types";
 import { parseResumeSnapshot } from "@/lib/applications/resume-snapshot";
+import { pageMetadata } from "@/lib/seo/site";
+import { TrackerPublicLanding } from "@/components/tracker/public-landing";
 
-export const metadata = { title: "Job Tracker — Talentrah" };
+/**
+ * send-484 — /tracker used to redirect every signed-out visitor to /login (a 307 from proxy.ts, before
+ * this page ran). It is now a real public landing page for them, so its metadata branches on auth state
+ * exactly as /scholarships' does (send-480). `getOptionalUser()` is React `cache()`d, so this costs nothing
+ * beyond the identical call the page below makes in the same request. A signed-in visitor keeps the plain
+ * title this page always had — deep-equal-tested in tests/tracker/page-metadata.test.ts, because an added
+ * description or canonical would be a change to the authenticated page's head.
+ *
+ * Takes no searchParams, deliberately: the canonical is the bare path, so /tracker?stage=offer&sort=oldest
+ * (crawlable now) collapses into it.
+ */
+export async function generateMetadata() {
+  const session = await getOptionalUser();
+  if (session) return { title: "Job Tracker — Talentrah" };
+
+  return pageMetadata({
+    title: "Job Tracker: Every Application in One Place — Talentrah",
+    description:
+      "Follow each job from saved to hired: add jobs you found elsewhere, keep notes, and see when an employer opens your resume. Free with an account.",
+    path: "/tracker",
+  });
+}
 
 type SearchParams = Promise<{ stage?: string; sort?: string; justHired?: string }>;
 type ApplicationStage = Enums<"application_stage">;
@@ -17,6 +40,14 @@ type ApplicationStage = Enums<"application_stage">;
 const VALID_STAGES: readonly string[] = Constants.public.Enums.application_stage;
 
 export default async function TrackerPage({ searchParams }: { searchParams: SearchParams }) {
+  /*
+   * send-484 — signed-out branch, added ABOVE the existing signed-in body, which is otherwise untouched:
+   * same requireUser(), same queries, same markup. A session with no profile row degrades to "signed out"
+   * here (getOptionalUser's documented behaviour) rather than redirecting. Static copy, nothing to fetch,
+   * so nothing here can fail.
+   */
+  if (!(await getOptionalUser())) return <TrackerPublicLanding />;
+
   const { user, profile } = await requireUser();
   const params = await searchParams;
   const stage = VALID_STAGES.includes(params.stage ?? "")

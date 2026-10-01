@@ -160,7 +160,8 @@ test.describe("everything else under /scholarships is unaffected", () => {
   });
 
   test("other app routes still require a session", async ({ request }) => {
-    for (const path of ["/jobs", "/tracker", "/settings", "/billing"]) {
+    // send-484: /jobs and /tracker are public landing pages now, so they are controls no longer.
+    for (const path of ["/refer", "/settings", "/billing"]) {
       const res = await request.get(path, { maxRedirects: 0 });
       expect(res.status(), `${path} must still redirect a signed-out visitor`).toBe(307);
       expect(res.headers()["location"]).toContain("/login");
@@ -184,11 +185,11 @@ test.describe("/scholarships in the generated sitemap and robots.txt", () => {
     expect(await res.text()).toMatch(/<loc>https?:\/\/[^<]*\/scholarships<\/loc>/);
   });
 
-  test("robots.txt no longer disallows /scholarships, and still disallows the bare /jobs list", async ({ request }) => {
+  test("robots.txt no longer disallows /scholarships, and still disallows /refer", async ({ request }) => {
     const res = await request.get("/robots.txt");
     expect(res.status()).toBe(200);
     const body = await res.text();
-    expect(body, "control: the bare /jobs list must stay disallowed").toMatch(/Disallow: \/jobs\$/);
+    expect(body, "control: /refer must stay disallowed").toMatch(/Disallow: \/refer\s*$/m);
     expect(body).not.toMatch(/Disallow: \/scholarships\$/);
     expect(body).not.toMatch(/Disallow: \/scholarships\s*$/m);
   });

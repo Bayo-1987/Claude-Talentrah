@@ -104,9 +104,10 @@ describe("a token for a verified scholarship", () => {
  */
 function expectFallbackLinkIsPublic(html: string) {
   // Control: the gate function CAN return true, so a pass below is not just
-  // isProtectedSeekerPath answering false for everything. /tracker is used
-  // because it stays gated whatever happens to /scholarships later.
-  expect(isProtectedSeekerPath("/tracker")).toBe(true);
+  // isProtectedSeekerPath answering false for everything. /billing is used
+  // because it stays gated whatever happens to /scholarships later (send-484: /tracker's bare
+  // path became public, so it can no longer be the control).
+  expect(isProtectedSeekerPath("/billing")).toBe(true);
 
   const hrefs = [...html.matchAll(/href="([^"]+)"/g)].map((m) => m[1]!);
   expect(hrefs, `fallback rendered no link: ${html}`).toHaveLength(1);

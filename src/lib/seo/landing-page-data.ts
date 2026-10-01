@@ -324,3 +324,47 @@ export async function loadOpenScholarshipsPreview(
   if (error) throw new Error(error.message);
   return (data ?? []) as OpenScholarshipPreview[];
 }
+
+/**
+ * send-484 — the real rows on the signed-out /jobs landing page, and the live total that decides whether
+ * they are shown at all: fresh (the 30-day floor every discovery surface enforces), open, never unlisted
+ * (0107), newest first.
+ *
+ * ONLY THE COLUMNS A ROW RENDERS, not JOB_LANDING_COLUMNS. That wide list exists for PublicJobRow's
+ * description, salary and structured fields; this page shows a title, company, place, work type, a source
+ * label and an age. Measured on production: six rows of these seven columns are 1,484 B, against 14,323 B
+ * with the wide list (about 9.7x), on a product whose audience skews to low-end Android on expensive data.
+ * tests/seo/open-jobs-preview.test.ts pins the exact key set so a column added "just for the card" fails
+ * there instead of quietly restoring the wide payload.
+ *
+ * ONE query returns both the rows and `total` (`count: "exact"` with a range), so they are the same
+ * snapshot. `total` counts every fresh open listing, not the six returned.
+ *
+ * NOT cached, per this file's own rule above: a fresh query every call, and the page that calls it is
+ * dynamically rendered (asserted from the response headers in e2e/jobs-tracker-public-landing.spec.ts).
+ */
+const JOB_PREVIEW_COLUMNS = "id, title, company_name, location, work_type, source_type, posted_at";
+
+export type OpenJobPreview = Pick<
+  Tables<"job_postings">,
+  "id" | "title" | "company_name" | "location" | "work_type" | "source_type" | "posted_at"
+>;
+
+export interface OpenJobsPreviewResult {
+  total: number;
+  jobs: OpenJobPreview[];
+}
+
+export async function loadOpenJobsPreview(supabase: Client, limit = 6): Promise<OpenJobsPreviewResult> {
+  const { data, count, error } = await supabase
+    .from("job_postings")
+    .select(JOB_PREVIEW_COLUMNS, { count: "exact" })
+    // 0107: never list an unlisted posting.
+    .is("unlisted_at", null)
+    .eq("status", "open")
+    .gte("posted_at", freshnessFloorISO())
+    .order("posted_at", { ascending: false })
+    .limit(limit);
+  if (error) throw new Error(error.message);
+  return { total: count ?? 0, jobs: (data ?? []) as OpenJobPreview[] };
+}

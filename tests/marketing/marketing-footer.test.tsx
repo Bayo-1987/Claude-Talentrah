@@ -32,12 +32,23 @@
  * send-480 — the Scholarships entry is `/scholarships` again (it was
  * `/scholarships/apply-now` for send-474 while `/scholarships` was login-gated).
  * The send-474 block below is the guard that keeps it that way.
+ *
+ * send-484 — /jobs and /tracker are public landing pages now, so "Job Matching" and
+ * "Job Tracker" keep their hrefs and stop being gated. /refer has no landing page and
+ * stays gated, so "Refer & Earn" links to /signup?redirectTo=%2Frefer instead: a signed-out
+ * visitor gets the signup form, and a signed-in one lands on /refer after it. That href
+ * contains a `?`, which broke this file's own matcher (see footerAnchor below).
  */
 import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { MarketingFooter } from "@/components/marketing/marketing-footer";
 import { isProtectedSeekerPath } from "@/lib/auth/seeker-gate-paths";
 import robots from "@/app/robots";
+
+/** Escape a string for use inside a RegExp — an href can contain `?`, `.` and other metacharacters. */
+const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const footerAnchor = (href: string, label: string) =>
+  new RegExp(`<a href="${escapeRegExp(href)}"[^>]*>${escapeRegExp(label)}<`);
 
 const PRODUCT_LINKS: Record<string, string> = {
   "Job Matching": "/jobs",
@@ -46,7 +57,7 @@ const PRODUCT_LINKS: Record<string, string> = {
   "ATS Resume Checker": "/ats-resume-checker",
   "Job Tracker": "/tracker",
   Scholarships: "/scholarships",
-  "Refer &amp; Earn": "/refer",
+  "Refer &amp; Earn": "/signup?redirectTo=%2Frefer",
   Mentorship: "/mentorship",
   "Auto-Apply": "/how-auto-apply-works",
 };
@@ -56,8 +67,31 @@ describe("the footer's Product column", () => {
 
   it("renders a real href for every one of the 9 entries, never a dead '#' anchor", () => {
     for (const [label, href] of Object.entries(PRODUCT_LINKS)) {
-      const anchor = new RegExp(`<a href="${href}"[^>]*>${label}<`);
-      expect(html, `${label} did not link to ${href}`).toMatch(anchor);
+      expect(html, `${label} did not link to ${href}`).toMatch(footerAnchor(href, label));
+    }
+  });
+
+  it("finds an href that contains a `?` (send-484: Refer & Earn -> /signup?redirectTo=%2Frefer)", () => {
+    expect(html).toMatch(footerAnchor("/signup?redirectTo=%2Frefer", "Refer &amp; Earn"));
+    // Control: the matcher this file used before — the href spliced in raw — treats the `?` as a
+    // quantifier and cannot find that anchor, which is exactly why the escape exists.
+    expect(html).not.toMatch(new RegExp(`<a href="/signup?redirectTo=%2Frefer"[^>]*>Refer &amp; Earn<`));
+    // And the escaped matcher is not vacuous: it rejects a wrong target.
+    expect(html).not.toMatch(footerAnchor("/refer", "Refer &amp; Earn"));
+  });
+
+  it("send-484: sends Refer & Earn through signup, not straight at the gated /refer", () => {
+    expect(html).not.toMatch(footerAnchor("/refer", "Refer &amp; Earn"));
+    expect(isProtectedSeekerPath("/refer"), "control: /refer stays gated").toBe(true);
+    expect(isProtectedSeekerPath("/signup")).toBe(false);
+  });
+
+  it("send-484: Job Matching and Job Tracker point at paths the gate no longer redirects", () => {
+    expect(isProtectedSeekerPath("/billing"), "control: the gate still gates").toBe(true);
+    for (const label of ["Job Matching", "Job Tracker"]) {
+      const m = html.match(new RegExp(`<a href="([^"]+)"[^>]*>${label}<`));
+      expect(m, `no ${label} anchor`).not.toBeNull();
+      expect(isProtectedSeekerPath(new URL(m![1], "http://site.test").pathname), `${label} -> ${m![1]}`).toBe(false);
     }
   });
 
@@ -102,17 +136,17 @@ describe("the footer's Scholarships link (send-474, revised by send-480)", () =>
   it("targets a path the seeker-app gate does NOT redirect signed-out visitors away from", () => {
     // Controls: these stay gated, so the check demonstrably can fail.
     expect(isProtectedSeekerPath("/billing")).toBe(true);
-    expect(isProtectedSeekerPath("/jobs")).toBe(true);
+    expect(isProtectedSeekerPath("/refer")).toBe(true);
     expect(isProtectedSeekerPath(match![1])).toBe(false);
   });
 
   it("targets a path robots.ts does not disallow", () => {
-    // Controls: the matcher blocks a prefix rule (/billing) and an anchored one (/jobs$)
-    // and lets a sub-path through, so "not blocked" below cannot be a matcher that never blocks.
+    // Controls: the matcher blocks a prefix rule (/billing) and a trailing-slash one (/tracker/)
+    // and lets the bare path through, so "not blocked" below cannot be a matcher that never blocks.
     expect(disallowed).toContain("/billing");
     expect(isDisallowed("/billing")).toBe(true);
-    expect(isDisallowed("/jobs")).toBe(true);
-    expect(isDisallowed("/jobs/some-id")).toBe(false);
+    expect(isDisallowed("/tracker/some-id/sent")).toBe(true);
+    expect(isDisallowed("/tracker")).toBe(false);
     expect(isDisallowed(match![1]), `robots.ts disallows ${match![1]}`).toBe(false);
   });
 
@@ -176,6 +210,17 @@ function footerColumns(html: string) {
   return columns;
 }
 
+/**
+ * Links a LATER change re-pointed on purpose, so the snapshot above can stay exactly as it was at 28ed666
+ * while the guard below still means "nothing ELSE moved". send-484 landed after send-486 and re-pointed
+ * Refer & Earn: /refer has no signed-out page and stays login-gated, so the footer sends a signed-out
+ * visitor through signup, which returns them to /refer. Adding to this map is a deliberate, reviewed act;
+ * any other link that changes still fails the guard.
+ */
+const REPOINTED_SINCE: Record<string, string> = {
+  "Refer & Earn": "/signup?redirectTo=%2Frefer",
+};
+
 describe("the footer's columns (send-486: Compare removed, Legal & Trust in the top row)", () => {
   const html = renderToStaticMarkup(<MarketingFooter />);
   const columns = footerColumns(html);
@@ -212,7 +257,9 @@ describe("the footer's columns (send-486: Compare removed, Legal & Trust in the 
 
   it("every other link is unchanged: the footer is exactly the pre-change list minus the two Compare links", () => {
     const rendered = columns.flatMap((c) => c.links.map((l) => ({ heading: c.heading, label: l.label, href: l.href })));
-    const expected = SNAPSHOT_BEFORE.filter((l) => l.heading !== "Compare");
+    const expected = SNAPSHOT_BEFORE.filter((l) => l.heading !== "Compare").map((l) =>
+      l.label in REPOINTED_SINCE ? { ...l, href: REPOINTED_SINCE[l.label] } : l,
+    );
     expect(expected).toHaveLength(SNAPSHOT_BEFORE.length - 2);
     expect(rendered).toEqual(expected);
   });
