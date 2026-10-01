@@ -33,14 +33,6 @@ export interface GatedLinkAllowance {
 
 export const GATED_LINK_ALLOWLIST: readonly GatedLinkAllowance[] = [
   {
-    key: "footer:* -> /jobs",
-    coverage: "ci",
-    sources: [
-      { file: "src/components/marketing/marketing-footer.tsx", label: "Job Matching" },
-    ],
-    owner: "prompt-3",
-  },
-  {
     key: "footer:* -> /resume-builder",
     coverage: "ci",
     sources: [
@@ -49,88 +41,12 @@ export const GATED_LINK_ALLOWLIST: readonly GatedLinkAllowance[] = [
     owner: "prompt-2",
   },
   {
-    key: "footer:* -> /tracker",
-    coverage: "ci",
-    sources: [
-      { file: "src/components/marketing/marketing-footer.tsx", label: "Job Tracker" },
-    ],
-    owner: "prompt-3",
-  },
-  {
-    key: "footer:* -> /refer",
-    coverage: "ci",
-    sources: [
-      { file: "src/components/marketing/marketing-footer.tsx", label: "Refer & Earn" },
-    ],
-    owner: "prompt-3",
-  },
-  {
     key: "main:/ -> /resume-builder",
     coverage: "ci",
     sources: [
       { file: "src/components/marketing/jd-demo-input.tsx", label: "Build a resume" },
     ],
     owner: "prompt-2",
-  },
-  {
-    key: "main:/ -> /scholarships",
-    coverage: "ci",
-    sources: [
-      { file: "src/components/marketing/jd-demo-input.tsx", label: "Find a scholarship" },
-    ],
-    owner: "scholarships-landing",
-  },
-  // Two sources, one key. #582 kept the homepage job-board button on /jobs deliberately.
-  {
-    key: "main:/ -> /jobs",
-    coverage: "ci",
-    sources: [
-      { file: "src/components/marketing/jd-demo-input.tsx", label: "Browse jobs instead" },
-      { file: "src/components/marketing/job-board-preview.tsx", label: "Browse all jobs" },
-    ],
-    owner: "prompt-3",
-  },
-  {
-    key: "main:404 -> /jobs",
-    coverage: "ci",
-    sources: [
-      { file: "src/app/not-found.tsx", label: "Browse jobs" },
-    ],
-    owner: "prompt-3",
-  },
-  {
-    key: "main:/jobs/* -> /jobs",
-    coverage: "ci",
-    sources: [
-      { file: "src/app/(app)/jobs/[id]/page.tsx", label: "Back to jobs" },
-    ],
-    owner: "prompt-2",
-  },
-  {
-    key: "main:/scholarships/* -> /scholarships",
-    coverage: "ci",
-    sources: [
-      { file: "src/app/(app)/scholarships/[id]/page.tsx", label: "Back to scholarships" },
-    ],
-    owner: "scholarships-landing",
-  },
-  // prod-only: the six scholarship posts exist only in production content, not in CI's seeded
-  // database. tests/marketing/gated-link-ratchet.test.tsx still enforces it in CI, from RELATED_LINKS.
-  {
-    key: "main:/blog/* -> /scholarships",
-    coverage: "prod-only",
-    sources: [
-      { file: "src/lib/blog/related-links.ts", label: "Browse the scholarship catalog" },
-    ],
-    owner: "scholarships-landing",
-  },
-  {
-    key: "main:/blog/* -> /jobs",
-    coverage: "ci",
-    sources: [
-      { file: "src/lib/blog/related-links.ts", label: "See your own Match Scores in the jobs feed" },
-    ],
-    owner: "prompt-3",
   },
   {
     key: "main:/blog/* -> /tailor",

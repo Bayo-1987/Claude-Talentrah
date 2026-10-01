@@ -33,6 +33,622 @@ both served stale content in this project's history. Don't rely on either.
 
 ---
 
+## Merged 2026-10-01 — PR #615, tailoring and bullet rewrite update the masthead balance; every other credit spender proven to refresh (send-489, issue #605)
+
+| PR | Branch | Merged at (UTC) | Merge SHA |
+|----|--------|-----------------|-----------|
+| [#615](https://github.com/Bayo-1987/Claude-Talentrah/pull/615) | `fix/credit-balance-live-all-spenders-489` | 2026-10-01 10:48:12 | `1f275f5a7d5926d1d3ccbb6dfceb071522c42e05` |
+
+Finishes issue [#605](https://github.com/Bayo-1987/Claude-Talentrah/issues/605) after #609 fixed Farah chat: **after a credit-paid action the masthead
+kept showing the pre-charge balance** (the ledger and `profiles.credits_balance` were right; display only). The audit posted on the issue listed every
+seeker spender; this PR fixes the two that were stale and **proves, by measurement, that the rest already refresh**. No migration; **charging logic
+unchanged** (every spend assertion is a pass-through of the existing `spendCredits` contract).
+
+**What it changed.**
+- `commitTailoringAllowance` (`src/lib/tailoring/gate.ts`) returns `{ balanceAfter }`: the **ledger's own `balance_after`** for a spend (what
+  `spend_credits_atomic` computed under its lock), never `balance_at_check - cost`; `null` for a free trial or Pass. `/api/tailoring` responds with
+  `creditsBalance`, the **last** spend's balance across the tailoring and cover-letter legs (a free leg falls back to the earlier one).
+- `rewriteBulletAction` returns `creditsBalance` for a paid rewrite and omits it otherwise (Pass, failure, unaffordable).
+- `tailor-form.tsx` and `resume-editor.tsx` report it through the `credits-balance` provider #609 added; the masthead shows it without a reload and drops
+  the override as soon as the server hands down a different number.
+
+**The audit's other spenders, measured.** `e2e/credit-balance-live.spec.ts` (9 tests; each asserts the charge is **exactly** the `CREDIT_COSTS` price, the
+pill equals the post-charge **database** balance, and a `window` marker survived so the page was not reloaded) was first run against **unfixed `main`** on
+a throwaway PR (#616, run [36843712178](https://github.com/Bayo-1987/Claude-Talentrah/actions/runs/36843712178), closed and its branch deleted): **exactly two
+were red**, tailoring / cover letter and bullet rewrite. **Green on unfixed main, so confirmations and not fixes:** both scholarship actions on the
+**detail page and the list page**, Auto-Apply confirm (free weekly allowance used up), and Talent Directory verification, human review and boost. Each
+calls `revalidatePath` after the spend, which re-renders the layout.
+
+**A prediction this corrected.** Next's `revalidatePath` documentation says a Server Function "updates the UI immediately (if viewing the affected
+path)"; the scholarship actions revalidate `/scholarships` while the buttons also render on `/scholarships/[id]`, so the detail page looked like it would
+stay stale and a fix for it was written (the action returning `creditsBalance`, `FarahActions` reporting it). The measurement says it refreshes (the
+masthead pill **and** `FarahActions`' own "You have N credits" line). That change and its unit test were **withdrawn in the PR's second commit**: no
+code that is not needed. The documented caveat is conservative for this app version (`next` 16.3.5, `react-dom` 19.3.0).
+
+**Proof the tests can fail.** Tests-first commit `0667ace` on a draft PR: unit job **13 failed, 4440 passed** across exactly the four new files
+(run [36843654106](https://github.com/Bayo-1987/Claude-Talentrah/actions/runs/36843654106)), at assertion level (`expected undefined to be 40`,
+`expected undefined to deeply equal { balanceAfter: 35 }`); the cases that pin "nothing was spent, so no balance" passed before and after.
+The e2e red/green above is the unfixed-main run. The e2e could not be run locally (no database on that machine).
+
+### Verification (all four)
+
+**1. GitHub API** — `GET /repos/Bayo-1987/Claude-Talentrah/pulls/615`:
+```
+{"merged": true, "merged_at": "2026-10-01T10:48:12Z", "merge_commit_sha": "1f275f5a7d5926d1d3ccbb6dfceb071522c42e05",
+ "head_sha": "825e3dc933ee366a695b4380c1e2d0a3096b963c"}
+```
+Merged with `--match-head-commit`. `main` moved under this PR twice (#613, then #614 the signed-out masthead); the branch was brought up to date
+each time (`git diff` showed no overlap with this PR's files) and a full CI cycle ran on each head.
+
+**2. Fresh shallow clone** (`git clone --depth 10`): HEAD `1f275f5…`, contains the merge commit. `gate.ts` has `TailoringCommitResult` and three
+`return { balanceAfter … }`; `route.ts:153` `const creditsBalance = coverLetterCommit?.balanceAfter ?? tailoringCommit?.balanceAfter ?? null` and it is in the
+response; `resume-builder/actions.ts:418` `return { text: rewritten, creditsBalance: balanceAfter }`; `reportCreditsBalance` in `tailor-form.tsx:139` and
+`resume-editor.tsx:226`. **`src/lib/scholarships/actions.ts` has no `creditsBalance`** (withdrawn); `tests/scholarships/actions-credits-balance.test.ts`
+is absent; the three new unit files and the e2e spec are present.
+
+**3. Live production check.** Production deployment `dpl_AcxweBqis77zakxLKink5TXwf1L7`: `READY`, `target: production`, `githubCommitSha` = `1f275f5a…`, aliased to
+`www.talentrah.com`, created 2026-10-01 10:48:15. Signed-out, read-only probes (the paths themselves need a session): `POST /api/tailoring` **401**, `GET /tailor` **307 → /login**,
+`GET /` 200, i.e. the deployment is serving and the routes are gated as before. **The behavioural change was not probed in production**: a tailoring run or a bullet rewrite
+needs a signed-in session and spends a credit (see Not covered).
+
+**4. Full suite against merged `main`** — CI run [36851398741](https://github.com/Bayo-1987/Claude-Talentrah/actions/runs/36851398741) (push, `1f275f5`):
+```
+Typecheck, lint, unit tests : success   Test Files 398 passed (398)   Tests 4459 passed (4459)
+Playwright e2e              : success   487 passed (10.8m)         (includes the 9 credit-balance tests)
+Dependency audit, Secret scan, Migration drift (production): success   (Migration numbering: skipped on push events)
+```
+No flake rerun was needed on this run.
+
+### Not covered / still open
+- **No live check of these two paths in production yet.** They need a signed-in session and spend a credit. One real bullet rewrite (2 credits) would show the pill drop by 2 with no reload; offered to the owner after deploy.
+- The scholarship / Auto-Apply / Talent Directory refresh rests on `revalidatePath` behaviour of the current Next version; the spec would catch a change, but only in CI.
+- The PR's Lighthouse check was red (the known non-required `/jobs/remote` preview-data failure, #575).
+
+---
+
+## Merged 2026-10-01 — PR #614, the signed-out masthead on a phone: short CTA label below 640px, 44px targets (send-488)
+
+| PR | Branch | Merged at (UTC) | Merge SHA |
+|----|--------|-----------------|-----------|
+| [#614](https://github.com/Bayo-1987/Claude-Talentrah/pull/614) | `feat/masthead-mobile-fit-488` | 2026-10-01 10:22:10 | `8dd9ee0658a6fe8380dc3ac41c87474d05748563` |
+
+**The bug.** On every page that renders `MarketingMasthead` (about 15 marketing pages, the legal pages, `not-found` and the signed-out app shell, so `/scholarships`,
+`/jobs` and `/tracker` too), at phone widths "Log in" wrapped onto two lines and "Get started for free" onto up to four (360px: 110x120). The bar's row is a fixed 78px,
+so the CTA stuck out of it. **The document did not overflow** (`scrollWidth === clientWidth` at every width), so a scrollWidth check passed on the broken layout. Root cause: the
+bar had `px-10` (40px a side) on every viewport, leaving 310px of content on a 390px phone for controls that need about 398px.
+
+**What changed** (`src/components/marketing/marketing-masthead.tsx` only; the owner picked Option B from two real renders, A = full label squeezed to 8px margins and 13px text):
+- below 640px the visible CTA label is "Get started"; the link keeps `aria-label="Get started for free"` (the visible words are the start of the name, WCAG 2.5.3; the short span
+  is `aria-hidden`); from 640px up the full label shows;
+- Log in and the CTA are `whitespace-nowrap`; below 640px the bar's side padding is 20px and the gap 8px (`max-sm:` variants only);
+- the hamburger is 44x44 (was 40x40) and the logo link has a 44px-tall hit area (`min-h-11`, no visual change).
+
+Measured after, at 360, 375, 390 and 412px on `/`, `/about`, `/scholarships`, `/jobs`, `/tracker`: Log in 52.8x44, CTA 110.4x48, hamburger 44x44, logo link 96x44, every control on one
+line, inside the bar, symmetric 20px margins. **Desktop is unchanged:** header screenshots from local production builds of `main` and of the branch are byte-identical at 1280, 1000, 900, 899, 700 and
+640px on all five pages and differ only at 639px and below.
+
+**Proof the tests can fail (red, then green).** On unchanged `main`: e2e `9 failed | 14 passed`, unit `5 failed | 3 passed`; the overflow, accessible-name, menu and desktop tests pass on `main`,
+which is the scrollWidth lesson in test form. Green after: the new spec 23/23, 230/230 under `--repeat-each=10`; unit 8/8. `e2e/masthead-signed-out-mobile.spec.ts` measures what scrollWidth cannot
+(visible text-node line boxes, each control against the bar's row, real hit areas at 44px for this masthead only; the repo-wide 40px floor in `hit-targets.spec.ts` is unchanged), plus the menu at 390px
+(opens, the same four links pinned in order, Escape closes it with focus on the hamburger), visible keyboard focus on Log in, the CTA and the hamburger, and the 640px-and-up pins.
+
+**The lesson from this PR's first CI run: rendered text widths are platform-dependent.** The first version of the "desktop is unchanged" pins asserted widths measured on macOS (Log in 52.8px); CI's Linux
+rendered the same CSS at 55px and three tests failed (3 of 477; every other assertion passed on Linux). Pins now assert the CSS that produces the layout, which is identical everywhere: padding (Log in
+6/6/10/10, CTA 30/30/15/15), font size 15, the **computed font-family stack and font-weight 600** on both controls (so a font swap cannot slip through a padding-only pin), min-height, the 78px bar, the 40px side
+padding, the full label on one line. Proven able to fail: temporarily changing the ghost button's padding 6px to 7px and the base weight semibold to medium turned all three desktop tests red
+(`fontWeight 600 -> 500`, `padL 6 -> 7`); reverted. A layout test must pin CSS or assert relations, never an absolute rendered width measured on one machine.
+
+**Process.** Collision check re-run immediately before creating the branch (send-487 was taken, so 488) and again before the first push. Head history: `4537b2b` (CI red, the width pins) then the fix and a
+merge of `main` (#613, no overlap) into `3f20f58`, which was merged with `--match-head-commit` after all four required checks passed on that head (0 commits behind `main`). Found while measuring and filed,
+not fixed here: [#617](https://github.com/Bayo-1987/Claude-Talentrah/issues/617) (a11y, low): pressing Escape while focus is inside the open menu drops focus to `<body>` instead of the hamburger.
+
+### Verification (all four)
+
+**1. GitHub API** — `GET /repos/Bayo-1987/Claude-Talentrah/pulls/614`:
+```
+{"merged": true, "merged_at": "2026-10-01T10:22:10Z",
+ "merge_commit_sha": "8dd9ee0658a6fe8380dc3ac41c87474d05748563", "state": "closed",
+ "head_sha": "3f20f58f03eabe64f2a126caa1f4cbf40a3651a1", "merged_by": "Bayo-1987"}
+```
+
+**2. Fresh shallow clone** (`git clone --depth 30`, a temp dir):
+```
+HEAD: 8dd9ee0658a6fe8380dc3ac41c87474d05748563   (Merge pull request #614 …)
+marketing-masthead.tsx: aria-label "Get started for free" present; long span (max-sm:hidden) and short span (sm:hidden, aria-hidden) present;
+  logo link min-h-11; hamburger h-11 w-11; bar max-sm:px-5
+PRESENT: e2e/masthead-signed-out-mobile.spec.ts (pins include fontWeight "600"), tests/marketing/marketing-masthead.test.tsx
+src/lib/button-classes.ts: ghost padding px-[6px] and base font-semibold still present (the mutation used to prove the pins was reverted)
+```
+
+**3. Live production probe** (2026-10-01 10:24 UTC, **signed out**, read-only, 390px and 360px on `/`, `/jobs` and `/scholarships`). Vercel deployment `dpl_hvSWo8zeNfyZCTMceTy2dM6ANSvU`: `READY`,
+`target: production`, `githubCommitSha` = `8dd9ee06…`, aliased to `www.talentrah.com`; created 10:22:14, ready 10:22:53.
+```
+all six page x width combinations: HTTP 200, no redirect to /login, scrollWidth == clientWidth (390 / 360), no overlapping controls, rightmost control edge 370 / 340
+  logo link      96 x 44  (x=20)           hamburger  44 x 44         Log in  52.8 x 44, 1 line
+  sign-up CTA   110.4 x 48, 1 line, visible text "Get started"; accessible name "Get started for free"
+  inside the 78px bar: yes   every control >= 44 x 44: yes
+  accessible names present once each: link "Log in", link "Get started for free", button "Main menu", link "Talentrah"
+```
+Identical to the local build's measurements. **Not probed live:** 375px, 412px and desktop (covered by the local byte-identical screenshots and by CI). **No signed-in production probe was done.**
+
+**4. Full suite against merged `main`** — CI run
+[36848700787](https://github.com/Bayo-1987/Claude-Talentrah/actions/runs/36848700787) (push, `8dd9ee0`), `success`:
+```
+Typecheck, lint, unit tests : success   Test Files 395 passed (395)   Tests 4443 passed (4443)
+Playwright e2e              : success   478 passed (7.5m)
+Dependency audit, Secret scan: success   (Migration numbering: skipped on push events)
+```
+All 23 tests of the new masthead spec ran and passed, and `signed-out-link-gate.spec.ts` (`scope=ci`) passed. `Migration drift (production)`
+([run 36848700801](https://github.com/Bayo-1987/Claude-Talentrah/actions/runs/36848700801)): success.
+
+### Not covered / still open
+- **#617:** Escape from inside the open menu loses keyboard focus (a11y, low). The click-open path is pinned; the keyboard-inside path is not.
+- **Follow-ups listed in the PR, not built:** raise the repo-wide hit-target floor from 40px to 44px (only the masthead is held to 44 here); the CTA's `px-[22px] py-[11px] text-[14px]` override is dead on desktop (the variant's classes win in `cn()`'s plain join), so the desktop CTA renders at 15px with 30px padding, and fixing it would change desktop.
+- Below 640px the visible label no longer says "for free" (the full phrase is the accessible name; the homepage hero and mobile sticky bar still say it). The hamburger still sits between the logo and Log in, as before.
+
+---
+
+## Merged 2026-10-01 — PR #613, `/mentorship` loading placeholder carries no heading (send-487)
+
+| PR | Branch | Merged at (UTC) | Merge SHA |
+|----|--------|-----------------|-----------|
+| [#613](https://github.com/Bayo-1987/Claude-Talentrah/pull/613) | `fix/mentorship-loading-heading-487` | 2026-10-01 09:45:13 | `9152850448a01f7422b8ae600da636c061cfb34b` |
+
+**What it changed.** One source file. `src/app/(app)/mentorship/(list)/loading.tsx` rendered the **signed-in page's** heading ("Talk to someone who's
+done it.") and intro paragraph. Since send-385 a signed-out visitor reaches this route too, so the streamed loading fallback landed in the **raw HTML**
+beside the page: two `<h1>`s, the wrong one first, and a slow-connection visitor reads the wrong one first (measured in send-480: 0.9 s on Fast 3G,
+1.5 s on Slow 3G). It now renders eyebrow + `SkeletonStatus` + skeleton cards and **no heading**, the same neutral pattern as `/scholarships`
+(send-480), `/jobs` and `/tracker` (send-484). The `Container` wrapper stays so the signed-in loading-to-page transition does not shift. No other file
+changed apart from tests. No migration.
+
+**Production before the change** (probed signed out, 2026-10-01 before the PR was pushed): `GET /mentorship` returned **2 `<h1>`s**, "Talk to someone
+who's done it." at byte 4458 and the landing's "Real career mentors, for the moments Farah can't coach you through alone." at byte 96864.
+
+**Proof the tests can fail (red, then green).** Tests-first commit `b60fd19` on a draft PR: unit job **2 failed, 4433 passed** (run
+[36841854396](https://github.com/Bayo-1987/Claude-Talentrah/actions/runs/36841854396)), exactly the two intended assertions in
+`tests/mentorship/list-loading.test.tsx` (no heading of any level; none of the signed-in copy) and nothing else. The other three tests in that file
+(still announces loading, keeps the eyebrow and skeletons, and a control that the signed-in page still carries the heading the old placeholder echoed)
+passed before and after. The new e2e in `e2e/mentorship-public-landing.spec.ts` (exactly one `<h1>` in the RAW bytes via `request.get`, the landing's
+own, for `/mentorship`, `?error=…` and `?utm_source=…`) could not be shown red in CI because the e2e job is skipped while the unit job fails; its
+premise is the production probe above. **Not testable deterministically:** the slow-connection "wrong heading first" ordering; the raw-HTML count and
+content are what the tests pin.
+
+### Verification (all four)
+
+**1. GitHub API** — `GET /repos/Bayo-1987/Claude-Talentrah/pulls/613`:
+```
+{"merged": true, "merged_at": "2026-10-01T09:45:13Z", "merge_commit_sha": "9152850448a01f7422b8ae600da636c061cfb34b",
+ "head_sha": "9bca7d8d87193295f3201ed3ffa330aaecae0a74"}
+```
+Merged with `--match-head-commit` on that head; `main` had not moved since the PR's base.
+
+**2. Fresh shallow clone** (`git clone --depth 10`): HEAD `9152850…`, contains the merge commit; `loading.tsx` body is `Container` > `SkeletonStatus` +
+`EyebrowLabel` + `SkeletonCard`s (the only `<h1` string left in the file is inside the header comment); `tests/mentorship/list-loading.test.tsx` present;
+the `send-487` e2e is in `e2e/mentorship-public-landing.spec.ts`.
+
+**3. Live production probe** (2026-10-01 09:56 UTC, **signed out**, read-only; deployment `dpl_3ZE2yRJvy6sfjCrXfhpCZRBh7pa1`, `githubCommitSha` `91528504…`):
+```
+GET /mentorship                200  1 <h1>  "Real career mentors, for the moments Farah can't coach you through alone."  canonical https://www.talentrah.com/mentorship
+GET /mentorship?error=anything 200  1 <h1>  same
+GET /mentorship?utm_source=x   200  1 <h1>  same
+signed-in heading "done it." anywhere in the response: 0      cache-control: private, no-cache, no-store, max-age=0, must-revalidate
+controls: /mentorship/apply 307, /mentorship/<unknown id> 307 (the sub-paths are still gated)
+```
+No signed-in production probe was done; the signed-in loading-to-page transition rests on `Container` being unchanged and the existing signed-in e2e.
+
+**4. Full suite against merged `main`** — CI on `9152850`: `Typecheck, lint, unit tests` success (394 files / 4435 tests on the PR head), `Playwright e2e`
+success, `Dependency audit`, `Secret scan` and `Migration drift (production)` success. The PR's Lighthouse check was red (the known non-required
+`/jobs/remote` preview-data failure, #575).
+
+### Not covered / still open
+- The placeholder keeps its `Container` wrapper (deliberately, to leave the signed-in transition alone). Whether that wrapper's gutter stacks with the shell's on a phone, as send-480 found for the scholarships landing component, was not measured here for this page.
+
+---
+
+## Merged 2026-10-01 — PR #607, real signed-out landing pages at `/jobs` and `/tracker` (send-484)
+
+| PR | Branch | Merged at (UTC) | Merge SHA |
+|----|--------|-----------------|-----------|
+| [#607](https://github.com/Bayo-1987/Claude-Talentrah/pull/607) | `feat/jobs-tracker-public-landing-484` | 2026-10-01 07:40:01 | `fd705e088d23167380d7b9d340abe70795df3321` |
+
+**What it changed.** `/jobs` and `/tracker` used to 307 every signed-out visitor to `/login` (the `proxy.ts` gate). Both are now real public landing
+pages, the shape `/scholarships` took in send-480. **Signed-in visitors get the feed and the tracker unchanged** (signed-in metadata is deep-equal
+tested, and the e2e checks the signed-in titles and chrome). No migration.
+- **Gate** (`seeker-gate-paths.ts`): `/jobs` leaves the exact-path set (now empty, deleted); `/tracker` moves from the prefix list to
+  `PROTECTED_SUBPATH_ONLY_PREFIXES`, so `/tracker/[applicationId]/sent` stays gated; `/refer` stays gated. **robots.ts:** `/jobs$` removed (the last
+  `$` rule), `/tracker` becomes `/tracker/`. **sitemap.ts:** `/jobs` and `/tracker` are static entries (both always answer 200).
+- **/jobs:** `components/jobs/public-landing.tsx`, a presentational component. A live preview of at most six rows, shown only when the live total is at
+  least `LANDING_PAGE_MIN_ENTRIES`, hidden (not apologised for) when the query fails; aggregated vs direct labelled ("sourced externally" / "Posted on
+  Talentrah", the signed-in card's own wording); no match score anywhere; every card title links to its public `/jobs/<id>`. New
+  `loadOpenJobsPreview` reads seven columns only: measured **1,484 B for six rows against 14,323 B** with the wide landing columns (about 9.7x), and the
+  exact key set is pinned. **Not cached** (the repo has no data-cache pattern and the landing-page rule is a fresh query per call). The heading reads
+  "The 6 open listings…" when every listing is shown and "A few of the 376…" when it is a sample.
+- **/tracker:** `components/tracker/public-landing.tsx`, static copy, stages read from the new `TRACKER_STAGES`
+  (`src/lib/tracker/stages.ts`), extracted behaviour-preservingly from `stage-filter-bar` and `tracker-card` (characterisation tests of both pass on
+  main and after).
+- `generateMetadata()` on both pages: signed-in metadata unchanged, signed-out gets a real title/description/canonical (bare path, no query), **no
+  country claim**. Both `loading.tsx` files are neutral for both visitors with **no heading** (a streamed fallback lands in the raw HTML, so a
+  heading would be a second `<h1>`).
+- `liveJobLandingLinks` also returns each live `count` (additive, same single RPC). Footer: **only "Refer & Earn" changed**,
+  `/refer` → `/signup?redirectTo=%2Frefer`; the footer test's RegExp matcher now escapes the href (a `?` broke it).
+- Allowlist rows deleted (12 → 5 remain): `footer:* -> /jobs`, `/tracker`, `/refer`; `main:/ -> /jobs` (two sources); `main:404 -> /jobs`;
+  `main:/blog/* -> /jobs`; and `main:/jobs/* -> /jobs` ("Back to jobs"). **Prompt 2 must not touch "Back to jobs"**: its row is gone only because
+  `/jobs` is public now.
+
+**A pre-existing bug this fixed: `/tracker/<missing>/sent` returned 200, not 404.** `tracker/loading.tsx` sat directly above
+`tracker/[applicationId]/sent`, which calls `notFound()`; a `loading.tsx` in a route's ancestors makes Next commit to 200 before `notFound()` runs
+(#221). It dates from #218 (2026-09-04) / #220 (2026-09-05) and **was live in production at `e281dc5`** until this merge. The signed-in e2e written
+for this PR was **red on it** (`Expected: 404 Received: 200`, CI run [36780368340](https://github.com/Bayo-1987/Claude-Talentrah/actions/runs/36780368340)),
+so both files moved into a `(list)` route group, as `jobs/(feed)` and `scholarships/(list)` already do. The URL is unchanged. **Not probed in
+production** (that needs a signed-in session); the evidence is the file layout and the red-then-green CI.
+
+**Proof the tests can fail (red, then green).** Tests-first commit `96930f7` on a draft PR: CI red, unit job **15 test files failed, 370 passed**
+(run [36778911877](https://github.com/Bayo-1987/Claude-Talentrah/actions/runs/36778911877)), with `tsc` passing so the tests actually ran and failed on
+their own assertions (a helper, `tests/support/load-module.ts`, lets tests for not-yet-existing modules typecheck). The characterisation tests
+(signed-in metadata, both components' stage lists) were green before and after. Implementation commit `f4e4f90`: unit green. e2e then went red on **three runs: one real failure and three test mistakes of mine, each fixed in
+the test, none by loosening it**: (1) the tracker 404 above (real, fixed in the app); (2) a footer-link assertion with a case-sensitive `/Jobs/` against
+"Open jobs"; (3) a guessed `/tracker` heading; (4) the card click-through waited for a *document* navigation, but a Next `<Link>` click is a soft
+navigation (an RSC fetch), so it timed out at 30 s. One unit run also died starting Supabase's Docker containers ("failed to set up container
+networking", run [36821079046](https://github.com/Bayo-1987/Claude-Talentrah/actions/runs/36821079046)) before any test ran: runner infrastructure, cleared by
+the next push. The CI-only checks (the DB-backed
+`open-jobs-preview` test and the e2e specs) could not be run locally (no database on that machine).
+
+**A footer collision with send-486 (#610), handled by the standing rule.** #610 landed first and pins the footer to its pre-change link list; this PR
+deliberately re-points Refer & Earn, so that guard failed after the merge of `main`. The merge was textually clean (no conflicting hunk). As the
+second PR to land, this one updated the guard: a documented `REPOINTED_SINCE` map in `tests/marketing/marketing-footer.test.tsx` carries the one
+deliberate change and any other changed link still fails it. The owner was told this in the same message as the merge.
+
+### Verification (all four)
+
+**1. GitHub API** — `GET /repos/Bayo-1987/Claude-Talentrah/pulls/607`:
+```
+{"merged": true, "merged_at": "2026-10-01T07:40:01Z", "merge_commit_sha": "fd705e088d23167380d7b9d340abe70795df3321",
+ "state": "closed", "head_sha": "40f3bb332f22bf4174c8ac4fd0c169c1969efb6d", "merged_by": "Bayo-1987"}
+```
+Merged with `--match-head-commit` on that head. Main moved under this PR three times (#604 fonts, #610 footer, #611 docs); the branch was brought up to
+date each time (`5638fec`, `0d52bb1` by a local merge of #610, `40f3bb3`), with `git merge-tree` clean before each and a full CI cycle after.
+
+**2. Fresh shallow clone** (`git clone --depth 30`, a temp dir):
+```
+HEAD: fd705e088d23167380d7b9d340abe70795df3321   contains fd705e0: yes
+PRESENT: components/jobs/public-landing.tsx, components/tracker/public-landing.tsx, lib/tracker/stages.ts,
+         app/(app)/tracker/(list)/page.tsx, app/(app)/tracker/(list)/loading.tsx, both new e2e specs
+GONE:    app/(app)/tracker/page.tsx, app/(app)/tracker/loading.tsx (old paths)
+seeker-gate-paths.ts:81  PROTECTED_SUBPATH_ONLY_PREFIXES = ["/mentorship", "/employer", "/tracker"]   (no PROTECTED_EXACT_PATHS)
+robots.ts:50 "/tracker/"   (no "/jobs$")   sitemap.ts:89-90 /jobs, /tracker   marketing-footer.tsx:66 href "/signup?redirectTo=%2Frefer"
+```
+
+**3. Live production probe** (2026-10-01 07:41 UTC, **signed out**, read-only). Production deployment `dpl_61ciZhQ5g7T7P76FPq1rzViybPH9`: `READY`,
+`target: production`, `githubCommitSha` = `fd705e08…`, created 07:40:05.
+```
+GET /jobs                              200  one <h1>  canonical https://www.talentrah.com/jobs
+GET /tracker                           200  one <h1>  canonical https://www.talentrah.com/tracker
+GET /jobs?tab=saved&q=engineer         200  one <h1>  canonical https://www.talentrah.com/jobs         (query collapsed)
+GET /tracker?stage=offer&sort=oldest   200  one <h1>  canonical https://www.talentrah.com/tracker      (query collapsed)
+GET /scholarships (control)            200  one <h1>
+all five: cache-control: private, no-cache, no-store, max-age=0, must-revalidate   x-vercel-cache: MISS   no x-nextjs-prerender   no set-cookie
+/jobs content: "A few of the 376 open listings from the last 30 days", 6 cards, "Browse by" with live counts, 0 × "Remote · Remote";
+               first card link /jobs/0a7cf7a9-… → 200 (no redirect)
+robots.txt: no "Disallow: /jobs" or "/jobs$" or bare "/tracker"; "Disallow: /tracker/" and "Disallow: /refer" present
+sitemap.xml (fresh): lists /jobs, /tracker (and /scholarships)
+footer "Refer & Earn" on / and /about: href="/signup?redirectTo=%2Frefer"
+controls: /refer, /settings, /billing, /tracker/<id>/sent  each 307 → /login?redirectTo=…   /jobs/<unknown id> 404
+```
+**No signed-in production probe was done.** Signed-in behaviour rests on e2e tests in CI and the metadata deep-equal unit test.
+
+**4. Full suite against merged `main`** — CI run [36831648443](https://github.com/Bayo-1987/Claude-Talentrah/actions/runs/36831648443) (push, `fd705e0`):
+```
+Typecheck, lint, unit tests : success   Test Files 393 passed (393)   Tests 4430 passed (4430)
+Playwright e2e              : attempt 1 FAILED (1 failed, 453 passed), attempt 2 success (454 passed, 8.7m), see below
+Dependency audit, Secret scan, Migration drift (production): success   (Migration numbering: skipped on push events)
+```
+**Attempt 1 failed on `e2e/employer-new-job-banner.spec.ts:76` ("Crop your banner" dialog not found), the known banner-spec flake tracked in
+[#591](https://github.com/Bayo-1987/Claude-Talentrah/issues/591); an employer spec this change does not touch, and 453 other tests passed, including both new landing
+specs.** One `--failed` rerun (job [110276205725](https://github.com/Bayo-1987/Claude-Talentrah/actions/runs/36831648443/job/110276205725)) passed all 454 at
+08:14:17Z. No new evidence was added to #591.
+
+### Not covered / still open
+- **Lighthouse CI is red on this PR** (not required): it requests `/jobs/remote`, which 404s on a CI-project-backed preview with fewer than 5 remote postings (the known thin-preview-data issue, #575).
+- **The preview's data is the CI project's**, so the owner's screenshots showed 6 fixture listings, not production's 376 (378 when first measured).
+- **The round button on the right edge in the preview screenshots is Vercel's preview toolbar** (`vercel-live-feedback`); production HTML has no reference to it.
+- Follow-ups listed in the PR, not built: **`StageSelect` has a third private copy of the stage list** (pinned to `TRACKER_STAGES` by a drift test); **the signed-out masthead is cramped at 390px** on every page (pre-existing, shared with `/scholarships`); `mentorship/(list)/loading.tsx` still has the duplicate-heading-while-loading leak.
+
+---
+
+## Merged 2026-10-01 — PR #610, footer: Compare column removed, Legal & Trust in the top row, /vs pages linked from the comparison post (send-486)
+
+| PR | Branch | Merged at (UTC) | Merge SHA |
+|----|--------|-----------------|-----------|
+| [#610](https://github.com/Bayo-1987/Claude-Talentrah/pull/610) | `chore/footer-compare-removal-486` | 2026-10-01 06:23:07 | `fd08c9ba6ed46168e9f313c0cce888934184f627` |
+
+**What it changed (the owner's request).** Two source files; the rest is tests.
+- `src/components/marketing/marketing-footer.tsx`: the **Compare** column (heading, "Jobright Alternative", "vs. FreshTalent JobCopilot") is
+  removed. The footer is now **Product | For Employers | Company & Support | Legal & Trust**. No grid change was needed: five columns in a
+  four-column grid (`grid-cols-2`, `min-[901px]:grid-cols-4`) had wrapped Legal & Trust **under Product** on desktop (measured: its heading at
+  y=5926 against the others at y=5546) and, at 390px, left it alone in the last row beside an empty cell; four columns are one row on desktop and
+  an even 2x2 block on a phone. No other label, href, tagline, community/social row or copyright line changed.
+- `src/lib/blog/related-links.ts`: the `ai-job-search-tools-nigeria-africa` list gains `/vs/jobright` ("Talentrah vs Jobright, side by side") and
+  `/vs/jobcopilot` ("Talentrah vs FreshTalent JobCopilot, side by side") **ahead of** its two existing links (`/ai-resume-tailoring`,
+  `/mentorship`, same order). A code change; the post's body in the database was not touched.
+- The `/vs` pages are untouched: still live, still in the sitemap, still linking to each other. `MarketingFooter` is the only footer component
+  (about 20 pages, the legal pages and the signed-out app shell render it; signed-in pages render none).
+- **Every internal link to a `/vs` page, checked:** the footer (removed here), the two pages to each other, `sitemap.ts`, their own tests, and the blog
+  related links (added here). **Production blog bodies (read-only, all 13 posts): none contains `/vs`** (control query matched 1 post with
+  `/how-auto-apply-works` and 6 with any internal markdown link). No `llms.txt` or `ai.txt` exists.
+
+**Proof the tests can fail (red, then green).** Local, no database, on the unchanged footer: unit `5 failed | 11 passed` (2 related links vs 4; Compare
+heading present; 5 columns vs 4; 18 footer links vs 16), e2e `6 failed | 13 passed`. Green after: unit 33 passed (footer, related-links, the signed-out
+link ratchet), e2e 18 passed with one local-only failure (an unchanged test that hardcodes the production hostname; it passes in CI), and the new layout spec
+40/40 under `--repeat-each=10`. The regression guard is `SNAPSHOT_BEFORE`, the 18 (heading, label, href) rows as they stood on `main`; the footer must equal it minus
+the two Compare rows, in order. Mutation-checked: dropping the Blog link turns it red. **No test was deleted:** the old Compare-column unit and e2e assertions
+were rewritten to assert the column is gone; `gated-link-ratchet.test.tsx` and `signed-out-link-gate.spec.ts` are unchanged and green. New:
+`tests/blog/related-links.test.ts` (pins all 11 slugs' lists) and `e2e/footer-layout.spec.ts` (one row at 1280px; a 2x2 block with no overflow at 390px).
+
+**Process.** The task was first numbered send-484 from a collision check taken about 20 minutes earlier; #607 (send-484) and #609 (send-485) were opened in the gap, so
+the branch and commits were renamed to send-486 before the first push. **Standing rule since:** the full collision check (open PRs with every send number,
+remote branches, worktrees) is re-run immediately before creating a branch and again before the first push. #607 edits the same two footer files and is still open;
+whichever lands second updates, and a real conflict stops the work. `update-branch` was run twice (to `00778c3` after #609, to `8cdc4a9` after #604's self-hosted fonts);
+each head had a fresh green CI run, and the merge used `--match-head-commit` with the head read at merge time, 0 commits behind `main`.
+
+### Verification (all four)
+
+**1. GitHub API** — `GET /repos/Bayo-1987/Claude-Talentrah/pulls/610`:
+```
+{"merged": true, "merged_at": "2026-10-01T06:23:07Z",
+ "merge_commit_sha": "fd08c9ba6ed46168e9f313c0cce888934184f627", "state": "closed",
+ "head_sha": "8cdc4a9a6c51332a51b871593768e9e04565685c", "merged_by": "Bayo-1987"}
+```
+
+**2. Fresh shallow clone** (`git clone --depth 30`, a temp dir):
+```
+HEAD: fd08c9ba6ed46168e9f313c0cce888934184f627   (Merge pull request #610 …)
+marketing-footer.tsx: 'heading: "Compare"' count 0; no "/vs/" href in code; column headings in source order: Product, For Employers, Company & Support, Legal & Trust
+related-links.ts: ai-job-search-tools-nigeria-africa = /vs/jobright, /vs/jobcopilot, /ai-resume-tailoring, /mentorship
+PRESENT: tests/blog/related-links.test.ts, e2e/footer-layout.spec.ts
+```
+
+**3. Live production probe** (2026-10-01 06:24 UTC, **signed out**, read-only). Vercel deployment `dpl_4oYjUSSUHooVp6tgKdEBAxyMcfQZ`: `READY`, `target: production`,
+`githubCommitSha` = `fd08c9ba…`, aliased to `www.talentrah.com`; created 06:23:10, ready 06:23:48 (3 s after the merge).
+```
+footer on /, /about, /scholarships, /blog (all 200):
+  headings: Product, For Employers, Company & Support, Legal & Trust   links: 16   "/vs" links in the footer: 0   ">Compare<" occurrences: 0
+  grid class includes min-[901px]:grid-cols-4   Legal & Trust links (4th column): /legal/privacy, /legal/terms, /legal/data-cookie-notice
+GET /blog/ai-job-search-tools-nigeria-africa   200   x-vercel-cache: PRERENDER, age 0   "Continue on Talentrah" present; links in order:
+  /vs/jobright "Talentrah vs Jobright, side by side", /vs/jobcopilot "Talentrah vs FreshTalent JobCopilot, side by side",
+  /ai-resume-tailoring "Try the AI resume tailoring", /mentorship "Browse mentors on Talentrah"
+/vs/jobright 200, /vs/jobcopilot 200, both in sitemap.xml
+```
+The blog page is ISR (`revalidate = 3600`) and has served stale content before, so the two new links appearing at once was checked, not assumed: the new
+deployment prerendered it fresh. Nothing was force-revalidated. **The footer is not rendered for signed-in users, so there is no signed-in surface to probe.**
+
+**4. Full suite against merged `main`** — CI run
+[36824491005](https://github.com/Bayo-1987/Claude-Talentrah/actions/runs/36824491005) (push, `fd08c9b`), `success`:
+```
+Typecheck, lint, unit tests : success   Test Files 383 passed (383)   Tests 4348 passed (4348)
+Playwright e2e              : success   422 passed (9.5m)
+Dependency audit, Secret scan: success   (Migration numbering: skipped on push events)
+```
+The footer-layout spec (4 tests), the rewritten comparison-pages test and `signed-out-link-gate.spec.ts` (`scope=ci`) all ran and passed.
+`Migration drift (production)` ([run 36824490964](https://github.com/Bayo-1987/Claude-Talentrah/actions/runs/36824490964)): success.
+
+### Not covered / still open
+- **SEO trade-off, the owner's call:** the footer was the two `/vs` pages' only sitewide internal link. They are now linked from each other, the comparison blog post and the sitemap only; no ranking effect has been measured.
+- #607 (`/jobs` and `/tracker` landing pages, still an open draft) also edits `marketing-footer.tsx` (the Refer & Earn href) and its test; a footer conflict when it updates is expected to be small but was not tested.
+- The footer's 390px layout leaves white space under "For Employers" (the tall Product column beside a one-link column); unchanged from before.
+
+---
+
+## Merged 2026-09-30 — PR #609, the masthead credit balance updates after a paid Farah message; one success log line per Farah call (send-485, issue #605)
+
+| PR | Branch | Merged at (UTC) | Merge SHA |
+|----|--------|-----------------|-----------|
+| [#609](https://github.com/Bayo-1987/Claude-Talentrah/pull/609) | `fix/farah-balance-and-call-log-485-v2` | 2026-09-30 22:21:44 | `e281dc50b2b92f66290528fcd7c0bb0fbefca329` |
+
+**Replaces #608**, closed unmerged: its secret-scan check failed because two *test constants were named* `SECRET` / `SECRET_REPLY` (the repo's
+`talentrah-hardcoded-credential` rule keys on the variable name; the values were fake markers). Renamed on a clean branch rather than force-pushing;
+#608's branch was then deleted. Issue [#605](https://github.com/Bayo-1987/Claude-Talentrah/issues/605) (low severity; the label `severity: low` was created for it).
+
+**What it changed.** Two commits, no migration, **charging logic unchanged**.
+- **(a)** After a credit-paid Farah message the masthead kept showing the pre-charge balance until the next navigation (the ledger and
+  `profiles.credits_balance` were already right; display only). The chat stream's `done` event now carries `creditsBalance`: the **ledger's own
+  `balance_after`** for a paid message (`spendCredits` already returned it; `commitFarahChatAllowance` now passes it on, never recomputed from the
+  check-time balance), `null` for a free or Pass-covered one, and also on the `persisted: false` `done`. The panel reports it; the masthead shows it in
+  place of the page-load value with no reload (`src/components/app-shell/credits-balance.tsx`). A reported value carries the server value it was
+  reported against and **expires as soon as the server hands down a different number**, so a stale client value cannot outlive fresher server truth.
+- **(b)** One structured success log line per Farah call (`askFarah`, `askFarahChat`, `askFarahChatStream`), `console.info` of one JSON object:
+  `{"event":"farah_call","provider","model","latency_ms","failover","request_id"}`. `provider` is the one that **served** the reply (the fallback's name
+  after a failover); `latency_ms` is the whole call, and for a stream the whole reply; `request_id` is a fresh UUID. No message, reply, system prompt,
+  user id or email can appear (five scalars). `generateWithFailover` / `generateChatStreamWithFailover` gained an optional `onServed` callback.
+
+**Proof the tests can fail.** On the old code 10 of the new tests failed at assertion level (`expected undefined to be 40`, `expected undefined to
+deeply equal { balanceAfter: 35 }`, no `farah_call` line). A mutation that recomputes the balance instead of using the ledger's was caught; three
+mutations of the log line (an extra key, a stray `console.info` echoing the message, a wrong failover flag) were each caught. The "41 → 40 without a
+reload" and "free leaves it" checks are **Playwright, not component tests**: this repo has no DOM test tooling (no jsdom/testing-library). They passed
+in CI; they could not be run locally (no database).
+
+### Verification (all four)
+
+**1. GitHub API** — `pulls/609`: `merged: true`, `merged_at` 2026-09-30T22:21:44Z, `merge_commit_sha` `e281dc50b2b92f66290528fcd7c0bb0fbefca329`,
+head `ba320ecd64044b8f57ee4152816e3efff969fd7c`, 0 commits behind `main`.
+
+**2. Fresh shallow clone** of `main` at `e281dc5`: `creditsBalance` in 13 source files, `balanceAfter` in 4, `farah_call` in `src/lib/farah/call-log.ts`,
+`useDisplayedCreditsBalance` in 2; `route.ts:279` `const creditsBalance = committed?.balanceAfter ?? null` and on both `done` events; no `SECRET` constant
+in `tests/farah/call-log.test.ts`.
+
+**3. Live production check**, read-only (2026-10-01), against one **real paid message** the owner sent after the deploy. The owner saw the masthead go
+**40 → 39 by itself, with no reload** (not independently observed by me). From production:
+```
+credit_gate_events  2026-10-01 05:27:27.715  outcome proceeded  credits_required 1  credits_available 40
+credit_ledger       2026-10-01 05:27:28.391  delta -1  balance_after 39  reason farah_chat_message     (the only farah_chat_message row 22:22Z–05:28Z)
+farah_messages      05:27:28.46 (farah)  05:27:28.47 (user)
+=> exactly one gate event and one ledger row: exactly one charge.
+Vercel runtime log, POST /api/farah/chat 200, dpl_CWdnc1Y9bqtUXFiRWhX5xdKFNPHB (githubCommitSha e281dc50…, READY, target production):
+  {"event":"farah_call","provider":"groq","model":"openai/gpt-oss-120b","latency_ms":472,"failover":false,"request_id":"ef396f02-f99a-4232-b74b-e198ac94b6f6"}
+```
+No message text, user id or email appears in that line or in any other line in that window (the rest are page GETs with no console output). The
+account then sent a second paid message at 05:31:53Z (one more −1, balance 38, its own `farah_call` line, `latency_ms` 2234), also exactly one charge.
+
+**4. Full suite against merged `main`** — CI on `e281dc5`: `Typecheck, lint, unit tests` success (22:28:54Z, run
+[36785124605](https://github.com/Bayo-1987/Claude-Talentrah/actions/runs/36785124605)), `Playwright e2e` success (22:40:58Z), `Dependency audit`, `Secret scan`
+and `Migration drift (production)` success. The PR's own Lighthouse check was red (the same `/jobs/remote` preview-data cause as above; not required).
+
+### Not covered / still open
+- **The same staleness likely exists on other credit-spending paths**: audited read-only in an [issue #605 comment](https://github.com/Bayo-1987/Claude-Talentrah/issues/605#issuecomment-5925475957).
+  **Likely stale** by the code: tailoring / cover letter (`tailor-form.tsx` is a plain `fetch`, no refresh) and bullet rewrite. **Refreshes**: template unlock
+  (`router.refresh()`). **Mechanism present but unmeasured**: the two scholarship actions, Auto-Apply confirm and the Talent Directory actions
+  (`revalidatePath`). No fix yet.
+- The log line's latency for a stream is the whole reply, not time to first token.
+
+---
+
+## Merged 2026-09-30 — PR #595, a real signed-out landing page at `/scholarships` (send-480)
+
+| PR | Branch | Merged at (UTC) | Merge SHA |
+|----|--------|-----------------|-----------|
+| [#595](https://github.com/Bayo-1987/Claude-Talentrah/pull/595) | `feat/scholarships-public-landing-480` | 2026-09-30 20:54:09 | `28ed666593e53c20bb19f8c7ee56de4938da7c97` |
+
+**What it changed.** `/scholarships` used to 307 every signed-out visitor to `/login` (the `proxy.ts` gate, before any page
+ran), so the footer link, the homepage shortcut and search all hit a login wall. It is now a real public landing page, the
+same shape send-385 gave `/mentorship`. **Signed-in visitors get the catalog unchanged.** No migration. 27 files.
+- `src/lib/auth/seeker-gate-paths.ts`: `PROTECTED_EXACT_PATHS` went from `{"/jobs", "/scholarships"}` to `{"/jobs"}`. That is the only code
+  change in the file (the rest is comments); `PROTECTED_SUBPATH_ONLY_PREFIXES` is unchanged (`["/mentorship", "/employer"]`). Nothing
+  under `/scholarships/` was ever gated (`[id]`, `apply-now`, `fully-funded`, `degree/[level]` were already public).
+- `src/app/robots.ts`: the `/scholarships$` disallow is removed. `src/app/sitemap.ts`: `/scholarships` is a static entry.
+- `src/app/(app)/scholarships/(list)/page.tsx`: `generateMetadata` plus a signed-out branch **above** the untouched signed-in body. Signed-in
+  metadata deep-equals `{ title: "Scholarships — Talentrah" }` (pinned). New `components/scholarships/public-landing.tsx` (presentational, no
+  DB access). `(list)/loading.tsx` is now neutral for both visitors, with **no heading**: a streamed loading fallback lands in the raw HTML
+  beside the page, so a placeholder `<h1>` would make two in the response a crawler reads. This also fixed a bug the signed-in list had (its old
+  fallback carried its own `<h1>`), which `/mentorship` still has (follow-up below).
+- Footer **Scholarships → `/scholarships`** in the same change (so it can never lead the un-gating); the three `scholarships-landing` rows
+  were deleted from the signed-out link allowlist (12 rows remain); `legal/terms` got `id="scholarship-listings"` so the page can link to it;
+  `docs/scholarship-sources.md` lost the one sentence saying the list stayed behind a session.
+- Plumbing: `liveScholarshipLandingLinks` also returns each live `count` (additive, same single RPC, same `>= LANDING_PAGE_MIN_ENTRIES` rule).
+  New `loadOpenScholarshipsPreview` (verified, still open, nearest deadline first, nine columns only, never the moderation trail; **not cached**).
+- Rules the PR states and pins by test: **the clock** is the server's local date, which is UTC on Vercel (a deadline of 2 Oct shows "closes today" at
+  23:30 UTC on 2 Oct and is gone at 00:30 UTC on 3 Oct; shifting "today" by a day fails 7 tests); **canonical** is exactly `/scholarships`,
+  no query string, so every `?level=…` variant collapses into one URL; **dynamic, never cached**: `ƒ` Dynamic because `cookies()` in
+  `createClient()` (`src/lib/supabase/server.ts:11`) via `getOptionalUser()`; live response `cache-control: private, no-cache, no-store`.
+- **The deadline-note guard is a heuristic.** `deadline_note` is an unbounded `text` column. The landing shows a note only if it is ≤ 140
+  characters, otherwise "See the official listing for the deadline". It catches long reviewer prose, not a short one (see the Arizona entry below, #594).
+
+**Proof the tests can fail (red, then green).** Local, no database: red on current code `45 failed | 35 passed`, green `80 passed`.
+CI red on the draft PR's first commit (run [36724761670](https://github.com/Bayo-1987/Claude-Talentrah/actions/runs/36724761670)): tsc and lint
+passed, the unit job failed 10 files / 50 tests. e2e red on a throwaway branch (`tmp/send-480-e2e-red`, since deleted; run
+[36724805150](https://github.com/Bayo-1987/Claude-Talentrah/actions/runs/36724805150)): **16 failed, 398 passed**, every failure on an intended
+assertion (`Expected: 200, Received: 307`; `page.url()` contains `/login`; `h2#scholarship-listings` not found; `Disallow: /scholarships$` still in
+robots), no pool or auth errors. Guards proven able to fail with temporary source edits (footer before un-gating, allowlist left alone, a wildcard
+`/*?ref=` rule), all reverted. A hidden pinned test was found and updated deliberately, not deleted: `tests/seo/robots.test.ts` (its
+`requireUser(` scan) and `e2e/public-scholarship-page.spec.ts`. No test was removed: 5 removed lines, all renames or replacements; 93 added.
+
+**A race in this PR's own e2e, found by CI and fixed before merge.** Head `9b58595` failed Playwright on
+`scholarships-public-landing-data.spec.ts:54`: the page text it read was the loading skeleton ("Loading scholarships…"). It read
+`body.innerText()` right after `goto()`, which resolves on `load`; React holds a Suspense reveal until its stylesheets arrive, which can be after
+`load`. It had passed four earlier heads (about one run in five). Reproduced deliberately with a scratch harness (not committed): the old pattern
+failed 2/10 with no delay and **10/10 with CSS delayed 1.5 s**; the auto-retrying pattern passed 10/10 both ways. Fixed in `cb82da4` (test-only):
+every read of the page in the two new specs waits for the skeleton to be gone and the real `<h1>` to be there; `innerText`/`title()`/`count()`
+snapshots became auto-retrying assertions; every negative assertion ("the pending row is absent") now follows a positive control. The real
+signed-out spec then passed **170/170 (17 tests × 10), with and without the 1.5 s CSS delay** against a local production build and a read-only
+stub. **Not run locally:** the data spec (needs Supabase fixtures; no database and no Docker on that machine), so its fix rests on CI and the
+scratch reproduction.
+
+### Verification (all four)
+
+**1. GitHub API** — `GET /repos/Bayo-1987/Claude-Talentrah/pulls/595`:
+```
+{"merged": true, "merged_at": "2026-09-30T20:54:09Z",
+ "merge_commit_sha": "28ed666593e53c20bb19f8c7ee56de4938da7c97", "state": "closed",
+ "head_sha": "6e166a30a54ebbdb3951e4e783a3ff7f1e8697a5", "merged_by": "Bayo-1987"}
+```
+Merge commit, `--match-head-commit` given the PR's own `headRefOid` read at merge time, branch 0 commits behind `main`, marked ready a moment
+before. Main kept moving under this PR, and required checks are strict, so `update-branch` was run **six times** (to `493a7d6`, `f4f4451`,
+`d990e54`, `3075b06`, `9b58595`, `6e166a3`), each followed by a fresh CI run; every incoming change was checked with `git merge-tree` (clean)
+and against this PR's file list (never overlapping). One green cycle (`3075b06`) was outrun by another merge (#601, docs only) before it could land. Two flakes got one rerun each, per head: a `test-user-pool.test.ts` pool-drain failure (#593 class)
+on `f4f4451`, and the Google-Fonts/Turbopack `Build app` failure (#585) on `d990e54`. Both passed on rerun.
+
+**2. Fresh shallow clone** (`git clone --depth 30`, a temp dir):
+```
+HEAD: 28ed666593e53c20bb19f8c7ee56de4938da7c97   (Merge pull request #595 …)
+PRESENT: src/components/scholarships/public-landing.tsx, e2e/scholarships-public-landing.spec.ts, e2e/scholarships-public-landing-data.spec.ts
+seeker-gate-paths.ts:31  const PROTECTED_EXACT_PATHS = new Set(["/jobs"]);
+robots.ts: no '/scholarships$' disallow   sitemap.ts:81 { path: "/scholarships", … }   marketing-footer.tsx:61 href "/scholarships"
+legal/terms: <h2 id="scholarship-listings">   landing spec: pageSettled() helper present (5 uses)
+```
+
+**3. Live production probe** (2026-09-30 20:57 UTC, **signed out**, read-only). Vercel deployment `dpl_F8HZv7uw1tDMEmZMGQU1XswG8MQ3`: `READY`,
+`target: production`, `githubCommitSha` = `28ed6665…`, aliased to `www.talentrah.com`; created 20:54:13, ready 20:55:01 (4 s after the merge).
+```
+GET /scholarships                 200   one <h1>   canonical https://www.talentrah.com/scholarships
+                                        title "Scholarships for Nigerian & African Students — Talentrah"
+                                        cache-control: private, no-cache, no-store, max-age=0, must-revalidate   x-vercel-cache: MISS   no set-cookie
+GET /scholarships?level=phd       200   one <h1>   canonical unchanged (no query)
+footer href on /  and on /about   "/scholarships"
+robots.txt                        no "Disallow: /scholarships" line; control "Disallow: /jobs$" present
+sitemap.xml (fresh, MISS)         lists https://www.talentrah.com/scholarships; the Arizona id is absent (see the entry below)
+controls: /jobs 307→/login, /tracker 307→/login, /scholarships/apply-now 200, /mentorship 200; Arizona detail page 404
+```
+The landing renders four real rows (e.g. "Trudeau Foundation Doctoral Scholarship — 2 Oct 2026 · 2 days left").
+**No signed-in production probe was done.** Signed-in behaviour is covered by two e2e tests in CI and the metadata deep-equal unit test, not by a
+production check.
+
+**4. Full suite against merged `main`** — CI run
+[36775853122](https://github.com/Bayo-1987/Claude-Talentrah/actions/runs/36775853122) (push, `28ed666`), `success`:
+```
+Typecheck, lint, unit tests : success   Test Files 375 passed (375)   Tests 4264 passed (4264)
+Playwright e2e              : success   415 passed (9.5m)
+Dependency audit, Secret scan: success   (Migration numbering: skipped on push events)
+```
+23 tests from the two new landing specs ran and passed, and `signed-out-link-gate.spec.ts` (`scope=ci`) passed with the three allowlist rows deleted.
+`Migration drift (production)` ([run 36775853105](https://github.com/Bayo-1987/Claude-Talentrah/actions/runs/36775853105)): success.
+(The push run for the previous main commit, `b75bc82` / #602, failed Playwright at the **Build app** step on the same Google-Fonts/Turbopack flake; not this PR.)
+
+### Not covered / still open
+- **Lighthouse CI is red on this PR's preview** (not a required check): it requests `/jobs/remote`, which 404s on a preview database with fewer than 5 open remote postings (the known thin-preview-data issue in CLAUDE.md).
+- **The preview's database has no scholarships**, so the preview showed the empty state. The error state was rendered only locally (stub returning 500); the populated state is proven by the production probe above.
+- **Deadlines are dates with no time zone and the rule is server UTC** (owner to decide separately): a listing closing "2 Oct" disappears at 00:00 UTC on 3 Oct, which is 17:00 on 2 Oct in California, before the provider's own cut-off, which is often in the provider's time zone. Pinned by tests so a change is deliberate.
+- Follow-ups listed in the PR, not built: `mentorship/(list)/loading.tsx` still has the duplicate-heading-while-loading leak; the shared signed-out masthead is cramped at 390px on every page; `formatDeadline` uses the server locale so `10/2/2026` is ambiguous on `/scholarships/[id]`, the fully-funded and degree pages and the signed-in card; `/scholarships/apply-now`'s signed-out CTA and `/legal/terms` ("we re-check listings daily") carry slightly stale or unscoped wording.
+- #594 (reviewer text can be saved into the public `deadline_note` column) stays open; the one affected row was unpublished separately (next entry).
+
+---
+
+## Operational 2026-09-30 — production scholarship row `b78fa6f6-…` unpublished (database change, #594, found during send-480)
+
+| What | Where | When (UTC) | Row |
+|------|-------|------------|-----|
+| one guarded `UPDATE public.scholarships SET moderation_status = 'pending'` | production (`nytwbbzfpytctjsoczzq`), via the Supabase connector | about 18:13 on 2026-09-30, after the owner's explicit yes for exactly this one write | `id b78fa6f6-85d4-496a-9b60-d950abf7f416` ("2027 Innovation and Technology Scholarship (Mastercard Foundation Scholars Program at ASU)") |
+
+**Why.** The row was `verified` with no `application_deadline` and a **698-character `deadline_note` holding internal reviewer instructions**
+(the column has no length limit and nothing separates internal from public text). That text was already public on its own detail page and in
+`sitemap.xml` before #595, so this was a production fix, not only a merge blocker: #595's landing would have shown "See the official listing for
+the deadline" for it (the ≤ 140-character guard), but the detail page still printed the note.
+
+**Checked before writing (read-only).** No triggers, publications, rules, `pg_net` or `pg_cron` on `public.scholarships`; the only functions
+mentioning the status are `admin_moderate_scholarship` and `scholarship_landing_facet_counts`; **0** rows in `scholarship_saves` for it and 0
+reminders sent (the deadline-reminder sender also skips anything not `verified`), so nothing could notify anyone; the row is not in the repo's
+seed/`sources.config.ts`, so the nightly ingest cannot re-publish it.
+
+```sql
+update public.scholarships set moderation_status = 'pending'
+ where id = 'b78fa6f6-85d4-496a-9b60-d950abf7f416' and moderation_status = 'verified'
+returning id, moderation_status, application_deadline, length(deadline_note) as deadline_note_len,
+          moderation_note, moderated_at, moderated_by;
+```
+A primary-key match, so it can change at most one row. It returned exactly one: `moderation_status = pending`; `deadline_note` still 698
+characters; `moderation_note` null; `application_deadline` null; `moderated_at` (`2026-09-09 09:02:53+00`) and `moderated_by` unchanged. Nothing else was written.
+
+### Verification (the four, adapted: no repo change, so no merge)
+1. **The database's own answer:** the `RETURNING` row above.
+2. **Repo / fresh clone:** not applicable; the SQL above is the durable record.
+3. **Live probe:** at 18:14:18 UTC the detail page returned **404** signed out and the id was absent from a freshly generated `sitemap.xml`
+   (`x-vercel-cache: MISS`). Re-checked at 20:57 UTC on the post-merge production deployment: detail page 404, id absent.
+4. **Full suite:** not applicable (no code).
+
+### Not covered / still open
+- The row now sits in the admin pending-review queue. **It has not been fixed and re-verified**: someone has to move the reviewer text out of `deadline_note` and re-verify it (or leave it pending).
+- **#594 stays open:** nothing stops reviewer text being saved into the public `deadline_note` column, and the landing's 140-character guard does not catch a short one.
+- The pre-change status is recoverable only from this record (`verified`); there is no row-history table.
+
+---
+
 ## Merged 2026-09-30 — PR #598, regression test for DOCX resume text extraction (send-481)
 
 | PR | Branch | Merged at (UTC) | Merge SHA |

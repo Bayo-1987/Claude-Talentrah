@@ -143,10 +143,14 @@ export async function POST(request: Request) {
   }
 
   // Only now — after the LLM call actually succeeded — commit the spend.
-  await commitTailoringAllowance(user.id, "tailoring", tailoringAllowance);
-  if (coverLetterAllowance) {
-    await commitTailoringAllowance(user.id, "cover_letter", coverLetterAllowance);
-  }
+  const tailoringCommit = await commitTailoringAllowance(user.id, "tailoring", tailoringAllowance);
+  const coverLetterCommit = coverLetterAllowance
+    ? await commitTailoringAllowance(user.id, "cover_letter", coverLetterAllowance)
+    : undefined;
+  // The balance the LAST spend left (the two commits run in sequence, so that is the final ledger state);
+  // a free-trial or Pass leg contributes null and falls back to the earlier leg. null when nothing was
+  // spent at all (issue #605: the masthead updates from this without a reload).
+  const creditsBalance = coverLetterCommit?.balanceAfter ?? tailoringCommit?.balanceAfter ?? null;
 
   const { data: tailoredResumeRow, error: resumeError } = await supabase
     .from("resumes")
@@ -231,6 +235,7 @@ export async function POST(request: Request) {
     isFreeTrial,
     isPassCovered,
     creditsSpent: totalCreditsSpent,
+    creditsBalance,
     courseRecommendations,
   });
 }

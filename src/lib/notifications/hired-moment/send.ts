@@ -119,7 +119,7 @@ interface ApplicationForLookup {
 /**
  * Resolves title/company from either a real `job_postings` row (joined via
  * `job_posting_id` — a many-to-one embed, so `job_postings` comes back as a
- * single nullable object here, same as `src/app/(app)/tracker/page.tsx`'s own
+ * single nullable object here, same as `src/app/(app)/tracker/(list)/page.tsx`'s own
  * `row.job_postings` read) or `manual_job_snapshot` (manual tracker entries
  * have no `job_posting_id` at all — see `addManualEntryAction` in
  * tracker-actions.ts for the exact shape it writes:

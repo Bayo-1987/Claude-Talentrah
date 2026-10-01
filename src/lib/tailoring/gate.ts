@@ -132,12 +132,25 @@ export async function checkTailoringAllowance(
   };
 }
 
+/**
+ * What a commit left the account with, for the response the masthead updates from (issue #605).
+ *
+ * `balanceAfter` is the LEDGER's own `balance_after` for a spend — the value spend_credits_atomic computed
+ * under its lock and spendCredits returns — never `creditsAvailableAtCheck - creditsSpent`: anything else
+ * that touched the balance between the check and this commit (another tab, a top-up) would make a
+ * recomputed number wrong. `null` when nothing was spent (free trial or Pass), so the client leaves the
+ * masthead alone.
+ */
+export interface TailoringCommitResult {
+  balanceAfter: number | null;
+}
+
 /** Actually marks the free trial used / deducts credits — call only after the LLM call succeeds. */
 export async function commitTailoringAllowance(
   userId: string,
   kind: TailoringActionKind,
   allowance: AllowanceResult,
-): Promise<void> {
+): Promise<TailoringCommitResult> {
   // Fired unconditionally, regardless of which branch below actually runs —
   // this function's own contract ("call only after the LLM call succeeds")
   // already guarantees a real run by the time it's invoked at all.
@@ -161,7 +174,7 @@ export async function commitTailoringAllowance(
       creditsAvailable: allowance.creditsAvailableAtCheck,
       outcome: "covered_by_pass",
     });
-    return;
+    return { balanceAfter: null };
   }
 
   const supabase = createServiceRoleClient();
@@ -172,12 +185,13 @@ export async function commitTailoringAllowance(
         ? { free_trial_tailoring_used: true }
         : { free_trial_cover_letter_used: true };
     await supabase.from("profiles").update(update).eq("id", userId);
-    return;
+    return { balanceAfter: null };
   }
 
-  await spendCredits(
+  const balanceAfter = await spendCredits(
     userId,
     allowance.creditsSpent,
     kind === "tailoring" ? "tailoring_run" : "cover_letter_run",
   );
+  return { balanceAfter };
 }

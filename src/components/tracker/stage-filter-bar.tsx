@@ -1,16 +1,9 @@
 import Link from "next/link";
 import { cn } from "@/lib/cn";
+import { TRACKER_STAGES } from "@/lib/tracker/stages";
 
-const STAGES = [
-  { key: "all", label: "All" },
-  { key: "saved", label: "Saved" },
-  { key: "applied", label: "Applied" },
-  { key: "interviewing", label: "Interviewing" },
-  { key: "offer", label: "Offer" },
-  { key: "hired", label: "Hired" },
-  { key: "rejected", label: "Rejected" },
-  { key: "archived", label: "Archived" },
-] as const;
+/** "All" is a filter, not a stage, so it is added in front of the shared list here. */
+const STAGES: ReadonlyArray<{ key: string; label: string }> = [{ key: "all", label: "All" }, ...TRACKER_STAGES];
 
 export interface StageFilterBarProps {
   stage: string;

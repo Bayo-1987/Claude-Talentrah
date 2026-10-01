@@ -4,16 +4,7 @@ import { getCompanyInitials } from "@/lib/jobs/company-initials";
 import { StageSelect } from "@/components/tracker/stage-select";
 import { NotesForm } from "@/components/tracker/notes-form";
 import { formatTrackerDate as formatDate } from "@/lib/tracker/format-date";
-
-const STAGE_LABEL: Record<string, string> = {
-  saved: "Saved",
-  applied: "Applied",
-  interviewing: "Interviewing",
-  offer: "Offer",
-  hired: "Hired",
-  rejected: "Rejected",
-  archived: "Archived",
-};
+import { trackerStageLabel } from "@/lib/tracker/stages";
 
 export interface TrackerEntry {
   id: string;
@@ -143,7 +134,7 @@ export function TrackerCard({ entry }: { entry: TrackerEntry }) {
       {entry.history.length > 1 && (
         <p className="text-[12px] italic text-ink-soft">
           {entry.history
-            .map((h) => `${STAGE_LABEL[h.stage] ?? h.stage} (${formatDate(h.changedAt)})`)
+            .map((h) => `${trackerStageLabel(h.stage)} (${formatDate(h.changedAt)})`)
             .join(" → ")}
         </p>
       )}

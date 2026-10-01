@@ -52,9 +52,14 @@ function gatedKeys(region: "footer" | "main", group: string, hrefs: string[]): s
 
 describe("the gate function these checks rely on", () => {
   it("still gates the paths the allowlist is about (a control: an always-false gate would pass everything else here)", () => {
-    for (const p of ["/jobs", "/scholarships", "/tracker", "/refer", "/resume-builder", "/tailor"]) {
+    for (const p of ["/refer", "/resume-builder", "/tailor", "/billing", "/tracker/some-id/sent"]) {
       expect(isProtectedSeekerPath(p), p).toBe(true);
     }
+    // send-480: /scholarships became a public landing page, so it is no longer in this list.
+    // send-484: so did /jobs and /tracker.
+    expect(isProtectedSeekerPath("/jobs")).toBe(false);
+    expect(isProtectedSeekerPath("/tracker")).toBe(false);
+    expect(isProtectedSeekerPath("/scholarships")).toBe(false);
     expect(isProtectedSeekerPath("/scholarships/apply-now")).toBe(false);
     expect(isProtectedSeekerPath("/mentorship")).toBe(false);
   });
@@ -120,6 +125,26 @@ describe("the allowlist itself", () => {
         expect(fs.readFileSync(file, "utf8"), `${r.key}: ${s.file} no longer contains "${s.label}"`).toContain(s.label);
       }
     }
+  });
+
+  it("lists only targets the real gate STILL gates (a row for a page that went public is stale)", () => {
+    // send-480: un-gating /scholarships must delete its rows. The crawl catches this in CI
+    // and in production, but only where those pages exist; this catches it in milliseconds.
+    for (const r of rows) {
+      const target = r.key.split(" -> ")[1];
+      const pathname = new URL(target, "http://site.test").pathname;
+      expect(isProtectedSeekerPath(pathname), `${r.key}: ${pathname} is no longer gated — delete this row`).toBe(true);
+    }
+  });
+
+  it("send-484: has no row for /jobs, /tracker or /refer, and none for the old Back-to-jobs link", () => {
+    const targets = rows.map((r) => r.key.split(" -> ")[1]);
+    for (const gone of ["/jobs", "/tracker", "/refer"]) {
+      expect(targets, `a row for ${gone} is stale — that link no longer leads to /login`).not.toContain(gone);
+    }
+    // The "Back to jobs" link on /jobs/[id] is prompt-2's to change, not this PR's — but its row
+    // was keyed to a target that is public now, so it goes too.
+    expect(rows.map((r) => r.key)).not.toContain("main:/jobs/* -> /jobs");
   });
 
   it("enforces staleness on ci rows always and on prod-only rows only in the 'all' scope", () => {

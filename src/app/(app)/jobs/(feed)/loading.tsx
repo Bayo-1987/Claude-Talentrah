@@ -24,6 +24,18 @@ import { EyebrowLabel, SkeletonBlock, SkeletonStatus } from "@/components/ui";
  * own description for the real e2e run confirming `/jobs/[id]`'s 404 status
  * is unchanged.
  *
+ * ── WHY THE BODY IS NEUTRAL (send-484) ──────────────────────────────────────
+ *
+ * Since send-484 a SIGNED-OUT visitor reaches this route too (/jobs is a public landing page), so this
+ * fallback is correct for both visitors and specific to neither. It used to sketch the signed-in page:
+ * a four-tab row, an Auto-Apply toggle block, a filter bar, "Today's board" and "Loading your jobs feed…"
+ * — which told a signed-out visitor the wrong page and then jumped to a different, taller one.
+ *
+ * NO HEADING AT ALL, on purpose: a streamed loading fallback lands in the RAW HTML next to the page, so a
+ * placeholder <h1> plus the page's own is two <h1>s in the response a crawler reads
+ * (e2e/jobs-tracker-public-landing.spec.ts asserts exactly one, in the raw bytes). The tab row and toggle
+ * block are gone for the same reason they were wrong: they are signed-in chrome.
+ *
  * ── WHAT THIS DOES NOT FIX, AND WHY THAT'S A SEPARATE DECISION ─────────────
  *
  * e2e/nav-responsiveness.spec.ts (skipped, not deleted) documents a second,
@@ -41,60 +53,16 @@ import { EyebrowLabel, SkeletonBlock, SkeletonStatus } from "@/components/ui";
 export default function JobsFeedLoading() {
   return (
     <div className="flex flex-col gap-5">
-      <SkeletonStatus>Loading your jobs feed…</SkeletonStatus>
+      <SkeletonStatus>Loading jobs…</SkeletonStatus>
 
-      <div>
-        <EyebrowLabel>Today&apos;s board</EyebrowLabel>
-        {/*
-          A NEUTRAL tab row, not the real FeedTabs component. loading.tsx has
-          no access to searchParams in the App Router — there is no way to
-          know which tab was actually clicked — so rendering FeedTabs with a
-          guessed `active` value would show the WRONG tab underlined for a
-          beat, then snap to the right one once real content arrives. That is
-          a more jarring flash than showing none highlighted at all, which is
-          the honest state: "a tab row is coming," not "here is which one."
-          Same shape (gap-6, min-h-10, border-b) as the real component so the
-          row's height and position don't shift once it's replaced.
+      <EyebrowLabel>Jobs</EyebrowLabel>
 
-          `overflow-x-hidden` on the wrapper, deliberately, not just tidiness:
-          four `w-20` blocks plus three `gap-6`s are 392px of intrinsic
-          content — wider than a 360px phone viewport (CLAUDE.md's own
-          low-end-Android constraint) — and unlike the real FeedTabs' text,
-          which is short enough to fit, a fixed-width placeholder has no
-          content-driven reason to shrink. Measured directly: without this,
-          `document.scrollWidth` on a 360px viewport was 416px, a real
-          horizontal-scroll bug for the split second this skeleton is on
-          screen. Clipping is harmless here — it's a decorative placeholder,
-          not fully-visible real information.
-        */}
-        <div className="mt-2 flex items-center gap-6 overflow-x-hidden">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div
-              key={i}
-              className="flex min-h-10 flex-shrink-0 items-center border-b-[2.5px] border-transparent"
-            >
-              <SkeletonBlock className="h-3.5 w-20" />
-            </div>
-          ))}
-        </div>
-      </div>
+      <SkeletonBlock className="h-11 w-full" />
 
       {/*
-        Auto-Apply toggle + filter bar's own rough shape — both are constant
-        chrome (a toggle switch, a search box, filter chips), never database
-        content, so a close approximation here costs nothing and holds the
-        page's real proportions.
-      */}
-      <div className="flex flex-col gap-5">
-        <SkeletonBlock className="h-[72px] w-full" />
-        <SkeletonBlock className="h-11 w-full" />
-      </div>
-
-      {/*
-        Job cards. Same BorderedCard shape (1.5px border, no radius, --card
-        ground, p-5) as the real thing, so the swap to actual cards doesn't
-        shift the page — five is a reasonable above-the-fold count on a
-        typical viewport, not a claim about how many will actually render.
+        Job rows. Same BorderedCard shape (1.5px border, no radius, --card ground, p-5) as the real
+        cards, so the swap to actual content does not shift the page much — five is a reasonable
+        above-the-fold count on a typical viewport, not a claim about how many will actually render.
       */}
       <div className="flex flex-col gap-4">
         {Array.from({ length: 5 }).map((_, i) => (
@@ -102,17 +70,9 @@ export default function JobsFeedLoading() {
             <div className="flex items-start gap-4">
               <SkeletonBlock className="h-11 w-11 flex-shrink-0" />
               <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-                  <SkeletonBlock className="h-[17px] w-2/5" />
-                  <SkeletonBlock className="h-4 w-24 flex-shrink-0" />
-                </div>
+                <SkeletonBlock className="h-[17px] w-2/5" />
                 <SkeletonBlock className="mt-2 h-3 w-3/5" />
               </div>
-            </div>
-            <div className="mt-3.5 flex gap-2.5">
-              <SkeletonBlock className="h-9 w-24" />
-              <SkeletonBlock className="h-9 w-9" />
-              <SkeletonBlock className="h-9 w-9" />
             </div>
           </div>
         ))}

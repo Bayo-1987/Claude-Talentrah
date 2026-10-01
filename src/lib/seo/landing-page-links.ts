@@ -16,6 +16,14 @@ export interface LandingLink {
 }
 
 /**
+ * A landing link that also carries its live count (send-480: the /scholarships "Browse by" card shows it;
+ * send-484: so does the /jobs one). Additive: every existing caller reads `href` and `label` only.
+ */
+export interface LandingLinkWithCount extends LandingLink {
+  count: number;
+}
+
+/**
  * Every OTHER job landing page that is currently live, for the "explore
  * more" links on each one — live-checked the same way the page itself is,
  * so this never links to a category that would 404 if clicked. Pass the
@@ -34,8 +42,8 @@ export interface LandingLink {
 export async function liveJobLandingLinks(
   supabase: SupabaseServerClient,
   excludeHref?: string,
-): Promise<LandingLink[]> {
-  const links: LandingLink[] = [];
+): Promise<LandingLinkWithCount[]> {
+  const links: LandingLinkWithCount[] = [];
   // Same 30-day floor as loadRemoteJobs/loadCityJobs — a category link here
   // must agree with whether the page it points to would actually list
   // anything, and a stale-but-still-open posting would otherwise count
@@ -48,7 +56,7 @@ export async function liveJobLandingLinks(
   if (error) throw new Error(error.message);
 
   if (data.remote_count >= LANDING_PAGE_MIN_ENTRIES) {
-    links.push({ href: "/jobs/remote", label: "Remote jobs" });
+    links.push({ href: "/jobs/remote", label: "Remote jobs", count: data.remote_count });
   }
 
   const countryCounts: Record<(typeof TRACKED_COUNTRIES)[number], number> = {
@@ -62,6 +70,7 @@ export async function liveJobLandingLinks(
       links.push({
         href: `/jobs/remote/${COUNTRY_LANDING_SLUG[country]}`,
         label: `Remote jobs in ${country}`,
+        count: countryCounts[country],
       });
     }
   }
@@ -73,7 +82,11 @@ export async function liveJobLandingLinks(
   };
   for (const city of CITY_LANDING_PAGES) {
     if ((cityCounts[city.slug] ?? 0) >= LANDING_PAGE_MIN_ENTRIES) {
-      links.push({ href: `/jobs/in/${city.slug}`, label: `Jobs in ${city.displayName}` });
+      links.push({
+        href: `/jobs/in/${city.slug}`,
+        label: `Jobs in ${city.displayName}`,
+        count: cityCounts[city.slug],
+      });
     }
   }
 
@@ -117,12 +130,16 @@ export async function relevantJobLandingLinks(
  * contract as liveJobLandingLinks, and the same one-round-trip fix
  * (send-441): `scholarship_landing_facet_counts` (0185) replaces this file's
  * 1 (fully-funded) + 5 (degree level) separate count(*) queries.
+ *
+ * send-480 — each link now also carries its live `count`. Additive: every existing caller
+ * only reads `href` and `label`. Still one round trip, and still the same
+ * >= LANDING_PAGE_MIN_ENTRIES rule that decides whether the page behind a link exists.
  */
 export async function liveScholarshipLandingLinks(
   supabase: SupabaseServerClient,
   excludeHref?: string,
-): Promise<LandingLink[]> {
-  const links: LandingLink[] = [];
+): Promise<LandingLinkWithCount[]> {
+  const links: LandingLinkWithCount[] = [];
   const today = new Date().toISOString().slice(0, 10);
 
   const { data, error } = await supabase
@@ -131,7 +148,11 @@ export async function liveScholarshipLandingLinks(
   if (error) throw new Error(error.message);
 
   if (data.fully_funded_count >= LANDING_PAGE_MIN_ENTRIES) {
-    links.push({ href: "/scholarships/fully-funded", label: "Fully funded scholarships" });
+    links.push({
+      href: "/scholarships/fully-funded",
+      label: "Fully funded scholarships",
+      count: data.fully_funded_count,
+    });
   }
 
   const degreeLevelCounts: Record<DegreeLevel, number> = {
@@ -146,6 +167,7 @@ export async function liveScholarshipLandingLinks(
       links.push({
         href: `/scholarships/degree/${DEGREE_LEVEL_SLUG[level]}`,
         label: `${DEGREE_LEVEL_LABEL[level]} scholarships`,
+        count: degreeLevelCounts[level],
       });
     }
   }

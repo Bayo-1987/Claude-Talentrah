@@ -35,11 +35,14 @@ import type { IconType } from "react-icons";
  * The employer column keeps its place — §6.1 wants employers addressed in
  * the footer — and now points at the real, free, self-serve flow.
  *
- * send-461 — a new "Compare" column, not more Product entries: these two
- * pages (/vs/jobright, /vs/jobcopilot) are comparison content aimed at a
- * different search intent than the Product column's own feature pages, and
- * an orphan comparison page with no internal links pointing at it won't
- * rank — this is that internal link.
+ * send-461 added a "Compare" column here (Jobright Alternative, vs. FreshTalent
+ * JobCopilot) so the two /vs pages had an internal link. send-486 REMOVED it on
+ * the founder's call: the pages stay live and in the sitemap, link to each other,
+ * and are now linked from the comparison blog post instead
+ * (src/lib/blog/related-links.ts). Four columns remain: Product | For Employers |
+ * Company & Support | Legal & Trust. That is also what the grid below is sized
+ * for: one row of four from 901px, and an even 2x2 block on a phone. Five columns
+ * in a four-column grid wrapped Legal & Trust under Product.
  */
 const FOOTER_COLUMNS = [
   {
@@ -50,14 +53,17 @@ const FOOTER_COLUMNS = [
       { label: "Resume Tailoring", href: "/ai-resume-tailoring" },
       { label: "ATS Resume Checker", href: "/ats-resume-checker" },
       { label: "Job Tracker", href: "/tracker" },
-      // send-474 — NOT the bare `/scholarships`. That path is the login-gated
-      // list (proxy.ts PROTECTED_EXACT_PATHS; robots.ts disallows `/scholarships$`),
-      // so a signed-out visitor or crawler following this link was redirected
-      // to /login — the same dead end /mentorship had before send-385. The
-      // apply-now hub is public, in the sitemap, and routes signed-in visitors
-      // on to /scholarships and signed-out ones to signup with a redirectTo.
-      { label: "Scholarships", href: "/scholarships/apply-now" },
-      { label: "Refer & Earn", href: "/refer" },
+      // send-480 — `/scholarships` again. send-474 pointed this at
+      // `/scholarships/apply-now` while `/scholarships` was login-gated (a signed-out
+      // visitor or crawler following it was redirected to /login). send-480 made the bare
+      // path a real signed-out landing page (seeker-gate-paths.ts no longer gates it;
+      // robots.ts no longer disallows it; it is in the sitemap), and moved this link back
+      // IN THE SAME CHANGE, so it can never lead the un-gating. A footer link must never
+      // point at a gated page: tests/marketing/marketing-footer.test.tsx asserts the
+      // target is not gated and not disallowed, with controls on paths that stay both.
+      { label: "Scholarships", href: "/scholarships" },
+      // send-484 — /refer has no signed-out page, so this goes through signup and comes back to /refer.
+      { label: "Refer & Earn", href: "/signup?redirectTo=%2Frefer" },
       { label: "Mentorship", href: "/mentorship" },
       { label: "Auto-Apply", href: "/how-auto-apply-works" },
     ],
@@ -65,13 +71,6 @@ const FOOTER_COLUMNS = [
   {
     heading: "For Employers",
     links: [{ label: "Hire through Talentrah", href: "/employer" }],
-  },
-  {
-    heading: "Compare",
-    links: [
-      { label: "Jobright Alternative", href: "/vs/jobright" },
-      { label: "vs. FreshTalent JobCopilot", href: "/vs/jobcopilot" },
-    ],
   },
   {
     heading: "Company & Support",

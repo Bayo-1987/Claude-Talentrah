@@ -9,6 +9,7 @@ import { FarahFirstVisitHint } from "@/components/app-shell/farah-first-visit-hi
 import { visibleName, fullVisibleName, nameInitials } from "@/lib/profile/name";
 import { getActivePass } from "@/lib/passes/entitlement";
 import { hasUnreadNotification } from "@/lib/notifications/unread";
+import { CreditsBalanceProvider } from "@/components/app-shell/credits-balance";
 
 /**
  * The shell every route under (app) renders inside — masthead (signed-in) or
@@ -151,6 +152,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
   ]);
 
   return (
+    <CreditsBalanceProvider serverBalance={profile.credits_balance}>
     <div className="min-h-screen">
       {/*
         The sticky belongs HERE, on the wrapper, and that is not a style
@@ -261,5 +263,6 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
       */}
       {profile.farah_hint_dismissed_at === null && <FarahFirstVisitHint />}
     </div>
+    </CreditsBalanceProvider>
   );
 }

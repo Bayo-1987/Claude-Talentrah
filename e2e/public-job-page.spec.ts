@@ -106,10 +106,18 @@ test("signed IN: the real controls are back and nothing regressed", async ({ pag
   await expect(page.locator("form").filter({ hasText: /^Save|^Saved/ })).toHaveCount(1);
 });
 
-test("other app routes still require a session", async ({ page }) => {
+test("other app routes still require a session, and /jobs and /tracker no longer do (send-484)", async ({ page }) => {
   // The layout gate was relaxed; each page's own requireUser must still hold.
-  for (const path of ["/jobs", "/tracker", "/settings", "/billing", "/auto-apply"]) {
+  for (const path of ["/refer", "/settings", "/billing", "/auto-apply"]) {
     await page.goto(path);
     expect(page.url(), `${path} did not redirect a signed-out visitor`).toContain("/login");
+  }
+  // send-484: the bare list pages are real signed-out landing pages now (own coverage in
+  // e2e/jobs-tracker-public-landing.spec.ts). The loop above is the control that proves a redirect
+  // is still detectable, and that only these two routes moved.
+  for (const path of ["/jobs", "/tracker"]) {
+    const res = await page.goto(path);
+    expect(res?.status(), path).toBe(200);
+    expect(page.url(), `${path} redirected a signed-out visitor`).not.toContain("/login");
   }
 });

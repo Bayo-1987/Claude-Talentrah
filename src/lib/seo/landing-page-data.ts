@@ -277,3 +277,94 @@ export async function loadScholarshipsByLevel(
 
   return { level, total: count ?? 0, scholarships: (data ?? []) as Tables<"scholarships">[] };
 }
+
+/**
+ * send-480 — the four real rows on the signed-out /scholarships landing page ("Open this
+ * cycle"): verified, still open (same filter as every loader above), nearest deadline first
+ * with undated listings after every dated one.
+ *
+ * Only the columns a landing row renders — NOT `select("*")` like the loaders above. RLS
+ * decides which ROWS are visible, but this is a separate decision about which COLUMNS reach
+ * a public page: the moderation trail (`moderation_note`, `moderated_by`) has no business
+ * being fetched by a surface anyone on the internet can load, even though a server component
+ * would not serialise it. Same discipline as `PUBLIC_COLUMNS` in src/lib/scholarships/public.ts.
+ *
+ * `moderation_status = 'verified'` is filtered explicitly, and that is deliberate defence in
+ * depth rather than a duplicate of RLS: the sibling loaders do the same, and
+ * tests/seo/open-scholarships-preview.test.ts proves a client that BYPASSES RLS still never
+ * sees a pending row through this function. NOT cached, per this file's own rule above.
+ */
+const LANDING_PREVIEW_COLUMNS =
+  "id, provider, program_name, host_institution, degree_levels, funding_type, application_deadline, deadline_note, official_url";
+
+export type OpenScholarshipPreview = Pick<
+  Tables<"scholarships">,
+  | "id"
+  | "provider"
+  | "program_name"
+  | "host_institution"
+  | "degree_levels"
+  | "funding_type"
+  | "application_deadline"
+  | "deadline_note"
+  | "official_url"
+>;
+
+export async function loadOpenScholarshipsPreview(
+  supabase: Client,
+  limit = 4,
+): Promise<OpenScholarshipPreview[]> {
+  const { data, error } = await supabase
+    .from("scholarships")
+    .select(LANDING_PREVIEW_COLUMNS)
+    .eq("moderation_status", "verified")
+    .or(stillOpenFilter())
+    .order("application_deadline", { ascending: true, nullsFirst: false })
+    .limit(limit);
+  if (error) throw new Error(error.message);
+  return (data ?? []) as OpenScholarshipPreview[];
+}
+
+/**
+ * send-484 — the real rows on the signed-out /jobs landing page, and the live total that decides whether
+ * they are shown at all: fresh (the 30-day floor every discovery surface enforces), open, never unlisted
+ * (0107), newest first.
+ *
+ * ONLY THE COLUMNS A ROW RENDERS, not JOB_LANDING_COLUMNS. That wide list exists for PublicJobRow's
+ * description, salary and structured fields; this page shows a title, company, place, work type, a source
+ * label and an age. Measured on production: six rows of these seven columns are 1,484 B, against 14,323 B
+ * with the wide list (about 9.7x), on a product whose audience skews to low-end Android on expensive data.
+ * tests/seo/open-jobs-preview.test.ts pins the exact key set so a column added "just for the card" fails
+ * there instead of quietly restoring the wide payload.
+ *
+ * ONE query returns both the rows and `total` (`count: "exact"` with a range), so they are the same
+ * snapshot. `total` counts every fresh open listing, not the six returned.
+ *
+ * NOT cached, per this file's own rule above: a fresh query every call, and the page that calls it is
+ * dynamically rendered (asserted from the response headers in e2e/jobs-tracker-public-landing.spec.ts).
+ */
+const JOB_PREVIEW_COLUMNS = "id, title, company_name, location, work_type, source_type, posted_at";
+
+export type OpenJobPreview = Pick<
+  Tables<"job_postings">,
+  "id" | "title" | "company_name" | "location" | "work_type" | "source_type" | "posted_at"
+>;
+
+export interface OpenJobsPreviewResult {
+  total: number;
+  jobs: OpenJobPreview[];
+}
+
+export async function loadOpenJobsPreview(supabase: Client, limit = 6): Promise<OpenJobsPreviewResult> {
+  const { data, count, error } = await supabase
+    .from("job_postings")
+    .select(JOB_PREVIEW_COLUMNS, { count: "exact" })
+    // 0107: never list an unlisted posting.
+    .is("unlisted_at", null)
+    .eq("status", "open")
+    .gte("posted_at", freshnessFloorISO())
+    .order("posted_at", { ascending: false })
+    .limit(limit);
+  if (error) throw new Error(error.message);
+  return { total: count ?? 0, jobs: (data ?? []) as OpenJobPreview[] };
+}

@@ -65,12 +65,26 @@ function getFailoverProvider(): LLMProvider | null {
  * Callers that want failover call this directly; `getLLMProvider()` and
  * everything built on its exact object identity is untouched.
  */
+/**
+ * Which provider actually produced a reply, reported to the optional `onServed` callback of the two
+ * wrappers below so a caller can log it (src/lib/farah/call-log.ts). Optional and additive: every
+ * existing caller passes nothing and sees no difference.
+ */
+export interface ServedBy {
+  provider: LLMProvider;
+  /** True when the primary was rate-limited and the fallback served the reply. */
+  failover: boolean;
+}
+
 export async function generateWithFailover(
   call: (provider: LLMProvider) => Promise<string>,
+  onServed?: (served: ServedBy) => void,
 ): Promise<string> {
   const primary = getLLMProvider();
   try {
-    return await call(primary);
+    const text = await call(primary);
+    onServed?.({ provider: primary, failover: false });
+    return text;
   } catch (err) {
     if (!(err instanceof LLMProviderError) || err.kind !== "rate_limit") throw err;
     const fallback = getFailoverProvider();
@@ -78,6 +92,7 @@ export async function generateWithFailover(
     console.warn(`[llm] ${primary.name} rate-limited — retrying via ${fallback.name}`);
     const result = await call(fallback);
     console.info(`[llm] request served by fallback provider ${fallback.name}`);
+    onServed?.({ provider: fallback, failover: true });
     return result;
   }
 }
@@ -101,11 +116,13 @@ export async function generateWithFailover(
  */
 export async function* generateChatStreamWithFailover(
   call: (provider: LLMProvider) => AsyncGenerator<string>,
+  onServed?: (served: ServedBy) => void,
 ): AsyncGenerator<string> {
   const primary = getLLMProvider();
   let generator = call(primary);
   let yieldedAny = false;
   let usedFallback = false;
+  let served: LLMProvider = primary;
 
   while (true) {
     let step;
@@ -122,13 +139,17 @@ export async function* generateChatStreamWithFailover(
         if (fallback) {
           console.warn(`[llm] ${primary.name} rate-limited — retrying stream via ${fallback.name}`);
           usedFallback = true;
+          served = fallback;
           generator = call(fallback);
           continue;
         }
       }
       throw err;
     }
-    if (step.done) return;
+    if (step.done) {
+      onServed?.({ provider: served, failover: usedFallback });
+      return;
+    }
     yieldedAny = true;
     yield step.value;
   }

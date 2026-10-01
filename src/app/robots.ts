@@ -12,14 +12,22 @@ import { absoluteUrl, SITE_ORIGIN } from "@/lib/seo/site";
  * pages out of the index. A path that were only protected by this line would
  * be public.
  *
- * `/jobs/` AND `/scholarships/` ARE CRAWLABLE, deliberately: each detail page
- * is public and the feed/list behind it is not, hence the trailing-slash
- * distinction below on both. Scholarships followed the same move for the same
- * reason job postings did first (#152) — the catalog carries "fully funded
- * scholarships for Nigerians"-class search demand, and a blanket disallow on
- * `/scholarships` made every listing invisible to it. RLS is what actually
- * keeps a pending listing out (0084); this line only stops crawl budget being
- * spent discovering that the authenticated list route redirects.
+ * `/jobs` AND `/tracker` HAVE NO DISALLOW FOR THEIR BARE PATHS (send-484). `/jobs$` existed because the
+ * feed only ever redirected while each job detail page beneath it was public; both bare paths are now real
+ * signed-out landing pages, exactly as /scholarships became in send-480 (next paragraph), so disallowing
+ * them would un-list the pages built to be found. `/tracker` became `/tracker/` — the trailing-slash form
+ * /mentorship/ already uses — because what sits under it, /tracker/[applicationId]/sent, is the seeker's
+ * own sent document and stays gated. No `$`-anchored rule is left in this file.
+ *
+ * `/scholarships` HAS NO DISALLOW AT ALL (send-480). It had `/scholarships$` for
+ * the same reason `/jobs$` exists — a list that only ever redirected — until its
+ * bare path became a real signed-out landing page, at which point disallowing it
+ * would have un-listed the very page built to be found. Every scholarship URL is
+ * now crawlable: the landing page, the detail pages, apply-now, fully-funded and
+ * degree/[level]. Scholarships originally followed job postings' move (#152) — the
+ * catalog carries "fully funded scholarships for Nigerians"-class search demand,
+ * and a blanket disallow on `/scholarships` once made every listing invisible to
+ * it. RLS is what actually keeps a pending listing out (0084).
  */
 export default function robots(): MetadataRoute.Robots {
   return {
@@ -39,7 +47,7 @@ export default function robots(): MetadataRoute.Robots {
           "/resume-builder",
           "/settings",
           "/tailor",
-          "/tracker",
+          "/tracker/",
           "/onboarding",
           "/dashboard",
           /*
@@ -52,17 +60,16 @@ export default function robots(): MetadataRoute.Robots {
            * systematically while finding this one — it was the only gap;
            * every other gated route (auto-apply, billing, feedback, refer,
            * resume-builder incl. its /edit and /new, settings, tailor,
-           * tracker incl. its /[applicationId]/sent, onboarding,
+           * tracker's /[applicationId]/sent (via "/tracker/" below), onboarding,
            * employer/onboarding — covered by the blanket /employer entry
            * below) already has a matching disallow.
            */
           "/talent-directory/verify",
-          // The feed and list themselves need a session; individual detail
-          // pages do not.
-          "/jobs$",
-          "/scholarships$",
+          // (send-480 removed `/scholarships$` and send-484 `/jobs$`: each bare path is a public landing
+          // page now. No exact-match rule remains.)
           /*
-           * send-385 — the INVERSE of the /jobs$/scholarships$ shape above:
+           * send-385 — the INVERSE of the /jobs$ shape above (and of what
+           * /scholarships$ was, before send-480):
            * `/mentorship` itself is now the real, signed-out-visitor public
            * page (components/mentorship/public-landing.tsx), so it must stay
            * OFF this list — but every sub-route still needs a session and was
