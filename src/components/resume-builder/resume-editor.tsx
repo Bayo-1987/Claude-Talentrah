@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button, TextField, EyebrowLabel, BorderedCard } from "@/components/ui";
 import { saveResumeAction, rewriteBulletAction } from "@/lib/resume-builder/actions";
+import { useReportCreditsBalance } from "@/components/app-shell/credits-balance";
 import { findUneditedExampleFields } from "@/lib/resume-builder/example-guard";
 import { TemplateRenderer } from "@/components/resume-builder/templates";
 import { PrintButton } from "@/components/resume-builder/print-button";
@@ -188,6 +189,7 @@ export function ResumeEditor({ resumeId, initialTitle, initialContent, templateS
   // ignored by React's own "same key, don't recreate" rule.
   const [summaryEditorKey, setSummaryEditorKey] = useState(0);
   const router = useRouter();
+  const reportCreditsBalance = useReportCreditsBalance();
 
   // Recomputed from `content` every render — the same driftless signal
   // PrintButton derives independently from the same content, at the field
@@ -211,7 +213,7 @@ export function ResumeEditor({ resumeId, initialTitle, initialContent, templateS
       // Rewrites the WHOLE field, same as before an entry could hold more
       // than one bullet — see rewrite-bullet.ts's own header for why this
       // targets the full set rather than a single focused line.
-      const { text, error } = await rewriteBulletAction(
+      const { text, error, creditsBalance } = await rewriteBulletAction(
         experienceTextareaValue(content.experience[index]),
         instruction,
       );
@@ -220,6 +222,8 @@ export function ResumeEditor({ resumeId, initialTitle, initialContent, templateS
         setRewriteErrorKey(key);
         return;
       }
+      // A paid rewrite: tell the masthead its new balance (issue #605). Absent = nothing was spent.
+      if (typeof creditsBalance === "number") reportCreditsBalance(creditsBalance);
       const next = [...content.experience];
       next[index] = { ...next[index], ...narrativePatch(text) };
       update("experience", next);

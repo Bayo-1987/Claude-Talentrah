@@ -10,6 +10,7 @@ import type { RankedRecommendation } from "@/lib/courses/match";
 import { buildAcceptedAdditions } from "@/lib/tailoring/accepted-payload";
 import { fetchWithTimeout, fetchErrorMessage } from "@/lib/forms/fetch-with-timeout";
 import { MicroFeedbackPrompt } from "@/components/feedback/micro-feedback-prompt";
+import { useReportCreditsBalance } from "@/components/app-shell/credits-balance";
 
 type ApiResult = {
   resumeId: string;
@@ -18,6 +19,12 @@ type ApiResult = {
   isFreeTrial: boolean;
   isPassCovered: boolean;
   creditsSpent: number;
+  /**
+   * The account's balance after this run: the ledger's own `balance_after` for a PAID run, null for a
+   * free-trial or Pass-covered one (nothing spent). Absent from an older server. The masthead updates
+   * from it without a reload (issue #605).
+   */
+  creditsBalance?: number | null;
   /** Ranked by the M1 matcher, server-side. Usually empty — see below. */
   courseRecommendations?: RankedRecommendation[];
 };
@@ -76,6 +83,7 @@ export function TailorForm({
    */
   defaultCoverLetter?: boolean;
 }) {
+  const reportCreditsBalance = useReportCreditsBalance();
   const [jdText, setJdText] = useState(initialJdText);
   const [includeCoverLetter, setIncludeCoverLetter] = useState(defaultCoverLetter);
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
@@ -127,6 +135,8 @@ export function TailorForm({
         return;
       }
       setData(json);
+      // A paid run: tell the masthead its new balance (issue #605). null / absent = nothing was spent.
+      if (typeof json.creditsBalance === "number") reportCreditsBalance(json.creditsBalance);
       setCheckedIds(new Set());
       setAppliedIds(new Set());
       setEditedTexts({});
