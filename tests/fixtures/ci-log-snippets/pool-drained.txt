@@ -1,0 +1,11 @@
+2026-09-30T11:24:23.8857043Z  FAIL  tests/support/test-user-pool.test.ts > send-453: test_user_pool claim/release/reset > a claim wipes a pooled user's owned data and profile fields back to defaults
+2026-09-30T11:24:23.8861709Z Error: claimUntilTarget: drained the entire pool (16 rows) under lease "claim-check" without ever seeing 9d73ad0e-a69c-4251-82e6-956a8c09dffe — either it was claimed by a genuinely different process and never released, or it isn't in the pool.
+2026-09-30T11:24:23.8864904Z  ❯ claimUntilTarget tests/support/test-user-pool.test.ts:78:13
+2026-09-30T11:24:23.8902867Z      76|     if (!data) {
+2026-09-30T11:24:23.8904363Z      77|       await releaseDrained(drained, leaseId);
+2026-09-30T11:24:23.8905968Z      78|       throw new Error(
+2026-09-30T11:24:23.8906824Z        |             ^
+2026-09-30T11:24:23.8907899Z      79|         `claimUntilTarget: drained the entire pool (${attempt} row${at…
+2026-09-30T11:24:23.8909179Z      80|           `lease "${leaseId}" without ever seeing ${targetUserId} — ei…
+2026-09-30T11:24:23.8910405Z  ❯ tests/support/test-user-pool.test.ts:154:39
+2026-09-30T11:24:23.8910916Z 

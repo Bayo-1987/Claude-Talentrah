@@ -1,0 +1,10 @@
+2026-09-30T10:53:34.1115428Z  FAIL  tests/matching/refresh-job.test.ts > runMatchScoreRefreshJob — real gap-filling against the live database > fills ONLY the gap for a user with partial existing coverage — an existing row survives untouched
+2026-09-30T10:53:34.1122922Z AssertionError: a genuinely missing pair must still be filled even for a partially-covered user: expected null not to be null
+2026-09-30T10:53:34.1124682Z  ❯ tests/matching/refresh-job.test.ts:415:107
+2026-09-30T10:53:34.1192615Z     413|     // still be filled even though this user already had ONE score on …
+2026-09-30T10:53:34.1193998Z     414|     const filled = await matchScoreFor(partialSeeker.id, postingExtern…
+2026-09-30T10:53:34.1195405Z     415|     expect(filled, "a genuinely missing pair must still be filled even…
+2026-09-30T10:53:34.1196894Z        |                                                                                                           ^
+2026-09-30T10:53:34.1197979Z     416|   }, 60_000);
+2026-09-30T10:53:34.1198697Z     417| });
+2026-09-30T10:53:34.1199022Z 

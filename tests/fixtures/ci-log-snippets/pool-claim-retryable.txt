@@ -1,0 +1,17 @@
+2026-09-30T11:19:50.0874311Z  FAIL  tests/rls/course-catalog.test.ts [ tests/rls/course-catalog.test.ts ]
+2026-09-30T11:19:50.0882143Z AuthRetryableFetchError: Error updating user
+2026-09-30T11:19:50.0883254Z  ❯ handleError node_modules/@supabase/auth-js/src/lib/fetch.ts:97:10
+2026-09-30T11:19:50.0884556Z  ❯ _handleRequest node_modules/@supabase/auth-js/src/lib/fetch.ts:239:4
+2026-09-30T11:19:50.0885557Z  ❯ _request node_modules/@supabase/auth-js/src/lib/fetch.ts:200:15
+2026-09-30T11:19:50.0886903Z  ❯ GoTrueAdminApi.updateUserById node_modules/@supabase/auth-js/src/GoTrueAdminApi.ts:790:13
+2026-09-30T11:19:50.0888102Z  ❯ claimFromPool tests/support/auth.ts:211:32
+2026-09-30T11:19:50.0929097Z     209|   }
+2026-09-30T11:19:50.0929637Z     210|
+2026-09-30T11:19:50.0930330Z     211|   const { error: renameErr } = await admin.auth.admin.updateUserById(u…
+2026-09-30T11:19:50.0931100Z        |                                ^
+2026-09-30T11:19:50.0931690Z     212|     email,
+2026-09-30T11:19:50.0932365Z     213|     email_confirm: true,
+2026-09-30T11:19:50.0933227Z  ❯ createTestUser tests/support/auth.ts:250:18
+2026-09-30T11:19:50.0934123Z  ❯ createAuthedTestUser tests/support/auth.ts:469:16
+2026-09-30T11:19:50.0934861Z  ❯ tests/rls/course-catalog.test.ts:34:12
+2026-09-30T11:19:50.0935206Z 
