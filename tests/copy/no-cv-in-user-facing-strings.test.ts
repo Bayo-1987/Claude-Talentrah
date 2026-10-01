@@ -46,7 +46,6 @@ function sourceFiles(dir: string): string[] {
 
 /** file (relative to src/) -> the exact string that is allowed to say CV, with who removes it. */
 const ALLOWED: Record<string, { text: string; removedBy: string }> = {
-  "app/(app)/billing/page.tsx": { text: "1 CV tailoring · credits never expire", removedBy: "the S18 billing-copy PR" },
   // Not the word: ISO 3166-1 alpha-2 for Cabo Verde, in the country-code table ("CV" -> "Cape Verde"). Found when S12 added the file.
   "lib/jobs/countries.ts": { text: "CV", removedBy: "nobody: it is a country code, not copy" },
 };

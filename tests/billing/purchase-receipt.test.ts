@@ -22,6 +22,7 @@
  * docs/ci-and-tooling-gaps.md §3a). A suite that needs a user id but not a
  * logged-in browser should never call createAuthedTestUser.
  */
+import { receiptNumber } from "@/lib/billing/receipt-number";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
@@ -191,7 +192,9 @@ describe("a completed purchase sends exactly one receipt", () => {
     // Naira, not kobo — the amount column is already naira and getting this
     // wrong bills the reader 100x in the direction that looks like fraud.
     expect(sent.text).toContain(`₦${pack.price_ngn.toLocaleString()}`);
-    expect(sent.text).toContain(reference);
+    // CHANGED DELIBERATELY (send-503, S18): "Receipt number" is the short number; the full reference sits under "Payment reference".
+    expect(sent.text).toContain(`Receipt number: ${receiptNumber("credit_pack", reference)}`);
+    expect(sent.text).toContain(`Payment reference: ${reference}`);
     // visibleName greeting, same as the renewal reminder next door.
     expect(sent.text).toContain("Hi Ada");
   });

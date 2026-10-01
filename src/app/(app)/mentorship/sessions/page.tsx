@@ -78,7 +78,7 @@ export default async function MentorshipSessionsPage({
               <div className="flex flex-wrap items-center gap-3">
                 <form action={payForMentorSessionAction.bind(null, s.id)}>
                   <Button type="submit" variant="primary" size="sm">
-                    Pay ₦{s.priceNgn.toLocaleString("en-NG")}
+                    {`Pay ₦${s.priceNgn.toLocaleString("en-NG")}`}
                   </Button>
                 </form>
                 <form action={cancelUnpaidMentorSessionAction.bind(null, s.id)}>
