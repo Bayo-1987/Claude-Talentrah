@@ -243,16 +243,21 @@ export function JobCard({
             "Posted N days ago · N applicants".
           */}
           <span className="text-[12.5px] text-ink-soft">
-            {postingAgeLine(job)} ·{" "}
             {/*
-              Shown at zero rather than hidden. "0 applicants" is a real and
+              A KNOWN count is shown at zero too. "0 applicants" is a real and
               useful thing for a seeker to know — an untouched posting is a
-              better bet than a crowded one — and hiding the line at zero would
-              make its absence ambiguous with the unknown case below.
+              better bet than a crowded one.
+
+              An UNKNOWN count is not mentioned at all (send-498). This used to
+              print "Applicant count unavailable" on every external card and on
+              any card whose lookup failed: a line about something the reader
+              cannot act on. It was kept so a missing line would not be
+              ambiguous with zero, but zero is printed, so a card that says
+              nothing about applicants is simply a card with no count to give.
             */}
             {applicantCount === null
-              ? "Applicant count unavailable"
-              : `${applicantCount} ${applicantCount === 1 ? "applicant" : "applicants"}`}
+              ? postingAgeLine(job)
+              : `${postingAgeLine(job)} · ${applicantCount} ${applicantCount === 1 ? "applicant" : "applicants"}`}
           </span>
         </div>
         {/*
@@ -287,7 +292,12 @@ export function JobCard({
           className="relative flex flex-wrap items-center justify-end gap-2.5 min-[760px]:flex-nowrap"
         >
           <form action={toggleSaveAction.bind(null, job.id)}>
-            <IconButton aria-label={isSaved ? "Unsave" : "Save"} type="submit">
+            {/*
+              A real toggle (send-498): aria-pressed carries the state, and the label still names what pressing it does,
+              the same pairing password-field.tsx uses. IconButton draws a pressed button differently (border, fill,
+              icon colour), so the saved state is not only a filled glyph.
+            */}
+            <IconButton aria-label={isSaved ? "Unsave" : "Save"} aria-pressed={isSaved} type="submit">
               <svg width="16" height="16" viewBox="0 0 20 20" fill={isSaved ? "currentColor" : "none"}>
                 <path
                   d="M10 16.5 C6 13.5 2.5 10.8 2.5 7.3 A3.8 3.8 0 0 1 10 5.3 A3.8 3.8 0 0 1 17.5 7.3 C17.5 10.8 14 13.5 10 16.5Z"
