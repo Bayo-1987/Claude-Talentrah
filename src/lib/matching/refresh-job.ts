@@ -292,6 +292,8 @@ export async function runMatchScoreRefreshJob(): Promise<MatchScoreRefreshSummar
     .from("job_postings")
     .select("id, structured_jd, seniority, organization_id")
     .eq("status", "open")
+    // 0202: a superseded duplicate is hidden everywhere, so it is not scored either.
+    .is("superseded_at", null)
     .gte("posted_at", freshnessFloorISO())
     .or("unlisted_at.is.null,admin_review_decision.eq.approved")
     .order("posted_at", { ascending: false })

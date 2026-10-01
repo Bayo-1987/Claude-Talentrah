@@ -360,6 +360,13 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
 
+      # pdftoppm: e2e/resume-print-margins.spec.ts rasterises a printed PDF to
+      # measure the white space at each page break. Without it that spec skips
+      # itself (loudly), so a missing package here would turn a real check into
+      # a silent pass.
+      - name: Install poppler (pdftoppm)
+        run: sudo apt-get update && sudo apt-get install -y poppler-utils
+
       # Before the build, deliberately: NEXT_PUBLIC_* vars are inlined into
       # the client bundle at BUILD time, not read at runtime. Starting this
       # after `npm run build` would ship a build pointed at nothing.
