@@ -71,8 +71,8 @@ export function MarketingMasthead() {
         for why. Still targets the same #main-content id this masthead's
         page always renders.
       */}
-      <div className="mx-auto flex h-[78px] max-w-[1120px] items-center justify-between px-10">
-        <Link href="/" className="flex flex-shrink-0 items-center no-underline">
+      <div className="mx-auto flex h-[78px] max-w-[1120px] items-center justify-between px-10 max-sm:px-5">
+        <Link href="/" className="flex min-h-11 flex-shrink-0 items-center no-underline">
           {/* eslint-disable-next-line @next/next/no-img-element -- static brand SVG, next/image's optimizer needs SVG allow-listing for no real benefit here */}
           <img
             src="/talentrah-horizontal.svg"
@@ -107,7 +107,7 @@ export function MarketingMasthead() {
             aria-haspopup="menu"
             aria-label="Main menu"
             onClick={() => setNavOpen((o) => !o)}
-            className="inline-flex h-10 w-10 items-center justify-center"
+            className="inline-flex h-11 w-11 items-center justify-center"
           >
             <svg width="18" height="14" viewBox="0 0 18 14" fill="none" aria-hidden="true">
               <path
@@ -139,19 +139,31 @@ export function MarketingMasthead() {
           )}
         </div>
 
-        <div className="flex items-center gap-4">
-          <Link href="/login" className={buttonClasses("ghost", "md", "no-underline")}>
+        <div className="flex items-center gap-4 max-sm:gap-2">
+          <Link href="/login" className={buttonClasses("ghost", "md", "whitespace-nowrap no-underline")}>
             Log in
           </Link>
           <Link
             href="/signup"
+            aria-label="Get started for free"
             className={buttonClasses(
               "primary",
               "md",
-              "min-h-11 px-[22px] py-[11px] text-[14px] no-underline",
+              "min-h-11 px-[22px] py-[11px] text-[14px] whitespace-nowrap no-underline max-sm:px-4 max-sm:py-2.5",
             )}
           >
-            Get started for free
+            {/*
+              Below 640px the full label does not fit beside the logo, the menu and Log in (a 390px
+              phone has 350px of content once the bar's side padding is taken off; the full CTA alone
+              is 193px), and it used to wrap onto up to four lines and spill out of the 78px bar. So
+              the VISIBLE label is shortened there and the link keeps its full accessible name via
+              aria-label: the visible words are the start of the name (WCAG 2.5.3, label in name),
+              and the hidden-from-AT span means a screen reader never hears both.
+            */}
+            <span className="max-sm:hidden">Get started for free</span>
+            <span className="sm:hidden" aria-hidden="true">
+              Get started
+            </span>
           </Link>
         </div>
       </div>
