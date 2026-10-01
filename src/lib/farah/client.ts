@@ -2,6 +2,8 @@ import "server-only";
 import { generateWithFailover, generateChatStreamWithFailover, type ServedBy } from "@/lib/llm";
 import { logFarahCall } from "./call-log";
 import { FARAH_SYSTEM_PROMPT } from "./system-prompt";
+import { buildFarahChatSystemPrompt } from "./chat-prompt";
+import type { LLMFinishReason } from "@/lib/llm/types";
 import { CHAT_MAX_OUTPUT_TOKENS } from "./token-budget";
 
 /**
@@ -57,7 +59,7 @@ export async function askFarahChat(
   // repo-wide search that askFarahChat has exactly one caller.
   maxTokens = CHAT_MAX_OUTPUT_TOKENS,
 ): Promise<string> {
-  const system = extraContext ? `${FARAH_SYSTEM_PROMPT}\n\n${extraContext}` : FARAH_SYSTEM_PROMPT;
+  const system = buildFarahChatSystemPrompt({ extraContext });
   const startedAt = performance.now();
   let served: ServedBy | undefined;
   const text = await generateWithFailover(
@@ -84,8 +86,14 @@ export async function* askFarahChatStream(
   turns: FarahChatTurn[],
   extraContext?: string,
   maxTokens = CHAT_MAX_OUTPUT_TOKENS,
+  opts: {
+    /** The quick action this message came from; selects that action's own instructions (chat-prompt.ts). */
+    quickAction?: string;
+    /** Called once when the reply ends, with why it stopped. A `length` stop means the reply is cut off. */
+    onFinish?: (reason: LLMFinishReason) => void;
+  } = {},
 ): AsyncGenerator<string> {
-  const system = extraContext ? `${FARAH_SYSTEM_PROMPT}\n\n${extraContext}` : FARAH_SYSTEM_PROMPT;
+  const system = buildFarahChatSystemPrompt({ quickAction: opts.quickAction, extraContext });
   const startedAt = performance.now();
   let served: ServedBy | undefined;
   let chunks = 0;
@@ -95,6 +103,8 @@ export async function* askFarahChatStream(
         systemPrompt: system,
         turns,
         maxOutputTokens: maxTokens,
+        // Set per provider attempt: after a failover the fallback's own report is the one that stands.
+        onFinish: opts.onFinish,
       }),
     (s) => (served = s),
   )) {
