@@ -15,6 +15,7 @@ import {
 import { QueueHeader } from "@/components/admin/queue-chrome";
 import { Container, EyebrowLabel, BorderedCard, Button } from "@/components/ui";
 import { markMentorPaymentRefundedAction } from "@/lib/admin/ops/refund-actions";
+import { formatDate, formatDateTime } from "@/lib/format/datetime";
 
 export const metadata = {
   title: "Operations — Talentrah admin",
@@ -92,10 +93,10 @@ export default async function OpsPage() {
                   <BorderedCard className="flex flex-col gap-1.5 p-5">
                     <div className="flex flex-wrap items-baseline justify-between gap-3">
                       <span className="font-display text-[17px]">₦{r.amountNgn.toLocaleString("en-NG")}</span>
-                      <span className="text-[13px] text-ink-soft">marked {r.markedAt.slice(0, 10)}</span>
+                      <span className="text-[13px] text-ink-soft">marked {formatDate(r.markedAt)}</span>
                     </div>
                     <p className="text-[13.5px] text-ink-soft">
-                      Session <code className="text-[12.5px]">{r.sessionId}</code> · slot started {r.sessionStart.slice(0, 10)}
+                      Session <code className="text-[12.5px]">{r.sessionId}</code> · slot started {formatDate(r.sessionStart)}
                     </p>
                     <p className="text-[13.5px] text-ink-soft">
                       Paystack reference{" "}
@@ -158,9 +159,9 @@ export default async function OpsPage() {
                     <p className="text-[13.5px] text-ink-soft">
                       auto-renew {r.autoRenewStatus ?? "—"}
                       {r.nextRenewalDate &&
-                        ` · next attempt ${new Date(r.nextRenewalDate).toLocaleDateString()}`}
+                        ` · next attempt ${formatDate(r.nextRenewalDate)}`}
                       {r.lastFailureAt &&
-                        ` · last failure ${new Date(r.lastFailureAt).toLocaleDateString()}`}
+                        ` · last failure ${formatDate(r.lastFailureAt)}`}
                     </p>
                   </BorderedCard>
                 </li>
@@ -210,7 +211,7 @@ export default async function OpsPage() {
                       — {e.operatorEmail}
                     </span>
                     <span className="text-[13px] text-ink-soft">
-                      {new Date(e.occurredAt).toLocaleString()}
+                      {formatDateTime(e.occurredAt)}
                       {e.ip && ` · ${e.ip}`}
                     </span>
                   </BorderedCard>
@@ -276,7 +277,7 @@ export default async function OpsPage() {
                       <>
                         {f.hoursSince}h ago
                         <span className="ml-2 text-[12.5px] text-ink-soft">
-                          {new Date(f.lastCheckedAt).toLocaleString()}
+                          {formatDateTime(f.lastCheckedAt)}
                         </span>
                       </>
                     )}
@@ -308,7 +309,7 @@ export default async function OpsPage() {
               {queue.stalePending} pending {queue.stalePending === 1 ? "match has" : "matches have"}{" "}
               waited more than a day
               {queue.oldestPendingAt &&
-                ` — oldest since ${new Date(queue.oldestPendingAt).toLocaleDateString()}`}
+                ` — oldest since ${formatDate(queue.oldestPendingAt)}`}
               . Pending means waiting on the user, so this is a signal about reach, not a fault.
             </p>
           )}

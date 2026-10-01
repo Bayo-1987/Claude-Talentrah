@@ -6,6 +6,7 @@ import { computeSessionPrice, type MentorshipSessionType } from "@/lib/mentorshi
 import { Container, EyebrowLabel, BorderedCard, Button } from "@/components/ui";
 import { renderMarkdownParagraphs } from "@/lib/farah/render-markdown";
 import { UNPAID_HOLD_NOTICE } from "@/lib/mentorship/unpaid-hold";
+import { formatDateTime } from "@/lib/format/datetime";
 
 const BIO_LINK_CLASS = "text-rust underline underline-offset-2 hover:text-rust-hover";
 
@@ -94,13 +95,7 @@ export default async function MentorProfilePage({
               >
                 {mentor.openSlots.map((slot) => (
                   <option key={slot.id} value={slot.id}>
-                    {new Date(slot.startAt).toLocaleString(undefined, {
-                      weekday: "short",
-                      month: "short",
-                      day: "numeric",
-                      hour: "numeric",
-                      minute: "2-digit",
-                    })}
+                    {formatDateTime(slot.startAt)}
                   </option>
                 ))}
               </select>

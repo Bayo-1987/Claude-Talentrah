@@ -3,6 +3,7 @@ import { sessionsAsMentor } from "@/lib/mentorship/queries";
 import { confirmMentorSessionAction } from "@/lib/mentorship/actions";
 import { Container, EyebrowLabel, BorderedCard, Button } from "@/components/ui";
 import { bucketSession, sessionStatusLabel } from "@/lib/mentorship/session-buckets";
+import { formatDateTime } from "@/lib/format/datetime";
 
 export const metadata = { title: "Your mentees — Talentrah" };
 
@@ -48,7 +49,7 @@ export default async function MentorSessionsPage() {
                 <BorderedCard key={s.id} className="flex flex-col gap-2 p-5">
                   <p className="font-semibold text-ink">{s.menteeName} · {s.sessionType.replace(/_/g, " ")}</p>
                   <p className="text-[13.5px] text-ink-soft">
-                    {new Date(s.scheduledStart).toLocaleString()}
+                    {formatDateTime(s.scheduledStart)}
                   </p>
                   <p className="text-[12.5px] text-amber">
                     Confirm within 24 hours of the scheduled time or this booking auto-cancels and any payment is refunded.
@@ -99,7 +100,7 @@ function SessionRow({ s, now }: { s: Awaited<ReturnType<typeof sessionsAsMentor>
     <BorderedCard className="flex flex-col gap-2 p-5">
       <p className="font-semibold text-ink">{s.menteeName} · {s.sessionType.replace(/_/g, " ")}</p>
       <p className="text-[13.5px] text-ink-soft">
-        {new Date(s.scheduledStart).toLocaleString()} · {sessionStatusLabel(s.status, s.scheduledStart, now, "mentor", s.createdAt)}
+        {formatDateTime(s.scheduledStart)} · {sessionStatusLabel(s.status, s.scheduledStart, now, "mentor", s.createdAt)}
       </p>
       {s.meetingLink && (
         <a href={s.meetingLink} target="_blank" rel="noopener noreferrer" className="text-[13.5px] text-rust">

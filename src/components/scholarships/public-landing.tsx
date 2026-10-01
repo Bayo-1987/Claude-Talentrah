@@ -6,6 +6,7 @@ import { LANDING_PAGE_MIN_ENTRIES } from "@/lib/seo/landing-pages";
 import { DEGREE_LEVEL_LABEL, FUNDING_TYPE_LABEL, SAVE_STATUS_LABEL } from "@/lib/scholarships/types";
 import { Constants, type Tables } from "@/lib/supabase/types";
 import { daysUntil } from "./scholarship-card";
+import { formatCalendarDate } from "@/lib/format/datetime";
 
 /**
  * send-480 — the signed-out visitor's entry point at `/scholarships`, replacing what
@@ -63,18 +64,12 @@ export const DEADLINE_NOTE_FALLBACK = "See the official listing for the deadline
 /** A countdown is shown only inside this window, matching the scholarship card's rust callout. */
 const URGENT_WITHIN_DAYS = 14;
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
 /**
- * "2 Oct 2026". Day-month-year with a NAMED month, built by hand rather than with
- * toLocaleDateString(): the server's locale would render 2 October as `10/2/2026`,
- * which a Nigerian reader can equally take as 10 February. Returns null for anything
- * that is not a real YYYY-MM-DD date.
+ * "2 Oct 2026": the app's one calendar-date format (src/lib/format/datetime.ts), which this file used to build by hand to
+ * avoid the server locale's `10/2/2026` (2 October or 10 February?). Null for anything that is not a real YYYY-MM-DD date.
  */
 function formatDeadlineLong(deadline: string): string | null {
-  const [y, m, d] = deadline.split("-").map(Number);
-  if (!y || !m || !d || m < 1 || m > 12) return null;
-  return `${d} ${MONTHS[m - 1]} ${y}`;
+  return formatCalendarDate(deadline) || null;
 }
 
 function deadlineDisplay(l: Pick<LandingListing, "application_deadline" | "deadline_note">): {
