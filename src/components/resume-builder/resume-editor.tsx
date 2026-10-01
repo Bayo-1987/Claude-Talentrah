@@ -8,6 +8,9 @@ import { useReportCreditsBalance } from "@/components/app-shell/credits-balance"
 import { findUneditedExampleFields } from "@/lib/resume-builder/example-guard";
 import { TemplateRenderer } from "@/components/resume-builder/templates";
 import { PrintButton } from "@/components/resume-builder/print-button";
+import { useUnsavedGuard } from "@/components/resume-builder/use-unsaved-guard";
+import { CREDIT_COSTS } from "@/lib/credits/costs";
+import { chargeAnnouncement, creditsPhrase, priced } from "@/lib/credits/price-labels";
 import { MinimalRichEditor } from "@/components/rich-text/minimal-rich-editor";
 import { MinimalRichEditorList } from "@/components/rich-text/minimal-rich-editor-list";
 import {
@@ -139,25 +142,53 @@ function ExampleFlagNotice({ text }: { text: string }) {
   return <p className="text-[12.5px] text-rust">{text}</p>;
 }
 
-function RewriteButtons({
+type RewriteInstruction = "impact" | "quantify" | "concise";
+
+const REWRITE_CONTROLS: { instruction: RewriteInstruction; label: string }[] = [
+  { instruction: "impact", label: "More impact-driven" },
+  { instruction: "quantify", label: "Quantify this" },
+  { instruction: "concise", label: "More concise" },
+];
+
+/**
+ * The three Farah rewrite controls, each carrying its price (send-493). `min-h-11` is the 44px hit target the
+ * design system asks for: these were 18px-tall underlined links. `passCovered` swaps the credit price for
+ * "included with your Pass" so a covered account is never shown a price it will not pay.
+ */
+export function RewriteButtons({
   onRewrite,
+  passCovered = false,
+  disabled = false,
 }: {
-  onRewrite: (instruction: "impact" | "quantify" | "concise") => void;
+  onRewrite: (instruction: RewriteInstruction) => void;
+  passCovered?: boolean;
+  /** While a rewrite is waiting on Keep/Discard: a second one would replace a paid result nobody has decided on. */
+  disabled?: boolean;
 }) {
   return (
-    <div className="flex items-center gap-3 text-[12px]">
+    <div className="flex flex-wrap items-center gap-x-4 text-[13px]">
       <span className="font-semibold text-ink-soft">Farah:</span>
-      <button type="button" onClick={() => onRewrite("impact")} className="underline underline-offset-2 text-ink-soft hover:text-rust">
-        More impact-driven
-      </button>
-      <button type="button" onClick={() => onRewrite("quantify")} className="underline underline-offset-2 text-ink-soft hover:text-rust">
-        Quantify this
-      </button>
-      <button type="button" onClick={() => onRewrite("concise")} className="underline underline-offset-2 text-ink-soft hover:text-rust">
-        More concise
-      </button>
+      {REWRITE_CONTROLS.map(({ instruction, label }) => (
+        <button
+          key={instruction}
+          type="button"
+          disabled={disabled}
+          onClick={() => onRewrite(instruction)}
+          className="inline-flex min-h-11 items-center underline underline-offset-2 text-ink-soft hover:text-rust disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {priced(label, CREDIT_COSTS.bulletRewrite, passCovered)}
+        </button>
+      ))}
     </div>
   );
+}
+
+/** A generated rewrite waiting for the user's decision. The editor text is NOT changed until Keep. */
+interface PendingRewrite {
+  index: number;
+  text: string;
+  /** Credits this generation took (0 when a Pass covered it). Already spent — Discard cannot give them back. */
+  credits: number;
 }
 
 export interface ResumeEditorProps {
@@ -169,15 +200,28 @@ export interface ResumeEditorProps {
    *  through as-is to TemplateRenderer, which already falls back to the
    *  default layout for null/unmapped slugs. */
   templateSlug: string | null;
+  /**
+   * An active Pass covers bullet rewrites right now (checkPassCoverage, read by the page). Only changes what
+   * the rewrite controls SAY; whether a rewrite is charged is decided by rewriteBulletAction, unchanged.
+   */
+  passCovered?: boolean;
 }
 
-export function ResumeEditor({ resumeId, initialTitle, initialContent, templateSlug }: ResumeEditorProps) {
+export function ResumeEditor({ resumeId, initialTitle, initialContent, templateSlug, passCovered = false }: ResumeEditorProps) {
   const [title, setTitle] = useState(initialTitle);
   const [content, setContent] = useState<StructuredResume>(initialContent);
   const [rewritingKey, setRewritingKey] = useState<string | null>(null);
   const [rewriteError, setRewriteError] = useState<string | null>(null);
   const [rewriteErrorKey, setRewriteErrorKey] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  /*
+   * "Has the user changed something since load or the last Save". NOT the inverse of `saved`: `saved` starts
+   * false on a freshly opened, untouched resume (the button reads "Save"), so using it would warn people who
+   * changed nothing.
+   */
+  const [dirty, setDirty] = useState(false);
+  const [pendingRewrite, setPendingRewrite] = useState<PendingRewrite | null>(null);
+  const [announcement, setAnnouncement] = useState<{ index: number; text: string } | null>(null);
   const [pending, startTransition] = useTransition();
   const [dragExperienceIndex, setDragExperienceIndex] = useState<number | null>(null);
   const [dragEducationIndex, setDragEducationIndex] = useState<number | null>(null);
@@ -199,16 +243,24 @@ export function ResumeEditor({ resumeId, initialTitle, initialContent, templateS
   // computation rather than a stored flag.
   const flaggedPaths = new Set(findUneditedExampleFields(content).map((f) => f.path));
 
+  // A rewrite waiting on Keep/Discard is paid-for work that exists nowhere but here, so it counts too.
+  useUnsavedGuard(
+    dirty || pendingRewrite !== null,
+    "You have unsaved changes to this resume, including a paid rewrite not yet kept or saved. Leave anyway?",
+  );
+
   function update<K extends keyof StructuredResume>(key: K, value: StructuredResume[K]) {
     setContent((prev) => ({ ...prev, [key]: value }));
     setSaved(false);
+    setDirty(true);
   }
 
-  async function handleRewrite(index: number, instruction: "impact" | "quantify" | "concise") {
+  async function handleRewrite(index: number, instruction: RewriteInstruction) {
     const key = `${index}`;
     setRewritingKey(key);
     setRewriteError(null);
     setRewriteErrorKey(null);
+    setAnnouncement(null);
     try {
       // Rewrites the WHOLE field, same as before an entry could hold more
       // than one bullet — see rewrite-bullet.ts's own header for why this
@@ -222,20 +274,49 @@ export function ResumeEditor({ resumeId, initialTitle, initialContent, templateS
         setRewriteErrorKey(key);
         return;
       }
-      // A paid rewrite: tell the masthead its new balance (issue #605). Absent = nothing was spent.
+      /*
+       * The credits are ALREADY SPENT here: rewriteBulletAction takes the charge when the rewrite is generated
+       * (after the model call succeeds), not when it is applied. That is unchanged by the preview below, and
+       * the preview says so rather than implying Discard is free. A paid rewrite: tell the masthead its new
+       * balance (issue #605). Absent = nothing was spent (Pass-covered).
+       */
+      const credits = typeof creditsBalance === "number" ? CREDIT_COSTS.bulletRewrite : 0;
       if (typeof creditsBalance === "number") reportCreditsBalance(creditsBalance);
-      const next = [...content.experience];
-      next[index] = { ...next[index], ...narrativePatch(text) };
-      update("experience", next);
+      setPendingRewrite({ index, text, credits });
+      setAnnouncement({ index, text: chargeAnnouncement("Rewritten", credits) });
     } finally {
       setRewritingKey(null);
     }
+  }
+
+  function keepRewrite() {
+    if (!pendingRewrite) return;
+    const { index, text } = pendingRewrite;
+    if (!content.experience[index]) {
+      setPendingRewrite(null);
+      setRewriteError("That entry changed while the rewrite was waiting, so it was not applied.");
+      setRewriteErrorKey(`${index}`);
+      return;
+    }
+    const next = [...content.experience];
+    next[index] = { ...next[index], ...narrativePatch(text) };
+    update("experience", next);
+    setPendingRewrite(null);
+    setAnnouncement({ index, text: "Rewrite kept — no further charge" });
+  }
+
+  function discardRewrite() {
+    if (!pendingRewrite) return;
+    // Nothing to restore: the editor text was never changed. The charge was taken at generation and stays.
+    setAnnouncement({ index: pendingRewrite.index, text: "Rewrite discarded — your original text is unchanged" });
+    setPendingRewrite(null);
   }
 
   function handleSave() {
     startTransition(async () => {
       await saveResumeAction(resumeId, content, title);
       setSaved(true);
+      setDirty(false);
     });
   }
 
@@ -301,6 +382,7 @@ export function ResumeEditor({ resumeId, initialTitle, initialContent, templateS
             onChange={(e) => {
               setTitle(e.target.value);
               setSaved(false);
+              setDirty(true);
             }}
             className="mt-1 w-full max-w-[420px] border-none bg-transparent font-display text-[26px] outline-none focus:underline"
           />
@@ -411,11 +493,57 @@ export function ResumeEditor({ resumeId, initialTitle, initialContent, templateS
                 minHeightClassName="min-h-[84px]"
                 placeholder="One achievement per paragraph — press Enter to start the next bullet point."
               />
-              <RewriteButtons onRewrite={(instr) => handleRewrite(i, instr)} />
+              <RewriteButtons
+                onRewrite={(instr) => handleRewrite(i, instr)}
+                passCovered={passCovered}
+                disabled={rewritingKey !== null || pendingRewrite !== null}
+              />
               {rewritingKey === `${i}` && <span className="text-[12px] text-ink-soft">Farah is rewriting…</span>}
               {rewritingKey === null && rewriteErrorKey === `${i}` && rewriteError && (
                 <span className="text-[12px] text-rust">{rewriteError}</span>
               )}
+              {pendingRewrite?.index === i && (
+                <div
+                  data-testid="rewrite-preview"
+                  className="flex flex-col gap-3 border-[1.5px] border-ink bg-paper p-3"
+                >
+                  <EyebrowLabel size="sm">Farah&apos;s rewrite — preview</EyebrowLabel>
+                  <p className="whitespace-pre-wrap text-[13.5px] leading-relaxed text-ink">{pendingRewrite.text}</p>
+                  <p className="text-[12.5px] italic text-ink-soft">
+                    {pendingRewrite.credits > 0
+                      ? `${creditsPhrase(pendingRewrite.credits)} already used for this rewrite — Keep or Discard won't charge again, and Discard doesn't refund it.`
+                      : "Included with your Pass — Keep or Discard won't use any credits."}
+                  </p>
+                  <div className="flex flex-wrap gap-3">
+                    <button
+                      type="button"
+                      onClick={keepRewrite}
+                      className="min-h-11 border-[1.5px] border-ink bg-ink px-4 font-body text-[14px] font-semibold text-paper hover:border-rust hover:bg-rust"
+                    >
+                      Keep
+                    </button>
+                    <button
+                      type="button"
+                      onClick={discardRewrite}
+                      className="min-h-11 border-[1.5px] border-ink bg-transparent px-4 font-body text-[14px] font-semibold text-ink hover:border-rust hover:text-rust"
+                    >
+                      Discard
+                    </button>
+                  </div>
+                </div>
+              )}
+              {/*
+                The polite live region: the result and its charge announced together. Always in the DOM (a
+                live region inserted together with its text is not reliably announced) and visible, because
+                the same sentence is useful to everyone.
+              */}
+              <p
+                role="status"
+                aria-live="polite"
+                className={announcement?.index === i ? "text-[12px] text-ink-soft" : "sr-only"}
+              >
+                {announcement?.index === i ? announcement.text : ""}
+              </p>
             </BorderedCard>
           ))}
         </div>

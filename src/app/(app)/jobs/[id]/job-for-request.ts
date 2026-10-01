@@ -62,3 +62,15 @@ export const jobForRequest = cache(async (id: string) => {
     .maybeSingle();
   return { supabase, data };
 });
+
+/**
+ * 0202 — where a SUPERSEDED duplicate's old URL should go. RLS hides the superseded row from the visitor (so
+ * `jobForRequest` finds nothing), and this asks the one question they are allowed to have answered: is there an open
+ * replacement, and what is its id. `superseded_job_target` returns only that id, never anything about either row, and
+ * returns null unless the replacement is itself open and visible — so a dead end is a 404, not a redirect loop.
+ */
+export const supersededTargetFor = cache(async (id: string): Promise<string | null> => {
+  const supabase = await createClient();
+  const { data } = await supabase.rpc("superseded_job_target", { p_id: id });
+  return typeof data === "string" ? data : null;
+});
