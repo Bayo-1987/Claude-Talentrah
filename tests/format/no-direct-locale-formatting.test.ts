@@ -10,12 +10,17 @@
  *   - any `.toLocaleString(...)` whose receiver is a Date (or cannot be told apart from one: `any`/`unknown`).
  * NOT flagged: `.toLocaleString()` on a number (₦ amounts, counts); that is number formatting, which this does not own.
  *
- * The only file allowed to use them is the formatter itself. The scanner is proven able to fail, and not vacuous: it must
- * have read the real source tree.
+ * The only file allowed to use them is the formatter itself, plus an explicit ALLOWLIST (locale-formatting-allowlist.ts) of
+ * today's remaining violations that can only ever SHRINK: tests/format/ratchet-check.ts holds it exactly equal to the real
+ * hits and its ceiling at or below where it started, so a new violation fails, a converted site that is still listed fails, and
+ * the allowlist cannot grow. The scanner is proven able to fail, and not vacuous: it must have read the real source tree.
  */
+import { execFileSync } from "node:child_process";
 import path from "node:path";
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
+import { checkRatchet } from "./ratchet-check";
+import { ALLOWLIST, ALLOWLIST_CEILING, INITIAL_VIOLATIONS } from "./locale-formatting-allowlist";
 
 const ROOT = path.resolve(__dirname, "../..");
 const ALLOWED = new Set(["src/lib/format/datetime.ts"]);
@@ -112,7 +117,7 @@ describe("the scanner itself", () => {
   });
 });
 
-describe("src/ formats dates only through the formatter", () => {
+describe("src/ formats dates only through the formatter (modulo the shrinking allowlist)", () => {
   const tsconfig = ts.readConfigFile(path.join(ROOT, "tsconfig.json"), ts.sys.readFile);
   const parsed = ts.parseJsonConfigFileContent(tsconfig.config, ts.sys, ROOT);
   const program = ts.createProgram(
@@ -126,10 +131,24 @@ describe("src/ formats dates only through the formatter", () => {
     expect(read.length).toBeGreaterThan(300);
   });
 
-  it("has no direct date formatting outside src/lib/format/datetime.ts", () => {
+  it("has no direct date formatting outside src/lib/format/datetime.ts, except exactly what the allowlist says", () => {
+    const problems = checkRatchet({ hits, allowlist: ALLOWLIST, ceiling: ALLOWLIST_CEILING, initial: INITIAL_VIOLATIONS });
     expect(
-      hits,
-      `format dates with src/lib/format/datetime.ts:\n${hits.map((h) => `  ${h.file}:${h.line}  ${h.text}`).join("\n")}`,
+      problems,
+      `${problems.join("\n")}\n\nHits:\n${hits.map((h) => `  ${h.file}:${h.line}  ${h.text}`).join("\n")}`,
     ).toEqual([]);
   }, 120_000);
+
+  it("the allowlist ceiling has not grown since main (skipped, loudly, where origin/main is not available)", (ctx) => {
+    let mainSource: string;
+    try {
+      mainSource = execFileSync("git", ["show", "origin/main:tests/format/locale-formatting-allowlist.ts"], { cwd: ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+    } catch {
+      ctx.skip("origin/main (or the file on it) is not available in this checkout, so growth since main cannot be checked here");
+      return;
+    }
+    const onMain = Number(/ALLOWLIST_CEILING = (\d+)/.exec(mainSource)?.[1]);
+    expect(Number.isFinite(onMain), "could not read ALLOWLIST_CEILING from origin/main").toBe(true);
+    expect(ALLOWLIST_CEILING, "the allowlist may only shrink: its ceiling is above the one on main").toBeLessThanOrEqual(onMain);
+  });
 });

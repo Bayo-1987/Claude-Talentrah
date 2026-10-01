@@ -3,6 +3,7 @@ import { requirePermission } from "@/lib/admin/require-admin";
 import { financialHealth } from "@/lib/admin/finance/queries";
 import { QueueHeader } from "@/components/admin/queue-chrome";
 import { Container, EyebrowLabel, BorderedCard } from "@/components/ui";
+import { formatDate } from "@/lib/format/datetime";
 
 export const metadata = {
   title: "Financial health — Talentrah admin",
@@ -71,7 +72,7 @@ export default async function FinancialHealthPage() {
                   <td className="px-4 py-3">{p.count}</td>
                   <td className="px-4 py-3">{money(p.totalMinor, p.currency)}</td>
                   <td className="px-4 py-3 text-[12.5px] text-ink-soft">
-                    oldest {new Date(p.oldestAt).toLocaleDateString()}
+                    oldest {formatDate(p.oldestAt)}
                   </td>
                 </tr>
               ))}

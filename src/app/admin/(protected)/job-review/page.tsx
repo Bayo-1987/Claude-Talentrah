@@ -4,6 +4,7 @@ import { decideJobReviewAction } from "@/lib/admin/moderation/actions";
 import { DecisionForm } from "@/components/admin/decision-form";
 import { QueueEmpty, QueueHeader } from "@/components/admin/queue-chrome";
 import { Container, EyebrowLabel, BorderedCard } from "@/components/ui";
+import { formatDate } from "@/lib/format/datetime";
 
 export const metadata = {
   title: "Job review — Talentrah admin",
@@ -51,7 +52,7 @@ export default async function JobReviewQueuePage() {
                   </h2>
                   <p className="text-[13.5px] text-ink-soft">
                     {job.location ?? "No location given"} · requested{" "}
-                    {new Date(job.requestedAt).toLocaleDateString()}
+                    {formatDate(job.requestedAt)}
                     {job.organizationVerified && (
                       <>
                         {" "}

@@ -4,6 +4,7 @@ import { decideScholarshipAction } from "@/lib/admin/moderation/actions";
 import { DecisionForm } from "@/components/admin/decision-form";
 import { Container, EyebrowLabel, BorderedCard } from "@/components/ui";
 import { QueueEmpty, QueueHeader } from "@/components/admin/queue-chrome";
+import { formatDate } from "@/lib/format/datetime";
 
 export const metadata = {
   title: "Scholarship review — Talentrah admin",
@@ -52,9 +53,9 @@ export default async function ScholarshipQueuePage() {
                   </h2>
                   <p className="text-[13.5px] text-ink-soft">
                     Deadline{" "}
-                    {s.deadline ? new Date(s.deadline).toLocaleDateString() : "not stated"}
+                    {s.deadline ? formatDate(s.deadline) : "not stated"}
                     {s.lastCheckedAt &&
-                      ` · last checked ${new Date(s.lastCheckedAt).toLocaleDateString()}`}
+                      ` · last checked ${formatDate(s.lastCheckedAt)}`}
                   </p>
                   {/*
                     The official URL is the single most useful thing for a

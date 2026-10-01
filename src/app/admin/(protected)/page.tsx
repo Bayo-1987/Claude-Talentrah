@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireAdmin } from "@/lib/admin/require-admin";
 import { Container, EyebrowLabel, BorderedCard } from "@/components/ui";
+import { formatDateTime } from "@/lib/format/datetime";
 
 /**
  * M1's landing page. Deliberately thin: it exists so /admin is a real
@@ -68,7 +69,7 @@ export default async function AdminHomePage() {
           <dt className="text-ink-soft">Session id</dt>
           <dd className="font-mono text-[13px]">{admin.sessionId}</dd>
           <dt className="text-ink-soft">Expires</dt>
-          <dd>{new Date(admin.expiresAt).toLocaleString()}</dd>
+          <dd>{formatDateTime(admin.expiresAt)}</dd>
         </dl>
       </BorderedCard>
 
