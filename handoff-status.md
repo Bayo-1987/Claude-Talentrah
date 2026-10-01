@@ -33,6 +33,79 @@ both served stale content in this project's history. Don't rely on either.
 
 ---
 
+## Merged 2026-10-01 — PR #615, tailoring and bullet rewrite update the masthead balance; every other credit spender proven to refresh (send-489, issue #605)
+
+| PR | Branch | Merged at (UTC) | Merge SHA |
+|----|--------|-----------------|-----------|
+| [#615](https://github.com/Bayo-1987/Claude-Talentrah/pull/615) | `fix/credit-balance-live-all-spenders-489` | 2026-10-01 10:48:12 | `1f275f5a7d5926d1d3ccbb6dfceb071522c42e05` |
+
+Finishes issue [#605](https://github.com/Bayo-1987/Claude-Talentrah/issues/605) after #609 fixed Farah chat: **after a credit-paid action the masthead
+kept showing the pre-charge balance** (the ledger and `profiles.credits_balance` were right; display only). The audit posted on the issue listed every
+seeker spender; this PR fixes the two that were stale and **proves, by measurement, that the rest already refresh**. No migration; **charging logic
+unchanged** (every spend assertion is a pass-through of the existing `spendCredits` contract).
+
+**What it changed.**
+- `commitTailoringAllowance` (`src/lib/tailoring/gate.ts`) returns `{ balanceAfter }`: the **ledger's own `balance_after`** for a spend (what
+  `spend_credits_atomic` computed under its lock), never `balance_at_check - cost`; `null` for a free trial or Pass. `/api/tailoring` responds with
+  `creditsBalance`, the **last** spend's balance across the tailoring and cover-letter legs (a free leg falls back to the earlier one).
+- `rewriteBulletAction` returns `creditsBalance` for a paid rewrite and omits it otherwise (Pass, failure, unaffordable).
+- `tailor-form.tsx` and `resume-editor.tsx` report it through the `credits-balance` provider #609 added; the masthead shows it without a reload and drops
+  the override as soon as the server hands down a different number.
+
+**The audit's other spenders, measured.** `e2e/credit-balance-live.spec.ts` (9 tests; each asserts the charge is **exactly** the `CREDIT_COSTS` price, the
+pill equals the post-charge **database** balance, and a `window` marker survived so the page was not reloaded) was first run against **unfixed `main`** on
+a throwaway PR (#616, run [36843712178](https://github.com/Bayo-1987/Claude-Talentrah/actions/runs/36843712178), closed and its branch deleted): **exactly two
+were red**, tailoring / cover letter and bullet rewrite. **Green on unfixed main, so confirmations and not fixes:** both scholarship actions on the
+**detail page and the list page**, Auto-Apply confirm (free weekly allowance used up), and Talent Directory verification, human review and boost. Each
+calls `revalidatePath` after the spend, which re-renders the layout.
+
+**A prediction this corrected.** Next's `revalidatePath` documentation says a Server Function "updates the UI immediately (if viewing the affected
+path)"; the scholarship actions revalidate `/scholarships` while the buttons also render on `/scholarships/[id]`, so the detail page looked like it would
+stay stale and a fix for it was written (the action returning `creditsBalance`, `FarahActions` reporting it). The measurement says it refreshes (the
+masthead pill **and** `FarahActions`' own "You have N credits" line). That change and its unit test were **withdrawn in the PR's second commit**: no
+code that is not needed. The documented caveat is conservative for this app version (`next` 16.3.5, `react-dom` 19.3.0).
+
+**Proof the tests can fail.** Tests-first commit `0667ace` on a draft PR: unit job **13 failed, 4440 passed** across exactly the four new files
+(run [36843654106](https://github.com/Bayo-1987/Claude-Talentrah/actions/runs/36843654106)), at assertion level (`expected undefined to be 40`,
+`expected undefined to deeply equal { balanceAfter: 35 }`); the cases that pin "nothing was spent, so no balance" passed before and after.
+The e2e red/green above is the unfixed-main run. The e2e could not be run locally (no database on that machine).
+
+### Verification (all four)
+
+**1. GitHub API** — `GET /repos/Bayo-1987/Claude-Talentrah/pulls/615`:
+```
+{"merged": true, "merged_at": "2026-10-01T10:48:12Z", "merge_commit_sha": "1f275f5a7d5926d1d3ccbb6dfceb071522c42e05",
+ "head_sha": "825e3dc933ee366a695b4380c1e2d0a3096b963c"}
+```
+Merged with `--match-head-commit`. `main` moved under this PR twice (#613, then #614 the signed-out masthead); the branch was brought up to date
+each time (`git diff` showed no overlap with this PR's files) and a full CI cycle ran on each head.
+
+**2. Fresh shallow clone** (`git clone --depth 10`): HEAD `1f275f5…`, contains the merge commit. `gate.ts` has `TailoringCommitResult` and three
+`return { balanceAfter … }`; `route.ts:153` `const creditsBalance = coverLetterCommit?.balanceAfter ?? tailoringCommit?.balanceAfter ?? null` and it is in the
+response; `resume-builder/actions.ts:418` `return { text: rewritten, creditsBalance: balanceAfter }`; `reportCreditsBalance` in `tailor-form.tsx:139` and
+`resume-editor.tsx:226`. **`src/lib/scholarships/actions.ts` has no `creditsBalance`** (withdrawn); `tests/scholarships/actions-credits-balance.test.ts`
+is absent; the three new unit files and the e2e spec are present.
+
+**3. Live production check.** Production deployment `dpl_AcxweBqis77zakxLKink5TXwf1L7`: `READY`, `target: production`, `githubCommitSha` = `1f275f5a…`, aliased to
+`www.talentrah.com`, created 2026-10-01 10:48:15. Signed-out, read-only probes (the paths themselves need a session): `POST /api/tailoring` **401**, `GET /tailor` **307 → /login**,
+`GET /` 200, i.e. the deployment is serving and the routes are gated as before. **The behavioural change was not probed in production**: a tailoring run or a bullet rewrite
+needs a signed-in session and spends a credit (see Not covered).
+
+**4. Full suite against merged `main`** — CI run [36851398741](https://github.com/Bayo-1987/Claude-Talentrah/actions/runs/36851398741) (push, `1f275f5`):
+```
+Typecheck, lint, unit tests : success   Test Files 398 passed (398)   Tests 4459 passed (4459)
+Playwright e2e              : success   487 passed (10.8m)         (includes the 9 credit-balance tests)
+Dependency audit, Secret scan, Migration drift (production): success   (Migration numbering: skipped on push events)
+```
+No flake rerun was needed on this run.
+
+### Not covered / still open
+- **No live check of these two paths in production yet.** They need a signed-in session and spend a credit. One real bullet rewrite (2 credits) would show the pill drop by 2 with no reload; offered to the owner after deploy.
+- The scholarship / Auto-Apply / Talent Directory refresh rests on `revalidatePath` behaviour of the current Next version; the spec would catch a change, but only in CI.
+- The PR's Lighthouse check was red (the known non-required `/jobs/remote` preview-data failure, #575).
+
+---
+
 ## Merged 2026-10-01 — PR #614, the signed-out masthead on a phone: short CTA label below 640px, 44px targets (send-488)
 
 | PR | Branch | Merged at (UTC) | Merge SHA |
@@ -112,6 +185,63 @@ All 23 tests of the new masthead spec ran and passed, and `signed-out-link-gate.
 - **#617:** Escape from inside the open menu loses keyboard focus (a11y, low). The click-open path is pinned; the keyboard-inside path is not.
 - **Follow-ups listed in the PR, not built:** raise the repo-wide hit-target floor from 40px to 44px (only the masthead is held to 44 here); the CTA's `px-[22px] py-[11px] text-[14px]` override is dead on desktop (the variant's classes win in `cn()`'s plain join), so the desktop CTA renders at 15px with 30px padding, and fixing it would change desktop.
 - Below 640px the visible label no longer says "for free" (the full phrase is the accessible name; the homepage hero and mobile sticky bar still say it). The hamburger still sits between the logo and Log in, as before.
+
+---
+
+## Merged 2026-10-01 — PR #613, `/mentorship` loading placeholder carries no heading (send-487)
+
+| PR | Branch | Merged at (UTC) | Merge SHA |
+|----|--------|-----------------|-----------|
+| [#613](https://github.com/Bayo-1987/Claude-Talentrah/pull/613) | `fix/mentorship-loading-heading-487` | 2026-10-01 09:45:13 | `9152850448a01f7422b8ae600da636c061cfb34b` |
+
+**What it changed.** One source file. `src/app/(app)/mentorship/(list)/loading.tsx` rendered the **signed-in page's** heading ("Talk to someone who's
+done it.") and intro paragraph. Since send-385 a signed-out visitor reaches this route too, so the streamed loading fallback landed in the **raw HTML**
+beside the page: two `<h1>`s, the wrong one first, and a slow-connection visitor reads the wrong one first (measured in send-480: 0.9 s on Fast 3G,
+1.5 s on Slow 3G). It now renders eyebrow + `SkeletonStatus` + skeleton cards and **no heading**, the same neutral pattern as `/scholarships`
+(send-480), `/jobs` and `/tracker` (send-484). The `Container` wrapper stays so the signed-in loading-to-page transition does not shift. No other file
+changed apart from tests. No migration.
+
+**Production before the change** (probed signed out, 2026-10-01 before the PR was pushed): `GET /mentorship` returned **2 `<h1>`s**, "Talk to someone
+who's done it." at byte 4458 and the landing's "Real career mentors, for the moments Farah can't coach you through alone." at byte 96864.
+
+**Proof the tests can fail (red, then green).** Tests-first commit `b60fd19` on a draft PR: unit job **2 failed, 4433 passed** (run
+[36841854396](https://github.com/Bayo-1987/Claude-Talentrah/actions/runs/36841854396)), exactly the two intended assertions in
+`tests/mentorship/list-loading.test.tsx` (no heading of any level; none of the signed-in copy) and nothing else. The other three tests in that file
+(still announces loading, keeps the eyebrow and skeletons, and a control that the signed-in page still carries the heading the old placeholder echoed)
+passed before and after. The new e2e in `e2e/mentorship-public-landing.spec.ts` (exactly one `<h1>` in the RAW bytes via `request.get`, the landing's
+own, for `/mentorship`, `?error=…` and `?utm_source=…`) could not be shown red in CI because the e2e job is skipped while the unit job fails; its
+premise is the production probe above. **Not testable deterministically:** the slow-connection "wrong heading first" ordering; the raw-HTML count and
+content are what the tests pin.
+
+### Verification (all four)
+
+**1. GitHub API** — `GET /repos/Bayo-1987/Claude-Talentrah/pulls/613`:
+```
+{"merged": true, "merged_at": "2026-10-01T09:45:13Z", "merge_commit_sha": "9152850448a01f7422b8ae600da636c061cfb34b",
+ "head_sha": "9bca7d8d87193295f3201ed3ffa330aaecae0a74"}
+```
+Merged with `--match-head-commit` on that head; `main` had not moved since the PR's base.
+
+**2. Fresh shallow clone** (`git clone --depth 10`): HEAD `9152850…`, contains the merge commit; `loading.tsx` body is `Container` > `SkeletonStatus` +
+`EyebrowLabel` + `SkeletonCard`s (the only `<h1` string left in the file is inside the header comment); `tests/mentorship/list-loading.test.tsx` present;
+the `send-487` e2e is in `e2e/mentorship-public-landing.spec.ts`.
+
+**3. Live production probe** (2026-10-01 09:56 UTC, **signed out**, read-only; deployment `dpl_3ZE2yRJvy6sfjCrXfhpCZRBh7pa1`, `githubCommitSha` `91528504…`):
+```
+GET /mentorship                200  1 <h1>  "Real career mentors, for the moments Farah can't coach you through alone."  canonical https://www.talentrah.com/mentorship
+GET /mentorship?error=anything 200  1 <h1>  same
+GET /mentorship?utm_source=x   200  1 <h1>  same
+signed-in heading "done it." anywhere in the response: 0      cache-control: private, no-cache, no-store, max-age=0, must-revalidate
+controls: /mentorship/apply 307, /mentorship/<unknown id> 307 (the sub-paths are still gated)
+```
+No signed-in production probe was done; the signed-in loading-to-page transition rests on `Container` being unchanged and the existing signed-in e2e.
+
+**4. Full suite against merged `main`** — CI on `9152850`: `Typecheck, lint, unit tests` success (394 files / 4435 tests on the PR head), `Playwright e2e`
+success, `Dependency audit`, `Secret scan` and `Migration drift (production)` success. The PR's Lighthouse check was red (the known non-required
+`/jobs/remote` preview-data failure, #575).
+
+### Not covered / still open
+- The placeholder keeps its `Container` wrapper (deliberately, to leave the signed-in transition alone). Whether that wrapper's gutter stacks with the shell's on a phone, as send-480 found for the scholarships landing component, was not measured here for this page.
 
 ---
 
