@@ -24,8 +24,10 @@ const PAGES = ["/", "/about", "/scholarships", "/jobs", "/tracker"];
 const PHONE_WIDTHS = [360, 375, 390, 412];
 
 type Box = { x: number; y: number; w: number; h: number; r: number; b: number };
+type Style = { padL: number; padR: number; padT: number; padB: number; fontSize: number; fontFamily: string; fontWeight: string };
 type Measured = {
   row: Box;
+  style: { login: Style; cta: Style };
   vw: number;
   scrollW: number;
   clientW: number;
@@ -71,6 +73,18 @@ async function measure(page: Page): Promise<Measured> {
     const menu = find('button[aria-label="Main menu"]');
     const login = find('a[href="/login"]');
     const cta = find('a[href="/signup"]');
+    const style = (el: Element): Style => {
+      const cs = getComputedStyle(el);
+      return {
+        padL: parseFloat(cs.paddingLeft),
+        padR: parseFloat(cs.paddingRight),
+        padT: parseFloat(cs.paddingTop),
+        padB: parseFloat(cs.paddingBottom),
+        fontSize: parseFloat(cs.fontSize),
+        fontFamily: cs.fontFamily,
+        fontWeight: cs.fontWeight,
+      };
+    };
     const withText = (el: Element) => ({
       ...box(el),
       lines: lines(el),
@@ -78,6 +92,7 @@ async function measure(page: Page): Promise<Measured> {
     });
     return {
       row: box(header.firstElementChild!),
+      style: { login: style(login), cta: style(cta) },
       vw: window.innerWidth,
       scrollW: document.documentElement.scrollWidth,
       clientW: document.documentElement.clientWidth,
@@ -242,24 +257,45 @@ test.describe("signed-out masthead on a phone (send-488)", () => {
 
 /**
  * DESKTOP DOES NOT CHANGE. Proven once, by hand, by comparing before/after screenshots of the header at
- * 1280, 1000, 900, 899, 700 and 640px (byte-identical PNGs: only widths below 640px differ). The repo has no
- * committed screenshot baselines (they are platform-specific, and CI renders on Linux), so what CI guards
- * is the geometry: the sizes below are the ones measured on main before this change.
+ * 1280, 1000, 900, 899, 700 and 640px on five pages (byte-identical PNGs: only widths below 640px differ).
+ *
+ * What CI guards is the STYLE that produces the layout (padding, font size, min-height, the bar's height,
+ * the full label on one line), NOT rendered widths. A width is padding plus the text's width, and text
+ * widths are platform-dependent: "Log in" measured 52.8px wide on macOS and 55px on CI's Linux, a 2.2px
+ * difference with identical CSS. (The first version of this block pinned those widths and failed in CI for
+ * exactly that reason; the repo likewise has no committed screenshot baselines.) Everything platform-
+ * independent is still pinned exactly: heights, padding, font size, and where things sit.
  */
+/**
+ * The typeface of both text controls, as computed CSS: the family stack and the weight. These are not
+ * rendered measurements, so they are identical on every platform, and they are what makes a font swap
+ * (a different family, a lighter weight) fail here instead of slipping through a padding-only pin.
+ */
+const DESKTOP_TYPE = {
+  fontFamily: '"IBM Plex Sans", "IBM Plex Sans Fallback", Arial, Helvetica, sans-serif',
+  fontWeight: "600",
+};
+
 test.describe("the masthead from 640px up is unchanged (send-488)", () => {
   for (const width of [1280, 900, 640]) {
-    test(`${width}px: control sizes and the full label are as before`, async ({ page }) => {
+    test(`${width}px: control styles, bar height and the full label are as before`, async ({ page }) => {
       await open(page, "/about", width);
       const m = await measure(page);
       expect(m.row.h).toBeCloseTo(78, 0);
-      expect(m.controls.login.w).toBeCloseTo(52.8, 0);
+      // Log in: the ghost button at its desktop size (min-h 44, 6px sides, 10px top and bottom, 15px).
+      expect(m.style.login).toEqual({ ...DESKTOP_TYPE, padL: 6, padR: 6, padT: 10, padB: 10, fontSize: 15 });
       expect(m.controls.login.h).toBeCloseTo(44, 0);
-      expect(m.controls.cta.w).toBeCloseTo(192.8, 0);
+      // The CTA keeps the primary variant's desktop size (30px sides, 15px top and bottom, 15px text); the
+      // `px-[22px] py-[11px] text-[14px]` its className also carries is dead on desktop and stays that way.
+      expect(m.style.cta).toEqual({ ...DESKTOP_TYPE, padL: 30, padR: 30, padT: 15, padB: 15, fontSize: 15 });
       expect(m.controls.cta.h).toBeCloseTo(52.5, 0);
       expect(m.controls.cta.visibleLabel).toBe("Get started for free");
       expect(m.controls.cta.lines).toBe(1);
-      // The bar keeps its 40px side padding: the logo starts at (viewport - content) / 2 + 40 at most widths,
-      // and at exactly 40px on any viewport narrower than the 1120px max width.
+      expect(m.controls.login.lines).toBe(1);
+      // Width is padding plus text, so it is bounded by the text rather than pinned: the full-label CTA is
+      // wider than the short label could ever make it, and neither control is squeezed below its padding.
+      expect(m.controls.cta.w).toBeGreaterThan(m.style.cta.padL + m.style.cta.padR + 100);
+      // The bar keeps its 40px side padding: below the 1120px max width the logo starts exactly at 40px.
       if (width < 1200) expect(m.controls.logo.x).toBeCloseTo(40, 0);
     });
   }
