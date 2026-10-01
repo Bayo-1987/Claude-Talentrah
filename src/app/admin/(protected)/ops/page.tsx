@@ -13,7 +13,7 @@ import {
   MAX_INDETERMINATE_RENEWAL_ATTEMPTS,
 } from "@/lib/admin/ops/queries";
 import { QueueHeader } from "@/components/admin/queue-chrome";
-import { Container, EyebrowLabel, BorderedCard, Button } from "@/components/ui";
+import { Container, EyebrowLabel, BorderedCard, Button, NairaAmount } from "@/components/ui";
 import { markMentorPaymentRefundedAction } from "@/lib/admin/ops/refund-actions";
 import { formatDate, formatDateTime } from "@/lib/format/datetime";
 
@@ -92,7 +92,9 @@ export default async function OpsPage() {
                 <li key={r.sessionId}>
                   <BorderedCard className="flex flex-col gap-1.5 p-5">
                     <div className="flex flex-wrap items-baseline justify-between gap-3">
-                      <span className="font-display text-[17px]">₦{r.amountNgn.toLocaleString("en-NG")}</span>
+                      <span className="font-display text-[17px]">
+                        <NairaAmount amount={r.amountNgn} />
+                      </span>
                       <span className="text-[13px] text-ink-soft">marked {formatDate(r.markedAt)}</span>
                     </div>
                     <p className="text-[13.5px] text-ink-soft">
