@@ -73,7 +73,8 @@ test.describe("the per-card stage select", () => {
     await authedPage.goto("/tracker");
     await expect(authedPage.getByRole("combobox", { name: "Stage for Illustrator at Moniepoint" })).toBeVisible();
     await expect(authedPage.getByRole("combobox", { name: "Stage for Backend Engineer at Paystack" })).toBeVisible();
-    // Not one anonymous select among them.
-    expect(await authedPage.locator('select[name="stage"]:not([aria-label])').count()).toBe(0);
+    // Not one anonymous per-card select among them. Per-card means inside the form that carries `expectedStage`: the
+    // Add-a-job form's Stage select also has name="stage", but it is named by its <label>, not by aria-label.
+    expect(await authedPage.locator('form:has(input[name="expectedStage"]) select[name="stage"]:not([aria-label])').count()).toBe(0);
   });
 });
