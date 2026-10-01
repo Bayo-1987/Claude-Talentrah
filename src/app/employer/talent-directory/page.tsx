@@ -59,7 +59,7 @@ export default async function EmployerTalentDirectoryPage({
           {(plans ?? []).map((plan) => (
             <form key={plan.id} action={purchaseTalentDirectorySubscriptionAction.bind(null, plan.id)}>
               <Button type="submit" variant="primary">
-                Subscribe — {plan.name} (₦{plan.price_ngn.toLocaleString()}/mo)
+                {`Subscribe — ${plan.name} (₦${plan.price_ngn.toLocaleString("en-NG")}/mo)`}
               </Button>
             </form>
           ))}
