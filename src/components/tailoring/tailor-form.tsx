@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Button, EyebrowLabel, BorderedCard } from "@/components/ui";
 import { ResumeDocument } from "@/components/resume-builder/resume-document";
@@ -10,7 +10,16 @@ import type { RankedRecommendation } from "@/lib/courses/match";
 import { buildAcceptedAdditions } from "@/lib/tailoring/accepted-payload";
 import { fetchWithTimeout, fetchErrorMessage } from "@/lib/forms/fetch-with-timeout";
 import { MicroFeedbackPrompt } from "@/components/feedback/micro-feedback-prompt";
-import { useReportCreditsBalance } from "@/components/app-shell/credits-balance";
+import { useDisplayedCreditsBalance, useReportCreditsBalance } from "@/components/app-shell/credits-balance";
+import {
+  chargeAnnouncement,
+  creditsPhrase,
+  tailorButtonLabel,
+  tailoringCharge,
+  withPrice,
+  type TailoringPricing,
+} from "@/lib/credits/price-labels";
+import { CREDIT_COSTS } from "@/lib/credits/costs";
 
 type ApiResult = {
   resumeId: string;
@@ -68,13 +77,29 @@ function additionTarget(addition: ProposedAddition, tailoredResume: StructuredRe
   return entry ? `Rewrite: ${entry.title} at ${entry.company}` : "Rewrite an experience entry";
 }
 
+/** The cover-letter checkbox carries its own price, so the second charge is visible before it is ticked. */
+function coverLetterLabel(pricing: TailoringPricing | undefined): string {
+  const label = "Also write a cover letter";
+  if (!pricing) return label;
+  if (pricing.passCovered) return withPrice(label, "included with your Pass");
+  if (pricing.coverLetterFree) return withPrice(label, "free (your first one)");
+  return withPrice(label, creditsPhrase(CREDIT_COSTS.coverLetterRun));
+}
+
 export function TailorForm({
   jobId,
   initialJdText,
   defaultCoverLetter = false,
+  pricing,
 }: {
   jobId?: string;
   initialJdText: string;
+  /**
+   * What a submit will cost THIS account, read server-side by the page (free runs left, Pass coverage, balance)
+   * and turned into the button's label and the confirmation step. Optional only so an older caller that does
+   * not know about prices still renders; without it the form behaves as before and shows no price.
+   */
+  pricing?: TailoringPricing;
   /**
    * Pre-ticks "also write a cover letter". Set by /tailor?coverLetter=1, which
    * is how the job card's "Draft intro message" differs from "Tailor my
@@ -84,12 +109,27 @@ export function TailorForm({
   defaultCoverLetter?: boolean;
 }) {
   const reportCreditsBalance = useReportCreditsBalance();
+  const balance = useDisplayedCreditsBalance(pricing?.balance ?? 0);
   const [jdText, setJdText] = useState(initialJdText);
   const [includeCoverLetter, setIncludeCoverLetter] = useState(defaultCoverLetter);
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<ApiResult | null>(null);
   const [stepIndex, setStepIndex] = useState(0);
+  /*
+   * The confirmation step before a CHARGED run. Free and Pass-covered runs go straight through — a prompt
+   * there would be friction with nothing to protect. Cleared whenever the inputs that decide the price change,
+   * so the user never confirms a number that is no longer the one on the button.
+   */
+  const [confirming, setConfirming] = useState(false);
+  const confirmButtonRef = useRef<HTMLButtonElement>(null);
+  const charge = pricing ? tailoringCharge({ ...pricing, includeCoverLetter }) : null;
+  const mustConfirm = charge?.kind === "credits";
+  const cannotAfford = charge?.kind === "credits" && balance < charge.credits;
+
+  useEffect(() => {
+    if (confirming) confirmButtonRef.current?.focus();
+  }, [confirming]);
 
   useEffect(() => {
     if (status !== "loading") return;
@@ -116,8 +156,17 @@ export function TailorForm({
    */
   const [editedTexts, setEditedTexts] = useState<Record<string, string>>({});
 
-  async function handleSubmit(e: React.FormEvent) {
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (mustConfirm && !confirming) {
+      setConfirming(true);
+      return;
+    }
+    void runTailoring();
+  }
+
+  async function runTailoring() {
+    setConfirming(false);
     setStatus("loading");
     setStepIndex(0);
     setError(null);
@@ -208,12 +257,17 @@ export function TailorForm({
 
     return (
       <div className="flex flex-col gap-8">
-        <p className="text-[13px] italic text-ink-soft">
+        {/*
+          role="status" is the polite live region: the result and its charge are announced together
+          ("Tailored — 20 credits used"), the same sentence a sighted user reads.
+        */}
+        <p role="status" className="text-[13px] italic text-ink-soft">
+          {chargeAnnouncement("Tailored", creditsSpent)}
           {isFreeTrial
-            ? "This one was on the house — your free tailoring run."
+            ? ". This one was on the house — your free tailoring run."
             : isPassCovered
-              ? "Included with your Pass — no credits used."
-              : `${creditsSpent} credits used.`}
+              ? ". Included with your Pass."
+              : "."}
         </p>
 
         {/*
@@ -458,7 +512,10 @@ export function TailorForm({
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       <textarea
         value={jdText}
-        onChange={(e) => setJdText(e.target.value)}
+        onChange={(e) => {
+          setJdText(e.target.value);
+          setConfirming(false);
+        }}
         rows={10}
         required
         minLength={50}
@@ -469,15 +526,56 @@ export function TailorForm({
         <input
           type="checkbox"
           checked={includeCoverLetter}
-          onChange={(e) => setIncludeCoverLetter(e.target.checked)}
+          onChange={(e) => {
+            setIncludeCoverLetter(e.target.checked);
+            setConfirming(false);
+          }}
           className="h-4 w-4 accent-[var(--ink)]"
         />
-        Also write a cover letter
+        {coverLetterLabel(pricing)}
       </label>
       {error && <p className="text-[13.5px] text-rust">{error}</p>}
-      <Button type="submit" disabled={status === "loading"} className="self-start">
-        {status === "loading" ? "Working…" : "Tailor my resume"}
+      <Button type="submit" disabled={status === "loading" || cannotAfford} className="self-start">
+        {status === "loading" ? "Working…" : charge ? tailorButtonLabel(charge, balance) : "Tailor my resume"}
       </Button>
+      {cannotAfford && charge && (
+        <p className="text-[13.5px] text-rust">
+          Not enough credits — this needs {creditsPhrase(charge.credits)} and you have {balance}.{" "}
+          <Link href="/billing" className="font-semibold underline underline-offset-2">
+            Get credits
+          </Link>
+        </p>
+      )}
+      {confirming && charge && (
+        <div
+          data-testid="tailor-confirm"
+          role="group"
+          aria-label="Confirm the charge"
+          className="flex max-w-[520px] flex-col gap-3 border-[1.5px] border-ink bg-card p-4"
+        >
+          <p className="text-[14px] text-ink">
+            This will use <span className="font-semibold">{creditsPhrase(charge.credits)}</span> — you&apos;ll have{" "}
+            {balance - charge.credits} left.
+          </p>
+          <div className="flex flex-wrap gap-3">
+            <button
+              ref={confirmButtonRef}
+              type="button"
+              onClick={() => void runTailoring()}
+              className="min-h-11 border-[1.5px] border-ink bg-ink px-4 font-body text-[14px] font-semibold text-paper hover:border-rust hover:bg-rust"
+            >
+              Confirm and tailor
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirming(false)}
+              className="min-h-11 px-3 font-body text-[14px] font-semibold text-ink underline underline-offset-2 hover:text-rust"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
       {status === "loading" && (
         <p role="status" aria-live="polite" className="font-display text-[13px] italic text-ink-soft">
           {TAILORING_STEPS[stepIndex]}

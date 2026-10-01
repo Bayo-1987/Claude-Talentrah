@@ -8,6 +8,7 @@ import {
   type AutoApplyResult,
 } from "@/lib/auto-apply/actions";
 import type { MatchExplanation } from "@/lib/matching/score";
+import { priced } from "@/lib/credits/price-labels";
 
 /**
  * The one piece of real judgment this call site needs: "confirmed" means
@@ -18,6 +19,11 @@ import type { MatchExplanation } from "@/lib/matching/score";
  */
 export function isSuccessfulInternalConfirm(result: AutoApplyResult): boolean {
   return result.ok && result.outcome === "submitted";
+}
+
+/** "Confirm and apply · 4 credits" when the confirm will charge, the plain label when it will not. */
+function withCost(label: string, cost: number | null): string {
+  return cost === null ? label : priced(label, cost);
 }
 
 export interface QueueItem {
@@ -47,6 +53,7 @@ export interface QueueItem {
 export function AutoApplyQueueItem({
   item,
   onConfirmed,
+  confirmCostCredits = null,
 }: {
   item: QueueItem;
   /**
@@ -58,6 +65,13 @@ export function AutoApplyQueueItem({
    * — belongs one level up, not in this component's own state.
    */
   onConfirmed?: (jobTitle: string) => void;
+  /**
+   * What confirming will cost, or `null` when it will not cost anything (a free weekly submission remains, or a
+   * Pass covers it). The PAGE decides this from the real quota (getQuotaState) and passes it down; the button
+   * then says the price BEFORE the click, since the free allowance being used up is exactly when a confirm
+   * starts to charge. The charge itself is decided by auto_apply_claim_submission, unchanged.
+   */
+  confirmCostCredits?: number | null;
 }) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -119,7 +133,7 @@ export function AutoApplyQueueItem({
 
       <div className="flex flex-wrap items-center gap-3">
         <Button type="button" size="sm" disabled={isPending} onClick={runConfirm}>
-          {isPending ? "Working…" : isInternal ? "Confirm and apply" : "Open posting"}
+          {isPending ? "Working…" : withCost(isInternal ? "Confirm and apply" : "Open posting", confirmCostCredits)}
         </Button>
         <button
           type="button"
