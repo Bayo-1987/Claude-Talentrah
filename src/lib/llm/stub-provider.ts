@@ -22,6 +22,9 @@ import type { LLMGenerateOptions, LLMProvider, LLMResult } from "./types";
  * change — and a call site that changes its schema can't quietly drift away
  * from what the stub returns.
  */
+/** Put this in a chat message to make the stub report that its reply was cut off by the output ceiling. */
+export const STUB_LENGTH_TRIGGER = "[stub:length]";
+
 export class StubProvider implements LLMProvider {
   readonly name = "groq" as const; // Structural: LLMProvider's name union is the real providers.
   readonly model = "stub-e2e";
@@ -51,6 +54,10 @@ export class StubProvider implements LLMProvider {
    */
   async *generateTextStream(options: LLMGenerateOptions): AsyncGenerator<string> {
     yield (await this.generateWithUsage(options)).text;
+    // A message carrying this marker reports a length stop, so an e2e can drive the cut-off path (not charged,
+    // shown as truncated) without a real model hitting a real ceiling. Everything else finishes cleanly.
+    const lastUser = [...options.turns].reverse().find((t) => t.role === "user")?.content ?? "";
+    options.onFinish?.(lastUser.includes(STUB_LENGTH_TRIGGER) ? "length" : "stop");
   }
 }
 
