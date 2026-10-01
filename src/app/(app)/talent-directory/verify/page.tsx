@@ -8,6 +8,7 @@ import {
 import { Container, EyebrowLabel, BorderedCard } from "@/components/ui";
 import { CREDIT_COSTS } from "@/lib/credits/costs";
 import { renderInlineMarkdown } from "@/lib/farah/render-markdown";
+import { verificationHeadline } from "@/lib/talent-directory/verification-copy";
 import { VerificationPanel } from "./verification-panel";
 import { HumanReviewForm } from "./human-review-form";
 import { OptInToggle } from "./opt-in-toggle";
@@ -17,14 +18,6 @@ import { PortfolioManager } from "./portfolio-manager";
 import { IncomingContactRequests } from "./incoming-contact-requests";
 
 export const metadata = { title: "Get Verified — Talentrah" };
-
-const STATUS_COPY: Record<string, string> = {
-  unverified: "You haven't requested verification yet.",
-  pending: "Your verification is being graded, or waiting for a reviewer to pick it up.",
-  claimed: "A mentor is reviewing your submission now.",
-  verified: "You're verified.",
-  rejected: "Your last attempt wasn't verified — see the feedback below.",
-};
 
 /**
  * Talent Directory & Verification, seeker-facing half (send-139, build-prompt
@@ -62,7 +55,10 @@ export default async function TalentDirectoryVerifyPage() {
       </p>
 
       <BorderedCard className="flex flex-col gap-3 p-5">
-        <p className="text-[14px] text-ink">{STATUS_COPY[state.status] ?? state.status}</p>
+        {/* The line follows the score band (send-495): a 70 and a 98 are not the same sentence. */}
+        <p data-testid="verification-status" className="text-[14px] text-ink">
+          {verificationHeadline(state.status, state.score)}
+        </p>
         {state.score != null && (
           <p className="text-[13px] text-ink-soft">Last score: {state.score}/100</p>
         )}

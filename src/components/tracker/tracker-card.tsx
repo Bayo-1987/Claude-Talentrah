@@ -64,7 +64,7 @@ export function TrackerCard({ entry }: { entry: TrackerEntry }) {
                 </span>
               )}
             </h3>
-            <StageSelect applicationId={entry.id} stage={entry.stage} jobTitle={entry.title} />
+            <StageSelect applicationId={entry.id} stage={entry.stage} jobTitle={entry.title} companyName={entry.companyName} />
           </div>
           <div className="mt-0.5 text-[13px] text-ink-soft">
             {[entry.companyName, entry.location].filter(Boolean).join(" · ")}

@@ -74,7 +74,7 @@ function ExamplePanel({ templateId }: { templateId: string }) {
     <PanelShell
       eyebrow="Start from an example"
       title="A filled example"
-      description="Open a complete, realistic CV in this template and edit it into your own — swap out the wording instead of writing it from scratch."
+      description="Open a complete, realistic resume in this template and edit it into your own — swap out the wording instead of writing it from scratch."
     >
       <form action={createResumeAction.bind(null, templateId, "example")}>
         <Button size="sm" type="submit" variant="secondary">
@@ -93,7 +93,7 @@ function ImportPanel({ templateId, hasBaseResume }: { templateId: string; hasBas
 
   return (
     <PanelShell
-      eyebrow="Import my CV"
+      eyebrow="Import my resume"
       title="Your own resume"
       description="Bring in your existing resume and style it in this template."
     >
