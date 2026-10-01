@@ -35,6 +35,25 @@ test.describe("signed-out visitor at /mentorship", () => {
     await expect(page.getByRole("heading", { name: /log in/i })).toHaveCount(0);
   });
 
+  test("has exactly ONE <h1> in the RAW response, and it is the landing page's own (send-487)", async ({ request }) => {
+    /*
+     * A streamed loading.tsx fallback lands in the raw HTML alongside the page. The mentorship placeholder
+     * used to carry the SIGNED-IN heading, so the response a crawler reads had two <h1>s, the wrong one
+     * first. The DOM after hydration hides that, so this reads the bytes: request.get never executes script.
+     * Also checked with the `?error=` variant the signed-in page reads, which serves the same landing.
+     */
+    for (const qs of ["", "?error=anything", "?utm_source=x"]) {
+      const res = await request.get(`/mentorship${qs}`, { maxRedirects: 0 });
+      expect(res.status(), `/mentorship${qs}`).toBe(200);
+      const html = await res.text();
+      expect(html.match(/<h1[\s>]/g)?.length ?? 0, `/mentorship${qs}: expected exactly one <h1> in the raw HTML`).toBe(1);
+      expect(html, `/mentorship${qs}: the one <h1> must be the landing page's`).toMatch(
+        /<h1[^>]*>\s*Real career mentors, for the moments Farah can(?:&#x27;|&apos;|')t coach you through alone\.\s*<\/h1>/,
+      );
+      expect(html, `/mentorship${qs}: the signed-in heading leaked into a signed-out response`).not.toContain("done it.");
+    }
+  });
+
   test("has a real, unique H1 and describes session types + pricing, not thin/placeholder content", async ({
     page,
   }) => {
