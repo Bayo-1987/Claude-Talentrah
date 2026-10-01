@@ -341,7 +341,16 @@ export async function replaceBaseResumeAction(
 export async function rewriteBulletAction(
   text: string,
   instruction: BulletInstruction,
-): Promise<{ text: string; error?: string }> {
+): Promise<{
+  text: string;
+  error?: string;
+  /**
+   * The account's balance after a PAID rewrite: the ledger's own `balance_after` (spendCredits' return), never
+   * recomputed. Absent when nothing was spent (Pass-covered, or any error return), so the editor leaves the
+   * masthead alone (issue #605).
+   */
+  creditsBalance?: number;
+}> {
   if (!text.trim()) return { text };
   const { supabase, userId } = await getAuthedUserId();
 
@@ -405,8 +414,8 @@ export async function rewriteBulletAction(
     return { text, error: "Farah couldn't rewrite that just now — try again." };
   }
 
-  await spendCredits(userId, CREDIT_COSTS.bulletRewrite, "bullet_rewrite");
-  return { text: rewritten };
+  const balanceAfter = await spendCredits(userId, CREDIT_COSTS.bulletRewrite, "bullet_rewrite");
+  return { text: rewritten, creditsBalance: balanceAfter };
 }
 
 /**
