@@ -3,6 +3,8 @@
 import { useActionState } from "react";
 import { requestHumanReviewVerificationAction } from "@/lib/talent-directory/actions";
 import { TextField, Button } from "@/components/ui";
+import { CREDIT_COSTS } from "@/lib/credits/costs";
+import { priced } from "@/lib/credits/price-labels";
 
 const initialState: { status: "idle" | "success" | "error"; message: string } = {
   status: "idle",
@@ -23,7 +25,7 @@ export function HumanReviewForm() {
       <TextField label="Target role (optional)" name="targetRole" placeholder="Backend Engineer" />
       <TextField label="Target industry (optional)" name="targetIndustry" placeholder="Fintech" />
       <Button type="submit" variant="secondary" disabled={pending}>
-        Request human review
+        {priced("Request human review", CREDIT_COSTS.talentDirectoryHumanReview)}
       </Button>
       {state.message && (
         <p className={`text-[13px] ${state.status === "error" ? "text-rust" : "text-green"}`}>{state.message}</p>

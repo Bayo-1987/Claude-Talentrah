@@ -96,6 +96,8 @@ test.describe("tailoring and cover letter", () => {
     await markNoReload(authedPage);
     await authedPage.locator("textarea").fill(JD);
     await authedPage.getByRole("button", { name: "Tailor my resume" }).click();
+    // A charged run asks first (send-493).
+    await authedPage.getByTestId("tailor-confirm").getByRole("button", { name: "Confirm and tailor" }).click();
     await expect(authedPage.getByText("credits used", { exact: false })).toBeVisible({ timeout: 30_000 });
 
     await expectMastheadDropped(authedPage, testUser.id, CREDIT_COSTS.tailoringRun);
@@ -293,6 +295,10 @@ test.describe("Auto-Apply confirm", () => {
     await expect(authedPage.getByRole("heading", { name: target.title })).toBeVisible();
     await expect(pill(authedPage, START)).toBeVisible();
     await markNoReload(authedPage);
+    // send-493: with the free allowance used up, the button names its price before the click.
+    await expect(
+      authedPage.getByRole("button", { name: `Confirm and apply · ${CREDIT_COSTS.autoApplySubmission} credits` }),
+    ).toBeVisible();
     await authedPage.getByRole("button", { name: "Confirm and apply" }).click();
     await expect(authedPage.getByRole("heading", { name: target.title })).toHaveCount(0, { timeout: 20_000 });
 

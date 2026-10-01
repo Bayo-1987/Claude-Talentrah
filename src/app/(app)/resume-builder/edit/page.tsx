@@ -3,6 +3,7 @@ import { requireUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
 import { EMPTY_RESUME, type StructuredResume } from "@/lib/resume/types";
 import { ResumeEditor } from "@/components/resume-builder/resume-editor";
+import { checkPassCoverage } from "@/lib/passes/entitlement";
 
 export const metadata = { title: "Edit resume — Talentrah" };
 
@@ -33,6 +34,9 @@ export default async function ResumeEditPage({
   if (!resume) redirect("/resume-builder");
 
   const content = (resume.structured_content as StructuredResume | null) ?? EMPTY_RESUME;
+  // Only changes what the rewrite controls say ("included with your Pass" instead of a credit price); the
+  // charge itself is still decided by rewriteBulletAction.
+  const coverage = await checkPassCoverage(user.id);
 
   return (
     <ResumeEditor
@@ -40,6 +44,7 @@ export default async function ResumeEditPage({
       initialTitle={resume.title}
       initialContent={content}
       templateSlug={resume.resume_templates?.slug ?? null}
+      passCovered={coverage.covered}
     />
   );
 }
