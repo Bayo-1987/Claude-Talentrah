@@ -22,8 +22,9 @@ describe("experienceBulletParagraphs", () => {
   it("falls back to a single paragraph holding the description", () => {
     expect(experienceBulletParagraphs({ title: "", company: "", description: "Prose." })).toEqual(["Prose."]);
   });
-  it("a description that is a typed list opens as one paragraph per item, markers gone", () => {
-    expect(experienceBulletParagraphs({ title: "", company: "", description: "- A\n- B" })).toEqual(["A", "B"]);
+  it("an old-format entry opens exactly as stored: one achievement string with several bullets in it is ONE paragraph", () => {
+    expect(experienceBulletParagraphs({ title: "", company: "", bullets: ["• A • B • C"] })).toEqual(["• A • B • C"]);
+    expect(experienceBulletParagraphs({ title: "", company: "", description: "- A\n- B" })).toEqual(["- A\n- B"]);
   });
   it("is empty for a brand-new entry", () => {
     expect(experienceBulletParagraphs({ title: "", company: "" })).toEqual([]);

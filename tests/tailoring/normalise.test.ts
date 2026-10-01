@@ -13,7 +13,9 @@ import {
   normaliseExperienceAchievements,
   normaliseSkills,
   normaliseTailoredDates,
+  normaliseTailoredResume,
 } from "@/lib/tailoring/normalise";
+import { EMPTY_RESUME } from "@/lib/resume/types";
 
 describe("normaliseDate", () => {
   it.each([
@@ -124,6 +126,64 @@ describe("normaliseExperienceAchievements", () => {
   it("a prose entry comes back untouched", () => {
     const entry = { ...role, description: "Owned the referrals feature." };
     expect(normaliseExperienceAchievements(entry)).toBe(entry);
+  });
+});
+
+describe("casing is only ever fixed for a WHOLE skill-list entry, never inside a longer entry or in prose", () => {
+  // Words that are also ordinary English or product names. None is in KNOWN_SKILL_TERMS, and an entry is
+  // only re-cased when the WHOLE entry is a known term, so each comes back exactly as written.
+  it.each([
+    "Go", "go", "Swift", "swift", "Rust", "rust", "excel", "Excel", "Spark", "spark", "Rails", "Ruby", "Pandas",
+    "Scala", "Tableau", "Notion", "Slack", "Teams", "Word", "Access", "Express", "Flask", "Figma", "Java", "R", "C",
+  ])("%s is left exactly as written", (skill) => {
+    expect(normaliseSkills([skill])).toEqual([skill]);
+  });
+
+  it.each([
+    "excel at stakeholder communication",
+    "Rust was removed from the stack",
+    "SQL and API design",
+    "project management office",
+    "go-to-market strategy",
+    "product management tools",
+    "Data Analysis (Excel)",
+    "REST api",
+  ])("a longer entry is untouched: %s", (skill) => {
+    expect(normaliseSkills([skill])).toEqual([skill]);
+  });
+
+  it("no known term is an ordinary English word", () => {
+    // The list stays free of words like Go / Swift / Rust / Excel / Word / Access / Teams. The multi-word
+    // practices are the only phrases that read as plain English, and they only apply to a whole entry.
+    const ordinary = new Set(["go", "swift", "rust", "excel", "spark", "rails", "ruby", "pandas", "scala", "notion", "slack", "teams", "word", "access", "express", "flask", "next", "node", "react", "git", "sass", "less", "ui"]);
+    const oneWord = KNOWN_SKILL_TERMS.filter((t) => !/\s/.test(t)).map((t) => t.toLowerCase());
+    // "UI" and "React"-style tokens are checked by hand in the PR audit; only genuinely ambiguous ones are barred here.
+    const barred = oneWord.filter((t) => ordinary.has(t) && !["ui"].includes(t));
+    expect(barred).toEqual([]);
+  });
+
+  it("prose is never touched: summary, bullets, description, projects, certifications", () => {
+    const prose = {
+      summary: "I excel at sql and api work; project management is my day job. Rust was removed in 09/2022.",
+      bullet: "Led project management for the sql migration (09/2022) and cut api latency; go-to-market was excel-driven.",
+    };
+    const resume = {
+      ...EMPTY_RESUME,
+      summary: prose.summary,
+      experience: [
+        { title: "PM", company: "Acme", startDate: "2022", description: prose.bullet },
+        { title: "PM2", company: "Beta", bullets: [prose.bullet, "Taught project management and sql to 40 people."] },
+      ],
+      projects: ["An sql and api explorer for project management data."],
+      certifications: ["project management professional (pmp)"],
+      skills: [],
+    };
+    const out = normaliseTailoredResume(resume);
+    expect(out.summary).toBe(prose.summary);
+    expect(out.experience[0].description).toBe(prose.bullet);
+    expect(out.experience[1].bullets).toEqual([prose.bullet, "Taught project management and sql to 40 people."]);
+    expect(out.projects).toEqual(resume.projects);
+    expect(out.certifications).toEqual(resume.certifications);
   });
 });
 

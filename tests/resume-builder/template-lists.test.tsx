@@ -2,9 +2,10 @@
  * Two rendering rules that hold for EVERY template, so each is checked
  * against every registered slug and every skeleton demo config:
  *
- *  1. Bulleted content is real list markup. An achievement is one `<li>` in a
- *     `<ul>`, whether it was stored as `bullets` or arrived as a description
- *     with typed dashes — never a "- " or "•" character inside a paragraph.
+ *  1. Bulleted content is real list markup. A stored achievement is one `<li>`
+ *     in a `<ul>`. (Text typed with dashes, or glued into one string, is split
+ *     when a resume is TAILORED, not on render: see
+ *     old-format-resume-render.test.tsx.)
  *
  *  2. Certifications go into two compact columns from 8 entries up (a long
  *     single column of one-line items runs a resume onto an extra page), and
@@ -74,31 +75,18 @@ describe("achievements are real list items in every template", () => {
       { title: "Head of Ops", company: "Northbridge", startDate: "Sep 2022", endDate: "Present", bullets: ["ZQBUL1 Cut cycle time.", "ZQBUL2 Grew the team.", "ZQBUL3 Ran the audit."] },
     ],
   });
-  const typedDashes = resumeWith({
-    experience: [
-      { title: "Head of Ops", company: "Northbridge", startDate: "Sep 2022", endDate: "Present", description: "- ZQBUL1 Cut cycle time.\n- ZQBUL2 Grew the team.\n- ZQBUL3 Ran the audit." },
-    ],
-  });
-  const typedGlyphs = resumeWith({
-    experience: [
-      { title: "Head of Ops", company: "Northbridge", startDate: "Sep 2022", endDate: "Present", description: "• ZQBUL1 Cut cycle time.\n• ZQBUL2 Grew the team.\n• ZQBUL3 Ran the audit." },
-    ],
-  });
 
   it("there are templates to check", () => {
     expect(cases.length).toBeGreaterThanOrEqual(8);
   });
 
   for (const { name, render } of cases) {
-    for (const [label, resume] of [["stored bullets", bulleted], ["typed dashes", typedDashes], ["typed glyphs", typedGlyphs]] as const) {
-      it(`${name} (${label}): each achievement is its own <li>, with no marker character left in it`, () => {
-        const html = render(resume);
-        for (const n of [1, 2, 3]) {
-          expect(html, `${name}: ZQBUL${n} is not inside an <li>`).toMatch(new RegExp(`<li[^>]*>ZQBUL${n} `));
-        }
-        expect(html, `${name}: a typed marker survived inside the text`).not.toMatch(/[-•]\s*ZQBUL/);
-      });
-    }
+    it(`${name}: each stored achievement is its own <li>`, () => {
+      const html = render(bulleted);
+      for (const n of [1, 2, 3]) {
+        expect(html, `${name}: ZQBUL${n} is not inside an <li>`).toMatch(new RegExp(`<li[^>]*>ZQBUL${n} `));
+      }
+    });
   }
 });
 

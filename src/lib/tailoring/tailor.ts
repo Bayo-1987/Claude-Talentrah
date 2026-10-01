@@ -5,6 +5,7 @@ import { EMPTY_RESUME, getExperienceBullets, type StructuredResume } from "@/lib
 import { sanitizeStructuredResume, wasDegenerate } from "@/lib/resume/sanitize";
 import { stripInlineMarkdown } from "@/lib/farah/render-markdown";
 import { applyGroundingBackstop } from "./grounding";
+import { achievementsFromTypedList } from "@/lib/resume/achievements";
 import { normaliseTailoredAchievements, normaliseTailoredResume } from "./normalise";
 import { computeTailoringCacheKey, getCachedTailoringResult, saveTailoringResult } from "./cache";
 import { JD_MAX_CHARS, type ProposedAddition, type TailoringResult } from "./types";
@@ -194,8 +195,8 @@ function preserveNewFields(
     // Bullets the model wrote for this role win: they are the tailoring.
     // Replacing them with the base resume's would quietly throw the rewrite
     // away, since a role with bullets renders them in place of `description`.
-    // (`getExperienceBullets` also counts a description that is a typed list.)
-    if (getExperienceBullets(entry)) return entry;
+    // (A description that is a typed list counts too: normalise splits it into bullets next.)
+    if (getExperienceBullets(entry) || achievementsFromTypedList(entry.description)) return entry;
     const baseEntry = baseResume.experience.find((b) => sameRole(entry.title, entry.company, b));
     return baseEntry?.bullets ? { ...entry, bullets: baseEntry.bullets } : entry;
   });

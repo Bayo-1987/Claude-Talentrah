@@ -1,5 +1,3 @@
-import { achievementsFromTypedList } from "./achievements";
-
 export interface ResumeExperienceEntry {
   title: string;
   company: string;
@@ -146,11 +144,12 @@ export function getExperienceText(entry: ResumeExperienceEntry): string | undefi
  * that checks this first and falls back to `getExperienceText`'s string
  * for its `<p>` can never end up rendering neither, or both.
  *
- * A `description` that is really a typed list ("- a\n- b", "• a\n• b",
- * "1. a\n2. b") also reads as bullets, markers removed (achievements.ts).
- * Without that, every template would print the dashes as text inside one
- * paragraph — HTML collapses the newlines — instead of as list items.
+ * READ-ONLY, NEVER REPAIRING. A resume saved before the S2-11 tailoring
+ * changes can hold an achievement string with several bullets glued into it, or
+ * a `description` with typed dashes; those render exactly as stored. Splitting
+ * them is a tailoring-time step (`normaliseTailoredResume`), so it only ever
+ * reaches a resume the user tailors again, never one they already have.
  */
 export function getExperienceBullets(entry: ResumeExperienceEntry): string[] | undefined {
-  return cleanBullets(entry.bullets) ?? achievementsFromTypedList(entry.description);
+  return cleanBullets(entry.bullets);
 }

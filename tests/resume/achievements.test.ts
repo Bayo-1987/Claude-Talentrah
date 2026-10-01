@@ -5,7 +5,7 @@
  * text renders as a fake dash inside a paragraph instead of a real <li>.
  */
 import { describe, expect, it } from "vitest";
-import { splitAchievements, stripBulletMarker } from "@/lib/resume/achievements";
+import { achievementsFromTypedList, splitAchievements, stripBulletMarker } from "@/lib/resume/achievements";
 import { getExperienceBullets, getExperienceText } from "@/lib/resume/types";
 
 describe("stripBulletMarker", () => {
@@ -62,16 +62,14 @@ describe("getExperienceBullets / getExperienceText with marker-bearing descripti
     expect(getExperienceText(entry)).toBe("Shipped A Cut B");
   });
 
-  it("a description that is really a typed list becomes bullets, markers removed", () => {
+  it("a description that is a typed list is NOT split on read: only tailoring splits (old data renders as stored)", () => {
     const entry = { ...base, description: "- Shipped A\n- Cut B by 12%\n- Mentored C" };
-    expect(getExperienceBullets(entry)).toEqual(["Shipped A", "Cut B by 12%", "Mentored C"]);
-    // Lockstep with getExperienceBullets: the plain-text read never carries the dashes either.
-    expect(getExperienceText(entry)).toBe("Shipped A Cut B by 12% Mentored C");
-  });
-
-  it("the same for bullet glyphs and numbering", () => {
-    expect(getExperienceBullets({ ...base, description: "• Shipped A\n• Cut B" })).toEqual(["Shipped A", "Cut B"]);
-    expect(getExperienceBullets({ ...base, description: "1. Shipped A\n2. Cut B" })).toEqual(["Shipped A", "Cut B"]);
+    expect(getExperienceBullets(entry)).toBeUndefined();
+    expect(getExperienceText(entry)).toBe(entry.description);
+    // The pure helper that tailoring uses still reads it as a list.
+    expect(achievementsFromTypedList(entry.description)).toEqual(["Shipped A", "Cut B by 12%", "Mentored C"]);
+    expect(achievementsFromTypedList("• Shipped A\n• Cut B")).toEqual(["Shipped A", "Cut B"]);
+    expect(achievementsFromTypedList("1. Shipped A\n2. Cut B")).toEqual(["Shipped A", "Cut B"]);
   });
 
   it("a prose description stays prose", () => {
@@ -80,13 +78,12 @@ describe("getExperienceBullets / getExperienceText with marker-bearing descripti
     expect(getExperienceText(entry)).toBe("Owned the referrals feature end to end.");
   });
 
-  it("a multi-line description WITHOUT markers on every line is not guessed at", () => {
+  it("a multi-line description WITHOUT markers on every line is not a list", () => {
     // Two plain paragraphs are two paragraphs; only an all-markers list is a list.
-    const entry = { ...base, description: "Owned the referrals feature.\nAlso ran the tracker." };
-    expect(getExperienceBullets(entry)).toBeUndefined();
+    expect(achievementsFromTypedList("Owned the referrals feature.\nAlso ran the tracker.")).toBeUndefined();
   });
 
   it("a single marker line is not a list", () => {
-    expect(getExperienceBullets({ ...base, description: "- Owned referrals" })).toBeUndefined();
+    expect(achievementsFromTypedList("- Owned referrals")).toBeUndefined();
   });
 });
