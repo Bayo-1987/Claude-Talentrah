@@ -47,6 +47,8 @@ async function insertJob(tag: string, over: Record<string, unknown>) {
 
 test.describe("signed-out /jobs shows real, listed, fresh postings only", () => {
   test("six fresh open fixtures render; a closed and an unlisted one, dated newer, do not", async ({ browser }) => {
+    // Eight inserts, a page load, assertions and a click-through: more than the 30s default allows on a busy runner.
+    test.setTimeout(60_000);
     const tag = randomUUID().slice(0, 8);
     const now = Date.now();
     const included = [];
@@ -89,8 +91,11 @@ test.describe("signed-out /jobs shows real, listed, fresh postings only", () => 
 
       // A card is a real way in: clicking its title, signed out, lands on that posting's PUBLIC page
       // with a 200 — not on /login. (The link's href was asserted above; this follows it.)
+      // A Next <Link> click is a SOFT navigation: the browser makes an RSC fetch for the destination, not a
+      // document request, so this matches the response by path alone (a redirect to /login would show up as a
+      // 307 for this same path, or as a different URL below).
       const [navigation] = await Promise.all([
-        page.waitForResponse((r) => r.request().isNavigationRequest() && new URL(r.url()).pathname === `/jobs/${newest.id}`),
+        page.waitForResponse((r) => new URL(r.url()).pathname === `/jobs/${newest.id}`),
         page.getByRole("link", { name: newest.title }).click(),
       ]);
       expect(navigation.status(), "the job page behind a card must be a 200, not a redirect to /login").toBe(200);
