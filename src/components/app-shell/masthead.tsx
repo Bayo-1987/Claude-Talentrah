@@ -7,6 +7,7 @@ import { cn } from "@/lib/cn";
 import { signOutAction } from "@/lib/auth/actions";
 import { FarahMark } from "@/components/ui/farah-mark";
 import { scrollToFarahPanel } from "@/lib/farah/scroll-to-panel";
+import { useDisplayedCreditsBalance } from "@/components/app-shell/credits-balance";
 
 const NAV_LINKS = [
   { href: "/jobs", label: "Jobs" },
@@ -123,6 +124,9 @@ export function Masthead({
   displayName,
 }: MastheadProps) {
   const pathname = usePathname();
+  // The prop is what the server rendered at page load; this is that, updated for any credit a Farah
+  // message has spent since (issue #605).
+  const shownCreditsBalance = useDisplayedCreditsBalance(creditsBalance);
   const [accountOpen, setAccountOpen] = useState(false);
   const accountRef = useRef<HTMLDivElement>(null);
   const accountTriggerRef = useRef<HTMLButtonElement>(null);
@@ -840,7 +844,7 @@ export function Masthead({
           >
             {activePass
               ? `${activePass.name} · ${activePass.daysRemaining}d left`
-              : `${creditsBalance} credits · Top up`}
+              : `${shownCreditsBalance} credits · Top up`}
           </Link>
           {/*
             The avatar is the account control now, and Sign out lives inside

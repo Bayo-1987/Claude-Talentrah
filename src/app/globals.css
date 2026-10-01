@@ -70,7 +70,7 @@
    * Template library PR 2 of 3 — the four extra typefaces the resume-builder
    * skeleton system draws from (src/components/resume-builder/skeletons/
    * fonts.ts). Aliased the same way as --font-display/--font-body above: the
-   * raw next/font CSS variable is only ever in scope on the skeleton subtree
+   * raw font CSS variable (src/fonts) is only ever in scope on the skeleton subtree
    * that actually uses it (see fontScopeClassName in token-classes.ts), so
    * these fall back to a system font stack rather than Newsreader/Source Sans
    * when that variable isn't present — never silently rendering as the app's

@@ -274,7 +274,9 @@ export async function POST(request: Request) {
       // the free allowance/Pass use or the credit spend. See
       // checkFarahChatAllowance's own header for why this can't happen any
       // earlier.
-      await commitFarahChatAllowance(user.id, allowance);
+      const committed = await commitFarahChatAllowance(user.id, allowance);
+      // The new balance for a paid message; null when nothing was spent (issue #605).
+      const creditsBalance = committed?.balanceAfter ?? null;
 
       // Two independent writes (different rows, neither reads the other) —
       // run together rather than one after the other.
@@ -297,6 +299,7 @@ export async function POST(request: Request) {
           createdAt: new Date().toISOString(),
           persisted: false,
           freeMessagesRemaining: allowance.freeMessagesRemaining,
+          creditsBalance,
         });
       } else {
         send({
@@ -305,6 +308,7 @@ export async function POST(request: Request) {
           createdAt: farahRow.created_at,
           persisted: true,
           freeMessagesRemaining: allowance.freeMessagesRemaining,
+          creditsBalance,
         });
       }
       controller.close();

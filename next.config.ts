@@ -93,10 +93,14 @@ const nextConfig: NextConfig = {
    *
    * Scoped against what this app actually loads client-side, checked
    * directly rather than assumed:
-   *   - Fonts (Newsreader, Source Sans 3) go through `next/font/google`,
-   *     which self-hosts the font files at build time — confirmed no
-   *     runtime request to fonts.googleapis.com/fonts.gstatic.com exists
-   *     anywhere in the app, so neither host needs a CSP entry.
+   *   - Fonts: the seven families are committed under `src/fonts` (woff2 files and their
+   *     @font-face CSS, served from our own origin), so the browser makes no request to
+   *     fonts.googleapis.com / fonts.gstatic.com and neither host needs a CSP entry. The one
+   *     reference to a Google font host left in the app is `src/lib/seo/og-card.tsx`, which
+   *     fetches Newsreader and Source Sans 3 (ttf) from fonts.googleapis.com on the SERVER
+   *     when it renders a share card — a server-to-Google request, not a browser one, so it
+   *     needs no CSP entry either. `tests/fonts/no-google-font-fetch.test.ts` fails on any
+   *     other reference.
    *   - Paystack checkout is a full top-level redirect to Paystack's own
    *     hosted page (`initializeTransaction`'s `authorization_url`, opened
    *     via navigation) — never embedded via script or iframe — so it needs
