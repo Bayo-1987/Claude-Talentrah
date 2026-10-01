@@ -27,6 +27,7 @@
 import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { ComponentType } from "react";
+import { resumeSourceSans } from "@/components/resume-builder/templates/fonts";
 import { EMPTY_RESUME, getExperienceText, type StructuredResume } from "@/lib/resume/types";
 import {
   getTemplateComponent,
@@ -79,11 +80,14 @@ function normalizeKnownSend470Rename(html: string): string {
   return html
     // send-473: every document root now declares its own base font (and has
     // its variable in scope) instead of inheriting the app's — the one
-    // ` text-ink font-resume-body --font-resume-source-sans` tail that only a
+    // ` text-ink font-resume-body <font scope class>` tail that only a
     // root wrapper carries. Stripped first so it is not mistaken for the
-    // per-element font-resume-body -> font-body rename below.
-    .replace(/ text-ink font-resume-body --font-resume-source-sans/g, " text-ink")
-    .replace(/ --font-resume-source-sans/g, "")
+    // per-element font-resume-body -> font-body rename below. The scope class
+    // is read from the font object, not spelled out: it was the vitest
+    // stub's `--font-resume-source-sans`, and is `tal-font-var-source-sans-3`
+    // since the fonts were self-hosted (#585).
+    .replace(new RegExp(` text-ink font-resume-body ${resumeSourceSans.variable}`, "g"), " text-ink")
+    .replace(new RegExp(` ${resumeSourceSans.variable}`, "g"), "")
     .replace(/bg-resume-paper/g, "bg-paper")
     .replace(/font-resume-body/g, "font-body");
 }
