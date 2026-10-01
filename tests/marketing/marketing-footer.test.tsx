@@ -210,6 +210,17 @@ function footerColumns(html: string) {
   return columns;
 }
 
+/**
+ * Links a LATER change re-pointed on purpose, so the snapshot above can stay exactly as it was at 28ed666
+ * while the guard below still means "nothing ELSE moved". send-484 landed after send-486 and re-pointed
+ * Refer & Earn: /refer has no signed-out page and stays login-gated, so the footer sends a signed-out
+ * visitor through signup, which returns them to /refer. Adding to this map is a deliberate, reviewed act;
+ * any other link that changes still fails the guard.
+ */
+const REPOINTED_SINCE: Record<string, string> = {
+  "Refer & Earn": "/signup?redirectTo=%2Frefer",
+};
+
 describe("the footer's columns (send-486: Compare removed, Legal & Trust in the top row)", () => {
   const html = renderToStaticMarkup(<MarketingFooter />);
   const columns = footerColumns(html);
@@ -246,7 +257,9 @@ describe("the footer's columns (send-486: Compare removed, Legal & Trust in the 
 
   it("every other link is unchanged: the footer is exactly the pre-change list minus the two Compare links", () => {
     const rendered = columns.flatMap((c) => c.links.map((l) => ({ heading: c.heading, label: l.label, href: l.href })));
-    const expected = SNAPSHOT_BEFORE.filter((l) => l.heading !== "Compare");
+    const expected = SNAPSHOT_BEFORE.filter((l) => l.heading !== "Compare").map((l) =>
+      l.label in REPOINTED_SINCE ? { ...l, href: REPOINTED_SINCE[l.label] } : l,
+    );
     expect(expected).toHaveLength(SNAPSHOT_BEFORE.length - 2);
     expect(rendered).toEqual(expected);
   });
