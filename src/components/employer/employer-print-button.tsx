@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { waitForFontsSettled } from "@/lib/resume-builder/wait-for-fonts";
+import { printWithTitle, resumePrintTitle } from "@/lib/resume-builder/print-title";
 
 /**
  * Print-to-PDF for the employer's own applicant-resume view (0125).
@@ -19,8 +20,14 @@ import { waitForFontsSettled } from "@/lib/resume-builder/wait-for-fonts";
  * content from it is not). An employer printing a candidate's resume is
  * exactly as exposed as the candidate is, so this waits too — bounded, with
  * the same "Preparing PDF…" feedback.
+ *
+ * It shares the other browser-level detail too: the saved file is named after
+ * `document.title`, so the print runs under `<First>-<Last>-Resume`
+ * (print-title.ts) — the applicant's name, not "Applicant resume — Talentrah" —
+ * and the button carries the same "Save as PDF" wording and help line as the
+ * seeker's.
  */
-export function EmployerPrintButton() {
+export function EmployerPrintButton({ applicantName }: { applicantName?: string }) {
   const [preparing, setPreparing] = useState(false);
 
   async function handleClick() {
@@ -31,11 +38,14 @@ export function EmployerPrintButton() {
     } finally {
       setPreparing(false);
     }
-    window.print();
+    printWithTitle(resumePrintTitle(applicantName));
   }
 
   return (
-    <>
+    <div className="flex items-center gap-3">
+      <p className="max-w-[260px] text-right text-[12.5px] text-ink-soft">
+        {"In the print window, choose 'Save as PDF'."}
+      </p>
       <button
         type="button"
         onClick={handleClick}
@@ -43,11 +53,11 @@ export function EmployerPrintButton() {
         aria-busy={preparing}
         className="flex min-h-10 items-center border-[1.5px] border-ink bg-card px-4 font-body text-[13px] font-semibold text-ink hover:border-rust hover:text-rust disabled:opacity-50"
       >
-        {preparing ? "Preparing PDF…" : "Print / Save as PDF"}
+        {preparing ? "Preparing PDF…" : "Save as PDF"}
       </button>
       <span role="status" className="sr-only">
         {preparing ? "Preparing PDF" : ""}
       </span>
-    </>
+    </div>
   );
 }
