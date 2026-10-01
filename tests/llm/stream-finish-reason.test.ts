@@ -12,7 +12,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GroqProvider } from "@/lib/llm/groq-provider";
-import { StubProvider } from "@/lib/llm/stub-provider";
+import { StubProvider, STUB_LENGTH_TRIGGER } from "@/lib/llm/stub-provider";
 
 type FinishReason = "stop" | "length" | "other";
 const TEST_KEY = "gsk_test_finish_reason_not_real";
@@ -113,6 +113,10 @@ describe("stub provider (what the e2e suite runs against)", () => {
     await drain(new StubProvider().generateTextStream(options as never));
     return reasons;
   }
+
+  it("the trigger is the literal e2e/farah-length-stop.spec.ts types (that spec cannot import server-only code)", () => {
+    expect(STUB_LENGTH_TRIGGER).toBe("[stub:length]");
+  });
 
   it("a message carrying the length trigger is reported as a length stop", async () => {
     expect(await stubReasons("please answer at length [stub:length]")).toEqual(["length"]);

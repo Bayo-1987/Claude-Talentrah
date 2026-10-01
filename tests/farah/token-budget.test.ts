@@ -41,14 +41,29 @@ import {
   estimateWorstCaseRequestTokens,
 } from "@/lib/farah/token-budget";
 import { FARAH_SYSTEM_PROMPT } from "@/lib/farah/system-prompt";
+import { buildFarahChatSystemPrompt } from "@/lib/farah/chat-prompt";
+import { FARAH_QUICK_ACTIONS } from "@/lib/farah/quick-actions";
+import { JOB_FIT_ENTRY_POINT } from "@/lib/farah/job-seed";
 import type { StructuredResume } from "@/lib/resume/types";
 import type { MatchExplanation } from "@/lib/matching/score";
 
-const SYSTEM_PROMPT_CHARS = FARAH_SYSTEM_PROMPT.length;
+/*
+ * The prompt the chat route ACTUALLY sends is no longer FARAH_SYSTEM_PROMPT alone (send-500): it is that plus the
+ * no-invented-achievements rule, the reply-size rule and, for a quick action, that action's own instructions
+ * (chat-prompt.ts). Measuring the old constant would let those additions drift over the provider's per-minute
+ * ceiling unseen, so the guard measures the LONGEST real chat prompt across every entry point, via the builder.
+ */
+const SYSTEM_PROMPT_CHARS = Math.max(
+  ...[undefined, ...FARAH_QUICK_ACTIONS.map((a) => a.key), JOB_FIT_ENTRY_POINT].map(
+    (key) => buildFarahChatSystemPrompt({ quickAction: key }).length,
+  ),
+);
+/** What the prompt was before send-500, for the historical BEFORE_THE_FIX scenario below. */
+const ORIGINAL_SYSTEM_PROMPT_CHARS = FARAH_SYSTEM_PROMPT.length;
 
 /** The constants as they stood when production started 502-ing. */
 const BEFORE_THE_FIX = {
-  systemPromptChars: SYSTEM_PROMPT_CHARS,
+  systemPromptChars: ORIGINAL_SYSTEM_PROMPT_CHARS,
   historyTurns: 12,
   maxMessageChars: 2000,
   // Uncapped: the old builder emitted the whole summary and every skill.
