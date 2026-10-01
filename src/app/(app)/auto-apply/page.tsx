@@ -144,7 +144,14 @@ export default async function AutoApplyPage() {
         </p>
       </BorderedCard>
 
-      <AutoApplyQueueList items={pending} />
+      <AutoApplyQueueList
+        items={pending}
+        // The button names the price only once confirming will actually charge (free allowance used up, no
+        // covering Pass) — the same two flags the line above reads.
+        confirmCostCredits={
+          quota.nextSubmissionCostsCredits && !quota.nextSubmissionCovered ? CREDIT_COSTS.autoApplySubmission : null
+        }
+      />
 
       {history.length > 0 && (
         <section>

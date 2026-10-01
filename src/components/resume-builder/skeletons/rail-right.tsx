@@ -59,7 +59,7 @@ export function RailRightSkeleton({ resume, config }: SkeletonProps) {
         <aside className="border-l border-line pl-6">
           {railKeys.map((key) => (
             <div key={key} className="mb-6 last:mb-0">
-              {SECTION_RENDERERS[key]({ resume, tokens, content, sectionClassName: "" })}
+              {SECTION_RENDERERS[key]({ resume, tokens, content, sectionClassName: "", narrow: true })}
             </div>
           ))}
         </aside>
