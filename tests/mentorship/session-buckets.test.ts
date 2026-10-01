@@ -117,6 +117,26 @@ describe("sessionStatusLabel", () => {
     expect(l("confirmed", FUTURE[0], NOW, "mentor")).toBe("Confirmed");
   });
 
+  it("the statuses the expiry migration adds read plainly, from each side", async () => {
+    const { sessionStatusLabel } = await mod();
+    const l = need(sessionStatusLabel, "sessionStatusLabel");
+    expect(l("expired_unpaid", PAST[0], NOW)).toBe("Expired — not paid");
+    expect(l("expired_unpaid", PAST[0], NOW, "mentor")).toBe("Expired — not paid");
+    expect(l("cancelled_by_mentee", FUTURE[0], NOW)).toBe("Cancelled by you");
+    expect(l("cancelled_by_mentee", FUTURE[0], NOW, "mentor")).toBe("Cancelled by the mentee");
+    expect(l("payment_needs_refund", PAST[0], NOW)).toBe("Payment received — refund being arranged");
+    // The mentor is told nothing about money: only that this booking will not happen.
+    expect(l("payment_needs_refund", PAST[0], NOW, "mentor")).toBe("Cancelled — the payment arrived too late");
+  });
+
+  it("those statuses are always past, never upcoming or awaiting payment", async () => {
+    const { bucketSession } = await mod();
+    const b = need(bucketSession, "bucketSession");
+    for (const status of ["expired_unpaid", "cancelled_by_mentee", "payment_needs_refund"]) {
+      expect(b(session(status, ...FUTURE), NOW), status).toBe("past");
+    }
+  });
+
   it("an unknown status falls back to the raw status rather than blank", async () => {
     const { sessionStatusLabel } = await mod();
     expect(need(sessionStatusLabel, "sessionStatusLabel")("something_new", FUTURE[0], NOW)).toBe("something_new");

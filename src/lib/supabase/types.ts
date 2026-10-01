@@ -3813,6 +3813,10 @@ export type Database = {
           session_id: string
         }[]
       }
+      cancel_unpaid_mentor_session: {
+        Args: { p_mentee_id: string; p_session_id: string }
+        Returns: boolean
+      }
       charge_ad_campaign_day: {
         Args: { p_campaign_id: string; p_on_date?: string }
         Returns: {
@@ -4011,6 +4015,13 @@ export type Database = {
         Returns: {
           structured_content: Json
           template_slug: string
+        }[]
+      }
+      expire_unpaid_mentor_sessions: {
+        Args: { p_now?: string }
+        Returns: {
+          session_id: string
+          slot_id: string
         }[]
       }
       fulfill_credit_pack_or_pass: {
@@ -4335,6 +4346,10 @@ export type Database = {
           p_reviewer_id: string
         }
         Returns: Database["public"]["Enums"]["ad_campaign_status"]
+      }
+      settle_late_mentor_payment: {
+        Args: { p_now?: string; p_session_id: string }
+        Returns: string
       }
       spend_credits_atomic: {
         Args: {
