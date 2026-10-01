@@ -33,6 +33,86 @@ both served stale content in this project's history. Don't rely on either.
 
 ---
 
+## Merged 2026-10-01 — PR #640, Farah quick actions: own instructions, no invented achievements, a cut-off reply is not charged (send-500)
+
+| PR | Branch | Merged at (UTC) | Merge SHA |
+|----|--------|-----------------|-----------|
+| [#640](https://github.com/Bayo-1987/Claude-Talentrah/pull/640) | `feat/farah-quick-action-quality-500` | 2026-10-01 16:51:12 | `26f7a50d7b7f7c9911d23bfe315e2cedd9a12007` |
+
+Prompted by a report: a **Career Advisor** click returned a **charged**, cut-off **interview-prep** plan whose STAR stories were presented as the user's own ("Validated $2 M TAM…", "15 pilot merchants", a named tool). No migration; **no charging amount or ledger logic changed**.
+
+**Diagnosis (production, read-only, structure only).** (a) `chat/route.ts` stored `quickAction` in `context` for the transcript and never gave it to the model; the prompt was identical for every entry point and six turns of history were replayed. The turn immediately before the click was an Interview Prep quick action, so a vague starter continued that thread. (b) The reply was 4,088 chars (about 1,022 tokens) against `CHAT_MAX_OUTPUT_TOKENS = 1024`; `generateTextStream` yields text only, so `finish_reason` was never read and a length stop was charged like a clean one. In 30 days: 34 replies, 5 without terminal punctuation, 6 at or past the ceiling.
+
+**What it changed.** `src/lib/farah/chat-prompt.ts` builds the chat prompt per request: shared prompt + a placeholder rule (never invent achievements/metrics/employers/tools; `[your metric]`; an example is a template, never presented as the user's) + a reply-size rule + the quick action's own instructions, each stating that this is a **new** request and not to continue an earlier topic. Providers report why a stream ended (`LLMGenerateOptions.onFinish`: Groq `finish_reason`, Gemini mapping, stub trigger `[stub:length]`); a **length stop is not charged** (no credit, no free message, no Pass slot), is still shown and saved marked `truncated`, and the panel says so. `token-budget.test.ts` now measures the longest real chat prompt.
+
+**Choice recorded: don't charge, rather than continue.** A continuation replays the whole prompt and history for one user action, and Farah's production failure mode is the provider's per-minute token cap (send-109). Trade-off: a user could try to provoke length stops for free replies; the hourly cap still counts saved messages and the size instruction makes it the exception.
+
+**Proof the tests can fail.** Tests-first commit `2cee543`: 24 new unit tests red (typecheck passed), 5 controls green. The new e2e run against **unfixed `main`** on a throwaway PR (#644, closed, branch deleted): **3 of 3 red**, 512 others passed ([run 36889014597](https://github.com/Bayo-1987/Claude-Talentrah/actions/runs/36889014597)).
+
+### Verification
+**1. API:** `{"merged": true, "merged_at": "2026-10-01T16:51:12Z", "merge_commit_sha": "26f7a50d7b7f7c9911d23bfe315e2cedd9a12007", "head_sha": "75b572567ae5f2ac4028580efebfa36646983c60"}`; `--match-head-commit`.
+**3. Production: NOT DEPLOYED.** The merge commit's Vercel status is `failure`: **"Deployment rate limited — retry in 24 hours."** The newest production deployment is `dpl_23SiXw9NMdkcqkRWnuFmkotxJtVB` at `0f60fa2` (which includes #623 but **not** this PR). Until Vercel's build limit lifts, **no later merge deploys either**, and this PR's behaviour is not live. Signed-out `POST /api/farah/chat` returns 401 (unchanged route, old code).
+**4. Full suite on merged `main`** (push run [36895081887](https://github.com/Bayo-1987/Claude-Talentrah/actions/runs/36895081887)): unit **414 files, 4,701 tests passed**; e2e **515 passed**; audits success.
+
+### Not covered / still open
+- Nothing in CI can judge model OUTPUT; the tests pin that the instructions are present, distinct and per action. Whether the live model now follows them needs real replies after the deploy.
+- **The Vercel build rate limit is an open operational problem** (not caused by this PR): production is behind `main` until it lifts or the plan changes.
+
+---
+
+## Merged 2026-10-01 — PR #623, the price on every credit spender (send-493)
+
+| PR | Branch | Merged at (UTC) | Merge SHA |
+|----|--------|-----------------|-----------|
+| [#623](https://github.com/Bayo-1987/Claude-Talentrah/pull/623) | `feat/credit-prices-everywhere-493` | 2026-10-01 16:01:06 | `5af545f2257f1a5da99171c7b40856c08b1928a7` |
+
+Every control that spends credits now says what it costs **before** the click. No charging amount and no ledger logic changed; a migration was not needed. References
+issue [#605](https://github.com/Bayo-1987/Claude-Talentrah/issues/605) (a different part of the audit than #609/#615; that issue was already complete and stays closed).
+
+**What it changed.** One module, `src/lib/credits/price-labels.ts`, builds every price text from `CREDIT_COSTS`.
+- **Tailor / cover letter:** `Tailor my resume · 20 credits (you have 38)`; the cover-letter checkbox carries its own price; the "first run free" copy appears only for accounts it is true for;
+  a charged run asks `Confirm and tailor` / `Cancel` first (Cancel makes no request); free and Pass-covered runs go straight through.
+- **Bullet rewrite:** price on each control, 44px targets (were 18px), the rewrite shown as a Keep/Discard **preview**, and a leave-the-page guard (`use-unsaved-guard.ts`) for unsaved or not-yet-decided rewrites.
+- **Farah quick actions:** once the three free messages are used a chip **prefills** the input instead of sending; the allowance line states the price.
+- **Auto-Apply confirm** and the three **Talent Directory** buttons carry their price.
+- Results and their charge are announced in a polite live region (`Tailored — 20 credits used`, `Rewritten — 2 credits used`, `Farah replied — 1 credit used`).
+
+**Reported, not changed: the bullet-rewrite charge is taken at generation.** `rewriteBulletAction` calls the model and only then spends, so Discard cannot refund. The preview says so
+(`2 credits already used … Discard doesn't refund it`) and the e2e asserts one charge at generation, none on Keep, none and no refund on Discard. "Keep is the only thing that charges" would be a two-phase design in the action and ledger: a separate decision.
+
+**A real bug the first e2e run found.** A chip clicked before the free-message count had loaded **sent** the message (and could charge). `freeRemaining` now separates *unknown* (`undefined`, chips disabled; prefill if the fetch fails) from *a Pass holder* (`null`). Mutation-proven.
+
+**Proof the tests can fail.** Tests-first commit `0402bc7`: unit job red at assertion level (run [36866527036](https://github.com/Bayo-1987/Claude-Talentrah/actions/runs/36866527036)). The new e2e spec was run against **unfixed `main`** on a throwaway PR (#625, closed, branch deleted):
+**14 of its tests red, 488 passed** ([run 36867367763](https://github.com/Bayo-1987/Claude-Talentrah/actions/runs/36867367763)). The first run on the implementation had 4 failures (one real bug above, three test bugs of mine).
+
+### Verification (all four)
+**1. GitHub API:** `{"merged": true, "merged_at": "2026-10-01T16:01:06Z", "merge_commit_sha": "5af545f2257f1a5da99171c7b40856c08b1928a7", "head_sha": "8695389d9d3335ca9173650bf5e4c52d7635bbd9"}`. Merged with `--match-head-commit`. `main` moved under the PR five times while its checks ran (other sessions merging; the last deltas were docs-only), each time requiring a branch update and a new full CI cycle; no `--admin`, no `--auto`.
+**2. Fresh shallow clone:** `5af545f` is in `main`'s history; present: `price-labels.ts`, `farah-quick-actions.tsx`, `use-unsaved-guard.ts`, the two unit files and `e2e/credit-prices.spec.ts`; `tailor-confirm`, `RewriteButtons`, `useUnsavedGuard`, `allowanceLoading` and `confirmCostCredits` are in the components.
+**3. Production:** deployment `dpl_5UDPct35UBuCq6K5Q54sCxpzqMfo` `READY`, `target: production`, `githubCommitSha` = `5af545f…`. Signed-out probes: `GET /tailor`, `/resume-builder/edit`, `/talent-directory/verify`, `/auto-apply` all **307 → /login**; `POST /api/tailoring` and `POST /api/farah/chat` **401**; `GET /` 200. **The behavioural change was not probed in production** (every changed surface is behind a session).
+**4. Full suite on merged `main`** (push run [36888786203](https://github.com/Bayo-1987/Claude-Talentrah/actions/runs/36888786203)): unit **409 files passed**, e2e **512 passed**, dependency audit, secret scan: success.
+
+### Not covered / still open
+- The browser **Back button** is not guarded by the leave-the-page prompt (a `popstate` cannot be reliably vetoed; said in `use-unsaved-guard.ts`).
+- A Pass holder who has hit the daily fair-use cap is shown "send" (the client cannot know), so a chip click there can still charge.
+- Known flake `e2e/employer-new-job-banner.spec.ts` (#591) failed once on an intermediate head of this PR (run 36876741004) and passed on the next; the head that merged had no failures.
+
+---
+
+## Merged 2026-10-01 — PR #620, the anonymous homepage demo never touches the ledger or a balance (send-490)
+
+| PR | Branch | Merged at (UTC) | Merge SHA |
+|----|--------|-----------------|-----------|
+| [#620](https://github.com/Bayo-1987/Claude-Talentrah/pull/620) | `test/anon-demo-no-balance-490` | 2026-10-01 13:15:56 | `5569b02d43839b5d054fb3cfa3ed4590518359b1` |
+
+Tests only (`tests/demo/jd-demo-no-balance.test.tsx`), added as the regression check on #615: the signed-out demo has no ledger, so no tailoring change may reach it. It pins that the route never calls the
+entitlement gate or the ledger, never returns a credit field (the response fields are enumerated), that `JdDemoResult` renders its preview without a balance, and that no demo component mentions a balance or the credits provider.
+No finding: the demo path was and is untouched by #615.
+
+**Verification.** (1) API: `merged: true`, `merged_at 2026-10-01T13:15:56Z`, `merge_commit_sha 5569b02d…`, head `53512eb1…`. (2) Fresh clone: merge commit in `main`'s history, `tests/demo/jd-demo-no-balance.test.tsx` present.
+(3) Production: not applicable, no runtime code changed; not probed. (4) Push run [36867427650](https://github.com/Bayo-1987/Claude-Talentrah/actions/runs/36867427650): unit 399 files passed, e2e 487 passed.
+
+---
+
 ## Merged 2026-10-01 — S12 job data quality, parts 1 and 2: PR #629 (countries and Workable's stated remote country in JobPosting markup) and PR #632 (superseded duplicates, migration 0202)
 
 | PR | Branch | Merged at (UTC) | Merge SHA |
