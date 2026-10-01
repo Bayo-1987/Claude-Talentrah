@@ -1,17 +1,38 @@
 import "server-only";
-import { generateWithFailover, generateChatStreamWithFailover } from "@/lib/llm";
+import { generateWithFailover, generateChatStreamWithFailover, type ServedBy } from "@/lib/llm";
+import { logFarahCall } from "./call-log";
 import { FARAH_SYSTEM_PROMPT } from "./system-prompt";
 import { CHAT_MAX_OUTPUT_TOKENS } from "./token-budget";
 
+/**
+ * Writes the one success line (call-log.ts) for a Farah call, given when it started and who served it.
+ * Takes no text of any kind, by design.
+ */
+function logSuccess(startedAt: number, served: ServedBy | undefined): void {
+  if (!served) return;
+  logFarahCall({
+    provider: served.provider.name,
+    model: served.provider.model,
+    latencyMs: performance.now() - startedAt,
+    failover: served.failover,
+  });
+}
+
 /** One-shot text completion with Farah's voice as the system prompt. */
 export async function askFarah(userMessage: string, maxTokens = 1536): Promise<string> {
-  return generateWithFailover((provider) =>
-    provider.generateText({
-      systemPrompt: FARAH_SYSTEM_PROMPT,
-      turns: [{ role: "user", content: userMessage }],
-      maxOutputTokens: maxTokens,
-    }),
+  const startedAt = performance.now();
+  let served: ServedBy | undefined;
+  const text = await generateWithFailover(
+    (provider) =>
+      provider.generateText({
+        systemPrompt: FARAH_SYSTEM_PROMPT,
+        turns: [{ role: "user", content: userMessage }],
+        maxOutputTokens: maxTokens,
+      }),
+    (s) => (served = s),
   );
+  logSuccess(startedAt, served);
+  return text;
 }
 
 export interface FarahChatTurn {
@@ -37,13 +58,19 @@ export async function askFarahChat(
   maxTokens = CHAT_MAX_OUTPUT_TOKENS,
 ): Promise<string> {
   const system = extraContext ? `${FARAH_SYSTEM_PROMPT}\n\n${extraContext}` : FARAH_SYSTEM_PROMPT;
-  return generateWithFailover((provider) =>
-    provider.generateText({
-      systemPrompt: system,
-      turns,
-      maxOutputTokens: maxTokens,
-    }),
+  const startedAt = performance.now();
+  let served: ServedBy | undefined;
+  const text = await generateWithFailover(
+    (provider) =>
+      provider.generateText({
+        systemPrompt: system,
+        turns,
+        maxOutputTokens: maxTokens,
+      }),
+    (s) => (served = s),
   );
+  logSuccess(startedAt, served);
+  return text;
 }
 
 /**
@@ -59,11 +86,23 @@ export async function* askFarahChatStream(
   maxTokens = CHAT_MAX_OUTPUT_TOKENS,
 ): AsyncGenerator<string> {
   const system = extraContext ? `${FARAH_SYSTEM_PROMPT}\n\n${extraContext}` : FARAH_SYSTEM_PROMPT;
-  yield* generateChatStreamWithFailover((provider) =>
-    provider.generateTextStream({
-      systemPrompt: system,
-      turns,
-      maxOutputTokens: maxTokens,
-    }),
-  );
+  const startedAt = performance.now();
+  let served: ServedBy | undefined;
+  let chunks = 0;
+  for await (const chunk of generateChatStreamWithFailover(
+    (provider) =>
+      provider.generateTextStream({
+        systemPrompt: system,
+        turns,
+        maxOutputTokens: maxTokens,
+      }),
+    (s) => (served = s),
+  )) {
+    chunks++;
+    yield chunk;
+  }
+  // Reached only when the stream completed without throwing, and only if it said anything: the chat route
+  // treats a zero-chunk reply as a failure, so it is not logged as a success here either. For a stream the
+  // latency is the whole reply, start to finish — not time to first token.
+  if (chunks > 0) logSuccess(startedAt, served);
 }
