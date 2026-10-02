@@ -6,7 +6,7 @@
  * reward, and the mentorship sessions and reviews that are also the mentor's records.
  *
  * What this pins, against the real database:
- *   1. THE CATALOG: each of the ten foreign keys reads SET NULL and its column is nullable (via account_deletion_fk_catalog(), because
+ *   1. THE CATALOG: each of the nine foreign keys reads SET NULL and its column is nullable (via account_deletion_fk_catalog(), because
  *      supabase-js cannot query pg_catalog).
  *   2. THE CASCADE: delete a user who has a payment, a ledger entry, a referral (both sides), a reward event, a mentorship session (mentee side) and a
  *      review. Every row survives with the user's id null, the mentee's free-text notes are gone, the mentor's notes and the session are not.
@@ -20,6 +20,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { randomUUID } from "node:crypto";
 import { admin, createTestUser, deleteTestUsers, sessionFor } from "../support/auth";
 import { financialHealth } from "@/lib/admin/finance/queries";
+import { monthRange } from "@/lib/referrals/leaderboard";
 
 for (const key of ["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"] as const) {
   if (!process.env[key]) throw new Error(`money-survives-user-deletion test cannot run: ${key} is not set.`);
@@ -173,5 +174,102 @@ describe("deleting a user keeps their money and counterparty records", () => {
     } finally {
       await deleteTestUsers([stranger.id]);
     }
+  }, 60_000);
+});
+
+describe("a referrer's history does not shrink when someone they referred deletes their account", () => {
+  const stamp = randomUUID().slice(0, 8);
+  const ids: { referrer?: string; x?: string; y?: string; gone?: string; goneReferred?: string } = {};
+  let referrerEmail = "";
+  const referrerName = `Ref ${stamp} Keeps`;
+  const goneName = `Ref ${stamp} Gone`;
+
+  async function user(label: string) {
+    const { data, error } = await admin.auth.admin.createUser({ email: `${label}-${stamp}@talentrah.test`, email_confirm: true });
+    if (error || !data.user) throw new Error(`could not create ${label}: ${error?.message}`);
+    return data.user;
+  }
+  const check = async (p: PromiseLike<{ error: { message: string } | null }>) => {
+    const { error } = await p;
+    if (error) throw new Error(`fixture/cleanup failed: ${error.message}`);
+  };
+
+  async function leaderboardFor(viewerId: string, viewerEmail: string) {
+    const period = monthRange(new Date());
+    const client = await sessionFor(viewerEmail, viewerId);
+    const { data, error } = await client.rpc("referral_leaderboard", { p_period_start: period.start, p_period_end: period.end, p_limit: 100 });
+    expect(error).toBeNull();
+    return data ?? [];
+  }
+
+  async function ownReferralStats(referrerId: string) {
+    const { data } = await admin.from("referrals").select("status, reward_credits_referrer").eq("referrer_id", referrerId);
+    const rows = data ?? [];
+    return {
+      signedUp: rows.filter((r) => r.status === "signed_up" || r.status === "activated").length,
+      activated: rows.filter((r) => r.status === "activated").length,
+      creditsEarned: rows.reduce((sum, r) => sum + r.reward_credits_referrer, 0),
+    };
+  }
+
+  beforeAll(async () => {
+    const referrer = await user("lb-referrer");
+    const x = await user("lb-x");
+    const y = await user("lb-y");
+    const gone = await user("lb-gone");
+    const goneReferred = await user("lb-gone-referred");
+    Object.assign(ids, { referrer: referrer.id, x: x.id, y: y.id, gone: gone.id, goneReferred: goneReferred.id });
+    referrerEmail = referrer.email!;
+    const now = new Date().toISOString();
+    await check(admin.from("profiles").update({ referral_leaderboard_opt_in: true, referral_leaderboard_display_name: referrerName }).eq("id", referrer.id));
+    await check(admin.from("profiles").update({ referral_leaderboard_opt_in: true, referral_leaderboard_display_name: goneName }).eq("id", gone.id));
+    await check(admin.from("referrals").insert([
+      { referrer_id: referrer.id, referred_user_id: x.id, status: "activated", activated_at: now, reward_credits_referrer: 5 },
+      { referrer_id: referrer.id, referred_user_id: y.id, status: "activated", activated_at: now, reward_credits_referrer: 5 },
+      { referrer_id: gone.id, referred_user_id: goneReferred.id, status: "activated", activated_at: now, reward_credits_referrer: 5 },
+    ]));
+  }, 120_000);
+
+  afterAll(async () => {
+    for (const id of [ids.referrer, ids.x, ids.y, ids.gone, ids.goneReferred]) {
+      if (id) await check(admin.from("referrals").delete().or(`referrer_id.eq.${id},referred_user_id.eq.${id}`));
+    }
+    // Rows detached by the deletions below have both sides null and cannot be found by id; they are identified by the fixture amounts and stamp period.
+    await check(admin.from("referrals").delete().is("referrer_id", null).is("referred_user_id", null).eq("status", "activated").eq("reward_credits_referrer", 5));
+    for (const id of [ids.referrer, ids.y, ids.goneReferred]) if (id) await admin.auth.admin.deleteUser(id);
+  }, 120_000);
+
+  it("deleting a referred user leaves the referrer's count, rewards and leaderboard position exactly as they were", async () => {
+    const boardBefore = await leaderboardFor(ids.referrer!, referrerEmail);
+    const mineBefore = boardBefore.find((r) => r.display_name === referrerName);
+    expect(mineBefore, "the referrer is on the board").toBeTruthy();
+    expect(mineBefore!.activated_count).toBe(2);
+    const statsBefore = await ownReferralStats(ids.referrer!);
+    expect(statsBefore).toEqual({ signedUp: 2, activated: 2, creditsEarned: 10 });
+
+    const { error } = await admin.auth.admin.deleteUser(ids.x!);
+    expect(error).toBeNull();
+    const { data: detached } = await admin.from("referrals").select("referrer_id, referred_user_id, status").eq("referrer_id", ids.referrer!).is("referred_user_id", null);
+    expect(detached, "the row survives, detached on the referred side").toEqual([{ referrer_id: ids.referrer, referred_user_id: null, status: "activated" }]);
+
+    const boardAfter = await leaderboardFor(ids.referrer!, referrerEmail);
+    const mineAfter = boardAfter.find((r) => r.display_name === referrerName);
+    expect(mineAfter).toEqual(mineBefore);
+    expect(await ownReferralStats(ids.referrer!)).toEqual(statsBefore);
+  }, 60_000);
+
+  it("rows whose REFERRER was deleted are left off the leaderboard entirely, not shown as an empty entry", async () => {
+    const before = await leaderboardFor(ids.referrer!, referrerEmail);
+    expect(before.some((r) => r.display_name === goneName), "present while they exist").toBe(true);
+
+    const { error } = await admin.auth.admin.deleteUser(ids.gone!);
+    expect(error).toBeNull();
+    const { data: orphan } = await admin.from("referrals").select("referrer_id, referred_user_id").eq("referred_user_id", ids.goneReferred!);
+    expect(orphan, "the row survives with a null referrer").toEqual([{ referrer_id: null, referred_user_id: ids.goneReferred }]);
+
+    const after = await leaderboardFor(ids.referrer!, referrerEmail);
+    expect(after.some((r) => r.display_name === goneName)).toBe(false);
+    expect(after.every((r) => typeof r.display_name === "string" && r.display_name.length > 0), "no null or blank entry").toBe(true);
+    expect(after.length).toBe(before.length - 1);
   }, 60_000);
 });
