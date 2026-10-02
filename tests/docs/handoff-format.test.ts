@@ -1,0 +1,103 @@
+/**
+ * The shape of the handoff record: ONE FILE PER MERGED PR, in docs/handoff/.
+ *
+ * WHY. Every merged PR used to add an entry to one shared file (handoff-status.md). Under merge-heavy days three
+ * PRs editing the same insertion point conflicted constantly (#645, #642, #647) and each conflict cost a full CI
+ * cycle. A PR that adds its own file cannot conflict with another PR's.
+ *
+ * WHAT IS ENFORCED
+ *  - docs/handoff/<yyyy-mm-dd>-pr-<n>.md, one per merged PR, PR numbers unique across all files;
+ *  - the filename's date is the merged-at date (UTC) in the file's own table, and its PR number is in that table;
+ *  - each merged file carries: the PR row (PR, branch, merged-at UTC, 40-hex merge SHA) and the four-part verification
+ *    (GitHub API, fresh clone, production, full suite on merged main). A "Flakes and reruns" line is the convention
+ *    but is not enforced: several sessions write these files and the line was never part of their template;
+ *  - only a file headed "## Merged" has to carry the merge facts; one written inside its own PR before the merge
+ *    (headed "## Opened" or just "## PR #n") only has to name its PR;
+ *  - handoff-status.md stops being a log: no "## Merged" headings (the log is the directory).
+ *  - docs/handoff/legacy/ holds entries written before this format existed. They are exempt from the field checks
+ *    (they have no PR table with a SHA) but still need a unique <yyyy-mm-dd>-pr-<n>.md name.
+ * A "multi-PR" write-up (one narrative for several PRs) lives in the lowest-numbered PR's file; each other PR's file
+ * has its own row and a "Shared write-up:" line naming that file.
+ */
+import { describe, expect, it } from "vitest";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import path from "node:path";
+
+// HANDOFF_ROOT lets the test be pointed at another checkout (used to show it red against the pre-restructure tree).
+const ROOT = process.env.HANDOFF_ROOT ?? process.cwd();
+const DIR = path.join(ROOT, "docs/handoff");
+const LEGACY = path.join(DIR, "legacy");
+const NAME = /^(\d{4}-\d{2}-\d{2})-pr-(\d+)\.md$/;
+
+const list = (d: string) => (existsSync(d) ? readdirSync(d).filter((f) => f.endsWith(".md")) : []);
+const modern = list(DIR);
+const legacy = list(LEGACY);
+const all = [...modern.map((f) => ({ f, dir: DIR })), ...legacy.map((f) => ({ f, dir: LEGACY }))];
+
+describe("docs/handoff is the record, one file per merged PR", () => {
+  it("exists and is not empty (this test is not vacuous)", () => {
+    expect(modern.length, "docs/handoff/ has no entries").toBeGreaterThan(0);
+  });
+
+  it("every file is named <yyyy-mm-dd>-pr-<n>.md", () => {
+    expect(all.filter(({ f }) => !NAME.test(f)).map(({ f }) => f)).toEqual([]);
+  });
+
+  it("no PR number appears in two files", () => {
+    const seen = new Map<string, string>();
+    const dups: string[] = [];
+    for (const { f } of all) {
+      const n = f.match(NAME)?.[2];
+      if (!n) continue;
+      if (seen.has(n)) dups.push(`#${n}: ${seen.get(n)} and ${f}`);
+      seen.set(n, f);
+    }
+    expect(dups).toEqual([]);
+  });
+
+  describe("each current-format file", () => {
+    for (const f of modern) {
+      it(f, () => {
+        const m = f.match(NAME);
+        expect(m, "bad filename").not.toBeNull();
+        const [, date, n] = m!;
+        const body = readFileSync(path.join(DIR, f), "utf8");
+
+        // Only a file headed "## Merged" claims a merge, so only it has to carry the merge facts. A file written inside its
+        // own PR before the merge ("## Opened ...", or a bare "## PR #n ...") has no merge SHA yet; the merger renames the
+        // heading and fills the row. It still has to name its PR number.
+        if (!/^## Merged /.test(body)) {
+          expect(body, `does not name its PR, #${n}`).toMatch(new RegExp(`#${n}\\b`));
+          return;
+        }
+
+        // The PR row: [#n](…) | `branch` | YYYY-MM-DD HH:MM:SS | `40-hex sha`
+        const row = body.match(
+          new RegExp(`\\|\\s*\\[#${n}\\]\\([^)]*\\)\\s*\\|\\s*\`[^\`]+\`\\s*\\|\\s*(\\d{4}-\\d{2}-\\d{2}) \\d{2}:\\d{2}:\\d{2}\\s*\\|\\s*\`([0-9a-f]{40})\``),
+        );
+        expect(row, `no PR row for #${n} with merged-at and a 40-hex merge SHA`).not.toBeNull();
+        expect(row![1], "filename date must be the merged-at date (UTC)").toBe(date);
+
+        // A pointer file carries only its own row; the verification lives in the shared write-up.
+        const shared = body.match(/Shared write-up:\s*`?([\w./-]+\.md)`?/);
+        if (shared) {
+          expect(modern.includes(path.basename(shared[1])), `Shared write-up ${shared[1]} not found`).toBe(true);
+          return;
+        }
+
+        // Four-part verification, each part named.
+        for (const part of ["1.", "2.", "3.", "4."]) {
+          expect(body, `verification part ${part} missing`).toMatch(new RegExp(`(\\*\\*${part.replace(".", "\\.")}|\\n${part.replace(".", "\\.")}\\s)`));
+        }
+        expect(body, "no Verification section").toMatch(/Verification/);
+      });
+    }
+  });
+});
+
+describe("the shared file is an index, not a log", () => {
+  it("handoff-status.md has no '## Merged' entries left", () => {
+    const body = readFileSync(path.join(ROOT, "handoff-status.md"), "utf8");
+    expect(body.match(/^## Merged /gm)?.length ?? 0).toBe(0);
+  });
+});
