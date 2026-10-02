@@ -1,7 +1,15 @@
 "use server";
 
 import { createHash } from "node:crypto";
-import { readExpiry } from "./expiry-input";
+import {
+  CLOSING_DATE_PASSED_MESSAGE,
+  DEFAULT_NEW_POSTING_EXPIRY_DAYS,
+  MAX_EXPIRY_DAYS,
+  SHORT_NOTICE_DAYS,
+  closesSoonMessage,
+  closingDateSourceFor,
+  readExpiry,
+} from "./expiry-input";
 import { readSalaryForm } from "./salary-input";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -506,7 +514,9 @@ export async function postJobAction(
   }
 
   // A custom date the person typed can be refused; a preset never is.
-  const expiry = readExpiry(form);
+  // CREATION ONLY passes the default (EMP-1 / E3): a new employer posting closes in 30 days unless the form said
+  // otherwise. updateJobAction below deliberately does not.
+  const expiry = readExpiry(form, new Date(), { defaultDays: DEFAULT_NEW_POSTING_EXPIRY_DAYS });
   if (!expiry.ok) return { error: expiry.error };
 
   const salary = readSalaryForm(form);
@@ -553,8 +563,8 @@ export async function postJobAction(
         ? fields.years_experience_min
         : null,
       // `keep` is unreachable on create — there is no stored value to keep —
-      // so undefined collapses to null, which is the documented "does not
-      // expire".
+      // so undefined collapses to null. An explicit "No expiry" is also null;
+      // the 30-day default applies only when the form made no choice at all.
       expires_at: expiry.value ?? null,
       ...salary.value,
       status,
@@ -577,6 +587,21 @@ export async function postJobAction(
     return {
       error: `Couldn't ${intent === "draft" ? "save the draft" : "publish the job"}: ${error.message}`,
     };
+  }
+
+  /*
+   * Where the closing date came from (closing_date_source, 0207). Not part of the insert above on purpose: the column is
+   * not the employer's to write (a guard trigger refuses a client that carries it in, so it cannot spoof 'default'), so
+   * the server records it with the service role AFTER the employer's own insert was authorised by RLS. If this write
+   * fails the source stays NULL, which counts as 'chosen', the safe side: publishing never moves such a date.
+   */
+  const source = closingDateSourceFor(form, expiry.value, { creating: true });
+  if (source) {
+    const { error: sourceError } = await createServiceRoleClient()
+      .from("job_postings")
+      .update({ closing_date_source: source })
+      .eq("id", created.id);
+    if (sourceError) console.error("[employer] created job but could not record closing_date_source", created.id, sourceError.message);
   }
 
   // A brand-new posting has no existing questions to reconcile against —
@@ -710,6 +735,20 @@ export async function updateJobAction(
     return { error: `Couldn't save the job: ${error.message}` };
   }
 
+  /*
+   * An edit that sets or clears the closing date is the employer's own decision: 'chosen', or null with the date.
+   * "Keep current" writes neither. Server-side for the same reason as in postJobAction; scoped to this org's own row.
+   */
+  const source = closingDateSourceFor(form, expiry.value, { creating: false });
+  if (source !== undefined) {
+    const { error: sourceError } = await createServiceRoleClient()
+      .from("job_postings")
+      .update({ closing_date_source: source })
+      .eq("id", jobId)
+      .eq("organization_id", organization.id);
+    if (sourceError) console.error("[employer] saved job but could not record closing_date_source", jobId, sourceError.message);
+  }
+
   // Reconciled, not blindly replaced — see reconcileScreeningQuestions'
   // own header for why a delete-and-reinsert (the pattern `skills` above
   // uses) would risk cascading away a candidate's already-submitted answers.
@@ -839,35 +878,166 @@ export async function setJobStatusAction(jobId: string, status: Enums<"job_statu
  * already-open, closed, or removed posting is a no-op (zero rows updated)
  * rather than a status change this action was never meant to make.
  */
-export async function publishJobAction(jobId: string) {
+export type PublishDraftResult =
+  | { ok: true }
+  /** `past`: the closing date has passed (blocks). `soon`: under 3 days away (warns; "Publish anyway" overrides). */
+  | { ok: false; kind: "past" | "soon" | "other"; error: string };
+
+/**
+ * ── THE CLOSING DATE AT FIRST PUBLISH (EMP-1 / E3) ────────────────────────
+ *
+ * A draft is created with the same 30-day default as any new posting, but 30 days should count from the moment
+ * candidates can first SEE the job, not from when it was drafted. What publishing does depends on
+ * `closing_date_source` (0207), which the server recorded when the date was set:
+ *
+ *   no closing date       left null. "No expiry" stays no expiry through publish.
+ *   'default'             reset to now + 30 days, whether or not it had passed yet.
+ *   'chosen', or NULL     the employer's date, never moved. (A NULL source with a date is a row from before the column,
+ *                         and counts as chosen: nobody can show it was defaulted.)
+ *       already passed            the publish is REFUSED ("This closing date has passed. Pick a new one"), nothing is
+ *                                 written, and the employer is asked to pick again.
+ *       under 3 days away         the employer is WARNED with the real number of days and may "Publish anyway"
+ *                                 (`confirmShortNotice`) or change the date. Not blocked: some jobs really are short.
+ *       3 or more days out        left exactly as it is.
+ *
+ * `newExpiresIn`, when present, is the employer's answer to a refusal (the same duration values the form posts; "" is
+ * "No expiry"). It is their pick, so it is recorded 'chosen' (or null with "No expiry"), and it gets the same
+ * under-3-days warning.
+ *
+ * The reset and the re-pick are written with the service role, and the reset is itself conditional on
+ * `closing_date_source = 'default'`, so a date edited to 'chosen' between the read and the write cannot be moved: the
+ * statement refuses it rather than this code having read a value and then acted on it. They are made BEFORE the status
+ * flips, so nothing is ever open with a date this action was about to replace; a chosen date that is kept carries
+ * `expires_at > now` on the status UPDATE, so it cannot be published after it has slipped into the past.
+ */
+async function publishDraft(
+  jobId: string,
+  options: { newExpiresIn?: string; confirmShortNotice?: boolean } = {},
+): Promise<PublishDraftResult> {
   const { supabase } = await getAuthedUser();
   const { organization } = await requireEmployer();
 
-  const { data: updated, error } = await supabase
+  const { data: draft } = await supabase
+    .from("job_postings")
+    .select("id, status, source_type, expires_at, closing_date_source")
+    .eq("id", jobId)
+    .eq("organization_id", organization.id)
+    .maybeSingle();
+
+  if (!draft || draft.status !== "draft" || draft.source_type !== "internal") {
+    return { ok: false, kind: "other", error: "This job can't be published." };
+  }
+
+  const now = new Date();
+  const shortNoticeAt = now.getTime() + SHORT_NOTICE_DAYS * 86_400_000;
+  const daysFromNow = (days: number) => {
+    const d = new Date(now);
+    d.setDate(d.getDate() + days);
+    return d.toISOString();
+  };
+  /** Under 3 days: a warning unless the employer has already said "Publish anyway". */
+  const soonWarning = (closesAtMs: number): PublishDraftResult | null =>
+    closesAtMs < shortNoticeAt && !options.confirmShortNotice
+      ? { ok: false, kind: "soon", error: closesSoonMessage(closesAtMs - now.getTime()) }
+      : null;
+
+  /** A write the SERVICE ROLE makes before the status flips (the reset, or the employer's re-pick). */
+  let preWrite: { payload: { expires_at?: string | null; closing_date_source?: string | null }; onlyIfDefault: boolean } | null = null;
+  let keepsChosenDate = false;
+
+  if (options.newExpiresIn !== undefined) {
+    // The employer answered a refusal.
+    if (options.newExpiresIn === "") {
+      preWrite = { payload: { expires_at: null, closing_date_source: null }, onlyIfDefault: false };
+    } else {
+      const days = Number(options.newExpiresIn);
+      if (!Number.isFinite(days) || days <= 0 || days > MAX_EXPIRY_DAYS) {
+        return { ok: false, kind: "other", error: "That closing date isn't valid. Pick another." };
+      }
+      const closes = new Date(daysFromNow(days));
+      const warning = soonWarning(closes.getTime());
+      if (warning) return warning;
+      preWrite = { payload: { expires_at: closes.toISOString(), closing_date_source: "chosen" }, onlyIfDefault: false };
+    }
+  } else if (draft.expires_at) {
+    if (draft.closing_date_source === "default") {
+      preWrite = { payload: { expires_at: daysFromNow(DEFAULT_NEW_POSTING_EXPIRY_DAYS) }, onlyIfDefault: true };
+    } else {
+      const closes = new Date(draft.expires_at).getTime();
+      if (closes <= now.getTime()) return { ok: false, kind: "past", error: CLOSING_DATE_PASSED_MESSAGE };
+      const warning = soonWarning(closes);
+      if (warning) return warning;
+      keepsChosenDate = true;
+    }
+  }
+
+  const admin = createServiceRoleClient();
+  if (preWrite) {
+    let write = admin
+      .from("job_postings")
+      .update(preWrite.payload)
+      .eq("id", jobId)
+      .eq("organization_id", organization.id)
+      .eq("source_type", "internal")
+      .eq("status", "draft");
+    if (preWrite.onlyIfDefault) write = write.eq("closing_date_source", "default");
+    const { error: preWriteError } = await write;
+    if (preWriteError) {
+      console.error("[employer] could not set the closing date before publishing", jobId, preWriteError.message);
+      return { ok: false, kind: "other", error: "This job couldn't be published. Refresh and try again." };
+    }
+  }
+
+  let update = supabase
     .from("job_postings")
     .update({ status: "open" })
     .eq("id", jobId)
     .eq("organization_id", organization.id)
-    .eq("status", "draft")
-    .select("id");
+    .eq("status", "draft");
+  if (keepsChosenDate) update = update.gt("expires_at", now.toISOString());
+  const { data: updated, error } = await update.select("id");
 
   // Same rule as setJobStatusAction just above: a rejected update RESOLVES
   // with `error`, and a policy/status mismatch resolves with zero rows —
   // neither throws. posted_at must not be stamped for a publish that didn't
   // actually happen.
-  if (!error && updated?.length) {
-    const admin = createServiceRoleClient();
-    const { error: postedAtError } = await admin
-      .from("job_postings")
-      .update({ posted_at: new Date().toISOString() })
-      .eq("id", jobId);
-    if (postedAtError) {
-      console.error("[employer] published job but could not stamp posted_at", jobId, postedAtError.message);
-    }
+  if (error || !updated?.length) {
+    return keepsChosenDate
+      ? { ok: false, kind: "past", error: CLOSING_DATE_PASSED_MESSAGE }
+      : { ok: false, kind: "other", error: "This job couldn't be published. Refresh and try again." };
+  }
+
+  const { error: postedAtError } = await admin
+    .from("job_postings")
+    .update({ posted_at: new Date().toISOString() })
+    .eq("id", jobId);
+  if (postedAtError) {
+    console.error("[employer] published job but could not stamp posted_at", jobId, postedAtError.message);
   }
 
   revalidatePath("/employer/jobs");
   revalidatePath("/jobs");
+  return { ok: true };
+}
+
+export async function publishJobAction(jobId: string): Promise<PublishDraftResult> {
+  return publishDraft(jobId);
+}
+
+/**
+ * The Publish button's own action (useActionState shape). The first click posts nothing but the button. If the closing
+ * date has passed the row shows the message and a date control with "30 days" preselected, and the next click posts
+ * `expiresIn`. If it is under 3 days away the row warns, and "Publish anyway" posts `confirmShortNotice`.
+ */
+export async function publishDraftFormAction(
+  jobId: string,
+  _prev: PublishDraftResult | null,
+  form: FormData,
+): Promise<PublishDraftResult> {
+  return publishDraft(jobId, {
+    newExpiresIn: form.has("expiresIn") ? String(form.get("expiresIn")).trim() : undefined,
+    confirmShortNotice: form.get("confirmShortNotice") === "1",
+  });
 }
 
 /**

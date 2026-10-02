@@ -35,6 +35,7 @@ const ALLOWED: Record<string, string> = {
   "src/lib/employer/actions.ts": "the employer's own postings (internal; supersession is external-only)",
   "src/lib/employer/mint-unlisted-link.ts": "the employer's own postings",
   "src/lib/employer-verification-reminders/send.ts": "the employer's own postings",
+  "src/lib/jobs/expiry-reminders/extend.ts": "reads one posting by the id on its own Extend link; internal only (supersession is external-only), and it refuses anything else",
   "src/app/api/employer/job-banner/route.ts": "the employer's own postings",
   "src/lib/admin/moderation/queues.ts": "admins must see every row, hidden or not",
   "src/lib/admin/moderation/search.ts": "admins must see every row, hidden or not",

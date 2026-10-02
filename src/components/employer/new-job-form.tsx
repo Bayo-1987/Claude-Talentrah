@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { JobImportPanel } from "./job-import-panel";
 import { JobPostingForm, type JobFormValues } from "./job-posting-form";
+import { DEFAULT_NEW_POSTING_EXPIRY_DAYS } from "@/lib/employer/expiry-input";
 import type { EmployerActionState } from "@/lib/employer/actions";
 import type { ExtractedJobFields } from "@/lib/employer/job-import/types";
 import type { SalaryCurrency } from "@/lib/employer/salary-input";
@@ -90,6 +91,7 @@ export function NewJobForm({
         pendingLabel={pendingLabel}
         unverifiedNotice={unverifiedNotice}
         initial={initial}
+        defaultExpiryDays={DEFAULT_NEW_POSTING_EXPIRY_DAYS}
         secondarySubmitLabel={secondarySubmitLabel}
         secondaryPendingLabel={secondaryPendingLabel}
         defaultSalaryCurrency={defaultSalaryCurrency}
