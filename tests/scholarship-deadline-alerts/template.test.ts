@@ -22,6 +22,8 @@ const candidate = (over: Partial<DeadlineAlertCandidate> = {}): DeadlineAlertCan
   programName: "DAAD EPOS Scholarship",
   provider: "DAAD",
   applicationDeadline: "2026-10-01",
+  closeTime: null,
+  closeTz: null,
   deadlineVerifiedAt: "2026-09-01T00:00:00.000Z",
   officialUrl: "https://www.daad.de/en/",
   moderationStatus: "verified",

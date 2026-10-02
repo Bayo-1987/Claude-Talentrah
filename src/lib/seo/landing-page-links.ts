@@ -140,10 +140,10 @@ export async function liveScholarshipLandingLinks(
   excludeHref?: string,
 ): Promise<LandingLinkWithCount[]> {
   const links: LandingLinkWithCount[] = [];
-  const today = new Date().toISOString().slice(0, 10);
-
+  // scholarship_landing_facet_counts_at decides "still open" with scholarship_is_open at this instant (0204); the date-argument
+  // function it replaces is left in the database until production no longer calls it.
   const { data, error } = await supabase
-    .rpc("scholarship_landing_facet_counts", { p_today: today })
+    .rpc("scholarship_landing_facet_counts_at", { p_now: new Date().toISOString() })
     .single();
   if (error) throw new Error(error.message);
 
