@@ -9,6 +9,7 @@ import {
   ACCEPTED_BANNER_TYPES,
   EXTENSION_FOR,
 } from "@/lib/employer/banner";
+import { fileToCatchUp } from "@/lib/employer/banner-pick";
 import { isCroppable, maxCroppableWidth, maxZoomForCrop, renderCroppedBanner } from "@/lib/employer/banner-crop";
 
 export type BannerCropOutcome = { ok: true } | { ok: false; error: string };
@@ -75,8 +76,8 @@ export function BannerCropPicker({
    * that is already there. `pickedRef` stops it doubling up when the change handler did run.
    */
   useEffect(() => {
-    const file = inputRef.current?.files?.[0];
-    if (file && pickedRef.current !== file) void onPick(file);
+    const file = fileToCatchUp(inputRef.current?.files, pickedRef.current);
+    if (file) void onPick(file);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- mount only: this is a one-time catch-up, not a sync
   }, []);
 
