@@ -10,7 +10,7 @@ import {
   type SaveStatus,
 } from "@/lib/scholarships/types";
 import { formatDeadline } from "@/components/scholarships/scholarship-card";
-import { scholarshipCloseText, scholarshipDaysLeft } from "@/lib/scholarships/close-instant";
+import { scholarshipCloseText, scholarshipCountdown } from "@/lib/scholarships/close-instant";
 import { SaveToggle } from "@/components/scholarships/save-toggle";
 import { SaveStatusSelect } from "@/components/scholarships/save-status-select";
 import { FarahActions } from "@/components/scholarships/farah-actions";
@@ -113,8 +113,8 @@ export default async function ScholarshipDetailPage({
   const landingLinks = await relevantScholarshipLandingLinks(await createClient(), scholarship);
 
   const save = saveResult.data as { id: string; status: SaveStatus } | null;
-  const left = scholarshipDaysLeft(scholarship);
-  const urgent = left !== null && left >= 0 && left <= 14;
+  const countdown = scholarshipCountdown(scholarship);
+  const urgent = countdown.urgent;
 
   const meta = [
     ...scholarship.degree_levels.map((l) => DEGREE_LEVEL_LABEL[l]),
@@ -215,8 +215,7 @@ export default async function ScholarshipDetailPage({
             {scholarship.application_deadline
               ? (scholarshipCloseText(scholarship) ?? formatDeadline(scholarship.application_deadline))
               : (scholarship.deadline_note ?? "Not published yet")}
-            {left !== null && left >= 0 && ` · ${left} ${left === 1 ? "day" : "days"} left`}
-            {left !== null && left < 0 && " · Closed"}
+            {countdown.phrase && ` · ${countdown.phrase}`}
           </span>
         </span>
         {scholarship.field_tags.length > 0 && (

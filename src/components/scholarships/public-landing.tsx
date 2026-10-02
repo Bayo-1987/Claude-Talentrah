@@ -5,7 +5,7 @@ import { SCHOLARSHIP_DEADLINE_REMINDER_DAYS } from "@/lib/scholarship-deadline-a
 import { LANDING_PAGE_MIN_ENTRIES } from "@/lib/seo/landing-pages";
 import { DEGREE_LEVEL_LABEL, FUNDING_TYPE_LABEL, SAVE_STATUS_LABEL } from "@/lib/scholarships/types";
 import { Constants, type Tables } from "@/lib/supabase/types";
-import { scholarshipDaysLeft } from "@/lib/scholarships/close-instant";
+import { scholarshipCountdown } from "@/lib/scholarships/close-instant";
 import { formatCalendarDate } from "@/lib/format/datetime";
 
 /**
@@ -81,10 +81,10 @@ function deadlineDisplay(l: Pick<LandingListing, "application_deadline" | "close
   if (l.application_deadline) {
     const date = formatDeadlineLong(l.application_deadline);
     if (date) {
-      const left = scholarshipDaysLeft(l);
-      if (left !== null && left >= 0 && left <= URGENT_WITHIN_DAYS) {
-        const countdown = left === 0 ? "closes today" : left === 1 ? "1 day left" : `${left} days left`;
-        return { text: `${date} · ${countdown}`, urgent: true };
+      const c = scholarshipCountdown(l);
+      if (c.state === "today" || c.state === "passed-somewhere") return { text: `${date} · ${c.phrase}`, urgent: true };
+      if (c.state === "days" && c.days !== null && c.days <= URGENT_WITHIN_DAYS) {
+        return { text: `${date} · ${c.days === 0 ? "closes today" : c.phrase}`, urgent: true };
       }
       return { text: date, urgent: false };
     }

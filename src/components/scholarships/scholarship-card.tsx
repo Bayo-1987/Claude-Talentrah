@@ -7,7 +7,7 @@ import { SaveStatusSelect } from "./save-status-select";
 import { FarahActions } from "./farah-actions";
 import { ScholarshipShareButton } from "./scholarship-share-button";
 import { formatCalendarDate } from "@/lib/format/datetime";
-import { scholarshipDaysLeft } from "@/lib/scholarships/close-instant";
+import { scholarshipCountdown } from "@/lib/scholarships/close-instant";
 
 export interface ScholarshipCardProps {
   scholarship: Tables<"scholarships">;
@@ -39,9 +39,10 @@ export function ScholarshipCard({
   origin,
   referralCode,
 }: ScholarshipCardProps) {
-  // Whole days to the closing INSTANT (close-instant.ts, migration 0204), not calendar days to a date: 0 in the last 24 hours, negative once closed.
-  const left = scholarshipDaysLeft(scholarship);
-  const urgent = left !== null && left >= 0 && left <= 14;
+  // One countdown for every surface (close-instant.ts, send-511): whole days to the closing instant for a row with a zone; the stated date, in four
+  // states, for a row without one. A closed row is not listed here, so it carries no phrase.
+  const countdown = scholarshipCountdown(scholarship);
+  const urgent = countdown.urgent;
 
   return (
     <BorderedCard className="flex flex-col gap-3 p-5">
@@ -115,7 +116,7 @@ export function ScholarshipCard({
             {scholarship.application_deadline
               ? formatDeadline(scholarship.application_deadline)
               : (scholarship.deadline_note ?? "Not published yet")}
-            {left !== null && left >= 0 && ` · ${left} ${left === 1 ? "day" : "days"} left`}
+            {countdown.phrase && countdown.state !== "closed" && ` · ${countdown.phrase}`}
           </span>
         </span>
         {scholarship.field_tags.length > 0 && (
