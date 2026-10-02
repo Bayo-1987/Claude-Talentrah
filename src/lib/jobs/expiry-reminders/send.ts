@@ -22,7 +22,7 @@ import { buildExpiryReminderEmail } from "./template";
  * ── RECIPIENTS ARE RESOLVED BEFORE THE CLAIM ──────────────────────────────
  *
  * The org's owners (fallback: the person who created the organisation) are looked up and filtered first
- * (src/lib/email/recipient-eligibility.ts: deleted, deactivated, unsubscribed, no email). A posting with nobody left to
+ * (src/lib/email/recipient-eligibility.ts: the profile exists and has an email, nothing more). A posting with nobody left to
  * mail is logged with its reason and SKIPPED WITHOUT CLAIMING, so nothing is left behind to block a later run: it is
  * listed again tomorrow and sends the day a recipient exists, until the posting closes. (A claim made first and
  * released afterwards would do the same, but would write and delete a row every day for nothing.)
@@ -89,12 +89,8 @@ async function loadRecipients(
 
   let profiles: RecipientProfile[] = [];
   if (userIds.length > 0) {
-    /*
-     * `*`, not a column list: the eligibility check reads fields (deactivated_at, ...) that the account work will add
-     * to profiles, and a typed column list could not name a column that does not exist yet. A handful of owner rows.
-     */
-    const { data } = await supabase.from("profiles").select("*").in("id", userIds);
-    profiles = (data ?? []) as unknown as RecipientProfile[];
+    const { data } = await supabase.from("profiles").select("id, email, first_name").in("id", userIds);
+    profiles = data ?? [];
   }
 
   const resolved = selectEmailableRecipients(userIds, profiles);

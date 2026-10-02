@@ -387,6 +387,81 @@ describe("the extend link", () => {
   });
 });
 
+describe("closing_date_source (migration 0207 adds it to job_postings)", () => {
+  it("accepts 'default', 'chosen' and null, and nothing else", async () => {
+    const job = await internalPosting({ expires_at: at(20 * DAY) });
+    for (const ok of ["default", "chosen", null]) {
+      const { error } = await admin.from("job_postings").update({ closing_date_source: ok }).eq("id", job.id);
+      expect(error, `${ok} must be accepted`).toBeNull();
+    }
+    for (const bad of ["Default", "auto", "", "chosen "]) {
+      const { error } = await admin.from("job_postings").update({ closing_date_source: bad }).eq("id", job.id);
+      expect(error, `'${bad}' must be rejected by the check constraint`).not.toBeNull();
+      expect(error!.code).toBe("23514");
+    }
+  });
+
+  it("a new row, and every existing row, starts null (no default, no backfill)", async () => {
+    const job = await internalPosting({ expires_at: at(20 * DAY) });
+    const { data } = await admin.from("job_postings").select("closing_date_source").eq("id", job.id).single();
+    expect(data!.closing_date_source).toBeNull();
+  });
+
+  it("the extend function neither reads nor changes it", async () => {
+    const { job, hash } = await linkedPosting(2 * DAY + 20 * HOUR);
+    await admin.from("job_postings").update({ closing_date_source: "default" }).eq("id", job.id);
+    expect((await redeem(hash)).outcome).toBe("extended");
+    const { data } = await admin.from("job_postings").select("closing_date_source").eq("id", job.id).single();
+    expect(data!.closing_date_source).toBe("default");
+  });
+});
+
+describe("how long a link lives: never past the posting's closing date (so never past closing + 7 days)", () => {
+  const SEVEN_DAYS = 7 * DAY;
+
+  it("a link is refused after the closing date it was issued for, at every point up to and past closing + 7 days", async () => {
+    const { job, hash } = await linkedPosting(2 * DAY + 21 * HOUR);
+    const closes = new Date(job.expires_at!).getTime();
+    for (const after of [1000, HOUR, DAY, SEVEN_DAYS, SEVEN_DAYS + DAY]) {
+      const out = await redeem(hash, new Date(closes + after));
+      expect(out.outcome, `${after}ms after closing`).toBe("expired");
+    }
+    expect(new Date((await rowOf(job.id)).expires_at!).getTime()).toBe(closes);
+  });
+
+  it("an OLD link is still dead at its own closing date after the posting was extended by a DIFFERENT link", async () => {
+    // Link A is issued for D1. The employer then moves the date to D2 by hand, link B is issued for D2 and used.
+    const { job, hash: hashA } = await linkedPosting(2 * DAY + 22 * HOUR);
+    const d1 = new Date(job.expires_at!).getTime();
+    const d2 = d1 + 10 * DAY;
+    await admin.from("job_postings").update({ expires_at: new Date(d2).toISOString() }).eq("id", job.id);
+    const near = new Date(d2 - 2 * DAY);
+    const claimB = await claim(job.id, undefined, near);
+    expect(claimB.rows).toHaveLength(1);
+    await admin.from("job_expiry_reminders").update({ sent_at: near.toISOString() }).eq("token_hash", claimB.hash);
+    expect((await redeem(claimB.hash, near)).outcome).toBe("extended");
+    const d3 = d2 + 30 * DAY;
+    expect(new Date((await rowOf(job.id)).expires_at!).getTime()).toBe(d3);
+
+    // A is dead from D1 on, however far the posting has since been pushed out.
+    for (const after of [1000, SEVEN_DAYS, SEVEN_DAYS + DAY, d3 - d1 + SEVEN_DAYS]) {
+      expect((await redeem(hashA, new Date(d1 + after))).outcome, `${after}ms after D1`).toBe("expired");
+    }
+    expect(new Date((await rowOf(job.id)).expires_at!).getTime()).toBe(d3);
+  });
+
+  it("a link cannot extend a posting whose CURRENT closing date has passed, even if the link's own date has not", async () => {
+    // The employer moved the closing date EARLIER than the date the link was issued for.
+    const { job, hash } = await linkedPosting(2 * DAY + 23 * HOUR);
+    const issuedFor = new Date(job.expires_at!).getTime();
+    const earlier = issuedFor - 2 * DAY;
+    await admin.from("job_postings").update({ expires_at: new Date(earlier).toISOString() }).eq("id", job.id);
+    const out = await redeem(hash, new Date(earlier + 1000)); // after the posting's date, before the link's own
+    expect(out.outcome).not.toBe("extended");
+    expect(new Date((await rowOf(job.id)).expires_at!).getTime()).toBe(earlier);
+  });
+});
+
 describe("external postings are never reminded about, claimed, or moved", () => {
   it("after a full list-and-claim pass over the whole table, an external posting has no reminder row and an unchanged date", async () => {
     const ext = await externalPosting({ expires_at: at(2 * DAY + 12 * HOUR) });

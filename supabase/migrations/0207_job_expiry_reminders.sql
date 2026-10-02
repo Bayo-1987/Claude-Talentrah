@@ -8,6 +8,28 @@
 --
 -- This file is only the storage and the atomic steps. The cron route, the email and the confirm page are code.
 --
+-- ── IT ALTERS AN EXISTING TABLE: job_postings.closing_date_source ─────────
+--
+-- Besides the new table and functions, this migration ALTERS an existing table: it adds ONE nullable column to
+-- `public.job_postings`:
+--
+--   closing_date_source text   null, NO default, check (closing_date_source in ('default', 'chosen'))
+--
+-- It records where `expires_at` came from: 'default' when the server applied the 30-day default (or the form's
+-- preselected "30 days" was left as it was), 'chosen' when the employer picked a date or an edit changed it, and NULL
+-- for "No expiry" and for every row that existed before this column. A NULL source with a date COUNTS AS CHOSEN:
+-- publishing a draft restarts only a 'default' date, so a date nobody can show was defaulted is never moved.
+--
+--   additive          a nullable column with no default is a catalog-only change (no rewrite of the table). The CHECK is
+--                     validated against the existing rows (a scan of a few hundred rows, all null).
+--   no backfill       nothing is updated; every existing row stays NULL.
+--   not client-writable
+--                     `job_postings` grants UPDATE by column, so a new column is not UPDATE-granted to `authenticated`
+--                     (the employer's session), and INSERT is a table-level grant, so a BEFORE INSERT OR UPDATE guard
+--                     trigger (the shape 0202 used for superseded_by) refuses a client that carries the column in. That
+--                     keeps an employer from spoofing 'default'. Every write to it is made by the server, with the
+--                     service role, AFTER the employer's own write has been authorised by RLS.
+--
 -- ── SELF-CONTAINED, AND SAFE TO RUN TWICE ─────────────────────────────────
 --
 -- It depends only on `public.job_postings` (id, title, organization_id, source_type, status, expires_at: all there since
@@ -68,6 +90,15 @@
 -- token. The row lock is pinned by a test that reads the live function's definition (job_expiry_function_definition):
 -- a 10-way concurrency test cannot catch a missing lock on its own, because the race window is microseconds.
 --
+-- ── HOW LONG A LINK LIVES ─────────────────────────────────────────────────
+--
+-- A link dies AT THE CLOSING DATE it was issued for, never after: `redeem_job_expiry_extend_token` answers 'expired' once
+-- `closes_at <= now`, and independently refuses to extend a posting whose CURRENT `expires_at` has passed (it moved
+-- earlier by hand, say). So a link's life is never longer than min(its own closing date, the posting's current one), well
+-- inside "closing date + 7 days". There is no grace period: by the time a posting has closed there is nothing to
+-- extend, and the answer would be 'closed' anyway. An older link for a posting that was since extended by a different link
+-- still dies at ITS own (earlier) date. tests/jobs/expiry-reminders pins all three cases against the database.
+--
 -- ── INTERNAL POSTINGS ONLY ────────────────────────────────────────────────
 --
 -- `due_job_expiry_reminders`, `claim_job_expiry_reminder` and the extend all say `source_type = 'internal'`. An
@@ -98,6 +129,50 @@ alter table public.job_expiry_reminders enable row level security;
 -- Deliberately NO policy: with RLS on and none defined, every non-bypassing role is denied. The revoke is the second lock.
 revoke all on public.job_expiry_reminders from public, anon, authenticated;
 grant all on public.job_expiry_reminders to service_role;
+
+-- ── job_postings.closing_date_source (see the header) ─────────────────────
+alter table public.job_postings
+  add column if not exists closing_date_source text;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conname = 'job_postings_closing_date_source_check' and conrelid = 'public.job_postings'::regclass
+  ) then
+    alter table public.job_postings
+      add constraint job_postings_closing_date_source_check check (closing_date_source in ('default', 'chosen'));
+  end if;
+end $$;
+
+comment on column public.job_postings.closing_date_source is
+  'Where expires_at came from: ''default'' (the server applied the 30-day default), ''chosen'' (the employer picked it or an edit changed it), NULL (no closing date, or a row from before this column; counts as chosen). Written only by the server.';
+
+create or replace function public.job_postings_guard_closing_date_source()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if current_user in ('authenticated', 'anon') then
+    if tg_op = 'INSERT' then
+      if new.closing_date_source is not null then
+        raise exception 'closing_date_source is server-managed' using errcode = '42501';
+      end if;
+    elsif new.closing_date_source is distinct from old.closing_date_source then
+      raise exception 'closing_date_source is server-managed' using errcode = '42501';
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+revoke execute on function public.job_postings_guard_closing_date_source() from public, anon, authenticated;
+
+drop trigger if exists job_postings_guard_closing_date_source on public.job_postings;
+create trigger job_postings_guard_closing_date_source
+  before insert or update on public.job_postings
+  for each row execute function public.job_postings_guard_closing_date_source();
 
 -- ── the window, in one place ──────────────────────────────────────────────
 -- Used by both the listing and the claim so the two cannot disagree about who is due.
@@ -286,6 +361,23 @@ begin
     where table_schema = 'public' and table_name = 'job_expiry_reminders' and grantee in ('anon', 'authenticated', 'PUBLIC')
   ) then
     raise exception 'job_expiry_reminders must grant nothing to anon, authenticated or PUBLIC';
+  end if;
+  if not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'job_postings' and column_name = 'closing_date_source'
+      and data_type = 'text' and is_nullable = 'YES' and column_default is null
+  ) then
+    raise exception 'job_postings.closing_date_source must exist as a nullable text column with no default';
+  end if;
+  if not exists (
+    select 1 from pg_constraint
+    where conname = 'job_postings_closing_date_source_check' and conrelid = 'public.job_postings'::regclass
+  ) then
+    raise exception 'job_postings_closing_date_source_check is missing';
+  end if;
+  if has_column_privilege('authenticated', 'public.job_postings', 'closing_date_source', 'update')
+     or has_column_privilege('anon', 'public.job_postings', 'closing_date_source', 'update') then
+    raise exception 'closing_date_source must not be UPDATE-grantable to authenticated or anon';
   end if;
   -- EXECUTE through PUBLIC is the grant that survives a revoke from anon/authenticated alone: check it directly.
   if exists (

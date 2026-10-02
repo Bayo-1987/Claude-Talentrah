@@ -22,16 +22,7 @@ const state = vi.hoisted(() => ({
   stamped: [] as string[],
   released: [] as string[],
   owners: {} as Record<string, string[]>,
-  profiles: {} as Record<
-    string,
-    {
-      email: string | null;
-      first_name: string | null;
-      deleted_at?: string | null;
-      deactivated_at?: string | null;
-      email_unsubscribed_at?: string | null;
-    }
-  >,
+  profiles: {} as Record<string, { email: string | null; first_name: string | null }>,
   orgCreator: {} as Record<string, string>,
   dueError: null as string | null,
   listIgnoresClaims: false,
@@ -213,16 +204,6 @@ describe("who gets the email: nobody ineligible, and no claim is left behind whe
     await expectSkipped("deleted");
   });
 
-  it("a deactivated user is skipped", async () => {
-    state.profiles = { u1: { email: "owner@acme.test", first_name: "Ada", deactivated_at: "2026-10-01T00:00:00Z" } };
-    await expectSkipped("deactivated");
-  });
-
-  it("an unsubscribed user is skipped", async () => {
-    state.profiles = { u1: { email: "owner@acme.test", first_name: "Ada", email_unsubscribed_at: "2026-10-01T00:00:00Z" } };
-    await expectSkipped("unsubscribed");
-  });
-
   it("a user with no email is skipped", async () => {
     state.profiles = { u1: { email: null, first_name: null } };
     await expectSkipped("no_email");
@@ -231,7 +212,7 @@ describe("who gets the email: nobody ineligible, and no claim is left behind whe
   it("an ineligible owner is skipped but the eligible one is still emailed", async () => {
     state.owners = { "org-1": ["u1", "u2"] };
     state.profiles = {
-      u1: { email: "gone@acme.test", first_name: null, deactivated_at: "2026-10-01T00:00:00Z" },
+      u1: { email: null, first_name: null },
       u2: { email: "second@acme.test", first_name: "Bo" },
     };
     state.due = [due("job-a")];
@@ -248,6 +229,17 @@ describe("who gets the email: nobody ineligible, and no claim is left behind whe
     state.profiles = { u1: { email: "owner@acme.test", first_name: "Ada" } };
     const next = await sendExpiryReminders(new Date(NOW.getTime() + 24 * 3_600_000));
     expect(next.sent).toBe(1);
+    expect(state.sent.map((m) => m.to)).toEqual(["owner@acme.test"]);
+  });
+});
+
+describe("eligibility is exactly 'the profile exists and the email is not blank' (nothing else is pretended)", () => {
+  it("a profile carrying fields this code does not know about is still emailed", async () => {
+    state.profiles = {
+      u1: { email: "owner@acme.test", first_name: "Ada", deactivated_at: "2026-10-01T00:00:00Z" } as never,
+    };
+    state.due = [due("job-a")];
+    await sendExpiryReminders(NOW);
     expect(state.sent.map((m) => m.to)).toEqual(["owner@acme.test"]);
   });
 });

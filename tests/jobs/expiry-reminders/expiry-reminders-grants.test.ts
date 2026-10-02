@@ -12,18 +12,53 @@
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { randomUUID } from "node:crypto";
-import { createTestUser, deleteTestUsers, sessionFor, type DB } from "../../support/auth";
+import { admin, createTestUser, deleteTestUsers, sessionFor, type DB } from "../../support/auth";
+import { deleteTestOrgs } from "../../support/cleanup";
 
 let userId = "";
+let orgId = "";
+let jobId = "";
 let client: DB;
 
 beforeAll(async () => {
   const user = await createTestUser("expiryrem-grants");
   userId = user.id;
   client = await sessionFor(user.email, user.id);
+
+  // An employer with an organisation and a posting of their own, for the closing_date_source checks below.
+  const { data: org, error: orgError } = await admin
+    .from("organizations")
+    .insert({ name: `EMPLOYER-TEST expiry-grants ${randomUUID()}`, created_by: userId, verified: false })
+    .select("id")
+    .single();
+  if (orgError || !org) throw new Error(`fixture org: ${orgError?.message}`);
+  orgId = org.id;
+  await admin.from("organization_members").insert({ organization_id: orgId, user_id: userId, role: "owner" });
+  const { data: job, error: jobError } = await admin
+    .from("job_postings")
+    .insert({
+      source_type: "internal",
+      organization_id: orgId,
+      company_name: "EXPIRYREM Grants Co",
+      title: `EXPIRYREM Grants ${randomUUID().slice(0, 8)}`,
+      description: "Fixture posting owned by expiry-reminders-grants.test.ts.",
+      structured_jd: {},
+      status: "draft",
+      expires_at: new Date(Date.now() + 20 * 86_400_000).toISOString(),
+      dedup_fingerprint: randomUUID(),
+    })
+    .select("id")
+    .single();
+  if (jobError || !job) throw new Error(`fixture posting: ${jobError?.message}`);
+  jobId = job.id;
 }, 60_000);
 
 afterAll(async () => {
+  if (jobId) await admin.from("job_postings").delete().eq("id", jobId);
+  if (orgId) {
+    await admin.from("organization_members").delete().eq("organization_id", orgId);
+    await deleteTestOrgs([orgId]);
+  }
   if (userId) await deleteTestUsers([userId]);
 }, 60_000);
 
@@ -55,3 +90,42 @@ describe("an authenticated user", () => {
     expect(res.error).not.toBeNull();
   });
 });
+
+describe("closing_date_source: an employer cannot write it, so they cannot spoof 'default'", () => {
+  it("cannot set it on their own posting (the column is not UPDATE-granted)", async () => {
+    const res = await client.from("job_postings").update({ closing_date_source: "default" }).eq("id", jobId).select("id");
+    expect(res.error, "an UPDATE of the column must be refused, not silently ignored").not.toBeNull();
+    const { data } = await admin.from("job_postings").select("closing_date_source").eq("id", jobId).single();
+    expect(data!.closing_date_source).toBeNull();
+  });
+
+  it("cannot smuggle it in with a new posting either (the INSERT is a table-level grant; the guard trigger refuses)", async () => {
+    const res = await client.from("job_postings").insert({
+      source_type: "internal",
+      organization_id: orgId,
+      company_name: "EXPIRYREM Grants Co",
+      title: `EXPIRYREM Grants insert ${randomUUID().slice(0, 8)}`,
+      description: "Should never be created.",
+      structured_jd: {},
+      status: "draft",
+      dedup_fingerprint: randomUUID(),
+      closing_date_source: "default",
+    });
+    expect(res.error).not.toBeNull();
+  });
+
+  it("can still read it", async () => {
+    const res = await client.from("job_postings").select("closing_date_source").eq("id", jobId);
+    expect(res.error).toBeNull();
+  });
+
+  it("can still change the DATE itself (their own column), which is why the source is guarded", async () => {
+    const res = await client
+      .from("job_postings")
+      .update({ expires_at: new Date(Date.now() + 25 * 86_400_000).toISOString() })
+      .eq("id", jobId)
+      .select("id");
+    expect(res.error).toBeNull();
+  });
+});
+

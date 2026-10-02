@@ -31,43 +31,50 @@ export const DEFAULT_NEW_POSTING_EXPIRY_DAYS = 30;
 /** Shown when publishing a draft whose employer-CHOSEN closing date has already passed. Exact copy, pinned by a test. */
 export const CLOSING_DATE_PASSED_MESSAGE = "This closing date has passed. Pick a new one";
 
-/** The fewest days a posting may have left when it is published. Sooner than this and the employer is asked to pick again. */
-export const MIN_DAYS_TO_PUBLISH = 3;
-
-/** Shown when publishing a draft whose employer-CHOSEN closing date is less than MIN_DAYS_TO_PUBLISH away. */
-export const CLOSING_DATE_TOO_SOON_MESSAGE = "This job would close in under 3 days. Pick a later date";
+/**
+ * A chosen closing date closer than this many days at publish time earns a WARNING (not a block): the reminder email
+ * goes out when a posting closes within 3 days, so a job published this close to closing leaves little room for it.
+ */
+export const SHORT_NOTICE_DAYS = 3;
 
 /**
- * Was this closing date the 30-day DEFAULT, or did the employer choose it?
- *
- * ── THIS IS AN INFERENCE, AND SAYS SO ─────────────────────────────────────
- *
- * Nothing records where `expires_at` came from. (The reliable fix is a column; see the PR description for the options.
- * None is added here on purpose.) What can be told from the row alone:
- *
- *   - the default is computed on the server as `now + 30 days` and the row is inserted moments later, so a defaulted
- *     date sits within seconds of `created_at + 30 days`;
- *   - a CUSTOM date is always normalised to the END of its day in UTC (readExpiry), `23:59:59.999Z`, which a computed
- *     `now + 30 days` hits only once in 86,400,000 milliseconds, so it is never mistaken for a default;
- *   - the other presets (1, 3, 7, 14, 60 days) are nowhere near created + 30 days.
- *
- * The one case it cannot separate is an employer who PICKED the "30 days" preset: that lands on the same instant as the
- * default. It is classed as the default, which is harmless, because a preset is a duration ("closes in 30 days"), and
- * counting it from publication is what the person meant by it.
+ * The warning for a chosen date under SHORT_NOTICE_DAYS away, naming the real time left, ROUNDED DOWN to whole days:
+ * "2 days", "1 day", and "less than a day" under 24 hours (rounding down never promises more time than there is).
+ * "may not" because the cron runs once a day: a job closing within hours can close before the next run.
  */
-const ORIGIN_TOLERANCE_MS = 60_000;
+export function closesSoonMessage(msLeft: number): string {
+  const days = Math.floor(msLeft / 86_400_000);
+  const label = days < 1 ? "less than a day" : days === 1 ? "1 day" : `${days} days`;
+  return `This job closes in ${label}, so you may not get a reminder before it closes`;
+}
 
-export function closingDateOrigin(createdAt: string | Date, expiresAt: string | Date): "default" | "chosen" {
-  const created = new Date(createdAt).getTime();
-  const expires = new Date(expiresAt);
-  const endOfDayUtc =
-    expires.getUTCHours() === 23 &&
-    expires.getUTCMinutes() === 59 &&
-    expires.getUTCSeconds() === 59 &&
-    expires.getUTCMilliseconds() === 999;
-  if (endOfDayUtc) return "chosen";
-  const distance = expires.getTime() - (created + DEFAULT_NEW_POSTING_EXPIRY_DAYS * 86_400_000);
-  return Math.abs(distance) <= ORIGIN_TOLERANCE_MS ? "default" : "chosen";
+/** Where a closing date came from; stored as job_postings.closing_date_source (migration 0207). */
+export type ClosingDateSource = "default" | "chosen";
+
+/**
+ * What `closing_date_source` should become after a write of the closing date, or `undefined` for "do not touch it".
+ *
+ *   keep ("Keep current")     undefined: neither the date nor the source is written.
+ *   no expiry (null)          null: the source is cleared along with the date.
+ *   an EDIT that sets a date  'chosen': an edit is always the employer's own decision, even if it lands on 30 days.
+ *   CREATING:
+ *     the field was not posted at all (the server applied the default)   'default'
+ *     the preselected "30 days" was left as it was                       'default'
+ *     any other duration, or a custom date                               'chosen'
+ *
+ * A picked "30 days" is indistinguishable from the preselect, so it reads as the default; that is harmless, since a
+ * preset is a duration ("closes in 30 days") and counting it from publication is what the person meant.
+ */
+export function closingDateSourceFor(
+  form: FormData,
+  value: string | null | undefined,
+  options: { creating: boolean },
+): ClosingDateSource | null | undefined {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+  if (!options.creating) return "chosen";
+  const raw = str(form, "expiresIn");
+  return !form.has("expiresIn") || raw === String(DEFAULT_NEW_POSTING_EXPIRY_DAYS) ? "default" : "chosen";
 }
 
 /**

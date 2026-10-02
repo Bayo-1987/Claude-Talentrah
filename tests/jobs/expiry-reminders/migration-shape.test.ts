@@ -110,6 +110,50 @@ describe("0207", () => {
     expect(redeem).toMatch(/where j\.id = r\.job_posting_id\s+and j\.source_type = 'internal'/);
   });
 
+  describe("closing_date_source on job_postings (it ALTERS an existing table)", () => {
+    it("says so in its header", () => {
+      expect(sql).toMatch(/ALTERS an existing table/);
+      expect(sql).toMatch(/no rewrite/i);
+      expect(sql).toMatch(/no backfill/i);
+    });
+
+    it("adds one nullable text column with NO default (so no table rewrite)", () => {
+      const stmt = code.match(/alter table public\.job_postings\s+add column if not exists closing_date_source[^;]*;/)?.[0];
+      expect(stmt, "the ALTER TABLE ... ADD COLUMN statement").toBeDefined();
+      expect(stmt).toMatch(/closing_date_source text\s*;/);
+      expect(stmt).not.toMatch(/default|not null/i);
+    });
+
+    it("allows only 'default' and 'chosen'", () => {
+      expect(code).toMatch(/check \(closing_date_source in \('default', 'chosen'\)\)/);
+    });
+
+    it("is not writable by a client: a guard trigger refuses authenticated and anon on INSERT and UPDATE", () => {
+      const fn = body("job_postings_guard_closing_date_source");
+      expect(fn).toContain("current_user in ('authenticated', 'anon')");
+      expect(fn).toContain("tg_op = 'INSERT'");
+      expect(fn).toContain("'42501'");
+      expect(fn).toContain("set search_path = ''");
+      expect(code).toContain(
+        "revoke execute on function public.job_postings_guard_closing_date_source() from public, anon, authenticated;",
+      );
+      expect(code).toMatch(
+        /create trigger job_postings_guard_closing_date_source\s+before insert or update on public\.job_postings/,
+      );
+    });
+
+    it("grants UPDATE on it to nobody (the table's column-grant model leaves a new column ungranted)", () => {
+      expect(code).not.toMatch(/grant\s+update\s*\(?[^;]*closing_date_source/i);
+      expect(code).not.toMatch(/grant\s+(all|insert)[^;]*job_postings/i);
+    });
+
+    it("the closing self-check confirms the column and the constraint exist", () => {
+      const doBlock = code.slice(code.lastIndexOf("do $$"));
+      expect(doBlock).toContain("closing_date_source");
+      expect(doBlock).toContain("job_postings_closing_date_source_check");
+    });
+  });
+
   it("depends on nothing from 0204-0206 (it must apply on a database that has 0203 and none of them)", () => {
     for (const col of ["superseded_at", "close_time", "close_tz", "waitlist", "talent_directory_preview"]) {
       expect(code, `0207 must not reference ${col}`).not.toContain(col);

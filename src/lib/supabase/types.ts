@@ -1711,6 +1711,7 @@ export type Database = {
           claimed_at: string | null
           claimed_by_organization_id: string | null
           closed_at: string | null
+          closing_date_source: string | null
           company_logo_url: string | null
           company_name: string
           created_at: string
@@ -1756,6 +1757,7 @@ export type Database = {
           claimed_at?: string | null
           claimed_by_organization_id?: string | null
           closed_at?: string | null
+          closing_date_source?: string | null
           company_logo_url?: string | null
           company_name: string
           created_at?: string
@@ -1803,6 +1805,7 @@ export type Database = {
           claimed_at?: string | null
           claimed_by_organization_id?: string | null
           closed_at?: string | null
+          closing_date_source?: string | null
           company_logo_url?: string | null
           company_name?: string
           created_at?: string

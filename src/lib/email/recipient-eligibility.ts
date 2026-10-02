@@ -1,43 +1,34 @@
 /**
- * Who may be emailed, in one place.
+ * Who may be emailed, in one place. ACCT-1 extends this.
  *
- * Written for the closing-date reminder (EMP-1 / E3) and meant to be the thing every sender asks, so that account
- * deletion, deactivation and unsubscribing (ACCT-1) only have to teach ONE file about a new state.
+ * Written for the closing-date reminder (EMP-1 / E3). Eligibility today is exactly two conditions, and nothing else is
+ * pretended:
  *
- * ── WHAT EXISTS TODAY, AND WHAT IS READ AHEAD OF IT ───────────────────────
+ *   the profile exists   a deleted account has no `profiles` row, so a user id we asked about and got no row for is
+ *                        skipped as "deleted".
+ *   the email is not blank
  *
- * `profiles` currently has none of `deleted_at`, `deactivated_at` or `email_unsubscribed_at`. What does exist:
+ * ── WHY NO OPT-OUT IS CHECKED (looked for, not assumed) ───────────────────
  *
- *   deleted      a deleted account has no `profiles` row, so the caller simply never gets one for that user id.
- *                selectEmailableRecipients treats "asked for, not returned" as deleted. This one is real today.
- *   no email     a profile with a blank email cannot be mailed.
- *   deactivated / unsubscribed / deleted_at
- *                optional fields on the row. They are read when present and ignored when absent, so the day a column
- *                of that name appears (and the sender selects it) the person is skipped here with no sender edited.
- *                The names are the obvious ones, not a decision: ACCT-1 should rename them HERE if it chooses others.
- *
- * `email_preferences` is deliberately not consulted: its columns are per-kind opt-outs for optional mail (the digest,
- * the win-back email, ...). This reminder is transactional, about the employer's own posting, and has no kind of its
- * own, the same as the verification reminder.
+ * `email_preferences` holds per-STREAM opt-outs for OPTIONAL mail: the weekly digest, the proactive match alert, the
+ * scholarship deadline alert, the win-back email, the employer-resume-view notice, the auto-apply digest. Each is a
+ * column its own sender reads. The transactional sends (employer verification reminders, hired-moment, talent-directory
+ * contact email, mentorship reminders) are deliberately NOT gated on it, and each says so in its own header; the
+ * privacy page tells people that opting out of the digest still leaves "messages about your account". The closing-date
+ * reminder is a transactional note about the employer's own posting, with no preference column of its own and no
+ * unsubscribe link, so it follows them. There is no account-wide "stop all email" flag, and there is no
+ * deactivated or deleted marker on `profiles`: when ACCT-1 adds either, this is the one place to teach about it.
  */
 
 export interface RecipientProfile {
   id: string;
   email: string | null;
   first_name?: string | null;
-  deleted_at?: string | null;
-  deactivated_at?: string | null;
-  email_unsubscribed_at?: string | null;
 }
 
-export type RecipientSkipReason = "no_email" | "deleted" | "deactivated" | "unsubscribed";
+export type RecipientSkipReason = "no_email" | "deleted";
 
-export function recipientSkipReason(
-  profile: Pick<RecipientProfile, "email" | "deleted_at" | "deactivated_at" | "email_unsubscribed_at">,
-): RecipientSkipReason | null {
-  if (profile.deleted_at) return "deleted";
-  if (profile.deactivated_at) return "deactivated";
-  if (profile.email_unsubscribed_at) return "unsubscribed";
+export function recipientSkipReason(profile: Pick<RecipientProfile, "email">): RecipientSkipReason | null {
   if (!profile.email || !profile.email.trim()) return "no_email";
   return null;
 }
