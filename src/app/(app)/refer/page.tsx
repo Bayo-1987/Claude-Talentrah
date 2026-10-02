@@ -69,7 +69,7 @@ export default async function ReferPage() {
   ] = await Promise.all([
       supabase
         .from("referrals")
-        .select("id, status, reward_credits_referrer, created_at, activated_at")
+        .select("id, status, reward_credits_referrer, reward_withheld_reason, created_at, activated_at")
         .eq("referrer_id", user.id)
         .order("created_at", { ascending: false }),
       supabase

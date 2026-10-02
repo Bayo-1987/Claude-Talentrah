@@ -52,28 +52,36 @@ export function referralCapReachedMessage(rewardedInWindow: number): string {
 interface RowLike {
   status: string;
   reward_credits_referrer: number;
+  /** 0215: why this referral was activated but not paid in full ('cap', 'referrer_deleted'), or null/undefined when it was not withheld. */
+  reward_withheld_reason?: string | null;
 }
 
 const remaining = (r: RowLike) => Math.max(0, REFERRAL_REWARD_CREDITS - r.reward_credits_referrer);
 
 /**
- * What a referral row says, derived from the stored amount alone (no new column):
+ * What a referral row says.
  *  - signed up: pays what is left of the whole reward when they activate (all of it, or the remainder for a referral whose signup half
  *    was paid before 0215);
  *  - activated and paid the whole reward: paid;
- *  - activated and paid LESS: the limit withheld it, and the row says so, so nothing is ever silently unpaid.
+ *  - activated with a RECORDED reason 'cap': the limit withheld it, and the row says so. The reason is read from `reward_withheld_reason`
+ *    (written by the function that withheld it), NEVER inferred from the amount: an amount can be short for reasons this page cannot know,
+ *    and "paid less than 50" goes wrong the day the amount changes;
+ *  - activated, paid less, and NO recorded reason (a row from before 0215, which is not backfilled): it says what was paid and claims no reason.
  */
 export function referralRowStatus(row: RowLike): { label: string; detail: string | null; tone: "paid" | "pending" | "withheld" | "neutral" } {
   if (row.status === "signed_up") {
     return { label: "Signed up", detail: `Pays ${remaining(row)} credits when they activate`, tone: "pending" };
   }
   if (row.status === "activated") {
+    if (row.reward_withheld_reason === "cap") {
+      return {
+        label: "Activated",
+        detail: `The limit of ${REFERRAL_CAP.referrals} rewarded referrals in ${REFERRAL_CAP.windowDays} days was reached, so ${remaining(row)} credits were not paid`,
+        tone: "withheld",
+      };
+    }
     if (row.reward_credits_referrer >= REFERRAL_REWARD_CREDITS) return { label: "Activated", detail: null, tone: "paid" };
-    return {
-      label: "Activated",
-      detail: `The limit of ${REFERRAL_CAP.referrals} rewarded referrals in ${REFERRAL_CAP.windowDays} days was reached, so ${remaining(row)} credits were not paid`,
-      tone: "withheld",
-    };
+    return { label: "Activated", detail: `Paid ${row.reward_credits_referrer} credits`, tone: "neutral" };
   }
   return { label: "Invited", detail: null, tone: "neutral" };
 }

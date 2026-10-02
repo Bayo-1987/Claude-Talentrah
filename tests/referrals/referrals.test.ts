@@ -23,7 +23,7 @@ import {
   REFERRAL_SIGNUP_BONUS_CREDITS,
   LEGACY_REFERRAL_SIGNUP_BONUS_CREDITS,
 } from "@/lib/referrals/rewards";
-import { referralRowStatus } from "@/lib/referrals/copy";
+import { referralRowStatus, referralRewardWorth } from "@/lib/referrals/copy";
 
 for (const key of [
   "NEXT_PUBLIC_SUPABASE_URL",
@@ -117,7 +117,7 @@ async function balanceOf(userId: string): Promise<number> {
 async function referralRowFor(referredId: string) {
   const { data } = await admin
     .from("referrals")
-    .select("id, status, reward_credits_referrer, activated_at")
+    .select("id, status, reward_credits_referrer, reward_withheld_reason, activated_at")
     .eq("referred_user_id", referredId)
     .maybeSingle();
   return data;
@@ -213,6 +213,8 @@ describe("referral reward amounts stay connected to CREDIT_COSTS (0092)", () => 
       expect(rows[0].reason).toBe("referral_activation_bonus");
       expect(rows[0].delta).toBe(REFERRAL_REWARD_CREDITS);
       expect((await referralRowFor(referred))?.reward_credits_referrer).toBe(REFERRAL_REWARD_CREDITS);
+      // PARITY: what the SQL function actually paid is what the page and the email say it pays (their numbers come from the same constant).
+      expect(referralRewardWorth(), "the copy promises a different amount than the database paid").toContain(`${rows[0].delta} credits`);
     },
   );
 
@@ -428,9 +430,8 @@ describe("the 10-per-30-days reward cap", () => {
     /*
      * The decision in docs/referrals-open-questions.md #1: the cap stays, and nothing is silently unpaid. grant_referral_reward still
      * returns without paying when the cap is hit, and check_and_activate_referral still marks the referral 'activated' (the friend DID
-     * activate: the leaderboard counts it). What changed is visibility: since 0215 a referral is paid the whole reward at activation or not
-     * at all, so an activated row paid LESS than REFERRAL_REWARD_CREDITS can only mean the limit withheld it, and /refer derives
-     * "withheld by the limit" from exactly that (referralRowStatus), with no new column.
+     * activate: the leaderboard counts it). What changed is visibility: since 0215 grant_referral_reward RECORDS the reason on the
+     * referral (reward_withheld_reason = 'cap'), and /refer reads that column; it is no longer inferred from the amount.
      */
     const referrer = await makeUser(gmail("capped-r"));
     const code = await referralCodeOf(referrer);
@@ -446,9 +447,14 @@ describe("the 10-per-30-days reward cap", () => {
     expect(row?.status, "the referral is marked activated regardless of the cap (the friend did activate)").toBe("activated");
     expect(forThisReferral.length, "nothing is paid for it").toBe(0);
     expect(row?.reward_credits_referrer).toBe(0);
-    expect(referralRowStatus({ status: row!.status, reward_credits_referrer: row!.reward_credits_referrer })).toMatchObject({
-      tone: "withheld",
-    });
+    expect(row?.reward_withheld_reason, "the function RECORDS why it paid nothing").toBe("cap");
+    expect(
+      referralRowStatus({
+        status: row!.status,
+        reward_credits_referrer: row!.reward_credits_referrer,
+        reward_withheld_reason: row!.reward_withheld_reason,
+      }),
+    ).toMatchObject({ tone: "withheld" });
   });
 
   it("excludes the referral being rewarded from its own cap count, and pays a PRE-0215 referral only the REMAINDER", async () => {
@@ -824,4 +830,158 @@ describe("deleting a referred account", () => {
       "the ledger entry survives too",
     ).toBe(1);
   });
+});
+
+/* ========================================================================== *
+ * §4 — 0215: the recorded reason, one count per referral, the atomic claim, a deleted referrer
+ * ========================================================================== */
+
+describe("0215 — what the cap counts, and that a referral never counts twice", () => {
+  it("one referral never counts twice against the cap, even when it was paid at signup (legacy) AND at activation (two ledger rows, one referral)", async () => {
+    /*
+     * The cap counts DISTINCT referrals that have had any reward credited in the last 30 days (count_rewarded_referrals_last_30d groups ledger
+     * rows by related_entity_id), so a pre-0215 referral paid 10 at signup and 40 at activation has two rows and ONE referral id.
+     */
+    const referrer = await makeUser(gmail("twice-r"));
+    const code = await referralCodeOf(referrer);
+    const referred = await makeUser(gmail("twice-b"), { referred_by_code: code });
+    const referral = await referralRowFor(referred);
+
+    // Stand in for the pre-0215 signup half: a ledger row AND the amount on the referral.
+    await admin.from("credit_ledger").insert({
+      user_id: referrer,
+      delta: LEGACY_REFERRAL_SIGNUP_BONUS_CREDITS,
+      reason: "referral_signup_bonus" as const,
+      related_entity_id: referral!.id,
+      balance_after: 0,
+    });
+    await admin.from("referrals").update({ reward_credits_referrer: LEGACY_REFERRAL_SIGNUP_BONUS_CREDITS }).eq("id", referral!.id);
+    await activate(referred);
+
+    const mine = (await ledgerFor(referrer)).filter((l) => l.related_entity_id === referral!.id);
+    expect(mine.map((l) => l.reason).sort(), "the referral has BOTH rows").toEqual(["referral_activation_bonus", "referral_signup_bonus"]);
+
+    const { data: counted, error } = await admin.rpc("count_rewarded_referrals_last_30d", { p_referrer_id: referrer });
+    expect(error).toBeNull();
+    expect(counted, "two ledger rows, one referral: it counts ONCE").toBe(1);
+  });
+
+  it("with 9 others and one such two-row referral the count is 10, so the 11th activation is blocked and recorded as 'cap'", async () => {
+    const referrer = await makeUser(gmail("twice2-r"));
+    const code = await referralCodeOf(referrer);
+    await seedRewards(referrer, 9);
+    const legacy = await makeUser(gmail("twice2-legacy"), { referred_by_code: code });
+    const legacyRow = await referralRowFor(legacy);
+    await admin.from("credit_ledger").insert({
+      user_id: referrer,
+      delta: LEGACY_REFERRAL_SIGNUP_BONUS_CREDITS,
+      reason: "referral_signup_bonus" as const,
+      related_entity_id: legacyRow!.id,
+      balance_after: 0,
+    });
+    await admin.from("referrals").update({ reward_credits_referrer: LEGACY_REFERRAL_SIGNUP_BONUS_CREDITS }).eq("id", legacyRow!.id);
+    await activate(legacy);
+    expect((await admin.rpc("count_rewarded_referrals_last_30d", { p_referrer_id: referrer })).data).toBe(10);
+
+    const eleventh = await makeUser(gmail("twice2-11"), { referred_by_code: code });
+    await activate(eleventh);
+    const row = await referralRowFor(eleventh);
+    expect(row?.status).toBe("activated");
+    expect(row?.reward_credits_referrer).toBe(0);
+    expect(row?.reward_withheld_reason).toBe("cap");
+  });
+
+  async function seedRewards(referrerId: string, n: number) {
+    const { error } = await admin.from("credit_ledger").insert(
+      Array.from({ length: n }, () => ({
+        user_id: referrerId,
+        delta: REFERRAL_REWARD_CREDITS,
+        reason: "referral_activation_bonus" as const,
+        related_entity_id: randomUUID(),
+        balance_after: 0,
+      })),
+    );
+    if (error) throw error;
+  }
+});
+
+describe("0215 — the reason is recorded when, and only when, a reward is withheld", () => {
+  it("a normal activation records NO reason (NULL)", async () => {
+    const referrer = await makeUser(gmail("noreason-r"));
+    const code = await referralCodeOf(referrer);
+    const referred = await makeUser(gmail("noreason-b"), { referred_by_code: code });
+    await activate(referred);
+    const row = await referralRowFor(referred);
+    expect(row?.status).toBe("activated");
+    expect(row?.reward_withheld_reason).toBeNull();
+  });
+
+  it("a signed-up referral that has not activated has no reason either", async () => {
+    const referrer = await makeUser(gmail("noreason2-r"));
+    const code = await referralCodeOf(referrer);
+    const referred = await makeUser(gmail("noreason2-b"), { referred_by_code: code });
+    expect((await referralRowFor(referred))?.reward_withheld_reason).toBeNull();
+  });
+
+  it("a DELETED REFERRER no longer makes the friend's own action fail: the referral is claimed, marked 'referrer_deleted', and pays nothing", async () => {
+    /*
+     * Found while listing the ways an activated referral can be underpaid. 0209 made referrals.referrer_id ON DELETE SET NULL, and the activation
+     * used to call grant_referral_reward(null, ...), which RAISED inside the friend's own resumes trigger, so SAVING A RESUME FAILED for a friend whose
+     * referrer had deleted their account.
+     */
+    const referrer = await makeUser(gmail("gone-r"));
+    const code = await referralCodeOf(referrer);
+    const referred = await makeUser(gmail("gone-b"), { referred_by_code: code });
+    const before = await referralRowFor(referred);
+
+    /*
+     * profiles.referred_by (the friend's own profile row) is a plain FK to the referrer's profile with NO ON DELETE action (0000), so a
+     * referrer who has referred a real signup CANNOT be deleted today: auth.admin.deleteUser fails with 23503 until that is changed (reported to
+     * the account-deletion work, S3-21; not this migration's to change). The path this test is about only exists once it is, so the friend's
+     * pointer is cleared first, which is what that change will do.
+     */
+    await admin.from("profiles").update({ referred_by: null }).eq("id", referred);
+    const { error: deleteError } = await admin.auth.admin.deleteUser(referrer);
+    if (deleteError) throw deleteError;
+    created = created.filter((id) => id !== referrer);
+    const orphan = await referralRowFor(referred);
+    expect(orphan?.id, "the referral row outlives its referrer (0209)").toBe(before?.id);
+
+    await expect(activate(referred), "the friend's save must not fail").resolves.toBeUndefined();
+
+    const row = await referralRowFor(referred);
+    expect(row?.status).toBe("activated");
+    expect(row?.reward_credits_referrer).toBe(0);
+    expect(row?.reward_withheld_reason).toBe("referrer_deleted");
+  });
+});
+
+describe("0215 — the activation claim is atomic", () => {
+  it("MECHANISM: the UPDATE ... WHERE status = 'signed_up' is the claim, so concurrent activations of one referral pay EXACTLY ONCE", async () => {
+    const referrer = await makeUser(gmail("race-r"));
+    const code = await referralCodeOf(referrer);
+    const referred = await makeUser(gmail("race-b"), { referred_by_code: code });
+    await activate(referred); // a real activation, so the friend genuinely qualifies
+    const referral = await referralRowFor(referred);
+
+    // Put the referral back to "signed up, nothing paid" so several callers can race for the same activation.
+    await admin.from("credit_ledger").delete().eq("user_id", referrer).eq("related_entity_id", referral!.id);
+    await admin.from("referral_reward_events").delete().eq("referral_id", referral!.id);
+    await admin.from("profiles").update({ credits_balance: 0 }).eq("id", referrer);
+    await admin
+      .from("referrals")
+      .update({ status: "signed_up", activated_at: null, reward_credits_referrer: 0, reward_withheld_reason: null })
+      .eq("id", referral!.id);
+
+    const results = await Promise.all(
+      Array.from({ length: 8 }, () => admin.rpc("check_and_activate_referral", { p_user_id: referred })),
+    );
+    for (const r of results) expect(r.error, "a racing caller must not error").toBeNull();
+
+    const paid = (await ledgerFor(referrer)).filter((l) => l.related_entity_id === referral!.id);
+    expect(paid, "RACE: the reward was paid more than once (or not at all)").toHaveLength(1);
+    expect(paid[0].delta).toBe(REFERRAL_REWARD_CREDITS);
+    expect(await balanceOf(referrer)).toBe(REFERRAL_REWARD_CREDITS);
+    expect((await referralRowFor(referred))?.reward_credits_referrer).toBe(REFERRAL_REWARD_CREDITS);
+  }, 60_000);
 });

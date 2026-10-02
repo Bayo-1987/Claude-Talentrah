@@ -26,8 +26,8 @@ interface Copy {
   ACTIVATED_MEANING: string;
   SELF_REFERRAL_LINE: string;
   HOW_IT_WORKS: Array<{ title: string; text: string }>;
-  referralRowStatus(row: { status: string; reward_credits_referrer: number }): { label: string; detail: string | null; tone: "paid" | "pending" | "withheld" | "neutral" };
-  pendingCredits(rows: Array<{ status: string; reward_credits_referrer: number }>): number;
+  referralRowStatus(row: { status: string; reward_credits_referrer: number; reward_withheld_reason?: string | null }): { label: string; detail: string | null; tone: "paid" | "pending" | "withheld" | "neutral" };
+  pendingCredits(rows: Array<{ status: string; reward_credits_referrer: number; reward_withheld_reason?: string | null }>): number;
 }
 const rewards = () => loadModule<Rewards>("@/lib/referrals/rewards");
 const copy = () => loadModule<Copy>("@/lib/referrals/copy");
@@ -92,6 +92,30 @@ describe("CHANGE A CONSTANT AND THE COPY FOLLOWS (so the page and the email cann
     expect(c.referralRewardWorth()).toBe("50 credits, enough for 1 resume tailoring");
   });
 
+  it("ROUNDS DOWN: a reward that buys 2.77 tailorings says 2, and one that buys 1.67 says 1 (never rounds up, never a fraction)", async () => {
+    vi.resetModules();
+    vi.doMock("@/lib/credits/costs", () => ({ CREDIT_COSTS: { tailoringRun: 18 } }));
+    expect((await copy()).referralRewardWorth()).toBe("50 credits, enough for 2 resume tailorings");
+    vi.resetModules();
+    vi.doMock("@/lib/credits/costs", () => ({ CREDIT_COSTS: { tailoringRun: 30 } }));
+    expect((await copy()).referralRewardWorth()).toBe("50 credits, enough for 1 resume tailoring");
+  });
+
+  it("SINGULAR at exactly one, PLURAL at two, and the clause is DROPPED (no '0') under one", async () => {
+    vi.resetModules();
+    vi.doMock("@/lib/credits/costs", () => ({ CREDIT_COSTS: { tailoringRun: 50 } }));
+    expect((await copy()).referralRewardWorth()).toBe("50 credits, enough for 1 resume tailoring");
+    vi.resetModules();
+    vi.doMock("@/lib/credits/costs", () => ({ CREDIT_COSTS: { tailoringRun: 25 } }));
+    expect((await copy()).referralRewardWorth()).toBe("50 credits, enough for 2 resume tailorings");
+    vi.resetModules();
+    vi.doMock("@/lib/credits/costs", () => ({ CREDIT_COSTS: { tailoringRun: 51 } }));
+    const worth = (await copy()).referralRewardWorth();
+    expect(worth).toBe("50 credits");
+    expect(worth).not.toMatch(/\b0\b/);
+    expect(worth).not.toMatch(/enough for/);
+  });
+
   it("a reward too small to buy a tailoring drops the 'enough for' clause rather than saying 0", async () => {
     vi.resetModules();
     vi.doMock("@/lib/credits/costs", () => ({ CREDIT_COSTS: { tailoringRun: 80 } }));
@@ -138,14 +162,29 @@ describe("what each referral row says (derived from the stored amount, no new co
     expect((await copy()).referralRowStatus({ status: "activated", reward_credits_referrer: 50 })).toMatchObject({ tone: "paid" });
   });
 
-  it("an activated referral paid LESS than the whole reward was withheld by the limit, and says so (never silent)", async () => {
-    const row = (await copy()).referralRowStatus({ status: "activated", reward_credits_referrer: 0 });
-    expect(row.tone).toBe("withheld");
-    expect(row.detail).toMatch(/limit/i);
-    expect(row.detail).toContain("50 credits");
-    const partial = (await copy()).referralRowStatus({ status: "activated", reward_credits_referrer: 10 });
+  it("a referral withheld by the limit says so: it is read from the RECORDED reason ('cap'), never inferred from the amount (never silent)", async () => {
+    const c = await copy();
+    const none = c.referralRowStatus({ status: "activated", reward_credits_referrer: 0, reward_withheld_reason: "cap" });
+    expect(none.tone).toBe("withheld");
+    expect(none.detail).toMatch(/limit/i);
+    expect(none.detail).toContain("50 credits");
+    const partial = c.referralRowStatus({ status: "activated", reward_credits_referrer: 10, reward_withheld_reason: "cap" });
     expect(partial.tone).toBe("withheld");
     expect(partial.detail).toContain("40 credits");
+  });
+
+  it("an activated referral paid less than the whole reward with NO recorded reason (a legacy row) is not claimed to be withheld: it states what was paid", async () => {
+    const row = (await copy()).referralRowStatus({ status: "activated", reward_credits_referrer: 10, reward_withheld_reason: null });
+    expect(row.tone).toBe("neutral");
+    expect(row.detail).toContain("10 credits");
+    expect(row.detail).not.toMatch(/limit/i);
+  });
+
+  it("the amount alone never decides: if the whole reward changes, a recorded reason still reads the same and an unrecorded one never turns into 'withheld'", async () => {
+    const c = await copy();
+    expect(c.referralRowStatus({ status: "activated", reward_credits_referrer: 50 }).tone).toBe("paid");
+    expect(c.referralRowStatus({ status: "activated", reward_credits_referrer: 49 }).tone).not.toBe("withheld");
+    expect(c.referralRowStatus({ status: "activated", reward_credits_referrer: 49, reward_withheld_reason: "cap" }).tone).toBe("withheld");
   });
 
   it("pending credits are the sum of what each signed-up referral will still pay", async () => {

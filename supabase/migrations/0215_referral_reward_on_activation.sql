@@ -11,25 +11,64 @@
 --   * a referral that signed up BEFORE this migration was already paid its 10-credit signup half, so it gets the remainder, 40:
 --     no double payment, and no clawback of anything already earned;
 --   * a referral whose signup half was withheld by the cap (paid 0) gets 50, subject to the cap again at activation.
--- The cap itself (10 rewarded referrals per referrer in a rolling 30 days, grant_referral_reward) is untouched, as is self-referral
--- detection (0036) in handle_new_user.
+-- Self-referral detection (0036) in handle_new_user is untouched.
 --
--- A referral that activates while its referrer is at the cap is still marked activated and still paid nothing (grant_referral_reward
--- returns silently). That is now VISIBLE rather than silent: /refer derives "withheld by the limit" from an activated referral whose
--- reward_credits_referrer is below the full reward, so no new column is needed.
+-- WHAT THE CAP COUNTS AFTER THIS MIGRATION (grant_referral_reward -> count_rewarded_referrals_last_30d, unchanged): the number of DISTINCT REFERRALS that have had any
+-- reward credited to the referrer in the last 30 days (ledger rows with reason referral_signup_bonus or referral_activation_bonus, grouped by the referral they belong
+-- to), with the referral being paid excluded from its own count. A legacy referral paid 10 at signup and 40 at activation has TWO ledger rows but ONE referral id, so it
+-- counts ONCE: tests/referrals/referrals.test.ts ("one referral never counts twice against the cap"). Under the new rule each referral has exactly one grant.
 --
--- ONE SMALL HARDENING, in the same function: the activation used to be "select ... where status = 'signed_up'" then, later,
--- "update ... set status = 'activated'", with the grant after it. Two concurrent calls could both pass the select and both pay. The
--- update is now the claim itself (`where status = 'signed_up'`, and the function stops if it claimed nothing), so exactly one caller moves
--- a referral to activated and only that caller pays. (CLAUDE.md: anything that gates on a compared value must check and act in one statement.)
+-- THE ATOMIC CLAIM. The activation used to be "select ... where status = 'signed_up'", later "update ... set status = 'activated'", then the grant: two concurrent calls could
+-- both pass the select and both pay. The update is now the claim itself (`where id = ... and status = 'signed_up'`, and the function stops if it claimed nothing): the second
+-- concurrent caller blocks on the row lock until the first commits, re-evaluates the predicate, sees 'activated', updates zero rows and returns, so exactly one caller pays.
+-- (CLAUDE.md: anything that gates on a compared value must check and act in one statement.) Proved by a DB-backed concurrency test.
 --
--- THE 50 IS A LITERAL, as the 10 and 40 were: Postgres cannot import a TypeScript constant. src/lib/referrals/rewards.ts
--- (REFERRAL_REWARD_CREDITS) is the other half, and tests/referrals/referrals.test.ts reads the amount the live trigger really grants and
--- compares it, so a future repricing that forgets one side fails there.
+-- WHY A WITHHELD REWARD IS RECORDED, NOT DERIVED. "Activated and paid less than 50" cannot say why, and goes wrong the day the amount changes. The function that decides
+-- not to pay writes the reason on the referral itself, and /refer reads it: `referrals.reward_withheld_reason`, nullable, NULL meaning "not withheld". Every path that can
+-- leave an ACTIVATED referral paid less than the whole reward, found by reading the three functions and 0209's foreign keys:
+--   1. THE CAP. grant_referral_reward returns without paying when the referrer already has 10 rewarded referrals in the rolling 30 days. It now writes 'cap' on that
+--      referral first. (The referral is still activated: the friend did activate, and the leaderboard counts it.)
+--   2. A DELETED REFERRER. 0209 made referrals.referrer_id ON DELETE SET NULL, so a referral can outlive its referrer with referrer_id null. Until now the friend's activation
+--      called grant_referral_reward(null, ...), grant_credits_atomic found no profile and RAISED, and because the activation runs inside the friend's own resumes/applications
+--      trigger, THE FRIEND'S SAVE OR APPLY FAILED. Found while listing these paths. There is nobody to pay and nobody to tell, so the referral is claimed (activated) and
+--      marked 'referrer_deleted' without paying, and the friend's action succeeds.
+--   3. A FAILED GRANT (grant_credits_atomic raising for any other reason) rolls the whole statement back, claim included: the referral stays 'signed_up', so it never produces
+--      an activated, underpaid row (it fails the friend's action instead, as every trigger exception does; unchanged here).
+--   4. A REFERRAL ALREADY PAID IN FULL (remainder <= 0): nothing is owed, so it is not "withheld" and the reason stays NULL.
+-- LEGACY ROWS ARE NOT BACKFILLED: a referral withheld by the cap before this migration has no recorded reason (production has none: its one referral is still signed_up).
+-- /refer shows such a row as what it is (activated, paid N credits) without claiming a reason it cannot prove.
 --
--- Both functions are rewritten in full (0036/0092's convention). Everything not named above is byte-identical to the definition live on
--- production (confirmed with pg_get_functiondef before writing this): handle_new_user keeps the referrer lookup, the self-referral
--- check, the name handling and the profile insert, and loses only the signup grant.
+-- THE HARDENING 0211 APPLIED IS KEPT. CREATE OR REPLACE keeps a function's grants but replaces its SET options and security mode with the new text, so each redefinition below
+-- repeats `security definer set search_path to 'public'` exactly as production has it (proconfig {search_path=public}, prosecdef true), and this migration contains no GRANT or
+-- REVOKE. The self-checks at the end compare every touched function's ACL and config with what they were when the migration started, and fail if any moved.
+--
+-- THE 50 IS A LITERAL, as the 10 and 40 were: Postgres cannot import a TypeScript constant. src/lib/referrals/rewards.ts (REFERRAL_REWARD_CREDITS) is the other half, and
+-- tests/referrals/referrals.test.ts reads the amount the live trigger really grants and compares it, so a future repricing that forgets one side fails there.
+--
+-- Three functions are rewritten in full (0036/0092's convention). Everything not named above is byte-identical to the definition live on production (confirmed with
+-- pg_get_functiondef): handle_new_user keeps the referrer lookup, the self-referral check, the name handling and the profile insert, and loses only the signup grant;
+-- grant_referral_reward changes only its cap branch.
+
+-- The functions' ACL and config as they are NOW, kept for the self-checks at the end. A session setting rather than a temp table: it survives whether the
+-- runner wraps the file in one transaction (production and the owner's apply do) or applies it statement by statement (a temp table "on commit drop" would
+-- vanish after its own statement there).
+select set_config('migration.m0215_before', coalesce((
+  select jsonb_agg(jsonb_build_object('fn', p.oid::regprocedure::text, 'acl', p.proacl::text, 'config', p.proconfig::text, 'secdef', p.prosecdef))::text
+  from pg_proc p
+  where p.oid in (
+    'public.handle_new_user()'::regprocedure,
+    'public.check_and_activate_referral(uuid)'::regprocedure,
+    'public.grant_referral_reward(uuid, uuid, integer, credit_reason)'::regprocedure
+  )
+), '[]'), false);
+
+-- Why a reward was withheld: written by the function that withheld it, read by /refer. NULL = not withheld (and every existing row).
+alter table public.referrals
+  add column reward_withheld_reason text
+  check (reward_withheld_reason is null or reward_withheld_reason in ('cap', 'referrer_deleted'));
+
+comment on column public.referrals.reward_withheld_reason is
+  '0215. Why this referral was activated but not paid in full: cap (the referrer was at 10 rewarded referrals in 30 days) or referrer_deleted. NULL = not withheld. Not backfilled.';
 
 create or replace function public.handle_new_user()
  returns trigger
@@ -101,6 +140,33 @@ begin
 end;
 $function$;
 
+create or replace function public.grant_referral_reward(p_referral_id uuid, p_referrer_id uuid, p_amount integer, p_reason credit_reason)
+ returns void
+ language plpgsql
+ security definer
+ set search_path to 'public'
+as $function$
+declare
+  v_referred_user_id uuid;
+begin
+  if public.count_rewarded_referrals_last_30d(p_referrer_id, p_referral_id) >= 10 then
+    -- 0215: still pays nothing, but now says why on the referral itself.
+    update public.referrals set reward_withheld_reason = 'cap' where id = p_referral_id;
+    return;
+  end if;
+
+  perform public.grant_credits_atomic(p_referrer_id, p_amount, p_reason, p_referral_id);
+
+  update public.referrals
+  set reward_credits_referrer = reward_credits_referrer + p_amount
+  where id = p_referral_id
+  returning referred_user_id into v_referred_user_id;
+
+  insert into public.referral_reward_events (referral_id, referrer_id, referred_user_id, credits_granted, reason)
+  values (p_referral_id, p_referrer_id, v_referred_user_id, p_amount, p_reason);
+end;
+$function$;
+
 create or replace function public.check_and_activate_referral(p_user_id uuid)
  returns void
  language plpgsql
@@ -143,6 +209,13 @@ begin
     return;
   end if;
 
+  -- 0215: the referrer's account was deleted (0209 set referrer_id null). Nobody to pay and nobody to tell; this used to RAISE inside the
+  -- friend's own trigger and fail their save/apply. Claimed, recorded, not paid.
+  if v_referrer_id is null then
+    update public.referrals set reward_withheld_reason = 'referrer_deleted' where id = v_referral_id;
+    return;
+  end if;
+
   -- The whole reward (50) less what this referral has already been paid (the signup half, for a referral made before 0215).
   v_remainder := 50 - coalesce(v_paid, 0);
   if v_remainder > 0 then
@@ -151,11 +224,14 @@ begin
 end;
 $function$;
 
--- Self-checks: the live definitions are the ones intended. A migration that "applied" the wrong text would otherwise only show up as money.
+-- Self-checks: the live definitions are the ones intended, and the hardening 0211 applied is intact. A migration that "applied" the wrong text would
+-- otherwise only show up as money, or as a quietly re-opened function.
 do $$
 declare
   v_signup text := pg_get_functiondef('public.handle_new_user()'::regprocedure);
   v_activate text := pg_get_functiondef('public.check_and_activate_referral(uuid)'::regprocedure);
+  v_grant text := pg_get_functiondef('public.grant_referral_reward(uuid, uuid, integer, credit_reason)'::regprocedure);
+  r record;
 begin
   if position('referral_signup_bonus' in v_signup) > 0 or position('grant_referral_reward' in v_signup) > 0 then
     raise exception 'self-check: handle_new_user still grants a signup reward';
@@ -166,7 +242,27 @@ begin
   if position('where id = v_referral_id and status = ''signed_up''' in v_activate) = 0 then
     raise exception 'self-check: check_and_activate_referral does not claim the activation atomically';
   end if;
-  if not exists (select 1 from pg_proc where oid = 'public.handle_new_user()'::regprocedure and prosecdef) then
-    raise exception 'self-check: handle_new_user lost SECURITY DEFINER';
+  if position('reward_withheld_reason = ''cap''' in v_grant) = 0 then
+    raise exception 'self-check: grant_referral_reward does not record the cap';
   end if;
+  -- EXECUTE grants (proacl), config (proconfig) and security mode are exactly what they were when this migration started: nothing granted, nothing unpinned.
+  if jsonb_array_length(current_setting('migration.m0215_before')::jsonb) <> 3 then
+    raise exception 'self-check: the before-state of the three functions was not captured';
+  end if;
+  for r in
+    select b->>'fn' as fn, b->>'acl' as acl, b->>'config' as config, (b->>'secdef')::boolean as secdef,
+           p.proacl::text as acl_now, p.proconfig::text as config_now, p.prosecdef as secdef_now
+    from jsonb_array_elements(current_setting('migration.m0215_before')::jsonb) b
+    join pg_proc p on p.oid = (b->>'fn')::regprocedure
+  loop
+    if r.acl is distinct from r.acl_now then
+      raise exception 'self-check: EXECUTE grants on % changed (% -> %)', r.fn, r.acl, r.acl_now;
+    end if;
+    if r.config is distinct from r.config_now or r.config_now is null or position('search_path=public' in r.config_now) = 0 then
+      raise exception 'self-check: search_path pin on % changed or is missing (% -> %)', r.fn, r.config, r.config_now;
+    end if;
+    if not r.secdef_now or r.secdef is distinct from r.secdef_now then
+      raise exception 'self-check: % is not SECURITY DEFINER as before', r.fn;
+    end if;
+  end loop;
 end $$;

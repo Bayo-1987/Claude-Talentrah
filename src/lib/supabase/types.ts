@@ -2808,6 +2808,7 @@ export type Database = {
           referrer_id: string | null
           reward_credits_referred: number
           reward_credits_referrer: number
+          reward_withheld_reason: string | null
           signed_up_at: string | null
           status: Database["public"]["Enums"]["referral_status"]
         }
@@ -2819,6 +2820,7 @@ export type Database = {
           referrer_id?: string | null
           reward_credits_referred?: number
           reward_credits_referrer?: number
+          reward_withheld_reason?: string | null
           signed_up_at?: string | null
           status?: Database["public"]["Enums"]["referral_status"]
         }
@@ -2830,6 +2832,7 @@ export type Database = {
           referrer_id?: string | null
           reward_credits_referred?: number
           reward_credits_referrer?: number
+          reward_withheld_reason?: string | null
           signed_up_at?: string | null
           status?: Database["public"]["Enums"]["referral_status"]
         }
