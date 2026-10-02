@@ -5,7 +5,6 @@ import { EyebrowLabel } from "@/components/ui";
 import { ScholarshipFilterBar } from "@/components/scholarships/scholarship-filter-bar";
 import {
   ScholarshipCard,
-  daysUntil,
   formatDeadline,
 } from "@/components/scholarships/scholarship-card";
 import { Constants, type Tables } from "@/lib/supabase/types";
@@ -16,6 +15,7 @@ import { pageMetadata } from "@/lib/seo/site";
 import { liveScholarshipLandingLinks } from "@/lib/seo/landing-page-links";
 import { loadOpenScholarshipsPreview } from "@/lib/seo/landing-page-data";
 import { ScholarshipsPublicLanding } from "@/components/scholarships/public-landing";
+import { applyClosingWithin, dueSoonScholarships } from "@/lib/scholarships/close-instant";
 
 /**
  * send-480 — /scholarships used to redirect every signed-out visitor to /login (a 307 from
@@ -137,12 +137,8 @@ export default async function ScholarshipsPage({ searchParams }: { searchParams:
     );
   }
   if (within) {
-    const horizon = new Date();
-    horizon.setUTCDate(horizon.getUTCDate() + Number(within));
-    query = query
-      .not("application_deadline", "is", null)
-      .gte("application_deadline", new Date().toISOString().slice(0, 10))
-      .lte("application_deadline", horizon.toISOString().slice(0, 10));
+    // The closing INSTANT is ahead and within N days (close-instant.ts); was a UTC-date window.
+    query = applyClosingWithin(query, Number(within));
   }
   if (tab === "saved") {
     const ids = [...saveByScholarshipId.keys()];
@@ -173,15 +169,12 @@ export default async function ScholarshipsPage({ searchParams }: { searchParams:
   const { data: dueSoonRows } = savedIds.length
     ? await supabase
         .from("scholarships")
-        .select("id, program_name, provider, application_deadline, official_url")
+        .select("id, program_name, provider, application_deadline, close_time, close_tz, close_at, official_url")
         .in("id", savedIds)
-        .not("application_deadline", "is", null)
-        .gte("application_deadline", new Date().toISOString().slice(0, 10))
+        .not("close_at", "is", null)
+        .gt("close_at", new Date().toISOString())
     : { data: [] };
-  const dueSoon = (dueSoonRows ?? [])
-    .map((s) => ({ ...s, left: daysUntil(s.application_deadline) }))
-    .filter((s) => s.left !== null && s.left <= DEADLINE_ALERT_DAYS)
-    .sort((a, b) => (a.left ?? 0) - (b.left ?? 0));
+  const dueSoon = dueSoonScholarships(dueSoonRows ?? [], DEADLINE_ALERT_DAYS);
 
   const buildPageHref = (target: number) => {
     const sp = new URLSearchParams();

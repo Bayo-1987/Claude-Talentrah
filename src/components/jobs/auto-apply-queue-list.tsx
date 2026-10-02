@@ -47,8 +47,9 @@ export function AutoApplyQueueList({
         <BorderedCard className="p-8 text-center">
           <p className="font-display text-[19px] font-medium text-ink">Nothing waiting</p>
           <p className="mx-auto mt-2 max-w-[46ch] font-body text-[14px] text-ink-soft">
-            Auto-Apply only queues Excellent matches, so an empty queue usually means there
-            aren&apos;t any right now — not that it isn&apos;t working.
+            Auto-Apply only queues open roles that score Excellent, so an empty queue usually means
+            there aren&apos;t any right now — not that it isn&apos;t working. A role that has closed, or
+            whose match has changed since it was queued, drops off this list.
           </p>
         </BorderedCard>
       ) : (

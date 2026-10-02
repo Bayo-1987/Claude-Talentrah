@@ -7,6 +7,7 @@ import { SaveStatusSelect } from "./save-status-select";
 import { FarahActions } from "./farah-actions";
 import { ScholarshipShareButton } from "./scholarship-share-button";
 import { formatCalendarDate } from "@/lib/format/datetime";
+import { scholarshipDaysLeft } from "@/lib/scholarships/close-instant";
 
 export interface ScholarshipCardProps {
   scholarship: Tables<"scholarships">;
@@ -18,16 +19,6 @@ export interface ScholarshipCardProps {
   origin: string;
   /** The signed-in viewer's own referral code — always present on this authenticated list, but optional here since the component makes no assumption a caller must supply one. */
   referralCode?: string | null;
-}
-
-/** Days until the deadline, or null when there's no published date. */
-export function daysUntil(deadline: string | null): number | null {
-  if (!deadline) return null;
-  const [y, m, d] = deadline.split("-").map(Number);
-  const target = new Date(y, m - 1, d);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return Math.round((target.getTime() - today.getTime()) / 86_400_000);
 }
 
 /**
@@ -48,7 +39,8 @@ export function ScholarshipCard({
   origin,
   referralCode,
 }: ScholarshipCardProps) {
-  const left = daysUntil(scholarship.application_deadline);
+  // Whole days to the closing INSTANT (close-instant.ts, migration 0204), not calendar days to a date: 0 in the last 24 hours, negative once closed.
+  const left = scholarshipDaysLeft(scholarship);
   const urgent = left !== null && left >= 0 && left <= 14;
 
   return (
