@@ -16,7 +16,7 @@ export default function FileInputFixture() {
   return (
     <div className="flex flex-col gap-8 p-6">
       <section id="banner"><BannerCropPicker hasStagedBanner={false} onCropped={async () => ({ ok: true })} /></section>
-      <section id="new-job"><NewJobAssessmentFilesPicker userId="fixture-user" /></section>
+      <section id="new-job"><NewJobAssessmentFilesPicker userId="fixture-user" active /></section>
       <section id="edit-job"><EditJobAssessmentFilesPicker userId="fixture-user" jobId="fixture-job" /></section>
       <section id="exercise"><AssessmentExerciseUpload jobId="fixture-job" files={[]} hasAssessment /></section>
       <section id="screening">

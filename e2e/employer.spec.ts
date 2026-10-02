@@ -286,7 +286,7 @@ test.describe("employer surface", () => {
     // but the test below never clicks it, matching the founder's own
     // explicit requirement that the manual path is completely unaffected by
     // whether this button exists at all.
-    await expect(authedPage.getByRole("button", { name: "✦ Let Farah scope this job" })).toBeVisible();
+    await expect(authedPage.getByRole("button", { name: "Let Farah scope this job" })).toBeVisible();
 
     await authedPage.getByLabel("Job title").fill("E2E Zero Balance Ops Analyst");
     await authedPage.getByLabel("Location").fill("Abuja, Nigeria");
