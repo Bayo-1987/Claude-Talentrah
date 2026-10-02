@@ -23,6 +23,7 @@ import { describe, expect, it } from "vitest";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/types";
 import { freshnessFloorISO } from "@/lib/jobs/freshness";
+import { openScholarshipFilter } from "@/lib/scholarships/close-instant";
 import { TRACKED_COUNTRIES, countryOrFilter } from "@/lib/jobs/country";
 import { CITY_LANDING_PAGES } from "@/lib/seo/landing-pages";
 import { Constants } from "@/lib/supabase/types";
@@ -86,13 +87,15 @@ describe("job_landing_facet_counts — matches the per-facet queries it replaced
   });
 });
 
-describe("scholarship_landing_facet_counts — matches the per-facet queries it replaced", () => {
+describe("scholarship_landing_facet_counts_at — matches the per-facet queries it replaced", () => {
   it("every facet count agrees with an independent direct query, on live data", async () => {
-    const today = new Date().toISOString().slice(0, 10);
-    const stillOpen = `application_deadline.is.null,application_deadline.gte.${today}`;
+    // send-508 (0204): "still open" is the closing INSTANT. The RPC decides it with scholarship_is_open at p_now; the direct queries use
+    // the close_at column the trigger keeps equal to the same function. One fixed `now` for both, so they cannot straddle a boundary.
+    const now = new Date();
+    const stillOpen = openScholarshipFilter(now);
 
     const { data: rpc, error } = await anon
-      .rpc("scholarship_landing_facet_counts", { p_today: today })
+      .rpc("scholarship_landing_facet_counts_at", { p_now: now.toISOString() })
       .single();
     expect(error).toBeNull();
     if (!rpc) throw new Error("RPC returned no row");
