@@ -48,7 +48,7 @@ Test-only. `e2e/resume-editor-bullets.spec.ts:46` (the spec and the `/dev/resume
 **Fix.** The second test replaces the achievement with keyboard select-all (`ControlOrMeta+a`, handled by ProseMirror from its own state) and typing, with the reasoning in a comment. `e2e/resume-editor-caret-race.spec.ts` (new) reproduces the old failure on demand and asserts the fixed approach 10 times per run.
 
 ### Verification
-**1. API:** `merged: true`, `merged_at 2026-10-02T05:24:40Z`, `merge_commit_sha 566dd62e…`, head `beb639c5…`; pinned merge after one update (one CI read). **2. Fresh clone:** `566dd62` in `main`'s history; both specs present. **3. Production:** deployment `dpl_3yT7hkZ62cEy6uYPLbS9bC9AL6Wh` `READY` at `566dd62…` (no runtime change; test-only). **4. Full suite on merged `main`:** push run [36968807490](https://github.com/Bayo-1987/Claude-Talentrah/actions/runs/36968807490) (result recorded in the PR; see #653).
+**1. API:** `merged: true`, `merged_at 2026-10-02T05:24:40Z`, `merge_commit_sha 566dd62e…`, head `beb639c5…`; pinned merge after one update (one CI read). **2. Fresh clone:** `566dd62` in `main`'s history; both specs present. **3. Production:** deployment `dpl_3yT7hkZ62cEy6uYPLbS9bC9AL6Wh` `READY` at `566dd62…` (no runtime change; test-only). **4. Full suite on merged `main`:** push run [36968807490](https://github.com/Bayo-1987/Claude-Talentrah/actions/runs/36968807490): unit **472 files, 5,670 tests passed**; e2e **548 passed, 0 failed** (including the fixed spec and the new caret-race spec); audits success.
 
 ### Standing lesson (owner, 2026-10-02): production reads run in a READ ONLY transaction
 Every production query goes inside `BEGIN READ ONLY; … ROLLBACK;` (or `SET TRANSACTION READ ONLY`). It exists because a diagnostic query on 2026-10-02 contained a stray `create temp table`; it was session-local and left no trace (checked in `pg_class`), but it was not a pure read. Inside a read-only transaction that statement is an error, so the mistake becomes impossible rather than merely harmless.
@@ -134,6 +134,9 @@ From the owner's report: 9 of 14 queue rows showed "99% · Excellent*" for QA En
 - The title duplicate count above is on **unmarked** data; marking the 3 superseded rows is still waiting on the founder's go.
 - Lighthouse failed on both PRs (known: the thin CI-project `/jobs/remote` 404); not a required check. The SQL replica of the title rule is an approximation of the TypeScript; the crawl above is the real measurement.
 - One `tests/jobs` file (`freshness-visibility`) fails locally against the shared test database on remote-posting counts (other sessions' data); it passed in CI on both heads.
+
+---
+
 ## Merged 2026-10-01 — PR #640, Farah quick actions: own instructions, no invented achievements, a cut-off reply is not charged (send-500)
 
 | PR | Branch | Merged at (UTC) | Merge SHA |
