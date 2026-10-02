@@ -27,7 +27,8 @@ describe("scholarship countdown wording", () => {
     const template = readFileSync("src/lib/scholarship-deadline-alerts/template.ts", "utf8");
     expect(template).toContain("scholarshipDeadlineStatement");
     expect(template).not.toMatch(/scholarshipCountdown|scholarshipDaysLeft|daysOutLabel|daysOut/);
-    expect(template).not.toMatch(/["'`][^"'`\n]*(today|tomorrow|days left)[^"'`\n]*["'`]/i);
+    const code = template.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+    expect(code, "no relative word in any string the email builds").not.toMatch(/["'`][^"'`\n]*(today|tomorrow|days left)[^"'`\n]*["'`]/i);
     const send = readFileSync("src/lib/scholarship-deadline-alerts/send.ts", "utf8");
     expect(send, "the sender no longer computes a relative day count for the wording").not.toMatch(/daysOut/);
   });

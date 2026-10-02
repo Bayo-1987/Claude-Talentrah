@@ -1,7 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { loadPublicScholarship } from "@/lib/scholarships/public";
 import { formatDeadline } from "@/components/scholarships/scholarship-card";
-import { scholarshipCountdown } from "@/lib/scholarships/close-instant";
+import { scholarshipDeadlineDisplay } from "@/lib/scholarships/close-instant";
 import type { Database } from "@/lib/supabase/types";
 
 /**
@@ -88,22 +88,21 @@ interface EmbeddableScholarship {
 
 /**
  * The fact strip itself: provider, programme, the REAL deadline via the same
- * formatDeadline/scholarshipCountdown helpers the scholarship card and detail page use
+ * formatDeadline/scholarshipDeadlineDisplay helpers the scholarship card and detail page use
  * (not a third reimplementation of date formatting), and a link to the full
  * listing. Sanitized like the rest of the post body — see render.ts — so
  * even a bug here can never emit more than the existing allowlist permits.
  */
 function factCardHtml(id: string, scholarship: EmbeddableScholarship): string {
-  const countdown = scholarshipCountdown(scholarship);
+  const deadline = scholarshipDeadlineDisplay(scholarship, new Date(), { detailed: false, showClosed: false });
   const deadlineText = scholarship.application_deadline
-    ? formatDeadline(scholarship.application_deadline)
+    ? (deadline?.text ?? formatDeadline(scholarship.application_deadline))
     : (scholarship.deadline_note ?? "Not published yet");
-  const daysLeft = countdown.phrase && countdown.state !== "closed" ? ` · ${countdown.phrase}` : "";
 
   return (
     "<aside>" +
     `<p><strong>${escapeHtml(scholarship.provider)}</strong> — ${escapeHtml(scholarship.program_name)}</p>` +
-    `<p>Deadline: ${escapeHtml(deadlineText)}${daysLeft}</p>` +
+    `<p>Deadline: ${escapeHtml(deadlineText)}</p>` +
     `<a href="/scholarships/${id}">View this scholarship →</a>` +
     "</aside>"
   );

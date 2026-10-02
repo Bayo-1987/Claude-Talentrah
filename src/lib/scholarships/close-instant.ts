@@ -105,33 +105,39 @@ export function scholarshipDaysLeft(row: ScholarshipCloseFields, now: Date = new
 /**
  * The countdown a reader sees, in one place (send-511).
  *
- * A row WITH a zone keeps the exact countdown it always had: whole days to its closing instant (0 in the last 24 hours), "Closed" once it has closed.
+ * A row WITH a zone has an exact instant, so its countdown is true for every reader: "N days left" from 24 hours out, "Closes in N hours" under
+ * 24 hours, "Closes in under an hour" under one, "Closed" at the instant. (It used to say "0 days left".)
  *
  * A row with NO zone stays LISTED until the last place on Earth has ended the day (the 0204 instant, 12:00 UTC the next day), but that is a rule
  * about whether it shows, not about how many days are left: on the deadline date itself "1 day left" next to "apply a day early" tells people
  * tomorrow is fine. So the count reads the stated DATE, on the timeline of the earliest zone (UTC+14), where a date begins first and ends first:
  *   now < D 00:00 at UTC+14 ............. "N days left", N = calendar days to D (always >= 1)
- *   until D 24:00 at UTC+14 ............. "Closes today: time zone not stated, apply now"
- *   until the closing instant ........... "Deadline date has passed in some time zones. May already be closed"
+ *   until D 24:00 at UTC+14 ............. "Last day: deadline D, time zone not stated. Apply now."
+ *   until the closing instant ........... "Deadline date has passed in some time zones. May already be closed."
  *   at or after the closing instant ..... "Closed"
+ * No no-zone wording says "today": it depends on the reader's zone, and the words must be true everywhere.
  */
-export type ScholarshipCountdownState = "none" | "days" | "today" | "passed-somewhere" | "closed";
+export type ScholarshipCountdownState = "none" | "days" | "hours" | "under-hour" | "today" | "passed-somewhere" | "closed";
 
 export interface ScholarshipCountdown {
   state: ScholarshipCountdownState;
   /** Whole (zoned) or calendar (no zone) days left in the "days" state; null otherwise. */
   days: number | null;
+  /** Whole hours left in the "hours" state (1-23); null otherwise. */
+  hours: number | null;
   /** The words, e.g. "4 days left"; null when there is no deadline. */
   phrase: string | null;
-  /** Worth highlighting: within 14 days, or the date is current or over somewhere. */
+  /** True when the phrase is the whole statement (it carries the date) and replaces the date instead of following it. */
+  standalone: boolean;
+  /** Worth highlighting: within 14 days, or under a day, or the date is current or over somewhere. */
   urgent: boolean;
 }
 
-export const SCHOLARSHIP_CLOSES_TODAY_NO_ZONE = "Closes today: time zone not stated, apply now";
-export const SCHOLARSHIP_DATE_PASSED_SOMEWHERE = "Deadline date has passed in some time zones. May already be closed";
-
 const URGENT_WITHIN_DAYS = 14;
 const EARLIEST_ZONE_OFFSET_MS = 14 * 3_600_000; // UTC+14 (Kiritimati): a calendar date begins, and ends, there first
+const HOUR_MS = 3_600_000;
+
+export const SCHOLARSHIP_DATE_PASSED_SOMEWHERE = "Deadline date has passed in some time zones. May already be closed.";
 
 function daysPhrase(n: number): string {
   return n === 1 ? "1 day left" : `${n} days left`;
@@ -146,28 +152,42 @@ function noZoneDateWindow(y: number, mo: number, d: number): { startMs: number; 
 }
 
 export function scholarshipCountdown(row: ScholarshipCloseFields, now: Date = new Date()): ScholarshipCountdown {
-  const none: ScholarshipCountdown = { state: "none", days: null, phrase: null, urgent: false };
+  const base = { days: null, hours: null, standalone: false } as const;
+  const none: ScholarshipCountdown = { ...base, state: "none", phrase: null, urgent: false };
   const date = row.application_deadline ? parseDate(row.application_deadline) : null;
   if (!date) return none;
   const zoned = Boolean(row.close_tz && isKnownTimeZone(row.close_tz));
+  const closed: ScholarshipCountdown = { ...base, state: "closed", phrase: "Closed", urgent: false };
 
   if (!zoned) {
     const [y, mo, d] = date;
     const { startMs, endMs, closeMs } = noZoneDateWindow(y, mo, d);
     const t = now.getTime();
-    if (t >= closeMs) return { state: "closed", days: null, phrase: "Closed", urgent: false };
-    if (t >= endMs) return { state: "passed-somewhere", days: null, phrase: SCHOLARSHIP_DATE_PASSED_SOMEWHERE, urgent: true };
-    if (t >= startMs) return { state: "today", days: null, phrase: SCHOLARSHIP_CLOSES_TODAY_NO_ZONE, urgent: true };
+    if (t >= closeMs) return closed;
+    if (t >= endMs) return { ...base, state: "passed-somewhere", phrase: SCHOLARSHIP_DATE_PASSED_SOMEWHERE, urgent: true };
+    if (t >= startMs) {
+      const stated = formatCalendarDate(row.application_deadline!);
+      return { ...base, state: "today", phrase: `Last day: deadline ${stated}, time zone not stated. Apply now.`, standalone: true, urgent: true };
+    }
     // Calendar days between the date at UTC+14 right now and the stated date: at least 1 here, because the date has not begun anywhere.
     const todayAtEarliest = Math.floor((t + EARLIEST_ZONE_OFFSET_MS) / DAY_MS) * DAY_MS;
     const days = Math.round((Date.UTC(y, mo - 1, d) - todayAtEarliest) / DAY_MS);
-    return { state: "days", days, phrase: daysPhrase(days), urgent: days <= URGENT_WITHIN_DAYS };
+    return { ...base, state: "days", days, phrase: daysPhrase(days), urgent: days <= URGENT_WITHIN_DAYS };
   }
 
-  const left = scholarshipDaysLeft(row, now);
-  if (left === null) return none;
-  if (left < 0) return { state: "closed", days: null, phrase: "Closed", urgent: false };
-  return { state: "days", days: left, phrase: daysPhrase(left), urgent: left <= URGENT_WITHIN_DAYS };
+  const instant = scholarshipCloseInstant(row);
+  if (!instant) return none;
+  const ms = instant.getTime() - now.getTime();
+  if (ms <= 0) return closed;
+  if (ms >= DAY_MS) {
+    const days = Math.floor(ms / DAY_MS);
+    return { ...base, state: "days", days, phrase: daysPhrase(days), urgent: days <= URGENT_WITHIN_DAYS };
+  }
+  if (ms >= HOUR_MS) {
+    const hours = Math.floor(ms / HOUR_MS);
+    return { ...base, state: "hours", hours, phrase: hours === 1 ? "Closes in 1 hour" : `Closes in ${hours} hours`, urgent: true };
+  }
+  return { ...base, state: "under-hour", phrase: "Closes in under an hour", urgent: true };
 }
 
 /**
@@ -193,6 +213,44 @@ export function scholarshipCloseText(row: ScholarshipCloseFields, now: Date = ne
     return label === "UTC" ? `Closes ${date}, ${hh}:${mm} UTC` : `Closes ${date}, ${hh}:${mm} (${label})`;
   }
   return `Closes ${date}, end of day (${label})`;
+}
+
+/**
+ * The deadline line the five render sites share (card, detail page, landing page, blog embed). `detailed` leads with the full closing text
+ * ("Closes 6 Oct 2026, 11:00 UTC") instead of the bare date; `showClosed` appends "Closed" once it has. The "last day" statement carries its own
+ * date, so it replaces the date instead of following it. Null when no deadline has been recorded (the caller shows the provider's note).
+ */
+export function scholarshipDeadlineDisplay(
+  row: ScholarshipCloseFields,
+  now: Date,
+  opts: { detailed: boolean; showClosed: boolean },
+): { text: string; urgent: boolean } | null {
+  if (!row.application_deadline) return null;
+  const countdown = scholarshipCountdown(row, now);
+  if (countdown.state === "none") return null;
+  if (countdown.standalone && countdown.phrase) return { text: countdown.phrase, urgent: countdown.urgent };
+  const base =
+    (opts.detailed ? scholarshipCloseText(row, now) : null) ?? formatCalendarDate(row.application_deadline) ?? row.application_deadline;
+  const suffix = countdown.phrase && (countdown.state !== "closed" || opts.showClosed) ? ` · ${countdown.phrase}` : "";
+  return { text: `${base}${suffix}`, urgent: countdown.urgent };
+}
+
+/**
+ * The deadline as an EMAIL states it: absolute, never relative (an email is read hours after it is sent, so "today" or "in 3 days" goes stale).
+ * With a zone: "Closes 6 Oct 2026, 11:00 UTC". Without one: "Deadline 2 Oct 2026, time zone not stated. To be safe, apply by 1 Oct."
+ */
+export function scholarshipDeadlineStatement(row: ScholarshipCloseFields): string | null {
+  if (!row.application_deadline) return null;
+  const date = parseDate(row.application_deadline);
+  const stated = formatCalendarDate(row.application_deadline);
+  if (!date || !stated) return null;
+  const tz = row.close_tz && isKnownTimeZone(row.close_tz) ? row.close_tz : null;
+  if (tz) return scholarshipCloseText(row, new Date(0));
+  const [y, mo, d] = date;
+  const before = new Date(Date.UTC(y, mo - 1, d - 1));
+  const beforeText = formatCalendarDate(before.toISOString().slice(0, 10));
+  const applyBy = before.getUTCFullYear() === y ? beforeText.replace(/ \d{4}$/, "") : beforeText;
+  return `Deadline ${stated}, time zone not stated. To be safe, apply by ${applyBy}.`;
 }
 
 /**
