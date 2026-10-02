@@ -12,7 +12,8 @@ import { BorderedCard, EyebrowLabel } from "@/components/ui";
 import type { QueueItem } from "@/components/jobs/auto-apply-queue-item";
 import { AutoApplyQueueList } from "@/components/jobs/auto-apply-queue-list";
 import { formatRelativeTime } from "@/lib/format-relative-time";
-import { isListableQueueRow, isWellFormedExplanation, type LiveScore } from "@/lib/auto-apply/queue-read";
+import { isWellFormedExplanation } from "@/lib/auto-apply/queue-read";
+import { fetchListablePending } from "@/lib/auto-apply/listable-pending";
 import { displayMatchScore } from "@/lib/match-tier";
 import type { MatchExplanation } from "@/lib/matching/score";
 
@@ -46,7 +47,6 @@ export default async function AutoApplyPage() {
   ]);
 
   const all = rows ?? [];
-  const pendingRows = all.filter((r) => r.status === "pending");
 
   /*
    * `explanation` is read LIVE from `match_scores`, not carried on the queue
@@ -74,40 +74,21 @@ export default async function AutoApplyPage() {
    * but shapeless) would throw, not silently render as "not thin" — worse
    * than the missing-row case, which was already handled safely.
    */
-  const liveByJobId = new Map<string, LiveScore>();
-  if (pendingRows.length > 0) {
-    const { data: scores } = await supabase
-      .from("match_scores")
-      .select("job_posting_id, score, explanation")
-      .eq("user_id", user.id)
-      .in(
-        "job_posting_id",
-        pendingRows.map((r) => r.job_posting_id),
-      );
-    for (const s of scores ?? []) {
-      liveByJobId.set(s.job_posting_id, { score: s.score, explanation: s.explanation as unknown });
-    }
-  }
-
   /*
-   * What the page may LIST (send-506, A1): only rows something CURRENT vouches for — see isListableQueueRow.
-   * The score shown is the LIVE one, never the snapshot frozen at queue time. Rows that fail stay `pending` in
-   * the table (this is a read) and the confirm-time gate still refuses them; they are just not offered.
+   * What the page may LIST (send-506, A1): only rows something CURRENT vouches for, by the one rule shared with the
+   * /jobs banner (fetchListablePending -> isListableQueueRow). The score shown is the LIVE one, never the snapshot.
+   * Rows that fail stay `pending` in the table (this is a read) and the confirm-time gate still refuses them.
    */
-  const pending: QueueItem[] = pendingRows
-    .filter((r) => isListableQueueRow(r, liveByJobId.get(r.job_posting_id)))
-    .map((r) => {
-      const live = liveByJobId.get(r.job_posting_id)!;
-      return {
-        id: r.id,
-        jobTitle: r.job_postings?.title ?? "Untitled role",
-        companyName: r.job_postings?.company_name ?? "Unknown company",
-        location: r.job_postings?.location ?? null,
-        matchScore: live.score,
-        sourceType: r.source_type,
-        explanation: isWellFormedExplanation(live.explanation) ? live.explanation : null,
-      };
-    });
+  const listable = await fetchListablePending(supabase, user.id);
+  const pending: QueueItem[] = listable.map(({ row: r, live }) => ({
+    id: r.id,
+    jobTitle: r.job_postings?.title ?? "Untitled role",
+    companyName: r.job_postings?.company_name ?? "Unknown company",
+    location: r.job_postings?.location ?? null,
+    matchScore: live.score,
+    sourceType: r.source_type,
+    explanation: isWellFormedExplanation(live.explanation) ? live.explanation : null,
+  }));
   const history = all.filter((r) => r.status !== "pending");
 
   return (
