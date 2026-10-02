@@ -14,12 +14,13 @@
  *      admin path, which is what deletes users here), and still guards notes for an authenticated mentor afterwards. supabase-js cannot start a user-
  *      context transaction that deletes a profile; the same cascade was also run with a NON-NULL auth.uid() in the session on the preview project
  *      (output in the PR body).
- *   4. MONEY TOTALS: the admin finance health numbers are identical before and after the deletion.
+ *   4. MONEY TOTALS: nothing the admin finance health page aggregates changes when the user is deleted. Compared on THIS test's own rows
+ *      (by id), not on the global totals: the database is shared with every other test file running in parallel, and a global before/after
+ *      comparison fails whenever one of them writes a payment or ledger row in between (it did, in CI, on 46a9e7e).
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { randomUUID } from "node:crypto";
 import { admin, createTestUser, deleteTestUsers, sessionFor } from "../support/auth";
-import { financialHealth } from "@/lib/admin/finance/queries";
 import { monthRange } from "@/lib/referrals/leaderboard";
 
 for (const key of ["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"] as const) {
@@ -65,7 +66,21 @@ describe("deleting a user keeps their money and counterparty records", () => {
   let sessionId = "";
   let slotId = "";
   let paymentRef = "";
-  let before: Awaited<ReturnType<typeof financialHealth>>;
+  let ledgerId = "";
+  let before: Awaited<ReturnType<typeof financeInputs>>;
+  let unrelatedRef = "";
+
+  /**
+   * Exactly the columns financialHealth() (src/lib/admin/finance/queries.ts) reads from payment_transactions and credit_ledger, for this test's two
+   * money rows only. user_id is deliberately absent: it is the one column the deletion changes and no total depends on it. Every number on the
+   * finance page is a sum or count over these columns, so if they are identical the page's totals are identical.
+   */
+  async function financeInputs() {
+    const payment = await admin.from("payment_transactions").select("status, rail, amount, currency, created_at").eq("paystack_reference", paymentRef).single();
+    const ledger = await admin.from("credit_ledger").select("reason, delta").eq("id", ledgerId).single();
+    if (payment.error || ledger.error) throw new Error(`finance inputs: ${payment.error?.message ?? ledger.error?.message}`);
+    return { payment: payment.data, ledger: ledger.data };
+  }
 
   beforeAll(async () => {
     const leaver = await admin.auth.admin.createUser({ email: `leaver-${stamp}@talentrah.test`, email_confirm: true });
@@ -84,7 +99,9 @@ describe("deleting a user keeps their money and counterparty records", () => {
       if (error) throw new Error(`fixture ${label}: ${error.message}`);
     };
     await ins("payment", admin.from("payment_transactions").insert({ user_id: leaverId, amount: pack.price_ngn, product_type: "credit_pack", product_id: pack.id, paystack_reference: paymentRef, status: "success" }));
-    await ins("ledger", admin.from("credit_ledger").insert({ user_id: leaverId, delta: 7, reason: "admin_adjustment", balance_after: 7 }));
+    const { data: ledgerRow, error: ledgerError } = await admin.from("credit_ledger").insert({ user_id: leaverId, delta: 7, reason: "admin_adjustment", balance_after: 7 }).select("id").single();
+    if (ledgerError || !ledgerRow) throw new Error(`fixture ledger: ${ledgerError?.message}`);
+    ledgerId = ledgerRow.id;
 
     const { data: referral, error: refError } = await admin.from("referrals").insert({ referrer_id: leaverId, referred_user_id: friendId, status: "signed_up" }).select("id").single();
     if (refError || !referral) throw new Error(`fixture referral: ${refError?.message}`);
@@ -104,7 +121,7 @@ describe("deleting a user keeps their money and counterparty records", () => {
     sessionId = session.id;
     await ins("review", admin.from("mentorship_reviews").insert({ session_id: sessionId, mentor_id: mentor.id, reviewer_id: leaverId, rating: 5 }));
 
-    before = await financialHealth();
+    before = await financeInputs();
   }, 120_000);
 
   /** A delete that is refused resolves with an error rather than throwing; cleanup that ignored it would leave rows behind in the shared database. */
@@ -121,7 +138,8 @@ describe("deleting a user keeps their money and counterparty records", () => {
     if (slotId) await check(admin.from("mentor_availability_slots").delete().eq("id", slotId));
     if (mentor) await check(admin.from("mentor_profiles").delete().eq("user_id", mentor.id));
     await check(admin.from("payment_transactions").delete().eq("paystack_reference", paymentRef));
-    await check(admin.from("credit_ledger").delete().is("user_id", null).eq("reason", "admin_adjustment").eq("delta", 7).eq("balance_after", 7));
+    if (unrelatedRef) await check(admin.from("payment_transactions").delete().eq("paystack_reference", unrelatedRef));
+    if (ledgerId) await check(admin.from("credit_ledger").delete().eq("id", ledgerId));
     // Before the friend is deleted: deleting them would detach these rows (SET NULL) and leave orphans with both sides null.
     if (friendId) {
       await check(admin.from("referral_reward_events").delete().eq("referred_user_id", friendId));
@@ -140,8 +158,8 @@ describe("deleting a user keeps their money and counterparty records", () => {
     const { data: payment } = await admin.from("payment_transactions").select("user_id, status").eq("paystack_reference", paymentRef).single();
     expect(payment).toEqual({ user_id: null, status: "success" });
 
-    const { data: ledger } = await admin.from("credit_ledger").select("user_id").eq("reason", "admin_adjustment").eq("delta", 7).eq("balance_after", 7).is("user_id", null);
-    expect(ledger).toHaveLength(1);
+    const { data: ledger } = await admin.from("credit_ledger").select("user_id").eq("id", ledgerId);
+    expect(ledger).toEqual([{ user_id: null }]);
 
     const { data: referrals } = await admin.from("referrals").select("referrer_id, referred_user_id").eq("referred_user_id", friendId);
     expect(referrals).toEqual([{ referrer_id: null, referred_user_id: friendId }]);
@@ -154,9 +172,13 @@ describe("deleting a user keeps their money and counterparty records", () => {
     expect(review).toEqual({ reviewer_id: null, rating: 5 });
   }, 60_000);
 
-  it("the finance health totals are identical before and after the deletion", async () => {
-    const after = await financialHealth();
-    expect(after).toEqual(before);
+  it("what the finance health page aggregates is identical before and after the deletion, whatever else is writing money rows meanwhile", async () => {
+    // A payment landing from some other test file (or a real customer) between the two snapshots must not matter: the comparison is on our rows.
+    const { data: pack } = await admin.from("credit_packs").select("id, price_ngn").limit(1).single();
+    unrelatedRef = `credit_pack_unrelated_${stamp}`;
+    const { error } = await admin.from("payment_transactions").insert({ user_id: null, amount: pack!.price_ngn, product_type: "credit_pack", product_id: pack!.id, paystack_reference: unrelatedRef, status: "success" });
+    expect(error).toBeNull();
+    expect(await financeInputs()).toEqual(before);
   });
 
   it("the notes trigger still lets the authenticated mentor edit their OWN notes on the detached session, and still refuses a stranger", async () => {
