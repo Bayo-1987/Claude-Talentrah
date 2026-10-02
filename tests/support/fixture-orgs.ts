@@ -27,6 +27,7 @@ export const FIXTURE_NAME_PATTERNS = [
   "COLPRIV-ROLE %", // tests/rls/column-privileges.test.ts
   "EMPLOYER-TEST%", // tests/employer/employer-flow.test.ts
   "AUTOAPPLY-TEST Org %", // tests/auto-apply/enforcement.test.ts
+  "DEFHARD-TEST Org %", // tests/rls/definer-and-graphql-hardening.test.ts
   "RLS-CROSSUSER Org %", // tests/rls/cross-user.test.ts
   "E2E Employer Co%", // e2e/employer.spec.ts — Playwright, not vitest, but it
   //                     leaks into the same project and its own afterEach had
