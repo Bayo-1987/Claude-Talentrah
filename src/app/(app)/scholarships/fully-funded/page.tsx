@@ -9,6 +9,8 @@ import { liveScholarshipLandingLinks } from "@/lib/seo/landing-page-links";
 import { loadFullyFundedScholarships } from "@/lib/seo/landing-page-data";
 import { PublicScholarshipRow } from "@/components/scholarships/public-scholarship-row";
 import { EyebrowLabel, buttonClasses } from "@/components/ui";
+import { JsonLd } from "@/components/seo/json-ld";
+import { buildBreadcrumbJsonLd } from "@/lib/seo/breadcrumb-jsonld";
 
 /**
  * Programmatic SEO landing page targeting "fully funded scholarships for
@@ -75,6 +77,13 @@ export default async function FullyFundedScholarshipsPage() {
 
   return (
     <div className="flex max-w-[820px] flex-col gap-6">
+      <JsonLd
+        data={buildBreadcrumbJsonLd([
+          { name: "Talentrah", path: "/" },
+          { name: "Scholarships", path: "/scholarships" },
+          { name: "Fully funded scholarships", path: "/scholarships/fully-funded" },
+        ])}
+      />
       <Link
         href={session ? "/jobs" : "/"}
         className="inline-flex min-h-10 min-w-10 items-center self-start text-[13px] font-semibold text-ink-soft no-underline hover:text-rust"
