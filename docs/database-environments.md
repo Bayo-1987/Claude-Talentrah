@@ -39,9 +39,9 @@ that ledger shows it; "reserved" means a number has been asked for and no ledger
 1. **Production first.** A rolled-back dry run (`BEGIN … ROLLBACK`, with its own self-checks) is shown to the owner. **Then the owner's yes.** Then a **hash-checked apply**
    in one transaction with self-checks: the SQL applied is the SQL in the PR, proven by comparing a hash of it with the file's.
 2. **Then talentrah-preview, by the same session that applied to production**, recorded **with a timestamp and the hash** in the PR that carries the migration.
-3. **Nothing goes to talentrah-preview that has not already been applied to production.** Preview never runs ahead of production: a migration, an experiment or a
-   branch-only change that production does not have is never put there, because Vercel builds every branch's preview against that one database and one branch's
-   unreviewed schema would make every other branch's preview disagree with its own code. (A migration whose PR is still open is fine once production has it; step 2 is exactly that.)
+3. **talentrah-preview never runs ahead of production.** A migration goes there only after production has it, by the same session, recorded with timestamp and sha256.
+   A migration whose PR is still open is fine once production has it (step 2 is exactly that). Branch-only or experimental changes never go there: Vercel builds every
+   branch's preview against that one database, so one branch's unreviewed schema would make every other branch's preview disagree with its own code.
 
 Additive migrations go to production before the merge and destructive ones after the deploy (see production-migration-apply.md); this section does not change that.
 

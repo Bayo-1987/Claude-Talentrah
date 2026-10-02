@@ -37,7 +37,10 @@ describe("docs/database-environments.md", () => {
   it("states the apply order and the rule that preview never runs ahead of production", () => {
     const text = body();
     expect(text).toMatch(/Production first/);
-    expect(text).toMatch(/Nothing goes to talentrah-preview that has not already been applied to production/);
+    expect(text).toMatch(/talentrah-preview never runs ahead of production/);
+    expect(text).toMatch(/Branch-only or experimental changes never go there/);
+    // The part that makes an apply checkable later: it must not be deletable without a red test.
+    expect(text).toMatch(/recorded with timestamp and sha256/);
     expect(text).toMatch(/supabase\/data-fixes/);
   });
 
