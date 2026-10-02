@@ -130,6 +130,15 @@ describe("docs/handoff/TEMPLATE.md is what a session copies", () => {
 });
 
 describe("the shared file is an index, not a log", () => {
+  it("the index links every per-PR file, so a new entry cannot be added without being listed", () => {
+    const body = readFileSync(path.join(ROOT, "handoff-status.md"), "utf8");
+    const unlisted = [
+      ...modern.map((f) => `docs/handoff/${f}`),
+      ...legacy.map((f) => `docs/handoff/legacy/${f}`),
+    ].filter((rel) => !body.includes(`](${rel})`));
+    expect(unlisted, "files missing from handoff-status.md's index").toEqual([]);
+  });
+
   it("handoff-status.md has no '## Merged' entries left", () => {
     const body = readFileSync(path.join(ROOT, "handoff-status.md"), "utf8");
     expect(body.match(/^## Merged /gm)?.length ?? 0).toBe(0);
