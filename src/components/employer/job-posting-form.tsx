@@ -150,12 +150,20 @@ const SALARY_UNITS = [
  * "expires 30 September" are different amounts of information and the second
  * is the one that gets checked against a hiring plan.
  *
- * ── DEFAULT IS NO EXPIRY ──────────────────────────────────────────────────
+ * ── THE DEFAULT (EMP-1 / E3) ──────────────────────────────────────────────
  *
- * 0053 added `expires_at` with no default on purpose: "a default is a guess
- * recorded as if a source had stated it". The same reasoning holds here — an
- * employer who does not choose has not said their role closes, and inventing
- * a date on their behalf would eventually take a live posting down.
+ * This used to default to "No expiry", on 0053's reasoning that "a default is
+ * a guess recorded as if a source had stated it". That reasoning is about
+ * EXTERNAL rows, where a source states the date. For a posting the employer
+ * is typing in there is no source to misreport: a role left open forever is
+ * the stale listing, and the 3-day closing reminder with its one-click
+ * "Extend 30 days" (src/lib/jobs/expiry-reminders) is what stops a default
+ * from taking down a role that is still being hired for.
+ *
+ * So a NEW posting preselects "30 days" (`defaultDays`, passed only by the
+ * create form) and "No expiry" stays one click away. Editing keeps whatever
+ * the posting has: `current` wins, and no default is applied to an existing
+ * row. The date is still computed on the server (readExpiry), never here.
  */
 const EXPIRY_PRESETS = [
   { value: "1", label: "1 day", days: 1 },
@@ -179,10 +187,12 @@ function formatExpiry(days: number): string {
   return formatDate(d);
 }
 
-function ExpiryField({ current }: { current: string | null }) {
+function ExpiryField({ current, defaultDays }: { current: string | null; defaultDays?: number }) {
   // "keep" only exists while editing a posting that already has an expiry —
   // remapping a stored date onto the nearest preset would silently move it.
-  const [choice, setChoice] = useState(current ? "keep" : "");
+  // `defaultDays` is set by the create form only, so an existing posting with
+  // no expiry stays on "No expiry".
+  const [choice, setChoice] = useState(current ? "keep" : defaultDays ? String(defaultDays) : "");
   const [customDate, setCustomDate] = useState("");
   const preset = EXPIRY_PRESETS.find((p) => p.value === choice);
   const currentLabel = current
@@ -425,9 +435,12 @@ export function JobPostingForm({
    */
   secondarySubmitLabel,
   secondaryPendingLabel,
+  /** EMP-1 / E3 — Create only: preselect "closes in N days". Edit never passes it. */
+  defaultExpiryDays,
 }: {
   action: (state: EmployerActionState, form: FormData) => Promise<EmployerActionState>;
   initial?: JobFormValues;
+  defaultExpiryDays?: number;
   submitLabel: string;
   pendingLabel: string;
   unverifiedNotice?: string;
@@ -729,7 +742,7 @@ export function JobPostingForm({
               value={seniority ?? ""}
               onChange={setSeniority}
             />
-            <ExpiryField current={initial?.expiresAt ?? null} />
+            <ExpiryField current={initial?.expiresAt ?? null} defaultDays={defaultExpiryDays} />
             <TextField
               label="Minimum years of experience"
               name="yearsExperienceMin"

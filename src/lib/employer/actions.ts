@@ -1,7 +1,7 @@
 "use server";
 
 import { createHash } from "node:crypto";
-import { readExpiry } from "./expiry-input";
+import { DEFAULT_NEW_POSTING_EXPIRY_DAYS, readExpiry } from "./expiry-input";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -548,7 +548,9 @@ export async function postJobAction(
   }
 
   // A custom date the person typed can be refused; a preset never is.
-  const expiry = readExpiry(form);
+  // CREATION ONLY passes the default (EMP-1 / E3): a new employer posting closes in 30 days unless the form said
+  // otherwise. updateJobAction below deliberately does not.
+  const expiry = readExpiry(form, new Date(), { defaultDays: DEFAULT_NEW_POSTING_EXPIRY_DAYS });
   if (!expiry.ok) return { error: expiry.error };
 
   const salary = readSalaryForm(form);
@@ -595,8 +597,8 @@ export async function postJobAction(
         ? fields.years_experience_min
         : null,
       // `keep` is unreachable on create — there is no stored value to keep —
-      // so undefined collapses to null, which is the documented "does not
-      // expire".
+      // so undefined collapses to null. An explicit "No expiry" is also null;
+      // the 30-day default applies only when the form made no choice at all.
       expires_at: expiry.value ?? null,
       ...salary.value,
       status,
@@ -905,6 +907,27 @@ export async function publishJobAction(jobId: string) {
       .eq("id", jobId);
     if (postedAtError) {
       console.error("[employer] published job but could not stamp posted_at", jobId, postedAtError.message);
+    }
+
+    /*
+     * EMP-1 / E3: a draft is created with the 30-day default like any new posting, so one that sits as a draft for
+     * longer than that would go live already past its closing date and be closed by the next expiry sweep without
+     * ever having been visible. Publishing is the moment the posting really starts, so a closing date that has
+     * ALREADY PASSED restarts from now + 30 days. `.lt("expires_at", now)` is the whole condition: a date still in
+     * the future (a default or a chosen one) is never touched, and `source_type = 'internal'` keeps this to the
+     * employer's own postings. One conditional statement, no read first.
+     */
+    const now = new Date();
+    const restart = new Date(now);
+    restart.setDate(restart.getDate() + DEFAULT_NEW_POSTING_EXPIRY_DAYS);
+    const { error: restartError } = await admin
+      .from("job_postings")
+      .update({ expires_at: restart.toISOString() })
+      .eq("id", jobId)
+      .eq("source_type", "internal")
+      .lt("expires_at", now.toISOString());
+    if (restartError) {
+      console.error("[employer] published job but could not restart a past closing date", jobId, restartError.message);
     }
   }
 
