@@ -92,3 +92,24 @@ describe("no placeholder cells (S3-23a)", () => {
     expect(html).not.toContain("text-amber");
   });
 });
+
+describe("role fit (A2): 'Same family', 'Adjacent' or 'Different'; no cell when either side is unclassified", () => {
+  it("renders exactly the three words", () => {
+    expect(render(explanation({ roleFit: "same" }))).toContain(">Same family<");
+    expect(render(explanation({ roleFit: "adjacent" }))).toContain(">Adjacent<");
+    expect(render(explanation({ roleFit: "different" }))).toContain(">Different<");
+    expect(render(explanation({ roleFit: "same" }))).toContain(">Role fit<");
+  });
+
+  it("is hidden for an unclassified side (roleFit 'unknown') and for a score computed without a title (no roleFit at all)", () => {
+    expect(render(explanation({ roleFit: "unknown" }))).not.toContain("Role fit");
+    expect(render(explanation())).not.toContain("Role fit");
+  });
+
+  it("never uses a match-tier color (it is not a fourth tier)", () => {
+    for (const fit of ["same", "adjacent", "different"] as const) {
+      const html = render(explanation({ roleFit: fit }));
+      expect(html).not.toMatch(/text-(green|rust|amber)/);
+    }
+  });
+});

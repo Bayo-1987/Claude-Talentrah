@@ -28,6 +28,9 @@ export function MatchBreakdown({ explanation }: { explanation: MatchExplanation 
       {explanation.seniorityAlignment !== "unknown" && (
         <BreakdownItem label="Seniority" value={SENIORITY_VALUE_LABEL[explanation.seniorityAlignment]} />
       )}
+      {explanation.roleFit && explanation.roleFit !== "unknown" && (
+        <BreakdownItem label="Role fit" value={ROLE_FIT_VALUE_LABEL[explanation.roleFit]} />
+      )}
     </div>
   );
 }
@@ -36,6 +39,16 @@ const SENIORITY_VALUE_LABEL: Record<Exclude<MatchExplanation["seniorityAlignment
   match: "Match",
   above: "Above",
   below: "Below",
+};
+
+/**
+ * A2: the role-family check (role-fit.ts). Only the three words, and no cell when either the job or the resume classifies as
+ * nothing ("unknown") or the score was computed without a title. Neutral ink, never a match-tier color: it is not a fourth tier.
+ */
+const ROLE_FIT_VALUE_LABEL: Record<Exclude<NonNullable<MatchExplanation["roleFit"]>, "unknown">, string> = {
+  same: "Same family",
+  adjacent: "Adjacent",
+  different: "Different",
 };
 
 /**

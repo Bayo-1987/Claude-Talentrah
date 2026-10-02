@@ -136,10 +136,45 @@ real, considered exception rather than a blind spot:
 - Farah chat isn't scanned at all, because it never touches a score or tier
   in the first place (see above).
 
+## The role-family rule (A2, 2026-10-02): a score is capped when the KIND of role does not match
+
+The thin-match cap fixed what a score is allowed to *say*. It did not fix the pairing itself: a Product Manager resume still met a
+Global MEL Manager posting, both naming only "project management", at "99% Excellent". A2 adds the check that does, and it is the one
+deliberate change to the scoring formula this doc anticipated ("comes back for founder review"): the owner approved it on 2026-10-02.
+
+What it is (`src/lib/matching/role-family.ts`, `role-fit.ts`):
+
+- A job title and every title in a resume's experience are classified into **role families** (education, qa, it_infra, marketing, product,
+  program, design, data, engineering, physical_engineering, sales, customer, finance, hr, legal, operations, research_ngo). Multi-label: a
+  title can carry several. The 40 real titles that found the first misclassifications are pinned in `tests/matching/role-family.test.ts`.
+- `roleFit`: **same** (a job family is a resume family), **adjacent** (one hop in `ADJACENCY`; physical engineering is adjacent to nothing, and
+  product and marketing deliberately are not adjacent), **different** (both sides classify and nothing meets), **unknown** (either side
+  classifies as nothing).
+- **The caps are applied to the STORED score** in `computeMatchScore` (not only at display), because Auto-Apply, the digest, the proactive
+  alert and the employer applicant ranking all read `match_scores.score`: capping it once means none of them can forget. **different** caps at
+  **59** (below the 60 display floor, so no tier is shown); **unknown** caps at **79** (Good: it keeps its score but can never be Excellent).
+  The pre-cap number is kept in `explanation.scoreBeforeRoleFit`, and `explanation.roleFit` carries the verdict.
+- Consequence for Auto-Apply: it needs Excellent (80+), so it now needs a **same or adjacent** family **and** a non-thin match (the 0164
+  thin gate is unchanged). An unclassified title stays out of it by construction.
+- **Baseline tags are family-gated.** "project management", "agile", "scrum" and "stakeholder management" count in the screenable
+  denominator only for program and product jobs; "microsoft office" and "excel" only for operations; engineering does not make agile or scrum
+  core. Elsewhere they are dropped from the arithmetic and from the explanation (like `NON_SCREENABLE_SKILLS`), which is why a job whose only
+  tag is "project management" is now "unscreened" for a research role. `splitSkillsByScreenability(skills, title)` mirrors this so the job
+  page's list and the breakdown's count still agree.
+- The breakdown shows a **Role fit** cell (Same family / Adjacent / Different), in neutral ink, hidden when either side is unclassified.
+- A score computed WITHOUT a title (the old three-argument call) is exactly as before. A stored row from before A2 has no `roleFit` and is
+  recomputed on the next visit, refresh or application; nothing is rewritten in bulk.
+
+What it still does not do: it judges the **title**, not the description, so a mis-titled posting is mis-judged; and a resume's families are
+the union of every experience title, so a career-changer keeps the families of their past roles. Both are the price of a rule a reader can
+state in a sentence.
+
 ## What must never change because of this doc
 
-- `computeMatchScore` itself, `getMatchTier`'s boundaries, `match_scores.tier`
-  as written to the database, and Auto-Apply's own confirm-time threshold.
+- `getMatchTier`'s boundaries, `match_scores.tier` as written to the database
+  (it is derived from the stored, role-fit-capped score), and Auto-Apply's own
+  confirm-time threshold. (`computeMatchScore` itself changed once, for A2 above,
+  with the owner's approval.)
   This entire contract is about what OTHER features are allowed to *say*
   about a score — never about the scoring formula. If the formula itself
   ever needs to change, [docs/stage8-match-accuracy.md](stage8-match-accuracy.md)'s
