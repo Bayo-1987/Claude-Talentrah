@@ -66,14 +66,14 @@ const RULES: Record<Exclude<RoleFamily, "design" | "engineering" | "physical_eng
   operations:
     /operations|operational|logistics|supply chain|procurement|office manager|administrat|implementation|liquidity|coordinator|facilities|warehouse|contract management/,
   research_ngo:
-    /research|evaluation|\bm ?& ?e\b|\bmel\b|impact|policy|programme officer|program officer|inclusion|field (officer|agent)|agronom|extension|gender/,
+    /research|evaluation|\bm ?& ?e\b|\bmel\b|(outcome|impact) monitoring|monitoring study|impact|policy|programme officer|program officer|inclusion|field (officer|agent)|agronom|extension|gender/,
 };
 
 /**
  * Rules that add families on context a single keyword cannot carry (owner-approved 2026-10-02). `unless` suppresses a rule when
  * the title also matches it.
  */
-const IT_WORD = "(cloud|network(ing)?|it|devops|platform)";
+const IT_WORD = "(cloud|network(ing)?|it|devops|sysops|platform)";
 export const EXTRA_RULES: Array<{ families: RoleFamily[]; pattern: RegExp; unless?: RegExp }> = [
   // "infrastructure" is IT only beside an IT word: "Civil Infrastructure Design Engineer" is not.
   {

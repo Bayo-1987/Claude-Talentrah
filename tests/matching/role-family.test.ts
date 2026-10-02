@@ -151,9 +151,16 @@ describe("each approved keyword fix, beyond the table", () => {
     ["Cloud Infrastructure Engineer", ["engineering", "it_infra"]],
     ["Network Infrastructure Lead", ["it_infra"]],
     ["Infrastructure Engineer", ["engineering"]],
+    ["Infrastructure SysOps Engineer", ["engineering", "it_infra"]],
+    ["Infrastructure Manager", []], // no IT word: ambiguous (civil or IT), left unclassified
+    ["Infrastructure Technician", []],
+    ["HR Systems Analyst", ["hr", "it_infra", "product"]],
     ["AML Transaction Monitoring Analyst", ["finance", "legal"]], // AML / transaction monitoring is finance + legal
     ["Monitoring and Evaluation Officer", ["research_ngo"]],
     ["M&E Specialist", ["research_ngo"]],
+    ["Consultant (Outcome Monitoring Study - Nigeria)", ["research_ngo"]],
+    ["Impact Monitoring Lead", ["research_ngo"]],
+    ["Programme Monitoring Study Coordinator", ["operations", "research_ngo"]],
     ["MEL Manager", ["research_ngo"]],
     ["Network Monitoring Engineer", ["engineering"]], // "monitoring" alone is not research_ngo
     // "automation" is left out of physical engineering: it is read in context
