@@ -5,6 +5,7 @@ import type { Database, Tables } from "@/lib/supabase/types";
 import type { DegreeLevel } from "@/lib/scholarships/types";
 import { freshnessFloorISO } from "@/lib/jobs/freshness";
 import { countryFromSlug, countryOrFilter, type TrackedCountry } from "@/lib/jobs/country";
+import { openScholarshipFilter } from "@/lib/scholarships/close-instant";
 
 /**
  * Typed generically as `SupabaseClient<Database>` rather than the return
@@ -213,9 +214,12 @@ export interface ScholarshipLandingResult {
   scholarships: Tables<"scholarships">[];
 }
 
+/**
+ * "Still open" is decided at the closing INSTANT (src/lib/scholarships/close-instant.ts, migration 0204), not by comparing a date with the
+ * server's UTC day: a programme that closes "13:00 Pacific" stopped being listed hours late, and one in Lagos hours early.
+ */
 function stillOpenFilter(): string {
-  const today = new Date().toISOString().slice(0, 10);
-  return `application_deadline.is.null,application_deadline.gte.${today}`;
+  return openScholarshipFilter();
 }
 
 export async function loadFullyFundedScholarships(
@@ -295,7 +299,7 @@ export async function loadScholarshipsByLevel(
  * sees a pending row through this function. NOT cached, per this file's own rule above.
  */
 const LANDING_PREVIEW_COLUMNS =
-  "id, provider, program_name, host_institution, degree_levels, funding_type, application_deadline, deadline_note, official_url";
+  "id, provider, program_name, host_institution, degree_levels, funding_type, application_deadline, close_time, close_tz, deadline_note, official_url";
 
 export type OpenScholarshipPreview = Pick<
   Tables<"scholarships">,
@@ -306,6 +310,8 @@ export type OpenScholarshipPreview = Pick<
   | "degree_levels"
   | "funding_type"
   | "application_deadline"
+  | "close_time"
+  | "close_tz"
   | "deadline_note"
   | "official_url"
 >;

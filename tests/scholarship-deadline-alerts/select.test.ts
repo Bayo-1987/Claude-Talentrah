@@ -33,6 +33,8 @@ const candidate = (over: Partial<DeadlineAlertCandidate> = {}): DeadlineAlertCan
   programName: `Fully Funded Programme ${n}`,
   provider: "Some University",
   applicationDeadline: daysFromNow(3),
+  closeTime: null,
+  closeTz: null,
   deadlineVerifiedAt: "2026-09-01T00:00:00.000Z",
   officialUrl: "https://example.edu/apply",
   moderationStatus: "verified",
@@ -65,18 +67,24 @@ describe("the public-visibility gate, done by hand for the service-role query", 
 });
 
 describe("the reminder window", () => {
-  it(`excludes a deadline ${SCHOLARSHIP_DEADLINE_REMINDER_DAYS + 1} days out`, () => {
-    const c = candidate({ applicationDeadline: daysFromNow(SCHOLARSHIP_DEADLINE_REMINDER_DAYS + 1) });
+  /*
+   * CHANGED DELIBERATELY (send-508, S3-21a). The window is now measured to the closing INSTANT, and a deadline with no zone stated runs to the
+   * end of its day at UTC-12 (12:00 UTC the next day), so a deadline DATE N days out closes N days and 27 hours from 09:00 UTC. The reminder
+   * ("closes in N days", N whole days left) therefore starts one calendar day later than it did against the bare date; the exact edge,
+   * to the minute, is in tests/scholarships/close-instant-call-sites.test.ts. These keep the date-shaped fixtures but state the new edge.
+   */
+  it(`excludes a no-zone deadline ${SCHOLARSHIP_DEADLINE_REMINDER_DAYS} days out by date (it closes in more than ${SCHOLARSHIP_DEADLINE_REMINDER_DAYS} days)`, () => {
+    const c = candidate({ applicationDeadline: daysFromNow(SCHOLARSHIP_DEADLINE_REMINDER_DAYS) });
     expect(selectDeadlineAlertCandidates([c], NOW)).toEqual([]);
   });
 
-  it(`includes a deadline exactly ${SCHOLARSHIP_DEADLINE_REMINDER_DAYS} days out`, () => {
-    const c = candidate({ applicationDeadline: daysFromNow(SCHOLARSHIP_DEADLINE_REMINDER_DAYS) });
+  it(`includes a no-zone deadline ${SCHOLARSHIP_DEADLINE_REMINDER_DAYS - 1} days out by date (the last full day inside the window)`, () => {
+    const c = candidate({ applicationDeadline: daysFromNow(SCHOLARSHIP_DEADLINE_REMINDER_DAYS - 1) });
     expect(selectDeadlineAlertCandidates([c], NOW)).toEqual([c]);
   });
 
-  it("includes every day inside the window, from tomorrow through the boundary", () => {
-    for (let d = 1; d <= SCHOLARSHIP_DEADLINE_REMINDER_DAYS; d++) {
+  it("includes every date inside the window, from today through the boundary", () => {
+    for (let d = 0; d <= SCHOLARSHIP_DEADLINE_REMINDER_DAYS - 1; d++) {
       const c = candidate({ applicationDeadline: daysFromNow(d) });
       expect(selectDeadlineAlertCandidates([c], NOW), `day ${d} should qualify`).toEqual([c]);
     }
@@ -88,8 +96,21 @@ describe("the reminder window", () => {
   });
 
   it("excludes a deadline already in the past", () => {
-    const c = candidate({ applicationDeadline: daysFromNow(-1) });
+    const c = candidate({ applicationDeadline: daysFromNow(-2) });
     expect(selectDeadlineAlertCandidates([c], NOW)).toEqual([]);
+  });
+
+  /*
+   * CHANGED DELIBERATELY (send-508, S3-21a). Yesterday's date used to be "already passed". With no zone stated a deadline now runs to the end
+   * of that day at UTC-12, i.e. 12:00 UTC the next day, so at 09:00 UTC on the 26th the 25th's deadline is still open for three hours and
+   * the most urgent reminder ("closes today") is still true. After 12:00 UTC it is closed. The exact instant is pinned per zone in
+   * tests/scholarships/close-instant-call-sites.test.ts.
+   */
+  it("a no-zone deadline of yesterday is still alertable until 12:00 UTC today, and not after", () => {
+    const c = candidate({ applicationDeadline: daysFromNow(-1) });
+    expect(selectDeadlineAlertCandidates([c], NOW)).toEqual([c]);
+    expect(selectDeadlineAlertCandidates([c], new Date("2026-09-26T11:59:00.000Z"))).toEqual([c]);
+    expect(selectDeadlineAlertCandidates([c], new Date("2026-09-26T12:00:00.000Z"))).toEqual([]);
   });
 });
 

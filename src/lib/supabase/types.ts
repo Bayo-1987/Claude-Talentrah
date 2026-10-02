@@ -3022,6 +3022,9 @@ export type Database = {
       scholarships: {
         Row: {
           application_deadline: string | null
+          close_at: string | null
+          close_time: string | null
+          close_tz: string | null
           created_at: string
           cycle_year: number | null
           deadline_note: string | null
@@ -3050,6 +3053,9 @@ export type Database = {
         }
         Insert: {
           application_deadline?: string | null
+          close_at?: string | null
+          close_time?: string | null
+          close_tz?: string | null
           created_at?: string
           cycle_year?: number | null
           deadline_note?: string | null
@@ -3078,6 +3084,9 @@ export type Database = {
         }
         Update: {
           application_deadline?: string | null
+          close_at?: string | null
+          close_time?: string | null
+          close_tz?: string | null
           created_at?: string
           cycle_year?: number | null
           deadline_note?: string | null
@@ -4395,6 +4404,25 @@ export type Database = {
         Returns: {
           matched: boolean
           scholarship_deadline_alert: boolean
+        }[]
+      }
+      scholarship_close_instant: {
+        Args: { p_close_time: string; p_close_tz: string; p_deadline: string }
+        Returns: string
+      }
+      scholarship_is_open: {
+        Args: { p_close_time: string; p_close_tz: string; p_deadline: string; p_now?: string }
+        Returns: boolean
+      }
+      scholarship_landing_facet_counts_at: {
+        Args: { p_now: string }
+        Returns: {
+          bsc_count: number
+          fully_funded_count: number
+          msc_count: number
+          other_count: number
+          phd_count: number
+          postgraduate_diploma_count: number
         }[]
       }
       scholarship_landing_facet_counts: {
