@@ -715,7 +715,7 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
 
       {skills.length > 0 && (
         <BorderedCard className="p-5">
-          <PostingSkills skills={skills} />
+          <PostingSkills skills={skills} title={job.title} />
         </BorderedCard>
       )}
 

@@ -2,11 +2,20 @@ import { inferSeniority, NON_SCREENABLE_SKILLS } from "@/lib/jobs/extract-jd";
 import type { SeniorityLevel } from "@/lib/jobs/types";
 import type { StructuredResume } from "@/lib/resume/types";
 import { expandResumeSkills } from "./resume-skills";
+import { classifyRoleFamilies } from "./role-family";
+import { capForRoleFit, isBaselineTagScreenable, resumeRoleFamilies, roleFit, type RoleFit } from "./role-fit";
 
 export interface MatchExplanation {
   matchedSkills: string[];
   missingSkills: string[];
   seniorityAlignment: "match" | "above" | "below" | "unknown";
+  /**
+   * A2: how the job's role family relates to the resume's. Absent on a score computed without the job's title (and on a row stored before
+   * this existed, which is recomputed on the next visit). "different" caps the score at 59, "unknown" at 79; see role-fit.ts.
+   */
+  roleFit?: RoleFit;
+  /** The score before the role-fit cap, present only when the cap actually lowered it. */
+  scoreBeforeRoleFit?: number;
 }
 
 export interface MatchResult {
@@ -43,7 +52,13 @@ export function computeMatchScore(
   resume: StructuredResume,
   jobSkills: string[],
   jobSeniority: SeniorityLevel | undefined,
+  /**
+   * The job's title, for the role-family check and the family-gated baseline tags (role-fit.ts). Omitted: neither applies and the score is
+   * exactly what it was before A2 (the pure skill-and-seniority number).
+   */
+  jobTitle?: string,
 ): MatchResult {
+  const jobFamilies = jobTitle === undefined ? undefined : classifyRoleFamilies(jobTitle);
   /*
    * Expanded, not just lowercased. Job skills are canonical by construction
    * and resume skills are whatever the candidate typed, so "SAFe Agile" and
@@ -71,7 +86,11 @@ export function computeMatchScore(
    * mode worth avoiding here.
    */
   const jobSkillSet = new Set(
-    jobSkills.map((s) => s.toLowerCase()).filter((s) => !NON_SCREENABLE_SKILLS.has(s)),
+    jobSkills
+      .map((s) => s.toLowerCase())
+      .filter((s) => !NON_SCREENABLE_SKILLS.has(s))
+      // Generic baseline tags (project management, agile, ...) only count for the families they are core for (role-fit.ts).
+      .filter((s) => jobFamilies === undefined || isBaselineTagScreenable(s, jobFamilies)),
   );
 
   const matchedSkills = [...jobSkillSet].filter((s) => resumeSkills.has(s));
@@ -107,13 +126,18 @@ export function computeMatchScore(
           : "below";
   }
 
-  const score = Math.max(
+  const rawScore = Math.max(
     0,
     Math.min(100, Math.round(skillCoverage * 100) + seniorityAdjustment),
   );
 
-  return {
-    score,
-    explanation: { matchedSkills, missingSkills, seniorityAlignment },
-  };
+  const explanation: MatchExplanation = { matchedSkills, missingSkills, seniorityAlignment };
+  if (jobFamilies === undefined) return { score: rawScore, explanation };
+
+  // The family check (A2): applied to the STORED score so every consumer (Auto-Apply, the digest, the alert, employer ranking) agrees.
+  const fit = roleFit(jobFamilies, resumeRoleFamilies(resume));
+  const score = capForRoleFit(rawScore, fit);
+  explanation.roleFit = fit;
+  if (score < rawScore) explanation.scoreBeforeRoleFit = rawScore;
+  return { score, explanation };
 }

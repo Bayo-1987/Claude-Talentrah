@@ -10,9 +10,9 @@ import { splitSkillsByScreenability } from "@/lib/jobs/skill-facet";
  * but on their own labelled line, so the count above and the list below can
  * never disagree about what a "tag" is.
  */
-export function PostingSkills({ skills }: { skills: string[] }) {
+export function PostingSkills({ skills, title }: { skills: string[]; title?: string }) {
   if (skills.length === 0) return null;
-  const { screenable, notCounted } = splitSkillsByScreenability(skills);
+  const { screenable, notCounted } = splitSkillsByScreenability(skills, title);
 
   return (
     <div className="flex flex-col gap-1.5">

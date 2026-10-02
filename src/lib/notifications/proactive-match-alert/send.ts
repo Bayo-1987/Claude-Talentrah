@@ -109,7 +109,7 @@ export async function sendProactiveMatchAlerts(
 
       const scored: ScoredNewJob[] = newPostings.map((p) => {
         const structuredJd = p.structuredJd as { skills?: string[] } | null;
-        const result = computeMatchScore(resume, structuredJd?.skills ?? [], p.seniority ?? undefined);
+        const result = computeMatchScore(resume, structuredJd?.skills ?? [], p.seniority ?? undefined, p.title);
         return {
           jobId: p.jobId,
           title: p.title,
