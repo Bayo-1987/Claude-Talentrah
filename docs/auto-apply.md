@@ -128,6 +128,17 @@ Recorded because both are the kind that read fine and fail live.
    evidence the server did anything. Both now wait on something only a server
    round-trip can produce.
 
+## The review page lists only what is current (send-506)
+
+The page promises "Roles scoring 80%+ against your resume land here", so it lists a pending row only when something
+**current** vouches for it: the job is open, a live `match_scores` row exists, that live score is at least
+`AUTO_APPLY_MIN_SCORE`, and its screenable-tag set is not thin (`src/lib/auto-apply/queue-read.ts`). It shows the
+**live** score, never the snapshot frozen when the row was queued. Missing evidence fails closed. Production had
+13 pending rows, 11 queued before the thin gate existed and 9 shown as "99% Excellent" for jobs that were closed (7)
+or had no current score (8); none of the 13 would pass this read, and the confirm-time gate (0034/0164, unchanged)
+would have refused every one. Hidden rows are **not** deleted or expired by the read: they stay `pending` in the
+table. Cleaning them up is a production write and needs an explicit yes. A page with nothing eligible says why.
+
 ## Still open
 
 - **No preferences surface** (see §2 above) — targeting is résumé-only.

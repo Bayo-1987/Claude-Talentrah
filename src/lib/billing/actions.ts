@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { initializeTransaction, NGN_CHANNELS } from "@/lib/paystack/client";
 import { cancelPassAutoRenewal } from "@/lib/billing/renewals";
+import { BILLING_CURRENCY } from "@/lib/billing/region";
 
 async function getOrigin() {
   const h = await headers();
@@ -41,7 +42,7 @@ export async function initiatePurchaseAction(
     user_id: user.id,
     rail: "paystack",
     amount: product.price_ngn,
-    currency: "NGN",
+    currency: BILLING_CURRENCY,
     product_type: productType,
     product_id: productId,
     paystack_reference: reference,

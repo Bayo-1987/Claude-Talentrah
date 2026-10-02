@@ -5,6 +5,7 @@ import {
   rateLimitBuckets,
   feedFreshness,
   operatorCredentialEvents,
+  paymentsNeedingRefund,
   storageUsage,
   formatBytes,
   FREE_PLAN_STORAGE_BYTES,
@@ -12,7 +13,8 @@ import {
   MAX_INDETERMINATE_RENEWAL_ATTEMPTS,
 } from "@/lib/admin/ops/queries";
 import { QueueHeader } from "@/components/admin/queue-chrome";
-import { Container, EyebrowLabel, BorderedCard } from "@/components/ui";
+import { Container, EyebrowLabel, BorderedCard, Button, NairaAmount } from "@/components/ui";
+import { markMentorPaymentRefundedAction } from "@/lib/admin/ops/refund-actions";
 import { formatDate, formatDateTime } from "@/lib/format/datetime";
 
 export const metadata = {
@@ -42,13 +44,14 @@ const QUEUE_LABEL: Record<string, string> = {
  */
 export default async function OpsPage() {
   const admin = await requirePermission("operations");
-  const [renewals, queue, buckets, feeds, credentialEvents, storage] = await Promise.all([
+  const [renewals, queue, buckets, feeds, credentialEvents, storage, refunds] = await Promise.all([
     stuckRenewals(),
     autoApplyQueueHealth(),
     rateLimitBuckets(),
     feedFreshness(),
     operatorCredentialEvents(),
     storageUsage(),
+    paymentsNeedingRefund(),
   ]);
 
   const exhausted = renewals.filter((r) => r.exhausted);
@@ -61,6 +64,58 @@ export default async function OpsPage() {
         blurb="Read-only. Nothing on this page changes anything — it exists so that a silently-stopped cron or an unresolved charge is visible before someone reports it."
         adminLabel={admin.displayName || admin.email}
       />
+
+      {/* ---------------------------------------------------------- */}
+      <section className="flex flex-col gap-3">
+        <EyebrowLabel>Mentor payments to refund</EyebrowLabel>
+        {refunds.length === 0 ? (
+          <BorderedCard className="p-5">
+            <p className="font-display text-[15px] italic text-ink-soft">
+              None. Every late mentor payment was either restored or has been refunded.
+            </p>
+          </BorderedCard>
+        ) : (
+          <>
+            <p className="border-[1.5px] border-rust bg-rust-soft px-3.5 py-2.5 text-[14px] text-rust">
+              {refunds.length} mentor {refunds.length === 1 ? "payment arrived" : "payments arrived"} after the booking had
+              lapsed and the slot could not be restored. The mentee has paid for a session that will not happen: refund the
+              charge in Paystack using the reference below. These do not resolve on their own.
+            </p>
+            {/* The runbook (send-502): three steps, in the order a person does them. */}
+            <ol className="m-0 flex list-decimal flex-col gap-1 border-[1.5px] border-ink bg-card py-3 pl-8 pr-4 text-[13.5px] text-ink-soft">
+              <li>Find the Paystack reference on the entry below (it is the charge to refund).</li>
+              <li>Refund the charge in the Paystack dashboard: search the reference under Transactions, then Refund.</li>
+              <li>Come back here and press Mark refunded. It leaves this list and the nav badge. Marking it resolved never moves money.</li>
+            </ol>
+            <ul className="flex list-none flex-col gap-3 p-0">
+              {refunds.map((r) => (
+                <li key={r.sessionId}>
+                  <BorderedCard className="flex flex-col gap-1.5 p-5">
+                    <div className="flex flex-wrap items-baseline justify-between gap-3">
+                      <span className="font-display text-[17px]">
+                        <NairaAmount amount={r.amountNgn} />
+                      </span>
+                      <span className="text-[13px] text-ink-soft">marked {formatDate(r.markedAt)}</span>
+                    </div>
+                    <p className="text-[13.5px] text-ink-soft">
+                      Session <code className="text-[12.5px]">{r.sessionId}</code> · slot started {formatDate(r.sessionStart)}
+                    </p>
+                    <p className="text-[13.5px] text-ink-soft">
+                      Paystack reference{" "}
+                      {r.reference ? <code className="text-[12.5px]">{r.reference}</code> : "none on record (check the payment rows)"}
+                    </p>
+                    <form action={markMentorPaymentRefundedAction.bind(null, r.sessionId)}>
+                      <Button type="submit" variant="secondary" size="sm">
+                        Mark refunded
+                      </Button>
+                    </form>
+                  </BorderedCard>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </section>
 
       {/* ---------------------------------------------------------- */}
       <section className="flex flex-col gap-3">

@@ -18,6 +18,7 @@ import {
   tailorHref,
   type FarahJobSeed,
 } from "@/lib/farah/job-seed";
+import { shouldAutoRestoreHistory } from "@/lib/farah/history-restore";
 
 export interface FarahMessage {
   id: string;
@@ -260,7 +261,10 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
   }
 
   /*
-   * ── FETCHED, BUT NOT SHOWN UNTIL ASKED FOR ────────────────────────────
+   * ── FETCHED, BUT NOT SHOWN UNTIL ASKED FOR (unless it is recent) ──────
+   *
+   * Since send-504: a thread whose last message is under 24 hours old IS shown on load (shouldAutoRestoreHistory), because that
+   * is the conversation the reader was just in; the hold-behind-"Continue" described below now applies to OLDER threads only.
    *
    * The panel used to prepend fetched history straight into `messages`,
    * which meant arriving on ANY page with the panel dropped the reader into
@@ -314,9 +318,17 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
         }
         if (data.hasUnreadNotification === true) setHasUnreadNotification(true);
         if (!Array.isArray(data.messages) || data.messages.length === 0) return;
-        // Held, not shown — see historyRevealed above. Nothing here decides
-        // whether the reader sees it; "Continue" below does.
-        setPendingHistory(data.messages as FarahMessage[]);
+        const history = data.messages as FarahMessage[];
+        // A thread whose LAST message is under 24 hours old is restored on load (send-504): it is the conversation the reader
+        // was just in, and holding it behind "Continue" made a paid answer look lost after a reload. Same prepend as
+        // continueConversation() below, so what appears is identical to pressing it. Anything older is held, not shown —
+        // see historyRevealed above — and "Continue" decides.
+        if (shouldAutoRestoreHistory(history, new Date())) {
+          setMessages((prev) => [...history, ...prev]);
+          setHistoryRevealed(true);
+        } else {
+          setPendingHistory(history);
+        }
       } catch {
         if (!ignore) setHistoryFailed(true);
         // Silent: history is an enhancement. The panel is fully usable

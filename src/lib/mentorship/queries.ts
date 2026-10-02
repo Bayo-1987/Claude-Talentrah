@@ -66,12 +66,9 @@ export async function browseMentors(): Promise<MentorListing[]> {
   const mentorIds = rows.map((r) => r.user_id);
   const [{ data: names, error: namesError }, { data: slotRows, error: slotsError }] = await Promise.all([
     supabase.rpc("mentor_public_names", { p_mentor_ids: mentorIds }),
-    supabase
-      .from("mentor_availability_slots")
-      .select("mentor_id")
-      .in("mentor_id", mentorIds)
-      .eq("is_booked", false)
-      .gt("start_at", new Date().toISOString()),
+    // open_mentor_slots (0203), not a read of is_booked = false: a booking nobody paid for within 30 minutes no longer
+    // holds its slot, and only SQL can see that without waiting for the daily sweep.
+    supabase.rpc("open_mentor_slots", { p_mentor_ids: mentorIds }),
   ]);
   if (namesError) throw namesError;
   if (slotsError) throw slotsError;
@@ -131,19 +128,15 @@ export async function getMentorProfile(mentorUserId: string): Promise<MentorProf
   if (error) throw error;
   if (!mentor) return null;
 
-  const [{ data: slots }, { data: names, error: namesError }] = await Promise.all([
-    supabase
-      .from("mentor_availability_slots")
-      .select("id, start_at, end_at")
-      .eq("mentor_id", mentorUserId)
-      .eq("is_booked", false)
-      .gt("start_at", new Date().toISOString())
-      .order("start_at", { ascending: true }),
+  const [{ data: slots, error: slotsError }, { data: names, error: namesError }] = await Promise.all([
+    // Same source as the list card (browseMentors): one definition of "open", the one that ignores lapsed unpaid holds.
+    supabase.rpc("open_mentor_slots", { p_mentor_ids: [mentorUserId] }),
     // Single-element array — same batched function browseMentors() uses
     // (0167); see mentor_public_names' own comment for why the name can't
     // come from an embedded profiles join.
     supabase.rpc("mentor_public_names", { p_mentor_ids: [mentorUserId] }),
   ]);
+  if (slotsError) throw slotsError;
   if (namesError) throw namesError;
 
   const found = (names ?? [])[0];
@@ -165,7 +158,9 @@ export async function getMentorProfile(mentorUserId: string): Promise<MentorProf
     reviewCount: ratings.length,
     averageRating: ratings.length ? ratings.reduce((a, b) => a + b, 0) / ratings.length : null,
     openSlotCount: (slots ?? []).length,
-    openSlots: (slots ?? []).map((s) => ({ id: s.id, startAt: s.start_at, endAt: s.end_at })),
+    openSlots: [...(slots ?? [])]
+      .sort((a, b) => Date.parse(a.start_at) - Date.parse(b.start_at))
+      .map((s) => ({ id: s.id, startAt: s.start_at, endAt: s.end_at })),
   };
 }
 
@@ -270,6 +265,8 @@ export interface MentorshipSessionSummary {
   priceNgn: number;
   status: string;
   meetingLink: string | null;
+  /** When it was booked: an unpaid booking holds its slot for 30 minutes from here (0203). */
+  createdAt: string;
 }
 
 /**
@@ -300,7 +297,7 @@ async function loadSessions(userId: string, side: "mentor_id" | "mentee_id"): Pr
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("mentorship_sessions")
-    .select("id, mentor_id, mentee_id, session_type, scheduled_start, scheduled_end, price_ngn, status, meeting_link")
+    .select("id, mentor_id, mentee_id, session_type, scheduled_start, scheduled_end, price_ngn, status, meeting_link, created_at")
     .eq(side, userId)
     .order("scheduled_start", { ascending: false });
 
@@ -341,6 +338,7 @@ async function loadSessions(userId: string, side: "mentor_id" | "mentee_id"): Pr
     priceNgn: r.price_ngn,
     status: r.status,
     meetingLink: r.meeting_link,
+    createdAt: r.created_at,
   }));
 }
 

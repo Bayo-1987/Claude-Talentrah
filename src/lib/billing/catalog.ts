@@ -253,7 +253,7 @@ export const RETIRED_CREDIT_PACKS: readonly string[] = ["Popular", "Power"];
  * message instead of silently skipping the new pack.
  */
 export const CREDIT_PACK_BUNDLE_CREDITS: Readonly<Record<string, number>> = {
-  Starter: CREDIT_COSTS.tailoringRun, // "1 CV tailoring"
+  Starter: CREDIT_COSTS.tailoringRun, // "1 resume tailoring"
   Plus: 2 * CREDIT_COSTS.tailoringRun + CREDIT_COSTS.coverLetterRun, // "2 tailorings + a cover letter"
 };
 
