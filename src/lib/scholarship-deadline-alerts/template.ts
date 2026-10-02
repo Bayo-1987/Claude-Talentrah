@@ -2,6 +2,7 @@ import { absoluteUrl } from "@/lib/seo/site";
 import { emailButton, emailHeadline, emailLabel, emailParagraph, escEmail, renderBrandedEmail } from "@/lib/email/layout";
 import type { DeadlineAlertCandidate } from "./select";
 import { formatCalendarDate } from "@/lib/format/datetime";
+import { scholarshipDeadlineStatement } from "@/lib/scholarships/close-instant";
 
 /**
  * One scholarship's deadline per email — deliberately not batched.
@@ -40,24 +41,27 @@ function greeting(firstName: string | null): string {
   return name ? `Hi ${name},` : "Hi,";
 }
 
-/** A date-only column in the house format ("1 Oct 2026"), never shifted by a time zone. */
-function formatDeadline(deadline: string): string {
-  return formatCalendarDate(deadline);
-}
-
-function daysOutLabel(daysOut: number): string {
-  if (daysOut === 0) return "today";
-  if (daysOut === 1) return "tomorrow";
-  return `in ${daysOut} days`;
+/**
+ * The deadline as the email states it, ABSOLUTE and never relative (an email is read hours after it is sent, so "today" or "in 3 days" goes stale):
+ * "Closes 6 Oct 2026, 11:00 UTC" with a zone, "Deadline 2 Oct 2026, time zone not stated. To be safe, apply by 1 Oct." without one. Read from the
+ * same module as every on-page deadline, but not its relative countdown.
+ */
+function deadlineStatement(candidate: DeadlineAlertCandidate): string {
+  return (
+    scholarshipDeadlineStatement({
+      application_deadline: candidate.applicationDeadline,
+      close_time: candidate.closeTime,
+      close_tz: candidate.closeTz,
+    }) ?? `Deadline ${formatCalendarDate(candidate.applicationDeadline ?? "")}`
+  );
 }
 
 export function buildScholarshipDeadlineEmail(params: {
   firstName: string | null;
   candidate: DeadlineAlertCandidate;
-  daysOut: number;
   unsubscribeToken: string;
 }): ScholarshipDeadlineEmail {
-  const { firstName, candidate, daysOut, unsubscribeToken } = params;
+  const { firstName, candidate, unsubscribeToken } = params;
 
   if (candidate.applicationDeadline === null) {
     // selectDeadlineAlertCandidates should never let this through — thrown
@@ -72,15 +76,14 @@ export function buildScholarshipDeadlineEmail(params: {
   const unsubscribeUrl = absoluteUrl(
     `/unsubscribe?token=${encodeURIComponent(unsubscribeToken)}&pref=scholarship_deadline_alert`,
   );
-  const deadlineText = formatDeadline(candidate.applicationDeadline);
-  const whenText = daysOutLabel(daysOut);
+  const statement = deadlineStatement(candidate);
 
-  const subject =
-    daysOut === 0
-      ? `Today's the deadline: ${candidate.programName}`
-      : `Closes ${whenText}: ${candidate.programName}`;
+  // "Closes 6 Oct 2026, 11:00 UTC: Programme" with a zone; "Deadline 2 Oct 2026: Programme" without one (the caution is in the body).
+  const subject = statement.startsWith("Closes ")
+    ? `${statement}: ${candidate.programName}`
+    : `Deadline ${formatCalendarDate(candidate.applicationDeadline)}: ${candidate.programName}`;
 
-  const lead = `Your saved scholarship closes ${whenText} — ${deadlineText}.`;
+  const lead = `A scholarship you saved has a deadline coming up. ${statement}`;
 
   const text = [
     greeting(firstName),
@@ -101,7 +104,7 @@ export function buildScholarshipDeadlineEmail(params: {
   const bodyHtml = [
     emailParagraph(escEmail(greeting(firstName))),
     emailParagraph(escEmail(lead)),
-    emailLabel(escEmail(`Deadline · ${deadlineText}`)),
+    emailLabel(escEmail(statement)),
     emailHeadline(escEmail(candidate.programName)),
     emailParagraph(escEmail(candidate.provider), { muted: true }),
     emailButton("View on Talentrah", scholarshipUrl),

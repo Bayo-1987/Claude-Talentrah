@@ -1,6 +1,6 @@
 import "server-only";
 import { computeDedupFingerprint } from "../dedup";
-import { extractStructuredJd, inferSeniority, stripHtml } from "../extract-jd";
+import { extractStructuredJd, inferJobSeniority, stripHtml } from "../extract-jd";
 import { normalizeLocation } from "../location";
 import type { EmploymentType, NormalizedJobPosting, WorkType } from "../types";
 
@@ -60,7 +60,7 @@ export async function fetchLeverJobs(
       location: normalizeLocation(location),
       workType: mapWorkType(posting.workplaceType),
       employmentType: mapEmploymentType(posting.categories?.commitment),
-      seniority: inferSeniority(posting.text),
+      seniority: inferJobSeniority(posting.text),
       description,
       structuredJd: extractStructuredJd(description),
       externalUrl: posting.hostedUrl,

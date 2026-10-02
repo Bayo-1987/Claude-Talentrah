@@ -3,11 +3,12 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requireEmployer } from "@/lib/employer/membership";
 import { updateJobAction } from "@/lib/employer/actions";
-import { BorderedCard, EyebrowLabel } from "@/components/ui";
+import { EyebrowLabel } from "@/components/ui";
 import { JobPostingForm } from "@/components/employer/job-posting-form";
 import { JobBannerUpload } from "@/components/employer/job-banner-upload";
 import { bannerPublicUrl } from "@/lib/employer/banner";
-import { AssessmentExerciseUpload, type AssessmentExerciseFile } from "@/components/employer/assessment-exercise-upload";
+import type { AssessmentExerciseFile } from "@/components/employer/assessment-exercise-upload";
+import { getDefaultSalaryCurrency } from "@/lib/employer/default-salary-currency";
 import { assessmentExerciseFileUrl } from "@/lib/employer/assessment-document";
 
 export const metadata = { title: "Edit job — Talentrah" };
@@ -74,6 +75,10 @@ export default async function EditJobPage({ params }: { params: Promise<{ id: st
   // over, same as a brand-new blank form.
   const structuredJd = job.structured_jd as { skills?: string[] } | null;
 
+  // Only used when the posting has no currency stored (the form shows the
+  // STORED value whenever there is one) — see getDefaultSalaryCurrency.
+  const defaultSalaryCurrency = await getDefaultSalaryCurrency(userId);
+
   return (
     <div className="max-w-[820px]">
       <Link
@@ -116,6 +121,8 @@ export default async function EditJobPage({ params }: { params: Promise<{ id: st
           submitLabel="Save changes"
           pendingLabel="Saving…"
           assessmentEditContext={{ jobId: job.id, userId }}
+          assessmentSavedFiles={assessmentFiles}
+          defaultSalaryCurrency={defaultSalaryCurrency}
           initial={{
             title: job.title,
             location: job.location ?? "",
@@ -151,18 +158,14 @@ export default async function EditJobPage({ params }: { params: Promise<{ id: st
         />
       </div>
       {/*
-        A separate card, same reason JobBannerUpload is one above rather
-        than living inside JobPostingForm's own <form>: a File upload
-        can't be threaded through a hidden form field the way title/
-        instructions/link/required are, and this needs job.id to build its
-        storage path from — see AssessmentExerciseUpload's own header.
+        The saved assessment's exercise files used to be a separate card
+        here, below the form, shown whether or not the assessment was still
+        ticked. EMP-1 / E4 moved them under the "Attach an assessment"
+        checkbox inside the form (`assessmentSavedFiles` above), where they
+        show only while it is ticked. They still upload straight to the
+        server rather than through the form's own fields — see
+        AssessmentExerciseUpload's header.
       */}
-      {assessment && (
-        <BorderedCard className="mt-6 flex flex-col gap-3 p-6">
-          <EyebrowLabel>Assessment exercise files</EyebrowLabel>
-          <AssessmentExerciseUpload jobId={job.id} hasAssessment files={assessmentFiles} />
-        </BorderedCard>
-      )}
     </div>
   );
 }

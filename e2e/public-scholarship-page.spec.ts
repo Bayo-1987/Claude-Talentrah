@@ -62,7 +62,7 @@ async function login(page: Page) {
   await page.waitForURL("**/jobs");
 }
 
-test("signed OUT: reads the listing, cannot act, gets no JSON-LD", async ({ page }) => {
+test("signed OUT: reads the listing, cannot act, gets exactly one BreadcrumbList and no other JSON-LD", async ({ page }) => {
   const res = await page.goto(`/scholarships/${SCHOLARSHIP}`);
   expect(res?.status(), "signed-out request must not redirect").toBe(200);
   expect(page.url()).toContain(`/scholarships/${SCHOLARSHIP}`);
@@ -77,14 +77,53 @@ test("signed OUT: reads the listing, cannot act, gets no JSON-LD", async ({ page
   await expect(page.getByRole("button", { name: "Save this scholarship" })).toHaveCount(0);
   await expect(page.getByTestId("farah-panel")).toHaveCount(0);
   /*
-   * No structured data, deliberately — checked against Google's current
-   * documentation rather than shipped on memory: there is no
-   * scholarship-specific rich result type in Google's structured data
-   * gallery (checked 2026-09-01; the education-adjacent entries are Course
-   * list and Education Q&A, neither of which fits a funding programme). See
-   * docs/scholarship-sources.md for the record of that check.
+   * CHANGED DELIBERATELY (send-509, S3-21c / P10). This used to assert ZERO structured data, on the ground that Google's gallery has no
+   * scholarship rich result (checked 2026-09-01; docs/scholarship-sources.md) and that nothing should be claimed that a crawler cannot
+   * verify. That reasoning still holds for any scholarship-shaped type, so what is allowed now is EXACTLY ONE BreadcrumbList and nothing
+   * else: a supported rich result, built from the trail already on the page. Anything else, a second block, a MonetaryGrant, a Course,
+   * still fails here.
    */
-  expect(await page.locator('script[type="application/ld+json"]').count()).toBe(0);
+  await expectOnlyBreadcrumbList(page, [
+    ["Talentrah", "/"],
+    ["Scholarships", "/scholarships"],
+    ["Gates Cambridge Scholarship", `/scholarships/${SCHOLARSHIP}`],
+  ]);
+});
+
+/**
+ * The page carries exactly one ld+json block; it parses; it is a BreadcrumbList; its items are positioned 1..n, named, and ABSOLUTE urls on
+ * this site, in the order the visible trail would read. The parent URLs are real pages (they answer 200).
+ */
+async function expectOnlyBreadcrumbList(page: import("@playwright/test").Page, trail: Array<[string, string]>) {
+  const blocks = await page.locator('script[type="application/ld+json"]').allTextContents();
+  expect(blocks, "exactly one structured-data block, and it is the breadcrumb").toHaveLength(1);
+  const data = JSON.parse(blocks[0]) as { "@context": string; "@type": string; itemListElement: Array<{ "@type": string; position: number; name: string; item: string }> };
+  expect(data["@context"]).toBe("https://schema.org");
+  expect(data["@type"]).toBe("BreadcrumbList");
+  expect(data.itemListElement.map((i) => i.position)).toEqual(trail.map((_, i) => i + 1));
+  expect(data.itemListElement.map((i) => i.name)).toEqual(trail.map(([name]) => name));
+  const origin = new URL(page.url()).origin;
+  for (const [i, [, path]] of trail.entries()) {
+    const url = new URL(data.itemListElement[i].item);
+    expect(url.pathname, `item ${i + 1}`).toBe(path);
+    expect(data.itemListElement[i]["@type"]).toBe("ListItem");
+  }
+  expect(blocks[0]).not.toMatch(/MonetaryGrant|"Course"|"Article"|"Offer"/);
+  // Parents are real pages, not 404s (a crawler follows them).
+  for (const [, path] of trail.slice(0, -1)) {
+    const res = await page.request.get(new URL(path, origin).toString());
+    expect(res.status(), `${path} must answer 200`).toBe(200);
+  }
+}
+
+test("a second scholarship page (apply-now) carries exactly one BreadcrumbList too", async ({ page }) => {
+  const res = await page.goto("/scholarships/apply-now");
+  expect(res?.status()).toBe(200);
+  await expectOnlyBreadcrumbList(page, [
+    ["Talentrah", "/"],
+    ["Scholarships", "/scholarships"],
+    ["Scholarships to apply to now", "/scholarships/apply-now"],
+  ]);
 });
 
 test("the save CTA routes to signup and comes back", async ({ page }) => {

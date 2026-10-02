@@ -21,7 +21,7 @@ import type { Database } from "@/lib/supabase/types";
  * moderation-only column leaks through unnoticed the second time.
  */
 export const PUBLIC_COLUMNS =
-  "id, provider, program_name, host_institution, degree_levels, field_tags, funding_type, funding_covers, eligibility_nationalities, eligibility_prior_degree, eligibility_age, eligibility_other, application_deadline, deadline_note, cycle_year, official_url, source_name, moderation_status";
+  "id, provider, program_name, host_institution, degree_levels, field_tags, funding_type, funding_covers, eligibility_nationalities, eligibility_prior_degree, eligibility_age, eligibility_other, application_deadline, close_time, close_tz, deadline_note, cycle_year, official_url, source_name, moderation_status";
 
 /**
  * Reads a scholarship the same way any public, signed-out-readable surface

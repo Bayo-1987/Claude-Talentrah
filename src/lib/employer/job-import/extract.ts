@@ -1,6 +1,6 @@
 import "server-only";
 import { generateWithFailover, LLMProviderError } from "@/lib/llm";
-import { inferSeniority, stripHtml } from "@/lib/jobs/extract-jd";
+import { inferJobSeniority, stripHtml } from "@/lib/jobs/extract-jd";
 import {
   extractJsonLdNodes,
   formatLocation,
@@ -148,7 +148,7 @@ export function extractFromStructuredData(html: string): ExtractedJobFields | nu
     description: validated.description ? stripHtml(validated.description) : null,
     workType: mapWorkType(validated) ?? null,
     employmentType: mapEmploymentType(validated.employmentType) ?? null,
-    seniority: inferSeniority(validated.title) ?? null,
+    seniority: inferJobSeniority(validated.title) ?? null,
     salaryMin: salary?.min ?? null,
     salaryMax: salary?.max ?? null,
     salaryCurrency: salary?.currency ?? null,
