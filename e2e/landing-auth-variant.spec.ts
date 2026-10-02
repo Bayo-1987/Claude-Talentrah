@@ -55,6 +55,6 @@ test("the page's HTML is the same for both — the difference is client-side", a
    * notice.
    */
   const anonymous = await (await page.request.get("/")).text();
-  expect(anonymous).toContain("No account needed");
+  expect(anonymous).toContain("no account needed. One free preview per visitor");
   expect(anonymous).not.toContain("Tailored against your saved resume");
 });
