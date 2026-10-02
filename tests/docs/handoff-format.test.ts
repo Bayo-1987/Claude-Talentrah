@@ -11,7 +11,8 @@
  *  - each merged file carries: the PR row (PR, branch, merged-at UTC, 40-hex merge SHA) and the four-part verification
  *    (GitHub API, fresh clone, production, full suite on merged main). A "Flakes and reruns" line is the convention
  *    but is not enforced: several sessions write these files and the line was never part of their template;
- *  - only a file headed "## Merged" has to carry the merge facts; one written inside its own PR before the merge
+ *  - only a file headed "## Merged" has to carry the merge facts, and because an entry ships inside its own PR those may be the
+ *    explicit placeholder ("(filled at merge)", "the merge commit of this PR") instead of the SHA, filled in by a follow-up docs commit; one written inside its own PR before the merge
  *    (headed "## Opened" or just "## PR #n") only has to name its PR;
  *  - handoff-status.md stops being a log: no "## Merged" headings (the log is the directory).
  *  - docs/handoff/legacy/ holds entries written before this format existed. They are exempt from the field checks
@@ -73,12 +74,23 @@ describe("docs/handoff is the record, one file per merged PR", () => {
           return;
         }
 
-        // The PR row: [#n](…) | `branch` | YYYY-MM-DD HH:MM:SS | `40-hex sha`
-        const row = body.match(
-          new RegExp(`\\|\\s*\\[#${n}\\]\\([^)]*\\)\\s*\\|\\s*\`[^\`]+\`\\s*\\|\\s*(\\d{4}-\\d{2}-\\d{2}) \\d{2}:\\d{2}:\\d{2}\\s*\\|\\s*\`([0-9a-f]{40})\``),
-        );
-        expect(row, `no PR row for #${n} with merged-at and a 40-hex merge SHA`).not.toBeNull();
-        expect(row![1], "filename date must be the merged-at date (UTC)").toBe(date);
+        // The PR row: [#n](…) | `branch` | merged-at | merge SHA. An entry ships INSIDE its own PR, so it can never quote its own
+        // merge commit; there are two honest ways to write that, and both are accepted: the real facts (YYYY-MM-DD HH:MM:SS and a
+        // 40-hex SHA, filled in later), or the explicit placeholder "(filled at merge)" / "the merge commit of this PR" in both
+        // cells. Anything else (an empty cell, a short SHA, a wrong date) is a mistake.
+        const rowRe = new RegExp(`\\|\\s*\\[#${n}\\]\\([^)]*\\)\\s*\\|\\s*\`[^\`]+\`\\s*\\|([^|\\n]+)\\|([^|\\n]+)\\|`);
+        const row = body.match(rowRe);
+        expect(row, `no PR row for #${n} (a | [#${n}](…) | \`branch\` | merged-at | SHA | row)`).not.toBeNull();
+        const placeholder = /filled at merge|the merge commit of this PR/i;
+        const [, mergedAt, sha] = row!;
+        if (placeholder.test(mergedAt) || placeholder.test(sha)) {
+          expect(placeholder.test(mergedAt) && placeholder.test(sha), "merged-at and SHA must be placeholders together").toBe(true);
+        } else {
+          const when = mergedAt.trim().match(/^(\d{4}-\d{2}-\d{2}) \d{2}:\d{2}:\d{2}$/);
+          expect(when, `merged-at "${mergedAt.trim()}" is not YYYY-MM-DD HH:MM:SS (UTC)`).not.toBeNull();
+          expect(when![1], "filename date must be the merged-at date (UTC)").toBe(date);
+          expect(sha.trim(), "merge SHA must be 40 hex in backticks").toMatch(/^`[0-9a-f]{40}`$/);
+        }
 
         // A pointer file carries only its own row; the verification lives in the shared write-up.
         const shared = body.match(/Shared write-up:\s*`?([\w./-]+\.md)`?/);
@@ -130,13 +142,10 @@ describe("docs/handoff/TEMPLATE.md is what a session copies", () => {
 });
 
 describe("the shared file is an index, not a log", () => {
-  it("the index links every per-PR file, so a new entry cannot be added without being listed", () => {
+  it("carries no list of entries (a shared list is a shared insertion point: every PR would conflict on it again)", () => {
     const body = readFileSync(path.join(ROOT, "handoff-status.md"), "utf8");
-    const unlisted = [
-      ...modern.map((f) => `docs/handoff/${f}`),
-      ...legacy.map((f) => `docs/handoff/legacy/${f}`),
-    ].filter((rel) => !body.includes(`](${rel})`));
-    expect(unlisted, "files missing from handoff-status.md's index").toEqual([]);
+    expect(body.match(/^- \[\d{4}-\d{2}-\d{2} — #\d+\]\(docs\/handoff\//gm)?.length ?? 0).toBe(0);
+    expect(body, "must point at the directory").toMatch(/docs\/handoff\//);
   });
 
   it("handoff-status.md has no '## Merged' entries left", () => {

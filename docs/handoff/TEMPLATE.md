@@ -1,6 +1,6 @@
 <!--
 Copy this file to docs/handoff/<yyyy-mm-dd>-pr-<n>.md (the date is the merged-at date, UTC; <n> is the PR number) inside the PR that carries the change.
-While the PR is open, head it "## Opened ..." and leave the merge facts as "(filled at merge)"; the merger changes it to "## Merged ..." and fills them.
+An entry ships inside its own PR, so it cannot quote its own merge commit. While the PR is open, head it "## Opened ..." (or write "(filled at merge)" in both the merged-at and SHA cells); a follow-up docs commit changes the heading to "## Merged ..." and fills the real facts.
 This file is NOT a handoff entry: tests/docs/handoff-format.test.ts skips it and checks that it keeps the headings below.
 -->
 

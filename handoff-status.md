@@ -35,78 +35,9 @@ both served stale content in this project's history. Don't rely on either.
 
 ## Handoff log (one file per merged PR)
 
-Each merged PR has its own file under `docs/handoff/` (`<yyyy-mm-dd>-pr-<n>.md`). Entries written before this format are under `docs/handoff/legacy/`. A PR adds its own file in the same PR, so two PRs cannot conflict on the record. **Copy [`docs/handoff/TEMPLATE.md`](docs/handoff/TEMPLATE.md)** (PR number and title, merge SHA and merged-at UTC, the four-part verification, flakes and reruns, follow-ups, and for a migration the apply record: where, UTC time, sha256) so entries have the same shape. `tests/docs/handoff-format.test.ts` enforces the shape. Newest first:
+Each merged PR has its own file under `docs/handoff/` (`<yyyy-mm-dd>-pr-<n>.md`). Entries written before this format are under `docs/handoff/legacy/`. A PR adds its own file in the same PR, so two PRs cannot conflict on the record. **Copy [`docs/handoff/TEMPLATE.md`](docs/handoff/TEMPLATE.md)** (PR number and title, merge SHA and merged-at UTC, the four-part verification, flakes and reruns, follow-ups, and for a migration the apply record: where, UTC time, sha256) so entries have the same shape. `tests/docs/handoff-format.test.ts` enforces the shape.
 
-- [2026-10-02 — #673](docs/handoff/2026-10-02-pr-673.md) — PR #673, the handoff record becomes one file per PR; docs/database-environments.md; the migrations README poin…
-- [2026-10-02 — #669](docs/handoff/2026-10-02-pr-669.md) — every route under /dev/ answers 404 on the live site, by one layout guard (send-512)
-- [2026-10-02 — #667](docs/handoff/2026-10-02-pr-667.md) — PR #667 — P1: log every homepage-demo attempt; scope the free claim; every refusal gets a reason and a next st…
-- [2026-10-02 — #666](docs/handoff/2026-10-02-pr-666.md) — PR #666, the scholarship countdown (send-511): written before the merge, so the merge facts are the merger's t…
-- [2026-10-02 — #665](docs/handoff/2026-10-02-pr-665.md) — PR #665, skip the Vercel preview (and Lighthouse) for docs/tests-only PRs; production always builds
-- [2026-10-02 — #659](docs/handoff/2026-10-02-pr-659.md) — the job page lists the skills the breakdown counts (PR #659, S2 routed)
-- [2026-10-02 — #658](docs/handoff/2026-10-02-pr-658.md) — BreadcrumbList on the scholarship pages and the stale-date title check (PR #658, S3-21c)
-- [2026-10-02 — #657](docs/handoff/2026-10-02-pr-657.md) — S3-21a close-instant: scholarships close at an instant (PR #657, migration 0204)
-- [2026-10-02 — #654](docs/handoff/2026-10-02-pr-654.md) — PR #654, the Auto-Apply queue lists only open, live, non-thin Excellent rows, with the live score (send-506, A…
-- [2026-10-02 — #653](docs/handoff/2026-10-02-pr-653.md) — PR #653, the `resume-editor-bullets` e2e flake was a test race, fixed test-side and reproduced deterministical…
-- [2026-10-02 — #650](docs/handoff/2026-10-02-pr-650.md) — PR #650, Escape from inside the open marketing masthead menu returns focus to the hamburger (#617)
-- [2026-10-02 — #643](docs/handoff/2026-10-02-pr-643.md) — PR #643, public copy that said an account is needed to browse, or promised a preview where there is no input (…
-- [2026-10-01 — #640](docs/handoff/2026-10-01-pr-640.md) — PR #640, Farah quick actions: own instructions, no invented achievements, a cut-off reply is not charged (send…
-- [2026-10-01 — #639](docs/handoff/2026-10-01-pr-639.md) — PR #639, the resume PDF output: filename, page margins, wording, bullets, tailoring-time normalisation, certif…
-- [2026-10-01 — #638](docs/handoff/2026-10-01-pr-638.md) — PR #638 (part of the write-up for PR #634)
-- [2026-10-01 — #635](docs/handoff/2026-10-01-pr-635.md) — PR #635 (part of the write-up for PR #626)
-- [2026-10-01 — #634](docs/handoff/2026-10-01-pr-634.md) — S12 job data quality, parts 3 and 4: PR #638 (cleaned location text) and PR #634 (job page titles)
-- [2026-10-01 — #633](docs/handoff/2026-10-01-pr-633.md) — PR #633 (part of the write-up for PR #626)
-- [2026-10-01 — #632](docs/handoff/2026-10-01-pr-632.md) — PR #632 (part of the write-up for PR #629)
-- [2026-10-01 — #630](docs/handoff/2026-10-01-pr-630.md) — PR #630 (part of the write-up for PR #626)
-- [2026-10-01 — #629](docs/handoff/2026-10-01-pr-629.md) — S12 job data quality, parts 1 and 2: PR #629 (countries and Workable's stated remote country in JobPosting mar…
-- [2026-10-01 — #628](docs/handoff/2026-10-01-pr-628.md) — PR #628 (part of the write-up for PR #626)
-- [2026-10-01 — #626](docs/handoff/2026-10-01-pr-626.md) — the owner's QA-audit forms, copy, Saved tab, mentorship and card-polish fixes: PRs #626, #628, #630, #633, #63…
-- [2026-10-01 — #623](docs/handoff/2026-10-01-pr-623.md) — PR #623, the price on every credit spender (send-493)
-- [2026-10-01 — #622](docs/handoff/2026-10-01-pr-622.md) — PR #622, the last five signed-out links that led to /login re-pointed; the gated-link allowlist ends empty (se…
-- [2026-10-01 — #620](docs/handoff/2026-10-01-pr-620.md) — PR #620, the anonymous homepage demo never touches the ledger or a balance (send-490)
-- [2026-10-01 — #615](docs/handoff/2026-10-01-pr-615.md) — PR #615, tailoring and bullet rewrite update the masthead balance; every other credit spender proven to refres…
-- [2026-10-01 — #614](docs/handoff/2026-10-01-pr-614.md) — PR #614, the signed-out masthead on a phone: short CTA label below 640px, 44px targets (send-488)
-- [2026-10-01 — #613](docs/handoff/2026-10-01-pr-613.md) — PR #613, `/mentorship` loading placeholder carries no heading (send-487)
-- [2026-10-01 — #610](docs/handoff/2026-10-01-pr-610.md) — PR #610, footer: Compare column removed, Legal & Trust in the top row, /vs pages linked from the comparison po…
-- [2026-10-01 — #607](docs/handoff/2026-10-01-pr-607.md) — PR #607, real signed-out landing pages at `/jobs` and `/tracker` (send-484)
-- [2026-10-01 — #604](docs/handoff/2026-10-01-pr-604.md) — PR #604, the seven font families self-hosted so `next build` never asks Google for a font (refs #585)
-- [2026-09-30 — #609](docs/handoff/2026-09-30-pr-609.md) — PR #609, the masthead credit balance updates after a paid Farah message; one success log line per Farah call (…
-- [2026-09-30 — #598](docs/handoff/2026-09-30-pr-598.md) — PR #598, regression test for DOCX resume text extraction (send-481)
-- [2026-09-30 — #595](docs/handoff/2026-09-30-pr-595.md) — PR #595, a real signed-out landing page at `/scholarships` (send-480)
-- [2026-09-30 — #590](docs/handoff/legacy/2026-09-30-pr-590.md) (legacy) — PR #590, signed-out gated-link ratchet (send-477)
-- [2026-09-30 — #589](docs/handoff/2026-09-30-pr-589.md) — PR #589, Dependabot `routine-updates` group: 12 dependency bumps
-- [2026-09-30 — #588](docs/handoff/2026-09-30-pr-588.md) — PR #588, /vs pages: sourced, dated competitor claims; "FreshTalent JobCopilot" naming (send-478)
-- [2026-09-30 — #582](docs/handoff/2026-09-30-pr-582.md) — PR #582, honest marketing claims: no invented testimonial, no false company/scale claims (send-476)
-- [2026-09-30 — #579](docs/handoff/2026-09-30-pr-579.md) — PR #579, blog scholarship-embed fallback links to a public page (send-475)
-- [2026-09-30 — #578](docs/handoff/legacy/2026-09-30-pr-578.md) (legacy) — PR #578, footer Scholarships link points at the public apply-now hub (send-474)
-- [2026-09-30 — #572](docs/handoff/2026-09-30-pr-572.md) — PR #572, EmployerPrintButton waits for fonts before printing
-- [2026-09-29 — #574](docs/handoff/legacy/2026-09-29-pr-574.md) (legacy) — PR #574, `reset_test_pool_user` clears a former mentor's/mentee's mentorship rows (0201)
-- [2026-08-26 — #64](docs/handoff/legacy/2026-08-26-pr-64.md) (legacy) — PR #64, local runs cannot hit production; CI seeds before testing
-- [2026-08-26 — #63](docs/handoff/legacy/2026-08-26-pr-63.md) (legacy) — PR #63, ad serving reaches the feed. Arc complete.
-- [2026-08-26 — #62](docs/handoff/legacy/2026-08-26-pr-62.md) (legacy) — PR #62, ad serving schema: ad_events and promoted_jobs (0052)
-- [2026-08-26 — #61](docs/handoff/legacy/2026-08-26-pr-61.md) (legacy) — PR #61, seed owns the paid catalog (0051)
-- [2026-08-26 — #60](docs/handoff/legacy/2026-08-26-pr-60.md) (legacy) — PR #60, tests own the job postings they write against
-- [2026-08-26 — #59](docs/handoff/legacy/2026-08-26-pr-59.md) (legacy) — PR #59, a totally failed ingest answers 500 (and one regression I caused)
-- [2026-08-26 — #58](docs/handoff/legacy/2026-08-26-pr-58.md) (legacy) — PR #58, every listUsers() reads all pages (and #53 was under-fixed)
-- [2026-08-26 — #57](docs/handoff/legacy/2026-08-26-pr-57.md) (legacy) — PR #57, a PR could carry no CI and still be mergeable
-- [2026-08-26 — #55](docs/handoff/legacy/2026-08-26-pr-55.md) (legacy) — PR #55, test teardown that never worked
-- [2026-08-26 — #54](docs/handoff/legacy/2026-08-26-pr-54.md) (legacy) — PR #54, ad wallet top-up (0049 + 0050)
-- [2026-08-26 — #53](docs/handoff/legacy/2026-08-26-pr-53.md) (legacy) — PR #53, the seed's user lookup reads every page
-- [2026-08-26 — #51](docs/handoff/legacy/2026-08-26-pr-51.md) (legacy) — PR #51, the daily charge finally has a caller
-- [2026-08-26 — #50](docs/handoff/legacy/2026-08-26-pr-50.md) (legacy) — PR #50, campaign Server Actions, UI and the review gate
-- [2026-08-26 — #49](docs/handoff/legacy/2026-08-26-pr-49.md) (legacy) — PR #49, ad campaign schema and review gate (0047 + 0048)
-- [2026-08-26 — #48](docs/handoff/legacy/2026-08-26-pr-48.md) (legacy) — PR #48, employer ad wallet (0046)
-- [2026-08-26 — #47](docs/handoff/legacy/2026-08-26-pr-47.md) (legacy) — PR #47, empty fetch no longer wipes a source
-- [2026-08-26 — #46](docs/handoff/legacy/2026-08-26-pr-46.md) (legacy) — PR #46, names must render something visible (0045)
-- [2026-08-26 — #45](docs/handoff/legacy/2026-08-26-pr-45.md) (legacy) — PR #45, one verified org per domain (0044)
-- [2026-08-26 — #44](docs/handoff/legacy/2026-08-26-pr-44.md) (legacy) — PR #44, dedup key collisions
-- [2026-08-25 — #43](docs/handoff/legacy/2026-08-25-pr-43.md) (legacy) — PR #43, CI serialized against the shared database
-- [2026-08-25 — #42](docs/handoff/legacy/2026-08-25-pr-42.md) (legacy) — PR #42, Paystack timeout / decline ambiguity (0043)
-- [2026-08-25 — #41](docs/handoff/legacy/2026-08-25-pr-41.md) (legacy) — PR #41, full template library (0042)
-- [2026-08-25 — #40](docs/handoff/legacy/2026-08-25-pr-40.md) (legacy) — PR #40, resumes/Farah column privileges (0041)
-- [2026-08-25 — #39](docs/handoff/legacy/2026-08-25-pr-39.md) (legacy) — PR #39, schema.org/JobPosting ingestion
-- [2026-08-25 — #37](docs/handoff/legacy/2026-08-25-pr-37.md) (legacy) — PR #37 (part of the write-up for PR #35)
-- [2026-08-25 — #36](docs/handoff/legacy/2026-08-25-pr-36.md) (legacy) — PR #36 (part of the write-up for PR #35)
-- [2026-08-25 — #35](docs/handoff/legacy/2026-08-25-pr-35.md) (legacy) — PRs #35, #36, #37
+There is deliberately **no list of entries here**: a list in this file would be a shared insertion point again, and every PR would conflict on it, which is the problem this layout removes. Browse the directory instead (`ls docs/handoff`, the date and PR number are in each name; older entries are in `docs/handoff/legacy/`).
 
 ---
 ## Operational 2026-09-30 — production scholarship row `b78fa6f6-…` unpublished (database change, #594, found during send-480)
