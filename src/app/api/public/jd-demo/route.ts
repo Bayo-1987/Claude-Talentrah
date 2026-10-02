@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { tailorResumeToJob } from "@/lib/tailoring/tailor";
 import { SAMPLE_RESUME } from "@/lib/demo/sample-resume";
 import {
-  ANON_DEMO_DAILY_CAP,
   VISITOR_COOKIE,
   VISITOR_COOKIE_MAX_AGE,
   claimAnonymousRun,
@@ -12,6 +11,8 @@ import {
   parseVisitorId,
   releaseAnonymousRun,
 } from "@/lib/demo/anonymous-limit";
+import { classifyError, classifyRefusal, recordDemoAttempt, type DemoAttempt } from "@/lib/demo/attempt-log";
+import { demoRefusalMessage, isDemoRefusalReason } from "@/lib/demo/refusal-copy";
 
 /**
  * The pre-signup demo (§6.1): one real tailoring run, no account.
@@ -72,6 +73,18 @@ function jsonWithVisitor(body: unknown, status: number, visitorId: string, isNew
   return response;
 }
 
+/**
+ * One attempt row per request (P1, migration 0208), and never at the visitor's expense: the sink swallows its own
+ * errors, and this wrapper swallows anything else, so the answer below does not depend on the log working.
+ */
+async function logAttempt(attempt: DemoAttempt) {
+  try {
+    await recordDemoAttempt(attempt);
+  } catch {
+    // Deliberately silent: recordDemoAttempt already logged what it could.
+  }
+}
+
 export async function POST(request: Request) {
   const existingVisitor = parseVisitorId(
     request.headers
@@ -84,11 +97,19 @@ export async function POST(request: Request) {
   const visitorId = existingVisitor ?? newVisitorId();
   const isNewVisitor = existingVisitor === null;
   const ipHash = hashIp(clientIp(request));
+  /*
+   * The per-IP rule is ON only when ANON_DEMO_IP_SALT is configured (hashIp returns null otherwise). It is
+   * deliberately left unset in production: Nigerian mobile carriers put thousands of subscribers behind one
+   * address, so a per-IP lifetime limit would turn most of the target market away. Pinned in
+   * tests/demo/jd-demo-route-attempts.test.ts, so turning it on is a decision that has to change a test.
+   */
+  const ipRuleActive = ipHash !== null;
 
   let body: Record<string, unknown>;
   try {
     body = await request.json();
   } catch {
+    await logAttempt({ outcome: "invalid", reason: "malformed_body", ipRuleActive });
     return jsonWithVisitor({ error: "Malformed request body." }, 400, visitorId, isNewVisitor);
   }
 
@@ -103,6 +124,7 @@ export async function POST(request: Request) {
    * this is the backstop for a visitor who pastes one anyway.
    */
   if (URL_ONLY.test(jdText)) {
+    await logAttempt({ outcome: "invalid", reason: "link_only", ipRuleActive });
     return jsonWithVisitor(
       {
         error:
@@ -115,6 +137,7 @@ export async function POST(request: Request) {
   }
 
   if (jdText.length < 50) {
+    await logAttempt({ outcome: "invalid", reason: "too_short", ipRuleActive });
     return jsonWithVisitor(
       { error: "Paste the full job description — that looked too short." },
       400,
@@ -142,14 +165,12 @@ export async function POST(request: Request) {
      */
     const status =
       claim.reason === "already_used" ? 403 : claim.reason === "daily_cap" ? 429 : 503;
+    await logAttempt({ outcome: "refused", reason: classifyRefusal(claim.reason, ipRuleActive), ipRuleActive });
+    // The wording lives in refusal-copy.ts: the reason, and a way forward, never a dead end.
+    const refusalReason = isDemoRefusalReason(claim.reason) ? claim.reason : "error";
     return jsonWithVisitor(
       {
-        error:
-          claim.reason === "already_used"
-            ? "You've already used the free preview. Create a free account to keep tailoring."
-            : claim.reason === "daily_cap"
-              ? `The free preview is capped at ${ANON_DEMO_DAILY_CAP} runs a day and today's are gone. Create a free account to tailor now.`
-              : "The free preview isn't available right now — try again shortly.",
+        error: demoRefusalMessage(refusalReason),
         reason: claim.reason,
         // Nothing was spent: the claim never succeeded.
         runConsumed: false,
@@ -168,6 +189,7 @@ export async function POST(request: Request) {
     // error has not had the demo, and telling them they've used it would be
     // the worst possible first impression on the page meant to convert them.
     await releaseAnonymousRun(ipHash, visitorId);
+    await logAttempt({ outcome: "error", errorClass: classifyError(err), ipRuleActive });
     console.error("[anon-demo] tailoring failed", err);
     return jsonWithVisitor(
       {
@@ -182,6 +204,7 @@ export async function POST(request: Request) {
     );
   }
 
+  await logAttempt({ outcome: "success", ipRuleActive });
   return jsonWithVisitor(
     {
       // Explicitly enumerated, not spread. `tailorResumeToJob` returns

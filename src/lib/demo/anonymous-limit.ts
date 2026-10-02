@@ -11,8 +11,10 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
  * identifier without ever storing the address it came from.
  */
 
-/** Global ceiling across every anonymous visitor. Sized in 0058's comment. */
-export const ANON_DEMO_DAILY_CAP = 5;
+import { ANON_DEMO_DAILY_CAP } from "@/lib/demo/limits";
+
+/** Global ceiling across every anonymous visitor. Sized in 0058's comment; lives in limits.ts so client copy can name it. */
+export { ANON_DEMO_DAILY_CAP };
 
 export const VISITOR_COOKIE = "trh_demo_visitor";
 /** A year. The cap is a lifetime one; the cookie should outlive a job search. */
