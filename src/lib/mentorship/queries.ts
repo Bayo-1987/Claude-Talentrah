@@ -256,7 +256,8 @@ export async function getOwnAvailabilitySlots(mentorUserId: string): Promise<Men
 export interface MentorshipSessionSummary {
   id: string;
   mentorId: string;
-  menteeId: string;
+  /** Null once the mentee's account is deleted (0209). */
+  menteeId: string | null;
   mentorName: string;
   menteeName: string;
   sessionType: MentorshipSessionType;
@@ -293,6 +294,9 @@ export interface MentorshipSessionSummary {
  * actually shares a real mentorship_sessions row with), never a
  * client-supplied id.
  */
+/** What a counterparty who no longer has an account is called (0209 detaches their sessions instead of deleting them). */
+export const DELETED_USER_NAME = "Deleted user";
+
 async function loadSessions(userId: string, side: "mentor_id" | "mentee_id"): Promise<MentorshipSessionSummary[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
@@ -305,7 +309,8 @@ async function loadSessions(userId: string, side: "mentor_id" | "mentee_id"): Pr
   const rows = data ?? [];
   if (rows.length === 0) return [];
 
-  const profileIds = [...new Set(rows.flatMap((r) => [r.mentor_id, r.mentee_id]))];
+  // mentee_id is null once the mentee's account is deleted (0209): the session stays, the mentor sees "Deleted user".
+  const profileIds = [...new Set(rows.flatMap((r) => [r.mentor_id, r.mentee_id]).filter((id): id is string => id !== null))];
   const { data: names, error: namesError } = await supabase.rpc("mentorship_session_counterparty_names", {
     p_user_ids: profileIds,
   });
@@ -331,7 +336,7 @@ async function loadSessions(userId: string, side: "mentor_id" | "mentee_id"): Pr
     // — each caller only ever sees the field naming the party that isn't
     // them, so the caller's own row missing from this map never surfaces.
     mentorName: nameById.get(r.mentor_id) || "Mentor",
-    menteeName: nameById.get(r.mentee_id) || "Mentee",
+    menteeName: r.mentee_id === null ? DELETED_USER_NAME : nameById.get(r.mentee_id) || "Mentee",
     sessionType: r.session_type as MentorshipSessionType,
     scheduledStart: r.scheduled_start,
     scheduledEnd: r.scheduled_end,

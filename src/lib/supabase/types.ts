@@ -1165,7 +1165,7 @@ export type Database = {
           id: string
           reason: Database["public"]["Enums"]["credit_reason"]
           related_entity_id: string | null
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           balance_after: number
@@ -1174,7 +1174,7 @@ export type Database = {
           id?: string
           reason: Database["public"]["Enums"]["credit_reason"]
           related_entity_id?: string | null
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           balance_after?: number
@@ -1183,7 +1183,7 @@ export type Database = {
           id?: string
           reason?: Database["public"]["Enums"]["credit_reason"]
           related_entity_id?: string | null
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -2145,7 +2145,7 @@ export type Database = {
           mentor_id: string
           rating: number
           review_text: string | null
-          reviewer_id: string
+          reviewer_id: string | null
           session_id: string
         }
         Insert: {
@@ -2154,7 +2154,7 @@ export type Database = {
           mentor_id: string
           rating: number
           review_text?: string | null
-          reviewer_id: string
+          reviewer_id?: string | null
           session_id: string
         }
         Update: {
@@ -2163,7 +2163,7 @@ export type Database = {
           mentor_id?: string
           rating?: number
           review_text?: string | null
-          reviewer_id?: string
+          reviewer_id?: string | null
           session_id?: string
         }
         Relationships: [
@@ -2196,7 +2196,7 @@ export type Database = {
           created_at: string
           id: string
           meeting_link: string | null
-          mentee_id: string
+          mentee_id: string | null
           mentee_notes: string | null
           mentor_confirmed_at: string | null
           mentor_id: string
@@ -2216,7 +2216,7 @@ export type Database = {
           created_at?: string
           id?: string
           meeting_link?: string | null
-          mentee_id: string
+          mentee_id?: string | null
           mentee_notes?: string | null
           mentor_confirmed_at?: string | null
           mentor_id: string
@@ -2236,7 +2236,7 @@ export type Database = {
           created_at?: string
           id?: string
           meeting_link?: string | null
-          mentee_id?: string
+          mentee_id?: string | null
           mentee_notes?: string | null
           mentor_confirmed_at?: string | null
           mentor_id?: string
@@ -2449,7 +2449,7 @@ export type Database = {
           rail: string
           renewal_for_pass_id: string | null
           status: Database["public"]["Enums"]["payment_status"]
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           amount: number
@@ -2465,7 +2465,7 @@ export type Database = {
           rail?: string
           renewal_for_pass_id?: string | null
           status?: Database["public"]["Enums"]["payment_status"]
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           amount?: number
@@ -2481,7 +2481,7 @@ export type Database = {
           rail?: string
           renewal_for_pass_id?: string | null
           status?: Database["public"]["Enums"]["payment_status"]
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -2652,8 +2652,8 @@ export type Database = {
           notified_at: string | null
           reason: Database["public"]["Enums"]["credit_reason"]
           referral_id: string
-          referred_user_id: string
-          referrer_id: string
+          referred_user_id: string | null
+          referrer_id: string | null
         }
         Insert: {
           created_at?: string
@@ -2662,8 +2662,8 @@ export type Database = {
           notified_at?: string | null
           reason: Database["public"]["Enums"]["credit_reason"]
           referral_id: string
-          referred_user_id: string
-          referrer_id: string
+          referred_user_id?: string | null
+          referrer_id?: string | null
         }
         Update: {
           created_at?: string
@@ -2672,8 +2672,8 @@ export type Database = {
           notified_at?: string | null
           reason?: Database["public"]["Enums"]["credit_reason"]
           referral_id?: string
-          referred_user_id?: string
-          referrer_id?: string
+          referred_user_id?: string | null
+          referrer_id?: string | null
         }
         Relationships: [
           {
@@ -2737,7 +2737,7 @@ export type Database = {
           created_at: string
           id: string
           referred_user_id: string | null
-          referrer_id: string
+          referrer_id: string | null
           reward_credits_referred: number
           reward_credits_referrer: number
           signed_up_at: string | null
@@ -2748,7 +2748,7 @@ export type Database = {
           created_at?: string
           id?: string
           referred_user_id?: string | null
-          referrer_id: string
+          referrer_id?: string | null
           reward_credits_referred?: number
           reward_credits_referrer?: number
           signed_up_at?: string | null
@@ -2759,7 +2759,7 @@ export type Database = {
           created_at?: string
           id?: string
           referred_user_id?: string | null
-          referrer_id?: string
+          referrer_id?: string | null
           reward_credits_referred?: number
           reward_credits_referrer?: number
           signed_up_at?: string | null
@@ -3527,7 +3527,7 @@ export type Database = {
           renewal_reminder_sent_at: string | null
           started_at: string
           status: string
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           authorization_code?: string | null
@@ -3549,7 +3549,7 @@ export type Database = {
           renewal_reminder_sent_at?: string | null
           started_at?: string
           status?: string
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           authorization_code?: string | null
@@ -3571,7 +3571,7 @@ export type Database = {
           renewal_reminder_sent_at?: string | null
           started_at?: string
           status?: string
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -3631,6 +3631,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      account_deletion_fk_catalog: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          child_table: string
+          child_column: string
+          parent_table: string
+          on_delete: string
+          nullable: boolean
+        }[]
+      }
       add_test_pool_user: {
         Args: { p_lease_id: string; p_user_id: string }
         Returns: undefined
@@ -4642,7 +4652,7 @@ export type Database = {
         | "ad_wallet_topup"
         | "mentor_session"
         | "talent_directory_subscription"
-      payment_status: "pending" | "success" | "failed"
+      payment_status: "pending" | "success" | "failed" | "needs_refund"
       referral_status: "invited" | "signed_up" | "activated"
       resume_source: "uploaded" | "builder" | "tailored"
       salary_unit: "hour" | "day" | "week" | "month" | "year"
@@ -4894,7 +4904,7 @@ export const Constants = {
         "mentor_session",
         "talent_directory_subscription",
       ],
-      payment_status: ["pending", "success", "failed"],
+      payment_status: ["pending", "success", "failed", "needs_refund"],
       referral_status: ["invited", "signed_up", "activated"],
       resume_source: ["uploaded", "builder", "tailored"],
       salary_unit: ["hour", "day", "week", "month", "year"],
