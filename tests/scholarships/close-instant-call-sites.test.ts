@@ -184,15 +184,15 @@ describe("deadline-alert email wording", () => {
       deadlineVerifiedAt: "x", officialUrl: "https://e.org", moderationStatus: "verified" as const,
     };
     const known = buildScholarshipDeadlineEmail({
-      firstName: "Ada", daysOut: 1, unsubscribeToken: "t",
+      firstName: "Ada", unsubscribeToken: "t",
       candidate: { ...base, applicationDeadline: "2026-10-06", closeTime: "13:00", closeTz: "America/Vancouver" },
     });
     expect(known.text).toContain("6 Oct 2026, 13:00 (Pacific time)");
     const unknown = buildScholarshipDeadlineEmail({
-      firstName: "Ada", daysOut: 1, unsubscribeToken: "t",
+      firstName: "Ada", unsubscribeToken: "t",
       candidate: { ...base, applicationDeadline: "2026-10-06", closeTime: null, closeTz: null },
     });
-    expect(unknown.text).toContain("time zone not stated, apply a day early");
+    expect(unknown.text).toContain("Deadline 6 Oct 2026, time zone not stated. To be safe, apply by 5 Oct.");
   });
 });
 
