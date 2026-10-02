@@ -55,8 +55,9 @@ export function JobBoardPreview() {
               Talentrah is a live job board, too — not just a matching tool.
             </h2>
             <p className="text-[16px] text-ink-soft">
-              Open roles from companies hiring across Nigeria and Africa, updated daily. Create a
-              free account to browse them, each one scored against your own resume.
+              Open roles from companies hiring across Nigeria and Africa, updated daily. Browse them
+              without an account; create a free account to have each one scored against your own
+              resume.
             </p>
           </div>
           <Link href="/jobs" className={buttonClasses("secondary", "md", "flex-shrink-0 no-underline")}>

@@ -7,6 +7,9 @@ import {
 } from "@/lib/billing/actions";
 import { EyebrowLabel, BorderedCard, Button, NairaAmount } from "@/components/ui";
 import { PASS_DAILY_ACTION_CAP } from "@/lib/passes/entitlement";
+import { creditPriceList } from "@/lib/credits/price-list";
+import { receiptNumber } from "@/lib/billing/receipt-number";
+import { formatCalendarDate, formatDate } from "@/lib/format/datetime";
 
 /**
  * What each product_type is called on a receipt.
@@ -50,7 +53,7 @@ const PRODUCT_NEXT: Record<string, { href: string; label: string }> = {
  * a claim nothing backs.
  */
 const PACK_DESCRIPTION: Record<string, string> = {
-  Starter: "1 CV tailoring · credits never expire",
+  Starter: "1 resume tailoring · credits never expire",
   Plus: "2 tailorings + a cover letter, or a Directory verification · never expire",
 };
 
@@ -78,8 +81,7 @@ export const metadata = { title: "Credits & Passes — Talentrah" };
  */
 function formatDateOnly(value: string | null): string {
   if (!value) return "";
-  const [year, month, day] = value.split("-").map(Number);
-  return new Date(year, month - 1, day).toLocaleDateString();
+  return formatCalendarDate(value);
 }
 
 export default async function BillingPage({
@@ -176,8 +178,16 @@ export default async function BillingPage({
         <p className="mt-1 text-[14.5px] text-ink-soft">
           {leadingPass
             ? `Tailoring, cover letters, bullet rewrites, Auto-Apply beyond your free weekly runs, and scholarship checks are covered at zero credit cost. You also have ${profile.credits_balance} credits for template unlocks and Talent Directory verification, which stay credit-only.`
-            : "Credits cover AI tailoring runs, cover letters, and premium templates beyond your free trial."}
+            : "Credits pay for the actions below, after any free allowance. Prices are per use."}
         </p>
+        {/* Everything credits pay for, from CREDIT_COSTS (send-503): the old sentence named three of eleven. */}
+        {!leadingPass && (
+          <ul className="mt-3 grid max-w-[620px] list-none grid-cols-1 gap-x-8 gap-y-1 p-0 text-[13.5px] text-ink-soft sm:grid-cols-2">
+            {creditPriceList().map((entry) => (
+              <li key={entry.key}>{entry.text}</li>
+            ))}
+          </ul>
+        )}
         {/*
           THE CONFIRMATION, rendered here rather than on the callback page.
           /billing/callback redirects here after fulfilment precisely so this
@@ -203,13 +213,16 @@ export default async function BillingPage({
             {justPurchased ? (
               <>
                 <p className="mt-1 text-[13.5px] text-ink-soft">
-                  {PRODUCT_LABEL[justPurchased.product_type] ??
-                    justPurchased.product_type}{" "}
-                  · ₦{justPurchased.amount.toLocaleString()}
-                  {justPurchased.paystack_reference
-                    ? ` · Receipt ${justPurchased.paystack_reference}`
-                    : ""}
+                  {/* One string: the sign and the amount are a single text node (send-503). */}
+                  {`${PRODUCT_LABEL[justPurchased.product_type] ?? justPurchased.product_type} · ₦${justPurchased.amount.toLocaleString("en-NG")}${
+                    justPurchased.paystack_reference
+                      ? ` · Receipt ${receiptNumber(justPurchased.product_type, justPurchased.paystack_reference)}`
+                      : ""
+                  }`}
                 </p>
+                {justPurchased.paystack_reference && (
+                  <PaymentReference reference={justPurchased.paystack_reference} />
+                )}
                 <p className="mt-0.5 text-[13.5px] text-ink-soft">
                   Your balance above is up to date.
                 </p>
@@ -258,7 +271,7 @@ export default async function BillingPage({
                 </h3>
                 <p className="text-[13.5px] text-ink-soft">
                   Active until{" "}
-                  {new Date(userPass.expires_at).toLocaleDateString()} · paid by{" "}
+                  {formatDate(userPass.expires_at)} · paid by{" "}
                   {userPass.payment_method === "card"
                     ? "card"
                     : "mobile money / bank"}
@@ -316,7 +329,7 @@ export default async function BillingPage({
               {PACK_DESCRIPTION[pack.name] && (
                 <p className="text-[13px] text-ink-soft">{PACK_DESCRIPTION[pack.name]}</p>
               )}
-              <p className="font-display text-[24px]">
+              <p data-testid="credit-pack-price" className="font-display text-[24px]">
                 <NairaAmount amount={pack.price_ngn} />
               </p>
               <form
@@ -386,11 +399,7 @@ export default async function BillingPage({
                     {PRODUCT_LABEL[p.product_type] ?? p.product_type}
                   </span>
                   <span className="font-body text-[12.5px] text-ink-soft">
-                    {new Date(p.created_at).toLocaleDateString("en-NG", {
-                      day: "numeric",
-                      month: "short",
-                      year: "numeric",
-                    })}
+                    {formatDate(p.created_at)}
                     {p.channel
                       ? ` · ${p.channel}`
                       : p.rail
@@ -403,15 +412,18 @@ export default async function BillingPage({
                     <NairaAmount amount={p.amount} />
                   </span>
                   {/*
-                    The Paystack reference IS the receipt number — the same
-                    string the confirmation email quotes, so a support question
-                    can be matched to a row without the user knowing what
-                    Paystack is.
+                    The receipt NUMBER is the short one the confirmation email
+                    quotes ("CP-678586C1", send-503); the full Paystack
+                    reference is kept under "Payment reference" for support,
+                    which is what they actually search by.
                   */}
                   {p.paystack_reference && (
-                    <span className="font-body text-[11.5px] text-ink-soft">
-                      Receipt {p.paystack_reference}
-                    </span>
+                    <>
+                      <span className="font-body text-[11.5px] text-ink-soft">
+                        {`Receipt ${receiptNumber(p.product_type, p.paystack_reference)}`}
+                      </span>
+                      <PaymentReference reference={p.paystack_reference} />
+                    </>
                   )}
                 </div>
               </div>
@@ -423,5 +435,15 @@ export default async function BillingPage({
         </div>
       )}
     </div>
+  );
+}
+
+/** The full Paystack reference, kept for support behind a disclosure so the page shows the short receipt number first. */
+function PaymentReference({ reference }: { reference: string }) {
+  return (
+    <details className="font-body text-[11.5px] text-ink-soft">
+      <summary className="cursor-pointer">Payment reference</summary>
+      <code className="break-all text-[11px]">{reference}</code>
+    </details>
   );
 }

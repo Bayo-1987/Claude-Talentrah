@@ -2,13 +2,9 @@ import { requireUser } from "@/lib/auth/require-user";
 import { BorderedCard, EyebrowLabel } from "@/components/ui";
 import { visibleName } from "@/lib/profile/name";
 import { SettingsForm } from "./settings-form";
+import { billingRegionLabel } from "@/lib/billing/region";
 
 export const metadata = { title: "Settings — Talentrah" };
-
-const SEGMENT_LABEL: Record<string, string> = {
-  home: "Home market",
-  diaspora: "Diaspora",
-};
 
 /**
  * The page "View profile" in the Farah panel has been pointing at since that
@@ -44,8 +40,10 @@ export default async function SettingsPage() {
     },
     {
       label: "Billing region",
-      value: SEGMENT_LABEL[profile.market_segment] ?? profile.market_segment,
-      note: "Set from your country when you signed up. It decides how you're billed.",
+      // Named from the country, in the words of the real billing path (src/lib/billing/region.ts). The segment is not
+      // shown: billing never reads it (every purchase is in naira through Paystack), so the old segment label told nobody anything.
+      value: billingRegionLabel(profile.country),
+      note: "Everything on Talentrah is charged in naira (₦) through Paystack. This is what that means for your country.",
     },
     {
       label: "Language",

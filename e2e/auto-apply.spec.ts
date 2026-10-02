@@ -164,16 +164,14 @@ test.describe("auto-apply", () => {
     await expect(authedPage.getByText(job!.title).first()).toBeVisible();
   });
 
-  test("a thin-tag match in the review queue shows the honest qualified badge, not a bare Excellent", async ({
+  test("a thin-tag match is not listed in the review queue at all, and the empty state says why", async ({
     authedPage,
     testUser,
   }) => {
     /*
-     * This is the exact gap send-249 found: the review queue built each
-     * QueueItem from auto_apply_queue's own columns only, never reading
-     * match_scores.explanation, so MatchTierBadge's thin-match logic
-     * (isThin, screenableTagTotal) was unconditionally inert on this one
-     * screen — the literal page a user confirms a match from. One
+     * send-506 (A1) replaces what this test used to assert. It used to show the honest "thin match" qualifier on
+     * such a row (send-249); the queue now does not LIST a thin row, because the confirm-time gate would refuse
+     * it anyway and offering it was the leak (production listed thin and closed rows with a stale 99%). One
      * screenable tag, exactly the One Acre Fund / Global MEL Manager shape.
      */
     const { data: job } = await admin
@@ -208,11 +206,9 @@ test.describe("auto-apply", () => {
     });
 
     await authedPage.goto("/auto-apply");
-    await expect(authedPage.getByRole("heading", { name: job!.title })).toBeVisible();
-    // The honesty signal must reach this screen — this is the assertion
-    // that would have failed before the fix, since explanation never
-    // reached MatchTierBadge here at all.
-    await expect(authedPage.getByText(/thin match/i)).toBeVisible();
+    await expect(authedPage.getByText("Nothing waiting")).toBeVisible();
+    await expect(authedPage.getByText("only queues open roles that score Excellent")).toBeVisible();
+    await expect(authedPage.getByRole("heading", { name: job!.title })).toHaveCount(0);
   });
 
   test("a genuinely well-supported match in the review queue still shows a plain Excellent", async ({
@@ -268,7 +264,18 @@ test.describe("auto-apply", () => {
       .single();
 
     await admin.from("match_scores").upsert(
-      { user_id: testUser.id, job_posting_id: job!.id, score: HIGH_SCORE, tier: "excellent" },
+      {
+        user_id: testUser.id,
+        job_posting_id: job!.id,
+        score: HIGH_SCORE,
+        tier: "excellent",
+        // A non-thin explanation: the queue lists only rows with a live, non-thin match (send-506).
+        explanation: {
+          matchedSkills: ["sql", "python", "leadership", "stakeholder management"],
+          missingSkills: ["kubernetes"],
+          seniorityAlignment: "match",
+        },
+      },
       { onConflict: "user_id,job_posting_id" },
     );
     await admin.from("auto_apply_queue").insert({
