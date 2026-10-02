@@ -191,9 +191,13 @@ describe("referral_leaderboard", () => {
 });
 
 describe("pg_graphql is gone", () => {
-  it("/graphql/v1 no longer answers a query", async () => {
+  it("/graphql/v1 no longer answers a query (Supabase's placeholder answers 'pg_graphql extension is not enabled.' instead)", async () => {
     const res = await fetch(`${URL}/graphql/v1`, { method: "POST", headers: { "content-type": "application/json", apikey: ANON, authorization: `Bearer ${ANON}` }, body: JSON.stringify({ query: "{ __typename }" }) });
-    expect(res.status, "an answered query is 200; a dropped extension is an error").toBeGreaterThanOrEqual(400);
+    const body = (await res.json().catch(() => null)) as { data?: { __typename?: string }; errors?: Array<{ message?: string }> } | null;
+    // Before 0211 the endpoint answers { data: { __typename: "Query" } }. After the drop the platform's placeholder function answers with an errors
+    // array (HTTP 200 through PostgREST) and no data; a stack without the placeholder answers 4xx. Either way, no query is answered.
+    expect(body?.data?.__typename, "a query must not be answered").toBeUndefined();
+    expect(res.status >= 400 || /not enabled/i.test(body?.errors?.[0]?.message ?? "")).toBe(true);
   });
 
   it("the REST API is unaffected (a signed-out read of a public table still works)", async () => {
