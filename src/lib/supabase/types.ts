@@ -3631,6 +3631,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      function_search_path_audit: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          function_name: string
+          identity_args: string
+          security_definer: boolean
+          search_path_config: string | null
+        }[]
+      }
       add_test_pool_user: {
         Args: { p_lease_id: string; p_user_id: string }
         Returns: undefined

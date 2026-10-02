@@ -26,13 +26,18 @@ describe("mentor_unpaid_hold()", () => {
     expect(fn!.search_path_config).toBe('search_path=""');
   });
 
-  it("still returns thirty minutes", async () => {
+  it("is still an ordinary (not SECURITY DEFINER) function: the pin changed its config and nothing else", async () => {
     const { data, error } = await admin.rpc("function_search_path_audit");
     expect(error).toBeNull();
-    // The value itself is pinned by src/lib/mentorship/unpaid-hold.ts's mirrored constant and tests/mentorship/unpaid-hold.test.ts; this only confirms the
-    // audit read works and is not the way to read it, so assert the pin did not change the function's volatility or security mode.
+    // The 30 minutes themselves are pinned by tests/mentorship/unpaid-hold.test.ts (it mirrors UNPAID_HOLD_MINUTES) and by the migration's own self-check.
     const fn = (data ?? []).find((r) => r.function_name === "mentor_unpaid_hold");
     expect(fn!.security_definer).toBe(false);
+  });
+
+  it("the audit read itself has its search_path pinned", async () => {
+    const { data } = await admin.rpc("function_search_path_audit");
+    const audit = (data ?? []).find((r) => r.function_name === "function_search_path_audit");
+    expect(audit!.search_path_config).toBe('search_path=""');
   });
 
   it("the catalog read is service-role only (anon cannot call it)", async () => {
