@@ -80,6 +80,108 @@ From the owner's report: 9 of 14 queue rows showed "99% · Excellent*" for QA En
 
 ---
 
+## Merged 2026-10-01 — the owner's QA-audit forms, copy, Saved tab, mentorship and card-polish fixes: PRs #626, #628, #630, #633, #635 (send-494 to send-498)
+
+Merged one at a time inside a window in which no other session merged to `main` (the owner's call, after the churn below),
+each with its production deployment confirmed `READY` before the next started.
+
+| PR | Branch | Merged at (UTC) | Merge SHA | Production deployment |
+|----|--------|-----------------|-----------|-----------------------|
+| [#626](https://github.com/Bayo-1987/Claude-Talentrah/pull/626) | `fix/qa-forms-tracker-stage-494` | 2026-10-01 19:20:30 | `e9cf9bf448d3a6ca3bd0b2c5467cb819352155cb` | `dpl_3yPkjcScbGYBJzMgGP25dRbfsCsL` |
+| [#628](https://github.com/Bayo-1987/Claude-Talentrah/pull/628) | `fix/qa-copy-cv-verify-495` | 2026-10-01 19:57:36 | `920888a5b6937ded22f078b767f4a67f72ffcb9d` | `dpl_7cBiC39Df9uytbVNfVQ5zXxSSE7S` |
+| [#630](https://github.com/Bayo-1987/Claude-Talentrah/pull/630) | `fix/saved-tab-one-set-496` | 2026-10-01 20:18:47 | `581717b78cea251d086a5589142a40ef57e80abb` | `dpl_6QUqNrKYUTcn4cLjJG99s82HPU5Z` |
+| [#633](https://github.com/Bayo-1987/Claude-Talentrah/pull/633) | `fix/mentorship-sessions-and-slots-497` | 2026-10-01 20:46:04 | `cbb6cf0de6f2153195477f604e451c1cdf718dd1` | `dpl_49q7ejJDTraZCgToTUyvB51P18C1` |
+| [#635](https://github.com/Bayo-1987/Claude-Talentrah/pull/635) | `fix/feed-card-polish-498` | 2026-10-01 21:27:01 | `0454b9b9b87c8fb8d0f14925c356024b29f916f0` | `dpl_AWPqievwH1iqQqmMewbsMuAoaQ5K` |
+
+No migration, no production data touched, in any of the five.
+
+**What each changed.**
+- **#626 (send-494, S13/S14/X2).** The report-a-posting form had its first reason (`It looks like a scam`) `defaultChecked`, so pressing
+  Send filed a fraud accusation without a choice; nothing is pre-checked now and the group is `required`. The Add-a-job form kept a
+  private lowercase stage list with no Hired; the tracker's stage controls now render from one `TRACKER_STAGES`, with an accessible
+  name (`Stage for {title} at {company}`) on each card's select. The real bug: `addManualEntryAction` put any posted `stage` straight
+  into the INSERT and never read the result; it now validates with `isTrackerStage` on the server and throws on a failed insert. A manually
+  added Hired entry is backfilled history: no hired-moment email, no referral-banner redirect; Hired stays terminal (0037, UPDATE only).
+- **#628 (send-495, S19).** "Resume", not "CV", in `/refer` (twice) and the start-state chooser; the Get Verified headline matches the score
+  band (`< 70` "Not verified yet — here's what to fix", `70-84` "Verified — a few things to tighten", `>= 85` "Verified — your resume holds
+  up"). `tests/copy/no-cv-in-user-facing-strings.test.ts` is a TypeScript-AST ratchet over every string/JSX literal in `src/`, with two
+  allowlisted strings: billing's `1 CV tailoring · credits never expire` (the S18 PR deletes it) and the ISO country code `CV` (Cabo
+  Verde) in `lib/jobs/countries.ts`, which S12 added after the ratchet was written and which failed #628's first CI after its update.
+- **#630 (send-496, S11).** The feed's Saved tab and the tracker's Saved stage were two different sets. The heart writes an `applications`
+  row (stage `saved`, `manual_job_snapshot`); the feed then hid it when the posting had closed or aged past the 30-day floor. One set now:
+  closed postings show "This role has closed" with Remove and never Apply/Auto-Apply, manual entries come from their snapshot, one empty
+  state. Bounded: the newest 100 saved rows load (`SAVED_TAB_MAX`), with the true total from the same query and a line pointing at the tracker.
+- **#633 (send-497, S15 part 1).** The sessions page's Upcoming means paid and upcoming; an unpaid booking still ahead has its own "Awaiting
+  payment" section; one whose slot has started is past, labelled "Not paid — the slot has passed" (it does not say expired or released: nothing
+  has been, until migration 0203 ships). The mentor's page uses the same buckets and wording. A mentor card whose profile has no open slot says
+  "No open slots right now" instead of quoting a price.
+- **#635 (send-498).** An unknown applicant count is not printed (a known one, including 0, is). The Save heart is a real toggle (`aria-pressed`,
+  label still names the action) with a pressed style.
+
+### Verification (all four, against live state)
+
+**1. API.** For each of the five, `merged: true`, the `merged_at` and `merge_commit_sha` in the table, merged with
+`--match-head-commit` on the head that had just passed (`26b79fc`, `42d6c42`, `904b604`, `e4996d5`, `1869a85`).
+
+**2. Fresh shallow clone** of `main` per merge (not the working copy), each merge SHA an ancestor of HEAD. #626: `isTrackerStage` in
+`tracker-actions.ts`, the `Stage for …` aria-label, no `defaultChecked` left in `report-job-menu.tsx` (the one match is the comment explaining
+why). #628: `verificationHeadline` and the 70/85 constants, `free resume tailorings` twice in `/refer`, `Import my resume` in the chooser. #630:
+`SAVED_TAB_MAX`, `This role has closed`, `loadSavedRows` in the feed page. #633: `No open slots right now`, the slot-passed label, `bucketSession`
+in both sessions pages. #635: `aria-pressed` on the heart and in `IconButton`, `e2e/save-toggle-state.spec.ts`.
+
+**3. Live.** Each production deployment above was read from the Vercel API as `READY`, `target: production`, `githubCommitSha` equal to the
+merge SHA, before the next merge started. Signed-out probes of `/` and `/jobs` returned 200 each time. Every changed surface is behind sign-in,
+so the owner ran a per-PR checklist from a signed-in browser: **#633 pass** (the 17 Sep booking under Past as "Not paid — the slot has passed",
+Upcoming empty, the mentor card "No open slots right now"); **#630 pass** (all 5 saved jobs "This role has closed" with Remove and no Apply);
+**#626 pass** (stage list capitalised and including Hired, each select named; the report-panel check is the owner's by hand); **#628 pass**
+("free resume tailorings", "Import my resume", "Verified — a few things to tighten" at 70). **#635's checklist and the Auto-Apply toggle's grey
+state are the owner's, outstanding at the time of writing.** Owner's corrections to my checklists: the live stage order is Saved, Applied,
+Interviewing, Offer, Hired, Rejected, Archived; dates still show US style until the formatter PR (#637).
+
+**4. Test suites on the merged heads** (CI, all four required checks green on each head):
+
+| PR | Unit test files | Playwright |
+|----|-----------------|------------|
+| #626 | 428 passed (428) | 535 passed |
+| #628 | 432 passed (432) | 535 passed |
+| #630 | 435 passed (435) | 539 passed |
+| #633 | 440 passed (440) | 540 passed |
+| #635 | 441 passed (441) | 541 passed, after one rerun of the known `e2e/employer-new-job-banner.spec.ts:167` flake (541 on the rerun; the other 540 passed on the first attempt) |
+
+The Playwright specs these PRs added or changed (`tracker-add-job-stage`, `saved-tab-one-set`, `mentorship-card-open-slots`, `feed-chrome`,
+`save-toggle-state`) could not be run locally (no database or Docker on the authoring machine) and had no red-first run: **each one's first run
+was its CI run**, said so in each PR body. The unit tests were written first and shown red.
+
+### Why it took five heads to merge #626: the BEHIND churn, with timestamps
+
+`main` requires its branch to be up to date and all four checks green on that exact head ("strict"), and a required-check run takes about
+22 minutes. Other sessions merged to `main` on this cadence (UTC, today): #622 14:03, #629 14:26, #624 14:47, #632 15:09, #641 15:35, #623 16:01,
+#638 16:24, #640 16:51, #634 17:29, #639 18:56. **Ten merges in 4h53m, against a 22-minute CI cycle.**
+
+| PR | Heads that ran full CI before merging | What invalidated each green run | First green to merge |
+|----|---------------------------------------|---------------------------------|----------------------|
+| #626 | `12b4d2c` (14:06), `d979e96` (16:08), `bff7f70` (16:30), `e58f079` (17:09), `26b79fc` (18:57) | `d979e96` by #638 (16:24); `bff7f70` by #640 (16:51); `e58f079` by #634 (17:29); `26b79fc` was the held-window head (started 56 s after #639) | about 16:30 to 19:20:30, **2h50m**, of which roughly 1h20m (17:32 to 18:57) was my own pause while the owner chose between a merge window and relaxing the rule |
+| #628 | `58721ec` (19:24), `42d6c42` (19:33) | none from other sessions: the first failed on my own ratchet (below) | 19:24 to 19:57:36, 33 min |
+| #630 | `904b604` (19:58) | none | 20:18:47, 21 min |
+| #633 | `e4996d5` (20:23) | none | 20:46:04, 23 min |
+| #635 | `1869a85` (20:47) | none | 21:27:01, 40 min |
+
+Outside the window, #626 needed **four updates in a row** because a different session merged during each CI run. Inside it, every PR was
+push, one CI cycle, merge. **Two cycles were not churn:** #628's first post-update run (19:24, 8 min) failed on my own CV ratchet reading Cabo
+Verde's `CV` country code, one extra push and a 23-minute re-run; #635's Playwright run failed once on the known banner-crop flake and was
+rerun once (16 min). Each update also pushes a branch and triggers a Vercel preview build (the one on #626's first update was refused as rate-limited; not a
+required check), so a retry loop spends deployment budget as well as CI minutes. This is the data for whether GitHub's merge queue
+is worth having; see the plan below (the repo is user-owned, which matters).
+
+### Not covered / open
+- #635's signed-in checklist, and the Auto-Apply toggle's grey-state check, are the owner's.
+- #633 is the first half of S15: the expiry of an unpaid booking, Pay/Cancel, the 30-minute slot hold and the late-payment path are send-502
+  and are **not** merged; migration 0203 is not applied anywhere. The 17 Sep booking is therefore still `pending_payment` with its slot held.
+- The billing page still says `1 CV tailoring · credits never expire` (S18 retires it, with its allowlist entry).
+- The date formatter (#637) is not merged; dates remain US-style on the surfaces it will change.
+
+---
+
 ## Merged 2026-10-01 — PR #639, the resume PDF output: filename, page margins, wording, bullets, tailoring-time normalisation, certification columns (S2-11)
 
 | PR | Branch | Merged at (UTC) | Merge SHA |
@@ -199,6 +301,82 @@ issue [#605](https://github.com/Bayo-1987/Claude-Talentrah/issues/605) (a differ
 - The browser **Back button** is not guarded by the leave-the-page prompt (a `popstate` cannot be reliably vetoed; said in `use-unsaved-guard.ts`).
 - A Pass holder who has hit the daily fair-use cap is shown "send" (the client cannot know), so a chip click there can still charge.
 - Known flake `e2e/employer-new-job-banner.spec.ts` (#591) failed once on an intermediate head of this PR (run 36876741004) and passed on the next; the head that merged had no failures.
+
+---
+
+## Merged 2026-10-01 — PR #622, the last five signed-out links that led to /login re-pointed; the gated-link allowlist ends empty (send-491, Prompt 2)
+
+| PR | Branch | Merged at (UTC) | Merge SHA |
+|----|--------|-----------------|-----------|
+| [#622](https://github.com/Bayo-1987/Claude-Talentrah/pull/622) | `fix/signed-out-gated-links-491` | 2026-10-01 14:03:17 | `309e60ac7c89af1339ea0fd0a55eb85c5829bf88` |
+
+**Evidence it came from.** The documented manual production crawl (`npm run check-signed-out-links`, `LINK_GATE_SCOPE=all`, signed out, 463 pages, 640 targets, 10:12Z) listed exactly **5 gated
+links**, the 5 rows left in the allowlist, all owned by `prompt-2` (ten more had already been removed by #595 and #607). The owner's founder QA audit (finding P2) independently flagged the first two as the
+top signed-out dead end. Nothing here "fixes" a GitHub issue.
+
+| # | Link | Was | Now |
+|---|---|---|---|
+| 1 | footer "Resume Builder" (one component, 461 pages) | `/resume-builder` | `/ai-resume-builder` (public landing page; session-aware CTA; same shape as the footer's Resume Tailoring and ATS Resume Checker links) |
+| 2 | homepage hero demo "Build a resume" | `/resume-builder` | session-aware via an exported `quickActionsFor(signedIn)`: signed in `/resume-builder`, signed out `/signup?redirectTo=%2Fresume-builder` |
+| 3 | blog "Build a resume from an ATS-safe template" | `/resume-builder` | `/ai-resume-builder` |
+| 4 | blog "Tailor your resume with Farah" and "…to a specific job" | `/tailor` | `/ai-resume-tailoring` (both) |
+| 5 | blog "Write your cover letter with Farah" | `/tailor?coverLetter=1` | `/signup?redirectTo=%2Ftailor%3FcoverLetter%3D1` (no public cover-letter page exists) |
+
+The allowlist is now **empty**, a new test asserts it (any future row needs a deliberate test change), and `prompt-3` and `scholarships-landing` are no longer valid owners.
+
+**Why session-aware is safe on the homepage.** `isSignedIn` is a per-visitor, browser-side cookie read in an effect. The page's HTML is static and shared and always ships the signed-out variant (unknown reads as
+signed out), so one visitor's state cannot be served to another from a cache; and a signed-in visitor who clicks before the swap lands is forwarded by `/signup` itself (`if (user) redirect(redirectTo || "/dashboard")`).
+The signed-in-only "Build or upload your resume →" link is untouched and pinned. Row 5 relies on `safeRedirectTo` keeping the query string: the signup page's hidden `redirectTo` is `/tailor?coverLetter=1`.
+
+**Proof the tests can fail (red, then green).** On unchanged `main`: unit `9 failed | 65 passed`; the signed-out e2e run against **production** (then still serving unfixed `main`) `3 failed` (the footer link, the hero href, and following the
+hero link, which landed on login). Green after: the five relevant unit files 74/74, the signed-out e2e 25/25 under `--repeat-each=5`, and the crawl spec against a local production build found 0 gated links. The footer guard
+adds `Resume Builder` to `REPOINTED_SINCE` (beside Refer & Earn) and does **not** re-baseline `SNAPSHOT_BEFORE`, so every other footer link stays guarded.
+
+**Process.** Collision check immediately before the branch and again before the first push (send-490 was another session's, so 491; send-492 appeared in between). Two `update-branch` cycles (#620, whose test reads
+`jd-demo-input.tsx`, so I ran it against my version first; then the flake-tally PR #603), each with a fresh CI read; merged with `--match-head-commit` on `c811e83`, 0 behind `main`.
+
+### Verification (all four)
+
+**1. GitHub API** — `GET /repos/Bayo-1987/Claude-Talentrah/pulls/622`:
+```
+{"merged": true, "merged_at": "2026-10-01T14:03:17Z",
+ "merge_commit_sha": "309e60ac7c89af1339ea0fd0a55eb85c5829bf88", "head_sha": "c811e83ff4e1e369466924867e85b7218f981501"}
+```
+
+**2. Fresh shallow clone** (`git clone --depth 30`, a temp dir), at `309e60a`: footer `Resume Builder` -> `/ai-resume-builder` (old href count 0); `quickActionsFor` exported with the signed-in/signed-out mapping; the blog hrefs
+as above with **0 gated hrefs left in `related-links.ts`**; the allowlist array empty with `ALLOWLIST_OWNERS = ["prompt-2"]`; the three new spec/test files present.
+
+**3. Live production probe — and what happened to the deployment.** `309e60a` **never got a deployment of its own**: its Vercel status read "Deployment rate limited — retry in 24 hours" (recorded 14:03:21Z, no deployment created), which this entry first
+read as production being blocked. **That was wrong, and the correction is the lesson:** the limit is Vercel's Hobby cap of 100 deployments per rolling 24 hours, previews included (the last 100 deployments spanned 30 Sep 18:41Z to 1 Oct 15:09Z),
+so it is a window, not a latch. Production deployed three more merges within the hour, all READY: #629 `dbf0af1` (14:26:34Z), #624 `b6c70c7` (14:47:54Z) and #632 `1c263fa` (15:09:33Z, ready 15:10:57Z, aliased to `www.talentrah.com`). `309e60a` is an
+ancestor of all of them (`git merge-base --is-ancestor 309e60a 1c263fa`: yes), and `dbf0af1` is the first production build that contains it, so no deployment of its own was needed. **Re-measure before predicting:** "every merge from now on will hit the same
+wall" was drawn from one sample and was false. When a deploy is rate limited, name the merge and the time, then verify against the next build that contains it.
+The probe below ran 15:23-15:27 UTC, signed out, against `1c263fa`:
+```
+footer Resume Builder on / /about /blog /scholarships /jobs /ai-resume-builder (all 200): href /ai-resume-builder
+hero "Build a resume", raw first paint: /signup?redirectTo=%2Fresume-builder, 0 hrefs to /resume-builder; siblings /signup, /signup, /scholarships
+hero in a real browser after hydration, signed out: still the signup redirect; clicking it lands on /signup with hidden redirectTo = /resume-builder
+footer click on /about: lands on /ai-resume-builder ("Free AI Resume Builder for Nigerian Job Seekers — Talentrah")
+blog posts (ISR, revalidate 3600), all 200, x-vercel-cache: PRERENDER, age 0 (a fresh prerender from the new build, so any stale href would be code, not cache; there were none):
+  beating-the-ats                                  Tailor your resume with Farah -> /ai-resume-tailoring ; Build a resume from an ATS-safe template -> /ai-resume-builder
+  reading-your-match-score                         Tailor your resume to a specific job -> /ai-resume-tailoring
+  cover-letters-that-dont-sound-like-a-template    Write your cover letter with Farah -> /signup?redirectTo=%2Ftailor%3FcoverLetter%3D1   (its hidden redirectTo on the signup page: /tailor?coverLetter=1)
+  gated (/tailor, /resume-builder) hrefs in any related section: none
+production crawl (LINK_GATE_SCOPE=all, ~1,000 GETs): sources fetched 468, distinct targets 642, GATED LINKS: 0   (was 5)
+```
+**No signed-in production probe was done.** The signed-in half (the hero link after the session resolves, the unchanged "Build or upload your resume" link, the cover-letter forward) is covered by `e2e/signed-in-link-repoints.spec.ts` in CI, not by a production check.
+
+**4. Full suite against merged `main`** — CI run [36873344635](https://github.com/Bayo-1987/Claude-Talentrah/actions/runs/36873344635) (push, `309e60a`), `success`:
+```
+Typecheck, lint, unit tests : success   Test Files 401 passed (401)   Tests 4486 passed (4486)
+Playwright e2e              : success   495 passed (10.4m)
+Dependency audit, Secret scan: success   (Migration numbering: skipped on push events)
+```
+The 5 signed-out and 3 signed-in tests of the new specs and `signed-out-link-gate.spec.ts` (`scope=ci`) all ran and passed. `Migration drift (production)` ([run 36873344623](https://github.com/Bayo-1987/Claude-Talentrah/actions/runs/36873344623)): success.
+
+### Not covered / still open
+- The production crawl is manual; nothing runs it on a schedule, so a future gated link is caught by the unit companion and the CI crawl (`scope=ci`), and by the next manual production run.
+- The deploy budget: with the owner moving to Vercel Pro, the 100-per-24h cap goes away; until then every push (previews included) spends one.
 
 ---
 
