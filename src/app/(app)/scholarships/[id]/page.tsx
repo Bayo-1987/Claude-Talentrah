@@ -10,7 +10,8 @@ import {
   type SaveStatus,
 } from "@/lib/scholarships/types";
 import { formatDeadline } from "@/components/scholarships/scholarship-card";
-import { scholarshipCloseText, scholarshipDaysLeft } from "@/lib/scholarships/close-instant";
+import { scholarshipDeadlineDisplay } from "@/lib/scholarships/close-instant";
+import { DeadlineLine } from "@/components/scholarships/deadline-line";
 import { SaveToggle } from "@/components/scholarships/save-toggle";
 import { SaveStatusSelect } from "@/components/scholarships/save-status-select";
 import { FarahActions } from "@/components/scholarships/farah-actions";
@@ -113,8 +114,8 @@ export default async function ScholarshipDetailPage({
   const landingLinks = await relevantScholarshipLandingLinks(await createClient(), scholarship);
 
   const save = saveResult.data as { id: string; status: SaveStatus } | null;
-  const left = scholarshipDaysLeft(scholarship);
-  const urgent = left !== null && left >= 0 && left <= 14;
+  const deadline = scholarshipDeadlineDisplay(scholarship, new Date(), { detailed: true, showClosed: true });
+  const urgent = deadline?.urgent ?? false;
 
   const meta = [
     ...scholarship.degree_levels.map((l) => DEGREE_LEVEL_LABEL[l]),
@@ -202,7 +203,6 @@ export default async function ScholarshipDetailPage({
 
       <div className="flex flex-col gap-1 border-y border-line py-3">
         <span className="text-[13.5px] text-ink-soft">
-          <span className="font-semibold text-ink">Deadline: </span>
           {/*
             EXACTLY AS STORED, never a reconstruction — the same rule the
             ingestion pipeline enforces on the way in (§6.15: a wrong
@@ -211,13 +211,16 @@ export default async function ScholarshipDetailPage({
             not a gap, so it renders as the sourced sentence rather than a
             placeholder.
           */}
-          <span className={urgent ? "font-semibold text-rust" : undefined}>
-            {scholarship.application_deadline
-              ? (scholarshipCloseText(scholarship) ?? formatDeadline(scholarship.application_deadline))
-              : (scholarship.deadline_note ?? "Not published yet")}
-            {left !== null && left >= 0 && ` · ${left} ${left === 1 ? "day" : "days"} left`}
-            {left !== null && left < 0 && " · Closed"}
-          </span>
+          <DeadlineLine
+            text={
+              scholarship.application_deadline
+                ? (deadline?.text ?? formatDeadline(scholarship.application_deadline))
+                : (scholarship.deadline_note ?? "Not published yet")
+            }
+            urgent={urgent}
+            labelled={deadline?.labelled ?? true}
+            labelClassName="font-semibold text-ink"
+          />
         </span>
         {scholarship.field_tags.length > 0 && (
           <span className="text-[13px] text-ink-soft">{scholarship.field_tags.join(" · ")}</span>

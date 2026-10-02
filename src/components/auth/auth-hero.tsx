@@ -23,7 +23,7 @@ export function AuthHero() {
           Talk to Farah. See exactly how well you match a job.
         </h1>
         <p className="max-w-[420px] text-[15px] text-[oklch(80%_0.015_60)]">
-          Paste a job link or description and Farah scores the match, shows
+          Paste a job description and Farah scores the match, shows
           what&apos;s missing, and drafts a tailored resume.
         </p>
       </div>
