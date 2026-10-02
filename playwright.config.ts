@@ -9,6 +9,8 @@ loadEnv({ path: ".env.local" });
 
 export default defineConfig({
   testDir: "./e2e",
+  // Refuse production (or the shared hosted project) before any spec loads: send-507, tests/support/e2e-db-guard.test.ts.
+  globalSetup: "./e2e/global-setup.ts",
   timeout: 30000,
   fullyParallel: false,
   workers: 1,
