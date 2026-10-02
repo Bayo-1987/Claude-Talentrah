@@ -67,7 +67,8 @@ describe("liveScholarshipLandingLinks — counts", () => {
   it("is still ONE round trip, through the facet-counts RPC", async () => {
     const { client, calls } = stubClient({ fully_funded_count: 10 });
     await liveScholarshipLandingLinks(client);
-    expect(calls.map((c) => c.fn)).toEqual(["scholarship_landing_facet_counts"]);
+    // send-508: the instant-based function (0204); the date-argument one it replaced is no longer called.
+    expect(calls.map((c) => c.fn)).toEqual(["scholarship_landing_facet_counts_at"]);
   });
 
   it("still honours excludeHref (other callers rely on it)", async () => {

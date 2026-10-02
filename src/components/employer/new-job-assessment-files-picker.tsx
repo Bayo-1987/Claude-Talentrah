@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useCatchUpFile } from "@/lib/forms/use-catch-up-file";
 import { ASSESSMENT_DOCUMENT_GUIDANCE, MAX_ASSESSMENT_FILES } from "@/lib/employer/assessment-document";
 import {
   CREATE_SCOPE,
@@ -38,6 +39,8 @@ const STAGE_FAILED_MESSAGE =
 export function NewJobAssessmentFilesPicker({ userId, active }: { userId: string; active: boolean }) {
   const [files, setFiles] = useState<File[]>([]);
   const [error, setError] = useState<string | null>(null);
+  // Ref and onChange come from the shared hook, which also acts on a file chosen before hydration (issue #591).
+  const { inputRef, onChange } = useCatchUpFile({ onFiles: handlePicked, multiple: true, resetAfter: true });
 
   // Re-registered whenever `files` changes so the closure below always
   // sees the current list — simpler than a ref kept in sync during render,
@@ -63,11 +66,11 @@ export function NewJobAssessmentFilesPicker({ userId, active }: { userId: string
     }
   }
 
-  function handlePicked(picked: FileList | null) {
-    if (!picked || picked.length === 0) return;
+  function handlePicked(picked: File[]) {
+    if (picked.length === 0) return;
     const room = MAX_ASSESSMENT_FILES - files.length;
     if (room <= 0) return;
-    const additions = Array.from(picked).slice(0, room);
+    const additions = picked.slice(0, room);
     void stage([...files, ...additions]);
   }
 
@@ -119,10 +122,8 @@ export function NewJobAssessmentFilesPicker({ userId, active }: { userId: string
             multiple
             accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
             className="hidden"
-            onChange={(e) => {
-              handlePicked(e.target.files);
-              e.target.value = "";
-            }}
+            ref={inputRef}
+            onChange={onChange}
           />
         </label>
       )}

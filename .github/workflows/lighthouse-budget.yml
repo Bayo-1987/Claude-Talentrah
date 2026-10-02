@@ -17,13 +17,16 @@ name: Lighthouse performance budget
 # wait-for-vercel-preview polls the GitHub Deployments API that Vercel's own
 # GitHub App already populates — no Vercel token needed.
 #
-# NO PATH FILTERING — every PR, deliberately. ci.yml's own checks/e2e jobs
-# don't path-scope either, and a real Vercel preview already gets built for
-# every push in this repo regardless of what changed, so skipping this job
-# for some PRs would not actually save the expensive part (the deploy still
-# happens); it would only save ~2-4 Lighthouse runs against a preview that
-# already exists. Erring toward the simpler, uniform rule per this ticket's
-# own guidance.
+# EVERY PR EXCEPT DOCS/TESTS/E2E-ONLY ONES. This used to say "no path filtering",
+# on the reasoning that a Vercel preview was built for every push regardless, so
+# skipping this job would save only a few Lighthouse runs and not the expensive
+# part (the deploy). That premise changed: vercel.json's `ignoreCommand`
+# (scripts/vercel-ignore-build.mjs) now skips the PREVIEW BUILD itself for a PR
+# that changes only docs, tests or e2e (the Hobby plan caps deployments at 100 per
+# rolling 24h and previews count). This job waits for the PR's own preview, so it
+# must skip for exactly the same PRs, or it would wait for a deployment that was
+# never made. The `paths-ignore` below is that same list; a PR that touches
+# anything else still builds a preview and still runs this job.
 #
 # THE FOUR PAGES, AND WHY JOB-DETAIL IS RESOLVED AT RUNTIME, NOT HARDCODED.
 # Homepage, /jobs/remote (the real public job-search surface — plain /jobs is
@@ -109,6 +112,14 @@ name: Lighthouse performance budget
 on:
   pull_request:
     branches: [main]
+    # Skipped (not failed) when the PR changes ONLY docs, tests or e2e: the same list, word for word, as
+    # scripts/vercel-ignore-build.mjs, which skips the Vercel preview for exactly those PRs. This job waits for the
+    # PR's own preview, so the two must agree; tests/ci/preview-skip.test.ts fails if they drift.
+    paths-ignore:
+      - "docs/**"
+      - "tests/**"
+      - "e2e/**"
+      - "*.md"
   workflow_dispatch: {}
 
 jobs:

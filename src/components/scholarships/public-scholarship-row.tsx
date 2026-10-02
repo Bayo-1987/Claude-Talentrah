@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { BorderedCard } from "@/components/ui";
 import { DEGREE_LEVEL_LABEL, FUNDING_TYPE_LABEL } from "@/lib/scholarships/types";
-import { daysUntil, formatDeadline } from "./scholarship-card";
+import { formatDeadline } from "./scholarship-card";
 import type { Tables } from "@/lib/supabase/types";
+import { scholarshipDeadlineDisplay } from "@/lib/scholarships/close-instant";
 
 /**
  * A scholarship on an SEO landing page — read-only, no Save/Farah widgets.
@@ -17,8 +18,7 @@ import type { Tables } from "@/lib/supabase/types";
  * reason.
  */
 export function PublicScholarshipRow({ scholarship }: { scholarship: Tables<"scholarships"> }) {
-  const left = daysUntil(scholarship.application_deadline);
-  const urgent = left !== null && left >= 0 && left <= 14;
+  const urgent = scholarshipDeadlineDisplay(scholarship, new Date(), { detailed: false, showClosed: false })?.urgent ?? false;
 
   return (
     <BorderedCard className="flex flex-col gap-2.5 p-5">

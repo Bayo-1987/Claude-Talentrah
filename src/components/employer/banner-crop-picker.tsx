@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Cropper, { type Area } from "react-easy-crop";
 import { Button, EyebrowLabel, IconButton } from "@/components/ui";
 import {
@@ -9,6 +9,7 @@ import {
   ACCEPTED_BANNER_TYPES,
   EXTENSION_FOR,
 } from "@/lib/employer/banner";
+import { useCatchUpFile } from "@/lib/forms/use-catch-up-file";
 import { isCroppable, maxCroppableWidth, maxZoomForCrop, renderCroppedBanner } from "@/lib/employer/banner-crop";
 
 export type BannerCropOutcome = { ok: true } | { ok: false; error: string };
@@ -39,7 +40,9 @@ export function BannerCropPicker({
   onCropped: (file: File) => Promise<BannerCropOutcome>;
   pickLabelWhenEmpty?: string;
 }) {
-  const inputRef = useRef<HTMLInputElement>(null);
+  // The input's ref and onChange come from the shared hook, which also acts on a file chosen before hydration
+  // (issue #591: the change event is lost then, and React does not replay it).
+  const { inputRef, onChange } = useCatchUpFile({ onFiles: (files) => void onPick(files[0]), multiple: false });
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -153,10 +156,7 @@ export function BannerCropPicker({
           type="file"
           accept={ACCEPTED_BANNER_TYPES.join(",")}
           className="sr-only"
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) void onPick(file);
-          }}
+          onChange={onChange}
         />
         <Button
           type="button"

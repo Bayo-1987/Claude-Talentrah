@@ -12,6 +12,8 @@ import { BorderedCard, Button, EyebrowLabel, MatchTierBadge, buttonClasses } fro
 import { dedupeMetaParts } from "@/components/jobs/job-card";
 import { FarahJobMenu } from "@/components/jobs/farah-job-menu";
 import { ScreeningGateApply } from "@/components/jobs/screening-gate-apply";
+import { fetchStoredSubmission } from "@/lib/jobs/application-submission";
+import { storedSentNote } from "@/lib/jobs/screening-gate-copy";
 import { renderJobDescriptionMarkdown } from "@/lib/farah/render-markdown";
 import { assessmentExerciseFileUrl } from "@/lib/employer/assessment-document";
 import { getCompanyInitials } from "@/lib/jobs/company-initials";
@@ -21,6 +23,7 @@ import { relevantJobLandingLinks } from "@/lib/seo/landing-page-links";
 import { skillsOf } from "@/lib/jobs/skill-facet";
 import { computeAndStoreMatchScores } from "@/lib/matching/compute-and-store";
 import { MatchBreakdown } from "@/components/jobs/match-breakdown";
+import { PostingSkills } from "@/components/jobs/posting-skills";
 import { EMPTY_RESUME } from "@/lib/resume/types";
 import type { StructuredResume } from "@/lib/resume/types";
 import {
@@ -228,7 +231,7 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
     user
       ? supabase
           .from("applications")
-          .select("stage")
+          .select("id, stage")
           .eq("user_id", user.id)
           .eq("job_posting_id", id)
           .maybeSingle()
@@ -390,6 +393,16 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
         required: assessmentRow.required,
       }
     : null;
+
+  /*
+   * What the application went with, read from what was STORED (the candidate's own submission row and its stored
+   * files, readable under RLS), never from what the browser believes it sent: "Submitted with cv.pdf" or "Submitted
+   * without an attachment". Nothing is claimed when the application has no assessment submission.
+   */
+  const sentNote =
+    alreadyApplied && assessment && application?.id
+      ? storedSentNote(await fetchStoredSubmission(supabase, application.id))
+      : null;
 
   // The feed's own parser, not a second reading of structured_jd — it already
   // tolerates a missing key, a non-array, and non-string members.
@@ -604,9 +617,16 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
         </form>
 
         {alreadyApplied ? (
-          <span className="inline-flex min-h-10 items-center text-[13.5px] font-semibold text-green">
-            Applied
-          </span>
+          <>
+            <span className="inline-flex min-h-10 items-center text-[13.5px] font-semibold text-green">
+              Applied
+            </span>
+            {sentNote && (
+              <span role="status" className="inline-flex min-h-10 items-center text-[13px] text-ink-soft">
+                {sentNote}
+              </span>
+            )}
+          </>
         ) : isExternal ? (
           <>
             <a
@@ -684,9 +704,8 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
       </div>
 
       {skills.length > 0 && (
-        <BorderedCard className="flex flex-col gap-2 p-5">
-          <EyebrowLabel size="sm">Skills named in this posting</EyebrowLabel>
-          <p className="text-[14px] leading-relaxed text-ink-soft">{skills.join(" · ")}</p>
+        <BorderedCard className="p-5">
+          <PostingSkills skills={skills} />
         </BorderedCard>
       )}
 

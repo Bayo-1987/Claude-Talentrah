@@ -7,6 +7,8 @@ import { SaveStatusSelect } from "./save-status-select";
 import { FarahActions } from "./farah-actions";
 import { ScholarshipShareButton } from "./scholarship-share-button";
 import { formatCalendarDate } from "@/lib/format/datetime";
+import { scholarshipDeadlineDisplay } from "@/lib/scholarships/close-instant";
+import { DeadlineLine } from "@/components/scholarships/deadline-line";
 
 export interface ScholarshipCardProps {
   scholarship: Tables<"scholarships">;
@@ -18,16 +20,6 @@ export interface ScholarshipCardProps {
   origin: string;
   /** The signed-in viewer's own referral code — always present on this authenticated list, but optional here since the component makes no assumption a caller must supply one. */
   referralCode?: string | null;
-}
-
-/** Days until the deadline, or null when there's no published date. */
-export function daysUntil(deadline: string | null): number | null {
-  if (!deadline) return null;
-  const [y, m, d] = deadline.split("-").map(Number);
-  const target = new Date(y, m - 1, d);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return Math.round((target.getTime() - today.getTime()) / 86_400_000);
 }
 
 /**
@@ -48,8 +40,10 @@ export function ScholarshipCard({
   origin,
   referralCode,
 }: ScholarshipCardProps) {
-  const left = daysUntil(scholarship.application_deadline);
-  const urgent = left !== null && left >= 0 && left <= 14;
+  // One countdown for every surface (close-instant.ts, send-511): whole days to the closing instant for a row with a zone; the stated date, in four
+  // states, for a row without one. A closed row is not listed here, so it carries no phrase.
+  const deadline = scholarshipDeadlineDisplay(scholarship, new Date(), { detailed: false, showClosed: false });
+  const urgent = deadline?.urgent ?? false;
 
   return (
     <BorderedCard className="flex flex-col gap-3 p-5">
@@ -112,19 +106,21 @@ export function ScholarshipCard({
 
       <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-[13.5px] text-ink-soft">
         <span>
-          <span className="font-semibold">Deadline:</span>{" "}
-          <span className={urgent ? "font-semibold text-rust" : undefined}>
-            {/*
+          {/*
               A provider with no single deadline (per-partner, per-embassy,
               per-consortium) is verified, not unknown — so show the sourced
               explanation rather than an empty gap or a bare "Not published
               yet", which reads like missing data.
             */}
-            {scholarship.application_deadline
-              ? formatDeadline(scholarship.application_deadline)
-              : (scholarship.deadline_note ?? "Not published yet")}
-            {left !== null && left >= 0 && ` · ${left} ${left === 1 ? "day" : "days"} left`}
-          </span>
+          <DeadlineLine
+            text={
+              scholarship.application_deadline
+                ? (deadline?.text ?? formatDeadline(scholarship.application_deadline))
+                : (scholarship.deadline_note ?? "Not published yet")
+            }
+            urgent={urgent}
+            labelled={deadline?.labelled ?? true}
+          />
         </span>
         {scholarship.field_tags.length > 0 && (
           <span className="text-[13px]">{scholarship.field_tags.slice(0, 3).join(" · ")}</span>

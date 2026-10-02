@@ -19,7 +19,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest
 import { randomUUID } from "node:crypto";
 import { admin, createTestUser, deleteTestUsers, sessionFor, type DB } from "../support/auth";
 import { deleteTestOrgs } from "../support/cleanup";
-import { inferSeniority, inferWorkType, extractStructuredJd } from "@/lib/jobs/extract-jd";
+import { inferJobSeniority, inferWorkType, extractStructuredJd } from "@/lib/jobs/extract-jd";
 import { FARAH_JD_DRAFT_NGN } from "@/lib/billing/catalog";
 
 const generateText = vi.fn();
@@ -226,7 +226,7 @@ describe("draftJobWithFarahAction — real, imported inference functions, never 
     // These are computed from the SAME title/location/description the
     // action itself used — if the action reimplemented this logic instead
     // of calling the real functions, a divergence would show up here.
-    expect(result.seniority).toBe(inferSeniority(title) ?? null);
+    expect(result.seniority).toBe(inferJobSeniority(title) ?? null);
     expect(result.workType).toBe(inferWorkType(title, location) ?? null);
     expect(result.skills).toEqual(extractStructuredJd(result.description).skills);
   });

@@ -1,3 +1,4 @@
+import { NON_SCREENABLE_SKILLS } from "@/lib/jobs/extract-jd";
 import type { Tables } from "@/lib/supabase/types";
 
 /**
@@ -32,4 +33,31 @@ export function skillsOf(job: JobPosting): string[] {
   const raw = (job.structured_jd as { skills?: unknown } | null)?.skills;
   if (!Array.isArray(raw)) return [];
   return raw.filter((s): s is string => typeof s === "string").map((s) => s.toLowerCase());
+}
+
+/**
+ * Splits a posting's skills the way `computeMatchScore` does, so the list on
+ * the detail page and the "N of M tags" cell of the match breakdown describe
+ * the same set. The scorer drops `NON_SCREENABLE_SKILLS` from the arithmetic
+ * and from matched/missing; a card that printed them anyway sat under
+ * "0 of 3 tags" with five names in it.
+ *
+ * Lowercased and de-duplicated (a Set, like the scorer) and order-preserving.
+ * Reads the scorer's own set rather than a copy, so a term added there is
+ * separated here with no second edit.
+ */
+export function splitSkillsByScreenability(skills: string[]): {
+  screenable: string[];
+  notCounted: string[];
+} {
+  const seen = new Set<string>();
+  const screenable: string[] = [];
+  const notCounted: string[] = [];
+  for (const raw of skills) {
+    const s = raw.toLowerCase();
+    if (seen.has(s)) continue;
+    seen.add(s);
+    (NON_SCREENABLE_SKILLS.has(s) ? notCounted : screenable).push(s);
+  }
+  return { screenable, notCounted };
 }
