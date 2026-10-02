@@ -8,7 +8,7 @@
  * Pins the two things that would silently regress if this file were ever
  * edited: that it actually runs the Lighthouse CI assertion step against a
  * real Vercel preview (not a local build), and that it runs on every PR
- * with no path filtering, per this ticket's own explicit decision.
+ * with no path ALLOW-list; only docs/tests/e2e-only PRs are skipped (see preview-skip.test.ts).
  */
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
@@ -65,9 +65,12 @@ describe("lighthouse-budget.yml wires Lighthouse CI against the real Vercel prev
     expect(packageJson.devDependencies?.["@lhci/cli"]).toBeUndefined();
   });
 
-  it("triggers on every pull_request, with no path filtering", () => {
+  it("triggers on every pull_request except docs/tests/e2e-only ones (paths-ignore, never an allow-list `paths:`)", () => {
     expect(workflow).toMatch(/pull_request:\s*\n\s*branches:\s*\[main\]/);
-    expect(workflow).not.toMatch(/paths:/);
+    // An allow-list (`paths:`) would silently skip any new directory; the ignore-list can only ever skip what it names,
+    // and it is pinned equal to the Vercel skip rule in tests/ci/preview-skip.test.ts.
+    expect(workflow).not.toMatch(/^\s+paths:/m);
+    expect(workflow).toMatch(/^\s+paths-ignore:/m);
   });
 
   it("REGRESSION (send-425): sends the Vercel protection-bypass header at all three call sites — wait-for-vercel-preview's own polling, the sitemap curl, and the lhci autorun call — without it, Deployment Protection 401s every request to the preview until wait-for-vercel-preview's own timeout", () => {
