@@ -4,7 +4,7 @@ import { LLMProviderError } from "@/lib/llm/errors";
 import type { ClaimReason } from "@/lib/demo/anonymous-limit";
 
 /**
- * One row per attempt at the homepage demo (migration 0204), so "barely used" and "silently failing" stop
+ * One row per attempt at the homepage demo (migration 0208), so "barely used" and "silently failing" stop
  * looking the same. Before this, three runs had ever been recorded and a refusal left no trace at all.
  *
  * NO PII, BY CONSTRUCTION: the row has an outcome, a reason or error class (short enumerated strings), and a

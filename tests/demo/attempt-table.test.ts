@@ -1,5 +1,5 @@
 /**
- * P1 / 0204 — the attempt table, against the real database: the route's own writer lands a row, the 7-day view
+ * P1 / 0208 — the attempt table, against the real database: the route's own writer lands a row, the 7-day view
  * counts it, and NO client (anon or signed-in) can read or write either. Same shape as the client-reach probe in
  * tests/auth/resend-rate-limit.test.ts: this is server bookkeeping about people who are not signed in.
  *
@@ -37,7 +37,7 @@ function asAnon() {
   });
 }
 
-describe("anonymous_demo_attempts (0204)", () => {
+describe("anonymous_demo_attempts (0208)", () => {
   it("the route's writer lands a row with exactly the recorded fields", async () => {
     await recordDemoAttempt({ outcome: "refused", reason: MARK, errorClass: null, ipRuleActive: false });
     const { data, error } = await admin

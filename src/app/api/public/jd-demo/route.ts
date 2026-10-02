@@ -74,7 +74,7 @@ function jsonWithVisitor(body: unknown, status: number, visitorId: string, isNew
 }
 
 /**
- * One attempt row per request (P1, migration 0204), and never at the visitor's expense: the sink swallows its own
+ * One attempt row per request (P1, migration 0208), and never at the visitor's expense: the sink swallows its own
  * errors, and this wrapper swallows anything else, so the answer below does not depend on the log working.
  */
 async function logAttempt(attempt: DemoAttempt) {

@@ -1,4 +1,4 @@
--- 0204 — record every attempt at the homepage demo, with its outcome.
+-- 0208 — record every attempt at the homepage demo, with its outcome.
 --
 -- WHY. Production had exactly three demo runs in its history (0058's anonymous_demo_runs), every one with a null
 -- ip_hash, and a refused or failed attempt left no trace anywhere. "The aha demo is barely used" and "the aha
