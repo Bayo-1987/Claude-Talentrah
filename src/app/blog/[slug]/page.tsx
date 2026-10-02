@@ -10,6 +10,7 @@ import { renderMarkdown } from "@/lib/blog/render";
 import { relatedLinksForPost } from "@/lib/blog/related-links";
 import { buildBlogPostingJsonLd } from "@/lib/seo/blog-posting-jsonld";
 import { JsonLd } from "@/components/seo/json-ld";
+import { formatDate } from "@/lib/format/datetime";
 
 interface BlogPostPageProps {
   params: Promise<{ slug: string }>;
@@ -68,14 +69,6 @@ export async function generateMetadata({ params }: BlogPostPageProps): Promise<M
     // onto a real 1200x630 card. See pageMetadata's own comment for why
     // declaring `images` here as well would silently disable that file.
     shareImage: "segment",
-  });
-}
-
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
   });
 }
 

@@ -69,9 +69,8 @@ describe("a token for a verified scholarship", () => {
     expect(html).toContain("<aside>");
     expect(html).toContain(`Embed-Test Provider ${tag}`);
     expect(html).toContain(`Embed-Test Programme ${tag}`);
-    // The real, current deadline via the shared formatDeadline helper — not
-    // a hand-typed copy that could disagree with it.
-    expect(html).toContain(new Date(2099, 11, 31).toLocaleDateString());
+    // The deadline in the house format (send-499): day, short month, year, never the runtime's locale.
+    expect(html).toContain("31 Dec 2099");
     expect(html).toContain(`href="/scholarships/${scholarshipId}"`);
     expect(html).not.toContain("[[scholarship:");
   });

@@ -1,6 +1,7 @@
 import { absoluteUrl } from "@/lib/seo/site";
 import { emailButton, emailHeadline, emailLabel, emailParagraph, escEmail, renderBrandedEmail } from "@/lib/email/layout";
 import type { DeadlineAlertCandidate } from "./select";
+import { formatCalendarDate } from "@/lib/format/datetime";
 
 /**
  * One scholarship's deadline per email — deliberately not batched.
@@ -39,16 +40,9 @@ function greeting(firstName: string | null): string {
   return name ? `Hi ${name},` : "Hi,";
 }
 
-/** Date-only column, built in local-independent UTC parts to avoid an off-by-one near midnight. */
+/** A date-only column in the house format ("1 Oct 2026"), never shifted by a time zone. */
 function formatDeadline(deadline: string): string {
-  const [y, m, d] = deadline.split("-").map(Number);
-  return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString("en-US", {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    timeZone: "UTC",
-  });
+  return formatCalendarDate(deadline);
 }
 
 function daysOutLabel(daysOut: number): string {

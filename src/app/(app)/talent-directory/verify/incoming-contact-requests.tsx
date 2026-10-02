@@ -1,6 +1,7 @@
 import { respondToTalentDirectoryContactRequestAction } from "@/lib/talent-directory/actions";
 import type { ContactRequest } from "@/lib/talent-directory/queries";
 import { BorderedCard, Button } from "@/components/ui";
+import { formatDate } from "@/lib/format/datetime";
 
 /**
  * send-157 — candidate-side inbox. Plain bound form actions, no client JS,
@@ -19,7 +20,7 @@ export function IncomingContactRequests({ requests }: { requests: ContactRequest
         <BorderedCard key={r.id} className="flex flex-col gap-2.5 p-4">
           <p className="text-[13.5px] font-semibold text-ink">{r.organizationName}</p>
           <p className="text-[13.5px] text-ink-soft">&ldquo;{r.message}&rdquo;</p>
-          <p className="text-[12px] text-ink-soft">{new Date(r.createdAt).toLocaleDateString()}</p>
+          <p className="text-[12px] text-ink-soft">{formatDate(r.createdAt)}</p>
           <div className="flex gap-2">
             <form action={respondToTalentDirectoryContactRequestAction.bind(null, r.id, true)}>
               <Button type="submit" variant="secondary">

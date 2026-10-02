@@ -33,6 +33,107 @@ both served stale content in this project's history. Don't rely on either.
 
 ---
 
+## Merged 2026-10-02 — PR #653, the `resume-editor-bullets` e2e flake was a test race, fixed test-side and reproduced deterministically (send-505)
+
+| PR | Branch | Merged at (UTC) | Merge SHA |
+|----|--------|-----------------|-----------|
+| [#653](https://github.com/Bayo-1987/Claude-Talentrah/pull/653) | `fix/resume-editor-bullets-caret-race-505` | 2026-10-02 05:24:40 | `566dd62e2e62243309d46e6088c7d5d25ccd3576` |
+
+Test-only. `e2e/resume-editor-bullets.spec.ts:46` (the spec and the `/dev/resume-editor-fixture` page both came from #639, S2-11) failed on `main`'s own push run (581717b) and on several PR heads.
+
+**Cause: the test, not the app.** It put the caret at the end of the text by setting the DOM selection and then pressing Enter. ProseMirror keeps its own selection and reads the DOM one back on a later `selectionchange`; an Enter that arrives first splits at its old caret, the START (`["", "ZQTWO…ZQONE…"]` in the failing snapshot).
+
+**Measured** on a production build of `main` (built and started as CI does, dummy Supabase env; this fixture needs no database): original spec **4 of 30 failed**; same-task selection + Enter **40 of 40 wrong**; a real click then an immediate Enter **19 of 20 wrong** but **0 of 20 after a 100 ms pause**; a frame or two of waiting still **1 of 40**; keyboard select-all then type **0 of 100 wrong**. Fixed spec at `--repeat-each=100`: **200 passed, 0 failed**. No real user path found (the race needs an Enter within a millisecond of placing the caret).
+
+**Fix.** The second test replaces the achievement with keyboard select-all (`ControlOrMeta+a`, handled by ProseMirror from its own state) and typing, with the reasoning in a comment. `e2e/resume-editor-caret-race.spec.ts` (new) reproduces the old failure on demand and asserts the fixed approach 10 times per run.
+
+### Verification
+**1. API:** `merged: true`, `merged_at 2026-10-02T05:24:40Z`, `merge_commit_sha 566dd62e…`, head `beb639c5…`; pinned merge after one update (one CI read). **2. Fresh clone:** `566dd62` in `main`'s history; both specs present. **3. Production:** deployment `dpl_3yT7hkZ62cEy6uYPLbS9bC9AL6Wh` `READY` at `566dd62…` (no runtime change; test-only). **4. Full suite on merged `main`:** push run [36968807490](https://github.com/Bayo-1987/Claude-Talentrah/actions/runs/36968807490) (result recorded in the PR; see #653).
+
+### Standing lesson (owner, 2026-10-02): production reads run in a READ ONLY transaction
+Every production query goes inside `BEGIN READ ONLY; … ROLLBACK;` (or `SET TRANSACTION READ ONLY`). It exists because a diagnostic query on 2026-10-02 contained a stray `create temp table`; it was session-local and left no trace (checked in `pg_class`), but it was not a pure read. Inside a read-only transaction that statement is an error, so the mistake becomes impossible rather than merely harmless.
+
+---
+
+## Merged 2026-10-02 — PR #654, the Auto-Apply queue lists only open, live, non-thin Excellent rows, with the live score (send-506, A1 of the split of #621)
+
+| PR | Branch | Merged at (UTC) | Merge SHA |
+|----|--------|-----------------|-----------|
+| [#654](https://github.com/Bayo-1987/Claude-Talentrah/pull/654) | `fix/auto-apply-queue-read-live-506` | 2026-10-02 05:03:12 | `3f5b51e7aa3edfbafe7f1d3b5cc22daa5e098e81` |
+
+From the owner's report: 9 of 14 queue rows showed "99% · Excellent*" for QA Engineer / IT Administrator / Marketing Manager against a Product Manager resume, and two "79% · Good, thin" sat in a queue the page says holds only 80%+. Refs #605. **A2 (the scoring change) is a separate PR and is not built.**
+
+**Diagnosis.** Two defects. (1) The scorer measures tag coverage only: the job title never reaches `computeMatchScore`, so a PM resume's `SQL` + `Cloud (AWS, Azure)` + `SAFe Agile` covers 3 of 3 of a QA Engineer's screenable tags (raw 100, shown 99) and 1 of 1 for the thin ones. (2) The queue page printed every `pending` row with the score frozen at queue time: 11 of 13 pending rows predate the thin gate (15 Sept), 7 of the 9 "99%" jobs were closed and 8 had no current `match_scores` row. The confirm-time gate (0034/0164) was correct throughout and would have refused all of them.
+
+**What A1 changed.** The page lists a row only when something current vouches for it: job **open**, a **live** `match_scores` row, live score **≥ 80**, **not thin** (`src/lib/auto-apply/queue-read.ts`); missing evidence fails closed; it shows the **live** score. The empty state names the rule. The confirm-time gate is unchanged. Hidden rows stay `pending` (a read, not a cleanup; expiring them is a production write and needs an explicit yes). Adds `tests/matching/scorer-seniority-unknown-neutral.test.ts` (an unknown job seniority is neutral: no +5, no −15), which S2's #636 waits on. Two existing e2e changed with the behaviour (a thin row is now not listed; the dismiss test's fixture is non-thin).
+
+**Production effect (read-only, READ ONLY transaction).** 13 pending rows (one user); only 3 of their jobs are still open and the 2 open ones scoring ≥ 80 are thin: **13 of 13 leave the page**.
+
+**Proof the tests can fail.** Tests-first commit `76ef85b`: 7 of 14 red (closed, live-low, thin, no-live-row, exactly-one-survivor, live-score display, empty-state copy), controls green.
+
+### Verification
+**1. API:** `merged: true`, `merged_at 2026-10-02T05:03:12Z`, `merge_commit_sha 3f5b51e7…`, head `eabfae7e…`; pinned merge. **2. Fresh clone:** `3f5b51e` in `main`'s history; `queue-read.ts`, the queue-read test, the neutrality test, the page wiring (`isListableQueueRow`) and the new empty-state copy present. **3. Production:** deployment `dpl_AC2Vs5rKcasBPD6T24CVMpajdbFC` `READY` at `3f5b51e…`. Signed-out `/auto-apply` is gated; the page itself needs a session, so the live evidence is the read-only data check above, not a page probe. **4. Full suite on merged `main`** (push run [36967225007](https://github.com/Bayo-1987/Claude-Talentrah/actions/runs/36967225007)): unit **472 files, 5,670 tests passed**; e2e **546 passed** after one rerun of the known banner-crop flake (#591) on the first attempt (`employer-new-job-banner.spec.ts:203`, 1 failed / 545 passed); audits success.
+
+### Not covered / still open
+- On this PR's own head the known flake `resume-editor-bullets` failed once (before #653 landed) and passed on the one allowed rerun.
+- Rows hidden by this read are still `pending` in `auto_apply_queue`.
+
+---
+
+## Merged 2026-10-01 — PR #639, the resume PDF output: filename, page margins, wording, bullets, tailoring-time normalisation, certification columns (S2-11)
+
+| PR | Branch | Merged at (UTC) | Merge SHA |
+|----|--------|-----------------|-----------|
+| [#639](https://github.com/Bayo-1987/Claude-Talentrah/pull/639) | `fix/resume-pdf-print-s2-11` | 2026-10-01 18:56:56 | `61ac4591341ace7e750c4e3f97827a7847396436` |
+
+**What it changed.** `window.print()` stays the export. (1) The saved PDF is named `<First>-<Last>-Resume` (`src/lib/resume-builder/print-title.ts`): `document.title` is set before print and restored on `afterprint`, on a thrown `print()`, and by a 60 s fallback; the employer button uses the applicant's name. (2) **Real top and bottom space on every printed page** with `@page { margin: 0 }` kept (so Chrome still draws no header/footer): `ResumePrintSurface` uses `box-decoration-break: clone` with 0.5 in padding. Measured on the 2-page A4 fixture: **page 2 top 4 pt -> 40 pt, page 1 bottom 28 pt -> 55 pt**. A `<thead>/<tfoot>` spacer table measured the same in Chromium 153; clone was chosen because it adds no table to a document ATS parsers read, and a browser that ignores the property falls back to the old output. The employer print used to print the employer masthead and a border around the resume; both are hidden in print. (3) The button reads **Save as PDF** with the line "In the print window, choose 'Save as PDF'." (4) The Achievements editor has a Bulleted list toggle; tailoring asks for a `bullets` array and splits glued or marker-prefixed text into one achievement per bullet. Two bugs found on the way: **glued bullets over 200 characters were dropped by the sanitizer, and the base resume's bullets overwrote the model's rewrite.** (5) `src/lib/tailoring/normalise.ts`, **tailoring time only**: "Sep 2022" dates, near-duplicate skills, and casing for a 36-term list applied only when a **whole skill-list entry** equals a term, never inside longer entries or prose (Go, Swift, Rust, Excel are not in it). The tailoring cache version is bumped 1 -> 2. (6) Certifications render in two columns from 8 entries, **except** the sidebar and rail skeletons, Statute, Public Record, Portfolio Grid, Pipeline and Critical Path (the founder confirmed that exception: a 200 px rail is too narrow; Critical Path's list is in a half-width column). Plan only: `docs/resume-pdf-server-side-plan.md` (recommendation: keep print; spike `@sparticuz/chromium-min` only if browser variance is evidenced; its cold-start figures are quoted, not measured).
+
+**Reversed after the founder's review (and why).** The first version also split typed `- ` / `•` descriptions at **render** time, which would have changed how every already-saved resume looks. Removed: splitting is tailoring-time only, and `tests/resume-builder/old-format-resume-render.test.tsx` (every template and skeleton; red with 73 failures before the fix) pins that an old-format saved resume renders exactly as stored. `tests/tailoring/cache-version-compat.test.ts` pins that the cache bump only changes whether NEW generations reuse a `tailoring_result_cache` row: its only reader is `getCachedTailoringResult`, called only from `tailorResumeToJob`, and a user reopens tailored resumes from `resumes`, which the cache never touches. `tests/tailoring/bullets-consumers.test.tsx` (33 tests) pins every reader of the output with the array shape and both old shapes; the ATS score and cover letter do not read stored output.
+
+### Verification (all four, against live state)
+
+**1. API.** `…/pulls/639` -> `merged: true`, `merged_at` 2026-10-01T18:56:56Z, `merge_commit_sha` `61ac4591…`.
+
+**2. Fresh shallow clone** (`GIT_TERMINAL_PROMPT=0 git clone --depth 1`), HEAD `61ac4591341ace7e750c4e3f97827a7847396436`: PRESENT `src/components/resume-builder/resume-print-surface.tsx`, `src/lib/resume-builder/print-title.ts`, `src/lib/tailoring/normalise.ts`, `docs/resume-pdf-server-side-plan.md`, `e2e/print-button-title.spec.ts`, `tests/resume-builder/old-format-resume-render.test.tsx`, `tests/tailoring/cache-version-compat.test.ts`, `tests/tailoring/bullets-consumers.test.tsx`, `tests/tailoring/normalise.test.ts`; `poppler-utils` appears once in `.github/workflows/ci.yml` (the `Playwright e2e` job) and nowhere else in `.github/workflows`.
+
+**3. Live production probe.** Vercel deployment `dpl_8WJt3yn4xJyu5uhxfCZQZu3hwV6C`, `READY`, `target: production`, `githubCommitSha` = `61ac4591…`. Signed out: `/` 200, `/login` 200, `/resume-builder` 307 (to login). **The change itself is behind sign-in and `window.print()`, so no signed-out probe can observe it**; its evidence is the built-app Playwright run below, not a live production page. Not covered: a signed-in print on production by a person.
+
+**4. Test suites on the merged head.** Unit **424 files passed (424)**; Playwright **532 passed**, including **the first real CI run** of `e2e/print-button-fonts.spec.ts`, `e2e/employer-print-fonts.spec.ts` and `e2e/print-button-title.spec.ts` (all passed; they could not be run locally) and the 2-page PDF white-space measurement for 9 templates plus Letter for one (at least 36 pt on every page, measured with real `pdftoppm`). The `Install poppler (pdftoppm)` step took **54 s** (16:51:03 -> 16:51:57Z) in the `Playwright e2e` job only.
+
+### Not covered / open
+- A signed-in human print-to-PDF on production, in a real browser, and an employer-side print of a real applicant resume.
+- Browser variance: the margin technique was measured in one Chromium (153); Safari and Firefox were not measured. A browser that ignores `box-decoration-break` prints as before.
+- The sidebar after-render (18 certifications) is 2 pages; on its page 1 the summary paragraph sits flush against the "Experience" heading. Whether that spacing pre-dates this PR was not checked.
+- Lighthouse failed (the known thin-CI-project `/jobs/remote` 404); not a required check.
+
+---
+
+## Merged 2026-10-01 — S12 job data quality, parts 3 and 4: PR #638 (cleaned location text) and PR #634 (job page titles)
+
+| PR | Branch | Merged at (UTC) | Merge SHA |
+|----|--------|-----------------|-----------|
+| [#638](https://github.com/Bayo-1987/Claude-Talentrah/pull/638) | `feat/job-location-normalise` | 2026-10-01 16:24:01 | `0f60fa2cd25d40b41e819aaca6ed491b1cff6cb1` |
+| [#634](https://github.com/Bayo-1987/Claude-Talentrah/pull/634) | `feat/job-page-titles` | 2026-10-01 17:29:22 | `aa55eb6fc64b72c6c3bb67194cdf96811ff5eb3b` |
+
+**What #638 changed.** `normalizeLocation` (`src/lib/jobs/location.ts`) cleans the stored `location` text at ingestion in all four adapters: a part repeating an earlier part of the same entry is dropped (`Lagos, Lagos, Nigeria` -> `Lagos, Nigeria`), duplicate `;` entries, a trailing ISO code that is that country's own (`Cameroon (CM)`), a stray full stop, ragged spacing, and a template placeholder (`City, Country`) becomes no location. It never invents or reorders and is idempotent. **Identity does not move**: every adapter still computes `dedup_fingerprint` from the raw string. No migration, no data written; rows take the cleaned text on their next ingest.
+
+**What #634 changed.** The `/jobs/[id]` title is `<Role> at <Company> — <City or Remote> | Talentrah` (`src/lib/seo/job-page-title.ts`), about 65 characters, under the founder's policy of 2026-10-01: **the company is never dropped**. Trim order: the suffix, then the place is the city or `Remote`, then the role at a word boundary; past that the title runs long. A posting whose title equals a sibling's (one bounded query per page render, `siblingPostingsFor`) gets its country, and only those, in a form that is never shortened (shortening the role would rebuild the collisions). `og:title` and `twitter:title` are that same string; canonical and the rest of the head are unchanged.
+
+### Verification (all four, against live state)
+
+**1. API.** `…/pulls/638` -> `merged: true`, `merged_at` 2026-10-01T16:24:01Z, `merge_commit_sha` `0f60fa2c…`. `…/pulls/634` -> `merged: true`, `merged_at` 2026-10-01T17:29:22Z, `merge_commit_sha` `aa55eb6f…`.
+
+**2. Fresh shallow clone** (`GIT_TERMINAL_PROMPT=0 git clone --depth 1`), HEAD `aa55eb6fc64b72c6c3bb67194cdf96811ff5eb3b`: PRESENT `src/lib/jobs/location.ts`, `tests/jobs/normalize-location.test.ts`, `src/lib/seo/job-page-title.ts`, `tests/seo/job-page-title.test.ts`, `e2e/job-page-title-head.spec.ts`; `siblingPostingsFor` appears 2 times in `src/app/(app)/jobs/[id]/page.tsx`; `normalizeLocation` appears 2 times in each of the four adapters.
+
+**3. Live production probe** (signed out, 2026-10-01 after Vercel deployments `dpl_23SiXw9NMdkcqkRWnuFmkotxJtVB` (#638) and `dpl_FaWbHPs8sVScnDGarULTCpZTcbdE` (#634, `githubCommitSha` `aa55eb6f…`), both `READY`, `target: production`). A crawl of **all 380 job URLs in `sitemap.xml`** (title, `og:title`, canonical): **380/380** `<title>` equal `og:title`; **380/380** canonicals are the page's own path; **0** still in the old `— Talentrah` format; 142 carry the ` | Talentrah` suffix, 74 carry a country (`— Remote, Poland`), the rest the short place. Duplicate titles: **3 groups / 7 rows** (Optimal Group x3, Monaco Solicitors x2, and Sales Network Manager - Regional - Jumia x2 in Nigeria, two postings with the same company, role and location). The first two are the rows #632 supersedes (once marked: 1 group / 2 rows left, the Jumia pair, which no title can separate). **58 titles are over 65 characters, 40 over 70, the longest 100**: the policy lets a title run long rather than lose its company, and the unshortened country-bearing form is the long one. The SQL estimate before the change was 28 duplicate groups / 107 rows and 120 titles over 65 (the founder's own crawl is the authoritative before/after). Production database, read-only, **before the next ingest** (so these are the "before" numbers for #638 and #629): open external postings with a repeated location part **126**, with a trailing ISO code **9**, bare `Remote` **62**, `Remote, <country>` **77**.
+
+**4. Test suites on the merged heads.** #638's final head: unit 410 files passed (410), Playwright 512 passed. #634's final head: unit 415 files passed (415), Playwright 517 passed, including the new `e2e/job-page-title-head.spec.ts` (title = `og:title` = `twitter:title`, and a real Poland/Spain collision).
+
+### Not covered / open
+- **#638's effect on data is not yet observable**: the last production ingest ran at 12:07Z, before both deploys. After the next run: the repeated-part, ISO-code, bare-Remote and Remote-country counts above should fall to 0 / 0 / (Workable rows that state a country) / rise; the before/after on the 142 markup-ineligible rows and the Rich Results test on 3 remote jobs follow it.
+- The title duplicate count above is on **unmarked** data; marking the 3 superseded rows is still waiting on the founder's go.
+- Lighthouse failed on both PRs (known: the thin CI-project `/jobs/remote` 404); not a required check. The SQL replica of the title rule is an approximation of the TypeScript; the crawl above is the real measurement.
+- One `tests/jobs` file (`freshness-visibility`) fails locally against the shared test database on remote-posting counts (other sessions' data); it passed in CI on both heads.
 ## Merged 2026-10-01 — PR #640, Farah quick actions: own instructions, no invented achievements, a cut-off reply is not charged (send-500)
 
 | PR | Branch | Merged at (UTC) | Merge SHA |

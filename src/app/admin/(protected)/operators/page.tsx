@@ -5,6 +5,7 @@ import { InviteOperatorForm } from "@/components/admin/invite-operator-form";
 import { RoleEditor } from "@/components/admin/role-editor";
 import { QueueHeader } from "@/components/admin/queue-chrome";
 import { Container, EyebrowLabel, BorderedCard } from "@/components/ui";
+import { formatDate } from "@/lib/format/datetime";
 
 /**
  * Labels for the permission keys. The KEYS come from the database.
@@ -162,11 +163,11 @@ export default async function OperatorsPage() {
                   )}
                   <p className="text-[13.5px] text-ink-soft">
                     {o.disabledAt
-                      ? `Disabled ${new Date(o.disabledAt).toLocaleDateString()}`
+                      ? `Disabled ${formatDate(o.disabledAt)}`
                       : "Active"}
                     {" · "}
                     {o.lastLoginAt
-                      ? `last signed in ${new Date(o.lastLoginAt).toLocaleDateString()}`
+                      ? `last signed in ${formatDate(o.lastLoginAt)}`
                       : "never signed in"}
                   </p>
                 </div>
