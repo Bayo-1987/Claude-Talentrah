@@ -5,10 +5,10 @@ import { visibleName } from "@/lib/profile/name";
 import { buildPurchaseReceiptEmail } from "@/lib/billing/receipt-email";
 import { verifyTransaction } from "@/lib/paystack/client";
 import { captureEvent } from "@/lib/analytics/posthog";
-import { alertPaymentNeedsRefund } from "@/lib/mentorship/refund-alert";
+import { alertDeletedUserPayment, alertPaymentNeedsRefund } from "@/lib/mentorship/refund-alert";
 
 export interface FulfillResult {
-  status: "success" | "already_processed" | "failed" | "not_found";
+  status: "success" | "already_processed" | "failed" | "not_found" | "needs_refund";
 }
 
 /**
@@ -89,6 +89,29 @@ export async function fulfillPayment(
       .update({ status: "failed" })
       .eq("id", transaction.id);
     return { status: "failed" };
+  }
+
+  /*
+   * THE PAYER'S ACCOUNT NO LONGER EXISTS (0209). Deleting a user detaches their payments instead of deleting them (user_id becomes null), so a
+   * charge can still arrive for a reference whose owner is gone: an abandoned checkout link paid after the account was deleted. The money is real
+   * (verified above, amount and currency checked) and there is nobody to grant it to. Granting nothing and marking the row `success` would keep
+   * the money in silence; crediting a null user is not possible. So it is recorded as `needs_refund`, the operator is alerted, and this returns
+   * normally: the webhook answers 200, because a 5xx would make Paystack retry a payment that no retry can ever fulfil. The conditional update
+   * (status still pending) keeps a retried delivery from re-alerting. A DB failure here DOES throw, deliberately: that is a transient fault and a
+   * retry is exactly right.
+   */
+  if (transaction.user_id === null) {
+    const { data: marked, error: markError } = await supabase
+      .from("payment_transactions")
+      .update({ status: "needs_refund" })
+      .eq("id", transaction.id)
+      .eq("status", "pending")
+      .select("id");
+    if (markError) throw new Error(`could not record the deleted-user payment ${reference} as needs_refund: ${markError.message}`);
+    if ((marked ?? []).length > 0) {
+      await alertDeletedUserPayment({ reference, amountNgn: transaction.amount, productType: transaction.product_type });
+    }
+    return { status: "needs_refund" };
   }
 
   // Ground truth for the rail actually used, straight from Paystack's

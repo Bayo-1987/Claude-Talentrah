@@ -33,3 +33,33 @@ export async function alertPaymentNeedsRefund(args: { reference: string; amountN
     console.error(`[fulfill] could not send the refund alert: ${err instanceof Error ? err.message : String(err)}`);
   }
 }
+
+/**
+ * A payment verified with Paystack arrived for a user whose account no longer exists (migration 0209 detaches payments from a deleted user
+ * instead of deleting them). There is nobody to grant it to, so a person has to refund it in Paystack. Same two best-effort signals as above,
+ * neither able to throw: a loud log line and an email to ADMIN_ALERT_EMAIL. The transaction is `needs_refund` in payment_transactions and
+ * therefore visible in the finance status buckets.
+ */
+export async function alertDeletedUserPayment(args: { reference: string; amountNgn: number; productType: string }): Promise<void> {
+  const amount = `₦${args.amountNgn.toLocaleString("en-NG")}`;
+  console.error(
+    `[fulfill] NEEDS REFUND: payment ${args.reference} (${amount}, ${args.productType}) arrived for a user whose account was deleted. ` +
+      `It is recorded as needs_refund in payment_transactions. Refund the transaction in Paystack.`,
+  );
+  try {
+    await sendAdminAlert({
+      subject: `Refund needed: ${amount} payment for a deleted account`,
+      text: [
+        `A payment arrived for an account that has been deleted, so there is nobody to credit.`,
+        ``,
+        `Amount:             ${amount}`,
+        `Product:            ${args.productType}`,
+        `Paystack reference: ${args.reference}`,
+        ``,
+        `What to do: refund the charge in the Paystack dashboard using the reference above. The transaction is recorded as needs_refund.`,
+      ].join("\n"),
+    });
+  } catch (err) {
+    console.error(`[fulfill] could not send the deleted-user refund alert: ${err instanceof Error ? err.message : String(err)}`);
+  }
+}

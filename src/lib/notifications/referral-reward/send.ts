@@ -44,7 +44,8 @@ import { buildReferralRewardEmail, buildReferralRewardInApp } from "./template";
 
 interface SendReferralRewardNotificationParams {
   referrerId: string;
-  referredUserId: string;
+  /** Null once the referred person's account is deleted (0209): the notification names them as "a friend". */
+  referredUserId: string | null;
   creditsGranted: number;
   reason: "signup" | "activation";
 }
@@ -58,7 +59,9 @@ export async function sendReferralRewardNotification(
   try {
     const [{ data: referrer, error: referrerError }, { data: referred, error: referredError }] = await Promise.all([
       supabase.from("profiles").select("email, first_name, referral_code").eq("id", referrerId).maybeSingle(),
-      supabase.from("profiles").select("first_name").eq("id", referredUserId).maybeSingle(),
+      referredUserId === null
+        ? Promise.resolve({ data: null, error: null })
+        : supabase.from("profiles").select("first_name").eq("id", referredUserId).maybeSingle(),
     ]);
     if (referrerError) throw referrerError;
     if (referredError) throw referredError;

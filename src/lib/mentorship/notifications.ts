@@ -53,7 +53,8 @@ export const REMINDER_WINDOW_HOURS = 24;
 interface SessionRow {
   id: string;
   mentor_id: string;
-  mentee_id: string;
+  /** Null once the mentee's account is deleted (0209): there is nobody to notify. */
+  mentee_id: string | null;
   session_type: string;
   scheduled_start: string;
   scheduled_end: string;
@@ -74,7 +75,7 @@ async function loadSession(supabase: ServiceClient, sessionId: string): Promise<
     .eq("id", sessionId)
     .maybeSingle<SessionRow>();
   if (error) throw error;
-  if (!session || !session.meeting_link) return null;
+  if (!session || !session.meeting_link || session.mentee_id === null) return null;
 
   const { data: profiles, error: profileError } = await supabase
     .from("profiles")
@@ -142,7 +143,7 @@ export async function notifySessionConfirmed(sessionId: string): Promise<void> {
     const resolved = await loadSession(supabase, sessionId);
     if (!resolved) {
       console.error(
-        `[mentorship-notifications] session ${sessionId} not ready to notify (no meeting_link yet, or a party has no email on file)`,
+        `[mentorship-notifications] session ${sessionId} not ready to notify (no meeting_link yet, a party has no email on file, or the mentee's account was deleted)`,
       );
       return;
     }
