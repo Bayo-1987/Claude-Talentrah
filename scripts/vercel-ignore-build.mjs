@@ -54,7 +54,9 @@ export function decide({ env, git }) {
     }
     git(["fetch", "--no-tags", "origin", "+main:refs/remotes/origin/main"]);
     const base = git(["merge-base", "HEAD", "origin/main"]).trim();
-    const files = git(["diff", "--name-only", base, "HEAD"])
+    // --no-renames: with rename detection (git's default) a move of src/x.ts to docs/x.ts lists ONLY docs/x.ts,
+    // which would skip a build that deletes a source file. Without it the deleted src/ path is listed too.
+    const files = git(["diff", "--name-only", "--no-renames", base, "HEAD"])
       .split("\n")
       .map((f) => f.trim())
       .filter(Boolean);

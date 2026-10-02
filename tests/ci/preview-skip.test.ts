@@ -11,7 +11,7 @@
  * the merge.
  */
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { SKIP_PATHS, decide, isSafeToSkip, shouldSkipPreview } from "../../scripts/vercel-ignore-build.mjs";
 
@@ -130,12 +130,37 @@ describe("decide — the Ignored Build Step", () => {
     const { git, calls } = fakeGit({ fetch: "", "merge-base": "abc123\n", "diff --name-only": "docs/x.md\n" });
     decide({ env: PREVIEW, git });
     expect(calls.some((c) => c.startsWith("merge-base HEAD origin/main"))).toBe(true);
-    expect(calls.some((c) => c === "diff --name-only abc123 HEAD")).toBe(true);
+    expect(calls.some((c) => c === "diff --name-only --no-renames abc123 HEAD")).toBe(true);
   });
 
   it("states its reason, so the Vercel build log says why", () => {
     const { git } = fakeGit({ fetch: "", "merge-base": "abc\n", "diff --name-only": "docs/x.md\n" });
     expect(decide({ env: PREVIEW, git }).reason).toMatch(/docs|tests|only/i);
+  });
+});
+
+describe("what depends on a preview: only Lighthouse, and it skips for exactly the PRs whose preview is skipped", () => {
+  const workflowsDir = path.join(ROOT, ".github/workflows");
+  const PREVIEW_DEPENDENCY = /wait-for-vercel-preview|vercel\.app|deployment_status/;
+
+  it("no workflow other than lighthouse-budget.yml waits for, or reads, a Vercel preview", () => {
+    const dependents = readdirSync(workflowsDir)
+      .filter((f) => /\.ya?ml$/.test(f))
+      .filter((f) => PREVIEW_DEPENDENCY.test(readFileSync(path.join(workflowsDir, f), "utf8")));
+    expect(dependents).toEqual(["lighthouse-budget.yml"]);
+  });
+
+  it("Lighthouse waits for the PR's own preview (up to 600s), so a skipped preview WITHOUT paths-ignore would hang then fail", () => {
+    const yml = readFileSync(path.join(workflowsDir, "lighthouse-budget.yml"), "utf8");
+    expect(yml).toMatch(/wait-for-vercel-preview/);
+    expect(yml).toMatch(/max_timeout:\s*600/);
+    // ...which is why the two are coupled: the workflow must not run for a PR whose preview is skipped.
+    expect(yml).toMatch(/^\s+paths-ignore:/m);
+  });
+
+  it("the four required checks (ci.yml) build their own copy: none of them waits on a preview", () => {
+    const ci = readFileSync(path.join(workflowsDir, "ci.yml"), "utf8");
+    expect(ci).not.toMatch(PREVIEW_DEPENDENCY);
   });
 });
 
