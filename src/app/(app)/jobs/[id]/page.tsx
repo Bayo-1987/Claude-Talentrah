@@ -21,6 +21,7 @@ import { relevantJobLandingLinks } from "@/lib/seo/landing-page-links";
 import { skillsOf } from "@/lib/jobs/skill-facet";
 import { computeAndStoreMatchScores } from "@/lib/matching/compute-and-store";
 import { MatchBreakdown } from "@/components/jobs/match-breakdown";
+import { PostingSkills } from "@/components/jobs/posting-skills";
 import { EMPTY_RESUME } from "@/lib/resume/types";
 import type { StructuredResume } from "@/lib/resume/types";
 import {
@@ -684,9 +685,8 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
       </div>
 
       {skills.length > 0 && (
-        <BorderedCard className="flex flex-col gap-2 p-5">
-          <EyebrowLabel size="sm">Skills named in this posting</EyebrowLabel>
-          <p className="text-[14px] leading-relaxed text-ink-soft">{skills.join(" · ")}</p>
+        <BorderedCard className="p-5">
+          <PostingSkills skills={skills} />
         </BorderedCard>
       )}
 

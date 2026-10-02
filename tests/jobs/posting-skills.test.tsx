@@ -100,3 +100,12 @@ describe("PostingSkills", () => {
     expect(html).not.toContain("not counted");
   });
 });
+
+describe("the job detail page", () => {
+  it("renders its skills through PostingSkills, never by joining the raw list", async () => {
+    const { readFileSync } = await import("node:fs");
+    const src = readFileSync("src/app/(app)/jobs/[id]/page.tsx", "utf8");
+    expect(src).toContain("<PostingSkills skills={skills} />");
+    expect(src).not.toMatch(/skills\.join\(/);
+  });
+});
