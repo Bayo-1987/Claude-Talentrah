@@ -3315,6 +3315,42 @@ export type Database = {
           },
         ]
       }
+      talent_directory_waitlist: {
+        Row: {
+          created_at: string
+          id: string
+          joined_by: string | null
+          organization_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          joined_by?: string | null
+          organization_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          joined_by?: string | null
+          organization_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "talent_directory_waitlist_joined_by_fkey"
+            columns: ["joined_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "talent_directory_waitlist_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       talent_portfolio_items: {
         Row: {
           created_at: string
@@ -4438,6 +4474,8 @@ export type Database = {
         Returns: boolean
       }
       sync_mentor_payout_rows: { Args: never; Returns: number }
+      talent_directory_listed_count: { Args: never; Returns: number }
+      talent_directory_listed_ids: { Args: never; Returns: string[] }
       talent_directory_portfolio_items: {
         Args: { p_candidate_id: string }
         Returns: {
@@ -4447,6 +4485,9 @@ export type Database = {
           url: string
         }[]
       }
+      talent_directory_preview: { Args: never; Returns: Json }
+      talent_directory_preview_for: { Args: { p_ids: string[] }; Returns: Json }
+      talent_directory_role_family: { Args: { p_title: string }; Returns: string }
       talent_directory_search: {
         Args: {
           p_available_for_hire?: boolean
@@ -4467,6 +4508,7 @@ export type Database = {
           verified_at: string
         }[]
       }
+      talent_directory_years_band: { Args: { p_years: number }; Returns: string }
       talent_verification_my_claims: {
         Args: never
         Returns: {
