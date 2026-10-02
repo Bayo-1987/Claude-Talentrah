@@ -50,7 +50,8 @@ describe("supabase/data-fixes", () => {
     const apply = sql.split("do $apply$")[1]?.split("$apply$;")[0] ?? "";
     const updates = apply.split(/^\s*update public\./m).slice(1);
     for (const u of updates) {
-      const stmt = u.split(";")[0];
+      // a note's own text can contain ";", so the statement ends at its row-count assertion, not at the first semicolon
+      const stmt = u.split("get diagnostics")[0];
       expect(stmt, "an UPDATE with a WHERE on id").toMatch(/where id = '[0-9a-f-]{36}'/);
     }
   });
