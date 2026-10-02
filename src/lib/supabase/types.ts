@@ -1539,6 +1539,44 @@ export type Database = {
           },
         ]
       }
+      job_expiry_reminders: {
+        Row: {
+          closes_at: string
+          created_at: string
+          id: string
+          job_posting_id: string
+          sent_at: string | null
+          token_hash: string
+          used_at: string | null
+        }
+        Insert: {
+          closes_at: string
+          created_at?: string
+          id?: string
+          job_posting_id: string
+          sent_at?: string | null
+          token_hash: string
+          used_at?: string | null
+        }
+        Update: {
+          closes_at?: string
+          created_at?: string
+          id?: string
+          job_posting_id?: string
+          sent_at?: string | null
+          token_hash?: string
+          used_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_expiry_reminders_job_posting_id_fkey"
+            columns: ["job_posting_id"]
+            isOneToOne: false
+            referencedRelation: "job_postings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       job_posting_assessment_files: {
         Row: {
           byte_size: number
@@ -1745,6 +1783,7 @@ export type Database = {
           claimed_at: string | null
           claimed_by_organization_id: string | null
           closed_at: string | null
+          closing_date_source: string | null
           company_logo_url: string | null
           company_name: string
           created_at: string
@@ -1790,6 +1829,7 @@ export type Database = {
           claimed_at?: string | null
           claimed_by_organization_id?: string | null
           closed_at?: string | null
+          closing_date_source?: string | null
           company_logo_url?: string | null
           company_name: string
           created_at?: string
@@ -1837,6 +1877,7 @@ export type Database = {
           claimed_at?: string | null
           claimed_by_organization_id?: string | null
           closed_at?: string | null
+          closing_date_source?: string | null
           company_logo_url?: string | null
           company_name?: string
           created_at?: string
@@ -4061,6 +4102,12 @@ export type Database = {
           reason: string
         }[]
       }
+      claim_job_expiry_reminder: {
+        Args: { p_job_posting_id: string; p_now?: string; p_token_hash: string }
+        Returns: {
+          closes_at: string
+        }[]
+      }
       claim_test_pool_user: {
         Args: {
           p_lease_id: string
@@ -4143,6 +4190,29 @@ export type Database = {
           applications_snapshotted: number
           ok: boolean
           reason: string
+        }[]
+      }
+      due_job_expiry_reminders: {
+        Args: { p_limit?: number; p_now?: string }
+        Returns: {
+          closes_at: string
+          job_posting_id: string
+          organization_id: string
+          title: string
+        }[]
+      }
+      job_expiry_function_definition: { Args: { p_name: string }; Returns: string }
+      expiry_reminder_window_ok: {
+        Args: { p_closes_at: string; p_now: string }
+        Returns: boolean
+      }
+      redeem_job_expiry_extend_token: {
+        Args: { p_now?: string; p_token_hash: string }
+        Returns: {
+          job_posting_id: string
+          new_expires_at: string
+          outcome: string
+          title: string
         }[]
       }
       email_unsubscribe: {
