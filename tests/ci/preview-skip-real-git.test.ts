@@ -14,11 +14,13 @@
  * mean what the logic assumes.
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { decide } from "../../scripts/vercel-ignore-build.mjs";
+
+const SCRIPT = path.resolve(__dirname, "../../scripts/vercel-ignore-build.mjs");
 
 const PREVIEW = { VERCEL_ENV: "preview" };
 
@@ -157,5 +159,42 @@ describe("real git: what the Ignored Build Step decides", () => {
   it("an empty diff (branch == main) builds", () => {
     const dir = clone("empty");
     expect(decide({ env: PREVIEW, git: gitIn(dir) })).toMatchObject({ skip: false });
+  });
+});
+
+describe("production is NEVER skipped, whatever the diff", () => {
+  /** A docs-only PR: the exact change that WOULD skip a preview. */
+  function docsOnlyClone(name: string): string {
+    const dir = clone(name);
+    write(dir, "docs/only.md");
+    run(dir, ["add", "-A"]);
+    run(dir, ["commit", "-q", "-m", "docs"]);
+    return dir;
+  }
+
+  it("the same docs-only change: skipped as a preview, built as production (decide, real git)", () => {
+    const dir = docsOnlyClone("prod-decide");
+    expect(decide({ env: { VERCEL_ENV: "preview" }, git: gitIn(dir) })).toMatchObject({ skip: true });
+    expect(decide({ env: { VERCEL_ENV: "production" }, git: gitIn(dir) })).toMatchObject({ skip: false });
+  });
+
+  it("the script as a real process: exit 0 (skip) for a preview, exit 1 (build) for production, and for anything else", () => {
+    const dir = docsOnlyClone("prod-process");
+    const exit = (env: Record<string, string | undefined>) => {
+      const r = spawnSync("node", [SCRIPT], {
+        cwd: dir,
+        encoding: "utf8",
+        env: { ...process.env, VERCEL_ENV: undefined, ...env },
+      });
+      return { code: r.status, out: r.stdout };
+    };
+    const preview = exit({ VERCEL_ENV: "preview" });
+    expect(preview.code, preview.out).toBe(0);
+    expect(preview.out).toMatch(/SKIP/);
+    for (const env of [{ VERCEL_ENV: "production" }, { VERCEL_ENV: "development" }, {}]) {
+      const r = exit(env);
+      expect(r.code, `${JSON.stringify(env)}: ${r.out}`).toBe(1);
+      expect(r.out).toMatch(/BUILD/);
+    }
   });
 });
