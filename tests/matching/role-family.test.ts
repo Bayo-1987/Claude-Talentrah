@@ -130,6 +130,32 @@ describe("each approved keyword fix, beyond the table", () => {
     ["Mechanical Engineering Technician", ["physical_engineering"]],
     // a title that merely MENTIONS maintenance is not an engineer role
     ["Facilities Maintenance Supervisor", ["operations"]],
+    // owner's second round (2026-10-02)
+    ["Systems Analyst", ["it_infra", "product"]],
+    ["System Analyst", ["it_infra", "product"]],
+    ["Team Lead, Database Management", ["data", "it_infra"]],
+    ["Database Administrator", ["data", "it_infra", "operations"]],
+    ["Fraud Analyst", ["finance"]],
+    ["Fraud and Investigation Analyst", ["finance"]],
+    ["Portfolio Analyst", ["finance"]],
+    ["Investment Analyst Intern", ["finance"]],
+    ["Strategy Analyst", []],
+    ["Residential Conveyancing Post-Settlement Legal Assistant", ["legal"]],
+    ["Settlement Officer, Legal", ["legal"]],
+    ["Settlement and Liquidity Officer", ["finance", "operations"]],
+    // the three old false positives, one test each
+    ["Credit Admin Analyst", ["finance"]], // "it admin" must be whole words: "credit admin" is not IT
+    ["IT Admin", ["it_infra"]],
+    ["IT Administrator", ["it_infra", "operations"]], // whole words, but "administrator" is still IT admin
+    ["Civil Infrastructure Design Engineer", ["physical_engineering"]], // infrastructure is IT only with an IT word
+    ["Cloud Infrastructure Engineer", ["engineering", "it_infra"]],
+    ["Network Infrastructure Lead", ["it_infra"]],
+    ["Infrastructure Engineer", ["engineering"]],
+    ["AML Transaction Monitoring Analyst", ["finance", "legal"]], // AML / transaction monitoring is finance + legal
+    ["Monitoring and Evaluation Officer", ["research_ngo"]],
+    ["M&E Specialist", ["research_ngo"]],
+    ["MEL Manager", ["research_ngo"]],
+    ["Network Monitoring Engineer", ["engineering"]], // "monitoring" alone is not research_ngo
     // "automation" is left out of physical engineering: it is read in context
     ["Test Automation Engineer", ["engineering", "qa"]],
     ["Marketing Automation Specialist", ["marketing"]],

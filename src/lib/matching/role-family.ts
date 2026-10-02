@@ -52,7 +52,7 @@ const RULES: Record<Exclude<RoleFamily, "design" | "engineering" | "physical_eng
   education: /learning experience|instructional design|curriculum|teacher|trainer|lecturer|instructor|tutor|education|academic|school/,
   qa: /\b(qa|sdet)\b|quality assurance|quality engineer|test engineer|\btester\b|test automation|engineer in test/,
   it_infra:
-    /it admin|systems? admin|sysadmin|infrastructure|network(ing)? (engineer|admin)|networking|devops|site reliability|\bsre\b|help ?desk|it support|it systems|desktop support|cloud (engineer|architect)|security engineer|database admin/,
+    /\bit (admin(istrators?)?|support|systems)\b|systems? admin|sysadmin|network(ing)? (engineer|admin)|networking|devops|site reliability|\bsre\b|help ?desk|desktop support|cloud (engineer|architect)|security engineer|database admin/,
   marketing: /marketing|\bseo\b|brand|growth|social media|copywriter|content|communications|community|public relations|campaign/,
   product:
     /product (manager|owner|lead|director|operations|analyst|management)|head of product|chief product|vp product|group product|product marketing|business analyst/,
@@ -60,14 +60,37 @@ const RULES: Record<Exclude<RoleFamily, "design" | "engineering" | "physical_eng
   data: /\bdata\b|analytics|scientist|machine learning|\bml\b|\bbi\b|business intelligence|statistician|business analyst/,
   sales: /sales|account (executive|manager)|key account|business development|partnerships?|revenue|business relationship/,
   customer: /customer|client success|support (specialist|agent|representative|officer|consultant)|technical support|success manager|service desk|business relationship/,
-  finance: /financ|account(ant|ing)|audit|\btax\b|treasur|payroll|bookkeep|controller|credit|risk|wire transfer|investor relations|settlement|compensation/,
+  finance: /financ|account(ant|ing)|audit|\btax\b|treasur|payroll|bookkeep|controller|credit|risk|wire transfer|investor relations|compensation/,
   hr: /\bhr\b|human resources|recruit|talent|people (partner|operations|manager)|compensation/,
   legal: /legal|counsel|compliance|paralegal|contract management/,
   operations:
     /operations|operational|logistics|supply chain|procurement|office manager|administrat|implementation|liquidity|coordinator|facilities|warehouse|contract management/,
   research_ngo:
-    /research|monitoring|evaluation|\bmel\b|impact|policy|programme officer|program officer|inclusion|field (officer|agent)|agronom|extension|gender/,
+    /research|evaluation|\bm ?& ?e\b|\bmel\b|impact|policy|programme officer|program officer|inclusion|field (officer|agent)|agronom|extension|gender/,
 };
+
+/**
+ * Rules that add families on context a single keyword cannot carry (owner-approved 2026-10-02). `unless` suppresses a rule when
+ * the title also matches it.
+ */
+const IT_WORD = "(cloud|network(ing)?|it|devops|platform)";
+export const EXTRA_RULES: Array<{ families: RoleFamily[]; pattern: RegExp; unless?: RegExp }> = [
+  // "infrastructure" is IT only beside an IT word: "Civil Infrastructure Design Engineer" is not.
+  {
+    families: ["it_infra"],
+    pattern: new RegExp(`\\b${IT_WORD}\\b.*\\binfrastructure\\b|\\binfrastructure\\b.*\\b${IT_WORD}\\b`),
+  },
+  // Sits between business requirements and IT systems.
+  { families: ["it_infra", "product"], pattern: /\bsystems? analyst\b/ },
+  // "database" counts as data and as it_infra, as a whole word (so "Database Administrator" and "Database Management" are both).
+  { families: ["data", "it_infra"], pattern: /\bdatabases?\b/ },
+  // These analyst roles are finance; a bare "analyst" and "strategy analyst" are not classified.
+  { families: ["finance"], pattern: /\b(fraud|portfolio|investment)\b.*\banalyst\b/ },
+  // Settlement is finance, except in a legal/conveyancing title, where it is a legal term.
+  { families: ["finance"], pattern: /settlement/, unless: /legal|conveyanc/ },
+  // AML and transaction monitoring are finance + legal (compliance), not research/M&E.
+  { families: ["finance", "legal"], pattern: /\baml\b|transaction monitoring|anti-money/ },
+];
 
 const DESIGN = /\b(ux|ui)\b|ux\/ui|ui\/ux|designer|design lead|creative director|interaction designer/;
 const SOFTWARE_ENGINEERING =
@@ -86,6 +109,9 @@ export function classifyRoleFamilies(title: string): RoleFamily[] {
 
   for (const family of Object.keys(RULES) as Array<keyof typeof RULES>) {
     if (RULES[family].test(t)) found.add(family);
+  }
+  for (const rule of EXTRA_RULES) {
+    if (rule.pattern.test(t) && !(rule.unless && rule.unless.test(t))) rule.families.forEach((f) => found.add(f));
   }
   if (DESIGN.test(t) && !EDUCATION_PHRASES.test(t)) found.add("design");
 
