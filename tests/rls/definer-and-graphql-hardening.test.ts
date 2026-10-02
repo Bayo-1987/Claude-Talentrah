@@ -103,17 +103,26 @@ afterAll(async () => {
   await deleteTestUsers([seeker?.id, owner?.id].filter(Boolean) as string[]);
 }, 120_000);
 
+/**
+ * Over REST a role with no EXECUTE on a function does not get "permission denied" (42501): PostgREST leaves the function out of its schema
+ * cache for that role and answers PGRST202 ("could not find the function"). Production's own SQL-level call is 42501; the REST path, which is
+ * what a real caller has, is PGRST202 (found by this suite's first CI run). Both mean "this role cannot call it". What neither is: the
+ * answer the function gives when it IS reachable, which for a trigger function is "trigger functions can only be called as triggers"
+ * (0A000), so a missing revoke still fails these tests.
+ */
+const NOT_CALLABLE = ["42501", "PGRST202"];
+
 describe("the six trigger-only functions cannot be called directly", () => {
-  it.each(TRIGGER_FUNCTIONS)("%s: anon is refused with 'permission denied' (42501)", async (fn) => {
+  it.each(TRIGGER_FUNCTIONS)("%s: anon cannot call it (42501, or PGRST202 over REST)", async (fn) => {
     const { error } = await anon.rpc(fn as never);
     expect(error, "must be an error").not.toBeNull();
-    expect(error!.code).toBe("42501");
+    expect(NOT_CALLABLE).toContain(error!.code);
   });
 
-  it.each(TRIGGER_FUNCTIONS)("%s: a signed-in user is refused with 'permission denied' (42501)", async (fn) => {
+  it.each(TRIGGER_FUNCTIONS)("%s: a signed-in user cannot call it (42501, or PGRST202 over REST)", async (fn) => {
     const { error } = await (owner.client as unknown as SupabaseClient).rpc(fn as never);
     expect(error, "must be an error").not.toBeNull();
-    expect(error!.code).toBe("42501");
+    expect(NOT_CALLABLE).toContain(error!.code);
   });
 });
 
