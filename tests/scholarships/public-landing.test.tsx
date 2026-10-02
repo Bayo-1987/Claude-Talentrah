@@ -52,6 +52,8 @@ function listing(over: Partial<LandingListing> = {}): LandingListing {
     degree_levels: ["msc"],
     funding_type: "full",
     application_deadline: ymd(40),
+    close_time: null,
+    close_tz: null,
     deadline_note: null,
     official_url: "https://www.chevening.org/scholarship/nigeria/",
     ...over,
@@ -214,32 +216,57 @@ describe("Open this cycle (real listings)", () => {
       expect(html).not.toContain("days left");
     });
 
-    it("more than 14 days out (15): the date alone — no countdown, no rust", () => {
-      const html = render(FACETS, [listing({ application_deadline: ymd(15) })]);
-      expect(html).not.toContain("days left");
-      expect(html).not.toContain("closes today");
-      expect(deadlineSpan(html)![0]).not.toContain("text-rust");
-    });
+    /*
+     * CHANGED DELIBERATELY (send-508, S3-21a). "N days left" used to be calendar days from the server's local midnight to a date, so it
+     * moved with the DATE and these tests used `ymd(n)`. It now counts whole days to the closing INSTANT (src/lib/scholarships/close-instant.ts),
+     * so the tests fix the clock and state the instant: each listing closes at an explicit time in UTC, `n` days and one hour from the
+     * pinned "now". The exact boundary minute per zone is in tests/scholarships/close-instant-call-sites.test.ts.
+     */
+    describe("with the clock pinned (09:00 UTC on 20 Sep 2026)", () => {
+      beforeEach(() => {
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date("2026-09-20T09:00:00Z"));
+      });
+      afterEach(() => vi.useRealTimers());
 
-    it("exactly 14 days out: rust with '14 days left' (the boundary is inclusive, as on the scholarship card)", () => {
-      const span = deadlineSpan(render(FACETS, [listing({ application_deadline: ymd(14) })]))!;
-      expect(span[0]).toContain("text-rust");
-      expect(span[1]).toMatch(/^\d{1,2} [A-Z][a-z]{2} \d{4} · 14 days left$/);
-    });
+      const closing = (extraMs: number) => {
+        const t = new Date(Date.parse("2026-09-20T09:00:00Z") + extraMs);
+        return {
+          application_deadline: t.toISOString().slice(0, 10),
+          close_time: t.toISOString().slice(11, 16),
+          close_tz: "UTC",
+        };
+      };
+      const DAY = 86_400_000;
+      const HOUR = 3_600_000;
 
-    it("5 days out: rust with '5 days left'", () => {
-      const span = deadlineSpan(render(FACETS, [listing({ application_deadline: ymd(5) })]))!;
-      expect(span[0]).toContain("text-rust");
-      expect(span[1]).toMatch(/ · 5 days left$/);
-    });
+      it("more than 14 days out (15): the date alone — no countdown, no rust", () => {
+        const html = render(FACETS, [listing(closing(15 * DAY + HOUR))]);
+        expect(html).not.toContain("days left");
+        expect(html).not.toContain("closes today");
+        expect(deadlineSpan(html)![0]).not.toContain("text-rust");
+      });
 
-    it("closes today and closes tomorrow read naturally", () => {
-      const today = deadlineSpan(render(FACETS, [listing({ application_deadline: ymd(0) })]))!;
-      expect(today[1]).toMatch(/ · closes today$/);
-      expect(today[0]).toContain("text-rust");
-      const tomorrow = deadlineSpan(render(FACETS, [listing({ application_deadline: ymd(1) })]))!;
-      expect(tomorrow[1]).toMatch(/ · 1 day left$/);
-      expect(tomorrow[1]).not.toContain("1 days");
+      it("exactly 14 days out: rust with '14 days left' (the boundary is inclusive, as on the scholarship card)", () => {
+        const span = deadlineSpan(render(FACETS, [listing(closing(14 * DAY + HOUR))]))!;
+        expect(span[0]).toContain("text-rust");
+        expect(span[1]).toMatch(/^\d{1,2} [A-Z][a-z]{2} \d{4} · 14 days left$/);
+      });
+
+      it("5 days out: rust with '5 days left'", () => {
+        const span = deadlineSpan(render(FACETS, [listing(closing(5 * DAY + HOUR))]))!;
+        expect(span[0]).toContain("text-rust");
+        expect(span[1]).toMatch(/ · 5 days left$/);
+      });
+
+      it("5 hours out reads 'Closes in 5 hours' (true for every reader), 29 hours out '1 day left'", () => {
+        const today = deadlineSpan(render(FACETS, [listing(closing(5 * HOUR))]))!;
+        expect(today[1]).toMatch(/ · Closes in 5 hours$/);
+        expect(today[0]).toContain("text-rust");
+        const tomorrow = deadlineSpan(render(FACETS, [listing(closing(DAY + 5 * HOUR))]))!;
+        expect(tomorrow[1]).toMatch(/ · 1 day left$/);
+        expect(tomorrow[1]).not.toContain("1 days");
+      });
     });
 
     it("no date but the provider's own note: shows the note, verbatim", () => {
@@ -345,53 +372,60 @@ describe("the approved copy (send-480 self-review corrections)", () => {
   });
 });
 
-describe("which clock decides 'closes today' and 'N days left' (pinned, send-480)", () => {
+describe("which instant decides 'closes today' and 'N days left' (send-480, rewritten by send-508)", () => {
   /*
-   * THE RULE: the SERVER'S LOCAL calendar date. `daysUntil` (scholarship-card.tsx, shared with the
-   * cards) parses the DATE column as a local date and compares it with local midnight today. On Vercel
-   * the server runs in UTC, so in production this is "the UTC date": a deadline of 2 Oct is 'closes
-   * today' for the whole of 2 Oct UTC (01:00 to 00:59 in Lagos, WAT = UTC+1) and is gone from the
-   * 3 Oct 00:00 UTC render. The still-open FILTER (landing-page-data.ts) uses the UTC date explicitly
-   * (toISOString), so on Vercel the two agree; on a machine in another time zone they can differ by a
-   * day. These tests pin TZ=UTC and a fixed clock, so they say exactly which rule they are pinning.
+   * THE RULE NOW (owner's call, S3-21a; migration 0204 and src/lib/scholarships/close-instant.ts): a listing closes at an INSTANT.
+   *   - a closing time and zone stated: that wall-clock time in that zone;
+   *   - a zone but no time: the end of that day there;
+   *   - neither: the end of the day at UTC-12, i.e. 12:00 UTC the NEXT day, so a bare "2 Oct" is open until 12:00 UTC on 3 Oct.
+   * It used to be "the server's UTC date": a deadline of 2 Oct was gone from the 00:00 UTC 3 Oct render, whatever zone the source stated.
+   * The countdown is whole days to that instant (0 = "closes today", the last 24 hours), so it DOES move with the time of day.
+   * Pinned with a fixed clock; the TZ of the machine is irrelevant (and no longer set here) because nothing reads the local calendar.
    */
-  const ORIGINAL_TZ = process.env.TZ;
-  beforeEach(() => {
-    process.env.TZ = "UTC";
-    vi.useFakeTimers();
-  });
-  afterEach(() => {
-    vi.useRealTimers();
-    if (ORIGINAL_TZ === undefined) delete process.env.TZ;
-    else process.env.TZ = ORIGINAL_TZ;
-  });
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
 
-  const at = (iso: string, deadline: string | null) => {
+  const at = (iso: string, over: Partial<LandingListing>) => {
     vi.setSystemTime(new Date(iso));
-    return render(FACETS, [listing({ application_deadline: deadline, deadline_note: null })]);
+    return render(FACETS, [listing({ deadline_note: null, ...over })]);
   };
 
-  it("a deadline of 2 Oct, at 23:30 UTC on 2 Oct: still open, and it says 'closes today'", () => {
-    const span = deadlineSpan(at("2026-10-02T23:30:00Z", "2026-10-02"))!;
-    expect(span[1]).toBe("2 Oct 2026 · closes today");
-    expect(span[0]).toContain("text-rust");
+  /*
+   * CHANGED DELIBERATELY (send-511). For a row with NO zone the 0204 rule still decides whether it is LISTED (open until 12:00 UTC the next day),
+   * but the COUNTDOWN now reads the stated date on the timeline of the earliest zone (UTC+14): "N days left" before the date has begun anywhere,
+   * "Closes today: time zone not stated, apply now" while the date is current there, then "Deadline date has passed in some time zones. May
+   * already be closed" until the last place has ended the day. These tests used to expect "closes today" for the whole 36 hours.
+   */
+  const LAST_DAY_2_OCT = "Last day: deadline 2 Oct 2026, time zone not stated. Apply now.";
+  const PASSED = "Deadline date has passed in some time zones. May already be closed.";
+
+  it("a no-zone deadline of 2 Oct: 'Last day, apply now' on the day, 'passed in some time zones' from 10:00 UTC, and STILL listed at 00:30 UTC on 3 Oct", () => {
+    const row = { application_deadline: "2026-10-02" };
+    const onTheDay = deadlineSpan(at("2026-10-02T08:30:00Z", row))!;
+    expect(onTheDay[1]).toBe(LAST_DAY_2_OCT);
+    expect(onTheDay[0]).toContain("text-rust");
+    expect(deadlineSpan(at("2026-10-02T10:00:00Z", row))![1]).toBe(`2 Oct 2026 · ${PASSED}`);
+    const after = deadlineSpan(at("2026-10-03T00:30:00Z", row))!;
+    expect(after[1]).toBe(`2 Oct 2026 · ${PASSED}`);
+    expect(after[0]).toContain("text-rust");
   });
 
-  it("the same deadline, at 00:30 UTC on 3 Oct: it has passed, so the date shows with no countdown and no rust", () => {
-    const span = deadlineSpan(at("2026-10-03T00:30:00Z", "2026-10-02"))!;
+  it("the same deadline has closed at 12:00 UTC on 3 Oct: the date shows with no countdown and no rust", () => {
+    const span = deadlineSpan(at("2026-10-03T12:00:00Z", { application_deadline: "2026-10-02" }))!;
     expect(span[1]).toBe("2 Oct 2026");
     expect(span[0]).not.toContain("text-rust");
   });
 
-  it("the day before the boundary: 3 Oct at 23:30 UTC on 2 Oct is '1 day left', and at 00:30 UTC on 3 Oct it is 'closes today'", () => {
-    expect(deadlineSpan(at("2026-10-02T23:30:00Z", "2026-10-03"))![1]).toBe("3 Oct 2026 · 1 day left");
-    expect(deadlineSpan(at("2026-10-03T00:30:00Z", "2026-10-03"))![1]).toBe("3 Oct 2026 · closes today");
+  it("a stated closing time is honoured to the minute: 13:00 Pacific on 2 Oct is 20:00 UTC", () => {
+    const row = { application_deadline: "2026-10-02", close_time: "13:00", close_tz: "America/Vancouver" };
+    expect(deadlineSpan(at("2026-10-02T19:59:00Z", row))![1]).toBe("2 Oct 2026 · Closes in under an hour");
+    expect(deadlineSpan(at("2026-10-02T20:00:00Z", row))![1]).toBe("2 Oct 2026");
   });
 
-  it("the countdown never changes with the time of day, only with the date", () => {
-    const morning = deadlineSpan(at("2026-09-20T00:00:01Z", "2026-10-02"))![1];
-    const night = deadlineSpan(at("2026-09-20T23:59:59Z", "2026-10-02"))![1];
-    expect(morning).toBe(night);
-    expect(morning).toBe("2 Oct 2026 · 12 days left");
+  it("a no-zone row counts calendar days to the stated date on the UTC+14 timeline", () => {
+    const row = { application_deadline: "2026-10-02" };
+    expect(deadlineSpan(at("2026-09-30T12:00:00Z", row))![1]).toBe("2 Oct 2026 · 1 day left");
+    expect(deadlineSpan(at("2026-09-29T12:00:00Z", row))![1]).toBe("2 Oct 2026 · 2 days left");
+    expect(deadlineSpan(at("2026-10-01T10:00:00Z", row))![1]).toBe(LAST_DAY_2_OCT);
   });
 });

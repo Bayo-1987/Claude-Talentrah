@@ -9,7 +9,9 @@ import {
   FUNDING_TYPE_LABEL,
   type SaveStatus,
 } from "@/lib/scholarships/types";
-import { daysUntil, formatDeadline } from "@/components/scholarships/scholarship-card";
+import { formatDeadline } from "@/components/scholarships/scholarship-card";
+import { scholarshipDeadlineDisplay } from "@/lib/scholarships/close-instant";
+import { DeadlineLine } from "@/components/scholarships/deadline-line";
 import { SaveToggle } from "@/components/scholarships/save-toggle";
 import { SaveStatusSelect } from "@/components/scholarships/save-status-select";
 import { FarahActions } from "@/components/scholarships/farah-actions";
@@ -17,6 +19,8 @@ import { relevantScholarshipLandingLinks } from "@/lib/seo/landing-page-links";
 import { checkPassCoverage } from "@/lib/passes/entitlement";
 import { loadPublicScholarship } from "@/lib/scholarships/public";
 import { renderMarkdownParagraphs } from "@/lib/farah/render-markdown";
+import { JsonLd } from "@/components/seo/json-ld";
+import { buildBreadcrumbJsonLd } from "@/lib/seo/breadcrumb-jsonld";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -110,8 +114,8 @@ export default async function ScholarshipDetailPage({
   const landingLinks = await relevantScholarshipLandingLinks(await createClient(), scholarship);
 
   const save = saveResult.data as { id: string; status: SaveStatus } | null;
-  const left = daysUntil(scholarship.application_deadline);
-  const urgent = left !== null && left >= 0 && left <= 14;
+  const deadline = scholarshipDeadlineDisplay(scholarship, new Date(), { detailed: true, showClosed: true });
+  const urgent = deadline?.urgent ?? false;
 
   const meta = [
     ...scholarship.degree_levels.map((l) => DEGREE_LEVEL_LABEL[l]),
@@ -120,6 +124,14 @@ export default async function ScholarshipDetailPage({
 
   return (
     <div className="flex max-w-[720px] flex-col gap-6">
+      {/* BreadcrumbList only (src/lib/seo/breadcrumb-jsonld.ts): the one structured-data type that is both supported and fully on the page. */}
+      <JsonLd
+        data={buildBreadcrumbJsonLd([
+          { name: "Talentrah", path: "/" },
+          { name: "Scholarships", path: "/scholarships" },
+          { name: scholarship.program_name, path: `/scholarships/${scholarship.id}` },
+        ])}
+      />
       <Link
         href="/scholarships"
         className="inline-flex min-h-10 min-w-10 items-center self-start text-[13px] font-semibold text-ink-soft no-underline hover:text-rust"
@@ -191,7 +203,6 @@ export default async function ScholarshipDetailPage({
 
       <div className="flex flex-col gap-1 border-y border-line py-3">
         <span className="text-[13.5px] text-ink-soft">
-          <span className="font-semibold text-ink">Deadline: </span>
           {/*
             EXACTLY AS STORED, never a reconstruction — the same rule the
             ingestion pipeline enforces on the way in (§6.15: a wrong
@@ -200,12 +211,16 @@ export default async function ScholarshipDetailPage({
             not a gap, so it renders as the sourced sentence rather than a
             placeholder.
           */}
-          <span className={urgent ? "font-semibold text-rust" : undefined}>
-            {scholarship.application_deadline
-              ? formatDeadline(scholarship.application_deadline)
-              : (scholarship.deadline_note ?? "Not published yet")}
-            {left !== null && left >= 0 && ` · ${left} ${left === 1 ? "day" : "days"} left`}
-          </span>
+          <DeadlineLine
+            text={
+              scholarship.application_deadline
+                ? (deadline?.text ?? formatDeadline(scholarship.application_deadline))
+                : (scholarship.deadline_note ?? "Not published yet")
+            }
+            urgent={urgent}
+            labelled={deadline?.labelled ?? true}
+            labelClassName="font-semibold text-ink"
+          />
         </span>
         {scholarship.field_tags.length > 0 && (
           <span className="text-[13px] text-ink-soft">{scholarship.field_tags.join(" · ")}</span>

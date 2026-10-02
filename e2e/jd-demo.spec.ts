@@ -78,7 +78,7 @@ test.describe("the anonymous demo", () => {
 
   test("refuses a pasted link and a too-short paste, without spending a run", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByText(/one free run/)).toBeVisible();
+    await expect(page.getByText(/One free preview per visitor/)).toBeVisible();
 
     await page.getByLabel("Job description").fill("https://example.com/jobs/123");
     await page.getByRole("button", { name: "Send to Farah" }).click();
@@ -148,7 +148,7 @@ test.describe("the anonymous demo", () => {
     await page.reload();
     await page.getByLabel("Job description").fill(JD);
     await page.getByRole("button", { name: "Send to Farah" }).click();
-    await expect(page.getByText(/already used the free preview/)).toBeVisible({ timeout: 60000 });
+    await expect(page.getByText(/You've used your free preview/)).toBeVisible({ timeout: 60000 });
     await expect(page.getByRole("link", { name: /Create a free account/ })).toBeVisible();
   });
 
@@ -205,7 +205,7 @@ test.describe("the anonymous demo", () => {
     expect(res.status()).toBe(429);
     const body = await res.json();
     expect(body.reason).toBe("daily_cap");
-    expect(body.error).toContain("capped at 5");
+    expect(body.error).toContain("5 a day");
     await sixth.dispose();
   });
 });

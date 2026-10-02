@@ -221,6 +221,57 @@ test.describe("signed-out masthead on a phone (send-488)", () => {
     await expect(trigger, "focus must be on the hamburger after Escape").toBeFocused();
   });
 
+  /*
+   * #617 — the keyboard path. The click-open test above never moves focus off the hamburger, so it cannot
+   * see this: with the menu opened from the keyboard, Tab moves focus INTO the menu, and Escape used to
+   * close it and drop focus to <body> (a keyboard or screen-reader user then re-tabbed from the top of the
+   * page). The WAI-ARIA menu-button pattern, and both signed-in mastheads, return focus to the trigger.
+   * Reaches the hamburger by pressing Tab, as a user does, rather than calling .focus() on it.
+   */
+  async function tabToHamburger(page: Page) {
+    for (let i = 0; i < 25; i++) {
+      await page.keyboard.press("Tab");
+      const label = await page.evaluate(() => document.activeElement?.getAttribute("aria-label") ?? null);
+      if (label === "Main menu") return;
+    }
+    throw new Error("Tab never reached the Main menu button within 25 presses");
+  }
+
+  test("keyboard: Escape from the first menu item closes the menu and returns focus to the hamburger (#617)", async ({
+    page,
+  }) => {
+    await open(page, "/", 390);
+    const trigger = page.getByRole("button", { name: "Main menu" });
+    await tabToHamburger(page);
+    await page.keyboard.press("Enter");
+    await expect(trigger).toHaveAttribute("aria-expanded", "true");
+
+    await page.keyboard.press("Tab");
+    await expect(page.getByRole("menuitem", { name: "Browse Jobs" }), "Tab should move into the menu").toBeFocused();
+
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("menu")).toBeHidden();
+    await expect(trigger).toHaveAttribute("aria-expanded", "false");
+    await expect(trigger, "focus must return to the hamburger, not fall to <body>").toBeFocused();
+
+    // Proof the focus is real and usable: Enter on it reopens the menu.
+    await page.keyboard.press("Enter");
+    await expect(trigger).toHaveAttribute("aria-expanded", "true");
+  });
+
+  test("keyboard: Escape from the LAST menu item does the same (#617)", async ({ page }) => {
+    await open(page, "/", 390);
+    const trigger = page.getByRole("button", { name: "Main menu" });
+    await tabToHamburger(page);
+    await page.keyboard.press("Enter");
+    for (let i = 0; i < 4; i++) await page.keyboard.press("Tab");
+    await expect(page.getByRole("menuitem", { name: "FAQs" })).toBeFocused();
+
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("menu")).toBeHidden();
+    await expect(trigger).toBeFocused();
+  });
+
   test("keyboard focus is visible on Log in, the CTA and the hamburger at 390px", async ({ page }) => {
     for (const [name, selector] of [
       ["Log in", 'header a[href="/login"]'],

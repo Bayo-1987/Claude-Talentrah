@@ -14,7 +14,7 @@ export function HeroSection() {
             {/* "job link" removed: nothing in this codebase fetches a URL, so
                 the hero was advertising a capability that does not exist. */}
             Paste a job description and Farah returns your match score, what&apos;s missing, and
-            a tailored resume — free, no account needed.
+            a tailored resume.
           </p>
         </div>
 

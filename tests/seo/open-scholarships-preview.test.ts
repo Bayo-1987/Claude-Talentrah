@@ -120,9 +120,14 @@ describe("loadOpenScholarshipsPreview", () => {
     await fixture("columns", { moderation_status: "verified", application_deadline: isoDate(4) });
     const rows = mine(await loadOpenScholarshipsPreview(anon, 500));
     expect(rows.length).toBeGreaterThan(0);
+    // CHANGED DELIBERATELY (send-508, S3-21a): the countdown on this page ("closes today", "N days left") is measured to the closing INSTANT,
+    // which needs the two short columns close_time and close_tz beside application_deadline (about 25 bytes a row). Still an exact key set,
+    // so anything else added "just for the card" still fails here instead of quietly restoring a wide payload.
     expect(Object.keys(rows[0]).sort()).toEqual(
       [
         "application_deadline",
+        "close_time",
+        "close_tz",
         "deadline_note",
         "degree_levels",
         "funding_type",
