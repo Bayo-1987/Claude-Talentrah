@@ -2282,7 +2282,7 @@ export type Database = {
           {
             foreignKeyName: "mentorship_sessions_availability_slot_id_fkey"
             columns: ["availability_slot_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "mentor_availability_slots"
             referencedColumns: ["id"]
           },
@@ -3862,6 +3862,10 @@ export type Database = {
           session_id: string
         }[]
       }
+      cancel_unpaid_mentor_session: {
+        Args: { p_mentee_id: string; p_session_id: string }
+        Returns: boolean
+      }
       charge_ad_campaign_day: {
         Args: { p_campaign_id: string; p_on_date?: string }
         Returns: {
@@ -4060,6 +4064,22 @@ export type Database = {
         Returns: {
           structured_content: Json
           template_slug: string
+        }[]
+      }
+      open_mentor_slots: {
+        Args: { p_mentor_ids: string[]; p_now?: string }
+        Returns: {
+          id: string
+          mentor_id: string
+          start_at: string
+          end_at: string
+        }[]
+      }
+      expire_unpaid_mentor_sessions: {
+        Args: { p_now?: string }
+        Returns: {
+          session_id: string
+          slot_id: string
         }[]
       }
       fulfill_credit_pack_or_pass: {
@@ -4410,6 +4430,10 @@ export type Database = {
           p_reviewer_id: string
         }
         Returns: Database["public"]["Enums"]["ad_campaign_status"]
+      }
+      settle_late_mentor_payment: {
+        Args: { p_now?: string; p_session_id: string }
+        Returns: string
       }
       spend_credits_atomic: {
         Args: {

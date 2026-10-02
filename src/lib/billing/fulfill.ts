@@ -2,10 +2,10 @@ import "server-only";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { getResendClient } from "@/lib/resend/client";
 import { visibleName } from "@/lib/profile/name";
+import { buildPurchaseReceiptEmail } from "@/lib/billing/receipt-email";
 import { verifyTransaction } from "@/lib/paystack/client";
 import { captureEvent } from "@/lib/analytics/posthog";
-import { absoluteUrl } from "@/lib/seo/site";
-import { emailParagraph, escEmail, renderBrandedEmail } from "@/lib/email/layout";
+import { alertPaymentNeedsRefund } from "@/lib/mentorship/refund-alert";
 
 export interface FulfillResult {
   status: "success" | "already_processed" | "failed" | "not_found";
@@ -165,6 +165,7 @@ export async function fulfillPayment(
         await sendPurchaseReceipt(supabase, {
           userId: transaction.user_id,
           productName: purchased,
+          productType: transaction.product_type,
           amountNgn: transaction.amount,
           reference,
         });
@@ -298,6 +299,43 @@ export async function fulfillPayment(
       .maybeSingle();
     if (session) {
       purchased = `Mentorship session (${session.session_type.replace(/_/g, " ")})`;
+    } else {
+      /*
+       * NOT pending_payment any more. Before 0203 that could only mean "already settled" (a redelivery), and falling through
+       * to "mark the transaction success" was harmless. Now an unpaid booking EXPIRES when its slot starts, or the mentee can
+       * cancel it, and a Paystack confirmation can still arrive afterwards (an abandoned checkout link paid later: the owner's
+       * own 17 Sep booking has exactly such a pending transaction). Falling through here would record the charge, leave the
+       * booking dead, and keep the money without a word.
+       *
+       * settle_late_mentor_payment decides, atomically: slot still free and ahead -> REINSTATE the booking (awaiting the
+       * mentor, slot locked again); otherwise mark it payment_needs_refund, which the admin ops badge counts. Never silent.
+       *
+       * A failure of the RPC itself THROWS, before the transaction is marked success: the transaction stays `pending`, so the
+       * webhook's own retry runs this again. Recording a success we could not act on is the one outcome to avoid.
+       */
+      const { data: outcome, error: settleError } = await supabase.rpc("settle_late_mentor_payment", {
+        p_session_id: transaction.product_id,
+      });
+      if (settleError) {
+        throw new Error(
+          `[fulfill] could not settle a late payment for mentor session ${transaction.product_id} (reference ${reference}): ${settleError.message}`,
+        );
+      }
+      if (outcome === "reinstated") {
+        const { data: restored } = await supabase
+          .from("mentorship_sessions")
+          .select("session_type")
+          .eq("id", transaction.product_id)
+          .maybeSingle();
+        if (restored) purchased = `Mentorship session (${restored.session_type.replace(/_/g, " ")})`;
+      } else if (outcome === "needs_refund") {
+        // `purchased` stays unset: no purchase receipt for a payment that is about to be refunded.
+        await alertPaymentNeedsRefund({
+          reference,
+          amountNgn: transaction.amount,
+          sessionId: transaction.product_id,
+        });
+      }
     }
   }
 
@@ -344,6 +382,7 @@ export async function fulfillPayment(
       await sendPurchaseReceipt(supabase, {
         userId: transaction.user_id,
         productName: purchased,
+        productType: transaction.product_type,
         /*
          * `amount` is NAIRA, not kobo. The kobo conversion lives at the
          * Paystack boundary (`Math.round(amountNgn * 100)` in the client) and
@@ -392,7 +431,7 @@ export async function fulfillPayment(
  */
 async function sendPurchaseReceipt(
   supabase: ReturnType<typeof createServiceRoleClient>,
-  args: { userId: string; productName: string; amountNgn: number; reference: string },
+  args: { userId: string; productName: string; productType: string; amountNgn: number; reference: string },
 ) {
   const resend = getResendClient();
   if (!resend) return;
@@ -404,42 +443,22 @@ async function sendPurchaseReceipt(
     .maybeSingle();
   if (!profile?.email) return;
 
-  const greeting = visibleName(profile.first_name);
-  const amountText = `₦${args.amountNgn.toLocaleString()}`;
-  const billingUrl = absoluteUrl("/billing");
-
-  const receiptBox = `<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">
-      <tr><td style="padding:4px 0;font:400 14px/1.5 -apple-system,Segoe UI,Roboto,sans-serif;color:#5a4a3f;">What you bought</td>
-          <td style="padding:4px 0;font:600 14px/1.5 -apple-system,Segoe UI,Roboto,sans-serif;color:#2b2119;text-align:right;">${escEmail(args.productName)}</td></tr>
-      <tr><td style="padding:4px 0;font:400 14px/1.5 -apple-system,Segoe UI,Roboto,sans-serif;color:#5a4a3f;">Amount</td>
-          <td style="padding:4px 0;font:600 14px/1.5 -apple-system,Segoe UI,Roboto,sans-serif;color:#2b2119;text-align:right;">${escEmail(amountText)}</td></tr>
-      <tr><td style="padding:4px 0;font:400 14px/1.5 -apple-system,Segoe UI,Roboto,sans-serif;color:#5a4a3f;">Receipt number</td>
-          <td style="padding:4px 0;font:600 14px/1.5 -apple-system,Segoe UI,Roboto,sans-serif;color:#2b2119;text-align:right;">${escEmail(args.reference)}</td></tr>
-    </table>`;
+  // The email itself (short receipt number plus the full payment reference) is built in receipt-email.ts so it can be
+  // tested without a database.
+  const email = buildPurchaseReceiptEmail({
+    greeting: visibleName(profile.first_name),
+    productName: args.productName,
+    productType: args.productType,
+    amountNgn: args.amountNgn,
+    reference: args.reference,
+  });
 
   await resend.emails.send({
     from: "Talentrah <billing@talentrah.com>",
     to: profile.email,
-    subject: `Your Talentrah purchase — ${args.productName}`,
-    text:
-      `Hi${greeting ? ` ${greeting}` : ""},\n\n` +
-      `Thanks — your payment went through.\n\n` +
-      `What you bought: ${args.productName}\n` +
-      `Amount: ${amountText}\n` +
-      `Receipt number: ${args.reference}\n\n` +
-      `Quote the receipt number if you ever need to ask us about this payment. ` +
-      `You can see all your purchases on your Billing page.\n\n— Talentrah`,
-    html: renderBrandedEmail({
-      bodyHtml: [
-        emailParagraph(`Hi${greeting ? ` ${escEmail(greeting)}` : ""},`),
-        emailParagraph("Thanks — your payment went through."),
-        receiptBox,
-        emailParagraph(
-          `Quote the receipt number if you ever need to ask us about this payment. You can see all your purchases on your <a href="${escEmail(billingUrl)}" style="color:#6b4a3a;">Billing page</a>.`,
-        ),
-        emailParagraph("— Talentrah"),
-      ].join("\n"),
-    }),
+    subject: email.subject,
+    text: email.text,
+    html: email.html,
   });
 }
 

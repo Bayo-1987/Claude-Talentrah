@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { clearDemoFarahThread } from "./fixtures/farah-thread";
 
 /**
  * A second-or-later "Ask Farah" click, once a conversation already has
@@ -50,6 +51,12 @@ async function waitForReplyToFinish(page: Page) {
 
 test.describe("switching which job the docked panel is seeded for", () => {
   test.skip(!DEMO_PASSWORD, "DEMO_PASSWORD is not set — see scripts/seed.ts");
+
+  // send-504: a recent Farah thread is restored on load, so each test here must start from an empty conversation (the demo
+  // account is shared, and the test before this one leaves its exchange behind).
+  test.beforeEach(async () => {
+    await clearDemoFarahThread();
+  });
 
   test("clicking Ask Farah on a second job, mid-conversation, marks the switch and stays askable — without losing the first answer", async ({
     page,

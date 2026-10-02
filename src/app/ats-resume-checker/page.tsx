@@ -105,8 +105,8 @@ export default function AtsResumeCheckerPage() {
               Ready to see your resume rewritten for a specific role?
             </h2>
             <p className="max-w-[560px] text-[14px] text-ink-soft">
-              The ATS score above is one step inside Talentrah&apos;s full
-              AI resume tailoring flow.
+              The ATS score is one step inside Talentrah&apos;s full AI resume
+              tailoring flow.
             </p>
             <Link
               href="/ai-resume-tailoring"
