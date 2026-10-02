@@ -40,6 +40,8 @@ export function BannerCropPicker({
   pickLabelWhenEmpty?: string;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
+  // The last file onPick took, so the on-mount check below never processes one the change handler already did.
+  const pickedRef = useRef<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -64,6 +66,20 @@ export function BannerCropPicker({
   }, []);
   useEffect(() => () => revokeCropSource(), [revokeCropSource]);
 
+  /*
+   * A file chosen BEFORE this component hydrated (issue #591). The input is server-rendered markup, so on a slow
+   * device or connection a person (or a test) can pick a file while nothing is listening: the browser fires its
+   * `change` event into a page React has not attached to yet, and React does not replay it. Measured, not
+   * assumed (e2e/banner-crop-picker.spec.ts holds the hydration back, picks a file, then lets it hydrate): the
+   * page hydrates, the file is still in the input, and no crop dialog ever opens. So on mount, act on a file
+   * that is already there. `pickedRef` stops it doubling up when the change handler did run.
+   */
+  useEffect(() => {
+    const file = inputRef.current?.files?.[0];
+    if (file && pickedRef.current !== file) void onPick(file);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount only: this is a one-time catch-up, not a sync
+  }, []);
+
   function resetCropState() {
     setCrop({ x: 0, y: 0 });
     setZoom(1);
@@ -71,6 +87,7 @@ export function BannerCropPicker({
   }
 
   async function onPick(file: File) {
+    pickedRef.current = file;
     setError(null);
 
     if (file.size > MAX_BANNER_BYTES) {
