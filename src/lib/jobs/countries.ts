@@ -327,6 +327,17 @@ for (const [alias, code] of Object.entries(ALIASES)) BY_KEY.set(key(alias), code
 for (const name of AMBIGUOUS_UNLESS_MARKED) BY_KEY.delete(key(name));
 
 /**
+ * The alpha-2 code for a country given as a name, an alias ("UK", "USA") or a code ("ng"), or null. Same tables as
+ * `resolveCountry`, for callers that need the code rather than the display name (employer salary-currency default).
+ */
+export function resolveCountryCode(raw: string): string | null {
+  const text = raw.trim();
+  if (!text) return null;
+  if (/^[A-Za-z]{2}$/.test(text) && BY_CODE.has(text.toUpperCase())) return text.toUpperCase();
+  return BY_KEY.get(key(text)) ?? null;
+}
+
+/**
  * The country a lone location token names, as the name to print in an address, or null.
  * "Cameroon (CM)" resolves only when the parenthesised code is that country's own code.
  */

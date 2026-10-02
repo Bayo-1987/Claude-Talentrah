@@ -22,7 +22,14 @@ import { decide } from "../../scripts/vercel-ignore-build.mjs";
 
 const SCRIPT = path.resolve(__dirname, "../../scripts/vercel-ignore-build.mjs");
 
-const PREVIEW = { VERCEL_ENV: "preview" };
+/** Vercel's repo env, plus a local directory standing in for github.com (see scripts/vercel-ignore-build.mjs). */
+const preview = (extra: Record<string, string> = {}) => ({
+  VERCEL_ENV: "preview",
+  VERCEL_GIT_REPO_OWNER: "o",
+  VERCEL_GIT_REPO_SLUG: "s",
+  IGNORE_BUILD_GIT_BASE_URL: `file://${path.join(root, "gh")}`,
+  ...extra,
+});
 
 function run(cwd: string, args: string[]): string {
   return execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", "-c", "init.defaultBranch=main", ...args], {
@@ -51,7 +58,8 @@ function clone(name: string, extra: string[] = []): string {
 
 beforeAll(() => {
   root = mkdtempSync(path.join(tmpdir(), "ignore-build-"));
-  origin = path.join(root, "origin.git");
+  origin = path.join(root, "gh", "o", "s.git"); // <base>/<owner>/<slug>.git, as the script builds the URL
+  mkdirSync(path.dirname(origin), { recursive: true });
   const seed = path.join(root, "seed");
   mkdirSync(seed);
   run(seed, ["init", "-q"]);
@@ -78,7 +86,7 @@ describe("real git: what the Ignored Build Step decides", () => {
     write(dir, "docs/new.md");
     run(dir, ["add", "-A"]);
     run(dir, ["commit", "-q", "-m", "docs"]);
-    expect(decide({ env: PREVIEW, git: gitIn(dir) })).toMatchObject({ skip: true });
+    expect(decide({ env: preview(), git: gitIn(dir) })).toMatchObject({ skip: true });
   });
 
   it("a tests-only PR is skipped", () => {
@@ -86,7 +94,7 @@ describe("real git: what the Ignored Build Step decides", () => {
     write(dir, "tests/b.test.ts");
     run(dir, ["add", "-A"]);
     run(dir, ["commit", "-q", "-m", "tests"]);
-    expect(decide({ env: PREVIEW, git: gitIn(dir) })).toMatchObject({ skip: true });
+    expect(decide({ env: preview(), git: gitIn(dir) })).toMatchObject({ skip: true });
   });
 
   it("a RENAME from src/ into docs/ builds (the rename's old path is a deleted source file)", () => {
@@ -97,14 +105,14 @@ describe("real git: what the Ignored Build Step decides", () => {
     // sanity: plain `git diff --name-only` WOULD hide the src/ path, which is the trap this guards
     const plain = run(dir, ["diff", "--name-only", "origin/main", "HEAD"]).trim().split("\n");
     expect(plain.some((f) => f.startsWith("src/")), "git's own rename detection hides the src/ path").toBe(false);
-    expect(decide({ env: PREVIEW, git: gitIn(dir) })).toMatchObject({ skip: false });
+    expect(decide({ env: preview(), git: gitIn(dir) })).toMatchObject({ skip: false });
   });
 
   it("a DELETED src/ file builds", () => {
     const dir = clone("deleted");
     run(dir, ["rm", "-q", "src/lib/util.ts"]);
     run(dir, ["commit", "-q", "-m", "delete a source file"]);
-    expect(decide({ env: PREVIEW, git: gitIn(dir) })).toMatchObject({ skip: false });
+    expect(decide({ env: preview(), git: gitIn(dir) })).toMatchObject({ skip: false });
   });
 
   it("an edit to src/ alongside docs builds", () => {
@@ -113,7 +121,7 @@ describe("real git: what the Ignored Build Step decides", () => {
     write(dir, "src/app/page.tsx", "export default function P() { return 1 }\n");
     run(dir, ["add", "-A"]);
     run(dir, ["commit", "-q", "-m", "mixed"]);
-    expect(decide({ env: PREVIEW, git: gitIn(dir) })).toMatchObject({ skip: false });
+    expect(decide({ env: preview(), git: gitIn(dir) })).toMatchObject({ skip: false });
   });
 
   it("a docs-only LAST commit on top of an earlier src change still builds (the diff is the whole PR)", () => {
@@ -123,7 +131,7 @@ describe("real git: what the Ignored Build Step decides", () => {
     write(dir, "docs/late.md");
     run(dir, ["add", "-A"]);
     run(dir, ["commit", "-q", "-m", "docs on top"]);
-    expect(decide({ env: PREVIEW, git: gitIn(dir) })).toMatchObject({ skip: false });
+    expect(decide({ env: preview(), git: gitIn(dir) })).toMatchObject({ skip: false });
   });
 
   it("a SHALLOW clone (depth 1) is deepened and decided on the real diff", () => {
@@ -134,7 +142,7 @@ describe("real git: what the Ignored Build Step decides", () => {
     write(dir, "docs/shallow.md");
     run(dir, ["add", "-A"]);
     run(dir, ["commit", "-q", "-m", "docs"]);
-    expect(decide({ env: PREVIEW, git: gitIn(dir) })).toMatchObject({ skip: true });
+    expect(decide({ env: preview(), git: gitIn(dir) })).toMatchObject({ skip: true });
   });
 
   it("no merge base (unrelated history) builds", () => {
@@ -144,21 +152,22 @@ describe("real git: what the Ignored Build Step decides", () => {
     write(dir, "docs/only.md");
     run(dir, ["add", "-A"]);
     run(dir, ["commit", "-q", "-m", "unrelated docs"]);
-    expect(decide({ env: PREVIEW, git: gitIn(dir) })).toMatchObject({ skip: false });
+    expect(decide({ env: preview(), git: gitIn(dir) })).toMatchObject({ skip: false });
   });
 
-  it("an unreachable origin (fetch fails) builds", () => {
+  it("an unreachable GitHub (fetch fails) builds", () => {
     const dir = clone("no-origin");
     write(dir, "docs/new.md");
     run(dir, ["add", "-A"]);
     run(dir, ["commit", "-q", "-m", "docs"]);
-    run(dir, ["remote", "set-url", "origin", path.join(root, "does-not-exist.git")]);
-    expect(decide({ env: PREVIEW, git: gitIn(dir) })).toMatchObject({ skip: false });
+    // GitHub unreachable: the URL main is fetched from does not exist (the clone's own origin is irrelevant now)
+    const nowhere = preview({ IGNORE_BUILD_GIT_BASE_URL: `file://${path.join(root, "does-not-exist")}` });
+    expect(decide({ env: nowhere, git: gitIn(dir) })).toMatchObject({ skip: false });
   });
 
   it("an empty diff (branch == main) builds", () => {
     const dir = clone("empty");
-    expect(decide({ env: PREVIEW, git: gitIn(dir) })).toMatchObject({ skip: false });
+    expect(decide({ env: preview(), git: gitIn(dir) })).toMatchObject({ skip: false });
   });
 });
 
@@ -174,8 +183,8 @@ describe("production is NEVER skipped, whatever the diff", () => {
 
   it("the same docs-only change: skipped as a preview, built as production (decide, real git)", () => {
     const dir = docsOnlyClone("prod-decide");
-    expect(decide({ env: { VERCEL_ENV: "preview" }, git: gitIn(dir) })).toMatchObject({ skip: true });
-    expect(decide({ env: { VERCEL_ENV: "production" }, git: gitIn(dir) })).toMatchObject({ skip: false });
+    expect(decide({ env: preview(), git: gitIn(dir) })).toMatchObject({ skip: true });
+    expect(decide({ env: preview({ VERCEL_ENV: "production" }), git: gitIn(dir) })).toMatchObject({ skip: false });
   });
 
   it("the script as a real process: exit 0 (skip) for a preview, exit 1 (build) for production, and for anything else", () => {
@@ -184,13 +193,13 @@ describe("production is NEVER skipped, whatever the diff", () => {
       const r = spawnSync("node", [SCRIPT], {
         cwd: dir,
         encoding: "utf8",
-        env: { ...process.env, VERCEL_ENV: undefined, ...env },
+        env: { ...process.env, ...preview(), VERCEL_ENV: undefined, ...env },
       });
       return { code: r.status, out: r.stdout };
     };
-    const preview = exit({ VERCEL_ENV: "preview" });
-    expect(preview.code, preview.out).toBe(0);
-    expect(preview.out).toMatch(/SKIP/);
+    const asPreview = exit({ VERCEL_ENV: "preview" });
+    expect(asPreview.code, asPreview.out).toBe(0);
+    expect(asPreview.out).toMatch(/SKIP/);
     for (const env of [{ VERCEL_ENV: "production" }, { VERCEL_ENV: "development" }, {}]) {
       const r = exit(env);
       expect(r.code, `${JSON.stringify(env)}: ${r.out}`).toBe(1);

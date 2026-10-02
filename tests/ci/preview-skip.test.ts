@@ -86,7 +86,8 @@ function fakeGit(answers: Record<string, string | Error>) {
   return { git, calls };
 }
 
-const PREVIEW = { VERCEL_ENV: "preview" };
+// Vercel exposes the repo's owner and slug; the script builds the URL it fetches main from out of them.
+const PREVIEW = { VERCEL_ENV: "preview", VERCEL_GIT_REPO_OWNER: "acme", VERCEL_GIT_REPO_SLUG: "widgets", VERCEL_GIT_COMMIT_REF: "pr" };
 
 describe("decide — the Ignored Build Step", () => {
   it("skips a preview whose PR changed only docs and tests", () => {
@@ -129,13 +130,70 @@ describe("decide — the Ignored Build Step", () => {
   it("diffs the PR against its merge-base with main, never just the last commit", () => {
     const { git, calls } = fakeGit({ fetch: "", "merge-base": "abc123\n", "diff --name-only": "docs/x.md\n" });
     decide({ env: PREVIEW, git });
-    expect(calls.some((c) => c.startsWith("merge-base HEAD origin/main"))).toBe(true);
+    expect(calls.some((c) => c.startsWith("merge-base HEAD refs/remotes/ignore-build/main"))).toBe(true);
+    // main comes from the repo's URL, named by Vercel's env, never from an `origin` remote (Vercel's checkout has none)
+    expect(calls.some((c) => c.includes("https://github.com/acme/widgets.git") && c.includes("+main:refs/remotes/ignore-build/main"))).toBe(true);
+    expect(calls.some((c) => /\borigin\b/.test(c)), "no call may depend on an origin remote").toBe(false);
     expect(calls.some((c) => c === "diff --name-only --no-renames abc123 HEAD")).toBe(true);
   });
 
   it("states its reason, so the Vercel build log says why", () => {
     const { git } = fakeGit({ fetch: "", "merge-base": "abc\n", "diff --name-only": "docs/x.md\n" });
     expect(decide({ env: PREVIEW, git }).reason).toMatch(/docs|tests|only/i);
+  });
+});
+
+describe("decide — the fetch of main (Vercel's checkout has no origin)", () => {
+  it("builds WITHOUT calling git when owner or slug is not a plain name (nothing may reach the URL)", () => {
+    for (const bad of ["../evil", "a/b", "x y", "a;b", "a?b=c", "a@b"]) {
+      const { git, calls } = fakeGit({ fetch: "", "merge-base": "abc\n", "diff --name-only": "docs/x.md\n" });
+      const result = decide({ env: { ...PREVIEW, VERCEL_GIT_REPO_OWNER: bad }, git });
+      expect(result, bad).toMatchObject({ skip: false });
+      expect(result.reason).toMatch(/not plain names/);
+      expect(calls, `git must not be consulted for ${bad}`).toEqual([]);
+    }
+  });
+
+  it("builds WITHOUT calling git when Vercel's repo env is missing, naming the variable", () => {
+    const { git, calls } = fakeGit({ fetch: "" });
+    const r = decide({ env: { VERCEL_ENV: "preview" }, git });
+    expect(r.skip).toBe(false);
+    expect(r.reason).toMatch(/VERCEL_GIT_REPO_OWNER and VERCEL_GIT_REPO_SLUG/);
+    expect(calls).toEqual([]);
+  });
+
+  it("no merge-base even after deepening three times: BUILDS, and does not guess a base", () => {
+    const { git, calls } = fakeGit({ fetch: "", "merge-base": new Error("no merge base"), "diff --name-only": "docs/x.md\n" });
+    const r = decide({ env: PREVIEW, git });
+    expect(r).toMatchObject({ skip: false });
+    expect(r.reason).toMatch(/no merge-base/);
+    expect(calls.filter((c) => c.startsWith("fetch --no-tags --deepen=200")), "deepens the PR's branch, three times").toHaveLength(3);
+    expect(calls.some((c) => c.startsWith("diff")), "never diffs without a merge-base").toBe(false);
+  });
+
+  it("deepens the PR's own branch (refs/heads/<VERCEL_GIT_COMMIT_REF>) from the repo URL, and stops as soon as a merge-base appears", () => {
+    let mergeBaseCalls = 0;
+    const calls: string[] = [];
+    const git = (args: string[]) => {
+      const key = args.join(" ");
+      calls.push(key);
+      if (key.startsWith("merge-base")) {
+        if (++mergeBaseCalls < 2) throw new Error("no merge base yet");
+        return "abc123\n";
+      }
+      if (key.startsWith("diff")) return "docs/x.md\n";
+      return "";
+    };
+    expect(decide({ env: PREVIEW, git })).toMatchObject({ skip: true });
+    const deepen = calls.filter((c) => c.includes("--deepen="));
+    expect(deepen).toEqual(["fetch --no-tags --deepen=200 https://github.com/acme/widgets.git refs/heads/pr"]);
+  });
+
+  it("cannot deepen without a branch name: BUILDS instead of guessing", () => {
+    const { git } = fakeGit({ fetch: "", "merge-base": new Error("none") });
+    const r = decide({ env: { ...PREVIEW, VERCEL_GIT_COMMIT_REF: undefined }, git });
+    expect(r.skip).toBe(false);
+    expect(r.reason).toMatch(/VERCEL_GIT_COMMIT_REF/);
   });
 });
 
