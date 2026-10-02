@@ -62,6 +62,18 @@ describe("supabase/data-fixes", () => {
     expect(sql).toMatch(/do \$rollback\$/);
   });
 
+  it.each(files)("%s ends with a RECORD section (execute_sql writes no ledger row, so the file records each apply)", (f) => {
+    const sql = readFileSync(join(DIR, f), "utf8");
+    expect(sql).toMatch(/-- =+ RECORD/);
+    for (const field of ["Applied at (UTC)", "Approved by", "Row counts"]) expect(sql).toContain(field);
+  });
+
+  it("the README documents the Record rule", () => {
+    const readme = readFileSync(join(DIR, "README.md"), "utf8");
+    expect(readme).toMatch(/^## Record/m);
+    expect(readme).toMatch(/ledger/);
+  });
+
   it("is not picked up as a migration (the migrations directory holds no data-fix file)", () => {
     const migrations = readdirSync("supabase/migrations");
     expect(migrations.filter((m) => /scholarship-close-times/.test(m))).toEqual([]);
