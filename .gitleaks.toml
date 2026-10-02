@@ -169,15 +169,18 @@ regexes = [
   # PostHog client is mocked at the module boundary.
   '''posthog-test-placeholder''',
 
-  # tests/demo/jd-demo-route-attempts.test.ts, P1 (2026-10-02) — a sentinel the
-  # test pastes as a visitor's "job description" to prove that pasted text never
-  # reaches the attempt log (it asserts the logged row does not contain
-  # `CONFIDENTIAL`). The value is a human-readable marker, not a credential; it
-  # matched this rule only because the constant was first named SECRET_JD
-  # ("secret" is one of the rule's own trigger words). The constant is renamed,
-  # but the first commit that carried it is already in the PR's history, so the
-  # exact value is allowlisted. There is nothing to rotate.
-  '''CONFIDENTIAL-PASTE-9f3a''',
+  # tests/demo/jd-demo-route-attempts.test.ts, PR #667 (P1, 2026-10-02) — one
+  # exact sentinel value: the string the test pastes as a visitor's "job
+  # description" to prove that pasted text never reaches the attempt log (it
+  # asserts the logged row does not contain `CONFIDENTIAL`). A human-readable
+  # marker, not a credential; nothing to rotate. It matched this rule only
+  # because the constant was first named SECRET_JD ("secret" is one of the
+  # rule's own trigger words). The constant is renamed, but the first commit
+  # that carried it is already in the PR's history and this scan reads
+  # commits, so the value is allowlisted. ANCHORED to exactly that value (the
+  # literal in the test has one trailing space, hence the optional space):
+  # no wildcard, and it does NOT relax the rule for anything else.
+  '''^CONFIDENTIAL-PASTE-9f3a[ ]?$''',
 ]
 
 paths = [
