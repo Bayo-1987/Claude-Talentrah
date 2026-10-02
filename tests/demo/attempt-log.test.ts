@@ -47,6 +47,33 @@ describe("recordDemoAttempt", () => {
   });
 });
 
+describe("recordDemoAttempt sanitises before it writes, so the schema's check constraints can never refuse (and lose) a row", () => {
+  it("a reason that is not a listed code is stored as 'other'; a sentence never reaches the table", async () => {
+    insert.mockResolvedValue({ error: null });
+    await recordDemoAttempt({ outcome: "invalid", reason: "a visitor pasted a whole job description here", ipRuleActive: false });
+    const [, row] = insert.mock.calls[0] as [string, Record<string, unknown>];
+    expect(row.reason).toBe("other");
+  });
+
+  it("an error class with spaces or symbols is stripped to a plain name, and capped at 64 characters", async () => {
+    insert.mockResolvedValue({ error: null });
+    await recordDemoAttempt({ outcome: "error", errorClass: "Some weird, class name!", ipRuleActive: false });
+    await recordDemoAttempt({ outcome: "error", errorClass: "A".repeat(100), ipRuleActive: false });
+    const rows = insert.mock.calls.map((c) => c[1] as Record<string, unknown>);
+    expect(rows[0].error_class).toBe("Someweirdclassname");
+    expect(String(rows[1].error_class)).toHaveLength(64);
+  });
+
+  it("listed codes and nulls pass through unchanged", async () => {
+    insert.mockResolvedValue({ error: null });
+    await recordDemoAttempt({ outcome: "refused", reason: "visitor_cookie", errorClass: "rate_limit", ipRuleActive: false });
+    await recordDemoAttempt({ outcome: "success", ipRuleActive: false });
+    const [a, b] = insert.mock.calls.map((c) => c[1] as Record<string, unknown>);
+    expect(a).toMatchObject({ reason: "visitor_cookie", error_class: "rate_limit" });
+    expect(b).toMatchObject({ reason: null, error_class: null });
+  });
+});
+
 describe("classifyRefusal — which limit said no", () => {
   it.each([
     ["already_used", false, "visitor_cookie"],

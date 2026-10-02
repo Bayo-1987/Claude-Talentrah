@@ -14,9 +14,15 @@
 --   ip_rule_active  whether a per-IP rule was in play for that request (off unless ANON_DEMO_IP_SALT is set,
 --                   which is deliberately left unset: shared mobile-carrier addresses)
 --
--- NO PII, by construction: no address (not even the keyed hash), no visitor id, no pasted text, and no error
--- message (those can echo the prompt, which holds the visitor's paste). Short enumerated strings only. If a
--- column is ever added here, the question is whether it could identify a visitor or hold their text.
+-- NO PII, by construction AND by schema: no address (not even the keyed hash), no visitor id, no pasted text, and
+-- no error message (those can echo the prompt, which holds the visitor's paste). Short codes only, and the two text
+-- columns that carry them are CHECK-constrained, so a sentence (spaces, length) cannot be stored in either one, even
+-- by a future writer that tried:
+--   reason       ~ '^[a-z_]{1,32}$'
+--   error_class  ~ '^[A-Za-z0-9_.]{1,64}$'
+-- (src/lib/demo/attempt-codes.ts lists every code the route writes and tests/demo/attempt-table.test.ts proves the
+-- database accepts all of them and refuses the rest.) If a column is ever added here, the question is whether it
+-- could identify a visitor or hold their text.
 --
 -- ADDITIVE, so per CLAUDE.md it is applied to production BEFORE the code that writes it merges. The writer is
 -- fail-safe regardless (src/lib/demo/attempt-log.ts never rejects), so a window where the code is live and the
@@ -28,7 +34,11 @@ create table public.anonymous_demo_attempts (
   outcome text not null check (outcome in ('success', 'refused', 'error', 'invalid')),
   reason text,
   error_class text,
-  ip_rule_active boolean not null default false
+  ip_rule_active boolean not null default false,
+  constraint anonymous_demo_attempts_reason_shape
+    check (reason is null or reason ~ '^[a-z_]{1,32}$'),
+  constraint anonymous_demo_attempts_error_class_shape
+    check (error_class is null or error_class ~ '^[A-Za-z0-9_.]{1,64}$')
 );
 
 create index anonymous_demo_attempts_created_at_idx on public.anonymous_demo_attempts (created_at desc);
