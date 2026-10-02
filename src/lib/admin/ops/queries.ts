@@ -439,6 +439,52 @@ export async function operatorCredentialEvents(): Promise<OperatorCredentialEven
   }));
 }
 
+export interface PaymentNeedingRefund {
+  sessionId: string;
+  amountNgn: number;
+  /** When the session was marked (updated_at): when the late payment was settled. */
+  markedAt: string;
+  /** The booked slot's start, which is why the payment could not be honoured. */
+  sessionStart: string;
+  /** Paystack's reference for the successful charge, to refund it by. Null only if no successful transaction is on record. */
+  reference: string | null;
+}
+
+/**
+ * Mentor sessions whose payment arrived after the booking had lapsed (migration 0203's settle_late_mentor_payment) and whose
+ * slot could not be restored, so the money must be returned. Oldest first. Aggregated for an operator: ids, amounts and a
+ * Paystack reference, no names or emails.
+ */
+export async function paymentsNeedingRefund(): Promise<PaymentNeedingRefund[]> {
+  const supabase = createServiceRoleClient();
+  const { data, error } = await supabase
+    .from("mentorship_sessions")
+    .select("id, price_ngn, updated_at, scheduled_start")
+    .eq("status", "payment_needs_refund")
+    .order("updated_at", { ascending: true });
+  if (error) throw error;
+  const rows = data ?? [];
+  if (rows.length === 0) return [];
+
+  // Matched in TypeScript, not embedded: payment_transactions.product_id is not a foreign key (see stuckRenewals).
+  const { data: payments, error: payError } = await supabase
+    .from("payment_transactions")
+    .select("product_id, paystack_reference")
+    .eq("product_type", "mentor_session")
+    .eq("status", "success")
+    .in("product_id", rows.map((r) => r.id));
+  if (payError) throw payError;
+  const referenceBySession = new Map((payments ?? []).map((p) => [p.product_id, p.paystack_reference]));
+
+  return rows.map((r) => ({
+    sessionId: r.id,
+    amountNgn: r.price_ngn,
+    markedAt: r.updated_at,
+    sessionStart: r.scheduled_start,
+    reference: referenceBySession.get(r.id) ?? null,
+  }));
+}
+
 /**
  * What the nav badge counts: things that will not fix themselves.
  *
@@ -454,10 +500,11 @@ export async function operatorCredentialEvents(): Promise<OperatorCredentialEven
  *     a broken integration or a config that was never right.
  */
 export async function opsAttentionCount(): Promise<number> {
-  const [renewals, feeds, credentials] = await Promise.all([
+  const [renewals, feeds, credentials, refunds] = await Promise.all([
     stuckRenewals(),
     feedFreshness(),
     operatorCredentialEvents(),
+    paymentsNeedingRefund(),
   ]);
   const exhausted = renewals.filter((r) => r.exhausted).length;
   const neverSeen = feeds.filter((f) => f.configured && f.lastCheckedAt === null).length;
@@ -470,7 +517,9 @@ export async function opsAttentionCount(): Promise<number> {
    */
   const recentCredentialEvents = credentials.filter((e) => e.recent).length;
 
-  return exhausted + neverSeen + recentCredentialEvents;
+  // A payment that landed on a lapsed mentor booking and could not be restored is money that is held for nothing. It
+  // will not fix itself, and it never ages out of mattering until someone refunds it, so every one counts (0203).
+  return exhausted + neverSeen + recentCredentialEvents + refunds.length;
 }
 
 /* ------------------------------------------------------------------ *

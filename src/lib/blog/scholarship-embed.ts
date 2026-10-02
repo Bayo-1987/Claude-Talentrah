@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { loadPublicScholarship } from "@/lib/scholarships/public";
-import { daysUntil, formatDeadline } from "@/components/scholarships/scholarship-card";
+import { formatDeadline } from "@/components/scholarships/scholarship-card";
+import { scholarshipDaysLeft } from "@/lib/scholarships/close-instant";
 import type { Database } from "@/lib/supabase/types";
 
 /**
@@ -80,18 +81,20 @@ interface EmbeddableScholarship {
   provider: string;
   program_name: string;
   application_deadline: string | null;
+  close_time: string | null;
+  close_tz: string | null;
   deadline_note: string | null;
 }
 
 /**
  * The fact strip itself: provider, programme, the REAL deadline via the same
- * formatDeadline/daysUntil helpers the scholarship card and detail page use
+ * formatDeadline/scholarshipDaysLeft helpers the scholarship card and detail page use
  * (not a third reimplementation of date formatting), and a link to the full
  * listing. Sanitized like the rest of the post body — see render.ts — so
  * even a bug here can never emit more than the existing allowlist permits.
  */
 function factCardHtml(id: string, scholarship: EmbeddableScholarship): string {
-  const left = daysUntil(scholarship.application_deadline);
+  const left = scholarshipDaysLeft(scholarship);
   const deadlineText = scholarship.application_deadline
     ? formatDeadline(scholarship.application_deadline)
     : (scholarship.deadline_note ?? "Not published yet");

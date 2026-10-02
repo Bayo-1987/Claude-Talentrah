@@ -13,6 +13,7 @@ import { notifySessionConfirmed } from "@/lib/mentorship/notifications";
 import type { MentorshipSessionType } from "@/lib/mentorship/pricing";
 import { captureEvent } from "@/lib/analytics/posthog";
 import { warnIfNameLooksLikeOwnOrg } from "@/lib/mentorship/name-validation";
+import { unpaidHoldLapsed } from "@/lib/mentorship/unpaid-hold";
 
 function splitTags(raw: string): string[] {
   return raw
@@ -233,6 +234,29 @@ export async function bookMentorSessionAction(availabilitySlotId: string, sessio
     redirect(`/mentorship/sessions?booked=1`);
   }
 
+  await startMentorSessionCheckout({
+    serviceClient,
+    user: { id: user.id, email: user.email! },
+    sessionId,
+    priceNgn,
+    errorPath: "/mentorship",
+  });
+}
+
+/**
+ * Creates the pending `payment_transactions` row for a mentor session and sends the mentee to Paystack. Shared by booking a
+ * slot (bookMentorSessionAction) and paying an existing unpaid booking (payForMentorSessionAction), so the two cannot drift:
+ * the same insert-before-Paystack rule (a charge with no row to reconcile it to is the one thing this must never produce),
+ * the same reference shape, the same callback. Always redirects; `errorPath` is where a refusal lands.
+ */
+async function startMentorSessionCheckout(args: {
+  serviceClient: ReturnType<typeof createServiceRoleClient>;
+  user: { id: string; email: string };
+  sessionId: string;
+  priceNgn: number;
+  errorPath: string;
+}): Promise<never> {
+  const { serviceClient, user, sessionId, priceNgn, errorPath } = args;
   const reference = `mentor_session_${randomUUID()}`;
   const origin = await getOrigin();
   const { error: insertError } = await serviceClient.from("payment_transactions").insert({
@@ -251,13 +275,13 @@ export async function bookMentorSessionAction(availabilitySlotId: string, sessio
     // the mentee to a real Paystack checkout without it first landing would
     // mean a genuine charge that nothing here can ever reconcile back to a
     // session.
-    redirect(`/mentorship?error=${encodeURIComponent("Could not start checkout. Please try again.")}`);
+    redirect(`${errorPath}?error=${encodeURIComponent("Could not start checkout. Please try again.")}`);
   }
 
   let authorizationUrl: string;
   try {
     const init = await initializeTransaction({
-      email: user.email!,
+      email: user.email,
       amountNgn: priceNgn,
       reference,
       callbackUrl: `${origin}/mentorship/book/callback`,
@@ -267,10 +291,75 @@ export async function bookMentorSessionAction(availabilitySlotId: string, sessio
     authorizationUrl = init.authorization_url;
   } catch {
     await serviceClient.from("payment_transactions").update({ status: "failed" }).eq("paystack_reference", reference);
-    redirect(`/mentorship?error=${encodeURIComponent("Payments are unavailable right now.")}`);
+    redirect(`${errorPath}?error=${encodeURIComponent("Payments are unavailable right now.")}`);
   }
 
   redirect(authorizationUrl);
+}
+
+/**
+ * Pay for a booking the mentee already made (send-502). A booking is created `pending_payment` BEFORE payment (0133), so a
+ * mentee who left the Paystack page, or whose payment failed, is left with a booking and no way to finish it.
+ *
+ * The amount is the session ROW's price_ngn (server-computed at booking), never anything the client sends. The session must
+ * be the caller's, still `pending_payment`, and its slot still ahead: once the slot has started the booking can no longer be
+ * honoured, whether or not the daily sweep has expired it yet.
+ */
+export async function payForMentorSessionAction(sessionId: string) {
+  const { user } = await requireUser();
+  const serviceClient = createServiceRoleClient();
+  const fail = (message: string): never => redirect(`/mentorship/sessions?error=${encodeURIComponent(message)}`);
+
+  const { data: session } = await serviceClient
+    .from("mentorship_sessions")
+    .select("id, mentee_id, status, price_ngn, scheduled_start, created_at")
+    .eq("id", sessionId)
+    .maybeSingle();
+
+  if (!session || session.mentee_id !== user.id) return fail("We couldn't find that booking.");
+  if (session.status !== "pending_payment") return fail("That booking can no longer be paid for.");
+  if (!(Date.parse(session.scheduled_start) > Date.now())) {
+    return fail("That session's time has already started, so it can no longer be paid for.");
+  }
+  // The 30-minute hold (0203). Once it has lapsed the slot counts as open to anyone else, so a NEW checkout is not started
+  // for it; booking the slot again is the way back. A payment already in flight from a link opened inside the hold is still
+  // honoured by fulfilment (see settle_late_mentor_payment), so nothing paid is ever lost.
+  if (unpaidHoldLapsed(session.created_at, new Date())) {
+    return fail("The 30-minute hold on that slot has ended. Book it again from the mentor's page if it's still open.");
+  }
+
+  await startMentorSessionCheckout({
+    serviceClient,
+    user: { id: user.id, email: user.email! },
+    sessionId: session.id,
+    priceNgn: session.price_ngn,
+    errorPath: "/mentorship/sessions",
+  });
+}
+
+/**
+ * The mentee cancels their own unpaid booking (send-502). Through cancel_unpaid_mentor_session (0203): the cancellation and the
+ * release of the slot are one statement, and the function itself refuses anyone but the mentee, and any booking that is no
+ * longer `pending_payment`. A payment that was already in flight and lands afterwards is handled by fulfilment
+ * (settle_late_mentor_payment): reinstated if the slot is still free, otherwise refunded, never silently kept.
+ */
+export async function cancelUnpaidMentorSessionAction(sessionId: string) {
+  const { user } = await requireUser();
+  const serviceClient = createServiceRoleClient();
+
+  const { data: cancelled, error } = await serviceClient.rpc("cancel_unpaid_mentor_session", {
+    p_session_id: sessionId,
+    p_mentee_id: user.id,
+  });
+  if (error || !cancelled) {
+    redirect(
+      `/mentorship/sessions?error=${encodeURIComponent("That booking can't be cancelled (it may already be paid for, or lapsed).")}`,
+    );
+  }
+
+  revalidatePath("/mentorship/sessions");
+  revalidatePath("/mentorship");
+  redirect("/mentorship/sessions");
 }
 
 /**

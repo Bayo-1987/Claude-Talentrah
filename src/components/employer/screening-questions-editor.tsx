@@ -127,7 +127,7 @@ export function ScreeningQuestionsEditor({ initial = [] }: { initial?: Screening
                     className="min-h-11 w-fit border-[1.5px] border-ink bg-card px-3.5 py-2.5 font-body text-[15px] text-ink outline-none focus:border-rust"
                   >
                     <option value="self">I&apos;ll review these myself</option>
-                    <option value="farah">Let Farah screen these for me — ₦{FARAH_SCREENING_REVIEW_NGN}/answer</option>
+                    <option value="farah">{`Let Farah screen these for me — ₦${FARAH_SCREENING_REVIEW_NGN}/answer`}</option>
                   </select>
                   {row.screeningMode === "farah" && (
                     <p className="font-body text-[12px] text-ink-soft">

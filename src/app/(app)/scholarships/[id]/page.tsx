@@ -9,7 +9,8 @@ import {
   FUNDING_TYPE_LABEL,
   type SaveStatus,
 } from "@/lib/scholarships/types";
-import { daysUntil, formatDeadline } from "@/components/scholarships/scholarship-card";
+import { formatDeadline } from "@/components/scholarships/scholarship-card";
+import { scholarshipCloseText, scholarshipDaysLeft } from "@/lib/scholarships/close-instant";
 import { SaveToggle } from "@/components/scholarships/save-toggle";
 import { SaveStatusSelect } from "@/components/scholarships/save-status-select";
 import { FarahActions } from "@/components/scholarships/farah-actions";
@@ -17,6 +18,8 @@ import { relevantScholarshipLandingLinks } from "@/lib/seo/landing-page-links";
 import { checkPassCoverage } from "@/lib/passes/entitlement";
 import { loadPublicScholarship } from "@/lib/scholarships/public";
 import { renderMarkdownParagraphs } from "@/lib/farah/render-markdown";
+import { JsonLd } from "@/components/seo/json-ld";
+import { buildBreadcrumbJsonLd } from "@/lib/seo/breadcrumb-jsonld";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -110,7 +113,7 @@ export default async function ScholarshipDetailPage({
   const landingLinks = await relevantScholarshipLandingLinks(await createClient(), scholarship);
 
   const save = saveResult.data as { id: string; status: SaveStatus } | null;
-  const left = daysUntil(scholarship.application_deadline);
+  const left = scholarshipDaysLeft(scholarship);
   const urgent = left !== null && left >= 0 && left <= 14;
 
   const meta = [
@@ -120,6 +123,14 @@ export default async function ScholarshipDetailPage({
 
   return (
     <div className="flex max-w-[720px] flex-col gap-6">
+      {/* BreadcrumbList only (src/lib/seo/breadcrumb-jsonld.ts): the one structured-data type that is both supported and fully on the page. */}
+      <JsonLd
+        data={buildBreadcrumbJsonLd([
+          { name: "Talentrah", path: "/" },
+          { name: "Scholarships", path: "/scholarships" },
+          { name: scholarship.program_name, path: `/scholarships/${scholarship.id}` },
+        ])}
+      />
       <Link
         href="/scholarships"
         className="inline-flex min-h-10 min-w-10 items-center self-start text-[13px] font-semibold text-ink-soft no-underline hover:text-rust"
@@ -202,9 +213,10 @@ export default async function ScholarshipDetailPage({
           */}
           <span className={urgent ? "font-semibold text-rust" : undefined}>
             {scholarship.application_deadline
-              ? formatDeadline(scholarship.application_deadline)
+              ? (scholarshipCloseText(scholarship) ?? formatDeadline(scholarship.application_deadline))
               : (scholarship.deadline_note ?? "Not published yet")}
             {left !== null && left >= 0 && ` · ${left} ${left === 1 ? "day" : "days"} left`}
+            {left !== null && left < 0 && " · Closed"}
           </span>
         </span>
         {scholarship.field_tags.length > 0 && (
