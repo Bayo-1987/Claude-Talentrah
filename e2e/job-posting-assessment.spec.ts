@@ -473,7 +473,10 @@ base.describe("job posting assessment — multiple files staged at create time (
         );
 
       // ---- The new multi-file picker, on the CREATE form, before any
-      //      job_posting_id exists at all. ------------------------------
+      //      job_posting_id exists at all. It lives under the "Attach an
+      //      assessment" checkbox now (EMP-1 / E4) and is visible only
+      //      while that is ticked, so tick it first. ----------------------
+      await employerPage.getByLabel("Attach an assessment (optional)").check();
       await employerPage.setInputFiles("#new-job-assessment-files", [
         { name: "brief.txt", mimeType: "text/plain", buffer: Buffer.from(BRIEF_CONTENT) },
         { name: "tasks.csv", mimeType: "text/plain", buffer: Buffer.from(SHEET_CONTENT) },
@@ -482,7 +485,6 @@ base.describe("job posting assessment — multiple files staged at create time (
       await expect(employerPage.getByText("brief.txt")).toBeVisible();
       await expect(employerPage.getByText("tasks.csv")).toBeVisible();
 
-      await employerPage.getByLabel("Attach an assessment (optional)").check();
       await employerPage.getByLabel("Title", { exact: true }).fill("Schema design exercise");
       await employerPage
         .getByLabel("Instructions", { exact: true })
