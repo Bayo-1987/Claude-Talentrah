@@ -179,8 +179,15 @@ export function timeZoneOffsetMs(timeZone: string, t: number): number {
   return Date.UTC(n("year"), n("month") - 1, n("day"), hour, n("minute"), n("second")) - floored;
 }
 
-/** A zone's generic long name at an instant, in the house's lower-case "time": "Pacific time", "Central European time". Falls back to the zone id. */
+/** Zone ids that ARE Coordinated Universal Time. Intl names them "GMT+00:00", which reads as an offset rather than the zone a source stated. */
+const UTC_ZONE_IDS: ReadonlySet<string> = new Set([
+  "UTC", "Etc/UTC", "Etc/UCT", "UCT", "Etc/Universal", "Universal", "Etc/Zulu", "Zulu",
+  "Etc/GMT", "GMT", "Etc/Greenwich", "Greenwich", "Etc/GMT0", "GMT0", "Etc/GMT+0", "Etc/GMT-0",
+]);
+
+/** A zone's generic long name at an instant, in the house's lower-case "time": "Pacific time", "Central European time". UTC is "UTC". Falls back to the zone id. */
 export function timeZoneGenericName(timeZone: string, at: Date): string {
+  if (UTC_ZONE_IDS.has(timeZone)) return "UTC";
   try {
     const part = new Intl.DateTimeFormat("en-US", { timeZone, timeZoneName: "longGeneric" })
       .formatToParts(at)
