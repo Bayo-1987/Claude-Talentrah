@@ -5,7 +5,7 @@ import { SCHOLARSHIP_DEADLINE_REMINDER_DAYS } from "@/lib/scholarship-deadline-a
 import { LANDING_PAGE_MIN_ENTRIES } from "@/lib/seo/landing-pages";
 import { DEGREE_LEVEL_LABEL, FUNDING_TYPE_LABEL, SAVE_STATUS_LABEL } from "@/lib/scholarships/types";
 import { Constants, type Tables } from "@/lib/supabase/types";
-import { daysUntil } from "./scholarship-card";
+import { scholarshipDaysLeft } from "@/lib/scholarships/close-instant";
 import { formatCalendarDate } from "@/lib/format/datetime";
 
 /**
@@ -53,6 +53,8 @@ export type LandingListing = Pick<
   | "degree_levels"
   | "funding_type"
   | "application_deadline"
+  | "close_time"
+  | "close_tz"
   | "deadline_note"
   | "official_url"
 >;
@@ -72,14 +74,14 @@ function formatDeadlineLong(deadline: string): string | null {
   return formatCalendarDate(deadline) || null;
 }
 
-function deadlineDisplay(l: Pick<LandingListing, "application_deadline" | "deadline_note">): {
+function deadlineDisplay(l: Pick<LandingListing, "application_deadline" | "close_time" | "close_tz" | "deadline_note">): {
   text: string;
   urgent: boolean;
 } {
   if (l.application_deadline) {
     const date = formatDeadlineLong(l.application_deadline);
     if (date) {
-      const left = daysUntil(l.application_deadline);
+      const left = scholarshipDaysLeft(l);
       if (left !== null && left >= 0 && left <= URGENT_WITHIN_DAYS) {
         const countdown = left === 0 ? "closes today" : left === 1 ? "1 day left" : `${left} days left`;
         return { text: `${date} · ${countdown}`, urgent: true };

@@ -6,6 +6,7 @@ import { CITY_LANDING_PAGES, DEGREE_LEVEL_SLUG, LANDING_PAGE_MIN_ENTRIES } from 
 import { Constants } from "@/lib/supabase/types";
 import { freshnessFloorISO } from "@/lib/jobs/freshness";
 import { TRACKED_COUNTRIES, COUNTRY_LANDING_SLUG, countryOrFilter } from "@/lib/jobs/country";
+import { openScholarshipFilter } from "@/lib/scholarships/close-instant";
 
 /**
  * The sitemap, generated rather than listed.
@@ -237,8 +238,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const landingPageEntries: MetadataRoute.Sitemap = [];
   try {
     const supabase = await createClient();
-    const today = new Date().toISOString().slice(0, 10);
-    const stillOpen = `application_deadline.is.null,application_deadline.gte.${today}`;
+    // "Still open" at the closing INSTANT (close-instant.ts / migration 0204): the same definition every scholarship surface uses.
+    const stillOpen = openScholarshipFilter();
     const jobFreshnessFloor = freshnessFloorISO();
 
     /*

@@ -1,4 +1,5 @@
 import type { Enums } from "@/lib/supabase/types";
+import { scholarshipDaysLeft } from "@/lib/scholarships/close-instant";
 
 /**
  * Which saved scholarships get a "closes in N days" reminder today.
@@ -80,19 +81,14 @@ export interface DeadlineAlertCandidate {
   provider: string;
   /** ISO date (YYYY-MM-DD), or null when no deadline has ever been recorded. */
   applicationDeadline: string | null;
+  /** Optional wall-clock closing time in `closeTz` (migration 0204). Null when the source did not state one. */
+  closeTime: string | null;
+  /** Optional IANA zone the closing time is stated in. Null when the source did not state one. */
+  closeTz: string | null;
   /** Null means the deadline was never independently confirmed — see this file's own header. */
   deadlineVerifiedAt: string | null;
   officialUrl: string;
   moderationStatus: Enums<"scholarship_moderation_status">;
-}
-
-/** Whole calendar days from `today` (a YYYY-MM-DD string) to `dateStr`. Negative means already passed. */
-function daysBetween(today: string, dateStr: string): number {
-  const [ty, tm, td] = today.split("-").map(Number);
-  const [dy, dm, dd] = dateStr.split("-").map(Number);
-  const t = Date.UTC(ty, tm - 1, td);
-  const d = Date.UTC(dy, dm - 1, dd);
-  return Math.round((d - t) / 86_400_000);
 }
 
 /**
@@ -112,8 +108,6 @@ export function selectDeadlineAlertCandidates<T extends DeadlineAlertCandidate>(
   saves: T[],
   now: Date = new Date(),
 ): T[] {
-  const today = now.toISOString().slice(0, 10);
-
   return saves.filter((save) => {
     if (!STILL_INTENDS_TO_APPLY.has(save.status)) return false;
     if (save.deadlineReminderSentAt !== null) return false;
@@ -121,9 +115,13 @@ export function selectDeadlineAlertCandidates<T extends DeadlineAlertCandidate>(
     if (save.deadlineVerifiedAt === null) return false;
     if (save.applicationDeadline === null) return false;
 
-    const daysOut = daysBetween(today, save.applicationDeadline);
-    if (daysOut < 0) return false;
-    if (daysOut > SCHOLARSHIP_DEADLINE_REMINDER_DAYS) return false;
-    return true;
+    // Measured to the closing INSTANT (close-instant.ts, migration 0204), not to a calendar date: a deadline "today" in Lagos is not the
+    // same moment as in Toronto. Closed at or after the instant; otherwise whole days left, 0 in the final 24 hours.
+    const left = scholarshipDaysLeft(
+      { application_deadline: save.applicationDeadline, close_time: save.closeTime, close_tz: save.closeTz },
+      now,
+    );
+    if (left === null || left < 0) return false;
+    return left <= SCHOLARSHIP_DEADLINE_REMINDER_DAYS;
   });
 }

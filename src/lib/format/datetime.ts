@@ -145,3 +145,48 @@ export function formatDateTime(value: DateInput, options: FormatOptions = {}): s
   if (!date) return "";
   return `${date}, ${formatTime(value, options)}`;
 }
+
+/**
+ * Time-zone arithmetic for src/lib/scholarships/close-instant.ts (send-508). Kept HERE because this module is the one place Intl is
+ * allowed (tests/format/no-direct-locale-formatting.test.ts): these read a zone's rules, they do not format a value for display.
+ */
+
+/** Whether `timeZone` is a zone name the runtime recognises. */
+export function isKnownTimeZone(timeZone: string): boolean {
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** The zone's UTC offset, in milliseconds, in force at the instant `t` (milliseconds since the epoch). */
+export function timeZoneOffsetMs(timeZone: string, t: number): number {
+  const floored = Math.floor(t / 1000) * 1000;
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    hourCycle: "h23",
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+    hour: "numeric",
+    minute: "numeric",
+    second: "numeric",
+  }).formatToParts(new Date(floored));
+  const n = (type: string) => Number(parts.find((p) => p.type === type)?.value);
+  const hour = n("hour") === 24 ? 0 : n("hour");
+  return Date.UTC(n("year"), n("month") - 1, n("day"), hour, n("minute"), n("second")) - floored;
+}
+
+/** A zone's generic long name at an instant, in the house's lower-case "time": "Pacific time", "Central European time". Falls back to the zone id. */
+export function timeZoneGenericName(timeZone: string, at: Date): string {
+  try {
+    const part = new Intl.DateTimeFormat("en-US", { timeZone, timeZoneName: "longGeneric" })
+      .formatToParts(at)
+      .find((p) => p.type === "timeZoneName")?.value;
+    return part ? part.replace(/\bTime\b/, "time") : timeZone;
+  } catch {
+    return timeZone;
+  }
+}
