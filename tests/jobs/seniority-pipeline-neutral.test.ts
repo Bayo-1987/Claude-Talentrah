@@ -44,6 +44,9 @@ const SILENT_TITLES = [
   "Executive Assistant",
 ];
 
+/** A NULL `job_postings.seniority` column read back is `null`; the scorer takes `undefined`. */
+const readBack = (v: Parameters<typeof computeMatchScore>[2] | null) => v ?? undefined;
+
 describe("a silent title is extracted as unknown and scored at its skill coverage, for every candidate", () => {
   it.each(SILENT_TITLES)("%s", (title) => {
     const seniority = inferJobSeniority(title);
@@ -58,7 +61,7 @@ describe("a silent title is extracted as unknown and scored at its skill coverag
   it("the same posting scores the same whether the field is absent or explicitly undefined (a NULL column read back as null)", () => {
     for (const title of SILENT_TITLES) {
       const a = computeMatchScore(resume("Accountant"), JOB_TAGS, inferJobSeniority(title)).score;
-      const b = computeMatchScore(resume("Accountant"), JOB_TAGS, (null as unknown as undefined) ?? undefined).score;
+      const b = computeMatchScore(resume("Accountant"), JOB_TAGS, readBack(null)).score;
       expect(a).toBe(b);
     }
   });
