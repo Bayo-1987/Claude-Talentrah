@@ -216,4 +216,12 @@ paths = [
   # itself. Same reasoning as the 0000_baseline_schema.sql entry above: a
   # generated, structural file that cannot contain a real secret value.
   '''supabase/config\.toml''',
+
+  # tests/support/credential-shaped-fixtures.txt, PR #680 (2026-10-02) — the fixtures for
+  # tests/ci/no-credential-shaped-identifiers.test.ts: lines that are deliberately shaped like credentials
+  # (a SECRET_ name assigned a literal, an API_KEY, a password) so the test can prove its scanner flags them.
+  # Every value in it is made up. It exists so that no .ts file has to contain such lines: the first version of
+  # that test spelled them inline and this repo's own Secret scan rejected it four times (two by the custom rule,
+  # two by the default generic-api-key rule). EXACT PATH, anchored: it does not exempt any other file.
+  '''^tests/support/credential-shaped-fixtures\.txt$''',
 ]
