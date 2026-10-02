@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "../src/lib/supabase/types";
+import { receiptNumber } from "../src/lib/billing/receipt-number";
 
 /**
  * What a payer sees after Paystack sends them back.
@@ -120,7 +121,11 @@ test.describe("returning from checkout", () => {
     // `.first()` because the same reference legitimately appears twice on this
     // page — once in this banner and once in the purchase-history list below
     // it, which is the point of quoting it in both places.
-    await expect(page.getByText(`Receipt ${REFERENCE}`).first()).toBeVisible();
+    // CHANGED DELIBERATELY (send-503, S18): the receipt shows the short number, and the full reference is kept under a
+    // "Payment reference" disclosure for support. The raw reference must not be what the page calls the receipt.
+    await expect(page.getByText(`Receipt ${receiptNumber("credit_pack", REFERENCE)}`).first()).toBeVisible();
+    await expect(page.getByText(`Receipt ${REFERENCE}`)).toHaveCount(0);
+    await expect(page.getByText("Payment reference").first()).toBeVisible();
 
     // And a way out that is not the page you are already on.
     const cta = page.getByRole("link", { name: "Tailor my resume" });

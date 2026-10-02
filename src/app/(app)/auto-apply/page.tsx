@@ -12,6 +12,7 @@ import { BorderedCard, EyebrowLabel } from "@/components/ui";
 import type { QueueItem } from "@/components/jobs/auto-apply-queue-item";
 import { AutoApplyQueueList } from "@/components/jobs/auto-apply-queue-list";
 import { formatRelativeTime } from "@/lib/format-relative-time";
+import { isListableQueueRow, isWellFormedExplanation, type LiveScore } from "@/lib/auto-apply/queue-read";
 import { displayMatchScore } from "@/lib/match-tier";
 import type { MatchExplanation } from "@/lib/matching/score";
 
@@ -35,7 +36,7 @@ export default async function AutoApplyPage() {
     supabase
       .from("auto_apply_queue")
       .select(
-        "id, job_posting_id, status, match_score, tier, source_type, queued_at, decided_at, credits_spent, job_postings(title, company_name, location)",
+        "id, job_posting_id, status, match_score, tier, source_type, queued_at, decided_at, credits_spent, job_postings(title, company_name, location, status)",
       )
       .eq("user_id", user.id)
       .order("queued_at", { ascending: false })
@@ -73,38 +74,40 @@ export default async function AutoApplyPage() {
    * but shapeless) would throw, not silently render as "not thin" — worse
    * than the missing-row case, which was already handled safely.
    */
-  const explanationByJobId = new Map<string, MatchExplanation>();
+  const liveByJobId = new Map<string, LiveScore>();
   if (pendingRows.length > 0) {
     const { data: scores } = await supabase
       .from("match_scores")
-      .select("job_posting_id, explanation")
+      .select("job_posting_id, score, explanation")
       .eq("user_id", user.id)
       .in(
         "job_posting_id",
         pendingRows.map((r) => r.job_posting_id),
       );
     for (const s of scores ?? []) {
-      const explanation = s.explanation as unknown;
-      const isWellFormed =
-        explanation !== null &&
-        typeof explanation === "object" &&
-        Array.isArray((explanation as MatchExplanation).matchedSkills) &&
-        Array.isArray((explanation as MatchExplanation).missingSkills);
-      if (isWellFormed) {
-        explanationByJobId.set(s.job_posting_id, explanation as MatchExplanation);
-      }
+      liveByJobId.set(s.job_posting_id, { score: s.score, explanation: s.explanation as unknown });
     }
   }
 
-  const pending: QueueItem[] = pendingRows.map((r) => ({
-    id: r.id,
-    jobTitle: r.job_postings?.title ?? "Untitled role",
-    companyName: r.job_postings?.company_name ?? "Unknown company",
-    location: r.job_postings?.location ?? null,
-    matchScore: r.match_score,
-    sourceType: r.source_type,
-    explanation: explanationByJobId.get(r.job_posting_id) ?? null,
-  }));
+  /*
+   * What the page may LIST (send-506, A1): only rows something CURRENT vouches for — see isListableQueueRow.
+   * The score shown is the LIVE one, never the snapshot frozen at queue time. Rows that fail stay `pending` in
+   * the table (this is a read) and the confirm-time gate still refuses them; they are just not offered.
+   */
+  const pending: QueueItem[] = pendingRows
+    .filter((r) => isListableQueueRow(r, liveByJobId.get(r.job_posting_id)))
+    .map((r) => {
+      const live = liveByJobId.get(r.job_posting_id)!;
+      return {
+        id: r.id,
+        jobTitle: r.job_postings?.title ?? "Untitled role",
+        companyName: r.job_postings?.company_name ?? "Unknown company",
+        location: r.job_postings?.location ?? null,
+        matchScore: live.score,
+        sourceType: r.source_type,
+        explanation: isWellFormedExplanation(live.explanation) ? live.explanation : null,
+      };
+    });
   const history = all.filter((r) => r.status !== "pending");
 
   return (

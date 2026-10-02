@@ -307,8 +307,9 @@ test("the whole loop: request, reset, and the old password stops working", async
     /*
      * Scoped to the confirmation itself, not the page. The first version read
      * document.body and tripped on the AuthHero's marketing copy beside it —
-     * "free, no account needed to preview" — which is a sentence about signing
-     * up, not about this address. A leak test that fires on unrelated words is
+     * it then said "no account needed to preview", a sentence about signing
+     * up, not about this address (send-501 removed that sentence, but the
+     * scoping stays right: the panel is not part of the confirmation). A leak test that fires on unrelated words is
      * a leak test nobody will trust the second time.
      */
     const confirmation = (

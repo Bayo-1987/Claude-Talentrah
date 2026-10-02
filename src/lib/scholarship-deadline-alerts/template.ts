@@ -2,6 +2,7 @@ import { absoluteUrl } from "@/lib/seo/site";
 import { emailButton, emailHeadline, emailLabel, emailParagraph, escEmail, renderBrandedEmail } from "@/lib/email/layout";
 import type { DeadlineAlertCandidate } from "./select";
 import { formatCalendarDate } from "@/lib/format/datetime";
+import { scholarshipCloseText } from "@/lib/scholarships/close-instant";
 
 /**
  * One scholarship's deadline per email — deliberately not batched.
@@ -40,9 +41,18 @@ function greeting(firstName: string | null): string {
   return name ? `Hi ${name},` : "Hi,";
 }
 
-/** A date-only column in the house format ("1 Oct 2026"), never shifted by a time zone. */
-function formatDeadline(deadline: string): string {
-  return formatCalendarDate(deadline);
+/**
+ * When it closes, for the email: the date in the house format, with the closing time and zone when the source stated them ("6 Oct 2026,
+ * 13:00 (Pacific time)") and the caution when it did not ("6 Oct 2026 — time zone not stated, apply a day early").
+ */
+function formatDeadline(candidate: DeadlineAlertCandidate): string {
+  const text = scholarshipCloseText({
+    application_deadline: candidate.applicationDeadline,
+    close_time: candidate.closeTime,
+    close_tz: candidate.closeTz,
+  });
+  if (text) return text.replace(/^Closes /, "");
+  return formatCalendarDate(candidate.applicationDeadline ?? "");
 }
 
 function daysOutLabel(daysOut: number): string {
@@ -72,7 +82,7 @@ export function buildScholarshipDeadlineEmail(params: {
   const unsubscribeUrl = absoluteUrl(
     `/unsubscribe?token=${encodeURIComponent(unsubscribeToken)}&pref=scholarship_deadline_alert`,
   );
-  const deadlineText = formatDeadline(candidate.applicationDeadline);
+  const deadlineText = formatDeadline(candidate);
   const whenText = daysOutLabel(daysOut);
 
   const subject =

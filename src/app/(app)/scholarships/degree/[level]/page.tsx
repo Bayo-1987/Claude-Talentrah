@@ -10,6 +10,8 @@ import { loadScholarshipsByLevel } from "@/lib/seo/landing-page-data";
 import { DEGREE_LEVEL_LABEL } from "@/lib/scholarships/types";
 import { PublicScholarshipRow } from "@/components/scholarships/public-scholarship-row";
 import { EyebrowLabel, buttonClasses } from "@/components/ui";
+import { JsonLd } from "@/components/seo/json-ld";
+import { buildBreadcrumbJsonLd } from "@/lib/seo/breadcrumb-jsonld";
 
 /**
  * Programmatic SEO landing page targeting "{degree level} scholarships"
@@ -105,6 +107,13 @@ export default async function DegreeLevelScholarshipsPage({
 
   return (
     <div className="flex max-w-[820px] flex-col gap-6">
+      <JsonLd
+        data={buildBreadcrumbJsonLd([
+          { name: "Talentrah", path: "/" },
+          { name: "Scholarships", path: "/scholarships" },
+          { name: `${label} scholarships`, path: `/scholarships/degree/${levelSlug}` },
+        ])}
+      />
       <Link
         href={session ? "/jobs" : "/"}
         className="inline-flex min-h-10 min-w-10 items-center self-start text-[13px] font-semibold text-ink-soft no-underline hover:text-rust"

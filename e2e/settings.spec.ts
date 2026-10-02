@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { clearDemoFarahThread } from "./fixtures/farah-thread";
 
 /**
  * /settings — the page "View profile" in the Farah panel has pointed at since
@@ -96,6 +97,9 @@ test("the account menu is the only place Sign out lives", async ({ page }) => {
 });
 
 test("a save lands, and the rest of the shell agrees with it", async ({ page }) => {
+  // send-504: this asserts the panel's GREETING carries the new name. A recent Farah thread is now restored on load (and replaces
+  // the greeting), and the shared demo account has one from earlier specs, so start from an empty conversation like a fresh user.
+  await clearDemoFarahThread();
   await page.goto("/settings");
   const original = await page.getByLabel("First name").inputValue();
   const marker = `Demo${Date.now() % 10000}`;
@@ -150,6 +154,8 @@ test("the columns a user may not change are shown as facts, not as fields", asyn
   await expect(page.getByText("demo@talentrah.dev")).toBeVisible();
   await expect(page.getByText("keyed on this address")).toBeVisible();
   await expect(page.getByText("Billing region")).toBeVisible();
+  // send-503 (S18): the region is named and says what billing means (naira through Paystack), not "Home market".
+  await expect(page.getByText(/billed in naira \(₦\)/)).toBeVisible();
 
   // …and not editable. A field here would fail 42501 at the database, which a
   // person cannot tell apart from the product being broken.
