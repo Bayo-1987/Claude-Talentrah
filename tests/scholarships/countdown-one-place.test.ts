@@ -15,12 +15,21 @@ const SITES = [
 ];
 
 describe("scholarship countdown wording", () => {
-  it.each(SITES)("%s takes the countdown from scholarshipCountdown, not from scholarshipDaysLeft", (file) => {
+  it.each(SITES)("%s takes the countdown from the shared module, not from scholarshipDaysLeft", (file) => {
     const src = readFileSync(file, "utf8");
-    expect(src, "uses the shared countdown").toContain("scholarshipCountdown");
+    expect(src, "uses the shared display builder or countdown").toMatch(/scholarshipDeadlineDisplay|scholarshipCountdown/);
     expect(src, "no longer reads the raw day count").not.toMatch(/scholarshipDaysLeft\s*\(/);
     expect(src, "does not rebuild the days grammar by hand").not.toMatch(/"day"\s*:\s*"days"/);
     expect(src).not.toMatch(/\$\{left\}\s*\$\{left === 1/);
+  });
+
+  it("the deadline-alert email reads the ABSOLUTE statement from the same module, never the relative countdown or its own 'today/tomorrow' words", () => {
+    const template = readFileSync("src/lib/scholarship-deadline-alerts/template.ts", "utf8");
+    expect(template).toContain("scholarshipDeadlineStatement");
+    expect(template).not.toMatch(/scholarshipCountdown|scholarshipDaysLeft|daysOutLabel|daysOut/);
+    expect(template).not.toMatch(/["'`][^"'`\n]*(today|tomorrow|days left)[^"'`\n]*["'`]/i);
+    const send = readFileSync("src/lib/scholarship-deadline-alerts/send.ts", "utf8");
+    expect(send, "the sender no longer computes a relative day count for the wording").not.toMatch(/daysOut/);
   });
 
   it("no other file under src/ builds ' day(s) left' text outside close-instant.ts", () => {

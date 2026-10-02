@@ -259,9 +259,9 @@ describe("Open this cycle (real listings)", () => {
         expect(span[1]).toMatch(/ · 5 days left$/);
       });
 
-      it("closes today and closes tomorrow read naturally", () => {
+      it("5 hours out reads 'Closes in 5 hours' (true for every reader), 29 hours out '1 day left'", () => {
         const today = deadlineSpan(render(FACETS, [listing(closing(5 * HOUR))]))!;
-        expect(today[1]).toMatch(/ · closes today$/);
+        expect(today[1]).toMatch(/ · Closes in 5 hours$/);
         expect(today[0]).toContain("text-rust");
         const tomorrow = deadlineSpan(render(FACETS, [listing(closing(DAY + 5 * HOUR))]))!;
         expect(tomorrow[1]).toMatch(/ · 1 day left$/);
@@ -396,13 +396,13 @@ describe("which instant decides 'closes today' and 'N days left' (send-480, rewr
    * "Closes today: time zone not stated, apply now" while the date is current there, then "Deadline date has passed in some time zones. May
    * already be closed" until the last place has ended the day. These tests used to expect "closes today" for the whole 36 hours.
    */
-  const TODAY = "Closes today: time zone not stated, apply now";
-  const PASSED = "Deadline date has passed in some time zones. May already be closed";
+  const LAST_DAY_2_OCT = "Last day: deadline 2 Oct 2026, time zone not stated. Apply now.";
+  const PASSED = "Deadline date has passed in some time zones. May already be closed.";
 
-  it("a no-zone deadline of 2 Oct: 'Closes today, apply now' on the day, 'passed in some time zones' from 10:00 UTC, and STILL listed at 00:30 UTC on 3 Oct", () => {
+  it("a no-zone deadline of 2 Oct: 'Last day, apply now' on the day, 'passed in some time zones' from 10:00 UTC, and STILL listed at 00:30 UTC on 3 Oct", () => {
     const row = { application_deadline: "2026-10-02" };
     const onTheDay = deadlineSpan(at("2026-10-02T08:30:00Z", row))!;
-    expect(onTheDay[1]).toBe(`2 Oct 2026 · ${TODAY}`);
+    expect(onTheDay[1]).toBe(LAST_DAY_2_OCT);
     expect(onTheDay[0]).toContain("text-rust");
     expect(deadlineSpan(at("2026-10-02T10:00:00Z", row))![1]).toBe(`2 Oct 2026 · ${PASSED}`);
     const after = deadlineSpan(at("2026-10-03T00:30:00Z", row))!;
@@ -418,7 +418,7 @@ describe("which instant decides 'closes today' and 'N days left' (send-480, rewr
 
   it("a stated closing time is honoured to the minute: 13:00 Pacific on 2 Oct is 20:00 UTC", () => {
     const row = { application_deadline: "2026-10-02", close_time: "13:00", close_tz: "America/Vancouver" };
-    expect(deadlineSpan(at("2026-10-02T19:59:00Z", row))![1]).toBe("2 Oct 2026 · closes today");
+    expect(deadlineSpan(at("2026-10-02T19:59:00Z", row))![1]).toBe("2 Oct 2026 · Closes in under an hour");
     expect(deadlineSpan(at("2026-10-02T20:00:00Z", row))![1]).toBe("2 Oct 2026");
   });
 
@@ -426,6 +426,6 @@ describe("which instant decides 'closes today' and 'N days left' (send-480, rewr
     const row = { application_deadline: "2026-10-02" };
     expect(deadlineSpan(at("2026-09-30T12:00:00Z", row))![1]).toBe("2 Oct 2026 · 1 day left");
     expect(deadlineSpan(at("2026-09-29T12:00:00Z", row))![1]).toBe("2 Oct 2026 · 2 days left");
-    expect(deadlineSpan(at("2026-10-01T10:00:00Z", row))![1]).toBe(`2 Oct 2026 · ${TODAY}`);
+    expect(deadlineSpan(at("2026-10-01T10:00:00Z", row))![1]).toBe(LAST_DAY_2_OCT);
   });
 });
