@@ -11,7 +11,7 @@
  * cascade in CI's database.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createHmac } from "node:crypto";
+import { createHmac, randomBytes } from "node:crypto";
 
 interface Row {
   id: string;
@@ -167,7 +167,8 @@ describe("fulfillPayment for a deleted user's payment", () => {
 });
 
 describe("the Paystack webhook answers 200 for a deleted user's charge", () => {
-  const SECRET = "test-secret";
+  // Generated per run: the repo's secret scanner (.gitleaks.toml, talentrah-hardcoded-credential) rejects a literal credential-shaped value, even in a test.
+  const SECRET = randomBytes(16).toString("hex");
   const sign = (body: string) => createHmac("sha512", SECRET).update(body).digest("hex");
   const post = async (body: string) => {
     process.env.PAYSTACK_SECRET_KEY = SECRET;
