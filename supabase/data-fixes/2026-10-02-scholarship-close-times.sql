@@ -108,3 +108,20 @@ $apply$;
 --   if n <> 1 then raise exception 'rollback Open Doors note: expected 1 row, got %', n; end if;
 -- end
 -- $rollback$;
+
+-- ========================================== RECORD (filled in when the APPLY block is run; execute_sql writes no ledger row) ==========================================
+-- Applied at (UTC): 2026-10-02 08:26 (production, project nytwbbzfpytctjsoczzq; the first read-only check ran at 08:26:56 UTC)
+-- Approved by:      the owner, in chat, 2026-10-02, on the final dry-run diff in PR #664 ("exactly as in #664's body")
+-- Row counts:       8 statements, each exactly 1 row (6 close times + the ETH note + the Open Doors note); the block completed
+--                   without raising, which it does unless every statement touched exactly 1 row. Immediately before it, a READ ONLY
+--                   guard check showed all 8 guards matching (6 deadline-date + close_tz-null guards, 2 exact-note-text guards).
+-- Read-only checks after the apply (08:26-08:30 UTC):
+--   - each edited row's close_at equals the Closes (UTC) value in PR #664: Knight-Hennessy 2026-10-06 20:00Z, Chevening 2026-10-06 11:00Z,
+--     Yenching 2026-11-30 01:00Z, Gates 2026-12-08 23:59Z, UBC IMES 2027-01-16 07:59Z, Glasgow 2027-03-31 22:59Z: all equal;
+--   - rows with a zone: 6; rows with a deadline and no zone: 10; close_at mismatches against scholarship_close_instant(): 0;
+--   - landing counts via scholarship_landing_facet_counts_at(now()) and the old date function: (27, 27, 18, 14) both
+--     (fully funded, MSc, BSc, PhD), unchanged;
+--   - ETH note no longer contains "12:59"; Open Doors note no longer contains "Moscow" or "quoted";
+--   - live pages (www.talentrah.com): Chevening "Closes 6 Oct 2026, 11:00 (GMT+00:00) · 4 days left", Knight-Hennessy "Closes 6 Oct 2026,
+--     13:00 (Pacific time) · 4 days left", UBC "Closes 15 Jan 2027, 23:59 (Pacific time (Canada))"; rows left without a zone (Trudeau, ETH,
+--     Open Doors) still say "time zone not stated, apply a day early".

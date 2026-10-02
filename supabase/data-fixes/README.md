@@ -23,3 +23,9 @@ How one is applied:
 3. Validate the block on the preview project inside a transaction that raises at the end (rolled back), with the fixture rows inserted in
    that same transaction when the preview does not have them.
 4. Apply the APPLY block with `execute_sql`, then verify read-only.
+
+## Record
+Because `execute_sql` writes no migration-ledger row, **the file itself is the record** of each apply. When a fix is applied, fill in its
+RECORD section (the last block of the file) in the same PR: **when it was applied (UTC), who approved it, and the row count of each
+statement** (each must be exactly 1, or the block raised and nothing changed), plus the result of the read-only checks that followed. A
+file whose RECORD still says `<not yet applied>` has not been run.
