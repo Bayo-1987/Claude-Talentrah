@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const calls = vi.hoisted(() => ({ list: [] as Array<{ table: string; ops: Array<[string, unknown[]]> }> }));
 const slotRows = vi.hoisted(() => ({ rows: [] as Array<{ mentor_id: string }> }));
+const rpcCalls = vi.hoisted(() => ({ list: [] as Array<{ fn: string; args: Record<string, unknown> }> }));
 
 vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => ({
@@ -36,7 +37,11 @@ vi.mock("@/lib/supabase/server", () => ({
       );
       return chain;
     },
-    rpc: async () => ({ data: [{ user_id: "m-with", display_name: "With Slots", first_name: null, last_name: null }, { user_id: "m-without", display_name: "No Slots", first_name: null, last_name: null }], error: null }),
+    rpc: async (fn: string, args: Record<string, unknown>) => {
+      rpcCalls.list.push({ fn, args });
+      if (fn === "open_mentor_slots") return { data: slotRows.rows, error: null };
+      return { data: [{ user_id: "m-with", display_name: "With Slots", first_name: null, last_name: null }, { user_id: "m-without", display_name: "No Slots", first_name: null, last_name: null }], error: null };
+    },
   }),
 }));
 
@@ -44,6 +49,7 @@ import { browseMentors } from "@/lib/mentorship/queries";
 
 beforeEach(() => {
   calls.list.length = 0;
+  rpcCalls.list.length = 0;
   slotRows.rows = [{ mentor_id: "m-with" }, { mentor_id: "m-with" }];
 });
 
@@ -54,13 +60,12 @@ describe("browseMentors open slots", () => {
     expect(mentors.find((m) => m.userId === "m-without")?.openSlotCount).toBe(0);
   });
 
-  it("asks for the slots in ONE batched query, unbooked and in the future, like the profile page", async () => {
+  it("asks for the slots in ONE batched call to open_mentor_slots, which ignores stale unpaid holds in SQL (send-502)", async () => {
     await browseMentors();
-    const slotQueries = calls.list.filter((c) => c.table === "mentor_availability_slots");
-    expect(slotQueries, "one batched slots query, not one per mentor").toHaveLength(1);
-    const ops = slotQueries[0].ops;
-    expect(ops).toContainEqual(["in", ["mentor_id", ["m-with", "m-without"]]]);
-    expect(ops).toContainEqual(["eq", ["is_booked", false]]);
-    expect(ops.find(([n, a]) => n === "gt" && a[0] === "start_at"), "must be filtered to future slots").toBeDefined();
+    // Not a table read of is_booked = false: that would count a lapsed 30-minute hold as taken.
+    expect(calls.list.filter((c) => c.table === "mentor_availability_slots"), "no direct slots table read").toHaveLength(0);
+    const slotCalls = rpcCalls.list.filter((c) => c.fn === "open_mentor_slots");
+    expect(slotCalls, "one batched call, not one per mentor").toHaveLength(1);
+    expect(slotCalls[0].args.p_mentor_ids).toEqual(["m-with", "m-without"]);
   });
 });
