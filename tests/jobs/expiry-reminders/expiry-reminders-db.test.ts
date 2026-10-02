@@ -116,7 +116,7 @@ beforeAll(async () => {
   userId = user.id;
   const { data: org, error } = await admin
     .from("organizations")
-    .insert({ name: `EMPLOYER-TEST expiry-reminders ${randomUUID()}`, created_by: userId, verified: true })
+    .insert({ name: `EMPLOYER-TEST expiry-reminders ${randomUUID()}`, created_by: userId, verified: false })
     .select("id")
     .single();
   if (error || !org) throw new Error(`fixture org: ${error?.message}`);
