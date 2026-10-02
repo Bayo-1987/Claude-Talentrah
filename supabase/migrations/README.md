@@ -70,33 +70,7 @@ filename disagreeing with `schema_migrations` forever.
 Via the Supabase MCP connector's `apply_migration` (pass the name without the
 `.sql` suffix), or `supabase db push` if the CLI is ever linked to the project.
 
-| Migration | Status |
-|---|---|
-| `0000_baseline_schema.sql` | snapshot only — describes the project as it already is; do **not** run it against it |
-| `0026_fix_org_membership_rls.sql` | applied 2026-08-24 |
-| `0027_gate_internal_postings_on_org_verification.sql` | applied 2026-08-25 |
-| `0028_lock_organization_verification.sql` | applied 2026-08-25 |
-| `0029_org_application_counts.sql` | applied 2026-08-25 |
-| `0030_lock_profile_value_columns.sql` | applied 2026-08-25 |
-| `0031_lock_derived_user_tables.sql` | applied 2026-08-25 |
-| `0032_fix_anon_execute_grants.sql` | applied 2026-08-25 |
-| `0033_auto_apply.sql` | applied 2026-08-25 |
-| `0034_auto_apply_claim.sql` | applied 2026-08-25 (re-applied after the alias fix) |
-| `0035_atomic_credit_spend.sql` | applied 2026-08-25 |
-| `0036_self_referral_dot_normalisation.sql` | applied 2026-08-25 |
-| … | this table stopped being updated at 0036; 0037–0059 were applied as they landed |
-| `0060_admin_identity.sql` | applied 2026-08-28 to **both** projects — production `nytwbbzfpytctjsoczzq` and CI `dozaffzgqkbarxtlclsj` |
-| `0061_course_recommendations.sql` | applied 2026-08-29 to **both** projects — recorded in `schema_migrations` under its pre-rename name, `0060_course_recommendations` (see the file's header) |
-| `0062_course_recommendation_seed.sql` | applied 2026-08-29 to **both** projects. Recovers the nine catalog rows 0061's applied form inserted and its committed form omitted; idempotent, so it inserted nothing on production/CI and only records that the repo accounts for them |
-| `0063_course_recommendations_inactive.sql` | applied 2026-08-29 to **both** projects — switches the nine placeholder rows off so a fresh database matches the two real ones. See *The course catalog ships switched OFF* below |
-| `0064_moderation_attribution.sql` | applied 2026-08-29 to **both** projects |
-| `0065_feedback_triage.sql` | applied 2026-08-29 to **both** projects — row added after the fact; it was missing while 0064 and 0066 were listed, which reads as a gap rather than as an omission |
-| `0066_farah_hint_dismissed.sql` | applied 2026-08-29 to CI and to production the same day (`schema_migrations` version 20260829155210 — verified, not assumed). Adds `profiles.farah_hint_dismissed_at` and grants UPDATE on it, widening 0030's column list by one. See the file header for why that column is safe to grant, and `tests/rls/column-privileges.test.ts` for the assertion that it did not widen anything else |
-| `0067_operator_credential_events.sql` | applied to **both** projects — production version 20260830132631. Row added 2026-08-30 after the fact: it was absent from this table while 0066 and 0068 were listed. Note it was applied to production *after* 0068 was, which is what being missed and backfilled looks like in the ledger |
-| `0068_admin_mfa.sql` | applied to **both** projects — production version 20260830093748. Row added 2026-08-30 after the fact, same as 0067 above |
-| `0069_invalidate_match_scores_on_jd_change.sql` | applied 2026-08-30 to **CI only** while its PR is in review — production on merge. Adds an AFTER UPDATE trigger on `job_postings` that clears cached `match_scores` when `structured_jd` or `seniority` changes |
-| `0071_drop_admin_mfa.sql` | applied to **both** projects — recorded as `drop_admin_mfa_0071` on each, and `admin_users.mfa_enrolled_at` is confirmed absent from both. Row added here by a different PR's author than the migration's, because the table is only useful if it is complete; see #143 for why admin MFA was removed rather than left half-on |
-| `0072_resume_skills_notice_dismissed.sql` | applied 2026-08-30 to **CI only** while its PR is in review — production on merge. Adds `profiles.resume_skills_notice_dismissed_at` and grants UPDATE on it, widening 0030's column list by one. A second column rather than a reuse of 0066's, so dismissing the Farah nudge does not also hide the notice saying a resume cannot be scored |
+**The production ledger (`supabase_migrations.schema_migrations`) is the source of truth for what has been applied;** the order, number reservation and environments are in [docs/database-environments.md](../../docs/database-environments.md).
 
 ## The course catalog ships switched OFF
 
