@@ -159,6 +159,8 @@ export async function enrichThinPostings(
     .from("job_postings")
     .select("id, description, structured_jd, posted_at")
     .eq("status", "open")
+    // 0202: no LLM spend on a hidden duplicate.
+    .is("superseded_at", null)
     .is("llm_enrichment_attempted_at", null)
     .order("posted_at", { ascending: true })
     .limit(CANDIDATE_FETCH_LIMIT);

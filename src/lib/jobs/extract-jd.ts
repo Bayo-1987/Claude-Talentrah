@@ -406,7 +406,7 @@ const NON_LOCATION_VALUES = new Set([
   "city, country",
 ]);
 
-function namesARealPlace(location: string | undefined): boolean {
+export function namesARealPlace(location: string | undefined): boolean {
   const normalized = location?.trim().toLowerCase() ?? "";
   return normalized.length > 0 && !NON_LOCATION_VALUES.has(normalized);
 }

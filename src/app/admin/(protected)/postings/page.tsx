@@ -5,6 +5,7 @@ import { decideJobPostingAction } from "@/lib/admin/moderation/actions";
 import { DecisionForm } from "@/components/admin/decision-form";
 import { QueueEmpty } from "@/components/admin/queue-chrome";
 import { Container, EyebrowLabel, BorderedCard, TextField, Button } from "@/components/ui";
+import { formatDate } from "@/lib/format/datetime";
 
 export const metadata = {
   title: "Find a posting — Talentrah admin",
@@ -125,7 +126,7 @@ export default async function PostingsSearchPage({
                     {p.sourceType === "external" ? "External listing" : "Posted on Talentrah"} ·{" "}
                     status {p.status}
                     {p.location && ` · ${p.location}`} · posted{" "}
-                    {new Date(p.postedAt).toLocaleDateString()}
+                    {formatDate(p.postedAt)}
                   </p>
                   {p.externalUrl && (
                     <a

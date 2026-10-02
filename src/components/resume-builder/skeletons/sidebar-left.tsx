@@ -54,7 +54,7 @@ export function SidebarLeftSkeleton({ resume, config }: SkeletonProps) {
         <aside className="border-r border-line pr-6">
           {sidebarKeys.map((key) => (
             <div key={key} className="mb-6 last:mb-0">
-              {SECTION_RENDERERS[key]({ resume, tokens, content, sectionClassName: "" })}
+              {SECTION_RENDERERS[key]({ resume, tokens, content, sectionClassName: "", narrow: true })}
             </div>
           ))}
         </aside>

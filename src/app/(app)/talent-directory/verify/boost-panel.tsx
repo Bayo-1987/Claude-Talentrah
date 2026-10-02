@@ -4,7 +4,9 @@ import { useState, useTransition } from "react";
 import { requestTalentDirectoryBoostAction } from "@/lib/talent-directory/actions";
 import { Button } from "@/components/ui";
 import { CREDIT_COSTS } from "@/lib/credits/costs";
+import { priced } from "@/lib/credits/price-labels";
 import { TALENT_DIRECTORY_BOOST_DAYS } from "@/lib/talent-directory/boost-constants";
+import { formatDate } from "@/lib/format/datetime";
 
 /**
  * Talent Directory v2, part 1 (§6.13's third buyer segment): purchase entry
@@ -30,8 +32,8 @@ export function BoostPanel({ boostedUntil }: { boostedUntil: string | null }) {
       {boostedUntil && (
         <p className={`text-[13px] ${isActive ? "text-green" : "text-ink-soft"}`}>
           {isActive
-            ? `Boosted — active until ${new Date(boostedUntil).toLocaleDateString()}.`
-            : `Your last boost expired ${new Date(boostedUntil).toLocaleDateString()}.`}
+            ? `Boosted — active until ${formatDate(boostedUntil)}.`
+            : `Your last boost expired ${formatDate(boostedUntil)}.`}
         </p>
       )}
 
@@ -47,7 +49,7 @@ export function BoostPanel({ boostedUntil }: { boostedUntil: string | null }) {
             })
           }
         >
-          {isActive ? "Extend boost" : "Boost my placement"}
+          {priced(isActive ? "Extend boost" : "Boost my placement", CREDIT_COSTS.talentDirectoryBoost)}
         </Button>
       </div>
       {message && (

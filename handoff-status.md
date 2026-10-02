@@ -33,6 +33,176 @@ both served stale content in this project's history. Don't rely on either.
 
 ---
 
+## Merged 2026-10-01 — PR #639, the resume PDF output: filename, page margins, wording, bullets, tailoring-time normalisation, certification columns (S2-11)
+
+| PR | Branch | Merged at (UTC) | Merge SHA |
+|----|--------|-----------------|-----------|
+| [#639](https://github.com/Bayo-1987/Claude-Talentrah/pull/639) | `fix/resume-pdf-print-s2-11` | 2026-10-01 18:56:56 | `61ac4591341ace7e750c4e3f97827a7847396436` |
+
+**What it changed.** `window.print()` stays the export. (1) The saved PDF is named `<First>-<Last>-Resume` (`src/lib/resume-builder/print-title.ts`): `document.title` is set before print and restored on `afterprint`, on a thrown `print()`, and by a 60 s fallback; the employer button uses the applicant's name. (2) **Real top and bottom space on every printed page** with `@page { margin: 0 }` kept (so Chrome still draws no header/footer): `ResumePrintSurface` uses `box-decoration-break: clone` with 0.5 in padding. Measured on the 2-page A4 fixture: **page 2 top 4 pt -> 40 pt, page 1 bottom 28 pt -> 55 pt**. A `<thead>/<tfoot>` spacer table measured the same in Chromium 153; clone was chosen because it adds no table to a document ATS parsers read, and a browser that ignores the property falls back to the old output. The employer print used to print the employer masthead and a border around the resume; both are hidden in print. (3) The button reads **Save as PDF** with the line "In the print window, choose 'Save as PDF'." (4) The Achievements editor has a Bulleted list toggle; tailoring asks for a `bullets` array and splits glued or marker-prefixed text into one achievement per bullet. Two bugs found on the way: **glued bullets over 200 characters were dropped by the sanitizer, and the base resume's bullets overwrote the model's rewrite.** (5) `src/lib/tailoring/normalise.ts`, **tailoring time only**: "Sep 2022" dates, near-duplicate skills, and casing for a 36-term list applied only when a **whole skill-list entry** equals a term, never inside longer entries or prose (Go, Swift, Rust, Excel are not in it). The tailoring cache version is bumped 1 -> 2. (6) Certifications render in two columns from 8 entries, **except** the sidebar and rail skeletons, Statute, Public Record, Portfolio Grid, Pipeline and Critical Path (the founder confirmed that exception: a 200 px rail is too narrow; Critical Path's list is in a half-width column). Plan only: `docs/resume-pdf-server-side-plan.md` (recommendation: keep print; spike `@sparticuz/chromium-min` only if browser variance is evidenced; its cold-start figures are quoted, not measured).
+
+**Reversed after the founder's review (and why).** The first version also split typed `- ` / `•` descriptions at **render** time, which would have changed how every already-saved resume looks. Removed: splitting is tailoring-time only, and `tests/resume-builder/old-format-resume-render.test.tsx` (every template and skeleton; red with 73 failures before the fix) pins that an old-format saved resume renders exactly as stored. `tests/tailoring/cache-version-compat.test.ts` pins that the cache bump only changes whether NEW generations reuse a `tailoring_result_cache` row: its only reader is `getCachedTailoringResult`, called only from `tailorResumeToJob`, and a user reopens tailored resumes from `resumes`, which the cache never touches. `tests/tailoring/bullets-consumers.test.tsx` (33 tests) pins every reader of the output with the array shape and both old shapes; the ATS score and cover letter do not read stored output.
+
+### Verification (all four, against live state)
+
+**1. API.** `…/pulls/639` -> `merged: true`, `merged_at` 2026-10-01T18:56:56Z, `merge_commit_sha` `61ac4591…`.
+
+**2. Fresh shallow clone** (`GIT_TERMINAL_PROMPT=0 git clone --depth 1`), HEAD `61ac4591341ace7e750c4e3f97827a7847396436`: PRESENT `src/components/resume-builder/resume-print-surface.tsx`, `src/lib/resume-builder/print-title.ts`, `src/lib/tailoring/normalise.ts`, `docs/resume-pdf-server-side-plan.md`, `e2e/print-button-title.spec.ts`, `tests/resume-builder/old-format-resume-render.test.tsx`, `tests/tailoring/cache-version-compat.test.ts`, `tests/tailoring/bullets-consumers.test.tsx`, `tests/tailoring/normalise.test.ts`; `poppler-utils` appears once in `.github/workflows/ci.yml` (the `Playwright e2e` job) and nowhere else in `.github/workflows`.
+
+**3. Live production probe.** Vercel deployment `dpl_8WJt3yn4xJyu5uhxfCZQZu3hwV6C`, `READY`, `target: production`, `githubCommitSha` = `61ac4591…`. Signed out: `/` 200, `/login` 200, `/resume-builder` 307 (to login). **The change itself is behind sign-in and `window.print()`, so no signed-out probe can observe it**; its evidence is the built-app Playwright run below, not a live production page. Not covered: a signed-in print on production by a person.
+
+**4. Test suites on the merged head.** Unit **424 files passed (424)**; Playwright **532 passed**, including **the first real CI run** of `e2e/print-button-fonts.spec.ts`, `e2e/employer-print-fonts.spec.ts` and `e2e/print-button-title.spec.ts` (all passed; they could not be run locally) and the 2-page PDF white-space measurement for 9 templates plus Letter for one (at least 36 pt on every page, measured with real `pdftoppm`). The `Install poppler (pdftoppm)` step took **54 s** (16:51:03 -> 16:51:57Z) in the `Playwright e2e` job only.
+
+### Not covered / open
+- A signed-in human print-to-PDF on production, in a real browser, and an employer-side print of a real applicant resume.
+- Browser variance: the margin technique was measured in one Chromium (153); Safari and Firefox were not measured. A browser that ignores `box-decoration-break` prints as before.
+- The sidebar after-render (18 certifications) is 2 pages; on its page 1 the summary paragraph sits flush against the "Experience" heading. Whether that spacing pre-dates this PR was not checked.
+- Lighthouse failed (the known thin-CI-project `/jobs/remote` 404); not a required check.
+
+---
+
+## Merged 2026-10-01 — S12 job data quality, parts 3 and 4: PR #638 (cleaned location text) and PR #634 (job page titles)
+
+| PR | Branch | Merged at (UTC) | Merge SHA |
+|----|--------|-----------------|-----------|
+| [#638](https://github.com/Bayo-1987/Claude-Talentrah/pull/638) | `feat/job-location-normalise` | 2026-10-01 16:24:01 | `0f60fa2cd25d40b41e819aaca6ed491b1cff6cb1` |
+| [#634](https://github.com/Bayo-1987/Claude-Talentrah/pull/634) | `feat/job-page-titles` | 2026-10-01 17:29:22 | `aa55eb6fc64b72c6c3bb67194cdf96811ff5eb3b` |
+
+**What #638 changed.** `normalizeLocation` (`src/lib/jobs/location.ts`) cleans the stored `location` text at ingestion in all four adapters: a part repeating an earlier part of the same entry is dropped (`Lagos, Lagos, Nigeria` -> `Lagos, Nigeria`), duplicate `;` entries, a trailing ISO code that is that country's own (`Cameroon (CM)`), a stray full stop, ragged spacing, and a template placeholder (`City, Country`) becomes no location. It never invents or reorders and is idempotent. **Identity does not move**: every adapter still computes `dedup_fingerprint` from the raw string. No migration, no data written; rows take the cleaned text on their next ingest.
+
+**What #634 changed.** The `/jobs/[id]` title is `<Role> at <Company> — <City or Remote> | Talentrah` (`src/lib/seo/job-page-title.ts`), about 65 characters, under the founder's policy of 2026-10-01: **the company is never dropped**. Trim order: the suffix, then the place is the city or `Remote`, then the role at a word boundary; past that the title runs long. A posting whose title equals a sibling's (one bounded query per page render, `siblingPostingsFor`) gets its country, and only those, in a form that is never shortened (shortening the role would rebuild the collisions). `og:title` and `twitter:title` are that same string; canonical and the rest of the head are unchanged.
+
+### Verification (all four, against live state)
+
+**1. API.** `…/pulls/638` -> `merged: true`, `merged_at` 2026-10-01T16:24:01Z, `merge_commit_sha` `0f60fa2c…`. `…/pulls/634` -> `merged: true`, `merged_at` 2026-10-01T17:29:22Z, `merge_commit_sha` `aa55eb6f…`.
+
+**2. Fresh shallow clone** (`GIT_TERMINAL_PROMPT=0 git clone --depth 1`), HEAD `aa55eb6fc64b72c6c3bb67194cdf96811ff5eb3b`: PRESENT `src/lib/jobs/location.ts`, `tests/jobs/normalize-location.test.ts`, `src/lib/seo/job-page-title.ts`, `tests/seo/job-page-title.test.ts`, `e2e/job-page-title-head.spec.ts`; `siblingPostingsFor` appears 2 times in `src/app/(app)/jobs/[id]/page.tsx`; `normalizeLocation` appears 2 times in each of the four adapters.
+
+**3. Live production probe** (signed out, 2026-10-01 after Vercel deployments `dpl_23SiXw9NMdkcqkRWnuFmkotxJtVB` (#638) and `dpl_FaWbHPs8sVScnDGarULTCpZTcbdE` (#634, `githubCommitSha` `aa55eb6f…`), both `READY`, `target: production`). A crawl of **all 380 job URLs in `sitemap.xml`** (title, `og:title`, canonical): **380/380** `<title>` equal `og:title`; **380/380** canonicals are the page's own path; **0** still in the old `— Talentrah` format; 142 carry the ` | Talentrah` suffix, 74 carry a country (`— Remote, Poland`), the rest the short place. Duplicate titles: **3 groups / 7 rows** (Optimal Group x3, Monaco Solicitors x2, and Sales Network Manager - Regional - Jumia x2 in Nigeria, two postings with the same company, role and location). The first two are the rows #632 supersedes (once marked: 1 group / 2 rows left, the Jumia pair, which no title can separate). **58 titles are over 65 characters, 40 over 70, the longest 100**: the policy lets a title run long rather than lose its company, and the unshortened country-bearing form is the long one. The SQL estimate before the change was 28 duplicate groups / 107 rows and 120 titles over 65 (the founder's own crawl is the authoritative before/after). Production database, read-only, **before the next ingest** (so these are the "before" numbers for #638 and #629): open external postings with a repeated location part **126**, with a trailing ISO code **9**, bare `Remote` **62**, `Remote, <country>` **77**.
+
+**4. Test suites on the merged heads.** #638's final head: unit 410 files passed (410), Playwright 512 passed. #634's final head: unit 415 files passed (415), Playwright 517 passed, including the new `e2e/job-page-title-head.spec.ts` (title = `og:title` = `twitter:title`, and a real Poland/Spain collision).
+
+### Not covered / open
+- **#638's effect on data is not yet observable**: the last production ingest ran at 12:07Z, before both deploys. After the next run: the repeated-part, ISO-code, bare-Remote and Remote-country counts above should fall to 0 / 0 / (Workable rows that state a country) / rise; the before/after on the 142 markup-ineligible rows and the Rich Results test on 3 remote jobs follow it.
+- The title duplicate count above is on **unmarked** data; marking the 3 superseded rows is still waiting on the founder's go.
+- Lighthouse failed on both PRs (known: the thin CI-project `/jobs/remote` 404); not a required check. The SQL replica of the title rule is an approximation of the TypeScript; the crawl above is the real measurement.
+- One `tests/jobs` file (`freshness-visibility`) fails locally against the shared test database on remote-posting counts (other sessions' data); it passed in CI on both heads.
+
+---
+
+## Merged 2026-10-01 — S12 job data quality, parts 1 and 2: PR #629 (countries and Workable's stated remote country in JobPosting markup) and PR #632 (superseded duplicates, migration 0202)
+
+| PR | Branch | Merged at (UTC) | Merge SHA |
+|----|--------|-----------------|-----------|
+| [#629](https://github.com/Bayo-1987/Claude-Talentrah/pull/629) | `fix/jobs-location-country-jsonld` | 2026-10-01 14:26:31 | `dbf0af19c1159e7719dd3452d55e3a6fd47093c2` |
+| [#632](https://github.com/Bayo-1987/Claude-Talentrah/pull/632) | `feat/job-supersession` | 2026-10-01 15:09:30 | `1c263fad6c583eaf7f3582e668f00fd90371ea75` |
+
+**What #629 changed.** `src/lib/jobs/countries.ts` (the 249 ISO 3166-1 names as committed CLDR data, plus an explicit, tested alias table; `Georgia`, `Jersey` and `Congo` never resolve from free text). `parseJobLocation`: a lone country token is a country-only address, a remote role gets `TELECOMMUTE` + `applicantLocationRequirements`; `Remote, Bangalore` no longer claims a country called "Bangalore". Workable's `formatLocation` keeps the Country the source states (`Remote, Nigeria`), never invents "Worldwide", and the row's `dedup_fingerprint` is computed from the pre-enrichment location so no live row changes identity. No migration, no data written: existing rows take the new location text on their next ingest (daily 05:00 UTC).
+
+**What #632 changed.** Migration `0202` (applied to production BEFORE the merge, 2026-10-01 ~15:00 UTC, after the PR's required checks were green on its head): `job_postings.superseded_by` / `superseded_at`; the public SELECT policy gains `superseded_at is null` in each of the four non-member branches (self-checked: four mentions); a trigger refusing the columns from `authenticated`/`anon`; `job_supersession_plan(p_companies)` (the dry run) and `apply_job_supersession(p_companies)` (the write), service-role only; `superseded_job_target(id)`; `auto_apply_claim_submission` and `promoted_jobs` redefined with one added condition each; the `job_supersession` feature flag, created OFF. App side: service-role readers that bypass RLS exclude superseded rows (Auto-Apply scan, digest, win-back, proactive alert, match refresh, LLM enrichment) with `tests/jobs/supersession-read-paths.test.ts` as the standing check; `/jobs/[id]` answers 308 to the kept row; ingest runs `apply_job_supersession` scoped to the companies it touched, only while the flag is on. **Nothing is marked in production.**
+
+**Found by measuring (both are in the PR).** The 308 was a **404** on a real `next build && next start` until the redirect check moved into the page body as well as `generateMetadata`: the body runs concurrently and its `notFound()` won the race. And a global `apply_job_supersession` was unsafe for parallel test files sharing one database (my own ingest test marked another file's fixtures), hence the `p_companies` scope. CI on #632's first head also failed 20 unit tests in 5 files, because their hand-written Supabase fakes had no `.is()`; fixed, and win-back's fake now has a mutation-checked test that a superseded copy is never emailed.
+
+### Verification (all four, against live state)
+
+**1. API.** `GET /repos/Bayo-1987/Claude-Talentrah/pulls/629` -> `merged: true`, `merged_at` 2026-10-01T14:26:31Z, `merge_commit_sha` `dbf0af19…`. `…/pulls/632` -> `merged: true`, `merged_at` 2026-10-01T15:09:30Z, `merge_commit_sha` `1c263fad…`.
+
+**2. Fresh shallow clone** (`GIT_TERMINAL_PROMPT=0 git clone --depth 1`), HEAD `1c263fad6c583eaf7f3582e668f00fd90371ea75`: PRESENT `supabase/migrations/0202_job_posting_supersession.sql`, `src/lib/jobs/countries.ts`, `tests/jobs/supersession.test.ts`, `tests/jobs/supersession-read-paths.test.ts`, `e2e/job-superseded-redirect.spec.ts`, `tests/jobs/country-resolver.test.ts`; `supersededTargetFor` appears 3 times in `src/app/(app)/jobs/[id]/page.tsx`; `superseded_at` 21 times in the migration.
+
+**3. Live production probe** (signed out, 2026-10-01, Vercel deployment `dpl_Em1XVS6nedVoL61aaiwmr5vAGUuZ`, `READY`, `target: production`, `githubCommitSha` = `1c263fad…`): `/`, `/jobs`, `/jobs/remote`, `/jobs/remote/nigeria`, `/jobs/in/lagos` and a sitemap-listed `/jobs/<id>` all 200; `sitemap.xml` 200 listing 380 job URLs. Production database, read-only: both columns present, **0 rows marked**, the policy mentions `superseded_at` 4 times, flag `job_supersession` = false, `anon` cannot execute `apply_job_supersession`, `anon` can execute `superseded_job_target`, `authenticated` kept `EXECUTE` on `promoted_jobs`, `job_supersession_plan()` returns exactly the 3 dry-run rows, 662 open postings unchanged.
+
+**4. Test suites on the merged heads.** #629's final head: unit 404 files passed (404), Playwright 495 passed. #632's final head: unit 407 files passed (407), Playwright 496 passed, which includes the new `e2e/job-superseded-redirect.spec.ts` (308 on the built app) and the database tests that could not mint an authenticated session locally.
+
+### Not covered / open
+- **Marking the 3 rows waits for the founder's yes** on the dry-run list (Optimal Group x2, Monaco Solicitors x1; none has an application or a queue entry). After it: probe `/jobs/remote`, the country and city pages (a hidden row can lower a facet below `LANDING_PAGE_MIN_ENTRIES`) and the old URLs' 308. The flag stays off until asked about separately.
+- **#629's effect on data is not yet observable**: the Workable remote rows take "Remote, <country>" on the next ingest (05:00 UTC, 2 Oct). Before/after on the 142 markup-ineligible rows (62 bare Remote, 80 single token) and the Rich Results test on 3 remote jobs are due then.
+- The Lighthouse check failed on both PRs (the known thin-CI-project `/jobs/remote` 404, CLAUDE.md's third consequence) and Vercel reported a build-rate-limit failure on #629; neither is a required check.
+- Authenticated-session tests could not run locally against the test project (`No suitable key or wrong key type`); CI's ephemeral stack was their first run. The `INSERT` guard trigger's own test could not be mutation-checked (dropping a trigger on the shared test project was refused by the permission layer); it asserts the trigger's own message, which nothing else raises.
+
+---
+
+## Merged 2026-10-01 — PR #604, the seven font families self-hosted so `next build` never asks Google for a font (refs #585)
+
+| PR | Branch | Merged at (UTC) | Merge SHA |
+|----|--------|-----------------|-----------|
+| [#604](https://github.com/Bayo-1987/Claude-Talentrah/pull/604) | `chore/self-host-fonts-585` | 2026-10-01 05:58:11 | `2aa8ba294104f0175b4acd10a65bc37cbf3775d3` |
+
+**What it changed.** `next/font/google` fetched every font from Google while `next build` ran, and Turbopack fails the whole
+build when one fetch fails ("Can't resolve '@vercel/turbopack-next/internal/font/google/font'"): nine CI builds died that way on
+2026-09-29/30, before any test ran (#585). The 60 woff2 files (1.27 MB, every unicode-range subset, byte-for-byte what Google
+served) are now committed under `src/fonts/` with each family's `@font-face` CSS, its `OFL.txt`, a README and a `manifest.json` that
+pins each file's sha256. No migration, no production data touched.
+- The files are referenced from CSS `url()`, so the bundler hashes them into `/_next/static/immutable/media/` with the same
+  `cache-control: public,max-age=31536000,immutable` as before. `layout.tsx` preloads the same three files through `react-dom`'s
+  `preload()` (a `<link rel=preload>` in the tree is emitted twice). The exported font objects keep their `{ className, variable, style }`
+  shape and the `--font-*` names, so `typefaceVariable` and `fontScopeClassName` are untouched.
+- Guard `tests/fonts/no-google-font-fetch.test.ts`: nothing under `src/` or `next.config.ts` may mention `next/font/google` or the Google
+  font hosts, except one named entry, `src/lib/seo/og-card.tsx` (a server-side ttf fetch per share-card request; falls back on failure).
+  Red on `main` before the change, on exactly four sites (CI run 36776217412), green after.
+- `next.config.ts` no longer claims that no runtime request to a Google font host exists (the OG card makes one).
+- Removed the vitest `next/font/google` alias and stub (nothing imports it).
+
+**What was proved before merge** (details in the PR): a throwaway same-runner workflow built the PR's base and the branch side by
+side against one database. The 60 served files, the 169 unique `@font-face` blocks (including the 7 fallback blocks), the `--font-*`
+rules and the class rules were **identical**; the 1,170-row extraction probe was identical main vs branch and to the committed
+`results-wordspacing-fine.csv`; `pdffonts` and `pdftotext -raw` hashes matched for all 1,170 PDFs; 30 screenshot views at 1440/768/375
+differed by **0 pixels**. A production build with both Google hosts unreachable **succeeds on the branch and fails on main** with the
+#585 signature. Two real differences the comparisons found (a dropped `font-stretch: 100%` on IBM Plex Sans, and every preload emitted
+twice) were fixed first. CLS (median of 10 cold loads) was equal in two scenarios and 0.0013 vs 0.0012 in the third (the same two
+values, split differently; accepted as noise).
+
+### Verification (all four)
+
+**1. GitHub API** — `GET /repos/Bayo-1987/Claude-Talentrah/pulls/604`:
+```
+{"merged": true, "merged_at": "2026-10-01T05:58:11Z",
+ "merge_commit_sha": "2aa8ba294104f0175b4acd10a65bc37cbf3775d3", "state": "closed", "base": "main"}
+```
+
+**2. Fresh clone** (`git clone --depth 1 --branch main`, temp dir; `main` was at `c885fc5`, which contains the merge):
+```
+PRESENT 60 woff2 under src/fonts (60)
+PRESENT every file matches its manifest sha256 (mismatches: 0)
+PRESENT <slug>/OFL.txt + <slug>.css for newsreader, ibm-plex-sans, poppins, work-sans, lora, barlow-condensed, source-sans-3
+PRESENT layout.tsx: no next/font import
+PRESENT layout.tsx: preload() of PRELOADED_FONT_URLS
+PRESENT tests/fonts/no-google-font-fetch.test.ts, tests/fonts/self-hosted-fonts.test.ts, e2e/self-hosted-fonts.spec.ts
+PRESENT vitest.config.ts has no next/font alias;  tests/stubs/next-font-google.ts removed;  .gitattributes pins src/fonts/** -text
+```
+
+**3. Live production probe** (signed out, real browser, 2026-10-01 ~13:00 UTC, production `www.talentrah.com`, which has since moved on
+to later merges that all contain this one). The Vercel deployment for the merge commit is `dpl_CcAJ8qzxEdepXeUyyZYBfh1XAeUR`
+(`READY`, `target: production`, created 05:58:14, `meta.githubCommitSha` = `2aa8ba29…`). On each of `/`, `/about` and `/scholarships`:
+- **3 `<link rel=preload as=font>`, all different, each fetched exactly once** (the Newsreader normal and italic latin files and the IBM
+  Plex Sans latin file); a fourth file (`ibm-plex-sans-…-latin-ext-…`) loads on demand because the page has characters outside latin;
+- every font request came from `/_next/static/immutable/media/`, and a re-fetch of each returned `public,max-age=31536000,immutable`;
+- **0 requests to `fonts.googleapis.com` or `fonts.gstatic.com`** (resource timing), 0 faces in the `error` state
+  (`/`: 15 loaded, `/about`: 10, `/scholarships`: 8);
+- the three files production serves hash to manifest entries (`ibm-plex-sans-normal-latin-w400_500_600_700-056e4e24`,
+  `newsreader-normal-latin-…-2a69ec1c`, `newsreader-italic-latin-…-19a83cc7`), and are the same byte sizes as before the change.
+- **Limit, stated plainly:** no signed-out route renders a resume template (`/resume-builder` and `/tailor` redirect to `/login`, the
+  `/dev/…` probe routes are 404), and signing in to production was out of bounds, so the template families (Poppins, Work Sans, Lora,
+  Barlow Condensed, Source Sans 3) were **not** observed in a live browser. They rest on the same-runner proof above (0-pixel diffs on
+  5 templates covering all six typeface tokens, identical built CSS) and on the CI e2e run.
+
+**4. Full suite against merged `main`** — CI run
+[36822342743](https://github.com/Bayo-1987/Claude-Talentrah/actions/runs/36822342743) (head `2aa8ba29`):
+```
+Typecheck, lint, unit tests : success   Test Files 382 passed (382)   Tests 4339 passed (4339)
+Playwright e2e              : success   418 passed (8.6m)   (includes e2e/self-hosted-fonts.spec.ts)
+Secret scan                 : success
+Dependency audit            : success
+Migration numbering         : skipped (no migration in the diff)
+```
+
+### Not covered / still open
+- **#585 stays open.** It closes when a 48 h tally shows no `Build app` font failures on runs whose tested commit contains `2aa8ba29`
+  (`scripts/ci-flake-tally.py --mode font`, added in #603).
+- The OG card's runtime ttf fetch is the one remaining reference to a Google font host (allowlisted, server-side, cannot fail a build).
+- The repo grew by ~1.3 MB; the fonts no longer follow Google's updates (`node scripts/self-host-fonts.mjs --check` shows a change as a diff).
+
+---
+
 ## Merged 2026-10-01 — PR #615, tailoring and bullet rewrite update the masthead balance; every other credit spender proven to refresh (send-489, issue #605)
 
 | PR | Branch | Merged at (UTC) | Merge SHA |

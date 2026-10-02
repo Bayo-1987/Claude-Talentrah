@@ -1,6 +1,7 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import type { MentorshipSessionType } from "@/lib/mentorship/pricing";
+import { countOpenSlotsByMentor } from "@/lib/mentorship/mentor-card";
 
 /**
  * All reads here go through the AUTHENTICATED client, not service role —
@@ -39,6 +40,8 @@ export interface MentorListing {
   basePriceNgn: number | null;
   reviewCount: number;
   averageRating: number | null;
+  /** Unbooked slots still ahead (send-497): what the card needs to say "No open slots" instead of quoting a price. */
+  openSlotCount: number;
 }
 
 export async function browseMentors(): Promise<MentorListing[]> {
@@ -56,10 +59,20 @@ export async function browseMentors(): Promise<MentorListing[]> {
 
   // Batched, not one call per mentor — see mentor_public_names' own comment
   // (0167) for why the name can't come from an embedded profiles join.
-  const { data: names, error: namesError } = await supabase.rpc("mentor_public_names", {
-    p_mentor_ids: rows.map((r) => r.user_id),
-  });
+  //
+  // The slots are the same shape of batch: ONE query over every listed mentor, filtered exactly as the mentor's own
+  // profile page filters them (unbooked, in the future). The card used to read a price off the mentor row and never
+  // look at slots, so it quoted "From ₦20,000" for a mentor whose profile said "No open slots right now" (send-497).
+  const mentorIds = rows.map((r) => r.user_id);
+  const [{ data: names, error: namesError }, { data: slotRows, error: slotsError }] = await Promise.all([
+    supabase.rpc("mentor_public_names", { p_mentor_ids: mentorIds }),
+    // open_mentor_slots (0203), not a read of is_booked = false: a booking nobody paid for within 30 minutes no longer
+    // holds its slot, and only SQL can see that without waiting for the daily sweep.
+    supabase.rpc("open_mentor_slots", { p_mentor_ids: mentorIds }),
+  ]);
   if (namesError) throw namesError;
+  if (slotsError) throw slotsError;
+  const openSlots = countOpenSlotsByMentor(slotRows ?? []);
   // send-418: display_name (mentor-set, mentor_profiles) wins when present —
   // it exists specifically to override the onboarding-signup name below.
   const nameById = new Map(
@@ -85,6 +98,7 @@ export async function browseMentors(): Promise<MentorListing[]> {
       basePriceNgn: r.base_price_ngn,
       reviewCount: ratings.length,
       averageRating: ratings.length ? ratings.reduce((a, b) => a + b, 0) / ratings.length : null,
+      openSlotCount: openSlots.get(r.user_id) ?? 0,
     };
   });
 }
@@ -114,19 +128,15 @@ export async function getMentorProfile(mentorUserId: string): Promise<MentorProf
   if (error) throw error;
   if (!mentor) return null;
 
-  const [{ data: slots }, { data: names, error: namesError }] = await Promise.all([
-    supabase
-      .from("mentor_availability_slots")
-      .select("id, start_at, end_at")
-      .eq("mentor_id", mentorUserId)
-      .eq("is_booked", false)
-      .gt("start_at", new Date().toISOString())
-      .order("start_at", { ascending: true }),
+  const [{ data: slots, error: slotsError }, { data: names, error: namesError }] = await Promise.all([
+    // Same source as the list card (browseMentors): one definition of "open", the one that ignores lapsed unpaid holds.
+    supabase.rpc("open_mentor_slots", { p_mentor_ids: [mentorUserId] }),
     // Single-element array — same batched function browseMentors() uses
     // (0167); see mentor_public_names' own comment for why the name can't
     // come from an embedded profiles join.
     supabase.rpc("mentor_public_names", { p_mentor_ids: [mentorUserId] }),
   ]);
+  if (slotsError) throw slotsError;
   if (namesError) throw namesError;
 
   const found = (names ?? [])[0];
@@ -147,7 +157,10 @@ export async function getMentorProfile(mentorUserId: string): Promise<MentorProf
     basePriceNgn: mentor.base_price_ngn,
     reviewCount: ratings.length,
     averageRating: ratings.length ? ratings.reduce((a, b) => a + b, 0) / ratings.length : null,
-    openSlots: (slots ?? []).map((s) => ({ id: s.id, startAt: s.start_at, endAt: s.end_at })),
+    openSlotCount: (slots ?? []).length,
+    openSlots: [...(slots ?? [])]
+      .sort((a, b) => Date.parse(a.start_at) - Date.parse(b.start_at))
+      .map((s) => ({ id: s.id, startAt: s.start_at, endAt: s.end_at })),
   };
 }
 
@@ -252,6 +265,8 @@ export interface MentorshipSessionSummary {
   priceNgn: number;
   status: string;
   meetingLink: string | null;
+  /** When it was booked: an unpaid booking holds its slot for 30 minutes from here (0203). */
+  createdAt: string;
 }
 
 /**
@@ -282,7 +297,7 @@ async function loadSessions(userId: string, side: "mentor_id" | "mentee_id"): Pr
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("mentorship_sessions")
-    .select("id, mentor_id, mentee_id, session_type, scheduled_start, scheduled_end, price_ngn, status, meeting_link")
+    .select("id, mentor_id, mentee_id, session_type, scheduled_start, scheduled_end, price_ngn, status, meeting_link, created_at")
     .eq(side, userId)
     .order("scheduled_start", { ascending: false });
 
@@ -323,6 +338,7 @@ async function loadSessions(userId: string, side: "mentor_id" | "mentee_id"): Pr
     priceNgn: r.price_ngn,
     status: r.status,
     meetingLink: r.meeting_link,
+    createdAt: r.created_at,
   }));
 }
 

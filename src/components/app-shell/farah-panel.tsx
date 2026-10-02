@@ -4,6 +4,9 @@ import { Fragment, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { EyebrowLabel, FarahMark } from "@/components/ui";
 import { FARAH_QUICK_ACTIONS } from "@/lib/farah/quick-actions";
+import { FarahAllowanceNote, FarahQuickActions } from "@/components/app-shell/farah-quick-actions";
+import { chargeAnnouncement, quickActionMode } from "@/lib/credits/price-labels";
+import { CREDIT_COSTS } from "@/lib/credits/costs";
 import { renderFarahMarkdown } from "@/lib/farah/render-markdown";
 import { readFarahChatStream } from "@/lib/farah/read-chat-stream";
 import { useReportCreditsBalance } from "@/components/app-shell/credits-balance";
@@ -15,6 +18,7 @@ import {
   tailorHref,
   type FarahJobSeed,
 } from "@/lib/farah/job-seed";
+import { shouldAutoRestoreHistory } from "@/lib/farah/history-restore";
 
 export interface FarahMessage {
   id: string;
@@ -141,6 +145,18 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
   const reportCreditsBalance = useReportCreditsBalance();
   const [messages, setMessages] = useState<FarahMessage[]>(initialMessages ?? []);
   const [input, setInput] = useState("");
+  /*
+   * Set when a chip PREFILLED the input instead of sending (once the free messages are used, a click would
+   * charge). Remembered so that pressing Send on the untouched prefilled text still goes out as that quick
+   * action — with the same quickAction key and job context a direct click would have carried — rather than as
+   * anonymous free text. Forgotten the moment the text is edited or sent.
+   */
+  const [prefilled, setPrefilled] = useState<{ text: string; quickAction?: string; jobId?: string } | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  /** The polite live region's text: each reply and what it cost, e.g. "Farah replied — 1 credit used". */
+  const [announcement, setAnnouncement] = useState("");
+  /** The last reply was cut off by the output ceiling: shown under it, cleared on the next send. */
+  const [lastReplyTruncated, setLastReplyTruncated] = useState(false);
   const [pending, setPending] = useState(false);
   /**
    * True from the moment a request is sent until the first streamed chunk
@@ -206,12 +222,18 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
     [],
   );
   /*
-   * The gate's own indicator (0123) — `null` until the history fetch below
-   * resolves, and stays `null` for a Pass holder (the route itself omits it
+   * The gate's own indicator (0123) — `undefined` until the history fetch below
+   * resolves, then a number, or `null` for a Pass holder (the route itself omits it
    * then; see /api/farah/history's own comment for why). Not shown at all
-   * while unknown, rather than a placeholder number that might be wrong.
+   * while unknown, rather than a placeholder number that might be wrong. The
+   * difference between `undefined` and `null` matters to the quick-action chips:
+   * see quickActionMode.
    */
-  const [freeRemaining, setFreeRemaining] = useState<number | null>(null);
+  const [freeRemaining, setFreeRemaining] = useState<number | null | undefined>(undefined);
+  // The history fetch settled without giving a count (a non-OK response or a network error): stop calling the
+  // count "loading" so the chips fall back to prefill instead of staying disabled for the whole session.
+  const [historyFailed, setHistoryFailed] = useState(false);
+  const allowanceLoading = freeRemaining === undefined && !historyFailed && !initialMessages;
   /*
    * The design review's notification dot — real signal (user_notifications,
    * 0131), fetched alongside history below rather than as a separate round
@@ -239,7 +261,10 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
   }
 
   /*
-   * ── FETCHED, BUT NOT SHOWN UNTIL ASKED FOR ────────────────────────────
+   * ── FETCHED, BUT NOT SHOWN UNTIL ASKED FOR (unless it is recent) ──────
+   *
+   * Since send-504: a thread whose last message is under 24 hours old IS shown on load (shouldAutoRestoreHistory), because that
+   * is the conversation the reader was just in; the hold-behind-"Continue" described below now applies to OLDER threads only.
    *
    * The panel used to prepend fetched history straight into `messages`,
    * which meant arriving on ANY page with the panel dropped the reader into
@@ -282,7 +307,10 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
     void (async () => {
       try {
         const res = await fetch("/api/farah/history");
-        if (!res.ok) return;
+        if (!res.ok) {
+          if (!ignore) setHistoryFailed(true);
+          return;
+        }
         const data = await res.json();
         if (ignore) return;
         if (typeof data.freeMessagesRemaining === "number" || data.freeMessagesRemaining === null) {
@@ -290,10 +318,19 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
         }
         if (data.hasUnreadNotification === true) setHasUnreadNotification(true);
         if (!Array.isArray(data.messages) || data.messages.length === 0) return;
-        // Held, not shown — see historyRevealed above. Nothing here decides
-        // whether the reader sees it; "Continue" below does.
-        setPendingHistory(data.messages as FarahMessage[]);
+        const history = data.messages as FarahMessage[];
+        // A thread whose LAST message is under 24 hours old is restored on load (send-504): it is the conversation the reader
+        // was just in, and holding it behind "Continue" made a paid answer look lost after a reload. Same prepend as
+        // continueConversation() below, so what appears is identical to pressing it. Anything older is held, not shown —
+        // see historyRevealed above — and "Continue" decides.
+        if (shouldAutoRestoreHistory(history, new Date())) {
+          setMessages((prev) => [...history, ...prev]);
+          setHistoryRevealed(true);
+        } else {
+          setPendingHistory(history);
+        }
       } catch {
+        if (!ignore) setHistoryFailed(true);
         // Silent: history is an enhancement. The panel is fully usable
         // without it, and an error banner over a side column for something
         // the reader never asked for would be noise.
@@ -331,6 +368,9 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
     setPending(true);
     setAwaitingFirstToken(true);
     setInput("");
+    setPrefilled(null);
+    setAnnouncement("");
+    setLastReplyTruncated(false);
 
     const optimisticId = `optimistic-${localIdCounter.current++}`;
     setMessages((prev) => [
@@ -383,6 +423,16 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
           }
           // A paid message: tell the masthead its new balance (issue #605). null / absent = nothing spent.
           if (typeof event.creditsBalance === "number") reportCreditsBalance(event.creditsBalance);
+          // The reply and its charge, announced together. A balance in the event means the message was paid.
+          if (event.truncated) {
+            // Cut off by the output ceiling: not charged (the server skipped the commit), and the user is told.
+            setLastReplyTruncated(true);
+            setAnnouncement("Farah's reply was cut off — no credits used");
+          } else {
+            setAnnouncement(
+              chargeAnnouncement("Farah replied", typeof event.creditsBalance === "number" ? CREDIT_COSTS.farahChatMessage : 0),
+            );
+          }
         }
       }
     } catch {
@@ -396,7 +446,26 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    void send(input);
+    // Untouched prefilled text goes out as the quick action that prefilled it; anything edited is free text.
+    if (prefilled && input.trim() === prefilled.text) {
+      void send(prefilled.text, prefilled.quickAction, prefilled.jobId);
+    } else {
+      void send(input);
+    }
+  }
+
+  /**
+   * One entry point for every chip that would START a conversation turn: send it while the message is free,
+   * prefill the input once it would cost credits (see quickActionMode). The user then presses Send.
+   */
+  function sendOrPrefill(text: string, quickAction?: string, jobId?: string) {
+    if (quickActionMode(freeRemaining) === "send") {
+      void send(text, quickAction, jobId);
+      return;
+    }
+    setInput(text);
+    setPrefilled({ text, quickAction, jobId });
+    inputRef.current?.focus();
   }
 
   return (
@@ -491,13 +560,7 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
         silence is correct there, it's only a hard 0 with no warning that
         reads as broken.
       */}
-      {freeRemaining !== null && (
-        <p className="text-[12px] text-ink-soft">
-          {freeRemaining > 0
-            ? `${freeRemaining} free message${freeRemaining === 1 ? "" : "s"} left in the last 30 days.`
-            : "You've used your free messages in the last 30 days — further messages use credits."}
-        </p>
-      )}
+      <FarahAllowanceNote freeRemaining={freeRemaining} />
 
       <div ref={scrollRef} className="flex max-h-80 flex-col gap-3 overflow-y-auto">
         {messages.length === 0 ? (
@@ -523,8 +586,8 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
               */}
               <JobSeedActions
                 seed={jobSeed}
-                pending={pending}
-                onStarter={(label, quickAction, jobId) => void send(label, quickAction, jobId)}
+                pending={pending || allowanceLoading}
+                onStarter={(label, quickAction, jobId) => sendOrPrefill(label, quickAction, jobId)}
                 keyPrefix="empty-state"
               />
             </>
@@ -579,8 +642,8 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
                       key={marker.id}
                       markerId={marker.id}
                       seed={marker.seed}
-                      pending={pending}
-                      onStarter={(label, quickAction, jobId) => void send(label, quickAction, jobId)}
+                      pending={pending || allowanceLoading}
+                      onStarter={(label, quickAction, jobId) => sendOrPrefill(label, quickAction, jobId)}
                     />
                   ))}
                 {m.role === "farah" ? (
@@ -603,42 +666,41 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
                   key={marker.id}
                   markerId={marker.id}
                   seed={marker.seed}
-                  pending={pending}
-                  onStarter={(label, quickAction, jobId) => void send(label, quickAction, jobId)}
+                  pending={pending || allowanceLoading}
+                  onStarter={(label, quickAction, jobId) => sendOrPrefill(label, quickAction, jobId)}
                 />
               ))}
           </>
         )}
         {awaitingFirstToken && <p className="font-display text-[13px] italic text-ink-soft">Farah is thinking…</p>}
+        {lastReplyTruncated && !pending && (
+          <p data-testid="farah-truncated-note" className="font-display text-[13px] italic text-ink-soft">
+            That reply was cut off, so it wasn&apos;t charged. Ask me to continue, or ask for a shorter answer.
+          </p>
+        )}
       </div>
 
       {error && (
         <p className="border border-rust bg-rust-soft px-2.5 py-2 text-[12px] text-rust">{error}</p>
       )}
 
-      <div className="flex flex-col border-t border-dashed border-line pt-4">
-        {FARAH_QUICK_ACTIONS.map((action) =>
-          action.href ? (
-            <Link
-              key={action.key}
-              href={action.href}
-              className="flex min-h-10 items-center py-1 font-body text-[13.5px] font-semibold text-ink underline underline-offset-2 hover:text-rust"
-            >
-              {action.label}
-            </Link>
-          ) : (
-            <button
-              key={action.key}
-              type="button"
-              disabled={pending}
-              onClick={() => void send(action.starterPrompt as string, action.key)}
-              className="flex min-h-10 items-center py-1 text-left font-body text-[13.5px] font-semibold text-ink underline underline-offset-2 hover:text-rust disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {action.label}
-            </button>
-          ),
-        )}
-      </div>
+      <FarahQuickActions
+        freeRemaining={freeRemaining}
+        allowanceLoading={allowanceLoading}
+        pending={pending}
+        onSend={(key) => {
+          const action = FARAH_QUICK_ACTIONS.find((x) => x.key === key);
+          if (action?.starterPrompt) void send(action.starterPrompt, action.key);
+        }}
+        onPrefill={(key) => {
+          const action = FARAH_QUICK_ACTIONS.find((x) => x.key === key);
+          if (action?.starterPrompt) sendOrPrefill(action.starterPrompt, action.key);
+        }}
+      />
+
+      <p role="status" aria-live="polite" className="sr-only">
+        {announcement}
+      </p>
 
       <form
         onSubmit={handleSubmit}
@@ -649,6 +711,7 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
       >
         <input
           type="text"
+          ref={inputRef}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="Ask me anything…"

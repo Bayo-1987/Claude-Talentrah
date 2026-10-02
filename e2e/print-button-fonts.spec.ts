@@ -6,7 +6,7 @@ import { expectedMarkerOrder, actualMarkerOrder } from "./support/ats-markers";
 import { installPrintStub } from "./support/print-stub";
 
 /**
- * send-473 — the REAL "Download PDF" click path, on a cold font cache.
+ * send-473 — the REAL "Save as PDF" click path, on a cold font cache.
  *
  * e2e/ats-safety.spec.ts proves what the skeleton preview route exports once
  * its fonts have settled, and it only protects that harness: it waits on
@@ -35,7 +35,7 @@ import { installPrintStub } from "./support/print-stub";
 const SLUG = "blueprint";
 const FONT_DELAY_MS = 2000;
 
-test("Download PDF on a cold font cache prints the settled document, not a mid-swap one", async ({
+test("Save as PDF on a cold font cache prints the settled document, not a mid-swap one", async ({
   authedPage: page,
   testUser,
 }) => {
@@ -69,7 +69,7 @@ test("Download PDF on a cold font cache prints the settled document, not a mid-s
 
   await page.goto(`/resume-builder/edit?resumeId=${resume!.id}`, { waitUntil: "domcontentloaded" });
 
-  const button = page.getByRole("button", { name: "Download PDF" });
+  const button = page.getByRole("button", { name: "Save as PDF" });
   await expect(button).toBeEnabled();
   // Observed concurrently, asserted last: it is transient, and asserting it
   // first would hide whether the print itself fired at the right moment.
@@ -88,7 +88,14 @@ test("Download PDF on a cold font cache prints the settled document, not a mid-s
   expect.soft(
     calls[0],
     "window.print() ran while fonts were still loading — the PDF would be captured on fallback fonts",
-  ).toEqual({ fontsStatus: "loaded", loadingFaces: 0 });
+  ).toMatchObject({ fontsStatus: "loaded", loadingFaces: 0 });
+  // The saved PDF is named from document.title: the applicant/author name, not the app's page title,
+  // and the page's own title is back once the browser reports afterprint.
+  expect(calls[0].title, "the print ran under the app's page title, so the PDF would be saved as that").toBe(
+    "ZQNAME-Eze-Resume",
+  );
+  await page.waitForFunction(() => window.__titlesAfterPrint.length > 0);
+  expect(await page.evaluate(() => window.__titlesAfterPrint[0])).not.toBe("ZQNAME-Eze-Resume");
 
   // What was actually captured at print time must be the whole document, in
   // reading order.
@@ -102,5 +109,5 @@ test("Download PDF on a cold font cache prints the settled document, not a mid-s
 
   // Feedback while it waited (not a dead click), and usable again afterwards.
   expect(await sawPreparing, 'the button never showed "Preparing PDF…" while waiting for fonts').toBe(true);
-  await expect(page.getByRole("button", { name: "Download PDF" })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Save as PDF" })).toBeEnabled();
 });

@@ -130,7 +130,7 @@ function cleanBullets(bullets: string[] | undefined): string[] | undefined {
  * preview, in particular) needs to change to keep working.
  */
 export function getExperienceText(entry: ResumeExperienceEntry): string | undefined {
-  const bullets = cleanBullets(entry.bullets);
+  const bullets = getExperienceBullets(entry);
   if (bullets) {
     return bullets.join(" ");
   }
@@ -143,6 +143,12 @@ export function getExperienceText(entry: ResumeExperienceEntry): string | undefi
  * (no bullets, or only blank ones), so the two stay in lockstep: a caller
  * that checks this first and falls back to `getExperienceText`'s string
  * for its `<p>` can never end up rendering neither, or both.
+ *
+ * READ-ONLY, NEVER REPAIRING. A resume saved before the S2-11 tailoring
+ * changes can hold an achievement string with several bullets glued into it, or
+ * a `description` with typed dashes; those render exactly as stored. Splitting
+ * them is a tailoring-time step (`normaliseTailoredResume`), so it only ever
+ * reaches a resume the user tailors again, never one they already have.
  */
 export function getExperienceBullets(entry: ResumeExperienceEntry): string[] | undefined {
   return cleanBullets(entry.bullets);

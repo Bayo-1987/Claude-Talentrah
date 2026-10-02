@@ -1,34 +1,18 @@
 /**
- * Renders a Naira amount for use INSIDE a `font-display` (Newsreader)
- * context — the big serif figures like `MatchTierBadge`'s 46px score, a
- * wallet balance, or a credit-pack price.
+ * Renders a Naira amount as ONE text node ("₦2,500"), for use anywhere, including inside a `font-display` (Newsreader) context.
  *
- * send-401: Newsreader has no glyph for U+20A6 (₦), and its declared
- * fallback chain (`--font-display: var(--font-newsreader), Georgia, "Times
- * New Roman", serif` in globals.css) doesn't reliably supply one either —
- * confirmed with a real rendered screenshot of `/employer/campaigns`, where
- * the wallet balance "₦0" rendered as something readable as "N0" at 22px.
- * Source Sans 3 (this app's `--font-body`) DOES have the glyph: every
- * body-font currency string on the very same screens (the top-up presets,
- * "Top up (₦)") already renders correctly, which is the evidence this
- * component's fix relies on rather than a blanket font swap.
+ * send-503 (S18): the sign and the digits used to be two things, `<span class="font-body">₦</span>` plus a bare text node, so a
+ * reader that walks nodes could announce a price as "2,500" with no currency. One string fixes that at the source.
  *
- * So: keep the numerals in the inherited display font (matching
- * `MatchTierBadge`'s own precedent of a big font-display number, and this
- * task's brief not to change the page's visual hierarchy) and render ONLY
- * the ₦ sign in `font-body`, inline. Digits/comma/period are plain ASCII and
- * Newsreader renders those fine — this is not a "Newsreader can't do
- * numbers" bug, it is specifically the currency glyph.
+ * Why the separate span existed (send-401): the Newsreader the app shipped then had no glyph for U+20A6, so the sign was set in the
+ * body font. Since the font families were self-hosted with every unicode-range subset (#604), Newsreader's latin-ext file DOES
+ * carry U+20A6 (checked in the committed woff2 with fontTools: the file is newsreader-normal-latin-ext-w400_500_600), and the
+ * @font-face unicode-range (U+20A0-20AB) makes the browser fetch it when a ₦ is rendered. If that file were ever dropped, the browser
+ * would fall back per glyph, which is the degraded case the old span avoided: check `/employer/campaigns`'s wallet balance on a real
+ * screen after any font change.
  *
- * Not for body-font currency strings (e.g. a plain `₦${n}` inside a `<p>`)
- * — those already render correctly and don't need this treatment; wrapping
- * them too would be a no-op at best and an inconsistent pattern at worst.
+ * The amount is formatted `en-NG` (grouped thousands, no decimals unless the number has them).
  */
 export function NairaAmount({ amount }: { amount: number }) {
-  return (
-    <>
-      <span className="font-body">₦</span>
-      {amount.toLocaleString("en-NG")}
-    </>
-  );
+  return <>{`₦${amount.toLocaleString("en-NG")}`}</>;
 }

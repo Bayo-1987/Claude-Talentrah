@@ -62,3 +62,33 @@ export const jobForRequest = cache(async (id: string) => {
     .maybeSingle();
   return { supabase, data };
 });
+
+/**
+ * 0202 — where a SUPERSEDED duplicate's old URL should go. RLS hides the superseded row from the visitor (so
+ * `jobForRequest` finds nothing), and this asks the one question they are allowed to have answered: is there an open
+ * replacement, and what is its id. `superseded_job_target` returns only that id, never anything about either row, and
+ * returns null unless the replacement is itself open and visible — so a dead end is a 404, not a redirect loop.
+ */
+export const supersededTargetFor = cache(async (id: string): Promise<string | null> => {
+  const supabase = await createClient();
+  const { data } = await supabase.rpc("superseded_job_target", { p_id: id });
+  return typeof data === "string" ? data : null;
+});
+
+/**
+ * S12 (h) — the company's OTHER visible postings, as much of each as a title needs, so `buildJobPageTitle` can add the
+ * country to a title that would otherwise equal a sibling's. One bounded query, memoized per request; read through the
+ * visitor's own client, so a hidden (superseded, removed, unlisted) sibling is not a collision. A failed read is "no
+ * siblings": the title simply keeps its short place.
+ */
+export const siblingPostingsFor = cache(async (id: string, companyName: string) => {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("job_postings")
+    .select("title, company_name, location, work_type")
+    .eq("company_name", companyName)
+    .eq("status", "open")
+    .neq("id", id)
+    .limit(300);
+  return data ?? [];
+});

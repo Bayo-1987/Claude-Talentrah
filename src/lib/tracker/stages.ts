@@ -9,7 +9,9 @@
  *
  * NOT here: "All". That is a filter the filter bar adds in front, not a stage an application can be in.
  *
- * `StageSelect` (the per-card dropdown) still carries its own copy; a drift test pins it equal to this.
+ * send-494: `StageSelect` (the per-card dropdown) and the Add-a-job form's Stage select used to carry their own
+ * private copies too (the latter lowercase, capitalised by CSS, and without Hired). Both now render from this list,
+ * and `addManualEntryAction` validates the posted stage with `isTrackerStage` below.
  */
 import type { Enums } from "@/lib/supabase/types";
 
@@ -27,6 +29,14 @@ export const TRACKER_STAGES: readonly TrackerStage[] = [
   { key: "rejected", label: "Rejected" },
   { key: "archived", label: "Archived" },
 ];
+
+/**
+ * True only for a real stage key. The server-side check for anything that arrives as a posted string: a Server Action
+ * is a public POST endpoint, so a `<select>` that only offers valid options is a courtesy, not a control.
+ */
+export function isTrackerStage(value: unknown): value is TrackerStage["key"] {
+  return typeof value === "string" && TRACKER_STAGES.some((s) => s.key === value);
+}
 
 /**
  * The label for a stage key, or the key itself for one this build does not know — a history row written
