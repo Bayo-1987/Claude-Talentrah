@@ -168,6 +168,16 @@ regexes = [
   # this). No real network call is made in this test file — posthog-node's
   # PostHog client is mocked at the module boundary.
   '''posthog-test-placeholder''',
+
+  # tests/demo/jd-demo-route-attempts.test.ts, P1 (2026-10-02) — a sentinel the
+  # test pastes as a visitor's "job description" to prove that pasted text never
+  # reaches the attempt log (it asserts the logged row does not contain
+  # `CONFIDENTIAL`). The value is a human-readable marker, not a credential; it
+  # matched this rule only because the constant was first named SECRET_JD
+  # ("secret" is one of the rule's own trigger words). The constant is renamed,
+  # but the first commit that carried it is already in the PR's history, so the
+  # exact value is allowlisted. There is nothing to rotate.
+  '''CONFIDENTIAL-PASTE-9f3a''',
 ]
 
 paths = [

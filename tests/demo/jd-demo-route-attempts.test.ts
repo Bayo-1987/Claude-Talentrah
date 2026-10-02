@@ -35,7 +35,7 @@ const { POST } = await import("@/app/api/public/jd-demo/route");
 const { LLMProviderError } = await import("@/lib/llm/errors");
 
 const JD = "We are hiring a backend engineer to build and operate payment APIs at scale. ".repeat(2);
-const SECRET_JD = "CONFIDENTIAL-PASTE-9f3a ".repeat(6);
+const PASTED_JD_SENTINEL = "CONFIDENTIAL-PASTE-9f3a ".repeat(6);
 const VISITOR_IP = "203.0.113.77";
 
 function post(body: unknown, headers: Record<string, string> = {}) {
@@ -99,7 +99,7 @@ describe("every outcome leaves exactly one attempt row", () => {
   });
 
   it("error: the model call failed; the class is recorded, never the message", async () => {
-    tailorResumeToJob.mockRejectedValue(new LLMProviderError("groq", "rate_limit", `quota exceeded for ${SECRET_JD}`));
+    tailorResumeToJob.mockRejectedValue(new LLMProviderError("groq", "rate_limit", `quota exceeded for ${PASTED_JD_SENTINEL}`));
     const res = await post({ jdText: JD });
     expect(res.status).toBe(502);
     expect(releaseAnonymousRun).toHaveBeenCalledTimes(1);
@@ -130,7 +130,7 @@ describe("every outcome leaves exactly one attempt row", () => {
 describe("no PII reaches the log", () => {
   it("the recorded row has only the four allowed keys, and carries neither the address nor the pasted text", async () => {
     claimAnonymousRun.mockResolvedValue({ allowed: false, reason: "already_used" });
-    await post({ jdText: SECRET_JD });
+    await post({ jdText: PASTED_JD_SENTINEL });
     const row = recorded();
     const ALLOWED = ["errorClass", "ipRuleActive", "outcome", "reason"];
     expect(Object.keys(row).length).toBeGreaterThan(0);
