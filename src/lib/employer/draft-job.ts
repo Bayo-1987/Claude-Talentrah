@@ -26,7 +26,7 @@ import { Constants } from "@/lib/supabase/types";
  *
  * ── WHY SENIORITY/WORK TYPE ARE NOT IN THIS SCHEMA EITHER ──────────────────
  *
- * inferSeniority(title) and inferWorkType(title, location) — the exact
+ * inferJobSeniority(title) and inferWorkType(title, location) — the exact
  * functions the aggregation pipeline already uses for scraped postings that
  * lack them — answer these from the same inputs this LLM call already has,
  * with no LLM guess needed alongside a second, potentially disagreeing

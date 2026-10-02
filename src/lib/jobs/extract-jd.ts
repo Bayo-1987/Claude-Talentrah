@@ -438,3 +438,33 @@ export function inferSeniority(title: string): SeniorityLevel | undefined {
   if (/\b(junior|jr\.?)\b/.test(text)) return "entry";
   return "mid";
 }
+
+/**
+ * A POSTING's seniority from its title, or undefined when the title does not say. S12 (e).
+ *
+ * `inferSeniority` above ends in `return "mid"`, which recorded every silent title as mid-level: 412 of 662 open
+ * postings on production were that default, "Manager" titles and "Finance Associate" among them. A guess stored as a
+ * fact reads as one everywhere downstream. This returns undefined instead (stored NULL, no chip on the card, neutral to
+ * the matcher — tests/matching/seniority-unknown-neutral.test.ts).
+ *
+ * Differences from `inferSeniority`, each deliberate and each pinned in tests/jobs/infer-job-seniority.test.ts:
+ *  - no default;
+ *  - a bare "executive" is not executive-level (Executive Assistant, Finance Executive, Sales Executive; "Senior Sales
+ *    Executive" used to come out executive because that check ran first). C-level and directors still are;
+ *  - assistant / associate / deputy MANAGER is mid and "trainee" is entry — the explicit rungs;
+ *  - a bare "Manager" is NOT guessed: a Product or Project Manager is an individual contributor, an Engineering Manager
+ *    is not, and the title cannot say which. A decision to map it is a product call, not a regex.
+ *
+ * `inferSeniority` itself is left exactly as it was: src/lib/matching/score.ts calls it on the CANDIDATE's most recent
+ * title, and changing it would move every user's score. Posting-side callers use this one; a test enforces that.
+ */
+export function inferJobSeniority(title: string): SeniorityLevel | undefined {
+  const text = title.toLowerCase();
+  if (/\b(chief|vp|vice president|director)\b/.test(text)) return "executive";
+  if (/\b(lead|principal|staff|head of)\b/.test(text)) return "lead";
+  if (/\b(senior|sr\.?)\b/.test(text)) return "senior";
+  if (/\b(intern|internship|graduate|entry|trainee)\b/.test(text)) return "entry";
+  if (/\b(junior|jr\.?)\b/.test(text)) return "entry";
+  if (/\b(assistant|associate|deputy) manager\b/.test(text)) return "mid";
+  return undefined;
+}

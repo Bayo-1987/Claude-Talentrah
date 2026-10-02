@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useCatchUpFile } from "@/lib/forms/use-catch-up-file";
+import { NO_FILE_ATTACHED, attachedItemText, submitBlockedReason } from "@/lib/jobs/screening-gate-copy";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui";
 import { renderJobDescriptionMarkdown } from "@/lib/farah/render-markdown";
@@ -27,10 +29,6 @@ import { MinimalRichEditor } from "@/components/rich-text/minimal-rich-editor";
  */
 const FREE_TEXT_ANSWER_MAX = 2000;
 
-function formatBytes(bytes: number): string {
-  if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
-  return `${Math.max(1, Math.round(bytes / 1024))} KB`;
-}
 
 export interface PublicScreeningQuestion {
   id: string;
@@ -120,24 +118,40 @@ export function ScreeningGateApply({
   const [responseFiles, setResponseFiles] = useState<File[]>([]);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  // Ref and onChange come from the shared hook, which also acts on a file chosen before hydration (issue #591):
+  // without it a seeker's attachment picked early is silently dropped and the application can go without it.
+  const { inputRef, onChange } = useCatchUpFile({
+    onFiles: (picked) => {
+      const room = MAX_ASSESSMENT_FILES - responseFiles.length;
+      if (room <= 0) return;
+      setResponseFiles((prev) => [...prev, ...picked.slice(0, room)]);
+    },
+    multiple: true,
+    resetAfter: true,
+  });
 
-  const missingRequired =
-    questions.some((q) => {
-      if (!q.required) return false;
-      const a = answers[q.id];
-      if (!a) return true;
-      if (q.questionType === "yes_no") return a.yesNo === undefined;
-      if (q.questionType === "min_number") return !a.number;
-      return !a.text || a.text.trim() === "";
-    }) ||
-    (!!assessment?.required &&
-      !responseText.trim() &&
-      !responseLink.trim() &&
-      responseFiles.length === 0);
+  const requiredQuestionsUnanswered = questions.some((q) => {
+    if (!q.required) return false;
+    const a = answers[q.id];
+    if (!a) return true;
+    if (q.questionType === "yes_no") return a.yesNo === undefined;
+    if (q.questionType === "min_number") return !a.number;
+    return !a.text || a.text.trim() === "";
+  });
+  const assessmentResponseMissing =
+    !!assessment?.required && !responseText.trim() && !responseLink.trim() && responseFiles.length === 0;
+  const missingRequired = requiredQuestionsUnanswered || assessmentResponseMissing;
 
   const hasOverLongAnswer = questions.some(
     (q) => q.questionType === "free_text" && (answers[q.id]?.text?.length ?? 0) > FREE_TEXT_ANSWER_MAX,
   );
+
+  // Why Submit is off, in words (null when it is on). Shown above the button and linked to it with aria-describedby.
+  const blockedReason = submitBlockedReason({
+    requiredQuestionsUnanswered,
+    assessmentResponseMissing,
+    answerTooLong: hasOverLongAnswer,
+  });
 
   function handleSubmit() {
     // Defensive re-check — Submit is already disabled while an answer is
@@ -352,6 +366,14 @@ export function ScreeningGateApply({
               Or attach up to {MAX_ASSESSMENT_FILES} files
             </span>
 
+            {responseFiles.length === 0 && (
+              // Always say what is attached, including nothing: a file lost or never picked must not look the same
+              // as "all fine".
+              <p role="status" className="font-body text-[13px] text-ink-soft">
+                {NO_FILE_ATTACHED}
+              </p>
+            )}
+
             {responseFiles.length > 0 && (
               <ul className="flex flex-col gap-1.5">
                 {responseFiles.map((file, index) => (
@@ -360,7 +382,7 @@ export function ScreeningGateApply({
                     className="flex items-center justify-between gap-3 border-[1.5px] border-ink bg-card px-3 py-2"
                   >
                     <span className="truncate font-body text-[13px] text-ink-soft">
-                      Selected: {file.name} ({formatBytes(file.size)})
+                      {attachedItemText(file.name, file.size)}
                     </span>
                     <button
                       type="button"
@@ -387,20 +409,8 @@ export function ScreeningGateApply({
                   multiple
                   accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
                   className="hidden"
-                  onChange={(e) => {
-                    // Convert the live FileList to a real array BEFORE
-                    // resetting the input's value below — `e.target.files`
-                    // is a live view over the input's own selection, so
-                    // clearing `value` empties it in place; a `const`
-                    // holding the FileList reference (not a copy) would
-                    // see it emptied too if read after the reset.
-                    const picked = e.target.files ? Array.from(e.target.files) : [];
-                    e.target.value = "";
-                    if (picked.length === 0) return;
-                    const room = MAX_ASSESSMENT_FILES - responseFiles.length;
-                    if (room <= 0) return;
-                    setResponseFiles((prev) => [...prev, ...picked.slice(0, room)]);
-                  }}
+                  ref={inputRef}
+                  onChange={onChange}
                 />
               </label>
             )}
@@ -410,10 +420,24 @@ export function ScreeningGateApply({
 
       {error && <p className="font-body text-[12.5px] text-rust">{error}</p>}
 
-      <div>
-        <Button size="sm" type="button" disabled={pending || missingRequired || hasOverLongAnswer} onClick={handleSubmit}>
-          {pending ? "Submitting…" : "Submit application"}
-        </Button>
+      <div className="flex flex-col gap-1.5">
+        {blockedReason && (
+          // Linked to the button: a disabled Submit must say why, not sit there dead.
+          <p id="submit-blocked-reason" className="font-body text-[12.5px] text-ink-soft">
+            {blockedReason}
+          </p>
+        )}
+        <div>
+          <Button
+            size="sm"
+            type="button"
+            disabled={pending || missingRequired || hasOverLongAnswer}
+            aria-describedby={blockedReason ? "submit-blocked-reason" : undefined}
+            onClick={handleSubmit}
+          >
+            {pending ? "Submitting…" : "Submit application"}
+          </Button>
+        </div>
       </div>
     </div>
   );

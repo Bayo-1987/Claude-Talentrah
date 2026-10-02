@@ -1,6 +1,6 @@
 import "server-only";
 import { computeDedupFingerprint } from "../dedup";
-import { extractStructuredJd, inferSeniority, stripHtml } from "../extract-jd";
+import { extractStructuredJd, inferJobSeniority, stripHtml } from "../extract-jd";
 import { normalizeLocation } from "../location";
 import { schemaOrgSourceKey } from "../types";
 import type { EmploymentType, NormalizedJobPosting, SalaryUnit, WorkType } from "../types";
@@ -371,7 +371,7 @@ function toNormalizedJobPosting(
     location: normalizeLocation(location),
     workType: mapWorkType(block),
     employmentType: mapEmploymentType(block.employmentType),
-    seniority: inferSeniority(block.title),
+    seniority: inferJobSeniority(block.title),
     description,
     structuredJd: extractStructuredJd(description),
     externalUrl,
