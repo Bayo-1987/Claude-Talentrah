@@ -15,7 +15,6 @@ import { formatRelativeTime } from "@/lib/format-relative-time";
 import { isWellFormedExplanation } from "@/lib/auto-apply/queue-read";
 import { fetchListablePending } from "@/lib/auto-apply/listable-pending";
 import { displayMatchScore } from "@/lib/match-tier";
-import type { MatchExplanation } from "@/lib/matching/score";
 
 export const metadata = { title: "Auto-Apply — Talentrah" };
 
