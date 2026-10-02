@@ -5,7 +5,6 @@ import { absoluteUrl } from "@/lib/seo/site";
 import { isFeatureEnabled } from "@/lib/flags/read";
 import { buildScholarshipDeadlineEmail } from "./template";
 import { selectDeadlineAlertCandidates, SCHOLARSHIP_DEADLINE_REMINDER_DAYS, type DeadlineAlertCandidate } from "./select";
-import { scholarshipDaysLeft } from "@/lib/scholarships/close-instant";
 
 /**
  * The daily scholarship-deadline-alert run.
@@ -145,18 +144,9 @@ export async function sendScholarshipDeadlineAlerts(
     if (!pref?.scholarship_deadline_alert) continue;
 
     try {
-      // To the closing instant, like the selection that let this candidate through (select.ts); at least 0 so "today" never reads negative.
-      const daysOut = Math.max(
-        0,
-        scholarshipDaysLeft(
-          { application_deadline: candidate.applicationDeadline, close_time: candidate.closeTime, close_tz: candidate.closeTz },
-          now,
-        ) ?? 0,
-      );
       const email = buildScholarshipDeadlineEmail({
         firstName: candidate.firstName,
         candidate,
-        daysOut,
         unsubscribeToken: pref.unsubscribe_token,
       });
 
