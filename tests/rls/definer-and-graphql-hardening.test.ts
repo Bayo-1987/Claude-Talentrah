@@ -3,7 +3,7 @@
  *
  *   1. Six trigger-only SECURITY DEFINER functions lose EXECUTE for public, anon and authenticated. A trigger function cannot be called as an RPC
  *      anyway (Postgres says "trigger functions can only be called as triggers"), and a trigger does not need the CALLER'S execute privilege to fire, so
- *      the revoke removes exposure without removing behaviour. Both halves are proved here: a direct call is now refused with 42501 (permission denied),
+ *      the revoke removes exposure without removing behaviour. Both halves are proved here: a direct call is now refused (42501 at the SQL level, PGRST202 over REST: see NOT_CALLABLE below),
  *      and each trigger still fires when the action that triggers it is performed.
  *   2. referral_leaderboard loses anon's EXECUTE (0130 meant authenticated only; anon kept Supabase's default grant). Signed-in users still get the board.
  *   3. pg_graphql is dropped. The app never calls /graphql/v1 (the earlier investigation, docs/pg-graphql-investigation.md, found no caller by four
