@@ -3,6 +3,7 @@ import { requirePermission } from "@/lib/admin/require-admin";
 import { listAllPosts } from "@/lib/admin/blog/posts";
 import { Container, EyebrowLabel, BorderedCard, buttonClasses } from "@/components/ui";
 import { formatDate } from "@/lib/format/datetime";
+import { staleDatesInTitle } from "@/lib/blog/stale-title";
 
 export const metadata = {
   title: "Blog — Talentrah admin",
@@ -26,6 +27,7 @@ export default async function AdminBlogPage() {
   const posts = await listAllPosts();
   const drafts = posts.filter((p) => p.status === "draft").length;
   const published = posts.length - drafts;
+  const now = new Date();
 
   return (
     <Container className="flex max-w-[900px] flex-col gap-8 py-12">
@@ -72,6 +74,18 @@ export default async function AdminBlogPage() {
                 <div className="mt-0.5 truncate text-[12.5px] text-ink-soft">
                   /blog/{post.slug} · updated {formatDate(post.updated_at)}
                 </div>
+                {/*
+                  A date in a title that has already passed (src/lib/blog/stale-title.ts, send-509). It flags, it never blocks: the rule is
+                  no hard dates in the title of content that outlives the date, and this is how a slip is noticed. Words, not colour alone.
+                */}
+                {(() => {
+                  const stale = staleDatesInTitle(post.title, now);
+                  return stale.length > 0 ? (
+                    <div className="mt-1 text-[12.5px] font-semibold text-rust">
+                      {`Title has a date that has passed: ${stale.join(", ")}. Retitle it without the date.`}
+                    </div>
+                  ) : null;
+                })()}
               </div>
               <div className="flex flex-shrink-0 items-center gap-4">
                 {post.status === "published" && (
