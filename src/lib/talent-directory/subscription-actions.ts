@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { requireEmployer } from "@/lib/employer/membership";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { initializeTransaction, NGN_CHANNELS } from "@/lib/paystack/client";
+import { isSubscriptionOpen, buildingTheDirectoryMessage } from "./preview";
 
 /** Same roles/reasoning as topUpWalletAction — spending the org's money. */
 const SPEND_ROLES = ["owner", "admin"] as const;
@@ -51,6 +52,21 @@ export async function purchaseTalentDirectorySubscriptionAction(planId: string) 
   }
 
   const serviceClient = createServiceRoleClient();
+
+  // EMP-1 / E1: no charge while the directory is too thin to be worth a subscription. Hiding the button on the page is not a gate (a
+  // Server Action can be POSTed from a stale tab), so the action refuses itself, BEFORE any row is inserted or Paystack is touched.
+  // The count is the shared gated count (talent_directory_listed_count, 0206), the same one the preview shows. An unreadable count
+  // fails closed: no charge is the safe direction.
+  const { data: listedCount, error: listedCountError } = await serviceClient.rpc("talent_directory_listed_count");
+  if (listedCountError || typeof listedCount !== "number" || !Number.isFinite(listedCount)) {
+    redirect("/employer/talent-directory?error=" + encodeURIComponent("Something went wrong on our end."));
+  }
+  if (!isSubscriptionOpen(listedCount)) {
+    redirect(
+      "/employer/talent-directory?error=" +
+        encodeURIComponent(buildingTheDirectoryMessage(listedCount)),
+    );
+  }
 
   const { data: existingActive } = await serviceClient
     .from("talent_directory_subscriptions")

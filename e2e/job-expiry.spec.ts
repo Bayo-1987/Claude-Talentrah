@@ -63,6 +63,47 @@ test.describe("job expiry", () => {
     expect(options).toEqual(["", "1", "3", "7", "14", "30", "60", "custom"]);
   });
 
+  test("a new posting defaults to closing in 30 days, computed by the server", async ({
+    authedPage,
+    testUser,
+  }) => {
+    await newPostingPage(authedPage, testUser);
+    // Preselected, so an employer who never touches the control gets it.
+    await expect(authedPage.locator("#expiresIn")).toHaveValue("30");
+
+    await authedPage.getByLabel("Job title").fill("E2E Expiry Default Role");
+    await authedPage.getByLabel("Location").fill("Lagos, Nigeria");
+    await authedPage.getByLabel("Job description").fill(DESCRIPTION);
+    await authedPage.getByRole("button", { name: "Publish job" }).click();
+    await expect(authedPage).toHaveURL(/\/employer\/jobs\?posted=.+$/);
+
+    const { data } = await admin
+      .from("job_postings")
+      .select("expires_at")
+      .eq("title", "E2E Expiry Default Role")
+      .single();
+    const days = (new Date(data!.expires_at!).getTime() - Date.now()) / 86_400_000;
+    expect(days).toBeGreaterThan(29.9);
+    expect(days).toBeLessThan(30.1);
+  });
+
+  test("'No expiry' is still selectable and is saved as no expiry", async ({ authedPage, testUser }) => {
+    await newPostingPage(authedPage, testUser);
+    await authedPage.getByLabel("Job title").fill("E2E Expiry None Role");
+    await authedPage.getByLabel("Location").fill("Lagos, Nigeria");
+    await authedPage.getByLabel("Job description").fill(DESCRIPTION);
+    await authedPage.locator("#expiresIn").selectOption("");
+    await authedPage.getByRole("button", { name: "Publish job" }).click();
+    await expect(authedPage).toHaveURL(/\/employer\/jobs\?posted=.+$/);
+
+    const { data } = await admin
+      .from("job_postings")
+      .select("expires_at")
+      .eq("title", "E2E Expiry None Role")
+      .single();
+    expect(data!.expires_at).toBeNull();
+  });
+
   test("the date input appears only on demand, and is bounded in the UI", async ({
     authedPage,
     testUser,
