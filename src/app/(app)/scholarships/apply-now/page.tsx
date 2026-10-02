@@ -8,6 +8,8 @@ import { loadFullyFundedScholarships, loadScholarshipsByLevel } from "@/lib/seo/
 import { loadScholarshipHubPosts } from "@/lib/seo/scholarship-hub-posts";
 import { DEGREE_LEVEL_LABEL } from "@/lib/scholarships/types";
 import { Container, EyebrowLabel, BorderedCard, buttonClasses } from "@/components/ui";
+import { JsonLd } from "@/components/seo/json-ld";
+import { buildBreadcrumbJsonLd } from "@/lib/seo/breadcrumb-jsonld";
 
 /**
  * send-387 Part 1 — a pillar/hub page tying together content that already
@@ -60,6 +62,13 @@ export default async function ScholarshipApplyNowPage() {
 
   return (
     <Container className="flex max-w-[820px] flex-col gap-10 py-12">
+      <JsonLd
+        data={buildBreadcrumbJsonLd([
+          { name: "Talentrah", path: "/" },
+          { name: "Scholarships", path: "/scholarships" },
+          { name: "Scholarships to apply to now", path: "/scholarships/apply-now" },
+        ])}
+      />
       <Link
         href={session ? "/scholarships" : "/"}
         className="inline-flex min-h-10 min-w-10 items-center self-start text-[13px] font-semibold text-ink-soft no-underline hover:text-rust"
@@ -125,14 +134,21 @@ export default async function ScholarshipApplyNowPage() {
         <p className="max-w-[560px] text-[14px] text-ink-soft">
           {session
             ? "Browse the full scholarship catalog and let Farah check your eligibility for a specific programme."
-            : "Create a free account to browse the full scholarship catalog and check your eligibility for a specific programme."}
+            : "Browse the full scholarship catalog without an account. Create a free account when you want Farah to check your eligibility for a specific programme."}
         </p>
-        <Link
-          href={session ? "/scholarships" : `/signup?redirectTo=${encodeURIComponent("/scholarships")}`}
-          className={buttonClasses("primary", "md", "no-underline w-fit")}
-        >
-          {session ? "Browse scholarships" : "Create a free account"}
-        </Link>
+        <div className="flex flex-wrap gap-3">
+          <Link href="/scholarships" className={buttonClasses("primary", "md", "no-underline w-fit")}>
+            Browse scholarships
+          </Link>
+          {!session && (
+            <Link
+              href={`/signup?redirectTo=${encodeURIComponent("/scholarships")}`}
+              className={buttonClasses("secondary", "md", "no-underline w-fit")}
+            >
+              Create a free account
+            </Link>
+          )}
+        </div>
       </BorderedCard>
     </Container>
   );

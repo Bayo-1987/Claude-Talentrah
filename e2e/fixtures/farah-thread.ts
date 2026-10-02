@@ -8,9 +8,11 @@
  *
  * Checked, not fired and forgotten: a rejected Supabase delete resolves with an `error` (CLAUDE.md).
  */
-import { admin } from "./authed";
+import { createGuardedAdmin } from "./guarded-admin";
 
 export async function clearDemoFarahThread(): Promise<void> {
+  // A fixture that deletes: the guarded factory refuses production (by URL or by key) before a client or a query exists (send-507).
+  const admin = createGuardedAdmin();
   const { data: profile, error: profileError } = await admin.from("profiles").select("id").eq("email", "demo@talentrah.dev").single();
   if (profileError || !profile) throw new Error(`could not find the demo profile: ${profileError?.message}`);
   const { error } = await admin.from("farah_messages").delete().eq("user_id", profile.id);
