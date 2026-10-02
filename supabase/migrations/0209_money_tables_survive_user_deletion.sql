@@ -116,15 +116,21 @@ stable
 security definer
 set search_path = ''
 as $$
+  -- Names are returned unqualified for the public schema and qualified otherwise ('profiles', 'payment_transactions', 'auth.users'): with search_path pinned
+  -- to '' a bare regclass cast would print 'public.profiles', which is not what a test (or a person) should have to match.
   select
-    c.conrelid::regclass::text as child_table,
+    case when cn.nspname = 'public' then cc.relname::text else cn.nspname::text || '.' || cc.relname::text end as child_table,
     a.attname::text as child_column,
-    c.confrelid::regclass::text as parent_table,
+    case when pn.nspname = 'public' then pc.relname::text else pn.nspname::text || '.' || pc.relname::text end as parent_table,
     case c.confdeltype
       when 'a' then 'NO ACTION' when 'r' then 'RESTRICT' when 'c' then 'CASCADE' when 'n' then 'SET NULL' when 'd' then 'SET DEFAULT'
     end as on_delete,
     not a.attnotnull as nullable
   from pg_catalog.pg_constraint c
+  join pg_catalog.pg_class cc on cc.oid = c.conrelid
+  join pg_catalog.pg_namespace cn on cn.oid = cc.relnamespace
+  join pg_catalog.pg_class pc on pc.oid = c.confrelid
+  join pg_catalog.pg_namespace pn on pn.oid = pc.relnamespace
   join pg_catalog.pg_attribute a on a.attrelid = c.conrelid and a.attnum = any (c.conkey)
   where c.contype = 'f'
     and c.confrelid in ('public.profiles'::regclass, 'auth.users'::regclass)

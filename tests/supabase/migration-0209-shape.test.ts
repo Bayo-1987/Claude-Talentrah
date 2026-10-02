@@ -46,3 +46,11 @@ describe("0209", () => {
     expect(code).not.toMatch(/on delete cascade/i);
   });
 });
+
+describe("0209's catalog read", () => {
+  it("returns unqualified names for public tables (a bare regclass cast under search_path '' would print public.profiles)", () => {
+    expect(code).not.toMatch(/c\.conrelid::regclass::text/);
+    expect(code).not.toMatch(/c\.confrelid::regclass::text/);
+    expect(code).toMatch(/case when pn\.nspname = 'public' then pc\.relname::text/);
+  });
+});
