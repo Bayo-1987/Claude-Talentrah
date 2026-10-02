@@ -32,7 +32,8 @@ export default async function TalentDirectoryCallbackPage({
   if (reference) {
     try {
       const result = await fulfillPayment(reference, context.userId);
-      outcome = result.status;
+      // A session-scoped call can never reach a deleted user's row (it is scoped to this signed-in user), so needs_refund is not reachable here; treated as an error defensively.
+      outcome = result.status === "needs_refund" ? "error" : result.status;
     } catch {
       outcome = "error";
     }

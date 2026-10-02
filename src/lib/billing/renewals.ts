@@ -123,6 +123,8 @@ async function sendReminders(summary: RenewalJobSummary) {
     .from("user_passes")
     .select("id, next_renewal_date, profiles!user_passes_user_id_fkey(email, first_name), passes(name, price_ngn)")
     .eq("auto_renew_status", "active")
+    // A Pass whose owner's account was deleted (user_id null, 0209) is never reminded and never charged.
+    .not("user_id", "is", null)
     .is("renewal_reminder_sent_at", null)
     .lte("next_renewal_date", addDaysDateOnly(REMINDER_WINDOW_DAYS))
     .gte("next_renewal_date", todayDateOnly());
@@ -200,6 +202,8 @@ async function chargeDueRenewals(summary: RenewalJobSummary) {
       "id, user_id, pass_id, authorization_code, expires_at, renewal_attempt_count, pending_renewal_reference, profiles!user_passes_user_id_fkey(email), passes(duration_days, price_ngn)",
     )
     .eq("auto_renew_status", "active")
+    // A Pass whose owner's account was deleted (user_id null, 0209) must never be charged: there is no person to charge.
+    .not("user_id", "is", null)
     .lte("next_renewal_date", todayDateOnly());
 
   if (error) {

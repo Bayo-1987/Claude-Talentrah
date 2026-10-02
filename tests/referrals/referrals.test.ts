@@ -795,18 +795,16 @@ describe("referral code lookup", () => {
 });
 
 describe("deleting a referred account", () => {
-  it("leaves the referrer's credits intact but drops the referral row", async () => {
+  it("leaves the referrer's credits AND the referral row intact; only the referred side is detached", async () => {
     /*
-     * The cascade is testable today even though no in-app account deletion
-     * exists, and data deletion is a named non-functional requirement, so this
-     * WILL become reachable.
+     * CHANGED DELIBERATELY (send-512, migration 0209). This test used to assert the opposite: "the referral row cascades away with the account".
+     * Before 0209 `referrals.referred_user_id` was ON DELETE CASCADE, so deleting a referred account silently removed the referrer's history, and the
+     * refer page's "credits earned" figure (the sum over the surviving `referrals` rows) then under-reported against the referrer's real balance. The
+     * owner's decision for the account-deletion work is that referral rows decide SOMEONE ELSE'S reward and must outlive the account: the FK is now
+     * ON DELETE SET NULL, so the row survives with `referred_user_id` null and the referrer's count, rewards and leaderboard position do not shrink.
+     * (tests/rls/money-survives-user-deletion.test.ts covers the leaderboard and the other eight tables.)
      *
-     * The credits are right — the ledger has no FK to the referred user, so
-     * nothing is clawed back. What goes wrong is the refer page's "credits
-     * earned" figure, which is derived by summing the surviving `referrals`
-     * rows: after a deletion it under-reports against the referrer's real
-     * balance. Recorded so that discrepancy is a known consequence rather than
-     * a mystery support ticket.
+     * The credits were never clawed back: the ledger has no FK to the referred user.
      */
     const referrer = await makeUser(gmail("del-r"));
     const code = await referralCodeOf(referrer);
@@ -821,14 +819,16 @@ describe("deleting a referred account", () => {
     );
     const { data: rows } = await admin
       .from("referrals")
-      .select("id")
+      .select("id, referrer_id, referred_user_id, status")
       .eq("referrer_id", referrer);
-    expect(rows ?? [], "the referral row cascades away with the account").toHaveLength(0);
+    expect(rows ?? [], "the referral row survives the account's deletion").toHaveLength(1);
+    expect(rows![0].referred_user_id, "detached on the referred side").toBeNull();
+    expect(rows![0].status).toBe("signed_up");
 
     const ledger = await ledgerFor(referrer);
     expect(
       ledger.filter((l) => l.reason === "referral_signup_bonus").length,
-      "the ledger entry survives, which is why the derived figure under-reports",
+      "the ledger entry survives too",
     ).toBe(1);
   });
 });

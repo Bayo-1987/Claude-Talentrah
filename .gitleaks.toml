@@ -181,6 +181,14 @@ regexes = [
   # literal in the test has one trailing space, hence the optional space):
   # no wildcard, and it does NOT relax the rule for anything else.
   '''^CONFIDENTIAL-PASTE-9f3a[ ]?$''',
+
+  # tests/billing/deleted-user-payment.test.ts, PR #671 (send-512, 2026-10-02) — one exact test value: the HMAC key the test signs a fake Paystack
+  # webhook body with, so the route's signature check accepts it (`process.env.PAYSTACK_SECRET_KEY` is set to the same string for the duration of the
+  # test; the route is called in-process and no network call or real Paystack key is involved). It is a human-readable fixture, not a credential:
+  # nothing to rotate, and it protects nothing. It matched this rule because the constant was first named SECRET. The test now generates the
+  # key at run time, but the first commit that carried the literal is already in the PR's history and this scan reads commits, so the value is
+  # allowlisted. ANCHORED to exactly that value: no wildcard, and it does NOT relax the rule for anything else.
+  '''^test-secret$''',
 ]
 
 paths = [
