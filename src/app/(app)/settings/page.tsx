@@ -3,6 +3,8 @@ import { BorderedCard, EyebrowLabel } from "@/components/ui";
 import { visibleName } from "@/lib/profile/name";
 import { SettingsForm } from "./settings-form";
 import { billingRegionLabel } from "@/lib/billing/region";
+import { DeleteAccountSection } from "@/components/account-deletion/delete-account-section";
+import { getDeletionBlockers } from "@/lib/account-deletion/queries";
 
 export const metadata = { title: "Settings — Talentrah" };
 
@@ -30,7 +32,8 @@ export const metadata = { title: "Settings — Talentrah" };
  * one has an answer printed next to it.
  */
 export default async function SettingsPage() {
-  const { profile } = await requireUser();
+  const { user, profile } = await requireUser();
+  const deletionBlockers = await getDeletionBlockers(user.id);
 
   const readOnly = [
     {
@@ -77,6 +80,8 @@ export default async function SettingsPage() {
           </div>
         ))}
       </div>
+
+      <DeleteAccountSection creditsBalance={Math.max(profile.credits_balance, 0)} blockers={deletionBlockers} />
     </div>
   );
 }

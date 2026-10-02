@@ -271,6 +271,51 @@ export type Database = {
           },
         ]
       }
+      account_deletions: {
+        Row: {
+          confirmed_at: string | null
+          credits_forfeited: number | null
+          hard_delete_after: string | null
+          id: string
+          profile_id: string
+          refund_note: string | null
+          refund_policy: string | null
+          requested_at: string
+          restored_at: string | null
+          status: string
+          token_expires_at: string
+          token_hash: string
+        }
+        Insert: {
+          confirmed_at?: string | null
+          credits_forfeited?: number | null
+          hard_delete_after?: string | null
+          id?: string
+          profile_id: string
+          refund_note?: string | null
+          refund_policy?: string | null
+          requested_at?: string
+          restored_at?: string | null
+          status?: string
+          token_expires_at: string
+          token_hash: string
+        }
+        Update: {
+          confirmed_at?: string | null
+          credits_forfeited?: number | null
+          hard_delete_after?: string | null
+          id?: string
+          profile_id?: string
+          refund_note?: string | null
+          refund_policy?: string | null
+          requested_at?: string
+          restored_at?: string | null
+          status?: string
+          token_expires_at?: string
+          token_hash?: string
+        }
+        Relationships: []
+      }
       admin_audit_log: {
         Row: {
           action: string
@@ -2575,6 +2620,7 @@ export type Database = {
           country: string | null
           created_at: string
           credits_balance: number
+          deletion_requested_at: string | null
           email: string
           farah_hint_dismissed_at: string | null
           first_name: string | null
@@ -2605,6 +2651,7 @@ export type Database = {
           country?: string | null
           created_at?: string
           credits_balance?: number
+          deletion_requested_at?: string | null
           email: string
           farah_hint_dismissed_at?: string | null
           first_name?: string | null
@@ -2635,6 +2682,7 @@ export type Database = {
           country?: string | null
           created_at?: string
           credits_balance?: number
+          deletion_requested_at?: string | null
           email?: string
           farah_hint_dismissed_at?: string | null
           first_name?: string | null
@@ -3703,6 +3751,30 @@ export type Database = {
       }
     }
     Functions: {
+      account_deletion_blockers: {
+        Args: { p_user_id: string }
+        Returns: Json
+      }
+      account_deletion_confirm: {
+        Args: { p_token_hash: string; p_user_id: string }
+        Returns: Json
+      }
+      account_deletion_create_request: {
+        Args: { p_token_hash: string; p_user_id: string }
+        Returns: Json
+      }
+      account_deletion_restore: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
+      account_deletion_status: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
+      account_is_active: {
+        Args: { p_user_id: string }
+        Returns: boolean
+      }
       account_deletion_fk_catalog: {
         Args: Record<PropertyKey, never>
         Returns: {

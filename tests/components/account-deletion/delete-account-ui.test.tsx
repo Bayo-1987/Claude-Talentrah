@@ -51,7 +51,7 @@ describe("DeleteAccountSection", () => {
   });
 
   it("when blocked by a mentoring session, says why and offers no form", () => {
-    const blockers = { ...NONE, blocked: true, mentorship_sessions: [{ id: "s1", role: "mentor", session_type: "mock_interview", scheduled_start: "2026-10-09T10:00:00Z", status: "confirmed" }] };
+    const blockers = { ...NONE, blocked: true, mentorship_sessions: [{ id: "s1", role: "mentor" as const, session_type: "mock_interview", scheduled_start: "2026-10-09T10:00:00Z", status: "confirmed" }] };
     const markup = renderToStaticMarkup(<DeleteAccountSection creditsBalance={5} blockers={blockers} />);
     expect(text(markup)).toMatch(/can.t delete your account yet/i);
     expect(text(markup)).toMatch(/mentoring session/i);
