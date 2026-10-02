@@ -30,14 +30,14 @@ describe("docs/database-environments.md", () => {
     const text = body();
     expect(text).toMatch(/^## 2\. Reserved migration numbers/m);
     expect(text).toMatch(/reserved by asking the owner first/i);
-    const rows = text.match(/^\| 0\d{3}[^|]*\|[^|]+\|[^|]+\|$/gm) ?? [];
+    const rows = text.match(/^\| 0\d{3}[^|]*\|(?:[^|]+\|){2,}$/gm) ?? [];
     expect(rows.length, "the reserved-number table has no rows").toBeGreaterThan(0);
   });
 
-  it("states the apply order and the rule that nothing unmerged goes to talentrah-preview", () => {
+  it("states the apply order and the rule that preview never runs ahead of production", () => {
     const text = body();
     expect(text).toMatch(/Production first/);
-    expect(text).toMatch(/Nothing unmerged goes to talentrah-preview/);
+    expect(text).toMatch(/Nothing goes to talentrah-preview that has not already been applied to production/);
     expect(text).toMatch(/supabase\/data-fixes/);
   });
 

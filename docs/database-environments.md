@@ -21,23 +21,27 @@ A green CI run therefore says nothing about whether a migration has been applied
 **A number is reserved by asking the owner first.** Reading the directory and taking the next free number is not a reservation: `0060` was claimed twice in
 one morning by two sessions that each did exactly that. Ask, wait for the number, then write the file.
 
-| Number | Held by | State |
-|---|---|---|
-| 0208 | S1 | applied |
-| 0209 | S3-21 | applied |
-| 0210 | S3-21, the `search_path` pin | reserved |
-| 0211 onward | S3-21's account-deletion PRs | reserved |
+| Number | Held by | Production | talentrah-preview |
+|---|---|---|---|
+| 0208 | S1, `anonymous_demo_attempts` | applied 15:33Z | applied 15:40Z |
+| 0209 | S3-21, money tables survive user deletion | applied 15:22Z | applied 15:24Z |
+| 0210 | S3-21, `mentor_unpaid_hold` `search_path` pin (#672) | applied 16:04Z | applied 16:05Z |
+| 0211 | S3-21, definer and graphql hardening (local, opens after #671) | reserved | reserved |
+| 0212 onward | S3-21's account-deletion PRs | reserved | reserved |
 
-(0205 to 0207 belong to the open draft PRs #661 and #662, and are not in the directory until those merge.) When a number is released or used, change this table in the PR that
-uses it. `tests/docs/database-environments.test.ts` fails if this heading or the table is deleted.
+The times are the ledger's own version stamps (UTC, 2 Oct 2026), read from `supabase_migrations.schema_migrations` on both projects. A row says "applied" only because
+that ledger shows it; "reserved" means a number has been asked for and no ledger has it.
+
+(0205 to 0207 belong to the open draft PRs #661 and #662, and are not in the directory until those merge.) When a number is used, update this table in the PR that uses it. `tests/docs/database-environments.test.ts` fails if this heading or the table is deleted.
 
 ## 3. The order for a migration
 
 1. **Production first.** A rolled-back dry run (`BEGIN … ROLLBACK`, with its own self-checks) is shown to the owner. **Then the owner's yes.** Then a **hash-checked apply**
    in one transaction with self-checks: the SQL applied is the SQL in the PR, proven by comparing a hash of it with the file's.
 2. **Then talentrah-preview, by the same session that applied to production**, recorded **with a timestamp and the hash** in the PR that carries the migration.
-3. **Nothing unmerged goes to talentrah-preview.** Preview runs the code of whatever branch Vercel is building, so a migration that exists only on an unmerged branch
-   makes every other branch's preview disagree with its own schema.
+3. **Nothing goes to talentrah-preview that has not already been applied to production.** Preview never runs ahead of production: a migration, an experiment or a
+   branch-only change that production does not have is never put there, because Vercel builds every branch's preview against that one database and one branch's
+   unreviewed schema would make every other branch's preview disagree with its own code. (A migration whose PR is still open is fine once production has it; step 2 is exactly that.)
 
 Additive migrations go to production before the merge and destructive ones after the deploy (see production-migration-apply.md); this section does not change that.
 

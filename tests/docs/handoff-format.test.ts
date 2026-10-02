@@ -29,7 +29,9 @@ const DIR = path.join(ROOT, "docs/handoff");
 const LEGACY = path.join(DIR, "legacy");
 const NAME = /^(\d{4}-\d{2}-\d{2})-pr-(\d+)\.md$/;
 
-const list = (d: string) => (existsSync(d) ? readdirSync(d).filter((f) => f.endsWith(".md")) : []);
+// TEMPLATE.md is what sessions copy; it is not an entry, so it is excluded from every per-PR check below (and pinned separately).
+const TEMPLATE = "TEMPLATE.md";
+const list = (d: string) => (existsSync(d) ? readdirSync(d).filter((f) => f.endsWith(".md") && f !== TEMPLATE) : []);
 const modern = list(DIR);
 const legacy = list(LEGACY);
 const all = [...modern.map((f) => ({ f, dir: DIR })), ...legacy.map((f) => ({ f, dir: LEGACY }))];
@@ -92,6 +94,38 @@ describe("docs/handoff is the record, one file per merged PR", () => {
         expect(body, "no Verification section").toMatch(/Verification/);
       });
     }
+  });
+});
+
+describe("docs/handoff/TEMPLATE.md is what a session copies", () => {
+  const file = path.join(DIR, TEMPLATE);
+
+  it("exists, and is not counted as an entry (no per-PR check runs on it)", () => {
+    expect(existsSync(file), "docs/handoff/TEMPLATE.md was deleted").toBe(true);
+    expect(modern).not.toContain(TEMPLATE);
+    expect(all.map(({ f }) => f)).not.toContain(TEMPLATE);
+  });
+
+  it("keeps the headings every entry should have", () => {
+    const body = readFileSync(file, "utf8");
+    // PR number and title; merge SHA and merged-at UTC.
+    expect(body).toMatch(/^## Merged .*PR #<n>/m);
+    expect(body).toMatch(/Merged at \(UTC\)/);
+    expect(body).toMatch(/Merge SHA/);
+    // The four-part verification, each part named.
+    for (const part of ["1. GitHub API", "2. Fresh clone", "3. Production", "4. Full suite on merged main"]) {
+      expect(body, `template lost verification part ${part}`).toContain(`**${part}:**`);
+    }
+    expect(body).toMatch(/^### Flakes and reruns/m);
+    expect(body).toMatch(/^### Follow-ups/m);
+    // For migrations: where, when (UTC) and the sha256 of what was applied.
+    expect(body).toMatch(/^### Migration apply record/m);
+    expect(body).toMatch(/sha256/);
+    expect(body).toMatch(/talentrah-preview/);
+  });
+
+  it("is named in the shared file's index header", () => {
+    expect(readFileSync(path.join(ROOT, "handoff-status.md"), "utf8")).toContain("docs/handoff/TEMPLATE.md");
   });
 });
 

@@ -35,7 +35,7 @@ both served stale content in this project's history. Don't rely on either.
 
 ## Handoff log (one file per merged PR)
 
-Each merged PR has its own file under `docs/handoff/` (`<yyyy-mm-dd>-pr-<n>.md`). Entries written before this format are under `docs/handoff/legacy/`. A PR adds its own file in the same PR, so two PRs cannot conflict on the record. `tests/docs/handoff-format.test.ts` enforces the shape. Newest first:
+Each merged PR has its own file under `docs/handoff/` (`<yyyy-mm-dd>-pr-<n>.md`). Entries written before this format are under `docs/handoff/legacy/`. A PR adds its own file in the same PR, so two PRs cannot conflict on the record. **Copy [`docs/handoff/TEMPLATE.md`](docs/handoff/TEMPLATE.md)** (PR number and title, merge SHA and merged-at UTC, the four-part verification, flakes and reruns, follow-ups, and for a migration the apply record: where, UTC time, sha256) so entries have the same shape. `tests/docs/handoff-format.test.ts` enforces the shape. Newest first:
 
 - [2026-10-02 — #666](docs/handoff/2026-10-02-pr-666.md) — PR #666, the scholarship countdown (send-511): written before the merge, so the merge facts are the merger's t…
 - [2026-10-02 — #659](docs/handoff/2026-10-02-pr-659.md) — the job page lists the skills the breakdown counts (PR #659, S2 routed)
