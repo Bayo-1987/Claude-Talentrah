@@ -12,7 +12,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
 import type { Database } from "@/lib/supabase/types";
 import { recordDemoAttempt } from "@/lib/demo/attempt-log";
-import { ATTEMPT_REASONS, PROVIDER_ERROR_KINDS } from "@/lib/demo/attempt-codes";
+import { ATTEMPT_REASONS, PROVIDER_ERROR_KINDS, REFUSAL_REASONS } from "@/lib/demo/attempt-codes";
 
 for (const key of ["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"] as const) {
   if (!process.env[key]) throw new Error(`attempt-table test cannot run: ${key} is not set.`);
@@ -163,11 +163,51 @@ describe("the schema refuses anything that is not a short code (0208 check const
     }
   });
 
-  it("the writer cannot lose a row to the constraint: a value that would be refused is sanitised first", async () => {
+  it("the writer cannot lose a row to the constraint: a value that would be refused is written as the catch-all ('other' / 'Other'), never repaired", async () => {
+    const since = new Date().toISOString();
     await recordDemoAttempt({ outcome: "error", reason: SENTENCE, errorClass: `${MARK} has spaces!`, ipRuleActive: false });
-    const { data } = await admin.from("anonymous_demo_attempts").select("reason, error_class").eq("error_class", `${MARK}hasspaces`);
-    expect(data, "the sanitised row must have landed").toHaveLength(1);
-    expect(data![0].reason).toBe("other");
-    await admin.from("anonymous_demo_attempts").delete().eq("error_class", `${MARK}hasspaces`);
+    // The row carries no marker (the catch-all values are the point), so find it by time and clean up by id.
+    const { data } = await admin
+      .from("anonymous_demo_attempts")
+      .select("id, reason, error_class")
+      .gte("created_at", since)
+      .eq("outcome", "error")
+      .eq("reason", "other")
+      .eq("error_class", "Other");
+    expect(data?.length, "the catch-all row must have landed").toBeGreaterThanOrEqual(1);
+    for (const row of data ?? []) await admin.from("anonymous_demo_attempts").delete().eq("id", row.id);
+  });
+});
+
+/**
+ * The 7-day view groups by the reason the writer chose, so the refused-row count can only ever use codes the code knows:
+ * every reason it reports is in attempt-codes.ts, even when the caller asked for one that is not.
+ */
+describe("the 7-day view's refused-row count uses only codes from attempt-codes.ts", () => {
+  const VIEW_MARK = `V${randomUUID().replace(/-/g, "")}`;
+
+  afterAll(async () => {
+    const { error } = await admin.from("anonymous_demo_attempts").delete().eq("error_class", VIEW_MARK);
+    if (error) throw new Error(`cleanup failed, rows left behind (error_class=${VIEW_MARK}): ${error.message}`);
+  });
+
+  it("one refused row per refusal reason, plus one asking for a reason that does not exist: the view reports only listed codes, and counts them all", async () => {
+    for (const reason of REFUSAL_REASONS) {
+      await recordDemoAttempt({ outcome: "refused", reason, errorClass: VIEW_MARK, ipRuleActive: false });
+    }
+    await recordDemoAttempt({ outcome: "refused", reason: "a_reason_nobody_listed", errorClass: VIEW_MARK, ipRuleActive: false });
+
+    const { data, error } = await admin
+      .from("anonymous_demo_outcomes_7d")
+      .select("outcome, reason, attempts")
+      .eq("error_class", VIEW_MARK)
+      .eq("outcome", "refused");
+    expect(error).toBeNull();
+
+    const reported = (data ?? []).map((r) => r.reason as string);
+    for (const reason of reported) expect([...ATTEMPT_REASONS], `the view reported "${reason}", which attempt-codes.ts does not list`).toContain(reason);
+    expect(new Set(reported)).toEqual(new Set([...REFUSAL_REASONS, "other"]));
+    const total = (data ?? []).reduce((n, r) => n + (r.attempts ?? 0), 0);
+    expect(total, "every written refused row is counted").toBe(REFUSAL_REASONS.length + 1);
   });
 });

@@ -47,7 +47,7 @@ describe("recordDemoAttempt", () => {
   });
 });
 
-describe("recordDemoAttempt sanitises before it writes, so the schema's check constraints can never refuse (and lose) a row", () => {
+describe("recordDemoAttempt never repairs a value to make it fit: an unknown one is written as the catch-all, so the schema's check constraints never refuse (and lose) a row", () => {
   it("a reason that is not a listed code is stored as 'other'; a sentence never reaches the table", async () => {
     insert.mockResolvedValue({ error: null });
     await recordDemoAttempt({ outcome: "invalid", reason: "a visitor pasted a whole job description here", ipRuleActive: false });
@@ -55,13 +55,25 @@ describe("recordDemoAttempt sanitises before it writes, so the schema's check co
     expect(row.reason).toBe("other");
   });
 
-  it("an error class with spaces or symbols is stripped to a plain name, and capped at 64 characters", async () => {
+  it("an error class that does not fit is stored as 'Other', NOT stripped into a different valid-looking name, and NOT truncated", async () => {
     insert.mockResolvedValue({ error: null });
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     await recordDemoAttempt({ outcome: "error", errorClass: "Some weird, class name!", ipRuleActive: false });
     await recordDemoAttempt({ outcome: "error", errorClass: "A".repeat(100), ipRuleActive: false });
+    await recordDemoAttempt({ outcome: "error", errorClass: "ünï", ipRuleActive: false });
+    warn.mockRestore();
     const rows = insert.mock.calls.map((c) => c[1] as Record<string, unknown>);
-    expect(rows[0].error_class).toBe("Someweirdclassname");
-    expect(String(rows[1].error_class)).toHaveLength(64);
+    expect(rows.map((r) => r.error_class)).toEqual(["Other", "Other", "Other"]);
+  });
+
+  it("the raw value goes to the server log, never to the database row", async () => {
+    insert.mockResolvedValue({ error: null });
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    await recordDemoAttempt({ outcome: "invalid", reason: "RAW-UNKNOWN-REASON-xyz", ipRuleActive: false });
+    const logged = warn.mock.calls.map((c) => String(c[0])).join("\n");
+    warn.mockRestore();
+    expect(logged).toContain("RAW-UNKNOWN-REASON-xyz");
+    expect(JSON.stringify(insert.mock.calls[0])).not.toContain("RAW-UNKNOWN-REASON-xyz");
   });
 
   it("listed codes and nulls pass through unchanged", async () => {

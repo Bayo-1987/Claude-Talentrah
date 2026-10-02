@@ -10,9 +10,10 @@ import { safeErrorClass, safeReason, type AttemptReason } from "@/lib/demo/attem
  *
  * NO PII, BY CONSTRUCTION AND BY SCHEMA: the row has an outcome, a reason or error class (short codes), and a
  * boolean. The two code columns carry check constraints in the database (0208; see attempt-codes.ts), so a visitor's
- * text could not be stored in them even by a writer that tried; this writer also sanitises before inserting, because a
- * refused insert would be a lost row. No address (not even the hash), no visitor id, no pasted text, no error message — messages from
- * the model call can echo the prompt, which holds the visitor's paste.
+ * text could not be stored in them even by a writer that tried. This writer also checks before inserting: an unknown
+ * value becomes the catch-all "other"/"Other", never a repaired one, because a refused insert would be a lost row.
+ * There is no address (not even the hash), no visitor id, no pasted text, and no error message: messages from the model
+ * call can echo the prompt, which holds the visitor's paste.
  *
  * FAIL-SAFE: this runs on a request path that must answer the visitor whether or not the log works, and the
  * table may not even be applied yet when this code first deploys. It never rejects.
@@ -64,7 +65,8 @@ export function classifyRefusal(reason: ClaimReason | string, ipRuleActive: bool
 /** The class of a failure, never its text. */
 export function classifyError(err: unknown): string {
   if (err instanceof LLMProviderError) return err.kind;
-  // The name goes through the same sanitiser the writer uses, so what this returns always fits the column.
+  // The name goes through the same check the writer uses (a name that does not fit is "Other", never repaired), so
+  // what this returns always fits the column.
   if (err instanceof Error) return safeErrorClass(err.constructor?.name || err.name || "Error") ?? "Error";
   return "unknown";
 }
