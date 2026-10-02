@@ -94,8 +94,14 @@ describe("seeker-facing strings say Resume, never CV", () => {
 describe("the S19 copy changes themselves", () => {
   const read = (rel: string) => textNodes(fs.readFileSync(path.join(SRC, rel), "utf8"), rel).join(" ").replace(/\s+/g, " ");
 
-  it("/refer promises 'resume tailorings' in the heading and in the body", () => {
-    const text = read("app/(app)/refer/page.tsx");
-    expect(text.match(/free resume tailorings/g)?.length, "heading and body should both say 'free resume tailorings'").toBe(2);
+  it("/refer says 'resume tailorings' (never CV), from the one derived reward sentence the page and the public landing use", async () => {
+    // Since 0215 the wording is derived from the reward and the tailoring price (src/lib/referrals/copy.ts), not hard-coded
+    // in the page, so the Resume-not-CV rule is pinned where the words are now produced, and the page must use them.
+    const { referralRewardHeadline, referralRewardWorth } = await import("@/lib/referrals/copy");
+    expect(referralRewardWorth()).toMatch(/enough for \d+ resume tailorings?/);
+    for (const sentence of [referralRewardHeadline(), referralRewardWorth()]) expect(sentence).not.toMatch(/\bCVs?\b/);
+    const page = fs.readFileSync(path.join(SRC, "app/(app)/refer/page.tsx"), "utf8");
+    expect(page).toContain("referralRewardHeadline()");
+    expect(page).toContain("referralRewardWorth()");
   });
 });
