@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
+import { useCatchUpFile } from "@/lib/forms/use-catch-up-file";
 import { useRouter } from "next/navigation";
 import { Button, EyebrowLabel } from "@/components/ui";
 import type { StructuredResume } from "@/lib/resume/types";
@@ -74,8 +75,9 @@ export function ResumeUpload({
     resume: StructuredResume;
     confidence: "high" | "low";
   } | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
+  // Ref and onChange come from the shared hook, which also acts on a file chosen before hydration (issue #591).
+  const { inputRef, onChange } = useCatchUpFile({ onFiles: (files) => void handleFile(files[0]), multiple: false });
 
   async function handleFile(file: File) {
     setStatus("uploading");
@@ -137,10 +139,7 @@ export function ResumeUpload({
         type="file"
         accept=".pdf,.docx,.txt"
         className="hidden"
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) handleFile(file);
-        }}
+        onChange={onChange}
       />
       <p className="text-[14px] text-ink-soft">
         {status === "uploading" ? "Farah is reading your resume…" : heading}

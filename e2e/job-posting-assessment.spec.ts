@@ -198,7 +198,7 @@ base.describe("job posting assessment — full loop", () => {
         mimeType: "text/plain",
         buffer: Buffer.from(RESPONSE_FILE_CONTENT),
       });
-      await expect(seekerPage.getByText("Selected: answer.txt")).toBeVisible();
+      await expect(seekerPage.getByText("Attached: answer.txt")).toBeVisible();
 
       await expect(submitButton).toBeEnabled();
       await submitButton.click();
@@ -671,8 +671,8 @@ base.describe("job posting assessment — candidate attaches multiple response f
         { name: "approach.txt", mimeType: "text/plain", buffer: Buffer.from(APPROACH_CONTENT) },
         { name: "notes.txt", mimeType: "text/plain", buffer: Buffer.from(NOTES_CONTENT) },
       ]);
-      await expect(seekerPage.getByText("Selected: approach.txt")).toBeVisible();
-      await expect(seekerPage.getByText("Selected: notes.txt")).toBeVisible();
+      await expect(seekerPage.getByText("Attached: approach.txt")).toBeVisible();
+      await expect(seekerPage.getByText("Attached: notes.txt")).toBeVisible();
 
       const submitButton = seekerPage.getByRole("button", { name: "Submit application" });
       await expect(submitButton).toBeEnabled();
