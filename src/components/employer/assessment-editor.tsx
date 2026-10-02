@@ -3,6 +3,9 @@
 import { useState } from "react";
 import { RichMarkdownEditor } from "./rich-markdown-editor";
 import { EditJobAssessmentFilesPicker } from "./edit-job-assessment-files-picker";
+import { NewJobAssessmentFilesPicker } from "./new-job-assessment-files-picker";
+import { AssessmentExerciseUpload, type AssessmentExerciseFile } from "./assessment-exercise-upload";
+import { EyebrowLabel } from "@/components/ui";
 import type { JobPostingAssessmentInput } from "@/lib/employer/job-posting-assessment";
 
 /**
@@ -31,14 +34,38 @@ import type { JobPostingAssessmentInput } from "@/lib/employer/job-posting-asses
  * different way — passing `editContext` there would be actively wrong,
  * not just redundant), so it's still an explicit prop from the one caller
  * whose picture matches it, undefined everywhere else.
+ *
+ * EMP-1 / E4 — every exercise-files control now lives HERE, under the
+ * "Attach an assessment" checkbox, and is visible only while it is ticked.
+ * They used to be separate cards outside the form (above it on Create, below
+ * it on Edit) shown whether or not an assessment was being attached.
+ *
+ * What UNTICKING does, per case — it hides, it never deletes:
+ *  - Create (`createContext`): the staging picker stays MOUNTED, just
+ *    `hidden`, because what was picked is client-only state — unmounting it
+ *    would throw the list away (while leaving the files in IndexedDB, an
+ *    invisible attachment on re-tick). On submit while unticked the staged
+ *    files are discarded: no assessment is saved to attach them to.
+ *  - Edit with a saved assessment (`savedFiles`): those files live on the
+ *    server and the section is just derived from props, so it simply isn't
+ *    rendered while unticked and is back, unchanged, on re-tick. They go only
+ *    if the employer SAVES unticked, which removes the assessment itself
+ *    (unchanged behaviour).
+ *  - Edit with no assessment yet: EditJobAssessmentFilesPicker, unchanged.
  */
 export function AssessmentEditor({
   initial,
   editContext,
+  createContext,
+  savedFiles,
 }: {
   initial?: JobPostingAssessmentInput | null;
   /** Present only on the Edit page — see this component's own header. */
   editContext?: { jobId: string; userId: string };
+  /** Present only on the Create page: where exercise files are staged until the job exists. */
+  createContext?: { userId: string };
+  /** Edit page only: the exercise files already uploaded to the saved assessment. */
+  savedFiles?: AssessmentExerciseFile[];
 }) {
   const [enabled, setEnabled] = useState(!!initial);
   const [title, setTitle] = useState(initial?.title ?? "");
@@ -133,6 +160,32 @@ export function AssessmentEditor({
             <EditJobAssessmentFilesPicker userId={editContext.userId} jobId={editContext.jobId} />
           )}
 
+          {editContext && initial && savedFiles && (
+            <div id="assessment-exercise-files" className="flex flex-col gap-2.5 border-t border-line pt-3">
+              <EyebrowLabel>Assessment exercise files</EyebrowLabel>
+              <AssessmentExerciseUpload jobId={editContext.jobId} hasAssessment files={savedFiles} />
+            </div>
+          )}
+        </div>
+      )}
+
+      {/*
+        Create only. Outside the `enabled &&` blocks on purpose — see the
+        header: hidden, not unmounted, so unticking never loses a pick. The
+        `hidden` sits on a plain wrapper with no display class of its own, so
+        nothing can override it.
+      */}
+      {createContext && (
+        <div id="assessment-exercise-files" hidden={!enabled}>
+          <div className="flex flex-col gap-2.5 border-t border-line pt-3">
+            <EyebrowLabel>Assessment exercise files</EyebrowLabel>
+            <NewJobAssessmentFilesPicker userId={createContext.userId} active={enabled} />
+          </div>
+        </div>
+      )}
+
+      {enabled && (
+        <div className="flex flex-col gap-3">
           {/*
             "Required to apply", not the bare "Required" screening
             questions use — a job can have both a screening question and an

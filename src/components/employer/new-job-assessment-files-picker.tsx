@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { BorderedCard, EyebrowLabel } from "@/components/ui";
 import { ASSESSMENT_DOCUMENT_GUIDANCE, MAX_ASSESSMENT_FILES } from "@/lib/employer/assessment-document";
 import {
   CREATE_SCOPE,
@@ -19,24 +18,24 @@ const STAGE_FAILED_MESSAGE =
 
 /**
  * send-364 — the create form's own multi-file picker for the assessment's
- * exercise documents, mirroring new-job-banner-picker.tsx's own pattern: an
- * independent card rendered ABOVE the form (files can't travel through a
- * hidden form field), staging into IndexedDB (see
+ * exercise documents, staging into IndexedDB (see
  * pending-job-assessment-files.ts's own header for why IndexedDB rather
  * than the banner's sessionStorage, and why the write happens at pick/
- * remove time rather than at submit time the way the banner's does).
+ * remove time rather than at submit time the way the banner's does). Files
+ * can't travel through a hidden form field, hence the staging at all.
  *
- * Deliberately does NOT know whether the employer has checked "Attach an
- * assessment" in AssessmentEditor (a sibling INSIDE JobPostingForm's own
- * `<form>` — this card has to live outside it, so there's no cheap way to
- * share that boolean without touching that component's own contract, which
- * is more than this fix needs). If files are staged but no assessment ever
- * gets created, the post-success upload attempt fails gracefully with the
- * same "add it from Edit" pointer PostSuccessAssessmentFilesNote already
- * falls back to for any other deferred-upload failure — not a special case,
- * just this component's copy making the relationship clear up front instead.
+ * EMP-1 / E4 — this used to be a freestanding card ABOVE the form that did
+ * not know whether "Attach an assessment" was ticked, and so was visible
+ * regardless. It now renders inside AssessmentEditor, under that checkbox,
+ * which hides it (kept mounted, so a pick survives unticking and re-ticking)
+ * and passes `active`: whether the box is currently ticked. `active` matters
+ * at ONE moment — submit: with the box unticked no assessment is saved, so
+ * whatever is still staged would otherwise be consumed by the post-success
+ * upload and fail against a job with nothing to attach to. Treating an
+ * inactive picker as "nothing staged this session" lets the existing
+ * cleanup clear it instead.
  */
-export function NewJobAssessmentFilesPicker({ userId }: { userId: string }) {
+export function NewJobAssessmentFilesPicker({ userId, active }: { userId: string; active: boolean }) {
   const [files, setFiles] = useState<File[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -48,11 +47,11 @@ export function NewJobAssessmentFilesPicker({ userId }: { userId: string }) {
   // every keystroke.
   useEffect(() => {
     function onSubmit() {
-      clearIfNothingStagedThisSession(CREATE_SCOPE, files.length > 0);
+      clearIfNothingStagedThisSession(CREATE_SCOPE, active && files.length > 0);
     }
     document.addEventListener("submit", onSubmit, true);
     return () => document.removeEventListener("submit", onSubmit, true);
-  }, [files]);
+  }, [files, active]);
 
   async function stage(next: File[]) {
     setFiles(next);
@@ -79,15 +78,11 @@ export function NewJobAssessmentFilesPicker({ userId }: { userId: string }) {
   const atCap = files.length >= MAX_ASSESSMENT_FILES;
 
   return (
-    <BorderedCard className="flex flex-col gap-3 p-5">
-      <div className="flex flex-col gap-1">
-        <EyebrowLabel>Assessment exercise files — optional</EyebrowLabel>
-        <p className="text-[13.5px] text-ink-soft">
-          If you&rsquo;re attaching an assessment below, add up to {MAX_ASSESSMENT_FILES} supporting files
-          here (a written brief, a spreadsheet, etc.) — {ASSESSMENT_DOCUMENT_GUIDANCE} They&rsquo;ll attach
-          automatically once you publish.
-        </p>
-      </div>
+    <div className="flex flex-col gap-3">
+      <p className="font-body text-[12.5px] text-ink-soft">
+        Optional — add up to {MAX_ASSESSMENT_FILES} supporting files (a written brief, a spreadsheet, etc.) —{" "}
+        {ASSESSMENT_DOCUMENT_GUIDANCE} They&rsquo;ll attach automatically once you publish.
+      </p>
 
       {files.length > 0 && (
         <ul className="flex flex-col gap-1.5">
@@ -133,6 +128,6 @@ export function NewJobAssessmentFilesPicker({ userId }: { userId: string }) {
       )}
 
       {error && <p className="font-body text-[12.5px] text-rust">{error}</p>}
-    </BorderedCard>
+    </div>
   );
 }
