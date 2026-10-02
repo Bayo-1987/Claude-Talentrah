@@ -2,6 +2,7 @@ import { requireUser } from "@/lib/auth/require-user";
 import { getReviewQueue, getMyClaimedReviews } from "@/lib/talent-directory/review-queries";
 import { claimVerificationReviewAction } from "@/lib/talent-directory/reviewer-actions";
 import { Container, EyebrowLabel, BorderedCard, Button } from "@/components/ui";
+import { formatDateTime } from "@/lib/format/datetime";
 
 export const metadata = { title: "Verification reviews — Talentrah" };
 
@@ -48,7 +49,7 @@ export default async function VerificationReviewsPage({
                 {c.targetRole ?? "No target role stated"}
                 {c.targetIndustry ? ` · ${c.targetIndustry}` : ""}
               </p>
-              <p className="text-[13px] text-ink-soft">Claimed {new Date(c.claimedAt).toLocaleString()}</p>
+              <p className="text-[13px] text-ink-soft">Claimed {formatDateTime(c.claimedAt)}</p>
               <a href={`/mentorship/reviews/${c.id}`} className="text-[13.5px] text-rust">
                 Continue reviewing ↗
               </a>
@@ -72,7 +73,7 @@ export default async function VerificationReviewsPage({
                 {item.targetIndustry ? ` · ${item.targetIndustry}` : ""}
                 {item.expertiseMatch && <span className="ml-2 text-[12px] text-green">Matches your expertise</span>}
               </p>
-              <p className="text-[13px] text-ink-soft">Requested {new Date(item.requestedAt).toLocaleString()}</p>
+              <p className="text-[13px] text-ink-soft">Requested {formatDateTime(item.requestedAt)}</p>
               <form action={claim}>
                 <input type="hidden" name="verificationId" value={item.id} />
                 <Button type="submit" variant="primary" size="sm">

@@ -124,12 +124,30 @@ describe("naira-amount font-glyph regression guard (send-401)", () => {
     expect(findSourceFiles(SRC_ROOT).length).toBeGreaterThan(50);
   });
 
-  it("NairaAmount actually renders the ₦ sign inside a font-body span", () => {
-    const source = readFileSync(path.join(SRC_ROOT, NAIRA_AMOUNT_REL_PATH), "utf8");
-    // The exact mechanism the fix relies on: font-body wraps the sign, not
-    // the whole amount, so the inherited font-display keeps styling the
-    // numerals.
-    expect(source).toMatch(/font-body"[^>]*>\s*₦/);
+  /*
+   * CHANGED DELIBERATELY (send-503, S18). This used to assert that NairaAmount sets the sign in a `font-body` span, because the
+   * Newsreader of send-401 had no usable glyph for U+20A6. That made the sign and the digits two nodes, so a price could be
+   * announced as "2,500". The fix now is ONE text node ("₦2,500") in the display font, which is only right while Newsreader
+   * itself carries the glyph. Since the fonts were self-hosted with every unicode-range subset (#604), it does: the latin-ext
+   * file has U+20A6 (checked with fontTools) and its @font-face unicode-range covers U+20A0-20AB, so the browser fetches it when
+   * a ₦ is rendered; seen in a real browser with the committed files. This pins that premise to the repo: if that subset is ever
+   * dropped, this fails and the old font-body span (or a fallback stack) has to come back, not a silently wrong glyph.
+   */
+  it("NairaAmount is one text node, and Newsreader's self-hosted latin-ext subset covers the sign", () => {
+    const source = stripComments(readFileSync(path.join(SRC_ROOT, NAIRA_AMOUNT_REL_PATH), "utf8"));
+    expect(source).toMatch(/`₦\$\{amount\.toLocaleString\("en-NG"\)\}`/);
+    expect(source).not.toMatch(/font-body/);
+
+    const css = readFileSync(path.join(SRC_ROOT, "fonts/newsreader/newsreader.css"), "utf8");
+    const faces = css.split("@font-face").slice(1);
+    const covering = faces.filter((f) => /unicode-range:[^;]*U\+20A0-20AB/.test(f));
+    expect(covering.length, "no Newsreader @font-face covers U+20A6 (₦)").toBeGreaterThan(0);
+    for (const face of covering) {
+      const file = /url\(\.\/([^)]+\.woff2)\)/.exec(face)?.[1];
+      expect(file, "the covering @font-face must point at a file").toBeTruthy();
+      expect(file).toMatch(/latin-ext/);
+      expect(() => statSync(path.join(SRC_ROOT, "fonts/newsreader", file!))).not.toThrow();
+    }
   });
 
   describe("no source file embeds a currency sign inside a font-display element", () => {

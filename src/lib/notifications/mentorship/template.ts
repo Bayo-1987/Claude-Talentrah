@@ -9,6 +9,7 @@ import {
   emailParagraph,
   renderBrandedEmail,
 } from "@/lib/email/layout";
+import { formatDateTime } from "@/lib/format/datetime";
 
 /**
  * Mentorship session notifications — confirmation invite and pre-session
@@ -40,16 +41,8 @@ export function sessionTypeLabel(sessionType: MentorshipSessionType): string {
  * not UTC or whatever zone the deployment happens to run in.
  */
 function formatSessionTime(iso: string): string {
-  return new Intl.DateTimeFormat("en-NG", {
-    timeZone: "Africa/Lagos",
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    timeZoneName: "short",
-  }).format(new Date(iso));
+  // "17 Sep 2026, 10:00 WAT": the house format, in WAT (the formatter's default zone, for the reason above).
+  return formatDateTime(iso);
 }
 
 export interface SessionParticipant {

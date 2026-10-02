@@ -4,6 +4,7 @@ import { decideFeedbackAction } from "@/lib/admin/moderation/actions";
 import { DecisionForm } from "@/components/admin/decision-form";
 import { QueueEmpty, QueueHeader } from "@/components/admin/queue-chrome";
 import { Container, EyebrowLabel, BorderedCard } from "@/components/ui";
+import { formatDate } from "@/lib/format/datetime";
 
 export const metadata = {
   title: "Feedback triage — Talentrah admin",
@@ -73,7 +74,7 @@ export default async function FeedbackQueuePage() {
                     {f.pagePath && ` · ${f.pagePath}`}
                   </EyebrowLabel>
                   <span className="text-[12.5px] text-ink-soft">
-                    {new Date(f.createdAt).toLocaleDateString()}
+                    {formatDate(f.createdAt)}
                     {f.status !== "new" && ` · ${STATUS_LABEL[f.status]}`}
                   </span>
                 </div>
@@ -90,7 +91,7 @@ export default async function FeedbackQueuePage() {
                 {f.triagedByName && f.triagedAt && (
                   <p className="text-[13px] text-ink-soft">
                     Last moved by {f.triagedByName} on{" "}
-                    {new Date(f.triagedAt).toLocaleDateString()}
+                    {formatDate(f.triagedAt)}
                     {f.triageNote && ` — “${f.triageNote}”`}
                   </p>
                 )}

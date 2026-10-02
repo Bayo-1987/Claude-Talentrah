@@ -4,6 +4,7 @@ import { decideCampaignAction } from "@/lib/admin/moderation/actions";
 import { DecisionForm } from "@/components/admin/decision-form";
 import { QueueEmpty, QueueHeader } from "@/components/admin/queue-chrome";
 import { Container, EyebrowLabel, BorderedCard } from "@/components/ui";
+import { formatDate } from "@/lib/format/datetime";
 
 export const metadata = {
   title: "Ad campaign review — Talentrah admin",
@@ -66,7 +67,7 @@ export default async function CampaignQueuePage() {
                     {naira.format(c.dailyRateNgn)} per day
                     {c.totalBudgetNgn != null && ` · budget ${naira.format(c.totalBudgetNgn)}`}
                     {c.submittedAt &&
-                      ` · submitted ${new Date(c.submittedAt).toLocaleDateString()}`}
+                      ` · submitted ${formatDate(c.submittedAt)}`}
                   </p>
                   {c.organisation?.domain && (
                     <p className="text-[13.5px] text-ink-soft">{c.organisation.domain}</p>
