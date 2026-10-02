@@ -37,7 +37,7 @@ interface Countdown {
 interface Mod {
   scholarshipCountdown?: (row: Row, now: Date) => Countdown;
   scholarshipCloseText?: (row: Row, now?: Date) => string | null;
-  scholarshipDeadlineDisplay?: (row: Row, now: Date, opts: { detailed: boolean; showClosed: boolean }) => { text: string; urgent: boolean } | null;
+  scholarshipDeadlineDisplay?: (row: Row, now: Date, opts: { detailed: boolean; showClosed: boolean }) => { text: string; urgent: boolean; labelled: boolean } | null;
   scholarshipDeadlineStatement?: (row: Row) => string | null;
   isScholarshipOpen?: (row: Row, now: Date) => boolean;
 }
@@ -194,19 +194,19 @@ describe("the one display builder the five sites share", () => {
 
   it("compact (card, embed, landing): the date, then the countdown after a dot; the 'last day' statement replaces the date", async () => {
     const d = await display();
-    expect(d(NO_ZONE, at("2026-10-01T12:00:00Z"), { detailed: false, showClosed: false })).toEqual({ text: "6 Oct 2026 · 4 days left", urgent: true });
-    expect(d(NO_ZONE, at("2026-10-06T05:00:00Z"), { detailed: false, showClosed: false })).toEqual({ text: LAST_DAY, urgent: true });
-    expect(d(NO_ZONE, at("2026-10-06T23:30:00Z"), { detailed: false, showClosed: false })).toEqual({ text: `6 Oct 2026 · ${PASSED}`, urgent: true });
+    expect(d(NO_ZONE, at("2026-10-01T12:00:00Z"), { detailed: false, showClosed: false })).toEqual({ text: "6 Oct 2026 · 4 days left", urgent: true, labelled: true });
+    expect(d(NO_ZONE, at("2026-10-06T05:00:00Z"), { detailed: false, showClosed: false })).toEqual({ text: LAST_DAY, urgent: true, labelled: false });
+    expect(d(NO_ZONE, at("2026-10-06T23:30:00Z"), { detailed: false, showClosed: false })).toEqual({ text: `6 Oct 2026 · ${PASSED}`, urgent: true, labelled: false });
   });
 
   it("detailed (the detail page): the full closing text, with 'Closed' shown when it is", async () => {
     const d = await display();
     const chev: Row = { application_deadline: "2026-10-06", close_time: "11:00", close_tz: "UTC" };
-    expect(d(chev, at("2026-10-02T08:30:00Z"), { detailed: true, showClosed: true })).toEqual({ text: "Closes 6 Oct 2026, 11:00 UTC · 4 days left", urgent: true });
-    expect(d(chev, at("2026-10-06T05:00:00Z"), { detailed: true, showClosed: true })).toEqual({ text: "Closes 6 Oct 2026, 11:00 UTC · Closes in 6 hours", urgent: true });
-    expect(d(chev, at("2026-10-06T11:00:00Z"), { detailed: true, showClosed: true })).toEqual({ text: "Closes 6 Oct 2026, 11:00 UTC · Closed", urgent: false });
-    expect(d(chev, at("2026-10-06T11:00:00Z"), { detailed: false, showClosed: false })).toEqual({ text: "6 Oct 2026", urgent: false });
-    expect(d(NO_ZONE, at("2026-10-01T12:00:00Z"), { detailed: true, showClosed: true })).toEqual({ text: "Closes 6 Oct 2026 — time zone not stated, apply a day early · 4 days left", urgent: true });
+    expect(d(chev, at("2026-10-02T08:30:00Z"), { detailed: true, showClosed: true })).toEqual({ text: "Closes 6 Oct 2026, 11:00 UTC · 4 days left", urgent: true, labelled: true });
+    expect(d(chev, at("2026-10-06T05:00:00Z"), { detailed: true, showClosed: true })).toEqual({ text: "Closes 6 Oct 2026, 11:00 UTC · Closes in 6 hours", urgent: true, labelled: true });
+    expect(d(chev, at("2026-10-06T11:00:00Z"), { detailed: true, showClosed: true })).toEqual({ text: "Closes 6 Oct 2026, 11:00 UTC · Closed", urgent: false, labelled: true });
+    expect(d(chev, at("2026-10-06T11:00:00Z"), { detailed: false, showClosed: false })).toEqual({ text: "6 Oct 2026", urgent: false, labelled: true });
+    expect(d(NO_ZONE, at("2026-10-01T12:00:00Z"), { detailed: true, showClosed: true })).toEqual({ text: "Closes 6 Oct 2026 — time zone not stated, apply a day early · 4 days left", urgent: true, labelled: true });
   });
 
   it("no deadline: null (the caller shows its own note)", async () => {
