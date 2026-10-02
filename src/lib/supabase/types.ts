@@ -4026,6 +4026,7 @@ export type Database = {
           title: string
         }[]
       }
+      job_expiry_function_definition: { Args: { p_name: string }; Returns: string }
       expiry_reminder_window_ok: {
         Args: { p_closes_at: string; p_now: string }
         Returns: boolean

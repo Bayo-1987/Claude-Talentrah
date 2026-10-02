@@ -1,7 +1,15 @@
 "use server";
 
 import { createHash } from "node:crypto";
-import { DEFAULT_NEW_POSTING_EXPIRY_DAYS, readExpiry } from "./expiry-input";
+import {
+  CLOSING_DATE_PASSED_MESSAGE,
+  CLOSING_DATE_TOO_SOON_MESSAGE,
+  DEFAULT_NEW_POSTING_EXPIRY_DAYS,
+  MAX_EXPIRY_DAYS,
+  MIN_DAYS_TO_PUBLISH,
+  closingDateOrigin,
+  readExpiry,
+} from "./expiry-input";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -883,56 +891,132 @@ export async function setJobStatusAction(jobId: string, status: Enums<"job_statu
  * already-open, closed, or removed posting is a no-op (zero rows updated)
  * rather than a status change this action was never meant to make.
  */
-export async function publishJobAction(jobId: string) {
+export type PublishDraftResult = { ok: true } | { ok: false; error: string };
+
+/**
+ * ── THE CLOSING DATE AT FIRST PUBLISH (EMP-1 / E3) ────────────────────────
+ *
+ * A draft is created with the same 30-day default as any new posting, but 30 days should count from the moment
+ * candidates can first SEE the job, not from when it was drafted. So publishing looks at where the date came from
+ * (closingDateOrigin, an inference: see its header, and the PR for the column that would make it a fact):
+ *
+ *   no closing date       left null. "No expiry" stays no expiry through publish.
+ *   the DEFAULT date      set to now + 30 days, whether or not it had passed yet.
+ *   a date the employer CHOSE
+ *       still 3+ days out         left exactly as it is.
+ *       passed, or under 3 days   the publish is REFUSED, nothing is written, and the employer is asked to pick again.
+ *                                 A date they typed is never moved silently: a job that goes live and closes by itself
+ *                                 a day later is worse than a message.
+ *
+ * `newExpiresIn`, when present, is the employer's answer to that refusal (the same duration values the form posts; ""
+ * is "No expiry"). It is validated against the same 3-day floor.
+ *
+ * The new date goes in the SAME UPDATE as the status change. For a chosen date that is left alone, the UPDATE also
+ * carries `expires_at > now + 3 days`, so a date edited between the read and the write cannot slip through the floor:
+ * the statement refuses it rather than this code having read a value and then acted on it.
+ */
+async function publishDraft(jobId: string, newExpiresIn?: string | null): Promise<PublishDraftResult> {
   const { supabase } = await getAuthedUser();
   const { organization } = await requireEmployer();
 
-  const { data: updated, error } = await supabase
+  const { data: draft } = await supabase
     .from("job_postings")
-    .update({ status: "open" })
+    .select("id, status, source_type, created_at, expires_at")
     .eq("id", jobId)
     .eq("organization_id", organization.id)
-    .eq("status", "draft")
-    .select("id");
+    .maybeSingle();
+
+  if (!draft || draft.status !== "draft" || draft.source_type !== "internal") {
+    return { ok: false, error: "This job can't be published." };
+  }
+
+  const now = new Date();
+  const soon = new Date(now.getTime() + MIN_DAYS_TO_PUBLISH * 86_400_000);
+  const daysFromNow = (days: number) => {
+    const d = new Date(now);
+    d.setDate(d.getDate() + days);
+    return d.toISOString();
+  };
+
+  /** What to write to expires_at (undefined: leave the column alone), and whether the UPDATE must guard it. */
+  let write: { expires_at?: string | null } = {};
+  let guardChosenDate = false;
+
+  if (newExpiresIn !== undefined && newExpiresIn !== null) {
+    // The employer answered the refusal. Same duration values as the form; a hand-made value falls back to refusing.
+    if (newExpiresIn === "") {
+      write = { expires_at: null };
+    } else {
+      const days = Number(newExpiresIn);
+      if (!Number.isFinite(days) || days <= 0 || days > MAX_EXPIRY_DAYS) {
+        return { ok: false, error: CLOSING_DATE_TOO_SOON_MESSAGE };
+      }
+      if (days < MIN_DAYS_TO_PUBLISH) return { ok: false, error: CLOSING_DATE_TOO_SOON_MESSAGE };
+      write = { expires_at: daysFromNow(days) };
+    }
+  } else if (draft.expires_at) {
+    if (closingDateOrigin(draft.created_at, draft.expires_at) === "default") {
+      write = { expires_at: daysFromNow(DEFAULT_NEW_POSTING_EXPIRY_DAYS) };
+    } else {
+      const closes = new Date(draft.expires_at).getTime();
+      if (closes <= now.getTime()) return { ok: false, error: CLOSING_DATE_PASSED_MESSAGE };
+      if (closes < soon.getTime()) return { ok: false, error: CLOSING_DATE_TOO_SOON_MESSAGE };
+      guardChosenDate = true;
+    }
+  }
+
+  let update = supabase
+    .from("job_postings")
+    .update({ status: "open", ...write })
+    .eq("id", jobId)
+    .eq("organization_id", organization.id)
+    .eq("status", "draft");
+  if (guardChosenDate) update = update.gt("expires_at", soon.toISOString());
+  const { data: updated, error } = await update.select("id");
 
   // Same rule as setJobStatusAction just above: a rejected update RESOLVES
   // with `error`, and a policy/status mismatch resolves with zero rows —
   // neither throws. posted_at must not be stamped for a publish that didn't
   // actually happen.
-  if (!error && updated?.length) {
-    const admin = createServiceRoleClient();
-    const { error: postedAtError } = await admin
-      .from("job_postings")
-      .update({ posted_at: new Date().toISOString() })
-      .eq("id", jobId);
-    if (postedAtError) {
-      console.error("[employer] published job but could not stamp posted_at", jobId, postedAtError.message);
-    }
+  if (error || !updated?.length) {
+    return {
+      ok: false,
+      error: guardChosenDate
+        ? CLOSING_DATE_TOO_SOON_MESSAGE
+        : "This job couldn't be published. Refresh and try again.",
+    };
+  }
 
-    /*
-     * EMP-1 / E3: a draft is created with the 30-day default like any new posting, so one that sits as a draft for
-     * longer than that would go live already past its closing date and be closed by the next expiry sweep without
-     * ever having been visible. Publishing is the moment the posting really starts, so a closing date that has
-     * ALREADY PASSED restarts from now + 30 days. `.lt("expires_at", now)` is the whole condition: a date still in
-     * the future (a default or a chosen one) is never touched, and `source_type = 'internal'` keeps this to the
-     * employer's own postings. One conditional statement, no read first.
-     */
-    const now = new Date();
-    const restart = new Date(now);
-    restart.setDate(restart.getDate() + DEFAULT_NEW_POSTING_EXPIRY_DAYS);
-    const { error: restartError } = await admin
-      .from("job_postings")
-      .update({ expires_at: restart.toISOString() })
-      .eq("id", jobId)
-      .eq("source_type", "internal")
-      .lt("expires_at", now.toISOString());
-    if (restartError) {
-      console.error("[employer] published job but could not restart a past closing date", jobId, restartError.message);
-    }
+  const admin = createServiceRoleClient();
+  const { error: postedAtError } = await admin
+    .from("job_postings")
+    .update({ posted_at: new Date().toISOString() })
+    .eq("id", jobId);
+  if (postedAtError) {
+    console.error("[employer] published job but could not stamp posted_at", jobId, postedAtError.message);
   }
 
   revalidatePath("/employer/jobs");
   revalidatePath("/jobs");
+  return { ok: true };
+}
+
+export async function publishJobAction(jobId: string): Promise<PublishDraftResult> {
+  return publishDraft(jobId);
+}
+
+/**
+ * The Publish button's own action (useActionState shape). The first click posts nothing but the button; if the closing
+ * date has to be re-picked, the row shows the message and a date control with "30 days" preselected, and the second
+ * click posts `expiresIn`.
+ */
+export async function publishDraftFormAction(
+  jobId: string,
+  _prev: PublishDraftResult | null,
+  form: FormData,
+): Promise<PublishDraftResult> {
+  const choice = form.has("expiresIn") ? String(form.get("expiresIn")).trim() : undefined;
+  return publishDraft(jobId, choice);
 }
 
 /**

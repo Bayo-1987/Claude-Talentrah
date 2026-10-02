@@ -22,7 +22,16 @@ const state = vi.hoisted(() => ({
   stamped: [] as string[],
   released: [] as string[],
   owners: {} as Record<string, string[]>,
-  profiles: {} as Record<string, { email: string | null; first_name: string | null }>,
+  profiles: {} as Record<
+    string,
+    {
+      email: string | null;
+      first_name: string | null;
+      deleted_at?: string | null;
+      deactivated_at?: string | null;
+      email_unsubscribed_at?: string | null;
+    }
+  >,
   orgCreator: {} as Record<string, string>,
   dueError: null as string | null,
   listIgnoresClaims: false,
@@ -182,6 +191,67 @@ describe("the happy path", () => {
   });
 });
 
+describe("who gets the email: nobody ineligible, and no claim is left behind when nobody is", () => {
+  const info = vi.spyOn(console, "info").mockImplementation(() => {});
+  beforeEach(() => info.mockClear());
+
+  /** The posting is skipped: nothing sent, nothing CLAIMED (so a later run is free to retry), and the reason is logged. */
+  async function expectSkipped(reason: string) {
+    state.due = [due("job-a")];
+    const summary = await sendExpiryReminders(NOW);
+    expect(state.sent).toHaveLength(0);
+    expect(state.claimedHashes, "a posting with no eligible recipient must not be claimed").toHaveLength(0);
+    expect(state.claims.size).toBe(0);
+    expect(summary).toMatchObject({ considered: 1, sent: 0, failed: 0, skipped: 1 });
+    const logged = info.mock.calls.map((c) => c.join(" ")).join("\n");
+    expect(logged).toContain("job-a");
+    expect(logged).toContain(reason);
+  }
+
+  it("a deleted user (no profile row any more) is skipped", async () => {
+    state.profiles = {};
+    await expectSkipped("deleted");
+  });
+
+  it("a deactivated user is skipped", async () => {
+    state.profiles = { u1: { email: "owner@acme.test", first_name: "Ada", deactivated_at: "2026-10-01T00:00:00Z" } };
+    await expectSkipped("deactivated");
+  });
+
+  it("an unsubscribed user is skipped", async () => {
+    state.profiles = { u1: { email: "owner@acme.test", first_name: "Ada", email_unsubscribed_at: "2026-10-01T00:00:00Z" } };
+    await expectSkipped("unsubscribed");
+  });
+
+  it("a user with no email is skipped", async () => {
+    state.profiles = { u1: { email: null, first_name: null } };
+    await expectSkipped("no_email");
+  });
+
+  it("an ineligible owner is skipped but the eligible one is still emailed", async () => {
+    state.owners = { "org-1": ["u1", "u2"] };
+    state.profiles = {
+      u1: { email: "gone@acme.test", first_name: null, deactivated_at: "2026-10-01T00:00:00Z" },
+      u2: { email: "second@acme.test", first_name: "Bo" },
+    };
+    state.due = [due("job-a")];
+    await sendExpiryReminders(NOW);
+    expect(state.sent.map((m) => m.to)).toEqual(["second@acme.test"]);
+  });
+
+  it("a posting skipped for want of a recipient is retried on the next run, and sends once a recipient exists", async () => {
+    state.profiles = {};
+    state.due = [due("job-a")];
+    await sendExpiryReminders(NOW);
+    expect(state.sent).toHaveLength(0);
+
+    state.profiles = { u1: { email: "owner@acme.test", first_name: "Ada" } };
+    const next = await sendExpiryReminders(new Date(NOW.getTime() + 24 * 3_600_000));
+    expect(next.sent).toBe(1);
+    expect(state.sent.map((m) => m.to)).toEqual(["owner@acme.test"]);
+  });
+});
+
 describe("failure handling", () => {
   it("a failed send releases its OWN claim, so the next run retries", async () => {
     state.due = [due("job-a")];
@@ -191,15 +261,6 @@ describe("failure handling", () => {
     expect(summary.sent).toBe(0);
     expect(state.released).toEqual(state.claimedHashes);
     expect(state.stamped).toHaveLength(0);
-  });
-
-  it("no recipient with an email: nothing sent, claim released, counted as failed", async () => {
-    state.profiles = { u1: { email: null, first_name: null } };
-    state.due = [due("job-a")];
-    const summary = await sendExpiryReminders(NOW);
-    expect(state.sent).toHaveLength(0);
-    expect(summary.failed).toBe(1);
-    expect(state.released).toEqual(state.claimedHashes);
   });
 
   it("a claim lost to another run sends nothing", async () => {

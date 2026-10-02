@@ -1,6 +1,7 @@
 import "server-only";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { hashExtendToken, isWellFormedExtendToken } from "./token";
+import { EXTEND_DAYS } from "./constants";
 
 /**
  * Reading and redeeming an Extend link (EMP-1 / E3, migration 0207).
@@ -22,16 +23,21 @@ import { hashExtendToken, isWellFormedExtendToken } from "./token";
  * and the link itself is the authorisation, like the unsubscribe link (src/app/unsubscribe/page.tsx).
  */
 
-export type ExtendRefusal = "invalid" | "used" | "expired" | "unavailable";
+export type ExtendRefusal = "invalid" | "expired" | "closed" | "no_closing_date";
 
 export type ExtendResult =
   | { outcome: "extended"; jobId: string; title: string; newExpiresAt: string }
+  /** Already used: `closesAt` is what the posting closes on NOW, so the page can say so. */
+  | { outcome: "used"; jobId?: string; title?: string; closesAt?: string }
   | { outcome: ExtendRefusal; jobId?: string }
   | { outcome: "error" };
 
 export type PeekResult =
-  | { state: "ready"; jobId: string; title: string; closesAt: string }
+  | { state: "ready"; jobId: string; title: string; closesAt: string; newClosesAt: string }
+  | { state: "used"; title?: string; closesAt?: string }
   | { state: ExtendRefusal };
+
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 export async function redeemExtendToken(token: string, now: Date = new Date()): Promise<ExtendResult> {
   if (!isWellFormedExtendToken(token)) return { outcome: "invalid" };
@@ -50,9 +56,18 @@ export async function redeemExtendToken(token: string, now: Date = new Date()): 
   if (row.outcome === "extended") {
     return { outcome: "extended", jobId: row.job_posting_id, title: row.title, newExpiresAt: row.new_expires_at };
   }
-  if (row.outcome === "used" || row.outcome === "expired" || row.outcome === "unavailable") {
+  if (row.outcome === "used") {
+    return {
+      outcome: "used",
+      jobId: row.job_posting_id ?? undefined,
+      title: row.title ?? undefined,
+      closesAt: row.new_expires_at ?? undefined,
+    };
+  }
+  if (row.outcome === "expired" || row.outcome === "closed" || row.outcome === "no_closing_date") {
     return { outcome: row.outcome, jobId: row.job_posting_id ?? undefined };
   }
+  // Anything this code does not recognise is NOT an extension.
   return { outcome: "invalid" };
 }
 
@@ -67,8 +82,6 @@ export async function peekExtendToken(token: string, now: Date = new Date()): Pr
     .maybeSingle();
 
   if (!reminder) return { state: "invalid" };
-  if (reminder.used_at) return { state: "used" };
-  if (new Date(reminder.closes_at).getTime() <= now.getTime()) return { state: "expired" };
 
   const { data: job } = await supabase
     .from("job_postings")
@@ -76,9 +89,21 @@ export async function peekExtendToken(token: string, now: Date = new Date()): Pr
     .eq("id", reminder.job_posting_id)
     .maybeSingle();
 
-  // The same conditions the redeem function enforces; this only decides whether to OFFER the button.
-  if (!job || job.source_type !== "internal" || job.status !== "open" || !job.expires_at) {
-    return { state: "unavailable" };
+  if (reminder.used_at) {
+    return { state: "used", title: job?.title ?? undefined, closesAt: job?.expires_at ?? undefined };
   }
-  return { state: "ready", jobId: job.id, title: job.title, closesAt: job.expires_at };
+  if (new Date(reminder.closes_at).getTime() <= now.getTime()) return { state: "expired" };
+  if (!job) return { state: "invalid" };
+
+  // The same conditions the redeem function enforces; this only decides whether to OFFER the button.
+  if (job.source_type !== "internal" || !job.expires_at) return { state: "no_closing_date" };
+  if (job.status !== "open") return { state: "closed" };
+
+  return {
+    state: "ready",
+    jobId: job.id,
+    title: job.title,
+    closesAt: job.expires_at,
+    newClosesAt: new Date(new Date(job.expires_at).getTime() + EXTEND_DAYS * DAY_MS).toISOString(),
+  };
 }

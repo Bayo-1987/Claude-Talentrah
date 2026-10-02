@@ -3,10 +3,16 @@
 -- ── WHAT THIS IS ──────────────────────────────────────────────────────────
 --
 -- Employer-posted jobs now default to closing in 30 days (the form and postJobAction, not this file). A posting that
--- closes without warning is a posting the employer did not mean to lose, so three days before it does the employer is
+-- closes without warning is a posting the employer did not mean to lose, so when one is about to close the employer is
 -- emailed a link that extends it by 30 days from the date it was going to close.
 --
--- This file is only the storage and the two atomic steps. The cron route, the email and the confirm page are code.
+-- This file is only the storage and the atomic steps. The cron route, the email and the confirm page are code.
+--
+-- ── SELF-CONTAINED, AND SAFE TO RUN TWICE ─────────────────────────────────
+--
+-- It depends only on `public.job_postings` (id, title, organization_id, source_type, status, expires_at: all there since
+-- 0000/0053/0055) and nothing from 0204–0206, so it applies on a database that has 0203 and none of those. Every
+-- statement is `if not exists` / `create or replace` / a repeatable revoke or grant, so a second apply changes nothing.
 --
 -- ── ONE TABLE IS BOTH THE "ALREADY REMINDED" MARKER AND THE LINK ──────────
 --
@@ -20,30 +26,29 @@
 --                                        database read cannot reconstruct a working link.
 --   used_at                              single use. Stamped by the same locked transaction that extends the posting.
 --
--- ── WHO CAN SEE IT ────────────────────────────────────────────────────────
+-- ── WHO CAN SEE IT, AND WHO CAN CALL THE FUNCTIONS ────────────────────────
 --
--- Nobody but the server. RLS is enabled with no policy and every privilege is revoked from `anon` and
--- `authenticated` (Supabase grants ALL on every new table to both, which is how this repo has been bitten before; a
--- policy-less table with a wide grant is not a closed table, so the revoke is explicit). The table holds bearer-token
--- hashes: a client that could read them could still not mint a link, but there is no reason for any client to know
--- which postings have been reminded either. Because no client can write it, there is no column-grant question to
--- answer (CLAUDE.md: "RLS row policies do not restrict columns").
+-- Nobody but the server. The table has RLS enabled with NO policy and every privilege revoked from public, anon and
+-- authenticated (Supabase grants ALL on every new table to both client roles; a policy-less table with a wide grant is
+-- not a closed table, so the revoke is explicit). It holds bearer-token hashes, and no client has a reason to know
+-- which postings were reminded. No client can write it, so there is no column-grant question to answer.
+--
+-- FUNCTIONS: Postgres grants EXECUTE on a new function to PUBLIC by default, and revoking from `anon` and
+-- `authenticated` alone does NOT remove that (they inherit it through PUBLIC). So each function is revoked from
+-- `public, anon, authenticated` and granted to `service_role` only. All of them also pin `set search_path = ''` and
+-- schema-qualify every reference, so a role that could create objects in another schema could not shadow one of ours.
+-- tests/jobs/expiry-reminders/ calls every function as anon (and, CI-bound, as authenticated) and expects 42501.
 --
 -- ── THE WINDOW ────────────────────────────────────────────────────────────
 --
--- A posting is due when it closes AFTER now + 2 days and AT OR BEFORE now + 3 days + 1 hour. That is a 25-hour-wide
--- window evaluated by a once-a-day cron, which catches every posting exactly once for two separate reasons:
+-- A posting is due when it is open, an employer's own, and closes within the next 3 days: expires_at > now AND
+-- expires_at <= now + 3 days, with no claim yet for its CURRENT closing date. Exactly-once comes from the unique claim
+-- row, not from the window, so the window can be generous:
 --
---   caught   consecutive daily runs are 24 hours apart, the window is 25 hours wide, so every closing time falls inside
---            at least one run's window. The extra hour is not decoration: Vercel fires a daily cron anywhere inside its
---            scheduled hour on some plans, so two consecutive runs can be 24h59m apart, and a window of exactly 24
---            hours would silently skip a posting that closed in the gap.
---   once     a closing time can fall inside TWO consecutive windows (the overlap hour), which is what the unique
---            (job_posting_id, closes_at) row is for: the second run finds the marker and sends nothing.
---
--- A posting that closes 2 days or less after it is first seen (a "1 day" preset, say) is never reminded: there is no
--- time left to act on one. The reminder reads `expires_at` as it is NOW, so a posting whose date was edited after a
--- reminder went out is due again for the new date, once.
+--   a missed day catches up: a run skipped for a day or two still finds the posting on the next run, because the window
+--   is "closing soon" and not "closing in exactly 3 days";
+--   a job published with 2 days left still gets its one reminder;
+--   a job closing in 3 days and a minute is not reminded yet; one already past, or closed, never is.
 --
 -- ── WHY THE CLAIM COMES BEFORE THE SEND ───────────────────────────────────
 --
@@ -59,20 +64,16 @@
 -- locks the token row (`for update`), so two concurrent uses of one link are serialised and the second sees `used_at`
 -- set and answers 'used'. The extension itself is ONE conditional UPDATE — `where status = 'open' and source_type =
 -- 'internal' and expires_at > now` — so the comparison and the write are the same statement, and the token is stamped
--- in the same transaction. A link that refuses (closed posting, external posting, past closing date) does NOT consume
--- the token.
+-- in the same transaction. A link that refuses (closed posting, external posting, no closing date) does NOT consume the
+-- token. The row lock is pinned by a test that reads the live function's definition (job_expiry_function_definition):
+-- a 10-way concurrency test cannot catch a missing lock on its own, because the race window is microseconds.
 --
 -- ── INTERNAL POSTINGS ONLY ────────────────────────────────────────────────
 --
--- Both `due_job_expiry_reminders` and `claim_job_expiry_reminder` say `source_type = 'internal'`, and so does the
--- extend. An external posting follows its source (src/lib/jobs/expiry.ts): its `expires_at` is a fact a source stated,
--- and nothing here reads, reminds about or moves it. tests/jobs/expiry-reminders pins that against the database.
---
--- ── NOTHING EXISTING IS CHANGED ───────────────────────────────────────────
---
--- It adds a table and four functions. No existing row, column, policy or grant is touched, so it is safe to apply
--- before the deploy (README: additive migrations go first). With no rows in the table and no cron calling the
--- functions, nothing happens.
+-- `due_job_expiry_reminders`, `claim_job_expiry_reminder` and the extend all say `source_type = 'internal'`. An
+-- external posting follows its source (src/lib/jobs/expiry.ts): its `expires_at` is a fact a source stated, and nothing
+-- here reads, reminds about or moves it. No existing row is touched by this migration (no backfill: a posting with no
+-- closing date keeps none).
 
 create table if not exists public.job_expiry_reminders (
   id uuid primary key default gen_random_uuid(),
@@ -91,7 +92,7 @@ create table if not exists public.job_expiry_reminders (
 );
 
 comment on table public.job_expiry_reminders is
-  'One row per (employer posting, closing date): the marker that the 3-day closing reminder was claimed, and the single-use token behind its Extend link. Service role only.';
+  'One row per (employer posting, closing date): the marker that the closing reminder was claimed, and the single-use token behind its Extend link. Service role only.';
 
 alter table public.job_expiry_reminders enable row level security;
 -- Deliberately NO policy: with RLS on and none defined, every non-bypassing role is denied. The revoke is the second lock.
@@ -104,11 +105,11 @@ create or replace function public.expiry_reminder_window_ok(p_closes_at timestam
 returns boolean
 language sql
 immutable
-set search_path = public
+set search_path = ''
 as $$
   select p_closes_at is not null
-     and p_closes_at >  p_now + interval '2 days'
-     and p_closes_at <= p_now + interval '3 days 1 hour';
+     and p_closes_at >  p_now
+     and p_closes_at <= p_now + interval '3 days';
 $$;
 
 -- ── who is due ────────────────────────────────────────────────────────────
@@ -118,7 +119,7 @@ create or replace function public.due_job_expiry_reminders(p_now timestamptz def
 returns table (job_posting_id uuid, title text, organization_id uuid, closes_at timestamptz)
 language sql
 stable
-set search_path = public
+set search_path = ''
 as $$
   select j.id, j.title, j.organization_id, j.expires_at
   from public.job_postings j
@@ -147,7 +148,7 @@ create or replace function public.claim_job_expiry_reminder(
 )
 returns table (closes_at timestamptz)
 language sql
-set search_path = public
+set search_path = ''
 as $$
   insert into public.job_expiry_reminders as r (job_posting_id, closes_at, token_hash, created_at)
   select j.id, j.expires_at, p_token_hash, p_now
@@ -168,20 +169,23 @@ $$;
 
 -- ── the one-click extend ──────────────────────────────────────────────────
 -- Outcomes, and what each means for the page:
---   extended     expires_at moved forward 30 days from its CURRENT value; the token is now used.
---   invalid      no such token (mistyped, tampered, or never issued).
---   used         the link was already used.
---   expired      the closing date the link was issued for has passed.
---   unavailable  the posting is no longer an open employer posting, or has no closing date. NOTHING is consumed.
+--   extended         expires_at moved forward 30 days from its CURRENT value; the token is now used.
+--   invalid          no such token (mistyped, tampered, or never issued).
+--   used             the link was already used. title and new_expires_at carry the posting's CURRENT closing date.
+--   expired          the closing date the link was issued for has passed.
+--   closed           the posting is no longer open (closed, removed, or a draft). NOTHING is consumed.
+--   no_closing_date  the posting has no closing date or is not an employer posting. NOTHING is consumed.
 create or replace function public.redeem_job_expiry_extend_token(p_token_hash text, p_now timestamptz default now())
 returns table (outcome text, job_posting_id uuid, title text, new_expires_at timestamptz)
 language plpgsql
-set search_path = public
+set search_path = ''
 as $$
 declare
   r public.job_expiry_reminders%rowtype;
   v_title text;
   v_new timestamptz;
+  v_source text;
+  v_status text;
 begin
   -- Serialises concurrent uses of one link: the second caller blocks here, then reads used_at.
   select * into r from public.job_expiry_reminders where token_hash = p_token_hash for update;
@@ -191,7 +195,9 @@ begin
   end if;
 
   if r.used_at is not null then
-    return query select 'used'::text, r.job_posting_id, null::text, null::timestamptz;
+    -- Say what the posting closes on NOW, so "already extended" can name the date.
+    select j.title, j.expires_at into v_title, v_new from public.job_postings j where j.id = r.job_posting_id;
+    return query select 'used'::text, r.job_posting_id, v_title, v_new;
     return;
   end if;
 
@@ -211,7 +217,16 @@ begin
   returning j.title, j.expires_at into v_title, v_new;
 
   if not found then
-    return query select 'unavailable'::text, r.job_posting_id, null::text, null::timestamptz;
+    -- Nothing moved and nothing is consumed. Work out which refusal this is, only to tell the person the truth.
+    select j.source_type::text, j.status::text, j.expires_at into v_source, v_status, v_new
+      from public.job_postings j where j.id = r.job_posting_id;
+    if v_source is distinct from 'internal' or v_new is null then
+      return query select 'no_closing_date'::text, r.job_posting_id, null::text, null::timestamptz;
+    elsif v_status is distinct from 'open' then
+      return query select 'closed'::text, r.job_posting_id, null::text, null::timestamptz;
+    else
+      return query select 'expired'::text, r.job_posting_id, null::text, null::timestamptz;
+    end if;
     return;
   end if;
 
@@ -221,16 +236,43 @@ begin
 end;
 $$;
 
-revoke all on function public.expiry_reminder_window_ok(timestamptz, timestamptz) from public, anon, authenticated;
-revoke all on function public.due_job_expiry_reminders(timestamptz, int) from public, anon, authenticated;
-revoke all on function public.claim_job_expiry_reminder(uuid, text, timestamptz) from public, anon, authenticated;
-revoke all on function public.redeem_job_expiry_extend_token(text, timestamptz) from public, anon, authenticated;
+-- ── a catalog reader, for ONE test ────────────────────────────────────────
+-- Lets tests/jobs/expiry-reminders read the live definition of the four functions above (PostgREST cannot reach
+-- pg_proc), so the row lock in redeem_job_expiry_extend_token is pinned by a test that fails if a rewrite drops it.
+-- Same idea as data_api_grants_snapshot() (0193). Restricted to our own function names; service role only.
+create or replace function public.job_expiry_function_definition(p_name text)
+returns text
+language sql
+stable
+set search_path = ''
+as $$
+  select pg_catalog.pg_get_functiondef(p.oid)
+  from pg_catalog.pg_proc p
+  join pg_catalog.pg_namespace n on n.oid = p.pronamespace
+  where n.nspname = 'public'
+    and p.proname = p_name
+    and p_name in (
+      'expiry_reminder_window_ok',
+      'due_job_expiry_reminders',
+      'claim_job_expiry_reminder',
+      'redeem_job_expiry_extend_token'
+    )
+  limit 1;
+$$;
+
+-- ── grants: service_role ONLY ─────────────────────────────────────────────
+revoke execute on function public.expiry_reminder_window_ok(timestamptz, timestamptz) from public, anon, authenticated;
+revoke execute on function public.due_job_expiry_reminders(timestamptz, int) from public, anon, authenticated;
+revoke execute on function public.claim_job_expiry_reminder(uuid, text, timestamptz) from public, anon, authenticated;
+revoke execute on function public.redeem_job_expiry_extend_token(text, timestamptz) from public, anon, authenticated;
+revoke execute on function public.job_expiry_function_definition(text) from public, anon, authenticated;
 grant execute on function public.expiry_reminder_window_ok(timestamptz, timestamptz) to service_role;
 grant execute on function public.due_job_expiry_reminders(timestamptz, int) to service_role;
 grant execute on function public.claim_job_expiry_reminder(uuid, text, timestamptz) to service_role;
 grant execute on function public.redeem_job_expiry_extend_token(text, timestamptz) to service_role;
+grant execute on function public.job_expiry_function_definition(text) to service_role;
 
--- Self-check, in the shape 0192 and 0191 use: fail the apply loudly rather than leave a table that looks locked and isn't.
+-- Self-check, in the shape 0192 and 0191 use: fail the apply loudly rather than leave something that looks locked and isn't.
 do $$
 begin
   if not exists (
@@ -241,8 +283,25 @@ begin
   end if;
   if exists (
     select 1 from information_schema.role_table_grants
-    where table_schema = 'public' and table_name = 'job_expiry_reminders' and grantee in ('anon', 'authenticated')
+    where table_schema = 'public' and table_name = 'job_expiry_reminders' and grantee in ('anon', 'authenticated', 'PUBLIC')
   ) then
-    raise exception 'job_expiry_reminders must grant nothing to anon or authenticated';
+    raise exception 'job_expiry_reminders must grant nothing to anon, authenticated or PUBLIC';
+  end if;
+  -- EXECUTE through PUBLIC is the grant that survives a revoke from anon/authenticated alone: check it directly.
+  if exists (
+    select 1
+    from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public'
+      and p.proname in (
+        'expiry_reminder_window_ok', 'due_job_expiry_reminders', 'claim_job_expiry_reminder',
+        'redeem_job_expiry_extend_token', 'job_expiry_function_definition'
+      )
+      and (
+        has_function_privilege('anon', p.oid, 'execute')
+        or has_function_privilege('authenticated', p.oid, 'execute')
+      )
+  ) then
+    raise exception 'a job_expiry function is still executable by anon or authenticated';
   end if;
 end $$;

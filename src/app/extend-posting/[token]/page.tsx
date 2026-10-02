@@ -6,10 +6,10 @@ import { Container, EyebrowLabel } from "@/components/ui";
 import { pageMetadata } from "@/lib/seo/site";
 import { peekExtendToken } from "@/lib/jobs/expiry-reminders/extend";
 import { ExtendForm } from "./extend-form";
-import { REFUSALS } from "./copy";
+import { refusalCopy } from "./copy";
 
 /**
- * Extend a posting's closing date, reached from the link in the 3-day closing reminder (EMP-1 / E3, migration 0207).
+ * Extend a posting's closing date, reached from the link in the closing reminder (EMP-1 / E3, migration 0207).
  *
  * ── IT DOES NOT ACT ON GET, AND THAT IS THE POINT ─────────────────────────
  *
@@ -19,11 +19,13 @@ import { REFUSALS } from "./copy";
  * quietly push a closing date out. So this page only READS (peekExtendToken changes nothing) and shows a confirm
  * button; the button is a form POST to a Server Action, the only thing that redeems the link.
  *
- * ── NO SESSION, BY NECESSITY ──────────────────────────────────────────────
+ * ── NO SESSION, BY NECESSITY, AND THAT IS A DECISION ──────────────────────
  *
- * The token in the URL is the authorisation, 256 random bits, single use, valid only until the closing date it was
- * issued for. The page is outside /employer on purpose, so it does not demand a sign-in the person may not have in
- * the browser their mail opens in.
+ * The link works without signing in. The token in the URL is the authorisation: 256 random bits, single use, and valid
+ * only until the closing date it was issued for. The person is in their mail client, quite possibly not signed in to
+ * the browser it opens in, and what the link can do is one thing: move one closing date forward by 30 days, once. Anyone
+ * who was forwarded the email can do that; they cannot read anything, close or edit the posting, or extend it twice.
+ * The page is outside /employer on purpose, so it does not demand a sign-in the person may not have.
  */
 export const dynamic = "force-dynamic";
 
@@ -48,19 +50,25 @@ export default async function ExtendPostingPage({ params }: { params: Promise<{ 
         <Container className="flex max-w-[620px] flex-col gap-5">
           <EyebrowLabel>Job posting</EyebrowLabel>
           {peek.state === "ready" ? (
-            <ExtendForm token={token} title={peek.title} closesAt={peek.closesAt} />
+            <ExtendForm token={token} title={peek.title} closesAt={peek.closesAt} newClosesAt={peek.newClosesAt} />
           ) : (
-            <>
-              <h1 className="text-[32px] leading-[1.25]">{REFUSALS[peek.state].heading}</h1>
-              <p className="text-[15.5px] text-ink-soft">{REFUSALS[peek.state].body}</p>
-              <Link href="/employer/jobs" className="font-body text-[15px] font-semibold text-rust">
-                Go to Jobs Posted
-              </Link>
-            </>
+            <Refusal copy={refusalCopy({ outcome: peek.state, closesAt: peek.state === "used" ? peek.closesAt : undefined })} />
           )}
         </Container>
       </main>
       <MarketingFooter />
+    </>
+  );
+}
+
+function Refusal({ copy }: { copy: { heading: string; body: string } }) {
+  return (
+    <>
+      <h1 className="text-[32px] leading-[1.25]">{copy.heading}</h1>
+      <p className="text-[15.5px] text-ink-soft">{copy.body}</p>
+      <Link href="/employer/jobs" className="font-body text-[15px] font-semibold text-rust">
+        Go to Jobs Posted
+      </Link>
     </>
   );
 }

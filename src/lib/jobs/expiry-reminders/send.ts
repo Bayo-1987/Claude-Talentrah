@@ -2,6 +2,12 @@ import "server-only";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { getResendClient } from "@/lib/resend/client";
 import { absoluteUrl } from "@/lib/seo/site";
+import {
+  selectEmailableRecipients,
+  type EmailableRecipient,
+  type RecipientProfile,
+  type RecipientSkipReason,
+} from "@/lib/email/recipient-eligibility";
 import { generateExtendToken } from "./token";
 import { buildExpiryReminderEmail } from "./template";
 
@@ -9,9 +15,17 @@ import { buildExpiryReminderEmail } from "./template";
  * The daily "your posting closes soon" run (EMP-1 / E3, migration 0207).
  *
  * WHICH postings are due, and that each is reminded exactly once per closing date, are decided in the database:
- * `due_job_expiry_reminders` lists them (an open EMPLOYER posting whose expires_at is in the window below) and
- * `claim_job_expiry_reminder` takes the claim in one statement. This file is the part that cannot live there: minting
- * the token, finding who to email, and sending.
+ * `due_job_expiry_reminders` lists them (an open EMPLOYER posting that closes within the next 3 days and has no claim
+ * for its current closing date) and `claim_job_expiry_reminder` takes the claim in one statement. This file is the part
+ * that cannot live there: finding who to email, minting the token, and sending.
+ *
+ * ── RECIPIENTS ARE RESOLVED BEFORE THE CLAIM ──────────────────────────────
+ *
+ * The org's owners (fallback: the person who created the organisation) are looked up and filtered first
+ * (src/lib/email/recipient-eligibility.ts: deleted, deactivated, unsubscribed, no email). A posting with nobody left to
+ * mail is logged with its reason and SKIPPED WITHOUT CLAIMING, so nothing is left behind to block a later run: it is
+ * listed again tomorrow and sends the day a recipient exists, until the posting closes. (A claim made first and
+ * released afterwards would do the same, but would write and delete a row every day for nothing.)
  *
  * ── CLAIM FIRST, THEN SEND ────────────────────────────────────────────────
  *
@@ -27,9 +41,8 @@ import { buildExpiryReminderEmail } from "./template";
  *
  * ── THE WINDOW ────────────────────────────────────────────────────────────
  *
- * A posting closing after now + 2 days and at or before now + 3 days + 1 hour: 25 hours wide, so every closing time is
- * inside at least one daily run's window even if cron timing drifts by up to an hour; the claim row stops the overlap
- * hour from sending twice. The reasoning is written out in 0207's header.
+ * "Closes within the next 3 days": a run that was missed catches up on the next one, and a job published with 2 days
+ * left still gets its one reminder. The claim row, not the window, is what stops a second send.
  *
  * EXTERNAL postings are never listed, claimed or mentioned: the SQL says `source_type = 'internal'` in every function.
  */
@@ -38,20 +51,22 @@ export interface ExpiryReminderRunSummary {
   considered: number;
   sent: number;
   failed: number;
+  /** Listed but not claimed: nobody eligible to email. Retried on the next run. */
+  skipped: number;
   reason?: string;
 }
 
 /** Bounded fan-out per run, the same safety cap the other reminder runs use. */
 const MAX_POSTINGS_PER_RUN = 200;
 
-type Recipient = { email: string; firstName: string | null };
+type Resolved = { recipients: EmailableRecipient[]; skipped: Array<{ userId: string; reason: RecipientSkipReason }> };
 
 /** The org's owners (owner-role members), else the person who created the organisation. Cached per run. */
 async function loadRecipients(
   supabase: ReturnType<typeof createServiceRoleClient>,
   organizationId: string,
-  cache: Map<string, Recipient[]>,
-): Promise<Recipient[]> {
+  cache: Map<string, Resolved>,
+): Promise<Resolved> {
   const cached = cache.get(organizationId);
   if (cached) return cached;
 
@@ -72,19 +87,23 @@ async function loadRecipients(
     if (org?.created_by) userIds = [org.created_by];
   }
 
-  let recipients: Recipient[] = [];
+  let profiles: RecipientProfile[] = [];
   if (userIds.length > 0) {
-    const { data: profiles } = await supabase.from("profiles").select("id, email, first_name").in("id", userIds);
-    recipients = (profiles ?? [])
-      .filter((p): p is typeof p & { email: string } => Boolean(p.email))
-      .map((p) => ({ email: p.email, firstName: p.first_name }));
+    /*
+     * `*`, not a column list: the eligibility check reads fields (deactivated_at, ...) that the account work will add
+     * to profiles, and a typed column list could not name a column that does not exist yet. A handful of owner rows.
+     */
+    const { data } = await supabase.from("profiles").select("*").in("id", userIds);
+    profiles = (data ?? []) as unknown as RecipientProfile[];
   }
-  cache.set(organizationId, recipients);
-  return recipients;
+
+  const resolved = selectEmailableRecipients(userIds, profiles);
+  cache.set(organizationId, resolved);
+  return resolved;
 }
 
 export async function sendExpiryReminders(now: Date = new Date()): Promise<ExpiryReminderRunSummary> {
-  const base: ExpiryReminderRunSummary = { considered: 0, sent: 0, failed: 0 };
+  const base: ExpiryReminderRunSummary = { considered: 0, sent: 0, failed: 0, skipped: 0 };
 
   const resend = getResendClient();
   if (!resend) {
@@ -103,9 +122,27 @@ export async function sendExpiryReminders(now: Date = new Date()): Promise<Expir
   }
 
   const summary: ExpiryReminderRunSummary = { ...base, considered: (due ?? []).length };
-  const recipientCache = new Map<string, Recipient[]>();
+  const recipientCache = new Map<string, Resolved>();
 
   for (const posting of due ?? []) {
+    // Who would we mail? Decided BEFORE anything is claimed, so a posting with nobody to mail leaves no row behind.
+    let resolved: Resolved;
+    try {
+      resolved = await loadRecipients(supabase, posting.organization_id, recipientCache);
+    } catch (err) {
+      summary.failed++;
+      console.error(`[expiry-reminders] could not resolve recipients for ${posting.job_posting_id}:`, err);
+      continue;
+    }
+    if (resolved.recipients.length === 0) {
+      const why = resolved.skipped.length > 0 ? resolved.skipped.map((s) => s.reason).join(",") : "no owner found";
+      console.info(
+        `[expiry-reminders] skipped posting ${posting.job_posting_id}: no eligible recipient (${why}); will retry on the next run`,
+      );
+      summary.skipped++;
+      continue;
+    }
+
     const { token, hash } = generateExtendToken();
 
     const { data: claimed, error: claimError } = await supabase.rpc("claim_job_expiry_reminder", {
@@ -130,18 +167,10 @@ export async function sendExpiryReminders(now: Date = new Date()): Promise<Expir
     };
 
     try {
-      const recipients = await loadRecipients(supabase, posting.organization_id, recipientCache);
-      if (recipients.length === 0) {
-        console.error(`[expiry-reminders] no email on file for the owner(s) of org ${posting.organization_id}`);
-        summary.failed++;
-        await release();
-        continue;
-      }
-
       const extendUrl = absoluteUrl(`/extend-posting/${token}`);
       const jobsUrl = absoluteUrl("/employer/jobs");
 
-      for (const recipient of recipients) {
+      for (const recipient of resolved.recipients) {
         const email = buildExpiryReminderEmail({
           firstName: recipient.firstName,
           title: posting.title,
@@ -176,6 +205,8 @@ export async function sendExpiryReminders(now: Date = new Date()): Promise<Expir
     }
   }
 
-  console.log(`[expiry-reminders] considered=${summary.considered} sent=${summary.sent} failed=${summary.failed}`);
+  console.log(
+    `[expiry-reminders] considered=${summary.considered} sent=${summary.sent} skipped=${summary.skipped} failed=${summary.failed}`,
+  );
   return summary;
 }

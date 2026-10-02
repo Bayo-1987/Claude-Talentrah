@@ -28,6 +28,48 @@ export const MAX_EXPIRY_DAYS = 365;
  */
 export const DEFAULT_NEW_POSTING_EXPIRY_DAYS = 30;
 
+/** Shown when publishing a draft whose employer-CHOSEN closing date has already passed. Exact copy, pinned by a test. */
+export const CLOSING_DATE_PASSED_MESSAGE = "This closing date has passed. Pick a new one";
+
+/** The fewest days a posting may have left when it is published. Sooner than this and the employer is asked to pick again. */
+export const MIN_DAYS_TO_PUBLISH = 3;
+
+/** Shown when publishing a draft whose employer-CHOSEN closing date is less than MIN_DAYS_TO_PUBLISH away. */
+export const CLOSING_DATE_TOO_SOON_MESSAGE = "This job would close in under 3 days. Pick a later date";
+
+/**
+ * Was this closing date the 30-day DEFAULT, or did the employer choose it?
+ *
+ * ── THIS IS AN INFERENCE, AND SAYS SO ─────────────────────────────────────
+ *
+ * Nothing records where `expires_at` came from. (The reliable fix is a column; see the PR description for the options.
+ * None is added here on purpose.) What can be told from the row alone:
+ *
+ *   - the default is computed on the server as `now + 30 days` and the row is inserted moments later, so a defaulted
+ *     date sits within seconds of `created_at + 30 days`;
+ *   - a CUSTOM date is always normalised to the END of its day in UTC (readExpiry), `23:59:59.999Z`, which a computed
+ *     `now + 30 days` hits only once in 86,400,000 milliseconds, so it is never mistaken for a default;
+ *   - the other presets (1, 3, 7, 14, 60 days) are nowhere near created + 30 days.
+ *
+ * The one case it cannot separate is an employer who PICKED the "30 days" preset: that lands on the same instant as the
+ * default. It is classed as the default, which is harmless, because a preset is a duration ("closes in 30 days"), and
+ * counting it from publication is what the person meant by it.
+ */
+const ORIGIN_TOLERANCE_MS = 60_000;
+
+export function closingDateOrigin(createdAt: string | Date, expiresAt: string | Date): "default" | "chosen" {
+  const created = new Date(createdAt).getTime();
+  const expires = new Date(expiresAt);
+  const endOfDayUtc =
+    expires.getUTCHours() === 23 &&
+    expires.getUTCMinutes() === 59 &&
+    expires.getUTCSeconds() === 59 &&
+    expires.getUTCMilliseconds() === 999;
+  if (endOfDayUtc) return "chosen";
+  const distance = expires.getTime() - (created + DEFAULT_NEW_POSTING_EXPIRY_DAYS * 86_400_000);
+  return Math.abs(distance) <= ORIGIN_TOLERANCE_MS ? "default" : "chosen";
+}
+
 /**
  * What the form asked for, or why it cannot be honoured.
  *
