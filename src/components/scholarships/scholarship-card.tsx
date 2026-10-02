@@ -8,6 +8,7 @@ import { FarahActions } from "./farah-actions";
 import { ScholarshipShareButton } from "./scholarship-share-button";
 import { formatCalendarDate } from "@/lib/format/datetime";
 import { scholarshipDeadlineDisplay } from "@/lib/scholarships/close-instant";
+import { DeadlineLine } from "@/components/scholarships/deadline-line";
 
 export interface ScholarshipCardProps {
   scholarship: Tables<"scholarships">;
@@ -105,18 +106,21 @@ export function ScholarshipCard({
 
       <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-[13.5px] text-ink-soft">
         <span>
-          <span className="font-semibold">Deadline:</span>{" "}
-          <span className={urgent ? "font-semibold text-rust" : undefined}>
-            {/*
+          {/*
               A provider with no single deadline (per-partner, per-embassy,
               per-consortium) is verified, not unknown — so show the sourced
               explanation rather than an empty gap or a bare "Not published
               yet", which reads like missing data.
             */}
-            {scholarship.application_deadline
-              ? (deadline?.text ?? formatDeadline(scholarship.application_deadline))
-              : (scholarship.deadline_note ?? "Not published yet")}
-          </span>
+          <DeadlineLine
+            text={
+              scholarship.application_deadline
+                ? (deadline?.text ?? formatDeadline(scholarship.application_deadline))
+                : (scholarship.deadline_note ?? "Not published yet")
+            }
+            urgent={urgent}
+            labelled={deadline?.labelled ?? true}
+          />
         </span>
         {scholarship.field_tags.length > 0 && (
           <span className="text-[13px]">{scholarship.field_tags.slice(0, 3).join(" · ")}</span>

@@ -218,21 +218,23 @@ export function scholarshipCloseText(row: ScholarshipCloseFields, now: Date = ne
 /**
  * The deadline line the five render sites share (card, detail page, landing page, blog embed). `detailed` leads with the full closing text
  * ("Closes 6 Oct 2026, 11:00 UTC") instead of the bare date; `showClosed` appends "Closed" once it has. The "last day" statement carries its own
- * date, so it replaces the date instead of following it. Null when no deadline has been recorded (the caller shows the provider's note).
+ * date, so it replaces the date instead of following it. `labelled` is false in that state and in "passed in some time zones", whose sentence also says
+ * "deadline": the surface leaves its "Deadline:" label off (see DeadlineLine). Null when no deadline has been recorded (the caller shows the provider's note).
  */
 export function scholarshipDeadlineDisplay(
   row: ScholarshipCloseFields,
   now: Date,
   opts: { detailed: boolean; showClosed: boolean },
-): { text: string; urgent: boolean } | null {
+): { text: string; urgent: boolean; labelled: boolean } | null {
   if (!row.application_deadline) return null;
   const countdown = scholarshipCountdown(row, now);
   if (countdown.state === "none") return null;
-  if (countdown.standalone && countdown.phrase) return { text: countdown.phrase, urgent: countdown.urgent };
+  if (countdown.standalone && countdown.phrase) return { text: countdown.phrase, urgent: countdown.urgent, labelled: false };
   const base =
     (opts.detailed ? scholarshipCloseText(row, now) : null) ?? formatCalendarDate(row.application_deadline) ?? row.application_deadline;
   const suffix = countdown.phrase && (countdown.state !== "closed" || opts.showClosed) ? ` · ${countdown.phrase}` : "";
-  return { text: `${base}${suffix}`, urgent: countdown.urgent };
+  // "6 Oct 2026 · Deadline date has passed in some time zones...": the sentence says "deadline" itself, so the "Deadline:" label would repeat it.
+  return { text: `${base}${suffix}`, urgent: countdown.urgent, labelled: countdown.state !== "passed-somewhere" };
 }
 
 /**

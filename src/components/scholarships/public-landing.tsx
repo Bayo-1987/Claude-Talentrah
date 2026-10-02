@@ -6,6 +6,7 @@ import { LANDING_PAGE_MIN_ENTRIES } from "@/lib/seo/landing-pages";
 import { DEGREE_LEVEL_LABEL, FUNDING_TYPE_LABEL, SAVE_STATUS_LABEL } from "@/lib/scholarships/types";
 import { Constants, type Tables } from "@/lib/supabase/types";
 import { scholarshipDeadlineDisplay } from "@/lib/scholarships/close-instant";
+import { DeadlineLine } from "@/components/scholarships/deadline-line";
 import { formatCalendarDate } from "@/lib/format/datetime";
 
 /**
@@ -74,23 +75,25 @@ function formatDeadlineLong(deadline: string): string | null {
 function deadlineDisplay(l: Pick<LandingListing, "application_deadline" | "close_time" | "close_tz" | "deadline_note">): {
   text: string;
   urgent: boolean;
+  labelled: boolean;
 } {
   if (l.application_deadline) {
     const date = formatDeadlineLong(l.application_deadline);
     if (date) {
       // The countdown shows only when it is urgent (within 14 days, under a day, or the date is current or over somewhere); otherwise the bare date.
       const shown = scholarshipDeadlineDisplay(l, new Date(), { detailed: false, showClosed: false });
-      if (shown?.urgent) return { text: shown.text.startsWith(date) || shown.text.startsWith("Last day") ? shown.text : `${date} · ${shown.text}`, urgent: true };
-      return { text: date, urgent: false };
+      if (shown?.urgent) return { text: shown.text, urgent: true, labelled: shown.labelled };
+      return { text: date, urgent: false, labelled: true };
     }
   }
   if (l.deadline_note) {
     return {
       text: l.deadline_note.length <= DEADLINE_NOTE_MAX_CHARS ? l.deadline_note : DEADLINE_NOTE_FALLBACK,
       urgent: false,
+      labelled: true,
     };
   }
-  return { text: "Not published yet", urgent: false };
+  return { text: "Not published yet", urgent: false, labelled: true };
 }
 
 const SIGNUP_HREF = `/signup?redirectTo=${encodeURIComponent("/scholarships")}`;
@@ -99,7 +102,7 @@ const LOGIN_HREF = `/login?redirectTo=${encodeURIComponent("/scholarships")}`;
 const SECTION = "flex flex-col gap-5 border-t border-line pt-10";
 
 function ListingRow({ listing }: { listing: LandingListing }) {
-  const { text, urgent } = deadlineDisplay(listing);
+  const { text, urgent, labelled } = deadlineDisplay(listing);
   return (
     <li>
       <BorderedCard className="flex flex-col gap-2.5 p-5">
@@ -135,10 +138,7 @@ function ListingRow({ listing }: { listing: LandingListing }) {
         </div>
 
         <span className="text-[13px] text-ink-soft">
-          <span className="font-semibold">Deadline:</span>{" "}
-          <span className={urgent ? "font-semibold text-rust" : "text-ink-soft"} data-deadline="value">
-            {text}
-          </span>
+          <DeadlineLine text={text} urgent={urgent} labelled={labelled} calmClassName="text-ink-soft" valueDataAttr="value" />
         </span>
 
         <a

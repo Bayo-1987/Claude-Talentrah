@@ -102,7 +102,8 @@ function factCardHtml(id: string, scholarship: EmbeddableScholarship): string {
   return (
     "<aside>" +
     `<p><strong>${escapeHtml(scholarship.provider)}</strong> — ${escapeHtml(scholarship.program_name)}</p>` +
-    `<p>Deadline: ${escapeHtml(deadlineText)}</p>` +
+    // The label is left off where the sentence already says "deadline" (see scholarshipDeadlineDisplay: `labelled`).
+    `<p>${deadline?.labelled === false ? "" : "Deadline: "}${escapeHtml(deadlineText)}</p>` +
     `<a href="/scholarships/${id}">View this scholarship →</a>` +
     "</aside>"
   );
