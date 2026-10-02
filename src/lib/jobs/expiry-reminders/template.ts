@@ -11,7 +11,7 @@ import { EXTEND_DAYS } from "./constants";
  * marketing send), logo shown because it is a rare, specific message rather than a frequent one.
  *
  * It states the closing DATE and not "in 3 days": the run fires once a day and a posting is reminded somewhere in a
- * 25-hour window (0205), so a relative promise would be wrong for some of them. The date is read in WAT by the shared
+ * 25-hour window (0207), so a relative promise would be wrong for some of them. The date is read in WAT by the shared
  * formatter, like every other date in the app.
  */
 export function buildExpiryReminderEmail(args: {

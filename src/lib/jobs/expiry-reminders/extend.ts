@@ -3,7 +3,7 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { hashExtendToken, isWellFormedExtendToken } from "./token";
 
 /**
- * Reading and redeeming an Extend link (EMP-1 / E3, migration 0205).
+ * Reading and redeeming an Extend link (EMP-1 / E3, migration 0207).
  *
  * TWO FUNCTIONS, DELIBERATELY UNEQUAL.
  *
@@ -18,7 +18,7 @@ import { hashExtendToken, isWellFormedExtendToken } from "./token";
  * Both take the raw token from the URL and hash it before touching the database: the table stores only hashes. A value
  * that is not the shape we mint is answered `invalid` without a query.
  *
- * The service-role client is the right one: the table and the functions are not reachable by any client role (0205),
+ * The service-role client is the right one: the table and the functions are not reachable by any client role (0207),
  * and the link itself is the authorisation, like the unsubscribe link (src/app/unsubscribe/page.tsx).
  */
 

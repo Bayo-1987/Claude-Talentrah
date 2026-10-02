@@ -1,5 +1,5 @@
 /**
- * The closing reminder and the Extend link, against a REAL database (migration 0205).
+ * The closing reminder and the Extend link, against a REAL database (migration 0207).
  *
  * Service-role only: every call here goes through the functions the cron and the confirm page use. Nothing needs an
  * authenticated session, so unlike the RLS suites this runs against a hosted test project too.

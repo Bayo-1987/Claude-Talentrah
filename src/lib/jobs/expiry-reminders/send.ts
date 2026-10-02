@@ -6,7 +6,7 @@ import { generateExtendToken } from "./token";
 import { buildExpiryReminderEmail } from "./template";
 
 /**
- * The daily "your posting closes soon" run (EMP-1 / E3, migration 0205).
+ * The daily "your posting closes soon" run (EMP-1 / E3, migration 0207).
  *
  * WHICH postings are due, and that each is reminded exactly once per closing date, are decided in the database:
  * `due_job_expiry_reminders` lists them (an open EMPLOYER posting whose expires_at is in the window below) and
@@ -29,7 +29,7 @@ import { buildExpiryReminderEmail } from "./template";
  *
  * A posting closing after now + 2 days and at or before now + 3 days + 1 hour: 25 hours wide, so every closing time is
  * inside at least one daily run's window even if cron timing drifts by up to an hour; the claim row stops the overlap
- * hour from sending twice. The reasoning is written out in 0205's header.
+ * hour from sending twice. The reasoning is written out in 0207's header.
  *
  * EXTERNAL postings are never listed, claimed or mentioned: the SQL says `source_type = 'internal'` in every function.
  */

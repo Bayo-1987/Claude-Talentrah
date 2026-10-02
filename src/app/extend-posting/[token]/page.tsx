@@ -9,7 +9,7 @@ import { ExtendForm } from "./extend-form";
 import { REFUSALS } from "./copy";
 
 /**
- * Extend a posting's closing date, reached from the link in the 3-day closing reminder (EMP-1 / E3, migration 0205).
+ * Extend a posting's closing date, reached from the link in the 3-day closing reminder (EMP-1 / E3, migration 0207).
  *
  * ── IT DOES NOT ACT ON GET, AND THAT IS THE POINT ─────────────────────────
  *

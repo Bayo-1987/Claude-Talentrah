@@ -4,7 +4,7 @@ import { requireAdminSecret, requireCronSecret, internalError } from "@/lib/api/
 
 /**
  * Daily trigger for the "your posting closes soon" reminder (EMP-1 / E3) — see
- * src/lib/jobs/expiry-reminders/send.ts for the claim-then-send design and migration 0205 for the window.
+ * src/lib/jobs/expiry-reminders/send.ts for the claim-then-send design and migration 0207 for the window.
  *
  * GET  — Vercel Cron (`Authorization: Bearer <CRON_SECRET>`), scheduled in vercel.json. Daily is what the 25-hour
  *        window assumes: every posting's closing time falls inside at least one daily run's window.

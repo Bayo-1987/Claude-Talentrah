@@ -1,5 +1,5 @@
 /**
- * Static checks on 0205 that hold with no database: the table is locked, every function is service-role only, and every
+ * Static checks on 0207 that hold with no database: the table is locked, every function is service-role only, and every
  * function that selects or moves a posting says `internal`. The database-backed twin is expiry-reminders-db.test.ts;
  * this one is what keeps a later edit to the SQL from quietly dropping a guard on a machine with no database.
  */
@@ -8,7 +8,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 const sql = readFileSync(
-  path.join(__dirname, "../../../supabase/migrations/0205_job_expiry_reminders.sql"),
+  path.join(__dirname, "../../../supabase/migrations/0207_job_expiry_reminders.sql"),
   "utf8",
 );
 /** The SQL with `--` comment lines removed, so a guard mentioned only in prose does not count. */
@@ -24,7 +24,7 @@ function body(fn: string): string {
   return code.slice(start, end);
 }
 
-describe("0205", () => {
+describe("0207", () => {
   it("enables RLS, defines no policy, and revokes everything from anon and authenticated", () => {
     expect(code).toMatch(/alter table public\.job_expiry_reminders enable row level security/);
     expect(code).not.toMatch(/create policy/i);
