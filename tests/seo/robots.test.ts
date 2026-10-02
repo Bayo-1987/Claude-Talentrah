@@ -81,7 +81,7 @@ describe("robots.ts disallows every requireUser()-gated route", () => {
    * could tell these apart automatically; an explicit, documented exception
    * is simpler and more honest about what a text scan can't actually prove.
    */
-  const KNOWN_DUAL_PURPOSE_ROUTES = ["/mentorship", "/scholarships", "/jobs", "/tracker"];
+  const KNOWN_DUAL_PURPOSE_ROUTES = ["/mentorship", "/scholarships", "/jobs", "/tracker", "/refer"];
 
   it("has no OTHER requireUser()-gated route missing a matching disallow (the systematic check)", () => {
     const gatedRoutes = findRequireUserGatedRoutes(APP_DIR).filter(
@@ -117,14 +117,20 @@ describe("robots.ts disallows every requireUser()-gated route", () => {
    * signed-out visitors to /signup?redirectTo=%2Frefer), and must stay disallowed.
    */
   it("does NOT disallow /scholarships, /jobs or /tracker themselves, and has no `$`-anchored rule left", () => {
-    expect(isCoveredByDisallow("/refer", disallow), "control: /refer must still be disallowed").toBe(true);
     expect(isCoveredByDisallow("/billing", disallow), "control: /billing must still be disallowed").toBe(true);
     expect(disallow).not.toContain("/scholarships$");
     expect(disallow).not.toContain("/jobs$");
     expect(disallow.filter((d) => d.endsWith("$")), "an exact-match rule is back").toEqual([]);
-    for (const path of ["/scholarships", "/jobs", "/jobs/some-id", "/tracker"]) {
+    for (const path of ["/scholarships", "/jobs", "/jobs/some-id", "/tracker", "/refer"]) {
       expect(isCoveredByDisallow(path, disallow), `${path} must be crawlable`).toBe(false);
     }
+  });
+
+  it("Refer & Earn (send-515): /refer is a public landing page, so only what is UNDER it is disallowed (trailing-slash prefix)", () => {
+    expect(disallow).toContain("/refer/");
+    expect(disallow).not.toContain("/refer");
+    expect(isCoveredByDisallow("/refer", disallow), "/refer must be crawlable").toBe(false);
+    expect(isCoveredByDisallow("/refer/anything", disallow)).toBe(true);
   });
 
   it("send-484: disallows everything UNDER /tracker via the trailing-slash prefix, like /mentorship/", () => {

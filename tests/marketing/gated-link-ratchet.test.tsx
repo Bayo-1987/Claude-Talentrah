@@ -52,13 +52,15 @@ function gatedKeys(region: "footer" | "main", group: string, hrefs: string[]): s
 
 describe("the gate function these checks rely on", () => {
   it("still gates the paths the allowlist is about (a control: an always-false gate would pass everything else here)", () => {
-    for (const p of ["/refer", "/resume-builder", "/tailor", "/billing", "/tracker/some-id/sent"]) {
+    for (const p of ["/refer/anything", "/resume-builder", "/tailor", "/billing", "/tracker/some-id/sent"]) {
       expect(isProtectedSeekerPath(p), p).toBe(true);
     }
     // send-480: /scholarships became a public landing page, so it is no longer in this list.
     // send-484: so did /jobs and /tracker.
     expect(isProtectedSeekerPath("/jobs")).toBe(false);
     expect(isProtectedSeekerPath("/tracker")).toBe(false);
+    // Refer & Earn (send-515): so did /refer.
+    expect(isProtectedSeekerPath("/refer")).toBe(false);
     expect(isProtectedSeekerPath("/scholarships")).toBe(false);
     expect(isProtectedSeekerPath("/scholarships/apply-now")).toBe(false);
     expect(isProtectedSeekerPath("/mentorship")).toBe(false);

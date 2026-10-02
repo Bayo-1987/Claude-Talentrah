@@ -8,13 +8,22 @@
  * triggers rather than a reimplementation — a hand-rolled unit test of the
  * logic would pass while the trigger stayed wrong, which is the failure mode
  * migration 0024's test notes call out.
+ *
+ * SINCE 0215 (decided 2026-10-02): a friend's SIGNUP pays nothing, ACTIVATION pays the whole reward (REFERRAL_REWARD_CREDITS = 50), and a
+ * referral that signed up before 0215 (already paid its 10-credit signup half) gets the remainder at activation: no double payment and no
+ * clawback. The cap (10 referrals in a rolling 30 days) and self-referral detection are unchanged.
  */
 import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
 import type { Database } from "@/lib/supabase/types";
 import { listUsersWithPrefix, RUN_TAG } from "../support/list-users";
-import { REFERRAL_SIGNUP_BONUS_CREDITS, REFERRAL_ACTIVATION_BONUS_CREDITS } from "@/lib/referrals/rewards";
+import {
+  REFERRAL_REWARD_CREDITS,
+  REFERRAL_SIGNUP_BONUS_CREDITS,
+  LEGACY_REFERRAL_SIGNUP_BONUS_CREDITS,
+} from "@/lib/referrals/rewards";
+import { referralRowStatus } from "@/lib/referrals/copy";
 
 for (const key of [
   "NEXT_PUBLIC_SUPABASE_URL",
@@ -129,6 +138,19 @@ async function sessionFor(userId: string, email: string): Promise<DB> {
   return client;
 }
 
+/** Activates a referred user the way a real one does: a base resume. Waits for the trigger, as every test in this file does. */
+async function activate(referredId: string) {
+  const { error } = await admin.from("resumes").insert({
+    user_id: referredId,
+    title: "Base",
+    is_base: true,
+    source: "uploaded",
+    structured_content: {},
+  });
+  if (error) throw error;
+  await new Promise((r) => setTimeout(r, 1200));
+}
+
 beforeEach(() => {
   created = [];
 });
@@ -176,44 +198,36 @@ describe("referral reward amounts stay connected to CREDIT_COSTS (0092)", () => 
    * on this exact line, rather than shipping silently.
    */
   it(
-    "SABOTAGE-PROOF TARGET: the activation bonus actually granted equals " +
-      "REFERRAL_ACTIVATION_BONUS_TAILORING_RUNS * CREDIT_COSTS.tailoringRun, not a restated number",
+    "SABOTAGE-PROOF TARGET: the reward actually granted at activation equals REFERRAL_REWARD_CREDITS, " +
+      "and a fresh referral is paid all of it in ONE grant",
     async () => {
       const referrer = await makeUser(gmail("reprice-r"));
       const code = await referralCodeOf(referrer);
       const referred = await makeUser(gmail("reprice-b"), { referred_by_code: code });
+      await activate(referred);
 
-      await admin.from("resumes").insert({
-        user_id: referred,
-        title: "Base",
-        is_base: true,
-        source: "uploaded",
-        structured_content: {},
-      });
-      await new Promise((r) => setTimeout(r, 1200));
-
-      const activationRows = (await ledgerFor(referrer)).filter(
-        (l) => l.reason === "referral_activation_bonus",
+      const rows = (await ledgerFor(referrer)).filter(
+        (l) => l.reason === "referral_activation_bonus" || l.reason === "referral_signup_bonus",
       );
-      expect(activationRows, "the activation bonus was never granted").toHaveLength(1);
-      expect(activationRows[0].delta).toBe(REFERRAL_ACTIVATION_BONUS_CREDITS);
+      expect(rows, "the reward was never granted, or was split").toHaveLength(1);
+      expect(rows[0].reason).toBe("referral_activation_bonus");
+      expect(rows[0].delta).toBe(REFERRAL_REWARD_CREDITS);
+      expect((await referralRowFor(referred))?.reward_credits_referrer).toBe(REFERRAL_REWARD_CREDITS);
     },
   );
 
-  it(
-    "SABOTAGE-PROOF TARGET: the signup bonus actually granted equals REFERRAL_SIGNUP_BONUS_CREDITS",
-    async () => {
-      const referrer = await makeUser(gmail("reprice-signup-r"));
-      const code = await referralCodeOf(referrer);
-      await makeUser(gmail("reprice-signup-b"), { referred_by_code: code });
+  it("A FRIEND SIGNING UP GIVES THE REFERRER 0 CREDITS (REFERRAL_SIGNUP_BONUS_CREDITS is 0): the referral is recorded and nothing is paid", async () => {
+    const referrer = await makeUser(gmail("reprice-signup-r"));
+    const code = await referralCodeOf(referrer);
+    const referred = await makeUser(gmail("reprice-signup-b"), { referred_by_code: code });
 
-      const signupRows = (await ledgerFor(referrer)).filter(
-        (l) => l.reason === "referral_signup_bonus",
-      );
-      expect(signupRows, "the signup bonus was never granted").toHaveLength(1);
-      expect(signupRows[0].delta).toBe(REFERRAL_SIGNUP_BONUS_CREDITS);
-    },
-  );
+    expect(REFERRAL_SIGNUP_BONUS_CREDITS).toBe(0);
+    expect(await ledgerFor(referrer), "a signup alone must not touch the ledger").toHaveLength(0);
+    expect(await balanceOf(referrer)).toBe(0);
+    const row = await referralRowFor(referred);
+    expect(row?.status, "the referral is still recorded").toBe("signed_up");
+    expect(row?.reward_credits_referrer).toBe(0);
+  });
 });
 
 /* ========================================================================== *
@@ -267,11 +281,16 @@ describe("self-referral is blocked end to end", () => {
     const referrer = await makeUser(referrerEmail);
     const code = await referralCodeOf(referrer);
     const referred = await makeUser(referredEmail, { referred_by_code: code, first_name: "Ref" });
+    const row = await referralRowFor(referred);
+    // Since 0215 only ACTIVATION pays, so the attempt includes activating the referred user: a self-referral must earn nothing even then.
+    await activate(referred);
     return {
       referrer,
       referred,
-      row: await referralRowFor(referred),
-      paid: (await ledgerFor(referrer)).some((l) => l.reason === "referral_signup_bonus"),
+      row,
+      paid: (await ledgerFor(referrer)).some(
+        (l) => l.reason === "referral_activation_bonus" || l.reason === "referral_signup_bonus",
+      ),
       balance: await balanceOf(referrer),
     };
   }
@@ -328,8 +347,8 @@ describe("self-referral is blocked end to end", () => {
     // that never pays anyone.
     const result = await attemptReferral(gmail("real-a"), gmail("real-b"));
     expect(result.row?.status, "a legitimate referral must be recorded").toBe("signed_up");
-    expect(result.paid, "a legitimate referral must be paid its signup bonus").toBe(true);
-    expect(result.balance).toBe(REFERRAL_SIGNUP_BONUS_CREDITS);
+    expect(result.paid, "a legitimate referral must be paid when its friend activates").toBe(true);
+    expect(result.balance).toBe(REFERRAL_REWARD_CREDITS);
   });
 
   it("POSITIVE CONTROL: dotted addresses at a company domain still refer each other", async () => {
@@ -358,8 +377,8 @@ describe("the 10-per-30-days reward cap", () => {
   async function seedRewardedReferrals(referrerId: string, n: number, daysAgo = 0) {
     const rows = Array.from({ length: n }, () => ({
       user_id: referrerId,
-      delta: REFERRAL_SIGNUP_BONUS_CREDITS,
-      reason: "referral_signup_bonus" as const,
+      delta: REFERRAL_REWARD_CREDITS,
+      reason: "referral_activation_bonus" as const,
       related_entity_id: randomUUID(),
       balance_after: 0,
       created_at: new Date(Date.now() - daysAgo * 86_400_000).toISOString(),
@@ -371,18 +390,16 @@ describe("the 10-per-30-days reward cap", () => {
   it("pays the 10th referral and blocks the 11th", async () => {
     const referrer = await makeUser(gmail("cap-r"));
     const code = await referralCodeOf(referrer);
+    const rewards = async () => (await ledgerFor(referrer)).filter((l) => l.reason === "referral_activation_bonus");
 
-    // 9 already rewarded → the next one is the 10th and must pay.
+    // 9 already rewarded → the next one is the 10th and must pay (at activation: a signup alone pays nothing).
     await seedRewardedReferrals(referrer, 9);
-    await makeUser(gmail("cap-10"), { referred_by_code: code });
-
-    let bonuses = (await ledgerFor(referrer)).filter((l) => l.reason === "referral_signup_bonus");
-    expect(bonuses.length, "the 10th referral should still be rewarded").toBe(10);
+    await activate(await makeUser(gmail("cap-10"), { referred_by_code: code }));
+    expect((await rewards()).length, "the 10th referral should still be rewarded").toBe(10);
 
     // Now 10 are rewarded → the 11th must be blocked.
-    await makeUser(gmail("cap-11"), { referred_by_code: code });
-    bonuses = (await ledgerFor(referrer)).filter((l) => l.reason === "referral_signup_bonus");
-    expect(bonuses.length, "CAP BREACH: an 11th referral was rewarded inside the window").toBe(10);
+    await activate(await makeUser(gmail("cap-11"), { referred_by_code: code }));
+    expect((await rewards()).length, "CAP BREACH: an 11th referral was rewarded inside the window").toBe(10);
   });
 
   it("the window is ROLLING, not a calendar month", async () => {
@@ -396,10 +413,10 @@ describe("the 10-per-30-days reward cap", () => {
 
     // 10 rewards, but all 31 days old — outside the window, so they must not count.
     await seedRewardedReferrals(referrer, 10, 31);
-    await makeUser(gmail("roll-new"), { referred_by_code: code });
+    await activate(await makeUser(gmail("roll-new"), { referred_by_code: code }));
 
     const fresh = (await ledgerFor(referrer)).filter(
-      (l) => l.reason === "referral_signup_bonus" && Date.now() - new Date(l.created_at).getTime() < 86_400_000,
+      (l) => l.reason === "referral_activation_bonus" && Date.now() - new Date(l.created_at).getTime() < 86_400_000,
     );
     expect(
       fresh.length,
@@ -407,86 +424,75 @@ describe("the 10-per-30-days reward cap", () => {
     ).toBe(1);
   });
 
-  it("a capped-out referral is still marked activated, with a zero reward and no signal", async () => {
+  it("a capped-out referral is marked activated, paid nothing, and the row SAYS why (derived: no longer silent)", async () => {
     /*
-     * DOCUMENTING CURRENT BEHAVIOUR, NOT ENDORSING IT — flagged to the founder
-     * in docs/referrals-open-questions.md.
-     *
-     * grant_referral_reward returns silently when the cap is hit, but
-     * check_and_activate_referral marks the referral 'activated' BEFORE calling
-     * it. So the row ends up "Activated" while the activation bonus was never
-     * paid, and nothing ever retries it once the window clears, because the
-     * status is no longer 'signed_up'.
-     *
-     * CORRECTION TO THE ORIGINAL BRIEF, measured here: the row does not show a
-     * reward of 0. It shows the signup bonus, which was paid before the
-     * window filled — and is simply missing the activation bonus it should
-     * have gained. That is arguably worse than a visible zero: the referral
-     * looks partly paid, so nothing about the row suggests anything was
-     * withheld. The founder-facing question is unchanged and is written up in
-     * docs/referrals-open-questions.md.
+     * The decision in docs/referrals-open-questions.md #1: the cap stays, and nothing is silently unpaid. grant_referral_reward still
+     * returns without paying when the cap is hit, and check_and_activate_referral still marks the referral 'activated' (the friend DID
+     * activate: the leaderboard counts it). What changed is visibility: since 0215 a referral is paid the whole reward at activation or not
+     * at all, so an activated row paid LESS than REFERRAL_REWARD_CREDITS can only mean the limit withheld it, and /refer derives
+     * "withheld by the limit" from exactly that (referralRowStatus), with no new column.
      */
     const referrer = await makeUser(gmail("capped-r"));
     const code = await referralCodeOf(referrer);
-    const referredEmail = gmail("capped-b");
-    const referred = await makeUser(referredEmail, { referred_by_code: code });
+    const referred = await makeUser(gmail("capped-b"), { referred_by_code: code });
 
-    // Fill the window AFTER the signup bonus, so activation is the capped half.
+    // Fill the window before activation, so activation is the capped step.
     await seedRewardedReferrals(referrer, 10);
-
-    // Activate by giving the referred user a base resume.
-    await admin.from("resumes").insert({
-      user_id: referred,
-      title: "Base",
-      is_base: true,
-      source: "uploaded",
-      structured_content: {},
-    });
-    await new Promise((r) => setTimeout(r, 1200));
+    await activate(referred);
 
     const row = await referralRowFor(referred);
-    const activationBonuses = (await ledgerFor(referrer)).filter(
-      (l) => l.reason === "referral_activation_bonus",
-    );
+    const forThisReferral = (await ledgerFor(referrer)).filter((l) => l.related_entity_id === row?.id);
 
-    expect(row?.status, "the referral is marked activated regardless of the cap").toBe("activated");
-    expect(activationBonuses.length, "the activation bonus is silently withheld").toBe(0);
-    expect(
-      row?.reward_credits_referrer,
-      "the row keeps its signup bonus and silently lacks the activation bonus",
-    ).toBe(REFERRAL_SIGNUP_BONUS_CREDITS);
+    expect(row?.status, "the referral is marked activated regardless of the cap (the friend did activate)").toBe("activated");
+    expect(forThisReferral.length, "nothing is paid for it").toBe(0);
+    expect(row?.reward_credits_referrer).toBe(0);
+    expect(referralRowStatus({ status: row!.status, reward_credits_referrer: row!.reward_credits_referrer })).toMatchObject({
+      tone: "withheld",
+    });
   });
 
-  it("excludes the referral being rewarded from its own cap count", async () => {
+  it("excludes the referral being rewarded from its own cap count, and pays a PRE-0215 referral only the REMAINDER", async () => {
     /*
-     * The subtle one. grant_referral_reward passes p_exclude_referral_id so a
-     * referral's own signup bonus doesn't count against its later activation
-     * bonus. Get that backwards and every referral caps itself out at the
-     * activation step after 9 others — a silent halving of the programme.
+     * The subtle one, and now the second money rule too. grant_referral_reward passes p_exclude_referral_id so a referral's own earlier
+     * payment doesn't count against its later one: get that backwards and every referral caps itself out at activation after 9 others.
+     *
+     * A referral that signed up BEFORE 0215 was already paid its 10-credit signup half (a ledger row AND reward_credits_referrer = 10).
+     * It is stood in for here by writing exactly that, since a real signup no longer pays. At activation it must receive only the
+     * remainder (50 - 10 = 40), not another 50 (no double payment), and not be capped out by its own signup row.
      */
     const referrer = await makeUser(gmail("excl-r"));
     const code = await referralCodeOf(referrer);
     const referred = await makeUser(gmail("excl-b"), { referred_by_code: code });
+    const referral = await referralRowFor(referred);
 
-    // 8 unrelated rewards + this referral's own signup bonus = 9 distinct.
-    await seedRewardedReferrals(referrer, 8);
-
-    await admin.from("resumes").insert({
-      user_id: referred,
-      title: "Base",
-      is_base: true,
-      source: "uploaded",
-      structured_content: {},
+    const { error: ledgerErr } = await admin.from("credit_ledger").insert({
+      user_id: referrer,
+      delta: LEGACY_REFERRAL_SIGNUP_BONUS_CREDITS,
+      reason: "referral_signup_bonus" as const,
+      related_entity_id: referral!.id,
+      balance_after: 0,
     });
-    await new Promise((r) => setTimeout(r, 1200));
+    if (ledgerErr) throw ledgerErr;
+    const { error: rowErr } = await admin
+      .from("referrals")
+      .update({ reward_credits_referrer: LEGACY_REFERRAL_SIGNUP_BONUS_CREDITS })
+      .eq("id", referral!.id);
+    if (rowErr) throw rowErr;
+
+    // 8 unrelated rewards + this referral's own signup payment = 9 distinct referrals in the window.
+    await seedRewardedReferrals(referrer, 8);
+    await activate(referred);
 
     const activation = (await ledgerFor(referrer)).filter(
-      (l) => l.reason === "referral_activation_bonus",
+      (l) => l.reason === "referral_activation_bonus" && l.related_entity_id === referral!.id,
     );
-    expect(
-      activation.length,
-      "the referral's own signup bonus must not count against its activation bonus",
-    ).toBe(1);
+    expect(activation, "the referral's own signup payment must not count against its activation").toHaveLength(1);
+    expect(activation[0].delta, "a pre-0215 referral gets the REMAINDER, not the whole reward again").toBe(
+      REFERRAL_REWARD_CREDITS - LEGACY_REFERRAL_SIGNUP_BONUS_CREDITS,
+    );
+    expect((await referralRowFor(referred))?.reward_credits_referrer, "it ends at the same total as any other referral").toBe(
+      REFERRAL_REWARD_CREDITS,
+    );
   });
 });
 
@@ -680,51 +686,38 @@ describe("a referrer cannot inflate their own rewards", () => {
   });
 });
 
-describe("signup farming is bounded by the cap, not by friction", () => {
-  it("rapid signups against one code stop paying at the cap", async () => {
+describe("signup farming earns nothing, and activating throwaway accounts is bounded by the cap", () => {
+  it("rapid signups against one code pay NOTHING; activating them stops paying at the cap", async () => {
     /*
-     * The signup bonus needs NO activation — credits for any resolved,
-     * non-self code — and there is no signup rate limit, so the cap is the only
-     * thing standing between a throwaway-address farm and unlimited credits.
-     * Worth proving the cap actually holds under the pattern an attacker would
-     * actually use, rather than the one-at-a-time pattern the other tests use.
+     * Before 0215 the signup bonus needed NO activation, so the cap was the only thing between a throwaway-address farm and unlimited
+     * credits. Now a signup pays nothing at all: farming costs the farmer an activation per account (a saved resume or an application)
+     * and is STILL bounded by the cap. Proven under the pattern an attacker would actually use: many accounts against one code.
+     *
+     * The window is pre-filled to 8 with ledger rows rather than 8 more real accounts (an earlier version created 15 and, combined with
+     * other suites, tripped Supabase Auth's rate limit in CI, surfacing as unrelated failures elsewhere). Four REAL signups against the
+     * pre-filled window: all four pay nothing at signup; activating them, two pay and two are refused.
      */
     const referrer = await makeUser(gmail("farm-r"));
     const code = await referralCodeOf(referrer);
-
-    /*
-     * The window is pre-filled to 8 with ledger rows rather than 8 more real
-     * signups. An earlier version created 15 accounts here; combined with the
-     * other suites that tripped Supabase Auth's rate limit in CI, which then
-     * surfaced as unrelated assertion failures in other files whose fixture
-     * users had silently failed to exist.
-     *
-     * The property under test is unchanged — four REAL signups still cross the
-     * boundary, so two pay and two are refused, and the count still comes from
-     * what the trigger actually wrote.
-     */
     await admin.from("credit_ledger").insert(
       Array.from({ length: 8 }, () => ({
         user_id: referrer,
-        delta: REFERRAL_SIGNUP_BONUS_CREDITS,
-        reason: "referral_signup_bonus" as const,
+        delta: REFERRAL_REWARD_CREDITS,
+        reason: "referral_activation_bonus" as const,
         related_entity_id: randomUUID(),
         balance_after: 0,
         created_at: new Date().toISOString(),
       })),
     );
 
-    for (let i = 0; i < 4; i++) {
-      await makeUser(gmail(`farm-${i}`), { referred_by_code: code });
-    }
+    const friends: string[] = [];
+    for (let i = 0; i < 4; i++) friends.push(await makeUser(gmail(`farm-${i}`), { referred_by_code: code }));
+    expect((await ledgerFor(referrer)).length, "signups alone pay nothing: only the 8 seeded rows exist before anyone activates").toBe(8);
 
-    const bonuses = (await ledgerFor(referrer)).filter(
-      (l) => l.reason === "referral_signup_bonus",
-    );
-    expect(
-      bonuses.length,
-      `FARMING: ${bonuses.length} signup bonuses recorded — the cap is 10`,
-    ).toBe(10);
+    for (const friend of friends) await activate(friend);
+
+    const rewards = (await ledgerFor(referrer)).filter((l) => l.reason === "referral_activation_bonus");
+    expect(rewards.length, `FARMING: ${rewards.length} rewards recorded — the cap is 10`).toBe(10);
   }, 120_000);
 });
 
@@ -809,25 +802,25 @@ describe("deleting a referred account", () => {
     const referrer = await makeUser(gmail("del-r"));
     const code = await referralCodeOf(referrer);
     const referred = await makeUser(gmail("del-b"), { referred_by_code: code });
-    expect(await balanceOf(referrer)).toBe(REFERRAL_SIGNUP_BONUS_CREDITS);
+    // A signup pays nothing since 0215, so activate first: otherwise "credits are not clawed back" would compare 0 with 0.
+    await activate(referred);
+    expect(await balanceOf(referrer)).toBe(REFERRAL_REWARD_CREDITS);
 
     await admin.auth.admin.deleteUser(referred);
     created = created.filter((id) => id !== referred);
 
-    expect(await balanceOf(referrer), "credits must not be clawed back").toBe(
-      REFERRAL_SIGNUP_BONUS_CREDITS,
-    );
+    expect(await balanceOf(referrer), "credits must not be clawed back").toBe(REFERRAL_REWARD_CREDITS);
     const { data: rows } = await admin
       .from("referrals")
       .select("id, referrer_id, referred_user_id, status")
       .eq("referrer_id", referrer);
     expect(rows ?? [], "the referral row survives the account's deletion").toHaveLength(1);
     expect(rows![0].referred_user_id, "detached on the referred side").toBeNull();
-    expect(rows![0].status).toBe("signed_up");
+    expect(rows![0].status).toBe("activated");
 
     const ledger = await ledgerFor(referrer);
     expect(
-      ledger.filter((l) => l.reason === "referral_signup_bonus").length,
+      ledger.filter((l) => l.reason === "referral_activation_bonus").length,
       "the ledger entry survives too",
     ).toBe(1);
   });
