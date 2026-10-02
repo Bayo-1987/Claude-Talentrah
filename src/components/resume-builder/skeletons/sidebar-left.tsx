@@ -30,6 +30,10 @@ export function SidebarLeftSkeleton({ resume, config }: SkeletonProps) {
   const sidebarKeys = content.sectionOrder.filter(
     (k): k is SidebarSection => SIDEBAR_SECTIONS.has(k),
   );
+  // The summary sits above the first main section, so that section needs the same top spacing as every other
+  // one; without it the heading touched the summary's last line. Only when a summary is actually rendered
+  // (renderSummary returns nothing otherwise), so a resume without one still starts flush with the sidebar.
+  const hasSummary = content.showSummary && Boolean(resume.summary);
   const mainKeys = content.sectionOrder.filter(
     (k): k is Exclude<SectionKey, "summary"> => k !== "summary" && !SIDEBAR_SECTIONS.has(k),
   );
@@ -61,7 +65,7 @@ export function SidebarLeftSkeleton({ resume, config }: SkeletonProps) {
         <main>
           {renderSummary({ resume, tokens, content, className: "" })}
           {mainKeys.map((key, i) => (
-            <div key={key} className={i === 0 ? "" : d.sectionTop}>
+            <div key={key} className={i === 0 && !hasSummary ? "" : d.sectionTop}>
               {SECTION_RENDERERS[key]({ resume, tokens, content, sectionClassName: "" })}
             </div>
           ))}

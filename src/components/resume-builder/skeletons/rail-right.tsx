@@ -27,6 +27,8 @@ export function RailRightSkeleton({ resume, config }: SkeletonProps) {
   const { styleTokens: tokens, content } = config;
   const d = flowDensityScale(tokens.density);
   const railKeys = content.sectionOrder.filter((k): k is RailSection => RAIL_SECTIONS.has(k));
+  // See sidebar-left.tsx: the first main section needs its top spacing when a summary sits above it.
+  const hasSummary = content.showSummary && Boolean(resume.summary);
   const mainKeys = content.sectionOrder.filter(
     (k): k is Exclude<SectionKey, "summary"> => k !== "summary" && !RAIL_SECTIONS.has(k),
   );
@@ -51,7 +53,7 @@ export function RailRightSkeleton({ resume, config }: SkeletonProps) {
         <main>
           {renderSummary({ resume, tokens, content, className: "" })}
           {mainKeys.map((key, i) => (
-            <div key={key} className={i === 0 ? "" : d.sectionTop}>
+            <div key={key} className={i === 0 && !hasSummary ? "" : d.sectionTop}>
               {SECTION_RENDERERS[key]({ resume, tokens, content, sectionClassName: "" })}
             </div>
           ))}
