@@ -95,9 +95,13 @@ describe("P5 — the login/signup/reset side panel", () => {
     expect(text).not.toMatch(/to preview/i);
   });
 
+  it("does not offer a job LINK: nothing here fetches a URL (the demo route even refuses one)", () => {
+    expect(text).not.toMatch(/job link/i);
+  });
+
   it("describes what Farah does, without a free/no-account claim", () => {
     expect(text).toContain(
-      "Paste a job link or description and Farah scores the match, shows what's missing, and drafts a tailored resume.",
+      "Paste a job description and Farah scores the match, shows what's missing, and drafts a tailored resume.",
     );
   });
 });

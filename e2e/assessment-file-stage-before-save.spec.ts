@@ -153,8 +153,13 @@ test.describe("Edit page: an assessment exercise file staged before the first sa
     orgId = await createVerifiedOrg(authedPage, `E2E Assessment Stage Create Co ${testUser.id.slice(0, 8)}`);
 
     await authedPage.goto("/employer/jobs/new");
+    // EMP-1 / E4: the staging picker is part of the assessment section and is
+    // hidden until the checkbox is ticked (still in the DOM, so a pick
+    // survives unticking).
     await expect(authedPage.locator("#new-job-assessment-files")).toBeAttached();
+    await expect(authedPage.locator("#assessment-exercise-files")).toBeHidden();
     await authedPage.getByLabel("Attach an assessment (optional)").check();
+    await expect(authedPage.locator("#assessment-exercise-files")).toBeVisible();
     // The Edit-only picker's input id must never appear on Create.
     await expect(authedPage.locator("#edit-job-assessment-files")).toHaveCount(0);
   });

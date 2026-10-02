@@ -10,6 +10,7 @@ import {
   closingDateSourceFor,
   readExpiry,
 } from "./expiry-input";
+import { readSalaryForm } from "./salary-input";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -481,49 +482,6 @@ function readJobForm(form: FormData) {
       : null,
     skills,
   };
-}
-
-type SalaryFields = {
-  salary_min: number | null;
-  salary_max: number | null;
-  salary_currency: string | null;
-  salary_unit: Enums<"salary_unit"> | null;
-};
-
-/**
- * All four salary columns travel together or not at all — see migration
- * 0085 and job-posting-jsonld.ts's baseSalary note for why a bound with no
- * currency is treated as no salary at all. Unlike the ingestion parser
- * (which silently OMITS a malformed baseSalary so one bad source field never
- * costs a whole listing), this is a human filling in one form field at a
- * time, so the right behaviour is a clear inline error, not a silent drop —
- * the same reasoning readExpiry already applies to a hand-typed date.
- */
-function readSalaryForm(form: FormData): { ok: true; value: SalaryFields } | { ok: false; error: string } {
-  const minRaw = str(form, "salaryMin");
-  const maxRaw = str(form, "salaryMax");
-  const currency = str(form, "salaryCurrency").toUpperCase();
-  const unit = optionalEnum<Enums<"salary_unit">>(form, "salaryUnit", Constants.public.Enums.salary_unit);
-
-  const min = minRaw ? Number(minRaw) : null;
-  const max = maxRaw ? Number(maxRaw) : null;
-  if (min !== null && !Number.isFinite(min)) return { ok: false, error: "Minimum salary isn't a number." };
-  if (max !== null && !Number.isFinite(max)) return { ok: false, error: "Maximum salary isn't a number." };
-
-  if (min === null && max === null) {
-    // No amount at all — currency and period without an amount describe
-    // nothing, so they are dropped rather than half-saved.
-    return { ok: true, value: { salary_min: null, salary_max: null, salary_currency: null, salary_unit: null } };
-  }
-  if (!currency) return { ok: false, error: "Add a currency for the salary, or clear both amounts." };
-  if (!/^[A-Z]{3}$/.test(currency)) {
-    return { ok: false, error: "Salary currency should be a 3-letter code, like NGN or USD." };
-  }
-  if (min !== null && max !== null && max < min) {
-    return { ok: false, error: "Maximum salary can't be less than the minimum." };
-  }
-
-  return { ok: true, value: { salary_min: min, salary_max: max, salary_currency: currency, salary_unit: unit } };
 }
 
 export async function postJobAction(

@@ -44,6 +44,12 @@ afterAll(async () => {
   if (error) throw new Error(`fixture cleanup failed: ${error.message}`);
 });
 
+async function rowOf(id: string) {
+  const { data, error } = await admin.from("scholarships").select("provider, program_name, funding_type, official_url, dedup_fingerprint, degree_levels, moderation_status").eq("id", id).single();
+  if (error) throw new Error(error.message);
+  return data!;
+}
+
 async function insert(over: Record<string, unknown>) {
   const { data, error } = await admin
     .from("scholarships")
@@ -108,6 +114,23 @@ describe("close_at is maintained by the database", () => {
     expect(new Date(data!.close_at!).toISOString()).toBe("2026-10-06T20:00:00.000Z");
     const { data: moved } = await admin.from("scholarships").update({ close_tz: "UTC" }).eq("id", data!.id).select("close_at").single();
     expect(new Date(moved!.close_at!).toISOString()).toBe("2026-10-06T13:00:00.000Z");
+  });
+
+  it("a refresh-style insert with a deadline and NO zone gets deadline + 1 day at 12:00Z (what the scholarship refresh writes)", async () => {
+    const { data } = await insert({ application_deadline: "2026-10-06" });
+    expect(new Date(data!.close_at!).toISOString()).toBe("2026-10-07T12:00:00.000Z");
+  });
+
+  it("a refresh-style upsert that rewrites application_deadline but names no close_* column keeps the zone and recomputes close_at", async () => {
+    const { data } = await insert({ application_deadline: "2026-10-06", close_time: "13:00", close_tz: "America/Vancouver" });
+    const { data: after, error } = await admin
+      .from("scholarships")
+      .upsert({ ...(await rowOf(data!.id)), application_deadline: "2026-10-07" }, { onConflict: "dedup_fingerprint" })
+      .select("close_tz, close_time, close_at")
+      .single();
+    expect(error).toBeNull();
+    expect(after!.close_tz).toBe("America/Vancouver");
+    expect(new Date(after!.close_at!).toISOString()).toBe("2026-10-07T20:00:00.000Z");
   });
 
   it("is null when there is no deadline", async () => {

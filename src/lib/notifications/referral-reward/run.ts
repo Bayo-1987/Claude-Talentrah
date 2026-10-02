@@ -84,6 +84,9 @@ async function processEvent(supabase: ServiceClient, eventId: string, summary: R
 
   if (!claimed) return; // another concurrent run already claimed this event
 
+  // The referrer's account was deleted (0209 keeps the event, detached): there is nobody to tell. The event is already stamped notified.
+  if (claimed.referrer_id === null) return;
+
   const reason = claimed.reason === "referral_activation_bonus" ? "activation" : "signup";
 
   await sendReferralRewardNotification({

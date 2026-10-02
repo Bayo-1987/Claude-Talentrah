@@ -4,7 +4,7 @@ import { requireEmployer } from "@/lib/employer/membership";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { FARAH_JD_DRAFT_NGN } from "@/lib/billing/catalog";
 import { draftJobDescription } from "@/lib/employer/draft-job";
-import { inferSeniority, inferWorkType, extractStructuredJd } from "@/lib/jobs/extract-jd";
+import { inferJobSeniority, inferWorkType, extractStructuredJd } from "@/lib/jobs/extract-jd";
 import type { SeniorityLevel, WorkType } from "@/lib/jobs/types";
 
 export interface DraftJobWithFarahInput {
@@ -107,7 +107,7 @@ export async function draftJobWithFarahAction(
 
     // Reused, not reimplemented — the exact functions the aggregation
     // pipeline already runs for scraped postings missing these fields.
-    const seniority = inferSeniority(title) ?? null;
+    const seniority = inferJobSeniority(title) ?? null;
     const workType = inferWorkType(title, location || undefined) ?? null;
     const skills = extractStructuredJd(draft.description).skills;
 

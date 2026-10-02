@@ -4,12 +4,13 @@ import { postJobAction } from "@/lib/employer/actions";
 import { EyebrowLabel } from "@/components/ui";
 import { NewJobForm } from "@/components/employer/new-job-form";
 import { NewJobBannerPicker } from "@/components/employer/new-job-banner-picker";
-import { NewJobAssessmentFilesPicker } from "@/components/employer/new-job-assessment-files-picker";
+import { getDefaultSalaryCurrency } from "@/lib/employer/default-salary-currency";
 
 export const metadata = { title: "Post a job — Talentrah" };
 
 export default async function NewJobPage() {
   const { organization, userId } = await requireEmployer();
+  const defaultSalaryCurrency = await getDefaultSalaryCurrency(userId);
 
   return (
     <div className="max-w-[820px]">
@@ -38,19 +39,17 @@ export default async function NewJobPage() {
         <NewJobBannerPicker userId={userId} />
       </div>
       {/*
-        send-364: same placement/reasoning as the banner picker just above —
-        an assessment's exercise FILES can't travel through a hidden form
-        field either, and staging them here (see
-        new-job-assessment-files-picker.tsx) is what makes "upload while
-        creating the job" possible at all, closing the gap
-        AssessmentExerciseUpload's own header used to point at directly.
+        send-364 staged an assessment's exercise files in a card here, above
+        the form. EMP-1 / E4 moved it INTO the form, under the "Attach an
+        assessment" checkbox (see AssessmentEditor), so it is visible only
+        while that box is ticked; `assessmentCreateContext` below is what
+        turns it on.
       */}
-      <div className="mt-6">
-        <NewJobAssessmentFilesPicker userId={userId} />
-      </div>
       <div className="mt-6">
         <NewJobForm
           action={postJobAction}
+          defaultSalaryCurrency={defaultSalaryCurrency}
+          assessmentCreateContext={{ userId }}
           submitLabel="Publish job"
           pendingLabel="Publishing…"
           secondarySubmitLabel="Save as draft"

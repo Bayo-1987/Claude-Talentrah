@@ -6,6 +6,7 @@ import { JobPostingForm, type JobFormValues } from "./job-posting-form";
 import { DEFAULT_NEW_POSTING_EXPIRY_DAYS } from "@/lib/employer/expiry-input";
 import type { EmployerActionState } from "@/lib/employer/actions";
 import type { ExtractedJobFields } from "@/lib/employer/job-import/types";
+import type { SalaryCurrency } from "@/lib/employer/salary-input";
 
 /** ExtractedJobFields -> JobFormValues. Purely a shape adapter: every field
  * ExtractedJobFields doesn't carry (yearsExperienceMin, expiresAt — neither
@@ -58,6 +59,8 @@ export function NewJobForm({
   unverifiedNotice,
   secondarySubmitLabel,
   secondaryPendingLabel,
+  defaultSalaryCurrency,
+  assessmentCreateContext,
 }: {
   action: (state: EmployerActionState, form: FormData) => Promise<EmployerActionState>;
   submitLabel: string;
@@ -66,6 +69,9 @@ export function NewJobForm({
   /** send-447 — see JobPostingForm's own comment; only NewJobPage passes these. */
   secondarySubmitLabel?: string;
   secondaryPendingLabel?: string;
+  /** EMP-1 — passed straight through to JobPostingForm; see its own props. */
+  defaultSalaryCurrency?: SalaryCurrency;
+  assessmentCreateContext?: { userId: string };
 }) {
   const [initial, setInitial] = useState<JobFormValues | undefined>(undefined);
   const [formKey, setFormKey] = useState(0);
@@ -88,6 +94,8 @@ export function NewJobForm({
         defaultExpiryDays={DEFAULT_NEW_POSTING_EXPIRY_DAYS}
         secondarySubmitLabel={secondarySubmitLabel}
         secondaryPendingLabel={secondaryPendingLabel}
+        defaultSalaryCurrency={defaultSalaryCurrency}
+        assessmentCreateContext={assessmentCreateContext}
       />
     </div>
   );

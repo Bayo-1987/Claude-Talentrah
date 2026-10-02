@@ -6,6 +6,9 @@ import Link from "next/link";
 import { EyebrowLabel } from "@/components/ui";
 import { JdDemoExample } from "./jd-demo-example";
 import { JdDemoResult, type JdDemoResultData } from "./jd-demo-result";
+import { JdDemoRefusal } from "./jd-demo-refusal";
+import { DEMO_CAPTION_SIGNED_OUT } from "@/lib/demo/copy";
+import { isDemoRefusalReason, type DemoRefusalReason } from "@/lib/demo/refusal-copy";
 import { fetchWithTimeout, fetchErrorMessage } from "@/lib/forms/fetch-with-timeout";
 
 // Quick, unauthenticated actions only — "Talk to a mentor" isn't one: booking
@@ -38,7 +41,7 @@ type State =
   | { kind: "idle" }
   | { kind: "loading" }
   | { kind: "done"; data: JdDemoResultData }
-  | { kind: "used"; message: string }
+  | { kind: "refused"; reason: DemoRefusalReason; message?: string }
   | { kind: "needsResume" }
   | { kind: "error"; message: string };
 
@@ -178,11 +181,10 @@ export function JdDemoInput() {
          * 429 for its own internal error too. The reason field is what
          * distinguishes them; the status alone cannot.
          */
-        if (
-          !signedIn &&
-          (payload?.reason === "already_used" || payload?.reason === "daily_cap")
-        ) {
-          setState({ kind: "used", message: payload?.error ?? "The free preview isn't available." });
+        if (!signedIn && isDemoRefusalReason(payload?.reason)) {
+          // Every refusal reason — the limiter's two and our two failures — shows its reason and a way
+          // forward (P1). The server's own wording wins when present.
+          setState({ kind: "refused", reason: payload.reason, message: payload?.error });
           return;
         }
         setState({
@@ -298,17 +300,7 @@ export function JdDemoInput() {
         </p>
       )}
 
-      {state.kind === "used" && (
-        <div
-          aria-live="polite"
-          className="flex flex-col items-center gap-2 border-[1.5px] border-ink bg-card px-5 py-4 text-center"
-        >
-          <p className="text-[14px] text-ink">{state.message}</p>
-          <Link href="/signup" className="text-[13.5px] font-bold text-rust underline underline-offset-3">
-            Create a free account →
-          </Link>
-        </div>
-      )}
+      {state.kind === "refused" && <JdDemoRefusal reason={state.reason} message={state.message} />}
 
       {state.kind === "needsResume" && (
         <div
@@ -353,7 +345,7 @@ export function JdDemoInput() {
         >
           {isSignedIn
             ? "Tailored against your saved resume"
-            : `No account needed — one free run, ${MIN_CHARS} characters minimum`}
+            : DEMO_CAPTION_SIGNED_OUT}
         </div>
       )}
 

@@ -36,6 +36,7 @@ const NAV_LINKS = [
 export function MarketingMasthead() {
   const [navOpen, setNavOpen] = useState(false);
   const navRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
 
   /*
    * Same contract as both signed-in mastheads: outside click and Escape both
@@ -52,7 +53,13 @@ export function MarketingMasthead() {
       }
     }
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setNavOpen(false);
+      if (e.key === "Escape") {
+        setNavOpen(false);
+        // #617: with the menu opened from the keyboard, focus has moved into it, and closing it would
+        // drop focus to <body>. Return it to the control that opened the menu, as both signed-in
+        // mastheads do. (Opening by click never moved focus, so this is a no-op there.)
+        triggerRef.current?.focus();
+      }
     }
     document.addEventListener("mousedown", onPointer);
     document.addEventListener("keydown", onKey);
@@ -102,6 +109,7 @@ export function MarketingMasthead() {
         */}
         <div ref={navRef} className="relative flex items-center min-[900px]:hidden">
           <button
+            ref={triggerRef}
             type="button"
             aria-expanded={navOpen}
             aria-haspopup="menu"

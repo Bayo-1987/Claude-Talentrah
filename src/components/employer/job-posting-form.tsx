@@ -11,6 +11,10 @@ import type { ScreeningQuestionInput } from "@/lib/employer/screening-questions"
 import type { EmployerActionState } from "@/lib/employer/actions";
 import { RichMarkdownEditor, type RichMarkdownEditorHandle } from "./rich-markdown-editor";
 import { AssessmentEditor } from "./assessment-editor";
+import { FarahScopeButton } from "./farah-scope-button";
+import { SalaryCurrencyField } from "./salary-currency-field";
+import type { AssessmentExerciseFile } from "./assessment-exercise-upload";
+import { DEFAULT_SALARY_CURRENCY, type SalaryCurrency } from "@/lib/employer/salary-input";
 import type { JobPostingAssessmentInput } from "@/lib/employer/job-posting-assessment";
 import { draftJobWithFarahAction } from "@/lib/employer/draft-job-action";
 import { formatCalendarDate, formatDate } from "@/lib/format/datetime";
@@ -437,6 +441,12 @@ export function JobPostingForm({
   secondaryPendingLabel,
   /** EMP-1 / E3 — Create only: preselect "closes in N days". Edit never passes it. */
   defaultExpiryDays,
+  /** EMP-1 / E2 — the currency preselected when the posting has none stored; see salary-input.ts. */
+  defaultSalaryCurrency = DEFAULT_SALARY_CURRENCY,
+  /** EMP-1 / E4 — Create only: where assessment exercise files are staged; see AssessmentEditor's header. */
+  assessmentCreateContext,
+  /** EMP-1 / E4 — Edit only: files already uploaded to the saved assessment. */
+  assessmentSavedFiles,
 }: {
   action: (state: EmployerActionState, form: FormData) => Promise<EmployerActionState>;
   initial?: JobFormValues;
@@ -447,6 +457,9 @@ export function JobPostingForm({
   assessmentEditContext?: { jobId: string; userId: string };
   secondarySubmitLabel?: string;
   secondaryPendingLabel?: string;
+  defaultSalaryCurrency?: SalaryCurrency;
+  assessmentCreateContext?: { userId: string };
+  assessmentSavedFiles?: AssessmentExerciseFile[];
 }) {
   const [state, formAction, pending] = useActionState<EmployerActionState, FormData>(action, null);
   const error = state && "error" in state ? state.error : null;
@@ -691,14 +704,11 @@ export function JobPostingForm({
                 click and posting is otherwise unaffected).
               */}
               <div className="flex flex-wrap items-center gap-2">
-                <Button
-                  type="button"
-                  variant="secondary"
+                <FarahScopeButton
                   disabled={!title.trim() || drafting}
+                  drafting={drafting}
                   onClick={handleDraftWithFarah}
-                >
-                  {drafting ? "Farah is scoping this job…" : "✦ Let Farah scope this job"}
-                </Button>
+                />
               </div>
               {draftError && (
                 <p className="font-body text-[12.5px] text-rust">
@@ -771,16 +781,16 @@ export function JobPostingForm({
               onChange={(e) => setSalaryMax(e.target.value)}
               placeholder="Optional"
             />
-            <TextField
-              label="Salary currency"
-              name="salaryCurrency"
-              defaultValue={initial?.salaryCurrency ?? undefined}
-              placeholder="e.g. NGN, USD"
-              // send-457 — the browser's own validation catches the missing-
-              // currency case before a round trip: required only once an
-              // amount is actually present, so leaving both blank (the
-              // "no salary" case readSalaryForm itself treats as valid)
-              // still submits fine.
+            {/*
+              EMP-1 / E2 — a select of the eight ISO codes, not free text. The
+              stored value wins (edit page), else the employer's country
+              default. send-457's rule is kept: required only once an amount is
+              actually present, so leaving both blank (the "no salary" case
+              readSalaryForm itself treats as valid) still submits fine.
+            */}
+            <SalaryCurrencyField
+              stored={initial?.salaryCurrency}
+              fallback={defaultSalaryCurrency}
               required={Boolean(salaryMin || salaryMax)}
             />
             <ChoiceField
@@ -792,8 +802,9 @@ export function JobPostingForm({
           </div>
           {(salaryMin || salaryMax) && (
             <p className="-mt-3 font-body text-[12.5px] text-ink-soft">
-              Salary is shown to seekers and included in the job&rsquo;s search listing data. Add a
-              currency if you set an amount, or leave both blank to keep the salary private.
+              Salary is shown to seekers and included in the job&rsquo;s search listing data. Check
+              the currency matches your amount, or leave both amounts blank to keep the salary
+              private.
             </p>
           )}
 
@@ -831,6 +842,8 @@ export function JobPostingForm({
           <AssessmentEditor
             initial={initial?.assessment}
             editContext={assessmentEditContext}
+            createContext={assessmentCreateContext}
+            savedFiles={assessmentSavedFiles}
           />
 
           <div className="flex items-center gap-3">

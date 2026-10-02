@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useCatchUpFile } from "@/lib/forms/use-catch-up-file";
 import { useRouter } from "next/navigation";
 import { ASSESSMENT_DOCUMENT_GUIDANCE, MAX_ASSESSMENT_FILES } from "@/lib/employer/assessment-document";
 
@@ -45,6 +46,12 @@ export function AssessmentExerciseUpload({
   const [pending, setPending] = useState(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Ref and onChange come from the shared hook, which also acts on a file chosen before hydration (issue #591).
+  const { inputRef, onChange } = useCatchUpFile({
+    onFiles: (files) => void handleFile(files[0]),
+    multiple: false,
+    resetAfter: true,
+  });
 
   async function handleFile(file: File) {
     setPending(true);
@@ -146,11 +153,8 @@ export function AssessmentExerciseUpload({
             accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
             className="hidden"
             disabled={pending}
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              e.target.value = "";
-              if (file) void handleFile(file);
-            }}
+            ref={inputRef}
+            onChange={onChange}
           />
         </label>
       )}

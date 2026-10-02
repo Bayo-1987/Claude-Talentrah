@@ -185,3 +185,65 @@ describe("updateJobAction: an invalid salary must not block unrelated fields fro
     expect(after.salary_currency).toBe("NGN");
   });
 });
+
+/**
+ * EMP-1 / E2 — the currency is one of eight ISO codes, enforced by the Server
+ * Actions themselves (the pure rule is pinned in salary-currency.test.ts; this
+ * proves both actions actually route through it, so a hand-built POST that
+ * never touches the form's select is still refused).
+ */
+describe("salary currency is validated by the Server Actions, not the select", () => {
+  const notCodes = ["naira", "usd ", "XXX", "US$", "usd"];
+
+  it.each(notCodes)("postJobAction refuses %j and writes no row", async (value) => {
+    const title = `Currency Reject ${randomUUID()}`;
+    const form = baseForm({ title });
+    form.set("salaryMin", "400000");
+    form.set("salaryCurrency", value);
+
+    const result = await postJobAction(null, form);
+    expect(result).toEqual({ error: expect.stringContaining("one of NGN, USD, GBP, EUR, CAD, KES, GHS, ZAR") });
+
+    const { data } = await admin.from("job_postings").select("id").eq("title", title);
+    expect(data ?? []).toHaveLength(0);
+  });
+
+  it("updateJobAction refuses a non-ISO currency and leaves the stored salary untouched", async () => {
+    let jobId = "";
+    try {
+      const form = baseForm({ title: `Currency Edit ${randomUUID()}` });
+      form.set("salaryMin", "300000");
+      form.set("salaryCurrency", "GBP");
+      await postJobAction(null, form);
+      throw new Error("expected a redirect");
+    } catch (err) {
+      jobId = createdJobId(err);
+    }
+    createdJobIds.push(jobId);
+    expect((await rowOf(jobId)).salary_currency).toBe("GBP");
+
+    const edit = baseForm({ title: `Currency Edit 2 ${randomUUID()}` });
+    edit.set("salaryMin", "300000");
+    edit.set("salaryCurrency", "naira");
+    const result = await updateJobAction(jobId, null, edit);
+    expect(result).toEqual({ error: expect.stringContaining("one of NGN") });
+    expect((await rowOf(jobId)).salary_currency).toBe("GBP");
+  });
+
+  it("stores the exact ISO code that was picked", async () => {
+    for (const code of ["USD", "EUR", "KES"]) {
+      const form = baseForm({ title: `Currency Store ${code} ${randomUUID()}` });
+      form.set("salaryMin", "1000");
+      form.set("salaryCurrency", code);
+      let jobId = "";
+      try {
+        await postJobAction(null, form);
+        throw new Error("expected a redirect");
+      } catch (err) {
+        jobId = createdJobId(err);
+      }
+      createdJobIds.push(jobId);
+      expect((await rowOf(jobId)).salary_currency).toBe(code);
+    }
+  });
+});
