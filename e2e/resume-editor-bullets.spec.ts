@@ -53,18 +53,23 @@ test("two achievements are always a list, and the control stays on until only on
   // listening to yet.
   await page.waitForLoadState("networkidle");
   await expect(control).toBeVisible();
-  // Put the caret at the very end of the existing achievement. Clicking and
-  // pressing End depends on where the click lands in a paragraph that wraps,
-  // which moves with font loading; a DOM selection does not.
+
+  /*
+   * Replace the achievement with two typed ones, starting from a KEYBOARD select-all, not from a caret placed
+   * by hand. This used to put the caret at the end of the existing text by setting the DOM selection from the
+   * test and then pressing Enter. That is a race (send-505, measured: 4 of 30 runs on a production build of
+   * main, and on main's own push run 581717b): ProseMirror keeps its OWN selection state and only learns of a
+   * DOM selection change from a later `selectionchange` event, so an Enter pressed before that event splits the
+   * paragraph at ProseMirror's old caret, the START: ["", "ZQTWO ...ZQONE ..."]. A real mouse click followed by
+   * an immediate Enter does the same (19 of 20 with no pause, 0 of 20 after 100 ms), and a frame or two of
+   * waiting is not enough either (1 of 40). No person presses Enter within a millisecond of clicking, so this is
+   * a test problem, not an editor one. Mod-A is handled by ProseMirror's own keydown, from its own state, so
+   * there is no DOM selection for it to be late about (0 of 100).
+   * e2e/resume-editor-caret-race.spec.ts reproduces the old failure deterministically.
+   */
   await editor.focus();
-  await editor.evaluate((el) => {
-    const range = document.createRange();
-    range.selectNodeContents(el.lastElementChild!);
-    range.collapse(false);
-    const selection = window.getSelection()!;
-    selection.removeAllRanges();
-    selection.addRange(range);
-  });
+  await page.keyboard.press("ControlOrMeta+a");
+  await page.keyboard.type("ZQONE Led the migration of the settlement ledger.");
   await page.keyboard.press("Enter");
   await page.keyboard.type("ZQTWO Cut the close from nine days to four.");
 
