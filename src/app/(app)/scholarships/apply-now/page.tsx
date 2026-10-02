@@ -134,14 +134,21 @@ export default async function ScholarshipApplyNowPage() {
         <p className="max-w-[560px] text-[14px] text-ink-soft">
           {session
             ? "Browse the full scholarship catalog and let Farah check your eligibility for a specific programme."
-            : "Create a free account to browse the full scholarship catalog and check your eligibility for a specific programme."}
+            : "Browse the full scholarship catalog without an account. Create a free account when you want Farah to check your eligibility for a specific programme."}
         </p>
-        <Link
-          href={session ? "/scholarships" : `/signup?redirectTo=${encodeURIComponent("/scholarships")}`}
-          className={buttonClasses("primary", "md", "no-underline w-fit")}
-        >
-          {session ? "Browse scholarships" : "Create a free account"}
-        </Link>
+        <div className="flex flex-wrap gap-3">
+          <Link href="/scholarships" className={buttonClasses("primary", "md", "no-underline w-fit")}>
+            Browse scholarships
+          </Link>
+          {!session && (
+            <Link
+              href={`/signup?redirectTo=${encodeURIComponent("/scholarships")}`}
+              className={buttonClasses("secondary", "md", "no-underline w-fit")}
+            >
+              Create a free account
+            </Link>
+          )}
+        </div>
       </BorderedCard>
     </Container>
   );
