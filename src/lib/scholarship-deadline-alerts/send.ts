@@ -5,6 +5,7 @@ import { absoluteUrl } from "@/lib/seo/site";
 import { isFeatureEnabled } from "@/lib/flags/read";
 import { buildScholarshipDeadlineEmail } from "./template";
 import { selectDeadlineAlertCandidates, SCHOLARSHIP_DEADLINE_REMINDER_DAYS, type DeadlineAlertCandidate } from "./select";
+import { scholarshipDaysLeft } from "@/lib/scholarships/close-instant";
 
 /**
  * The daily scholarship-deadline-alert run.
@@ -69,7 +70,7 @@ export async function sendScholarshipDeadlineAlerts(
   const { data: rows, error } = await supabase
     .from("scholarship_saves")
     .select(
-      "id, user_id, status, deadline_reminder_sent_at, scholarship_id, scholarships!inner(id, program_name, provider, application_deadline, deadline_verified_at, official_url, moderation_status), profiles!inner(email, first_name)",
+      "id, user_id, status, deadline_reminder_sent_at, scholarship_id, scholarships!inner(id, program_name, provider, application_deadline, close_time, close_tz, deadline_verified_at, official_url, moderation_status), profiles!inner(email, first_name)",
     )
     .in("status", ["saved", "applying"])
     .is("deadline_reminder_sent_at", null)
@@ -85,6 +86,8 @@ export async function sendScholarshipDeadlineAlerts(
     program_name: string;
     provider: string;
     application_deadline: string | null;
+    close_time: string | null;
+    close_tz: string | null;
     deadline_verified_at: string | null;
     official_url: string;
     moderation_status: DeadlineAlertCandidate["moderationStatus"];
@@ -106,6 +109,8 @@ export async function sendScholarshipDeadlineAlerts(
       programName: scholarship.program_name,
       provider: scholarship.provider,
       applicationDeadline: scholarship.application_deadline,
+      closeTime: scholarship.close_time,
+      closeTz: scholarship.close_tz,
       deadlineVerifiedAt: scholarship.deadline_verified_at,
       officialUrl: scholarship.official_url,
       moderationStatus: scholarship.moderation_status,
@@ -132,7 +137,6 @@ export async function sendScholarshipDeadlineAlerts(
   }
   const prefByUser = new Map((prefRows ?? []).map((p) => [p.user_id, p]));
 
-  const today = now.toISOString().slice(0, 10);
 
   for (const candidate of eligible) {
     const pref = prefByUser.get(candidate.userId);
@@ -141,7 +145,14 @@ export async function sendScholarshipDeadlineAlerts(
     if (!pref?.scholarship_deadline_alert) continue;
 
     try {
-      const daysOut = daysBetween(today, candidate.applicationDeadline!);
+      // To the closing instant, like the selection that let this candidate through (select.ts); at least 0 so "today" never reads negative.
+      const daysOut = Math.max(
+        0,
+        scholarshipDaysLeft(
+          { application_deadline: candidate.applicationDeadline, close_time: candidate.closeTime, close_tz: candidate.closeTz },
+          now,
+        ) ?? 0,
+      );
       const email = buildScholarshipDeadlineEmail({
         firstName: candidate.firstName,
         candidate,
@@ -200,14 +211,6 @@ export async function sendScholarshipDeadlineAlerts(
  */
 function unsubscribeUrlFor(token: string): string {
   return absoluteUrl(`/unsubscribe?token=${encodeURIComponent(token)}&pref=scholarship_deadline_alert`);
-}
-
-function daysBetween(today: string, dateStr: string): number {
-  const [ty, tm, td] = today.split("-").map(Number);
-  const [dy, dm, dd] = dateStr.split("-").map(Number);
-  const t = Date.UTC(ty, tm - 1, td);
-  const d = Date.UTC(dy, dm - 1, dd);
-  return Math.round((d - t) / 86_400_000);
 }
 
 /** Re-exported for the admin route's own logging/testing convenience. */

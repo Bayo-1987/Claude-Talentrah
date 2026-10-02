@@ -20,6 +20,9 @@ type ScholarshipRow = Tables<"scholarships">;
 const BASE: ScholarshipRow = {
   id: "s1",
   application_deadline: "2027-03-31",
+  close_at: null,
+  close_time: null,
+  close_tz: null,
   created_at: "2026-01-01T00:00:00Z",
   cycle_year: 2027,
   deadline_note: null,
