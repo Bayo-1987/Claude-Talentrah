@@ -64,6 +64,44 @@ describe("the rule is read from .gitleaks.toml (not re-typed here)", () => {
   });
 });
 
+describe("the extractor fails loudly when .gitleaks.toml changes shape (it must never pass by finding nothing)", () => {
+  /** A copy of the REAL config with one deliberate change. Asserts the change landed: a replace that matches nothing proves nothing. */
+  function reshaped(from: string | RegExp, to: string): string {
+    const out = toml.replace(from, to);
+    expect(out, `the reshape of ${String(from).slice(0, 40)} must change the text`).not.toBe(toml);
+    return out;
+  }
+  const KEYWORDS_BLOCK = /\nkeywords = \[[\s\S]*?\n\]\n/;
+  const TQ = "'''";
+  const REGEX_LINE = new RegExp(`\\nregex = ${TQ}.*${TQ}\\n`);
+  const PATHS_BLOCK = /\npaths = \[[\s\S]*?\n\]\n/;
+
+  it("the real file parses to a non-empty rule (baseline for the cases below)", () => {
+    expect(rule.regex.source).not.toBe("(?:)");
+    expect(rule.keywords.length).toBeGreaterThan(0);
+    expect(rule.allowRegexes.length).toBeGreaterThan(0);
+    expect(rule.allowPaths.length).toBeGreaterThan(0);
+  });
+
+  it.each([
+    ["the rule is renamed, so there is no custom rule", () => reshaped('id = "talentrah-hardcoded-credential"', 'id = "renamed-rule"'), /rule .* not found/],
+    ["the keyword list is emptied", () => reshaped(KEYWORDS_BLOCK, "\nkeywords = []\n"), /"keywords" list is empty/],
+    ["the keyword list is deleted", () => reshaped(KEYWORDS_BLOCK, "\n"), /no "keywords = \["/],
+    ["the regex is emptied", () => reshaped(REGEX_LINE, `\nregex = ${TQ}${TQ}\n`), /regex of .* is empty/],
+    ["the regex becomes a basic string, not a triple-quoted literal", () => reshaped(REGEX_LINE, '\nregex = "x"\n'), /regex of .* is not a triple-quoted/],
+    ["the allowlist section is renamed", () => reshaped("\n[allowlist]\n", "\n[allowlists]\n"), /no \[allowlist\]/],
+    ["the allowlist paths are emptied", () => reshaped(PATHS_BLOCK, "\npaths = []\n"), /"paths" list is empty/],
+    ["the allowlist paths key is renamed", () => reshaped(PATHS_BLOCK, "\npath_list = []\n"), /no "paths = \["/],
+  ])("%s: loadRule throws instead of returning an empty rule", (_name, make, message) => {
+    expect(() => loadRule(make())).toThrow(message);
+  });
+
+  it("a legal reshape (the keyword list on one line) is read correctly, not mistaken for an empty list", () => {
+    const onOneLine = reshaped(KEYWORDS_BLOCK, '\nkeywords = ["password", "secret"]\n');
+    expect(loadRule(onOneLine).keywords).toEqual(["password", "secret"]);
+  });
+});
+
 describe("the fixtures file is not vacuous", () => {
   it("has every kind, in numbers that mean something", () => {
     expect(of("BAD").length).toBeGreaterThanOrEqual(8);
@@ -125,6 +163,63 @@ describe("the allowlist is honoured, narrowly", () => {
   it("a path on the path allowlist is skipped entirely, including this PR's fixtures file", () => {
     expect(scan(of("BAD")[0].line, "docs/secrets-audit.md").findings).toEqual([]);
     expect(scan(of("BAD")[0].line, "tests/support/credential-shaped-fixtures.txt").findings).toEqual([]);
+  });
+});
+
+describe("the one allowlisted fixtures file: exactly that path, and nothing in it is a real-looking value", () => {
+  const FIXTURES = "tests/support/credential-shaped-fixtures.txt";
+
+  it("is allowlisted by ONE entry, anchored at both ends, with no directory, glob or wildcard", () => {
+    const entries = rule.allowPaths.map((r) => r.source).filter((src) => src.includes("credential-shaped-fixtures"));
+    expect(entries).toEqual([new RegExp("^tests/support/credential-shaped-fixtures\\.txt$").source]);
+    // nothing but the anchors, escaped dots and slashes, and plain path characters: no `.*`, `?`, `+`, `|`, `[…]`, `(…)`, no bare dot
+    expect(entries[0].replace(/^\^|\$$/g, "").replace(/\\[./]/g, "")).toMatch(/^[A-Za-z0-9_-]+$/);
+  });
+
+  it("is the ONLY path-allowlist entry that exempts this file, and it exempts nothing nearby", () => {
+    const matching = (file: string) => rule.allowPaths.filter((r) => r.test(file));
+    expect(matching(FIXTURES)).toHaveLength(1);
+    for (const near of [
+      "tests/support/credential-shaped-fixtures.txt.bak",
+      "tests/support/credential-shaped-fixtures.ts",
+      "tests/support/credential-shaped-fixturesXtxt",
+      "tests/support/credential-shaped-fixtures.txt/extra.ts",
+      "x/tests/support/credential-shaped-fixtures.txt",
+      "tests/support/other.txt",
+      "tests/support/",
+      "tests/",
+      "e2e/credential-shaped-fixtures.txt",
+    ]) {
+      expect(matching(near), near).toEqual([]);
+    }
+  });
+
+  // Anything in the fixtures file is never scanned, by this test or by CI. So the file may hold nothing that looks real: a
+  // real-looking value added "just for a test" would be committed past the one check that exists to catch it.
+  const valueOf = (line: string): string | undefined => {
+    const literals = [...line.matchAll(/(["'`])((?:(?!\1).)*)\1/g)];
+    return literals.length ? literals[literals.length - 1][2] : undefined;
+  };
+
+  it("every quoted value carries the obvious fake marker FAKE, except the allowlisted sentinels, which are already vetted by value", () => {
+    let checked = 0;
+    for (const f of fixtures) {
+      const value = valueOf(f.line);
+      if (value === undefined) continue; // no literal on the line (an env read, a comment): nothing to look real
+      if (f.kind === "ALLOW") {
+        expect(scan(f.line).suppressed, `${f.line}: an ALLOW value must be one the real allowlist already names`).toBe(1);
+        continue;
+      }
+      checked += 1;
+      expect(value, `${f.kind} ${f.name}: ${f.line}`).toContain("FAKE");
+    }
+    expect(checked).toBeGreaterThanOrEqual(15);
+  });
+
+  it("the marker check itself rejects a real-looking value (so it is not vacuous)", () => {
+    expect(valueOf('const dbValue = "hunter2hunter2";')).not.toContain("FAKE");
+    expect(valueOf('const dbValue = "hunter2-FAKE-hunter2";')).toContain("FAKE");
+    expect(valueOf('vi.stubEnv("SOME_NAME", "a-real-looking-value")')).toBe("a-real-looking-value");
   });
 });
 

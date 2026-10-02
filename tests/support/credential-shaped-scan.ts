@@ -36,20 +36,38 @@ export interface Rule {
 
 const RULE_ID = "talentrah-hardcoded-credential";
 
-/** The `'''…'''` literals in a block of TOML, ignoring comment lines. */
-function tripleQuoted(block: string): string[] {
-  const noComments = block.replace(/^[ \t]*#.*$/gm, "");
-  return [...noComments.matchAll(/'''([\s\S]*?)'''/g)].map((m) => m[1]);
-}
-
-/** The text of `key = [ … ]`, ended by the first `]` that is alone on its line (entries contain `]` inside regexes). */
-function arrayBlock(text: string, key: string, from = 0): string {
-  const start = text.indexOf(`${key} = [`, from);
-  if (start < 0) throw new Error(`.gitleaks.toml: no "${key} = [" found`);
-  const rest = text.slice(start);
-  const end = rest.search(/^\]\s*$/m);
-  if (end < 0) throw new Error(`.gitleaks.toml: "${key}" array is not closed`);
-  return rest.slice(0, end);
+/**
+ * The string values of `key = [ … ]` in `text`, however the array is laid out (one line or many, comments between entries).
+ * It walks the text rather than matching a closing `]` by pattern, because entries are regexes that contain `]`. Every shape it
+ * cannot make sense of throws: this feeds a security test, and "found nothing" must never be what a parse failure looks like.
+ */
+function arrayValues(text: string, key: string): string[] {
+  const open = new RegExp(`^${key} = \\[`, "m").exec(text);
+  if (!open) throw new Error(`.gitleaks.toml: no "${key} = [" found`);
+  const values: string[] = [];
+  let i = open.index + open[0].length;
+  while (i < text.length) {
+    const c = text[i];
+    if (c === "]") return values;
+    if (c === "#") {
+      i = text.indexOf("\n", i);
+      if (i < 0) break;
+    } else if (text.startsWith("'''", i)) {
+      const end = text.indexOf("'''", i + 3);
+      if (end < 0) break;
+      values.push(text.slice(i + 3, end));
+      i = end + 3;
+    } else if (c === '"') {
+      let j = i + 1;
+      while (j < text.length && text[j] !== '"') j += text[j] === "\\" ? 2 : 1;
+      if (j >= text.length) break;
+      values.push(text.slice(i + 1, j));
+      i = j + 1;
+    } else {
+      i += 1;
+    }
+  }
+  throw new Error(`.gitleaks.toml: "${key}" array is not closed`);
 }
 
 /** Go (RE2) syntax to a JS RegExp: the only difference these patterns use is the inline (?i) prefix. */
@@ -58,24 +76,41 @@ function toJs(source: string): RegExp {
   return new RegExp(insensitive ? source.slice(4) : source, insensitive ? "i" : "");
 }
 
+/** The text from `from` up to the next table header (`[x]` / `[[x]]` at the start of a line), or the end of the file. */
+function untilNextTable(text: string, from: number): string {
+  const next = text.slice(from).search(/\n\[/);
+  return next < 0 ? text.slice(from) : text.slice(from, from + next);
+}
+
+function nonEmpty<T>(key: string, list: T[]): T[] {
+  if (list.length === 0) throw new Error(`.gitleaks.toml: the "${key}" list is empty, so the scan would match nothing`);
+  return list;
+}
+
+/**
+ * Every failure to read the rule is a thrown Error naming what was missing or empty: the rule, its regex, its keywords, the
+ * allowlist's regexes or paths. A scanner that quietly reads "no rule" or "no keywords" would skip every file and report a clean tree.
+ */
 export function loadRule(toml: string): Rule {
   const idAt = toml.indexOf(`id = "${RULE_ID}"`);
   if (idAt < 0) throw new Error(`.gitleaks.toml: rule ${RULE_ID} not found`);
-  const ruleText = toml.slice(idAt, toml.indexOf("\n[allowlist]", idAt) > 0 ? toml.indexOf("\n[allowlist]", idAt) : undefined);
+  const ruleText = untilNextTable(toml, idAt);
 
-  const regexAt = ruleText.search(/^regex = '''/m);
-  if (regexAt < 0) throw new Error("rule has no regex");
-  const regexSrc = tripleQuoted(ruleText.slice(regexAt).split("\nsecretGroup")[0])[0];
+  const regexLine = /^regex = (.*)$/m.exec(ruleText);
+  if (!regexLine) throw new Error(`.gitleaks.toml: rule ${RULE_ID} has no regex`);
+  const quoted = /^'''([\s\S]*)'''$/.exec(regexLine[1].trim());
+  if (!quoted) throw new Error(`.gitleaks.toml: the regex of ${RULE_ID} is not a triple-quoted literal, which is the only form this reader knows`);
+  if (quoted[1] === "") throw new Error(`.gitleaks.toml: the regex of ${RULE_ID} is empty`);
 
-  const keywordsBlock = arrayBlock(ruleText, "keywords");
-  const keywords = [...keywordsBlock.matchAll(/"([^"]+)"/g)].map((m) => m[1].toLowerCase());
+  const keywords = nonEmpty("keywords", arrayValues(ruleText, "keywords")).map((k) => k.toLowerCase());
 
-  const allowAt = toml.indexOf("\n[allowlist]");
+  const allowAt = toml.search(/^\[allowlist\]\s*$/m);
   if (allowAt < 0) throw new Error(".gitleaks.toml: no [allowlist] section");
-  const allowRegexes = tripleQuoted(arrayBlock(toml, "regexes", allowAt)).map(toJs);
-  const allowPaths = tripleQuoted(arrayBlock(toml, "paths", allowAt)).map(toJs);
+  const allowText = untilNextTable(toml, allowAt + 1);
+  const allowRegexes = nonEmpty("regexes", arrayValues(allowText, "regexes")).map(toJs);
+  const allowPaths = nonEmpty("paths", arrayValues(allowText, "paths")).map(toJs);
 
-  return { regex: toJs(regexSrc), keywords, allowRegexes, allowPaths };
+  return { regex: toJs(quoted[1]), keywords, allowRegexes, allowPaths };
 }
 
 export function scanText(file: string, text: string, rule: Rule): { findings: Finding[]; suppressed: number } {
