@@ -23,7 +23,7 @@ export function ExtendForm({ token, title, closesAt }: { token: string; title: s
       <div className="flex flex-col gap-4">
         <h1 className="text-[32px] leading-[1.25]">Extended.</h1>
         <p className="text-[15.5px] text-ink-soft">
-          &ldquo;{result.title}&rdquo; now closes on {formatDate(result.newExpiresAt)}. We&apos;ll remind you again
+          <strong>{result.title}</strong> now closes on {formatDate(result.newExpiresAt)}. We&apos;ll remind you again
           before then.
         </p>
         <Link href="/employer/jobs" className="font-body text-[15px] font-semibold text-rust">
@@ -39,7 +39,7 @@ export function ExtendForm({ token, title, closesAt }: { token: string; title: s
     <form action={submit} className="flex flex-col items-start gap-4">
       <h1 className="text-[32px] leading-[1.25]">Keep this posting open?</h1>
       <p className="text-[15.5px] text-ink-soft">
-        &ldquo;{title}&rdquo; closes on {formatDate(closesAt)}. Extending moves that date forward by 30 days. It is
+        <strong>{title}</strong> closes on {formatDate(closesAt)}. Extending moves that date forward by 30 days. It is
         free.
       </p>
       <Button type="submit">Extend 30 days</Button>
