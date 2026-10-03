@@ -51,6 +51,8 @@ unnoticed.
 Both have real uses — reproducing something that only happens on a live
 project. Neither is reachable by drift.
 
+**Opting in to run tests is not opting in to delete.** The run's global teardown (`tests/support/global-teardown.ts`) sweeps stale `@talentrah.test` accounts and fixture organisations, and it deletes only on a local stack. On any other target it prints a refusal and leaves everything alone. To sweep a hosted project on purpose, for that one run, type `ALLOW_GLOBAL_SWEEP_ON_NON_LOCAL=yes-i-mean-it` (a separate variable; the two above do not open it, and production is never swept). Database-backed suites run in CI; do not run them against the shared hosted project.
+
 Then seed demo data (needs the dev server running — the seed drives the real ingestion routes over HTTP rather than importing them, so it doubles as a check that those routes work):
 
 ```bash

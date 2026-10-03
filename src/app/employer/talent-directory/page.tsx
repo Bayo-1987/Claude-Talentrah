@@ -1,8 +1,11 @@
 import Link from "next/link";
 import { requireEmployer } from "@/lib/employer/membership";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
-import { searchTalentDirectory } from "@/lib/talent-directory/queries";
+import { getTalentDirectoryPreview, searchTalentDirectory } from "@/lib/talent-directory/queries";
 import { purchaseTalentDirectorySubscriptionAction } from "@/lib/talent-directory/subscription-actions";
+import { joinTalentDirectoryWaitlistAction } from "@/lib/talent-directory/waitlist-actions";
+import { isOnTalentDirectoryWaitlist } from "@/lib/talent-directory/waitlist-runner";
+import { TalentDirectoryPreviewPanel } from "@/components/employer/talent-directory-preview-panel";
 import { EyebrowLabel, BorderedCard, Button } from "@/components/ui";
 import { formatDate } from "@/lib/format/datetime";
 
@@ -19,14 +22,20 @@ export const metadata = { title: "Talent Directory — Talentrah" };
  * not an error, from `searchTalentDirectory` itself. This page adds a
  * friendlier "subscribe to search" state on top of that, but the actual gate
  * is inside the function.
+ *
+ * NO SUBSCRIPTION (EMP-1 / E1): the free preview (live count, up to three
+ * anonymised samples) from `talent_directory_preview()`, which shares the paid
+ * search's gate (0206). Below TALENT_DIRECTORY_MIN_LISTED candidates the
+ * Subscribe button is replaced by a free waitlist (0205), and the purchase
+ * action refuses on its own so the hidden button is not the only gate.
  */
 export default async function EmployerTalentDirectoryPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; remote?: string; available?: string }>;
+  searchParams: Promise<{ error?: string; remote?: string; available?: string; waitlist?: string }>;
 }) {
   const context = await requireEmployer();
-  const { error, remote, available } = await searchParams;
+  const { error, remote, available, waitlist } = await searchParams;
 
   const serviceClient = createServiceRoleClient();
   const [{ data: subscription }, { data: plans }] = await Promise.all([
@@ -46,6 +55,15 @@ export default async function EmployerTalentDirectoryPage({
       })
     : [];
 
+  // No subscription: the free preview (EMP-1 / E1). Its count and cards come from talent_directory_preview(), which applies the same
+  // gate as the paid search; below TALENT_DIRECTORY_MIN_LISTED the panel offers a waitlist instead of Subscribe.
+  const [preview, onWaitlist] = subscription
+    ? [null, false]
+    : await Promise.all([
+        getTalentDirectoryPreview(),
+        isOnTalentDirectoryWaitlist(serviceClient, context.organization.id),
+      ]);
+
   return (
     <div className="flex flex-col gap-8">
       <EyebrowLabel>Talent Directory</EyebrowLabel>
@@ -53,18 +71,15 @@ export default async function EmployerTalentDirectoryPage({
       {error && <p className="text-[13.5px] text-rust">{error}</p>}
 
       {!subscription ? (
-        <BorderedCard className="flex flex-col gap-4 p-6">
-          <p className="text-[14.5px] text-ink-soft">
-            Subscribe to search verified, opted-in seekers by availability and remote-readiness.
-          </p>
-          {(plans ?? []).map((plan) => (
-            <form key={plan.id} action={purchaseTalentDirectorySubscriptionAction.bind(null, plan.id)}>
-              <Button type="submit" variant="primary">
-                {`Subscribe — ${plan.name} (₦${plan.price_ngn.toLocaleString("en-NG")}/mo)`}
-              </Button>
-            </form>
-          ))}
-        </BorderedCard>
+        preview && (
+          <TalentDirectoryPreviewPanel
+            preview={preview}
+            plans={plans ?? []}
+            joinedWaitlist={onWaitlist || waitlist === "joined"}
+            joinAction={joinTalentDirectoryWaitlistAction}
+            purchaseAction={purchaseTalentDirectorySubscriptionAction}
+          />
+        )
       ) : (
         <>
           <p className="text-[13px] text-ink-soft">

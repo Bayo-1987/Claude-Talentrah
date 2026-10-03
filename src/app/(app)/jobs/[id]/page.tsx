@@ -533,7 +533,17 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
       </div>
 
       {/* Stage 8, display-only step — see match-breakdown.tsx's own header. Same explanation the card's badge is computed from, not a second score. */}
-      {scored && <MatchBreakdown explanation={scored.explanation} />}
+      {scored && (
+        <>
+          <MatchBreakdown explanation={scored.explanation} />
+          <Link
+            href="/how-match-scores-work"
+            className="inline-flex min-h-10 w-fit items-center font-body text-[12.5px] font-semibold text-ink-soft underline underline-offset-2 hover:text-rust"
+          >
+            How match scores work
+          </Link>
+        </>
+      )}
 
       <div className="flex flex-col gap-1 border-y border-line py-3">
         <span className="text-[12.5px] text-ink-soft">

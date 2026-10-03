@@ -461,6 +461,9 @@ describe("§2 — cron GETs fail closed too", () => {
     // same fail-closed guard as every other admin/cron route, registered in
     // the same commit that created the route.
     ["send-winback-emails", () => import("@/app/api/admin/send-winback-emails/route")],
+    // EMP-1 / E3's closing reminder — emails an employer, moves no money, and the same fail-closed guard as every other
+    // admin/cron route, registered in the same commit that created the route.
+    ["send-expiry-reminders", () => import("@/app/api/admin/send-expiry-reminders/route")],
   ] as const;
 
   for (const [name, load] of CRON_ROUTES) {
@@ -534,6 +537,7 @@ describe("§2 — cron GETs fail closed too", () => {
         import("@/app/api/admin/send-verification-reminders/route"),
       "/api/admin/delete-stale-postings": () =>
         import("@/app/api/admin/delete-stale-postings/route"),
+      "/api/admin/purge-demo-attempts": () => import("@/app/api/admin/purge-demo-attempts/route"),
       "/api/admin/mentorship-sweep": () => import("@/app/api/admin/mentorship-sweep/route"),
       "/api/admin/renew-talent-directory-subscriptions": () =>
         import("@/app/api/admin/renew-talent-directory-subscriptions/route"),
@@ -547,6 +551,7 @@ describe("§2 — cron GETs fail closed too", () => {
       "/api/admin/send-scholarship-deadline-alerts": () =>
         import("@/app/api/admin/send-scholarship-deadline-alerts/route"),
       "/api/admin/send-winback-emails": () => import("@/app/api/admin/send-winback-emails/route"),
+      "/api/admin/send-expiry-reminders": () => import("@/app/api/admin/send-expiry-reminders/route"),
     };
 
     expect(vercelConfig.crons.length).toBeGreaterThan(0);

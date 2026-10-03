@@ -1,5 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import { parseTalentDirectoryPreview, type TalentDirectoryPreview } from "./preview";
 
 export interface OwnVerificationState {
   status: string;
@@ -155,6 +156,19 @@ export async function searchTalentDirectory(filters: {
     verificationScore: r.verification_score,
     verifiedAt: r.verified_at,
   }));
+}
+
+/**
+ * The free preview (EMP-1 / E1, 0206): the live count of directory candidates and up to three anonymised sample cards. Reads
+ * `talent_directory_preview()`, which applies the SAME gate as the paid search (both call talent_directory_listed_ids) and enforces the
+ * anonymisation rules itself. Answers any member of an organisation, subscribed or not: that is what a preview is. A NULL payload
+ * (a caller in no organisation) throws rather than rendering "0 candidates", which would be a false statement about the directory.
+ */
+export async function getTalentDirectoryPreview(): Promise<TalentDirectoryPreview> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("talent_directory_preview");
+  if (error) throw error;
+  return parseTalentDirectoryPreview(data);
 }
 
 export async function getCandidatePortfolioItems(candidateId: string): Promise<PortfolioItem[]> {

@@ -24,6 +24,10 @@
       "schedule": "0 8 * * *"
     },
     {
+      "path": "/api/admin/send-expiry-reminders",
+      "schedule": "30 8 * * *"
+    },
+    {
       "path": "/api/admin/send-job-digest",
       "schedule": "0 9 * * 1"
     },
@@ -66,6 +70,10 @@
     {
       "path": "/api/admin/send-winback-emails",
       "schedule": "0 18 * * *"
+    },
+    {
+      "path": "/api/admin/purge-demo-attempts",
+      "schedule": "0 19 * * *"
     }
   ]
 }
