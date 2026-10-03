@@ -19,6 +19,7 @@ import { consumeLoginRateLimit } from "@/lib/security/login-rate-limit";
 import { getRequestIp } from "@/lib/security/request-ip";
 import type { ResendState } from "./resend-state";
 import { captureEvent } from "@/lib/analytics/posthog";
+import { stashPostAuthDestination } from "./post-auth-destination";
 
 export interface AuthActionState {
   error: string | null;
@@ -96,6 +97,9 @@ export async function signUpAction(
   if (error) {
     return { error: error.message };
   }
+
+  // The confirmation email's link, opened in this browser, comes back through /auth/callback: remember where they were headed (S1-50).
+  await stashPostAuthDestination(formData.get("redirectTo"));
 
   // Fired here, not on form submit — data.user is only real once signUp()
   // has actually succeeded (handle_new_user, 0000, creates the profile row
@@ -526,6 +530,10 @@ export async function signInWithOAuthAction(formData: FormData) {
   if (provider !== "google" && provider !== "linkedin_oidc") {
     throw new Error("Unsupported OAuth provider");
   }
+
+  // Where they were headed travels in a short-lived cookie that /auth/callback reads, not in the callback URL below (S1-50): that URL
+  // stays exactly what the project's redirect allow-list already accepts.
+  await stashPostAuthDestination(formData.get("redirectTo"));
 
   const supabase = await createClient();
   const origin = await getOrigin();
