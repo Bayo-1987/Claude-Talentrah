@@ -23,7 +23,7 @@ export const metadata: Metadata = pageMetadata({
  */
 export default function PrivacyPolicyPage() {
   return (
-    <LegalPage eyebrow="Legal" title="Privacy Policy" lastUpdated="September 16, 2026">
+    <LegalPage eyebrow="Legal" title="Privacy Policy" lastUpdated="October 3, 2026">
       <p>
         This Privacy Policy explains what personal data Talentrah (&quot;Talentrah,&quot;
         &quot;we,&quot; &quot;us&quot;) collects when you use our website and app, why we collect
@@ -45,8 +45,10 @@ export default function PrivacyPolicyPage() {
           enter: your resume file, work history, skills, and job preferences.
         </li>
         <li>
-          <strong>Job descriptions you submit</strong> — pasted or linked job
-          postings you ask Farah to analyze or tailor a resume against.
+          <strong>Job descriptions and job-posting links you submit</strong> —
+          job descriptions you paste for Farah to analyze or tailor a resume
+          against and, for employers, links to a careers page or job posting
+          you ask us to import (we fetch that page to read the posting).
         </li>
         <li>
           <strong>Usage and application data</strong> — jobs you view, save,

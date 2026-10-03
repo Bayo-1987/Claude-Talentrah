@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Container, EyebrowLabel, BorderedCard, buttonClasses } from "@/components/ui";
-import type { MentorPriceRangeNgn } from "@/lib/mentorship/public-price-range";
+import { mentorshipPriceSentence, type MentorPriceRangeNgn } from "@/lib/mentorship/price-copy";
 
 /**
  * send-385 — the signed-out-visitor entry point at `/mentorship`, replacing
@@ -66,7 +66,15 @@ const SESSION_TYPES: { label: string; description: string }[] = [
  * the specific numbers entirely in that case rather than falling back to
  * the stale ₦5,000–₦100,000+ range this replaces.
  */
-export function MentorshipPublicLanding({ priceRangeNgn }: { priceRangeNgn: MentorPriceRangeNgn | null }) {
+export function MentorshipPublicLanding({
+  priceRangeNgn,
+  offersFreeSessions,
+}: {
+  priceRangeNgn: MentorPriceRangeNgn | null;
+  /** True only if at least one approved, bookable mentor really offers free or volunteer sessions. */
+  offersFreeSessions: boolean;
+}) {
+  const priceSentence = mentorshipPriceSentence(priceRangeNgn);
   return (
     <Container className="flex max-w-[900px] flex-col gap-14 py-16">
       <div className="flex flex-col gap-4">
@@ -123,13 +131,13 @@ export function MentorshipPublicLanding({ priceRangeNgn }: { priceRangeNgn: Ment
       <div className="flex flex-col gap-3 border-t border-line pt-10">
         <EyebrowLabel>Pricing</EyebrowLabel>
         <p className="max-w-[620px] text-[15px] leading-[1.65] text-ink-soft">
-          {priceRangeNgn !== null
-            ? `Mentors set their own rates — sessions currently range from ₦${priceRangeNgn.minNgn.toLocaleString("en-NG")} to ₦${priceRangeNgn.maxNgn.toLocaleString("en-NG")}, depending on their experience and the kind of session. `
-            : "Mentors set their own rates depending on their experience and the kind of session. "}
+          Mentors set their own rates depending on their experience and the kind of session.{" "}
+          {priceSentence !== null && `${priceSentence} `}
           You pay the mentor directly for the session you book, not from
-          Talentrah Credits. Some mentors offer sessions for free or as
-          volunteers; that&apos;s always shown on their profile before you
-          book, never a surprise afterward.
+          Talentrah Credits.{" "}
+          {offersFreeSessions
+            ? "Some mentors offer sessions for free or as volunteers; that's always shown on their profile before you book, never a surprise afterward."
+            : "Mentors can choose to offer sessions for free; if one does, that's shown on their profile before you book, never a surprise afterward."}
         </p>
       </div>
 

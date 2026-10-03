@@ -8,7 +8,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/types";
 import { createTestUser, deleteTestUsers } from "../support/auth";
-import { REFERRAL_SIGNUP_BONUS_CREDITS } from "@/lib/referrals/rewards";
+import { LEGACY_REFERRAL_SIGNUP_BONUS_CREDITS } from "@/lib/referrals/rewards";
 
 for (const key of ["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"] as const) {
   if (!process.env[key]) throw new Error(`Referral-reward-send test cannot run: ${key} is not set.`);
@@ -71,7 +71,7 @@ describe("sendReferralRewardNotification", () => {
     await sendReferralRewardNotification({
       referrerId,
       referredUserId: referredId,
-      creditsGranted: REFERRAL_SIGNUP_BONUS_CREDITS,
+      creditsGranted: LEGACY_REFERRAL_SIGNUP_BONUS_CREDITS,
       reason: "signup",
     });
 
@@ -82,7 +82,7 @@ describe("sendReferralRewardNotification", () => {
       .eq("user_id", referrerId);
     expect(data).toHaveLength(1);
     expect(data![0].link).toBe("/refer");
-    expect(data![0].body).toContain(String(REFERRAL_SIGNUP_BONUS_CREDITS));
+    expect(data![0].body).toContain(String(LEGACY_REFERRAL_SIGNUP_BONUS_CREDITS));
 
     expect(sentEmails).toHaveLength(1);
     expect(sentEmails[0].to).toBe(referrerEmail);
@@ -95,7 +95,7 @@ describe("sendReferralRewardNotification", () => {
       sendReferralRewardNotification({
         referrerId,
         referredUserId: referredId,
-        creditsGranted: REFERRAL_SIGNUP_BONUS_CREDITS,
+        creditsGranted: LEGACY_REFERRAL_SIGNUP_BONUS_CREDITS,
         reason: "signup",
       }),
     ).resolves.toBeUndefined();
@@ -114,7 +114,7 @@ describe("sendReferralRewardNotification", () => {
     await sendReferralRewardNotification({
       referrerId,
       referredUserId: referredId,
-      creditsGranted: REFERRAL_SIGNUP_BONUS_CREDITS,
+      creditsGranted: LEGACY_REFERRAL_SIGNUP_BONUS_CREDITS,
       reason: "signup",
     });
 
@@ -135,7 +135,7 @@ describe("sendReferralRewardNotification", () => {
     await sendReferralRewardNotification({
       referrerId,
       referredUserId: referredId,
-      creditsGranted: REFERRAL_SIGNUP_BONUS_CREDITS,
+      creditsGranted: LEGACY_REFERRAL_SIGNUP_BONUS_CREDITS,
       reason: "signup",
     });
 
@@ -154,7 +154,7 @@ describe("sendReferralRewardNotification", () => {
       sendReferralRewardNotification({
         referrerId: "00000000-0000-0000-0000-000000000000",
         referredUserId: referredId,
-        creditsGranted: REFERRAL_SIGNUP_BONUS_CREDITS,
+        creditsGranted: LEGACY_REFERRAL_SIGNUP_BONUS_CREDITS,
         reason: "signup",
       }),
     ).resolves.toBeUndefined();

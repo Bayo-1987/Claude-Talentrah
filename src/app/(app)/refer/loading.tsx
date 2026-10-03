@@ -1,14 +1,12 @@
 import { EyebrowLabel, SkeletonBlock, SkeletonStatus } from "@/components/ui";
 
 /**
- * Refer & Earn, loading.
+ * Refer & Earn, loading — for BOTH kinds of visitor since send-515, because a signed-out visitor now reaches this route too (/refer is a
+ * public landing page).
  *
- * The eyebrow is a constant and is rendered for real. The heading is NOT —
- * it interpolates the activation bonus, and while that is a module constant
- * rather than a query, duplicating the sentence here would be a second
- * place to update when the reward changes and a silent way for the loading
- * state to advertise a different number from the page. A block is the
- * honest option.
+ * The eyebrow is a constant and is rendered for real. There is NO HEADING at all, on purpose: a streamed fallback lands in the RAW HTML, so
+ * a placeholder <h1> plus the page's own would be two <h1>s in the response a crawler reads, and the status text names neither a link nor
+ * a signed-in state. (The old heading interpolated the reward, which would also have been a second place to keep in step with the page.)
  *
  * Nothing on this page is a live-updating figure, so the skeleton is
  * short-lived; its job is mainly to prove the click landed.
@@ -16,7 +14,7 @@ import { EyebrowLabel, SkeletonBlock, SkeletonStatus } from "@/components/ui";
 export default function ReferLoading() {
   return (
     <div className="flex flex-col gap-6">
-      <SkeletonStatus>Loading your referral link…</SkeletonStatus>
+      <SkeletonStatus>Loading Refer &amp; earn…</SkeletonStatus>
 
       <div>
         <EyebrowLabel>Refer &amp; earn</EyebrowLabel>

@@ -33,7 +33,7 @@ describe("every static sitemap entry is readable and crawlable signed out", () =
 
   // send-480 (/scholarships) and send-484 (/jobs, /tracker): each became a real signed-out landing
   // page, so each must be public in all three places at once.
-  for (const path of ["/scholarships", "/jobs", "/tracker"]) {
+  for (const path of ["/scholarships", "/jobs", "/tracker", "/refer"]) {
     it(`includes ${path} — public in all three places at once`, () => {
       expect(STATIC_PATHS.map((p) => p.path)).toContain(path);
       expect(isProtectedSeekerPath(path)).toBe(false);
@@ -45,7 +45,7 @@ describe("every static sitemap entry is readable and crawlable signed out", () =
 describe("every gated path is disallowed in robots.txt and absent from the sitemap", () => {
   const GATED = [
     "/tracker/0b6f3a0e-7a52-4f33-8a3b-0d8b0c3a1f11/sent",
-    "/refer",
+    "/refer/anything",
     "/resume-builder",
     "/tailor",
     "/billing",

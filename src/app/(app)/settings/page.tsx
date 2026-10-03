@@ -3,6 +3,7 @@ import { BorderedCard, EyebrowLabel } from "@/components/ui";
 import { visibleName } from "@/lib/profile/name";
 import { SettingsForm } from "./settings-form";
 import { billingRegionLabel } from "@/lib/billing/region";
+import { SignOutEverywhere } from "./sign-out-everywhere";
 
 export const metadata = { title: "Settings — Talentrah" };
 
@@ -77,6 +78,8 @@ export default async function SettingsPage() {
           </div>
         ))}
       </div>
+
+      <SignOutEverywhere />
     </div>
   );
 }
