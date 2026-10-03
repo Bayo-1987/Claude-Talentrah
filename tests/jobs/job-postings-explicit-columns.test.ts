@@ -69,6 +69,47 @@ describe("no job_postings read selects *", () => {
   });
 });
 
+describe("job_postings embedded from other tables names its columns too", () => {
+  // `applications(... job_postings(title, company_name) ...)`, `job_postings!inner(...)`, `alias:job_postings(...)`: an embed's list is read as
+  // the caller, so a `*` in one is the same dependency as a `select("*")` on the table itself.
+  function embeds(): { path: string; embed: string }[] {
+    const out: { path: string; embed: string }[] = [];
+    for (const { path, text } of FILES) {
+      for (const m of stripComments(text).matchAll(/(?<!from\(\s*["'`])\bjob_postings(?:![\w]+)?\s*\(([^)]*)\)/g)) {
+        const before = stripComments(text).slice(Math.max(0, m.index! - 8), m.index!);
+        if (/from\(\s*["'`]$/.test(before)) continue;
+        out.push({ path, embed: m[0] });
+      }
+    }
+    return out;
+  }
+
+  it("finds the embeds it is supposed to scan (the scan itself is not empty)", () => {
+    expect(embeds().length).toBeGreaterThanOrEqual(10);
+  });
+
+  it("no embed of job_postings selects *", () => {
+    expect(embeds().filter((e) => /\*/.test(e.embed)).map((e) => `${e.path}: ${e.embed}`)).toEqual([]);
+  });
+
+  it("a select whose argument is a named constant resolves to a literal list with no * and not the internal column", () => {
+    const NOTE = ["admin", "review", "note"].join("_");
+    const checked: string[] = [];
+    for (const { path, chain } of jobPostingChains()) {
+      const text = FILES.find((f) => f.path === path)!.text;
+      for (const m of chain.matchAll(/\.select\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*[,)]/g)) {
+        const name = m[1];
+        const def = new RegExp(`const\\s+${name}\\s*=\\s*([\\s\\S]*?);`).exec(stripComments(text));
+        if (!def) continue; // a function parameter (saved-set.ts): its caller passes one of the constants resolved here
+        checked.push(`${path}:${name}`);
+        expect(def[1], `${path}: ${name} selects *`).not.toMatch(/\*/);
+        expect(def[1], `${path}: ${name} names the internal column`).not.toContain(NOTE);
+      }
+    }
+    expect(checked.length, "no named-constant select lists were found, so the check proved nothing").toBeGreaterThanOrEqual(3);
+  });
+});
+
 describe("the one internal column that no page may read", () => {
   // The columns a decision writes. Only the service-role admin code and the generated types may mention it by name, so no list a page
   // reads can contain it. A new file that names it must be a deliberate decision, made here.
