@@ -198,6 +198,13 @@ regexes = [
   # the values are allowlisted. ANCHORED to exactly those values: no wildcard, and it does NOT relax the rule for anything else.
   '''^sk_test_not_a_real_key$''',
   '''^re_test_key_not_real$''',
+
+  # tests/lib/account-deletion/provider-cancel.test.ts, PR #686 — one more exact test value, from the same PR and for the same kind of test: a made-up key
+  # that the "no key, code, email or message text ever reaches a log" test puts inside a fake Paystack error message, to prove it never reaches a log line.
+  # It matched gitleaks' default Stripe rule only because it is shaped sk_test_ followed by alphanumerics; it is not a Stripe key, belongs to no
+  # account, and protects nothing. The test now assembles it at run time, but the first commit that carried the literal is already in the PR's history
+  # and this scan reads commits, so the value is allowlisted. ANCHORED to exactly that value: no wildcard, and it does NOT relax any rule for anything else.
+  '''^sk_test_leakleakleak$''',
 ]
 
 paths = [
