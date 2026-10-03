@@ -1084,7 +1084,16 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
       */}
       <FixedFeedHeader>
         <div>
-          <EyebrowLabel>Today&apos;s board</EyebrowLabel>
+          <div className="flex items-center justify-between gap-4">
+            <EyebrowLabel>Today&apos;s board</EyebrowLabel>
+            {/* Said once here (and once on a job's own page) instead of on every card: what a match score counts and does not (S3-23a). */}
+            <Link
+              href="/how-match-scores-work"
+              className="inline-flex min-h-10 items-center font-body text-[12.5px] font-semibold text-ink-soft underline underline-offset-2 hover:text-rust"
+            >
+              How match scores work
+            </Link>
+          </div>
           <div className="mt-2">
             <FeedTabs active={tab} />
           </div>
