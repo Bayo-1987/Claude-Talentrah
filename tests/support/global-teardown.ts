@@ -3,6 +3,8 @@ config({ path: ".env.local" });
 
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "../../src/lib/supabase/types";
+import { describeDbTarget, PRODUCTION_REF } from "../../scripts/db-target";
+import { serviceKeyProjectRef } from "../../e2e/fixtures/db-guard";
 import { deleteOrgsCascade } from "./delete-orgs";
 import { selectFixtureOrgs, SWEEP_STALE_AFTER_MS } from "./fixture-orgs";
 import {
@@ -56,6 +58,53 @@ import {
  * cannot sweep is the condition that let 324 organisations accumulate.
  */
 
+/** The one opt-in that lets the sweep delete on a database that is not a local stack. Separate from tests/setup.ts's own opt-ins on purpose. */
+const NON_LOCAL_SWEEP_OPT_IN = "ALLOW_GLOBAL_SWEEP_ON_NON_LOCAL";
+
+/**
+ * Decide, before any client exists, whether this sweep may delete here.
+ *
+ * ── Why this is its own guard ─────────────────────────────────────────────
+ *
+ * tests/setup.ts refuses a hosted target inside every test FILE. This sweep is a `globalSetup` teardown: it runs once after the whole
+ * run, outside every file, and never saw that guard. On 2026-10-02 a DB-backed file was run with ALLOW_TESTS_AGAINST_HOSTED=yes-i-mean-it
+ * against talentrah-preview to read one test's result; the sweep that followed deleted 547 stale accounts there — a committed write to a
+ * shared project nobody had agreed to. Opting into "run tests there" is not opting into "delete everything that looks stale there".
+ *
+ * So the sweep deletes only on a LOCAL stack (what CI runs against: an ephemeral per-job database that is gone when the job ends). Anywhere
+ * else it refuses, loudly, and leaves the rows alone; the run's own results are unaffected. The opt-in is a different variable from the
+ * suite's, typed as the sentence, and it cannot open production at all.
+ *
+ * TWO CHECKS, as in e2e/fixtures/db-guard.ts: the URL names the project the run talks to, but the service-role key is what deletes, and it
+ * carries its own project in a `ref` claim. The two can disagree (CLAUDE.md), so a production key behind a local-looking URL is refused too.
+ */
+function mayDeleteHere(url: string, key: string): boolean {
+  const target = describeDbTarget(url);
+  const keyIsProduction = serviceKeyProjectRef(key) === PRODUCTION_REF;
+  if (target.kind === "local" && !keyIsProduction) return true;
+
+  const why = keyIsProduction && target.kind === "local"
+    ? `SUPABASE_SERVICE_ROLE_KEY is a key for PRODUCTION (${PRODUCTION_REF}) behind a local-looking URL`
+    : `the target is ${target.label}`;
+  const optedIn = process.env[NON_LOCAL_SWEEP_OPT_IN] === "yes-i-mean-it";
+  if (optedIn && target.kind !== "production" && !keyIsProduction) {
+    process.stderr.write(
+      `[global-teardown] ⚠ SWEEPING A NON-LOCAL DATABASE on purpose (${NON_LOCAL_SWEEP_OPT_IN}): ${target.label}. ` +
+        `Stale @talentrah.test accounts and fixture organisations will be deleted.\n`,
+    );
+    return true;
+  }
+  process.stderr.write(
+    `\n[global-teardown] REFUSING to sweep: ${why}. Nothing was deleted.\n` +
+      `[global-teardown] The global sweep only deletes on a local database (npm run db:local). Rows it would have removed are left in place.\n` +
+      (target.kind === "production"
+        ? "[global-teardown] Production is never swept by this teardown.\n"
+        : `[global-teardown] To sweep this database on purpose, for this one run: ${NON_LOCAL_SWEEP_OPT_IN}=yes-i-mean-it\n`) +
+      "\n",
+  );
+  return false;
+}
+
 async function sweep(): Promise<void> {
   if (process.env.TALENTRAH_SKIP_GLOBAL_SWEEP === "1") {
     // Debug escape hatch: leaves stragglers in place so you can inspect WHICH
@@ -71,6 +120,8 @@ async function sweep(): Promise<void> {
     // No credentials means no DB-backed suite ran either. Nothing to sweep.
     return;
   }
+
+  if (!mayDeleteHere(url, key)) return;
 
   const db = createClient<Database>(url, key, {
     auth: { persistSession: false, autoRefreshToken: false },
