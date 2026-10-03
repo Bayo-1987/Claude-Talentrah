@@ -145,7 +145,9 @@ test.describe("signed-out visitor at /mentorship", () => {
     // nav item, which is present on every page and proves nothing here) —
     // matched by its redirectTo, which is also what proves this CTA actually
     // returns the visitor to /mentorship after logging in.
-    await expect(page.locator('a[href="/login?redirectTo=%2Fmentorship"]')).toBeVisible();
+    await expect(page.getByRole("main").locator('a[href="/login?redirectTo=%2Fmentorship"]').first()).toBeVisible();
+    // The masthead's Log in carries the same destination now (S1-50): logging in from there returns to /mentorship too.
+    await expect(page.getByRole("banner").getByRole("link", { name: "Log in" })).toHaveAttribute("href", "/login?redirectTo=%2Fmentorship");
     // CLAUDE.md's own content rule: scope every free/no-account claim
     // precisely — creating the account is free, a paid mentor's session is
     // not, and the copy must not blur the two.
