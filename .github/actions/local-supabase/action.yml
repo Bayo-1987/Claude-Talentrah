@@ -47,9 +47,11 @@ runs:
         # side of that same fix, unchanged by the merge.
         version: 2.117.0
 
+    # Retried ONLY when the image registry throttles the pulls (AWS ECR Public rate limit, seen on #689, #696 and #698); any other failure
+    # fails fast. See start-supabase.sh and tests/ci/supabase-start-retry.test.ts.
     - name: Start local Supabase stack
       shell: bash
-      run: supabase start
+      run: bash "${{ github.action_path }}/start-supabase.sh"
 
     - name: Apply every migration from scratch
       shell: bash

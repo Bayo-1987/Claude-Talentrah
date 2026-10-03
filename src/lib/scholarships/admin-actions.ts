@@ -5,6 +5,7 @@ import { recordAdminAction } from "@/lib/admin/audit";
 
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { upsertScholarships } from "./ingest";
+import { deadlineNoteRuleMessage } from "./public-deadline-note";
 import { manualScholarshipSchema, toNormalizedScholarship } from "./schemas";
 import type { AdminScholarshipState, PendingScholarship } from "./admin-state";
 
@@ -166,6 +167,17 @@ export async function createScholarshipAction(
     // constraints. It goes to the server log, where the operator's colleague
     // can read it, and the page says something true and unhelpful instead.
     console.error("[admin-scholarships:create]", result.error);
+    // The one exception: the two deadline-note rules are the operator's to fix, so they read as a message on the field, not "see the server log".
+    const noteMessage = deadlineNoteRuleMessage(result.error);
+    if (noteMessage) {
+      return {
+        status: "error",
+        error: "Check the highlighted fields.",
+        fieldErrors: { deadlineNote: [noteMessage] },
+        pending: await loadPending(),
+        unlocked: true,
+      };
+    }
     return {
       status: "error",
       error: "Couldn't save that listing. The error is in the server log.",

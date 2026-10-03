@@ -18,6 +18,8 @@ import { FarahActions } from "@/components/scholarships/farah-actions";
 import { relevantScholarshipLandingLinks } from "@/lib/seo/landing-page-links";
 import { checkPassCoverage } from "@/lib/passes/entitlement";
 import { loadPublicScholarship } from "@/lib/scholarships/public";
+import { deadlineNoteOrFallback } from "@/lib/scholarships/public-deadline-note";
+import { scholarshipMetaDescription } from "@/lib/scholarships/meta-description";
 import { renderMarkdownParagraphs } from "@/lib/farah/render-markdown";
 import { JsonLd } from "@/components/seo/json-ld";
 import { buildBreadcrumbJsonLd } from "@/lib/seo/breadcrumb-jsonld";
@@ -29,30 +31,12 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 
   const title = `${data.program_name} — ${data.provider} — Talentrah`;
 
-  /*
-   * Built from the listing's own fields, not truncated prose — scholarships
-   * carry no free-text description column the way a job posting does.
-   * Deadline text mirrors the page's own display rule: the stored date, or
-   * the deadline note verbatim, never a reconstruction.
-   */
-  const levels = data.degree_levels?.length
-    ? data.degree_levels.map((l) => DEGREE_LEVEL_LABEL[l]).join("/")
-    : null;
-  const lead = [
-    `${FUNDING_TYPE_LABEL[data.funding_type]} scholarship`,
-    data.host_institution ? `at ${data.host_institution}` : null,
-    levels ? `for ${levels} study` : null,
-  ]
-    .filter(Boolean)
-    .join(" ");
-  const deadlineText = data.application_deadline
-    ? `Apply by ${formatDeadline(data.application_deadline)}`
-    : data.deadline_note;
-  const description = [lead, deadlineText].filter(Boolean).join(". ").slice(0, 155);
+  // The description (and why it only carries a verified deadline note) is built in one place: src/lib/scholarships/meta-description.ts.
+  const description = scholarshipMetaDescription(data);
 
   return pageMetadata({
     title,
-    description: description || lead,
+    description,
     path: `/scholarships/${id}`,
   });
 }
@@ -215,7 +199,7 @@ export default async function ScholarshipDetailPage({
             text={
               scholarship.application_deadline
                 ? (deadline?.text ?? formatDeadline(scholarship.application_deadline))
-                : (scholarship.deadline_note ?? "Not published yet")
+                : deadlineNoteOrFallback(scholarship)
             }
             urgent={urgent}
             labelled={deadline?.labelled ?? true}

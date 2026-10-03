@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { publicDeadlineNote } from "@/lib/scholarships/public-deadline-note";
 import { EyebrowLabel, BorderedCard, buttonClasses } from "@/components/ui";
 import { CREDIT_COSTS } from "@/lib/credits/costs";
 import { SCHOLARSHIP_DEADLINE_REMINDER_DAYS } from "@/lib/scholarship-deadline-alerts/select";
@@ -57,6 +58,7 @@ export type LandingListing = Pick<
   | "close_time"
   | "close_tz"
   | "deadline_note"
+  | "deadline_verified_at"
   | "official_url"
 >;
 
@@ -72,7 +74,7 @@ function formatDeadlineLong(deadline: string): string | null {
   return formatCalendarDate(deadline) || null;
 }
 
-function deadlineDisplay(l: Pick<LandingListing, "application_deadline" | "close_time" | "close_tz" | "deadline_note">): {
+export function deadlineDisplay(l: Pick<LandingListing, "application_deadline" | "close_time" | "close_tz" | "deadline_note" | "deadline_verified_at">): {
   text: string;
   urgent: boolean;
   labelled: boolean;
@@ -86,9 +88,10 @@ function deadlineDisplay(l: Pick<LandingListing, "application_deadline" | "close
       return { text: date, urgent: false, labelled: true };
     }
   }
-  if (l.deadline_note) {
+  const note = publicDeadlineNote(l);
+  if (note) {
     return {
-      text: l.deadline_note.length <= DEADLINE_NOTE_MAX_CHARS ? l.deadline_note : DEADLINE_NOTE_FALLBACK,
+      text: note.length <= DEADLINE_NOTE_MAX_CHARS ? note : DEADLINE_NOTE_FALLBACK,
       urgent: false,
       labelled: true,
     };

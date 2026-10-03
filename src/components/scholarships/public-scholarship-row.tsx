@@ -4,6 +4,7 @@ import { DEGREE_LEVEL_LABEL, FUNDING_TYPE_LABEL } from "@/lib/scholarships/types
 import { formatDeadline } from "./scholarship-card";
 import type { Tables } from "@/lib/supabase/types";
 import { scholarshipDeadlineDisplay } from "@/lib/scholarships/close-instant";
+import { deadlineNoteOrFallback } from "@/lib/scholarships/public-deadline-note";
 
 /**
  * A scholarship on an SEO landing page — read-only, no Save/Farah widgets.
@@ -58,7 +59,7 @@ export function PublicScholarshipRow({ scholarship }: { scholarship: Tables<"sch
         <span className={urgent ? "font-semibold text-rust" : undefined}>
           {scholarship.application_deadline
             ? formatDeadline(scholarship.application_deadline)
-            : (scholarship.deadline_note ?? "Not published yet")}
+            : deadlineNoteOrFallback(scholarship)}
         </span>
       </span>
     </BorderedCard>

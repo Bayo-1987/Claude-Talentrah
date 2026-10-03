@@ -465,3 +465,18 @@ Board, not by the CSC directly. For these, "apply to WHO/UNESCO/Campus France" i
 the wrong instruction — "get admitted to the named host institution, then apply
 for the named funding through the named body" is correct. Listings for these
 programmes should say so in the eligibility or deadline note.
+
+## The deadline note is shown only with a verified deadline (#594)
+
+`deadline_note` is the text an applicant reads in place of a date when a provider has no single deadline. It is valid only alongside a verified-deadline
+stamp (`deadline_verified_at`). Three things hold that line now:
+
+- **One function decides what the public sees.** `publicDeadlineNote()` in `src/lib/scholarships/public-deadline-note.ts` returns the note only when the
+  stamp is present, and every public surface (the card, the list row, the detail page and its search description, the blog fact card, the landing pages)
+  goes through it. It fails closed: a surface that did not even select the stamp shows "Not published yet". `tests/scholarships/public-deadline-note.test.tsx`
+  fails the build if any file in `src/` reads `.deadline_note` any other way, so a new surface cannot print the column itself.
+- **The database refuses two shapes (migration 0217).** A `verified` listing cannot carry a note without a stamp, and no note may exceed 600 characters.
+  The admin form shows a live count against 600 and turns either refusal into a plain sentence.
+- **A consequence for hand-added listings.** The manual admin form never sets a stamp, so a listing added by hand with a deadline note cannot be approved
+  until the note is removed. That is deliberate: a deadline is not verified by whoever typed it. Give such a listing a real date instead, or leave the
+  note empty.
