@@ -117,6 +117,8 @@ export default function robots(): MetadataRoute.Robots {
           "/forgot-password",
           "/reset-password",
           "/auth/",
+          // EMP-1 / E3: the one-click Extend link in the closing reminder; the URL is a bearer token.
+          "/extend-posting/",
           // Internal.
           "/dev/",
         ],
