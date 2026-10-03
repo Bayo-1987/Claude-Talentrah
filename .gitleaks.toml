@@ -189,6 +189,22 @@ regexes = [
   # key at run time, but the first commit that carried the literal is already in the PR's history and this scan reads commits, so the value is
   # allowlisted. ANCHORED to exactly that value: no wildcard, and it does NOT relax the rule for anything else.
   '''^test-secret$''',
+
+  # tests/billing/paystack-deactivate-authorization.test.ts and tests/lib/email/resend-deletion-guard.test.ts, PR #686 (ACCT-1, 2026-10-03) — two exact test
+  # values, each assigned to a `process.env.*` name so the code under test takes its "configured" branch: a made-up Paystack secret key and a made-up Resend
+  # key. Human-readable fixtures, not credentials (neither has a real provider's shape or entropy, no network call is made: `fetch` is stubbed and the
+  # `resend` package is mocked), nothing to rotate. They matched this rule because the variable names contain `secret` and `api_key`. Both files now
+  # generate the value at run time, but the first commits that carried the literals are already in the PR's history and this scan reads commits, so
+  # the values are allowlisted. ANCHORED to exactly those values: no wildcard, and it does NOT relax the rule for anything else.
+  '''^sk_test_not_a_real_key$''',
+  '''^re_test_key_not_real$''',
+
+  # tests/lib/account-deletion/provider-cancel.test.ts, PR #686 — one more exact test value, from the same PR and for the same kind of test: a made-up key
+  # that the "no key, code, email or message text ever reaches a log" test puts inside a fake Paystack error message, to prove it never reaches a log line.
+  # It matched gitleaks' default Stripe rule only because it is shaped sk_test_ followed by alphanumerics; it is not a Stripe key, belongs to no
+  # account, and protects nothing. The test now assembles it at run time, but the first commit that carried the literal is already in the PR's history
+  # and this scan reads commits, so the value is allowlisted. ANCHORED to exactly that value: no wildcard, and it does NOT relax any rule for anything else.
+  '''^sk_test_leakleakleak$''',
 ]
 
 paths = [
