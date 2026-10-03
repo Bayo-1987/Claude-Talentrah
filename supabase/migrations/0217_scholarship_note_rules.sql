@@ -16,8 +16,11 @@
 --
 -- 2. scholarships_deadline_note_max_600
 --      deadline_note is null or char_length(deadline_note) <= 600
---    A note is a short phrase, not a paragraph; 600 characters is above every note the sources write today (the longest verified one is well under it)
---    and below the length at which commentary starts being written into a public field. The admin form shows a live count against it.
+--    A note is a short statement, not a report. 600 characters fits every note in production today, but not by much: the longest, on a verified
+--    listing quoting a two-round calendar, is 590 (read-only, 2026-10-03; 38 listings carry a note). The cap exists to stop commentary being written
+--    into a public field, and it is deliberately not applied by truncating: text is never cut, a longer note is refused and shortened by a person.
+--    tests/scholarships/seed-note-limits.test.ts keeps the notes in the source config under it, because one over-length note fails the whole
+--    nightly upsert batch it is in. The admin form shows a live count against it.
 --
 -- Additive in effect: no column, table or policy changes, and no rows change. Both constraints are added VALIDATED, so they are checked against every
 -- existing row as they are added and the statement fails (changing nothing) if any row breaks either rule. Checked read-only against production
