@@ -1,6 +1,7 @@
 <!--
 Copy this file to docs/handoff/<yyyy-mm-dd>-pr-<n>.md (the date is the merged-at date, UTC; <n> is the PR number) inside the PR that carries the change.
 An entry ships inside its own PR, so it cannot quote its own merge commit. While the PR is open, head it "## Opened ..." (or write "(filled at merge)" in both the merged-at and SHA cells); a follow-up docs commit changes the heading to "## Merged ..." and fills the real facts.
+Placeholders do not live forever: `npm run handoff-fill-merge-facts` (dry run; add `-- --write` to apply) reads each merged PR's time and SHA from the GitHub API (GET only) and rewrites just those two cells.
 This file is NOT a handoff entry: tests/docs/handoff-format.test.ts skips it and checks that it keeps the headings below.
 -->
 

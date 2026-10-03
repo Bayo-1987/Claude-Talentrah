@@ -29,6 +29,8 @@ one morning by two sessions that each did exactly that. Ask, wait for the number
 | 0211 | S3-21, definer and graphql hardening (#678) | applied 20:36Z | applied 20:37Z |
 | 0212 | S3-21, account deletion PR 1: request, emailed confirm link, hide at once (this PR) | not applied: waits for the owner's yes | not applied |
 | 0213 to 0214 | S3-21's later account-deletion PRs (export, purge) | reserved | reserved |
+| 0215 | S3 (admin dashboard), Refer & Earn: a signup pays nothing, activation pays the whole reward (this PR) | not applied: needs a rolled-back dry run and the owner's yes | not applied (after production) |
+| 0216 | S2, the company-rename trigger | reserved | reserved |
 
 The times are the ledger's own version stamps (UTC, 2 Oct 2026), read from `supabase_migrations.schema_migrations` on both projects. A row says "applied" only because
 that ledger shows it; "reserved" means a number has been asked for and no ledger has it.

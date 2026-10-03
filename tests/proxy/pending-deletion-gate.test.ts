@@ -95,12 +95,17 @@ describe("a session scheduled for deletion lands on the prompt on its next reque
 });
 
 describe("the refreshed session cookies survive the redirect", () => {
+  // Built ONCE, so "what the middleware set" and "what the gate must carry" are the very same strings (cookie `Expires` has one-second resolution, so two
+  // separate builds can differ and make this test flaky).
+  const source = NextResponse.next();
+  // A chunked session cookie plus its refresh token, each with its own attributes: what @supabase/ssr sets when a token is renewed.
+  source.cookies.set("sb-abc-auth-token.0", "chunk-zero", { path: "/", maxAge: 34_560_000, httpOnly: false, sameSite: "lax", secure: true });
+  source.cookies.set("sb-abc-auth-token.1", "chunk-one", { path: "/", maxAge: 34_560_000, httpOnly: false, sameSite: "lax", secure: true });
+  source.cookies.set("sb-abc-auth-token-code-verifier", "", { path: "/", maxAge: 0 });
+  const FIXED = source.headers.getSetCookie();
   const refreshed = () => {
     const r = NextResponse.next();
-    // A chunked session cookie plus its refresh token, each with its own attributes: what @supabase/ssr sets when a token is renewed.
-    r.cookies.set("sb-abc-auth-token.0", "chunk-zero", { path: "/", maxAge: 34_560_000, httpOnly: false, sameSite: "lax", secure: true });
-    r.cookies.set("sb-abc-auth-token.1", "chunk-one", { path: "/", maxAge: 34_560_000, httpOnly: false, sameSite: "lax", secure: true });
-    r.cookies.set("sb-abc-auth-token-code-verifier", "", { path: "/", maxAge: 0 });
+    for (const c of FIXED) r.headers.append("set-cookie", c);
     return r;
   };
 

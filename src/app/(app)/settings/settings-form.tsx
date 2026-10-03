@@ -56,6 +56,7 @@ export function SettingsForm({ firstName, lastName, country }: SettingsFormProps
       <SelectField
         label="Country"
         name="country"
+        autoComplete="country-name"
         options={SIGNUP_COUNTRIES}
         defaultValue={country ?? ""}
         required

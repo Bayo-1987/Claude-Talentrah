@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useRef, useState } from "react";
 import { signUpAction, type AuthActionState } from "@/lib/auth/actions";
 import { SIGNUP_COUNTRIES } from "@/lib/auth/schemas";
+import { PASSWORD_MIN_LENGTH } from "@/lib/auth/password";
 import { TextField, PasswordField, SelectField, Button } from "@/components/ui";
 import { PasswordRequirements } from "./password-requirements";
 
@@ -116,6 +117,7 @@ export function SignupForm({
         ref={countryRef}
         label="Country"
         name="country"
+        autoComplete="country-name"
         options={SIGNUP_COUNTRIES}
         required
         defaultValue={fields.country}
@@ -128,6 +130,7 @@ export function SignupForm({
           label="Password"
           name="password"
           autoComplete="new-password"
+          minLength={PASSWORD_MIN_LENGTH}
           required
           value={fields.password}
           onChange={set("password")}

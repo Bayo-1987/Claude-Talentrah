@@ -76,10 +76,8 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
  * `.select()`/`.gt()` chain itself, which should still surface loudly in
  * development and in tests.
  */
-export interface MentorPriceRangeNgn {
-  minNgn: number;
-  maxNgn: number;
-}
+export type { MentorPriceRangeNgn } from "./price-copy";
+import type { MentorPriceRangeNgn } from "./price-copy";
 
 export const getApprovedMentorPriceRangeNgn = cache(async (): Promise<MentorPriceRangeNgn | null> => {
   const supabase = createServiceRoleClient();
@@ -96,7 +94,8 @@ export const getApprovedMentorPriceRangeNgn = cache(async (): Promise<MentorPric
 
     const prices = (data ?? [])
       .map((row) => row.base_price_ngn)
-      .filter((price): price is number => price !== null);
+      // The query already excludes null and zero; keep that true here too, so a free or unpriced row can never become the minimum.
+      .filter((price): price is number => price !== null && price > 0);
 
     if (prices.length === 0) return null;
     return { minNgn: Math.min(...prices), maxNgn: Math.max(...prices) };
@@ -105,5 +104,28 @@ export const getApprovedMentorPriceRangeNgn = cache(async (): Promise<MentorPric
     // pricing chip must never be able to fail the entire static build.
     console.error("[mentorship] could not read approved mentor price range:", err);
     return null;
+  }
+});
+
+/**
+ * Whether at least one approved, bookable mentor offers free or volunteer sessions (a null or zero base price: the same
+ * definition the mentor cards use for "Free / volunteer"). The public page says "Some mentors offer sessions for free" only when
+ * this is true; otherwise it states the policy ("Mentors can choose to ...") without implying it is happening now. Fails soft to
+ * false for the same build-time reason as the range above: a read error must not fail a static prerender, and false is the
+ * claim-nothing answer.
+ */
+export const getApprovedMentorsOfferFreeSessions = cache(async (): Promise<boolean> => {
+  const supabase = createServiceRoleClient();
+  try {
+    const { data, error } = await supabase
+      .from("mentor_profiles")
+      .select("base_price_ngn")
+      .eq("status", "approved")
+      .eq("self_paused", false);
+    if (error) throw new Error(`getApprovedMentorsOfferFreeSessions: ${error.message}`);
+    return (data ?? []).some((row) => row.base_price_ngn === null || row.base_price_ngn === 0);
+  } catch (err) {
+    console.error("[mentorship] could not read whether any approved mentor offers free sessions:", err);
+    return false;
   }
 });

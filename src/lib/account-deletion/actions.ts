@@ -296,6 +296,7 @@ export async function restoreAccountAction(): Promise<void> {
 /** The person's other choice: leave the deletion as scheduled and end this session. Changes nothing in the database. */
 export async function keepDeletionAction(): Promise<void> {
   const supabase = await createClient();
-  await supabase.auth.signOut();
+  // "Keep the deletion" ends THIS device's session only: nothing else about the account changes, and the other devices are caught by the proxy gate anyway.
+  await supabase.auth.signOut({ scope: "local" });
   redirect("/");
 }

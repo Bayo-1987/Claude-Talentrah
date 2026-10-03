@@ -32,7 +32,10 @@ test("Country and Terms checkbox survive a failed signup submission", async ({ p
   // exact: true — the password reveal toggle's own accessible name also
   // contains "Password" ("Show password"), which a substring match would
   // resolve ambiguously.
-  await page.getByLabel("Password", { exact: true }).fill("weak");
+  // 12 characters, so the browser's own minLength lets it through to the server; no uppercase letter and no digit, so the
+  // server's rule still refuses it. (A shorter password, like the old "weak", is now stopped by the browser before the
+  // action runs, which would never exercise the failed-submission re-render this test is about.)
+  await page.getByLabel("Password", { exact: true }).fill("weakpassword");
 
   await page.getByRole("button", { name: "Create a free account" }).click();
 

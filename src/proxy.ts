@@ -1,6 +1,8 @@
 import { NextResponse, type NextFetchEvent, type NextRequest } from "next/server";
 import type { User } from "@supabase/supabase-js";
+import { createClient } from "@supabase/supabase-js";
 import { updateSession } from "@/lib/supabase/middleware";
+import { carryCookies } from "@/lib/supabase/carry-cookies";
 import { ADMIN_COOKIE } from "@/lib/admin/cookie";
 import { createPublicReadClient } from "@/lib/supabase/public-read";
 import { REFERRAL_CODE_PATTERN, REFERRAL_COOKIE, REFERRAL_COOKIE_MAX_AGE_SECONDS } from "@/lib/referrals/cookie";
@@ -68,7 +70,7 @@ function adminGate(request: NextRequest): NextResponse | null {
  * second one — that call already has to happen on every request to refresh
  * the session cookie, so checking its result here costs nothing extra.
  */
-function seekerAppGate(request: NextRequest, user: User | null): NextResponse | null {
+function seekerAppGate(request: NextRequest, user: User | null, refreshed: NextResponse): NextResponse | null {
   if (user) return null;
   if (!isProtectedSeekerPath(request.nextUrl.pathname)) return null;
 
@@ -76,7 +78,9 @@ function seekerAppGate(request: NextRequest, user: User | null): NextResponse | 
   url.pathname = "/login";
   url.search = "";
   url.searchParams.set("redirectTo", request.nextUrl.pathname + request.nextUrl.search);
-  return NextResponse.redirect(url);
+  // The refreshed (or clearing) session cookies go with the redirect: a bare redirect loses a rotated refresh token and, for a dead
+  // session, the headers that clear its cookies (S1-44; src/lib/supabase/carry-cookies.ts).
+  return carryCookies(refreshed, NextResponse.redirect(url));
 }
 
 /**
@@ -183,17 +187,19 @@ async function captureReferral(request: NextRequest, response: NextResponse, use
  * a page view must never fail, or even visibly slow down, because a
  * best-effort activity timestamp could not be written.
  */
-function touchLastActive(
-  event: NextFetchEvent,
-  user: User | null,
-  supabase: Awaited<ReturnType<typeof updateSession>>["supabase"],
-) {
-  if (!user) return;
+function touchLastActive(event: NextFetchEvent, user: User | null, accessToken: string | null) {
+  if (!user || !accessToken) return;
+  // A client that holds ONLY the token `updateSession` just validated: no cookies, no persistence, no auto-refresh. It cannot refresh
+  // the session or write a cookie after the response has gone out (S1-44); if the token has expired by then the call simply fails.
+  const asUser = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
+    global: { headers: { Authorization: `Bearer ${accessToken}` } },
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+  });
   event.waitUntil(
     // `.rpc()` returns a thenable PostgrestFilterBuilder, not a real
     // Promise — waitUntil's own type requires Promise<any>, so this is
     // wrapped rather than passed straight through.
-    Promise.resolve(supabase.rpc("touch_last_active")).then(({ error }) => {
+    Promise.resolve(asUser.rpc("touch_last_active")).then(({ error }) => {
       if (error) console.error("[touch-last-active] rpc failed:", error.message);
     }),
   );
@@ -232,15 +238,15 @@ export async function proxy(request: NextRequest, event: NextFetchEvent) {
   const gated = adminGate(request);
   if (gated) return gated;
 
-  const { response, user, supabase } = await updateSession(request);
+  const { response, user, accessToken } = await updateSession(request);
 
   // A session whose account is scheduled for deletion goes no further, and is not stamped as recently active (see pending-deletion-gate.ts).
   const pendingDeletion = pendingDeletionGate(request, response, user);
   if (pendingDeletion) return pendingDeletion;
 
-  touchLastActive(event, user, supabase);
+  touchLastActive(event, user, accessToken);
 
-  const seekerGated = seekerAppGate(request, user);
+  const seekerGated = seekerAppGate(request, user, response);
   const finalResponse = seekerGated ?? response;
 
   await captureReferral(request, finalResponse, user);

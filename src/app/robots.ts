@@ -43,7 +43,9 @@ export default function robots(): MetadataRoute.Robots {
           "/auto-apply",
           "/billing",
           "/feedback",
-          "/refer",
+          // Refer & Earn (send-515): the bare /refer is a public landing page, so only what is UNDER it is disallowed (the
+          // trailing-slash form /mentorship/ and /tracker/ use).
+          "/refer/",
           "/resume-builder",
           "/settings",
           "/tailor",

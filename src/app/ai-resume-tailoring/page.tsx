@@ -58,7 +58,7 @@ export default function AiResumeTailoringPage() {
                 <span className="font-display text-[22px] text-rust">1</span>
                 <h2 className="font-display text-[17px] font-semibold">Paste the job description</h2>
                 <p className="text-[13.5px] leading-[1.55] text-ink-soft">
-                  A link or the full text — whatever you have. No manual
+                  The full text of the posting, pasted in. No manual
                   re-typing of requirements.
                 </p>
               </BorderedCard>

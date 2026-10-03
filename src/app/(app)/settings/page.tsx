@@ -5,6 +5,7 @@ import { SettingsForm } from "./settings-form";
 import { billingRegionLabel } from "@/lib/billing/region";
 import { DeleteAccountSection } from "@/components/account-deletion/delete-account-section";
 import { getDeletionBlockers } from "@/lib/account-deletion/queries";
+import { SignOutEverywhere } from "./sign-out-everywhere";
 
 export const metadata = { title: "Settings — Talentrah" };
 
@@ -81,6 +82,7 @@ export default async function SettingsPage() {
         ))}
       </div>
 
+      <SignOutEverywhere />
       <DeleteAccountSection creditsBalance={Math.max(profile.credits_balance, 0)} blockers={deletionBlockers} />
     </div>
   );

@@ -40,6 +40,8 @@ vi.mock("@/lib/supabase/server", () => ({
     auth: {
       getUser: async () => ({ data: { user: { id: USER_ID } } }),
       updateUser: async () => ({ error: null }),
+      // updatePasswordAction now ends the user's OTHER sessions after the change (S1-44); this test is about where the user lands, so it is a no-op here
+      signOut: async () => ({ error: null }),
     },
   }),
 }));

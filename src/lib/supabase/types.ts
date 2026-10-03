@@ -2856,6 +2856,7 @@ export type Database = {
           referrer_id: string | null
           reward_credits_referred: number
           reward_credits_referrer: number
+          reward_withheld_reason: string | null
           signed_up_at: string | null
           status: Database["public"]["Enums"]["referral_status"]
         }
@@ -2867,6 +2868,7 @@ export type Database = {
           referrer_id?: string | null
           reward_credits_referred?: number
           reward_credits_referrer?: number
+          reward_withheld_reason?: string | null
           signed_up_at?: string | null
           status?: Database["public"]["Enums"]["referral_status"]
         }
@@ -2878,6 +2880,7 @@ export type Database = {
           referrer_id?: string | null
           reward_credits_referred?: number
           reward_credits_referrer?: number
+          reward_withheld_reason?: string | null
           signed_up_at?: string | null
           status?: Database["public"]["Enums"]["referral_status"]
         }
@@ -3862,6 +3865,16 @@ export type Database = {
           identity_args: string
           security_definer: boolean
           search_path_config: string | null
+        }[]
+      }
+      stuck_signed_up_referrals: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          referral_id: string
+          referrer_id: string | null
+          referred_user_id: string
+          signed_up_at: string
+          qualifies_by: string
         }[]
       }
       add_test_pool_user: {
