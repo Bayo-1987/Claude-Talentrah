@@ -1494,6 +1494,44 @@ export type Database = {
           },
         ]
       }
+      job_expiry_reminders: {
+        Row: {
+          closes_at: string
+          created_at: string
+          id: string
+          job_posting_id: string
+          sent_at: string | null
+          token_hash: string
+          used_at: string | null
+        }
+        Insert: {
+          closes_at: string
+          created_at?: string
+          id?: string
+          job_posting_id: string
+          sent_at?: string | null
+          token_hash: string
+          used_at?: string | null
+        }
+        Update: {
+          closes_at?: string
+          created_at?: string
+          id?: string
+          job_posting_id?: string
+          sent_at?: string | null
+          token_hash?: string
+          used_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_expiry_reminders_job_posting_id_fkey"
+            columns: ["job_posting_id"]
+            isOneToOne: false
+            referencedRelation: "job_postings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       job_posting_assessment_files: {
         Row: {
           byte_size: number
@@ -1700,6 +1738,7 @@ export type Database = {
           claimed_at: string | null
           claimed_by_organization_id: string | null
           closed_at: string | null
+          closing_date_source: string | null
           company_logo_url: string | null
           company_name: string
           created_at: string
@@ -1745,6 +1784,7 @@ export type Database = {
           claimed_at?: string | null
           claimed_by_organization_id?: string | null
           closed_at?: string | null
+          closing_date_source?: string | null
           company_logo_url?: string | null
           company_name: string
           created_at?: string
@@ -1792,6 +1832,7 @@ export type Database = {
           claimed_at?: string | null
           claimed_by_organization_id?: string | null
           closed_at?: string | null
+          closing_date_source?: string | null
           company_logo_url?: string | null
           company_name?: string
           created_at?: string
@@ -3351,6 +3392,42 @@ export type Database = {
           },
         ]
       }
+      talent_directory_waitlist: {
+        Row: {
+          created_at: string
+          id: string
+          joined_by: string | null
+          organization_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          joined_by?: string | null
+          organization_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          joined_by?: string | null
+          organization_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "talent_directory_waitlist_joined_by_fkey"
+            columns: ["joined_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "talent_directory_waitlist_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       talent_portfolio_items: {
         Row: {
           created_at: string
@@ -3953,6 +4030,12 @@ export type Database = {
           reason: string
         }[]
       }
+      claim_job_expiry_reminder: {
+        Args: { p_job_posting_id: string; p_now?: string; p_token_hash: string }
+        Returns: {
+          closes_at: string
+        }[]
+      }
       claim_test_pool_user: {
         Args: {
           p_lease_id: string
@@ -4035,6 +4118,29 @@ export type Database = {
           applications_snapshotted: number
           ok: boolean
           reason: string
+        }[]
+      }
+      due_job_expiry_reminders: {
+        Args: { p_limit?: number; p_now?: string }
+        Returns: {
+          closes_at: string
+          job_posting_id: string
+          organization_id: string
+          title: string
+        }[]
+      }
+      job_expiry_function_definition: { Args: { p_name: string }; Returns: string }
+      expiry_reminder_window_ok: {
+        Args: { p_closes_at: string; p_now: string }
+        Returns: boolean
+      }
+      redeem_job_expiry_extend_token: {
+        Args: { p_now?: string; p_token_hash: string }
+        Returns: {
+          job_posting_id: string
+          new_expires_at: string
+          outcome: string
+          title: string
         }[]
       }
       email_unsubscribe: {
@@ -4521,6 +4627,8 @@ export type Database = {
         Returns: boolean
       }
       sync_mentor_payout_rows: { Args: never; Returns: number }
+      talent_directory_listed_count: { Args: never; Returns: number }
+      talent_directory_listed_ids: { Args: never; Returns: string[] }
       talent_directory_portfolio_items: {
         Args: { p_candidate_id: string }
         Returns: {
@@ -4530,6 +4638,9 @@ export type Database = {
           url: string
         }[]
       }
+      talent_directory_preview: { Args: never; Returns: Json }
+      talent_directory_preview_for: { Args: { p_ids: string[] }; Returns: Json }
+      talent_directory_role_family: { Args: { p_title: string }; Returns: string }
       talent_directory_search: {
         Args: {
           p_available_for_hire?: boolean
@@ -4550,6 +4661,7 @@ export type Database = {
           verified_at: string
         }[]
       }
+      talent_directory_years_band: { Args: { p_years: number }; Returns: string }
       talent_verification_my_claims: {
         Args: never
         Returns: {

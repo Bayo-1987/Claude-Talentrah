@@ -30,6 +30,11 @@ import { describe, expect, it } from "vitest";
 import { isProtectedSeekerPath } from "@/lib/auth/seeker-gate-paths";
 
 describe("isProtectedSeekerPath", () => {
+  it("S3-23a: does NOT gate /how-match-scores-work (job pages are public, so the explainer they link to must be too)", () => {
+    expect(isProtectedSeekerPath("/billing")).toBe(true); // the gate still gates
+    expect(isProtectedSeekerPath("/how-match-scores-work")).toBe(false);
+  });
+
   it("send-484: does NOT gate the bare /jobs list, /jobs/[id] or any other /jobs page", () => {
     // Control: the gate still gates. If isProtectedSeekerPath ever answered false for
     // everything, every "false" below would pass for the wrong reason.
