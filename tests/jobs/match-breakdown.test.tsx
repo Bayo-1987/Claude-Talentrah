@@ -56,26 +56,39 @@ describe("skill coverage", () => {
 });
 
 describe("seniority", () => {
-  it("covers all four alignment values", () => {
+  it("shows the three real alignment values", () => {
     expect(render(explanation({ seniorityAlignment: "match" }))).toContain(">Match<");
     expect(render(explanation({ seniorityAlignment: "above" }))).toContain(">Above<");
     expect(render(explanation({ seniorityAlignment: "below" }))).toContain(">Below<");
-    expect(render(explanation({ seniorityAlignment: "unknown" }))).toContain(">Not available<");
+  });
+
+  it("an UNKNOWN seniority renders no cell at all (not 'Not available'): a field shows only when it carries a real value", () => {
+    const html = render(explanation({ seniorityAlignment: "unknown" }));
+    expect(html).not.toContain("Seniority");
+    expect(html).not.toContain("Not available");
   });
 });
 
-describe("industry alignment", () => {
-  it(
-    "SABOTAGE-PROOF TARGET: renders as neutral text, never a match-tier color",
-    () => {
-      const html = render(explanation());
-      expect(html).toContain("Not yet measured");
-      // The three real tier colors — this is not a fourth tier, so none may
-      // appear anywhere near this cell (the whole component has no tier
-      // color at all).
-      expect(html).not.toContain("text-green");
-      expect(html).not.toContain("text-rust");
-      expect(html).not.toContain("text-amber");
-    },
-  );
+describe("no placeholder cells (S3-23a)", () => {
+  it("SABOTAGE-PROOF TARGET: never renders 'Not yet measured' or 'flagged, not scored', or an Industry alignment cell", () => {
+    for (const a of ["match", "above", "below", "unknown"] as const) {
+      const html = render(explanation({ matchedSkills: ["sql"], missingSkills: ["aws", "docker"], seniorityAlignment: a }));
+      expect(html).not.toContain("Not yet measured");
+      expect(html).not.toContain("flagged, not scored");
+      expect(html).not.toMatch(/industry alignment/i);
+    }
+  });
+
+  it("renders exactly the cells that have real values: two when seniority is known, one when it is not", () => {
+    const labels = (html: string) => (html.match(/uppercase">([^<]+)</g) ?? []).length;
+    expect(labels(render(explanation({ matchedSkills: ["sql"], missingSkills: ["aws"], seniorityAlignment: "match" })))).toBe(2);
+    expect(labels(render(explanation({ matchedSkills: ["sql"], missingSkills: ["aws"], seniorityAlignment: "unknown" })))).toBe(1);
+  });
+
+  it("uses no match-tier color anywhere (this component is not a fourth tier)", () => {
+    const html = render(explanation({ matchedSkills: ["sql"], missingSkills: [], seniorityAlignment: "match" }));
+    expect(html).not.toContain("text-green");
+    expect(html).not.toContain("text-rust");
+    expect(html).not.toContain("text-amber");
+  });
 });
