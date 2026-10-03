@@ -15,15 +15,21 @@ import { PATH_HEADER } from "@/lib/auth/redirect-to";
  * `auth.getUser()` round trip — this is the one call that was always going to
  * happen anyway.
  *
- * Also returns the `supabase` client itself (send-467) so `proxy.ts` can fire
- * `touch_last_active()` (0199) through the SAME session-bound client, rather
- * than building a second one from the same cookies — that RPC call has to run
- * as this request's authenticated user (the function is `auth.uid()`-scoped),
- * and this client is already carrying that session.
+ * Also returns the access token this call just validated (send-467, changed by
+ * S1-44), so `proxy.ts` can fire `touch_last_active()` (0199) as this request's
+ * authenticated user (the function is `auth.uid()`-scoped) through a client that
+ * holds ONLY that token. It used to reuse the session-bound client here, which
+ * could refresh the session and write cookies to a response that had already
+ * gone out. Read with `getSession()` only when `getUser()` returned a user, so
+ * it is a read of the cookie just validated, never a second network call.
+ *
+ * MUST BE CALLED EXACTLY ONCE PER REQUEST: `setAll` rebuilds `response`, so a
+ * second call's cookies would replace the first call's. Pinned by
+ * tests/proxy/cookie-carry.test.ts.
  */
 export async function updateSession(
   request: NextRequest,
-): Promise<{ response: NextResponse; user: User | null; supabase: ReturnType<typeof createServerClient<Database>> }> {
+): Promise<{ response: NextResponse; user: User | null; accessToken: string | null }> {
   /*
    * Stamp the path onto the request so a Server Component can know where it
    * is. `requireUser()` needs it to build a return trip, and a Server
@@ -63,5 +69,13 @@ export async function updateSession(
     data: { user },
   } = await supabase.auth.getUser();
 
-  return { response, user, supabase };
+  let accessToken: string | null = null;
+  if (user) {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    accessToken = session?.access_token ?? null;
+  }
+
+  return { response, user, accessToken };
 }
