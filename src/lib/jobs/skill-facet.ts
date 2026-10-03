@@ -1,4 +1,6 @@
 import { NON_SCREENABLE_SKILLS } from "@/lib/jobs/extract-jd";
+import { classifyRoleFamilies } from "@/lib/matching/role-family";
+import { isBaselineTagScreenable } from "@/lib/matching/role-fit";
 import type { Tables } from "@/lib/supabase/types";
 
 /**
@@ -42,14 +44,18 @@ export function skillsOf(job: JobPosting): string[] {
  * and from matched/missing; a card that printed them anyway sat under
  * "0 of 3 tags" with five names in it.
  *
+ * With the job's `jobTitle` it also separates the generic baseline tags (project management, agile, ...) that the scorer only counts for
+ * the families they are core for (A2, role-fit.ts), so the count and the list still agree. Without a title only NON_SCREENABLE_SKILLS are.
+ *
  * Lowercased and de-duplicated (a Set, like the scorer) and order-preserving.
  * Reads the scorer's own set rather than a copy, so a term added there is
  * separated here with no second edit.
  */
-export function splitSkillsByScreenability(skills: string[]): {
+export function splitSkillsByScreenability(skills: string[], jobTitle?: string): {
   screenable: string[];
   notCounted: string[];
 } {
+  const jobFamilies = jobTitle === undefined ? undefined : classifyRoleFamilies(jobTitle);
   const seen = new Set<string>();
   const screenable: string[] = [];
   const notCounted: string[] = [];
@@ -57,7 +63,8 @@ export function splitSkillsByScreenability(skills: string[]): {
     const s = raw.toLowerCase();
     if (seen.has(s)) continue;
     seen.add(s);
-    (NON_SCREENABLE_SKILLS.has(s) ? notCounted : screenable).push(s);
+    const counted = !NON_SCREENABLE_SKILLS.has(s) && (jobFamilies === undefined || isBaselineTagScreenable(s, jobFamilies));
+    (counted ? screenable : notCounted).push(s);
   }
   return { screenable, notCounted };
 }

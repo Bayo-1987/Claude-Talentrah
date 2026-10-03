@@ -89,6 +89,7 @@ export function scoreJobs(resume: StructuredResume, jobs: JobPosting[]): ScoredJ
       resume,
       structuredJd?.skills ?? [],
       job.seniority ?? undefined,
+      job.title,
     );
     return {
       job,
@@ -178,7 +179,7 @@ export async function computeAndStoreApplicationMatchScore(
 ): Promise<void> {
   const [{ data: resumeRow }, { data: jobRow }] = await Promise.all([
     supabase.from("resumes").select("structured_content").eq("id", resumeId).maybeSingle(),
-    supabase.from("job_postings").select("structured_jd, seniority").eq("id", jobId).maybeSingle(),
+    supabase.from("job_postings").select("structured_jd, seniority, title").eq("id", jobId).maybeSingle(),
   ]);
 
   if (!resumeRow || !jobRow) return;
@@ -188,6 +189,7 @@ export async function computeAndStoreApplicationMatchScore(
     resumeRow.structured_content as unknown as StructuredResume,
     structuredJd?.skills ?? [],
     jobRow.seniority ?? undefined,
+    jobRow.title,
   );
 
   await persistMatchScores(userId, [
