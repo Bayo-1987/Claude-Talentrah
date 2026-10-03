@@ -105,7 +105,9 @@ test.describe("signed-out visitor at /scholarships", () => {
     await pageSettled(page);
     await expect(page.getByRole("link", { name: "Create a free account" }).first()).toBeVisible();
     await expect(page.locator('a[href="/signup?redirectTo=%2Fscholarships"]').first()).toBeVisible();
-    await expect(page.locator('a[href="/login?redirectTo=%2Fscholarships"]')).toBeVisible();
+    await expect(page.getByRole("main").locator('a[href="/login?redirectTo=%2Fscholarships"]').first()).toBeVisible();
+    // The masthead's Log in carries the same destination now (S1-50).
+    await expect(page.getByRole("banner").getByRole("link", { name: "Log in" })).toHaveAttribute("href", "/login?redirectTo=%2Fscholarships");
     await expect(page.locator('a[href="/scholarships/apply-now"]').first()).toBeVisible();
     // Auto-retrying text assertions on the settled page, not an innerText snapshot.
     await expect(page.locator("body")).toContainText("Reading every listing is free and needs no account.");

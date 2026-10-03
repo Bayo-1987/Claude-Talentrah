@@ -80,13 +80,16 @@ test("a first-time signup from /scholarships goes through onboarding and ends on
   if (profile) made.userIds.push(profile.id);
 });
 
-test("an employer account (organisation, no resume) logging in from /employer lands on the employer side and never sees the resume upload", async ({ page }) => {
+test("an employer account (organisation, no resume) logging in from /employer lands on the employer side and is never shown the resume upload", async ({ page }) => {
   const creds = await createAccount({ org: true });
-  const visited: string[] = [];
-  page.on("framenavigated", (f) => { if (f === page.mainFrame()) visited.push(new URL(f.url()).pathname); });
+  // /onboarding may be passed THROUGH (a redirect with no page of its own); what must never happen is /onboarding rendering.
+  const onboardingResponses: number[] = [];
+  page.on("response", (r) => { if (new URL(r.url()).pathname === "/onboarding" && r.request().resourceType() === "document") onboardingResponses.push(r.status()); });
   await logInFromMasthead(page, "/employer", creds);
   await page.waitForURL(/\/employer\/jobs$/);
-  expect(visited.filter((p) => p.startsWith("/onboarding")), `visited: ${visited.join(" > ")}`).toEqual([]);
+  expect(onboardingResponses.length, "the login hop goes through /onboarding").toBeGreaterThan(0);
+  expect(onboardingResponses.every((s) => s >= 300 && s < 400), `/onboarding answered ${onboardingResponses.join(", ")}`).toBe(true);
+  await expect(page.getByText(/Ready to land your dream job/)).toHaveCount(0);
 });
 
 test("a seeker with no resume logging in from /employer skips the resume prompt and gets the employer side's own onboarding", async ({ page }) => {

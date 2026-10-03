@@ -100,7 +100,9 @@ for (const { path, loading, signedInTitle, titleHas } of PAGES) {
       await expect(page.getByRole("link", { name: "Create a free account" }).first()).toBeVisible();
       const redirectTo = encodeURIComponent(path);
       await expect(page.locator(`a[href="/signup?redirectTo=${redirectTo}"]`).first()).toBeVisible();
-      await expect(page.locator(`a[href="/login?redirectTo=${redirectTo}"]`)).toBeVisible();
+      // The page's own CTA, in the main landmark; the masthead's Log in now carries the same destination (S1-50), checked separately.
+      await expect(page.getByRole("main").locator(`a[href="/login?redirectTo=${redirectTo}"]`).first()).toBeVisible();
+      await expect(page.getByRole("banner").getByRole("link", { name: "Log in" })).toHaveAttribute("href", `/login?redirectTo=${redirectTo}`);
       await expect(page.locator("body")).not.toContainText(/\bsign(ing)? ?up\b/i);
     });
 
