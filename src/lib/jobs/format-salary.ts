@@ -1,4 +1,5 @@
 import type { Tables } from "@/lib/supabase/types";
+import { formatMoneyRange } from "@/lib/format-money-range";
 
 /**
  * The one place a salary is turned into words a seeker reads, so the display
@@ -8,7 +9,7 @@ import type { Tables } from "@/lib/supabase/types";
  * page) both call this; nowhere else does — see the note at the bottom of
  * this file for why.
  *
- * `en-NG` is the base locale, not `en`/`en-US`: ICU has no dedicated glyph
+ * The amounts are formatted by src/lib/format-money-range.ts, which uses `en-NG` as the base locale, not `en`/`en-US`: ICU has no dedicated glyph
  * for NGN under a generic English locale and falls back to printing the code
  * ("NGN 500,000"), but `en-NG` renders the Naira sign a Nigerian reader
  * actually expects ("₦500,000") without changing how any other currency
@@ -16,8 +17,6 @@ import type { Tables } from "@/lib/supabase/types";
  * still falls back to its own code-prefix form either way). The product's own
  * market is the tie-breaker here, not a universal "more correct" choice.
  */
-const SALARY_LOCALE = "en-NG";
-
 const UNIT_SUFFIX: Record<string, string> = {
   hour: "per hour",
   day: "per day",
@@ -65,23 +64,9 @@ export function formatSalary(job: SalaryFields): string | null {
   if (!job.salary_currency || (min === undefined && max === undefined)) return null;
 
   try {
-    const formatter = new Intl.NumberFormat(SALARY_LOCALE, {
-      style: "currency",
-      currency: job.salary_currency,
-      maximumFractionDigits: 0,
-    });
-
-    let amount: string;
-    if (min !== undefined && max !== undefined) {
-      amount = min === max ? formatter.format(min) : `${formatter.format(min)} – ${formatter.format(max)}`;
-    } else if (min !== undefined) {
-      amount = `From ${formatter.format(min)}`;
-    } else {
-      amount = `Up to ${formatter.format(max!)}`;
-    }
-
+    // Equal bounds collapse to one amount, in the range's own currency: see src/lib/format-money-range.ts.
     const unit = job.salary_unit ? UNIT_SUFFIX[job.salary_unit] : undefined;
-    return unit ? `${amount} ${unit}` : amount;
+    return formatMoneyRange(min, max, job.salary_currency, { style: "compact", unit });
   } catch {
     // A currency Intl genuinely cannot format is the same "nothing honest to
     // show" case as no currency at all — never render a raw error or a
