@@ -94,7 +94,8 @@ export const getApprovedMentorPriceRangeNgn = cache(async (): Promise<MentorPric
 
     const prices = (data ?? [])
       .map((row) => row.base_price_ngn)
-      .filter((price): price is number => price !== null);
+      // The query already excludes null and zero; keep that true here too, so a free or unpriced row can never become the minimum.
+      .filter((price): price is number => price !== null && price > 0);
 
     if (prices.length === 0) return null;
     return { minNgn: Math.min(...prices), maxNgn: Math.max(...prices) };

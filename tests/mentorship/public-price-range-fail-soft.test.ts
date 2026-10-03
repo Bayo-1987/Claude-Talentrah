@@ -83,6 +83,20 @@ describe("getApprovedMentorPriceRangeNgn — fails soft, never throws", () => {
   });
 });
 
+describe("getApprovedMentorPriceRangeNgn — an unpriced row is never a bound", () => {
+  it("a null or zero price (free/volunteer, or not priced) is not the minimum, even if a row reaches the code unfiltered", async () => {
+    queryResult.data = [{ base_price_ngn: null }, { base_price_ngn: 0 }, { base_price_ngn: 20000 }];
+    const { getApprovedMentorPriceRangeNgn } = await import("@/lib/mentorship/public-price-range");
+    await expect(getApprovedMentorPriceRangeNgn()).resolves.toEqual({ minNgn: 20000, maxNgn: 20000 });
+  });
+
+  it("only unpriced rows: no range at all (the page then leaves the price sentence out)", async () => {
+    queryResult.data = [{ base_price_ngn: null }, { base_price_ngn: 0 }];
+    const { getApprovedMentorPriceRangeNgn } = await import("@/lib/mentorship/public-price-range");
+    await expect(getApprovedMentorPriceRangeNgn()).resolves.toBeNull();
+  });
+});
+
 describe("getApprovedMentorsOfferFreeSessions — true only when an approved, bookable mentor really offers free or volunteer sessions", () => {
   const load = async () => (await import("@/lib/mentorship/public-price-range")).getApprovedMentorsOfferFreeSessions();
 

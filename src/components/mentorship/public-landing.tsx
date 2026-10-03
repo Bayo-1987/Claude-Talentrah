@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Container, EyebrowLabel, BorderedCard, buttonClasses } from "@/components/ui";
-import { mentorshipPricePhrase, type MentorPriceRangeNgn } from "@/lib/mentorship/price-copy";
+import { mentorshipPriceSentence, type MentorPriceRangeNgn } from "@/lib/mentorship/price-copy";
 
 /**
  * send-385 — the signed-out-visitor entry point at `/mentorship`, replacing
@@ -74,7 +74,7 @@ export function MentorshipPublicLanding({
   /** True only if at least one approved, bookable mentor really offers free or volunteer sessions. */
   offersFreeSessions: boolean;
 }) {
-  const pricePhrase = mentorshipPricePhrase(priceRangeNgn);
+  const priceSentence = mentorshipPriceSentence(priceRangeNgn);
   return (
     <Container className="flex max-w-[900px] flex-col gap-14 py-16">
       <div className="flex flex-col gap-4">
@@ -132,12 +132,12 @@ export function MentorshipPublicLanding({
         <EyebrowLabel>Pricing</EyebrowLabel>
         <p className="max-w-[620px] text-[15px] leading-[1.65] text-ink-soft">
           Mentors set their own rates depending on their experience and the kind of session.{" "}
-          {pricePhrase !== null && `Right now, sessions cost ${pricePhrase}. `}
+          {priceSentence !== null && `${priceSentence} `}
           You pay the mentor directly for the session you book, not from
           Talentrah Credits.{" "}
           {offersFreeSessions
-            ? "Some mentors offer sessions for free or as volunteers; that\u2019s always shown on their profile before you book, never a surprise afterward."
-            : "Mentors can choose to offer sessions for free; if one does, that\u2019s shown on their profile before you book, never a surprise afterward."}
+            ? "Some mentors offer sessions for free or as volunteers; that's always shown on their profile before you book, never a surprise afterward."
+            : "Mentors can choose to offer sessions for free; if one does, that's shown on their profile before you book, never a surprise afterward."}
         </p>
       </div>
 

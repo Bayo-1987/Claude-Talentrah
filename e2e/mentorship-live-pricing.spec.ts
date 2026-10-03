@@ -30,7 +30,6 @@
 import { test, expect, admin } from "./fixtures/authed";
 import type { Page } from "@playwright/test";
 import { randomUUID } from "node:crypto";
-import { mentorshipPriceClause, mentorshipPricePhrase } from "../src/lib/mentorship/price-copy";
 
 /**
  * `(list)`'s own loading.tsx renders a generic skeleton — including the
@@ -65,6 +64,19 @@ async function queryLiveApprovedPriceRange(): Promise<{ minNgn: number; maxNgn: 
   return { minNgn: Math.min(...prices), maxNgn: Math.max(...prices) };
 }
 
+/**
+ * What the page must say for a live range, written out here on purpose and NOT by importing the app's own formatter: a test that
+ * checks the helper against itself passes when the helper is wrong. One amount when the bounds are equal, "from X to Y" otherwise.
+ */
+const naira = (n: number) => `₦${n.toLocaleString("en-NG")}`;
+const SAME_AMOUNT_TWICE = /(₦[\d,]+) to \1(?![\d,])/;
+function expectedMetadataClause(r: { minNgn: number; maxNgn: number }): string {
+  return r.minNgn === r.maxNgn ? `, ${naira(r.minNgn)} per session` : `, from ${naira(r.minNgn)} to ${naira(r.maxNgn)} per session`;
+}
+function expectedPriceSentence(r: { minNgn: number; maxNgn: number }): string {
+  return r.minNgn === r.maxNgn ? `Right now, a session costs ${naira(r.minNgn)}.` : `Right now, sessions cost from ${naira(r.minNgn)} to ${naira(r.maxNgn)}.`;
+}
+
 test.describe("send-393: /mentorship pricing claims match live mentor_profiles data", () => {
   test("metadata description's price clause matches (or correctly omits) the real current floor", async ({
     page,
@@ -80,9 +92,9 @@ test.describe("send-393: /mentorship pricing claims match live mentor_profiles d
     expect(description).not.toContain("from ₦5,000");
 
     if (live !== null) {
-      // One amount when min equals max, "from ₦X to ₦Y" otherwise (src/lib/format-money-range.ts): never "₦X to ₦X".
-      expect(description).toContain(mentorshipPriceClause(live));
-      expect(description).not.toMatch(/(₦[\d,]+) to \1(?![\d,])/);
+      // One amount when min equals max, "from ₦X to ₦Y" otherwise: never "₦X to ₦X".
+      expect(description).toContain(expectedMetadataClause(live));
+      expect(description).not.toMatch(SAME_AMOUNT_TWICE);
     } else {
       // The honest fallback: no price clause at all, not a guessed number.
       expect(description).not.toMatch(/₦\d/);
@@ -101,8 +113,8 @@ test.describe("send-393: /mentorship pricing claims match live mentor_profiles d
     expect(bodyText).not.toContain("₦100,000");
 
     if (live !== null) {
-      expect(bodyText).toContain(mentorshipPricePhrase(live)!);
-      expect(bodyText).not.toMatch(/(₦[\d,]+) to \1(?![\d,])/);
+      expect(bodyText).toContain(expectedPriceSentence(live));
+      expect(bodyText).not.toMatch(SAME_AMOUNT_TWICE);
     } else {
       expect(bodyText).toContain("Mentors set their own rates depending on their experience");
     }
@@ -112,11 +124,10 @@ test.describe("send-393: /mentorship pricing claims match live mentor_profiles d
     page,
   }) => {
     test.setTimeout(60_000);
-    const before = await queryLiveApprovedPriceRange();
-    // Guaranteed lower than anything currently live, and than send-385's
-    // own stale ₦5,000 — proves this isn't just re-displaying that number
-    // by coincidence.
-    const fixturePriceNgn = before !== null ? Math.max(1000, before.minNgn - 5000) : 1234;
+    // Below send-385's stale ₦5,000, so this cannot pass by re-displaying that number by coincidence.
+    // A fixed, literal fixture price (₦1,111), so the assertions below name the exact text a visitor reads rather than recomputing it.
+    // It must be the lowest price live; the check below fails loudly, naming this assumption, if a real mentor is priced at or under it.
+    const fixturePriceNgn = 1111;
 
     const domain = `${randomUUID().slice(0, 12)}.talentrah.test`;
     const email = `mentor-pricing-${randomUUID()}@${domain}`;
@@ -143,11 +154,15 @@ test.describe("send-393: /mentorship pricing claims match live mentor_profiles d
 
       await page.goto("/mentorship");
       const description = await page.locator('meta[name="description"]').first().getAttribute("content");
-      expect(description).toContain(mentorshipPriceClause(after));
+      expect(description).toContain("₦1,111");
+      expect(description).toContain(after!.maxNgn === 1111 ? ", ₦1,111 per session" : ", from ₦1,111 to ");
+      expect(description).not.toMatch(SAME_AMOUNT_TWICE);
 
       await waitForPublicLandingLoaded(page);
       const bodyText = await page.locator("body").innerText();
-      expect(bodyText).toContain(`₦${fixturePriceNgn.toLocaleString("en-NG")}`);
+      expect(bodyText).toContain("₦1,111");
+      expect(bodyText).toContain(after!.maxNgn === 1111 ? "Right now, a session costs ₦1,111." : "Right now, sessions cost from ₦1,111 to ");
+      expect(bodyText).not.toMatch(SAME_AMOUNT_TWICE);
     } finally {
       const { error: deleteErr } = await admin.auth.admin.deleteUser(user.user.id);
       if (deleteErr) throw new Error(`cleanup failed, fixture user ${user.user.id} left behind: ${deleteErr.message}`);
@@ -156,7 +171,7 @@ test.describe("send-393: /mentorship pricing claims match live mentor_profiles d
     // Reverted: the page no longer shows the fixture's price.
     await page.goto("/mentorship");
     const revertedDescription = await page.locator('meta[name="description"]').first().getAttribute("content");
-    expect(revertedDescription).not.toContain(`₦${fixturePriceNgn.toLocaleString("en-NG")}`);
+    expect(revertedDescription).not.toContain("₦1,111");
   });
 });
 

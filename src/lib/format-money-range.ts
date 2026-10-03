@@ -30,6 +30,13 @@ function toFiniteNumber(value: unknown): number | undefined {
   return Number.isFinite(n) ? n : undefined;
 }
 
+/** True when the two bounds are one amount (equal), so a caller can word the sentence around it ("a session costs X"). */
+export function isSingleAmount(min: number | string | null | undefined, max: number | string | null | undefined): boolean {
+  const lo = toFiniteNumber(min);
+  const hi = toFiniteNumber(max);
+  return lo !== undefined && lo === hi;
+}
+
 export function formatMoneyRange(
   min: number | string | null | undefined,
   max: number | string | null | undefined,
