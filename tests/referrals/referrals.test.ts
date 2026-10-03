@@ -1045,7 +1045,9 @@ describe("0215 — 'referrer_deleted' means the referrer is actually gone, not p
     expect(row?.reward_withheld_reason).toBeNull();
   });
 
-  // Blocked on S3-21's pending-deletion flag (account deletion, PR 2/3: not on main when this was written). When it lands, replace the body: mark the
-  // referrer pending deletion with that flag, activate the friend, and expect the full reward, NO reason, and the credits in the referrer's balance.
-  it.skip("a referrer who is PENDING deletion (still able to restore) is paid normally: blocked on the account-deletion pending flag (S3-21)", () => {});
+  // Blocked on the account-deletion pending flag: `profiles.deletion_requested_at` (timestamptz, null = active), set only inside account_deletion_confirm()
+  // and cleared only inside account_deletion_restore(); migration 0212, branch feat/acct-1-delete-request (ACCT-1 PR 1, S3-21; no PR number yet, not on main).
+  // When it lands, replace the body: set that column for the referrer through account_deletion_confirm() (or the service role), activate the friend, and expect
+  // the full reward, NO reason, and the credits in the referrer's balance. S3-21 confirmed neither their purge nor their restore keys a referral on the flag.
+  it.skip("a referrer who is PENDING deletion (still able to restore) is paid normally: blocked on profiles.deletion_requested_at (ACCT-1 PR 1, 0212)", () => {});
 });
