@@ -28,13 +28,14 @@ one morning by two sessions that each did exactly that. Ask, wait for the number
 | 0210 | S3-21, `mentor_unpaid_hold` `search_path` pin (#672) | applied 16:04Z | applied 16:05Z |
 | 0211 | S3-21, definer and graphql hardening (#678) | applied 20:36Z | applied 20:37Z |
 | 0212 | S3-21, account deletion PR 1: request, emailed confirm link, hide at once (#686) | applied 22:10Z (3 Oct) | applied 22:12Z (3 Oct) |
-| 0213 to 0214 | S3-21's later account-deletion PRs (export, purge) | reserved | reserved |
+| 0213 | S3-21's later account-deletion PRs (export) | reserved | reserved |
+| 0214 | S3-21's later account-deletion PRs (purge) | reserved | reserved |
 | 0215 | S3 (admin dashboard), Refer & Earn: a signup pays nothing, activation pays the whole reward | applied 09:45Z (3 Oct) | applied 09:46Z (3 Oct) |
 | 0216 | S2, the company-rename trigger (#693) | applied 19:01Z (3 Oct) | applied 19:02Z (3 Oct) |
 | 0217 | S3-21, scholarship note rules (#703) | applied 17:40Z (3 Oct) | applied 17:40Z (3 Oct) |
 | 0218 | S1, column grants on `job_postings` (owner-assigned; waits for #719 to be deployed, a rolled-back dry run and the owner's typed yes) | reserved | reserved |
 | 0219 | S1, `employer_moderation_notices` (owner-assigned; the design still needs the owner's approval) | reserved | reserved |
-| 0220 | S3 (admin dashboard), the Farah entry-point constraint (one migration; owner-assigned) | reserved | reserved |
+| 0220 | S3 (admin dashboard), the Farah entry-point constraint, with Farah PR A2 (one migration: a format check replaces the fixed list of `entry_point` values; owner-assigned) | reserved | reserved |
 
 The times are the ledger's own version stamps (UTC, 2 to 3 Oct 2026), read from `supabase_migrations.schema_migrations` on both projects. A row says "applied" only because
 that ledger shows it; "reserved" means a number has been asked for and no ledger has it.
