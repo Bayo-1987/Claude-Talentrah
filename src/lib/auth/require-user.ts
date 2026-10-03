@@ -6,6 +6,11 @@ import { createClient } from "@/lib/supabase/server";
 import { PATH_HEADER, safeRedirectTo } from "@/lib/auth/redirect-to";
 import type { User } from "@supabase/supabase-js";
 import type { Tables } from "@/lib/supabase/types";
+import { PENDING_DELETION_PATH } from "@/lib/auth/pending-deletion-path";
+import { hasDeletionPendingFlag } from "@/lib/auth/pending-deletion-flag";
+import { recordPendingDeletionFailOpen } from "@/lib/auth/pending-deletion-failopen";
+
+export { PENDING_DELETION_PATH };
 
 /**
  * Where to send someone back to, if we know.
@@ -127,11 +132,29 @@ export const getOptionalUser = cache(async (): Promise<Session | null> => {
  * control-flow signal, which works today but is a strange thing to rely on.
  * The cache belongs on the data, not on the guard.
  */
-export async function requireUser(): Promise<Session> {
+export async function requireUser(options: { allowPendingDeletion?: boolean } = {}): Promise<Session> {
   const session = await getOptionalUser();
   // Both the no-user and the no-profile case land here, exactly as before:
   // a session whose profile row is missing is not a usable session.
   if (!session) redirect(`/login${await returnTripSuffix()}`);
+
+  /*
+   * ACCT-1: an account the owner has scheduled for deletion is not silently let back in. Every protected page passes through here (and
+   * `requireEmployer()` calls this), so the redirect lives here: the person lands on "restore it, or keep the deletion?" instead. The two
+   * pages that ARE that choice ask for `allowPendingDeletion`.
+   *
+   * This is the experience layer only. The hiding and the mail stop are enforced in the database (migration 0212 reads
+   * `profiles.deletion_requested_at` everywhere other people see this person), so a pending user calling the API directly gets nothing from
+   * skipping this.
+   */
+  if (session.profile.deletion_requested_at && !options.allowPendingDeletion) {
+    // The database says pending. The proxy gate should have stopped this request already; if the session carries no flag it did not, and that is a
+    // fail-open somebody should be able to count.
+    if (!hasDeletionPendingFlag(session.user)) {
+      recordPendingDeletionFailOpen("gate_missed", `user=${session.user.id} path-guard=requireUser`);
+    }
+    redirect(PENDING_DELETION_PATH);
+  }
   return session;
 }
 
