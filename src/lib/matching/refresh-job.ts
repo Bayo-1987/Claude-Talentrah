@@ -145,6 +145,7 @@ const MAX_ELIGIBLE_POSTINGS = 20_000;
 
 export interface ScorableJobPosting {
   id: string;
+  title: string;
   structuredJd: unknown;
   seniority: SeniorityLevel | null;
   organizationId: string | null;
@@ -290,7 +291,7 @@ export async function runMatchScoreRefreshJob(): Promise<MatchScoreRefreshSummar
   // first, not an arbitrary scan-order slice of them.
   const { data: rawPostings, error: postingsError } = await admin
     .from("job_postings")
-    .select("id, structured_jd, seniority, organization_id")
+    .select("id, title, structured_jd, seniority, organization_id")
     .eq("status", "open")
     // 0202: a superseded duplicate is hidden everywhere, so it is not scored either.
     .is("superseded_at", null)
@@ -307,6 +308,7 @@ export async function runMatchScoreRefreshJob(): Promise<MatchScoreRefreshSummar
 
   const candidatePostings: ScorableJobPosting[] = (rawPostings ?? []).map((p) => ({
     id: p.id,
+    title: p.title,
     structuredJd: p.structured_jd,
     seniority: p.seniority,
     organizationId: p.organization_id,
@@ -402,7 +404,7 @@ export async function runMatchScoreRefreshJob(): Promise<MatchScoreRefreshSummar
       // primitive, is untouched either way.
       const scored: ScoredJobLike[] = missing.map((job) => {
         const structuredJd = job.structuredJd as { skills?: string[] } | null;
-        const result = computeMatchScore(resume, structuredJd?.skills ?? [], job.seniority ?? undefined);
+        const result = computeMatchScore(resume, structuredJd?.skills ?? [], job.seniority ?? undefined, job.title);
         return {
           job: { id: job.id },
           score: result.score,
