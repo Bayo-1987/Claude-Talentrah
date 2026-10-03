@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { autoApplyFreeRunsPhrase } from "@/lib/auto-apply/limits-copy";
 import { requireUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -177,7 +178,7 @@ export default async function BillingPage({
         </h1>
         <p className="mt-1 text-[14.5px] text-ink-soft">
           {leadingPass
-            ? `Tailoring, cover letters, bullet rewrites, Auto-Apply beyond your free weekly runs, and scholarship checks are covered at zero credit cost. You also have ${profile.credits_balance} credits for template unlocks and Talent Directory verification, which stay credit-only.`
+            ? `Tailoring, cover letters, bullet rewrites, Auto-Apply beyond ${autoApplyFreeRunsPhrase()}, and scholarship checks are covered at zero credit cost. You also have ${profile.credits_balance} credits for template unlocks and Talent Directory verification, which stay credit-only.`
             : "Credits pay for the actions below, after any free allowance. Prices are per use."}
         </p>
         {/* Everything credits pay for, from CREDIT_COSTS (send-503): the old sentence named three of eleven. */}
@@ -359,7 +360,7 @@ export default async function BillingPage({
               </p>
               <p className="text-[13px] text-ink-soft">
                 Covers tailoring, cover letters, bullet rewrites, Auto-Apply
-                beyond your free weekly runs, and scholarship eligibility
+                beyond {autoApplyFreeRunsPhrase()}, and scholarship eligibility
                 checks and SOP drafts — all at zero credit cost, up to{" "}
                 {PASS_DAILY_ACTION_CAP} actions a day. Template unlocks and
                 Talent Directory verification are sold separately, credits
