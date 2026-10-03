@@ -12,8 +12,13 @@ import { deactivateAuthorization } from "@/lib/paystack/client";
  * is harmless: the next renewal of that Pass would decline once, and the person can resubscribe. The same code appearing on a Pass and on a Talent
  * Directory subscription is one card and is cancelled once.
  *
- * "ALREADY CANCELLED" IS SUCCESS. A refusal whose message says the authorisation is already deactivated, inactive or not found means the card cannot be
- * charged, which is what this is for. Any other refusal (a bad key, a malformed code) says nothing about the card and blocks the deletion.
+ * "ALREADY CANCELLED" IS SUCCESS, MATCHED ON DOCUMENTED FIELDS ONLY. Paystack documents, for this endpoint, an HTTP 404 (the resource does not
+ * exist) and an error envelope of `status: false`, a `type` (api_error | validation_error | processor_error) and a Paystack-defined `code`. It publishes
+ * no code value for "already deactivated", so the rule is the documented status PLUS the documented envelope: a 404 that is a real Paystack error
+ * answer means there is nothing left to charge. A bare 404 (a wrong URL, a gateway page) has no envelope and blocks; so does every other refusal; the
+ * message text is NEVER read, because free text changes without notice and a wrong match here would schedule a deletion over a live card. (The stored
+ * code is also cleared in our database at confirm, and only our own secret key can charge it, so the provider cancel is defence in depth, which is
+ * why a documented not-found may safely pass and anything uncertain may not.)
  *
  * Authorisation codes are never logged; the log names the source and row id only.
  */
@@ -25,11 +30,20 @@ export interface StoredAuthorization {
 
 export type CancelOutcome = { ok: true; cancelled: number } | { ok: false; cancelled: number; failedSource: string; failedId: string };
 
-const ALREADY_NOT_CHARGEABLE = /already.*(deactivat|inactive)|not found|no longer (active|valid)/i;
+const DOCUMENTED_ERROR_TYPES = ["api_error", "validation_error", "processor_error"];
 
-function isAlreadyNotChargeable(err: unknown): boolean {
-  const e = err as { kind?: unknown; message?: unknown } | null;
-  return !!e && e.kind === "decline" && typeof e.message === "string" && ALREADY_NOT_CHARGEABLE.test(e.message);
+/** True only for Paystack's documented not-found: HTTP 404 with a real error envelope (a documented `type` and a non-blank `code`). */
+export function isDocumentedNotFound(err: unknown): boolean {
+  const e = err as { kind?: unknown; status?: unknown; type?: unknown; code?: unknown } | null;
+  return (
+    !!e &&
+    e.kind === "decline" &&
+    e.status === 404 &&
+    typeof e.type === "string" &&
+    DOCUMENTED_ERROR_TYPES.includes(e.type) &&
+    typeof e.code === "string" &&
+    e.code.trim().length > 0
+  );
 }
 
 export async function cancelStoredAuthorizations(authorizations: StoredAuthorization[]): Promise<CancelOutcome> {
@@ -43,7 +57,7 @@ export async function cancelStoredAuthorizations(authorizations: StoredAuthoriza
       await deactivateAuthorization(code);
       cancelled += 1;
     } catch (err) {
-      if (isAlreadyNotChargeable(err)) {
+      if (isDocumentedNotFound(err)) {
         cancelled += 1;
         continue;
       }

@@ -24,6 +24,7 @@ export type DeletionConfirmReason =
   | "blocked"
   | "signed_out"
   | "card"
+  | "renewal_off"
   | "failed";
 
 export interface DeletionConfirmState {

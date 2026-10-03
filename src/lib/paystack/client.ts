@@ -33,13 +33,20 @@ const PAYSTACK_TIMEOUT_MS = 15_000;
  */
 export class PaystackDeclineError extends Error {
   readonly kind = "decline" as const;
+  /** Paystack's documented error-envelope `type` (api_error | validation_error | processor_error), when the body had one. */
+  readonly type?: string;
+  /** Paystack's documented, Paystack-defined error `code`, when the body had one. */
+  readonly code?: string;
   constructor(
     message: string,
     /** Paystack's own HTTP status, when it gave one. */
     readonly status?: number,
+    details: { type?: string; code?: string } = {},
   ) {
     super(message);
     this.name = "PaystackDeclineError";
+    this.type = details.type;
+    this.code = details.code;
   }
 }
 
@@ -124,6 +131,10 @@ async function paystackFetch(
     throw new PaystackDeclineError(
       typeof data.message === "string" ? data.message : `Paystack ${operation} failed.`,
       res.status,
+      {
+        type: typeof data.type === "string" ? data.type : undefined,
+        code: typeof data.code === "string" ? data.code : undefined,
+      },
     );
   }
   return data;
@@ -293,7 +304,8 @@ export async function refundTransaction(reference: string): Promise<RefundResult
 }
 
 /**
- * Deactivate a stored card authorisation (`POST /customer/deactivate_authorization`), so it can no longer be charged.
+ * Deactivate a stored card authorisation (`POST /customer/authorization/deactivate`, the path Paystack's current documentation gives; the older
+ * `/customer/deactivate_authorization` is the superseded one), so it can no longer be charged.
  *
  * Renewals here are OUR cron charging a stored authorisation code (`chargeAuthorization`); there is no provider-side subscription object to cancel, so
  * this is the one thing that makes a card un-chargeable at the provider. Account deletion calls it BEFORE it schedules anything. A decline means
@@ -303,7 +315,7 @@ export async function deactivateAuthorization(authorizationCode: string): Promis
   const code = authorizationCode.trim();
   if (!code) throw new Error("deactivateAuthorization needs an authorization code.");
   await paystackFetch(
-    `${PAYSTACK_BASE_URL}/customer/deactivate_authorization`,
+    `${PAYSTACK_BASE_URL}/customer/authorization/deactivate`,
     {
       method: "POST",
       headers: {

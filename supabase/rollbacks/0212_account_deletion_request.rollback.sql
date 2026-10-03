@@ -177,6 +177,7 @@ drop function if exists public.function_acl_audit();
 drop function if exists public.account_deletion_restore();
 drop function if exists public.account_deletion_status();
 drop function if exists public.account_deletion_confirm(uuid, text);
+drop function if exists public.account_deletion_stop_renewals(uuid);
 drop function if exists public.account_deletion_confirm_precheck(uuid, text);
 drop function if exists public.account_deletion_create_request(uuid, text);
 drop function if exists public.account_deletion_blockers(uuid);

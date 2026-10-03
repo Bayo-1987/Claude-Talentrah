@@ -235,7 +235,7 @@ export async function proxy(request: NextRequest, event: NextFetchEvent) {
   const { response, user, supabase } = await updateSession(request);
 
   // A session whose account is scheduled for deletion goes no further, and is not stamped as recently active (see pending-deletion-gate.ts).
-  const pendingDeletion = await pendingDeletionGate(request, response, user, supabase);
+  const pendingDeletion = pendingDeletionGate(request, response, user);
   if (pendingDeletion) return pendingDeletion;
 
   touchLastActive(event, user, supabase);

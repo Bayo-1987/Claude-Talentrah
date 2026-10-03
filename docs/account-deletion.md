@@ -17,9 +17,15 @@ How a person deletes their account, what is built, and what is still to come. Th
    1. `account_deletion_confirm_precheck`: every refusal, with nothing changed, and the list of stored card authorisations (Pass renewals, and Talent Directory renewals of
       organisations this person created).
    2. **The card comes first.** Renewals are not provider-side subscriptions; our own daily cron charges a stored Paystack authorisation code. So each code is cancelled with
-      `POST /customer/deactivate_authorization` (once per distinct card). **If the provider cannot be reached or refuses, the deletion is not scheduled at all**: the person is told
-      "nothing has been scheduled" and stays signed in. A refusal that says the authorisation is already deactivated, inactive or not found counts as cancelled. If the database
-      confirm then fails after a card was cancelled, the next renewal of that Pass would decline once and the person can resubscribe: harmless, and said in the message.
+      `POST /customer/authorization/deactivate` (the path Paystack's current documentation gives; once per distinct card). **If the provider cannot be reached or refuses, the deletion
+      is not scheduled at all**: the person is told "nothing has been scheduled" and stays signed in. The only refusal that counts as cancelled is Paystack's **documented** not-found:
+      HTTP 404 with a real error envelope (a documented `type` and a `code`). It is matched on those fields and **never on the message text**; a bare 404, a 401, a 429, an
+      unreadable body or a network failure all block (`provider-cancel.test.ts` gives the same words to cases that must differ). Paystack publishes no code value for "already
+      deactivated", so the rule is the documented status plus the documented envelope. The stored code is also cleared in our database and only our own secret key can charge it, so
+      this is defence in depth, which is why only a documented answer may pass.
+      **If the provider succeeded and the database transaction then fails** (or refuses, apart from "already used"), the card is cancelled but nothing is scheduled, so our renewal cron
+      would fail to charge and lapse the Pass unexplained. `account_deletion_stop_renewals` switches renewal off in its own small write and the person is told plainly that renewal is off,
+      the deletion was not scheduled, and to try again (or, if that write fails too, that the Pass may fail to renew and to contact us).
    3. `account_deletion_confirm`, one transaction: `profiles.deletion_requested_at` is set; the hard delete is scheduled 30 days out (a later PR runs it); Auto-Apply is
       switched off and its queue dismissed; Pass and Talent Directory auto-renewal are cancelled in the database (the stored authorisation is dropped); for the **only member of an
       organisation**, its open postings are closed and its running campaigns paused. The organisation, its postings, **its ad wallet** and the applications it received are kept:
@@ -35,8 +41,13 @@ How a person deletes their account, what is built, and what is still to come. Th
    open slots, names, counterparty names, booking) and the referral leaderboard. Another signed-in user querying those tables directly gets nothing
    (`tests/rls/account-deletion-hide.test.ts`). Each affected function is **patched from its live definition**, not recreated from a copy, so a change that landed since cannot be
    reverted, and its definer flag, `search_path` and grants are untouched (`tests/rls/account-deletion-function-grants.test.ts` holds that to an explicit table).
-7. **The session itself is gated on every request** (`src/lib/auth/pending-deletion-gate.ts`, in `src/proxy.ts`): a session whose account is scheduled lands on the prompt on its very
-   next request (API calls get a 403 JSON), even if the global sign-out failed. `requireUser()` is a second gate, the database a third; none relies on another.
+7. **The session itself is gated on every request, at no database cost** (`src/lib/auth/pending-deletion-gate.ts`, in `src/proxy.ts`): the gate reads `app_metadata.deletion_pending`
+   off the user the proxy's own `auth.getUser()` already returned (a live call, so it is current). Confirm sets it and restore clears it, with the service role, beside
+   `profiles.deletion_requested_at`, which stays the source of truth. A flagged session lands on the prompt on its very next request (API calls get a 403 JSON), even if the global sign-out failed.
+   **The refreshed session cookies survive the redirect**: every `Set-Cookie` of the response the middleware refreshed is copied onto the redirect verbatim (a redirect that dropped them is how
+   a person gets signed out at random). Exempt, so there is never a loop: the prompt, the confirm link's page, sign-in, the auth routes, the admin surfaces, and static assets.
+   `requireUser()` is a second gate and the database a third; none relies on another. **Every fail-open is logged and counted**: `[pending-deletion] FAIL_OPEN kind=… count=…`
+   (`flag_not_set`, `flag_not_cleared`, and `gate_missed` when `requireUser` finds the database pending while the session carried no flag). A stale flag after a failed clear is healed by the prompt page.
 8. **No email, from any sender, except the deletion's own three.** `getResendClient()` returns a client whose `emails.send` drops recipients whose profile carries the flag, so a
    sender written later is covered too (and `tests/email/every-sender-uses-the-guarded-client.test.ts` keeps that the only door). Each drop is logged `reason=deleted_pending` and
    reported as sent, so nothing retries. The three exceptions (`deletion_confirm`, `deletion_scheduled`, `deletion_restored`) go through `sendDeletionLifecycleEmail()`, listed in

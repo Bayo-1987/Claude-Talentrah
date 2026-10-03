@@ -3804,6 +3804,10 @@ export type Database = {
         Args: { p_token_hash: string; p_user_id: string }
         Returns: Json
       }
+      account_deletion_stop_renewals: {
+        Args: { p_user_id: string }
+        Returns: Json
+      }
       account_deletion_create_request: {
         Args: { p_token_hash: string; p_user_id: string }
         Returns: Json

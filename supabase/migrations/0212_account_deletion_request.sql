@@ -33,7 +33,7 @@
 -- the balance stays until the purge so a restore gives it all back. An organisation's ad wallet is not forfeited at all: it stays with the
 -- organisation. refund_policy and refund_note are nullable and unused, so a refund policy can be added later with no migration.
 --
--- WHO MAY CALL WHAT. blockers / create_request / confirm_precheck / confirm are service-role only: they take the user id as an argument, so they are
+-- WHO MAY CALL WHAT. blockers / create_request / confirm_precheck / stop_renewals / confirm are service-role only: they take the user id as an argument, so they are
 -- never callable with a client's own token, and the Server Action takes that id from the verified session. account_deletion_restore and
 -- account_deletion_status are the only ones a signed-in user can call, and they act on auth.uid() alone. account_is_active and the two small helpers
 -- the assessment policies use are executable by authenticated (RLS policies call them) and not by anon. function_acl_audit() is service-role only.
@@ -324,6 +324,37 @@ $$;
 revoke execute on function public.account_deletion_confirm_precheck(uuid, text) from public, anon, authenticated;
 grant execute on function public.account_deletion_confirm_precheck(uuid, text) to service_role;
 
+-- 6b. Stop renewals, on its own. Confirm calls it (so there is one definition of "stop renewing"), and the Server Action calls it directly when the card was
+-- already cancelled at the payment provider but the confirm transaction then failed: the card cannot be charged, and without this our renewal cron would
+-- try, fail and lapse the person's Pass with no explanation. Idempotent: a second run finds nothing active and changes nothing.
+create or replace function public.account_deletion_stop_renewals(p_user_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_passes integer;
+  v_subs   integer;
+begin
+  -- Pass: the same four columns the Billing page's own cancel writes, including dropping the stored card authorisation.
+  update public.user_passes
+     set auto_renew = false, auto_renew_status = 'canceled', next_renewal_date = null, authorization_code = null
+   where user_id = p_user_id and auto_renew_status = 'active';
+  get diagnostics v_passes = row_count;
+
+  -- Talent Directory: a subscription of an organisation this person created is charged to their card. Access already paid for is untouched.
+  update public.talent_directory_subscriptions
+     set auto_renew_status = 'canceled', next_renewal_date = null, authorization_code = null
+   where auto_renew_status = 'active' and organization_id in (select id from public.organizations where created_by = p_user_id);
+  get diagnostics v_subs = row_count;
+
+  return jsonb_build_object('ok', true, 'passes', v_passes, 'subscriptions', v_subs);
+end;
+$$;
+revoke execute on function public.account_deletion_stop_renewals(uuid) from public, anon, authenticated;
+grant execute on function public.account_deletion_stop_renewals(uuid) to service_role;
+
 -- 7. Confirm: single use, one hour, this user only, everything in one transaction ---------------------------------------------------------------
 create or replace function public.account_deletion_confirm(p_user_id uuid, p_token_hash text)
 returns jsonb
@@ -385,12 +416,7 @@ begin
   -- Stop renewals: a Pass the same four-column way the Billing page's own cancel does (cancelPassAutoRenewal), including dropping the stored card
   -- authorisation; and a Talent Directory subscription of an organisation this person created (it is charged to their card). Access already paid for
   -- is untouched. The authorisations were already cancelled at the payment provider by the Server Action before this ran.
-  update public.user_passes
-     set auto_renew = false, auto_renew_status = 'canceled', next_renewal_date = null, authorization_code = null
-   where user_id = p_user_id and auto_renew_status = 'active';
-  update public.talent_directory_subscriptions
-     set auto_renew_status = 'canceled', next_renewal_date = null, authorization_code = null
-   where auto_renew_status = 'active' and organization_id in (select id from public.organizations where created_by = p_user_id);
+  perform public.account_deletion_stop_renewals(p_user_id);
 
   -- A person who is the only member of an organisation: close its open postings (the list was shown to them) and pause what is spending money.
   -- The organisation, its postings, its ad wallet and the applications it received are kept; they are other people's records too. Applicants are
@@ -668,6 +694,7 @@ begin
     'public.account_deletion_blockers(uuid)',
     'public.account_deletion_create_request(uuid, text)',
     'public.account_deletion_confirm_precheck(uuid, text)',
+    'public.account_deletion_stop_renewals(uuid)',
     'public.account_deletion_confirm(uuid, text)',
     'public.function_acl_audit()'
   ] loop

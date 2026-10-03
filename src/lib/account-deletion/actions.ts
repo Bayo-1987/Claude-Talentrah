@@ -8,6 +8,7 @@ import { sendDeletionLifecycleEmail } from "@/lib/resend/client";
 import { absoluteUrl } from "@/lib/seo/site";
 import { buildDeletionConfirmEmail, buildDeletionRestoredEmail, buildDeletionScheduledEmail } from "./email";
 import { cancelStoredAuthorizations, type StoredAuthorization } from "./provider-cancel";
+import { clearDeletionPendingFlag, setDeletionPendingFlag } from "./session-flag";
 import { PENDING_DELETION_PATH } from "@/lib/auth/pending-deletion-path";
 import {
   DELETION_CONFIRM_PHRASE,
@@ -162,10 +163,27 @@ export async function confirmAccountDeletionAction(
   }
 
   // 3. CONFIRM, in one database transaction: the link is single-use, one hour, this person only, enforced under a row lock.
+  // The card was cancelled BEFORE this transaction, so if the transaction now fails, the person is left with a cancelled card and no deletion, and our
+  // renewal cron would fail to charge it and lapse their Pass with no explanation. When at least one card was cancelled and the deletion is NOT
+  // scheduled, renewal is switched off in its own small write and the person is told so plainly.
+  const unscheduled = async (fallback: DeletionConfirmState): Promise<DeletionConfirmState> => {
+    if (cards.cancelled === 0) return fallback;
+    const { data: stopped, error: stopError } = await admin.rpc("account_deletion_stop_renewals", { p_user_id: user.id });
+    const stoppedOk = !stopError && !!(stopped as { ok?: boolean } | null)?.ok;
+    if (!stoppedOk) console.error("[account-deletion] card cancelled, deletion not scheduled, and renewal could NOT be switched off:", stopError?.message ?? "no ok");
+    return {
+      status: "error",
+      reason: "renewal_off",
+      error: stoppedOk
+        ? "We couldn't schedule the deletion just now, so your account is NOT scheduled for deletion and you are still signed in. Your saved card had already been cancelled with our payment provider, so renewal is now off for your Pass; you can resubscribe at any time. Please try again in a moment."
+        : "We couldn't schedule the deletion just now, so your account is NOT scheduled for deletion and you are still signed in. Your saved card had already been cancelled with our payment provider, and we couldn't switch renewal off either, so your Pass may fail to renew. Please contact us and try the deletion again.",
+    };
+  };
+
   const { data, error } = await admin.rpc("account_deletion_confirm", { p_user_id: user.id, p_token_hash: hash });
   if (error) {
     console.error("[account-deletion] confirm failed:", error.message);
-    return { status: "error", reason: "failed", error: "We couldn't schedule the deletion just now. You are still signed in; try again in a moment." };
+    return unscheduled({ status: "error", reason: "failed", error: "We couldn't schedule the deletion just now. You are still signed in; try again in a moment." });
   }
 
   const result = (data ?? {}) as {
@@ -177,7 +195,15 @@ export async function confirmAccountDeletionAction(
     closed_postings?: Array<{ id: string; title: string; organization: string }>;
     ad_wallet_balance_ngn?: number;
   };
-  if (!result.ok) return refusal(result.reason, result.blockers);
+  if (!result.ok) {
+    // "used" and "already_scheduled" mean another click scheduled it, and that confirm already switched renewal off: nothing to undo.
+    if (result.reason === "used" || result.reason === "already_scheduled") return refusal(result.reason, result.blockers);
+    return unscheduled(refusal(result.reason, result.blockers));
+  }
+
+  // The session-side flag the proxy gate reads (no database query per request), written beside the database flag the confirm just set. A failed
+  // write is recorded FAIL_OPEN and does not undo the deletion: the database flag already decided, and everyone else's reads are hidden by it.
+  await setDeletionPendingFlag(user.id);
 
   // 4. Scheduled. Only now, and only then, end every session this person has. A failure here does not undo the deletion (it is already scheduled,
   //    and the proxy gate catches every later request from another device), so it is logged and the person is told what happened.
@@ -245,6 +271,10 @@ export async function restoreAccountAction(): Promise<void> {
     const reason = result.reason === "window_closed" ? "window_closed" : "failed";
     redirect(`${PENDING_DELETION_PATH}?error=${reason}`);
   }
+
+  // Clear the session-side flag the proxy gate reads, beside the database flag the restore just cleared. A failed clear is recorded FAIL_OPEN; the prompt
+  // page heals a stale flag, so the person is never bounced in a loop.
+  await clearDeletionPendingFlag(user.id);
 
   // The proof that it was undone, and what restoring does not bring back. Best effort: the restore itself already happened.
   try {

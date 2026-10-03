@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
+import { hasDeletionPendingFlag } from "@/lib/auth/pending-deletion-flag";
+import { clearDeletionPendingFlag } from "@/lib/account-deletion/session-flag";
 import { ScheduledDeletionPrompt } from "@/components/account-deletion/scheduled-deletion-prompt";
 
 export const metadata = { title: "Account scheduled for deletion — Talentrah", robots: { index: false, follow: false } };
@@ -11,10 +13,15 @@ export const metadata = { title: "Account scheduled for deletion — Talentrah",
  * has no business here and goes to the app.
  */
 export default async function AccountDeletionPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
-  const { profile } = await requireUser({ allowPendingDeletion: true });
+  const { user, profile } = await requireUser({ allowPendingDeletion: true });
   const { error } = await searchParams;
 
-  if (!profile.deletion_requested_at && error !== "window_closed") redirect("/jobs");
+  if (!profile.deletion_requested_at && error !== "window_closed") {
+    // Not scheduled (any more). If the session still carries the proxy gate's flag (a restore whose clear failed), clear it here, or the gate would send
+    // this person straight back to this page forever.
+    if (hasDeletionPendingFlag(user)) await clearDeletionPendingFlag(user.id);
+    redirect("/jobs");
+  }
 
   const supabase = await createClient();
   const { data } = await supabase.rpc("account_deletion_status");

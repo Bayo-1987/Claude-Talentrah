@@ -7,6 +7,8 @@ import { PATH_HEADER, safeRedirectTo } from "@/lib/auth/redirect-to";
 import type { User } from "@supabase/supabase-js";
 import type { Tables } from "@/lib/supabase/types";
 import { PENDING_DELETION_PATH } from "@/lib/auth/pending-deletion-path";
+import { hasDeletionPendingFlag } from "@/lib/auth/pending-deletion-flag";
+import { recordPendingDeletionFailOpen } from "@/lib/auth/pending-deletion-failopen";
 
 export { PENDING_DELETION_PATH };
 
@@ -145,7 +147,14 @@ export async function requireUser(options: { allowPendingDeletion?: boolean } = 
    * `profiles.deletion_requested_at` everywhere other people see this person), so a pending user calling the API directly gets nothing from
    * skipping this.
    */
-  if (session.profile.deletion_requested_at && !options.allowPendingDeletion) redirect(PENDING_DELETION_PATH);
+  if (session.profile.deletion_requested_at && !options.allowPendingDeletion) {
+    // The database says pending. The proxy gate should have stopped this request already; if the session carries no flag it did not, and that is a
+    // fail-open somebody should be able to count.
+    if (!hasDeletionPendingFlag(session.user)) {
+      recordPendingDeletionFailOpen("gate_missed", `user=${session.user.id} path-guard=requireUser`);
+    }
+    redirect(PENDING_DELETION_PATH);
+  }
   return session;
 }
 
