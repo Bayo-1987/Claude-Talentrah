@@ -279,6 +279,53 @@ describe("persistScoresOrRetryStale — the FK-violation retry path itself, dete
       "summary.failed must actually increment here — a caller trusting {ok:true} with persisted:0 would silently under-count a real failure",
     ).toEqual({ persisted: 0, ok: false });
   });
+
+  it("insert-missing (what the refresh uses): a row another writer already inserted is KEPT, and only the rows this call inserted are counted", async () => {
+    const writerSeeker = await createTestUser("msrls-insert-missing-seeker");
+    createdUsers.push(writerSeeker.id);
+    const second = await insertPosting({ source_type: "external", external_source: "msrls-retry-test", external_url: `https://example.test/${randomUUID()}` });
+    // another writer got there first, with a distinguishable score
+    const { error } = await admin.from("match_scores").insert({
+      user_id: writerSeeker.id,
+      job_posting_id: posting,
+      score: 1,
+      tier: "fair",
+      explanation: { matchedSkills: [], missingSkills: [], seniorityAlignment: "unknown" },
+    });
+    if (error) throw error;
+
+    const result = await persistScoresOrRetryStale(admin, writerSeeker.id, [scoredRow(posting), scoredRow(second)], "insert-missing");
+
+    expect(result.ok).toBe(true);
+    expect(result.persisted, "only the pair that had no row was inserted, so only it is counted").toBe(1);
+    expect(result.insertedIds).toEqual([second]);
+    expect((await matchScoreFor(writerSeeker.id, posting))?.score, "the row the other writer inserted must not be overwritten").toBe(1);
+    expect((await matchScoreFor(writerSeeker.id, second))?.score).toBe(42);
+  });
+
+  it("insert-missing keeps the FK-violation recovery: the survivors are inserted and counted, the stale posting never gets a row", async () => {
+    const recoverSeeker = await createTestUser("msrls-insert-missing-recover");
+    createdUsers.push(recoverSeeker.id);
+    const result = await persistScoresOrRetryStale(admin, recoverSeeker.id, [scoredRow(posting), scoredRow(randomUUID())], "insert-missing");
+    expect(result.ok).toBe(true);
+    expect(result.persisted).toBe(1);
+    expect(result.insertedIds).toEqual([posting]);
+  });
+
+  it("the default mode is still the overwrite upsert (the rescore relies on it)", async () => {
+    const overwriteSeeker = await createTestUser("msrls-overwrite-seeker");
+    createdUsers.push(overwriteSeeker.id);
+    await admin.from("match_scores").insert({
+      user_id: overwriteSeeker.id,
+      job_posting_id: posting,
+      score: 1,
+      tier: "fair",
+      explanation: { matchedSkills: [], missingSkills: [], seniorityAlignment: "unknown" },
+    });
+    const result = await persistScoresOrRetryStale(admin, overwriteSeeker.id, [scoredRow(posting)]);
+    expect(result).toEqual({ persisted: 1, ok: true });
+    expect((await matchScoreFor(overwriteSeeker.id, posting))?.score).toBe(42);
+  });
 });
 
 describe("runMatchScoreRefreshJob — real gap-filling against the live database", () => {
@@ -456,4 +503,23 @@ describe("runMatchScoreRefreshJob — real gap-filling against the live database
     expect(rerun.complete, "a re-run finishes what the deadline cut off").toBe(true);
     expect((await admin.from("match_scores").select("id", { count: "exact", head: true }).eq("user_id", lateSeeker.id)).count).toBeGreaterThan(0);
   }, 60_000);
+
+  it("TWO REFRESH RUNS AT THE SAME TIME (an ingest run's refresh overlapping the daily one): both finish without a failure and every pair has exactly one row, nothing overwritten", async () => {
+    const racer = await createTestUser("msrls-concurrent-seeker");
+    createdUsers.push(racer.id);
+    await insertBaseResume(racer.id);
+    const [a, b] = await Promise.all([runMatchScoreRefreshJob(), runMatchScoreRefreshJob()]);
+    expect(a.ok && b.ok).toBe(true);
+    expect(a.failed + b.failed, "an insert-if-absent writer never fails on a conflict").toBe(0);
+    expect(a.complete && b.complete).toBe(true);
+    const { data } = await admin.from("match_scores").select("job_posting_id").eq("user_id", racer.id);
+    const ids = (data ?? []).map((r) => r.job_posting_id);
+    expect(ids.length).toBeGreaterThan(0);
+    expect(new Set(ids).size, "one row per posting").toBe(ids.length);
+    // and a third run, once both are done, has nothing left to write for this user
+    const before = await admin.from("match_scores").select("computed_at").eq("user_id", racer.id).order("job_posting_id");
+    await runMatchScoreRefreshJob();
+    const after = await admin.from("match_scores").select("computed_at").eq("user_id", racer.id).order("job_posting_id");
+    expect(after.data, "the later 16:00-style run rewrites nothing the earlier runs already filled").toEqual(before.data);
+  }, 90_000);
 });

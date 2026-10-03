@@ -52,6 +52,17 @@ export interface PostIngestRefreshOutcome {
   refreshMs: number;
 }
 
+/**
+ * An error message that is safe to put in a public Actions log and a JSON response: a database error can name a user id (`Key (user_id)=(...)`)
+ * or an email, so ids and emails are replaced, and the text is cut short. The useful part of the message (what failed) survives.
+ */
+export function redactError(message: string): string {
+  return message
+    .replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, "<id>")
+    .replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, "<email>")
+    .slice(0, 200);
+}
+
 export async function runPostIngestRefresh(args: {
   routeStartedAtMs: number;
   /** When everything before the refresh (ingest, both sweeps, the alerts) finished, i.e. when the refresh would start. */
@@ -95,7 +106,7 @@ export async function runPostIngestRefresh(args: {
     return outcome;
   } catch (err) {
     const refreshMs = Math.max(0, now() - startedAt);
-    const error = (err instanceof Error ? err.message : String(err)).slice(0, 200);
+    const error = redactError(err instanceof Error ? err.message : String(err));
     log(`[post-ingest-refresh] ingestMs=${ingestMs} refreshMs=${refreshMs} postingsRefreshed=0 rowsWritten=0 complete=false failed (${error})`);
     return { ...base, ran: true, skippedReason: null, refreshMs, error };
   }
