@@ -40,7 +40,13 @@ function realDeps(): RescoreDeps {
     async loadPostings(ids) {
       const out: PostingForScoring[] = [];
       for (const chunk of chunkInList(ids)) {
-        const { data, error } = await admin.from("job_postings").select("id, title, structured_jd, seniority, status").in("id", chunk);
+        // 0202: a superseded duplicate is hidden everywhere and the refresh never scores it, so the rescore leaves its stale row alone too
+        // (it is not returned here, so the pure job counts it with the postings that are gone). tests/jobs/supersession-read-paths.test.ts.
+        const { data, error } = await admin
+          .from("job_postings")
+          .select("id, title, structured_jd, seniority, status")
+          .is("superseded_at", null)
+          .in("id", chunk);
         if (error) throw new Error(`could not load postings: ${error.message}`);
         for (const p of data ?? []) out.push({ id: p.id, title: p.title, structuredJd: p.structured_jd, seniority: p.seniority, open: p.status === "open" });
       }
