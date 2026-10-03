@@ -242,6 +242,14 @@ export const test = base.extend<{ testUser: TestUser; authedPage: Page }>({
   },
 });
 
+/**
+ * A SECOND, independent session for a user the test already has (a different device or browser): the first one is not touched. Used by
+ * e2e/sign-out-scope.spec.ts to prove that signing out in one browser leaves the other signed in.
+ */
+export async function mintSecondSession(user: TestUser): Promise<SessionCookie> {
+  return (await mintSession(user.id, user.email)).cookie;
+}
+
 const sessionCookies = new Map<string, SessionCookie>();
 
 export { expect };
