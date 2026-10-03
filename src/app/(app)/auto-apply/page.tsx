@@ -2,15 +2,12 @@ import Link from "next/link";
 import { requireUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
 import { getQuotaState } from "@/lib/auto-apply/queue";
-import {
-  AUTO_APPLY_DAILY_SUBMIT_CAP,
-  AUTO_APPLY_FREE_PER_WEEK,
-  AUTO_APPLY_MIN_SCORE,
-} from "@/lib/auto-apply/config";
+import { AUTO_APPLY_MIN_SCORE } from "@/lib/auto-apply/config";
 import { CREDIT_COSTS } from "@/lib/credits/costs";
 import { BorderedCard, EyebrowLabel } from "@/components/ui";
 import type { QueueItem } from "@/components/jobs/auto-apply-queue-item";
 import { AutoApplyQueueList } from "@/components/jobs/auto-apply-queue-list";
+import { AutoApplyQuotaLine } from "@/components/jobs/auto-apply-quota-line";
 import { formatRelativeTime } from "@/lib/format-relative-time";
 import { isWellFormedExplanation } from "@/lib/auto-apply/queue-read";
 import { fetchListablePending } from "@/lib/auto-apply/listable-pending";
@@ -114,17 +111,7 @@ export default async function AutoApplyPage() {
       )}
 
       <BorderedCard className="p-4">
-        <p className="font-body text-[13px] text-ink-soft">
-          <span className="font-semibold text-ink">{quota.dailyRemaining}</span> of{" "}
-          {AUTO_APPLY_DAILY_SUBMIT_CAP} submissions left today ·{" "}
-          <span className="font-semibold text-ink">{quota.freeRemaining}</span> of{" "}
-          {AUTO_APPLY_FREE_PER_WEEK} free this week
-          {quota.nextSubmissionCostsCredits
-            ? quota.nextSubmissionCovered
-              ? " · next one is included with your Pass"
-              : ` · next one costs ${CREDIT_COSTS.autoApplySubmission} credits`
-            : ""}
-        </p>
+        <AutoApplyQuotaLine quota={quota} />
       </BorderedCard>
 
       <AutoApplyQueueList

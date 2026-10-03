@@ -6,12 +6,15 @@ import { signInWithOAuthAction } from "@/lib/auth/actions";
  * on signInWithOAuthAction. The buttons render either way, matching the
  * signup screen spec, but will surface a login-page error until that setup
  * is done.
+ *
+ * `redirectTo` (already validated by the page) rides along with each provider so the visitor comes back to the page they were on (S1-50).
  */
-export function OAuthButtons() {
+export function OAuthButtons({ redirectTo }: { redirectTo?: string } = {}) {
   return (
     <div className="flex flex-col gap-3">
       <form action={signInWithOAuthAction}>
         <input type="hidden" name="provider" value="google" />
+        {redirectTo && <input type="hidden" name="redirectTo" value={redirectTo} />}
         <button
           type="submit"
           className="flex min-h-11 w-full items-center justify-center gap-2 border-[1.5px] border-ink bg-transparent font-body text-[14px] font-semibold text-ink transition-colors hover:border-rust hover:text-rust"
@@ -39,6 +42,7 @@ export function OAuthButtons() {
       </form>
       <form action={signInWithOAuthAction}>
         <input type="hidden" name="provider" value="linkedin_oidc" />
+        {redirectTo && <input type="hidden" name="redirectTo" value={redirectTo} />}
         <button
           type="submit"
           className="flex min-h-11 w-full items-center justify-center gap-2 border-[1.5px] border-ink bg-transparent font-body text-[14px] font-semibold text-ink transition-colors hover:border-rust hover:text-rust"

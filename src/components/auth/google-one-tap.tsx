@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { getOneTapNonceAction } from "@/lib/auth/one-tap-actions";
 import { completeOneTapSignIn, oneTapSuccessDestination } from "@/lib/auth/one-tap-client";
+import { returnPathFor } from "@/lib/auth/redirect-to";
 import { oneTapMomentAction } from "@/lib/auth/one-tap-events";
 
 const SCRIPT_ID = "google-identity-services";
@@ -155,7 +156,10 @@ export function GoogleOneTap() {
             void completeOneTapSignIn(supabase, response.credential, nonce).then((result) => {
               if (cancelled) return;
               if (result.ok) {
-                window.location.assign(oneTapSuccessDestination());
+                // Back to the page they were on: on /login and /signup that is the page that sent them (?redirectTo=), anywhere else this page.
+                const here = window.location;
+                const sentFrom = new URLSearchParams(here.search).get("redirectTo");
+                window.location.assign(oneTapSuccessDestination(sentFrom || returnPathFor(here.pathname, here.search)));
               }
               // A rejected/failed exchange (nonce mismatch, expired
               // credential, network error) falls through to here and does
