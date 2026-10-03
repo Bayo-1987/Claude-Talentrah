@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { loadPublicScholarship } from "@/lib/scholarships/public";
+import { deadlineNoteOrFallback } from "@/lib/scholarships/public-deadline-note";
 import { formatDeadline } from "@/components/scholarships/scholarship-card";
 import { scholarshipDeadlineDisplay } from "@/lib/scholarships/close-instant";
 import type { Database } from "@/lib/supabase/types";
@@ -84,6 +85,8 @@ interface EmbeddableScholarship {
   close_time: string | null;
   close_tz: string | null;
   deadline_note: string | null;
+  /** Without it the note is never shown (publicDeadlineNote fails closed). */
+  deadline_verified_at: string | null;
 }
 
 /**
@@ -93,11 +96,11 @@ interface EmbeddableScholarship {
  * listing. Sanitized like the rest of the post body — see render.ts — so
  * even a bug here can never emit more than the existing allowlist permits.
  */
-function factCardHtml(id: string, scholarship: EmbeddableScholarship): string {
+export function factCardHtml(id: string, scholarship: EmbeddableScholarship): string {
   const deadline = scholarshipDeadlineDisplay(scholarship, new Date(), { detailed: false, showClosed: false });
   const deadlineText = scholarship.application_deadline
     ? (deadline?.text ?? formatDeadline(scholarship.application_deadline))
-    : (scholarship.deadline_note ?? "Not published yet");
+    : deadlineNoteOrFallback(scholarship);
 
   return (
     "<aside>" +

@@ -43,7 +43,7 @@ function isoDate(offsetDays: number): string {
 
 async function fixture(
   label: string,
-  over: { moderation_status: "verified" | "pending"; application_deadline: string | null; deadline_note?: string | null },
+  over: { moderation_status: "verified" | "pending"; application_deadline: string | null; deadline_note?: string | null; deadline_verified_at?: string | null },
 ) {
   const { data, error } = await admin
     .from("scholarships")
@@ -80,7 +80,7 @@ const mine = (rows: Array<{ program_name: string }>) => rows.filter((r) => r.pro
 describe("loadOpenScholarshipsPreview", () => {
   it("includes verified open listings, dated and undated, and excludes pending and already-closed ones", async () => {
     const soon = await fixture("soon", { moderation_status: "verified", application_deadline: isoDate(5) });
-    const undated = await fixture("undated", { moderation_status: "verified", application_deadline: null, deadline_note: "Varies by partner" });
+    const undated = await fixture("undated", { moderation_status: "verified", application_deadline: null, deadline_note: "Varies by partner", deadline_verified_at: new Date().toISOString() }); // a verified listing may carry a note only with the stamp (0217)
     const pending = await fixture("pending", { moderation_status: "pending", application_deadline: isoDate(6) });
     const closed = await fixture("closed", { moderation_status: "verified", application_deadline: isoDate(-2) });
 
@@ -129,6 +129,7 @@ describe("loadOpenScholarshipsPreview", () => {
         "close_time",
         "close_tz",
         "deadline_note",
+        "deadline_verified_at", // added for #594: the page shows a note only when this stamp is present (publicDeadlineNote)
         "degree_levels",
         "funding_type",
         "host_institution",

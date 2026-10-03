@@ -1,12 +1,13 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import Link from "next/link";
 import { createScholarshipAction, loadQueueAction } from "@/lib/scholarships/admin-actions";
 import { initialAdminScholarshipState } from "@/lib/scholarships/admin-state";
 import { DEGREE_LEVEL_VALUES, FUNDING_TYPE_VALUES } from "@/lib/scholarships/schemas";
 import { DEGREE_LEVEL_LABEL, FUNDING_TYPE_LABEL } from "@/lib/scholarships/types";
 import { TextField, SelectField, Button, EyebrowLabel, BorderedCard } from "@/components/ui";
+import { noteCounter } from "@/lib/scholarships/public-deadline-note";
 import { MinimalRichEditor } from "@/components/rich-text/minimal-rich-editor";
 
 const FUNDING_OPTIONS = FUNDING_TYPE_VALUES.map((value) => ({
@@ -23,6 +24,9 @@ export function AdminScholarshipForm() {
     createScholarshipAction,
     initialAdminScholarshipState,
   );
+  // Counted, not capped: truncating as they type would silently drop text; showing how far over they are lets them cut what they choose.
+  const [noteLength, setNoteLength] = useState(0);
+  const counter = noteCounter(noteLength);
   const [queueState, queueAction, queuePending] = useActionState(
     loadQueueAction,
     initialAdminScholarshipState,
@@ -263,8 +267,15 @@ export function AdminScholarshipForm() {
             label="Deadline note — shown when there's no single date"
             name="deadlineNote"
             placeholder="Varies by partner institution"
+            onChange={(e) => setNoteLength(e.target.value.trim().length)}
             error={state.fieldErrors?.deadlineNote?.[0]}
           />
+          <p
+            aria-live="polite"
+            className={counter.over ? "-mt-3 text-[12.5px] font-semibold text-rust" : "-mt-3 text-[12.5px] text-ink-soft"}
+          >
+            {counter.text}
+          </p>
 
           <TextField
             label="Official source URL"
