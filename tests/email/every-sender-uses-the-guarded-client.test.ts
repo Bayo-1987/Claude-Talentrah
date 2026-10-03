@@ -45,3 +45,24 @@ describe("the one door to the mail provider", () => {
     expect(text).not.toMatch(/export\s+(class|const)\s+Resend\b/);
   });
 });
+
+describe("the lifecycle door is as narrow as the allowlist", () => {
+  it("only src/lib/account-deletion/ calls sendDeletionLifecycleEmail", () => {
+    const callers = files.filter((f) => {
+      if (f.endsWith(join("lib", "resend", "client.ts"))) return false;
+      return /sendDeletionLifecycleEmail\(/.test(readFileSync(f, "utf8"));
+    });
+    expect(callers.filter((f) => !f.includes(join("lib", "account-deletion"))).map((f) => f.slice(SRC.length + 1))).toEqual([]);
+    expect(callers.length).toBeGreaterThan(0);
+  });
+
+  it("every allowlisted template is listed in docs/account-deletion-map.md, and the map lists nothing else", () => {
+    const doc = readFileSync(join(__dirname, "../../docs/account-deletion-map.md"), "utf8");
+    const section = /## Deletion-lifecycle emails([\s\S]*?)(\n## |$)/.exec(doc);
+    expect(section, "the map must have a '## Deletion-lifecycle emails' section").not.toBeNull();
+    const listed = [...section![1].matchAll(/^\| `([a-z_]+)` \|/gm)].map((m) => m[1]).sort();
+    const code = readFileSync(join(SRC, "lib/resend/deletion-lifecycle.ts"), "utf8");
+    const allowed = [...(/DELETION_LIFECYCLE_TEMPLATES\s*=\s*\[([\s\S]*?)\]/.exec(code)![1].matchAll(/"([a-z_]+)"/g))].map((m) => m[1]).sort();
+    expect(listed).toEqual(allowed);
+  });
+});

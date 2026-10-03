@@ -19,7 +19,7 @@ import { DeleteAccountSection } from "@/components/account-deletion/delete-accou
 import { ConfirmDeletionPanel } from "@/components/account-deletion/confirm-deletion-panel";
 import { ScheduledDeletionPrompt } from "@/components/account-deletion/scheduled-deletion-prompt";
 
-const NONE = { mentorship_sessions: [], mentor_payouts: [], organisations_with_other_members: [], postings_to_close: [], campaigns_to_pause: 0, blocked: false };
+const NONE = { mentorship_sessions: [], mentor_payouts: [], organisations_with_other_members: [], postings_to_close: [], campaigns_to_pause: 0, ad_wallet_balance_ngn: 0, blocked: false };
 const text = (html: string) => html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
 
 describe("DeleteAccountSection", () => {
@@ -75,7 +75,7 @@ describe("DeleteAccountSection", () => {
 describe("ConfirmDeletionPanel", () => {
   it("carries the token in a hidden field and asks for one explicit click", () => {
     const token = "cd".repeat(32);
-    const markup = renderToStaticMarkup(<ConfirmDeletionPanel token={token} creditsBalance={12} postingsToClose={[]} />);
+    const markup = renderToStaticMarkup(<ConfirmDeletionPanel token={token} creditsBalance={12} postingsToClose={[]} adWalletBalanceNgn={0} />);
     expect(markup).toContain(`name="token"`);
     expect(markup).toContain(`value="${token}"`);
     expect(text(markup)).toMatch(/12 credits/);
@@ -83,7 +83,7 @@ describe("ConfirmDeletionPanel", () => {
   });
 
   it("repeats the postings that will be closed", () => {
-    const markup = renderToStaticMarkup(<ConfirmDeletionPanel token={"ab".repeat(32)} creditsBalance={0} postingsToClose={[{ id: "p1", title: "Staff Engineer", organization: "Acme" }]} />);
+    const markup = renderToStaticMarkup(<ConfirmDeletionPanel token={"ab".repeat(32)} creditsBalance={0} postingsToClose={[{ id: "p1", title: "Staff Engineer", organization: "Acme" }]} adWalletBalanceNgn={0} />);
     expect(text(markup)).toContain("Staff Engineer");
   });
 });
@@ -107,5 +107,64 @@ describe("ScheduledDeletionPrompt", () => {
   it("shows a closed window honestly", () => {
     const t = text(renderToStaticMarkup(<ScheduledDeletionPrompt hardDeleteAfter="2026-11-01T12:00:00Z" creditsForfeited={0} error="window_closed" />));
     expect(t).toMatch(/can no longer be restored|window has closed/i);
+  });
+});
+
+describe("the postings that will be closed: what the screen says and that it names the real titles", () => {
+  const postings = [{ id: "p1", title: "Staff Engineer", organization: "Acme" }, { id: "p2", title: "Product Designer", organization: "Acme" }];
+  const NOTICE = "These postings will be closed now and permanently removed 30 days after closing.";
+
+  it("the Settings section says it, lists every real title, and says restoring does not reopen them", () => {
+    const t = text(renderToStaticMarkup(<DeleteAccountSection creditsBalance={0} blockers={{ ...NONE, postings_to_close: postings }} />));
+    expect(t).toContain(NOTICE);
+    expect(t).toMatch(/Restoring your account won.t reopen them/);
+    expect(t).toContain("Staff Engineer");
+    expect(t).toContain("Product Designer");
+  });
+
+  it("the confirm page says the same, with the same titles", () => {
+    const t = text(renderToStaticMarkup(<ConfirmDeletionPanel token={"ab".repeat(32)} creditsBalance={0} postingsToClose={postings} adWalletBalanceNgn={0} />));
+    expect(t).toContain(NOTICE);
+    expect(t).toContain("Staff Engineer");
+    expect(t).toContain("Product Designer");
+  });
+
+  it("with no postings to close it says nothing about closing", () => {
+    expect(text(renderToStaticMarkup(<DeleteAccountSection creditsBalance={0} blockers={NONE} />))).not.toMatch(/permanently removed/);
+  });
+});
+
+describe("the organisation's ad wallet", () => {
+  it("is shown, with the balance, in the Settings section and the confirm step when the person is the only member and the wallet holds money", () => {
+    const withWallet = { ...NONE, ad_wallet_balance_ngn: 4500, postings_to_close: [{ id: "p1", title: "Staff Engineer", organization: "Acme" }] };
+    for (const t of [
+      text(renderToStaticMarkup(<DeleteAccountSection creditsBalance={0} blockers={withWallet} />)),
+      text(renderToStaticMarkup(<ConfirmDeletionPanel token={"ab".repeat(32)} creditsBalance={0} postingsToClose={withWallet.postings_to_close} adWalletBalanceNgn={4500} />)),
+    ]) {
+      expect(t).toContain("₦4,500");
+      expect(t).toMatch(/stays with the organisation/);
+      expect(t).toMatch(/nobody can use it unless you restore your account or someone joins/i);
+    }
+  });
+
+  it("is not mentioned when it is empty", () => {
+    expect(text(renderToStaticMarkup(<DeleteAccountSection creditsBalance={0} blockers={NONE} />))).not.toMatch(/ad wallet/i);
+    expect(text(renderToStaticMarkup(<ConfirmDeletionPanel token={"ab".repeat(32)} creditsBalance={0} postingsToClose={[]} adWalletBalanceNgn={0} />))).not.toMatch(/ad wallet/i);
+  });
+});
+
+describe("a paid session in the way links straight to managing or cancelling it", () => {
+  it("a mentor's block links to their sessions page, a mentee's to theirs", () => {
+    const mentor = { ...NONE, blocked: true, mentorship_sessions: [{ id: "s1", role: "mentor" as const, session_type: "mock_interview", scheduled_start: "2026-10-09T10:00:00Z", status: "confirmed" }] };
+    const mentee = { ...NONE, blocked: true, mentorship_sessions: [{ id: "s2", role: "mentee" as const, session_type: "mock_interview", scheduled_start: "2026-10-09T10:00:00Z", status: "confirmed" }] };
+    expect(renderToStaticMarkup(<DeleteAccountSection creditsBalance={0} blockers={mentor} />)).toContain('href="/mentorship/sessions/mentor"');
+    expect(renderToStaticMarkup(<DeleteAccountSection creditsBalance={0} blockers={mentee} />)).toContain('href="/mentorship/sessions"');
+  });
+});
+
+describe("the confirm page's own refusals read clearly", () => {
+  it("a Pass and the restore prompt both say the Pass does not renew until they resubscribe", () => {
+    const t = text(renderToStaticMarkup(<ScheduledDeletionPrompt hardDeleteAfter="2026-11-01T12:00:00Z" creditsForfeited={0} error={null} />));
+    expect(t).toMatch(/Pass .*(does not|doesn.t|won.t) renew until you resubscribe/i);
   });
 });

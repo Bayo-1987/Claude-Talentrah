@@ -51,7 +51,8 @@ vi.mock("@/lib/supabase/service-role", () => ({
   }),
 }));
 
-import { getResendClient } from "@/lib/resend/client";
+import { getResendClient, sendDeletionLifecycleEmail } from "@/lib/resend/client";
+import { DELETION_LIFECYCLE_TEMPLATES } from "@/lib/resend/deletion-lifecycle";
 
 const base = { from: "Talentrah <noreply@talentrah.com>", subject: "s", text: "t" };
 
@@ -121,5 +122,66 @@ describe("getResendClient with the deletion guard", () => {
   it("does not interfere with anything other than emails.send", () => {
     const client = getResendClient()!;
     expect(typeof client.emails.send).toBe("function");
+  });
+});
+
+describe("each drop is logged with its reason, so it can be counted", () => {
+  it("logs one line per dropped send: reason=deleted_pending, the number dropped, never the address", async () => {
+    state.pendingEmails.add("gone@example.com");
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
+    const client = getResendClient()!;
+    await client.emails.send({ ...base, to: ["gone@example.com", "stays@example.com"], subject: "Weekly digest" });
+    const lines = info.mock.calls.map((c) => c.join(" ")).filter((l) => l.includes("deleted_pending"));
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toMatch(/dropped=1/);
+    expect(lines[0]).not.toContain("gone@example.com");
+    info.mockRestore();
+  });
+
+  it("a send with nobody pending logs nothing", async () => {
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
+    await getResendClient()!.emails.send({ ...base, to: "ada@example.com" });
+    expect(info.mock.calls.filter((c) => c.join(" ").includes("deleted_pending"))).toHaveLength(0);
+    info.mockRestore();
+  });
+});
+
+describe("the deletion's OWN emails still arrive: the lifecycle allowlist", () => {
+  it("the allowlist is exactly the confirm link, 'scheduled' and 'restored'", () => {
+    expect([...DELETION_LIFECYCLE_TEMPLATES].sort()).toEqual(["deletion_confirm", "deletion_restored", "deletion_scheduled"]);
+  });
+
+  it.each([...DELETION_LIFECYCLE_TEMPLATES])("%s reaches a recipient whose account is scheduled for deletion", async (template) => {
+    state.pendingEmails.add("gone@example.com");
+    const res = await sendDeletionLifecycleEmail(template, { ...base, to: "gone@example.com" });
+    expect(res.error).toBeNull();
+    expect(state.sent).toHaveLength(1);
+    expect(state.sent[0].to).toBe("gone@example.com");
+  });
+
+  it("any other template is refused outright (it never reaches the provider)", async () => {
+    state.pendingEmails.add("gone@example.com");
+    const res = await sendDeletionLifecycleEmail("weekly_digest" as never, { ...base, to: "gone@example.com" });
+    expect(res.error?.message).toMatch(/not a deletion-lifecycle template/i);
+    expect(state.sent).toHaveLength(0);
+  });
+
+  it("a normal send is STILL dropped for a pending recipient, even when it dresses itself up with a lifecycle template name", async () => {
+    state.pendingEmails.add("gone@example.com");
+    const client = getResendClient()!;
+    await client.emails.send({ ...base, to: "gone@example.com", headers: { "X-Talentrah-Template": "deletion_scheduled" } });
+    await client.emails.send({ ...base, to: "gone@example.com", tags: [{ name: "template", value: "deletion_scheduled" }] });
+    expect(state.sent).toHaveLength(0);
+  });
+
+  it("a lifecycle send carries its template name in a header, so the mail itself says what it is", async () => {
+    await sendDeletionLifecycleEmail("deletion_scheduled", { ...base, to: "ada@example.com" });
+    expect((state.sent[0].headers as Record<string, string>)["X-Talentrah-Template"]).toBe("deletion_scheduled");
+  });
+
+  it("with no mail provider configured it reports that as an error instead of throwing", async () => {
+    delete process.env.RESEND_API_KEY;
+    const res = await sendDeletionLifecycleEmail("deletion_confirm", { ...base, to: "ada@example.com" });
+    expect(res.error?.message).toMatch(/RESEND_API_KEY/);
   });
 });

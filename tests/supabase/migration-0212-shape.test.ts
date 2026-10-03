@@ -63,9 +63,25 @@ describe("0212: who can call what", () => {
   });
 
   it("every function it creates pins search_path", () => {
-    const creates = code.match(/create or replace function public\.account_[a-z_]+\([^)]*\)[\s\S]*?(?=\n\$\$;|\n\$function\$;)/g) ?? [];
-    expect(creates.length).toBe(6);
-    for (const c of creates) expect(c).toMatch(/set search_path/);
+    const creates = code.match(/create or replace function public\.[a-z_]+\([^)]*\)[\s\S]*?(?=\n\$\$;)/g) ?? [];
+    expect(creates.length).toBe(10);
+    for (const c of creates) expect(c).toMatch(/set search_path = ''/);
+  });
+
+  it("the helper functions and the two signed-in calls are executable by authenticated and never by anon", () => {
+    for (const fn of ["application_applicant_is_active(uuid)", "submission_applicant_is_active(uuid)"]) {
+      const esc = fn.replace(/[()]/g, "\\$&");
+      expect(code).toMatch(new RegExp(`revoke execute on function public\\.${esc} from public, anon;`));
+      expect(code).toMatch(new RegExp(`grant execute on function public\\.${esc} to authenticated, service_role;`));
+    }
+  });
+
+  it("the precheck and the audit function are service-role only", () => {
+    for (const fn of ["account_deletion_confirm_precheck(uuid, text)", "function_acl_audit()"]) {
+      const esc = fn.replace(/[()]/g, "\\$&");
+      expect(code).toMatch(new RegExp(`revoke execute on function public\\.${esc} from public, anon, authenticated`));
+      expect(code).toMatch(new RegExp(`grant execute on function public\\.${esc} to service_role;`));
+    }
   });
 
   it("the profiles flag has no client UPDATE grant added (and the self-check asserts it)", () => {
@@ -84,36 +100,79 @@ describe("0212: the numbers the owner decided", () => {
   });
 });
 
-describe("0212: hiding", () => {
+/** Every `pg_temp.patch_fn(sig, array[anchor, replacement, ...])` call, as { sig, pairs }. */
+function patchCalls(text: string) {
+  return [...text.matchAll(/select pg_temp\.patch_fn\(\$(x+)\$([\s\S]*?)\$\1\$, array\[([\s\S]*?)\]\);/g)].map((m) => ({
+    sig: m[2],
+    lits: [...m[3].matchAll(/\$(x+)\$([\s\S]*?)\$\1\$/g)].map((l) => l[2]),
+  }));
+}
+const FLAG = /deletion_requested_at is null|account_is_active\(|applicant_is_active\(|deletion_requested_at = null/;
+const PATCHED = [
+  "talent_directory_listed_ids()",
+  "talent_directory_portfolio_items(uuid)",
+  "request_talent_directory_contact(uuid, uuid, text, uuid)",
+  "employer_job_applicants(uuid)",
+  "employer_application_screening_answers(uuid)",
+  "employer_resume_view_context(uuid)",
+  "employer_view_resume(uuid)",
+  "record_employer_resume_view(uuid)",
+  "org_application_counts(uuid)",
+  "can_access_assessment_submission(text)",
+  "referral_leaderboard(timestamptz, timestamptz, integer)",
+  "open_mentor_slots(uuid[], timestamptz)",
+  "mentor_public_names(uuid[])",
+  "book_mentor_session(uuid, uuid, text)",
+  "mentorship_session_counterparty_names(uuid[])",
+  "reset_test_pool_user(uuid, text)",
+];
+
+describe("0212: hiding, by patching the LIVE definitions", () => {
+  const calls = patchCalls(sql);
+
+  it("patches exactly the sixteen functions, once each", () => {
+    expect(calls.map((c) => c.sig).sort()).toEqual(PATCHED.map((f) => `public.${f}`).sort());
+  });
+
+  it.each(PATCHED)("%s: the replacement adds the flag check and keeps the anchor it replaces", (fn) => {
+    const c = calls.find((x) => x.sig === `public.${fn}`)!;
+    expect(c.lits.length % 2).toBe(0);
+    const pairs = c.lits.reduce<string[][]>((acc, _, i) => (i % 2 ? acc : [...acc, [c.lits[i], c.lits[i + 1]]]), []);
+    expect(pairs.some(([, to]) => FLAG.test(to)), `${fn} must add the flag`).toBe(true);
+    for (const [from, to] of pairs) expect(to, "a patch must change something").not.toBe(from);
+  });
+
+  it("never carries a literal copy of a patched function's body (a snapshot would revert whatever landed since)", () => {
+    for (const fn of PATCHED) {
+      const name = fn.split("(")[0];
+      expect(code, `${name} must not be recreated from a literal`).not.toMatch(new RegExp(`create or replace function public\\.${name}\\(`));
+    }
+  });
+
+  it("the patch helper stops unless an anchor is found exactly once, and keeps definer/search_path/grants by recreating the live definition", () => {
+    expect(code).toMatch(/must be found exactly once/);
+    expect(code).toMatch(/pg_get_functiondef\(v_oid\)/);
+    expect(code).toMatch(/v_cnt <> 1/);
+  });
+
   it.each([
-    "talent_directory_listed_ids",
-    "talent_directory_portfolio_items",
-    "request_talent_directory_contact",
-    "employer_job_applicants",
-    "employer_application_screening_answers",
-    "employer_resume_view_context",
-    "employer_view_resume",
-    "record_employer_resume_view",
-    "org_application_counts",
-    "can_access_assessment_submission",
-    "referral_leaderboard",
-    "open_mentor_slots",
-    "mentor_public_names",
-    "book_mentor_session",
-  ])("%s is rewritten to read the flag", (fn) => {
-    const m = new RegExp(`create or replace function public\\.${fn}\\([\\s\\S]*?\\n\\$function\\$;`).exec(code);
-    expect(m, `${fn} must be rewritten`).not.toBeNull();
-    expect(m![0]).toMatch(/deletion_requested_at is null|account_is_active\(/);
+    ["mentor_profiles", "mentor profiles are approved-and-public"],
+    ["mentor_availability_slots", "availability is visible for approved mentors"],
+    ["mentorship_reviews", "reviews of approved mentors are publicly readable"],
+    ["application_assessment_submissions", "candidate or owning org can read an assessment submission"],
+    ["application_assessment_response_files", "candidate or owning org can read response files"],
+  ])("the %s SELECT policy is patched by its current name (read from pg_policies), not retyped", (table, name) => {
+    expect(code).toMatch(new RegExp(`pg_temp\\.patch_policy\\(\\$x\\$public\\.${table}\\$x\\$, \\$x\\$${name}%\\$x\\$`));
   });
 
-  it("the two mentor SELECT policies are altered by their current name (read from pg_policies), not retyped", () => {
-    expect(code).toMatch(/alter policy %I on public\.mentor_profiles using/);
-    expect(code).toMatch(/alter policy %I on public\.mentor_availability_slots using/);
+  it("the applicant's own access to their own upload is not gated on the flag: only the organisation branch is", () => {
+    const c = calls.find((x) => x.sig === "public.can_access_assessment_submission(text)")!;
+    expect(c.lits[1]).toBe("or (public.is_org_member(f.organization_id) and public.account_is_active(a.user_id))");
+    expect(c.lits[0]).toBe("or public.is_org_member(f.organization_id)");
   });
-
-  it("the applicant's own access to their own upload is not gated on the flag", () => {
-    const m = /create or replace function public\.can_access_assessment_submission[\s\S]*?\n\$function\$;/.exec(code)![0];
-    expect(m).toMatch(/a\.user_id = \(select auth\.uid\(\)\)\s*\n\s*or \(public\.is_org_member/);
+  it("the two assessment policies gate the organisation branch only", () => {
+    expect(code).toMatch(/\(is_org_member\(organization_id\) AND public\.application_applicant_is_active\(application_id\)\)/);
+    expect(code).toMatch(/\(is_org_member\(organization_id\) AND public\.submission_applicant_is_active\(application_assessment_submission_id\)\)/);
   });
 });
 

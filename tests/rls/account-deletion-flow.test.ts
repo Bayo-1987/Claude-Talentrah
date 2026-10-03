@@ -190,10 +190,10 @@ describe("the emailed link: store, expire, single use, one owner", () => {
     await wipe(flow.id);
   });
 
-  it("a newer request replaces the older: the older link then reads as already used", async () => {
+  it("a newer request replaces the older: the older link then reads as 'superseded' (its own message), and only the newest works", async () => {
     const first = await request(flow.id);
     const second = await request(flow.id);
-    expect((await confirm(flow.id, first.hash)).reason).toBe("used");
+    expect((await confirm(flow.id, first.hash)).reason).toBe("superseded");
     expect((await confirm(flow.id, second.hash)).ok).toBe(true);
     await wipe(flow.id);
   });
@@ -251,6 +251,117 @@ describe("the emailed link: store, expire, single use, one owner", () => {
 
   it("an unknown hash is simply invalid", async () => {
     expect((await confirm(flow.id, "d".repeat(64))).reason).toBe("invalid");
+  });
+});
+
+describe("the precheck (run before the card is touched) agrees with the confirm on every refusal", () => {
+  const pre = async (userId: string, hash: string): Promise<Json> => {
+    const { data, error } = await rpc("account_deletion_confirm_precheck", { p_user_id: userId, p_token_hash: hash });
+    if (error) throw new Error(`precheck: ${error.message}`);
+    return data!;
+  };
+
+  it("is service-role only", async () => {
+    for (const client of [anon, flow.client]) {
+      const { error } = await (client as unknown as typeof admin).rpc("account_deletion_confirm_precheck" as never, { p_user_id: flow.id, p_token_hash: "a".repeat(64) } as never);
+      expect(error).not.toBeNull();
+      expect(NOT_CALLABLE).toContain(error!.code);
+    }
+  });
+
+  it("makes NO change, and answers ok for a good link", async () => {
+    const { hash } = await request(flow.id);
+    const res = await pre(flow.id, hash);
+    expect(res.ok).toBe(true);
+    expect((await profileOf(flow.id)).deletion_requested_at).toBeNull();
+    const { data: row } = await admin.from("account_deletions" as never).select("status").eq("token_hash", hash).single();
+    expect((row as unknown as { status: string }).status).toBe("pending_confirmation");
+    await wipe(flow.id);
+  });
+
+  it("gives the SAME reason as the confirm for: unknown, another person's link, superseded, expired, used, already scheduled", async () => {
+    const same = async (userId: string, hash: string) => {
+      const a = (await pre(userId, hash)).reason;
+      const b = (await confirm(userId, hash)).reason;
+      expect(a, "precheck and confirm must agree").toBe(b);
+      return a;
+    };
+    expect(await same(flow.id, "d".repeat(64))).toBe("invalid");
+    const first = await request(flow.id);
+    const second = await request(flow.id);
+    expect(await same(flow.id, first.hash)).toBe("superseded");
+    expect(await same(stranger.id, second.hash)).toBe("invalid");
+    await admin.from("account_deletions" as never).update({ token_expires_at: new Date(Date.now() - 1000).toISOString() } as never).eq("token_hash", second.hash);
+    expect(await same(flow.id, second.hash)).toBe("expired");
+    const third = await request(flow.id);
+    expect((await confirm(flow.id, third.hash)).ok).toBe(true);
+    expect(await same(flow.id, third.hash)).toBe("used");
+    await wipe(flow.id);
+  });
+});
+
+describe("the stored cards that must be cancelled at the provider (account_deletion_confirm_precheck lists them) and what confirming does to the renewals", () => {
+  it("lists each active Pass and Talent Directory authorisation, once, and nothing for an inactive one", async () => {
+    const { data: plan } = await admin.from("talent_directory_plans").select("id").limit(1).single();
+    const org = await makeOrg(flow, "td");
+    const expires = new Date(Date.now() + 10 * 86_400_000).toISOString();
+    const pass = await admin.from("user_passes").insert({ user_id: flow.id, pass_id: passId, expires_at: expires, payment_method: "card", status: "active", auto_renew: true, auto_renew_status: "active", next_renewal_date: expires.slice(0, 10), authorization_code: "AUTH_pass_fixture" }).select("id").single();
+    const dead = await admin.from("user_passes").insert({ user_id: flow.id, pass_id: passId, expires_at: expires, payment_method: "card", status: "active", auto_renew: false, auto_renew_status: "canceled", authorization_code: "AUTH_dead_fixture" }).select("id").single();
+    const td = await admin.from("talent_directory_subscriptions").insert({ organization_id: org.id, plan_id: plan!.id, expires_at: expires, status: "active", auto_renew_status: "active", next_renewal_date: expires.slice(0, 10), authorization_code: "AUTH_td_fixture" }).select("id").single();
+    expect(pass.error ?? dead.error ?? td.error).toBeNull();
+
+    const { hash } = await request(flow.id);
+    const res = (await rpc("account_deletion_confirm_precheck", { p_user_id: flow.id, p_token_hash: hash })).data as Json & { authorizations: Array<{ source: string; id: string; authorization_code: string }> };
+    expect(res.ok).toBe(true);
+    const codes = res.authorizations.map((a) => `${a.source}:${a.authorization_code}`).sort();
+    expect(codes).toEqual(["pass:AUTH_pass_fixture", "talent_directory:AUTH_td_fixture"]);
+
+    expect((await confirm(flow.id, hash)).ok).toBe(true);
+    const { data: p } = await admin.from("user_passes").select("auto_renew, auto_renew_status, authorization_code").eq("id", pass.data!.id).single();
+    expect(p).toMatchObject({ auto_renew: false, auto_renew_status: "canceled", authorization_code: null });
+    const { data: t } = await admin.from("talent_directory_subscriptions").select("auto_renew_status, authorization_code, next_renewal_date, status").eq("id", td.data!.id).single();
+    expect(t).toMatchObject({ auto_renew_status: "canceled", authorization_code: null, next_renewal_date: null, status: "active" });
+
+    await admin.from("talent_directory_subscriptions").delete().eq("id", td.data!.id);
+    await admin.from("user_passes").delete().in("id", [pass.data!.id, dead.data!.id]);
+    await wipe(flow.id);
+  });
+
+  it("a subscription belonging to an organisation the person did not create is not touched or listed", async () => {
+    const { data: plan } = await admin.from("talent_directory_plans").select("id").limit(1).single();
+    const org = await makeOrg(stranger, "td-other");
+    const expires = new Date(Date.now() + 10 * 86_400_000).toISOString();
+    const td = await admin.from("talent_directory_subscriptions").insert({ organization_id: org.id, plan_id: plan!.id, expires_at: expires, status: "active", auto_renew_status: "active", next_renewal_date: expires.slice(0, 10), authorization_code: "AUTH_other_fixture" }).select("id").single();
+    const { hash } = await request(flow.id);
+    const res = (await rpc("account_deletion_confirm_precheck", { p_user_id: flow.id, p_token_hash: hash })).data as Json & { authorizations: unknown[] };
+    expect(res.authorizations).toEqual([]);
+    expect((await confirm(flow.id, hash)).ok).toBe(true);
+    const { data: t } = await admin.from("talent_directory_subscriptions").select("auto_renew_status, authorization_code").eq("id", td.data!.id).single();
+    expect(t).toMatchObject({ auto_renew_status: "active", authorization_code: "AUTH_other_fixture" });
+    await admin.from("talent_directory_subscriptions").delete().eq("id", td.data!.id);
+    await wipe(flow.id);
+  });
+});
+
+describe("the ad wallet of a sole-member organisation is reported, never forfeited", () => {
+  it("blockers and the confirm result carry its balance; the wallet itself is untouched", async () => {
+    const org = await makeOrg(soleOwner, "wallet");
+    const w = await admin.from("ad_wallets").upsert({ organization_id: org.id, balance_ngn: 4500, currency: "NGN" });
+    expect(w.error).toBeNull();
+    const { hash, res } = await request(soleOwner.id);
+    expect((res.blockers as { ad_wallet_balance_ngn: number }).ad_wallet_balance_ngn).toBeGreaterThanOrEqual(4500);
+    const done = await confirm(soleOwner.id, hash);
+    expect(done.ok).toBe(true);
+    expect(Number(done.ad_wallet_balance_ngn)).toBeGreaterThanOrEqual(4500);
+    const { data: wallet } = await admin.from("ad_wallets").select("balance_ngn").eq("organization_id", org.id).single();
+    expect(wallet?.balance_ngn).toBe(4500);
+    await wipe(soleOwner.id);
+  });
+
+  it("an organisation other people belong to is not this person's to report", async () => {
+    const { res } = await request(sharedAdmin.id);
+    expect(Number((res.blockers as { ad_wallet_balance_ngn: number }).ad_wallet_balance_ngn)).toBe(0);
+    await wipe(sharedAdmin.id);
   });
 });
 

@@ -15,9 +15,14 @@ const migration = read("supabase/migrations/0212_account_deletion_request.sql");
 const rollback = read("supabase/rollbacks/0212_account_deletion_request.rollback.sql");
 const code = (s: string) => s.split("\n").filter((l) => !l.trim().startsWith("--")).join("\n");
 
-const rewritten = [...code(migration).matchAll(/create or replace function public\.([a-z_]+)\(/g)]
-  .map((m) => m[1])
-  .filter((n) => !n.startsWith("account_"));
+/** Every patch call, as the literal arguments in order: the function/table, then anchor, replacement, anchor, replacement, ... */
+const calls = (text: string) =>
+  [...text.matchAll(/select pg_temp\.(patch_fn|patch_policy)\(([\s\S]*?)\);\n/g)].map((m) => ({
+    kind: m[1],
+    lits: [...m[2].matchAll(/\$(x+)\$([\s\S]*?)\$\1\$/g)].map((l) => l[2]),
+  }));
+const forward = calls(migration);
+const back = calls(rollback);
 
 describe("0212 rollback", () => {
   it("is one transaction", () => {
@@ -25,31 +30,56 @@ describe("0212 rollback", () => {
     expect(code(rollback).trim().endsWith("commit;")).toBe(true);
   });
 
-  it("restores every function 0212 rewrote (and reset_test_pool_user), once each", () => {
-    expect(rewritten.length).toBe(15);
-    for (const name of rewritten) {
-      const n = code(rollback).match(new RegExp(`create or replace function public\\.${name}\\(`, "g")) ?? [];
-      expect(n.length, `${name} must be restored exactly once`).toBe(1);
-    }
+  it("is generated from the same patch table: the same calls, in the same order, with every anchor and replacement swapped", () => {
+    expect(forward.length).toBe(21);
+    expect(back.length).toBe(forward.length);
+    forward.forEach((f, i) => {
+      const k = back[i];
+      expect(k.kind).toBe(f.kind);
+      if (f.kind === "patch_fn") {
+        expect(k.lits[0]).toBe(f.lits[0]);
+        const fp = f.lits.slice(1);
+        const kp = k.lits.slice(1);
+        expect(kp.length).toBe(fp.length);
+        for (let j = 0; j < fp.length; j += 2) {
+          expect(kp[j]).toBe(fp[j + 1]);
+          expect(kp[j + 1]).toBe(fp[j]);
+        }
+      } else {
+        // patch_policy(table, name-like, from, to)
+        expect(k.lits).toEqual([f.lits[0], f.lits[1], f.lits[3], f.lits[2]]);
+      }
+    });
   });
 
-  it("restores the two mentor policies by their current name, to the expressions they had", () => {
-    expect(rollback).toMatch(/alter policy %I on public\.mentor_profiles using \(\(\(\(status = ''approved''\) and \(not self_paused\)\) or/);
-    expect(rollback).toMatch(/alter policy %I on public\.mentor_availability_slots using/);
+  it("patches the live definitions the same way (it stops unless each anchor is found exactly once) and recreates no function from a literal", () => {
+    expect(rollback).toMatch(/must be found exactly once/);
+    expect(code(rollback)).not.toMatch(/create or replace function public\./);
   });
 
-  it("no restored body mentions the flag or the helper any more", () => {
-    const beforeDrops = code(rollback).split("drop function if exists public.account_deletion_restore()")[0];
-    expect(beforeDrops).not.toMatch(/deletion_requested_at|account_is_active|account_deletions/);
+  it("every patch comes BEFORE any drop, so nothing refers to the flag or a helper when it goes", () => {
+    const body = code(rollback);
+    expect(body.lastIndexOf("select pg_temp.patch_")).toBeLessThan(body.indexOf("drop function if exists"));
   });
 
   it("drops every object 0212 created, AFTER the restores", () => {
     const body = code(rollback);
     const firstDrop = body.indexOf("drop function if exists");
-    for (const fn of ["account_deletion_restore()", "account_deletion_status()", "account_deletion_confirm(uuid, text)", "account_deletion_create_request(uuid, text)", "account_deletion_blockers(uuid)", "account_is_active(uuid)"]) {
+    for (const fn of [
+      "function_acl_audit()",
+      "account_deletion_restore()",
+      "account_deletion_status()",
+      "account_deletion_confirm(uuid, text)",
+      "account_deletion_confirm_precheck(uuid, text)",
+      "account_deletion_create_request(uuid, text)",
+      "account_deletion_blockers(uuid)",
+      "submission_applicant_is_active(uuid)",
+      "application_applicant_is_active(uuid)",
+      "account_is_active(uuid)",
+    ]) {
       const at = body.indexOf(`drop function if exists public.${fn}`);
       expect(at, fn).toBeGreaterThan(firstDrop - 1);
-      expect(at).toBeGreaterThan(body.lastIndexOf("create or replace function public."));
+      expect(at).toBeGreaterThan(body.lastIndexOf("select pg_temp.patch_"));
     }
     expect(body).toMatch(/drop table if exists public\.account_deletions;/);
     expect(body).toMatch(/alter table public\.profiles drop column if exists deletion_requested_at;/);
