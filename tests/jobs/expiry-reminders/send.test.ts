@@ -288,6 +288,8 @@ describe("accounts scheduled for deletion (ACCT-1)", () => {
     expect(state.sent).toHaveLength(0);
     expect(state.claims.size).toBe(0);
     expect(summary.skipped).toBe(1);
+    // Nobody to write to is not an error: nothing failed, so the run is not retried or alarmed for it.
+    expect(summary.failed).toBe(0);
   });
 
   it("once the owner restores the account (flag cleared) the next run sends to them again", async () => {

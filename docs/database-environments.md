@@ -27,7 +27,8 @@ one morning by two sessions that each did exactly that. Ask, wait for the number
 | 0209 | S3-21, money tables survive user deletion | applied 15:22Z | applied 15:24Z |
 | 0210 | S3-21, `mentor_unpaid_hold` `search_path` pin (#672) | applied 16:04Z | applied 16:05Z |
 | 0211 | S3-21, definer and graphql hardening (local, opens after #671) | reserved | reserved |
-| 0212 onward | S3-21's account-deletion PRs | reserved | reserved |
+| 0212 | S3-21, account deletion PR 1: request, emailed confirm link, hide at once (this PR) | not applied: waits for the owner's yes | not applied |
+| 0213 to 0214 | S3-21's later account-deletion PRs (export, purge) | reserved | reserved |
 
 The times are the ledger's own version stamps (UTC, 2 Oct 2026), read from `supabase_migrations.schema_migrations` on both projects. A row says "applied" only because
 that ledger shows it; "reserved" means a number has been asked for and no ledger has it.
@@ -44,6 +45,25 @@ that ledger shows it; "reserved" means a number has been asked for and no ledger
    branch's preview against that one database, so one branch's unreviewed schema would make every other branch's preview disagree with its own code.
 
 Additive migrations go to production before the merge and destructive ones after the deploy (see production-migration-apply.md); this section does not change that.
+
+## 4a. Rollbacks live in `supabase/rollbacks/`, not in `supabase/migrations/`
+
+A migration that rebuilds existing objects or drops nothing it can bring back carries its exact undo in `supabase/rollbacks/<number>_<name>.rollback.sql`, reviewed in the same
+diff. The file is **not a migration**: it is never applied by CI, `supabase db reset` or `supabase db push`, and it takes no number of its own. It shares its migration's
+number precisely because it undoes that one.
+
+That only holds if nothing that reads migrations can see it, and each reader is pinned by `tests/scripts/rollbacks-directory.test.ts`:
+
+- **The migration-numbering check** (`scripts/check-migration-collisions.ts`) lists `supabase/migrations/` only. Were a rollback listed there it would collide with its own migration
+  (the test shows that case failing).
+- **The drift audit** (`scripts/audit-migrations.ts`) reads `readdirSync("supabase/migrations")`, so a rollback is never expected to have a ledger row.
+- **The Supabase CLI** (`db reset`, `db push`, and the CI stack in `.github/actions/local-supabase`) takes migrations from the default `supabase/migrations/` directory;
+  `supabase/config.toml` sets `schema_paths = []` and names no other path. Read from the CLI's documented behaviour and config, not from running `db push` here (there is no Docker on the authoring machine);
+  the CI stack is the live check, because a rollback applied after its migration would drop the schema the DB-backed suites then need, and every one of them would fail.
+- **No workflow or CI action** names `supabase/rollbacks`.
+
+A rollback is proven the same way its migration is: in one rolled-back transaction against the live catalogue, the definitions captured before the migration are compared with the
+ones after migration + rollback, and must be identical. That output goes in the PR body. Running a rollback on a real database is a production write and needs the owner's yes like any other.
 
 ## 4. One-off production data fixes are not migrations
 

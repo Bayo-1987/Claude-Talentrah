@@ -12,7 +12,11 @@ export function BlockerReasons({ blockers }: { blockers: DeletionBlockers }) {
   for (const s of blockers.mentorship_sessions) {
     reasons.push(
       <li key={`s-${s.id}`}>
-        You have a paid mentoring session as a {s.role} on {formatDate(s.scheduled_start)}. Complete it, or cancel it so it is refunded, first.
+        You have a paid mentoring session as a {s.role} on {formatDate(s.scheduled_start)}. Complete it, or cancel it so it is refunded, first.{" "}
+        <Link href={s.role === "mentor" ? "/mentorship/sessions/mentor" : "/mentorship/sessions"} className="text-rust underline">
+          Manage or cancel this session
+        </Link>
+        .
       </li>,
     );
   }

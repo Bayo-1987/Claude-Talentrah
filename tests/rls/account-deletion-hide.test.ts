@@ -285,6 +285,68 @@ describe("mentor discovery", () => {
   });
 });
 
+describe("direct table reads by ANOTHER signed-in user (the Supabase client can query tables itself, so each is its own check)", () => {
+  let sessionId = "";
+  let reviewId = "";
+  let submissionId = "";
+
+  beforeAll(async () => {
+    const past = new Date(Date.now() - 3 * 86_400_000);
+    const ses = await admin.from("mentorship_sessions").insert({
+      mentor_id: mentor.id, mentee_id: mentee.id, availability_slot_id: slotId, session_type: "career_strategy",
+      scheduled_start: past.toISOString(), scheduled_end: new Date(past.getTime() + 3_600_000).toISOString(),
+      price_ngn: 0, platform_commission_ngn: 0, mentor_payout_ngn: 0, status: "completed",
+    } as never).select("id").single();
+    if (ses.error || !ses.data) throw new Error(`fixture session: ${ses.error?.message}`);
+    sessionId = ses.data.id;
+    const rev = await admin.from("mentorship_reviews").insert({ session_id: sessionId, mentor_id: mentor.id, reviewer_id: mentee.id, rating: 5, review_text: "ACCT1 review" }).select("id").single();
+    if (rev.error || !rev.data) throw new Error(`fixture review: ${rev.error?.message}`);
+    reviewId = rev.data.id;
+    const sub = await admin.from("application_assessment_submissions").insert({ application_id: applicationId, job_posting_id: jobId, organization_id: orgId, response_text: "ACCT1 response" }).select("id").single();
+    if (sub.error || !sub.data) throw new Error(`fixture submission: ${sub.error?.message}`);
+    submissionId = sub.data.id;
+  }, 120_000);
+
+  afterAll(async () => {
+    if (submissionId) await admin.from("application_assessment_submissions").delete().eq("id", submissionId);
+    if (reviewId) await admin.from("mentorship_reviews").delete().eq("id", reviewId);
+    if (sessionId) await admin.from("mentorship_sessions").delete().eq("id", sessionId);
+  }, 120_000);
+
+  const count = async (q: PromiseLike<{ data: unknown[] | null; error: { message: string } | null }>) => {
+    const { data, error } = await q;
+    if (error) throw new Error(error.message);
+    return (data ?? []).length;
+  };
+  const reads = async () => ({
+    mentorProfile: await count(employer.client.from("mentor_profiles").select("user_id").eq("user_id", mentor.id)),
+    slot: await count(employer.client.from("mentor_availability_slots").select("id").eq("id", slotId)),
+    review: await count(employer.client.from("mentorship_reviews").select("id").eq("id", reviewId)),
+    submissionAsEmployer: await count(employer.client.from("application_assessment_submissions").select("id").eq("id", submissionId)),
+  });
+
+  it("BEFORE: a different signed-in user reads the mentor's profile, slot and review, and the employer reads the submission", async () => {
+    expect(await reads()).toEqual({ mentorProfile: 1, slot: 1, review: 1, submissionAsEmployer: 1 });
+  });
+
+  it("AFTER the mentor is flagged: the profile, slot and review are gone for others; AFTER the applicant is flagged: the submission is gone for the employer but not for the applicant", async () => {
+    await setFlag(mentor.id, true);
+    await setFlag(applicant.id, true);
+    try {
+      expect(await reads()).toEqual({ mentorProfile: 0, slot: 0, review: 0, submissionAsEmployer: 0 });
+      expect(await count(applicant.client.from("application_assessment_submissions").select("id").eq("id", submissionId)), "the applicant keeps their own submission").toBe(1);
+      expect(await count(mentor.client.from("mentor_profiles").select("user_id").eq("user_id", mentor.id)), "the mentor keeps their own profile").toBe(1);
+    } finally {
+      await setFlag(mentor.id, false);
+      await setFlag(applicant.id, false);
+    }
+  });
+
+  it("RESTORED: all four are back", async () => {
+    expect(await reads()).toEqual({ mentorProfile: 1, slot: 1, review: 1, submissionAsEmployer: 1 });
+  });
+});
+
 describe("the real confirm sets the same flag the surfaces read", () => {
   it("after account_deletion_confirm the applicant is hidden from the employer, and after restore is back", async () => {
     const { token, hash } = generateDeletionToken();

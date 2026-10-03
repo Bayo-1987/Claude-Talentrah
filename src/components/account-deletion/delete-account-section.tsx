@@ -9,6 +9,7 @@ import type { DeletionBlockers } from "@/lib/account-deletion/types";
 import { Button, EyebrowLabel, TextField } from "@/components/ui";
 import { BlockerReasons } from "./blocker-reasons";
 import { ClosingPostingsList } from "./closing-postings-list";
+import { AdWalletNotice } from "./ad-wallet-notice";
 
 /**
  * Settings → Delete account (ACCT-1 PR 1).
@@ -47,6 +48,7 @@ export function DeleteAccountSection({ creditsBalance, blockers }: { creditsBala
             </p>
           )}
           <ClosingPostingsList postings={shownBlockers.postings_to_close} />
+          <AdWalletNotice balanceNgn={shownBlockers.ad_wallet_balance_ngn} />
 
           <form action={formAction} className="flex max-w-[420px] flex-col gap-4">
             {state.error && (

@@ -52,7 +52,7 @@ export default async function ConfirmAccountDeletionPage({ searchParams }: { sea
 
   return (
     <Shell>
-      <ConfirmDeletionPanel token={token} creditsBalance={Math.max(profile.credits_balance, 0)} postingsToClose={blockers.postings_to_close} />
+      <ConfirmDeletionPanel token={token} creditsBalance={Math.max(profile.credits_balance, 0)} postingsToClose={blockers.postings_to_close} adWalletBalanceNgn={blockers.ad_wallet_balance_ngn} />
     </Shell>
   );
 }

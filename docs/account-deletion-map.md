@@ -91,6 +91,18 @@ handed over.
 | `user_passes.user_id` | profiles | SET NULL | anonymise | tax and audit record (0209); renewal cancelled at confirm |
 | `user_template_unlocks.user_id` | auth.users | CASCADE | delete | the person's unlocked resume templates |
 
+## Deletion-lifecycle emails
+
+The guard in `getResendClient()` drops every email to an account scheduled for deletion. These are the only ones that are allowed through, and only via `sendDeletionLifecycleEmail()` (called from `src/lib/account-deletion/` and nowhere else), because their whole point is to reach that person. Adding a name to `DELETION_LIFECYCLE_TEMPLATES` without a row here, or a row here without the name, fails `tests/email/every-sender-uses-the-guarded-client.test.ts`.
+
+| template | sent when | why it must arrive |
+|---|---|---|
+| `deletion_confirm` | the person asks to delete their account: the one-hour, single-use confirm link | the link is the request; a dropped confirm email would make the feature silently do nothing |
+| `deletion_scheduled` | the person confirms: the date it will happen, what was stopped, the postings closed and the ad balance, and how to restore | the proof that it worked, and the only way to learn the date |
+| `deletion_restored` | the person restores the account: what is back and what is not (Auto-Apply off, Pass renewal cancelled until they resubscribe, closed postings stay closed) | the proof that it was undone, and the honest list of what restore does not bring back |
+
+A final reminder before the hard delete (a later PR) would be added here too, with its own row, when it is built.
+
 ## Storage
 
 | bucket | path | class | note |

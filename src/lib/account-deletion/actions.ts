@@ -4,9 +4,10 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
-import { getResendClient } from "@/lib/resend/client";
+import { sendDeletionLifecycleEmail } from "@/lib/resend/client";
 import { absoluteUrl } from "@/lib/seo/site";
-import { buildDeletionConfirmEmail } from "./email";
+import { buildDeletionConfirmEmail, buildDeletionRestoredEmail, buildDeletionScheduledEmail } from "./email";
+import { cancelStoredAuthorizations, type StoredAuthorization } from "./provider-cancel";
 import { PENDING_DELETION_PATH } from "@/lib/auth/pending-deletion-path";
 import {
   DELETION_CONFIRM_PHRASE,
@@ -86,29 +87,29 @@ export async function requestAccountDeletionAction(
   const email = profile?.email?.trim();
   if (!email) return { status: "error", error: "There is no email address on this account to send the confirmation to." };
 
-  const resend = getResendClient();
-  if (!resend) {
-    console.error("[account-deletion] RESEND_API_KEY is not set: confirmation email not sent");
-    return { status: "error", error: "We can't send email right now, so we can't confirm this by email. Try again later." };
-  }
-
   const blockers = asBlockers(result.blockers);
   const message = buildDeletionConfirmEmail({
     firstName: profile?.first_name ?? null,
     confirmUrl: absoluteUrl(`/settings/delete-account/confirm?token=${token}`),
     creditsForfeited: Math.max(profile?.credits_balance ?? 0, 0),
     postingsToClose: blockers?.postings_to_close ?? [],
+    adWalletBalanceNgn: blockers?.ad_wallet_balance_ngn ?? 0,
   });
 
-  const { error: sendError } = await resend.emails.send({
-    from: FROM,
-    to: email,
-    subject: message.subject,
-    text: message.text,
-    html: message.html,
-  });
+  // The confirm link goes through the lifecycle sender: a normal send to an account that is scheduled for deletion is dropped by the mail guard, and
+  // this is the deletion's own mail.
+  let sendError: { message: string } | null = null;
+  try {
+    const res = await sendDeletionLifecycleEmail("deletion_confirm", { from: FROM, to: email, subject: message.subject, text: message.text, html: message.html });
+    sendError = res.error;
+  } catch (err) {
+    sendError = { message: err instanceof Error ? err.message : String(err) };
+  }
   if (sendError) {
     console.error("[account-deletion] confirmation email failed:", sendError.message);
+    if (/RESEND_API_KEY/.test(sendError.message)) {
+      return { status: "error", error: "We can't send email right now, so we can't confirm this by email. Try again later." };
+    }
     return { status: "error", error: "We couldn't send the confirmation email. Try again in a moment." };
   }
 
@@ -133,10 +134,35 @@ export async function confirmAccountDeletionAction(
   }
 
   const admin = createServiceRoleClient();
-  const { data, error } = await admin.rpc("account_deletion_confirm", {
-    p_user_id: user.id,
-    p_token_hash: hashDeletionToken(token),
-  });
+  const hash = hashDeletionToken(token);
+
+  // 1. PRECHECK. Every refusal the confirm can give, with nothing changed, so a bad, used, replaced or expired link never costs the person a card
+  //    cancellation. It also lists the stored card authorisations to cancel. The id is the session's.
+  const { data: pre, error: preError } = await admin.rpc("account_deletion_confirm_precheck", { p_user_id: user.id, p_token_hash: hash });
+  if (preError) {
+    console.error("[account-deletion] precheck failed:", preError.message);
+    return { status: "error", reason: "failed", error: "We couldn't schedule the deletion just now. You are still signed in; try again in a moment." };
+  }
+  const precheck = (pre ?? {}) as { ok?: boolean; reason?: string; blockers?: unknown; authorizations?: StoredAuthorization[] };
+  if (!precheck.ok) return refusal(precheck.reason, precheck.blockers);
+
+  // What the emails say about them is read now, while the session is still theirs.
+  const { data: profile } = await supabase.from("profiles").select("email, first_name, credits_balance").eq("id", user.id).maybeSingle();
+
+  // 2. THE CARD COMES FIRST. If a stored card cannot be cancelled at the payment provider, nothing is scheduled.
+  const cards = await cancelStoredAuthorizations(precheck.authorizations ?? []);
+  if (!cards.ok) {
+    return {
+      status: "error",
+      reason: "card",
+      error:
+        "We couldn't cancel your saved card with our payment provider, so nothing has been scheduled and your account is unchanged. You are still signed in; try again in a moment, and contact us if it keeps happening." +
+        (cards.cancelled > 0 ? " Some of your saved cards were already cancelled, so a Pass you had will not renew; you can resubscribe at any time." : ""),
+    };
+  }
+
+  // 3. CONFIRM, in one database transaction: the link is single-use, one hour, this person only, enforced under a row lock.
+  const { data, error } = await admin.rpc("account_deletion_confirm", { p_user_id: user.id, p_token_hash: hash });
   if (error) {
     console.error("[account-deletion] confirm failed:", error.message);
     return { status: "error", reason: "failed", error: "We couldn't schedule the deletion just now. You are still signed in; try again in a moment." };
@@ -149,35 +175,56 @@ export async function confirmAccountDeletionAction(
     hard_delete_after?: string;
     credits_forfeited?: number;
     closed_postings?: Array<{ id: string; title: string; organization: string }>;
+    ad_wallet_balance_ngn?: number;
   };
+  if (!result.ok) return refusal(result.reason, result.blockers);
 
-  if (!result.ok) {
-    switch (result.reason) {
-      case "used":
-        return { status: "error", reason: "used", error: "This link has already been used. If you still want to delete your account, ask for a new one from Settings." };
-      case "expired":
-        return { status: "error", reason: "expired", error: "This link has expired. Links work for one hour; ask for a new one from Settings." };
-      case "already_scheduled":
-        return { status: "error", reason: "already_scheduled", error: "Deletion is already scheduled for this account." };
-      case "blocked":
-        return { status: "error", reason: "blocked", error: "Something has changed and your account can't be deleted yet.", blockers: asBlockers(result.blockers) };
-      default:
-        return { status: "error", reason: "invalid", error: "This link isn't valid. Ask for a new confirmation email from Settings." };
-    }
-  }
-
-  // Scheduled. Only now, and only then, end every session this person has. A failure here does not undo the deletion (it is already scheduled,
-  // and the hiding does not depend on the sessions), so it is logged and the person is told what happened.
+  // 4. Scheduled. Only now, and only then, end every session this person has. A failure here does not undo the deletion (it is already scheduled,
+  //    and the proxy gate catches every later request from another device), so it is logged and the person is told what happened.
   const { error: signOutError } = await supabase.auth.signOut({ scope: "global" });
   if (signOutError) console.error("[account-deletion] scheduled, but global sign-out failed:", signOutError.message);
 
-  return {
-    status: "done",
-    error: null,
-    hardDeleteAfter: result.hard_delete_after,
-    creditsForfeited: result.credits_forfeited ?? 0,
-    closedPostings: result.closed_postings ?? [],
-  };
+  const closedPostings = result.closed_postings ?? [];
+  const adWalletBalanceNgn = result.ad_wallet_balance_ngn ?? 0;
+  const creditsForfeited = result.credits_forfeited ?? 0;
+
+  // 5. The proof that it worked. A failure here changes nothing about the deletion.
+  const to = profile?.email?.trim();
+  if (to) {
+    try {
+      const m = buildDeletionScheduledEmail({
+        firstName: profile?.first_name ?? null,
+        hardDeleteAfter: result.hard_delete_after,
+        creditsForfeited,
+        closedPostings,
+        adWalletBalanceNgn,
+      });
+      const res = await sendDeletionLifecycleEmail("deletion_scheduled", { from: FROM, to, subject: m.subject, text: m.text, html: m.html });
+      if (res.error) console.error("[account-deletion] 'scheduled' email failed:", res.error.message);
+    } catch (err) {
+      console.error("[account-deletion] 'scheduled' email failed:", err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  return { status: "done", error: null, hardDeleteAfter: result.hard_delete_after, creditsForfeited, closedPostings, adWalletBalanceNgn };
+}
+
+/** One honest message per reason the database can refuse a confirm for, whichever step it came from. */
+function refusal(reason: string | undefined, blockers: unknown): DeletionConfirmState {
+  switch (reason) {
+    case "used":
+      return { status: "error", reason: "used", error: "This link has already been used. If you still want to delete your account, ask for a new one from Settings." };
+    case "superseded":
+      return { status: "error", reason: "superseded", error: "A newer confirmation email has been sent since this one. Use the latest link, or ask for a new one from Settings." };
+    case "expired":
+      return { status: "error", reason: "expired", error: "This link has expired. Links work for one hour; ask for a new one from Settings." };
+    case "already_scheduled":
+      return { status: "error", reason: "already_scheduled", error: "Deletion is already scheduled for this account." };
+    case "blocked":
+      return { status: "error", reason: "blocked", error: "Something has changed and your account can't be deleted yet.", blockers: asBlockers(blockers) };
+    default:
+      return { status: "error", reason: "invalid", error: "This link isn't valid. Ask for a new confirmation email from Settings." };
+  }
 }
 
 /** The person's own choice, on the prompt: put visibility back. Auto-Apply stays off and Pass renewal stays cancelled. */
@@ -197,6 +244,19 @@ export async function restoreAccountAction(): Promise<void> {
   if (!result.ok) {
     const reason = result.reason === "window_closed" ? "window_closed" : "failed";
     redirect(`${PENDING_DELETION_PATH}?error=${reason}`);
+  }
+
+  // The proof that it was undone, and what restoring does not bring back. Best effort: the restore itself already happened.
+  try {
+    const { data: profile } = await supabase.from("profiles").select("email, first_name, credits_balance").eq("id", user.id).maybeSingle();
+    const to = profile?.email?.trim();
+    if (to) {
+      const m = buildDeletionRestoredEmail({ firstName: profile?.first_name ?? null });
+      const res = await sendDeletionLifecycleEmail("deletion_restored", { from: FROM, to, subject: m.subject, text: m.text, html: m.html });
+      if (res.error) console.error("[account-deletion] 'restored' email failed:", res.error.message);
+    }
+  } catch (err) {
+    console.error("[account-deletion] 'restored' email failed:", err instanceof Error ? err.message : String(err));
   }
 
   revalidatePath("/", "layout");

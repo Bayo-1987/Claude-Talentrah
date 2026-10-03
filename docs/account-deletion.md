@@ -10,19 +10,40 @@ How a person deletes their account, what is built, and what is still to come. Th
 2. **An emailed link**, not a password prompt (people who signed in with Google have no password). 32 random bytes; the database keeps only the sha256.
    Valid for one hour, works once, works only for the person it was issued to (the confirm takes the id from the session). A newer request replaces an
    older one; three an hour at most.
-3. **The link opens a page; one click confirms.** Opening it changes nothing (mail scanners open links).
-4. **Confirming, in one transaction** (`account_deletion_confirm`): `profiles.deletion_requested_at` is set; the hard delete is scheduled 30 days out
-   (a later PR runs it); Auto-Apply is switched off and its queue dismissed; Pass auto-renewal is cancelled (the same four columns the Billing page's own
-   cancel writes, and the stored card authorisation is dropped); for the **only member of an organisation**, its open postings are closed and its running
-   campaigns paused. The organisation, its postings and the applications it received are kept: they are other people's records. Applicants are not emailed.
-   Then the session is ended everywhere.
-5. **Hidden at once, in the database:** one flag, read by the Talent Directory (count, preview, search, portfolio, contact), the employer applicant views
-   (list, resume, context, counts, assessment files), mentor discovery (RLS policies, open slots, names, booking) and the referral leaderboard.
-6. **No email, from any sender.** `getResendClient()` returns a client whose `emails.send` drops recipients whose profile carries the flag, so a sender
-   written later is covered too (and `tests/email/every-sender-uses-the-guarded-client.test.ts` keeps that the only door). `recipient-eligibility.ts`
-   answers the same question for senders that want to know before they do work.
-7. **Signing in again** inside the 30 days lands on "Your account is scheduled for deletion on <date>. Restore it, or keep the deletion?". It never
-   restores silently. Restoring puts visibility back; Auto-Apply stays off, renewal stays cancelled, closed postings stay closed.
+3. **The link opens a page; one click confirms.** Opening it changes nothing (mail scanners open links). The link is stored only as a sha256 (`token_hash`, unique), looked up by
+   that hash AND the session's own user id under a row lock, so there is no comparison of the secret to time; a request made after it supersedes it ("a newer
+   confirmation email has been sent"), a used one says "already been used", an expired one says it expired. Each is its own message and none touches the card.
+4. **Confirming, in this order** (`confirmAccountDeletionAction`):
+   1. `account_deletion_confirm_precheck`: every refusal, with nothing changed, and the list of stored card authorisations (Pass renewals, and Talent Directory renewals of
+      organisations this person created).
+   2. **The card comes first.** Renewals are not provider-side subscriptions; our own daily cron charges a stored Paystack authorisation code. So each code is cancelled with
+      `POST /customer/deactivate_authorization` (once per distinct card). **If the provider cannot be reached or refuses, the deletion is not scheduled at all**: the person is told
+      "nothing has been scheduled" and stays signed in. A refusal that says the authorisation is already deactivated, inactive or not found counts as cancelled. If the database
+      confirm then fails after a card was cancelled, the next renewal of that Pass would decline once and the person can resubscribe: harmless, and said in the message.
+   3. `account_deletion_confirm`, one transaction: `profiles.deletion_requested_at` is set; the hard delete is scheduled 30 days out (a later PR runs it); Auto-Apply is
+      switched off and its queue dismissed; Pass and Talent Directory auto-renewal are cancelled in the database (the stored authorisation is dropped); for the **only member of an
+      organisation**, its open postings are closed and its running campaigns paused. The organisation, its postings, **its ad wallet** and the applications it received are kept:
+      they are other people's records, or the organisation's. Applicants are not emailed.
+   4. The session is ended everywhere (`signOut({ scope: "global" })`). Its failure does not undo the deletion: the gate below catches every later request.
+   5. The "scheduled" email is sent. Its failure does not undo the deletion either.
+5. **Said plainly, with the real titles, on the screen and in both emails:** "These postings will be closed now and permanently removed 30 days after closing. Restoring your
+   account won’t reopen them." (The existing sweep removes a closed posting 30 days after closing; this is not new behaviour, only now stated.) For an organisation with an ad
+   wallet balance: the balance, that it stays with the organisation and is not forfeited, and that nobody can use it unless the person restores or someone joins. Refunds of unused
+   credits or the wallet are **not** offered: that is on the owner's list for the lawyer, and `refund_policy`/`refund_note` exist unused for when it is decided.
+6. **Hidden at once, in the database:** one flag, read by the Talent Directory (count, preview, search, portfolio, contact), the employer applicant views
+   (list, resume, context, counts, assessment submissions and files), mentor discovery (the `mentor_profiles`, `mentor_availability_slots` and `mentorship_reviews` SELECT policies,
+   open slots, names, counterparty names, booking) and the referral leaderboard. Another signed-in user querying those tables directly gets nothing
+   (`tests/rls/account-deletion-hide.test.ts`). Each affected function is **patched from its live definition**, not recreated from a copy, so a change that landed since cannot be
+   reverted, and its definer flag, `search_path` and grants are untouched (`tests/rls/account-deletion-function-grants.test.ts` holds that to an explicit table).
+7. **The session itself is gated on every request** (`src/lib/auth/pending-deletion-gate.ts`, in `src/proxy.ts`): a session whose account is scheduled lands on the prompt on its very
+   next request (API calls get a 403 JSON), even if the global sign-out failed. `requireUser()` is a second gate, the database a third; none relies on another.
+8. **No email, from any sender, except the deletion's own three.** `getResendClient()` returns a client whose `emails.send` drops recipients whose profile carries the flag, so a
+   sender written later is covered too (and `tests/email/every-sender-uses-the-guarded-client.test.ts` keeps that the only door). Each drop is logged `reason=deleted_pending` and
+   reported as sent, so nothing retries. The three exceptions (`deletion_confirm`, `deletion_scheduled`, `deletion_restored`) go through `sendDeletionLifecycleEmail()`, listed in
+   [account-deletion-map.md](account-deletion-map.md#deletion-lifecycle-emails); a test fails if the list and that table disagree. The closing-date reminder skips a pending owner and
+   falls back to the organisation's creator, and does nothing (and fails nothing) when both are pending.
+9. **Signing in again** inside the 30 days lands on "Your account is scheduled for deletion on <date>. Restore it, or keep the deletion?". It never restores silently. Restoring puts
+   visibility back and emails the proof; Auto-Apply stays off, a Pass does not renew until the person resubscribes, closed postings stay closed.
 
 ## What is not built yet
 
@@ -36,8 +57,8 @@ How a person deletes their account, what is built, and what is still to come. Th
 
 | | |
 |---|---|
-| SQL | `supabase/migrations/0212_account_deletion_request.sql` |
+| SQL | `supabase/migrations/0212_account_deletion_request.sql`; its exact undo is `supabase/rollbacks/0212_account_deletion_request.rollback.sql` |
 | Server Actions | `src/lib/account-deletion/actions.ts` |
 | Pages | `/settings` (the section), `/settings/delete-account/confirm`, `/settings/account-deletion` (the prompt) |
-| The gate | `requireUser()` redirects a pending account to the prompt; the pages that ARE the prompt pass `allowPendingDeletion` |
+| The gates | `src/lib/auth/pending-deletion-gate.ts` (every request), `requireUser()` (pages; the pages that ARE the prompt pass `allowPendingDeletion`), the database (everyone else's reads) |
 | Tests | `tests/rls/account-deletion-*.test.ts` (database), `tests/lib/account-deletion/`, `tests/lib/email/`, `tests/email/`, `tests/components/account-deletion/` |

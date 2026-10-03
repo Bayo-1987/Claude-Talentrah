@@ -88,6 +88,7 @@ function serviceAnswers(over: Partial<Record<string, unknown>> = {}) {
 beforeEach(() => {
   h.user = { id: "user-A", email: "ada@example.com" };
   h.profile = { email: "ada@example.com", first_name: "Ada", credits_balance: 12 };
+  h.serviceRpc.mockReset();
   serviceAnswers();
   h.userRpc.mockReset().mockResolvedValue({ data: { ok: true }, error: null });
   h.signOut.mockReset().mockResolvedValue({ error: null });

@@ -15,7 +15,16 @@ export interface DeletionRequestState {
 
 export const initialRequestState: DeletionRequestState = { status: "idle", error: null };
 
-export type DeletionConfirmReason = "invalid" | "used" | "expired" | "already_scheduled" | "blocked" | "signed_out" | "failed";
+export type DeletionConfirmReason =
+  | "invalid"
+  | "used"
+  | "superseded"
+  | "expired"
+  | "already_scheduled"
+  | "blocked"
+  | "signed_out"
+  | "card"
+  | "failed";
 
 export interface DeletionConfirmState {
   status: "idle" | "done" | "error";
@@ -25,6 +34,7 @@ export interface DeletionConfirmState {
   hardDeleteAfter?: string;
   creditsForfeited?: number;
   closedPostings?: Array<{ id: string; title: string; organization: string }>;
+  adWalletBalanceNgn?: number;
 }
 
 export const initialConfirmState: DeletionConfirmState = { status: "idle", error: null };

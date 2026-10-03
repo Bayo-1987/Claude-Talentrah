@@ -292,6 +292,30 @@ export async function refundTransaction(reference: string): Promise<RefundResult
   return data.data as RefundResult;
 }
 
+/**
+ * Deactivate a stored card authorisation (`POST /customer/deactivate_authorization`), so it can no longer be charged.
+ *
+ * Renewals here are OUR cron charging a stored authorisation code (`chargeAuthorization`); there is no provider-side subscription object to cancel, so
+ * this is the one thing that makes a card un-chargeable at the provider. Account deletion calls it BEFORE it schedules anything. A decline means
+ * Paystack answered no (for example "already deactivated" or "not found"); unavailable means it never answered. The caller treats them differently.
+ */
+export async function deactivateAuthorization(authorizationCode: string): Promise<void> {
+  const code = authorizationCode.trim();
+  if (!code) throw new Error("deactivateAuthorization needs an authorization code.");
+  await paystackFetch(
+    `${PAYSTACK_BASE_URL}/customer/deactivate_authorization`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${getSecretKey()}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ authorization_code: code }),
+    },
+    "deactivate authorization",
+  );
+}
+
 /* ────────────────────────────────────────────────────────────────────────
  * Transfers — mentor payouts (Mentorship v2, part 1, 0149).
  *

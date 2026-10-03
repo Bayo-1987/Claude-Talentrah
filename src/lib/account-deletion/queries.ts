@@ -15,5 +15,6 @@ export async function getDeletionBlockers(userId: string): Promise<DeletionBlock
     console.error("[account-deletion] could not read blockers:", error?.message ?? "empty result");
     return NO_BLOCKERS;
   }
-  return data as unknown as DeletionBlockers;
+  // Every field defaulted, so an older shape of the function (or a partial answer) can never reach a screen as `undefined`.
+  return { ...NO_BLOCKERS, ...(data as unknown as Partial<DeletionBlockers>) };
 }

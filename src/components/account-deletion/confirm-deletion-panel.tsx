@@ -4,12 +4,13 @@ import Link from "next/link";
 import { useActionState } from "react";
 import { confirmAccountDeletionAction } from "@/lib/account-deletion/actions";
 import { initialConfirmState } from "@/lib/account-deletion/state";
-import { creditsPhrase } from "@/lib/account-deletion/copy";
+import { CLOSING_POSTINGS_NOTICE, RESTORE_DOES_NOT_REOPEN, creditsPhrase } from "@/lib/account-deletion/copy";
 import { RESTORE_WINDOW_DAYS } from "@/lib/account-deletion/token";
 import { formatDate } from "@/lib/format/datetime";
 import { Button } from "@/components/ui";
 import { BlockerReasons } from "./blocker-reasons";
 import { ClosingPostingsList } from "./closing-postings-list";
+import { AdWalletNotice } from "./ad-wallet-notice";
 
 /**
  * The page the emailed link opens (ACCT-1 PR 1). Opening the link does nothing by itself: mail scanners and link previews open links, so the
@@ -20,10 +21,12 @@ export function ConfirmDeletionPanel({
   token,
   creditsBalance,
   postingsToClose,
+  adWalletBalanceNgn,
 }: {
   token: string;
   creditsBalance: number;
   postingsToClose: Array<{ id: string; title: string; organization: string }>;
+  adWalletBalanceNgn: number;
 }) {
   const [state, formAction, pending] = useActionState(confirmAccountDeletionAction, initialConfirmState);
 
@@ -35,11 +38,12 @@ export function ConfirmDeletionPanel({
         </p>
         {state.closedPostings && state.closedPostings.length > 0 && (
           <div className="font-body text-[13.5px] text-ink-soft">
-            Closed: {state.closedPostings.map((p) => p.title).join(", ")}.
+            Closed: {state.closedPostings.map((p) => p.title).join(", ")}. {CLOSING_POSTINGS_NOTICE} {RESTORE_DOES_NOT_REOPEN}
           </div>
         )}
+        {state.adWalletBalanceNgn ? <AdWalletNotice balanceNgn={state.adWalletBalanceNgn} /> : null}
         <p className="font-body text-[14px] text-ink-soft">
-          If you change your mind, sign in before then and choose to restore it.
+          If you change your mind, sign in before then and choose to restore it. We&rsquo;ve emailed you the same details.
         </p>
         <Link href="/" className="font-body text-[14px] text-rust underline">
           Back to the home page
@@ -69,6 +73,7 @@ export function ConfirmDeletionPanel({
         <p className="font-body text-[14px] text-ink">You have {creditsPhrase(creditsBalance)}. Unused credits are forfeited when your account is deleted.</p>
       )}
       <ClosingPostingsList postings={postingsToClose} />
+      <AdWalletNotice balanceNgn={adWalletBalanceNgn} />
 
       <p className="font-body text-[13px] text-ink-soft">
         You will be signed out everywhere as soon as you confirm.

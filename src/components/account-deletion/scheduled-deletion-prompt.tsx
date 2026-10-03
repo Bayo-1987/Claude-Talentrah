@@ -1,5 +1,5 @@
 import { keepDeletionAction, restoreAccountAction } from "@/lib/account-deletion/actions";
-import { creditsPhrase } from "@/lib/account-deletion/copy";
+import { RESTORE_LIMITS, creditsPhrase } from "@/lib/account-deletion/copy";
 import { formatDate } from "@/lib/format/datetime";
 import { Button } from "@/components/ui";
 
@@ -36,8 +36,7 @@ export function ScheduledDeletionPrompt({
           <p className="font-body text-[16px] text-ink">Restore it, or keep the deletion?</p>
           <div className="flex flex-col gap-2 font-body text-[14px] text-ink-soft">
             <p>
-              Restoring puts your profile back where employers and the Talent Directory can see it, and your account back as it was. Auto-Apply stays off and
-              any Pass stays cancelled; you can turn them back on yourself. Postings you had open stay closed.
+              Restoring puts your profile back where employers and the Talent Directory can see it, and your account back as it was. {RESTORE_LIMITS}
             </p>
             {creditsForfeited > 0 && <p>You have {creditsPhrase(creditsForfeited)}, which are forfeited if the deletion goes ahead.</p>}
           </div>

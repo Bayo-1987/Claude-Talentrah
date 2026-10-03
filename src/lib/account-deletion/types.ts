@@ -15,6 +15,8 @@ export interface DeletionBlockers {
   /** Open postings that will be closed: the person is the only member of the organisation. */
   postings_to_close: Array<{ id: string; title: string; organization: string }>;
   campaigns_to_pause: number;
+  /** What the ad wallets of those organisations hold, in naira. Never forfeited: it stays with the organisation. */
+  ad_wallet_balance_ngn: number;
   blocked: boolean;
 }
 
@@ -24,5 +26,6 @@ export const NO_BLOCKERS: DeletionBlockers = {
   organisations_with_other_members: [],
   postings_to_close: [],
   campaigns_to_pause: 0,
+  ad_wallet_balance_ngn: 0,
   blocked: false,
 };

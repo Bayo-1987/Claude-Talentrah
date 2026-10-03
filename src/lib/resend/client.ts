@@ -1,6 +1,7 @@
 import "server-only";
 import { Resend } from "resend";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { LIFECYCLE_TEMPLATE_HEADER, isDeletionLifecycleTemplate, type DeletionLifecycleTemplate } from "@/lib/resend/deletion-lifecycle";
 
 /**
  * Shared Resend client for transactional/notification email. Returns null rather than throwing when unconfigured: callers decide what "no client"
@@ -18,6 +19,9 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
  *   - If the lookup itself FAILS the send fails too, with an error the caller already handles. "Stop all email" must not become "send everything"
  *     when the database blips.
  *   - Not a profile (the Contact form's own inbox, an admin alert address) matches no row and is untouched.
+ *   - Every drop is logged as `[email] reason=deleted_pending dropped=N subject="..."` (never the address), so the drops can be counted.
+ *   - The deletion's own three emails (the link, "scheduled", "restored") are the one exception and go through `sendDeletionLifecycleEmail()`
+ *     below, not through this client: a normal send that merely names one of those templates is still dropped.
  */
 export function getResendClient(): Resend | null {
   const apiKey = process.env.RESEND_API_KEY;
@@ -70,6 +74,7 @@ function withDeletionGuard(client: Resend): Resend {
           return { data: null, error: { message: `recipient check failed: ${message}`, name: "application_error" } } as unknown as SendResult;
         }
         if (pending.size === 0) return target.send(payload, options);
+        console.info(`[email] reason=deleted_pending dropped=${all.filter((r) => pending.has(addressOf(r).toLowerCase())).length} subject=${JSON.stringify(payload.subject ?? "")}`);
 
         const keep = (v: string | string[] | undefined) => {
           if (v === undefined) return undefined;
@@ -92,6 +97,24 @@ function withDeletionGuard(client: Resend): Resend {
       return typeof value === "function" ? value.bind(target) : value;
     },
   });
+}
+
+/**
+ * Sends one of the deletion's OWN emails, past the deletion guard. Only the templates in DELETION_LIFECYCLE_TEMPLATES are accepted; anything else is
+ * refused before it reaches the provider. Returns the provider's `{ data, error }` shape, with an error (not a throw) when no provider is configured.
+ */
+export async function sendDeletionLifecycleEmail(template: DeletionLifecycleTemplate, payload: SendPayload): Promise<SendResult> {
+  if (!isDeletionLifecycleTemplate(template)) {
+    return { data: null, error: { message: `${String(template)} is not a deletion-lifecycle template`, name: "application_error" } } as unknown as SendResult;
+  }
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    return { data: null, error: { message: "RESEND_API_KEY is not set", name: "application_error" } } as unknown as SendResult;
+  }
+  return new Resend(apiKey).emails.send({
+    ...payload,
+    headers: { ...(payload.headers ?? {}), [LIFECYCLE_TEMPLATE_HEADER]: template },
+  } as SendPayload);
 }
 
 /** Inbox the Contact form (and any future transactional notices) send to. */

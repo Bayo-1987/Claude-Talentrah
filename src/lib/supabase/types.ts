@@ -3800,6 +3800,10 @@ export type Database = {
         Args: { p_token_hash: string; p_user_id: string }
         Returns: Json
       }
+      account_deletion_confirm_precheck: {
+        Args: { p_token_hash: string; p_user_id: string }
+        Returns: Json
+      }
       account_deletion_create_request: {
         Args: { p_token_hash: string; p_user_id: string }
         Returns: Json
@@ -3815,6 +3819,27 @@ export type Database = {
       account_is_active: {
         Args: { p_user_id: string }
         Returns: boolean
+      }
+      application_applicant_is_active: {
+        Args: { p_application_id: string }
+        Returns: boolean
+      }
+      submission_applicant_is_active: {
+        Args: { p_submission_id: string }
+        Returns: boolean
+      }
+      function_acl_audit: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          function_name: string
+          identity_args: string
+          security_definer: boolean
+          search_path_config: string | null
+          anon_exec: boolean
+          authenticated_exec: boolean
+          service_role_exec: boolean
+          public_exec: boolean
+        }[]
       }
       account_deletion_fk_catalog: {
         Args: Record<PropertyKey, never>
