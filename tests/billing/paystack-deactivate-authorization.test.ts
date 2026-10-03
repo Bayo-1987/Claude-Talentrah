@@ -33,6 +33,11 @@ describe("deactivateAuthorization", () => {
     expect(JSON.parse(init.body)).toEqual({ authorization_code: "AUTH_abc123" });
   });
 
+  it("returns the HTTP status and the response's own status field, which the caller logs", async () => {
+    fetchMock.mockResolvedValue(reply(200, { status: true, message: "Authorization has been deactivated" }));
+    expect(await deactivateAuthorization("AUTH_abc123")).toEqual({ httpStatus: 200, status: true });
+  });
+
   it("an answer that says no is a decline", async () => {
     fetchMock.mockResolvedValue(reply(400, { status: false, message: "Authorization not found" }));
     await expect(deactivateAuthorization("AUTH_x")).rejects.toBeInstanceOf(PaystackDeclineError);
@@ -47,6 +52,14 @@ describe("deactivateAuthorization", () => {
     expect(err.status).toBe(404);
     expect(err.type).toBe("api_error");
     expect(err.code).toBe("resource_not_found");
+    expect(err.bodyStatus).toBe(false);
+  });
+
+  it("an unavailable error carries the HTTP status when Paystack answered with a 5xx, and none when it never answered", async () => {
+    fetchMock.mockResolvedValueOnce(reply(503, {}));
+    expect((await deactivateAuthorization("AUTH_x").catch((e) => e)).httpStatus).toBe(503);
+    fetchMock.mockRejectedValueOnce(new Error("ECONNRESET"));
+    expect((await deactivateAuthorization("AUTH_x").catch((e) => e)).httpStatus).toBeUndefined();
   });
 
   it("a decline whose body has no type or code simply has none (nothing is invented from the message)", async () => {

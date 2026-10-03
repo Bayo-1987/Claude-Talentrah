@@ -17,12 +17,24 @@ import { PaystackDeclineError, PaystackUnavailableError } from "@/lib/paystack/c
 import { cancelStoredAuthorizations } from "@/lib/account-deletion/provider-cancel";
 
 const auth = (code = "AUTH_1", source = "pass", id = "row-1") => ({ source, id, authorization_code: code });
-const decline = (message: string, status: number, details: { type?: string; code?: string } = {}) => new PaystackDeclineError(message, status, details);
+const decline = (message: string, status: number, details: { type?: string; code?: string; bodyStatus?: boolean } = {}) => new PaystackDeclineError(message, status, details);
 
 beforeEach(() => {
-  deactivate.mockReset().mockResolvedValue(undefined);
+  deactivate.mockReset().mockResolvedValue({ httpStatus: 200, status: true });
   vi.spyOn(console, "error").mockImplementation(() => {});
+  vi.spyOn(console, "warn").mockImplementation(() => {});
+  vi.spyOn(console, "info").mockImplementation(() => {});
+  vi.spyOn(console, "log").mockImplementation(() => {});
 });
+
+const allLogged = () =>
+  (["error", "warn", "info", "log"] as const)
+    .flatMap((m) => (console[m] as unknown as { mock: { calls: unknown[][] } }).mock.calls.map((c) => `${m}: ${c.map(String).join(" ")}`));
+const structured = () =>
+  allLogged()
+    .map((l) => /\[account-deletion\] PAYSTACK_DEACTIVATE (\{.*\})$/.exec(l))
+    .filter((m): m is RegExpExecArray => !!m)
+    .map((m) => JSON.parse(m[1]) as Record<string, unknown>);
 
 describe("a refusal that counts as cancelled: the documented 404 with a real Paystack error envelope", () => {
   it.each(["api_error", "validation_error", "processor_error"])("404 + type %s + a code", async (type) => {
@@ -89,5 +101,102 @@ describe("the walk through several cards", () => {
   it("skips blank codes without calling the provider", async () => {
     expect(await cancelStoredAuthorizations([auth("  ")])).toEqual({ ok: true, cancelled: 0 });
     expect(deactivate).not.toHaveBeenCalled();
+  });
+});
+
+describe("every deactivate call logs ONE structured line, so the first real responses can be read from the logs", () => {
+  const FIELDS = ["classification", "code", "http_status", "status", "type"];
+
+  it("success: the HTTP status, the response's status, no type or code, classification 'deactivated'", async () => {
+    await cancelStoredAuthorizations([auth("AUTH_1")]);
+    expect(structured()).toEqual([{ http_status: 200, status: true, type: null, code: null, classification: "deactivated" }]);
+  });
+
+  it("the documented not-found: its status, type and code are logged, classification 'already-deactivated'", async () => {
+    deactivate.mockRejectedValue(decline("whatever", 404, { type: "api_error", code: "resource_not_found", bodyStatus: false }));
+    await cancelStoredAuthorizations([auth("AUTH_1")]);
+    expect(structured()).toEqual([{ http_status: 404, status: false, type: "api_error", code: "resource_not_found", classification: "already-deactivated" }]);
+  });
+
+  it("a refusal that blocks: classification 'blocked', with whatever fields Paystack gave", async () => {
+    deactivate.mockRejectedValue(decline("Invalid key", 401, { type: "validation_error", code: "invalid_key", bodyStatus: false }));
+    await cancelStoredAuthorizations([auth("AUTH_1")]);
+    expect(structured()).toEqual([{ http_status: 401, status: false, type: "validation_error", code: "invalid_key", classification: "blocked" }]);
+  });
+
+  it("a 5xx logs its HTTP status; no answer at all logs nulls; both are 'blocked'", async () => {
+    deactivate.mockRejectedValueOnce(new PaystackUnavailableError("returned 502", undefined, 502));
+    await cancelStoredAuthorizations([auth("AUTH_1")]);
+    deactivate.mockRejectedValueOnce(new PaystackUnavailableError("did not complete"));
+    await cancelStoredAuthorizations([auth("AUTH_2")]);
+    expect(structured()).toEqual([
+      { http_status: 502, status: null, type: null, code: null, classification: "blocked" },
+      { http_status: null, status: null, type: null, code: null, classification: "blocked" },
+    ]);
+  });
+
+  it("an error that is not Paystack's at all still logs a line, with nulls", async () => {
+    deactivate.mockRejectedValue(new Error("boom"));
+    await cancelStoredAuthorizations([auth("AUTH_1")]);
+    expect(structured()).toEqual([{ http_status: null, status: null, type: null, code: null, classification: "blocked" }]);
+  });
+
+  it("the line has EXACTLY these five fields and nothing else", async () => {
+    deactivate.mockRejectedValueOnce(decline("m", 404, { type: "api_error", code: "c", bodyStatus: false }));
+    await cancelStoredAuthorizations([auth("AUTH_1")]);
+    await cancelStoredAuthorizations([auth("AUTH_2")]);
+    for (const line of structured()) expect(Object.keys(line).sort()).toEqual(FIELDS);
+  });
+
+  it("one line per call: two distinct cards log two lines, a duplicate code is not called and not logged twice", async () => {
+    await cancelStoredAuthorizations([auth("AUTH_1"), auth("AUTH_2"), auth("AUTH_1")]);
+    expect(structured()).toHaveLength(2);
+  });
+
+  it("'already-deactivated' ALSO logs at WARN with its own tag (on a first deletion it is suspicious: the path could be wrong)", async () => {
+    deactivate.mockRejectedValue(decline("whatever", 404, { type: "api_error", code: "resource_not_found", bodyStatus: false }));
+    await cancelStoredAuthorizations([auth("AUTH_1")]);
+    const warns = (console.warn as unknown as { mock: { calls: unknown[][] } }).mock.calls.map((c) => c.map(String).join(" "));
+    expect(warns).toHaveLength(1);
+    expect(warns[0]).toMatch(/\[account-deletion\] PAYSTACK_ALREADY_DEACTIVATED \{.*"classification":"already-deactivated".*\}/);
+    expect(warns[0]).toMatch(/suspicious/i);
+  });
+
+  it("no other classification warns", async () => {
+    await cancelStoredAuthorizations([auth("AUTH_1")]);
+    deactivate.mockRejectedValue(decline("m", 401, { type: "validation_error", code: "invalid_key" }));
+    await cancelStoredAuthorizations([auth("AUTH_2")]);
+    expect((console.warn as unknown as { mock: { calls: unknown[][] } }).mock.calls).toHaveLength(0);
+  });
+});
+
+describe("the logs never carry an authorisation code, a key, an email or the provider's message text", () => {
+  const CODE = "AUTH_leak123abc";
+  const KEY = "sk_test_leakleakleak";
+  const EMAIL = "ada.leak@example.com";
+  const MESSAGE = `Authorization ${CODE} for ${EMAIL} is already deactivated (key ${KEY})`;
+
+  it.each([
+    ["a documented not-found whose message holds all three", () => decline(MESSAGE, 404, { type: "api_error", code: "resource_not_found", bodyStatus: false })],
+    ["a blocking refusal whose message holds all three", () => decline(MESSAGE, 400, { type: "validation_error", code: "invalid_params", bodyStatus: false })],
+    ["an unavailable error whose message holds all three", () => new PaystackUnavailableError(MESSAGE, new Error(MESSAGE), 502)],
+    ["a plain error whose message holds all three", () => new Error(MESSAGE)],
+  ])("%s", async (_name, make) => {
+    deactivate.mockRejectedValue(make());
+    await cancelStoredAuthorizations([auth(CODE, "pass", "row-1")]);
+    const text = allLogged().join("\n");
+    expect(text).not.toContain(CODE);
+    expect(text).not.toContain(KEY);
+    expect(text).not.toContain(EMAIL);
+    expect(text).not.toContain("is already deactivated (key");
+    expect(structured()).toHaveLength(1);
+  });
+
+  it("a success whose response body would carry them logs none of it either", async () => {
+    deactivate.mockResolvedValue({ httpStatus: 200, status: true, message: MESSAGE, authorization_code: CODE });
+    await cancelStoredAuthorizations([auth(CODE)]);
+    const text = allLogged().join("\n");
+    for (const secret of [CODE, KEY, EMAIL]) expect(text).not.toContain(secret);
+    expect(structured()).toEqual([{ http_status: 200, status: true, type: null, code: null, classification: "deactivated" }]);
   });
 });

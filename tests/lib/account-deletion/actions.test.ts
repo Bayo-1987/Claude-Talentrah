@@ -399,6 +399,37 @@ describe("confirmAccountDeletionAction", () => {
     });
   });
 
+  describe("a misclassification can never let a renewal charge: the stored code is cleared in every outcome that matters", () => {
+    const auths = [{ source: "pass", id: "up1", authorization_code: "AUTH_pass_1" }];
+    const names = () => h.serviceRpc.mock.calls.map((c) => c[0]);
+
+    it.each([
+      ["Paystack deactivated the card", () => h.deactivate.mockResolvedValue({ httpStatus: 200, status: true })],
+      ["Paystack's documented not-found (read as already deactivated, even if it were really a wrong path)", () => h.deactivate.mockRejectedValue(Object.assign(new Error("x"), { kind: "decline", status: 404, type: "api_error", code: "resource_not_found" }))],
+    ])("%s: the deletion is scheduled through account_deletion_confirm, which clears the stored codes", async (_n, arrange) => {
+      serviceAnswers({ account_deletion_confirm_precheck: { ok: true, authorizations: auths } });
+      arrange();
+      const s = await confirm();
+      expect(s.status).toBe("done");
+      expect(names()).toContain("account_deletion_confirm");
+    });
+
+    it("the card was cancelled but the deletion was not scheduled: renewal and the stored code are cleared by account_deletion_stop_renewals", async () => {
+      serviceAnswers({ account_deletion_confirm_precheck: { ok: true, authorizations: auths }, account_deletion_confirm: new Error("down") });
+      await confirm();
+      expect(names()).toContain("account_deletion_stop_renewals");
+    });
+
+    it("a refusal that blocks the deletion leaves the person ACTIVE with their renewal as it was (nothing was cancelled, nothing is scheduled)", async () => {
+      serviceAnswers({ account_deletion_confirm_precheck: { ok: true, authorizations: auths } });
+      h.deactivate.mockRejectedValue(new Error("unavailable"));
+      const s = await confirm();
+      expect(s.reason).toBe("card");
+      expect(names()).not.toContain("account_deletion_confirm");
+      expect(names()).not.toContain("account_deletion_stop_renewals");
+    });
+  });
+
   describe("the gate flag the proxy reads", () => {
     it("confirm sets it with the service role, AFTER the database says scheduled and BEFORE the global sign-out", async () => {
       const order: string[] = [];
