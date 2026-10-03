@@ -11,10 +11,10 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const h = vi.hoisted(() => ({ rpc: vi.fn(), upsert: vi.fn() }));
-vi.mock("@/lib/admin/permissions", () => ({ requirePermission: async () => ({ adminId: "admin-1" }) }));
+vi.mock("@/lib/admin/require-admin", () => ({ requirePermission: async () => ({ adminId: "admin-1" }) }));
 vi.mock("@/lib/admin/audit", () => ({ recordAdminAction: async () => {} }));
 vi.mock("@/lib/supabase/service-role", () => ({
-  createServiceRoleClient: () => ({ rpc: h.rpc, from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { program_name: "Example" } }) }) }) }) }),
+  createServiceRoleClient: () => ({ rpc: h.rpc, from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { program_name: "Example" } }), order: async () => ({ data: [], error: null }) }) }) }) }),
 }));
 vi.mock("@/lib/scholarships/ingest", () => ({ upsertScholarships: h.upsert, setModerationStatus: vi.fn() }));
 vi.mock("next/cache", () => ({ revalidatePath: () => {} }));
@@ -97,7 +97,7 @@ describe("saving a listing the database refuses", () => {
     ["scholarships_verified_note_needs_stamp", /needs a verified-deadline date/],
   ])("%s becomes a field message on the deadline note", async (constraint, pattern) => {
     h.upsert.mockResolvedValue({ error: violation(constraint).message, returnedToReview: [] });
-    const s = await createScholarshipAction(state, form({ provider: "P", programName: "N", degreeLevels: "msc", fundingType: "full", officialUrl: "https://example.test/x", deadlineNote: "A note." }));
+    const s = await createScholarshipAction(state, form({ provider: "Example Foundation", programName: "Example Scholarship", hostInstitution: "", degreeLevels: "msc", fieldTags: "", fundingType: "full", fundingCovers: "", eligibilityNationalities: "", eligibilityPriorDegree: "", eligibilityAge: "", eligibilityOther: "", applicationDeadline: "", cycleYear: "", officialUrl: "https://example.test/x", sourceName: "", deadlineNote: "A note.", reviewNote: "" }));
     expect(s.status).toBe("error");
     expect(s.fieldErrors?.deadlineNote?.[0]).toMatch(pattern);
     expect(s.error).not.toMatch(/server log/);

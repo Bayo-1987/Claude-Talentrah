@@ -59,6 +59,9 @@ $apply$;
 -- $rollback$;
 
 -- ========================================== RECORD (filled in when the APPLY block is run; execute_sql writes no ledger row) ==========================================
--- Applied at (UTC): not applied
--- Approved by:      not yet
--- Row counts:       not applied
+-- Applied at (UTC): 2026-10-03 17:23:48 (production nytwbbzfpytctjsoczzq; the stamp written by now() in the apply block)
+-- Approved by:      the owner, in chat, 2026-10-03 ("(a) yes, apply the ASU deadline fix")
+-- Row counts:       1 row updated (the block raises unless exactly 1). Read back read-only afterwards: moderation_status verified, application_deadline
+--                   2026-09-27, close_time 23:59, close_tz UTC, close_at 2026-09-27 23:59:00+00 (the trigger computed it), deadline_note null,
+--                   moderation_note begins "Data fix #594, 2026-10-03." Table-wide at 17:36 UTC: 49 rows, 46 verified, 0 verified rows with a note and no
+--                   stamp, 0 notes over 600 characters (so migration 0217's constraints validate).

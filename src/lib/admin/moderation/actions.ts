@@ -6,6 +6,7 @@ import { requirePermission } from "@/lib/admin/require-admin";
 import { recordAdminAction } from "@/lib/admin/audit";
 import { notifyMentorApplicationDecision } from "@/lib/mentorship/notifications";
 import type { ModerationState } from "./state";
+import { deadlineNoteRuleMessage } from "@/lib/scholarships/public-deadline-note";
 
 /**
  * The three moderation decisions, as Server Actions under an admin session.
@@ -78,7 +79,9 @@ export async function decideScholarshipAction(
 
   if (error) {
     console.error("[admin-moderation] scholarship", error);
-    return { status: "error", message: "Something went wrong on our end.", targetId: id };
+    // A listing carrying a deadline note but no verified-deadline date is refused by the database (0217); say why, in words.
+    const noteMessage = error.code === "23514" ? deadlineNoteRuleMessage(error.message) : null;
+    return { status: "error", message: noteMessage ?? "Something went wrong on our end.", targetId: id };
   }
   const row = res?.[0];
   if (!row?.ok) {

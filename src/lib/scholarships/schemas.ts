@@ -1,3 +1,4 @@
+import { DEADLINE_NOTE_MAX_LENGTH, NOTE_TOO_LONG_MESSAGE } from "@/lib/scholarships/public-deadline-note";
 import { z } from "zod";
 import type { NormalizedScholarship } from "./types";
 
@@ -112,7 +113,7 @@ export const manualScholarshipSchema = z.object({
     .default(null),
   officialUrl,
   sourceName: z.string().trim().min(1).max(200).default("Manual entry"),
-  deadlineNote: optionalText,
+  deadlineNote: optionalText.refine((v) => v == null || v.length <= DEADLINE_NOTE_MAX_LENGTH, { message: NOTE_TOO_LONG_MESSAGE }),
   reviewNote: optionalText,
 });
 

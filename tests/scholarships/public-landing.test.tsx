@@ -55,6 +55,8 @@ function listing(over: Partial<LandingListing> = {}): LandingListing {
     close_time: null,
     close_tz: null,
     deadline_note: null,
+    // A real listing on this page is verified, and a deadline note is shown only with a verified-deadline stamp (publicDeadlineNote, #594).
+    deadline_verified_at: "2026-09-01T00:00:00.000Z",
     official_url: "https://www.chevening.org/scholarship/nigeria/",
     ...over,
   };
