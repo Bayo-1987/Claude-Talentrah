@@ -3,6 +3,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
 import type { Database } from "../src/lib/supabase/types";
 import { acquireOperatorsLock } from "../tests/support/operators-lock";
+import { fakeSecret } from "../tests/support/fake-secret";
 
 /**
  * /admin/operators — the guard, and the trail.
@@ -34,7 +35,7 @@ interface Fixture { id: string; email: string; password: string }
 
 async function makeOperator(role: "super_admin" | "standard"): Promise<Fixture> {
   const email = `e2e-operator-${role}-${randomUUID()}@talentrah.test`;
-  const password = `E2E-${randomUUID()}Aa1!`;
+  const password = fakeSecret("password");
   const { data, error } = await db!.auth.admin.createUser({ email, password, email_confirm: true });
   if (error) throw new Error(`fixture user: ${error.message}`);
   /*

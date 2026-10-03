@@ -8,6 +8,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import { fakeSecret } from "../support/fake-secret";
+
+/** Generated per run: nothing credential-shaped in source. */
+const CRON_VALUE = fakeSecret("token");
 
 const purge = vi.fn();
 vi.mock("@/lib/demo/attempt-retention", async (importOriginal) => {
@@ -23,7 +27,7 @@ const OK = { cutoff: "2026-07-04T12:00:00.000Z", deleted: 3, rounds: 1, hitCap: 
 beforeEach(() => {
   purge.mockReset();
   purge.mockResolvedValue(OK);
-  vi.stubEnv("CRON_SECRET", "cron-secret-for-this-test");
+  vi.stubEnv("CRON_SECRET", CRON_VALUE);
   vi.stubEnv("ADMIN_API_SECRET", "admin-secret-for-this-test");
   vi.stubEnv("INGEST_SECRET", "");
 });
@@ -39,8 +43,8 @@ describe("the cron path (GET, Authorization: Bearer <CRON_SECRET>)", () => {
   it("refuses a wrong bearer, a wrong scheme, and the admin secret presented as the cron secret", async () => {
     const wrong: Array<Record<string, string>> = [
       { authorization: "Bearer not-the-secret" },
-      { authorization: "cron-secret-for-this-test" },
-      { authorization: "Basic cron-secret-for-this-test" },
+      { authorization: CRON_VALUE },
+      { authorization: `Basic ${CRON_VALUE}` },
       { "x-admin-secret": "admin-secret-for-this-test" },
     ];
     for (const headers of wrong) {
@@ -60,7 +64,7 @@ describe("the cron path (GET, Authorization: Bearer <CRON_SECRET>)", () => {
   });
 
   it("with the right bearer it purges once and reports what it did", async () => {
-    const res = await GET(new Request(URL, { headers: { authorization: "Bearer cron-secret-for-this-test" } }));
+    const res = await GET(new Request(URL, { headers: { authorization: `Bearer ${CRON_VALUE}` } }));
     expect(res.status).toBe(200);
     expect(purge).toHaveBeenCalledTimes(1);
     expect(await res.json()).toEqual({ result: OK });
@@ -75,7 +79,7 @@ describe("the manual path (POST, x-admin-secret)", () => {
   });
 
   it("refuses the cron bearer on the manual path, and a wrong admin secret", async () => {
-    const wrong: Array<Record<string, string>> = [{ authorization: "Bearer cron-secret-for-this-test" }, { "x-admin-secret": "nope" }];
+    const wrong: Array<Record<string, string>> = [{ authorization: `Bearer ${CRON_VALUE}` }, { "x-admin-secret": "nope" }];
     for (const headers of wrong) {
       expect((await POST(new Request(URL, { method: "POST", headers }))).status).toBe(401);
     }
@@ -90,7 +94,7 @@ describe("the manual path (POST, x-admin-secret)", () => {
 });
 
 describe("what it does once past the guard", () => {
-  const authed = () => new Request(URL, { headers: { authorization: "Bearer cron-secret-for-this-test" } });
+  const authed = () => new Request(URL, { headers: { authorization: `Bearer ${CRON_VALUE}` } });
 
   it("a purge that reports an error is a 500, and the error is in the body (a purge whose logs go quiet is the bug)", async () => {
     purge.mockResolvedValue({ ...OK, deleted: 4, error: "delete failed" });

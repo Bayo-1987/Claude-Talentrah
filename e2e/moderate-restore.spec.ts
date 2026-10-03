@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
 import type { Database } from "../src/lib/supabase/types";
 import { acquireOperatorsLock } from "../tests/support/operators-lock";
+import { fakeSecret } from "../tests/support/fake-secret";
 
 /**
  * The moderation round trip, walked through the screens.
@@ -51,7 +52,7 @@ test.describe("moderating a posting, from the screens an operator uses", () => {
       // mid-run takes the report — and the queue row — with it.
       const { data: reporter, error: rErr } = await db.auth.admin.createUser({
         email: `modrestore-reporter-${tag}@talentrah.test`,
-        password: `E2E-${randomUUID()}Aa1!`,
+        password: fakeSecret("password"),
         email_confirm: true,
       });
       if (rErr) throw new Error(`fixture reporter: ${rErr.message}`);
@@ -86,7 +87,7 @@ test.describe("moderating a posting, from the screens an operator uses", () => {
       if (repErr) throw new Error(`fixture report: ${repErr.message}`);
 
       const email = `modrestore-op-${tag}@talentrah.test`;
-      const password = `E2E-${randomUUID()}Aa1!`;
+      const password = fakeSecret("password");
       const { data: op, error: oErr } = await db.auth.admin.createUser({
         email,
         password,
