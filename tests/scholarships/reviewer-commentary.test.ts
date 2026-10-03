@@ -24,9 +24,11 @@ describe("the trigger list", () => {
     );
   });
 
-  it("normalises curly quotes, non-breaking hyphens and runs of whitespace the same way everywhere", () => {
+  it("normalises case, every kind of whitespace, curly quotes, hyphen variants and the * and _ emphasis characters, the same way everywhere", () => {
     expect(normaliseForCheck("A  human\n should “open”   it")).toBe('a human should "open" it');
     expect(normaliseForCheck("Not machine‑verified")).toBe("not machine-verified");
+    expect(normaliseForCheck("**NOT** _independently_ confirmed")).toBe("not independently confirmed");
+    expect(normaliseForCheck("A\u00a0human\u2003should\r\nopen")).toBe("a human should open");
   });
 });
 
@@ -59,6 +61,37 @@ describe("findReviewerCommentary", () => {
     const without = REVIEWER_PHRASES.filter((p) => p !== phrase);
     const found = findReviewerCommentary(EXAMPLE_COMMENTARY_ROW, { phrases: without });
     expect(found.map((f) => f.column)).not.toContain(column);
+  });
+});
+
+describe("the check cannot be dodged by how the text is written", () => {
+  const VARIANTS: Array<[string, (phrase: string) => string]> = [
+    ["capitals", (p) => p.toUpperCase()],
+    ["a double space", (p) => p.replace(/ /g, "  ")],
+    ["a non-breaking space", (p) => p.replace(/ /g, "\u00a0")],
+    ["a line break", (p) => p.replace(/ /g, "\n")],
+    ["bold markers around a word", (p) => p.replace(/^(\S+)/, "**$1**")],
+    ["bold markers inside", (p) => `**${p}**`],
+    ["italic underscores around a word", (p) => p.replace(/^(\S+)/, "_$1_")],
+  ];
+  const cases = REVIEWER_PHRASES.flatMap((phrase) => VARIANTS.map(([label, make]) => [phrase, label, make(phrase)] as const));
+
+  it.each(cases)("%s is caught with %s", (phrase, _label, text) => {
+    expect(findReviewerCommentary({ eligibility_other: `Open to all. ${text} on the form.` })).toEqual([{ column: "eligibility_other", phrase }]);
+  });
+
+  it("an underscore typed as a space still matches the moderation-note pointer", () => {
+    expect(findReviewerCommentary({ source_name: "see moderation note" })).toEqual([{ column: "source_name", phrase: "see moderation_note" }]);
+  });
+
+  it("an ordinary description with the words 'a human' and 'confirm' separately passes", () => {
+    for (const text of [
+      "Applicants must show a human-rights focus and confirm their enrolment by email.",
+      "A human resources background is welcome; you should confirm your referee in advance.",
+      "Confirm receipt of your offer. The panel needs a decision from a human committee, not a form.",
+    ]) {
+      expect(findReviewerCommentary({ eligibility_other: text }), text).toEqual([]);
+    }
   });
 });
 

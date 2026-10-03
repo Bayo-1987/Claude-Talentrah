@@ -45,29 +45,39 @@ export const EXCLUDED_PUBLIC_TEXT_COLUMNS: Record<string, string> = {
   deadline_verified_at: "A timestamp; it holds no prose.",
   official_url: "A link the operator pastes; it is not prose an applicant reads as a statement.",
   dedup_fingerprint: "An internal hash, never selected by a public query.",
-  moderation_note: "Never public: it is the one column where reviewer commentary belongs.",
+  moderation_note:
+    "Where reviewer commentary belongs, and no page selects it. NOTE: the anon role can still read it through the API on verified rows (table-level SELECT grant), so it is not private yet; that is an open owner decision, not something this list settles.",
 };
 
 export type CommentaryFinding = { column: string; phrase: string };
 
-/** Lower-case, straight quotes, ordinary hyphen, single spaces: the same normalisation wherever the phrases are matched. */
+/**
+ * What the check compares: lower-case; straight quotes; one ordinary hyphen; every run of whitespace (non-breaking spaces and line breaks included) as one space;
+ * and the `*` and `_` emphasis characters removed. The last matters because the text fields render bold and italic: "**NOT** independently confirmed" reads as the
+ * phrase to a visitor and must read as the phrase here. The same normalisation is used everywhere (and `reviewerCommentaryCountsQuery` strips the same two characters
+ * in SQL), so no consumer matches differently from another.
+ */
 export function normaliseForCheck(text: string): string {
   return text
     .toLowerCase()
     .replace(/[‘’‚‛]/g, "'")
     .replace(/[“”„‟]/g, '"')
     .replace(/[‐‑‒–—−]/g, "-")
+    .replace(/[*_]/g, "")
     .replace(/\s+/g, " ")
     .trim();
 }
 
-/** A phrase as a regular expression source that tolerates runs of whitespace, hyphen variants and a space where an underscore is typed. Same text in JS and Postgres. */
+/**
+ * A phrase as a regular expression source for TEXT THAT HAS ALREADY BEEN NORMALISED (so its underscores are gone): runs of whitespace and hyphen variants are
+ * tolerated, and an underscore in the phrase matches nothing or a space. Same source in JS and Postgres.
+ */
 export function phraseRegex(phrase: string): string {
   return phrase
     .replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
     .replace(/ /g, "\\s+")
     .replace(/-/g, "[-\\s‐‑‒–—−]")
-    .replace(/_/g, "[_\\s]");
+    .replace(/_/g, "\\s*");
 }
 
 type Row = Record<string, string | readonly string[] | null | undefined>;
@@ -101,7 +111,7 @@ export function reviewerCommentaryCountsQuery(): string {
 with cols(c) as (values ${cols}),
 phr(p, rx) as (values
   ${phr}),
-kv as (select s.id, e.key, e.value from public.scholarships s, jsonb_each_text(to_jsonb(s)) e where e.key in (select c from cols))
+kv as (select s.id, e.key, regexp_replace(e.value, '[*_]', '', 'g') as value from public.scholarships s, jsonb_each_text(to_jsonb(s)) e where e.key in (select c from cols))
 select phr.p as phrase, count(distinct kv.id) as rows, coalesce(string_agg(distinct kv.key, ', '), '') as columns
 from phr left join kv on kv.value ~* phr.rx
 group by phr.p order by phr.p;`;

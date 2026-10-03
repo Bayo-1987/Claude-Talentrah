@@ -83,6 +83,26 @@ describe("approving", () => {
     expect(h.rpc).not.toHaveBeenCalled();
   });
 
+  it("fails closed when the listing is gone by the time it is read (zero rows, no error): nothing is approved", async () => {
+    h.row.value = null;
+    h.row.error = null;
+    const s = await decideScholarshipAction(idle, form({ id: "s1", decision: "verified" }));
+    expect(s.status).toBe("error");
+    expect(s.message).toMatch(/nothing was approved/i);
+    expect(h.rpc).not.toHaveBeenCalled();
+    expect(h.audit).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when the read returns an error alongside no data: same outcome, and no database text reaches the operator", async () => {
+    h.row.value = null;
+    h.row.error = { message: 'permission denied for table "scholarships"' };
+    const s = await decideScholarshipAction(idle, form({ id: "s1", decision: "verified" }));
+    expect(s.status).toBe("error");
+    expect(s.message).toMatch(/nothing was approved/i);
+    expect(s.message).not.toMatch(/permission denied|scholarships"/);
+    expect(h.rpc).not.toHaveBeenCalled();
+  });
+
   it("selects only public text columns for the check, never the moderation note", async () => {
     await decideScholarshipAction(idle, form({ id: "s1", decision: "verified" }));
     expect(h.selected.join(",")).not.toMatch(/moderation_note/);
