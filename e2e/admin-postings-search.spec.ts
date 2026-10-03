@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import type { Database } from "../src/lib/supabase/types";
 import { randomUUID } from "node:crypto";
 import { acquireOperatorsLock } from "../tests/support/operators-lock";
+import { fakeSecret } from "../tests/support/fake-secret";
 
 /**
  * `/admin/postings` — reaching a posting nobody has reported.
@@ -40,7 +41,7 @@ test("an admin can find a live posting with zero reports and remove it, and it l
   try {
     const tag = randomUUID().slice(0, 8);
     const email = `aps-op-${tag}@talentrah.test`;
-    const password = `E2E-${randomUUID()}Aa1!`;
+    const password = fakeSecret("password");
 
     // A posting with NO report row at all — the whole point of this page.
     const { data: made, error: pe } = await admin

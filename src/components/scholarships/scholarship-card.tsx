@@ -9,6 +9,7 @@ import { ScholarshipShareButton } from "./scholarship-share-button";
 import { formatCalendarDate } from "@/lib/format/datetime";
 import { scholarshipDeadlineDisplay } from "@/lib/scholarships/close-instant";
 import { DeadlineLine } from "@/components/scholarships/deadline-line";
+import { deadlineNoteOrFallback } from "@/lib/scholarships/public-deadline-note";
 
 export interface ScholarshipCardProps {
   scholarship: Tables<"scholarships">;
@@ -116,7 +117,7 @@ export function ScholarshipCard({
             text={
               scholarship.application_deadline
                 ? (deadline?.text ?? formatDeadline(scholarship.application_deadline))
-                : (scholarship.deadline_note ?? "Not published yet")
+                : deadlineNoteOrFallback(scholarship)
             }
             urgent={urgent}
             labelled={deadline?.labelled ?? true}
