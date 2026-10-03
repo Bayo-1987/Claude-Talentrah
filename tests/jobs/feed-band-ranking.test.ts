@@ -18,6 +18,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { sortFeedResults } from "@/lib/jobs/ranking";
+import { ROLE_FIT_CAP } from "@/lib/matching/role-fit";
 import type { ScoredJob } from "@/lib/matching/compute-and-store";
 
 const NOW = new Date("2026-10-02T12:00:00Z").getTime();
@@ -95,18 +96,22 @@ describe("S3-51: the band is the DISPLAYED TIER, so a Fair never outranks a Good
     expect(order([job("fresh-none-55", 55, 8, daysAgo(0)), job("stale-fair-60", 60, 1, daysAgo(25))])).toEqual(["stale-fair-60", "fresh-none-55"]);
   });
 
-  it("A2 + this fix: the different-family cap (ROLE_FIT_CAP.different = 59, #698) puts a job below EVERY tier, including a 60 Fair", () => {
-    // A job whose raw score was 100 but whose role family does not match is stored as 59 (below the 60 display floor, so it shows no tier).
-    // 59 is pinned as "below the floor" in tests/matching/role-fit.test.ts (A2); here it is pinned as "sorts below a Fair, a Good and an Excellent".
-    const capped59 = job("different-family-capped-59", 59, 6);
-    expect(order([capped59, job("fair-60", 60, 1), job("good-70", 70, 1), job("excellent-90", 90, 4)])).toEqual([
+  it("A2 + this fix: the different-family cap (ROLE_FIT_CAP.different, A2) puts a job below EVERY tier, including a 60 Fair", () => {
+    // A job whose raw score was 100 but whose role family does not match is stored at ROLE_FIT_CAP.different (59: below the 60 display floor, so
+    // it shows no tier). tests/matching/role-fit.test.ts pins that constant at 59; here it is pinned as "sorts below a Fair, a Good and an Excellent".
+    expect(ROLE_FIT_CAP.different, "the cap must stay below the 60 display floor").toBeLessThan(60);
+    const capped = job("different-family-capped", ROLE_FIT_CAP.different, 6);
+    expect(order([capped, job("fair-60", 60, 1), job("good-70", 70, 1), job("excellent-90", 90, 4)])).toEqual([
       "excellent-90",
       "good-70",
       "fair-60",
-      "different-family-capped-59",
+      "different-family-capped",
     ]);
     // ... however well evidenced and fresh the capped job is, and however thin and stale the Fair one is.
-    expect(order([job("fresh-capped-59", 59, 9, daysAgo(0)), job("stale-thin-fair-60", 60, 1, daysAgo(28))])).toEqual(["stale-thin-fair-60", "fresh-capped-59"]);
+    expect(order([job("fresh-capped", ROLE_FIT_CAP.different, 9, daysAgo(0)), job("stale-thin-fair-60", 60, 1, daysAgo(28))])).toEqual([
+      "stale-thin-fair-60",
+      "fresh-capped",
+    ]);
   });
 
   it("PROPERTY: over every score 0-100, thin and evidenced, fresh and stale, a higher DISPLAYED tier never sorts below a lower one", () => {
