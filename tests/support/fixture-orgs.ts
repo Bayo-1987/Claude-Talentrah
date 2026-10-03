@@ -28,6 +28,7 @@ export const FIXTURE_NAME_PATTERNS = [
   "EMPLOYER-TEST%", // tests/employer/employer-flow.test.ts
   "AUTOAPPLY-TEST Org %", // tests/auto-apply/enforcement.test.ts
   "ACCT1-TEST Org %", // tests/rls/account-deletion-flow.test.ts, account-deletion-hide.test.ts
+  "DEFHARD-TEST Org %", // tests/rls/definer-and-graphql-hardening.test.ts
   "RLS-CROSSUSER Org %", // tests/rls/cross-user.test.ts
   "E2E Employer Co%", // e2e/employer.spec.ts — Playwright, not vitest, but it
   //                     leaks into the same project and its own afterEach had

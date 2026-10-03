@@ -70,6 +70,10 @@
     {
       "path": "/api/admin/send-winback-emails",
       "schedule": "0 18 * * *"
+    },
+    {
+      "path": "/api/admin/purge-demo-attempts",
+      "schedule": "0 19 * * *"
     }
   ]
 }
