@@ -7,6 +7,7 @@ import { recordAdminAction } from "@/lib/admin/audit";
 import { notifyMentorApplicationDecision } from "@/lib/mentorship/notifications";
 import type { ModerationState } from "./state";
 import { deadlineNoteRuleMessage } from "@/lib/scholarships/public-deadline-note";
+import { CHECKED_PUBLIC_TEXT_COLUMNS, commentaryRefusalMessage, findReviewerCommentary } from "@/lib/scholarships/reviewer-commentary";
 
 /**
  * The three moderation decisions, as Server Actions under an admin session.
@@ -60,6 +61,25 @@ export async function decideScholarshipAction(
   }
 
   const supabase = createServiceRoleClient();
+
+  /*
+   * REVIEWER COMMENTARY NEVER GOES PUBLIC (#704). Approving makes every text column an applicant can read visible, so this is the moment to look at them. A
+   * listing that carries wording addressed to a reviewer is refused here, naming the field and the phrase, BEFORE the approval function runs. If the row
+   * cannot be read, nothing is approved: a check that cannot run must not wave a listing through. Rejecting needs no check (it hides the listing).
+   */
+  if (decision === "verified") {
+    const checkedColumns: string = CHECKED_PUBLIC_TEXT_COLUMNS.join(", ");
+    const { data: read, error: readError } = await supabase.from("scholarships").select(checkedColumns).eq("id", id).maybeSingle();
+    const listing = read as unknown as Record<string, string | string[] | null> | null;
+    if (readError || !listing) {
+      console.error("[admin-moderation] scholarship commentary check could not read the row", readError);
+      return { status: "error", message: "Couldn't check this listing before approving it, so nothing was approved. Try again.", targetId: id };
+    }
+    const findings = findReviewerCommentary(listing);
+    if (findings.length > 0) {
+      return { status: "error", message: commentaryRefusalMessage(String(listing.program_name), findings), targetId: id };
+    }
+  }
 
   /*
    * THE WRITE HAPPENS IN THE DATABASE, permission-checked in the same
