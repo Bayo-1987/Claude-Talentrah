@@ -22,6 +22,8 @@ export interface FakeGoTrue {
   ttl: number;
   /** While true, GET /user answers 503 (a transient auth outage). */
   failUser: boolean;
+  /** `app_metadata` on every user the fake returns from now on (e.g. `{ deletion_pending: true }`, the flag ACCT-1's proxy gate reads). */
+  appMetadata: Record<string, unknown>;
   requests: RecordedRequest[];
   /** Deletes every live session, as a global sign-out elsewhere would. */
   clearSessions(): void;
@@ -32,7 +34,7 @@ export interface FakeGoTrue {
   close(): Promise<void>;
 }
 
-function sessionBody(sid: string, userId: string, t: Tok, ttl: number) {
+function sessionBody(sid: string, userId: string, t: Tok, ttl: number, appMetadata: Record<string, unknown> = {}) {
   const exp = Math.floor(Date.now() / 1000) + ttl;
   const access = `${b64({ alg: "HS256", typ: "JWT" })}.${b64({ sub: userId, sid, aud: "authenticated", role: "authenticated", email: "t@talentrah.test", exp })}.sig`;
   return {
@@ -41,7 +43,7 @@ function sessionBody(sid: string, userId: string, t: Tok, ttl: number) {
     expires_in: ttl,
     expires_at: exp,
     refresh_token: t.value,
-    user: { id: userId, aud: "authenticated", role: "authenticated", email: "t@talentrah.test", app_metadata: {}, user_metadata: {}, created_at: "2026-01-01T00:00:00Z" },
+    user: { id: userId, aud: "authenticated", role: "authenticated", email: "t@talentrah.test", app_metadata: appMetadata, user_metadata: {}, created_at: "2026-01-01T00:00:00Z" },
   };
 }
 
@@ -49,14 +51,14 @@ export async function startFakeGoTrue(): Promise<FakeGoTrue> {
   const sessions = new Map<string, string>(); // sid -> user id
   const toks = new Map<string, Tok>();
   const requests: RecordedRequest[] = [];
-  const state = { ttl: 3600, failUser: false };
+  const state = { ttl: 3600, failUser: false, appMetadata: {} as Record<string, unknown> };
 
   const issue = (sid: string, parent: string | null): Tok => {
     const t: Tok = { value: randomUUID().slice(0, 12), sid, revoked: false, parent, at: Date.now() };
     toks.set(t.value, t);
     return t;
   };
-  const body = (sid: string, t: Tok) => sessionBody(sid, sessions.get(sid)!, t, state.ttl);
+  const body = (sid: string, t: Tok) => sessionBody(sid, sessions.get(sid)!, t, state.ttl, state.appMetadata);
 
   const server = http.createServer(async (req, res) => {
     const url = new URL(req.url!, "http://x");
@@ -90,7 +92,7 @@ export async function startFakeGoTrue(): Promise<FakeGoTrue> {
       if (state.failUser) return send(503, { code: "unexpected_failure", msg: "temporarily unavailable" });
       try {
         const p = JSON.parse(Buffer.from(((req.headers.authorization ?? "").replace("Bearer ", "")).split(".")[1], "base64url").toString());
-        if (p.exp * 1000 > Date.now() && sessions.has(p.sid)) return send(200, sessionBody(p.sid, p.sub, { value: "x", sid: p.sid, revoked: false, parent: null, at: 0 }, 3600).user);
+        if (p.exp * 1000 > Date.now() && sessions.has(p.sid)) return send(200, sessionBody(p.sid, p.sub, { value: "x", sid: p.sid, revoked: false, parent: null, at: 0 }, 3600, state.appMetadata).user);
       } catch { /* fall through */ }
       return send(401, { code: "bad_jwt", msg: "invalid JWT" });
     }
@@ -115,6 +117,8 @@ export async function startFakeGoTrue(): Promise<FakeGoTrue> {
     set ttl(v: number) { state.ttl = v; },
     get failUser() { return state.failUser; },
     set failUser(v: boolean) { state.failUser = v; },
+    get appMetadata() { return state.appMetadata; },
+    set appMetadata(v: Record<string, unknown>) { state.appMetadata = v; },
     requests,
     clearSessions: () => sessions.clear(),
     sessionCount: () => sessions.size,
