@@ -240,6 +240,43 @@ begin
 end;
 $function$;
 
+-- A STUCK REFERRAL MUST BE VISIBLE (owner, 2026-10-03). check_and_activate_referral now catches every payout error, so a real bug in the grant would no longer fail anyone's
+-- save: it would only leave a WARNING in a Postgres log nobody reads. And the retry needs the friend to save or apply again, so a friend who qualifies once and never
+-- returns would leave the referral unpaid for good. This read-only check lists exactly those: referrals still 'signed_up' although the friend ALREADY meets the activation
+-- rule (a base resume, or an application with applied_at; the same two conditions check_and_activate_referral tests). In normal operation it returns no rows, because the
+-- friend's own save or application triggers the activation in the same transaction; a row means the grant failed (or the friend qualified before the trigger existed).
+-- Run it as service_role: `select * from public.stuck_signed_up_referrals();` (see the handoff entry). It writes nothing, and there is no sweep and no UI yet: if it ever
+-- finds a real case, a sweep is the owner's decision. Only service_role can execute it, because it lists other people's referrals.
+create or replace function public.stuck_signed_up_referrals()
+ returns table (referral_id uuid, referrer_id uuid, referred_user_id uuid, signed_up_at timestamptz, qualifies_by text)
+ language sql
+ stable
+ security definer
+ set search_path to 'public'
+as $function$
+  select
+    r.id,
+    r.referrer_id,
+    r.referred_user_id,
+    r.signed_up_at,
+    case
+      when exists (select 1 from public.resumes x where x.user_id = r.referred_user_id and x.is_base = true) then 'base_resume'
+      else 'application'
+    end
+  from public.referrals r
+  where r.status = 'signed_up'
+    and (
+      exists (select 1 from public.resumes x where x.user_id = r.referred_user_id and x.is_base = true)
+      or exists (select 1 from public.applications a where a.user_id = r.referred_user_id and a.applied_at is not null)
+    )
+  order by r.signed_up_at;
+$function$;
+
+revoke all on function public.stuck_signed_up_referrals() from public;
+revoke all on function public.stuck_signed_up_referrals() from anon;
+revoke all on function public.stuck_signed_up_referrals() from authenticated;
+grant execute on function public.stuck_signed_up_referrals() to service_role;
+
 -- Self-checks: the live definitions are the ones intended, and the hardening 0211 applied is intact. A migration that "applied" the wrong text would
 -- otherwise only show up as money, or as a quietly re-opened function.
 do $$
@@ -265,6 +302,18 @@ begin
     raise exception 'self-check: grant_referral_reward does not record the cap';
   end if;
   -- EXECUTE grants (proacl), config (proconfig) and security mode are exactly what they were when this migration started: nothing granted, nothing unpinned.
+  -- The new check function is service_role-only, SECURITY DEFINER and pinned (it lists other people's referrals).
+  if has_function_privilege('anon', 'public.stuck_signed_up_referrals()', 'execute')
+     or has_function_privilege('authenticated', 'public.stuck_signed_up_referrals()', 'execute')
+     or not has_function_privilege('service_role', 'public.stuck_signed_up_referrals()', 'execute') then
+    raise exception 'self-check: stuck_signed_up_referrals is not callable by service_role alone';
+  end if;
+  if not exists (
+    select 1 from pg_proc p
+    where p.oid = 'public.stuck_signed_up_referrals()'::regprocedure and p.prosecdef and p.proconfig::text like '%search_path=public%'
+  ) then
+    raise exception 'self-check: stuck_signed_up_referrals is not SECURITY DEFINER with a pinned search_path';
+  end if;
   if jsonb_array_length(current_setting('migration.m0215_before')::jsonb) <> 3 then
     raise exception 'self-check: the before-state of the three functions was not captured';
   end if;

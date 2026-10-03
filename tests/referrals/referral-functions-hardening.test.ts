@@ -63,3 +63,37 @@ describe("the functions 0215 replaces", () => {
     }
   });
 });
+
+describe("stuck_signed_up_referrals (the read-only stuck-referral check)", () => {
+  it("is SECURITY DEFINER with search_path pinned to public", async () => {
+    const { data, error } = await admin.rpc("function_search_path_audit");
+    expect(error).toBeNull();
+    const rows = (data ?? []).filter((r) => r.function_name === "stuck_signed_up_referrals");
+    expect(rows.length).toBeGreaterThan(0);
+    for (const fn of rows) {
+      expect(fn.security_definer).toBe(true);
+      expect(fn.search_path_config).toBe("search_path=public");
+    }
+  });
+
+  it("service_role can run it", async () => {
+    const { error } = await admin.rpc("stuck_signed_up_referrals");
+    expect(error).toBeNull();
+  });
+
+  it("anon cannot run it", async () => {
+    const anon = createClient(URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, { auth: { persistSession: false } });
+    const { error } = await anon.rpc("stuck_signed_up_referrals" as never);
+    expect(error, "anon must not be able to list referrals").not.toBeNull();
+  });
+
+  it("a signed-in user cannot run it either", async () => {
+    const user = await createAuthedTestUser("ref-stuck");
+    try {
+      const { error } = await user.client.rpc("stuck_signed_up_referrals" as never);
+      expect(error, "a signed-in user must not be able to list other people's referrals").not.toBeNull();
+    } finally {
+      await deleteTestUsers([user.id]);
+    }
+  });
+});

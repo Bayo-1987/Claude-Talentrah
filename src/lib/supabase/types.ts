@@ -3766,6 +3766,16 @@ export type Database = {
           search_path_config: string | null
         }[]
       }
+      stuck_signed_up_referrals: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          referral_id: string
+          referrer_id: string | null
+          referred_user_id: string
+          signed_up_at: string
+          qualifies_by: string
+        }[]
+      }
       add_test_pool_user: {
         Args: { p_lease_id: string; p_user_id: string }
         Returns: undefined

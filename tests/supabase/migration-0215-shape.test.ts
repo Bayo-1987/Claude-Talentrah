@@ -27,8 +27,8 @@ function functions(): Record<string, string> {
 describe("0215 redefines exactly the three reward functions, keeping their hardening", () => {
   const fns = functions();
 
-  it("redefines handle_new_user, check_and_activate_referral and grant_referral_reward, and nothing else", () => {
-    expect(Object.keys(fns).sort()).toEqual(["check_and_activate_referral", "grant_referral_reward", "handle_new_user"]);
+  it("redefines handle_new_user, check_and_activate_referral and grant_referral_reward, and adds only the read-only stuck_signed_up_referrals check", () => {
+    expect(Object.keys(fns).sort()).toEqual(["check_and_activate_referral", "grant_referral_reward", "handle_new_user", "stuck_signed_up_referrals"]);
   });
 
   for (const name of ["handle_new_user", "check_and_activate_referral", "grant_referral_reward"]) {
@@ -38,11 +38,18 @@ describe("0215 redefines exactly the three reward functions, keeping their harde
     });
   }
 
-  it("grants EXECUTE to nobody: no GRANT, no REVOKE, and no mention of anon or public (ACLs are left exactly as 0211 set them)", () => {
-    expect(code).not.toMatch(/\bgrant\s+execute\b/i);
-    expect(code).not.toMatch(/\bgrant\s+all\b/i);
-    expect(code).not.toMatch(/\bto\s+(anon|public|authenticated)\b/i);
-    expect(code).not.toMatch(/\brevoke\b/i);
+  it("changes no EXECUTE grant on the existing functions: the ONLY GRANT/REVOKE statements are the new stuck_signed_up_referrals check's own (ACLs of the rest stay exactly as 0211 set them)", () => {
+    const own = /function public\.stuck_signed_up_referrals\(\) (from|to) /;
+    const rest = code
+      .split("\n")
+      .filter((l) => !own.test(l))
+      .join("\n");
+    expect(rest).not.toMatch(/\bgrant\s+execute\b/i);
+    expect(rest).not.toMatch(/\bgrant\s+all\b/i);
+    expect(rest).not.toMatch(/\bto\s+(anon|public|authenticated)\b/i);
+    expect(rest).not.toMatch(/\brevoke\b/i);
+    // and the statements that were filtered out are exactly the four expected ones
+    expect(code.split("\n").filter((l) => own.test(l))).toHaveLength(4);
   });
 
   it("the self-check compares ACL and config before and after, inside the migration's own transaction", () => {
@@ -116,5 +123,34 @@ describe("0215: a payout failure never fails the friend's own action", () => {
     // the inner BEGIN that the handler belongs to opens before the claim, after the early lookups
     const innerBegin = body.lastIndexOf("begin", claim);
     expect(innerBegin).toBeGreaterThan(lookup);
+  });
+});
+
+describe("0215: stuck_signed_up_referrals is a read-only, service-role-only check", () => {
+  const body = functions()["stuck_signed_up_referrals"];
+
+  it("is SECURITY DEFINER with search_path pinned, STABLE, and writes nothing", () => {
+    expect(body).toMatch(/security definer/i);
+    expect(body).toMatch(/set search_path to 'public'/i);
+    expect(body).toMatch(/\bstable\b/i);
+    expect(body, "read-only").not.toMatch(/\b(insert|update|delete|perform|truncate)\b/i);
+  });
+
+  it("lists signed_up referrals whose friend already meets the SAME activation rule check_and_activate_referral uses", () => {
+    expect(body).toMatch(/status = 'signed_up'/);
+    expect(body).toMatch(/is_base = true/);
+    expect(body).toMatch(/applied_at is not null/);
+    const activate = functions()["check_and_activate_referral"];
+    expect(activate).toMatch(/is_base = true/);
+    expect(activate).toMatch(/applied_at is not null/);
+  });
+
+  it("only service_role can execute it: revoked from public, anon and authenticated, granted to service_role", () => {
+    const sig = "public.stuck_signed_up_referrals()";
+    expect(code).toContain(`revoke all on function ${sig} from public`);
+    expect(code).toContain(`revoke all on function ${sig} from anon`);
+    expect(code).toContain(`revoke all on function ${sig} from authenticated`);
+    expect(code).toContain(`grant execute on function ${sig} to service_role`);
+    expect(code, "nothing else is granted").not.toMatch(/grant execute on function public\.stuck_signed_up_referrals\(\) to (?!service_role)/);
   });
 });

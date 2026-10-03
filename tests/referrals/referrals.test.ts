@@ -18,6 +18,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
 import type { Database } from "@/lib/supabase/types";
 import { listUsersWithPrefix, RUN_TAG } from "../support/list-users";
+import { classifyColumnProbe } from "../support/column-probe";
 import {
   REFERRAL_REWARD_CREDITS,
   REFERRAL_SIGNUP_BONUS_CREDITS,
@@ -1071,9 +1072,75 @@ describe("0215 — a referrer's payout failure never fails the friend's action; 
   }, 60_000);
 });
 
-/** Probed at collection time (a describe callback cannot await): is `profiles.deletion_requested_at` there yet? See the test that uses it. */
-const probe = await admin.from("profiles").select("deletion_requested_at").limit(1);
-const pendingFlagExists = probe.error?.code !== "42703";
+describe("0215 — stuck_signed_up_referrals lists a referral that is still signed_up although the friend already qualifies, and stops listing it once it pays", () => {
+  const CEILING = 2147483647;
+  const stuckIds = async () => {
+    const { data, error } = await admin.rpc("stuck_signed_up_referrals");
+    expect(error).toBeNull();
+    return data ?? [];
+  };
+  async function pair(tag: string) {
+    const referrer = await makeUser(gmail(`${tag}-r`));
+    const code = await referralCodeOf(referrer);
+    const referred = await makeUser(gmail(`${tag}-b`), { referred_by_code: code });
+    return { referrer, referred, referral: (await referralRowFor(referred))! };
+  }
+
+  it("a failed grant leaves the referral listed (qualifies_by base_resume); clearing the cause and the next event pays it and it disappears", async () => {
+    const { referrer, referred, referral } = await pair("stuck-resume");
+    expect((await stuckIds()).map((r) => r.referral_id), "a freshly signed-up friend who has done nothing is not stuck").not.toContain(referral.id);
+
+    await admin.from("profiles").update({ credits_balance: CEILING }).eq("id", referrer);
+    const saved = await admin.from("resumes").insert({ user_id: referred, title: "Base", is_base: true, source: "uploaded", structured_content: {} });
+    expect(saved.error).toBeNull();
+
+    const listed = (await stuckIds()).filter((r) => r.referral_id === referral.id);
+    expect(listed, "the failed grant must be visible").toHaveLength(1);
+    expect(listed[0].qualifies_by).toBe("base_resume");
+    expect(listed[0].referrer_id).toBe(referrer);
+    expect(listed[0].referred_user_id).toBe(referred);
+
+    await admin.from("profiles").update({ credits_balance: 0 }).eq("id", referrer);
+    await admin.from("resumes").update({ is_base: true }).eq("user_id", referred);
+    expect((await referralRowFor(referred))?.status).toBe("activated");
+    expect((await stuckIds()).map((r) => r.referral_id), "paid, so no longer stuck").not.toContain(referral.id);
+  }, 60_000);
+
+  it("an application that qualifies the friend is listed too (qualifies_by application) until the next event pays it", async () => {
+    const { referrer, referred, referral } = await pair("stuck-apply");
+    await admin.from("profiles").update({ credits_balance: CEILING }).eq("id", referrer);
+    const applied = await admin
+      .from("applications")
+      .insert({ user_id: referred, manual_job_snapshot: { companyName: "Stuck Test Ltd", title: "Analyst" }, stage: "applied", source: "manual", applied_at: new Date().toISOString() })
+      .select("id")
+      .single();
+    expect(applied.error).toBeNull();
+    const listed = (await stuckIds()).filter((r) => r.referral_id === referral.id);
+    expect(listed).toHaveLength(1);
+    expect(listed[0].qualifies_by).toBe("application");
+
+    await admin.from("profiles").update({ credits_balance: 0 }).eq("id", referrer);
+    await admin.from("applications").update({ applied_at: new Date().toISOString() }).eq("id", applied.data!.id);
+    expect((await stuckIds()).map((r) => r.referral_id)).not.toContain(referral.id);
+  }, 60_000);
+
+  it("a friend who does NOT meet the activation rule (a Resume Builder draft, no base resume, no application) is never listed", async () => {
+    const { referred, referral } = await pair("stuck-not");
+    await admin.from("resumes").insert({ user_id: referred, title: "Builder draft", is_base: false, source: "builder", structured_content: { summary: "x" } });
+    expect((await stuckIds()).map((r) => r.referral_id)).not.toContain(referral.id);
+  }, 60_000);
+
+  it("a referral that activated normally, or was withheld by the cap, is not listed (it is not signed_up)", async () => {
+    const { referred, referral } = await pair("stuck-paid");
+    await activate(referred);
+    expect((await referralRowFor(referred))?.status).toBe("activated");
+    expect((await stuckIds()).map((r) => r.referral_id)).not.toContain(referral.id);
+  }, 60_000);
+});
+
+/** Probed at collection time (a describe callback cannot await): is `profiles.deletion_requested_at` there yet? Only SQLSTATE 42703 means "not yet"; see the tests that use it. */
+const pendingFlag = classifyColumnProbe((await admin.from("profiles").select("deletion_requested_at").limit(1)).error);
+const pendingFlagExists = pendingFlag === "exists";
 
 describe("0215 — 'referrer_deleted' means the referrer is actually gone, not pending deletion", () => {
   it("a referrer who still has a profile (referrer_id set) is paid normally, whatever else is true of their account", async () => {
@@ -1096,6 +1163,10 @@ describe("0215 — 'referrer_deleted' means the referrer is actually gone, not p
    * running with no edit the day 0212 is on main. PostgREST cannot read information_schema, so the column's existence is probed with a select: an undefined column
    * answers 42703, anything else means it is there. S3-21 confirmed neither their purge nor their restore keys a referral on the flag.
    */
+  it("the pending-flag probe is CONCLUSIVE: the column exists, or the database said 42703. Any other error is a failure here, never a silent skip", () => {
+    expect(pendingFlag, "the probe for profiles.deletion_requested_at failed for a reason other than the column being absent (network? permission?)").not.toBe("inconclusive");
+  });
+
   it.skipIf(!pendingFlagExists)(
     "a referrer who is PENDING deletion (profiles.deletion_requested_at set, still able to restore) is paid normally",
     async () => {
