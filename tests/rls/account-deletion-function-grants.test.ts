@@ -1,5 +1,5 @@
 /**
- * ACCT-1 PR 1 (migration 0212) — the migration rebuilds sixteen existing functions and adds ten, and changes NOTHING about who can call them or how
+ * ACCT-1 PR 1 (migration 0212) — the migration rebuilds sixteen existing functions and adds eleven, and changes NOTHING about who can call them or how
  * they run.
  *
  * `CREATE OR REPLACE FUNCTION` keeps a function's grants but not necessarily its SECURITY DEFINER setting or its pinned search_path: a rebuilt body that
@@ -58,6 +58,7 @@ const ADDED: Record<string, Pick<Expected, "args" | "authenticated">> = {
   account_deletion_blockers: { args: "p_user_id uuid", authenticated: false },
   account_deletion_create_request: { args: "p_user_id uuid, p_token_hash text", authenticated: false },
   account_deletion_confirm_precheck: { args: "p_user_id uuid, p_token_hash text", authenticated: false },
+  account_deletion_stop_renewals: { args: "p_user_id uuid", authenticated: false },
   account_deletion_confirm: { args: "p_user_id uuid, p_token_hash text", authenticated: false },
   function_acl_audit: { args: "", authenticated: false },
 };

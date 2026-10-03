@@ -1,5 +1,5 @@
 /**
- * ACCT-1 PR 1 — cancelling a stored card authorisation at Paystack (`POST /customer/deactivate_authorization`).
+ * ACCT-1 PR 1 — cancelling a stored card authorisation at Paystack (`POST /customer/authorization/deactivate`, the path Paystack's current documentation gives; `/customer/deactivate_authorization` is the superseded one).
  *
  * Renewals here are OUR cron charging a stored authorisation code (`chargeAuthorization`); there is no provider-side subscription object to cancel. The
  * only thing that makes the card un-chargeable at the provider is deactivating that authorisation. Account deletion does that before it schedules
@@ -24,7 +24,7 @@ describe("deactivateAuthorization", () => {
     fetchMock.mockResolvedValue(reply(200, { status: true, message: "Authorization has been deactivated" }));
     await deactivateAuthorization("AUTH_abc123");
     const [url, init] = fetchMock.mock.calls[0];
-    expect(url).toBe("https://api.paystack.co/customer/deactivate_authorization");
+    expect(url).toBe("https://api.paystack.co/customer/authorization/deactivate");
     expect(init.method).toBe("POST");
     expect(init.headers.Authorization).toBe("Bearer sk_test_not_a_real_key");
     expect(JSON.parse(init.body)).toEqual({ authorization_code: "AUTH_abc123" });
@@ -33,6 +33,24 @@ describe("deactivateAuthorization", () => {
   it("an answer that says no is a decline", async () => {
     fetchMock.mockResolvedValue(reply(400, { status: false, message: "Authorization not found" }));
     await expect(deactivateAuthorization("AUTH_x")).rejects.toBeInstanceOf(PaystackDeclineError);
+  });
+
+  it("a decline carries Paystack's own documented fields (HTTP status, type, code) so a caller never has to read the message", async () => {
+    fetchMock.mockResolvedValue(
+      reply(404, { status: false, message: "Authorization not found", meta: { nextStep: "x" }, type: "api_error", code: "resource_not_found" }),
+    );
+    const err = await deactivateAuthorization("AUTH_x").catch((e) => e);
+    expect(err).toBeInstanceOf(PaystackDeclineError);
+    expect(err.status).toBe(404);
+    expect(err.type).toBe("api_error");
+    expect(err.code).toBe("resource_not_found");
+  });
+
+  it("a decline whose body has no type or code simply has none (nothing is invented from the message)", async () => {
+    fetchMock.mockResolvedValue(reply(404, { status: false, message: "Authorization has been deactivated" }));
+    const err = await deactivateAuthorization("AUTH_x").catch((e) => e);
+    expect(err.type).toBeUndefined();
+    expect(err.code).toBeUndefined();
   });
 
   it("a 5xx is 'unavailable', never a statement about the card", async () => {

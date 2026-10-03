@@ -64,7 +64,7 @@ describe("0212: who can call what", () => {
 
   it("every function it creates pins search_path", () => {
     const creates = code.match(/create or replace function public\.[a-z_]+\([^)]*\)[\s\S]*?(?=\n\$\$;)/g) ?? [];
-    expect(creates.length).toBe(10);
+    expect(creates.length).toBe(11);
     for (const c of creates) expect(c).toMatch(/set search_path = ''/);
   });
 
@@ -76,8 +76,8 @@ describe("0212: who can call what", () => {
     }
   });
 
-  it("the precheck and the audit function are service-role only", () => {
-    for (const fn of ["account_deletion_confirm_precheck(uuid, text)", "function_acl_audit()"]) {
+  it("the precheck, the renewal stop and the audit function are service-role only", () => {
+    for (const fn of ["account_deletion_confirm_precheck(uuid, text)", "account_deletion_stop_renewals(uuid)", "function_acl_audit()"]) {
       const esc = fn.replace(/[()]/g, "\\$&");
       expect(code).toMatch(new RegExp(`revoke execute on function public\\.${esc} from public, anon, authenticated`));
       expect(code).toMatch(new RegExp(`grant execute on function public\\.${esc} to service_role;`));
@@ -87,6 +87,28 @@ describe("0212: who can call what", () => {
   it("the profiles flag has no client UPDATE grant added (and the self-check asserts it)", () => {
     expect(code).not.toMatch(/grant update[^;]*deletion_requested_at/i);
     expect(code).toMatch(/has_column_privilege\('authenticated', 'public\.profiles', 'deletion_requested_at', 'update'\)/);
+  });
+});
+
+describe("0212: the renewal stop that runs when the card was cancelled but the deletion was not scheduled", () => {
+  const fn = /create or replace function public\.account_deletion_stop_renewals\([\s\S]*?\n\$\$;/.exec(code)?.[0] ?? "";
+
+  it("exists, and does exactly what confirm does to renewals, in the same four columns the Billing page's own cancel writes", () => {
+    expect(fn).not.toBe("");
+    expect(fn).toMatch(/update public\.user_passes\s+set auto_renew = false, auto_renew_status = 'canceled', next_renewal_date = null, authorization_code = null/);
+    expect(fn).toMatch(/update public\.talent_directory_subscriptions\s+set auto_renew_status = 'canceled', next_renewal_date = null, authorization_code = null/);
+  });
+
+  it("touches only the person's own ACTIVE renewals (and Talent Directory ones of organisations they created), and nothing else", () => {
+    expect(fn).toMatch(/where user_id = p_user_id and auto_renew_status = 'active'/);
+    expect(fn).toMatch(/created_by = p_user_id/);
+    expect(fn).not.toMatch(/deletion_requested_at|insert into|delete from|auto_apply|job_postings|ad_campaigns/);
+  });
+
+  it("is idempotent (a second run changes nothing) and reports what it switched off", () => {
+    expect(fn).toMatch(/get diagnostics/i);
+    expect(fn).toMatch(/'passes'/);
+    expect(fn).toMatch(/'subscriptions'/);
   });
 });
 

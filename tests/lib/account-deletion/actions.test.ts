@@ -10,6 +10,10 @@
  *             THE CARD COMES FIRST: a stored card authorisation is cancelled at the payment provider before anything is scheduled, and if that
  *             fails nothing is scheduled; "sign out everywhere" happens only after the database says the deletion is scheduled, and its
  *             failure changes nothing (the proxy gate catches every later request).
+ *   partial    the card is cancelled FIRST, so if the provider succeeds and the database transaction then fails, the person is left with a cancelled card
+ *             and no deletion: renewal is switched off in its own small write and they are told so plainly, never left with a Pass that lapses unexplained.
+ *   gate flag  confirm sets `app_metadata.deletion_pending` (what the proxy gate reads without a database query) and restore clears it, alongside the
+ *             database flag, which stays the source of truth. A failed write is loud (FAIL_OPEN), never a failed deletion.
  *   emails    the deletion's own emails (confirm link, "scheduled", "restored") go through the lifecycle sender, which is the only way past
  *             the deleted-pending mail guard.
  *   restore   puts back visibility through the person's own client, and "keep the deletion" signs out.
@@ -25,6 +29,7 @@ const h = vi.hoisted(() => ({
   signOut: vi.fn(),
   lifecycle: vi.fn(),
   deactivate: vi.fn(),
+  updateUser: vi.fn(),
   redirects: [] as string[],
 }));
 
@@ -42,7 +47,9 @@ vi.mock("@/lib/supabase/server", () => ({
     rpc: h.userRpc,
   }),
 }));
-vi.mock("@/lib/supabase/service-role", () => ({ createServiceRoleClient: () => ({ rpc: h.serviceRpc }) }));
+vi.mock("@/lib/supabase/service-role", () => ({
+  createServiceRoleClient: () => ({ rpc: h.serviceRpc, auth: { admin: { updateUserById: h.updateUser } } }),
+}));
 vi.mock("@/lib/resend/client", () => ({ sendDeletionLifecycleEmail: h.lifecycle }));
 vi.mock("@/lib/paystack/client", () => ({
   deactivateAuthorization: h.deactivate,
@@ -76,6 +83,7 @@ function serviceAnswers(over: Partial<Record<string, unknown>> = {}) {
     account_deletion_create_request: { ok: true, expires_at: "2026-10-02T13:00:00Z", blockers: NO_BLOCKERS },
     account_deletion_confirm_precheck: { ok: true, authorizations: [] },
     account_deletion_confirm: OK_CONFIRM,
+    account_deletion_stop_renewals: { ok: true, passes: 1, subscriptions: 0 },
     ...over,
   };
   h.serviceRpc.mockImplementation(async (name: string) => {
@@ -94,6 +102,7 @@ beforeEach(() => {
   h.signOut.mockReset().mockResolvedValue({ error: null });
   h.lifecycle.mockReset().mockResolvedValue({ data: { id: "m1" }, error: null });
   h.deactivate.mockReset().mockResolvedValue({ status: true });
+  h.updateUser.mockReset().mockResolvedValue({ data: {}, error: null });
   h.redirects.length = 0;
 });
 
@@ -312,19 +321,110 @@ describe("confirmAccountDeletionAction", () => {
       expect(h.deactivate).toHaveBeenCalledTimes(1);
     });
 
-    it("a card the provider reports as already inactive counts as cancelled", async () => {
+    it("a card Paystack answers 404 + its error envelope for (unknown or already deactivated) counts as cancelled", async () => {
       serviceAnswers({ account_deletion_confirm_precheck: { ok: true, authorizations: [auths[0]] } });
-      h.deactivate.mockRejectedValue(Object.assign(new Error("Authorization is already deactivated"), { kind: "decline" }));
+      h.deactivate.mockRejectedValue(Object.assign(new Error("any words"), { kind: "decline", status: 404, type: "api_error", code: "resource_not_found" }));
       const s = await confirm();
       expect(s.status).toBe("done");
     });
 
-    it("a provider refusal that is NOT 'already inactive' blocks the deletion too", async () => {
+    it("the same friendly words WITHOUT the documented status and envelope block the deletion (the message is never read)", async () => {
       serviceAnswers({ account_deletion_confirm_precheck: { ok: true, authorizations: [auths[0]] } });
-      h.deactivate.mockRejectedValue(Object.assign(new Error("Invalid key"), { kind: "decline" }));
+      h.deactivate.mockRejectedValue(Object.assign(new Error("Authorization is already deactivated"), { kind: "decline" }));
       const s = await confirm();
       expect(s.status).toBe("error");
       expect(s.reason).toBe("card");
+      expect(h.serviceRpc.mock.calls.map((c) => c[0])).not.toContain("account_deletion_confirm");
+    });
+
+    it("a provider refusal that is not the documented not-found blocks the deletion too", async () => {
+      serviceAnswers({ account_deletion_confirm_precheck: { ok: true, authorizations: [auths[0]] } });
+      h.deactivate.mockRejectedValue(Object.assign(new Error("Invalid key"), { kind: "decline", status: 401, type: "validation_error", code: "invalid_key" }));
+      const s = await confirm();
+      expect(s.status).toBe("error");
+      expect(s.reason).toBe("card");
+    });
+  });
+
+  describe("the card was cancelled but the deletion could not be scheduled", () => {
+    const auths = [{ source: "pass", id: "up1", authorization_code: "AUTH_pass_1" }];
+    const stops = () => h.serviceRpc.mock.calls.filter((c) => c[0] === "account_deletion_stop_renewals");
+
+    it("a database error at the confirm switches renewal off in its own write and says so, plainly", async () => {
+      serviceAnswers({ account_deletion_confirm_precheck: { ok: true, authorizations: auths }, account_deletion_confirm: new Error("connection reset") });
+      const s = await confirm();
+      expect(h.deactivate).toHaveBeenCalledTimes(1);
+      expect(stops()).toEqual([["account_deletion_stop_renewals", { p_user_id: "user-A" }]]);
+      expect(s.status).toBe("error");
+      expect(s.reason).toBe("renewal_off");
+      expect(s.error).toMatch(/renewal is (now )?off/i);
+      expect(s.error).toMatch(/not scheduled|wasn.t scheduled|hasn.t been scheduled/i);
+      expect(s.error).toMatch(/try again/i);
+      expect(h.signOut).not.toHaveBeenCalled();
+      expect(h.updateUser).not.toHaveBeenCalled();
+      expect(h.lifecycle).not.toHaveBeenCalled();
+    });
+
+    it("a refusal from the confirm (the link expired in the instant between) does the same", async () => {
+      serviceAnswers({ account_deletion_confirm_precheck: { ok: true, authorizations: auths }, account_deletion_confirm: { ok: false, reason: "expired" } });
+      const s = await confirm();
+      expect(stops()).toHaveLength(1);
+      expect(s.reason).toBe("renewal_off");
+    });
+
+    it("if switching renewal off fails too, the person is told renewal may still lapse, and to contact us", async () => {
+      h.serviceRpc.mockImplementation(async (name: string) => {
+        if (name === "account_deletion_confirm_precheck") return { data: { ok: true, authorizations: auths }, error: null };
+        if (name === "account_deletion_confirm") return { data: null, error: { message: "down" } };
+        return { data: null, error: { message: "still down" } };
+      });
+      const s = await confirm();
+      expect(s.reason).toBe("renewal_off");
+      expect(s.error).toMatch(/contact us/i);
+      expect(s.error).toMatch(/may (still )?(fail|lapse)/i);
+    });
+
+    it("a link used in the instant between (another click scheduled the deletion) does NOT touch renewal", async () => {
+      serviceAnswers({ account_deletion_confirm_precheck: { ok: true, authorizations: auths }, account_deletion_confirm: { ok: false, reason: "used" } });
+      const s = await confirm();
+      expect(stops()).toHaveLength(0);
+      expect(s.reason).toBe("used");
+    });
+
+    it("no card was cancelled (none stored), so a failed confirm is an ordinary failure and renewal is not touched", async () => {
+      serviceAnswers({ account_deletion_confirm: new Error("boom") });
+      const s = await confirm();
+      expect(stops()).toHaveLength(0);
+      expect(s.reason).toBe("failed");
+    });
+  });
+
+  describe("the gate flag the proxy reads", () => {
+    it("confirm sets it with the service role, AFTER the database says scheduled and BEFORE the global sign-out", async () => {
+      const order: string[] = [];
+      const base = h.serviceRpc.getMockImplementation()!;
+      h.serviceRpc.mockImplementation(async (n: string, a: unknown) => (order.push(n), base(n, a)));
+      h.updateUser.mockImplementation(async () => (order.push("flag:set"), { data: {}, error: null }));
+      h.signOut.mockImplementation(async () => (order.push("signOut"), { error: null }));
+      await confirm();
+      expect(order).toEqual(["account_deletion_confirm_precheck", "account_deletion_confirm", "flag:set", "signOut"]);
+      expect(h.updateUser).toHaveBeenCalledWith("user-A", { app_metadata: { deletion_pending: true } });
+    });
+
+    it("a failed write of the flag is logged FAIL_OPEN, counted, and does not fail the deletion", async () => {
+      h.updateUser.mockResolvedValue({ data: null, error: { message: "auth admin down" } });
+      const error = vi.spyOn(console, "error").mockImplementation(() => {});
+      const s = await confirm();
+      expect(s.status).toBe("done");
+      expect(h.signOut).toHaveBeenCalledWith({ scope: "global" });
+      expect(error.mock.calls.map((c) => c.join(" ")).join("\n")).toMatch(/\[pending-deletion\] FAIL_OPEN kind=flag_not_set count=\d+/);
+      error.mockRestore();
+    });
+
+    it("a refused or failed confirm never sets it", async () => {
+      serviceAnswers({ account_deletion_confirm: { ok: false, reason: "used" } });
+      await confirm();
+      expect(h.updateUser).not.toHaveBeenCalled();
     });
   });
 
@@ -395,6 +495,29 @@ describe("restoreAccountAction and keepDeletionAction", () => {
     expect(payload.to).toBe("ada@example.com");
     expect(payload.text).toMatch(/Auto-Apply/);
     expect(payload.text).toMatch(/Pass .*(does not|doesn.t) renew until you resubscribe/i);
+  });
+
+  it("restore clears the gate flag with the service role, AFTER the database restore", async () => {
+    const order: string[] = [];
+    h.userRpc.mockImplementation(async () => (order.push("rpc:restore"), { data: { ok: true }, error: null }));
+    h.updateUser.mockImplementation(async () => (order.push("flag:clear"), { data: {}, error: null }));
+    await expect(restoreAccountAction()).rejects.toThrow("NEXT_REDIRECT:/jobs");
+    expect(order).toEqual(["rpc:restore", "flag:clear"]);
+    expect(h.updateUser).toHaveBeenCalledWith("user-A", { app_metadata: { deletion_pending: null } });
+  });
+
+  it("a failed clear is logged FAIL_OPEN and counted; the person is still restored (the prompt page heals a stale flag)", async () => {
+    h.updateUser.mockResolvedValue({ data: null, error: { message: "auth admin down" } });
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    await expect(restoreAccountAction()).rejects.toThrow("NEXT_REDIRECT:/jobs");
+    expect(error.mock.calls.map((c) => c.join(" ")).join("\n")).toMatch(/\[pending-deletion\] FAIL_OPEN kind=flag_not_cleared count=\d+/);
+    error.mockRestore();
+  });
+
+  it("a refused restore leaves the gate flag alone", async () => {
+    h.userRpc.mockResolvedValue({ data: { ok: false, reason: "window_closed" }, error: null });
+    await expect(restoreAccountAction()).rejects.toThrow(/window_closed/);
+    expect(h.updateUser).not.toHaveBeenCalled();
   });
 
   it("restore reports a closed window instead of pretending, and sends no email", async () => {

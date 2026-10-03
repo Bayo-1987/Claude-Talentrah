@@ -71,6 +71,7 @@ describe("0212 rollback", () => {
       "account_deletion_status()",
       "account_deletion_confirm(uuid, text)",
       "account_deletion_confirm_precheck(uuid, text)",
+      "account_deletion_stop_renewals(uuid)",
       "account_deletion_create_request(uuid, text)",
       "account_deletion_blockers(uuid)",
       "submission_applicant_is_active(uuid)",

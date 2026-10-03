@@ -1,23 +1,22 @@
 /**
- * ACCT-1 PR 1 — the gate on EVERY request, not only sign-in.
+ * ACCT-1 PR 1 — the gate on EVERY request, not only sign-in, at no database cost.
  *
  * Confirming a deletion signs the person out everywhere AFTER the database transaction, and that call can fail, or a second device can keep a live
- * session. So the proxy (src/proxy.ts) reads the person's pending flag on every request that carries a session and sends them to "Restore it, or keep
- * the deletion?". A session on another device lands there on its very next request, even when global sign-out failed.
+ * session. So the proxy (src/proxy.ts) turns a flagged session away on its very next request. The flag it reads is `app_metadata.deletion_pending`
+ * on the user object `updateSession` ALREADY fetched with `auth.getUser()` (a live call to the auth server, so it is current): the gate makes NO
+ * database query of its own. `profiles.deletion_requested_at` stays the source of truth and both are written together (tests/lib/account-deletion/).
  *
- * Pinned here: pages redirect (with the refreshed session cookies kept); API calls get a 403 JSON, never a redirect; the prompt page, sign-in and the auth
- * routes are exempt (or nobody could ever restore or leave); signed-out requests, cron and webhook routes (no session) are untouched; an ordinary
- * user is untouched; a failed flag read does NOT lock a normal user out; and the whole thing is wired into `proxy()` before anything else touches the
- * user.
+ * Pinned here: pages redirect; API calls get a 403 JSON, never a redirect; THE REFRESHED SESSION COOKIES SURVIVE THE REDIRECT (every Set-Cookie of the
+ * response the middleware refreshed, with its attributes: a redirect that drops them is exactly how a person gets signed out at random); the exempt
+ * paths (the prompt, the confirm link, sign-in, the auth routes, static assets) can never loop; signed-out requests and an ordinary user are untouched;
+ * and the gate is wired into `proxy()` before anything else touches the user.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const h = vi.hoisted(() => ({
-  user: { id: "u1" } as { id: string } | null,
-  flag: null as string | null,
-  flagError: null as null | { message: string },
-  reads: 0,
+  user: { id: "u1", app_metadata: {} } as { id: string; app_metadata: Record<string, unknown> } | null,
+  dbReads: 0,
   touched: 0,
   response: undefined as undefined | (() => Response),
 }));
@@ -27,16 +26,10 @@ vi.mock("@/lib/supabase/middleware", () => ({
     response: h.response ? h.response() : NextResponse.next(),
     user: h.user,
     supabase: {
-      from: () => ({
-        select: () => ({
-          eq: () => ({
-            maybeSingle: async () => {
-              h.reads += 1;
-              return h.flagError ? { data: null, error: h.flagError } : { data: { deletion_requested_at: h.flag }, error: null };
-            },
-          }),
-        }),
-      }),
+      from: () => {
+        h.dbReads += 1;
+        throw new Error("the gate must not query the database");
+      },
       rpc: async () => {
         h.touched += 1;
         return { error: null };
@@ -51,12 +44,11 @@ import { proxy } from "@/proxy";
 const waitUntil = vi.fn();
 const run = (path: string, method = "GET") => proxy(new NextRequest(`https://www.talentrah.com${path}`, { method }), { waitUntil } as never);
 const location = (r: Response) => r.headers.get("location") ?? "";
+const pending = () => ({ id: "u1", app_metadata: { deletion_pending: true } });
 
 beforeEach(() => {
-  h.user = { id: "u1" };
-  h.flag = null;
-  h.flagError = null;
-  h.reads = 0;
+  h.user = { id: "u1", app_metadata: {} };
+  h.dbReads = 0;
   h.touched = 0;
   h.response = undefined;
   waitUntil.mockReset();
@@ -64,7 +56,7 @@ beforeEach(() => {
 
 describe("a session scheduled for deletion lands on the prompt on its next request", () => {
   beforeEach(() => {
-    h.flag = "2026-10-02T12:00:00Z";
+    h.user = pending();
   });
 
   it.each(["/jobs", "/jobs/some-posting-id", "/settings", "/billing", "/tracker", "/employer/jobs", "/mentorship", "/", "/blog/some-post"])(
@@ -76,16 +68,6 @@ describe("a session scheduled for deletion lands on the prompt on its next reque
       expect(new URL(location(res), "https://www.talentrah.com").pathname).toBe("/settings/account-deletion");
     },
   );
-
-  it("keeps the refreshed session cookies the proxy just set (a dropped refresh would log the person out half-way)", async () => {
-    h.response = () => {
-      const r = NextResponse.next();
-      r.cookies.set("sb-access-token", "refreshed-token");
-      return r;
-    };
-    const res = await run("/jobs");
-    expect(res.cookies.get("sb-access-token")?.value).toBe("refreshed-token");
-  });
 
   it("with global sign-out having FAILED, the second device's very next request is still caught", async () => {
     // The state after a failed signOut({scope:'global'}): the session is alive and the flag is set. Nothing else is needed for the gate to act.
@@ -105,39 +87,101 @@ describe("a session scheduled for deletion lands on the prompt on its next reque
     expect(waitUntil).not.toHaveBeenCalled();
   });
 
-  it.each(["/settings/account-deletion", "/login", "/auth/callback", "/auth/signout", "/api/auth/anything"])("%s is exempt (the person must be able to restore, or leave)", async (path) => {
+  it("makes NO database query to decide (the flag rides on the user the middleware already fetched)", async () => {
+    await run("/jobs");
+    await run("/api/farah/chat", "POST");
+    expect(h.dbReads).toBe(0);
+  });
+});
+
+describe("the refreshed session cookies survive the redirect", () => {
+  const refreshed = () => {
+    const r = NextResponse.next();
+    // A chunked session cookie plus its refresh token, each with its own attributes: what @supabase/ssr sets when a token is renewed.
+    r.cookies.set("sb-abc-auth-token.0", "chunk-zero", { path: "/", maxAge: 34_560_000, httpOnly: false, sameSite: "lax", secure: true });
+    r.cookies.set("sb-abc-auth-token.1", "chunk-one", { path: "/", maxAge: 34_560_000, httpOnly: false, sameSite: "lax", secure: true });
+    r.cookies.set("sb-abc-auth-token-code-verifier", "", { path: "/", maxAge: 0 });
+    return r;
+  };
+
+  beforeEach(() => {
+    h.user = pending();
+    h.response = refreshed;
+  });
+
+  it("a page redirect carries EVERY Set-Cookie of the refreshed response, byte for byte", async () => {
+    const expected = refreshed().headers.getSetCookie();
+    expect(expected).toHaveLength(3);
+    const res = await run("/jobs");
+    expect(new URL(location(res), "https://www.talentrah.com").pathname).toBe("/settings/account-deletion");
+    expect(res.headers.getSetCookie()).toEqual(expected);
+  });
+
+  it("a 403 for an API call carries them too", async () => {
+    const expected = refreshed().headers.getSetCookie();
+    const res = await run("/api/farah/chat", "POST");
+    expect(res.status).toBe(403);
+    expect(res.headers.getSetCookie()).toEqual(expected);
+  });
+
+  it("an ordinary request still returns the refreshed response itself, untouched", async () => {
+    h.user = { id: "u1", app_metadata: {} };
+    const res = await run("/jobs");
+    expect(res.headers.getSetCookie()).toEqual(refreshed().headers.getSetCookie());
+  });
+});
+
+describe("no redirect loops: these are exempt, so the person can always restore, leave or sign in", () => {
+  beforeEach(() => {
+    h.user = pending();
+  });
+
+  it.each([
+    ["the restore prompt", "/settings/account-deletion"],
+    ["the prompt with an error", "/settings/account-deletion?error=window_closed"],
+    ["the deletion confirm link", "/settings/delete-account/confirm?token=" + "a".repeat(64)],
+    ["sign-in", "/login"],
+    ["the auth callback", "/auth/callback?code=abc"],
+    ["sign-out", "/auth/signout"],
+    ["an auth API route", "/api/auth/anything"],
+    ["the admin surface (a separate identity)", "/admin/login"],
+    ["a static chunk", "/_next/static/chunks/main-abc.js"],
+    ["an image", "/images/logo.png"],
+    ["a font", "/fonts/body.woff2"],
+    ["robots.txt", "/robots.txt"],
+    ["the sitemap", "/sitemap.xml"],
+    ["the favicon", "/favicon.ico"],
+  ])("%s (%s) is not redirected", async (_name, path) => {
     const res = await run(path);
     expect(res.headers.get("location")).toBeNull();
     expect(res.status).toBe(200);
   });
+
+  it("the prompt can never redirect to itself, however it is reached", async () => {
+    for (const p of ["/settings/account-deletion", "/settings/account-deletion/"]) {
+      expect((await run(p)).headers.get("location")).toBeNull();
+    }
+  });
 });
 
 describe("everyone else is untouched", () => {
-  it("an ordinary signed-in user is not redirected, and the flag is read once", async () => {
+  it("an ordinary signed-in user is not redirected, and nothing is read from the database", async () => {
     const res = await run("/jobs");
     expect(res.headers.get("location")).toBeNull();
-    expect(h.reads).toBe(1);
+    expect(h.dbReads).toBe(0);
   });
 
-  it("a signed-out request never reads a flag", async () => {
+  it("a signed-out request is untouched", async () => {
     h.user = null;
     const res = await run("/jobs");
     expect(res.status).toBe(200);
-    expect(h.reads).toBe(0);
+    expect(h.dbReads).toBe(0);
   });
 
-  it("a failed flag read does NOT lock an ordinary user out (the database still hides the account, and requireUser() is a second gate)", async () => {
-    h.flagError = { message: "connection reset" };
-    const error = vi.spyOn(console, "error").mockImplementation(() => {});
-    const res = await run("/jobs");
-    expect(res.headers.get("location")).toBeNull();
-    expect(error.mock.calls.map((c) => c.join(" ")).join("\n")).toMatch(/pending-deletion/i);
-    error.mockRestore();
-  });
-
-  it("an admin page is not read for a flag", async () => {
-    const res = await run("/admin/login");
-    expect(res.status).toBe(200);
-    expect(h.reads).toBe(0);
+  it("a user whose flag is anything but exactly true is not redirected (a stale string must not lock someone out)", async () => {
+    for (const v of ["true", 1, "yes", null, undefined, false]) {
+      h.user = { id: "u1", app_metadata: { deletion_pending: v } };
+      expect((await run("/jobs")).headers.get("location")).toBeNull();
+    }
   });
 });

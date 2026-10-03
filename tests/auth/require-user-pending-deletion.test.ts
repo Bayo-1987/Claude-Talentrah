@@ -65,3 +65,26 @@ describe("requireUser and accounts scheduled for deletion", () => {
     await expect(requireUser()).resolves.toBeTruthy();
   });
 });
+
+describe("the catch-net: the database says pending but the session never got the flag", () => {
+  it("still redirects, and records the miss so a run of them is visible (fail-open is never silent)", async () => {
+    const { pendingDeletionFailOpenCount } = await import("@/lib/auth/pending-deletion-failopen");
+    const before = pendingDeletionFailOpenCount();
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    h.user = { id: "u1", email: "ada@example.com", app_metadata: {} } as never;
+    h.profile = { ...h.profile, deletion_requested_at: "2026-10-02T12:00:00Z" };
+    await expect(requireUser()).rejects.toThrow(`NEXT_REDIRECT:${PENDING_DELETION_PATH}`);
+    expect(pendingDeletionFailOpenCount()).toBe(before + 1);
+    expect(error.mock.calls.map((c) => c.join(" ")).join("\n")).toMatch(/\[pending-deletion\] FAIL_OPEN kind=gate_missed count=\d+/);
+    error.mockRestore();
+  });
+
+  it("a session that DID carry the flag is not counted as a miss", async () => {
+    const { pendingDeletionFailOpenCount } = await import("@/lib/auth/pending-deletion-failopen");
+    const before = pendingDeletionFailOpenCount();
+    h.user = { id: "u1", email: "ada@example.com", app_metadata: { deletion_pending: true } } as never;
+    h.profile = { ...h.profile, deletion_requested_at: "2026-10-02T12:00:00Z" };
+    await expect(requireUser()).rejects.toThrow(`NEXT_REDIRECT:${PENDING_DELETION_PATH}`);
+    expect(pendingDeletionFailOpenCount()).toBe(before);
+  });
+});
