@@ -323,6 +323,38 @@ for (const [code, cldr] of ISO_ENTRIES) {
   BY_KEY.set(key(displayName(code, cldr)), code);
 }
 BY_CODE.set("XK", "Kosovo");
+
+/**
+ * Every country's display name: the 249 ISO 3166-1 entries plus Kosovo, in code order. The source for the signup and settings
+ * country lists (src/lib/auth/schemas.ts), so the app has ONE country list, and every name on it resolves to a code here.
+ */
+export const COUNTRY_DISPLAY_NAMES: readonly string[] = [...BY_CODE.values()];
+
+const BY_LABEL = new Map<string, string>([...BY_CODE].map(([code, name]) => [name, code]));
+
+/**
+ * The code of a country named by its EXACT display label, or null. For a value that came from the signup/settings dropdown
+ * (profiles.country): that value is unambiguous because it was picked from this list, so "Georgia" is GE and "Jersey" is JE.
+ * Not for free text: a job location that says just "Georgia" stays unresolved in resolveCountryCode, which is deliberate.
+ * Case-sensitive and untrimmed, like the dropdown's own value; "Other" is not a country and returns null.
+ */
+export function countryCodeForLabel(label: string): string | null {
+  return BY_LABEL.get(label) ?? null;
+}
+
+/**
+ * Orders two country names the way a reader files them, with accents ignored (Åland Islands under A, Côte d'Ivoire between
+ * Costa Rica and Croatia). Plain string comparison on an accent-folded key, NOT Intl.Collator or localeCompare: those follow the
+ * ICU data of whichever Node or browser runs them, so the server and the client could order a <select> differently (a hydration
+ * mismatch) and a Node upgrade could reorder it. Pinned in tests/auth/signup-countries.test.tsx.
+ */
+export function compareCountryNames(a: string, b: string): number {
+  const fold = (n: string) => n.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
+  const fa = fold(a);
+  const fb = fold(b);
+  if (fa !== fb) return fa < fb ? -1 : 1;
+  return a < b ? -1 : a > b ? 1 : 0;
+}
 for (const [alias, code] of Object.entries(ALIASES)) BY_KEY.set(key(alias), code);
 for (const name of AMBIGUOUS_UNLESS_MARKED) BY_KEY.delete(key(name));
 

@@ -49,7 +49,7 @@ test.describe("E2 — salary currency select", () => {
     ["United States", "USD"],
     ["Canada", "CAD"],
     ["Germany", "EUR"],
-    ["Other", "NGN"],
+    ["Other", "USD"], // an unmapped country falls back to USD (was NGN before the country list was opened to every country)
   ];
   for (const [country, code] of byCountry) {
     test(`defaults to ${code} for ${country}`, async ({ page }) => {

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { hasVisibleName } from "@/lib/profile/name";
-import { SIGNUP_COUNTRIES } from "@/lib/auth/schemas";
+import { isSignupCountry } from "@/lib/auth/schemas";
 
 /**
  * What a person may actually change about themselves.
@@ -34,5 +34,5 @@ import { SIGNUP_COUNTRIES } from "@/lib/auth/schemas";
 export const settingsSchema = z.object({
   firstName: z.string().refine(hasVisibleName, "Enter your first name"),
   lastName: z.string().refine(hasVisibleName, "Enter your last name"),
-  country: z.enum(SIGNUP_COUNTRIES, "Select a country"),
+  country: z.string().refine(isSignupCountry, "Select a country"),
 });
