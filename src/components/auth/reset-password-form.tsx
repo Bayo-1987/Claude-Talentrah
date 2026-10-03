@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import { updatePasswordAction, type AuthActionState } from "@/lib/auth/actions";
 import { PasswordField, Button } from "@/components/ui";
+import { PASSWORD_MIN_LENGTH } from "@/lib/auth/password";
 import { PasswordRequirements } from "./password-requirements";
 
 const initialState: AuthActionState = { error: null };
@@ -38,6 +39,7 @@ export function ResetPasswordForm() {
           label="New password"
           name="password"
           autoComplete="new-password"
+          minLength={PASSWORD_MIN_LENGTH}
           required
           value={password}
           onChange={(e) => setPassword(e.target.value)}

@@ -70,19 +70,17 @@ describe("defaultSalaryCurrency — from the employer's country", () => {
     expect(defaultSalaryCurrency(country)).toBe(expected);
   });
 
-  const unknown: Array<string | null | undefined> = [
-    "Other",
-    "",
-    "   ",
-    null,
-    undefined,
-    "Narnia",
-    "Japan",
-    "JP",
-    "Australia",
-  ];
-  it.each(unknown)("unknown country %j falls back to NGN", (country) => {
+  // Not a country at all: unset, blank or unrecognised. These keep the product's home market.
+  const unset: Array<string | null | undefined> = ["", "   ", null, undefined, "Narnia"];
+  it.each(unset)("unset or unrecognised country %j falls back to NGN", (country) => {
     expect(defaultSalaryCurrency(country)).toBe("NGN");
+  });
+
+  // A real country (or "Other", which says the person is outside the listed ones) that has no currency of its own on the list:
+  // the global default, USD. Was NGN before the country list was opened to every country (S1-26 item 1).
+  const unmapped = ["Other", "Japan", "JP", "Australia", "Brazil", "Georgia", "Jersey"];
+  it.each(unmapped)("a country with no mapped currency (%s) falls back to USD", (country) => {
+    expect(defaultSalaryCurrency(country)).toBe("USD");
   });
 
   it("every country maps into the allowed list", () => {
