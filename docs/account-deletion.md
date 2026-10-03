@@ -58,7 +58,7 @@ How a person deletes their account, what is built, and what is still to come. Th
    reported as sent, so nothing retries. The three exceptions (`deletion_confirm`, `deletion_scheduled`, `deletion_restored`) go through `sendDeletionLifecycleEmail()`, listed in
    [account-deletion-map.md](account-deletion-map.md#deletion-lifecycle-emails); a test fails if the list and that table disagree. The closing-date reminder skips a pending owner and
    falls back to the organisation's creator, and does nothing (and fails nothing) when both are pending.
-9. **Signing in again** inside the 30 days lands on "Your account is scheduled for deletion on <date>. Restore it, or keep the deletion?". It never restores silently. Restoring puts
+9. **Signing in again** inside the 30 days lands on "Your account is scheduled for deletion on <date>. Restore it, or keep the deletion?". It never restores silently; "keep the deletion" signs out everywhere (like confirming it; the header's own Sign out stays this-device-only, pinned side by side in `tests/auth/sign-out-scope-account-deletion.test.ts`). Restoring puts
    visibility back and emails the proof; Auto-Apply stays off, a Pass does not renew until the person resubscribes, closed postings stay closed.
 
 ## What is not built yet

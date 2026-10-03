@@ -565,7 +565,7 @@ describe("restoreAccountAction and keepDeletionAction", () => {
 
   it("keeping the deletion signs out and goes to the home page, changing nothing", async () => {
     await expect(keepDeletionAction()).rejects.toThrow("NEXT_REDIRECT:/");
-    expect(h.signOut).toHaveBeenCalledWith({ scope: "local" });
+    expect(h.signOut).toHaveBeenCalledWith({ scope: "global" });
     expect(h.userRpc).not.toHaveBeenCalled();
     expect(h.serviceRpc).not.toHaveBeenCalled();
   });
