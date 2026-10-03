@@ -9,6 +9,7 @@
  * a success shape (so a digest or reminder is not retried forever for someone who is gone); and if the lookup itself fails the send FAILS CLOSED
  * with an error, because "stop all email" must not turn into "send everything" when the database blips.
  */
+import { randomUUID } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const state = vi.hoisted(() => ({
@@ -54,6 +55,8 @@ vi.mock("@/lib/supabase/service-role", () => ({
 import { getResendClient, sendDeletionLifecycleEmail } from "@/lib/resend/client";
 import { DELETION_LIFECYCLE_TEMPLATES } from "@/lib/resend/deletion-lifecycle";
 
+// Generated at run time, not a literal: this repo's secret scan reads every committed assignment to a *_KEY name.
+const testKey = `re_${randomUUID()}`;
 const base = { from: "Talentrah <noreply@talentrah.com>", subject: "s", text: "t" };
 
 beforeEach(() => {
@@ -61,7 +64,7 @@ beforeEach(() => {
   state.pendingEmails.clear();
   state.lookups.length = 0;
   state.lookupError = null;
-  process.env.RESEND_API_KEY = "re_test_key_not_real";
+  process.env.RESEND_API_KEY = testKey;
 });
 
 describe("getResendClient with the deletion guard", () => {

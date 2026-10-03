@@ -6,12 +6,15 @@
  * anything. This pins the request it makes and how each answer is classified, using the module's own error types (an answer that says no is a
  * decline; no answer at all is unavailable), because the deletion flow treats them differently.
  */
+import { randomUUID } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PaystackDeclineError, PaystackUnavailableError, deactivateAuthorization } from "@/lib/paystack/client";
 
 const fetchMock = vi.fn();
+// Generated at run time, not a literal: this repo's secret scan reads every committed assignment to a *_KEY / *_SECRET name.
+const testKey = `sk_test_${randomUUID()}`;
 beforeEach(() => {
-  process.env.PAYSTACK_SECRET_KEY = "sk_test_not_a_real_key";
+  process.env.PAYSTACK_SECRET_KEY = testKey;
   vi.stubGlobal("fetch", fetchMock);
   fetchMock.mockReset();
 });
@@ -26,7 +29,7 @@ describe("deactivateAuthorization", () => {
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe("https://api.paystack.co/customer/authorization/deactivate");
     expect(init.method).toBe("POST");
-    expect(init.headers.Authorization).toBe("Bearer sk_test_not_a_real_key");
+    expect(init.headers.Authorization).toBe(`Bearer ${testKey}`);
     expect(JSON.parse(init.body)).toEqual({ authorization_code: "AUTH_abc123" });
   });
 
