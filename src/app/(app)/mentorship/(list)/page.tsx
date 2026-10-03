@@ -6,7 +6,8 @@ import { Container, EyebrowLabel, BorderedCard } from "@/components/ui";
 import { stripInlineMarkdown } from "@/lib/farah/render-markdown";
 import { MentorshipPublicLanding } from "@/components/mentorship/public-landing";
 import { pageMetadata } from "@/lib/seo/site";
-import { getApprovedMentorPriceRangeNgn } from "@/lib/mentorship/public-price-range";
+import { getApprovedMentorPriceRangeNgn, getApprovedMentorsOfferFreeSessions } from "@/lib/mentorship/public-price-range";
+import { mentorshipPriceClause } from "@/lib/mentorship/price-copy";
 
 /**
  * send-385 — real metadata for the signed-out visitor, who is now served a
@@ -29,8 +30,7 @@ export async function generateMetadata() {
   if (session) return { title: "Mentorship — Talentrah" };
 
   const priceRange = await getApprovedMentorPriceRangeNgn();
-  const priceClause =
-    priceRange !== null ? `, from ₦${priceRange.minNgn.toLocaleString("en-NG")} a session` : "";
+  const priceClause = mentorshipPriceClause(priceRange);
 
   return pageMetadata({
     title: "Mentorship for Job Seekers in Nigeria & Africa — Talentrah",
@@ -66,8 +66,11 @@ export default async function MentorshipPage({
   if (!session) {
     // React cache() dedupes this against generateMetadata()'s identical
     // call in the same request — see public-price-range.ts's own header.
-    const priceRange = await getApprovedMentorPriceRangeNgn();
-    return <MentorshipPublicLanding priceRangeNgn={priceRange} />;
+    const [priceRange, offersFreeSessions] = await Promise.all([
+      getApprovedMentorPriceRangeNgn(),
+      getApprovedMentorsOfferFreeSessions(),
+    ]);
+    return <MentorshipPublicLanding priceRangeNgn={priceRange} offersFreeSessions={offersFreeSessions} />;
   }
 
   const [mentors, { error }] = await Promise.all([browseMentors(), searchParams]);
