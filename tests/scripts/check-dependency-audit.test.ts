@@ -126,7 +126,7 @@ describe("an audit that did not run is a failure, never a pass", () => {
   it("a high node whose advisory cannot be found is failed as unexplained, not excepted", () => {
     const report = load("braces-chain-only.json");
     // Break the chain: micromatch now names a package that is not in the report, so nothing explains its severity.
-    report.vulnerabilities.micromatch.via = ["no-such-package"];
+    report.vulnerabilities!.micromatch.via = ["no-such-package"];
     const r = evaluateAudit(report, { now: BEFORE_EXPIRY });
     expect(r.ok).toBe(false);
     expect(r.messages.join("\n")).toMatch(/micromatch/);
