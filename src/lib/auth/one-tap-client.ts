@@ -73,8 +73,9 @@ export async function completeOneTapSignIn(
  * error) must NOT call this — the caller only invokes it when
  * `completeOneTapSignIn` returned `{ ok: true }`.
  */
-export function oneTapSuccessDestination(): string {
+export function oneTapSuccessDestination(redirectTo?: string): string {
   // Shared with signUpAction, signInAction and the OAuth callback (0112), so
   // a fourth entry point cannot quietly disagree the way signInAction did.
-  return onboardingDestination();
+  // `redirectTo` is the page they were on (S1-50); onboardingDestination validates it.
+  return onboardingDestination(redirectTo);
 }

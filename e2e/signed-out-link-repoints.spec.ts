@@ -21,6 +21,16 @@ import { relatedLinksForPost } from "../src/lib/blog/related-links";
 
 const COVER_LETTER_SLUG = "cover-letters-that-dont-sound-like-a-template";
 const COVER_LETTER_HREF = "/signup?redirectTo=%2Ftailor%3FcoverLetter%3D1";
+/**
+ * The signup page posts the destination from THREE forms now (S1-50): the email form and both provider buttons. Each must carry it, and
+ * each must carry it exactly.
+ */
+async function expectEveryRedirectField(page: import("@playwright/test").Page, expected: string) {
+  const fields = page.locator('input[name="redirectTo"]');
+  await expect(fields).toHaveCount(3);
+  for (let i = 0; i < 3; i++) await expect(fields.nth(i)).toHaveValue(expected);
+}
+
 const COVER_LETTER_LOGIN_HREF = "/login?redirectTo=%2Ftailor%3FcoverLetter%3D1";
 
 test.describe("row 1: the footer's Resume Builder link", () => {
@@ -53,7 +63,7 @@ test.describe("row 2: the hero demo's 'Build a resume' link is session-aware", (
     await page.getByRole("link", { name: "Build a resume", exact: true }).click();
     await page.waitForURL("**/signup**");
     expect(page.url()).not.toContain("/login");
-    await expect(page.locator('input[name="redirectTo"]')).toHaveValue("/resume-builder");
+    await expectEveryRedirectField(page, "/resume-builder");
   });
 
 });
@@ -85,7 +95,7 @@ test.describe("row 5: the cover-letter link's encoded redirect survives the sign
     await page.goto(link!.href);
     expect(page.url(), "the link must land on the signup page").toContain("/signup");
     // Decoded exactly once: the query string inside the destination is intact.
-    await expect(page.locator('input[name="redirectTo"]')).toHaveValue("/tailor?coverLetter=1");
+    await expectEveryRedirectField(page, "/tailor?coverLetter=1");
     // The masthead's own "Log in" link is plain; the one in the page body carries the redirect.
     await expect(page.locator(`a[href="${COVER_LETTER_LOGIN_HREF}"]`)).toHaveCount(1);
   });

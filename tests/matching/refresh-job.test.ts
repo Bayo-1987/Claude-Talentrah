@@ -181,6 +181,7 @@ async function matchScoreFor(userId: string, jobPostingId: string) {
 describe("filterScorablePostings — the pure org-verification gate, no database involved", () => {
   const posting = (overrides: Partial<ScorableJobPosting>): ScorableJobPosting => ({
     id: "posting-x",
+    title: "Product Manager",
     structuredJd: { skills: [] },
     seniority: null,
     organizationId: null,

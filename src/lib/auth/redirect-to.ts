@@ -82,3 +82,63 @@ export function onboardingDestination(rawNext?: unknown): string {
   const next = safeRedirectTo(rawNext, "");
   return next ? `${ONBOARDING_PATH}?next=${encodeURIComponent(next)}` : ONBOARDING_PATH;
 }
+
+/**
+ * Where authentication ends when nothing more specific was asked for: the job feed. One constant for the OAuth callback, the login and
+ * signup pages (for someone already signed in) and onboarding's own fallback. The callback used to say "/dashboard", a placeholder that
+ * only redirects to /jobs, while everything else said "/jobs": two spellings of one place (S1-50).
+ */
+export const DEFAULT_AFTER_AUTH_PATH = "/jobs";
+
+/**
+ * The cookie that carries a destination across the OAuth and email-confirmation round trips (S1-50). It is set by the server action that
+ * starts the trip and read, validated and cleared by /auth/callback. A cookie, not a longer callback URL, so the URL Supabase is asked to
+ * redirect to stays byte-identical to the one that already works: nothing depends on how the project's redirect allow-list treats a
+ * longer query string. Scoped to /auth, ten minutes, HttpOnly, and never trusted: the callback runs it through safeRedirectTo.
+ */
+export const POST_AUTH_COOKIE = "tr_post_auth";
+export const POST_AUTH_COOKIE_MAX_AGE_SECONDS = 600;
+
+/** Pages that have nothing to "come back to": the front door, the auth screens themselves, and one-time token links. */
+const NO_RETURN_EXACT = new Set(["/", "/login", "/signup", "/forgot-password", "/reset-password", "/onboarding", "/unsubscribe"]);
+const NO_RETURN_PREFIXES = ["/login/", "/signup/", "/forgot-password/", "/reset-password/", "/onboarding/", "/auth/", "/admin", "/api/", "/extend-posting/"];
+
+/**
+ * Marketing pages and the signed-in feature each one sells. A person who logs in from /ai-resume-tailoring wants to tailor a resume, so they
+ * are returned to /tailor, not to the explainer. Every such destination is reached through /onboarding like any other, so a user with no
+ * resume sees the resume prompt first and then arrives at the feature: /tailor then asks for a base resume itself if they skipped it,
+ * /resume-builder offers its own first-resume panel, and /auto-apply opens its (empty) review queue with its off-state notice. An exact-match
+ * table: any page not listed returns to itself.
+ */
+export const FEATURE_FOR_MARKETING_PAGE: Readonly<Record<string, string>> = {
+  "/ai-resume-builder": "/resume-builder",
+  "/ai-resume-tailoring": "/tailor",
+  "/ats-resume-checker": "/tailor",
+  "/how-auto-apply-works": "/auto-apply",
+};
+
+/**
+ * The page a visitor was on, as a value fit for `redirectTo`, or "" when there is nothing to come back to (the default then applies).
+ * `search` may be given with or without its "?". The result always goes through safeRedirectTo: same-site relative paths only.
+ */
+export function returnPathFor(pathname: string, search = ""): string {
+  if (NO_RETURN_EXACT.has(pathname) || NO_RETURN_PREFIXES.some((p) => pathname.startsWith(p))) return "";
+  // A marketing page that describes a feature returns the visitor to the feature itself, not to the page that sells it. The page's own
+  // query string (utm tags and the like) is not carried onto the feature.
+  const feature = FEATURE_FOR_MARKETING_PAGE[pathname];
+  if (feature) return feature;
+  const query = search && !search.startsWith("?") ? `?${search}` : search;
+  return safeRedirectTo(`${pathname}${query === "?" ? "" : query}`, "");
+}
+
+/** "/login" or "/signup", carrying the page the visitor is on so authentication can bring them back to it. Bare where there is none. */
+export function authLinkWithReturn(base: "/login" | "/signup", pathname: string, search = ""): string {
+  const back = returnPathFor(pathname, search);
+  return back ? `${base}?redirectTo=${encodeURIComponent(back)}` : base;
+}
+
+/** True for the employer side: "/employer" and anything under it. Onboarding passes such a destination straight through. */
+export function isEmployerPath(path: string): boolean {
+  const pathname = path.split(/[?#]/)[0];
+  return pathname === "/employer" || pathname.startsWith("/employer/");
+}
