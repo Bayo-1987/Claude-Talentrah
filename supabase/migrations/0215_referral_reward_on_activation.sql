@@ -35,8 +35,12 @@
 --      'referrer_deleted' means the referrer is ACTUALLY GONE (referrer_id is null after a hard delete). A referrer who is only PENDING deletion (account deletion,
 --      S3-21: still able to restore) still has referrer_id set and is paid normally; the decision is the owner's (2026-10-03), and nothing in this migration may key on
 --      a pending flag.
---   3. A FAILED GRANT (grant_credits_atomic raising for any other reason) rolls the whole statement back, claim included: the referral stays 'signed_up', so it never produces
---      an activated, underpaid row (it fails the friend's action instead, as every trigger exception does; unchanged here).
+--   3. A FAILED GRANT (grant_credits_atomic raising for any other reason). The claim and the grant run in their own subtransaction (a BEGIN ... EXCEPTION block in
+--      check_and_activate_referral): on any error it rolls back, claim included, so the referral stays 'signed_up' and never becomes an activated, underpaid row; a
+--      WARNING names the referral and the SQLSTATE; and the function returns normally, so THE FRIEND'S OWN SAVE OR APPLICATION STILL SUCCEEDS (owner's decision,
+--      2026-10-03; before this a referrer-side failure turned into an error on the friend's resume save or job application). Nothing schedules a retry, and nothing
+--      needs to: both triggers (resumes_check_activation, applications_check_activation) call the function again on the friend's next base-resume save or application.
+--      The block catches everything, including a lock timeout or deadlock: all of them mean "not paid now, try again at the next event".
 --   4. A REFERRAL ALREADY PAID IN FULL (remainder <= 0): nothing is owed, so it is not "withheld" and the reason stays NULL.
 -- LEGACY ROWS ARE NOT BACKFILLED: a referral withheld by the cap before this migration has no recorded reason (production has none: its one referral is still signed_up).
 -- /refer shows such a row as what it is (activated, paid N credits) without claiming a reason it cannot prove.
@@ -202,28 +206,37 @@ begin
     return;
   end if;
 
-  -- The claim: only the caller that moves signed_up -> activated goes on to pay.
-  update public.referrals
-  set status = 'activated', activated_at = now()
-  where id = v_referral_id and status = 'signed_up'
-  returning reward_credits_referrer into v_paid;
+  -- The claim and the grant run in their OWN subtransaction (the BEGIN ... EXCEPTION block below). If anything in it fails, that subtransaction rolls back,
+  -- claim included, so the referral stays 'signed_up' and nothing is paid; a WARNING names the referral and the SQLSTATE; and this function RETURNS NORMALLY,
+  -- so the friend's own resume save or application, which called it from a trigger, still succeeds. Both triggers call this function again on the friend's
+  -- next base-resume save or application, which is the retry.
+  begin
+    -- The claim: only the caller that moves signed_up -> activated goes on to pay.
+    update public.referrals
+    set status = 'activated', activated_at = now()
+    where id = v_referral_id and status = 'signed_up'
+    returning reward_credits_referrer into v_paid;
 
-  if not found then
+    if not found then
+      return;
+    end if;
+
+    -- 0215: the referrer's account was deleted (0209 set referrer_id null). Nobody to pay and nobody to tell; this used to RAISE inside the
+    -- friend's own trigger and fail their save/apply. Claimed, recorded, not paid.
+    if v_referrer_id is null then
+      update public.referrals set reward_withheld_reason = 'referrer_deleted' where id = v_referral_id;
+      return;
+    end if;
+
+    -- The whole reward (50) less what this referral has already been paid (the signup half, for a referral made before 0215).
+    v_remainder := 50 - coalesce(v_paid, 0);
+    if v_remainder > 0 then
+      perform public.grant_referral_reward(v_referral_id, v_referrer_id, v_remainder, 'referral_activation_bonus');
+    end if;
+  exception when others then
+    raise warning 'check_and_activate_referral: referral % was not paid and stays signed_up for a retry (SQLSTATE %)', v_referral_id, sqlstate;
     return;
-  end if;
-
-  -- 0215: the referrer's account was deleted (0209 set referrer_id null). Nobody to pay and nobody to tell; this used to RAISE inside the
-  -- friend's own trigger and fail their save/apply. Claimed, recorded, not paid.
-  if v_referrer_id is null then
-    update public.referrals set reward_withheld_reason = 'referrer_deleted' where id = v_referral_id;
-    return;
-  end if;
-
-  -- The whole reward (50) less what this referral has already been paid (the signup half, for a referral made before 0215).
-  v_remainder := 50 - coalesce(v_paid, 0);
-  if v_remainder > 0 then
-    perform public.grant_referral_reward(v_referral_id, v_referrer_id, v_remainder, 'referral_activation_bonus');
-  end if;
+  end;
 end;
 $function$;
 
@@ -244,6 +257,9 @@ begin
   end if;
   if position('where id = v_referral_id and status = ''signed_up''' in v_activate) = 0 then
     raise exception 'self-check: check_and_activate_referral does not claim the activation atomically';
+  end if;
+  if position('exception when others' in v_activate) = 0 or position('raise warning' in v_activate) = 0 then
+    raise exception 'self-check: check_and_activate_referral does not isolate a payout failure from the friend''s own action';
   end if;
   if position('reward_withheld_reason = ''cap''' in v_grant) = 0 then
     raise exception 'self-check: grant_referral_reward does not record the cap';

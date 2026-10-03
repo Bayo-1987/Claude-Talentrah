@@ -92,3 +92,29 @@ describe("0215 pays the whole reward at activation, and says why when it pays le
     expect(f).toMatch(/if not found then\s+return;/);
   });
 });
+
+describe("0215: a payout failure never fails the friend's own action", () => {
+  const body = functions()["check_and_activate_referral"];
+
+  it("the claim-and-grant step runs in its own subtransaction: an EXCEPTION block that catches everything and returns, and raises only a WARNING", () => {
+    expect(body).toMatch(/exception\s+when others then/i);
+    expect(body).toMatch(/raise warning/i);
+    expect(body, "the warning names the SQLSTATE").toMatch(/sqlstate/i);
+    expect(body, "and the referral").toMatch(/v_referral_id/);
+    expect(body, "never turns the failure into an error for the friend").not.toMatch(/raise exception/i);
+  });
+
+  it("the EXCEPTION block covers the claim and the grant, not the early lookups", () => {
+    const claim = body.indexOf("set status = 'activated'");
+    const handler = body.search(/exception\s+when others then/i);
+    const grant = body.indexOf("perform public.grant_referral_reward");
+    const lookup = body.indexOf("limit 1");
+    expect(lookup).toBeGreaterThan(-1);
+    expect(claim).toBeGreaterThan(lookup);
+    expect(grant).toBeGreaterThan(claim);
+    expect(handler).toBeGreaterThan(grant);
+    // the inner BEGIN that the handler belongs to opens before the claim, after the early lookups
+    const innerBegin = body.lastIndexOf("begin", claim);
+    expect(innerBegin).toBeGreaterThan(lookup);
+  });
+});

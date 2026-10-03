@@ -92,8 +92,6 @@ describe("seeker-facing strings say Resume, never CV", () => {
 });
 
 describe("the S19 copy changes themselves", () => {
-  const read = (rel: string) => textNodes(fs.readFileSync(path.join(SRC, rel), "utf8"), rel).join(" ").replace(/\s+/g, " ");
-
   it("/refer says 'resume tailorings' (never CV), from the one derived reward sentence the page and the public landing use", async () => {
     // Since 0215 the wording is derived from the reward and the tailoring price (src/lib/referrals/copy.ts), not hard-coded
     // in the page, so the Resume-not-CV rule is pinned where the words are now produced, and the page must use them.

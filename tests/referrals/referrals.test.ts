@@ -986,49 +986,94 @@ describe("0215 — the activation claim is atomic", () => {
   }, 60_000);
 });
 
-describe("0215 — a failed grant is retried by the friend's next qualifying event, and the referrer is paid exactly once", () => {
-  it("the grant fails inside the friend's own save (nothing moves), the friend's next base-resume save retries it, and later events pay nothing more", async () => {
-    /*
-     * WHAT RETRIES. Nothing schedules a retry. check_and_activate_referral is called by exactly two triggers, resumes_check_activation (AFTER INSERT OR
-     * UPDATE OF is_base) and applications_check_activation (AFTER INSERT OR UPDATE OF applied_at). When the grant raises, it raises inside the FRIEND'S OWN
-     * statement, so that whole statement rolls back (the claim too): the friend's save or apply fails loudly, the referral stays 'signed_up', and the next
-     * time the friend saves a base resume or applies, the same function runs again and pays. It is a loud failure that the friend retries by retrying their
-     * action, not a silent non-payment. (That a referrer's payout can fail the friend's action is existing behaviour, unchanged by 0215; reported to the owner.)
-     *
-     * The failure is produced with real data, no test hook: a balance at the integer ceiling makes `credits_balance + 50` overflow (22003) in grant_credits_atomic.
-     */
-    const referrer = await makeUser(gmail("retry-r"));
-    const code = await referralCodeOf(referrer);
-    const referred = await makeUser(gmail("retry-b"), { referred_by_code: code });
-    const referral = await referralRowFor(referred);
-    await admin.from("profiles").update({ credits_balance: 2147483647 }).eq("id", referrer);
+describe("0215 — a referrer's payout failure never fails the friend's action; the next qualifying event retries it, and the referrer is paid exactly once", () => {
+  /*
+   * WHAT RETRIES. Nothing schedules a retry. check_and_activate_referral is called by exactly two triggers, resumes_check_activation (AFTER INSERT OR UPDATE
+   * OF is_base) and applications_check_activation (AFTER INSERT OR UPDATE OF applied_at), so the NEXT base-resume save or application re-runs it. Before the
+   * owner's decision (2026-10-03) a failing grant raised inside the friend's own statement and FAILED THE FRIEND'S SAVE OR APPLICATION, so a seeker could be
+   * unable to apply because of something on the referrer's side. Now the claim-and-grant step runs in its own subtransaction: on any error it rolls back (the
+   * referral stays 'signed_up', nothing is paid), a WARNING names the referral and the SQLSTATE, and the friend's statement succeeds.
+   *
+   * The failure is produced with real data, no test hook: a balance at the integer ceiling makes `credits_balance + 50` overflow (22003) in grant_credits_atomic.
+   */
+  const CEILING = 2147483647;
 
-    const failed = await admin.from("resumes").insert({ user_id: referred, title: "Base", is_base: true, source: "uploaded", structured_content: {} });
-    expect(failed.error, "the friend's save must fail loudly when the grant fails").not.toBeNull();
+  async function referredPair(tag: string) {
+    const referrer = await makeUser(gmail(`${tag}-r`));
+    const code = await referralCodeOf(referrer);
+    const referred = await makeUser(gmail(`${tag}-b`), { referred_by_code: code });
+    return { referrer, referred };
+  }
+
+  it("resume: the friend's save SUCCEEDS while the grant fails (0 paid, still signed_up), the next save pays exactly once, and a later event pays nothing more", async () => {
+    const { referrer, referred } = await referredPair("retry-resume");
+    const referral = await referralRowFor(referred);
+    await admin.from("profiles").update({ credits_balance: CEILING }).eq("id", referrer);
+
+    const saved = await admin.from("resumes").insert({ user_id: referred, title: "Base", is_base: true, source: "uploaded", structured_content: {} });
+    expect(saved.error, "the friend's resume save must not fail because the referrer's payout failed").toBeNull();
+    const kept = await admin.from("resumes").select("id").eq("user_id", referred);
+    expect(kept.data, "the friend's resume was saved").toHaveLength(1);
 
     const after = await referralRowFor(referred);
     expect(after?.status, "the claim rolled back with the failed grant").toBe("signed_up");
     expect(after?.reward_credits_referrer).toBe(0);
     expect(after?.reward_withheld_reason, "a failed grant is not a withheld reward").toBeNull();
-    const savedResumes = await admin.from("resumes").select("id").eq("user_id", referred);
-    expect(savedResumes.data, "the friend's save rolled back too").toHaveLength(0);
     expect((await ledgerFor(referrer)).filter((l) => l.related_entity_id === referral!.id)).toHaveLength(0);
 
-    // The cause goes away; the friend simply saves again: the NEXT qualifying event retries.
+    // The cause goes away; the friend's NEXT save (the trigger fires on any update of is_base) retries.
     await admin.from("profiles").update({ credits_balance: 0 }).eq("id", referrer);
-    await activate(referred);
+    const resave = await admin.from("resumes").update({ is_base: true }).eq("user_id", referred);
+    expect(resave.error).toBeNull();
     const paid = (await ledgerFor(referrer)).filter((l) => l.related_entity_id === referral!.id);
     expect(paid, "paid exactly once by the retry").toHaveLength(1);
     expect(paid[0].delta).toBe(REFERRAL_REWARD_CREDITS);
     expect((await referralRowFor(referred))?.status).toBe("activated");
 
-    // Further qualifying events (the trigger fires on every is_base update) change nothing.
     await admin.from("resumes").update({ is_base: false }).eq("user_id", referred);
     await admin.from("resumes").update({ is_base: true }).eq("user_id", referred);
-    expect((await ledgerFor(referrer)).filter((l) => l.related_entity_id === referral!.id)).toHaveLength(1);
+    expect((await ledgerFor(referrer)).filter((l) => l.related_entity_id === referral!.id), "a later event pays nothing more").toHaveLength(1);
+    expect(await balanceOf(referrer)).toBe(REFERRAL_REWARD_CREDITS);
+  }, 60_000);
+
+  it("application: the friend's application SUCCEEDS while the grant fails, the next application save pays exactly once, and a later event pays nothing more", async () => {
+    const { referrer, referred } = await referredPair("retry-apply");
+    const referral = await referralRowFor(referred);
+    await admin.from("profiles").update({ credits_balance: CEILING }).eq("id", referrer);
+
+    const applied = await admin
+      .from("applications")
+      .insert({
+        user_id: referred,
+        manual_job_snapshot: { companyName: "Retry Test Ltd", title: "Analyst" },
+        stage: "applied",
+        source: "manual",
+        applied_at: new Date().toISOString(),
+      })
+      .select("id")
+      .single();
+    expect(applied.error, "the friend's application must not fail because the referrer's payout failed").toBeNull();
+
+    const after = await referralRowFor(referred);
+    expect(after?.status).toBe("signed_up");
+    expect(after?.reward_credits_referrer).toBe(0);
+    expect((await ledgerFor(referrer)).filter((l) => l.related_entity_id === referral!.id)).toHaveLength(0);
+
+    await admin.from("profiles").update({ credits_balance: 0 }).eq("id", referrer);
+    const again = await admin.from("applications").update({ applied_at: new Date().toISOString() }).eq("id", applied.data!.id);
+    expect(again.error).toBeNull();
+    expect((await ledgerFor(referrer)).filter((l) => l.related_entity_id === referral!.id), "paid exactly once").toHaveLength(1);
+    expect((await referralRowFor(referred))?.status).toBe("activated");
+
+    await admin.from("applications").update({ applied_at: new Date().toISOString() }).eq("id", applied.data!.id);
+    expect((await ledgerFor(referrer)).filter((l) => l.related_entity_id === referral!.id), "a later event pays nothing more").toHaveLength(1);
     expect(await balanceOf(referrer)).toBe(REFERRAL_REWARD_CREDITS);
   }, 60_000);
 });
+
+/** Probed at collection time (a describe callback cannot await): is `profiles.deletion_requested_at` there yet? See the test that uses it. */
+const probe = await admin.from("profiles").select("deletion_requested_at").limit(1);
+const pendingFlagExists = probe.error?.code !== "42703";
 
 describe("0215 — 'referrer_deleted' means the referrer is actually gone, not pending deletion", () => {
   it("a referrer who still has a profile (referrer_id set) is paid normally, whatever else is true of their account", async () => {
@@ -1045,9 +1090,29 @@ describe("0215 — 'referrer_deleted' means the referrer is actually gone, not p
     expect(row?.reward_withheld_reason).toBeNull();
   });
 
-  // Blocked on the account-deletion pending flag: `profiles.deletion_requested_at` (timestamptz, null = active), set only inside account_deletion_confirm()
-  // and cleared only inside account_deletion_restore(); migration 0212, branch feat/acct-1-delete-request (ACCT-1 PR 1, S3-21; no PR number yet, not on main).
-  // When it lands, replace the body: set that column for the referrer through account_deletion_confirm() (or the service role), activate the friend, and expect
-  // the full reward, NO reason, and the credits in the referrer's balance. S3-21 confirmed neither their purge nor their restore keys a referral on the flag.
-  it.skip("a referrer who is PENDING deletion (still able to restore) is paid normally: blocked on profiles.deletion_requested_at (ACCT-1 PR 1, 0212)", () => {});
+  /*
+   * Runs ONLY once `profiles.deletion_requested_at` exists (account deletion, ACCT-1 PR 1, migration 0212, branch feat/acct-1-delete-request; set only inside
+   * account_deletion_confirm(), cleared only inside account_deletion_restore()). Until then the column is not there to set, so the test skips itself, and it starts
+   * running with no edit the day 0212 is on main. PostgREST cannot read information_schema, so the column's existence is probed with a select: an undefined column
+   * answers 42703, anything else means it is there. S3-21 confirmed neither their purge nor their restore keys a referral on the flag.
+   */
+  it.skipIf(!pendingFlagExists)(
+    "a referrer who is PENDING deletion (profiles.deletion_requested_at set, still able to restore) is paid normally",
+    async () => {
+      const referrer = await makeUser(gmail("pending-flag-r"));
+      const code = await referralCodeOf(referrer);
+      const referred = await makeUser(gmail("pending-flag-b"), { referred_by_code: code });
+      const marked = await admin.from("profiles").update({ deletion_requested_at: new Date().toISOString() } as never).eq("id", referrer);
+      expect(marked.error, "the flag could not be set: 0212 changed how it is written, update this test").toBeNull();
+
+      await activate(referred);
+
+      const row = await referralRowFor(referred);
+      expect(row?.status).toBe("activated");
+      expect(row?.reward_credits_referrer).toBe(REFERRAL_REWARD_CREDITS);
+      expect(row?.reward_withheld_reason, "pending deletion is not 'referrer_deleted'").toBeNull();
+      expect(await balanceOf(referrer)).toBe(REFERRAL_REWARD_CREDITS);
+    },
+    60_000,
+  );
 });
