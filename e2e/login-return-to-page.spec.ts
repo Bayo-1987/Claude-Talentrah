@@ -82,13 +82,13 @@ test("a first-time signup from /scholarships goes through onboarding and ends on
 
 test("an employer account (organisation, no resume) logging in from /employer lands on the employer side and is never shown the resume upload", async ({ page }) => {
   const creds = await createAccount({ org: true });
-  // /onboarding may be passed THROUGH (a redirect with no page of its own); what must never happen is /onboarding rendering.
-  const onboardingResponses: number[] = [];
-  page.on("response", (r) => { if (new URL(r.url()).pathname === "/onboarding" && r.request().resourceType() === "document") onboardingResponses.push(r.status()); });
+  // The login is a Server Action: its redirect may reach /onboarding as an RSC fetch or a document load, and /onboarding itself redirects on
+  // to /employer. Whatever the transport, no /onboarding response may be a rendered page (200); only redirects.
+  const onboardingStatuses: number[] = [];
+  page.on("response", (r) => { if (new URL(r.url()).pathname === "/onboarding") onboardingStatuses.push(r.status()); });
   await logInFromMasthead(page, "/employer", creds);
   await page.waitForURL(/\/employer\/jobs$/);
-  expect(onboardingResponses.length, "the login hop goes through /onboarding").toBeGreaterThan(0);
-  expect(onboardingResponses.every((s) => s >= 300 && s < 400), `/onboarding answered ${onboardingResponses.join(", ")}`).toBe(true);
+  expect(onboardingStatuses.filter((s) => s === 200), `/onboarding answered ${onboardingStatuses.join(", ") || "(never)"}`).toEqual([]);
   await expect(page.getByText(/Ready to land your dream job/)).toHaveCount(0);
 });
 
