@@ -36,8 +36,13 @@ test("the job page renders the posting and its JSON-LD carries the title, the co
   expect(String(ld.description ?? "").length).toBeGreaterThan(20);
 });
 
-test("the share image for the posting is served as an image", async ({ request }) => {
-  const res = await request.get(`/jobs/${JOB}/opengraph-image`);
+test("the share image for the posting is served as an image", async ({ page, request }) => {
+  // Follow the page's own og:image: Next may add a hash to the file-convention route's path, so the bare /opengraph-image is not the URL.
+  await page.goto(`/jobs/${JOB}`);
+  const content = await page.locator('meta[property="og:image"]').first().getAttribute("content");
+  expect(content, "the page declares an og:image").toBeTruthy();
+  const url = new URL(content!, "http://localhost");
+  const res = await request.get(`${url.pathname}${url.search}`);
   expect(res.status()).toBe(200);
   expect(res.headers()["content-type"]).toMatch(/^image\//);
   expect((await res.body()).length).toBeGreaterThan(1000);
