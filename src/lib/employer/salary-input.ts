@@ -20,7 +20,7 @@
  * repaired, so what is stored is always exactly what a person picked.
  */
 import { Constants, type Enums } from "@/lib/supabase/types";
-import { resolveCountryCode } from "@/lib/jobs/countries";
+import { countryCodeForLabel, resolveCountryCode } from "@/lib/jobs/countries";
 
 /** Trims a form field to a string, mirroring actions.ts' own reader. */
 function str(form: FormData, key: string): string {
@@ -36,7 +36,7 @@ function optionalEnum<T extends string>(form: FormData, key: string, allowed: re
 export const SALARY_CURRENCIES = ["NGN", "USD", "GBP", "EUR", "CAD", "KES", "GHS", "ZAR"] as const;
 export type SalaryCurrency = (typeof SALARY_CURRENCIES)[number];
 
-/** Used when the employer's country is unknown (or is none of the mapped ones). */
+/** Used when there is no country to go on (unset, blank, or a value that names no country). */
 export const DEFAULT_SALARY_CURRENCY: SalaryCurrency = "NGN";
 
 export function isSalaryCurrency(value: string): value is SalaryCurrency {
@@ -59,18 +59,23 @@ const EU_COUNTRIES: readonly string[] = [
   "IT", "LV", "LT", "LU", "MT", "NL", "PL", "PT", "RO", "SK", "SI", "ES", "SE",
 ];
 
+/** A listed country with no currency of its own on the list (and "Other") gets this, not the naira default above. */
+export const UNMAPPED_COUNTRY_SALARY_CURRENCY: SalaryCurrency = "USD";
+
 /**
- * The currency to preselect for an employer in `country` (a name as the
- * signup form stores it — "Nigeria", "United Kingdom" — or an alpha-2 code).
- * Anything unknown or unmapped ("Other", a country outside the eight
- * currencies, blank) is NGN: the product's home market.
+ * The currency to preselect for an employer in `country` (a name as the signup form stores it — "Nigeria", "Georgia" — or an
+ * alpha-2 code). The seven mapped countries and the EU members keep their own currency. Any other country on the signup list,
+ * and "Other", is USD: a global default, since the list is every country and most are not Nigerian. Only a value that says
+ * nothing (unset, blank) or names no country at all stays NGN, the home market. This is a form default only: it preselects the
+ * posting form's currency select and is never stored on a profile.
  */
 export function defaultSalaryCurrency(country: string | null | undefined): SalaryCurrency {
-  if (!country) return DEFAULT_SALARY_CURRENCY;
-  const code = resolveCountryCode(country);
-  if (!code) return DEFAULT_SALARY_CURRENCY;
+  if (!country || !country.trim()) return DEFAULT_SALARY_CURRENCY;
+  // A dropdown value is unambiguous (Georgia is GE), so try the exact label first; then free text and alpha-2 codes.
+  const code = countryCodeForLabel(country) ?? resolveCountryCode(country);
+  if (!code) return country.trim() === "Other" ? UNMAPPED_COUNTRY_SALARY_CURRENCY : DEFAULT_SALARY_CURRENCY;
   if (EU_COUNTRIES.includes(code)) return "EUR";
-  return COUNTRY_CURRENCY[code] ?? DEFAULT_SALARY_CURRENCY;
+  return COUNTRY_CURRENCY[code] ?? UNMAPPED_COUNTRY_SALARY_CURRENCY;
 }
 
 /**

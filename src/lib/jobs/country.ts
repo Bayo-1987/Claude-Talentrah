@@ -35,8 +35,8 @@
  * Audited against production 2026-09-04 (open, posted within the 30-day
  * floor): Nigeria 56, South Africa 17, Kenya 17, Ghana 7, Other 100,
  * Unavailable 8 (of 205 total). The four tracked countries are exactly
- * HOME_COUNTRIES minus "Other" (src/lib/auth/schemas.ts) — the same four
- * profiles.country already offers at signup.
+ * the four home markets Nigeria, Ghana, Kenya and South Africa, which are four entries of src/lib/auth/schemas.ts'
+ * signup country list (every ISO country); a profile in any other country gets no feed filter.
  */
 import type { Tables } from "@/lib/supabase/types";
 
@@ -171,10 +171,10 @@ export function countryOrFilter(country: TrackedCountry): string {
 
 /**
  * profiles.country's own value ("Nigeria" | "Ghana" | "Kenya" | "South
- * Africa" | "Other" | a diaspora country — see HOME_COUNTRIES/
+ * Africa" | "Other" | any other country on the signup list — see SIGNUP_COUNTRIES/
  * DIASPORA_COUNTRIES in src/lib/auth/schemas.ts) mapped to a default feed
- * filter. Deliberately returns undefined for "Other" and every diaspora
- * country: this product's country filter targets the four boards it actually
+ * filter. Deliberately returns undefined for "Other" and every other country, diaspora
+ * or not: this product's country filter targets the four boards it actually
  * has meaningful inventory for, and defaulting a US/UK/Canada-based user (or
  * one who picked "Other") into one of those four would be a guess with
  * nothing behind it — no filter is the honest default there, same as a user
