@@ -17,7 +17,7 @@ export const EXAMPLE_COMMENTARY_ROW = {
   // The "not machine-verified" remark, with the hyphen as a non-breaking hyphen.
   eligibility_age: "Under 30 on 1 May 2026. Not machine‑verified against the official form.",
   // The "needs a human to confirm" remark.
-  eligibility_other: "Fully funded two-year master's at Example University. The values after this line need a human to confirm them on the official form.",
+  eligibility_other: "Fully funded two-year master's at Example University. Everything below this line needs a human to confirm on the official form.",
   // The "see moderation_note" pointer.
   source_name: "Example University application form (see moderation_note)",
 } as const;

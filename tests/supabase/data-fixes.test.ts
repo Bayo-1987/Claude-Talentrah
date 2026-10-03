@@ -31,9 +31,13 @@ describe("supabase/data-fixes", () => {
    * the same phrase list the approval guard uses (reviewerCommentaryCountsQuery); nobody retypes the list.
    */
   it.each(files)("%s: a fix that edits public scholarship text records the phrase-check counts, before and after", (f) => {
+    // The rule starts with #704 (2026-10-03). A fix applied before it has no "before" reading to record, and inventing one would be worse than none.
+    if (f.slice(0, 10) < "2026-10-03") return;
     const sql = readFileSync(join(DIR, f), "utf8");
     const apply = sql.split("do $apply$")[1]?.split("$apply$;")[0] ?? "";
-    const editsPublicText = /update public\.scholarships[\s\S]*?\bset\b[\s\S]*?\b(deadline_note|eligibility_[a-z_]+|provider|program_name|host_institution|field_tags|funding_covers|source_name)\s*=/i.test(apply);
+    // Per statement: from "update public.scholarships" to its WHERE, so a column named in a later statement or a comment cannot count.
+    const setClauses = apply.split(/update public\.scholarships/i).slice(1).map((u) => u.split(/\bwhere\b/i)[0]);
+    const editsPublicText = setClauses.some((c) => /\b(deadline_note|eligibility_[a-z_]+|provider|program_name|host_institution|field_tags|funding_covers|eligibility_nationalities|source_name)\s*=/i.test(c));
     if (!editsPublicText) return;
     const record = sql.split("RECORD")[1] ?? "";
     expect(record, "a RECORD section").toBeTruthy();

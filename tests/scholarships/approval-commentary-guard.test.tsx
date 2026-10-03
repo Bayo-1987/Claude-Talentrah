@@ -62,7 +62,7 @@ describe("approving", () => {
     h.row.value = { ...clean, ...EXAMPLE_COMMENTARY_ROW };
     const s = await decideScholarshipAction(idle, form({ id: "s1", decision: "verified" }));
     for (const phrase of ["a human should", "not independently confirmed", "not machine-verified", "needs a human to confirm", "see moderation_note"]) {
-      expect(s.message.toLowerCase()).toContain(phrase);
+      expect((s.message ?? "").toLowerCase()).toContain(phrase);
     }
   });
 
