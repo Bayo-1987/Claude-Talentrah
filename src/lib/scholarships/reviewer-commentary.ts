@@ -46,7 +46,7 @@ export const EXCLUDED_PUBLIC_TEXT_COLUMNS: Record<string, string> = {
   official_url: "A link the operator pastes; it is not prose an applicant reads as a statement.",
   dedup_fingerprint: "An internal hash, never selected by a public query.",
   moderation_note:
-    "Where reviewer commentary belongs, and no page selects it. NOTE: the anon role can still read it through the API on verified rows (table-level SELECT grant), so it is not private yet; that is an open owner decision, not something this list settles.",
+    "Where reviewer commentary belongs, and no page selects it. Who may read it at the database level is a separate, open decision that this list does not settle.",
 };
 
 export type CommentaryFinding = { column: string; phrase: string };
