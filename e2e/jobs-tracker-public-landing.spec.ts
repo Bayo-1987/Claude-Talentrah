@@ -100,7 +100,9 @@ for (const { path, loading, signedInTitle, titleHas } of PAGES) {
       await expect(page.getByRole("link", { name: "Create a free account" }).first()).toBeVisible();
       const redirectTo = encodeURIComponent(path);
       await expect(page.locator(`a[href="/signup?redirectTo=${redirectTo}"]`).first()).toBeVisible();
-      await expect(page.locator(`a[href="/login?redirectTo=${redirectTo}"]`)).toBeVisible();
+      // The page's own CTA, in the main landmark; the masthead's Log in now carries the same destination (S1-50), checked separately.
+      await expect(page.getByRole("main").locator(`a[href="/login?redirectTo=${redirectTo}"]`).first()).toBeVisible();
+      await expect(page.getByRole("banner").getByRole("link", { name: "Log in" })).toHaveAttribute("href", `/login?redirectTo=${redirectTo}`);
       await expect(page.locator("body")).not.toContainText(/\bsign(ing)? ?up\b/i);
     });
 
@@ -167,17 +169,21 @@ test.describe("the links that used to lead a signed-out visitor to /login now le
     }
   });
 
-  test("the footer's Refer & Earn link lands on signup, carrying the way back to /refer", async ({ page }) => {
+  // Refer & Earn (send-515): /refer is a public landing page now, so the footer link goes straight to it (send-484 sent it through signup
+  // while /refer was login-gated).
+  test("the footer's Refer & Earn link lands on the public /refer page, not on login or signup", async ({ page }) => {
     await page.goto("/about");
     await page.locator("footer").getByRole("link", { name: "Refer & Earn" }).click();
-    await page.waitForURL("**/signup?redirectTo=%2Frefer");
-    await expect(page).toHaveURL(/\/signup\?redirectTo=%2Frefer$/);
+    await page.waitForURL("**/refer");
+    expect(page.url()).not.toContain("/login");
+    expect(page.url()).not.toContain("/signup");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
   });
 });
 
 test.describe("everything else that needs a session still does", () => {
   test("other app routes, and everything under /tracker, still redirect a signed-out visitor", async ({ request }) => {
-    for (const path of ["/refer", "/settings", "/billing", "/tracker/00000000-0000-0000-0000-000000000000/sent"]) {
+    for (const path of ["/refer/anything", "/settings", "/billing", "/tracker/00000000-0000-0000-0000-000000000000/sent"]) {
       const res = await request.get(path, { maxRedirects: 0 });
       expect(res.status(), `${path} must still redirect a signed-out visitor`).toBe(307);
       expect(res.headers()["location"]).toContain("/login");
@@ -199,11 +205,12 @@ test.describe("/jobs and /tracker in the generated sitemap and robots.txt", () =
     expect(body).toMatch(/<loc>https?:\/\/[^<]*\/tracker<\/loc>/);
   });
 
-  test("robots.txt no longer disallows the bare /jobs or /tracker, still disallows everything under /tracker, and /refer", async ({ request }) => {
+  test("robots.txt no longer disallows the bare /jobs or /tracker, still disallows everything under /tracker and under /refer/ (the bare /refer is public now)", async ({ request }) => {
     const res = await request.get("/robots.txt");
     expect(res.status()).toBe(200);
     const body = await res.text();
-    expect(body, "control: /refer must stay disallowed").toMatch(/Disallow: \/refer\s*$/m);
+    expect(body, "control: everything under /refer/ must stay disallowed").toMatch(/Disallow: \/refer\/\s*$/m);
+    expect(body, "the bare /refer is a public page").not.toMatch(/Disallow: \/refer\s*$/m);
     expect(body).toMatch(/Disallow: \/tracker\/\s*$/m);
     expect(body).not.toMatch(/Disallow: \/tracker\s*$/m);
     expect(body).not.toMatch(/Disallow: \/jobs\$/);

@@ -105,7 +105,9 @@ test.describe("signed-out visitor at /scholarships", () => {
     await pageSettled(page);
     await expect(page.getByRole("link", { name: "Create a free account" }).first()).toBeVisible();
     await expect(page.locator('a[href="/signup?redirectTo=%2Fscholarships"]').first()).toBeVisible();
-    await expect(page.locator('a[href="/login?redirectTo=%2Fscholarships"]')).toBeVisible();
+    await expect(page.getByRole("main").locator('a[href="/login?redirectTo=%2Fscholarships"]').first()).toBeVisible();
+    // The masthead's Log in carries the same destination now (S1-50).
+    await expect(page.getByRole("banner").getByRole("link", { name: "Log in" })).toHaveAttribute("href", "/login?redirectTo=%2Fscholarships");
     await expect(page.locator('a[href="/scholarships/apply-now"]').first()).toBeVisible();
     // Auto-retrying text assertions on the settled page, not an innerText snapshot.
     await expect(page.locator("body")).toContainText("Reading every listing is free and needs no account.");
@@ -161,7 +163,7 @@ test.describe("everything else under /scholarships is unaffected", () => {
 
   test("other app routes still require a session", async ({ request }) => {
     // send-484: /jobs and /tracker are public landing pages now, so they are controls no longer.
-    for (const path of ["/refer", "/settings", "/billing"]) {
+    for (const path of ["/refer/anything", "/settings", "/billing"]) {
       const res = await request.get(path, { maxRedirects: 0 });
       expect(res.status(), `${path} must still redirect a signed-out visitor`).toBe(307);
       expect(res.headers()["location"]).toContain("/login");
@@ -185,11 +187,12 @@ test.describe("/scholarships in the generated sitemap and robots.txt", () => {
     expect(await res.text()).toMatch(/<loc>https?:\/\/[^<]*\/scholarships<\/loc>/);
   });
 
-  test("robots.txt no longer disallows /scholarships, and still disallows /refer", async ({ request }) => {
+  test("robots.txt no longer disallows /scholarships, and still disallows everything under /refer/ (the bare /refer is public now)", async ({ request }) => {
     const res = await request.get("/robots.txt");
     expect(res.status()).toBe(200);
     const body = await res.text();
-    expect(body, "control: /refer must stay disallowed").toMatch(/Disallow: \/refer\s*$/m);
+    expect(body, "control: everything under /refer/ must stay disallowed").toMatch(/Disallow: \/refer\/\s*$/m);
+    expect(body, "the bare /refer is a public page").not.toMatch(/Disallow: \/refer\s*$/m);
     expect(body).not.toMatch(/Disallow: \/scholarships\$/);
     expect(body).not.toMatch(/Disallow: \/scholarships\s*$/m);
   });

@@ -646,7 +646,7 @@ async function findUserByEmail(
     }
 
     // Goes through the exact same handle_new_user() trigger a real signup
-    // does — referral row + signup-bonus grant happen for real here, not
+    // does — referral row (a signup pays nothing since 0215; the activation below pays) happens for real here, not
     // scripted, so this also verifies the M8 reward pipeline end-to-end.
     const { data, error } = await supabase.auth.admin.createUser({
       email,

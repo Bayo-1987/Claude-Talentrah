@@ -105,7 +105,45 @@ describe("the job detail page", () => {
   it("renders its skills through PostingSkills, never by joining the raw list", async () => {
     const { readFileSync } = await import("node:fs");
     const src = readFileSync("src/app/(app)/jobs/[id]/page.tsx", "utf8");
-    expect(src).toContain("<PostingSkills skills={skills} />");
+    expect(src).toContain("<PostingSkills skills={skills} title={job.title} />");
     expect(src).not.toMatch(/skills\.join\(/);
+  });
+});
+
+describe("family-gated baseline tags (A2): the list and the count still agree, with the job's title", () => {
+  type Split = (skills: string[], jobTitle?: string) => { screenable: string[]; notCounted: string[] };
+  const split = splitSkillsByScreenability as unknown as Split;
+  type Score4 = (r: typeof resume, skills: string[], s: undefined, jobTitle?: string) => ReturnType<typeof computeMatchScore>;
+  const score = computeMatchScore as unknown as Score4;
+
+  it("a marketing posting does not count 'project management'; a program posting does", () => {
+    expect(split(["sql", "project management"], "Marketing Manager")).toEqual({ screenable: ["sql"], notCounted: ["project management"] });
+    expect(split(["sql", "project management"], "Programme Manager")).toEqual({ screenable: ["sql", "project management"], notCounted: [] });
+  });
+
+  it("without a title it is unchanged (only NON_SCREENABLE_SKILLS are separated)", () => {
+    expect(split(["sql", "project management"])).toEqual({ screenable: ["sql", "project management"], notCounted: [] });
+  });
+
+  it("COUNT AND LIST AGREE for the same title, across families", () => {
+    for (const [skills, title] of [
+      [["sql", "project management", "agile", "excel", "communication"], "Marketing Manager"],
+      [["sql", "project management", "agile", "excel", "communication"], "Senior Product Manager"],
+      [["excel", "microsoft office", "sql"], "Operations Coordinator"],
+      [["agile", "scrum", "python"], "Senior Software Engineer"],
+      [["project management"], "Global MEL Manager/Senior Manager"],
+    ] as Array<[string[], string]>) {
+      const { explanation } = score(resume, skills, undefined, title);
+      const counted = explanation.matchedSkills.length + explanation.missingSkills.length;
+      expect(split(skills, title).screenable.length, title).toBe(counted);
+    }
+  });
+
+  it("PostingSkills lists only the counted set for a title, and names the rest on the not-counted line", () => {
+    const html = renderToStaticMarkup(<PostingSkills skills={["sql", "project management"]} title="Marketing Manager" />);
+    const main = html.split('data-testid="posting-skills-not-counted"')[0];
+    expect(main).toContain("sql");
+    expect(main).not.toContain("project management");
+    expect(html).toMatch(/not counted in your match[^<]*<\/[^>]+>[^<]*project management/);
   });
 });

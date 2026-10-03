@@ -20,8 +20,8 @@ const explanation = (over: Partial<MatchExplanation> = {}): MatchExplanation => 
   ...over,
 });
 
-function render(e: MatchExplanation) {
-  return renderToStaticMarkup(<MatchBreakdown explanation={e} />);
+function render(e: MatchExplanation, opts: { showRoleFit?: boolean } = {}) {
+  return renderToStaticMarkup(<MatchBreakdown explanation={e} showRoleFit={opts.showRoleFit} />);
 }
 
 describe("skill coverage", () => {
@@ -90,5 +90,33 @@ describe("no placeholder cells (S3-23a)", () => {
     expect(html).not.toContain("text-green");
     expect(html).not.toContain("text-rust");
     expect(html).not.toContain("text-amber");
+  });
+});
+
+describe("role fit (A2): 'Same family', 'Adjacent' or 'Different'; no cell when either side is unclassified", () => {
+  it("renders exactly the three words", () => {
+    expect(render(explanation({ roleFit: "same" }), { showRoleFit: true })).toContain(">Same family<");
+    expect(render(explanation({ roleFit: "adjacent" }), { showRoleFit: true })).toContain(">Adjacent<");
+    expect(render(explanation({ roleFit: "different" }), { showRoleFit: true })).toContain(">Different<");
+    expect(render(explanation({ roleFit: "same" }), { showRoleFit: true })).toContain(">Role fit<");
+  });
+
+  it("is hidden for an unclassified side (roleFit 'unknown') and for a score computed without a title (no roleFit at all)", () => {
+    expect(render(explanation({ roleFit: "unknown" }), { showRoleFit: true })).not.toContain("Role fit");
+    expect(render(explanation(), { showRoleFit: true })).not.toContain("Role fit");
+  });
+
+  it("never uses a match-tier color (it is not a fourth tier)", () => {
+    for (const fit of ["same", "adjacent", "different"] as const) {
+      const html = render(explanation({ roleFit: fit }), { showRoleFit: true });
+      expect(html).not.toMatch(/text-(green|rust|amber)/);
+    }
+  });
+
+  it("OPTION B (S3-52): the Role fit cell is OPT-IN. By default (what a job card passes) it never renders, even when the score carries a roleFit; only the job detail page turns it on", () => {
+    for (const fit of ["same", "adjacent", "different"] as const) {
+      expect(render(explanation({ roleFit: fit })), `default render for roleFit ${fit}`).not.toContain("Role fit");
+      expect(render(explanation({ roleFit: fit }), { showRoleFit: false })).not.toContain("Role fit");
+    }
   });
 });

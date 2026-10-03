@@ -68,7 +68,6 @@ describe("isProtectedSeekerPath", () => {
       "/auto-apply",
       "/billing",
       "/feedback",
-      "/refer",
       "/resume-builder",
       "/settings",
       "/tailor",
@@ -91,9 +90,12 @@ describe("isProtectedSeekerPath", () => {
     expect(isProtectedSeekerPath("/trackers")).toBe(false);
   });
 
-  it("send-484: /refer stays gated — only /jobs and /tracker were opened up", () => {
-    expect(isProtectedSeekerPath("/refer")).toBe(true);
+  it("Refer & Earn (send-515): the bare /refer is a signed-out landing page; every sub-path stays gated", () => {
+    expect(isProtectedSeekerPath("/billing"), "control: the gate still gates").toBe(true);
+    expect(isProtectedSeekerPath("/refer")).toBe(false);
     expect(isProtectedSeekerPath("/refer/anything")).toBe(true);
+    // A path that merely starts with the same letters is not under it.
+    expect(isProtectedSeekerPath("/referral")).toBe(false);
   });
 
   it("send-385: gates every mentorship sub-path but leaves the bare list page open", () => {

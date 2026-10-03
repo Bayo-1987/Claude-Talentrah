@@ -2,15 +2,13 @@
  * The referral-reward email/in-app copy (send-462) — pure function, no DB,
  * same shape as tests/digest/template.test.ts.
  *
- * The real credit amounts (REFERRAL_SIGNUP_BONUS_CREDITS,
- * REFERRAL_ACTIVATION_BONUS_CREDITS) are imported from rewards.ts rather
- * than hardcoded as 10/40 here, so this test still passes if a future
- * repricing changes them — the same discipline
- * tests/referrals/referrals.test.ts already applies.
+ * The credit amounts come from rewards.ts rather than being hardcoded here, so this test still passes if a future repricing changes
+ * them. Since 0215 only ACTIVATION pays (REFERRAL_REWARD_CREDITS); the "signup" reason survives only for events written before 0215
+ * (LEGACY_REFERRAL_SIGNUP_BONUS_CREDITS), which the sender can still be asked to notify, so its copy is kept and still tested.
  */
 import { describe, expect, it } from "vitest";
 import { buildReferralRewardEmail, buildReferralRewardInApp } from "@/lib/notifications/referral-reward/template";
-import { REFERRAL_SIGNUP_BONUS_CREDITS, REFERRAL_ACTIVATION_BONUS_CREDITS } from "@/lib/referrals/rewards";
+import { LEGACY_REFERRAL_SIGNUP_BONUS_CREDITS, REFERRAL_REWARD_CREDITS } from "@/lib/referrals/rewards";
 
 const REFERRAL_URL = "https://www.talentrah.com/signup?ref=ADA123";
 
@@ -19,42 +17,43 @@ describe("buildReferralRewardEmail", () => {
     const { subject, text, html } = buildReferralRewardEmail({
       referrerFirstName: "Ada",
       referredFirstName: "Bola",
-      creditsGranted: REFERRAL_SIGNUP_BONUS_CREDITS,
+      creditsGranted: LEGACY_REFERRAL_SIGNUP_BONUS_CREDITS,
       reason: "signup",
       referralUrl: REFERRAL_URL,
     });
     expect(text).toContain("Bola just signed up through your link");
-    expect(text).toContain(`${REFERRAL_SIGNUP_BONUS_CREDITS} credits are in your account`);
-    expect(subject).toContain(String(REFERRAL_SIGNUP_BONUS_CREDITS));
+    expect(text).toContain(`${LEGACY_REFERRAL_SIGNUP_BONUS_CREDITS} credits are in your account`);
+    expect(subject).toContain(String(LEGACY_REFERRAL_SIGNUP_BONUS_CREDITS));
     expect(html).toContain("Bola just signed up through your link");
   });
 
-  it("the activation variant names the moment as a first tailored resume, with the real activation bonus amount", () => {
+  it("the activation variant names the moment as the friend getting set up (a resume saved or a job applied to), with the whole reward", () => {
     const { subject, text, html } = buildReferralRewardEmail({
       referrerFirstName: "Ada",
       referredFirstName: "Bola",
-      creditsGranted: REFERRAL_ACTIVATION_BONUS_CREDITS,
+      creditsGranted: REFERRAL_REWARD_CREDITS,
       reason: "activation",
       referralUrl: REFERRAL_URL,
     });
-    expect(text).toContain("Bola just got their first tailored resume");
-    expect(text).toContain(`${REFERRAL_ACTIVATION_BONUS_CREDITS} credits are in your account`);
-    expect(subject).toContain(String(REFERRAL_ACTIVATION_BONUS_CREDITS));
-    expect(html).toContain("Bola just got their first tailored resume");
+    expect(text).toContain("Bola just got set up on Talentrah");
+    expect(text).not.toMatch(/first tailored resume/i); // the old wording: not what "activated" means (a base resume saved, or a job applied to)
+    expect(text).toContain(`${REFERRAL_REWARD_CREDITS} credits are in your account`);
+    expect(subject).toContain(String(REFERRAL_REWARD_CREDITS));
+    expect(html).toContain("Bola just got set up on Talentrah");
   });
 
   it("the two reason variants produce genuinely distinct copy, not the same string twice", () => {
     const signup = buildReferralRewardEmail({
       referrerFirstName: "Ada",
       referredFirstName: "Bola",
-      creditsGranted: REFERRAL_SIGNUP_BONUS_CREDITS,
+      creditsGranted: LEGACY_REFERRAL_SIGNUP_BONUS_CREDITS,
       reason: "signup",
       referralUrl: REFERRAL_URL,
     });
     const activation = buildReferralRewardEmail({
       referrerFirstName: "Ada",
       referredFirstName: "Bola",
-      creditsGranted: REFERRAL_ACTIVATION_BONUS_CREDITS,
+      creditsGranted: REFERRAL_REWARD_CREDITS,
       reason: "activation",
       referralUrl: REFERRAL_URL,
     });
@@ -66,7 +65,7 @@ describe("buildReferralRewardEmail", () => {
     const { text } = buildReferralRewardEmail({
       referrerFirstName: "Ada",
       referredFirstName: null,
-      creditsGranted: REFERRAL_SIGNUP_BONUS_CREDITS,
+      creditsGranted: LEGACY_REFERRAL_SIGNUP_BONUS_CREDITS,
       reason: "signup",
       referralUrl: REFERRAL_URL,
     });
@@ -78,7 +77,7 @@ describe("buildReferralRewardEmail", () => {
     const { text } = buildReferralRewardEmail({
       referrerFirstName: null,
       referredFirstName: "Bola",
-      creditsGranted: REFERRAL_SIGNUP_BONUS_CREDITS,
+      creditsGranted: LEGACY_REFERRAL_SIGNUP_BONUS_CREDITS,
       reason: "signup",
       referralUrl: REFERRAL_URL,
     });
@@ -90,7 +89,7 @@ describe("buildReferralRewardEmail", () => {
     const { text, html } = buildReferralRewardEmail({
       referrerFirstName: "Ada",
       referredFirstName: "Bola",
-      creditsGranted: REFERRAL_SIGNUP_BONUS_CREDITS,
+      creditsGranted: LEGACY_REFERRAL_SIGNUP_BONUS_CREDITS,
       reason: "signup",
       referralUrl: REFERRAL_URL,
     });
@@ -103,7 +102,7 @@ describe("buildReferralRewardEmail", () => {
     const { text, html } = buildReferralRewardEmail({
       referrerFirstName: "Ada",
       referredFirstName: "Bola",
-      creditsGranted: REFERRAL_SIGNUP_BONUS_CREDITS,
+      creditsGranted: LEGACY_REFERRAL_SIGNUP_BONUS_CREDITS,
       reason: "signup",
       referralUrl: REFERRAL_URL,
     });
@@ -115,7 +114,7 @@ describe("buildReferralRewardEmail", () => {
     const { text } = buildReferralRewardEmail({
       referrerFirstName: "Ada",
       referredFirstName: "Bola",
-      creditsGranted: REFERRAL_SIGNUP_BONUS_CREDITS,
+      creditsGranted: LEGACY_REFERRAL_SIGNUP_BONUS_CREDITS,
       reason: "signup",
       referralUrl: REFERRAL_URL,
     });
@@ -143,11 +142,11 @@ describe("buildReferralRewardInApp", () => {
     const inApp = buildReferralRewardInApp({
       referrerFirstName: "Ada",
       referredFirstName: "Bola",
-      creditsGranted: REFERRAL_ACTIVATION_BONUS_CREDITS,
+      creditsGranted: REFERRAL_REWARD_CREDITS,
       reason: "activation",
     });
-    expect(inApp.body).toContain("Bola just got their first tailored resume");
-    expect(inApp.body).toContain(String(REFERRAL_ACTIVATION_BONUS_CREDITS));
+    expect(inApp.body).toContain("Bola just got set up on Talentrah");
+    expect(inApp.body).toContain(String(REFERRAL_REWARD_CREDITS));
     expect(inApp.title.toLowerCase()).toContain("activat");
   });
 
@@ -155,13 +154,13 @@ describe("buildReferralRewardInApp", () => {
     const signup = buildReferralRewardInApp({
       referrerFirstName: "Ada",
       referredFirstName: "Bola",
-      creditsGranted: REFERRAL_SIGNUP_BONUS_CREDITS,
+      creditsGranted: LEGACY_REFERRAL_SIGNUP_BONUS_CREDITS,
       reason: "signup",
     });
     const activation = buildReferralRewardInApp({
       referrerFirstName: "Ada",
       referredFirstName: "Bola",
-      creditsGranted: REFERRAL_ACTIVATION_BONUS_CREDITS,
+      creditsGranted: REFERRAL_REWARD_CREDITS,
       reason: "activation",
     });
     expect(signup.title).not.toBe(activation.title);

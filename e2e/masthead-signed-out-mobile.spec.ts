@@ -20,6 +20,8 @@
  */
 import { test, expect, type Page } from "@playwright/test";
 
+// The masthead's Log in and Get started links carry the page the visitor is on (?redirectTo=…, S1-50), so they are matched by their
+// path prefix: bare on "/", with a redirectTo everywhere else.
 const PAGES = ["/", "/about", "/scholarships", "/jobs", "/tracker"];
 const PHONE_WIDTHS = [360, 375, 390, 412];
 
@@ -71,8 +73,8 @@ async function measure(page: Page): Promise<Measured> {
     };
     const logo = find('a[href="/"]');
     const menu = find('button[aria-label="Main menu"]');
-    const login = find('a[href="/login"]');
-    const cta = find('a[href="/signup"]');
+    const login = find('a[href^="/login"]');
+    const cta = find('a[href^="/signup"]');
     const style = (el: Element): Style => {
       const cs = getComputedStyle(el);
       return {
@@ -111,7 +113,7 @@ async function open(page: Page, path: string, width: number) {
   const res = await page.goto(path);
   expect(res?.status(), `${path} must render signed out, not redirect`).toBe(200);
   expect(page.url(), `${path} redirected a signed-out visitor`).not.toContain("/login");
-  await expect(page.locator("header").first().locator('a[href="/signup"]')).toBeVisible();
+  await expect(page.locator("header").first().locator('a[href^="/signup"]')).toBeVisible();
 }
 
 test.describe("signed-out masthead on a phone (send-488)", () => {
@@ -274,8 +276,8 @@ test.describe("signed-out masthead on a phone (send-488)", () => {
 
   test("keyboard focus is visible on Log in, the CTA and the hamburger at 390px", async ({ page }) => {
     for (const [name, selector] of [
-      ["Log in", 'header a[href="/login"]'],
-      ["the CTA", 'header a[href="/signup"]'],
+      ["Log in", 'header a[href^="/login"]'],
+      ["the CTA", 'header a[href^="/signup"]'],
       ["the hamburger", 'header button[aria-label="Main menu"]'],
     ] as const) {
       // A fresh page for each control, so Tab starts from the top of the document every time (the

@@ -9,7 +9,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
 import type { Database } from "@/lib/supabase/types";
-import { REFERRAL_SIGNUP_BONUS_CREDITS } from "@/lib/referrals/rewards";
+import { REFERRAL_REWARD_CREDITS } from "@/lib/referrals/rewards";
 
 for (const key of ["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"] as const) {
   if (!process.env[key]) throw new Error(`Referral-reward-events test cannot run: ${key} is not set.`);
@@ -53,12 +53,25 @@ async function eventsFor(referrerId: string) {
   return data ?? [];
 }
 
+/** A referred user activates (a base resume): since 0215 that, not the signup, is what pays and what writes the outbox row. */
+async function activate(referredId: string) {
+  const { error } = await admin.from("resumes").insert({
+    user_id: referredId,
+    title: "Base",
+    is_base: true,
+    source: "uploaded",
+    structured_content: {},
+  });
+  if (error) throw error;
+  await new Promise((r) => setTimeout(r, 1200));
+}
+
 /** Same shape as referrals.test.ts's own seedRewardedReferrals — fills the 30-day cap without real signups. */
 async function seedRewardedReferrals(referrerId: string, n: number) {
   const rows = Array.from({ length: n }, () => ({
     user_id: referrerId,
-    delta: REFERRAL_SIGNUP_BONUS_CREDITS,
-    reason: "referral_signup_bonus" as const,
+    delta: REFERRAL_REWARD_CREDITS,
+    reason: "referral_activation_bonus" as const,
     related_entity_id: randomUUID(),
     balance_after: 0,
     created_at: new Date().toISOString(),
@@ -77,16 +90,19 @@ afterEach(async () => {
 });
 
 describe("referral_reward_events — the outbox grant_referral_reward writes to", () => {
-  it("a real signup bonus grant produces exactly one event row, unnotified", async () => {
+  it("a signup alone produces NO event row (it pays nothing since 0215); activation produces exactly one, unnotified, for the whole reward", async () => {
     const referrer = await makeUser(gmail("outbox-r"));
     const code = await referralCodeOf(referrer);
     const referred = await makeUser(gmail("outbox-b"), { referred_by_code: code });
+    expect(await eventsFor(referrer), "a signup pays nothing, so it must not notify").toHaveLength(0);
+
+    await activate(referred);
 
     const events = await eventsFor(referrer);
     expect(events).toHaveLength(1);
     expect(events[0].referred_user_id).toBe(referred);
-    expect(events[0].reason).toBe("referral_signup_bonus");
-    expect(events[0].credits_granted).toBe(REFERRAL_SIGNUP_BONUS_CREDITS);
+    expect(events[0].reason).toBe("referral_activation_bonus");
+    expect(events[0].credits_granted).toBe(REFERRAL_REWARD_CREDITS);
     expect(events[0].notified_at).toBeNull();
   });
 
@@ -97,9 +113,9 @@ describe("referral_reward_events — the outbox grant_referral_reward writes to"
     // Fill the cap with 10 already-rewarded referrals.
     await seedRewardedReferrals(referrer, 10);
 
-    // The 11th signup must be blocked by the cap — grant_referral_reward
+    // The 11th activation must be blocked by the cap — grant_referral_reward
     // returns early, before the new insert this migration added.
-    await makeUser(gmail("outbox-cap-11"), { referred_by_code: code });
+    await activate(await makeUser(gmail("outbox-cap-11"), { referred_by_code: code }));
 
     const events = await eventsFor(referrer);
     expect(events, "a capped call must not produce an outbox row").toHaveLength(0);

@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
-import { safeRedirectTo } from "@/lib/auth/redirect-to";
+import { DEFAULT_AFTER_AUTH_PATH, safeRedirectTo } from "@/lib/auth/redirect-to";
 import { REFERRAL_COOKIE } from "@/lib/referrals/cookie";
 import { EyebrowLabel } from "@/components/ui";
 import { SignupForm } from "@/components/auth/signup-form";
@@ -32,7 +32,7 @@ export default async function SignupPage({
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (user) redirect(redirectTo || "/dashboard");
+  if (user) redirect(redirectTo || DEFAULT_AFTER_AUTH_PATH);
 
   return (
     <div className="flex flex-col gap-8">
@@ -55,7 +55,7 @@ export default async function SignupPage({
         </p>
       </div>
 
-      <OAuthButtons />
+      <OAuthButtons redirectTo={redirectTo || undefined} />
 
       <div className="flex items-center gap-3 text-[12.5px] font-semibold uppercase tracking-[0.1em] text-ink-soft">
         <span className="h-px flex-1 bg-line" />

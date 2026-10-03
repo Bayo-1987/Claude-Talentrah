@@ -27,7 +27,6 @@ const PROTECTED_PATH_PREFIXES = [
   "/auto-apply",
   "/billing",
   "/feedback",
-  "/refer",
   "/resume-builder",
   "/settings",
   "/tailor",
@@ -77,8 +76,12 @@ const PROTECTED_PATH_PREFIXES = [
  *
  * send-484 — `/tracker` joins this set for the identical reason: its bare path
  * is a signed-out landing page; /tracker/[applicationId]/sent stays gated.
+ *
+ * Refer & Earn (send-515) — `/refer` joins it too: its bare path is a signed-out landing page (components/referrals/
+ * refer-public-landing.tsx), the signed-in page keeps the same URL, and there is nothing public beneath it. Nothing under /refer exists
+ * today; the sub-path rule is the safe default for whatever is added later.
  */
-const PROTECTED_SUBPATH_ONLY_PREFIXES = ["/mentorship", "/employer", "/tracker"];
+const PROTECTED_SUBPATH_ONLY_PREFIXES = ["/mentorship", "/employer", "/tracker", "/refer"];
 
 export function isProtectedSeekerPath(pathname: string): boolean {
   if (PROTECTED_PATH_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))) {
