@@ -49,6 +49,17 @@ async function logInFromMasthead(page: Page, from: string, creds: { email: strin
   await page.getByRole("button", { name: "Log in" }).click();
 }
 
+test("signed out on /ai-resume-tailoring: Log in lands on the feature it describes, /tailor", async ({ page }) => {
+  const creds = await createAccount({ resume: true });
+  await page.goto("/ai-resume-tailoring");
+  await page.getByRole("banner").getByRole("link", { name: "Log in" }).click();
+  await expect(page).toHaveURL(/\/login\?redirectTo=%2Ftailor$/);
+  await page.getByLabel("Email").fill(creds.email);
+  await page.getByLabel("Password", { exact: true }).fill(creds.password);
+  await page.getByRole("button", { name: "Log in" }).click();
+  await page.waitForURL(/\/tailor$/);
+});
+
 for (const from of ["/mentorship", "/scholarships"]) {
   test(`signed out on ${from}: Log in, then land back on ${from}`, async ({ page }) => {
     const creds = await createAccount({ resume: true });
