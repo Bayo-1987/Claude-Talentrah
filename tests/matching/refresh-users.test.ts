@@ -164,3 +164,67 @@ describe("failure-isolated", () => {
     expect(w.store.get("u2")?.has("p1")).toBe(true);
   });
 });
+
+describe("overlapping writers (two refresh runs at the same time): nothing is double counted", () => {
+  /** A store whose persist is INSERT ... ON CONFLICT DO NOTHING with a yield in the middle, so two runs really interleave. */
+  function insertOnlyWorld(initial: Record<string, string[]>) {
+    const store = new Map(Object.entries(initial).map(([u, ids]) => [u, new Set(ids)]));
+    return {
+      store,
+      deps: {
+        async scoredPostingIds(userId: string) {
+          const snapshot = new Set(store.get(userId) ?? []);
+          await Promise.resolve();
+          return snapshot;
+        },
+        async loadBaseResume() {
+          await Promise.resolve();
+          return resume;
+        },
+        async persist(userId: string, scored: ScoredJobLike[]) {
+          await Promise.resolve();
+          const set = store.get(userId) ?? new Set<string>();
+          const insertedIds: string[] = [];
+          for (const s of scored) {
+            if (!set.has(s.job.id)) {
+              set.add(s.job.id);
+              insertedIds.push(s.job.id);
+            }
+          }
+          store.set(userId, set);
+          return { persisted: insertedIds.length, ok: true, insertedIds };
+        },
+      },
+    };
+  }
+
+  it("two simultaneous runs over the same users write each missing pair exactly once between them, and the rows-written counts add up to that, not double", async () => {
+    const { refreshUsers } = await load();
+    const w = insertOnlyWorld({ u1: ["p1"], u2: [] });
+    const eligible = ["p1", "p2", "p3"].map(posting);
+    const [a, b] = await Promise.all([refreshUsers(w.deps, eligible, ["u1", "u2"]), refreshUsers(w.deps, eligible, ["u1", "u2"])]);
+    const missingPairs = 2 + 3; // u1 lacked p2,p3; u2 lacked p1,p2,p3
+    expect(a.postingsScored + b.postingsScored, "rows written by both runs together").toBe(missingPairs);
+    expect(a.failed + b.failed).toBe(0);
+    expect([...(w.store.get("u1") ?? [])].sort()).toEqual(["p1", "p2", "p3"]);
+    expect([...(w.store.get("u2") ?? [])].sort()).toEqual(["p1", "p2", "p3"]);
+  });
+
+  it("the distinct-postings figure counts only postings THIS run actually inserted (a run that lost every race reports 0)", async () => {
+    const { refreshUsers } = await load();
+    const w = insertOnlyWorld({ u1: [] });
+    const eligible = ["p1", "p2"].map(posting);
+    const first = await refreshUsers(w.deps, eligible, ["u1"]);
+    expect(first.distinctPostingsScored).toBe(2);
+    // a stale reader that still believes u1 has no rows, writing after another writer got there first:
+    const stale = {
+      ...w.deps,
+      async scoredPostingIds() {
+        return new Set<string>();
+      },
+    };
+    const lost = await refreshUsers(stale, eligible, ["u1"]);
+    expect(lost.postingsScored).toBe(0);
+    expect(lost.distinctPostingsScored).toBe(0);
+  });
+});

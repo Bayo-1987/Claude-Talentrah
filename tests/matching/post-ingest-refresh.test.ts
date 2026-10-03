@@ -189,3 +189,26 @@ describe("it never throws", () => {
     expect(out.complete).toBe(false);
   });
 });
+
+describe("no personal data anywhere (response and log)", () => {
+  it("an error that carries a user id or an email (a database message can) is redacted in BOTH the outcome and the log line", async () => {
+    const { runPostIngestRefresh } = await load();
+    const c = clock();
+    const log = vi.fn();
+    const out = await runPostIngestRefresh({
+      routeStartedAtMs: c.get(),
+      ingestFinishedAtMs: c.get() + 1_000,
+      now: c.now,
+      refresh: async () => {
+        throw new Error('duplicate key value violates unique constraint "x", Key (user_id)=(11111111-2222-3333-4444-555555555555), jane.doe@example.com');
+      },
+      log,
+    });
+    for (const text of [String(out.error), String(log.mock.calls[0][0])]) {
+      expect(text).not.toContain("11111111-2222-3333-4444-555555555555");
+      expect(text).not.toContain("jane.doe@example.com");
+      expect(text).not.toMatch(/@/);
+    }
+    expect(out.error, "the useful part of the message survives").toMatch(/duplicate key/);
+  });
+});

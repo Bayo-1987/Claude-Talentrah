@@ -201,11 +201,25 @@ export function filterScorablePostings(
  * losing everything, and the summary's `failed` count only ever reports a
  * REAL, unrecovered failure.
  */
+/**
+ * HOW THE WRITE BEHAVES UNDER OVERLAP (`mode`). Two score writers can run at the same time: the refresh at the end of an ingest run, a second
+ * ingest run (GitHub Actions and the daily Vercel cron can land close together), the once-a-day 16:00 refresh, the rescore, a feed render.
+ * A session-level advisory lock cannot serialise them (PostgREST pools connections; migration 0082 documents it) and a lease table would need a
+ * migration, so the writes are made safe instead:
+ *   - "insert-missing" (the gap-filling refresh): INSERT ... ON CONFLICT DO NOTHING. The refresh only ever wants pairs that have NO row, so if
+ *     another writer inserted one in the meantime that row is kept, nothing is overwritten, and `persisted` / `insertedIds` count only the rows
+ *     THIS call actually inserted, so two overlapping runs cannot double count what they wrote.
+ *   - "overwrite" (everything else, e.g. the rescore, which exists to replace stale rows): the upsert it always was.
+ * Every writer computes with the same code on the same inputs, so even an overwrite produces the same row.
+ */
+export type PersistMode = "insert-missing" | "overwrite";
+
 export async function persistScoresOrRetryStale(
   admin: ReturnType<typeof createServiceRoleClient>,
   userId: string,
   scored: ScoredJobLike[],
-): Promise<{ persisted: number; ok: boolean }> {
+  mode: PersistMode = "overwrite",
+): Promise<{ persisted: number; ok: boolean; insertedIds?: string[] }> {
   const rows = scored.map((s) => ({
     user_id: userId,
     job_posting_id: s.job.id,
@@ -215,10 +229,23 @@ export async function persistScoresOrRetryStale(
     computed_at: new Date().toISOString(),
   }));
 
-  const { error } = await admin
-    .from("match_scores")
-    .upsert(rows, { onConflict: "user_id,job_posting_id" });
-  if (!error) return { persisted: rows.length, ok: true };
+  const write = async (batch: typeof rows) => {
+    if (mode === "overwrite") {
+      const { error } = await admin.from("match_scores").upsert(batch, { onConflict: "user_id,job_posting_id" });
+      return { error, insertedIds: undefined as string[] | undefined, persisted: batch.length };
+    }
+    // ON CONFLICT DO NOTHING: only the rows actually inserted come back.
+    const { data, error } = await admin
+      .from("match_scores")
+      .upsert(batch, { onConflict: "user_id,job_posting_id", ignoreDuplicates: true })
+      .select("job_posting_id");
+    const insertedIds = (data ?? []).map((r) => r.job_posting_id);
+    return { error, insertedIds, persisted: insertedIds.length };
+  };
+
+  const first = await write(rows);
+  const error = first.error;
+  if (!error) return { persisted: first.persisted, ok: true, ...(first.insertedIds ? { insertedIds: first.insertedIds } : {}) };
 
   if (error.code === "23503") {
     const ids = rows.map((r) => r.job_posting_id);
@@ -240,9 +267,8 @@ export async function persistScoresOrRetryStale(
     const survivors = rows.filter((r) => existingIds.has(r.job_posting_id));
     if (survivors.length === 0) return { persisted: 0, ok: false };
 
-    const { error: retryError } = await admin
-      .from("match_scores")
-      .upsert(survivors, { onConflict: "user_id,job_posting_id" });
+    const retried = await write(survivors);
+    const retryError = retried.error;
     if (retryError) {
       console.error(
         `[match-score-refresh] retry after filtering stale postings still failed for ${userId}: ${retryError.message}`,
@@ -251,10 +277,10 @@ export async function persistScoresOrRetryStale(
     }
     // Not an error, but not silent either: this is the only trace that the recovery path ran and worked.
     console.warn(
-      `[match-score-refresh] recovered ${userId}: persisted ${survivors.length} of ${rows.length} scores ` +
+      `[match-score-refresh] recovered ${userId}: persisted ${retried.persisted} of ${rows.length} scores ` +
         `after dropping ${rows.length - survivors.length} stale posting(s) deleted mid-run`,
     );
-    return { persisted: survivors.length, ok: true };
+    return { persisted: retried.persisted, ok: true, ...(retried.insertedIds ? { insertedIds: retried.insertedIds } : {}) };
   }
 
   console.error(`[match-score-refresh] could not persist ${rows.length} score(s) for ${userId}: ${error.message}`);
@@ -383,7 +409,8 @@ export async function runMatchScoreRefreshJob(opts: MatchScoreRefreshOptions = {
         if (resumeError) throw new Error(resumeError.message);
         return resumeRow ? (resumeRow.structured_content as unknown as StructuredResume) : null;
       },
-      persist: (userId, scored) => persistScoresOrRetryStale(admin, userId, scored),
+      // The gap-filler inserts what is MISSING and never overwrites a row another writer got in first (see PersistMode).
+      persist: (userId, scored) => persistScoresOrRetryStale(admin, userId, scored, "insert-missing"),
     },
     eligible,
     (candidates ?? []).map((c) => c.user_id),

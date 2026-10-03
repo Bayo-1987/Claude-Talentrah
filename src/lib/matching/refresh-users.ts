@@ -29,7 +29,8 @@ export interface RefreshUsersDeps {
   scoredPostingIds(userId: string): Promise<Set<string>>;
   /** The user's base resume content, or null when it was deleted/unset since the candidate query. */
   loadBaseResume(userId: string): Promise<StructuredResume | null>;
-  persist(userId: string, scored: ScoredJobLike[]): Promise<{ persisted: number; ok: boolean }>;
+  /** `insertedIds`, when given, are the postings THIS call actually inserted (an insert-if-absent writer); otherwise every scored posting counts. */
+  persist(userId: string, scored: ScoredJobLike[]): Promise<{ persisted: number; ok: boolean; insertedIds?: string[] }>;
 }
 
 export interface RefreshUsersResult {
@@ -102,7 +103,7 @@ export async function refreshUsers(
       }
       result.usersRefreshed++;
       result.postingsScored += written.persisted;
-      for (const s of scored) touched.add(s.job.id);
+      for (const id of written.insertedIds ?? scored.map((s) => s.job.id)) touched.add(id);
     } catch (err) {
       result.failed++;
       result.errors.push({ userId, message: err instanceof Error ? err.message : String(err) });

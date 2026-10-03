@@ -108,6 +108,36 @@ describe("ingest-jobs: the post-ingest match-score refresh", () => {
     expect(opts.shouldStop!()).toBe(false);
   });
 
+  it("THE RESPONSE CONTRACT IS PURELY ADDITIVE: with the refresh succeeding, failing, unfinished or skipped, every other field and the status are identical", async () => {
+    const { POST } = await import("@/app/api/admin/ingest-jobs/route");
+    const strip = async (res: Response) => {
+      const { postIngestRefresh, ...rest } = await res.json();
+      return { status: res.status, rest, hasNewField: postIngestRefresh !== undefined };
+    };
+    refreshSpy.mockResolvedValue(summary());
+    const ok = await strip(await POST(post()));
+    refreshSpy.mockRejectedValue(new Error("boom"));
+    const thrown = await strip(await POST(post()));
+    refreshSpy.mockResolvedValue(summary({ complete: false, stoppedBy: "deadline" }));
+    const unfinished = await strip(await POST(post()));
+    refreshSpy.mockResolvedValue(summary({ ok: false }));
+    const notOk = await strip(await POST(post()));
+    for (const other of [thrown, unfinished, notOk]) expect(other).toEqual(ok);
+    expect(ok.hasNewField).toBe(true);
+    // the pre-existing fields are exactly the ones this route always answered
+    expect(Object.keys(ok.rest).sort()).toEqual(["expiry", "proactiveAlerts", "results", "staleSweep"]);
+    expect(ok.status).toBe(200);
+  });
+
+  it("the sweeps and the alerts run exactly once whatever the refresh does (a refresh failure cannot skip or repeat them)", async () => {
+    refreshSpy.mockRejectedValue(new Error("boom"));
+    const { POST } = await import("@/app/api/admin/ingest-jobs/route");
+    await POST(post());
+    expect(order.filter((x) => x === "expiry")).toHaveLength(1);
+    expect(order.filter((x) => x === "staleSweep")).toHaveLength(1);
+    expect(order.filter((x) => x === "alerts")).toHaveLength(1);
+  });
+
   it("when ingest itself used most of the budget the refresh is SKIPPED (not called), with the reason in the response", async () => {
     vi.useFakeTimers();
     try {
