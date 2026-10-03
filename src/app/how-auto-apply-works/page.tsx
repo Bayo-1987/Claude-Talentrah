@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { pageMetadata } from "@/lib/seo/site";
+import { buildQuestions } from "./questions";
 import { MarketingMasthead } from "@/components/marketing/marketing-masthead";
 import { MarketingFooter } from "@/components/marketing/marketing-footer";
 import { Container, EyebrowLabel, BorderedCard, buttonClasses } from "@/components/ui";
@@ -41,10 +42,9 @@ import { Container, EyebrowLabel, BorderedCard, buttonClasses } from "@/componen
  *   saved to the tracker as 'saved'... deliberately not marked applied"
  *   (docs/auto-apply.md). Get this one right — it's a real product boundary.
  * - Caps exist (daily submission cap, queue cap) and are enforced
- *   server-side/atomically — described here only qualitatively ("a daily
- *   limit", "a cap on the queue"), not with the exact numbers in
- *   src/lib/auto-apply/config.ts, so this page doesn't go stale the moment
- *   those constants are retuned.
+ *   server-side/atomically. The questions (./questions.tsx) state the numbers,
+ *   rendered from src/lib/auto-apply/config.ts, so retuning a constant changes
+ *   this page too (S1-26 item 2).
  * - Free-then-credits framing matches CLAUDE.md §6.9 exactly: "a free
  *   weekly allowance" then Credits — not an open-ended free claim.
  */
@@ -55,56 +55,6 @@ export const metadata: Metadata = pageMetadata({
   path: "/how-auto-apply-works",
 });
 
-const QUESTIONS: { q: string; a: ReactNode }[] = [
-  {
-    q: "What does Auto-Apply actually do?",
-    a: (
-      <>
-        Turn it on from your job feed, and Auto-Apply watches for postings that
-        score <strong>Excellent</strong> against your resume — Talentrah&apos;s
-        highest match tier — and adds each one to a review queue. Nothing is
-        submitted the moment it&apos;s queued; it just waits there for you.
-      </>
-    ),
-  },
-  {
-    q: "Does it ever apply without asking me first?",
-    a: "No. There's no silent mode, and no setting that creates one. Every match sits in your queue until you personally confirm it — the toggle turns matching on, not submitting.",
-  },
-  {
-    q: "What happens when I confirm a match?",
-    a: (
-      <>
-        It depends on where the job lives. For a job posted directly on
-        Talentrah, confirming genuinely submits your application — Talentrah
-        owns that posting, so a real application is created and lands in your
-        Job Tracker as applied. For a job Talentrah found elsewhere (an
-        aggregated, external listing), there&apos;s no way to submit into that
-        employer&apos;s own system — confirming opens the original posting for
-        you to apply on their site, and saves it to your Job Tracker so you
-        don&apos;t lose track of it. It&apos;s never marked as applied on your
-        behalf, because nothing was actually submitted — you were only handed
-        the link.
-      </>
-    ),
-  },
-  {
-    q: "Could it submit to a job whose match score has changed since it was queued?",
-    a: "No — the match is checked again at the moment you confirm, not just when it first joined the queue. If a score has slipped, or the posting has closed in the meantime, confirming won't submit it.",
-  },
-  {
-    q: "What stops it from submitting to everything?",
-    a: "Two limits, both enforced automatically and not adjustable from the toggle: a daily cap on how many applications it will submit for you, and a cap on how many matches can sit in the queue waiting for your review. Once the queue is full, Auto-Apply stops adding new matches until you clear some out.",
-  },
-  {
-    q: "Does it cost anything?",
-    a: "Confirming a match on a Talentrah-hosted posting draws from a free weekly allowance; once that's used up, each one costs credits, the same way Talentrah's other AI actions do. Opening an external posting Auto-Apply found for you is always free and never counted against any cap — Talentrah isn't the one submitting it.",
-  },
-  {
-    q: "Can I see what it's done?",
-    a: "Yes — every match Auto-Apply queues, submits, hands off, or skips shows up in your Auto-Apply queue, with what happened and when. Nothing happens off the record.",
-  },
-];
 
 export default function HowAutoApplyWorksPage() {
   return (
@@ -126,7 +76,7 @@ export default function HowAutoApplyWorksPage() {
           </div>
 
           <div className="flex flex-col border-t border-line">
-            {QUESTIONS.map((item) => (
+            {buildQuestions().map((item) => (
               <div key={item.q} className="flex flex-col gap-3 border-b border-line py-8 min-[901px]:flex-row min-[901px]:gap-10">
                 <h2 className="text-[17px] font-semibold text-ink min-[901px]:w-72 min-[901px]:flex-shrink-0">
                   {item.q}
