@@ -1,12 +1,10 @@
 import "server-only";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
-import { computeMatchScore } from "./score";
-import { getMatchTier } from "@/lib/match-tier";
 import type { ScoredJobLike } from "./compute-and-store";
+import { refreshUsers, type ScorableJobPosting } from "./refresh-users";
 import { freshnessFloorISO } from "@/lib/jobs/freshness";
 import { chunkInList } from "@/lib/supabase/in-list";
 import type { StructuredResume } from "@/lib/resume/types";
-import type { SeniorityLevel } from "@/lib/jobs/types";
 
 /**
  * send-latency-2 — the background scoring-refresh job docs/jobs-feed-
@@ -107,9 +105,20 @@ export interface MatchScoreRefreshSummary {
   /** A candidate user whose match_scores already cover every eligible posting — the common case once this job has run a few times. */
   usersUpToDate: number;
   usersRefreshed: number;
+  /** Rows written: one per (user, posting) pair. */
   postingsScored: number;
+  /** Distinct postings that gained a score for at least one user. */
+  distinctPostingsScored: number;
   failed: number;
   errors: Array<{ userId: string; message: string }>;
+  /** False only when `shouldStop` (the post-ingest deadline) ended the run early; the rest is left to the next run. */
+  complete: boolean;
+  stoppedBy: "deadline" | null;
+}
+
+export interface MatchScoreRefreshOptions {
+  /** Asked before each user; true stops the run on a user boundary (see refresh-users.ts). */
+  shouldStop?: () => boolean;
 }
 
 /**
@@ -143,13 +152,7 @@ const USER_CAP_WARN_FRACTION = 0.8;
  */
 const MAX_ELIGIBLE_POSTINGS = 20_000;
 
-export interface ScorableJobPosting {
-  id: string;
-  title: string;
-  structuredJd: unknown;
-  seniority: SeniorityLevel | null;
-  organizationId: string | null;
-}
+export type { ScorableJobPosting } from "./refresh-users";
 
 /**
  * The org-verification gate, done by hand — same reason and same shape as
@@ -258,7 +261,7 @@ export async function persistScoresOrRetryStale(
   return { persisted: 0, ok: false };
 }
 
-export async function runMatchScoreRefreshJob(): Promise<MatchScoreRefreshSummary> {
+export async function runMatchScoreRefreshJob(opts: MatchScoreRefreshOptions = {}): Promise<MatchScoreRefreshSummary> {
   const summary: MatchScoreRefreshSummary = {
     ok: true,
     eligiblePostings: 0,
@@ -266,8 +269,11 @@ export async function runMatchScoreRefreshJob(): Promise<MatchScoreRefreshSummar
     usersUpToDate: 0,
     usersRefreshed: 0,
     postingsScored: 0,
+    distinctPostingsScored: 0,
     failed: 0,
     errors: [],
+    complete: true,
+    stoppedBy: null,
   };
 
   const admin = createServiceRoleClient();
@@ -360,78 +366,42 @@ export async function runMatchScoreRefreshJob(): Promise<MatchScoreRefreshSummar
     );
   }
 
-  for (const { user_id: userId } of candidates ?? []) {
-    try {
-      // Cheap existence check BEFORE fetching this user's (potentially
-      // large) resume content — the common case, once this job has run a
-      // few times, is full coverage and nothing further to read.
-      const { data: existing, error: existingError } = await admin
-        .from("match_scores")
-        .select("job_posting_id")
-        .eq("user_id", userId);
-      if (existingError) throw new Error(existingError.message);
-
-      const scoredIds = new Set((existing ?? []).map((r) => r.job_posting_id));
-      const missing = eligible.filter((p) => !scoredIds.has(p.id));
-
-      if (missing.length === 0) {
-        summary.usersUpToDate++;
-        continue;
-      }
-
-      const { data: resumeRow, error: resumeError } = await admin
-        .from("resumes")
-        .select("structured_content")
-        .eq("user_id", userId)
-        .eq("is_base", true)
-        .maybeSingle();
-      if (resumeError) throw new Error(resumeError.message);
-      // The base resume was deleted/unset between the candidate-user query
-      // above and here — nothing to score against, not a failure.
-      if (!resumeRow) {
-        summary.usersUpToDate++;
-        continue;
-      }
-
-      const resume = resumeRow.structured_content as unknown as StructuredResume;
-
-      // Same three-line body as scoreJobs (compute-and-store.ts), not a
-      // call to it: scoreJobs takes a full JobPosting row shape (the feed's
-      // own FEED_COLUMNS width), and this job only ever has the lightweight
-      // id/structured_jd/seniority columns above — the same reason
-      // computeAndStoreApplicationMatchScore (send-158) doesn't call
-      // scoreJobs either. computeMatchScore itself, the shared pure
-      // primitive, is untouched either way.
-      const scored: ScoredJobLike[] = missing.map((job) => {
-        const structuredJd = job.structuredJd as { skills?: string[] } | null;
-        const result = computeMatchScore(resume, structuredJd?.skills ?? [], job.seniority ?? undefined, job.title);
-        return {
-          job: { id: job.id },
-          score: result.score,
-          tier: getMatchTier(result.score),
-          explanation: result.explanation,
-        };
-      });
-
-      const result = await persistScoresOrRetryStale(admin, userId, scored);
-      if (!result.ok) {
-        summary.failed++;
-        summary.errors.push({ userId, message: "could not persist scores (see server log)" });
-        continue;
-      }
-      summary.usersRefreshed++;
-      summary.postingsScored += result.persisted;
-    } catch (err) {
-      summary.failed++;
-      summary.errors.push({ userId, message: err instanceof Error ? err.message : String(err) });
-      console.error(`[match-score-refresh] failed for user ${userId}:`, err);
-    }
-  }
+  const run = await refreshUsers(
+    {
+      async scoredPostingIds(userId) {
+        const { data: existing, error: existingError } = await admin.from("match_scores").select("job_posting_id").eq("user_id", userId);
+        if (existingError) throw new Error(existingError.message);
+        return new Set((existing ?? []).map((r) => r.job_posting_id));
+      },
+      async loadBaseResume(userId) {
+        const { data: resumeRow, error: resumeError } = await admin
+          .from("resumes")
+          .select("structured_content")
+          .eq("user_id", userId)
+          .eq("is_base", true)
+          .maybeSingle();
+        if (resumeError) throw new Error(resumeError.message);
+        return resumeRow ? (resumeRow.structured_content as unknown as StructuredResume) : null;
+      },
+      persist: (userId, scored) => persistScoresOrRetryStale(admin, userId, scored),
+    },
+    eligible,
+    (candidates ?? []).map((c) => c.user_id),
+    { shouldStop: opts.shouldStop },
+  );
+  summary.usersUpToDate = run.usersUpToDate;
+  summary.usersRefreshed = run.usersRefreshed;
+  summary.postingsScored = run.postingsScored;
+  summary.distinctPostingsScored = run.distinctPostingsScored;
+  summary.failed = run.failed;
+  summary.errors = run.errors;
+  summary.complete = run.complete;
+  summary.stoppedBy = run.stoppedBy;
 
   console.log(
     `[match-score-refresh] eligiblePostings=${summary.eligiblePostings} usersConsidered=${summary.usersConsidered} ` +
       `usersUpToDate=${summary.usersUpToDate} usersRefreshed=${summary.usersRefreshed} ` +
-      `postingsScored=${summary.postingsScored} failed=${summary.failed}`,
+      `postingsScored=${summary.postingsScored} failed=${summary.failed} complete=${summary.complete}`,
   );
   return summary;
 }

@@ -415,4 +415,45 @@ describe("runMatchScoreRefreshJob — real gap-filling against the live database
     const filled = await matchScoreFor(partialSeeker.id, postingExternal);
     expect(filled, "a genuinely missing pair must still be filled even for a partially-covered user").not.toBeNull();
   }, 60_000);
+
+  it("THE 3 OCT MECHANISM: a posting whose seniority changes loses its scores through trigger 0069, and the next refresh restores exactly that posting", async () => {
+    // What ingest does when a re-ingest derives a different `seniority` (or `structured_jd`) for an existing posting: the trigger deletes every
+    // user's scores for it, and until a refresh runs every reader of stored scores sees it as unscored. The refresh now runs at the end of the
+    // ingest route; this proves the job itself puts it back, and only it.
+    const changing = await insertPosting({ source_type: "external", external_source: "msrls-test", external_url: `https://example.test/${randomUUID()}` });
+    const bystander = await insertPosting({ source_type: "external", external_source: "msrls-test", external_url: `https://example.test/${randomUUID()}` });
+    const first = await runMatchScoreRefreshJob();
+    expect(first.ok).toBe(true);
+    expect(first.complete).toBe(true);
+    expect(await matchScoreFor(seekerId, changing)).not.toBeNull();
+    const bystanderBefore = await matchScoreFor(seekerId, bystander);
+    expect(bystanderBefore).not.toBeNull();
+
+    const { error } = await admin.from("job_postings").update({ seniority: "senior" }).eq("id", changing);
+    if (error) throw error;
+    expect(await matchScoreFor(seekerId, changing), "trigger 0069 must have deleted the invalidated posting's score").toBeNull();
+    expect((await matchScoreFor(seekerId, bystander))?.computed_at, "an unrelated posting's score is untouched").toBe(bystanderBefore?.computed_at);
+
+    const restored = await runMatchScoreRefreshJob();
+    expect(restored.ok).toBe(true);
+    expect(restored.complete).toBe(true);
+    expect(restored.stoppedBy).toBeNull();
+    expect(await matchScoreFor(seekerId, changing), "the refresh must put the invalidated posting's score back").not.toBeNull();
+    expect((await matchScoreFor(seekerId, bystander))?.computed_at, "and must not rewrite anything that was not missing").toBe(bystanderBefore?.computed_at);
+  }, 60_000);
+
+  it("a deadline that has already passed stops the job before it starts a user: complete is false, stoppedBy is deadline, and nothing is written", async () => {
+    const lateSeeker = await createTestUser("msrls-deadline-seeker");
+    createdUsers.push(lateSeeker.id);
+    await insertBaseResume(lateSeeker.id);
+    const summary = await runMatchScoreRefreshJob({ shouldStop: () => true });
+    expect(summary.complete).toBe(false);
+    expect(summary.stoppedBy).toBe("deadline");
+    expect(summary.postingsScored).toBe(0);
+    const { count } = await admin.from("match_scores").select("id", { count: "exact", head: true }).eq("user_id", lateSeeker.id);
+    expect(count, "no half-written user").toBe(0);
+    const rerun = await runMatchScoreRefreshJob();
+    expect(rerun.complete, "a re-run finishes what the deadline cut off").toBe(true);
+    expect((await admin.from("match_scores").select("id", { count: "exact", head: true }).eq("user_id", lateSeeker.id)).count).toBeGreaterThan(0);
+  }, 60_000);
 });
