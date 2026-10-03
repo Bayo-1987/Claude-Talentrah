@@ -23,6 +23,11 @@ How a person deletes their account, what is built, and what is still to come. Th
       unreadable body or a network failure all block (`provider-cancel.test.ts` gives the same words to cases that must differ). Paystack publishes no code value for "already
       deactivated", so the rule is the documented status plus the documented envelope. The stored code is also cleared in our database and only our own secret key can charge it, so
       this is defence in depth, which is why only a documented answer may pass.
+      **The endpoint has not been exercised live** (no test key was available); the classification rests on the documented envelope. Every deactivate call therefore logs one structured
+      line, `[account-deletion] PAYSTACK_DEACTIVATE {"http_status":…,"status":…,"type":…,"code":…,"classification":"deactivated|already-deactivated|blocked"}` (exactly those five fields; never
+      the authorisation code, the key, the email or the message text; a blocked call logs at ERROR), and an `already-deactivated` also logs at WARN under the tag
+      `PAYSTACK_ALREADY_DEACTIVATED`: on a person's first deletion it is suspicious, since a wrong path also answers 404. The stored code is cleared in our database in every outcome that
+      schedules the deletion (`account_deletion_confirm`) and in the cancelled-but-not-scheduled outcome (`account_deletion_stop_renewals`), so a misclassification cannot let a renewal charge.
       **If the provider succeeded and the database transaction then fails** (or refuses, apart from "already used"), the card is cancelled but nothing is scheduled, so our renewal cron
       would fail to charge and lapse the Pass unexplained. `account_deletion_stop_renewals` switches renewal off in its own small write and the person is told plainly that renewal is off,
       the deletion was not scheduled, and to try again (or, if that write fails too, that the Pass may fail to renew and to contact us).

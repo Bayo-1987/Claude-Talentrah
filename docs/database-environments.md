@@ -80,4 +80,9 @@ Recorded because a database state that no artifact explains is what this file ex
 - Some older rows are recorded without their number prefix (for example `job_posting_supersession` for 0202). The drift check in `scripts/check-migration-drift.ts` is what reconciles
   names; do not rename ledger rows by hand.
 
+- **2026-10-03, about 08:03 UTC (owner's yes, applied by S3-21 in one `DO` transaction with a self-check, read back at 08:04:07 UTC):** `handle_new_user`, `check_and_activate_referral` and
+  `count_rewarded_referrals_last_30d` had EXECUTE for `anon` and `authenticated` on preview and not on production; `revoke execute … from public, anon, authenticated` brought preview to
+  production's `{postgres, service_role}`. A preview-only grant correction: no migration, no number, no ledger row. The `handle_new_user` trigger is intact. (Found by S3 while checking
+  grants; the drift is part of the wider picture in [#683](https://github.com/Bayo-1987/Claude-Talentrah/issues/683).)
+
 Preview and production are **allowed to differ**, in both directions, while a PR is in review. Neither is a copy of the other, and preview has never been the source of truth for anything.

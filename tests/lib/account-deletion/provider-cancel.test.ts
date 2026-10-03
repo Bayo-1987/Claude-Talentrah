@@ -21,6 +21,7 @@ const decline = (message: string, status: number, details: { type?: string; code
 
 beforeEach(() => {
   deactivate.mockReset().mockResolvedValue({ httpStatus: 200, status: true });
+  vi.restoreAllMocks();
   vi.spyOn(console, "error").mockImplementation(() => {});
   vi.spyOn(console, "warn").mockImplementation(() => {});
   vi.spyOn(console, "info").mockImplementation(() => {});

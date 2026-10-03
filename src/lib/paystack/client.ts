@@ -37,16 +37,19 @@ export class PaystackDeclineError extends Error {
   readonly type?: string;
   /** Paystack's documented, Paystack-defined error `code`, when the body had one. */
   readonly code?: string;
+  /** The body's own `status` field (Paystack's envelope says `status: false` on an error), when the body had a boolean one. */
+  readonly bodyStatus?: boolean;
   constructor(
     message: string,
     /** Paystack's own HTTP status, when it gave one. */
     readonly status?: number,
-    details: { type?: string; code?: string } = {},
+    details: { type?: string; code?: string; bodyStatus?: boolean } = {},
   ) {
     super(message);
     this.name = "PaystackDeclineError";
     this.type = details.type;
     this.code = details.code;
+    this.bodyStatus = details.bodyStatus;
   }
 }
 
@@ -55,6 +58,8 @@ export class PaystackUnavailableError extends Error {
   constructor(
     message: string,
     readonly cause?: unknown,
+    /** Paystack's HTTP status when it answered (a 5xx, or a 2xx with an unreadable body); absent when it never answered. */
+    readonly httpStatus?: number,
   ) {
     super(message);
     this.name = "PaystackUnavailableError";
@@ -101,6 +106,15 @@ async function paystackFetch(
   init: RequestInit,
   operation: string,
 ): Promise<Record<string, unknown>> {
+  return (await paystackFetchRaw(url, init, operation)).data;
+}
+
+/** The same as `paystackFetch`, and also tells the caller the HTTP status it got (for the one caller that logs it). */
+async function paystackFetchRaw(
+  url: string,
+  init: RequestInit,
+  operation: string,
+): Promise<{ data: Record<string, unknown>; httpStatus: number }> {
   let res: Response;
   try {
     res = await fetch(url, { ...init, signal: AbortSignal.timeout(PAYSTACK_TIMEOUT_MS) });
@@ -115,7 +129,7 @@ async function paystackFetch(
 
   // Paystack's own failure is not the customer's failure.
   if (res.status >= 500) {
-    throw new PaystackUnavailableError(`Paystack ${operation} returned ${res.status}`);
+    throw new PaystackUnavailableError(`Paystack ${operation} returned ${res.status}`, undefined, res.status);
   }
 
   let data: Record<string, unknown>;
@@ -124,7 +138,7 @@ async function paystackFetch(
   } catch (err) {
     // A 2xx with an unparseable body means we genuinely do not know what
     // happened — treat it as unavailability, not as a decline.
-    throw new PaystackUnavailableError(`Paystack ${operation} returned an unreadable body`, err);
+    throw new PaystackUnavailableError(`Paystack ${operation} returned an unreadable body`, err, res.status);
   }
 
   if (!res.ok || !data.status) {
@@ -134,10 +148,11 @@ async function paystackFetch(
       {
         type: typeof data.type === "string" ? data.type : undefined,
         code: typeof data.code === "string" ? data.code : undefined,
+        bodyStatus: typeof data.status === "boolean" ? data.status : undefined,
       },
     );
   }
-  return data;
+  return { data, httpStatus: res.status };
 }
 
 /**
@@ -311,10 +326,10 @@ export async function refundTransaction(reference: string): Promise<RefundResult
  * this is the one thing that makes a card un-chargeable at the provider. Account deletion calls it BEFORE it schedules anything. A decline means
  * Paystack answered no (for example "already deactivated" or "not found"); unavailable means it never answered. The caller treats them differently.
  */
-export async function deactivateAuthorization(authorizationCode: string): Promise<void> {
+export async function deactivateAuthorization(authorizationCode: string): Promise<{ httpStatus: number; status: boolean }> {
   const code = authorizationCode.trim();
   if (!code) throw new Error("deactivateAuthorization needs an authorization code.");
-  await paystackFetch(
+  const { data, httpStatus } = await paystackFetchRaw(
     `${PAYSTACK_BASE_URL}/customer/authorization/deactivate`,
     {
       method: "POST",
@@ -326,6 +341,7 @@ export async function deactivateAuthorization(authorizationCode: string): Promis
     },
     "deactivate authorization",
   );
+  return { httpStatus, status: data.status === true };
 }
 
 /* ────────────────────────────────────────────────────────────────────────
