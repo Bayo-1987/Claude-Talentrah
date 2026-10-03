@@ -11,10 +11,14 @@ import { hasNoScreenableSkills, isThinScreenableTagSet } from "@/lib/match-tier"
  * an unknown seniority simply has no cell, and what is not measured yet (industry) is said ONCE, on the "How match scores
  * work" page (/how-match-scores-work), linked from the feed and the job page rather than repeated per card.
  *
+ * ROLE FIT IS OPT-IN (A2, owner's Option B, S3-52). A job card shows one plain line, not a breakdown block, and the full breakdown lives
+ * on the job detail page, so the Role fit cell renders only when the caller passes `showRoleFit`, and only the job detail page does.
+ * The card and the employer applicant list keep the default (off). Adding role fit to the card's one line is the Option B PR's job.
+ *
  * NO SCORING CHANGE. This reads the same `MatchExplanation` the score and `fitSummary`/`gapSkills` (vet-summary.ts) already
  * read: a second rendering of existing data, not a new computation. NOT A FOURTH TIER: no match-tier color appears here.
  */
-export function MatchBreakdown({ explanation }: { explanation: MatchExplanation }) {
+export function MatchBreakdown({ explanation, showRoleFit = false }: { explanation: MatchExplanation; showRoleFit?: boolean }) {
   const matched = explanation.matchedSkills.length;
   const total = matched + explanation.missingSkills.length;
 
@@ -28,7 +32,7 @@ export function MatchBreakdown({ explanation }: { explanation: MatchExplanation 
       {explanation.seniorityAlignment !== "unknown" && (
         <BreakdownItem label="Seniority" value={SENIORITY_VALUE_LABEL[explanation.seniorityAlignment]} />
       )}
-      {explanation.roleFit && explanation.roleFit !== "unknown" && (
+      {showRoleFit && explanation.roleFit && explanation.roleFit !== "unknown" && (
         <BreakdownItem label="Role fit" value={ROLE_FIT_VALUE_LABEL[explanation.roleFit]} />
       )}
     </div>

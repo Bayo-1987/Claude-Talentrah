@@ -161,7 +161,7 @@ What it is (`src/lib/matching/role-family.ts`, `role-fit.ts`):
   core. Elsewhere they are dropped from the arithmetic and from the explanation (like `NON_SCREENABLE_SKILLS`), which is why a job whose only
   tag is "project management" is now "unscreened" for a research role. `splitSkillsByScreenability(skills, title)` mirrors this so the job
   page's list and the breakdown's count still agree.
-- The breakdown shows a **Role fit** cell (Same family / Adjacent / Different), in neutral ink, hidden when either side is unclassified.
+- The breakdown shows a **Role fit** cell (Same family / Adjacent / Different), in neutral ink, hidden when either side is unclassified. **On the job detail page only** (`MatchBreakdown showRoleFit`): a job card shows one plain line, not a breakdown block (owner's Option B, S3-52), so the cell is opt-in and the card and the employer applicant list do not turn it on. Role fit joins the card's one line in the Option B PR.
 - A score computed WITHOUT a title (the old three-argument call) is exactly as before. A stored row from before A2 has no `roleFit` and is
   recomputed on the next visit, refresh or application; nothing is rewritten in bulk.
 
