@@ -6,7 +6,7 @@
  * this sort. Saved's closed/snapshot entries are a separate list in the saved-row order and are not touched here.
  *
  * ONE DELIBERATE CONSEQUENCE of "band first", written down rather than left to be discovered: the Stage 12 freshness
- * penalty now orders jobs only WITHIN a band and evidence tier. Before, a stale non-thin 100 (28 days old) lost to a fresh
+ * penalty now orders jobs only WITHIN a displayed tier and evidence tier. Before, a stale non-thin 100 (28 days old) lost to a fresh
  * 75 on Recommended; now an Excellent non-thin job outranks any Good one however old it is (within the 30-day window), which
  * is what "bands first" means. A freshness-over-band rule would be a different design.
  */
@@ -30,10 +30,10 @@ const mk = (id: string, score: number, tags: number, age: number): ScoredJob =>
 const fixture = () => [
   mk("good-72-fresh", 72, 4, 0),
   mk("excellent-90-stale", 90, 4, 25),
-  mk("good-65-fresh", 65, 4, 0),
+  mk("fair-65-fresh", 65, 4, 0),
   mk("thin-100-fresh", 100, 1, 0),
   mk("unscreened-100", 100, 0, 0),
-  mk("fair-50-fresh", 50, 4, 0),
+  mk("none-50-fresh", 50, 4, 0),
 ];
 
 const run = (tab: string) => {
@@ -43,19 +43,21 @@ const run = (tab: string) => {
 };
 
 describe("tab order on the pinned fixture", () => {
-  it("recommended: Excellent, then Good (evidenced before thin, then displayed score with freshness), then Fair, unscreened last", () => {
+  // S3-51: the band is the DISPLAYED tier (Excellent 80+, Good 70-79, Fair 60-69, then no tier under 60). A thin raw-100 displays 79, which is Good, so it
+  // sorts above an evidenced 65, which is Fair; before, both sat in one "60-79" band and the evidenced 65 came first. The names below are the badge's.
+  it("recommended: Excellent, then Good (evidenced before thin), then Fair, then no tier, unscreened last", () => {
     expect(run("recommended")).toEqual([
       "excellent-90-stale",
       "good-72-fresh",
-      "good-65-fresh",
       "thin-100-fresh",
-      "fair-50-fresh",
+      "fair-65-fresh",
+      "none-50-fresh",
       "unscreened-100",
     ]);
   });
 
   it("external and saved: the same bands without the freshness penalty", () => {
-    const expected = ["excellent-90-stale", "good-72-fresh", "good-65-fresh", "thin-100-fresh", "fair-50-fresh", "unscreened-100"];
+    const expected = ["excellent-90-stale", "good-72-fresh", "thin-100-fresh", "fair-65-fresh", "none-50-fresh", "unscreened-100"];
     expect(run("external")).toEqual(expected);
     expect(run("saved")).toEqual(expected);
   });
