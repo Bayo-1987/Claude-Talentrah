@@ -2,22 +2,17 @@ import type { MatchExplanation } from "@/lib/matching/score";
 import { hasNoScreenableSkills, isThinScreenableTagSet } from "@/lib/match-tier";
 
 /**
- * Stage 8's display-only first step: three sub-scores instead of one opaque
- * number. Two of the three already exist in every score this app computes —
- * `matchedSkills`/`missingSkills` (skill coverage) and `seniorityAlignment` —
- * discarded on the way to the card until now. Industry alignment is the one
- * signal that doesn't exist yet; reporting it as "Not yet measured" is more
- * honest than staying silent about it.
+ * Stage 8's display-only first step: sub-scores instead of one opaque number. Both already exist in every score this app
+ * computes: `matchedSkills`/`missingSkills` (skill coverage) and `seniorityAlignment`.
  *
- * NO SCORING CHANGE. This reads the same `MatchExplanation` the score and
- * `fitSummary`/`gapSkills` (vet-summary.ts) already read — it adds a second
- * rendering of existing data, not a new computation.
+ * A CELL RENDERS ONLY WHEN IT CARRIES A REAL VALUE (S3-23a). This used to end with a third cell, "Industry alignment: Not yet
+ * measured, flagged, not scored", on every card, and showed "Not available" when seniority was unknown. A placeholder repeated
+ * on every job reads as "this product is unfinished" and draws the eye from the cells that carry information. Both are gone:
+ * an unknown seniority simply has no cell, and what is not measured yet (industry) is said ONCE, on the "How match scores
+ * work" page (/how-match-scores-work), linked from the feed and the job page rather than repeated per card.
  *
- * NOT A FOURTH TIER. "Not yet measured" renders in neutral `ink-soft`, not
- * `--amber` — the mockup this was built from used amber for that value, but
- * amber is one of the three real match-tier colors (see match-tier.ts), and
- * a differently-colored fourth cell here would read as a fourth tier the
- * moment a real Industry Alignment value starts appearing next to it.
+ * NO SCORING CHANGE. This reads the same `MatchExplanation` the score and `fitSummary`/`gapSkills` (vet-summary.ts) already
+ * read: a second rendering of existing data, not a new computation. NOT A FOURTH TIER: no match-tier color appears here.
  */
 export function MatchBreakdown({ explanation }: { explanation: MatchExplanation }) {
   const matched = explanation.matchedSkills.length;
@@ -30,20 +25,17 @@ export function MatchBreakdown({ explanation }: { explanation: MatchExplanation 
         value={`${matched} of ${total} tag${total === 1 ? "" : "s"}`}
         sub={skillCoverageSub(matched, total, explanation.matchedSkills)}
       />
-      <BreakdownItem
-        label="Seniority"
-        value={SENIORITY_VALUE_LABEL[explanation.seniorityAlignment]}
-      />
-      <BreakdownItem label="Industry alignment" value="Not yet measured" sub="flagged, not scored" muted />
+      {explanation.seniorityAlignment !== "unknown" && (
+        <BreakdownItem label="Seniority" value={SENIORITY_VALUE_LABEL[explanation.seniorityAlignment]} />
+      )}
     </div>
   );
 }
 
-const SENIORITY_VALUE_LABEL: Record<MatchExplanation["seniorityAlignment"], string> = {
+const SENIORITY_VALUE_LABEL: Record<Exclude<MatchExplanation["seniorityAlignment"], "unknown">, string> = {
   match: "Match",
   above: "Above",
   below: "Below",
-  unknown: "Not available",
 };
 
 /**
@@ -65,21 +57,11 @@ function skillCoverageSub(matched: number, total: number, matchedSkills: string[
   return `only ${names} — thin`;
 }
 
-function BreakdownItem({
-  label,
-  value,
-  sub,
-  muted = false,
-}: {
-  label: string;
-  value: string;
-  sub?: string;
-  muted?: boolean;
-}) {
+function BreakdownItem({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
     <div className="flex flex-1 flex-col gap-0.5 border-l border-line pl-4 first:border-l-0 first:pl-0">
       <span className="font-body text-[10px] font-bold tracking-[0.11em] text-ink-soft uppercase">{label}</span>
-      <span className={`text-[13.5px] font-semibold ${muted ? "text-ink-soft" : "text-ink"}`}>{value}</span>
+      <span className="text-[13.5px] font-semibold text-ink">{value}</span>
       {sub && <span className="text-[11.5px] text-ink-soft">{sub}</span>}
     </div>
   );

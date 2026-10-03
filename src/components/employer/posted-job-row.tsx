@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { BorderedCard, Button, buttonClasses } from "@/components/ui";
-import { publishJobAction, requestJobReviewAction, setJobStatusAction } from "@/lib/employer/actions";
+import { requestJobReviewAction, setJobStatusAction } from "@/lib/employer/actions";
+import { PublishDraftForm } from "@/components/employer/publish-draft-form";
 import { formatRelativeTime } from "@/lib/format-relative-time";
 import { EmployerJobShareButton } from "@/components/employer/job-share-button";
 import { getJobShareVisibility } from "@/lib/employer/job-visibility";
@@ -202,12 +203,11 @@ export function PostedJobRow({
           <Link href={`/employer/jobs/${job.id}/edit`} className={buttonClasses("secondary", "sm", "no-underline")}>
             Edit
           </Link>
-          {/* Server action bound per row — no client JS needed to publish. */}
-          <form action={publishJobAction.bind(null, job.id)}>
-            <button type="submit" className={buttonClasses("primary", "sm")}>
-              Publish
-            </button>
-          </form>
+          {/*
+            Needs a little client state since EMP-1 / E3: a draft whose chosen closing date has passed is refused with a
+            message and a date control instead of being published already expired. See PublishDraftForm.
+          */}
+          <PublishDraftForm jobId={job.id} />
         </div>
       ) : (
       <div className="flex flex-shrink-0 items-center gap-3">

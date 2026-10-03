@@ -23,7 +23,7 @@
  * the best match right now", which is a different question from "what's
  * newest", and the two tabs must keep answering different questions.
  */
-import { hasNoScreenableSkills, screenedFirstCompare } from "@/lib/match-tier";
+import { describeMatchConfidence, hasNoScreenableSkills, isThinScreenableTagSet } from "@/lib/match-tier";
 import type { ScoredJob } from "@/lib/matching/compute-and-store";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -88,20 +88,46 @@ export function sortFeedResults(
   freshnessWindowDays: number,
 ): void {
   if (hasSearchTerm) return;
+  if (tab === "recent") return;
+  // Recommended carries the freshness penalty; External and Saved order by the same bands without it.
+  const decay = tab === "recommended";
+  scored.sort((a, b) => compareByBandThenEvidence(a, b, decay ? freshnessWindowDays : null));
+}
 
-  const isUnscreened = (s: ScoredJob) =>
-    hasNoScreenableSkills(s.explanation.matchedSkills.length + s.explanation.missingSkills.length);
+/**
+ * The feed's match ordering (S3-24): display band, then evidence, then the DISPLAYED score, then tag count.
+ *
+ * It used to sort by the RAW score. A thin match (1-2 screenable tags) scores a raw 100 whenever the resume covers its
+ * one or two generic tags and DISPLAYS as 79 because of the thin cap, but sorted by the 100, so eight of them floated
+ * above the only well-evidenced jobs. "Thin" means less confident, so it must rank lower, not higher.
+ *
+ *   1. band by displayed score: Excellent (80+) < Good (60-79) < Fair (under 60) < unscreened (no tags) last;
+ *   2. inside a band, well-evidenced (3+ screenable tags) before thin (1-2);
+ *   3. the displayed (capped) score, minus the Recommended freshness penalty;
+ *   4. more screenable tags first, as the tie-break.
+ */
+interface RankFacts {
+  band: number;
+  thin: boolean;
+  tags: number;
+  display: number;
+}
 
-  if (tab === "recommended") {
-    scored.sort((a, b) =>
-      screenedFirstCompare(
-        isUnscreened(a),
-        isUnscreened(b),
-        recommendedRankingKey(b.score, b.job.posted_at, freshnessWindowDays) -
-          recommendedRankingKey(a.score, a.job.posted_at, freshnessWindowDays),
-      ),
-    );
-  } else if (tab !== "recent") {
-    scored.sort((a, b) => screenedFirstCompare(isUnscreened(a), isUnscreened(b), b.score - a.score));
-  }
+function rankFacts(s: ScoredJob): RankFacts {
+  const tags = s.explanation.matchedSkills.length + s.explanation.missingSkills.length;
+  const display = describeMatchConfidence(s.score, s.explanation).displayScore;
+  const band = hasNoScreenableSkills(tags) ? 3 : display >= 80 ? 0 : display >= 60 ? 1 : 2;
+  return { band, thin: isThinScreenableTagSet(tags), tags, display };
+}
+
+function compareByBandThenEvidence(a: ScoredJob, b: ScoredJob, freshnessWindowDays: number | null): number {
+  const fa = rankFacts(a);
+  const fb = rankFacts(b);
+  if (fa.band !== fb.band) return fa.band - fb.band;
+  if (fa.thin !== fb.thin) return fa.thin ? 1 : -1;
+  const keyOf = (f: RankFacts, s: ScoredJob) =>
+    freshnessWindowDays === null ? f.display : recommendedRankingKey(f.display, s.job.posted_at, freshnessWindowDays);
+  const byScore = keyOf(fb, b) - keyOf(fa, a);
+  if (byScore !== 0) return byScore;
+  return fb.tags - fa.tags;
 }
