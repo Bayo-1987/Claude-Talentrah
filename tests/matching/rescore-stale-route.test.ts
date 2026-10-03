@@ -11,6 +11,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const ran = vi.fn();
 const verifyRan = vi.fn();
+const countRan = vi.fn();
 const state = vi.hoisted(() => ({ summary: null as null | Record<string, unknown> }));
 const BASE_SUMMARY = {
   ok: true,
@@ -34,6 +35,10 @@ vi.mock("@/lib/matching/rescore-stale-job", () => ({
   runRescoreStaleJob: (...a: unknown[]) => {
     ran(...a);
     return Promise.resolve(state.summary ?? BASE_SUMMARY);
+  },
+  countStaleRowsSingleQuery: (...a: unknown[]) => {
+    countRan(...a);
+    return Promise.resolve(2648);
   },
   runVerifyRescoredSample: (...a: unknown[]) => {
     verifyRan(...a);
@@ -253,5 +258,34 @@ describe("rescore-stale-match-scores route: verify mode (counts only)", () => {
   it("verify needs the same secret: no credential is a 401", async () => {
     expect((await call(post({}, { verify: 20 }))).status).toBe(401);
     expect(verifyRan).not.toHaveBeenCalled();
+  });
+});
+
+describe("rescore-stale-match-scores route: count mode (one independent query, counts only)", () => {
+  const authed = { "x-admin-secret": ADMIN_HEADER_VALUE };
+  beforeEach(() => {
+    ran.mockClear();
+    countRan.mockClear();
+    process.env.INGEST_SECRET = ADMIN_HEADER_VALUE;
+    vi.spyOn(console, "log").mockImplementation(() => {});
+  });
+  afterEach(() => vi.restoreAllMocks());
+
+  it("{ count: true } answers with the number of stale rows from one query and runs no rescore", async () => {
+    const res = await call(post(authed, { count: true }));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ count: { staleRows: 2648 } });
+    expect(countRan).toHaveBeenCalledTimes(1);
+    expect(ran).not.toHaveBeenCalled();
+  });
+
+  it("is refused without the secret, with the bare 401, and combined with write is a 400 that runs nothing", async () => {
+    const denied = await call(post({}, { count: true }));
+    expect(denied.status).toBe(401);
+    expect(await denied.json()).toEqual({ error: "Unauthorized" });
+    const bad = await call(post(authed, { count: true, write: true }));
+    expect(bad.status).toBe(400);
+    expect(countRan).not.toHaveBeenCalled();
+    expect(ran).not.toHaveBeenCalled();
   });
 });

@@ -27,6 +27,12 @@ describe("rescore-stale-match-scores workflow", () => {
     expect(code).toMatch(/dry_run:[\s\S]*?default:\s*true/);
   });
 
+  it("a write run needs a second typed input, confirm_write, with NO default that would satisfy it", () => {
+    expect(code).toMatch(/confirm_write:/);
+    expect(code).not.toMatch(/confirm_write:[\s\S]*?default:\s*["']?write/);
+    expect(code).toMatch(/CONFIRM_WRITE:\s*\$\{\{\s*inputs\.confirm_write\s*\}\}/);
+  });
+
   it("uses the existing CRON_SECRET (no new secret) via the Authorization header, and the route accepts exactly that", () => {
     expect([...code.matchAll(/secrets\.([A-Z_]+)/g)].map((m) => m[1])).toEqual(["CRON_SECRET"]);
     expect(code).toMatch(/Authorization: Bearer \$CRON_SECRET/);

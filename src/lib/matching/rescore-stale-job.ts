@@ -18,7 +18,7 @@ import type { StructuredResume } from "@/lib/resume/types";
  * The real ports for rescore-stale.ts, over the service-role client. Nothing here writes except `persist`, which reuses the refresh
  * job's own upsert (it recovers from a posting deleted mid-run and reports a real failure rather than swallowing it).
  */
-function realDeps(): RescoreDeps {
+export function realDeps(): RescoreDeps {
   const admin = createServiceRoleClient();
   return {
     async listStaleRows(afterUserId) {
@@ -65,6 +65,17 @@ function realDeps(): RescoreDeps {
       return persistScoresOrRetryStale(admin, userId, scored);
     },
   };
+}
+
+/**
+ * The number of stale rows, from ONE query (an exact count, no rows transferred): deliberately not derived from the chain's own listing, so a
+ * bounded dry-run chain's total can be reconciled against something that shares none of its cursor logic.
+ */
+export async function countStaleRowsSingleQuery(): Promise<number> {
+  const admin = createServiceRoleClient();
+  const { count, error } = await admin.from("match_scores").select("id", { count: "exact", head: true }).filter("explanation->roleFit", "is", null);
+  if (error) throw new Error(`could not count stale rows: ${error.message}`);
+  return count ?? 0;
 }
 
 export function runRescoreStaleJob(opts: RescoreOptions): Promise<RescoreSummary> {

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { runRescoreStaleJob, runVerifyRescoredSample } from "@/lib/matching/rescore-stale-job";
+import { countStaleRowsSingleQuery, runRescoreStaleJob, runVerifyRescoredSample } from "@/lib/matching/rescore-stale-job";
 import { requireAdminSecret, requireCronSecret, internalError } from "@/lib/api/admin-auth";
 import { RESCORE_SELF_STOP_MS } from "@/lib/matching/rescore-stale-limits";
 
@@ -21,6 +21,8 @@ export const maxDuration = 300;
  *   POST  {"write": true, "cursor": "<user id>"}  carry on after the `nextCursor` the previous response reported
  *   POST  {"verify": 20}                         after a write run: recompute a random sample of already-rescored rows and compare them with what
  *                                                is stored (counts only)
+ *   POST  {"count": true}                        the number of stale rows from ONE independent query (an exact count), counts only: what a bounded
+ *                                                dry-run chain's total is reconciled against before a write run is approved
  *   optional `maxRows` (1..MAX_ROWS_LIMIT) overrides the bound, on a dry run too
  *
  * NO PERSONAL DATA IN THE RESPONSE OR THE LOG: the response carries counts, buckets and numbers; users with no base resume are `{ rows }` only
@@ -42,13 +44,26 @@ export async function POST(request: Request) {
   const denied = requireAdminSecret(request);
   if (denied && requireCronSecret(request)) return denied;
 
-  let body: { write?: unknown; maxRows?: unknown; cursor?: unknown; verify?: unknown } = {};
+  let body: { write?: unknown; maxRows?: unknown; cursor?: unknown; verify?: unknown; count?: unknown } = {};
   try {
     body = ((await request.json()) as typeof body) ?? {};
   } catch {
     // no body / not JSON: a dry run
   }
   const dryRun = body.write !== true;
+
+  if (body.count !== undefined) {
+    if (body.count !== true || body.write === true || body.verify !== undefined) {
+      return NextResponse.json({ error: "count must be true and cannot be combined with write or verify" }, { status: 400 });
+    }
+    try {
+      const staleRows = await countStaleRowsSingleQuery();
+      console.log(`[rescore-stale] count staleRows=${staleRows}`);
+      return NextResponse.json({ count: { staleRows } }, { status: 200 });
+    } catch (err) {
+      return internalError("rescore-stale-match-scores-count", err);
+    }
+  }
 
   if (body.verify !== undefined) {
     if (typeof body.verify !== "number" || !Number.isInteger(body.verify) || body.verify < 1 || body.verify > VERIFY_MAX || body.write === true) {

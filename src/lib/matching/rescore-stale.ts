@@ -91,6 +91,9 @@ export interface RescoreSummary {
   dryRun: boolean;
   staleRows: number;
   usersWithStaleRows: number;
+  /** Stale rows and users THIS CALL started (a user skipped for having no base resume counts): summed over a chain of bounded calls, the total is set against an independent count. */
+  rowsVisited: number;
+  usersVisited: number;
   usersRescored: number;
   /** Stale rows that belong to a user with a base resume (what a real run would attempt, before dropping closed postings). */
   rowsToRescore: number;
@@ -178,6 +181,8 @@ export async function rescoreStale(deps: RescoreDeps, opts: RescoreOptions): Pro
     dryRun: opts.dryRun,
     staleRows: 0,
     usersWithStaleRows: 0,
+    rowsVisited: 0,
+    usersVisited: 0,
     usersRescored: 0,
     rowsToRescore: 0,
     rowsRescored: 0,
@@ -219,6 +224,8 @@ export async function rescoreStale(deps: RescoreDeps, opts: RescoreOptions): Pro
       break;
     }
     handledRows += userRows.length;
+    summary.rowsVisited += userRows.length;
+    summary.usersVisited++;
     let cutOff = false;
     try {
       const resume = await deps.loadBaseResume(userId);

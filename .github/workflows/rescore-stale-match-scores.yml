@@ -2,8 +2,16 @@ name: Rescore stale match scores (manual)
 
 # The stale-only match-score rescore after A2 (src/app/api/admin/rescore-stale-match-scores/route.ts, docs in that file's header).
 #
+# THIS WORKFLOW CAN ONLY BE RUN AFTER IT IS MERGED: a manual (workflow_dispatch) workflow must exist on the default branch before it appears in the
+# Actions tab. Merging it rescores nothing.
+#
 # MANUAL ONLY: workflow_dispatch, never a schedule or a push. It is run by hand, a DRY RUN first, and a WRITE run only after the owner has approved
-# the dry run's counts and shape. `dry_run` defaults to true, so starting this workflow without touching anything cannot write.
+# the dry run's counts and shape. `dry_run` defaults to true, so starting this workflow without touching anything cannot write, and a WRITE run needs a second, typed input
+# (`confirm_write` must be the word write) or it fails before calling anything. That is a guard against a slip, not a security control.
+#
+# A DRY RUN IS A CHAIN, like a write run: it walks the route in bounded pages (`max_rows`) with the cursor to completion, merges the shape, and
+# sets the rows the chain visited against an independent count from one query (`{count:true}`), taken before and after. It fails unless they
+# are equal, and it fails if the cursor ever fails to advance (a user would be visited twice). The owner approves a write run only if they match.
 #
 # NO NEW SECRET. It calls the route with CRON_SECRET, the repo secret the ingest workflow already uses; the route accepts it as a Bearer token
 # (constant-time comparison, same bare 401 for anything else). The secret is read into an environment variable on the step, never interpolated into
@@ -23,6 +31,10 @@ on:
         description: "Dry run: compute the new scores and report the shape of the change, write nothing. Untick ONLY after the owner has approved the dry run."
         type: boolean
         default: true
+      confirm_write:
+        description: "Write runs only: type the word write to confirm. Anything else fails the run before it calls anything. Ignored by a dry run."
+        type: string
+        default: ""
       verify:
         description: "After a write run: recompute this many random rescored rows and compare them with what is stored (counts only). 0 = off. Ignores dry_run."
         type: string
@@ -52,8 +64,10 @@ jobs:
           VERIFY: ${{ inputs.verify }}
           MAX_ROWS: ${{ inputs.max_rows }}
           CURSOR_IN: ${{ inputs.cursor }}
+          CONFIRM_WRITE: ${{ inputs.confirm_write }}
         run: |
           set -euo pipefail
+          export LC_ALL=C
 
           url="https://www.talentrah.com/api/admin/rescore-stale-match-scores"
           uuid_re='^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
@@ -93,11 +107,60 @@ jobs:
           fi
 
           if [ "$DRY_RUN" = "true" ]; then
-            status="$(call '{}')"
-            echo "HTTP status: $status (DRY RUN: nothing was written)"
-            show
-            ok "$status" || { echo "::error::dry run answered HTTP $status"; exit 1; }
+            # The independent number: one exact count of stale rows, taken before the chain and again after it.
+            count_stale() {
+              local st
+              st="$(call '{"count":true}')"
+              ok "$st" || { echo "::error::count answered HTTP $st" >&2; exit 1; }
+              jq -r '.count.staleRows' /tmp/rescore-response.json
+            }
+            # Adds numbers, merges objects key by key, concatenates arrays; null is the identity.
+            addv='def addv(a; b): if a == null then b elif b == null then a elif (a|type) == "number" then a + b elif (a|type) == "object" then (reduce ((a|keys) + (b|keys) | unique)[] as $k ({}; .[$k] = addv(a[$k]; b[$k]))) elif (a|type) == "array" then a + b else b end;'
+
+            echo "DRY RUN: nothing is written. Walking the route in pages of $MAX_ROWS rows to completion."
+            count_before="$(count_stale)"
+            shape=null
+            totals=null
+            cursor="$CURSOR_IN"
+            calls=0
+            finished=false
+            for i in $(seq 1 60); do
+              body="$(jq -cn --argjson max "$MAX_ROWS" --arg cursor "$cursor" '{maxRows: $max} + (if $cursor != "" then {cursor: $cursor} else {} end)')"
+              status="$(call "$body")"
+              ok "$status" || { echo "::error::dry run answered HTTP $status" >&2; exit 1; }
+              calls=$i
+              shape="$(jq -cn --argjson a "$shape" --slurpfile b /tmp/rescore-response.json "$addv"' addv($a; $b[0].summary.shape)')"
+              totals="$(jq -cn --argjson a "$totals" --slurpfile b /tmp/rescore-response.json "$addv"' addv($a; ($b[0].summary | {rowsVisited, usersVisited, rowsToRescore, skippedPostingGone, skippedStubSkill, usersSkippedNoResume: (.skippedNoBaseResume | length), rowsSkippedNoResume: ([.skippedNoBaseResume[].rows] | add // 0)}))')"
+              if [ "$(jq -r '.summary.complete' /tmp/rescore-response.json)" = "true" ]; then finished=true; break; fi
+              next="$(jq -r '.summary.nextCursor // ""' /tmp/rescore-response.json)"
+              # The cursor must move forward (user ids sort the same in the database and as text): otherwise a user would be visited twice.
+              if [ -z "$next" ] || { [ -n "$cursor" ] && ! [[ "$next" > "$cursor" ]]; }; then
+                echo "::error::the cursor did not advance after call $i: a user would be visited twice. Stopping." >&2
+                exit 1
+              fi
+              cursor="$next"
+            done
+            if [ "$finished" != "true" ]; then echo "::error::the chain did not finish within 60 calls" >&2; exit 1; fi
+            count_after="$(count_stale)"
+
+            visited_rows="$(echo "$totals" | jq -r '.rowsVisited')"
+            visited_users="$(echo "$totals" | jq -r '.usersVisited')"
+            echo "chain visited rows=$visited_rows users=$visited_users calls=$calls"
+            echo "single-query stale rows before=$count_before after=$count_after"
+            echo "totals: $(echo "$totals" | jq -c .)"
+            echo "shape (merged over the chain): $(echo "$shape" | jq -c '. + {rowsPerUserRanked: (.rowsPerUserRanked | sort | reverse), largestDrops: (.largestDrops | sort_by(-(.from - .to)) | .[:10])}')"
+            if [ "$visited_rows" != "$count_before" ] || [ "$count_before" != "$count_after" ]; then
+              echo "::error::chain visited $visited_rows rows but the single query counts $count_before before and $count_after after. They must be equal: do NOT approve a write run; check for a concurrent change and run the dry run again." >&2
+              exit 1
+            fi
+            echo "RECONCILED: the chain total equals the single-query count, and no user was visited twice."
             exit 0
+          fi
+
+          # A write run needs the second typed input. This is a guard against a slip, not a security control.
+          if [ "$CONFIRM_WRITE" != "write" ]; then
+            echo "::error::a write run needs confirm_write to be exactly the word write. Nothing was called. Run a dry run first (leave dry_run ticked)." >&2
+            exit 1
           fi
 
           echo "WRITE RUN (the owner approved the dry run)"
