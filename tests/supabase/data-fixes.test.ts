@@ -12,6 +12,7 @@
 import { describe, expect, it } from "vitest";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { REVIEWER_PHRASES } from "@/lib/scholarships/reviewer-commentary";
 
 const DIR = "supabase/data-fixes";
 const files = existsSync(DIR) ? readdirSync(DIR).filter((f) => f.endsWith(".sql")) : [];
@@ -22,6 +23,28 @@ describe("supabase/data-fixes", () => {
     const readme = readFileSync(join(DIR, "README.md"), "utf8");
     expect(readme).toMatch(/not replayed|NOT replayed/);
     expect(readme).toMatch(/READ ONLY|dry run/i);
+  });
+
+  /*
+   * #704 (path 8 of the guard inventory): a hand-run data fix bypasses every application guard, so the one that edits a scholarship's PUBLIC text must carry the
+   * real result of the reviewer-commentary check in its RECORD, per phrase, before and after. The read-only query that produces those counts is generated from
+   * the same phrase list the approval guard uses (reviewerCommentaryCountsQuery); nobody retypes the list.
+   */
+  it.each(files)("%s: a fix that edits public scholarship text records the phrase-check counts, before and after", (f) => {
+    const sql = readFileSync(join(DIR, f), "utf8");
+    const apply = sql.split("do $apply$")[1]?.split("$apply$;")[0] ?? "";
+    const editsPublicText = /update public\.scholarships[\s\S]*?\bset\b[\s\S]*?\b(deadline_note|eligibility_[a-z_]+|provider|program_name|host_institution|field_tags|funding_covers|source_name)\s*=/i.test(apply);
+    if (!editsPublicText) return;
+    const record = sql.split("RECORD")[1] ?? "";
+    expect(record, "a RECORD section").toBeTruthy();
+    expect(record).toMatch(/Phrase check \(before → after\):/);
+    for (const phrase of REVIEWER_PHRASES) {
+      expect(record, `a count for "${phrase}"`).toMatch(new RegExp(`${phrase.replace(/[-_ ]/g, "[-_ ]")}\\s*:?\\s*\\d+\\s*→\\s*\\d+`, "i"));
+    }
+  });
+
+  it("the README tells the person doing a fix to run the generated query", () => {
+    expect(readFileSync(join(DIR, "README.md"), "utf8")).toMatch(/reviewerCommentaryCountsQuery/);
   });
 
   it("holds the 2026-10-02 scholarship close-times fix", () => {
