@@ -46,8 +46,11 @@ describe("0212 rollback", () => {
           expect(kp[j + 1]).toBe(fp[j]);
         }
       } else {
-        // patch_policy(table, name-like, from, to)
-        expect(k.lits).toEqual([f.lits[0], f.lits[1], f.lits[3], f.lits[2]]);
+        // patch_policy(table, name-like, from, to, marker): the undo swaps from and to, drops the marker (an undo has no "already applied" shortcut), and writes its
+        // anchor the way pg_policies DEPARSES the expression, which has no "public." schema prefix.
+        expect(f.lits).toHaveLength(5);
+        expect(k.lits).toEqual([f.lits[0], f.lits[1], f.lits[3].replace(/public\./g, ""), f.lits[2]]);
+        expect(f.lits[4]).toMatch(/is_active$/);
       }
     });
   });
@@ -55,6 +58,21 @@ describe("0212 rollback", () => {
   it("patches the live definitions the same way (it stops unless each anchor is found exactly once) and recreates no function from a literal", () => {
     expect(rollback).toMatch(/must be found exactly once/);
     expect(code(rollback)).not.toMatch(/create or replace function public\./);
+  });
+
+  it("an undo has no 'already applied' shortcut: every undo call says so, and its helper requires the anchor exactly once or stops", () => {
+    // Testing "is the replacement present" for an undo would skip it (the original text is a PART of what the patch left), and testing "is the anchor gone" would
+    // skip it silently when the stored text merely differs from the anchor. So an undo never skips: it matches or it fails loudly.
+    for (const text of [rollback, migration]) {
+      expect(text).toMatch(/p_undo boolean default false/);
+      expect(text).toMatch(/if p_undo or position\(p_pairs\[i \+ 1\] in v_new\) = 0 then/);
+      expect(text).toMatch(/p_skip_if text default null/);
+      expect(text).toMatch(/perform set_config\('search_path', 'public', true\)/);
+    }
+    const fnCalls = (t: string) => [...t.matchAll(/select pg_temp\.patch_fn\([\s\S]*?\n  \], (true|false)\);/g)].map((m) => m[1]);
+    expect(fnCalls(rollback)).toHaveLength(16);
+    expect(new Set(fnCalls(rollback))).toEqual(new Set(["true"]));
+    expect(new Set(fnCalls(migration))).toEqual(new Set(["false"]));
   });
 
   it("every patch comes BEFORE any drop, so nothing refers to the flag or a helper when it goes", () => {

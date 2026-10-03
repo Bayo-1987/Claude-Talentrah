@@ -26,7 +26,7 @@ one morning by two sessions that each did exactly that. Ask, wait for the number
 | 0208 | S1, `anonymous_demo_attempts` | applied 15:33Z | applied 15:40Z |
 | 0209 | S3-21, money tables survive user deletion | applied 15:22Z | applied 15:24Z |
 | 0210 | S3-21, `mentor_unpaid_hold` `search_path` pin (#672) | applied 16:04Z | applied 16:05Z |
-| 0211 | S3-21, definer and graphql hardening (local, opens after #671) | reserved | reserved |
+| 0211 | S3-21, definer and graphql hardening (#678) | applied 20:36Z | applied 20:37Z |
 | 0212 | S3-21, account deletion PR 1: request, emailed confirm link, hide at once (this PR) | not applied: waits for the owner's yes | not applied |
 | 0213 to 0214 | S3-21's later account-deletion PRs (export, purge) | reserved | reserved |
 

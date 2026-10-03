@@ -124,7 +124,7 @@ describe("0212: the numbers the owner decided", () => {
 
 /** Every `pg_temp.patch_fn(sig, array[anchor, replacement, ...])` call, as { sig, pairs }. */
 function patchCalls(text: string) {
-  return [...text.matchAll(/select pg_temp\.patch_fn\(\$(x+)\$([\s\S]*?)\$\1\$, array\[([\s\S]*?)\]\);/g)].map((m) => ({
+  return [...text.matchAll(/select pg_temp\.patch_fn\(\$(x+)\$([\s\S]*?)\$\1\$, array\[([\s\S]*?)\], (?:true|false)\);/g)].map((m) => ({
     sig: m[2],
     lits: [...m[3].matchAll(/\$(x+)\$([\s\S]*?)\$\1\$/g)].map((l) => l[2]),
   }));
