@@ -50,7 +50,7 @@ interface Opts {
 interface Core {
   rescoreStale(
     deps: {
-      listStaleRows(afterUserId: string | null): Promise<Array<{ userId: string; jobId: string }>>;
+      listStaleRows(afterUserId: string | null): Promise<Array<{ userId: string; jobId: string; score: number; explanation: unknown }>>;
       loadBaseResume(userId: string): Promise<StructuredResume | null>;
       loadPostings(ids: string[]): Promise<Posting[]>;
       persist(userId: string, scored: ScoredJobLike[]): Promise<{ ok: boolean; persisted: number }>;
@@ -87,7 +87,7 @@ function world(opts: {
       return [...store.values()]
         .filter((r) => !r.hasRoleFit && (afterUserId === null || r.userId > afterUserId))
         .sort((a, b) => (a.userId === b.userId ? a.jobId.localeCompare(b.jobId) : a.userId.localeCompare(b.userId)))
-        .map(({ userId, jobId }) => ({ userId, jobId }));
+        .map(({ userId, jobId }) => ({ userId, jobId, score: 90, explanation: { matchedSkills: ["a", "b", "c"], missingSkills: [], seniorityAlignment: "unknown" } }));
     },
     async loadBaseResume(userId: string) {
       calls.loadBaseResume.push(userId);
@@ -266,8 +266,8 @@ describe("a failed batch reports, never half-claims success", () => {
   });
 });
 
-describe("dry run only counts", () => {
-  it("reports what it would do and loads no postings, reads no resumes' postings and writes nothing", async () => {
+describe("dry run computes read-only and writes nothing", () => {
+  it("reports what it would do; it LOADS postings (read-only, to compute the shape) but writes nothing and rescores nothing", async () => {
     const { rescoreStale } = await load();
     const w = world({
       rows: [
@@ -285,8 +285,9 @@ describe("dry run only counts", () => {
     expect(s.rowsToRescore).toBe(2);
     expect(s.skippedNoBaseResume).toEqual([{ userId: "none", rows: 1 }]);
     expect(s.rowsRescored).toBe(0);
-    expect(w.calls.persist).toEqual([]);
-    expect(w.calls.loadPostings).toEqual([]);
+    expect(w.calls.persist, "a dry run writes nothing").toEqual([]);
+    // changed on purpose (S3-63 3c): the dry run now computes the shape, so it reads postings for users who have a resume, and ONLY those.
+    expect(w.calls.loadPostings.flat().sort()).toEqual(["j1", "j2"]);
   });
 });
 

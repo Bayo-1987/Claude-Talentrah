@@ -1,0 +1,118 @@
+name: Rescore stale match scores (manual)
+
+# The stale-only match-score rescore after A2 (src/app/api/admin/rescore-stale-match-scores/route.ts, docs in that file's header).
+#
+# MANUAL ONLY: workflow_dispatch, never a schedule or a push. It is run by hand, a DRY RUN first, and a WRITE run only after the owner has approved
+# the dry run's counts and shape. `dry_run` defaults to true, so starting this workflow without touching anything cannot write.
+#
+# NO NEW SECRET. It calls the route with CRON_SECRET, the repo secret the ingest workflow already uses; the route accepts it as a Bearer token
+# (constant-time comparison, same bare 401 for anything else). The secret is read into an environment variable on the step, never interpolated into
+# the script text, and there is no `set -x`, so it cannot reach a log line.
+#
+# THE LOG IS PUBLIC, so it carries counts only. The route's response has no user ids (users skipped for having no resume are `{ rows }`); its one
+# internal id, `nextCursor`, is kept in a shell variable and replaced with "<cursor>" in anything printed, and a UUID filter is a second line of
+# defence on every printed line.
+#
+# curl waits above the route's maxDuration (300 s) and NEVER retries: a timeout must not start a second write run. Writes loop with the cursor until
+# the route says `complete`, with a ceiling on the number of calls. Written rows are no longer stale, so if the ceiling is ever reached, running
+# the workflow again (no cursor) simply continues.
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run: compute the new scores and report the shape of the change, write nothing. Untick ONLY after the owner has approved the dry run."
+        type: boolean
+        default: true
+      verify:
+        description: "After a write run: recompute this many random rescored rows and compare them with what is stored (counts only). 0 = off. Ignores dry_run."
+        type: string
+        default: "0"
+      max_rows:
+        description: "Write runs: stale rows per call, whole users only (1 to 5000)."
+        type: string
+        default: "1000"
+      cursor:
+        description: "Optional: resume a write run after this user id (a previous run's nextCursor). Normally empty."
+        type: string
+        default: ""
+
+concurrency:
+  group: rescore-stale-match-scores
+  cancel-in-progress: false
+
+jobs:
+  rescore:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Call the production rescore endpoint
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          VERIFY: ${{ inputs.verify }}
+          MAX_ROWS: ${{ inputs.max_rows }}
+          CURSOR_IN: ${{ inputs.cursor }}
+        run: |
+          set -euo pipefail
+
+          url="https://www.talentrah.com/api/admin/rescore-stale-match-scores"
+          uuid_re='^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+
+          case "$VERIFY" in ''|*[!0-9]*) echo "::error::verify must be a whole number"; exit 1;; esac
+          case "$MAX_ROWS" in ''|*[!0-9]*) echo "::error::max_rows must be a whole number"; exit 1;; esac
+          if [ -n "$CURSOR_IN" ] && ! [[ "$CURSOR_IN" =~ $uuid_re ]]; then echo "::error::cursor must be a user id"; exit 1; fi
+
+          # POST $1 (a JSON body). Writes the response to /tmp/rescore-response.json and prints the HTTP status. NO retry: a timeout must never start
+          # a second write run. curl waits above the route's maxDuration (300 s).
+          call() {
+            local rc=0 status
+            status="$(curl -sS --max-time 330 -o /tmp/rescore-response.json -w "%{http_code}" -X POST \
+              -H "Authorization: Bearer $CRON_SECRET" -H "content-type: application/json" \
+              -d "$1" "$url")" || rc=$?
+            if [ "$rc" -ne 0 ]; then
+              echo "::error::rescore request failed or timed out (curl exit $rc) — the route may still have finished; run a dry run to see what is left." >&2
+              exit 1
+            fi
+            echo "$status"
+          }
+
+          # Print the route's counts only: the cursor never reaches the public log, and any id-shaped string is replaced.
+          show() {
+            jq -c '(.summary // .verify // .) | (if type == "object" and has("nextCursor") then .nextCursor |= (if . then "<cursor>" else . end) else . end)' /tmp/rescore-response.json \
+              | sed -E 's/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/<id>/g'
+          }
+
+          ok() { [ "$1" -ge 200 ] && [ "$1" -lt 300 ]; }
+
+          if [ "$VERIFY" -gt 0 ]; then
+            status="$(call "$(jq -cn --argjson n "$VERIFY" '{verify: $n}')")"
+            echo "HTTP status: $status (verify)"
+            show
+            ok "$status" || { echo "::error::verify answered HTTP $status"; exit 1; }
+            exit 0
+          fi
+
+          if [ "$DRY_RUN" = "true" ]; then
+            status="$(call '{}')"
+            echo "HTTP status: $status (DRY RUN: nothing was written)"
+            show
+            ok "$status" || { echo "::error::dry run answered HTTP $status"; exit 1; }
+            exit 0
+          fi
+
+          echo "WRITE RUN (the owner approved the dry run)"
+          cursor="$CURSOR_IN"
+          for i in $(seq 1 12); do
+            body="$(jq -cn --argjson max "$MAX_ROWS" --arg cursor "$cursor" '{write: true, maxRows: $max} + (if $cursor != "" then {cursor: $cursor} else {} end)')"
+            status="$(call "$body")"
+            echo "call $i: HTTP status $status"
+            show
+            ok "$status" || { echo "::error::rescore answered HTTP $status"; exit 1; }
+            if [ "$(jq -r '.summary.complete' /tmp/rescore-response.json)" = "true" ]; then
+              echo "complete: true after $i call(s)"
+              exit 0
+            fi
+            cursor="$(jq -r '.summary.nextCursor // ""' /tmp/rescore-response.json)"
+          done
+          echo "::error::not complete after 12 calls; run the workflow again (written rows are no longer stale, so it continues)."
+          exit 1

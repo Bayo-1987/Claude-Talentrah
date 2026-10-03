@@ -2,7 +2,16 @@ import "server-only";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { chunkInList } from "@/lib/supabase/in-list";
 import { persistScoresOrRetryStale } from "./refresh-job";
-import { rescoreStale, type PostingForScoring, type RescoreDeps, type RescoreOptions, type RescoreSummary } from "./rescore-stale";
+import {
+  rescoreStale,
+  verifyRescoredSample,
+  type PostingForScoring,
+  type RescoreDeps,
+  type RescoreOptions,
+  type RescoreSummary,
+  type VerifyDeps,
+  type VerifyResult,
+} from "./rescore-stale";
 import type { StructuredResume } from "@/lib/resume/types";
 
 /**
@@ -13,12 +22,12 @@ function realDeps(): RescoreDeps {
   const admin = createServiceRoleClient();
   return {
     async listStaleRows(afterUserId) {
-      const rows: Array<{ userId: string; jobId: string }> = [];
+      const rows: Array<{ userId: string; jobId: string; score: number; explanation: unknown }> = [];
       const PAGE = 1000;
       for (let from = 0; ; from += PAGE) {
         let q = admin
           .from("match_scores")
-          .select("user_id, job_posting_id")
+          .select("user_id, job_posting_id, score, explanation")
           // A stored explanation from before A2 has no roleFit key.
           .filter("explanation->roleFit", "is", null);
         if (afterUserId) q = q.gt("user_id", afterUserId);
@@ -27,7 +36,7 @@ function realDeps(): RescoreDeps {
           .order("job_posting_id")
           .range(from, from + PAGE - 1);
         if (error) throw new Error(`could not list stale rows: ${error.message}`);
-        for (const r of data ?? []) rows.push({ userId: r.user_id, jobId: r.job_posting_id });
+        for (const r of data ?? []) rows.push({ userId: r.user_id, jobId: r.job_posting_id, score: r.score, explanation: r.explanation });
         if (!data || data.length < PAGE) break;
       }
       return rows;
@@ -60,4 +69,50 @@ function realDeps(): RescoreDeps {
 
 export function runRescoreStaleJob(opts: RescoreOptions): Promise<RescoreSummary> {
   return rescoreStale(realDeps(), opts);
+}
+
+/** The read-only ports for the post-run verification: a random sample of rows that DO carry roleFit, recomputed and compared. */
+function realVerifyDeps(): VerifyDeps {
+  const admin = createServiceRoleClient();
+  const base = realDeps();
+  return {
+    async listRescoredRows() {
+      // Ids only (cheap); the random choice is made in memory by the pure function.
+      const rows: Array<{ userId: string; jobId: string }> = [];
+      const PAGE = 1000;
+      for (let from = 0; ; from += PAGE) {
+        const { data, error } = await admin
+          .from("match_scores")
+          .select("user_id, job_posting_id")
+          .not("explanation->roleFit", "is", null)
+          .order("user_id")
+          .order("job_posting_id")
+          .range(from, from + PAGE - 1);
+        if (error) throw new Error(`could not list rescored rows: ${error.message}`);
+        for (const r of data ?? []) rows.push({ userId: r.user_id, jobId: r.job_posting_id });
+        if (!data || data.length < PAGE) break;
+      }
+      return rows;
+    },
+    async loadRows(sample) {
+      const out: Array<{ userId: string; jobId: string; score: number; tier: string; explanation: unknown }> = [];
+      for (const { userId, jobId } of sample) {
+        const { data, error } = await admin
+          .from("match_scores")
+          .select("score, tier, explanation")
+          .eq("user_id", userId)
+          .eq("job_posting_id", jobId)
+          .maybeSingle();
+        if (error) throw new Error(`could not load a sampled row: ${error.message}`);
+        if (data) out.push({ userId, jobId, score: data.score, tier: data.tier, explanation: data.explanation });
+      }
+      return out;
+    },
+    loadBaseResume: base.loadBaseResume,
+    loadPostings: base.loadPostings,
+  };
+}
+
+export function runVerifyRescoredSample(n: number): Promise<VerifyResult> {
+  return verifyRescoredSample(realVerifyDeps(), n);
 }
