@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { authLinkWithReturn } from "@/lib/auth/redirect-to";
 import { buttonClasses } from "@/components/ui";
 
 const NAV_LINKS = [
@@ -33,7 +35,21 @@ const NAV_LINKS = [
  * disclosure is `min-[900px]:hidden`, so exactly one of the two renders at
  * any width, with no gap and no overlap.
  */
+const subscribeNothing = () => () => {};
+const readSearch = () => window.location.search;
+const readNoSearch = () => "";
+
 export function MarketingMasthead() {
+  /*
+   * "Log in" and "Get started for free" carry the page the visitor is on, so authentication brings them back to it (S1-50): they used to
+   * go to a bare /login and /signup, which dropped the destination at the first hop although everything downstream honours it. The path
+   * is known on the server; the query string is read from the address bar after hydration (the server snapshot is empty), so this adds
+   * no Suspense boundary to the static pages that render the masthead. The front door and the auth screens stay bare.
+   */
+  const pathname = usePathname() ?? "/";
+  const search = useSyncExternalStore(subscribeNothing, readSearch, readNoSearch);
+  const loginHref = authLinkWithReturn("/login", pathname, search);
+  const signupHref = authLinkWithReturn("/signup", pathname, search);
   const [navOpen, setNavOpen] = useState(false);
   const navRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -148,11 +164,11 @@ export function MarketingMasthead() {
         </div>
 
         <div className="flex items-center gap-4 max-sm:gap-2">
-          <Link href="/login" className={buttonClasses("ghost", "md", "whitespace-nowrap no-underline")}>
+          <Link href={loginHref} className={buttonClasses("ghost", "md", "whitespace-nowrap no-underline")}>
             Log in
           </Link>
           <Link
-            href="/signup"
+            href={signupHref}
             aria-label="Get started for free"
             className={buttonClasses(
               "primary",

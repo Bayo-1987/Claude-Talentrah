@@ -14,6 +14,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { startFakeGoTrue, type FakeGoTrue } from "../support/fake-gotrue";
+import { DEFAULT_AFTER_AUTH_PATH } from "@/lib/auth/redirect-to";
 
 const SESSION_COOKIE = "sb-127-auth-token";
 let fake: FakeGoTrue;
@@ -76,7 +77,7 @@ describe("`next` can only be a path on this site", () => {
     const res = await callback(`code=abc&next=${encodeURIComponent(next)}`, await verifierCookies());
     const location = new URL(res.headers.get("location")!);
     expect(location.origin, `redirected to ${location.href}`).toBe("http://localhost:3000");
-    expect(location.pathname).toBe("/dashboard");
+    expect(location.pathname).toBe(DEFAULT_AFTER_AUTH_PATH);
   });
 
   it("an ordinary same-site path is kept, with its query", async () => {

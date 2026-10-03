@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
-import { safeRedirectTo } from "@/lib/auth/redirect-to";
+import { DEFAULT_AFTER_AUTH_PATH, isEmployerPath, safeRedirectTo } from "@/lib/auth/redirect-to";
 import { EyebrowLabel } from "@/components/ui";
 import { ResumeUpload } from "@/components/onboarding/resume-upload";
 import { hasVisibleName, visibleName } from "@/lib/profile/name";
@@ -15,9 +15,19 @@ export default async function OnboardingPage({
   searchParams: Promise<{ next?: string }>;
 }) {
   const { next: rawNext } = await searchParams;
-  const next = safeRedirectTo(rawNext, "/jobs");
+  const next = safeRedirectTo(rawNext, DEFAULT_AFTER_AUTH_PATH);
 
   const { user, profile } = await requireUser();
+
+  /*
+   * AN EMPLOYER IS NOT SHOWN THE SEEKER'S RESUME UPLOAD. Someone who logs in from /employer, or signs up from the employer page
+   * (/employer/onboarding), is going to the employer side; the "upload your resume" prompt below is the job-seeker's first screen, and a
+   * company account with no resume and no recorded skip used to land on it before being passed on (S1-51). The rule is about where they
+   * are headed (any /employer path), not about their account, so it also covers the brand-new employer who has no organisation yet.
+   * A seeker who logs in from /employer still gets the employer side's own onboarding (/employer sends a user with no organisation to
+   * /employer/onboarding); only the seeker prompt is skipped.
+   */
+  if (isEmployerPath(next)) redirect(next);
 
   /*
    * ONBOARDING IS FOR PEOPLE WHO HAVE NOT ONBOARDED.
