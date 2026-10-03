@@ -2,6 +2,7 @@ import { test, expect, type Page } from "@playwright/test";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
 import type { Database } from "../src/lib/supabase/types";
+import { fakeSecret } from "../tests/support/fake-secret";
 
 /**
  * Server Actions enforce permissions themselves, not by inheriting the page's.
@@ -59,7 +60,7 @@ test.describe("Server Actions check their own permission", () => {
     if (pe) throw new Error(`fixture perms: ${pe.message}`);
 
     const email = `action-perm-${randomUUID()}@talentrah.test`;
-    const password = `E2E-${randomUUID()}Aa1!`;
+    const password = fakeSecret("password");
     const { data: u, error: ue } = await db!.auth.admin.createUser({ email, password, email_confirm: true });
     if (ue) throw new Error(`fixture user: ${ue.message}`);
     op = { id: u!.user.id, email, password };
@@ -79,7 +80,7 @@ test.describe("Server Actions check their own permission", () => {
 
     const { data: rep, error: rue } = await db!.auth.admin.createUser({
       email: `action-perm-reporter-${randomUUID()}@talentrah.test`,
-      password: `E2E-${randomUUID()}Aa1!`, email_confirm: true,
+      password: fakeSecret("password"), email_confirm: true,
     });
     if (rue) throw new Error(`fixture reporter: ${rue.message}`);
     reporterId = rep!.user.id;

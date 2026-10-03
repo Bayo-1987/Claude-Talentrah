@@ -21,6 +21,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { randomUUID } from "node:crypto";
 import { admin, createAuthedTestUser, deleteTestUsers } from "../support/auth";
 import type { Database } from "@/lib/supabase/types";
+import { fakeSecret } from "../support/fake-secret";
 
 type Perm = Database["public"]["Enums"]["admin_permission"];
 /*
@@ -85,7 +86,7 @@ beforeAll(async () => {
 
   const { data: rep, error: re } = await admin.auth.admin.createUser({
     email: `enf-reporter-${RUN_TAG}-${randomUUID()}@talentrah.test`,
-    password: `E2E-${randomUUID()}Aa1!`, email_confirm: true,
+    password: fakeSecret("password"), email_confirm: true,
   });
   if (re || !rep?.user) throw new Error(`fixture reporter: ${re?.message}`);
   reporterId = rep.user.id;

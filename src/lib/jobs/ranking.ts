@@ -23,7 +23,7 @@
  * the best match right now", which is a different question from "what's
  * newest", and the two tabs must keep answering different questions.
  */
-import { describeMatchConfidence, hasNoScreenableSkills, isThinScreenableTagSet } from "@/lib/match-tier";
+import { describeMatchConfidence, getDisplayMatchTier, hasNoScreenableSkills, isThinScreenableTagSet } from "@/lib/match-tier";
 import type { ScoredJob } from "@/lib/matching/compute-and-store";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -95,14 +95,17 @@ export function sortFeedResults(
 }
 
 /**
- * The feed's match ordering (S3-24): display band, then evidence, then the DISPLAYED score, then tag count.
+ * The feed's match ordering (S3-24, corrected by S3-51): displayed TIER, then evidence, then the DISPLAYED score, then tag count.
  *
  * It used to sort by the RAW score. A thin match (1-2 screenable tags) scores a raw 100 whenever the resume covers its
  * one or two generic tags and DISPLAYS as 79 because of the thin cap, but sorted by the 100, so eight of them floated
  * above the only well-evidenced jobs. "Thin" means less confident, so it must rank lower, not higher.
  *
- *   1. band by displayed score: Excellent (80+) < Good (60-79) < Fair (under 60) < unscreened (no tags) last;
- *   2. inside a band, well-evidenced (3+ screenable tags) before thin (1-2);
+ *   1. the tier the BADGE shows (`getDisplayMatchTier`, the one source of truth): Excellent (80+) < Good (70-79) < Fair (60-69)
+ *      < no tier (under 60) < unscreened (no tags) last. A higher tier never sorts below a lower one, whatever the evidence
+ *      or the freshness: the order must agree with the label the reader sees (S3-51: a 67% Fair with three tags sat above six
+ *      79% Good matches because this band used to be "60-79", which merged Fair into Good);
+ *   2. inside a tier, well-evidenced (3+ screenable tags) before thin (1-2);
  *   3. the displayed (capped) score, minus the Recommended freshness penalty;
  *   4. more screenable tags first, as the tie-break.
  */
@@ -116,7 +119,8 @@ interface RankFacts {
 function rankFacts(s: ScoredJob): RankFacts {
   const tags = s.explanation.matchedSkills.length + s.explanation.missingSkills.length;
   const display = describeMatchConfidence(s.score, s.explanation).displayScore;
-  const band = hasNoScreenableSkills(tags) ? 3 : display >= 80 ? 0 : display >= 60 ? 1 : 2;
+  const tier = getDisplayMatchTier(display);
+  const band = hasNoScreenableSkills(tags) ? 4 : tier === "excellent" ? 0 : tier === "good" ? 1 : tier === "fair" ? 2 : 3;
   return { band, thin: isThinScreenableTagSet(tags), tags, display };
 }
 

@@ -11,7 +11,6 @@
  * "Talentrah" Supabase project using a disposable test user, cleaned up
  * after each run.
  */
-import { randomBytes } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/types";
@@ -19,6 +18,7 @@ import { upsertBaseResume } from "@/lib/resume/upsert-base-resume";
 import { EMPTY_RESUME, type StructuredResume } from "@/lib/resume/types";
 import { findUserByEmail } from "../support/list-users";
 import { createAuthedTestUser, deleteTestUsers, type TestUser, type DB } from "../support/auth";
+import { fakeSecret } from "../support/fake-secret";
 
 const TEST_EMAIL = "vitest-upsert-base-resume@talentrah.dev";
 
@@ -55,7 +55,7 @@ beforeAll(async () => {
     // Random per run, not a literal: the account is deleted in afterAll, but
     // while a CI run is in flight it is a real account on the live project,
     // and this repo is public.
-    password: `vitest-${randomBytes(24).toString("base64url")}`,
+    password: fakeSecret("password"),
     email_confirm: true,
   });
   if (error || !data.user) throw error ?? new Error("Failed to create test user");

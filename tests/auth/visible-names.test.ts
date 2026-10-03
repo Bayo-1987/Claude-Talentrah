@@ -24,10 +24,10 @@
  * the client is separately granted permission to write.
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { randomUUID } from "node:crypto";
 import { admin, createAuthedTestUser, deleteTestUsers, type DB } from "../support/auth";
 import { hasVisibleName, normalizeName, visibleName } from "@/lib/profile/name";
 import { signUpSchema } from "@/lib/auth/schemas";
+import { fakeSecret } from "../support/fake-secret";
 
 const ZWSP = "​";
 const ZWNJ = "‌";
@@ -159,7 +159,7 @@ describe("the signup schema gives a readable error instead of a raw 23514", () =
    * Built to satisfy every rule in getPasswordRequirements (length >= 8, one
    * upper, one lower, one digit) without any of it being a guessable literal.
    */
-  const validPassword = `Aa1${randomUUID()}`;
+  const validPassword = fakeSecret("password");
   const base = {
     email: "someone@example.com",
     country: "Nigeria",
