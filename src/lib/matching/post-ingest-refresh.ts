@@ -3,7 +3,7 @@ import { REFRESH_MIN_USEFUL_MS, REFRESH_SELF_STOP_MS } from "./post-ingest-refre
 /**
  * The match-score refresh at the END of the ingest route (owner's decision, 2026-10-03, "option b").
  *
- * WHY. Ingest changes postings about eight times a day (GitHub Actions every 3 hours plus the daily Vercel cron). A new posting has no
+ * WHY. Ingest changes postings several times a day: the GitHub Actions workflow is scheduled every 3 hours but GitHub delays and drops scheduled runs (in practice 4 to 5 runs a day at irregular gaps of 4 to 8 hours), and the Vercel daily cron (05:00 to 05:59 UTC) is the only guaranteed run. A new posting has no
  * stored score, and a posting whose `structured_jd` or `seniority` changed LOSES every user's score (trigger 0069), while the refresh ran once
  * a day, so for hours every reader of stored `match_scores` (the weekly digest, the Auto-Apply review page, employer ranking) saw those
  * postings as unscored and skipped them. On 3 Oct that was 205 of 372 postings. The refresh job is already gap-driven (it scores exactly the

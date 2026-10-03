@@ -1,7 +1,7 @@
 /**
- * The match-score refresh now runs after EVERY ingest run (about eight a day), so it must stay free: scoring is a pure function, no LLM, no
+ * The match-score refresh now runs after EVERY ingest run (4 to 5 a day in practice), so it must stay free: scoring is a pure function, no LLM, no
  * embedding, no paid API. This pins that on the files the refresh executes, so a future "improvement" that adds a model call to scoring fails
- * here instead of showing up on the bill eight times a day.
+ * here instead of showing up on the bill several times a day.
  */
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";

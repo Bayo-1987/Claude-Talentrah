@@ -1,7 +1,7 @@
 /**
  * The per-user loop of the match-score refresh, as a pure function over injected ports (so it is tested without a database).
  *
- * WHY IT EXISTS (post-ingest refresh): ingest changes postings several times a day (GitHub Actions every 3 hours plus the daily Vercel cron),
+ * WHY IT EXISTS (post-ingest refresh): ingest changes postings several times a day (the GitHub Actions workflow, scheduled every 3 hours but in practice 4 to 5 irregular runs a day, plus the guaranteed Vercel daily cron),
  * a new posting has no stored score, and a posting whose JD or seniority changes LOSES every user's score (trigger 0069), while the refresh
  * used to run once a day. Every reader of stored `match_scores` (the weekly digest, the Auto-Apply queue page, employer ranking) skips an
  * unscored posting. The refresh now also runs at the end of the ingest route, inside a time budget, so the loop must be:
