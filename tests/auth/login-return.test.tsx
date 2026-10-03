@@ -33,11 +33,25 @@ describe("returnPathFor: the page to come back to", () => {
     ["/jobs/remote", "?workType=remote", "/jobs/remote?workType=remote"],
     ["/jobs/33e65dd6-68ad-4997-acc9-c8e298e1a007", "", "/jobs/33e65dd6-68ad-4997-acc9-c8e298e1a007"],
     ["/employer", "", "/employer"],
-    ["/ai-resume-tailoring", "", "/ai-resume-tailoring"],
-    ["/how-auto-apply-works", "", "/how-auto-apply-works"],
     ["/jobs", "?q=a&b=c", "/jobs?q=a&b=c"],
   ])("%s%s -> %s", (pathname, search, expected) => {
     expect(returnPathFor(pathname, search)).toBe(expected);
+  });
+
+  it.each([
+    ["/ai-resume-builder", "/resume-builder"],
+    ["/ai-resume-tailoring", "/tailor"],
+    ["/ats-resume-checker", "/tailor"],
+    ["/how-auto-apply-works", "/auto-apply"],
+  ])("the marketing page %s returns the visitor to the feature it describes: %s", (page, feature) => {
+    expect(returnPathFor(page, "")).toBe(feature);
+    expect(returnPathFor(page, "?utm_source=x"), "the marketing page's own query is not carried onto the feature").toBe(feature);
+  });
+
+  it("a page not in the table returns to itself, including near-misses of the mapped ones", () => {
+    for (const page of ["/ai-resume-builder/extra", "/ai-resume-tailoringx", "/blog/ai-resume-builder", "/how-match-scores-work", "/about", "/vs/jobright", "/resume-builder", "/tailor"]) {
+      expect(returnPathFor(page, ""), page).toBe(page);
+    }
   });
 
   it.each(["/", "/login", "/signup", "/signup/check-email", "/forgot-password", "/forgot-password/check-email", "/reset-password", "/onboarding", "/auth/callback", "/admin/login", "/api/x", "/unsubscribe", "/extend-posting/abc"])(
@@ -87,10 +101,16 @@ describe("the public masthead's links", () => {
     signup: /<a href="([^"]*)"[^>]*aria-label="Get started for free"/.exec(html)?.[1],
   });
 
-  it.each(["/mentorship", "/scholarships", "/tracker", "/employer", "/ai-resume-tailoring", "/how-auto-apply-works", "/jobs"])("on %s both links carry that page as redirectTo", async (pathname) => {
+  it.each(["/mentorship", "/scholarships", "/tracker", "/employer", "/jobs"])("on %s both links carry that page as redirectTo", async (pathname) => {
     const h = hrefs(await render(pathname));
     expect(h.login).toBe(`/login?redirectTo=${encodeURIComponent(pathname)}`);
     expect(h.signup).toBe(`/signup?redirectTo=${encodeURIComponent(pathname)}`);
+  });
+
+  it.each([["/ai-resume-builder", "/resume-builder"], ["/ai-resume-tailoring", "/tailor"], ["/ats-resume-checker", "/tailor"], ["/how-auto-apply-works", "/auto-apply"]])("on the marketing page %s both links carry the feature, %s", async (pathname, feature) => {
+    const h = hrefs(await render(pathname));
+    expect(h.login).toBe(`/login?redirectTo=${encodeURIComponent(feature)}`);
+    expect(h.signup).toBe(`/signup?redirectTo=${encodeURIComponent(feature)}`);
   });
 
   it.each(["/", "/login", "/signup"])("on %s they stay bare", async (pathname) => {
@@ -152,6 +172,30 @@ describe("the actions: OAuth and email signup stash the destination", () => {
     expect(jar.set.mock.calls[0][2]).toMatchObject({ httpOnly: true, sameSite: "lax", path: "/auth" });
   });
 
+  it("the cookie lives ten minutes at most, is HttpOnly, SameSite=Lax (it must still arrive on the provider's top-level redirect back) and scoped to /auth", async () => {
+    await run(oauthForm("google", "/mentorship"));
+    const options = jar.set.mock.calls[0][2];
+    expect(options.maxAge).toBeGreaterThan(0);
+    expect(options.maxAge).toBeLessThanOrEqual(600);
+    expect(options).toMatchObject({ httpOnly: true, sameSite: "lax", path: "/auth" });
+    expect(options.secure, "not Secure outside production, or plain-HTTP dev and CI would drop it").toBe(false);
+  });
+
+  it("the cookie is Secure in production", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    try {
+      await run(oauthForm("linkedin_oidc", "/scholarships"));
+      expect(jar.set.mock.calls[0][2].secure).toBe(true);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it("it holds only the path, nothing else", async () => {
+    await run(oauthForm("google", "/jobs/remote?workType=remote"));
+    expect(jar.set.mock.calls[0][1]).toBe("/jobs/remote?workType=remote");
+  });
+
   it.each(["google", "linkedin_oidc"])("%s with no destination: no cookie, and any stale one is removed", async (provider) => {
     await run(oauthForm(provider));
     expect(jar.set).not.toHaveBeenCalled();
@@ -208,6 +252,14 @@ describe("/auth/callback brings the visitor back", () => {
 
   it("with no next at all it goes to /jobs (the one default), not /dashboard", async () => {
     expect(where(await callback("code=abc"))).toBe("/jobs");
+  });
+
+  it("a failed exchange clears the stashed destination too, so it never follows a later sign-in", async () => {
+    // no PKCE verifier cookie: the exchange cannot succeed
+    const { GET } = await import("@/app/auth/callback/route");
+    const failed = await GET(new NextRequest("http://localhost:3000/auth/callback?code=abc&next=/onboarding", { headers: { cookie: `${POST_AUTH_COOKIE}=%2Fmentorship` } }));
+    expect(where(failed)).toBe("/login?error=auth_callback_failed");
+    expect(failed.headers.getSetCookie().some((c) => c.startsWith(`${POST_AUTH_COOKIE}=`) && /max-age=0/i.test(c))).toBe(true);
   });
 
   it("the password-reset hop is not hijacked by a stashed destination", async () => {

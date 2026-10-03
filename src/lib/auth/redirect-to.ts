@@ -104,11 +104,29 @@ const NO_RETURN_EXACT = new Set(["/", "/login", "/signup", "/forgot-password", "
 const NO_RETURN_PREFIXES = ["/login/", "/signup/", "/forgot-password/", "/reset-password/", "/onboarding/", "/auth/", "/admin", "/api/", "/extend-posting/"];
 
 /**
+ * Marketing pages and the signed-in feature each one sells. A person who logs in from /ai-resume-tailoring wants to tailor a resume, so they
+ * are returned to /tailor, not to the explainer. Every such destination is reached through /onboarding like any other, so a user with no
+ * resume sees the resume prompt first and then arrives at the feature: /tailor then asks for a base resume itself if they skipped it,
+ * /resume-builder offers its own first-resume panel, and /auto-apply opens its (empty) review queue with its off-state notice. An exact-match
+ * table: any page not listed returns to itself.
+ */
+export const FEATURE_FOR_MARKETING_PAGE: Readonly<Record<string, string>> = {
+  "/ai-resume-builder": "/resume-builder",
+  "/ai-resume-tailoring": "/tailor",
+  "/ats-resume-checker": "/tailor",
+  "/how-auto-apply-works": "/auto-apply",
+};
+
+/**
  * The page a visitor was on, as a value fit for `redirectTo`, or "" when there is nothing to come back to (the default then applies).
  * `search` may be given with or without its "?". The result always goes through safeRedirectTo: same-site relative paths only.
  */
 export function returnPathFor(pathname: string, search = ""): string {
   if (NO_RETURN_EXACT.has(pathname) || NO_RETURN_PREFIXES.some((p) => pathname.startsWith(p))) return "";
+  // A marketing page that describes a feature returns the visitor to the feature itself, not to the page that sells it. The page's own
+  // query string (utm tags and the like) is not carried onto the feature.
+  const feature = FEATURE_FOR_MARKETING_PAGE[pathname];
+  if (feature) return feature;
   const query = search && !search.startsWith("?") ? `?${search}` : search;
   return safeRedirectTo(`${pathname}${query === "?" ? "" : query}`, "");
 }
