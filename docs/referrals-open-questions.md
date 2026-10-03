@@ -1,6 +1,6 @@
 # Refer & Earn — open questions for the founder
 
-Three things the reward system currently does that are *decisions*, not bugs.
+Three things the reward system did that were *decisions*, not bugs. **#1 and #2 were decided on 2026-10-02 (below); #3 is still open.**
 Each is pinned by a test asserting today's behaviour, so nothing changes by
 accident — but each is a call about referral economics or trust that belongs to
 whoever owns build-prompt open item #4 (exact referral reward trigger/value),
@@ -19,7 +19,16 @@ of the three open questions.
 
 ---
 
-## 1. A capped-out reward is silent, and permanent
+## 1. A capped-out reward is silent, and permanent — RESOLVED 2026-10-02: keep the cap, say it plainly everywhere
+
+**Decision (owner, 2026-10-02).** The cap stays: **10 rewarded referrals per referrer in any rolling 30 days** (the unit is referrals, not credits, and the window rolls; it is
+not a calendar month). It is now stated, with its real unit, on the public `/refer` page and on the signed-in `/refer` ("Up to 10 rewarded referrals in any 30 days."), and
+`/refer` tells a referrer who has reached it what the limit is, that referrals which activate while they are at it still count on the leaderboard (they do: it counts activated
+referrals whether or not they were paid), and when it clears. **No referral ever silently goes unpaid without the referrer being able to see why:** since 0215 a referral is paid
+the whole reward at activation or not at all, so an activated referral whose paid amount is below the full reward can only have been withheld by the limit, and `/refer` says so on
+that row (derived from the stored amount; no new column, no retry sweep, no payout change). Pinned by `tests/referrals/referrals.test.ts` and `tests/referrals/referral-copy.test.ts`.
+
+*The original write-up follows as the historical record the decision was made against.*
 
 **What happens today.** The cap is 10 rewarded referrals per referrer per
 rolling 30 days. When it's hit, `grant_referral_reward` simply returns — no
@@ -42,20 +51,18 @@ but underpaid, with no explanation anywhere in the product. That reads as the
 product being broken or dishonest, which is expensive for exactly the users who
 are promoting it hardest.
 
-**The decision.** Three defensible options, none of them free:
-
-| Option | Cost |
-|---|---|
-| **Retry when the window clears** — a scheduled sweep re-attempts activation bonuses for referrals capped in the last N days | Needs a job and a "capped" marker; changes payout economics (the cap becomes a rate limit, not a ceiling) |
-| **Show it distinctly** — a "monthly limit reached" state on the refer page, no payout change | Cheapest. Honest, but tells the user they hit a limit they were never shown up front |
-| **Leave it** | Free today, and the support burden lands whenever someone actually refers 11 people |
-
-Nothing in the code assumes one of these. `tests/referrals/referrals.test.ts`
-pins the current behaviour so a change is deliberate.
-
 ---
 
-## 2. The signup bonus needs no activation at all
+## 2. The signup bonus needs no activation at all — RESOLVED 2026-10-02: reward on activation only (0215)
+
+**Decision (owner, 2026-10-02).** A friend merely signing up pays **nothing**; **activation pays the whole reward**, and the total per activated referral is unchanged (50 credits,
+which used to be 10 at signup + 40 at activation), so an honest referrer is no worse off. Referrals that signed up before 0215 had already been paid their 10-credit signup half;
+at activation they receive only the remainder (40), so every referral ends at the same total: **no double payment, no clawback**, and credits already earned stay as they are.
+"Activated" keeps its existing definition (a base resume saved, or an application sent), now described in plain words on both pages. Self-referral detection (0036) is unchanged.
+Migration `0215_referral_reward_on_activation.sql` (also makes the activation claim atomic); the reward notification and email wording were updated to match
+(send-462). The 50 is `REFERRAL_REWARD_CREDITS` in `src/lib/referrals/rewards.ts`, and the DB-backed tests read the amount the live trigger really grants and compare it.
+
+*The original write-up follows as the historical record the decision was made against.*
 
 5 credits are granted the moment a referred account exists, with a resolved,
 non-self referral code. No email confirmation is enforced at that point, no

@@ -17,7 +17,7 @@ import { STATIC_PATHS } from "@/app/sitemap";
 describe("sitemap STATIC_PATHS", () => {
   it("includes every hand-authored public page currently known to be live", () => {
     const paths = STATIC_PATHS.map((p) => p.path);
-    for (const expected of ["/", "/about", "/contact", "/blog", "/mentorship", "/scholarships", "/jobs", "/tracker", "/scholarships/apply-now", "/legal/privacy", "/legal/terms", "/legal/data-cookie-notice"]) {
+    for (const expected of ["/", "/about", "/contact", "/blog", "/mentorship", "/scholarships", "/jobs", "/tracker", "/refer", "/scholarships/apply-now", "/legal/privacy", "/legal/terms", "/legal/data-cookie-notice"]) {
       expect(paths, `missing ${expected}`).toContain(expected);
     }
   });

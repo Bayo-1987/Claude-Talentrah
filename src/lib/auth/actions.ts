@@ -426,6 +426,14 @@ export async function updatePasswordAction(
   }
 
   /*
+   * A new password ends the user's OTHER sessions and keeps this one (S1-44). Supabase does not do this on its own: a stolen or forgotten
+   * session on another device would otherwise outlive the very reset meant to lock it out. Best effort: the password is already changed,
+   * so a failure here is logged and does not block or undo it.
+   */
+  const { error: othersError } = await supabase.auth.signOut({ scope: "others" });
+  if (othersError) console.error("[password-reset] could not end the other sessions:", othersError.message);
+
+  /*
    * AN OPERATOR LANDS AT THE ADMIN DOOR, not the job feed.
    *
    * This flow is the same one for everybody — deliberately, because a reset
@@ -486,9 +494,24 @@ export async function updatePasswordAction(
   redirect(operator ? "/admin/login" : onboardingDestination());
 }
 
+/**
+ * The header's "Sign out": THIS device only. `signOut()` with no argument is `scope: "global"`, which deletes every session the user has
+ * on every device and tab; signing out on a laptop then signed the phone out too, and the phone's next navigation failed with
+ * `refresh_token_not_found` (S1-44; production logs 2026-10-02). Signing out everywhere is its own explicit action below.
+ */
 export async function signOutAction() {
   const supabase = await createClient();
-  await supabase.auth.signOut();
+  await supabase.auth.signOut({ scope: "local" });
+  redirect("/login");
+}
+
+/**
+ * Settings, "Sign out of all devices": every session, this one included, on purpose. The Settings page asks for a confirmation that
+ * says exactly that before it submits here.
+ */
+export async function signOutEverywhereAction() {
+  const supabase = await createClient();
+  await supabase.auth.signOut({ scope: "global" });
   redirect("/login");
 }
 

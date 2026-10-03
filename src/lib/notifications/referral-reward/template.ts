@@ -15,13 +15,10 @@ import { emailButton, emailParagraph, escEmail, renderBrandedEmail } from "@/lib
  *
  * ── WHY TWO COPY VARIANTS, NOT ONE GENERIC "YOU EARNED CREDITS" LINE ───────
  *
- * Signup and activation are different strengths of signal for the referrer.
- * A signup only proves someone clicked the link and made an account — real,
- * but early. Activation (their first tailored resume) is the concrete,
- * "they're actually using it" moment build-prompt §6.9 treats as the
- * programme's real prize (see src/lib/referrals/rewards.ts's own
- * REFERRAL_ACTIVATION_BONUS_CREDITS header). The copy leans into that
- * difference rather than treating both as the same generic event.
+ * Since 0215 only ACTIVATION pays, and the activation email carries the whole reward (REFERRAL_REWARD_CREDITS). "Activated" means the
+ * friend saved a resume or applied to a job (check_and_activate_referral), so the moment line says they got set up: it used to say "first
+ * tailored resume", which is not what the database checks. The "signup" variant survives only for reward events written before 0215,
+ * which the sender can still notify.
  *
  * ── PLAIN TEXT AND HTML BOTH, SAME AS THE DIGEST ────────────────────────────
  *
@@ -33,12 +30,11 @@ import { emailButton, emailParagraph, escEmail, renderBrandedEmail } from "@/lib
  *
  * `creditsGranted` is passed in by the caller (send.ts), read straight off
  * `referral_reward_events.credits_granted` — the actual amount
- * `grant_referral_reward` granted, not a re-derivation of
- * REFERRAL_SIGNUP_BONUS_CREDITS/REFERRAL_ACTIVATION_BONUS_CREDITS here. Those
- * constants exist to keep the TRIGGER's hard-coded literal honest against a
+ * `grant_referral_reward` granted (the remainder, for a referral that was
+ * part-paid before 0215), not a re-derivation of REFERRAL_REWARD_CREDITS here.
+ * That constant exists to keep the TRIGGER's hard-coded literal honest against a
  * future repricing (rewards.ts's own header); this template has no reason to
- * duplicate that number a third time when the event row already has the real
- * one.
+ * duplicate that number when the event row already has the real one.
  */
 
 export interface ReferralRewardEmailParams {
@@ -69,7 +65,7 @@ function momentLine(referredFirstName: string | null, reason: "signup" | "activa
   const name = referredName(referredFirstName);
   return reason === "signup"
     ? `${name} just signed up through your link`
-    : `${name} just got their first tailored resume`;
+    : `${name} just got set up on Talentrah`;
 }
 
 export function buildReferralRewardEmail(params: ReferralRewardEmailParams): ReferralRewardEmail {
