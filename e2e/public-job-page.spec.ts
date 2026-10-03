@@ -108,7 +108,7 @@ test("signed IN: the real controls are back and nothing regressed", async ({ pag
 
 test("other app routes still require a session, and /jobs and /tracker no longer do (send-484)", async ({ page }) => {
   // The layout gate was relaxed; each page's own requireUser must still hold.
-  for (const path of ["/refer", "/settings", "/billing", "/auto-apply"]) {
+  for (const path of ["/refer/anything", "/settings", "/billing", "/auto-apply"]) {
     await page.goto(path);
     expect(page.url(), `${path} did not redirect a signed-out visitor`).toContain("/login");
   }

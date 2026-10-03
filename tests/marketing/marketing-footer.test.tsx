@@ -38,6 +38,9 @@
  * stays gated, so "Refer & Earn" links to /signup?redirectTo=%2Frefer instead: a signed-out
  * visitor gets the signup form, and a signed-in one lands on /refer after it. That href
  * contains a `?`, which broke this file's own matcher (see footerAnchor below).
+ *
+ * Refer & Earn (send-515) — /refer is a public landing page now, so "Refer & Earn" points straight at /refer again (the
+ * send-484 detour through signup is gone). The escaped matcher stays: it is still the one that handles an href with a `?`.
  */
 import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -57,7 +60,7 @@ const PRODUCT_LINKS: Record<string, string> = {
   "ATS Resume Checker": "/ats-resume-checker",
   "Job Tracker": "/tracker",
   Scholarships: "/scholarships",
-  "Refer &amp; Earn": "/signup?redirectTo=%2Frefer",
+  "Refer &amp; Earn": "/refer",
   Mentorship: "/mentorship",
   "Auto-Apply": "/how-auto-apply-works",
 };
@@ -71,19 +74,19 @@ describe("the footer's Product column", () => {
     }
   });
 
-  it("finds an href that contains a `?` (send-484: Refer & Earn -> /signup?redirectTo=%2Frefer)", () => {
-    expect(html).toMatch(footerAnchor("/signup?redirectTo=%2Frefer", "Refer &amp; Earn"));
-    // Control: the matcher this file used before — the href spliced in raw — treats the `?` as a
-    // quantifier and cannot find that anchor, which is exactly why the escape exists.
-    expect(html).not.toMatch(new RegExp(`<a href="/signup?redirectTo=%2Frefer"[^>]*>Refer &amp; Earn<`));
-    // And the escaped matcher is not vacuous: it rejects a wrong target.
-    expect(html).not.toMatch(footerAnchor("/refer", "Refer &amp; Earn"));
+  it("the escaped matcher still finds an href that contains a `?`, and is not vacuous (a control, not Refer & Earn any more)", () => {
+    const withQuery = '<a href="/signup?redirectTo=%2Frefer" class="x">Refer &amp; Earn</a>';
+    expect(withQuery).toMatch(footerAnchor("/signup?redirectTo=%2Frefer", "Refer &amp; Earn"));
+    // The matcher this file used before: the href spliced in raw treats the `?` as a quantifier and cannot find that anchor.
+    expect(withQuery).not.toMatch(new RegExp(`<a href="/signup?redirectTo=%2Frefer"[^>]*>Refer &amp; Earn<`));
+    expect(withQuery).not.toMatch(footerAnchor("/refer", "Refer &amp; Earn"));
   });
 
-  it("send-484: sends Refer & Earn through signup, not straight at the gated /refer", () => {
-    expect(html).not.toMatch(footerAnchor("/refer", "Refer &amp; Earn"));
-    expect(isProtectedSeekerPath("/refer"), "control: /refer stays gated").toBe(true);
-    expect(isProtectedSeekerPath("/signup")).toBe(false);
+  it("Refer & Earn (send-515): links straight to /refer, which is a public page the gate no longer redirects", () => {
+    expect(html).toMatch(footerAnchor("/refer", "Refer &amp; Earn"));
+    expect(html).not.toMatch(footerAnchor("/signup?redirectTo=%2Frefer", "Refer &amp; Earn"));
+    expect(isProtectedSeekerPath("/refer"), "the bare /refer is public").toBe(false);
+    expect(isProtectedSeekerPath("/billing"), "control: the gate still gates").toBe(true);
   });
 
   it("send-484: Job Matching and Job Tracker point at paths the gate no longer redirects", () => {
@@ -136,7 +139,7 @@ describe("the footer's Scholarships link (send-474, revised by send-480)", () =>
   it("targets a path the seeker-app gate does NOT redirect signed-out visitors away from", () => {
     // Controls: these stay gated, so the check demonstrably can fail.
     expect(isProtectedSeekerPath("/billing")).toBe(true);
-    expect(isProtectedSeekerPath("/refer")).toBe(true);
+    expect(isProtectedSeekerPath("/refer/anything")).toBe(true);
     expect(isProtectedSeekerPath(match![1])).toBe(false);
   });
 
@@ -221,7 +224,9 @@ function footerColumns(html: string) {
  * never re-baselined.
  */
 const REPOINTED_SINCE: Record<string, string> = {
-  "Refer & Earn": "/signup?redirectTo=%2Frefer",
+  // send-484 sent it through /signup?redirectTo=%2Frefer while /refer was login-gated; send-515 made /refer a public page and points
+  // it straight at /refer again (the snapshot's own href). Recorded here so the round trip is on the page, not only in git history.
+  "Refer & Earn": "/refer",
   "Resume Builder": "/ai-resume-builder",
 };
 

@@ -90,6 +90,11 @@ export const STATIC_PATHS: { path: string; priority: number; changeFrequency: Me
   { path: "/jobs", priority: 0.8, changeFrequency: "daily" },
   { path: "/tracker", priority: 0.5, changeFrequency: "monthly" },
   /*
+   * Refer & Earn (send-515) — /refer renders a real signed-out landing page, so it belongs here by this file's own rule. STATIC: the page
+   * always answers 200 and is hand-authored copy built from constants, so a live-count check would be wrong.
+   */
+  { path: "/refer", priority: 0.5, changeFrequency: "monthly" },
+  /*
    * send-386 — two standalone, hand-authored SEO landing pages (not
    * programmatic — no live count to go stale, so static like /about rather
    * than one of the DB-backed blocks below).
