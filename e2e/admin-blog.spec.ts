@@ -21,6 +21,7 @@ import { runCleanups, mustDelete } from "../tests/support/teardown";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
 import type { Database } from "@/lib/supabase/types";
+import { fakeSecret } from "../tests/support/fake-secret";
 
 const URL_ = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -70,7 +71,7 @@ async function makeOperator(): Promise<Fixture> {
   if (permError) throw new Error(`fixture permission: ${permError.message}`);
 
   const email = `e2e-blog-admin-${randomUUID()}@talentrah.test`;
-  const password = `E2E-${randomUUID()}Aa1!`;
+  const password = fakeSecret("password");
   const { data, error } = await db!.auth.admin.createUser({ email, password, email_confirm: true });
   if (error) throw new Error(`fixture user: ${error.message}`);
   const { error: rowError } = await db!

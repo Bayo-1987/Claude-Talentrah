@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import type { Database } from "../src/lib/supabase/types";
 import { randomUUID } from "node:crypto";
 import { acquireOperatorsLock } from "../tests/support/operators-lock";
+import { fakeSecret } from "../tests/support/fake-secret";
 
 /**
  * Reporting a posting, from the card to the operator's queue.
@@ -264,7 +265,7 @@ test.describe("reporting a posting", () => {
        */
       const tag = randomUUID().slice(0, 8);
       const email = `rjp-op-${tag}@talentrah.test`;
-      const password = `E2E-${randomUUID()}Aa1!`;
+      const password = fakeSecret("password");
 
       /*
        * ITS OWN REPORTERS, not two borrowed profiles.
@@ -286,7 +287,7 @@ test.describe("reporting a posting", () => {
       for (const which of ["a", "b"]) {
         const { data: r, error: rErr } = await admin.auth.admin.createUser({
           email: `rjp-reporter-${which}-${tag}@talentrah.test`,
-          password: `E2E-${randomUUID()}Aa1!`,
+          password: fakeSecret("password"),
           email_confirm: true,
         });
         if (rErr) throw new Error(`fixture reporter ${which}: ${rErr.message}`);

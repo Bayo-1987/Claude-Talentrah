@@ -3,6 +3,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
 import type { Database } from "../src/lib/supabase/types";
 import { acquireOperatorsLock } from "../tests/support/operators-lock";
+import { fakeSecret } from "../tests/support/fake-secret";
 
 /**
  * Per-area permission enforcement, driven by the URL.
@@ -66,7 +67,7 @@ async function makeRole(label: string, perms: Perm[]): Promise<string> {
 
 async function makeOperator(label: string, roleId: string): Promise<Op> {
   const email = `e2e-perm-${label}-${randomUUID()}@talentrah.test`;
-  const password = `E2E-${randomUUID()}Aa1!`;
+  const password = fakeSecret("password");
   const { data, error } = await db!.auth.admin.createUser({ email, password, email_confirm: true });
   if (error) throw new Error(`fixture user: ${error.message}`);
   const { error: rowError } = await db!
