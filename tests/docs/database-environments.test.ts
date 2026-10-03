@@ -50,4 +50,10 @@ describe("docs/database-environments.md", () => {
     expect(readme).toMatch(/production ledger.*source of truth/i);
     expect(readme, "the stale applied-migrations table is back").not.toMatch(/^\| Migration \| Status \|/m);
   });
+  it("records where rollbacks live, and that nothing reading migrations may see them", () => {
+    const text = body();
+    expect(text).toMatch(/^## 4a\. Rollbacks live in `supabase\/rollbacks\/`/m);
+    expect(text).toMatch(/not a migration/i);
+    expect(text).toMatch(/tests\/scripts\/rollbacks-directory\.test\.ts/);
+  });
 });
