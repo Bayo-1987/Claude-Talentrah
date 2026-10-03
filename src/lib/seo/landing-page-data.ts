@@ -299,7 +299,7 @@ export async function loadScholarshipsByLevel(
  * sees a pending row through this function. NOT cached, per this file's own rule above.
  */
 const LANDING_PREVIEW_COLUMNS =
-  "id, provider, program_name, host_institution, degree_levels, funding_type, application_deadline, close_time, close_tz, deadline_note, official_url";
+  "id, provider, program_name, host_institution, degree_levels, funding_type, application_deadline, close_time, close_tz, deadline_note, deadline_verified_at, official_url";
 
 export type OpenScholarshipPreview = Pick<
   Tables<"scholarships">,
@@ -313,6 +313,7 @@ export type OpenScholarshipPreview = Pick<
   | "close_time"
   | "close_tz"
   | "deadline_note"
+  | "deadline_verified_at"
   | "official_url"
 >;
 
