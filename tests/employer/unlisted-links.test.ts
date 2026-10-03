@@ -21,6 +21,7 @@ import type { Database } from "@/lib/supabase/types";
 import { createAuthedTestUser, sessionFor, deleteTestUsers, type DB } from "../support/auth";
 import { getJobShareVisibility, canMintUnlistedLink } from "@/lib/employer/job-visibility";
 import { RATE_LIMITS } from "@/lib/api/rate-limit";
+import { fakeSecret } from "../support/fake-secret";
 
 const admin = createClient<Database>(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -76,7 +77,7 @@ beforeAll(async () => {
   // profile another suite owns and may delete mid-run.
   const { data: u, error: ue } = await admin.auth.admin.createUser({
     email: `unlisted-owner-${tag}@talentrah.test`,
-    password: `Unlisted-${randomUUID()}Aa1!`,
+    password: fakeSecret("password"),
     email_confirm: true,
   });
   if (ue || !u) throw new Error(`fixture user: ${ue?.message}`);

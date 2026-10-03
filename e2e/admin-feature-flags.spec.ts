@@ -2,6 +2,7 @@ import { test, expect, type Page } from "@playwright/test";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
 import type { Database } from "../src/lib/supabase/types";
+import { fakeSecret } from "../tests/support/fake-secret";
 
 /**
  * /admin/feature-flags across the layers only a browser reaches: the nav, the
@@ -40,7 +41,7 @@ async function makeOperator(label: string, perms: Database["public"]["Enums"]["a
     if (pe) throw new Error(`fixture perms: ${pe.message}`);
   }
   const email = `ff-e2e-${label}-${randomUUID()}@talentrah.test`;
-  const password = `E2E-${randomUUID()}Aa1!`;
+  const password = fakeSecret("password");
   const { data: u, error: ue } = await db!.auth.admin.createUser({ email, password, email_confirm: true });
   if (ue) throw new Error(`fixture user: ${ue.message}`);
   const { error: ae } = await db!.from("admin_users")
