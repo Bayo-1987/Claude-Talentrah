@@ -54,6 +54,13 @@ describe("formatSalary", () => {
     );
   });
 
+  it("equal bounds in naira, with a unit, are one amount: never '₦200,000 – ₦200,000' (S1-26 item 8)", () => {
+    expect(formatSalary(row({ salary_min: 200000, salary_max: 200000, salary_currency: "NGN", salary_unit: "month" }))).toBe(
+      "₦200,000 per month",
+    );
+    expect(formatSalary(row({ salary_min: "200000" as never, salary_max: "200000" as never, salary_currency: "NGN" }))).toBe("₦200,000");
+  });
+
   it("no unit is simply absent from the line, not a placeholder word", () => {
     const withUnit = formatSalary(row({ salary_min: 500000, salary_currency: "NGN", salary_unit: "month" }));
     const withoutUnit = formatSalary(row({ salary_min: 500000, salary_currency: "NGN" }));
