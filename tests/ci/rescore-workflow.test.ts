@@ -47,6 +47,10 @@ describe("rescore-stale-match-scores workflow", () => {
     expect(Number(code.match(/timeout-minutes:\s*(\d+)/)?.[1])).toBeGreaterThan(5);
   });
 
+  it("asks for no token permissions at all (it uses no GITHUB_TOKEN)", () => {
+    expect(code).toMatch(/^permissions:\s*\{\}\s*$/m);
+  });
+
   it("never echoes the secret or traces the shell, and prints only the route's counts (ids stripped as a second line of defence)", () => {
     expect(code).not.toMatch(/set -x/);
     expect(code).not.toMatch(/echo[^\n]*CRON_SECRET/);

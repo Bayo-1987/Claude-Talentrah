@@ -41,11 +41,12 @@ const page = (rowsVisited: number, usersVisited: number, complete: boolean, next
   summary: { dryRun: true, complete, nextCursor, rowsVisited, usersVisited, rowsToRescore: rowsVisited, skippedNoBaseResume: [], skippedPostingGone: 0, skippedStubSkill: 0, shape: shape(rowsVisited, 1) },
 });
 
-function runWorkflow(env: Record<string, string>, pages: unknown[], counts: number[]) {
+function runWorkflow(env: Record<string, string>, pages: unknown[], counts: number[], status = 200) {
   const dir = mkdtempSync(join(tmpdir(), "rescore-wf-"));
   writeFileSync(join(dir, "pages.jsonl"), pages.map((p) => JSON.stringify(p)).join("\n") + "\n");
   writeFileSync(join(dir, "counts"), counts.join("\n") + "\n");
   writeFileSync(join(dir, "calls"), "");
+  writeFileSync(join(dir, "status"), `${status}\n`);
   writeFileSync(
     join(dir, "curl"),
     `#!/bin/bash
@@ -59,7 +60,7 @@ else
   n=$(cat "$STUB_DIR/page-n" 2>/dev/null || echo 0); n=$((n+1)); echo $n > "$STUB_DIR/page-n"
   sed -n "$n"p "$STUB_DIR/pages.jsonl" > "$out"
 fi
-echo 200
+cat "$STUB_DIR/status"
 `,
   );
   chmodSync(join(dir, "curl"), 0o755);
@@ -136,6 +137,33 @@ describe("the workflow's real run block", () => {
     expect(r.out).not.toContain(U2);
     expect(r.out).not.toContain(FAKE_KEY);
     expect(r.out).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/);
+  });
+});
+
+describe("a failing response never reaches the public log (S2 note)", () => {
+  const LEAKY = { error: 'relation "match_scores" does not exist for user 11111111-2222-3333-4444-555555555555' };
+  const cases: Array<[string, Record<string, string>, unknown[], number[]]> = [
+    ["write", { DRY_RUN: "false", CONFIRM_WRITE: "write" }, [LEAKY], []],
+    ["dry run", {}, [LEAKY], [16]],
+    ["verify", { VERIFY: "20" }, [LEAKY], []],
+  ];
+  for (const [name, env, pages, counts] of cases) {
+    it(`${name}: an HTTP 500 body is not printed (no error text, no id), only the status; the run fails`, () => {
+      const r = runWorkflow(env, pages, counts, 500);
+      expect(r.status).toBe(1);
+      expect(r.out).toMatch(/HTTP 500/);
+      expect(r.out).not.toContain("match_scores");
+      expect(r.out).not.toMatch(/relation/);
+      expect(r.out).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/);
+    });
+  }
+
+  it("every printed line goes through the id filter: an id-shaped string in a COUNT field is still replaced", () => {
+    const sneaky = page(16, 5, true, null);
+    (sneaky.summary.shape.labelChanges as Record<string, number>)["x 11111111-2222-3333-4444-555555555555"] = 1;
+    const r = runWorkflow({}, [sneaky], [16, 16]);
+    expect(r.status, r.out).toBe(0);
+    expect(r.out).not.toContain("11111111-2222-3333-4444-555555555555");
   });
 });
 

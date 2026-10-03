@@ -21,6 +21,9 @@ name: Rescore stale match scores (manual)
 # internal id, `nextCursor`, is kept in a shell variable and replaced with "<cursor>" in anything printed, and a UUID filter is a second line of
 # defence on every printed line.
 #
+# `timeout-minutes` (60) is shorter than a write loop's worst case (12 calls x 330 s = 66 min). That is harmless: a kill mid-call loses nothing, because
+# rows already written stop being stale, so running the workflow again simply continues.
+#
 # curl waits above the route's maxDuration (300 s) and NEVER retries: a timeout must not start a second write run. Writes loop with the cursor until
 # the route says `complete`, with a ceiling on the number of calls. Written rows are no longer stale, so if the ceiling is ever reached, running
 # the workflow again (no cursor) simply continues.
@@ -47,6 +50,9 @@ on:
         description: "Optional: resume a write run after this user id (a previous run's nextCursor). Normally empty."
         type: string
         default: ""
+
+# No GITHUB_TOKEN permissions at all: nothing here reads or writes the repository.
+permissions: {}
 
 concurrency:
   group: rescore-stale-match-scores
@@ -90,19 +96,24 @@ jobs:
             echo "$status"
           }
 
-          # Print the route's counts only: the cursor never reaches the public log, and any id-shaped string is replaced.
+          # EVERY line printed to the public log goes through this filter: any id-shaped string is replaced, whatever the response shape becomes.
+          scrub() { sed -E 's/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/<id>/g'; }
+          say() { printf '%s\n' "$*" | scrub; }
+
+          # Print the route's counts only, and ONLY after a 2xx: the cursor never reaches the log. A non-2xx body is never printed (it can carry
+          # database error text), only the status; the route's own server log has the detail.
           show() {
-            jq -c '(.summary // .verify // .) | (if type == "object" and has("nextCursor") then .nextCursor |= (if . then "<cursor>" else . end) else . end)' /tmp/rescore-response.json \
-              | sed -E 's/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/<id>/g'
+            jq -c '(.summary // .verify // .) | (if type == "object" and has("nextCursor") then .nextCursor |= (if . then "<cursor>" else . end) else . end)' /tmp/rescore-response.json | scrub
           }
 
           ok() { [ "$1" -ge 200 ] && [ "$1" -lt 300 ]; }
+          fail_status() { echo "::error::$1 answered HTTP $2 (body not printed: see the route's server log)" >&2; exit 1; }
 
           if [ "$VERIFY" -gt 0 ]; then
             status="$(call "$(jq -cn --argjson n "$VERIFY" '{verify: $n}')")"
             echo "HTTP status: $status (verify)"
+            ok "$status" || fail_status verify "$status"
             show
-            ok "$status" || { echo "::error::verify answered HTTP $status"; exit 1; }
             exit 0
           fi
 
@@ -111,7 +122,7 @@ jobs:
             count_stale() {
               local st
               st="$(call '{"count":true}')"
-              ok "$st" || { echo "::error::count answered HTTP $st" >&2; exit 1; }
+              ok "$st" || fail_status count "$st"
               jq -r '.count.staleRows' /tmp/rescore-response.json
             }
             # Adds numbers, merges objects key by key, concatenates arrays; null is the identity.
@@ -127,7 +138,7 @@ jobs:
             for i in $(seq 1 60); do
               body="$(jq -cn --argjson max "$MAX_ROWS" --arg cursor "$cursor" '{maxRows: $max} + (if $cursor != "" then {cursor: $cursor} else {} end)')"
               status="$(call "$body")"
-              ok "$status" || { echo "::error::dry run answered HTTP $status" >&2; exit 1; }
+              ok "$status" || fail_status "dry run" "$status"
               calls=$i
               shape="$(jq -cn --argjson a "$shape" --slurpfile b /tmp/rescore-response.json "$addv"' addv($a; $b[0].summary.shape)')"
               totals="$(jq -cn --argjson a "$totals" --slurpfile b /tmp/rescore-response.json "$addv"' addv($a; ($b[0].summary | {rowsVisited, usersVisited, rowsToRescore, skippedPostingGone, skippedStubSkill, usersSkippedNoResume: (.skippedNoBaseResume | length), rowsSkippedNoResume: ([.skippedNoBaseResume[].rows] | add // 0)}))')"
@@ -145,10 +156,10 @@ jobs:
 
             visited_rows="$(echo "$totals" | jq -r '.rowsVisited')"
             visited_users="$(echo "$totals" | jq -r '.usersVisited')"
-            echo "chain visited rows=$visited_rows users=$visited_users calls=$calls"
-            echo "single-query stale rows before=$count_before after=$count_after"
-            echo "totals: $(echo "$totals" | jq -c .)"
-            echo "shape (merged over the chain): $(echo "$shape" | jq -c '. + {rowsPerUserRanked: (.rowsPerUserRanked | sort | reverse), largestDrops: (.largestDrops | sort_by(-(.from - .to)) | .[:10])}')"
+            say "chain visited rows=$visited_rows users=$visited_users calls=$calls"
+            say "single-query stale rows before=$count_before after=$count_after"
+            say "totals: $(echo "$totals" | jq -c .)"
+            say "shape (merged over the chain): $(echo "$shape" | jq -c '. + {rowsPerUserRanked: (.rowsPerUserRanked | sort | reverse), largestDrops: (.largestDrops | sort_by(-(.from - .to)) | .[:10])}')"
             if [ "$visited_rows" != "$count_before" ] || [ "$count_before" != "$count_after" ]; then
               echo "::error::chain visited $visited_rows rows but the single query counts $count_before before and $count_after after. They must be equal: do NOT approve a write run; check for a concurrent change and run the dry run again." >&2
               exit 1
@@ -169,8 +180,8 @@ jobs:
             body="$(jq -cn --argjson max "$MAX_ROWS" --arg cursor "$cursor" '{write: true, maxRows: $max} + (if $cursor != "" then {cursor: $cursor} else {} end)')"
             status="$(call "$body")"
             echo "call $i: HTTP status $status"
+            ok "$status" || fail_status rescore "$status"
             show
-            ok "$status" || { echo "::error::rescore answered HTTP $status"; exit 1; }
             if [ "$(jq -r '.summary.complete' /tmp/rescore-response.json)" = "true" ]; then
               echo "complete: true after $i call(s)"
               exit 0
