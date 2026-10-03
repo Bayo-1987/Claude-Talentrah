@@ -136,6 +136,11 @@ describe("0215: stuck_signed_up_referrals is a read-only, service-role-only chec
     expect(body, "read-only").not.toMatch(/\b(insert|update|delete|perform|truncate)\b/i);
   });
 
+  it("returns identifiers, a timestamp and a label ONLY: no email, name or other personal field, so the check is safe to read in a log or a ticket", () => {
+    const returns = body.match(/returns table \(([^)]*)\)/i)?.[1].replace(/\s+/g, " ").trim();
+    expect(returns).toBe("referral_id uuid, referrer_id uuid, referred_user_id uuid, signed_up_at timestamptz, qualifies_by text");
+  });
+
   it("lists signed_up referrals whose friend already meets the SAME activation rule check_and_activate_referral uses", () => {
     expect(body).toMatch(/status = 'signed_up'/);
     expect(body).toMatch(/is_base = true/);
