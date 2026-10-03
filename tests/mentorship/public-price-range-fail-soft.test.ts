@@ -82,3 +82,36 @@ describe("getApprovedMentorPriceRangeNgn — fails soft, never throws", () => {
     await expect(getApprovedMentorPriceRangeNgn()).resolves.toEqual({ minNgn: 15000, maxNgn: 20000 });
   });
 });
+
+describe("getApprovedMentorsOfferFreeSessions — true only when an approved, bookable mentor really offers free or volunteer sessions", () => {
+  const load = async () => (await import("@/lib/mentorship/public-price-range")).getApprovedMentorsOfferFreeSessions();
+
+  it("a null base price (the 'Free / volunteer' card) counts", async () => {
+    queryResult.data = [{ base_price_ngn: 20000 }, { base_price_ngn: null }];
+    await expect(load()).resolves.toBe(true);
+  });
+
+  it("a zero base price counts", async () => {
+    queryResult.data = [{ base_price_ngn: 0 }];
+    await expect(load()).resolves.toBe(true);
+  });
+
+  it("only priced mentors: false, so the page states the policy and does not claim it is happening", async () => {
+    queryResult.data = [{ base_price_ngn: 20000 }];
+    await expect(load()).resolves.toBe(false);
+  });
+
+  it("no mentors at all: false", async () => {
+    queryResult.data = [];
+    await expect(load()).resolves.toBe(false);
+  });
+
+  it("a Supabase error or a rejected fetch fails soft to false (the claim-nothing answer), never a throw", async () => {
+    queryResult.error = { message: "exceed_egress_quota" };
+    await expect(load()).resolves.toBe(false);
+    vi.resetModules();
+    queryResult.error = null;
+    queryResult.throwOnCall = true;
+    await expect(load()).resolves.toBe(false);
+  });
+});

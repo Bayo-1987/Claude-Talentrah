@@ -30,6 +30,7 @@
 import { test, expect, admin } from "./fixtures/authed";
 import type { Page } from "@playwright/test";
 import { randomUUID } from "node:crypto";
+import { mentorshipPriceClause, mentorshipPricePhrase } from "../src/lib/mentorship/price-copy";
 
 /**
  * `(list)`'s own loading.tsx renders a generic skeleton — including the
@@ -79,7 +80,9 @@ test.describe("send-393: /mentorship pricing claims match live mentor_profiles d
     expect(description).not.toContain("from ₦5,000");
 
     if (live !== null) {
-      expect(description).toContain(`from ₦${live.minNgn.toLocaleString("en-NG")} a session`);
+      // One amount when min equals max, "from ₦X to ₦Y" otherwise (src/lib/format-money-range.ts): never "₦X to ₦X".
+      expect(description).toContain(mentorshipPriceClause(live));
+      expect(description).not.toMatch(/(₦[\d,]+) to \1(?![\d,])/);
     } else {
       // The honest fallback: no price clause at all, not a guessed number.
       expect(description).not.toMatch(/₦\d/);
@@ -98,8 +101,8 @@ test.describe("send-393: /mentorship pricing claims match live mentor_profiles d
     expect(bodyText).not.toContain("₦100,000");
 
     if (live !== null) {
-      expect(bodyText).toContain(`₦${live.minNgn.toLocaleString("en-NG")}`);
-      expect(bodyText).toContain(`₦${live.maxNgn.toLocaleString("en-NG")}`);
+      expect(bodyText).toContain(mentorshipPricePhrase(live)!);
+      expect(bodyText).not.toMatch(/(₦[\d,]+) to \1(?![\d,])/);
     } else {
       expect(bodyText).toContain("Mentors set their own rates depending on their experience");
     }
@@ -140,7 +143,7 @@ test.describe("send-393: /mentorship pricing claims match live mentor_profiles d
 
       await page.goto("/mentorship");
       const description = await page.locator('meta[name="description"]').first().getAttribute("content");
-      expect(description).toContain(`from ₦${fixturePriceNgn.toLocaleString("en-NG")} a session`);
+      expect(description).toContain(mentorshipPriceClause(after));
 
       await waitForPublicLandingLoaded(page);
       const bodyText = await page.locator("body").innerText();
