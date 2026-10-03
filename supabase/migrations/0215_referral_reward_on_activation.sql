@@ -32,6 +32,9 @@
 --      called grant_referral_reward(null, ...), grant_credits_atomic found no profile and RAISED, and because the activation runs inside the friend's own resumes/applications
 --      trigger, THE FRIEND'S SAVE OR APPLY FAILED. Found while listing these paths. There is nobody to pay and nobody to tell, so the referral is claimed (activated) and
 --      marked 'referrer_deleted' without paying, and the friend's action succeeds.
+--      'referrer_deleted' means the referrer is ACTUALLY GONE (referrer_id is null after a hard delete). A referrer who is only PENDING deletion (account deletion,
+--      S3-21: still able to restore) still has referrer_id set and is paid normally; the decision is the owner's (2026-10-03), and nothing in this migration may key on
+--      a pending flag.
 --   3. A FAILED GRANT (grant_credits_atomic raising for any other reason) rolls the whole statement back, claim included: the referral stays 'signed_up', so it never produces
 --      an activated, underpaid row (it fails the friend's action instead, as every trigger exception does; unchanged here).
 --   4. A REFERRAL ALREADY PAID IN FULL (remainder <= 0): nothing is owed, so it is not "withheld" and the reason stays NULL.
