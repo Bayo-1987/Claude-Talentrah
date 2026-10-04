@@ -16,6 +16,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/types";
 import { admin, createAuthedTestUser, deleteTestUsers, type TestUser } from "../support/auth";
+import { compareColumnGrants } from "../support/column-grants";
 
 /** The columns anon and authenticated must NOT be able to read. Adding to this list is a decision, not a fix for a failing test. */
 const RESTRICTED = ["admin_review_note"] as const;
@@ -65,14 +66,12 @@ describe("the columns of job_postings that the API roles cannot read are exactly
     ["anon", () => anon],
     ["a signed-in user", () => user.client],
   ])("%s", async (_who, client) => {
-    const cannot = await unreadable(client());
-    const unexpected = cannot.filter((c) => !(RESTRICTED as readonly string[]).includes(c));
-    const readable = (RESTRICTED as readonly string[]).filter((c) => !cannot.includes(c));
+    const { ungranted, restrictedButReadable } = compareColumnGrants({ columns, unreadable: await unreadable(client()), restricted: RESTRICTED });
     expect(
-      unexpected,
+      ungranted,
       `Not readable by the API roles: add \`grant select (<col>) on public.job_postings to anon, authenticated\` in the migration that adds each column, or add it to RESTRICTED in this test on purpose.`,
     ).toEqual([]);
-    expect(readable, "a restricted column became readable again").toEqual([]);
+    expect(restrictedButReadable, "a restricted column became readable again").toEqual([]);
   }, 60_000);
 
   it("the service role still reads every column", () => {
