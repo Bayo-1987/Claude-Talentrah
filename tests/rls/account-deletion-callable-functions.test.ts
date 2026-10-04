@@ -26,7 +26,7 @@ let a: Authed; // the caller
 let b: Authed; // the person whose deletion is pending
 let c: Authed; // an ordinary active person
 let orgId = "";
-let resumeIds: string[] = [];
+const resumeIds: string[] = [];
 let appB = "";
 let appC = "";
 const unknownId = randomUUID();
