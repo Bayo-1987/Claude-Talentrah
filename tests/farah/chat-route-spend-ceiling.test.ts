@@ -358,6 +358,7 @@ describe("recording the spend (an estimate from token counts and published price
     expect(inserted).toEqual([]);
   });
 
+  // Regression: when the request's own signal fires BEFORE the stream is cancelled, the run used to end without closing the response stream, and the reader waited forever; before the signal check it fell into the error path.
   it("a request aborted while the stream is still being read is added ONCE at the failed-attempt estimate, with one [farah-spend:aborted] line and no error event", async () => {
     const m = await spend();
     askFarahChatStream.mockImplementation(async function* (_t: unknown, _e: unknown, _m: unknown, opts?: { signal?: AbortSignal }) {
@@ -381,6 +382,43 @@ describe("recording the spend (an estimate from token counts and published price
     expect(addSpendNano).toHaveBeenCalledWith(m.FAILED_ATTEMPT_ESTIMATE_NANO);
     expect(spendLines(warn).filter((l) => l.startsWith("[farah-spend:aborted]"))).toHaveLength(1);
     expect(rest).not.toContain('"type":"error"');
+    expect(commitFarahChatAllowance).not.toHaveBeenCalled();
+    expect(inserted).toEqual([]);
+   }, 3000);
+
+  it("the model call is handed an allowFallback that answers from a FRESH read of today's total: yes with the whole-day reserve left, no with one nano-dollar less, no when the counter cannot be read", async () => {
+    const m = (await import("@/lib/farah/spend-ceiling")) as unknown as { FALLBACK_RESERVE_NANO: number };
+    let handed: (() => Promise<boolean> | boolean) | undefined;
+    askFarahChatStream.mockImplementation(async function* (_t: unknown, _e: unknown, _m: unknown, opts?: { allowFallback?: () => Promise<boolean> | boolean }) {
+      handed = opts?.allowFallback;
+      yield "A reply.";
+    });
+    await (await POST(request())).text();
+    expect(handed, "the route gave the model call no allowFallback").toBeTypeOf("function");
+    const ceiling = await ceilingNano();
+    readSpendNano.mockReset().mockResolvedValue(ceiling - m.FALLBACK_RESERVE_NANO);
+    expect(await handed!()).toBe(true);
+    expect(readSpendNano).toHaveBeenCalledTimes(1);
+    readSpendNano.mockReset().mockResolvedValue(ceiling - m.FALLBACK_RESERVE_NANO + 1);
+    expect(await handed!()).toBe(false);
+    readSpendNano.mockReset().mockRejectedValue(new Error("unreadable"));
+    expect(await Promise.resolve(handed!()).then((v) => v, () => false)).toBe(false);
+  });
+
+  it("a declined fallback ends the reply with the daily-ceiling wording (not the provider's wait time), one content-free line, the failed attempt added once, nothing charged or saved", async () => {
+    const m = await spend();
+    const { FallbackDeclinedError, LLMProviderError } = await import("@/lib/llm");
+    askFarahChatStream.mockImplementation(async function* () {
+      throw new FallbackDeclinedError(new LLMProviderError("groq", "rate_limit", "Please try again in 7m0s."));
+    });
+    const body = await (await POST(request())).text();
+    const events = body.trim().split("\n").map((l) => JSON.parse(l));
+    expect(events).toEqual([{ type: "error", message: "Farah is resting for today. Please try again tomorrow." }]);
+    expect(body).not.toContain("7m");
+    expect(spendLines(warn).filter((l) => l.startsWith("[farah-spend:fallback-declined]"))).toHaveLength(1);
+    expect(JSON.stringify(warn.mock.calls) + JSON.stringify(errorSpy.mock.calls)).not.toContain(MESSAGE);
+    expect(addSpendNano).toHaveBeenCalledTimes(1);
+    expect(addSpendNano).toHaveBeenCalledWith(m.FAILED_ATTEMPT_ESTIMATE_NANO);
     expect(commitFarahChatAllowance).not.toHaveBeenCalled();
     expect(inserted).toEqual([]);
   });

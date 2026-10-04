@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { saveFarahExchange } from "@/lib/farah/save-exchange";
 import { askFarahChatStream, type FarahChatTurn } from "@/lib/farah/client";
 import { logFarahSessionMessage, type FarahEntryPoint } from "@/lib/farah/session-events";
-import { LLMProviderError } from "@/lib/llm";
+import { FallbackDeclinedError, LLMProviderError } from "@/lib/llm";
 import type { LLMFinishReason, LLMUsage } from "@/lib/llm/types";
 import { GENERIC_FARAH_UNAVAILABLE_MESSAGE, farahRateLimitMessage } from "@/lib/farah/rate-limit-message";
 import type { StructuredResume } from "@/lib/resume/types";
@@ -23,7 +23,9 @@ import { chipEntryPoint } from "@/lib/farah/chip-registry";
 import { labelAsData } from "@/lib/farah/data-block";
 import {
   FAILED_ATTEMPT_ESTIMATE_NANO,
+  FARAH_RESTING_MESSAGE,
   NO_COUNTS_REPLY_ESTIMATE_NANO,
+  checkFallbackHeadroom,
   checkSpendCeiling,
   counterFailureLine,
   estimateSpendNano,
@@ -91,7 +93,7 @@ export async function POST(request: Request) {
     if (ceiling.status === "blocked") {
       console.warn("[farah-spend:ceiling] the daily spend ceiling is reached");
       return NextResponse.json(
-        { error: "Farah is resting for today. Please try again tomorrow.", code: "farah_daily_ceiling" },
+        { error: FARAH_RESTING_MESSAGE, code: "farah_daily_ceiling" },
         { status: 503, headers: { "Retry-After": String(secondsUntilUtcMidnight(new Date())) } },
       );
     }
@@ -294,6 +296,8 @@ export async function POST(request: Request) {
           quickAction,
           // The model call stops when the reader goes away; an aborted call ends in the error path below, which saves and charges nothing.
           signal: request.signal,
+          // The ceiling is checked again, with a fresh read, just before the fallback provider would be used; a counter that cannot be read means no fallback.
+          allowFallback: () => checkFallbackHeadroom({ read: readSpendNano }),
           onFinish: (reason) => {
             finishReason = reason;
           },
@@ -325,6 +329,13 @@ export async function POST(request: Request) {
         // debugging (LLMProviderError — src/lib/llm/errors.ts — carries
         // which provider and what kind of failure), send a clean,
         // Farah-voiced message instead.
+        if (err instanceof FallbackDeclinedError) {
+          // The primary was rate-limited and there is not enough headroom left for the fallback: end the reply with the daily-ceiling wording. Content-free line.
+          console.warn("[farah-spend:fallback-declined] the fallback provider was not used: the day's headroom is below its reserve");
+          send({ type: "error", message: FARAH_RESTING_MESSAGE });
+          controller.close();
+          return;
+        }
         console.error("Farah chat: LLM call failed", err);
         // send-111: a rate-limit error carries Groq's own real wait time —
         // use it instead of the generic message. Any other LLMProviderError

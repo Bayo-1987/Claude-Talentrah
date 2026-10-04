@@ -5,6 +5,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 const seen: Array<Record<string, unknown>> = [];
+const failoverOptsSeen: unknown[] = [];
 vi.mock("@/lib/llm", async () => {
   const actual = await vi.importActual<typeof import("@/lib/llm")>("@/lib/llm");
   const provider = {
@@ -15,7 +16,13 @@ vi.mock("@/lib/llm", async () => {
       yield "ok";
     },
   };
-  return { ...actual, generateChatStreamWithFailover: async function* (call: (p: unknown) => AsyncGenerator<string>) { yield* call(provider); } };
+  return {
+    ...actual,
+    generateChatStreamWithFailover: async function* (call: (p: unknown) => AsyncGenerator<string>, _onServed?: unknown, failoverOpts?: unknown) {
+      failoverOptsSeen.push(failoverOpts);
+      yield* call(provider);
+    },
+  };
 });
 
 describe("askFarahChatStream and the abort signal", () => {
@@ -33,5 +40,13 @@ describe("askFarahChatStream and the abort signal", () => {
     const { askFarahChatStream } = await import("@/lib/farah/client");
     for await (const _chunk of askFarahChatStream([{ role: "user", content: "hello" }])) void _chunk;
     expect(seen[0].signal).toBeUndefined();
+  });
+
+  it("passes the caller's allowFallback to the failover wrapper", async () => {
+    failoverOptsSeen.length = 0;
+    const { askFarahChatStream } = await import("@/lib/farah/client");
+    const allowFallback = async () => true;
+    for await (const _chunk of askFarahChatStream([{ role: "user", content: "hello" }], undefined, undefined, { allowFallback } as never)) void _chunk;
+    expect((failoverOptsSeen[0] as { allowFallback?: unknown } | undefined)?.allowFallback, "the failover wrapper did not receive the caller's allowFallback").toBe(allowFallback);
   });
 });

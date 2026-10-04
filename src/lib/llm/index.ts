@@ -2,11 +2,11 @@ import "server-only";
 import { GeminiProvider } from "./gemini-provider";
 import { GroqProvider } from "./groq-provider";
 import { StubProvider } from "./stub-provider";
-import { LLMProviderError } from "./errors";
+import { FallbackDeclinedError, LLMProviderError } from "./errors";
 import type { LLMProvider } from "./types";
 
 export type { LLMProvider, LLMGenerateOptions, LLMChatTurn, LLMUsage, LLMResult } from "./types";
-export { LLMProviderError } from "./errors";
+export { FallbackDeclinedError, LLMProviderError } from "./errors";
 
 /**
  * Read once at module load, not per-request — switching providers is a
@@ -117,6 +117,13 @@ export async function generateWithFailover(
 export async function* generateChatStreamWithFailover(
   call: (provider: LLMProvider) => AsyncGenerator<string>,
   onServed?: (served: ServedBy) => void,
+  opts: {
+    /**
+     * Asked once, only at the moment the fallback is about to be used (the primary rate-limited before its first chunk). If it answers false, or throws, the fallback is NOT called and the stream throws
+     * FallbackDeclinedError. Absent: the fallback is used as before.
+     */
+    allowFallback?: () => Promise<boolean> | boolean;
+  } = {},
 ): AsyncGenerator<string> {
   const primary = getLLMProvider();
   let generator = call(primary);
@@ -137,6 +144,15 @@ export async function* generateChatStreamWithFailover(
       ) {
         const fallback = getFailoverProvider();
         if (fallback) {
+          if (opts.allowFallback) {
+            let allowed = false;
+            try {
+              allowed = await opts.allowFallback();
+            } catch {
+              allowed = false; // a question that cannot be answered is a no
+            }
+            if (!allowed) throw new FallbackDeclinedError(err);
+          }
           console.warn(`[llm] ${primary.name} rate-limited — retrying stream via ${fallback.name}`);
           usedFallback = true;
           served = fallback;

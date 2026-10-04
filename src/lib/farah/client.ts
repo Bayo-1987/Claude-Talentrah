@@ -105,6 +105,8 @@ export async function* askFarahChatStream(
     onUsage?: (usage: LLMUsage, served?: { provider: string; model: string }) => void;
     /** Aborting it ends the provider call (and the HTTP request under it). An aborted call throws; it is never a rate limit, so it never fails over. */
     signal?: AbortSignal;
+    /** Asked just before the fallback provider would be used (see generateChatStreamWithFailover). Absent: the fallback is used as before. */
+    allowFallback?: () => Promise<boolean> | boolean;
   } = {},
 ): AsyncGenerator<string> {
   const system = buildFarahChatSystemPrompt({ quickAction: opts.quickAction, extraContext });
@@ -128,6 +130,7 @@ export async function* askFarahChatStream(
         },
       }),
     (s) => (served = s),
+    { allowFallback: opts.allowFallback },
   )) {
     chunks++;
     yield chunk;

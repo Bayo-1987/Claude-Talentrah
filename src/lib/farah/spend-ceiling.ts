@@ -79,13 +79,45 @@ export function counterFailureLine(err: unknown): string {
 
 /**
  * HOW FAR PARALLEL REQUESTS CAN OVERSHOOT THE CEILING. The check reads today's total before the model call and the reply is added after it completes, so requests that start within one reply's duration
- * (at most about a minute: a 20 s client timeout, up to three attempts) all pass against the same total. The provider's organisation limit on tokens per minute bounds how much they can then spend: spend cannot
- * outrun the tokens the provider admits. That limit is 250,000 a minute (Groq console, read 4 Oct 2026); priced entirely as output tokens it is $0.15, an ABSOLUTE amount that does not shrink with the ceiling
- * (15% of the $1.00 default, 30% at $0.50). Reserving before the call is not needed at the default; it is the thing to revisit if the ceiling is lowered below about $0.50.
+ * (at most about a minute: a 20 s client timeout, up to three attempts) all pass against the same total. Each provider's own limit bounds how much they can then spend: spend cannot outrun what the provider admits.
+ * Two providers can serve a request, so there are two bounds, and they are independent:
+ *  - Groq (the configured provider): 250,000 tokens a minute. Source: console figure, unverified (the owner read it from the Groq console on 4 Oct 2026; it was relayed here and has not been checked by anyone else). Priced entirely as output tokens: $0.15.
+ *  - The Gemini fallback (used only when Groq answers rate-limited before its first token): 20 requests a day. That is the project's own record of the fallback key as a free-tier key (CLAUDE.md, README.md), not a
+ *    reading of Google's console, and the repo does not say whether the key has been upgraded since; if it has, this term is unknown until its limits are read. At the largest request the route allows, priced at the
+ *    Gemini row, it is 20 x $0.01818 = $0.3636.
+ * WITHOUT the fallback guard (below) the bound at the default ceiling is the sum, $0.5136 (about 51% of $1.00); WITH it, only Groq's $0.15 is left (15%). Each is an ABSOLUTE amount that does not shrink with the ceiling.
+ * Reserving before the call is not needed at the default; it is the thing to revisit if the ceiling is lowered towards the Groq bound.
  */
 export const GROQ_ORG_TOKENS_PER_MINUTE = 250_000;
 export const MAX_REPLY_WINDOW_SECONDS = 60;
 export const OVERSHOOT_BOUND_NANO = estimateSpendNano({ provider: "groq", model: "openai/gpt-oss-120b", inputTokens: 0, outputTokens: GROQ_ORG_TOKENS_PER_MINUTE });
+export const GEMINI_FALLBACK_REQUESTS_PER_DAY = 20;
+export const GEMINI_OVERSHOOT_BOUND_NANO =
+  GEMINI_FALLBACK_REQUESTS_PER_DAY * estimateSpendNano({ provider: "gemini", model: "gemini-3.6-flash", inputTokens: REQUEST_TOKEN_CEILING, outputTokens: CHAT_MAX_OUTPUT_TOKENS });
+export const TOTAL_OVERSHOOT_BOUND_NANO = OVERSHOOT_BOUND_NANO + GEMINI_OVERSHOOT_BOUND_NANO;
+
+/**
+ * THE FALLBACK GUARD. Before the fallback provider is used, today's total is read again, and the fallback is used only if the headroom (ceiling minus total) covers everything the fallback could add in a
+ * day: FALLBACK_RESERVE_NANO, its daily request cap times its worst-case request. Once allowed, total <= ceiling - reserve, and the fallback's whole day fits inside the reserve, so it can never add past the
+ * ceiling. What is left is the primary provider's own bound: GUARDED_OVERSHOOT_BOUND_NANO ($0.15, 15% of the default ceiling) against TOTAL_OVERSHOOT_BOUND_NANO ($0.5136, 51%) without the guard.
+ * The reserve rests on the same unverified record as GEMINI_FALLBACK_REQUESTS_PER_DAY above; if the fallback key's limits change, change that constant and this one follows.
+ */
+export const FALLBACK_RESERVE_NANO = GEMINI_OVERSHOOT_BOUND_NANO;
+export const GUARDED_OVERSHOOT_BOUND_NANO = OVERSHOOT_BOUND_NANO;
+
+/** True when the headroom covers the fallback's whole-day reserve. Exactly the reserve left is enough. */
+export function fallbackAllowed(spentNano: number, ceilingNano: number): boolean {
+  return ceilingNano - spentNano >= FALLBACK_RESERVE_NANO;
+}
+
+/** Reads today's total and answers `fallbackAllowed` with the configured ceiling. A read failure throws: the caller treats it as "no fallback". */
+export async function checkFallbackHeadroom(tally: { read(): Promise<number> }, env: Record<string, string | undefined> = process.env): Promise<boolean> {
+  const ceilingNano = Math.round(dailyCeilingUsd(env) * NANO_PER_USD);
+  return fallbackAllowed(await tally.read(), ceilingNano);
+}
+
+/** What the person sees when the fallback is declined: the same words as the daily-ceiling response. */
+export const FARAH_RESTING_MESSAGE = "Farah is resting for today. Please try again tomorrow.";
 
 export interface SpendTallyReader {
   read(): Promise<number>;
