@@ -16,8 +16,28 @@ const b64 = (o: unknown) => Buffer.from(JSON.stringify(o)).toString("base64url")
 interface Tok { value: string; sid: string; revoked: boolean; parent: string | null; at: number }
 export interface RecordedRequest { method: string; path: string; query: string; authorization: string | null; body: unknown }
 
+/**
+ * An optional password policy for /signup and PUT /user, shaped like the dashboard's: a minimum length, required character classes and a
+ * leaked-password list. The refusals use GoTrue's documented shapes (HTTP 422, `weak_password` with `weak_password.reasons`, `same_password`),
+ * so the real supabase-js client turns them into the same AuthWeakPasswordError / AuthApiError the app sees from production. The wording of
+ * `msg` is a model of GoTrue's English, not a copy; the app is meant to read the reasons and the quoted numbers, not the sentence.
+ */
+export interface FakePasswordPolicy {
+  minimumLength: number;
+  /** "" (none) or "lower_upper_letters_digits". */
+  requirements: "" | "lower_upper_letters_digits";
+  /** Passwords the leaked-password check refuses. */
+  pwned?: string[];
+  /** While true, /signup and PUT /user answer 429 over_request_rate_limit. */
+  rateLimited?: boolean;
+}
+
+export interface FakeGoTrueOptions { passwordPolicy?: FakePasswordPolicy }
+
 export interface FakeGoTrue {
   url: string;
+  /** The password the fake holds for a user, for the same-password check. */
+  setPassword(userId: string, password: string): void;
   /** Lifetime, in seconds, of access tokens issued from now on (negative: already expired). */
   ttl: number;
   /** While true, GET /user answers 503 (a transient auth outage). */
@@ -45,11 +65,28 @@ function sessionBody(sid: string, userId: string, t: Tok, ttl: number) {
   };
 }
 
-export async function startFakeGoTrue(): Promise<FakeGoTrue> {
+export async function startFakeGoTrue(options: FakeGoTrueOptions = {}): Promise<FakeGoTrue> {
   const sessions = new Map<string, string>(); // sid -> user id
   const toks = new Map<string, Tok>();
   const requests: RecordedRequest[] = [];
   const state = { ttl: 3600, failUser: false };
+  const passwords = new Map<string, string>(); // user id -> current password
+
+  /** GoTrue's weak-password refusal for `pw`, or null when the policy accepts it. */
+  const weakness = (pw: string): { reasons: string[]; msg: string } | null => {
+    const policy = options.passwordPolicy;
+    if (!policy) return null;
+    const reasons: string[] = [];
+    const parts: string[] = [];
+    if (pw.length < policy.minimumLength) { reasons.push("length"); parts.push(`be at least ${policy.minimumLength} characters`); }
+    if (policy.requirements === "lower_upper_letters_digits" && !(/[a-z]/.test(pw) && /[A-Z]/.test(pw) && /[0-9]/.test(pw))) {
+      reasons.push("characters");
+      parts.push("contain at least one character of each: abcdefghijklmnopqrstuvwxyz, ABCDEFGHIJKLMNOPQRSTUVWXYZ, 0123456789");
+    }
+    if (reasons.length) return { reasons, msg: `Password should ${parts.join(" and ")}.` };
+    if (policy.pwned?.includes(pw)) return { reasons: ["pwned"], msg: "Password is known to be weak and easy to guess, please choose a different one." };
+    return null;
+  };
 
   const issue = (sid: string, parent: string | null): Tok => {
     const t: Tok = { value: randomUUID().slice(0, 12), sid, revoked: false, parent, at: Date.now() };
@@ -86,6 +123,25 @@ export async function startFakeGoTrue(): Promise<FakeGoTrue> {
       t.revoked = true;
       return send(200, body(t.sid, issue(t.sid, t.value)));
     }
+    if (url.pathname === "/auth/v1/signup" && req.method === "POST") {
+      if (options.passwordPolicy?.rateLimited) return send(429, { code: "over_request_rate_limit", error_code: "over_request_rate_limit", msg: "Request rate limit reached" });
+      const weak = weakness(String(b.password ?? ""));
+      if (weak) return send(422, { code: "weak_password", error_code: "weak_password", msg: weak.msg, weak_password: { reasons: weak.reasons } });
+      const sid = randomUUID(); sessions.set(sid, "user-new"); passwords.set("user-new", String(b.password));
+      return send(200, body(sid, issue(sid, null)));
+    }
+    if (url.pathname === "/auth/v1/user" && req.method === "PUT") {
+      if (options.passwordPolicy?.rateLimited) return send(429, { code: "over_request_rate_limit", error_code: "over_request_rate_limit", msg: "Request rate limit reached" });
+      let sid = "", sub = "";
+      try { const p = JSON.parse(Buffer.from(((req.headers.authorization ?? "").replace("Bearer ", "")).split(".")[1], "base64url").toString()); if (p.exp * 1000 > Date.now() && sessions.has(p.sid)) { sid = p.sid; sub = p.sub; } } catch { /* anonymous */ }
+      if (!sid) return send(401, { code: "bad_jwt", msg: "invalid JWT" });
+      const next = String(b.password ?? "");
+      const weak = weakness(next);
+      if (weak) return send(422, { code: "weak_password", error_code: "weak_password", msg: weak.msg, weak_password: { reasons: weak.reasons } });
+      if (passwords.get(sub) === next) return send(422, { code: "same_password", error_code: "same_password", msg: "New password should be different from the old password." });
+      passwords.set(sub, next);
+      return send(200, sessionBody(sid, sub, { value: "x", sid, revoked: false, parent: null, at: 0 }, 3600).user);
+    }
     if (url.pathname === "/auth/v1/user") {
       if (state.failUser) return send(503, { code: "unexpected_failure", msg: "temporarily unavailable" });
       try {
@@ -116,6 +172,7 @@ export async function startFakeGoTrue(): Promise<FakeGoTrue> {
     get failUser() { return state.failUser; },
     set failUser(v: boolean) { state.failUser = v; },
     requests,
+    setPassword: (userId: string, password: string) => { passwords.set(userId, password); },
     clearSessions: () => sessions.clear(),
     sessionCount: () => sessions.size,
     signIn(userId = "user-1") { const sid = randomUUID(); sessions.set(sid, userId); return body(sid, issue(sid, null)); },

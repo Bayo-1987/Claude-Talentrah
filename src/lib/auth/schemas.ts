@@ -1,7 +1,15 @@
 import { z } from "zod";
-import { isPasswordValid } from "./password";
+import { isPasswordValid, unmetPasswordMessage } from "./password";
 import { hasVisibleName } from "@/lib/profile/name";
 import { COUNTRY_DISPLAY_NAMES, compareCountryNames } from "@/lib/jobs/countries";
+
+/**
+ * The password rule, enforced on the server by the action itself (not only by the form). The message says exactly what is missing, in the
+ * words of the shared rule list (src/lib/auth/password-rules.ts), so a caller that never saw the form's checklist is still told what to fix.
+ */
+function passwordMeetsRule(value: string, ctx: z.RefinementCtx): void {
+  if (!isPasswordValid(value)) ctx.addIssue({ code: "custom", message: unmetPasswordMessage(value) });
+}
 
 /** The home market, listed first. */
 export const HOME_COUNTRY = "Nigeria";
@@ -62,9 +70,7 @@ export const signUpSchema = z.object({
   lastName: z.string().refine(hasVisibleName, "Enter your last name"),
   email: emailSchema,
   country: z.string().refine(isSignupCountry, "Select a country"),
-  password: z
-    .string()
-    .refine(isPasswordValid, "Password doesn't meet the requirements below"),
+  password: z.string().superRefine(passwordMeetsRule),
   termsAccepted: z.literal("on", "You must accept the terms to continue"),
   referredByCode: z.string().trim().optional(),
 });
@@ -90,7 +96,5 @@ export const forgotPasswordSchema = z.object({
  * screen, and the two would drift the moment either is edited.
  */
 export const resetPasswordSchema = z.object({
-  password: z
-    .string()
-    .refine(isPasswordValid, "Password doesn't meet the requirements below"),
+  password: z.string().superRefine(passwordMeetsRule),
 });
