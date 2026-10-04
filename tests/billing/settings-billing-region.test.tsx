@@ -7,6 +7,10 @@ import { renderToStaticMarkup } from "react-dom/server";
 const profile = vi.hoisted(() => ({ value: {} as Record<string, unknown> }));
 vi.mock("@/lib/auth/require-user", () => ({ requireUser: async () => ({ profile: profile.value, user: { id: "u1" } }) }));
 vi.mock("@/app/(app)/settings/settings-form", () => ({ SettingsForm: () => null }));
+// The page also reads what stands in the way of deleting the account (ACCT-1); this suite is about the billing-region row, so that read is faked.
+vi.mock("@/lib/account-deletion/queries", () => ({
+  getDeletionBlockers: async () => ({ mentorship_sessions: [], mentor_payouts: [], organisations_with_other_members: [], postings_to_close: [], campaigns_to_pause: 0, ad_wallet_balance_ngn: 0, blocked: false }),
+}));
 
 import SettingsPage from "@/app/(app)/settings/page";
 
