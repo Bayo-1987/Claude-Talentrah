@@ -9,6 +9,9 @@
  *   latency_ms  whole milliseconds from the call starting to the reply completing
  *   failover    true when the primary was rate-limited and the fallback served it
  *   request_id  a fresh random id per call
+ *   prompt_tokens / completion_tokens  the counts the provider reported, whole numbers (or null when it reported none)
+ *
+ * (S3-66 added the two token fields, so the key set below is deliberately changed; they are numbers or null, never text.)
  *
  * and NEVER anything a user wrote or is: no message text, no reply text, no system prompt, no user id, no
  * email. The test below drives the REAL askFarah / askFarahChatStream through the REAL failover wrappers
@@ -31,6 +34,9 @@ vi.hoisted(() => {
 
 type Behaviour = { throwKind?: "rate_limit" | "auth"; reply?: string };
 const behaviour: { groq: Behaviour; gemini: Behaviour } = { groq: {}, gemini: {} };
+const USAGE = { inputTokens: 2400, outputTokens: 480, totalTokens: 2880, reasoningTokens: null };
+let reportUsage = true;
+const KEYS = ["completion_tokens", "event", "failover", "latency_ms", "model", "prompt_tokens", "provider", "request_id"];
 
 vi.mock("@/lib/llm/groq-provider", async () => {
   const { LLMProviderError } = await import("@/lib/llm/errors");
@@ -44,12 +50,13 @@ vi.mock("@/lib/llm/groq-provider", async () => {
         return behaviour.groq.reply ?? REPLY_MARK;
       }
       async generateWithUsage() {
-        return { text: await this.generateText(), usage: null };
+        return { text: await this.generateText(), usage: reportUsage ? USAGE : null };
       }
-      async *generateTextStream() {
+      async *generateTextStream(o?: { onUsage?: (u: typeof USAGE) => void }) {
         if (behaviour.groq.throwKind) throw new LLMProviderError("groq", behaviour.groq.throwKind, "boom");
         yield behaviour.groq.reply ?? REPLY_MARK;
         yield " more";
+        if (reportUsage) o?.onUsage?.(USAGE);
       }
     },
   };
@@ -66,11 +73,12 @@ vi.mock("@/lib/llm/gemini-provider", async () => {
         return behaviour.gemini.reply ?? REPLY_MARK;
       }
       async generateWithUsage() {
-        return { text: await this.generateText(), usage: null };
+        return { text: await this.generateText(), usage: reportUsage ? USAGE : null };
       }
-      async *generateTextStream() {
+      async *generateTextStream(o?: { onUsage?: (u: typeof USAGE) => void }) {
         if (behaviour.gemini.throwKind) throw new LLMProviderError("gemini", behaviour.gemini.throwKind, "boom");
         yield behaviour.gemini.reply ?? REPLY_MARK;
+        if (reportUsage) o?.onUsage?.(USAGE);
       }
     },
   };
@@ -83,6 +91,7 @@ beforeEach(() => {
   captured.length = 0;
   behaviour.groq = {};
   behaviour.gemini = {};
+  reportUsage = true;
   for (const level of ["log", "info", "warn", "error", "debug"] as const) {
     spies.push(
       vi.spyOn(console, level).mockImplementation((...args: unknown[]) => {
@@ -125,7 +134,9 @@ describe("the farah_call line", () => {
     const lines = farahCallLines();
     expect(lines).toHaveLength(1);
     const line = lines[0];
-    expect(Object.keys(line).sort()).toEqual(["event", "failover", "latency_ms", "model", "provider", "request_id"]);
+    expect(Object.keys(line).sort()).toEqual(KEYS);
+    expect(line.prompt_tokens).toBe(2400);
+    expect(line.completion_tokens).toBe(480);
     expect(line.event).toBe("farah_call");
     expect(line.provider).toBe("groq");
     expect(line.model).toBe("openai/gpt-oss-120b");
@@ -140,7 +151,39 @@ describe("the farah_call line", () => {
     await askFarahChat(TURNS);
     const lines = farahCallLines();
     expect(lines).toHaveLength(2);
-    for (const l of lines) expect(Object.keys(l).sort()).toEqual(["event", "failover", "latency_ms", "model", "provider", "request_id"]);
+    for (const l of lines) {
+      expect(Object.keys(l).sort()).toEqual(KEYS);
+      expect([l.prompt_tokens, l.completion_tokens]).toEqual([2400, 480]);
+    }
+  });
+
+  it("carries null token counts (not zero, not a guess) when the provider reported none", async () => {
+    reportUsage = false;
+    const { askFarah, askFarahChatStream } = await client();
+    await askFarah(USER_MARK);
+    await drain(askFarahChatStream(TURNS));
+    const lines = farahCallLines();
+    expect(lines).toHaveLength(2);
+    for (const l of lines) expect([l.prompt_tokens, l.completion_tokens]).toEqual([null, null]);
+  });
+
+  it("token counts are whole non-negative numbers or null, never text", async () => {
+    const { askFarahChatStream } = await client();
+    await drain(askFarahChatStream(TURNS));
+    for (const l of farahCallLines()) {
+      for (const k of ["prompt_tokens", "completion_tokens"]) {
+        const v = l[k];
+        expect(v === null || (Number.isInteger(v) && (v as number) >= 0), `${k} = ${String(v)}`).toBe(true);
+      }
+    }
+  });
+
+  it("also hands the counts to the caller's onUsage (the chat route saves them on the reply row), and still logs them", async () => {
+    const { askFarahChatStream } = await client();
+    const seen: unknown[] = [];
+    await drain(askFarahChatStream(TURNS, undefined, undefined, { onUsage: (u: unknown) => seen.push(u) } as never));
+    expect(seen).toEqual([USAGE]);
+    expect(farahCallLines()[0].prompt_tokens).toBe(2400);
   });
 
   it("gives each call its own request id", async () => {
@@ -210,7 +253,7 @@ describe("what must never appear in the logs", () => {
     const line = JSON.parse(raw);
     for (const v of Object.values(line)) {
       // Every value is a short scalar; nothing that could carry a paragraph.
-      expect(["string", "number", "boolean"]).toContain(typeof v);
+      expect(["string", "number", "boolean"].includes(typeof v) || v === null).toBe(true);
       if (typeof v === "string") expect(v.length).toBeLessThanOrEqual(64);
     }
   });
