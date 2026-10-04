@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { saveFarahExchange } from "@/lib/farah/save-exchange";
 import { askFarahChatStream, type FarahChatTurn } from "@/lib/farah/client";
 import { logFarahSessionMessage, type FarahEntryPoint } from "@/lib/farah/session-events";
 import { LLMProviderError } from "@/lib/llm";
@@ -323,26 +323,10 @@ export async function POST(request: Request) {
       // No migration: `context` is the existing JSON column. Absent when the provider reported none (unknown is not zero).
       const replyContext = usage ? { ...rowContext, tokens: { prompt: usage.inputTokens, completion: usage.outputTokens } } : rowContext;
 
-      // Message history is written by the server only: the save uses the service-role client, scoped to this user's id (which the session
-      // check above established). The signed-in session client above only reads.
-      // Two independent writes (different rows, neither reads the other) —
-      // run together rather than one after the other.
-      const history = createServiceRoleClient();
-      const [{ error: insertUserError }, { data: farahRow, error: insertFarahError }] = await Promise.all([
-        history.from("farah_messages").insert({ user_id: user.id, role: "user", content: message, context: rowContext }),
-        history
-          .from("farah_messages")
-          .insert({ user_id: user.id, role: "farah", content: fullText, context: replyContext })
-          .select("id, created_at")
-          .single(),
-      ]);
+      // Message history is written by the server only (see saveFarahExchange); this route's own client only reads.
+      const saved = await saveFarahExchange({ userId: user.id, message, reply: fullText, userRowContext: rowContext, replyRowContext: replyContext });
 
-      if (insertUserError || insertFarahError || !farahRow) {
-        // Error codes only: never the message text or the reply.
-        console.error("Farah chat: saving the exchange failed", {
-          userRowCode: insertUserError?.code ?? null,
-          replyRowCode: insertFarahError?.code ?? null,
-        });
+      if (!saved) {
         // The reply already happened and cost real money — the client
         // already has the full text from the delta events either way; this
         // just tells it persistence failed, rather than losing the answer.
@@ -358,8 +342,8 @@ export async function POST(request: Request) {
       } else {
         send({
           type: "done",
-          id: farahRow.id,
-          createdAt: farahRow.created_at,
+          id: saved.id,
+          createdAt: saved.createdAt,
           persisted: true,
           freeMessagesRemaining,
           creditsBalance,
