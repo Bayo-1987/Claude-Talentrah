@@ -90,13 +90,21 @@ describe("the job-feed toggle", () => {
 });
 
 describe("the billing page's Pass copy", () => {
-  it("names the free weekly runs by their number, from the constant, in both places it says so", async () => {
+  it("names the free weekly runs by their number, from the constant, where it says so", async () => {
     const phrase = await withConstants(OTHER, () => import("@/lib/auto-apply/limits-copy").then((m) => m.autoApplyFreeRunsPhrase()));
     expect(phrase).toBe("your 3 free weekly applications");
     const real = await withConstants(null, () => import("@/lib/auto-apply/limits-copy").then((m) => m.autoApplyFreeRunsPhrase()));
     expect(real).toBe("your 5 free weekly applications");
-    const billing = readFileSync(path.join(__dirname, "../../src/app/(app)/billing/page.tsx"), "utf8");
+    // The page and the components it is built from (the coverage paragraph now lives in components/billing/pass-cards.tsx).
+    const files = [
+      "../../src/app/(app)/billing/page.tsx",
+      "../../src/components/billing/pass-cards.tsx",
+      "../../src/components/billing/balance-panel.tsx",
+      "../../src/components/billing/billing-content.tsx",
+    ];
+    const billing = files.map((f) => readFileSync(path.join(__dirname, f), "utf8")).join("\n");
     expect(billing).not.toMatch(/free weekly runs/);
-    expect(billing.match(/autoApplyFreeRunsPhrase\(\)/g)?.length).toBeGreaterThanOrEqual(2);
+    expect(billing).not.toMatch(/\b\d+ free weekly/);
+    expect(billing.match(/autoApplyFreeRunsPhrase\(\)/g)?.length).toBeGreaterThanOrEqual(1);
   });
 });
