@@ -43,6 +43,19 @@ describe("signed-in writes to farah_messages are refused at the grant level", ()
   });
 });
 
+describe("the Data API's own view of the grants (data_api_grants_snapshot, migration 0193)", () => {
+  it("anon and authenticated hold no privilege on the Farah tables except SELECT (and the control: the snapshot lists other tables)", async () => {
+    const { data, error } = await admin.rpc("data_api_grants_snapshot");
+    expect(error).toBeNull();
+    expect((data ?? []).length).toBeGreaterThan(0);
+    const farah = (data ?? []).filter((r: { table_name: string }) => r.table_name === "farah_messages" || r.table_name === "farah_session_events");
+    const nonSelect = farah.filter((r: { privilege_type: string }) => r.privilege_type !== "SELECT").map((r: { table_name: string; grantee: string; privilege_type: string }) => `${r.table_name}:${r.grantee}:${r.privilege_type}`);
+    // MAINTAIN (PostgreSQL 17) is the one privilege 0222 does not revoke; the dry run's preflight prints whether it is present.
+    expect(nonSelect.filter((x: string) => !x.endsWith(":MAINTAIN"))).toEqual([]);
+    expect(farah.some((r: { grantee: string; privilege_type: string }) => r.grantee === "authenticated" && r.privilege_type === "SELECT")).toBe(true);
+  });
+});
+
 describe("what the app depends on still works", () => {
   it("the signed-in user reads its own rows: the hourly count shape and the history shape", async () => {
     const since = new Date(Date.now() - 3_600_000).toISOString();

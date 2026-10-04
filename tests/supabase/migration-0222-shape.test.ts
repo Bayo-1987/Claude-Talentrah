@@ -17,17 +17,17 @@ const m = flat(read(MIGRATION)).trim();
 const rb = flat(read(ROLLBACK)).trim();
 
 describe("0222: what the migration changes", () => {
-  it("revokes INSERT, UPDATE and DELETE on both Farah tables from public, anon and authenticated", () => {
-    expect(m).toMatch(/revoke insert, update, delete on table public\.farah_messages from public, anon, authenticated;/);
-    expect(m).toMatch(/revoke insert, update, delete on table public\.farah_session_events from public, anon, authenticated;/);
+  it("revokes INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES and TRIGGER on both Farah tables from public, anon and authenticated", () => {
+    expect(m).toMatch(/revoke insert, update, delete, truncate, references, trigger on table public\.farah_messages from public, anon, authenticated;/);
+    expect(m).toMatch(/revoke insert, update, delete, truncate, references, trigger on table public\.farah_session_events from public, anon, authenticated;/);
   });
 
-  it("changes nothing else: no grant, no policy, no row level security change, no create, drop or alter, no SELECT revoke", () => {
+  it("changes nothing else: no grant, no policy, no row level security change, no create, drop or alter, no SELECT revoke, no revoke all", () => {
     expect(m).not.toMatch(/\bgrant\b/);
     expect(m).not.toMatch(/\bcreate policy\b|\bdrop policy\b|\balter policy\b/);
     expect(m).not.toMatch(/\balter table\b|\bdrop\b|\bcreate (table|function|index|type)\b/);
     expect(m).not.toMatch(/revoke [a-z, ]*\bselect\b/);
-    expect(m).not.toMatch(/revoke [a-z, ]*\b(truncate|references|trigger|all)\b/);
+    expect(m).not.toMatch(/revoke [a-z, ]*\ball\b/);
   });
 
   it("touches only the two Farah tables", () => {
@@ -35,26 +35,41 @@ describe("0222: what the migration changes", () => {
     expect(new Set(tables)).toEqual(new Set(["public.farah_messages", "public.farah_session_events"]));
   });
 
-  it("checks itself when applied: no write privilege left for anon, authenticated or PUBLIC, and what must still work (SELECT for the signed-in role, the service role's own privileges)", () => {
+  it("checks itself when applied: none of the six privileges left for anon, authenticated or PUBLIC, and what must still work (SELECT for the signed-in role, the service role's own privileges)", () => {
     expect(m).toMatch(/do \$check\$/);
+    expect(m).toMatch(/foreach p in array array\['insert', 'update', 'delete', 'truncate', 'references', 'trigger'\] loop/);
     expect(m).toMatch(/has_table_privilege\(r, t::regclass, p\)/);
     expect(m).toMatch(/aclexplode/);
-    expect(m).toMatch(/a\.grantee = 0 and a\.privilege_type in \('insert', 'update', 'delete'\)/);
+    expect(m).toMatch(/a\.grantee = 0 and a\.privilege_type in \('insert', 'update', 'delete', 'truncate', 'references', 'trigger'\)/);
     expect(m).toMatch(/has_table_privilege\('authenticated', 'public\.farah_messages'::regclass, 'select'\)/);
     expect(m).toMatch(/has_table_privilege\('service_role', 'public\.farah_messages'::regclass, p\)/);
   });
 });
 
-describe("0222: the rollback is the exact undo, and only that", () => {
-  it("grants INSERT and DELETE on farah_messages back to authenticated, in one transaction, and checks it", () => {
-    expect(rb).toMatch(/^begin; grant insert, delete on table public\.farah_messages to authenticated;/);
-    expect(rb).toMatch(/has_table_privilege\('authenticated', 'public\.farah_messages'::regclass, 'insert'\)/);
+describe("0222: the rollback restores the before-state, and only that", () => {
+  it("runs in one transaction with both timeouts set, and ends by checking the privileges against the before-state it lists", () => {
+    expect(rb).toMatch(/^begin; set local lock_timeout = '2s'; set local statement_timeout = '20s';/);
+    expect(rb).toMatch(/do \$check\$/);
+    expect(rb).toMatch(/v_expected constant text :=/);
+    expect(rb).toMatch(/if v_actual <> v_expected then/);
     expect(rb).toMatch(/commit;$/);
   });
 
-  it("restores nothing for anon, nothing on farah_session_events, and changes no policy", () => {
-    expect(rb).not.toMatch(/\banon\b.*\bgrant\b|grant [a-z, ]+ to [a-z, ]*\banon\b/);
-    expect(rb.replace(/'public\.farah_session_events'/g, "")).not.toMatch(/farah_session_events/);
-    expect(rb).not.toMatch(/\bpolicy\b|\balter table\b/);
+  it("records the before-state it was built from as comments, and says plainly if it is provisional", () => {
+    const raw = read(ROLLBACK);
+    expect(raw).toMatch(/-- BEFORE farah_messages: \{/);
+    expect(raw).toMatch(/-- BEFORE farah_session_events: \{/);
+    expect(raw).toMatch(/PROVISIONAL|Built from the BEFORE ACLs the dry run printed/);
+  });
+
+  it("only grants (back) the six privileges, only to anon, authenticated and public, only on the two Farah tables; no SELECT, no policy, no alter", () => {
+    const grants = [...rb.matchAll(/grant ([a-z, ]+) on table (public\.[a-z_]+) to ([a-z]+)( with grant option)?;/g)];
+    expect(grants.length).toBeGreaterThan(0);
+    for (const g of grants) {
+      for (const p of g[1].split(",").map((x) => x.trim())) expect(["insert", "update", "delete", "truncate", "references", "trigger"]).toContain(p);
+      expect(["public.farah_messages", "public.farah_session_events"]).toContain(g[2]);
+      expect(["anon", "authenticated", "public"]).toContain(g[3]);
+    }
+    expect(rb).not.toMatch(/\bpolicy\b|\balter table\b|grant select/);
   });
 });
