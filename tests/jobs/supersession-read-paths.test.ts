@@ -18,6 +18,7 @@ const MUST_FILTER = [
   "src/lib/digest/send.ts",
   "src/lib/jobs/enrich-thin.ts",
   "src/lib/matching/refresh-job.ts",
+  "src/lib/matching/rescore-stale-job.ts",
   "src/lib/notifications/proactive-match-alert/send.ts",
   "src/lib/notifications/win-back/send.ts",
 ];
