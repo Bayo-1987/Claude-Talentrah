@@ -28,8 +28,8 @@ one morning by two sessions that each did exactly that. Ask, wait for the number
 | 0210 | S3-21, `mentor_unpaid_hold` `search_path` pin (#672) | applied 16:04Z | applied 16:05Z |
 | 0211 | S3-21, definer and graphql hardening (#678) | applied 20:36Z | applied 20:37Z |
 | 0212 | S3-21, account deletion PR 1: request, emailed confirm link, hide at once (#686) | applied 22:10Z (3 Oct) | applied 22:12Z (3 Oct) |
-| 0213 | S3-21's later account-deletion PRs (export) | reserved | reserved |
-| 0214 | S3-21's later account-deletion PRs (purge) | reserved | reserved |
+| 0213 | S3-21, an idempotent revoke of anon and authenticated EXECUTE on four trigger functions (a no-op on production; aligns preview and CI; owner-decided) | reserved | reserved |
+| 0214 | S3-21, account deletion PR 2: the export migration (owner-decided) | reserved | reserved |
 | 0215 | S3 (admin dashboard), Refer & Earn: a signup pays nothing, activation pays the whole reward | applied 09:45Z (3 Oct) | applied 09:46Z (3 Oct) |
 | 0216 | S2, the company-rename trigger (#693) | applied 19:01Z (3 Oct) | applied 19:02Z (3 Oct) |
 | 0217 | S3-21, scholarship note rules (#703) | applied 17:40Z (3 Oct) | applied 17:40Z (3 Oct) |
