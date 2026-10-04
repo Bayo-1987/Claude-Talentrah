@@ -3,20 +3,22 @@ import { generateWithFailover, generateChatStreamWithFailover, type ServedBy } f
 import { logFarahCall } from "./call-log";
 import { FARAH_SYSTEM_PROMPT } from "./system-prompt";
 import { buildFarahChatSystemPrompt } from "./chat-prompt";
-import type { LLMFinishReason } from "@/lib/llm/types";
+import type { LLMFinishReason, LLMUsage } from "@/lib/llm/types";
 import { CHAT_MAX_OUTPUT_TOKENS } from "./token-budget";
 
 /**
  * Writes the one success line (call-log.ts) for a Farah call, given when it started and who served it.
  * Takes no text of any kind, by design.
  */
-function logSuccess(startedAt: number, served: ServedBy | undefined): void {
+function logSuccess(startedAt: number, served: ServedBy | undefined, usage?: LLMUsage | null): void {
   if (!served) return;
   logFarahCall({
     provider: served.provider.name,
     model: served.provider.model,
     latencyMs: performance.now() - startedAt,
     failover: served.failover,
+    promptTokens: usage?.inputTokens ?? null,
+    completionTokens: usage?.outputTokens ?? null,
   });
 }
 
@@ -24,16 +26,20 @@ function logSuccess(startedAt: number, served: ServedBy | undefined): void {
 export async function askFarah(userMessage: string, maxTokens = 1536): Promise<string> {
   const startedAt = performance.now();
   let served: ServedBy | undefined;
+  let usage: LLMUsage | null = null;
   const text = await generateWithFailover(
-    (provider) =>
-      provider.generateText({
+    async (provider) => {
+      const result = await provider.generateWithUsage({
         systemPrompt: FARAH_SYSTEM_PROMPT,
         turns: [{ role: "user", content: userMessage }],
         maxOutputTokens: maxTokens,
-      }),
+      });
+      usage = result.usage;
+      return result.text;
+    },
     (s) => (served = s),
   );
-  logSuccess(startedAt, served);
+  logSuccess(startedAt, served, usage);
   return text;
 }
 
@@ -62,16 +68,20 @@ export async function askFarahChat(
   const system = buildFarahChatSystemPrompt({ extraContext });
   const startedAt = performance.now();
   let served: ServedBy | undefined;
+  let usage: LLMUsage | null = null;
   const text = await generateWithFailover(
-    (provider) =>
-      provider.generateText({
+    async (provider) => {
+      const result = await provider.generateWithUsage({
         systemPrompt: system,
         turns,
         maxOutputTokens: maxTokens,
-      }),
+      });
+      usage = result.usage;
+      return result.text;
+    },
     (s) => (served = s),
   );
-  logSuccess(startedAt, served);
+  logSuccess(startedAt, served, usage);
   return text;
 }
 
@@ -91,12 +101,15 @@ export async function* askFarahChatStream(
     quickAction?: string;
     /** Called once when the reply ends, with why it stopped. A `length` stop means the reply is cut off. */
     onFinish?: (reason: LLMFinishReason) => void;
+    /** Called once when the reply ends, with the token counts the serving provider reported (not called when it reported none). */
+    onUsage?: (usage: LLMUsage) => void;
   } = {},
 ): AsyncGenerator<string> {
   const system = buildFarahChatSystemPrompt({ quickAction: opts.quickAction, extraContext });
   const startedAt = performance.now();
   let served: ServedBy | undefined;
   let chunks = 0;
+  let usage: LLMUsage | null = null;
   for await (const chunk of generateChatStreamWithFailover(
     (provider) =>
       provider.generateTextStream({
@@ -105,6 +118,11 @@ export async function* askFarahChatStream(
         maxOutputTokens: maxTokens,
         // Set per provider attempt: after a failover the fallback's own report is the one that stands.
         onFinish: opts.onFinish,
+        // Likewise per attempt: the provider that served the reply is the one whose counts are logged.
+        onUsage: (u) => {
+          usage = u;
+          opts.onUsage?.(u);
+        },
       }),
     (s) => (served = s),
   )) {
@@ -114,5 +132,5 @@ export async function* askFarahChatStream(
   // Reached only when the stream completed without throwing, and only if it said anything: the chat route
   // treats a zero-chunk reply as a failure, so it is not logged as a success here either. For a stream the
   // latency is the whole reply, start to finish — not time to first token.
-  if (chunks > 0) logSuccess(startedAt, served);
+  if (chunks > 0) logSuccess(startedAt, served, usage);
 }

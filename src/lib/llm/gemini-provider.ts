@@ -151,6 +151,7 @@ export class GeminiProvider implements LLMProvider {
     maxOutputTokens,
     jsonSchema,
     onFinish,
+    onUsage,
   }: LLMGenerateOptions): AsyncGenerator<string> {
     const client = getGeminiClient();
 
@@ -172,13 +173,23 @@ export class GeminiProvider implements LLMProvider {
       });
 
       let finishReason: string | undefined;
+      let meta: { promptTokenCount?: number; candidatesTokenCount?: number; totalTokenCount?: number; thoughtsTokenCount?: number } | undefined;
       for await (const chunk of stream) {
+        if (chunk.usageMetadata) meta = chunk.usageMetadata;
         const reason = chunk.candidates?.[0]?.finishReason;
         if (reason) finishReason = String(reason);
         if (chunk.text) yield chunk.text;
       }
       const mapped = mapGeminiFinishReason(finishReason);
       if (mapped) onFinish?.(mapped);
+      if (meta && typeof meta.promptTokenCount === "number" && typeof meta.candidatesTokenCount === "number") {
+        onUsage?.({
+          inputTokens: meta.promptTokenCount,
+          outputTokens: meta.candidatesTokenCount,
+          totalTokens: meta.totalTokenCount ?? meta.promptTokenCount + meta.candidatesTokenCount,
+          reasoningTokens: meta.thoughtsTokenCount ?? null,
+        });
+      }
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.status === 429) {

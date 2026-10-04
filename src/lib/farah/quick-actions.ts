@@ -10,6 +10,8 @@
  * stays on the type — every remaining entry happens to be chat-only, but
  * the type itself still describes either shape.
  */
+import { FARAH_CHIPS } from "./chip-registry";
+
 export interface FarahQuickAction {
   key: string;
   label: string;
@@ -17,23 +19,13 @@ export interface FarahQuickAction {
   starterPrompt: string | null;
 }
 
-export const FARAH_QUICK_ACTIONS: FarahQuickAction[] = [
-  {
-    key: "interview-prep",
-    label: "Job Interview Prep",
-    href: null,
-    starterPrompt: "Help me prep for a job interview.",
-  },
-  {
-    key: "career-advisor",
-    label: "Career Advisor",
-    href: null,
-    starterPrompt: "I'd like some career advice.",
-  },
-  {
-    key: "salary-negotiation",
-    label: "Salary Negotiation",
-    href: null,
-    starterPrompt: "I want to prep for a salary negotiation.",
-  },
-];
+/**
+ * Derived from the chip registry (chip-registry.ts), which is the one place a chip is defined. Order, labels and starter prompts are exactly the
+ * three chips every page has shown since the panel shipped; tests/farah/chip-registry.test.ts pins them.
+ */
+export const FARAH_QUICK_ACTIONS: FarahQuickAction[] = FARAH_CHIPS.filter((c) => c.surface === "panel").map(({ key, label, starterPrompt }) => ({
+  key,
+  label,
+  href: null,
+  starterPrompt,
+}));
