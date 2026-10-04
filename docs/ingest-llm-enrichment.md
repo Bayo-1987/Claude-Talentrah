@@ -171,3 +171,5 @@ nothing, calls no provider, logs one warning per run ("enrichment enabled but no
 `skipped: "stub-provider-in-production"` in its summary. The stub still works in tests, local development and preview deployments.
 `tests/jobs/enrich-thin-stub-guard.test.ts` pins it. **Leave the flag off until a real provider is configured AND the isolated-account question
 and the ESCO decision are answered**; the guard is a safety net, not a reason to switch it on.
+
+**Before any real provider is ever enabled:** the attempt markers (`job_postings.llm_enrichment_attempted_at`) written by the stub's 17 days of runs (362 at last count) must be cleared, because candidate selection skips any posting that has one, so those postings would never be enriched by a real provider; and the marker should record WHICH provider made it (today it is a bare timestamp). Enrichment itself is parked: no provider work is planned.
