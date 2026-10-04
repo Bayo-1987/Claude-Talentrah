@@ -220,7 +220,8 @@ beforeAll(async () => {
     { user_id: A.id, source_jd_text: "A-private-jd", gap_analysis: {} },
     admin,
   );
-  await ins("farah_messages", { user_id: A.id, role: "user", content: "A-private-message" });
+  // Message history is written by the server only, so it is seeded with the service role like the other server-written tables.
+  await ins("farah_messages", { user_id: A.id, role: "user", content: "A-private-message" }, admin);
   await ins("referral_shares", { user_id: A.id, channel: "whatsapp" });
   await ins("scholarship_saves", {
     user_id: A.id,
