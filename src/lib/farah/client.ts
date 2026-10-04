@@ -102,7 +102,7 @@ export async function* askFarahChatStream(
     /** Called once when the reply ends, with why it stopped. A `length` stop means the reply is cut off. */
     onFinish?: (reason: LLMFinishReason) => void;
     /** Called once when the reply ends, with the token counts the serving provider reported (not called when it reported none). */
-    onUsage?: (usage: LLMUsage) => void;
+    onUsage?: (usage: LLMUsage, served?: { provider: string; model: string }) => void;
     /** Aborting it ends the provider call (and the HTTP request under it). An aborted call throws; it is never a rate limit, so it never fails over. */
     signal?: AbortSignal;
   } = {},
@@ -124,7 +124,7 @@ export async function* askFarahChatStream(
         // Likewise per attempt: the provider that served the reply is the one whose counts are logged.
         onUsage: (u) => {
           usage = u;
-          opts.onUsage?.(u);
+          opts.onUsage?.(u, { provider: provider.name, model: provider.model });
         },
       }),
     (s) => (served = s),

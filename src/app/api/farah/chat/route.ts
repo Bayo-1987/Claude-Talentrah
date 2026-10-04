@@ -21,6 +21,15 @@ import {
 } from "@/lib/farah/chat-gate";
 import { chipEntryPoint } from "@/lib/farah/chip-registry";
 import { labelAsData } from "@/lib/farah/data-block";
+import {
+  FAILED_ATTEMPT_ESTIMATE_NANO,
+  NO_COUNTS_REPLY_ESTIMATE_NANO,
+  checkSpendCeiling,
+  counterFailureLine,
+  estimateSpendNano,
+  secondsUntilUtcMidnight,
+} from "@/lib/farah/spend-ceiling";
+import { addSpendNano, markHalfwayWarned, readSpendNano } from "@/lib/farah/spend-tally";
 import type { MatchExplanation } from "@/lib/matching/score";
 
 /** Which entry point to log for a quick action: the chip registry decides (an unknown or absent key is free text). */
@@ -70,6 +79,27 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { error: `Keep it under ${MAX_MESSAGE_LENGTH} characters.` },
       { status: 400 },
+    );
+  }
+
+  /*
+   * The daily spend ceiling (migration 0223): checked before anything that costs money or changes state. It answers with a plain JSON refusal, like the other early refusals.
+   * A counter that cannot be read fails CLOSED with its own code (distinct from the ceiling's): "can't check" is not "zero spent". Each branch writes exactly one content-free log line.
+   */
+  try {
+    const ceiling = await checkSpendCeiling({ read: readSpendNano, markWarned: markHalfwayWarned });
+    if (ceiling.status === "blocked") {
+      console.warn("[farah-spend:ceiling] the daily spend ceiling is reached");
+      return NextResponse.json(
+        { error: "Farah is resting for today. Please try again tomorrow.", code: "farah_daily_ceiling" },
+        { status: 503, headers: { "Retry-After": String(secondsUntilUtcMidnight(new Date())) } },
+      );
+    }
+  } catch (err) {
+    console.error(counterFailureLine(err));
+    return NextResponse.json(
+      { error: "Farah can't check today's capacity just now. Try again shortly.", code: "farah_spend_unavailable" },
+      { status: 503, headers: { "Retry-After": "30" } },
     );
   }
 
@@ -232,7 +262,20 @@ export async function POST(request: Request) {
   }
 
   const encoder = new TextEncoder();
+  /** Adds an estimate to today's counter. A failure to record is logged (content-free) and never turns a delivered reply into an error. */
+  async function recordSpend(nano: number) {
+    try {
+      await addSpendNano(nano);
+    } catch (err) {
+      console.error(counterFailureLine(err));
+    }
+  }
+  // Set when the reader goes away (the response stream is cancelled): the rest of the run can no longer be delivered, but the model call it started may still have cost something.
+  let clientGone = false;
   const stream = new ReadableStream<Uint8Array>({
+    cancel() {
+      clientGone = true;
+    },
     async start(controller) {
       function send(event: Record<string, unknown>) {
         controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
@@ -244,6 +287,8 @@ export async function POST(request: Request) {
       let finishReason: LLMFinishReason | undefined;
       // The token counts the provider reported for this reply, if it reported any; saved on the reply row's JSON context below.
       let usage: LLMUsage | undefined;
+      // Which provider and model served the reply, as the provider call reported it with its counts: the estimate is priced from this.
+      let served: { provider: string; model: string } | undefined;
       try {
         for await (const chunk of askFarahChatStream(turns, extraContext, undefined, {
           quickAction,
@@ -252,14 +297,22 @@ export async function POST(request: Request) {
           onFinish: (reason) => {
             finishReason = reason;
           },
-          onUsage: (u) => {
+          onUsage: (u, s) => {
             usage = u;
+            served = s;
           },
         })) {
           fullText += chunk;
           send({ type: "delta", text: chunk });
         }
       } catch (err) {
+        // A model call that did not complete is added to today's counter at the flat failed-attempt estimate (most such calls bill nothing, so this is already pessimistic).
+        // When the cause is the reader going away, that is the whole story: say so once, content-free, and stop (nothing can be sent).
+        await recordSpend(FAILED_ATTEMPT_ESTIMATE_NANO);
+        if (clientGone) {
+          console.warn("[farah-spend:aborted] flat estimate charged");
+          return;
+        }
         // Never surface the raw provider error to the client — a provider
         // SDK's error .message can embed the full JSON response body
         // (internal request details, account-billing detail, etc.), which
@@ -278,6 +331,17 @@ export async function POST(request: Request) {
         send({ type: "error", message: errorMessage });
         controller.close();
         return;
+      }
+
+      // The model call completed: add its estimated cost, from the provider's reported counts (priced at the dearest known row if the model is unknown), or at the worst-case flat estimate when no counts came.
+      if (fullText) {
+        await recordSpend(
+          usage
+            ? estimateSpendNano({ provider: served?.provider, model: served?.model, inputTokens: usage.inputTokens, outputTokens: usage.outputTokens })
+            : NO_COUNTS_REPLY_ESTIMATE_NANO,
+        );
+      } else {
+        await recordSpend(FAILED_ATTEMPT_ESTIMATE_NANO);
       }
 
       if (!fullText) {

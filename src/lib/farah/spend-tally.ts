@@ -1,14 +1,12 @@
 import "server-only";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { MISSING_OBJECT_CODES } from "./spend-ceiling";
 
 /**
  * The daily usage counter (migration 0223) as three functions. The counter is one table and one function, `add_llm_usage(bucket, nano)`, granted to the service role only:
  * it adds in a single statement and returns the new running total for today (the DATABASE's UTC date). Reading is adding zero. Nothing here keeps state, and nothing here
  * swallows an error: a failure to reach the counter must surface so the route can fail closed (a counter that cannot be read is not "zero spent").
  */
-/** What the database or its API answers when the counter's function or table is not there: the migration (0223) has not been applied to this project. */
-const MISSING_OBJECT_CODES = new Set(["PGRST202", "42883", "42P01", "PGRST205"]);
-
 /** A failure reaching the counter. Carries the database error code (never its message, which can echo request detail) so the route can log it content-free. */
 export class SpendTallyError extends Error {
   readonly code: string | null;
