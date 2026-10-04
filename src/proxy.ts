@@ -7,6 +7,7 @@ import { ADMIN_COOKIE } from "@/lib/admin/cookie";
 import { createPublicReadClient } from "@/lib/supabase/public-read";
 import { REFERRAL_CODE_PATTERN, REFERRAL_COOKIE, REFERRAL_COOKIE_MAX_AGE_SECONDS } from "@/lib/referrals/cookie";
 import { isProtectedSeekerPath } from "@/lib/auth/seeker-gate-paths";
+import { pendingDeletionGate } from "@/lib/auth/pending-deletion-gate";
 
 /**
  * A first pass on /admin, before anything renders.
@@ -238,6 +239,10 @@ export async function proxy(request: NextRequest, event: NextFetchEvent) {
   if (gated) return gated;
 
   const { response, user, accessToken } = await updateSession(request);
+
+  // A session whose account is scheduled for deletion goes no further, and is not stamped as recently active (see pending-deletion-gate.ts).
+  const pendingDeletion = pendingDeletionGate(request, response, user);
+  if (pendingDeletion) return pendingDeletion;
 
   touchLastActive(event, user, accessToken);
 

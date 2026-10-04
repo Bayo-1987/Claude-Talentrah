@@ -61,7 +61,13 @@ const MAX_POSTINGS_PER_RUN = 200;
 
 type Resolved = { recipients: EmailableRecipient[]; skipped: Array<{ userId: string; reason: RecipientSkipReason }> };
 
-/** The org's owners (owner-role members), else the person who created the organisation. Cached per run. */
+/**
+ * The org's owners (owner-role members), else the person who created the organisation. Cached per run.
+ *
+ * ACCT-1: the profiles are read WITH `deletion_requested_at`, so an owner who has scheduled their own account for deletion is not mailed
+ * (src/lib/email/recipient-eligibility.ts). And the creator is also the fallback when the owners are there but none of them can be mailed: a posting
+ * whose only owner is leaving should still reach the person who created the organisation, not sit unremindered until it closes.
+ */
 async function loadRecipients(
   supabase: ReturnType<typeof createServiceRoleClient>,
   organizationId: string,
@@ -70,30 +76,37 @@ async function loadRecipients(
   const cached = cache.get(organizationId);
   if (cached) return cached;
 
-  let userIds: string[] = [];
+  const resolve = async (wanted: string[]): Promise<Resolved> => {
+    let profiles: RecipientProfile[] = [];
+    if (wanted.length > 0) {
+      const { data } = await supabase.from("profiles").select("id, email, first_name, deletion_requested_at").in("id", wanted);
+      profiles = data ?? [];
+    }
+    return selectEmailableRecipients(wanted, profiles);
+  };
+
   const { data: members } = await supabase
     .from("organization_members")
     .select("user_id")
     .eq("organization_id", organizationId)
     .eq("role", "owner");
-  userIds = (members ?? []).map((m) => m.user_id);
+  const ownerIds = (members ?? []).map((m) => m.user_id);
 
-  if (userIds.length === 0) {
+  let resolved = await resolve(ownerIds);
+
+  if (resolved.recipients.length === 0) {
     const { data: org } = await supabase
       .from("organizations")
       .select("created_by")
       .eq("id", organizationId)
       .maybeSingle();
-    if (org?.created_by) userIds = [org.created_by];
+    const creator = org?.created_by;
+    if (creator && !ownerIds.includes(creator)) {
+      const fallback = await resolve([creator]);
+      resolved = { recipients: fallback.recipients, skipped: [...resolved.skipped, ...fallback.skipped] };
+    }
   }
 
-  let profiles: RecipientProfile[] = [];
-  if (userIds.length > 0) {
-    const { data } = await supabase.from("profiles").select("id, email, first_name").in("id", userIds);
-    profiles = data ?? [];
-  }
-
-  const resolved = selectEmailableRecipients(userIds, profiles);
   cache.set(organizationId, resolved);
   return resolved;
 }

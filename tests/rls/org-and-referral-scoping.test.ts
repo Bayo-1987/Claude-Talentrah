@@ -312,13 +312,15 @@ describe("RLS: an unverified organisation cannot reach the public feed", () => {
         dedup_fingerprint: fingerprint,
       });
 
-      // Exactly the feed's own query — src/app/(app)/jobs/page.tsx.
-      const { data: seenByOther } = await bystander.client
+      // The feed's own kind of query: explicit columns, never `*`. A `*` here would be refused outright by a column-level restriction, return
+      // an error with no rows, and "no rows" would then pass for the wrong reason, so the error is asserted null first.
+      const { data: seenByOther, error: seenByOtherError } = await bystander.client
         .from("job_postings")
-        .select("*")
+        .select("id, title, company_name, status, dedup_fingerprint")
         .eq("status", "open")
         .eq("dedup_fingerprint", fingerprint);
 
+      expect(seenByOtherError, "the query itself must succeed, so that an empty result means the row is hidden and not that the read failed").toBeNull();
       expect(
         seenByOther ?? [],
         "LEAK: anyone signed in could publish a job into every user's feed under a company name they invented",

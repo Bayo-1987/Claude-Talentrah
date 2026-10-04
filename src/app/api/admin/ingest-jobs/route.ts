@@ -7,6 +7,11 @@ import {
 } from "@/lib/jobs/expiry";
 import { requireAdminSecret, requireCronSecret, internalError } from "@/lib/api/admin-auth";
 import { sendProactiveMatchAlerts } from "@/lib/notifications/proactive-match-alert/send";
+import { runMatchScoreRefreshJob } from "@/lib/matching/refresh-job";
+import { runPostIngestRefresh } from "@/lib/matching/post-ingest-refresh";
+
+/** Literal on purpose (Next reads it statically): the Hobby maximum, valid on every plan. tests/matching/post-ingest-refresh-limits.test.ts pins it against the refresh's self-stop. */
+export const maxDuration = 300;
 
 /**
  * Trigger for the job aggregation pipeline. Not on any user-facing request
@@ -49,6 +54,8 @@ export async function POST(request: Request) {
 }
 
 async function runAndRespond(trigger: "cron" | "manual") {
+  // The refresh's deadline is measured from here: ingestion, both sweeps and the alerts spend the route's budget first.
+  const routeStartedAtMs = Date.now();
   try {
     /*
      * Runs BEFORE ingestion, and its failure is not allowed to cancel the run.
@@ -133,6 +140,21 @@ async function runAndRespond(trigger: "cron" | "manual") {
     }
 
     /*
+     * The match-score refresh, LAST (owner's decision, option b; see src/lib/matching/post-ingest-refresh.ts for the why). A new posting has no
+     * stored score, and a posting whose JD or seniority changed lost every user's score through trigger 0069, so without this the readers of
+     * stored scores skipped them until the once-a-day 16:00 refresh. It runs after both sweeps (a closed posting is not scored) and after the
+     * alerts (which compute their own scores and must not be starved), inside a deadline measured from this route's start, SKIPS itself when
+     * ingest used most of the budget, and cannot throw: its failure never cancels or changes what ingestion reports.
+     */
+    const postIngestRefresh = await runPostIngestRefresh({
+      routeStartedAtMs,
+      ingestFinishedAtMs: Date.now(),
+      now: () => Date.now(),
+      refresh: ({ shouldStop }) => runMatchScoreRefreshJob({ shouldStop }),
+      log: (line) => console.log(line),
+    });
+
+    /*
      * A run where every source failed used to answer 200.
      *
      * `ingestAllSources` catches per source and records the reason in
@@ -162,12 +184,12 @@ async function runAndRespond(trigger: "cron" | "manual") {
 
     if (failed.length > 0 && failed.length === results.length) {
       return NextResponse.json(
-        { results, expiry, staleSweep, proactiveAlerts, error: "every configured source failed" },
+        { results, expiry, staleSweep, proactiveAlerts, postIngestRefresh, error: "every configured source failed" },
         { status: 500 },
       );
     }
 
-    return NextResponse.json({ results, expiry, staleSweep, proactiveAlerts });
+    return NextResponse.json({ results, expiry, staleSweep, proactiveAlerts, postIngestRefresh });
   } catch (err) {
     // Previously unguarded: a throw from any single source produced an
     // unhandled rejection and a bare 500 with a framework stack, rather than

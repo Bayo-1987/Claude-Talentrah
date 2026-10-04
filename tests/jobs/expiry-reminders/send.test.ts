@@ -22,7 +22,7 @@ const state = vi.hoisted(() => ({
   stamped: [] as string[],
   released: [] as string[],
   owners: {} as Record<string, string[]>,
-  profiles: {} as Record<string, { email: string | null; first_name: string | null }>,
+  profiles: {} as Record<string, { email: string | null; first_name: string | null; deletion_requested_at?: string | null }>,
   orgCreator: {} as Record<string, string>,
   dueError: null as string | null,
   listIgnoresClaims: false,
@@ -230,6 +230,78 @@ describe("who gets the email: nobody ineligible, and no claim is left behind whe
     const next = await sendExpiryReminders(new Date(NOW.getTime() + 24 * 3_600_000));
     expect(next.sent).toBe(1);
     expect(state.sent.map((m) => m.to)).toEqual(["owner@acme.test"]);
+  });
+});
+
+describe("accounts scheduled for deletion (ACCT-1)", () => {
+  const info = vi.spyOn(console, "info").mockImplementation(() => {});
+  beforeEach(() => info.mockClear());
+  const PENDING = "2026-10-02T12:00:00Z";
+
+  it("a pending owner gets no reminder, and the organisation's creator (a different, eligible person) is emailed instead", async () => {
+    state.owners = { "org-1": ["u1"] };
+    state.orgCreator = { "org-1": "u2" };
+    state.profiles = {
+      u1: { email: "owner@acme.test", first_name: "Ada", deletion_requested_at: PENDING },
+      u2: { email: "creator@acme.test", first_name: "Cy" },
+    };
+    state.due = [due("job-a")];
+    const summary = await sendExpiryReminders(NOW);
+    expect(state.sent.map((m) => m.to)).toEqual(["creator@acme.test"]);
+    expect(summary).toMatchObject({ sent: 1, skipped: 0 });
+  });
+
+  it("with two owners, the pending one is dropped and the other is still emailed (no need to fall back)", async () => {
+    state.owners = { "org-1": ["u1", "u2"] };
+    state.orgCreator = { "org-1": "u3" };
+    state.profiles = {
+      u1: { email: "owner@acme.test", first_name: "Ada", deletion_requested_at: PENDING },
+      u2: { email: "second@acme.test", first_name: "Bo" },
+      u3: { email: "creator@acme.test", first_name: "Cy" },
+    };
+    state.due = [due("job-a")];
+    await sendExpiryReminders(NOW);
+    expect(state.sent.map((m) => m.to)).toEqual(["second@acme.test"]);
+  });
+
+  it("when the only owner is pending and nobody else can be mailed, the posting is skipped WITHOUT a claim, and the reason says why", async () => {
+    state.owners = { "org-1": ["u1"] };
+    state.orgCreator = { "org-1": "u1" };
+    state.profiles = { u1: { email: "owner@acme.test", first_name: "Ada", deletion_requested_at: PENDING } };
+    state.due = [due("job-a")];
+    const summary = await sendExpiryReminders(NOW);
+    expect(state.sent).toHaveLength(0);
+    expect(state.claims.size).toBe(0);
+    expect(summary).toMatchObject({ considered: 1, sent: 0, skipped: 1 });
+    expect(info.mock.calls.map((c) => c.join(" ")).join("\n")).toContain("deleted_pending");
+  });
+
+  it("a pending owner AND a pending creator: skipped, never claimed", async () => {
+    state.owners = { "org-1": ["u1"] };
+    state.orgCreator = { "org-1": "u2" };
+    state.profiles = {
+      u1: { email: "owner@acme.test", first_name: "Ada", deletion_requested_at: PENDING },
+      u2: { email: "creator@acme.test", first_name: "Cy", deletion_requested_at: PENDING },
+    };
+    state.due = [due("job-a")];
+    const summary = await sendExpiryReminders(NOW);
+    expect(state.sent).toHaveLength(0);
+    expect(state.claims.size).toBe(0);
+    expect(summary.skipped).toBe(1);
+    // Nobody to write to is not an error: nothing failed, so the run is not retried or alarmed for it.
+    expect(summary.failed).toBe(0);
+  });
+
+  it("once the owner restores the account (flag cleared) the next run sends to them again", async () => {
+    state.owners = { "org-1": ["u1"] };
+    state.orgCreator = { "org-1": "u1" };
+    state.profiles = { u1: { email: "owner@acme.test", first_name: "Ada", deletion_requested_at: PENDING } };
+    state.due = [due("job-a")];
+    await sendExpiryReminders(NOW);
+    expect(state.sent).toHaveLength(0);
+    state.profiles = { u1: { email: "owner@acme.test", first_name: "Ada", deletion_requested_at: null } };
+    const next = await sendExpiryReminders(new Date(NOW.getTime() + 24 * 3_600_000));
+    expect(next.sent).toBe(1);
   });
 });
 
