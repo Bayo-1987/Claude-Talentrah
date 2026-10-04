@@ -65,6 +65,44 @@ afterAll(async () => {
   await deleteTestUsers([a, b, c].filter(Boolean).map((u) => u.id));
 }, 120_000);
 
+/*
+ * NOT VACUOUS. Every assertion below is about what a SIGNED-IN caller sees, so first prove the sessions are real and are who they claim to be. An anonymous
+ * client would be refused outright (42501), but a session that resolved to the wrong person, or to nobody, could make "A sees nothing of B" pass for the wrong
+ * reason. `account_deletion_status()` with no `auth.uid()` also answers `{scheduled: false}`, so a "false" for A alone proves nothing: the contrast with B's own
+ * "true" does. If the sessions cannot be minted, beforeAll throws and the file FAILS; it is never skipped.
+ */
+describe("the sessions are real, and each is who it says it is", () => {
+  it("A can read A's own profile and cannot read B's (owner-only RLS resolves the token to A)", async () => {
+    const own = await a.client.from("profiles").select("id").eq("id", a.id);
+    expect(own.error).toBeNull();
+    expect(own.data?.map((r) => r.id)).toEqual([a.id]);
+    const other = await a.client.from("profiles").select("id").eq("id", b.id);
+    expect(other.data ?? []).toEqual([]);
+  });
+
+  it("B's session resolves to B (it can read B's own profile)", async () => {
+    const own = await b.client.from("profiles").select("id").eq("id", b.id);
+    expect(own.data?.map((r) => r.id)).toEqual([b.id]);
+  });
+
+  it("A and B are different people with different answers to the same call (so 'A sees nothing' is not an empty fixture)", async () => {
+    expect(a.id).not.toBe(b.id);
+    const asA = (await as(a).rpc("account_deletion_status")).data;
+    const asB = (await as(b).rpc("account_deletion_status")).data;
+    expect(asA).toEqual({ scheduled: false });
+    expect(asB).toMatchObject({ scheduled: true });
+  });
+
+  it("the fixtures are what the rest of the file assumes: B is flagged, C is not, both applications exist", async () => {
+    const { data } = await admin.from("profiles").select("id, deletion_requested_at").in("id", [b.id, c.id]);
+    const byId = new Map((data ?? []).map((r) => [r.id, r.deletion_requested_at]));
+    expect(byId.get(b.id)).not.toBeNull();
+    expect(byId.get(c.id)).toBeNull();
+    const apps = await admin.from("applications").select("id").in("id", [appB, appC]);
+    expect(apps.data).toHaveLength(2);
+  });
+});
+
 describe("status and restore act only on the caller", () => {
   it("A, with nothing scheduled, sees nothing scheduled, and B's pending deletion is not visible through status", async () => {
     const { data, error } = await as(a).rpc("account_deletion_status");
