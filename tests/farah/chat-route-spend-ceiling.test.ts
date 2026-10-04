@@ -259,6 +259,19 @@ describe("(e) a failure reading the tally fails CLOSED, with its own code", () =
     expect(lines[0]).not.toContain("route-test-user");
   });
 
+  it("when the counter's function is missing the one log line says migration 0223 may not be applied, and the request still fails closed", async () => {
+    readSpendNano.mockRejectedValue(Object.assign(new Error(INTERNAL_ERROR_TEXT), { code: "PGRST202" }));
+    const res = await POST(request());
+    expect(res.status).toBe(503);
+    expect((await res.json()).code).toBe("farah_spend_unavailable");
+    const lines = [...spendLines(warn), ...spendLines(errorSpy)];
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toMatch(/^\[farah-spend:counter-failed\]/);
+    expect(lines[0]).toMatch(/0223/);
+    expect(lines[0]).not.toContain("internal-db-7");
+    expect(askFarahChatStream).not.toHaveBeenCalled();
+  });
+
   it("the two tags are different, so an operator can tell 'ceiling reached' from 'counter broken' by the tag alone", async () => {
     readSpendNano.mockRejectedValue(new Error("x"));
     await POST(request());
@@ -322,7 +335,7 @@ describe("recording the spend (an estimate from token counts and published price
     expect(commitFarahChatAllowance).not.toHaveBeenCalled();
   });
 
-  it("an attempt the reader walks away from mid-reply is added ONCE at the failed-attempt estimate, and nothing is charged or saved", async () => {
+  it("a reply the reader closes before it finishes is added ONCE at the failed-attempt estimate, and nothing is charged or saved", async () => {
     const m = await spend();
     let release: () => void = () => {};
     const gate = new Promise<void>((r) => (release = r));

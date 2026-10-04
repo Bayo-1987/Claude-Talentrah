@@ -31,6 +31,7 @@ interface Mod {
   GEMINI_PRICE_SOURCE: { url: string; readOn: string };
   dailyCeilingUsd(env?: Record<string, string | undefined>): number;
   secondsUntilUtcMidnight(d: Date): number;
+  counterFailureLine(err: unknown): string;
   estimateSpendNano(u: { provider?: string; model?: string; inputTokens: number; outputTokens: number }): number;
   checkSpendCeiling(tally: Tally, env?: Record<string, string | undefined>): Promise<{ status: "ok" | "blocked"; spentNano: number; ceilingNano: number }>;
 }
@@ -224,5 +225,25 @@ describe("checkSpendCeiling", () => {
     const m = await load();
     const flaky: Tally = { read: async () => ceiling(m) / 2, markWarned: async () => { throw new Error("db down"); } };
     await expect(m.checkSpendCeiling(flaky, {})).resolves.toMatchObject({ status: "ok" });
+  });
+});
+
+describe("the counter-failure log line", () => {
+  it("carries the tag and the database error code, and never the error's own text", async () => {
+    const m = await load();
+    const line = m.counterFailureLine(Object.assign(new Error("failed on internal-db-7 while reading the usage table"), { code: "57014" }));
+    expect(line).toMatch(/^\[farah-spend:counter-failed\] /);
+    expect(line).toContain("57014");
+    expect(line).not.toContain("internal-db-7");
+    expect(m.counterFailureLine(new Error("no code here"))).toMatch(/code=none/);
+    expect(m.counterFailureLine("a thrown string")).toMatch(/^\[farah-spend:counter-failed\] /);
+  });
+
+  it("when the counter's function or table is missing it says migration 0223 may not be applied (so the fix is obvious from the log)", async () => {
+    const m = await load();
+    for (const code of ["PGRST202", "42883", "42P01", "PGRST205"]) {
+      expect(m.counterFailureLine(Object.assign(new Error("x"), { code }))).toMatch(/0223/);
+    }
+    expect(m.counterFailureLine(Object.assign(new Error("x"), { code: "57014" }))).not.toMatch(/0223/);
   });
 });

@@ -30,8 +30,17 @@ describe("llm_daily_usage: no client role holds any privilege on it", () => {
     expect((await anon.from("llm_daily_usage").insert({ day: "2026-01-01", bucket: "farah_chat", nano_usd: 1 })).error?.code).toBe("42501");
   });
 
-  it("the service role can read and write it (the app's only path)", async () => {
+  it("the service role can read, insert and update it (its privileges are written out in 0223, not inherited from default privileges)", async () => {
     expect((await admin.from("llm_daily_usage").select("*").limit(1)).error).toBeNull();
+    const row = { day: "2001-01-01", bucket: "farah_chat", nano_usd: 1 };
+    expect((await admin.from("llm_daily_usage").upsert(row, { onConflict: "day,bucket" })).error).toBeNull();
+    expect((await admin.from("llm_daily_usage").update({ nano_usd: 2 }).eq("day", "2001-01-01").eq("bucket", "farah_chat")).error).toBeNull();
+    expect((await admin.from("llm_daily_usage").update({ nano_usd: 0 }).eq("day", "2001-01-01").eq("bucket", "farah_chat")).error).toBeNull();
+  });
+
+  it("but NOT delete: nothing in the app needs it, so 0223 does not grant it (SQLSTATE 42501)", async () => {
+    const r = await admin.from("llm_daily_usage").delete().eq("day", "2001-01-01");
+    expect(r.error?.code).toBe("42501");
   });
 });
 
