@@ -42,6 +42,7 @@ import {
 } from "@/lib/farah/token-budget";
 import { FARAH_SYSTEM_PROMPT } from "@/lib/farah/system-prompt";
 import { buildFarahChatSystemPrompt } from "@/lib/farah/chat-prompt";
+import { DATA_BLOCK_OVERHEAD_CHARS } from "@/lib/farah/data-block";
 import { FARAH_QUICK_ACTIONS } from "@/lib/farah/quick-actions";
 import { JOB_FIT_ENTRY_POINT } from "@/lib/farah/job-seed";
 import type { StructuredResume } from "@/lib/resume/types";
@@ -216,4 +217,24 @@ describe("send-100's job-seeded grounding", () => {
       expect(PROVIDER_TPM_LIMIT - withJobContext).toBeGreaterThan(1000);
     },
   );
+});
+
+describe("the data-block labelling (S3-66) still leaves real headroom", () => {
+  it("a worst-case turn with BOTH blocks maxed, plus the labelling's own overhead, is still under the ceiling with over 1000 tokens spare", () => {
+    const estimate = estimateWorstCaseRequestTokens({
+      systemPromptChars: SYSTEM_PROMPT_CHARS,
+      historyTurns: HISTORY_TURNS,
+      maxMessageChars: MAX_MESSAGE_LENGTH,
+      maxExtraContextChars: MAX_EXTRA_CONTEXT_CHARS + MAX_JOB_CONTEXT_CHARS + DATA_BLOCK_OVERHEAD_CHARS,
+      maxOutputTokens: CHAT_MAX_OUTPUT_TOKENS,
+      storedReplyMaxTokens: 1536,
+      historyMessageMaxChars: MAX_HISTORY_MESSAGE_CHARS,
+    });
+    expect(estimate).toBeLessThan(REQUEST_TOKEN_CEILING);
+    expect(PROVIDER_TPM_LIMIT - estimate).toBeGreaterThan(1000);
+  });
+
+  it("the overhead is small and bounded (about a hundred tokens), so it cannot grow unnoticed", () => {
+    expect(DATA_BLOCK_OVERHEAD_CHARS).toBeLessThan(600);
+  });
 });

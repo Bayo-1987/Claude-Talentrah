@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { askFarahChatStream, type FarahChatTurn } from "@/lib/farah/client";
 import { logFarahSessionMessage, type FarahEntryPoint } from "@/lib/farah/session-events";
 import { LLMProviderError } from "@/lib/llm";
-import type { LLMFinishReason } from "@/lib/llm/types";
+import type { LLMFinishReason, LLMUsage } from "@/lib/llm/types";
 import { GENERIC_FARAH_UNAVAILABLE_MESSAGE, farahRateLimitMessage } from "@/lib/farah/rate-limit-message";
 import type { StructuredResume } from "@/lib/resume/types";
 import {
@@ -18,16 +18,13 @@ import {
   commitFarahChatAllowance,
   InsufficientCreditsError,
 } from "@/lib/farah/chat-gate";
-import { JOB_FIT_ENTRY_POINT } from "@/lib/farah/job-seed";
+import { chipEntryPoint } from "@/lib/farah/chip-registry";
+import { labelAsData } from "@/lib/farah/data-block";
 import type { MatchExplanation } from "@/lib/matching/score";
 
-/** The only quick actions that actually start a chat — see quick-actions.ts. */
-const CHAT_ENTRY_POINTS = new Set(["interview-prep", "career-advisor", "salary-negotiation", JOB_FIT_ENTRY_POINT]);
-
+/** Which entry point to log for a quick action: the chip registry decides (an unknown or absent key is free text). */
 function resolveEntryPoint(quickAction: string | undefined): FarahEntryPoint {
-  return quickAction && CHAT_ENTRY_POINTS.has(quickAction)
-    ? (quickAction as FarahEntryPoint)
-    : "free_text";
+  return chipEntryPoint(quickAction);
 }
 
 /**
@@ -155,7 +152,7 @@ export async function POST(request: Request) {
   // past a skills-only cap. Truncating after building keeps the leading
   // "don't invent detail" instruction, which a head-truncation would preserve
   // and a tail-truncation would not.
-  const resumeContext = baseResume ? buildResumeContext(baseResume) : undefined;
+  const resumeContext = baseResume ? labelAsData("resume", buildResumeContext(baseResume)) : undefined;
 
   /*
    * send-100's job grounding. Both queries go through `supabase` — the
@@ -180,9 +177,10 @@ export async function POST(request: Request) {
         .maybeSingle(),
     ]);
     if (jobRow && scoreRow?.explanation) {
-      jobContext = buildJobContext(
-        { title: jobRow.title, companyName: jobRow.company_name },
-        scoreRow.explanation as unknown as MatchExplanation,
+      // Title, company and skill gaps come from the posting: labelled as data, never appended as plain prompt text.
+      jobContext = labelAsData(
+        "job_posting",
+        buildJobContext({ title: jobRow.title, companyName: jobRow.company_name }, scoreRow.explanation as unknown as MatchExplanation),
       );
     }
   }
@@ -238,11 +236,16 @@ export async function POST(request: Request) {
       // Why the model stopped, as the provider reported it. Stays undefined when the provider never said, which
       // is treated as "finished": only a REAL length stop (the model hit the output ceiling) is an incomplete reply.
       let finishReason: LLMFinishReason | undefined;
+      // The token counts the provider reported for this reply, if it reported any; saved on the reply row's JSON context below.
+      let usage: LLMUsage | undefined;
       try {
         for await (const chunk of askFarahChatStream(turns, extraContext, undefined, {
           quickAction,
           onFinish: (reason) => {
             finishReason = reason;
+          },
+          onUsage: (u) => {
+            usage = u;
           },
         })) {
           fullText += chunk;
@@ -308,6 +311,9 @@ export async function POST(request: Request) {
           ? allowance.freeMessagesRemaining + 1
           : allowance.freeMessagesRemaining;
       const rowContext = truncated ? { ...context, truncated: true } : context;
+      // The reply row (only) also carries the token counts, so daily totals can be summed from saved rows: runtime logs are kept about an hour.
+      // No migration: `context` is the existing JSON column. Absent when the provider reported none (unknown is not zero).
+      const replyContext = usage ? { ...rowContext, tokens: { prompt: usage.inputTokens, completion: usage.outputTokens } } : rowContext;
 
       // Two independent writes (different rows, neither reads the other) —
       // run together rather than one after the other.
@@ -315,7 +321,7 @@ export async function POST(request: Request) {
         supabase.from("farah_messages").insert({ user_id: user.id, role: "user", content: message, context: rowContext }),
         supabase
           .from("farah_messages")
-          .insert({ user_id: user.id, role: "farah", content: fullText, context: rowContext })
+          .insert({ user_id: user.id, role: "farah", content: fullText, context: replyContext })
           .select("id, created_at")
           .single(),
       ]);
