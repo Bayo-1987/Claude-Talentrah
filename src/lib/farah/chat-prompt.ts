@@ -1,6 +1,6 @@
 import { FARAH_SYSTEM_PROMPT } from "./system-prompt";
-import { FARAH_QUICK_ACTIONS } from "./quick-actions";
-import { JOB_FIT_ENTRY_POINT } from "./job-seed";
+import { FARAH_CHIPS, chipInstruction, validateChips } from "./chip-registry";
+import { DATA_BLOCK_RULE, isOnlyDataBlocks, labelAsData } from "./data-block";
 
 /**
  * The system prompt for Farah's docked CHAT panel (send-500), assembled per request.
@@ -30,39 +30,14 @@ export const NO_INVENTED_ACHIEVEMENTS_RULE = `Never invent achievements, metrics
  */
 export const REPLY_SIZE_RULE = `Keep each reply short — aim for under about 200 words — and offer to continue with the next part ("Want me to go deeper on any of this?") rather than writing one long document.`;
 
-/** Written once so the "new request" statement cannot drift between actions. */
-function newRequest(label: string): string {
-  return `The user just started a NEW request from the "${label}" quick action. Do not continue an earlier topic from the history (e.g. a previous interview-prep discussion) unless they ask; answer this on its own terms.`;
-}
-
-const INSTRUCTIONS: Record<string, string> = {
-  "interview-prep": `${newRequest("Job Interview Prep")}
-
-Job Interview Prep: if you do not know the role, company or stage, ask in one short question first. Then practise: one realistic question at a time, with feedback on their answer rather than a finished script. STAR is fine as a frame, but any example you write is a template with placeholders, not their story.`,
-
-  "career-advisor": `${newRequest("Career Advisor")}
-
-Career Advisor: the user wants career advice (direction, next moves, positioning), not interview practice, so give no practice questions or interview scripts. Unless it is already clear, first ask one or two short questions (where they are, where they want to go, how soon). Then give a few concrete options with trade-offs and one specific next step.`,
-
-  "salary-negotiation": `${newRequest("Salary Negotiation")}
-
-Salary Negotiation: if you do not know their situation (an offer, a raise, a new role), ask in one short question first. Coach on strategy, framing and what to say; never state a market number or range you have no data for. For a real offer in hand, say a human mentor is the right next step.`,
-
-  [JOB_FIT_ENTRY_POINT]: `The user is asking about a specific job from their feed; the job context is below. Answer about THIS job only: how well it fits them and what to change on their resume for it. Only mention matched or missing skills that appear in that context.`,
-};
-
 /** The instructions for a quick action key, or undefined for free text and unknown keys. Exported for the tests. */
 export function quickActionInstructions(key: string): string | undefined {
-  return Object.hasOwn(INSTRUCTIONS, key) ? INSTRUCTIONS[key] : undefined;
+  return chipInstruction(key);
 }
 
-// A quick action added to quick-actions.ts with no instructions here would silently fall back to "just a starter
-// sentence", which is the bug. Checked once at import so it fails loudly in any test or build that loads this.
-for (const action of FARAH_QUICK_ACTIONS) {
-  if (action.starterPrompt && !Object.hasOwn(INSTRUCTIONS, action.key)) {
-    throw new Error(`chat-prompt.ts: quick action "${action.key}" has no instructions`);
-  }
-}
+// A chip with no instruction would silently fall back to "just a starter sentence", which is the bug. The registry is the one place chips
+// are defined; this re-checks it at import so it fails loudly in any test or build that loads this module.
+validateChips(FARAH_CHIPS);
 
 export function buildFarahChatSystemPrompt({
   quickAction,
@@ -71,6 +46,11 @@ export function buildFarahChatSystemPrompt({
   const parts = [FARAH_SYSTEM_PROMPT, NO_INVENTED_ACHIEVEMENTS_RULE, REPLY_SIZE_RULE];
   const instructions = quickAction ? quickActionInstructions(quickAction) : undefined;
   if (instructions) parts.push(instructions);
-  if (extraContext) parts.push(extraContext);
+  if (extraContext) {
+    // Anything that came from a posting or a resume reaches the model as labelled DATA (data-block.ts). The route already hands over labelled
+    // blocks; a caller that passes plain text still gets it labelled (source "context"), never appended raw.
+    parts.push(DATA_BLOCK_RULE);
+    parts.push(isOnlyDataBlocks(extraContext) ? extraContext : labelAsData("context", extraContext));
+  }
   return parts.join("\n\n");
 }

@@ -27,13 +27,20 @@ one morning by two sessions that each did exactly that. Ask, wait for the number
 | 0209 | S3-21, money tables survive user deletion | applied 15:22Z | applied 15:24Z |
 | 0210 | S3-21, `mentor_unpaid_hold` `search_path` pin (#672) | applied 16:04Z | applied 16:05Z |
 | 0211 | S3-21, definer and graphql hardening (#678) | applied 20:36Z | applied 20:37Z |
-| 0212 | S3-21, account deletion PR 1: request, emailed confirm link, hide at once (this PR) | not applied: waits for the owner's yes | not applied |
-| 0213 to 0214 | S3-21's later account-deletion PRs (export, purge) | reserved | reserved |
-| 0215 | S3 (admin dashboard), Refer & Earn: a signup pays nothing, activation pays the whole reward (this PR) | not applied: needs a rolled-back dry run and the owner's yes | not applied (after production) |
-| 0216 | S2, the company-rename trigger | reserved | reserved |
+| 0212 | S3-21, account deletion PR 1: request, emailed confirm link, hide at once (#686) | applied 22:10Z (3 Oct) | applied 22:12Z (3 Oct) |
+| 0213 | S3-21, an idempotent revoke of anon and authenticated EXECUTE on four trigger functions (a no-op on production; aligns preview and CI; owner-decided; trigger_function_grants) | applied 05:54Z (4 Oct) | applied 05:54Z (4 Oct) |
+| 0214 | S3-21, account deletion PR 2: the export migration (owner-decided) | reserved | reserved |
+| 0215 | S3 (admin dashboard), Refer & Earn: a signup pays nothing, activation pays the whole reward | applied 09:45Z (3 Oct) | applied 09:46Z (3 Oct) |
+| 0216 | S2, the company-rename trigger (#693) | applied 19:01Z (3 Oct) | applied 19:02Z (3 Oct) |
+| 0217 | S3-21, scholarship note rules (#703) | applied 17:40Z (3 Oct) | applied 17:40Z (3 Oct) |
+| 0218 | S1, explicit column grants on `job_postings`: anon and authenticated read 43 of its 44 columns (#736) | applied 07:45Z (4 Oct) | applied 07:50Z (4 Oct) |
+| 0219 | S1, `employer_moderation_notices` (owner-assigned; the design still needs the owner's approval) | reserved | reserved |
+| 0220 | S3 (admin dashboard), the Farah entry-point constraint, with Farah PR A2 (one migration: a format check replaces the fixed list of `entry_point` values; owner-assigned) | reserved | reserved |
+| 0221 | S3-21, `job_postings` `banner_path` insert-policy alignment (proposed by the owner; the file is not written yet) | proposed | proposed |
+| 0222 | S3 (admin dashboard), grant narrowing on the two Farah tables (proposed by the owner; the file is not written yet) | proposed | proposed |
 
-The times are the ledger's own version stamps (UTC, 2 Oct 2026), read from `supabase_migrations.schema_migrations` on both projects. A row says "applied" only because
-that ledger shows it; "reserved" means a number has been asked for and no ledger has it.
+The times are the ledger's own version stamps (UTC, 2 to 4 Oct 2026), read from `supabase_migrations.schema_migrations` on both projects. A row says "applied" only because
+that ledger shows it; "reserved" means a number has been asked for and no ledger has it; "proposed" means the owner named the number but the migration file does not exist yet.
 
 (0205 to 0207 belong to the open draft PRs #661 and #662, and are not in the directory until those merge.) When a number is used, update this table in the PR that uses it. `tests/docs/database-environments.test.ts` fails if this heading or the table is deleted.
 

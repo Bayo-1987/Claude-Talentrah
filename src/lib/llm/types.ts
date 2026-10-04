@@ -31,6 +31,11 @@ export interface LLMGenerateOptions {
    * caller consumes it as one.
    */
   onFinish?: (reason: LLMFinishReason) => void;
+  /**
+   * Streaming only. Called once, when the stream ends, with the token counts the provider reported for it. Not called when the provider reported
+   * none (callers treat "never told" as unknown, never as zero), and not called if the stream threw. Numbers only, by design.
+   */
+  onUsage?: (usage: LLMUsage) => void;
 }
 
 /**
@@ -71,9 +76,8 @@ export interface LLMProvider {
    * provider produces them instead of waiting for the full reply. Only
    * meaningful for free-text calls (Farah chat) — a `jsonSchema` response
    * can't be safely parsed or displayed a chunk at a time, so no caller
-   * streams one today. Usage metadata isn't collected here: the providers'
-   * streaming APIs report it on the final chunk, not incrementally, and no
-   * caller has needed it yet — add it if one does.
+   * streams one today. Usage metadata, when the provider reports it on the
+   * final chunk, is handed to `onUsage` (see LLMGenerateOptions).
    */
   generateTextStream(options: LLMGenerateOptions): AsyncGenerator<string>;
 }

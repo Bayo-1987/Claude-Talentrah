@@ -1,7 +1,7 @@
 import "server-only";
 import OpenAI, { APIError } from "openai";
 import { LLMProviderError } from "./errors";
-import type { LLMProvider, LLMGenerateOptions, LLMResult } from "./types";
+import type { LLMProvider, LLMGenerateOptions, LLMResult, LLMUsage } from "./types";
 
 const GROQ_BASE_URL = "https://api.groq.com/openai/v1";
 
@@ -164,6 +164,7 @@ export class GroqProvider implements LLMProvider {
     maxOutputTokens,
     jsonSchema,
     onFinish,
+    onUsage,
   }: LLMGenerateOptions): AsyncGenerator<string> {
     const client = getGroqClient();
 
@@ -192,7 +193,9 @@ export class GroqProvider implements LLMProvider {
       });
 
       let finishReason: string | null = null;
+      let usage: LLMUsage | null = null;
       for await (const chunk of stream) {
+        usage = groqStreamUsage(chunk) ?? usage;
         const choice = chunk.choices[0];
         if (choice?.finish_reason) finishReason = choice.finish_reason;
         const delta = choice?.delta?.content;
@@ -201,6 +204,7 @@ export class GroqProvider implements LLMProvider {
       // `length` is the model hitting max_tokens: the reply is cut off. Reasoning tokens count toward that same
       // budget (REASONING_EFFORT above), so a reply can be cut short even when the visible text is not long.
       if (finishReason) onFinish?.(finishReason === "stop" ? "stop" : finishReason === "length" ? "length" : "other");
+      if (usage) onUsage?.(usage);
     } catch (err) {
       if (err instanceof APIError) {
         if (err.status === 429) {
@@ -217,4 +221,27 @@ export class GroqProvider implements LLMProvider {
       );
     }
   }
+}
+
+/**
+ * The token counts on a streamed chunk, if it carries valid ones. Groq reports them on the final chunk as `x_groq.usage`; an OpenAI-style
+ * `usage` object is read too. Anything malformed (not numbers) is ignored rather than reported as garbage.
+ */
+export function groqStreamUsage(chunk: unknown): LLMUsage | null {
+  const c = chunk as { usage?: unknown; x_groq?: { usage?: unknown } } | null | undefined;
+  const raw = (c?.x_groq?.usage ?? c?.usage) as
+    | { prompt_tokens?: unknown; completion_tokens?: unknown; total_tokens?: unknown; completion_tokens_details?: { reasoning_tokens?: unknown } }
+    | null
+    | undefined;
+  if (!raw || typeof raw !== "object") return null;
+  const num = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) && v >= 0 ? v : null);
+  const input = num(raw.prompt_tokens);
+  const output = num(raw.completion_tokens);
+  if (input === null || output === null) return null;
+  return {
+    inputTokens: input,
+    outputTokens: output,
+    totalTokens: num(raw.total_tokens) ?? input + output,
+    reasoningTokens: num(raw.completion_tokens_details?.reasoning_tokens),
+  };
 }
