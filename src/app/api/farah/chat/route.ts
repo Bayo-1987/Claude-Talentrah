@@ -307,10 +307,15 @@ export async function POST(request: Request) {
         }
       } catch (err) {
         // A model call that did not complete is added to today's counter at the flat failed-attempt estimate (most such calls bill nothing, so this is already pessimistic).
-        // When the cause is the reader going away, that is the whole story: say so once, content-free, and stop (nothing can be sent).
+        // When the cause is the reader going away (the stream was cancelled, or the request's own signal fired: either can come first), that is the whole story: say so once, content-free, and stop (nothing can be sent).
         await recordSpend(FAILED_ATTEMPT_ESTIMATE_NANO);
-        if (clientGone) {
+        if (clientGone || request.signal.aborted) {
           console.warn("[farah-spend:aborted] flat estimate charged");
+          try {
+            controller.close();
+          } catch {
+            // the stream was already cancelled: nothing left to close
+          }
           return;
         }
         // Never surface the raw provider error to the client — a provider

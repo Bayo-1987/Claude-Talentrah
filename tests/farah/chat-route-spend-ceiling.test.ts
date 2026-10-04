@@ -38,8 +38,8 @@ function chainable(chainResult: Record<string, unknown>, singleResult?: Record<s
   );
   return proxy;
 }
-vi.mock("@/lib/supabase/server", () => ({
-  createClient: async () => ({
+function fakeSupabase() {
+  return {
     auth: { getUser },
     from(table: string) {
       if (table === "farah_messages") {
@@ -58,8 +58,10 @@ vi.mock("@/lib/supabase/server", () => ({
       }
       return chainable({ data: null, error: null });
     },
-  }),
-}));
+  };
+}
+vi.mock("@/lib/supabase/server", () => ({ createClient: async () => fakeSupabase() }));
+vi.mock("@/lib/supabase/service-role", () => ({ createServiceRoleClient: () => fakeSupabase() }));
 vi.mock("@/lib/farah/client", () => ({ askFarahChatStream }));
 vi.mock("@/lib/farah/session-events", () => ({ logFarahSessionMessage: vi.fn().mockResolvedValue(undefined) }));
 vi.mock("@/lib/farah/chat-gate", () => ({
@@ -352,6 +354,33 @@ describe("recording the spend (an estimate from token counts and published price
     await wait();
     expect(addSpendNano).toHaveBeenCalledTimes(1);
     expect(addSpendNano).toHaveBeenCalledWith(m.FAILED_ATTEMPT_ESTIMATE_NANO);
+    expect(commitFarahChatAllowance).not.toHaveBeenCalled();
+    expect(inserted).toEqual([]);
+  });
+
+  it("a request aborted while the stream is still being read is added ONCE at the failed-attempt estimate, with one [farah-spend:aborted] line and no error event", async () => {
+    const m = await spend();
+    askFarahChatStream.mockImplementation(async function* (_t: unknown, _e: unknown, _m: unknown, opts?: { signal?: AbortSignal }) {
+      yield "first part";
+      await new Promise<void>((_resolve, reject) => {
+        opts?.signal?.addEventListener("abort", () => reject(new Error("aborted")), { once: true });
+      });
+    });
+    const controller = new AbortController();
+    const res = await POST(new Request("http://localhost/api/farah/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: MESSAGE }), signal: controller.signal }));
+    const reader = res.body!.getReader();
+    await reader.read();
+    controller.abort();
+    let rest = "";
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      rest += new TextDecoder().decode(value);
+    }
+    expect(addSpendNano).toHaveBeenCalledTimes(1);
+    expect(addSpendNano).toHaveBeenCalledWith(m.FAILED_ATTEMPT_ESTIMATE_NANO);
+    expect(spendLines(warn).filter((l) => l.startsWith("[farah-spend:aborted]"))).toHaveLength(1);
+    expect(rest).not.toContain('"type":"error"');
     expect(commitFarahChatAllowance).not.toHaveBeenCalled();
     expect(inserted).toEqual([]);
   });
