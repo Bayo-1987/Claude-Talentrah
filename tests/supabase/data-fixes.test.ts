@@ -12,8 +12,10 @@
 import { describe, expect, it } from "vitest";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { REVIEWER_PHRASES } from "@/lib/scholarships/reviewer-commentary";
 
 const DIR = "supabase/data-fixes";
+const PRE_RULE_FIX = "2026-10-02-scholarship-close-times.sql";
 const files = existsSync(DIR) ? readdirSync(DIR).filter((f) => f.endsWith(".sql")) : [];
 
 describe("supabase/data-fixes", () => {
@@ -22,6 +24,39 @@ describe("supabase/data-fixes", () => {
     const readme = readFileSync(join(DIR, "README.md"), "utf8");
     expect(readme).toMatch(/not replayed|NOT replayed/);
     expect(readme).toMatch(/READ ONLY|dry run/i);
+  });
+
+  /*
+   * #704 (path 8 of the guard inventory): a hand-run data fix bypasses every application guard, so the one that edits a scholarship's PUBLIC text must carry the
+   * real result of the reviewer-commentary check in its RECORD, per phrase, before and after. The read-only query that produces those counts is generated from
+   * the same phrase list the approval guard uses (reviewerCommentaryCountsQuery); nobody retypes the list.
+   */
+  it.each(files)("%s: a fix that edits public scholarship text records the phrase-check counts, before and after", (f) => {
+    // The ONE fix applied before this rule existed. It has no "before" reading to record, and inventing one would be worse than none. It is named, not matched by
+    // pattern or date, so no later fix can be covered by it silently.
+    if (f === PRE_RULE_FIX) return;
+    const sql = readFileSync(join(DIR, f), "utf8");
+    const apply = sql.split("do $apply$")[1]?.split("$apply$;")[0] ?? "";
+    // Per statement: from "update public.scholarships" to its WHERE, so a column named in a later statement or a comment cannot count.
+    const setClauses = apply.split(/update public\.scholarships/i).slice(1).map((u) => u.split(/\bwhere\b/i)[0]);
+    const editsPublicText = setClauses.some((c) => /\b(deadline_note|eligibility_[a-z_]+|provider|program_name|host_institution|field_tags|funding_covers|eligibility_nationalities|source_name)\s*=/i.test(c));
+    if (!editsPublicText) return;
+    const record = sql.split("RECORD")[1] ?? "";
+    expect(record, "a RECORD section").toBeTruthy();
+    expect(record).toMatch(/Phrase check \(before → after\):/);
+    for (const phrase of REVIEWER_PHRASES) {
+      expect(record, `a count for "${phrase}"`).toMatch(new RegExp(`${phrase.replace(/[-_ ]/g, "[-_ ]")}\\s*:?\\s*\\d+\\s*→\\s*\\d+`, "i"));
+    }
+  });
+
+  it("the pre-rule exemption names exactly one file, and that file exists", () => {
+    expect(PRE_RULE_FIX).toBe("2026-10-02-scholarship-close-times.sql");
+    expect(files).toContain(PRE_RULE_FIX);
+    expect(readFileSync("tests/supabase/data-fixes.test.ts", "utf8").match(/if \(f === PRE_RULE_FIX\) return;/g)).toHaveLength(1);
+  });
+
+  it("the README tells the person doing a fix to run the generated query", () => {
+    expect(readFileSync(join(DIR, "README.md"), "utf8")).toMatch(/reviewerCommentaryCountsQuery/);
   });
 
   it("holds the 2026-10-02 scholarship close-times fix", () => {

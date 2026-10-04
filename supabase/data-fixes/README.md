@@ -29,3 +29,12 @@ Because `execute_sql` writes no migration-ledger row, **the file itself is the r
 RECORD section (the last block of the file) in the same PR: **when it was applied (UTC), who approved it, and the row count of each
 statement** (each must be exactly 1, or the block raised and nothing changed), plus the result of the read-only checks that followed. A
 file whose RECORD still says `<not yet applied>` has not been run.
+
+## A fix that edits a scholarship's public text records the phrase check
+
+Reviewer wording must never sit in a column an applicant can read (#704), and a hand-run fix bypasses the approval guard that normally stops it. So a data
+fix whose APPLY block sets any public text column of `scholarships` carries, in its RECORD, a `Phrase check (before → after):` line with one `phrase: N → N`
+count per reviewer phrase. Produce the numbers by running the read-only query that `reviewerCommentaryCountsQuery()` generates (in
+`src/lib/scholarships/reviewer-commentary.ts`, from the same phrase list the approval guard uses) before and after the apply.
+`tests/supabase/data-fixes.test.ts` fails a fix of that kind that omits it.
+
