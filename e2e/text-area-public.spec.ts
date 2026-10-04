@@ -51,7 +51,7 @@ test.describe("contact form message box", () => {
       return event.defaultPrevented;
     });
     expect(refused, "the paste was cancelled, not left to be cut to fit").toBe(true);
-    await expect(page.locator("[data-paste-message]")).toContainText("That paste is 15 characters too long, so nothing was added");
+    await expect(page.locator("[data-paste-message]")).toContainText("That paste is 15 over the limit, so nothing was added");
     expect((await box.inputValue()).length).toBe(CAP - 5);
   });
 

@@ -25,7 +25,7 @@ const { sendContactMessageAction } = await import("@/lib/contact/actions");
 const { ContactForm } = await import("@/app/contact/contact-form");
 
 const IDLE = { status: "idle" as const, error: null };
-const TOO_LONG = "Keep your message to 5,000 characters or fewer";
+const TOO_LONG = "Your message is over the 5,000 limit. Shorten it (an emoji counts as two).";
 
 function form(message: string): FormData {
   const f = new FormData();

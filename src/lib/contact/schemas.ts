@@ -19,7 +19,7 @@ export const contactSchema = z.object({
     .trim()
     .min(10, "Give us a bit more detail (at least 10 characters)")
     // The same number the form's counter shows, counted the way the box counts (CRLF as one): see feedback/schemas.ts.
-    .refine((v) => fitsLimit(v, FIELD_LIMITS.contactMessage), "Keep your message to 5,000 characters or fewer"),
+    .refine((v) => fitsLimit(v, FIELD_LIMITS.contactMessage), "Your message is over the 5,000 limit. Shorten it (an emoji counts as two)."),
 });
 
 /**

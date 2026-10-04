@@ -15,8 +15,6 @@ export function counterBucket(length: number, limit: number): CounterBucket {
   return "quiet";
 }
 
-const characters = (n: number) => `${n} ${n === 1 ? "character" : "characters"}`;
-
 /**
  * The sentence to announce now, or null when nothing should be said because the bucket has not changed. An empty string clears the
  * announcement (the person deleted back below the threshold).
@@ -29,11 +27,11 @@ export function announcementFor(length: number, limit: number, previous: Counter
       return "";
     case "eighty":
     case "ninety":
-      return `${characters(limit - length)} left.`;
+      return `${limit - length} left before the limit of ${limit}.`;
     case "full":
-      return `You have reached the limit of ${limit} characters.`;
+      return `You have reached the limit of ${limit}.`;
     case "over":
-      return `${characters(length - limit)} over the limit.`;
+      return `${length - limit} over the limit of ${limit}.`;
   }
 }
 

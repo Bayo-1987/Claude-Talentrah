@@ -11,6 +11,8 @@
  * Static markup only (no DOM library in this repo): behaviour that needs typing is in e2e/text-area.spec.ts.
  */
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { TextArea } from "@/components/ui/text-area";
@@ -155,4 +157,19 @@ describe("for a global audience", () => {
     expect(textarea(html({ autoGrow: true, defaultValue: "one line" }))).toContain('rows="4"');
     expect(textarea(html({ defaultValue: text }))).toContain('rows="4"');
   });
+});
+
+it("the refused-paste message and the counter never say characters (an emoji counts as two)", () => {
+  const src = readFileSync(path.join(__dirname, "../../src/components/ui/text-area.tsx"), "utf8");
+  expect(src).not.toMatch(/too long, so nothing was added/);
+  expect(src).toMatch(/over the limit, so nothing was added/);
+  expect(/characters/i.test(src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, ""))).toBe(false);
+});
+
+it("a refused paste is wired up: the box handles paste, asks pasteVerdict, cancels the paste and shows the message", () => {
+  const src = readFileSync(path.join(__dirname, "../../src/components/ui/text-area.tsx"), "utf8");
+  expect(src).toMatch(/onPaste=\{/);
+  expect(src).toMatch(/pasteVerdict\(/);
+  expect(src).toMatch(/e\.preventDefault\(\)/);
+  expect(src).toMatch(/setPasteMessage\(/);
 });

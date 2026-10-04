@@ -1,6 +1,9 @@
 /**
  * Caps on free text (S1-56): one table, one rule, used by the client (counter, maxLength) and the server (the action's own check).
  *
+ * The number is UTF-16 code units: the browser's maxLength, a JavaScript string length and these server checks all agree, so an emoji costs
+ * two. User-facing text therefore says "limit", not "characters", wherever the count can differ from what a person sees.
+ *
  * APP-LEVEL ONLY: no database constraint and no migration. The numbers sit above the longest value in production when they were chosen.
  * `fitsLimit` counts the way the server counts (trimmed UTF-16 length) and never locks a person out of text they already saved: a value
  * that was over the cap before it existed may be saved unchanged or made shorter, only not longer.

@@ -137,7 +137,7 @@ export function TextArea({
           } else {
             // Refused whole and said out loud, never cut to fit: half a paragraph that nobody asked for is worse than none.
             e.preventDefault();
-            setPasteMessage(`That paste is ${verdict.over} characters too long, so nothing was added. Shorten it and paste again.`);
+            setPasteMessage(`That paste is ${verdict.over} over the limit, so nothing was added. Shorten it and paste again.`);
           }
         }}
         onChange={(e) => {

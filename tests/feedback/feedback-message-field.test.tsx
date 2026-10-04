@@ -55,7 +55,7 @@ describe("the server's cap is the client's cap", () => {
     expect(parse("x".repeat(FIELD_LIMITS.feedbackMessage)).success).toBe(true);
     const over = parse("x".repeat(FIELD_LIMITS.feedbackMessage + 1));
     expect(over.success).toBe(false);
-    if (!over.success) expect(over.error.issues[0].message).toBe("That's longer than we can store — trim it to 5,000 characters");
+    if (!over.success) expect(over.error.issues[0].message).toBe("That's longer than we can store: shorten it to fit the 5,000 limit (an emoji counts as two).");
   });
 
   it("counts trimmed, the way the counter does: surrounding spaces do not count toward the cap", () => {
@@ -69,7 +69,7 @@ describe("the server's cap is the client's cap", () => {
     expect(parse(exactly).success).toBe(true);
     const over = parse(`${exactly}x`); // 5001 counted
     expect(over.success).toBe(false);
-    if (!over.success) expect(over.error.issues[0].message).toBe("That's longer than we can store — trim it to 5,000 characters");
+    if (!over.success) expect(over.error.issues[0].message).toBe("That's longer than we can store: shorten it to fit the 5,000 limit (an emoji counts as two).");
   });
 
   it("agrees with fitsLimit on both sides of the boundary", () => {

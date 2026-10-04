@@ -26,13 +26,13 @@ describe("announcementFor", () => {
     expect(announcementFor(5, 100, "quiet")).toBeNull();
   });
   it("speaks when a threshold is crossed, in plain words with the numbers", () => {
-    expect(announcementFor(80, 100, "quiet")).toBe("20 characters left.");
-    expect(announcementFor(90, 100, "eighty")).toBe("10 characters left.");
-    expect(announcementFor(100, 100, "ninety")).toBe("You have reached the limit of 100 characters.");
-    expect(announcementFor(103, 100, "full")).toBe("3 characters over the limit.");
+    expect(announcementFor(80, 100, "quiet")).toBe("20 left before the limit of 100.");
+    expect(announcementFor(90, 100, "eighty")).toBe("10 left before the limit of 100.");
+    expect(announcementFor(100, 100, "ninety")).toBe("You have reached the limit of 100.");
+    expect(announcementFor(103, 100, "full")).toBe("3 over the limit of 100.");
   });
   it("tells a person who deletes back under the limit", () => {
-    expect(announcementFor(95, 100, "over")).toBe("5 characters left.");
+    expect(announcementFor(95, 100, "over")).toBe("5 left before the limit of 100.");
     expect(announcementFor(10, 100, "ninety")).toBe("");
   });
 });
@@ -41,7 +41,7 @@ describe("pasteVerdict", () => {
   it("accepts a paste that fits", () => {
     expect(pasteVerdict("hello", 5, 5, " world", 20)).toEqual({ ok: true });
   });
-  it("refuses a paste that would go over the limit, and says by how many characters", () => {
+  it("refuses a paste that would go over the limit, and says by how many", () => {
     expect(pasteVerdict("hello", 5, 5, " world", 8)).toEqual({ ok: false, over: 3 });
   });
   it("counts the selection being replaced", () => {
@@ -54,5 +54,14 @@ describe("pasteVerdict", () => {
   });
   it("counts a pasted CRLF line break as one character, like the box and the server", () => {
     expect(pasteVerdict("", 0, 0, "a\r\nb", 3)).toEqual({ ok: true });
+  });
+});
+
+describe("the words never promise 'characters' (an emoji counts as two code units)", () => {
+  it("no announcement says characters", () => {
+    for (const len of [80, 90, 100, 103]) {
+      const text = announcementFor(len, 100, len === 80 ? "quiet" : len === 90 ? "eighty" : len === 100 ? "ninety" : "full") ?? "";
+      expect(text).not.toMatch(/character/i);
+    }
   });
 });
