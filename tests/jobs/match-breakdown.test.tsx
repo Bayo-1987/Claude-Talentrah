@@ -57,9 +57,11 @@ describe("skill coverage", () => {
 
 describe("seniority", () => {
   it("shows the three real alignment values", () => {
+    // S3-52 part 1: the bare words "Above"/"Below" read the wrong way round ("below" means the role is MORE senior than you), so the cell says
+    // which way. Changed deliberately; the wording lives in src/lib/matching/seniority-words.ts and tests/matching/seniority-words.test.tsx.
     expect(render(explanation({ seniorityAlignment: "match" }))).toContain(">Match<");
-    expect(render(explanation({ seniorityAlignment: "above" }))).toContain(">Above<");
-    expect(render(explanation({ seniorityAlignment: "below" }))).toContain(">Below<");
+    expect(render(explanation({ seniorityAlignment: "above" }))).toContain(">More junior than you<");
+    expect(render(explanation({ seniorityAlignment: "below" }))).toContain(">More senior than you<");
   });
 
   it("an UNKNOWN seniority renders no cell at all (not 'Not available'): a field shows only when it carries a real value", () => {
