@@ -77,6 +77,16 @@ export function counterFailureLine(err: unknown): string {
   return `[farah-spend:counter-failed] code=${code ?? "none"}${hint}`;
 }
 
+/**
+ * HOW FAR PARALLEL REQUESTS CAN OVERSHOOT THE CEILING. The check reads today's total before the model call and the reply is added after it completes, so requests that start within one reply's duration
+ * (at most about a minute: a 20 s client timeout, up to three attempts) all pass against the same total. The provider's organisation limit on tokens per minute bounds how much they can then spend: spend cannot
+ * outrun the tokens the provider admits. That limit is 250,000 a minute (Groq console, read 4 Oct 2026); priced entirely as output tokens it is $0.15, an ABSOLUTE amount that does not shrink with the ceiling
+ * (15% of the $1.00 default, 30% at $0.50). Reserving before the call is not needed at the default; it is the thing to revisit if the ceiling is lowered below about $0.50.
+ */
+export const GROQ_ORG_TOKENS_PER_MINUTE = 250_000;
+export const MAX_REPLY_WINDOW_SECONDS = 60;
+export const OVERSHOOT_BOUND_NANO = estimateSpendNano({ provider: "groq", model: "openai/gpt-oss-120b", inputTokens: 0, outputTokens: GROQ_ORG_TOKENS_PER_MINUTE });
+
 export interface SpendTallyReader {
   read(): Promise<number>;
   markWarned(): Promise<boolean>;
