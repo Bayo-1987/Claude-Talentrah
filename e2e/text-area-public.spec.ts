@@ -117,6 +117,65 @@ test.describe("contact form message box", () => {
     expect((await box.inputValue()).length).toBe(CAP - 3);
   });
 
+  test("dragging text within the box (a move) is not blocked and the length does not change", async ({ page }) => {
+    const box = page.locator("#message");
+    await box.fill("x".repeat(CAP));
+    const prevented = await box.evaluate((el) => {
+      const area = el as HTMLTextAreaElement;
+      area.setSelectionRange(0, 5);
+      const data = new DataTransfer();
+      data.setData("text/plain", area.value.slice(0, 5));
+      const event = new DragEvent("drop", { dataTransfer: data, bubbles: true, cancelable: true });
+      area.dispatchEvent(event);
+      return event.defaultPrevented;
+    });
+    expect(prevented, "a move of the selected text inside the box is left to the browser").toBe(false);
+    await expect(page.locator("[data-paste-message]")).toHaveText("");
+    expect((await box.inputValue()).length).toBe(CAP);
+  });
+
+  test("dropping a file (no text) behaves as it did before: not cancelled, no message", async ({ page }) => {
+    const box = page.locator("#message");
+    await box.fill("hello");
+    const prevented = await box.evaluate((el) => {
+      const data = new DataTransfer();
+      data.items.add(new File(["not text"], "notes.pdf", { type: "application/pdf" }));
+      const event = new DragEvent("drop", { dataTransfer: data, bubbles: true, cancelable: true });
+      el.dispatchEvent(event);
+      return event.defaultPrevented;
+    });
+    expect(prevented).toBe(false);
+    await expect(page.locator("[data-paste-message]")).toHaveText("");
+  });
+
+  test("a dropped text that fits is accepted, with no message", async ({ page }) => {
+    const box = page.locator("#message");
+    await box.fill("hello");
+    const prevented = await box.evaluate((el) => {
+      const data = new DataTransfer();
+      data.setData("text/plain", " there");
+      const event = new DragEvent("drop", { dataTransfer: data, bubbles: true, cancelable: true });
+      el.dispatchEvent(event);
+      return event.defaultPrevented;
+    });
+    expect(prevented).toBe(false);
+    await expect(page.locator("[data-paste-message]")).toHaveText("");
+  });
+
+  test("a refused drop is announced the same way as a refused paste: one polite status region", async ({ page }) => {
+    const box = page.locator("#message");
+    await box.fill("x".repeat(CAP - 1));
+    await box.evaluate((el) => {
+      const data = new DataTransfer();
+      data.setData("text/plain", "yyy");
+      el.dispatchEvent(new DragEvent("drop", { dataTransfer: data, bubbles: true, cancelable: true }));
+    });
+    const message = page.locator("[data-paste-message]");
+    await expect(message).toContainText("over the limit");
+    await expect(message).toHaveAttribute("role", "status");
+    expect(await page.locator("[data-paste-message]").count(), "the same single region the paste message uses").toBe(1);
+  });
+
   test("while an input method is composing, the value is never truncated or rewritten", async ({ page }) => {
     const box = page.locator("#message");
     await box.fill("x".repeat(CAP - 1));

@@ -179,3 +179,10 @@ it("dropping text is handled like pasting: the box handles drop, asks dropVerdic
   expect(src).toMatch(/onDrop=\{/);
   expect(src).toMatch(/dropVerdict\(/);
 });
+
+it("the refusal message is announced the same way for a paste and a drop: one polite status region", () => {
+  const m = html({ limit: 100 });
+  expect(m).toMatch(/<span data-paste-message="true" role="status"/);
+  const src = readFileSync(path.join(__dirname, "../../src/components/ui/text-area.tsx"), "utf8");
+  expect(src.match(/setPasteMessage\(`/g)?.length).toBe(2); // the paste message and the drop message go to the same region
+});

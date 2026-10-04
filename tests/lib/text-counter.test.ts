@@ -82,6 +82,17 @@ describe("dropVerdict (dragging text into the box)", () => {
   });
 });
 
+describe("dropVerdict: files and non-text items, and the exact edge", () => {
+  it("dropping a file or any non-text item (no text in the drop) is left to the browser, exactly as before", () => {
+    expect(dropVerdict("x".repeat(20), 3, 3, "", 20)).toEqual({ ok: true });
+    expect(dropVerdict("x".repeat(30), 3, 3, "", 20)).toEqual({ ok: true });
+  });
+  it("a dropped text that lands exactly on the limit is accepted, one more is not", () => {
+    expect(dropVerdict("hello", 0, 0, "1234567", 12)).toEqual({ ok: true });
+    expect(dropVerdict("hello", 0, 0, "12345678", 12)).toEqual({ ok: false, over: 1 });
+  });
+});
+
 describe("select all, then paste: only the net length counts", () => {
   it("replacing the whole text with text exactly at the limit is accepted", () => {
     expect(pasteVerdict("x".repeat(20), 0, 20, "y".repeat(20), 20)).toEqual({ ok: true });
