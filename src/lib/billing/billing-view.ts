@@ -73,6 +73,15 @@ export function splitPasses(rows: readonly UserPassRow[], now: number): PassSpli
   return { live, leading, otherLive: live.slice(1), lastEnded: leading ? null : (ended[0] ?? null) };
 }
 
+/**
+ * What a second pass does to the first: nothing is added on. fulfill_credit_pack_or_pass (0159) sets `expires_at = now() + duration` and never
+ * reads existing passes, so a new pass starts today and runs ALONGSIDE the running one. This says so, naming the pass whose coverage runs
+ * longest (the one the page leads with) and its end date. It describes how the purchase already works; it changes nothing about it.
+ */
+export function passOverlapNotice(leading: UserPassRow): string {
+  return `Your ${leading.passes?.name ?? "Pass"} is active until ${formatDate(leading.expires_at)}. A new pass starts today and runs alongside it; the days left on your current pass are not added on.`;
+}
+
 export type PassNotice = "reminder" | "canceled" | "lapsed" | null;
 
 export interface PassDateLine {

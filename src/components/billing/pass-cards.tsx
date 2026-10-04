@@ -3,7 +3,8 @@ import { initiatePurchaseAction } from "@/lib/billing/actions";
 import { autoApplyFreeRunsPhrase } from "@/lib/auto-apply/limits-copy";
 import { PASS_DAILY_ACTION_CAP } from "@/lib/passes/entitlement";
 import { perDayNgn } from "@/lib/passes/pass-timing";
-import { passDateLine, type PassProductRow, type UserPassRow } from "@/lib/billing/billing-view";
+import { passDateLine, passOverlapNotice, type PassProductRow, type UserPassRow } from "@/lib/billing/billing-view";
+import { PassOverlapNotice } from "@/components/billing/pass-overlap-notice";
 
 /**
  * Pass copy, keyed by name, matching scripts/seed.ts's three passes. A pass the table does not name falls back to a plain sentence from
@@ -27,6 +28,7 @@ export function PassCards({ passes, current }: { passes: readonly PassProductRow
   const currentLine = current ? passDateLine(current).text : null;
   return (
     <>
+      {current && <PassOverlapNotice text={passOverlapNotice(current)} />}
       <div className="grid grid-cols-1 gap-4 @[620px]:grid-cols-3">
         {passes.map((pass) => {
           const isCurrent = current?.pass_id === pass.id;

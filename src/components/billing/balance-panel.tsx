@@ -1,10 +1,11 @@
 import { Button, NairaAmount } from "@/components/ui";
 import { cancelAutoRenewAction, initiatePurchaseAction } from "@/lib/billing/actions";
 import { formatDate } from "@/lib/format/datetime";
-import { passDateLine, type PackRow, type PassProductRow, type PassSplit, type UserPassRow } from "@/lib/billing/billing-view";
+import { passDateLine, passOverlapNotice, type PackRow, type PassProductRow, type PassSplit, type UserPassRow } from "@/lib/billing/billing-view";
 
 type PackRowWithPrice = PackRow & { price_ngn: number };
 import { passTiming } from "@/lib/passes/pass-timing";
+import { PassOverlapNotice } from "@/components/billing/pass-overlap-notice";
 
 /**
  * What each credit pack's price is worth in plain terms, keyed by name, matching scripts/seed.ts's own two packs. "Credits never expire" is
@@ -88,6 +89,9 @@ function RunningPass({ pass, others, now }: { pass: UserPassRow; others: UserPas
               );
             })}
           </ul>
+          <div className="mt-3 border-t border-ink-line pt-3">
+            <PassOverlapNotice text={passOverlapNotice(pass)} onDark />
+          </div>
         </details>
       )}
     </>
@@ -167,7 +171,7 @@ export function BalancePanel({
             {PACK_DESCRIPTION[pack.name] && <p className="text-[12.5px] text-line">{PACK_DESCRIPTION[pack.name]}</p>}
           </div>
         ))}
-        <p className="text-[13px] text-line">Credit packs, never expire.</p>
+        <p className="text-[13px] text-line">Credit packs</p>
       </div>
     </section>
   );

@@ -238,6 +238,37 @@ describe("state 2: active pass paid by card", () => {
   });
 });
 
+describe("a second pass starts alongside the first (overlap notice next to Buy)", () => {
+  const notice = (name: string, expires: number) =>
+    `Your ${name} is active until ${formatDate(iso(expires))}. A new pass starts today and runs alongside it; the days left on your current pass are not added on.`;
+
+  it("shows with a running pass, names that pass and its end date, and the Buy forms still post the same products", async () => {
+    world.rows.user_passes = [livePass()];
+    const html = await render();
+    expect(text(html)).toContain(notice("30-Day Pass", 18 * DAY));
+    expect(html).toMatch(/data-testid="pass-overlap-notice"/);
+    const buys = world.bound.filter((b) => b.action === "initiatePurchase" && b.args[0] === "pass").map((b) => `${b.args[0]}:${b.args[1]}`).sort();
+    expect(buys).toEqual(["pass:ps30", "pass:ps7", "pass:ps90"]);
+  });
+
+  it("is not shown with no pass, with an ended pass, or on the first visit", async () => {
+    for (const rows of [[], [livePass({ expires_at: iso(-9 * DAY), started_at: iso(-39 * DAY) })]]) {
+      world.rows.user_passes = rows;
+      expect(text(await render())).not.toContain("A new pass starts today");
+    }
+  });
+
+  it("with two running passes it names the one that expires last, once next to Buy and once in the other-pass view", async () => {
+    world.rows.user_passes = [
+      livePass(),
+      livePass({ id: "up2", pass_id: "ps7", expires_at: iso(2 * DAY), started_at: iso(-5 * DAY), payment_transaction_id: "t-x", passes: { name: "7-Day Sprint Pass" } }),
+    ];
+    const t = text(await render());
+    expect(t.split(notice("30-Day Pass", 18 * DAY)).length - 1).toBe(2);
+    expect(t).not.toContain(`Your 7-Day Sprint Pass is active until`);
+  });
+});
+
 describe("state 3: active pass paid by mobile money", () => {
   it("says Ends <date>, has no renewal line and no Cancel button", async () => {
     world.rows.user_passes = [livePass({ payment_method: "mobile_money", auto_renew_status: null, next_renewal_date: null })];
@@ -407,6 +438,7 @@ describe("built for a screen reader", () => {
     const t = text(await render());
     for (const h of ["Your balance", "Pass", "Top up credits", "Passes", "Recent activity", "Talentrah credits"]) expect(t).toContain(h);
     expect(t).toContain("Credits pay for the actions below, after any free allowance. Prices are per use.");
-    expect(t).toContain("Credit packs, never expire.");
+    expect(t).toContain("Credit packs");
+    expect(t).not.toContain("Credit packs, never expire.");
   });
 });
