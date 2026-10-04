@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requireEmployer } from "@/lib/employer/membership";
+import { JOB_EDIT_COLUMNS } from "@/lib/jobs/job-columns";
 import { updateJobAction } from "@/lib/employer/actions";
 import { EyebrowLabel } from "@/components/ui";
 import { JobPostingForm } from "@/components/employer/job-posting-form";
@@ -23,7 +24,7 @@ export default async function EditJobPage({ params }: { params: Promise<{ id: st
   // would leak its contents before the write was ever attempted.
   const { data: job } = await supabase
     .from("job_postings")
-    .select("*")
+    .select(JOB_EDIT_COLUMNS)
     .eq("id", id)
     .eq("organization_id", organization.id)
     .maybeSingle();

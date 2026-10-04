@@ -65,3 +65,11 @@ $apply$;
 --                   2026-09-27, close_time 23:59, close_tz UTC, close_at 2026-09-27 23:59:00+00 (the trigger computed it), deadline_note null,
 --                   moderation_note begins "Data fix #594, 2026-10-03." Table-wide at 17:36 UTC: 49 rows, 46 verified, 0 verified rows with a note and no
 --                   stamp, 0 notes over 600 characters (so migration 0217's constraints validate).
+-- Phrase check (before → after): rows table-wide carrying each reviewer phrase in a public text column, as produced by reviewerCommentaryCountsQuery()
+--   (src/lib/scholarships/reviewer-commentary.ts). Before = read from the row's text before the apply; after = measured read-only 2026-10-03 after it.
+--   a human should: 1 → 0
+--   not independently confirmed: 1 → 1
+--   not machine-verified: 1 → 0
+--   needs a human to confirm: 1 → 1
+--   see moderation_note: 1 → 1
+--   The three that remain are in the eligibility columns, which this fix deliberately did not touch (the listing is withdrawn by the expiry sweep; tracked in #704).

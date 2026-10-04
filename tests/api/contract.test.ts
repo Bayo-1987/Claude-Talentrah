@@ -62,7 +62,6 @@ const ranScholarshipUpsert = vi.fn();
 const ranCostProbe = vi.fn();
 const ranPassRenewal = vi.fn();
 const ranCampaignCharge = vi.fn();
-const ranModeration = vi.fn();
 const listedScholarships = vi.fn();
 const listedCampaigns = vi.fn();
 const decidedCampaign = vi.fn();
@@ -93,10 +92,6 @@ vi.mock("@/lib/scholarships/ingest", () => ({
       errors: [],
       notices: [],
     });
-  },
-  setModerationStatus: (...a: unknown[]) => {
-    ranModeration(...a);
-    return Promise.resolve();
   },
   upsertScholarships: (...a: unknown[]) => {
     ranScholarshipUpsert(...a);
@@ -171,7 +166,7 @@ vi.mock("@/lib/supabase/service-role", () => ({
 
 const SPIES = [
   ranJobIngest, sweptExpiredPostings, ranScholarshipIngest, ranScholarshipUpsert, ranCostProbe,
-  ranPassRenewal, ranModeration, listedScholarships,
+  ranPassRenewal, listedScholarships,
   listedCampaigns, decidedCampaign, ranCampaignCharge,
 ];
 
