@@ -6,6 +6,7 @@ import { MINIMAL_MARKDOWN_EXTENSIONS, MINIMAL_MARKDOWN_EXTENSIONS_LINKABLE } fro
 import { minimalMarkdownToDoc, minimalDocToMarkdown } from "@/lib/rich-text/minimal-document";
 import { sanitizePastedHtml } from "@/lib/employer/markdown-editor/paste-sanitize";
 import { cn } from "@/lib/cn";
+import { WRITING_BOX_FRAME, WRITING_BOX_LABEL } from "@/components/ui/writing-box";
 
 /** Same ≥40×40 hit-target rule as RichMarkdownEditor's own toolbar buttons. */
 const TOOLBAR_BUTTON =
@@ -72,7 +73,7 @@ export function MinimalRichEditor({
         "aria-labelledby": labelId,
         class: cn(
           minHeightClassName,
-          "border-[1.5px] border-t-0 border-ink bg-card px-3.5 py-2.5 font-body text-[15px] leading-[1.65] text-ink outline-none focus:border-rust [&_p.is-editor-empty:first-child::before]:pointer-events-none [&_p.is-editor-empty:first-child::before]:float-left [&_p.is-editor-empty:first-child::before]:h-0 [&_p.is-editor-empty:first-child::before]:text-ink-soft [&_p.is-editor-empty:first-child::before]:content-[attr(data-placeholder)]",
+          WRITING_BOX_FRAME, "border-t-0 [&_p.is-editor-empty:first-child::before]:pointer-events-none [&_p.is-editor-empty:first-child::before]:float-left [&_p.is-editor-empty:first-child::before]:h-0 [&_p.is-editor-empty:first-child::before]:text-ink-soft [&_p.is-editor-empty:first-child::before]:content-[attr(data-placeholder)]",
           linkable && "[&_a]:text-rust [&_a]:underline",
         ),
         "data-placeholder": placeholder ?? "",
@@ -116,7 +117,7 @@ export function MinimalRichEditor({
 
   return (
     <div ref={wrapperRef} className="flex flex-col gap-1.5">
-      <label id={labelId} className="font-body text-[13px] font-semibold text-ink-soft">
+      <label id={labelId} className={WRITING_BOX_LABEL}>
         {label}
       </label>
       <div
