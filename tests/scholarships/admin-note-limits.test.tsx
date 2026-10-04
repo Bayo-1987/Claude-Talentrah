@@ -16,7 +16,7 @@ vi.mock("@/lib/admin/audit", () => ({ recordAdminAction: async () => {} }));
 vi.mock("@/lib/supabase/service-role", () => ({
   createServiceRoleClient: () => ({ rpc: h.rpc, from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { program_name: "Example" } }), order: async () => ({ data: [], error: null }) }) }) }) }),
 }));
-vi.mock("@/lib/scholarships/ingest", () => ({ upsertScholarships: h.upsert, setModerationStatus: vi.fn() }));
+vi.mock("@/lib/scholarships/ingest", () => ({ upsertScholarships: h.upsert }));
 vi.mock("next/cache", () => ({ revalidatePath: () => {} }));
 
 import { manualScholarshipSchema } from "@/lib/scholarships/schemas";

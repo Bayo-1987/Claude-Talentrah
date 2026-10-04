@@ -20,6 +20,7 @@ import { getRequestIp } from "@/lib/security/request-ip";
 import type { ResendState } from "./resend-state";
 import { captureEvent } from "@/lib/analytics/posthog";
 import { stashPostAuthDestination } from "./post-auth-destination";
+import { passwordRefusal } from "./password-errors";
 
 export interface AuthActionState {
   error: string | null;
@@ -95,6 +96,9 @@ export async function signUpAction(
   });
 
   if (error) {
+    // Supabase can refuse a password the app's own check allowed (a leaked one, or any rule drift): say why, in the app's words.
+    const refusal = passwordRefusal(error);
+    if (refusal) return { error: refusal.message, ...(refusal.aboutPassword ? { fieldErrors: { password: [refusal.message] } } : {}) };
     return { error: error.message };
   }
 
@@ -426,6 +430,8 @@ export async function updatePasswordAction(
      * account — and the most likely cause is a rule Supabase enforces that
      * this form does not know about, which the user can act on.
      */
+    const refusal = passwordRefusal(error);
+    if (refusal) return { error: refusal.message, ...(refusal.aboutPassword ? { fieldErrors: { password: [refusal.message] } } : {}) };
     return { error: error.message };
   }
 

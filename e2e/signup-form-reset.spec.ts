@@ -39,7 +39,8 @@ test("Country and Terms checkbox survive a failed signup submission", async ({ p
 
   await page.getByRole("button", { name: "Create a free account" }).click();
 
-  await expect(page.getByText("Password doesn't meet the requirements below")).toBeVisible();
+  // The server's own message, from the shared rule list: it names exactly what "weakpassword" lacks (it has length and lowercase).
+  await expect(page.getByText("Your password needs one uppercase letter and one number.", { exact: true })).toBeVisible();
 
   await expect(page.getByLabel("Country")).toHaveValue("Kenya");
   await expect(page.getByRole("checkbox")).toBeChecked();
