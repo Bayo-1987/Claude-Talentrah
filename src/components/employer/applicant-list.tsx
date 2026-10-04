@@ -388,7 +388,7 @@ export function ApplicantList({
                 />
               </div>
             </div>
-            {applicant.explanation && <MatchBreakdown explanation={applicant.explanation} />}
+            {applicant.explanation && <MatchBreakdown explanation={applicant.explanation} perspective="employer" />}
             {(() => {
               const state = screeningAnswers[applicant.application_id];
               if (!state) return null;

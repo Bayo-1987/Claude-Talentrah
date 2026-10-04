@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { FIELD_LIMITS, fitsLimit } from "@/lib/text-limits";
 
 /**
  * The three buckets, and their labels.
@@ -58,7 +59,9 @@ export const feedbackSchema = z.object({
     .string()
     .trim()
     .min(10, "Give us a bit more to go on (at least 10 characters)")
-    .max(5000, "That's longer than we can store — trim it to 5,000 characters"),
+    // Not `.max()`: a form post turns each line break into CRLF (two characters) while the box counts one, so the raw length
+    // would refuse text the counter allowed. fitsLimit counts the way the box does.
+    .refine((v) => fitsLimit(v, FIELD_LIMITS.feedbackMessage), "That's longer than we can store: shorten it to fit the 5,000 limit (an emoji counts as two)."),
   pagePath,
 });
 
