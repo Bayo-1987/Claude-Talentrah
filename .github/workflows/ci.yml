@@ -369,7 +369,6 @@ jobs:
     # local Supabase stack, per the Stage 2 note above) — kept because failing
     # fast on a typecheck/lint/unit-test break is still worth not spending the
     # ~10 minutes this job takes to build and run Playwright.
-    needs: checks
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
