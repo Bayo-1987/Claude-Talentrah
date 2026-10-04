@@ -1,5 +1,7 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import { getOptionalUser } from "@/lib/auth/require-user";
+import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import type { MentorshipSessionType } from "@/lib/mentorship/pricing";
 import { countOpenSlotsByMentor } from "@/lib/mentorship/mentor-card";
 
@@ -10,7 +12,10 @@ import { countOpenSlotsByMentor } from "@/lib/mentorship/mentor-card";
  * their own sessions either side), so there is nothing here a service-role
  * bypass would add except risk.
  *
- * ONE EXCEPTION: a mentor's display NAME. `mentor_profiles` does have a
+ * TWO EXCEPTIONS. First, the signed-in user's own payout details and reviewer note (getOwnPayoutDetails, getOwnMentorProfile's note): those are read on the
+ * server for the signed-in user's own row, and the id is checked against the session before the service role is used.
+ *
+ * Second, a mentor's display NAME. `mentor_profiles` does have a
  * public-when-approved SELECT policy, but the name itself lives on
  * `profiles`, which carries only two self-scoped policies ("profiles are
  * self-readable"/"...-updatable", both `auth.uid() = id`) — no carve-out for
@@ -187,7 +192,7 @@ export async function getOwnMentorProfile(userId: string): Promise<OwnMentorProf
   const { data, error } = await supabase
     .from("mentor_profiles")
     .select(
-      "status, display_name, bio, expertise_roles, expertise_industries, years_experience, base_price_ngn, review_note, reviews_verifications, self_paused",
+      "status, display_name, bio, expertise_roles, expertise_industries, years_experience, base_price_ngn, reviews_verifications, self_paused",
     )
     .eq("user_id", userId)
     .maybeSingle();
@@ -201,10 +206,29 @@ export async function getOwnMentorProfile(userId: string): Promise<OwnMentorProf
     expertiseIndustries: data.expertise_industries,
     yearsExperience: data.years_experience,
     basePriceNgn: data.base_price_ngn,
-    reviewNote: data.review_note,
+    // The reviewer's note is only shown on the page for a rejected or suspended application, and it is read on the server for the signed-in user's own row.
+    reviewNote: data.status === "rejected" || data.status === "suspended" ? await readOwnReviewNote() : null,
     reviewsVerifications: data.reviews_verifications,
     selfPaused: data.self_paused,
   };
+}
+
+/**
+ * The signed-in user's id as the session itself says it. The own-row reads below take the id from here, so a caller that passes someone else's id gets nothing back
+ * (the database filter alone would not stop it: these reads use the service role, which sees every row).
+ */
+async function sessionUserId(): Promise<string | null> {
+  const session = await getOptionalUser();
+  return session?.user.id ?? null;
+}
+
+/** The signed-in user's own reviewer note. It takes no id: the row is always the session user's, so there is no id to get wrong. */
+async function readOwnReviewNote(): Promise<string | null> {
+  const userId = await sessionUserId();
+  if (!userId) return null;
+  const { data, error } = await createServiceRoleClient().from("mentor_profiles").select("review_note").eq("user_id", userId).maybeSingle();
+  if (error) throw error;
+  return data?.review_note ?? null;
 }
 
 export interface OwnPayoutDetails {
@@ -224,8 +248,9 @@ export interface OwnPayoutDetails {
  * client-writable.
  */
 export async function getOwnPayoutDetails(userId: string): Promise<OwnPayoutDetails | null> {
-  const supabase = await createClient();
-  const { data, error } = await supabase
+  // Read on the server for the signed-in user's own row only (see sessionUserId above).
+  if ((await sessionUserId()) !== userId) return null;
+  const { data, error } = await createServiceRoleClient()
     .from("mentor_profiles")
     .select("payout_bank_code, payout_account_number, payout_account_name, payout_bank_verified_at")
     .eq("user_id", userId)
