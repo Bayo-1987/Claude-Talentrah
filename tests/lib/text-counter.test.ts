@@ -5,7 +5,7 @@
  * the limit, over it). And pasting more than the box can take must never be cut off silently: the paste is refused and says by how much.
  */
 import { describe, expect, it } from "vitest";
-import { announcementFor, counterBucket, pasteVerdict } from "@/lib/text-counter";
+import { announcementFor, counterBucket, dropVerdict, pasteVerdict } from "@/lib/text-counter";
 
 describe("counterBucket", () => {
   it("is quiet until 80% of the limit, then 80, 90, full, over", () => {
@@ -63,5 +63,30 @@ describe("the words never promise 'characters' (an emoji counts as two code unit
       const text = announcementFor(len, 100, len === 80 ? "quiet" : len === 90 ? "eighty" : len === 100 ? "ninety" : "full") ?? "";
       expect(text).not.toMatch(/character/i);
     }
+  });
+});
+
+describe("dropVerdict (dragging text into the box)", () => {
+  it("a drop that fits is accepted", () => {
+    expect(dropVerdict("hello", 0, 0, " world", 20)).toEqual({ ok: true });
+  });
+  it("a drop that would go over the limit is refused, by how many", () => {
+    expect(dropVerdict("hello", 0, 0, " world", 8)).toEqual({ ok: false, over: 3 });
+  });
+  it("dragging the selected text within the box is a move, not an addition (net length unchanged)", () => {
+    expect(dropVerdict("x".repeat(20), 0, 5, "x".repeat(5), 20)).toEqual({ ok: true });
+  });
+  it("a value already over the limit can be moved around and reduced, never lengthened", () => {
+    expect(dropVerdict("x".repeat(30), 0, 5, "x".repeat(5), 20)).toEqual({ ok: true });
+    expect(dropVerdict("x".repeat(30), 0, 0, "yy", 20)).toEqual({ ok: false, over: 2 });
+  });
+});
+
+describe("select all, then paste: only the net length counts", () => {
+  it("replacing the whole text with text exactly at the limit is accepted", () => {
+    expect(pasteVerdict("x".repeat(20), 0, 20, "y".repeat(20), 20)).toEqual({ ok: true });
+  });
+  it("replacing part of the text with something longer than what it replaces is refused when the net is over", () => {
+    expect(pasteVerdict("x".repeat(20), 0, 10, "y".repeat(11), 20)).toEqual({ ok: false, over: 1 });
   });
 });

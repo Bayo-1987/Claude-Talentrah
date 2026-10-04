@@ -44,3 +44,16 @@ export function pasteVerdict(current: string, start: number, end: number, pasted
   const allowed = Math.max(limit, current.length);
   return next.length <= allowed ? { ok: true } : { ok: false, over: next.length - allowed };
 }
+
+/**
+ * Whether dropping `dropped` into a box capped at `limit` fits. The browser decides where a drop lands (the caret is not under our control),
+ * so this is the cautious reading: it adds the dropped text to the whole value, except when the dragged text IS the current selection,
+ * which is a move inside the box and changes nothing in length.
+ */
+export function dropVerdict(current: string, selectionStart: number, selectionEnd: number, dropped: string, limit: number): { ok: true } | { ok: false; over: number } {
+  const text = dropped.replace(/\r\n/g, "\n");
+  if (selectionEnd > selectionStart && text === current.slice(selectionStart, selectionEnd)) return { ok: true };
+  const allowed = Math.max(limit, current.length);
+  const next = current.length + text.length;
+  return next <= allowed ? { ok: true } : { ok: false, over: next - allowed };
+}

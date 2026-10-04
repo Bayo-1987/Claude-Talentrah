@@ -3,7 +3,7 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode, type TextareaHTMLAttributes } from "react";
 import { cn } from "@/lib/cn";
 import { countForLimit } from "@/lib/text-limits";
-import { announcementFor, counterBucket, pasteVerdict, type CounterBucket } from "@/lib/text-counter";
+import { announcementFor, counterBucket, dropVerdict, pasteVerdict, type CounterBucket } from "@/lib/text-counter";
 import { WRITING_BOX_FRAME, WRITING_BOX_LABEL, WRITING_BOX_META } from "./writing-box";
 
 /** A writing box shows at least this many rows, whatever a caller asks for. */
@@ -138,6 +138,19 @@ export function TextArea({
             // Refused whole and said out loud, never cut to fit: half a paragraph that nobody asked for is worse than none.
             e.preventDefault();
             setPasteMessage(`That paste is ${verdict.over} over the limit, so nothing was added. Shorten it and paste again.`);
+          }
+        }}
+        onDrop={(e) => {
+          rest.onDrop?.(e);
+          if (e.defaultPrevented || limit === undefined || soft || composing.current) return;
+          const el = e.currentTarget;
+          const verdict = dropVerdict(el.value, el.selectionStart, el.selectionEnd, e.dataTransfer.getData("text"), limit);
+          if (verdict.ok) {
+            setPasteMessage("");
+          } else {
+            // Same rule as a paste: refused whole and said out loud, never cut to fit.
+            e.preventDefault();
+            setPasteMessage(`That text is ${verdict.over} over the limit, so nothing was added. Shorten it and try again.`);
           }
         }}
         onChange={(e) => {

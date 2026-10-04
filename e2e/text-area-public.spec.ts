@@ -69,6 +69,54 @@ test.describe("contact form message box", () => {
     await expect(page.locator("[data-paste-message]")).toHaveText("");
   });
 
+  test("select all, then paste text exactly at the limit: the selection is replaced, so only the net length counts", async ({ page }) => {
+    const box = page.locator("#message");
+    await box.fill("x".repeat(CAP));
+    const result = await box.evaluate((el, cap) => {
+      const area = el as HTMLTextAreaElement;
+      area.setSelectionRange(0, area.value.length);
+      const data = new DataTransfer();
+      data.setData("text/plain", "y".repeat(cap));
+      const event = new ClipboardEvent("paste", { clipboardData: data, bubbles: true, cancelable: true });
+      area.dispatchEvent(event);
+      return event.defaultPrevented;
+    }, CAP);
+    expect(result, "a paste that replaces everything with exactly the limit is accepted").toBe(false);
+    await expect(page.locator("[data-paste-message]")).toHaveText("");
+  });
+
+  test("a paste that overflows after replacing a selection is refused", async ({ page }) => {
+    const box = page.locator("#message");
+    await box.fill("x".repeat(CAP));
+    const refused = await box.evaluate((el) => {
+      const area = el as HTMLTextAreaElement;
+      area.setSelectionRange(0, 10);
+      const data = new DataTransfer();
+      data.setData("text/plain", "y".repeat(11));
+      const event = new ClipboardEvent("paste", { clipboardData: data, bubbles: true, cancelable: true });
+      area.dispatchEvent(event);
+      return event.defaultPrevented;
+    });
+    expect(refused).toBe(true);
+    await expect(page.locator("[data-paste-message]")).toContainText("1 over the limit");
+    expect((await box.inputValue()).length).toBe(CAP);
+  });
+
+  test("dropped text over the limit is refused with the same message and the text is untouched", async ({ page }) => {
+    const box = page.locator("#message");
+    await box.fill("x".repeat(CAP - 3));
+    const refused = await box.evaluate((el) => {
+      const data = new DataTransfer();
+      data.setData("text/plain", "y".repeat(10));
+      const event = new DragEvent("drop", { dataTransfer: data, bubbles: true, cancelable: true });
+      el.dispatchEvent(event);
+      return event.defaultPrevented;
+    });
+    expect(refused).toBe(true);
+    await expect(page.locator("[data-paste-message]")).toContainText("7 over the limit");
+    expect((await box.inputValue()).length).toBe(CAP - 3);
+  });
+
   test("while an input method is composing, the value is never truncated or rewritten", async ({ page }) => {
     const box = page.locator("#message");
     await box.fill("x".repeat(CAP - 1));

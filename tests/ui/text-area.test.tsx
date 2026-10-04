@@ -173,3 +173,9 @@ it("a refused paste is wired up: the box handles paste, asks pasteVerdict, cance
   expect(src).toMatch(/e\.preventDefault\(\)/);
   expect(src).toMatch(/setPasteMessage\(/);
 });
+
+it("dropping text is handled like pasting: the box handles drop, asks dropVerdict, cancels it and shows the message", () => {
+  const src = readFileSync(path.join(__dirname, "../../src/components/ui/text-area.tsx"), "utf8");
+  expect(src).toMatch(/onDrop=\{/);
+  expect(src).toMatch(/dropVerdict\(/);
+});
