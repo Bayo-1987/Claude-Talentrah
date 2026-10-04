@@ -91,7 +91,7 @@ export default async function EditJobPage({ params }: { params: Promise<{ id: st
       <div className="mt-4">
         <EyebrowLabel>Editing</EyebrowLabel>
         <h1 className="mt-2 font-display text-[30px] leading-[1.15] font-medium text-ink">
-          {job.title}
+          {job.title}{job.admin_review_note}
         </h1>
       </div>
       {/*
