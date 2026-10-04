@@ -72,13 +72,26 @@ jobs:
         run: |
           set -euo pipefail
 
-          status="$(curl -s --max-time 60 -o /tmp/ingest-response.json -w "%{http_code}" \
+          # --max-time sits ABOVE the route's maxDuration (300 s, src/app/api/admin/ingest-jobs/route.ts) with margin: the route now also runs the
+          # match-score refresh inside the same request, and a caller that gives up first turns a healthy run red while the route keeps working.
+          # NO retry of any kind: a timeout must never start a second ingest. -sS keeps the body quiet but still prints a curl error.
+          rc=0
+          status="$(curl -sS --max-time 330 -o /tmp/ingest-response.json -w "%{http_code}" \
             -H "Authorization: Bearer $CRON_SECRET" \
-            "https://www.talentrah.com/api/admin/ingest-jobs")"
+            "https://www.talentrah.com/api/admin/ingest-jobs")" || rc=$?
+
+          if [ "$rc" -ne 0 ]; then
+            echo "::error::ingest-jobs request failed or timed out (curl exit $rc) — the route may still have finished; check the next run."
+            exit 1
+          fi
 
           echo "HTTP status: $status"
           cat /tmp/ingest-response.json
           echo
+
+          # One greppable line with the post-ingest refresh summary (ingest ms, refresh ms, postings refreshed, rows written, complete, skip
+          # reason). Vercel keeps runtime logs for about an hour; this log keeps them for about 90 days. No user ids: the route never returns any.
+          jq -c '{postIngestRefresh}' /tmp/ingest-response.json || true
 
           if [ "$status" -lt 200 ] || [ "$status" -ge 300 ]; then
             echo "::error::ingest-jobs answered HTTP $status — see the response body above."

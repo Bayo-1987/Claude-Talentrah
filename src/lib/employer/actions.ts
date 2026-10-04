@@ -365,11 +365,23 @@ export async function updateCompanyProfileAction(
     claimedDomain,
   });
 
-  if (outcome.verified !== organization.verified) {
+  // The domain rule is ONE of two independent paths to `verified` (0120). An
+  // organisation an admin confirmed by CAC registration (`cac_confirmed_at`,
+  // written only by decideCacVerificationAction, never by a client) is verified
+  // whatever this member's email domain says: the employer it exists for is the
+  // one whose email is NOT at the company domain, so the rule evaluates false
+  // for them on every save. Without this clause a save quietly un-verified a
+  // CAC-confirmed organisation, and since the admin CAC queue excludes rows with
+  // `cac_confirmed_at` set (queues.ts) nothing could put the badge back (#715).
+  // `cac_confirmed_at` is read from the row loaded by requireEmployer(), not
+  // from the form.
+  const shouldBeVerified = outcome.verified || organization.cac_confirmed_at !== null;
+
+  if (shouldBeVerified !== organization.verified) {
     const admin = createServiceRoleClient();
     await admin
       .from("organizations")
-      .update({ verified: outcome.verified, updated_at: new Date().toISOString() })
+      .update({ verified: shouldBeVerified, updated_at: new Date().toISOString() })
       .eq("id", organization.id);
   }
 
