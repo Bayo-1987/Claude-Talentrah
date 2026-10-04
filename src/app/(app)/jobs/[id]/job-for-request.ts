@@ -1,6 +1,7 @@
 import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { freshnessFloorISO } from "@/lib/jobs/freshness";
+import { JOB_DETAIL_COLUMNS } from "@/lib/jobs/job-columns";
 
 /**
  * ONE loader call per request, not two. Next.js runs generateMetadata and the
@@ -56,7 +57,7 @@ export const jobForRequest = cache(async (id: string) => {
      * unhinted embed is ambiguous to PostgREST — this must stay the poster's
      * own org, never the org that claimed some OTHER external row.
      */
-    .select("*, organizations!job_postings_organization_id_fkey(verified)")
+    .select(`${JOB_DETAIL_COLUMNS}, organizations!job_postings_organization_id_fkey(verified)`)
     .eq("id", id)
     .gte("posted_at", freshnessFloorISO())
     .maybeSingle();
