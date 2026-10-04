@@ -36,11 +36,13 @@ one morning by two sessions that each did exactly that. Ask, wait for the number
 | 0218 | S1, explicit column grants on `job_postings`: anon and authenticated read 43 of its 44 columns (#736) | applied 07:45Z (4 Oct) | applied 07:50Z (4 Oct) |
 | 0219 | S1, `employer_moderation_notices` (owner-assigned; the design still needs the owner's approval) | reserved | reserved |
 | 0220 | S3 (admin dashboard), the Farah entry-point constraint, with Farah PR A2 (one migration: a format check replaces the fixed list of `entry_point` values; owner-assigned) | reserved | reserved |
-| 0221 | S3-21, `job_postings` `banner_path` insert-policy alignment (proposed by the owner; the file is not written yet) | proposed | proposed |
-| 0222 | S3 (admin dashboard), grant narrowing on the two Farah tables (proposed by the owner; the file is not written yet) | proposed | proposed |
+| 0221 | S3-21, the `job_postings` INSERT policy `WITH CHECK` only: it keeps the three `admin_review` clauses and adds `banner_path is null`; no column grant changes (owner-assigned; the file is not in the repository yet) | reserved | reserved |
+| 0222 | S3 (admin dashboard), grant narrowing on the two Farah tables (owner-assigned; applies after the route PR deploys; the file is not in the repository yet) | reserved | reserved |
+| 0223 | S3 (admin dashboard), the table `llm_daily_usage` and the function `add_llm_usage` for Farah's daily spend ceiling (assigned by the owner on 4 Oct 2026; `supabase/migrations/0223_llm_daily_usage.sql`, sha256 `067445111286dcadb10cfef8d11bfb531ec7b220dff7a345f46e8c94c46eaadb`; additive, applies before the spend-ceiling PR merges; the file is not on `main` yet) | reserved | reserved |
+| 0224 | S3-21, revoke SELECT on the mentorship note columns `mentee_notes` and `mentor_notes` from `authenticated` and `anon`, so a note is private to its author (assigned by the owner on 4 Oct 2026; the file is not written yet) | reserved | reserved |
 
 The times are the ledger's own version stamps (UTC, 2 to 4 Oct 2026), read from `supabase_migrations.schema_migrations` on both projects. A row says "applied" only because
-that ledger shows it; "reserved" means a number has been asked for and no ledger has it; "proposed" means the owner named the number but the migration file does not exist yet.
+that ledger shows it; "reserved" means the owner assigned the number and no ledger has it.
 
 (0205 to 0207 belong to the open draft PRs #661 and #662, and are not in the directory until those merge.) When a number is used, update this table in the PR that uses it. `tests/docs/database-environments.test.ts` fails if this heading or the table is deleted.
 
