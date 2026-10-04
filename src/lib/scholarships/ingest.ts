@@ -512,25 +512,3 @@ async function markExpiredCycles(
   }
   return data?.length ?? 0;
 }
-
-/**
- * The moderation gate's write side (§6.15). Service-role only — there is
- * deliberately no RLS policy letting an authenticated user update
- * scholarships, so this is the single path that can publish a listing.
- */
-export async function setModerationStatus(
-  scholarshipId: string,
-  status: "pending" | "verified" | "rejected",
-  note?: string,
-): Promise<void> {
-  const supabase = createServiceRoleClient();
-  const { error } = await supabase
-    .from("scholarships")
-    .update({
-      moderation_status: status,
-      moderation_note: note ?? null,
-      moderated_at: new Date().toISOString(),
-    })
-    .eq("id", scholarshipId);
-  if (error) throw error;
-}
