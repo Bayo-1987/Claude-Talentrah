@@ -7,7 +7,6 @@ export * from "./filter-chip";
 export * from "./match-tier-badge";
 export * from "./container";
 export * from "./text-field";
-export * from "./text-area";
 export * from "./password-field";
 export * from "./select-field";
 export * from "./farah-mark";

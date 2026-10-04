@@ -4,7 +4,8 @@ import { useActionState } from "react";
 import { submitFeedbackAction } from "@/lib/feedback/actions";
 import { initialFeedbackActionState } from "@/lib/feedback/state";
 import { FEEDBACK_CATEGORIES } from "@/lib/feedback/schemas";
-import { SelectField, TextArea, Button } from "@/components/ui";
+import { SelectField, Button } from "@/components/ui";
+import { TextArea } from "@/components/ui/text-area";
 import { FIELD_LIMITS } from "@/lib/text-limits";
 
 export interface FeedbackFormProps {

@@ -7,7 +7,8 @@ import {
   CONTACT_HONEYPOT_FIELD,
   initialContactActionState,
 } from "@/lib/contact/schemas";
-import { TextField, SelectField, TextArea, Button } from "@/components/ui";
+import { TextField, SelectField, Button } from "@/components/ui";
+import { TextArea } from "@/components/ui/text-area";
 import { FIELD_LIMITS } from "@/lib/text-limits";
 
 export function ContactForm() {
