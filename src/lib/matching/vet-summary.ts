@@ -1,4 +1,5 @@
 import type { MatchExplanation } from "./score";
+import { describeSeniorityAlignment } from "./seniority-words";
 
 /**
  * The words behind the job card's free "Vet" actions.
@@ -24,13 +25,6 @@ import type { MatchExplanation } from "./score";
  * resume already covers.
  */
 
-const SENIORITY_READ: Record<MatchExplanation["seniorityAlignment"], string> = {
-  match: "the seniority looks right for you",
-  above: "it sits above your current level",
-  below: "it sits below your current level",
-  unknown: "the seniority isn't clear from the posting",
-};
-
 /**
  * The headline read: seniority alignment, then how many named skills already
  * match. Takes no score — see the note above on why match quality is absent.
@@ -41,7 +35,8 @@ export function fitSummary(explanation: MatchExplanation): string {
     matched > 0
       ? `You already match ${matched} of the skills it names.`
       : "None of the skills it names are on your resume yet.";
-  const seniority = SENIORITY_READ[explanation.seniorityAlignment];
+  // The wording (and its direction) lives in seniority-words.ts, the one place that maps seniorityAlignment to words.
+  const seniority = describeSeniorityAlignment(explanation.seniorityAlignment).sentence;
   return `${seniority.charAt(0).toUpperCase()}${seniority.slice(1)}. ${skills}`;
 }
 

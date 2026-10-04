@@ -69,6 +69,121 @@ describe("no job_postings read selects *", () => {
   });
 });
 
+describe("no star or argument-less select reaches job_postings from src or scripts, however the chain is split", () => {
+  // The chain scan above stops at the first statement end, so `const q = admin.from("job_postings");` followed later by `q.select("*")` is
+  // invisible to it. This pass looks at every `.select()` / `.select("*")` in a file that names the table: it belongs to the nearest
+  // `.from("<table>")` before it in the same statement, and a select with no `.from` in its statement (a chain held in a variable) is
+  // refused, because the file cannot show which table it reads. Service-role code may read everything, but it still has to say so here.
+  const SERVICE_ROLE_STAR_READS: Record<string, string> = {
+    // "path/to/file.ts": "why a service-role read of every column is needed",
+  };
+
+  const SCRIPTS = join(ROOT, "scripts");
+  const SCANNED = [
+    ...FILES,
+    ...walkAny(SCRIPTS).map((p) => ({ path: relative(ROOT, p), text: readFileSync(p, "utf8") })),
+  ];
+
+  function walkAny(dir: string, out: string[] = []): string[] {
+    for (const name of readdirSync(dir)) {
+      const p = join(dir, name);
+      if (statSync(p).isDirectory()) walkAny(p, out);
+      else if (/\.(ts|tsx|mjs|js)$/.test(name)) out.push(p);
+    }
+    return out;
+  }
+
+  function offenders(files: { path: string; text: string }[]): string[] {
+    const found: string[] = [];
+    for (const { path, text: raw } of files) {
+      const text = stripComments(raw);
+      if (!/job_postings/.test(text)) continue;
+      for (const m of text.matchAll(/\.select\(\s*(?:["'`]\s*\*[^"'`]*["'`])?\s*\)/g)) {
+        const upToHere = text.slice(0, m.index);
+        const stmtStart = Math.max(upToHere.lastIndexOf(";\n"), 0);
+        const statement = upToHere.slice(stmtStart);
+        const froms = [...statement.matchAll(/\.from\(\s*["'`]([\w.]+)["'`]\s*\)/g)];
+        const table = froms.length ? froms[froms.length - 1][1] : null;
+        if (table !== null && table !== "job_postings") continue;
+        if (SERVICE_ROLE_STAR_READS[path]) continue;
+        const line = upToHere.split("\n").length;
+        found.push(`${path}:${line} ${m[0]} ${table === null ? "(table not visible in this statement)" : "(job_postings)"}`);
+      }
+    }
+    return found;
+  }
+
+  it("scans src and scripts and finds the queries it is supposed to be scanning (the scan itself is not empty)", () => {
+    const fromScripts = SCANNED.filter((f) => f.path.startsWith("scripts/") && /\.from\(\s*["'`]job_postings["'`]\s*\)/.test(f.text));
+    expect(fromScripts.length, "no script reads job_postings, so scripts/ is not being scanned").toBeGreaterThanOrEqual(1);
+    expect(SCANNED.filter((f) => f.path.startsWith("src/")).length).toBeGreaterThan(500);
+  });
+
+  it("no .select() or .select('*') belongs to job_postings, or to a chain whose table the statement does not show", () => {
+    expect(offenders(SCANNED), "name the columns (src/lib/jobs/job-columns.ts) or, for a service-role read of everything, add the file to SERVICE_ROLE_STAR_READS with the reason").toEqual([]);
+  });
+
+  it("the scan itself catches each shape it exists for (checked on strings, not on the repo)", () => {
+    const one = (text: string) => offenders([{ path: "x.ts", text: `// job_postings\n${text}` }]);
+    expect(one('const r = await supabase.from("job_postings").select("*").eq("id", id);')).toHaveLength(1);
+    expect(one('const r = await supabase.from("job_postings").insert(row).select();')).toHaveLength(1);
+    expect(one('const q = admin.from("job_postings");\nconst r = await q.select("*");')).toHaveLength(1);
+    expect(one('const r = await supabase.from("scholarships").select("*").eq("id", id);')).toHaveLength(0);
+    expect(one('const r = await supabase.from("job_postings").select("id, title").eq("id", id);')).toHaveLength(0);
+  });
+
+  it("every allowlisted file exists, mentions the table and carries a reason", () => {
+    for (const [path, reason] of Object.entries(SERVICE_ROLE_STAR_READS)) {
+      const file = SCANNED.find((f) => f.path === path);
+      expect(file, `${path} is allowlisted but not scanned`).toBeDefined();
+      expect(file!.text, `${path} is allowlisted but does not read job_postings`).toMatch(/job_postings/);
+      expect(file!.text, `${path} is allowlisted but is not service-role code`).toMatch(/createServiceRoleClient|SUPABASE_SERVICE_ROLE_KEY/);
+      expect(reason.trim().length, `${path}: say why`).toBeGreaterThan(10);
+    }
+  });
+});
+
+describe("job_postings embedded from other tables names its columns too", () => {
+  // `applications(... job_postings(title, company_name) ...)`, `job_postings!inner(...)`, `alias:job_postings(...)`: an embed's list is read as
+  // the caller, so a `*` in one is the same dependency as a `select("*")` on the table itself.
+  function embeds(): { path: string; embed: string }[] {
+    const out: { path: string; embed: string }[] = [];
+    for (const { path, text } of FILES) {
+      for (const m of stripComments(text).matchAll(/(?<!from\(\s*["'`])\bjob_postings(?:![\w]+)?\s*\(([^)]*)\)/g)) {
+        const before = stripComments(text).slice(Math.max(0, m.index! - 8), m.index!);
+        if (/from\(\s*["'`]$/.test(before)) continue;
+        out.push({ path, embed: m[0] });
+      }
+    }
+    return out;
+  }
+
+  it("finds the embeds it is supposed to scan (the scan itself is not empty)", () => {
+    expect(embeds().length).toBeGreaterThanOrEqual(10);
+  });
+
+  it("no embed of job_postings selects *", () => {
+    expect(embeds().filter((e) => /\*/.test(e.embed)).map((e) => `${e.path}: ${e.embed}`)).toEqual([]);
+  });
+
+  it("a select whose argument is a named constant resolves to a literal list with no * and not the internal column", () => {
+    const NOTE = ["admin", "review", "note"].join("_");
+    const checked: string[] = [];
+    for (const { path, chain } of jobPostingChains()) {
+      const text = FILES.find((f) => f.path === path)!.text;
+      for (const m of chain.matchAll(/\.select\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*[,)]/g)) {
+        const name = m[1];
+        const def = new RegExp(`const\\s+${name}\\s*=\\s*([\\s\\S]*?);`).exec(stripComments(text));
+        if (!def) continue; // a function parameter (saved-set.ts): its caller passes one of the constants resolved here
+        checked.push(`${path}:${name}`);
+        expect(def[1], `${path}: ${name} selects *`).not.toMatch(/\*/);
+        expect(def[1], `${path}: ${name} names the internal column`).not.toContain(NOTE);
+      }
+    }
+    expect(checked.length, "no named-constant select lists were found, so the check proved nothing").toBeGreaterThanOrEqual(3);
+  });
+});
+
 describe("the one internal column that no page may read", () => {
   // The columns a decision writes. Only the service-role admin code and the generated types may mention it by name, so no list a page
   // reads can contain it. A new file that names it must be a deliberate decision, made here.

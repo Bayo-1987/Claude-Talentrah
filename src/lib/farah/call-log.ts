@@ -16,6 +16,8 @@ import { randomUUID } from "node:crypto";
  *   latency_ms  whole milliseconds from the call starting until the reply was complete
  *   failover    true when the primary was rate-limited and the fallback served the reply
  *   request_id  a fresh random UUID per call
+ *   prompt_tokens, completion_tokens  the token counts the provider reported for the call: whole numbers, or null when it reported none
+ *                                     (unknown is null, never 0 and never an estimate). Added in S3-66; counts only.
  *
  * NEVER a message, a reply, a system prompt, a user id or an email. There is deliberately no field that
  * could carry free text, and this function takes no argument that could smuggle one in.
@@ -28,7 +30,12 @@ export interface FarahCallLogInput {
   model: string;
   latencyMs: number;
   failover: boolean;
+  /** Whole-number token counts as the provider reported them; null/undefined when it reported none. */
+  promptTokens?: number | null;
+  completionTokens?: number | null;
 }
+
+const count = (v: number | null | undefined): number | null => (typeof v === "number" && Number.isInteger(v) && v >= 0 ? v : null);
 
 export function buildFarahCallLogLine(input: FarahCallLogInput, requestId: string = randomUUID()) {
   return {
@@ -37,6 +44,8 @@ export function buildFarahCallLogLine(input: FarahCallLogInput, requestId: strin
     model: input.model,
     latency_ms: Math.max(0, Math.round(input.latencyMs)),
     failover: input.failover,
+    prompt_tokens: count(input.promptTokens),
+    completion_tokens: count(input.completionTokens),
     request_id: requestId,
   };
 }

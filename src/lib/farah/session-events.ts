@@ -1,8 +1,9 @@
 import "server-only";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
-import type { Database } from "@/lib/supabase/types";
+import type { FarahChipEntryPoint } from "./chip-registry";
 
-export type FarahEntryPoint = Database["public"]["Tables"]["farah_session_events"]["Row"]["entry_point"];
+/** Typed from the chip registry (the generated column type is just `string`); the registry test checks every value against the database check constraint. */
+export type FarahEntryPoint = FarahChipEntryPoint;
 
 /**
  * Records which entry point started a Farah session, and whether that

@@ -5,6 +5,8 @@ import { submitFeedbackAction } from "@/lib/feedback/actions";
 import { initialFeedbackActionState } from "@/lib/feedback/state";
 import { FEEDBACK_CATEGORIES } from "@/lib/feedback/schemas";
 import { SelectField, Button } from "@/components/ui";
+import { TextArea } from "@/components/ui/text-area";
+import { FIELD_LIMITS } from "@/lib/text-limits";
 
 export interface FeedbackFormProps {
   /**
@@ -58,22 +60,16 @@ export function FeedbackForm({ pagePath }: FeedbackFormProps) {
         error={state.fieldErrors?.category?.[0]}
       />
 
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor="message" className="font-body text-[13px] font-semibold text-ink-soft">
-          Tell us what happened
-        </label>
-        <textarea
-          id="message"
-          name="message"
-          rows={7}
-          required
-          placeholder="The more specific, the more useful — what you were doing, and what you expected instead."
-          className="border-[1.5px] border-ink bg-card px-3.5 py-2.5 font-body text-[15px] text-ink outline-none placeholder:font-display placeholder:text-[14px] placeholder:italic placeholder:text-ink-soft focus:border-rust"
-        />
-        {state.fieldErrors?.message?.[0] && (
-          <p className="text-[12.5px] text-rust">{state.fieldErrors.message[0]}</p>
-        )}
-      </div>
+      <TextArea
+        label="Tell us what happened"
+        name="message"
+        minRows={7}
+        required
+        limit={FIELD_LIMITS.feedbackMessage}
+        placeholder="The more specific, the more useful — what you were doing, and what you expected instead."
+        className="placeholder:font-display placeholder:text-[14px] placeholder:italic placeholder:text-ink-soft"
+        error={state.fieldErrors?.message?.[0]}
+      />
 
       <Button type="submit" disabled={pending} className="mt-1 self-start">
         {pending ? "Sending…" : "Send feedback"}
