@@ -670,7 +670,7 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
                 {m.role === "farah" ? (
                   <div data-testid="farah-message">{renderFarahMarkdown(m.content)}</div>
                 ) : (
-                  <p data-testid="farah-message" className="text-right font-body text-[13px] text-ink">
+                  <p data-testid="farah-message" className="whitespace-pre-wrap break-words text-right font-body text-[13px] text-ink">
                     {m.content}
                   </p>
                 )}
