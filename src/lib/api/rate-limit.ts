@@ -75,6 +75,13 @@ export const RATE_LIMITS = {
    * (one per application, plus the occasional "wrong file, try again").
    */
   jobAssessmentSubmissionUpload: { limit: 20, windowSeconds: 60 * 60 * 24 },
+  /*
+   * "Email me this receipt" on the billing page. Each call sends one real email from billing@talentrah.com, to the account's OWN
+   * address only, so the abuse case is someone filling their own inbox and spending the sending quota: bounded, not prevented, by a
+   * per-user cap. Five a day covers a real person who lost an email and asked a couple of times; it is not a limit anyone doing
+   * something ordinary reaches. consumeRateLimit fails CLOSED, so an unreadable counter sends nothing.
+   */
+  receiptResend: { limit: 5, windowSeconds: 60 * 60 * 24 },
 } as const;
 
 export interface RateLimitOutcome {

@@ -16,15 +16,26 @@
  * S3-51: the band used to be "Good = displayed 60-79", which merged the Fair tier (60-69) into Good, so a 67% Fair with three tags
  * sorted above six 79% Good matches on the owner's feed. The band is now the tier the badge shows, so the order and the label agree.
  */
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { sortFeedResults } from "@/lib/jobs/ranking";
 import { ROLE_FIT_CAP } from "@/lib/matching/role-fit";
 import type { ScoredJob } from "@/lib/matching/compute-and-store";
 
 const NOW = new Date("2026-10-02T12:00:00Z").getTime();
+const PINNED_NOW = NOW;
 const DAY = 24 * 60 * 60 * 1000;
 const daysAgo = (n: number) => new Date(NOW - n * DAY).toISOString();
 const FLOOR = 30;
+
+// The code under test reads the real clock (Date.now(), new Date()), and this file's dates are fixed (every posting age is counted back from NOW, 2026-10-02T12:00Z): with the real clock the answers change as the calendar moves.
+// Only Date is faked (timers and promises are untouched), and it is restored after every test.
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(PINNED_NOW);
+});
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 let seq = 0;
 /** `tags` screenable tags, all of them matched (a thin/non-thin set is decided by the COUNT, not by coverage). */

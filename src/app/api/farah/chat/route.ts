@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { saveFarahExchange } from "@/lib/farah/save-exchange";
 import { askFarahChatStream, type FarahChatTurn } from "@/lib/farah/client";
 import { logFarahSessionMessage, type FarahEntryPoint } from "@/lib/farah/session-events";
-import { LLMProviderError } from "@/lib/llm";
+import { FallbackDeclinedError, LLMProviderError } from "@/lib/llm";
 import type { LLMFinishReason, LLMUsage } from "@/lib/llm/types";
 import { GENERIC_FARAH_UNAVAILABLE_MESSAGE, farahRateLimitMessage } from "@/lib/farah/rate-limit-message";
 import type { StructuredResume } from "@/lib/resume/types";
@@ -20,6 +21,18 @@ import {
 } from "@/lib/farah/chat-gate";
 import { chipEntryPoint } from "@/lib/farah/chip-registry";
 import { labelAsData } from "@/lib/farah/data-block";
+import {
+  FAILED_ATTEMPT_ESTIMATE_NANO,
+  FARAH_BUSY_MESSAGE,
+  FARAH_RESTING_MESSAGE,
+  NO_COUNTS_REPLY_ESTIMATE_NANO,
+  checkFallbackHeadroom,
+  checkSpendCeiling,
+  counterFailureLine,
+  estimateSpendNano,
+  secondsUntilUtcMidnight,
+} from "@/lib/farah/spend-ceiling";
+import { addSpendNano, markHalfwayWarned, readSpendNano } from "@/lib/farah/spend-tally";
 import type { MatchExplanation } from "@/lib/matching/score";
 
 /** Which entry point to log for a quick action: the chip registry decides (an unknown or absent key is free text). */
@@ -69,6 +82,27 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { error: `Keep it under ${MAX_MESSAGE_LENGTH} characters.` },
       { status: 400 },
+    );
+  }
+
+  /*
+   * The daily spend ceiling (migration 0223): checked before anything that costs money or changes state. It answers with a plain JSON refusal, like the other early refusals.
+   * A counter that cannot be read fails CLOSED with its own code (distinct from the ceiling's): "can't check" is not "zero spent". Each branch writes exactly one content-free log line.
+   */
+  try {
+    const ceiling = await checkSpendCeiling({ read: readSpendNano, markWarned: markHalfwayWarned });
+    if (ceiling.status === "blocked") {
+      console.warn("[farah-spend:ceiling] the daily spend ceiling is reached");
+      return NextResponse.json(
+        { error: FARAH_RESTING_MESSAGE, code: "farah_daily_ceiling" },
+        { status: 503, headers: { "Retry-After": String(secondsUntilUtcMidnight(new Date())) } },
+      );
+    }
+  } catch (err) {
+    console.error(counterFailureLine(err));
+    return NextResponse.json(
+      { error: "Farah can't check today's capacity just now. Try again shortly.", code: "farah_spend_unavailable" },
+      { status: 503, headers: { "Retry-After": "30" } },
     );
   }
 
@@ -225,8 +259,26 @@ export async function POST(request: Request) {
    * it is deliberately not charged for and not saved, the same as any other
    * failed attempt.
    */
+  // The reader has already gone (the request was aborted before a model call was made): nothing to answer, nothing to charge, nothing to save.
+  if (request.signal.aborted) {
+    return new Response(null, { status: 499 });
+  }
+
   const encoder = new TextEncoder();
+  /** Adds an estimate to today's counter. A failure to record is logged (content-free) and never turns a delivered reply into an error. */
+  async function recordSpend(nano: number) {
+    try {
+      await addSpendNano(nano);
+    } catch (err) {
+      console.error(counterFailureLine(err));
+    }
+  }
+  // Set when the reader goes away (the response stream is cancelled): the rest of the run can no longer be delivered, but the model call it started may still have cost something.
+  let clientGone = false;
   const stream = new ReadableStream<Uint8Array>({
+    cancel() {
+      clientGone = true;
+    },
     async start(controller) {
       function send(event: Record<string, unknown>) {
         controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
@@ -238,20 +290,39 @@ export async function POST(request: Request) {
       let finishReason: LLMFinishReason | undefined;
       // The token counts the provider reported for this reply, if it reported any; saved on the reply row's JSON context below.
       let usage: LLMUsage | undefined;
+      // Which provider and model served the reply, as the provider call reported it with its counts: the estimate is priced from this.
+      let served: { provider: string; model: string } | undefined;
       try {
         for await (const chunk of askFarahChatStream(turns, extraContext, undefined, {
           quickAction,
+          // The model call stops when the reader goes away; an aborted call ends in the error path below, which saves and charges nothing.
+          signal: request.signal,
+          // The ceiling is checked again, with a fresh read, just before the fallback provider would be used; a counter that cannot be read means no fallback.
+          allowFallback: () => checkFallbackHeadroom({ read: readSpendNano }),
           onFinish: (reason) => {
             finishReason = reason;
           },
-          onUsage: (u) => {
+          onUsage: (u, s) => {
             usage = u;
+            served = s;
           },
         })) {
           fullText += chunk;
           send({ type: "delta", text: chunk });
         }
       } catch (err) {
+        // A model call that did not complete is added to today's counter at the flat failed-attempt estimate (most such calls bill nothing, so this is already pessimistic).
+        // When the cause is the reader going away (the stream was cancelled, or the request's own signal fired: either can come first), that is the whole story: say so once, content-free, and stop (nothing can be sent).
+        await recordSpend(FAILED_ATTEMPT_ESTIMATE_NANO);
+        if (clientGone || request.signal.aborted) {
+          console.warn("[farah-spend:aborted] flat estimate charged");
+          try {
+            controller.close();
+          } catch {
+            // the stream was already cancelled: nothing left to close
+          }
+          return;
+        }
         // Never surface the raw provider error to the client — a provider
         // SDK's error .message can embed the full JSON response body
         // (internal request details, account-billing detail, etc.), which
@@ -259,6 +330,13 @@ export async function POST(request: Request) {
         // debugging (LLMProviderError — src/lib/llm/errors.ts — carries
         // which provider and what kind of failure), send a clean,
         // Farah-voiced message instead.
+        if (err instanceof FallbackDeclinedError) {
+          // The primary was rate-limited and there is not enough headroom left for the fallback: end the reply with the busy wording (nothing was charged). Content-free line.
+          console.warn("[farah-spend:fallback-declined] the fallback provider was not used: the day's headroom is below its reserve");
+          send({ type: "error", message: FARAH_BUSY_MESSAGE });
+          controller.close();
+          return;
+        }
         console.error("Farah chat: LLM call failed", err);
         // send-111: a rate-limit error carries Groq's own real wait time —
         // use it instead of the generic message. Any other LLMProviderError
@@ -270,6 +348,17 @@ export async function POST(request: Request) {
         send({ type: "error", message: errorMessage });
         controller.close();
         return;
+      }
+
+      // The model call completed: add its estimated cost, from the provider's reported counts (priced at the dearest known row if the model is unknown), or at the worst-case flat estimate when no counts came.
+      if (fullText) {
+        await recordSpend(
+          usage
+            ? estimateSpendNano({ provider: served?.provider, model: served?.model, inputTokens: usage.inputTokens, outputTokens: usage.outputTokens })
+            : NO_COUNTS_REPLY_ESTIMATE_NANO,
+        );
+      } else {
+        await recordSpend(FAILED_ATTEMPT_ESTIMATE_NANO);
       }
 
       if (!fullText) {
@@ -315,18 +404,10 @@ export async function POST(request: Request) {
       // No migration: `context` is the existing JSON column. Absent when the provider reported none (unknown is not zero).
       const replyContext = usage ? { ...rowContext, tokens: { prompt: usage.inputTokens, completion: usage.outputTokens } } : rowContext;
 
-      // Two independent writes (different rows, neither reads the other) —
-      // run together rather than one after the other.
-      const [{ error: insertUserError }, { data: farahRow, error: insertFarahError }] = await Promise.all([
-        supabase.from("farah_messages").insert({ user_id: user.id, role: "user", content: message, context: rowContext }),
-        supabase
-          .from("farah_messages")
-          .insert({ user_id: user.id, role: "farah", content: fullText, context: replyContext })
-          .select("id, created_at")
-          .single(),
-      ]);
+      // Message history is written by the server only (see saveFarahExchange); this route's own client only reads.
+      const saved = await saveFarahExchange({ userId: user.id, message, reply: fullText, userRowContext: rowContext, replyRowContext: replyContext });
 
-      if (insertUserError || insertFarahError || !farahRow) {
+      if (!saved) {
         // The reply already happened and cost real money — the client
         // already has the full text from the delta events either way; this
         // just tells it persistence failed, rather than losing the answer.
@@ -342,8 +423,8 @@ export async function POST(request: Request) {
       } else {
         send({
           type: "done",
-          id: farahRow.id,
-          createdAt: farahRow.created_at,
+          id: saved.id,
+          createdAt: saved.createdAt,
           persisted: true,
           freeMessagesRemaining,
           creditsBalance,

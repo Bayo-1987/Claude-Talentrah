@@ -9,7 +9,7 @@
  * Postgres inside a rolled-back transaction (0204; output in the PR body). tests/scholarships/close-instant-sql.test.ts re-runs the same
  * table against the migration in CI's database, so the twins cannot drift.
  */
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { loadModule } from "../support/load-module";
 
 interface Row {
@@ -123,6 +123,19 @@ describe("scholarshipDaysLeft", () => {
 });
 
 describe("scholarshipCloseText: what a reader is told", () => {
+  /*
+   * With no zone, scholarshipCloseText(row) reads the real clock: before the date has begun anywhere (UTC+14) it says "apply a day early", and from then until the date is over
+   * everywhere (UTC-12) it returns the bare date (src/lib/scholarships/close-instant.ts). The rows below close on 6 Oct 2026, so the real clock is pinned to a day before that window.
+   * Only Date is faked and it is restored after every test.
+   */
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-01T00:00:00Z"));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("zone and time: 'Closes 6 Oct 2026, 13:00 (Pacific time)'", async () => {
     expect((await get("scholarshipCloseText"))(row("2026-10-06", "13:00", "America/Vancouver"))).toBe("Closes 6 Oct 2026, 13:00 (Pacific time)");
   });

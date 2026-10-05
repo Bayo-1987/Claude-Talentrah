@@ -29,8 +29,8 @@ function chainable(chainResult: Record<string, unknown>, singleResult?: Record<s
   );
   return proxy;
 }
-vi.mock("@/lib/supabase/server", () => ({
-  createClient: async () => ({
+function fakeSupabase() {
+  return {
     auth: { getUser },
     from(table: string) {
       if (table === "job_postings") return chainable({ data: jobRow, error: null }, undefined, table);
@@ -39,10 +39,13 @@ vi.mock("@/lib/supabase/server", () => ({
       if (table === "farah_messages") return chainable({ count: 0, data: [], error: null }, { data: { id: "m1", created_at: "2026-01-01T00:00:00.000Z" }, error: null }, table);
       return chainable({ data: null, error: null }, undefined, table);
     },
-  }),
-}));
+  };
+}
+vi.mock("@/lib/supabase/server", () => ({ createClient: async () => fakeSupabase() }));
+vi.mock("@/lib/supabase/service-role", () => ({ createServiceRoleClient: () => fakeSupabase() }));
 vi.mock("@/lib/farah/client", () => ({ askFarahChatStream }));
 vi.mock("@/lib/farah/session-events", () => ({ logFarahSessionMessage: vi.fn().mockResolvedValue(undefined) }));
+vi.mock("@/lib/farah/spend-tally", async () => (await import("./support/route-mocks")).safeSpendTally());
 vi.mock("@/lib/farah/chat-gate", () => ({
   checkFarahChatAllowance: vi.fn().mockResolvedValue({ isFreeAllowance: true, isPassCovered: false, creditsSpent: 0, creditsAvailableAtCheck: 0, freeMessagesRemaining: 2 }),
   commitFarahChatAllowance: vi.fn().mockResolvedValue({ balanceAfter: null }),

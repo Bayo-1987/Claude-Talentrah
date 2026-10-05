@@ -90,10 +90,11 @@ describe("an org with no subscription", () => {
   });
 
   it("at 1 candidate (production today) and at 0", async () => {
-    for (const n of [1, 0]) {
+    for (const [n, count] of [[1, "1 verified candidate"], [0, "0 verified candidates"]] as const) {
       state.preview = { count: n, samples: [] };
       const html = await render();
-      expect(html).toContain(`${n} verified candidates so far`);
+      expect(html).toContain(`${count} so far`);
+      expect(html).not.toMatch(/\b1 verified candidates\b/);
       expect(html).not.toMatch(/Subscribe/);
     }
   });

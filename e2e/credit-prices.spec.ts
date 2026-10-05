@@ -80,7 +80,7 @@ test.describe("tailoring and cover letter", () => {
     await page.goto("/tailor");
     await expect(page.getByRole("button", { name: /^Tailor my resume · free/ })).toBeVisible();
     await expect(page.getByText(/first tailoring run/i), "the free-run copy is true for this account").toBeVisible();
-    await page.locator("textarea").fill(JD);
+    await page.getByPlaceholder("Paste the full job description here…").fill(JD);
     await page.getByRole("button", { name: /^Tailor my resume · free/ }).click();
     await expect(page.getByRole("status").filter({ hasText: "no credits used" })).toBeVisible({ timeout: 30_000 });
     expect(await dbBalance(testUser.id)).toBe(START);
@@ -105,7 +105,7 @@ test.describe("tailoring and cover letter", () => {
     page.on("request", (r) => {
       if (r.url().includes("/api/tailoring") && r.method() === "POST") apiCalls++;
     });
-    await page.locator("textarea").fill(JD);
+    await page.getByPlaceholder("Paste the full job description here…").fill(JD);
     await page.getByRole("button", { name: label }).click();
 
     // A confirmation, before anything is charged or even requested.
@@ -131,7 +131,7 @@ test.describe("tailoring and cover letter", () => {
     await useUpFreeTrials(testUser.id);
 
     await page.goto("/tailor");
-    await page.locator("textarea").fill(JD);
+    await page.getByPlaceholder("Paste the full job description here…").fill(JD);
     await page.getByRole("button", { name: /^Tailor my resume · / }).click();
     await page.getByTestId("tailor-confirm").getByRole("button", { name: "Confirm and tailor" }).click();
 
@@ -148,7 +148,7 @@ test.describe("tailoring and cover letter", () => {
     await useUpFreeTrials(testUser.id);
 
     await page.goto("/tailor");
-    await page.locator("textarea").fill(JD);
+    await page.getByPlaceholder("Paste the full job description here…").fill(JD);
     await page.getByLabel(/Also write a cover letter/).check();
     const total = CREDIT_COSTS.tailoringRun + CREDIT_COSTS.coverLetterRun;
     await page.getByRole("button", { name: `Tailor my resume · ${credits(total)} (you have ${START})` }).click();

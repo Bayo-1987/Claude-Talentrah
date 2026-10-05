@@ -218,7 +218,7 @@ test.describe("golden path", () => {
 
     // --- Tailoring, first run: free trial --------------------------------
     await page.goto("/tailor");
-    await page.locator("textarea").fill(SHORT_JD);
+    await page.getByPlaceholder("Paste the full job description here…").fill(SHORT_JD);
     await page.getByRole("button", { name: "Tailor my resume" }).click();
 
     await expect(page.getByText("ATS score")).toBeVisible({ timeout: 30_000 });
@@ -246,7 +246,7 @@ test.describe("golden path", () => {
     await expect(page.getByText("Your balance: 40 credits")).toBeVisible();
 
     await page.goto("/tailor");
-    await page.locator("textarea").fill(SHORT_JD);
+    await page.getByPlaceholder("Paste the full job description here…").fill(SHORT_JD);
     await page.getByRole("button", { name: "Tailor my resume" }).click();
     // A charged run asks first (send-493); the free run above did not.
     await page.getByTestId("tailor-confirm").getByRole("button", { name: "Confirm and tailor" }).click();
@@ -290,14 +290,14 @@ test.describe("golden path", () => {
     expect(LONG_JD.length, "fixture must actually exceed the cap").toBeGreaterThan(JD_MAX_CHARS);
 
     await page.goto("/tailor");
-    await page.locator("textarea").fill(LONG_JD);
+    await page.getByPlaceholder("Paste the full job description here…").fill(LONG_JD);
 
     // The length the BROWSER holds, not the length of the Node string. A
     // textarea normalises its value, so the two differ by a character here —
     // and it's the browser's value that is actually submitted, so that is
     // what the notice must report. Comparing against the Node string looked
     // right and failed for a reason that had nothing to do with the feature.
-    const pastedChars = (await page.locator("textarea").inputValue()).length;
+    const pastedChars = (await page.getByPlaceholder("Paste the full job description here…").inputValue()).length;
     expect(pastedChars).toBeGreaterThan(JD_MAX_CHARS);
 
     await page.getByRole("button", { name: "Tailor my resume" }).click();

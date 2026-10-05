@@ -26,8 +26,8 @@ function chainable(chainResult: Record<string, unknown>, singleResult?: Record<s
   );
   return proxy;
 }
-vi.mock("@/lib/supabase/server", () => ({
-  createClient: async () => ({
+function fakeSupabase() {
+  return {
     auth: { getUser },
     from(table: string) {
       if (table === "farah_messages") {
@@ -46,10 +46,13 @@ vi.mock("@/lib/supabase/server", () => ({
       }
       return chainable({ data: null, error: null });
     },
-  }),
-}));
+  };
+}
+vi.mock("@/lib/supabase/server", () => ({ createClient: async () => fakeSupabase() }));
+vi.mock("@/lib/supabase/service-role", () => ({ createServiceRoleClient: () => fakeSupabase() }));
 vi.mock("@/lib/farah/client", () => ({ askFarahChatStream }));
 vi.mock("@/lib/farah/session-events", () => ({ logFarahSessionMessage: vi.fn().mockResolvedValue(undefined) }));
+vi.mock("@/lib/farah/spend-tally", async () => (await import("./support/route-mocks")).safeSpendTally());
 vi.mock("@/lib/farah/chat-gate", () => ({
   checkFarahChatAllowance,
   commitFarahChatAllowance,

@@ -32,10 +32,15 @@ describe("the threshold is a named constant, pinned at 10", () => {
   });
 });
 
-describe("the below-threshold message is exactly the founder's wording, with N interpolated", () => {
-  it.each([0, 1, 2, 9])("N = %i", (n) => {
+describe("the below-threshold message is the founder's wording, with N interpolated and the noun agreeing with N", () => {
+  it.each([
+    [0, "0 verified candidates"],
+    [1, "1 verified candidate"],
+    [2, "2 verified candidates"],
+    [9, "9 verified candidates"],
+  ])("N = %i", (n, count) => {
     expect(buildingTheDirectoryMessage(n)).toBe(
-      `We're building the directory: ${n} verified candidates so far. Join the waitlist and we'll tell you when 10+ are listed.`,
+      `We're building the directory: ${count} so far. Join the waitlist and we'll tell you when 10+ are listed.`,
     );
   });
 });

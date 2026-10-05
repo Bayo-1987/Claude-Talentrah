@@ -152,6 +152,7 @@ export class GeminiProvider implements LLMProvider {
     jsonSchema,
     onFinish,
     onUsage,
+    signal,
   }: LLMGenerateOptions): AsyncGenerator<string> {
     const client = getGeminiClient();
 
@@ -166,6 +167,7 @@ export class GeminiProvider implements LLMProvider {
           ...(systemPrompt ? { systemInstruction: systemPrompt } : {}),
           maxOutputTokens,
           thinkingConfig: THINKING_CONFIG,
+          ...(signal ? { abortSignal: signal } : {}),
           ...(jsonSchema
             ? { responseMimeType: "application/json", responseSchema: jsonSchema }
             : {}),
@@ -180,6 +182,8 @@ export class GeminiProvider implements LLMProvider {
         if (reason) finishReason = String(reason);
         if (chunk.text) yield chunk.text;
       }
+      // An aborted request must not read as a finished reply (see the Groq provider).
+      if (signal?.aborted) throw new Error("The request was cancelled.");
       const mapped = mapGeminiFinishReason(finishReason);
       if (mapped) onFinish?.(mapped);
       if (meta && typeof meta.promptTokenCount === "number" && typeof meta.candidatesTokenCount === "number") {
