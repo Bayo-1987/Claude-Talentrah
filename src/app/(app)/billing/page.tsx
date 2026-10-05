@@ -5,6 +5,7 @@ import { EyebrowLabel } from "@/components/ui";
 import { receiptNumber } from "@/lib/billing/receipt-number";
 import { activityRows, PRODUCT_LABEL, splitPasses, type UserPassRow } from "@/lib/billing/billing-view";
 import { nowMs } from "@/lib/passes/pass-timing";
+import { RECEIPT_MESSAGE } from "@/lib/billing/receipt-messages";
 import { BillingContent } from "@/components/billing/billing-content";
 import { PaymentReference } from "@/components/billing/payment-reference";
 
@@ -31,11 +32,11 @@ export const metadata = { title: "Credits & Passes — Talentrah" };
 export default async function BillingPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; purchased?: string }>;
+  searchParams: Promise<{ error?: string; purchased?: string; receipt?: string }>;
 }) {
   const { profile } = await requireUser();
   const supabase = await createClient();
-  const { error, purchased } = await searchParams;
+  const { error, purchased, receipt } = await searchParams;
 
   const [
     { data: packs },
@@ -110,6 +111,9 @@ export default async function BillingPage({
     // any account, seeker or employer.
     { href: "/jobs", label: "Browse jobs" };
 
+  /* What "Email me this receipt" came back with (resendReceiptAction redirects here with ?receipt=<outcome>). Unknown values say nothing. */
+  const receiptMessage = receipt && Object.hasOwn(RECEIPT_MESSAGE, receipt) ? RECEIPT_MESSAGE[receipt as keyof typeof RECEIPT_MESSAGE] : undefined;
+
   return (
     <div data-billing-page className="@container flex flex-col gap-10">
       <div>
@@ -162,6 +166,11 @@ export default async function BillingPage({
               {purchasedNext.label}
             </Link>
           </div>
+        )}
+        {receiptMessage && (
+          <p role="status" className="mt-3 max-w-[560px] border-[1.5px] border-ink bg-card px-4 py-3 text-[13.5px] text-ink">
+            {receiptMessage}
+          </p>
         )}
         {error === "payments_unavailable" && (
           <p className="mt-3 max-w-[560px] border-[1.5px] border-rust bg-rust-soft px-4 py-3 text-[13.5px] text-rust">

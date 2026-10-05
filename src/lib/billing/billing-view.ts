@@ -121,6 +121,8 @@ export interface ActivityRow {
   productType: string;
   /** This payment started a pass that is still running. */
   active: boolean;
+  /** A credit pack or a pass with a Paystack reference: the only rows "Email me this receipt" is offered on (resendReceiptAction accepts the same). */
+  resendable: boolean;
 }
 
 export function activityRows(
@@ -148,6 +150,7 @@ export function activityRows(
       reference: p.paystack_reference,
       productType: p.product_type,
       active: liveTransactions.has(p.id),
+      resendable: !!p.paystack_reference && (p.product_type === "credit_pack" || p.product_type === "pass"),
     };
   });
 }

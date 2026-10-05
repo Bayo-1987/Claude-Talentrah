@@ -2,6 +2,8 @@ import { NairaAmount } from "@/components/ui";
 import { receiptNumber } from "@/lib/billing/receipt-number";
 import type { ActivityRow } from "@/lib/billing/billing-view";
 import { PaymentReference } from "@/components/billing/payment-reference";
+import { Button } from "@/components/ui";
+import { resendReceiptAction } from "@/lib/billing/receipt-actions";
 
 /**
  * Recent purchases as a real table (a caption, column headers) so a screen reader announces rows and columns.
@@ -56,6 +58,13 @@ export function ActivityTable({ rows }: { rows: ActivityRow[] }) {
                     {/* One string, so the label and the number read as one thing. */}
                     <span className="block">{`Receipt ${receiptNumber(r.productType, r.reference)}`}</span>
                     <PaymentReference reference={r.reference} />
+                    {r.resendable && (
+                      <form action={resendReceiptAction.bind(null, r.id)}>
+                        <Button type="submit" variant="text" size="md">
+                          Email me this receipt
+                        </Button>
+                      </form>
+                    )}
                   </>
                 ) : null}
               </td>
