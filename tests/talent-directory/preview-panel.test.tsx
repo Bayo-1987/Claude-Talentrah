@@ -52,7 +52,7 @@ describe("below the threshold (9 candidates)", () => {
     expect(html).toContain("Join the waitlist");
   });
 
-  it("never says anything about payment on the waitlist path", () => {
+  it("never says anything about payment before joining the waitlist", () => {
     expect(html).not.toMatch(/Paystack|charged|pay now/i);
   });
 });
@@ -71,6 +71,28 @@ describe("at the threshold (10 candidates)", () => {
 
   it("states the live count", () => {
     expect(html).toContain("10 verified candidates");
+  });
+});
+
+/**
+ * After joining, the card makes one promise about cost: free while you wait, and pricing is shown before anything is charged. That sentence is the ONLY place
+ * the word "charged" may appear; everything else on the path must still be free of any pay prompt (Paystack, "pay now", a charge).
+ */
+const FREE_WHILE_YOU_WAIT = "Free while you wait. We&#x27;ll tell you about pricing before anything is charged.";
+
+describe("the joined waitlist path: the free promise is allowed, a pay prompt is not", () => {
+  const joinedHtml = render(3, { joined: true });
+
+  it("carries the free-while-you-wait promise exactly once", () => {
+    expect(joinedHtml.split(FREE_WHILE_YOU_WAIT)).toHaveLength(2);
+  });
+
+  it("with that one sentence removed, says nothing about payment", () => {
+    expect(joinedHtml.replace(FREE_WHILE_YOU_WAIT, "")).not.toMatch(/Paystack|charged|pay now/i);
+  });
+
+  it("has no Subscribe button, no form and no price", () => {
+    expect(joinedHtml).not.toMatch(/Subscribe|<form|<button|200,000|₦/i);
   });
 });
 
