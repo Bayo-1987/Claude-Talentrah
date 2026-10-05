@@ -405,7 +405,7 @@ describe("recording the spend (an estimate from token counts and published price
     expect(await Promise.resolve(handed!()).then((v) => v, () => false)).toBe(false);
   });
 
-  it("a declined fallback ends the reply with the daily-ceiling wording (not the provider's wait time), one content-free line, the failed attempt added once, nothing charged or saved", async () => {
+  it("a declined fallback ends the reply with the busy wording (not the provider's wait time, not the daily-ceiling wording), one content-free line, the failed attempt added once, no credits charged, no free message used, nothing saved", async () => {
     const m = await spend();
     const { FallbackDeclinedError, LLMProviderError } = await import("@/lib/llm");
     askFarahChatStream.mockImplementation(async function* () {
@@ -413,8 +413,10 @@ describe("recording the spend (an estimate from token counts and published price
     });
     const body = await (await POST(request())).text();
     const events = body.trim().split("\n").map((l) => JSON.parse(l));
-    expect(events).toEqual([{ type: "error", message: "Farah is resting for today. Please try again tomorrow." }]);
+    expect(events).toEqual([{ type: "error", message: "Farah is busy right now. Please try again in a few minutes. You haven't been charged for this message." }]);
     expect(body).not.toContain("7m");
+    expect(body).not.toContain("resting for today");
+    expect(body).not.toContain('"type":"done"');
     expect(spendLines(warn).filter((l) => l.startsWith("[farah-spend:fallback-declined]"))).toHaveLength(1);
     expect(JSON.stringify(warn.mock.calls) + JSON.stringify(errorSpy.mock.calls)).not.toContain(MESSAGE);
     expect(addSpendNano).toHaveBeenCalledTimes(1);

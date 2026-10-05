@@ -23,6 +23,7 @@ import { chipEntryPoint } from "@/lib/farah/chip-registry";
 import { labelAsData } from "@/lib/farah/data-block";
 import {
   FAILED_ATTEMPT_ESTIMATE_NANO,
+  FARAH_BUSY_MESSAGE,
   FARAH_RESTING_MESSAGE,
   NO_COUNTS_REPLY_ESTIMATE_NANO,
   checkFallbackHeadroom,
@@ -330,9 +331,9 @@ export async function POST(request: Request) {
         // which provider and what kind of failure), send a clean,
         // Farah-voiced message instead.
         if (err instanceof FallbackDeclinedError) {
-          // The primary was rate-limited and there is not enough headroom left for the fallback: end the reply with the daily-ceiling wording. Content-free line.
+          // The primary was rate-limited and there is not enough headroom left for the fallback: end the reply with the busy wording (nothing was charged). Content-free line.
           console.warn("[farah-spend:fallback-declined] the fallback provider was not used: the day's headroom is below its reserve");
-          send({ type: "error", message: FARAH_RESTING_MESSAGE });
+          send({ type: "error", message: FARAH_BUSY_MESSAGE });
           controller.close();
           return;
         }

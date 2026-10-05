@@ -100,7 +100,9 @@ export const TOTAL_OVERSHOOT_BOUND_NANO = OVERSHOOT_BOUND_NANO + GEMINI_OVERSHOO
  * THE FALLBACK GUARD. Before the fallback provider is used, today's total is read again, and the fallback is used only if the headroom (ceiling minus total) covers everything the fallback could add in a
  * day: FALLBACK_RESERVE_NANO, its daily request cap times its worst-case request. Once allowed, total <= ceiling - reserve, and the fallback's whole day fits inside the reserve, so it can never add past the
  * ceiling. What is left is the primary provider's own bound: GUARDED_OVERSHOOT_BOUND_NANO ($0.15, 15% of the default ceiling) against TOTAL_OVERSHOOT_BOUND_NANO ($0.5136, 51%) without the guard.
- * The reserve rests on the same unverified record as GEMINI_FALLBACK_REQUESTS_PER_DAY above; if the fallback key's limits change, change that constant and this one follows.
+ * ASSUMPTION: the reserve rests on GEMINI_FALLBACK_REQUESTS_PER_DAY above, which is the project's own record that the fallback key is a free-tier key (20 requests a day), not a reading of Google's console.
+ * IF THE FALLBACK KEY'S TIER CHANGES (an upgrade, a new key, a different model), RECALCULATE: set GEMINI_FALLBACK_REQUESTS_PER_DAY to the new daily cap, and FALLBACK_RESERVE_NANO (derived from it) follows. If the
+ * new tier has no daily request cap, there is no bound to reserve against: decide a cap here before relying on the fallback. The runbook (docs/farah-spend-ceiling-runbook.md) says the same.
  */
 export const FALLBACK_RESERVE_NANO = GEMINI_OVERSHOOT_BOUND_NANO;
 export const GUARDED_OVERSHOOT_BOUND_NANO = OVERSHOOT_BOUND_NANO;
@@ -116,8 +118,10 @@ export async function checkFallbackHeadroom(tally: { read(): Promise<number> }, 
   return fallbackAllowed(await tally.read(), ceilingNano);
 }
 
-/** What the person sees when the fallback is declined: the same words as the daily-ceiling response. */
+/** The daily-ceiling response (entry check): the day's budget is used. */
 export const FARAH_RESTING_MESSAGE = "Farah is resting for today. Please try again tomorrow.";
+/** What the person sees when the primary provider is rate-limited and the fallback is declined. True because a reply that did not complete is neither charged nor counted against the free messages. */
+export const FARAH_BUSY_MESSAGE = "Farah is busy right now. Please try again in a few minutes. You haven't been charged for this message.";
 
 export interface SpendTallyReader {
   read(): Promise<number>;
