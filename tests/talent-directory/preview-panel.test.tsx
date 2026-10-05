@@ -33,7 +33,7 @@ function render(count: number, opts: { joined?: boolean; samples?: PreviewSample
 }
 
 const BELOW_COPY = (n: number) =>
-  `We&#x27;re building the directory: ${n} verified candidates so far. Join the waitlist and we&#x27;ll tell you when 10+ are listed.`;
+  `We&#x27;re building the directory: ${n} verified candidate${n === 1 ? "" : "s"} so far. Join the waitlist and we&#x27;ll tell you when 10+ are listed.`;
 
 describe("below the threshold (9 candidates)", () => {
   const html = render(9);
