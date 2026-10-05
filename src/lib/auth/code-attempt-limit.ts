@@ -1,7 +1,7 @@
 import "server-only";
-import { createHash } from "node:crypto";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { isUnidentifiableCaller } from "@/lib/security/login-rate-limit";
+import { hashedEmailKey } from "./email-key";
 
 /**
  * The attempt limit on the signup code (S1-101): FAILED attempts only, 6 per email and 30 per IP, each per 15 minutes. NO NEW TABLE and no migration: it
@@ -38,10 +38,6 @@ const BUCKET_NAME: Record<Bucket, string> = {
 };
 
 export type CodeAttemptGate = { allowed: true } | { allowed: false; resetsAt: string | null };
-
-function emailKey(email: string): string {
-  return createHash("sha256").update(`signup-code:${email.trim().toLowerCase()}`).digest("hex");
-}
 
 async function consume(key: string, bucket: Bucket): Promise<{ allowed: boolean; resetsAt: string | null }> {
   const { limit, windowSeconds } = CODE_ATTEMPT_LIMITS[bucket];
@@ -81,7 +77,7 @@ async function failuresSoFar(key: string, bucket: "failEmail" | "failIp"): Promi
 
 /** Call BEFORE asking Supabase to check a code. allowed:false means do not call it. */
 export async function gateCodeAttempt(email: string, ip: string | null): Promise<CodeAttemptGate> {
-  const key = emailKey(email);
+  const key = hashedEmailKey(email);
   const useIp = !isUnidentifiableCaller(ip);
 
   const burstEmail = await consume(key, "burstEmail");
@@ -99,6 +95,6 @@ export async function gateCodeAttempt(email: string, ip: string | null): Promise
 
 /** Call AFTER Supabase rejected a code. Never throws. */
 export async function recordFailedCodeAttempt(email: string, ip: string | null): Promise<void> {
-  await consume(emailKey(email), "failEmail");
+  await consume(hashedEmailKey(email), "failEmail");
   if (!isUnidentifiableCaller(ip)) await consume(ip!, "failIp");
 }

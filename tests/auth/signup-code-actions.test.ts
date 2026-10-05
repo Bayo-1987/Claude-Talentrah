@@ -92,7 +92,7 @@ beforeEach(() => {
   h.jar.clear();
   h.sets.length = 0;
   h.deletes.length = 0;
-  h.headers = new Map([["x-forwarded-for", IP], ["host", "talentrah.test"]]);
+  h.headers = new Map([["x-real-ip", IP], ["host", "talentrah.test"]]);
   h.verifyOtp.mockReset();
   h.resend.mockReset();
   h.signUp.mockReset();
@@ -261,6 +261,48 @@ describe("the attempt limit (6 failed per email)", () => {
   });
 });
 
+describe("the IP the limits are keyed on (S1-101 review)", () => {
+  const ipKeys = (bucket: string) => [...db.counts.keys()].filter((k) => k.split("\u0000")[1] === bucket).map((k) => k.split("\u0000")[0]);
+
+  it("is the platform's client IP (x-real-ip), never the leftmost x-forwarded-for entry, which a caller can write", async () => {
+    pend();
+    h.verifyOtp.mockResolvedValue(rejected());
+    h.headers.set("x-forwarded-for", `6.6.6.6, ${IP}`);
+    await verify("000000");
+    expect(ipKeys("codeFailIp")).toEqual([IP]);
+    expect(ipKeys("codeBurstIp")).toEqual([IP]);
+  });
+
+  it("changing the spoofed header does not move the count to a new key: every attempt lands on the same IP key", async () => {
+    pend();
+    h.verifyOtp.mockResolvedValue(rejected());
+    for (const spoof of ["6.6.6.6", "7.7.7.7", "8.8.8.8, 9.9.9.9"]) {
+      h.headers.set("x-forwarded-for", `${spoof}, ${IP}`);
+      await verify("000000");
+    }
+    expect(ipKeys("codeFailIp")).toEqual([IP]);
+    expect(db.total("codeFailIp")).toBe(3);
+  });
+
+  it("a request with ONLY a forwarded-for header (nothing from the platform) has no per-IP key at all: it is not trusted", async () => {
+    pend();
+    h.verifyOtp.mockResolvedValue(rejected());
+    h.headers.delete("x-real-ip");
+    h.headers.set("x-forwarded-for", "6.6.6.6");
+    await verify("000000");
+    expect(db.total("codeFailIp")).toBe(0);
+    expect(db.total("codeBurstIp")).toBe(0);
+    expect(db.keys()).not.toContain("6.6.6.6");
+  });
+
+  it("resend uses the same trusted IP for its daily per-IP limit", async () => {
+    pend({ issuedAtMsAgo: 120_000 });
+    h.headers.set("x-forwarded-for", `6.6.6.6, ${IP}`);
+    await run(() => resendSignupCodeAction(idleResend, new FormData()));
+    expect(ipKeys("resendIp")).toEqual([IP]);
+  });
+});
+
 describe("no pending signup", () => {
   it("with no cookie the action says the step has timed out and never asks Supabase", async () => {
     const { result } = await verify("123456");
@@ -329,6 +371,90 @@ describe("resend", () => {
   it("never returns the address", async () => {
     pend({ issuedAtMsAgo: 120_000 });
     expect(JSON.stringify((await resendNow()).result)).not.toContain("example.com");
+  });
+});
+
+describe("the resend cooldown is kept by the server, per address (S1-101 review)", () => {
+  const resendNow = () => run(() => resendSignupCodeAction(idleResend, new FormData()));
+  const forged = () => pend({ issuedAtMsAgo: 600_000 }); // an unsigned cookie can say anything: here, "the code went out ten minutes ago"
+
+  it("a cookie forged to say the code went out long ago does not buy a second send in the same minute", async () => {
+    forged();
+    expect((await resendNow()).result?.status).toBe("success");
+    forged();
+    const second = await resendNow();
+    expect(second.result).toEqual({ status: "error", message: "You can ask for another code in 60 seconds.", cooldownSeconds: 60, ended: false });
+    expect(h.resend).toHaveBeenCalledTimes(1);
+  });
+
+  it("clearing the cookie and setting it again for the same address within the minute is refused the same way", async () => {
+    forged();
+    await resendNow();
+    h.jar.clear();
+    forged();
+    expect((await resendNow()).result?.status).toBe("error");
+    expect(h.resend).toHaveBeenCalledTimes(1);
+  });
+
+  it("the minute is counted down from the server's clock: 30 seconds into it, 30 are left", async () => {
+    forged();
+    await resendNow();
+    vi.setSystemTime(new Date(NOW.getTime() + 30_000));
+    forged();
+    expect((await resendNow()).result).toMatchObject({ status: "error", message: "You can ask for another code in 30 seconds.", cooldownSeconds: 30 });
+  });
+
+  it("once the minute is over it works again", async () => {
+    forged();
+    await resendNow();
+    vi.setSystemTime(new Date(NOW.getTime() + 61_000));
+    forged();
+    expect((await resendNow()).result?.status).toBe("success");
+    expect(h.resend).toHaveBeenCalledTimes(2);
+  });
+
+  it("a refused resend uses none of the daily budget (it is the minute, not the day, that said no)", async () => {
+    forged();
+    await resendNow();
+    forged();
+    await resendNow();
+    expect(db.total("resendEmail")).toBe(1);
+  });
+
+  it("is keyed on the address, not the browser: another address is not held by this one's minute", async () => {
+    forged();
+    await resendNow();
+    h.jar.clear();
+    pend({ email: "grace@example.com", issuedAtMsAgo: 600_000 });
+    expect((await resendNow()).result?.status).toBe("success");
+  });
+
+  it("the key is the hashed, lower-cased address: no '@' in it, and 'ADA@Example.com' is the same address as 'ada@example.com'", async () => {
+    pend({ email: "ADA@Example.com", issuedAtMsAgo: 600_000 });
+    await resendNow();
+    pend({ email: "ada@example.com", issuedAtMsAgo: 600_000 });
+    expect((await resendNow()).result?.status).toBe("error");
+    const keys = [...db.counts.keys()].filter((k) => k.split("\u0000")[1] === "codeResendCooldown").map((k) => k.split("\u0000")[0]);
+    expect(keys).toHaveLength(1);
+    expect(keys[0]).not.toContain("@");
+  });
+
+  it("fails closed with the generic sentence when the counter cannot be written (and nothing is sent)", async () => {
+    forged();
+    db.failRpc = true;
+    expect((await resendNow()).result).toMatchObject({ status: "error", message: "Couldn't resend that — try again in a moment." });
+    expect(h.resend).not.toHaveBeenCalled();
+  });
+
+  it("the signup's own email counts as the first send of the minute: a resend right after signing up is refused even with a forged cookie", async () => {
+    h.signUp.mockResolvedValue({ data: { user: { id: "u1" }, session: null }, error: null });
+    const fd = new FormData();
+    for (const [k, v] of Object.entries({ firstName: "Ada", lastName: "Lovelace", email: EMAIL, country: "Nigeria", password: PASSWORD, termsAccepted: "on" })) fd.set(k, v);
+    await run(() => signUpAction({ error: null }, fd));
+    h.jar.clear();
+    forged();
+    expect((await resendNow()).result?.status).toBe("error");
+    expect(h.resend).not.toHaveBeenCalled();
   });
 });
 

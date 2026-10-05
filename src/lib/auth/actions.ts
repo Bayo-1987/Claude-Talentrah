@@ -16,7 +16,7 @@ import {
 import { consumeResendRateLimit } from "./resend-rate-limit";
 import { consumeSignupRateLimit } from "./signup-rate-limit";
 import { consumeLoginRateLimit } from "@/lib/security/login-rate-limit";
-import { getRequestIp } from "@/lib/security/request-ip";
+import { getRequestIp, getTrustedClientIp } from "@/lib/security/request-ip";
 import type { ResendState } from "./resend-state";
 import { captureEvent } from "@/lib/analytics/posthog";
 import { stashPostAuthDestination } from "./post-auth-destination";
@@ -25,6 +25,7 @@ import { clearSignupPending, readSignupPending, setSignupPending } from "./signu
 import { CODE_RESEND_COOLDOWN_SECONDS, cooldownSecondsLeft } from "./signup-pending-codec";
 import { isCompleteCode, normalizeCodeInput } from "./code-input";
 import { gateCodeAttempt, recordFailedCodeAttempt } from "./code-attempt-limit";
+import { consumeCodeResendCooldown } from "./code-resend-cooldown";
 import {
   CODE_ENDED,
   CODE_FORMAT,
@@ -158,6 +159,8 @@ export async function signUpAction(
   if (!data.session) {
     // The address goes to the code page in an httpOnly cookie, never in the URL (S1-101): the page is a bare /signup/check-email.
     await setSignupPending({ email, redirectTo: safeRedirectTo(formData.get("redirectTo"), ""), issuedAt: Date.now() });
+    // This signup just caused an email to go out, so it takes the first slot of the address's minute: a resend right after is held by the server too.
+    await consumeCodeResendCooldown(email);
     redirect("/signup/check-email");
   }
 
@@ -186,7 +189,8 @@ export async function verifySignupCodeAction(_prev: CodeFormState, formData: For
   if (!pending) return fail({ message: CODE_ENDED, ended: true });
   if (!isCompleteCode(code)) return fail({ fieldError: CODE_FORMAT });
 
-  const ip = await getRequestIp();
+  // The platform's client IP, never the leftmost x-forwarded-for entry (a caller can write that one).
+  const ip = await getTrustedClientIp();
   const gate = await gateCodeAttempt(pending.email, ip);
   if (!gate.allowed) return fail({ message: codeRateLimitedMessage(gate.resetsAt, Date.now()) });
 
@@ -223,10 +227,18 @@ export async function resendSignupCodeAction(_prev: ResendCodeState, _formData: 
   const pending = await readSignupPending();
   if (!pending) return { status: "error", message: CODE_ENDED, cooldownSeconds: null, ended: true };
 
+  // The cookie's clock is only the quick, friendly check: the cookie is unsigned and a caller can clear it or write one that says "sent long ago".
   const wait = cooldownSecondsLeft(pending.issuedAt, Date.now());
   if (wait > 0) return { status: "error", message: resendCooldownMessage(wait), cooldownSeconds: wait, ended: false };
 
-  const ip = await getRequestIp();
+  // The server's own minute, per address, is what actually holds a resend (src/lib/auth/code-resend-cooldown.ts).
+  const cooldown = await consumeCodeResendCooldown(pending.email);
+  if (!cooldown.allowed) {
+    if (cooldown.secondsLeft === null) return { status: "error", message: CODE_RESEND_GENERIC_ERROR, cooldownSeconds: null, ended: false };
+    return { status: "error", message: resendCooldownMessage(cooldown.secondsLeft), cooldownSeconds: cooldown.secondsLeft, ended: false };
+  }
+
+  const ip = await getTrustedClientIp();
   const limit = await consumeResendRateLimit(pending.email, ip);
   if (!limit.allowed) return { status: "error", message: CODE_RESEND_RATE_LIMITED, cooldownSeconds: null, ended: false };
 
