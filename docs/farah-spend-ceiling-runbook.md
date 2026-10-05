@@ -22,3 +22,14 @@ The 250,000 tokens a minute used for the primary provider's bound is a console f
 
 - `GET <project url>/rest/v1/` returns an OpenAPI document whose `paths` contains `/rpc/add_llm_usage`.
 - `GET <project url>/rest/v1/llm_daily_usage?select=bucket&limit=1` returns 200 with the service key, and a permission error (not an empty 200) with the anon key.
+
+## The operator alerts (migration 0235)
+
+Two emails go to the address in `ADMIN_ALERT_EMAIL` (the same operator alert as the payment and refund ones, through `sendAdminAlert`):
+
+- **"Farah has used 80% of today's budget"**: sent once a day, by the first request that sees the day's estimated spend at or above 80% of the ceiling. Farah is still replying.
+- **"Farah has used today's whole budget"**: sent once a day, by the first request that is blocked at the ceiling. Farah is not replying until 00:00 UTC.
+
+"Once a day" is decided by the counter, not by the server: each alert has its own marker bucket in `llm_daily_usage` (`farah_chat_80_warned`, `farah_chat_reached_warned`, added by 0235), and the caller whose add of 1 returns 1 is the first of the day. They are separate so that an 80% alert earlier in the day cannot swallow the "reached" one. The text has only figures and the name of the setting to change (`FARAH_DAILY_SPEND_CEILING_USD`); no user data.
+
+If no email arrives: `ADMIN_ALERT_EMAIL` or the Resend key may be unset (the log then has an `[admin-alert] NOT SENT` line with the reason), or the migration may not be applied (the marker call fails and is swallowed; the reply is never affected). An alert is a convenience; the ceiling is the safeguard.
