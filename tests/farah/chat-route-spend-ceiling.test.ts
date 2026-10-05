@@ -23,6 +23,9 @@ const askFarahChatStream = vi.fn();
 const readSpendNano = vi.fn();
 const addSpendNano = vi.fn();
 const markHalfwayWarned = vi.fn();
+const markEightyWarned = vi.fn();
+const markReachedWarned = vi.fn();
+const sendSpendAlert = vi.fn();
 const inserted: Array<Record<string, unknown>> = [];
 
 function chainable(chainResult: Record<string, unknown>, singleResult?: Record<string, unknown>): unknown {
@@ -69,7 +72,8 @@ vi.mock("@/lib/farah/chat-gate", () => ({
   commitFarahChatAllowance,
   InsufficientCreditsError: class InsufficientCreditsError extends Error {},
 }));
-vi.mock("@/lib/farah/spend-tally", () => ({ readSpendNano, addSpendNano, markHalfwayWarned }));
+vi.mock("@/lib/farah/spend-tally", () => ({ readSpendNano, addSpendNano, markHalfwayWarned, markEightyWarned, markReachedWarned }));
+vi.mock("@/lib/farah/spend-alert", () => ({ sendSpendAlert }));
 const { POST } = await import("@/app/api/farah/chat/route");
 
 const ENV = "FARAH_DAILY_SPEND_CEILING_USD";
@@ -91,6 +95,7 @@ const ceilingNano = async () => {
   return Math.round(m.DEFAULT_DAILY_CEILING_USD * m.NANO_PER_USD);
 };
 const INTERNAL_ERROR_TEXT = "failed on internal-db-7 while reading the usage table";
+const parseEvents = (text: string) => text.split("\n").filter(Boolean).map((l) => JSON.parse(l)) as Array<{ type: string }>;
 const spendLines = (spy: { mock: { calls: unknown[][] } }) => spy.mock.calls.map((c) => String(c[0])).filter((l) => l.startsWith("[farah-spend"));
 let savedEnv: string | undefined;
 let warn: ReturnType<typeof vi.spyOn>;
@@ -109,6 +114,9 @@ beforeEach(() => {
   readSpendNano.mockReset().mockResolvedValue(0);
   addSpendNano.mockReset().mockResolvedValue(0);
   markHalfwayWarned.mockReset().mockResolvedValue(true);
+  markEightyWarned.mockReset().mockResolvedValue(false);
+  markReachedWarned.mockReset().mockResolvedValue(false);
+  sendSpendAlert.mockReset().mockResolvedValue(undefined);
   warn = vi.spyOn(console, "warn").mockImplementation(() => {});
   errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 });
@@ -469,5 +477,61 @@ describe("the 50% warning is one content-free line per day", () => {
     markHalfwayWarned.mockResolvedValue(true);
     await (await POST(request())).text();
     expect(spendLines(warn)).toHaveLength(0);
+  });
+});
+
+describe("the operator is emailed at 80% of the ceiling and when it is reached, once each", () => {
+  it("at 80%: the request is served as usual and the 80% alert is sent once, with the figures", async () => {
+    const ceiling = await ceilingNano();
+    readSpendNano.mockResolvedValue(ceiling * 0.8);
+    markEightyWarned.mockResolvedValue(true);
+    const res = await POST(request());
+    const events = parseEvents(await res.text());
+    expect(events.some((e) => e.type === "done")).toBe(true);
+    expect(sendSpendAlert).toHaveBeenCalledTimes(1);
+    expect(sendSpendAlert).toHaveBeenCalledWith("eighty", ceiling * 0.8, ceiling);
+  });
+
+  it("below 80%, or when today's alert was already sent: nothing is sent", async () => {
+    const ceiling = await ceilingNano();
+    readSpendNano.mockResolvedValue(ceiling * 0.8 - 1);
+    markEightyWarned.mockResolvedValue(true);
+    await (await POST(request())).text();
+    readSpendNano.mockResolvedValue(ceiling * 0.9);
+    markEightyWarned.mockResolvedValue(false);
+    await (await POST(request())).text();
+    expect(sendSpendAlert).not.toHaveBeenCalled();
+  });
+
+  it("at the ceiling: still the resting answer (503, no model call), and the 'reached' alert is sent once", async () => {
+    const ceiling = await ceilingNano();
+    readSpendNano.mockResolvedValue(ceiling);
+    markReachedWarned.mockResolvedValue(true);
+    const res = await POST(request());
+    expect(res.status).toBe(503);
+    expect(await res.json()).toMatchObject({ code: "farah_daily_ceiling" });
+    expect(askFarahChatStream).not.toHaveBeenCalled();
+    expect(sendSpendAlert).toHaveBeenCalledTimes(1);
+    expect(sendSpendAlert).toHaveBeenCalledWith("reached", ceiling, ceiling);
+  });
+
+  it("a sender that fails changes neither answer", async () => {
+    const ceiling = await ceilingNano();
+    sendSpendAlert.mockRejectedValue(new Error("mail down"));
+    readSpendNano.mockResolvedValue(ceiling * 0.85);
+    markEightyWarned.mockResolvedValue(true);
+    const ok = await POST(request());
+    expect(parseEvents(await ok.text()).some((e) => e.type === "done")).toBe(true);
+    readSpendNano.mockResolvedValue(ceiling);
+    markReachedWarned.mockResolvedValue(true);
+    expect((await POST(request())).status).toBe(503);
+  });
+
+  it("the alert adds no log line of its own (each branch still writes exactly one content-free line)", async () => {
+    const ceiling = await ceilingNano();
+    readSpendNano.mockResolvedValue(ceiling * 0.85);
+    markEightyWarned.mockResolvedValue(true);
+    await (await POST(request())).text();
+    expect(spendLines(warn).filter((l) => /alert|eighty|80/i.test(l))).toHaveLength(0);
   });
 });

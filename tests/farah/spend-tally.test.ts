@@ -13,6 +13,8 @@ interface Tally {
   readSpendNano(): Promise<number>;
   addSpendNano(nano: number): Promise<number>;
   markHalfwayWarned(): Promise<boolean>;
+  markEightyWarned(): Promise<boolean>;
+  markReachedWarned(): Promise<boolean>;
 }
 // The explicit way around the tripwire: the actual module, not the unsafe default.
 const actual = () => vi.importActual<Tally>("@/lib/farah/spend-tally");
@@ -45,12 +47,28 @@ describe("the real tally module, reached on purpose with importActual", () => {
     expect(rpc).toHaveBeenCalledWith("add_llm_usage", { p_bucket: "farah_chat_half_warned", p_nano: 1 });
   });
 
+  it("the 80% and 'reached' markers are separate buckets, each true only for the caller whose add of 1 returns 1", async () => {
+    const t = await actual();
+    rpc.mockResolvedValueOnce({ data: 1, error: null });
+    expect(await t.markEightyWarned()).toBe(true);
+    expect(rpc).toHaveBeenLastCalledWith("add_llm_usage", { p_bucket: "farah_chat_80_warned", p_nano: 1 });
+    rpc.mockResolvedValueOnce({ data: 2, error: null });
+    expect(await t.markEightyWarned()).toBe(false);
+    rpc.mockResolvedValueOnce({ data: 1, error: null });
+    expect(await t.markReachedWarned()).toBe(true);
+    expect(rpc).toHaveBeenLastCalledWith("add_llm_usage", { p_bucket: "farah_chat_reached_warned", p_nano: 1 });
+    rpc.mockResolvedValueOnce({ data: 7, error: null });
+    expect(await t.markReachedWarned()).toBe(false);
+  });
+
   it("an rpc error is thrown, never turned into a number (the caller fails closed)", async () => {
     rpc.mockResolvedValue({ data: null, error: { message: "boom", code: "PGRST202" } });
     const t = await actual();
     await expect(t.readSpendNano()).rejects.toBeTruthy();
     await expect(t.addSpendNano(5)).rejects.toBeTruthy();
     await expect(t.markHalfwayWarned()).rejects.toBeTruthy();
+    await expect(t.markEightyWarned()).rejects.toBeTruthy();
+    await expect(t.markReachedWarned()).rejects.toBeTruthy();
   });
 
   it("a failure carries the database error code, and a missing function or table is flagged as a likely missing migration", async () => {

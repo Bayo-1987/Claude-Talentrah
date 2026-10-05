@@ -126,7 +126,15 @@ export const FARAH_BUSY_MESSAGE = "Farah is busy right now. Please try again in 
 export interface SpendTallyReader {
   read(): Promise<number>;
   markWarned(): Promise<boolean>;
+  /** True for exactly one caller per day: the first to see 80% of the ceiling. Optional so a caller with no alerting need not supply it. */
+  markEightyWarned?(): Promise<boolean>;
+  /** True for exactly one caller per day: the first to be blocked at the ceiling. Its own marker, so an 80% alert earlier the same day cannot swallow it. */
+  markReachedWarned?(): Promise<boolean>;
 }
+
+/** The two operator alerts: 80% of the daily ceiling used (Farah still answers) and the ceiling reached (Farah stops until 00:00 UTC). */
+export type SpendAlertLevel = "eighty" | "reached";
+export type SpendAlertSender = (level: SpendAlertLevel, spentNano: number, ceilingNano: number) => Promise<void>;
 
 export interface CeilingCheck {
   status: "ok" | "blocked";
@@ -137,11 +145,23 @@ export interface CeilingCheck {
 /**
  * Reads today's total and compares it with the ceiling. A failure to READ throws (the caller fails closed: a counter that cannot be read is not "zero spent"). At half the ceiling, the first
  * caller of the day writes one content-free warning line; a failure to mark that is swallowed, because the warning is a convenience and the ceiling is the safeguard.
+ *
+ * ALERTS (`notify`, optional). At 80% of the ceiling the first caller of the day sends the operator one alert; when the ceiling is reached the first blocked caller of the day sends another. "First caller of the day" is
+ * the counter's own marker (an add of 1 that returns 1), so it holds across server instances and a restart. The markers are separate: if one covered both, a day that sent the 80% alert could never send the one
+ * that matters more. Like the 50% line, an alert is a convenience: a failing marker or sender is swallowed and never changes the answer. A jump straight from under 80% to the ceiling sends only "reached".
+ * The marker is read only at or above 80%, so an ordinary message makes no extra counter call.
  */
-export async function checkSpendCeiling(tally: SpendTallyReader, env: Record<string, string | undefined> = process.env): Promise<CeilingCheck> {
+export async function checkSpendCeiling(
+  tally: SpendTallyReader,
+  env: Record<string, string | undefined> = process.env,
+  notify?: SpendAlertSender,
+): Promise<CeilingCheck> {
   const ceilingNano = Math.round(dailyCeilingUsd(env) * NANO_PER_USD);
   const spentNano = await tally.read();
-  if (spentNano >= ceilingNano) return { status: "blocked", spentNano, ceilingNano };
+  if (spentNano >= ceilingNano) {
+    await alertOnce(tally.markReachedWarned, notify, "reached", spentNano, ceilingNano);
+    return { status: "blocked", spentNano, ceilingNano };
+  }
   if (spentNano >= ceilingNano / 2) {
     try {
       if (await tally.markWarned()) console.warn("[farah-spend:half] today's estimated Farah spend has reached 50% of the daily ceiling");
@@ -149,5 +169,21 @@ export async function checkSpendCeiling(tally: SpendTallyReader, env: Record<str
       /* the warning is optional */
     }
   }
+  if (spentNano >= ceilingNano * 0.8) await alertOnce(tally.markEightyWarned, notify, "eighty", spentNano, ceilingNano);
   return { status: "ok", spentNano, ceilingNano };
+}
+
+async function alertOnce(
+  mark: (() => Promise<boolean>) | undefined,
+  notify: SpendAlertSender | undefined,
+  level: SpendAlertLevel,
+  spentNano: number,
+  ceilingNano: number,
+): Promise<void> {
+  if (!mark || !notify) return;
+  try {
+    if (await mark()) await notify(level, spentNano, ceilingNano);
+  } catch {
+    /* the alert is optional */
+  }
 }

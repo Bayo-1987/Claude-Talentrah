@@ -23,6 +23,8 @@ export class SpendTallyError extends Error {
 
 const SPEND_BUCKET = "farah_chat";
 const HALFWAY_BUCKET = "farah_chat_half_warned";
+const EIGHTY_BUCKET = "farah_chat_80_warned";
+const REACHED_BUCKET = "farah_chat_reached_warned";
 
 async function add(bucket: string, nano: number): Promise<number> {
   if (!Number.isInteger(nano) || nano < 0) throw new Error("spend tally: the amount must be a whole, non-negative number of nano-dollars");
@@ -50,4 +52,14 @@ export function addSpendNano(nano: number): Promise<number> {
 /** True for exactly one caller per day: the one whose add of 1 to the halfway marker returns 1. */
 export async function markHalfwayWarned(): Promise<boolean> {
   return (await add(HALFWAY_BUCKET, 1)) === 1;
+}
+
+/** True for exactly one caller per day: the one whose add of 1 to the 80% marker returns 1 (the operator alert at 80% of the ceiling). */
+export async function markEightyWarned(): Promise<boolean> {
+  return (await add(EIGHTY_BUCKET, 1)) === 1;
+}
+
+/** True for exactly one caller per day: the one whose add of 1 to the "reached" marker returns 1 (the operator alert when the ceiling is reached). */
+export async function markReachedWarned(): Promise<boolean> {
+  return (await add(REACHED_BUCKET, 1)) === 1;
 }

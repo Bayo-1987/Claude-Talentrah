@@ -32,7 +32,8 @@ import {
   estimateSpendNano,
   secondsUntilUtcMidnight,
 } from "@/lib/farah/spend-ceiling";
-import { addSpendNano, markHalfwayWarned, readSpendNano } from "@/lib/farah/spend-tally";
+import { addSpendNano, markEightyWarned, markHalfwayWarned, markReachedWarned, readSpendNano } from "@/lib/farah/spend-tally";
+import { sendSpendAlert } from "@/lib/farah/spend-alert";
 import type { MatchExplanation } from "@/lib/matching/score";
 
 /** Which entry point to log for a quick action: the chip registry decides (an unknown or absent key is free text). */
@@ -90,7 +91,11 @@ export async function POST(request: Request) {
    * A counter that cannot be read fails CLOSED with its own code (distinct from the ceiling's): "can't check" is not "zero spent". Each branch writes exactly one content-free log line.
    */
   try {
-    const ceiling = await checkSpendCeiling({ read: readSpendNano, markWarned: markHalfwayWarned });
+    const ceiling = await checkSpendCeiling(
+      { read: readSpendNano, markWarned: markHalfwayWarned, markEightyWarned, markReachedWarned },
+      process.env,
+      sendSpendAlert,
+    );
     if (ceiling.status === "blocked") {
       console.warn("[farah-spend:ceiling] the daily spend ceiling is reached");
       return NextResponse.json(
