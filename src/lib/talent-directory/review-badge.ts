@@ -17,6 +17,14 @@ export function reviewMethodFromScore(score: number | null | undefined): ReviewM
   return "unknown";
 }
 
+/**
+ * Which review an applicant's resume has, if any, for the applicant list: a resume only counts as reviewed when the profile's status is "verified" (the database's
+ * word for a review that passed). A pending, rejected or unreviewed profile shows nothing: never a partial result.
+ */
+export function resumeReviewFor(status: string, score: number | null | undefined): ReviewMethod | null {
+  return status === "verified" ? reviewMethodFromScore(score) : null;
+}
+
 const WHO: Record<ReviewMethod, string> = {
   ai: "Resume reviewed by Farah (AI)",
   mentor: "Resume reviewed by a Talentrah mentor",

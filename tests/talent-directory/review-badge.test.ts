@@ -2,7 +2,7 @@
  * VERIFY-1 Phase 0a: what the badge says. Pure: the method from the stored score, and the exact words. (The words are the owner's, 6 Oct 2026.)
  */
 import { describe, expect, it } from "vitest";
-import { HOW_WE_REVIEW_PATH, RESUME_REVIEW_MEANING, reviewMethodFromScore, reviewedBadgeText } from "@/lib/talent-directory/review-badge";
+import { HOW_WE_REVIEW_PATH, RESUME_REVIEW_MEANING, resumeReviewFor, reviewMethodFromScore, reviewedBadgeText } from "@/lib/talent-directory/review-badge";
 
 describe("reviewMethodFromScore: an AI review always stores a score, a mentor review never does", () => {
   it.each([
@@ -17,6 +17,23 @@ describe("reviewMethodFromScore: an AI review always stores a score, a mentor re
 
   it.each([undefined, Number.NaN])("%s (a missing or broken value, not a stored null) is 'unknown', never a guess", (score) => {
     expect(reviewMethodFromScore(score as number | undefined)).toBe("unknown");
+  });
+});
+
+describe("resumeReviewFor: the applicant list shows a review only for a profile whose review passed", () => {
+  it.each([
+    ["verified", 87, "ai"],
+    ["verified", 70, "ai"],
+    ["verified", null, "mentor"],
+    ["unverified", null, null],
+    ["unverified", 87, null],
+    ["pending", null, null],
+    ["rejected", 40, null],
+    ["rejected", null, null],
+    ["claimed", null, null],
+    ["", null, null],
+  ])("status %j, score %s -> %s", (status, score, expected) => {
+    expect(resumeReviewFor(status, score as number | null)).toBe(expected);
   });
 });
 
