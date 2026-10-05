@@ -36,6 +36,8 @@ export interface LLMGenerateOptions {
    * none (callers treat "never told" as unknown, never as zero), and not called if the stream threw. Numbers only, by design.
    */
   onUsage?: (usage: LLMUsage) => void;
+  /** Streaming only. Aborting it ends the request to the provider; the stream then throws a non-rate-limit LLMProviderError. */
+  signal?: AbortSignal;
 }
 
 /**

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { saveFarahExchange } from "@/lib/farah/save-exchange";
 import { askFarahChatStream, type FarahChatTurn } from "@/lib/farah/client";
 import { logFarahSessionMessage, type FarahEntryPoint } from "@/lib/farah/session-events";
 import { LLMProviderError } from "@/lib/llm";
@@ -225,6 +226,11 @@ export async function POST(request: Request) {
    * it is deliberately not charged for and not saved, the same as any other
    * failed attempt.
    */
+  // The reader has already gone (the request was aborted before a model call was made): nothing to answer, nothing to charge, nothing to save.
+  if (request.signal.aborted) {
+    return new Response(null, { status: 499 });
+  }
+
   const encoder = new TextEncoder();
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
@@ -241,6 +247,8 @@ export async function POST(request: Request) {
       try {
         for await (const chunk of askFarahChatStream(turns, extraContext, undefined, {
           quickAction,
+          // The model call stops when the reader goes away; an aborted call ends in the error path below, which saves and charges nothing.
+          signal: request.signal,
           onFinish: (reason) => {
             finishReason = reason;
           },
@@ -315,18 +323,10 @@ export async function POST(request: Request) {
       // No migration: `context` is the existing JSON column. Absent when the provider reported none (unknown is not zero).
       const replyContext = usage ? { ...rowContext, tokens: { prompt: usage.inputTokens, completion: usage.outputTokens } } : rowContext;
 
-      // Two independent writes (different rows, neither reads the other) —
-      // run together rather than one after the other.
-      const [{ error: insertUserError }, { data: farahRow, error: insertFarahError }] = await Promise.all([
-        supabase.from("farah_messages").insert({ user_id: user.id, role: "user", content: message, context: rowContext }),
-        supabase
-          .from("farah_messages")
-          .insert({ user_id: user.id, role: "farah", content: fullText, context: replyContext })
-          .select("id, created_at")
-          .single(),
-      ]);
+      // Message history is written by the server only (see saveFarahExchange); this route's own client only reads.
+      const saved = await saveFarahExchange({ userId: user.id, message, reply: fullText, userRowContext: rowContext, replyRowContext: replyContext });
 
-      if (insertUserError || insertFarahError || !farahRow) {
+      if (!saved) {
         // The reply already happened and cost real money — the client
         // already has the full text from the delta events either way; this
         // just tells it persistence failed, rather than losing the answer.
@@ -342,8 +342,8 @@ export async function POST(request: Request) {
       } else {
         send({
           type: "done",
-          id: farahRow.id,
-          createdAt: farahRow.created_at,
+          id: saved.id,
+          createdAt: saved.createdAt,
           persisted: true,
           freeMessagesRemaining,
           creditsBalance,

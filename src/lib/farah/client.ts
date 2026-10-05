@@ -103,6 +103,8 @@ export async function* askFarahChatStream(
     onFinish?: (reason: LLMFinishReason) => void;
     /** Called once when the reply ends, with the token counts the serving provider reported (not called when it reported none). */
     onUsage?: (usage: LLMUsage) => void;
+    /** Aborting it ends the provider call (and the HTTP request under it). An aborted call throws; it is never a rate limit, so it never fails over. */
+    signal?: AbortSignal;
   } = {},
 ): AsyncGenerator<string> {
   const system = buildFarahChatSystemPrompt({ quickAction: opts.quickAction, extraContext });
@@ -116,6 +118,7 @@ export async function* askFarahChatStream(
         systemPrompt: system,
         turns,
         maxOutputTokens: maxTokens,
+        signal: opts.signal,
         // Set per provider attempt: after a failover the fallback's own report is the one that stands.
         onFinish: opts.onFinish,
         // Likewise per attempt: the provider that served the reply is the one whose counts are logged.
