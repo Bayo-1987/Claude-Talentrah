@@ -40,9 +40,22 @@ export function isSubscriptionOpen(listedCount: number): boolean {
   return listedCount >= TALENT_DIRECTORY_MIN_LISTED;
 }
 
-/** The founder's exact wording, with N interpolated and the threshold read from the constant. */
+/** "0 verified candidates", "1 verified candidate", "2 verified candidates": the noun agrees with the number. */
+export function verifiedCandidates(n: number): string {
+  return `${n} verified candidate${n === 1 ? "" : "s"}`;
+}
+
+/** "is" for exactly one, "are" for everything else (zero included), for "N verified candidate(s) is/are listed". */
+export function isAre(n: number): "is" | "are" {
+  return n === 1 ? "is" : "are";
+}
+
+/**
+ * The founder's wording, with N interpolated, the noun agreeing with N, and the threshold read from the constant. (It said
+ * "1 verified candidates" until the count was routed through verifiedCandidates; production had exactly one listed candidate.)
+ */
 export function buildingTheDirectoryMessage(listedCount: number): string {
-  return `We're building the directory: ${listedCount} verified candidates so far. Join the waitlist and we'll tell you when ${TALENT_DIRECTORY_MIN_LISTED}+ are listed.`;
+  return `We're building the directory: ${verifiedCandidates(listedCount)} so far. Join the waitlist and we'll tell you when ${TALENT_DIRECTORY_MIN_LISTED}+ are listed.`;
 }
 
 function parseSample(raw: unknown): PreviewSample | null {
