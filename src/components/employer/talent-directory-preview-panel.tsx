@@ -5,7 +5,9 @@ import {
   buildingTheDirectoryMessage,
   isAre,
   isSubscriptionOpen,
+  listedProgress,
   verifiedCandidates,
+  WAITLIST_FREE_NOTE,
   type PreviewSample,
   type TalentDirectoryPreview,
 } from "@/lib/talent-directory/preview";
@@ -78,13 +80,15 @@ export function TalentDirectoryPreviewPanel({
         ) : joinedWaitlist ? (
           <>
             <p className="text-[14.5px] font-semibold text-ink">{`You're on the waitlist.`}</p>
+            <ListedProgress count={preview.count} />
             <p className="text-[14.5px] text-ink-soft">
-              {`${verifiedCandidates(preview.count)} ${isAre(preview.count)} listed so far. We'll tell you when ${TALENT_DIRECTORY_MIN_LISTED}+ are listed. Nothing to pay.`}
+              {`${verifiedCandidates(preview.count)} ${isAre(preview.count)} listed so far. We'll tell you when ${TALENT_DIRECTORY_MIN_LISTED}+ are listed. ${WAITLIST_FREE_NOTE}`}
             </p>
           </>
         ) : (
           <>
             <p className="text-[14.5px] text-ink-soft">{buildingTheDirectoryMessage(preview.count)}</p>
+            <ListedProgress count={preview.count} />
             <form action={joinAction}>
               <Button type="submit" variant="primary">
                 Join the waitlist
@@ -93,6 +97,29 @@ export function TalentDirectoryPreviewPanel({
           </>
         )}
       </BorderedCard>
+    </div>
+  );
+}
+
+/** "N of 10 verified candidates listed": the text, and the same fact as a progressbar. Square, flat and ink-bordered, like every box here. */
+function ListedProgress({ count }: { count: number }) {
+  const progress = listedProgress(count);
+  return (
+    <div className="flex flex-col gap-2">
+      <p id="td-listed-progress-label" className="text-[13px] font-semibold text-ink">
+        {progress.text}
+      </p>
+      <div
+        role="progressbar"
+        aria-labelledby="td-listed-progress-label"
+        aria-valuemin={0}
+        aria-valuemax={progress.max}
+        aria-valuenow={progress.now}
+        aria-valuetext={progress.text}
+        className="h-3 w-full border-[1.5px] border-ink bg-card"
+      >
+        <div data-testid="listed-progress-fill" className="h-full bg-ink" style={{ width: `${progress.pct}%` }} />
+      </div>
     </div>
   );
 }

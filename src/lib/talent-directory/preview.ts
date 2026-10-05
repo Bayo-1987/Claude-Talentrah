@@ -51,6 +51,24 @@ export function isAre(n: number): "is" | "are" {
 }
 
 /**
+ * How close the directory is to opening, for the waitlist card: "N of 10 verified candidates listed", as text and as a progress bar. N is clamped to
+ * 0..the threshold and truncated to a whole number, so a bad count can never draw a bar fuller than full or emptier than empty.
+ */
+export function listedProgress(listedCount: number): { now: number; max: number; pct: number; text: string } {
+  const whole = Number.isFinite(listedCount) ? Math.trunc(listedCount) : 0;
+  const now = Math.min(Math.max(whole, 0), TALENT_DIRECTORY_MIN_LISTED);
+  return {
+    now,
+    max: TALENT_DIRECTORY_MIN_LISTED,
+    pct: (now / TALENT_DIRECTORY_MIN_LISTED) * 100,
+    text: `${now} of ${TALENT_DIRECTORY_MIN_LISTED} verified candidates listed`,
+  };
+}
+
+/** What the waitlist costs, said to an organisation that has joined it. A promise: nothing is charged without pricing being shown first. */
+export const WAITLIST_FREE_NOTE = "Free while you wait. We'll tell you about pricing before anything is charged.";
+
+/**
  * The founder's wording, with N interpolated, the noun agreeing with N, and the threshold read from the constant. (It said
  * "1 verified candidates" until the count was routed through verifiedCandidates; production had exactly one listed candidate.)
  */
