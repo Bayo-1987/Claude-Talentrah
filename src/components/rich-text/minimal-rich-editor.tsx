@@ -43,6 +43,8 @@ export function MinimalRichEditor({
   minHeightClassName = "min-h-[120px]",
   linkable = false,
   onTextChange,
+  describedBy,
+  invalid = false,
 }: {
   id: string;
   /** Omit when a parent embeds the serialized markdown into its own payload via onTextChange instead of submitting this field directly. */
@@ -55,6 +57,10 @@ export function MinimalRichEditor({
   /** send-369 — mentor bio only: adds a bare-https:// autolink (see minimal-extensions.ts's own header). Every other caller omits this. */
   linkable?: boolean;
   onTextChange?: (markdown: string) => void;
+  /** The id of the element that holds this field's error text; set on the editable area, which is what a screen reader lands on. */
+  describedBy?: string;
+  /** Marks the editable area aria-invalid. */
+  invalid?: boolean;
 }) {
   const hiddenInputRef = useRef<HTMLInputElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -97,6 +103,16 @@ export function MinimalRichEditor({
       hiddenInputRef.current.value = minimalDocToMarkdown(editor.getJSON());
     }
   }, [editor]);
+
+  // The editable area is created by TipTap, so its error link is set on that element directly, and follows the props as they change.
+  useEffect(() => {
+    const dom = editor?.view?.dom;
+    if (!dom) return;
+    if (invalid) dom.setAttribute("aria-invalid", "true");
+    else dom.removeAttribute("aria-invalid");
+    if (describedBy) dom.setAttribute("aria-describedby", describedBy);
+    else dom.removeAttribute("aria-describedby");
+  }, [editor, invalid, describedBy]);
 
   useEffect(() => {
     if (!required) return;

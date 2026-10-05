@@ -14,12 +14,19 @@ import type { MentorshipSessionType } from "@/lib/mentorship/pricing";
 import { captureEvent } from "@/lib/analytics/posthog";
 import { warnIfNameLooksLikeOwnOrg } from "@/lib/mentorship/name-validation";
 import { unpaidHoldLapsed } from "@/lib/mentorship/unpaid-hold";
+import { parseMentorApplication, type ApplicationFieldErrors, type ApplicationFormValues, type ApplicationMode } from "@/lib/mentorship/application-validation";
 
-function splitTags(raw: string): string[] {
-  return raw
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
+/** What a refused application or edit hands back: which fields need fixing, and what was typed, so the form can show it again instead of going blank. */
+function refusedApplication(errors: ApplicationFieldErrors, values: ApplicationFormValues, mode: ApplicationMode) {
+  return {
+    status: "error" as const,
+    message:
+      mode === "edit"
+        ? "Your changes were not saved. The fields to fix are marked below."
+        : "Some details are missing or need fixing. The fields to fix are marked below.",
+    fieldErrors: errors,
+    values,
+  };
 }
 
 /**
@@ -33,30 +40,21 @@ export async function applyToBecomeMentorAction(_prev: unknown, formData: FormDa
   const { user } = await requireUser();
   const supabase = await createClient();
 
-  const yearsRaw = String(formData.get("yearsExperience") ?? "").trim();
-  const priceRaw = String(formData.get("basePriceNgn") ?? "").trim();
-  const displayName = String(formData.get("displayName") ?? "").trim() || null;
+  // The rules are the server's: a form with blanks in it never reaches the database (S1-93).
+  const parsed = parseMentorApplication(formData, "apply");
+  if (!parsed.ok) return refusedApplication(parsed.errors, parsed.values, "apply");
+  const input = parsed.value;
 
   const { error } = await supabase.from("mentor_profiles").insert({
     user_id: user.id,
-    // send-418: optional at application time — null falls back to
-    // profiles.first_name/last_name (mentor_public_names' own preference,
-    // see queries.ts) until the mentor sets this themselves.
-    display_name: displayName,
-    bio: String(formData.get("bio") ?? "").trim() || null,
-    expertise_roles: splitTags(String(formData.get("expertiseRoles") ?? "")),
-    expertise_industries: splitTags(String(formData.get("expertiseIndustries") ?? "")),
-    // Deliberately optional, not required: 0133's own column definition
-    // (`years_experience integer check (years_experience is null or
-    // years_experience >= 0)`) explicitly permits null rather than being
-    // written as a plain NOT NULL >= 0 check, the same shape base_price_ngn
-    // uses for its own documented "null = free/volunteer" case just below —
-    // an empty field maps to null rather than a validation failure here too.
-    years_experience: yearsRaw ? Number(yearsRaw) : null,
-    // Empty means free/volunteer — 0133's own recommended v1 default, not an
-    // error state, so an empty field maps to null rather than a validation
-    // failure.
-    base_price_ngn: priceRaw ? Number(priceRaw) : null,
+    // send-418: the name mentees see. Now required, so there is always one; the onboarding name is no longer the fallback for a new application.
+    display_name: input.displayName,
+    bio: input.bio,
+    expertise_roles: input.expertiseRoles,
+    expertise_industries: input.expertiseIndustries ?? [],
+    years_experience: input.yearsExperience,
+    // Blank means free/volunteer — 0133's own recommended v1 default, so it is stored as null; a price that was given is a positive whole number.
+    base_price_ngn: input.basePriceNgn ?? null,
   });
 
   if (error) {
@@ -65,10 +63,8 @@ export async function applyToBecomeMentorAction(_prev: unknown, formData: FormDa
   }
 
   revalidatePath("/mentorship/apply");
-  if (displayName) {
-    const warning = await warnIfNameLooksLikeOwnOrg(supabase, user.id, displayName);
-    if (warning) return { status: "warning" as const, message: `Application submitted. ${warning}` };
-  }
+  const warning = await warnIfNameLooksLikeOwnOrg(supabase, user.id, input.displayName);
+  if (warning) return { status: "warning" as const, message: `Application submitted. ${warning}` };
   return { status: "success" as const, message: "Application submitted — you'll hear back once an admin reviews it." };
 }
 
@@ -77,29 +73,29 @@ export async function updateMentorProfileAction(_prev: unknown, formData: FormDa
   const { user } = await requireUser();
   const supabase = await createClient();
 
-  const yearsRaw = String(formData.get("yearsExperience") ?? "").trim();
-  const priceRaw = String(formData.get("basePriceNgn") ?? "").trim();
-  const displayName = String(formData.get("displayName") ?? "").trim() || null;
+  // Same rules as applying. An edit that would blank a required field is refused here, so it can never overwrite a saved value with nothing; the two
+  // optional fields are written only when the form actually carried them.
+  const parsed = parseMentorApplication(formData, "edit");
+  if (!parsed.ok) return refusedApplication(parsed.errors, parsed.values, "edit");
+  const input = parsed.value;
 
   const { error } = await supabase
     .from("mentor_profiles")
     .update({
-      display_name: displayName,
-      bio: String(formData.get("bio") ?? "").trim() || null,
-      expertise_roles: splitTags(String(formData.get("expertiseRoles") ?? "")),
-      expertise_industries: splitTags(String(formData.get("expertiseIndustries") ?? "")),
-      years_experience: yearsRaw ? Number(yearsRaw) : null,
-      base_price_ngn: priceRaw ? Number(priceRaw) : null,
+      display_name: input.displayName,
+      bio: input.bio,
+      expertise_roles: input.expertiseRoles,
+      years_experience: input.yearsExperience,
+      ...(input.expertiseIndustries !== undefined ? { expertise_industries: input.expertiseIndustries } : {}),
+      ...(input.basePriceNgn !== undefined ? { base_price_ngn: input.basePriceNgn } : {}),
     })
     .eq("user_id", user.id);
 
   if (error) return { status: "error" as const, message: "Something went wrong." };
   revalidatePath("/mentorship/apply");
 
-  if (displayName) {
-    const warning = await warnIfNameLooksLikeOwnOrg(supabase, user.id, displayName);
-    if (warning) return { status: "warning" as const, message: warning };
-  }
+  const warning = await warnIfNameLooksLikeOwnOrg(supabase, user.id, input.displayName);
+  if (warning) return { status: "warning" as const, message: warning };
   return { status: "success" as const, message: "Saved." };
 }
 
