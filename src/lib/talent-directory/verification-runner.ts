@@ -111,6 +111,13 @@ export async function runTalentVerification(userId: string): Promise<Verificatio
   }
 
   /*
+   * A FLAGGED grade (the resume tried to instruct the grader, see injection-flags.ts) was never graded, so it is not charged. It is still RECORDED: the row is resolved below as rejected with
+   * its feedback (not released, which deletes it), so the attempt counts toward any limit on a person's verification rows. A flagged grade can never be a pass.
+   */
+  const charged = !grade.flagged;
+  const verified = grade.passed && !grade.flagged;
+
+  /*
    * Wrapped the way scholarships/actions.ts already wraps its own spend: the
    * balance check above is informational, spendCredits' own atomic RPC is
    * what actually enforces it under a lock. A concurrent spend elsewhere
@@ -118,28 +125,31 @@ export async function runTalentVerification(userId: string): Promise<Verificatio
    * cannot close — same accepted shape as every other credit-gated action in
    * this app.
    */
-  try {
-    await spendCredits(userId, cost, "talent_directory_verification", verification.id);
-  } catch (err) {
-    await serviceClient.rpc("release_talent_verification_claim", {
-      p_user_id: userId,
-      p_verification_id: verification.id,
-    });
-    if (err instanceof InsufficientCreditsError) {
-      return { status: "error", message: "Your credit balance changed while that ran — top up and try again." };
+  if (charged) {
+    try {
+      await spendCredits(userId, cost, "talent_directory_verification", verification.id);
+    } catch (err) {
+      await serviceClient.rpc("release_talent_verification_claim", {
+        p_user_id: userId,
+        p_verification_id: verification.id,
+      });
+      if (err instanceof InsufficientCreditsError) {
+        return { status: "error", message: "Your credit balance changed while that ran — top up and try again." };
+      }
+      throw err;
     }
-    throw err;
   }
 
   const { data: resolvedOk } = await serviceClient.rpc("resolve_talent_verification", {
     p_verification_id: verification.id,
     p_user_id: userId,
-    p_verified: grade.passed,
+    p_verified: verified,
     p_score: grade.score,
     p_feedback: grade.feedback,
   });
 
   if (!resolvedOk) {
+    if (!charged) return { status: "error", message: "Something went wrong on our end. You haven't been charged." };
     // Credits were already spent and the ledger is the source of truth here
     // — this is a genuinely unexpected state (the claim we hold should be
     // the only thing able to resolve this row) rather than a race to
@@ -150,13 +160,23 @@ export async function runTalentVerification(userId: string): Promise<Verificatio
     };
   }
 
+  if (!charged) {
+    return {
+      status: "success",
+      message:
+        "Not verified: your resume contains text that reads like instructions to the grader. You haven't been charged. Remove that text and try again, or ask for a human review, where a person reads it.",
+      score: grade.score,
+      passed: false,
+    };
+  }
+
   return {
     status: "success",
-    message: grade.passed
+    message: verified
       ? "Verified — you're now eligible to list yourself in the directory."
       : "Not verified this time. See the feedback below and try again once you've updated your resume.",
     score: grade.score,
-    passed: grade.passed,
+    passed: verified,
   };
 }
 

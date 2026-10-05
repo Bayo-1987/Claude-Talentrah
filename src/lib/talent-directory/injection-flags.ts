@@ -46,44 +46,60 @@ export function normaliseForMatching(text: string): string {
   return out.replace(/\s+/g, " ").trim();
 }
 
-const W = String.raw`[^.\n]{0,40}`; // a short stretch inside one sentence
+const W = String.raw`[^.\n]{0,25}`; // a short stretch inside one sentence
 
+/*
+ * PRECISION IS THE POINT. Every rule below needs a verb of instruction AND an object that only makes sense when the text is talking to a grader (the resume itself, "your" instructions,
+ * "previous instructions", "you must ..."). None fires on a single word, and none fires on wording a real resume uses all the time ("worked as a developer", "return JSON", "set verified to
+ * true", "approved the application", "scored the candidate profiles", "score: 100%"). tests/talent-directory/grader-injection-guard.test.ts holds both lists: what must flag, and what must not.
+ */
 const RULES: Array<[InstructionFlag, RegExp]> = [
-  ["override-instructions", new RegExp(String.raw`\b(ignore|disregard|forget|override|bypass|skip)\b${W}\b(previous|prior|above|earlier|preceding|all|any|your|the|these|those|system)\b${W}\b(instructions?|prompts?|rules?|guidelines?|directions?|directives?)\b`)],
-  ["override-instructions", /\b(do not|don't|dont|stop) (follow|obey|use) (the |your |any )?(previous |prior |above |earlier )?(instructions?|rules?|guidelines?)\b/],
-  ["override-instructions", /\b(reveal|print|show|repeat|leak|output)\b[^.\n]{0,20}\b(your |the )?(system prompt|hidden prompt|initial prompt|instructions you were given)\b/],
-  ["new-role", /\byou are (now|no longer|actually)\b/],
-  ["new-role", /\b(act|behave|respond|pretend|operate|work) (as|like) (an? |the )?(ai|assistant|grader|evaluator|reviewer|model|system|admin|administrator|developer)\b/],
-  ["new-role", /\bfrom now on\b[^.\n]{0,30}\byou\b/],
-  ["new-role", /\b(new|updated|revised|additional) (instructions?|rules?|task|directives?)\s*[:\-=]/],
-  ["new-role", /\b(system|admin|developer|root) (override|mode|prompt message|command)\b/],
-  ["new-role", /(^|\n|\.\s)(system|assistant|developer)\s*:/],
-  ["steer-score", /\b(give|assign|award|grant|set|rate|grade|score|mark|output|return)\b[^.\n]{0,25}\b(this|the|my|that) (resume|cv|candidate|applicant|application|profile)\b[^.\n]{0,40}\b(\d{2,3}|perfect|maximum|highest|full marks|top|high)\b/],
-  ["steer-score", /\b(give|assign|award|grant|set|rate|grade|mark|output|return)\b[^.\n]{0,20}\b(me|it|this|a|an)\b[^.\n]{0,10}\b(perfect|maximum|highest|full|top|high)\b[^.\n]{0,10}\b(score|rating|grade|marks)\b/],
-  ["steer-score", /\bscore\b[\s:=]*\b(100|99|98|95|perfect|maximum|max|full marks)\b/],
-  ["steer-score", /\b(set|make|put)\b[^.\n]{0,15}\b(the |your )?(score|rating|grade)\b[^.\n]{0,15}\b(to|at|as)\b[^.\n]{0,6}\b(100|99|98|95|90|85|80|75|70|perfect|maximum)\b/],
-  ["steer-score", /\b(must|should|will|shall|always|please|need to)\b[^.\n]{0,25}\b(score|rate|grade)\b[^.\n]{0,25}\b(high|highly|100|perfect|maximum|well)\b/],
-  ["steer-outcome", /\b(mark|label|flag|treat|record|set|consider|count)\b[^.\n]{0,20}\b(this|the|my|me|it)\b[^.\n]{0,25}\b(as )?(verified|passed|approved|valid|trusted|pre-approved)\b/],
-  ["steer-outcome", /\b(pass|approve|accept|verify|certify|endorse)\b[^.\n]{0,8}\b(this|the|my) (resume|cv|candidate|applicant|application|profile)\b/],
-  ["steer-outcome", /\bthis (resume|cv|candidate|application|profile) (has|have) (already|been) (been )?(verified|approved|passed|pre-approved|reviewed and approved)\b/],
-  ["steer-outcome", /\b(set|make|return|output)\b[^.\n]{0,15}\b(passed|verified|approved)\b[^.\n]{0,10}\b(to )?(true|yes)\b/],
-  ["output-format", /\b(respond|reply|answer|output|return|print|write)\b[^.\n]{0,12}\b(only |just |exactly )?(with |in |as )?(\{|json|\[|"?score"?\s*[:=])/],
-  ["addresses-the-grader", /\b(dear|attention|note to|message to|hey|hello|hi|to the|for the)\s+(the )?(ai|a\.i\.|llm|language model|grader|auto-?grader|evaluator|automated reviewer|assistant|chatgpt|gpt|claude|farah|model|bot)\b/],
-  ["addresses-the-grader", /\b(ai|llm|language model|grader|evaluator|bot|model)\b[^.\n]{0,25}\b(reading|reviewing|grading|evaluating|processing|scanning|parsing)\s+(this|the|my)\s+(resume|cv|document|text|file)\b/],
-  ["addresses-the-grader", /\bif you (are|'re|re) (an? |the )?(ai|llm|language model|grader|bot|model|automated)\b/],
-  ["prompt-delimiters", /<\s*\/?\s*(untrusted_data|system|assistant|user|instructions?|prompt|im_start|im_end|inst|s)\b[^>]{0,60}>/],
+  // overriding the instructions: ignore/disregard/forget + a reference to earlier or universal instructions + the word for them
+  ["override-instructions", new RegExp(String.raw`\b(ignore|disregard|forget)\b${W}\b(previous|prior|above|earlier|preceding|all|any|your|these|those|system|everything)\b${W}\b(instructions?|prompts?|rules?|guidelines?|directions?|directives?)\b`)],
+  ["override-instructions", /\b(do not|don't|dont|stop) (follow|obey) (your|the above|the previous|the prior|the earlier|the system|these|those) (previous |prior |above |earlier )?(instructions?|rules?|guidelines?)\b/],
+  ["override-instructions", /\b(reveal|print|show|repeat|leak) your (system |hidden |initial |original )?(prompt|instructions)\b/],
+  // a new role or new rules: addressed to "you"
+  ["new-role", /\byou are now (an? |the )?(helpful |obedient |unrestricted |jailbroken |different |new )?(assistant|grader|evaluator|reviewer|admin|administrator|ai|llm|language model|chatbot|bot|dan)\b/],
+  ["new-role", /\byou are now (in|operating in|running in) (an? )?(admin|administrator|developer|debug|god|root|unrestricted|jailbreak)\b/],
+  ["new-role", /\byou are no longer (bound|restricted|limited|constrained|a grader|an? (ai|assistant|evaluator))\b/],
+  ["new-role", /\b(you (must|should|will|shall|are to)|please|now|from now on) (act|behave|respond|pretend) (as|like) (an? |the )?(ai|assistant|grader|evaluator|reviewer|model|system|admin|administrator|developer)\b/],
+  ["new-role", /\bfrom now on\b[^.\n]{0,30}\byou (are|will|must|should|shall)\b/],
+  ["new-role", /\b(new|updated|revised|additional) (instructions?|directives?)\s*[:\-=]/],
+  ["new-role", /\b(system|admin|developer|root|sudo) override\b/],
+  // steering the score: addressed to the grader, about THIS resume or "me"
+  ["steer-score", /\b(give|assign|award|grant|set|rate|grade|score|mark|output|return)\b[^.\n]{0,25}\b(this|my|that) (resume|cv|candidate|applicant|application|profile)\b[^.\n]{0,40}\b(\d{2,3}|perfect|maximum|highest|full marks|top|high)\b/],
+  ["steer-score", /\b(give|assign|award|grant) (me|this resume|this cv|this candidate|my resume|my cv) (an? |the )?(perfect|maximum|highest|full|top|high)( score| rating| grade| marks)?\b/],
+  ["steer-score", /\b(this|my|that) (resume|cv|candidate|applicant) (deserves|merits|should (get|receive|score)|must (get|receive|score)|gets?)\b[^.\n]{0,20}\b(score|rating|grade)?\s*(of )?(100|99|98|95|perfect|maximum|full marks|top)\b/],
+  ["steer-score", /\b(this|my|that) (resume|cv|candidate|applicant)\b[^.\n]{0,40}\bscore\b[\s:=]*\b(100|99|98|95|perfect|maximum|max|full marks)\b/],
+  ["steer-score", /\bcandidate score\b[\s:=]*\b(100|99|98|95|perfect|maximum|max|full marks)\b/],
+  ["steer-score", /\b(set|make|put)\b[^.\n]{0,12}\b(your|my|this resume'?s?) (score|rating|grade)\b[^.\n]{0,15}\b(to|at|as)\b[^.\n]{0,6}\b(100|99|98|95|90|85|80|75|70|perfect|maximum)\b/],
+  ["steer-score", /\byou (must|should|will|shall|have to|need to)\b[^.\n]{0,15}\b(score|rate|grade)\b[^.\n]{0,25}\b(high|highly|100|perfect|maximum|this|it)\b/],
+  // steering the outcome
+  ["steer-outcome", /\b(mark|label|flag|treat|record|consider|count) (this|my|that) (resume|cv|candidate|applicant|application|profile)\b[^.\n]{0,15}\b(as )?(verified|passed|approved|valid|trusted|pre-approved)\b/],
+  ["steer-outcome", /\b(mark|treat|consider|count|record) me as (verified|passed|approved|valid|trusted)\b/],
+  ["steer-outcome", /\b(pass|approve|accept|verify|certify|endorse) (this|my|that) (resume|cv|candidate|applicant)\b/],
+  ["steer-outcome", /\bthis (resume|cv) (has|have) (already|been) (been )?(verified|approved|passed|pre-approved|reviewed and approved)\b/],
+  ["steer-outcome", /\b(output|return|respond with)\b[^.\n]{0,10}\{[^}]{0,30}\b(passed|verified|approved)\b[^}]{0,12}\b(true|yes)\b/],
+  // telling the model what to output
+  ["output-format", /(^|[.!?]\s+|\n)(please )?(respond|reply|answer|output|return|print)\b[^.\n]{0,12}\b(only|just|exactly)\b[^.\n]{0,8}\b(with |in |as )?(json|\{|"score")/],
+  ["output-format", /\byou (must|should|will|shall)\b[^.\n]{0,10}\b(respond|reply|answer|output|return)\b[^.\n]{0,15}(json|\{|"?score"?\s*[:=])/],
+  // addressing the grader directly
+  ["addresses-the-grader", /\b(dear|attention|note to|message to|hey|hello)\s+(the )?(ai|a\.i\.|llm|language model|grader|auto-?grader|evaluator|automated reviewer|assistant|chatgpt|gpt|claude|farah|bot)\b/],
+  ["addresses-the-grader", /\bif you (are|'re|re) (an? |the )?(ai|llm|language model|grader|bot|automated|artificial)\b/],
+  // the prompt's own markup
+  ["prompt-delimiters", /<\s*\/?\s*(untrusted_data|system|assistant|instructions?|im_start|im_end|inst)\b[^>]{0,60}>/],
   ["prompt-delimiters", /<\|[a-z_]{2,20}\|>/],
   ["prompt-delimiters", /\[\/?(inst|system)\]/],
-  ["prompt-delimiters", /(^|\n)\s*(#{2,}|={3,}|-{3,})\s*(system|instructions?|prompt|end of (resume|data))\b/],
-  ["prompt-delimiters", /\bend of (resume|data|document)\b[^.\n]{0,10}[.:!-]?\s*(now|new|the following|follow)/],
+  ["prompt-delimiters", /(^|\n)\s*(#{2,}|={3,}|-{3,})\s*end of (resume|data)\b/],
 ];
 
 // The phrases that matter most, checked again with everything but letters and digits removed, so spacing and punctuation tricks ("i g n o r e", "ig-nore", "ignore.previous.instructions") do not hide them.
+// Each pattern is a WHOLE phrase family of three or more required parts, never a single word: "big no records" squashes to "bignorecords", which contains "ignore" but not "ignorepreviousinstructions".
 const SQUASHED: Array<[InstructionFlag, RegExp]> = [
-  ["override-instructions", /(ignore|disregard|forget|override)(all|any|the|your)?(previous|prior|above|earlier|preceding)(instructions|prompts|rules|guidelines)/],
-  ["new-role", /youarenow(a|an|the)?(helpful|assistant|admin|grader|ai|evaluator)/],
-  ["steer-score", /(give|assign|award|set)(this|the|my)?(resume|cv|candidate)?(a)?(score|rating)?(of)?(100|perfect|maximum)/],
-  ["steer-outcome", /(mark|treat|set)(this|the|my|me|it)(resume|cv|candidate)?as(verified|passed|approved)/],
+  ["override-instructions", /(ignore|disregard|forget)(all|any|your)?(of)?(the)?(previous|prior|above|earlier|preceding)(instructions|prompts|rules|guidelines)/],
+  ["new-role", /youarenow(a|an|the)?(helpful|obedient|unrestricted|jailbroken)?(assistant|grader|evaluator|admin|administrator)/],
+  ["steer-score", /(give|assign|award)(this|my)(resume|cv|candidate)(a)?(score|rating)?(of)?(100|perfect|maximum)/],
+  ["steer-outcome", /(mark|treat|consider)(this|my)(resume|cv|candidate)as(verified|passed|approved)/],
 ];
 
 /** The categories of instruction-like text found anywhere in `resume` (every string field, however deeply nested). Empty when there is none. The text itself is never returned. */
