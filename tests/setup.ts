@@ -1,5 +1,7 @@
 import { config } from "dotenv";
+import { afterEach, vi } from "vitest";
 import { assertAllowedDbTarget } from "../scripts/db-target";
+import { tripwire } from "./support/tripwire";
 
 // Load .env.local BEFORE the guard reads it. The import above is hoisted, but
 // the module has no top-level env reads — it looks at process.env when called.
@@ -35,4 +37,30 @@ assertAllowedDbTarget({
   context: "test suite",
   productionEscapeHatch: "ALLOW_TESTS_AGAINST_PRODUCTION",
   hostedEscapeHatch: "ALLOW_TESTS_AGAINST_HOSTED",
+});
+
+/*
+ * THE TRIPWIRE FOR THE FARAH SPEND TALLY. The chat route reads and writes a database counter (src/lib/farah/spend-tally.ts) and fails closed when it cannot. A route test that does not
+ * install the safe mocks would therefore either hit a real database (and write to a counter other tests assert on) or see the route answer 503 and fail somewhere unrelated. Neither says
+ * what went wrong. So the module is replaced for EVERY test by an unsafe default that records the call and throws, and an afterEach turns any recorded call into a failure that names the
+ * fix. The route swallows the thrown error (that is the fail-closed behaviour), which is why the check is in afterEach and not in the default itself.
+ *
+ * Ways around it, both explicit: a test installs the safe fake (tests/farah/support/route-mocks.ts, or its own vi.mock of the module), or a test of the module itself loads the real one
+ * with vi.importActual. tests/farah/tally-isolation.test.ts keeps the list of files that may do either honest.
+ */
+vi.mock("@/lib/farah/spend-tally", () => {
+  const touch = (name: string) => async () => {
+    tripwire.touches.push(name);
+    throw new Error(`UNSAFE DEFAULT: ${name}() was called without the safe route mocks`);
+  };
+  return { readSpendNano: touch("readSpendNano"), addSpendNano: touch("addSpendNano"), markHalfwayWarned: touch("markHalfwayWarned") };
+});
+afterEach(() => {
+  const touched = tripwire.touches.splice(0);
+  if (touched.length > 0) {
+    throw new Error(
+      `This test reached the REAL spend tally (${touched.join(", ")}) without the safe route mocks. Add vi.mock("@/lib/farah/spend-tally", ...) from tests/farah/support/route-mocks.ts ` +
+        "(the route swallows the error and answers 503, which is why this check exists). A test of the tally module itself uses vi.importActual.",
+    );
+  }
 });

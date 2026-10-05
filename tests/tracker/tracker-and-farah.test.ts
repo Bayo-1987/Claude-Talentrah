@@ -274,16 +274,28 @@ describe("user B cannot mutate user A's Farah history", () => {
     expect(data?.content, "B rewrote or deleted A's chat history").toBe("A's private question");
   });
 
-  it("POSITIVE CONTROL: A can delete their own messages", async () => {
+  /*
+   * Message history is written by the server only. The chat route saves each exchange with the service role and nothing else writes these rows, so the signed-in role can read its own rows (owner-only
+   * policy) and holds no write privilege on the table. A "clear my history" feature, if one is built, is a server route. Account deletion removes the rows through the profiles foreign key
+   * (ON DELETE CASCADE), which does not use these grants (tests/rls/farah-history-cascade.test.ts).
+   */
+  it("message history is written by the server only: a signed-in client can read its own rows and cannot insert or delete them", async () => {
     const a = sharedOwner;
     const msgId = await seedMessage(a.id, "mine");
-    await a.client.from("farah_messages").delete().eq("id", msgId);
-    const { data } = await admin
-      .from("farah_messages")
-      .select("id")
-      .eq("id", msgId)
-      .maybeSingle();
-    expect(data, "a user must be able to clear their own history").toBeNull();
+
+    const read = await a.client.from("farah_messages").select("id").eq("id", msgId).maybeSingle();
+    expect(read.error).toBeNull();
+    expect(read.data?.id, "the owner can still read their own history").toBe(msgId);
+
+    const inserted = await a.client.from("farah_messages").insert({ user_id: a.id, role: "user", content: "written by the client" });
+    expect(inserted.error?.code, "a client write must be refused at the grant level").toBe("42501");
+    const deleted = await a.client.from("farah_messages").delete().eq("id", msgId);
+    expect(deleted.error?.code, "a client delete must be refused at the grant level").toBe("42501");
+
+    const { data } = await admin.from("farah_messages").select("id").eq("id", msgId).maybeSingle();
+    expect(data, "the row is still there").not.toBeNull();
+    const { count } = await admin.from("farah_messages").select("id", { count: "exact", head: true }).eq("user_id", a.id).eq("content", "written by the client");
+    expect(count, "the refused insert left no row").toBe(0);
   });
 });
 

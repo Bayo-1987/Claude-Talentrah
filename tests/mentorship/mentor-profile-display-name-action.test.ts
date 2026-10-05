@@ -37,9 +37,15 @@ let cleanUser: { id: string; email: string };
 let orgOwner: { id: string; email: string };
 let orgId: string;
 
+// The actions refuse an incomplete form on the server (S1-93), so every submission here carries the required fields; only the display name varies.
+const REQUIRED_FIELDS = {
+  bio: "I have spent eight years shipping payments products across Lagos and London, and I enjoy helping people prepare for product interviews.",
+  expertiseRoles: "Product Manager",
+  yearsExperience: "8",
+};
 function formData(fields: Record<string, string>): FormData {
   const fd = new FormData();
-  for (const [k, v] of Object.entries(fields)) fd.set(k, v);
+  for (const [k, v] of Object.entries({ ...REQUIRED_FIELDS, ...fields })) fd.set(k, v);
   return fd;
 }
 

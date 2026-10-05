@@ -8,6 +8,7 @@ export interface TextFieldProps extends InputHTMLAttributes<HTMLInputElement> {
 
 export function TextField({ label, error, className, id, ...props }: TextFieldProps) {
   const inputId = id ?? props.name;
+  const errorId = `${inputId}-error`;
   return (
     <div className="flex flex-col gap-1.5">
       <label
@@ -23,9 +24,14 @@ export function TextField({ label, error, className, id, ...props }: TextFieldPr
           error && "border-rust",
           className,
         )}
+        {...(error ? { "aria-invalid": true, "aria-describedby": errorId } : {})}
         {...props}
       />
-      {error && <p className="text-[12.5px] text-rust">{error}</p>}
+      {error && (
+        <p id={errorId} className="text-[12.5px] text-rust">
+          {error}
+        </p>
+      )}
     </div>
   );
 }
