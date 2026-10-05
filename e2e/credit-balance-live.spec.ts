@@ -94,7 +94,7 @@ test.describe("tailoring and cover letter", () => {
     await authedPage.goto("/tailor");
     await expect(pill(authedPage, START)).toBeVisible();
     await markNoReload(authedPage);
-    await authedPage.locator("textarea").fill(JD);
+    await authedPage.getByPlaceholder("Paste the full job description here…").fill(JD);
     await authedPage.getByRole("button", { name: "Tailor my resume" }).click();
     // A charged run asks first (send-493).
     await authedPage.getByTestId("tailor-confirm").getByRole("button", { name: "Confirm and tailor" }).click();
