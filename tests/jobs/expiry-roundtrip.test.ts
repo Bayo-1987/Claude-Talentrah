@@ -13,9 +13,21 @@
  * value the form produces is the one Google is handed, and that choosing "no
  * expiry" still omits the property rather than emitting a null or an epoch.
  */
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildJobPostingJsonLd } from "@/lib/seo/job-posting-jsonld";
 import type { Tables } from "@/lib/supabase/types";
+
+const PINNED_NOW = new Date("2026-10-02T12:00:00Z");
+
+// The code under test reads the real clock (Date.now(), new Date()), and this file's dates are fixed (the custom expiry is 2026-11-20 and the posting date 2026-08-20): with the real clock the answers change as the calendar moves.
+// Only Date is faked (timers and promises are untouched), and it is restored after every test.
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(PINNED_NOW);
+});
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 type Job = Tables<"job_postings">;
 

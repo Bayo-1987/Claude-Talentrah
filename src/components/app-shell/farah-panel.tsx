@@ -10,6 +10,8 @@ import { CREDIT_COSTS } from "@/lib/credits/costs";
 import { renderFarahMarkdown } from "@/lib/farah/render-markdown";
 import { readFarahChatStream } from "@/lib/farah/read-chat-stream";
 import { useReportCreditsBalance } from "@/components/app-shell/credits-balance";
+import { FarahComposer } from "@/components/app-shell/farah-composer";
+import { isCoarsePointer, prepareMessage, shouldRefocusAfterSend } from "@/lib/farah/composer";
 import {
   JOB_SEED_CHAT_STARTERS,
   coverLetterHref,
@@ -152,7 +154,7 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
    * anonymous free text. Forgotten the moment the text is edited or sent.
    */
   const [prefilled, setPrefilled] = useState<{ text: string; quickAction?: string; jobId?: string } | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   /** The polite live region's text: each reply and what it cost, e.g. "Farah replied — 1 credit used". */
   const [announcement, setAnnouncement] = useState("");
   /** The last reply was cut off by the output ceiling: shown under it, cleared on the next send. */
@@ -362,7 +364,7 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
   }, [messages, pending, awaitingFirstToken]);
 
   async function send(text: string, quickAction?: string, jobId?: string) {
-    const trimmed = text.trim();
+    const trimmed = prepareMessage(text);
     if (!trimmed || pending) return;
     setError(null);
     setPending(true);
@@ -444,8 +446,8 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
     }
   }
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  /** Send what is in the box: the send button and Enter both come here. */
+  function submitCurrent() {
     // Untouched prefilled text goes out as the quick action that prefilled it; anything edited is free text.
     if (prefilled && input.trim() === prefilled.text) {
       void send(prefilled.text, prefilled.quickAction, prefilled.jobId);
@@ -453,6 +455,25 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
       void send(input);
     }
   }
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    submitCurrent();
+  }
+
+  // The box is disabled while a reply streams, which drops the focus it had. When the reply finishes the person is mid-conversation: take the focus back (see shouldRefocusAfterSend for when not to).
+  const wasPending = useRef(false);
+  useEffect(() => {
+    const active = typeof document === "undefined" ? null : document.activeElement;
+    const refocus = shouldRefocusAfterSend({
+      wasPending: wasPending.current,
+      pending,
+      focusIsNeutral: active === null || active === document.body || active === inputRef.current,
+      coarsePointer: isCoarsePointer(),
+    });
+    wasPending.current = pending;
+    if (refocus) inputRef.current?.focus();
+  }, [pending]);
 
   /**
    * One entry point for every chip that would START a conversation turn: send it while the message is free,
@@ -649,7 +670,7 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
                 {m.role === "farah" ? (
                   <div data-testid="farah-message">{renderFarahMarkdown(m.content)}</div>
                 ) : (
-                  <p data-testid="farah-message" className="text-right font-body text-[13px] text-ink">
+                  <p data-testid="farah-message" className="whitespace-pre-wrap break-words text-right font-body text-[13px] text-ink">
                     {m.content}
                   </p>
                 )}
@@ -702,41 +723,15 @@ export function FarahPanel({ firstName, initialMessages, initialJobSeed }: Farah
         {announcement}
       </p>
 
-      <form
+      <FarahComposer
+        value={input}
+        onChange={setInput}
         onSubmit={handleSubmit}
-        // send-381 — same shape as jd-demo-input.tsx: the input inside is
-        // border-none/outline-none, so the visible focus change has to land
-        // on this form's own border via focus-within.
-        className="mt-auto flex items-center gap-2 border-[1.5px] border-ink bg-card px-2.5 py-2 focus-within:border-rust"
-      >
-        <input
-          type="text"
-          ref={inputRef}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask me anything…"
-          disabled={pending}
-          /* 177 x 18.8 before this — a text field people have to hit on a
-             phone was under half the minimum height. The 11px send button
-             beside it was already right; the input was not. */
-          className="min-h-10 flex-1 border-none bg-transparent font-display text-[12.5px] italic text-ink outline-none placeholder:text-ink-soft disabled:opacity-60"
-        />
-        <button
-          type="submit"
-          disabled={pending || !input.trim()}
-          aria-label="Send to Farah"
-          className="flex h-11 w-11 flex-shrink-0 items-center justify-center bg-ink text-paper disabled:opacity-50"
-        >
-          <svg width="15" height="15" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-            <path
-              d="M3 10 L17 3 L11 17 L9 11 L3 10Z"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </button>
-      </form>
+        // Enter and the send button are one path: submitCurrent() below. Nothing about sending or charging changed.
+        onEnterSend={submitCurrent}
+        pending={pending}
+        textareaRef={inputRef}
+      />
     </div>
   );
 }

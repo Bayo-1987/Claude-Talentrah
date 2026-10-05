@@ -96,16 +96,35 @@ describe("the text area is not part of the shared UI barrel", () => {
     expect(offenders, "import it from @/components/ui/text-area").toEqual([]);
   });
 
-  it("the /jobs route's import graph (page, its layouts, everything they import) never reaches the text area", () => {
-    const entries = [
-      join(SRC, "app/(app)/jobs/(feed)/page.tsx"),
-      join(SRC, "app/(app)/jobs/(feed)/loading.tsx"),
-      join(SRC, "app/(app)/layout.tsx"),
-      join(SRC, "app/layout.tsx"),
-    ];
+  it("the /jobs route's OWN import graph (its page, its loading state, the root layout, everything they import) never reaches the text area", () => {
+    const entries = [join(SRC, "app/(app)/jobs/(feed)/page.tsx"), join(SRC, "app/(app)/jobs/(feed)/loading.tsx"), join(SRC, "app/layout.tsx")];
     const graph = reachable(entries);
     expect(graph.size, "the graph walk found almost nothing, so it proves nothing").toBeGreaterThan(40);
     expect(graph.has(join(SRC, "components/jobs/filter-bar.tsx")), "the walk should reach the filter bar").toBe(true);
     expect(graph.has(TEXT_AREA), "the text area is reachable from /jobs: find the import chain and cut it").toBe(false);
+  });
+
+  /*
+   * THE ONE DELIBERATE EXCEPTION. The signed-in layout ((app)/layout.tsx) mounts the Farah panel on every page, and the panel's message box is the shared TextArea in its compact mode (S3-54). So the text area
+   * is on every signed-in page by design, and the cost S1 measured (about 3.2 KB gzip) is paid there once, for a control that is on every page. What this still guards: the ONLY way into the text area from the
+   * layout is the panel's composer. A second route in (a page, a filter bar, anything else) fails here.
+   */
+  it("from the signed-in layout, the text area is reached only through the Farah panel's composer", () => {
+    const COMPOSER = join(SRC, "components/app-shell/farah-composer.tsx");
+    const layout = join(SRC, "app/(app)/layout.tsx");
+    expect(reachable([layout]).has(TEXT_AREA), "the layout should reach the text area through the composer (the exception is real)").toBe(true);
+    // Walk the layout's graph without ever entering the composer: the text area must not be reachable another way.
+    const seen = new Set<string>();
+    const queue = [layout];
+    while (queue.length) {
+      const file = queue.pop()!;
+      if (seen.has(file) || file === COMPOSER) continue;
+      seen.add(file);
+      for (const spec of specifiersOf(file)) {
+        const next = resolveSpecifier(file, spec);
+        if (next && !seen.has(next)) queue.push(next);
+      }
+    }
+    expect(seen.has(TEXT_AREA), "the text area is reachable from the signed-in layout by a route other than the panel's composer").toBe(false);
   });
 });

@@ -116,7 +116,7 @@ test.describe("2.4.7 — real visible keyboard focus indicators", () => {
     const input = authedPage.getByPlaceholder("Ask me anything…").first();
     await input.waitFor();
     const formSelectorScript = () => {
-      const el = document.querySelector('input[placeholder="Ask me anything…"]');
+      const el = document.querySelector('[placeholder="Ask me anything…"]');
       const form = el?.closest("form");
       return form ? getComputedStyle(form).borderTopColor : null;
     };

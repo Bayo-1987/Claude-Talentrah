@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode, type TextareaHTMLAttributes } from "react";
+import { useEffect, useId, useImperativeHandle, useLayoutEffect, useRef, useState, type ReactNode, type Ref, type TextareaHTMLAttributes } from "react";
 import { cn } from "@/lib/cn";
 import { countForLimit } from "@/lib/text-limits";
 import { announcementFor, counterBucket, dropVerdict, pasteVerdict, type CounterBucket } from "@/lib/text-counter";
@@ -20,6 +20,8 @@ export interface TextAreaProps extends Omit<TextareaHTMLAttributes<HTMLTextAreaE
   autoGrow?: boolean;
   /** A cap, counted the way the server counts (trimmed). Shows "N / LIMIT". */
   limit?: number;
+  /** With `limit`: show "N / LIMIT" only once the text is this long (or over the limit). The limit itself still applies from the first character. Default: always shown. */
+  counterFrom?: number;
   /** With `limit`: block nothing, and show `softNote` once over it (a value only partly used downstream). Default is a hard cap: the browser's maxLength. */
   soft?: boolean;
   softNote?: string;
@@ -27,6 +29,15 @@ export interface TextAreaProps extends Omit<TextareaHTMLAttributes<HTMLTextAreaE
   mono?: boolean;
   /** Classes for the wrapper (layout), never for the box itself: the box is the shared frame. */
   wrapperClassName?: string;
+  /**
+   * A message-box mode (the Farah panel's composer). Starts at one row (not four), grows with its text (implies autoGrow) up to `maxHeight` pixels and then scrolls, has no resize handle, and has no frame of its own:
+   * the caller's own frame carries the border and the focus colour. Everything else (label, limit, counter, paste rules) is unchanged. Off by default.
+   */
+  compact?: boolean;
+  /** With `compact`: the tallest the box grows, in pixels, before it scrolls. */
+  maxHeight?: number;
+  /** Hands the underlying <textarea> to the caller (to focus it, for example). */
+  textareaRef?: Ref<HTMLTextAreaElement>;
 }
 
 /**
@@ -42,10 +53,14 @@ export function TextArea({
   minRows = MIN_ROWS,
   autoGrow,
   limit,
+  counterFrom,
   soft,
   softNote,
   mono,
   wrapperClassName,
+  compact,
+  maxHeight,
+  textareaRef,
   id,
   name,
   className,
@@ -60,6 +75,8 @@ export function TextArea({
   const errorId = `${fieldId}-error`;
   const countId = `${fieldId}-count`;
   const ref = useRef<HTMLTextAreaElement>(null);
+  // Hand the element to a caller that asked for it (to focus it, for example).
+  useImperativeHandle(textareaRef, () => ref.current as HTMLTextAreaElement, []);
 
   // Uncontrolled fields have no value prop to count, so the length is tracked here; a controlled field counts its own value.
   const [typed, setTyped] = useState(String(defaultValue ?? ""));
@@ -88,18 +105,22 @@ export function TextArea({
     return () => form.removeEventListener("reset", onReset);
   }, [defaultValue, value]);
 
+  const grows = autoGrow || compact;
   useLayoutEffect(() => {
     const el = ref.current;
-    if (!autoGrow || !el) return;
+    if (!grows || !el) return;
     el.style.height = "auto";
     el.style.height = `${el.scrollHeight}px`;
-  }, [autoGrow, current]);
+  }, [grows, current]);
 
   // A box that grows with its text starts as tall as its starting text, so growing later does not move the page.
-  const startingLines = autoGrow ? String(defaultValue ?? value ?? "").split("\n").length : 0;
-  const rows = Math.max(MIN_ROWS, minRows, startingLines);
+  const startingLines = grows ? String(defaultValue ?? value ?? "").split("\n").length : 0;
+  const rows = compact ? Math.max(1, Math.min(startingLines, 8)) : Math.max(MIN_ROWS, minRows, startingLines);
 
-  const describedBy = [help ? helpId : null, error ? errorId : null, limit !== undefined ? countId : null].filter(Boolean).join(" ");
+  // A box that only shows its count near the limit has no counter to describe it until then (a description pointing at nothing is worse than none).
+  const showCount = limit !== undefined && (counterFrom === undefined || length >= counterFrom || over > 0);
+  const showMeta = showCount || pasteMessage !== "";
+  const describedBy = [help ? helpId : null, error ? errorId : null, limit !== undefined && showMeta ? countId : null].filter(Boolean).join(" ");
 
   return (
     <div className={cn("flex flex-col gap-1.5", wrapperClassName)}>
@@ -117,7 +138,8 @@ export function TextArea({
         dir="auto"
         aria-invalid={error ? true : undefined}
         aria-describedby={describedBy || undefined}
-        data-autogrow={autoGrow ? "true" : undefined}
+        data-autogrow={grows ? "true" : undefined}
+        style={compact && maxHeight !== undefined ? { maxHeight } : undefined}
         onCompositionStart={(e) => {
           composing.current = true;
           rest.onCompositionStart?.(e);
@@ -158,7 +180,11 @@ export function TextArea({
           if (pasteMessage) setPasteMessage("");
           onChange?.(e);
         }}
-        className={cn(WRITING_BOX_FRAME, "block w-full resize-y", mono && "font-mono text-[16px] sm:text-[14px]", error && "border-rust", className)}
+        className={
+          compact
+            ? cn("block w-full resize-none overflow-y-auto bg-transparent outline-none", error && "text-rust", className)
+            : cn(WRITING_BOX_FRAME, "block w-full resize-y", mono && "font-mono text-[16px] sm:text-[14px]", error && "border-rust", className)
+        }
         {...rest}
       />
       {help && (
@@ -166,9 +192,9 @@ export function TextArea({
           {help}
         </p>
       )}
-      {limit !== undefined && (
+      {limit !== undefined && showMeta && (
         <p id={countId} className={cn(WRITING_BOX_META, over > 0 && "text-rust")}>
-          {`${length} / ${limit}`}
+          {showCount ? `${length} / ${limit}` : null}
           {over > 0 && !soft ? ` · ${over} over` : null}
           {over > 0 && soft && softNote ? ` · ${softNote}` : null}
           <span data-paste-message role="status" className="block text-rust empty:hidden">
