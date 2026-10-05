@@ -13,7 +13,7 @@ import {
   resetPasswordSchema,
   emailSchema,
 } from "./schemas";
-import { consumeResendRateLimit } from "./resend-rate-limit";
+import { consumeResendRateLimit, recordResendSent, resendBudgetLeft } from "./resend-rate-limit";
 import { consumeSignupRateLimit } from "./signup-rate-limit";
 import { consumeLoginRateLimit } from "@/lib/security/login-rate-limit";
 import { getRequestIp, getTrustedClientIp } from "@/lib/security/request-ip";
@@ -33,8 +33,10 @@ import {
   CODE_WRONG_OR_EXPIRED,
   RESEND_GENERIC_ERROR as CODE_RESEND_GENERIC_ERROR,
   RESEND_RATE_LIMITED as CODE_RESEND_RATE_LIMITED,
+  RESEND_PROVIDER_LIMITED,
   RESEND_SENT,
   codeRateLimitedMessage,
+  providerPauseSeconds,
   resendCooldownMessage,
 } from "./code-messages";
 import type { CodeFormState, ResendCodeState } from "./code-state";
@@ -238,18 +240,27 @@ export async function resendSignupCodeAction(_prev: ResendCodeState, _formData: 
     return { status: "error", message: resendCooldownMessage(cooldown.secondsLeft), cooldownSeconds: cooldown.secondsLeft, ended: false };
   }
 
+  // The daily per-address budget is READ here and spent only after a send went out, so a send Supabase refuses costs none of it.
   const ip = await getTrustedClientIp();
-  const limit = await consumeResendRateLimit(pending.email, ip);
-  if (!limit.allowed) return { status: "error", message: CODE_RESEND_RATE_LIMITED, cooldownSeconds: null, ended: false };
+  const budget = await resendBudgetLeft(pending.email, ip);
+  if (!budget.readable) return { status: "error", message: CODE_RESEND_GENERIC_ERROR, cooldownSeconds: null, ended: false };
+  if (!budget.allowed) return { status: "error", message: CODE_RESEND_RATE_LIMITED, cooldownSeconds: null, ended: false };
 
   const supabase = await createClient();
   const { error } = await supabase.auth.resend({ type: "signup", email: pending.email });
   if (error) {
     console.error("[resend-signup-code] failed:", redactEmail(error.message, pending.email));
-    if (error.status === 429) return { status: "error", message: CODE_RESEND_RATE_LIMITED, cooldownSeconds: null, ended: false };
+    if (error.status === 429) {
+      // Supabase's OWN refusal, not our daily budget: its pause between emails to one address ("you can only request this after N seconds") is a countdown
+      // like ours; its hourly cap on emails is not, and is said plainly.
+      const wait = providerPauseSeconds(error.message);
+      if (wait !== null) return { status: "error", message: resendCooldownMessage(wait), cooldownSeconds: wait, ended: false };
+      return { status: "error", message: RESEND_PROVIDER_LIMITED, cooldownSeconds: null, ended: false };
+    }
     return { status: "error", message: CODE_RESEND_GENERIC_ERROR, cooldownSeconds: null, ended: false };
   }
 
+  await recordResendSent(pending.email, ip);
   await setSignupPending({ ...pending, issuedAt: Date.now() });
   return { status: "success", message: RESEND_SENT, cooldownSeconds: CODE_RESEND_COOLDOWN_SECONDS, ended: false };
 }

@@ -349,10 +349,65 @@ describe("resend", () => {
     expect(h.resend).toHaveBeenCalledTimes(5);
   });
 
-  it("Supabase's own mailer limit (429) gets the same 'try later' message", async () => {
+  describe("when Supabase itself refuses (429)", () => {
+    const supabasePause = (seconds = 3) => ({ data: {}, error: { message: `For security purposes, you can only request this after ${seconds} seconds.`, status: 429, code: "over_email_send_rate_limit" } });
+
+    it("its own pause between emails shows the COUNTDOWN, in the words of our own cooldown, and the page is told how long to count", async () => {
+      pend({ issuedAtMsAgo: 120_000 });
+      h.resend.mockResolvedValue(supabasePause(3));
+      expect((await resendNow()).result).toEqual({ status: "error", message: "You can ask for another code in 3 seconds.", cooldownSeconds: 3, ended: false });
+    });
+
+    it("is NOT the daily-budget message, and the daily budget is not used (nothing was sent)", async () => {
+      pend({ issuedAtMsAgo: 120_000 });
+      h.resend.mockResolvedValue(supabasePause(3));
+      const { result } = await resendNow();
+      expect(result?.message).not.toContain("a lot of requests");
+      expect(db.total("resendEmail")).toBe(0);
+      expect(db.total("resendIp")).toBe(0);
+    });
+
+    it("reads the number of seconds from Supabase's own words (60 on the hosted default, 1 on the local stack)", async () => {
+      pend({ issuedAtMsAgo: 120_000 });
+      h.resend.mockResolvedValue(supabasePause(60));
+      expect((await resendNow()).result).toMatchObject({ message: "You can ask for another code in 60 seconds.", cooldownSeconds: 60 });
+    });
+
+    it("its hourly cap on emails says plainly that nothing can be sent right now, not the daily-budget message, and uses no budget", async () => {
+      pend({ issuedAtMsAgo: 120_000 });
+      h.resend.mockResolvedValue({ data: {}, error: { message: "email rate limit exceeded", status: 429, code: "over_email_send_rate_limit" } });
+      const { result } = await resendNow();
+      expect(result).toEqual({ status: "error", message: "We can't send another email right now. Try again in a little while.", cooldownSeconds: null, ended: false });
+      expect(db.total("resendEmail")).toBe(0);
+    });
+
+    it("the log carries no address", async () => {
+      pend({ issuedAtMsAgo: 120_000 });
+      h.resend.mockResolvedValue({ data: {}, error: { message: "slow down ada@example.com", status: 429 } });
+      await resendNow();
+      expect(logged()).not.toContain("ada@example.com");
+    });
+  });
+
+  it("a send that failed for any other reason does not use the daily budget either", async () => {
     pend({ issuedAtMsAgo: 120_000 });
-    h.resend.mockResolvedValue({ data: {}, error: { message: "email rate limit exceeded", status: 429 } });
-    expect((await resendNow()).result?.message).toBe("That's a lot of requests for this address — try again later.");
+    h.resend.mockResolvedValue({ data: {}, error: { message: "boom", status: 500 } });
+    await resendNow();
+    expect(db.total("resendEmail")).toBe(0);
+  });
+
+  it("a send that went out uses exactly one slot of the daily budget, per address and per IP", async () => {
+    pend({ issuedAtMsAgo: 120_000 });
+    await resendNow();
+    expect(db.total("resendEmail")).toBe(1);
+    expect(db.total("resendIp")).toBe(1);
+  });
+
+  it("fails closed when the daily count cannot be read: nothing is sent", async () => {
+    pend({ issuedAtMsAgo: 120_000 });
+    db.failSelect = true;
+    expect((await resendNow()).result).toMatchObject({ status: "error", message: "Couldn't resend that — try again in a moment." });
+    expect(h.resend).not.toHaveBeenCalled();
   });
 
   it("any other failure is one generic sentence, and the log never carries the address", async () => {

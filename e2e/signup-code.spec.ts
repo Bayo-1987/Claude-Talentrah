@@ -31,11 +31,25 @@ async function pendingCookie(context: BrowserContext, baseURL: string, email: st
   await context.addCookies([{ name: "tr_signup_pending", value, url: new URL("/signup", baseURL).toString() }]);
 }
 
-async function unconfirmedAccount(): Promise<{ email: string; otp: string; userId: string }> {
+/**
+ * GoTrue will not send a signup email for an address within the email minimum interval of the last one. LOCALLY that is `[auth.email] max_frequency = "1s"` in
+ * supabase/config.toml (the stack CI starts from); on the hosted project it is the dashboard's minimum interval between emails (60 seconds by default). This wait
+ * depends on the LOCAL value: if config.toml's max_frequency is raised, raise GOTRUE_MIN_RESEND_GAP_MS with it. `generateLink` stamps "sent" on the
+ * account it creates even though no email goes out. The page and the browser are fast enough to click "Resend code" inside that second, and GoTrue then answers
+ * 429 (found by this spec's first CI run); the page now shows that as a countdown, and this wait keeps the test off that path. A real person is held for a minute by the page, far longer than this.
+ */
+const GOTRUE_MIN_RESEND_GAP_MS = 1_500;
+async function waitOutGoTrueResendGap(mintedAt: number) {
+  const wait = GOTRUE_MIN_RESEND_GAP_MS - (Date.now() - mintedAt);
+  if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
+}
+
+async function unconfirmedAccount(): Promise<{ email: string; otp: string; userId: string; mintedAt: number }> {
   const email = `code-${randomUUID()}@talentrah.test`;
+  const mintedAt = Date.now();
   const { data, error } = await admin!.auth.admin.generateLink({ type: "signup", email, password: PASSWORD, options: { data: { first_name: "Code", last_name: "Test", country: "Nigeria" } } });
   if (error) throw error;
-  return { email, otp: data.properties.email_otp, userId: data.user.id };
+  return { email, otp: data.properties.email_otp, userId: data.user.id, mintedAt };
 }
 
 test.describe("signing up with the emailed code", () => {
@@ -110,7 +124,7 @@ test.describe("signing up with the emailed code", () => {
 
   test("'Resend code' is held for the first minute, with the time left, and works after it", async ({ page, context, baseURL }) => {
     test.setTimeout(90_000);
-    const { email, userId } = await unconfirmedAccount();
+    const { email, userId, mintedAt } = await unconfirmedAccount();
     try {
       await pendingCookie(context, baseURL!, email, 5_000);
       await page.goto("/signup/check-email");
@@ -123,6 +137,7 @@ test.describe("signing up with the emailed code", () => {
       await page.goto("/signup/check-email");
       const ready = page.getByRole("button", { name: "Resend code" });
       await expect(ready).toBeEnabled();
+      await waitOutGoTrueResendGap(mintedAt);
       await ready.click();
       await expect(page.getByTestId("resend-status")).toContainText("We sent a new code. Check your inbox.");
       await expect(page.getByRole("button", { name: /^Resend code in \d+s$/ })).toBeDisabled();

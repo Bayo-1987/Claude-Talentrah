@@ -18,6 +18,15 @@ export function codeRateLimitedMessage(resetsAt: string | null, now: number): st
 export const RESEND_SENT = "We sent a new code. Check your inbox.";
 export const RESEND_RATE_LIMITED = "That's a lot of requests for this address — try again later.";
 export const RESEND_GENERIC_ERROR = "Couldn't resend that — try again in a moment.";
+/** Supabase refused because of its own hourly cap on emails (not a pause we can count down, and not our daily per-address budget). */
+export const RESEND_PROVIDER_LIMITED = "We can't send another email right now. Try again in a little while.";
+/** "For security purposes, you can only request this after 3 seconds." -> 3. Anything else -> null. */
+export function providerPauseSeconds(message: string | undefined): number | null {
+  const match = /after\s+(\d+)\s+seconds?/i.exec(message ?? "");
+  if (!match) return null;
+  const seconds = Number(match[1]);
+  return seconds >= 1 && seconds <= 3600 ? seconds : null;
+}
 export function resendCooldownMessage(seconds: number): string {
   return `You can ask for another code in ${seconds} ${seconds === 1 ? "second" : "seconds"}.`;
 }
