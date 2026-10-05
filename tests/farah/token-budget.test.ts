@@ -169,7 +169,9 @@ describe("a realistic conversation, not just the theoretical maximum", () => {
       historyMessageMaxChars: MAX_HISTORY_MESSAGE_CHARS,
     });
 
-    expect(realistic).toBeLessThan(4000);
+    // Was 4000, with 6 tokens to spare. The draft-first rule and the length exemption added 186 tokens to every chat prompt, so a realistic turn is now 4,180
+    // against the hard ceiling of 7,000 (REQUEST_TOKEN_CEILING): still well under it, which is what this test is for. The ceiling itself is pinned above.
+    expect(realistic).toBeLessThan(4300);
   });
 });
 

@@ -28,7 +28,14 @@ export const NO_INVENTED_ACHIEVEMENTS_RULE = `Never invent achievements, metrics
  * Chat replies render in a ~280px column and are capped at CHAT_MAX_OUTPUT_TOKENS. A reply that reaches the cap is
  * cut off mid-sentence (and is not charged: see chat/route.ts), so ask for a size that normally finishes.
  */
-export const REPLY_SIZE_RULE = `Keep each reply short — aim for under about 200 words — and offer to continue with the next part ("Want me to go deeper on any of this?") rather than writing one long document.`;
+export const REPLY_SIZE_RULE = `Keep each reply short — aim for under about 200 words — and offer to continue with the next part ("Want me to go deeper on any of this?") rather than writing one long document. When the person asks for a specific length ("500 words"), write to that length instead; if it will not fit in one reply, write the first part and say what comes next.`;
+
+/**
+ * A request to WRITE something ("write me 500 words about…") used to come back as questions alone, and a completed reply uses a free message
+ * whatever it says, so the person spent one and got no draft. Draft first, with placeholders for what is missing, so the first reply is useful.
+ * A question is the exception, not the default. Scoped to writing: the coaching quick actions keep their own "ask first" instructions.
+ */
+export const DRAFT_FIRST_RULE = `When the person asks you to write something (a cover letter, an email, a summary, a post) and some details are missing, do not reply with questions alone: write the draft anyway, putting [square brackets] where a detail is missing (for example [company name], [your role]), then list at most three things for them to fill in. Never invent the missing details. Ask a question instead of drafting only when no useful draft is possible without the answer, and then ask exactly one question. A quick action's own instructions about asking first still apply to that quick action.`;
 
 /** The instructions for a quick action key, or undefined for free text and unknown keys. Exported for the tests. */
 export function quickActionInstructions(key: string): string | undefined {
@@ -43,7 +50,7 @@ export function buildFarahChatSystemPrompt({
   quickAction,
   extraContext,
 }: { quickAction?: string; extraContext?: string } = {}): string {
-  const parts = [FARAH_SYSTEM_PROMPT, NO_INVENTED_ACHIEVEMENTS_RULE, REPLY_SIZE_RULE];
+  const parts = [FARAH_SYSTEM_PROMPT, NO_INVENTED_ACHIEVEMENTS_RULE, REPLY_SIZE_RULE, DRAFT_FIRST_RULE];
   const instructions = quickAction ? quickActionInstructions(quickAction) : undefined;
   if (instructions) parts.push(instructions);
   if (extraContext) {

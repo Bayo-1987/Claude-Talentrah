@@ -15,15 +15,17 @@ import { describe, expect, it } from "vitest";
 import { loadModule } from "../support/load-module";
 import { buildFarahChatSystemPrompt } from "@/lib/farah/chat-prompt";
 
-// sha256 of buildFarahChatSystemPrompt({ quickAction }) with NO context, captured from main before this change.
+// sha256 of buildFarahChatSystemPrompt({ quickAction }) with NO context. Captured from main before A1, and regenerated when the draft-first rule and the
+// explicit-length exemption were added to the chat prompt (tests/farah/draft-first-prompt.test.ts): the new text equals the old text plus exactly those two
+// additions, which was checked once by removing them and comparing with the previous hashes. Any other change to this prompt must change these on purpose.
 const GOLDEN: Record<string, string> = {
-  undefined: "7e0a673ad372c333c343986d3b59cbe86f3a046f38cc5add6b5b88e1087c9501",
-  "interview-prep": "ef345ed4a7cbc141880e4d8c4c35e8eca0c653d34f9ec2369ad72cbea70bf100",
-  "career-advisor": "e203af859022898ce0553a9e41135164a23555f43d4cede0d33ef8c7cfab6d20",
-  "salary-negotiation": "613fa915523a831e141590263d8b7738ea98a50daaa43dc3db8e0e687a78be87",
-  job_fit: "f6a4d5b1d6f3b41f04945510b320a140d3b0c7c590e01045e17f0df7419397b6",
-  free_text: "7e0a673ad372c333c343986d3b59cbe86f3a046f38cc5add6b5b88e1087c9501",
-  bogus: "7e0a673ad372c333c343986d3b59cbe86f3a046f38cc5add6b5b88e1087c9501",
+  undefined: "1337ce8b1d5a3bd1a7fa1995afd433859227486b76776b17ae043f8cf24fc47b",
+  "interview-prep": "47a422cb687205713a8e772d253975810716983ec1512faafd083b74146c5f1f",
+  "career-advisor": "8027bc8860cd210a0a8f5ce944db3f8c88b18c59d546a3c348c948a24e60f3ec",
+  "salary-negotiation": "ca201a6cde77660f8b27fd918a56498daa77da7e7d7005c03fee3fbfd3ec59b4",
+  job_fit: "e61949d3da2e64c98b1926023608fd14a5f92979cddcdf9f06039fe5aab76cf5",
+  free_text: "1337ce8b1d5a3bd1a7fa1995afd433859227486b76776b17ae043f8cf24fc47b",
+  bogus: "1337ce8b1d5a3bd1a7fa1995afd433859227486b76776b17ae043f8cf24fc47b",
 };
 const sha = (s: string) => createHash("sha256").update(s).digest("hex");
 
