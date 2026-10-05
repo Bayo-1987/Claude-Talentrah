@@ -28,6 +28,7 @@ const askFarahChatStream = vi.fn();
 vi.mock("@/lib/farah/client", () => ({
   askFarahChatStream: (...args: unknown[]) => askFarahChatStream(...args),
 }));
+vi.mock("@/lib/farah/spend-tally", async () => (await import("./support/route-mocks")).safeSpendTally());
 
 /** A chain stub covering exactly the methods route.ts calls before the LLM call — count-style (recentCount), array-style (history), and maybeSingle-style (base resume) all read from the same merged shape. */
 function chain(result: Record<string, unknown>) {

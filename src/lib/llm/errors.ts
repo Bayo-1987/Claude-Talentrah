@@ -14,3 +14,14 @@ export class LLMProviderError extends Error {
     this.name = "LLMProviderError";
   }
 }
+
+/**
+ * The primary provider was rate-limited and the caller's `allowFallback` said the fallback may not be used (or could not say). Not an LLMProviderError on purpose: nothing that treats provider errors
+ * (rate-limit wording, auth alarms) should mistake it for one. `cause` is the primary's rate-limit error.
+ */
+export class FallbackDeclinedError extends Error {
+  constructor(public cause: unknown) {
+    super("The fallback provider was not used.");
+    this.name = "FallbackDeclinedError";
+  }
+}
