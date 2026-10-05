@@ -9,6 +9,8 @@ import path from "node:path";
 import { HOSTED_CI_REF, PRODUCTION_REF } from "../../scripts/db-target";
 
 // DOCS_ROOT points the test at another checkout (used to show it red against the tree before this file existed).
+// DOCS_ROOT must never be set in CI: there the test always reads the checkout it runs in.
+if (process.env.CI && process.env.DOCS_ROOT) throw new Error("DOCS_ROOT is set in CI. Unset it: this test must read the real checkout there.");
 const ROOT = process.env.DOCS_ROOT ?? process.cwd();
 const FILE = path.join(ROOT, "docs/database-environments.md");
 const body = () => readFileSync(FILE, "utf8");
