@@ -199,12 +199,12 @@ const SPENDERS: Spender[] = [
   },
   {
     keys: ["talentDirectoryVerification"],
-    surface: "Talent Directory: Request verification button",
+    surface: "Talent Directory: Request a resume review button",
     render: async () => {
       const { VerificationPanel } = await import("@/app/(app)/talent-directory/verify/verification-panel");
       return text(<VerificationPanel status="none" />);
     },
-    expects: (c) => [`Request verification · ${plural(c("talentDirectoryVerification"))}`],
+    expects: (c) => [`Request a resume review · ${plural(c("talentDirectoryVerification"))}`],
   },
   {
     keys: ["talentDirectoryHumanReview"],

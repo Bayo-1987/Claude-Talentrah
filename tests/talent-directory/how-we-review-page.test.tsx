@@ -29,9 +29,10 @@ describe("the page", () => {
   });
 
   it("says plainly that identity, employment and skills were not checked", () => {
-    expect(plain).toContain("We did not check who the person is.");
-    expect(plain).toContain("did not contact past employers");
-    expect(plain).toContain("We did not test their skills.");
+    expect(plain).toContain("We don't check who the person is.");
+    expect(plain).toContain("We don't contact past employers");
+    expect(plain).toContain("We don't test their skills.");
+    expect(plain).not.toMatch(/\bdid not\b|\bdidn't\b/); // present tense: the page describes what the review is, the badge says what was done
   });
 
   it("names both reviewers as the badge does, and says the score is not shown to employers", () => {
@@ -49,6 +50,10 @@ describe("the page", () => {
   it("has no figures at all (no statistics, no percentages, no counts), and never says 'verified'", () => {
     expect(plain).not.toMatch(/\d/);
     expect(plain).not.toMatch(/verified/i);
+  });
+
+  it("Contact us goes to the existing contact page", () => {
+    expect(html).toMatch(/<a [^>]*href="\/contact"[^>]*>Contact us<\/a>/);
   });
 
   it("makes no promise about checks that do not exist yet", () => {

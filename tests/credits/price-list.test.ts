@@ -40,7 +40,7 @@ describe("creditPriceList", () => {
 
   it("names the actions the old sentence left out", async () => {
     const labels = (await list()).map((e) => e.label.toLowerCase()).join(" | ");
-    for (const word of ["bullet", "farah", "scholarship", "verification", "boost", "auto-apply", "cover letter", "template"]) {
+    for (const word of ["bullet", "farah", "scholarship", "resume review", "boost", "auto-apply", "cover letter", "template"]) {
       expect(labels, word).toContain(word);
     }
   });

@@ -85,6 +85,18 @@ describe("the directory list", async () => {
     expect(html).toContain('href="/how-we-review-resumes"');
   });
 
+  it("tab order inside a card: the name link, then 'What this means', then (once it is opened) 'How we review'", async () => {
+    const html = await render();
+    const card = html.slice(html.indexOf("<li"), html.indexOf("</li>")); // the first card, c1
+    const name = card.indexOf('href="/employer/talent-directory/c1"');
+    const summary = card.indexOf("<summary");
+    const how = card.indexOf('href="/how-we-review-resumes"');
+    expect(name).toBeGreaterThanOrEqual(0);
+    expect(summary).toBeGreaterThan(name);
+    expect(how).toBeGreaterThan(summary);
+    expect(card).not.toMatch(/tabindex/i);
+  });
+
   it("each card's title is still the link to the candidate", async () => {
     const html = await render();
     expect(html).toContain('href="/employer/talent-directory/c1"');

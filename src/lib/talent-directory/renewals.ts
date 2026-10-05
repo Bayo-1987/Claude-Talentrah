@@ -149,7 +149,7 @@ async function chargeOne(
         return;
       }
       console.error(
-        `[talent-directory-renewal] MISMATCH verifying pending renewal ${row.pending_renewal_reference} for ` +
+        `[talent-directory-renewal] MISMATCH checking pending renewal ${row.pending_renewal_reference} for ` +
           `subscription ${row.id}: expected ${expectedKobo} kobo NGN, Paystack confirmed ${settled.amount} ` +
           `${settled.currency}. NOT extending, NOT retrying — needs manual reconciliation.`,
       );

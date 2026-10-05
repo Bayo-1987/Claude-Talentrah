@@ -189,6 +189,20 @@ test.describe("the resume-reviewed badge", () => {
         expect(overflow, "no horizontal scroll").toBeLessThanOrEqual(0);
       });
 
+      test("by keyboard: Tab goes from the candidate's name to 'What this means', Enter opens it, and the next Tab reaches 'How we review'", async ({ page, baseURL }) => {
+        await signedIn(page, baseURL);
+        await page.goto("/employer/talent-directory");
+        const card = page.locator("li", { hasText: `${AI_NAME.first} ${AI_NAME.last}` });
+        await card.getByRole("link", { name: `${AI_NAME.first} ${AI_NAME.last}` }).focus();
+        await page.keyboard.press("Tab");
+        await expect(card.locator("summary")).toBeFocused();
+        await page.keyboard.press("Enter");
+        await expect(card.locator("details")).toHaveAttribute("open", "");
+        await page.keyboard.press("Tab");
+        await expect(card.getByRole("link", { name: "How we review" })).toBeFocused();
+        await expect(page).toHaveURL(/\/employer\/talent-directory$/);
+      });
+
       test("a candidate's page shows the badge with its date, for both kinds of review", async ({ page, baseURL }) => {
         await signedIn(page, baseURL);
         await page.goto(`/employer/talent-directory/${fx.aiId}`);
@@ -226,7 +240,7 @@ test.describe("the resume-reviewed badge", () => {
     expect(response?.status()).toBe(200);
     expect(page.url()).toContain("/how-we-review-resumes");
     await expect(page.getByRole("heading", { name: "How we review resumes" })).toBeVisible();
-    await expect(page.getByText("We did not check who the person is.")).toBeVisible();
+    await expect(page.getByText("We don't check who the person is.")).toBeVisible();
     await context.close();
   });
 });

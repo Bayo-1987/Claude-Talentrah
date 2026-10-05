@@ -317,7 +317,7 @@ test.describe("Talent Directory purchases", () => {
     await authedPage.goto("/talent-directory/verify");
     await expect(pill(authedPage, START)).toBeVisible();
     await markNoReload(authedPage);
-    await authedPage.getByRole("button", { name: "Request verification" }).click();
+    await authedPage.getByRole("button", { name: "Request a resume review" }).click();
     await expectMastheadDropped(authedPage, testUser.id, CREDIT_COSTS.talentDirectoryVerification);
   });
 

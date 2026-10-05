@@ -103,7 +103,7 @@ export default async function TalentDirectoryVerifyPage() {
 
       {history.length > 0 && (
         <section className="flex flex-col gap-3">
-          <h2 className="font-display text-[18px] font-semibold">Verification history</h2>
+          <h2 className="font-display text-[18px] font-semibold">Resume review history</h2>
           {/*
            * send-372 — h.feedback (queries.ts's `ai_feedback` column, despite
            * the name) is the ONE candidate-facing read site for this text,

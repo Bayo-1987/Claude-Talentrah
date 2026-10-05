@@ -43,8 +43,8 @@ export default function HowWeReviewResumesPage() {
           <BorderedCard className="flex flex-col gap-2 p-5">
             <EyebrowLabel size="sm">What is not checked</EyebrowLabel>
             <p className="text-[14.5px] text-ink-soft">
-              We did not check who the person is. We did not contact past employers or confirm that anyone worked where their resume says. We did not test their skills. A
-              resume review does not confirm any of these. If one of them matters for a role, check it yourself, as you would with any resume.
+              We don&rsquo;t check who the person is. We don&rsquo;t contact past employers or confirm that anyone worked where their resume says. We don&rsquo;t test their
+              skills. A resume review doesn&rsquo;t confirm any of these. If one of them matters for a role, check it yourself, as you would with any resume.
             </p>
           </BorderedCard>
 
