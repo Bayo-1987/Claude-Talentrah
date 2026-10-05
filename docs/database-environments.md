@@ -44,6 +44,7 @@ one morning by two sessions that each did exactly that. Ask, wait for the number
 | 0226 | S1, job_postings review-column privileges and feedback length limits (assigned by the owner on 4 Oct 2026; file not yet pushed) | reserved | reserved |
 | 0227 | S3-21, unused table privileges and repo-parity function grants (assigned by the owner on 5 Oct 2026; file not yet pushed) | reserved | reserved |
 | 0228 | S1, Talent Directory subscription activation as one atomic function (assigned by the owner on 5 Oct 2026; file not yet pushed) | reserved | reserved |
+| 0229 | S3-21, the second revoke (revoke B) (assigned by the owner on 5 Oct 2026; file not yet pushed) | reserved | reserved |
 
 The times are the ledger's own version stamps (UTC, 2 to 4 Oct 2026), read from `supabase_migrations.schema_migrations` on both projects. A row says "applied" only because
 that ledger shows it; "reserved" means the owner assigned the number and no ledger has it; "proposed" means the owner named the number but the migration file does not exist yet.
