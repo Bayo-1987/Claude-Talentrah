@@ -240,7 +240,7 @@ describe("state 2: active pass paid by card", () => {
 
 describe("a second pass starts alongside the first (overlap notice next to Buy)", () => {
   const notice = (name: string, expires: number) =>
-    `Your ${name} is active until ${formatDate(iso(expires))}. A new pass starts today and runs alongside it; the days left on your current pass are not added on.`;
+    `Your ${name} is active until ${formatDate(iso(expires))}. A new pass starts today and runs alongside it; the time left on your current pass isn't added on.`;
 
   it("shows with a running pass, names that pass and its end date, and the Buy forms still post the same products", async () => {
     world.rows.user_passes = [livePass()];

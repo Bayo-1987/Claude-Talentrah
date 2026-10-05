@@ -79,7 +79,7 @@ export function splitPasses(rows: readonly UserPassRow[], now: number): PassSpli
  * longest (the one the page leads with) and its end date. It describes how the purchase already works; it changes nothing about it.
  */
 export function passOverlapNotice(leading: UserPassRow): string {
-  return `Your ${leading.passes?.name ?? "Pass"} is active until ${formatDate(leading.expires_at)}. A new pass starts today and runs alongside it; the days left on your current pass are not added on.`;
+  return `Your ${leading.passes?.name ?? "Pass"} is active until ${formatDate(leading.expires_at)}. A new pass starts today and runs alongside it; the time left on your current pass isn't added on.`;
 }
 
 export type PassNotice = "reminder" | "canceled" | "lapsed" | null;
