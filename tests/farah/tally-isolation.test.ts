@@ -27,6 +27,7 @@ const MAY_CALL_THE_RPC = new Set([
   "tests/farah/spend-tally.test.ts",
   "tests/farah/tally-isolation.test.ts",
   "tests/supabase/migration-0223-shape.test.ts",
+  "tests/supabase/migration-0235-shape.test.ts",
   // names the migration FILE (to pin its bytes); never touches the table or the function
   "tests/supabase/applied-migrations-not-edited.test.ts",
 ]);

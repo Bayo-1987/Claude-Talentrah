@@ -42,6 +42,7 @@ one morning by two sessions that each did exactly that. Ask, wait for the number
 | 0224 | S3-21, `mentorship_sessions` column privileges (assigned by the owner on 4 Oct 2026; file not yet pushed) | reserved | reserved |
 | 0225 | S3-21, mentor_profiles column privileges (assigned by the owner on 4 Oct 2026; supabase/migrations/0225_mentor_profiles_column_grants.sql, sha256 b9f1a1fc85d3cbb0a4770028a6a9c67010f42eabe47d2222d31697bc4f69459c; file not yet pushed) | reserved; applied 05:48Z (5 Oct), file lands with its PR | reserved |
 | 0226 | S1, job_postings review-column privileges and feedback length limits (assigned by the owner on 4 Oct 2026; file not yet pushed) | reserved | reserved |
+| 0235 | S3 (admin dashboard), the Farah spend-alert markers: the bucket checks on llm_daily_usage and add_llm_usage accept the new buckets farah_chat_80_warned and farah_chat_reached_warned (additive; assigned by the owner on 5 Oct 2026; `supabase/migrations/0235_llm_daily_usage_alert_markers.sql`, sha256 `e5b3f9de0f9cf6d51e828dfd55023b9ff157446af1acaa5ccbe395fe2cc69beb`; applied BEFORE its PR merges) | to be applied before merge | to be applied before merge |
 
 The times are the ledger's own version stamps (UTC, 2 to 4 Oct 2026), read from `supabase_migrations.schema_migrations` on both projects. A row says "applied" only because
 that ledger shows it; "reserved" means the owner assigned the number and no ledger has it; "proposed" means the owner named the number but the migration file does not exist yet.
