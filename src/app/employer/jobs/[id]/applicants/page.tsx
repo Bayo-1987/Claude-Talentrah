@@ -116,7 +116,7 @@ export default async function JobApplicantsPage({
       // send-328 — never gated on talent_directory_opt_in, see 0170's own
       // header for the consent reasoning.
       // VERIFY-1 0a-2 (0234): the database says which review, if any, and when; no score is read here, and none goes further.
-      resumeReview: resumeReviewFor(applicant.talent_review_type),
+      resumeReview: resumeReviewFor(applicant.talent_verification_status, applicant.talent_review_type),
       resumeReviewedAt: applicant.talent_verified_at,
       // send-327 — null means no screening questions, or answers incomplete.
       screeningPassed: applicant.screening_passed,

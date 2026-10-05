@@ -10,9 +10,10 @@
  * AUTHENTICATED-SESSION TEST (a minted employer session), so it runs in CI, like tests/rls/talent-directory-preview.test.ts which it mirrors. The same rule was also
  * run against a real Postgres built from every repo migration on the author's machine (6 candidate states, all as expected).
  *
- * VERIFY-1 0a-2 (0234): both employer reads now say WHEN and BY WHOM, derived once in SQL (a verified profile with no stored score is a mentor review, one with a
- * score is Farah's). The last two describe blocks pin that: the search's review_type, and the applicant list's review date and type, including that the applicant
- * list is still not gated on opt-in and still hides a person who asked to delete their account.
+ * VERIFY-1 0a-2 (0234): both employer reads now say WHEN and BY WHOM. The type is the review_type RECORDED on the candidate's latest passed review in
+ * talent_verifications ('ai' or 'human'), never worked out from the score. The fixtures below therefore write a passed review row for each candidate, and a
+ * few people with several reviews (or none) pin "latest passed wins" and "nothing is guessed". The last two describe blocks pin the search's review_type and the
+ * applicant list's review date and type, including that the applicant list is still not gated on opt-in and still hides a person who asked to delete their account.
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { randomUUID } from "node:crypto";
@@ -42,6 +43,8 @@ const STATES: State[] = [
 let candidates: Array<State & { id: string }> = [];
 let owner: { id: string; client: DB };
 let unreviewed: { id: string };
+/** verified people whose review history is unusual: two passed reviews (newest is human), two passed reviews (newest is ai), and verified with no review row at all */
+let history: { newestHuman: string; newestAi: string; noRow: string };
 let postingId = "";
 const orgIds: string[] = [];
 
@@ -63,6 +66,30 @@ beforeAll(async () => {
         .eq("id", c.id),
     ),
   );
+  // the review rows the type is read from: one passed review per candidate, of the type that produced the profile's state
+  const { error: tvError } = await admin.from("talent_verifications").insert(
+    candidates.map((c) => ({ user_id: c.id, status: "verified", review_type: c.reviewer === "ai" ? "ai" : "human", ai_score: c.reviewer === "ai" ? 87 : null, requested_at: "2026-10-05T09:00:00Z", decided_at: "2026-10-05T09:30:00Z" })),
+  );
+  if (tvError) throw new Error(`fixture reviews: ${tvError.message}`);
+  const extra = await Promise.all(["newest-human", "newest-ai", "no-row"].map((n) => createAuthedTestUser(`tdment-${n}`)));
+  history = { newestHuman: extra[0].id, newestAi: extra[1].id, noRow: extra[2].id };
+  await Promise.all(
+    extra.map((e) =>
+      admin
+        .from("profiles")
+        .update({ talent_directory_opt_in: true, talent_verification_status: "verified", talent_verification_score: null, talent_verified_at: "2026-10-05T09:30:00Z" })
+        .eq("id", e.id),
+    ),
+  );
+  const { error: histError } = await admin.from("talent_verifications").insert([
+    { user_id: history.newestHuman, status: "verified", review_type: "ai", ai_score: 80, requested_at: "2026-08-01T09:00:00Z", decided_at: "2026-08-01T09:30:00Z" },
+    { user_id: history.newestHuman, status: "verified", review_type: "human", requested_at: "2026-10-05T09:00:00Z", decided_at: "2026-10-05T09:30:00Z" },
+    { user_id: history.newestHuman, status: "rejected", review_type: "ai", ai_score: 10, requested_at: "2026-10-06T09:00:00Z", decided_at: "2026-10-06T09:30:00Z" },
+    { user_id: history.newestAi, status: "verified", review_type: "human", requested_at: "2026-08-01T09:00:00Z", decided_at: "2026-08-01T09:30:00Z" },
+    { user_id: history.newestAi, status: "verified", review_type: "ai", ai_score: 90, requested_at: "2026-10-05T09:00:00Z", decided_at: "2026-10-05T09:30:00Z" },
+    { user_id: history.newestAi, status: "pending", review_type: "human", requested_at: "2026-10-07T09:00:00Z" },
+  ]);
+  if (histError) throw new Error(`fixture review history: ${histError.message}`);
   const { data: org } = await admin.from("organizations").insert({ name: `TDMent Org ${randomUUID().slice(0, 8)}`, created_by: owner.id, verified: true }).select("id").single();
   orgIds.push(org!.id);
   await admin.from("organization_members").insert({ organization_id: org!.id, user_id: owner.id, role: "owner" });
@@ -90,14 +117,14 @@ beforeAll(async () => {
   postingId = job.id;
   const { error: appErr } = await admin
     .from("applications")
-    .insert([...candidates.map((c) => c.id), unreviewed.id].map((user_id) => ({ user_id, job_posting_id: postingId, applied_at: new Date().toISOString() })));
+    .insert([...candidates.map((c) => c.id), unreviewed.id, history.newestHuman, history.newestAi, history.noRow].map((user_id) => ({ user_id, job_posting_id: postingId, applied_at: new Date().toISOString() })));
   if (appErr) throw new Error(`fixture applications: ${appErr.message}`);
 }, 120_000);
 
 afterAll(async () => {
   if (orgIds[0]) await admin.from("talent_directory_subscriptions").delete().eq("organization_id", orgIds[0]);
   await deleteTestOrgs(orgIds);
-  await deleteTestUsers([...candidates.map((c) => c.id), owner?.id, unreviewed?.id].filter(Boolean));
+  await deleteTestUsers([...candidates.map((c) => c.id), owner?.id, unreviewed?.id, history?.newestHuman, history?.newestAi, history?.noRow].filter(Boolean));
 }, 60_000);
 
 describe("who is listed does not depend on who reviewed the resume", () => {
@@ -119,13 +146,20 @@ describe("who is listed does not depend on who reviewed the resume", () => {
     expect(new Date(data![0].verified_at as string).toISOString()).toBe("2026-10-05T09:30:00.000Z");
   });
 
-  it("the search says who reviewed each listed candidate (0234): 'ai' where a score is stored, 'mentor' where none is", async () => {
+  it("the search says who reviewed each listed candidate (0234): the recorded type of the latest passed review", async () => {
     const ai = candidates.find((c) => c.label === "AI-reviewed, opted in")!;
     const mentor = candidates.find((c) => c.label === "mentor-reviewed, opted in")!;
     const { data: a } = await owner.client.rpc("talent_directory_search", { p_candidate_id: ai.id });
     const { data: m } = await owner.client.rpc("talent_directory_search", { p_candidate_id: mentor.id });
     expect(a?.[0]?.review_type).toBe("ai");
-    expect(m?.[0]?.review_type).toBe("mentor");
+    expect(m?.[0]?.review_type).toBe("human");
+  });
+
+  it("with several reviews the LATEST PASSED one decides (a later rejected or pending request does not), and with none the type is null: nothing is guessed", async () => {
+    const one = async (id: string) => (await owner.client.rpc("talent_directory_search", { p_candidate_id: id })).data?.[0]?.review_type;
+    expect(await one(history.newestHuman)).toBe("human");
+    expect(await one(history.newestAi)).toBe("ai");
+    expect(await one(history.noRow)).toBeNull();
   });
 
   it("a mentor-reviewed candidate who has not opted in does not appear in an unfiltered search either", async () => {
@@ -157,9 +191,21 @@ describe("the employer applicant list says when and by whom a resume was reviewe
     for (const label of ["mentor-reviewed, opted in", "mentor-reviewed, NOT opted in"]) {
       const c = candidates.find((x) => x.label === label)!;
       const r = byLabel(rows, c.id, appOf)!;
-      expect(r.talent_review_type, label).toBe("mentor");
+      expect(r.talent_review_type, label).toBe("human");
       expect(new Date(r.talent_verified_at as string).toISOString(), label).toBe("2026-10-05T09:30:00.000Z");
     }
+  });
+
+  it("the applicant list agrees with the search about several reviews and about none", async () => {
+    const { data: apps } = await admin.from("applications").select("id, user_id").eq("job_posting_id", postingId);
+    const appOf = new Map((apps ?? []).map((a) => [a.user_id as string, a.id as string]));
+    const rows = await load();
+    expect(byLabel(rows, history.newestHuman, appOf)!.talent_review_type).toBe("human");
+    expect(byLabel(rows, history.newestAi, appOf)!.talent_review_type).toBe("ai");
+    const none = byLabel(rows, history.noRow, appOf)!;
+    expect(none.talent_review_type).toBeNull();
+    expect(none.talent_verification_status).toBe("verified"); // reviewed, but the reviewer cannot be named: the screen says so
+    expect(none.talent_verified_at).not.toBeNull();
   });
 
   it("someone whose resume has no passed review has no type and no date", async () => {

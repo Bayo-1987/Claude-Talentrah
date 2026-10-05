@@ -17,23 +17,32 @@ const flat = (s: string) => code(s).replace(/\s+/g, " ").toLowerCase();
 const MIGRATION = "supabase/migrations/0234_review_date_and_type_on_applicants_and_search.sql";
 const sql = flat(read(MIGRATION));
 
-describe("0234: the review type is derived in SQL, one rule, in both functions", () => {
-  it("the applicant list: 'mentor' for a verified profile with no stored score, 'ai' for a verified one with a score, null otherwise", () => {
-    expect(sql).toContain(
-      "case when p.talent_verification_status = 'verified' and p.talent_verification_score is null then 'mentor' when p.talent_verification_status = 'verified' then 'ai' end",
-    );
+const LATEST_PASSED =
+  "select tv.review_type from public.talent_verifications tv where tv.user_id = p.id and tv.status = 'verified' order by tv.decided_at desc nulls last, tv.requested_at desc limit 1";
+
+describe("0234: the review type is READ from the candidate's latest passed review, in both functions", () => {
+  it("the applicant list: the stored type of the latest passed review, and only for a verified profile", () => {
+    expect(sql).toContain(`case when p.talent_verification_status = 'verified' then ( ${LATEST_PASSED} ) end`);
   });
 
   it("the applicant list: the review date is only shown for a verified profile", () => {
     expect(sql).toContain("case when p.talent_verification_status = 'verified' then p.talent_verified_at end");
   });
 
-  it("the paid search: the same rule, from the score alone (the listing gate guarantees 'verified')", () => {
-    expect(sql).toContain("case when p.talent_verification_score is null then 'mentor' else 'ai' end");
+  it("the paid search: the same subquery in ITS OWN body, and it does not restate who is listed", () => {
+    const start = sql.indexOf("create or replace function public.talent_directory_search");
+    const body = sql.slice(sql.indexOf("$$", start), sql.indexOf("$$;", start) + 3);
+    expect(body).toContain(`(${LATEST_PASSED})`);
+    expect(body).not.toMatch(/talent_verification_status|talent_directory_opt_in/);
+    expect(body).toContain("talent_directory_listed_ids()");
   });
 
-  it("nothing is stored: no table, column or update", () => {
-    expect(sql).not.toMatch(/\balter table\b|\bcreate table\b|\badd column\b|\bupdate public\.|\binsert into\b|\bdelete from\b/);
+  it("the type is never worked out from the score", () => {
+    expect(sql).not.toMatch(/talent_verification_score is null|then 'mentor'|then 'ai'/);
+  });
+
+  it("nothing is stored: no table, column, index or write", () => {
+    expect(sql).not.toMatch(/\balter table\b|\bcreate table\b|\badd column\b|\bcreate (unique )?index\b|\bupdate public\.|\binsert into\b|\bdelete from\b/);
   });
 });
 
@@ -78,14 +87,14 @@ describe("the screens read the database's type and never a score", () => {
     "src/components/employer/applicant-list.tsx",
   ];
 
-  it.each(consumers)("%s does not read a score or the verification status", (file) => {
+  it.each(consumers)("%s does not read a score", (file) => {
     const src = code(read(file));
-    expect(src).not.toMatch(/verificationScore|verification_score|talent_verification_status|reviewMethodFromScore/);
+    expect(src).not.toMatch(/verificationScore|verification_score|talent_verification_score|reviewMethodFromScore/);
   });
 
   it("the applicants page passes the database's type and date through", () => {
     const src = read("src/app/employer/jobs/[id]/applicants/page.tsx");
-    expect(src).toContain("resumeReviewFor(applicant.talent_review_type)");
+    expect(src).toContain("resumeReviewFor(applicant.talent_verification_status, applicant.talent_review_type)");
     expect(src).toContain("resumeReviewedAt: applicant.talent_verified_at");
   });
 
@@ -99,7 +108,7 @@ describe("searchTalentDirectory carries the database's review type through to th
   const { vi } = await import("vitest");
   const rows = [
     { user_id: "u1", first_name: "A", last_name: "B", country: "NG", available_for_hire: true, remote_ready: true, earliest_start_date: null, verification_score: 88, verified_at: "2026-10-05T09:30:00Z", review_type: "ai" },
-    { user_id: "u2", first_name: "C", last_name: "D", country: "NG", available_for_hire: true, remote_ready: true, earliest_start_date: null, verification_score: null, verified_at: "2026-10-06T09:30:00Z", review_type: "mentor" },
+    { user_id: "u2", first_name: "C", last_name: "D", country: "NG", available_for_hire: true, remote_ready: true, earliest_start_date: null, verification_score: null, verified_at: "2026-10-06T09:30:00Z", review_type: "human" },
   ];
   vi.doMock("server-only", () => ({}));
   vi.doMock("@/lib/supabase/server", () => ({ createClient: async () => ({ rpc: async () => ({ data: rows, error: null }) }) }));
@@ -109,7 +118,7 @@ describe("searchTalentDirectory carries the database's review type through to th
     const out = await searchTalentDirectory({});
     expect(out.map((c) => [c.userId, c.reviewType, c.verifiedAt])).toEqual([
       ["u1", "ai", "2026-10-05T09:30:00Z"],
-      ["u2", "mentor", "2026-10-06T09:30:00Z"],
+      ["u2", "human", "2026-10-06T09:30:00Z"],
     ]);
   });
 });

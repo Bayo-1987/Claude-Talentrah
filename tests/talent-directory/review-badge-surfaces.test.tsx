@@ -39,7 +39,7 @@ vi.mock("@/lib/talent-directory/waitlist-actions", () => ({ joinTalentDirectoryW
 vi.mock("next/navigation", () => ({ notFound: () => { throw new Error("notFound"); }, useRouter: () => ({ refresh: () => {}, push: () => {} }) }));
 
 const ai: DirectoryCandidate = { userId: "c1", firstName: "Ada", lastName: "Okafor", country: "Nigeria", availableForHire: true, remoteReady: true, earliestStartDate: null, verificationScore: 87, verifiedAt: "2026-10-05T09:30:00Z", reviewType: "ai" };
-const mentor: DirectoryCandidate = { ...ai, userId: "c2", firstName: "Chidi", lastName: "Eze", verificationScore: null, verifiedAt: "2026-10-12T10:00:00Z", reviewType: "mentor" };
+const mentor: DirectoryCandidate = { ...ai, userId: "c2", firstName: "Chidi", lastName: "Eze", verificationScore: null, verifiedAt: "2026-10-12T10:00:00Z", reviewType: "human" };
 
 const text = (html: string) => html.replace(/&#x27;/g, "'").replace(/&amp;/g, "&");
 const noScore = (html: string) => {
@@ -60,6 +60,22 @@ describe("the directory list", async () => {
     const html = await render();
     expect(html).toContain("Resume reviewed by Farah (AI) · 5 Oct 2026");
     expect(html).toContain("Resume reviewed by a Talentrah mentor · 12 Oct 2026");
+  });
+
+  it("the type decides, not the score: a score on a 'human' review and no score on an 'ai' review change nothing", async () => {
+    state.candidates = [
+      { ...ai, userId: "c3", firstName: "Zed", lastName: "Aye", verificationScore: null, reviewType: "ai" },
+      { ...mentor, userId: "c4", firstName: "Yan", lastName: "Bee", verificationScore: 90, reviewType: "human" },
+    ];
+    const html = await render();
+    expect(html).toMatch(/Zed Aye[\s\S]*?Resume reviewed by Farah \(AI\) · 5 Oct 2026/);
+    expect(html).toMatch(/Yan Bee[\s\S]*?Resume reviewed by a Talentrah mentor · 12 Oct 2026/);
+  });
+
+  it("a candidate whose review type the database could not give is shown as reviewed, with no reviewer named", async () => {
+    state.candidates = [{ ...ai, reviewType: null }];
+    const html = await render();
+    expect(html).toMatch(/data-testid="resume-reviewed-badge"[^>]*>Resume reviewed · 5 Oct 2026</);
   });
 
   it("a mentor-reviewed candidate IS listed with a badge (it used to be hidden because it has no score)", async () => {

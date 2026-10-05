@@ -77,6 +77,11 @@ async function createCandidate(first: string, last: string, score: number | null
     })
     .eq("id", data.user.id);
   if (profileError) throw new Error(`candidate profile: ${profileError.message}`);
+  // the type on the badge is the one recorded on the candidate's passed review (0234), so write that review: a score means Farah graded it, none means a mentor did
+  const { error: reviewError } = await admin
+    .from("talent_verifications")
+    .insert({ user_id: data.user.id, status: "verified", review_type: score === null ? "human" : "ai", ai_score: score, requested_at: reviewedAt, decided_at: reviewedAt });
+  if (reviewError) throw new Error(`candidate review: ${reviewError.message}`);
   return data.user.id;
 }
 

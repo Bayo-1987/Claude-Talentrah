@@ -1,49 +1,37 @@
 /**
- * VERIFY-1 Phase 0a: what the badge says. Pure: the method from the stored score, and the exact words. (The words are the owner's, 6 Oct 2026.)
+ * VERIFY-1 Phase 0a: what the badge says. Pure: the method from the database's review type, and the exact words. (The words are the owner's, 6 Oct 2026.)
  */
 import { describe, expect, it } from "vitest";
-import { HOW_WE_REVIEW_PATH, RESUME_REVIEW_MEANING, resumeReviewFor, reviewMethodFromScore, reviewMethodFromType, reviewedBadgeText } from "@/lib/talent-directory/review-badge";
+import { HOW_WE_REVIEW_PATH, RESUME_REVIEW_MEANING, resumeReviewFor, reviewMethodFromType, reviewedBadgeText } from "@/lib/talent-directory/review-badge";
 
-describe("reviewMethodFromScore: an AI review always stores a score, a mentor review never does", () => {
-  it.each([
-    [87, "ai"],
-    [70, "ai"],
-    [0, "ai"], // a score of 0 is a score
-    [100, "ai"],
-    [null, "mentor"],
-  ])("%s -> %s", (score, method) => {
-    expect(reviewMethodFromScore(score as number | null)).toBe(method);
-  });
-
-  it.each([undefined, Number.NaN])("%s (a missing or broken value, not a stored null) is 'unknown', never a guess", (score) => {
-    expect(reviewMethodFromScore(score as number | undefined)).toBe("unknown");
-  });
-});
-
-describe("reviewMethodFromType: the screens read the type the database answers with (0234)", () => {
+describe("reviewMethodFromType: the screens read the type the database records (0234), 'human' being a mentor", () => {
   it.each([
     ["ai", "ai"],
-    ["mentor", "mentor"],
+    ["human", "mentor"],
     [null, "unknown"],
     [undefined, "unknown"],
     ["", "unknown"],
-    ["AI", "unknown"], // the database writes lower case; anything else is not guessed at
-    ["human", "unknown"],
+    ["mentor", "unknown"], // the database's word is 'human'; anything else is not guessed at
+    ["AI", "unknown"],
   ])("%j -> %s", (type, method) => {
     expect(reviewMethodFromType(type as string | null | undefined)).toBe(method);
   });
 });
 
-describe("resumeReviewFor: the applicant list shows a review only when the database says there is one", () => {
+describe("resumeReviewFor: the applicant list shows a review only for a profile whose review passed", () => {
   it.each([
-    ["ai", "ai"],
-    ["mentor", "mentor"],
-    [null, null], // pending, rejected or unreviewed: the database answers null
-    [undefined, null],
-    ["", null],
-    ["something-new", "unknown"], // a type this code does not know is still a review; it just names no reviewer
-  ])("%j -> %s", (type, expected) => {
-    expect(resumeReviewFor(type as string | null | undefined)).toBe(expected);
+    ["verified", "ai", "ai"],
+    ["verified", "human", "mentor"],
+    ["verified", null, "unknown"], // reviewed, but no passed review row to read the reviewer from: says so, names no one
+    ["unverified", null, null],
+    ["unverified", "ai", null],
+    ["pending", "human", null],
+    ["rejected", "ai", null],
+    ["rejected", null, null],
+    ["claimed", null, null],
+    ["", "ai", null],
+  ])("status %j, type %j -> %s", (status, type, expected) => {
+    expect(resumeReviewFor(status, type as string | null)).toBe(expected);
   });
 });
 
