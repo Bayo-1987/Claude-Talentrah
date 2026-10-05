@@ -14,6 +14,10 @@ for (const width of [375, 768, 1280]) {
   test(`billing at ${width}px: no horizontal scroll, one h1, headings in order, controls at least 44px`, async ({ authedPage }) => {
     await authedPage.setViewportSize({ width, height: 900 });
     await authedPage.goto("/billing");
+    // Wait for the REAL page, not just an h1 called "Billing": the loading skeleton has the same heading, and while the page streams in, its markup
+    // (data-billing-page, every control) already sits in the document inside a hidden placeholder, so measuring on the heading alone could see one h1
+    // and zero controls (a failure seen once in CI on a head whose twin run passed). Visible means the placeholder has been swapped in.
+    await expect(authedPage.locator("[data-billing-page]")).toBeVisible();
     await expect(authedPage.getByRole("heading", { level: 1, name: "Billing" })).toBeVisible();
 
     const m = await authedPage.evaluate(() => {
