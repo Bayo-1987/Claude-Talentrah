@@ -74,8 +74,8 @@ describe("an explicit length request is exempt from the 200-word rule", () => {
 });
 
 describe("the prompt stays small", () => {
-  it("the two additions together stay under 1,100 characters (about 275 tokens, about 40,000 nano-dollars on a typical message)", () => {
-    // REPLY_SIZE_RULE grew by its exemption; the whole of both rules is bounded so the per-minute token budget and the daily ceiling are not eaten by prose.
-    expect((DRAFT_FIRST_RULE ?? "").length + REPLY_SIZE_RULE.length).toBeLessThan(1100);
+  it("the two rules together stay under 700 characters (the new text is about 119 tokens, about 17,850 nano-dollars, 2.7% of a typical message)", () => {
+    // The draft-first rule and the size rule's exemption are bounded so the per-minute token budget and the daily ceiling are not eaten by prose.
+    expect((DRAFT_FIRST_RULE ?? "").length + REPLY_SIZE_RULE.length).toBeLessThan(700);
   });
 });

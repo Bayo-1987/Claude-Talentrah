@@ -19,13 +19,13 @@ import { buildFarahChatSystemPrompt } from "@/lib/farah/chat-prompt";
 // explicit-length exemption were added to the chat prompt (tests/farah/draft-first-prompt.test.ts): the new text equals the old text plus exactly those two
 // additions, which was checked once by removing them and comparing with the previous hashes. Any other change to this prompt must change these on purpose.
 const GOLDEN: Record<string, string> = {
-  undefined: "1337ce8b1d5a3bd1a7fa1995afd433859227486b76776b17ae043f8cf24fc47b",
-  "interview-prep": "47a422cb687205713a8e772d253975810716983ec1512faafd083b74146c5f1f",
-  "career-advisor": "8027bc8860cd210a0a8f5ce944db3f8c88b18c59d546a3c348c948a24e60f3ec",
-  "salary-negotiation": "ca201a6cde77660f8b27fd918a56498daa77da7e7d7005c03fee3fbfd3ec59b4",
-  job_fit: "e61949d3da2e64c98b1926023608fd14a5f92979cddcdf9f06039fe5aab76cf5",
-  free_text: "1337ce8b1d5a3bd1a7fa1995afd433859227486b76776b17ae043f8cf24fc47b",
-  bogus: "1337ce8b1d5a3bd1a7fa1995afd433859227486b76776b17ae043f8cf24fc47b",
+  undefined: "67f4f1e9eed23060299e8cb0839fd534c0e208d2f16f513ed2b8f92051ff9c24",
+  "interview-prep": "da01859e1ab91b6d1e6d89c2e57abab3e8cd5889715f6413d4a48f8a11b9ae50",
+  "career-advisor": "5ae98bd05908f62b464c21ed03a8c7409bb9d11deeabbe196519d465e1634d04",
+  "salary-negotiation": "776aacdee12953bacfc1946bf985fc792c9bc51d72f385ec5c9b9bc8113955df",
+  job_fit: "27f30753fd4c8b54637028fecb8883455d9d2cd753b11035eb68cb21c8895508",
+  free_text: "67f4f1e9eed23060299e8cb0839fd534c0e208d2f16f513ed2b8f92051ff9c24",
+  bogus: "67f4f1e9eed23060299e8cb0839fd534c0e208d2f16f513ed2b8f92051ff9c24",
 };
 const sha = (s: string) => createHash("sha256").update(s).digest("hex");
 

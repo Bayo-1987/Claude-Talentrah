@@ -169,9 +169,10 @@ describe("a realistic conversation, not just the theoretical maximum", () => {
       historyMessageMaxChars: MAX_HISTORY_MESSAGE_CHARS,
     });
 
-    // Was 4000, with 6 tokens to spare. The draft-first rule and the length exemption added 186 tokens to every chat prompt, so a realistic turn is now 4,180
-    // against the hard ceiling of 7,000 (REQUEST_TOKEN_CEILING): still well under it, which is what this test is for. The ceiling itself is pinned above.
-    expect(realistic).toBeLessThan(4300);
+    // A growth alarm, not a provider limit: the real limits are PROVIDER_TPM_LIMIT (8,000) and REQUEST_TOKEN_CEILING (7,000), and the tests above pin the
+    // worst case under the ceiling. This one says "a normal turn is far under it" and trips when the system prompt grows. It was 3,994 tokens against a limit
+    // of 4,000. The draft-first rule and the length exemption added 119, so a normal turn is now 4,113; the limit is set just above that, on purpose.
+    expect(realistic).toBeLessThan(4150);
   });
 });
 
