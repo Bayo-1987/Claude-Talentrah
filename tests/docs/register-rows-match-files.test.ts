@@ -10,7 +10,8 @@
  *  - A row that still says reserved or proposed in both cells while its file is in the tree fails: the PR that added the file must flip
  *    its own row ("merged, not applied" is the wording for a file that merges before its apply).
  *  - A row that quotes a sha256 for a migration file ("supabase/migrations/<name>.sql, sha256 <64 hex>", with or without backticks) must match the file whenever that
- *    file is in the tree (an approved hash is for one exact file); a file that is not in the tree is not checked.
+ *    file is in the tree (an approved hash is for one exact file). A quoted hash whose file is NOT in the tree fails unless a cell of the row uses the
+ *    pending wording ("reserved; applied <hh:mmZ> (<date>), file lands with its PR", or "merged, not applied").
  *  - A number has one row.
  *
  * The parse is strict: a missing heading, a missing table header, a row with the wrong number of cells or zero rows are each reported.
@@ -67,6 +68,8 @@ export function parseRegister(text: string): { rows: Row[]; problems: string[] }
  * such a path is ignored, because it belongs to something else (an apply statement, a data fix, a commit): the approved hash is for one
  * exact file, and comparing any other hash with a file would fail a correct row.
  */
+const PENDING_WORDING = /^(?:reserved; applied \d{1,2}:\d{2}Z \([^)]+\), file lands with its PR|merged, not applied)/i;
+
 const PAIR = /(supabase\/(?:migrations|rollbacks)\/[A-Za-z0-9_.-]+\.sql)`?\s*[,:]?\s*sha256\s+`?([0-9a-fA-F]{64})`?/g;
 
 export function hashProblems(rows: Row[], readFile: (relativePath: string) => Buffer | null): string[] {
@@ -76,7 +79,16 @@ export function hashProblems(rows: Row[], readFile: (relativePath: string) => Bu
       const file = m[1];
       const quoted = m[2].toLowerCase();
       const bytes = readFile(file);
-      if (bytes === null) continue;
+      if (bytes === null) {
+        // The file is not in this tree, so the hash cannot be compared. A quoted hash for an absent file is allowed only while the row
+        // says why: an apply that happened before the file lands, or a file that merges before its apply.
+        if (!PENDING_WORDING.test(r.production) && !PENDING_WORDING.test(r.preview)) {
+          problems.push(
+            `${REGISTER} row ${r.number} quotes sha256 ${quoted} for ${file}, but that file is not in this tree and neither cell says why. Add the file in this PR, or write "reserved; applied <hh:mmZ> (<date>), file lands with its PR" in the cell that was applied, or "merged, not applied".`,
+          );
+        }
+        continue;
+      }
       const actual = createHash("sha256").update(bytes).digest("hex");
       if (actual !== quoted) {
         problems.push(
@@ -245,8 +257,41 @@ describe("hashProblems (a quoted sha256 must match its file when the file is in 
     expect(hashProblems([plain], () => body)).toEqual([]);
     expect(hashProblems([{ ...plain, heldBy: plain.heldBy!.replace(good, "0".repeat(64)) }], () => body)).toHaveLength(1);
   });
-  it("a file that is not in the tree is not checked", () => {
-    expect(hashProblems([rowWith("0".repeat(64))], () => null)).toEqual([]);
+  describe("a quoted sha256 whose file is absent from the tree fails unless the row uses the pending wording", () => {
+    const PENDING = "reserved; applied 05:48Z (5 Oct), file lands with its PR";
+    const absent = () => null;
+    const withCells = (production: string, preview: string): Row => ({ ...rowWith(good), production, preview });
+
+    it("reserved in both cells: fails, and says what to write", () => {
+      const p = hashProblems([withCells("reserved", "reserved")], absent);
+      expect(p).toHaveLength(1);
+      expect(p[0]).toContain("0223");
+      expect(p[0]).toContain("file lands with its PR");
+    });
+    it("the pending wording in the production cell passes", () => {
+      expect(hashProblems([withCells(PENDING, "reserved")], absent)).toEqual([]);
+    });
+    it("the pending wording in the preview cell passes", () => {
+      expect(hashProblems([withCells("reserved", PENDING)], absent)).toEqual([]);
+    });
+    it('"merged, not applied" passes', () => {
+      expect(hashProblems([withCells("merged, not applied", "reserved")], absent)).toEqual([]);
+    });
+    it("a pending wording without the time and date does not count", () => {
+      expect(hashProblems([withCells("reserved; applied, file lands with its PR", "reserved")], absent)).toHaveLength(1);
+    });
+    it("the plain form without backticks is held to the same rule", () => {
+      const plain: Row = { number: "0225", production: "reserved", preview: "reserved", heldBy: `S3-21, a thing (supabase/migrations/0225_x.sql, sha256 ${good}; file not yet pushed)` };
+      expect(hashProblems([plain], absent)).toHaveLength(1);
+      expect(hashProblems([{ ...plain, production: PENDING }], absent)).toEqual([]);
+    });
+    it("a row that quotes no hash is unaffected", () => {
+      expect(hashProblems([{ number: "0224", production: "reserved", preview: "reserved", heldBy: "S3-21, a thing" }], absent)).toEqual([]);
+    });
+    it("a file that is in the tree is still compared with its hash, whatever the cells say", () => {
+      expect(hashProblems([withCells("reserved", "reserved")], () => body)).toEqual([]);
+      expect(hashProblems([{ ...withCells(PENDING, "reserved"), heldBy: rowWith("0".repeat(64)).heldBy }], () => body)).toHaveLength(1);
+    });
   });
   it("a row that quotes no hash is not checked", () => {
     expect(hashProblems([{ number: "0224", production: "reserved", preview: "reserved", heldBy: "S3-21, a thing" }], () => body)).toEqual([]);
