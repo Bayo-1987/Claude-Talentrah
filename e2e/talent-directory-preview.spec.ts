@@ -36,7 +36,7 @@ test.describe("employer Talent Directory, no subscription", () => {
     const joined = page.getByText("You're on the waitlist.");
 
     const body = (await page.locator("body").innerText()).replace(/\s+/g, " ");
-    const match = body.match(/(\d+) verified candidates (so far|are listed)/);
+    const match = body.match(/(\d+) verified candidates? (so far|are listed|is listed)/);
     expect(match, "the page does not state the live candidate count").not.toBeNull();
     const count = Number(match![1]);
 
@@ -45,7 +45,7 @@ test.describe("employer Talent Directory, no subscription", () => {
       // free to join, idempotent across reruns on the same database (an org already on the list sees the confirmation instead)
       if (await join.count()) {
         expect(body).toContain(
-          `We're building the directory: ${count} verified candidates so far. Join the waitlist and we'll tell you when 10+ are listed.`,
+          `We're building the directory: ${count} verified candidate${count === 1 ? "" : "s"} so far. Join the waitlist and we'll tell you when 10+ are listed.`,
         );
         await join.click();
         await expect(joined).toBeVisible();
