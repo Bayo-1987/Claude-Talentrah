@@ -3814,6 +3814,20 @@ export type Database = {
         Args: { p_user_id: string }
         Returns: Json
       }
+      activate_talent_directory_subscription: {
+        Args: {
+          p_auto_renew: boolean
+          p_authorization_code?: string
+          p_payment_transaction_id: string
+          p_subscription_id: string
+        }
+        Returns: {
+          activated: boolean
+          expires_at: string
+          plan_name: string
+          reason: string
+        }[]
+      }
       account_deletion_create_request: {
         Args: { p_token_hash: string; p_user_id: string }
         Returns: Json

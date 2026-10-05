@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { runTalentDirectorySubscriptionRenewalJob } from "@/lib/talent-directory/renewals";
+import { lapseEndedTalentDirectorySubscriptions, runTalentDirectorySubscriptionRenewalJob } from "@/lib/talent-directory/renewals";
 import { requireAdminSecret, requireCronSecret, internalError } from "@/lib/api/admin-auth";
 
 /**
@@ -29,9 +29,16 @@ async function runAndRespond() {
     return internalError("renew-talent-directory-subscriptions", err);
   }
 
+  // After the renewals (a row just extended is no longer ended), lapse the ended ones that are not waiting on a renewal.
+  const lapse = await lapseEndedTalentDirectorySubscriptions();
+  if (lapse.error) {
+    summary.ok = false;
+    summary.queryErrors.push({ message: `lapse: ${lapse.error}` });
+  }
+
   console.log(
-    `[talent-directory-renewal] renewed=${summary.renewed} lapsed=${summary.lapsed} indeterminate=${summary.indeterminate} errors=${summary.errors.length}`,
+    `[talent-directory-renewal] renewed=${summary.renewed} lapsed=${summary.lapsed} indeterminate=${summary.indeterminate} errors=${summary.errors.length} lapsedEnded=${lapse.lapsed}`,
   );
 
-  return NextResponse.json({ summary }, { status: summary.ok ? 200 : 500 });
+  return NextResponse.json({ summary, lapsedEnded: lapse.lapsed }, { status: summary.ok ? 200 : 500 });
 }

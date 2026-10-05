@@ -341,3 +341,27 @@ async function markLapsed(supabase: ReturnType<typeof createServiceRoleClient>, 
     })
     .eq("id", subscriptionId);
 }
+
+/**
+ * The daily lapse: a subscription whose period has ended and that is NOT waiting on an automatic renewal stops being 'active'.
+ *
+ * Runs AFTER the renewal job in the same route, so a row the job just extended is no longer ended. A row with auto_renew_status = 'active'
+ * is never touched here (it is waiting for its renewal, or for the job's retry), which is the whole point of the filter: lapsing it would
+ * let the organisation buy a second subscription beside a renewal that is about to be charged. Every reader already checks expires_at, so
+ * this changes no one's access; it only keeps the stored status true and frees the organisation's one 'active' slot for a new purchase.
+ */
+export async function lapseEndedTalentDirectorySubscriptions(): Promise<{ lapsed: number; error: string | null }> {
+  const supabase = createServiceRoleClient();
+  const { data, error } = await supabase
+    .from("talent_directory_subscriptions")
+    .update({ status: "lapsed" })
+    .eq("status", "active")
+    .lte("expires_at", new Date().toISOString())
+    .or("auto_renew_status.is.null,auto_renew_status.neq.active")
+    .select("id");
+  if (error) {
+    console.error(`[talent-directory-lapse] could not lapse ended subscriptions: ${error.message}`);
+    return { lapsed: 0, error: error.message };
+  }
+  return { lapsed: (data ?? []).length, error: null };
+}
