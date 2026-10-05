@@ -43,7 +43,7 @@ one morning by two sessions that each did exactly that. Ask, wait for the number
 | 0225 | S3-21, mentor_profiles column privileges (assigned by the owner on 4 Oct 2026; supabase/migrations/0225_mentor_profiles_column_grants.sql, sha256 b9f1a1fc85d3cbb0a4770028a6a9c67010f42eabe47d2222d31697bc4f69459c; applied to production at 05:48:26Z, ledger 20261005054826, read back from the ledger by S3-21; file not yet pushed) | reserved; applied 05:48Z (5 Oct), file lands with its PR | reserved |
 | 0226 | S1, job_postings review-column privileges and feedback length limits (assigned by the owner on 4 Oct 2026; file not yet pushed) | reserved | reserved |
 | 0227 | S3-21, unused table privileges and repo-parity function grants (assigned by the owner on 5 Oct 2026; file not yet pushed) | reserved | reserved |
-| 0228 | S1, Talent Directory subscription activation as one atomic function (assigned by the owner on 5 Oct 2026; file 0228_activate_talent_directory_subscription, not yet pushed) | reserved | reserved |
+| 0228 | S1, Talent Directory subscription activation as one atomic function (assigned by the owner on 5 Oct 2026; file 0228_activate_talent_directory_subscription, not yet pushed; applied to talentrah-preview at 10:40:49Z, ledger 20261005104049, per S3-21) | reserved | reserved; applied 10:40Z (5 Oct), file lands with its PR |
 | 0229 | S3-21, the second revoke (revoke B) (assigned by the owner on 5 Oct 2026; file not yet pushed) | reserved | reserved |
 
 The times are the ledger's own version stamps (UTC, 2 to 4 Oct 2026), read from `supabase_migrations.schema_migrations` on both projects. A row says "applied" only because
