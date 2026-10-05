@@ -46,6 +46,8 @@ one morning by two sessions that each did exactly that. Ask, wait for the number
 | 0228 | S1, Talent Directory subscription activation as one atomic function (assigned by the owner on 5 Oct 2026; file 0228_activate_talent_directory_subscription, not yet pushed; applied to talentrah-preview at 10:40:49Z, ledger 20261005104049, per S3-21) | reserved | reserved; applied 10:40Z (5 Oct), file lands with its PR |
 | 0229 | S3-21, the second revoke (revoke B) (assigned by the owner on 5 Oct 2026; file not yet pushed) | reserved | reserved |
 | 0230 | S1, talent_directory_waitlist.notified_at and the reached-10 email (assigned by the owner on 5 Oct 2026; file not yet pushed) | reserved | reserved |
+| 0231 | S3-21, column grants for the payment-token columns and the reviewer-payout columns (assigned by the owner on 5 Oct 2026; file not yet pushed) | reserved | reserved |
+| 0232 | S3-21, column grants for the public internal-metadata columns (assigned by the owner on 5 Oct 2026; file not yet pushed) | reserved | reserved |
 
 The times are the ledger's own version stamps (UTC, 2 to 4 Oct 2026), read from `supabase_migrations.schema_migrations` on both projects. A row says "applied" only because
 that ledger shows it; "reserved" means the owner assigned the number and no ledger has it; "proposed" means the owner named the number but the migration file does not exist yet.
