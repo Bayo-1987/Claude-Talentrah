@@ -1,6 +1,6 @@
 import { cn } from "@/lib/cn";
 
-export type ButtonVariant = "primary" | "secondary" | "ghost" | "text";
+export type ButtonVariant = "primary" | "secondary" | "ghost" | "text" | "onDark" | "onDarkText";
 export type ButtonSize = "md" | "sm";
 
 const base =
@@ -15,6 +15,12 @@ const variantSizeClasses: Record<ButtonSize, Record<ButtonVariant, string>> = {
     ghost:
       "bg-transparent text-ink border-none min-h-[44px] px-[6px] py-[10px] text-[15px] hover:text-rust",
     text: "bg-transparent text-ink-soft border-none min-h-[44px] px-[2px] py-[10px] text-[13.5px] underline underline-offset-3 hover:text-rust",
+    /** For a button sitting on an ink (dark) panel: paper on ink, with its own paper focus ring (the browser's default ring is not reliably visible on ink). */
+    onDark:
+      "bg-paper text-ink border-none min-h-[52px] px-[16px] py-[12px] text-[13.5px] hover:bg-paper-alt focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-paper",
+    /** A quiet, underlined text button on an ink panel (Cancel auto-renewal). */
+    onDarkText:
+      "bg-transparent text-paper border-none min-h-[44px] px-[2px] py-[10px] text-[13.5px] underline underline-offset-3 hover:text-rust-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-paper",
   },
   sm: {
     primary:
@@ -24,6 +30,10 @@ const variantSizeClasses: Record<ButtonSize, Record<ButtonVariant, string>> = {
     ghost:
       "bg-transparent text-ink-soft border-none min-h-[40px] px-[4px] py-[8px] text-[13px] hover:text-rust",
     text: "bg-transparent text-ink-soft border-none min-h-[40px] px-[2px] py-[8px] text-[13px] underline underline-offset-2 hover:text-rust",
+    onDark:
+      "bg-paper text-ink border-none min-h-[44px] px-[16px] py-[10px] text-[13.5px] hover:bg-paper-alt focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-paper",
+    onDarkText:
+      "bg-transparent text-paper border-none min-h-[44px] px-[2px] py-[10px] text-[13.5px] underline underline-offset-2 hover:text-rust-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-paper",
   },
 };
 

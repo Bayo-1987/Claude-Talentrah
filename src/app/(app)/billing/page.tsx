@@ -1,31 +1,12 @@
 import Link from "next/link";
-import { autoApplyFreeRunsPhrase } from "@/lib/auto-apply/limits-copy";
 import { requireUser } from "@/lib/auth/require-user";
 import { createClient } from "@/lib/supabase/server";
-import {
-  initiatePurchaseAction,
-  cancelAutoRenewAction,
-} from "@/lib/billing/actions";
-import { EyebrowLabel, BorderedCard, Button, NairaAmount } from "@/components/ui";
-import { PASS_DAILY_ACTION_CAP } from "@/lib/passes/entitlement";
-import { creditPriceList } from "@/lib/credits/price-list";
+import { EyebrowLabel } from "@/components/ui";
 import { receiptNumber } from "@/lib/billing/receipt-number";
-import { formatCalendarDate, formatDate } from "@/lib/format/datetime";
-
-/**
- * What each product_type is called on a receipt.
- *
- * Spelled out rather than derived from the enum: `credit_pack` is a column
- * value, "Credit pack" is what a person recognises on a statement.
- * ad_wallet_topup can appear here for someone who is both a seeker and an
- * employer on one account, so it needs a label even though nothing in this
- * change emails about it.
- */
-const PRODUCT_LABEL: Record<string, string> = {
-  credit_pack: "Credit pack",
-  pass: "Talentrah Pass",
-  ad_wallet_topup: "Ad wallet top-up",
-};
+import { activityRows, PRODUCT_LABEL, splitPasses, type UserPassRow } from "@/lib/billing/billing-view";
+import { nowMs } from "@/lib/passes/pass-timing";
+import { BillingContent } from "@/components/billing/billing-content";
+import { PaymentReference } from "@/components/billing/payment-reference";
 
 /**
  * Where each purchase actually gets spent.
@@ -45,45 +26,7 @@ const PRODUCT_NEXT: Record<string, { href: string; label: string }> = {
   ad_wallet_topup: { href: "/employer", label: "Go to your job postings" },
 };
 
-/**
- * What each credit pack's price is worth in plain terms, keyed by name —
- * matching scripts/seed.ts's own two packs. "Credits never expire" is a
- * verified claim, not marketing copy: grep src/lib/credits/ finds no
- * expiry logic anywhere, and this line only exists because of that check —
- * if that ever stops being true, this line has to go with it, not stay as
- * a claim nothing backs.
- */
-const PACK_DESCRIPTION: Record<string, string> = {
-  Starter: "1 resume tailoring · credits never expire",
-  Plus: "2 tailorings + a cover letter, or a Directory verification · never expire",
-};
-
-/**
- * Pass copy, keyed by name — matching scripts/seed.ts's three passes.
- * Every pass states the same three things, in the same order: what
- * "unlimited" actually means here, what stays credit-only regardless, and
- * the fair-use ceiling nobody legitimate should ever reach (PASS_DAILY_ACTION_CAP,
- * src/lib/passes/entitlement.ts).
- */
-const PASS_HEADLINE: Record<string, string> = {
-  "7-Day Sprint Pass": "Unlimited for 7 days",
-  "30-Day Pass": "Unlimited for 30 days",
-  "90-Day Pass": "Unlimited for 90 days",
-};
-
 export const metadata = { title: "Credits & Passes — Talentrah" };
-
-/**
- * next_renewal_date is a date-only column ("2026-08-31"), so it can't go
- * through `new Date(...).toLocaleDateString()` the way the timestamptz
- * expires_at does — that parses as UTC midnight and renders the previous
- * day for any viewer behind UTC. Build the date in local time from its
- * parts so both dates on this card read the same way.
- */
-function formatDateOnly(value: string | null): string {
-  if (!value) return "";
-  return formatCalendarDate(value);
-}
 
 export default async function BillingPage({
   searchParams,
@@ -97,7 +40,7 @@ export default async function BillingPage({
   const [
     { data: packs },
     { data: passes },
-    { data: activePasses },
+    { data: userPasses },
     { data: purchases },
   ] = await Promise.all([
     supabase
@@ -110,10 +53,15 @@ export default async function BillingPage({
       .select("*")
       .eq("is_active", true)
       .order("price_ngn"),
+    /*
+     * Every pass whose status is still 'active', furthest expiry first. That is NOT the same as "running": nothing ever flips `status`
+     * when `expires_at` passes (src/lib/passes/entitlement.ts), so ended passes come back too, and splitPasses() decides which are live.
+     * The card-token column (`authorization_code`) is deliberately not selected: nothing on this page needs it.
+     */
     supabase
       .from("user_passes")
       .select(
-        "id, payment_method, auto_renew_status, next_renewal_date, expires_at, status, passes(name)",
+        "id, pass_id, payment_method, auto_renew_status, next_renewal_date, expires_at, started_at, payment_transaction_id, status, passes(name)",
       )
       .eq("user_id", profile.id)
       .eq("status", "active")
@@ -126,17 +74,15 @@ export default async function BillingPage({
      * remove the guarantee that it is. The `.eq("user_id")` is belt and
      * braces — RLS is what actually enforces it.
      *
-     * Rendered from the row's own columns, with no join to the product. The
-     * FK cannot be followed: `product_id` points at `credit_packs` for one
-     * product_type and `passes` for another (and at nothing at all for a
-     * wallet top-up, nullable since 0050), so there is no single relation to
-     * embed. The row already carries amount, currency, rail and reference —
-     * everything a receipt line needs.
+     * `product_id` is read only to NAME the product (a pack or a pass from the lists above) in the activity table. The FK cannot be
+     * followed: it points at `credit_packs` for one product_type and `passes` for another (and at nothing at all for a wallet top-up,
+     * nullable since 0050), so there is no single relation to embed. A row whose product is not in the active lists (a retired pack)
+     * falls back to its generic label.
      */
     supabase
       .from("payment_transactions")
       .select(
-        "id, amount, currency, product_type, rail, channel, paystack_reference, created_at",
+        "id, amount, currency, product_type, product_id, rail, channel, paystack_reference, created_at",
       )
       .eq("user_id", profile.id)
       .eq("status", "success")
@@ -146,14 +92,11 @@ export default async function BillingPage({
 
   const paystackConfigured = !!process.env.PAYSTACK_SECRET_KEY;
 
-  /*
-   * Leads the page when true: an active-Pass holder's first impression here
-   * must be the Pass, not a possibly-zero credit balance that reads like
-   * their purchase did nothing. `activePasses` is already ordered by
-   * expires_at desc (furthest-out coverage first), matching the same choice
-   * getActivePass makes for the masthead.
-   */
-  const leadingPass = (activePasses ?? [])[0] ?? null;
+  const now = nowMs();
+  const split = splitPasses((userPasses ?? []) as unknown as UserPassRow[], now);
+  const passList = passes ?? [];
+  const packList = packs ?? [];
+  const rows = activityRows(purchases ?? [], packList, passList, split.live);
 
   /*
    * The purchase this confirmation is about: the newest successful row, which
@@ -168,27 +111,10 @@ export default async function BillingPage({
     { href: "/jobs", label: "Browse jobs" };
 
   return (
-    <div className="flex flex-col gap-10">
+    <div data-billing-page className="@container flex flex-col gap-10">
       <div>
-        <EyebrowLabel>{leadingPass ? "Your Pass" : "Talentrah Credits"}</EyebrowLabel>
-        <h1 className="mt-2 font-display text-[28px]">
-          {leadingPass
-            ? `${leadingPass.passes?.name ?? "Your Pass"} is active`
-            : `Your balance: ${profile.credits_balance} credits`}
-        </h1>
-        <p className="mt-1 text-[14.5px] text-ink-soft">
-          {leadingPass
-            ? `Tailoring, cover letters, bullet rewrites, Auto-Apply beyond ${autoApplyFreeRunsPhrase()}, and scholarship checks are covered at zero credit cost. You also have ${profile.credits_balance} credits for template unlocks and Talent Directory verification, which stay credit-only.`
-            : "Credits pay for the actions below, after any free allowance. Prices are per use."}
-        </p>
-        {/* Everything credits pay for, from CREDIT_COSTS (send-503): the old sentence named three of eleven. */}
-        {!leadingPass && (
-          <ul className="mt-3 grid max-w-[620px] list-none grid-cols-1 gap-x-8 gap-y-1 p-0 text-[13.5px] text-ink-soft sm:grid-cols-2">
-            {creditPriceList().map((entry) => (
-              <li key={entry.key}>{entry.text}</li>
-            ))}
-          </ul>
-        )}
+        <EyebrowLabel size="sm">Talentrah billing</EyebrowLabel>
+        <h1 className="mt-2 font-display text-[28px]">Billing</h1>
         {/*
           THE CONFIRMATION, rendered here rather than on the callback page.
           /billing/callback redirects here after fulfilment precisely so this
@@ -197,11 +123,7 @@ export default async function BillingPage({
 
           Built from the receipt row the page already fetched, so it names what
           was bought, for how much, and quotes the reference support would ask
-          for. The old copy said "Your credits or pass have been added",
-          hedging between two products because it had no idea which one it was
-          confirming.
-
-          `justPurchased` can be undefined if someone hits ?purchased=1 by
+          for. `justPurchased` can be undefined if someone hits ?purchased=1 by
           hand or the row is not visible yet; the banner degrades to the plain
           confirmation rather than rendering an empty receipt.
         */}
@@ -235,7 +157,7 @@ export default async function BillingPage({
             )}
             <Link
               href={purchasedNext.href}
-              className="mt-3.5 inline-flex min-h-10 items-center justify-center border-none bg-ink px-[18px] py-[10px] font-body text-[13.5px] font-semibold text-paper no-underline transition-colors hover:bg-rust"
+              className="mt-3.5 inline-flex min-h-11 items-center justify-center border-none bg-ink px-[18px] py-[10px] font-body text-[13.5px] font-semibold text-paper no-underline transition-colors hover:bg-rust"
             >
               {purchasedNext.label}
             </Link>
@@ -258,193 +180,7 @@ export default async function BillingPage({
         )}
       </div>
 
-      {(activePasses ?? []).length > 0 && (
-        <div className="flex flex-col gap-4">
-          <EyebrowLabel size="sm">Your active passes</EyebrowLabel>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {activePasses!.map((userPass) => (
-              <BorderedCard
-                key={userPass.id}
-                className="flex flex-col gap-3 p-5"
-              >
-                <h3 className="text-[17px]">
-                  {userPass.passes?.name ?? "Pass"}
-                </h3>
-                <p className="text-[13.5px] text-ink-soft">
-                  Active until{" "}
-                  {formatDate(userPass.expires_at)} · paid by{" "}
-                  {userPass.payment_method === "card"
-                    ? "card"
-                    : "mobile money / bank"}
-                </p>
-                {userPass.auto_renew_status === "active" && (
-                  <>
-                    <p className="text-[13.5px] text-ink-soft">
-                      Auto-renews on{" "}
-                      {formatDateOnly(userPass.next_renewal_date)}. You&apos;ll
-                      get a reminder before you&apos;re charged.
-                    </p>
-                    <form
-                      action={cancelAutoRenewAction.bind(null, userPass.id)}
-                    >
-                      <Button type="submit" size="sm" variant="secondary">
-                        Cancel auto-renewal
-                      </Button>
-                    </form>
-                  </>
-                )}
-                {userPass.auto_renew_status === "canceled" && (
-                  <p className="text-[13.5px] text-ink-soft">
-                    Auto-renewal canceled — access continues until it expires,
-                    then this Pass won&apos;t renew.
-                  </p>
-                )}
-                {userPass.auto_renew_status === "lapsed" && (
-                  <p className="max-w-[420px] border-[1.5px] border-rust bg-rust-soft px-3 py-2 text-[13px] text-rust">
-                    A renewal charge failed, so this Pass won&apos;t auto-renew.
-                    Buy a new one below to keep access after it expires.
-                  </p>
-                )}
-                {userPass.payment_method === "mobile_money" &&
-                  !userPass.auto_renew_status && (
-                    <p className="text-[13.5px] text-ink-soft">
-                      One-time — mobile money and bank rails don&apos;t support
-                      auto-renewal.
-                    </p>
-                  )}
-              </BorderedCard>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <div className="flex flex-col gap-4">
-        <EyebrowLabel size="sm">Credit packs</EyebrowLabel>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          {(packs ?? []).map((pack) => (
-            <BorderedCard key={pack.id} className="flex flex-col gap-3 p-5">
-              <h3 className="text-[17px]">{pack.name}</h3>
-              <p className="text-[13.5px] text-ink-soft">
-                {pack.credits} credits
-              </p>
-              {PACK_DESCRIPTION[pack.name] && (
-                <p className="text-[13px] text-ink-soft">{PACK_DESCRIPTION[pack.name]}</p>
-              )}
-              <p data-testid="credit-pack-price" className="font-display text-[24px]">
-                <NairaAmount amount={pack.price_ngn} />
-              </p>
-              <form
-                action={initiatePurchaseAction.bind(
-                  null,
-                  "credit_pack",
-                  pack.id,
-                )}
-              >
-                <Button type="submit" size="sm">
-                  Buy
-                </Button>
-              </form>
-            </BorderedCard>
-          ))}
-        </div>
-      </div>
-
-      <div className="flex flex-col gap-4">
-        <EyebrowLabel size="sm">Passes</EyebrowLabel>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          {(passes ?? []).map((pass) => (
-            <BorderedCard key={pass.id} className="flex flex-col gap-3 p-5">
-              <h3 className="text-[17px]">{pass.name}</h3>
-              <p className="text-[13.5px] text-ink-soft">
-                {PASS_HEADLINE[pass.name] ?? `Unlimited access for ${pass.duration_days} days`}
-              </p>
-              <p className="text-[13px] text-ink-soft">
-                Covers tailoring, cover letters, bullet rewrites, Auto-Apply
-                beyond {autoApplyFreeRunsPhrase()}, and scholarship eligibility
-                checks and SOP drafts — all at zero credit cost, up to{" "}
-                {PASS_DAILY_ACTION_CAP} actions a day. Template unlocks and
-                Talent Directory verification are sold separately, credits
-                only. Auto-renews if paid by card; one-time if paid by mobile
-                money.
-              </p>
-              <p className="font-display text-[24px]">
-                <NairaAmount amount={pass.price_ngn} />
-              </p>
-              <form action={initiatePurchaseAction.bind(null, "pass", pass.id)}>
-                <Button type="submit" size="sm">
-                  Buy
-                </Button>
-              </form>
-            </BorderedCard>
-          ))}
-        </div>
-      </div>
-
-      {/*
-        Purchase history. Only successful ones — a pending row is a payment
-        Paystack has not confirmed and a failed one is not a purchase, and
-        listing either under "what you have bought" would be a receipt for
-        something that did not happen.
-      */}
-      {(purchases ?? []).length > 0 && (
-        <div className="flex flex-col gap-4">
-          <EyebrowLabel size="sm">Purchase history</EyebrowLabel>
-          <div className="flex flex-col">
-            {(purchases ?? []).map((p) => (
-              <div
-                key={p.id}
-                className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-line py-3"
-              >
-                <div className="flex min-w-0 flex-col">
-                  <span className="font-body text-[14px] font-semibold text-ink">
-                    {PRODUCT_LABEL[p.product_type] ?? p.product_type}
-                  </span>
-                  <span className="font-body text-[12.5px] text-ink-soft">
-                    {formatDate(p.created_at)}
-                    {p.channel
-                      ? ` · ${p.channel}`
-                      : p.rail
-                        ? ` · ${p.rail}`
-                        : ""}
-                  </span>
-                </div>
-                <div className="flex flex-col items-end">
-                  <span className="font-display text-[16px] text-ink">
-                    <NairaAmount amount={p.amount} />
-                  </span>
-                  {/*
-                    The receipt NUMBER is the short one the confirmation email
-                    quotes ("CP-678586C1", send-503); the full Paystack
-                    reference is kept under "Payment reference" for support,
-                    which is what they actually search by.
-                  */}
-                  {p.paystack_reference && (
-                    <>
-                      <span className="font-body text-[11.5px] text-ink-soft">
-                        {`Receipt ${receiptNumber(p.product_type, p.paystack_reference)}`}
-                      </span>
-                      <PaymentReference reference={p.paystack_reference} />
-                    </>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-          <p className="font-display text-[12.5px] italic text-ink-soft">
-            Showing your ten most recent purchases.
-          </p>
-        </div>
-      )}
+      <BillingContent balance={profile.credits_balance} packs={packList} passes={passList} split={split} rows={rows} now={now} />
     </div>
-  );
-}
-
-/** The full Paystack reference, kept for support behind a disclosure so the page shows the short receipt number first. */
-function PaymentReference({ reference }: { reference: string }) {
-  return (
-    <details className="font-body text-[11.5px] text-ink-soft">
-      <summary className="cursor-pointer">Payment reference</summary>
-      <code className="break-all text-[11px]">{reference}</code>
-    </details>
   );
 }
