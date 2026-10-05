@@ -19,23 +19,21 @@ import { test, expect } from "@playwright/test";
  */
 test("check-email page guides a possibly-returning user without revealing account existence", async ({
   page,
+  context,
+  baseURL,
 }) => {
-  await page.goto("/signup/check-email?email=someone%40talentrah.dev");
+  // The address reaches the page in the pending-signup cookie the signup action sets (S1-101), never in the URL. Same format as the codec's.
+  const value = Buffer.from(JSON.stringify({ e: "someone@talentrah.dev", r: "", t: Date.now() - 120_000 })).toString("base64url");
+  await context.addCookies([{ name: "tr_signup_pending", value, url: new URL("/signup", baseURL!).toString() }]);
+  await page.goto("/signup/check-email");
 
-  await expect(page.getByText("someone@talentrah.dev")).toBeVisible();
+  // Shown masked, never in full.
+  await expect(page.getByText("s••••@talentrah.dev")).toBeVisible();
+  await expect(page.getByText("someone@talentrah.dev")).toHaveCount(0);
 
-  await expect(
-    page.getByText(/we've sent a confirmation link/i),
-  ).toBeVisible();
+  await expect(page.getByText(/we've sent a 6-digit code/i)).toBeVisible();
 
-  // One sentence now, not two paragraphs — but it still says both things
-  // without branching on which is true: activate a new account, or nothing
-  // new goes out for one that already exists.
-  await expect(
-    page.getByText(/if you already have one here, no new email goes out/i),
-  ).toBeVisible();
-  await expect(page.getByRole("link", { name: "Log in" })).toHaveAttribute(
-    "href",
-    "/login",
-  );
+  // Still says both things without branching on which is true: enter the code for a new account, or nothing new goes out for one that already exists.
+  await expect(page.getByText(/if you already have an account here, no code goes out/i)).toBeVisible();
+  await expect(page.getByRole("link", { name: "Log in" })).toHaveAttribute("href", "/login");
 });

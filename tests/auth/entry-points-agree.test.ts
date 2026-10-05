@@ -122,6 +122,8 @@ describe("no entry point carries a destination of its own", () => {
     "signInAction",
     "signUpAction",
     "updatePasswordAction",
+    // Signing up with the emailed six-digit code (S1-101) hands over a live session too, so it routes through the same helper.
+    "verifySignupCodeAction",
   ] as const;
 
   it.each(POST_AUTH_FUNCTIONS)("%s does not send an authenticated user to /jobs", (fn) => {

@@ -74,3 +74,41 @@ export async function consumeResendRateLimit(
   if (!ipOutcome.allowed) return ipOutcome;
   return emailOutcome;
 }
+
+/**
+ * The daily budget as a READ, and a separate write after a send (signup-code resend, S1-101). `consumeResendRateLimit` above spends a slot BEFORE the send, so a
+ * send that Supabase then refuses has already used one of the five. The code page's resend wants the opposite: only a send that actually went out costs budget.
+ * That is safe here (the check-then-act gap cannot be used to flood an inbox) because the atomic one-per-minute pause (code-resend-cooldown.ts) is taken first,
+ * so two resends for one address can never be in flight together. Same buckets and keys as `consumeResendRateLimit`, so the two share one daily budget.
+ */
+async function usedToday(key: string, bucket: keyof typeof RESEND_RATE_LIMITS): Promise<number | null> {
+  const { windowSeconds } = RESEND_RATE_LIMITS[bucket];
+  const startSeconds = Math.floor(Date.now() / 1000 / windowSeconds) * windowSeconds;
+  const { data, error } = await createServiceRoleClient()
+    .from("anonymous_rate_limits")
+    .select("request_count")
+    .eq("rate_key", key)
+    .eq("bucket", bucket)
+    .eq("window_start", new Date(startSeconds * 1000).toISOString())
+    .maybeSingle();
+  if (error) {
+    console.error(`[resend-rate-limit] ${bucket} count unreadable, denying`);
+    return null;
+  }
+  return data?.request_count ?? 0;
+}
+
+/** Is there daily budget left for this address and this IP? Reads only: nothing is spent. Fails closed (allowed: false, readable: false) when it cannot read. */
+export async function resendBudgetLeft(email: string, ip: string | null): Promise<{ allowed: boolean; readable: boolean }> {
+  const emailUsed = await usedToday(email.toLowerCase(), "resendEmail");
+  const ipUsed = ip ? await usedToday(ip, "resendIp") : 0;
+  if (emailUsed === null || ipUsed === null) return { allowed: false, readable: false };
+  const allowed = emailUsed < RESEND_RATE_LIMITS.resendEmail.limit && ipUsed < RESEND_RATE_LIMITS.resendIp.limit;
+  return { allowed, readable: true };
+}
+
+/** Spends one slot of each daily bucket, for a send that went out. Never throws. */
+export async function recordResendSent(email: string, ip: string | null): Promise<void> {
+  await consume(email.toLowerCase(), "resendEmail");
+  if (ip) await consume(ip, "resendIp");
+}

@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { onboardingDestination, ONBOARDING_PATH } from "./redirect-to";
+import { onboardingDestination, ONBOARDING_PATH, POST_AUTH_COOKIE, safeRedirectTo } from "./redirect-to";
 import { headers, cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
@@ -13,14 +13,34 @@ import {
   resetPasswordSchema,
   emailSchema,
 } from "./schemas";
-import { consumeResendRateLimit } from "./resend-rate-limit";
+import { consumeResendRateLimit, recordResendSent, resendBudgetLeft } from "./resend-rate-limit";
 import { consumeSignupRateLimit } from "./signup-rate-limit";
 import { consumeLoginRateLimit } from "@/lib/security/login-rate-limit";
-import { getRequestIp } from "@/lib/security/request-ip";
+import { getRequestIp, getTrustedClientIp } from "@/lib/security/request-ip";
 import type { ResendState } from "./resend-state";
 import { captureEvent } from "@/lib/analytics/posthog";
 import { stashPostAuthDestination } from "./post-auth-destination";
 import { passwordRefusal } from "./password-errors";
+import { clearSignupPending, readSignupPending, setSignupPending } from "./signup-pending";
+import { CODE_RESEND_COOLDOWN_SECONDS, cooldownSecondsLeft } from "./signup-pending-codec";
+import { isCompleteCode, normalizeCodeInput } from "./code-input";
+import { gateCodeAttempt, recordFailedCodeAttempt } from "./code-attempt-limit";
+import { consumeCodeResendCooldown } from "./code-resend-cooldown";
+import {
+  CODE_ENDED,
+  CODE_FORMAT,
+  CODE_SERVICE_TROUBLE,
+  CODE_WRONG_OR_EXPIRED,
+  RESEND_GENERIC_ERROR as CODE_RESEND_GENERIC_ERROR,
+  RESEND_RATE_LIMITED as CODE_RESEND_RATE_LIMITED,
+  RESEND_PROVIDER_LIMITED,
+  RESEND_SENT,
+  codeRateLimitedMessage,
+  providerPauseSeconds,
+  resendCooldownMessage,
+} from "./code-messages";
+import type { CodeFormState, ResendCodeState } from "./code-state";
+import { redactEmail } from "./redact-email";
 
 export interface AuthActionState {
   error: string | null;
@@ -139,7 +159,11 @@ export async function signUpAction(
   // src/lib/auth/require-user.ts) is what actually restricts sensitive
   // actions later. Handle both cases rather than assuming.
   if (!data.session) {
-    redirect(`/signup/check-email?email=${encodeURIComponent(email)}`);
+    // The address goes to the code page in an httpOnly cookie, never in the URL (S1-101): the page is a bare /signup/check-email.
+    await setSignupPending({ email, redirectTo: safeRedirectTo(formData.get("redirectTo"), ""), issuedAt: Date.now() });
+    // This signup just caused an email to go out, so it takes the first slot of the address's minute: a resend right after is held by the server too.
+    await consumeCodeResendCooldown(email);
+    redirect("/signup/check-email");
   }
 
   /*
@@ -148,6 +172,103 @@ export async function signUpAction(
    * onboarding can hand them on at the end.
    */
   redirect(onboardingDestination(formData.get("redirectTo")));
+}
+
+/**
+ * Check the six-digit code from the signup email (S1-101), instead of a click on the link. On success it does what /auth/callback does after a link: the
+ * session cookies are set (verifyOtp, through the same server client), the stashed destination is cleared, and the person goes to
+ * onboardingDestination(...) like every other way in. Nothing else runs after confirmation: the profile and the referral were created at signUp() time by
+ * handle_new_user. The address comes from the pending cookie, never from the form or a URL.
+ *
+ * One message for a wrong code, an expired one and an address with no account (Supabase answers the same for all three, on purpose). Only a code Supabase
+ * REJECTED counts toward the attempt limit (src/lib/auth/code-attempt-limit.ts); a Supabase outage or its own rate limit does not.
+ */
+export async function verifySignupCodeAction(_prev: CodeFormState, formData: FormData): Promise<CodeFormState> {
+  const code = normalizeCodeInput(formData.get("code"));
+  const fail = (patch: Partial<CodeFormState>): CodeFormState => ({ status: "error", message: null, fieldError: null, code, ended: false, ...patch });
+
+  const pending = await readSignupPending();
+  if (!pending) return fail({ message: CODE_ENDED, ended: true });
+  if (!isCompleteCode(code)) return fail({ fieldError: CODE_FORMAT });
+
+  // The platform's client IP, never the leftmost x-forwarded-for entry (a caller can write that one).
+  const ip = await getTrustedClientIp();
+  const gate = await gateCodeAttempt(pending.email, ip);
+  if (!gate.allowed) return fail({ message: codeRateLimitedMessage(gate.resetsAt, Date.now()) });
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.auth.verifyOtp({ email: pending.email, token: code, type: "email" });
+
+  if (error) {
+    if (error.status === 429) return fail({ message: codeRateLimitedMessage(null, Date.now()) });
+    // No status at all (a dropped connection, status 0) or a 5xx is trouble on the way, not a wrong guess.
+    if (!error.status || error.status >= 500) {
+      console.error("[verify-signup-code] could not check the code:", redactEmail(error.message, pending.email));
+      return fail({ message: CODE_SERVICE_TROUBLE });
+    }
+    await recordFailedCodeAttempt(pending.email, ip);
+    return fail({ message: CODE_WRONG_OR_EXPIRED });
+  }
+  if (!data.session) {
+    console.error("[verify-signup-code] the code was accepted but no session came back");
+    return fail({ message: CODE_SERVICE_TROUBLE });
+  }
+
+  await clearSignupPending();
+  // The link flow's own stash (/auth scope) is finished with too: left behind it would send a later OAuth sign-in to a stale destination.
+  (await cookies()).delete({ name: POST_AUTH_COOKIE, path: "/auth" });
+  redirect(onboardingDestination(pending.redirectTo));
+}
+
+/**
+ * Send a new code, from /signup/check-email. The address is read from the pending cookie (it is never an argument, so it is never in the page's own data).
+ * Same call and same daily limits as the link resend below; plus a one-minute cooldown, enforced here as well as shown in the page.
+ */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- useActionState passes (previousState, formData); this action needs neither: the address and the clock come from the cookie
+export async function resendSignupCodeAction(_prev: ResendCodeState, _formData: FormData): Promise<ResendCodeState> {
+  const pending = await readSignupPending();
+  if (!pending) return { status: "error", message: CODE_ENDED, cooldownSeconds: null, ended: true };
+
+  // The cookie's clock is only the quick, friendly check: the cookie is unsigned and a caller can clear it or write one that says "sent long ago".
+  const wait = cooldownSecondsLeft(pending.issuedAt, Date.now());
+  if (wait > 0) return { status: "error", message: resendCooldownMessage(wait), cooldownSeconds: wait, ended: false };
+
+  // The server's own minute, per address, is what actually holds a resend (src/lib/auth/code-resend-cooldown.ts).
+  const cooldown = await consumeCodeResendCooldown(pending.email);
+  if (!cooldown.allowed) {
+    if (cooldown.secondsLeft === null) return { status: "error", message: CODE_RESEND_GENERIC_ERROR, cooldownSeconds: null, ended: false };
+    return { status: "error", message: resendCooldownMessage(cooldown.secondsLeft), cooldownSeconds: cooldown.secondsLeft, ended: false };
+  }
+
+  // The daily per-address budget is READ here and spent only after a send went out, so a send Supabase refuses costs none of it.
+  const ip = await getTrustedClientIp();
+  const budget = await resendBudgetLeft(pending.email, ip);
+  if (!budget.readable) return { status: "error", message: CODE_RESEND_GENERIC_ERROR, cooldownSeconds: null, ended: false };
+  if (!budget.allowed) return { status: "error", message: CODE_RESEND_RATE_LIMITED, cooldownSeconds: null, ended: false };
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.resend({ type: "signup", email: pending.email });
+  if (error) {
+    console.error("[resend-signup-code] failed:", redactEmail(error.message, pending.email));
+    if (error.status === 429) {
+      // Supabase's OWN refusal, not our daily budget: its pause between emails to one address ("you can only request this after N seconds") is a countdown
+      // like ours; its hourly cap on emails is not, and is said plainly.
+      const wait = providerPauseSeconds(error.message);
+      if (wait !== null) return { status: "error", message: resendCooldownMessage(wait), cooldownSeconds: wait, ended: false };
+      return { status: "error", message: RESEND_PROVIDER_LIMITED, cooldownSeconds: null, ended: false };
+    }
+    return { status: "error", message: CODE_RESEND_GENERIC_ERROR, cooldownSeconds: null, ended: false };
+  }
+
+  await recordResendSent(pending.email, ip);
+  await setSignupPending({ ...pending, issuedAt: Date.now() });
+  return { status: "success", message: RESEND_SENT, cooldownSeconds: CODE_RESEND_COOLDOWN_SECONDS, ended: false };
+}
+
+/** "Wrong address?": forget the pending signup and go back to the form. */
+export async function startOverSignupAction(): Promise<void> {
+  await clearSignupPending();
+  redirect("/signup");
 }
 
 /**
