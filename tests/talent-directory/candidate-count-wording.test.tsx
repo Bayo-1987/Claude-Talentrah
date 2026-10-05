@@ -43,7 +43,7 @@ describe("the sentence below the threshold (not joined)", () => {
 
 describe("the sentence below the threshold (already on the waitlist)", () => {
   it.each(ROWS.filter(([n]) => n < 10))("N = %i", (n, phrase, verb) => {
-    expect(text(render(n, true))).toContain(`${phrase} ${verb} listed so far. We'll tell you when 10+ are listed. Nothing to pay.`);
+    expect(text(render(n, true))).toContain(`${phrase} ${verb} listed so far. We'll tell you when 10+ are listed. Free while you wait. We'll tell you about pricing before anything is charged.`);
   });
 });
 
