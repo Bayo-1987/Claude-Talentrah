@@ -285,9 +285,13 @@ describe("re-posting a VERIFIED listing", () => {
     await upsertScholarships([{ ...one, applicationDeadline: "2026-11-01" }]);
     expect((await rowFor(fingerprint))?.moderation_status).toBe("pending");
 
-    const { setModerationStatus } = await import("@/lib/scholarships/ingest");
     const row = await rowFor(fingerprint);
-    await setModerationStatus(row!.id, "verified", "Re-checked after the deadline moved.");
+    // Re-verify as the removed helper did (status, note, time), straight through the service-role client.
+    const { error: verifyError } = await admin
+      .from("scholarships")
+      .update({ moderation_status: "verified", moderation_note: "Re-checked after the deadline moved.", moderated_at: new Date().toISOString() })
+      .eq("id", row!.id);
+    if (verifyError) throw verifyError;
 
     expect((await rowFor(fingerprint))?.moderation_status).toBe("verified");
   });

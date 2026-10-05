@@ -8,6 +8,8 @@ import {
   initialContactActionState,
 } from "@/lib/contact/schemas";
 import { TextField, SelectField, Button } from "@/components/ui";
+import { TextArea } from "@/components/ui/text-area";
+import { FIELD_LIMITS } from "@/lib/text-limits";
 
 export function ContactForm() {
   const [state, formAction, pending] = useActionState(
@@ -72,24 +74,14 @@ export function ContactForm() {
         required
         error={state.fieldErrors?.topic?.[0]}
       />
-      <div className="flex flex-col gap-1.5">
-        <label
-          htmlFor="message"
-          className="font-body text-[13px] font-semibold text-ink-soft"
-        >
-          Message
-        </label>
-        <textarea
-          id="message"
-          name="message"
-          rows={6}
-          required
-          className="border-[1.5px] border-ink bg-card px-3.5 py-2.5 font-body text-[15px] text-ink outline-none focus:border-rust"
-        />
-        {state.fieldErrors?.message?.[0] && (
-          <p className="text-[12.5px] text-rust">{state.fieldErrors.message[0]}</p>
-        )}
-      </div>
+      <TextArea
+        label="Message"
+        name="message"
+        minRows={6}
+        required
+        limit={FIELD_LIMITS.contactMessage}
+        error={state.fieldErrors?.message?.[0]}
+      />
 
       <Button type="submit" disabled={pending} className="mt-1 self-start">
         {pending ? "Sending…" : "Send message"}

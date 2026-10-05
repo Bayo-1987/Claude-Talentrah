@@ -1,5 +1,6 @@
 import type { MatchExplanation } from "@/lib/matching/score";
 import { hasNoScreenableSkills, isThinScreenableTagSet } from "@/lib/match-tier";
+import { describeSeniorityAlignment, type SeniorityPerspective } from "@/lib/matching/seniority-words";
 
 /**
  * Stage 8's display-only first step: sub-scores instead of one opaque number. Both already exist in every score this app
@@ -18,9 +19,20 @@ import { hasNoScreenableSkills, isThinScreenableTagSet } from "@/lib/match-tier"
  * NO SCORING CHANGE. This reads the same `MatchExplanation` the score and `fitSummary`/`gapSkills` (vet-summary.ts) already
  * read: a second rendering of existing data, not a new computation. NOT A FOURTH TIER: no match-tier color appears here.
  */
-export function MatchBreakdown({ explanation, showRoleFit = false }: { explanation: MatchExplanation; showRoleFit?: boolean }) {
+export function MatchBreakdown({
+  explanation,
+  showRoleFit = false,
+  perspective = "seeker",
+}: {
+  explanation: MatchExplanation;
+  showRoleFit?: boolean;
+  /** Whose side the words are written from: the job seeker (the default: job card, job page) or the employer (the applicants page). */
+  perspective?: SeniorityPerspective;
+}) {
   const matched = explanation.matchedSkills.length;
   const total = matched + explanation.missingSkills.length;
+  // The wording (and which way the role sits relative to the user) comes from seniority-words.ts; null (unknown) renders no cell.
+  const seniorityLabel = describeSeniorityAlignment(explanation.seniorityAlignment, perspective).label;
 
   return (
     <div className="flex border-y border-line py-2.5 text-[12.5px]">
@@ -29,21 +41,13 @@ export function MatchBreakdown({ explanation, showRoleFit = false }: { explanati
         value={`${matched} of ${total} tag${total === 1 ? "" : "s"}`}
         sub={skillCoverageSub(matched, total, explanation.matchedSkills)}
       />
-      {explanation.seniorityAlignment !== "unknown" && (
-        <BreakdownItem label="Seniority" value={SENIORITY_VALUE_LABEL[explanation.seniorityAlignment]} />
-      )}
+      {seniorityLabel && <BreakdownItem label="Seniority" value={seniorityLabel} />}
       {showRoleFit && explanation.roleFit && explanation.roleFit !== "unknown" && (
         <BreakdownItem label="Role fit" value={ROLE_FIT_VALUE_LABEL[explanation.roleFit]} />
       )}
     </div>
   );
 }
-
-const SENIORITY_VALUE_LABEL: Record<Exclude<MatchExplanation["seniorityAlignment"], "unknown">, string> = {
-  match: "Match",
-  above: "Above",
-  below: "Below",
-};
 
 /**
  * A2: the role-family check (role-fit.ts). Only the three words, and no cell when either the job or the resume classifies as

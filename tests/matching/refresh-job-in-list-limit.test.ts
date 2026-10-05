@@ -101,7 +101,18 @@ function makeFake(opts: FakeOptions) {
           rows.length,
         );
       }
-      for (const r of rows) written.set(`${r.user_id}|${r.job_posting_id}`, r.score);
+      // PostgREST semantics the refresh now relies on: `Prefer: resolution=ignore-duplicates` is INSERT ... ON CONFLICT DO NOTHING (an existing
+      // row is kept), and `Prefer: return=representation` (what `.select()` after an upsert sends) answers with the rows actually INSERTED.
+      const prefer = new Headers(init?.headers).get("prefer") ?? "";
+      const ignoreDuplicates = prefer.includes("resolution=ignore-duplicates");
+      const inserted: Array<{ job_posting_id: string }> = [];
+      for (const r of rows) {
+        const key = `${r.user_id}|${r.job_posting_id}`;
+        if (ignoreDuplicates && written.has(key)) continue;
+        written.set(key, r.score);
+        inserted.push({ job_posting_id: r.job_posting_id });
+      }
+      if (prefer.includes("return=representation")) return respond(json(inserted, 201), rows.length);
       return respond(new Response(null, { status: 201 }), rows.length);
     }
 
