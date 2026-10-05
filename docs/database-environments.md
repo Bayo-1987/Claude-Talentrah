@@ -42,6 +42,7 @@ one morning by two sessions that each did exactly that. Ask, wait for the number
 | 0224 | S3-21, `mentorship_sessions` column privileges (assigned by the owner on 4 Oct 2026; file not yet pushed) | reserved | reserved |
 | 0225 | S3-21, mentor_profiles column privileges (assigned by the owner on 4 Oct 2026; supabase/migrations/0225_mentor_profiles_column_grants.sql, sha256 b9f1a1fc85d3cbb0a4770028a6a9c67010f42eabe47d2222d31697bc4f69459c; file not yet pushed) | reserved; applied 05:48Z (5 Oct), file lands with its PR | reserved |
 | 0226 | S1, job_postings review-column privileges and feedback length limits (assigned by the owner on 4 Oct 2026; file not yet pushed) | reserved | reserved |
+| 0234 | S1, VERIFY-1 step 0a-2: review date and review type on `employer_job_applicants`, and review type on `talent_directory_search` (assigned by the owner on 5 Oct 2026; `supabase/migrations/0234_review_date_and_type_on_applicants_and_search.sql`, sha256 `ef94f45ec91633c9f352f19291c57a684ed4d9a0007a1cbadbcb0e43e2df7a00`; additive, applies before its PR merges; the hash is the author's, not yet approved) | file in the PR, not applied | file in the PR, not applied |
 
 The times are the ledger's own version stamps (UTC, 2 to 4 Oct 2026), read from `supabase_migrations.schema_migrations` on both projects. A row says "applied" only because
 that ledger shows it; "reserved" means the owner assigned the number and no ledger has it; "proposed" means the owner named the number but the migration file does not exist yet.
