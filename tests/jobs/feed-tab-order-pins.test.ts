@@ -10,11 +10,22 @@
  * 75 on Recommended; now an Excellent non-thin job outranks any Good one however old it is (within the 30-day window), which
  * is what "bands first" means. A freshness-over-band rule would be a different design.
  */
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { sortFeedResults } from "@/lib/jobs/ranking";
 import type { ScoredJob } from "@/lib/matching/compute-and-store";
 
 const NOW = new Date("2026-10-02T12:00:00Z").getTime();
+const PINNED_NOW = NOW;
+
+// The code under test reads the real clock (Date.now(), new Date()), and this file's dates are fixed (every posting age is counted back from NOW, 2026-10-02T12:00Z): with the real clock the answers change as the calendar moves.
+// Only Date is faked (timers and promises are untouched), and it is restored after every test.
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(PINNED_NOW);
+});
+afterEach(() => {
+  vi.useRealTimers();
+});
 const DAY = 24 * 60 * 60 * 1000;
 const daysAgo = (n: number) => new Date(NOW - n * DAY).toISOString();
 
