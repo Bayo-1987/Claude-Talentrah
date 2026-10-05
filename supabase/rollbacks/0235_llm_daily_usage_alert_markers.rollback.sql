@@ -1,10 +1,9 @@
 -- ROLLBACK for 0235 (the two operator-alert markers on the daily LLM usage counter). Not a migration: kept beside the file it undoes, outside supabase/migrations so nothing that reads migrations ever applies it.
 -- It is only needed if the alert code is reverted AND someone wants the two-bucket list back; leaving 0235 in place is harmless (a wider list that nothing writes to).
--- Run it as `postgres` in the SQL Editor. To keep the schema ledger honest, record it as a NEW migration (do not delete 0235's ledger row).
+-- Run it as `postgres` in the SQL Editor, as one multi-statement query (one implicit transaction: a failure anywhere rolls the whole script back, so there is no explicit begin or commit). To keep the schema ledger honest, record it as a NEW migration (do not delete 0235's ledger row).
 -- It deletes the rows of the two marker buckets first (they are call counts, not money, and exist only to say "someone already sent today's alert"); the CHECK could not be put back while they exist.
 -- Order matters: take the alert code off first (nothing may be writing the new buckets while this runs, or the CHECK is refused and the whole script stops, which is safe).
 
-begin;
 set local lock_timeout = '2s';
 set local statement_timeout = '20s';
 
@@ -59,4 +58,3 @@ begin
 end
 $check$;
 
-commit;
