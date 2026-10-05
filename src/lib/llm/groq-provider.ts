@@ -165,6 +165,7 @@ export class GroqProvider implements LLMProvider {
     jsonSchema,
     onFinish,
     onUsage,
+    signal,
   }: LLMGenerateOptions): AsyncGenerator<string> {
     const client = getGroqClient();
 
@@ -183,14 +184,17 @@ export class GroqProvider implements LLMProvider {
     ];
 
     try {
-      const stream = await client.chat.completions.create({
-        model: GROQ_MODEL,
-        messages,
-        max_tokens: maxOutputTokens,
-        reasoning_effort: REASONING_EFFORT,
-        stream: true,
-        ...(jsonSchema ? { response_format: { type: "json_object" as const } } : {}),
-      });
+      const stream = await client.chat.completions.create(
+        {
+          model: GROQ_MODEL,
+          messages,
+          max_tokens: maxOutputTokens,
+          reasoning_effort: REASONING_EFFORT,
+          stream: true,
+          ...(jsonSchema ? { response_format: { type: "json_object" as const } } : {}),
+        },
+        signal ? { signal } : undefined,
+      );
 
       let finishReason: string | null = null;
       let usage: LLMUsage | null = null;
@@ -201,6 +205,8 @@ export class GroqProvider implements LLMProvider {
         const delta = choice?.delta?.content;
         if (delta) yield delta;
       }
+      // The SDK ends a stream quietly when its request was aborted. That is not a finished reply: say so, or the caller would treat the partial text as complete.
+      if (signal?.aborted) throw new Error("The request was cancelled.");
       // `length` is the model hitting max_tokens: the reply is cut off. Reasoning tokens count toward that same
       // budget (REASONING_EFFORT above), so a reply can be cut short even when the visible text is not long.
       if (finishReason) onFinish?.(finishReason === "stop" ? "stop" : finishReason === "length" ? "length" : "other");

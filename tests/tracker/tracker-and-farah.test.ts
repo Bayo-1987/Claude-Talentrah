@@ -639,7 +639,7 @@ describe("Farah's rate limit and message bounds", () => {
     // Exact boundary, since an off-by-one here is invisible until a user hits
     // it. 2000 is accepted by the schema, 2001 is what the route rejects.
     const a = sharedOwner;
-    const { error: ok } = await a.client
+    const { error: ok } = await admin
       .from("farah_messages")
       .insert({ user_id: a.id, role: "user", content: "x".repeat(2000) });
     expect(ok, "exactly 2000 characters must be storable").toBeNull();
