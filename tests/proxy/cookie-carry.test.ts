@@ -33,7 +33,7 @@ beforeAll(async () => {
   vi.stubEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY", "anon");
 });
 afterAll(async () => { vi.unstubAllEnvs(); await fake.close(); });
-beforeEach(() => { calls.updateSession = 0; fake.failUser = false; fake.ttl = 3600; fake.requests.length = 0; });
+beforeEach(() => { calls.updateSession = 0; fake.failUser = false; fake.ttl = 3600; fake.appMetadata = {}; fake.requests.length = 0; });
 
 /** Signs in through the real ssr client and returns the jar a browser would hold. `ttl` < 0 stores an already-expired access token. */
 async function signedInJar(ttl = 3600): Promise<CookieJar> {
@@ -89,6 +89,41 @@ describe("a protected page", () => {
     jar.apply(res);
     expect(jar.header(), "the browser must end up holding the rotated session, not the old one").not.toBe(oldCookies);
     expect(jar.m.size).toBeGreaterThan(0);
+  });
+});
+
+describe("a session scheduled for deletion (ACCT-1): the gate's redirect and its 403 carry the refreshed cookies too", () => {
+  it("expired access token, valid refresh token, flagged account: the page redirect to the prompt carries the NEW session cookie", async () => {
+    fake.appMetadata = { deletion_pending: true };
+    const jar = await signedInJar(-100);
+    const before = jar.header();
+    const res = await hit(jar, "/billing");
+    expect(res.status).toBe(307);
+    expect(res.headers.get("location")).toContain("/settings/account-deletion");
+    expect(fake.requests.filter((r) => r.path === "/auth/v1/token" && r.query.includes("refresh_token")), "a refresh did happen").toHaveLength(1);
+    jar.apply(res);
+    expect(jar.header(), "the browser must end up holding the rotated session, not the old one").not.toBe(before);
+    expect(jar.m.size).toBeGreaterThan(0);
+  });
+
+  it("the same for an API call: a 403 JSON, with the refreshed cookies", async () => {
+    fake.appMetadata = { deletion_pending: true };
+    const jar = await signedInJar(-100);
+    const before = jar.header();
+    const res = await hit(jar, "/api/anything");
+    expect(res.status).toBe(403);
+    jar.apply(res);
+    expect(jar.header()).not.toBe(before);
+  });
+
+  it("the prompt itself is exempt, and still carries the refreshed cookies (it must not be a path that drops them)", async () => {
+    fake.appMetadata = { deletion_pending: true };
+    const jar = await signedInJar(-100);
+    const before = jar.header();
+    const res = await hit(jar, "/settings/account-deletion");
+    expect(res.status).toBe(200);
+    jar.apply(res);
+    expect(jar.header()).not.toBe(before);
   });
 });
 
@@ -160,6 +195,12 @@ describe("source: no redirect leaves proxy.ts without the refreshed cookies", ()
     for (const m of redirects) {
       expect(outsideAdminGate.slice(Math.max(0, m.index! - 40), m.index!), "a bare redirect drops the refreshed cookies").toContain("carryCookies(");
     }
+  });
+
+  it("the pending-deletion gate copies cookies with carryCookies, not a loop of its own (one definition of how a Set-Cookie is carried)", () => {
+    const gate = readFileSync(path.join(__dirname, "../../src/lib/auth/pending-deletion-gate.ts"), "utf8").replace(/^\s*\/?\*.*$/gm, "").replace(/^\s*\/\/.*$/gm, "");
+    expect(gate).toContain("carryCookies(");
+    expect(gate, "a hand-rolled copy of the Set-Cookie headers").not.toMatch(/getSetCookie\(\)/);
   });
 
   it("touchLastActive builds its own token-only client (no persistence, no auto-refresh) and never touches the session-bound one", () => {
