@@ -61,7 +61,7 @@ export async function runTalentDirectoryBoostPurchase(userId: string): Promise<B
   if (eligible?.talent_verification_status !== "verified" || !eligible?.talent_directory_opt_in) {
     return {
       status: "error",
-      message: "You need to be verified and listed in the directory before boosting your placement.",
+      message: "You need a reviewed resume and a directory listing before boosting your placement.",
     };
   }
 

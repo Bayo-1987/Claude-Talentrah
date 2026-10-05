@@ -37,10 +37,10 @@ export function DecideForm({ verificationId, candidateId }: { verificationId: st
 
       <div className="flex gap-3">
         <Button type="submit" name="decision" value="verified" variant="primary" disabled={pending}>
-          Mark verified
+          Resume holds up
         </Button>
         <Button type="submit" name="decision" value="rejected" variant="secondary" disabled={pending}>
-          Not verified
+          Needs changes
         </Button>
       </div>
 

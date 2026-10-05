@@ -28,8 +28,7 @@ const row = (id: string, alignment: Alignment): ApplicantRow => ({
   resume_id: null,
   status: "applied" as ApplicantRow["status"],
   explanation: { matchedSkills: ["sql"], missingSkills: ["aws"], seniorityAlignment: alignment },
-  talentVerificationStatus: "unverified",
-  talentVerificationScore: null,
+  resumeReview: null,
   screeningPassed: null,
 });
 const decode = (html: string) => html.replace(/&#x27;/g, "'").replace(/&amp;/g, "&");

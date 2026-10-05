@@ -51,7 +51,7 @@ export async function runTalentVerification(userId: string): Promise<Verificatio
   if (!claimed) {
     return {
       status: "error",
-      message: "A verification attempt is already pending, or you're already verified.",
+      message: "A resume review is already pending, or your resume has already been reviewed.",
     };
   }
 
@@ -153,8 +153,8 @@ export async function runTalentVerification(userId: string): Promise<Verificatio
   return {
     status: "success",
     message: grade.passed
-      ? "Verified — you're now eligible to list yourself in the directory."
-      : "Not verified this time. See the feedback below and try again once you've updated your resume.",
+      ? "Resume reviewed — you're now eligible to list yourself in the directory."
+      : "This review found things to fix. See the feedback below and try again once you've updated your resume.",
     score: grade.score,
     passed: grade.passed,
   };
@@ -194,7 +194,7 @@ export async function runTalentVerificationHumanReview(
   if (!claimed) {
     return {
       status: "error",
-      message: "A verification attempt is already pending, or you're already verified.",
+      message: "A resume review is already pending, or your resume has already been reviewed.",
     };
   }
 

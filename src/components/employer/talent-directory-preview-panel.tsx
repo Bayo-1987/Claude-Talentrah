@@ -6,7 +6,7 @@ import {
   isAre,
   isSubscriptionOpen,
   listedProgress,
-  verifiedCandidates,
+  candidatesWithReviewedResume,
   WAITLIST_FREE_NOTE,
   type PreviewSample,
   type TalentDirectoryPreview,
@@ -65,9 +65,9 @@ export function TalentDirectoryPreviewPanel({
       <BorderedCard className="flex flex-col gap-4 p-6">
         {open ? (
           <>
-            <p className="text-[14.5px] font-semibold text-ink">{`${verifiedCandidates(preview.count)} ${isAre(preview.count)} listed.`}</p>
+            <p className="text-[14.5px] font-semibold text-ink">{`${candidatesWithReviewedResume(preview.count)} ${isAre(preview.count)} listed.`}</p>
             <p className="text-[14.5px] text-ink-soft">
-              Subscribe to search verified, opted-in seekers by availability and remote-readiness.
+              Subscribe to search opted-in seekers with a reviewed resume by availability and remote-readiness.
             </p>
             {plans.map((plan) => (
               <form key={plan.id} action={purchaseAction.bind(null, plan.id)}>
@@ -82,7 +82,7 @@ export function TalentDirectoryPreviewPanel({
             <p className="text-[14.5px] font-semibold text-ink">{`You're on the waitlist.`}</p>
             <ListedProgress count={preview.count} />
             <p className="text-[14.5px] text-ink-soft">
-              {`${verifiedCandidates(preview.count)} ${isAre(preview.count)} listed so far. We'll tell you when ${TALENT_DIRECTORY_MIN_LISTED}+ are listed. ${WAITLIST_FREE_NOTE}`}
+              {`${candidatesWithReviewedResume(preview.count)} ${isAre(preview.count)} listed so far. We'll tell you when ${TALENT_DIRECTORY_MIN_LISTED}+ are listed. ${WAITLIST_FREE_NOTE}`}
             </p>
           </>
         ) : (
