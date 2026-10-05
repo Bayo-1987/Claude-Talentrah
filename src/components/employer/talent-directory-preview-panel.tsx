@@ -3,7 +3,9 @@ import {
   TALENT_DIRECTORY_MAX_SAMPLES,
   TALENT_DIRECTORY_MIN_LISTED,
   buildingTheDirectoryMessage,
+  isAre,
   isSubscriptionOpen,
+  verifiedCandidates,
   type PreviewSample,
   type TalentDirectoryPreview,
 } from "@/lib/talent-directory/preview";
@@ -61,7 +63,7 @@ export function TalentDirectoryPreviewPanel({
       <BorderedCard className="flex flex-col gap-4 p-6">
         {open ? (
           <>
-            <p className="text-[14.5px] font-semibold text-ink">{`${preview.count} verified candidates are listed.`}</p>
+            <p className="text-[14.5px] font-semibold text-ink">{`${verifiedCandidates(preview.count)} ${isAre(preview.count)} listed.`}</p>
             <p className="text-[14.5px] text-ink-soft">
               Subscribe to search verified, opted-in seekers by availability and remote-readiness.
             </p>
@@ -77,7 +79,7 @@ export function TalentDirectoryPreviewPanel({
           <>
             <p className="text-[14.5px] font-semibold text-ink">{`You're on the waitlist.`}</p>
             <p className="text-[14.5px] text-ink-soft">
-              {`${preview.count} verified candidates are listed so far. We'll tell you when ${TALENT_DIRECTORY_MIN_LISTED}+ are listed. Nothing to pay.`}
+              {`${verifiedCandidates(preview.count)} ${isAre(preview.count)} listed so far. We'll tell you when ${TALENT_DIRECTORY_MIN_LISTED}+ are listed. Nothing to pay.`}
             </p>
           </>
         ) : (
