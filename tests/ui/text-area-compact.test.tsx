@@ -35,6 +35,23 @@ describe("compact", () => {
   });
 });
 
+describe("counterFrom: the counter shows only from that length", () => {
+  const m = (n: number, extra: Record<string, unknown> = {}) => html({ limit: 100, counterFrom: 90, value: "a".repeat(n), ...extra });
+  it("hidden below it, shown at it and above it", () => {
+    expect(m(89)).not.toMatch(/\d+ \/ 100/);
+    expect(m(90)).toContain("90 / 100");
+    expect(m(100)).toContain("100 / 100");
+  });
+  it("without it, the counter is always shown (every other box is unchanged)", () => {
+    expect(html({ limit: 100, value: "" })).toContain("0 / 100");
+    expect(html({ limit: 100, value: "abc" })).toContain("3 / 100");
+  });
+  it("hiding the counter never lifts the limit", () => expect(box(m(10))).toMatch(/maxLength="100"/));
+  it("a soft box over its limit shows its note even if counterFrom were above the limit", () => {
+    expect(html({ limit: 10, soft: true, softNote: "x", counterFrom: 50, value: "a".repeat(12) })).toContain("12 / 10");
+  });
+});
+
 describe("not compact: unchanged", () => {
   const t = box(html({}));
   it("4 rows, the frame, a resize handle", () => {

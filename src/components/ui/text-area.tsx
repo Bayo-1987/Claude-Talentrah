@@ -20,6 +20,8 @@ export interface TextAreaProps extends Omit<TextareaHTMLAttributes<HTMLTextAreaE
   autoGrow?: boolean;
   /** A cap, counted the way the server counts (trimmed). Shows "N / LIMIT". */
   limit?: number;
+  /** With `limit`: show "N / LIMIT" only once the text is this long (or over the limit). The limit itself still applies from the first character. Default: always shown. */
+  counterFrom?: number;
   /** With `limit`: block nothing, and show `softNote` once over it (a value only partly used downstream). Default is a hard cap: the browser's maxLength. */
   soft?: boolean;
   softNote?: string;
@@ -51,6 +53,7 @@ export function TextArea({
   minRows = MIN_ROWS,
   autoGrow,
   limit,
+  counterFrom,
   soft,
   softNote,
   mono,
@@ -114,7 +117,10 @@ export function TextArea({
   const startingLines = grows ? String(defaultValue ?? value ?? "").split("\n").length : 0;
   const rows = compact ? Math.max(1, Math.min(startingLines, 8)) : Math.max(MIN_ROWS, minRows, startingLines);
 
-  const describedBy = [help ? helpId : null, error ? errorId : null, limit !== undefined ? countId : null].filter(Boolean).join(" ");
+  // A box that only shows its count near the limit has no counter to describe it until then (a description pointing at nothing is worse than none).
+  const showCount = limit !== undefined && (counterFrom === undefined || length >= counterFrom || over > 0);
+  const showMeta = showCount || pasteMessage !== "";
+  const describedBy = [help ? helpId : null, error ? errorId : null, limit !== undefined && showMeta ? countId : null].filter(Boolean).join(" ");
 
   return (
     <div className={cn("flex flex-col gap-1.5", wrapperClassName)}>
@@ -186,9 +192,9 @@ export function TextArea({
           {help}
         </p>
       )}
-      {limit !== undefined && (
+      {limit !== undefined && showMeta && (
         <p id={countId} className={cn(WRITING_BOX_META, over > 0 && "text-rust")}>
-          {`${length} / ${limit}`}
+          {showCount ? `${length} / ${limit}` : null}
           {over > 0 && !soft ? ` · ${over} over` : null}
           {over > 0 && soft && softNote ? ` · ${softNote}` : null}
           <span data-paste-message role="status" className="block text-rust empty:hidden">

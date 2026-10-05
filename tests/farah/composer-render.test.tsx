@@ -7,6 +7,8 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { FarahComposer } from "@/components/app-shell/farah-composer";
 import { MAX_MESSAGE_LENGTH } from "@/lib/farah/token-budget";
+import { COMPOSER_COUNTER_FROM } from "@/components/app-shell/farah-composer";
+import { pasteVerdict } from "@/lib/text-counter";
 
 const noop = () => {};
 const html = (over: Record<string, unknown> = {}) =>
@@ -33,10 +35,35 @@ describe("one labelled textbox", () => {
 });
 
 describe("the length limit and its counter", () => {
-  const m = html({ value: "a\nb" });
+  const m = html({ value: "a".repeat(1798) + "\nb" });
   it("the box carries the server's limit (2000) as its own maxLength", () => expect(box(m)).toContain(`maxLength="${MAX_MESSAGE_LENGTH}"`));
-  it("the counter counts a line break as one: 'a', a break, 'b' is 3", () => expect(m).toContain(`3 / ${MAX_MESSAGE_LENGTH}`));
+  it("the counter counts a line break as one: 1,798 'a', a break, 'b' is 1,800", () => expect(m).toContain(`1800 / ${MAX_MESSAGE_LENGTH}`));
   it("a limit that matches the server's, not a second number", () => expect(MAX_MESSAGE_LENGTH).toBe(2000));
+});
+
+describe("the counter appears only near the limit", () => {
+  const withLength = (n: number) => html({ value: "a".repeat(n) });
+  it("is not on the page at 0, 1 and 1,799 characters", () => {
+    for (const n of [0, 1, 900, 1799]) {
+      const m = withLength(n);
+      expect(m, `${n}`).not.toContain(`${n} / ${MAX_MESSAGE_LENGTH}`);
+      expect(m, `${n}`).not.toMatch(/\d+ \/ \d+/);
+      expect(m, `${n}`).not.toContain("data-paste-message");
+    }
+  });
+  it("is on the page at 1,800, 1,999 and 2,000 characters, as 'N / 2000'", () => {
+    for (const n of [1800, 1999, 2000]) expect(withLength(n), `${n}`).toContain(`${n} / ${MAX_MESSAGE_LENGTH}`);
+  });
+  it("the threshold is 1,800 of the server's own 2,000 (90%), one number", () => expect(COMPOSER_COUNTER_FROM).toBe(1800));
+  it("a hidden counter is not left as a dangling description: the box points at the counter only when the counter is there", () => {
+    expect(box(withLength(1799))).not.toMatch(/aria-describedby/);
+    expect(box(withLength(1800))).toMatch(/aria-describedby="[^"]*-count"/);
+  });
+  it("the 2,000 limit still blocks: the box refuses a 2,001st character, and a paste that would pass 2,000 is refused", () => {
+    expect(box(withLength(2000))).toContain(`maxLength="${MAX_MESSAGE_LENGTH}"`);
+    expect(pasteVerdict("a".repeat(2000), 2000, 2000, "b", MAX_MESSAGE_LENGTH)).toEqual({ ok: false, over: 1 });
+    expect(pasteVerdict("a".repeat(1999), 1999, 1999, "b", MAX_MESSAGE_LENGTH)).toEqual({ ok: true });
+  });
 });
 
 describe("while a reply streams", () => {

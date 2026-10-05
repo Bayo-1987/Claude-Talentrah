@@ -5,6 +5,9 @@ import { TextArea } from "@/components/ui/text-area";
 import { handleComposerKeyDown, isCoarsePointer, prepareMessage } from "@/lib/farah/composer";
 import { MAX_MESSAGE_LENGTH } from "@/lib/farah/token-budget";
 
+/** The character count appears only from here: 90% of the server's 2,000. Below it the box shows no counter (the limit still applies from the first character). */
+export const COMPOSER_COUNTER_FROM = 1800;
+
 /** The tallest the box grows before it scrolls: about six lines of the panel's text. */
 const MAX_BOX_HEIGHT_PX = 144;
 
@@ -46,6 +49,7 @@ export function FarahComposer({
         placeholder="Ask me anything…"
         name="farah-message"
         limit={MAX_MESSAGE_LENGTH}
+        counterFrom={COMPOSER_COUNTER_FROM}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         disabled={pending}
