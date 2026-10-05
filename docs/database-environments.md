@@ -39,9 +39,11 @@ one morning by two sessions that each did exactly that. Ask, wait for the number
 | 0221 | S3-21, job_postings INSERT policy definition (file not yet pushed; a no-op on production, where the definition is already in place) | proposed | proposed |
 | 0222 | S3 (admin dashboard), privileges on the two Farah tables (owner-assigned; `supabase/migrations/0222_farah_tables_server_only_writes.sql`, sha256 `b4cd00bca6e39dded306ec880cbc87812b43aa52cab9aab0d284df3c0a58dcae`; applied after the route PR deployed; the file is in that PR) | applied 11:39Z (5 Oct) | applied about 11:07Z (5 Oct) |
 | 0223 | S3 (admin dashboard), the table `llm_daily_usage` and the function `add_llm_usage` for Farah's daily spend ceiling (assigned by the owner on 4 Oct 2026; `supabase/migrations/0223_llm_daily_usage.sql`, sha256 `067445111286dcadb10cfef8d11bfb531ec7b220dff7a345f46e8c94c46eaadb`; additive, applies before the spend-ceiling PR merges; the file is in that PR) | applied 11:13Z (5 Oct), ledger 20261005111315 | applied 22:00Z (4 Oct) |
-| 0224 | S3-21, `mentorship_sessions` column privileges (assigned by the owner on 4 Oct 2026; file not yet pushed) | reserved | reserved |
+| 0224 | S3-21, `mentorship_sessions` column privileges, with the money columns folded in (assigned by the owner on 4 Oct 2026; file not yet pushed) | reserved | reserved |
 | 0225 | S3-21, mentor_profiles column privileges (assigned by the owner on 4 Oct 2026; supabase/migrations/0225_mentor_profiles_column_grants.sql, sha256 b9f1a1fc85d3cbb0a4770028a6a9c67010f42eabe47d2222d31697bc4f69459c; file not yet pushed) | reserved; applied 05:48Z (5 Oct), file lands with its PR | reserved |
 | 0226 | S1, job_postings review-column privileges and feedback length limits (assigned by the owner on 4 Oct 2026; file not yet pushed) | reserved | reserved |
+| 0227 | S3-21, unused table privileges and repo-parity function grants (assigned by the owner on 5 Oct 2026; file not yet pushed) | reserved | reserved |
+| 0228 | S1, Talent Directory subscription activation as one atomic function (assigned by the owner on 5 Oct 2026; file not yet pushed) | reserved | reserved |
 
 The times are the ledger's own version stamps (UTC, 2 to 4 Oct 2026), read from `supabase_migrations.schema_migrations` on both projects. A row says "applied" only because
 that ledger shows it; "reserved" means the owner assigned the number and no ledger has it; "proposed" means the owner named the number but the migration file does not exist yet.
