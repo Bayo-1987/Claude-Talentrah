@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import type { User } from "@supabase/supabase-js";
 import { PENDING_DELETION_PATH } from "@/lib/auth/pending-deletion-path";
 import { hasDeletionPendingFlag } from "@/lib/auth/pending-deletion-flag";
+import { carryCookies } from "@/lib/supabase/carry-cookies";
 
 /**
  * ACCT-1 — the gate on EVERY request from a session whose account is scheduled for deletion, at no database cost.
@@ -16,8 +17,8 @@ import { hasDeletionPendingFlag } from "@/lib/auth/pending-deletion-flag";
  * Pages are redirected to "Restore it, or keep the deletion?"; API calls get a 403 JSON (a redirect is no answer to a fetch).
  *
  * THE REFRESHED SESSION COOKIES SURVIVE. `updateSession` may have just renewed the session and put new cookies on `response`. A redirect built from
- * scratch would drop them, and the person would be signed out at random on their next request. So every `Set-Cookie` header of that response is copied
- * onto the answer verbatim, attributes included (the answer is built, then the raw headers are appended; nothing is re-parsed and re-serialised).
+ * scratch would drop them, and the person would be signed out at random on their next request. So the answer goes through `carryCookies`
+ * (src/lib/supabase/carry-cookies.ts), the one definition of how every Set-Cookie of that response is copied onto it verbatim, attributes included.
  *
  * EXEMPT, so there is never a loop and the person can always restore, leave or sign in: the prompt itself (and anything under it), the confirm link's
  * page, /login, the auth routes (callback, sign-out), the auth API, the admin surfaces (a separate identity that never reads the seeker session), and
@@ -44,6 +45,5 @@ export function pendingDeletionGate(request: NextRequest, response: NextResponse
   const answer = pathname.startsWith("/api/")
     ? NextResponse.json({ error: "account_scheduled_for_deletion" }, { status: 403 })
     : NextResponse.redirect(new URL(PENDING_DELETION_PATH, request.url));
-  for (const setCookie of response.headers.getSetCookie()) answer.headers.append("set-cookie", setCookie);
-  return answer;
+  return carryCookies(response, answer);
 }
