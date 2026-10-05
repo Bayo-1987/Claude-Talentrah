@@ -4,17 +4,16 @@ import { useActionState } from "react";
 import { Button } from "@/components/ui";
 import { buttonClasses } from "@/lib/button-classes";
 import { webmailUrlFor } from "@/lib/auth/email-provider";
-import { resendSignupConfirmationAction, resendPasswordResetAction } from "@/lib/auth/actions";
+import { resendPasswordResetAction } from "@/lib/auth/actions";
 import { initialResendState } from "@/lib/auth/resend-state";
 
 export interface CheckEmailActionsProps {
   email: string;
-  /** Which flow's resend to call — imported and bound in here, same pattern as ResumeListRow's renameResumeAction.bind(null, id). */
-  kind: "signup" | "password-reset";
+  /** Which flow's resend to call — imported and bound in here, same pattern as ResumeListRow's renameResumeAction.bind(null, id). Signup no longer uses this component: it has its own code page (S1-101). */
+  kind: "password-reset";
 }
 
 const ACTION_BY_KIND = {
-  signup: resendSignupConfirmationAction,
   "password-reset": resendPasswordResetAction,
 } as const;
 
