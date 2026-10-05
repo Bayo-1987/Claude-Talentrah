@@ -8,7 +8,7 @@ import { isOnTalentDirectoryWaitlist } from "@/lib/talent-directory/waitlist-run
 import { TalentDirectoryPreviewPanel } from "@/components/employer/talent-directory-preview-panel";
 import { EyebrowLabel, BorderedCard, Button } from "@/components/ui";
 import { ResumeReviewedBadge } from "@/components/talent-directory/resume-reviewed-badge";
-import { HOW_WE_REVIEW_PATH, reviewMethodFromScore } from "@/lib/talent-directory/review-badge";
+import { HOW_WE_REVIEW_PATH, reviewMethodFromType } from "@/lib/talent-directory/review-badge";
 import { formatDate } from "@/lib/format/datetime";
 
 export const metadata = { title: "Talent Directory — Talentrah" };
@@ -126,7 +126,7 @@ export default async function EmployerTalentDirectoryPage({
                       {c.remoteReady && " · Remote-ready"}
                       {c.availableForHire && " · Available now"}
                     </p>
-                    <ResumeReviewedBadge method={reviewMethodFromScore(c.verificationScore)} reviewedAt={c.verifiedAt} className="relative z-10" />
+                    <ResumeReviewedBadge method={reviewMethodFromType(c.reviewType)} reviewedAt={c.verifiedAt} className="relative z-10" />
                   </BorderedCard>
                 </li>
               ))}

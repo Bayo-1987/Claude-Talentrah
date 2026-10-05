@@ -38,8 +38,8 @@ vi.mock("@/lib/talent-directory/subscription-actions", () => ({ purchaseTalentDi
 vi.mock("@/lib/talent-directory/waitlist-actions", () => ({ joinTalentDirectoryWaitlistAction: async () => {} }));
 vi.mock("next/navigation", () => ({ notFound: () => { throw new Error("notFound"); }, useRouter: () => ({ refresh: () => {}, push: () => {} }) }));
 
-const ai: DirectoryCandidate = { userId: "c1", firstName: "Ada", lastName: "Okafor", country: "Nigeria", availableForHire: true, remoteReady: true, earliestStartDate: null, verificationScore: 87, verifiedAt: "2026-10-05T09:30:00Z" };
-const mentor: DirectoryCandidate = { ...ai, userId: "c2", firstName: "Chidi", lastName: "Eze", verificationScore: null, verifiedAt: "2026-10-12T10:00:00Z" };
+const ai: DirectoryCandidate = { userId: "c1", firstName: "Ada", lastName: "Okafor", country: "Nigeria", availableForHire: true, remoteReady: true, earliestStartDate: null, verificationScore: 87, verifiedAt: "2026-10-05T09:30:00Z", reviewType: "ai" };
+const mentor: DirectoryCandidate = { ...ai, userId: "c2", firstName: "Chidi", lastName: "Eze", verificationScore: null, verifiedAt: "2026-10-12T10:00:00Z", reviewType: "mentor" };
 
 const text = (html: string) => html.replace(/&#x27;/g, "'").replace(/&amp;/g, "&");
 const noScore = (html: string) => {
@@ -134,7 +134,7 @@ describe("a candidate's page", async () => {
 describe("the applicant list", async () => {
   vi.doMock("next/navigation", () => ({ useRouter: () => ({ refresh: () => {}, push: () => {} }) }));
   const { ApplicantList } = await import("@/components/employer/applicant-list");
-  const row = (id: string, resumeReview: "ai" | "mentor" | null) => ({
+  const row = (id: string, resumeReview: "ai" | "mentor" | null, resumeReviewedAt: string | null = null) => ({
     application_id: id,
     first_name: "Test",
     last_name: id,
@@ -144,15 +144,21 @@ describe("the applicant list", async () => {
     status: "applied",
     explanation: null,
     resumeReview,
+    resumeReviewedAt,
     screeningPassed: null,
   });
   const render = (rows: Array<ReturnType<typeof row>>) =>
     text(renderToStaticMarkup(<ApplicantList jobId="j1" applicants={rows as never} hasScreeningQuestions={false} hasAssessment={false} />));
 
-  it("shows the AI line and the mentor line, each with NO date", () => {
-    const html = render([row("a", "ai"), row("m", "mentor")]);
+  it("shows the AI line and the mentor line, each with its own review date (0234)", () => {
+    const html = render([row("a", "ai", "2026-10-05T09:30:00Z"), row("m", "mentor", "2026-10-12T10:00:00Z")]);
+    expect(html).toContain("Resume reviewed by Farah (AI) · 5 Oct 2026");
+    expect(html).toContain("Resume reviewed by a Talentrah mentor · 12 Oct 2026");
+  });
+
+  it("a review whose date is missing still names who reviewed it, and shows no date", () => {
+    const html = render([row("a", "ai", null)]);
     expect(html).toContain("Resume reviewed by Farah (AI)");
-    expect(html).toContain("Resume reviewed by a Talentrah mentor");
     expect(html).not.toMatch(/Resume reviewed by[^<]*·/);
   });
 

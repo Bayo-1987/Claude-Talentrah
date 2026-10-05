@@ -2,7 +2,7 @@
  * VERIFY-1 Phase 0a: what the badge says. Pure: the method from the stored score, and the exact words. (The words are the owner's, 6 Oct 2026.)
  */
 import { describe, expect, it } from "vitest";
-import { HOW_WE_REVIEW_PATH, RESUME_REVIEW_MEANING, resumeReviewFor, reviewMethodFromScore, reviewedBadgeText } from "@/lib/talent-directory/review-badge";
+import { HOW_WE_REVIEW_PATH, RESUME_REVIEW_MEANING, resumeReviewFor, reviewMethodFromScore, reviewMethodFromType, reviewedBadgeText } from "@/lib/talent-directory/review-badge";
 
 describe("reviewMethodFromScore: an AI review always stores a score, a mentor review never does", () => {
   it.each([
@@ -20,20 +20,30 @@ describe("reviewMethodFromScore: an AI review always stores a score, a mentor re
   });
 });
 
-describe("resumeReviewFor: the applicant list shows a review only for a profile whose review passed", () => {
+describe("reviewMethodFromType: the screens read the type the database answers with (0234)", () => {
   it.each([
-    ["verified", 87, "ai"],
-    ["verified", 70, "ai"],
-    ["verified", null, "mentor"],
-    ["unverified", null, null],
-    ["unverified", 87, null],
-    ["pending", null, null],
-    ["rejected", 40, null],
-    ["rejected", null, null],
-    ["claimed", null, null],
-    ["", null, null],
-  ])("status %j, score %s -> %s", (status, score, expected) => {
-    expect(resumeReviewFor(status, score as number | null)).toBe(expected);
+    ["ai", "ai"],
+    ["mentor", "mentor"],
+    [null, "unknown"],
+    [undefined, "unknown"],
+    ["", "unknown"],
+    ["AI", "unknown"], // the database writes lower case; anything else is not guessed at
+    ["human", "unknown"],
+  ])("%j -> %s", (type, method) => {
+    expect(reviewMethodFromType(type as string | null | undefined)).toBe(method);
+  });
+});
+
+describe("resumeReviewFor: the applicant list shows a review only when the database says there is one", () => {
+  it.each([
+    ["ai", "ai"],
+    ["mentor", "mentor"],
+    [null, null], // pending, rejected or unreviewed: the database answers null
+    [undefined, null],
+    ["", null],
+    ["something-new", "unknown"], // a type this code does not know is still a review; it just names no reviewer
+  ])("%j -> %s", (type, expected) => {
+    expect(resumeReviewFor(type as string | null | undefined)).toBe(expected);
   });
 });
 
@@ -43,7 +53,7 @@ describe("reviewedBadgeText", () => {
     expect(reviewedBadgeText("mentor", "2026-10-12T22:30:00Z")).toBe("Resume reviewed by a Talentrah mentor · 12 Oct 2026");
   });
 
-  it("without a date it is the same words and nothing after them (the applicant list, until the date is supplied)", () => {
+  it("without a date it is the same words and nothing after them", () => {
     expect(reviewedBadgeText("ai")).toBe("Resume reviewed by Farah (AI)");
     expect(reviewedBadgeText("mentor", null)).toBe("Resume reviewed by a Talentrah mentor");
   });
