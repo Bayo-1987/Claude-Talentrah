@@ -100,6 +100,42 @@ export function hashProblems(rows: Row[], readFile: (relativePath: string) => Bu
   return problems;
 }
 
+/**
+ * A row whose migration file is in the tree must carry that file's name (without .sql) exactly as the file spells it. The ledger's own
+ * name for an apply is the file name, and scripts/check-migration-drift.ts compares ledger and files on main only, so a register row that
+ * misspells (or never states) the name is not caught until after merge.
+ *
+ *  - The exact name must appear in the row (any cell) as a whole word: a longer word that merely starts with it does not count.
+ *  - Any other word in the row that starts with this row's number and an underscore (a draft name, a typo) is a second, wrong name.
+ *    A rollback file's own name (supabase/rollbacks/...) is not a second name and is left out of that scan.
+ *  - A row whose file is not in the tree is not checked, and a word starting with another number is not this row's business.
+ */
+export function nameProblems(rows: Row[], fileNames: string[]): string[] {
+  const problems: string[] = [];
+  const escape = (t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  for (const r of rows) {
+    const names = fileNames.filter((n) => n.startsWith(`${r.number}_`));
+    if (names.length === 0) continue;
+    const text = [r.heldBy ?? "", r.production, r.preview].join(" | ");
+    for (const name of names) {
+      if (!new RegExp(`(?<![A-Za-z0-9_])${escape(name)}(?![A-Za-z0-9_])`).test(text)) {
+        problems.push(
+          `${REGISTER} row ${r.number} does not carry its file's name "${name}" (supabase/migrations/${name}.sql). Write the name exactly as the file spells it, for example "(file ${name})" in the Held by cell.`,
+        );
+      }
+    }
+    const scanned = text.replace(/supabase\/rollbacks\/[A-Za-z0-9_.-]+/g, " ");
+    for (const m of scanned.matchAll(new RegExp(`(?<![A-Za-z0-9_])(${r.number}_[A-Za-z0-9_]+)`, "g"))) {
+      if (!names.includes(m[1])) {
+        problems.push(
+          `${REGISTER} row ${r.number} names "${m[1]}", but the file in the tree is ${names.join(", ")}. A register row spells the file's name exactly; remove or correct "${m[1]}".`,
+        );
+      }
+    }
+  }
+  return problems;
+}
+
 /** Every problem, each worded as what to add and where. Empty when the register and the directory agree. */
 export function registerProblems(rows: Row[], files: string[]): string[] {
   const problems: string[] = [];
@@ -347,6 +383,50 @@ describe("hashProblems edge cases", () => {
   });
 });
 
+describe("nameProblems (a row's file name must be spelled exactly as the file in the tree)", () => {
+  const NAME = "0226_review_columns";
+  const row = (heldBy: string, production = "reserved", preview = "reserved"): Row => ({ number: "0226", production, preview, heldBy });
+
+  it("the exact name, as a whole word, passes", () => {
+    expect(nameProblems([row(`S1, a thing (file ${NAME})`)], [NAME])).toEqual([]);
+  });
+  it("the exact name inside a backticked path passes", () => {
+    expect(nameProblems([row(`S1, a thing (\`supabase/migrations/${NAME}.sql\`, sha256 ${"0".repeat(64)})`)], [NAME])).toEqual([]);
+  });
+  it("a name in the production or the preview cell counts as the row's name", () => {
+    expect(nameProblems([row("S1, a thing", `applied 10:00Z (5 Oct), ${NAME}`)], [NAME])).toEqual([]);
+    expect(nameProblems([row("S1, a thing", "reserved", `applied 10:00Z (5 Oct), ${NAME}`)], [NAME])).toEqual([]);
+  });
+  it("a row that does not carry the name fails, naming the file and what to add", () => {
+    const p = nameProblems([row("S1, a thing")], [NAME]);
+    expect(p).toHaveLength(1);
+    expect(p[0]).toContain(NAME);
+    expect(p[0]).toContain("0226");
+  });
+  it("PLANTED MISMATCH: a name that differs by one letter fails", () => {
+    const p = nameProblems([row("S1, a thing (file 0226_review_column)")], [NAME]);
+    expect(p.length).toBeGreaterThanOrEqual(1);
+    expect(p.join("\n")).toContain(NAME);
+  });
+  it("a longer word that merely starts with the name does not count as the name", () => {
+    expect(nameProblems([row(`S1, a thing (file ${NAME}_v2)`)], [NAME]).length).toBeGreaterThanOrEqual(1);
+  });
+  it("the correct name next to a second, different name for the same number fails", () => {
+    const p = nameProblems([row(`S1, a thing (file ${NAME}; earlier draft 0226_other_name)`)], [NAME]);
+    expect(p).toHaveLength(1);
+    expect(p[0]).toContain("0226_other_name");
+  });
+  it("a rollback file's own name (next to the migration's) is not a second name", () => {
+    expect(nameProblems([row(`S1, a thing (file ${NAME}; rollback supabase/rollbacks/${NAME}_down.sql, sha256 ${"0".repeat(64)})`)], [NAME])).toEqual([]);
+  });
+  it("a row whose file is not in the tree is not checked, whatever name it carries", () => {
+    expect(nameProblems([row("S1, a thing (file 0226_whatever_it_will_be)")], [])).toEqual([]);
+  });
+  it("a name belonging to another number is not a name for this row", () => {
+    expect(nameProblems([row(`S1, a thing (follows 0225_other_file, file ${NAME})`)], [NAME])).toEqual([]);
+  });
+});
+
 describe("parseRegister (the guard must not pass on nothing)", () => {
   const table = (rows: string[]) => `${HEADING}\n\n| Number | Held by | Production | talentrah-preview |\n|---|---|---|---|\n${rows.join("\n")}\n\n## 3. next\n`;
   const ok = "| 0208 | S1, a thing | applied 15:33Z | applied 15:40Z |";
@@ -388,6 +468,10 @@ describe("the real register and the real migrations directory agree", () => {
     if (m) numbers.add(m[1]);
   }
   const files = [...numbers].sort();
+  const fileNames = readdirSync(path.join(root, "supabase/migrations"))
+    .filter((f) => /^\d{4}_.+\.sql$/.test(f))
+    .map((f) => f.replace(/\.sql$/, ""))
+    .sort();
 
   it("both were read (so the checks below are not vacuous)", () => {
     expect(rows.length).toBeGreaterThan(5);
@@ -401,6 +485,11 @@ describe("the real register and the real migrations directory agree", () => {
   it("every quoted sha256 matches its file when the file is in the tree", () => {
     const read = (rel: string) => (existsSync(path.join(root, rel)) ? readFileSync(path.join(root, rel)) : null);
     const p = hashProblems(rows, read);
+    expect(p, "\n" + p.join("\n")).toEqual([]);
+  });
+
+  it("every row with a file in the tree spells that file's name exactly", () => {
+    const p = nameProblems(rows, fileNames);
     expect(p, "\n" + p.join("\n")).toEqual([]);
   });
 

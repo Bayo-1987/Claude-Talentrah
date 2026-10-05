@@ -23,17 +23,17 @@ one morning by two sessions that each did exactly that. Ask, wait for the number
 
 | Number | Held by | Production | talentrah-preview |
 |---|---|---|---|
-| 0208 | S1, `anonymous_demo_attempts` | applied 15:33Z | applied 15:40Z |
-| 0209 | S3-21, money tables survive user deletion | applied 15:22Z | applied 15:24Z |
-| 0210 | S3-21, `mentor_unpaid_hold` `search_path` pin (#672) | applied 16:04Z | applied 16:05Z |
-| 0211 | S3-21, definer and graphql hardening (#678) | applied 20:36Z | applied 20:37Z |
-| 0212 | S3-21, account deletion PR 1: request, emailed confirm link, hide at once (#686) | applied 22:10Z (3 Oct) | applied 22:12Z (3 Oct) |
-| 0213 | S3-21, an idempotent revoke of anon and authenticated EXECUTE on four trigger functions (a no-op on production; aligns preview and CI; owner-decided; trigger_function_grants) | applied 05:54Z (ledgered no-op) | applied 05:54Z (4 Oct), brought in line with production |
+| 0208 | S1, `anonymous_demo_attempts` (file 0208_anonymous_demo_attempts) | applied 15:33Z | applied 15:40Z |
+| 0209 | S3-21, money tables survive user deletion (file 0209_money_tables_survive_user_deletion) | applied 15:22Z | applied 15:24Z |
+| 0210 | S3-21, `mentor_unpaid_hold` `search_path` pin (#672) (file 0210_mentor_unpaid_hold_search_path) | applied 16:04Z | applied 16:05Z |
+| 0211 | S3-21, definer and graphql hardening (#678) (file 0211_definer_and_graphql_hardening) | applied 20:36Z | applied 20:37Z |
+| 0212 | S3-21, account deletion PR 1: request, emailed confirm link, hide at once (#686) (file 0212_account_deletion_request) | applied 22:10Z (3 Oct) | applied 22:12Z (3 Oct) |
+| 0213 | S3-21, an idempotent revoke of anon and authenticated EXECUTE on four trigger functions (a no-op on production; aligns preview and CI; owner-decided; trigger_function_grants) (file 0213_trigger_function_grants) | applied 05:54Z (ledgered no-op) | applied 05:54Z (4 Oct), brought in line with production |
 | 0214 | S3-21, account deletion PR 2: the export migration (owner-decided) | reserved | reserved |
-| 0215 | S3 (admin dashboard), Refer & Earn: a signup pays nothing, activation pays the whole reward | applied 09:45Z (3 Oct) | applied 09:46Z (3 Oct) |
-| 0216 | S2, the company-rename trigger (#693) | applied 19:01Z (3 Oct) | applied 19:02Z (3 Oct) |
-| 0217 | S3-21, scholarship note rules (#703) | applied 17:40Z (3 Oct) | applied 17:40Z (3 Oct) |
-| 0218 | S1, explicit column grants on `job_postings`: anon and authenticated read 43 of its 44 columns (#736) | applied 07:45Z (4 Oct), ledger 20261004074529 | applied 07:50Z (4 Oct), ledger 20261004075015 |
+| 0215 | S3 (admin dashboard), Refer & Earn: a signup pays nothing, activation pays the whole reward (file 0215_referral_reward_on_activation) | applied 09:45Z (3 Oct) | applied 09:46Z (3 Oct) |
+| 0216 | S2, the company-rename trigger (#693) (file 0216_org_rename_syncs_internal_postings) | applied 19:01Z (3 Oct) | applied 19:02Z (3 Oct) |
+| 0217 | S3-21, scholarship note rules (#703) (file 0217_scholarship_note_rules) | applied 17:40Z (3 Oct) | applied 17:40Z (3 Oct) |
+| 0218 | S1, explicit column grants on `job_postings`: anon and authenticated read 43 of its 44 columns (#736) (file 0218_job_postings_explicit_column_grants) | applied 07:45Z (4 Oct), ledger 20261004074529 | applied 07:50Z (4 Oct), ledger 20261004075015 |
 | 0219 | S1, `employer_moderation_notices` (owner-assigned; the design still needs the owner's approval) | reserved | reserved |
 | 0220 | S3 (admin dashboard), the Farah entry-point constraint, with Farah PR A2 (one migration: a format check replaces the fixed list of `entry_point` values; owner-assigned) | reserved | reserved |
 | 0221 | S3-21, job_postings INSERT policy definition (file not yet pushed; a ledgered no-op on production, where the definition was already in place; the apply time is S3-21's report and the ledger row has not been read back) | reserved; applied 09:37Z (5 Oct), file lands with its PR | proposed |
