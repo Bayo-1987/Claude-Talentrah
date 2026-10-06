@@ -1,39 +1,37 @@
 /**
- * VERIFY-1 Phase 0a: what the badge says. Pure: the method from the stored score, and the exact words. (The words are the owner's, 6 Oct 2026.)
+ * VERIFY-1 Phase 0a: what the badge says. Pure: the method from the database's review type, and the exact words. (The words are the owner's, 6 Oct 2026.)
  */
 import { describe, expect, it } from "vitest";
-import { HOW_WE_REVIEW_PATH, RESUME_REVIEW_MEANING, resumeReviewFor, reviewMethodFromScore, reviewedBadgeText } from "@/lib/talent-directory/review-badge";
+import { HOW_WE_REVIEW_PATH, RESUME_REVIEW_MEANING, resumeReviewFor, reviewMethodFromType, reviewedBadgeText } from "@/lib/talent-directory/review-badge";
 
-describe("reviewMethodFromScore: an AI review always stores a score, a mentor review never does", () => {
+describe("reviewMethodFromType: the screens read the type the database records (0234), 'human' being a mentor", () => {
   it.each([
-    [87, "ai"],
-    [70, "ai"],
-    [0, "ai"], // a score of 0 is a score
-    [100, "ai"],
-    [null, "mentor"],
-  ])("%s -> %s", (score, method) => {
-    expect(reviewMethodFromScore(score as number | null)).toBe(method);
-  });
-
-  it.each([undefined, Number.NaN])("%s (a missing or broken value, not a stored null) is 'unknown', never a guess", (score) => {
-    expect(reviewMethodFromScore(score as number | undefined)).toBe("unknown");
+    ["ai", "ai"],
+    ["human", "mentor"],
+    [null, "unknown"],
+    [undefined, "unknown"],
+    ["", "unknown"],
+    ["mentor", "unknown"], // the database's word is 'human'; anything else is not guessed at
+    ["AI", "unknown"],
+  ])("%j -> %s", (type, method) => {
+    expect(reviewMethodFromType(type as string | null | undefined)).toBe(method);
   });
 });
 
 describe("resumeReviewFor: the applicant list shows a review only for a profile whose review passed", () => {
   it.each([
-    ["verified", 87, "ai"],
-    ["verified", 70, "ai"],
-    ["verified", null, "mentor"],
+    ["verified", "ai", "ai"],
+    ["verified", "human", "mentor"],
+    ["verified", null, "unknown"], // reviewed, but no passed review row to read the reviewer from: says so, names no one
     ["unverified", null, null],
-    ["unverified", 87, null],
-    ["pending", null, null],
-    ["rejected", 40, null],
+    ["unverified", "ai", null],
+    ["pending", "human", null],
+    ["rejected", "ai", null],
     ["rejected", null, null],
     ["claimed", null, null],
-    ["", null, null],
-  ])("status %j, score %s -> %s", (status, score, expected) => {
-    expect(resumeReviewFor(status, score as number | null)).toBe(expected);
+    ["", "ai", null],
+  ])("status %j, type %j -> %s", (status, type, expected) => {
+    expect(resumeReviewFor(status, type as string | null)).toBe(expected);
   });
 });
 
@@ -43,7 +41,7 @@ describe("reviewedBadgeText", () => {
     expect(reviewedBadgeText("mentor", "2026-10-12T22:30:00Z")).toBe("Resume reviewed by a Talentrah mentor · 12 Oct 2026");
   });
 
-  it("without a date it is the same words and nothing after them (the applicant list, until the date is supplied)", () => {
+  it("without a date it is the same words and nothing after them", () => {
     expect(reviewedBadgeText("ai")).toBe("Resume reviewed by Farah (AI)");
     expect(reviewedBadgeText("mentor", null)).toBe("Resume reviewed by a Talentrah mentor");
   });
