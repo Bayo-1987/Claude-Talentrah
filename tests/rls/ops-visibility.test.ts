@@ -19,6 +19,9 @@
  *   api_rate_limits
  *       SELECT IS NOT GRANTED AT ALL. A stranger gets an ERROR. Asserting
  *       emptiness here would pass even if the grant came back.
+ *
+ * Since 0231, user_passes has both shapes at once: a signed-in user's SELECT is granted by column (every column except the two that hold a card token and a
+ * renewal reference), so those two answer 42501 even for the owner, and a signed-out visitor holds no privilege on the table at all, so that read is an ERROR too.
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createClient } from "@supabase/supabase-js";
@@ -74,7 +77,7 @@ describe("owner-scoped tables leak nothing to a stranger", () => {
 
     const { data, error } = await stranger.client
       .from("user_passes")
-      .select("id, pending_renewal_reference, renewal_attempt_count")
+      .select("id, renewal_attempt_count")
       .eq("id", passId);
 
     // SELECT is granted here, so a policy denial is SILENT: no error, no rows.
@@ -86,6 +89,15 @@ describe("owner-scoped tables leak nothing to a stranger", () => {
     expect(proof ?? []).toHaveLength(1);
   });
 
+  it("the renewal reference is not readable by a signed-in user at all (0231), not even the owner", async () => {
+    if (!passId) return expect(passId).toBeNull();
+    for (const [label, client] of [["stranger", stranger.client], ["owner", owner.client]] as const) {
+      const { data, error } = await client.from("user_passes").select("pending_renewal_reference").eq("id", passId);
+      expect(error?.code, `${label} could read user_passes.pending_renewal_reference`).toBe("42501");
+      expect(data).toBeNull();
+    }
+  });
+
   it("the owner does see their own", async () => {
     if (!passId) return expect(passId).toBeNull();
     // The positive control. Without it, "zero rows" would also pass if the
@@ -95,10 +107,10 @@ describe("owner-scoped tables leak nothing to a stranger", () => {
     expect(data ?? []).toHaveLength(1);
   });
 
-  it("a signed-out visitor sees no passes at all", async () => {
+  it("a signed-out visitor is denied outright: anon holds no privilege on user_passes (0231)", async () => {
     const { data, error } = await anon.from("user_passes").select("id").limit(5);
-    expect(error).toBeNull();
-    expect(data ?? []).toHaveLength(0);
+    expect(error?.code).toBe("42501");
+    expect(data).toBeNull();
   });
 
   it("auto_apply_queue and payment_transactions are owner-scoped too", async () => {

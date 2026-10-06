@@ -134,7 +134,7 @@ describe("state 1: no pass, some credits", () => {
       expect(t).toContain(headline);
       expect(t).toContain(day);
     }
-    expect(t.match(/Covers tailoring, cover letters, bullet rewrites, Auto-Apply beyond your 5 free weekly applications, and scholarship eligibility checks and SOP drafts — all at zero credit cost, up to 30 actions a day\. Template unlocks and Talent Directory verification are sold separately, credits only\. Auto-renews if paid by card; one-time if paid by mobile money\./g)).toHaveLength(1);
+    expect(t.match(/Covers tailoring, cover letters, bullet rewrites, Auto-Apply beyond your 5 free weekly applications, and scholarship eligibility checks and SOP drafts — all at zero credit cost, up to 30 actions a day\. Template unlocks and Talent Directory resume reviews are sold separately, credits only\. Auto-renews if paid by card; one-time if paid by mobile money\./g)).toHaveLength(1);
   });
 });
 

@@ -11,6 +11,7 @@ import {
   parseApplicantFilterParams,
 } from "@/lib/employer/applicant-filters";
 import type { MatchExplanation } from "@/lib/matching/score";
+import { resumeReviewFor } from "@/lib/talent-directory/review-badge";
 
 export const metadata = { title: "Applicants — Talentrah" };
 
@@ -114,8 +115,8 @@ export default async function JobApplicantsPage({
       explanation,
       // send-328 — never gated on talent_directory_opt_in, see 0170's own
       // header for the consent reasoning.
-      talentVerificationStatus: applicant.talent_verification_status,
-      talentVerificationScore: applicant.talent_verification_score,
+      // VERIFY-1 0a-1: the status and the score are turned into "which review, if any" here, on the server; the score goes no further. (The date arrives with 0a-2.)
+      resumeReview: resumeReviewFor(applicant.talent_verification_status, applicant.talent_verification_score),
       // send-327 — null means no screening questions, or answers incomplete.
       screeningPassed: applicant.screening_passed,
     };

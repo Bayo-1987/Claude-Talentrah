@@ -53,10 +53,10 @@ beforeEach(() => {
 
 describe("the status line under the intro matches the score band", () => {
   for (const [status, score, line] of [
-    ["rejected", 69, "Not verified yet — here's what to fix"],
-    ["verified", 70, "Verified — a few things to tighten"],
-    ["verified", 84, "Verified — a few things to tighten"],
-    ["verified", 85, "Verified — your resume holds up"],
+    ["rejected", 69, "Not passed yet — here's what to fix"],
+    ["verified", 70, "Reviewed — a few things to tighten"],
+    ["verified", 84, "Reviewed — a few things to tighten"],
+    ["verified", 85, "Reviewed — your resume holds up"],
   ] as const) {
     it(`${status} at ${score}: "${line}", next to "Last score: ${score}/100"`, async () => {
       const got = await statusLine(status, score);
@@ -67,7 +67,7 @@ describe("the status line under the intro matches the score band", () => {
 
   it("a state with no score keeps its existing line and shows no score", async () => {
     const got = await statusLine("unverified", null);
-    expect(got.status).toBe("You haven't requested verification yet.");
+    expect(got.status).toBe("You haven't requested a resume review yet.");
     expect(got.score).toBe("");
   });
 });
