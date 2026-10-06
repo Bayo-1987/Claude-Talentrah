@@ -22,3 +22,12 @@ Three small, shared pieces that the Farah panel and the billing facts call inste
 - **A Pass holder's free messages follow the same schedule**, but the history route reports no free count for a Pass holder; whether to show the date for one is the caller's decision.
 - **The order is free, then a Pass, then credits** (0123). `farahMessageCharge` is the only place that decides it, and the gate calls it, so a label cannot promise a price the gate does not take.
 - **The failure note is only for a failure the server reports** (a rate limit, an error, a failure partway through the stream). Never for a dropped connection: the server may have finished and charged by then.
+
+## On the wire
+
+`nextFreeMessageAt` (an ISO time or `null`) is an additive, optional field on two responses:
+
+- **`GET /api/farah/history`**, beside `freeMessagesRemaining`.
+- **The chat `done` event**, beside `freeMessagesRemaining` and `creditsBalance` (on both the saved and the not-saved variant).
+
+It is a time only when the free messages are used up (`freeMessagesRemaining === 0`) and no Pass is active; in every other case it is `null` and no read is made (no extra database read for a Pass holder or while free messages remain). A failed read is `null` and never blocks or charges. A message that fails or is cut off at the length cap commits nothing, so it uses no free message and cannot move the time. Format the time with `formatDateTime`; an older client that does not know the field ignores it.
