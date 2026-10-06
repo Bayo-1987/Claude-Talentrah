@@ -158,3 +158,18 @@ any cost number for this feature as measured rather than estimated.
 - No LLM call at scoring/render time — `enrichThinPostings` is called only
   from `ingestAllSources` (a background/cron path), never from a request
   path a seeker's feed load touches.
+
+## The offline stub never runs in production (guard added after the 2026-09-16 to 2026-10-03 incident)
+
+`JD_EXTRACTION_LLM_PROVIDER` is unset in every environment, so the provider is the offline stub and its only output is the fixed skill
+`stub-jd-extraction-skill`. With the `ingest_llm_enrichment` flag on, that skill was written into live postings for 17 days: no paid call was
+made, but it counted as a screenable tag in match scores, showed in the job page's skills list, and each rewrite deleted that posting's stored
+scores through trigger 0069.
+
+`enrichThinPostings` now refuses the run when the flag is on, the provider is the stub and `VERCEL_ENV` is `production`: it reads nothing, writes
+nothing, calls no provider, logs one warning per run ("enrichment enabled but no real provider configured; skipped") and returns
+`skipped: "stub-provider-in-production"` in its summary. The stub still works in tests, local development and preview deployments.
+`tests/jobs/enrich-thin-stub-guard.test.ts` pins it. **Leave the flag off until a real provider is configured AND the isolated-account question
+and the ESCO decision are answered**; the guard is a safety net, not a reason to switch it on.
+
+**Before any real provider is ever enabled:** the attempt markers (`job_postings.llm_enrichment_attempted_at`) written by the stub's 17 days of runs (362 at last count) must be cleared, because candidate selection skips any posting that has one, so those postings would never be enriched by a real provider; and the marker should record WHICH provider made it (today it is a bare timestamp). Enrichment itself is parked: no provider work is planned.
