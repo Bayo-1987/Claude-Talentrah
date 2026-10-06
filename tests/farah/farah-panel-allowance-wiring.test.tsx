@@ -55,7 +55,8 @@ describe("the panel's wiring", () => {
   });
   it("the done event keeps it too, and the last-free-message announcement is built from the event", () => {
     expect(flat).toMatch(/readNextFreeMessageAt\(event\.nextFreeMessageAt\)/);
-    expect(flat).toMatch(/farahFreeUsedAnnouncement\(/);
+    expect(flat).toMatch(/farahFreeUsedAnnouncement\(\{ freeRemaining: event\.freeMessagesRemaining, paid, nextFreeMessageAt: event\.nextFreeMessageAt \}\)/);
+    expect(flat).toMatch(/setAnnouncement\(freeUsed \? `\$\{replied\}\. \$\{freeUsed\}` : replied\)/);
   });
   it("server-reported failures (a failed request, a stream error event) go through serverFailureText", () => {
     expect(flat).toMatch(/setError\(serverFailureText\(res\.status, data\.error\)\)/);

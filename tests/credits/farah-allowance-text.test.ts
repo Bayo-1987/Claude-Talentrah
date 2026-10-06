@@ -116,7 +116,7 @@ describe("readNextFreeMessageAt: what the panel keeps from a response", () => {
   it("keeps a valid ISO instant and turns everything else into null", async () => {
     const r = await fn("readNextFreeMessageAt");
     expect(r(FUTURE)).toBe(FUTURE);
-    for (const bad of [null, undefined, "", "soon", 5, {}, [], true, "2026-10-09"]) expect(r(bad)).toBeNull();
+    for (const bad of [null, undefined, "", "soon", 5, {}, [], true, "2026-10-09", "2026-13-45T25:61:00Z"]) expect(r(bad)).toBeNull();
   });
 });
 
