@@ -280,14 +280,14 @@ export function JdDemoInput() {
             <Link
               key={action.label}
               href={action.href}
-              className="font-body text-[13.5px] font-bold text-rust underline underline-offset-3"
+              className="inline-flex min-h-6 items-center font-body text-[13.5px] font-bold text-rust underline underline-offset-3"
             >
               {action.label}
             </Link>
           ))}
           <Link
             href="/jobs"
-            className="font-body text-[13.5px] font-semibold text-ink-soft underline underline-offset-3"
+            className="inline-flex min-h-6 items-center font-body text-[13.5px] font-semibold text-ink-soft underline underline-offset-3"
           >
             Browse jobs instead →
           </Link>
@@ -312,7 +312,7 @@ export function JdDemoInput() {
           </p>
           <Link
             href="/resume-builder"
-            className="text-[13.5px] font-bold text-rust underline underline-offset-3"
+            className="inline-flex min-h-6 items-center text-[13.5px] font-bold text-rust underline underline-offset-3"
           >
             Build or upload your resume →
           </Link>

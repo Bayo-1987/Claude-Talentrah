@@ -95,8 +95,9 @@ const FOOTER_COLUMNS = [
   },
 ];
 
+// min-h-6 (24px): each footer link is its own target of at least 24px (WCAG 2.2 AA 2.5.8; the owner's rule for secondary links). They measured 22px on every marketing page (QA-1).
 const footerLinkClass =
-  "font-body text-[14.5px] font-medium text-[oklch(80%_0.015_60)] no-underline hover:text-paper hover:underline";
+  "flex min-h-6 items-center font-body text-[14.5px] font-medium text-[oklch(80%_0.015_60)] no-underline hover:text-paper hover:underline";
 
 interface CommunityLink {
   key: string;

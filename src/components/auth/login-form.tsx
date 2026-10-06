@@ -59,7 +59,7 @@ export function LoginForm({ redirectTo }: { redirectTo?: string }) {
         */}
         <a
           href="/forgot-password"
-          className="self-start text-[12.5px] text-ink-soft underline underline-offset-2 hover:text-rust"
+          className="inline-flex min-h-6 items-center self-start text-[12.5px] text-ink-soft underline underline-offset-2 hover:text-rust"
         >
           Forgot password?
         </a>
