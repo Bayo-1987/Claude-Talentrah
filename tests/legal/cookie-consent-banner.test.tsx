@@ -74,11 +74,18 @@ describe("returning visitors never see it, with no flash", () => {
     expect(banner).not.toMatch(/"talentrah-cookie-consent"/);
   });
 
-  it("the layout runs the script before the banner, and tolerates the attribute the script sets on <html>", () => {
+  it("the layout mounts the script as an element, BEFORE the banner element, and tolerates the attribute the script sets on <html>", () => {
     const layout = read("src/app/layout.tsx");
-    expect(layout).toContain("COOKIE_CONSENT_PREPAINT_SCRIPT");
-    expect(layout.indexOf("COOKIE_CONSENT_PREPAINT_SCRIPT")).toBeLessThan(layout.indexOf("<CookieConsentBanner"));
+    const script = layout.indexOf("<script dangerouslySetInnerHTML={{ __html: COOKIE_CONSENT_PREPAINT_SCRIPT }}");
+    const banner = layout.indexOf("<CookieConsentBanner />");
+    expect(script, "the layout does not render the pre-paint script").toBeGreaterThan(-1);
+    expect(banner, "the layout does not render the banner").toBeGreaterThan(-1);
+    expect(script).toBeLessThan(banner);
     expect(layout).toMatch(/<html[^>]*suppressHydrationWarning/);
+  });
+
+  it("after mount the banner still removes itself when a choice is stored (the effect that reads it)", () => {
+    expect(read("src/components/legal/cookie-consent-banner.tsx")).toMatch(/useEffect\(\(\) => \{[\s\S]*setVisible\(readStoredConsent\(\) === null\)/);
   });
 
   it("one CSS rule hides the banner on that attribute", () => {
