@@ -101,6 +101,27 @@ describe("flag on + stub provider + PRODUCTION: nothing happens", () => {
     expect(String(warn.mock.calls[0][0])).toContain(SKIPPED_WARNING);
   });
 
+  it("the warning carries the reason and nothing from any posting: no id, title or description, no user data; the count is the summary's attempted: 0 (nothing is read, so there is nothing to count)", async () => {
+    const saved = { ...THIN_ROW };
+    Object.assign(THIN_ROW, { id: "posting-id-9f3a", description: "Confidential description 5521", title: "Secret Senior Title 7731", company: "Hidden Co 4410" });
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const summary = await enrichThinPostings();
+      expect(warn.mock.calls).toHaveLength(1);
+      expect(warn.mock.calls[0]).toEqual([`[enrich-thin] ${SKIPPED_WARNING}`]); // one argument, exactly the reason
+      const everything = [...warn.mock.calls, ...log.mock.calls, ...info.mock.calls, ...err.mock.calls].flat().join(" ");
+      expect(everything).not.toMatch(/posting-id-9f3a|Confidential|Secret Senior|Hidden Co|9f3a|7731|5521|4410/);
+      expect(summary.attempted).toBe(0);
+    } finally {
+      Object.assign(THIN_ROW, saved);
+      log.mockRestore();
+      info.mockRestore();
+      err.mockRestore();
+    }
+  });
+
   it("one warning PER RUN: a second run warns once more (not once per process, not once per posting)", async () => {
     await enrichThinPostings();
     await enrichThinPostings();
