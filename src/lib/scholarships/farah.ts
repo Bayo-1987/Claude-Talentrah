@@ -2,11 +2,11 @@ import "server-only";
 import { generateWithFailover } from "@/lib/llm";
 import { FARAH_SYSTEM_PROMPT } from "@/lib/farah/system-prompt";
 import type { StructuredResume } from "@/lib/resume/types";
-import type { Tables } from "@/lib/supabase/types";
+import type { ScholarshipRow as ReadableScholarshipRow } from "./columns";
 import { DEGREE_LEVEL_LABEL, FUNDING_TYPE_LABEL } from "./types";
 import { stripInlineMarkdown } from "@/lib/farah/render-markdown";
 
-type ScholarshipRow = Tables<"scholarships">;
+type ScholarshipRow = ReadableScholarshipRow;
 
 /**
  * The two credit-gated Farah actions from §6.15. Both call through the
