@@ -38,9 +38,15 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await deleteTestUsers([userId, authed.id]);
+  // CI can confirm by this line (and by the 0238-DB-NN test names) that the database-backed tests ran rather than being skipped or not loaded.
+  console.info(`[0238-db-tests] ran ${ran} database-backed tests, ids 0238-DB-01..0238-DB-${String(EXPECTED).padStart(2, "0")}`);
 }, 60_000);
 
+let ran = 0;
+const EXPECTED = 14;
+
 afterEach(async () => {
+  ran++;
   grade.mockReset();
   await admin.from("talent_verifications").delete().eq("user_id", userId);
   await admin.from("credit_ledger").delete().eq("user_id", userId);
@@ -75,7 +81,7 @@ async function runner() {
 }
 
 describe("flagged attempts are recorded, counted and never charged", () => {
-  it("a flagged attempt persists as a rejected AI review with its flag source, and nothing is charged", async () => {
+  it("0238-DB-01: a flagged attempt persists as a rejected AI review with its flag source, and nothing is charged", async () => {
     await setBalance(CREDIT_COSTS.talentDirectoryVerification * 3);
     grade.mockResolvedValue(FLAGGED);
     const run = await runner();
@@ -86,7 +92,24 @@ describe("flagged attempts are recorded, counted and never charged", () => {
     expect(await profileStatus()).toBe("rejected");
   });
 
-  it("two flagged attempts use up the limit: the third is refused with no grading, no charge, no new row", async () => {
+  it("0238-DB-02: a claimed row is an AI review (review_type written out, not left to the column default) and it counts toward the limit", async () => {
+    await setBalance(CREDIT_COSTS.talentDirectoryVerification * 3);
+    const first = await claim();
+    expect(first.ok).toBe(true);
+    const claimed = (await admin.from("talent_verifications").select("review_type, status").eq("id", first.verification_id!).single()).data;
+    expect(claimed, "the claim must write review_type 'ai' itself").toEqual({ review_type: "ai", status: "pending" });
+
+    // resolve it and a second claimed row as ordinary rejections: both must count, so the third claim is refused
+    await admin.rpc("resolve_talent_verification", { p_verification_id: first.verification_id!, p_user_id: userId, p_verified: false, p_score: 30, p_feedback: "x" });
+    const second = await claim();
+    expect(second.ok).toBe(true);
+    await admin.rpc("resolve_talent_verification", { p_verification_id: second.verification_id!, p_user_id: userId, p_verified: false, p_score: 30, p_feedback: "x" });
+    const third = await claim();
+    expect(third.ok, "two claimed-and-resolved reviews must use up the limit").toBe(false);
+    expect(third.reason).toBe("limit_reached");
+  });
+
+  it("0238-DB-03: two flagged attempts use up the limit: the third is refused with no grading, no charge, no new row", async () => {
     await setBalance(CREDIT_COSTS.talentDirectoryVerification * 3);
     grade.mockResolvedValue(FLAGGED);
     const run = await runner();
@@ -104,7 +127,7 @@ describe("flagged attempts are recorded, counted and never charged", () => {
     expect(await profileStatus()).toBe("rejected");
   });
 
-  it("an ordinary charged failure counts the same as a flagged one", async () => {
+  it("0238-DB-04: an ordinary charged failure counts the same as a flagged one", async () => {
     await setBalance(CREDIT_COSTS.talentDirectoryVerification * 3);
     const run = await runner();
     grade.mockResolvedValueOnce(LOW).mockResolvedValueOnce(FLAGGED);
@@ -116,7 +139,7 @@ describe("flagged attempts are recorded, counted and never charged", () => {
 });
 
 describe("what does not count", () => {
-  it("a grader failure releases the claim and does not count: any number of them leaves both reviews available", async () => {
+  it("0238-DB-05: a grader failure releases the claim and does not count: any number of them leaves both reviews available", async () => {
     await setBalance(CREDIT_COSTS.talentDirectoryVerification * 3);
     grade.mockRejectedValue(new Error("model down"));
     const run = await runner();
@@ -126,14 +149,14 @@ describe("what does not count", () => {
     expect((await claim()).ok).toBe(true);
   });
 
-  it("human reviews do not count", async () => {
+  it("0238-DB-06: human reviews do not count", async () => {
     await seedResolved(3, { review_type: "human" });
     const c = await claim();
     expect(c.ok).toBe(true);
     expect(c.verification_id).toBeTruthy();
   });
 
-  it("a review decided more than 30 days ago does not count; one decided 29 days ago does", async () => {
+  it("0238-DB-07: a review decided more than 30 days ago does not count; one decided 29 days ago does", async () => {
     await seedResolved(2, { ageDays: 31 });
     expect((await claim()).ok).toBe(true);
     await admin.from("talent_verifications").delete().eq("user_id", userId);
@@ -149,7 +172,7 @@ describe("what does not count", () => {
 });
 
 describe("the claim is one statement: concurrent attempts cannot both get through", () => {
-  it("one resolved review: three concurrent claims, exactly one proceeds and exactly one pending row exists", async () => {
+  it("0238-DB-08: one resolved review: three concurrent claims, exactly one proceeds and exactly one pending row exists", async () => {
     await seedResolved(1);
     const results = await Promise.all([claim(), claim(), claim()]);
     expect(results.filter((r) => r.ok)).toHaveLength(1);
@@ -157,7 +180,7 @@ describe("the claim is one statement: concurrent attempts cannot both get throug
     expect((await rowsFor()).filter((r) => r.status === "pending")).toHaveLength(1);
   });
 
-  it("two resolved reviews: three concurrent claims, none proceeds and no row is created", async () => {
+  it("0238-DB-09: two resolved reviews: three concurrent claims, none proceeds and no row is created", async () => {
     await seedResolved(2);
     const results = await Promise.all([claim(), claim(), claim()]);
     expect(results.filter((r) => r.ok)).toHaveLength(0);
@@ -166,19 +189,29 @@ describe("the claim is one statement: concurrent attempts cannot both get throug
     expect(await profileStatus()).toBe("rejected");
   });
 
-  it("a human-review claim racing an AI claim cannot both take the profile (they wait on the same row)", async () => {
+  it("0238-DB-10: a human-review claim racing an AI claim on the same person: exactly one pending row is left, every round", async () => {
     const { runTalentVerificationHumanReview } = await import("@/lib/talent-directory/verification-runner");
-    await setBalance(CREDIT_COSTS.talentDirectoryHumanReview + CREDIT_COSTS.talentDirectoryVerification);
-    grade.mockImplementation(() => new Promise((resolve) => setTimeout(() => resolve(LOW), 50)));
-    const run = await runner();
-    const [a, h] = await Promise.all([run(userId), runTalentVerificationHumanReview(userId)]);
-    expect([a.status, h.status].filter((s) => s === "success")).toHaveLength(1);
-    expect(await rowsFor(), "exactly one attempt row exists: the loser never inserted one").toHaveLength(1);
+    for (let round = 1; round <= 8; round++) {
+      await admin.from("talent_verifications").delete().eq("user_id", userId);
+      await admin.from("profiles").update({ talent_verification_status: round % 2 ? "unverified" : "rejected" }).eq("id", userId);
+      await setBalance(CREDIT_COSTS.talentDirectoryHumanReview * 2);
+
+      const [ai, human] = await Promise.all([claim(), runTalentVerificationHumanReview(userId)]);
+      const rows = await rowsFor();
+      const pending = rows.filter((r) => r.status === "pending");
+      expect(pending, `round ${round}: exactly one pending row must be left`).toHaveLength(1);
+      expect(rows, `round ${round}: and no other row`).toHaveLength(1);
+      expect([ai.ok, human.status === "success"].filter(Boolean), `round ${round}: exactly one of the two claims won`).toHaveLength(1);
+      expect(pending[0].review_type, `round ${round}: the row left is the winner's`).toBe(ai.ok ? "ai" : "human");
+      expect(await profileStatus()).toBe("pending");
+      if (ai.ok) expect(human.status).toBe("error");
+      else expect(ai.reason).toBe("not_claimable");
+    }
   });
 });
 
 describe("fails closed", () => {
-  it("a person with no profile gets no_profile and no row", async () => {
+  it("0238-DB-11: a person with no profile gets no_profile and no row", async () => {
     const stranger = "00000000-0000-4000-8000-00000000f0f0";
     const { data, error } = await admin.rpc("claim_ai_talent_verification", { p_user_id: stranger });
     expect(error).toBeNull();
@@ -187,7 +220,7 @@ describe("fails closed", () => {
     expect(count).toBe(0);
   });
 
-  it("a verified person is not claimable", async () => {
+  it("0238-DB-12: a verified person is not claimable", async () => {
     await admin.from("profiles").update({ talent_verification_status: "verified" }).eq("id", userId);
     expect((await claim()).reason).toBe("not_claimable");
     expect(await rowsFor()).toEqual([]);
@@ -195,7 +228,7 @@ describe("fails closed", () => {
 });
 
 describe("no API role can reach it", () => {
-  it("anon and a signed-in user cannot execute either function, and cannot read or write flag_source", async () => {
+  it("0238-DB-13: anon and a signed-in user cannot execute either function, and cannot read or write flag_source", async () => {
     const anon = createClient<Database>(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, { auth: { autoRefreshToken: false, persistSession: false } });
     for (const client of [anon, authed.client]) {
       const c = await client.rpc("claim_ai_talent_verification", { p_user_id: userId });
@@ -209,7 +242,7 @@ describe("no API role can reach it", () => {
     expect(write.error?.code).toBe("42501");
   });
 
-  it("flag_source can only be set on a rejected AI review, and only to pattern or model (the table's own check)", async () => {
+  it("0238-DB-14: flag_source can only be set on a rejected AI review, and only to pattern or model (the table's own check)", async () => {
     const human = await admin.from("talent_verifications").insert({ user_id: userId, status: "rejected", review_type: "human", flag_source: "model" });
     expect(human.error?.message).toMatch(/talent_verifications_flag_source_check/);
     const pending = await admin.from("talent_verifications").insert({ user_id: userId, status: "pending", flag_source: "model" });

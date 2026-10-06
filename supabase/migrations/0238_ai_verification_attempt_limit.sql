@@ -1,12 +1,11 @@
--- NNNN: AI resume reviews are limited to two per person per rolling 30 days, counted and claimed in ONE statement. A flagged attempt (the resume tried to instruct the grader) is recorded, counts, and is never charged.
--- The number is not yet assigned: the file is named NNNN until the owner assigns one.
+-- 0238: AI resume reviews are limited to two per person per rolling 30 days, counted and claimed in ONE statement. A flagged attempt (the resume tried to instruct the grader) is recorded, counts, and is never charged.
 --
 -- WHAT.
 --   1. talent_verifications.flag_source: why the grader refused to grade an AI review. 'pattern' = instruction-like text found in the resume before the model ran; 'model' = the model reported that the resume tried to
 --      instruct it. Null on every ordinary review. A check allows a value only on an AI review that was resolved as rejected.
 --   2. public.claim_ai_talent_verification(p_user_id): replaces the two-step claim in application code (a conditional UPDATE of the profile, then an INSERT). In one transaction it locks the person's profile row, refuses unless
 --      the profile is unverified or rejected, counts that person's AI reviews that were resolved (verified or rejected) in the last 30 days, refuses with 'limit_reached' (and the date the next attempt opens) when the count is 2 or
---      more, and otherwise sets the profile to pending and inserts the pending review row. It FAILS CLOSED: a missing profile returns 'no_profile', never a new row.
+--      more, and otherwise sets the profile to pending and inserts the pending review row with review_type 'ai' written out (it does not lean on the column default, so a later change of the default cannot make a claimed AI review stop counting toward its own limit). It FAILS CLOSED: a missing profile returns 'no_profile', never a new row.
 --   3. public.resolve_flagged_talent_verification(...): resolves a pending AI row as rejected with score 0, the fixed feedback and the flag source, and sets the profile to rejected. No credits move here (the caller never charges a flagged
 --      attempt). resolve_talent_verification is not changed.
 --
@@ -71,7 +70,7 @@ begin
   end if;
 
   update public.profiles set talent_verification_status = 'pending' where id = p_user_id;
-  insert into public.talent_verifications (user_id, status) values (p_user_id, 'pending') returning id into v_id;
+  insert into public.talent_verifications (user_id, status, review_type) values (p_user_id, 'pending', 'ai') returning id into v_id;
   return query select true, v_id, null::text, null::timestamptz;
 end;
 $$;
@@ -117,19 +116,19 @@ declare
   fn text;
 begin
   if not exists (select 1 from pg_attribute where attrelid = 'public.talent_verifications'::regclass and attname = 'flag_source' and not attisdropped) then
-    raise exception 'NNNN: flag_source is missing';
+    raise exception '0238: flag_source is missing';
   end if;
   foreach role_name in array array['anon', 'authenticated'] loop
     if has_column_privilege(role_name, 'public.talent_verifications', 'flag_source', 'SELECT')
        or has_column_privilege(role_name, 'public.talent_verifications', 'flag_source', 'INSERT')
        or has_column_privilege(role_name, 'public.talent_verifications', 'flag_source', 'UPDATE') then
-      raise exception 'NNNN: % can read or write talent_verifications.flag_source', role_name;
+      raise exception '0238: % can read or write talent_verifications.flag_source', role_name;
     end if;
   end loop;
   foreach fn in array array['public.claim_ai_talent_verification(uuid)', 'public.resolve_flagged_talent_verification(uuid, uuid, text, text)'] loop
     if has_function_privilege('anon', fn, 'EXECUTE') or has_function_privilege('authenticated', fn, 'EXECUTE') or not has_function_privilege('service_role', fn, 'EXECUTE')
        or exists (select 1 from pg_proc p cross join lateral aclexplode(p.proacl) g where p.oid = fn::regprocedure and g.grantee = 0) then
-      raise exception 'NNNN: % has the wrong execute privileges', fn;
+      raise exception '0238: % has the wrong execute privileges', fn;
     end if;
   end loop;
 end
