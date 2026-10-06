@@ -1,6 +1,6 @@
 import "server-only";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
-import { CREDIT_COSTS } from "@/lib/credits/costs";
+import { farahMessageCharge } from "@/lib/credits/farah-message-charge";
 import { spendCredits, InsufficientCreditsError } from "@/lib/credits/spend";
 import { logCreditGateEvent } from "@/lib/credits/gate-events";
 import { checkPassCoverage, DAILY_CAP_MESSAGE } from "@/lib/passes/entitlement";
@@ -35,8 +35,8 @@ export { InsufficientCreditsError };
  * (0123) keeps one place answering "how many times has this user used this
  * gate, and how" instead of a second table nothing else needs.
  */
-export const FARAH_CHAT_FREE_ALLOWANCE = 3;
-const FARAH_CHAT_FREE_WINDOW_DAYS = 30;
+import { FARAH_CHAT_FREE_ALLOWANCE, freeWindowStart, nextFreeMessageAt } from "@/lib/farah/free-allowance";
+export { FARAH_CHAT_FREE_ALLOWANCE };
 const FARAH_CHAT_REASON = "farah_chat_message" as const;
 
 export interface FarahChatAllowanceResult {
@@ -71,7 +71,7 @@ export interface FarahChatAllowanceResult {
  */
 async function countFreeAllowanceUsed(userId: string, now: Date): Promise<number> {
   const supabase = createServiceRoleClient();
-  const since = new Date(now.getTime() - FARAH_CHAT_FREE_WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  const since = freeWindowStart(now).toISOString();
   const { count, error } = await supabase
     .from("credit_gate_events")
     .select("id", { count: "exact", head: true })
@@ -104,6 +104,32 @@ export async function farahChatFreeMessagesRemaining(
 }
 
 /**
+ * When the next free message comes back, as an ISO timestamp, or `null` when none is coming back (nothing was used in the window) or the read failed.
+ *
+ * Rolling, not a calendar month: the oldest free message still inside the last 30 days returns exactly 30 days after it was logged (`nextFreeMessageAt`, free-allowance.ts, which shares the window edge
+ * with the count above). It ignores a Pass: a Pass holder's free messages still come back on this schedule; whether to SHOW it is the caller's decision (the history route reports no free count for a
+ * Pass holder). Display-only: it never decides whether a message is free (the count does), so a failed read is `null`, not fail-closed. Safe to call as often as a page wants to show it.
+ */
+export async function farahChatNextFreeMessageAt(userId: string, now: Date = new Date()): Promise<string | null> {
+  const supabase = createServiceRoleClient();
+  const { data, error } = await supabase
+    .from("credit_gate_events")
+    .select("created_at")
+    .eq("user_id", userId)
+    .eq("reason", FARAH_CHAT_REASON)
+    .eq("outcome", "covered_by_free_allowance")
+    .gte("created_at", freeWindowStart(now).toISOString())
+    .order("created_at", { ascending: true })
+    .limit(1);
+  if (error) {
+    console.error(`[farah-chat-gate] could not read when the next free message returns: ${error.message}`);
+    return null;
+  }
+  const at = nextFreeMessageAt((data ?? []).map((r) => r.created_at), now);
+  return at ? at.toISOString() : null;
+}
+
+/**
  * Read-only affordability check — call BEFORE askFarahChat/askFarahChatStream. Does not
  * mutate anything; pair with commitFarahChatAllowance after the LLM call
  * actually succeeds.
@@ -121,7 +147,12 @@ export async function checkFarahChatAllowance(
   const balance = profile?.credits_balance ?? 0;
 
   const used = await countFreeAllowanceUsed(userId, now);
-  if (used < FARAH_CHAT_FREE_ALLOWANCE) {
+  const freeLeft = Math.max(0, FARAH_CHAT_FREE_ALLOWANCE - used);
+  // A Pass is asked about only once the free messages are used, as before. The ORDER (free, then Pass, then credits) and the PRICE both come from farahMessageCharge, the one function every price label also calls.
+  const coverage = freeLeft > 0 ? undefined : await checkPassCoverage(userId);
+  const charge = farahMessageCharge({ freeLeft, passCovered: coverage ? coverage.covered : false, balance });
+
+  if (charge.kind === "free") {
     // NOT logged here — see commitFarahChatAllowance. A failed LLM call
     // must not burn a free-allowance slot for a message that never
     // happened, the same ordering rule covered_by_pass already follows.
@@ -130,12 +161,11 @@ export async function checkFarahChatAllowance(
       isPassCovered: false,
       creditsSpent: 0,
       creditsAvailableAtCheck: balance,
-      freeMessagesRemaining: Math.max(0, FARAH_CHAT_FREE_ALLOWANCE - used - 1),
+      freeMessagesRemaining: charge.freeAfter,
     };
   }
 
-  const coverage = await checkPassCoverage(userId);
-  if (coverage.covered) {
+  if (charge.kind === "pass") {
     // Also not logged here, for the same reason: this counts against the
     // Pass's own daily fair-use cap, and a failed reply must not spend one.
     return {
@@ -147,20 +177,22 @@ export async function checkFarahChatAllowance(
     };
   }
 
-  if (balance < CREDIT_COSTS.farahChatMessage) {
+  if (charge.kind === "insufficient") {
     await logCreditGateEvent({
       userId,
       reason: FARAH_CHAT_REASON,
-      creditsRequired: CREDIT_COSTS.farahChatMessage,
+      creditsRequired: charge.required,
       creditsAvailable: balance,
       outcome: "blocked_insufficient_credits",
     });
     throw new InsufficientCreditsError(
-      CREDIT_COSTS.farahChatMessage,
+      charge.required,
       balance,
-      coverage.reason === "daily_cap_reached" ? DAILY_CAP_MESSAGE : undefined,
+      coverage && !coverage.covered && coverage.reason === "daily_cap_reached" ? DAILY_CAP_MESSAGE : undefined,
     );
   }
+
+  if (charge.kind !== "credits") throw new Error("farahMessageCharge returned an unexpected kind for a gate call");
 
   // A credit spend is logged as 'proceeded' immediately, unlike the two
   // capped-resource branches above — nothing about this outcome is capped,
@@ -168,14 +200,14 @@ export async function checkFarahChatAllowance(
   await logCreditGateEvent({
     userId,
     reason: FARAH_CHAT_REASON,
-    creditsRequired: CREDIT_COSTS.farahChatMessage,
+    creditsRequired: charge.credits,
     creditsAvailable: balance,
     outcome: "proceeded",
   });
   return {
     isFreeAllowance: false,
     isPassCovered: false,
-    creditsSpent: CREDIT_COSTS.farahChatMessage,
+    creditsSpent: charge.credits,
     creditsAvailableAtCheck: balance,
     freeMessagesRemaining: 0,
   };
