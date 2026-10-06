@@ -134,6 +134,18 @@ describe("everything else is unchanged", () => {
     expect(r).toMatchObject({ status: "success", passed: true, score: 85 });
   });
 
+  it("not enough credits: the claimed row is released (so a pending review does not block the next attempt), and nothing is graded or charged", async () => {
+    balance = CREDIT_COSTS.talentDirectoryVerification - 1;
+    const r = await runTalentVerification("user-1");
+    expect(r.status).toBe("error");
+    expect(r.message).toMatch(/Not enough credits/);
+    expect(grade).not.toHaveBeenCalled();
+    expect(spendCredits).not.toHaveBeenCalled();
+    const release = rpc.mock.calls.filter((c) => c[0] === "release_talent_verification_claim");
+    expect(release).toHaveLength(1);
+    expect(release[0][1]).toEqual({ p_user_id: "user-1", p_verification_id: "v1" });
+  });
+
   it("a low unflagged grade is still charged (a graded attempt costs credits, as before)", async () => {
     grade.mockResolvedValue({ score: 20, passed: false, feedback: "Too thin.", concerns: [] });
     await runTalentVerification("user-1");
