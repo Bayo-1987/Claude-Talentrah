@@ -238,8 +238,10 @@ secure_password_change = false
 max_frequency = "1s"
 # Number of characters used in the email OTP.
 otp_length = 6
-# Number of seconds before the email OTP expires (defaults to 1 hour).
-otp_expiry = 3600
+# Number of seconds before the email OTP expires (defaults to 1 hour). 900 (15 minutes) is the production project's Email OTP Expiration, so the
+# confirmation email's "The code expires in 15 minutes." is true here as well (tests/auth/confirm-signup-local-template.test.ts). It covers every email code and link
+# the local stack sends, password-reset links and invitations included, as it does in production.
+otp_expiry = 900
 
 # Use a production-ready SMTP server
 # [auth.email.smtp]
@@ -273,8 +275,10 @@ otp_expiry = 3600
 # `supabase config push` from a developer's own machine is the CLI
 # alternative Supabase itself supports, but this repo has no record of it
 # and doing it now is a deliberate choice, not something this PR performs.
+# The confirmation template is the production "Confirm sign up" email, the six-digit-code version (docs/auth-email-templates/confirm-signup.html, S1-101), copied byte for
+# byte so a developer testing signup locally sees what a person sees; tests/auth/confirm-signup-local-template.test.ts fails if the two drift apart.
 [auth.email.template.confirmation]
-subject = "Confirm your email — Talentrah"
+subject = "Confirm your Talentrah email address"
 content_path = "./supabase/templates/confirmation.html"
 
 [auth.email.template.recovery]
