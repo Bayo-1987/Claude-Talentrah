@@ -29,17 +29,6 @@ const ALLOWED = ["src/components/ui/text-area.tsx"];
 /** Conversions that belong to a later PR or to another owner, with the reason. */
 const PENDING: Record<string, string> = {
   "src/app/admin/(protected)/scholarships/new/admin-scholarship-form.tsx": "scholarship file; deferred to the scholarship owner (reviewNote, deadline note)",
-  "src/app/(app)/mentorship/sessions/review-form.tsx": "call-site migration: PR 1b",
-  "src/app/employer/talent-directory/[candidateId]/contact-request-form.tsx": "call-site migration: PR 1b",
-  "src/components/admin/blog-post-form.tsx": "call-site migration: PR 1b",
-  "src/components/admin/decision-form.tsx": "call-site migration: PR 1b",
-  "src/components/jobs/report-job-menu.tsx": "call-site migration: PR 1b",
-  "src/components/jobs/screening-gate-apply.tsx": "call-site migration: PR 1b",
-  "src/components/marketing/jd-demo-input.tsx": "call-site migration: PR 1b",
-  "src/components/resume-builder/resume-editor.tsx": "call-site migration: PR 1b",
-  "src/components/scholarships/farah-actions.tsx": "call-site migration: PR 1b",
-  "src/components/tailoring/tailor-form.tsx": "call-site migration: PR 1b",
-  "src/components/tracker/notes-form.tsx": "call-site migration: PR 1b",
 };
 
 describe("no raw <textarea>", () => {
