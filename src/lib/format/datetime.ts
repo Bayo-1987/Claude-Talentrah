@@ -146,6 +146,31 @@ export function formatDateTime(value: DateInput, options: FormatOptions = {}): s
   return `${date}, ${formatTime(value, options)}`;
 }
 
+const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
+
+/**
+ * An instant as "Fri 9 Oct at 14:20": the weekday, day, short month and 24-hour time in a zone. No year, never seconds, and no zone label:
+ * it is for text that says when something happens in the viewer's own zone (Farah's "next free message"), where WAT or GMT+1 would add nothing.
+ * The weekday comes from the zone's own calendar day, not from the instant's UTC day. A calendar date has no time, so it is "".
+ */
+export function formatWeekdayAtTime(value: DateInput, options: FormatOptions = {}): string {
+  if (typeof value === "string" && CALENDAR_DATE.test(value)) return "";
+  const date = toInstant(value);
+  if (!date) return "";
+  const { year, month, day, hour, minute } = calendarParts(date, usableZone(options.timeZone));
+  const weekday = WEEKDAYS[new Date(Date.UTC(year, month - 1, day)).getUTCDay()];
+  return `${weekday} ${day} ${MONTHS[month - 1]} at ${hour}:${minute}`;
+}
+
+/** The viewer's own IANA zone name, or undefined when the runtime will not say. Read on the client; pass it to the formatters' `timeZone`. */
+export function viewerTimeZone(): string | undefined {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /**
  * Time-zone arithmetic for src/lib/scholarships/close-instant.ts (send-508). Kept HERE because this module is the one place Intl is
  * allowed (tests/format/no-direct-locale-formatting.test.ts): these read a zone's rules, they do not format a value for display.

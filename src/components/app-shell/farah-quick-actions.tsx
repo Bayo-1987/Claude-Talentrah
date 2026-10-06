@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { FARAH_QUICK_ACTIONS } from "@/lib/farah/quick-actions";
-import { farahAllowanceLine, quickActionMode } from "@/lib/credits/price-labels";
+import { farahAllowanceText, quickActionMode } from "@/lib/credits/price-labels";
 
 /**
  * The line under Farah's greeting about the free-message allowance (0123) — and, once it is used up, what a
@@ -8,10 +8,32 @@ import { farahAllowanceLine, quickActionMode } from "@/lib/credits/price-labels"
  * correct there; it is only a hard 0 that must not read as broken, and must say the price.
  *
  * Plain body text, no pill/badge/meter, per the Editorial system's rule against gamification.
+ *
+ * Once the free messages are used up it names when the next one comes back (`nextFreeMessageAt`, an ISO time from the history route or the chat `done` event),
+ * in the viewer's own time zone, as a <time> element so a screen reader gets the instant and the sentence reads straight through. No date when the foundation
+ * sends null, or the time has passed: see farahAllowanceText. Rendered on the client only (the count arrives after mount), so the zone never differs from the server's.
  */
-export function FarahAllowanceNote({ freeRemaining }: { freeRemaining: number | null | undefined }) {
-  if (freeRemaining === null || freeRemaining === undefined) return null;
-  return <p className="text-[12px] text-ink-soft">{farahAllowanceLine(freeRemaining)}</p>;
+export function FarahAllowanceNote({
+  freeRemaining,
+  nextFreeMessageAt,
+  now,
+  timeZone,
+}: {
+  freeRemaining: number | null | undefined;
+  nextFreeMessageAt?: string | null;
+  /** For tests. */
+  now?: Date;
+  timeZone?: string;
+}) {
+  const parts = farahAllowanceText({ freeRemaining, nextFreeMessageAt, now, timeZone });
+  if (!parts) return null;
+  return (
+    <p className="text-[12px] text-ink-soft">
+      {parts.lead}
+      {parts.when && <time dateTime={parts.when.iso}>{parts.when.label}</time>}
+      {parts.tail}
+    </p>
+  );
 }
 
 /**

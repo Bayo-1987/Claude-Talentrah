@@ -30,7 +30,7 @@ describe("FarahAllowanceNote", () => {
   it("used up with a future time: the sentence reads in order and the date is a <time> with the ISO instant", () => {
     const html = render({ freeRemaining: 0, nextFreeMessageAt: FUTURE, now: NOW, timeZone: "Africa/Lagos" });
     expect(html).toContain(`<time dateTime="${FUTURE}">Fri 9 Oct at 14:20</time>`);
-    expect(html.replace(/<[^>]+>/g, "")).toMatch(/^You've used your free messages\. Your next free message is available on Fri 9 Oct at 14:20\. Until then, each message costs \d+ credits?\.$/);
+    expect(html.replace(/<[^>]+>/g, "").replace(/&#x27;/g, "'")).toMatch(/^You've used your free messages\. Your next free message is available on Fri 9 Oct at 14:20\. Until then, each message costs \d+ credits?\.$/);
   });
   it("used up with null, a past time or junk: no <time>, no date sentence", () => {
     for (const v of [null, "2026-10-01T00:00:00.000Z", "soon"]) {
