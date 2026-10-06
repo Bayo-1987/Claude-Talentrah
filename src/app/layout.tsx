@@ -4,6 +4,7 @@ import { preload } from "react-dom";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { CookieConsentBanner } from "@/components/legal/cookie-consent-banner";
+import { COOKIE_CONSENT_PREPAINT_SCRIPT } from "@/components/legal/cookie-consent-script";
 import "./globals.css";
 import "@/fonts/newsreader/newsreader.css";
 import "@/fonts/ibm-plex-sans/ibm-plex-sans.css";
@@ -105,6 +106,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html
       lang="en"
       className={`${newsreader.variable} ${ibmPlexSans.variable} h-full antialiased`}
+      // The pre-paint script below sets data-cookie-consent on this element before React hydrates: expected, not a mismatch.
+      suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col bg-paper text-ink">
         {/*
@@ -129,6 +132,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         >
           Skip to main content
         </a>
+        {/* Before the banner, so a returning visitor's stored choice is applied before first paint (see cookie-consent-script.ts). */}
+        <script dangerouslySetInnerHTML={{ __html: COOKIE_CONSENT_PREPAINT_SCRIPT }} />
         <CookieConsentBanner />
         {children}
         <Analytics />
