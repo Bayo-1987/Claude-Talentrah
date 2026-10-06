@@ -11,6 +11,8 @@ reviewed in a diff and pinned by `tests/auth/confirm-signup-template.test.ts`.
 
 ## Go-live rule
 
+This is the auth-email case of the general rule in `docs/owner-dashboard-steps.md`, which covers every dashboard-only setting (Supabase, Vercel environment variables, provider consoles).
+
 Supabase sends the auth emails from the template and settings the owner puts in the dashboard, so a change in this repo reaches no user until the owner does that
 step. Therefore: **any change to an auth email ships with a written owner dashboard step (which template, which setting, the exact value), and the change is not
 done until the owner confirms it is live.** An auth email change is any change to a template file or its subject here, or to a project setting that changes what
