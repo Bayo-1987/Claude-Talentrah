@@ -4295,8 +4295,9 @@ export type Database = {
           screening_passed: boolean | null
           seniority_alignment: string | null
           status: Database["public"]["Enums"]["applicant_review_status"]
-          talent_verification_score: number | null
-          talent_verification_status: string
+          talent_review_type: string | null
+          talent_verification_status: string | null
+          talent_verified_at: string | null
         }[]
       }
       employer_resume_view_context: {
@@ -4770,8 +4771,8 @@ export type Database = {
           first_name: string
           last_name: string
           remote_ready: boolean
+          review_type: string
           user_id: string
-          verification_score: number
           verified_at: string
         }[]
       }
