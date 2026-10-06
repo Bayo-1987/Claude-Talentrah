@@ -450,13 +450,16 @@ describe("organizations: a company cannot verify itself at INSERT either (found 
     const { data: org, error: goodError } = await user.client
       .from("organizations")
       .insert({ name: `COLPRIV-TEST-insert-good ${randomUUID().slice(0, 8)}`, created_by: user.id })
-      .select("id, verified, cac_confirmed_at, cac_confirmed_by")
+      // cac_confirmed_by is withheld from the signed-in role (0232), so a RETURNING of it would be refused: read it back with the service role below.
+      .select("id, verified, cac_confirmed_at")
       .single();
     try {
       expect(goodError, "an ordinary organisation creation must still succeed").toBeNull();
       expect(org?.verified).toBe(false);
       expect(org?.cac_confirmed_at).toBeNull();
-      expect(org?.cac_confirmed_by).toBeNull();
+      const { data: stored, error: storedError } = await admin.from("organizations").select("cac_confirmed_by").eq("id", org!.id).single();
+      expect(storedError).toBeNull();
+      expect(stored?.cac_confirmed_by).toBeNull();
     } finally {
       if (org?.id) await deleteTestOrgs([org.id]);
     }

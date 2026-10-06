@@ -7,8 +7,9 @@ import {
   ScholarshipCard,
   formatDeadline,
 } from "@/components/scholarships/scholarship-card";
-import { Constants, type Tables } from "@/lib/supabase/types";
+import { Constants } from "@/lib/supabase/types";
 import type { DegreeLevel, FundingType, SaveStatus } from "@/lib/scholarships/types";
+import { SCHOLARSHIP_READABLE_COLUMNS, type ScholarshipRow } from "@/lib/scholarships/columns";
 import { checkPassCoverage } from "@/lib/passes/entitlement";
 import { getSiteOrigin } from "@/lib/referrals/url";
 import { pageMetadata } from "@/lib/seo/site";
@@ -126,7 +127,8 @@ export default async function ScholarshipsPage({ searchParams }: { searchParams:
    * forgets it would silently leak an unreviewed listing. This query is
    * unfiltered on purpose and still cannot see pending rows.
    */
-  let query = supabase.from("scholarships").select("*", { count: "exact" });
+  // Named columns, not "*": migration 0232 withholds the admin's review trail (moderation_note, moderated_by) from this role.
+  let query = supabase.from("scholarships").select(SCHOLARSHIP_READABLE_COLUMNS, { count: "exact" });
 
   if (level) query = query.contains("degree_levels", [level]);
   if (funding) query = query.eq("funding_type", funding);
@@ -156,7 +158,7 @@ export default async function ScholarshipsPage({ searchParams }: { searchParams:
     .order("application_deadline", { ascending: true, nullsFirst: false })
     .range(from, from + PAGE_SIZE - 1);
 
-  const scholarships: Tables<"scholarships">[] = rows ?? [];
+  const scholarships: ScholarshipRow[] = rows ?? [];
   const total = count ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
