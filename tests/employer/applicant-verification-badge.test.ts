@@ -163,7 +163,10 @@ describe("employer_job_applicants surfaces Talent Directory verification, indepe
     expect(row!.talent_verification_status).toBe("verified");
     // 0234: the score is not a column of the function at all; an employer calling it with their own login cannot read it.
     expect(Object.keys(row!)).not.toContain("talent_verification_score");
-    expect(JSON.stringify(row)).not.toContain("87");
+    // By VALUE, not by substring: the row carries random ids and timestamps, and a text search for "87" in its JSON matched them (a resume id such as 9c187231-...)
+    // about one run in four. The score is a number, so no value of the row may be the number 87 (or its string form).
+    expect(Object.values(row!)).not.toContain(87);
+    expect(Object.values(row!)).not.toContain("87");
   });
 
   it("reports nothing at all (null) for a pending or rejected applicant, regardless of opt-in: never 'pending', never 'rejected'", async () => {
