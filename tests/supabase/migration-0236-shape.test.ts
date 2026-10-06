@@ -247,7 +247,7 @@ describe("0236: the test-pool reset wipes the new table: ONE row added to the li
 
   it("the self-check asserts the reset is still SECURITY DEFINER with search_path = public, executable by service_role only (not anon, authenticated or PUBLIC), wipes the new table exactly once, and still carries 0201's and 0212's additions", () => {
     expect(flat).toContain("prosecdef and proconfig = array['search_path=public']");
-    expect(flat).toContain("raise exception '0236 self-check: % can execute reset_test_pool_user'");
+    expect(flat).toContain("foreach r in array array['anon', 'authenticated'] loop if pg_catalog.has_function_privilege(r, 'public.reset_test_pool_user(uuid, text)'::regprocedure, 'execute') then raise exception '0236 self-check: % can execute reset_test_pool_user'");
     expect(flat).toContain("raise exception '0236 self-check: public can execute reset_test_pool_user'".replace("public can", "PUBLIC can").toLowerCase());
     expect(flat).toContain("raise exception '0236 self-check: service_role cannot execute reset_test_pool_user'");
     expect(flat).toContain("raise exception '0236 self-check: reset_test_pool_user does not wipe farah_free_claims exactly once'");
