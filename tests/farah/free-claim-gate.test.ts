@@ -159,7 +159,7 @@ describe("commitFarahChatAllowance: a held claim becomes the free-allowance even
   it("a commit that says false (the claim had expired or was already settled) does not throw and does not charge; it logs one content-free line", async () => {
     commitAnswer = { data: false, error: null };
     await expect(gate.commitFarahChatAllowance("user-1", held)).resolves.toEqual({ balanceAfter: null });
-    expect(errorLines().filter((l) => l.startsWith("[farah-chat-gate] a free claim could not be recorded"))).toHaveLength(1);
+    expect(errorLines().filter((l) => l.startsWith("[farah-chat-gate] a free claim could not be recorded"))).toEqual(["[farah-chat-gate] a free claim could not be recorded (expired or already settled)"]);
     expect(spendCredits).not.toHaveBeenCalled();
   });
 
