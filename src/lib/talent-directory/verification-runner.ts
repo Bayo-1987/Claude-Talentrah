@@ -111,6 +111,13 @@ export async function runTalentVerification(userId: string): Promise<Verificatio
   }
 
   /*
+   * A FLAGGED grade (the resume tried to instruct the grader, see injection-flags.ts) was never graded, so it is not charged. It is still RECORDED: the row is resolved below as rejected with
+   * its feedback (not released, which deletes it), so the attempt counts toward any limit on a person's verification rows. A flagged grade can never be a pass.
+   */
+  if (grade.flagged) grade = { ...grade, passed: false }; // a flagged grade can never be a pass, whatever the object says: enforced once, here, so every use below reads grade.passed
+  const charged = !grade.flagged;
+
+  /*
    * Wrapped the way scholarships/actions.ts already wraps its own spend: the
    * balance check above is informational, spendCredits' own atomic RPC is
    * what actually enforces it under a lock. A concurrent spend elsewhere
@@ -118,17 +125,19 @@ export async function runTalentVerification(userId: string): Promise<Verificatio
    * cannot close — same accepted shape as every other credit-gated action in
    * this app.
    */
-  try {
-    await spendCredits(userId, cost, "talent_directory_verification", verification.id);
-  } catch (err) {
-    await serviceClient.rpc("release_talent_verification_claim", {
-      p_user_id: userId,
-      p_verification_id: verification.id,
-    });
-    if (err instanceof InsufficientCreditsError) {
-      return { status: "error", message: "Your credit balance changed while that ran — top up and try again." };
+  if (charged) {
+    try {
+      await spendCredits(userId, cost, "talent_directory_verification", verification.id);
+    } catch (err) {
+      await serviceClient.rpc("release_talent_verification_claim", {
+        p_user_id: userId,
+        p_verification_id: verification.id,
+      });
+      if (err instanceof InsufficientCreditsError) {
+        return { status: "error", message: "Your credit balance changed while that ran — top up and try again." };
+      }
+      throw err;
     }
-    throw err;
   }
 
   const { data: resolvedOk } = await serviceClient.rpc("resolve_talent_verification", {
@@ -140,6 +149,7 @@ export async function runTalentVerification(userId: string): Promise<Verificatio
   });
 
   if (!resolvedOk) {
+    if (!charged) return { status: "error", message: "Something went wrong on our end. You haven't been charged." };
     // Credits were already spent and the ledger is the source of truth here
     // — this is a genuinely unexpected state (the claim we hold should be
     // the only thing able to resolve this row) rather than a race to
@@ -147,6 +157,16 @@ export async function runTalentVerification(userId: string): Promise<Verificatio
     return {
       status: "error",
       message: "Your credits were charged but we couldn't record the result — contact support with this time.",
+    };
+  }
+
+  if (!charged) {
+    return {
+      status: "success",
+      message:
+        "This review couldn't be completed: your resume contains text that reads like instructions to the grader. You haven't been charged. Remove that text and try again, or ask for “Resume reviewed by a Talentrah mentor”, where a person reads it.",
+      score: grade.score,
+      passed: false,
     };
   }
 
