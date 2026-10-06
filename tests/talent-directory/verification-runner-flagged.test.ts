@@ -87,6 +87,13 @@ describe("a flagged resume", () => {
     expect(r.message).toMatch(/human review/i);
   });
 
+  it("the stored feedback and the answer carry no attempt limit (none exists yet: 0b will add it)", async () => {
+    grade.mockResolvedValue(FLAGGED);
+    const r = await runTalentVerification("user-1");
+    const stored = rpc.mock.calls.find((c) => c[0] === "resolve_talent_verification")?.[1]?.p_feedback as string;
+    for (const text of [r.message, stored]) expect(text).not.toMatch(/per 30 days|30 days|attempts? (left|remaining)|limit|twice/i);
+  });
+
   it("is never reported verified, even if a grade object said so (a flagged grade cannot pass)", async () => {
     grade.mockResolvedValue({ ...FLAGGED, passed: true });
     await runTalentVerification("user-1");
