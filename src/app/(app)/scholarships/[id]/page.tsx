@@ -307,7 +307,7 @@ export default async function ScholarshipDetailPage({
             <Link
               key={l.href}
               href={l.href}
-              className="text-rust underline underline-offset-2 hover:text-rust-hover"
+              className="inline-flex min-h-6 items-center text-rust underline underline-offset-2 hover:text-rust-hover"
             >
               {l.label}
             </Link>

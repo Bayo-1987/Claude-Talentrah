@@ -56,7 +56,7 @@ export function PublicScholarshipRow({ scholarship }: { scholarship: Scholarship
 
       <span className="text-[13px] text-ink-soft">
         <span className="font-semibold">Deadline:</span>{" "}
-        <span className={urgent ? "font-semibold text-rust" : undefined}>
+        <span className={urgent ? "wrap-anywhere font-semibold text-rust" : "wrap-anywhere"}>
           {scholarship.application_deadline
             ? formatDeadline(scholarship.application_deadline)
             : deadlineNoteOrFallback(scholarship)}
