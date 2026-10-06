@@ -42,6 +42,8 @@ export interface ApplicantRow {
    * server (VERIFY-1 0a-1), so a score cannot reach this component.
    */
   resumeReview: ReviewMethod | null;
+  /** When the review was recorded; null when there is no review. */
+  resumeReviewedAt: string | null;
   /**
    * send-327 — null means the job has no screening questions, or this
    * application's required questions aren't all answered yet (0171's own
@@ -322,7 +324,7 @@ export function ApplicantList({
                   <p className="mt-0.5 font-body text-[12.5px] text-ink-soft">
                     Applied {applicant.applied_at ? formatTrackerDate(applicant.applied_at) : "—"}
                   </p>
-                  {applicant.resumeReview !== null && <ResumeReviewedBadge method={applicant.resumeReview} className="mt-0.5" />}
+                  {applicant.resumeReview !== null && <ResumeReviewedBadge method={applicant.resumeReview} reviewedAt={applicant.resumeReviewedAt} className="mt-0.5" />}
                   {applicant.screeningPassed !== null && (
                     <p
                       className={`mt-0.5 text-[12.5px] font-semibold ${
