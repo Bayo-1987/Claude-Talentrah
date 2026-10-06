@@ -47,7 +47,8 @@ for (const width of [390, 1440]) {
     test(`${route} at ${width}px: first visit shifts at most ${LIMIT}`, async ({ browser }) => {
       const context = await browser.newContext({ viewport: { width, height: 800 }, isMobile: width < 640, hasTouch: width < 640 });
       const { total, sources } = await cumulativeShift(await context.newPage(), route);
-      expect(total, `${route} CLS ${total.toFixed(3)}: ${sources.join(", ")}`).toBeLessThanOrEqual(LIMIT);
+      console.log(`[layout-shift] ${route} at ${width}px: CLS ${total.toFixed(4)} (limit ${LIMIT})${sources.length ? ` from ${sources.join(", ")}` : ""}`);
+      expect(total, `${route} at ${width}px: cumulative layout shift ${total.toFixed(3)} is over the limit ${LIMIT}; shifts: ${sources.join(", ") || "none recorded"}`).toBeLessThanOrEqual(LIMIT);
       await context.close();
     });
   }
