@@ -9,7 +9,7 @@
  * grader's real threshold so the two cannot drift apart.
  */
 
-/** Where the "Verified" copy begins. Mirrors VERIFICATION_PASS_THRESHOLD (tested equal). */
+/** Where the "Reviewed" copy begins. Mirrors VERIFICATION_PASS_THRESHOLD (tested equal). */
 export const VERIFICATION_BAND_PASS = 70;
 
 /** Where "your resume holds up" begins. Below it, a pass still has things to tighten. */
@@ -17,11 +17,11 @@ export const VERIFICATION_BAND_STRONG = 85;
 
 /** The line for each status that has no score band to speak of. Unchanged from the page's old STATUS_COPY. */
 const STATUS_COPY: Record<string, string> = {
-  unverified: "You haven't requested verification yet.",
-  pending: "Your verification is being graded, or waiting for a reviewer to pick it up.",
+  unverified: "You haven't requested a resume review yet.",
+  pending: "Your resume is being reviewed, or waiting for a reviewer to pick it up.",
   claimed: "A mentor is reviewing your submission now.",
-  verified: "You're verified.",
-  rejected: "Your last attempt wasn't verified — see the feedback below.",
+  verified: "Your resume has been reviewed.",
+  rejected: "Your last review found things to fix — see the feedback below.",
 };
 
 /**
@@ -34,9 +34,9 @@ const STATUS_COPY: Record<string, string> = {
  */
 export function verificationHeadline(status: string, score: number | null): string {
   if (score != null) {
-    if (status === "verified" && score >= VERIFICATION_BAND_STRONG) return "Verified — your resume holds up";
-    if (status === "verified" && score >= VERIFICATION_BAND_PASS) return "Verified — a few things to tighten";
-    if (status === "rejected" && score < VERIFICATION_BAND_PASS) return "Not verified yet — here's what to fix";
+    if (status === "verified" && score >= VERIFICATION_BAND_STRONG) return "Reviewed — your resume holds up";
+    if (status === "verified" && score >= VERIFICATION_BAND_PASS) return "Reviewed — a few things to tighten";
+    if (status === "rejected" && score < VERIFICATION_BAND_PASS) return "Not passed yet — here's what to fix";
   }
   return STATUS_COPY[status] ?? status;
 }

@@ -6,9 +6,9 @@
  * page had one sentence for every score. Copy only: the pass mark does not move.
  *
  * Owner-specified bands (2026-10-01), edges tested at 69, 70, 84 and 85:
- *   under 70  -> "Not verified yet — here's what to fix"
- *   70 to 84  -> "Verified — a few things to tighten"
- *   85 and up -> "Verified — your resume holds up"
+ *   under 70  -> "Not passed yet — here's what to fix"
+ *   70 to 84  -> "Reviewed — a few things to tighten"
+ *   85 and up -> "Reviewed — your resume holds up"
  *
  * Reached through loadModule so the file compiles before the module exists.
  */
@@ -27,9 +27,9 @@ async function headline(status: string, score: number | null): Promise<string> {
   return mod.verificationHeadline!(status, score);
 }
 
-const NOT_YET = "Not verified yet — here's what to fix";
-const TIGHTEN = "Verified — a few things to tighten";
-const HOLDS_UP = "Verified — your resume holds up";
+const NOT_YET = "Not passed yet — here's what to fix";
+const TIGHTEN = "Reviewed — a few things to tighten";
+const HOLDS_UP = "Reviewed — your resume holds up";
 
 describe("a graded attempt, by score band", () => {
   for (const [status, score, expected] of [
@@ -54,15 +54,15 @@ describe("a graded attempt, by score band", () => {
 });
 
 describe("states with no band to speak of keep their existing copy", () => {
-  it("verified with no score (a human review) stays 'You're verified.'", async () => {
-    expect(await headline("verified", null)).toBe("You're verified.");
+  it("verified with no score (a human review) stays 'Your resume has been reviewed.'", async () => {
+    expect(await headline("verified", null)).toBe("Your resume has been reviewed.");
   });
   it("rejected with no score (a human decision) keeps the existing line", async () => {
-    expect(await headline("rejected", null)).toBe("Your last attempt wasn't verified — see the feedback below.");
+    expect(await headline("rejected", null)).toBe("Your last review found things to fix — see the feedback below.");
   });
   it("unverified, pending and claimed are unchanged whatever an earlier score was", async () => {
-    expect(await headline("unverified", null)).toBe("You haven't requested verification yet.");
-    expect(await headline("pending", 90)).toBe("Your verification is being graded, or waiting for a reviewer to pick it up.");
+    expect(await headline("unverified", null)).toBe("You haven't requested a resume review yet.");
+    expect(await headline("pending", 90)).toBe("Your resume is being reviewed, or waiting for a reviewer to pick it up.");
     expect(await headline("claimed", 40)).toBe("A mentor is reviewing your submission now.");
   });
 });

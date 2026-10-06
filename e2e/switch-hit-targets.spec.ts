@@ -339,7 +339,7 @@ test.describe("switch toggle hit targets extend beyond the visible 26x46px track
 
     await authedPage.goto("/mentorship/apply");
     await settleCookieBanner(authedPage);
-    const label = "Review Talent Directory verifications";
+    const label = "Review Talent Directory resumes";
     await authedPage.locator(`[role="switch"][aria-label="${label}"]`).scrollIntoViewIfNeeded();
 
     const before = await probeSwitch(authedPage, label);

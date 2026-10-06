@@ -1,5 +1,5 @@
 /**
- * "1 verified candidates" was a real shipped string: the count was interpolated into a hard-coded plural (preview.ts and the preview panel).
+ * "1 candidates with a reviewed resume" was a real shipped string: the count was interpolated into a hard-coded plural (preview.ts and the preview panel).
  * Production had exactly one listed candidate when this was written. The noun and the verb now agree with the number, everywhere the count
  * is stated, pinned over 0, 1, 2, 9, 10 and 500 (below the threshold, at it, far above it), in the helpers and in the rendered panel.
  */
@@ -8,15 +8,15 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { TalentDirectoryPreviewPanel } from "@/components/employer/talent-directory-preview-panel";
-import { buildingTheDirectoryMessage, isAre, verifiedCandidates } from "@/lib/talent-directory/preview";
+import { buildingTheDirectoryMessage, isAre, candidatesWithReviewedResume } from "@/lib/talent-directory/preview";
 
 const ROWS: Array<[number, string, "is" | "are"]> = [
-  [0, "0 verified candidates", "are"],
-  [1, "1 verified candidate", "is"],
-  [2, "2 verified candidates", "are"],
-  [9, "9 verified candidates", "are"],
-  [10, "10 verified candidates", "are"],
-  [500, "500 verified candidates", "are"],
+  [0, "0 candidates with a reviewed resume", "are"],
+  [1, "1 candidate with a reviewed resume", "is"],
+  [2, "2 candidates with a reviewed resume", "are"],
+  [9, "9 candidates with a reviewed resume", "are"],
+  [10, "10 candidates with a reviewed resume", "are"],
+  [500, "500 candidates with a reviewed resume", "are"],
 ];
 
 async function noop(): Promise<void> {}
@@ -28,8 +28,8 @@ const render = (count: number, joined: boolean) =>
 const text = (html: string) => html.replace(/<[^>]+>/g, " ").replace(/&#x27;/g, "'").replace(/\s+/g, " ");
 
 describe("the helpers", () => {
-  it.each(ROWS)("N = %i: verifiedCandidates and isAre", (n, phrase, verb) => {
-    expect(verifiedCandidates(n)).toBe(phrase);
+  it.each(ROWS)("N = %i: candidatesWithReviewedResume and isAre", (n, phrase, verb) => {
+    expect(candidatesWithReviewedResume(n)).toBe(phrase);
     expect(isAre(n)).toBe(verb);
   });
 });
@@ -43,7 +43,7 @@ describe("the sentence below the threshold (not joined)", () => {
 
 describe("the sentence below the threshold (already on the waitlist)", () => {
   it.each(ROWS.filter(([n]) => n < 10))("N = %i", (n, phrase, verb) => {
-    expect(text(render(n, true))).toContain(`${phrase} ${verb} listed so far. We'll tell you when 10+ are listed. Nothing to pay.`);
+    expect(text(render(n, true))).toContain(`${phrase} ${verb} listed so far. We'll tell you when 10+ are listed. Free while you wait. We'll tell you about pricing before anything is charged.`);
   });
 });
 
@@ -53,10 +53,10 @@ describe("the sentence at and above the threshold", () => {
   });
 });
 
-describe("'1 verified candidates' appears nowhere", () => {
+describe("'1 candidates with a reviewed resume' appears nowhere", () => {
   it("not in any rendered state at 1", () => {
-    for (const joined of [false, true]) expect(text(render(1, joined))).not.toMatch(/\b1 verified candidates\b/);
-    expect(buildingTheDirectoryMessage(1)).not.toMatch(/\b1 verified candidates\b/);
+    for (const joined of [false, true]) expect(text(render(1, joined))).not.toMatch(/\b1 candidates with a reviewed resume\b/);
+    expect(buildingTheDirectoryMessage(1)).not.toMatch(/\b1 candidates with a reviewed resume\b/);
   });
 
   it("not hard-coded in source: no template puts a count in front of the plural noun except through the helper", () => {
@@ -67,7 +67,7 @@ describe("'1 verified candidates' appears nowhere", () => {
         if (statSync(p).isDirectory()) walk(p);
         else if (/\.(ts|tsx)$/.test(name) && !p.endsWith(join("talent-directory", "preview.ts"))) {
           readFileSync(p, "utf8").split("\n").forEach((l, i) => {
-            if (/\$\{[^}]+\}\s+verified candidates/.test(l) && !/^\s*(\*|\/\/)/.test(l)) hits.push(`${p}:${i + 1}`);
+            if (/\$\{[^}]+\}\s+candidates with a reviewed resume/.test(l) && !/^\s*(\*|\/\/)/.test(l)) hits.push(`${p}:${i + 1}`);
           });
         }
       }
