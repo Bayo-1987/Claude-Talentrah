@@ -51,11 +51,7 @@ vi.mock("@/lib/supabase/service-role", () => ({ createServiceRoleClient: () => f
 vi.mock("@/lib/farah/client", () => ({ askFarahChatStream }));
 vi.mock("@/lib/farah/spend-tally", async () => (await import("./support/route-mocks")).safeSpendTally());
 vi.mock("@/lib/farah/session-events", () => ({ logFarahSessionMessage: vi.fn().mockResolvedValue(undefined) }));
-vi.mock("@/lib/farah/chat-gate", () => ({
-  checkFarahChatAllowance,
-  commitFarahChatAllowance,
-  InsufficientCreditsError: class InsufficientCreditsError extends Error {},
-}));
+vi.mock("@/lib/farah/chat-gate", async () => (await import("./support/route-mocks")).safeChatGate({ checkFarahChatAllowance, commitFarahChatAllowance }));
 const { POST } = await import("@/app/api/farah/chat/route");
 
 const FREE = { isFreeAllowance: true, isPassCovered: false, creditsSpent: 0, creditsAvailableAtCheck: 41, freeMessagesRemaining: 2 };
