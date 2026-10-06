@@ -64,7 +64,7 @@ describe("0235: public.add_llm_usage is redefined exactly as 0223 had it, apart 
   it("keeps the validation (null or negative amount, above $100, errcode 22023) and the single-statement add", () => {
     expect(flat).toMatch(/p_nano is null/);
     expect(flat).toMatch(/p_nano < 0/);
-    expect(flat).toMatch(/p_nano > 100000000000/);
+    expect(flat).toMatch(/p_nano > 100000000000(?!\d)/); // not a longer number that merely starts with it
     expect(flat).toMatch(/errcode = '22023'/);
     expect(flat).toMatch(/insert into public\.llm_daily_usage as u \(day, bucket, nano_usd\) values \(\(pg_catalog\.now\(\) at time zone 'utc'\)::date, p_bucket, p_nano\) on conflict \(day, bucket\) do update set nano_usd = u\.nano_usd \+ excluded\.nano_usd returning u\.nano_usd into v_total/);
     expect((flat.match(/\binsert into\b/g) ?? []).length).toBe(1);
@@ -90,5 +90,14 @@ describe("0235: the rollback sits beside it, outside the migrations directory", 
     const rb = existsSync(ROLLBACK) ? readFileSync(ROLLBACK, "utf8").replace(/\s+/g, " ").toLowerCase() : "";
     expect(rb).toContain("check (bucket in ('farah_chat', 'farah_chat_half_warned'))");
     expect(rb).toContain("p_bucket not in ('farah_chat', 'farah_chat_half_warned')");
+  });
+
+  it("removes the rows of the two new buckets BEFORE it puts the shorter CHECK back (otherwise the CHECK cannot be added on a day that has them)", () => {
+    const rb = existsSync(ROLLBACK) ? readFileSync(ROLLBACK, "utf8").split("\n").filter((l) => !l.trim().startsWith("--")).join("\n").replace(/\s+/g, " ").toLowerCase() : "";
+    const del = rb.indexOf("delete from public.llm_daily_usage where bucket in ('farah_chat_80_warned', 'farah_chat_reached_warned')");
+    const add = rb.indexOf("add constraint llm_daily_usage_bucket_known");
+    expect(del).toBeGreaterThanOrEqual(0);
+    expect(add).toBeGreaterThan(del);
+    expect((rb.match(/\bdelete from\b/g) ?? []).length).toBe(1);
   });
 });
